@@ -118,6 +118,11 @@ One-finger gestures on the main waveform, by where the press lands:
 | a flag tick or chip | nothing | opens the flag sheet |
 | the downbeat marker | moves it | nothing |
 
+While a hold-select is growing, the view auto-scrolls when the finger comes
+within an edge margin, so a region can reach past the screen without letting
+go, and the hold itself gives a short haptic tick where the browser supports
+one (Android does; iOS Safari has no `navigator.vibrate`).
+
 A drag that creates a region emits `regionChange` with `final: false` as it
 grows and `final: true` on release, so the page can draw it live and save it
 once. A region under `2 * fade + 1` frames on release is discarded rather
@@ -149,20 +154,22 @@ a row:
    monospace span of fixed width showing `0:12.3 – 0:41.8 ×` or
    `whole take`. Share is the primary button.
 5. **Fine tune** disclosure, collapsed by default, remembered per browser in
-   `localStorage`. Inside, a two-column grid:
+   `localStorage`. Inside, a two-column grid, top to bottom:
+   - **`Region`** — the grid's first row: a readout of the region's length
+     in seconds, and bars as well when the take has a BPM; `—` with no
+     region. It is its own row here, not an addition to the action row's
+     text, which still shows only `whole take` or the start/end times.
    - `Start` with `−` `+` and `End` with `−` `+`; one beat when there is a
      BPM, else 10 ms; hold to repeat, as v1.
-   - Position readout: `bar.beat` when there is a BPM, `m:ss.mmm` always.
-   - `Downbeat: drag the marker on the waveform` as a hint line, and a
-     `Reset` button that clears `downbeat_frame`.
-   - `Export as take` — writes a real cut for the DAW hand-off, exactly
-     v1's Export.
-   - `Delete region`.
-   - **Waveform: fit quiet takes to the height** — a display-only gain
+   - `Position` readout: `bar.beat` when there is a BPM, `m:ss.mmm` always.
+   - **`Waveform`: fit quiet takes to the height** — a display-only gain
      toggle, on by default, that scales a quiet take's drawing to fill the
-     canvas without touching the samples or the render.
-   - **Region: length in seconds and bars** — the region text grows a
-     length readout alongside the start/end times.
+     canvas without touching the samples or the render. It sits between
+     `Position` and `Downbeat`.
+   - `Downbeat: drag the marker on the waveform` as a hint line, and a
+     `reset` link that clears `downbeat_frame`.
+   - `Export as take` — writes a real cut for the DAW hand-off, exactly
+     v1's Export — and `Delete region`, sharing the last row.
 
 Desktop is the same layout at a wider canvas (main waveform 55vh). The
 flag sheet is unchanged.
@@ -230,7 +237,7 @@ anything else; the page never knows or cares which.
 | `internal/api/api.go` | `handleRender`, route `GET /api/render` |
 | `internal/audio/render.go` (new) | `RenderMP3(ctx, w io.Writer, cfg, path, from, to) error` builds the argument list and runs ffmpeg; `renderArgs(...)` is a pure function so the argument list is testable without ffmpeg |
 | `web/static/lib/wave/overview.js` (new) | `class Overview { constructor({canvas, filePeaks, totalFrames, getState, getView, emit}); draw(); destroy() }` emitting `panTo {start}`, `centerOn {frame}`, `fitAll {}` |
-| `web/static/lib/wave/view.js` | one-finger drag on empty waveform becomes `select` (new gesture kind); the `pan` kind is removed; wheel semantics flip (plain zooms, shift pans); a `select` drag below the minimum length on release emits nothing |
+| `web/static/lib/wave/view.js` | a press on empty waveform starts a `select` gesture that is undecided: move first and it pans, hold still for `HOLD_MS` (350ms) and it becomes a region drag, announced by a band under the finger and a haptic tick; wheel semantics flip (plain zooms, shift pans); a `select` drag below the minimum length on release restores the region the press began from |
 | `web/static/lib/wave/page.js` | wires the overview; implicit loop; the action row; Fine tune; Share |
 | `web/static/wave.html`, `styles.css` | the new layout; fixed-width region text; the disclosure |
 | `web/static/sw.js` | `SHELL` gains `/lib/wave/overview.js`; `CACHE` → `hindsight-shell-v4` |
@@ -288,8 +295,6 @@ itself, end to end, on the couch.
 
 - Multiple regions, snap, region length locking.
 - Normalize, gain, any processing beyond the declick fades.
-- A display-only "fit to peak" toggle for quiet takes (separate small
-  change if wanted).
 - Any change to the takes list, capture, or the live ring.
 - Video, waveform images, or anything but an MP3 in the share sheet.
 - Queueing or rate-limiting renders.

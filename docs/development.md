@@ -89,12 +89,16 @@ touching `view.js`, `overview.js`, `share.js` or `page.js`, check by hand:
   clearing the region returns to plain playback from the cursor
 - **Fit quiet takes to the height** — a quiet take's waveform fills the
   canvas with the fit toggle on (the default); turning it off draws the
-  take at its true amplitude
-- **Region length** — the region text shows a length in seconds alongside
-  the start/end times, and bars when the take has a BPM
-- **Fine tune** — the disclosure's Start/End nudges, the readout, downbeat
-  reset, Export as take and Delete region all move the same region the hold
-  drew
+  take at its true amplitude. The toggle is Fine tune's `Waveform` row,
+  between `Position` and `Downbeat`
+- **Region length** — Fine tune's own `Region` row, the first row of the
+  grid, shows the length in seconds, and bars too when the take has a BPM;
+  it reads `—` with no region. The action row beside Play is unchanged: it
+  shows `whole take`, or just the start/end times
+- **Fine tune** — the disclosure's rows, in order: `Region` (the length),
+  the `Start`/`End` nudges, the `Position` readout, the `Waveform` fit
+  toggle and the `Downbeat` reset, then Export as take and Delete region —
+  all of them moving the same region the hold drew
 - **Share on a phone** — over `tailscale serve` (HTTPS), the button opens the
   share sheet with the rendered MP3; over plain HTTP it falls back to
   Download
