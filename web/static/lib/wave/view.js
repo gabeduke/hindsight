@@ -62,14 +62,7 @@ export class WaveView {
     canvas.addEventListener('pointermove', (e) => this.move(e), sig);
     canvas.addEventListener('pointerup', (e) => this.up(e), sig);
     canvas.addEventListener('pointercancel', (e) => this.cancel(e), sig);
-    // Losing the capture mid-gesture (the browser taking over, the element
-    // going away) is a cancel, not a release. It also fires as the implicit
-    // release after every pointerup, so it only counts while the gesture that
-    // owns this pointer is still live -- otherwise a plain tap would land here
-    // and cancel() would wipe the lastTap it just armed.
-    canvas.addEventListener('lostpointercapture', (e) => {
-      if (this.gesture && this.gesture.id === e.pointerId) this.cancel(e);
-    }, sig);
+    canvas.addEventListener('lostpointercapture', (e) => this.lostCapture(e), sig);
     canvas.addEventListener('wheel', (e) => this.wheel(e), { passive: false, signal: this.ac.signal });
     this.resize();
   }
@@ -157,7 +150,7 @@ export class WaveView {
       for (let c = 0; c < channels; c++) {
         const raw0 = cols[(x * channels + c) * 2], raw1 = cols[(x * channels + c) * 2 + 1];
         if (!(raw1 >= raw0)) continue;
-        const mn = Math.max(-1, raw0 * gain), mx = Math.min(1, raw1 * gain);
+        const mn = Math.max(-1, Math.min(1, raw0 * gain)), mx = Math.max(-1, Math.min(1, raw1 * gain));
         const mid = CHIP_H + laneH * c + laneH / 2;
         const y0 = mid - mx * (laneH / 2) * 0.95, y1 = mid - mn * (laneH / 2) * 0.95;
         ctx.fillRect(x, y0, 1, Math.max(1, y1 - y0));
@@ -257,7 +250,11 @@ export class WaveView {
     }
     const st = this.getState();
     const h = this.hit(p.x, p.y, st);
-    const base = { x0: p.x, y0: p.y, t0: performance.now(), moved: false };
+    // Every one-finger gesture carries the pointer that owns it: up(), cancel()
+    // and lostCapture() all key off it, so a palm or a stray second pointer can
+    // neither finalize nor cancel someone else's drag. (A pinch has no single
+    // owner and deliberately leaves id undefined.)
+    const base = { x0: p.x, y0: p.y, t0: performance.now(), moved: false, id: e.pointerId };
     // Every drag carries the offset from the grab point to the thing being
     // dragged, so the first pointermove nudges it instead of teleporting it
     // under the finger.
@@ -271,7 +268,7 @@ export class WaveView {
       // viewport to pan from, prev the region a select would restore on a
       // sliver release, and selecting flips true only in beginSelect().
       default: {
-        const g = { ...base, kind: 'select', id: e.pointerId, anchor: xToFrame(p.x, this.view), prev: st.region ? { ...st.region } : null, selecting: false, start: this.view.start, holdTimer: null, lastX: p.x };
+        const g = { ...base, kind: 'select', anchor: xToFrame(p.x, this.view), prev: st.region ? { ...st.region } : null, selecting: false, start: this.view.start, holdTimer: null, lastX: p.x };
         g.holdTimer = setTimeout(() => this.beginSelect(g), HOLD_MS);
         this.gesture = g;
       }
@@ -305,8 +302,9 @@ export class WaveView {
   // While the finger sits inside an edge margin, pan a little every frame and
   // re-derive the region from the anchor to whatever frame now sits under the
   // (stationary) finger, so the band keeps growing without any further moves.
-  // panTo clamps, so at the ends of the take start stops changing, the region
-  // stops growing and the loop simply idles until the finger moves again.
+  // At the ends of the take the clamp pins start where it already is, so the
+  // loop keeps spinning but does no work: it emits no viewChange and schedules
+  // no repaint until the finger moves the window again.
   updateEdgeLoop(g) {
     const step = edgeScrollStep(g.lastX, this.view.width);
     if (!step) { this.stopEdgeLoop(); return; }
@@ -317,13 +315,21 @@ export class WaveView {
       const s = edgeScrollStep(g.lastX, this.view.width);
       if (!s) return;
       const before = this.view.start;
-      this.panTo(this.view.start + s * this.view.fpp);
-      if (this.view.start !== before) {
+      // Clamp the target the way panTo would, and only call it if it would
+      // actually move: panTo always emits viewChange and repaints, and against
+      // either end of the take that is a full frame of work for no change.
+      const span = this.view.width * this.view.fpp;
+      const target = span >= this.total ? 0 : Math.max(0, Math.min(this.total - span, before + s * this.view.fpp));
+      if (target !== before) {
+        this.panTo(target);
         const cur = xToFrame(g.lastX, this.view);
         const r = { start: Math.min(g.anchor, cur), end: Math.max(g.anchor, cur) };
         this.emit('regionChange', { region: clampRegion(r, this.total, Math.max(1, Math.min(this.minLen, r.end - r.start))), final: false });
       }
-      this.edgeRaf = requestAnimationFrame(tick);
+      // Re-arm only if this gesture still owns the loop and the view is alive,
+      // so a destroy() or a takeover inside the emit above cannot leave a frame
+      // callback pointing at a torn-down view.
+      if (this.gesture === g && g.selecting && !this.destroyed) this.edgeRaf = requestAnimationFrame(tick);
     };
     this.edgeRaf = requestAnimationFrame(tick);
   }
@@ -473,6 +479,16 @@ export class WaveView {
       this.lastTap = { t: now, x: p.x, y: p.y };
       this.emit('seek', { frame: xToFrame(p.x, this.view) });
     }
+  }
+
+  // Losing the capture mid-gesture (the browser taking over, the element going
+  // away) is a cancel, not a release. It also fires as the implicit release
+  // after every pointerup, so it only counts while this pointer is still one we
+  // are tracking: by the time a normal up() has run, the pointer is out of the
+  // map and the gesture is null, so a plain tap cannot land here and have
+  // cancel() wipe the lastTap it just armed.
+  lostCapture(e) {
+    if (this.gesture && this.pointers.has(e.pointerId)) this.cancel(e);
   }
 
   // A cancelled pointer (the browser taking the gesture over, a palm, the tab

@@ -168,7 +168,9 @@ function pointerView({ region = null, start = 5000 } = {}) {
     emit: (ev, p) => log.push([ev, p]),
     draw() {},
   });
-  // clampView and maxFpp stay real: the pan has to be clamped like the page's.
+  // clampView, maxFpp and lostCapture stay real: the pan has to be clamped
+  // like the page's, and losing the capture has to route through the real
+  // guard rather than a stub that always cancels.
   v.changed = () => log.push(['viewChange', v.view.start]);
   return { v, log };
 }
@@ -406,4 +408,61 @@ test('destroy during an edge scroll cancels the loop', (t) => {
   } finally {
     raf.restore();
   }
+});
+
+// --- losing the pointer capture -------------------------------------------
+// lostpointercapture also fires as the implicit release after every normal
+// pointerup, so it is gated on the pointer still being one we track -- not on
+// the gesture kind, which is what let a lost capture on a handle drag leave a
+// phantom pointer in the map forever.
+
+test('the implicit capture release after a tap leaves the tap alone', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { v, log } = pointerView();
+  v.down(at(200));
+  v.up(at(200));
+  assert.deepEqual(log, [['seek', { frame: 7000 }]]);
+  const armed = v.lastTap;
+  assert.ok(armed, 'the tap should have armed lastTap');
+  // The browser now releases the capture it took at pointerdown. up() has
+  // already dropped the pointer and nulled the gesture, so this must do
+  // nothing: no rollback, no cleared lastTap.
+  v.lostCapture({ pointerId: 1 });
+  assert.equal(v.lastTap, armed);
+  assert.deepEqual(log, [['seek', { frame: 7000 }]]);
+});
+
+test('a lost capture mid handle-drag rolls back and drops the pointer', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const prev = { start: 7000, end: 9000 };   // x 200..400 in this viewport
+  const { v, log } = pointerView({ region: prev });
+  v.down(at(200));                            // grabs the start handle
+  assert.equal(v.gesture.kind, 'handle');
+  v.move(at(240));
+  assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7400, end: 9000 }, final: false }]);
+
+  // A handle drag carries no 'select' kind, so the old id-on-select-only rule
+  // never fired here and pointer 1 stayed in the map for good.
+  v.lostCapture({ pointerId: 1 });
+  assert.equal(v.pointers.size, 0);
+  assert.equal(v.gesture, null);
+  // Rolled back to the snapshot taken at pointerdown, not left at 7400.
+  assert.deepEqual(log.at(-1), ['regionChange', { region: prev, final: true }]);
+});
+
+// The phantom pointer's real cost: down() calls anything with two entries in
+// the map a pinch, so one leftover id turns every later single finger into a
+// two-finger zoom that nothing can end.
+test('the finger after a lost capture is a gesture, not a pinch', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const prev = { start: 7000, end: 9000 };
+  const { v } = pointerView({ region: prev });
+  v.down(at(200));
+  v.move(at(240));
+  v.lostCapture({ pointerId: 1 });
+
+  v.down(at(100, 2));   // bare wave, well clear of the region's handles
+  assert.equal(v.pointers.size, 1);
+  assert.notEqual(v.gesture.kind, 'pinch');
+  assert.equal(v.gesture.id, 2);
 });

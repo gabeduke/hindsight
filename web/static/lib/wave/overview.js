@@ -51,7 +51,9 @@ export class Overview {
     this.resize();
   }
 
-  destroy() { this.ac.abort(); this.ro.disconnect(); cancelAnimationFrame(this.raf); this.destroyed = true; }
+  // Drop the cache too: it is a full-strip backing canvas, and a destroyed
+  // overview that outlives its page should not keep one pinned.
+  destroy() { this.ac.abort(); this.ro.disconnect(); cancelAnimationFrame(this.raf); this.destroyed = true; this.waveCache = null; }
 
   resize() {
     const r = this.canvas.getBoundingClientRect();
@@ -107,7 +109,9 @@ export class Overview {
 
   paint() {
     const { ctx, dpr, cssW: W, cssH: H } = this;
-    if (!W) return;
+    // A zero-width *or* zero-height layout (a hidden panel, a collapsed row)
+    // would render a 0-px cache that drawImage then refuses to draw.
+    if (!W || !H) return;
     const st = this.getState();
     const css = getComputedStyle(this.canvas);
     const col = (n, fb) => css.getPropertyValue(n).trim() || fb;
