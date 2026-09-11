@@ -699,6 +699,9 @@ func (a *API) handleRender(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(
 		`inline; filename="%s"; filename*=UTF-8''%s`,
 		audio.RenderFilename(asciiOnly(base), from, to, info.SampleRate, whole),
+		// RFC 5987-safe only because RenderFilename whitelists letters,
+		// digits, space, '-', '_', and '.'; widening that whitelist would
+		// need an attr-char encoder instead of PathEscape.
 		url.PathEscape(fname),
 	))
 	w.Header().Set("Cache-Control", "no-store")
@@ -712,7 +715,10 @@ func (a *API) handleRender(w http.ResponseWriter, r *http.Request) {
 		log.Printf("render %s [%d,%d): %v", name, from, to, err)
 		if cw.n == 0 {
 			// Nothing has been flushed, so writeErr's own Content-Type and
-			// status replace the ones set above.
+			// status replace the ones set above. Content-Disposition isn't
+			// replaced by writeErr, so drop it -- a 500 must not carry a
+			// filename for a file that was never sent.
+			w.Header().Del("Content-Disposition")
 			writeErr(w, http.StatusInternalServerError, "render failed")
 		}
 	}

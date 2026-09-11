@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   frameToX, xToFrame, levelFor, tileSpan, tilesFor, fileLevel,
   gridLines, barBeat, fmtTime, clampRegion, TILE_BUCKETS,
+  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fitGain, fmtRegionLength,
 } from './geometry.js';
 
 const view = { start: 48000, fpp: 100, width: 390 };
@@ -72,9 +73,47 @@ test('time readout', () => {
   assert.equal(fmtTime(47, 48000), '0:00.000'); // floors to ms
 });
 
+test('region length in seconds and bars', () => {
+  const g = { bpm: 120, sampleRate: 48000, downbeat: 0 };
+  assert.equal(fmtRegionLength({ start: 0, end: 48000 * 8 }, g), '8.0 s · 4.0 bars');
+  assert.equal(fmtRegionLength({ start: 0, end: 48000 * 29.5 }, { ...g, bpm: null }), '29.5 s');
+  assert.equal(fmtRegionLength(null, g), '');
+});
+
 test('region clamp keeps order, bounds and minimum length', () => {
   assert.deepEqual(clampRegion({ start: -5, end: 100 }, 1000, 10), { start: 0, end: 100 });
   assert.deepEqual(clampRegion({ start: 900, end: 2000 }, 1000, 10), { start: 900, end: 1000 });
   assert.deepEqual(clampRegion({ start: 500, end: 503 }, 1000, 10), { start: 500, end: 510 });
   assert.deepEqual(clampRegion({ start: 995, end: 998 }, 1000, 10), { start: 990, end: 1000 });
+});
+
+// A selection dragged against a screen edge has to be able to grow past what
+// is visible: the view pans under it, a little per frame, faster the harder
+// the finger is pressed into the edge.
+test('edge scroll step ramps inside the margins and is zero elsewhere', () => {
+  assert.equal(edgeScrollStep(195, 390), 0);            // mid-canvas: still
+  assert.equal(edgeScrollStep(EDGE_MARGIN_PX, 390), 0); // the margin's inner edge is the zero point
+  assert.equal(edgeScrollStep(0, 390), -EDGE_MAX_STEP_PX);
+  assert.equal(edgeScrollStep(EDGE_MARGIN_PX / 2, 390), -EDGE_MAX_STEP_PX / 2);
+  assert.equal(edgeScrollStep(390, 390), EDGE_MAX_STEP_PX);
+  assert.equal(edgeScrollStep(390 - EDGE_MARGIN_PX / 2, 390), EDGE_MAX_STEP_PX / 2);
+  assert.equal(edgeScrollStep(-50, 390), -EDGE_MAX_STEP_PX); // clamped past the edge
+});
+
+// The owner's real takes peak around -38 dBFS. On an absolute scale that is a
+// flat line, so the page offers a display-only multiplier -- which must never
+// shrink a take that is already loud enough, and must not run away on silence.
+test('fitGain scales a quiet take up to the target and never down', () => {
+  const pk = (v) => ({ channels: 1, buckets: 2, data: [[-v, v, -v / 2, v / 2]] });
+  assert.equal(fitGain(pk(0.9)), 1);   // already at the target
+  assert.equal(fitGain(pk(1.0)), 1);   // above it: never scaled down
+  assert.ok(Math.abs(fitGain(pk(0.05)) - 0.9 / 0.05) < 1e-9);
+  // A -38 dBFS take wants ~73x, under the default cap -- it fills the lane.
+  // The cap still keeps a near-silent take from amplifying its own noise
+  // floor to full scale.
+  assert.ok(Math.abs(fitGain(pk(0.0123)) - 0.9 / 0.0123) < 1e-9);
+  assert.equal(fitGain(pk(0.0001)), 100);
+  assert.equal(fitGain(pk(0.0123), 0.9, 40), 40);
+  assert.equal(fitGain({ channels: 1, buckets: 0, data: [[]] }), 1);
+  assert.equal(fitGain({}), 1);        // peaks that never arrived
 });

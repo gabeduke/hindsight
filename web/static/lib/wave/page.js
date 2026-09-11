@@ -7,7 +7,7 @@ import { WaveView } from './view.js';
 import { Overview } from './overview.js';
 import { Clock } from './clock.js';
 import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
-import { barBeat, fmtTime, framesPerBeat, clampRegion } from './geometry.js';
+import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -53,6 +53,15 @@ async function main() {
   const total = Math.round(take.duration_seconds * sr);
   const minLen = Math.floor(sr * 3 / 1000) * 2 + 1;
 
+  // A take cut at -38 dBFS is a flat line on an absolute scale. This is the
+  // display-only multiplier that fills the lane instead; computed once from
+  // the whole-file peaks, and switched on and off by the Fine tune checkbox.
+  // Default on: a quiet take is the common case here, and a loud one is
+  // unaffected because fitGain never scales down.
+  const gainFit = fitGain(filePeaks);
+  let fitOn = true;
+  try { fitOn = localStorage.getItem('wave.fit') !== '0'; } catch {}
+
   // --- state (the page owns it; the view reads it each draw) -------------
   const state = {
     region: take.trim ? { start: take.trim.start_frame, end: take.trim.end_frame } : null,
@@ -60,6 +69,7 @@ async function main() {
     grid: { bpm: take.bpm || null, sampleRate: sr, downbeat: take.downbeat_frame || 0 },
     cursor: 0,
     selectedFlag: null,
+    gain: fitOn ? gainFit : 1,
   };
 
   $('wave-name').textContent = take.label || file.replace(/\.wav$/, '');
@@ -293,6 +303,7 @@ async function main() {
   function updateActionRow() {
     const r = state.region;
     $('region-text').textContent = fmtRegionText(r, sr);
+    $('region-length').textContent = fmtRegionLength(r, state.grid) || '—';
     $('region-clear').hidden = !r;
     $('export').disabled = !r;
     $('region-delete').disabled = !r;
@@ -311,6 +322,16 @@ async function main() {
   const fine = $('fine');
   try { fine.open = localStorage.getItem('wave.fine') === '1'; } catch {}
   fine.addEventListener('toggle', () => { try { localStorage.setItem('wave.fine', fine.open ? '1' : '0'); } catch {} });
+
+  // Both canvases re-read state.gain every paint, so the toggle is a redraw
+  // and nothing else: no tiles are refetched and no audio is touched.
+  const fitBox = $('fit-peak');
+  fitBox.checked = fitOn;
+  fitBox.addEventListener('change', () => {
+    state.gain = fitBox.checked ? gainFit : 1;
+    try { localStorage.setItem('wave.fit', fitBox.checked ? '1' : '0'); } catch {}
+    redraw();
+  });
 
   // --- export -------------------------------------------------------------
   $('export').addEventListener('click', async () => {
