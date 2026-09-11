@@ -75,6 +75,15 @@ test('a second finger cannot steer or end the first finger\'s drag', () => {
   assert.equal(events.length, 2, 'a drag that moved is not also a tap');
 });
 
+test('a second pointer landing while a gesture is live does not replace it', () => {
+  const view = { start: 0, fpp: TOTAL / 4 / W, width: W };
+  const { ov } = stubOverview(view);
+  ov.down(ptr(1, 10));
+  const firstId = ov.gesture.id;
+  ov.down(ptr(2, 300));
+  assert.equal(ov.gesture.id, firstId, 'the second pointer must not steal the gesture');
+});
+
 test('a stray pointerup outside any gesture is ignored', () => {
   const view = { start: 0, fpp: TOTAL / 4 / W, width: W };
   const { ov, events } = stubOverview(view);
