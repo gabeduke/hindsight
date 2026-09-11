@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   frameToX, xToFrame, levelFor, tileSpan, tilesFor, fileLevel,
   gridLines, barBeat, fmtTime, clampRegion, TILE_BUCKETS,
+  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX,
 } from './geometry.js';
 
 const view = { start: 48000, fpp: 100, width: 390 };
@@ -77,4 +78,17 @@ test('region clamp keeps order, bounds and minimum length', () => {
   assert.deepEqual(clampRegion({ start: 900, end: 2000 }, 1000, 10), { start: 900, end: 1000 });
   assert.deepEqual(clampRegion({ start: 500, end: 503 }, 1000, 10), { start: 500, end: 510 });
   assert.deepEqual(clampRegion({ start: 995, end: 998 }, 1000, 10), { start: 990, end: 1000 });
+});
+
+// A selection dragged against a screen edge has to be able to grow past what
+// is visible: the view pans under it, a little per frame, faster the harder
+// the finger is pressed into the edge.
+test('edge scroll step ramps inside the margins and is zero elsewhere', () => {
+  assert.equal(edgeScrollStep(195, 390), 0);            // mid-canvas: still
+  assert.equal(edgeScrollStep(EDGE_MARGIN_PX, 390), 0); // the margin's inner edge is the zero point
+  assert.equal(edgeScrollStep(0, 390), -EDGE_MAX_STEP_PX);
+  assert.equal(edgeScrollStep(EDGE_MARGIN_PX / 2, 390), -EDGE_MAX_STEP_PX / 2);
+  assert.equal(edgeScrollStep(390, 390), EDGE_MAX_STEP_PX);
+  assert.equal(edgeScrollStep(390 - EDGE_MARGIN_PX / 2, 390), EDGE_MAX_STEP_PX / 2);
+  assert.equal(edgeScrollStep(-50, 390), -EDGE_MAX_STEP_PX); // clamped past the edge
 });

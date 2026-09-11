@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WaveView, HOLD_MS } from './view.js';
+import { EDGE_MAX_STEP_PX } from './geometry.js';
 
 // hit() reads only this.view, this.chipRects and the state it is handed, so a
 // stubbed instance tests it without a canvas.
@@ -157,6 +158,12 @@ function pointerView({ region = null, start = 5000 } = {}) {
       setPointerCapture() {},
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 390, height: 200 }),
     },
+    // destroy() reaches for these; the harness never builds a real canvas.
+    ro: { disconnect() {} },
+    ac: new AbortController(),
+    raf: 0,
+    destroyed: false,
+    edgeRaf: 0,
     getState: () => ({ region, flags: [], grid: noGrid, cursor: 0 }),
     emit: (ev, p) => log.push([ev, p]),
     draw() {},
@@ -256,4 +263,147 @@ test('a still press held past TAP_MS but under HOLD_MS still seeks', (t) => {
   now = 1000 + 320; // held 320ms: past TAP_MS, short of HOLD_MS
   v.up(at(200));
   assert.deepEqual(log, [['seek', { frame: 7000 }]]);
+});
+
+// --- edge auto-scroll, haptics and pointer-id robustness -------------------
+// node has no requestAnimationFrame, and a real one would fire after the test
+// had ended. Record the callbacks instead so a test runs exactly one frame by
+// hand and can see whether the loop scheduled another.
+function fakeRaf() {
+  const realRaf = globalThis.requestAnimationFrame;
+  const realCaf = globalThis.cancelAnimationFrame;
+  const pending = new Map();
+  let next = 1;
+  globalThis.requestAnimationFrame = (cb) => { const id = next++; pending.set(id, cb); return id; };
+  globalThis.cancelAnimationFrame = (id) => { pending.delete(id); };
+  return {
+    get pending() { return pending.size; },
+    runOne() {
+      const [id, cb] = [...pending][0];
+      pending.delete(id);
+      cb(0);
+    },
+    restore() {
+      if (realRaf === undefined) delete globalThis.requestAnimationFrame;
+      else globalThis.requestAnimationFrame = realRaf;
+      if (realCaf === undefined) delete globalThis.cancelAnimationFrame;
+      else globalThis.cancelAnimationFrame = realCaf;
+    },
+  };
+}
+
+test('a select dragged into the right margin scrolls the view under it', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const raf = fakeRaf();
+  try {
+    const { v, log } = pointerView();
+    v.down(at(200));
+    t.mock.timers.tick(HOLD_MS);
+    v.move(at(385)); // 5px from the right edge: inside EDGE_MARGIN_PX
+    assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 8850 }, final: false }]);
+    assert.equal(raf.pending, 1); // the loop is armed, but has not run yet
+    assert.equal(v.view.start, 5000);
+
+    const before = v.view.start;
+    raf.runOne();
+    const panned = v.view.start - before;
+    assert.ok(panned > 0, `expected a pan, got ${panned}`);
+    assert.ok(panned <= EDGE_MAX_STEP_PX * v.view.fpp, `pan ${panned} exceeds one full step`);
+    // The region is re-derived under the unchanged finger, so it grows with
+    // the scroll rather than staying pinned to the old frame.
+    const [ev, payload] = log.at(-1);
+    assert.equal(ev, 'regionChange');
+    assert.equal(payload.final, false);
+    assert.equal(payload.region.start, 7000);
+    assert.ok(payload.region.end > 8850, `expected the region to grow past 8850, got ${payload.region.end}`);
+    assert.equal(raf.pending, 1); // and it keeps going
+
+    v.move(at(195)); // back out of the margin: the loop stops
+    assert.equal(raf.pending, 0);
+  } finally {
+    raf.restore();
+  }
+});
+
+// A stray release from a second pointer (a palm, a finger that never started
+// this gesture) must not finalize someone else's selection.
+test('a release from a foreign pointer id is ignored', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { v, log } = pointerView();
+  v.down(at(200));
+  t.mock.timers.tick(HOLD_MS);
+  v.move(at(240));
+  const n = log.length;
+  v.up(at(240, 2));
+  assert.equal(log.length, n);       // nothing emitted
+  assert.ok(v.gesture && v.gesture.selecting); // and the select survives
+  v.up(at(240, 1));
+  assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 7400 }, final: true }]);
+  assert.equal(v.gesture, null);
+});
+
+test('the hold buzzes where it can, and arms anyway where it cannot', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const orig = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const buzzed = [];
+  try {
+    // node exposes navigator as a getter-only accessor, so defineProperty is
+    // the only way to stand one up.
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { vibrate: (ms) => buzzed.push(ms) }, configurable: true, writable: true,
+    });
+    const { v } = pointerView();
+    v.down(at(200));
+    t.mock.timers.tick(HOLD_MS);
+    assert.deepEqual(buzzed, [10]);
+
+    // No navigator at all: the hold must still arm rather than throwing out
+    // of the timer and leaving the gesture half-built.
+    delete globalThis.navigator;
+    const { v: v2, log } = pointerView();
+    v2.down(at(200));
+    t.mock.timers.tick(HOLD_MS);
+    assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 7289 }, final: false }]);
+    assert.ok(v2.gesture.selecting);
+  } finally {
+    delete globalThis.navigator;
+    if (orig) Object.defineProperty(globalThis, 'navigator', orig);
+  }
+});
+
+test('a second finger during an edge scroll rolls back and stops the loop', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const raf = fakeRaf();
+  try {
+    const prev = { start: 1000, end: 3000 };
+    const { v, log } = pointerView({ region: prev });
+    v.down(at(200));
+    t.mock.timers.tick(HOLD_MS);
+    v.move(at(385));
+    raf.runOne();
+    assert.equal(raf.pending, 1);
+    v.down(at(300, 2)); // pinch takes over
+    assert.deepEqual(log.at(-1), ['regionChange', { region: prev, final: true }]);
+    assert.equal(raf.pending, 0); // the loop dies with the gesture
+    assert.equal(v.gesture.kind, 'pinch');
+  } finally {
+    raf.restore();
+  }
+});
+
+// A view torn down mid-scroll must not leave a frame callback pointing at it.
+test('destroy during an edge scroll cancels the loop', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const raf = fakeRaf();
+  try {
+    const { v } = pointerView();
+    v.down(at(200));
+    t.mock.timers.tick(HOLD_MS);
+    v.move(at(385));
+    assert.equal(raf.pending, 1);
+    v.destroy();
+    assert.equal(raf.pending, 0);
+  } finally {
+    raf.restore();
+  }
 });

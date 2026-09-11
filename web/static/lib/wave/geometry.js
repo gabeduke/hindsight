@@ -89,3 +89,16 @@ export function clampRegion(region, totalFrames, minLen) {
   }
   return { start, end };
 }
+
+export const EDGE_MARGIN_PX = 28;
+export const EDGE_MAX_STEP_PX = 14;
+
+// While a selection drags toward a screen edge, the view pans so the region
+// can grow past what is visible. The step ramps from 0 at the margin's inner
+// edge to maxStep at the canvas edge (and beyond), so a finger resting near
+// the edge scrolls gently and one pressed against it scrolls fast.
+export function edgeScrollStep(x, width, margin = EDGE_MARGIN_PX, maxStep = EDGE_MAX_STEP_PX) {
+  if (x < margin) return -maxStep * Math.min(1, (margin - x) / margin);
+  if (x > width - margin) return maxStep * Math.min(1, (x - (width - margin)) / margin);
+  return 0;
+}

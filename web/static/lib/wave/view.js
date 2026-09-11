@@ -3,7 +3,7 @@
 // turns pointer/wheel gestures into events. It owns exactly one piece of
 // state, the viewport {start, fpp, width}; everything else is read fresh from
 // getState() on each paint so the page stays the single source of truth.
-import { frameToX, xToFrame, gridLines, clampRegion } from './geometry.js';
+import { frameToX, xToFrame, gridLines, clampRegion, edgeScrollStep } from './geometry.js';
 
 const HANDLE_HIT = 24;   // CSS px each side of a handle
 const FLAG_HIT = 12;
@@ -43,6 +43,7 @@ export class WaveView {
     this.cssW = 0;
     this.cssH = 0;
     this.raf = 0;
+    this.edgeRaf = 0;      // the edge auto-scroll loop, live only while selecting
     this.fitted = false;      // has a first real layout happened yet?
     this.destroyed = false;
     this.pointers = new Map();
@@ -61,14 +62,24 @@ export class WaveView {
     canvas.addEventListener('pointermove', (e) => this.move(e), sig);
     canvas.addEventListener('pointerup', (e) => this.up(e), sig);
     canvas.addEventListener('pointercancel', (e) => this.cancel(e), sig);
+    // Losing the capture mid-gesture (the browser taking over, the element
+    // going away) is a cancel, not a release. It also fires as the implicit
+    // release after every pointerup, so it only counts while the gesture that
+    // owns this pointer is still live -- otherwise a plain tap would land here
+    // and cancel() would wipe the lastTap it just armed.
+    canvas.addEventListener('lostpointercapture', (e) => {
+      if (this.gesture && this.gesture.id === e.pointerId) this.cancel(e);
+    }, sig);
     canvas.addEventListener('wheel', (e) => this.wheel(e), { passive: false, signal: this.ac.signal });
     this.resize();
   }
 
   destroy() {
     this.destroyed = true;
-    // A pending hold would otherwise fire into a torn-down view.
+    // A pending hold, or a live edge scroll, would otherwise fire into a
+    // torn-down view.
     this.clearHold(this.gesture);
+    this.stopEdgeLoop();
     this.ro.disconnect();
     this.ac.abort();
     cancelAnimationFrame(this.raf);
@@ -256,7 +267,7 @@ export class WaveView {
       // viewport to pan from, prev the region a select would restore on a
       // sliver release, and selecting flips true only in beginSelect().
       default: {
-        const g = { ...base, kind: 'select', anchor: xToFrame(p.x, this.view), prev: st.region ? { ...st.region } : null, selecting: false, start: this.view.start, holdTimer: null };
+        const g = { ...base, kind: 'select', id: e.pointerId, anchor: xToFrame(p.x, this.view), prev: st.region ? { ...st.region } : null, selecting: false, start: this.view.start, holdTimer: null, lastX: p.x };
         g.holdTimer = setTimeout(() => this.beginSelect(g), HOLD_MS);
         this.gesture = g;
       }
@@ -276,11 +287,44 @@ export class WaveView {
     if (this.gesture !== g || g.moved) return;
     g.holdTimer = null;
     g.selecting = true;
+    // A hold that changes meaning deserves a tick of feedback. Android obliges;
+    // iOS Safari has no vibrate at all, and some embeddings have no navigator,
+    // so this is best-effort and must never take the gesture down with it.
+    try { navigator.vibrate?.(10); } catch { /* no haptics here */ }
     this.emit('regionChange', { region: clampRegion({ start: g.anchor, end: g.anchor + this.minLen }, this.total, this.minLen), final: false });
     this.draw();
   }
 
   clearHold(g) { if (g && g.holdTimer) { clearTimeout(g.holdTimer); g.holdTimer = null; } }
+
+  // A selection can only reach as far as the screen unless the screen moves.
+  // While the finger sits inside an edge margin, pan a little every frame and
+  // re-derive the region from the anchor to whatever frame now sits under the
+  // (stationary) finger, so the band keeps growing without any further moves.
+  // panTo clamps, so at the ends of the take start stops changing, the region
+  // stops growing and the loop simply idles until the finger moves again.
+  updateEdgeLoop(g) {
+    const step = edgeScrollStep(g.lastX, this.view.width);
+    if (!step) { this.stopEdgeLoop(); return; }
+    if (this.edgeRaf) return; // already running; it re-reads g.lastX each frame
+    const tick = () => {
+      this.edgeRaf = 0;
+      if (this.gesture !== g || !g.selecting) return;
+      const s = edgeScrollStep(g.lastX, this.view.width);
+      if (!s) return;
+      const before = this.view.start;
+      this.panTo(this.view.start + s * this.view.fpp);
+      if (this.view.start !== before) {
+        const cur = xToFrame(g.lastX, this.view);
+        const r = { start: Math.min(g.anchor, cur), end: Math.max(g.anchor, cur) };
+        this.emit('regionChange', { region: clampRegion(r, this.total, Math.max(1, Math.min(this.minLen, r.end - r.start))), final: false });
+      }
+      this.edgeRaf = requestAnimationFrame(tick);
+    };
+    this.edgeRaf = requestAnimationFrame(tick);
+  }
+
+  stopEdgeLoop() { if (this.edgeRaf) { cancelAnimationFrame(this.edgeRaf); this.edgeRaf = 0; } }
 
   move(e) {
     if (!this.pointers.has(e.pointerId)) return;
@@ -311,6 +355,9 @@ export class WaveView {
           // moment the hold fired; the minimum is enforced only on release.
           this.emit('regionChange', { region: clampRegion(r, this.total, Math.max(1, Math.min(this.minLen, r.end - r.start))), final: false });
           this.draw();
+          // The finger may be pinned against an edge with more take beyond it.
+          g.lastX = p.x;
+          this.updateEdgeLoop(g);
         } else if (g.moved) {
           // Moved before the hold fired: this press is a pan, and it stays one
           // for the rest of the gesture -- killing the timer is what decides.
@@ -346,9 +393,13 @@ export class WaveView {
   }
 
   up(e) {
+    const g = this.gesture;
+    // A release from some other pointer (a palm, a finger that never started
+    // this gesture) must not finalize this one. Pinches have no id and keep
+    // their own two-finger bookkeeping below.
+    if (g && g.id !== undefined && e.pointerId !== g.id) return;
     const p = this.pt(e);
     this.pointers.delete(e.pointerId);
-    const g = this.gesture;
     if (!g) return;
     // Dropping to one finger ends the pinch outright: the survivor does
     // nothing until it too lifts, rather than selecting from a stale anchor.
@@ -375,6 +426,7 @@ export class WaveView {
       case 'select': {
         // Released before the hold could fire: nothing else will, so drop it.
         this.clearHold(g);
+        this.stopEdgeLoop();
         // The hold fires at 350ms, so a still press released between TAP_MS
         // and HOLD_MS never started selecting and never moved: it is still a
         // tap, not a dead zone, regardless of how long it was held.
@@ -423,6 +475,8 @@ export class WaveView {
   // going away) is not a release: it must not commit anything. Roll the gesture
   // back and emit nothing else.
   cancel(e) {
+    // Same guard as up(): another pointer's cancel is not this gesture's.
+    if (this.gesture && this.gesture.id !== undefined && e.pointerId !== this.gesture.id) return;
     this.pointers.delete(e.pointerId);
     const g = this.gesture;
     this.gesture = null;
@@ -440,6 +494,7 @@ export class WaveView {
   rollback(g) {
     if (!g) return;
     this.clearHold(g);
+    this.stopEdgeLoop();
     switch (g.kind) {
       case 'select': if (g.selecting) this.emit('regionChange', { region: g.prev, final: true }); break;
       case 'handle':
