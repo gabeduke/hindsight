@@ -98,7 +98,8 @@ Gestures on the strip:
 **Main waveform.** Pinch zooms about the pinch midpoint, unchanged. A
 two-finger drag with unchanging spread is the same gesture with a moving
 midpoint and pans, which pinch already does; no new code, but the spec
-names it so the checklist tests it. One-finger drag no longer pans; see §2.
+names it so the checklist tests it. One-finger drag pans; press-and-hold
+then drag selects (see §2).
 
 **Desktop.** Plain wheel zooms about the pointer; shift-wheel, or a
 horizontal wheel from a trackpad, pans. The three zoom buttons are removed.
@@ -110,8 +111,8 @@ One-finger gestures on the main waveform, by where the press lands:
 
 | Press lands on | Drag does | Tap does |
 |---|---|---|
-| empty waveform, no region | creates a region from the press frame to the release frame | seeks |
-| empty waveform, region exists | creates a new region, replacing the old | seeks |
+| empty waveform, no region | pans; after a 350ms hold, creates a region from the press frame (replacing any existing one) | seeks |
+| empty waveform, region exists | pans; after a 350ms hold, creates a region from the press frame (replacing any existing one) | seeks |
 | inside the region | moves it | seeks |
 | a handle | resizes that edge | nothing |
 | a flag tick or chip | nothing | opens the flag sheet |
@@ -157,6 +158,11 @@ a row:
    - `Export as take` — writes a real cut for the DAW hand-off, exactly
      v1's Export.
    - `Delete region`.
+   - **Waveform: fit quiet takes to the height** — a display-only gain
+     toggle, on by default, that scales a quiet take's drawing to fill the
+     canvas without touching the samples or the render.
+   - **Region: length in seconds and bars** — the region text grows a
+     length readout alongside the start/end times.
 
 Desktop is the same layout at a wider canvas (main waveform 55vh). The
 flag sheet is unchanged.

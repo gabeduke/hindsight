@@ -83,8 +83,15 @@ touching `view.js`, `overview.js`, `share.js` or `page.js`, check by hand:
   finger; pinch zooms
 - **Hold-select** — press and hold on the main waveform for ~350ms until a band
   appears under the finger, then drag to draw a region
+- **Edge auto-scroll while selecting** — holding the drag near either edge of
+  the main waveform during a hold-select scrolls the view in that direction
 - **Implicit loop** — playback loops the region with no Loop toggle to find;
   clearing the region returns to plain playback from the cursor
+- **Fit quiet takes to the height** — a quiet take's waveform fills the
+  canvas with the fit toggle on (the default); turning it off draws the
+  take at its true amplitude
+- **Region length** — the region text shows a length in seconds alongside
+  the start/end times, and bars when the take has a BPM
 - **Fine tune** — the disclosure's Start/End nudges, the readout, downbeat
   reset, Export as take and Delete region all move the same region the hold
   drew
