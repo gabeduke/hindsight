@@ -102,3 +102,13 @@ export function edgeScrollStep(x, width, margin = EDGE_MARGIN_PX, maxStep = EDGE
   if (x > width - margin) return maxStep * Math.min(1, (x - (width - margin)) / margin);
   return 0;
 }
+
+// A -38 dBFS take drawn on an absolute scale is a flat line. This is the
+// display-only multiplier that lifts its loudest sample to `target`; it never
+// touches audio, and the takes list keeps its absolute scale on purpose.
+export function fitGain(filePeaks, target = 0.9, max = 40) {
+  let peak = 0;
+  for (const ch of filePeaks.data || []) for (const v of ch) peak = Math.max(peak, Math.abs(v));
+  if (!(peak > 0) || peak >= target) return 1;
+  return Math.min(max, target / peak);
+}

@@ -146,14 +146,18 @@ export class WaveView {
       ctx.fillRect(Math.round(x), 0, 1, this.cssH);
     }
 
-    // Waveform: channels stacked
+    // Waveform: channels stacked. st.gain is the display-only fit-to-peak
+    // multiplier (geometry.fitGain); it is read fresh here so toggling it is
+    // nothing but a redraw. Clamped so an amplified column stays in its lane.
     const { cols, channels } = this.tiles.columns(view, dpr);
+    const gain = st.gain ?? 1;
     const laneH = (this.cssH - CHIP_H) / channels;
     ctx.fillStyle = col('--accent', '#34d399');
     for (let x = 0; x < Math.ceil(view.width); x++) {
       for (let c = 0; c < channels; c++) {
-        const mn = cols[(x * channels + c) * 2], mx = cols[(x * channels + c) * 2 + 1];
-        if (!(mx >= mn)) continue;
+        const raw0 = cols[(x * channels + c) * 2], raw1 = cols[(x * channels + c) * 2 + 1];
+        if (!(raw1 >= raw0)) continue;
+        const mn = Math.max(-1, raw0 * gain), mx = Math.min(1, raw1 * gain);
         const mid = CHIP_H + laneH * c + laneH / 2;
         const y0 = mid - mx * (laneH / 2) * 0.95, y1 = mid - mn * (laneH / 2) * 0.95;
         ctx.fillRect(x, y0, 1, Math.max(1, y1 - y0));

@@ -853,6 +853,10 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 .fine-grid { display: grid; grid-template-columns: 78px 1fr; gap: 8px 10px; align-items: center; padding: 6px 0 4px; }
 .fine-label { color: var(--ink-dim); font-size: 13px; }
 .fine-hint { color: var(--ink-faint); font-size: 12px; }
+/* A checkbox in the hint column: big enough to hit with a thumb, and the whole
+   label is the target because the box alone is not. */
+.fine-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.fine-check input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
 .fine-grid .readout { color: var(--ink-dim); font-size: 13px; }
 /* .icon-btn.danger carries margin-left:auto for the flag sheet; in the fine
    grid the two buttons sit side by side instead. */

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   frameToX, xToFrame, levelFor, tileSpan, tilesFor, fileLevel,
   gridLines, barBeat, fmtTime, clampRegion, TILE_BUCKETS,
-  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX,
+  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fitGain,
 } from './geometry.js';
 
 const view = { start: 48000, fpp: 100, width: 390 };
@@ -91,4 +91,21 @@ test('edge scroll step ramps inside the margins and is zero elsewhere', () => {
   assert.equal(edgeScrollStep(390, 390), EDGE_MAX_STEP_PX);
   assert.equal(edgeScrollStep(390 - EDGE_MARGIN_PX / 2, 390), EDGE_MAX_STEP_PX / 2);
   assert.equal(edgeScrollStep(-50, 390), -EDGE_MAX_STEP_PX); // clamped past the edge
+});
+
+// The owner's real takes peak around -38 dBFS. On an absolute scale that is a
+// flat line, so the page offers a display-only multiplier -- which must never
+// shrink a take that is already loud enough, and must not run away on silence.
+test('fitGain scales a quiet take up to the target and never down', () => {
+  const pk = (v) => ({ channels: 1, buckets: 2, data: [[-v, v, -v / 2, v / 2]] });
+  assert.equal(fitGain(pk(0.9)), 1);   // already at the target
+  assert.equal(fitGain(pk(1.0)), 1);   // above it: never scaled down
+  assert.ok(Math.abs(fitGain(pk(0.05)) - 0.9 / 0.05) < 1e-9);
+  // A -38 dBFS take wants ~71x; the cap is what keeps a near-silent take from
+  // amplifying its own noise floor to full scale, so it draws at half height.
+  assert.equal(fitGain(pk(0.0123)), 40);
+  assert.equal(fitGain(pk(0.0001)), 40);
+  assert.equal(fitGain(pk(0.0123), 0.9, 100), 0.9 / 0.0123);
+  assert.equal(fitGain({ channels: 1, buckets: 0, data: [[]] }), 1);
+  assert.equal(fitGain({}), 1);        // peaks that never arrived
 });
