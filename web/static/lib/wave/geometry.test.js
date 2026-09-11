@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   frameToX, xToFrame, levelFor, tileSpan, tilesFor, fileLevel,
   gridLines, barBeat, fmtTime, clampRegion, TILE_BUCKETS,
-  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fitGain,
+  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fitGain, fmtRegionLength,
 } from './geometry.js';
 
 const view = { start: 48000, fpp: 100, width: 390 };
@@ -73,6 +73,13 @@ test('time readout', () => {
   assert.equal(fmtTime(47, 48000), '0:00.000'); // floors to ms
 });
 
+test('region length in seconds and bars', () => {
+  const g = { bpm: 120, sampleRate: 48000, downbeat: 0 };
+  assert.equal(fmtRegionLength({ start: 0, end: 48000 * 8 }, g), '8.0 s · 4.0 bars');
+  assert.equal(fmtRegionLength({ start: 0, end: 48000 * 29.5 }, { ...g, bpm: null }), '29.5 s');
+  assert.equal(fmtRegionLength(null, g), '');
+});
+
 test('region clamp keeps order, bounds and minimum length', () => {
   assert.deepEqual(clampRegion({ start: -5, end: 100 }, 1000, 10), { start: 0, end: 100 });
   assert.deepEqual(clampRegion({ start: 900, end: 2000 }, 1000, 10), { start: 900, end: 1000 });
@@ -101,11 +108,12 @@ test('fitGain scales a quiet take up to the target and never down', () => {
   assert.equal(fitGain(pk(0.9)), 1);   // already at the target
   assert.equal(fitGain(pk(1.0)), 1);   // above it: never scaled down
   assert.ok(Math.abs(fitGain(pk(0.05)) - 0.9 / 0.05) < 1e-9);
-  // A -38 dBFS take wants ~71x; the cap is what keeps a near-silent take from
-  // amplifying its own noise floor to full scale, so it draws at half height.
-  assert.equal(fitGain(pk(0.0123)), 40);
-  assert.equal(fitGain(pk(0.0001)), 40);
-  assert.equal(fitGain(pk(0.0123), 0.9, 100), 0.9 / 0.0123);
+  // A -38 dBFS take wants ~73x, under the default cap -- it fills the lane.
+  // The cap still keeps a near-silent take from amplifying its own noise
+  // floor to full scale.
+  assert.ok(Math.abs(fitGain(pk(0.0123)) - 0.9 / 0.0123) < 1e-9);
+  assert.equal(fitGain(pk(0.0001)), 100);
+  assert.equal(fitGain(pk(0.0123), 0.9, 40), 40);
   assert.equal(fitGain({ channels: 1, buckets: 0, data: [[]] }), 1);
   assert.equal(fitGain({}), 1);        // peaks that never arrived
 });

@@ -7,7 +7,7 @@ import { WaveView } from './view.js';
 import { Overview } from './overview.js';
 import { Clock } from './clock.js';
 import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
-import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain } from './geometry.js';
+import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -303,6 +303,7 @@ async function main() {
   function updateActionRow() {
     const r = state.region;
     $('region-text').textContent = fmtRegionText(r, sr);
+    $('region-length').textContent = fmtRegionLength(r, state.grid) || '—';
     $('region-clear').hidden = !r;
     $('export').disabled = !r;
     $('region-delete').disabled = !r;

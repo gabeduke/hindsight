@@ -77,6 +77,15 @@ export function fmtTime(frame, sampleRate) {
   return `${m}:${String(s).padStart(2, '0')}.${String(r).padStart(3, '0')}`;
 }
 
+export function fmtRegionLength(region, grid) {
+  if (!region) return '';
+  const frames = region.end - region.start;
+  const seconds = `${(frames / grid.sampleRate).toFixed(1)} s`;
+  if (!grid.bpm) return seconds;
+  const bars = frames / (framesPerBeat(grid) * BEATS_PER_BAR);
+  return `${seconds} · ${bars.toFixed(1)} bars`;
+}
+
 export function clampRegion(region, totalFrames, minLen) {
   let start = Math.max(0, Math.round(region.start));
   let end = Math.min(totalFrames, Math.round(region.end));
@@ -106,7 +115,7 @@ export function edgeScrollStep(x, width, margin = EDGE_MARGIN_PX, maxStep = EDGE
 // A -38 dBFS take drawn on an absolute scale is a flat line. This is the
 // display-only multiplier that lifts its loudest sample to `target`; it never
 // touches audio, and the takes list keeps its absolute scale on purpose.
-export function fitGain(filePeaks, target = 0.9, max = 40) {
+export function fitGain(filePeaks, target = 0.9, max = 100) {
   let peak = 0;
   for (const ch of filePeaks.data || []) for (const v of ch) peak = Math.max(peak, Math.abs(v));
   if (!(peak > 0) || peak >= target) return 1;
