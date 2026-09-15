@@ -231,8 +231,10 @@ the take there, trimming the snapshot to the exact frame. The take is up to
 one bar longer than asked for, and every bar line in the `.mid` is true. The
 downbeat is also written into the take's sidecar so the waveform page's grid
 agrees with the DAW. Without a Start in living memory the phase is unknown,
-nothing moves, and the file's bars are aligned to its first pulse by
-convention, flagged in the manifest.
+nothing moves, and bar 1 is declared to be the take's first frame — the same
+place a snapped window puts it — with the first pulse as many pulses into
+that bar as its arrival time says. The manifest's `downbeat.source` says
+which convention applied.
 
 Two details that were learned the expensive way:
 

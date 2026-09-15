@@ -183,5 +183,7 @@ DAWs clamp imported tempos, shifting everything after the clamp. Starting the
 take on a downbeat instead costs up to one bar of extra audio at the old end
 and makes every bar line true. It needs a clock whose phase is known, which
 means a Start message has been seen since the daemon came up; without one
-the window is left alone and the `.mid`'s bars are aligned to its first pulse
-by convention, which the manifest says.
+the window is left alone and bar 1 is declared to be the take's first frame,
+which the manifest's `downbeat.source` (`window-start` rather than
+`midi-start`) says. The EP-136 never sends Start — it has no transport — so
+with it as the clock device that is the normal case.

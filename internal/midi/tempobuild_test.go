@@ -138,8 +138,16 @@ func TestBuildTempoMapJitteredClockStaysWithinTolerance(t *testing.T) {
 	if n := len(m.Segments); n > 40 {
 		t.Errorf("%d segments for a minute of jittered steady clock", n)
 	}
-	if db == nil || db.Source != "first-pulse" || db.Sec != pulses[0].Sec {
-		t.Errorf("downbeat = %+v, want the first pulse by convention", db)
+	// No Start: bar 1 is the take's first frame by convention, and the first
+	// pulse (0.3 s in at 120 BPM: pulse 14.4, so 14) sits that far into it.
+	if db == nil || db.Source != "window-start" || db.Sec != 0 || db.Tick != 0 || db.Aligned != "bar" {
+		t.Errorf("downbeat = %+v, want the window start by convention", db)
+	}
+	if tk := m.Tick(pulses[0].Sec); tk < 13*ticksPerPulse || tk > 15*ticksPerPulse {
+		t.Errorf("first pulse at tick %d, want about %d", tk, 14*ticksPerPulse)
+	}
+	if lead := m.BPMAt(0.1); lead < 60 || lead > 240 {
+		t.Errorf("lead-in tempo %.0f BPM, want something musical", lead)
 	}
 }
 

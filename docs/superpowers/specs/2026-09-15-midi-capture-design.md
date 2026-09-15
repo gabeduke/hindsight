@@ -157,8 +157,11 @@ tempo path tracks pulses since the last Start; the manifest records where the
 first downbeat inside the window falls, in frames and in ticks, and the take's
 `.meta.json` gets `downbeat_frame` set to it if the sidecar has none — so the
 waveform page's grid and the DAW agree. Without a Start in living memory, the
-phase is unknown and nothing pretends otherwise: the grid starts at the window
-start and `tempo_source` says so.
+phase is unknown and nothing pretends otherwise: bar 1 is declared to be the
+take's first frame, the first pulse sits as many pulses into it as its arrival
+time says at the run's tempo, and `downbeat.source` says `window-start` rather
+than `midi-start`. The EP never sends Start — it has no transport — so with it
+as the clock device that is the normal case until the Bento takes over.
 
 **Fallback.** No pulses in the window, or a gap longer than 250 ms between two
 pulses (below 10 BPM — a stopped clock, not a slow one): that stretch is written

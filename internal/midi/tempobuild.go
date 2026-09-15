@@ -44,8 +44,8 @@ type Downbeat struct {
 	Sec  float64 `json:"seconds"`
 	Tick uint64  `json:"tick"`
 	// Source is "midi-start" when a Start message fixed the phase, or
-	// "first-pulse" when no Start has been seen and the first pulse in the
-	// window is declared the downbeat by convention.
+	// "window-start" when no Start has been seen and the take's first frame
+	// is declared bar 1 by convention.
 	Source string `json:"source"`
 	// Aligned is "bar" when the tick is a DAW bar line, "beat" when only a
 	// beat line could be reached without an absurd lead-in tempo, "none"
@@ -108,11 +108,25 @@ func BuildTempoMap(pulses []TimedPulse, duration float64) (*TempoMap, *Downbeat)
 		first := run[0]
 		// Phase: which bar position pulse 0 of this run should get. With a
 		// known index, the downbeat is any pulse whose index is a multiple of
-		// a bar. Without one, the first pulse of the first run is declared
-		// the downbeat, and later runs continue counting from there.
+		// a bar. Without one -- no Start has been seen; the EP never sends
+		// one -- bar 1 is declared to begin at the take's first frame, and
+		// the first pulse sits as many pulses into it as its arrival time
+		// says at the run's own tempo. That is the convention a bar-snapped
+		// window makes true, so a file looks the same either way: tick 0 is
+		// a bar line, and the lead-in runs at a musical tempo rather than
+		// being bent to reach an arbitrary phase.
 		phase := 0 // pulses into the bar at run[0]
-		if first.Index != PulseIndexUnknown {
+		switch {
+		case first.Index != PulseIndexUnknown:
 			phase = int(first.Index) % pulsesPerBar
+		case !haveRun:
+			per := 60.0 / FallbackBPM / PulsesPerQuarter
+			if len(run) > 1 {
+				per = run[1].Sec - run[0].Sec
+			}
+			if per > 0 {
+				phase = int(math.Round(first.Sec/per)) % pulsesPerBar
+			}
 		}
 
 		// The tick this run starts on. Its bar phase must match, and its
@@ -153,15 +167,16 @@ func BuildTempoMap(pulses []TimedPulse, duration float64) (*TempoMap, *Downbeat)
 		// Segments within the run.
 		m.Segments = append(m.Segments, fitRun(run, runStartTick)...)
 
-		// Downbeat: the first pulse in the whole window at bar phase 0.
+		// Downbeat: with a Start, the first pulse in the window at bar
+		// phase 0; without one, the take's first frame, by the convention
+		// above.
+		if db == nil && first.Index == PulseIndexUnknown {
+			db = &Downbeat{Sec: 0, Tick: 0, Source: "window-start", Aligned: "bar"}
+		}
 		if db == nil {
 			for k, p := range run {
 				if (phase+k)%pulsesPerBar == 0 {
-					src := "first-pulse"
-					if p.Index != PulseIndexUnknown {
-						src = "midi-start"
-					}
-					db = &Downbeat{Sec: p.Sec, Tick: runStartTick + uint64(k)*ticksPerPulse, Source: src, Aligned: aligned}
+					db = &Downbeat{Sec: p.Sec, Tick: runStartTick + uint64(k)*ticksPerPulse, Source: "midi-start", Aligned: aligned}
 					break
 				}
 			}
