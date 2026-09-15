@@ -139,7 +139,9 @@ func BuildSMF(in ExportInput) (*smf.File, ExportStats) {
 	}
 
 	f := &smf.File{PPQ: tempo.ppq()}
-	cond := smf.Track{Events: tempo.Conductor()}
+	// Every track ends at the take's end, so a DAW that sizes the import by
+	// its tracks gets the take's length rather than the last note's.
+	cond := smf.Track{Events: append(tempo.Conductor(), smf.EndOfTrack(endTick))}
 	sort.SliceStable(transport, func(a, b int) bool { return transport[a].sec < transport[b].sec })
 	for _, p := range transport {
 		var text string
@@ -197,6 +199,7 @@ func BuildSMF(in ExportInput) (*smf.File, ExportStats) {
 			tr.Events = append(tr.Events, smf.Channel(endTick, NoteOff|byte(k.ch), byte(n), 0))
 			ts.Hanging++
 		}
+		tr.Events = append(tr.Events, smf.EndOfTrack(endTick))
 		f.Tracks = append(f.Tracks, tr)
 		st.Tracks = append(st.Tracks, ts)
 	}

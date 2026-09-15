@@ -162,14 +162,16 @@ are deliberately not shipped in the release tarball.
 | `midi-probe.py` | What does the interface actually send over MIDI, and when? Walks three phases and prints a verdict per question |
 | `take-envelope.py` | What does a take look like? Reduces a WAV to a base64 amplitude envelope, so a 346 MB take can be judged without copying it off the Pi |
 | `midi-calibrate.py` | How far does a take's MIDI sit from its audio? Matches note-ons in the `.mid` to transients in the WAV and prints the `MIDI_LATENCY_MS` to set |
+| `midi-dump.py` | What is in a take's `.mid`? Tempo lane, markers, every track's name, message counts, note range and first events with their times, so a file can be checked on the Pi without a DAW |
 
 All three are standard library only — no pip, no virtualenv. What they reach
 for differs:
 
 - `channel-probe.py` talks to the HTTP API, so it runs from anywhere that can
   reach the Pi.
-- `take-envelope.py` and `midi-calibrate.py` read the take off disk directly
-  and touch no API at all, so they run wherever the files are.
+- `take-envelope.py`, `midi-calibrate.py` and `midi-dump.py` read the take
+  off disk directly and touch no API at all, so they run wherever the files
+  are.
 - `midi-probe.py` shells out to `amidi`, which comes from **`alsa-utils`**
   (`sudo apt install alsa-utils`); without it the script exits with
   `amidi not found. Install alsa-utils.` It has to run on the Pi, with the

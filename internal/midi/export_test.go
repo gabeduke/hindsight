@@ -135,8 +135,9 @@ func TestBuildSMFClosesHangingNotesAndDropsOrphanOffs(t *testing.T) {
 		Name: names(map[uint16]string{1: "Key"}),
 	})
 	tr := f.Tracks[1].Events
-	// name, on 60, on 62, off 62, and a synthetic off 60 at the end tick
-	if len(tr) != 5 {
+	// name, on 60, on 62, off 62, a synthetic off 60 at the end tick, and
+	// the explicit end of track
+	if len(tr) != 6 || tr[5].Meta != smf.MetaEndOfTrack || tr[5].Tick != 1920 {
 		t.Fatalf("events = %+v", tr)
 	}
 	last := tr[4]

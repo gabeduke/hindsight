@@ -78,6 +78,16 @@ What to look at:
 - `devices` and `tracks`: every instrument you played, with the channels it
   used. `dropped.ring_overflow` should be 0.
 
+Then the file itself, without a DAW:
+
+```bash
+ssh "$HINDSIGHT_HOST" 'python3 ~/hindsight/scripts/midi-dump.py $(ls -t ~/hindsight/jam_saves/*.mid | head -1)'
+```
+
+One tempo event for a steady clock, a track per instrument and channel with
+the right names, note ranges that look like what you played, and every
+track ending at the take's length.
+
 ## 5. Calibrate
 
 Play isolated hits from one instrument — a drum pad, single hits a second

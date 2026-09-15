@@ -196,3 +196,22 @@ func TestDecodeRejectsGarbage(t *testing.T) {
 		}
 	}
 }
+
+func TestExplicitEndOfTrackMovesTheEnd(t *testing.T) {
+	tr := Track{Events: []Event{Channel(0, 0x90, 60, 100), Channel(100, 0x80, 60, 0), EndOfTrack(1000)}}
+	f, err := Decode((&File{Tracks: []Track{tr}}).Encode())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ev := f.Tracks[0].Events
+	if last := ev[len(ev)-1]; last.Meta != MetaEndOfTrack || last.Tick != 1000 {
+		t.Fatalf("end = %+v, want tick 1000", last)
+	}
+	// One that is earlier than the last event does not pull it back.
+	tr = Track{Events: []Event{EndOfTrack(10), Channel(0, 0x90, 60, 100), Channel(100, 0x80, 60, 0)}}
+	f, _ = Decode((&File{Tracks: []Track{tr}}).Encode())
+	ev = f.Tracks[0].Events
+	if last := ev[len(ev)-1]; last.Tick != 100 || len(ev) != 3 {
+		t.Fatalf("events = %+v", ev)
+	}
+}

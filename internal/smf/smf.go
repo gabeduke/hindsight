@@ -115,6 +115,13 @@ func TrackName(tick uint64, name string) Event {
 	return Event{Tick: tick, Status: 0xFF, Meta: MetaTrackName, Data: []byte(name)}
 }
 
+// EndOfTrack builds an explicit end-of-track at a tick. Encode writes one
+// per track regardless; this one only moves it later, so a track can end at
+// the take's end rather than at its own last event.
+func EndOfTrack(tick uint64) Event {
+	return Event{Tick: tick, Status: 0xFF, Meta: MetaEndOfTrack}
+}
+
 // Marker builds an FF 06 marker event.
 func Marker(tick uint64, text string) Event {
 	return Event{Tick: tick, Status: 0xFF, Meta: MetaMarker, Data: []byte(text)}
@@ -166,10 +173,16 @@ func encodeTrack(t *Track) []byte {
 	sort.SliceStable(evs, func(i, j int) bool { return evs[i].Tick < evs[j].Tick })
 
 	var out bytes.Buffer
-	var last uint64
+	var last, end uint64
 	for _, e := range evs {
 		if e.IsMeta() && e.Meta == MetaEndOfTrack {
-			continue // written once, below, at the end
+			// Written once, below. An explicit one only says where the
+			// track ends, which lets every track end at the take's end
+			// rather than at its own last note.
+			if e.Tick > end {
+				end = e.Tick
+			}
+			continue
 		}
 		writeVLQ(&out, e.Tick-last)
 		last = e.Tick
@@ -189,9 +202,12 @@ func encodeTrack(t *Track) []byte {
 			out.WriteByte(e.D2 & 0x7F)
 		}
 	}
-	// End of track: delta 0 from the last event. A DAW places the track's end
-	// here, so a conductor track's last tempo event decides its length.
-	writeVLQ(&out, 0)
+	// End of track: at the explicit end if one was given past the last
+	// event, else at the last event. A DAW places the track's end here.
+	if end < last {
+		end = last
+	}
+	writeVLQ(&out, end-last)
 	out.Write([]byte{0xFF, MetaEndOfTrack, 0})
 	return out.Bytes()
 }
