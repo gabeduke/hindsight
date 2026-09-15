@@ -161,17 +161,19 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	var snapTo uint64
 	snapping := false
 	if bs, ok := s.midiExporter().(BarSnapper); ok && cfg.MIDISnapBars {
-		total := s.cap.Ring().TotalFrames()
-		avail := uint64(s.cap.Ring().BufferedFrames())
-		oldest := total - avail
+		oldest, total := s.cap.Ring().Window()
 		start := oldest
-		if frames > 0 && uint64(frames) < avail {
+		if frames > 0 && uint64(frames) < total-oldest {
 			start = total - uint64(frames)
 		}
 		if snapped, ok := snapBars(bs, s.cap.Bridge(), start, oldest, total); ok && snapped != start {
 			snapTo, snapping = snapped, true
 			if snapped < start {
-				frames = int(total - snapped)
+				// Ask for the frames back to the downbeat plus a few blocks
+				// of slack: audio keeps arriving while the snapper runs,
+				// SnapshotAt counts back from whatever the newest frame is
+				// by then, and the trim below can only cut, never extend.
+				frames = int(total-snapped) + 4*cfg.FramesPerBuf
 			}
 		}
 	}

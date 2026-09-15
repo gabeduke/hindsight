@@ -242,6 +242,10 @@ func (e *Exporter) Export(req audio.MIDIExportRequest) error {
 	return nil
 }
 
+// snapSlackFrames is how far below the ring's oldest frame a downbeat may be
+// placed and still be taken as that frame: one millisecond at 48 kHz.
+const snapSlackFrames = 48
+
 // SnapStart implements audio.BarSnapper: the downbeat a window should start
 // on. Downbeats are the clock device's pulses whose index since the last
 // Start is a whole number of bars; without a Start the phase is unknown and
@@ -265,7 +269,17 @@ func (e *Exporter) SnapStart(bridge *audio.ClockBridge, start, oldest, end uint6
 			continue
 		}
 		f, ok := bridge.FrameAt(p.NS + latencyNS)
-		if !ok || f < 0 {
+		if !ok {
+			continue
+		}
+		// A downbeat the bridge places a hair before the ring's first frame
+		// is that frame for every purpose: the bridge's precision is a
+		// fraction of a millisecond, and refusing it would move the window
+		// forward a whole bar for nothing.
+		if f < float64(oldest) && f >= float64(oldest)-snapSlackFrames {
+			f = float64(oldest)
+		}
+		if f < 0 {
 			continue
 		}
 		frame := uint64(f + 0.5)

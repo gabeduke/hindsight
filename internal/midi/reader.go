@@ -42,8 +42,17 @@ const defaultDrainWindow = 150 * time.Millisecond
 // path from here into the capture thread.
 type portReader struct {
 	port  Port
-	id    uint16
+	id    uint16 // assigned by opened once the node is actually open
 	drain time.Duration
+
+	// isClock marks the one reader whose pulses feed the tempo path. Set
+	// before run starts and never changed, so no lock guards it.
+	isClock bool
+
+	// opened is called on the reader's goroutine once the node is open, and
+	// hands back the device id. Ids are allocated here rather than at
+	// scan time so a node that cannot be opened never burns one.
+	opened func() uint16
 
 	// onEvent receives complete messages; onRealtime receives clock and
 	// transport bytes with the read's timestamp. Both are called on the
@@ -58,6 +67,7 @@ type portReader struct {
 
 	connected atomic.Bool
 	gone      atomic.Bool
+	failed    atomic.Bool // could not be opened or read; see run
 
 	bytes  atomic.Uint64
 	events atomic.Uint64
@@ -71,6 +81,7 @@ func (r *portReader) run() {
 
 	f, err := os.Open(r.port.Node)
 	if err != nil {
+		r.failed.Store(true)
 		log.Printf("[!] midi: open %s: %v", r.port.Node, err)
 		return
 	}
@@ -78,13 +89,36 @@ func (r *portReader) run() {
 	r.file = f
 	r.mu.Unlock()
 
+	if r.opened != nil {
+		r.id = r.opened()
+	}
 	r.connected.Store(true)
 	log.Printf("[*] midi: reading %q from %s", r.port.Name, r.port.Node)
+	start := time.Now()
 	r.readLoop(f)
 	r.connected.Store(false)
 	r.close()
+	// A node that closes within a second of opening, having delivered
+	// nothing, is not a device that was unplugged: it is one that cannot be
+	// read at all -- an output-only substream, a node another process holds
+	// -- and reopening it every poll would fill the journal and churn ids.
+	// If the node itself is gone, that was an unplug, however quick.
+	if time.Since(start) < flapWindow && r.bytes.Load() == 0 {
+		if _, err := os.Stat(r.port.Node); err == nil {
+			r.failed.Store(true)
+			log.Printf("[!] midi: %q on %s closed at once with nothing read — leaving it for %s", r.port.Name, r.port.Node, failedRetry)
+			return
+		}
+	}
 	log.Printf("[*] midi: %q on %s closed", r.port.Name, r.port.Node)
 }
+
+// flapWindow and failedRetry govern nodes that open but cannot be read. See
+// run.
+const (
+	flapWindow  = time.Second
+	failedRetry = time.Minute
+)
 
 // readLoop timestamps at arrival, one time.Now() per read rather than per
 // byte. Batch-then-timestamp cannot place a note against an audio frame, and

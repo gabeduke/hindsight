@@ -233,3 +233,40 @@ func TestBridgeRecordNeverBlocks(t *testing.T) {
 		t.Error("the dropped pair was stored")
 	}
 }
+
+// NSAt must not fit across a dropout either: a frame just before the gap was
+// converted just before it, and a frame in the first block after the gap
+// just before the pair that ended it.
+func TestBridgeNSAtRespectsDropouts(t *testing.T) {
+	b := NewClockBridge(100, testRate)
+	blockNS := int64(testBlock) * 1e9 / testRate
+	for k := 1; k <= 20; k++ {
+		b.Record(int64(k)*blockNS, uint64(k*testBlock))
+	}
+	gapEnd := 20*blockNS + 600e9 // ten minutes unplugged
+	for k := 21; k <= 40; k++ {
+		b.Record(gapEnd+int64(k-20)*blockNS, uint64(k*testBlock))
+	}
+	// Five blocks before the gap.
+	got, ok := b.NSAt(15 * testBlock)
+	if !ok || math.Abs(float64(got-15*blockNS)) > 1e6 {
+		t.Errorf("before the gap: %d, want %d", got, 15*blockNS)
+	}
+	// The last frame before the gap.
+	got, _ = b.NSAt(20 * testBlock)
+	if math.Abs(float64(got-20*blockNS)) > 1e6 {
+		t.Errorf("at the gap's start: %d, want %d", got, 20*blockNS)
+	}
+	// Halfway into the first block after the gap: half a block before the
+	// pair that ended it.
+	got, _ = b.NSAt(20*testBlock + testBlock/2)
+	want := gapEnd + blockNS - blockNS/2
+	if math.Abs(float64(got-want)) > 1e6 {
+		t.Errorf("inside the first block after the gap: %d, want %d", got, want)
+	}
+	// Three blocks after.
+	got, _ = b.NSAt(24 * testBlock)
+	if want := gapEnd + 4*blockNS; math.Abs(float64(got-want)) > 1e6 {
+		t.Errorf("after the gap: %d, want %d", got, want)
+	}
+}

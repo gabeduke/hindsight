@@ -131,6 +131,11 @@ type Port struct {
 	// node's basename when the card table does not know it. It is what a
 	// track in the DAW gets called.
 	Name string
+	// entry is the card's whole /proc/asound/cards text -- id, short and
+	// long names -- so a substring that only appears in the long name
+	// ("teenage engineering ... at usb-xhci-hcd.0-1") still matches, as it
+	// did for the single-device reader this replaced.
+	entry string
 }
 
 // nodeName parses midiC<card>D<dev>.
@@ -165,6 +170,7 @@ func Enumerate(cardsPath, sndDir string) []Port {
 		p := Port{Node: node, Card: cardNo, Dev: devNo, Name: filepath.Base(node)}
 		if c, ok := byNum[cardNo]; ok {
 			p.Name = c.Product()
+			p.entry = c.entry()
 		}
 		// A card with more than one rawmidi device gets each one suffixed
 		// so the two are distinguishable in a track name.
@@ -190,14 +196,16 @@ func hasSibling(nodes []string, cardNo, devNo int) bool {
 }
 
 // Matches reports whether a port matches a substring, case-insensitively,
-// against its name or its node path. It is the one matching rule shared by
-// the allowlist, the denylist and the clock-device selector, so the three
-// cannot disagree about what "EP-136" refers to.
+// against its name, its node path, or its card's whole /proc/asound/cards
+// entry. It is the one matching rule shared by the allowlist, the denylist
+// and the clock-device selector, so the three cannot disagree about what
+// "EP-136" refers to.
 func (p Port) Matches(sub string) bool {
 	if sub == "" {
 		return false
 	}
 	s := strings.ToLower(sub)
 	return strings.Contains(strings.ToLower(p.Name), s) ||
-		strings.Contains(strings.ToLower(p.Node), s)
+		strings.Contains(strings.ToLower(p.Node), s) ||
+		strings.Contains(strings.ToLower(p.entry), s)
 }

@@ -104,8 +104,11 @@ type Watcher struct {
 	mu      sync.Mutex
 	devices map[string]*portReader // by node path
 	gone    map[uint16]DeviceInfo  // departed devices, by id, for naming their events
+	failed  map[string]time.Time   // nodes that could not be read, and when to try again
 	nextID  uint16
+	clockID uint16 // the device whose pulses feed the clock, 0 for none yet
 
+	started  atomic.Bool
 	stop     chan struct{}
 	stopOnce sync.Once
 	done     chan struct{}
@@ -132,6 +135,7 @@ func NewWatcher(policy Policy, clock *Clock, events *EventRing) *Watcher {
 		clock:       clock,
 		events:      events,
 		devices:     make(map[string]*portReader),
+		failed:      make(map[string]time.Time),
 		stop:        make(chan struct{}),
 		done:        make(chan struct{}),
 	}
@@ -139,13 +143,21 @@ func NewWatcher(policy Policy, clock *Clock, events *EventRing) *Watcher {
 
 // Start launches the poll loop. It returns immediately; use Devices to
 // observe state.
-func (w *Watcher) Start() { go w.run() }
+func (w *Watcher) Start() {
+	if w.started.Swap(true) {
+		return
+	}
+	go w.run()
+}
 
 // Stop ends the loop and closes every open node. It does not wait for the
-// reader goroutines, for the reason given on portReader.close.
+// reader goroutines, for the reason given on portReader.close. Safe to call
+// without Start, and twice.
 func (w *Watcher) Stop() {
 	w.stopOnce.Do(func() { close(w.stop) })
-	<-w.done
+	if w.started.Load() {
+		<-w.done
+	}
 	w.mu.Lock()
 	for _, r := range w.devices {
 		r.close()
@@ -160,7 +172,7 @@ func (w *Watcher) Connected() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	for _, r := range w.devices {
-		if r.port.Matches(w.policy.ClockDevice) && r.connected.Load() {
+		if r.isClock && r.connected.Load() {
 			return true
 		}
 	}
@@ -189,7 +201,7 @@ func (w *Watcher) Devices() []DeviceInfo {
 			ID:        r.id,
 			Name:      r.port.Name,
 			Node:      r.port.Node,
-			Clock:     r.port.Matches(w.policy.ClockDevice),
+			Clock:     r.isClock,
 			Connected: r.connected.Load(),
 			Events:    r.events.Load(),
 			Bytes:     r.bytes.Load(),
@@ -245,16 +257,41 @@ func (w *Watcher) scan() {
 
 	// Forget readers whose goroutine has exited. Their node may or may not
 	// still exist; if it does, it is reopened below, which is what a replug
-	// that lands on the same card number needs.
+	// that lands on the same card number needs -- unless it failed at once,
+	// in which case it waits its turn.
+	now := time.Now()
 	for node, r := range w.devices {
 		if r.gone.Load() {
-			w.remember(r)
+			if r.id != 0 {
+				w.remember(r)
+			}
+			if r.isClock {
+				w.clockID = 0
+			}
+			if r.failed.Load() {
+				w.failed[node] = now.Add(failedRetry)
+				// Nothing was ever tagged with its id; hand it back when it
+				// was the last one out, so a flapping node cannot walk
+				// nextID towards the wrap by itself.
+				if r.id != 0 && r.id == w.nextID {
+					w.nextID--
+					delete(w.gone, r.id)
+				}
+			}
 			delete(w.devices, node)
+		}
+	}
+	for node := range w.failed {
+		if _, still := present[node]; !still {
+			delete(w.failed, node) // unplugged: a replug starts fresh
 		}
 	}
 
 	for node, p := range present {
 		if _, open := w.devices[node]; open {
+			continue
+		}
+		if until, bad := w.failed[node]; bad && now.Before(until) {
 			continue
 		}
 		if !w.policy.allows(p) {
@@ -274,18 +311,35 @@ func (w *Watcher) scan() {
 
 // open starts a reader for a port. Called with mu held.
 func (w *Watcher) open(p Port) {
-	w.nextID++
 	r := &portReader{
 		port:  p,
-		id:    w.nextID,
 		drain: w.DrainWindow,
 	}
-	isClock := p.Matches(w.policy.ClockDevice)
+	// One clock. MIDI_CLOCK_DEVICE is a substring, and a card with two
+	// rawmidi devices, or two devices sharing a product string, would
+	// otherwise both feed the pulse ring and double the tempo. The first
+	// match to open is the clock until it goes away.
+	if p.Matches(w.policy.ClockDevice) {
+		if w.clockID == 0 {
+			r.isClock = true
+		} else {
+			log.Printf("[*] midi: %q on %s also matches MIDI_CLOCK_DEVICE %q; the clock stays with the first", p.Name, p.Node, w.policy.ClockDevice)
+		}
+	}
+	r.opened = func() uint16 {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		w.nextID++
+		if r.isClock {
+			w.clockID = w.nextID
+		}
+		return w.nextID
+	}
 	if w.policy.Capture {
 		r.onEvent = w.events.Push
 	}
 	r.onRealtime = func(ts time.Time, ns int64, b byte) {
-		if isClock {
+		if r.isClock {
 			w.clock.Feed(ts, b)
 		}
 		if w.policy.Capture && (b == StartByte || b == ContinueByte || b == StopByte) {
@@ -293,6 +347,11 @@ func (w *Watcher) open(p Port) {
 		}
 	}
 	w.devices[p.Node] = r
+	if r.isClock {
+		// Reserve the clock role at once so a second match opening in the
+		// same scan does not also claim it; the id follows on open.
+		w.clockID = ^uint16(0)
+	}
 	go r.run()
 }
 
@@ -314,7 +373,7 @@ func (w *Watcher) remember(r *portReader) {
 	}
 	w.gone[r.id] = DeviceInfo{
 		ID: r.id, Name: r.port.Name, Node: r.port.Node,
-		Clock: r.port.Matches(w.policy.ClockDevice), Events: r.events.Load(), Bytes: r.bytes.Load(),
+		Clock: r.isClock, Events: r.events.Load(), Bytes: r.bytes.Load(),
 		SysEx: r.sysex.Load(),
 	}
 }

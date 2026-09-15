@@ -54,6 +54,17 @@ func (r *Ring) bufferedLocked() int {
 	return int(r.totalFrames)
 }
 
+// Window reports the absolute frame range the ring holds right now,
+// [oldest, total), under one lock acquisition. Pairing TotalFrames with
+// BufferedFrames instead lets a write land between the two, and while the
+// ring is still filling that makes buffered exceed total and the subtraction
+// wrap.
+func (r *Ring) Window() (oldest, total uint64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.totalFrames - uint64(r.bufferedLocked()), r.totalFrames
+}
+
 // TotalFrames reports how many frames have ever been written. It is monotonic
 // for the life of the Ring, and the Ring is built once in NewCapture and never
 // rebuilt -- supervise() reopens the stream, not the ring -- so this is a valid

@@ -232,12 +232,13 @@ func TestWatcherSurvivesUnplugAndReplug(t *testing.T) {
 	waitFor(t, "the watcher to connect", w.Connected)
 	first := w.Devices()[0].ID
 
-	// Closing the only writer gives the reader EOF, which is what an unplugged
-	// interface looks like from the read side.
-	wr.Close()
+	// The node vanishes, then the read fails: closing the only writer gives
+	// the reader EOF, which is what an unplugged interface looks like from
+	// the read side.
 	if err := os.Remove(fifo); err != nil {
 		t.Fatal(err)
 	}
+	wr.Close()
 	waitFor(t, "the device to be forgotten", func() bool { return len(w.Devices()) == 0 })
 	if w.Connected() {
 		t.Error("Connected = true after unplug")
@@ -432,4 +433,102 @@ func TestParseList(t *testing.T) {
 	if ParseList("") != nil {
 		t.Fatal("empty must be nil")
 	}
+}
+
+func TestWatcherStopWithoutStartReturns(t *testing.T) {
+	w := NewWatcher(Policy{}, NewClock(10), nil)
+	done := make(chan struct{})
+	go func() { w.Stop(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Stop blocked without Start")
+	}
+}
+
+// A node that opens but delivers nothing and closes at once -- an output-only
+// substream, a node another process holds -- is not reopened every poll: that
+// would fill the journal and churn ids. It is left alone for a while, and it
+// never gets an id at all.
+func TestWatcherLeavesAnUnreadableNodeAlone(t *testing.T) {
+	cards, snd, fifo := fifoFixture(t)
+	// A plain file reads EOF immediately: the unreadable case.
+	if err := os.WriteFile(filepath.Join(snd, "midiC3D0"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	clock := NewClock(10000)
+	w := newTestWatcher(cards, snd, clock, NewEventRing(100))
+	w.Start()
+	defer w.Stop()
+
+	wr := openWriter(t, fifo)
+	defer wr.Close()
+	waitFor(t, "the EP", w.Connected)
+	time.Sleep(150 * time.Millisecond) // several polls
+
+	devs := w.Devices()
+	if len(devs) != 1 || devs[0].Name != "EP-136" {
+		t.Fatalf("devices = %+v, want just the EP", devs)
+	}
+	w.mu.Lock()
+	_, parked := w.failed[filepath.Join(snd, "midiC3D0")]
+	next := w.nextID
+	w.mu.Unlock()
+	if !parked {
+		t.Error("the unreadable node is not parked")
+	}
+	// Seven or so polls happened. Reopening the bad node on each would have
+	// pushed nextID well past two.
+	if next > 2 {
+		t.Errorf("nextID = %d; the unreadable node is churning ids", next)
+	}
+}
+
+// Two ports matching MIDI_CLOCK_DEVICE would double the tempo if both fed the
+// pulse ring. Only the first to open is the clock.
+func TestWatcherOnlyOnePortIsTheClock(t *testing.T) {
+	cards, snd, ep := fifoFixture(t)
+	second := mkfifo(t, snd, "midiC2D1") // same card: "EP-136 #2"
+	clock := NewClock(10000)
+	w := newTestWatcher(cards, snd, clock, NewEventRing(100))
+	w.Start()
+	defer w.Stop()
+
+	epW := openWriter(t, ep)
+	defer epW.Close()
+	secondW := openWriter(t, second)
+	defer secondW.Close()
+	waitFor(t, "both ports", func() bool { return len(w.Devices()) == 2 })
+	time.Sleep(60 * time.Millisecond)
+
+	clocks := 0
+	for _, d := range w.Devices() {
+		if d.Clock {
+			clocks++
+		}
+	}
+	if clocks != 1 {
+		t.Fatalf("%d ports marked as the clock, want 1: %+v", clocks, w.Devices())
+	}
+	epW.Write([]byte{ClockByte, ClockByte})
+	secondW.Write([]byte{ClockByte, ClockByte})
+	time.Sleep(60 * time.Millisecond)
+	if n := clock.Pulses(); n != 2 {
+		t.Errorf("Pulses = %d, want 2: both ports fed the clock", n)
+	}
+}
+
+// The match rule reaches the card's long name, as the single-device reader's
+// did: DEVICE_MATCH=teenage worked before and must still find the clock.
+func TestWatcherClockDeviceMatchesTheCardEntry(t *testing.T) {
+	cards, snd, fifo := fifoFixture(t)
+	clock := NewClock(10000)
+	w := NewWatcher(Policy{Capture: true, ClockDevice: "teenage"}, clock, NewEventRing(100))
+	w.CardsPath, w.SndDir = cards, snd
+	w.Poll, w.DrainWindow = 20*time.Millisecond, 20*time.Millisecond
+	w.Start()
+	defer w.Stop()
+	wr := openWriter(t, fifo)
+	defer wr.Close()
+	waitFor(t, "the clock device by its long name", w.Connected)
 }

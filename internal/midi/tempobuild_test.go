@@ -71,8 +71,9 @@ func TestBuildTempoMapWithNoPulsesIsFallback(t *testing.T) {
 	if m.Source != SourceFallback || db != nil || len(m.Segments) != 1 || m.BPMAt(10) != FallbackBPM {
 		t.Fatalf("m=%+v db=%+v", m, db)
 	}
-	// Pulses at or before 0 do not count, unless one is a downbeat (below).
-	m, db = BuildTempoMap([]TimedPulse{{Sec: -1, Index: PulseIndexUnknown}, {Sec: 0, Index: PulseIndexUnknown}, {Sec: 0, Index: 5}}, 30)
+	// Pulses before 0 do not count, and neither does a mid-bar pulse at 0;
+	// only a downbeat at 0 does (below).
+	m, db = BuildTempoMap([]TimedPulse{{Sec: -1, Index: PulseIndexUnknown}, {Sec: -0.5, Index: 96}, {Sec: 0, Index: 5}}, 30)
 	if m.Source != SourceFallback || db != nil {
 		t.Fatalf("pulses at <= 0 were used: m=%+v db=%+v", m, db)
 	}

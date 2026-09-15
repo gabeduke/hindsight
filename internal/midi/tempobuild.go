@@ -73,7 +73,9 @@ func BuildTempoMap(pulses []TimedPulse, duration float64) (*TempoMap, *Downbeat)
 		if p.Sec > 0 && p.Sec > segmentToleranceSec {
 			break
 		}
-		if math.Abs(p.Sec) <= segmentToleranceSec && p.Index != PulseIndexUnknown && p.Index%pulsesPerBar == 0 {
+		// A downbeat, or with no Start seen the first pulse -- which is the
+		// downbeat by convention anyway.
+		if math.Abs(p.Sec) <= segmentToleranceSec && (p.Index == PulseIndexUnknown || p.Index%pulsesPerBar == 0) {
 			pulses = append([]TimedPulse{{Sec: 0, Index: p.Index}}, pulses[1:]...)
 			break
 		}

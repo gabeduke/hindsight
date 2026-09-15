@@ -149,29 +149,7 @@ func (b *ClockBridge) FrameAt(ns int64) (float64, bool) {
 
 	// Local least-squares fit of frame against time over the neighbouring
 	// pairs, excluding any that lie across a dropout from the bracketing one.
-	from, to := i-fitHalfWindow, i+fitHalfWindow
-	if from < 0 {
-		from = 0
-	}
-	if to > b.count-1 {
-		to = b.count - 1
-	}
-	for k := i; k > from; k-- {
-		t1, _ := b.at(k)
-		t0, _ := b.at(k - 1)
-		if t1-t0 > dropoutNS {
-			from = k
-			break
-		}
-	}
-	for k := i; k < to; k++ {
-		t0, _ := b.at(k)
-		t1, _ := b.at(k + 1)
-		if t1-t0 > dropoutNS {
-			to = k
-			break
-		}
-	}
+	from, to := b.fitWindow(i)
 	n := float64(to - from + 1)
 	if n < 2 {
 		return float64(fI) + float64(ns-tI)*b.sampleRate/1e9, true
@@ -194,6 +172,36 @@ func (b *ClockBridge) FrameAt(ns int64) (float64, bool) {
 	}
 	intercept := (sy - slope*sx) / n
 	return float64(fI) + intercept + slope*float64(ns-tI), true
+}
+
+// fitWindow is the range of pairs the local fit around pair i uses:
+// fitHalfWindow either side, clipped to the history and cut at any dropout.
+// Called with mu held.
+func (b *ClockBridge) fitWindow(i int) (from, to int) {
+	from, to = i-fitHalfWindow, i+fitHalfWindow
+	if from < 0 {
+		from = 0
+	}
+	if to > b.count-1 {
+		to = b.count - 1
+	}
+	for k := i; k > from; k-- {
+		t1, _ := b.at(k)
+		t0, _ := b.at(k - 1)
+		if t1-t0 > dropoutNS {
+			from = k
+			break
+		}
+	}
+	for k := i; k < to; k++ {
+		t0, _ := b.at(k)
+		t1, _ := b.at(k + 1)
+		if t1-t0 > dropoutNS {
+			to = k
+			break
+		}
+	}
+	return from, to
 }
 
 // NSAt is the inverse: the monotonic moment a ring frame was being
@@ -225,13 +233,20 @@ func (b *ClockBridge) NSAt(frame uint64) (int64, bool) {
 	}
 	i := lo
 	tI, fI := b.at(i)
-	from, to := i-fitHalfWindow, i+fitHalfWindow
-	if from < 0 {
-		from = 0
+	if i+1 < b.count {
+		// A dropout follows pair i. The frame recorded at the gap's start
+		// was the last one converted before it; the frames between it and
+		// the next pair belong to the first block after the gap, converted
+		// just before that pair. A fit across the gap would put either
+		// minutes away.
+		if tNext, fNext := b.at(i + 1); tNext-tI > dropoutNS {
+			if frame == fI {
+				return tI - b.pipelineNS, true
+			}
+			return tNext - int64((float64(fNext)-float64(frame))*1e9/b.sampleRate) - b.pipelineNS, true
+		}
 	}
-	if to > b.count-1 {
-		to = b.count - 1
-	}
+	from, to := b.fitWindow(i)
 	n := float64(to - from + 1)
 	var sx, sy, sxx, sxy float64
 	for k := from; k <= to; k++ {
