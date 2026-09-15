@@ -514,3 +514,42 @@ func writeWAVHeader(t *testing.T, path string, sampleRate int) {
 		t.Fatal(err)
 	}
 }
+
+// The EP sends clock but never Start, so the bar phase is unknown: nothing
+// snaps, bar 1 is the take's first frame by convention, and the .mid's grid
+// is still a true 120 BPM lane with the pulses on whole pulses.
+func TestExportWithClockButNoStartUsesTheWindowStart(t *testing.T) {
+	r := newRig(t, 60)
+	r.clock(10.02, 40, 120, false)
+	r.note(2, 12.0, 0, 60, 100)
+	r.note(2, 12.5, 0, 60, 0)
+	ex := New(r.src, 0, "EP-136")
+	if _, ok := ex.SnapStart(r.bridge, 11*rate, 5*rate, 60*rate); ok {
+		t.Error("snapped with no Start to fix the phase")
+	}
+	if err := ex.Export(r.request(10, 30)); err != nil {
+		t.Fatal(err)
+	}
+	m := readManifest(t, r.wav)
+	if m.Downbeat == nil || m.Downbeat.Source != "window-start" || m.Downbeat.Tick != 0 || m.Downbeat.Aligned != "bar" {
+		t.Errorf("downbeat = %+v", m.Downbeat)
+	}
+	if m.TempoSource != midi.SourceClock || m.TempoBPM == nil || math.Abs(*m.TempoBPM-120) > 0.5 {
+		t.Errorf("tempo_source=%q bpm=%v", m.TempoSource, m.TempoBPM)
+	}
+	if meta := audio.ReadMeta(r.wav); meta.DownbeatFrame != nil {
+		t.Errorf("a by-convention downbeat was stamped into the sidecar: %v", *meta.DownbeatFrame)
+	}
+	b, _ := os.ReadFile(audio.MIDIPath(r.wav))
+	f, _ := smf.Decode(b)
+	tempo := midi.FromConductor(f.Tracks[0], f.PPQ)
+	on := f.Tracks[1].Events[1]
+	if got := tempo.Seconds(on.Tick); math.Abs(got-2.0) > 0.003 {
+		t.Errorf("note-on at %.4fs, want 2.0", got)
+	}
+	// The first pulse was 20 ms in: pulse 1 of bar 1 at 120 BPM (a pulse is
+	// 20.8 ms), so its tick is 40 and the lead-in ran at a musical tempo.
+	if lead := tempo.BPMAt(0.01); lead < 60 || lead > 240 {
+		t.Errorf("lead-in tempo %.0f BPM", lead)
+	}
+}

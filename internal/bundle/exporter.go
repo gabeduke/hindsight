@@ -78,7 +78,7 @@ type Manifest struct {
 
 	TempoSource string         `json:"tempo_source"`
 	ClockDevice string         `json:"clock_device"`
-	TempoBPM    *float64       `json:"tempo_bpm,omitempty"` // at the downbeat, or the first segment
+	TempoBPM    *float64       `json:"tempo_bpm,omitempty"` // in force at the window's middle pulse
 	Downbeat    *midi.Downbeat `json:"downbeat,omitempty"`
 	Pulses      int            `json:"clock_pulses"`
 
@@ -207,12 +207,10 @@ func (e *Exporter) Export(req audio.MIDIExportRequest) error {
 	if m.Tracks == nil {
 		m.Tracks = []midi.TrackStats{}
 	}
-	if tempo.Source != midi.SourceFallback {
-		at := 0.0
-		if downbeat != nil {
-			at = downbeat.Sec
-		}
-		bpm := tempo.BPMAt(at)
+	if tempo.Source != midi.SourceFallback && len(pulses) > 0 {
+		// The tempo in force at the window's middle pulse: representative
+		// of the take, and never the lead-in, which may be bent.
+		bpm := tempo.BPMAt(pulses[len(pulses)/2].Sec)
 		m.TempoBPM = &bpm
 	}
 	m.Devices = e.manifestDevices(stats)
