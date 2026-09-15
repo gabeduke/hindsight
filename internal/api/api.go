@@ -92,6 +92,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/slice", a.handleSlice).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/render", a.handleRender).Methods(http.MethodGet)
 	r.HandleFunc("/api/midi", a.handleMIDI).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/bundle", a.handleBundle).Methods(http.MethodGet)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
