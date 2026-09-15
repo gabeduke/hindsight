@@ -28,8 +28,11 @@ needs the process to boot.
 Anything that is not specifically about the audio device can be developed and
 tested this way, and CI checks that the demo still boots without cgo on every
 run. That includes MIDI: the demo's sequencer plays along with the loop, so a
-demo take gets a `.mid` and a manifest, and `scripts/midi-calibrate.py` run on
-it should report an offset under a millisecond. The rawmidi readers are
+demo take gets a `.mid` and a manifest, and `scripts/midi-calibrate.py --note 36`
+run on it should report a median offset within a couple of milliseconds. Its
+spread will be wide: the demo's bass and hats never stop, and the transient
+detector is written for isolated hits, which the real rig can play and the demo
+cannot. The rawmidi readers are
 tested against FIFOs standing in for device nodes, so the hotplug and
 backlog behaviour is covered on a Mac too.
 

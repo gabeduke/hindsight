@@ -362,6 +362,14 @@ Response: `200 {"name": "jam_2026-09-10_221441.wav"}`.
 | 404 | No such take |
 | 507 | Below `MIN_FREE_GB` |
 
+If the source take has a `.mid`, the cut gets the region of it: re-based so
+the cut's first frame is tick 0, with the source's tempo lane over that
+stretch, notes sounding at the region's start clipped to it and notes still
+sounding at its end closed there. Its manifest carries a `source` block naming
+the take and frames it came from, and its `downbeat` is the first bar line of
+the source at or after the region's start — reported, not aligned, since the
+region was chosen by ear rather than by the grid.
+
 ## `GET /api/slice?file=&from=&to=`
 
 Streams frames `[from, to)` as a complete **16-bit** PCM WAV with the same

@@ -57,6 +57,14 @@ type MIDIExporter interface {
 	Export(req MIDIExportRequest) error
 }
 
+// MIDICutter is the optional half of a MIDIExporter that can carry a take's
+// MIDI along when a region of it is cut into a new take: the region of the
+// source's .mid, re-based to the cut's first frame. Called after the cut's
+// WAV and sidecar exist; a failure is logged and the cut keeps its audio.
+type MIDICutter interface {
+	CutMIDI(srcWav, dstWav string, startFrame, endFrame int64) error
+}
+
 // BarSnapper is the optional half of a MIDIExporter that knows where the
 // downbeats are. Given the window Save is about to take, in absolute ring
 // frames, it returns the downbeat the window should start on instead: the
@@ -106,6 +114,26 @@ func (s *Saver) midiExporter() MIDIExporter {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.midi
+}
+
+// CutMIDI carries the source's MIDI over to a cut, if the exporter can. It
+// runs under the same recover as every other MIDI step: nothing here may
+// fail the cut.
+func (s *Saver) CutMIDI(dir, srcName, dstName string, startFrame, endFrame int64) {
+	c, ok := s.midiExporter().(MIDICutter)
+	if !ok {
+		return
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			log.Printf("[!] midi: cutter panicked for %s: %v", dstName, p)
+		}
+	}()
+	src := filepath.Join(dir, filepath.Base(srcName))
+	dst := filepath.Join(dir, filepath.Base(dstName))
+	if err := c.CutMIDI(src, dst, startFrame, endFrame); err != nil {
+		log.Printf("[!] midi: cut for %s: %v", dstName, err)
+	}
 }
 
 func (s *Saver) tempoSource() TempoSource {

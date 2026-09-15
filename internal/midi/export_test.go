@@ -220,3 +220,51 @@ func TestBuildSMFWithNoEventsIsJustAConductor(t *testing.T) {
 		t.Fatalf("tracks=%d stats=%+v", len(f.Tracks), st)
 	}
 }
+
+func TestFromConductorRoundTrips(t *testing.T) {
+	m := &TempoMap{Segments: []Segment{
+		{0, 0, smf.USPerQuarter(120)},
+		{2, 3840, smf.USPerQuarter(60)},
+		{5, 6720, smf.USPerQuarter(90)},
+	}}
+	back := FromConductor(smf.Track{Events: m.Conductor()}, smf.DefaultPPQ)
+	if len(back.Segments) != 3 {
+		t.Fatalf("segments = %+v", back.Segments)
+	}
+	for _, sec := range []float64{0.5, 2, 3.7, 5, 9} {
+		if a, b := m.Tick(sec), back.Tick(sec); a != b {
+			t.Errorf("Tick(%v): %d vs %d", sec, a, b)
+		}
+	}
+	// A file whose first tempo event is not at tick 0 gets the spec's 120
+	// BPM lead-in.
+	f := FromConductor(smf.Track{Events: []smf.Event{smf.Tempo(1920, smf.USPerQuarter(60))}}, smf.DefaultPPQ)
+	if f.Tick(1) != 1920 || f.Tick(2) != 2880 {
+		t.Errorf("lead-in wrong: Tick(1)=%d Tick(2)=%d", f.Tick(1), f.Tick(2))
+	}
+}
+
+func TestTempoMapSlice(t *testing.T) {
+	m := &TempoMap{Source: SourceClock, Segments: []Segment{
+		{0, 0, smf.USPerQuarter(120)},
+		{2, 3840, smf.USPerQuarter(60)},
+		{5, 6720, smf.USPerQuarter(90)},
+	}, Markers: []Marker{{1, "a"}, {3, "b"}, {7, "c"}}}
+	s := m.Slice(1.5, 6)
+	// Tick 0 of the slice is second 1.5 of the source: tick 2880.
+	if s.Tick(0) != 0 || s.Source != SourceClock {
+		t.Errorf("Tick(0)=%d source=%q", s.Tick(0), s.Source)
+	}
+	for _, sec := range []float64{0, 0.25, 0.5, 2, 3.5, 4.4} {
+		want := m.Tick(sec+1.5) - m.Tick(1.5)
+		if got := s.Tick(sec); got != want {
+			t.Errorf("Tick(%v) = %d, want %d", sec, got, want)
+		}
+	}
+	if len(s.Segments) != 3 || s.Segments[1].StartSec != 0.5 || s.Segments[1].StartTick != 960 {
+		t.Errorf("segments = %+v", s.Segments)
+	}
+	if len(s.Markers) != 1 || s.Markers[0].Sec != 1.5 || s.Markers[0].Text != "b" {
+		t.Errorf("markers = %+v", s.Markers)
+	}
+}

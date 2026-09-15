@@ -370,3 +370,147 @@ func TestSnapStartNeedsAStart(t *testing.T) {
 		t.Error("snapped without a Start to fix the phase")
 	}
 }
+
+// A cut carries the region of the source's MIDI: re-based to the cut's first
+// frame, same tempo lane, notes sounding at the region's start clipped to
+// it, notes sounding at its end closed there.
+func TestCutMIDICarriesTheRegion(t *testing.T) {
+	r := newRig(t, 60)
+	r.clock(10.5, 40, 120, true)
+	r.note(2, 12.0, 0, 60, 100) // 2.0 s into the source take
+	r.note(2, 12.5, 0, 60, 0)
+	r.note(2, 14.0, 0, 64, 90) // sounding across the region start (15 s)
+	r.note(2, 16.0, 0, 64, 0)
+	r.note(2, 17.0, 0, 67, 80) // inside the region
+	r.note(2, 17.25, 0, 67, 0)
+	r.note(2, 19.0, 0, 69, 70) // still sounding at the region's end (20 s)
+	r.note(2, 22.0, 0, 69, 0)
+	r.note(1, 18.0, 9, 36, 127) // EP ch10 inside
+	r.note(2, 25.0, 0, 71, 60)  // after
+	ex := New(r.src, 0, "EP-136")
+	if err := ex.Export(r.request(10, 30)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Cut seconds 5..10 of the take (15..20 of the ring) into a new take.
+	dst := filepath.Join(r.dir, "jam_cut.wav")
+	os.WriteFile(dst, []byte("wav"), 0o644)
+	// CutMIDI reads the source's sample rate from its WAV header, which the
+	// fixture's fake WAV does not have; write a real header.
+	writeWAVHeader(t, r.wav, rate)
+	if err := ex.CutMIDI(r.wav, dst, 5*rate, 10*rate); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := os.ReadFile(audio.MIDIPath(dst))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := smf.Decode(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Tracks) != 3 {
+		t.Fatalf("got %d tracks, want conductor + EP ch10 + Orchid ch1", len(f.Tracks))
+	}
+	tempo := midi.FromConductor(f.Tracks[0], f.PPQ)
+	orchid := f.Tracks[2].Events
+	if orchid[0].Text() != "Orchid ch1" {
+		t.Errorf("track name %q", orchid[0].Text())
+	}
+	type n struct {
+		on   bool
+		note byte
+		sec  float64
+	}
+	var got []n
+	for _, ev := range orchid[1:] {
+		if ev.IsMeta() {
+			continue
+		}
+		// The fixture's note-offs are velocity-zero note-ons, as most
+		// keyboards send them; both shapes are an off.
+		got = append(got, n{ev.Status&0xF0 == 0x90 && ev.D2 > 0, ev.D1, tempo.Seconds(ev.Tick)})
+	}
+	want := []n{
+		{true, 64, 0},     // clipped to the start
+		{false, 64, 1.0},  // its real off
+		{true, 67, 2.0},   // inside
+		{false, 67, 2.25}, //
+		{true, 69, 4.0},   // on, then closed at the end
+		{false, 69, 5.0},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("events = %+v\nwant %+v", got, want)
+	}
+	for i := range want {
+		if got[i].on != want[i].on || got[i].note != want[i].note || math.Abs(got[i].sec-want[i].sec) > 0.003 {
+			t.Errorf("event %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+	// The tempo lane is the source's: 120 BPM, a quarter is 960 ticks.
+	if d := orchid[4].Tick - orchid[3].Tick; d < 470 || d > 490 {
+		t.Errorf("a sixteenth is %d ticks, want ~480", d)
+	}
+
+	m := readManifest(t, dst)
+	if m.Source == nil || m.Source.Take != "jam_test.wav" || m.Source.StartFrame != 5*rate {
+		t.Errorf("manifest source = %+v", m.Source)
+	}
+	if m.TempoSource != midi.SourceClock || m.TempoBPM == nil || math.Abs(*m.TempoBPM-120) > 0.1 {
+		t.Errorf("tempo_source=%q bpm=%v", m.TempoSource, m.TempoBPM)
+	}
+	// Source downbeat at 0.5 s; bars every 2 s; the first at or after 5 s
+	// is 6.5 s, which is 1.5 s into the cut and not on a bar line there.
+	if m.Downbeat == nil || math.Abs(m.Downbeat.Sec-1.5) > 0.003 || m.Downbeat.Aligned != "none" {
+		t.Errorf("downbeat = %+v", m.Downbeat)
+	}
+	if meta := audio.ReadMeta(dst); meta.DownbeatFrame == nil || math.Abs(float64(*meta.DownbeatFrame)-1.5*rate) > 0.003*rate {
+		t.Errorf("DownbeatFrame = %v", meta.DownbeatFrame)
+	}
+	if len(m.Devices) != 2 || m.Devices[1].Name != "Orchid" || m.Devices[1].Events != 5 {
+		t.Errorf("devices = %+v", m.Devices)
+	}
+}
+
+func TestCutMIDIWithNoSourceMIDIDoesNothing(t *testing.T) {
+	r := newRig(t, 30)
+	dst := filepath.Join(r.dir, "jam_cut.wav")
+	if err := New(r.src, 0, "EP-136").CutMIDI(r.wav, dst, 0, rate); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(audio.MIDIPath(dst)); err == nil {
+		t.Error("a .mid appeared from nothing")
+	}
+}
+
+// writeWAVHeader overwrites path with a minimal 32-bit stereo WAV header
+// claiming one second of audio, enough for ReadWAVInfo.
+func writeWAVHeader(t *testing.T, path string, sampleRate int) {
+	t.Helper()
+	dataLen := uint32(sampleRate * 2 * 4)
+	h := make([]byte, 44)
+	copy(h[0:], "RIFF")
+	put32 := func(off int, v uint32) {
+		h[off] = byte(v)
+		h[off+1] = byte(v >> 8)
+		h[off+2] = byte(v >> 16)
+		h[off+3] = byte(v >> 24)
+	}
+	put16 := func(off int, v uint16) { h[off] = byte(v); h[off+1] = byte(v >> 8) }
+	put32(4, 36+dataLen)
+	copy(h[8:], "WAVE")
+	copy(h[12:], "fmt ")
+	put32(16, 16)
+	put16(20, 1)
+	put16(22, 2)
+	put32(24, uint32(sampleRate))
+	put32(28, uint32(sampleRate*2*4))
+	put16(32, 8)
+	put16(34, 32)
+	copy(h[36:], "data")
+	put32(40, dataLen)
+	if err := os.WriteFile(path, h, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}

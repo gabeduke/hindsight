@@ -618,6 +618,12 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not cut")
 		return
 	}
+	// The region of the source's MIDI goes with the cut. Synchronous, like a
+	// save's export, so has_midi is right on the first listing; it reads two
+	// small files and cannot fail the cut.
+	if a.saver != nil {
+		a.saver.CutMIDI(a.cfg.OutputDir, name, out, body.StartFrame, body.EndFrame)
+	}
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
 	go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels()))

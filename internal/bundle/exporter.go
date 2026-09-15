@@ -85,6 +85,9 @@ type Manifest struct {
 	Devices []ManifestDevice  `json:"devices"`
 	Tracks  []midi.TrackStats `json:"tracks"`
 	Dropped ManifestDropped   `json:"dropped"`
+
+	// Source is present only on a cut: the take and region it came from.
+	Source *ManifestSource `json:"source,omitempty"`
 }
 
 // ManifestDevice is one device that contributed to the file.

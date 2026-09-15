@@ -208,7 +208,8 @@ had just been handed over.
 What remains after that is the instrument's own latency and the cable, a
 constant of a few milliseconds that `MIDI_LATENCY_MS` holds and
 `scripts/midi-calibrate.py` measures. Against the demo, whose MIDI is derived
-from the same frame counter as its audio, the script reads +0.8 ms.
+from the same frame counter as its audio, the script's median reads within a
+couple of milliseconds of zero.
 
 ### The tempo map, and why takes start on a downbeat
 

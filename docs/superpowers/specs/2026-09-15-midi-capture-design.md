@@ -271,8 +271,9 @@ percussive from one instrument with nothing else running, save, run the
 script, put the number in `MIDI_LATENCY_MS`. Positive means the audio landed
 after the MIDI, which is the normal case; the manifest records what was
 applied, so the script prints the new total rather than a delta. Against the
-demo, whose MIDI is derived from the same frame counter as its audio, it reads
-+0.8 ms.
+demo, whose MIDI is derived from the same frame counter as its audio, its
+median reads within a couple of milliseconds of zero; the spread is wide
+because the demo never plays an isolated hit.
 
 ## Open decisions for the owner
 

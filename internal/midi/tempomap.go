@@ -142,3 +142,69 @@ func (m *TempoMap) BPMAt(sec float64) float64 {
 	}
 	return 60e6 / float64(m.Segments[lo].USPerQuarter)
 }
+
+// FromConductor rebuilds a TempoMap from a file's conductor track, so a
+// take's .mid can be read back and its ticks converted to seconds the way a
+// DAW would. Only tempo events matter; markers are not recovered.
+func FromConductor(track smf.Track, ppq uint16) *TempoMap {
+	m := &TempoMap{PPQ: ppq}
+	var sec float64
+	var lastTick uint64
+	var lastUS uint32
+	for _, e := range track.Events {
+		us := e.Tempo()
+		if us == 0 {
+			continue
+		}
+		if lastUS != 0 {
+			sec += float64(e.Tick-lastTick) * float64(lastUS) / 1e6 / float64(m.ppq())
+		} else if e.Tick > 0 {
+			// Ticks before the first tempo event are 120 BPM by the
+			// specification.
+			sec = float64(e.Tick) * 500000 / 1e6 / float64(m.ppq())
+			m.Segments = append(m.Segments, Segment{0, 0, 500000})
+		}
+		m.Segments = append(m.Segments, Segment{StartSec: sec, StartTick: e.Tick, USPerQuarter: us})
+		lastTick, lastUS = e.Tick, us
+	}
+	if len(m.Segments) == 0 {
+		m.Segments = []Segment{{0, 0, 500000}}
+	}
+	return m
+}
+
+// Slice re-bases the map onto [startSec, endSec): second 0 and tick 0 of
+// the result are startSec of this map, and every tempo change inside the
+// range keeps its place. Used when a region of a take is cut into a new
+// take, so the cut's .mid carries the same tempo lane over its stretch.
+func (m *TempoMap) Slice(startSec, endSec float64) *TempoMap {
+	out := &TempoMap{PPQ: m.PPQ, Source: m.Source}
+	if len(m.Segments) == 0 {
+		return FixedTempoMap(FallbackBPM)
+	}
+	t0 := m.Tick(startSec)
+	// The segment in force at startSec opens the slice at 0.
+	cur := m.Segments[0]
+	for _, s := range m.Segments {
+		if s.StartSec <= startSec {
+			cur = s
+		}
+	}
+	out.Segments = append(out.Segments, Segment{0, 0, cur.USPerQuarter})
+	for _, s := range m.Segments {
+		if s.StartSec <= startSec || s.StartSec >= endSec {
+			continue
+		}
+		out.Segments = append(out.Segments, Segment{
+			StartSec:     s.StartSec - startSec,
+			StartTick:    s.StartTick - t0,
+			USPerQuarter: s.USPerQuarter,
+		})
+	}
+	for _, mk := range m.Markers {
+		if mk.Sec >= startSec && mk.Sec < endSec {
+			out.Markers = append(out.Markers, Marker{Sec: mk.Sec - startSec, Text: mk.Text})
+		}
+	}
+	return out
+}
