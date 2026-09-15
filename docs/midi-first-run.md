@@ -34,10 +34,17 @@ enumerated as a power sink there will be a card with no `midi` node, or no
 card at all; unplug, wait, replug. The watcher picks it up within two
 seconds of the node appearing — no restart.
 
-**Bento:** the plan's open question — does the device port send MIDI to a
-host on current firmware? If a `midiC<N>D0` node exists for it, run step 3
-and look for its events. If it exists but never sends, the KeyStep's own
-USB port is the fallback for its notes.
+**Bento:** answered 2026-09-15. Its USB-C *device* port is a USB MIDI device
+to the Pi from firmware 1.5 (July 2026) onward; older firmware and the older
+forum threads are why this was ever in doubt. Controllers such as the KeyStep
+go on bento's *host* port and are re-sent by whichever bento track they play,
+so nothing needs a second cable. Two things bento does by default: it sends
+clock on every output whenever its transport runs and offers no way to turn
+that off, so its `bytes` climb the moment a sequence starts; and it sends
+**no notes** until each track is told to. On bento: Track menu → Config Track
+→ `MIDIOutPrt` = `USB` (or `All`) and `MIDI OutCh` = a channel — the channel
+defaults to `None`, which is silence. Give every track its own channel; the
+`.mid` gets one track per channel.
 
 ## 3. Watch the events arrive
 
@@ -104,6 +111,19 @@ restart. A spread of a few milliseconds is normal. A spread of tens is the
 one result that would argue for the ALSA sequencer's kernel timestamps over
 the userspace ones this build uses — say so and that becomes the next piece.
 
+**Do not run it on an ordinary take.** On a 30s bento sequence with drums,
+bass and chords all playing it reported −141 ms with a tight spread, which
+was the *previous drum hit* — 136 ms before every chord in the quantized
+pattern — and not the chord's own transient at +20 ms. The script's "nearest
+transient" is only meaningful when the nearest transient is the note's own.
+
+What a careful look at that take did show (2026-09-15): bento's one-shot
+drums land within a few ms of their note-on, its chord and multisample
+tracks about 20 ms after. bento's engines differ, so no single number lands
+everything; the Pi runs `MIDI_LATENCY_MS=20`, which puts the chord tracks on
+their transients and the drums 20 ms late. A dedicated calibration take per
+engine would sharpen that if it ever matters.
+
 ## 6. Drop it in the DAW
 
 New project. Import the take's WAV at the project start; import the `.mid`
@@ -111,6 +131,16 @@ at the project start with "import tempo map" (Reaper asks; Logic imports it;
 Ableton takes the file's tempo at import). The kick you played should sit on
 its own transient, the bar lines should sit on the downbeats, and each
 instrument and channel should be its own named track.
+
+**GarageBand** (verified 2026-09-15): opening the downloaded `.mid` directly
+creates a project with one software-instrument track per file track, named
+as the file names them (`bento ch1` …), at the file's tempo. Then drag the
+WAV from Finder into the empty area under the tracks and drop it at bar 1 —
+GarageBand has no audio-import menu. It may append "(+12 semitones)" to a
+track it gave a bass patch; that is its transpose, not the file's. The MIDI
+regions run to the take's end while the last note falls earlier: every track
+is written to end at the take's length so the import is sized by the take,
+not by the last note.
 
 If the notes are consistently early or late by the same amount, that is step
 5's number. If they drift apart over the take, that is the clock bridge

@@ -172,7 +172,15 @@ MIDI later, which is the normal direction.
 `scripts/midi-calibrate.py` measures it: play isolated hits from one
 instrument, save, run the script on the take, and it prints the number to
 set. The manifest beside each take records what was applied, so the script
-can tell you the *new* total rather than a delta.
+can tell you the *new* total rather than a delta. Only trust it on a take
+made for it — on a full sequence it locks onto neighbouring hits and reports
+nonsense with a convincingly tight spread (see the first-run notes).
+
+For this rig the number is **20**, measured 2026-09-15 against bento over
+the EP-136: bento's one-shot drums arrive within a few milliseconds of their
+note-on, its chord and multisample engines about 20 ms later. One constant
+cannot fit both; 20 puts the chord tracks on their transients and leaves the
+drums 20 ms late, which at 82 BPM is under a 64th note.
 
 ### Why `MIDI_SNAP_BARS` is on
 
