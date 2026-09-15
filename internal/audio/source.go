@@ -1,5 +1,7 @@
 package audio
 
+import "time"
+
 // Source is a live audio input feeding interleaved int32 frames into the
 // capture pipeline.
 //
@@ -28,4 +30,14 @@ type Source interface {
 
 	// Shutdown releases process-wide resources. Called once, from Stop.
 	Shutdown() error
+}
+
+// Latent is an optional Source capability: the delay between a sample being
+// converted by the interface and the block holding it reaching the sink.
+// PortAudio reports it for a real stream; the demo source has none. It is
+// what lets a MIDI event be placed against the frame that was *being
+// converted* when it arrived, rather than the one that had just been handed
+// over, which at INPUT_LATENCY_MS=100 is a tenth of a second apart.
+type Latent interface {
+	InputLatency() time.Duration
 }

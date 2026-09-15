@@ -66,6 +66,21 @@ func (s *deviceSource) Open(sink func([]int32)) (string, error) {
 	return dev.Name, nil
 }
 
+// InputLatency reports what PortAudio actually gave the stream, which need
+// not be what INPUT_LATENCY_MS asked for.
+func (s *deviceSource) InputLatency() time.Duration {
+	s.mu.Lock()
+	st := s.stream
+	s.mu.Unlock()
+	if st == nil {
+		return 0
+	}
+	if info := st.Info(); info != nil {
+		return info.InputLatency
+	}
+	return 0
+}
+
 func (s *deviceSource) Close() {
 	s.mu.Lock()
 	st := s.stream

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gabeduke/hindsight/internal/mono"
 )
 
 // blockPoolSize bounds how much audio can be in flight between the source's
@@ -30,6 +31,13 @@ type Capture struct {
 	flags  *FlagStore
 	levels *Levels
 	env    *Envelope
+	bridge *ClockBridge
+
+	// handed counts frames handed to the ring writer. Touched only on the
+	// source's delivery goroutine, so it needs no atomic; it is what the
+	// bridge records, and it equals ring.TotalFrames once the writer catches
+	// up, because a block that is dropped advances neither.
+	handed uint64
 
 	free   chan []int32
 	filled chan []int32
@@ -66,6 +74,13 @@ func NewCapture(cfg *config.Config, src Source) *Capture {
 	// the same pair even under SAVE_ALL_CHANNELS.
 	c.env = NewEnvelope(cfg.RingSeconds*1000/levelBinMillis, cfg.SaveChannels, levelBinMillis)
 	c.levels.SetEnvelope(c.env)
+	// One pair per block over the whole ring, plus slack for a source that
+	// delivers smaller blocks than configured.
+	fpb := cfg.FramesPerBuf
+	if fpb < 1 {
+		fpb = 1
+	}
+	c.bridge = NewClockBridge(cfg.RingFrames()/fpb*2+64, cfg.SampleRate)
 	c.deviceName.Store("")
 	c.lastErr.Store("")
 	return c
@@ -94,6 +109,9 @@ func (c *Capture) MarkNow() (uint64, bool) {
 }
 
 func (c *Capture) Envelope() *Envelope { return c.env }
+
+// Bridge ties ring frames to the monotonic clock, for placing MIDI.
+func (c *Capture) Bridge() *ClockBridge { return c.bridge }
 
 func (c *Capture) Healthy() bool {
 	if !c.healthy.Load() {
@@ -196,6 +214,9 @@ func (c *Capture) supervise() {
 		backoff = time.Second
 		c.lastErr.Store("")
 		c.deviceName.Store(name)
+		if l, ok := c.src.(Latent); ok {
+			c.bridge.SetPipelineLatency(int64(l.InputLatency()))
+		}
 		c.lastCallback.Store(time.Now().UnixNano())
 		c.healthy.Store(true)
 		log.Printf("[*] capture live on %q — ring %ds, %d ch @ %d Hz",
@@ -242,6 +263,8 @@ func (c *Capture) processAudio(in []int32) {
 		n := copy(block, in)
 		select {
 		case c.filled <- block[:n]:
+			c.handed += uint64(n / c.cfg.Channels)
+			c.bridge.Record(mono.Now(), c.handed)
 		default:
 			c.xruns.Add(1)
 			select {

@@ -36,6 +36,27 @@ type TempoSource interface {
 	BPM(start, end time.Time) (float64, bool)
 }
 
+// MIDIExportRequest describes the take a MIDIExporter should write sidecars
+// for. Frames are absolute ring frames, the same clock FlagStore uses, so the
+// exporter can place a monotonic timestamp against the take through Bridge.
+type MIDIExportRequest struct {
+	WavPath    string
+	StartFrame uint64 // the take's first frame, as an absolute ring frame
+	Frames     int    // the take's length
+	SampleRate int
+	Bridge     *ClockBridge
+	SavedAt    time.Time
+}
+
+// MIDIExporter writes a take's MIDI sidecars: the .mid and its manifest.
+//
+// Like TempoSource it is an interface, and audio does not import midi, so a
+// failure anywhere in MIDI has no path into the capture thread. The
+// implementation is bundle.Exporter; nil means takes carry no MIDI.
+type MIDIExporter interface {
+	Export(req MIDIExportRequest) error
+}
+
 // Saver turns a slice of the ring into a take on disk, plus a preview and
 // waveform peaks.
 type Saver struct {
@@ -45,6 +66,7 @@ type Saver struct {
 	lastSaved string
 	saving    bool
 	tempo     TempoSource
+	midi      MIDIExporter
 }
 
 func NewSaver(c *Capture) *Saver { return &Saver{cap: c} }
@@ -55,6 +77,20 @@ func (s *Saver) SetTempoSource(t TempoSource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tempo = t
+}
+
+// SetMIDIExporter attaches the MIDI sidecar writer. Nil, or never called,
+// means takes carry no MIDI.
+func (s *Saver) SetMIDIExporter(e MIDIExporter) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.midi = e
+}
+
+func (s *Saver) midiExporter() MIDIExporter {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.midi
 }
 
 func (s *Saver) tempoSource() TempoSource {
@@ -157,6 +193,15 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	stampTempo(wavPath, s.tempoSource(), capturedAt,
 		time.Duration(float64(gotFrames)/float64(cfg.SampleRate)*float64(time.Second)))
 
+	exportMIDI(s.midiExporter(), MIDIExportRequest{
+		WavPath:    wavPath,
+		StartFrame: winStart,
+		Frames:     gotFrames,
+		SampleRate: cfg.SampleRate,
+		Bridge:     s.cap.Bridge(),
+		SavedAt:    capturedAt,
+	})
+
 	s.mu.Lock()
 	s.lastSaved = name
 	s.mu.Unlock()
@@ -217,6 +262,25 @@ func stampTempo(wavPath string, src TempoSource, end time.Time, window time.Dura
 		return
 	}
 	log.Printf("[*] %s — %.2f BPM", filepath.Base(wavPath), bpm)
+}
+
+// exportMIDI writes the take's MIDI sidecars, if there is an exporter.
+//
+// The same rule as stampTempo, for the same reason: the WAV is on disk, and
+// nothing MIDI -- no devices, no events, a panic in the SMF writer -- may
+// turn that into a failed save. The worst case is a take with no .mid.
+func exportMIDI(e MIDIExporter, req MIDIExportRequest) {
+	if e == nil {
+		return
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			log.Printf("[!] midi: exporter panicked for %s: %v", filepath.Base(req.WavPath), p)
+		}
+	}()
+	if err := e.Export(req); err != nil {
+		log.Printf("[!] midi: export for %s: %v", filepath.Base(req.WavPath), err)
+	}
 }
 
 // stampFlags records a take's flags in its sidecar and mirrors them into the
@@ -310,7 +374,9 @@ type Take struct {
 	SampleRate int       `json:"sample_rate"`
 	HasPreview bool      `json:"has_preview"`
 	HasPeaks   bool      `json:"has_peaks"`
+	HasMIDI    bool      `json:"has_midi"`
 	Preview    string    `json:"preview_name"`
+	MIDI       string    `json:"midi_name"`
 
 	// From the sidecar. Name above is the filename; Label is what the user
 	// called it.
@@ -349,7 +415,9 @@ func ListTakes(dir string) ([]Take, error) {
 			Created:    info.ModTime(),
 			HasPreview: exists(previewPath(full)),
 			HasPeaks:   exists(peaksPath(full)),
+			HasMIDI:    exists(MIDIPath(full)),
 			Preview:    prev,
+			MIDI:       filepath.Base(MIDIPath(full)),
 		}
 		if wi, err := ReadWAVInfo(full); err == nil {
 			t.Duration = wi.Duration()
@@ -386,10 +454,18 @@ func RemoveTake(dir, name string) {
 	os.Remove(previewPath(base))
 	os.Remove(peaksPath(base))
 	os.Remove(metaPath(base))
+	os.Remove(MIDIPath(base))
+	os.Remove(ManifestPath(base))
 }
 
 func previewPath(wav string) string { return strings.TrimSuffix(wav, ".wav") + "_preview.mp3" }
 func peaksPath(wav string) string   { return strings.TrimSuffix(wav, ".wav") + ".peaks.json" }
+
+// MIDIPath and ManifestPath are the MIDI sidecars for a take's wav path. They
+// are exported because the exporter that writes them lives outside this
+// package, and the two must agree on the names RemoveTake deletes.
+func MIDIPath(wav string) string     { return strings.TrimSuffix(wav, ".wav") + ".mid" }
+func ManifestPath(wav string) string { return strings.TrimSuffix(wav, ".wav") + ".manifest.json" }
 
 func exists(p string) bool { _, err := os.Stat(p); return err == nil }
 

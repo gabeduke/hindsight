@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gabeduke/hindsight/internal/mono"
 )
 
 // MIDI System Realtime status bytes. Every byte at or above ClockByte is a
@@ -42,14 +44,24 @@ const MaxPulsesPerSecond = 160
 
 // Clock is a ring of clock-pulse arrival times.
 //
-// Timestamps are wall-clock nanoseconds, because the only consumer correlates
-// them against a time.Now() taken at save time. An NTP step would corrupt
-// readings that straddle it; on a Pi that has been up for minutes this is not
-// worth defending against, and a wrong BPM is editable.
+// Timestamps are mono nanoseconds -- the same clock the audio bridge records
+// -- so a pulse can be placed against a ring frame. The BPM query still takes
+// time.Time, because that is what its callers hold; a time.Now()-derived
+// value carries the monotonic reading the conversion needs, and every caller
+// in this codebase is one.
+//
+// Alongside each pulse is its index since the last Start message, which is
+// what turns a run of pulses into bars: the pulse after Start is beat 1 of
+// bar 1. Before any Start has been seen the index is unknown.
 type Clock struct {
 	mu       sync.Mutex
 	buf      []int64
+	idx      []int32 // pulse index since the last Start, or -1 for unknown
 	writePos int
+
+	// sinceStart counts pulses since the last Start, or is -1 before one.
+	// Written only by Feed, on one goroutine.
+	sinceStart int32
 
 	pulses    atomic.Uint64
 	starts    atomic.Uint64
@@ -57,13 +69,22 @@ type Clock struct {
 	stops     atomic.Uint64
 }
 
+// Pulse is one clock pulse with its bar-phase index.
+type Pulse struct {
+	NS    int64 // mono
+	Index int32 // pulses since the last Start, or -1 when no Start has been seen
+}
+
+// PulseIndexUnknown is Pulse.Index before any Start has been seen.
+const PulseIndexUnknown int32 = -1
+
 // NewClock sizes the ring in pulses. A capacity below 1 is raised to 1 so the
 // zero case cannot panic in the modulo below.
 func NewClock(capPulses int) *Clock {
 	if capPulses < 1 {
 		capPulses = 1
 	}
-	return &Clock{buf: make([]int64, capPulses)}
+	return &Clock{buf: make([]int64, capPulses), idx: make([]int32, capPulses), sinceStart: PulseIndexUnknown}
 }
 
 // CapacityFor returns a ring size covering ringSeconds at the fastest tempo the
@@ -86,6 +107,11 @@ func (c *Clock) Feed(ts time.Time, b byte) {
 	case ClockByte:
 	case StartByte:
 		c.starts.Add(1)
+		// Start resets the song position: the next pulse is beat 1 of bar 1.
+		// Stored as -1 here and incremented on that pulse to 0.
+		c.mu.Lock()
+		c.sinceStart = -1
+		c.mu.Unlock()
 		return
 	case ContinueByte:
 		c.continues.Add(1)
@@ -98,10 +124,14 @@ func (c *Clock) Feed(ts time.Time, b byte) {
 	}
 
 	c.pulses.Add(1)
-	n := ts.UnixNano()
+	n := mono.Of(ts)
 
 	c.mu.Lock()
+	if c.sinceStart != PulseIndexUnknown || c.starts.Load() > 0 {
+		c.sinceStart++
+	}
 	c.buf[c.writePos] = n
+	c.idx[c.writePos] = c.sinceStart
 	c.writePos = (c.writePos + 1) % len(c.buf)
 	c.mu.Unlock()
 }
@@ -126,7 +156,7 @@ func (c *Clock) Transport() (starts, continues, stops uint64) {
 // above the median, the signature of a tempo that climbed mid-window, and a
 // mean inherits that skew.
 func (c *Clock) BPM(start, end time.Time) (float64, bool) {
-	ts := c.between(start.UnixNano(), end.UnixNano())
+	ts := c.between(mono.Of(start), mono.Of(end))
 	if len(ts) < minPulses {
 		return 0, false
 	}
@@ -171,18 +201,30 @@ func (c *Clock) BPM(start, end time.Time) (float64, bool) {
 }
 
 // between copies out the timestamps in [startNs, endNs] in ascending order.
+func (c *Clock) between(startNs, endNs int64) []int64 {
+	ps := c.PulsesBetween(startNs, endNs)
+	out := make([]int64, len(ps))
+	for i, p := range ps {
+		out[i] = p.NS
+	}
+	return out
+}
+
+// PulsesBetween copies out the pulses in [startNs, endNs] (mono) in ascending
+// order, each with its index since the last Start.
 //
 // It walks backwards from the newest and stops at the first pulse older than
 // the window, so an 8-second status query touches a few hundred entries rather
 // than the whole ring, while a full-ring save query still gets everything.
-func (c *Clock) between(startNs, endNs int64) []int64 {
+func (c *Clock) PulsesBetween(startNs, endNs int64) []Pulse {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	n := len(c.buf)
-	out := make([]int64, 0, 512)
+	out := make([]Pulse, 0, 512)
 	for k := 0; k < n; k++ {
-		ts := c.buf[((c.writePos-1-k)%n+n)%n]
+		i := ((c.writePos-1-k)%n + n) % n
+		ts := c.buf[i]
 		if ts == 0 { // never written
 			break
 		}
@@ -192,7 +234,7 @@ func (c *Clock) between(startNs, endNs int64) []int64 {
 		if ts < startNs {
 			break
 		}
-		out = append(out, ts)
+		out = append(out, Pulse{NS: ts, Index: c.idx[i]})
 	}
 
 	for l, r := 0, len(out)-1; l < r; l, r = l+1, r-1 {

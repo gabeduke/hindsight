@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gabeduke/hindsight/internal/mono"
 )
 
 // writeFakeTake creates a file that ListTakes will pick up. The WAV header is
@@ -439,5 +440,131 @@ func TestStampFlagsKeepsTheSidecarWhenTheCueWriteFails(t *testing.T) {
 	m := ReadMeta(p)
 	if len(m.Flags) != 1 || m.Flags[0].Frame != 5 {
 		t.Errorf("sidecar flags = %+v, want the flag kept despite the cue failure", m.Flags)
+	}
+}
+
+// fakeExporter records what Save asked it to export, or panics, or fails.
+type fakeExporter struct {
+	got    []MIDIExportRequest
+	panics bool
+	err    error
+}
+
+func (f *fakeExporter) Export(req MIDIExportRequest) error {
+	if f.panics {
+		panic("an exporter must never be able to break a save")
+	}
+	f.got = append(f.got, req)
+	if f.err == nil {
+		// Write the sidecar a real exporter would, so ListTakes sees it.
+		os.WriteFile(MIDIPath(req.WavPath), []byte("MThd"), 0o644)
+	}
+	return f.err
+}
+
+func newSaveFixture(t *testing.T) (*config.Config, *Capture, *Saver) {
+	t.Helper()
+	cfg := &config.Config{
+		Channels:     2,
+		SampleRate:   48000,
+		FramesPerBuf: 256,
+		RingSeconds:  10,
+		SaveChannels: []int{0, 1},
+		OutputDir:    t.TempDir(),
+	}
+	cap := NewCapture(cfg, nil)
+	return cfg, cap, NewSaver(cap)
+}
+
+// The exporter is handed the window Save actually snapshotted, in absolute
+// ring frames, and the bridge, so it can place MIDI against those frames.
+func TestSaveHandsTheExporterTheCapturedWindow(t *testing.T) {
+	cfg, cap, saver := newSaveFixture(t)
+	cap.Ring().WriteFrames(make([]int32, 3000*2))
+	cap.Ring().WriteFrames(make([]int32, 3000*2))
+	ex := &fakeExporter{}
+	saver.SetMIDIExporter(ex)
+
+	name, err := saver.Save(0.1) // 4800 frames of the 6000
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if len(ex.got) != 1 {
+		t.Fatalf("exporter called %d times, want 1", len(ex.got))
+	}
+	req := ex.got[0]
+	if req.Frames != 4800 || req.StartFrame != 1200 || req.SampleRate != cfg.SampleRate {
+		t.Errorf("request = %+v, want frames 4800 from 1200", req)
+	}
+	if req.Bridge != cap.Bridge() || req.WavPath != filepath.Join(cfg.OutputDir, name) {
+		t.Errorf("request bridge/path wrong: %+v", req)
+	}
+	if req.SavedAt.IsZero() {
+		t.Error("SavedAt not set")
+	}
+
+	takes, _ := ListTakes(cfg.OutputDir)
+	if !takes[0].HasMIDI || takes[0].MIDI != strings.TrimSuffix(name, ".wav")+".mid" {
+		t.Errorf("take = %+v, want has_midi with the .mid name", takes[0])
+	}
+}
+
+// An exporter that panics or errors is the most hostile version of the rule
+// that a save never fails because of MIDI.
+func TestSaveSurvivesAHostileExporter(t *testing.T) {
+	for _, ex := range []*fakeExporter{{panics: true}, {err: os.ErrPermission}} {
+		cfg, cap, saver := newSaveFixture(t)
+		cap.Ring().WriteFrames(make([]int32, 1000*2))
+		saver.SetMIDIExporter(ex)
+		name, err := saver.Save(0)
+		if err != nil {
+			t.Fatalf("Save with exporter %+v: %v", ex, err)
+		}
+		if _, err := os.Stat(filepath.Join(cfg.OutputDir, name)); err != nil {
+			t.Errorf("take missing after a hostile exporter: %v", err)
+		}
+	}
+}
+
+func TestRemoveTakeDeletesMIDISidecars(t *testing.T) {
+	dir := t.TempDir()
+	wav := writeFakeTake(t, dir, "jam_a.wav", time.Minute)
+	os.WriteFile(MIDIPath(wav), []byte("x"), 0o644)
+	os.WriteFile(ManifestPath(wav), []byte("{}"), 0o644)
+	RemoveTake(dir, "jam_a.wav")
+	for _, p := range []string{wav, MIDIPath(wav), ManifestPath(wav)} {
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("%s survived RemoveTake", filepath.Base(p))
+		}
+	}
+}
+
+// The bridge records a pair for every block the delivery path hands over,
+// and none for a block it drops, so the pairs stay a true account of the
+// ring's contents.
+func TestProcessAudioRecordsBridgePairsOnlyForHandedBlocks(t *testing.T) {
+	_, c, _ := newSaveFixture(t)
+	block := make([]int32, 256*2)
+	for i := 0; i < 5; i++ {
+		c.processAudio(block)
+	}
+	if c.Bridge().Len() != 5 {
+		t.Fatalf("bridge holds %d pairs after 5 blocks, want 5", c.Bridge().Len())
+	}
+	// Fill the filled channel so the next hand-off is dropped as an xrun.
+	for len(c.filled) < cap(c.filled) {
+		c.filled <- block
+	}
+	before := c.XRuns()
+	c.processAudio(block)
+	if c.XRuns() != before+1 {
+		t.Fatalf("expected an xrun, got %d -> %d", before, c.XRuns())
+	}
+	if c.Bridge().Len() != 5 {
+		t.Errorf("a dropped block recorded a pair: %d", c.Bridge().Len())
+	}
+	f, ok := c.Bridge().FrameAt(mono.Now())
+	if !ok || f < 5*256-1 {
+		t.Errorf("FrameAt(now) = %.0f, %v; want about %d", f, ok, 5*256)
 	}
 }

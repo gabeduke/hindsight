@@ -1,6 +1,7 @@
 package midi
 
 import (
+	"github.com/gabeduke/hindsight/internal/mono"
 	"math"
 	"testing"
 	"time"
@@ -183,5 +184,41 @@ func TestBPMOutsideTheWindowIsNoReading(t *testing.T) {
 
 	if _, ok := c.BPM(end.Add(time.Hour), end.Add(2*time.Hour)); ok {
 		t.Error("ok = true for a window with no pulses, want false")
+	}
+}
+
+// Start resets the bar phase: the pulse after it is index 0. Before any Start
+// the index is unknown, and a second Start resets it again.
+func TestClockTracksPulseIndexSinceStart(t *testing.T) {
+	c := NewClock(100)
+	base := time.Now()
+	at := func(ms int) time.Time { return base.Add(time.Duration(ms) * time.Millisecond) }
+
+	c.Feed(at(0), ClockByte)
+	c.Feed(at(10), ClockByte)
+	c.Feed(at(15), StartByte)
+	c.Feed(at(20), ClockByte)
+	c.Feed(at(30), ClockByte)
+	c.Feed(at(35), StopByte)
+	c.Feed(at(40), ClockByte) // clock keeps running after Stop; index keeps counting
+	c.Feed(at(45), StartByte)
+	c.Feed(at(50), ClockByte)
+
+	ps := c.PulsesBetween(mono.Of(at(-1)), mono.Of(at(100)))
+	var idx []int32
+	for _, p := range ps {
+		idx = append(idx, p.Index)
+	}
+	want := []int32{PulseIndexUnknown, PulseIndexUnknown, 0, 1, 2, 0}
+	if len(idx) != len(want) {
+		t.Fatalf("got %v want %v", idx, want)
+	}
+	for i := range want {
+		if idx[i] != want[i] {
+			t.Fatalf("got %v want %v", idx, want)
+		}
+	}
+	if ps[2].NS != mono.Of(at(20)) {
+		t.Errorf("pulse timestamps are not mono: %d vs %d", ps[2].NS, mono.Of(at(20)))
 	}
 }
