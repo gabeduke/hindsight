@@ -222,6 +222,14 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	ts := time.Now().Format("2006-01-02_150405")
 	name := fmt.Sprintf("jam_%s.wav", ts)
 	wavPath := filepath.Join(cfg.OutputDir, name)
+	// Two saves in the same second must not collide: the second becomes _2,
+	// as Cut already does. Overwriting a take is the one failure that loses
+	// audio outright, and a double tap on the capture button is how it
+	// would happen.
+	for n := 2; exists(wavPath); n++ {
+		name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
+		wavPath = filepath.Join(cfg.OutputDir, name)
+	}
 
 	pick := cfg.OutChannels()
 	start := time.Now()

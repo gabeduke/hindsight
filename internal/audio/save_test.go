@@ -637,3 +637,26 @@ func TestSaveDoesNotSnapWhenDisabled(t *testing.T) {
 		t.Errorf("snapper consulted with MIDI_SNAP_BARS=false: asked=%v start=%d", fs.asked, fs.got[0].StartFrame)
 	}
 }
+
+// Two saves within one second get distinct names; the first is not
+// overwritten.
+func TestSaveDoesNotOverwriteASaveFromTheSameSecond(t *testing.T) {
+	cfg, cap, saver := newSaveFixture(t)
+	cap.Ring().WriteFrames(make([]int32, 1000*2))
+	first, err := saver.Save(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := saver.Save(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatalf("both saves are called %s", first)
+	}
+	for _, n := range []string{first, second} {
+		if _, err := os.Stat(filepath.Join(cfg.OutputDir, n)); err != nil {
+			t.Errorf("%s missing: %v", n, err)
+		}
+	}
+}
