@@ -20,7 +20,7 @@ func fixtureMIDI(t *testing.T) []byte {
 		smf.TimeSignature(0, 4, 4),
 		smf.Tempo(0, smf.USPerQuarter(120)),
 		smf.Tempo(960, smf.USPerQuarter(60)),
-		smf.EndOfTrack(4*960),
+		smf.EndOfTrack(4 * 960),
 	}})
 	// bento ch1: a note on beat 1 and a note on beat 3 (after the tempo change).
 	f.Tracks = append(f.Tracks, smf.Track{Events: []smf.Event{

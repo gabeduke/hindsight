@@ -39,7 +39,9 @@ test('a melodic layout spans the track\'s pitch range with C rows tinted', () =>
 
 test('a melodic row is never thinner than 4px', () => {
   const wide = { kind: 'notes', notes: [{ s: 0, e: 1, p: 20, v: 1 }, { s: 0, e: 1, p: 100, v: 1 }] };
-  assert.equal(laneLayout(wide, false).rowH, 4);
+  const L = laneLayout(wide, false);
+  assert.equal(L.rowH, 4);
+  assert.equal(L.h, 81 * 4); // span of 81 (pitches 20..100): the body grows to fit it
 });
 
 test('a drum layout has one row per distinct pitch, lowest at the bottom', () => {

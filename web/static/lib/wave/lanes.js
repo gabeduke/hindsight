@@ -40,10 +40,14 @@ export function laneLayout(track, collapsed) {
   const lo = ps.length ? Math.min(...ps) : 60;
   const hi = ps.length ? Math.max(...ps) : 60;
   const span = hi - lo + 1;
-  const rowH = Math.max(MIN_ROW_PX, LANE_H.notes / span);
+  // LANE_H.notes (56) is a minimum, not a fixed height: a span wide enough
+  // that 56px would floor rowH below MIN_ROW_PX instead grows the body so
+  // every row stays at least 4px tall.
+  const h = Math.max(LANE_H.notes, span * MIN_ROW_PX);
+  const rowH = h / span;
   const rows = [];
   for (let p = hi; p >= lo; p--) rows.push({ top: (hi - p) * rowH, h: rowH, tint: p % 12 === 0 });
-  return { h: LANE_H.notes, rows, rowH, lo, hi, pitchRow: null };
+  return { h, rows, rowH, lo, hi, pitchRow: null };
 }
 
 /** Rects for the notes inside the view, in CSS px of the lane body. */
@@ -123,6 +127,7 @@ export class Lanes {
       meta.className = 'lane-meta mono';
       const chev = document.createElement('span');
       chev.className = 'lane-chev';
+      head.title = 'Tap to collapse · hold to switch drums/notes';
       head.append(swatch, name, meta, chev);
       const body = document.createElement('canvas');
       body.className = 'lane-body';
@@ -139,8 +144,10 @@ export class Lanes {
     const collapsed = !!this.collapsed[c.track.name];
     c.card.classList.toggle('collapsed', collapsed);
     c.chev.textContent = collapsed ? '▸' : '▾';
-    const kind = c.track.kind === 'drums' ? 'triggers' : 'piano roll';
-    c.meta.textContent = `${c.track.notes.length} notes · ${kind}`;
+    const notes = c.track.notes.length;
+    c.meta.textContent = c.track.kind === 'drums'
+      ? `${notes} notes · triggers`
+      : `${notes} notes · ${c.track.device} · piano roll`;
     c.body.style.height = `${laneLayout(c.track, collapsed).h}px`;
   }
 

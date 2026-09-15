@@ -205,6 +205,7 @@ how a take stays in reach once newer ones have pushed it down.
   "bpm": 96,
   "flags": [{ "frame": 100 }, { "frame": 900 }],
   "downbeat_frame": null,
+  "lane_kinds": { "bento ch1": "notes" },
   "source": { "name": "jam_src.wav", "start_frame": 1000, "end_frame": 9000 }
 }]
 ```
@@ -244,7 +245,7 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 The response is the merged result:
 
 ```json
-{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null }
+{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {} }
 ```
 
 If `flags` changed, the sidecar write is also mirrored into the WAV as RIFF

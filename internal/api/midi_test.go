@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -103,7 +102,6 @@ func TestMIDIStatuses(t *testing.T) {
 	if w := do(t, r, http.MethodGet, "/api/midi?file=nomidi.wav"); w.Code != http.StatusUnprocessableEntity {
 		t.Errorf("corrupt .mid: %d", w.Code)
 	}
-	_ = filepath.Base
 }
 
 func TestBundleZipsWavMidAndManifest(t *testing.T) {

@@ -215,7 +215,7 @@ async function main() {
       case 'downbeatChange':
         // The readout is bars and beats *counted from the downbeat*, so moving
         // the downbeat changes it even though the cursor has not moved.
-        state.grid.downbeat = p.frame; updateReadout(); view.draw();
+        state.grid.downbeat = p.frame; updateReadout(); redraw();
         if (p.final) saveDownbeat();
         break;
       // The first viewChange arrives from inside `new WaveView`, before the
@@ -377,9 +377,15 @@ async function main() {
   // Decided once, up front: a browser that cannot hand a file to a share sheet
   // says "Download" from the start rather than surprising the user on tap.
   const shareVerb = canShareFiles() ? 'Share' : 'Download';
+  // fmtTime is m:ss.mmm, for the readout; the button label wants the plainer
+  // m:ss so it stays short enough not to overflow a 320px phone.
+  function fmtMinSec(frames, sampleRate) {
+    const s = Math.floor(frames / sampleRate);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
   function setShareLabel() {
     const r = state.region;
-    shareBtn.textContent = `${shareVerb} MP3 · ${r ? fmtTime(r.end - r.start, sr) : 'whole take'}`;
+    shareBtn.textContent = `${shareVerb} MP3 · ${r ? fmtMinSec(r.end - r.start, sr) : 'whole take'}`;
   }
   shareBtn.addEventListener('click', async () => {
     // The server caps a render at MaxRenderSeconds and would reject this after
@@ -479,7 +485,13 @@ async function main() {
       return;
     }
     if (!res.ok) { toast('Could not load MIDI', 'bad'); return; }
-    const notes = await res.json();
+    let notes;
+    try {
+      notes = await res.json();
+    } catch {
+      toast('Could not load MIDI', 'bad');
+      return;
+    }
     if (!notes.tracks || !notes.tracks.length) return;
     // /api/midi is served immutable, so a browser holding a cached response
     // from before a kind flip would otherwise show the old kind and colour

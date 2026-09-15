@@ -821,6 +821,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
    .wave-row. */
 .edge { display: inline-flex; align-items: center; gap: 4px; }
 .wave-row.action { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.wave-row.action .icon-btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The disc stays 28px so the row keeps its height, but a 28px tap target is
    well under the repo's --tap. The ::after grows the hit area to 48px without
    growing the layout box -- pointer events on the pseudo-element are the
