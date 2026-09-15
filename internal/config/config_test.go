@@ -14,6 +14,8 @@ func clearEnv(t *testing.T) {
 		"DEVICE_MATCH", "CHANNELS", "SAMPLE_RATE", "FRAMES_PER_BUFFER",
 		"INPUT_LATENCY_MS", "RING_SECONDS", "OUTPUT_DIR", "SAVE_CHANNELS",
 		"SAVE_ALL_CHANNELS", "MIN_FREE_GB", "MAX_SAVES", "PORT",
+		"MIDI_CAPTURE", "MIDI_DEVICES", "MIDI_IGNORE", "MIDI_CLOCK_DEVICE",
+		"MIDI_RING_EVENTS", "MIDI_LATENCY_MS",
 	} {
 		t.Setenv(k, "")
 	}
@@ -77,5 +79,49 @@ func TestLoadDefaultVersionIsDev(t *testing.T) {
 	}
 	if c.Version != "dev" {
 		t.Errorf("Version = %q, want %q", c.Version, "dev")
+	}
+}
+
+// The clock device follows DEVICE_MATCH unless set, so a rig where the EP is
+// the only clock keeps its tempo stamp with no new configuration.
+func TestMIDIDefaults(t *testing.T) {
+	clearEnv(t)
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if !c.MIDICapture || c.MIDIClockDevice != "EP-136" || c.MIDIRingEvents != 1_000_000 || c.MIDILatencyMS != 0 {
+		t.Errorf("defaults: capture=%t clock=%q ring=%d latency=%v", c.MIDICapture, c.MIDIClockDevice, c.MIDIRingEvents, c.MIDILatencyMS)
+	}
+	if c.MIDIDevices != nil || c.MIDIIgnore != nil {
+		t.Errorf("lists: devices=%q ignore=%q, want both nil", c.MIDIDevices, c.MIDIIgnore)
+	}
+}
+
+func TestMIDIConfigFromEnv(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("DEVICE_MATCH", "EP-136")
+	t.Setenv("MIDI_CLOCK_DEVICE", "Bento")
+	t.Setenv("MIDI_DEVICES", "Orchid, Bento,KeyStep")
+	t.Setenv("MIDI_IGNORE", "EP-136")
+	t.Setenv("MIDI_CAPTURE", "false")
+	t.Setenv("MIDI_LATENCY_MS", "3.5")
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if c.MIDIClockDevice != "Bento" || c.MIDICapture || c.MIDILatencyMS != 3.5 {
+		t.Errorf("clock=%q capture=%t latency=%v", c.MIDIClockDevice, c.MIDICapture, c.MIDILatencyMS)
+	}
+	if len(c.MIDIDevices) != 3 || c.MIDIDevices[1] != "Bento" || len(c.MIDIIgnore) != 1 {
+		t.Errorf("devices=%q ignore=%q", c.MIDIDevices, c.MIDIIgnore)
+	}
+}
+
+func TestMIDIRingEventsMustBePositive(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("MIDI_RING_EVENTS", "0")
+	if _, err := Load(); err == nil {
+		t.Fatal("MIDI_RING_EVENTS=0 must be rejected")
 	}
 }

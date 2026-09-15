@@ -73,10 +73,19 @@ func main() {
 		// full-ring save can still ask about its oldest end. Sized in pulses
 		// at the fastest tempo the BPM field accepts.
 		mc := midi.NewClock(midi.CapacityFor(cfg.RingSeconds))
-		reader := midi.NewReader(cfg.DeviceMatch, mc)
-		reader.Start()
-		defer reader.Stop()
-		clock, tempo = reader, reader
+		var events *midi.EventRing
+		if cfg.MIDICapture {
+			events = midi.NewEventRing(cfg.MIDIRingEvents)
+		}
+		watcher := midi.NewWatcher(midi.Policy{
+			Capture:     cfg.MIDICapture,
+			Allow:       cfg.MIDIDevices,
+			Deny:        cfg.MIDIIgnore,
+			ClockDevice: cfg.MIDIClockDevice,
+		}, mc, events)
+		watcher.Start()
+		defer watcher.Stop()
+		clock, tempo = watcher, watcher
 	}
 	saver.SetTempoSource(tempo)
 

@@ -1,4 +1,6 @@
-package midi
+// An external test package: api imports midi for DeviceInfo, so an internal
+// test importing api would be an import cycle.
+package midi_test
 
 import (
 	"testing"
@@ -6,15 +8,16 @@ import (
 
 	"github.com/gabeduke/hindsight/internal/api"
 	"github.com/gabeduke/hindsight/internal/audio"
+	"github.com/gabeduke/hindsight/internal/midi"
 )
 
 func TestFixedClockSatisfiesBothConsumers(t *testing.T) {
-	var _ api.MIDISource = NewFixedClock(96)
-	var _ audio.TempoSource = NewFixedClock(96)
+	var _ api.MIDISource = midi.NewFixedClock(96)
+	var _ audio.TempoSource = midi.NewFixedClock(96)
 }
 
 func TestFixedClockAlwaysReports(t *testing.T) {
-	c := NewFixedClock(96)
+	c := midi.NewFixedClock(96)
 
 	if !c.Connected() {
 		t.Error("Connected() = false; the demo clock is always present")

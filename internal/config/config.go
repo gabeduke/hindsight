@@ -29,6 +29,14 @@ type Config struct {
 	MinFreeGB       float64
 	MaxSaves        int // 0 = unlimited
 
+	// MIDI
+	MIDICapture     bool     // store events from every MIDI device, not just the clock
+	MIDIDevices     []string // allowlist substrings; empty means every device
+	MIDIIgnore      []string // denylist substrings
+	MIDIClockDevice string   // whose clock drives the tempo map and the BPM stamp
+	MIDIRingEvents  int      // event ring capacity
+	MIDILatencyMS   float64  // subtracted from every MIDI timestamp before alignment
+
 	// Server
 	Port string
 
@@ -51,9 +59,19 @@ func Load() (*Config, error) {
 		SaveAllChannels: envBool("SAVE_ALL_CHANNELS", false),
 		MinFreeGB:       envFloat("MIN_FREE_GB", 1.0),
 		MaxSaves:        envInt("MAX_SAVES", 0),
+		MIDICapture:     envBool("MIDI_CAPTURE", true),
+		MIDIDevices:     splitList(env("MIDI_DEVICES", "")),
+		MIDIIgnore:      splitList(env("MIDI_IGNORE", "")),
+		MIDIRingEvents:  envInt("MIDI_RING_EVENTS", 1_000_000),
+		MIDILatencyMS:   envFloat("MIDI_LATENCY_MS", 0),
 		Port:            env("PORT", "5000"),
 		Version:         "dev",
 	}
+	// The clock device defaults to the audio interface, so a rig where the
+	// EP-136 is the only thing sending clock keeps its tempo stamp with no
+	// new configuration. Set it to "Bento" (or whatever the sequencer's
+	// product string is) once that is the clock that matters.
+	c.MIDIClockDevice = env("MIDI_CLOCK_DEVICE", c.DeviceMatch)
 
 	// SAVE_CHANNELS is 1-indexed in the environment because that is how the
 	// hardware labels them; store zero-based.
@@ -78,6 +96,9 @@ func Load() (*Config, error) {
 	}
 	if c.Channels < 1 {
 		return nil, fmt.Errorf("CHANNELS must be >= 1, got %d", c.Channels)
+	}
+	if c.MIDIRingEvents < 1 {
+		return nil, fmt.Errorf("MIDI_RING_EVENTS must be >= 1, got %d", c.MIDIRingEvents)
 	}
 	return c, nil
 }
@@ -104,10 +125,12 @@ func (c *Config) String() string {
 	}
 	return fmt.Sprintf(
 		"device=%q channels=%d rate=%d frames/buf=%d latency=%dms ring=%ds (%d frames, %s) "+
-			"save_channels=%v save_all=%t min_free=%.1fGB max_saves=%d out=%s",
+			"save_channels=%v save_all=%t min_free=%.1fGB max_saves=%d out=%s "+
+			"midi_capture=%t midi_clock=%q midi_latency=%.1fms",
 		c.DeviceMatch, c.Channels, c.SampleRate, c.FramesPerBuf, c.InputLatencyMS,
 		c.RingSeconds, c.RingFrames(), humanBytes(int64(c.RingFrames())*int64(c.Channels)*4),
 		disp, c.SaveAllChannels, c.MinFreeGB, c.MaxSaves, c.OutputDir,
+		c.MIDICapture, c.MIDIClockDevice, c.MIDILatencyMS,
 	)
 }
 
@@ -132,6 +155,17 @@ func parseChannels(s string, max int) ([]int, error) {
 		return nil, fmt.Errorf("SAVE_CHANNELS: no channels given")
 	}
 	return out, nil
+}
+
+// splitList splits a comma-separated value into trimmed, non-empty parts.
+func splitList(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func humanBytes(n int64) string {

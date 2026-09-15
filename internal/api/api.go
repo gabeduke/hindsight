@@ -23,6 +23,7 @@ import (
 
 	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gabeduke/hindsight/internal/midi"
 	"github.com/gorilla/mux"
 )
 
@@ -32,6 +33,13 @@ import (
 type MIDISource interface {
 	Connected() bool
 	BPM(start, end time.Time) (float64, bool)
+}
+
+// DeviceLister is the optional half of a MIDISource that knows which devices
+// are open. Satisfied by *midi.Watcher; checked by type assertion so a source
+// that only has a clock (FixedClock, the test fakes) needs nothing more.
+type DeviceLister interface {
+	Devices() []midi.DeviceInfo
 }
 
 type API struct {
@@ -115,6 +123,10 @@ type statusResponse struct {
 	MinFreeGB       float64   `json:"min_free_gb"`
 	MIDIConnected   bool      `json:"midi_connected"`
 	MIDIBPM         *float64  `json:"midi_bpm"`
+	// MIDIDevices is every MIDI device currently open, so a phone can confirm
+	// the Orchid actually came up as a MIDI device rather than a power sink.
+	// Always an array, never null, so the UI can iterate it blindly.
+	MIDIDevices []midi.DeviceInfo `json:"midi_devices"`
 }
 
 func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +160,19 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		MinFreeGB:       a.cfg.MinFreeGB,
 		MIDIConnected:   midiConnected,
 		MIDIBPM:         midiBPM,
+		MIDIDevices:     a.midiDevices(),
 	})
+}
+
+// midiDevices lists open MIDI devices, or an empty list when the source
+// cannot say.
+func (a *API) midiDevices() []midi.DeviceInfo {
+	if l, ok := a.midi.(DeviceLister); ok && a.midi != nil {
+		if d := l.Devices(); d != nil {
+			return d
+		}
+	}
+	return []midi.DeviceInfo{}
 }
 
 func (a *API) handleJams(w http.ResponseWriter, r *http.Request) {
