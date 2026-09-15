@@ -28,6 +28,10 @@
   <canvas id="overview-canvas" class="overview-canvas" aria-label="Whole take"></canvas>
   <canvas id="wave-canvas" class="wave-canvas" aria-label="Waveform"></canvas>
 
+  <!-- One lane per MIDI track, built by lib/wave/lanes.js when the take has
+       a .mid; stays empty and takes no space otherwise. -->
+  <div id="lanes" class="lanes" hidden></div>
+
   <div class="wave-row action">
     <button id="play" class="icon-btn" type="button">Play</button>
     <span class="region-text">

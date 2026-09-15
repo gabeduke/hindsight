@@ -6,6 +6,7 @@ import { TileCache } from './tiles.js';
 import { WaveView } from './view.js';
 import { Overview } from './overview.js';
 import { Clock } from './clock.js';
+import { Lanes } from './lanes.js';
 import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
 
@@ -90,7 +91,13 @@ async function main() {
   // finished. `let overview = null` makes that early redraw a no-op; a `const`
   // assigned afterwards would throw on the temporal dead zone instead.
   let overview = null;
-  function redraw() { view.draw(); if (overview) overview.draw(); }
+  // Lanes arrive after the page is up: a take without MIDI never blocks on
+  // them, and a take with MIDI paints its wave first. Declared here, before
+  // the view, for the same reason as `overview`: WaveView's constructor
+  // emits 'viewChange' synchronously, before this line would otherwise have
+  // run, and a `const` declared later would throw on the temporal dead zone.
+  let lanes = null;
+  function redraw() { view.draw(); if (overview) overview.draw(); if (lanes) lanes.draw(); }
   const view = new WaveView({ canvas, tiles, totalFrames: total, sampleRate: sr, getState: () => state, emit });
   overview = new Overview({
     canvas: $('overview-canvas'), filePeaks, totalFrames: total,
@@ -213,7 +220,7 @@ async function main() {
         break;
       // The first viewChange arrives from inside `new WaveView`, before the
       // overview exists; the guard is what makes that first one harmless.
-      case 'viewChange': if (overview) overview.draw(); break;
+      case 'viewChange': if (overview) overview.draw(); if (lanes) lanes.draw(); break;
     }
   }
 
@@ -409,6 +416,48 @@ async function main() {
     }
   });
 
+  // --- MIDI lanes -----------------------------------------------------------
+  const laneKinds = { ...(take.lane_kinds || {}) };
+  async function loadLanes() {
+    let res;
+    try {
+      res = await fetch(`/api/midi?file=${encodeURIComponent(file)}`);
+    } catch {
+      toast('Could not load MIDI', 'bad');
+      return;
+    }
+    if (res.status === 404) return; // no MIDI beside this take: nothing to show
+    if (res.status === 422) {
+      const t = document.createElement('div');
+      t.className = 'toast bad';
+      t.append('This take\'s MIDI file does not decode. ');
+      const a = document.createElement('a');
+      a.href = `/api/download?file=${encodeURIComponent(take.midi_name || file.replace(/\.wav$/, '.mid'))}&dl=1`;
+      a.textContent = 'Download the raw .mid';
+      t.appendChild(a);
+      $('toasts').appendChild(t);
+      setTimeout(() => t.remove(), 8000);
+      return;
+    }
+    if (!res.ok) { toast('Could not load MIDI', 'bad'); return; }
+    const notes = await res.json();
+    if (!notes.tracks || !notes.tracks.length) return;
+    const container = $('lanes');
+    container.hidden = false;
+    lanes = new Lanes({
+      container,
+      tracks: notes.tracks,
+      storageKey: `wave.lanes.${file}`,
+      getState: () => state,
+      getView: () => view.view,
+      onKindChange: (name, kind) => {
+        laneKinds[name] = kind;
+        patch({ lane_kinds: laneKinds }).catch((e) => toast(`Could not save lane kind: ${e.message}`, 'bad'));
+      },
+    });
+    lanes.draw();
+  }
+
   // --- keyboard -----------------------------------------------------------
   document.addEventListener('keydown', (e) => {
     // Typing a flag's name must never be read as transport shortcuts.
@@ -448,6 +497,7 @@ async function main() {
   updateActionRow();
   updateReadout();
   view.fitAll();
+  loadLanes();
   // A region is a loop, so a take reopened with one saved comes back looping
   // without anyone having to arm it again.
   if (state.region) applyLoop(state.region);
@@ -457,7 +507,7 @@ async function main() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushRegion(); });
   // flushRegion is the only thing that has to outlive the page; a pending loop
   // does not -- cancel it so it cannot arm a clock that has just been destroyed.
-  window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); });
+  window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); if (lanes) lanes.destroy(); });
 }
 
 main().catch((e) => fail(e.message || String(e)));
