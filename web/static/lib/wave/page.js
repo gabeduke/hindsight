@@ -442,6 +442,10 @@ async function main() {
     if (!res.ok) { toast('Could not load MIDI', 'bad'); return; }
     const notes = await res.json();
     if (!notes.tracks || !notes.tracks.length) return;
+    // /api/midi is served immutable, so a browser holding a cached response
+    // from before a kind flip would otherwise show the old kind and colour
+    // here even though the sidecar (and /api/jams) already have the new one.
+    for (const t of notes.tracks) if (laneKinds[t.name]) t.kind = laneKinds[t.name];
     const container = $('lanes');
     container.hidden = false;
     lanes = new Lanes({
