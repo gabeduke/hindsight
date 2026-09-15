@@ -297,9 +297,12 @@ because the demo never plays an isolated hit.
 6. **Bar-snapped windows.** On by default because the alternative is a `.mid`
    whose bars are wrong in the common case. It changes what "last 30 s" means
    by up to one bar. Say so if the exact length matters more than the grid.
-7. **Cuts.** `POST /api/cut` exports a region of a take as a new take; the
-   new take gets no `.mid`. Slicing the parent's `.mid` to the region, with
-   its tempo map re-based, is a contained follow-up.
+7. **Cuts.** Built after all: a cut takes the region of its source's `.mid`
+   with it, re-based, with the source's tempo lane. Its bars are wherever
+   the region's start put them — the manifest reports the first true bar
+   line rather than pretending — because a region is chosen by ear. Snapping
+   a cut's start to the grid would be the waveform page's call, not this
+   one's.
 
 ## Still to verify on hardware
 
