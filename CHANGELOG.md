@@ -5,6 +5,35 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.09.15.1 — 2026-09-15
+
+- Answer the bento question in the docs: device port, per-track OutCh, 20 ms (94002e6)
+- Every track ends at the take's end; scripts/midi-dump.py (acb5493)
+- Fuzz the MIDI parser and the SMF decoder; harden Decode (ad7af32)
+- Manifest tempo_bpm is the tempo at the window's middle pulse (ec1acd3)
+- Without a Start, bar 1 is the take's first frame (0f013de)
+- Spec: cuts carry their MIDI now (f4c49a7)
+- Carry a take's MIDI along when a region of it is cut (3b35724)
+- Never overwrite a take saved in the same second (c3ca641)
+- Harden the watcher, the bridge and bar snapping after review (0119168)
+- Document MIDI capture; MIDI download and device list in the UI (08d52d1)
+- Export a take's MIDI beside it: .mid, manifest, bar-snapped window, demo (6801060)
+- Clock bridge, tempo map from pulses, and the saver's MIDI seam (dbea07c)
+- SMF writer and per-(device, channel) export with a tempo map (61aa569)
+- Watch every rawmidi port: hotplug, per-device readers, allow/deny policy (4198eec)
+- MIDI parser and event ring: complete messages, timestamped, device-tagged (c2e8f2e)
+- Spec MIDI capture: aligned multitrack MIDI beside every take (bd06cd8)
+- Catch the docs up to the Fine tune grid as it actually is (838a421)
+- Fix the lost-capture phantom pointer, and three smaller review findings (727dc57)
+- Show the region's length in seconds and bars under Fine tune (7f488dd)
+- Fit quiet takes to the waveform height, display-only (129d926)
+- Grow a selection past the screen edge; haptic on hold; pointer id guards (0dfc8f7)
+- Render 500s drop the filename; spec prose matches hold-to-select; docs for the polish (a152159)
+- Cache the overview's waveform; ignore a second pointer on the strip Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_015NBvK3VetFgPNaB767toLG (40d6b7b)
+- Plan a polish pass on the waveform page v2 (f8ddf24)
+- Record v2026.09.11.2 in the changelog [skip ci] (7970ca5)
+
+
 ## v2026.09.11.2 — 2026-09-11
 
 - Rename the default branch to main (c2e71a8)
