@@ -62,11 +62,14 @@ The clock pulses of the clock-source device also go to the existing tempo
 ### The watcher
 
 Polls `/dev/snd` for `midiC<card>D<dev>` nodes on a 2-second tick. A node it has
-not seen gets a `Device` record — id, node path, card, and a name assembled
-from `/proc/asound/card<N>/midi<D>` (the rawmidi name, which is the USB product
-string) falling back to the `/proc/asound/cards` long name — and a reader
+not seen gets a device record — an id that is never reused within a run, the
+node path, and a name taken from the card's product string in
+`/proc/asound/cards` (`USB-Audio - EP-136` names the device `EP-136`), falling
+back to the node's basename for a card the table does not list — and a reader
 goroutine. A reader whose read returns an error marks its device gone; the
-watcher drops it and will re-add the node if it reappears.
+watcher drops it and will re-add the node if it reappears. A card exposing two
+rawmidi devices gets both suffixed (`#1`, `#2`) so their tracks can be told
+apart.
 
 **Policy** is two substring lists: `MIDI_DEVICES` (allowlist; empty means
 everything) and `MIDI_IGNORE` (denylist). Matching is case-insensitive against
@@ -163,6 +166,22 @@ at a fixed 120 BPM, so ticks are effectively absolute time at 1.92 ticks per
 millisecond. The manifest's `tempo_source` is `"midi-clock"` when the whole
 window was clocked, `"fallback"` when none of it was, `"mixed"` otherwise.
 
+**Bar-snapped windows.** Found while building: a DAW's bar 1 is tick 0, and
+audio dropped at the project start begins there, so a take that begins
+mid-bar cannot be laid on the grid — its first downbeat would need a lead-in
+at an absurd tempo (a first pulse 20 ms into the window, 95 pulses into its
+bar, needs 3800 ticks in 20 ms: 7000 BPM), and DAWs clamp imported tempos,
+shifting everything after the clamp. That is the common case, not an edge:
+every full-ring save starts wherever the ring happens to start. So the save
+itself asks the exporter for the last downbeat the ring still holds and
+starts the take there. The take is up to one bar longer than asked; tick 0
+is bar 1; the downbeat goes into the sidecar for the waveform page. A
+whole-ring save, which cannot go back, moves forward to the first downbeat
+instead. Without a Start in living memory the phase is unknown and nothing
+moves. `MIDI_SNAP_BARS=false` turns it off; then the lead-in is bent only as
+far as 480 BPM, after which bar alignment is given up for beat alignment, and
+then for none, and the manifest's `downbeat.aligned` says which.
+
 ### SMF
 
 Format 1, PPQ 960. Track 0 is the conductor: a time signature of 4/4 (nothing
@@ -215,7 +234,8 @@ plan's per-stem layout is deferred (open decisions).
 | `MIDI_IGNORE` | *(empty)* | Comma-separated substrings; matching devices are never opened |
 | `MIDI_CLOCK_DEVICE` | `DEVICE_MATCH` | Substring picking whose clock is the tempo source |
 | `MIDI_RING_EVENTS` | `1000000` | Event ring capacity |
-| `MIDI_LATENCY_MS` | `0` | Constant subtracted from every MIDI timestamp before it is placed on the audio timeline |
+| `MIDI_LATENCY_MS` | `0` | Constant added to every MIDI timestamp before it is placed on the audio timeline; positive moves notes later |
+| `MIDI_SNAP_BARS` | `true` | Start a take on the last downbeat before the requested window (see below) |
 
 ### API and UI
 
@@ -244,10 +264,15 @@ rather than a power sink.
 ## Calibration
 
 `scripts/midi-calibrate.py <take>.wav` reads the take and its `.mid`, finds
-each note-on on a chosen channel, looks for the nearest audio transient in the
-`SAVE_CHANNELS` pair, and prints the median offset. Play something percussive
-from one instrument with nothing else running, save, run the script, put the
-number in `MIDI_LATENCY_MS`. Positive means MIDI arrived after the audio.
+each note-on (filtered by channel, note or track if asked), looks for the
+earliest significant transient within a window of it in the loudest audio
+channel, and prints the median offset and its spread. Play something
+percussive from one instrument with nothing else running, save, run the
+script, put the number in `MIDI_LATENCY_MS`. Positive means the audio landed
+after the MIDI, which is the normal case; the manifest records what was
+applied, so the script prints the new total rather than a delta. Against the
+demo, whose MIDI is derived from the same frame counter as its audio, it reads
++0.8 ms.
 
 ## Open decisions for the owner
 
@@ -268,6 +293,12 @@ number in `MIDI_LATENCY_MS`. Positive means MIDI arrived after the audio.
    worth keeping.
 5. **Time signature.** Hardcoded 4/4 in the conductor track; there is nothing
    on the wire to read it from.
+6. **Bar-snapped windows.** On by default because the alternative is a `.mid`
+   whose bars are wrong in the common case. It changes what "last 30 s" means
+   by up to one bar. Say so if the exact length matters more than the grid.
+7. **Cuts.** `POST /api/cut` exports a region of a take as a new take; the
+   new take gets no `.mid`. Slicing the parent's `.mid` to the region, with
+   its tempo map re-based, is a contained follow-up.
 
 ## Still to verify on hardware
 

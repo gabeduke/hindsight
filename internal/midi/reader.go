@@ -61,6 +61,7 @@ type portReader struct {
 
 	bytes  atomic.Uint64
 	events atomic.Uint64
+	sysex  atomic.Uint64 // SysEx messages skipped, mirrored from the parser
 }
 
 // run opens the node and reads it until it fails. It is the body of the
@@ -133,6 +134,7 @@ func (r *portReader) readLoop(f *os.File) {
 		for _, b := range buf[:n] {
 			r.parser.Feed(b)
 		}
+		r.sysex.Store(r.parser.SysExDropped)
 
 		if err != nil {
 			if !errors.Is(err, io.EOF) && !errors.Is(err, os.ErrClosed) {

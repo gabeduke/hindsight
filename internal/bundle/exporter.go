@@ -95,6 +95,9 @@ type ManifestDevice struct {
 	Clock    bool   `json:"clock"`
 	Events   int    `json:"events"`
 	Channels []int  `json:"channels"`
+	// SysExDropped is the device's lifetime count of skipped SysEx messages,
+	// not the window's: the parser counts, the ring never sees them.
+	SysExDropped uint64 `json:"sysex_dropped"`
 }
 
 // ManifestDropped counts what did not make it into the file.
@@ -311,7 +314,7 @@ func (e *Exporter) manifestDevices(stats midi.ExportStats) []ManifestDevice {
 	for _, id := range order {
 		d, _ := e.src.Device(id)
 		md := ManifestDevice{ID: id, Name: d.Name, Node: d.Node, Clock: d.Clock,
-			Events: stats.PlacedByDevice[id], Channels: stats.Channels[id]}
+			Events: stats.PlacedByDevice[id], Channels: stats.Channels[id], SysExDropped: d.SysEx}
 		if md.Name == "" {
 			md.Name = fmt.Sprintf("device %d", id)
 		}

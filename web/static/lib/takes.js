@@ -146,6 +146,7 @@ export class TakesList {
         <button class="icon-btn play" type="button">Play</button>
         <a class="icon-btn open">Open</a>
         <a class="icon-btn dl" download>WAV</a>
+        <a class="icon-btn midi" download hidden>MIDI</a>
         <button class="icon-btn danger del" type="button">Delete</button>
       </div>`;
 
@@ -164,6 +165,7 @@ export class TakesList {
       playBtn: el.querySelector('.play'),
       openEl: el.querySelector('.open'),
       dlEl: el.querySelector('.dl'),
+      midiEl: el.querySelector('.midi'),
       delBtn: el.querySelector('.del'),
       ws: null,
       audio: null,
@@ -337,6 +339,12 @@ export class TakesList {
     row.metaEl.textContent = `${fmtTime(t.duration_seconds)} · ${fmtSize(t.size_mb)}`;
     row.dlEl.href = `/api/download?file=${encodeURIComponent(t.name)}&dl=1`;
     row.openEl.href = `/wave.html?file=${encodeURIComponent(t.name)}`;
+    // The .mid exists only when something was received during the take, so
+    // the button appears only then rather than sitting disabled on every row.
+    row.midiEl.hidden = !t.has_midi;
+    if (t.has_midi) {
+      row.midiEl.href = `/api/download?file=${encodeURIComponent(t.midi_name)}&dl=1`;
+    }
 
     const ready = t.has_preview;
     row.playBtn.disabled = !ready;

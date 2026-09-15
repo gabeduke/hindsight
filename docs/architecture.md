@@ -8,7 +8,10 @@ step for the frontend.
 cmd/hindsight       wiring and flags
 internal/config     environment → Config
 internal/audio      device, ring, levels, envelope, saving  (cgo, PortAudio)
-internal/midi       rawmidi discovery, clock, tempo estimate
+internal/midi       rawmidi watcher, parser, event ring, clock, tempo map, SMF export
+internal/smf        Standard MIDI File writer and reader
+internal/bundle     writes a take's .mid and manifest from audio's window and midi's events
+internal/mono       the one monotonic clock audio and MIDI both stamp with
 internal/api        HTTP and WebSocket handlers
 web/static          the UI, served from disk per request
 web/static/lib/wave the waveform page: geometry, tiles, view, clock, page
@@ -17,20 +20,20 @@ web/static/lib/wave the waveform page: geometry, tiles, view, clock, page
 ## Data flow
 
 ```
-USB audio interface (8ch)                 USB MIDI (clock)
-   │  PortAudio callback: levels,            │  rawmidi reader, own goroutine
-   │  then hand off. Never blocks.           ▼
-   ▼                                    pulse ring ──► BPM over a window
-free/filled block pool                                      │
-   │                                                        │
+USB audio interface (8ch)                 USB MIDI (every rawmidi port)
+   │  PortAudio callback: levels,            │  watcher polls /dev/snd; one reader
+   │  then hand off. Never blocks.           │  goroutine per port, timestamped reads
+   ▼                                         ▼
+free/filled block pool                  parser ──► event ring (notes, CC, transport)
+   │  (mono ns, frame) pair ──► clock bridge    └──► pulse ring (clock device only) ──► BPM
    ▼                                                        │
 ring writer goroutine ──► Ring (RING_SECONDS)               │
    │                          │                             │
    │ Levels (10ms bins)       │ Snapshot(seconds)           │
    ├──► Envelope (whole ring) │                             │
    ▼                          ▼                             ▼
-/api/live   (WebSocket)   WAV ─┬──► _preview.mp3      .meta.json (bpm, flags)
-/api/envelope (ribbon)         ├──► .peaks.json
+/api/live   (WebSocket)   WAV ─┬──► _preview.mp3      .meta.json (bpm, flags, downbeat)
+/api/envelope (ribbon)         ├──► .peaks.json       .mid + .manifest.json
                                 └──► cue points, written into the WAV itself
 ```
 
@@ -141,24 +144,94 @@ to the UI.
 
 ## MIDI
 
-If the interface sends MIDI clock, each take is stamped with the tempo measured
-over its own window.
+Two things happen with MIDI. Each take is stamped with the tempo measured
+over its own window, as before; and everything every connected instrument
+sent during the window is written beside the take as a Standard MIDI File,
+placed on the take's timeline to within a couple of milliseconds, with a
+tempo map so the notes sit on the DAW's grid. The design is in
+`docs/superpowers/specs/2026-09-15-midi-capture-design.md`.
 
-Discovery scans `/proc/asound/cards` for a card whose entry contains
-`DEVICE_MATCH`, then looks for that card's rawmidi node under `/dev/snd`. The
-whole entry is searched, both lines, not just the bracketed id: ALSA truncates
-that id to 15 characters and sanitises it, so an EP-136 appears there as
-`Sidekick` with no model number in it.
+### Every port, no cgo
 
-Not finding a device is a normal state, not a failure — the interface is
+A watcher polls `/dev/snd` every two seconds for `midiC*D*` nodes and opens
+each one it has not seen in its own reader goroutine, named from
+`/proc/asound/cards`. That is the no-cgo stand-in for an ALSA sequencer
+`System:announce` subscription, and it gives the same result: anything
+class-compliant that enumerates gets read, devices come and go mid-session,
+and a device that enumerates on USB without ever exposing a MIDI port — the
+Orchid, connected before it finished booting — is simply never seen. Device
+ids are never reused within a run, so an event recorded under a device that
+has since been unplugged can still be named at save time.
+
+Not finding any device is a normal state, not a failure — everything is
 frequently unplugged, and a Mac has no `/proc/asound` at all.
 
-The reader runs in its own goroutine and mirrors the capture supervisor's
-shape: detect, back off, rediscover, reopen. What it does not share is any path
-back into the capture thread. **`internal/audio` does not import
-`internal/midi`.** It takes a `TempoSource` interface instead, and the call is
-wrapped in a `recover`, so no MIDI failure — missing device, parse error, third
-party panic — can cost a recording. The worst case is a take with no BPM.
+`MIDI_DEVICES` and `MIDI_IGNORE` filter the set; `MIDI_CLOCK_DEVICE` picks
+whose clock is the tempo source, and only that device's pulses reach the
+tempo path. It defaults to `DEVICE_MATCH` so a rig where the EP is the only
+clock changes nothing.
+
+Each reader timestamps once per `read(2)` return, with `time.Now()`'s
+monotonic reading, and feeds a parser that assembles complete messages —
+running status, realtime bytes tested first so a clock pulse inside a note-on
+disturbs nothing, SysEx skipped and counted. Channel messages and transport
+go to a bounded ring of 16-byte events; clock pulses go to the tempo ring
+and are not stored per event, since at 24 a beat from every device they would
+be most of the traffic and none of the content.
+
+**`internal/audio` does not import `internal/midi`.** The saver takes a
+`TempoSource` and a `MIDIExporter` interface, each called inside a `recover`
+after the WAV is on disk, so no MIDI failure — missing device, parse error,
+third-party panic — can cost a recording. The worst case is a take with no
+BPM and no `.mid`.
+
+### The clock bridge
+
+The plan called for an ALSA `audio_htstamp` anchor taken once at stream
+start. PortAudio does not expose one, and a single anchor would be wrong
+anyway: the interface's crystal and the Pi's clock disagree by the same
+±50–100 ppm the plan warns about for two audio devices, so an anchor at
+stream start is 45–90 ms out by the end of a 15-minute ring.
+
+Instead, the delivery path records a `(monotonic ns, ring frame)` pair for
+every block it hands to the ring writer — with `TryLock`, so it never waits
+on a reader; a dropped block advances neither the frame count nor the history,
+so the pairs stay a true account of what the ring holds. A MIDI timestamp
+becomes a frame by a local least-squares fit over the pairs that bracket it
+(±16, about 0.7 s each side), which removes callback-scheduling jitter and
+tracks the drift rather than assuming it away. A gap of more than two seconds
+between pairs is a dropout, and a moment inside it maps to the frame the ring
+was at when the gap began. PortAudio's reported input latency is applied so a
+moment maps to the frame that was *being converted* then, not the one that
+had just been handed over.
+
+What remains after that is the instrument's own latency and the cable, a
+constant of a few milliseconds that `MIDI_LATENCY_MS` holds and
+`scripts/midi-calibrate.py` measures. Against the demo, whose MIDI is derived
+from the same frame counter as its audio, the script reads +0.8 ms.
+
+### The tempo map, and why takes start on a downbeat
+
+The clock device's pulses define the beat: 24 pulses a quarter, 40 ticks a
+pulse at PPQ 960. Pulses are grouped into segments of constant tempo, each
+extended for as long as every pulse in it stays within 2 ms of the straight
+line between its ends, so a steady clock yields a handful of tempo events and
+a ritardando yields more, and converting any tick back to seconds lands within
+2 ms of the real moment either way. Stretches with no clock are written at
+120 BPM and the manifest says so.
+
+A DAW's bar 1 is tick 0, and an audio file dropped at the project start
+begins there. A take that begins mid-bar therefore cannot sit on the grid: its
+first downbeat would have to be reached through a lead-in at an absurd tempo,
+which DAWs clamp, shifting everything after. So with `MIDI_SNAP_BARS` on, a
+save asks the exporter for the last downbeat the ring still holds — a pulse
+whose index since the last MIDI Start is a whole number of bars — and starts
+the take there, trimming the snapshot to the exact frame. The take is up to
+one bar longer than asked for, and every bar line in the `.mid` is true. The
+downbeat is also written into the take's sidecar so the waveform page's grid
+agrees with the DAW. Without a Start in living memory the phase is unknown,
+nothing moves, and the file's bars are aligned to its first pulse by
+convention, flagged in the manifest.
 
 Two details that were learned the expensive way:
 
@@ -168,17 +241,20 @@ Two details that were learned the expensive way:
   between them drag the rolling median far above the real tempo — three seconds
   after a replug, 223.3 BPM against a true 120. The first 150 ms after opening
   is therefore thrown away.
-- **The tempo is a guess, not ground truth.** The EP has no sequencer at all.
-  It runs an on-device algorithm that *infers* a tempo and transmits that as
-  clock, so there is no project tempo on the wire to be right or wrong about.
-  One idle window read 129.87 BPM, rock-steady, against a project set to 92;
-  another held 100.67 through a completely silent room; a power cycle reset it
-  to 120. Stability is not evidence of correctness, which is the whole argument
-  for the BPM field being editable in the takes list.
+- **The EP's tempo is a guess, not ground truth.** The EP has no sequencer at
+  all. It runs an on-device algorithm that *infers* a tempo and transmits that
+  as clock, so there is no project tempo on the wire to be right or wrong
+  about. One idle window read 129.87 BPM, rock-steady, against a project set
+  to 92; another held 100.67 through a completely silent room; a power cycle
+  reset it to 120. Stability is not evidence of correctness, which is the
+  whole argument for the BPM field being editable in the takes list — and for
+  pointing `MIDI_CLOCK_DEVICE` at a real sequencer once one is on the Pi.
 
-In demo mode a `FixedClock` stands in, reporting 96 BPM to match the synthetic
-loop. Without it the tempo tile would read `–` and a screenshot would show
-three working stats and one dead one.
+In demo mode a synthetic sequencer plays along with the loop — clock, a
+Start, the kick, hat and bass as notes — through the same event ring and
+exporter, so `--demo` writes a real `.mid` and the whole path runs with no
+hardware. Its tempo tile reads the estimator against that clock rather than a
+constant, which is why it says 96.0 and not exactly 96.
 
 ## The UI
 

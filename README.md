@@ -13,6 +13,7 @@ It exists because the take you want is the one you already played.
 ## Features
 
 - **Waveform page** — open any take to zoom and scrub it, drag to pan, press and hold then drag to mark out a region, hear it loop, flag moments, share the region as an MP3 from your phone, or export it as a new take with declick fades.
+- **MIDI beside every take** — every USB MIDI device that enumerates is read, and a save writes a Standard MIDI File next to the WAV: one track per device and channel, on the take's timeline to within a couple of milliseconds, with a tempo map from the clock so the notes land on the DAW grid. Drop both at the project start and they line up.
 
 ## Try it
 
@@ -84,6 +85,8 @@ master).
 
 If the interface also sends MIDI clock, Hindsight reads it and stamps each take
 with the tempo it measured. That is a starting point you can edit, not a fact.
+Any other class-compliant USB MIDI device plugged into the Pi is read too, and
+what it sent during a take is written beside the take as a `.mid`.
 
 ## How it works
 
@@ -121,6 +124,7 @@ Everything is environment driven. Copy `deploy/hindsight.env.example` to
 | `SAVE_CHANNELS` | `1,2` | 1-indexed pair carrying the stereo master |
 | `DEVICE_MATCH` | `EP-136` | Substring match on the PortAudio device name |
 | `MAX_SAVES` | `0` | Prune the oldest takes beyond this count; `0` disables |
+| `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`)* | Which device's MIDI clock is the tempo for the `.mid`'s grid |
 
 Every variable, with the reasoning behind the defaults, is in
 [docs/configuration.md](docs/configuration.md).

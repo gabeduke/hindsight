@@ -21,6 +21,7 @@ const el = {
   statDisk: $('stat-disk'),
   statXruns: $('stat-xruns'),
   statTempo: $('stat-tempo'),
+  midiDevices: $('midi-devices'),
   durSeg: $('dur-seg'),
   markBtn: $('mark-btn'),
   captureBtn: $('capture-btn'),
@@ -177,6 +178,14 @@ function applyStatus(s) {
   // that has been quiet too briefly to fill two quarter notes.
   el.statTempo.textContent = s.midi_bpm == null ? '\u2013' : s.midi_bpm.toFixed(1);
   el.statTempo.className = s.midi_connected ? 'v' : 'v warn';
+
+  // Which MIDI devices are open right now. The Orchid can enumerate as a
+  // power sink rather than a MIDI device if it is connected before it has
+  // booted; this line is how you tell, from the couch, that it did not.
+  const devs = (s.midi_devices || []).filter((d) => d.connected);
+  el.midiDevices.textContent = devs.length
+    ? devs.map((d) => d.clock ? `${d.name} (clock)` : d.name).join(', ')
+    : 'none';
 
   el.lastSaved.textContent = s.last_saved || 'none';
 

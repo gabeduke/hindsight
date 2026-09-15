@@ -20,6 +20,11 @@ means a missing file is not an error, because every value has a default.
 | `MIN_FREE_GB` | `1.0` | Refuse to save below this much free disk |
 | `MAX_SAVES` | `0` | Keep at most this many takes, deleting the oldest. `0` disables pruning |
 | `INPUT_LATENCY_MS` | `100` | Input latency requested from PortAudio. Do not lower it |
+| `MIDI_CAPTURE` | `true` | Record MIDI from every connected device and write a `.mid` beside each take |
+| `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`)* | Substring naming the device whose MIDI clock is the tempo source |
+| `MIDI_IGNORE` | *(empty)* | Comma-separated substrings; matching MIDI devices are never opened |
+| `MIDI_LATENCY_MS` | `0` | Milliseconds added to every MIDI event before it is placed against the audio |
+| `MIDI_SNAP_BARS` | `true` | Start a take on the last downbeat before the window, so the `.mid` begins on bar 1 |
 
 ## The rest
 
@@ -32,6 +37,8 @@ because the defaults are almost always right.
 | `OUTPUT_DIR` | `~/hindsight/jam_saves` | Where takes are written |
 | `STATIC_DIR` | *(auto)* | UI directory. Resolved relative to the binary, then the working directory; set it only if you have moved `web/static` somewhere unusual |
 | `FRAMES_PER_BUFFER` | `2048` | Frames per PortAudio callback |
+| `MIDI_DEVICES` | *(empty)* | Comma-separated substrings; if set, only matching MIDI devices are opened (the clock device is always opened) |
+| `MIDI_RING_EVENTS` | `1000000` | How many MIDI events to keep in memory, 16 bytes each. Oldest are dropped first |
 
 `PORT` is the one you will actually reach for, because **macOS occupies 5000
 with ControlCenter's AirPlay Receiver**, so running the demo on a Mac needs
@@ -129,3 +136,52 @@ alone exceed `MAX_SAVES`.
 Each take is a `.wav` plus up to three sidecars in the same directory: a
 `_preview.mp3`, a `.peaks.json`, and a `.meta.json` holding the label, star,
 trim and BPM. Deleting a take through the API removes all of them.
+
+## MIDI
+
+Every rawmidi port on the system is opened and read by default. A device is
+matched by substring against its product string (what `/proc/asound/cards`
+calls it: `EP-136`, `Orchid`, `Arturia KeyStep 37`) or its node path
+(`midiC3D0`), case-insensitively, and the same rule serves `MIDI_DEVICES`,
+`MIDI_IGNORE` and `MIDI_CLOCK_DEVICE`, so the three cannot disagree about
+what a name refers to.
+
+**`MIDI_CLOCK_DEVICE` defaults to `DEVICE_MATCH`** — the EP-136 — because
+that is the only clock this rig has sent so far, and a rig where nothing
+changes should need no new configuration. When the sequencer that actually
+sets the tempo is on the Pi's USB, point it there: `MIDI_CLOCK_DEVICE=Bento`.
+If two devices both match and both send clock, the tempo reads double; make
+the substring specific.
+
+The EP-136's own MIDI port is captured too. It sends knob and FX-pad
+automation, which is useful as a track in the DAW. `MIDI_IGNORE=EP-136`
+drops it — but the deny list wins over everything, the clock rule included,
+so ignoring the clock device also loses the tempo. Ignore it only once the
+tempo comes from somewhere else.
+
+### Why `MIDI_LATENCY_MS` exists, and how to set it
+
+A note-on reaches the Pi before the sound it triggers does: the instrument has
+to synthesise it, the signal has to cross a cable into the interface, the
+interface has to convert it, and the block holding it has to cross USB. The
+last part — PortAudio's reported input latency — is measured and corrected
+automatically. The rest is a constant for a given rig, a few milliseconds to
+a few tens, and this variable is where it is written down. Positive moves the
+MIDI later, which is the normal direction.
+
+`scripts/midi-calibrate.py` measures it: play isolated hits from one
+instrument, save, run the script on the take, and it prints the number to
+set. The manifest beside each take records what was applied, so the script
+can tell you the *new* total rather than a delta.
+
+### Why `MIDI_SNAP_BARS` is on
+
+A DAW's bar 1 is its first tick, and an audio file dropped at the project
+start begins there. If the take begins mid-bar, the `.mid` would need a
+lead-in at an absurd tempo to put its first downbeat on a bar line — and
+DAWs clamp imported tempos, shifting everything after the clamp. Starting the
+take on a downbeat instead costs up to one bar of extra audio at the old end
+and makes every bar line true. It needs a clock whose phase is known, which
+means a Start message has been seen since the daemon came up; without one
+the window is left alone and the `.mid`'s bars are aligned to its first pulse
+by convention, which the manifest says.

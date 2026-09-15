@@ -55,7 +55,11 @@ The poll everything else hangs off. The UI reads it every two seconds.
   "disk_percent": 71.69,
   "min_free_gb": 1,
   "midi_connected": true,
-  "midi_bpm": 96
+  "midi_bpm": 96,
+  "midi_devices": [
+    { "id": 1, "name": "EP-136", "node": "/dev/snd/midiC2D0", "clock": true, "connected": true, "events": 0, "bytes": 3373 },
+    { "id": 2, "name": "Orchid", "node": "/dev/snd/midiC3D0", "clock": false, "connected": true, "events": 1204, "bytes": 3612 }
+  ]
 }
 ```
 
@@ -67,6 +71,11 @@ The poll everything else hangs off. The UI reads it every two seconds.
   eight seconds — which is also what a connected interface with clock-send
   switched off looks like. `midi_connected` and a null `midi_bpm` together are
   a normal state, not an error.
+- `midi_connected` is about the clock device (`MIDI_CLOCK_DEVICE`), not any
+  MIDI device at all. `midi_devices` is every rawmidi port the watcher has
+  open, always an array; `clock` marks the tempo source. A device that
+  enumerated as a power sink rather than a MIDI port -- the Orchid connected
+  before it finished booting -- is simply absent from it.
 - `capture_healthy` is what the installer greps for to decide whether the
   service actually came up recording.
 - `version` is stamped at build time; a development build reports `dev`.
@@ -160,8 +169,16 @@ on.
 | 500 | The write itself failed |
 
 If a MIDI clock is present, the take's tempo is stamped into its sidecar after
-the WAV is safely on disk. A MIDI failure of any kind — no device, a parse
-error, a panic — produces a take with no BPM and nothing else.
+the WAV is safely on disk. If anything was received over MIDI during the
+window, a `.mid` and a `.manifest.json` are written beside the take too (see
+`GET /api/download`). A MIDI failure of any kind — no device, a parse error, a
+panic — produces a take with no BPM and no `.mid`, and nothing else.
+
+With `MIDI_SNAP_BARS` on (the default) and a clock whose bar phase is known,
+the window is moved back to the last downbeat the ring still holds, so the
+take may be up to one bar longer than `seconds` asked for and its first frame
+is bar 1 of the `.mid`. A whole-ring save, which cannot go back, is moved
+forward to the first downbeat instead.
 
 ## `GET /api/jams`
 
@@ -178,7 +195,9 @@ how a take stays in reach once newer ones have pushed it down.
   "sample_rate": 48000,
   "has_preview": true,
   "has_peaks": true,
+  "has_midi": true,
   "preview_name": "jam_2026-09-09_145852_preview.mp3",
+  "midi_name": "jam_2026-09-09_145852.mid",
   "label": "",
   "starred": false,
   "bpm": 96,
@@ -308,8 +327,10 @@ partial set is 400. The waveform page uses this for every zoomed view.
 
 ## `GET /api/download?file=[&dl=1]`
 
-Serves the take or its mp3 preview, with range requests. Only `.wav` and `.mp3`
-names in `OUTPUT_DIR` are addressable; anything with a path in it is rejected.
+Serves the take, its mp3 preview, its `.mid` or its `.manifest.json`, with
+range requests. Only `.wav`, `.mp3`, `.mid` and `*.manifest.json` names in
+`OUTPUT_DIR` are addressable; anything with a path in it is rejected. A `.mid`
+is sent as `audio/midi`.
 
 Inline by default so `<audio>` can stream it. `dl` adds a
 `Content-Disposition: attachment` header instead — **any non-empty value**, so

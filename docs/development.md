@@ -27,7 +27,11 @@ needs the process to boot.
 
 Anything that is not specifically about the audio device can be developed and
 tested this way, and CI checks that the demo still boots without cgo on every
-run.
+run. That includes MIDI: the demo's sequencer plays along with the loop, so a
+demo take gets a `.mid` and a manifest, and `scripts/midi-calibrate.py` run on
+it should report an offset under a millisecond. The rawmidi readers are
+tested against FIFOs standing in for device nodes, so the hotplug and
+backlog behaviour is covered on a Mac too.
 
 **Port 5000 is occupied by ControlCenter on macOS** (AirPlay Receiver). Use
 `PORT=` for anything you run locally:
@@ -154,14 +158,15 @@ are deliberately not shipped in the release tarball.
 | `channel-probe.py` | Which USB channel pair carries the master? Holds peak dBFS per channel over a run and prints a verdict per pair |
 | `midi-probe.py` | What does the interface actually send over MIDI, and when? Walks three phases and prints a verdict per question |
 | `take-envelope.py` | What does a take look like? Reduces a WAV to a base64 amplitude envelope, so a 346 MB take can be judged without copying it off the Pi |
+| `midi-calibrate.py` | How far does a take's MIDI sit from its audio? Matches note-ons in the `.mid` to transients in the WAV and prints the `MIDI_LATENCY_MS` to set |
 
 All three are standard library only — no pip, no virtualenv. What they reach
 for differs:
 
 - `channel-probe.py` talks to the HTTP API, so it runs from anywhere that can
   reach the Pi.
-- `take-envelope.py` reads a WAV off disk directly and touches no API at all,
-  so it runs wherever the file is.
+- `take-envelope.py` and `midi-calibrate.py` read the take off disk directly
+  and touch no API at all, so they run wherever the files are.
 - `midi-probe.py` shells out to `amidi`, which comes from **`alsa-utils`**
   (`sudo apt install alsa-utils`); without it the script exits with
   `amidi not found. Install alsa-utils.` It has to run on the Pi, with the

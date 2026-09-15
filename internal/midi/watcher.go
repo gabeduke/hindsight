@@ -69,6 +69,7 @@ type DeviceInfo struct {
 	Connected bool   `json:"connected"`
 	Events    uint64 `json:"events"`
 	Bytes     uint64 `json:"bytes"`
+	SysEx     uint64 `json:"sysex_dropped"`
 }
 
 // Watcher keeps every rawmidi port on the system open and reading.
@@ -192,6 +193,7 @@ func (w *Watcher) Devices() []DeviceInfo {
 			Connected: r.connected.Load(),
 			Events:    r.events.Load(),
 			Bytes:     r.bytes.Load(),
+			SysEx:     r.sysex.Load(),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
@@ -313,6 +315,7 @@ func (w *Watcher) remember(r *portReader) {
 	w.gone[r.id] = DeviceInfo{
 		ID: r.id, Name: r.port.Name, Node: r.port.Node,
 		Clock: r.port.Matches(w.policy.ClockDevice), Events: r.events.Load(), Bytes: r.bytes.Load(),
+		SysEx: r.sysex.Load(),
 	}
 }
 
