@@ -553,3 +553,50 @@ func TestExportWithClockButNoStartUsesTheWindowStart(t *testing.T) {
 		t.Errorf("lead-in tempo %.0f BPM", lead)
 	}
 }
+
+// RegionMIDI is CutMIDI's inside: the bytes it returns are the bytes CutMIDI
+// writes, so the streaming bundle and the file-writing cut cannot diverge.
+func TestRegionMIDIMatchesCutMIDI(t *testing.T) {
+	r := newRig(t, 60)
+	r.clock(10.5, 40, 120, true)
+	r.note(2, 14.0, 0, 64, 90)
+	r.note(2, 16.0, 0, 64, 0)
+	r.note(2, 17.0, 0, 67, 80)
+	r.note(2, 17.25, 0, 67, 0)
+	ex := New(r.src, 0, "EP-136")
+	if err := ex.Export(r.request(10, 30)); err != nil {
+		t.Fatal(err)
+	}
+	writeWAVHeader(t, r.wav, rate)
+
+	mid, m, err := RegionMIDI(r.wav, "jam_cut.wav", 5*rate, 10*rate)
+	if err != nil || mid == nil || m == nil {
+		t.Fatalf("RegionMIDI: mid=%d bytes manifest=%v err=%v", len(mid), m, err)
+	}
+	if m.Take != "jam_cut.wav" || m.MIDI != "jam_cut.mid" || m.Source == nil || m.Source.StartFrame != 5*rate {
+		t.Errorf("manifest = %+v", m)
+	}
+
+	dst := filepath.Join(r.dir, "jam_cut.wav")
+	os.WriteFile(dst, []byte("wav"), 0o644)
+	if err := ex.CutMIDI(r.wav, dst, 5*rate, 10*rate); err != nil {
+		t.Fatal(err)
+	}
+	written, err := os.ReadFile(audio.MIDIPath(dst))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(written) != string(mid) {
+		t.Errorf("CutMIDI wrote %d bytes, RegionMIDI returned %d; they must be identical", len(written), len(mid))
+	}
+}
+
+func TestRegionMIDIWithNoSourceMIDIReturnsNothing(t *testing.T) {
+	dir := t.TempDir()
+	wav := filepath.Join(dir, "jam_test.wav")
+	writeWAVHeader(t, wav, rate)
+	mid, m, err := RegionMIDI(wav, "jam_cut.wav", 0, rate)
+	if err != nil || mid != nil || m != nil {
+		t.Fatalf("got mid=%v manifest=%v err=%v, want all nil", mid, m, err)
+	}
+}

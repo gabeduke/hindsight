@@ -27,36 +27,73 @@ type ManifestSource struct {
 var trackChannel = regexp.MustCompile(` ch(\d{1,2})$`)
 
 // CutMIDI implements audio.MIDICutter: when a region of a take is cut into
-// a new take, the region of its .mid goes with it, re-based so the cut's
-// first frame is tick 0, with the same tempo lane over its stretch. Notes
-// sounding at the region's start are clipped to it rather than dropped --
-// the audio has their tails -- and notes still sounding at its end are
-// closed there, as a save does.
-//
-// A source take with no .mid yields a cut with none, and no error: there is
-// nothing to cut.
+// a new take, the region of its .mid goes with it. The work is RegionMIDI's;
+// this only writes the two files beside the cut.
 func (e *Exporter) CutMIDI(srcWav, dstWav string, startFrame, endFrame int64) error {
+	mid, m, err := RegionMIDI(srcWav, filepath.Base(dstWav), startFrame, endFrame)
+	if err != nil || mid == nil {
+		return err
+	}
+	if err := writeAtomic(audio.MIDIPath(dstWav), mid); err != nil {
+		return err
+	}
+	mb, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := writeAtomic(audio.ManifestPath(dstWav), mb); err != nil {
+		return err
+	}
+	placed := 0
+	for _, tr := range m.Tracks {
+		placed += tr.Events
+	}
+	log.Printf("[*] %s — %d MIDI events on %d track(s), cut from %s",
+		filepath.Base(audio.MIDIPath(dstWav)), placed, len(m.Tracks), filepath.Base(srcWav))
+
+	// The cut's grid: the same rule as a save, a Start-fixed downbeat and
+	// only when the sidecar has none.
+	if m.Downbeat != nil && m.Downbeat.Source == "midi-start" {
+		meta := audio.ReadMeta(dstWav)
+		if meta.DownbeatFrame == nil {
+			frame := int64(m.Downbeat.Sec * float64(m.SampleRate))
+			meta.DownbeatFrame = &frame
+			if err := audio.WriteMeta(dstWav, meta); err != nil {
+				log.Printf("[!] midi: downbeat for %s: %v", filepath.Base(dstWav), err)
+			}
+		}
+	}
+	return nil
+}
+
+// RegionMIDI re-bases the region [startFrame, endFrame) of the source's .mid
+// so the region's first frame is tick 0, with the source's tempo lane over
+// that stretch, notes sounding at the start clipped to it and notes still
+// sounding at the end closed there. dstName is the take name the manifest
+// will describe ("jam_cut.wav"). A source with no .mid, or a region with
+// nothing in it, returns (nil, nil, nil).
+func RegionMIDI(srcWav, dstName string, startFrame, endFrame int64) ([]byte, *Manifest, error) {
 	srcMID := audio.MIDIPath(srcWav)
 	b, err := os.ReadFile(srcMID)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return nil, nil, nil
 		}
-		return err
+		return nil, nil, err
 	}
 	f, err := smf.Decode(b)
 	if err != nil {
-		return fmt.Errorf("%s: %w", filepath.Base(srcMID), err)
+		return nil, nil, fmt.Errorf("%s: %w", filepath.Base(srcMID), err)
 	}
 	info, err := audio.ReadWAVInfo(srcWav)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	rate := float64(info.SampleRate)
 	startSec := float64(startFrame) / rate
 	endSec := float64(endFrame) / rate
 	if len(f.Tracks) == 0 || endSec <= startSec {
-		return nil
+		return nil, nil, nil
 	}
 
 	var srcManifest Manifest
@@ -157,11 +194,9 @@ func (e *Exporter) CutMIDI(srcWav, dstWav string, startFrame, endFrame int64) er
 		},
 	})
 	if stats.Placed == 0 {
-		return nil
+		return nil, nil, nil
 	}
-	if err := writeAtomic(audio.MIDIPath(dstWav), out.Encode()); err != nil {
-		return err
-	}
+	encoded := out.Encode()
 
 	// The first bar line of the source at or after the region's start. Its
 	// tick in the cut is generally not a multiple of a bar -- the region was
@@ -185,8 +220,8 @@ func (e *Exporter) CutMIDI(srcWav, dstWav string, startFrame, endFrame int64) er
 
 	m := Manifest{
 		Version:             ManifestVersion,
-		Take:                filepath.Base(dstWav),
-		MIDI:                filepath.Base(audio.MIDIPath(dstWav)),
+		Take:                dstName,
+		MIDI:                strings.TrimSuffix(dstName, ".wav") + ".mid",
 		SavedAt:             time.Now(),
 		WindowSeconds:       duration,
 		SampleRate:          info.SampleRate,
@@ -218,27 +253,5 @@ func (e *Exporter) CutMIDI(srcWav, dstWav string, startFrame, endFrame int64) er
 		}
 		m.Devices = append(m.Devices, md)
 	}
-	mb, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := writeAtomic(audio.ManifestPath(dstWav), mb); err != nil {
-		return err
-	}
-	log.Printf("[*] %s — %d MIDI events on %d track(s), cut from %s",
-		filepath.Base(audio.MIDIPath(dstWav)), stats.Placed, len(stats.Tracks), filepath.Base(srcWav))
-
-	// The cut's grid: the same rule as a save, a Start-fixed downbeat and
-	// only when the sidecar has none.
-	if downbeat != nil && downbeat.Source == "midi-start" {
-		meta := audio.ReadMeta(dstWav)
-		if meta.DownbeatFrame == nil {
-			frame := int64(downbeat.Sec * rate)
-			meta.DownbeatFrame = &frame
-			if err := audio.WriteMeta(dstWav, meta); err != nil {
-				log.Printf("[!] midi: downbeat for %s: %v", filepath.Base(dstWav), err)
-			}
-		}
-	}
-	return nil
+	return encoded, &m, nil
 }
