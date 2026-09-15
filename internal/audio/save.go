@@ -477,14 +477,14 @@ type Take struct {
 
 	// From the sidecar. Name above is the filename; Label is what the user
 	// called it.
-	Label         string             `json:"label"`
-	Starred       bool               `json:"starred"`
-	Trim          *Trim              `json:"trim,omitempty"`
-	BPM           *float64           `json:"bpm,omitempty"`
-	Flags         []Flag             `json:"flags,omitempty"`
-	DownbeatFrame *int64             `json:"downbeat_frame,omitempty"`
-	Source        *CutSource         `json:"source,omitempty"`
-	LaneKinds     map[string]string  `json:"lane_kinds,omitempty"`
+	Label         string            `json:"label"`
+	Starred       bool              `json:"starred"`
+	Trim          *Trim             `json:"trim,omitempty"`
+	BPM           *float64          `json:"bpm,omitempty"`
+	Flags         []Flag            `json:"flags,omitempty"`
+	DownbeatFrame *int64            `json:"downbeat_frame,omitempty"`
+	Source        *CutSource        `json:"source,omitempty"`
+	LaneKinds     map[string]string `json:"lane_kinds,omitempty"`
 }
 
 // ListTakes returns starred takes first, then the rest newest first. Duration

@@ -91,6 +91,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/live", a.handleLive).Methods(http.MethodGet)
 	r.HandleFunc("/api/slice", a.handleSlice).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/render", a.handleRender).Methods(http.MethodGet)
+	r.HandleFunc("/api/midi", a.handleMIDI).Methods(http.MethodGet, http.MethodHead)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
@@ -809,12 +810,12 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
 	var body struct {
-		Label    *string         `json:"label"`
-		Starred  *bool           `json:"starred"`
-		Trim     json.RawMessage `json:"trim"`
-		BPM      json.RawMessage `json:"bpm"`
-		Flags    json.RawMessage `json:"flags"`
-		Downbeat json.RawMessage `json:"downbeat_frame"`
+		Label     *string         `json:"label"`
+		Starred   *bool           `json:"starred"`
+		Trim      json.RawMessage `json:"trim"`
+		BPM       json.RawMessage `json:"bpm"`
+		Flags     json.RawMessage `json:"flags"`
+		Downbeat  json.RawMessage `json:"downbeat_frame"`
 		LaneKinds json.RawMessage `json:"lane_kinds"`
 	}
 	if err := dec.Decode(&body); err != nil {
@@ -1005,14 +1006,14 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	// the very fields a clear-to-empty patch just changed, and version is
 	// internal.
 	writeJSON(w, http.StatusOK, struct {
-		Label    string            `json:"label"`
-		Starred  bool              `json:"starred"`
-		Trim     *audio.Trim       `json:"trim"`
-		BPM      *float64          `json:"bpm"`
-		Flags    []audio.Flag      `json:"flags"`
-		Downbeat *int64            `json:"downbeat_frame"`
+		Label     string            `json:"label"`
+		Starred   bool              `json:"starred"`
+		Trim      *audio.Trim       `json:"trim"`
+		BPM       *float64          `json:"bpm"`
+		Flags     []audio.Flag      `json:"flags"`
+		Downbeat  *int64            `json:"downbeat_frame"`
 		LaneKinds map[string]string `json:"lane_kinds"`
-		CueError string            `json:"cue_error,omitempty"`
+		CueError  string            `json:"cue_error,omitempty"`
 	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: m.Flags, Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr})
 }
 
