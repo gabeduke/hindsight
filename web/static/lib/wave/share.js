@@ -55,10 +55,10 @@ function download(blob, filename) {
 // the sheet fails for any reason other than the user waving it away) saves it.
 // The File is built inside the branch that needs it so a browser without the
 // constructor still downloads.
-export async function shareOrDownload(blob, filename, title) {
+export async function shareOrDownload(blob, filename, title, type = 'audio/mpeg') {
   if (canShareFiles()) {
     try {
-      const file = new File([blob], filename, { type: 'audio/mpeg' });
+      const file = new File([blob], filename, { type });
       await navigator.share({ files: [file], title });
       return 'shared';
     } catch (e) {

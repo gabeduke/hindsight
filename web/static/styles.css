@@ -903,3 +903,13 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 @media (min-width: 900px) {
   .wave-canvas { height: 55vh; }
 }
+
+/* On a bench-sized screen the DAW is the destination and the MP3 the
+   afterthought; on a phone it is the other way round. Same buttons, same
+   places, only the weight moves. */
+.wave-row.action #share { flex: 1.4; }
+.wave-row.action #bundle { flex: 1; color: var(--ink-dim); }
+@media (min-width: 860px) {
+  .wave-row.action #bundle { flex: 1.5; background: var(--accent-dk); color: var(--ink); border-color: var(--accent-dk); }
+  .wave-row.action #share { flex: 1; background: var(--panel); color: var(--ink-dim); border-color: var(--line); }
+}

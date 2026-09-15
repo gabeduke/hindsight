@@ -7,7 +7,7 @@ import { WaveView } from './view.js';
 import { Overview } from './overview.js';
 import { Clock } from './clock.js';
 import { Lanes } from './lanes.js';
-import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
+import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
@@ -309,12 +309,12 @@ async function main() {
   }
   function updateActionRow() {
     const r = state.region;
-    $('region-text').textContent = fmtRegionText(r, sr);
     $('region-length').textContent = fmtRegionLength(r, state.grid) || '—';
     $('region-clear').hidden = !r;
     $('export').disabled = !r;
     $('region-delete').disabled = !r;
     for (const id of ['start-dec', 'start-inc', 'end-dec', 'end-inc']) $(id).disabled = !r;
+    setShareLabel();
   }
 
   $('downbeat-reset').addEventListener('click', () => {
@@ -376,8 +376,11 @@ async function main() {
   const shareBtn = $('share');
   // Decided once, up front: a browser that cannot hand a file to a share sheet
   // says "Download" from the start rather than surprising the user on tap.
-  const shareLabel = canShareFiles() ? 'Share' : 'Download';
-  shareBtn.textContent = shareLabel;
+  const shareVerb = canShareFiles() ? 'Share' : 'Download';
+  function setShareLabel() {
+    const r = state.region;
+    shareBtn.textContent = `${shareVerb} MP3 · ${r ? fmtTime(r.end - r.start, sr) : 'whole take'}`;
+  }
   shareBtn.addEventListener('click', async () => {
     // The server caps a render at MaxRenderSeconds and would reject this after
     // a round trip; saying so before the fetch turns a wait-then-fail into an
@@ -407,12 +410,48 @@ async function main() {
       const result = await shareOrDownload(blob, filename, filename.replace(/\.mp3$/, ''));
       // Only worth saying when the button promised a share sheet and the sheet
       // was not what happened; a plain Download button is its own message.
-      if (result === 'downloaded' && shareLabel === 'Share') toast('Shared as a download');
+      if (result === 'downloaded' && shareVerb === 'Share') toast('Shared as a download');
     } catch (e) {
-      toast(`${shareLabel} failed: ${e.message}`, 'bad');
+      toast(`${shareVerb} failed: ${e.message}`, 'bad');
     } finally {
       shareBtn.disabled = false;
-      shareBtn.textContent = shareLabel;
+      setShareLabel();
+    }
+  });
+
+  // --- DAW bundle -------------------------------------------------------------
+  // The region as a DAW opens it: WAV plus the re-based MIDI, in one zip.
+  const bundleBtn = $('bundle');
+  const wide = window.matchMedia('(min-width: 860px)');
+  function setBundleLabel() { bundleBtn.textContent = wide.matches ? 'Download DAW bundle' : 'DAW bundle'; }
+  setBundleLabel();
+  wide.addEventListener('change', setBundleLabel);
+  bundleBtn.addEventListener('click', async () => {
+    if (!state.region && total > MAX_SHARE_SECONDS * sr) {
+      toast(`Pick a region first — the whole take is over ${MAX_SHARE_SECONDS / 60} minutes`, 'bad');
+      return;
+    }
+    const from = state.region ? state.region.start : 0;
+    const to = state.region ? state.region.end : total;
+    bundleBtn.disabled = true;
+    bundleBtn.textContent = 'Bundling…';
+    try {
+      const res = await fetch(`/api/bundle?file=${encodeURIComponent(file)}&from=${from}&to=${to}`);
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error || `status ${res.status}`);
+      }
+      const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
+      const filename = m ? m[1] : `${safeStem(take.label || file.replace(/\.wav$/, ''))}.zip`;
+      const blob = await res.blob();
+      if (blob.size < 100) throw new Error('bundle failed, try again');
+      await shareOrDownload(blob, filename, filename.replace(/\.zip$/, ''), 'application/zip');
+      if (res.headers.get('X-Hindsight-Midi') === 'none') toast('Bundled the audio only — this take has no MIDI');
+    } catch (e) {
+      toast(`Bundle failed: ${e.message}`, 'bad');
+    } finally {
+      bundleBtn.disabled = false;
+      setBundleLabel();
     }
   });
 
