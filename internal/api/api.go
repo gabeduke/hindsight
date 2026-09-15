@@ -22,6 +22,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/gabeduke/hindsight/internal/audio"
+	"github.com/gabeduke/hindsight/internal/bundle"
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/midi"
 	"github.com/gorilla/mux"
@@ -249,6 +250,9 @@ func (a *API) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 // maxTakeFlags bounds what a single take may carry.
 const maxTakeFlags = 512
+
+// maxLaneKinds bounds how many lane kind overrides a take may carry.
+const maxLaneKinds = 64
 
 // handleFlagPost marks the newest frame the ring holds.
 //
@@ -811,6 +815,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		BPM      json.RawMessage `json:"bpm"`
 		Flags    json.RawMessage `json:"flags"`
 		Downbeat json.RawMessage `json:"downbeat_frame"`
+		LaneKinds json.RawMessage `json:"lane_kinds"`
 	}
 	if err := dec.Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -932,6 +937,39 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// RawMessage like flags: absent, null and a map are three states. A
+	// submitted map replaces the take's overrides wholesale.
+	if body.LaneKinds != nil {
+		if string(body.LaneKinds) == "null" {
+			m.LaneKinds = nil
+		} else {
+			var lk map[string]string
+			if err := json.Unmarshal(body.LaneKinds, &lk); err != nil {
+				writeErr(w, http.StatusBadRequest, "invalid lane_kinds")
+				return
+			}
+			if len(lk) > maxLaneKinds {
+				writeErr(w, http.StatusBadRequest,
+					fmt.Sprintf("a take may carry at most %d lane overrides", maxLaneKinds))
+				return
+			}
+			clean := make(map[string]string, len(lk))
+			for name, kind := range lk {
+				if kind != bundle.KindDrums && kind != bundle.KindNotes {
+					writeErr(w, http.StatusBadRequest, "lane_kinds values must be \"drums\" or \"notes\"")
+					return
+				}
+				if name = sanitizeLabel(name); name != "" {
+					clean[name] = kind
+				}
+			}
+			if len(clean) == 0 {
+				clean = nil
+			}
+			m.LaneKinds = clean
+		}
+	}
+
 	if err := audio.WriteMeta(wav, m); err != nil {
 		switch {
 		case errors.Is(err, audio.ErrNewerSidecar):
@@ -967,14 +1005,15 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	// the very fields a clear-to-empty patch just changed, and version is
 	// internal.
 	writeJSON(w, http.StatusOK, struct {
-		Label    string       `json:"label"`
-		Starred  bool         `json:"starred"`
-		Trim     *audio.Trim  `json:"trim"`
-		BPM      *float64     `json:"bpm"`
-		Flags    []audio.Flag `json:"flags"`
-		Downbeat *int64       `json:"downbeat_frame"`
-		CueError string       `json:"cue_error,omitempty"`
-	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: m.Flags, Downbeat: m.DownbeatFrame, CueError: cueErr})
+		Label    string            `json:"label"`
+		Starred  bool              `json:"starred"`
+		Trim     *audio.Trim       `json:"trim"`
+		BPM      *float64          `json:"bpm"`
+		Flags    []audio.Flag      `json:"flags"`
+		Downbeat *int64            `json:"downbeat_frame"`
+		LaneKinds map[string]string `json:"lane_kinds"`
+		CueError string            `json:"cue_error,omitempty"`
+	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: m.Flags, Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr})
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control

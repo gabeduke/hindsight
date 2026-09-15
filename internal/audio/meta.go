@@ -98,6 +98,11 @@ type Meta struct {
 	// Flags mark moments of interest, in frames from the take's first frame.
 	// Optional and additive, like BPM, so it needs no MetaVersion bump.
 	Flags []Flag `json:"flags,omitempty"`
+
+	// LaneKinds overrides the notes endpoint's drum/notes guess per track,
+	// keyed by SMF track name ("bento ch1"). Optional and additive, like
+	// BPM and Flags, so it needs no MetaVersion bump.
+	LaneKinds map[string]string `json:"lane_kinds,omitempty"`
 }
 
 // ErrNewerSidecar reports a sidecar written by a build that knew fields this
