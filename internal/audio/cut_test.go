@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -56,13 +57,14 @@ func TestApplyFadesWorksAcrossBlocks(t *testing.T) {
 	}
 }
 
-func TestCutWritesAFadedRegionAsANewTake(t *testing.T) {
-	dir := t.TempDir()
-	src := filepath.Join(dir, "jam_src.wav")
-	// A ramp, not a constant: with every frame carrying a different value a
-	// copy that is off by even one frame -- or a fade applied where it should
-	// not be -- changes the sample, which a flat source would hide.
-	data := make([]int32, 48000*2)
+// writeTestTake writes a 32-bit stereo take named name in dir: a ramp, not a
+// constant, so a copy that is off by even one frame -- or a fade applied
+// where it should not be -- changes the sample, which a flat source would
+// hide. Returns the take's path.
+func writeTestTake(t *testing.T, dir, name string, sampleRate int) string {
+	t.Helper()
+	src := filepath.Join(dir, name)
+	data := make([]int32, sampleRate*2)
 	for i := range data {
 		f := int32(i/2) << 10
 		if i%2 == 0 {
@@ -71,9 +73,15 @@ func TestCutWritesAFadedRegionAsANewTake(t *testing.T) {
 			data[i] = -f
 		}
 	}
-	if _, err := WriteWAV(src, data, 2, []int{0, 1}, 48000); err != nil {
+	if _, err := WriteWAV(src, data, 2, []int{0, 1}, sampleRate); err != nil {
 		t.Fatal(err)
 	}
+	return src
+}
+
+func TestCutWritesAFadedRegionAsANewTake(t *testing.T) {
+	dir := t.TempDir()
+	src := writeTestTake(t, dir, "jam_src.wav", 48000)
 	bpm := 96.0
 	if err := WriteMeta(src, Meta{Version: MetaVersion, Label: "jam", BPM: &bpm, Starred: true,
 		Trim:  &Trim{StartFrame: 1, EndFrame: 2},
@@ -249,5 +257,43 @@ func TestMetaRoundTripsDownbeatAndSource(t *testing.T) {
 	os.WriteFile(metaPath(p), []byte(`{"version":1,"label":"old"}`), 0o644)
 	if m := ReadMeta(p); m.Label != "old" || m.DownbeatFrame != nil || m.Source != nil {
 		t.Errorf("old sidecar: %+v", m)
+	}
+}
+
+func TestWriteRegion32StreamsTheSameBytesACutWrites(t *testing.T) {
+	dir := t.TempDir()
+	src := writeTestTake(t, dir, "src.wav", 48000)
+	from, to := int64(1000), int64(30000)
+
+	name, err := Cut(dir, CutRequest{Source: "src.wav", StartFrame: from, EndFrame: to}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cut, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	if err := WriteRegion32(&buf, src, from, to); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(buf.Bytes(), cut) {
+		t.Fatalf("stream is %d bytes, cut file is %d; they must be identical", buf.Len(), len(cut))
+	}
+}
+
+func TestWriteRegion32RejectsABadRange(t *testing.T) {
+	dir := t.TempDir()
+	src := writeTestTake(t, dir, "src.wav", 48000)
+	var buf bytes.Buffer
+	if err := WriteRegion32(&buf, src, 10, 5); !errors.Is(err, ErrRange) {
+		t.Errorf("inverted: %v", err)
+	}
+	if err := WriteRegion32(&buf, src, 0, 48000*2); !errors.Is(err, ErrRange) {
+		t.Errorf("past the end: %v", err)
+	}
+	if err := WriteRegion32(&buf, src, 0, 10); !errors.Is(err, ErrTooShort) {
+		t.Errorf("too short: %v", err)
 	}
 }

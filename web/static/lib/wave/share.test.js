@@ -116,3 +116,25 @@ test('a browser that cannot share files downloads without asking', async (t) => 
     assert.equal(b.doc.clicks[0].download, 'jam.mp3');
   } finally { b.restore(); }
 });
+
+test('shareOrDownload shares a zip with the type it is given', async () => {
+  // Node ships a read-only global `navigator` (and `File`), so a bare
+  // `globalThis.navigator = ...` throws here where it wouldn't in a browser.
+  // The existing stub() helper swaps the property descriptor instead, and
+  // restores it afterwards so this test leaves no globals behind for the
+  // ones that follow.
+  const seen = [];
+  const undo = [
+    stub('isSecureContext', true),
+    stub('navigator', {
+      canShare: () => true,
+      share: async ({ files }) => { seen.push(files[0].type); },
+    }),
+    stub('File', class { constructor(parts, name, opts) { this.name = name; this.type = opts.type; } }),
+  ];
+  try {
+    const r = await shareOrDownload(new Blob(['x']), 'a.zip', 'a', 'application/zip');
+    assert.equal(r, 'shared');
+    assert.deepEqual(seen, ['application/zip']);
+  } finally { for (const u of undo.reverse()) u(); }
+});

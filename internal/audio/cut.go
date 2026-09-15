@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -98,24 +99,18 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 	return name, nil
 }
 
-// writeCutWAV streams the region through the fades into a canonical 44-byte
-// header WAV and writes the peaks file beside it.
-func writeCutWAV(srcPath, outPath string, info WAVInfo, from, to, fade int64) error {
+// writeRegion32 streams frames [from, to) of srcPath through the fades to w
+// as a 32-bit WAV with a canonical 44-byte header. acc may be nil.
+func writeRegion32(w io.Writer, srcPath string, info WAVInfo, from, to, fade int64, acc *peakAccumulator) error {
 	total := to - from
 	ch := info.Channels
-	f, err := os.Create(outPath)
-	if err != nil {
+	bw := bufio.NewWriterSize(w, 1<<18)
+	if err := writeWAVHeader(bw, uint32(total*int64(ch)*4), ch, info.SampleRate, 32); err != nil {
 		return err
 	}
-	defer f.Close()
-	w := bufio.NewWriterSize(f, 1<<18)
-	if err := writeWAVHeader(w, uint32(total*int64(ch)*4), ch, info.SampleRate, 32); err != nil {
-		return err
-	}
-	acc := newPeakAccumulator(ch, int(total))
 	le := binary.LittleEndian
 	var raw [4]byte
-	_, err = ReadFrames(srcPath, from, to, 1<<14, func(block []int32, first int64) error {
+	_, err := ReadFrames(srcPath, from, to, 1<<14, func(block []int32, first int64) error {
 		rel := first - from
 		applyFades(block, rel, total, ch, fade)
 		n := len(block) / ch
@@ -123,12 +118,12 @@ func writeCutWAV(srcPath, outPath string, info WAVInfo, from, to, fade int64) er
 			for c := 0; c < ch; c++ {
 				v := block[i*ch+c]
 				le.PutUint32(raw[:], uint32(v))
-				if _, err := w.Write(raw[:]); err != nil {
+				if _, err := bw.Write(raw[:]); err != nil {
 					return err
 				}
-				// The same divisor WriteWAV uses, so a cut's peaks and a
-				// saved take's peaks are computed identically.
-				acc.add(c, int(rel)+i, float32(float64(v)/2147483648.0))
+				if acc != nil {
+					acc.add(c, int(rel)+i, float32(float64(v)/2147483648.0))
+				}
 			}
 		}
 		return nil
@@ -136,7 +131,42 @@ func writeCutWAV(srcPath, outPath string, info WAVInfo, from, to, fade int64) er
 	if err != nil {
 		return err
 	}
-	if err := w.Flush(); err != nil {
+	return bw.Flush()
+}
+
+// WriteRegion32 streams frames [from, to) of a take to w as a complete
+// 32-bit WAV with the same 3ms fades a cut applies: byte-identical to what
+// POST /api/cut would write for the region, minus the peaks file. This is
+// the DAW bundle's audio.
+func WriteRegion32(w io.Writer, path string, from, to int64) error {
+	info, err := ReadWAVInfo(path)
+	if err != nil {
+		return err
+	}
+	if info.BitsPerSample != 32 {
+		return ErrBitDepth
+	}
+	if from < 0 || to <= from || to > info.Frames() {
+		return fmt.Errorf("%w: [%d, %d) of %d frames", ErrRange, from, to, info.Frames())
+	}
+	fade := FadeFrames(info.SampleRate)
+	if to-from < 2*fade+1 {
+		return ErrTooShort
+	}
+	return writeRegion32(w, path, info, from, to, fade, nil)
+}
+
+// writeCutWAV streams the region through the fades into a canonical 44-byte
+// header WAV and writes the peaks file beside it.
+func writeCutWAV(srcPath, outPath string, info WAVInfo, from, to, fade int64) error {
+	total := to - from
+	f, err := os.Create(outPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	acc := newPeakAccumulator(info.Channels, int(total))
+	if err := writeRegion32(f, srcPath, info, from, to, fade, acc); err != nil {
 		return err
 	}
 	if err := f.Sync(); err != nil {

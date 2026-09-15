@@ -821,17 +821,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
    .wave-row. */
 .edge { display: inline-flex; align-items: center; gap: 4px; }
 .wave-row.action { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
-.wave-row.action .region-text {
-  flex: 1; min-width: 0;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  font-size: 14px; color: var(--ink-dim);
-}
-/* min-width:0 so the flex item may shrink below its text: without it the
-   region text pushes the row wider than a 320px phone instead of ellipsing. */
-.region-text .mono {
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-  min-width: 0; overflow: hidden; text-overflow: ellipsis;
-}
+.wave-row.action .icon-btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The disc stays 28px so the row keeps its height, but a 28px tap target is
    well under the repo's --tap. The ::after grows the hit area to 48px without
    growing the layout box -- pointer events on the pseudo-element are the
@@ -885,6 +875,31 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
   border: 1px solid var(--flag); border-radius: 9px;
   background: var(--panel); color: var(--ink); font-family: var(--font); font-size: 15px;
 }
+/* ---------- MIDI lanes ---------- */
+/* Capped so four lanes never push the transport off a phone; scrolls inside. */
+.lanes { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; }
+.lane { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; flex: none; }
+.lane-head {
+  display: flex; align-items: center; gap: 8px; padding: 4px 10px; min-height: 26px;
+  cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.lane-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.lane-name { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.lane-meta { font-size: 10px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.lane-chev { margin-left: auto; color: var(--ink-faint); font-size: 12px; }
+.lane-body { display: block; width: 100%; border-top: 1px solid var(--panel-2); touch-action: pan-y; }
+
 @media (min-width: 900px) {
   .wave-canvas { height: 55vh; }
+}
+
+/* On a bench-sized screen the DAW is the destination and the MP3 the
+   afterthought; on a phone it is the other way round. Same buttons, same
+   places, only the weight moves. */
+.wave-row.action #share { flex: 1.4; }
+.wave-row.action #bundle { flex: 1; color: var(--ink-dim); }
+@media (min-width: 860px) {
+  .wave-row.action #bundle { flex: 1.5; background: var(--accent-dk); color: var(--ink); border-color: var(--accent-dk); }
+  .wave-row.action #share { flex: 1; background: var(--panel); color: var(--ink-dim); border-color: var(--line); }
 }

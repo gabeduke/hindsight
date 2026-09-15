@@ -1441,3 +1441,65 @@ func TestRenderThatFailsBeforeTheFirstByteIs500(t *testing.T) {
 		t.Error("500 must not carry a filename")
 	}
 }
+
+func TestPatchTakeSetsAndClearsLaneKinds(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeTake(t, dir, "a.wav")
+
+	w := patch(t, r, "a.wav", `{"lane_kinds":{"bento ch1":"drums","KeyStep 37 ch1":"notes"}}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	m := audio.ReadMeta(filepath.Join(dir, "a.wav"))
+	if m.LaneKinds["bento ch1"] != "drums" || m.LaneKinds["KeyStep 37 ch1"] != "notes" {
+		t.Fatalf("lane_kinds = %v", m.LaneKinds)
+	}
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
+	if lk, _ := body["lane_kinds"].(map[string]any); lk["bento ch1"] != "drums" {
+		t.Errorf("response lane_kinds = %v", body["lane_kinds"])
+	}
+
+	// A label edit leaves it alone.
+	patch(t, r, "a.wav", `{"label":"x"}`)
+	if m := audio.ReadMeta(filepath.Join(dir, "a.wav")); len(m.LaneKinds) != 2 {
+		t.Errorf("label patch changed lane_kinds: %v", m.LaneKinds)
+	}
+
+	w = patch(t, r, "a.wav", `{"lane_kinds":null}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	if m := audio.ReadMeta(filepath.Join(dir, "a.wav")); m.LaneKinds != nil {
+		t.Errorf("null did not clear lane_kinds: %v", m.LaneKinds)
+	}
+}
+
+func TestPatchTakeRejectsAnUnknownLaneKind(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeTake(t, dir, "a.wav")
+	w := patch(t, r, "a.wav", `{"lane_kinds":{"bento ch1":"piano"}}`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400", w.Code)
+	}
+	if m := audio.ReadMeta(filepath.Join(dir, "a.wav")); m.LaneKinds != nil {
+		t.Errorf("a rejected patch wrote lane_kinds: %v", m.LaneKinds)
+	}
+}
+
+func TestPatchTakeCapsLaneKindsAtSixtyFour(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeTake(t, dir, "a.wav")
+	var sb strings.Builder
+	sb.WriteString(`{"lane_kinds":{`)
+	for i := 0; i < 65; i++ {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		fmt.Fprintf(&sb, `"t%d":"drums"`, i)
+	}
+	sb.WriteString(`}}`)
+	if w := patch(t, r, "a.wav", sb.String()); w.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400", w.Code)
+	}
+}

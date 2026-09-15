@@ -254,9 +254,15 @@ func Decode(b []byte) (*File, error) {
 	if err := binary.Read(r, binary.BigEndian, &hlen); err != nil || hlen < 6 {
 		return nil, fmt.Errorf("%w: header", ErrMalformed)
 	}
-	binary.Read(r, binary.BigEndian, &format)
-	binary.Read(r, binary.BigEndian, &ntracks)
-	binary.Read(r, binary.BigEndian, &division)
+	if err := binary.Read(r, binary.BigEndian, &format); err != nil {
+		return nil, fmt.Errorf("%w: format", ErrMalformed)
+	}
+	if err := binary.Read(r, binary.BigEndian, &ntracks); err != nil {
+		return nil, fmt.Errorf("%w: ntracks", ErrMalformed)
+	}
+	if err := binary.Read(r, binary.BigEndian, &division); err != nil {
+		return nil, fmt.Errorf("%w: division", ErrMalformed)
+	}
 	if hlen > 6 {
 		r.Seek(int64(hlen-6), io.SeekCurrent)
 	}

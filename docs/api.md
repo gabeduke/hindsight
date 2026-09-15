@@ -1,6 +1,6 @@
 # HTTP API
 
-Fourteen routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Sixteen routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -24,6 +24,8 @@ internet.
 | `POST /api/cut?file=` | Export a region of a take as a new take, with 3ms declick fades |
 | `GET /api/slice?file=&from=&to=` | A region as a 16-bit WAV with the same fades a cut gets, for auditioning |
 | `GET /api/render?file=&from=&to=` | An MP3 of a region, streamed from ffmpeg with the cut's fades, for the share sheet |
+| `GET /api/midi?file=` | The take's `.mid` decoded to notes in frames, one track per device and channel, for the lanes |
+| `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
 
 `GET` routes also accept `HEAD`, except `/api/live`, which is a WebSocket
 upgrade, and `/api/render`, which does not.
@@ -203,6 +205,7 @@ how a take stays in reach once newer ones have pushed it down.
   "bpm": 96,
   "flags": [{ "frame": 100 }, { "frame": 900 }],
   "downbeat_frame": null,
+  "lane_kinds": { "bento ch1": "notes" },
   "source": { "name": "jam_src.wav", "start_frame": 1000, "end_frame": 9000 }
 }]
 ```
@@ -237,11 +240,12 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 | `bpm` | number or `null` | 20–400, rounded to two decimals; rejects NaN and ±Inf; `null` clears |
 | `flags` | `[{frame, label}]` or `null` | A full replacement of the take's flags. Capped at 512; `frame` must be `>= 0` and less than the take's frame count; `null` clears. `label` is sanitized like the take label (control characters stripped, trimmed, 120 runes) |
 | `downbeat_frame` | integer or `null` | Where bar 1 falls, for the waveform page's grid. `>= 0` and less than the take's frame count; `null` clears |
+| `lane_kinds` | `{"<track name>": "drums"\|"notes"}` or `null` | A full replacement of the take's per-lane overrides for `GET /api/midi`'s drum guess. At most 64 entries; keys sanitized like labels; `null` clears |
 
 The response is the merged result:
 
 ```json
-{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null }
+{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {} }
 ```
 
 If `flags` changed, the sidecar write is also mirrored into the WAV as RIFF
@@ -395,6 +399,52 @@ stream's size is unknown until it ends.
 | Status | When |
 |---|---|
 | 400 | Bad `file`, non-integer or inverted frames, past the end, over 10 minutes, shorter than two fades (289 frames at 48kHz), or a non-32-bit take |
+| 404 | No such take |
+
+## `GET /api/midi?file=`
+
+The take's `.mid` decoded server-side into notes on the take's frame
+timeline, so the take page draws lanes with the same math it draws the
+waveform with.
+
+```json
+{
+  "ppq": 960, "sample_rate": 48000, "frames": 1440000,
+  "tempo": [{ "frame": 0, "bpm": 82 }],
+  "downbeat_frame": 0,
+  "tracks": [
+    { "name": "bento ch1", "device": "bento", "channel": 1, "kind": "drums",
+      "notes": [{ "s": 4800, "e": 9600, "p": 36, "v": 100 }] }
+  ]
+}
+```
+
+`s` and `e` are start and end frames, `p` the pitch, `v` the velocity. Notes
+are sorted by `s`; a note still sounding at the end of the file ends at the
+take's last frame. `kind` is `drums` for channel 10, or for a track with at
+most 16 distinct pitches whose notes are mostly shorter than a quarter of a
+beat; the sidecar's `lane_kinds` overrides it per track. Served immutable,
+like peaks: a take's `.mid` never changes.
+
+| Status | When |
+|---|---|
+| 400 | Missing or bad `file` |
+| 404 | No such take, or no `.mid` beside it |
+| 422 | The `.mid` does not decode |
+
+## `GET /api/bundle?file=&from=&to=`
+
+Streams frames `[from, to)` as a zip a DAW opens in one drop:
+`<stem>.wav` at the take's native 32-bit depth with the cut's 3ms fades,
+`<stem>.mid` re-based so the region's first frame is tick 0 with the tempo
+lane over that stretch, and `<stem>.manifest.json`. Nothing is written to
+disk. Named `<label or stem> <m.ss>-<m.ss>.zip`, or `<label or stem>.zip`
+for the whole take. A take without a `.mid` bundles the WAV alone and the
+response carries `X-Hindsight-Midi: none`.
+
+| Status | When |
+|---|---|
+| 400 | Bad `file`, non-integer or inverted frames, past the end, over 10 minutes, shorter than two fades, or a non-32-bit take |
 | 404 | No such take |
 
 ## `DELETE /api/delete?file=`

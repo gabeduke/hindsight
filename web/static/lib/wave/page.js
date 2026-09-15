@@ -6,7 +6,8 @@ import { TileCache } from './tiles.js';
 import { WaveView } from './view.js';
 import { Overview } from './overview.js';
 import { Clock } from './clock.js';
-import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
+import { Lanes } from './lanes.js';
+import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
@@ -90,7 +91,13 @@ async function main() {
   // finished. `let overview = null` makes that early redraw a no-op; a `const`
   // assigned afterwards would throw on the temporal dead zone instead.
   let overview = null;
-  function redraw() { view.draw(); if (overview) overview.draw(); }
+  // Lanes arrive after the page is up: a take without MIDI never blocks on
+  // them, and a take with MIDI paints its wave first. Declared here, before
+  // the view, for the same reason as `overview`: WaveView's constructor
+  // emits 'viewChange' synchronously, before this line would otherwise have
+  // run, and a `const` declared later would throw on the temporal dead zone.
+  let lanes = null;
+  function redraw() { view.draw(); if (overview) overview.draw(); if (lanes) lanes.draw(); }
   const view = new WaveView({ canvas, tiles, totalFrames: total, sampleRate: sr, getState: () => state, emit });
   overview = new Overview({
     canvas: $('overview-canvas'), filePeaks, totalFrames: total,
@@ -208,12 +215,12 @@ async function main() {
       case 'downbeatChange':
         // The readout is bars and beats *counted from the downbeat*, so moving
         // the downbeat changes it even though the cursor has not moved.
-        state.grid.downbeat = p.frame; updateReadout(); view.draw();
+        state.grid.downbeat = p.frame; updateReadout(); redraw();
         if (p.final) saveDownbeat();
         break;
       // The first viewChange arrives from inside `new WaveView`, before the
       // overview exists; the guard is what makes that first one harmless.
-      case 'viewChange': if (overview) overview.draw(); break;
+      case 'viewChange': if (overview) overview.draw(); if (lanes) lanes.draw(); break;
     }
   }
 
@@ -302,12 +309,12 @@ async function main() {
   }
   function updateActionRow() {
     const r = state.region;
-    $('region-text').textContent = fmtRegionText(r, sr);
     $('region-length').textContent = fmtRegionLength(r, state.grid) || '—';
     $('region-clear').hidden = !r;
     $('export').disabled = !r;
     $('region-delete').disabled = !r;
     for (const id of ['start-dec', 'start-inc', 'end-dec', 'end-inc']) $(id).disabled = !r;
+    setShareLabel();
   }
 
   $('downbeat-reset').addEventListener('click', () => {
@@ -369,8 +376,17 @@ async function main() {
   const shareBtn = $('share');
   // Decided once, up front: a browser that cannot hand a file to a share sheet
   // says "Download" from the start rather than surprising the user on tap.
-  const shareLabel = canShareFiles() ? 'Share' : 'Download';
-  shareBtn.textContent = shareLabel;
+  const shareVerb = canShareFiles() ? 'Share' : 'Download';
+  // fmtTime is m:ss.mmm, for the readout; the button label wants the plainer
+  // m:ss so it stays short enough not to overflow a 320px phone.
+  function fmtMinSec(frames, sampleRate) {
+    const s = Math.floor(frames / sampleRate);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+  function setShareLabel() {
+    const r = state.region;
+    shareBtn.textContent = `${shareVerb} MP3 · ${r ? fmtMinSec(r.end - r.start, sr) : 'whole take'}`;
+  }
   shareBtn.addEventListener('click', async () => {
     // The server caps a render at MaxRenderSeconds and would reject this after
     // a round trip; saying so before the fetch turns a wait-then-fail into an
@@ -400,14 +416,102 @@ async function main() {
       const result = await shareOrDownload(blob, filename, filename.replace(/\.mp3$/, ''));
       // Only worth saying when the button promised a share sheet and the sheet
       // was not what happened; a plain Download button is its own message.
-      if (result === 'downloaded' && shareLabel === 'Share') toast('Shared as a download');
+      if (result === 'downloaded' && shareVerb === 'Share') toast('Shared as a download');
     } catch (e) {
-      toast(`${shareLabel} failed: ${e.message}`, 'bad');
+      toast(`${shareVerb} failed: ${e.message}`, 'bad');
     } finally {
       shareBtn.disabled = false;
-      shareBtn.textContent = shareLabel;
+      setShareLabel();
     }
   });
+
+  // --- DAW bundle -------------------------------------------------------------
+  // The region as a DAW opens it: WAV plus the re-based MIDI, in one zip.
+  const bundleBtn = $('bundle');
+  const wide = window.matchMedia('(min-width: 860px)');
+  function setBundleLabel() { bundleBtn.textContent = wide.matches ? 'Download DAW bundle' : 'DAW bundle'; }
+  setBundleLabel();
+  wide.addEventListener('change', setBundleLabel);
+  bundleBtn.addEventListener('click', async () => {
+    if (!state.region && total > MAX_SHARE_SECONDS * sr) {
+      toast(`Pick a region first — the whole take is over ${MAX_SHARE_SECONDS / 60} minutes`, 'bad');
+      return;
+    }
+    const from = state.region ? state.region.start : 0;
+    const to = state.region ? state.region.end : total;
+    bundleBtn.disabled = true;
+    bundleBtn.textContent = 'Bundling…';
+    try {
+      const res = await fetch(`/api/bundle?file=${encodeURIComponent(file)}&from=${from}&to=${to}`);
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error || `status ${res.status}`);
+      }
+      const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
+      const filename = m ? m[1] : `${safeStem(take.label || file.replace(/\.wav$/, ''))}.zip`;
+      const blob = await res.blob();
+      if (blob.size < 100) throw new Error('bundle failed, try again');
+      await shareOrDownload(blob, filename, filename.replace(/\.zip$/, ''), 'application/zip');
+      if (res.headers.get('X-Hindsight-Midi') === 'none') toast('Bundled the audio only — this take has no MIDI');
+    } catch (e) {
+      toast(`Bundle failed: ${e.message}`, 'bad');
+    } finally {
+      bundleBtn.disabled = false;
+      setBundleLabel();
+    }
+  });
+
+  // --- MIDI lanes -----------------------------------------------------------
+  const laneKinds = { ...(take.lane_kinds || {}) };
+  async function loadLanes() {
+    let res;
+    try {
+      res = await fetch(`/api/midi?file=${encodeURIComponent(file)}`);
+    } catch {
+      toast('Could not load MIDI', 'bad');
+      return;
+    }
+    if (res.status === 404) return; // no MIDI beside this take: nothing to show
+    if (res.status === 422) {
+      const t = document.createElement('div');
+      t.className = 'toast bad';
+      t.append('This take\'s MIDI file does not decode. ');
+      const a = document.createElement('a');
+      a.href = `/api/download?file=${encodeURIComponent(take.midi_name || file.replace(/\.wav$/, '.mid'))}&dl=1`;
+      a.textContent = 'Download the raw .mid';
+      t.appendChild(a);
+      $('toasts').appendChild(t);
+      setTimeout(() => t.remove(), 8000);
+      return;
+    }
+    if (!res.ok) { toast('Could not load MIDI', 'bad'); return; }
+    let notes;
+    try {
+      notes = await res.json();
+    } catch {
+      toast('Could not load MIDI', 'bad');
+      return;
+    }
+    if (!notes.tracks || !notes.tracks.length) return;
+    // /api/midi is served immutable, so a browser holding a cached response
+    // from before a kind flip would otherwise show the old kind and colour
+    // here even though the sidecar (and /api/jams) already have the new one.
+    for (const t of notes.tracks) if (laneKinds[t.name]) t.kind = laneKinds[t.name];
+    const container = $('lanes');
+    container.hidden = false;
+    lanes = new Lanes({
+      container,
+      tracks: notes.tracks,
+      storageKey: `wave.lanes.${file}`,
+      getState: () => state,
+      getView: () => view.view,
+      onKindChange: (name, kind) => {
+        laneKinds[name] = kind;
+        patch({ lane_kinds: laneKinds }).catch((e) => toast(`Could not save lane kind: ${e.message}`, 'bad'));
+      },
+    });
+    lanes.draw();
+  }
 
   // --- keyboard -----------------------------------------------------------
   document.addEventListener('keydown', (e) => {
@@ -448,6 +552,7 @@ async function main() {
   updateActionRow();
   updateReadout();
   view.fitAll();
+  loadLanes();
   // A region is a loop, so a take reopened with one saved comes back looping
   // without anyone having to arm it again.
   if (state.region) applyLoop(state.region);
@@ -457,7 +562,7 @@ async function main() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushRegion(); });
   // flushRegion is the only thing that has to outlive the page; a pending loop
   // does not -- cancel it so it cannot arm a clock that has just been destroyed.
-  window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); });
+  window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); if (lanes) lanes.destroy(); });
 }
 
 main().catch((e) => fail(e.message || String(e)));
