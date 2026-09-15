@@ -51,7 +51,9 @@ export class Overview {
     this.resize();
   }
 
-  destroy() { this.ac.abort(); this.ro.disconnect(); cancelAnimationFrame(this.raf); this.destroyed = true; }
+  // Drop the cache too: it is a full-strip backing canvas, and a destroyed
+  // overview that outlives its page should not keep one pinned.
+  destroy() { this.ac.abort(); this.ro.disconnect(); cancelAnimationFrame(this.raf); this.destroyed = true; this.waveCache = null; }
 
   resize() {
     const r = this.canvas.getBoundingClientRect();
@@ -67,19 +69,29 @@ export class Overview {
     this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); });
   }
 
-  paint() {
-    const { ctx, dpr, cssW: W, cssH: H } = this;
-    if (!W) return;
-    const st = this.getState();
+  // Renders the static, whole-take waveform (both channels folded into one
+  // lane) into this.waveCache at the current device-pixel size. This is the
+  // expensive min/max scan over the file's peaks; paint() only re-runs it
+  // when size, dpr, or gain change, instead of on every clock tick.
+  renderWaveCache(gain) {
+    const { dpr, cssW: W, cssH: H } = this;
+    const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
+    if (!this.waveCache) {
+      this.waveCache = typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(pw, ph)
+        : document.createElement('canvas');
+    }
+    this.waveCache.width = pw;
+    this.waveCache.height = ph;
+    const cctx = this.waveCache.getContext('2d');
+    cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(this.canvas);
     const col = (n, fb) => css.getPropertyValue(n).trim() || fb;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = col('--panel-2', '#1a2437');
-    ctx.fillRect(0, 0, W, H);
+    cctx.fillStyle = col('--panel-2', '#1a2437');
+    cctx.fillRect(0, 0, W, H);
 
-    // Whole-take waveform, both channels folded into one lane.
     const pd = this.peaks;
-    ctx.fillStyle = col('--ink-faint', '#5d6b85');
+    cctx.fillStyle = col('--ink-faint', '#5d6b85');
     const mid = H / 2;
     for (let x = 0; x < W; x++) {
       const b0 = Math.floor((x / W) * pd.buckets), b1 = Math.max(b0, Math.floor(((x + 1) / W) * pd.buckets) - 1);
@@ -88,8 +100,26 @@ export class Overview {
         mn = Math.min(mn, pd.data[c][b * 2]); mx = Math.max(mx, pd.data[c][b * 2 + 1]);
       }
       if (!(mx >= mn)) continue;
-      ctx.fillRect(x, mid - mx * mid * 0.9, 1, Math.max(1, (mx - mn) * mid * 0.9));
+      mn = Math.max(-1, Math.min(1, mn * gain));
+      mx = Math.max(-1, Math.min(1, mx * gain));
+      cctx.fillRect(x, mid - mx * mid * 0.9, 1, Math.max(1, (mx - mn) * mid * 0.9));
     }
+    this.cachedKey = `${W}x${H}@${dpr}:${gain}`;
+  }
+
+  paint() {
+    const { ctx, dpr, cssW: W, cssH: H } = this;
+    // A zero-width *or* zero-height layout (a hidden panel, a collapsed row)
+    // would render a 0-px cache that drawImage then refuses to draw.
+    if (!W || !H) return;
+    const st = this.getState();
+    const css = getComputedStyle(this.canvas);
+    const col = (n, fb) => css.getPropertyValue(n).trim() || fb;
+    const gain = st.gain ?? 1;
+    const key = `${W}x${H}@${dpr}:${gain}`;
+    if (key !== this.cachedKey) this.renderWaveCache(gain);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.drawImage(this.waveCache, 0, 0, W, H);
 
     // Region band and flags
     if (st.region) {
@@ -116,13 +146,14 @@ export class Overview {
   pt(e) { const r = this.canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
 
   down(e) {
+    // A second pointer landing on the strip while one gesture is already
+    // live is ignored entirely -- it does not steer or end the first
+    // finger's drag, and it does not start a gesture of its own.
+    if (this.gesture && this.gesture.id !== e.pointerId) return;
     this.canvas.setPointerCapture(e.pointerId);
     const p = this.pt(e);
     const { x, w } = windowRect(this.getView(), this.total, this.cssW);
     const inside = p.x >= x && p.x <= x + w;
-    // id: a second finger landing on the strip must not steer or end the
-    // first finger's drag -- every later event is matched against the pointer
-    // that started the gesture and otherwise ignored.
     this.gesture = { id: e.pointerId, x0: p.x, t0: performance.now(), moved: false, inside, grabOffset: p.x - x };
   }
 

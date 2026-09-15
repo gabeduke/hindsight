@@ -77,6 +77,15 @@ export function fmtTime(frame, sampleRate) {
   return `${m}:${String(s).padStart(2, '0')}.${String(r).padStart(3, '0')}`;
 }
 
+export function fmtRegionLength(region, grid) {
+  if (!region) return '';
+  const frames = region.end - region.start;
+  const seconds = `${(frames / grid.sampleRate).toFixed(1)} s`;
+  if (!grid.bpm) return seconds;
+  const bars = frames / (framesPerBeat(grid) * BEATS_PER_BAR);
+  return `${seconds} · ${bars.toFixed(1)} bars`;
+}
+
 export function clampRegion(region, totalFrames, minLen) {
   let start = Math.max(0, Math.round(region.start));
   let end = Math.min(totalFrames, Math.round(region.end));
@@ -88,4 +97,27 @@ export function clampRegion(region, totalFrames, minLen) {
     }
   }
   return { start, end };
+}
+
+export const EDGE_MARGIN_PX = 28;
+export const EDGE_MAX_STEP_PX = 14;
+
+// While a selection drags toward a screen edge, the view pans so the region
+// can grow past what is visible. The step ramps from 0 at the margin's inner
+// edge to maxStep at the canvas edge (and beyond), so a finger resting near
+// the edge scrolls gently and one pressed against it scrolls fast.
+export function edgeScrollStep(x, width, margin = EDGE_MARGIN_PX, maxStep = EDGE_MAX_STEP_PX) {
+  if (x < margin) return -maxStep * Math.min(1, (margin - x) / margin);
+  if (x > width - margin) return maxStep * Math.min(1, (x - (width - margin)) / margin);
+  return 0;
+}
+
+// A -38 dBFS take drawn on an absolute scale is a flat line. This is the
+// display-only multiplier that lifts its loudest sample to `target`; it never
+// touches audio, and the takes list keeps its absolute scale on purpose.
+export function fitGain(filePeaks, target = 0.9, max = 100) {
+  let peak = 0;
+  for (const ch of filePeaks.data || []) for (const v of ch) peak = Math.max(peak, Math.abs(v));
+  if (!(peak > 0) || peak >= target) return 1;
+  return Math.min(max, target / peak);
 }

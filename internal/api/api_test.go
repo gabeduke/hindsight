@@ -1437,4 +1437,7 @@ func TestRenderThatFailsBeforeTheFirstByteIs500(t *testing.T) {
 	if body.Error != "render failed" {
 		t.Errorf("error = %q", body.Error)
 	}
+	if w.Header().Get("Content-Disposition") != "" {
+		t.Error("500 must not carry a filename")
+	}
 }
