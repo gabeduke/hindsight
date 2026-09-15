@@ -485,10 +485,10 @@ func TestCutMIDIWithNoSourceMIDIDoesNothing(t *testing.T) {
 }
 
 // writeWAVHeader overwrites path with a minimal 32-bit stereo WAV header
-// claiming one second of audio, enough for ReadWAVInfo.
+// claiming two seconds of audio, enough for ReadWAVInfo.
 func writeWAVHeader(t *testing.T, path string, sampleRate int) {
 	t.Helper()
-	dataLen := uint32(sampleRate * 2 * 4)
+	dataLen := uint32(sampleRate * 2 * 4 * 2)
 	h := make([]byte, 44)
 	copy(h[0:], "RIFF")
 	put32 := func(off int, v uint32) {
