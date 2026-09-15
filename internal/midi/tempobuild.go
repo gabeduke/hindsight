@@ -64,9 +64,19 @@ type Downbeat struct {
 // next run begins on keeps its bar phase.
 func BuildTempoMap(pulses []TimedPulse, duration float64) (*TempoMap, *Downbeat) {
 	m := &TempoMap{PPQ: smf.DefaultPPQ}
-	// A pulse at or before the take's first frame cannot be given a tick:
-	// tick 0 is second 0 and nothing precedes it.
-	for len(pulses) > 0 && pulses[0].Sec <= 0 {
+	// A pulse before the take's first frame cannot be given a tick: tick 0
+	// is second 0 and nothing precedes it. Except a downbeat within the
+	// tolerance of 0, which is what a bar-snapped window puts there: it is
+	// taken to be at 0 exactly, so the run starts at tick 0 with no lead-in.
+	for len(pulses) > 0 {
+		p := pulses[0]
+		if p.Sec > 0 && p.Sec > segmentToleranceSec {
+			break
+		}
+		if math.Abs(p.Sec) <= segmentToleranceSec && p.Index != PulseIndexUnknown && p.Index%pulsesPerBar == 0 {
+			pulses = append([]TimedPulse{{Sec: 0, Index: p.Index}}, pulses[1:]...)
+			break
+		}
 		pulses = pulses[1:]
 	}
 	if len(pulses) == 0 {
@@ -108,7 +118,11 @@ func BuildTempoMap(pulses []TimedPulse, duration float64) (*TempoMap, *Downbeat)
 		// the empty stretch as close to the fallback as possible.
 		var runStartTick uint64
 		var aligned string
-		if !haveRun {
+		if !haveRun && first.Sec == 0 {
+			// The window starts on this pulse: tick 0, by construction on
+			// its bar phase since the snap only accepts downbeats.
+			runStartTick, aligned = 0, "bar"
+		} else if !haveRun {
 			runStartTick, aligned = phasedTick(0, 0, first.Sec, phase)
 		} else {
 			runStartTick, aligned = phasedTick(prevTick, prevSec, first.Sec, phase)

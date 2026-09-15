@@ -15,6 +15,7 @@ import (
 
 	"github.com/gabeduke/hindsight/internal/api"
 	"github.com/gabeduke/hindsight/internal/audio"
+	"github.com/gabeduke/hindsight/internal/bundle"
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/midi"
 	"github.com/gorilla/mux"
@@ -45,16 +46,25 @@ func main() {
 	}
 	log.Printf("[*] hindsight %s — %s", version, cfg)
 
-	// FixedClock and Reader each satisfy both consumers, so both are held
+	// DemoDevice and Watcher each satisfy every consumer, so both are held
 	// through their interfaces rather than asserted back out of one.
 	var (
-		src   audio.Source
-		clock api.MIDISource
-		tempo audio.TempoSource
+		src      audio.Source
+		clock    api.MIDISource
+		tempo    audio.TempoSource
+		exporter audio.MIDIExporter
 	)
 	if *demo {
-		fc := midi.NewFixedClock(audio.DemoBPM)
-		src, clock, tempo = audio.NewDemoSource(cfg), fc, fc
+		// The demo's sequencer plays along with its loop: clock, a Start,
+		// and the kick, hat and bass as notes, so a demo take gets a real
+		// .mid and the whole export path runs with no hardware.
+		src = audio.NewDemoSource(cfg)
+		dd := midi.NewDemoDevice(cfg.RingSeconds)
+		src.(audio.MIDISink).SetMIDISink(dd.Feed)
+		clock, tempo = dd, dd
+		if cfg.MIDICapture {
+			exporter = bundle.New(dd, cfg.MIDILatencyMS, midi.DemoDeviceName)
+		}
 		log.Printf("[*] demo mode — synthetic audio, no hardware")
 	} else {
 		src = audio.NewDeviceSource(cfg)
@@ -86,8 +96,12 @@ func main() {
 		watcher.Start()
 		defer watcher.Stop()
 		clock, tempo = watcher, watcher
+		if cfg.MIDICapture {
+			exporter = bundle.New(watcher, cfg.MIDILatencyMS, cfg.MIDIClockDevice)
+		}
 	}
 	saver.SetTempoSource(tempo)
+	saver.SetMIDIExporter(exporter)
 
 	r := mux.NewRouter()
 	api.New(cfg, cap, saver, cap.Envelope(), clock).SetupRoutes(r)

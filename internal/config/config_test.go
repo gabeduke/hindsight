@@ -15,7 +15,7 @@ func clearEnv(t *testing.T) {
 		"INPUT_LATENCY_MS", "RING_SECONDS", "OUTPUT_DIR", "SAVE_CHANNELS",
 		"SAVE_ALL_CHANNELS", "MIN_FREE_GB", "MAX_SAVES", "PORT",
 		"MIDI_CAPTURE", "MIDI_DEVICES", "MIDI_IGNORE", "MIDI_CLOCK_DEVICE",
-		"MIDI_RING_EVENTS", "MIDI_LATENCY_MS",
+		"MIDI_RING_EVENTS", "MIDI_LATENCY_MS", "MIDI_SNAP_BARS",
 	} {
 		t.Setenv(k, "")
 	}
@@ -90,7 +90,7 @@ func TestMIDIDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	if !c.MIDICapture || c.MIDIClockDevice != "EP-136" || c.MIDIRingEvents != 1_000_000 || c.MIDILatencyMS != 0 {
+	if !c.MIDICapture || !c.MIDISnapBars || c.MIDIClockDevice != "EP-136" || c.MIDIRingEvents != 1_000_000 || c.MIDILatencyMS != 0 {
 		t.Errorf("defaults: capture=%t clock=%q ring=%d latency=%v", c.MIDICapture, c.MIDIClockDevice, c.MIDIRingEvents, c.MIDILatencyMS)
 	}
 	if c.MIDIDevices != nil || c.MIDIIgnore != nil {

@@ -35,7 +35,8 @@ type Config struct {
 	MIDIIgnore      []string // denylist substrings
 	MIDIClockDevice string   // whose clock drives the tempo map and the BPM stamp
 	MIDIRingEvents  int      // event ring capacity
-	MIDILatencyMS   float64  // subtracted from every MIDI timestamp before alignment
+	MIDILatencyMS   float64  // added to every MIDI timestamp before alignment
+	MIDISnapBars    bool     // start a take on the last downbeat before the window
 
 	// Server
 	Port string
@@ -64,6 +65,7 @@ func Load() (*Config, error) {
 		MIDIIgnore:      splitList(env("MIDI_IGNORE", "")),
 		MIDIRingEvents:  envInt("MIDI_RING_EVENTS", 1_000_000),
 		MIDILatencyMS:   envFloat("MIDI_LATENCY_MS", 0),
+		MIDISnapBars:    envBool("MIDI_SNAP_BARS", true),
 		Port:            env("PORT", "5000"),
 		Version:         "dev",
 	}

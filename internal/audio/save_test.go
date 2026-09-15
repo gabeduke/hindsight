@@ -568,3 +568,72 @@ func TestProcessAudioRecordsBridgePairsOnlyForHandedBlocks(t *testing.T) {
 		t.Errorf("FrameAt(now) = %.0f, %v; want about %d", f, ok, 5*256)
 	}
 }
+
+// fakeSnapper is an exporter that also snaps windows to a fixed frame.
+type fakeSnapper struct {
+	fakeExporter
+	to    uint64
+	ok    bool
+	asked []uint64 // start frames it was asked about
+}
+
+func (f *fakeSnapper) SnapStart(_ *ClockBridge, start, _, _ uint64) (uint64, bool) {
+	f.asked = append(f.asked, start)
+	return f.to, f.ok
+}
+
+// A snapper that points earlier extends the window back to that frame; one
+// that points later trims the window's front; one with no opinion changes
+// nothing. In every case the exporter sees the window that was written.
+func TestSaveSnapsTheWindowToTheDownbeat(t *testing.T) {
+	cases := []struct {
+		name      string
+		to        uint64
+		ok        bool
+		seconds   float64
+		wantStart uint64
+	}{
+		{"earlier", 1000, true, 0.05, 1000}, // asked from 3600, snapped back to 1000
+		{"later", 4000, true, 0.05, 4000},   // asked from 3600, snapped forward
+		{"none", 1000, false, 0.05, 3600},   // no opinion
+		{"whole ring forward", 500, true, 0, 500},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cfg, cap, saver := newSaveFixture(t)
+			cfg.MIDISnapBars = true
+			cap.Ring().WriteFrames(make([]int32, 6000*2))
+			fs := &fakeSnapper{to: c.to, ok: c.ok}
+			saver.SetMIDIExporter(fs)
+			name, err := saver.Save(c.seconds)
+			if err != nil {
+				t.Fatalf("Save: %v", err)
+			}
+			req := fs.got[0]
+			if req.StartFrame != c.wantStart || req.StartFrame+uint64(req.Frames) != 6000 {
+				t.Errorf("window = [%d, %d), want [%d, 6000)", req.StartFrame, req.StartFrame+uint64(req.Frames), c.wantStart)
+			}
+			wi, err := ReadWAVInfo(filepath.Join(cfg.OutputDir, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := uint64(wi.Frames()); got != 6000-c.wantStart {
+				t.Errorf("wav holds %d frames, want %d", got, 6000-c.wantStart)
+			}
+		})
+	}
+}
+
+func TestSaveDoesNotSnapWhenDisabled(t *testing.T) {
+	cfg, cap, saver := newSaveFixture(t)
+	cfg.MIDISnapBars = false
+	cap.Ring().WriteFrames(make([]int32, 6000*2))
+	fs := &fakeSnapper{to: 1000, ok: true}
+	saver.SetMIDIExporter(fs)
+	if _, err := saver.Save(0.05); err != nil {
+		t.Fatal(err)
+	}
+	if len(fs.asked) != 0 || fs.got[0].StartFrame != 3600 {
+		t.Errorf("snapper consulted with MIDI_SNAP_BARS=false: asked=%v start=%d", fs.asked, fs.got[0].StartFrame)
+	}
+}

@@ -71,10 +71,36 @@ func TestBuildTempoMapWithNoPulsesIsFallback(t *testing.T) {
 	if m.Source != SourceFallback || db != nil || len(m.Segments) != 1 || m.BPMAt(10) != FallbackBPM {
 		t.Fatalf("m=%+v db=%+v", m, db)
 	}
-	// Pulses at or before 0 do not count.
-	m, db = BuildTempoMap([]TimedPulse{{Sec: -1}, {Sec: 0}}, 30)
+	// Pulses at or before 0 do not count, unless one is a downbeat (below).
+	m, db = BuildTempoMap([]TimedPulse{{Sec: -1, Index: PulseIndexUnknown}, {Sec: 0, Index: PulseIndexUnknown}, {Sec: 0, Index: 5}}, 30)
 	if m.Source != SourceFallback || db != nil {
 		t.Fatalf("pulses at <= 0 were used: m=%+v db=%+v", m, db)
+	}
+}
+
+// A bar-snapped window starts on a downbeat, which the bridge places within
+// a millisecond or two of 0 on either side. That pulse is tick 0, the run
+// starts with no lead-in, and the whole file sits on the DAW's bars.
+func TestBuildTempoMapSnappedDownbeatIsTickZero(t *testing.T) {
+	for _, off := range []float64{-0.0015, 0, 0.0012} {
+		pulses := steady(off, 120, 24*4*4, 0, 96, 1) // index 96: a downbeat
+		m, db := BuildTempoMap(pulses, 9)
+		if m.Tick(0) != 0 || db == nil || db.Tick != 0 || db.Sec != 0 || db.Aligned != "bar" {
+			t.Errorf("offset %.4f: Tick(0)=%d downbeat=%+v", off, m.Tick(0), db)
+		}
+		if len(m.Segments) != 1 || m.Segments[0].StartSec != 0 || m.Segments[0].StartTick != 0 {
+			t.Errorf("offset %.4f: segments = %+v, want a single run from 0", off, m.Segments)
+		}
+		// Bar 3 begins 4 s in, at tick 2*3840.
+		if got := m.Tick(4 + off); got < 2*ticksPerBar-4 || got > 2*ticksPerBar+4 {
+			t.Errorf("offset %.4f: bar 3 at tick %d, want %d", off, got, 2*ticksPerBar)
+		}
+	}
+	// A pulse just after 0 that is not a downbeat still gets a lead-in.
+	pulses := steady(0.001, 120, 24*4, 0, 3, 1)
+	m, _ := BuildTempoMap(pulses, 3)
+	if m.Tick(0) != 0 || m.Segments[0].StartSec != 0 || len(m.Segments) < 2 {
+		t.Errorf("non-downbeat at 1 ms: segments = %+v", m.Segments)
 	}
 }
 

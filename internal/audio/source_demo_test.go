@@ -166,3 +166,59 @@ func TestDemoSourceOpenTwiceDoesNotOrphanTheFirstGenerator(t *testing.T) {
 		t.Error("the second generator delivered nothing")
 	}
 }
+
+// The demo's MIDI is derived from the same frame counter as its audio, so a
+// kick's note-on falls on exactly the frame fill starts the kick on, and the
+// clock runs at 24 pulses per beat with a Start on the very first frame.
+func TestDemoMIDIMatchesTheLoop(t *testing.T) {
+	const rate = 48000
+	beatFrames := int64(rate * 60 / DemoBPM) // 30000 at 96 BPM
+
+	var all []DemoEvent
+	var absolute []int64
+	block := 2048
+	for n := int64(0); n < 4*beatFrames; n += int64(block) {
+		for _, ev := range DemoMIDI(n, block, rate) {
+			all = append(all, ev)
+			absolute = append(absolute, n+ev.Frame)
+		}
+	}
+	if all[0].Status != 0xFA || absolute[0] != 0 {
+		t.Fatalf("first event = %+v at %d, want Start at frame 0", all[0], absolute[0])
+	}
+	pulses, kicks := 0, 0
+	for i, ev := range all {
+		if absolute[i] >= 4*beatFrames {
+			break // the last block runs past the fourth beat
+		}
+		switch {
+		case ev.Status == 0xF8:
+			pulses++
+		case ev.Status == 0x90|demoDrumChannel && ev.D1 == demoKick:
+			if absolute[i]%beatFrames != 0 {
+				t.Errorf("kick at frame %d is off the beat (%d)", absolute[i], beatFrames)
+			}
+			kicks++
+		}
+	}
+	if kicks != 4 || pulses != 4*24 {
+		t.Errorf("kicks=%d pulses=%d over four beats, want 4 and 96", kicks, pulses)
+	}
+	// Events within a block are in frame order.
+	for i := 1; i < len(absolute); i++ {
+		if absolute[i] < absolute[i-1] {
+			t.Fatalf("events out of order at %d: %d after %d", i, absolute[i], absolute[i-1])
+		}
+	}
+	// A drum note-off follows each hit by demoNoteLen, even across a block
+	// boundary.
+	offs := 0
+	for i, ev := range all {
+		if absolute[i] < 4*beatFrames && ev.Status == 0x80|demoDrumChannel && ev.D1 == demoKick {
+			offs++
+		}
+	}
+	if offs != 4 {
+		t.Errorf("kick note-offs = %d, want 4", offs)
+	}
+}

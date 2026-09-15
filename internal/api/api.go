@@ -355,6 +355,11 @@ func (a *API) handleDownload(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("dl") != "" {
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+name+"\"")
 	}
+	// Go's type sniffer does not know MIDI, and a .mid served as
+	// application/octet-stream opens nowhere on a phone.
+	if filepath.Ext(name) == ".mid" {
+		w.Header().Set("Content-Type", "audio/midi")
+	}
 	http.ServeFile(w, r, path)
 }
 
@@ -530,8 +535,9 @@ func (a *API) safeMediaPath(raw string) (string, string, error) {
 	if name != raw || strings.ContainsAny(name, `/\`) {
 		return "", "", fmt.Errorf("invalid file name")
 	}
-	switch filepath.Ext(name) {
-	case ".wav", ".mp3":
+	switch {
+	case filepath.Ext(name) == ".wav", filepath.Ext(name) == ".mp3", filepath.Ext(name) == ".mid",
+		strings.HasSuffix(name, ".manifest.json"):
 	default:
 		return "", "", fmt.Errorf("unsupported file type")
 	}

@@ -43,6 +43,10 @@ type ExportStats struct {
 	OutOfWindow    int // placed before 0 or after Duration
 	OrphanNoteOffs int // note-off with no note-on in the window
 	NonChannel     int // system messages other than transport, not written
+	// PlacedByDevice is how many events each device contributed to the file,
+	// transport markers included, and Channels which channels it used.
+	PlacedByDevice map[uint16]int
+	Channels       map[uint16][]int
 }
 
 // trackKey is one (device, channel) pair.
@@ -60,7 +64,7 @@ type trackKey struct {
 // so a DAW never renders a note that lasts forever. Note-offs whose note-on
 // fell before the window are dropped: there is nothing for them to end.
 func BuildSMF(in ExportInput) (*smf.File, ExportStats) {
-	var st ExportStats
+	st := ExportStats{PlacedByDevice: make(map[uint16]int), Channels: make(map[uint16][]int)}
 	tempo := in.Tempo
 	if tempo == nil {
 		tempo = FixedTempoMap(FallbackBPM)
@@ -149,6 +153,7 @@ func BuildSMF(in ExportInput) (*smf.File, ExportStats) {
 		}
 		cond.Events = append(cond.Events, smf.Marker(tempo.Tick(p.sec), names[p.ev.Device]+": "+text))
 		st.Placed++
+		st.PlacedByDevice[p.ev.Device]++
 	}
 	f.Tracks = append(f.Tracks, cond)
 
@@ -176,6 +181,10 @@ func BuildSMF(in ExportInput) (*smf.File, ExportStats) {
 			tr.Events = append(tr.Events, smf.Channel(tick, e.Status, e.D1, e.D2))
 			ts.Events++
 			st.Placed++
+			st.PlacedByDevice[k.dev]++
+		}
+		if ts.Events > 0 {
+			st.Channels[k.dev] = append(st.Channels[k.dev], k.ch+1)
 		}
 		// Close what is still sounding, in note order so the output is
 		// deterministic.

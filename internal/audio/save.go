@@ -57,6 +57,21 @@ type MIDIExporter interface {
 	Export(req MIDIExportRequest) error
 }
 
+// BarSnapper is the optional half of a MIDIExporter that knows where the
+// downbeats are. Given the window Save is about to take, in absolute ring
+// frames, it returns the downbeat the window should start on instead: the
+// last one at or before start when the ring still holds it, otherwise the
+// first one after. false means it does not know -- no clock, or no Start
+// message to fix the bar phase -- and the window is left alone.
+//
+// This is what makes the .mid's tick 0 a bar line. A window that begins
+// mid-bar cannot be laid on a DAW grid without a lead-in at an absurd tempo;
+// a window that begins on a downbeat needs no lead-in at all. The cost is up
+// to one bar more audio than was asked for, at the old end.
+type BarSnapper interface {
+	SnapStart(bridge *ClockBridge, start, oldest, end uint64) (uint64, bool)
+}
+
 // Saver turns a slice of the ring into a take on disk, plus a preview and
 // waveform peaks.
 type Saver struct {
@@ -137,7 +152,39 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	if seconds > 0 {
 		frames = int(seconds * float64(cfg.SampleRate))
 	}
+
+	// Ask where the window would start, and whether a bar line is close
+	// enough to start on instead. The snapshot below takes the most recent
+	// N frames, and more arrive between here and there, so the answer is
+	// applied by trimming the snapshot's front to the exact frame rather
+	// than by trusting N to land on it.
+	var snapTo uint64
+	snapping := false
+	if bs, ok := s.midiExporter().(BarSnapper); ok && cfg.MIDISnapBars {
+		total := s.cap.Ring().TotalFrames()
+		avail := uint64(s.cap.Ring().BufferedFrames())
+		oldest := total - avail
+		start := oldest
+		if frames > 0 && uint64(frames) < avail {
+			start = total - uint64(frames)
+		}
+		if snapped, ok := snapBars(bs, s.cap.Bridge(), start, oldest, total); ok && snapped != start {
+			snapTo, snapping = snapped, true
+			if snapped < start {
+				frames = int(total - snapped)
+			}
+		}
+	}
+
 	data, gotFrames, endFrame := s.cap.Ring().SnapshotAt(frames)
+	if snapping && gotFrames > 0 {
+		winStart := endFrame - uint64(gotFrames)
+		if snapTo > winStart && snapTo < endFrame {
+			trim := int(snapTo - winStart)
+			data = data[trim*cfg.Channels:]
+			gotFrames -= trim
+		}
+	}
 	// The end of the captured window, in wall-clock terms. The ring stores
 	// frames and a counter and carries no clock of its own, so this is derived
 	// rather than read: now, minus the snapshot's duration.
@@ -262,6 +309,18 @@ func stampTempo(wavPath string, src TempoSource, end time.Time, window time.Dura
 		return
 	}
 	log.Printf("[*] %s — %.2f BPM", filepath.Base(wavPath), bpm)
+}
+
+// snapBars asks the snapper under the same recover as the export: a bar
+// snapper that panics costs a bar-aligned take, never the take.
+func snapBars(bs BarSnapper, bridge *ClockBridge, start, oldest, end uint64) (snapped uint64, ok bool) {
+	defer func() {
+		if p := recover(); p != nil {
+			log.Printf("[!] midi: bar snapper panicked: %v", p)
+			snapped, ok = 0, false
+		}
+	}()
+	return bs.SnapStart(bridge, start, oldest, end)
 }
 
 // exportMIDI writes the take's MIDI sidecars, if there is an exporter.
