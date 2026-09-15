@@ -221,6 +221,9 @@ func writeVLQ(w *bytes.Buffer, v uint64) {
 // ErrMalformed reports a file the decoder could not follow.
 var ErrMalformed = errors.New("malformed midi file")
 
+// maxTick bounds an absolute tick the decoder accepts.
+const maxTick = uint64(1) << 62
+
 // Decode parses a file written by Encode, or any Format 0/1 file using the
 // events this package knows. Unknown meta events are kept with their raw
 // type; SysEx is skipped.
@@ -253,10 +256,14 @@ func Decode(b []byte) (*File, error) {
 		if err := binary.Read(r, binary.BigEndian, &tlen); err != nil {
 			return nil, fmt.Errorf("%w: track %d length", ErrMalformed, i)
 		}
-		body := make([]byte, tlen)
-		if _, err := io.ReadFull(r, body); err != nil {
-			return nil, fmt.Errorf("%w: track %d body", ErrMalformed, i)
+		// Slice the input rather than allocate: a corrupt length field would
+		// otherwise ask for up to 4 GB before the read failed.
+		if int64(tlen) > int64(r.Len()) {
+			return nil, fmt.Errorf("%w: track %d claims %d bytes, %d remain", ErrMalformed, i, tlen, r.Len())
 		}
+		pos := len(b) - r.Len()
+		body := b[pos : pos+int(tlen)]
+		r.Seek(int64(tlen), io.SeekCurrent)
 		t, err := decodeTrack(body)
 		if err != nil {
 			return nil, fmt.Errorf("track %d: %w", i, err)
@@ -278,6 +285,11 @@ func decodeTrack(b []byte) (Track, error) {
 		}
 		pos += n
 		tick += delta
+		// A tick past 2^62 is centuries at any PPQ: a corrupt file, and one
+		// whose arithmetic would wrap on re-encoding.
+		if tick > maxTick {
+			return t, fmt.Errorf("%w: tick overflow at %d", ErrMalformed, pos)
+		}
 		if pos >= len(b) {
 			return t, fmt.Errorf("%w: truncated after delta", ErrMalformed)
 		}
@@ -289,7 +301,10 @@ func decodeTrack(b []byte) (Track, error) {
 			}
 			meta := b[pos+1]
 			l, n, ok := readVLQ(b[pos+2:])
-			if !ok || pos+2+n+int(l) > len(b) {
+			// The length is checked as uint64 before it becomes an int: a
+			// corrupt VLQ can encode 2^63 and more, which int() turns
+			// negative and a bounds check would wave through.
+			if !ok || l > uint64(len(b)) || pos+2+n+int(l) > len(b) {
 				return t, fmt.Errorf("%w: meta length at %d", ErrMalformed, pos)
 			}
 			data := append([]byte(nil), b[pos+2+n:pos+2+n+int(l)]...)
@@ -300,7 +315,7 @@ func decodeTrack(b []byte) (Track, error) {
 			}
 		case status == 0xF0 || status == 0xF7:
 			l, n, ok := readVLQ(b[pos+1:])
-			if !ok || pos+1+n+int(l) > len(b) {
+			if !ok || l > uint64(len(b)) || pos+1+n+int(l) > len(b) {
 				return t, fmt.Errorf("%w: sysex at %d", ErrMalformed, pos)
 			}
 			pos += 1 + n + int(l)
