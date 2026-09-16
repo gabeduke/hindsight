@@ -5,6 +5,27 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.09.16.1 — 2026-09-16
+
+- Keep main full-width inside the flex-column body (adbc344)
+- Fold the final implementation back into the spec (f3d2866)
+- Disable the speed chip during a region loop, plus the review minors (7ebd08c)
+- Fix the share button label ellipsis at 372px (361534d)
+- Replace the per-frame lowerBound scan with a per-track cursor (db114a2)
+- Make popstate the single place the notes-open class comes off (1f5e335)
+- Document the rising-notes pane (4c105a1)
+- Size the bench and the phone pane by flex, not by --topbar-h (0f23eb7)
+- Wire the rising-notes pane: bench column, phone fullscreen, shared clock and speed (c9d639b)
+- Take page markup and CSS for the rising-notes pane, the bench grid and the phone fullscreen (d9b7fa2)
+- RisingNotes: the canvas, the keyboard and pads, mute chips and speed (7f1848c)
+- Rising notes: bars and glow for one frame, past only, fading as they rise (1938877)
+- Rising notes geometry: keyboard window and layout, pads, tempo lookup (2d6fd3f)
+- Clock.setRate: preview playback speed, pitch preserved (a11e311)
+- Plan the rising-notes pane and the tablet bench in seven tasks (1369533)
+- Spec: rising notes and the tablet bench (8063dc4)
+- Record v2026.09.15.2 in the changelog [skip ci] (09cb55b)
+
+
 ## v2026.09.15.2 — 2026-09-15
 
 - Fix final-review findings on midi-lanes (c9cf942)
