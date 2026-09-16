@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   KEYS, PX_PER_BEAT, FALLBACK_BPM, isBlack, keyWindow, keyLayout, padLayout, padWidth, bpmAt,
-  lowerBound, trackMaxLen, noteBars, glow, yAt, MIN_DRUM_PX, KEY_H,
+  newCursor, activeNotes, noteBars, glow, yAt, MIN_DRUM_PX, KEY_H,
 } from './rising.js';
 import { alphaFor, laneColors } from './lanes.js';
 
@@ -111,7 +111,7 @@ function geoFor(tracks) {
   return {
     fpb: 24000, keyTop: 400, riseH: 400,
     keys: keyLayout(keyWindow(tracks).lo, 640 - padCol), pads, padW, padCol,
-    muted: new Set(), colors: laneColors(tracks),
+    muted: new Set(), colors: laneColors(tracks), cursors: new Map(),
   };
 }
 const melodic = { name: 'bento ch2', kind: 'notes', notes: [
@@ -130,13 +130,41 @@ test('yAt: the keyboard top is now, one beat ago is PX_PER_BEAT above it', () =>
   assert.equal(yAt(0, 24000, 24000, 400), 400 - PX_PER_BEAT);
 });
 
-test('lowerBound and trackMaxLen', () => {
-  assert.equal(lowerBound(melodic.notes, 0), 0);
-  assert.equal(lowerBound(melodic.notes, 1), 1);
-  assert.equal(lowerBound(melodic.notes, 48000), 1);
-  assert.equal(lowerBound(melodic.notes, 1e9), 4);
-  assert.equal(trackMaxLen(melodic), 384000);
-  assert.equal(trackMaxLen({ name: 'x', kind: 'notes', notes: [] }), 0);
+test('activeNotes: forward, each note is visited once as it starts and dropped once past the floor', () => {
+  const cur = newCursor();
+  const horizon = 24000; // 1 beat
+  let active = activeNotes(melodic, cur, 0, horizon);
+  assert.equal(cur.i, 1); // only the note starting at 0 has begun
+  assert.deepEqual(active.map((n) => n.p), [60]);
+  active = activeNotes(melodic, cur, 48000, horizon); // E4 starts, C4 (ended exactly at the floor) still active
+  assert.equal(cur.i, 2);
+  assert.deepEqual(active.map((n) => n.p), [60, 64]);
+  active = activeNotes(melodic, cur, 96000, horizon); // the long low note starts; C4 is past the floor, E4 (ended exactly at it) is not
+  assert.equal(cur.i, 3);
+  assert.deepEqual(active.map((n) => n.p), [64, 20]);
+});
+
+test('activeNotes: a backward seek rebuilds from the start', () => {
+  const cur = newCursor();
+  activeNotes(melodic, cur, 100000, 24000);
+  assert.ok(cur.i > 0);
+  const active = activeNotes(melodic, cur, 0, 24000);
+  assert.equal(cur.i, 1);
+  assert.deepEqual(active.map((n) => n.p), [60]);
+});
+
+test('activeNotes: a note spanning the whole take is visited once and stays active without rescanning', () => {
+  const track = { name: 'x', kind: 'notes', notes: [{ s: 0, e: 480000, p: 60, v: 100 }] };
+  const cur = newCursor();
+  const horizon = 24000;
+  activeNotes(track, cur, 240000, horizon);
+  assert.equal(cur.i, 1);
+  const active = activeNotes(track, cur, 480000, horizon);
+  assert.equal(cur.i, 1);
+  assert.ok(active.length <= 2);
+  const geo = { ...geoFor([track]), cursors: new Map() };
+  const bars = noteBars([track], 480000, geo).filter((b) => !b.drum);
+  assert.ok(bars.some((b) => b.y1 === 400)); // still sounding, drawn to keyTop
 });
 
 test('noteBars: a sounding note is anchored to the keyboard and grows with time', () => {

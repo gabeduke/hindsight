@@ -121,28 +121,23 @@ export function yAt(frame, now, fpb, keyTop) {
   return keyTop - ((now - frame) / fpb) * PX_PER_BEAT;
 }
 
-/** First index whose start is at or after `frame`. Notes are sorted by s. */
-export function lowerBound(notes, frame) {
-  let lo = 0, hi = notes.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (notes[mid].s < frame) lo = mid + 1; else hi = mid;
-  }
-  return lo;
-}
-
-// Notes are sorted by start, not end, so the oldest bar still on screen can
-// have started long before the visible window (a held chord). Scanning from
-// `now - horizon - longest note` covers it; the length is computed once.
-const maxLenCache = new WeakMap();
-export function trackMaxLen(track) {
-  let m = maxLenCache.get(track);
-  if (m == null) {
-    m = 0;
-    for (const n of track.notes) if (n.e - n.s > m) m = n.e - n.s;
-    maxLenCache.set(track, m);
-  }
-  return m;
+/**
+ * Per-track scan state. Notes are visited once each as `now` moves forward;
+ * `active` holds the ones still inside the horizon. A backward seek rebuilds
+ * from the start (one linear pass per seek, not per frame). Costs O(active +
+ * newly started) per frame however long the take or its longest note is.
+ */
+export function newCursor() { return { i: 0, active: [], last: -Infinity }; }
+export function activeNotes(track, cur, now, horizon) {
+  const notes = track.notes;
+  if (now < cur.last) { cur.i = 0; cur.active.length = 0; }
+  while (cur.i < notes.length && notes[cur.i].s <= now) cur.active.push(notes[cur.i++]);
+  const floor = now - horizon;
+  let w = 0;
+  for (let r = 0; r < cur.active.length; r++) { const n = cur.active[r]; if (n.e >= floor) cur.active[w++] = n; }
+  cur.active.length = w;
+  cur.last = now;
+  return cur.active;
 }
 
 /**
@@ -151,17 +146,15 @@ export function trackMaxLen(track) {
  * time its bottom edge reaches the top. Drums rise from their pad column.
  */
 export function noteBars(tracks, now, geo) {
-  const { fpb, keyTop, riseH, keys, pads, padW, padCol, muted, colors } = geo;
+  const { fpb, keyTop, riseH, keys, pads, padW, padCol, muted, colors, cursors } = geo;
   const horizon = (riseH / PX_PER_BEAT) * fpb;
   const out = [];
   tracks.forEach((t, ti) => {
     if (muted.has(t.name)) return;
     const color = colors[ti];
-    const notes = t.notes;
-    for (let i = lowerBound(notes, now - horizon - trackMaxLen(t)); i < notes.length; i++) {
-      const n = notes[i];
-      if (n.s > now) break;
-      if (n.e < now - horizon) continue;
+    let cur = cursors.get(t);
+    if (!cur) cursors.set(t, cur = newCursor());
+    for (const n of activeNotes(t, cur, now, horizon)) {
       const sounding = n.e > now;
       const y0 = Math.max(0, yAt(n.s, now, fpb, keyTop));
       const y1 = sounding ? keyTop : yAt(n.e, now, fpb, keyTop);
@@ -190,7 +183,13 @@ export function noteBars(tracks, now, geo) {
  * Two notes on one key: the brighter wins.
  */
 export function glow(tracks, now, geo) {
-  const { fpb, pads, muted, colors } = geo;
+  const { fpb, riseH, pads, muted, colors, cursors } = geo;
+  // The shared cursor is walked by noteBars first, in the same frame, at the
+  // same `now`, with the wider rise horizon -- glow's tail (1 beat for keys,
+  // 0.3 for pads) is never longer than that, so the active set is already a
+  // superset and this second call does no scanning of its own, only the
+  // tighter filter below.
+  const horizon = (riseH / PX_PER_BEAT) * fpb;
   const keysOut = new Map(), padsOut = new Map();
   const put = (map, key, alpha, color) => {
     const cur = map.get(key);
@@ -200,10 +199,9 @@ export function glow(tracks, now, geo) {
     if (muted.has(t.name)) return;
     const drum = t.kind === 'drums';
     const tail = (drum ? PAD_FLASH_BEATS : GLOW_BEATS) * fpb;
-    const notes = t.notes;
-    for (let i = lowerBound(notes, now - tail - trackMaxLen(t)); i < notes.length; i++) {
-      const n = notes[i];
-      if (n.s > now) break;
+    let cur = cursors.get(t);
+    if (!cur) cursors.set(t, cur = newCursor());
+    for (const n of activeNotes(t, cur, now, horizon)) {
       if (n.e + tail < now) continue;
       const base = alphaFor(n.v);
       const alpha = n.e > now ? base : base * (1 - (now - n.e) / tail);
@@ -246,6 +244,7 @@ export class RisingNotes {
     this.raf = 0;
     this.layoutKey = '';
     this.layout = null;
+    this.cursors = new Map();
     this.ac = new AbortController();
     this.ro = new ResizeObserver(() => this.draw());
     this.ro.observe(canvas);
@@ -336,6 +335,9 @@ export class RisingNotes {
       const keys = keyLayout(keyWindow(this.tracks).lo, W - padCol);
       this.layout = { pads, padW, padCol, keys };
       this.layoutKey = key;
+      // A kind flip changes which tracks are drums vs. melodic, so a cursor
+      // built under the old layout can no longer be trusted.
+      this.cursors = new Map();
       this.syncChips();
     }
     return this.layout;
@@ -364,7 +366,7 @@ export class RisingNotes {
     const keyTop = H - keyH;
     const riseH = keyTop;
     const { pads, padW, padCol, keys } = this.layoutFor(W);
-    const geo = { fpb, keyTop, riseH, keys, pads, padW, padCol, muted: this.muted, colors: laneColors(this.tracks) };
+    const geo = { fpb, keyTop, riseH, keys, pads, padW, padCol, muted: this.muted, colors: laneColors(this.tracks), cursors: this.cursors };
 
     // Ground
     ctx.fillStyle = col('--bg', '#0b1120');
