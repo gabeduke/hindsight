@@ -5,6 +5,24 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.09.15.2 — 2026-09-15
+
+- Fix final-review findings on midi-lanes (c9cf942)
+- Document GET /api/midi, GET /api/bundle and lane_kinds Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_015NBvK3VetFgPNaB767toLG (197fa79)
+- Share MP3 says how long it is; DAW bundle beside it, leading on a wide screen (39351ef)
+- Overlay saved lane kinds onto /api/midi's tracks before drawing lanes (632d009)
+- Draw the take's MIDI as lanes under the waveform (25e8e25)
+- Lane geometry: rows, note rects and colours for the MIDI lanes (0eb894a)
+- GET /api/bundle: a region as WAV plus re-based MIDI in one zip (2134bb9)
+- Split the cut's MIDI and WAV writers so a bundle can stream them (ef4eafd)
+- GET /api/midi: a take's notes in frames, for the lanes (7935481)
+- Let a take's sidecar override which MIDI lanes are drums (7df40c0)
+- Decode a take's MIDI into notes in frames, and guess which lanes are drums (1c04cf9)
+- Plan the MIDI lanes and DAW bundle in nine tasks (e557567)
+- Spec: MIDI lanes on the take page, and the DAW bundle (4684e75)
+- Record v2026.09.15.1 in the changelog [skip ci] (a24c97b)
+
+
 ## v2026.09.15.1 — 2026-09-15
 
 - Answer the bento question in the docs: device port, per-track OutCh, 20 ms (94002e6)
