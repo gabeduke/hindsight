@@ -218,3 +218,231 @@ export function glow(tracks, now, geo) {
   });
   return { keys: keysOut, pads: padsOut };
 }
+
+// ---------------------------------------------------------------- DOM
+
+const SPEEDS = [0.5, 1, 2];
+const fmtSpeed = (r) => `${r}×`;
+
+/**
+ * One canvas: chips are built into `chips`, the speed button (if given) is
+ * wired to the clock. Reads clock.position() every frame while running;
+ * draw() paints a single frame for a paused page.
+ */
+export class RisingNotes {
+  constructor({ canvas, chips, speedButton, tracks, tempo, sampleRate, getState, getClock, storageKey }) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.chips = chips;
+    this.tracks = tracks;
+    this.tempo = tempo || [];
+    this.sr = sampleRate;
+    this.getState = getState;
+    this.getClock = getClock;
+    this.storageKey = storageKey;
+    this.muted = new Set();
+    try { this.muted = new Set(JSON.parse(localStorage.getItem(storageKey) || '[]')); } catch {}
+    this.running = false;
+    this.raf = 0;
+    this.layoutKey = '';
+    this.layout = null;
+    this.ac = new AbortController();
+    this.ro = new ResizeObserver(() => this.draw());
+    this.ro.observe(canvas);
+    this.buildChips(speedButton);
+    this.draw();
+  }
+
+  destroy() {
+    this.stop();
+    this.ac.abort();
+    this.ro.disconnect();
+    this.chips.replaceChildren();
+  }
+
+  buildChips(speedButton) {
+    const sig = { signal: this.ac.signal };
+    this.chips.replaceChildren();
+    this.chipEls = this.tracks.map((t) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      const sw = document.createElement('span');
+      sw.className = 'chip-swatch';
+      b.append(sw, document.createTextNode(t.name));
+      b.title = 'Tap to mute this track in the view';
+      b.addEventListener('click', () => {
+        if (this.muted.has(t.name)) this.muted.delete(t.name); else this.muted.add(t.name);
+        try { localStorage.setItem(this.storageKey, JSON.stringify([...this.muted])); } catch {}
+        this.syncChips();
+        this.draw();
+      }, sig);
+      this.chips.appendChild(b);
+      return b;
+    });
+    this.syncChips();
+    if (speedButton) {
+      const clock = this.getClock();
+      speedButton.textContent = fmtSpeed(clock.rate || 1);
+      speedButton.addEventListener('click', () => {
+        const c = this.getClock();
+        const next = SPEEDS[(SPEEDS.indexOf(c.rate || 1) + 1) % SPEEDS.length];
+        c.setRate(next);
+        speedButton.textContent = fmtSpeed(next);
+      }, sig);
+    }
+  }
+
+  /** Colours follow the lanes, including a kind flipped after the chips were built. */
+  syncChips() {
+    const colors = laneColors(this.tracks);
+    this.chipEls.forEach((b, i) => {
+      b.querySelector('.chip-swatch').style.background = colors[i];
+      b.setAttribute('aria-pressed', this.muted.has(this.tracks[i].name) ? 'true' : 'false');
+    });
+  }
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    cancelAnimationFrame(this.raf);
+    const step = () => {
+      if (!this.running) return;
+      this.paint();
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+
+  stop() {
+    this.running = false;
+    cancelAnimationFrame(this.raf);
+    this.raf = 0;
+  }
+
+  draw() {
+    if (this.running || this.raf) return;
+    this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); });
+  }
+
+  // Key window and pads depend on the track kinds, which the lanes can flip
+  // under us (hold a lane header); recomputed when the kinds or width change.
+  layoutFor(W) {
+    const key = `${W}|${this.tracks.map((t) => t.kind).join(',')}`;
+    if (key !== this.layoutKey) {
+      const pads = padLayout(this.tracks);
+      const padW = padWidth(W, pads.pads.length);
+      const padCol = padW * pads.pads.length;
+      const keys = keyLayout(keyWindow(this.tracks).lo, W - padCol);
+      this.layout = { pads, padW, padCol, keys };
+      this.layoutKey = key;
+      this.syncChips();
+    }
+    return this.layout;
+  }
+
+  paint() {
+    const r = this.canvas.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = r.width, H = r.height;
+    if (this.canvas.width !== Math.round(W * dpr) || this.canvas.height !== Math.round(H * dpr)) {
+      this.canvas.width = Math.round(W * dpr); this.canvas.height = Math.round(H * dpr);
+    }
+    const ctx = this.ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const css = getComputedStyle(this.canvas);
+    const col = (n, fb) => css.getPropertyValue(n).trim() || fb;
+
+    const st = this.getState();
+    const clock = this.getClock();
+    const now = clock.position();
+    const bpm = bpmAt(this.tempo, now);
+    const hasTempo = this.tempo.length > 0 && bpmAt(this.tempo, now, 0) > 0;
+    const fpb = (this.sr * 60) / bpm;
+    const keyH = H < 480 ? KEY_H_SHORT : KEY_H;
+    const keyTop = H - keyH;
+    const riseH = keyTop;
+    const { pads, padW, padCol, keys } = this.layoutFor(W);
+    const geo = { fpb, keyTop, riseH, keys, pads, padW, padCol, muted: this.muted, colors: laneColors(this.tracks) };
+
+    // Ground
+    ctx.fillStyle = col('--bg', '#0b1120');
+    ctx.fillRect(0, 0, W, H);
+
+    // Beat lines from the downbeat, scrolling up with the notes. Without a
+    // tempo the grid is a guess, so it is drawn faint and without bars.
+    const downbeat = st.grid.downbeat || 0;
+    let b = Math.floor((now - downbeat) / fpb);
+    for (;;) {
+      const y = yAt(downbeat + b * fpb, now, fpb, keyTop);
+      if (y < 0) break;
+      const bar = hasTempo && ((b % 4) + 4) % 4 === 0;
+      ctx.fillStyle = bar ? col('--line', '#26324a') : 'rgba(255,255,255,0.06)';
+      ctx.fillRect(0, Math.round(y), W, 1);
+      b--;
+    }
+
+    // Bars
+    for (const n of noteBars(this.tracks, now, geo)) {
+      ctx.globalAlpha = n.alpha;
+      ctx.fillStyle = n.color;
+      ctx.fillRect(n.x, n.y0, n.w, n.y1 - n.y0);
+      // A lighter top edge, so the growing end of a sounding bar reads as an edge.
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillRect(n.x, n.y0, n.w, 1);
+      if (n.clamp) {
+        ctx.fillStyle = col('--ink', '#eef2f8');
+        ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(n.clamp < 0 ? '▾' : '▴', n.x + n.w / 2, Math.min(n.y1 - 2, n.y0 + 10));
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // Keyboard
+    const lit = glow(this.tracks, now, geo);
+    const mono = col('--mono', 'ui-monospace, monospace');
+    for (const k of keys.whites) {
+      ctx.fillStyle = col('--panel', '#131c2e');
+      ctx.fillRect(padCol + k.x, keyTop, k.w, keyH);
+      const g = lit.keys.get(k.p);
+      if (g) { ctx.globalAlpha = g.alpha; ctx.fillStyle = g.color; ctx.fillRect(padCol + k.x, keyTop, k.w, keyH); ctx.globalAlpha = 1; }
+      ctx.fillStyle = col('--line', '#26324a');
+      ctx.fillRect(padCol + k.x, keyTop, 1, keyH);
+      if (k.p % 12 === 0 && k.w >= 9) {
+        ctx.fillStyle = col('--ink-faint', '#5d6b85');
+        ctx.font = `${k.w >= 14 ? 10 : 8}px ${mono}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`C${Math.floor(k.p / 12) - 1}`, padCol + k.x + k.w / 2, H - 6);
+      }
+    }
+    ctx.fillStyle = col('--line', '#26324a');
+    ctx.fillRect(padCol, keyTop, W - padCol, 1);
+    for (const k of keys.blacks) {
+      ctx.fillStyle = '#060a14';
+      ctx.fillRect(padCol + k.x, keyTop, k.w, keyH * 0.6);
+      const g = lit.keys.get(k.p);
+      if (g) { ctx.globalAlpha = g.alpha; ctx.fillStyle = g.color; ctx.fillRect(padCol + k.x, keyTop, k.w, keyH * 0.6); ctx.globalAlpha = 1; }
+    }
+
+    // Pads: a row at the left, lowest pitch first, each padW wide.
+    for (const p of pads.pads) {
+      const x = p.col * padW;
+      ctx.fillStyle = col('--panel-2', '#1a2437');
+      ctx.fillRect(x + 1, keyTop + 1, padW - 2, keyH - 2);
+      const g = lit.pads.get(p.col);
+      if (g) { ctx.globalAlpha = g.alpha; ctx.fillStyle = g.color; ctx.fillRect(x + 1, keyTop + 1, padW - 2, keyH - 2); ctx.globalAlpha = 1; }
+      if (padW >= 16) {
+        ctx.fillStyle = col('--ink-dim', '#8b9ab4');
+        ctx.font = `9px ${mono}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(p.short, x + padW / 2, H - 6);
+      }
+    }
+    if (pads.pads.length) {
+      ctx.fillStyle = col('--line', '#26324a');
+      ctx.fillRect(padCol - 1, keyTop, 2, keyH);
+    }
+  }
+}
