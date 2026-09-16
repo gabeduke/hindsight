@@ -41,6 +41,10 @@ function safeStem(base) {
 
 async function main() {
   if (!file) return fail('No take given.');
+  // A reload while the notes pane was open leaves a stale {notes:1} entry
+  // that would otherwise pop straight into the (unbuilt) pane on the first
+  // back gesture.
+  if (history.state && history.state.notes) history.replaceState(null, '');
   const [jamsRes, peaksRes] = await Promise.all([
     fetch('/api/jams'),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
@@ -557,21 +561,29 @@ async function main() {
     updateReadout();
     syncNotes();
   }
+  // popstate is the one place the class comes off, so the history entry and
+  // the pane can never disagree; closeNotes pops when there is an entry to pop.
   function closeNotes() {
     if (!document.body.classList.contains('notes-open')) return;
+    if (history.state && history.state.notes) { history.back(); return; }
     document.body.classList.remove('notes-open');
     syncNotes();
   }
+  window.addEventListener('popstate', () => {
+    if (!document.body.classList.contains('notes-open')) return;
+    document.body.classList.remove('notes-open');
+    syncNotes();
+  });
   $('notes-open').addEventListener('click', openNotes);
-  window.addEventListener('popstate', () => closeNotes());
   document.querySelector('.topbar .back').addEventListener('click', (e) => {
     if (!document.body.classList.contains('notes-open')) return;
     e.preventDefault();
-    if (history.state && history.state.notes) history.back(); else closeNotes();
+    closeNotes();
   });
   // Rotating a tablet, or a phone crossing the breakpoint: the pane's
   // visibility rule changes under it.
-  bench.addEventListener('change', () => { if (bench.matches) closeNotes(); syncNotes(); });
+  const onBenchChange = () => { if (bench.matches) closeNotes(); syncNotes(); };
+  bench.addEventListener('change', onBenchChange);
 
   // --- keyboard -----------------------------------------------------------
   document.addEventListener('keydown', (e) => {
@@ -623,7 +635,7 @@ async function main() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushRegion(); });
   // flushRegion is the only thing that has to outlive the page; a pending loop
   // does not -- cancel it so it cannot arm a clock that has just been destroyed.
-  window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); if (lanes) lanes.destroy(); if (notes) notes.destroy(); });
+  window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); bench.removeEventListener('change', onBenchChange); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); if (lanes) lanes.destroy(); if (notes) notes.destroy(); });
 }
 
 main().catch((e) => fail(e.message || String(e)));
