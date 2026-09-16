@@ -10,6 +10,25 @@
 
 export const SLICE_CAP_SECONDS = 60;
 
+// How far past the element's last reported time the preview position may be
+// extrapolated. Generous next to the ~250 ms between Safari's updates, small
+// enough that a stalled element cannot run visibly ahead.
+export const MAX_EXTRAPOLATE_S = 0.5;
+
+/**
+ * The preview's position between the element's coarse currentTime updates.
+ * Safari reports currentTime only a few times a second; drawing straight
+ * from it makes anything moving at 44 px/beat jump in visible steps. `s`
+ * remembers the last reported value and the wall-clock moment it changed;
+ * while the report stands still the position advances with the wall clock,
+ * scaled by the playback rate, and every new report resyncs exactly, so a
+ * seek or a loop wrap never carries extrapolation over.
+ */
+export function smoothTime(s, reported, nowMs, rate) {
+  if (reported !== s.t) { s.t = reported; s.at = nowMs; return reported; }
+  return reported + Math.min(MAX_EXTRAPOLATE_S, ((nowMs - s.at) / 1000) * rate);
+}
+
 export class Clock {
   constructor({ previewUrl, sampleRate, file, onTick, onError, onEnded }) {
     this.sr = sampleRate;
@@ -35,6 +54,7 @@ export class Clock {
     this.rate = 1;
     this.audio.preservesPitch = true;
     this.audio.webkitPreservesPitch = true; // older iPadOS
+    this.smooth = { t: -1, at: 0 }; // see smoothTime
     // The preview running out is a stop nobody asked for: settle the cursor
     // at the end, then tell the page so its Play button stops lying.
     this.audio.addEventListener('ended', () => {
@@ -51,7 +71,9 @@ export class Clock {
       const len = this.slice.end - this.slice.start;
       return this.slice.start + Math.floor(elapsed % len);
     }
-    return Math.floor(this.audio.currentTime * this.sr);
+    const t = this.audio.currentTime;
+    if (!this.playing) return Math.floor(t * this.sr);
+    return Math.floor(smoothTime(this.smooth, t, performance.now(), this.rate) * this.sr);
   }
 
   seek(frame) {
