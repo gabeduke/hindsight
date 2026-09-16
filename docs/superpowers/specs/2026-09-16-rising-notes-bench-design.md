@@ -43,7 +43,7 @@ fold waiting to arrive, so a paused frame is complete.
 The pane is one `<canvas>`. From the bottom up:
 
 - **Keyboard**, full width minus the pad column, height `KEY_H = 88` px
-  (72 on a phone under 700 px tall). White keys are even columns; black keys
+  (72 when the pane is under 480 px tall). White keys are even columns; black keys
   are drawn over them at 60 % height and 62 % width, offset, as on a real
   keyboard. Every C is labelled in the mono font (`C2`, `C3`, …) at its
   foot. A key whose note is sounding is filled with the track's colour at
@@ -150,16 +150,18 @@ Pure, tested:
 
 - `keyWindow(tracks) -> { lo, hi }` — the four-octave window above.
 - `keyLayout(lo, width) -> { whites: [{p, x, w}], blacks: [{p, x, w}], xFor(p) -> {x, w} }`.
-- `padLayout(tracks, cap = 8) -> { pads: [{p, label, row}], rowFor(p) }`.
+- `padLayout(tracks, cap = 8) -> { pads: [{p, label, short, col}], colFor(p) }`.
 - `bpmAt(tempo, frame, fallback = 120)`.
 - `noteBars(tracks, now, geometry) -> [{x, w, y0, y1, alpha, color, clampMark}]`
   — every visible bar for one frame, sounding and risen, drums and melodic,
   muted tracks skipped. Nothing before `now - riseH` worth of frames is
-  visited: tracks are scanned from a per-track cursor kept by the caller, so
-  a 10-minute take costs the same per frame as a 10-second one.
-- `keyGlow(tracks, now, fpb) -> Map<pitch, alpha>` — the decay after note-off.
+  visited: tracks are scanned through a per-track cursor (`newCursor`/
+  `activeNotes`) held in `geo.cursors`, advanced as `now` moves forward and
+  rebuilt on a backward seek.
+- `glow(tracks, now, geo) -> { keys: Map<pitch,{alpha,color}>, pads: Map<col,{alpha,color}> }`
+  — the decay after note-off.
 
-The class `RisingNotes({ canvas, chipRow, tracks, tempo, getState, getClock, storageKey })`:
+The class `RisingNotes({ canvas, chips, speedButton, tracks, tempo, sampleRate, getState, getClock, storageKey })`:
 `start()` / `stop()` the rAF loop, `draw()` for a single paused frame,
 `setMuted(name, bool)`, `destroy()`. It reads `clock.position()` itself on
 each frame and `getState().grid.downbeat` for the beat lines; it does not
