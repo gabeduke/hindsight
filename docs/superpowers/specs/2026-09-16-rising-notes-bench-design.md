@@ -43,17 +43,19 @@ fold waiting to arrive, so a paused frame is complete.
 The pane is one `<canvas>`. From the bottom up:
 
 - **Keyboard**, full width minus the pad column, height `KEY_H = 88` px
-  (72 on a phone under 700 px tall). White keys are even columns; black keys
+  (72 when the pane is under 480 px tall). White keys are even columns; black keys
   are drawn over them at 60 % height and 62 % width, offset, as on a real
   keyboard. Every C is labelled in the mono font (`C2`, `C3`, …) at its
   foot. A key whose note is sounding is filled with the track's colour at
   the note's velocity alpha; after note-off the fill decays to nothing over
   one beat.
-- **Pad column**, `PAD_W = 126` px at the left edge, the pads stacked from
-  the bottom, each `KEY_H / npads` tall with a 2 px gap, labelled with the
-  GM drum name when the pitch has one (36 kick, 38 snare, 42 closed hat,
-  46 open hat, 41/43/45/47/48/50 toms, 49 crash, 51 ride) and `#<pitch>`
-  otherwise. A hit flashes the pad at velocity alpha for 0.3 beat.
+- **Pad row**, at the left end of the keyboard: one pad per kept drum pitch,
+  lowest on the left, each `padW = clamp(12, floor(0.2 · width / npads), 32)`
+  px wide and `KEY_H` tall (about 126 px for eight pads on the tablet),
+  labelled with a two-letter GM abbreviation when there is room (`BD`, `SD`,
+  `HH`, `OH`, `T1`–`T4`, `CR`, `RD`) and nothing when there is not. A hit
+  flashes the pad at velocity alpha for 0.3 beat and its bar rises straight
+  out of the pad, `padW` wide.
 - **Rise area**, everything above the keyboard, up to the chip row. Time
   runs upward: y for a frame `f` is
   `keyTop - (now - f) / framesPerBeat * PX_PER_BEAT`, with `PX_PER_BEAT = 44`.
@@ -102,8 +104,8 @@ rather than vanishing.
 
 ### Pads
 
-Distinct pitches over every drum track, sorted ascending, lowest at the
-bottom, capped at the eight most-played (by note count); the rest map to
+Distinct pitches over every drum track, sorted ascending, lowest on the left,
+capped at the eight most-played (by note count); the rest map to
 the nearest kept pitch. A take with no drum tracks draws no pad column and
 the keyboard takes the full width.
 
@@ -148,16 +150,18 @@ Pure, tested:
 
 - `keyWindow(tracks) -> { lo, hi }` — the four-octave window above.
 - `keyLayout(lo, width) -> { whites: [{p, x, w}], blacks: [{p, x, w}], xFor(p) -> {x, w} }`.
-- `padLayout(tracks, cap = 8) -> { pads: [{p, label, row}], rowFor(p) }`.
+- `padLayout(tracks, cap = 8) -> { pads: [{p, label, short, col}], colFor(p) }`.
 - `bpmAt(tempo, frame, fallback = 120)`.
 - `noteBars(tracks, now, geometry) -> [{x, w, y0, y1, alpha, color, clampMark}]`
   — every visible bar for one frame, sounding and risen, drums and melodic,
   muted tracks skipped. Nothing before `now - riseH` worth of frames is
-  visited: tracks are scanned from a per-track cursor kept by the caller, so
-  a 10-minute take costs the same per frame as a 10-second one.
-- `keyGlow(tracks, now, fpb) -> Map<pitch, alpha>` — the decay after note-off.
+  visited: tracks are scanned through a per-track cursor (`newCursor`/
+  `activeNotes`) held in `geo.cursors`, advanced as `now` moves forward and
+  rebuilt on a backward seek.
+- `glow(tracks, now, geo) -> { keys: Map<pitch,{alpha,color}>, pads: Map<col,{alpha,color}> }`
+  — the decay after note-off.
 
-The class `RisingNotes({ canvas, chipRow, tracks, tempo, getState, getClock, storageKey })`:
+The class `RisingNotes({ canvas, chips, speedButton, tracks, tempo, sampleRate, getState, getClock, storageKey })`:
 `start()` / `stop()` the rAF loop, `draw()` for a single paused frame,
 `setMuted(name, bool)`, `destroy()`. It reads `clock.position()` itself on
 each frame and `getState().grid.downbeat` for the beat lines; it does not

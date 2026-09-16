@@ -7,6 +7,7 @@ import { WaveView } from './view.js';
 import { Overview } from './overview.js';
 import { Clock } from './clock.js';
 import { Lanes } from './lanes.js';
+import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
 
@@ -40,6 +41,10 @@ function safeStem(base) {
 
 async function main() {
   if (!file) return fail('No take given.');
+  // A reload while the notes pane was open leaves a stale {notes:1} entry
+  // that would otherwise pop straight into the (unbuilt) pane on the first
+  // back gesture.
+  if (history.state && history.state.notes) history.replaceState(null, '');
   const [jamsRes, peaksRes] = await Promise.all([
     fetch('/api/jams'),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
@@ -97,7 +102,19 @@ async function main() {
   // emits 'viewChange' synchronously, before this line would otherwise have
   // run, and a `const` declared later would throw on the temporal dead zone.
   let lanes = null;
-  function redraw() { view.draw(); if (overview) overview.draw(); if (lanes) lanes.draw(); }
+  // The rising-notes pane, built with the lanes from the same response.
+  // Visible always on the bench, only while open on a phone; it draws every
+  // frame on its own while playing, and one frame per tick when paused.
+  let notes = null;
+  const bench = window.matchMedia('(min-width: 860px)');
+  const notesVisible = () => bench.matches || document.body.classList.contains('notes-open');
+  function syncNotes() {
+    if (!notes) return;
+    if (notesVisible() && clock.playing) notes.start();
+    else { notes.stop(); if (notesVisible()) notes.draw(); }
+    $('notes-play').textContent = clock.playing ? 'Pause' : 'Play';
+  }
+  function redraw() { view.draw(); if (overview) overview.draw(); if (lanes) lanes.draw(); if (notes && !notes.running && notesVisible()) notes.draw(); }
   const view = new WaveView({ canvas, tiles, totalFrames: total, sampleRate: sr, getState: () => state, emit });
   overview = new Overview({
     canvas: $('overview-canvas'), filePeaks, totalFrames: total,
@@ -118,7 +135,7 @@ async function main() {
     sampleRate: sr, file,
     onTick: (frame) => { state.cursor = frame; updateReadout(); redraw(); },
     onError: (m) => toast(m, 'bad'),
-    onEnded: () => { $('play').textContent = 'Play'; },
+    onEnded: () => { $('play').textContent = 'Play'; syncNotes(); },
   });
 
   // --- sidecar patches ----------------------------------------------------
@@ -259,13 +276,16 @@ async function main() {
   });
 
   // --- transport ----------------------------------------------------------
-  $('play').addEventListener('click', async () => {
+  async function togglePlay() {
     if (clock.playing) clock.pause();
     else await clock.play();
     // play() can fail (no preview yet, autoplay refused) and resolve anyway,
     // so the label follows the clock rather than what we asked it to do.
     $('play').textContent = clock.playing ? 'Pause' : 'Play';
-  });
+    syncNotes();
+  }
+  $('play').addEventListener('click', togglePlay);
+  $('notes-play').addEventListener('click', togglePlay);
   // --- region -------------------------------------------------------------
   const nudgeFrames = () => (state.grid.bpm ? Math.round(framesPerBeat(state.grid)) : Math.round(sr * 0.01));
   function setRegion(r, final = true) { emit('regionChange', { region: clampRegion(r, total, minLen), final }); }
@@ -485,33 +505,85 @@ async function main() {
       return;
     }
     if (!res.ok) { toast('Could not load MIDI', 'bad'); return; }
-    let notes;
+    let midi;
     try {
-      notes = await res.json();
+      midi = await res.json();
     } catch {
       toast('Could not load MIDI', 'bad');
       return;
     }
-    if (!notes.tracks || !notes.tracks.length) return;
+    if (!midi.tracks || !midi.tracks.length) return;
     // /api/midi is served immutable, so a browser holding a cached response
     // from before a kind flip would otherwise show the old kind and colour
     // here even though the sidecar (and /api/jams) already have the new one.
-    for (const t of notes.tracks) if (laneKinds[t.name]) t.kind = laneKinds[t.name];
+    for (const t of midi.tracks) if (laneKinds[t.name]) t.kind = laneKinds[t.name];
     const container = $('lanes');
     container.hidden = false;
     lanes = new Lanes({
       container,
-      tracks: notes.tracks,
+      tracks: midi.tracks,
       storageKey: `wave.lanes.${file}`,
       getState: () => state,
       getView: () => view.view,
       onKindChange: (name, kind) => {
         laneKinds[name] = kind;
         patch({ lane_kinds: laneKinds }).catch((e) => toast(`Could not save lane kind: ${e.message}`, 'bad'));
+        if (notes) notes.draw();
       },
     });
     lanes.draw();
+    // The pane, from the same tracks (shared objects: a kind flipped on a
+    // lane header changes colour and pads here too).
+    notes = new RisingNotes({
+      canvas: $('notes-canvas'),
+      chips: $('notes-tracks'),
+      speedButton: $('notes-speed'),
+      tracks: midi.tracks,
+      tempo: midi.tempo || [],
+      sampleRate: sr,
+      getState: () => state,
+      getClock: () => clock,
+      storageKey: `wave.notes.${file}`,
+    });
+    $('notes-pane').hidden = false;
+    $('notes-open').hidden = false;
+    syncNotes();
   }
+
+  // --- rising notes on a phone ------------------------------------------
+  // Fullscreen over the page, sharing its clock. Opening pushes a history
+  // entry so the back gesture closes it; the header's back link does the
+  // same while it is open.
+  function openNotes() {
+    if (document.body.classList.contains('notes-open')) return;
+    document.body.classList.add('notes-open');
+    history.pushState({ notes: 1 }, '');
+    updateReadout();
+    syncNotes();
+  }
+  // popstate is the one place the class comes off, so the history entry and
+  // the pane can never disagree; closeNotes pops when there is an entry to pop.
+  function closeNotes() {
+    if (!document.body.classList.contains('notes-open')) return;
+    if (history.state && history.state.notes) { history.back(); return; }
+    document.body.classList.remove('notes-open');
+    syncNotes();
+  }
+  window.addEventListener('popstate', () => {
+    if (!document.body.classList.contains('notes-open')) return;
+    document.body.classList.remove('notes-open');
+    syncNotes();
+  });
+  $('notes-open').addEventListener('click', openNotes);
+  document.querySelector('.topbar .back').addEventListener('click', (e) => {
+    if (!document.body.classList.contains('notes-open')) return;
+    e.preventDefault();
+    closeNotes();
+  });
+  // Rotating a tablet, or a phone crossing the breakpoint: the pane's
+  // visibility rule changes under it.
+  const onBenchChange = () => { if (bench.matches) closeNotes(); syncNotes(); };
+  bench.addEventListener('change', onBenchChange);
 
   // --- keyboard -----------------------------------------------------------
   document.addEventListener('keydown', (e) => {
@@ -547,6 +619,7 @@ async function main() {
   function updateReadout() {
     $('pos-bar').textContent = barBeat(state.cursor, state.grid);
     $('pos-time').textContent = fmtTime(state.cursor, sr);
+    $('notes-bar').textContent = barBeat(state.cursor, state.grid) || fmtTime(state.cursor, sr);
   }
 
   updateActionRow();
@@ -562,7 +635,7 @@ async function main() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushRegion(); });
   // flushRegion is the only thing that has to outlive the page; a pending loop
   // does not -- cancel it so it cannot arm a clock that has just been destroyed.
-  window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); if (lanes) lanes.destroy(); });
+  window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); bench.removeEventListener('change', onBenchChange); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); if (lanes) lanes.destroy(); if (notes) notes.destroy(); });
 }
 
 main().catch((e) => fail(e.message || String(e)));

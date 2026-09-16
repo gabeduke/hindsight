@@ -801,6 +801,9 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
    block wins back `display`, but not the alignment, and start would shrink the
    action row and the Fine tune box to their content instead of the page. */
 .wave-main { padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+/* The page's own column: everything the phone shows. On the bench it is the
+   left column and scrolls on its own; the pane beside it does not scroll. */
+.wave-col { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; }
 .overview-canvas {
   width: 100%; height: 36px; display: block;
   border-radius: 8px; background: var(--panel-2);
@@ -821,7 +824,11 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
    .wave-row. */
 .edge { display: inline-flex; align-items: center; gap: 4px; }
 .wave-row.action { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
-.wave-row.action .icon-btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* display: block turns the label into a block-level text node so
+   overflow/ellipsis above actually applies -- inline-flex centres the label
+   as a flex item, which never truncates. line-height replaces the flex
+   centring to keep the same 40px tap height. */
+.wave-row.action .icon-btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 40px; padding: 0 10px; }
 /* The disc stays 28px so the row keeps its height, but a 28px tap target is
    well under the repo's --tap. The ::after grows the hit area to 48px without
    growing the layout box -- pointer events on the pseudo-element are the
@@ -890,8 +897,55 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 .lane-chev { margin-left: auto; color: var(--ink-faint); font-size: 12px; }
 .lane-body { display: block; width: 100%; border-top: 1px solid var(--panel-2); touch-action: pan-y; }
 
-@media (min-width: 900px) {
-  .wave-canvas { height: 55vh; }
+/* ---------- rising notes ---------- */
+.notes-pane {
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); overflow: hidden;
+}
+.notes-chips {
+  display: flex; align-items: center; gap: 6px; padding: 4px 8px; min-height: 40px;
+  border-bottom: 1px solid var(--line); background: var(--panel);
+}
+.notes-tracks { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; flex: 1; }
+.chip {
+  appearance: none; display: inline-flex; align-items: center; gap: 6px; flex: none;
+  min-height: 32px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-2); color: var(--ink); font-family: var(--font); font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.chip-swatch { width: 8px; height: 8px; border-radius: 2px; }
+/* Muted: the chip dims, the swatch hollows. */
+.chip[aria-pressed="true"] { color: var(--ink-faint); background: transparent; }
+.chip[aria-pressed="true"] .chip-swatch { background: transparent !important; box-shadow: inset 0 0 0 1px var(--ink-faint); }
+.chip:disabled { opacity: .45; cursor: default; }
+.notes-bar { color: var(--ink-dim); font-size: 12px; min-width: 3.5em; text-align: right; }
+.notes-canvas { display: block; width: 100%; flex: 1; min-height: 0; touch-action: manipulation; }
+/* The chips row's phone-only controls (bar.beat and Play) exist because the
+   fullscreen pane covers the page's own action row. */
+.phone-only { display: none; }
+
+/* Below the bench the pane is a phone thing: gone until opened, then over
+   everything under the top bar. history.pushState makes the back gesture
+   close it (page.js). */
+@media (max-width: 859.98px) {
+  .notes-pane:not([hidden]) { display: none; }
+  /* Open: the body becomes a viewport-high column, the page's own column
+     is hidden, and the pane takes what is left under the top bar. Sized by
+     flex rather than by --topbar-h, because this page's bar is taller than
+     the variable (two-line title, Notes button). */
+  body.notes-open { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+  /* margin: 0 and width: 100% because main's `margin: 0 auto` would otherwise
+     shrink it to its content inside the flex-column body. */
+  body.notes-open .wave-main { flex: 1; min-height: 0; padding: 0; display: flex; margin: 0; width: 100%; box-sizing: border-box; }
+  body.notes-open .wave-col { display: none; }
+  body.notes-open .notes-pane:not([hidden]) {
+    display: flex; flex: 1; min-height: 0;
+    border: none; border-radius: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  body.notes-open .phone-only { display: inline-flex; }
+  body.notes-open .notes-bar { display: inline; }
 }
 
 /* On a bench-sized screen the DAW is the destination and the MP3 the
@@ -899,7 +953,32 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
    places, only the weight moves. */
 .wave-row.action #share { flex: 1.4; }
 .wave-row.action #bundle { flex: 1; color: var(--ink-dim); }
+
+/* The bench: 860px and up (the 1024x600 tablet in landscape). With a pane,
+   the page is a viewport-high two-column grid, left column scrolling on its
+   own. Without one (a take with no MIDI) the phone layout simply widens,
+   as before. grid-template-columns and max-width are set explicitly
+   because the takes page's >=860px rule sets both on a bare `main`. */
 @media (min-width: 860px) {
+  .wave-canvas { height: 55vh; }
+  /* Viewport-high body, the grid takes what is under the top bar. Not
+     calc(100dvh - var(--topbar-h)): this page's bar is taller than the
+     variable, and the 16px difference clipped the keyboard. */
+  body.wave-page:has(.notes-pane:not([hidden])) { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+  /* margin: 0 and width: 100% because main's `margin: 0 auto` would otherwise
+     shrink it to its content inside the flex-column body. */
+  .wave-main:has(.notes-pane:not([hidden])) {
+    display: grid; grid-template-columns: 372px minmax(0, 1fr); gap: 10px;
+    align-items: stretch; max-width: none;
+    flex: 1; min-height: 0; box-sizing: border-box; margin: 0; width: 100%;
+  }
+  .wave-main:has(.notes-pane:not([hidden])) .wave-col { overflow-y: auto; min-height: 0; }
+  .wave-main:has(.notes-pane:not([hidden])) .wave-canvas { height: 30vh; min-height: 140px; }
+  .wave-main:has(.notes-pane:not([hidden])) .lanes { max-height: none; overflow-y: visible; }
+  .notes-btn { display: none; }
+  /* On a bench-sized screen the DAW is the destination and the MP3 the
+     afterthought; on a phone it is the other way round. Same buttons, same
+     places, only the weight moves. */
   .wave-row.action #bundle { flex: 1.5; background: var(--accent-dk); color: var(--ink); border-color: var(--accent-dk); }
   .wave-row.action #share { flex: 1; background: var(--panel); color: var(--ink-dim); border-color: var(--line); }
 }

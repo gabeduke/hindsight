@@ -29,6 +29,12 @@ export class Clock {
     this.sliceOffset = 0;     // frame offset into the slice at start
     this.raf = 0;
     this.pendingFetch = 0;
+    // Playback speed of the preview engine. The slice engine ignores it: a
+    // loop is for hearing the cut exactly, and pitch-preserved 0.5× through
+    // an AudioBufferSourceNode is not something the browser gives us.
+    this.rate = 1;
+    this.audio.preservesPitch = true;
+    this.audio.webkitPreservesPitch = true; // older iPadOS
     // The preview running out is a stop nobody asked for: settle the cursor
     // at the end, then tell the page so its Play button stops lying.
     this.audio.addEventListener('ended', () => {
@@ -88,6 +94,12 @@ export class Clock {
     }
     this.playing = false;
     cancelAnimationFrame(this.raf);
+  }
+
+  /** 0.5, 1 or 2: the preview plays at this speed; a slice loop stays at 1×. */
+  setRate(rate) {
+    this.rate = rate;
+    this.audio.playbackRate = rate;
   }
 
   // region null clears the loop and returns to the preview engine at the
