@@ -113,3 +113,108 @@ export function bpmAt(tempo, frame, fallback = FALLBACK_BPM) {
   if (!(bpm > 0) || bpm > MAX_BPM) return fallback;
   return bpm;
 }
+
+// ---------------------------------------------------------------- per frame
+
+/** y of a frame on the canvas: the keyboard top is `now`, the past is above. */
+export function yAt(frame, now, fpb, keyTop) {
+  return keyTop - ((now - frame) / fpb) * PX_PER_BEAT;
+}
+
+/** First index whose start is at or after `frame`. Notes are sorted by s. */
+export function lowerBound(notes, frame) {
+  let lo = 0, hi = notes.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (notes[mid].s < frame) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
+// Notes are sorted by start, not end, so the oldest bar still on screen can
+// have started long before the visible window (a held chord). Scanning from
+// `now - horizon - longest note` covers it; the length is computed once.
+const maxLenCache = new WeakMap();
+export function trackMaxLen(track) {
+  let m = maxLenCache.get(track);
+  if (m == null) {
+    m = 0;
+    for (const n of track.notes) if (n.e - n.s > m) m = n.e - n.s;
+    maxLenCache.set(track, m);
+  }
+  return m;
+}
+
+/**
+ * Every bar to draw for one frame. A sounding note is anchored at keyTop and
+ * grows upward; a finished note has lifted off and fades to nothing by the
+ * time its bottom edge reaches the top. Drums rise from their pad column.
+ */
+export function noteBars(tracks, now, geo) {
+  const { fpb, keyTop, riseH, keys, pads, padW, padCol, muted, colors } = geo;
+  const horizon = (riseH / PX_PER_BEAT) * fpb;
+  const out = [];
+  tracks.forEach((t, ti) => {
+    if (muted.has(t.name)) return;
+    const color = colors[ti];
+    const notes = t.notes;
+    for (let i = lowerBound(notes, now - horizon - trackMaxLen(t)); i < notes.length; i++) {
+      const n = notes[i];
+      if (n.s > now) break;
+      if (n.e < now - horizon) continue;
+      const sounding = n.e > now;
+      const y0 = Math.max(0, yAt(n.s, now, fpb, keyTop));
+      const y1 = sounding ? keyTop : yAt(n.e, now, fpb, keyTop);
+      if (y1 <= 0) continue;
+      let alpha = alphaFor(n.v);
+      if (!sounding) alpha *= Math.max(0, 1 - (keyTop - y1) / riseH);
+      if (alpha <= 0) continue;
+      if (t.kind === 'drums') {
+        const col = pads.colFor(n.p);
+        if (col < 0) continue;
+        const h = Math.max(MIN_DRUM_PX, y1 - y0);
+        out.push({ x: col * padW, w: padW, y0: y1 - h, y1, alpha, color, drum: true, clamp: 0 });
+      } else {
+        const k = keys.xFor(n.p);
+        const clamp = n.p < keys.lo ? -1 : n.p > keys.hi ? 1 : 0;
+        out.push({ x: k.x + padCol, w: k.w, y0, y1, alpha, color, drum: false, clamp });
+      }
+    }
+  });
+  return out;
+}
+
+/**
+ * How lit each key and pad is: a sounding note's velocity alpha, decaying to
+ * nothing over GLOW_BEATS (keys) or PAD_FLASH_BEATS (pads) after note-off.
+ * Two notes on one key: the brighter wins.
+ */
+export function glow(tracks, now, geo) {
+  const { fpb, pads, muted, colors } = geo;
+  const keysOut = new Map(), padsOut = new Map();
+  const put = (map, key, alpha, color) => {
+    const cur = map.get(key);
+    if (!cur || alpha > cur.alpha) map.set(key, { alpha, color });
+  };
+  tracks.forEach((t, ti) => {
+    if (muted.has(t.name)) return;
+    const drum = t.kind === 'drums';
+    const tail = (drum ? PAD_FLASH_BEATS : GLOW_BEATS) * fpb;
+    const notes = t.notes;
+    for (let i = lowerBound(notes, now - tail - trackMaxLen(t)); i < notes.length; i++) {
+      const n = notes[i];
+      if (n.s > now) break;
+      if (n.e + tail < now) continue;
+      const base = alphaFor(n.v);
+      const alpha = n.e > now ? base : base * (1 - (now - n.e) / tail);
+      if (alpha <= 0) continue;
+      if (drum) {
+        const col = pads.colFor(n.p);
+        if (col >= 0) put(padsOut, col, alpha, colors[ti]);
+      } else {
+        put(keysOut, n.p, alpha, colors[ti]);
+      }
+    }
+  });
+  return { keys: keysOut, pads: padsOut };
+}

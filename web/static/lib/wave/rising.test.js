@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   KEYS, PX_PER_BEAT, FALLBACK_BPM, isBlack, keyWindow, keyLayout, padLayout, padWidth, bpmAt,
+  lowerBound, trackMaxLen, noteBars, glow, yAt, MIN_DRUM_PX, KEY_H,
 } from './rising.js';
+import { alphaFor, laneColors } from './lanes.js';
 
 const mel = (ps, kind = 'notes') => ({ name: 'm', kind, notes: ps.map((p, i) => ({ s: i * 4800, e: i * 4800 + 2400, p, v: 100 })) });
 
@@ -98,4 +100,120 @@ test('bpmAt: the entry at or before the frame, the first before any, the fallbac
   assert.equal(bpmAt([{ frame: 0, bpm: 0 }], 10), FALLBACK_BPM);
   assert.equal(bpmAt([{ frame: 0, bpm: 661 }], 10), FALLBACK_BPM);
   assert.equal(PX_PER_BEAT, 44);
+});
+
+// 48 kHz, 120 bpm: 24000 frames per beat. Canvas 640 wide, keyboard top at
+// y=400 (so riseH = 400 ≈ 9.09 beats), 8 drum pads 16px each = 128px column.
+function geoFor(tracks) {
+  const pads = padLayout(tracks);
+  const padW = padWidth(640, pads.pads.length);
+  const padCol = padW * pads.pads.length;
+  return {
+    fpb: 24000, keyTop: 400, riseH: 400,
+    keys: keyLayout(keyWindow(tracks).lo, 640 - padCol), pads, padW, padCol,
+    muted: new Set(), colors: laneColors(tracks),
+  };
+}
+const melodic = { name: 'bento ch2', kind: 'notes', notes: [
+  { s: 0, e: 24000, p: 60, v: 127 },       // one beat, C4
+  { s: 48000, e: 72000, p: 64, v: 64 },    // E4, beats 2..3
+  { s: 96000, e: 480000, p: 20, v: 100 },  // below the window, held 16 beats
+  { s: 500000, e: 524000, p: 62, v: 100 }, // in the future for every `now` below
+] };
+const drums = { name: 'bento ch1', kind: 'drums', notes: [
+  { s: 0, e: 480, p: 36, v: 127 },
+  { s: 24000, e: 24480, p: 38, v: 64 },
+] };
+
+test('yAt: the keyboard top is now, one beat ago is PX_PER_BEAT above it', () => {
+  assert.equal(yAt(24000, 24000, 24000, 400), 400);
+  assert.equal(yAt(0, 24000, 24000, 400), 400 - PX_PER_BEAT);
+});
+
+test('lowerBound and trackMaxLen', () => {
+  assert.equal(lowerBound(melodic.notes, 0), 0);
+  assert.equal(lowerBound(melodic.notes, 1), 1);
+  assert.equal(lowerBound(melodic.notes, 48000), 1);
+  assert.equal(lowerBound(melodic.notes, 1e9), 4);
+  assert.equal(trackMaxLen(melodic), 384000);
+  assert.equal(trackMaxLen({ name: 'x', kind: 'notes', notes: [] }), 0);
+});
+
+test('noteBars: a sounding note is anchored to the keyboard and grows with time', () => {
+  const geo = geoFor([melodic]);
+  const at = (now) => noteBars([melodic], now, geo).filter((b) => !b.drum);
+  const half = at(12000);
+  assert.equal(half.length, 1);
+  assert.equal(half[0].y1, 400);
+  assert.ok(Math.abs(half[0].y0 - (400 - PX_PER_BEAT / 2)) < 1e-9);
+  assert.equal(half[0].alpha, alphaFor(127));
+  assert.equal(half[0].clamp, 0);
+  assert.equal(half[0].color, laneColors([melodic])[0]);
+  const c4 = geo.keys.xFor(60);
+  assert.equal(half[0].x, c4.x + geo.padCol);
+  assert.equal(half[0].w, c4.w);
+});
+
+test('noteBars: a finished note lifts off and fades as it rises', () => {
+  const geo = geoFor([melodic]);
+  const bars = noteBars([melodic], 48000, geo).filter((b) => !b.drum); // C4 ended one beat ago; E4 starts now
+  const c4 = bars.find((b) => b.x === geo.keys.xFor(60).x + geo.padCol);
+  assert.ok(c4);
+  assert.ok(c4.y1 < 400);
+  assert.ok(Math.abs(c4.y1 - (400 - PX_PER_BEAT)) < 1e-9);
+  assert.ok(Math.abs((c4.y1 - c4.y0) - PX_PER_BEAT) < 1e-9);
+  assert.ok(c4.alpha < alphaFor(127) && c4.alpha > 0);
+  const e4 = bars.find((b) => b.x === geo.keys.xFor(64).x + geo.padCol);
+  assert.ok(e4 && e4.y1 === 400);
+});
+
+test('noteBars: nothing from the future, nothing past the top, nothing from a muted track', () => {
+  const geo = geoFor([melodic]);
+  assert.equal(noteBars([melodic], 100000, geo).some((b) => b.x === geo.keys.xFor(62).x + geo.padCol), false);
+  // 30 beats later the C4 bar (ended at beat 1) is far above the top and gone
+  const late = noteBars([melodic], 24000 * 31, geo);
+  assert.equal(late.some((b) => b.x === geo.keys.xFor(60).x + geo.padCol), false);
+  const muted = { ...geo, muted: new Set(['bento ch2']) };
+  assert.equal(noteBars([melodic], 12000, muted).length, 0);
+});
+
+test('noteBars: a long note whose start has risen off the top is still drawn from y=0', () => {
+  const geo = geoFor([melodic]);
+  const bars = noteBars([melodic], 96000 + 24000 * 12, geo); // 12 beats into the 16-beat low note
+  const low = bars.find((b) => b.clamp === -1);
+  assert.ok(low, 'the below-window note is present, clamped to the low edge');
+  assert.equal(low.y0, 0);
+  assert.equal(low.y1, 400);
+  assert.equal(low.x, geo.keys.xFor(geo.keys.lo).x + geo.padCol);
+});
+
+test('noteBars: drum hits rise from their pad column and are never thinner than MIN_DRUM_PX', () => {
+  const tracks = [drums, melodic];
+  const geo = geoFor(tracks);
+  const hit = noteBars(tracks, 240, geo).filter((b) => b.drum); // kick sounding, 240 of 480 frames in
+  assert.equal(hit.length, 1);
+  assert.equal(hit[0].x, 0 * geo.padW);
+  assert.equal(hit[0].w, geo.padW);
+  assert.equal(hit[0].y1, 400);
+  assert.equal(hit[0].y1 - hit[0].y0, MIN_DRUM_PX);
+  const snare = noteBars(tracks, 24480, geo).filter((b) => b.drum).find((b) => b.x === 1 * geo.padW);
+  assert.ok(snare);
+  assert.equal(snare.color, laneColors(tracks)[0]);
+});
+
+test('glow: full at note-off, gone one beat later, the stronger of two wins; pads flash 0.3 beat', () => {
+  const tracks = [drums, melodic];
+  const geo = geoFor(tracks);
+  const on = glow(tracks, 12000, geo);
+  assert.equal(on.keys.get(60).alpha, alphaFor(127));
+  assert.ok(Math.abs(glow(tracks, 24000, geo).keys.get(60).alpha - alphaFor(127)) < 1e-9);
+  assert.ok(Math.abs(glow(tracks, 36000, geo).keys.get(60).alpha - alphaFor(127) / 2) < 1e-9);
+  assert.equal(glow(tracks, 48000, geo).keys.has(60), false);
+  const two = { name: 'two', kind: 'notes', notes: [{ s: 0, e: 100, p: 60, v: 10 }, { s: 0, e: 100, p: 60, v: 127 }] };
+  assert.equal(glow([two], 50, geoFor([two])).keys.get(60).alpha, alphaFor(127));
+  assert.equal(on.pads.has(0), false); // the kick's flash ended 0.3 beat after its note-off at 480
+  assert.equal(glow(tracks, 240, geo).pads.get(0).alpha, alphaFor(127));
+  assert.equal(glow(tracks, 480 + 0.3 * 24000 + 1, geo).pads.has(0), false);
+  const muted = { ...geo, muted: new Set(['bento ch2']) };
+  assert.equal(glow(tracks, 12000, muted).keys.has(60), false);
 });
