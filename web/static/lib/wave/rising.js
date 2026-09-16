@@ -19,7 +19,7 @@ const MAX_BPM = 400;
 
 export const GM_NAMES = {
   36: ['kick', 'BD'], 38: ['snare', 'SD'], 42: ['closed hat', 'HH'], 46: ['open hat', 'OH'],
-  41: ['floor tom', 'T4'], 43: ['floor tom', 'T4'], 45: ['low tom', 'T3'], 47: ['mid tom', 'T2'],
+  41: ['floor tom', 'T6'], 43: ['floor tom', 'T5'], 45: ['low tom', 'T4'], 47: ['mid tom', 'T3'],
   48: ['mid tom', 'T2'], 50: ['high tom', 'T1'], 49: ['crash', 'CR'], 51: ['ride', 'RD'],
 };
 
@@ -238,13 +238,13 @@ export class RisingNotes {
     this.getState = getState;
     this.getClock = getClock;
     this.storageKey = storageKey;
-    this.muted = new Set();
-    try { this.muted = new Set(JSON.parse(localStorage.getItem(storageKey) || '[]')); } catch {}
+    try { this.muted = new Set(JSON.parse(localStorage.getItem(storageKey) || '[]')); } catch { this.muted = new Set(); }
     this.running = false;
     this.raf = 0;
     this.layoutKey = '';
     this.layout = null;
     this.cursors = new Map();
+    this.speedButton = speedButton;
     this.ac = new AbortController();
     this.ro = new ResizeObserver(() => this.draw());
     this.ro.observe(canvas);
@@ -283,7 +283,9 @@ export class RisingNotes {
     if (speedButton) {
       const clock = this.getClock();
       speedButton.textContent = fmtSpeed(clock.rate || 1);
+      speedButton.title = 'Playback speed · a region loop always plays at 1×';
       speedButton.addEventListener('click', () => {
+        if (speedButton.disabled) return;
         const c = this.getClock();
         const next = SPEEDS[(SPEEDS.indexOf(c.rate || 1) + 1) % SPEEDS.length];
         c.setRate(next);
@@ -358,12 +360,18 @@ export class RisingNotes {
 
     const st = this.getState();
     const clock = this.getClock();
+    if (this.speedButton) this.speedButton.disabled = clock.engine === 'slice';
     const now = clock.position();
-    const bpm = bpmAt(this.tempo, now);
-    const hasTempo = this.tempo.length > 0 && bpmAt(this.tempo, now, 0) > 0;
+    // Beats come from the MIDI tempo map, not state.grid.bpm: the map follows
+    // the clock device through tempo changes; the wave's grid and the
+    // bar.beat readout use the take's single bpm and can differ on a take
+    // with a tempo change.
+    const raw = bpmAt(this.tempo, now, 0);
+    const hasTempo = raw > 0;
+    const bpm = hasTempo ? raw : FALLBACK_BPM;
     const fpb = (this.sr * 60) / bpm;
     const keyH = H < 480 ? KEY_H_SHORT : KEY_H;
-    const keyTop = H - keyH;
+    const keyTop = Math.max(1, H - keyH);
     const riseH = keyTop;
     const { pads, padW, padCol, keys } = this.layoutFor(W);
     const geo = { fpb, keyTop, riseH, keys, pads, padW, padCol, muted: this.muted, colors: laneColors(this.tracks), cursors: this.cursors };
@@ -390,14 +398,19 @@ export class RisingNotes {
       ctx.globalAlpha = n.alpha;
       ctx.fillStyle = n.color;
       ctx.fillRect(n.x, n.y0, n.w, n.y1 - n.y0);
-      // A lighter top edge, so the growing end of a sounding bar reads as an edge.
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fillRect(n.x, n.y0, n.w, 1);
+      // A lighter top edge, so the growing end of a sounding bar reads as an
+      // edge -- only while it is still sounding; a risen, fading bar has no
+      // growing end to mark.
+      if (n.y1 === keyTop) {
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillRect(n.x, n.y0, n.w, 1);
+      }
       if (n.clamp) {
         ctx.fillStyle = col('--ink', '#eef2f8');
         ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
         ctx.textAlign = 'center';
-        ctx.fillText(n.clamp < 0 ? '▾' : '▴', n.x + n.w / 2, Math.min(n.y1 - 2, n.y0 + 10));
+        // Near the bottom for a below-window note, near the top for one above.
+        ctx.fillText(n.clamp < 0 ? '▾' : '▴', n.x + n.w / 2, n.clamp < 0 ? n.y1 - 3 : n.y0 + 10);
       }
     }
     ctx.globalAlpha = 1;

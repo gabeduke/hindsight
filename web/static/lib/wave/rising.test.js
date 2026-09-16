@@ -215,6 +215,15 @@ test('noteBars: a long note whose start has risen off the top is still drawn fro
   assert.equal(low.x, geo.keys.xFor(geo.keys.lo).x + geo.padCol);
 });
 
+test('noteBars: a note above the window draws on the top edge key with clamp: 1', () => {
+  const high = { name: 'high', kind: 'notes', notes: [{ s: 0, e: 24000, p: 60, v: 100 }, { s: 0, e: 24000, p: 200, v: 100 }] };
+  const geo = geoFor([high]);
+  const bars = noteBars([high], 12000, geo);
+  const top = bars.find((b) => b.clamp === 1);
+  assert.ok(top, 'the above-window note is present, clamped to the high edge');
+  assert.equal(top.x, geo.keys.xFor(geo.keys.hi).x + geo.padCol);
+});
+
 test('noteBars: drum hits rise from their pad column and are never thinner than MIN_DRUM_PX', () => {
   const tracks = [drums, melodic];
   const geo = geoFor(tracks);

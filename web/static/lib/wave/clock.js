@@ -34,6 +34,7 @@ export class Clock {
     // an AudioBufferSourceNode is not something the browser gives us.
     this.rate = 1;
     this.audio.preservesPitch = true;
+    this.audio.webkitPreservesPitch = true; // older iPadOS
     // The preview running out is a stop nobody asked for: settle the cursor
     // at the end, then tell the page so its Play button stops lying.
     this.audio.addEventListener('ended', () => {
