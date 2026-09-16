@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.09.16.2 — 2026-09-16
+
+- Smooth the preview clock between the element's coarse currentTime reports (0d07aba)
+- Record v2026.09.16.1 in the changelog [skip ci] (42b4ed9)
+
+
 ## v2026.09.16.1 — 2026-09-16
 
 - Keep main full-width inside the flex-column body (adbc344)
