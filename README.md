@@ -13,6 +13,7 @@ It exists because the take you want is the one you already played.
 ## Features
 
 - **Waveform page** — open any take to zoom and scrub it, drag to pan, press and hold then drag to mark out a region, hear it loop, flag moments, share the region as an MP3 from your phone, or export it as a new take with declick fades.
+- **Rising notes** — press Play and the take's MIDI plays out on a keyboard: every note grows out of its key and rises away, drums pop out of their pads. On a tablet it fills the right of the take page beside the wave and lanes; on a phone it opens from the Notes button in the header. Chips mute a track in the view, and the speed chip plays the preview at ½× or 2× with the pitch kept.
 - **MIDI beside every take** — every USB MIDI device that enumerates is read, and a save writes a Standard MIDI File next to the WAV: one track per device and channel, on the take's timeline to within a couple of milliseconds, with a tempo map from the clock so the notes land on the DAW grid. Drop both at the project start and they line up.
 
 ## Try it

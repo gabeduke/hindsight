@@ -49,11 +49,13 @@ The pane is one `<canvas>`. From the bottom up:
   foot. A key whose note is sounding is filled with the track's colour at
   the note's velocity alpha; after note-off the fill decays to nothing over
   one beat.
-- **Pad column**, `PAD_W = 126` px at the left edge, the pads stacked from
-  the bottom, each `KEY_H / npads` tall with a 2 px gap, labelled with the
-  GM drum name when the pitch has one (36 kick, 38 snare, 42 closed hat,
-  46 open hat, 41/43/45/47/48/50 toms, 49 crash, 51 ride) and `#<pitch>`
-  otherwise. A hit flashes the pad at velocity alpha for 0.3 beat.
+- **Pad row**, at the left end of the keyboard: one pad per kept drum pitch,
+  lowest on the left, each `padW = clamp(12, floor(0.2 · width / npads), 32)`
+  px wide and `KEY_H` tall (about 126 px for eight pads on the tablet),
+  labelled with a two-letter GM abbreviation when there is room (`BD`, `SD`,
+  `HH`, `OH`, `T1`–`T4`, `CR`, `RD`) and nothing when there is not. A hit
+  flashes the pad at velocity alpha for 0.3 beat and its bar rises straight
+  out of the pad, `padW` wide.
 - **Rise area**, everything above the keyboard, up to the chip row. Time
   runs upward: y for a frame `f` is
   `keyTop - (now - f) / framesPerBeat * PX_PER_BEAT`, with `PX_PER_BEAT = 44`.
@@ -102,8 +104,8 @@ rather than vanishing.
 
 ### Pads
 
-Distinct pitches over every drum track, sorted ascending, lowest at the
-bottom, capped at the eight most-played (by note count); the rest map to
+Distinct pitches over every drum track, sorted ascending, lowest on the left,
+capped at the eight most-played (by note count); the rest map to
 the nearest kept pitch. A take with no drum tracks draws no pad column and
 the keyboard takes the full width.
 

@@ -82,7 +82,7 @@ runner — no package.json, no dependencies:
 ### Checking the waveform page by hand
 
 The gestures and the share flow are not covered by the node tests, so after
-touching `view.js`, `overview.js`, `share.js` or `page.js`, check by hand:
+touching `view.js`, `overview.js`, `share.js`, `rising.js` or `page.js`, check by hand:
 
 - **Overview strip** — drag it to pan the main waveform, tap to jump, double-tap
   to fit the whole take
@@ -111,6 +111,15 @@ touching `view.js`, `overview.js`, `share.js` or `page.js`, check by hand:
   Download
 - **Export as take** — produces a new take with declick fades at the region's
   edges
+- **Rising notes (bench)** — at 860px and wider a take with MIDI is two
+  columns; press Play and bars grow out of the keys and rise, drum hits
+  flash their pads; pause freezes the picture; tapping the wave to seek
+  redraws it; a region loop wraps the rise with it
+- **Rising notes (phone)** — the header's Notes button opens the pane
+  fullscreen with its own Play and bar.beat readout; the back gesture or the
+  header's back link closes it and playback carries on
+- **Speed chip** — ½× slows the audio and the rise together with the pitch
+  kept; a region loop ignores it and plays at 1×
 
 The rest of the UI is checked by hand and, when something needs it, by a
 throwaway Playwright script in a scratch directory. Those are not committed;
