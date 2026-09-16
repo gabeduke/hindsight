@@ -935,7 +935,9 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
      flex rather than by --topbar-h, because this page's bar is taller than
      the variable (two-line title, Notes button). */
   body.notes-open { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-  body.notes-open .wave-main { flex: 1; min-height: 0; padding: 0; display: flex; }
+  /* margin: 0 and width: 100% because main's `margin: 0 auto` would otherwise
+     shrink it to its content inside the flex-column body. */
+  body.notes-open .wave-main { flex: 1; min-height: 0; padding: 0; display: flex; margin: 0; width: 100%; box-sizing: border-box; }
   body.notes-open .wave-col { display: none; }
   body.notes-open .notes-pane:not([hidden]) {
     display: flex; flex: 1; min-height: 0;
@@ -963,10 +965,12 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
      calc(100dvh - var(--topbar-h)): this page's bar is taller than the
      variable, and the 16px difference clipped the keyboard. */
   body.wave-page:has(.notes-pane:not([hidden])) { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+  /* margin: 0 and width: 100% because main's `margin: 0 auto` would otherwise
+     shrink it to its content inside the flex-column body. */
   .wave-main:has(.notes-pane:not([hidden])) {
     display: grid; grid-template-columns: 372px minmax(0, 1fr); gap: 10px;
     align-items: stretch; max-width: none;
-    flex: 1; min-height: 0; box-sizing: border-box;
+    flex: 1; min-height: 0; box-sizing: border-box; margin: 0; width: 100%;
   }
   .wave-main:has(.notes-pane:not([hidden])) .wave-col { overflow-y: auto; min-height: 0; }
   .wave-main:has(.notes-pane:not([hidden])) .wave-canvas { height: 30vh; min-height: 140px; }
