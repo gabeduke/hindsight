@@ -25,12 +25,12 @@ effected on hardware with real knobs.
 
 ## A session, start to finish
 
-1. Orchid in jack 2, Bento in aux ([the patch](#the-patch)). Open the tape
+1. Orchid in aux, Bento in jack 2 ([the patch](#the-patch)). Open the tape
    page on the phone. A new tape has four empty tracks, all on bus A.
 2. Play the Orchid until a progression sounds right. Nothing is armed;
    Hindsight is recording everything, as it always is.
 3. **Lift the first loop.** Tap where the progression starts and again where it
-   comes round. The taps snap to the attacks on channel 2, the loop starts
+   comes round. The taps snap to the attacks on aux, the loop starts
    playing out of strip 1 in phase with you, and its length sets the tempo.
    The tempo is a label you can change afterwards — 4 bars at 84 or 8 at 168 —
    because nothing is stretched. Prefer starting from a tempo? Set one, and
@@ -40,15 +40,16 @@ effected on hardware with real knobs.
    bass voice and play along. Every pass of the loop is already in the ring,
    and the passes row shows the last eight. Tap the one you like and it becomes
    track 2. One synth, many tracks.
-5. **Guitar** into jack 2 through a pedal or DI ([why](#hardware-notes)). Tap
+5. **Guitar** into aux through a pedal or DI ([why](#hardware-notes)). Tap
    *Rec* on track 3; it punches in at the next loop start and out at the loop
    end.
 6. **Variations** (phase 2). Multiply the four bars to eight, overdub a change
    in bars 5–8, copy the eight into a longer section, mute the chords for a
    breakdown, splice.
-7. **FX.** Strip 1's FX knob is the tape's FX send from day one. Phase 3 has
-   the Pi recall each bus's strip settings with the tape; phase 4 loops your
-   knob moves.
+7. **FX.** Strip 1's FX knob is the tape's FX send from day one. The Orchid
+   and guitar went onto tape dry, from aux, so their sound is still open: it
+   gets strip 1's FX as it plays back. Phase 3 has the Pi recall each bus's
+   strip settings with the tape; phase 4 loops your knob moves.
 
 ## What the Sidekick gives us
 
@@ -84,17 +85,29 @@ Four facts shape everything below.
 
 ### The patch
 
-| Input | Plug in | Records as |
-|---|---|---|
-| Jack 1 | nothing — strip 1 is tape bus A | — |
-| Jack 2 | the instrument being layered now: Orchid, guitar (through a DI), GO:KEYS | `ch2`, clean while bus B is silent |
-| Aux | Bento | `aux`, always clean. No fader, so set the level on the Bento (this morning's aux test source came in at −50 dBFS RMS) |
+Decided 2026-10-03.
 
-Every track defaults to bus A, so `ch2` stays clean however many layers there
-are. Bus B is spare: useful for a second FX treatment while arranging, at the
-price of making `ch2` not clean while it sounds. A two-tape-bus patch, with aux
-as the only clean live input, is a config change. Jack 1 can still take
-something you only ever want in the mix, never on tape.
+| Where | What | Records as |
+|---|---|---|
+| Strip 1 | tape bus A, from the Pi | — |
+| Jack 1 | MPC Sample, when it's in use. It shares strip 1's fader and FX with the tape | `ch1`, which carries the tape too: lift the MPC from `main` with the tape muted, or keep its patterns in the MPC |
+| Jack 2 | Bento audio, so it keeps strip 2's FX while you jam | `ch2`, clean while bus B is silent |
+| Aux | the instrument being layered now: Orchid, guitar (through a DI), GO:KEYS | `aux`, always clean, and **dry**: aux skips the strips, so no Sidekick EQ or FX. No level control either, so set it on the instrument (this morning's aux test source came in at −50 dBFS RMS) |
+
+The Bento also gets a USB cable from its device port to the Pi's powered hub.
+That carries MIDI only — its notes into each take's `.mid`, and in phase 3 the
+tape's clock to it — while its audio stays on jack 2.
+
+Aux is the right home for the instrument being layered *because* it's dry. A
+part recorded from aux has no Sidekick FX printed into it, so when it plays
+back off tape through strip 1 it picks up whatever strip 1 is doing then, and
+can be changed any time. Every track defaults to bus A, so `ch2` stays clean
+however many layers there are. Bus B is spare: useful for a second FX
+treatment while arranging, at the price of making `ch2` not clean while it
+sounds.
+
+When there are more sources than inputs, a second Sidekick chains into aux
+([hardware notes](#hardware-notes)).
 
 ## Principles
 
@@ -313,7 +326,7 @@ the Δ segment covering each end.
 **Sources** are named capture pairs, each tagged with the buses that leak into
 it: `main` (1/2, both buses), `ch1` (3/4, bus A), `ch2` (5/6, bus B), `aux`
 (7/8, none). A source can also name the MIDI device that plays into it
-(`ch2` → `Orchid`), which helps the free loop find attacks.
+(`aux` → `Orchid`), which helps the free loop find attacks.
 
 | Lift | Range |
 |---|---|
@@ -375,7 +388,7 @@ TAPE_DIR (default ~/hindsight/tapes — put it on the SSD)
      "regions": [
        {"file": "audio/lift_2026-10-03_201512.wav", "src": 480, "frames": 548571,
         "at": 0, "layer": 0, "gain_db": 0, "tile": false, "nudge_ms": 0,
-        "source": "ch2", "clean": true, "aligned": "locked"}
+        "source": "aux", "clean": true, "aligned": "locked"}
      ]}
   ],
   "history": []
@@ -467,7 +480,7 @@ the existing `channel_rms`), lock state and the passes.
 │ 3        ····················  A  M  │  playhead across them
 │ 4        ····················  A  M  │
 ├──────────────────────────────────────┤
-│ source   ch2 ●   aux ○   main        │  ● sounding and clean
+│ source   aux ●   ch2 ○   main        │  ● sounding and clean
 │ [ ▶ ]  [ ● REC ]  [ LIFT  1 2 4 8 ]  │
 │ passes  ▁▃▅ ▁▃▅ ▁▃▅ ▁▃▅ ▁▃▅   −5…−1  │  tap one to keep it
 └──────────────────────────────────────┘
@@ -514,7 +527,7 @@ is refused for any other.
 | `OUTPUT_CHANNELS` | `4` | Playback channels opened |
 | `OUTPUT_LATENCY_MS` | `100` | Same reasoning as `INPUT_LATENCY_MS` |
 | `TAPE_BUSES` | `A=1,2 B=3,4` | Bus → 1-indexed playback pair |
-| `TAPE_SOURCES` | `main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8` | Source → capture pair and the buses that leak into it; `@device` names the MIDI device that plays into it (`ch2=5,6:B@Orchid`) |
+| `TAPE_SOURCES` | `main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8` | Source → capture pair and the buses that leak into it; `@device` names the MIDI device that plays into it (`aux=7,8@Orchid`) |
 | `TAPE_LATENCY_MS` | `0` | Added to Δ only if you hear the instrument directly rather than through the Sidekick |
 | `TAPE_PEDAL` | *(empty)* | `device:cc` or `device:note` that acts as the tap and Rec button (phase 3) |
 | `TAPE_CLOCK` | `free` | `lead`, `follow` or `free` (phase 3) |
@@ -599,12 +612,25 @@ stream of MAIN to the phone. FLAC archiving.
 - **An SSD for `TAPE_DIR`.** A USB 3 SSD or an NVMe HAT on the Pi 5. At the
   rates above, 500 GB to 1 TB is years of tape. The SD card is the wrong place
   for a store that is written on every lift.
-- **A DI for the guitar.** The Sidekick's channel inputs are line level at
-  10 kΩ (the guide's spec). A passive guitar pickup wants something near 1 MΩ
-  and sounds dull and quiet straight in. Any buffered pedal, amp modeller or DI
-  with a line out in front of jack 2 fixes that.
+- **A DI for the guitar.** The Sidekick's inputs are line level: 7 kΩ on aux,
+  10 kΩ on the channels (the guide's spec). A passive guitar pickup wants
+  something near 1 MΩ and sounds dull and quiet straight in. Any buffered
+  pedal, amp modeller or DI with a line out in front of aux fixes that, and
+  gives you a level knob that aux itself doesn't have.
 - **A MIDI footswitch.** A USB MIDI pedal puts Rec and the free-loop taps
   within a few milliseconds and keeps your hands on the instrument.
+- **More inputs, later: a second Sidekick into aux.** The guide's own
+  stacking method: Sidekick B's main out into this Sidekick's aux. B gives two
+  more strips with their own FX for live sources (the layering instrument and
+  the MPC, say), and its mix lands on aux, which the tape never touches, so it
+  records clean as `aux`. Two things to keep it that simple:
+  - **Keep B off the Pi's USB.** Power it from batteries or a wall charger,
+    not the Pi's hub. On the Pi it would enumerate as a second `EP-136`. That
+    is a second clock, which drifts. And `DEVICE_MATCH=EP-136` would match
+    both, so Hindsight could open the wrong one.
+  - **B's sources arrive as one stereo sum.** Lift one of them alone by
+    playing it alone. Recording B's strips separately would mean a second
+    capture device with resampling, which this design doesn't do.
 - **More buses, later.** If two hardware buses and the clean-input rule start
   to pinch, the upgrade is one bigger interface with more returns — one clock —
   rather than a second interface beside the Sidekick. Buses and sources are
@@ -617,8 +643,9 @@ stream of MAIN to the phone. FLAC archiving.
    either way; a leading tape is sample-exact, and it works without the Bento
    in the room. The Bento keeps its sequencer and follows. *Follow* stays
    available for when a Bento song is the arrangement.
-2. **The patch:** tape on strip 1, live instruments on jack 2 and aux, every
-   track on bus A, bus B spare.
+2. ~~The patch.~~ Decided 2026-10-03: tape on strip 1, MPC on jack 1, Bento
+   on jack 2, the layering instrument on aux, every track on bus A, bus B
+   spare. See [the patch](#the-patch).
 3. **How a tape starts:** free first loop by default, or a click and a tempo.
 4. **Overdub default:** layer (summed, undoable) or replace. Layer is
    recommended.
