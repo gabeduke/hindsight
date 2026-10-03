@@ -85,13 +85,17 @@ playing into mixer channel 1 and comparing levels with the fader up and down:
 ```
 USB 1/2  MAIN      post-fader  -- moved 20.8 dB with the fader
 USB 3/4  CH1 tap   pre-fader   -- did not move at all
-USB 5/6  CH2 or AUX            -- silent in both runs, not disambiguated
-USB 7/8  CH2 or AUX            -- silent in both runs, not disambiguated
+USB 5/6  CH2 tap   pre-fader   -- confirmed 2026-10-03
+USB 7/8  AUX input             -- digital zero until a source plays
 ```
 
 **Use `1,2`.** A pre-fader tap ignores the mixer entirely: it records one
 channel strip at that strip's own limiter ceiling, so the faders — and anything
 plugged into the other inputs — are missing from the take.
+
+The device names these channels itself, in its USB string descriptors, and
+[sidekick-routing.md](sidekick-routing.md) has the full map, including where
+the USB playback returns land and how MAIN is summed.
 
 `scripts/channel-probe.py` re-runs that measurement if the map is ever in
 doubt; "Finding the right `SAVE_CHANNELS`" in
