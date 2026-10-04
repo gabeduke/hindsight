@@ -157,7 +157,11 @@
       <span class="phone-time" id="away-time"></span>
       <span class="phone-state" id="away-state"></span>
     </div>
-    <p class="sheet-hint">Use headphones, so the mic hears you and not the tape. Bluetooth ones add a lot of delay: calibrate with them, or use wired ones.</p>
+    <div class="away-kept" id="away-kept" hidden>
+      <span id="away-kept-text"></span>
+      <button id="away-undo" class="chip" type="button">Undo</button>
+    </div>
+    <p class="sheet-hint">Use wired headphones, so the mic hears you and not the tape. Bluetooth ones add a delay the calibration can’t hear (the mic can’t hear inside them): set it with −5 and +5 by ear, or record over the speaker quietly.</p>
     <div class="sheet-actions">
       <button class="icon-btn" id="away-close" type="button">Close</button>
       <button class="icon-btn" id="away-play" type="button" data-tip="away-play">▶ Listen</button>

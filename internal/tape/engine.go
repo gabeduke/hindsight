@@ -978,15 +978,7 @@ func placeWrapped(s *State, track int, c Clip, replace bool) ([]Clip, error) {
 		head.Frames = headLen
 		tail := c
 		tail.At, tail.Src, tail.Frames = l.In, c.Src+headLen, c.Frames-headLen
-		h, err := s.Place(track, head, replace)
-		if err != nil {
-			return nil, err
-		}
-		tl, err := s.Place(track, tail, replace)
-		if err != nil {
-			return nil, err
-		}
-		return []Clip{h, tl}, nil
+		return s.PlaceTogether(track, []Clip{head, tail}, replace)
 	}
 	p, err := s.Place(track, c, replace)
 	return []Clip{p}, err
@@ -1119,12 +1111,17 @@ func (e *Engine) copyTake(take string, from, to int64, pick []int, kind string) 
 	return Clip{File: rel, Src: from - fileFrom, Frames: to - from, PeakDB: peakDB(peak)}, nil
 }
 
+// ErrLoopMoved is a part played over a loop that isn't the tape's loop any
+// more: it was moved, or turned off, while the part was being played.
+var ErrLoopMoved = errors.New("the loop changed while that was being played over it")
+
 // PlaceTake puts frames [from, to) of a take onto a track at tape frame at,
-// layered or replacing what's there. wrap says it was played over the loop
-// going round: it goes inside the loop, and a span that runs past Out
-// carries on from In, as it was played. That's how a part recorded on a
-// phone goes back where it belongs. source names where it came from.
-func (e *Engine) PlaceTake(id string, take string, from, to int64, track int, at int64, replace, wrap bool, source string, pick []int) ([]Clip, error) {
+// layered or replacing what's there. played, if set, is the loop it was
+// played over, going round: it goes inside that loop, which must still be
+// the tape's, and a span that runs past Out carries on from In, as it was
+// played. That's how a part recorded on a phone goes back where it belongs.
+// source names where it came from.
+func (e *Engine) PlaceTake(id string, take string, from, to int64, track int, at int64, replace bool, played *Loop, source string, pick []int) ([]Clip, error) {
 	t := e.Loaded()
 	if t == nil {
 		return nil, ErrNoTape
@@ -1138,10 +1135,21 @@ func (e *Engine) PlaceTake(id string, take string, from, to int64, track int, at
 	if at < 0 || to-from > t.Length || at > t.Length-(to-from) {
 		return nil, fmt.Errorf("%w: that doesn't fit on the tape there", ErrPastTheEnd)
 	}
-	if l := t.Loop; wrap && (!l.On || at < l.In || at >= l.Out || to-from > l.Out-l.In) {
-		return nil, fmt.Errorf("%w: a part played over the loop goes inside it, and no longer than it", ErrBadParameter)
+	inLoop := func(l Loop) error {
+		if !l.On || l.In != played.In || l.Out != played.Out {
+			return ErrLoopMoved
+		}
+		if at < l.In || at >= l.Out || to-from > l.Out-l.In {
+			return fmt.Errorf("%w: a part played over the loop goes inside it, and no longer than it", ErrBadParameter)
+		}
+		return nil
 	}
-	clip, err := e.copyTake(take, from, to, pick, "phone")
+	if played != nil {
+		if err := inLoop(t.Loop); err != nil {
+			return nil, err
+		}
+	}
+	clip, err := e.copyTake(take, from, to, pick, source)
 	if err != nil {
 		return nil, err
 	}
@@ -1152,7 +1160,11 @@ func (e *Engine) PlaceTake(id string, take string, from, to int64, track int, at
 			tp.Click = false
 		}
 		var err error
-		if wrap {
+		if played != nil {
+			// Again, as it is now: it may have moved while the audio copied.
+			if err := inLoop(s.Loop); err != nil {
+				return err
+			}
 			placed, err = placeWrapped(s, track, clip, replace)
 			return err
 		}

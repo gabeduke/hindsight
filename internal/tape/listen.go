@@ -28,7 +28,6 @@ type Listen struct {
 	Frames     int64
 	Loop       bool // it's the loop: play it round
 	SampleRate int
-	Grid       *Grid // the tape's bars, if it has them
 	mix        *Mix
 }
 
@@ -48,10 +47,6 @@ func (e *Engine) Listen(id string, all, click bool) (*Listen, error) {
 	}
 	sr := e.store.SampleRate()
 	l := &Listen{SampleRate: sr}
-	if t.Grid != nil {
-		g := *t.Grid
-		l.Grid = &g
-	}
 	st := t.State
 	if lp := t.Loop; !all && lp.On && lp.Out > lp.In {
 		l.From, l.Frames, l.Loop = lp.In, lp.Out-lp.In, true
@@ -62,12 +57,12 @@ func (e *Engine) Listen(id string, all, click bool) (*Listen, error) {
 	l.mix.click = click && t.Grid != nil
 	if !l.Loop {
 		l.Frames = l.mix.end
-		if l.mix.click && l.Frames == 0 && t.Grid != nil {
+		if l.mix.click && l.Frames == 0 {
 			l.Frames = int64(math.Round(t.Grid.BarFrames())) // an empty tape: a bar of click
 		}
 	}
-	if l.Frames <= 0 {
-		return nil, fmt.Errorf("%w: there's nothing on the tape to hear", ErrBadParameter)
+	if l.Frames <= 0 || (l.mix.end == 0 && !l.mix.click) {
+		return nil, fmt.Errorf("%w: there's nothing on the tape to hear; add the click to play along with it", ErrBadParameter)
 	}
 	if l.Frames > listenMaxFrames {
 		return nil, fmt.Errorf("%w: that's too long to send", ErrBadParameter)

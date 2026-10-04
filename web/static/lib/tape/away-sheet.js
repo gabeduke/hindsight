@@ -12,8 +12,9 @@
 //      played and nothing lives only on the phone. The worklet says the
 //      context frame its first sample was recorded at.
 //   3. On Stop, away.js works out what to keep -- the last full pass, as a
-//      punch keeps -- from where the tape was in the context's clock and the
-//      round trip; POST /api/tapes/drop places it.
+//      punch keeps -- from where the tape was on the context's clock and the
+//      round trip; POST /api/tapes/drop places it, naming the loop it was
+//      played over, which must still be the tape's.
 //
 // The round trip -- a frame leaving the context, to the sound of playing
 // along with it coming back in -- is the browser's guess until Calibrate
@@ -26,8 +27,12 @@ import { keptSpan, onsets, roundTrip, guessRoundTrip } from './away.js';
 
 const RT_KEY = 'tape.away.rt'; // {seconds, how}: this device's round trip, as last measured or set
 
-// When the calibration's clicks play, in seconds from the first.
-const CLICKS = [0, 0.43, 1.01, 1.47, 2.12, 2.61];
+// When the calibration's clicks play, in seconds from the first: unevenly
+// spaced, so a noise that repeats on its own can't line up with all of
+// them, and far enough apart that a round trip up to CAL_MAX can't be taken
+// for the next click's.
+const CLICKS = [0, 0.93, 1.97, 2.88, 3.95, 4.86];
+const CAL_MAX = 0.85;
 
 function readRT() {
   try {
@@ -44,9 +49,10 @@ function writeRT(v) {
 /**
  * initAway wires the sheet. getTape answers { id, tape, track, replace }:
  * the loaded tape, and where a part goes. onPlaced runs after a part lands,
- * with the drop's answer.
+ * with the drop's answer and what was kept, and answers a line saying so;
+ * onUndo undoes it.
  */
-export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
+export function initAway({ button, sheet, toast, getTape, onPlaced, onUndo, api }) {
   const q = (id) => document.getElementById(id);
   const ui = {
     what: q('away-what'),
@@ -62,41 +68,52 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     more: q('away-rt-more'),
     state: q('away-state'),
     time: q('away-time'),
+    kept: q('away-kept'),
+    keptText: q('away-kept-text'),
+    undo: q('away-undo'),
     play: q('away-play'),
     rec: q('away-rec'),
     close: q('away-close'),
   };
 
   let ctx = null;
+  let rate = 48000;          // the context's rate, kept past its closing
   let stream = null;
+  let micSource = null;
   let node = null;           // the recorder worklet
   let micToken = 0;
   let buffer = null;         // the tape, decoded
   let listen = null;         // { from, frames, loop } as the Pi sent it
   let loadToken = 0;
+  let loading = null;        // the load's AbortController
   let src = null;            // what's playing
   let t0 = 0;                // the context time the file's first frame played
   let mode = 'closed';       // closed | ready | recording | saving | calibrating
+  let closing = false;       // the sheet closed while something finishes
   let uploader = null;
   let startedFrame = null;   // the context frame of the recording's first sample
   let recFrames = 0;
   let flushed = null;
-  let calib = null;          // { chunks, frames } while calibrating
+  let calib = null;          // { chunks } while calibrating
   let lock = null;
   let timer = 0;
   let all = false;
   let click = false;
+  let recTape = null;        // the tape, track and loop a recording was made over
 
   button.addEventListener('click', open);
   ui.close.addEventListener('click', () => sheet.close());
-  sheet.addEventListener('cancel', (e) => { if (busy()) e.preventDefault(); });
-  sheet.addEventListener('close', teardown);
-  ui.play.addEventListener('click', () => (src ? stopPlay() : play()));
-  ui.rec.addEventListener('click', () => (mode === 'recording' ? stopRec() : record()));
-  ui.cal.addEventListener('click', calibrate);
+  // Esc doesn't close the sheet mid-recording; and if it closes anyway (a
+  // browser may insist), the recording is kept, not dropped.
+  sheet.addEventListener('cancel', (e) => { if (mode === 'recording' || mode === 'calibrating') e.preventDefault(); });
+  sheet.addEventListener('close', onClose);
+  ui.play.addEventListener('click', () => { wake(); if (src) stopPlay(); else play(); });
+  ui.rec.addEventListener('click', () => { wake(); if (mode === 'recording') stopRec(); else record(); });
+  ui.cal.addEventListener('click', () => { wake(); calibrate(); });
   ui.less.addEventListener('click', () => nudge(-0.005));
   ui.more.addEventListener('click', () => nudge(0.005));
   ui.click.addEventListener('click', () => { click = !click; reload(); });
+  ui.undo.addEventListener('click', () => { ui.kept.hidden = true; onUndo(); });
   for (const b of ui.span.querySelectorAll('button')) {
     b.addEventListener('click', () => { all = b.dataset.span === 'all'; reload(); });
   }
@@ -104,20 +121,35 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     try { localStorage.setItem(INPUT_KEY, ui.input.value); } catch { /* private mode */ }
     openMic(ui.input.value);
   });
+  // A phone call, a lock or an app switch suspends the context; carry on
+  // when the page is back.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && ctx && ctx.state !== 'running' && mode !== 'closed') ctx.resume().catch(() => {});
+  });
+  window.addEventListener('beforeunload', (e) => {
+    if (mode === 'recording' || mode === 'saving') { e.preventDefault(); e.returnValue = ''; }
+  });
 
   function busy() { return mode === 'recording' || mode === 'saving' || mode === 'calibrating'; }
 
   function setState(s) { ui.state.textContent = s; }
 
-  async function open() {
+  // wake makes sure the context runs: a browser only lets audio start from
+  // a tap, and a suspended one has to be resumed from one.
+  function wake() {
+    const c = ensureCtx();
+    if (c.state !== 'running') c.resume().catch(() => {});
+  }
+
+  function open() {
     const t = getTape();
-    if (!t || !t.tape) return;
+    if (!t || !t.tape || mode !== 'closed') return;
     mode = 'ready';
+    closing = false;
+    all = !t.tape.loop.on;
+    ui.kept.hidden = true;
     sheet.showModal();
-    render();
-    // The context starts on this tap: a browser only lets audio start from
-    // a gesture.
-    ensureCtx();
+    wake();
     reload();
     const why = canRecordHere();
     ui.insecure.hidden = !why;
@@ -128,31 +160,36 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
       try { saved = localStorage.getItem(INPUT_KEY) || ''; } catch { /* private mode */ }
       openMic(saved);
     }
+    render();
   }
 
+  // ensureCtx makes the context, at the device's own rate: forcing 48 kHz
+  // can't take a mic at another rate in some browsers, and the Pi converts
+  // the take to 48 kHz anyway.
   function ensureCtx() {
-    if (ctx) return ctx;
-    try {
-      ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
-    } catch {
+    if (!ctx) {
       ctx = new AudioContext({ latencyHint: 'interactive' });
+      rate = ctx.sampleRate;
     }
-    ctx.resume().catch(() => {});
     return ctx;
   }
 
   // reload fetches the tape as it is now: the loop or the whole tape, with
-  // or without the click.
+  // or without the click. A newer one stops an older one's download.
   async function reload() {
-    if (busy()) return;
+    if (busy() || mode === 'closed') return;
     stopPlay();
+    loading?.abort();
+    const ac = new AbortController();
+    loading = ac;
     const token = ++loadToken;
+    const current = () => token === loadToken && mode !== 'closed';
     buffer = null;
     render();
     const t = getTape();
     setState('Getting the tape from the Pi…');
     try {
-      const res = await fetch(`/api/tapes/listen?id=${encodeURIComponent(t.id)}&all=${all ? 1 : 0}&click=${click ? 1 : 0}`, { cache: 'no-store' });
+      const res = await fetch(`/api/tapes/listen?id=${encodeURIComponent(t.id)}&all=${all ? 1 : 0}&click=${click ? 1 : 0}`, { cache: 'no-store', signal: ac.signal });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
         throw new Error(b.error || `HTTP ${res.status}`);
@@ -163,13 +200,14 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
         loop: res.headers.get('X-Tape-Loop') === 'true',
       };
       const data = await res.arrayBuffer();
+      if (!current()) return;
       const decoded = await ensureCtx().decodeAudioData(data);
-      if (token !== loadToken) return;
+      if (!current()) return;
       buffer = decoded;
       listen = meta;
       setState('');
     } catch (e) {
-      if (token !== loadToken) return;
+      if (!current() || e.name === 'AbortError') return;
       setState(`Couldn’t get the tape: ${e.message || e}`);
     }
     render();
@@ -197,10 +235,11 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     if (!current()) { s.getTracks().forEach((t) => t.stop()); return; }
     stream = s;
     await listInputs(s);
+    if (!current()) return;
     try {
       const c = ensureCtx();
       await c.audioWorklet.addModule('/lib/phone/worklet.js');
-      if (!current()) { s.getTracks().forEach((t) => t.stop()); return; }
+      if (!current()) return;
       const n = new AudioWorkletNode(c, 'hindsight-tap', {
         numberOfInputs: 1,
         numberOfOutputs: 1,
@@ -212,7 +251,8 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
       });
       const mute = c.createGain();
       mute.gain.value = 0;
-      c.createMediaStreamSource(s).connect(n);
+      micSource = c.createMediaStreamSource(s);
+      micSource.connect(n);
       n.connect(mute);
       mute.connect(c.destination);
       n.port.onmessage = (e) => onWorklet(e.data);
@@ -234,7 +274,6 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
       o.selected = d.deviceId === cur;
       return o;
     }));
-    ui.input.disabled = devices.length < 2;
   }
 
   function onWorklet(d) {
@@ -265,12 +304,12 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
 
   function nudge(d) {
     const cur = rt();
-    writeRT({ seconds: Math.max(0, Math.min(0.9, Math.round((cur.seconds + d) * 1000) / 1000)), how: 'set' });
+    writeRT({ seconds: Math.max(0, Math.min(0.9, Math.round((cur.seconds + d) * 10000) / 10000)), how: 'set' });
     render();
   }
 
   function play() {
-    if (!buffer || src) return;
+    if (!buffer || src || mode === 'closed') return;
     const c = ensureCtx();
     const s = c.createBufferSource();
     s.buffer = buffer;
@@ -281,11 +320,14 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     s.onended = () => {
       if (src !== s) return;
       src = null;
-      // The whole tape played out: a recording over it ends with it.
-      if (mode === 'recording') stopRec();
+      // The whole tape played out. What was played over its last moments
+      // reaches the recording a round trip later: stop after that.
+      if (mode === 'recording') setTimeout(() => { if (mode === 'recording') stopRec(); }, (rt().seconds + 0.25) * 1000);
+      else releaseLock();
       render();
     };
     src = s;
+    if (!lock) lock = holdScreen({ onChange: () => {} });
     render();
   }
 
@@ -293,19 +335,27 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     const s = src;
     src = null;
     if (s) { try { s.stop(); } catch { /* not started */ } }
+    if (mode !== 'recording' && mode !== 'saving') releaseLock();
     render();
+  }
+
+  function releaseLock() {
+    lock?.release();
+    lock = null;
   }
 
   function record() {
     if (mode !== 'ready' || !node || !buffer) return;
     if (!src) play();
-    const c = ctx;
+    const t = getTape();
+    recTape = { id: t.id, track: t.track, replace: t.replace, grid: t.tape.grid, sr: t.tape.sample_rate || 48000, listen: { ...listen }, t0 };
     mode = 'recording';
     recFrames = 0;
     startedFrame = null;
+    ui.kept.hidden = true;
     const u = new Uploader({
       url: wsURL(),
-      rate: c.sampleRate,
+      rate,
       onState: (s, info) => {
         if (u !== uploader) return;
         if (info?.warning) toast(info.warning, 'warn', 6000);
@@ -314,17 +364,18 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
         else if (s === 'reconnecting') setState(`Reconnecting… ${Math.round(u.pendingSeconds)} s waiting to send`);
       },
       onEnd: (result) => {
+        // The Pi can end a recording itself: disk nearly full, three hours.
         if (u === uploader && mode === 'recording') {
           mode = 'saving';
-          stopCapture().then(() => finish(result));
+          stopCapture().then(() => { stopPlay(); finish(result); });
         }
       },
     });
     uploader = u;
     u.start();
     node.port.postMessage({ cmd: 'record' });
-    lock = holdScreen({ onChange: () => {} });
-    timer = setInterval(() => { ui.time.textContent = fmtClock(recFrames / c.sampleRate); }, 250);
+    if (!lock) lock = holdScreen({ onChange: () => {} });
+    timer = setInterval(() => { ui.time.textContent = fmtClock(recFrames / rate); }, 250);
     render();
   }
 
@@ -344,53 +395,53 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     render();
     await stopCapture();
     stopPlay();
-    finish(await uploader.stop());
+    const u = uploader;
+    setTimeout(() => {
+      if (u === uploader && mode === 'saving') setState('Still sending to the Pi. It keeps trying while this page is open.');
+    }, 10000);
+    finish(await u.stop());
   }
 
   async function finish(result) {
-    const c = ctx;
-    const recStart = startedFrame === null ? null : startedFrame / c.sampleRate;
-    const heard = recFrames / c.sampleRate;
+    const r = recTape;
+    const recStart = startedFrame === null ? null : startedFrame / rate;
+    const heard = recFrames / rate;
     uploader = null;
-    lock?.release();
-    lock = null;
-    mode = 'ready';
+    releaseLock();
+    if (!closing) mode = 'ready';
     render();
-    if (result.error || !result.name) {
-      toast(result.error ? `The recording failed: ${result.error}` : 'Nothing was recorded', result.error ? 'bad' : 'warn');
+    const done = (msg, kind, ms) => {
+      if (msg) toast(msg, kind, ms);
       setState('');
-      return;
-    }
-    // A stretch lost on the way -- the page hidden, the Pi gone a while --
-    // and the take no longer lines up with the tape.
+      if (closing) teardown();
+    };
+    if (result.error) return done(`The recording failed: ${result.error}`, 'bad');
+    if (!result.name || recFrames === 0) return done('Nothing was recorded', 'warn');
+    // A stretch lost on the way -- the Pi gone a while -- and the take no
+    // longer lines up with the tape.
     if (recStart === null || result.partial || Math.abs(result.seconds - heard) > 0.25) {
-      toast('Some of the recording went missing, so it can’t be lined up with the tape. It’s saved as a take.', 'warn', 9000);
-      setState('');
-      return;
+      return done('Some of the recording went missing, so it can’t be lined up with the tape. It’s saved as a take.', 'warn', 9000);
     }
-    const t = getTape();
-    const k = keptSpan({ t0, rt: rt().seconds, recStart, seconds: result.seconds, listen, grid: t.tape.grid, sr: 48000 });
-    if (!k) {
-      toast('Not a whole bar was played over the tape. The recording is saved as a take.', 'warn', 8000);
-      setState('');
-      return;
-    }
+    const k = keptSpan({ t0: r.t0, rt: rt().seconds, recStart, seconds: result.seconds, listen: r.listen, grid: r.grid, sr: r.sr });
+    if (!k) return done('Not a whole bar was played over the tape. The recording is saved as a take.', 'warn', 8000);
     try {
-      const d = await api(`/api/tapes/drop?id=${encodeURIComponent(t.id)}`, {
-        method: 'POST',
-        body: { take: result.name, from: k.from, to: k.to, track: t.track, at: k.at, wrap: k.wrap, replace: t.replace, source: 'phone' },
-      });
-      setState('');
-      onPlaced(d, { ...k, track: t.track });
+      const body = { take: result.name, from: k.from, to: k.to, track: r.track, at: k.at, replace: r.replace, source: 'phone' };
+      if (k.wrap) body.loop = { in: r.listen.from, out: r.listen.from + r.listen.frames };
+      const d = await api(`/api/tapes/drop?id=${encodeURIComponent(r.id)}`, { method: 'POST', body });
+      const text = onPlaced(d, { ...k, track: r.track, sr: r.sr });
+      if (!closing) {
+        ui.keptText.textContent = text;
+        ui.kept.hidden = false;
+      }
+      done('');
     } catch (e) {
-      toast(`Couldn’t put it on the tape: ${e.message}. It’s saved as a take.`, 'bad', 9000);
-      setState('');
+      done(e.status === 409
+        ? 'The loop changed while you were playing, so the part can’t go back where it was. It’s saved as a take.'
+        : `Couldn’t put it on the tape: ${e.message}. It’s saved as a take.`, 'bad', 9000);
     }
   }
 
-  // calibrate plays six clicks through the speaker and listens for them.
-  // They're unevenly spaced, so a noise that repeats on its own -- a beep
-  // every half second -- can't line up with all of them.
+  // calibrate plays clicks through the speaker and listens for them.
   async function calibrate() {
     if (mode !== 'ready' || !node) return;
     stopPlay();
@@ -398,7 +449,7 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     mode = 'calibrating';
     calib = { chunks: [] };
     startedFrame = null;
-    setState('Listening for six clicks — take headphones off and keep quiet…');
+    setState('Listening for six clicks. Headphones off, and quiet please…');
     render();
     node.port.postMessage({ cmd: 'record' });
     const first = c.currentTime + 0.4;
@@ -410,20 +461,22 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
       const g = c.createGain();
       o.frequency.value = 2000;
       g.gain.setValueAtTime(0, at);
-      g.gain.linearRampToValueAtTime(0.8, at + 0.001);
+      g.gain.linearRampToValueAtTime(0.7, at + 0.001);
       g.gain.exponentialRampToValueAtTime(0.001, at + 0.03);
       o.connect(g);
       g.connect(c.destination);
       o.start(at);
       o.stop(at + 0.04);
     }
-    await new Promise((r) => setTimeout(r, (first - c.currentTime + CLICKS[CLICKS.length - 1] + 0.6) * 1000));
+    await new Promise((res) => setTimeout(res, (first - c.currentTime + CLICKS[CLICKS.length - 1] + CAL_MAX + 0.1) * 1000));
+    if (mode !== 'calibrating') return; // closed meanwhile
     await stopCapture();
+    if (mode !== 'calibrating') return;
     const chunks = calib.chunks;
     calib = null;
     mode = 'ready';
+    setState('');
     if (startedFrame === null) {
-      setState('');
       toast('The microphone didn’t start; try again', 'warn');
       render();
       return;
@@ -432,14 +485,12 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     const mono = new Float32Array(n);
     let k = 0;
     for (const ch of chunks) for (let i = 0; i < ch.length; i += 2) mono[k++] = (ch[i] + ch[i + 1]) / 2;
-    const start = startedFrame / c.sampleRate;
-    const r = roundTrip(times.map((t) => t - start), onsets(mono, c.sampleRate));
+    const start = startedFrame / rate;
+    const r = roundTrip(times.map((t) => t - start), onsets(mono, rate), { maxSeconds: CAL_MAX });
     if (r === null) {
-      setState('');
       toast('Couldn’t hear the clicks clearly. Take headphones off, turn the volume up, and try again somewhere quiet.', 'warn', 9000);
     } else {
-      writeRT({ seconds: Math.round(r * 1000) / 1000, how: 'calibrated' });
-      setState('');
+      writeRT({ seconds: Math.round(r * 10000) / 10000, how: 'calibrated' });
       toast(`Calibrated: a round trip of ${Math.round(r * 1000)} ms`, 'ok');
     }
     render();
@@ -448,14 +499,17 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
   function render() {
     const t = getTape();
     const tape = t && t.tape;
-    const bars = tape && tape.grid && listen ? listen.frames / (tape.grid.frames / tape.grid.bars) : 0;
+    const bars = tape && tape.grid && listen && buffer ? listen.frames / (tape.grid.frames / tape.grid.bars) : 0;
+    const b10 = Math.round(bars * 10);
     const what = !buffer ? '' : listen.loop
-      ? `the loop${bars ? ` (${Math.round(bars * 10) / 10} bar${Math.round(bars * 10) === 10 ? '' : 's'})` : ''}, round and round`
-      : 'the whole tape, once';
+      ? `the loop${bars ? ` (${b10 / 10} bar${b10 === 10 ? '' : 's'})` : ''}, round and round,`
+      : 'the whole tape, once,';
     ui.what.textContent = t ? `Plays ${what || 'the tape'} here — the jam room stays quiet — and records you over it onto track ${t.track}${t.replace ? ', replacing what’s there' : ''}.` : '';
+    const loopOn = !!(tape && tape.loop.on);
     for (const b of ui.span.querySelectorAll('button')) {
-      b.setAttribute('aria-pressed', String((b.dataset.span === 'all') === all));
-      b.disabled = busy();
+      const isAll = b.dataset.span === 'all';
+      b.setAttribute('aria-pressed', String(isAll === (all || !loopOn)));
+      b.disabled = busy() || (!isAll && !loopOn);
     }
     ui.click.setAttribute('aria-pressed', String(click));
     ui.click.disabled = busy() || !(tape && tape.grid);
@@ -468,32 +522,48 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, api }) {
     ui.rec.textContent = mode === 'recording' ? '■ Stop and keep' : '● Record';
     ui.rec.classList.toggle('recording', mode === 'recording');
     ui.rec.disabled = !(mode === 'recording' || (mode === 'ready' && node && buffer));
-    ui.close.disabled = busy();
+    ui.close.disabled = mode === 'recording' || mode === 'calibrating';
     ui.input.disabled = busy() || ui.input.options.length < 2;
     if (mode !== 'recording') ui.time.textContent = '';
+  }
+
+  // onClose: a recording is kept, a save carries on, and everything stops
+  // once it's done.
+  function onClose() {
+    if (mode === 'recording') {
+      closing = true;
+      stopRec();
+    } else if (mode === 'saving') {
+      closing = true;
+    } else if (mode !== 'closed') {
+      teardown();
+    }
   }
 
   function stopMic() {
     stream?.getTracks().forEach((t) => t.stop());
     stream = null;
+    try { micSource?.disconnect(); } catch { /* gone */ }
+    micSource = null;
     if (node) { node.port.onmessage = null; try { node.disconnect(); } catch { /* gone */ } }
     node = null;
   }
 
   function teardown() {
-    if (mode === 'closed') return;
+    mode = 'closed';
     loadToken++;
     micToken++;
+    loading?.abort();
+    loading = null;
     clearInterval(timer);
-    if (uploader) uploader.abandon();
-    uploader = null;
-    lock?.release();
-    lock = null;
+    calib = null;
+    releaseLock();
     stopPlay();
     stopMic();
     ctx?.close().catch(() => {});
     ctx = null;
     buffer = null;
-    mode = 'closed';
+    listen = null;
+    closing = false;
   }
 }

@@ -69,10 +69,14 @@ async function boot() {
       const t = state.tape;
       const bars = t && t.grid ? (k.to - k.from) / (t.grid.frames / t.grid.bars) : 0;
       const n = Math.round(bars);
-      const what = n > 0 && Math.abs(bars - n) < 0.01 ? `${n} bar${n === 1 ? '' : 's'}` : `${((k.to - k.from) / 48000).toFixed(1)} s`;
-      caughtToast(`Kept ${what} from this device on track ${k.track}`, d.clip, { action: { label: 'Undo', run: () => undoRedo(false) } });
+      const what = n > 0 && Math.abs(bars - n) < 0.01 ? `${n} bar${n === 1 ? '' : 's'}` : `${((k.to - k.from) / k.sr).toFixed(1)} s`;
+      const msg = `Kept ${what} from this device on track ${k.track}`;
+      caughtToast(msg, d.clip, { action: { label: 'Undo', run: () => undoRedo(false) } });
       poll();
+      const note = quietNote(d.clip);
+      return note ? `${msg} — ${note}` : msg;
     },
+    onUndo: () => undoRedo(false),
   });
   let list;
   try {
@@ -1233,7 +1237,7 @@ function wire() {
     const typing = e.target && (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable
       || (e.target.tagName === 'INPUT' && e.target.type !== 'range'));
     if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
-      if (typing) return; // the field's own undo
+      if (typing || document.querySelector('dialog[open]')) return; // the field's own undo, or a sheet's
       e.preventDefault();
       undoRedo(e.shiftKey);
       return;

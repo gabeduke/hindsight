@@ -430,6 +430,53 @@ func (s *State) Place(track int, c Clip, replace bool) (Clip, error) {
 	return c, nil
 }
 
+// PlaceTogether places clips that are one part played in pieces -- a pass
+// split at the loop's seam -- on one track. Layered, they share the lowest
+// layer all of them are free on: the renderer joins a head to its tail
+// only on the same layer, and pieces on two layers would dip at the seam
+// every time round. Replacing, each clears what's under it.
+func (s *State) PlaceTogether(track int, cs []Clip, replace bool) ([]Clip, error) {
+	if track < 1 || track > len(s.Tracks) {
+		return nil, ErrNoSuchTrack
+	}
+	if replace {
+		out := make([]Clip, 0, len(cs))
+		for _, c := range cs {
+			p, err := s.Place(track, c, true)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, p)
+		}
+		return out, nil
+	}
+	tr := &s.Tracks[track-1]
+	layer := 0
+	for busy := true; busy; {
+		busy = false
+		for _, c := range cs {
+			for _, o := range tr.Clips {
+				if o.Layer == layer && o.At < c.End() && c.At < o.End() {
+					busy = true
+				}
+			}
+		}
+		if busy {
+			layer++
+		}
+	}
+	out := make([]Clip, 0, len(cs))
+	for _, c := range cs {
+		if c.ID == "" {
+			c.ID = NewClipID()
+		}
+		c.Layer = layer
+		tr.Clips = append(tr.Clips, c)
+		out = append(out, c)
+	}
+	return out, nil
+}
+
 // clearRange removes [from, to) from the clips on every layer: replace
 // leaves nothing playing under what replaces it.
 func clearRange(clips []Clip, from, to int64) []Clip {

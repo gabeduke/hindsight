@@ -107,7 +107,8 @@ func TestAPhonePartGoesBackWhereItWasPlayedWrappingAtTheLoop(t *testing.T) {
 	phone := takeWAV(t, 200000, func(i int) float64 { return float64(i) / 1e6 })
 	// A pass that began three quarters through the loop: 24000 frames to
 	// Out, then 72000 from In.
-	clips, err := e.PlaceTake(tp.ID, phone, 100000, 196000, 1, 72000, false, true, "phone", []int{0, 1})
+	loop := &Loop{In: 0, Out: 96000, On: true}
+	clips, err := e.PlaceTake(tp.ID, phone, 100000, 196000, 1, 72000, false, loop, "phone", []int{0, 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,18 +126,30 @@ func TestAPhonePartGoesBackWhereItWasPlayedWrappingAtTheLoop(t *testing.T) {
 		t.Fatalf("the tail starts at take frame %.0f, want %.0f", got*1e6, want*1e6)
 	}
 	// Played over the loop, a part goes inside it and no longer than it.
-	if _, err := e.PlaceTake(tp.ID, phone, 0, 96001, 1, 0, false, true, "phone", []int{0, 1}); !errors.Is(err, ErrBadParameter) {
+	if _, err := e.PlaceTake(tp.ID, phone, 0, 96001, 1, 0, false, loop, "phone", []int{0, 1}); !errors.Is(err, ErrBadParameter) {
 		t.Fatalf("longer than the loop: %v", err)
 	}
-	if _, err := e.PlaceTake(tp.ID, phone, 0, 1000, 1, 96000, false, true, "phone", []int{0, 1}); !errors.Is(err, ErrBadParameter) {
+	if _, err := e.PlaceTake(tp.ID, phone, 0, 1000, 1, 96000, false, loop, "phone", []int{0, 1}); !errors.Is(err, ErrBadParameter) {
 		t.Fatalf("outside the loop: %v", err)
 	}
-	if _, err := e.PlaceTake(tp.ID, phone, 0, 1000, 9, 0, false, true, "phone", []int{0, 1}); err == nil {
+	if _, err := e.PlaceTake(tp.ID, phone, 0, 1000, 9, 0, false, loop, "phone", []int{0, 1}); err == nil {
 		t.Fatal("track 9 was accepted")
+	}
+	if _, err := e.PlaceTake(tp.ID, phone, 0, 1000, 1, 0, false, &Loop{In: 0, Out: 48000, On: true}, "phone", []int{0, 1}); !errors.Is(err, ErrLoopMoved) {
+		t.Fatalf("played over another loop: %v", err)
+	}
+	// A wrapped part over a track busy only where its tail goes still
+	// lands on one layer, head and tail: the seam joins only there.
+	if _, err := e.PlaceTake(tp.ID, base, 0, 24000, 4, 0, false, nil, "take", []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	split, err := e.PlaceTake(tp.ID, phone, 100000, 148000, 4, 72000, false, loop, "phone", []int{0, 1})
+	if err != nil || len(split) != 2 || split[0].Layer != 1 || split[1].Layer != 1 {
+		t.Fatalf("head and tail: %+v %v", split, err)
 	}
 	// Played over the whole tape, it goes straight where it was played,
 	// past the loop, replacing what's there if asked.
-	straight, err := e.PlaceTake(tp.ID, phone, 0, 48000, 3, 120000, true, false, "phone", []int{0, 1})
+	straight, err := e.PlaceTake(tp.ID, phone, 0, 48000, 3, 120000, true, nil, "phone", []int{0, 1})
 	if err != nil || len(straight) != 1 || straight[0].At != 120000 || straight[0].Layer != 0 {
 		t.Fatalf("straight: %+v %v", straight, err)
 	}

@@ -820,19 +820,23 @@ settles, say, with the jam room silent.
    streaming to the Pi as you play, as the Phone button does.
 3. **■ Stop and keep** keeps what a punch would: the last full pass of the
    loop; or, if you didn't play a whole pass, the bars from the first bar
-   line to the last. It goes on the track at the bars you played them over,
-   with Undo in the toast. The whole recording is in the takes list too.
+   line to the last, up to a loop's length. Over the whole tape it keeps the
+   bars you played. It goes on the track at the bars you played them over,
+   with **Undo** right there in the sheet. The whole recording is in the
+   takes list too. Closing the sheet mid-recording keeps it as if you'd
+   stopped; if the loop was moved meanwhile, the part stays a take.
 
 **Timing.** What you play reaches the recording later than you heard the
 tape: the phone's output delay plus its input delay, the *round trip*. The
 sheet shows the figure it's using. The browser's own guess is often too low;
 **Calibrate** measures it by playing six clicks through the speaker and
-hearing them through the mic (headphones off, somewhere quiet). **−5** and
-**+5** move it by hand, and a part that still lands early or late can be
-nudged in its clip sheet. Headphones matter: with a speaker the mic records the
-tape too. Bluetooth headphones add a lot of delay, so calibrate with them on,
-or use wired ones. Recording needs the HTTPS address, as the Phone button
-does; listening works anywhere.
+hearing them through the mic (headphones off, somewhere quiet). Wired
+headphones add almost nothing to it, so calibrate once and use them.
+Bluetooth headphones add a delay the calibration can't hear, since the mic
+can't hear inside them: set it with **−5** and **+5** by ear (often 150–250 ms
+more). A part that still lands early or late can be nudged in its clip sheet.
+Headphones matter: over a speaker the mic records the tape too. Recording
+needs the HTTPS address, as the Phone button does; listening works anywhere.
 
 **Checks — overdubbing:**
 
@@ -990,7 +994,7 @@ has no tip.
 | 🎧 Overdub on this device | Play the tape here, not in the jam room, and record a part over it that goes onto the selected track where you played it |
 | The loop / The whole tape (overdub) | Play the loop round and round, or the whole tape once |
 | ♩ Click (overdub) | A click on every beat, in what plays here |
-| Round trip (overdub) | How late what you play reaches the recording, from hearing the tape: a part lands that much earlier. −5 and +5 move it by hand |
+| Round trip (overdub) | How late what you play reaches the recording, from hearing the tape: a part lands that much earlier. −5 and +5 move it by hand, e.g. for Bluetooth headphones |
 | Calibrate (overdub) | Measure the round trip: six clicks through the speaker, heard through the mic. Headphones off, somewhere quiet |
 | ▶ Listen (overdub) | Play it here, without recording |
 | ● Record (overdub) | Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too |

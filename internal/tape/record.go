@@ -181,20 +181,16 @@ func (e *Engine) endRecordingAt(id string, cancel bool, end uint64) (*Kept, erro
 	}
 	// One file, placed piece by piece where each was played.
 	placed, err := e.catchSpan(t, src, ps[0].Out, frames, ps[0].Pos, func(s *State, c Clip) ([]Clip, error) {
-		var out []Clip
+		var parts []Clip
 		var off int64
 		for _, p := range ps {
 			part := c
 			part.ID = ""
 			part.At, part.Src, part.Frames = p.Pos, c.Src+off, p.Len
 			off += p.Len
-			pl, err := s.Place(r.Track, part, r.Replace)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, pl)
+			parts = append(parts, part)
 		}
-		return out, nil
+		return s.PlaceTogether(r.Track, parts, r.Replace)
 	})
 	if err != nil {
 		return nil, err

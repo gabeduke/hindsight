@@ -38,7 +38,7 @@ import (
 //	POST   /api/tapes/tap?id=          {track, source}: a free-loop tap
 //	DELETE /api/tapes/tap?id=          forget a first tap
 //	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape;
-//	                                   {..., at, wrap, replace, source}: at that tape frame;
+//	                                   {..., at, loop, replace, source}: at that tape frame;
 //	                                   {track, merge}: the clipboard, at the playhead
 //	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse, track, all, clip, pos, at}
 //	GET    /api/tapes/clip?id=&clip=   one clip as a 16-bit WAV, to share
@@ -75,7 +75,7 @@ func tapeErr(w http.ResponseWriter, err error) {
 		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed),
 		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
 		errors.Is(err, tape.ErrEmptyClipboard), errors.Is(err, tape.ErrNoOutput), errors.Is(err, tape.ErrMixingDown),
-		errors.Is(err, tape.ErrNoSaver), errors.Is(err, tape.ErrExporting):
+		errors.Is(err, tape.ErrNoSaver), errors.Is(err, tape.ErrExporting), errors.Is(err, tape.ErrLoopMoved):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
 		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid):
@@ -553,8 +553,10 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		// recorded over the loop on a phone. Without it, the playhead.
 		At      *int64 `json:"at"`
 		Replace bool   `json:"replace"`
-		Wrap    bool   `json:"wrap"` // played over the loop going round
-		Source  string `json:"source"`
+		// Played over the loop going round: this loop, which must still
+		// be the tape's.
+		Loop   *struct{ In, Out int64 } `json:"loop"`
+		Source string                   `json:"source"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
@@ -594,7 +596,11 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		if src != "phone" {
 			src = "take"
 		}
-		clips, err := a.tape.PlaceTake(r.URL.Query().Get("id"), path, b.From, b.To, b.Track, *b.At, b.Replace, b.Wrap, src, pick)
+		var played *tape.Loop
+		if b.Loop != nil {
+			played = &tape.Loop{In: b.Loop.In, Out: b.Loop.Out, On: true}
+		}
+		clips, err := a.tape.PlaceTake(r.URL.Query().Get("id"), path, b.From, b.To, b.Track, *b.At, b.Replace, played, src, pick)
 		if err != nil {
 			tapeErr(w, err)
 			return

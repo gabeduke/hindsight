@@ -978,10 +978,12 @@ if it would run past the end of the tape. Answers `{"clip": …}`.
 
 With `"at": F` the span goes at tape frame `F` instead -- how a part recorded
 on a phone over the tape goes back where it was played. It's layered on what's
-there unless `"replace": true`. `"wrap": true` says it was played over the
-loop going round: it must sit inside the loop and be no longer than it, and a
-span that runs past Out carries on from In, as two clips. `"source": "phone"`
-labels it. Answers `{"clip": …, "clips": […]}`: the first, and all of them.
+there unless `"replace": true`. `"loop": {"in": I, "out": O}` says it was
+played over that loop going round: it must still be the tape's loop (409 if
+it was moved or turned off meanwhile), the part must sit inside it and be no
+longer than it, and a span that runs past Out carries on from In, as two clips
+on one layer. `"source": "phone"` labels it. Answers
+`{"clip": …, "clips": […]}`: the first, and all of them.
 
 ### `POST /api/tapes/edit?id=`
 
@@ -1075,10 +1077,10 @@ Sidekick's strips). With the loop on, it's the loop, rendered as a pass after
 the first, so its seam crossfades as the tape's does and the file loops
 without a click; `all=1`, or the loop off, gives the tape from its start to
 the end of its last clip. `click=1` adds the click on every beat (on an empty
-tape, a bar of it). Headers: `X-Tape-From` and `X-Tape-Frames` (the tape
-frames it holds), `X-Tape-Loop` (`true` for the loop), and
-`Content-Length`; `HEAD` answers them alone. 400 for a tape with nothing to
-hear, 409 for a tape that isn't loaded.
+tape with the loop off, a bar of it). Headers: `X-Tape-From` and
+`X-Tape-Frames` (the tape frames it holds), `X-Tape-Loop` (`true` for the
+loop), and `Content-Length`; `HEAD` answers them alone. 400 for a tape with
+nothing to hear (and no click asked for), 409 for a tape that isn't loaded.
 
 ### The clipboard: `/api/clipboard`
 

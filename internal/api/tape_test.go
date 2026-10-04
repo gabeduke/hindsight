@@ -397,7 +397,7 @@ func TestTheLoopToListenToAndAPhonePartPlacedBack(t *testing.T) {
 
 	// The part: half a bar from the take, placed three quarters through the
 	// loop on track 2, so it wraps to bar 1's start.
-	w = send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":96000,"to":144000,"track":2,"at":72000,"wrap":true,"source":"phone"}`)
+	w = send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":96000,"to":144000,"track":2,"at":72000,"loop":{"in":0,"out":96000},"source":"phone"}`)
 	want(t, w, http.StatusOK, "place")
 	var placed struct {
 		Clips []struct {
@@ -410,5 +410,7 @@ func TestTheLoopToListenToAndAPhonePartPlacedBack(t *testing.T) {
 	if len(placed.Clips) != 2 || placed.Clips[0].At != 72000 || placed.Clips[0].Frames != 24000 || placed.Clips[1].At != 0 || placed.Clips[1].Source != "phone" {
 		t.Fatalf("placed: %+v", placed)
 	}
-	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":0,"to":96001,"track":2,"at":0,"wrap":true}`), http.StatusBadRequest, "longer than the loop")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":0,"to":96001,"track":2,"at":0,"loop":{"in":0,"out":96000}}`), http.StatusBadRequest, "longer than the loop")
+	// Played over a loop that isn't the tape's any more.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":0,"to":1000,"track":2,"at":0,"loop":{"in":0,"out":48000}}`), http.StatusConflict, "the loop moved")
 }

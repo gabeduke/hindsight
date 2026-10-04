@@ -535,6 +535,8 @@ main {
 .away-rt span { flex: 1 1 100%; }
 .away-rt .chip { min-height: 32px; }
 .tape-toolbar .tb-row.away .away-btn { flex: 1; }
+.away-kept { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); font-size: 13.5px; }
+.away-kept span { flex: 1; }
 
 /* ---------- takes ---------- */
 
