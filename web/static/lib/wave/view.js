@@ -22,7 +22,7 @@ import { frameToX, xToFrame, gridLines, rulerTicks, snapFrame, clampRegion } fro
 import { drawColumns } from './draw.js';
 import { GestureSurface } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
-import { greaseStroke } from './grease.js';
+import { greaseStroke, labelPlaces } from './grease.js';
 
 export { HOLD_MS } from '../edit/gestures.js';
 
@@ -296,6 +296,7 @@ export class WaveView extends GestureSurface {
     // selection, or outside it when it's too narrow to hold them.
     if (sel) {
       const grease = col('--grease', '#7a5c00');
+      ctx.save();
       ctx.strokeStyle = grease;
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';
@@ -307,21 +308,21 @@ export class WaveView extends GestureSurface {
         pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
         ctx.stroke();
       }
-      ctx.lineWidth = 1;
-      ctx.fillStyle = grease;
+      // The labels, with a halo of the well behind them so they read over
+      // loud audio.
       ctx.font = `18px "Permanent Marker", ${col('--font', 'system-ui')}`;
       ctx.textBaseline = 'top';
-      const inside = sx1 - sx0 >= 96;
-      const y = top + 6;
-      const label = (text, x, align) => {
-        const w = ctx.measureText(text).width;
-        const left = align === 'right' ? x - w : x;
-        if (left + w < 0 || left > W) return;
-        ctx.fillText(text, Math.max(2, Math.min(W - w - 2, left)), y);
-      };
-      label('IN', inside ? sx0 + 7 : sx0 - 7, inside ? 'left' : 'right');
-      label('OUT', inside ? sx1 - 7 : sx1 + 7, inside ? 'right' : 'left');
-      ctx.textBaseline = 'alphabetic';
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = col('--well', '#e9e2cd');
+      ctx.fillStyle = grease;
+      const wIn = ctx.measureText('IN').width, wOut = ctx.measureText('OUT').width;
+      const at = labelPlaces(sx0, sx1, wIn, wOut, W);
+      for (const [text, p] of [['IN', at.in], ['OUT', at.out]]) {
+        if (!p) continue;
+        ctx.strokeText(text, p.x, top + 6 + p.y);
+        ctx.fillText(text, p.x, top + 6 + p.y);
+      }
+      ctx.restore();
     }
 
     // A pending In or Out, waiting for its other half.

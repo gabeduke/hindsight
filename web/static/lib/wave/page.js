@@ -772,7 +772,7 @@ async function main() {
   // The ‹ says where it goes: the list the take was opened from.
   const backLink = document.querySelector('.topbar .back');
   if (list === '/') { backLink.href = '/'; backLink.setAttribute('aria-label', 'Back to the main page'); }
-  document.querySelector('.topbar .back').addEventListener('click', (e) => {
+  backLink.addEventListener('click', (e) => {
     if (document.body.classList.contains('notes-open')) { e.preventDefault(); closeNotes(); return; }
     if (fromList && history.length > 1) { e.preventDefault(); history.back(); }
   });

@@ -33,3 +33,41 @@ export function greaseStroke(x, top, bottom, seed) {
   }
   return pts;
 }
+
+const GAP = 7;    // px between a mark and its label
+const LINE = 20;  // px down to a second line of labels
+const MARGIN = 2; // px kept clear of the canvas's edges
+
+/**
+ * labelPlaces is where IN and OUT are written, beside marks at sx0 and sx1
+ * on a canvas W wide, given each label's width: inside a selection wide
+ * enough to hold both, else outside, each by its own mark; and where one
+ * side has no room -- at the take's start or end -- both on the side that
+ * has, one above the other, so they never print over each other or across
+ * a mark. y is 0 or LINE, below the labels' top. A mark off the canvas has
+ * no label (null).
+ */
+export function labelPlaces(sx0, sx1, wIn, wOut, W) {
+  let inAt, outAt;
+  if (sx1 - sx0 >= wIn + wOut + 4 * GAP) {
+    inAt = { x: sx0 + GAP, y: 0 };
+    outAt = { x: sx1 - GAP - wOut, y: 0 };
+  } else {
+    const left = sx0 - GAP, right = sx1 + GAP;
+    const inFits = left - wIn >= MARGIN, outFits = right + wOut <= W - MARGIN;
+    if (inFits && outFits) {
+      inAt = { x: left - wIn, y: 0 };
+      outAt = { x: right, y: 0 };
+    } else if (outFits) {
+      inAt = { x: right, y: 0 };
+      outAt = { x: right, y: LINE };
+    } else {
+      inAt = { x: left - wIn, y: 0 };
+      outAt = { x: left - wOut, y: LINE };
+    }
+  }
+  return {
+    in: sx0 >= 0 && sx0 <= W ? inAt : null,
+    out: sx1 >= 0 && sx1 <= W ? outAt : null,
+  };
+}

@@ -1732,13 +1732,8 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 }
 
 /* The take page's In and Out: written in marker, in grease pencil, as on
-   the waveform. And the practice speeds are what a deck calls them. */
+   the waveform. */
 .sel-label { font-family: 'Permanent Marker', var(--font); font-size: 15px; color: var(--grease); min-width: 2.4em; }
-.speed-label {
-  margin-left: auto; font: 600 12px var(--label-font); letter-spacing: .16em;
-  text-transform: uppercase; color: var(--ink-dim);
-}
-.speed-label + .speed-seg { margin-left: 0; }
 
 /* ---------- the deck ---------- */
 /* Retro, but quiet. Only a control you press while playing looks like a
