@@ -1202,6 +1202,12 @@ dialog.sheet::backdrop { background: var(--scrim); }
    spilling: a centred flex label never truncates. */
 .tb-row.verbs .icon-btn { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; display: block; line-height: 42px; text-align: center; }
 .tb-row.verbs #more-btn { flex: 0.7 1 0; }
+/* With Send to tape showing there are four verbs, and at phone width they
+   can't share one line without clipping. Each keeps at least its own text,
+   and the row wraps rather than shrinking it; with three they still split
+   the line evenly. */
+.tb-row.verbs { flex-wrap: wrap; }
+.tb-row.verbs .icon-btn { min-width: max-content; }
 .tb-row.footer { flex-wrap: wrap; justify-content: space-between; }
 .tb-row.footer .readout { color: var(--ink-dim); font-size: 13px; }
 .speed-seg { margin-left: auto; }

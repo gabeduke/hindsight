@@ -5,6 +5,7 @@ import {
   frameToX, xToFrame, levelFor, tileSpan, tilesFor, fileLevel,
   gridLines, barBeat, fmtTime, clampRegion, TILE_BUCKETS,
   edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fmtRegionLength,
+  initialSnap, tempoLabel,
 } from './geometry.js';
 
 const view = { start: 48000, fpp: 100, width: 390 };
@@ -181,4 +182,20 @@ test('the ruler numbers bars from the downbeat, thinning when they are narrow', 
   assert.ok((dense[1].frame - dense[0].frame) / 10000 >= 34);
   const secs = rulerTicks({ start: 0, fpp: 1000, width: 400 }, { bpm: null, sampleRate: 48000, downbeat: 0 });
   assert.deepEqual(secs.slice(0, 2).map((t) => t.label), ['0:00', '0:01']);
+});
+
+test('snap starts on bars for a take with a tempo, unless one was chosen before', () => {
+  assert.equal(initialSnap(null, true), 'bar');
+  assert.equal(initialSnap(null, false), 'off');
+  assert.equal(initialSnap('off', true), 'off', 'a choice is kept');
+  assert.equal(initialSnap('beat', false), 'beat');
+  assert.equal(initialSnap('nonsense', true), 'bar');
+});
+
+test('the tempo says where it came from', () => {
+  assert.equal(tempoLabel(125.17, 'audio'), '125.17 bpm · measured');
+  assert.equal(tempoLabel(125.32, 'clock'), '125.32 bpm · clock');
+  assert.equal(tempoLabel(120, 'you'), '120 bpm');
+  assert.equal(tempoLabel(96, undefined), '96 bpm');
+  assert.equal(tempoLabel(null, 'audio'), '+ bpm');
 });

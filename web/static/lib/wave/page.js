@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
 } from './geometry.js';
 import { peakColumns, foldChannels, drawColumns } from './draw.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
@@ -84,7 +84,7 @@ async function main() {
     pending: null, // a lone In or Out waiting for its other half
     flags: asFlags(take.flags),
     grid: { bpm: take.bpm || null, sampleRate: sr, downbeat: take.downbeat_frame || 0 },
-    snap: SNAPS.includes(readPref('wave.snap', 'off')) ? readPref('wave.snap', 'off') : 'off',
+    snap: initialSnap(readPref('wave.snap', null), !!take.bpm),
     cursor: 0,
     selectedFlag: null,
     loop: false, // off on every open (editing model, decision 1)
@@ -258,6 +258,7 @@ async function main() {
     if (state.selectedFlag === null && !sheet.hidden) sheet.hidden = true;
     take.label = fresh.label;
     take.bpm = fresh.bpm;
+    take.tempo_from = fresh.tempo_from;
     take.starred = fresh.starred;
     if (fresh.has_preview) previewLanded();
     state.grid.bpm = fresh.bpm || null;
@@ -627,7 +628,7 @@ async function main() {
     document.title = `${name} — Hindsight`;
     $('take-star').setAttribute('aria-pressed', String(!!take.starred));
     $('take-star').classList.toggle('on', !!take.starred);
-    $('take-bpm').textContent = take.bpm ? `${take.bpm} bpm` : '+ bpm';
+    $('take-bpm').textContent = tempoLabel(take.bpm, take.tempo_from);
     $('take-bpm').classList.toggle('unset', !take.bpm);
     $('take-len').textContent = state.region
       ? `${fmtClock(state.region.end - state.region.start, sr)} of ${fmtClock(total, sr)}`
@@ -680,16 +681,19 @@ async function main() {
       if (bpm !== null && !(bpm >= 20 && bpm <= 400)) { toast('A tempo is 20 to 400 BPM', 'bad'); return; }
       if (bpm === (take.bpm || null)) return;
       const before = take.bpm;
+      const beforeFrom = take.tempo_from;
       take.bpm = bpm;
+      take.tempo_from = 'you';
       state.grid.bpm = bpm;
       renderHeader(); updateReadout(); redraw();
       try {
         const res = await patch({ bpm });
         take.bpm = res.bpm ?? null;
+        take.tempo_from = res.tempo_from || '';
         state.grid.bpm = take.bpm;
         renderHeader(); redraw();
       } catch (e) {
-        take.bpm = before; state.grid.bpm = before || null;
+        take.bpm = before; take.tempo_from = beforeFrom; state.grid.bpm = before || null;
         renderHeader(); redraw();
         toast(`Could not set the tempo: ${e.message}`, 'bad');
       }

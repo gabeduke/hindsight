@@ -242,3 +242,20 @@ export function rulerTicks(view, grid, minLabelPx = 34) {
   }
   return out;
 }
+
+/**
+ * initialSnap is the snap a take page opens with: the one chosen before, if
+ * any; else bars for a take with a tempo -- so In and Out land on bar lines
+ * and a loop sent to tape is whole bars -- and off for one without.
+ */
+export function initialSnap(stored, hasBpm) {
+  if (SNAPS.includes(stored)) return stored;
+  return hasBpm ? 'bar' : 'off';
+}
+
+/** tempoLabel is the take's tempo as its header reads it, and where it came from. */
+export function tempoLabel(bpm, from) {
+  if (!bpm) return '+ bpm';
+  const note = { audio: ' · measured', clock: ' · clock' }[from] || '';
+  return `${bpm} bpm${note}`;
+}

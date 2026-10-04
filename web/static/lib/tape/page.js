@@ -119,7 +119,10 @@ async function poll() {
   polling = true;
   const g = gen;
   try {
-    const s = await api(`/api/tapes/state?${q()}`);
+    // Only an empty tape with no grid can use a suggested tempo, so only
+    // then is one asked for.
+    const bare = state.tape && !state.tape.grid && state.tape.tracks.every((tr) => tr.clips.length === 0);
+    const s = await api(`/api/tapes/state?${q()}${bare ? '&suggest=1' : ''}`);
     if (g !== gen) return;
     if (!s.loaded) { await follow(); return; }
     apply(s);
@@ -162,6 +165,8 @@ function apply(s) {
   const changed = JSON.stringify(s.tape) !== JSON.stringify(state.tape);
   if (state.tape && s.tape && s.tape.id !== state.tape.id) state.zoom = null;
   state.tape = s.tape;
+  // The empty-tape form starts at the tempo you were playing, until you type.
+  if (s.suggest_bpm && !$('new-bpm').dataset.touched) $('new-bpm').value = String(s.suggest_bpm);
   state.live = s.live || null;
   state.sources = s.sources || [];
   state.undo = s.undo || 0;
@@ -1495,6 +1500,7 @@ function wire() {
     if (!t) return;
     try { await api(`/api/tapes?id=${encodeURIComponent(t.id)}`, { method: 'DELETE' }); toast(`Deleted “${t.name}”`); } catch (e) { toast(e.message, 'bad'); }
   });
+  $('new-bpm').addEventListener('input', () => { $('new-bpm').dataset.touched = '1'; });
   $('set-tempo').addEventListener('click', () => patch({ tempo: { bpm: Number($('new-bpm').value), bars: Number($('new-bars').value) } }));
   // The clip sheet.
   $('clip-gain').addEventListener('input', () => { $('clip-gain-val').textContent = `${$('clip-gain').value} dB`; });
