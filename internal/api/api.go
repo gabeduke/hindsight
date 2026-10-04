@@ -830,6 +830,10 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// One writer at a time per take, from the read through the cue rewrite:
+	// see audio.LockTake.
+	unlock := audio.LockTake(wav)
+	defer unlock()
 	m := audio.ReadMeta(wav)
 
 	if body.Label != nil {

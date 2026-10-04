@@ -340,9 +340,7 @@ func stampTempo(wavPath string, src TempoSource, end time.Time, window time.Dura
 	// the field is a starting point the owner edits, not a measurement.
 	bpm = math.Round(bpm*100) / 100
 
-	m := ReadMeta(wavPath)
-	m.BPM = &bpm
-	if err := WriteMeta(wavPath, m); err != nil {
+	if _, err := UpdateMeta(wavPath, func(m *Meta) error { m.BPM = &bpm; return nil }); err != nil {
 		log.Printf("[!] midi: bpm for %s: %v", filepath.Base(wavPath), err)
 		return
 	}
@@ -386,24 +384,32 @@ func exportMIDI(e MIDIExporter, req MIDIExportRequest) {
 // Like stampTempo, this runs after the audio is safely on disk and must never
 // fail the save. The sidecar is the source of truth; the cue chunk is a derived
 // export, so a cue failure is logged and the flags are kept.
-func stampFlags(wavPath string, flags []Flag) {
+func stampFlags(wavPath string, flags []Flag) { stampFlagsAt(wavPath, wavPath, flags) }
+
+// stampFlagsAt is stampFlags for a take whose audio is still being written
+// under another name: the sidecar belongs to the take's final name, metaWav,
+// while the cue chunk goes into the file that holds the audio right now,
+// cueWav. A save and a cut both write the WAV under a temporary name and
+// rename it into place last, so the list never shows a half-written take.
+func stampFlagsAt(metaWav, cueWav string, flags []Flag) {
 	flags = NormalizeFlags(flags)
 	if len(flags) == 0 {
 		return
 	}
 
-	m := ReadMeta(wavPath)
-	m.Flags = flags
-	if err := WriteMeta(wavPath, m); err != nil {
-		log.Printf("[!] flags for %s: %v", filepath.Base(wavPath), err)
+	unlock := LockTake(metaWav)
+	defer unlock()
+	m, err := updateMetaLocked(metaWav, func(m *Meta) error { m.Flags = flags; return nil })
+	if err != nil {
+		log.Printf("[!] flags for %s: %v", filepath.Base(metaWav), err)
 		return
 	}
 
-	if err := WriteCuePoints(wavPath, flags); err != nil {
-		log.Printf("[!] cue points for %s: %v", filepath.Base(wavPath), err)
+	if err := WriteCuePoints(cueWav, m.Flags); err != nil {
+		log.Printf("[!] cue points for %s: %v", filepath.Base(metaWav), err)
 		return
 	}
-	log.Printf("[*] %s — %d flag(s)", filepath.Base(wavPath), len(flags))
+	log.Printf("[*] %s — %d flag(s)", filepath.Base(metaWav), len(m.Flags))
 }
 
 func (s *Saver) makePreview(wavPath string, outCh int) { MakePreview(s.cap.cfg, wavPath, outCh) }
@@ -546,9 +552,13 @@ func ListTakes(dir string) ([]Take, error) {
 	return out, nil
 }
 
-// RemoveTake deletes a take and its sidecar files.
+// RemoveTake deletes a take and its sidecar files. It holds the take's lock
+// so a sidecar write in flight cannot recreate a .meta.json for a take that
+// is already gone.
 func RemoveTake(dir, name string) {
 	base := filepath.Join(dir, filepath.Base(name))
+	unlock := LockTake(base)
+	defer unlock()
 	os.Remove(base)
 	os.Remove(previewPath(base))
 	os.Remove(peaksPath(base))
