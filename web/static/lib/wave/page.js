@@ -10,6 +10,7 @@ import { Lanes } from './lanes.js';
 import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
+import { flagRequest, asFlags } from '/lib/flags.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -45,13 +46,13 @@ async function main() {
   // that would otherwise pop straight into the (unbuilt) pane on the first
   // back gesture.
   if (history.state && history.state.notes) history.replaceState(null, '');
-  const [jamsRes, peaksRes] = await Promise.all([
-    fetch('/api/jams'),
+  const [takeRes, peaksRes] = await Promise.all([
+    fetch(`/api/take?file=${encodeURIComponent(file)}`),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
   ]);
-  if (!jamsRes.ok) return fail('Could not load takes.');
-  const take = (await jamsRes.json()).find((t) => t.name === file);
-  if (!take) return fail('That take is gone.');
+  if (takeRes.status === 404) return fail('That take is gone.');
+  if (!takeRes.ok) return fail('Could not load the take.');
+  const take = await takeRes.json();
   if (!peaksRes.ok) return fail('This take has no waveform yet. Try again in a moment.');
   const filePeaks = await peaksRes.json();
 
@@ -71,7 +72,7 @@ async function main() {
   // --- state (the page owns it; the view reads it each draw) -------------
   const state = {
     region: take.trim ? { start: take.trim.start_frame, end: take.trim.end_frame } : null,
-    flags: (take.flags || []).map((f) => ({ frame: f.frame, label: f.label || '' })),
+    flags: asFlags(take.flags),
     grid: { bpm: take.bpm || null, sampleRate: sr, downbeat: take.downbeat_frame || 0 },
     cursor: 0,
     selectedFlag: null,
@@ -176,10 +177,52 @@ async function main() {
   function saveDownbeat() {
     patch({ downbeat_frame: state.grid.downbeat }).catch((e) => toast(`Could not save downbeat: ${e.message}`, 'bad'));
   }
-  function saveFlags() {
-    patch({ flags: state.flags }).then((b) => {
+  // One flag per request, by id (see /lib/flags.js). The page shows the
+  // change at once; the server's answer then replaces the whole list, which
+  // also brings in any flag another device added meanwhile.
+  function flagOp(op, args) {
+    flagRequest(file, op, args).then((b) => {
       if (b.cue_error) toast(b.cue_error, 'bad');
-    }).catch((e) => toast(`Could not save flags: ${e.message}`, 'bad'));
+      const keep = state.selectedFlag && state.selectedFlag.id;
+      state.flags = asFlags(b.flags);
+      if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
+      redraw();
+    }).catch((e) => {
+      toast(`Could not save flags: ${e.message}`, 'bad');
+      refetchTake();
+    });
+  }
+  // The take as the server has it now, merged in: flags, name, tempo and
+  // downbeat always, the region only when no edit of ours is waiting to be
+  // saved. Called when the page comes back into view and after a failed flag
+  // edit, so changes made from another device show up without a reload.
+  async function refetchTake() {
+    let fresh;
+    try {
+      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      fresh = await res.json();
+    } catch { return; }
+    const keep = state.selectedFlag && state.selectedFlag.id;
+    state.flags = asFlags(fresh.flags);
+    if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
+    take.label = fresh.label;
+    take.bpm = fresh.bpm;
+    $('wave-name').textContent = fresh.label || file.replace(/\.wav$/, '');
+    $('wave-bpm').textContent = fresh.bpm ? `${fresh.bpm} BPM` : '';
+    state.grid.bpm = fresh.bpm || null;
+    state.grid.downbeat = fresh.downbeat_frame || 0;
+    if (!pendingTrim) {
+      const r = fresh.trim ? { start: fresh.trim.start_frame, end: fresh.trim.end_frame } : null;
+      const same = (r && state.region && r.start === state.region.start && r.end === state.region.end) || (!r && !state.region);
+      if (!same) {
+        state.region = r;
+        updateActionRow();
+        scheduleLoop();
+      }
+    }
+    updateReadout();
+    redraw();
   }
   // The loop is implicit now: a region is a loop. setLoop decodes a slice over
   // the network, and when the slice cannot be fetched it *resolves* after
@@ -221,9 +264,9 @@ async function main() {
         state.cursor = p.frame; updateReadout(); redraw(); break;
       case 'addFlag':
         if (state.flags.some((f) => f.frame === p.frame)) break;
-        state.flags.push({ frame: p.frame, label: '' });
+        state.flags.push({ id: '', frame: p.frame, label: '' });
         state.flags.sort((a, b) => a.frame - b.frame);
-        saveFlags(); redraw(); break;
+        flagOp('add', { frame: p.frame }); redraw(); break;
       case 'selectFlag': openSheet(p.flag); break;
       case 'regionChange':
         state.region = p.region; updateActionRow(); redraw();
@@ -255,7 +298,12 @@ async function main() {
     if (!f) return;
     if (commit) {
       const label = $('flag-label').value.trim();
-      if (label !== f.label) { f.label = label; saveFlags(); }
+      if (label !== f.label) {
+        f.label = label;
+        // A flag added a moment ago has no id until its POST answers; the
+        // label waits for the next open of the sheet in that rare case.
+        if (f.id) flagOp('edit', { id: f.id, label });
+      }
     }
     state.selectedFlag = null;
     sheet.hidden = true;
@@ -269,10 +317,11 @@ async function main() {
   $('flag-delete').addEventListener('click', () => {
     const f = state.selectedFlag;
     if (!f) return;
-    state.flags = state.flags.filter((x) => x.frame !== f.frame);
+    state.flags = state.flags.filter((x) => x !== f);
     state.selectedFlag = null;
     sheet.hidden = true;
-    saveFlags(); redraw();
+    if (f.id) flagOp('remove', { id: f.id });
+    redraw();
   });
 
   // --- transport ----------------------------------------------------------
@@ -632,7 +681,10 @@ async function main() {
   // Two hooks, because neither alone covers a phone: pagehide is the one that
   // fires on navigation, and visibilitychange is the only one that reliably
   // fires when the app is switched away from or the screen locks.
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushRegion(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushRegion();
+    else refetchTake();
+  });
   // flushRegion is the only thing that has to outlive the page; a pending loop
   // does not -- cancel it so it cannot arm a clock that has just been destroyed.
   window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); bench.removeEventListener('change', onBenchChange); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); if (lanes) lanes.destroy(); if (notes) notes.destroy(); });

@@ -9,6 +9,7 @@
 
 import WaveSurfer from '/vendor/wavesurfer.esm.js';
 import { ampToFrac } from '/lib/meter.js';
+import { flagRequest } from '/lib/flags.js';
 
 const fmtTime = (s) => {
   if (!isFinite(s) || s <= 0) return '0:00';
@@ -197,7 +198,7 @@ export class TakesList {
       const r = row.waveEl.getBoundingClientRect();
       const frac = Math.min(Math.max((e.clientX - r.left) / r.width, 0), 0.999999);
       const frame = Math.floor(frac * duration * (t.sample_rate || 48000));
-      this.setFlags(row, [...(t.flags || []), { frame }]);
+      this.flagOp(row, 'add', { frame });
     });
 
     row.starBtn.addEventListener('click', async () => {
@@ -411,7 +412,6 @@ export class TakesList {
   // time because any refresh redraws the whole layer.
   editFlag(row, flag, tick) {
     if (tick.querySelector('.take-flag-edit')) return;
-    const t = row.data;
     const box = document.createElement('div');
     box.className = 'take-flag-edit';
     // Flip the editor to the left of the tick near the right edge so it
@@ -429,7 +429,7 @@ export class TakesList {
       const label = input.value.trim();
       box.remove();
       if (commit && label !== (flag.label || '')) {
-        this.setFlags(row, (t.flags || []).map((x) => (x.frame === flag.frame ? { frame: x.frame, label } : x)));
+        this.flagOp(row, 'edit', { id: flag.id, label });
       }
     };
     input.addEventListener('keydown', (e) => {
@@ -444,7 +444,7 @@ export class TakesList {
       e.stopPropagation();
       done = true;
       box.remove();
-      this.setFlags(row, (t.flags || []).filter((x) => x.frame !== flag.frame));
+      this.flagOp(row, 'remove', { id: flag.id });
     });
     box.addEventListener('click', (e) => e.stopPropagation());
     box.addEventListener('dblclick', (e) => e.stopPropagation());
@@ -453,12 +453,12 @@ export class TakesList {
     input.select();
   }
 
-  async setFlags(row, flags) {
+  // One flag per request, by id (see /lib/flags.js), then a fresh list: the
+  // ticks redraw from the server's own answer rather than from what was just
+  // clicked, and a flag added from another device since is kept.
+  async flagOp(row, op, args) {
     try {
-      // patchTake refreshes the list, which calls updateRow -> renderFlags
-      // for every row, so the ticks redraw from the server's own answer
-      // rather than from what was just clicked.
-      const body = await this.patchTake(row.name, { flags });
+      const body = await flagRequest(row.name, op, args);
       if (body.cue_error) {
         // The sidecar -- the source of truth -- saved fine; only the WAV's
         // cue chunk, a derived export, failed to update. Worth a toast, not a
@@ -467,7 +467,12 @@ export class TakesList {
       }
     } catch (e) {
       this.onToast?.(`Could not update flags: ${e.message}`, 'bad');
+      return;
     }
+    this.etag = null;
+    try {
+      await this.refresh();
+    } catch { /* next poll picks it up */ }
   }
 
   isVisible(el) {
