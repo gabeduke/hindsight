@@ -987,40 +987,50 @@ that isn't the loaded one.
 
 ### `POST /api/tapes/mixdown?id=`
 
-`{"all": false}` (or no body) mixes down the loop; `{"all": true}` the whole
-tape, from frame 0 to the end of its last clip. The tape plays that span
-once -- the loop ignored, the click silent, a 3 ms fade at either edge --
-then stands while `TAPE_MIXDOWN_TAIL_S` more is recorded, and that span of
-the ring is saved as a take, as `POST /api/trigger?from=&to=` would save it.
-The take's sidecar gets the tape's name as its label, the tape's tempo as
-its BPM, and `downbeat_frame` 0.
+`{"all": false}` (or no body) mixes down the loop; `{"all": true}`, or a
+tape with no loop, the whole tape, from frame 0 to the end of its last clip.
+The tape plays that span once -- the loop ignored, the click silent, a 3 ms
+fade at either edge -- then stands back at its start while
+`TAPE_MIXDOWN_TAIL_S` more is recorded, and that span of the ring is saved
+as a take, as `POST /api/trigger?from=&to=` would save it. The span is found
+through the measured Δ alone: `TAPE_LATENCY_MS` is for a player hearing the
+tape late, and the tape itself isn't. The take's sidecar gets the tape's
+name as its label, the tape's tempo as its BPM, and as `downbeat_frame` the
+first bar line in it (0 when the span starts on one, as a loop does).
 
 It answers at once with `{"mixdown": {"id", "tape", "state": "playing",
 "from", "to", "tail"}}` (tape frames, and the tail in frames). The tape's
 state then carries the same object as `live.mixdown`, its `state` moving to
-`saving` and then `done` with `take` (the take's file name), or `failed`
-with `error`. A stop, locate, play or load while it plays cancels it, and
-nothing is saved.
+`tail` once the pass is played, `saving`, and then `done` with `take` (the
+take's file name), or `failed` with `error`. A stop, locate or load during
+the pass, or a stop, locate, play or load during the tail, cancels it, and
+nothing is saved. It also fails, saving nothing, if the renderer fell behind
+during the pass (the take would have a gap) or the output slipped against
+the recording.
 
 409 if there's no output, no capture or no saver; if the output isn't lined
-up yet; or if a mixdown is already playing or a track is recording or
+up yet; or if a mixdown is already under way or a track is recording or
 armed. 400 for an empty tape, or a span that with its tail and 5 s spare
-wouldn't fit in the ring (the message gives the limit). While it plays, a
-punch is 409.
+wouldn't fit in the ring (the message gives the limit); 507 when the takes'
+disk is below `MIN_FREE_GB`. During the pass and the tail, a punch is 409.
 
 ### `GET /api/tapes/export?id=`
 
 The loaded tape (409 for any other) as `<name> stems.zip`:
 
-- `<name>/<n> <track name>.wav` for each track with clips: 24-bit stereo,
-  from tape frame 0 to the end of the last clip on any track, so every stem
-  is the same length. Each is the track alone through the tape's renderer,
-  at its level and pan; mutes and solos are left out.
+- `<name>/<n> <track name>.wav` for each track with clips: 32-bit float
+  stereo, from tape frame 0 to the end of the last clip on any track, so
+  every stem is the same length. Each is the track alone through the tape's
+  renderer, at its level and pan; mutes and solos are left out.
 - `<name>/<name>.mid` when the tape has a tempo: the tempo, 4/4, and the
   loop's In and Out as markers, at 480 PPQ.
+- `<name>/MISSING.txt` if any of the tape's audio couldn't be read: those
+  clips are silent in the stems.
 
 The zip is rendered as it streams, one export at a time (409 while another
-is), and 400 for a tape with nothing on it.
+is), and 400 for a tape with nothing on it. A client that stops reading for
+30 s loses the download and frees the slot. `HEAD` answers the same status a
+`GET` would start with, without rendering anything.
 
 ### The clipboard: `/api/clipboard`
 

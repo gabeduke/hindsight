@@ -171,7 +171,10 @@ type Mix struct {
 	length int64
 	grid   *Grid
 	click  bool // the metronome on bus A while playing
-	sr     float64
+	// straight is this mix with the loop off, for a pass straight through
+	// Out (a mixdown's); nil in a mix that is one.
+	straight *Mix
+	sr       float64
 }
 
 type mixTrack struct {

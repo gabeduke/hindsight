@@ -36,7 +36,8 @@ type Action struct {
 	// had been playing all along with its In at output frame Anchor.
 	Anchor int64 `json:"-"`
 	// For "once", which only the engine sends (a mixdown): play from Pos
-	// to End once, the loop ignored and the click silent, then stop.
+	// to End once, the loop ignored and the click silent, then stop with
+	// the playhead back at Pos.
 	End  int64         `json:"-"`
 	job  uint64        // the once's id, for its status
 	done chan struct{} // a reset's: closed once it's carried out
@@ -48,7 +49,9 @@ type onceRun struct {
 	StartOut uint64 // the output frame its first frame played at
 	EndOut   uint64 // and the one after its last, once done
 	Done     bool   // it played to its end
-	Broken   bool   // a stop, locate, play or load cut it short
+	Broken   bool   // a stop, locate or load cut it short -- or a play, in its tail
+	Late     bool   // the renderer fell behind during it: the device played a gap
+	tail     bool   // done, and its tail still being recorded: a stop or play breaks that too
 }
 
 // segment is one stretch of the position map: from output frame out, the
@@ -270,23 +273,53 @@ func (t *transport) Once() onceRun {
 	return t.once
 }
 
-// breakOnce ends a "once" that something else interrupted.
+// breakOnce ends a "once" that something else interrupted: in its pass, or
+// in its tail.
 func (t *transport) breakOnce() {
-	if t.onceEnd == 0 {
-		return
-	}
+	running := t.onceEnd > 0
 	t.onceEnd = 0
 	t.mu.Lock()
-	t.once.Broken = true
+	if running || t.once.tail {
+		t.once.Broken, t.once.tail = true, false
+	}
 	t.mu.Unlock()
 }
 
-// endOnce notes a "once" played to its end at output frame out.
+// breakTail breaks a "once" whose pass is done but whose tail is still being
+// recorded: a play there would put the tape into it.
+func (t *transport) breakTail() {
+	t.mu.Lock()
+	if t.once.tail {
+		t.once.Broken, t.once.tail = true, false
+	}
+	t.mu.Unlock()
+}
+
+// endOnce notes a "once" played to its end at output frame out: its tail
+// is being recorded now.
 func (t *transport) endOnce(out uint64) {
 	t.onceEnd = 0
 	t.mu.Lock()
-	t.once.Done, t.once.EndOut = true, out
+	t.once.Done, t.once.EndOut, t.once.tail = true, out, true
 	t.mu.Unlock()
+}
+
+// lateOnce notes the device played a gap during a "once".
+func (t *transport) lateOnce() {
+	t.mu.Lock()
+	t.once.Late = true
+	t.mu.Unlock()
+}
+
+// closeOnce ends a "once"'s tail: nothing breaks it now. It answers how it
+// went.
+func (t *transport) closeOnce(job uint64) onceRun {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.once.Job == job {
+		t.once.tail = false
+	}
+	return t.once
 }
 
 // reset stops the tape, drops whatever was queued, and forgets the passes
@@ -294,6 +327,14 @@ func (t *transport) endOnce(out uint64) {
 // be caught onto it. Called by the render goroutine, or before it starts.
 func (t *transport) reset(out uint64) {
 	t.breakOnce()
+	for _, p := range t.pend {
+		if p.action.Kind == "once" {
+			// Queued, and now never to play.
+			t.mu.Lock()
+			t.once = onceRun{Job: p.action.job, Broken: true}
+			t.mu.Unlock()
+		}
+	}
 	t.pend = nil
 	t.playing, t.cycleStart, t.wrapped, t.countIn = false, -1, false, 0
 	t.record(out)
@@ -362,6 +403,8 @@ func (t *transport) apply(a Action, out uint64, m *Mix, length int64) {
 	switch a.Kind {
 	case "stop", "locate", "phase", "once":
 		t.breakOnce() // a mixdown cut short
+	case "play":
+		t.breakTail() // the tape playing into a mixdown's tail
 	}
 	switch a.Kind {
 	case "once":

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"testing"
 
 	"github.com/gabeduke/hindsight/internal/smf"
@@ -30,8 +31,12 @@ func TestAnExportIsAStemPerTrackFromBarOneAndATempoMap(t *testing.T) {
 		t.Fatalf("a second export meanwhile = %v", err)
 	}
 	var buf bytes.Buffer
-	if err := x.WriteZip(&buf); err != nil {
+	beats := 0
+	if err := x.WriteZip(&buf, func() { beats++ }); err != nil {
 		t.Fatal(err)
+	}
+	if beats == 0 {
+		t.Fatal("no heartbeat while it rendered")
 	}
 	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
 	if err != nil {
@@ -48,20 +53,20 @@ func TestAnExportIsAStemPerTrackFromBarOneAndATempoMap(t *testing.T) {
 		t.Fatalf("zip has %d files: %v", len(files), keys(files))
 	}
 	// Both stems run from bar 1 to the end of the last clip: 192000 frames,
-	// 24-bit stereo.
+	// 32-bit float stereo.
+	le := binary.LittleEndian
 	for name, w := range map[string][]byte{"1": one, "3": three} {
-		if got := binary.LittleEndian.Uint32(w[40:44]); got != 192000*6 || len(w) != 44+192000*6 || binary.LittleEndian.Uint16(w[34:36]) != 24 {
+		if got := le.Uint32(w[54:58]); got != 192000*8 || len(w) != 58+192000*8 || le.Uint16(w[20:22]) != 3 || le.Uint16(w[34:36]) != 32 {
 			t.Fatalf("stem %s: %d data bytes, file %d", name, got, len(w))
 		}
 	}
-	sample := func(w []byte, frame int) int32 {
-		b := w[44+frame*6:]
-		return int32(uint32(b[0])|uint32(b[1])<<8|uint32(b[2])<<16) << 8 >> 8
+	sample := func(w []byte, frame int) float32 {
+		return math.Float32frombits(le.Uint32(w[58+frame*8:]))
 	}
 	// Track 1 sounds in the first bar (muted on the tape, not in its stem)
 	// and is silent in the second; track 3 the other way round.
 	if sample(one, 48000) == 0 || sample(one, 150000) != 0 || sample(three, 48000) != 0 || sample(three, 150000) == 0 {
-		t.Fatalf("stems: 1 = %d, %d; 3 = %d, %d", sample(one, 48000), sample(one, 150000), sample(three, 48000), sample(three, 150000))
+		t.Fatalf("stems: 1 = %v, %v; 3 = %v, %v", sample(one, 48000), sample(one, 150000), sample(three, 48000), sample(three, 150000))
 	}
 	// The tempo map: the tape's tempo, and the loop as markers.
 	f, err := smf.Decode(mid)
@@ -85,7 +90,7 @@ func TestAnExportIsAStemPerTrackFromBarOneAndATempoMap(t *testing.T) {
 	if x, err := e.Export(tp.ID); err != nil {
 		t.Fatalf("after the first: %v", err)
 	} else {
-		x.WriteZip(io.Discard)
+		x.WriteZip(io.Discard, nil)
 	}
 }
 

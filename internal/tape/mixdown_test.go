@@ -2,6 +2,7 @@ package tape
 
 import (
 	"errors"
+	"math"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -62,10 +63,16 @@ func mixdownEngine(t *testing.T) (*Engine, *loopSink, *Tape, *fakeSaver, string)
 
 func waitMixdown(t *testing.T, e *Engine, sink *loopSink) *Mixdown {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(10 * time.Second)
 	for {
 		sink.play(t, 512)
 		m := e.MixdownStatus()
+		if m != nil && m.State != "playing" {
+			// About real time, as a device would pull: the mixdown waits on
+			// the clock for its tail and the aligner, and the ring mustn't
+			// lap it.
+			time.Sleep(10 * time.Millisecond)
+		}
 		if m != nil && (m.State == "done" || m.State == "failed") {
 			return m
 		}
@@ -120,8 +127,8 @@ func TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail(t *testing.T) {
 	if meta.Label != "song" || meta.BPM == nil || meta.DownbeatFrame == nil || *meta.DownbeatFrame != 0 {
 		t.Fatalf("meta = %+v", meta)
 	}
-	// The tape stands at Out after it.
-	if st := e.tr.Status(); st.Playing || st.Pos != 96000 {
+	// The tape stands back at In after it.
+	if st := e.tr.Status(); st.Playing || st.Pos != 0 {
 		t.Fatalf("after the mixdown: %+v", st)
 	}
 }
@@ -157,6 +164,56 @@ func TestAMixdownOfTheWholeTapeRunsToItsLastClip(t *testing.T) {
 	got := waitMixdown(t, e, sink)
 	if got.State != "done" || got.From != 0 || got.To != 192000 || saver.to-saver.from != 192000+12000 {
 		t.Fatalf("whole tape = %+v, saved %d", got, saver.to-saver.from)
+	}
+	// Straight through Out, where the loop would wrap: no step there, only
+	// the clips' own fades.
+	main := saver.main
+	for i := 95000; i < 97000; i++ {
+		if d := math.Abs(float64(main[i])-float64(main[i-1])) / 2147483647; d > 0.002 {
+			t.Fatalf("a step of %.4f at frame %d, by Out", d, i)
+		}
+	}
+}
+
+func TestStoppingInAMixdownsTailCancelsIt(t *testing.T) {
+	e, sink, tp, saver, _ := mixdownEngine(t)
+	e.Start()
+	sink.play(t, 4096)
+	if _, err := e.StartMixdown(tp.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool { sink.play(t, 512); m := e.MixdownStatus(); return m.State == "tail" })
+	e.Do(Action{Kind: "stop"})
+	got := waitMixdown(t, e, sink)
+	if got.State != "failed" || saver.calls != 0 {
+		t.Fatalf("stopped in the tail = %+v, %d saves", got, saver.calls)
+	}
+}
+
+func TestAPassThatPlayedLateOrNeverIsMarked(t *testing.T) {
+	// The transport alone, driven by hand: what the render goroutine does.
+	e, _, _, _ := firstLoop(t) // not started
+	tr := e.tr
+	buf := make([]float32, 512*OutChannels)
+	for len(e.actions) > 0 {
+		<-e.actions // the drop's locate, never carried out
+	}
+	tr.queue(pending{at: 0, action: Action{Kind: "once", Pos: 0, End: 2048, job: 7}})
+	e.advance(buf, 0, 512)
+	e.advance(nil, 512, 512) // the device played silence here
+	e.advance(buf, 1024, 512)
+	e.advance(buf, 1536, 512)
+	if r := tr.Once(); r.Job != 7 || !r.Done || !r.Late || r.StartOut != 0 || r.EndOut != 2048 {
+		t.Fatalf("a late pass = %+v", r)
+	}
+	if st := tr.Status(); st.Playing || st.Pos != 0 {
+		t.Fatalf("after the pass: %+v, want stopped at its start", st)
+	}
+	// One queued and then dropped by a load is broken, not left waiting.
+	tr.queue(pending{at: 99999, action: Action{Kind: "once", Pos: 0, End: 2048, job: 8}})
+	tr.reset(2048)
+	if r := tr.Once(); r.Job != 8 || !r.Broken {
+		t.Fatalf("a queued pass after a load = %+v", r)
 	}
 }
 

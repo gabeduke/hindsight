@@ -691,21 +691,25 @@ try something. It costs no disk space.
 *Step 7b.* Both are in the tape menu: tap the tape's name.
 
 - **Mix down the loop** plays the loop's bars once, or **Mix down the whole
-  tape** plays from bar 1 to the end of the last clip. Then it keeps going
-  for two seconds so reverb and delay ring out
+  tape** plays from bar 1 to the end of the last clip. Then the tape stops,
+  back where it started, and the recording keeps going for two seconds so
+  reverb and delay ring out
   ([`TAPE_MIXDOWN_TAIL_S`](configuration.md#the-tape)).
   - What came out of the mixer is saved as a take. The Sidekick's FX and
     anything you played live over the tape are in it.
   - The take is labelled with the tape's name and has its tempo, with bar 1
     at its start.
   - The loop is ignored and the click is silent while it plays. The readout
-    shows how far it's got. **■** cancels it, and nothing is saved.
+    shows how far it's got, then *letting it ring out*. **■** cancels it
+    until then, and nothing is saved.
+  - If the Pi falls behind while it plays, nothing is saved rather than a
+    take with a gap in it; mix down again.
   - It needs the tape playing through the Sidekick and lined up (the dot
     amber or green). It also has to fit in the recording buffer:
     `RING_SECONDS` less the tail and five seconds.
   - To share a song, mix it down and share the take.
 - **Export stems** downloads a zip:
-  - a 24-bit WAV for each track with audio, each from bar 1 to the end of
+  - a 32-bit float WAV for each track with audio, each from bar 1 to the end of
     the last clip on any track. They're all the same length, so they line
     up when dropped at the start of a DAW project. Each has its track's
     level and pan, but not its mute or solo, and no FX: the FX happen in the

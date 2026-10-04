@@ -24,13 +24,16 @@ type TakeSaver interface {
 	SaveRange(from, to uint64) (audio.SavedRange, error)
 }
 
-// DefaultMixdownTail is how long a mixdown runs on past Out, so the
-// strips' tails ring out instead of being cut.
-const DefaultMixdownTail = 2.0 // seconds
+// maxMixdownTail bounds TAPE_MIXDOWN_TAIL_S.
+const maxMixdownTail = 30.0 // seconds
 
 // mixdownMargin is how much ring a mixdown leaves spare: the span must still
 // be there once the tail is in.
 const mixdownMargin = 5.0 // seconds
+
+// alignSettle is how long a mixdown waits after its tail is in for the
+// aligner's next step (every 500 ms), to know if anything slipped.
+const alignSettle = 600 * time.Millisecond
 
 var (
 	ErrNoOutput   = errors.New("nothing plays the tape: the output isn't open")
@@ -42,7 +45,7 @@ var (
 type Mixdown struct {
 	ID    uint64 `json:"id"`
 	Tape  string `json:"tape"`
-	State string `json:"state"` // playing, saving, done, failed
+	State string `json:"state"` // playing, tail (ringing out), saving, done, failed
 	From  int64  `json:"from"`  // tape frames: what plays, [From, To)
 	To    int64  `json:"to"`
 	Tail  int64  `json:"tail"` // frames run on past To
@@ -76,6 +79,12 @@ func (e *Engine) StartMixdown(id string, all bool) (Mixdown, error) {
 	if _, how := e.delta(); how == "none" {
 		return Mixdown{}, ErrNotLined
 	}
+	// The take will need the room: better said now than after the music.
+	if e.minFreeGB > 0 && e.takesDir != "" {
+		if free, _ := audio.FreeGB(e.takesDir); free < e.minFreeGB {
+			return Mixdown{}, fmt.Errorf("%w: %.2f GB free where takes go, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
+		}
+	}
 	from, to := t.Loop.In, t.Loop.Out
 	if all || to <= from {
 		from, to = 0, e.mix.Load().end
@@ -88,29 +97,38 @@ func (e *Engine) StartMixdown(id string, all bool) (Mixdown, error) {
 	}
 	sr := float64(e.store.SampleRate())
 	tail := int64(math.Round(e.tailSeconds * sr))
-	room := float64(e.capture.Ring().Capacity()) - mixdownMargin*sr
-	if float64(to-from+tail) > room {
-		return Mixdown{}, fmt.Errorf("%w: the recording buffer holds %.0f s, so a mixdown can be at most %.0f s with its tail; this is %.0f s",
-			ErrBadParameter, float64(e.capture.Ring().Capacity())/sr, (room-float64(tail))/sr, float64(to-from)/sr)
+	room := float64(e.capture.Ring().Capacity()) - mixdownMargin*sr - float64(tail)
+	if float64(to-from) > room {
+		if room <= 0 {
+			return Mixdown{}, fmt.Errorf("%w: the recording buffer (RING_SECONDS) is too short for a mixdown", ErrBadParameter)
+		}
+		return Mixdown{}, fmt.Errorf("%w: this is %.0f s, and the recording buffer has room for a mixdown of %.0f s",
+			ErrBadParameter, float64(to-from)/sr, room/sr)
 	}
 
+	// Under the recording's lock, then the mixdown's -- the order Record
+	// takes them in -- so a punch and a mixdown can't both start.
+	e.recMu.Lock()
 	e.mixMu.Lock()
-	if e.mixdown != nil && (e.mixdown.State == "playing" || e.mixdown.State == "saving") {
+	if e.mixdown != nil && e.mixdown.busy() {
 		e.mixMu.Unlock()
+		e.recMu.Unlock()
 		return Mixdown{}, ErrMixingDown
 	}
 	// A punch or an armed track would fight it for the transport.
-	if e.Recording() != nil || e.tapPending() {
+	if e.rec != nil || e.tap != nil && time.Since(e.tap.at) <= tapExpiry {
 		e.mixMu.Unlock()
-		return Mixdown{}, fmt.Errorf("%w: a track is recording or armed", ErrMixingDown)
+		e.recMu.Unlock()
+		return Mixdown{}, ErrRecording
 	}
 	m := &Mixdown{ID: mixdownIDs.Add(1), Tape: t.ID, State: "playing", From: from, To: to, Tail: tail}
 	e.mixdown = m
 	snapshot := *m
 	e.mixMu.Unlock()
+	e.recMu.Unlock()
 
 	e.Do(Action{Kind: "once", Pos: from, End: to, job: m.ID})
-	go e.runMixdown(m.ID, t.Name, t.Grid, to-from)
+	go e.runMixdown(m.ID, t.Name, t.Grid, from, to-from)
 	return snapshot, nil
 }
 
@@ -125,10 +143,17 @@ func (e *Engine) MixdownStatus() *Mixdown {
 	return &m
 }
 
+// busy is a mixdown whose pass or tail is still being recorded, or saved.
+func (m *Mixdown) busy() bool {
+	return m.State == "playing" || m.State == "tail" || m.State == "saving"
+}
+
+// mixdownBusy reports a mixdown still using the transport: playing its
+// pass, or recording its tail.
 func (e *Engine) mixdownBusy() bool {
 	e.mixMu.Lock()
 	defer e.mixMu.Unlock()
-	return e.mixdown != nil && e.mixdown.State == "playing"
+	return e.mixdown != nil && (e.mixdown.State == "playing" || e.mixdown.State == "tail")
 }
 
 func (e *Engine) setMixdown(id uint64, fn func(m *Mixdown)) {
@@ -140,7 +165,7 @@ func (e *Engine) setMixdown(id uint64, fn func(m *Mixdown)) {
 }
 
 // runMixdown follows a mixdown's pass, then saves it.
-func (e *Engine) runMixdown(id uint64, name string, grid *Grid, frames int64) {
+func (e *Engine) runMixdown(id uint64, name string, grid *Grid, passFrom, frames int64) {
 	fail := func(err error) {
 		log.Printf("[!] tape: mixdown: %v", err)
 		e.setMixdown(id, func(m *Mixdown) { m.State, m.Error = "failed", err.Error() })
@@ -182,28 +207,33 @@ func (e *Engine) runMixdown(id uint64, name string, grid *Grid, frames int64) {
 		}
 	}
 
-	// Where it is in the ring: the Δ that held while it played.
-	if e.segAt(run.StartOut) != e.segAt(run.EndOut-1) {
-		fail(ErrSlipped)
-		return
-	}
+	e.setMixdown(id, func(m *Mixdown) { m.State = "tail" })
+
+	// Where it is in the ring: through the Δ that held while it played --
+	// and not TAPE_LATENCY_MS, which is for a player hearing the tape late:
+	// the tape itself reaches the ring at Δ.
 	delta, aligned := e.deltaAt(run.StartOut)
 	if aligned == "none" {
 		fail(ErrNotLined)
 		return
 	}
-	delta += int64(math.Round(e.latencyMS * sr / 1000))
 	from, to := int64(run.StartOut)+delta, int64(run.EndOut)+tail+delta
 	if from < 0 {
 		fail(ErrGone)
 		return
 	}
-	// The tail is still to come, behind real time by the pipelines.
+	// The tail is still to come, behind real time by the pipelines; and the
+	// aligner, a step behind that, to say if anything slipped meanwhile.
 	ring := e.capture.Ring()
 	deadline = time.Now().Add(time.Duration(float64(tail)/sr*float64(time.Second)) + 10*time.Second)
+	cancelled := errors.New("it was stopped before the tail was in; nothing was saved")
 	for {
 		if _, total := ring.Window(); int64(total) >= to {
 			break
+		}
+		if r := e.tr.Once(); r.Job != id || r.Broken {
+			fail(cancelled) // at once: the page shouldn't wait out the tail to hear it
+			return
 		}
 		if time.Now().After(deadline) {
 			fail(ErrNotYet)
@@ -215,6 +245,23 @@ func (e *Engine) runMixdown(id uint64, name string, grid *Grid, frames int64) {
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
+	select {
+	case <-e.stop:
+		return
+	case <-time.After(alignSettle):
+	}
+	run = e.tr.closeOnce(id)
+	switch {
+	case run.Job != id || run.Broken:
+		fail(cancelled)
+		return
+	case run.Late:
+		fail(errors.New("the tape fell behind while it played, so the take would have a gap in it; nothing was saved -- try again"))
+		return
+	case e.segAt(run.StartOut) != e.segAt(run.EndOut+uint64(tail)-1):
+		fail(ErrSlipped)
+		return
+	}
 
 	e.setMixdown(id, func(m *Mixdown) { m.State = "saving" })
 	saved, err := e.saver.SaveRange(uint64(from), uint64(to))
@@ -225,15 +272,18 @@ func (e *Engine) runMixdown(id uint64, name string, grid *Grid, frames int64) {
 	if saved.Clamped {
 		log.Printf("[!] tape: mixdown %s lost its start to the ring", saved.Name)
 	}
-	// Labelled with the tape, on its tempo, bar 1 at its first frame.
+	// Labelled with the tape, on its tempo, with bar 1 where the tape's
+	// first bar line in it fell.
 	if e.takesDir != "" {
 		_, err := audio.UpdateMeta(filepath.Join(e.takesDir, saved.Name), func(m *audio.Meta) error {
 			m.Label = name
 			if grid != nil {
 				bpm := math.Round(grid.BPM(int(sr))*100) / 100
 				m.BPM = &bpm
-				zero := int64(0)
-				m.DownbeatFrame = &zero
+				if !saved.Clamped {
+					db := grid.NextBar(passFrom) - passFrom
+					m.DownbeatFrame = &db
+				}
 			}
 			return nil
 		})

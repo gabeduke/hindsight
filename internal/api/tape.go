@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -630,41 +630,42 @@ func (a *API) handleTapeMixdown(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"mixdown": m})
 }
 
+// exportStall is how long an export waits on a client that stopped
+// reading before giving up the one export slot.
+const exportStall = 30 * time.Second
+
 // handleTapeExport streams the loaded tape's stems and tempo map as a zip.
+// HEAD answers whether a GET would start, without rendering: the page asks
+// first, so a refusal is a toast, not a page of JSON.
 func (a *API) handleTapeExport(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
 	}
-	x, err := a.tape.Export(r.URL.Query().Get("id"))
+	id := r.URL.Query().Get("id")
+	if r.Method == http.MethodHead {
+		if err := a.tape.CheckExport(id); err != nil {
+			tapeErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	x, err := a.tape.Export(id)
 	if err != nil {
 		tapeErr(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`,
-		asciiName(x.Name), url.PathEscape(x.Name)))
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": x.Name}))
 	w.Header().Set("Cache-Control", "no-store")
-	if err := x.WriteZip(w); err != nil {
+	// A client that stops reading -- a phone locked mid-download -- fails
+	// the write once the deadline passes, and frees the slot.
+	rc := http.NewResponseController(w)
+	beat := func() { _ = rc.SetWriteDeadline(time.Now().Add(exportStall)) }
+	if err := x.WriteZip(w, beat); err != nil {
 		// Headers are gone: the client sees a truncated zip.
 		log.Printf("[!] tape export: %v", err)
 	}
-}
-
-// asciiName is a filename for browsers that don't read filename*.
-func asciiName(s string) string {
-	b := []byte(s)
-	out := make([]byte, 0, len(b))
-	for _, c := range b {
-		if c >= 0x20 && c < 0x7f && c != '"' && c != '\\' {
-			out = append(out, c)
-		} else if c < 0x80 {
-			out = append(out, '_')
-		}
-	}
-	if len(out) == 0 {
-		return "tape.zip"
-	}
-	return string(out)
 }
 
 func (a *API) handleTapeUndo(redo bool) http.HandlerFunc {

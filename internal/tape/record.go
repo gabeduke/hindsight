@@ -72,11 +72,11 @@ func (e *Engine) Record(id string, track int, source string, replace bool) (Reco
 	if _, ok := e.source(source); !ok {
 		return Recording{}, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
 	}
-	if e.mixdownBusy() {
-		return Recording{}, ErrMixingDown
-	}
 	e.recMu.Lock()
 	defer e.recMu.Unlock()
+	if e.mixdownBusy() { // under recMu, the order StartMixdown takes them in
+		return Recording{}, ErrMixingDown
+	}
 	// Under the lock a load clears recordings under: the tape must still be
 	// this one.
 	if e.LoadedID() != id {

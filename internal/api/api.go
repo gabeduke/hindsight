@@ -162,7 +162,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/drop", a.handleTapeDrop).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/edit", a.handleTapeEdit).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/mixdown", a.handleTapeMixdown).Methods(http.MethodPost)
-	r.HandleFunc("/api/tapes/export", a.handleTapeExport).Methods(http.MethodGet)
+	r.HandleFunc("/api/tapes/export", a.handleTapeExport).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/undo", a.handleTapeUndo(false)).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/redo", a.handleTapeUndo(true)).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/clone", a.handleTapeClone).Methods(http.MethodPost)

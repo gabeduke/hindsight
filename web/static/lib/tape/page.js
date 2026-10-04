@@ -180,7 +180,10 @@ function render() {
   $('lock-dot').title = lock === 'none' ? 'not lined up yet: catches wait'
     : lock === 'estimated' ? 'lined up by the clocks: nudge a catch if it’s off' : `lined up to the sample (${lock})`;
 
-  const playing = !!(live && (live.playing || live.count_in > 0));
+  const md = live && live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
+  const mixing = !!(md && (md.state === 'playing' || md.state === 'tail'));
+  // Through a mixdown's tail too: ■ there cancels it.
+  const playing = !!(live && (live.playing || live.count_in > 0)) || mixing;
   $('play').textContent = playing ? '■' : '▶';
   $('play').setAttribute('aria-label', playing ? 'Stop' : 'Play');
   $('play').classList.toggle('playing', playing);
@@ -194,10 +197,11 @@ function render() {
     const beat = t.grid.frames / t.grid.bars / 4;
     const left = Math.min(t.grid.frames / t.grid.bars, live.count_in + Math.max(0, live.out - live.delivered));
     $('position').textContent = `count-in ${Math.min(4, Math.max(1, 4 - Math.floor((left - 1) / beat)))} of 4`;
-  } else if (live && live.mixdown && live.mixdown.tape === t.id && live.mixdown.state === 'playing') {
-    const md = live.mixdown;
+  } else if (md && md.state === 'playing') {
     $('position').textContent = `mixing down · ${fmtSecs(Math.max(0, heard - md.from), sr)} of ${fmtSecs(md.to - md.from, sr)} · ■ cancels`;
-  } else if (live && live.mixdown && live.mixdown.tape === t.id && live.mixdown.state === 'saving') {
+  } else if (md && md.state === 'tail') {
+    $('position').textContent = 'mixing down · letting it ring out · ■ cancels';
+  } else if (md && md.state === 'saving') {
     $('position').textContent = 'saving the mixdown as a take…';
   } else {
     $('position').textContent = live ? `${barBeat(heard, t.grid) || ''} ${fmtSecs(heard, sr)}${live.output ? '' : ' · no output'}` : '';
@@ -209,7 +213,6 @@ function render() {
   rb.classList.toggle('armed', !!(rec && rec.state === 'armed'));
   rb.classList.toggle('counting', counting);
   rb.textContent = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
-  const mixing = !!(live && live.mixdown && (live.mixdown.state === 'playing' || live.mixdown.state === 'saving'));
   rb.disabled = !rec && (!live || live.aligned === 'none' || !t.grid || mixing);
   $('click').setAttribute('aria-pressed', String(!!t.click));
   $('click').disabled = !t.grid;
@@ -339,13 +342,27 @@ function noteMixdown(md) {
   }
 }
 
-function exportStems(e) {
+// exportStems asks first, so a refusal is a toast rather than a page of
+// JSON, then downloads the zip as it renders.
+async function exportStems(e) {
   e.preventDefault();
   $('tape-menu').hidden = true;
-  const t = state.tape;
-  if (!t || t.tracks.every((tr) => tr.clips.length === 0)) { toast('There’s nothing on the tape to export', 'warn'); return; }
+  const url = `/api/tapes/export?${q()}`;
+  const res = await fetch(url, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+  if (!res || !res.ok) {
+    const why = !res ? 'the Pi didn’t answer'
+      : res.status === 409 ? 'another export is being made, or this tape isn’t the loaded one'
+        : res.status === 400 ? 'there’s nothing on the tape to export' : `HTTP ${res.status}`;
+    toast(`Could not export: ${why}`, 'bad');
+    return;
+  }
   toast('Rendering the stems: the download starts in a moment');
-  location.href = `/api/tapes/export?${q()}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 // --- editing: lift, copy, split, join, slide, multiply ------------------------
@@ -1012,7 +1029,7 @@ async function openMenu() {
 }
 
 function wire() {
-  $('play').addEventListener('click', () => transport(state.live && (state.live.playing || state.live.count_in > 0) ? 'stop' : 'play'));
+  $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
   $('rec').addEventListener('click', rec);
   $('click').addEventListener('click', () => patch({ click: !state.tape.click }));
   $('tap').addEventListener('click', tap);

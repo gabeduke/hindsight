@@ -334,9 +334,11 @@ func TestATapeExportsAsStemsAndRefusesAMixdownWithNothingToPlayIt(t *testing.T) 
 	writeRealTake(t, dir, "jam_2026-10-04_11-00-00.wav", 192000)
 	id := makeLoadedTape(t, r)
 	want(t, send(t, r, http.MethodGet, "/api/tapes/export?id="+id, ""), http.StatusBadRequest, "export an empty tape")
+	want(t, send(t, r, http.MethodHead, "/api/tapes/export?id="+id, ""), http.StatusBadRequest, "ask to export an empty tape")
 	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-04_11-00-00.wav","from":0,"to":96000}`), http.StatusOK, "copy")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":2}`), http.StatusOK, "drop")
 
+	want(t, send(t, r, http.MethodHead, "/api/tapes/export?id="+id, ""), http.StatusOK, "ask to export")
 	w := send(t, r, http.MethodGet, "/api/tapes/export?id="+id, "")
 	want(t, w, http.StatusOK, "export")
 	if ct := w.Header().Get("Content-Type"); ct != "application/zip" || !strings.Contains(w.Header().Get("Content-Disposition"), "Song one stems.zip") {

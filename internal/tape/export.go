@@ -20,8 +20,8 @@ import (
 // the same length and they line up when dropped in at the start; and a .mid
 // with the tempo, 4/4, and the loop's In and Out as markers. Each stem is the
 // track at its own level and pan, through the same renderer the tape plays
-// with; mutes and solos are left out of it, since a stem is for choosing
-// that again.
+// with, as 32-bit float so nothing a track's gain adds can clip; mutes and
+// solos are left out of it, since a stem is for choosing that again.
 
 // exportPPQ is the .mid's resolution.
 const exportPPQ = 480
@@ -32,12 +32,14 @@ var exportMu sync.Mutex
 
 // Export is an export ready to write.
 type Export struct {
-	Name   string // the zip's name, from the tape's
-	folder string
-	frames int64
-	sr     int
-	stems  []stem
-	mid    []byte
+	Name    string // the zip's name, from the tape's
+	folder  string
+	frames  int64
+	sr      int
+	stems   []stem
+	mid     []byte
+	missing []string // pool files that couldn't be read
+	beat    func()
 }
 
 type stem struct {
@@ -62,12 +64,38 @@ func (e *Engine) Export(id string) (*Export, error) {
 	if !exportMu.TryLock() {
 		return nil, ErrExporting
 	}
+	held := false
+	defer func() {
+		if !held {
+			exportMu.Unlock() // refused, or panicked: the slot is free again
+		}
+	}()
 	x, err := e.prepareExport(t)
 	if err != nil {
-		exportMu.Unlock()
 		return nil, err
 	}
+	held = true
 	return x, nil
+}
+
+// CheckExport says whether Export would succeed now, without rendering:
+// for the page to ask before it starts a download.
+func (e *Engine) CheckExport(id string) error {
+	t := e.Loaded()
+	if t == nil {
+		return ErrNoTape
+	}
+	if t.ID != id {
+		return ErrWrongTape
+	}
+	if t.Empty() {
+		return fmt.Errorf("%w: there's nothing on the tape to export", ErrBadParameter)
+	}
+	if !exportMu.TryLock() {
+		return ErrExporting
+	}
+	exportMu.Unlock()
+	return nil
 }
 
 func (e *Engine) prepareExport(t *Tape) (*Export, error) {
@@ -96,6 +124,14 @@ func (e *Engine) prepareExport(t *Tape) (*Export, error) {
 	if t.Grid != nil {
 		x.mid = tempoMap(t, x.frames)
 	}
+	// Audio that couldn't be read plays silent in its stem; say which.
+	files := map[string]bool{}
+	t.State.files(files)
+	for _, f := range e.pool.Failed() {
+		if files[f] {
+			x.missing = append(x.missing, f)
+		}
+	}
 	return x, nil
 }
 
@@ -118,10 +154,12 @@ func tempoMap(t *Tape, frames int64) []byte {
 	return f.Encode()
 }
 
-// WriteZip renders the stems into a zip on w. A failure part way through
-// leaves w with a truncated zip: check what can be checked before calling.
-func (x *Export) WriteZip(w io.Writer) error {
+// WriteZip renders the stems into a zip on w, calling beat before each
+// block it writes (nil: don't), so a caller can keep a deadline moving. A
+// failure part way through leaves w with a truncated zip.
+func (x *Export) WriteZip(w io.Writer, beat func()) error {
 	defer exportMu.Unlock()
+	x.beat = beat
 	zw := zip.NewWriter(w)
 	now := time.Now()
 	for _, s := range x.stems {
@@ -142,61 +180,77 @@ func (x *Export) WriteZip(w io.Writer) error {
 			return err
 		}
 	}
+	if len(x.missing) > 0 {
+		f, err := zw.CreateHeader(&zip.FileHeader{Name: x.folder + "/MISSING.txt", Method: zip.Deflate, Modified: now})
+		if err != nil {
+			return err
+		}
+		msg := "These recordings couldn't be read, so their clips are silent in the stems:\n\n" + strings.Join(x.missing, "\n") + "\n"
+		if _, err := io.WriteString(f, msg); err != nil {
+			return err
+		}
+	}
 	return zw.Close()
 }
 
-// writeStem renders one track to a 24-bit stereo WAV.
+// writeStem renders one track to a 32-bit float stereo WAV.
 func (x *Export) writeStem(w io.Writer, m *Mix) error {
 	bw := bufio.NewWriterSize(w, 1<<16)
-	data := uint32(x.frames * 2 * 3)
-	if err := writeWAV24Header(bw, data, 2, x.sr); err != nil {
+	data := uint32(x.frames * 2 * 4)
+	if err := writeFloatWAVHeader(bw, data, 2, x.sr); err != nil {
 		return err
 	}
 	const block = 4096
 	buf := make([]float32, block*OutChannels)
-	out := make([]byte, block*2*3)
+	out := make([]byte, block*2*4)
+	le := binary.LittleEndian
 	for pos := int64(0); pos < x.frames; pos += block {
+		if x.beat != nil {
+			x.beat()
+		}
 		n := int(min64(block, x.frames-pos))
 		clear(buf[:n*OutChannels])
 		m.renderTape(buf, pos, n, false)
 		for i := 0; i < n; i++ {
-			put24(out[i*6:], buf[i*OutChannels])
-			put24(out[i*6+3:], buf[i*OutChannels+1])
+			l, r := buf[i*OutChannels], buf[i*OutChannels+1]
+			if math.IsNaN(float64(l)) {
+				l = 0
+			}
+			if math.IsNaN(float64(r)) {
+				r = 0
+			}
+			le.PutUint32(out[i*8:], math.Float32bits(l))
+			le.PutUint32(out[i*8+4:], math.Float32bits(r))
 		}
-		if _, err := bw.Write(out[:n*6]); err != nil {
+		if _, err := bw.Write(out[:n*8]); err != nil {
 			return err
 		}
 	}
 	return bw.Flush()
 }
 
-// put24 writes a sample as 24-bit little-endian, saturated.
-func put24(b []byte, v float32) {
-	x := int32(math.Round(float64(v) * 8388607))
-	if v >= 1 {
-		x = 8388607
-	} else if v <= -1 {
-		x = -8388608
-	}
-	b[0], b[1], b[2] = byte(x), byte(x>>8), byte(x>>16)
-}
-
-func writeWAV24Header(w io.Writer, dataBytes uint32, channels, sampleRate int) error {
+// writeFloatWAVHeader is a WAVE_FORMAT_IEEE_FLOAT header with a fact chunk,
+// as the format asks of anything not PCM.
+func writeFloatWAVHeader(w io.Writer, dataBytes uint32, channels, sampleRate int) error {
 	le := binary.LittleEndian
-	var b [44]byte
+	var b [58]byte
 	copy(b[0:4], "RIFF")
-	le.PutUint32(b[4:8], dataBytes+36)
+	le.PutUint32(b[4:8], dataBytes+50)
 	copy(b[8:12], "WAVE")
 	copy(b[12:16], "fmt ")
-	le.PutUint32(b[16:20], 16)
-	le.PutUint16(b[20:22], 1) // PCM
+	le.PutUint32(b[16:20], 18)
+	le.PutUint16(b[20:22], 3) // IEEE float
 	le.PutUint16(b[22:24], uint16(channels))
 	le.PutUint32(b[24:28], uint32(sampleRate))
-	le.PutUint32(b[28:32], uint32(sampleRate*channels*3))
-	le.PutUint16(b[32:34], uint16(channels*3))
-	le.PutUint16(b[34:36], 24)
-	copy(b[36:40], "data")
-	le.PutUint32(b[40:44], dataBytes)
+	le.PutUint32(b[28:32], uint32(sampleRate*channels*4))
+	le.PutUint16(b[32:34], uint16(channels*4))
+	le.PutUint16(b[34:36], 32)
+	le.PutUint16(b[36:38], 0) // no extension
+	copy(b[38:42], "fact")
+	le.PutUint32(b[42:46], 4)
+	le.PutUint32(b[46:50], dataBytes/uint32(channels*4))
+	copy(b[50:54], "data")
+	le.PutUint32(b[54:58], dataBytes)
 	_, err := w.Write(b[:])
 	return err
 }

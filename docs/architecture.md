@@ -621,18 +621,22 @@ tape; if it can't be, the lift is undone. The crossfades the renderer already
 does where clips meet make the joins silent.
 
 **Mixdown** (`mixdown.go`) renders nothing offline. It queues a "once"
-action: the transport plays In to Out with the loop ignored and the click
-silent (fading 3 ms in and out at the edges), then stops, noting the output
-frames the pass began and ended at. A goroutine waits for that, maps the
-pass through the Δ that held into ring frames, waits for the tail to be
-recorded, and hands the span to the dashcam's saver, so the take is exactly
-what MAIN carried: the strips' FX and any live playing included. A stop,
-locate, play or load during the pass marks it broken and nothing is saved.
+action: the transport plays In to Out through a second, loop-off mix built
+alongside the playing one (so no seam joins Out to In), with the click
+silent and 3 ms fades at the edges, then stops back at In, noting the output
+frames the pass began and ended at and whether any of it was a late render.
+A goroutine waits for that, waits for the tail and one aligner step to
+reach the ring, and, if nothing broke, slipped or played late, maps the
+span through the Δ that held into ring frames and hands it to the dashcam's
+saver: the take is exactly what MAIN carried, the strips' FX and any live
+playing included. A stop, locate or load during the pass, or any of those
+or a play during the tail, marks it broken and nothing is saved.
 
 **Export** (`export.go`) is offline: each track with clips gets a mix of its
 own (no loop, its mute and solo cleared) from the pool the loaded tape
 already holds, rendered block by block straight into a stored zip entry as
-24-bit WAV. A tempo-map `.mid` rides along.
+32-bit float WAV, with a write deadline moved on each block so a stalled
+client can't hold the one export slot. A tempo-map `.mid` rides along.
 
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what
