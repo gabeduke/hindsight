@@ -1405,12 +1405,14 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   /* margin: 0 and width: 100% because main's `margin: 0 auto` would otherwise
      shrink it to its content inside the flex-column body. */
   .wave-main:has(.notes-pane:not([hidden])) {
-    display: grid; grid-template-columns: 372px minmax(0, 1fr); gap: 10px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 14px;
     align-items: stretch; max-width: none;
     flex: 1; min-height: 0; box-sizing: border-box; margin: 0; width: 100%;
   }
   .wave-main:has(.notes-pane:not([hidden])) .wave-col { overflow-y: auto; min-height: 0; }
   .wave-main:has(.notes-pane:not([hidden])) .wave-canvas { height: 34vh; min-height: 200px; }
+  /* The waveform takes the width; its keys keep a hand's span. */
+  .wave-main .toolbar { max-width: 820px; }
   .wave-main:has(.notes-pane:not([hidden])) .lanes { max-height: none; overflow-y: visible; }
   .notes-btn { display: none; }
 }
