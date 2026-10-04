@@ -194,6 +194,11 @@ function render() {
     const beat = t.grid.frames / t.grid.bars / 4;
     const left = Math.min(t.grid.frames / t.grid.bars, live.count_in + Math.max(0, live.out - live.delivered));
     $('position').textContent = `count-in ${Math.min(4, Math.max(1, 4 - Math.floor((left - 1) / beat)))} of 4`;
+  } else if (live && live.mixdown && live.mixdown.tape === t.id && live.mixdown.state === 'playing') {
+    const md = live.mixdown;
+    $('position').textContent = `mixing down · ${fmtSecs(Math.max(0, heard - md.from), sr)} of ${fmtSecs(md.to - md.from, sr)} · ■ cancels`;
+  } else if (live && live.mixdown && live.mixdown.tape === t.id && live.mixdown.state === 'saving') {
+    $('position').textContent = 'saving the mixdown as a take…';
   } else {
     $('position').textContent = live ? `${barBeat(heard, t.grid) || ''} ${fmtSecs(heard, sr)}${live.output ? '' : ' · no output'}` : '';
   }
@@ -204,12 +209,14 @@ function render() {
   rb.classList.toggle('armed', !!(rec && rec.state === 'armed'));
   rb.classList.toggle('counting', counting);
   rb.textContent = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
-  rb.disabled = !rec && (!live || live.aligned === 'none' || !t.grid);
+  const mixing = !!(live && live.mixdown && (live.mixdown.state === 'playing' || live.mixdown.state === 'saving'));
+  rb.disabled = !rec && (!live || live.aligned === 'none' || !t.grid || mixing);
   $('click').setAttribute('aria-pressed', String(!!t.click));
   $('click').disabled = !t.grid;
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
   $('tap').classList.toggle('second', !!(live && live.tapped));
 
+  noteMixdown(live && live.mixdown);
   renderSources();
   renderPasses();
   const canCatch = live && live.aligned !== 'none';
@@ -295,6 +302,50 @@ async function drop(merge = false) {
   } catch (e) {
     toast(`Could not drop: ${e.message}`, 'bad');
   }
+}
+
+// --- mixdown and export ------------------------------------------------------
+
+// mixdown plays the loop (or, with all, the whole tape) once and saves what
+// the mixer put out as a take; live.mixdown follows it.
+async function mixdown(all) {
+  try {
+    const b = await change(() => api(`/api/tapes/mixdown?${q()}`, { method: 'POST', body: { all } }));
+    const md = b.mixdown;
+    state.mixKey = `${md.id}:${md.state}`;
+    toast(`Mixing down ${fmtSecs(md.to - md.from, state.tape.sample_rate)}: the tape plays it once, then it’s saved as a take`, 'ok', {
+      ms: 6000, action: { label: 'Cancel', run: () => transport('stop') },
+    });
+    poll();
+  } catch (e) {
+    toast(`Could not mix down: ${e.message}`, 'bad');
+  }
+}
+
+// noteMixdown says when a mixdown ends -- once, and not for one that ended
+// before this page opened.
+function noteMixdown(md) {
+  const key = md ? `${md.id}:${md.state}` : '';
+  if (state.mixKey === undefined) { state.mixKey = key; return; }
+  if (key === state.mixKey) return;
+  state.mixKey = key;
+  if (!md || md.tape !== state.id) return;
+  if (md.state === 'done') {
+    toast('Mixed down as a take', 'ok', {
+      ms: 10000, action: { label: 'Open it', run: () => { location.href = `/wave.html?file=${encodeURIComponent(md.take)}`; } },
+    });
+  } else if (md.state === 'failed') {
+    toast(`The mixdown didn’t save: ${md.error}`, 'bad');
+  }
+}
+
+function exportStems(e) {
+  e.preventDefault();
+  $('tape-menu').hidden = true;
+  const t = state.tape;
+  if (!t || t.tracks.every((tr) => tr.clips.length === 0)) { toast('There’s nothing on the tape to export', 'warn'); return; }
+  toast('Rendering the stems: the download starts in a moment');
+  location.href = `/api/tapes/export?${q()}`;
 }
 
 // --- editing: lift, copy, split, join, slide, multiply ------------------------
@@ -941,6 +992,10 @@ async function openMenu() {
   const menu = $('tape-menu');
   $('tempo-menu').hidden = true;
   if (!menu.hidden) { menu.hidden = true; return; }
+  const t0 = state.tape, live = state.live;
+  const playable = !!(t0 && live && live.output && t0.tracks.some((tr) => tr.clips.length));
+  $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
+  $('tape-mixdown-all').disabled = !playable;
   let list = { tapes: [] };
   try { list = await api('/api/tapes'); } catch { /* show what we can */ }
   $('tape-list').replaceChildren(...list.tapes.map((t) => {
@@ -1020,6 +1075,9 @@ function wire() {
     if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex]')) { e.preventDefault(); $('play').click(); }
   });
   $('tape-new').addEventListener('click', () => { $('tape-menu').hidden = true; newTape(); });
+  $('tape-mixdown').addEventListener('click', () => { $('tape-menu').hidden = true; mixdown(false); });
+  $('tape-mixdown-all').addEventListener('click', () => { $('tape-menu').hidden = true; mixdown(true); });
+  $('tape-export').addEventListener('click', exportStems);
   $('tape-clone').addEventListener('click', async () => {
     $('tape-menu').hidden = true;
     try {

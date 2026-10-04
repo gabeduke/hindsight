@@ -121,7 +121,7 @@ func main() {
 	r := mux.NewRouter()
 	srvAPI := api.New(cfg, cap, saver, cap.Envelope(), clock)
 	if cfg.Tape {
-		if eng := startTape(cfg, cap, src, *demo); eng != nil {
+		if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
 			srvAPI.SetTape(eng)
 			defer eng.Stop()
 		}
@@ -156,7 +156,7 @@ func main() {
 // startTape opens the tape store and starts the engine, loading the tape
 // that was loaded last. The tape can never cost a recording: any failure here
 // is logged and the dashcam runs on without it.
-func startTape(cfg *config.Config, cap *audio.Capture, src audio.Source, demo bool) *tape.Engine {
+func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src audio.Source, demo bool) *tape.Engine {
 	store, err := tape.OpenStore(cfg.TapeDir, cfg.SampleRate, cfg.TapeTracks, cfg.TapeLengthS)
 	if err != nil {
 		log.Printf("[!] tape off: %v", err)
@@ -179,7 +179,8 @@ func startTape(cfg *config.Config, cap *audio.Capture, src audio.Source, demo bo
 		}
 	}
 	eng := tape.NewEngine(tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources,
-		MinFreeGB: cfg.MinFreeGB, LatencyMS: cfg.TapeLatencyMS})
+		MinFreeGB: cfg.MinFreeGB, LatencyMS: cfg.TapeLatencyMS,
+		Saver: saver, TakesDir: cfg.OutputDir, MixdownTail: cfg.TapeMixdownTailS})
 	if id := store.Remembered(); id != "" {
 		if _, err := eng.Load(id); err != nil {
 			log.Printf("[!] tape %s: %v", id, err)

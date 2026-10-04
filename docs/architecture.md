@@ -620,6 +620,20 @@ step and is saved before it's heard. A lift's clipboard is written after the
 tape; if it can't be, the lift is undone. The crossfades the renderer already
 does where clips meet make the joins silent.
 
+**Mixdown** (`mixdown.go`) renders nothing offline. It queues a "once"
+action: the transport plays In to Out with the loop ignored and the click
+silent (fading 3 ms in and out at the edges), then stops, noting the output
+frames the pass began and ended at. A goroutine waits for that, maps the
+pass through the Δ that held into ring frames, waits for the tail to be
+recorded, and hands the span to the dashcam's saver, so the take is exactly
+what MAIN carried: the strips' FX and any live playing included. A stop,
+locate, play or load during the pass marks it broken and nothing is saved.
+
+**Export** (`export.go`) is offline: each track with clips gets a mix of its
+own (no loop, its mute and solo cleared) from the pool the loaded tape
+already holds, rendered block by block straight into a stored zip entry as
+24-bit WAV. A tempo-map `.mid` rides along.
+
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what
 you tap; the Pi holds all the state, so several devices stay in step.

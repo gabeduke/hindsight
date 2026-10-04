@@ -45,6 +45,9 @@ type Config struct {
 	TapeTracks  int
 	TapeLengthS int    // a track's length, the OP-1's six minutes
 	TapeSources string // name=L,R[:buses] ..., parsed by the tape package
+	// TapeMixdownTailS is how long a mixdown runs on past Out, so the
+	// strips' reverb and delay ring out.
+	TapeMixdownTailS float64
 	// OutputLatencyMS is asked of PortAudio for the tape's output, generous
 	// for the same busy-poll reason as the input's.
 	OutputLatencyMS int
@@ -68,32 +71,33 @@ func Load() (*Config, error) {
 	home, _ := os.UserHomeDir()
 
 	c := &Config{
-		DeviceMatch:     env("DEVICE_MATCH", "EP-136"),
-		Channels:        envInt("CHANNELS", 8),
-		SampleRate:      envInt("SAMPLE_RATE", 48000),
-		FramesPerBuf:    envInt("FRAMES_PER_BUFFER", 2048),
-		InputLatencyMS:  envInt("INPUT_LATENCY_MS", 100),
-		RingSeconds:     envInt("RING_SECONDS", 900),
-		OutputDir:       env("OUTPUT_DIR", filepath.Join(home, "hindsight", "jam_saves")),
-		SaveAllChannels: envBool("SAVE_ALL_CHANNELS", false),
-		MinFreeGB:       envFloat("MIN_FREE_GB", 1.0),
-		MaxSaves:        envInt("MAX_SAVES", 0),
-		MIDICapture:     envBool("MIDI_CAPTURE", true),
-		MIDIDevices:     splitList(env("MIDI_DEVICES", "")),
-		MIDIIgnore:      splitList(env("MIDI_IGNORE", "")),
-		MIDIRingEvents:  envInt("MIDI_RING_EVENTS", 1_000_000),
-		MIDILatencyMS:   envFloat("MIDI_LATENCY_MS", 0),
-		MIDISnapBars:    envBool("MIDI_SNAP_BARS", true),
-		Tape:            envBool("TAPE", false),
-		TapeDir:         env("TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
-		TapeTracks:      envInt("TAPE_TRACKS", 4),
-		TapeLengthS:     envInt("TAPE_LENGTH_S", 360),
-		TapeSources:     env("TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
-		OutputLatencyMS: envInt("OUTPUT_LATENCY_MS", 100),
-		TapeLatencyMS:   envFloat("TAPE_LATENCY_MS", 0),
-		TapeDemoAlign:   envBool("TAPE_DEMO_ALIGN", false),
-		Port:            env("PORT", "5000"),
-		Version:         "dev",
+		DeviceMatch:      env("DEVICE_MATCH", "EP-136"),
+		Channels:         envInt("CHANNELS", 8),
+		SampleRate:       envInt("SAMPLE_RATE", 48000),
+		FramesPerBuf:     envInt("FRAMES_PER_BUFFER", 2048),
+		InputLatencyMS:   envInt("INPUT_LATENCY_MS", 100),
+		RingSeconds:      envInt("RING_SECONDS", 900),
+		OutputDir:        env("OUTPUT_DIR", filepath.Join(home, "hindsight", "jam_saves")),
+		SaveAllChannels:  envBool("SAVE_ALL_CHANNELS", false),
+		MinFreeGB:        envFloat("MIN_FREE_GB", 1.0),
+		MaxSaves:         envInt("MAX_SAVES", 0),
+		MIDICapture:      envBool("MIDI_CAPTURE", true),
+		MIDIDevices:      splitList(env("MIDI_DEVICES", "")),
+		MIDIIgnore:       splitList(env("MIDI_IGNORE", "")),
+		MIDIRingEvents:   envInt("MIDI_RING_EVENTS", 1_000_000),
+		MIDILatencyMS:    envFloat("MIDI_LATENCY_MS", 0),
+		MIDISnapBars:     envBool("MIDI_SNAP_BARS", true),
+		Tape:             envBool("TAPE", false),
+		TapeDir:          env("TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
+		TapeTracks:       envInt("TAPE_TRACKS", 4),
+		TapeLengthS:      envInt("TAPE_LENGTH_S", 360),
+		TapeSources:      env("TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
+		TapeMixdownTailS: envFloat("TAPE_MIXDOWN_TAIL_S", 2),
+		OutputLatencyMS:  envInt("OUTPUT_LATENCY_MS", 100),
+		TapeLatencyMS:    envFloat("TAPE_LATENCY_MS", 0),
+		TapeDemoAlign:    envBool("TAPE_DEMO_ALIGN", false),
+		Port:             env("PORT", "5000"),
+		Version:          "dev",
 	}
 	// The clock device defaults to the audio interface, so a rig where the
 	// EP-136 is the only thing sending clock keeps its tempo stamp with no

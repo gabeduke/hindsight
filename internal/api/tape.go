@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,8 @@ import (
 //	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape;
 //	                                   {track, merge}: the clipboard, at the playhead
 //	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply, track, all, clip, pos, at}
+//	POST   /api/tapes/mixdown?id=      {all}: play In to Out (all: the whole tape) once, save it as a take
+//	GET    /api/tapes/export?id=       the loaded tape as stems and a tempo map, in a zip
 //	POST   /api/tapes/undo?id=         and /redo
 //	POST   /api/tapes/clone?id=        {name}: a new tape sharing this one's audio
 //	POST   /api/tapes/cleanup          remove pool audio nothing uses
@@ -68,7 +71,8 @@ func tapeErr(w http.ResponseWriter, err error) {
 		errors.Is(err, tape.ErrGone), errors.Is(err, tape.ErrNoPass), errors.Is(err, tape.ErrNothingToDo),
 		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed),
 		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
-		errors.Is(err, tape.ErrEmptyClipboard):
+		errors.Is(err, tape.ErrEmptyClipboard), errors.Is(err, tape.ErrNoOutput), errors.Is(err, tape.ErrMixingDown),
+		errors.Is(err, tape.ErrNoSaver), errors.Is(err, tape.ErrExporting):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
 		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid):
@@ -604,6 +608,63 @@ func (a *API) handleTapeEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.writeTapeStateWith(w, id, &res)
+}
+
+// handleTapeMixdown starts a mixdown and answers at once; the state's
+// live.mixdown follows it to its take.
+func (a *API) handleTapeMixdown(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		All bool `json:"all"` // the whole tape, not the loop
+	}
+	if r.ContentLength != 0 && !decodeBody(w, r, &b) {
+		return
+	}
+	m, err := a.tape.StartMixdown(r.URL.Query().Get("id"), b.All)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"mixdown": m})
+}
+
+// handleTapeExport streams the loaded tape's stems and tempo map as a zip.
+func (a *API) handleTapeExport(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	x, err := a.tape.Export(r.URL.Query().Get("id"))
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`,
+		asciiName(x.Name), url.PathEscape(x.Name)))
+	w.Header().Set("Cache-Control", "no-store")
+	if err := x.WriteZip(w); err != nil {
+		// Headers are gone: the client sees a truncated zip.
+		log.Printf("[!] tape export: %v", err)
+	}
+}
+
+// asciiName is a filename for browsers that don't read filename*.
+func asciiName(s string) string {
+	b := []byte(s)
+	out := make([]byte, 0, len(b))
+	for _, c := range b {
+		if c >= 0x20 && c < 0x7f && c != '"' && c != '\\' {
+			out = append(out, c)
+		} else if c < 0x80 {
+			out = append(out, '_')
+		}
+	}
+	if len(out) == 0 {
+		return "tape.zip"
+	}
+	return string(out)
 }
 
 func (a *API) handleTapeUndo(redo bool) http.HandlerFunc {

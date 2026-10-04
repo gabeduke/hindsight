@@ -283,6 +283,12 @@ func (m *Mix) Render(dst []float32, pos int64, n int) { m.render(dst, pos, n, fa
 // loop's Out and playing on since: the first xfade frames after In are then
 // a crossfade from what would have followed Out.
 func (m *Mix) render(dst []float32, pos int64, n int, afterWrap bool) {
+	m.renderTape(dst, pos, n, afterWrap)
+	m.renderClick(dst, pos, n)
+}
+
+// renderTape is render without the click: the tracks alone.
+func (m *Mix) renderTape(dst []float32, pos int64, n int, afterWrap bool) {
 	end := pos + int64(n)
 	wrapFrom, wrapTo := int64(0), int64(0) // the crossfade's tape frames, if in this span
 	if afterWrap {
@@ -320,7 +326,30 @@ func (m *Mix) render(dst []float32, pos int64, n int, afterWrap bool) {
 			}
 		}
 	}
-	m.renderClick(dst, pos, n)
+}
+
+// declickEdges fades what dst holds for tape frames [pos, pos+n) in over
+// the declick's length after from, and out over it before to: a pass that
+// starts or stops mid-clip, as a mixdown's does, doesn't click there.
+func (m *Mix) declickEdges(dst []float32, pos int64, n int, from, to int64) {
+	d := m.declick
+	if d <= 0 {
+		return
+	}
+	for f := max64(pos, from); f < min64(pos+int64(n), from+d); f++ {
+		g := (float32(f-from) + 0.5) / float32(d)
+		i := int(f-pos) * OutChannels
+		for c := 0; c < OutChannels; c++ {
+			dst[i+c] *= g
+		}
+	}
+	for f := max64(pos, to-d); f < min64(pos+int64(n), to); f++ {
+		g := (float32(to-f) - 0.5) / float32(d)
+		i := int(f-pos) * OutChannels
+		for c := 0; c < OutChannels; c++ {
+			dst[i+c] *= g
+		}
+	}
 }
 
 // The click: a short sine blip on every beat, higher on the bar, on bus A.

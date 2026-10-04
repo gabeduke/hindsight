@@ -76,6 +76,12 @@ type Options struct {
 	// (TAPE_LATENCY_MS): for hearing the tape later than the instrument,
 	// which makes a part land that much late.
 	LatencyMS float64
+	// Saver saves a mixdown as a take, in TakesDir; nil: no mixdowns.
+	Saver    TakeSaver
+	TakesDir string
+	// MixdownTail is how many seconds a mixdown runs past Out
+	// (TAPE_MIXDOWN_TAIL_S); 0 is DefaultMixdownTail.
+	MixdownTail float64
 }
 
 type block struct {
@@ -117,7 +123,13 @@ type Engine struct {
 	started  atomic.Bool
 	panicked atomic.Value // string: the last recovered panic
 
-	latencyMS float64
+	latencyMS   float64
+	saver       TakeSaver
+	takesDir    string
+	tailSeconds float64
+
+	mixMu   sync.Mutex
+	mixdown *Mixdown // the last mixdown
 
 	recMu sync.Mutex
 	rec   *Recording // a punch, or an armed track
@@ -144,6 +156,8 @@ func NewEngine(o Options) *Engine {
 		sources:   src,
 		minFreeGB: o.MinFreeGB,
 		latencyMS: o.LatencyMS,
+		saver:     o.Saver,
+		takesDir:  o.TakesDir,
 		tr:        newTransport(),
 		actions:   make(chan Action, 32),
 		blocks:    make(chan *block, aheadBlocks+3),
@@ -151,6 +165,10 @@ func NewEngine(o Options) *Engine {
 		kick:      make(chan struct{}, 1),
 		stop:      make(chan struct{}),
 		done:      make(chan struct{}),
+	}
+	e.tailSeconds = o.MixdownTail
+	if e.tailSeconds <= 0 {
+		e.tailSeconds = DefaultMixdownTail
 	}
 	e.mix.Store(&Mix{})
 	e.panicked.Store("")
@@ -375,6 +393,23 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				}
 				tr.record(at)
 			}
+		} else if tr.playing && tr.onceEnd > 0 {
+			// A mixdown's pass: In to Out once, no loop, no click, with a
+			// declick where it starts and stops; then the tape stands.
+			end := min64(tr.onceEnd, length)
+			if tr.pos >= end {
+				tr.playing = false
+				tr.record(out)
+				tr.endOnce(out)
+				continue
+			}
+			span = min64(span, end-tr.pos)
+			if dst != nil {
+				d := dst[off*OutChannels:]
+				m.renderTape(d, tr.pos, int(span), false)
+				m.declickEdges(d, tr.pos, int(span), tr.onceFrom, end)
+			}
+			tr.pos += span
 		} else if tr.playing {
 			looping := m.loop.On && tr.pos < m.loop.Out
 			if looping {
@@ -448,7 +483,7 @@ func (e *Engine) idle(out uint64) {
 			case "reset":
 				tr.reset(out)
 				close(a.done)
-			case "play":
+			case "play", "once": // nothing plays it
 			default:
 				tr.apply(a, out, m, m.length)
 			}
@@ -670,8 +705,9 @@ type Live struct {
 	Cycles    []Cycle    `json:"cycles"`    // the last complete passes
 	Failed    []string   `json:"failed"`    // pool files that couldn't be read
 	Problem   string     `json:"problem,omitempty"`
-	Record    *Recording `json:"record,omitempty"` // a punch, or an armed track
-	Tapped    bool       `json:"tapped,omitempty"` // a free loop's first tap is in
+	Record    *Recording `json:"record,omitempty"`  // a punch, or an armed track
+	Tapped    bool       `json:"tapped,omitempty"`  // a free loop's first tap is in
+	Mixdown   *Mixdown   `json:"mixdown,omitempty"` // the last mixdown
 }
 
 func (e *Engine) Live() Live {
@@ -693,6 +729,7 @@ func (e *Engine) Live() Live {
 	}
 	l.Record = e.Recording()
 	l.Tapped = e.tapPending()
+	l.Mixdown = e.MixdownStatus()
 	l.Cycles = e.tr.Cycles()
 	if l.Cycles == nil {
 		l.Cycles = []Cycle{}
