@@ -5,6 +5,17 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.1 — 2026-10-04
+
+- Guide: how Hindsight and the tape work, with the checks each feature must pass (e533c73)
+- Specs: the OP-1 Field tape study, one editing model, and the tape revised to match (fb6bc10)
+- Spec: record straight into Hindsight from the phone (1518a2e)
+- Spec: settle the tape patch — Bento on jack 2, layering on aux, MPC on jack 1 (5bcf17b)
+- Spec: tape — layered loops lifted from the ring, played back through the Sidekick (dcbd43b)
+- Map the EP-136 USB routing: capture, playback returns, and the MAIN sum [skip ci] (62cb34d)
+- Record v2026.09.16.2 in the changelog [skip ci] (9761b63)
+
+
 ## v2026.09.16.2 — 2026-09-16
 
 - Smooth the preview clock between the element's coarse currentTime reports (0d07aba)
