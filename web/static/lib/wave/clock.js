@@ -106,6 +106,16 @@ export class Clock {
     this.tick();
   }
 
+  /**
+   * Fetch the preview again: the page calls this once a preview that did not
+   * exist when the page loaded has been encoded. Left alone while the preview
+   * is actually playing, which means it loaded after all.
+   */
+  reloadPreview() {
+    if (this.playing && this.engine === 'preview') return;
+    this.audio.load();
+  }
+
   pause() {
     if (this.engine === 'slice') {
       const at = this.position();

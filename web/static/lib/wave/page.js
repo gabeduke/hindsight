@@ -53,6 +53,8 @@ async function main() {
   if (takeRes.status === 404) return fail('That take is gone.');
   if (!takeRes.ok) return fail('Could not load the take.');
   const take = await takeRes.json();
+  // Whether the preview mp3 exists yet; see waitForPreview below.
+  let previewReady = !!take.has_preview;
   if (!peaksRes.ok) return fail('This take has no waveform yet. Try again in a moment.');
   const filePeaks = await peaksRes.json();
 
@@ -126,8 +128,10 @@ async function main() {
       else if (ev === 'fitAll') view.fitAll();
     },
   });
-  // A take whose preview has not landed yet has no URL to play: say so once
-  // rather than fetching '/api/download?file=undefined' on the first tap.
+  // The server always names the preview, but the mp3 itself is encoded in the
+  // background after a save or cut, so it may not exist yet; waitForPreview
+  // reloads it when it does. The guard only keeps a malformed answer from
+  // fetching '/api/download?file=undefined'.
   const previewUrl = take.preview_name
     ? `/api/download?file=${encodeURIComponent(take.preview_name)}`
     : '';
@@ -138,6 +142,25 @@ async function main() {
     onError: (m) => toast(m, 'bad'),
     onEnded: () => { $('play').textContent = 'Play'; syncNotes(); },
   });
+  // A take opened straight from the "Saved as" toast can beat its preview:
+  // the element then holds a 404 and would never play until a reload. Check
+  // back every two seconds for a couple of minutes, and point the element at
+  // the mp3 again once it exists.
+  function previewLanded() {
+    if (previewReady) return;
+    previewReady = true;
+    clock.reloadPreview();
+  }
+  if (!previewReady) {
+    let tries = 0;
+    const poll = setInterval(async () => {
+      if (previewReady || ++tries > 60) { clearInterval(poll); return; }
+      try {
+        const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
+        if (res.ok && (await res.json()).has_preview) previewLanded();
+      } catch {}
+    }, 2000);
+  }
 
   // --- sidecar patches ----------------------------------------------------
   async function patch(body) {
@@ -208,6 +231,7 @@ async function main() {
     if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
     take.label = fresh.label;
     take.bpm = fresh.bpm;
+    if (fresh.has_preview) previewLanded();
     $('wave-name').textContent = fresh.label || file.replace(/\.wav$/, '');
     $('wave-bpm').textContent = fresh.bpm ? `${fresh.bpm} BPM` : '';
     state.grid.bpm = fresh.bpm || null;
@@ -243,8 +267,9 @@ async function main() {
       toast(`Could not loop: ${e.message}`, 'bad');
     }
   }
-  // Dragging an edge and holding a nudge both emit a *final* region many times
-  // over; only the one the hand settles on is worth a slice. Reads state.region
+  // Holding a nudge emits a *final* region many times over, and separate edits
+  // can land in quick succession; only the region the hand settles on is
+  // worth a slice. Reads state.region
   // when it fires, not the region it was handed, so the last edit wins.
   function scheduleLoop() {
     clearTimeout(loopTimer);
@@ -564,7 +589,7 @@ async function main() {
     if (!midi.tracks || !midi.tracks.length) return;
     // /api/midi is served immutable, so a browser holding a cached response
     // from before a kind flip would otherwise show the old kind and colour
-    // here even though the sidecar (and /api/jams) already have the new one.
+    // here even though the sidecar (and /api/take) already have the new one.
     for (const t of midi.tracks) if (laneKinds[t.name]) t.kind = laneKinds[t.name];
     const container = $('lanes');
     container.hidden = false;
