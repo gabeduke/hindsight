@@ -1,6 +1,6 @@
 # Rising notes, and the tablet bench
 
-**Date:** 2026-09-16 · **Status:** approved by the owner in chat · **Repo:** `hindsight`
+**Date:** 2026-09-16 · **Status:** implemented · **Repo:** `hindsight`
 
 ## Goal
 

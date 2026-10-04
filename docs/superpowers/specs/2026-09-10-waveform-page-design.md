@@ -1,6 +1,6 @@
 # Waveform page — design
 
-**Date:** 2026-09-10 · **Status:** approved by the owner in chat, not planned · **Repo:** `hindsight`
+**Date:** 2026-09-10 · **Status:** implemented, then revised by v2 · **Repo:** `hindsight`
 
 ## Goal
 

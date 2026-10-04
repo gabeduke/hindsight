@@ -20,8 +20,9 @@ import (
 // long take, each of those spans hundreds of seconds, and computing it meant
 // reading that much audio from the SD card -- most of a 15-minute take on the
 // first zoom. With the pyramid, any request whose buckets are at least 256
-// frames wide is answered from a few hundred kilobytes; only a deep zoom reads
-// the WAV. A 15-minute stereo take's pyramid is about 1.3 MB.
+// frames wide is answered from the pyramid -- about 1.3 MB for a whole
+// 15-minute stereo take, and usually only a slice of that -- and only a deep
+// zoom reads the WAV.
 //
 // It is built in the same loop that writes the WAV, at save and cut, so it
 // costs no extra read; takes from before it existed are backfilled once, in

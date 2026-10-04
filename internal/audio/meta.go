@@ -157,7 +157,7 @@ type Meta struct {
 	// Optional and additive, like BPM, so it needs no MetaVersion bump.
 	Flags []Flag `json:"flags,omitempty"`
 
-	// Created is when the take was saved, cut or uploaded. The takes list
+	// Created is when the take was saved or cut. The takes list
 	// sorts and prunes by it. It used to be the WAV's modification time, but
 	// editing a flag rewrites the WAV's cue chunk, which moved an old take to
 	// the top of the list and out of the pruner's reach. A take that predates
@@ -182,9 +182,10 @@ func metaPath(wav string) string { return strings.TrimSuffix(wav, ".wav") + ".me
 // derived, disposable state, and losing it must never obscure the audio.
 //
 // Every error — missing file, permission denied, corrupt JSON — is swallowed
-// rather than logged. ListTakes calls this per take on a 5-second poll, so
-// logging here would produce thousands of lines a day for a condition that is
-// usually just "no sidecar yet".
+// rather than logged. ListTakes calls this for every take on every prune, and
+// the polled takes list (TakeList) for every take whose files changed, so
+// logging here would repeat the same line over and over for a condition that
+// is usually just "no sidecar yet".
 func ReadMeta(wav string) Meta {
 	def := Meta{Version: MetaVersion}
 

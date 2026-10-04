@@ -1,7 +1,7 @@
 # Buffer Ribbon Design
 
 **Date:** 2026-09-08
-**Status:** approved, ready to plan
+**Status:** implemented
 
 ## Goal
 

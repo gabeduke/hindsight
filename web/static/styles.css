@@ -126,7 +126,7 @@ main {
   color: var(--ink-dim);
 }
 
-/* ---------- live visualiser ---------- */
+/* ---------- buffer ribbon ---------- */
 
 .viz-wrap {
   position: relative;
@@ -539,9 +539,9 @@ main {
 /* Flags on a saved take, positioned over the waveform by frame fraction.
    Points, not ranges, so plain absolutely-positioned ticks rather than a
    WaveSurfer region plugin -- see the ribbon's .rb-flag for the live version
-   of the same idea. The layer ignores clicks so they reach the wave
-   underneath (which adds a flag); a tick re-enables pointer events on itself
-   to stay clickable for removal. */
+   of the same idea. The layer ignores pointer events so they reach the wave
+   underneath (where a double-click adds a flag); a tick re-enables them on
+   itself so a click opens its editor (rename or remove). */
 .take-flags {
   position: absolute;
   inset: 0;
@@ -820,8 +820,8 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 }
 .wave-error { padding: 24px; color: var(--danger); }
 .wave-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-/* Unscoped: .edge now groups the nudges inside .fine-grid as well as in a
-   .wave-row. */
+/* .edge groups a pair of buttons in .fine-grid: each edge's nudges, and
+   Export beside Delete region. */
 .edge { display: inline-flex; align-items: center; gap: 4px; }
 .wave-row.action { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
 /* display: block turns the label into a block-level text node so

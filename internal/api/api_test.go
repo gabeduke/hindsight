@@ -933,9 +933,9 @@ func TestPatchTakeRejectsANegativeFlagFrame(t *testing.T) {
 	}
 }
 
-// Flag.Label exists only so a future migration needs no schema change --
-// nothing writes it today, and it must not become an unbounded free-text
-// channel into the sidecar by routing around sanitizeLabel.
+// The UI names flags through /api/take/flags, which sanitizes the label. The
+// whole-array PATCH must not become a way around that: an unbounded
+// free-text channel into the sidecar, and into the WAV's labl records.
 func TestPatchTakeKeepsFlagLabelSanitized(t *testing.T) {
 	r, dir := newTestAPI(t)
 	writeRealTake(t, dir, "jam_flags.wav", 1000)
@@ -1004,12 +1004,13 @@ func TestPatchTakeRejectedFlagLeavesExistingStateUnchanged(t *testing.T) {
 	}
 }
 
-// Task 5's reviewer traced the worst case of PATCH having no mutex around
-// WriteCues as lost cues with intact audio, never a corrupt file, because
-// riffExtent clamps end to the real file size. This does not assert which
-// flags win -- that's genuinely unspecified under a race, and would flake --
-// only two things that must hold no matter which write physically lands
-// last: every PATCH is answered (none 500s under the race), and the audio
+// PATCH now holds the take's lock (audio.LockTake) from the sidecar read
+// through WriteCues, so concurrent PATCHes run one at a time. Before the lock
+// the worst case was traced as lost cues with intact audio, never a corrupt
+// file, because riffExtent clamps end to the real file size. This does not
+// assert which flags win -- the order the PATCHes take the lock is
+// unspecified, and would flake -- only two things that must hold no matter
+// which write lands last: every PATCH is answered (none 500s), and the audio
 // itself -- DataBytes, which WriteCues never touches -- is byte-identical
 // before and after.
 //
@@ -1218,8 +1219,8 @@ func TestSliceStreamsASixteenBitWAV(t *testing.T) {
 	}
 }
 
-// docs/api.md promises HEAD on every GET route but /api/live, and a HEAD is
-// how a client sizes a slice before deciding to fetch it.
+// docs/api.md promises HEAD on /api/slice, and a HEAD is how a client sizes
+// a slice before deciding to fetch it.
 func TestSliceAnswersHEADWithHeadersAndNoBody(t *testing.T) {
 	r, dir := newTestAPI(t)
 	writeRealTake(t, dir, "jam_s.wav", 48000)

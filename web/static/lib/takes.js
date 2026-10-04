@@ -190,11 +190,11 @@ export class TakesList {
     // but never treats it as a seek, so the two gestures coexist without
     // stepping on each other. Do not "simplify" this back to click.
     row.waveEl.addEventListener('dblclick', (e) => {
-      if (e.target.classList.contains('take-flag')) return; // removal handled by the tick itself
+      if (e.target.classList.contains('take-flag')) return; // the tick's own click opens its editor
       if (!row.ws) return; // no mounted waveform to flag against (pending/unavailable placeholders)
       const t = row.data;
       const duration = t.duration_seconds || 0;
-      if (!duration) return; // a take whose sidecar is still landing has no frame axis yet
+      if (!duration) return; // a take whose WAV header could not be read has no frame axis
       const r = row.waveEl.getBoundingClientRect();
       const frac = Math.min(Math.max((e.clientX - r.left) / r.width, 0), 0.999999);
       const frame = Math.floor(frac * duration * (t.sample_rate || 48000));
@@ -381,8 +381,8 @@ export class TakesList {
     }
     layer.textContent = '';
 
-    // duration_seconds or sample_rate can be absent or zero while a take's
-    // sidecar is still being written; without a frame axis there is nowhere
+    // duration_seconds and sample_rate come from the WAV header, and are zero
+    // when the server could not read it; without a frame axis there is nowhere
     // sane to draw a tick, so skip the take rather than divide by zero.
     const totalFrames = (t.duration_seconds || 0) * (t.sample_rate || 48000);
     if (!totalFrames) return;
@@ -399,7 +399,7 @@ export class TakesList {
         tick.appendChild(chip);
       }
       tick.addEventListener('click', (e) => {
-        e.stopPropagation(); // otherwise the wave's own click handler reads this as a new flag
+        e.stopPropagation(); // the click is the tick's; adding a flag is a dblclick on the wave
         this.editFlag(row, f, tick);
       });
       layer.appendChild(tick);

@@ -1,7 +1,7 @@
 # Flags Design
 
 **Date:** 2026-09-09
-**Status:** awaiting owner review
+**Status:** implemented; flags gained ids in the editing model's step 1
 
 ## Goal
 

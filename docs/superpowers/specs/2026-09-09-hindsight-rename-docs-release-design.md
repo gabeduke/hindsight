@@ -1,7 +1,7 @@
 # Hindsight: rename, restructure, docs, installer, releases
 
 **Date:** 2026-09-09
-**Status:** approved design, pending implementation plan
+**Status:** implemented
 
 ## Context
 

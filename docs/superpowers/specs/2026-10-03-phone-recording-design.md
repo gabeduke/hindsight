@@ -1,6 +1,6 @@
 # Phone recording — record straight into Hindsight from the phone
 
-**Date:** 2026-10-03 · **Status:** design, awaiting owner review · **Repo:** `hindsight`
+**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; not built yet · **Repo:** `hindsight`
 
 ## Goal
 

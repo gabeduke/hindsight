@@ -1,6 +1,6 @@
 # Take triage, trim, and batch export — design
 
-**Date:** 2026-09-07 · **Status:** approved, not implemented · **Repo:** `audio-dashcam`
+**Date:** 2026-09-07 · **Status:** implemented · **Repo:** `audio-dashcam`
 
 ---
 

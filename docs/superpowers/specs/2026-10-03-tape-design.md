@@ -1,6 +1,6 @@
 # Tape — layered loops on the Pi, played back through the Sidekick
 
-**Date:** 2026-10-03 · **Status:** design, awaiting owner review · **Repo:** `hindsight`
+**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; not built yet · **Repo:** `hindsight`
 
 Companions: [the OP-1 Field tape study](2026-10-03-op1-tape-study.md), which this
 design borrows its editing verbs, tricks and sync from, and

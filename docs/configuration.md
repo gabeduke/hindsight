@@ -131,15 +131,20 @@ is about to make. With `MIN_FREE_GB=1.0`, 1.1 GB free and a 1.3 GB full-ring
 save, the check passes and the write proceeds — and can fill the volume. Set it
 comfortably above one full-ring take, not just above zero.
 
-`MAX_SAVES` prunes in the background after a successful save. It keeps the
-first `MAX_SAVES` takes in the order `/api/jams` lists them — starred first,
-then newest first — and deletes the rest along with their sidecars. Starring a
-take therefore keeps it out of the pruner's reach, until the starred takes
-alone exceed `MAX_SAVES`.
+`MAX_SAVES` prunes in the background after a successful save or cut. It keeps
+the first `MAX_SAVES` takes in the order `/api/jams` lists them — starred
+first, then newest first by creation time — and deletes the rest along with
+their sidecars. Starring a take therefore keeps it out of the pruner's reach,
+until the starred takes alone exceed `MAX_SAVES`. Editing an old take's flags
+doesn't make it new again.
 
-Each take is a `.wav` plus up to three sidecars in the same directory: a
-`_preview.mp3`, a `.peaks.json`, and a `.meta.json` holding the label, star,
-trim and BPM. Deleting a take through the API removes all of them.
+Each take is a `.wav` plus up to six sidecars in the same directory: a
+`_preview.mp3`; a `.peaks.json` and a `.peaks.bin` (the whole-take waveform,
+and the pyramid zoomed-out views are drawn from); a `.meta.json` holding the
+label, star, selection, BPM, downbeat, flags and creation time; and, when MIDI
+was captured, a `.mid` and a `.manifest.json`. Deleting a take through the API
+removes all of them. A take still being written is a hidden `.<name>.part`
+file and isn't listed; one left by a crash is cleared at startup.
 
 ## MIDI
 
