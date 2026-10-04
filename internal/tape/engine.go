@@ -978,15 +978,7 @@ func placeWrapped(s *State, track int, c Clip, replace bool) ([]Clip, error) {
 		head.Frames = headLen
 		tail := c
 		tail.At, tail.Src, tail.Frames = l.In, c.Src+headLen, c.Frames-headLen
-		h, err := s.Place(track, head, replace)
-		if err != nil {
-			return nil, err
-		}
-		tl, err := s.Place(track, tail, replace)
-		if err != nil {
-			return nil, err
-		}
-		return []Clip{h, tl}, nil
+		return s.PlaceTogether(track, []Clip{head, tail}, replace)
 	}
 	p, err := s.Place(track, c, replace)
 	return []Clip{p}, err
@@ -1052,32 +1044,12 @@ func (e *Engine) DropTake(id string, take string, from, to int64, track, bars in
 	if _, err := t.Track(track); err != nil {
 		return Clip{}, err
 	}
-	info, err := audio.ReadWAVInfo(take)
+	clip, err := e.copyTake(take, from, to, pick, "drop")
 	if err != nil {
 		return Clip{}, err
 	}
-	if info.SampleRate != e.store.SampleRate() {
-		return Clip{}, fmt.Errorf("%w: the take is at %d Hz, the tape at %d", ErrBadParameter, info.SampleRate, e.store.SampleRate())
-	}
-	if from < 0 || to <= from || to > info.Frames() {
-		return Clip{}, fmt.Errorf("%w: that span isn't in the take", ErrBadParameter)
-	}
-	if e.minFreeGB > 0 {
-		if free, _ := audio.FreeGB(e.store.Dir()); free < e.minFreeGB {
-			return Clip{}, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
-		}
-	}
-	over := int64(OverhangSeconds * float64(info.SampleRate))
-	fileFrom, fileTo := max64(0, from-over), min64(info.Frames(), to+over)
-	rel, path, err := e.store.NewPoolFile("drop", time.Now())
-	if err != nil {
-		return Clip{}, err
-	}
-	if err := audio.CopyWAVSpan(take, fileFrom, fileTo, pick, path); err != nil {
-		return Clip{}, err
-	}
-	frames := to - from
-	clip := Clip{File: rel, Src: from - fileFrom, Frames: frames, Source: "take"}
+	clip.Source = "take"
+	frames := clip.Frames
 	var placed Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() {
@@ -1107,6 +1079,103 @@ func (e *Engine) DropTake(id string, take string, from, to int64, track, bars in
 		return err
 	})
 	return placed, err
+}
+
+// copyTake copies frames [from, to) of a take, with overhang either side
+// where the take has it, into a new pool file named for what it's for: the
+// clip that plays it, not yet placed.
+func (e *Engine) copyTake(take string, from, to int64, pick []int, kind string) (Clip, error) {
+	info, err := audio.ReadWAVInfo(take)
+	if err != nil {
+		return Clip{}, err
+	}
+	if info.SampleRate != e.store.SampleRate() {
+		return Clip{}, fmt.Errorf("%w: the take is at %d Hz, the tape at %d", ErrBadParameter, info.SampleRate, e.store.SampleRate())
+	}
+	if from < 0 || to <= from || to > info.Frames() {
+		return Clip{}, fmt.Errorf("%w: that span isn't in the take", ErrBadParameter)
+	}
+	if err := e.diskOK(); err != nil {
+		return Clip{}, err
+	}
+	over := int64(OverhangSeconds * float64(info.SampleRate))
+	fileFrom, fileTo := max64(0, from-over), min64(info.Frames(), to+over)
+	rel, path, err := e.store.NewPoolFile(kind, time.Now())
+	if err != nil {
+		return Clip{}, err
+	}
+	peak, err := audio.CopyWAVSpan(take, fileFrom, fileTo, pick, path)
+	if err != nil {
+		return Clip{}, err
+	}
+	return Clip{File: rel, Src: from - fileFrom, Frames: to - from, PeakDB: peakDB(peak)}, nil
+}
+
+// ErrLoopMoved is a part played over a loop that isn't the tape's loop any
+// more: it was moved, or turned off, while the part was being played.
+var ErrLoopMoved = errors.New("the loop changed while that was being played over it")
+
+// PlaceTake puts frames [from, to) of a take onto a track at tape frame at,
+// layered or replacing what's there. played, if set, is the loop it was
+// played over, going round: it goes inside that loop, which must still be
+// the tape's, and a span that runs past Out carries on from In, as it was
+// played. That's how a part recorded on a phone goes back where it belongs.
+// source names where it came from.
+func (e *Engine) PlaceTake(id string, take string, from, to int64, track int, at int64, replace bool, played *Loop, source string, pick []int) ([]Clip, error) {
+	t := e.Loaded()
+	if t == nil {
+		return nil, ErrNoTape
+	}
+	if t.ID != id {
+		return nil, ErrWrongTape
+	}
+	if _, err := t.Track(track); err != nil {
+		return nil, err
+	}
+	if at < 0 || to-from > t.Length || at > t.Length-(to-from) {
+		return nil, fmt.Errorf("%w: that doesn't fit on the tape there", ErrPastTheEnd)
+	}
+	inLoop := func(l Loop) error {
+		if !l.On || l.In != played.In || l.Out != played.Out {
+			return ErrLoopMoved
+		}
+		if at < l.In || at >= l.Out || to-from > l.Out-l.In {
+			return fmt.Errorf("%w: a part played over the loop goes inside it, and no longer than it", ErrBadParameter)
+		}
+		return nil
+	}
+	if played != nil {
+		if err := inLoop(t.Loop); err != nil {
+			return nil, err
+		}
+	}
+	clip, err := e.copyTake(take, from, to, pick, source)
+	if err != nil {
+		return nil, err
+	}
+	clip.At, clip.Source = at, source
+	var placed []Clip
+	err = e.Edit(id, "", func(tp *Tape, s *State) error {
+		if tp.Empty() {
+			tp.Click = false
+		}
+		var err error
+		if played != nil {
+			// Again, as it is now: it may have moved while the audio copied.
+			if err := inLoop(s.Loop); err != nil {
+				return err
+			}
+			placed, err = placeWrapped(s, track, clip, replace)
+			return err
+		}
+		p, err := s.Place(track, clip, replace)
+		placed = []Clip{p}
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return placed, nil
 }
 
 // guessBars picks the bar count that puts a loop's tempo nearest 90 BPM.

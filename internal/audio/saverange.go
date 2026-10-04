@@ -274,17 +274,17 @@ func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int
 // CopyWAVSpan writes frames [from, to) of a 32-bit WAV's channels in pick to
 // path, as WriteSpan does from the ring: how a take's selection goes onto a
 // tape. A pick past the file's channels repeats its last one (a mono take
-// becomes both sides).
-func CopyWAVSpan(src string, from, to int64, pick []int, path string) error {
+// becomes both sides). It answers the peak it wrote, as WriteSpan does.
+func CopyWAVSpan(src string, from, to int64, pick []int, path string) (float64, error) {
 	info, err := ReadWAVInfo(src)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	ch := info.Channels
 	ww, err := createWAV(path, int(to-from), len(pick), info.SampleRate)
 	if err != nil {
 		os.Remove(path)
-		return err
+		return 0, err
 	}
 	buf := make([]int32, 0, (1<<14)*len(pick))
 	_, err = ReadFrames(src, from, to, 1<<14, func(b []int32, _ int64) error {
@@ -305,12 +305,12 @@ func CopyWAVSpan(src string, from, to int64, pick []int, path string) error {
 	}
 	if err != nil {
 		os.Remove(path)
-		return err
+		return 0, err
 	}
 	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {
 		log.Printf("[!] peaks for %s: %v", path, perr)
 	}
-	return nil
+	return peaks.Peak(), nil
 }
 
 // ReverseWAVSpan writes frames [from, to) of a 32-bit WAV to path backwards,

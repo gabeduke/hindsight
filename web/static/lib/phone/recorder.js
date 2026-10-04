@@ -13,14 +13,14 @@ import { holdScreen } from '../wakelock.js';
 // Phone browsers clean up the mic for calls by default -- echo cancellation,
 // noise suppression, automatic gain -- which pumps and gates music. Ask for
 // all three off; a plugged-in input mostly sidesteps them either way.
-const VOICE_PROCESSING_OFF = {
+export const VOICE_PROCESSING_OFF = {
   echoCancellation: false,
   noiseSuppression: false,
   autoGainControl: false,
   channelCount: { ideal: 2 },
 };
 
-const INPUT_KEY = 'phone.input';
+export const INPUT_KEY = 'phone.input';
 
 /** wsURL is the /api/phone address on this page's host. */
 export function wsURL(loc = location) {

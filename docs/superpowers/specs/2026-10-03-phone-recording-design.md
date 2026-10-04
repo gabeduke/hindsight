@@ -74,12 +74,16 @@ take from the dashcam with no MIDI clock.
   As the first loop of a tape, it sets the tempo, the same way a free catch
   does. This makes *Send to tape* the bedtime path, so it moves from phase 2 of
   the tape engine into phase 1.
-- **In time with the tape, from another room.** That needs two things that
-  come later: the tape's sound on the phone (the listen stream in the tape's
-  phase 4), and the phone's own output-to-input round trip, measured by
-  playing a click through its speaker into its mic. With both, a phone part
-  can land on the bar it started on. Until then, phone parts are placed by ear,
-  with the clip nudge.
+- **In time with the tape, from another room.** That needs two things: the
+  tape's sound on the phone, and the phone's own output-to-input round trip,
+  measured by playing a click through its speaker into its mic. With both, a
+  phone part can land on the bar it started on. *Built 2026-10-04 as the tape
+  page's* Overdub on this device *(guide §8.8): the Pi renders the loop as a
+  file the phone plays round (`GET /api/tapes/listen`) rather than a live
+  stream, so a Wi-Fi blip can't make it stutter and the jam room stays
+  silent; the phone recorder records over it, and the part goes on the
+  track by the punch rule (`POST /api/tapes/drop` with `at`). The round trip
+  is the browser's guess until* Calibrate *measures it.*
 
 ## Building it
 

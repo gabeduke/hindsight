@@ -80,6 +80,9 @@
         <span class="tb-label">Record from</span>
         <div id="sources" class="seg"></div>
       </div>
+      <div class="tb-row away">
+        <button id="away" class="icon-btn away-btn" type="button" data-tip="away">🎧 Overdub on this device</button>
+      </div>
       <div class="tb-row catch">
         <button id="catch-pass" class="icon-btn" type="button" data-tip="catch">Catch the last pass</button>
         <div class="seg" id="catch-bars" role="group" aria-label="Catch the last bars">
@@ -121,6 +124,51 @@
     </div>
   </div>
 </main>
+
+<!-- Overdub on this device: the tape plays here, and a part recorded over
+     it goes back where it was played (lib/tape/away-sheet.js). -->
+<dialog class="sheet" id="away-sheet" aria-labelledby="away-title">
+  <div class="sheet-inner phone-inner away-inner">
+    <h3 id="away-title">Overdub on this device</h3>
+    <p id="away-what"></p>
+    <div class="away-row">
+      <div class="seg" id="away-span" role="group" aria-label="What plays">
+        <button type="button" data-span="loop" data-tip="away-span">The loop</button>
+        <button type="button" data-span="all" data-tip="away-span">The whole tape</button>
+      </div>
+      <button id="away-click" class="chip" type="button" aria-pressed="false" data-tip="away-click">♩ Click</button>
+    </div>
+    <p class="phone-insecure" id="away-insecure" hidden></p>
+    <div id="away-mic">
+      <label class="phone-field">Input
+        <select id="away-input"></select>
+      </label>
+      <div class="phone-meter" aria-hidden="true">
+        <div class="phone-lane"><div class="phone-bar" id="away-meter"></div></div>
+      </div>
+      <div class="away-row away-rt" data-tip="away-rt">
+        <span>Lined up for a round trip of <b id="away-rt" class="mono"></b></span>
+        <button id="away-rt-less" class="chip" type="button" aria-label="5 ms less">−5</button>
+        <button id="away-rt-more" class="chip" type="button" aria-label="5 ms more">+5</button>
+        <button id="away-cal" class="chip" type="button" data-tip="away-cal">Calibrate</button>
+      </div>
+    </div>
+    <div class="phone-status">
+      <span class="phone-time" id="away-time"></span>
+      <span class="phone-state" id="away-state"></span>
+    </div>
+    <div class="away-kept" id="away-kept" hidden>
+      <span id="away-kept-text"></span>
+      <button id="away-undo" class="chip" type="button">Undo</button>
+    </div>
+    <p class="sheet-hint">Use wired headphones, so the mic hears you and not the tape. Bluetooth ones add a delay the calibration can’t hear (the mic can’t hear inside them): set it with −5 and +5 by ear, or record over the speaker quietly.</p>
+    <div class="sheet-actions">
+      <button class="icon-btn" id="away-close" type="button">Close</button>
+      <button class="icon-btn" id="away-play" type="button" data-tip="away-play">▶ Listen</button>
+      <button class="icon-btn phone-rec" id="away-rec" type="button" data-tip="away-rec">● Record</button>
+    </div>
+  </div>
+</dialog>
 
 <!-- A clip's sheet. -->
 <dialog class="sheet" id="clip-sheet">

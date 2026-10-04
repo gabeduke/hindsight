@@ -803,7 +803,53 @@ speed, comes later.
 - [rig] In follow mode, start the Bento → the tape plays in time with it for
   five minutes without drifting. *(Later.)*
 
-### 8.8 Tricks and tape speed
+### 8.8 Overdubbing away from the rig
+
+**🎧 Overdub on this device** plays the tape on your phone, tablet or laptop
+instead of in the jam room, and records a part over it that goes back onto
+the tape where you played it. Upstairs with headphones while the house
+settles, say, with the jam room silent.
+
+1. Select the track the part goes on (and **Layer** or **Replace**), then tap
+   **🎧 Overdub on this device**. The Pi sends the loop as it sounds now,
+   every track at its level, mutes and solos as they are, without the
+   Sidekick's EQ or FX. **The whole tape** plays it once from the start
+   instead; **♩ Click** adds a click.
+2. **▶ Listen** plays it round. **● Record** starts it if it isn't playing,
+   and records you over it with the phone's mic or whatever input you choose,
+   streaming to the Pi as you play, as the Phone button does.
+3. **■ Stop and keep** keeps what a punch would: the last full pass of the
+   loop; or, if you didn't play a whole pass, the bars from the first bar
+   line to the last, up to a loop's length. Over the whole tape it keeps the
+   bars you played. It goes on the track at the bars you played them over,
+   with **Undo** right there in the sheet. The whole recording is in the
+   takes list too. Closing the sheet mid-recording keeps it as if you'd
+   stopped; if the loop was moved meanwhile, the part stays a take.
+
+**Timing.** What you play reaches the recording later than you heard the
+tape: the phone's output delay plus its input delay, the *round trip*. The
+sheet shows the figure it's using. The browser's own guess is often too low;
+**Calibrate** measures it by playing six clicks through the speaker and
+hearing them through the mic (headphones off, somewhere quiet). Wired
+headphones add almost nothing to it, so calibrate once and use them.
+Bluetooth headphones add a delay the calibration can't hear, since the mic
+can't hear inside them: set it with **−5** and **+5** by ear (often 150–250 ms
+more). A part that still lands early or late can be nudged in its clip sheet.
+Headphones matter: over a speaker the mic records the tape too. Recording
+needs the HTTPS address, as the Phone button does; listening works anywhere.
+
+**Checks — overdubbing:**
+
+- [demo] With a 1-bar loop, select track 2 and open **🎧 Overdub on this
+  device** → it says it plays *the loop (1 bar)*, onto track 2. **● Record**
+  for five seconds, then **■ Stop and keep** → *Kept 1 bar from this device on
+  track 2*, at bar 1, labelled *phone*.
+- [demo] Choose **The whole tape** → it says *the whole tape, once*.
+- [phone] Calibrate with the phone's speaker → a round trip somewhere around
+  50–150 ms. Then overdub with wired headphones, clapping on the beat → the
+  claps land on the beat (within a few milliseconds; nudge if not).
+
+### 8.9 Tricks and tape speed
 
 *Step 9.* Hold a trick pad and it acts until you let go, starting on the next
 16th note:
@@ -945,6 +991,13 @@ has no tip.
 | Export stems | Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
 | Source chip | Which input ● Rec and a catch take from; its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too |
+| 🎧 Overdub on this device | Play the tape here, not in the jam room, and record a part over it that goes onto the selected track where you played it |
+| The loop / The whole tape (overdub) | Play the loop round and round, or the whole tape once |
+| ♩ Click (overdub) | A click on every beat, in what plays here |
+| Round trip (overdub) | How late what you play reaches the recording, from hearing the tape: a part lands that much earlier. −5 and +5 move it by hand, e.g. for Bluetooth headphones |
+| Calibrate (overdub) | Measure the round trip: six clicks through the speaker, heard through the mic. Headphones off, somewhere quiet |
+| ▶ Listen (overdub) | Play it here, without recording |
+| ● Record (overdub) | Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too |
 | Clock → (tape) | Who follows the tape's MIDI clock (TAPE_CLOCK=lead); ● while they're running |
 | Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet |
 
