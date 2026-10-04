@@ -246,3 +246,44 @@ Light `:root` (dark values in brackets):
 ### Task 18: Ship PR 4
 
 - [ ] Full suite; 1280×800, 1024×600, 390×844 in both schemes; README screenshots refreshed (deferred from PR 1/2). Review, merge and deploy on approval.
+
+---
+
+## PR 5 — layout and navigation
+
+**Goal:** every page shares one header (HINDSIGHT · Capture | Takes | Tape · ?, and a page row) and one menu style; phones get the switch as bottom tabs; nothing is cut off or stranded at the audit's ten viewports (layout-audit.md, kept in .superpowers/audit/).
+
+**Spec:** the canvas's "Layout review" page (LayoutNav, LayoutBench, LayoutPhoneTakes, LayoutTakes, LayoutTake, LayoutTape), and the audit report.
+
+**Review Focus (PR 5):**
+- Capture fully on screen at 844×390, 1024×600, 1024×552 and 1280×720 (bottom edge with its shadow).
+- The tape side panel never hides content without showing it scrolls; Play/Loop/Rec and Catch on screen at 1024×600 and every laptop size.
+- No page leaves a phone-width column in the middle of a laptop screen.
+- Bottom tabs never cover content, toasts, the select bar or a sheet; the take page's full-screen notes hide them.
+- With the tape off, no Tape tab and no dead links to it.
+- Every header is the same height at a given width; ‹ and ? are full tap targets.
+
+### Task 22: Scope each page's layout
+Add `class="main-page"` to index.html's body; the two-column `main` grid and its sticky column, and every other rule written for the main page's bare `main`, apply only under `.main-page`. Check: takes, guide and the take page fill their width at 1440.
+
+### Task 23: One header, and tabs on a phone
+**Produces:** `lib/nav.js` — `navTabs(pathname, tapeOn) → [{id, href, label, current}]` (pure, tested: Capture for `/`, Takes for `/takes.html` and `/wave.html`, Tape for `/tape.html`, no Tape when it's off) and `initNav()` which hides the Tape tab when `/api/tapes` 404s and lights the Capture tab's lamp from `/api/status`.
+Every page's header is `header.appbar` with children `a.brand`, `nav.appnav` (the three tabs), `button#help`, and `div.appbar-page` (the page row). A grid: wide `"brand nav help" "page page page"`; under 700 px `"page help"` with the nav fixed at the bottom as tabs (the main page keeps its brand there). Tips and guide rows for the tabs.
+
+### Task 24: One menu style
+Menus sit in a `.menu-anchor` beside their button, open under it (right-aligned, or left for a title ▾), scroll past `min(70svh, 480px)`, and set `aria-expanded`. The tape's title ▾ lists the tapes and New tape; its ⋯ holds Clone, the mixdowns, Export stems, Delete and the guide.
+
+### Task 25: Capture on the bench
+At ≥700 px wide and ≤820 px tall the VU faces shrink beside the stats. Capture on screen at 1024×600, 1024×552, 1280×720; 844×390 unchanged.
+
+### Task 26: Takes on a laptop: list and detail
+**Produces:** `lib/shelf-detail.js` — `class TakeDetail(root, {onToast})` with `show(take)`: name, star, meta, a large waveform (RowWave) with its selection, Play, Open the take, Download WAV/MIDI, Delete, and the flags. At ≥1100 px the shelf is a 520 px list of compact rows beside it; a row's body selects it; the first shown take is selected.
+
+### Task 27: A take on a laptop
+With rising notes, the waveform column takes the width and the notes pane is 440 px; a take without MIDI is the same width.
+
+### Task 28: Tape on a laptop
+Catch's options on one line; the clipboard text whole; the take page's `#snap` LED rule scoped to the take page; the side panel shows a shadow where it scrolls; the machine shorter on short screens; an empty tape's card compact so four lanes fit.
+
+### Task 29: Ship PR 5
+A scripted sweep of all pages at the ten viewports (Capture/transport/Catch positions, scrollWidth, clipped panels), light and dark spot checks; full suite; review; merge and deploy.
