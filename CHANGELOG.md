@@ -5,6 +5,21 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.6 — 2026-10-04
+
+- Fix the review's findings on reverse and sharing a clip (f44665e)
+- Reverse a clip, and share one as a WAV (eae5ce3)
+- Audition all of a clip that starts into its pool file (dd78f98)
+- Fix the review's findings on the tape's clock (2ee7bb2)
+- Let the tape lead the Bento's MIDI clock (4e7d4db)
+- Fix the review's findings on mixdown and export (097d6be)
+- Mix a tape down to a take, and export it as stems (38cda4a)
+- Fix the review's findings on tape editing (ae20846)
+- Edit a tape the OP-1 way: lift, copy, split, join, slide, ×2, merge drop (76dd106)
+- The clipboard: fixes from an independent review (ca4683e)
+- The clipboard, Copy, Drop, the ruler and track sheets (step 6d) (ab33a40)
+
+
 ## v2026.10.04.5 — 2026-10-04
 
 - Record v2026.10.04.4 in the changelog [skip ci] (79802b0)
