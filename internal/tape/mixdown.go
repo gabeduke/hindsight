@@ -21,7 +21,7 @@ import (
 
 // TakeSaver saves a span of the ring as a take: the app's saver.
 type TakeSaver interface {
-	SaveRange(from, to uint64) (audio.SavedRange, error)
+	SaveRange(from, to uint64, opts ...audio.SaveOption) (audio.SavedRange, error)
 }
 
 // maxMixdownTail bounds TAPE_MIXDOWN_TAIL_S.
@@ -264,7 +264,8 @@ func (e *Engine) runMixdown(id uint64, name string, grid *Grid, passFrom, frames
 	}
 
 	e.setMixdown(id, func(m *Mixdown) { m.State = "saving" })
-	saved, err := e.saver.SaveRange(uint64(from), uint64(to))
+	// The mixdown takes the tape's tempo below, so the save doesn't measure it.
+	saved, err := e.saver.SaveRange(uint64(from), uint64(to), audio.DontMeasureTempo())
 	if err != nil {
 		fail(err)
 		return
@@ -281,6 +282,8 @@ func (e *Engine) runMixdown(id uint64, name string, grid *Grid, passFrom, frames
 			if grid != nil {
 				bpm := math.Round(grid.BPM(int(sr))*100) / 100
 				m.BPM = &bpm
+				// The tape's tempo is the owner's and exact; measuring leaves it be.
+				m.TempoFrom = audio.TempoFromYou
 				if !saved.Clamped {
 					db := grid.NextBar(passFrom) - passFrom
 					m.DownbeatFrame = &db

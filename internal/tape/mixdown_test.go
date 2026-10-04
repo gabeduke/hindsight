@@ -20,7 +20,7 @@ type fakeSaver struct {
 	calls    int
 }
 
-func (f *fakeSaver) SaveRange(from, to uint64) (audio.SavedRange, error) {
+func (f *fakeSaver) SaveRange(from, to uint64, _ ...audio.SaveOption) (audio.SavedRange, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
@@ -126,6 +126,9 @@ func TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail(t *testing.T) {
 	meta := audio.ReadMeta(filepath.Join(dir, "jam_mix.wav"))
 	if meta.Label != "song" || meta.Origin != audio.OriginTape || meta.BPM == nil || meta.DownbeatFrame == nil || *meta.DownbeatFrame != 0 {
 		t.Fatalf("meta = %+v", meta)
+	}
+	if meta.TempoFrom != audio.TempoFromYou {
+		t.Errorf("tempo_from = %q, want you: the tape's tempo is the owner's", meta.TempoFrom)
 	}
 	// The tape stands back at In after it.
 	if st := e.tr.Status(); st.Playing || st.Pos != 0 {

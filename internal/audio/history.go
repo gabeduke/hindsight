@@ -287,6 +287,9 @@ func applyUndo(m *Meta, op Op) error {
 			return err
 		}
 		m.BPM = v
+		// History doesn't record where a restored tempo came from, and an
+		// empty tempo_from claims nothing.
+		m.TempoFrom = ""
 	case "downbeat_frame":
 		if !cur(m.DownbeatFrame) {
 			return ErrUndoClash

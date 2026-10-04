@@ -33,6 +33,15 @@ type SavedRange struct {
 	Seconds float64
 }
 
+// SaveOption changes how SaveRange saves.
+type SaveOption func(*saveOptions)
+
+type saveOptions struct{ noMeasure bool }
+
+// DontMeasureTempo saves a span without measuring its tempo afterwards: for
+// a take that gets its tempo from somewhere better, as a tape's mixdown does.
+func DontMeasureTempo() SaveOption { return func(o *saveOptions) { o.noMeasure = true } }
+
 // SaveRange saves the absolute ring frames [from, to) as a take. to == 0
 // means "now", the newest frame. A start the ring no longer holds is moved to
 // the oldest it does, and reported. The take is dated by when its last frame
@@ -40,7 +49,11 @@ type SavedRange struct {
 // over its own times, through the clock bridge, not over the last N seconds.
 // Its name, like every take's, is from when it was saved: a name from the
 // past could be one a deleted take had, and its pages are cached by name.
-func (s *Saver) SaveRange(from, to uint64) (SavedRange, error) {
+func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, error) {
+	var o saveOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	cfg := s.cap.cfg
 	if _, total := s.cap.Ring().Window(); total == 0 {
 		return SavedRange{}, ErrNoAudio
@@ -132,7 +145,7 @@ func (s *Saver) SaveRange(from, to uint64) (SavedRange, error) {
 	s.lastSaved = name
 	s.mu.Unlock()
 
-	s.afterSave(wavPath, len(pick), name)
+	s.afterSave(wavPath, len(pick), !o.noMeasure, name)
 	return out, nil
 }
 

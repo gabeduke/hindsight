@@ -138,17 +138,21 @@ type tapeStateResponse struct {
 	Sources []tape.SourceState `json:"sources"`
 	BPM     float64            `json:"bpm,omitempty"`
 	Edit    *tape.EditResult   `json:"edit,omitempty"` // what an edit did
+
+	SuggestBPM float64 `json:"suggest_bpm,omitempty"` // where an empty tape's tempo form starts
 }
 
 func (a *API) handleTapeState(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
 	}
-	a.writeTapeStateWith(w, r.URL.Query().Get("id"), nil)
+	a.writeTapeStateWith(w, r.URL.Query().Get("id"), nil, r.URL.Query().Get("suggest") == "1")
 }
 
 // writeTapeStateWith answers a tape's state, and what an edit did to it.
-func (a *API) writeTapeStateWith(w http.ResponseWriter, id string, edit *tape.EditResult) {
+// The tempo suggestion is opt-in (suggest=1): it reads the takes and every
+// tape, and the page polls the state several times a second.
+func (a *API) writeTapeStateWith(w http.ResponseWriter, id string, edit *tape.EditResult, suggest bool) {
 	resp := tapeStateResponse{Sources: a.tape.Sources(), Edit: edit}
 	if id != "" && id == a.tape.LoadedID() {
 		resp.Tape = a.tape.Loaded()
@@ -168,8 +172,36 @@ func (a *API) writeTapeStateWith(w http.ResponseWriter, id string, edit *tape.Ed
 	if resp.Tape.Grid != nil {
 		resp.BPM = resp.Tape.Grid.BPM(resp.Tape.SampleRate)
 	}
+	if suggest && resp.Tape.Grid == nil && resp.Tape.Empty() {
+		resp.SuggestBPM = a.suggestBPM(resp.Tape.ID)
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// suggestBPM is where an empty tape's tempo form starts: the tempo of the
+// newer of the clipboard and the newest take that has one, else the last
+// tape's, else 90. A clipboard copied long ago doesn't beat a take played
+// since.
+func (a *API) suggestBPM(id string) float64 {
+	var newest *audio.Take
+	if takes, _, err := a.takes.List(); err == nil {
+		for i := range takes {
+			if takes[i].BPM != nil && *takes[i].BPM > 0 && (newest == nil || takes[i].Created.After(newest.Created)) {
+				newest = &takes[i]
+			}
+		}
+	}
+	if c, err := a.tape.Clipboard(); err == nil && c != nil && c.BPM > 0 && (newest == nil || !c.Created.Before(newest.Created)) {
+		return c.BPM
+	}
+	if newest != nil {
+		return *newest.BPM
+	}
+	if bpm, ok := a.tape.LastTapeBPM(id); ok {
+		return bpm
+	}
+	return 90
 }
 
 func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
@@ -378,7 +410,9 @@ func patchClip(s *tape.State, id string, gainDB, nudgeMS *float64, remove, tile 
 	return tape.ErrNoSuchClip
 }
 
-func (a *API) writeTapeState(w http.ResponseWriter, id string) { a.writeTapeStateWith(w, id, nil) }
+func (a *API) writeTapeState(w http.ResponseWriter, id string) {
+	a.writeTapeStateWith(w, id, nil, false)
+}
 
 func (a *API) handleTapeDelete(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
@@ -664,7 +698,7 @@ func (a *API) handleTapeEdit(w http.ResponseWriter, r *http.Request) {
 		tapeErr(w, err)
 		return
 	}
-	a.writeTapeStateWith(w, id, &res)
+	a.writeTapeStateWith(w, id, &res, false)
 }
 
 // handleTapeMixdown starts a mixdown and answers at once; the state's

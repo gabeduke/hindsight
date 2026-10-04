@@ -197,17 +197,41 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 	return TapResult{Stage: "loop", Clip: &placed, BPM: math.Round(g.BPM(int(sr))*10) / 10, Bars: bars}, nil
 }
 
-// lastBPM is the tempo of the most recently changed other tape with one, or
-// 90: a free loop's bar count is the one that puts it nearest.
-func (e *Engine) lastBPM(except string) float64 {
+// LastTapeBPM is the tempo of the newest other tape that has one.
+func (e *Engine) LastTapeBPM(except string) (float64, bool) {
 	if list, err := e.store.List(); err == nil {
 		for _, s := range list {
 			if s.ID != except && s.BPM > 0 {
-				return s.BPM
+				return s.BPM, true
 			}
 		}
 	}
+	return 0, false
+}
+
+// lastBPM is LastTapeBPM, or 90 with no other tape to go by: a free loop's
+// bar count is the one that puts it nearest.
+func (e *Engine) lastBPM(except string) float64 {
+	if bpm, ok := e.LastTapeBPM(except); ok {
+		return bpm
+	}
 	return 90
+}
+
+// barsFor is how many bars a first loop of frames is. With the tempo of the
+// take it came from, it's that many whole bars when the frames are within
+// 1% of a bar of a whole number of them (1–64); else, or with no tempo,
+// it's guessBarsNear, hinted by that tempo or, with none, by near.
+func barsFor(frames int64, sampleRate int, bpm, near float64) int {
+	if bpm > 0 {
+		bar := 4 * 60 * float64(sampleRate) / bpm
+		n := math.Round(float64(frames) / bar)
+		if n >= 1 && n <= 64 && math.Abs(float64(frames)-n*bar) <= 0.01*bar {
+			return int(n)
+		}
+		near = bpm
+	}
+	return guessBarsNear(frames, sampleRate, near)
 }
 
 // guessBarsNear picks the bar count, a power of two, that puts a loop's

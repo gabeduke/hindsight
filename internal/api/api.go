@@ -1045,6 +1045,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	if body.BPM != nil {
 		if string(body.BPM) == "null" {
 			m.BPM = nil
+			m.TempoFrom = ""
 		} else {
 			var v float64
 			if err := json.Unmarshal(body.BPM, &v); err != nil {
@@ -1058,6 +1059,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 			}
 			v = math.Round(v*100) / 100
 			m.BPM = &v
+			m.TempoFrom = audio.TempoFromYou
 		}
 	}
 
@@ -1191,12 +1193,13 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Starred   bool              `json:"starred"`
 		Trim      *audio.Trim       `json:"trim"`
 		BPM       *float64          `json:"bpm"`
+		TempoFrom string            `json:"tempo_from"`
 		Flags     []audio.Flag      `json:"flags"`
 		Downbeat  *int64            `json:"downbeat_frame"`
 		LaneKinds map[string]string `json:"lane_kinds"`
 		CueError  string            `json:"cue_error,omitempty"`
 		Undo      audio.UndoInfo    `json:"undo"`
-	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr, Undo: undo})
+	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, TempoFrom: m.TempoFrom, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr, Undo: undo})
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control

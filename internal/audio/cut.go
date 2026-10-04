@@ -82,6 +82,7 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 	if srcMeta.BPM != nil {
 		bpm := *srcMeta.BPM
 		m.BPM = &bpm
+		m.TempoFrom = srcMeta.TempoFrom
 	}
 	// The owner's drum/notes choices and bar grid come along: losing them was
 	// a cut quietly undoing work done on the source.

@@ -242,3 +242,40 @@ export function rulerTicks(view, grid, minLabelPx = 34) {
   }
   return out;
 }
+
+/**
+ * initialSnap is the snap a take page opens with: the one chosen before, if
+ * any; else bars for a take with a tempo -- so In and Out land on bar lines
+ * and a loop sent to tape is whole bars -- and off for one without.
+ */
+export function initialSnap(stored, hasBpm) {
+  if (SNAPS.includes(stored)) return stored;
+  return hasBpm ? 'bar' : 'off';
+}
+
+/**
+ * snapOnTempo is the snap after the take's tempo arrives later than the page
+ * (the measurement lands a few seconds after a save): a take that had no
+ * tempo, and whose snap was the default rather than a choice, now starts on
+ * bars, as it would have opened.
+ */
+export function snapOnTempo(snap, chosen, hadBpm, hasBpm) {
+  if (chosen || hadBpm || !hasBpm) return snap;
+  return initialSnap(null, true);
+}
+
+/**
+ * tempoPending is whether a take's tempo may still change by itself: the
+ * clock's (or none yet) is replaced when the measurement of its audio lands.
+ * One that was measured, or typed, is settled.
+ */
+export function tempoPending(from) {
+  return !from || from === 'clock';
+}
+
+/** tempoLabel is the take's tempo as its header reads it, and where it came from. */
+export function tempoLabel(bpm, from) {
+  if (!bpm) return '+ bpm';
+  const note = { audio: ' · measured', clock: ' · clock' }[from] || '';
+  return `${bpm} bpm${note}`;
+}

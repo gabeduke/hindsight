@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
 } from './geometry.js';
 import { peakColumns, foldChannels, drawColumns } from './draw.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
@@ -78,13 +78,16 @@ async function main() {
   const total = Math.round(take.duration_seconds * sr);
   const minLen = Math.floor(sr * 3 / 1000) * 2 + 1;
 
+  // Whether the snap is one chosen before, not the default for the take.
+  let snapChosen = SNAPS.includes(readPref('wave.snap', null));
+
   // --- state (the page owns it; the views read it each draw) -------------
   const state = {
     region: take.trim ? { start: take.trim.start_frame, end: take.trim.end_frame } : null,
     pending: null, // a lone In or Out waiting for its other half
     flags: asFlags(take.flags),
     grid: { bpm: take.bpm || null, sampleRate: sr, downbeat: take.downbeat_frame || 0 },
-    snap: SNAPS.includes(readPref('wave.snap', 'off')) ? readPref('wave.snap', 'off') : 'off',
+    snap: initialSnap(readPref('wave.snap', null), !!take.bpm),
     cursor: 0,
     selectedFlag: null,
     loop: false, // off on every open (editing model, decision 1)
@@ -159,6 +162,26 @@ async function main() {
       try {
         const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
         if (res.ok && (await res.json()).has_preview) previewLanded();
+      } catch {}
+    }, 2000);
+  }
+
+  // The measurement of the take's audio lands a few seconds after the save
+  // that made it. A page opened before then has the clock's tempo, and Send
+  // to tape would give the tape that, so it looks again until the tempo is
+  // settled. Nothing is applied while a save of ours is still on its way, or
+  // once the tempo was edited here: an edit always wins.
+  if (tempoPending(take.tempo_from)) {
+    let tries = 0;
+    const poll = setInterval(async () => {
+      if (!tempoPending(take.tempo_from) || ++tries > 30) { clearInterval(poll); return; }
+      if (savesInFlight > 0) return;
+      try {
+        const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store', headers: withClient() });
+        if (!res.ok) return;
+        const fresh = await res.json();
+        if (savesInFlight > 0 || !tempoPending(take.tempo_from) || tempoPending(fresh.tempo_from)) return;
+        applyTake(fresh);
       } catch {}
     }, 2000);
   }
@@ -257,7 +280,9 @@ async function main() {
     if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
     if (state.selectedFlag === null && !sheet.hidden) sheet.hidden = true;
     take.label = fresh.label;
+    state.snap = snapOnTempo(state.snap, snapChosen, !!take.bpm, !!fresh.bpm);
     take.bpm = fresh.bpm;
+    take.tempo_from = fresh.tempo_from;
     take.starred = fresh.starred;
     if (fresh.has_preview) previewLanded();
     state.grid.bpm = fresh.bpm || null;
@@ -616,6 +641,7 @@ async function main() {
   $('snap').addEventListener('click', () => {
     state.snap = SNAPS[(SNAPS.indexOf(state.snap) + 1) % SNAPS.length];
     writePref('wave.snap', state.snap);
+    snapChosen = true;
     renderSnap();
   });
 
@@ -627,7 +653,7 @@ async function main() {
     document.title = `${name} — Hindsight`;
     $('take-star').setAttribute('aria-pressed', String(!!take.starred));
     $('take-star').classList.toggle('on', !!take.starred);
-    $('take-bpm').textContent = take.bpm ? `${take.bpm} bpm` : '+ bpm';
+    $('take-bpm').textContent = tempoLabel(take.bpm, take.tempo_from);
     $('take-bpm').classList.toggle('unset', !take.bpm);
     $('take-len').textContent = state.region
       ? `${fmtClock(state.region.end - state.region.start, sr)} of ${fmtClock(total, sr)}`
@@ -680,16 +706,19 @@ async function main() {
       if (bpm !== null && !(bpm >= 20 && bpm <= 400)) { toast('A tempo is 20 to 400 BPM', 'bad'); return; }
       if (bpm === (take.bpm || null)) return;
       const before = take.bpm;
+      const beforeFrom = take.tempo_from;
       take.bpm = bpm;
+      take.tempo_from = 'you';
       state.grid.bpm = bpm;
       renderHeader(); updateReadout(); redraw();
       try {
         const res = await patch({ bpm });
         take.bpm = res.bpm ?? null;
+        take.tempo_from = res.tempo_from || '';
         state.grid.bpm = take.bpm;
         renderHeader(); redraw();
       } catch (e) {
-        take.bpm = before; state.grid.bpm = before || null;
+        take.bpm = before; take.tempo_from = beforeFrom; state.grid.bpm = before || null;
         renderHeader(); redraw();
         toast(`Could not set the tempo: ${e.message}`, 'bad');
       }

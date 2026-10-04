@@ -156,6 +156,12 @@ point at the gestures that matter; **Got it** puts them away for good.
   **?** is help mode; **⋯** resets the downbeat or opens this guide. On a
   phone with MIDI, **♪** opens the notes, and the name has a row of its own
   under the buttons.
+- **The tempo** is measured from the audio after every capture, ribbon save
+  and phone recording (a mixdown keeps the tape's tempo), with the MIDI clock
+  as a hint: it reads *125.17 bpm · measured*. If the clock agrees to within
+  0.05, the clock's is kept (*· clock*), and so it is for a take with no steady
+  pulse. Takes from before this update keep their clock tempo until you edit
+  them. Tap it to type your own.
 - **The overview:** the whole take. Drag its window to move along; double-tap
   to see it all.
 - **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
@@ -166,7 +172,8 @@ point at the gestures that matter; **Got it** puts them away for good.
   handle between them.
 - **The toolbar:** ▶ · ⟲ Loop · In · Out · ⚑ · ◂⚑ ⚑▸; then, with a
   selection, its In and Out times with their nudges, its length and *Clear*;
-  then *Save as take* · *Share* · *More*; then the position, *Snap* and
+  then *Save as take* · *Send to tape* (when the Pi runs the tape) · *Share*
+  · *More*; then the position, *Snap* and
   *Practice speed*.
 - **The MIDI lanes,** if the take has MIDI. Tap a lane's name for its menu:
   collapse, show as drums or notes, or hide.
@@ -190,7 +197,8 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **Move the whole selection** with the handle between the grips. A plain
   drag never moves it, so it can't happen by accident.
 - **Snap.** With a BPM set, the *Snap* chip makes taps, the selection, **In**
-  and **Out** and the nudges land on bars, beats or 8ths. A nudge from an end
+  and **Out** and the nudges land on bars, beats or 8ths. It starts on **bar**
+  for a take with a tempo, until you choose another. A nudge from an end
   that sits between lines goes to the next line.
 - **Clear** forgets the selection; the take is untouched.
 
@@ -530,26 +538,30 @@ where it comes round.
    only relabelled.
 
 **From a take.** On a take page, select the loop, with In and Out on the
-downbeats, and choose **More → Send to tape**. If no tape is loaded, a new one
+downbeats, and choose **Send to tape**. If no tape is loaded, a new one
 is made.
 
 - On an empty tape, the selection becomes the first loop, on track 1. Its
-  length sets the tempo: Hindsight picks the number of bars that puts it
-  nearest your last tape's tempo (or 90 BPM), and the loop turns on. A
+  length sets the tempo: with the take's tempo, it's that many whole bars
+  (1 to 64), if the selection is within about 1% of whole bars at that tempo;
+  otherwise, or without one, Hindsight picks the number of bars that puts it
+  nearest your last tape's tempo (or 90 BPM). The loop turns on. A
   selection too short or too long to be 20–400 BPM is refused.
 - On a tape that already has a tempo, it lands at the playhead on track 1,
   replacing what's there.
 
 **From a tempo.** On an empty tape, type a BPM and a number of bars and tap
 **Set**. The loop is that long and empty, ready to catch into, and the
-**♩ click** plays on every beat until the first catch.
+**♩ click** plays on every beat until the first catch. The BPM starts at the
+tempo you were last playing: the clipboard's or your newest take's, whichever
+is newer.
 
 The tempo is fixed once the tape has audio, because nothing is ever stretched.
 
 **Checks — steps 6a and 6c:**
 
 - [demo] With no other tapes, on a take page select 2 seconds and choose
-  **More → Send to tape** → a toast says it was sent. On the tape page,
+  **Send to tape** → a toast says it was sent. On the tape page,
   track 1 holds the clip, the tempo reads *120.0 BPM · 1 bar*, and ⟲ Loop
   is on.
 - [demo] Press ▶ → the playhead goes round the loop, the position counts
