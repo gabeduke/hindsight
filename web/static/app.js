@@ -2,6 +2,7 @@
 
 import { connectLive } from '/lib/live.js';
 import { Meters, FLOOR_DB, fmtDur } from '/lib/meter.js';
+import { VUMeters } from '/lib/vu.js';
 import { Ribbon } from '/lib/ribbon.js';
 import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';
@@ -18,6 +19,7 @@ const el = {
   healthText: $('health-text'),
   vizWrap: $('viz-wrap'),
   meters: $('meters'),
+  vu: $('vu'),
   chanGrid: $('chan-grid'),
   chanSaving: $('chan-saving'),
   chanDevice: $('chan-device'),
@@ -45,6 +47,7 @@ const el = {
 let status = null;
 let ribbon = null;
 let mainMeters = null;
+let vuMeters = null;
 let chanMeters = null;
 let selSeconds = 30;
 // The capture error on screen, since when, and whether it has been toasted:
@@ -138,10 +141,10 @@ function applyStatus(s) {
 
     const sel = s.save_channels.map((c) => c - 1);
     el.meters?.replaceChildren();
-    mainMeters = new Meters(el.meters, {
-      labels: sel.length > 1 ? ['L', 'R'] : ['M'],
-      selected: [],
-    });
+    const labels = sel.length > 1 ? ['L', 'R'] : ['M'];
+    mainMeters = new Meters(el.meters, { labels, selected: [] });
+    el.vu.replaceChildren();
+    vuMeters = new VUMeters(el.vu, { labels });
 
     el.chanSaving.textContent = s.save_channels.join(' & ');
     el.chanDevice.textContent = s.device || 'no device';
@@ -349,6 +352,7 @@ connectLive({
     const peak = sel.map((c) => f.peak?.[c] ?? FLOOR_DB);
     const clip = sel.map((c) => f.clip?.[c] ?? false);
     mainMeters.update(rms, peak, clip);
+    vuMeters?.update(rms, peak, clip);
     if (chanMeters && last?.rms) chanMeters.update(last.rms, f.peak, f.clip);
   },
 });

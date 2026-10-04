@@ -26,6 +26,7 @@ const SHELL = [
   '/lib/theme.js',
   '/lib/shelf.js',
   '/lib/shelf-page.js',
+  '/lib/vu.js',
   '/lib/phone/recorder.js',
   '/lib/phone/uploader.js',
   '/lib/phone/worklet.js',
