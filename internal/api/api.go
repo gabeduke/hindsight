@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,10 +48,28 @@ type API struct {
 	env   *audio.Envelope
 	midi  MIDISource
 	takes *audio.TakeList
+
+	// renderSlot lets one share render run at a time. Each is an ffmpeg
+	// encode of up to ten minutes of audio; two at once on a Pi compete with
+	// each other and with everything else for no gain. A second share waits
+	// its turn rather than failing.
+	renderSlot chan struct{}
 }
 
 func New(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, env *audio.Envelope, m MIDISource) *API {
-	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m, takes: audio.NewTakeList(cfg.OutputDir)}
+	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m,
+		takes: audio.NewTakeList(cfg.OutputDir), renderSlot: make(chan struct{}, 1)}
+}
+
+// acquireRender waits for the render slot, or gives up when ctx ends -- a
+// client that closes the tab stops waiting as well as stops encoding.
+func (a *API) acquireRender(ctx context.Context) (release func(), ok bool) {
+	select {
+	case a.renderSlot <- struct{}{}:
+		return func() { <-a.renderSlot }, true
+	case <-ctx.Done():
+		return nil, false
+	}
 }
 
 // liveTempoWindow is how far back the status poll asks about. Eight seconds is
@@ -760,6 +779,11 @@ func (a *API) handleRender(w http.ResponseWriter, r *http.Request) {
 	// client sniffs the body for a short or non-MP3 result. Failing before the
 	// first byte (no ffmpeg on PATH, a file that vanished) is still ours to
 	// report, and a 200 with an empty body would be a lie.
+	release, ok := a.acquireRender(r.Context())
+	if !ok {
+		return // the client went away while waiting its turn
+	}
+	defer release()
 	cw := &countingWriter{w: w}
 	if err := audio.RenderMP3(r.Context(), cw, a.cfg.SaveChannels, path, from, to); err != nil {
 		log.Printf("render %s [%d,%d): %v", name, from, to, err)

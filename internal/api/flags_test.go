@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,8 +9,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
+	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gorilla/mux"
 )
 
@@ -198,5 +201,24 @@ func TestTrimPastTheEndIsRefused(t *testing.T) {
 	}
 	if w := patch(t, r, "jam_t.wav", `{"trim":{"start_frame":0,"end_frame":1000}}`); w.Code != http.StatusOK {
 		t.Errorf("trim to the end: %d, want 200", w.Code)
+	}
+}
+
+func TestRendersTakeTurns(t *testing.T) {
+	a := New(&config.Config{OutputDir: t.TempDir()}, nil, nil, nil, nil)
+	release, ok := a.acquireRender(context.Background())
+	if !ok {
+		t.Fatal("the first render should get the slot at once")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if _, ok := a.acquireRender(ctx); ok {
+		t.Fatal("a second render got the slot while the first held it")
+	}
+	release()
+	if release2, ok := a.acquireRender(context.Background()); !ok {
+		t.Fatal("the slot was not given back")
+	} else {
+		release2()
 	}
 }
