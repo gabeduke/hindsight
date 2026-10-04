@@ -1781,6 +1781,47 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .shelf-day::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
 .shelf-day:first-child { margin-top: 0; }
 
+/* The takes page on a wide screen: the list beside the picked take. */
+.take-detail { display: none; }
+@media (min-width: 1100px) {
+  main.shelf-main {
+    max-width: 1440px; display: grid;
+    grid-template-columns: 520px minmax(0, 1fr);
+    grid-template-areas: "tools tools" "list detail" "empty detail" "trash detail" "about detail";
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 24px; row-gap: 12px; align-items: start;
+    padding: 16px 20px 40px;
+  }
+  .shelf-tools { grid-area: tools; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .shelf-search { flex: 0 1 340px; }
+  .shelf-sort-row { flex: 1; }
+  .shelf-page #takes { grid-area: list; }
+  .shelf-page #takes-empty { grid-area: empty; }
+  .shelf-page #trash { grid-area: trash; }
+  .shelf-page .about { grid-area: about; }
+  .take-detail:not([hidden]) {
+    grid-area: detail; display: flex; flex-direction: column; gap: 14px;
+    position: sticky; top: calc(var(--topbar-h) + 16px); padding: 20px;
+  }
+  /* Rows are for picking here: compact, their controls in the pane. */
+  .shelf-page #takes .take { cursor: pointer; }
+  .shelf-page #takes .take-actions { display: none; }
+  .shelf-page #takes .wave { height: 30px; margin-bottom: 0; }
+  .shelf-page #takes .take.picked { background-color: var(--key-down); border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+}
+.detail-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.detail-head .star { margin: 0; width: 40px; height: 40px; font-size: 22px; }
+.detail-name { margin: 0; font: 600 22px var(--font); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; }
+.detail-meta { font-family: var(--mono); font-size: 13px; color: var(--ink-dim); }
+.take-detail .detail-wave { height: 200px; margin: 0; }
+.detail-actions, .detail-more { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.detail-sel { font-family: var(--mono); font-size: 13px; color: var(--ink-dim); }
+.detail-open { text-decoration: none; }
+.detail-flags { display: flex; gap: 8px; flex-wrap: wrap; }
+.detail-flag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 4px; background: var(--mask); color: var(--marker); font-size: 13px; }
+.detail-flag > span:first-child { color: var(--flag); }
+.detail-flag .flag-at { font-family: var(--mono); color: var(--ink-dim); }
+
 /* ---------- the tape machine ---------- */
 /* lib/tape/machine.js: reels that turn with the playhead, and a meter
    bridge. Its height follows the screen's, so a short tablet keeps its

@@ -90,3 +90,12 @@ export function listFrom(referrer, origin) {
     return null;
   }
 }
+
+/** flagChips is a take's flags in time order: each one's label and m:ss into the take. */
+export function flagChips(take) {
+  const sr = take.sample_rate || 48000;
+  return [...(take.flags || [])].sort((a, b) => a.frame - b.frame).map((f) => {
+    const s = Math.floor(f.frame / sr);
+    return { label: f.label || 'flag', at: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` };
+  });
+}

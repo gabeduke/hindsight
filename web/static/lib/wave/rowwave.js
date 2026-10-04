@@ -147,13 +147,19 @@ export class RowWave {
     }
   }
 
-  destroy() {
+  /** detach stops drawing and listening, and leaves the audio alone: for a
+   *  second view of a player someone else owns (the takes page's detail). */
+  detach() {
     cancelAnimationFrame(this.raf);
     this.ac.abort();
     this.ro.disconnect();
+    this.canvas.remove();
+  }
+
+  destroy() {
+    this.detach();
     this.audio.pause();
     this.audio.removeAttribute('src');
     this.audio.load(); // let go of the stream, not just the attribute
-    this.canvas.remove();
   }
 }

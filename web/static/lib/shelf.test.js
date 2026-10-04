@@ -90,3 +90,15 @@ test('a take opened from either list knows which one to go back to', () => {
   assert.equal(listFrom('', origin), null);
   assert.equal(listFrom('not a url', origin), null);
 });
+
+// flagChips: a take's flags, as the detail pane lists them.
+import { flagChips } from './shelf.js';
+
+test('flags read as their label and the time into the take, in order', () => {
+  const t = { sample_rate: 48000, flags: [{ frame: 48000 * 21, label: 'chorus' }, { frame: 48000 * 4, label: 'verse' }, { frame: 48000 * 65.4, label: '' }] };
+  assert.deepEqual(flagChips(t), [
+    { label: 'verse', at: '0:04' }, { label: 'chorus', at: '0:21' }, { label: 'flag', at: '1:05' },
+  ]);
+  assert.deepEqual(flagChips({ flags: [{ frame: 96000, label: 'x' }] }), [{ label: 'x', at: '0:02' }], 'a take with no rate is 48 kHz');
+  assert.deepEqual(flagChips({}), []);
+});

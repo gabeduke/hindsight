@@ -8,6 +8,7 @@ import { toast, takeNextToast } from '/lib/toast.js';
 import { initHelp } from '/lib/help/help.js';
 import { shelve } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
+import { TakeDetail } from '/lib/shelf-detail.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -56,6 +57,7 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
     clearTimeout(trashTimer);
     trashTimer = setTimeout(() => trash.refresh(), 150);
     renderCounts();
+    syncPick();
   },
   selectBar: $('select-bar'),
   shape: (all) => shelve(all, view),
@@ -76,7 +78,42 @@ function renderControls() {
 function reshape() {
   takes.reshape();
   renderCounts();
+  syncPick();
 }
+
+// --- the detail pane, on a wide screen ------------------------------------
+
+// Wide enough for a list and the picked take beside it. Narrower, a row
+// carries its own controls and there is no pane.
+const wide = matchMedia('(min-width: 1100px)');
+const detail = new TakeDetail($('take-detail'), { takes, onToast: toast });
+let picked = null;
+
+const shownNames = () => [...$('takes').querySelectorAll('.take')].map((e) => e.dataset.name);
+
+function pick(name) {
+  picked = name;
+  for (const [n, row] of takes.rows) row.el.classList.toggle('picked', wide.matches && n === picked);
+  detail.show(wide.matches ? takes.all.find((t) => t.name === picked) || null : null);
+}
+
+// syncPick keeps the pick on a take that's shown: the first, when the one
+// picked has gone -- deleted, or filtered out.
+function syncPick() {
+  if (!wide.matches) { pick(picked); return; }
+  const shown = shownNames();
+  pick(shown.includes(picked) ? picked : shown[0] || null);
+}
+
+// A row's body picks it; its own controls keep their press, and a press on
+// its waveform both seeks and picks.
+$('takes').addEventListener('click', (e) => {
+  if (!wide.matches || takes.selecting) return;
+  const row = e.target.closest('.take');
+  if (!row || e.target.closest('button, a, input, .take-flag, .take-flag-edit')) return;
+  pick(row.dataset.name);
+});
+wide.addEventListener('change', syncPick);
 
 $('shelf-filters').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-filter]');

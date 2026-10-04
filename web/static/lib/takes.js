@@ -570,7 +570,15 @@ export class TakesList {
     return r.bottom > -200 && r.top < window.innerHeight + 200;
   }
 
-  async mountWave(row) {
+  // mountWave loads a row's waveform once; a second caller while it loads
+  // (the detail pane, say) waits for the same load rather than missing it.
+  mountWave(row) {
+    if (row.ws) return Promise.resolve();
+    if (!row.mountP) row.mountP = this.loadWave(row).finally(() => { row.mountP = null; });
+    return row.mountP;
+  }
+
+  async loadWave(row) {
     if (row.ws || row.mounting) return;
     const t = row.data;
     if (!t.has_peaks || !t.has_preview) return;
@@ -607,6 +615,7 @@ export class TakesList {
     // scale the meters and the ribbon use, so a take looks the same
     // everywhere it's drawn (lib/wave/draw.js).
     const ws = new RowWave({ container: row.waveEl, peaks, duration: peaks.duration || t.duration_seconds, audio });
+    row.peaks = peaks;
     ws.setSelection(t.trim, (t.duration_seconds || 0) * (t.sample_rate || 48000));
 
     ws.on('play', () => {
@@ -675,6 +684,25 @@ export class TakesList {
 
   // Delete goes to the trash, so it doesn't ask: the toast offers Undo, and
   // Recently deleted keeps it for a week.
+  /**
+   * player gives a second view of a take its row's player: the takes page's
+   * detail pane draws the same audio, so Play there and Play in the row are
+   * one player. Null when the take has no waveform yet.
+   */
+  async player(name) {
+    const row = this.rows.get(name);
+    if (!row) return null;
+    await this.mountWave(row);
+    if (!row.ws) return null;
+    return { audio: row.audio, peaks: row.peaks, toggle: () => this.togglePlay(row) };
+  }
+
+  /** deleteByName deletes a shown take, with the row's Undo. */
+  deleteByName(name) {
+    const row = this.rows.get(name);
+    if (row) this.deleteTake(row);
+  }
+
   async deleteTake(row) {
     const name = row.data.name;
     const label = row.data.label || name.replace(/^jam_|\.wav$/g, '');
