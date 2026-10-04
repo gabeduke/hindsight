@@ -1,0 +1,78 @@
+// web/static/lib/shelf.js
+// What the takes page shows: which takes match the search and the filters,
+// in what order, under which day. Pure, so it is tested without a browser.
+//
+// The server lists starred takes first (lib/takes.js keeps that order for
+// the main page); the shelf groups by day instead, so a starred take sits
+// on the day it was played and the Starred filter is how to see them alone.
+
+const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+const stamp = (t) => t.name.replace(/^jam_|\.wav$/g, '');
+
+/** when is a take's created time in ms, or NaN when it has none to read. */
+function when(t) {
+  return t.created ? Date.parse(t.created) : NaN;
+}
+
+/**
+ * matches says whether a take passes the search and every filter that is
+ * on. The search looks at the label, the timestamp in the name and the tempo.
+ */
+export function matches(t, { query = '', starred = false, midi = false, phone = false, tape = false } = {}) {
+  if (starred && !t.starred) return false;
+  if (midi && !t.has_midi) return false;
+  if (phone && t.origin !== 'phone') return false;
+  if (tape && t.origin !== 'tape') return false;
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const hay = [t.label || '', stamp(t), t.bpm == null ? '' : t.bpm.toFixed(1)].join(' ').toLowerCase();
+  return hay.includes(q);
+}
+
+// dayKey is a local calendar day, comparable as a number.
+const dayKey = (d) => d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
+
+function dayLabel(ms, now) {
+  const d = new Date(ms), today = new Date(now);
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  const short = `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  if (dayKey(d) === dayKey(today)) return `TODAY · ${short}`;
+  if (dayKey(d) === dayKey(yesterday)) return `YESTERDAY · ${short}`;
+  if (d.getFullYear() !== today.getFullYear()) return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return short;
+}
+
+/**
+ * shelve filters the takes and puts them in groups to show: by day, newest
+ * first, or with sort 'longest' in one group, longest first. A take with no
+ * readable date goes in a last group, EARLIER.
+ */
+export function shelve(takes, opts = {}, now = Date.now()) {
+  const shown = takes.filter((t) => matches(t, opts));
+  if (!shown.length) return [];
+  if (opts.sort === 'longest') {
+    return [{ label: 'LONGEST FIRST', takes: [...shown].sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0)) }];
+  }
+  const dated = shown.filter((t) => !Number.isNaN(when(t))).sort((a, b) => when(b) - when(a));
+  const undated = shown.filter((t) => Number.isNaN(when(t)));
+  const groups = [];
+  for (const t of dated) {
+    const label = dayLabel(when(t), now);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.takes.push(t);
+    else groups.push({ label, takes: [t] });
+  }
+  if (undated.length) groups.push({ label: 'EARLIER', takes: undated });
+  return groups;
+}
+
+/** latest is the newest take by when it was made, or null for none. */
+export function latest(takes) {
+  let best = null;
+  for (const t of takes) {
+    if (!best || when(t) > when(best) || (Number.isNaN(when(best)) && !Number.isNaN(when(t)))) best = t;
+  }
+  return best;
+}
