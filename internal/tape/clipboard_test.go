@@ -151,3 +151,30 @@ func TestACopyLongerThanATrackIsRefused(t *testing.T) {
 		t.Fatal("a 61 s copy onto 60 s tracks should be refused")
 	}
 }
+
+func TestTheAuditionHasAllOfAClipThatStartsIntoItsFile(t *testing.T) {
+	e, _, _ := newEngine(t)
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
+	// From 10000: the clip starts 480 frames into its pool file, after the
+	// overhang -- and a clip lifted from the middle of a catch starts far in.
+	c, err := e.CopyTake(take, "jam_take.wav", 10000, 58000, []int{0, 1})
+	if err != nil || c.Tracks[0][0].Src != 480 {
+		t.Fatalf("copy = %+v %v", c, err)
+	}
+	pcm, err := e.ClipboardAudio()
+	if err != nil || len(pcm) != 2*48000 {
+		t.Fatalf("audition = %d samples, %v", len(pcm), err)
+	}
+	for _, i := range []int{0, 24000, 47990} {
+		if v := pcm[2*i]; v < 0.24 || v > 0.26 {
+			t.Fatalf("frame %d of the audition = %.3f, want 0.25", i, v)
+		}
+	}
+	// A window far into its file: as a lift makes.
+	if err := e.store.SaveClipboard(&Clipboard{Frames: 1000, Tracks: [][]Clip{{{File: c.Tracks[0][0].File, Src: 30000, Frames: 1000}}}}); err != nil {
+		t.Fatal(err)
+	}
+	if pcm, err = e.ClipboardAudio(); err != nil || len(pcm) != 2000 || pcm[2*999] < 0.24 {
+		t.Fatalf("a window far in: %d samples, %v", len(pcm), err)
+	}
+}
