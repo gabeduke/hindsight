@@ -266,7 +266,7 @@ stem:
 
 | File | Written | Holds |
 |---|---|---|
-| `jam_<ts>.wav` | at save or cut | The audio, 32-bit, plus RIFF `cue ` points mirroring the flags |
+| `jam_<ts>.wav` | at save, cut or the end of a phone recording | The audio, 32-bit, plus RIFF `cue ` points mirroring the flags |
 | `.meta.json` | at save or cut, then on every edit | Label, star, selection, tempo, downbeat, flags, lane kinds, creation time, a cut's source |
 | `.peaks.json` | at save or cut | 1024 min/max buckets for the whole take, drawn before anything finer arrives |
 | `.peaks.bin` | at save or cut; backfilled at startup for older takes | The peaks pyramid: min and max per 256 frames |
@@ -327,6 +327,32 @@ from it; deeper zooms read the WAV, which is a short read at that zoom
 anyway. It is built in the same loop that writes the WAV, so it costs no
 extra read, and it is checked against the take's channels and length before
 use. Takes older than the pyramid get one in the background at startup.
+
+### Phone recordings
+
+A phone records into `/api/phone` (`internal/api/phone.go`), and the take is
+written as the audio arrives (`internal/audio/phone.go`):
+
+- **Name first.** The take's name is reserved when recording starts, from
+  the start time, so the take sorts by when it was played. A marker,
+  `.<stem>.phone.json`, holds the phone's rate and the start time.
+- **Audio as it arrives.** Chunks are written in order into the `.part` file
+  as 32-bit 48 kHz stereo; a chunk that arrives early, after a reconnect,
+  waits for those before it. A phone at another rate goes through a
+  windowed-sinc resampler (`resample.go`): centred, so the output starts on
+  time, and tracked in exact ratios, so a long recording doesn't drift.
+- **The pyramid grows** with the audio, so finishing needs no read of the
+  take; the whole-take `.peaks.json` is drawn from the pyramid too.
+- **Finishing** patches the WAV header's sizes, writes the sidecars, renames
+  the WAV into place and removes the marker. A recording whose phone never
+  comes back is finished as *Phone (partial)* after five minutes.
+- **A restart mid-recording** leaves a `.part` with its marker; the startup
+  sweep finishes it as a partial take, its length read from the file, rather
+  than deleting it as it does an unfinished save.
+
+The page side is `web/static/lib/phone/`: an AudioWorklet that taps raw float
+PCM, an uploader that numbers chunks, keeps them until they're acked and
+resends after a reconnect, and the recorder sheet.
 
 ### Shares queue
 

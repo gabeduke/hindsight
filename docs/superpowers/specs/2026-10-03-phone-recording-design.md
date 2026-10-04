@@ -1,6 +1,6 @@
 # Phone recording — record straight into Hindsight from the phone
 
-**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; not built yet · **Repo:** `hindsight`
+**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; built (step 2), not yet tried on the phone · **Repo:** `hindsight`
 
 ## Goal
 
@@ -103,6 +103,33 @@ Settled with the owner on 2026-10-03.
 1. **The button lives on the main page.** The tape page can take a phone
    recording straight onto a track once it exists.
 2. **Mono stays dual mono; a stereo input stays stereo.**
+
+## As built
+
+Choices made while building it, on 2026-10-04:
+
+- **Chunks** are a tenth of a second of interleaved stereo float32, each
+  prefixed with its number. The Pi acks with the next chunk it's waiting for,
+  so an ack covers everything before it.
+- **The page asks for a 48 kHz audio context** and the browser converts the
+  mic to it. A browser that won't (Firefox, with a mic at another rate) gets
+  a context at the mic's rate, and the Pi converts. Either way the take is
+  48 kHz.
+- **Writing as it arrives** is literal: the WAV grows in the `.part` file
+  during the recording, with the peaks pyramid growing beside it, so Stop
+  only patches the header and writes the sidecars. Nothing re-reads the
+  audio.
+- **The grace period** for a phone that drops off is five minutes, long
+  enough for a walk out of Wi-Fi range and back. The phone keeps unsent audio
+  for as long as the page is open.
+- **A restart mid-recording** keeps what reached the disk, as *Phone
+  (partial)*, via a marker file beside the `.part`.
+- **Limits:** three hours per recording, just under the 4.29 GB a WAV header
+  can describe; eight recordings at once; free space checked at the start and
+  every five seconds.
+- **The Phone button** sits in the row under Capture, so it costs Capture no
+  height on a phone held sideways. On plain HTTP it opens the sheet with the
+  explanation rather than being greyed out, which explains nothing.
 
 ## Still to verify on the phone
 

@@ -1,6 +1,6 @@
 # HTTP API
 
-Twenty routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Twenty-one routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -12,6 +12,7 @@ internet.
 |---|---|
 | `GET /api/status` | Health, ring fill, per-channel dB, disk, live tempo, version |
 | `GET /api/live` | WebSocket: min/max peak bins (~100/s) plus peak-hold |
+| `GET /api/phone` | WebSocket: a phone streams a recording into a new take |
 | `GET /api/envelope` | The buffer ribbon's amplitude envelope over the whole ring |
 | `POST /api/trigger?seconds=N` | Save the last N seconds; `0` is the whole ring |
 | `GET /api/jams` | Takes, starred first then newest first. Sends an ETag |
@@ -31,8 +32,8 @@ internet.
 | `GET /api/midi?file=` | The take's `.mid` decoded to notes in frames, one track per device and channel, for the lanes |
 | `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
 
-`GET` routes also accept `HEAD`, except `/api/live`, which is a WebSocket
-upgrade, and `/api/render` and `/api/bundle`, which stream.
+`GET` routes also accept `HEAD`, except `/api/live` and `/api/phone`, which
+are WebSocket upgrades, and `/api/render` and `/api/bundle`, which stream.
 
 ---
 
@@ -110,6 +111,51 @@ The server pings every 25 s and expects a pong within 60 s. It reads from the
 socket but ignores the contents; reading is what surfaces close frames. Origin
 is not checked — the app is reached by hostname, IP and `.local` alias, so
 origin pinning would only break access.
+
+## `GET /api/phone`
+
+WebSocket. A phone records into it, and the recording becomes a take. The
+Phone button on the main page is its client (`web/static/lib/phone/`).
+
+```
+phone → {"type":"start","id":"<recording id>","rate":48000}
+Pi    → {"type":"ready","next":0,"name":"jam_2026-10-04_213000.wav"}
+phone → binary: uint32 LE chunk number, then interleaved stereo float32 LE
+Pi    → {"type":"ack","next":12}          chunks 0–11 are on disk
+phone → {"type":"stop","chunks":40}       40 chunks were sent in all
+Pi    → {"type":"saved","name":"jam_2026-10-04_213000.wav","seconds":4,"partial":false,"reason":"stop"}
+```
+
+- **The recording id** is made by the phone, 8–64 characters of
+  `[A-Za-z0-9_-]`, and names the recording rather than the connection. After a
+  dropout the phone reconnects and sends the same `start`; `ready` says which
+  chunk the Pi is waiting for, and the phone resends from there. A chunk
+  already written is ignored, and one that arrives early waits for those
+  before it.
+- **The audio** is stereo (a mono input is sent as dual mono) at the phone's
+  rate, 8–192 kHz. The Pi writes it as it arrives, as 32-bit 48 kHz PCM,
+  resampling when the rate differs, into the take's hidden `.part` file. A
+  chunk is any whole number of frames; the page sends a tenth of a second.
+- **Stop** gives the number of chunks sent. The Pi finishes the take once it
+  holds them all: the header is filled in, `.peaks.json`, `.peaks.bin` and a
+  `.meta.json` labelled *Phone* (with `created` set to when recording
+  started) are written, and the WAV is renamed into place. The preview is
+  encoded afterwards and `MAX_SAVES` applies, as after a save.
+- **`saved`** reports how it ended. `reason` is `stop`, `limit` (three hours,
+  just under what a WAV header can hold), `disk` (free space fell under
+  `MIN_FREE_GB`; checked at the start and every five seconds or so),
+  `disconnected` or `error`. An empty `name` means nothing was recorded. A
+  phone that reconnects after its recording ended gets the same `saved`.
+- **A phone that doesn't come back** within five minutes has its recording
+  finished as *Phone (partial)*, as does one with a chunk that never arrived.
+  A restart mid-recording recovers what reached the disk the same way, at
+  startup.
+- **Refusals** are `{"type":"error","error":"…"}` in place of `ready`: a
+  malformed start, the disk under `MIN_FREE_GB`, or eight recordings already
+  in progress.
+
+The browser opens the mic only on a secure page, so this is used from the
+Pi's HTTPS address (`tailscale serve`), or from `localhost`.
 
 ## `GET /api/envelope`
 
