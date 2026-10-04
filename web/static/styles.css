@@ -1343,3 +1343,68 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
   .tt-head .chip { padding: 0 6px; }
   .tt-name { padding: 0 2px; }
 }
+/* The track's number never gives way to the chips beside it; between a
+   phone and a tablet the head is wide enough for both on one row. */
+.tt-name { min-width: 1.1em; }
+@media (min-width: 481px) {
+  .tape-track, .tape-ruler-row { grid-template-columns: 136px 1fr; }
+}
+
+/* The tape page's header is taller than the takes page's (a two-line
+   title), and its column always takes the full width: the takes page's
+   landscape grid would otherwise shrink it to fit its content. */
+.tape-page { --topbar-h: calc(57px + env(safe-area-inset-top)); }
+.tape-main { align-items: stretch; }
+
+/* A tablet held upright, or a small laptop window: one column, as on a
+   phone, but the full width and taller lanes -- the toolbar under them is
+   about 370 px, and the lanes share what's left. svh, not dvh: lanes that
+   resized as a phone's address bar came and went would jump mid-scroll. */
+@media (min-width: 700px) {
+  main.tape-main { display: flex; max-width: none; padding-left: 16px; padding-right: 16px; }
+  .tape-track, .tape-ruler-row { grid-template-columns: 150px 1fr; }
+  .tt-lane { height: clamp(72px, calc((100svh - var(--topbar-h) - 520px) / 4), 150px); }
+}
+
+/* Wide -- a tablet on its side, a laptop: the tracks take the width, and the
+   controls sit beside them in a panel of their own that stays in view. From
+   1000 px, so the lanes beside the panel are never narrower than a phone's. */
+@media (min-width: 1000px) {
+  main.tape-main { display: block; max-width: 1800px; padding-bottom: 10px; }
+  #tape-body:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 372px;
+    grid-template-areas: "empty side" "overview side" "ruler side" "lanes side" ". side";
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 16px; row-gap: 0;
+    align-items: start;
+  }
+  #tape-empty { grid-area: empty; margin-bottom: 10px; }
+  .tape-overview { grid-area: overview; margin-bottom: 10px; }
+  .tape-ruler-row { grid-area: ruler; margin-bottom: 8px; }
+  .tape-lanes { grid-area: lanes; gap: 8px; }
+  /* Sticky under the header, and never taller than the window under it --
+     main's own padding included -- so it can't push the page past the
+     window and scroll away; on a short window it scrolls inside. */
+  .tape-toolbar {
+    grid-area: side;
+    position: sticky; top: calc(var(--topbar-h) + 10px);
+    max-height: calc(100svh - var(--topbar-h) - 20px); overflow-y: auto; box-sizing: border-box;
+    padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .tape-track, .tape-ruler-row { grid-template-columns: 168px 1fr; }
+  /* Four lanes fill the height under the overview and ruler... */
+  .tt-lane { height: clamp(80px, calc((100svh - var(--topbar-h) - 150px) / 4 - 8px), 220px); }
+  /* ...unless the empty tape's card is above them. */
+  #tape-body:has(#tape-empty:not([hidden])) .tt-lane { height: 80px; }
+  .tt-head { align-content: center; }
+  /* Toasts over the tracks, clear of the panel. */
+  .tape-page #toasts { left: calc((100vw - 372px - 16px) / 2); }
+}
+@media (min-width: 1400px) {
+  #tape-body:not([hidden]) { grid-template-columns: minmax(0, 1fr) 400px; }
+  .tape-track, .tape-ruler-row { grid-template-columns: 200px 1fr; }
+  .tape-page #toasts { left: calc((100vw - 400px - 16px) / 2); }
+}
+/* The click, on: the accent ♩ on the accent background vanished. */
+.tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { background: var(--panel-2); }
