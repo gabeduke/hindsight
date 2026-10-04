@@ -61,7 +61,7 @@ func TestTheClipboardSurvivesAndIsKeptByCleanup(t *testing.T) {
 	}
 	// A fresh engine on the same store sees it.
 	e2 := NewEngine(Options{Store: e.store})
-	if got := e2.Clipboard(); got.Empty() || got.Tracks[0][0].File != c.Tracks[0][0].File {
+	if got, _ := e2.Clipboard(); got.Empty() || got.Tracks[0][0].File != c.Tracks[0][0].File {
 		t.Fatalf("after a restart the clipboard = %+v", got)
 	}
 	// Clean-up keeps its audio, even with no tape using it (and old enough).
@@ -77,13 +77,15 @@ func TestTheClipboardSurvivesAndIsKeptByCleanup(t *testing.T) {
 		t.Fatalf("clean-up took the clipboard's audio: %v", err)
 	}
 	// Audition: its frames, summed.
-	var n int
-	frames, err := e.ClipboardAudio(func(b []float32) error { n += len(b) / 2; return nil })
-	if err != nil || frames != 48000 || n != 48000 {
-		t.Fatalf("audition = %d frames (%d emitted), %v", frames, n, err)
+	pcm, err := e.ClipboardAudio()
+	if err != nil || len(pcm) != 2*48000 || pcm[2*1000] < 0.24 || pcm[2*1000] > 0.26 {
+		t.Fatalf("audition = %d samples, %v", len(pcm), err)
 	}
-	if err := e.ClearClipboard(); err != nil || !e.Clipboard().Empty() {
+	if err := e.ClearClipboard(); err != nil {
 		t.Fatalf("clear: %v", err)
+	}
+	if got, _ := e.Clipboard(); !got.Empty() {
+		t.Fatal("cleared, but not empty")
 	}
 	if _, err := e.DropClipboard(e.LoadedID(), 1); err != ErrEmptyClipboard {
 		t.Fatalf("dropping nothing = %v", err)
@@ -113,5 +115,39 @@ func TestPlayAfterADropAtTheLoopsEndPlaysTheLoop(t *testing.T) {
 	sink.play(t, 96000*2+1000)
 	if l := e.Live(); !l.Playing || len(l.Cycles) == 0 {
 		t.Fatalf("after ▶ at the loop's end: %+v, want the loop going round", l.Status)
+	}
+}
+
+func TestACorruptClipboardKeepsItsCopiesAndCanBeCleared(t *testing.T) {
+	e, _, _ := newEngine(t)
+	take := takeWAV(t, 100000, func(i int) float64 { return 0.25 })
+	c, _ := e.CopyTake(take, "jam_take.wav", 0, 48000, []int{0, 1})
+	path := e.store.AudioPath(c.Tracks[0][0].File)
+	osChtimes(path, time.Now().Add(-time.Hour))
+	if err := os.WriteFile(e.store.clipboardPath(), []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Clipboard(); err == nil {
+		t.Fatal("a corrupt clipboard should say so")
+	}
+	if _, _, err := e.store.Cleanup(nil); err != nil {
+		t.Fatalf("clean-up = %v, want it to carry on", err)
+	}
+	if _, err := audio.ReadWAVInfo(path); err != nil {
+		t.Fatal("clean-up took a copy a corrupt clipboard might hold")
+	}
+	if err := e.ClearClipboard(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := e.Clipboard(); err != nil || !got.Empty() {
+		t.Fatalf("after clearing: %v %v", got, err)
+	}
+}
+
+func TestACopyLongerThanATrackIsRefused(t *testing.T) {
+	e, _, _ := newEngine(t) // 60 s tracks
+	take := takeWAV(t, 48000*61, func(i int) float64 { return 0 })
+	if _, err := e.CopyTake(take, "jam_long.wav", 0, 48000*61, []int{0, 1}); err == nil {
+		t.Fatal("a 61 s copy onto 60 s tracks should be refused")
 	}
 }

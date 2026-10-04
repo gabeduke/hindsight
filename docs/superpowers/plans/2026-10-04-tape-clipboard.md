@@ -29,6 +29,20 @@ on `tape-punch`. The last part of step 6.
 - **The header reads the loop's bars,** not the first loop's, once the ruler
   has changed it.
 
+## After the independent review
+
+Fixed: copies had no length cap and the audition loaded the whole copy
+through the engine's pool (now a copy is at most a track, and the audition
+is its first minute, read straight from the files and served with ranges
+and HEAD for phones); Replace cleared only layer 0 (now every layer under
+it); a vertical swipe starting on the ruler located or looped (now it
+scrolls); a corrupt clipboard.json blocked every clean-up and couldn't be
+cleared from the page; the ribbon's Copy failed where Save clamps; a drop's
+toast could fail after a successful drop; two quick drops could land in one
+place (the playhead's move is now waited for), and a drop during a count-in
+moved its start. Also: tile applies a gain or nudge sent with it, and says
+when the loop is off; the last tape's tempo is read before the edit.
+
 ## Tasks
 
 1. `clipboard.go`: the file, Copy from a take or the ring, Drop, the

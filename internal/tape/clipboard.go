@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -79,13 +80,17 @@ func (s *Store) SaveClipboard(c *Clipboard) error {
 	return writeSynced(s.clipboardPath(), b)
 }
 
-// Clipboard is what's on the clipboard, or nil.
-func (e *Engine) Clipboard() *Clipboard {
-	c, err := e.store.LoadClipboard()
-	if err != nil {
-		return nil
+// Clipboard is what's on the clipboard, or nil -- and an error if the file
+// can't be read, which only clearing it mends.
+func (e *Engine) Clipboard() (*Clipboard, error) { return e.store.LoadClipboard() }
+
+// tooLong refuses a copy longer than a track: it could never be dropped.
+func (e *Engine) tooLong(frames int64) error {
+	if l := e.store.length; frames > l {
+		return fmt.Errorf("%w: %.0f s is longer than a track (%.0f s)", ErrBadParameter,
+			float64(frames)/float64(e.store.SampleRate()), float64(l)/float64(e.store.SampleRate()))
 	}
-	return c
+	return nil
 }
 
 // ClearClipboard empties it.
@@ -103,6 +108,9 @@ func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipb
 	}
 	if from < 0 || to <= from || to > info.Frames() {
 		return nil, fmt.Errorf("%w: that span isn't in the take", ErrBadParameter)
+	}
+	if err := e.tooLong(to - from); err != nil {
+		return nil, err
 	}
 	if err := e.diskOK(); err != nil {
 		return nil, err
@@ -125,38 +133,54 @@ func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipb
 	return c, e.store.SaveClipboard(c)
 }
 
-// CopyRing puts ring frames [from, to) of a source onto the clipboard.
-func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, error) {
+// CopyRing puts ring frames [from, to) of a source onto the clipboard (to
+// < 0: up to now; source "": MAIN, or the first source there is). A start
+// that has left the ring moves to the oldest audio, a second in, as a save
+// from the ribbon does; it answers whether it moved.
+func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, error) {
 	if e.capture == nil {
-		return nil, ErrNoCapture
+		return nil, false, ErrNoCapture
+	}
+	if source == "" {
+		source = "main"
+		if _, ok := e.source(source); !ok && len(e.sources) > 0 {
+			source = e.sources[0].Name
+		}
 	}
 	src, ok := e.source(source)
 	if !ok {
-		return nil, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
-	}
-	if to <= from {
-		return nil, fmt.Errorf("%w: an empty span", ErrBadParameter)
-	}
-	if err := e.diskOK(); err != nil {
-		return nil, err
+		return nil, false, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
 	}
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
 	r := e.capture.Ring()
 	oldest, total := r.Window()
-	lo, hi := max64(int64(oldest), from-over), min64(int64(total), to+over)
-	if from < int64(oldest) {
-		return nil, ErrGone
+	if to < 0 {
+		to = int64(total)
+	}
+	clamped := false
+	if margin := int64(oldest) + sr; from < margin && oldest > 0 {
+		from, clamped = margin, true
+	}
+	if to <= from {
+		return nil, false, fmt.Errorf("%w: that span has left the buffer", ErrGone)
 	}
 	if to > int64(total) {
-		return nil, ErrNotYet
+		return nil, false, ErrNotYet
 	}
+	if err := e.tooLong(to - from); err != nil {
+		return nil, false, err
+	}
+	if err := e.diskOK(); err != nil {
+		return nil, false, err
+	}
+	lo, hi := max64(int64(oldest), from-over), min64(int64(total), to+over)
 	rel, path, err := e.store.NewPoolFile("copy", time.Now())
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := audio.WriteSpan(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr)); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	c := &Clipboard{
 		Tracks:  [][]Clip{{{File: rel, Src: from - lo, Frames: to - from, Source: src.Name}}},
@@ -164,7 +188,7 @@ func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, error) {
 		From:    "the ribbon (" + src.Name + ")",
 		Created: time.Now(),
 	}
-	return c, e.store.SaveClipboard(c)
+	return c, clamped, e.store.SaveClipboard(c)
 }
 
 func (e *Engine) diskOK() error {
@@ -190,7 +214,10 @@ type Dropped struct {
 // playhead moves to the drop's end, so drop, drop, drop lays copies end to
 // end.
 func (e *Engine) DropClipboard(id string, track int) (Dropped, error) {
-	c := e.Clipboard()
+	c, err := e.Clipboard()
+	if err != nil {
+		return Dropped{}, err
+	}
 	if c.Empty() {
 		return Dropped{}, ErrEmptyClipboard
 	}
@@ -204,16 +231,20 @@ func (e *Engine) DropClipboard(id string, track int) (Dropped, error) {
 	if track < 1 || track+len(c.Tracks)-1 > len(t.Tracks) {
 		return Dropped{}, fmt.Errorf("%w: %d track%s from track %d don't fit", ErrNoSuchTrack, len(c.Tracks), plural(len(c.Tracks)), track)
 	}
+	// Where the playhead is: what's heard while playing; the bar line it
+	// stands at during a count-in; else where it was put.
 	st := e.tr.Status()
+	moving := st.Playing || st.CountIn > 0
 	at := st.Pos
 	if st.Playing {
 		at = e.Live().Heard
 	}
 	sr := e.store.SampleRate()
+	near := e.lastBPM(id) // before the edit: it reads every tape
 	var out Dropped
-	err := e.Edit(id, "", func(tp *Tape, s *State) error {
+	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() && s.Grid == nil {
-			bars := guessBarsNear(c.Frames, sr, e.lastBPM(id))
+			bars := guessBarsNear(c.Frames, sr, near)
 			g := Grid{Frames: c.Frames, Bars: bars}
 			if bpm := g.BPM(sr); bpm < 20 || bpm > 400 {
 				return fmt.Errorf("%w: %.2f s doesn't make a tempo of 20–400 BPM", ErrBadParameter, float64(c.Frames)/float64(sr))
@@ -231,9 +262,7 @@ func (e *Engine) DropClipboard(id string, track int) (Dropped, error) {
 		// Clear the span on each track, then lay the clipboard's clips in.
 		for i, clips := range c.Tracks {
 			tr := &s.Tracks[track-1+i]
-			for l := 0; l < 64; l++ {
-				tr.Clips = cutRange(tr.Clips, l, at, at+c.Frames)
-			}
+			tr.Clips = clearRange(tr.Clips, at, at+c.Frames)
 			for _, cl := range clips {
 				cl.ID = ""
 				cl.At += at
@@ -252,8 +281,9 @@ func (e *Engine) DropClipboard(id string, track int) (Dropped, error) {
 		return Dropped{}, err
 	}
 	out.Tracks, out.End = len(c.Tracks), at+c.Frames
-	if !st.Playing {
-		e.Do(Action{Kind: "locate", Pos: out.End})
+	if !moving {
+		// Before answering, so a second drop right after lands after it.
+		e.doWait(Action{Kind: "locate", Pos: out.End})
 	}
 	return out, nil
 }
@@ -265,30 +295,54 @@ func plural(n int) string {
 	return "s"
 }
 
-// ClipboardAudio renders the clipboard, its tracks summed, for auditioning:
-// emit gets interleaved stereo float32 blocks.
-func (e *Engine) ClipboardAudio(emit func([]float32) error) (int64, error) {
-	c := e.Clipboard()
+// auditionSeconds caps an audition: enough to hear what's there.
+const auditionSeconds = 60
+
+// ClipboardAudio is the clipboard's first minute, every track summed, as
+// interleaved stereo, read straight from the pool -- not through the
+// engine's own, which would keep it all in memory.
+func (e *Engine) ClipboardAudio() ([]float32, error) {
+	c, err := e.Clipboard()
+	if err != nil {
+		return nil, err
+	}
 	if c.Empty() {
-		return 0, ErrEmptyClipboard
+		return nil, ErrEmptyClipboard
 	}
-	st := State{Tracks: make([]Track, len(c.Tracks))}
-	for i, clips := range c.Tracks {
-		st.Tracks[i] = Track{N: i + 1, Bus: BusA, Clips: clips}
-	}
-	m := NewMix(st, e.pool, e.store.SampleRate())
-	buf := make([]float32, BlockFrames*OutChannels)
-	out := make([]float32, BlockFrames*2)
-	for pos := int64(0); pos < c.Frames; pos += BlockFrames {
-		n := int(min64(BlockFrames, c.Frames-pos))
-		clear(buf)
-		m.Render(buf, pos, n)
-		for i := 0; i < n; i++ {
-			out[2*i], out[2*i+1] = buf[i*OutChannels], buf[i*OutChannels+1]
+	n := min64(c.Frames, int64(auditionSeconds*e.store.SampleRate()))
+	out := make([]float32, 2*n)
+	for _, clips := range c.Tracks {
+		for _, cl := range clips {
+			from, to := max64(0, cl.At), min64(n, cl.End())
+			if to <= from {
+				continue
+			}
+			path := e.store.AudioPath(cl.File)
+			info, err := audio.ReadWAVInfo(path)
+			if err != nil {
+				return nil, err
+			}
+			ch := info.Channels
+			g := float32(math.Pow(10, cl.GainDB/20))
+			_, err = audio.ReadFrames(path, cl.Src+(from-cl.At), to-from, 1<<14, func(b []int32, first int64) error {
+				for i := 0; i < len(b)/ch; i++ {
+					l := float32(float64(b[i*ch]) / 2147483648.0)
+					r := l
+					if ch > 1 {
+						r = float32(float64(b[i*ch+1]) / 2147483648.0)
+					}
+					k := from + (first - (cl.Src + (from - cl.At))) + int64(i)
+					if k >= 0 && k < n {
+						out[2*k] += l * g
+						out[2*k+1] += r * g
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
-		if err := emit(out[:2*n]); err != nil {
-			return 0, err
-		}
 	}
-	return c.Frames, nil
+	return out, nil
 }

@@ -198,13 +198,14 @@ export class Ribbon {
   async copySel() {
     const sel = this.sel;
     if (!sel) return;
-    const body = { ring_from: sel.from, source: 'main' };
+    const body = { ring_from: sel.from }; // MAIN, what the ribbon draws
     if (sel.to != null) body.ring_to = sel.to;
     try {
       const res = await fetch('/api/clipboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const b = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
-      this.onToast?.(`Copied ${fmtAge(b.seconds)}: Drop it on a tape`, 'ok');
+      const note = b.clamped ? ' (its start had already left the buffer)' : '';
+      this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}: Drop it on a tape`, 'ok');
     } catch (e) {
       this.onToast?.(`Could not copy: ${e.message}`, 'bad');
     }

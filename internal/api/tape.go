@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -317,6 +318,21 @@ func patchClip(s *tape.State, id string, gainDB, nudgeMS *float64, remove, tile 
 				s.Tracks[ti].Clips = append(s.Tracks[ti].Clips[:ci], s.Tracks[ti].Clips[ci+1:]...)
 				return nil
 			}
+			if gainDB != nil {
+				if *gainDB < -60 || *gainDB > 12 {
+					return fmt.Errorf("%w: gain -60..12 dB", tape.ErrBadParameter)
+				}
+				cl.GainDB = *gainDB
+			}
+			if nudgeMS != nil {
+				if *nudgeMS < -500 || *nudgeMS > 500 {
+					return fmt.Errorf("%w: nudge ±500 ms", tape.ErrBadParameter)
+				}
+				cl.NudgeMS = *nudgeMS
+			}
+			if tile && !s.Loop.On {
+				return fmt.Errorf("%w: the loop is off, so there's no loop's end to repeat to", tape.ErrBadParameter)
+			}
 			if tile {
 				// Copies end to end on its own layer, to the loop's end --
 				// one bar through four -- wherever that layer is free.
@@ -341,19 +357,6 @@ func patchClip(s *tape.State, id string, gainDB, nudgeMS *float64, remove, tile 
 				if n == 0 {
 					return fmt.Errorf("%w: there's no free room in the loop after it for a copy", tape.ErrBadParameter)
 				}
-				return nil
-			}
-			if gainDB != nil {
-				if *gainDB < -60 || *gainDB > 12 {
-					return fmt.Errorf("%w: gain -60..12 dB", tape.ErrBadParameter)
-				}
-				cl.GainDB = *gainDB
-			}
-			if nudgeMS != nil {
-				if *nudgeMS < -500 || *nudgeMS > 500 {
-					return fmt.Errorf("%w: nudge ±500 ms", tape.ErrBadParameter)
-				}
-				cl.NudgeMS = *nudgeMS
 			}
 			return nil
 		}
@@ -664,9 +667,13 @@ func (a *API) handleClipboard(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
 	}
-	c := a.tape.Clipboard()
+	c, err := a.tape.Clipboard()
 	resp := map[string]any{"clipboard": nil}
-	if !c.Empty() {
+	switch {
+	case err != nil:
+		// Only clearing it mends it; the page offers ×.
+		resp["error"] = "the clipboard can't be read: " + err.Error()
+	case !c.Empty():
 		resp = map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())}
 	}
 	w.Header().Set("Cache-Control", "no-store")
@@ -690,6 +697,7 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 	}
 	var c *tape.Clipboard
 	var err error
+	clamped := false
 	switch {
 	case b.Take != "":
 		name, nerr := a.safeTakeName(b.Take)
@@ -705,18 +713,11 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 		}
 		c, err = a.tape.CopyTake(path, name, b.From, b.To, a.takePair(info.Channels))
 	case b.RingFrom != nil:
-		to := int64(-1)
+		to := int64(-1) // up to now
 		if b.RingTo != nil {
 			to = *b.RingTo
-		} else if a.cap != nil {
-			_, total := a.cap.Ring().Window()
-			to = int64(total)
 		}
-		src := b.Source
-		if src == "" {
-			src = "main"
-		}
-		c, err = a.tape.CopyRing(*b.RingFrom, to, src)
+		c, clamped, err = a.tape.CopyRing(*b.RingFrom, to, b.Source)
 	default:
 		writeErr(w, http.StatusBadRequest, "copy a take's {take, from, to} or the ring's {ring_from, ring_to, source}")
 		return
@@ -725,7 +726,7 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 		tapeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())})
+	writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate()), "clamped": clamped})
 }
 
 func (a *API) handleClipboardClear(w http.ResponseWriter, r *http.Request) {
@@ -739,32 +740,31 @@ func (a *API) handleClipboardClear(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"clipboard": nil})
 }
 
-// handleClipboardAudio streams the clipboard, its tracks summed, as a
-// 16-bit WAV.
+// handleClipboardAudio serves the clipboard's first minute, its tracks
+// summed, as a 16-bit WAV, with ranges and HEAD, as a phone's audio element
+// wants.
 func (a *API) handleClipboardAudio(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
 	}
-	c := a.tape.Clipboard()
-	if c.Empty() {
-		writeErr(w, http.StatusNotFound, tape.ErrEmptyClipboard.Error())
+	pcm, err := a.tape.ClipboardAudio()
+	if errors.Is(err, tape.ErrEmptyClipboard) {
+		writeErr(w, http.StatusNotFound, err.Error())
 		return
 	}
-	sr := a.tape.Store().SampleRate()
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	b := wav16Header(len(pcm)/2, 2, a.tape.Store().SampleRate())
+	for _, v := range pcm {
+		x := int32(math.Round(float64(v) * 32767))
+		x = max(-32768, min(32767, x))
+		b = append(b, byte(x), byte(x>>8))
+	}
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Write(wav16Header(int(c.Frames), 2, sr))
-	buf := make([]byte, 0, 4*tape.BlockFrames)
-	a.tape.ClipboardAudio(func(b []float32) error {
-		buf = buf[:0]
-		for _, v := range b {
-			x := int32(math.Round(float64(v) * 32767))
-			x = max(-32768, min(32767, x))
-			buf = append(buf, byte(x), byte(x>>8))
-		}
-		_, err := w.Write(buf)
-		return err
-	})
+	http.ServeContent(w, r, "clipboard.wav", time.Time{}, bytes.NewReader(b))
 }
 
 // wav16Header is a 44-byte RIFF header for 16-bit PCM.

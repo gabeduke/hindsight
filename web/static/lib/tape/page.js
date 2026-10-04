@@ -224,8 +224,10 @@ function renderMode() {
 
 async function fetchClipboard() {
   try {
-    state.clipboard = (await api('/api/clipboard')).clipboard || null;
-  } catch { state.clipboard = null; }
+    const b = await api('/api/clipboard');
+    state.clipboard = b.clipboard || null;
+    state.clipboardError = b.error || '';
+  } catch { state.clipboard = null; state.clipboardError = ''; }
   renderClipboard();
 }
 
@@ -233,7 +235,9 @@ function renderClipboard() {
   const c = state.clipboard;
   const t = state.tape;
   const chip = $('clip-play');
-  if (!c || !t) {
+  if (state.clipboardError) {
+    chip.textContent = 'can’t be read: × clears it';
+  } else if (!c || !t) {
     chip.textContent = 'empty';
   } else {
     const secs = (c.frames / t.sample_rate).toFixed(1);
@@ -243,7 +247,7 @@ function renderClipboard() {
   chip.disabled = !c;
   chip.classList.toggle('playing', !$('clip-audio').paused);
   $('drop').disabled = !c || !t;
-  $('clip-clear').disabled = !c;
+  $('clip-clear').disabled = !c && !state.clipboardError;
 }
 
 function auditionClipboard() {
@@ -255,9 +259,10 @@ function auditionClipboard() {
 }
 
 async function drop() {
+  // Read before the request: a poll may change the clipboard meanwhile.
+  const secs = state.clipboard && state.tape ? (state.clipboard.frames / state.tape.sample_rate).toFixed(1) : '';
   try {
     const d = await change(() => api(`/api/tapes/drop?${q()}`, { method: 'POST', body: { track: state.track } }));
-    const secs = (state.clipboard.frames / state.tape.sample_rate).toFixed(1);
     toast(`Dropped ${secs} s on track ${state.track}${d.tracks > 1 ? ` and the ${d.tracks - 1} after it` : ''}`, 'ok', {
       action: { label: 'Undo', run: () => undoRedo(false) },
     });
@@ -316,7 +321,7 @@ function wireRuler() {
   cv.addEventListener('pointerdown', (e) => {
     if (!state.tape) return;
     cv.setPointerCapture(e.pointerId);
-    down = { x: e.clientX, f: frameOf(e), held: false, moved: false };
+    down = { x: e.clientX, y: e.clientY, f: frameOf(e), held: false, moved: false };
     down.timer = setTimeout(() => {
       if (!down || down.moved || !state.tape.grid) return;
       down.held = true;
@@ -330,8 +335,8 @@ function wireRuler() {
     if (down.held) {
       state.sel = barSpan(state.tape.grid, down.f, frameOf(e));
       drawRuler();
-    } else if (Math.abs(e.clientX - down.x) > 8) {
-      down.moved = true;
+    } else if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) {
+      down.moved = true; // a swipe, not a tap or a hold
     }
   });
   const end = (e, cancelled) => {
@@ -772,6 +777,7 @@ function wire() {
   $('clip-play').addEventListener('click', auditionClipboard);
   $('clip-audio').addEventListener('ended', renderClipboard);
   $('clip-audio').addEventListener('pause', renderClipboard);
+  $('clip-audio').addEventListener('error', () => { $('clip-audio').pause(); renderClipboard(); });
   $('drop').addEventListener('click', drop);
   $('clip-clear').addEventListener('click', async () => {
     try { await api('/api/clipboard', { method: 'DELETE' }); } catch (e) { toast(e.message, 'bad'); }

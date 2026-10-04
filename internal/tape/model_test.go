@@ -260,3 +260,15 @@ func TestABarLineBelongsToTheBarItStarts(t *testing.T) {
 		}
 	}
 }
+
+func TestReplaceClearsEveryLayerUnderIt(t *testing.T) {
+	s := State{Tracks: []Track{{N: 1, Bus: BusA}}}
+	s.Place(1, Clip{File: "a", Frames: 1000, At: 0}, false)
+	s.Place(1, Clip{File: "b", Frames: 1000, At: 0}, false) // an overdub, on layer 1
+	s.Place(1, Clip{File: "c", Frames: 500, At: 250}, true)
+	for _, c := range s.Tracks[0].Clips {
+		if c.File != "c" && c.At < 750 && c.End() > 250 {
+			t.Fatalf("%+v still plays under the replacement", c)
+		}
+	}
+}

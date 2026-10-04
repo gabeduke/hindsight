@@ -946,8 +946,11 @@ playing), on that track and the next for each further clipboard track,
 replacing what's under it; or, on an empty tape with no tempo, as its first
 loop, its bar count the one nearest the last tape's tempo. Stopped, the
 playhead moves to the drop's end. Answers
-`{"clip": …, "tracks": 1, "end": F}`; 409 if the clipboard is empty, 400 if
-its tracks don't fit from that one or it would run past the end of the tape.
+`{"clip": …, "tracks": 1, "end": F}` once the playhead has moved; 409 if the
+clipboard is empty, 400 if its tracks don't fit from that one, it would run
+past the end of the tape, or, as a first loop, it makes no tempo of 20–400
+BPM. A drop during a count-in lands where the tape will start, and doesn't
+move it.
 
 `{"take": "jam_….wav", "from": F, "to": T, "track": 1, "bars": 0}` copies
 frames `[from, to)` of a take into the pool (its `SAVE_CHANNELS` pair, for a
@@ -970,12 +973,18 @@ restart; 404 when the tape is off.
   never referenced, since flag edits rewrite it.
 - `POST {"ring_from": F, "ring_to": T, "source": "main"}` copies a span of
   the ring, in absolute frames (`ring_to` left out: up to now), from a
-  `TAPE_SOURCES` pair. 409 if it's left the ring or isn't in it yet.
-- Both answer the new clipboard; 507 for low disk.
-- `GET /api/clipboard/audio` streams it, every track summed, as a 16-bit
-  stereo WAV. 404 when it's empty.
+  `TAPE_SOURCES` pair (left out: `main`, or the first there is). A start
+  that has left the ring moves to the oldest audio, a second in, and the
+  answer has `"clamped": true`; 409 if the span has left it altogether or
+  isn't in it yet.
+- Both answer the new clipboard; 400 for a copy longer than a track; 507 for
+  low disk.
+- `GET /api/clipboard/audio` is its first minute, every track summed, as a
+  16-bit stereo WAV, with `Range` and `HEAD`. 404 when it's empty.
 - `DELETE` empties it. Its audio stays until a clean-up finds nothing using
-  it; the clean-up keeps whatever the clipboard holds.
+  it; the clean-up keeps whatever the clipboard holds. A `clipboard.json`
+  that can't be read is reported by `GET` as `error`, and kept from the
+  clean-up (every copy is) until `DELETE` clears it.
 
 ### `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=`
 

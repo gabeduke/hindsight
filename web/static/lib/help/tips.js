@@ -79,7 +79,7 @@ export const TIPS = [
   { control: '▶ (tape)', ids: ['tape-play'], tip: 'Play or stop the tape' },
   { control: 'Ruler (tape)', ids: ['tape-ruler'], tip: 'Tap: the playhead to that bar. Hold, then drag: loop those bars' },
   { control: 'Layer / Replace', ids: ['catch-mode'], tip: 'Onto audio already there: layer on top of it, or replace it' },
-  { control: 'Clipboard', ids: ['clipboard'], tip: 'What you copied last, from a take, the ribbon or a tape. Tap to hear it' },
+  { control: 'Clipboard', ids: ['clipboard'], tip: 'What you copied last, from a take or the ribbon. Tap to hear it' },
   { control: '× (clipboard)', ids: ['clipboard-clear'], tip: 'Empty the clipboard' },
   { control: 'Repeat to the loop’s end', ids: ['clip-tile'], tip: 'Copies of this clip end to end, to the end of the loop: one bar through four' },
   { control: 'Track name', ids: ['track-name'], tip: 'What’s on this track, for you: chords, bass…' },

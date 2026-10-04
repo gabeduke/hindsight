@@ -347,8 +347,12 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 	off := 0
 	for n > 0 {
 		for len(tr.pend) > 0 && tr.pend[0].at <= out {
-			tr.apply(tr.pend[0].action, out, m, length)
+			a := tr.pend[0].action
+			tr.apply(a, out, m, length)
 			tr.pend = tr.pend[1:]
+			if a.done != nil {
+				close(a.done)
+			}
 		}
 		span := int64(n)
 		if len(tr.pend) > 0 {
@@ -447,6 +451,9 @@ func (e *Engine) idle(out uint64) {
 			case "play":
 			default:
 				tr.apply(a, out, m, m.length)
+			}
+			if a.done != nil && a.Kind != "reset" {
+				close(a.done)
 			}
 			continue
 		default:
@@ -622,6 +629,23 @@ func (e *Engine) Undo(id string, redo bool) error {
 		e.rebuild()
 	}
 	return err
+}
+
+// doWait queues an action and waits, briefly, until it's carried out: for
+// a caller whose answer depends on it.
+func (e *Engine) doWait(a Action) {
+	if !e.started.Load() {
+		e.Do(a)
+		return
+	}
+	done := make(chan struct{})
+	a.done = done
+	e.Do(a)
+	select {
+	case <-done:
+	case <-e.stop:
+	case <-time.After(500 * time.Millisecond):
+	}
 }
 
 // Do queues a transport action; the render goroutine carries it out on its

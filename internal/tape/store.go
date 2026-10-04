@@ -384,12 +384,9 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 	for _, k := range keep {
 		used[k] = true
 	}
-	// The clipboard is a root too. One that can't be read might hold
-	// anything, so nothing is cleaned up.
-	c, err := s.LoadClipboard()
-	if err != nil {
-		return 0, 0, fmt.Errorf("the clipboard can't be read, so nothing was cleaned up: %w", err)
-	}
+	// The clipboard is a root too. One that can't be read might hold any
+	// copy, so every copy is kept until it's cleared.
+	c, cerr := s.LoadClipboard()
 	c.files(used)
 	entries, err := os.ReadDir(filepath.Join(s.dir, "tapes"))
 	if err != nil {
@@ -422,6 +419,9 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 	for _, e := range pool {
 		name := e.Name()
 		if e.IsDir() || !strings.HasSuffix(name, ".wav") || used["audio/"+name] {
+			continue
+		}
+		if cerr != nil && strings.HasPrefix(name, "copy_") {
 			continue
 		}
 		p := filepath.Join(s.dir, "audio", name)

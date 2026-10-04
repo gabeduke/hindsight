@@ -368,8 +368,8 @@ func (s *State) validate(length int64) error {
 	return nil
 }
 
-// Place puts a clip on a track. With replace, whatever on that layer the clip
-// covers is cut away (clips are trimmed, split or removed); otherwise it goes
+// Place puts a clip on a track. With replace, whatever the clip covers, on
+// every layer, is cut away (clips are trimmed, split or removed); otherwise it goes
 // on a new layer above everything it overlaps -- the OP-1's always-overdub
 // rule. Called inside Change.
 func (s *State) Place(track int, c Clip, replace bool) (Clip, error) {
@@ -382,7 +382,7 @@ func (s *State) Place(track int, c Clip, replace bool) (Clip, error) {
 	}
 	if replace {
 		c.Layer = 0
-		tr.Clips = cutRange(tr.Clips, 0, c.At, c.End())
+		tr.Clips = clearRange(tr.Clips, c.At, c.End())
 	} else {
 		// The lowest layer the span is free on.
 		c.Layer = 0
@@ -402,6 +402,19 @@ func (s *State) Place(track int, c Clip, replace bool) (Clip, error) {
 	}
 	tr.Clips = append(tr.Clips, c)
 	return c, nil
+}
+
+// clearRange removes [from, to) from the clips on every layer: replace
+// leaves nothing playing under what replaces it.
+func clearRange(clips []Clip, from, to int64) []Clip {
+	layers := map[int]bool{}
+	for _, c := range clips {
+		layers[c.Layer] = true
+	}
+	for l := range layers {
+		clips = cutRange(clips, l, from, to)
+	}
+	return clips
 }
 
 // cutRange removes [from, to) from the clips on one layer: a clip inside is

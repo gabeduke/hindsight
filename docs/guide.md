@@ -569,11 +569,12 @@ other tapes' undo.
   records. ■ keeps it.
 - The toast has **Cancel** while it records, and **Undo** once kept.
 
-**The clipboard (6d)** holds what you last copied -- from a take, the
-ribbon, or a tape (step 7) -- and keeps it through a restart. Its row on the
+**The clipboard (6d)** holds what you last copied from a take or the ribbon
+(copying from a tape comes with step 7), and keeps it through a restart. A
+copy can be as long as a track. Tapping it plays its first minute. Its row on the
 tape page shows how long it is and where it came from:
 
-- **Tap it** to hear it.
+- **Tap it** to hear it (its first minute).
 - **Drop** puts it on the selected track at the playhead, replacing what's
   there. Stopped, the playhead moves to the drop's end, so **Drop, Drop,
   Drop** lays copies end to end. On an empty tape, a drop is the first loop.
@@ -617,16 +618,17 @@ tape page shows how long it is and where it came from:
   and nothing complains.
 - [rig] Arm track 3 with the guitar in aux, press ▶, play over the count-in
   and two passes, press ■ → the guitar is on track 3, in time.
-- [demo] On a take page choose **More → Copy**, then on an empty tape tap
-  **Drop** three times → the first is the loop, and the next two lie end to
-  end after it. Undo takes them back one at a time.
+- [demo] On a take page select about 2 seconds and choose **More → Copy**,
+  then on an empty tape tap **Drop** three times → the first is the loop,
+  and the next two lie end to end after it. Undo takes them back one at a
+  time.
 - [demo] Tap the clipboard → you hear it; tap again → it stops.
 - [demo] Choose **Replace**, catch a pass onto a track that has audio →
   the old audio under it is gone, not layered.
 - [demo] Hold on the ruler, drag across two bars → *Looping 2 bars*; the tape
   loops those.
-- [demo] Tap a 1-bar clip in a 4-bar loop, *Repeat to the loop's end* → four
-  copies.
+- [demo] Tap a 1-bar clip at the start of a 4-bar loop, *Repeat to the
+  loop's end* → three copies after it, four clips in all.
 - [demo] Tap the selected track's number, set its pan to the left → it sits
   left.
 - [rig] Turn channel 1's FX knob → the tape's sound changes, and the live
@@ -810,7 +812,7 @@ has no tip.
 | ▶ (tape) | Play or stop the tape |
 | Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
-| Clipboard | What you copied last, from a take, the ribbon or a tape. Tap to hear it |
+| Clipboard | What you copied last, from a take or the ribbon. Tap to hear it |
 | × (clipboard) | Empty the clipboard |
 | Repeat to the loop’s end | Copies of this clip end to end, to the end of the loop: one bar through four |
 | Track name | What’s on this track, for you: chords, bass… |
