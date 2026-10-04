@@ -12,12 +12,14 @@ internal/midi        rawmidi watcher, parser, event ring, clock, tempo map, SMF 
 internal/smf         Standard MIDI File writer and reader
 internal/bundle      writes a take's .mid and manifest from audio's window and midi's events
 internal/mono        the one monotonic clock audio and MIDI both stamp with
+internal/tape        the tape: model and undo, store and pool, renderer, transport, player, catching
 internal/api         HTTP and WebSocket handlers
 web/static           the UI, served from disk per request
 web/static/lib/wave  the take page: view, geometry, draw, tiles, clock, lanes, page
 web/static/lib/edit  the gestures every editing surface shares
 web/static/lib/help  tips, help mode, and the guide renderer
 web/static/lib/phone the phone recorder
+web/static/lib/tape  the tape page
 docs/embed.go        the guide, compiled into the binary
 ```
 
@@ -420,6 +422,87 @@ resends after a reconnect, and the recorder sheet.
 `GET /api/render` runs ffmpeg. Two at once on a Pi compete with the capture
 path for CPU, so renders take turns: a second request waits, and gives up
 without starting ffmpeg if its client goes away first.
+
+## The tape
+
+`internal/tape`, behind `TAPE=true`. The design is
+[the tape spec](superpowers/specs/2026-10-03-tape-design.md); this is how
+the first part (step 6a) is built.
+
+```
+API ─edit─▶ Tape (model, undo) ─save─▶ tapes/<id>/tape.json
+              │ new Mix
+              ▼
+     render goroutine: transport + Mix ─blocks─▶ FIFO ─pull─▶ Sink (device)
+                                                                │ plays
+                                                                ▼
+     Catch ◀── cycle log + position map ── ring (capture) ◀── Sidekick
+```
+
+**The model.** A tape is one `tape.json`: tracks of clips, the grid (the
+first loop's exact length in frames, and how many bars it is), the loop,
+and each track's mix. A clip points into a pool WAV: `src` and `frames` in
+the file, `at` on the tape, a `layer`. Undo is a list of earlier versions of
+the whole state, 100 deep, saved in the file; an edit of the same kind
+within 2 s extends the last step. Every edit goes through `Tape.Change`,
+which validates the result (buses, pan, nothing past the end) before it's
+kept, so a bad edit changes nothing.
+
+**The store.** `TAPE_DIR/tapes/<id>/tape.json` is rewritten after every
+edit through a synced temporary file and a rename. `TAPE_DIR/audio/` is the
+pool: every catch and drop is written there once, with 10 ms either side
+for crossfades, and its peaks beside it, and never changed. Clones copy only
+`tape.json`. Clean-up deletes pool files that no tape's state or history
+uses, and spares any less than a minute old, which may belong to a catch
+still being placed.
+
+**The renderer.** `Mix` is built from a state whenever it changes and
+swapped in atomically. It reads pool files fully into memory as float32;
+nothing is memory-mapped, because a mapped file on a bumped USB disk faults
+and would take the ring down with it. For each block it sums every clip in
+the block's span into its track's bus (A or B) at the clip's and track's
+gain and the track's pan, honouring mute and solo. Edges follow what's
+beside them: where audio meets audio (two clips end to end, or a clip
+wrapping into itself at the loop's seam) a 5 ms equal-power crossfade runs
+from the outgoing clip's overhang; an edge with silence beside it gets the
+3 ms declick cuts use.
+
+**The transport and the player.** One render goroutine owns the transport.
+It applies queued actions (play, stop, locate) on the exact output frame
+their quantum falls on, advances one tape frame per output frame, wraps at
+the loop's Out, and renders a few blocks (about 100 ms) ahead into a FIFO.
+The device's callback takes blocks from the FIFO and never blocks or
+allocates; if none is ready it plays silence, counts it as late, and the
+tape counts on, so the tape never drifts against the device. Everything the
+transport did is kept: a map from output frame to tape position, and a log
+of each complete pass of the loop. Panics in the engine are recovered and
+reported in the state; the dashcam keeps rolling.
+
+**Catching.** What the tape played at output frame `o` is in the capture
+ring at `o + delta`. A catch looks up the output frames it wants -- a pass
+from the cycle log, or the last N bars from the position map, back from the
+newest frame the ring has heard -- and copies that range of the ring, on the
+chosen source's channel pair, into the pool, then places it where it was
+played. N bars that cross the loop's end are split into two clips. Catching
+needs `delta`:
+
+- The demo knows it exactly. The demo sink is a loopback: what it plays is
+  mixed into the demo source's next input block, MAIN and both channel taps
+  by bus, as the Sidekick would, and `delta` is fixed at its first pull.
+- On hardware the PortAudio output and the aligner that measures `delta` are
+  step 6b. Until then the engine runs with no sink: tapes can be made from
+  takes and edited, and nothing plays or can be caught.
+
+**Sources** (`TAPE_SOURCES`) name capture pairs and the buses heard in each.
+A source is clean on a tape when no bus that leaks into it has unmuted audio,
+and each caught clip records whether its source was.
+
+**Drops** copy a span of a take into the pool. On an empty tape the first
+drop becomes the grid and the loop; later ones go at the playhead.
+
+The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
+times a second, draws the lanes from each pool file's peaks, and sends what
+you tap; the Pi holds all the state, so several devices stay in step.
 
 ## The UI
 

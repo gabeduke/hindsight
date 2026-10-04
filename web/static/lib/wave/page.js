@@ -781,6 +781,38 @@ async function main() {
     }
   });
 
+  // --- Send to tape -------------------------------------------------------------
+  // The selection (or the whole take) onto the loaded tape's selected track,
+  // at its playhead -- or, on an empty tape, as its first loop. Offered only
+  // when the Pi runs the tape.
+  let tapeLoaded = '';
+  fetch('/api/tapes', { cache: 'no-store' }).then(async (r) => {
+    if (!r.ok) return;
+    tapeLoaded = (await r.json()).loaded || '';
+    $('send-to-tape').hidden = false;
+  }).catch(() => {});
+  $('send-to-tape').addEventListener('click', async () => {
+    const from = state.region ? state.region.start : 0;
+    const to = state.region ? state.region.end : total;
+    try {
+      let id = tapeLoaded;
+      if (!id) {
+        const t = await (await fetch('/api/tapes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: take.label || '' }) })).json();
+        await fetch(`/api/tapes/load?id=${encodeURIComponent(t.id)}`, { method: 'POST' });
+        id = tapeLoaded = t.id;
+      }
+      const res = await fetch(`/api/tapes/drop?id=${encodeURIComponent(id)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ take: file, from, to, track: 1, bars: 0 }),
+      });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(b.error || `status ${res.status}`);
+      toast(`Sent ${fmtClock(to - from, sr)} to tape, track 1`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+    } catch (e) {
+      toast(`Could not send to tape: ${e.message}`, 'bad');
+    }
+  });
+
   // --- Save as take ---------------------------------------------------------
   $('save-take').addEventListener('click', async () => {
     if (!state.region) return;

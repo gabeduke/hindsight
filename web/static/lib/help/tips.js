@@ -62,8 +62,26 @@ export const TIPS = [
   { control: 'Notes', ids: ['notes-open'], tip: "Watch the take's MIDI rise out of a keyboard as it plays" },
   { control: 'Lane', ids: ['lane'], tip: "Tap for this lane's menu: collapse, show as drums or notes, or hide" },
   // Later steps
-  { control: 'Send to tape', ids: ['send-to-tape'], tip: 'Put the selection on the loaded tape, at its playhead' },
+  { control: 'Send to tape', ids: ['send-to-tape'], tip: 'Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape' },
   // The tape page
+  { control: 'Tape (main page)', ids: ['tape-link'], tip: 'The tape: layer loops caught from what you just played' },
+  { control: 'Tape name', ids: ['tape-menu'], tip: 'Your tapes: load one, make a new one, clone this one' },
+  { control: 'A tape in the list', ids: ['tape-load'], tip: 'Load this tape: the transport plays the loaded one' },
+  { control: 'New tape', ids: ['tape-new'], tip: 'Start an empty tape. Its first loop sets the tempo' },
+  { control: 'Delete a tape', ids: ['tape-delete'], tip: 'Delete another tape. Audio it shares with others stays' },
+  { control: 'BPM, Bars (empty tape)', ids: ['tape-bpm'], tip: 'Start from a tempo instead of a first loop' },
+  { control: '↶ ↷ (tape)', ids: ['tape-undo', 'tape-redo'], tip: 'Undo or redo the last change to the tape: up to 100 steps' },
+  { control: 'Tape overview', ids: ['tape-overview'], tip: 'The whole tape, six minutes a track; the loop in amber' },
+  { control: 'A lane', ids: ['tape-lane'], tip: 'Tap a clip for its level, nudge or removal; tap elsewhere to move the playhead there' },
+  { control: 'A track header', ids: ['track'], tip: 'Tap the number to pick the track catches go onto' },
+  { control: 'M, S', ids: ['track-mute', 'track-solo'], tip: 'Mute this track, or solo it: only soloed tracks play' },
+  { control: 'Track level', ids: ['track-gain'], tip: 'The track\'s level into its bus, -30 to +6 dB. Tracks start at -6' },
+  { control: '▶ (tape)', ids: ['tape-play'], tip: 'Play or stop the tape' },
+  { control: '⟲ Loop (tape)', ids: ['tape-loop'], tip: 'Loop the bracket, or play on to the end of the tape' },
+  { control: '1 bar, 2, 4', ids: ['catch-bars'], tip: 'Catch the last bars you played, ending on the last bar line, where they were played' },
+  { control: 'Clip level', ids: ['clip-gain'], tip: 'This clip\'s level within its track' },
+  { control: 'Nudge', ids: ['clip-nudge'], tip: 'Move the clip a few milliseconds, for a part a little early or late' },
+  { control: 'Remove (clip)', ids: ['clip-remove'], tip: 'Take this clip off the tape. Undo brings it back' },
   { control: 'Rec', ids: ['rec'], tip: 'Record the next time round the loop. Stopped: arm, then ▶ counts you in' },
   { control: 'Catch', ids: ['catch'], tip: 'Put what you just played onto the selected track: the last bars, or a pass' },
   { control: 'Passes', ids: ['passes'], tip: 'Every time round the loop, kept. Tap one to put it on the selected track' },
@@ -77,8 +95,8 @@ export const TIPS = [
   { control: 'Clone', ids: ['clone'], tip: 'Copy this whole tape. Costs no disk space' },
   { control: 'Mixdown', ids: ['mixdown'], tip: 'Play In to Out once and save what came out of the mixer as a take' },
   { control: 'Bus A / B', ids: ['bus'], tip: 'Which Sidekick channel this track plays through, for its EQ and FX' },
-  { control: 'Source chip', ids: ['source-chip'], tip: "Which input you'd catch from. Filled = sounding; ring = clean of the tape" },
-  { control: 'Lock dot', ids: ['lock-dot'], tip: 'Playback and recording are lined up to the sample' },
+  { control: 'Source chip', ids: ['source-chip'], tip: 'Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too' },
+  { control: 'Lock dot', ids: ['lock-dot'], tip: 'Green: playback and recording are lined up to the sample. Catching needs it' },
 ];
 
 const byId = new Map();

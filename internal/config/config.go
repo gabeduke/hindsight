@@ -38,6 +38,14 @@ type Config struct {
 	MIDILatencyMS   float64  // added to every MIDI timestamp before alignment
 	MIDISnapBars    bool     // start a take on the last downbeat before the window
 
+	// Tape (docs/superpowers/specs/2026-10-03-tape-design.md). Off by
+	// default, so a rig that only wants the dashcam never opens playback.
+	Tape        bool
+	TapeDir     string
+	TapeTracks  int
+	TapeLengthS int    // a track's length, the OP-1's six minutes
+	TapeSources string // name=L,R[:buses] ..., parsed by the tape package
+
 	// Server
 	Port string
 
@@ -66,6 +74,11 @@ func Load() (*Config, error) {
 		MIDIRingEvents:  envInt("MIDI_RING_EVENTS", 1_000_000),
 		MIDILatencyMS:   envFloat("MIDI_LATENCY_MS", 0),
 		MIDISnapBars:    envBool("MIDI_SNAP_BARS", true),
+		Tape:            envBool("TAPE", false),
+		TapeDir:         env("TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
+		TapeTracks:      envInt("TAPE_TRACKS", 4),
+		TapeLengthS:     envInt("TAPE_LENGTH_S", 360),
+		TapeSources:     env("TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
 		Port:            env("PORT", "5000"),
 		Version:         "dev",
 	}

@@ -24,7 +24,7 @@ export const HINTS = {
   },
 };
 
-const GUIDE = { take: '/guide.html#4-the-take-page', main: '/guide.html#3-the-main-page' };
+const GUIDE = { take: '/guide.html#4-the-take-page', main: '/guide.html#3-the-main-page', tape: '/guide.html#8-tape' };
 
 function storageGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function storageSet(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } }

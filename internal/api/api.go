@@ -26,6 +26,7 @@ import (
 	"github.com/gabeduke/hindsight/internal/bundle"
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/midi"
+	"github.com/gabeduke/hindsight/internal/tape"
 	"github.com/gorilla/mux"
 )
 
@@ -63,6 +64,9 @@ type API struct {
 	// phoneGrace is how long a recording waits for its phone to reconnect;
 	// zero means defaultPhoneGrace. Tests shorten it.
 	phoneGrace time.Duration
+
+	// tape is the tape engine, or nil with TAPE off.
+	tape *tape.Engine
 
 	// bg counts work a request leaves running -- a preview encode, a prune --
 	// so a test can wait for it before its takes folder goes.
@@ -143,6 +147,20 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/midi", a.handleMIDI).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/bundle", a.handleBundle).Methods(http.MethodGet)
 	r.HandleFunc("/guide.md", handleGuide).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes", a.handleTapes).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes", a.handleTapeCreate).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes", a.handleTapePatch).Methods(http.MethodPatch)
+	r.HandleFunc("/api/tapes", a.handleTapeDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/api/tapes/state", a.handleTapeState).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes/load", a.handleTapeLoad).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/transport", a.handleTapeTransport).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/catch", a.handleTapeCatch).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/drop", a.handleTapeDrop).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/undo", a.handleTapeUndo(false)).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/redo", a.handleTapeUndo(true)).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/clone", a.handleTapeClone).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/cleanup", a.handleTapeCleanup).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/peaks", a.handleTapePeaks).Methods(http.MethodGet, http.MethodHead)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

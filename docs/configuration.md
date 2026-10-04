@@ -211,3 +211,38 @@ the window is left alone and bar 1 is declared to be the take's first frame,
 which the manifest's `downbeat.source` (`window-start` rather than
 `midi-start`) says. The EP-136 never sends Start — it has no transport — so
 with it as the clock device that is the normal case.
+
+## The tape
+
+The tape ([guide §8](guide.md#8-tape)) is off unless `TAPE=true`. When it's
+on, the main page shows a **Tape** chip. A tape that fails to start is logged
+and left off; it can never stop the dashcam recording.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `TAPE` | `false` | Turn the tape on |
+| `TAPE_DIR` | `~/hindsight/tapes` | Where tapes and their audio live. Put it on the same disk as `OUTPUT_DIR`; `MIN_FREE_GB` guards it as it guards takes |
+| `TAPE_TRACKS` | `4` | Tracks a new tape has (1–16) |
+| `TAPE_LENGTH_S` | `360` | How long a track is, in seconds: the OP-1's six minutes |
+| `TAPE_SOURCES` | `main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8` | The inputs a catch can take from: space-separated `name=L,R[:buses]`, with 1-indexed capture channels and the tape buses heard in each |
+
+`TAPE_SOURCES` is the Sidekick's map. MAIN carries both of the tape's buses,
+channel 1's tap carries bus A, channel 2's tap carries bus B, and aux carries
+neither. A source that hears a bus is shown with ○ on the tape page, because
+catching from it records the tape as well as you. A channel past `CHANNELS`
+is refused at startup.
+
+On disk, `TAPE_DIR` holds:
+
+- `tapes/<id>/tape.json` for each tape: its tracks, clips, mix and undo
+  history. It's rewritten after every change, to a temporary file that's
+  synced and renamed, so a power cut leaves the old version or the new one.
+- `audio/`, the pool of every caught or sent piece of audio, as 32-bit WAVs
+  with peaks beside them. Clips point into the pool and never change it, so a
+  clone costs nothing. Deleting a tape frees the pool files that no tape, and
+  no tape's undo history, still uses.
+- `loaded`, naming the tape that was loaded, so a restart loads it again.
+
+In this version the tape plays only in the demo. On the Pi, playback through
+the Sidekick is the next step; until then tapes can be made from takes and
+edited, but not heard or caught onto.

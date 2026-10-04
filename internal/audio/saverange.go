@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/mono"
@@ -241,4 +242,71 @@ func (ww *wavWriter) close() (*PeakData, *pyramidAcc, error) {
 		return nil, nil, err
 	}
 	return ww.pk.finish(ww.sampleRate, ww.frames), ww.pyr, nil
+}
+
+// WriteSpan writes the absolute ring frames [from, to) of the channels in
+// pick to path as a 32-bit WAV, chunk by chunk (Ring.Range), with its
+// whole-file peaks beside it as .peaks.json. It is the tape's one write path:
+// a catch is a span of the ring. On failure the file is removed.
+func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int) error {
+	ww, err := createWAV(path, int(to-from), len(pick), sampleRate)
+	if err != nil {
+		os.Remove(path)
+		return err
+	}
+	err = r.Range(from, to, pick, ww.write)
+	peaks, _, cerr := ww.close()
+	if err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(path)
+		return err
+	}
+	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {
+		log.Printf("[!] peaks for %s: %v", path, perr)
+	}
+	return nil
+}
+
+// CopyWAVSpan writes frames [from, to) of a 32-bit WAV's channels in pick to
+// path, as WriteSpan does from the ring: how a take's selection goes onto a
+// tape. A pick past the file's channels repeats its last one (a mono take
+// becomes both sides).
+func CopyWAVSpan(src string, from, to int64, pick []int, path string) error {
+	info, err := ReadWAVInfo(src)
+	if err != nil {
+		return err
+	}
+	ch := info.Channels
+	ww, err := createWAV(path, int(to-from), len(pick), info.SampleRate)
+	if err != nil {
+		os.Remove(path)
+		return err
+	}
+	buf := make([]int32, 0, (1<<14)*len(pick))
+	_, err = ReadFrames(src, from, to, 1<<14, func(b []int32, _ int64) error {
+		buf = buf[:0]
+		for i := 0; i+ch <= len(b); i += ch {
+			for _, c := range pick {
+				if c >= ch {
+					c = ch - 1
+				}
+				buf = append(buf, b[i+c])
+			}
+		}
+		return ww.write(buf)
+	})
+	peaks, _, cerr := ww.close()
+	if err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(path)
+		return err
+	}
+	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {
+		log.Printf("[!] peaks for %s: %v", path, perr)
+	}
+	return nil
 }

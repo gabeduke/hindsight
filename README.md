@@ -15,6 +15,7 @@ It exists because the take you want is the one you already played.
 - **Take page** — open any take to zoom and scrub it: drag to move along, press and hold then drag to select a part, set In and Out at the playhead, loop it, snap to the bar grid, flag moments, share the selection as an MP3 from your phone, or save it as a new take with declick fades. Every control explains itself in help mode (**?**), and [the guide](docs/guide.md) is served by the app at `/guide.html`.
 - **Rising notes** — press Play and the take's MIDI plays out on a keyboard: every note grows out of its key and rises away, drums pop out of their pads. On a tablet it fills the right of the take page beside the wave and lanes; on a phone it opens from the Notes button in the header. Chips mute a track in the view, and the speed chip plays the preview at ½× or 2× with the pitch kept.
 - **Record from your phone** — the Phone button records the phone's mic, or an instrument plugged into it, straight into the takes list from anywhere in the house. It streams to the Pi as you play and survives Wi-Fi dropouts; it needs the Pi's HTTPS address, since browsers only open the mic on a secure page.
+- **Tape** *(in progress; `TAPE=true`)* — an OP-1-style four-track. Send a take's loop to tape, then catch what you play over it — the last pass, or the last few bars — onto the next track, after you've played it. In this version it plays in the demo; playback through the Sidekick is next. See [the guide, §8](docs/guide.md#8-tape).
 - **MIDI beside every take** — every USB MIDI device that enumerates is read, and a save writes a Standard MIDI File next to the WAV: one track per device and channel, on the take's timeline to within a couple of milliseconds, with a tempo map from the clock so the notes land on the DAW grid. Drop both at the project start and they line up.
 
 ## Try it
@@ -151,7 +152,7 @@ which is also what lets the Phone button record.
 | [docs/guide.md](docs/guide.md) | How to use it, in plain words: what the words mean (§2), and the checks each feature must pass |
 | [docs/install-raspberry-pi.md](docs/install-raspberry-pi.md) | Getting it running on a Pi, and operating it afterwards |
 | [docs/configuration.md](docs/configuration.md) | Every environment variable, and why the defaults are what they are |
-| [docs/api.md](docs/api.md) | The twenty-one HTTP endpoints |
+| [docs/api.md](docs/api.md) | The HTTP API |
 | [docs/architecture.md](docs/architecture.md) | How the capture path is put together, and the traps it avoids |
 | [docs/development.md](docs/development.md) | Building, testing, deploying, and the hardware probes |
 

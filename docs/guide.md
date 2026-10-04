@@ -389,6 +389,16 @@ space falls under `MIN_FREE_GB`; what was recorded is kept.
 ## 8. Tape
 
 *Steps 6–9.* Full design: [tape](superpowers/specs/2026-10-03-tape-design.md).
+Step 6 comes in two parts:
+
+- **6a** is the tape itself: tapes, tracks, clips, the mix, the transport,
+  catching passes and bars, sending a take to tape, and undo. It plays in the
+  demo.
+- **6b** plays the tape through the Sidekick on the Pi, and adds free loops,
+  punch-in and the click.
+
+Turn the tape on with `TAPE=true` ([configuration](configuration.md#the-tape)).
+The main page then shows a **Tape** chip that opens the tape page.
 
 ### 8.1 Plug in
 
@@ -400,72 +410,133 @@ space falls under `MIN_FREE_GB`; what was recorded is kept.
 
 The Bento's USB goes to the Pi's hub too, for MIDI only.
 
+Playback through the Sidekick is step 6b. Until then, on the Pi you can make
+tapes from takes and edit them, but ▶ reads *no output* and nothing can be
+caught.
+
 ### 8.2 The tape page
 
-Four lanes, one per track. Each has a name, its bus (A or B), mute (M) and
-solo (S).
+From the top:
 
-- **Tap a track's header** to select it.
-- **The ruler** across the top shows bars and the playhead. Hold and drag on
-  it to select bars.
-- **The buttons:** ▶, ⟲ Loop, In, Out, Rec, Catch.
-- **Source chips** show which input is sounding and whether it's clean, meaning
-  free of the tape's own playback.
-- **The passes row** shows the last eight times round the loop.
-- **The dot** by the tempo means playback and recording are lined up to the
-  sample.
+- **The name.** Tap it for the tape menu: open another tape, start a new one,
+  clone this one, delete one, or this guide. Under the name: the tempo and how
+  many bars the loop is.
+- **The dot** is green when the tape's playback and the recording are lined
+  up to the sample. Catching needs it. The demo is always lined up; on the Pi
+  that arrives with step 6b.
+- **↶ ↷** undo and redo every change to the tape. 100 steps are kept, with
+  the tape, so they survive a restart and every device shares them.
+- **The overview** is the whole tape, six minutes: what's on each track, and
+  the loop in amber.
+- **Four lanes**, one per track:
+  - Each header has the track's number (tap it to select the track), its bus
+    (A or B; tap to swap), **M** (mute), **S** (solo) and its level.
+  - In the lane: the bar lines, the clips and the playhead. A layer on top of
+    another clip is drawn blue.
+  - Tap a clip to open its sheet. Tap an empty part of a lane to move the
+    playhead there.
+- **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off. Beside
+  them is where the tape is, as bar.beat and time.
+- **Catch from** chooses the input a catch takes from: main, ch1, ch2 or aux.
+  - **●** means clean: none of the tape's own playback is in it.
+  - **○** means the tape is in it: ch1 hears bus A, ch2 hears bus B, and main
+    hears both.
+- **Catch the last pass** and **1 bar / 2 / 4** catch onto the selected track.
+- **Passes** keeps the last six times round the loop; −1 is the newest.
 
 ### 8.3 Your first loop
 
-*Step 6.* **Free (the default).**
+*Step 6a.* There are two ways to start a tape.
 
-1. Play until a part sounds right.
-2. Tap where the loop starts, then tap where it comes round again.
-3. Hindsight snaps each tap to the nearest note you played, and the loop starts
-   playing back right away, in time with you.
-4. Its length sets the tempo. If it guessed 168 BPM and you meant 84, tap the
-   tempo and choose the other — nothing is stretched, only relabelled.
+**From a take.** On a take page, select the loop, with In and Out on the
+downbeats, and choose **More → Send to tape**. If no tape is loaded, a new one
+is made.
 
-**From a tempo.** Set a BPM and Hindsight plays a one-bar count-in and a click.
-Play along, and after a few times round tap **Catch ▸ 4 bars**.
+- On an empty tape, the selection becomes the first loop, on track 1. Its
+  length sets the tempo: Hindsight picks the number of bars that puts it
+  nearest 90 BPM, and the loop turns on.
+- On a tape that already has a tempo, it lands at the playhead on track 1,
+  replacing what's there.
 
-**Checks — step 6:**
+**From a tempo.** On an empty tape, type a BPM and a number of bars and tap
+**Set**. The loop is that long and empty, ready to catch into.
 
-- [demo] With the demo loop playing, catch the last 4 bars onto track 1 → the
-  loop plays back from track 1 in time with the demo, and the dot shows
-  *locked*.
-- [rig] Play the Orchid into aux, tap start and end around a phrase → the loop
-  plays out of channel 1 in phase with you; the tempo reads sensibly.
-- [rig] Turn the Orchid off → the loop keeps playing.
+The tempo is fixed once the tape has audio, because nothing is ever stretched.
+
+*Step 6b* adds the free loop: tap where it starts and where it comes round,
+and each tap snaps to the nearest note you played. It also adds the count-in
+and the click.
+
+**Checks — step 6a:**
+
+- [demo] On a take page, select 2 seconds and choose **More → Send to tape**
+  → a toast says it was sent. On the tape page, track 1 holds the clip, the
+  tempo reads *120.0 BPM · 1 bar*, and ⟲ Loop is on.
+- [demo] Press ▶ → the playhead goes round the loop, the position counts
+  bars, and the passes row fills, one button a pass.
+- [demo] Make a new tape, set 90 BPM and 4 bars → it reads *90.0 BPM · 4
+  bars*, and the lanes show four empty bars. After the first catch, the tempo
+  can't be changed.
+- [rig] Send a take to tape on the Pi → it's on the tape, and ▶ reads
+  *no output* until step 6b.
 
 ### 8.4 Building it up
 
-*Step 6.*
+*Step 6a.*
 
-**Passes.** While the loop plays, everything you play is recorded anyway. The
-passes row shows each time round; tap one and it lands on the selected track.
+**Catching.** While the loop plays, everything you play is in the ring
+anyway. Choose a source and select a track, then:
 
-**Punch.** Tap **Rec** while playing and the next time round is recorded.
-While stopped, Rec arms the track and ▶ counts you in.
+- **Catch the last pass**, or tap a pass in the row, to put that whole time
+  round on the track, where it was played.
+- **1 bar / 2 / 4** catches the last bars, up to the last bar line the ring
+  has heard. A catch that runs across the loop's end is split in two, so it
+  still plays where it was played.
 
-**Layers.** Catching onto a track that already has audio adds a layer on top.
-Choose *replace* instead to clear what's there.
+A catch goes on top of what's already on the track, as a layer, the way an
+OP-1 overdubs. Its toast has **Undo**.
 
-**Mix.** Each track has level, pan, mute and solo. The Sidekick's channel 1
-knobs — EQ, FX, fader — act on bus A, which is the whole tape by default.
+**Clips.** Tap a clip for its sheet: its level, a ±5 ms nudge for timing, and
+**Remove**.
 
-**Checks — step 6:**
+**Mix.** Each track has a level, mute, solo and a bus. Every track starts on
+bus A, 6 dB down.
 
-- [demo] Play over the loop for four passes, then tap pass −3 → that pass
-  lands on track 2, in time.
-- [demo] Arm Rec while stopped, press ▶ → you hear a one-bar count-in, then
-  recording starts.
+- Bus A plays out of the Sidekick's channel 1, and bus B out of channel 2.
+- So the Sidekick's channel knobs (EQ, FX, fader) act on a whole bus.
+
+**Undo** steps back through every change, catches included. Quick changes to
+the same thing, like dragging a level, are one step.
+
+**Clone and delete.** *Clone this tape*, in the tape menu, makes a copy that
+shares the original's audio, so it costs no disk space. *Delete a tape…* asks
+for the tape's name. The loaded tape can't be deleted; open another one first.
+Deleting frees whatever audio no other tape uses, including what's only in
+other tapes' undo.
+
+*Step 6b* adds Rec (punch in on the next pass, or arm the track and count in
+from stopped), *replace* instead of layering, pan, and selecting bars on a
+ruler.
+
+**Checks — step 6a:**
+
+- [demo] Send 2 s to an empty tape and press ▶. Choose *aux*, select track 2,
+  wait four passes, then tap **−3** → a 2.0 s clip lands on track 2 at bar 1,
+  and the toast says *Caught 2.0 s from aux onto track 2*.
+- [demo] Catch from *ch1* → the toast warns that the tape was in that source
+  too.
+- [demo] On a 4-bar loop, play for a pass, then tap **1 bar** → a one-bar
+  clip lands on the bar that just finished.
+- [demo] Tap a clip, choose **Remove**, then **Undo** in the toast → the clip
+  is back. ↶ and ↷ step through the same history.
+- [demo] Open the tape page on two devices and mute a track on one → the
+  other shows it within a second.
+- [demo] Clone a tape and open the clone, delete the original, then play the
+  clone → it plays fully.
+- [demo] Restart Hindsight → the tape that was loaded is loaded again, with
+  its undo.
 - [rig] Turn channel 1's FX knob → the tape's sound changes, and the live
-  instrument on aux doesn't.
-- [demo] Catch onto a track that has audio, with *replace* off → both are
-  heard. Undo → only the first remains.
-- [demo] Fill a track to six minutes, then catch more → it's refused with the
-  room left shown.
+  instrument on aux doesn't. *(Step 6b.)*
 
 ### 8.5 Editing like an OP-1
 
@@ -622,7 +693,25 @@ has no tip.
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
 | Notes | Watch the take's MIDI rise out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
-| Send to tape | Put the selection on the loaded tape, at its playhead |
+| Send to tape | Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape |
+| Tape (main page) | The tape: layer loops caught from what you just played |
+| Tape name | Your tapes: load one, make a new one, clone this one |
+| A tape in the list | Load this tape: the transport plays the loaded one |
+| New tape | Start an empty tape. Its first loop sets the tempo |
+| Delete a tape | Delete another tape. Audio it shares with others stays |
+| BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
+| ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps |
+| Tape overview | The whole tape, six minutes a track; the loop in amber |
+| A lane | Tap a clip for its level, nudge or removal; tap elsewhere to move the playhead there |
+| A track header | Tap the number to pick the track catches go onto |
+| M, S | Mute this track, or solo it: only soloed tracks play |
+| Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
+| ▶ (tape) | Play or stop the tape |
+| ⟲ Loop (tape) | Loop the bracket, or play on to the end of the tape |
+| 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
+| Clip level | This clip's level within its track |
+| Nudge | Move the clip a few milliseconds, for a part a little early or late |
+| Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Rec | Record the next time round the loop. Stopped: arm, then ▶ counts you in |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
@@ -636,15 +725,15 @@ has no tip.
 | Clone | Copy this whole tape. Costs no disk space |
 | Mixdown | Play In to Out once and save what came out of the mixer as a take |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
-| Source chip | Which input you'd catch from. Filled = sounding; ring = clean of the tape |
-| Lock dot | Playback and recording are lined up to the sample |
+| Source chip | Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too |
+| Lock dot | Green: playback and recording are lined up to the sample. Catching needs it |
 
 ## 10. When something's off
 
 | You see | It means | Do |
 |---|---|---|
-| The lock dot is hollow | Playback and recording haven't been lined up yet; it locks once the tape plays something with a clear attack | Play the tape for a few seconds. Catches still work, marked *estimated*, and can be nudged |
-| A source chip says *not clean* | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
+| The dot by ↶ isn't green | The tape's playback isn't lined up with the recording, so catches are off. On the Pi that's until step 6b; from then it lines up once the tape plays something with a clear attack | In the demo it's always lined up. From step 6b: play the tape for a few seconds |
+| A source chip shows ○ | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
 | "Too long for the ring" on Mixdown | The selection is longer than the last 15 minutes can hold | Mix down in parts, or raise `RING_SECONDS` |
 | "Not enough room on the tape" | The track would run past six minutes | Lift something, or raise `TAPE_LENGTH_S` |
 | *Phone* says the microphone needs a secure page | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |
