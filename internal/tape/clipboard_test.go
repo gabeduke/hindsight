@@ -16,7 +16,7 @@ func TestDropDropDropLaysCopiesEndToEnd(t *testing.T) {
 		t.Fatalf("copy = %+v %v", c, err)
 	}
 	// The first drop on an empty tape is its first loop, and sets the tempo.
-	d, err := e.DropClipboard(tp.ID, 1)
+	d, err := e.DropClipboard(tp.ID, 1, false)
 	if err != nil || d.Clip.At != 0 || d.End != 96000 {
 		t.Fatalf("first drop = %+v %v", d, err)
 	}
@@ -30,12 +30,12 @@ func TestDropDropDropLaysCopiesEndToEnd(t *testing.T) {
 		waitFor(t, func() bool { sink.play(t, 512); return e.tr.Status().Pos == pos })
 	}
 	settle(96000)
-	d, err = e.DropClipboard(tp.ID, 1)
+	d, err = e.DropClipboard(tp.ID, 1, false)
 	if err != nil || d.Clip.At != 96000 || d.End != 192000 {
 		t.Fatalf("second drop = %+v %v", d, err)
 	}
 	settle(192000)
-	if d, err = e.DropClipboard(tp.ID, 1); err != nil || d.Clip.At != 192000 {
+	if d, err = e.DropClipboard(tp.ID, 1, false); err != nil || d.Clip.At != 192000 {
 		t.Fatalf("third drop = %+v %v", d, err)
 	}
 	if n := len(e.Loaded().Tracks[0].Clips); n != 3 {
@@ -44,7 +44,7 @@ func TestDropDropDropLaysCopiesEndToEnd(t *testing.T) {
 	// It replaces what's under it, rather than layering.
 	e.Do(Action{Kind: "locate", Pos: 48000})
 	settle(48000)
-	e.DropClipboard(tp.ID, 1)
+	e.DropClipboard(tp.ID, 1, false)
 	for _, cl := range e.Loaded().Tracks[0].Clips {
 		if cl.Layer != 0 {
 			t.Fatalf("a drop layered: %+v", cl)
@@ -87,7 +87,7 @@ func TestTheClipboardSurvivesAndIsKeptByCleanup(t *testing.T) {
 	if got, _ := e.Clipboard(); !got.Empty() {
 		t.Fatal("cleared, but not empty")
 	}
-	if _, err := e.DropClipboard(e.LoadedID(), 1); err != ErrEmptyClipboard {
+	if _, err := e.DropClipboard(e.LoadedID(), 1, false); err != ErrEmptyClipboard {
 		t.Fatalf("dropping nothing = %v", err)
 	}
 }
@@ -109,7 +109,7 @@ func TestPlayAfterADropAtTheLoopsEndPlaysTheLoop(t *testing.T) {
 	e, sink, tp := newEngine(t)
 	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
 	e.CopyTake(take, "jam_take.wav", 0, 96000, []int{0, 1})
-	e.DropClipboard(tp.ID, 1) // the first loop; the playhead goes to its end
+	e.DropClipboard(tp.ID, 1, false) // the first loop; the playhead goes to its end
 	e.Start()
 	e.Do(Action{Kind: "play"})
 	sink.play(t, 96000*2+1000)

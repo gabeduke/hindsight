@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, splitAt, joinPartner, fitsDoubled } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -46,4 +46,38 @@ test('a drag on the ruler takes whole bars, whichever way it goes', () => {
   assert.deepEqual(barSpan(grid, 137143, 137143), { from: 137143, to: 274286 });
   assert.equal(nearestBar(grid, 200000), 137143);
   assert.equal(nearestBar(grid, 210000), 274286);
+});
+
+test('a slid clip snaps to the lines the Pi draws', () => {
+  // 84 BPM, 4 bars: a bar is 137142.857 frames.
+  const grid = { frames: 548571, bars: 4 };
+  assert.equal(snapFrame(grid, 137000, 'bar'), 137143);
+  assert.equal(snapFrame(grid, 60000, 'bar'), 0);
+  assert.equal(snapFrame(grid, 36000, 'beat'), 34286);
+  assert.equal(snapFrame(grid, 17000, '8th'), 17143);
+  assert.equal(snapFrame(grid, 12345.4, 'off'), 12345);
+  assert.equal(snapFrame(null, 12345, 'bar'), 12345);
+  assert.equal(snapFrame(grid, -5000, 'bar'), 0);
+  assert.equal(snapFrame(grid, -5000, 'off'), 0);
+});
+
+test('split and join find what the Pi would', () => {
+  const a = { id: 'a', file: 'f', src: 480, frames: 1000, at: 0, layer: 0, gain_db: 0 };
+  const b = { id: 'b', file: 'f', src: 1480, frames: 500, at: 1000, layer: 0, gain_db: 0 };
+  const top = { id: 'c', file: 'g', src: 0, frames: 2000, at: 0, layer: 1 };
+  const tr = { clips: [a, b, top] };
+  assert.equal(splitAt(tr, 500), 2);
+  assert.equal(splitAt(tr, 1000), 1); // on a's end: only the layer above runs across
+  assert.equal(splitAt(tr, 3000), 0);
+  assert.equal(joinPartner(tr, a), b);
+  assert.equal(joinPartner(tr, b), null);
+  assert.equal(joinPartner({ clips: [a, { ...b, src: 1500 }] }, a), null, 'not straight on');
+  assert.equal(joinPartner({ clips: [a, { ...b, gain_db: -3 }] }, a), null, 'a different level');
+  assert.equal(joinPartner({ clips: [a, { ...b, layer: 1 }] }, a), null, 'another layer');
+});
+
+test('a loop doubles only while it fits on the tape', () => {
+  assert.equal(fitsDoubled({ length: 1000, loop: { in: 0, out: 500 } }), true);
+  assert.equal(fitsDoubled({ length: 1000, loop: { in: 100, out: 600 } }), false);
+  assert.equal(fitsDoubled({ length: 1000, loop: { in: 0, out: 0 } }), false);
 });

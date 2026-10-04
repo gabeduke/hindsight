@@ -406,6 +406,9 @@ Step 6 comes in parts:
 - **6d** adds the clipboard (*Copy* on takes and the ribbon), *replace*,
   pan, tiling, and selecting bars on a ruler.
 
+Step 7 comes in two: **7a** is editing (lift, copy, split, join, slide,
+multiply and merge drop), and **7b** is mixdown and export.
+
 Turn the tape on with `TAPE=true` ([configuration](configuration.md#the-tape)).
 The main page then shows a **Tape** chip that opens the tape page.
 
@@ -448,8 +451,8 @@ From the top:
     (A or B; tap to swap), **M** (mute), **S** (solo) and its level.
   - In the lane: the bar lines, the clips and the playhead. A layer on top of
     another clip is drawn blue.
-  - Tap a clip to open its sheet. Tap an empty part of a lane to move the
-    playhead there.
+  - Tap a clip to open its sheet. Hold a clip, then drag, to slide it
+    (7a). Tap an empty part of a lane to move the playhead there.
 - **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
   tape plays on to the end of what's recorded. Beside them is where the tape
   is, as bar.beat and time.
@@ -569,10 +572,10 @@ other tapes' undo.
   records. ■ keeps it.
 - The toast has **Cancel** while it records, and **Undo** once kept.
 
-**The clipboard (6d)** holds what you last copied from a take or the ribbon
-(copying from a tape comes with step 7), and keeps it through a restart. A
-copy can be as long as a track. Tapping it plays its first minute. Its row on the
-tape page shows how long it is and where it came from:
+**The clipboard (6d)** holds what you last copied or lifted -- from a take,
+the ribbon or a tape (7a, [below](#85-editing-like-an-op-1)) -- and keeps it
+through a restart. A copy can be as long as a track. Its row on the tape
+page shows how long it is and where it came from:
 
 - **Tap it** to hear it (its first minute).
 - **Drop** puts it on the selected track at the playhead, replacing what's
@@ -643,29 +646,41 @@ tape page shows how long it is and where it came from:
 
 ### 8.5 Editing like an OP-1
 
-*Step 7.* Select bars (hold and drag on the ruler, or In and Out), choose
-*one track* or *all*, then:
+*Step 7a.* The selection is the loop: hold and drag on the ruler to set it.
+Under the clipboard, **Track N / All** says what Lift and Copy take: the
+loop's bars on the selected track, or on all four, kept apart.
 
 | Do | Gets you |
 |---|---|
-| **Lift** | Cuts the selection into the clipboard, leaving silence |
+| **Lift** | Cuts the selection into the clipboard, leaving silence. Undo puts it back |
 | **Copy** | Copies it to the clipboard, leaving the tape alone |
-| **Drop** | Pastes the clipboard at the playhead, replacing what's there, and moves the playhead to the end. **Drop, drop, drop** lays copies end to end — the quickest way to turn four bars into sixteen |
-| **Merge drop** | Drops a four-track clipboard onto a single track, mixed |
-| **Split** | Cuts a clip in two at the playhead |
-| **Join** | Rejoins two neighbouring clips |
-| **Slide** | Hold a clip, then drag it along its track |
-| **Multiply** | Doubles the loop, copying what's in it |
+| **Drop** | Pastes the clipboard at the playhead, from the selected track down, replacing what's there, and moves the playhead to its end. **Drop, drop, drop** lays copies end to end — the quickest way to turn four bars into sixteen |
+| **Merge** | Beside Drop when the clipboard has more than one track: drops them all onto the selected track, layered — a bounce that costs nothing |
+| **Split** | Cuts the clips on the selected track in two at the playhead |
+| **Join** | In a clip's sheet: joins it back to the half that was split from it |
+| **Slide** | Hold a clip, then drag it along its track. It lands on the nearest bar, beat or eighth (**Slide snaps to**), on top of anything already there |
+| **×2** | Doubles the loop, copying what's in it over what follows |
+
+Nothing is cut out of the audio. A clip is a window onto a recording, so an
+edit only moves windows, and each one is a single undo. Where an edit leaves
+two clips meeting, they're crossfaded over a few milliseconds, so there's no
+click.
 
 **Clone** in the tape browser makes a safety copy of a whole tape before you
 try something. It costs no disk space.
 
-**Checks — step 7:**
+**Checks — step 7a:**
 
-- [demo] Select 4 bars on all tracks, Lift, then Drop three times → twelve
-  bars of the same four, with no clicks where the copies meet.
-- [demo] Split a clip, slide the second half one bar later, then Undo twice →
-  the clip is whole again.
+- [demo] Loop 4 bars, choose **All**, **Lift**, tap bar 1 on the ruler, then
+  **Drop** three times → twelve bars of the same four, with no clicks where
+  the copies meet.
+- [demo] Put the playhead inside a clip, **Split**, hold the second half and
+  slide it a bar later, then ↶ twice → the clip is whole again.
+- [demo] Split a clip, tap its first half, **Join to the next** → one clip.
+- [demo] **×2** on a 2-bar loop → a 4-bar loop whose second half is a copy of
+  the first.
+- [demo] Copy **All** with audio on two tracks, select track 3, **Merge** →
+  both parts on track 3, one above the other.
 - [demo] Clone a tape, delete the original, then play the clone → it plays
   fully; no audio was lost.
 - [demo] Copy a selection on a take page, then Drop it on a tape → it's
@@ -673,7 +688,7 @@ try something. It costs no disk space.
 
 ### 8.6 Mixdown and export
 
-*Step 7.*
+*Step 7b.*
 
 - **Mixdown.** Set In and Out around the song and tap *Mixdown*. The tape
   plays once, and what came out of the mixer — FX, live playing and all — is
@@ -681,7 +696,7 @@ try something. It costs no disk space.
 - **Export** downloads each track as its own WAV, plus a MIDI file with the
   tempo, for a DAW.
 
-**Checks — step 7:**
+**Checks — step 7b:**
 
 - [demo] Mix down 8 bars → a take of exactly those 8 bars plus 2 seconds of
   tail appears, named after the tape.
@@ -805,7 +820,7 @@ has no tip.
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps |
 | Tape overview | The whole tape, six minutes a track; the loop in amber |
-| A lane | Tap a clip for its level, nudge or removal; tap elsewhere to move the playhead there |
+| A lane | Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there |
 | A track header | Tap the number to pick the track catches go onto |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
@@ -829,13 +844,15 @@ has no tip.
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
-| Lift | Cut the selection into the clipboard |
+| Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |
+| Lift | Cut the loop’s bars into the clipboard, leaving silence |
 | Copy | Put the selection on the clipboard, to drop onto a tape |
 | Drop | The clipboard onto the selected track at the playhead, replacing what’s there. Drop again to lay another copy after it |
-| Merge drop | Paste a four-track clipboard onto one track, mixed |
-| Split | Cut the clip in two at the playhead |
-| Join | Rejoin two neighbouring clips |
-| Multiply | Double the loop, copying what's in it |
+| Merge drop | Drop every track on the clipboard onto the selected one, layered: a bounce that costs nothing |
+| Split | Cut the clips on the selected track in two at the playhead |
+| Join | Join this clip to the half that was split from it |
+| Multiply | Double the loop, copying what's in it over what follows |
+| Slide snaps to | Where a clip you slide can land: on a bar, a beat, an eighth, or anywhere |
 | Clone | Copy this whole tape. Costs no disk space |
 | Mixdown | Play In to Out once and save what came out of the mixer as a take |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |

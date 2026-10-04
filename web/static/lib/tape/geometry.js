@@ -103,3 +103,50 @@ export function clipBuckets(clip, pd) {
   const b1 = Math.max(b0 + 1, Math.ceil(((clip.src + clip.frames) / fileFrames) * pd.buckets));
   return [Math.min(b0, pd.buckets), Math.min(b1, pd.buckets)];
 }
+
+/** SNAPS are what a slid clip can snap to, and how many to a bar. */
+export const SNAPS = [
+  { id: 'bar', label: 'Bar', per: 1 },
+  { id: 'beat', label: 'Beat', per: 4 },
+  { id: '8th', label: '⅛', per: 8 },
+  { id: 'off', label: 'Off', per: 0 },
+];
+
+/**
+ * snapFrame is the grid line nearest a tape frame -- a bar, beat or eighth
+ * line, placed as the Pi places them (n × the exact length, rounded) -- or
+ * the frame itself with the snap off or no grid. Never before 0.
+ */
+export function snapFrame(grid, f, snap) {
+  const s = SNAPS.find((x) => x.id === snap);
+  if (!grid || !(grid.frames > 0) || !(grid.bars > 0) || !s || !s.per) return Math.max(0, Math.round(f));
+  const step = grid.frames / grid.bars / s.per;
+  return Math.round(Math.max(0, Math.round(f / step)) * step);
+}
+
+/**
+ * splitAt is how many clips on a track a split at pos would cut: those that
+ * run across it, on any layer.
+ */
+export function splitAt(track, pos) {
+  return (track.clips || []).filter((c) => c.at < pos && pos < c.at + c.frames).length;
+}
+
+/**
+ * joinPartner is the clip a join would merge this one with: the next on its
+ * layer, starting where it ends and carrying straight on in the same
+ * recording, at the same level and nudge -- what a split made. null if none.
+ */
+export function joinPartner(track, clip) {
+  const end = clip.at + clip.frames;
+  const n = (track.clips || []).find((o) => o.layer === clip.layer && o.at === end);
+  if (!n || n.file !== clip.file || n.src !== clip.src + clip.frames) return null;
+  if ((n.gain_db || 0) !== (clip.gain_db || 0) || (n.nudge_ms || 0) !== (clip.nudge_ms || 0)) return null;
+  return n;
+}
+
+/** fitsDoubled says whether the loop, doubled, still ends on the tape. */
+export function fitsDoubled(tape) {
+  const l = tape.loop || {};
+  return l.out > l.in && l.out + (l.out - l.in) <= tape.length;
+}

@@ -92,8 +92,23 @@
         <span class="tb-label">Clipboard</span>
         <button id="clip-play" class="chip clip-chip" type="button" disabled data-tip="clipboard">empty</button>
         <button id="drop" class="icon-btn" type="button" disabled data-tip="drop">Drop</button>
+        <button id="merge" class="icon-btn" type="button" hidden data-tip="merge-drop">Merge</button>
         <button id="clip-clear" class="icon-btn" type="button" disabled aria-label="Clear the clipboard" data-tip="clipboard-clear">×</button>
         <audio id="clip-audio" preload="none"></audio>
+      </div>
+      <div class="tb-row edit" role="group" aria-label="Edit the loop’s bars">
+        <div class="seg" id="edit-scope">
+          <button type="button" data-scope="one" data-tip="edit-scope">Track 1</button>
+          <button type="button" data-scope="all" data-tip="edit-scope">All</button>
+        </div>
+        <button id="ed-lift" class="icon-btn" type="button" data-tip="lift">Lift</button>
+        <button id="ed-copy" class="icon-btn" type="button" data-tip="copy">Copy</button>
+        <button id="ed-split" class="icon-btn" type="button" data-tip="split">Split</button>
+        <button id="ed-x2" class="icon-btn" type="button" aria-label="Double the loop" data-tip="multiply">×2</button>
+      </div>
+      <div class="tb-row snap">
+        <span class="tb-label">Slide snaps to</span>
+        <div class="seg" id="snap" role="group" aria-label="What a slid clip snaps to"></div>
       </div>
       <div class="tb-row passes">
         <span class="tb-label">Passes</span>
@@ -118,7 +133,9 @@
     </div>
     <div class="sheet-actions">
       <button id="clip-tile" class="icon-btn" type="button" data-tip="clip-tile">Repeat to the loop’s end</button>
+      <button id="clip-join" class="icon-btn" type="button" data-tip="join">Join to the next</button>
     </div>
+    <p class="sheet-hint muted">To slide it, hold the clip in its lane, then drag.</p>
     <div class="sheet-actions">
       <button id="clip-remove" class="icon-btn danger" type="button" data-tip="clip-remove">Remove</button>
       <button id="clip-done" class="icon-btn" type="button">Done</button>

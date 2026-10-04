@@ -212,8 +212,9 @@ type Dropped struct {
 // track per clipboard track), replacing what's under it: at the playhead,
 // or -- on an empty tape with no tempo -- as its first loop. Stopped, the
 // playhead moves to the drop's end, so drop, drop, drop lays copies end to
-// end.
-func (e *Engine) DropClipboard(id string, track int) (Dropped, error) {
+// end. merge drops every clipboard track onto the one track instead,
+// layered: the OP-1's merge drop, a bounce that costs nothing.
+func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error) {
 	c, err := e.Clipboard()
 	if err != nil {
 		return Dropped{}, err
@@ -228,8 +229,12 @@ func (e *Engine) DropClipboard(id string, track int) (Dropped, error) {
 	if t.ID != id {
 		return Dropped{}, ErrWrongTape
 	}
-	if track < 1 || track+len(c.Tracks)-1 > len(t.Tracks) {
-		return Dropped{}, fmt.Errorf("%w: %d track%s from track %d don't fit", ErrNoSuchTrack, len(c.Tracks), plural(len(c.Tracks)), track)
+	spans := len(c.Tracks) // how many tracks it lands on
+	if merge {
+		spans = 1
+	}
+	if track < 1 || track+spans-1 > len(t.Tracks) {
+		return Dropped{}, fmt.Errorf("%w: %d track%s from track %d don't fit", ErrNoSuchTrack, spans, plural(spans), track)
 	}
 	// Where the playhead is: what's heard while playing; the bar line it
 	// stands at during a count-in; else where it was put.
@@ -260,13 +265,19 @@ func (e *Engine) DropClipboard(id string, track int) (Dropped, error) {
 			return fmt.Errorf("%w: %.1f s of room is left after the playhead", ErrPastTheEnd, float64(tp.Length-at)/float64(sr))
 		}
 		// Clear the span on each track, then lay the clipboard's clips in.
-		for i, clips := range c.Tracks {
+		for i := 0; i < spans; i++ {
 			tr := &s.Tracks[track-1+i]
 			tr.Clips = clearRange(tr.Clips, at, at+c.Frames)
+		}
+		for i, clips := range c.Tracks {
+			to := track + i
+			if merge {
+				to = track
+			}
 			for _, cl := range clips {
 				cl.ID = ""
 				cl.At += at
-				placed, err := s.Place(track+i, cl, false)
+				placed, err := s.Place(to, cl, false)
 				if err != nil {
 					return err
 				}
@@ -280,7 +291,7 @@ func (e *Engine) DropClipboard(id string, track int) (Dropped, error) {
 	if err != nil {
 		return Dropped{}, err
 	}
-	out.Tracks, out.End = len(c.Tracks), at+c.Frames
+	out.Tracks, out.End = spans, at+c.Frames
 	if !moving {
 		// Before answering, so a second drop right after lands after it.
 		e.doWait(Action{Kind: "locate", Pos: out.End})

@@ -1,6 +1,6 @@
 # HTTP API
 
-Forty-nine routes (one, `/api/trigger`, in two forms), twenty-two of them the tape's and its clipboard's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Fifty routes (one, `/api/trigger`, in two forms), twenty-three of them the tape's and its clipboard's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -50,7 +50,8 @@ internet.
 | `DELETE /api/tapes/record?id=` | End the punch and keep what it covered (`?cancel=1`: keep nothing); disarm |
 | `POST /api/tapes/tap?id=` | A free-loop tap: the first waits, the second makes the loop |
 | `DELETE /api/tapes/tap?id=` | Forget a first tap |
-| `POST /api/tapes/drop?id=` | Put a span of a take onto the tape |
+| `POST /api/tapes/drop?id=` | Put the clipboard, or a span of a take, onto the tape |
+| `POST /api/tapes/edit?id=` | Lift, copy, split, join, slide or multiply |
 | `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=` | Step the tape's history back or forward |
 | `POST /api/tapes/clone?id=` | A copy of a tape, sharing its audio |
 | `POST /api/tapes/cleanup` | Delete pool audio that no tape, and no tape's history, uses |
@@ -950,7 +951,8 @@ playhead moves to the drop's end. Answers
 clipboard is empty, 400 if its tracks don't fit from that one, it would run
 past the end of the tape, or, as a first loop, it makes no tempo of 20–400
 BPM. A drop during a count-in lands where the tape will start, and doesn't
-move it.
+move it. `{"track": 3, "merge": true}` is a merge drop: every clipboard track
+onto that one track, layered, and `tracks` is 1.
 
 `{"take": "jam_….wav", "from": F, "to": T, "track": 1, "bars": 0}` copies
 frames `[from, to)` of a take into the pool (its `SAVE_CHANNELS` pair, for a
@@ -958,6 +960,28 @@ multichannel take). On an empty tape with no tempo, it becomes the first loop
 at bar 1, `bars` long (0: the bar count that puts it nearest 90 BPM).
 Otherwise it goes at the playhead, replacing what's under it, and is refused
 if it would run past the end of the tape. Answers `{"clip": …}`.
+
+### `POST /api/tapes/edit?id=`
+
+The tape's editing (step 7a): `{"op": …, "track": 1, …}`, each edit one undo
+step. Nothing is cut out of any audio: an edit only changes which part of a
+pool file a clip plays and where. Answers the tape's state, as
+`/api/tapes/state` does, with `"edit": {"op": …, "clips": N, "frames": F}`
+added.
+
+| `op` | Takes | Does |
+|---|---|---|
+| `lift` | `track`, or `"all": true` | The loop's In to Out, on that track or every track (kept apart, so the clipboard has four), onto the clipboard, leaving silence. The answer's `edit.clipboard` is the new clipboard |
+| `copy` | `track`, or `"all": true` | The same, leaving the tape as it is |
+| `split` | `track`, `pos` (left out: the playhead) | Cuts every clip on the track that runs across `pos` in two there, on every layer |
+| `join` | `clip` | Joins a clip to the next on its layer, if that one carries straight on in the same recording at the same level and nudge: what a split made |
+| `slide` | `clip`, `at` | Moves a clip along its track to start at `at`, on the lowest layer free there. The page snaps `at` to the grid; the server takes it as given |
+| `multiply` | | Doubles the loop: everything in it is copied into the span after it, replacing what was there, and Out moves on by the loop's length. `edit.frames` is the new length |
+
+400 for a lift or copy with no loop, or nothing in it; a split with no clip
+across `pos`; a join with nothing to join; a slide off either end of the tape;
+a multiply that would run past the end; or an unknown `op`. 409 for a tape
+that isn't the loaded one.
 
 ### The clipboard: `/api/clipboard`
 
