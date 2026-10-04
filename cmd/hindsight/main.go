@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"os/signal"
@@ -264,6 +265,13 @@ func resolveStaticDir(envDir, exePath, cwd, home string, exists func(string) boo
 func dirExists(p string) bool {
 	fi, err := os.Stat(p)
 	return err == nil && fi.IsDir()
+}
+
+// The UI's fonts are woff2. Go's built-in table lacks the extension and a
+// Pi's /etc/mime.types may too, which would serve them as
+// application/octet-stream; register it rather than rely on the host.
+func init() {
+	_ = mime.AddExtensionType(".woff2", "font/woff2")
 }
 
 // noCacheShell sends Cache-Control: no-cache for the app shell -- HTML, JS,
