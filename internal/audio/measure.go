@@ -33,10 +33,11 @@ func MeasureTempo(wavPath string) {
 			log.Printf("[!] tempo: measuring %s panicked: %v", filepath.Base(wavPath), p)
 		}
 	}()
-	before := ReadMeta(wavPath).BPM
+	was := ReadMeta(wavPath)
+	before := tempoState{was.BPM, was.TempoFrom}
 	hint := 0.0
-	if before != nil {
-		hint = *before
+	if before.bpm != nil {
+		hint = *before.bpm
 	}
 	x, sr, err := readMiddle(wavPath, measureWindowSeconds)
 	if err != nil {
@@ -60,10 +61,18 @@ func measure(x []float32, sampleRate int, hint float64) (float64, bool) {
 	return math.Round(r.BPM*100) / 100, true
 }
 
-// keepMeasured writes a measured BPM if the take's BPM is still before.
-func keepMeasured(wavPath string, before *float64, bpm float64) {
+// tempoState is a take's tempo and where it came from, as MeasureTempo found
+// them before it read the audio.
+type tempoState struct {
+	bpm  *float64
+	from string
+}
+
+// keepMeasured writes a measured BPM if the take's BPM and where it came from
+// are still before.
+func keepMeasured(wavPath string, before tempoState, bpm float64) {
 	_, err := UpdateMeta(wavPath, func(m *Meta) error {
-		if (m.BPM == nil) != (before == nil) || (m.BPM != nil && *m.BPM != *before) {
+		if (m.BPM == nil) != (before.bpm == nil) || (m.BPM != nil && *m.BPM != *before.bpm) || m.TempoFrom != before.from {
 			return errTempoChanged
 		}
 		m.BPM, m.TempoFrom = &bpm, TempoFromAudio

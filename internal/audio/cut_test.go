@@ -83,7 +83,7 @@ func TestCutWritesAFadedRegionAsANewTake(t *testing.T) {
 	dir := t.TempDir()
 	src := writeTestTake(t, dir, "jam_src.wav", 48000)
 	bpm := 96.0
-	if err := WriteMeta(src, Meta{Version: MetaVersion, Label: "jam", BPM: &bpm, Starred: true,
+	if err := WriteMeta(src, Meta{Version: MetaVersion, Label: "jam", BPM: &bpm, TempoFrom: TempoFromAudio, Starred: true,
 		Trim:  &Trim{StartFrame: 1, EndFrame: 2},
 		Flags: []Flag{{Frame: 100, Label: "before"}, {Frame: 10500, Label: "inside"}, {Frame: 30000}}}); err != nil {
 		t.Fatal(err)
@@ -147,6 +147,9 @@ func TestCutWritesAFadedRegionAsANewTake(t *testing.T) {
 	}
 	if m.BPM == nil || *m.BPM != 96 {
 		t.Errorf("bpm = %v, want 96 inherited", m.BPM)
+	}
+	if m.TempoFrom != TempoFromAudio {
+		t.Errorf("tempo_from = %q, want audio inherited with the bpm", m.TempoFrom)
 	}
 	if len(m.Flags) != 1 || m.Flags[0].Frame != 500 || m.Flags[0].Label != "inside" {
 		t.Errorf("flags = %+v, want only the inside one rebased to 500", m.Flags)

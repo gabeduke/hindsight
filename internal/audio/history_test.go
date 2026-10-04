@@ -107,6 +107,23 @@ func TestUndoStepsBackOneChangeAtATime(t *testing.T) {
 	}
 }
 
+// History doesn't know where a restored tempo came from, so an undo leaves
+// tempo_from empty rather than claiming the old source for the old value.
+func TestUndoOfATempoClearsWhereItCameFrom(t *testing.T) {
+	wav := filepath.Join(t.TempDir(), "jam_u.wav")
+	os.WriteFile(wav, []byte("x"), 0o644)
+	t0 := time.Now()
+	edit(t, wav, t0, func(m *Meta) { m.BPM = ptrF(125.17); m.TempoFrom = TempoFromAudio })
+	edit(t, wav, t0.Add(5*time.Second), func(m *Meta) { m.BPM = ptrF(130); m.TempoFrom = TempoFromYou })
+
+	if op, err := undo(t, wav, ""); err != nil || op.What != "tempo" {
+		t.Fatalf("undo = %v %v, want tempo", op.What, err)
+	}
+	if m := ReadMeta(wav); m.BPM == nil || *m.BPM != 125.17 || m.TempoFrom != "" {
+		t.Fatalf("after undo: BPM %v from %q, want 125.17 from nothing", m.BPM, m.TempoFrom)
+	}
+}
+
 func TestUndoSkipsAChangeMadeSinceElsewhere(t *testing.T) {
 	wav := filepath.Join(t.TempDir(), "jam_c.wav")
 	os.WriteFile(wav, []byte("x"), 0o644)

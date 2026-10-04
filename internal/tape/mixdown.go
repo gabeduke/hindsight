@@ -281,6 +281,8 @@ func (e *Engine) runMixdown(id uint64, name string, grid *Grid, passFrom, frames
 			if grid != nil {
 				bpm := math.Round(grid.BPM(int(sr))*100) / 100
 				m.BPM = &bpm
+				// The tape's tempo is the owner's and exact; measuring leaves it be.
+				m.TempoFrom = audio.TempoFromYou
 				if !saved.Clamped {
 					db := grid.NextBar(passFrom) - passFrom
 					m.DownbeatFrame = &db

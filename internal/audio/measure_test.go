@@ -87,10 +87,25 @@ func TestKeepMeasuredLosesToAnEdit(t *testing.T) {
 	if err := WriteMeta(wav, Meta{BPM: &edited, TempoFrom: TempoFromYou}); err != nil {
 		t.Fatal(err)
 	}
-	keepMeasured(wav, &stamped, 125.25)
+	keepMeasured(wav, tempoState{&stamped, TempoFromClock}, 125.25)
 	m := ReadMeta(wav)
 	if *m.BPM != 124 || m.TempoFrom != TempoFromYou {
 		t.Fatalf("BPM %v from %q, want the edit kept", *m.BPM, m.TempoFrom)
+	}
+}
+
+// Typing the tempo the clock gave still says it's yours, so the measurement
+// backs off even though the BPM didn't change.
+func TestKeepMeasuredLosesToTheSameTempoRetyped(t *testing.T) {
+	wav := beatTake(t, t.TempDir(), "jam_a.wav", 125.25, 10)
+	bpm := 125.32
+	if err := WriteMeta(wav, Meta{BPM: &bpm, TempoFrom: TempoFromYou}); err != nil {
+		t.Fatal(err)
+	}
+	keepMeasured(wav, tempoState{&bpm, TempoFromClock}, 125.25)
+	m := ReadMeta(wav)
+	if *m.BPM != 125.32 || m.TempoFrom != TempoFromYou {
+		t.Fatalf("BPM %v from %q, want the retyped 125.32 from you kept", *m.BPM, m.TempoFrom)
 	}
 }
 

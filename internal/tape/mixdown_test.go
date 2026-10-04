@@ -127,6 +127,9 @@ func TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail(t *testing.T) {
 	if meta.Label != "song" || meta.Origin != audio.OriginTape || meta.BPM == nil || meta.DownbeatFrame == nil || *meta.DownbeatFrame != 0 {
 		t.Fatalf("meta = %+v", meta)
 	}
+	if meta.TempoFrom != audio.TempoFromYou {
+		t.Errorf("tempo_from = %q, want you: the tape's tempo is the owner's", meta.TempoFrom)
+	}
 	// The tape stands back at In after it.
 	if st := e.tr.Status(); st.Playing || st.Pos != 0 {
 		t.Fatalf("after the mixdown: %+v", st)
