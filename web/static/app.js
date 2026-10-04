@@ -98,6 +98,8 @@ function showNextToast() {
   toast(next.msg, next.kind || 'ok', opts);
 }
 showNextToast();
+// The tape's link, when the Pi runs one.
+fetch('/api/tapes', { cache: 'no-store' }).then((r) => { $('tape-link').hidden = !r.ok; }).catch(() => {});
 // Back from the take page can restore this page from the browser's cache,
 // scripts and all, without loading it: catch up then.
 window.addEventListener('pageshow', (e) => {

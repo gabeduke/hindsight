@@ -1,6 +1,6 @@
 # HTTP API
 
-Twenty-seven routes (one, `/api/trigger`, in two forms), registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Forty-one routes (one, `/api/trigger`, in two forms), fourteen of them the tape's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -38,6 +38,19 @@ internet.
 | `GET /api/midi?file=` | The take's `.mid` decoded to notes in frames, one track per device and channel, for the lanes |
 | `GET /guide.md` | The user guide, compiled into the binary, for `/guide.html` to render |
 | `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
+| `GET /api/tapes` | The tapes, newest change first, and which is loaded |
+| `POST /api/tapes` | A new, empty tape |
+| `GET /api/tapes/state?id=` | One tape, with the transport and catch state when it's the loaded one |
+| `PATCH /api/tapes?id=` | Name, tempo, bars, loop, a track's mix, a clip's level or nudge, or remove a clip |
+| `DELETE /api/tapes?id=` | Delete a tape that isn't loaded, and free the audio only it used |
+| `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
+| `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
+| `POST /api/tapes/catch?id=` | Put the last pass, or the last N bars, from an input onto a track |
+| `POST /api/tapes/drop?id=` | Put a span of a take onto the tape |
+| `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=` | Step the tape's history back or forward |
+| `POST /api/tapes/clone?id=` | A copy of a tape, sharing its audio |
+| `POST /api/tapes/cleanup` | Delete pool audio that no tape, and no tape's history, uses |
+| `GET /api/tapes/peaks?file=` | A pool file's whole-file waveform |
 
 `GET` routes also accept `HEAD`, except `/api/live` and `/api/phone`, which
 are WebSocket upgrades, and `/api/render`, `/api/bundle` and `/api/export`,
@@ -751,6 +764,146 @@ One zip of up to 100 takes, streamed: each take's `.wav` (stored, not
 deflated), its `.meta.json`, and its `.mid` and `.manifest.json` when it has
 them, under their own names. Repeated names count once. 400 for no `file`
 or a bad one; 404 naming the first take that isn't there.
+
+---
+
+## The tape: `/api/tapes…`
+
+Every tape route answers 404 when the tape is off (`TAPE` unset). One tape is
+*loaded*: the one the transport plays and catches go onto. Routes name their
+tape with `?id=`. Every change except delete and clone is made to the loaded
+tape only, and any other id is refused with 409, so a page that's out of date
+can't edit the wrong tape. PATCH, load, undo and redo answer with the new
+state, as `GET /api/tapes/state` would; create and clone with the tape; catch
+and drop with the clip.
+
+Errors: 400 for a bad parameter, a track or clip that doesn't exist, or a span
+that runs past the end of the tape; 404 for a tape that doesn't exist (to
+state, load, delete or clone); 409 for a tape that isn't the loaded one,
+nothing to undo, or a catch that can't happen yet (not lined up, no complete
+pass, not in the ring yet, or gone from it); 507 for low disk.
+
+### `GET /api/tapes`, `POST /api/tapes`
+
+```json
+{ "loaded": "2026-10-04_song-one",
+  "tapes": [ { "id": "2026-10-04_song-one", "name": "Song one", "created": "…", "bpm": 120,
+               "bars": 1, "seconds": 2, "clips": 1, "size_mb": 0.4, "modified": "…" } ] }
+```
+
+`POST` takes `{name, bpm?, bars?}` and answers with the new tape. A tape's id
+is its creation date and a slug of its name. A new tape has `TAPE_TRACKS`
+tracks, every one on bus A at −6 dB; with `bpm` and `bars` it starts with that
+loop, otherwise its first loop sets the tempo.
+
+### `GET /api/tapes/state?id=`
+
+```json
+{ "tape": { "id": "…", "name": "Song one", "sample_rate": 48000, "length": 17280000,
+            "grid": { "frames": 96000, "bars": 1 }, "loop": { "in": 0, "out": 96000, "on": true },
+            "tracks": [ { "n": 1, "bus": "A", "gain_db": -6, "pan": 0,
+                          "clips": [ { "id": "c1a2b3c4", "file": "audio/drop_….wav", "src": 480,
+                                       "frames": 96000, "at": 0, "layer": 0, "gain_db": 0, "source": "take" } ] } ] },
+  "loaded": true, "undo": 1, "redo": 0, "bpm": 120,
+  "sources": [ { "name": "aux", "leaks": [], "clean": true } ],
+  "live": { "playing": true, "pos": 41984, "heard": 37888, "delivered": 229376, "late": 0,
+            "output": "Demo loopback (the demo source hears it)", "delta": 2048, "aligned": "exact",
+            "cycles": [ { "out": 96000, "in": 0, "len": 96000 } ], "failed": [] } }
+```
+
+- **Frames throughout.** `grid.frames` is the first loop's exact length, and
+  the tempo is derived from it (`bpm`), because a bar at most tempos isn't a
+  whole number of frames.
+- **A clip** plays `frames` of its pool `file` from `src`, at tape frame
+  `at`. The file carries 10 ms either side, for crossfades. `layer` 0 is the
+  base; a catch onto audio goes on a layer above it, summed. `source` is
+  where it came from, and `clean` is set when no tape bus was in that source.
+- **`sources`** lists what a catch can take from, and whether each is clean
+  on this tape: no unmuted audio on a bus that leaks into it.
+- **`live`**, only for the loaded tape:
+  - `pos` is the render head and `heard` the frame the device is playing.
+  - `delta` is ring frame minus output frame: where what the tape played
+    lands in the capture. `aligned` is `exact` when it's known (the demo),
+    `none` when it isn't, and catches need it.
+  - `cycles` are the last complete passes of the loop, as played (a pass
+    begun before the loop was moved isn't one); `late` counts device periods
+    played as silence because nothing was rendered in time;
+    `failed` lists pool files that couldn't be read.
+  - `output` is "" when nothing plays the tape.
+
+`HEAD` is accepted. It's polled a few times a second, so it's `no-store`.
+
+### `PATCH /api/tapes?id=`
+
+Any of:
+
+All of it is one change: if any field is refused, none is made.
+
+| Field | Change |
+|---|---|
+| `name` | Rename (not undoable) |
+| `click` | The click on or off (not undoable) |
+| `tempo: {bpm, bars}` | Set the tempo of an empty tape: 20–400 BPM, 1–64 bars. Refused once the tape has audio |
+| `bars` | Relabel the loop's bar count (1–64) without changing its length |
+| `loop: {in?, out?, on?}` | The loop, in tape frames |
+| `track: {n, name?, bus?, gain_db?, pan?, mute?, solo?}` | A track's mix: bus `A` or `B`, gain −60..12 dB, pan −1..1 |
+| `clip: {id, gain_db?, nudge_ms?, remove?}` | A clip's level (−60..12 dB), its nudge (±500 ms), or take it off |
+
+Each PATCH is one undo step. Changes to the same track's level or pan, or the
+same clip's level or nudge, within 2 s of each other are one step, so a
+dragged slider undoes in one go.
+
+### `DELETE /api/tapes?id=`, `POST /api/tapes/load?id=`, `POST /api/tapes/clone?id=`
+
+Delete answers 409 for the loaded tape. It then frees, in the background,
+every pool file that no remaining tape uses, counting undo histories. Load
+stops the transport at the loop's start and answers with the state. Clone
+takes an optional `{name}` and answers with the new tape; it shares the
+original's pool files.
+
+### `POST /api/tapes/transport?id=`
+
+`{"action": "play" | "stop" | "locate", "quantum": "now" | "beat" | "bar" | "loop", "pos": F}`.
+The action takes effect on the exact output frame its quantum falls on
+(`now`, the default, at the next block). Answers 200 `{"status":"queued"}`.
+`play` is 409 while nothing plays the tape (on the Pi, until step 6b);
+`locate` still moves it. Loading a tape stops the transport and forgets the
+passes played, so a pass of one tape is never caught onto another.
+
+### `POST /api/tapes/catch?id=`
+
+`{"track": 2, "source": "aux", "pass": 1}` catches a whole pass of the loop:
+1 is the last complete one. `{"out": F}` instead names a pass by the output
+frame it began at (a `cycles` entry's `out`), so a tap catches the pass that
+was on screen even if another has finished since. `{"track": 2, "source": "aux", "bars": 4}` catches
+the last 4 bars up to the last bar line the ring has heard. `replace: true`
+clears what's under it instead of adding a layer.
+
+The span is the range of the ring that heard what the tape played then, by
+`delta`, written once into the pool with 10 ms either side and placed where
+it was played. A catch across the loop's end is split into two clips. It
+waits up to two seconds for the newest audio to reach the ring. Answers
+`{"clip": …}` (the part played first, when split).
+
+### `POST /api/tapes/drop?id=`
+
+`{"take": "jam_….wav", "from": F, "to": T, "track": 1, "bars": 0}` copies
+frames `[from, to)` of a take into the pool (its `SAVE_CHANNELS` pair, for a
+multichannel take). On an empty tape with no tempo, it becomes the first loop
+at bar 1, `bars` long (0: the bar count that puts it nearest 90 BPM).
+Otherwise it goes at the playhead, replacing what's under it, and is refused
+if it would run past the end of the tape. Answers `{"clip": …}`.
+
+### `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=`
+
+Step back or forward one version of the tape: up to 100, kept in its
+`tape.json`, shared by every device. 409 when there's nothing to step to.
+
+### `GET /api/tapes/peaks?file=`
+
+The `.peaks.json` beside a pool file, in the shape `/api/peaks` gives for a
+whole take. `file` is a clip's `file`; anything outside the pool is 400.
+Pool files never change, so it's cached for good.
 
 ---
 
