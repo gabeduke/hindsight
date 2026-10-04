@@ -50,8 +50,9 @@ type Result struct {
 }
 ```
 
-- **Onset envelope.** RMS energy in short hops, then the rise in log energy
-  from hop to hop, half-wave rectified, mean removed.
+- **Onset envelope.** Energy over a 40 ms window (longer than a low note's
+  period, so a held bass doesn't ripple), then the rise in log energy over
+  10 ms, ignoring rises under 0.4 dB, half-wave rectified, mean removed.
 - **Coarse period.** Autocorrelate the envelope over beat periods for
   40–240 BPM, in tenths of a 10 ms hop (a beat is rarely a whole number of
   hops). Score each by its autocorrelation at 1, 2, 3 and 4 beats, weighted
@@ -63,9 +64,9 @@ type Result struct {
   fact.
 - **Refine.** Find the autocorrelation peak near the longest multiple of the
   beat that fits in half the window, at a 1 ms hop, at 8, 16, 32… beats,
-  each peak's centre of mass above half its height, fitted by least squares,
-  and divide by the number of beats. Over a minute of audio this is precise
-  to well under 0.01 BPM, the precision the take's two decimals keep.
+  each peak's centre of mass above 0.7 of its height, fitted by least squares,
+  and divide by the number of beats. This is within a few hundredths of a BPM
+  on 30 s of audio, and closer on longer takes.
 - **Confidence** is the normalised autocorrelation at the refined lag. Below
   a threshold (fixed by the tests), `Measure` answers false: free time, a
   drone or silence gives no tempo rather than a wrong one.

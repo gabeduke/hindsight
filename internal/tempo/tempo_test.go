@@ -134,3 +134,35 @@ func TestMeasureRejectsInvalidSampleRates(t *testing.T) {
 		}
 	}
 }
+
+// The app's demo loop: the case where a 10 ms window let the held bass hide the beat.
+func TestMeasureFindsTheBeatUnderAHeldBass(t *testing.T) {
+	const bpm = 96.0
+	r := rand.New(rand.NewSource(1))
+	notes := []float64{82.41, 98.00, 110.00, 73.42}
+	n := 30 * sr
+	x := make([]float32, n)
+	beat := 60 / bpm
+	for i := range x {
+		ts := float64(i) / sr
+		kb := math.Mod(ts, beat) / beat
+		hb := math.Mod(ts, beat/2) / (beat / 2)
+		f := notes[int(ts/(4*beat))%len(notes)]
+		kick := math.Exp(-9*kb) * math.Sin(2*math.Pi*55*ts)
+		hat := math.Exp(-45*hb) * (r.Float64()*2 - 1) * 0.35
+		bass := 0.45 * math.Sin(2*math.Pi*f*ts)
+		pad := 0.12 * (math.Sin(2*math.Pi*4*f*ts) + math.Sin(2*math.Pi*4.75*f*ts) + math.Sin(2*math.Pi*6*f*ts))
+		x[i] = float32(math.Tanh(0.55*kick+hat+bass+pad) * 0.5)
+	}
+	// 30 s of a bass that never quite repeats is near this method's precision floor.
+	for _, hint := range []float64{96, 0} {
+		res, ok := Measure(x, sr, hint)
+		if !ok {
+			t.Errorf("hint %v: no tempo", hint)
+			continue
+		}
+		if math.Abs(res.BPM-bpm) > 0.03 {
+			t.Errorf("hint %v: BPM = %.3f, want 96 ± 0.03 (confidence %.2f)", hint, res.BPM, res.Confidence)
+		}
+	}
+}

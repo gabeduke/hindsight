@@ -19,8 +19,9 @@ const (
 	fineMS         = 1    // the fine envelope's hop
 	minConfidence  = 0.12 // below this, no tempo
 	hintTolerance  = 0.08 // a hint this close to a reading picks it
-	windowMS       = 40   // the coarse energy window, longer than a low note's period
-	fineWindowMS   = 10   // the fine energy window
+	windowMS       = 40   // the energy window: longer than a low note's period, so a held bass doesn't ripple
+	riseMS         = 10   // an attack is the rise in energy over this long
+	peakCut        = 0.7  // the share of a peak's height its centre is taken over
 	riseMin        = 0.1  // a rise in log energy smaller than this (0.4 dB) is no attack
 )
 
@@ -37,10 +38,11 @@ func Measure(samples []float32, sampleRate int, hint float64) (Result, bool) {
 	// lengths is real; we account for it when converting back to BPM.
 	fineHop := sampleRate * fineMS / 1000
 	coarseHop := sampleRate * coarseMS / 1000
-	// The coarse envelope's long window keeps a held tone's ripple out; the
-	// fine one's short window keeps attacks sharp for the refinement.
-	fine := envelope(samples, fineHop, sampleRate*fineWindowMS/1000)
-	coarse := envelope(samples, coarseHop, sampleRate*windowMS/1000)
+	// Both envelopes use the same long window, which keeps a held tone's
+	// ripple out; they differ in hop.
+	win, rise := sampleRate*windowMS/1000, sampleRate*riseMS/1000
+	fine := envelope(samples, fineHop, win, rise)
+	coarse := envelope(samples, coarseHop, win, rise)
 	if len(coarse) < int(4*60/minBPM*1000/coarseMS) { // four slow beats at least
 		return Result{}, false
 	}
@@ -75,16 +77,16 @@ func Measure(samples []float32, sampleRate int, hint float64) (Result, bool) {
 }
 
 // envelope is the onset strength every hop samples: the rise in log energy
-// over the last win samples from the hop before, ignoring rises under riseMin
-// (a tone's ripple, not an attack), less its mean. All zeros means nothing
-// in the audio rose.
-func envelope(x []float32, hop, win int) []float64 {
+// over the last win samples, measured across rise samples, ignoring rises
+// under riseMin (a tone's ripple, not an attack), less its mean. All zeros
+// means nothing in the audio rose.
+func envelope(x []float32, hop, win, rise int) []float64 {
 	if hop < 1 {
 		hop = 1
 	}
 	n := len(x) / hop
-	out := make([]float64, n)
-	sum, prev := 0.0, 0.0
+	logs := make([]float64, n)
+	sum := 0.0
 	j := 0 // samples added to sum so far
 	for i := 0; i < n; i++ {
 		end := (i + 1) * hop
@@ -97,11 +99,17 @@ func envelope(x []float32, hop, win int) []float64 {
 		if sum < 0 {
 			sum = 0 // rounding
 		}
-		l := math.Log(sum/float64(win) + 1e-10)
-		if i > 0 && l-prev > riseMin {
-			out[i] = l - prev
+		logs[i] = math.Log(sum/float64(win) + 1e-10)
+	}
+	// The rise is measured over rise samples, not hop to hop: at a fine hop,
+	// an attack's rise through the window is spread over many hops, each too
+	// small to pass riseMin alone.
+	back := max(1, rise/hop)
+	out := make([]float64, n)
+	for i := back; i < n; i++ {
+		if d := logs[i] - logs[i-back]; d > riseMin {
+			out[i] = d
 		}
-		prev = l
 	}
 	mean := 0.0
 	for _, v := range out {
@@ -197,9 +205,10 @@ func coarseBeat(env []float64, hint float64, hopsPerMin float64) float64 {
 
 // refine finds the correlation peak near n beats of t hops, within ±frac,
 // and answers the beat it implies and the correlation there. The peak's
-// position is the centre of mass of the correlation above half its height
-// round the best lag: with real timing spread the peak is broad, and its
-// centre is steadier than a parabola through three points.
+// position is the centre of mass of the correlation above 0.7 of its height
+// round the best lag. With real timing spread the peak is broad; with parts
+// that don't repeat exactly (a held bass, noise) it's lopsided; its upper
+// part's centre is steadier than either a parabola or the whole peak's.
 func refine(env []float64, t, n, frac float64) (float64, float64) {
 	centre := t * n
 	lo, hi := int(centre*(1-frac)), int(math.Ceil(centre*(1+frac)))
@@ -219,11 +228,11 @@ func refine(env []float64, t, n, frac float64) (float64, float64) {
 		return t, best
 	}
 	var sw, swl float64
-	for i := bestI; i >= 0 && cs[i] >= best/2; i-- {
+	for i := bestI; i >= 0 && cs[i] >= best*peakCut; i-- {
 		sw += cs[i]
 		swl += cs[i] * float64(lo+i)
 	}
-	for i := bestI + 1; i < len(cs) && cs[i] >= best/2; i++ {
+	for i := bestI + 1; i < len(cs) && cs[i] >= best*peakCut; i++ {
 		sw += cs[i]
 		swl += cs[i] * float64(lo+i)
 	}
