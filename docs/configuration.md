@@ -244,6 +244,11 @@ On disk, `TAPE_DIR` holds:
   no tape's undo history, still uses.
 - `loaded`, naming the tape that was loaded, so a restart loads it again.
 
-In this version the tape plays only in the demo. On the Pi, playback through
-the Sidekick is the next step; until then tapes can be made from takes and
-edited, but not heard or caught onto.
+On the Pi the tape plays through the Sidekick's USB playback, on the same
+card the capture uses (see [architecture](architecture.md#the-tape)):
+
+| Variable | Default | What it does |
+|---|---|---|
+| `OUTPUT_LATENCY_MS` | `100` | Output latency asked of PortAudio. Generous for the same reason as `INPUT_LATENCY_MS`; a change you make reaches the speaker about a quarter of a second later either way |
+| `TAPE_LATENCY_MS` | `0` | For hearing the tape later than your instrument: when the instrument comes from its own speaker and the tape from the Sidekick's. You play in time with what you hear, so the part lands this much late in the recording; each catch is taken this much later, which puts it back in time on the tape |
+| `TAPE_DEMO_ALIGN` | `false` | In the demo, make the tape measure where its playback lands in the recording, as on the Pi, instead of being told |

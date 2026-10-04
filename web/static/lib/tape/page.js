@@ -160,7 +160,8 @@ function render() {
   $('tape-redo').disabled = !state.redo;
   const lock = live ? live.aligned : 'none';
   $('lock-dot').className = `dot lock ${lock === 'exact' || lock === 'locked' ? 'ok' : lock === 'estimated' ? 'wait' : 'bad'}`;
-  $('lock-dot').title = lock === 'none' ? 'not lined up: catches are off' : `lined up (${lock})`;
+  $('lock-dot').title = lock === 'none' ? 'not lined up yet: catches wait'
+    : lock === 'estimated' ? 'lined up by the clocks: nudge a catch if it’s off' : `lined up to the sample (${lock})`;
 
   const playing = !!(live && live.playing);
   $('play').textContent = playing ? '■' : '▶';
@@ -430,7 +431,8 @@ function closeSheets() {
 
 function openClip(c) {
   state.clip = c;
-  $('clip-title').textContent = `Clip on track ${state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}`;
+  $('clip-title').textContent = `Clip on track ${state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}`
+    + (c.aligned === 'estimated' ? ' · caught before the lock: nudge it if it’s early or late' : '');
   $('clip-gain').value = String(c.gain_db || 0);
   $('clip-gain-val').textContent = `${c.gain_db || 0} dB`;
   $('clip-nudge-val').textContent = `${c.nudge_ms || 0} ms`;

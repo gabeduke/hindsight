@@ -20,12 +20,13 @@ type Source interface {
 	// called, and safe to call twice.
 	Close()
 
-	// Reset is called after a failed Open, before the next attempt. It is
-	// where a source re-enumerates hardware. The caller guarantees nothing is
-	// live when it calls Reset -- it runs only after an Open that returned an
-	// error -- so an implementation may assume there is nothing to tear down
-	// first. That guarantee only holds if Open itself never leaves the source
-	// open on any of its error paths.
+	// Reset is called after a failed Open or a stall, before the next
+	// attempt. It is where a source re-enumerates hardware. The caller
+	// guarantees this source's own stream is closed when it calls Reset, which
+	// only holds if Open never leaves the source open on any of its error
+	// paths. Other streams may be live -- the tape's output shares PortAudio
+	// -- and a rescan closes them through the shared lifecycle, whose
+	// generation tells their owners to open again.
 	Reset() error
 
 	// Shutdown releases process-wide resources. Called once, from Stop.

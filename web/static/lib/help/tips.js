@@ -96,7 +96,7 @@ export const TIPS = [
   { control: 'Mixdown', ids: ['mixdown'], tip: 'Play In to Out once and save what came out of the mixer as a take' },
   { control: 'Bus A / B', ids: ['bus'], tip: 'Which Sidekick channel this track plays through, for its EQ and FX' },
   { control: 'Source chip', ids: ['source-chip'], tip: 'Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too' },
-  { control: 'Lock dot', ids: ['lock-dot'], tip: 'Green: playback and recording are lined up to the sample. Catching needs it' },
+  { control: 'Lock dot', ids: ['lock-dot'], tip: 'How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet' },
 ];
 
 const byId = new Map();

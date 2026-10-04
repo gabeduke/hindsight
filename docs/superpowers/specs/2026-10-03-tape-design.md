@@ -1,6 +1,6 @@
 # Tape — layered loops on the Pi, played back through the Sidekick
 
-**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; phase 1 part a (the engine, in the demo; [plan](../plans/2026-10-04-tape-engine.md)) built, part b (playback on the Sidekick, the aligner, free loops, punch) next · **Repo:** `hindsight`
+**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; phase 1 parts a (the engine, in the demo; [plan](../plans/2026-10-04-tape-engine.md)) and b (playback on the Sidekick and the aligner; [plan](../plans/2026-10-04-tape-sidekick.md)) built, awaiting the hardware checks; c (punch, arm, click, free loops) next · **Repo:** `hindsight`
 
 Companions: [the OP-1 Field tape study](2026-10-03-op1-tape-study.md), which this
 design borrows its editing verbs, tricks and sync from, and
