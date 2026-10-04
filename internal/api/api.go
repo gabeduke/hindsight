@@ -2,8 +2,6 @@
 package api
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,10 +46,11 @@ type API struct {
 	saver *audio.Saver
 	env   *audio.Envelope
 	midi  MIDISource
+	takes *audio.TakeList
 }
 
 func New(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, env *audio.Envelope, m MIDISource) *API {
-	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m}
+	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m, takes: audio.NewTakeList(cfg.OutputDir)}
 }
 
 // liveTempoWindow is how far back the status poll asks about. Eight seconds is
@@ -182,29 +181,30 @@ func (a *API) midiDevices() []midi.DeviceInfo {
 }
 
 func (a *API) handleJams(w http.ResponseWriter, r *http.Request) {
-	takes, err := audio.ListTakes(a.cfg.OutputDir)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if takes == nil {
-		takes = []audio.Take{}
-	}
-
-	body, err := json.Marshal(takes)
+	takes, tag, err := a.takes.List()
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// An ETag lets the client skip re-rendering the list entirely when nothing
-	// changed, which is what keeps a playing preview from being disturbed.
-	sum := sha1.Sum(body)
-	etag := `"` + hex.EncodeToString(sum[:8]) + `"`
+	// changed, which is what keeps a playing preview from being disturbed. It
+	// is computed from one directory listing (see audio.TakeList), so an
+	// unchanged list costs no JSON and no file reads.
+	etag := `"` + tag + `"`
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "no-cache")
 	if r.Header.Get("If-None-Match") == etag {
 		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	if takes == nil {
+		takes = []audio.Take{}
+	}
+	body, err := json.Marshal(takes)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
