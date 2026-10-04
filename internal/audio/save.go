@@ -566,46 +566,68 @@ func ListTakes(dir string) ([]Take, error) {
 		if err != nil {
 			continue
 		}
-		full := filepath.Join(dir, e.Name())
-		prev := filepath.Base(previewPath(full))
-
-		t := Take{
-			Name:       e.Name(),
-			SizeMB:     float64(info.Size()) / (1024 * 1024),
-			HasPreview: exists(previewPath(full)),
-			HasPeaks:   exists(peaksPath(full)),
-			HasMIDI:    exists(MIDIPath(full)),
-			Preview:    prev,
-			MIDI:       filepath.Base(MIDIPath(full)),
-		}
-		if wi, err := ReadWAVInfo(full); err == nil {
-			t.Duration = wi.Duration()
-			t.Channels = wi.Channels
-			t.SampleRate = wi.SampleRate
-		}
-
-		m := ReadMeta(full)
-		t.Created = TakeCreated(e.Name(), m, info.ModTime())
-		t.Label = m.Label
-		t.Starred = m.Starred
-		t.Trim = m.Trim
-		t.BPM = m.BPM
-		t.Flags = EnsureFlagIDs(m.Flags)
-		t.DownbeatFrame = m.DownbeatFrame
-		t.Source = m.Source
-		t.LaneKinds = m.LaneKinds
-
-		out = append(out, t)
+		out = append(out, takeFromFile(dir, e.Name(), info))
 	}
-	// Starred first, then newest. Starring is how a take is kept in reach once
-	// newer ones have pushed it down the list.
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Starred != out[j].Starred {
-			return out[i].Starred
-		}
-		return out[i].Created.After(out[j].Created)
-	})
+	SortTakes(out)
 	return out, nil
+}
+
+// SortTakes orders takes the way the list shows them: starred first, then
+// newest. Starring is how a take is kept in reach once newer ones have pushed
+// it down the list.
+func SortTakes(takes []Take) {
+	sort.SliceStable(takes, func(i, j int) bool {
+		if takes[i].Starred != takes[j].Starred {
+			return takes[i].Starred
+		}
+		if !takes[i].Created.Equal(takes[j].Created) {
+			return takes[i].Created.After(takes[j].Created)
+		}
+		return takes[i].Name > takes[j].Name
+	})
+}
+
+// ReadTake describes one take, exactly as ListTakes would.
+func ReadTake(dir, name string) (Take, error) {
+	info, err := os.Stat(filepath.Join(dir, filepath.Base(name)))
+	if err != nil {
+		return Take{}, err
+	}
+	if !info.Mode().IsRegular() {
+		return Take{}, os.ErrNotExist
+	}
+	return takeFromFile(dir, filepath.Base(name), info), nil
+}
+
+// takeFromFile reads one take's header and sidecar into a Take.
+func takeFromFile(dir, name string, info os.FileInfo) Take {
+	full := filepath.Join(dir, name)
+	t := Take{
+		Name:       name,
+		SizeMB:     float64(info.Size()) / (1024 * 1024),
+		HasPreview: exists(previewPath(full)),
+		HasPeaks:   exists(peaksPath(full)),
+		HasMIDI:    exists(MIDIPath(full)),
+		Preview:    filepath.Base(previewPath(full)),
+		MIDI:       filepath.Base(MIDIPath(full)),
+	}
+	if wi, err := ReadWAVInfo(full); err == nil {
+		t.Duration = wi.Duration()
+		t.Channels = wi.Channels
+		t.SampleRate = wi.SampleRate
+	}
+
+	m := ReadMeta(full)
+	t.Created = TakeCreated(name, m, info.ModTime())
+	t.Label = m.Label
+	t.Starred = m.Starred
+	t.Trim = m.Trim
+	t.BPM = m.BPM
+	t.Flags = EnsureFlagIDs(m.Flags)
+	t.DownbeatFrame = m.DownbeatFrame
+	t.Source = m.Source
+	t.LaneKinds = m.LaneKinds
+	return t
 }
 
 // RemoveTake deletes a take and its sidecar files. It holds the take's lock

@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -81,7 +80,11 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/jams", a.handleJams).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/trigger", a.handleTrigger).Methods(http.MethodPost)
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/api/take", a.handleTakeGet).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/take", a.handleTakePatch).Methods(http.MethodPatch)
+	r.HandleFunc("/api/take/flags", a.handleTakeFlagPost).Methods(http.MethodPost)
+	r.HandleFunc("/api/take/flags", a.handleTakeFlagPatch).Methods(http.MethodPatch)
+	r.HandleFunc("/api/take/flags", a.handleTakeFlagDelete).Methods(http.MethodDelete)
 	r.HandleFunc("/api/cut", a.handleCut).Methods(http.MethodPost)
 	r.HandleFunc("/api/flag", a.handleFlagPost).Methods(http.MethodPost)
 	r.HandleFunc("/api/flag", a.handleFlagDelete).Methods(http.MethodDelete)
@@ -977,17 +980,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := audio.WriteMeta(wav, m); err != nil {
-		switch {
-		case errors.Is(err, audio.ErrNewerSidecar):
-			writeErr(w, http.StatusConflict, "this take was edited by a newer version")
-		case errors.Is(err, syscall.ENOSPC):
-			writeErr(w, http.StatusInsufficientStorage, "disk full")
-		default:
-			// The real error names absolute paths and the temp-file scheme, so log
-			// it and keep it off the wire.
-			log.Printf("take patch %s: %v", name, err)
-			writeErr(w, http.StatusInternalServerError, "could not save")
-		}
+		writeMetaErr(w, name, err)
 		return
 	}
 
