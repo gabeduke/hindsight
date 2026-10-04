@@ -84,7 +84,8 @@ type Options struct {
 	// (TAPE_MIXDOWN_TAIL_S), up to 30.
 	MixdownTail float64
 	// Clock, when set, is led by the tape (TAPE_CLOCK=lead): it gets MIDI
-	// clock, Start, Stop and Song Position as the tape plays.
+	// clock, Start, Stop and Song Position as the tape plays. The engine
+	// stops it when it stops, if it can be.
 	Clock ClockOut
 }
 
@@ -135,8 +136,9 @@ type Engine struct {
 	mixMu   sync.Mutex
 	mixdown *Mixdown // the last mixdown
 
-	clockOut ClockOut
-	clock    clockState
+	clockOut  ClockOut
+	clock     clockState
+	clockDone chan struct{} // closed when the clock's goroutine has stopped
 	// pullBridge says when each output frame was handed to the device, for
 	// an output with no clock bridge of its own (the demo's).
 	pullBridge *audio.ClockBridge
@@ -234,6 +236,12 @@ func (e *Engine) Stop() {
 	}
 	if e.started.Load() {
 		<-e.done
+	}
+	if e.clockDone != nil {
+		<-e.clockDone // its Stop is on its way to the followers
+		if s, ok := e.clockOut.(interface{ Stop() }); ok {
+			s.Stop()
+		}
 	}
 }
 

@@ -736,12 +736,18 @@ try something. It costs no disk space.
 ([configuration](configuration.md#the-tapes-clock)). The tape then sends it
 MIDI clock at the tape's tempo, so its sequences line up with the tape:
 
+- **While the tape stands,** the clock runs on at its tempo, so the Bento
+  knows the tempo before it starts, through a count-in too.
 - **▶ from bar 1** sends Start, so the Bento starts with the tape. **▶ from
   anywhere else** says where (Song Position) and sends Continue, on the next
   sixteenth.
-- **The loop coming round,** or a jump while playing, says where again, so a
-  follower that understands it lands on the right bar.
-- **■** sends Stop.
+- **The loop coming round** says where again (bar 1 of the loop), without
+  stopping, so a follower that understands it lands on the right bar.
+- **A locate while playing, or a new tempo,** stops the Bento and starts it
+  again where the tape is now.
+- **■** sends Stop, and so does Hindsight stopping.
+- **A Bento plugged in while the tape plays** is told where the tape is, and
+  joins in at the next sixteenth.
 - The pulses are timed to arrive with the audio they belong to. If the Bento
   is always a little early or late, nudge it: `TAPE_CLOCK_OUT=bento:-4`
   sends it everything 4 ms earlier.

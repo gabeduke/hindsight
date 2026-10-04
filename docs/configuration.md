@@ -262,7 +262,9 @@ card the capture uses (see [architecture](architecture.md#the-tape)):
 | `TAPE_CLOCK` | `free` | `lead`: the tape sends MIDI clock, Start, Stop and Song Position to the devices in `TAPE_CLOCK_OUT`. `free`: no clock out. `follow` (the tape following a clock by changing speed) isn't built yet, and runs free |
 | `TAPE_CLOCK_OUT` | *(empty)* | Comma-separated name substrings of the devices to lead, matched as `MIDI_DEVICES` is: `bento`. Each can carry a nudge in milliseconds, `bento:-4` to send it everything 4 ms early, up to ±100 |
 
-The clock goes out of each device's rawmidi node, opened for writing only,
-so it never disturbs the MIDI capture reading the same device. Devices are
-looked for every two seconds, so one plugged in later is found. In the demo,
-`TAPE_CLOCK=lead` leads a stand-in follower instead.
+The clock goes out of each device's rawmidi node, opened for writing only
+and without waiting, so it never disturbs the MIDI capture reading the same
+device, and a node another program holds can't stall it (it's tried again
+every 30 s). Devices are looked for every two seconds, so one plugged in
+later, or unplugged and plugged back, is found, and told where the tape is.
+In the demo, `TAPE_CLOCK=lead` leads a stand-in follower instead.

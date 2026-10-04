@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/mono"
@@ -19,11 +20,12 @@ import (
 // clock, leading the Bento. A message is given the moment it should arrive,
 // on the monotonic clock the audio bridges use, and each device writes it
 // then, plus that device's own nudge. The devices come and go: Out looks for
-// them every couple of seconds, as the Watcher does, and drops one whose
-// write fails until it's back.
+// them every couple of seconds, as the Watcher does, drops one whose node has
+// gone or whose write fails, and opens it again when it's back.
 //
 // Opening a rawmidi node write-only opens its output alone, so this never
-// competes with the Watcher reading the same device.
+// competes with the Watcher reading the same device; and it's opened
+// non-blocking, so an output another program holds can't hang the clock.
 type Out struct {
 	targets   []OutTarget
 	cardsPath string
@@ -32,9 +34,15 @@ type Out struct {
 	open func(node string) (io.WriteCloser, error)
 
 	mu       sync.Mutex
-	ports    map[string]*outPort // by node
-	extra    []*outPort          // always there: the demo's follower
+	ports    map[string]*outPort  // by node
+	failed   map[string]time.Time // nodes whose open failed, and when
+	extra    []*outPort           // always there: the demo's follower
 	follower *Follower
+	stopped  bool
+
+	// gen moves when a device appears or loses messages: whoever sends the
+	// clock tells the followers where they are again.
+	gen atomic.Uint64
 
 	stop chan struct{}
 	done chan struct{}
@@ -73,8 +81,9 @@ func ParseOutTargets(s string) ([]OutTarget, error) {
 
 // timed is a message and when to write it, in mono ns.
 type timed struct {
-	at  int64
-	msg []byte
+	at    int64
+	msg   []byte
+	epoch uint64 // the port's epoch when queued: SendNow drops older ones
 }
 
 // outPort is one open device.
@@ -84,13 +93,24 @@ type outPort struct {
 	nudge int64 // ns
 	w     io.WriteCloser
 	q     chan timed
+	wmu   sync.Mutex // one write at a time: run's and SendNow's
+	epoch atomic.Uint64
 	dead  atomic.Bool
+	lost  atomic.Bool // messages were dropped: say so once it takes them again
 	sent  atomic.Uint64
+	out   *Out
 }
 
-// outQueue is how far ahead messages can pile up for one device: a few
-// seconds of clock at the fastest tempo.
-const outQueue = 2048
+const (
+	// outQueue is how far ahead messages can pile up for one device: a few
+	// seconds of clock at the fastest tempo.
+	outQueue = 2048
+	// outStale is how late a message can be and still go: later, the device
+	// was stuck, and a burst of old clock would throw its count further.
+	outStale = 250 * time.Millisecond
+	// outRetry is how long a node that wouldn't open is left alone.
+	outRetry = 30 * time.Second
+)
 
 // NewOut makes an Out for targets; Start begins looking for them.
 func NewOut(targets []OutTarget) *Out {
@@ -99,11 +119,12 @@ func NewOut(targets []OutTarget) *Out {
 		cardsPath: DefaultCardsPath,
 		sndDir:    DefaultSndDir,
 		open: func(node string) (io.WriteCloser, error) {
-			return os.OpenFile(node, os.O_WRONLY, 0)
+			return os.OpenFile(node, os.O_WRONLY|syscall.O_NONBLOCK, 0)
 		},
-		ports: map[string]*outPort{},
-		stop:  make(chan struct{}),
-		done:  make(chan struct{}),
+		ports:  map[string]*outPort{},
+		failed: map[string]time.Time{},
+		stop:   make(chan struct{}),
+		done:   make(chan struct{}),
 	}
 }
 
@@ -125,10 +146,13 @@ func (o *Out) Heard() (bpm float64, ok, running bool, spp int) {
 	return o.follower.Heard()
 }
 
+// Gen moves each time a device appears or loses messages.
+func (o *Out) Gen() uint64 { return o.gen.Load() }
+
 // AddWriter adds a device that's always there -- the demo's follower --
 // under name.
 func (o *Out) AddWriter(name string, w io.WriteCloser) {
-	p := &outPort{name: name, node: name, w: w, q: make(chan timed, outQueue)}
+	p := &outPort{name: name, node: name, w: w, q: make(chan timed, outQueue), out: o}
 	o.mu.Lock()
 	o.extra = append(o.extra, p)
 	o.mu.Unlock()
@@ -157,6 +181,7 @@ func (o *Out) Stop() {
 	o.once.Do(func() {
 		close(o.stop)
 		o.mu.Lock()
+		o.stopped = true
 		for _, p := range o.ports {
 			p.close()
 		}
@@ -167,35 +192,68 @@ func (o *Out) Stop() {
 	})
 }
 
-// scan opens targets that have appeared and forgets ones that failed.
+// scan opens targets that have appeared and forgets ones that have gone.
+// Opening happens outside the lock: the clock never waits on a device.
 func (o *Out) scan() {
 	ports := Enumerate(o.cardsPath, o.sndDir)
+	present := map[string]bool{}
+	for _, port := range ports {
+		present[port.Node] = true
+	}
+	type want struct {
+		port  Port
+		nudge float64
+	}
+	var opens []want
 	o.mu.Lock()
-	defer o.mu.Unlock()
 	for node, p := range o.ports {
-		if p.dead.Load() {
+		if p.dead.Load() || !present[node] {
+			// A device unplugged -- and maybe plugged straight back in at
+			// the same node -- is opened afresh.
+			p.close()
 			delete(o.ports, node)
 		}
 	}
+	now := time.Now()
 	for _, port := range ports {
 		if _, open := o.ports[port.Node]; open {
 			continue
 		}
+		if at, ok := o.failed[port.Node]; ok && now.Sub(at) < outRetry {
+			continue
+		}
 		for _, t := range o.targets {
-			if !port.Matches(t.Match) {
-				continue
-			}
-			w, err := o.open(port.Node)
-			if err != nil {
-				log.Printf("[!] midi out: %s (%s): %v", port.Name, port.Node, err)
+			if port.Matches(t.Match) {
+				opens = append(opens, want{port, t.NudgeMS})
 				break
 			}
-			p := &outPort{name: port.Name, node: port.Node, nudge: int64(t.NudgeMS * 1e6), w: w, q: make(chan timed, outQueue)}
-			o.ports[port.Node] = p
-			log.Printf("[*] midi out: sending to %s (%s)", port.Name, port.Node)
-			go p.run()
-			break
 		}
+	}
+	o.mu.Unlock()
+
+	for _, w := range opens {
+		f, err := o.open(w.port.Node)
+		o.mu.Lock()
+		if err != nil {
+			if _, before := o.failed[w.port.Node]; !before {
+				log.Printf("[!] midi out: %s (%s): %v; trying again every %s", w.port.Name, w.port.Node, err, outRetry)
+			}
+			o.failed[w.port.Node] = time.Now()
+			o.mu.Unlock()
+			continue
+		}
+		if o.stopped {
+			o.mu.Unlock()
+			f.Close()
+			return
+		}
+		delete(o.failed, w.port.Node)
+		p := &outPort{name: w.port.Name, node: w.port.Node, nudge: int64(w.nudge * 1e6), w: f, q: make(chan timed, outQueue), out: o}
+		o.ports[w.port.Node] = p
+		o.mu.Unlock()
+		log.Printf("[*] midi out: sending to %s (%s)", w.port.Name, w.port.Node)
+		go p.run()
+		o.gen.Add(1)
 	}
 }
 
@@ -204,10 +262,35 @@ func (o *Out) Send(at int64, msg []byte) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	for _, p := range o.ports {
-		p.send(timed{at: at + p.nudge, msg: msg})
+		p.send(timed{at: at + p.nudge, msg: msg, epoch: p.epoch.Load()})
 	}
 	for _, p := range o.extra {
-		p.send(timed{at: at + p.nudge, msg: msg})
+		p.send(timed{at: at + p.nudge, msg: msg, epoch: p.epoch.Load()})
+	}
+}
+
+// SendNow writes msg to every device at once, dropping whatever is queued:
+// a Stop when the clock goes away mustn't wait behind clock meant for later.
+// It waits for the writes a moment at most: a stuck device can't hold up a
+// shutdown.
+func (o *Out) SendNow(msg []byte) {
+	o.mu.Lock()
+	ports := append([]*outPort(nil), o.extra...)
+	for _, p := range o.ports {
+		ports = append(ports, p)
+	}
+	o.mu.Unlock()
+	var wg sync.WaitGroup
+	for _, p := range ports {
+		p.epoch.Add(1)
+		wg.Add(1)
+		go func() { defer wg.Done(); p.write(msg) }()
+	}
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
@@ -235,8 +318,10 @@ func (p *outPort) send(t timed) {
 	select {
 	case p.q <- t:
 	default:
-		// A device that isn't taking its messages: it's gone, or stuck.
-		// Dropping is better than holding the clock's sender up.
+		// A device that isn't taking its messages: it's stuck. Dropping is
+		// better than holding the clock's sender up; the followers are
+		// told where they are once it takes messages again.
+		p.lost.Store(true)
 	}
 }
 
@@ -249,17 +334,42 @@ func (p *outPort) run() {
 		if p.dead.Load() {
 			return
 		}
-		if _, err := p.w.Write(t.msg); err != nil {
-			if !p.dead.Swap(true) {
-				log.Printf("[!] midi out: %s: %v", p.name, err)
-				p.w.Close()
-			}
+		if t.epoch != p.epoch.Load() {
+			continue // dropped by SendNow
+		}
+		if late := time.Duration(mono.Now() - t.at); late > outStale {
+			p.lost.Store(true) // stuck a while: not a burst of old clock
+			continue
+		}
+		if !p.write(t.msg) {
 			return // the next scan opens it again if it's back
 		}
-		p.sent.Add(1)
 	}
 }
 
+// write writes msg, and answers whether the device is still there.
+func (p *outPort) write(msg []byte) bool {
+	p.wmu.Lock()
+	defer p.wmu.Unlock()
+	if p.dead.Load() {
+		return false
+	}
+	if _, err := p.w.Write(msg); err != nil {
+		if !p.dead.Swap(true) {
+			log.Printf("[!] midi out: %s: %v", p.name, err)
+			p.w.Close()
+		}
+		return false
+	}
+	p.sent.Add(1)
+	if p.lost.Swap(false) {
+		p.out.gen.Add(1) // taking messages again, having lost some
+	}
+	return true
+}
+
+// close ends the port. Closing the file wakes a write stuck on it, so this
+// doesn't wait for one.
 func (p *outPort) close() {
 	if !p.dead.Swap(true) {
 		p.w.Close()

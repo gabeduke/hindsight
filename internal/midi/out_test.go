@@ -3,6 +3,8 @@ package midi
 import (
 	"errors"
 	"io"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -87,7 +89,9 @@ func TestOutSendsToMatchingDevicesOnTimeWithTheirNudge(t *testing.T) {
 	if d := keystep.at[0] - at; d < int64(20*time.Millisecond) || d > int64(25*time.Millisecond) {
 		t.Fatalf("keystep %v off, want 20 ms late", time.Duration(d))
 	}
-	// One that fails is dropped, then found again on the next scan.
+	// One that fails is dropped, then found again on the next scan -- and
+	// the followers are to be told where they are.
+	gen := o.Gen()
 	orchid.mu.Lock()
 	orchid.fail = true
 	orchid.mu.Unlock()
@@ -97,8 +101,60 @@ func TestOutSendsToMatchingDevicesOnTimeWithTheirNudge(t *testing.T) {
 		t.Fatalf("after a failed write: %v", d)
 	}
 	o.scan()
-	if d := o.Devices(); len(d) != 2 {
-		t.Fatalf("after a rescan: %v", d)
+	if d := o.Devices(); len(d) != 2 || o.Gen() == gen {
+		t.Fatalf("after a rescan: %v, gen %d", d, o.Gen())
+	}
+}
+
+func TestADeviceThatGoesAwayIsClosedAndOneThatWontOpenIsLeftAWhile(t *testing.T) {
+	cards, snd := fixture(t, rigCards, "midiC3D0", "midiC4D0")
+	opened := map[string]int{}
+	var mu sync.Mutex
+	o := NewOut([]OutTarget{{Match: "keystep"}, {Match: "orchid"}})
+	o.cardsPath, o.sndDir = cards, snd
+	o.open = func(node string) (io.WriteCloser, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		opened[node]++
+		if strings.HasSuffix(node, "midiC4D0") {
+			return nil, errors.New("busy")
+		}
+		return &recorder{}, nil
+	}
+	defer o.Stop()
+	o.scan()
+	o.scan()
+	if n := opened[snd+"/midiC4D0"]; n != 1 {
+		t.Fatalf("a node that wouldn't open was tried %d times in a row", n)
+	}
+	if d := o.Devices(); len(d) != 1 || d[0] != "Orchid" {
+		t.Fatalf("devices = %v", d)
+	}
+	// Unplugged: its node goes, and so does the port.
+	if err := os.Remove(snd + "/midiC3D0"); err != nil {
+		t.Fatal(err)
+	}
+	o.scan()
+	if d := o.Devices(); len(d) != 0 {
+		t.Fatalf("after unplugging: %v", d)
+	}
+}
+
+func TestSendNowGoesAheadOfWhatsQueued(t *testing.T) {
+	o := NewOut(nil)
+	r := &recorder{}
+	o.AddWriter("follower", r)
+	defer o.Stop()
+	soon := mono.Now() + int64(200*time.Millisecond)
+	for i := 0; i < 5; i++ {
+		o.Send(soon+int64(i)*int64(time.Millisecond), []byte{ClockByte})
+	}
+	o.SendNow([]byte{StopByte})
+	time.Sleep(300 * time.Millisecond)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.got) != 1 || r.got[0][0] != StopByte {
+		t.Fatalf("got %x, want the Stop alone", r.got)
 	}
 }
 

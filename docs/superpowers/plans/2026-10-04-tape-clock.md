@@ -18,9 +18,13 @@ rig has answered the spec's open hardware questions.
   that acts early or late: `TAPE_CLOCK_OUT=bento:-4`.
 - **Start or Continue on a sixteenth.** A follower counts from a sixteenth,
   so a play from mid-bar waits for the next one and says where it is.
-- **Song Position at every jump while running,** the loop coming round
-  included, as the OP-1 Field does since 1.7. A follower that ignores it
-  keeps counting, which a loop of whole bars keeps in step anyway.
+- **The loop coming round sends Song Position** without stopping, as the
+  OP-1 Field does since 1.7; a follower that ignores it keeps counting, which
+  a loop of whole bars keeps in step anyway. **Any other jump while running**
+  (a locate, a new tempo) stops the followers and starts them again, since
+  many ignore Song Position while running.
+- **The clock runs while the tape stands,** at its tempo, so a follower
+  knows the tempo before Start.
 - **Out never shares a node with the capture.** Each rawmidi node is opened
   write-only, which opens its output alone.
 - **The demo has a follower:** an in-memory device that reads the clock it's
@@ -29,6 +33,24 @@ rig has answered the spec's open hardware questions.
 - **Not in this step:** dashcam takes snapping to the tape's bars, and their
   `.mid` carrying the tape's tempo, while the tape leads (the spec's
   `BarSnapper` change).
+
+## After the independent review
+
+Fixed:
+- At tempos where a bar line rounds up (84 BPM, say), a start or a loop
+  from bar 2 was a sixteenth late. Pulses are now laid from the bar line
+  before them, so a bar's first pulse is its bar line.
+- A tempo change while playing left the clock silent or scrambled.
+- A device whose open blocked froze the clock and the tape page. Opens are
+  now non-blocking, outside the lock, and retried slowly.
+- A replugged or late-plugged follower never got Start; it's now told
+  where the tape is.
+- The Stop at shutdown could be lost behind queued clock, or never sent.
+- A locate while running only sent Song Position.
+- The page overwrote the readout's help tip.
+- Also: no clock before Start, so the clock now runs while the tape stands;
+  very late messages are skipped rather than sent in a burst; Song Position
+  goes 5 ms before its Continue.
 
 ## Tasks
 

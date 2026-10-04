@@ -315,12 +315,10 @@ function renderClock(c, t) {
   const el = $('clock-out');
   el.hidden = !c;
   if (!c) return;
-  const who = c.devices.length ? c.devices.join(', ') : 'no device';
-  el.textContent = `clock → ${who}${c.running ? ' ●' : ''}${c.running && c.heard_bpm ? ` · hears ${c.heard_bpm} BPM` : ''}`;
+  const who = c.devices.length ? c.devices.join(', ') : 'no device plugged in';
+  el.textContent = !t.grid ? 'clock: once the tape has a tempo'
+    : `clock → ${who}${c.running ? ' ●' : ''}${c.running && c.heard_bpm ? ` · hears ${c.heard_bpm} BPM` : ''}`;
   el.classList.toggle('none', !c.devices.length);
-  el.title = !t.grid ? 'The tape has no tempo yet: no clock until it does'
-    : c.devices.length ? `Sending MIDI clock at the tape's tempo${c.running ? ', running' : ''}`
-      : 'TAPE_CLOCK=lead, but no device in TAPE_CLOCK_OUT is plugged in';
 }
 
 // --- mixdown and export ------------------------------------------------------
