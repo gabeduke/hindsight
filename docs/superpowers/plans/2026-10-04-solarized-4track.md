@@ -166,9 +166,36 @@ Light `:root` (dark values in brackets):
 
 - [ ] Full suite; 390×844, 844×390, 1280×800 light and dark; README screenshots refreshed if a headless browser is available. Merge on approval.
 
-## PR 3 — take page (scope)
+## PR 3 — the take page
 
-Grease-pencil In/Out marks drawn in `view.js`; In/Out times in LCD readouts; VARISPEED label on the speed segment; Share is the orange key; rising-notes stage stays dark in both schemes.
+**Goal:** the take page's selection reads like grease pencil on tape: hand-drawn In and Out marks on the waveform, the In/Out labels in marker, the speed keys named VARISPEED. Retro but quiet: plain-number times (amber windows stay for running counters), the waveform and selection band unchanged.
+
+**Review Focus (PR 3):**
+- A selection one pixel wide, or with an edge off-screen → marks draw (or not) without throwing; labels never overlap past the canvas.
+- Zoom and pan → a mark's wobble stays put on the audio, not shimmering frame to frame.
+- The marker font not loaded yet (first visit, offline) → the labels draw in the fallback face, then repaint in marker when it arrives.
+- Dark scheme → the grease reads on the dark well.
+
+### Task 19: `lib/wave/grease.js` — a grease-pencil stroke, pure
+
+**Produces:** `greaseStroke(x, top, bottom, seed) → Array<[x, y]>` — a vertical stroke from top to bottom that wanders at most 1.5 px either side of `x`, the same points for the same seed (so a mark keyed to its frame doesn't shimmer as the view moves).
+
+- [ ] Tests: covers top..bottom; stays within x ± 1.5; deterministic per seed; differs between seeds; a zero-height span gives a single point. RED, GREEN, commit.
+
+### Task 20: Marks on the waveform, marker labels, VARISPEED
+
+**Files:** `web/static/lib/wave/view.js`, `web/static/lib/wave/page.js`, `web/static/wave.html`, `web/static/styles.css` (`--grease` light `#7a5c00`, dark `#e0b22e`).
+
+- Selection edges: a 4 px grease stroke (`greaseStroke`, seeded by the edge's frame) through the body, with IN / OUT in Permanent Marker near the top, inside the selection, clamped to the canvas.
+- Repaint once `document.fonts.load('16px "Permanent Marker"')` resolves.
+- `.sel-label` in marker and grease ink; a VARISPEED label before the speed keys.
+- The ‹'s accessible name says where it goes: the main page or the takes.
+
+- [ ] Help test green; check by hand light/dark, phone and bench. Commit.
+
+### Task 21: Ship PR 3
+
+- [ ] Full suite; review; merge and deploy on approval (web-only if no Go changed).
 
 ## PR 4 — the tape machine
 
