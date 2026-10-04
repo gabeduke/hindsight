@@ -138,3 +138,57 @@ test('the view pages to follow a playhead that leaves it', () => {
   // At the tape's end the view stops there.
   assert.deepEqual(followView(v, 99900, 100000), { from: 98000, to: 100000 });
 });
+
+// levelAt: what the meter bridge shows for a track at the playhead.
+import { levelAt } from './geometry.js';
+
+// A pool file of 10 s at 48 kHz in 100 buckets, one channel, its level in
+// each bucket set by `amp(bucket)`.
+const pool = (amp) => {
+  const d = [];
+  for (let b = 0; b < 100; b++) { const a = amp(b); d.push(-a, a); }
+  return { duration: 10, sample_rate: 48000, buckets: 100, channels: 1, data: [d] };
+};
+
+test('a track reads the clip under the playhead, through its gains', () => {
+  const pd = pool((b) => (b < 50 ? 0.5 : 0.1));
+  const tr = { gain_db: 0, mute: false, clips: [{ file: 'a', src: 0, frames: 480000, at: 0, gain_db: 0, layer: 0 }] };
+  const peaksOf = (f) => (f === 'a' ? pd : null);
+  const db = (x) => 20 * Math.log10(x);
+  assert.ok(Math.abs(levelAt(tr, 1000, peaksOf, 48000) - db(0.5)) < 0.01);
+  assert.ok(Math.abs(levelAt(tr, 300000, peaksOf, 48000) - db(0.1)) < 0.01);
+  tr.gain_db = -6;
+  tr.clips[0].gain_db = 3;
+  assert.ok(Math.abs(levelAt(tr, 1000, peaksOf, 48000) - (db(0.5) - 3)) < 0.01);
+});
+
+test('a clip plays its file from src, and is heard where its nudge puts it', () => {
+  const pd = pool((b) => (b === 60 ? 0.8 : 0.01));
+  const tr = { gain_db: 0, clips: [{ file: 'a', src: 288000, frames: 48000, at: 96000, gain_db: 0, layer: 0, nudge_ms: 10 }] };
+  // Tape frame 96000 + 480 (the nudge) is the file's frame 288000: bucket 60.
+  assert.ok(Math.abs(levelAt(tr, 96000 + 480, () => pd, 48000) - 20 * Math.log10(0.8)) < 0.01);
+  assert.equal(levelAt(tr, 96000 - 1, () => pd, 48000), -Infinity, 'before the clip');
+  assert.equal(levelAt(tr, 96000 + 480 + 48000, () => pd, 48000), -Infinity, 'after the clip');
+});
+
+test('the loudest of the clips sounding wins', () => {
+  const loud = pool(() => 0.9), quiet = pool(() => 0.1);
+  const tr = { gain_db: 0, clips: [
+    { file: 'q', src: 0, frames: 480000, at: 0, gain_db: 0, layer: 0 },
+    { file: 'l', src: 0, frames: 480000, at: 0, gain_db: 0, layer: 1 },
+  ] };
+  const peaksOf = (f) => (f === 'l' ? loud : quiet);
+  assert.ok(Math.abs(levelAt(tr, 1000, peaksOf, 48000) - 20 * Math.log10(0.9)) < 0.01);
+});
+
+test('silence, a mute, a solo elsewhere or peaks not loaded read as the stop', () => {
+  const pd = pool(() => 0.5);
+  const clip = { file: 'a', src: 0, frames: 480000, at: 0, gain_db: 0, layer: 0 };
+  assert.equal(levelAt({ gain_db: 0, clips: [] }, 0, () => pd, 48000), -Infinity);
+  assert.equal(levelAt({ gain_db: 0, mute: true, clips: [clip] }, 0, () => pd, 48000), -Infinity);
+  assert.equal(levelAt({ gain_db: 0, clips: [clip] }, 0, () => pd, 48000, true), -Infinity, 'another track is soloed');
+  assert.ok(Number.isFinite(levelAt({ gain_db: 0, solo: true, clips: [clip] }, 0, () => pd, 48000, true)));
+  assert.equal(levelAt({ gain_db: 0, clips: [clip] }, 0, () => undefined, 48000), -Infinity);
+  assert.equal(levelAt({ gain_db: 0, clips: [clip] }, 0, () => Promise.resolve(), 48000), -Infinity);
+  assert.equal(levelAt({ gain_db: 0, clips: [clip] }, 0, () => pool(() => 0), 48000), -Infinity);
+});

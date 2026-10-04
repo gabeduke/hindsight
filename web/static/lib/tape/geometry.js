@@ -214,3 +214,31 @@ export function fitsDoubled(tape) {
   const l = tape.loop || {};
   return l.out > l.in && l.out + (l.out - l.in) <= tape.length;
 }
+
+/**
+ * levelAt is what a track has under the playhead, in dBFS, for the meter
+ * bridge: the loudest clip sounding at tape frame `frame` (where its nudge
+ * puts it), read from its pool file's peaks and taken through the clip's
+ * and the track's gain. A muted track, a track silenced by another's solo,
+ * no clip there, or peaks not loaded yet all read as -Infinity: the stop.
+ * peaksOf(file) gives a file's PeakData, or anything else while it loads.
+ */
+export function levelAt(track, frame, peaksOf, sampleRate, anySolo = false) {
+  if (track.mute || (anySolo && !track.solo)) return -Infinity;
+  let best = 0;
+  for (const c of track.clips || []) {
+    const from = c.at + nudgeFrames(c, sampleRate);
+    if (frame < from || frame >= from + c.frames) continue;
+    const pd = peaksOf(c.file);
+    if (!pd || !pd.data || !(pd.buckets > 0)) continue;
+    const fileFrames = Math.round(pd.duration * pd.sample_rate);
+    if (!(fileFrames > 0)) continue;
+    const b = Math.min(pd.buckets - 1, Math.floor(((c.src + frame - from) / fileFrames) * pd.buckets));
+    let amp = 0;
+    for (const d of pd.data) amp = Math.max(amp, Math.abs(d[b * 2]), Math.abs(d[b * 2 + 1]));
+    const lin = amp * Math.pow(10, (c.gain_db || 0) / 20);
+    if (lin > best) best = lin;
+  }
+  if (!(best > 0)) return -Infinity;
+  return 20 * Math.log10(best) + (track.gain_db || 0);
+}
