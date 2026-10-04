@@ -179,11 +179,12 @@ func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, erro
 	if err != nil {
 		return nil, false, err
 	}
-	if err := audio.WriteSpan(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr)); err != nil {
+	peak, err := audio.WriteSpan(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr))
+	if err != nil {
 		return nil, false, err
 	}
 	c := &Clipboard{
-		Tracks:  [][]Clip{{{File: rel, Src: from - lo, Frames: to - from, Source: src.Name}}},
+		Tracks:  [][]Clip{{{File: rel, Src: from - lo, Frames: to - from, Source: src.Name, PeakDB: peakDB(peak)}}},
 		Frames:  to - from,
 		From:    "the ribbon (" + src.Name + ")",
 		Created: time.Now(),

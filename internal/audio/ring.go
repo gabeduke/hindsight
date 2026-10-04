@@ -123,6 +123,45 @@ func (r *Ring) SnapshotAt(frames int) ([]int32, int, uint64) {
 	return out, frames, end
 }
 
+// Peaks reports each channel's largest absolute sample over the most recent
+// frames (fewer if the ring holds fewer), as a fraction of full scale: a
+// meter's reading. It scans in place under the lock -- a third of a second
+// of eight channels is well under a millisecond -- rather than copying out.
+func (r *Ring) Peaks(frames int) []float64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]float64, r.channels)
+	avail := r.bufferedLocked()
+	if frames <= 0 || frames > avail {
+		frames = avail
+	}
+	if frames == 0 {
+		return out
+	}
+	peak := make([]int64, r.channels)
+	n := len(r.buf)
+	pos := ((r.writePos-frames*r.channels)%n + n) % n
+	for f := 0; f < frames; f++ {
+		for c := 0; c < r.channels; c++ {
+			v := int64(r.buf[pos+c])
+			if v < 0 {
+				v = -v
+			}
+			if v > peak[c] {
+				peak[c] = v
+			}
+		}
+		pos += r.channels
+		if pos >= n {
+			pos -= n
+		}
+	}
+	for c, p := range peak {
+		out[c] = float64(p) / 2147483648.0
+	}
+	return out
+}
+
 // ErrRangeGone reports a range the ring doesn't hold: older than its oldest
 // frame (overwritten), or newer than its newest (not recorded yet).
 var ErrRangeGone = errors.New("that audio is no longer in the buffer")

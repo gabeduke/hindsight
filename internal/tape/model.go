@@ -143,6 +143,10 @@ type Clip struct {
 	Source  string  `json:"source,omitempty"`  // the capture pair it came from: aux, main, ch1, ch2, or a take
 	Clean   bool    `json:"clean,omitempty"`   // no tape bus was leaking into that source
 	Aligned string  `json:"aligned,omitempty"` // how the catch was lined up: exact (the demo), locked or estimated (6b); "" for a drop
+	// PeakDB is the loudest sample of what was caught, in dBFS (-120 for
+	// digital silence): so a catch from a source with nothing in it says
+	// so. Unset for audio that came another way.
+	PeakDB *float64 `json:"peak_db,omitempty"`
 	// Reversed is set on a clip playing backwards: its File is a reversed
 	// copy of the one it came from, which this names. Never changed in
 	// place, so a copy of a clip can share it.
