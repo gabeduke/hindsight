@@ -324,14 +324,15 @@ func (e *Engine) ClipboardAudio() ([]float32, error) {
 			}
 			ch := info.Channels
 			g := float32(math.Pow(10, cl.GainDB/20))
-			_, err = audio.ReadFrames(path, cl.Src+(from-cl.At), to-from, 1<<14, func(b []int32, first int64) error {
+			start := cl.Src + (from - cl.At) // the file frame that plays at from
+			_, err = audio.ReadFrames(path, start, start+(to-from), 1<<14, func(b []int32, first int64) error {
 				for i := 0; i < len(b)/ch; i++ {
 					l := float32(float64(b[i*ch]) / 2147483648.0)
 					r := l
 					if ch > 1 {
 						r = float32(float64(b[i*ch+1]) / 2147483648.0)
 					}
-					k := from + (first - (cl.Src + (from - cl.At))) + int64(i)
+					k := from + (first - start) + int64(i)
 					if k >= 0 && k < n {
 						out[2*k] += l * g
 						out[2*k+1] += r * g
