@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
+	"github.com/gabeduke/hindsight/internal/mono"
 )
 
 // The engine: one loaded tape, its mix, the transport, and the player that
@@ -82,6 +83,10 @@ type Options struct {
 	// MixdownTail is how many seconds a mixdown runs past Out
 	// (TAPE_MIXDOWN_TAIL_S), up to 30.
 	MixdownTail float64
+	// Clock, when set, is led by the tape (TAPE_CLOCK=lead): it gets MIDI
+	// clock, Start, Stop and Song Position as the tape plays. The engine
+	// stops it when it stops, if it can be.
+	Clock ClockOut
 }
 
 type block struct {
@@ -131,6 +136,14 @@ type Engine struct {
 	mixMu   sync.Mutex
 	mixdown *Mixdown // the last mixdown
 
+	clockOut  ClockOut
+	clock     clockState
+	clockDone chan struct{} // closed when the clock's goroutine has stopped
+	// pullBridge says when each output frame was handed to the device, for
+	// an output with no clock bridge of its own (the demo's).
+	pullBridge *audio.ClockBridge
+	heardFn    func(o uint64) (int64, bool) // tests: when output frame o is heard
+
 	recMu sync.Mutex
 	rec   *Recording // a punch, or an armed track
 	tap   *pendingTap
@@ -158,6 +171,7 @@ func NewEngine(o Options) *Engine {
 		latencyMS: o.LatencyMS,
 		saver:     o.Saver,
 		takesDir:  o.TakesDir,
+		clockOut:  o.Clock,
 		tr:        newTransport(),
 		actions:   make(chan Action, 32),
 		blocks:    make(chan *block, aheadBlocks+3),
@@ -167,6 +181,9 @@ func NewEngine(o Options) *Engine {
 		done:      make(chan struct{}),
 	}
 	e.tailSeconds = math.Max(0, math.Min(maxMixdownTail, o.MixdownTail))
+	if o.Store != nil {
+		e.pullBridge = audio.NewClockBridge(256, o.Store.SampleRate())
+	}
 	e.mix.Store(&Mix{})
 	e.panicked.Store("")
 	return e
@@ -202,6 +219,7 @@ func (e *Engine) Start() error {
 	e.started.Store(true)
 	go e.renderLoop()
 	e.startAligner()
+	e.startClock()
 	return err
 }
 
@@ -218,6 +236,12 @@ func (e *Engine) Stop() {
 	}
 	if e.started.Load() {
 		<-e.done
+	}
+	if e.clockDone != nil {
+		<-e.clockDone // its Stop is on its way to the followers
+		if s, ok := e.clockOut.(interface{ Stop() }); ok {
+			s.Stop()
+		}
 	}
 }
 
@@ -276,6 +300,13 @@ func (e *Engine) pull(out []int32) {
 	}
 	e.keepHistory(start, out)
 	e.delivered.Store(d)
+	if e.pullBridge != nil && e.clockOut != nil {
+		// When the frames were handed over: the clock's only way to place
+		// them on an output that keeps no bridge of its own (the demo's).
+		// Recorded as the start of the block -- the first frame -- going out
+		// now.
+		e.pullBridge.Record(mono.Now(), start)
+	}
 	select {
 	case e.kick <- struct{}{}:
 	default:
@@ -705,18 +736,19 @@ func (e *Engine) Do(a Action) {
 // Live is what the page shows.
 type Live struct {
 	Status
-	Heard     int64      `json:"heard"`     // the tape frame at the device now
-	Delivered uint64     `json:"delivered"` // output frames played
-	Late      uint64     `json:"late"`      // device periods with nothing rendered, played as silence
-	Output    string     `json:"output"`    // the output device, or ""
-	Delta     *int64     `json:"delta"`     // ring frame − output frame, if known
-	Aligned   string     `json:"aligned"`   // exact (the demo), locked, estimated or none
-	Cycles    []Cycle    `json:"cycles"`    // the last complete passes
-	Failed    []string   `json:"failed"`    // pool files that couldn't be read
-	Problem   string     `json:"problem,omitempty"`
-	Record    *Recording `json:"record,omitempty"`  // a punch, or an armed track
-	Tapped    bool       `json:"tapped,omitempty"`  // a free loop's first tap is in
-	Mixdown   *Mixdown   `json:"mixdown,omitempty"` // the last mixdown
+	Heard     int64        `json:"heard"`     // the tape frame at the device now
+	Delivered uint64       `json:"delivered"` // output frames played
+	Late      uint64       `json:"late"`      // device periods with nothing rendered, played as silence
+	Output    string       `json:"output"`    // the output device, or ""
+	Delta     *int64       `json:"delta"`     // ring frame − output frame, if known
+	Aligned   string       `json:"aligned"`   // exact (the demo), locked, estimated or none
+	Cycles    []Cycle      `json:"cycles"`    // the last complete passes
+	Failed    []string     `json:"failed"`    // pool files that couldn't be read
+	Problem   string       `json:"problem,omitempty"`
+	Record    *Recording   `json:"record,omitempty"`  // a punch, or an armed track
+	Tapped    bool         `json:"tapped,omitempty"`  // a free loop's first tap is in
+	Mixdown   *Mixdown     `json:"mixdown,omitempty"` // the last mixdown
+	Clock     *ClockStatus `json:"clock,omitempty"`   // the clock the tape leads
 }
 
 func (e *Engine) Live() Live {
@@ -739,6 +771,7 @@ func (e *Engine) Live() Live {
 	l.Record = e.Recording()
 	l.Tapped = e.tapPending()
 	l.Mixdown = e.MixdownStatus()
+	l.Clock = e.ClockStatus()
 	l.Cycles = e.tr.Cycles()
 	if l.Cycles == nil {
 		l.Cycles = []Cycle{}

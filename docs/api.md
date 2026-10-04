@@ -848,6 +848,11 @@ loop, otherwise its first loop sets the tempo.
     begun before the loop was moved isn't one); `late` counts device periods
     played as silence because nothing was rendered in time;
     `failed` lists pool files that couldn't be read.
+  - `mixdown` is the last mixdown ([below](#post-apitapesmixdownid)).
+  - `clock`, when the tape leads (`TAPE_CLOCK=lead`): `{"mode": "lead",
+    "devices": […], "pulses": N, "running": bool}` -- the devices it's
+    sending to, the pulses sent, and whether the followers have been started;
+    in the demo also `heard_bpm`, the tempo its stand-in follower hears.
 
 `HEAD` is accepted. It's polled a few times a second, so it's `no-store`.
 

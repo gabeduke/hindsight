@@ -220,6 +220,7 @@ function render() {
   $('tap').classList.toggle('second', !!(live && live.tapped));
 
   noteMixdown(live && live.mixdown);
+  renderClock(live && live.clock, t);
   renderSources();
   renderPasses();
   const canCatch = live && live.aligned !== 'none';
@@ -305,6 +306,19 @@ async function drop(merge = false) {
   } catch (e) {
     toast(`Could not drop: ${e.message}`, 'bad');
   }
+}
+
+// --- the clock ---------------------------------------------------------------
+
+// renderClock says who follows the tape's clock (TAPE_CLOCK=lead).
+function renderClock(c, t) {
+  const el = $('clock-out');
+  el.hidden = !c;
+  if (!c) return;
+  const who = c.devices.length ? c.devices.join(', ') : 'no device plugged in';
+  el.textContent = !t.grid ? 'clock: once the tape has a tempo'
+    : `clock → ${who}${c.running ? ' ●' : ''}${c.running && c.heard_bpm ? ` · hears ${c.heard_bpm} BPM` : ''}`;
+  el.classList.toggle('none', !c.devices.length);
 }
 
 // --- mixdown and export ------------------------------------------------------

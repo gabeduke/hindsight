@@ -1,6 +1,6 @@
 # The editing model, and refining the base app
 
-**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; steps 1 (solid ground), 2 (phone recording), 3 (one take page), 4 (undo and trash; several takes at once), 5 (the ribbon), 6a (the tape engine, in the demo), 6b (the tape on the Sidekick), 6c (punch, arm, click, free loops) and 6d (the clipboard, Copy, Drop, the ruler) built: step 6 done, pending the rig's checks; 7a (editing a tape: lift, copy, split, join, slide, multiply, merge drop) and 7b (mixdown and export) built: step 7 done · **Repo:** `hindsight`
+**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; steps 1 (solid ground), 2 (phone recording), 3 (one take page), 4 (undo and trash; several takes at once), 5 (the ribbon), 6a (the tape engine, in the demo), 6b (the tape on the Sidekick), 6c (punch, arm, click, free loops) and 6d (the clipboard, Copy, Drop, the ruler) built: step 6 done, pending the rig's checks; 7a (editing a tape: lift, copy, split, join, slide, multiply, merge drop) and 7b (mixdown and export) built: step 7 done; 8a (the tape leads the clock) built · **Repo:** `hindsight`
 
 Companions: [the tape design](2026-10-03-tape-design.md),
 [the OP-1 Field tape study](2026-10-03-op1-tape-study.md),

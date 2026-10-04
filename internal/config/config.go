@@ -48,6 +48,12 @@ type Config struct {
 	// TapeMixdownTailS is how long a mixdown runs on past Out, so the
 	// strips' reverb and delay ring out.
 	TapeMixdownTailS float64
+	// TapeClock is who leads: free (no clock out) or lead (the tape sends
+	// MIDI clock to TapeClockOut). follow is the spec's, not built yet.
+	TapeClock string
+	// TapeClockOut names the devices that follow the tape's clock:
+	// "bento, mpc:-3", each with an optional nudge in milliseconds.
+	TapeClockOut string
 	// OutputLatencyMS is asked of PortAudio for the tape's output, generous
 	// for the same busy-poll reason as the input's.
 	OutputLatencyMS int
@@ -93,6 +99,8 @@ func Load() (*Config, error) {
 		TapeLengthS:      envInt("TAPE_LENGTH_S", 360),
 		TapeSources:      env("TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
 		TapeMixdownTailS: envFloat("TAPE_MIXDOWN_TAIL_S", 2),
+		TapeClock:        strings.ToLower(strings.TrimSpace(env("TAPE_CLOCK", "free"))),
+		TapeClockOut:     env("TAPE_CLOCK_OUT", ""),
 		OutputLatencyMS:  envInt("OUTPUT_LATENCY_MS", 100),
 		TapeLatencyMS:    envFloat("TAPE_LATENCY_MS", 0),
 		TapeDemoAlign:    envBool("TAPE_DEMO_ALIGN", false),
@@ -131,6 +139,11 @@ func Load() (*Config, error) {
 	}
 	if c.MIDIRingEvents < 1 {
 		return nil, fmt.Errorf("MIDI_RING_EVENTS must be >= 1, got %d", c.MIDIRingEvents)
+	}
+	switch c.TapeClock {
+	case "free", "lead", "follow":
+	default:
+		return nil, fmt.Errorf("TAPE_CLOCK must be free, lead or follow, got %q", c.TapeClock)
 	}
 	return c, nil
 }

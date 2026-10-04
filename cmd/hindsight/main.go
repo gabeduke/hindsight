@@ -178,9 +178,13 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 			log.Printf("[!] tape: built without cgo, so nothing plays the tape")
 		}
 	}
-	eng := tape.NewEngine(tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources,
+	opts := tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources,
 		MinFreeGB: cfg.MinFreeGB, LatencyMS: cfg.TapeLatencyMS,
-		Saver: saver, TakesDir: cfg.OutputDir, MixdownTail: cfg.TapeMixdownTailS})
+		Saver: saver, TakesDir: cfg.OutputDir, MixdownTail: cfg.TapeMixdownTailS}
+	if out := clockOut(cfg, demo); out != nil {
+		opts.Clock = out
+	}
+	eng := tape.NewEngine(opts)
 	if id := store.Remembered(); id != "" {
 		if _, err := eng.Load(id); err != nil {
 			log.Printf("[!] tape %s: %v", id, err)
@@ -191,6 +195,35 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 	}
 	log.Printf("[*] tape on — %s, %d tracks of %ds", cfg.TapeDir, cfg.TapeTracks, cfg.TapeLengthS)
 	return eng
+}
+
+// clockOut is where the tape's clock goes when it leads: the devices in
+// TAPE_CLOCK_OUT, or in the demo, a follower that stands in for the Bento.
+func clockOut(cfg *config.Config, demo bool) *midi.Out {
+	switch cfg.TapeClock {
+	case "lead":
+	case "follow":
+		log.Printf("[!] tape: TAPE_CLOCK=follow isn't built yet; the tape runs free")
+		return nil
+	default:
+		return nil
+	}
+	if demo {
+		log.Printf("[*] tape clock: leading the demo's follower")
+		return midi.NewDemoOut()
+	}
+	targets, err := midi.ParseOutTargets(cfg.TapeClockOut)
+	if err != nil {
+		log.Printf("[!] tape clock off: TAPE_CLOCK_OUT %v", err)
+		return nil
+	}
+	if len(targets) == 0 {
+		log.Printf("[!] tape clock: TAPE_CLOCK=lead, but TAPE_CLOCK_OUT names no device to lead")
+	}
+	out := midi.NewOut(targets)
+	out.Start()
+	log.Printf("[*] tape clock: leading %s", cfg.TapeClockOut)
+	return out
 }
 
 // staticDir resolves the UI directory. It is a thin wrapper so that the

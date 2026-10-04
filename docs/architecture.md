@@ -638,6 +638,27 @@ already holds, rendered block by block straight into a stored zip entry as
 32-bit float WAV, with a write deadline moved on each block so a stalled
 client can't hold the one export slot. A tempo-map `.mid` rides along.
 
+**The clock** (`clock.go`, `internal/midi/out.go`). With `TAPE_CLOCK=lead`,
+a goroutine looks every 5 ms at what the renderer has added to the position
+map. For each pulse line -- n × a bar ÷ 96, not a whole number of frames --
+that the tape played across -- laid from the bar line before it, so a bar's
+first pulse is its bar line -- it finds the output frame, asks the output's
+clock bridge when that frame will be heard (the demo's output has none, so
+the engine keeps one of when frames were handed over), and hands the pulse
+to `midi.Out` to send then. While the tape stands, pulses run on at its
+tempo over the output frames. Starting, or a jump, waits for the next
+sixteenth and is announced just before it: Start from bar 1, else Song
+Position and then Continue; the loop coming round sends Song Position alone,
+and any other jump while the followers run (a locate, a new grid) stops
+them first. `midi.Out` opens each matching rawmidi node write-only and
+non-blocking, outside its lock, gives every device its own goroutine that
+sleeps until each message's moment plus the device's nudge, drops a device
+whose write fails or whose node vanishes until the next two-second scan,
+skips messages more than 250 ms late, and counts each device that appears
+or loses messages, so the scheduler tells the followers where the tape is.
+On shutdown the engine waits for the scheduler, whose Stop goes out at once,
+ahead of anything queued.
+
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what
 you tap; the Pi holds all the state, so several devices stay in step.
