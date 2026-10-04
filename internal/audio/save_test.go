@@ -408,6 +408,7 @@ func TestSaveWritesFlagsAndTempoOnTheSameTake(t *testing.T) {
 	}
 
 	saver := NewSaver(cap)
+	t.Cleanup(saver.WaitBackground) // the preview encode must not outlive the takes folder
 	saver.SetTempoSource(&fakeTempo{bpm: 120, ok: true})
 
 	name, err := saver.Save(0)
