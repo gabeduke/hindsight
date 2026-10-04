@@ -56,6 +56,9 @@ func main() {
 		audio.BackfillPyramids(cfg.OutputDir)
 		audio.BackfillPreviews(cfg)
 	}()
+	// Deleted and pruned takes wait in the trash for a week, or until the
+	// disk runs low; this empties it on that schedule. It runs until exit.
+	go audio.TrashJanitor(cfg.OutputDir, cfg.MinFreeGB, 10*time.Minute, nil)
 
 	// DemoDevice and Watcher each satisfy every consumer, so both are held
 	// through their interfaces rather than asserted back out of one.

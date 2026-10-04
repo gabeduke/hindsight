@@ -7,6 +7,8 @@ import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';
 import { initPhone } from '/lib/phone/recorder.js';
 import { initHelp } from '/lib/help/help.js';
+import { toast, takeNextToast } from '/lib/toast.js';
+import { TrashList } from '/lib/trash.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -32,29 +34,23 @@ const el = {
   takesEmpty: $('takes-empty'),
   toasts: $('toasts'),
   confirm: $('confirm'),
+  confirmTitle: $('confirm-title'),
   confirmName: $('confirm-name'),
 };
 
 // ---------------------------------------------------------------- toasts
 
-function toast(msg, kind = 'ok', ms = 4000) {
-  const t = document.createElement('div');
-  t.className = `toast ${kind}`;
-  t.textContent = msg;
-  el.toasts.appendChild(t);
-  setTimeout(() => {
-    t.style.transition = 'opacity 240ms';
-    t.style.opacity = '0';
-    setTimeout(() => t.remove(), 260);
-  }, ms);
-}
+// toast is lib/toast.js: a message, and optionally one action ("Undo").
 
-function confirmDelete(name) {
+// Asks before something that can't be undone: deleting from the trash, or
+// emptying it. Deleting a take doesn't ask; it goes to the trash.
+function confirmForever(title, name) {
   return new Promise((resolve) => {
     if (typeof el.confirm.showModal !== 'function') {
-      resolve(window.confirm(`Delete ${name}?`));
+      resolve(window.confirm(`${title} ${name}`));
       return;
     }
+    el.confirmTitle.textContent = title;
     el.confirmName.textContent = name;
     el.confirm.returnValue = 'cancel';
     const done = () => {
@@ -79,9 +75,35 @@ let selSeconds = 30;
 let captureErr = { text: '', since: 0, shown: false };
 const CAPTURE_ERR_HOLD_MS = 3500;
 
+const trash = new TrashList($('trash'), {
+  onToast: toast,
+  onConfirm: confirmForever,
+  onRestored: () => pollTakes(true),
+});
+let trashTimer = 0;
 const takes = new TakesList(el.takes, el.takesEmpty, {
   onToast: toast,
-  onConfirm: confirmDelete,
+  // The list changed, so the trash may have too: a delete, a restore, or a
+  // save that pruned. Coalesced, since a bulk delete re-renders per take.
+  onListChange: () => { clearTimeout(trashTimer); trashTimer = setTimeout(() => trash.refresh(), 150); },
+  selectBar: $('select-bar'),
+});
+$('select-btn').addEventListener('click', () => (takes.selecting ? takes.exitSelect() : takes.enterSelect()));
+
+// A take deleted from its own page comes back here with its Undo.
+function showNextToast() {
+  const next = takeNextToast();
+  if (!next) return;
+  const opts = next.restore ? { action: { label: 'Undo', run: () => takes.restore([next.restore]) } } : {};
+  toast(next.msg, next.kind || 'ok', opts);
+}
+showNextToast();
+// Back from the take page can restore this page from the browser's cache,
+// scripts and all, without loading it: catch up then.
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  showNextToast();
+  pollTakes(true);
 });
 
 // ---------------------------------------------------------------- status

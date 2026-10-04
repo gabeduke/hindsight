@@ -1,6 +1,6 @@
 # HTTP API
 
-Twenty-two routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Twenty-seven routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -21,11 +21,16 @@ internet.
 | `POST /api/take/flags?file=` | Add one flag to a take |
 | `PATCH /api/take/flags?file=&id=` | Move or relabel one flag |
 | `DELETE /api/take/flags?file=&id=` | Remove one flag |
+| `POST /api/take/undo?file=[&op=]` | Undo the newest change to a take, or the one named |
+| `GET /api/trash` | Deleted and pruned takes, most recently deleted first |
+| `POST /api/trash/restore?file=` | Put a take back from the trash, starred |
+| `DELETE /api/trash?file=` | Delete one take from the trash for good (`?all=1`: empty it) |
+| `GET /api/export?file=…&file=…` | One zip of several takes: WAVs, sidecars, MIDI |
 | `POST /api/flag` | Flag a moment at the ring's newest frame (the main page's *Flag now*) |
 | `DELETE /api/flag` | Remove one live mark (`?frame=`), or every one (`?all=1`) |
 | `GET /api/peaks?file=` | Precomputed waveform, so phones do not download audio to draw one; with a range, that range's peaks |
 | `GET /api/download?file=[&dl=1]` | Stream inline, or force a download |
-| `DELETE /api/delete?file=` | Remove a take and its sidecars |
+| `DELETE /api/delete?file=` | Move a take and its sidecars to the trash |
 | `POST /api/cut?file=` | Export a region of a take as a new take, with 3ms declick fades |
 | `GET /api/slice?file=&from=&to=` | A region as a 16-bit WAV with the same fades a cut gets, for auditioning |
 | `GET /api/render?file=&from=&to=` | An MP3 of a region, streamed from ffmpeg with the cut's fades, for the share sheet |
@@ -34,7 +39,8 @@ internet.
 | `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
 
 `GET` routes also accept `HEAD`, except `/api/live` and `/api/phone`, which
-are WebSocket upgrades, and `/api/render` and `/api/bundle`, which stream.
+are WebSocket upgrades, and `/api/render`, `/api/bundle` and `/api/export`,
+which stream.
 
 ---
 
@@ -306,11 +312,26 @@ hidden `.<name>.part` file and rename it into place last.
 
 ## `GET /api/take?file=`
 
-One take, in exactly the shape of an entry of `GET /api/jams`. The waveform
-page loads with this rather than fetching the whole list, and fetches it again
-when it comes back into view, to pick up edits made on another device.
-`Cache-Control: no-cache`. 400 for a bad `file`, 404 if there is no such
-take.
+One take, in exactly the shape of an entry of `GET /api/jams`, plus `undo`
+(below). The take page loads with this rather than fetching the whole list,
+and fetches it again when it comes back into view, to pick up edits made on
+another device. `Cache-Control: no-cache`. 400 for a bad `file`, 404 if
+there is no such take.
+
+```json
+{ "name": "jam_2026-09-09_145852.wav", "...": "...", "undo": { "count": 3, "next": "rename" } }
+```
+
+`undo.count` is how many of the take's logged changes (at most 50) came from
+this device, and `undo.next` what `POST /api/take/undo` would undo first:
+`rename`, `selection`, `tempo`, `downbeat`, `lanes`, `flag added`,
+`flag moved`, `flag renamed` or `flag deleted`.
+
+**Devices.** The pages send `X-Hindsight-Client: <id>`, a random id kept per
+browser (up to 32 of `A-Z a-z 0-9 - _`), on every edit and on these reads.
+Each logged change keeps it, so a device's Undo walks back through its own
+changes and never another's. A request without one (a script) sees, and
+undoes, everyone's.
 
 ## `PATCH /api/take?file=`
 
@@ -334,11 +355,20 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 | `downbeat_frame` | integer or `null` | Where bar 1 falls, for the waveform page's grid. `>= 0` and less than the take's frame count; `null` clears |
 | `lane_kinds` | `{"<track name>": "drums"\|"notes"}` or `null` | A full replacement of the take's per-lane overrides for `GET /api/midi`'s drum guess. At most 64 entries; keys sanitized like labels; `null` clears |
 
-The response is the merged result:
+The response is the merged result, with the take's `undo` state; `undo.op`
+is the id of the change this request recorded, for a toast's *Undo*:
 
 ```json
-{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {} }
+{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {},
+  "undo": { "count": 2, "next": "tempo", "op": "r1f0c9a3e" } }
 ```
+
+Each field a person changes, and each flag, is logged in the take's
+`.history.json` with its value before and after and the device that made it,
+under the take's lock. Starring is not logged. A change by the same device
+to the same field within 2 s of the last, starting where it ended, extends
+that step, so a held nudge is one step; adding and removing never merge.
+`undo.op` is the newest change the request recorded.
 
 If `flags` changed, the sidecar write is also mirrored into the WAV as RIFF
 `cue ` points, with labelled flags also written as `labl` records in a `LIST`/`adtl` chunk so DAWs show the name beside the marker. That second write can fail on its own — a take whose layout
@@ -394,12 +424,14 @@ arrives first. Each call runs under the take's lock, rewrites
 the WAV's cue points like the whole-array PATCH, and answers:
 
 ```json
-{ "flag": { "id": "r9c41e0a2", "frame": 96000, "label": "drop" }, "flags": [ ... ], "cue_error": "..." }
+{ "flag": { "id": "r9c41e0a2", "frame": 96000, "label": "drop" }, "flags": [ ... ], "cue_error": "...",
+  "undo": { "count": 4, "next": "flag deleted", "op": "r77a0e1d2" } }
 ```
 
 `flag` is the flag added, changed or removed; `flags` is the take's whole list
 afterwards, so the caller can resync; `cue_error` appears only when the
-sidecar saved but the cue chunk could not be rewritten.
+sidecar saved but the cue chunk could not be rewritten; `undo` is as for the
+`PATCH`.
 
 | Status | When |
 |---|---|
@@ -611,18 +643,72 @@ response carries `X-Hindsight-Midi: none`.
 | 400 | Bad `file`, non-integer or inverted frames, past the end, over 10 minutes, shorter than two fades, or a non-32-bit take |
 | 404 | No such take |
 
-## `DELETE /api/delete?file=`
+## `POST /api/take/undo?file=[&op=]`
 
-Removes the take and every sidecar: `_preview.mp3`, `.peaks.json`,
-`.peaks.bin`, `.meta.json`, `.mid` and `.manifest.json`. Takes the `.wav`
-name.
+Undoes one change to a take: this device's newest (see *Devices* above), or,
+with `op`, the one with that id (what a toast's *Undo* sends, so it still
+means what it said after later edits). The change leaves the log once it is
+undone or skipped; a sidecar write that fails leaves it there.
+
+It is undone only if its field still holds what the change left there. If
+something else changed it since -- another device, a script -- it is
+skipped rather than overwritten:
 
 ```json
-{ "status": "deleted", "name": "jam_2026-09-09_145852.wav" }
+{ "undone": "flag deleted", "take": { "...": "..." }, "undo": { "count": 1, "next": "rename" } }
+{ "skipped": "rename", "take": { "...": "..." }, "undo": { "count": 0 } }
 ```
 
-Succeeds whether or not the files were there. 400 if `file` is missing, has a
-path in it, or has an extension other than `.wav`.
+`take` is the take afterwards, in the shape of `GET /api/take`. A flag change
+rewrites the cue chunk, with `cue_error` as for the flag endpoints. 409 when
+there is nothing to undo (or no change with that `op`); 404 for no such take.
+
+## `DELETE /api/delete?file=`
+
+Moves the take and every sidecar (`_preview.mp3`, `.peaks.json`,
+`.peaks.bin`, `.meta.json`, `.history.json`, `.mid`, `.manifest.json`) to
+the trash, `OUTPUT_DIR/.trash/<name>/`. Takes the `.wav` name.
+
+```json
+{ "status": "trashed", "name": "jam_2026-09-09_145852.wav" }
+```
+
+Succeeds whether or not the take was there. 400 if `file` is missing, has a
+path in it, starts with a dot, or has an extension other than `.wav`; 409 if
+an older take of the same name is still in the trash (a new take never gets
+a trashed take's name, so only a file put there by hand can). `MAX_SAVES`
+pruning goes to the trash the same way.
+
+## `GET /api/trash`, `POST /api/trash/restore?file=`, `DELETE /api/trash`
+
+```json
+{ "keep_days": 7, "takes": [ { "name": "jam_…wav", "...": "...", "deleted_at": "2026-10-04T01:18:00Z", "reason": "deleted" } ] }
+```
+
+Each take is in the shape of a `GET /api/jams` entry, plus when it was
+deleted and why (`deleted`, or `pruned` for `MAX_SAVES`). Most recently
+deleted first. Its `preview_name` and `midi_name` aren't downloadable while
+it's in the trash; restore it first.
+
+`POST /api/trash/restore?file=` moves it back and stars it, so the next
+prune doesn't take it straight back, and answers with the take. 404 if it
+isn't in the trash; 409 if a take of that name exists again.
+
+`DELETE /api/trash?file=` deletes one for good (404 if it isn't there);
+`DELETE /api/trash?all=1` empties the trash, whatever the clock says about
+when things went in.
+
+The trash also empties itself: after 7 days, and, oldest deletion first,
+whenever free space falls under `MIN_FREE_GB` -- checked every 10 minutes and
+before every save, cut and phone recording, so the trash is never why a
+capture is refused.
+
+## `GET /api/export?file=…&file=…`
+
+One zip of up to 100 takes, streamed: each take's `.wav` (stored, not
+deflated), its `.meta.json`, and its `.mid` and `.manifest.json` when it has
+them, under their own names. Repeated names count once. 400 for no `file`
+or a bad one; 404 naming the first take that isn't there.
 
 ---
 

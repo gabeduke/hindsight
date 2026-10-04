@@ -17,8 +17,8 @@ means a missing file is not an error, because every value has a default.
 | `SAMPLE_RATE` | `48000` | Capture sample rate, in Hz |
 | `SAVE_CHANNELS` | `1,2` | 1-indexed channel pair written to a take |
 | `SAVE_ALL_CHANNELS` | `false` | Write every channel instead of the pair above |
-| `MIN_FREE_GB` | `1.0` | Refuse to save below this much free disk |
-| `MAX_SAVES` | `0` | Keep at most this many takes, deleting the oldest. `0` disables pruning |
+| `MIN_FREE_GB` | `1.0` | Refuse to save below this much free disk, after emptying the trash |
+| `MAX_SAVES` | `0` | Keep at most this many takes, moving the oldest to the trash. `0` disables pruning |
 | `INPUT_LATENCY_MS` | `100` | Input latency requested from PortAudio. Do not lower it |
 | `MIDI_CAPTURE` | `true` | Record MIDI from every connected device and write a `.mid` beside each take |
 | `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`)* | Substring naming the device whose MIDI clock is the tempo source |
@@ -131,19 +131,26 @@ is about to make. With `MIN_FREE_GB=1.0`, 1.1 GB free and a 1.3 GB full-ring
 save, the check passes and the write proceeds — and can fill the volume. Set it
 comfortably above one full-ring take, not just above zero.
 
+Before refusing, a save (or a cut, or a phone recording) empties the trash,
+oldest deletion first, until there is `MIN_FREE_GB` free or the trash is
+empty, and a janitor does the same every 10 minutes. The trash is never why a
+capture is refused.
+
 `MAX_SAVES` prunes in the background after a successful save or cut. It keeps
 the first `MAX_SAVES` takes in the order `/api/jams` lists them — starred
-first, then newest first by creation time — and deletes the rest along with
-their sidecars. A cut never prunes itself or the take it was cut from. Starring a take therefore keeps it out of the pruner's reach,
+first, then newest first by creation time — and moves the rest, with their
+sidecars, to the trash, where they wait 7 days (or until the disk runs low)
+under *Recently deleted*. A cut never prunes itself or the take it was cut from. Starring a take therefore keeps it out of the pruner's reach,
 until the starred takes alone exceed `MAX_SAVES`. Editing an old take's flags
 doesn't make it new again.
 
-Each take is a `.wav` plus up to six sidecars in the same directory: a
+Each take is a `.wav` plus up to seven sidecars in the same directory: a
 `_preview.mp3`; a `.peaks.json` and a `.peaks.bin` (the whole-take waveform,
 and the pyramid zoomed-out views are drawn from); a `.meta.json` holding the
-label, star, selection, BPM, downbeat, flags and creation time; and, when MIDI
-was captured, a `.mid` and a `.manifest.json`. Deleting a take through the API
-removes all of them. A take still being written is a hidden `.<name>.part`
+label, star, selection, BPM, downbeat, flags and creation time; a
+`.history.json` of the last 50 edits, for Undo; and, when MIDI was captured,
+a `.mid` and a `.manifest.json`. Deleting a take through the API moves all of
+them to `.trash/<name>/`. A take still being written is a hidden `.<name>.part`
 file and isn't listed; one left by a crash is cleared at startup.
 
 ## MIDI

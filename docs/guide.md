@@ -124,8 +124,10 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **The header:** the take's name (tap to rename), ★, its tempo (tap to set),
   its length ("0:30 of 0:59" when part of it is selected) and, for a take
   saved from another, "from *that take*", which opens it. **◂ ▸** step to the
-  previous and next take in the list; **?** is help mode; **⋯** resets the
-  downbeat or opens this guide. On a phone with MIDI, **♪** opens the notes.
+  previous and next take in the list; **↶** undoes your last change (§5);
+  **?** is help mode; **⋯** resets the downbeat or opens this guide. On a
+  phone with MIDI, **♪** opens the notes, and the name has a row of its own
+  under the buttons.
 - **The overview:** the whole take. Drag its window to move along; double-tap
   to see it all.
 - **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
@@ -235,7 +237,7 @@ point at the gestures that matter; **Got it** puts them away for good.
 - [demo] *Snap: beat*, play, and tap **In** then **Out** → both land on
   beats.
 - [demo] In help mode, press Space → nothing plays; Escape leaves help mode.
-- [demo] At 320 px wide → the take's name gets its own row under the header
+- [demo] On a phone → the take's name gets its own row under the header
   buttons; in the list a long name keeps its row and the tempo and length
   move under it.
 
@@ -243,32 +245,55 @@ point at the gestures that matter; **Got it** puts them away for good.
 
 *Step 4.*
 
-**Undo.** Every change to a take is remembered: flags, the selection, the
-name, the BPM, the downbeat, drum lanes. **Undo** in the take's header steps
-back one change at a time. Removing something — deleting a flag, clearing the
-selection — shows a toast with its own Undo. If another device changed the
-same thing since, Undo skips it rather than overwriting their change, and says
-so.
+**Undo.** Every change you make to a take is remembered, the last 50 of them:
+its flags (added, moved, renamed, deleted), the selection, the name, the
+tempo, the downbeat, and drum or notes lanes. Starring isn't: tap the star
+again. **↶** in the take's header (or Ctrl-Z / ⌘-Z) steps back one change at
+a time through the changes made on this phone or computer, never another
+device's; its tip says what the next step will undo. Changes made quickly to
+one thing, like holding a nudge, are one step.
 
-**The trash.** Deleting a take, or having it pruned by `MAX_SAVES`, moves it
-to the trash. *Recently deleted*, at the bottom of the list, brings it back,
-starred so it isn't pruned again straight away. The trash empties after 7
-days, or sooner if the disk runs low, so it never stops a capture.
+Removing something — deleting a flag, clearing the selection, deleting a
+take — shows a toast with its own **Undo**, which undoes exactly that, even if
+you've changed something else since. If another device changed the same
+thing in the meantime, Undo leaves their change alone and says so.
 
-**Selecting several takes.** Hold a take in the list to start selecting.
-Then star, delete or export them together. Export downloads one zip.
+**The trash.** Deleting a take doesn't ask any more: it moves the take, with
+everything saved beside it, to the trash, and the toast offers Undo. So does
+`MAX_SAVES` pruning. **Recently deleted**, under the list, shows what's there
+and when it went; **Restore** brings a take back starred, so the next prune
+doesn't take it straight back. **×** deletes one for good and **Empty**
+empties the trash, and those two do ask. The trash empties itself after 7
+days, and sooner, oldest first, whenever the disk falls under `MIN_FREE_GB`,
+so it never stops a capture.
+
+**Several takes at once.** Hold a take in the list for half a second, or tap
+**Select** above it. Tap takes to pick them; a bar at the bottom then
+**★** stars them (or unstars them, if they all are), **Export** downloads
+one zip of their WAVs with their names, flags and MIDI, and **Delete** moves
+them to the trash, with Undo. **Done** or Escape stops selecting.
 
 **Checks — step 4:**
 
 - [demo] Delete a flag → the toast offers Undo; tap it → the flag is back.
-- [demo] Change a take's name, then its BPM, then tap Undo twice → both are
-  back as they were.
-- [demo] Delete a take → it disappears from the list and shows under
-  *Recently deleted*. Restore it → it's back, starred, with its flags.
+- [demo] Change a take's name, then its BPM, then tap ↶ twice → both are
+  back as they were. ↶'s tip says "Undo the tempo change" before the first
+  tap.
+- [demo] Clear the selection → the toast offers Undo; tap it → the selection
+  is back.
+- [demo] Delete a take from its page → you're back at the list with "Deleted
+  … · Undo"; tap Undo → it's back, starred, with its flags.
+- [demo] Delete a take from the list → it shows under *Recently deleted*.
+  Restore it → it's back, starred.
 - [demo] Fill the disk to just above `MIN_FREE_GB` with the trash full, then
   capture → the capture succeeds and the oldest trash goes.
 - [demo] Select three takes and export → one zip with their WAVs, sidecars and
   MIDI.
+- [demo] Select two takes and Delete → both go; the toast's Undo brings both
+  back.
+- [demo] Rename a take on one device, rename it again on another, then tap
+  ↶ on the first → "Not undone: the name has changed since", and the other
+  device's name stays.
 
 ## 6. The ribbon
 
@@ -530,15 +555,24 @@ has no tip.
 | Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span |
 | Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
 | Open | Open the take to select, loop, save or share part of it |
+| Select | Pick several takes to star, export or delete together. Holding a take does the same |
+| ★ Star (selecting) | Star the picked takes, or unstar them if they all are |
+| Export | One zip of the picked takes: each WAV, its name and flags, and its MIDI |
+| Delete (selecting) | Move the picked takes to the trash |
+| Done | Stop selecting |
+| Restore | Put this take back in the list, starred |
+| × (Recently deleted) | Delete this take for good |
+| Empty | Delete everything in the trash for good |
 | ★ | Starred takes stay at the top and are pruned last |
 | Name | Tap to rename the take |
 | BPM | Tap to set the tempo. It draws the bar grid and makes Snap possible |
 | Download WAV | The whole take, as recorded |
 | Download MIDI | The take's MIDI file |
-| Delete take | Delete this take and everything saved with it |
+| Delete take | Move this take to the trash. Recently deleted, under the list, keeps it a week |
 | ‹ | Back to the list, where you left it |
 | ◂ ▸ | The previous or next take in the list |
 | from … | This take was saved from another one. Tap to open that one |
+| ↶ | Undo your last change to this take: a flag, the selection, the name, tempo, downbeat or lanes |
 | ? | Help mode: tap anything to read what it does, instead of doing it |
 | ⋯ | Reset the downbeat, or open this guide |
 | Reset the downbeat | Put bar 1 back at the start of the take |
@@ -563,7 +597,6 @@ has no tip.
 | Notes | Watch the take's MIDI rise out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
 | Send to tape | Put the selection on the loaded tape, at its playhead |
-| Undo | Step back through your changes to this take |
 | Rec | Record the next time round the loop. Stopped: arm, then ▶ counts you in |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |

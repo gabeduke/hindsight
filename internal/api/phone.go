@@ -193,7 +193,7 @@ func (a *API) handlePhone(w http.ResponseWriter, r *http.Request) {
 			stopAt := s.stopAt
 			s.mu.Unlock()
 			if check {
-				if free, _ := audio.FreeGB(a.cfg.OutputDir); free < a.cfg.MinFreeGB {
+				if free := audio.EnsureFree(a.cfg.OutputDir, a.cfg.MinFreeGB); free < a.cfg.MinFreeGB {
 					send(a.finishPhone(start.ID, s, false, "disk", nil))
 					return
 				}
@@ -246,7 +246,7 @@ func (a *API) attachPhone(id string, rate int, first uint32, conn *websocket.Con
 		if active >= maxPhoneRecordings {
 			return nil, 0, "too many recordings at once"
 		}
-		if free, _ := audio.FreeGB(a.cfg.OutputDir); free < a.cfg.MinFreeGB {
+		if free := audio.EnsureFree(a.cfg.OutputDir, a.cfg.MinFreeGB); free < a.cfg.MinFreeGB {
 			return nil, 0, "the Pi's disk is nearly full"
 		}
 		take, err := audio.StartPhoneTake(a.cfg.OutputDir, rate, time.Now(), first)

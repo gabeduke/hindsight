@@ -21,6 +21,8 @@ import { peakColumns, foldChannels, drawColumns } from './draw.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
+import { toast, toastNext, undoSkipped, undoPhrase } from '../toast.js';
+import { withClient } from '../client.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -29,13 +31,6 @@ const SPEEDS = [0.5, 1, 2];
 const $ = (id) => document.getElementById(id);
 const file = new URLSearchParams(location.search).get('file');
 
-function toast(msg, kind = 'ok', ms = 4000) {
-  const t = document.createElement('div');
-  t.className = `toast ${kind}`;
-  t.textContent = msg;
-  $('toasts').appendChild(t);
-  setTimeout(() => t.remove(), ms);
-}
 
 function fail(msg) {
   $('wave-error').textContent = msg;
@@ -67,7 +62,7 @@ async function main() {
   if (history.state && history.state.notes) history.replaceState(null, '');
   initHelp({ page: 'take', toast });
   const [takeRes, peaksRes] = await Promise.all([
-    fetch(`/api/take?file=${encodeURIComponent(file)}`),
+    fetch(`/api/take?file=${encodeURIComponent(file)}`, { headers: withClient() }),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
   ]);
   if (takeRes.status === 404) return fail('That take is gone.');
@@ -171,20 +166,29 @@ async function main() {
   function track(p) {
     savesInFlight++;
     return p.finally(() => {
-      if (--savesInFlight === 0 && refetchWanted) { refetchWanted = false; refetchTake(); }
+      if (--savesInFlight > 0) return;
+      for (const r of idleWaiters.splice(0)) r();
+      if (refetchWanted) { refetchWanted = false; refetchTake(); }
     });
   }
+  // PATCHes go one at a time, in order: a Clear sent straight after a
+  // selection's save must reach the Pi after it, not race it.
+  let patchChain = Promise.resolve();
   function patch(body) {
-    return track((async () => {
+    const run = patchChain.then(async () => {
       const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }), body: JSON.stringify(body),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
         throw new Error(b.error || `status ${res.status}`);
       }
-      return res.json();
-    })());
+      const b = await res.json();
+      if (b.undo) setUndo(b.undo);
+      return b;
+    });
+    patchChain = run.catch(() => {});
+    return track(run);
   }
   let regionTimer = 0;
   let pendingTrim = null; // the body the debounced save will send, if any
@@ -205,7 +209,7 @@ async function main() {
     const body = pendingTrim;
     pendingTrim = null;
     track(fetch(`/api/take?file=${encodeURIComponent(file)}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body), keepalive: true,
     })).catch(() => {});
   }
@@ -214,9 +218,11 @@ async function main() {
   }
   // One flag per request, by id (see /lib/flags.js), sent in order. The page
   // shows the change at once; the server's answer then replaces the list.
-  function flagOp(op, args) {
-    flagRequest(file, op, args).then((b) => {
+  function flagOp(op, args, then) {
+    return track(flagRequest(file, op, args)).then((b) => {
+      if (b.undo) setUndo(b.undo);
       if (b.cue_error) toast(b.cue_error, 'bad');
+      else then?.(b);
       const keep = state.selectedFlag && state.selectedFlag.id;
       state.flags = asFlags(b.flags);
       if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
@@ -233,13 +239,18 @@ async function main() {
     if (savesInFlight > 0) { refetchWanted = true; return; }
     let fresh;
     try {
-      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store', headers: withClient() });
       if (!res.ok) return;
       fresh = await res.json();
     } catch { return; }
+    applyTake(fresh);
+  }
+  // Put the take as the Pi has it on screen: after a refetch, or an Undo.
+  function applyTake(fresh) {
     const keep = state.selectedFlag && state.selectedFlag.id;
     state.flags = asFlags(fresh.flags);
     if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
+    if (state.selectedFlag === null && !sheet.hidden) sheet.hidden = true;
     take.label = fresh.label;
     take.bpm = fresh.bpm;
     take.starred = fresh.starred;
@@ -252,10 +263,63 @@ async function main() {
       // Show it and re-arm the loop, but don't save: it came from the Pi.
       if (!same) { state.region = r; state.pending = null; renderSelection(); scheduleLoop(); }
     }
+    applyLaneKinds(fresh.lane_kinds || {});
+    if (fresh.undo) setUndo(fresh.undo);
     renderHeader();
     updateReadout();
     redraw();
   }
+
+  // --- undo -----------------------------------------------------------------
+  // The Pi keeps each take's last 50 changes with the device that made them
+  // (internal/audio/history.go). ↶ undoes this device's newest; a toast's
+  // Undo names its own step, so it still means what it said after a later
+  // edit.
+  let undoInfo = take.undo || { count: 0 };
+  function setUndo(u) {
+    undoInfo = u;
+    const b = $('take-undo');
+    b.disabled = !u.count;
+    const what = u.count ? `Undo ${undoPhrase(u.next)}` : 'Nothing to undo';
+    b.title = what;
+    b.setAttribute('aria-label', what);
+  }
+  setUndo(undoInfo);
+  // Saves still on their way go first, so Undo acts on what's on screen.
+  let idleWaiters = [];
+  function whenSaved() {
+    if (pendingTrim) { const body = pendingTrim; pendingTrim = null; clearTimeout(regionTimer); patch(body).catch(() => {}); }
+    return savesInFlight ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve();
+  }
+  // Undos go one at a time: a toast's Undo tapped during ↶'s waits its turn
+  // rather than being dropped.
+  let undoChain = Promise.resolve();
+  function undo(op) {
+    undoChain = undoChain.then(() => undoNow(op));
+    return undoChain;
+  }
+  async function undoNow(op) {
+    $('take-undo').disabled = true;
+    try {
+      await whenSaved();
+      const q = op ? `&op=${encodeURIComponent(op)}` : '';
+      const res = await fetch(`/api/take/undo?file=${encodeURIComponent(file)}${q}`, { method: 'POST', headers: withClient() });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(b.error || `status ${res.status}`);
+      // An edit made while this was on its way is newer than this answer:
+      // fetch the take again once it lands, rather than show the older one.
+      if (savesInFlight > 0) { refetchWanted = true; if (b.undo) setUndo(b.undo); }
+      else if (b.take) applyTake({ ...b.take, undo: b.undo });
+      else if (b.undo) setUndo(b.undo);
+      if (b.cue_error) toast(b.cue_error, 'bad');
+      if (b.skipped) toast(undoSkipped(b.skipped), 'warn');
+      else toast(`Undone: ${undoPhrase(b.undone)}`, 'ok', { ms: 2500 });
+    } catch (e) {
+      toast(`Could not undo: ${e.message}`, 'bad');
+      refetchTake(); // what Undo would do now, from the Pi
+    }
+  }
+  $('take-undo').addEventListener('click', () => undo());
 
   // --- the loop -----------------------------------------------------------
   // Loop on: the selection repeats, sample-exact, through a decoded slice.
@@ -395,7 +459,9 @@ async function main() {
     state.flags = state.flags.filter((x) => x !== f);
     state.selectedFlag = null;
     sheet.hidden = true;
-    flagOp('remove', { id: f.id });
+    flagOp('remove', { id: f.id }, (b) => {
+      if (b.undo?.op) toast(f.label ? `Flag "${f.label}" deleted` : 'Flag deleted', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
+    });
     redraw();
   });
 
@@ -476,10 +542,19 @@ async function main() {
     selectionChanged();
     redraw();
   }
+  // Clear saves at once rather than after the usual pause, so its toast
+  // can offer Undo for exactly this change.
   function clearSelection() {
+    if (!state.region) { state.pending = null; renderSelection(); redraw(); return; }
     state.region = null;
     state.pending = null;
-    selectionChanged();
+    renderSelection();
+    scheduleLoop();
+    clearTimeout(regionTimer);
+    pendingTrim = null;
+    patch({ trim: null }).then((b) => {
+      if (b.undo?.op) toast('Selection cleared', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
+    }).catch((e) => toast(`Could not clear the selection: ${e.message}`, 'bad'));
     redraw();
   }
   $('sel-clear').addEventListener('click', clearSelection);
@@ -690,23 +765,17 @@ async function main() {
     $('dl-midi').hidden = false;
     $('dl-midi').href = `/api/download?file=${encodeURIComponent(take.midi_name)}&dl=1`;
   }
+  // To the trash, so it doesn't ask: the list says "Deleted · Undo".
   $('delete-take').addEventListener('click', async () => {
-    const dlg = $('confirm');
-    let ok;
-    if (typeof dlg.showModal === 'function') {
-      $('confirm-name').textContent = take.label || file;
-      dlg.returnValue = 'cancel';
-      dlg.showModal();
-      ok = await new Promise((resolve) => dlg.addEventListener('close', () => resolve(dlg.returnValue === 'delete'), { once: true }));
-    } else {
-      ok = window.confirm(`Delete ${file}?`);
-    }
-    if (!ok) return;
     try {
-      const res = await fetch(`/api/delete?file=${encodeURIComponent(file)}`, { method: 'DELETE' });
+      await whenSaved();
+      const res = await fetch(`/api/delete?file=${encodeURIComponent(file)}`, { method: 'DELETE', headers: withClient() });
       if (!res.ok) throw new Error(`status ${res.status}`);
       pendingTrim = null; // nothing left to save it to
-      location.href = '/';
+      clock.pause();
+      toastNext({ msg: `Deleted ${take.label || stampOf(file)}`, restore: file });
+      if (fromList && history.length > 1) history.back();
+      else location.href = '/';
     } catch (e) {
       toast(`Could not delete: ${e.message}`, 'bad');
     }
@@ -809,6 +878,19 @@ async function main() {
 
   // --- MIDI lanes -----------------------------------------------------------
   const laneKinds = { ...(take.lane_kinds || {}) };
+  const guessedKinds = {}; // what /api/midi guessed, before any override
+  // The sidecar's kinds, as an Undo or another device left them.
+  function applyLaneKinds(kinds) {
+    for (const k of Object.keys(laneKinds)) if (!(k in kinds)) delete laneKinds[k];
+    Object.assign(laneKinds, kinds);
+    if (!lanes) return;
+    for (const [name, guessed] of Object.entries(guessedKinds)) {
+      const want = laneKinds[name] || guessed;
+      const c = lanes.cards.find((k) => k.track.name === name);
+      if (c && c.track.kind !== want) lanes.setKind(name, want);
+    }
+    if (notes) notes.draw();
+  }
   async function loadLanes() {
     let res;
     try {
@@ -835,7 +917,10 @@ async function main() {
     try { midi = await res.json(); } catch { toast('Could not load MIDI', 'bad'); return; }
     if (!midi.tracks || !midi.tracks.length) return;
     // /api/midi is served immutable; the sidecar has the latest kinds.
-    for (const t of midi.tracks) if (laneKinds[t.name]) t.kind = laneKinds[t.name];
+    for (const t of midi.tracks) {
+      guessedKinds[t.name] = t.kind;
+      if (laneKinds[t.name]) t.kind = laneKinds[t.name];
+    }
     const container = $('lanes');
     container.hidden = false;
     lanes = new Lanes({
@@ -923,6 +1008,11 @@ async function main() {
   document.addEventListener('keydown', (e) => {
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      if (undoInfo.count) undo();
+      return;
+    }
     // Cmd-+, Ctrl-0 and friends belong to the browser.
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     // Space on a focused control presses that control; it is not Play too.

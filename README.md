@@ -126,7 +126,7 @@ Everything is environment driven. Copy `deploy/hindsight.env.example` to
 | `RING_SECONDS` | `900` | Buffer length, and the longest possible capture. Dominates RAM: `seconds × 48000 × channels × 4` bytes |
 | `SAVE_CHANNELS` | `1,2` | 1-indexed pair carrying the stereo master |
 | `DEVICE_MATCH` | `EP-136` | Substring match on the PortAudio device name |
-| `MAX_SAVES` | `0` | Prune the oldest takes beyond this count; `0` disables |
+| `MAX_SAVES` | `0` | Move the oldest takes beyond this count to the trash; `0` disables |
 | `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`)* | Which device's MIDI clock is the tempo for the `.mid`'s grid |
 
 Every variable, with the reasoning behind the defaults, is in

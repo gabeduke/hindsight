@@ -173,10 +173,11 @@ func FreeGB(dir string) (float64, float64) {
 func (s *Saver) Save(seconds float64) (string, error) {
 	cfg := s.cap.cfg
 
+	// Low on disk: the trash is emptied before anything is refused (it must
+	// never be why a capture fails), but after the snapshot below, so the
+	// time that takes can't move the window the press asked for.
 	freeGB, _ := s.FreeGB()
-	if freeGB < cfg.MinFreeGB {
-		return "", fmt.Errorf("%w: %.2f GB free, need %.2f GB", ErrLowDisk, freeGB, cfg.MinFreeGB)
-	}
+	lowDisk := freeGB < cfg.MinFreeGB
 
 	frames := 0
 	if seconds > 0 {
@@ -229,6 +230,11 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	capturedAt := time.Now()
 	if gotFrames == 0 {
 		return "", ErrNoAudio
+	}
+	if lowDisk {
+		if freeGB = EnsureFree(cfg.OutputDir, cfg.MinFreeGB); freeGB < cfg.MinFreeGB {
+			return "", fmt.Errorf("%w: %.2f GB free, need %.2f GB", ErrLowDisk, freeGB, cfg.MinFreeGB)
+		}
 	}
 
 	// Read the marks against the same window the snapshot describes. Active
@@ -324,7 +330,9 @@ func freeTakeName(dir string, at time.Time) (name, path string, err error) {
 			name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
 		}
 		path = filepath.Join(dir, name)
-		if exists(path) {
+		// A name held by a take in the trash is taken too: restoring it must
+		// never meet a new take of the same name.
+		if exists(path) || exists(trashSlot(dir, name)) {
 			continue
 		}
 		f, err := os.OpenFile(PartPath(path), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
@@ -378,6 +386,11 @@ func SweepPartials(dir string) {
 			os.Remove(filepath.Join(dir, n))
 			continue
 		}
+		// A sidecar whose take is in the trash: a crash between moving the
+		// WAV and its sidecars. It goes to the take, not away.
+		if recoverTrashSidecar(dir, n) {
+			continue
+		}
 		// This program's own sidecars whose take is gone: a pyramid built
 		// while its take was being deleted, a take removed by hand. Exports
 		// a person might want (.mp3, .mid, the manifest) are left alone.
@@ -411,13 +424,13 @@ func SweepPartials(dir string) {
 	}
 }
 
-// internalSidecarStem returns the take stem of a .meta.json, .peaks.json or
-// .peaks.bin name.
+// internalSidecarStem returns the take stem of a .meta.json, .peaks.json,
+// .peaks.bin or .history.json name.
 func internalSidecarStem(name string) (string, bool) {
 	if strings.HasPrefix(name, ".") {
 		return "", false
 	}
-	for _, suf := range []string{".meta.json", ".peaks.json", ".peaks.bin"} {
+	for _, suf := range []string{".meta.json", ".peaks.json", ".peaks.bin", ".history.json"} {
 		if strings.HasSuffix(name, suf) {
 			return strings.TrimSuffix(name, suf), true
 		}
@@ -610,9 +623,10 @@ func BackfillPreviews(cfg *config.Config) {
 // it itself; anything else that makes a take -- a cut, for now -- calls this.
 func (s *Saver) Prune(keep ...string) { s.prune(keep...) }
 
-// prune enforces MAX_SAVES by deleting the oldest takes and their sidecars.
-// A take in keep is skipped, which can leave the list one or two over until
-// the next save prunes again.
+// prune enforces MAX_SAVES by moving the oldest takes to the trash, where
+// they wait out TrashKeep (or disk pressure) like a deleted take. A take in
+// keep is skipped, which can leave the list one or two over until the next
+// save prunes again.
 func (s *Saver) prune(keep ...string) {
 	max := s.cap.cfg.MaxSaves
 	if max <= 0 {
@@ -626,8 +640,10 @@ func (s *Saver) prune(keep ...string) {
 		if slices.Contains(keep, t.Name) {
 			continue
 		}
-		log.Printf("[*] pruning %s (over MAX_SAVES=%d)", t.Name, max)
-		RemoveTake(s.cap.cfg.OutputDir, t.Name)
+		log.Printf("[*] pruning %s to the trash (over MAX_SAVES=%d)", t.Name, max)
+		if err := TrashTake(s.cap.cfg.OutputDir, t.Name, TrashPruned, time.Now()); err != nil {
+			log.Printf("[!] prune %s: %v", t.Name, err)
+		}
 	}
 }
 
@@ -667,7 +683,9 @@ func ListTakes(dir string) ([]Take, error) {
 	}
 	var out []Take
 	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".wav" {
+		// A dot-name is never a take: a save in progress, or a stray file
+		// the API can't address (and so couldn't delete or prune).
+		if e.IsDir() || filepath.Ext(e.Name()) != ".wav" || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		info, err := e.Info()
@@ -738,20 +756,17 @@ func takeFromFile(dir, name string, info os.FileInfo) Take {
 	return t
 }
 
-// RemoveTake deletes a take and its sidecar files. It holds the take's lock
-// so a sidecar write in flight cannot recreate a .meta.json for a take that
-// is already gone.
+// RemoveTake deletes a take and its sidecar files for good. It holds the
+// take's lock so a sidecar write in flight cannot recreate a .meta.json for a
+// take that is already gone. A person's delete and MAX_SAVES pruning go to
+// the trash instead (TrashTake); this is for what was never a finished take.
 func RemoveTake(dir, name string) {
 	base := filepath.Join(dir, filepath.Base(name))
 	unlock := LockTake(base)
 	defer unlock()
-	os.Remove(base)
-	os.Remove(previewPath(base))
-	os.Remove(peaksPath(base))
-	os.Remove(pyramidPath(base))
-	os.Remove(metaPath(base))
-	os.Remove(MIDIPath(base))
-	os.Remove(ManifestPath(base))
+	for _, f := range takeFiles(base) {
+		os.Remove(f)
+	}
 }
 
 func previewPath(wav string) string { return strings.TrimSuffix(wav, ".wav") + "_preview.mp3" }

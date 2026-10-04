@@ -50,6 +50,9 @@ export class RowWave {
     this.canvas.addEventListener('pointerdown', (e) => { dragging = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId }; }, sig);
     this.canvas.addEventListener('pointermove', (e) => {
       if (!dragging || e.pointerId !== dragging.id) return;
+      // A mouse released somewhere this canvas didn't hear (the list's
+      // select mode swallows the release): the drag is over.
+      if (e.pointerType === 'mouse' && e.buttons === 0) { dragging = null; return; }
       if (!dragging.moved && Math.abs(e.clientX - dragging.x) > 6 && Math.abs(e.clientX - dragging.x) > Math.abs(e.clientY - dragging.y)) {
         dragging.moved = true;
         this.canvas.setPointerCapture?.(e.pointerId);
