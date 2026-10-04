@@ -5,6 +5,27 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.2 — 2026-10-04
+
+- Record v2026.10.04.1 in the changelog [skip ci] (0188813)
+- Server fixes from review: deleted takes, pruning after cuts, names, ids (40d393e)
+- Take page: label a new flag at once, keep edits in order, keep the playhead (2b8cc5c)
+- Bring the docs and comments back in line with the code (08b66da)
+- Reload a take's preview once it's encoded (794a973)
+- Answer zoomed-out waveform ranges from a peaks pyramid (af604d4)
+- Queue share renders, one ffmpeg at a time (4a2e834)
+- Audition the configured pair, like previews and shares (f83fa39)
+- Cuts keep lane kinds and the grid; bounds-check trim; prune after cuts (c1a17a2)
+- Test that /api/jams answers 304 until the list changes (901b830)
+- Cache the takes list between polls (28da47f)
+- Move the list and the take page onto per-flag requests (963d5af)
+- Add per-flag endpoints and GET /api/take (583d8c7)
+- Store when a take was made, and write takes under a temporary name (ce3df3b)
+- Lock each take's sidecar for read-modify-write (f1c38f8)
+- Give flags stable ids, so an edit can name one flag (ba666c4)
+- Plan solid ground, step 1 of the editing-model roadmap, in thirteen tasks (1a9f7c9)
+
+
 ## v2026.10.04.1 — 2026-10-04
 
 - Guide: how Hindsight and the tape work, with the checks each feature must pass (e533c73)
