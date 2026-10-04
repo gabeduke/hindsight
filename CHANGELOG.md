@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.10 — 2026-10-04
+
+- Tape page: pinch and pan the lanes, and show a punch as it records (1450c47)
+- Record v2026.10.04.9 in the changelog [skip ci] (8edd08c)
+
+
 ## v2026.10.04.9 — 2026-10-04
 
 - Wait for a save's background work before its test folder goes (477c775)
