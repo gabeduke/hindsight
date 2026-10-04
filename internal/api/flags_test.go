@@ -163,3 +163,29 @@ func TestGetTakeReturnsOneTake(t *testing.T) {
 		t.Errorf("missing take: status = %d", w.Code)
 	}
 }
+
+func TestJamsAnswers304UntilSomethingChanges(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeRealTake(t, dir, "jam_a.wav", 4800)
+	w := do(t, r, http.MethodGet, "/api/jams")
+	etag := w.Header().Get("ETag")
+	if w.Code != http.StatusOK || etag == "" {
+		t.Fatalf("first GET: %d, etag %q", w.Code, etag)
+	}
+	get := func() int {
+		req := httptest.NewRequest(http.MethodGet, "/api/jams", nil)
+		req.Header.Set("If-None-Match", etag)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if code := get(); code != http.StatusNotModified {
+		t.Errorf("unchanged list: %d, want 304", code)
+	}
+	if w := patch(t, r, "jam_a.wav", `{"label":"x"}`); w.Code != http.StatusOK {
+		t.Fatalf("patch: %d", w.Code)
+	}
+	if code := get(); code != http.StatusOK {
+		t.Errorf("after a label change: %d, want 200", code)
+	}
+}
