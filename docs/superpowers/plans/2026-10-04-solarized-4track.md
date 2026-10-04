@@ -96,9 +96,75 @@ Light `:root` (dark values in brackets):
 
 ---
 
-## PR 2 — main page and the takes shelf (scope)
+## PR 2 — main page and the takes shelf
 
-VU meters replace the L/R bars (needle driven by the existing level feed; the landscape invariant still holds); capture tiers become latching keys with LEDs; the takes list moves to a new `takes.html` (search, Starred/MIDI/Phone/Tape filters, newest/longest, grouped by day, cassette rows); the main page keeps the latest take and an ALL TAKES key. `lib/takes.js` is split so the list renders on either page.
+**Goal:** the main page is about capturing — VU meters, capture keys, the latest take — and the takes live on a page of their own (`takes.html`) with search, filters, sort and day groups.
+
+**Review Focus (PR 2):**
+- 844×390 landscape phone → Capture still fully visible: the VU faces give way to the slim bars there.
+- A take with no `created`, no BPM, no label, or a `created` in another year → a sensible day header and row, never "Invalid Date".
+- Filters that match nothing → "No takes match" rather than "No takes yet".
+- Opening a take from the shelf, then ◂ ▸ → steps through the takes as the shelf showed them (filtered and sorted).
+- Deleting a take on its page, then Back → lands on the shelf with the Undo toast.
+
+### Task 7: Takes say where they came from
+
+**Files:** `internal/audio/meta.go`, `internal/audio/save.go` (Take), `internal/audio/phone.go`, `internal/tape/mixdown.go`, tests beside each.
+
+**Produces:** `Meta.Origin string \`json:"origin,omitempty"\`` and `Take.Origin` (same tag): `"phone"` for a phone take, `"tape"` for a tape mixdown, empty otherwise. Constants `audio.OriginPhone`, `audio.OriginTape`.
+
+- [ ] Failing tests: a finished phone take's `ReadMeta(...).Origin == "phone"`; a take built from a sidecar with `Origin: "tape"` lists with `Origin == "tape"`; a mixdown's sidecar has `Origin == "tape"`.
+- [ ] Implement; `go test ./internal/audio ./internal/tape` → PASS. Commit.
+
+### Task 8: `lib/shelf.js` — what the shelf shows, as pure functions
+
+**Files:** create `web/static/lib/shelf.js`, `web/static/lib/shelf.test.js`
+
+**Produces:**
+- `matches(take, { query, starred, midi, phone, tape }) → boolean` — `query` matched case-insensitively against the label, the name's timestamp, and the BPM's text; each filter that is on must hold (`phone`/`tape` read `take.origin`).
+- `shelve(takes, opts, now = Date.now()) → Array<{ label: string, takes: Take[] }>` — filtered; `opts.sort === 'longest'` gives one group `LONGEST FIRST` sorted by duration, else groups by local day of `created` newest first: `TODAY · SUN 4 OCT`, `YESTERDAY · SAT 3 OCT`, `THU 1 OCT`, and `12 MAR 2025` for another year; a take without a readable `created` goes in `EARLIER`.
+- `latest(takes) → Take | null` — the newest by `created` (the list itself puts starred takes first).
+
+- [ ] Tests for each case above, including the empty and invalid-date ones. RED, implement, GREEN. Commit.
+
+### Task 9: TakesList renders groups
+
+**Files:** `web/static/lib/takes.js`
+
+**Consumes:** `shelve`, `latest` from Task 8.
+**Produces:** `new TakesList(container, emptyEl, { …, shape })` where `shape(takes) → Array<{label, takes}>`; a group with an empty label draws no header. Headers are `<h3 class="shelf-day">` keyed by label and reconciled in place like rows. The step order the take page uses (`hindsight.order`) is the order shown. `refresh()` keeps the raw list in `this.all` so a filter change re-renders without a fetch (`reshape()`).
+
+- [ ] `node --test` stays green; check by hand on both pages. Commit with Task 10.
+
+### Task 10: The takes page
+
+**Files:** create `web/static/takes.html`, `web/static/lib/shelf-page.js`; modify `web/static/sw.js`, `web/static/lib/help/tips.js`, `docs/guide.md` (§ on takes, §9 table), `web/static/wave.html` (Back → `/takes.html`).
+
+- Header: ‹ (to `/`), TAKES, an LCD count of what is shown, Select, ?.
+- Search field, latching filter keys ★ Starred · MIDI · Phone · Tape, a Newest / Longest rocker, and `N takes · X GB · Y GB free`.
+- The list (day groups), Recently deleted, the select bar, toasts, the confirm sheet, the scroll restore, the Undo toast from a deleted take.
+- Filter state kept per device in `localStorage` (try/catch).
+
+- [ ] The help test (`every control in the UI that names a tip has one`, guide table = tips.js) stays green with the new tips. Commit.
+
+### Task 11: The main page keeps the latest take
+
+**Files:** `web/static/index.html`, `web/static/app.js`, `web/static/styles.css`
+
+- [ ] The Takes panel becomes LATEST TAKE (one row, `shape: (t) => [{label: '', takes: [latest(t)]}]`) and an ALL TAKES key with the count, linking `/takes.html`. Select, the select bar and Recently deleted move to the takes page. Commit.
+
+### Task 12: VU meters
+
+**Files:** create `web/static/lib/vu.js`, `web/static/lib/vu.test.js`; modify `index.html`, `app.js`, `styles.css`
+
+**Produces:** `vuAngle(dbfs, ref = -18) → degrees` in [-48, 48] on the VU law (0 VU = `ref` dBFS, scale −20…+3 VU); `vuScale() → { arc, redArc, ticks, redTicks, labels }` for a 160×96 face; `class VUMeters { constructor(container, { labels }); update(rms, peak, clip) }` — a needle per channel (CSS transform, eased), a PEAK lamp lit on clip or a peak ≥ −1 dBFS, and the dBFS value under it.
+
+- [ ] Tests: `vuAngle(-18) ≈ 18.6`, `vuAngle(-38) === -48` (clamped), `vuAngle(0) === 48`, `vuAngle(-Infinity) === -48`, monotonic. RED, GREEN.
+- [ ] The faces replace the bars; in `(orientation: landscape) and (max-height: 440px)` the faces hide and the bars return. 844×390: Capture's bottom edge (shadow included) ≤ 390. Commit.
+
+### Task 13: Ship PR 2
+
+- [ ] Full suite; 390×844, 844×390, 1280×800 light and dark; README screenshots refreshed if a headless browser is available. Merge on approval.
 
 ## PR 3 — take page (scope)
 
