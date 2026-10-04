@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 	"path/filepath"
 
 	"github.com/gabeduke/hindsight/internal/tempo"
@@ -19,7 +20,16 @@ const measureWindowSeconds = 120
 // runs it.
 var measureTempo = MeasureTempo
 
+// clockAgreesBPM is how close a measurement must come to the clock's tempo
+// for the clock's to be kept. An instrument slaved to the clock plays its
+// exact value, and a measurement is only good to a few hundredths; the
+// stylophone, which was off by 0.14, is far enough to take the measured one.
+const clockAgreesBPM = 0.05
+
 var errTempoChanged = errors.New("the tempo changed while it was measured")
+
+// errTakeGone says the take was deleted while its tempo was measured.
+var errTakeGone = errors.New("the take was deleted while its tempo was measured")
 
 // MeasureTempo measures a take's tempo from its audio and keeps it as the
 // take's BPM, from TempoFromAudio, with the BPM the save stamped (the MIDI
@@ -49,6 +59,10 @@ func MeasureTempo(wavPath string) {
 		log.Printf("[*] %s — no steady pulse to measure", filepath.Base(wavPath))
 		return
 	}
+	if before.from == TempoFromClock && before.bpm != nil && math.Abs(bpm-*before.bpm) < clockAgreesBPM {
+		log.Printf("[*] %s — measured %.2f BPM, which agrees with the clock's %.2f; kept the clock's", filepath.Base(wavPath), bpm, *before.bpm)
+		return
+	}
 	keepMeasured(wavPath, before, bpm)
 }
 
@@ -72,6 +86,11 @@ type tempoState struct {
 // are still before.
 func keepMeasured(wavPath string, before tempoState, bpm float64) {
 	_, err := UpdateMeta(wavPath, func(m *Meta) error {
+		// A delete in the meantime must not leave a sidecar behind: the
+		// sweep would move it over the trashed take's real one.
+		if _, err := os.Stat(wavPath); err != nil {
+			return errTakeGone
+		}
 		if (m.BPM == nil) != (before.bpm == nil) || (m.BPM != nil && *m.BPM != *before.bpm) || m.TempoFrom != before.from {
 			return errTempoChanged
 		}
@@ -79,6 +98,8 @@ func keepMeasured(wavPath string, before tempoState, bpm float64) {
 		return nil
 	})
 	switch {
+	case errors.Is(err, errTakeGone):
+		log.Printf("[*] %s — deleted while its tempo was measured", filepath.Base(wavPath))
 	case errors.Is(err, errTempoChanged):
 		log.Printf("[*] %s — measured %.2f BPM, but it was edited meanwhile; kept the edit", filepath.Base(wavPath), bpm)
 	case err != nil:

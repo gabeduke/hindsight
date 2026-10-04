@@ -163,3 +163,64 @@ func TestMeasureARealTake(t *testing.T) {
 func testSaveConfig(dir string) *config.Config {
 	return &config.Config{Channels: 2, SampleRate: 48000, RingSeconds: 10, SaveChannels: []int{0, 1}, OutputDir: dir}
 }
+
+// A mixdown carries the tape's tempo, so its save doesn't measure the take.
+func TestASaveRangeCanSkipMeasuringItsTake(t *testing.T) {
+	var got []string
+	measureTempo = func(wav string) { got = append(got, filepath.Base(wav)) }
+	t.Cleanup(func() { measureTempo = MeasureTempo })
+	dir := t.TempDir()
+	cap := NewCapture(testSaveConfig(dir), nil)
+	cap.Ring().WriteFrames(make([]int32, 48000*2))
+	saver := NewSaver(cap)
+	t.Cleanup(saver.WaitBackground)
+	if _, err := saver.SaveRange(0, 0, DontMeasureTempo()); err != nil {
+		t.Fatal(err)
+	}
+	saver.WaitBackground()
+	if len(got) != 0 {
+		t.Fatalf("measured %v, want nothing", got)
+	}
+	if _, err := saver.SaveRange(0, 0); err != nil {
+		t.Fatal(err)
+	}
+	saver.WaitBackground()
+	if len(got) != 1 {
+		t.Fatalf("measured %v after a plain SaveRange, want one take", got)
+	}
+}
+
+// A take deleted while it was measured must not get a sidecar back.
+func TestKeepMeasuredLeavesNoSidecarForAGoneTake(t *testing.T) {
+	dir := t.TempDir()
+	wav := beatTake(t, dir, "jam_gone.wav", 125.25, 5)
+	os.Remove(wav)
+	keepMeasured(wav, tempoState{}, 125.25)
+	if _, err := os.Stat(metaPath(wav)); !os.IsNotExist(err) {
+		t.Fatalf("a sidecar was written for a take that is gone: %v", err)
+	}
+}
+
+// An instrument slaved to the clock keeps the clock's exact value; a
+// measurement that is off by more is believed.
+func TestMeasureTempoKeepsTheClockWhenTheAudioAgrees(t *testing.T) {
+	wav := beatTake(t, t.TempDir(), "jam_a.wav", 125.25, 30)
+	clock := 125.27
+	if err := WriteMeta(wav, Meta{BPM: &clock, TempoFrom: TempoFromClock}); err != nil {
+		t.Fatal(err)
+	}
+	MeasureTempo(wav)
+	m := ReadMeta(wav)
+	if m.BPM == nil || *m.BPM != 125.27 || m.TempoFrom != TempoFromClock {
+		t.Fatalf("BPM %v from %q, want the clock's 125.27 kept", m.BPM, m.TempoFrom)
+	}
+	clock = 125.32
+	if err := WriteMeta(wav, Meta{BPM: &clock, TempoFrom: TempoFromClock}); err != nil {
+		t.Fatal(err)
+	}
+	MeasureTempo(wav)
+	m = ReadMeta(wav)
+	if m.BPM == nil || math.Abs(*m.BPM-125.25) > 0.02 || m.TempoFrom != TempoFromAudio {
+		t.Fatalf("BPM %v from %q, want about 125.25 from audio", m.BPM, m.TempoFrom)
+	}
+}

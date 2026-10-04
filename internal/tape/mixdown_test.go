@@ -20,7 +20,7 @@ type fakeSaver struct {
 	calls    int
 }
 
-func (f *fakeSaver) SaveRange(from, to uint64) (audio.SavedRange, error) {
+func (f *fakeSaver) SaveRange(from, to uint64, _ ...audio.SaveOption) (audio.SavedRange, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++

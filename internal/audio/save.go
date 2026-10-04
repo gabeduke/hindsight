@@ -99,11 +99,18 @@ type Saver struct {
 func NewSaver(c *Capture) *Saver { return &Saver{cap: c} }
 
 // afterSave starts what a save leaves to the background: the preview encode,
-// measuring the take's tempo, and MAX_SAVES pruning.
-func (s *Saver) afterSave(wavPath string, outCh int, keep ...string) {
-	s.bg.Add(3)
+// measuring the take's tempo (unless measure is false), and MAX_SAVES
+// pruning.
+func (s *Saver) afterSave(wavPath string, outCh int, measure bool, keep ...string) {
+	n := 2
+	if measure {
+		n = 3
+	}
+	s.bg.Add(n)
 	go func() { defer s.bg.Done(); s.makePreview(wavPath, outCh) }()
-	go func() { defer s.bg.Done(); measureTempo(wavPath) }()
+	if measure {
+		go func() { defer s.bg.Done(); measureTempo(wavPath) }()
+	}
 	go func() { defer s.bg.Done(); s.prune(keep...) }()
 }
 
@@ -321,7 +328,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	s.lastSaved = name
 	s.mu.Unlock()
 
-	s.afterSave(wavPath, len(pick))
+	s.afterSave(wavPath, len(pick), true)
 
 	return name, nil
 }
