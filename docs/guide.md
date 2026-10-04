@@ -473,11 +473,14 @@ From the top:
   does dropping or copying a silent stretch from the ribbon.
 - **Catch the last pass** and **1 bar / 2 / 4** catch onto the selected track.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
-- **On a tablet or a computer** the page uses the width: the tracks fill the
-  screen, taller, and the controls sit in a column beside them that stays in
-  view. With a keyboard: **Space** plays and stops, **R** is ● Rec, **L** is
+- **On a tablet or a computer** the page uses the space. A tablet held
+  upright keeps one column, with taller lanes. A tablet on its side, or a
+  window 1000 px wide or more, puts the controls in a panel beside the
+  tracks, which stays in view while the lanes fill the height.
+- **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
   ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, and
-  **⌘Z / Ctrl-Z** undoes (with **⇧** to redo).
+  **⌘Z / Ctrl-Z** undoes (with **⇧** to redo). Holding a key doesn't repeat
+  it, and none of them fire while you're typing or a sheet is open.
 
 ### 8.3 Your first loop
 
@@ -900,7 +903,7 @@ has no tip.
 | New tape | Start an empty tape. Its first loop sets the tempo |
 | Delete a tape | Delete another tape. Audio it shares with others stays |
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
-| ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps |
+| ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
 | Tape overview | The whole tape, six minutes a track; the loop in amber |
 | A lane | Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there |
 | A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |

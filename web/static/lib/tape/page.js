@@ -1213,24 +1213,37 @@ function wire() {
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { $('tape-menu').hidden = true; $('tempo-menu').hidden = true; }
-    const tag = e.target && e.target.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) {
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undoRedo(e.shiftKey); }
+    // Typing is typing; a level slider with focus still lets the keys work.
+    const typing = e.target && (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable
+      || (e.target.tagName === 'INPUT' && e.target.type !== 'range'));
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
+      if (typing) return; // the field's own undo
+      e.preventDefault();
+      undoRedo(e.shiftKey);
       return;
     }
-    if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex]')) { e.preventDefault(); $('play').click(); }
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('play').click(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
-    // which track catches go onto.
-    if (!state.tape || document.querySelector('dialog[open]')) return;
-    const press = (id) => { if (!$(id).disabled) $(id).click(); };
-    const pick = (n) => { if (n >= 1 && n <= state.tape.tracks.length) { state.track = n; render(); } };
-    switch (e.key) {
-      case 'r': case 'R': press('rec'); break;
-      case 'l': case 'L': press('loop'); break;
-      case 'k': case 'K': press('click'); break;
-      case '1': case '2': case '3': case '4': pick(Number(e.key)); break;
-      case 'ArrowUp': e.preventDefault(); pick(state.track - 1); break;
-      case 'ArrowDown': e.preventDefault(); pick(state.track + 1); break;
+    // which track catches go onto. Not under a dialog or a menu, and not on
+    // a held key's repeats, which would toggle Rec or the loop over and over.
+    // By physical key, so they work on any keyboard layout.
+    if (!state.tape || document.querySelector('dialog[open]') || !$('tape-menu').hidden || !$('tempo-menu').hidden) return;
+    const press = (id) => { if (!e.repeat && !$(id).disabled) $(id).click(); };
+    const pick = (n) => {
+      if (n < 1 || n > state.tape.tracks.length || n === state.track) return false;
+      state.track = n;
+      render();
+      return true;
+    };
+    switch (e.code) {
+      case 'KeyR': press('rec'); break;
+      case 'KeyL': press('loop'); break;
+      case 'KeyK': press('click'); break;
+      case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': pick(Number(e.code.slice(5))); break;
+      // Only when it changes the track: otherwise the arrows scroll.
+      case 'ArrowUp': if (pick(state.track - 1)) e.preventDefault(); break;
+      case 'ArrowDown': if (pick(state.track + 1)) e.preventDefault(); break;
       default:
     }
   });

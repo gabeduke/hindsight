@@ -70,7 +70,7 @@ export const TIPS = [
   { control: 'New tape', ids: ['tape-new'], tip: 'Start an empty tape. Its first loop sets the tempo' },
   { control: 'Delete a tape', ids: ['tape-delete'], tip: 'Delete another tape. Audio it shares with others stays' },
   { control: 'BPM, Bars (empty tape)', ids: ['tape-bpm'], tip: 'Start from a tempo instead of a first loop' },
-  { control: '↶ ↷ (tape)', ids: ['tape-undo', 'tape-redo'], tip: 'Undo or redo the last change to the tape: up to 100 steps' },
+  { control: '↶ ↷ (tape)', ids: ['tape-undo', 'tape-redo'], tip: 'Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo' },
   { control: 'Tape overview', ids: ['tape-overview'], tip: 'The whole tape, six minutes a track; the loop in amber' },
   { control: 'A lane', ids: ['tape-lane'], tip: 'Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there' },
   { control: 'A track header', ids: ['track'], tip: 'Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓' },

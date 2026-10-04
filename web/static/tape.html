@@ -24,8 +24,8 @@
     <button id="tape-sub" class="tape-sub mono" type="button" aria-haspopup="menu" data-tip="tape-tempo"></button>
   </div>
   <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
-  <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" data-tip="tape-undo">↶</button>
-  <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" data-tip="tape-redo">↷</button>
+  <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo">↶</button>
+  <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo">↷</button>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   <div id="tempo-menu" class="menu" role="menu" hidden></div>
   <div id="tape-menu" class="menu" role="menu" hidden>
@@ -67,10 +67,10 @@
 
     <div class="toolbar tape-toolbar">
       <div class="tb-row transport">
-        <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="tape-play">▶</button>
-        <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="tape-loop">⟲ Loop</button>
-        <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" data-tip="tape-rec">● Rec</button>
-        <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Click" data-tip="tape-click">♩</button>
+        <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play">▶</button>
+        <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop">⟲ Loop</button>
+        <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" aria-keyshortcuts="R" data-tip="tape-rec">● Rec</button>
+        <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
       </div>
       <div class="tb-row tape-where">
         <span id="position" class="readout mono"></span>
