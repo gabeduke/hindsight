@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.5 — 2026-10-04
+
+- Record v2026.10.04.4 in the changelog [skip ci] (79802b0)
+- Count in from output frame 0 in the armed-play test (884dc87)
+- Punch and free loops: fixes from an independent review (5963882)
+- Punch, arm, count-in, click and free loops (step 6c) (dc0cdbf)
+
+
 ## v2026.10.04.4 — 2026-10-04
 
 - Record v2026.10.04.3 in the changelog [skip ci] (59f4be0)
