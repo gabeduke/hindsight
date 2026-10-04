@@ -189,3 +189,14 @@ func TestJamsAnswers304UntilSomethingChanges(t *testing.T) {
 		t.Errorf("after a label change: %d, want 200", code)
 	}
 }
+
+func TestTrimPastTheEndIsRefused(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeRealTake(t, dir, "jam_t.wav", 1000)
+	if w := patch(t, r, "jam_t.wav", `{"trim":{"start_frame":0,"end_frame":1001}}`); w.Code != http.StatusBadRequest {
+		t.Errorf("trim past the end: %d, want 400", w.Code)
+	}
+	if w := patch(t, r, "jam_t.wav", `{"trim":{"start_frame":0,"end_frame":1000}}`); w.Code != http.StatusOK {
+		t.Errorf("trim to the end: %d, want 200", w.Code)
+	}
+}

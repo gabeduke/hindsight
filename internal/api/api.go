@@ -636,6 +636,10 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
 	go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels()))
+	// A cut is a new take, so MAX_SAVES applies to it as it does to a save.
+	if a.saver != nil {
+		go a.saver.Prune()
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"name": out})
 }
 
@@ -856,6 +860,10 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 			}
 			if tr.StartFrame < 0 || tr.EndFrame <= tr.StartFrame {
 				writeErr(w, http.StatusBadRequest, "trim end_frame must be greater than start_frame")
+				return
+			}
+			if n := takeFrameCount(wav); n >= 0 && tr.EndFrame > n {
+				writeErr(w, http.StatusBadRequest, "trim is past the end of the take")
 				return
 			}
 			m.Trim = &tr

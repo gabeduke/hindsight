@@ -142,8 +142,8 @@ func TestCutWritesAFadedRegionAsANewTake(t *testing.T) {
 		t.Error("no peaks file written")
 	}
 	m := ReadMeta(out)
-	if m.Label != "jam cut" {
-		t.Errorf("label = %q, want %q", m.Label, "jam cut")
+	if m.Label != "jam · 0:00.2–0:00.4" {
+		t.Errorf("label = %q, want %q", m.Label, "jam · 0:00.2–0:00.4")
 	}
 	if m.BPM == nil || *m.BPM != 96 {
 		t.Errorf("bpm = %v, want 96 inherited", m.BPM)
@@ -184,8 +184,8 @@ func TestCutUsesTheGivenLabelAndFallsBackToTheStem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m := ReadMeta(filepath.Join(dir, name2)); m.Label != "jam_src cut" {
-		t.Errorf("fallback label = %q, want %q", m.Label, "jam_src cut")
+	if m := ReadMeta(filepath.Join(dir, name2)); m.Label != "jam_src · 0:00.0–0:00.0" {
+		t.Errorf("fallback label = %q, want %q", m.Label, "jam_src · 0:00.0–0:00.0")
 	}
 }
 
@@ -295,5 +295,70 @@ func TestWriteRegion32RejectsABadRange(t *testing.T) {
 	}
 	if err := WriteRegion32(&buf, src, 0, 10); !errors.Is(err, ErrTooShort) {
 		t.Errorf("too short: %v", err)
+	}
+}
+
+func TestSpanLabel(t *testing.T) {
+	cases := []struct {
+		from, to int64
+		want     string
+	}{
+		{42 * 48000, 70 * 48000, "0:42–1:10"},
+		{48000 / 2, 3 * 48000, "0:00.5–0:03.0"},
+		{61 * 48000, 125 * 48000, "1:01–2:05"},
+	}
+	for _, c := range cases {
+		if got := spanLabel(c.from, c.to, 48000); got != c.want {
+			t.Errorf("spanLabel(%d, %d) = %q, want %q", c.from, c.to, got, c.want)
+		}
+	}
+}
+
+func TestCutLabelBaseDropsAPreviousSpan(t *testing.T) {
+	if got := cutLabelBase("riff · 0:42–1:10"); got != "riff" {
+		t.Errorf("got %q", got)
+	}
+	if got := cutLabelBase("riff · verse"); got != "riff · verse" {
+		t.Errorf("a label with a dot that isn't a span must be kept: %q", got)
+	}
+}
+
+func TestCutCarriesLaneKindsAndTheDownbeat(t *testing.T) {
+	dir := t.TempDir()
+	src := writeTestTake(t, dir, "jam_src.wav", 48000)
+	bpm := 480.0 // a bar is 0.5 s = 24000 frames, short enough for a 1 s take
+	db := int64(1000)
+	if err := WriteMeta(src, Meta{BPM: &bpm, DownbeatFrame: &db, LaneKinds: map[string]string{"bento ch1": "drums"}}); err != nil {
+		t.Fatal(err)
+	}
+	// Bar lines at 1000, 25000, 49000...; a cut from 10000 starts 15000 before
+	// the next one.
+	name, err := Cut(dir, CutRequest{Source: "jam_src.wav", StartFrame: 10000, EndFrame: 40000}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := ReadMeta(filepath.Join(dir, name))
+	if m.LaneKinds["bento ch1"] != "drums" {
+		t.Errorf("lane kinds = %v", m.LaneKinds)
+	}
+	if m.DownbeatFrame == nil || *m.DownbeatFrame != 15000 {
+		t.Errorf("downbeat = %v, want 15000", m.DownbeatFrame)
+	}
+}
+
+func TestCutWithoutTempoCarriesOnlyADownbeatInside(t *testing.T) {
+	dir := t.TempDir()
+	src := writeTestTake(t, dir, "jam_src.wav", 48000)
+	db := int64(5000)
+	if err := WriteMeta(src, Meta{DownbeatFrame: &db}); err != nil {
+		t.Fatal(err)
+	}
+	inside, _ := Cut(dir, CutRequest{Source: "jam_src.wav", StartFrame: 1000, EndFrame: 9000}, time.Now())
+	if m := ReadMeta(filepath.Join(dir, inside)); m.DownbeatFrame == nil || *m.DownbeatFrame != 4000 {
+		t.Errorf("inside: downbeat = %v, want 4000", m.DownbeatFrame)
+	}
+	outside, _ := Cut(dir, CutRequest{Source: "jam_src.wav", StartFrame: 6000, EndFrame: 9000}, time.Now().Add(time.Second))
+	if m := ReadMeta(filepath.Join(dir, outside)); m.DownbeatFrame != nil {
+		t.Errorf("outside: downbeat = %v, want none", *m.DownbeatFrame)
 	}
 }

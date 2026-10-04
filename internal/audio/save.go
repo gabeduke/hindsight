@@ -507,6 +507,10 @@ func MakePreview(cfg *config.Config, wavPath string, outCh int) {
 	log.Printf("[*] preview ready: %s", filepath.Base(mp3Path))
 }
 
+// Prune enforces MAX_SAVES now. Save does it itself; anything else that
+// makes a take -- a cut, a phone recording -- calls this.
+func (s *Saver) Prune() { s.prune() }
+
 // prune enforces MAX_SAVES by deleting the oldest takes and their sidecars.
 func (s *Saver) prune() {
 	max := s.cap.cfg.MaxSaves

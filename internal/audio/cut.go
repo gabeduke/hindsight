@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,7 +22,7 @@ type CutRequest struct {
 	Source     string // filename of the source take, e.g. jam_2026-09-10_221441.wav
 	StartFrame int64
 	EndFrame   int64
-	Label      string // optional; defaults to "<source label or stem> cut"
+	Label      string // optional; defaults to "<source label or stem> · <span>"
 }
 
 // Cut writes frames [StartFrame, EndFrame) of the source as a new take in
@@ -68,15 +69,26 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 	m := Meta{Version: MetaVersion}
 	m.Label = strings.TrimSpace(req.Label)
 	if m.Label == "" {
-		base := srcMeta.Label
+		base := cutLabelBase(srcMeta.Label)
 		if base == "" {
 			base = strings.TrimSuffix(filepath.Base(req.Source), ".wav")
 		}
-		m.Label = base + " cut"
+		m.Label = base + " · " + spanLabel(req.StartFrame, req.EndFrame, info.SampleRate)
 	}
 	if srcMeta.BPM != nil {
 		bpm := *srcMeta.BPM
 		m.BPM = &bpm
+	}
+	// The owner's drum/notes choices and bar grid come along: losing them was
+	// a cut quietly undoing work done on the source.
+	if len(srcMeta.LaneKinds) > 0 {
+		m.LaneKinds = make(map[string]string, len(srcMeta.LaneKinds))
+		for k, v := range srcMeta.LaneKinds {
+			m.LaneKinds[k] = v
+		}
+	}
+	if db, ok := cutDownbeat(srcMeta, req.StartFrame, req.EndFrame, info.SampleRate); ok {
+		m.DownbeatFrame = &db
 	}
 	m.Source = &CutSource{Name: filepath.Base(req.Source), StartFrame: req.StartFrame, EndFrame: req.EndFrame}
 	var flags []Flag
@@ -99,6 +111,66 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 	log.Printf("[*] cut %s from %s [%d, %d) — %.1fs", name, req.Source, req.StartFrame, req.EndFrame,
 		float64(total)/float64(info.SampleRate))
 	return name, nil
+}
+
+// spanLabel names a region of a source take for a cut's label: "0:42–1:10",
+// with tenths of a second when the region is under ten seconds long, where
+// whole seconds would often read the same at both ends.
+func spanLabel(from, to int64, sampleRate int) string {
+	if sampleRate <= 0 {
+		return ""
+	}
+	tenths := to-from < int64(10*sampleRate)
+	f := func(frame int64) string {
+		if tenths {
+			d := frame * 10 / int64(sampleRate)
+			return fmt.Sprintf("%d:%02d.%d", d/600, d/10%60, d%10)
+		}
+		s := frame / int64(sampleRate)
+		return fmt.Sprintf("%d:%02d", s/60, s%60)
+	}
+	return f(from) + "–" + f(to)
+}
+
+// cutLabelBase is the part of a source's label a cut builds on: everything
+// before a trailing " · <span>" a previous cut added, so a cut of a cut reads
+// "riff · 0:05–0:10" rather than piling spans up.
+func cutLabelBase(label string) string {
+	label = strings.TrimSpace(label)
+	if i := strings.LastIndex(label, " · "); i >= 0 {
+		rest := label[i+len(" · "):]
+		if strings.Contains(rest, "–") && strings.Trim(rest, "0123456789:.–") == "" {
+			return label[:i]
+		}
+	}
+	return label
+}
+
+// cutDownbeat carries the source's downbeat onto a cut of [from, to). With a
+// tempo, it is the first bar line at or after the cut's start, so the cut's
+// grid lines up with the source's; without one, only a downbeat inside the
+// region can be carried, at its own position.
+func cutDownbeat(src Meta, from, to int64, sampleRate int) (int64, bool) {
+	if src.DownbeatFrame == nil {
+		return 0, false
+	}
+	db := *src.DownbeatFrame
+	if src.BPM != nil && *src.BPM > 0 && sampleRate > 0 {
+		bar := 4 * 60 / *src.BPM * float64(sampleRate)
+		k := math.Ceil(float64(from-db) / bar)
+		at := int64(math.Round(float64(db) + k*bar - float64(from)))
+		if at < 0 {
+			at = 0
+		}
+		if at < to-from {
+			return at, true
+		}
+		return 0, false
+	}
+	if db >= from && db < to {
+		return db - from, true
+	}
+	return 0, false
 }
 
 // writeRegion32 streams frames [from, to) of srcPath through the fades to w
