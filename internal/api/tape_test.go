@@ -440,13 +440,18 @@ func TestAnEmptyTapeSuggestsTheTempoYouWerePlaying(t *testing.T) {
 		var b struct {
 			Suggest float64 `json:"suggest_bpm"`
 		}
-		w := send(t, r, http.MethodGet, "/api/tapes/state?id="+made.ID, "")
+		w := send(t, r, http.MethodGet, "/api/tapes/state?id="+made.ID+"&suggest=1", "")
 		want(t, w, http.StatusOK, "state")
 		json.Unmarshal(w.Body.Bytes(), &b)
 		return b.Suggest
 	}
 	if got := suggest(); got != 125.25 {
 		t.Fatalf("suggest_bpm %v, want the newest take's 125.25", got)
+	}
+	w = send(t, r, http.MethodGet, "/api/tapes/state?id="+made.ID, "")
+	want(t, w, http.StatusOK, "state without suggest")
+	if strings.Contains(w.Body.String(), "suggest_bpm") {
+		t.Fatalf("a state request without suggest=1 carries suggest_bpm: %s", w.Body.String())
 	}
 	w = send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-04_10-00-00.wav","from":0,"to":48000}`)
 	want(t, w, http.StatusOK, "copy")
