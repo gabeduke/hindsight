@@ -248,3 +248,15 @@ func TestCleanupIgnoresAFolderWithNoTape(t *testing.T) {
 		t.Fatalf("a folder with no tape.json blocked clean-up: %v", err)
 	}
 }
+
+func TestABarLineBelongsToTheBarItStarts(t *testing.T) {
+	g := GridFor(84, 4, 48000) // a bar is 137,142.857 frames
+	for n := int64(0); n < 400; n++ {
+		if b := g.BarAt(g.BarStart(n)); b != n {
+			t.Fatalf("BarAt(BarStart(%d)) = %d", n, b)
+		}
+		if b := g.BarAt(g.BarStart(n) - 1); n > 0 && b != n-1 {
+			t.Fatalf("the frame before bar %d is in bar %d", n, b)
+		}
+	}
+}

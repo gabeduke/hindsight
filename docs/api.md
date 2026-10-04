@@ -1,6 +1,6 @@
 # HTTP API
 
-Forty-one routes (one, `/api/trigger`, in two forms), fourteen of them the tape's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Forty-five routes (one, `/api/trigger`, in two forms), eighteen of them the tape's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -46,6 +46,10 @@ internet.
 | `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
 | `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
 | `POST /api/tapes/catch?id=` | Put the last pass, or the last N bars, from an input onto a track |
+| `POST /api/tapes/record?id=` | Arm a track (stopped) or punch in at the next bar (playing) |
+| `DELETE /api/tapes/record?id=` | End the punch and keep what it covered (`?cancel=1`: keep nothing); disarm |
+| `POST /api/tapes/tap?id=` | A free-loop tap: the first waits, the second makes the loop |
+| `DELETE /api/tapes/tap?id=` | Forget a first tap |
 | `POST /api/tapes/drop?id=` | Put a span of a take onto the tape |
 | `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=` | Step the tape's history back or forward |
 | `POST /api/tapes/clone?id=` | A copy of a tape, sharing its audio |
@@ -830,6 +834,9 @@ loop, otherwise its first loop sets the tempo.
     need anything but `none`, and a clip records how its catch was lined
     up in its own `aligned`.
   - `output` is the device the tape plays through, "" while it's away.
+  - `count_in` is the frames of count-in left; `record` is the punch or
+    armed track, if any; `tapped` is set while a free loop's first tap
+    waits for the second.
   - `cycles` are the last complete passes of the loop, as played (a pass
     begun before the loop was moved isn't one); `late` counts device periods
     played as silence because nothing was rendered in time;
@@ -846,7 +853,7 @@ All of it is one change: if any field is refused, none is made.
 | Field | Change |
 |---|---|
 | `name` | Rename (not undoable) |
-| `click` | The click on or off (not undoable) |
+| `click` | The metronome on bus A while playing, on or off (not undoable). A new tape has it on; the first catch or drop turns it off |
 | `tempo: {bpm, bars}` | Set the tempo of an empty tape: 20–400 BPM, 1–64 bars. Refused once the tape has audio |
 | `bars` | Relabel the loop's bar count (1–64) without changing its length |
 | `loop: {in?, out?, on?}` | The loop, in tape frames |
@@ -867,9 +874,11 @@ original's pool files.
 
 ### `POST /api/tapes/transport?id=`
 
-`{"action": "play" | "stop" | "locate", "quantum": "now" | "beat" | "bar" | "loop", "pos": F}`.
+`{"action": "play" | "stop" | "locate", "quantum": "now" | "beat" | "bar" | "loop", "pos": F, "count_in": true}`.
+`count_in` starts a play with a bar of click, from the playhead's bar.
 The action takes effect on the exact output frame its quantum falls on
-(`now`, the default, at the next block). Answers 200 `{"status":"queued"}`.
+(`now`, the default, at the next block). Answers 200 `{"status":"queued"}`,
+with `kept` when a stop ended a punch (below).
 `play` is 409 when the tape has no output (a build without PortAudio);
 `locate` still moves it. Loading a tape stops the transport and forgets the
 passes played, so a pass of one tape is never caught onto another.
@@ -888,6 +897,43 @@ The span is the range of the ring that heard what the tape played then, by
 it was played. A catch across the loop's end is split into two clips. It
 waits up to two seconds for the newest audio to reach the ring. Answers
 `{"clip": …}` (the part played first, when split).
+
+### `POST /api/tapes/record?id=`, `DELETE /api/tapes/record?id=`
+
+`POST {"track": 2, "source": "aux"}` arms the track while the tape is stopped
+(`{"record": {"state": "armed", …}}`), or punches in while it plays
+(`"state": "on"`). Nothing is recorded specially -- the ring always is; a
+punch notes the output frame it was asked at, less a quarter second (`from`),
+so a Rec just after a downbeat means that bar. 400 on a tape with no tempo
+(a punch needs bars); 409 if a track is already recording.
+
+With a track armed, the next `play` counts in a bar of click and plays from
+the playhead's bar, and the punch starts there.
+
+`DELETE` ends it and keeps what it covered, answering
+`{"kept": {"clip": …, "frames": F, "track": 2}}`: with the loop on, the last
+full pass inside it; otherwise, or with no full pass, the bars from the first
+bar line it played to the last complete one before the tape stopped, moved,
+or the punch ended. What wrapped round the loop is placed in pieces where it
+played; `clip` is the first piece and `frames` all of it. A punch ended
+before the tape reached a bar line (in its count-in) keeps nothing:
+`{"kept": null}`. A `stop` during a punch stops the tape first, then does the
+same, and its answer carries `kept`; if the catch fails, the tape has still
+stopped. `?cancel=1` keeps nothing; on an armed track, it disarms. 409 if
+nothing is recording.
+
+### `POST /api/tapes/tap?id=`, `DELETE /api/tapes/tap?id=`
+
+`POST {"track": 1, "source": "aux"}` on an empty tape with no tempo. The tap
+is timed when it arrives and turned into a ring frame by the capture's clock.
+The first answers `{"stage": "first"}`; it's forgotten after two minutes, or
+if the next names another track or source. The second snaps both to the
+strongest attack in the source from 250 ms before to 50 ms after, makes the
+span the first loop on the track -- its bar count the one nearest the last
+tape's tempo, or 90 BPM -- and starts it playing in phase, answering
+`{"stage": "loop", "clip": …, "bpm": 96, "bars": 1}`. Taps closer than half
+a second, or making a tempo outside 20–400 BPM, are 400; a tape with a tempo
+takes no taps (400). `DELETE` forgets a first tap.
 
 ### `POST /api/tapes/drop?id=`
 

@@ -573,6 +573,31 @@ too; a test checks that a catch then holds exactly what played.
 A source is clean on a tape when no bus that leaks into it has unmuted audio,
 and each caught clip records whether its source was.
 
+**Recording** (`record.go`) adds nothing to the capture: the ring is always
+recording. Rec while playing notes the output frame it was asked at; Rec
+while stopped arms the track, and the next ▶ becomes a play with a count-in
+-- a bar of click rendered with the tape standing at its bar line, then
+play. Ending it works out what it covered from the cycle log and the
+position map -- the last full pass inside it, or the bars from the first bar
+line it played to the last complete one before the tape stopped, moved or
+the punch ended -- and catches that span, placing each piece of it where it
+played: every wrap in the position map is marked as one, so a span that went
+round the loop is split at the loop as it was then, even if it has moved
+since. ■ during a punch stops the tape before the catch is written.
+
+**The click** is rendered into bus A by the mix: a 25 ms sine blip on each
+beat line, higher on the bar. It's on for a new tape and goes off with the
+first audio; the count-in clicks whatever the setting.
+
+**Free loops** (`tap.go`). A tap is timed when it reaches the Pi, and the
+capture's clock bridge turns that into a ring frame. The second snaps both
+to the strongest attack in the source within 250 ms before and 50 ms after:
+the hop of 128 frames whose energy rises most over the few before, then the
+first sample there reaching a third of what follows. The span is written to
+the pool and becomes the grid, the loop and the first clip; then a "phase"
+action starts the transport as if the loop had been going round since the
+second tap, using Δ to turn that ring frame into an output frame.
+
 **Drops** copy a span of a take into the pool. On an empty tape the first
 drop becomes the grid and the loop; later ones go at the playhead.
 

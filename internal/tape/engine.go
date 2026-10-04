@@ -119,6 +119,10 @@ type Engine struct {
 
 	latencyMS float64
 
+	recMu sync.Mutex
+	rec   *Recording // a punch, or an armed track
+	tap   *pendingTap
+
 	// What each bus delivered, for the aligner (nil when the output knows
 	// its own Δ), and the output frame after the newest.
 	hist    [2][]atomic.Int32
@@ -350,7 +354,24 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 		if len(tr.pend) > 0 {
 			span = min64(span, int64(tr.pend[0].at-out))
 		}
-		if tr.playing {
+		if !tr.playing && tr.countIn > 0 {
+			// The count-in: a bar of click with the tape standing, then
+			// play from there.
+			span = min64(span, tr.countIn)
+			if dst != nil {
+				m.renderCountIn(dst[off*OutChannels:], tr.countLen-tr.countIn, int(span))
+			}
+			tr.countIn -= span
+			if tr.countIn == 0 {
+				at := out + uint64(span)
+				tr.playing = true
+				tr.cycleStart = -1
+				if m.loop.On && tr.pos == m.loop.In {
+					tr.cycleStart, tr.cycleIn = int64(at), m.loop.In
+				}
+				tr.record(at)
+			}
+		} else if tr.playing {
 			looping := m.loop.On && tr.pos < m.loop.Out
 			if looping {
 				span = min64(span, m.loop.Out-tr.pos)
@@ -379,7 +400,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				tr.pos = m.loop.In
 				tr.cycleStart, tr.cycleIn = int64(at), m.loop.In
 				tr.wrapped, tr.wrapOut, tr.wrapIn = true, at, m.loop.In
-				tr.record(at)
+				tr.recordWrap(at)
 			}
 		}
 		out += uint64(span)
@@ -387,7 +408,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 		n -= int(span)
 	}
 	tr.mu.Lock()
-	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out, Pending: len(tr.pend)}
+	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out, Pending: len(tr.pend), CountIn: tr.countIn}
 	tr.mu.Unlock()
 }
 
@@ -449,10 +470,16 @@ func (e *Engine) Load(id string) (*Tape, error) {
 		return nil, err
 	}
 	// Stop the last tape, and forget its passes, before this one can play.
+	// A punch or a tap was for the last one too.
 	e.reset()
 	e.mu.Lock()
 	e.tape = t
 	e.mu.Unlock()
+	// After the switch: a Record or Tap checks the tape under recMu, so one
+	// racing this either sees the new tape or is cleared here.
+	e.recMu.Lock()
+	e.rec, e.tap = nil, nil
+	e.recMu.Unlock()
 	if err := e.store.Remember(id); err != nil {
 		log.Printf("[!] tape: noting %s as loaded: %v", id, err)
 	}
@@ -522,9 +549,10 @@ func (e *Engine) rebuild() {
 	var st State
 	var id string
 	var length int64
+	var click bool
 	keep := map[string]bool{}
 	if t := e.tape; t != nil {
-		st, id, length = t.State.clone(), t.ID, t.Length
+		st, id, length, click = t.State.clone(), t.ID, t.Length, t.Click
 		// Keep what one undo or redo would play, so it's heard at once.
 		st.files(keep)
 		if n := len(t.History); n > 0 {
@@ -536,7 +564,7 @@ func (e *Engine) rebuild() {
 	}
 	e.mu.Unlock()
 	m := NewMix(st, e.pool, e.store.SampleRate())
-	m.tapeID, m.length = id, length
+	m.tapeID, m.length, m.click = id, length, click
 	e.mix.Store(m)
 	e.pool.Keep(keep)
 }
@@ -609,15 +637,17 @@ func (e *Engine) Do(a Action) {
 // Live is what the page shows.
 type Live struct {
 	Status
-	Heard     int64    `json:"heard"`     // the tape frame at the device now
-	Delivered uint64   `json:"delivered"` // output frames played
-	Late      uint64   `json:"late"`      // device periods with nothing rendered, played as silence
-	Output    string   `json:"output"`    // the output device, or ""
-	Delta     *int64   `json:"delta"`     // ring frame − output frame, if known
-	Aligned   string   `json:"aligned"`   // exact (the demo), locked, estimated or none
-	Cycles    []Cycle  `json:"cycles"`    // the last complete passes
-	Failed    []string `json:"failed"`    // pool files that couldn't be read
-	Problem   string   `json:"problem,omitempty"`
+	Heard     int64      `json:"heard"`     // the tape frame at the device now
+	Delivered uint64     `json:"delivered"` // output frames played
+	Late      uint64     `json:"late"`      // device periods with nothing rendered, played as silence
+	Output    string     `json:"output"`    // the output device, or ""
+	Delta     *int64     `json:"delta"`     // ring frame − output frame, if known
+	Aligned   string     `json:"aligned"`   // exact (the demo), locked, estimated or none
+	Cycles    []Cycle    `json:"cycles"`    // the last complete passes
+	Failed    []string   `json:"failed"`    // pool files that couldn't be read
+	Problem   string     `json:"problem,omitempty"`
+	Record    *Recording `json:"record,omitempty"` // a punch, or an armed track
+	Tapped    bool       `json:"tapped,omitempty"` // a free loop's first tap is in
 }
 
 func (e *Engine) Live() Live {
@@ -637,6 +667,8 @@ func (e *Engine) Live() Live {
 	} else {
 		l.Aligned = "none"
 	}
+	l.Record = e.Recording()
+	l.Tapped = e.tapPending()
 	l.Cycles = e.tr.Cycles()
 	if l.Cycles == nil {
 		l.Cycles = []Cycle{}
@@ -730,15 +762,35 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 	default:
 		return Clip{}, fmt.Errorf("%w: catch a pass or some bars", ErrBadParameter)
 	}
+	placed, err := e.catchSpan(t, src, outFrom, frames, at, func(s *State, c Clip) ([]Clip, error) {
+		return placeWrapped(s, req.Track, c, req.Replace)
+	})
+	if err != nil {
+		return Clip{}, err
+	}
+	return placed[0], nil
+}
 
+// catchSpan copies what a source heard while the tape played output frames
+// [outFrom, outFrom+frames) into the pool, as one clip that starts at tape
+// frame at, and has place put it on the tape -- split where it was played,
+// if it wrapped.
+func (e *Engine) catchSpan(t *Tape, src Source, outFrom uint64, frames, at int64, place func(*State, Clip) ([]Clip, error)) ([]Clip, error) {
+	id := t.ID
+	if frames <= 0 {
+		return nil, fmt.Errorf("%w: nothing to keep", ErrNotPlayed)
+	}
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
 	// The Δ that held when the span played, and any latency set by hand. A
 	// span with a slip inside it has no one Δ.
 	if e.segAt(outFrom) != e.segAt(outFrom+uint64(frames)-1) {
-		return Clip{}, ErrSlipped
+		return nil, ErrSlipped
 	}
-	delta, aligned = e.deltaAt(outFrom)
+	delta, aligned := e.deltaAt(outFrom)
+	if aligned == "none" {
+		return nil, ErrNotLined
+	}
 	delta += int64(math.Round(e.latencyMS * float64(sr) / 1000))
 	ringFrom := int64(outFrom) + delta - over
 	ringTo := int64(outFrom) + frames + delta + over
@@ -748,28 +800,28 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 	for tries := 0; ; tries++ {
 		oldest, total := ring.Window()
 		if ringFrom < int64(oldest) {
-			return Clip{}, ErrGone
+			return nil, ErrGone
 		}
 		if ringTo <= int64(total) {
 			break
 		}
 		if tries >= 100 {
-			return Clip{}, ErrNotYet
+			return nil, ErrNotYet
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 
 	if e.minFreeGB > 0 {
 		if free, _ := audio.FreeGB(e.store.Dir()); free < e.minFreeGB {
-			return Clip{}, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
+			return nil, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
 		}
 	}
 	rel, path, err := e.store.NewPoolFile("catch", time.Now())
 	if err != nil {
-		return Clip{}, err
+		return nil, err
 	}
 	if err := audio.WriteSpan(ring, uint64(ringFrom), uint64(ringTo), src.Pair[:], path, int(sr)); err != nil {
-		return Clip{}, err
+		return nil, err
 	}
 	clean := true
 	for _, b := range src.Leaks {
@@ -782,14 +834,17 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 	clip := Clip{File: rel, Src: over, Frames: frames, At: at, Source: src.Name, Clean: clean, Aligned: aligned}
 	var placed []Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
+		if tp.Empty() {
+			tp.Click = false // the click is for a tape with nothing on it
+		}
 		var err error
-		placed, err = placeWrapped(s, req.Track, clip, req.Replace)
+		placed, err = place(s, clip)
 		return err
 	})
 	if err != nil {
-		return Clip{}, err
+		return nil, err
 	}
-	return placed[0], nil
+	return placed, nil
 }
 
 // placeWrapped places a clip, splitting one that runs across the loop's seam
@@ -904,6 +959,9 @@ func (e *Engine) DropTake(id string, take string, from, to int64, track, bars in
 	clip := Clip{File: rel, Src: from - fileFrom, Frames: frames, Source: "take"}
 	var placed Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
+		if tp.Empty() {
+			tp.Click = false
+		}
 		if tp.Empty() && s.Grid == nil {
 			// The first loop: its length is the grid, and it loops.
 			if bars <= 0 {
@@ -946,18 +1004,23 @@ func guessBars(frames int64, sampleRate int) int {
 // loaded tape, and saves it.
 func (e *Engine) SetMeta(id string, fn func(t *Tape) error) error {
 	e.mu.Lock()
-	defer e.mu.Unlock()
 	if e.tape == nil || e.tape.ID != id {
+		e.mu.Unlock()
 		return ErrWrongTape
 	}
 	t := e.tape.draft()
-	if err := fn(t); err != nil {
+	err := fn(t)
+	if err == nil {
+		err = e.store.Save(t)
+	}
+	if err == nil {
+		e.tape = t
+	}
+	e.mu.Unlock()
+	if err != nil {
 		return err
 	}
-	if err := e.store.Save(t); err != nil {
-		return err
-	}
-	e.tape = t
+	e.rebuild() // the click is in the mix
 	return nil
 }
 

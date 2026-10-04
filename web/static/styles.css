@@ -1260,7 +1260,19 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
   appearance: none; background: none; border: 0; padding: 0; text-align: left; cursor: pointer;
   color: var(--ink); font: 600 15px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.tape-sub { font-size: 11px; color: var(--ink-faint); }
+.tape-sub { font-size: 11px; color: var(--ink-faint); appearance: none; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
+.tape-sub:disabled { cursor: default; }
+#tempo-menu { right: auto; left: 40px; }
+.tape-toolbar .tb-row.transport .tb-rec { flex: 1 1 0; }
+.tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] { color: #fff; background: var(--danger); border-color: var(--danger); }
+.tape-toolbar .tb-row.transport .tb-rec.armed { color: var(--danger); border-color: var(--danger); animation: breathe 1.2s ease-in-out infinite; }
+.tape-toolbar .tb-row.transport .tb-rec.counting { animation: breathe .5s ease-in-out infinite; }
+.tape-toolbar .tb-row.transport .tb-click { flex: 0 0 48px; font-size: 18px; }
+.tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.tape-where { min-height: 18px; }
+.tape-where .readout { font-size: 13px; color: var(--ink-dim); }
+.tape-tap { width: 100%; min-height: 56px; font-size: 16px; margin: 4px 0 10px; }
+.tape-tap.second { animation: breathe 1.2s ease-in-out infinite; }
 .tape-top .icon-btn { min-height: 36px; min-width: 34px; padding: 0 6px; flex: none; }
 .tape-top .undo-btn { font-size: 18px; }
 .tape-top .undo-btn:disabled { opacity: .35; }

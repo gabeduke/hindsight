@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
+	"github.com/gabeduke/hindsight/internal/mono"
 	"github.com/gabeduke/hindsight/internal/tape"
 )
 
@@ -27,7 +28,11 @@ import (
 //	DELETE /api/tapes?id=              delete one (not the loaded one), and free its audio
 //	POST   /api/tapes/load?id=         make it the loaded tape
 //	POST   /api/tapes/transport?id=    {action: play|stop|locate, quantum, pos}
-//	POST   /api/tapes/catch?id=        {track, source, pass | bars, replace}
+//	POST   /api/tapes/catch?id=        {track, source, pass | out | bars, replace}
+//	POST   /api/tapes/record?id=       {track, source}: arm, or punch in
+//	DELETE /api/tapes/record?id=       end the punch and keep it (?cancel=1: don't)
+//	POST   /api/tapes/tap?id=          {track, source}: a free-loop tap
+//	DELETE /api/tapes/tap?id=          forget a first tap
 //	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape
 //	POST   /api/tapes/undo?id=         and /redo
 //	POST   /api/tapes/clone?id=        {name}: a new tape sharing this one's audio
@@ -57,7 +62,7 @@ func tapeErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, tape.ErrNoTape), errors.Is(err, tape.ErrWrongTape), errors.Is(err, tape.ErrNotYet),
 		errors.Is(err, tape.ErrGone), errors.Is(err, tape.ErrNoPass), errors.Is(err, tape.ErrNothingToDo),
 		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed),
-		errors.Is(err, tape.ErrSlipped):
+		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
 		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid):
@@ -395,11 +400,80 @@ func (a *API) handleTapeTransport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if act.Kind == "play" && !a.tape.HasOutput() {
-		writeErr(w, http.StatusConflict, "nothing plays the tape yet: playback through the interface is the next step")
+		writeErr(w, http.StatusConflict, "nothing plays the tape: this build has no audio output")
 		return
 	}
-	a.tape.Do(act)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "queued"})
+	// ▶ with a track armed counts in and records; ■ during a punch keeps it.
+	kept, err := a.tape.Transport(id, act)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "queued", "kept": kept})
+}
+
+// handleTapeRecord arms a track (stopped) or punches in (playing).
+func (a *API) handleTapeRecord(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		Track  int    `json:"track"`
+		Source string `json:"source"`
+	}
+	if !decodeBody(w, r, &b) {
+		return
+	}
+	rec, err := a.tape.Record(r.URL.Query().Get("id"), b.Track, b.Source)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"record": rec})
+}
+
+// handleTapeRecordEnd ends a punch, keeping what it covered (?cancel=1:
+// nothing), or disarms a track.
+func (a *API) handleTapeRecordEnd(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	kept, err := a.tape.EndRecording(r.URL.Query().Get("id"), r.URL.Query().Get("cancel") == "1")
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"kept": kept})
+}
+
+// handleTapeTap takes a free-loop tap. It's stamped the moment it arrives:
+// the phone's clock isn't trusted.
+func (a *API) handleTapeTap(w http.ResponseWriter, r *http.Request) {
+	at := mono.Now()
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		Track  int    `json:"track"`
+		Source string `json:"source"`
+	}
+	if !decodeBody(w, r, &b) {
+		return
+	}
+	res, err := a.tape.Tap(r.URL.Query().Get("id"), b.Track, b.Source, at)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (a *API) handleTapeTapCancel(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	a.tape.CancelTap()
+	writeJSON(w, http.StatusOK, map[string]string{"status": "forgotten"})
 }
 
 func (a *API) handleTapeCatch(w http.ResponseWriter, r *http.Request) {

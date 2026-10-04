@@ -21,12 +21,13 @@
   <a class="back" href="/" aria-label="Back to the main page" data-tip="back">‹</a>
   <div class="tape-title">
     <button id="tape-name" class="tape-title-name" type="button" aria-haspopup="menu" data-tip="tape-menu">…</button>
-    <span id="tape-sub" class="tape-sub mono"></span>
+    <button id="tape-sub" class="tape-sub mono" type="button" aria-haspopup="menu" data-tip="tape-tempo"></button>
   </div>
   <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
   <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" data-tip="tape-undo">↶</button>
   <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" data-tip="tape-redo">↷</button>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
+  <div id="tempo-menu" class="menu" role="menu" hidden></div>
   <div id="tape-menu" class="menu" role="menu" hidden>
     <div id="tape-list" class="tape-list"></div>
     <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
@@ -44,7 +45,9 @@
   <div id="tape-body" hidden>
     <div id="tape-empty" class="tape-empty" hidden>
       <p><b>This tape is empty.</b> Its first loop sets the tempo.</p>
-      <p>Open a take, select the part, and choose <b>More → Send to tape</b>. Or start from a tempo:</p>
+      <p>Play until a part sounds right, then tap where it starts and again where it comes round:</p>
+      <button id="tap" class="icon-btn primary tape-tap" type="button" data-tip="tape-tap">Tap where the loop starts</button>
+      <p>Or open a take, select the part, and choose <b>More → Send to tape</b>. Or start from a tempo:</p>
       <div class="tape-tempo-row">
         <label>BPM <input id="new-bpm" type="number" min="20" max="400" step="0.1" value="90" inputmode="decimal" data-tip="tape-bpm"></label>
         <label>Bars <input id="new-bars" type="number" min="1" max="64" value="4" inputmode="numeric" data-tip="tape-bpm"></label>
@@ -59,6 +62,10 @@
       <div class="tb-row transport">
         <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="tape-play">▶</button>
         <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="tape-loop">⟲ Loop</button>
+        <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" data-tip="tape-rec">● Rec</button>
+        <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Click" data-tip="tape-click">♩</button>
+      </div>
+      <div class="tb-row tape-where">
         <span id="position" class="readout mono"></span>
       </div>
       <div class="tb-row sources" role="group" aria-label="Catch from">

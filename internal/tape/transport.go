@@ -1,6 +1,7 @@
 package tape
 
 import (
+	"math"
 	"sort"
 	"sync"
 )
@@ -27,8 +28,14 @@ type Action struct {
 	Kind    string `json:"action"`  // play, stop, locate
 	Quantum string `json:"quantum"` // now, beat, bar, loop
 	Pos     int64  `json:"pos"`     // for locate
+	// CountIn makes a play start with a bar of click, then play from the
+	// playhead's bar.
+	CountIn bool `json:"count_in,omitempty"`
 
-	done chan struct{} // a reset's: closed once it's carried out
+	// For "phase", which only the engine sends: play the loop as if it
+	// had been playing all along with its In at output frame Anchor.
+	Anchor int64         `json:"-"`
+	done   chan struct{} // a reset's: closed once it's carried out
 }
 
 // segment is one stretch of the position map: from output frame out, the
@@ -37,6 +44,7 @@ type segment struct {
 	out     uint64
 	pos     int64
 	playing bool
+	wrap    bool // it began where the loop wrapped: playing on, unbroken
 }
 
 // Cycle is one complete pass of the loop, as played.
@@ -67,6 +75,9 @@ type transport struct {
 	wrapOut uint64
 	wrapIn  int64
 
+	// A count-in: frames of it left, of countLen.
+	countIn, countLen int64
+
 	pend []pending
 
 	mu       sync.Mutex // guards what readers see: the history below
@@ -78,18 +89,24 @@ type transport struct {
 // Status is the transport as the page sees it.
 type Status struct {
 	Playing bool   `json:"playing"`
-	Pos     int64  `json:"pos"`     // tape frame at the render head
-	Out     uint64 `json:"out"`     // the render head's output frame
-	Pending int    `json:"pending"` // queued actions
+	Pos     int64  `json:"pos"`                // tape frame at the render head
+	Out     uint64 `json:"out"`                // the render head's output frame
+	Pending int    `json:"pending"`            // queued actions
+	CountIn int64  `json:"count_in,omitempty"` // frames of count-in left
 }
 
 func newTransport() *transport { return &transport{cycleStart: -1} }
 
 // record notes a change of the map at output frame out. Called by the render
 // goroutine.
-func (t *transport) record(out uint64) {
+func (t *transport) record(out uint64) { t.recordSeg(out, false) }
+
+// recordWrap notes a wrap at out: the tape played on, from In.
+func (t *transport) recordWrap(out uint64) { t.recordSeg(out, true) }
+
+func (t *transport) recordSeg(out uint64, wrap bool) {
 	t.mu.Lock()
-	t.segments = append(t.segments, segment{out: out, pos: t.pos, playing: t.playing})
+	t.segments = append(t.segments, segment{out: out, pos: t.pos, playing: t.playing, wrap: wrap})
 	if len(t.segments) > maxSegments {
 		t.segments = t.segments[len(t.segments)-maxSegments:]
 	}
@@ -140,14 +157,78 @@ func (t *transport) continuous(from, to uint64, loop Loop) (int64, bool) {
 			continue
 		}
 		// A segment boundary inside the span is fine only if it's a wrap:
-		// still playing, from Out back to In.
+		// still playing, from Out back to In -- the loop as it was then.
 		expect := p + int64(s.out-at)
-		if !s.playing || !(loop.On && expect == loop.Out && s.pos == loop.In) {
+		if !s.playing || !(s.wrap || loop.On && expect == loop.Out && s.pos == loop.In) {
 			return 0, false
 		}
 		p, at = s.pos, s.out
 	}
 	return pos, true
+}
+
+// piece is a stretch of the position map: from output frame Out, Len
+// frames, the tape at Pos and moving (or standing). Wrap: it began where the
+// loop wrapped, so it carries straight on from the one before.
+type piece struct {
+	Out     uint64
+	Pos     int64
+	Len     int64
+	Playing bool
+	Wrap    bool
+}
+
+// pieces is the position map over output frames [from, to).
+func (t *transport) pieces(from, to uint64) []piece {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	var out []piece
+	for i, sg := range t.segments {
+		end := to
+		if i+1 < len(t.segments) && t.segments[i+1].out < end {
+			end = t.segments[i+1].out
+		}
+		start := max(sg.out, from)
+		if start >= end {
+			continue
+		}
+		p := sg.pos
+		if sg.playing {
+			p += int64(start - sg.out)
+		}
+		out = append(out, piece{Out: start, Pos: p, Len: int64(end - start), Playing: sg.playing, Wrap: sg.wrap && start == sg.out})
+	}
+	return out
+}
+
+// firstBarLine is the first output frame in [from, to) at which the tape
+// was playing at a bar line (any frame, without a grid), and the tape frame
+// there.
+func (t *transport) firstBarLine(from, to uint64, g *Grid) (uint64, int64, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for i, sg := range t.segments {
+		end := to
+		if i+1 < len(t.segments) && t.segments[i+1].out < end {
+			end = t.segments[i+1].out
+		}
+		start := sg.out
+		if from > start {
+			start = from
+		}
+		if !sg.playing || start >= end {
+			continue
+		}
+		p := sg.pos + int64(start-sg.out)
+		line := p
+		if g != nil {
+			line = g.NextBar(p)
+		}
+		if at := start + uint64(line-p); at < end {
+			return at, line, true
+		}
+	}
+	return 0, 0, false
 }
 
 // Cycles is the log of complete loop passes, oldest first.
@@ -168,7 +249,7 @@ func (t *transport) Status() Status {
 // be caught onto it. Called by the render goroutine, or before it starts.
 func (t *transport) reset(out uint64) {
 	t.pend = nil
-	t.playing, t.cycleStart, t.wrapped = false, -1, false
+	t.playing, t.cycleStart, t.wrapped, t.countIn = false, -1, false, 0
 	t.record(out)
 	t.mu.Lock()
 	t.cycles = nil
@@ -234,11 +315,21 @@ func (t *transport) target(a Action, out uint64, m *Mix, grid *Grid) uint64 {
 func (t *transport) apply(a Action, out uint64, m *Mix, length int64) {
 	switch a.Kind {
 	case "play":
-		if t.playing {
+		if t.playing || t.countIn > 0 {
 			return
 		}
 		if t.pos >= m.end && !m.loop.On {
 			t.pos = 0 // played to the end: start again
+		}
+		if a.CountIn && m.grid != nil {
+			// A bar of click first, the tape standing at its bar line.
+			t.pos = m.grid.BarStart(m.grid.BarAt(t.pos))
+			if m.loop.On && (t.pos < m.loop.In || t.pos >= m.loop.Out) {
+				t.pos = m.loop.In
+			}
+			t.countLen = int64(math.Round(m.grid.BarFrames()))
+			t.countIn = t.countLen
+			break
 		}
 		t.playing = true
 		t.cycleStart = -1
@@ -250,6 +341,21 @@ func (t *transport) apply(a Action, out uint64, m *Mix, length int64) {
 		t.playing = false
 		t.cycleStart = -1
 		t.wrapped = false
+		t.countIn = 0
+	case "phase":
+		l := m.loop.Len()
+		if t.playing || !m.loop.On || l <= 0 {
+			return
+		}
+		off := (int64(out) - a.Anchor) % l
+		if off < 0 {
+			off += l
+		}
+		t.pos, t.playing, t.wrapped, t.countIn = m.loop.In+off, true, false, 0
+		t.cycleStart = -1
+		if off == 0 {
+			t.cycleStart, t.cycleIn = int64(out), m.loop.In
+		}
 	case "locate":
 		p := a.Pos
 		if p < 0 {
