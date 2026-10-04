@@ -138,6 +138,8 @@ type tapeStateResponse struct {
 	Sources []tape.SourceState `json:"sources"`
 	BPM     float64            `json:"bpm,omitempty"`
 	Edit    *tape.EditResult   `json:"edit,omitempty"` // what an edit did
+
+	SuggestBPM float64 `json:"suggest_bpm,omitempty"` // where an empty tape's tempo form starts
 }
 
 func (a *API) handleTapeState(w http.ResponseWriter, r *http.Request) {
@@ -168,8 +170,34 @@ func (a *API) writeTapeStateWith(w http.ResponseWriter, id string, edit *tape.Ed
 	if resp.Tape.Grid != nil {
 		resp.BPM = resp.Tape.Grid.BPM(resp.Tape.SampleRate)
 	}
+	if resp.Tape.Grid == nil && resp.Tape.Empty() {
+		resp.SuggestBPM = a.suggestBPM(resp.Tape.ID)
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// suggestBPM is where an empty tape's tempo form starts: the clipboard's
+// tempo, else the newest take's that has one, else the last tape's, else 90.
+func (a *API) suggestBPM(id string) float64 {
+	if c, err := a.tape.Clipboard(); err == nil && c != nil && c.BPM > 0 {
+		return c.BPM
+	}
+	if takes, _, err := a.takes.List(); err == nil {
+		var newest *audio.Take
+		for i := range takes {
+			if takes[i].BPM != nil && (newest == nil || takes[i].Created.After(newest.Created)) {
+				newest = &takes[i]
+			}
+		}
+		if newest != nil {
+			return *newest.BPM
+		}
+	}
+	if bpm, ok := a.tape.LastTapeBPM(id); ok {
+		return bpm
+	}
+	return 90
 }
 
 func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
