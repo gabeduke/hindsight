@@ -9,9 +9,10 @@ import { initHelp } from '../help/help.js';
 import { peakColumns, foldChannels, drawColumns } from '../wave/draw.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets,
-  SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled,
+  SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView,
 } from './geometry.js';
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
+import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
 import { initAway } from './away-sheet.js';
 
 const $ = (id) => document.getElementById(id);
@@ -33,6 +34,11 @@ const state = {
   scope: readPref('tape.scope', 'one'), // lift and copy: the selected track, or all
   snap: readPref('tape.snap', 'bar'),   // what a slid clip snaps to
   slide: null,      // a clip being slid: {n, clip, at}
+  zoom: null,       // the lanes' view once pinched, panned or paged: {from, to}; null shows the loop
+  touchedView: 0,   // when a pinch or pan last moved the view: following waits a moment after
+  noClickUntil: 0,  // a lane's click before this ends a pan, not a tap
+  pinch: false,     // two fingers are on the lanes or the ruler
+  rec: null,        // a punch being recorded: {key, track, start, trace, wrapped}
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
 
@@ -153,6 +159,7 @@ async function change(send) {
 
 function apply(s) {
   const changed = JSON.stringify(s.tape) !== JSON.stringify(state.tape);
+  if (state.tape && s.tape && s.tape.id !== state.tape.id) state.zoom = null;
   state.tape = s.tape;
   state.live = s.live || null;
   state.sources = s.sources || [];
@@ -160,7 +167,49 @@ function apply(s) {
   state.redo = s.redo || 0;
   if (state.track > state.tape.tracks.length) state.track = 1;
   if (changed) { buildLanes(); loadPeaks(); }
+  followPlayhead();
+  tracePunch();
   render();
+}
+
+// laneView is the span of tape the lanes and the ruler show: where a pinch,
+// a pan or the playhead took it, else the loop and a bar either side.
+function laneView() {
+  return state.zoom || viewRange(state.tape);
+}
+
+// followPlayhead pages the view after a playhead that has run out of it --
+// past the loop's Out with the loop off, say -- unless a finger moved the
+// view a moment ago.
+function followPlayhead() {
+  const live = state.live;
+  if (!live || !live.playing || live.count_in > 0 || state.pinch || state.slide || state.sel) return;
+  if (performance.now() - state.touchedView < 2500) return;
+  const v = laneView();
+  const f = followView(v, live.heard, state.tape.length);
+  if (f !== v) state.zoom = f;
+}
+
+// tracePunch follows a punch as it records: where it starts, and the
+// source's level at each poll, drawn on its lane until it ends and its clip
+// arrives.
+function tracePunch() {
+  const t = state.tape, live = state.live;
+  const r = live && live.record;
+  if (!r || r.state !== 'on' || !t.grid || r.tape !== t.id) { state.rec = null; return; }
+  const key = `${r.from}:${r.track}`;
+  if (!state.rec || state.rec.key !== key) state.rec = { key, track: r.track, start: null, trace: null, wrapped: false };
+  const counting = live.count_in > 0;
+  if (state.rec.start === null && (counting || live.playing)) {
+    const obs = { counting, pos: live.pos, heard: live.heard, delivered: live.delivered, from: r.from };
+    state.rec.start = punchStart(t.grid, t.loop, obs);
+    // A page opened mid-punch: the loop may have come round already.
+    state.rec.wrapped = !counting && wrappedSince(t.loop, obs);
+  }
+  if (live.playing && !counting) {
+    const src = state.sources.find((x) => x.name === r.source);
+    state.rec.trace = traceAdd(state.rec.trace, live.heard, src && src.peak_db);
+  }
 }
 
 function loadPeaks() {
@@ -264,6 +313,7 @@ function render() {
   drawLanes();
   drawOverview();
   drawRuler();
+  renderFit();
 }
 
 function renderMode() {
@@ -555,6 +605,7 @@ function wireLane(lane) {
   cv.addEventListener('contextmenu', (e) => e.preventDefault());
   cv.addEventListener('click', (e) => {
     if (performance.now() < slidUntil) { slidUntil = 0; return; }
+    if (performance.now() < state.noClickUntil) return; // the end of a pan or pinch
     laneTap(lane, e);
   });
   cv.addEventListener('pointerdown', (e) => {
@@ -563,7 +614,7 @@ function wireLane(lane) {
     if (!hit) return;
     down = { x: e.clientX, y: e.clientY, hit, moved: false, held: false, id: e.pointerId };
     down.timer = setTimeout(() => {
-      if (!down || down.moved) return;
+      if (!down || down.moved || state.pinch) return;
       down.held = true;
       try { cv.setPointerCapture(down.id); } catch { /* the pointer's gone */ }
       state.slide = { n: lane.n, clip: hit.clip, at: hit.clip.at };
@@ -581,7 +632,7 @@ function wireLane(lane) {
     }
     if (far) down.moved = true;
     if (!down.moved || !state.slide) return;
-    const view = viewRange(state.tape);
+    const view = laneView();
     const df = ((e.clientX - down.x) / cv.getBoundingClientRect().width) * (view.to - view.from);
     state.slide.at = slideTo(state.tape.grid, down.hit.clip.at, df, state.snap);
     drawLanes();
@@ -608,7 +659,7 @@ function drawRuler() {
   const ctx = cv.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
-  const view = viewRange(t);
+  const view = laneView();
   const span = (from, to, fill) => {
     const x0 = Math.max(0, xOf(from, view, W)), x1 = Math.min(W, xOf(to, view, W));
     if (x1 > x0) { ctx.fillStyle = fill; ctx.fillRect(x0, 0, x1 - x0, H); }
@@ -637,14 +688,14 @@ function wireRuler() {
   let down = null;
   const frameOf = (e) => {
     const r = cv.getBoundingClientRect();
-    return frameAt(Math.min(r.width, Math.max(0, e.clientX - r.left)), viewRange(state.tape), r.width);
+    return frameAt(Math.min(r.width, Math.max(0, e.clientX - r.left)), laneView(), r.width);
   };
   cv.addEventListener('pointerdown', (e) => {
-    if (!state.tape) return;
+    if (!state.tape || down) return; // a second finger is a pinch's
     cv.setPointerCapture(e.pointerId);
     down = { x: e.clientX, y: e.clientY, f: frameOf(e), held: false, moved: false };
     down.timer = setTimeout(() => {
-      if (!down || down.moved || !state.tape.grid) return;
+      if (!down || down.moved || !state.tape.grid || state.pinch) return;
       down.held = true;
       state.sel = barSpan(state.tape.grid, down.f, down.f);
       if (navigator.vibrate) navigator.vibrate(10);
@@ -675,13 +726,98 @@ function wireRuler() {
           action: { label: 'Undo', run: () => undoRedo(false) },
         }));
       }
-    } else if (!d.moved && !cancelled) {
+    } else if (!d.moved && !cancelled && performance.now() >= state.noClickUntil) {
       const f = frameOf(e);
       transport('locate', { pos: state.tape.grid ? nearestBar(state.tape.grid, f) : f });
     }
   };
   cv.addEventListener('pointerup', (e) => end(e, false));
   cv.addEventListener('pointercancel', (e) => end(e, true));
+}
+
+// --- the view: pinch, pan, Fit --------------------------------------------------
+
+// redrawView redraws what the view moves, once a frame however many moves.
+let viewRaf = 0;
+function redrawView() {
+  if (viewRaf) return;
+  viewRaf = requestAnimationFrame(() => { viewRaf = 0; drawLanes(); drawRuler(); drawOverview(); renderFit(); });
+}
+
+function renderFit() { $('view-fit').hidden = !state.zoom; }
+
+// The closest the view goes: a quarter of a second across.
+const minSpan = () => Math.round(state.tape.sample_rate * 0.25);
+
+function setView(v) {
+  const now = performance.now();
+  state.zoom = v;
+  state.touchedView = now;
+  state.noClickUntil = now + 400;
+  redrawView();
+}
+
+// wireView: on the lanes or the ruler, two fingers pinch the view closer
+// or wider and pan it with their midpoint; one finger dragged sideways pans
+// (a vertical one still scrolls the page); with a trackpad or a wheel,
+// ctrl/⌘ zooms and a sideways scroll pans. A held slide or loop drag keeps
+// its finger. The view stays where it's put until Fit.
+function wireView(el, rectOf) {
+  const pts = new Map();
+  let g = null;
+  const mid = () => {
+    const [a, b] = [...pts.values()];
+    return { x: (a.x + b.x) / 2, d: Math.max(8, Math.hypot(a.x - b.x, a.y - b.y)) };
+  };
+  el.addEventListener('pointerdown', (e) => {
+    if (!state.tape || e.button > 0 || e.target.tagName !== 'CANVAS') return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2 && !state.slide && !state.sel) {
+      const r = rectOf(), m = mid();
+      state.pinch = true;
+      state.noClickUntil = performance.now() + 400;
+      g = { kind: 'pinch', v0: laneView(), x0: m.x - r.left, d0: m.d, w: r.width };
+    } else if (pts.size === 1) {
+      g = { kind: 'maybe', v0: laneView(), x0: e.clientX, y0: e.clientY, w: rectOf().width, id: e.pointerId };
+    }
+  });
+  el.addEventListener('pointermove', (e) => {
+    const p = pts.get(e.pointerId);
+    if (!p || !g) return;
+    p.x = e.clientX; p.y = e.clientY;
+    if (state.slide || state.sel) { g = null; return; }
+    const len = state.tape.length;
+    if (g.kind === 'pinch') {
+      if (pts.size < 2) return;
+      const r = rectOf(), m = mid();
+      const anchor = g.v0.from + (g.x0 / g.w) * (g.v0.to - g.v0.from);
+      const v = zoomView(g.v0, anchor, g.d0 / m.d, len, minSpan());
+      setView(panView(v, -((m.x - r.left - g.x0) / g.w) * (v.to - v.from), len));
+    } else if (e.pointerId === g.id) {
+      const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+      if (g.kind === 'maybe' && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) g.kind = 'pan';
+      if (g.kind === 'pan') setView(panView(g.v0, -(dx / g.w) * (g.v0.to - g.v0.from), len));
+    }
+  });
+  const up = (e) => {
+    if (!pts.delete(e.pointerId)) return;
+    if (g && g.kind !== 'maybe') state.noClickUntil = performance.now() + 400;
+    if (pts.size === 0) { g = null; state.pinch = false; } else if (g && g.kind === 'pinch') g = null;
+  };
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+  el.addEventListener('wheel', (e) => {
+    if (!state.tape) return;
+    const r = rectOf(), v = laneView(), span = v.to - v.from;
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const anchor = v.from + ((e.clientX - r.left) / r.width) * span;
+      setView(zoomView(v, anchor, Math.exp(e.deltaY * 0.01), state.tape.length, minSpan()));
+    } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      e.preventDefault();
+      setView(panView(v, ((e.shiftKey ? e.deltaY : e.deltaX) / r.width) * span, state.tape.length));
+    }
+  }, { passive: false });
 }
 
 // --- a track's sheet -------------------------------------------------------------
@@ -844,7 +980,7 @@ function track(n) { return state.tape.tracks[n - 1]; }
 function drawLanes() {
   const t = state.tape;
   if (!t) return;
-  const view = viewRange(t);
+  const view = laneView();
   const css = getComputedStyle(document.body);
   const col = (n, d) => css.getPropertyValue(n).trim() || d;
   for (const lane of lanes) {
@@ -902,6 +1038,7 @@ function drawLanes() {
       ctx.globalAlpha = 1;
       lane.hits.push({ x0, x1, clip: c });
     }
+    if (state.rec && state.rec.track === lane.n) drawPunch(ctx, view, W, H, col);
     // A clip being slid: where it would land.
     const sl = state.slide;
     if (sl && sl.n === lane.n) {
@@ -929,6 +1066,51 @@ function drawLanes() {
   }
 }
 
+// drawPunch draws a punch recording onto its lane: the span this pass has
+// covered, and the source's level along it; or, before the tape reaches it,
+// a line where it will start.
+function drawPunch(ctx, view, W, H, col) {
+  const rec = state.rec, live = state.live, t = state.tape;
+  if (rec.start === null || !live) return;
+  const red = col('--danger', '#f87171');
+  ctx.save();
+  ctx.font = '11px ui-monospace, monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = red;
+  ctx.strokeStyle = red;
+  const reg = recRegion(rec.wrapped || !!(rec.trace && rec.trace.passes > 0), rec.start, t.loop, live.heard);
+  if (!reg) {
+    const x = Math.round(xOf(rec.start, view, W)) + 0.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    ctx.fillText('● REC from here', x + 4, 4);
+    ctx.restore();
+    return;
+  }
+  const x0 = xOf(reg.from, view, W), x1 = xOf(reg.to, view, W);
+  ctx.globalAlpha = 0.16;
+  ctx.fillRect(x0, 0, Math.max(1, x1 - x0), H);
+  ctx.globalAlpha = 1;
+  ctx.fillRect(Math.round(x0), 0, 1, H);
+  // The level at each poll, held until the next: a rough picture of what's
+  // coming in, not the waveform the clip will have.
+  // Under the label, so it stays readable.
+  const top = 18, room = H - top - 3;
+  const ss = rec.trace ? rec.trace.samples : [];
+  ctx.globalAlpha = 0.8;
+  for (let i = 0; i < ss.length; i++) {
+    const a = Math.max(ss[i].pos, reg.from), b = i + 1 < ss.length ? ss[i + 1].pos : reg.to;
+    if (b <= a) continue;
+    const h = Math.max(1, meterFill(ss[i].db) * room);
+    const xa = xOf(a, view, W), xb = xOf(b, view, W);
+    ctx.fillRect(xa, top + (room - h) / 2, Math.max(1, xb - xa), h);
+  }
+  ctx.globalAlpha = 1;
+  const full = t.loop.on ? fullPasses(live.cycles, live.record.from) : 0;
+  ctx.fillText(full > 0 ? `● REC · ${full} full pass${full === 1 ? '' : 'es'}` : '● REC', Math.max(2, x0 + 4), 4);
+  ctx.restore();
+}
+
 function drawOverview() {
   const t = state.tape;
   if (!t) return;
@@ -953,6 +1135,13 @@ function drawOverview() {
     const x0 = xOf(t.loop.in, all, W), x1 = xOf(t.loop.out, all, W);
     ctx.strokeStyle = t.loop.on ? '#fbbf24' : 'rgba(251,191,36,0.4)';
     ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
+  }
+  if (state.zoom) {
+    const x0 = xOf(state.zoom.from, all, W), x1 = xOf(state.zoom.to, all, W);
+    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--ink-dim').trim() || '#8b9ab4';
+    ctx.setLineDash([3, 2]);
+    ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
+    ctx.setLineDash([]);
   }
   if (state.live) {
     ctx.fillStyle = '#eef2f8';
@@ -1065,7 +1254,7 @@ function laneTap(lane, e) {
   const hit = (lane.hits || []).filter((h) => x >= h.x0 && x <= h.x1).pop();
   if (hit) { openClip(hit.clip); return; }
   // An empty part of a lane moves the playhead there.
-  transport('locate', { pos: frameAt(x, viewRange(state.tape), r.width) });
+  transport('locate', { pos: frameAt(x, laneView(), r.width) });
   render();
 }
 
@@ -1311,6 +1500,9 @@ function wire() {
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
   $('clip-sheet').addEventListener('close', () => { state.clip = null; drawLanes(); });
   new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); }).observe($('lanes'));
+  wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
+  wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
+  $('view-fit').addEventListener('click', () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); });
 }
 
 boot();

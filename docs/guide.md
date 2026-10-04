@@ -589,6 +589,12 @@ other tapes' undo.
 - **While stopped,** tap ● to arm the track (*● Armed*). Press ▶: a bar of
   click counts you in, then the tape plays from the playhead's bar and
   records. ■ keeps it.
+- **While it records,** the track's lane shows it in red from the bar it
+  started at, with the source's level along it, so you can see something is
+  coming in. Before the tape reaches that bar, a dashed red line marks it.
+  With the loop on, the red starts again at In each time round (*pass 2*,
+  *pass 3*). It's a sketch from the meter; the real waveform arrives with
+  the clip.
 - The toast has **Cancel** while it records, and **Undo** once kept.
 
 **The clipboard (6d)** holds what you last copied or lifted -- from a take,
@@ -610,6 +616,11 @@ page shows how long it is and where it came from:
   to move the playhead to a bar line; hold, then drag across it to loop
   those bars. The lanes show the loop and a bar either side, so you can drag
   it a bar wider at a time.
+- **Zoom and pan** the lanes and the ruler: pinch with two fingers, drag
+  sideways with one (a vertical drag still scrolls the page), or on a
+  computer scroll sideways and hold ⌘ or Ctrl to zoom. A playhead that runs
+  out of view -- jamming on past Out with the loop off -- pages the view
+  along. **Fit**, by the ruler, puts it back to the loop.
 - **A clip's sheet** has *Repeat to the loop's end*: copies of the clip end
   to end, wherever its layer is free -- one bar through four.
 - **Tap a track's number again** for its sheet: its name, level and pan.
@@ -950,13 +961,14 @@ has no tip.
 | Delete a tape | Delete another tape. Audio it shares with others stays |
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
-| Tape overview | The whole tape, six minutes a track; the loop in amber |
-| A lane | Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there |
+| Tape overview | The whole tape, six minutes a track; the loop in amber, and a dashed box round what the lanes show once you zoom |
+| A lane | Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape. Key: Space |
-| Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars |
+| Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars. Drag sideways to pan, pinch to zoom |
+| Fit | Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
 | Clipboard | What you copied last, from a take or the ribbon. Tap to hear it |
 | × (clipboard) | Empty the clipboard |

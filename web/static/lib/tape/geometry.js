@@ -29,6 +29,41 @@ export function editView(tape) {
   return { from: Math.max(0, Math.round(l.in - bar)), to: Math.round(l.out + bar) };
 }
 
+// fitView puts a span of `span` frames starting at `from` on the tape:
+// whole frames, no wider than the tape, never off either end.
+function fitView(from, span, length) {
+  const s = Math.round(Math.min(span, length));
+  const f = Math.round(Math.min(Math.max(0, from), length - s));
+  return { from: f, to: f + s };
+}
+
+/**
+ * zoomView is a view zoomed by factor (below 1 is closer) about the anchor
+ * frame, which stays where it was across the view: what a pinch does. No
+ * closer than minSpan frames, no wider than the tape.
+ */
+export function zoomView(view, anchor, factor, length, minSpan) {
+  const span = view.to - view.from;
+  const next = Math.max(minSpan, span * factor);
+  const k = (anchor - view.from) / span;
+  return fitView(anchor - k * next, next, length);
+}
+
+/** panView is a view moved df frames along the tape, stopping at its ends. */
+export function panView(view, df, length) {
+  return fitView(view.from + df, view.to - view.from, length);
+}
+
+/**
+ * followView pages a view to a playhead that has left it, putting the
+ * playhead a tenth of the way in; a view it's still in comes back as is.
+ */
+export function followView(view, pos, length) {
+  if (pos >= view.from && pos <= view.to) return view;
+  const span = view.to - view.from;
+  return fitView(pos - span / 10, span, length);
+}
+
 /**
  * barSpan turns a drag across the ruler, between two tape frames in either
  * order, into whole bars: from the bar line at or before the earlier to the
