@@ -379,6 +379,36 @@ async function exportStems(e) {
   a.remove();
 }
 
+// shareClip offers a clip to the share sheet as a WAV -- a short one; a long
+// one, or a phone that can't share files, downloads it.
+async function shareClip(c) {
+  const t = state.tape;
+  const n = t.tracks.findIndex((tr) => tr.clips.some((x) => x.id === c.id)) + 1;
+  const url = `/api/tapes/clip?${q()}&clip=${encodeURIComponent(c.id)}`;
+  const name = `${t.name} track ${n}${c.reversed ? ' reversed' : ''}.wav`;
+  if (navigator.canShare && c.frames / t.sample_rate <= 60) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const file = new File([await res.blob()], name, { type: 'audio/wav' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: name });
+        return;
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') return; // the sheet was closed
+      toast(`Could not share it: ${e.message}`, 'bad');
+      return;
+    }
+  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 // --- editing: lift, copy, split, join, slide, multiply ------------------------
 
 function renderEdit() {
@@ -991,6 +1021,7 @@ function openClip(c) {
   $('clip-tile').disabled = !(lp.on && c.at + 2 * c.frames <= lp.out);
   const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
   $('clip-join').disabled = !home || !joinPartner(home, c);
+  $('clip-reverse').textContent = c.reversed ? 'Play forwards' : 'Reverse';
   const sh = $('clip-sheet');
   if (typeof sh.showModal === 'function') sh.showModal();
   drawLanes();
@@ -1064,6 +1095,18 @@ function wire() {
   $('ed-copy').addEventListener('click', () => liftCopy('copy'));
   $('ed-split').addEventListener('click', split);
   $('ed-x2').addEventListener('click', multiply);
+  $('clip-reverse').addEventListener('click', async () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c && await edit('reverse', { clip: c.id })) {
+      toast(c.reversed ? 'Playing forwards' : 'Reversed', 'ok', { action: undoAction });
+    }
+  });
+  $('clip-share').addEventListener('click', () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c) shareClip(c);
+  });
   $('clip-join').addEventListener('click', async () => {
     const c = state.clip;
     $('clip-sheet').close();

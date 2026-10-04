@@ -93,6 +93,8 @@ export const TIPS = [
   { control: '1 bar, 2, 4', ids: ['catch-bars'], tip: 'Catch the last bars you played, ending on the last bar line, where they were played' },
   { control: 'Clip level', ids: ['clip-gain'], tip: 'This clip\'s level within its track' },
   { control: 'Nudge', ids: ['clip-nudge'], tip: 'Move the clip a few milliseconds, for a part a little early or late' },
+  { control: 'Reverse (clip)', ids: ['clip-reverse'], tip: 'Play this clip backwards, or forwards again. Undo puts it back' },
+  { control: 'Share as WAV (clip)', ids: ['clip-share'], tip: 'Send just this clip, at its level, to another app; a long one downloads' },
   { control: 'Remove (clip)', ids: ['clip-remove'], tip: 'Take this clip off the tape. Undo brings it back' },
   { control: 'Catch', ids: ['catch'], tip: 'Put what you just played onto the selected track: the last bars, or a pass' },
   { control: 'Passes', ids: ['passes'], tip: 'Every time round the loop, kept. Tap one to put it on the selected track' },

@@ -310,3 +310,53 @@ func CopyWAVSpan(src string, from, to int64, pick []int, path string) error {
 	}
 	return nil
 }
+
+// ReverseWAVSpan writes frames [from, to) of a 32-bit WAV to path backwards,
+// every channel, with its peaks beside it: a clip played in reverse is a
+// clip of this. It reads the span a block at a time from its end, so a long
+// one costs no more memory than a short one. On failure the file is removed.
+func ReverseWAVSpan(src string, from, to int64, path string) error {
+	info, err := ReadWAVInfo(src)
+	if err != nil {
+		return err
+	}
+	if from < 0 || to <= from || to > info.Frames() {
+		return fmt.Errorf("%w: [%d, %d) of %d frames", ErrRange, from, to, info.Frames())
+	}
+	ch := info.Channels
+	ww, err := createWAV(path, int(to-from), ch, info.SampleRate)
+	if err != nil {
+		os.Remove(path)
+		return err
+	}
+	const block = 1 << 14
+	rev := make([]int32, 0, block*ch)
+	for end := to; end > from && err == nil; end -= block {
+		start := max(from, end-block)
+		var chunk []int32
+		_, err = ReadFrames(src, start, end, block, func(b []int32, _ int64) error {
+			chunk = append(chunk, b...)
+			return nil
+		})
+		if err != nil {
+			break
+		}
+		rev = rev[:0]
+		for i := len(chunk)/ch - 1; i >= 0; i-- {
+			rev = append(rev, chunk[i*ch:(i+1)*ch]...)
+		}
+		err = ww.write(rev)
+	}
+	peaks, _, cerr := ww.close()
+	if err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(path)
+		return err
+	}
+	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {
+		log.Printf("[!] peaks for %s: %v", path, perr)
+	}
+	return nil
+}

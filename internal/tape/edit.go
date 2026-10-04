@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	"github.com/gabeduke/hindsight/internal/audio"
 )
 
 // The OP-1's editing (tape phase 2): lift, copy, split, join, slide and
@@ -14,10 +16,10 @@ import (
 
 // EditRequest is one edit. The selection is the loop's In and Out.
 type EditRequest struct {
-	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply
+	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse
 	Track int    `json:"track"` // the selected track
 	All   bool   `json:"all"`   // lift and copy: all four tracks, kept apart
-	Clip  string `json:"clip"`  // join, slide: the clip
+	Clip  string `json:"clip"`  // join, slide, reverse: the clip
 	Pos   *int64 `json:"pos"`   // split: where (default: the playhead)
 	At    *int64 `json:"at"`    // slide: where its start goes
 }
@@ -65,6 +67,8 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		}
 		err := e.Edit(id, "", func(tp *Tape, s *State) error { return s.slide(req.Clip, *req.At, tp.Length) })
 		return EditResult{Op: "slide", Clips: 1}, err
+	case "reverse":
+		return e.reverseClip(t, req.Clip)
 	case "multiply":
 		var n int
 		var frames int64
@@ -309,4 +313,56 @@ func (s *State) multiply(length int64) (int, int64, error) {
 	}
 	s.Loop.Out += n
 	return copied, s.Loop.Len(), nil
+}
+
+// reverseClip turns a clip round. Its audio, with the overhang either side,
+// is written backwards to a new pool file, and the clip plays that -- so
+// every edit still reads a clip forwards. Reversing it again plays its
+// original file the right way round, with no new file.
+func (e *Engine) reverseClip(t *Tape, id string) (EditResult, error) {
+	_, c, err := t.Clip(id)
+	if err != nil {
+		return EditResult{}, err
+	}
+	was := *c
+	file, src, rev := "", int64(0), (*Reversal)(nil)
+	if was.Reversed != nil {
+		file, src = was.Reversed.File, was.Reversed.End-was.Src-was.Frames
+	} else {
+		path := e.store.AudioPath(was.File)
+		info, err := audio.ReadWAVInfo(path)
+		if err != nil {
+			return EditResult{}, err
+		}
+		if err := e.diskOK(); err != nil {
+			return EditResult{}, err
+		}
+		over := int64(OverhangSeconds * float64(e.store.SampleRate()))
+		lo, hi := max64(0, was.Src-over), min64(info.Frames(), was.Src+was.Frames+over)
+		rel, dst, err := e.store.NewPoolFile("rev", time.Now())
+		if err != nil {
+			return EditResult{}, err
+		}
+		if err := audio.ReverseWAVSpan(path, lo, hi, dst); err != nil {
+			return EditResult{}, err
+		}
+		file, src, rev = rel, hi-(was.Src+was.Frames), &Reversal{File: was.File, End: hi}
+	}
+	err = e.Edit(t.ID, "", func(_ *Tape, s *State) error {
+		for ti := range s.Tracks {
+			for i := range s.Tracks[ti].Clips {
+				c := &s.Tracks[ti].Clips[i]
+				if c.ID != id {
+					continue
+				}
+				if c.File != was.File || c.Src != was.Src || c.Frames != was.Frames {
+					return fmt.Errorf("%w: the clip changed meanwhile; try again", ErrBadParameter)
+				}
+				c.File, c.Src, c.Reversed = file, src, rev
+				return nil
+			}
+		}
+		return ErrNoSuchClip
+	})
+	return EditResult{Op: "reverse", Clips: 1}, err
 }

@@ -143,6 +143,17 @@ type Clip struct {
 	Source  string  `json:"source,omitempty"`  // the capture pair it came from: aux, main, ch1, ch2, or a take
 	Clean   bool    `json:"clean,omitempty"`   // no tape bus was leaking into that source
 	Aligned string  `json:"aligned,omitempty"` // how the catch was lined up: exact (the demo), locked or estimated (6b); "" for a drop
+	// Reversed is set on a clip playing backwards: its File is a reversed
+	// copy of the one it came from, which this names. Never changed in
+	// place, so a copy of a clip can share it.
+	Reversed *Reversal `json:"reversed,omitempty"`
+}
+
+// Reversal says where a reversed clip's audio came from: frame i of the
+// reversed file is frame End-1-i of File.
+type Reversal struct {
+	File string `json:"file"`
+	End  int64  `json:"end"`
 }
 
 // End is the tape frame after the clip's last.
