@@ -2,6 +2,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/gabeduke/hindsight/docs"
 	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/bundle"
 	"github.com/gabeduke/hindsight/internal/config"
@@ -121,6 +123,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/render", a.handleRender).Methods(http.MethodGet)
 	r.HandleFunc("/api/midi", a.handleMIDI).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/bundle", a.handleBundle).Methods(http.MethodGet)
+	r.HandleFunc("/guide.md", handleGuide).Methods(http.MethodGet, http.MethodHead)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
@@ -137,6 +140,7 @@ type statusResponse struct {
 	Version         string    `json:"version"`
 	IsRecording     bool      `json:"is_recording"`
 	CaptureHealthy  bool      `json:"capture_healthy"`
+	CaptureWaiting  bool      `json:"capture_waiting"`
 	LastError       string    `json:"last_error"`
 	Device          string    `json:"device"`
 	XRuns           uint64    `json:"xruns"`
@@ -174,6 +178,7 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Version:         a.cfg.Version,
 		IsRecording:     a.cap.Healthy(),
 		CaptureHealthy:  a.cap.Healthy(),
+		CaptureWaiting:  a.cap.Waiting(),
 		LastError:       a.cap.LastError(),
 		Device:          a.cap.DeviceName(),
 		XRuns:           a.cap.XRuns(),
@@ -1085,3 +1090,15 @@ func sanitizeLabel(s string) string {
 	}
 	return s
 }
+
+// handleGuide serves the user guide (docs/guide.md, compiled in) for the
+// guide page, /guide.html, to render.
+func handleGuide(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	http.ServeContent(w, r, "guide.md", startTime, bytes.NewReader(docs.Guide))
+}
+
+// startTime stands in for the guide's modification time: it changes only
+// with the binary.
+var startTime = time.Now()

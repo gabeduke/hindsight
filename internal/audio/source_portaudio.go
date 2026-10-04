@@ -136,7 +136,7 @@ func (s *deviceSource) pickDevice() (*portaudio.DeviceInfo, error) {
 			s.cfg.DeviceMatch, s.cfg.Channels, fallback.Name)
 		return fallback, nil
 	}
-	return nil, fmt.Errorf("no input device with >=%d channels (is it in use by another process?)", s.cfg.Channels)
+	return nil, fmt.Errorf("%w: none with >=%d channels (is it off, unplugged, or in use by another process?)", ErrNoDevice, s.cfg.Channels)
 }
 
 func deviceScore(name string) int {

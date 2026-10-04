@@ -1504,3 +1504,14 @@ func TestPatchTakeCapsLaneKindsAtSixtyFour(t *testing.T) {
 		t.Fatalf("status %d, want 400", w.Code)
 	}
 }
+
+func TestTheGuideIsServed(t *testing.T) {
+	r, _ := newTestAPI(t)
+	w := do(t, r, http.MethodGet, "/guide.md")
+	if w.Code != http.StatusOK || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/markdown") {
+		t.Fatalf("status %d, type %q", w.Code, w.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(w.Body.String(), "# The Hindsight guide") {
+		t.Error("that isn't the guide")
+	}
+}

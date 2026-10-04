@@ -186,8 +186,7 @@ func dirExists(p string) bool {
 // CSS, JSON and directory indexes -- so the browser revalidates them and a
 // redeploy is picked up on reload rather than on a cache expiry.
 //
-// Nothing under web/static is fingerprinted, so this covers the vendored
-// WaveSurfer copy too: /vendor/wavesurfer.esm.js is a .js like any other.
+// Nothing under web/static is fingerprinted, so every module is covered.
 // Everything else -- the icons, and anything else without one of those
 // extensions -- falls through to http.FileServer's ETag and Last-Modified
 // handling untouched.
