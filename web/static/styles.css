@@ -66,6 +66,20 @@
   --vu-face:   #fbf3dc;
   --vu-base:   #ece2c6;
   --vu-ink:    #073642;
+  /* The tape machine: a faceplate, brown tape on silver reels, wood ends. */
+  --machine:      #e9e2cd;
+  --machine-well: #ddd5bd;
+  --bridge:       #e4ddc8;
+  --tape-pack:    #4a2e18;
+  --tape-sheen:   #8a5a32;
+  --flange:       #b8bdb7;
+  --flange-edge:  #7d8784;
+  --hub:          #073642;
+  --guide:        #f5f2e8;
+  --head-block:   #3d4f55;
+  --head:         #b8bdb7;
+  --head-ink:     #d8d0b6;
+  --wood:         #6b4425;
   --link:      #1f6fa8;
   --shadow:    rgba(7, 54, 66, .18);
   --scrim:     rgba(7, 54, 66, .45);
@@ -127,6 +141,16 @@
     --label:     #0b4250;
     --vu-face:   #e8dcb4;
     --vu-base:   #d6c89c;
+    --machine:      #0a3b47;
+    --machine-well: #06303a;
+    --bridge:       #073642;
+    --flange:       #93a1a1;
+    --flange-edge:  #3d5d64;
+    --guide:        #c9c6b9;
+    --head-block:   #00212b;
+    --head:         #93a1a1;
+    --head-ink:     #93a1a1;
+    --wood:         #4a2c17;
     --link:      #3fb5ab;
     --danger-ink: #ff8a7f;
     --warn-ink:   #e0b22e;
@@ -1494,7 +1518,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 @media (min-width: 700px) {
   main.tape-main { display: flex; max-width: none; padding-left: 16px; padding-right: 16px; }
   .tape-track, .tape-ruler-row { grid-template-columns: 150px 1fr; }
-  .tt-lane { height: clamp(72px, calc((100svh - var(--topbar-h) - 520px) / 4), 150px); }
+  .tt-lane { height: clamp(72px, calc((100svh - var(--topbar-h) - 530px - var(--machine-h)) / 4), 150px); }
 }
 
 /* Wide -- a tablet on its side, a laptop: the tracks take the width, and the
@@ -1505,11 +1529,12 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   #tape-body:not([hidden]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 372px;
-    grid-template-areas: "empty side" "overview side" "ruler side" "lanes side" ". side";
-    grid-template-rows: auto auto auto auto 1fr;
+    grid-template-areas: "machine machine" "empty side" "overview side" "ruler side" "lanes side" ". side";
+    grid-template-rows: auto auto auto auto auto 1fr;
     column-gap: 16px; row-gap: 0;
     align-items: start;
   }
+  .tape-machine { grid-area: machine; margin-bottom: 10px; }
   #tape-empty { grid-area: empty; margin-bottom: 10px; }
   .tape-overview { grid-area: overview; margin-bottom: 10px; }
   .tape-ruler-row { grid-area: ruler; margin-bottom: 8px; }
@@ -1525,7 +1550,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   }
   .tape-track, .tape-ruler-row { grid-template-columns: 168px 1fr; }
   /* Four lanes fill the height under the overview and ruler... */
-  .tt-lane { height: clamp(80px, calc((100svh - var(--topbar-h) - 150px) / 4 - 8px), 220px); }
+  .tt-lane { height: clamp(80px, calc((100svh - var(--topbar-h) - 160px - var(--machine-h)) / 4 - 8px), 220px); }
   /* ...unless the empty tape's card is above them. */
   #tape-body:has(#tape-empty:not([hidden])) .tt-lane { height: 80px; }
   .tt-head { align-content: center; }
@@ -1611,6 +1636,48 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 }
 .shelf-day::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
 .shelf-day:first-child { margin-top: 0; }
+
+/* ---------- the tape machine ---------- */
+/* lib/tape/machine.js: reels that turn with the playhead, and a meter
+   bridge. Its height follows the screen's, so a short tablet keeps its
+   lanes; on a phone it's the reels alone. */
+.tape-page { --machine-h: clamp(90px, 18svh, 150px); }
+.tape-machine {
+  height: var(--machine-h); overflow: hidden; border-radius: 8px;
+  background: var(--machine); border: 1px solid var(--line);
+  border-left: 12px solid var(--wood); border-right: 12px solid var(--wood);
+}
+.tm-deck { display: flex; height: 100%; }
+.tm-reels { display: block; flex: none; height: 100%; width: auto; aspect-ratio: 600 / 190; }
+.tm-bridge {
+  flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  align-items: center; gap: 10px; padding: 6px 12px;
+  background: var(--bridge); border-left: 1px solid var(--line);
+}
+.tm-bridge .vu { max-width: none; height: 100%; justify-content: center; gap: 2px; }
+.tm-bridge .vu-face { width: auto; height: calc(100% - 20px); max-width: 100%; }
+.tm-bridge .vu-foot { font-size: 11px; }
+.tm-well { fill: var(--machine-well); }
+.tm-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
+.tm-turn { transform-box: view-box; }
+.tm-flange { fill: var(--flange); stroke: var(--flange-edge); stroke-width: 1.2; }
+.tm-hub { fill: var(--hub); }
+.tm-spokes { stroke: var(--flange); stroke-width: 3; stroke-linecap: round; }
+.tm-tape { fill: none; stroke: var(--tape-pack); stroke-width: 3; }
+.tm-sheen { fill: none; stroke: var(--tape-sheen); stroke-width: 3; stroke-dasharray: 2 10; }
+.tm-block { fill: var(--head-block); }
+.tm-head { fill: var(--head); }
+.tm-head.on { fill: var(--rec); }
+.tm-head-label { font: 700 10px var(--label-font); fill: var(--head-ink); text-anchor: middle; }
+.tm-guide { fill: var(--guide); stroke: var(--flange-edge); }
+.tm-guide-pin { fill: var(--flange-edge); }
+.tm-plate { font: 700 12px var(--label-font); letter-spacing: 3.5px; fill: var(--ink-dim); text-anchor: middle; }
+.tm-state { font: 600 13px var(--mono); fill: var(--ink); text-anchor: middle; }
+@media (max-width: 699.98px) {
+  .tape-page { --machine-h: 96px; }
+  .tm-deck { justify-content: center; }
+  .tm-bridge { display: none; }
+}
 
 /* ---------- the deck ---------- */
 /* Retro, but quiet. Only a control you press while playing looks like a

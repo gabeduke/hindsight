@@ -9,12 +9,13 @@ import { initHelp } from '../help/help.js';
 import { peakColumns, foldChannels, drawColumns } from '../wave/draw.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets,
-  SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView,
+  SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
 } from './geometry.js';
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
 import { initAway } from './away-sheet.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
+import { TapeMachine } from './machine.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -176,6 +177,28 @@ function apply(s) {
   followPlayhead();
   tracePunch();
   render();
+  feedMachine();
+}
+
+// feedMachine hands the machine over the lanes what this poll said: where
+// the tape is, whether it plays or records, and how to read each track's
+// level at a frame.
+let machine = null;
+function feedMachine() {
+  const t = state.tape, live = state.live;
+  if (!t) return;
+  machine ??= new TapeMachine($('tape-machine'));
+  machine.setTracks(t.tracks.length);
+  const anySolo = t.tracks.some((tr) => tr.solo);
+  const peaksOf = (f) => peaks.get(f);
+  machine.poll({
+    heard: live ? live.heard : 0,
+    playing: !!(live && live.playing && !(live.count_in > 0)),
+    recording: !!(live && live.record && live.record.state === 'on' && live.record.tape === t.id),
+    length: t.length,
+    sampleRate: t.sample_rate,
+    levels: (frame) => t.tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)),
+  });
 }
 
 // laneView is the span of tape the lanes and the ruler show: where a pinch,
