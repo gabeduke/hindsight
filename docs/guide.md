@@ -731,18 +731,41 @@ try something. It costs no disk space.
 
 ### 8.7 The Bento follows the tape
 
-*Step 8.*
+*Step 8a: the tape leads.* Plug the Bento's USB into the Pi's hub, set
+`TAPE_CLOCK=lead`, and name the Bento in `TAPE_CLOCK_OUT`
+([configuration](configuration.md#the-tapes-clock)). The tape then sends it
+MIDI clock at the tape's tempo, so its sequences line up with the tape:
 
-- **Lead mode.** With the Bento's USB on the Pi, the tape sends it tempo and
-  start/stop, so its sequences line up with the tape.
-- **Follow mode** reverses that: the tape follows the Bento's tempo by speeding
-  up or slowing down slightly.
+- **▶ from bar 1** sends Start, so the Bento starts with the tape. **▶ from
+  anywhere else** says where (Song Position) and sends Continue, on the next
+  sixteenth.
+- **The loop coming round,** or a jump while playing, says where again, so a
+  follower that understands it lands on the right bar.
+- **■** sends Stop.
+- The pulses are timed to arrive with the audio they belong to. If the Bento
+  is always a little early or late, nudge it: `TAPE_CLOCK_OUT=bento:-4`
+  sends it everything 4 ms earlier.
+- A free loop's odd tempo, 83.73 BPM say, is fine: a follower takes what
+  arrives.
+
+Under the transport, *clock → Bento* says who's following, with **●** while
+they're running. In the demo, `TAPE_CLOCK=lead` leads a stand-in follower
+that says what tempo it hears.
+
+**Follow mode,** where the tape follows the Bento's clock by changing its
+speed, comes later.
 
 **Checks — step 8:**
 
+- [demo] Start the demo with `TAPE_CLOCK=lead`, set a tape to 96 BPM and
+  press ▶ → under the transport, *clock → Demo follower ● · hears 96 BPM*.
+  Press ■ → the ● goes.
 - [rig] Press ▶ on the tape → the Bento starts in time; ■ stops it.
+- [rig] Loop four bars for two minutes → the Bento stays in time with the
+  tape, and lands on bar 1 each time the loop comes round.
+- [rig] Locate to bar 3 and press ▶ → the Bento starts at bar 3.
 - [rig] In follow mode, start the Bento → the tape plays in time with it for
-  five minutes without drifting.
+  five minutes without drifting. *(Later.)*
 
 ### 8.8 Tricks and tape speed
 
@@ -884,6 +907,7 @@ has no tip.
 | Export stems | Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
 | Source chip | Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too |
+| Clock → (tape) | Who follows the tape's MIDI clock (TAPE_CLOCK=lead); ● while they're running |
 | Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet |
 
 ## 10. When something's off

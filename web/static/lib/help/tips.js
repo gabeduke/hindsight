@@ -110,6 +110,7 @@ export const TIPS = [
   { control: 'Export stems', ids: ['export-stems'], tip: 'Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW' },
   { control: 'Bus A / B', ids: ['bus'], tip: 'Which Sidekick channel this track plays through, for its EQ and FX' },
   { control: 'Source chip', ids: ['source-chip'], tip: 'Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too' },
+  { control: 'Clock → (tape)', ids: ['tape-clock'], tip: 'Who follows the tape\'s MIDI clock (TAPE_CLOCK=lead); ● while they\'re running' },
   { control: 'Lock dot', ids: ['lock-dot'], tip: 'How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet' },
 ];
 

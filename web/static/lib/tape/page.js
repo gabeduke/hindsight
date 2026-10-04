@@ -220,6 +220,7 @@ function render() {
   $('tap').classList.toggle('second', !!(live && live.tapped));
 
   noteMixdown(live && live.mixdown);
+  renderClock(live && live.clock, t);
   renderSources();
   renderPasses();
   const canCatch = live && live.aligned !== 'none';
@@ -305,6 +306,21 @@ async function drop(merge = false) {
   } catch (e) {
     toast(`Could not drop: ${e.message}`, 'bad');
   }
+}
+
+// --- the clock ---------------------------------------------------------------
+
+// renderClock says who follows the tape's clock (TAPE_CLOCK=lead).
+function renderClock(c, t) {
+  const el = $('clock-out');
+  el.hidden = !c;
+  if (!c) return;
+  const who = c.devices.length ? c.devices.join(', ') : 'no device';
+  el.textContent = `clock → ${who}${c.running ? ' ●' : ''}${c.running && c.heard_bpm ? ` · hears ${c.heard_bpm} BPM` : ''}`;
+  el.classList.toggle('none', !c.devices.length);
+  el.title = !t.grid ? 'The tape has no tempo yet: no clock until it does'
+    : c.devices.length ? `Sending MIDI clock at the tape's tempo${c.running ? ', running' : ''}`
+      : 'TAPE_CLOCK=lead, but no device in TAPE_CLOCK_OUT is plugged in';
 }
 
 // --- mixdown and export ------------------------------------------------------

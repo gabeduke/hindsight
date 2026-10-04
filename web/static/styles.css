@@ -1280,6 +1280,9 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
 .tape-toolbar .tb-row.edit .seg button { white-space: nowrap; }
 .sheet-hint { margin: 8px 0 0; font-size: 12px; color: var(--ink-faint); }
 .tape-where .readout { font-size: 13px; color: var(--ink-dim); }
+.tape-where { justify-content: space-between; flex-wrap: wrap; }
+.tape-where .clock-out { font-size: 12px; color: var(--ink-faint); }
+.tape-where .clock-out.none { color: var(--warn, #fbbf24); }
 .tape-tap { width: 100%; min-height: 56px; font-size: 16px; margin: 4px 0 10px; }
 .tape-tap.second { animation: breathe 1.2s ease-in-out infinite; }
 .tape-top .icon-btn { min-height: 36px; min-width: 34px; padding: 0 6px; flex: none; }
