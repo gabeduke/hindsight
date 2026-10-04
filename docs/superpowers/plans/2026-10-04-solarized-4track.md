@@ -170,6 +170,52 @@ Light `:root` (dark values in brackets):
 
 Grease-pencil In/Out marks drawn in `view.js`; In/Out times in LCD readouts; VARISPEED label on the speed segment; Share is the orange key; rising-notes stage stays dark in both schemes.
 
-## PR 4 — tape machine (scope)
+## PR 4 — the tape machine
 
-A reel-to-reel strip over the lanes: reels whose angular speed follows the playhead and the pack radius, eased so a jump back (loop wrap, ruler tap) spins them backwards; meter bridge with one VU per track; masking-tape track names (Permanent Marker, vendored); RECORDING sign lit only while recording.
+**Goal:** the tape page reads as a studio: a reel-to-reel machine above the lanes whose reels turn with the playhead (and spin back on a rewind or a loop wrap), a meter bridge with a VU per track, track names on masking tape, and a RECORDING sign lit while a punch records. Retro but quiet (the calm pass): flat colours, no glow except the sign.
+
+**Review Focus (PR 4):**
+- A loop wrap, a ruler tap back, or Undo moving the playhead → the reels spin backwards to it, quickly, then play on; never a jump of the reel angle.
+- A tape with no clips, an empty track, a muted track, a clip whose peaks haven't loaded → the meter rests at the stop, no NaN, no error.
+- Polls arrive late or the tab was hidden → the reels don't run away: extrapolation stops at the next poll's position and never past the tape's end.
+- 1024×600 and 390×844 → the lanes still fit; the machine shrinks or the bridge hides rather than pushing the transport off a phone.
+- prefers-reduced-motion → the reels jump instead of spinning.
+
+### Task 14: `lib/tape/reels.js` — reel motion, pure
+
+**Produces:**
+- `packRadii(pos, length, hub = 17, full = 64) → { left, right }` — area-conserving tape packs: all on the left at 0, all on the right at `length`.
+- `class ReelMotion { constructor({ sampleRate }); poll(pos, playing, at); frame(now) → { pos, left, right, angleL, angleR, moving } }` — between polls a playing tape is extrapolated at `sampleRate` from the last poll, capped at the next poll's span (never more than one poll interval ahead); a jump of more than half a second eases to its target over 450 ms; each reel turns by the tape that crossed it divided by its pack radius; `moving` is `'play' | 'wind' | 'rewind' | 'stop'`.
+
+- [ ] Tests: radii at 0 / length / half conserve area; extrapolation between polls; a stopped tape stays; a jump back reports `rewind`, both angles decrease, and lands on the target after 450 ms; a run never passes the tape's length. RED, GREEN, commit.
+
+### Task 15: `levelAt` — what each track has under the playhead
+
+**Files:** `web/static/lib/tape/geometry.js` (+ test)
+
+**Produces:** `levelAt(track, frame, peaksOf, sampleRate) → dBFS` — the loudest clip sounding at `frame` on the track (nudge included), from its pool file's peaks bucket under that frame, through the clip's and the track's gain; a muted track, no clip, or peaks not loaded give `-Infinity`.
+
+- [ ] Tests for each case. RED, GREEN, commit.
+
+### Task 16: The machine strip and the meter bridge
+
+**Files:** create `web/static/lib/tape/machine.js`; modify `tape.html`, `lib/tape/page.js`, `styles.css`, `sw.js`.
+
+- An SVG reel-to-reel (reels with see-through flanges, tape path over guides and the E/R/P heads, the record head red while a punch records) and, beside it, the meter bridge: one `VUMeters` face per track (lib/vu.js), its foot the track's number.
+- Driven by `requestAnimationFrame` from `ReelMotion` while the page is visible; paused when hidden.
+- ≥1000 px: the strip spans the lanes' column above the overview, the lanes' height calc gives it its room. Below 700 px: the reels only, short; the bridge hides.
+
+- [ ] By hand in the demo: play, loop wrap, ruler tap back, stop, record (sign and head), reduced motion. Commit.
+
+### Task 17: Masking tape and the RECORDING sign
+
+**Files:** `web/static/fonts/permanent-marker-400.woff2` (+ licence), `styles.css`, `tape.html`, `lib/tape/page.js`, `sw.js`, `lib/help/tips.js` + `docs/guide.md` (a tip for the sign).
+
+- Track names on a strip of masking tape in Permanent Marker; the selected track's strip gets a red REC dot.
+- A RECORDING sign in the header: dim when not, lit red while `live.record.state === 'on'` and playing.
+
+- [ ] Help test green; check by hand. Commit.
+
+### Task 18: Ship PR 4
+
+- [ ] Full suite; 1280×800, 1024×600, 390×844 in both schemes; README screenshots refreshed (deferred from PR 1/2). Review, merge and deploy on approval.
