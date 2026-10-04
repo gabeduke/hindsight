@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.8 — 2026-10-04
+
+- Note the three additions in the editing model spec's status (d3087c6)
+- Overdub: fixes from an independent review (dd3a9ef)
+- Overdub on this device: play the tape on a phone and record a part over it (6735de6)
+- Test the bridge after a dropped block by its last pair, not FrameAt(now) (c4b0deb)
+- Wide layout: fixes from an independent review (868290e)
+- Lay the tape page out for tablets and computers (49d7b81)
+
+
 ## v2026.10.04.7 — 2026-10-04
 
 - Test the bridge after a dropped block by its last pair, not FrameAt(now) (e5d9495)
