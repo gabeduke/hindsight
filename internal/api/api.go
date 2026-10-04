@@ -678,14 +678,15 @@ func (a *API) handleSlice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "audio/wav")
-	w.Header().Set("Content-Length", strconv.FormatInt(audio.SliceBytes(info, from, to), 10))
+	pick := audio.SlicePick(info, a.cfg.SaveChannels)
+	w.Header().Set("Content-Length", strconv.FormatInt(audio.SliceBytes(info, from, to, pick), 10))
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	// A HEAD gets the same headers -- Content-Length above is the whole point
 	// of asking -- but none of the bytes, and none of the read of the take.
 	if r.Method == http.MethodHead {
 		return
 	}
-	if err := audio.WriteSlice16(w, path, from, to); err != nil {
+	if err := audio.WriteSlice16(w, path, from, to, pick); err != nil {
 		// Headers are gone; all we can do is log and let the client see a
 		// short body, which decodeAudioData rejects.
 		log.Printf("slice %s: %v", name, err)
