@@ -145,6 +145,7 @@ install guide covers putting the Pi on an HTTPS name with `tailscale serve`.
 
 | | |
 |---|---|
+| [docs/guide.md](docs/guide.md) | How to use it, in plain words, with the checks each feature must pass |
 | [docs/install-raspberry-pi.md](docs/install-raspberry-pi.md) | Getting it running on a Pi, and operating it afterwards |
 | [docs/configuration.md](docs/configuration.md) | Every environment variable, and why the defaults are what they are |
 | [docs/api.md](docs/api.md) | The fourteen HTTP endpoints |
