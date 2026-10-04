@@ -56,6 +56,11 @@
   --led-off:   #cfc6ab;
   --lcd:       #002b36;
   --lcd-ink:   #b58900;
+  /* A readout that needs attention: warn inverts the window, bad turns the
+     digits red -- amber digits alone would read as normal. */
+  --lcd-bad:   #ff8a7f;
+  --lcd-edge:  rgba(0, 0, 0, .35);
+  --rec-edge:  #a5231f;
   --label:     #fffcf2;
   --link:      #1f6fa8;
   --shadow:    rgba(7, 54, 66, .18);
@@ -1524,10 +1529,13 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 
 /* ---------- the deck ---------- */
 /* The hardware: tape-deck keys, faceplates, silkscreen legends and amber
-   readouts. Only how things look is set here -- never a height, padding or
-   margin -- so every layout rule above, and the landscape tiers that keep
-   Capture above the fold, still decide where things go. A key's travel is a
-   box-shadow, not a border, for the same reason: it takes no layout space. */
+   readouts. This section is about looks, but not only: it sets type sizes
+   (keys, Capture, the brand), takes the stats tiles' padding into the readout
+   window, and gives a take row room for its label stripes. Those change
+   heights, so the landscape tier at the very end of the file gives the room
+   back, and anything added here must be checked at 844x390 with Capture's
+   bottom edge, shadow included, inside the viewport. A key's travel is a
+   box-shadow, not a border, so a press never moves the layout. */
 
 .topbar { border-bottom: 3px double var(--rule); }
 .brand b {
@@ -1551,12 +1559,16 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .stat { background: none; padding: 0; }
 .stat .v, .readout {
   background: var(--lcd); color: var(--lcd-ink);
-  border-radius: 3px; box-shadow: inset 0 2px 0 rgba(0, 0, 0, .35);
+  border-radius: 3px; box-shadow: inset 0 2px 0 var(--lcd-edge);
   font-family: var(--mono); font-weight: 600;
 }
+/* Earlier rules colour these readouts dim; on the dark window they must be
+   amber, so they are named here at the same weight. */
+.tape-where .readout, .tape-where .clock-out, .tb-row.footer .readout { color: var(--lcd-ink); }
+.stat .v.warn, .tape-where .clock-out.none { background: var(--warn); color: var(--lcd); }
 .stat .v { padding: 5px 7px; margin-top: 3px; font-size: 15px; }
 .readout { padding: 3px 8px; }
-.stat .v.bad { color: #ff8a7f; }
+.stat .v.bad { color: var(--lcd-bad); }
 
 /* Wells: where audio is drawn, recessed into the faceplate. */
 .viz-wrap, .overview-canvas, .wave-canvas, .tape-overview, .tt-lane, .lane, .tape-ruler {
@@ -1565,6 +1577,10 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   box-shadow: inset 0 2px 0 var(--shadow);
   border-radius: 6px;
 }
+/* The take page sizes these two bitmaps from their bounding box, border
+   included, so a border would squeeze and blur them: their edge is an
+   outline, which takes no room. */
+.overview-canvas, .wave-canvas { border: 0; outline: 1px solid var(--well-line); outline-offset: -1px; }
 .bar, .phone-lane { background: var(--well); box-shadow: inset 0 1px 0 var(--shadow); }
 
 /* Keys. At rest a 3 px edge under the face; pressed or latched, the face
@@ -1632,13 +1648,13 @@ a.chip, a.icon-btn { text-decoration: none; }
 .mark-btn::before { content: '⚑ '; color: var(--flag); }
 .mark-btn[disabled] { color: var(--ink-faint); }
 .phone-btn { border-radius: 5px; }
-.phone-btn.recording { color: var(--danger-ink); border-color: var(--rec); }
+.phone-btn.recording, .icon-btn.phone-rec.recording { color: var(--danger-ink); border-color: var(--rec); }
 
 /* Recording keys stay unmistakable. */
 .icon-btn.phone-rec, .tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] {
-  background: var(--rec); color: var(--on-danger); border-color: #a5231f; box-shadow: 0 3px 0 #a5231f;
+  background: var(--rec); color: var(--on-danger); border-color: var(--rec-edge); box-shadow: 0 3px 0 var(--rec-edge);
 }
-.tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] { transform: translateY(3px); box-shadow: 0 0 0 #a5231f; }
+.tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] { transform: translateY(3px); box-shadow: 0 0 0 var(--rec-edge); }
 .tape-toolbar .tb-row.transport .tb-rec.armed { color: var(--danger-ink); border-color: var(--rec); }
 
 /* A take in the list is a cassette label: two stripes across the top. */
