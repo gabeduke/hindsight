@@ -74,7 +74,7 @@ just move references around.
 - **The meters.**
 - **Capture.** Choose 30 s, 2 m, 7 m or Full, and tap *Capture* to save that
   much of the past as a take.
-- **Flag now** (today labelled *Mark*). It marks this moment in the ring;
+- **Flag now.** It marks this moment in the ring;
   the flag rides along into any take that includes it.
 - **The takes list,** newest first. Starred takes always come first. Tap a
   name to rename it, ★ to star it, and the waveform to hear it. Tap the take
@@ -84,7 +84,8 @@ just move references around.
 
 - [demo] Tap *Capture* with 30 s chosen → a new take appears at the top within
   a few seconds, about 30 s long, and plays.
-- [demo] Tap *Mark*, wait, then capture → the take has a flag at that moment.
+- [demo] Tap *Flag now*, wait, then capture → the take has a flag at that
+  moment.
 - [demo] Star an older take → it moves to the top and stays there after
   newer captures.
 
@@ -103,65 +104,86 @@ just move references around.
   stays low. An unchanged list costs a directory listing, not a scan (watch
   `top`, or the request timings in the browser's network tab).
 
+**Checks — step 3:**
+
+- [demo] A take with a selection shows it in the list as a bracket on its
+  waveform, and its length as "0:30 of 0:59".
+- [demo] The list and the take page draw the same take at the same height.
+- [rig] Switch the interface off → the dot turns amber and says *waiting for
+  the interface*, with no error toast. Switch it on → it records again.
+- [demo] The bottom of the page shows the running version and links to this
+  guide.
+
 ## 4. The take page
 
-*Today, reworked in step 3.* Open any take from the list.
+*Step 3.* Open any take from the list. The first time you do, three hints
+point at the gestures that matter; **Got it** puts them away for good.
 
 **The layout, top to bottom:**
 
-- **The ruler** shows bars (if the take has a BPM) and the flags as pins.
-  ▾ is the playhead; drag it to scrub silently.
-- **The waveform.**
-- **The selection grips,** along the bottom edge.
-- **Two rows of buttons.**
+- **The header:** the take's name (tap to rename), ★, its tempo (tap to set),
+  its length ("0:30 of 0:59" when part of it is selected) and, for a take
+  saved from another, "from *that take*", which opens it. **◂ ▸** step to the
+  previous and next take in the list; **?** is help mode; **⋯** resets the
+  downbeat or opens this guide. On a phone with MIDI, **♪** opens the notes.
+- **The overview:** the whole take. Drag its window to move along; double-tap
+  to see it all.
+- **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
+  pins above them. **▾** is the playhead; drag it to scrub silently. With a
+  BPM, bar **1** is the downbeat; drag it to line the grid up.
+- **The waveform,** drawn on the same scale as the list and the meters.
+- **The grips,** under the waveform at the selection's ends, with the move
+  handle between them.
+- **The toolbar:** ▶ · ⟲ Loop · In · Out · ⚑ · ◂⚑ ⚑▸; then, with a
+  selection, its In and Out times with their nudges, its length and *Clear*;
+  then *Save as take* · *Share* · *More*; then the position, *Snap* and
+  *Practice speed*.
+- **The MIDI lanes,** if the take has MIDI. Tap a lane's name for its menu:
+  collapse, show as drums or notes, or hide.
 
 **Getting around:**
 
-- **One-finger drag pans,** even inside the selection.
-- **Pinch** zooms.
-- **Tap** moves the playhead.
-- **◂ ▸ in the header** go to the previous and next take.
+- **One-finger drag moves along the take,** even inside the selection.
+- **Pinch** (or the mouse wheel) zooms.
+- **Tap** moves the playhead; **tap twice** drops a flag there.
+- **Back** returns to the list where you left it.
 
 **Selecting:**
 
 - **Hold, then drag** across the waveform to select a span. Or tap where it
   should start and press **In**, then tap where it should end and press
-  **Out**.
+  **Out** (either order; the first one waits, dashed, for the other).
 - **Adjust an end** by dragging its grip, or with its ◂ ▸ nudges.
-- **Move the whole selection** with the handle in the middle of its bottom
-  edge. A plain drag never moves it, so it can't happen by accident.
-- **Snap.** With a BPM set, the *Snap* chip makes the selection and the nudges
-  snap to bars, beats or 8ths.
+- **Move the whole selection** with the handle between the grips. A plain
+  drag never moves it, so it can't happen by accident.
+- **Snap.** With a BPM set, the *Snap* chip makes taps, the selection and the
+  nudges land on bars, beats or 8ths.
+- **Clear** forgets the selection; the take is untouched.
 
 **Playing:**
 
 - **▶** plays from the playhead.
-- **⟲ Loop** makes ▶ repeat the selection instead. It's off by default.
+- **⟲ Loop** makes ▶ repeat the selection instead. It's off each time you
+  open a take.
 - **Practice speed** (½× 1× 2×) slows or speeds the take without changing its
-  pitch. It's disabled while Loop is on.
+  pitch. It's off while Loop is on: the loop plays at 1×, exactly.
+- The screen stays on while a take plays.
 
 **Flags:**
 
 - **⚑** drops a flag at the playhead.
-- **Tap a pin** to label or delete it.
-- **Drag a pin** to move it.
+- **Tap a pin** to name or delete it. **Drag a pin** to move it.
 - **◂⚑ ⚑▸** jump between flags.
 
 **Doing things with the selection:**
 
 - **Save as take** makes a new take of just the selection.
-- **Share** sends it from your phone as an MP3.
+- **Share** sends it from your phone as an MP3 (the whole take, with no
+  selection).
 - **Send to tape** puts it on the loaded tape (step 6).
 - **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
   delete.
 - **Undo** in the header steps back through anything you changed (step 4).
-
-**Checks — today:**
-
-- [demo] Hold and drag on the waveform → a selection appears and loops when
-  you press play. (Today it always loops; from step 3, only with Loop on.)
-- [demo] *Export as take* → a new take appears at the top of the list with
-  just that span. In step 3 this becomes *Save as take*.
 
 **Checks — step 1:**
 
@@ -195,6 +217,12 @@ just move references around.
 - [demo] Go back to the list → it's scrolled where you left it.
 - [demo] Tap **?**, then tap any button → a tip explains it, and the button
   doesn't act. Tap **?** again to leave help mode.
+- [demo] On a computer, hover any button → its tip shows.
+- [demo] Open a take for the first time on a device → three hints; *Got it*
+  → they don't come back.
+- [demo] Tap a lane's name → a menu to collapse it, show it as drums or
+  notes, or hide it.
+- [demo] ◂ ▸ in the header → the previous or next take in the list's order.
 
 ## 5. Undo and the trash
 
@@ -485,20 +513,42 @@ has no tip.
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
 | Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span |
+| Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
+| Open | Open the take to select, loop, save or share part of it |
 | ★ | Starred takes stay at the top and are pruned last |
+| Name | Tap to rename the take |
+| BPM | Tap to set the tempo. It draws the bar grid and makes Snap possible |
+| Download WAV | The whole take, as recorded |
+| Download MIDI | The take's MIDI file |
+| Delete take | Delete this take and everything saved with it |
+| ‹ | Back to the list, where you left it |
+| ◂ ▸ | The previous or next take in the list |
+| from … | This take was saved from another one. Tap to open that one |
+| ? | Help mode: tap anything to read what it does, instead of doing it |
+| ⋯ | Reset the downbeat, or open this guide |
+| Reset the downbeat | Put bar 1 back at the start of the take |
+| The guide | How Hindsight works, in plain words |
+| Overview | The whole take. Drag the window to move along it; double-tap to see it all |
+| Waveform | Drag to move along, pinch to zoom. Hold, then drag, to select. Tap to move the playhead; tap twice to flag |
 | ▶ | Play from the playhead |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |
 | ⚑ | Drop a flag at the playhead |
 | ◂⚑ ⚑▸ | Jump to the previous or next flag |
+| Delete flag | Remove this flag |
+| ◂ ▸ beside In and Out | Move that end of the selection by one snap step, or 10 ms |
+| Clear | Forget the selection. The take itself is untouched |
 | Snap | Make the selection and nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
 | Save as take | Make a new take of just the selection |
 | Share | Send the selection from your phone as an MP3 |
+| More | The DAW bundle, the WAV and MIDI downloads, and delete |
+| DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
+| Notes | Watch the take's MIDI rise out of a keyboard as it plays |
+| Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
 | Send to tape | Put the selection on the loaded tape, at its playhead |
 | Undo | Step back through your changes to this take |
-| Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
 | Rec | Record the next time round the loop. Stopped: arm, then ▶ counts you in |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
