@@ -19,6 +19,7 @@ func newRibbonAPI(t *testing.T) (*mux.Router, *audio.Capture, string) {
 	s := audio.NewSaver(cap)
 	t.Cleanup(s.WaitBackground)
 	a := New(cfg, cap, s, cap.Envelope(), nil)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
 	return r, cap, dir

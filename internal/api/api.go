@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -62,7 +63,20 @@ type API struct {
 	// phoneGrace is how long a recording waits for its phone to reconnect;
 	// zero means defaultPhoneGrace. Tests shorten it.
 	phoneGrace time.Duration
+
+	// bg counts work a request leaves running -- a preview encode, a prune --
+	// so a test can wait for it before its takes folder goes.
+	bg sync.WaitGroup
 }
+
+// background runs f after the response, counted in bg.
+func (a *API) background(f func()) {
+	a.bg.Add(1)
+	go func() { defer a.bg.Done(); f() }()
+}
+
+// WaitBackground waits for what earlier requests left running.
+func (a *API) WaitBackground() { a.bg.Wait() }
 
 func New(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, env *audio.Envelope, m MIDISource) *API {
 	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m,
@@ -747,12 +761,12 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 	}
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
-	go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels()))
+	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels())) })
 	// A cut is a new take, so MAX_SAVES applies to it as it does to a save --
 	// but never to the cut itself, or to the take it was cut from: the owner
 	// is on that take's page, and may be about to cut from it again.
 	if a.saver != nil {
-		go a.saver.Prune(name, out)
+		a.background(func() { a.saver.Prune(name, out) })
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"name": out})
 }

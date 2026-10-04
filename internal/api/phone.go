@@ -329,9 +329,9 @@ func (a *API) finishPhone(id string, s *phoneSession, partial bool, reason strin
 	close(s.done)
 
 	if name != "" {
-		go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, name), audio.PhoneChannels)
+		a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, name), audio.PhoneChannels) })
 		if a.saver != nil {
-			go a.saver.Prune(name)
+			a.background(func() { a.saver.Prune(name) })
 		}
 	}
 	time.AfterFunc(phoneKeepResult, func() {
