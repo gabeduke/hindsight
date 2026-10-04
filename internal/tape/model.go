@@ -82,7 +82,18 @@ func (g Grid) BPM(sampleRate int) float64 {
 
 // BarAt is the bar a tape frame is in, and NextBar the first bar line at or
 // after it.
-func (g Grid) BarAt(pos int64) int64 { return int64(math.Floor(float64(pos) / g.BarFrames())) }
+// BarAt agrees with BarStart's rounding: a bar line belongs to the bar it
+// starts.
+func (g Grid) BarAt(pos int64) int64 {
+	n := int64(math.Floor(float64(pos) / g.BarFrames()))
+	for g.BarStart(n+1) <= pos {
+		n++
+	}
+	for g.BarStart(n) > pos {
+		n--
+	}
+	return n
+}
 func (g Grid) NextBar(pos int64) int64 {
 	n := g.BarAt(pos)
 	if g.BarStart(n) < pos {

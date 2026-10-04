@@ -152,8 +152,9 @@ function render() {
   $('tape-name').textContent = `${t.name} ▾`;
   document.title = `${t.name} — tape — Hindsight`;
   $('tape-sub').textContent = t.grid
-    ? `${bpmOf(t.grid, sr).toFixed(1)} BPM · ${t.grid.bars} bar${t.grid.bars === 1 ? '' : 's'}`
+    ? `${bpmOf(t.grid, sr).toFixed(1)} BPM · ${t.grid.bars} bar${t.grid.bars === 1 ? '' : 's'} ▾`
     : 'no tempo yet';
+  $('tape-sub').disabled = !t.grid;
   const empty = t.tracks.every((tr) => tr.clips.length === 0);
   $('tape-empty').hidden = !(empty && !t.grid);
   $('tape-undo').disabled = !state.undo;
@@ -163,7 +164,7 @@ function render() {
   $('lock-dot').title = lock === 'none' ? 'not lined up yet: catches wait'
     : lock === 'estimated' ? 'lined up by the clocks: nudge a catch if it’s off' : `lined up to the sample (${lock})`;
 
-  const playing = !!(live && live.playing);
+  const playing = !!(live && (live.playing || live.count_in > 0));
   $('play').textContent = playing ? '■' : '▶';
   $('play').setAttribute('aria-label', playing ? 'Stop' : 'Play');
   $('play').classList.toggle('playing', playing);
@@ -171,7 +172,25 @@ function render() {
   $('loop').setAttribute('aria-pressed', String(!!t.loop.on));
   $('loop').disabled = !(t.loop.out > t.loop.in);
   const heard = live ? live.heard : 0;
-  $('position').textContent = live ? `${barBeat(heard, t.grid) || ''} ${fmtSecs(heard, sr)}${live.output ? '' : ' · no output'}` : '';
+  const counting = !!(live && live.count_in > 0);
+  if (counting && t.grid) {
+    const beat = t.grid.frames / t.grid.bars / 4;
+    $('position').textContent = `count-in ${Math.max(1, 4 - Math.floor((live.count_in - 1) / beat))} of 4`;
+  } else {
+    $('position').textContent = live ? `${barBeat(heard, t.grid) || ''} ${fmtSecs(heard, sr)}${live.output ? '' : ' · no output'}` : '';
+  }
+  // Rec: armed (waiting for ▶), counting in, or recording.
+  const rec = live && live.record;
+  const rb = $('rec');
+  rb.setAttribute('aria-pressed', String(!!(rec && rec.state === 'on' && !counting)));
+  rb.classList.toggle('armed', !!(rec && rec.state === 'armed'));
+  rb.classList.toggle('counting', counting);
+  rb.textContent = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
+  rb.disabled = !live || live.aligned === 'none' && !rec;
+  $('click').setAttribute('aria-pressed', String(!!t.click));
+  $('click').disabled = !t.grid;
+  $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
+  $('tap').classList.toggle('second', !!(live && live.tapped));
 
   renderSources();
   renderPasses();
@@ -381,11 +400,83 @@ async function patch(body) {
 
 async function transport(action, extra = {}) {
   try {
-    await api(`/api/tapes/transport?${q()}`, { method: 'POST', body: { action, ...extra } });
+    const b = await change(() => api(`/api/tapes/transport?${q()}`, { method: 'POST', body: { action, ...extra } }));
+    if (b && b.clip) keptToast(b.clip);
     setTimeout(poll, 150);
   } catch (e) {
     toast(e.message, 'bad');
   }
+}
+
+// keptToast says what a punch kept, with Undo.
+function keptToast(c) {
+  const bars = state.tape && state.tape.grid ? c.frames / (state.tape.grid.frames / state.tape.grid.bars) : 0;
+  const what = bars >= 0.99 ? `${Math.round(bars)} bar${Math.round(bars) === 1 ? '' : 's'}` : `${(c.frames / state.tape.sample_rate).toFixed(1)} s`;
+  toast(`Kept ${what} from ${c.source} on track ${state.track}`, 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } });
+}
+
+// rec arms the selected track, punches in, or ends the punch and keeps it.
+async function rec() {
+  const r = state.live && state.live.record;
+  try {
+    if (!r) {
+      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.track, source: state.source } }));
+      const armed = b.record.state === 'armed';
+      toast(armed ? `Track ${state.track} armed: press ▶ to count in` : `Recording ${state.source} onto track ${state.track} from the next bar — tap ● again to keep it`, 'ok', {
+        ms: 8000, action: { label: 'Cancel', run: () => api(`/api/tapes/record?${q()}&cancel=1`, { method: 'DELETE' }).then(poll, () => {}) },
+      });
+    } else {
+      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'DELETE' }));
+      if (b.clip) keptToast(b.clip);
+      else toast(`Track ${r.track} disarmed`);
+    }
+    poll();
+  } catch (e) {
+    toast(`Could not record: ${e.message}`, 'bad');
+    poll();
+  }
+}
+
+// tap is a free-loop tap.
+async function tap() {
+  try {
+    const b = await change(() => api(`/api/tapes/tap?${q()}`, { method: 'POST', body: { track: state.track, source: state.source } }));
+    if (b.stage === 'first') {
+      toast('Now tap where it comes round', 'ok', { action: { label: 'Start over', run: () => api(`/api/tapes/tap?${q()}`, { method: 'DELETE' }).then(poll, () => {}) } });
+    } else {
+      toast(`A ${(b.clip.frames / state.tape.sample_rate).toFixed(2)} s loop: ${b.bars} bar${b.bars === 1 ? '' : 's'} at ${b.bpm} BPM`, 'ok', {
+        ms: 8000, action: { label: 'Undo', run: () => undoRedo(false) },
+      });
+    }
+    poll();
+  } catch (e) {
+    toast(`Could not tap: ${e.message}`, 'bad');
+  }
+}
+
+// openTempo offers the other bar counts the loop could be: the same frames,
+// relabelled, so nothing is stretched.
+function openTempo() {
+  const t = state.tape;
+  const menu = $('tempo-menu');
+  if (!t || !t.grid || !menu.hidden) { menu.hidden = true; return; }
+  const opts = [];
+  for (const bars of [t.grid.bars / 4, t.grid.bars / 2, t.grid.bars, t.grid.bars * 2, t.grid.bars * 4]) {
+    if (!Number.isInteger(bars) || bars < 1 || bars > 64) continue;
+    const bpm = bpmOf({ frames: t.grid.frames, bars }, t.sample_rate);
+    if (bpm < 20 || bpm > 400) continue;
+    opts.push({ bars, bpm });
+  }
+  menu.replaceChildren(...opts.map((o) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'menuitem');
+    b.className = o.bars === t.grid.bars ? 'on' : '';
+    b.textContent = `${o.bars} bar${o.bars === 1 ? '' : 's'} at ${o.bpm.toFixed(1)} BPM`;
+    b.addEventListener('click', () => { menu.hidden = true; if (o.bars !== t.grid.bars) patch({ bars: o.bars }); });
+    return b;
+  }));
+  menu.hidden = false;
 }
 
 function laneTap(lane, e) {
@@ -427,6 +518,7 @@ function closeSheets() {
   if (sh.open) sh.close();
   state.clip = null;
   $('tape-menu').hidden = true;
+  $('tempo-menu').hidden = true;
 }
 
 function openClip(c) {
@@ -483,16 +575,23 @@ async function openMenu() {
 }
 
 function wire() {
-  $('play').addEventListener('click', () => transport(state.live && state.live.playing ? 'stop' : 'play'));
+  $('play').addEventListener('click', () => transport(state.live && (state.live.playing || state.live.count_in > 0) ? 'stop' : 'play'));
+  $('rec').addEventListener('click', rec);
+  $('click').addEventListener('click', () => patch({ click: !state.tape.click }));
+  $('tap').addEventListener('click', tap);
+  $('tape-sub').addEventListener('click', (e) => { e.stopPropagation(); openTempo(); });
   $('loop').addEventListener('click', () => patch({ loop: { on: !state.tape.loop.on } }));
   $('tape-undo').addEventListener('click', () => undoRedo(false));
   $('tape-redo').addEventListener('click', () => undoRedo(true));
   $('catch-pass').addEventListener('click', () => doCatch({ pass: 1 }));
   for (const b of $('catch-bars').querySelectorAll('button')) b.addEventListener('click', () => doCatch({ bars: Number(b.dataset.bars) }));
   $('tape-name').addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
-  document.addEventListener('click', (e) => { if (!$('tape-menu').contains(e.target)) $('tape-menu').hidden = true; });
+  document.addEventListener('click', (e) => {
+    if (!$('tape-menu').contains(e.target)) $('tape-menu').hidden = true;
+    if (!$('tempo-menu').contains(e.target)) $('tempo-menu').hidden = true;
+  });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') $('tape-menu').hidden = true;
+    if (e.key === 'Escape') { $('tape-menu').hidden = true; $('tempo-menu').hidden = true; }
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undoRedo(e.shiftKey); }

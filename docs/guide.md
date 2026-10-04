@@ -456,7 +456,22 @@ From the top:
 
 ### 8.3 Your first loop
 
-*Step 6a.* There are two ways to start a tape.
+*Steps 6a and 6c.* There are three ways to start a tape.
+
+**Free (6c).** Play until a part sounds right. On the empty tape, choose the
+source and tap **Tap where the loop starts** on the downbeat, then tap again
+where it comes round.
+
+1. Each tap is timed when it reaches the Pi, and snaps to the strongest
+   attack in that source from a quarter of a second before it to a
+   twentieth after. Tapping a little late, or Wi-Fi being slow, doesn't
+   matter.
+2. The span becomes the first loop on the selected track, and starts playing
+   at once, in time with you, as if it had been playing all along.
+3. Its length sets the tempo: the number of bars that puts it nearest your
+   last tape's tempo (or 90 BPM). If it guessed 168 and you meant 84, tap
+   the tempo under the name and choose the other. Nothing is stretched,
+   only relabelled.
 
 **From a take.** On a take page, select the loop, with In and Out on the
 downbeats, and choose **More → Send to tape**. If no tape is loaded, a new one
@@ -470,15 +485,12 @@ is made.
   replacing what's there.
 
 **From a tempo.** On an empty tape, type a BPM and a number of bars and tap
-**Set**. The loop is that long and empty, ready to catch into.
+**Set**. The loop is that long and empty, ready to catch into, and the
+**♩ click** plays on every beat until the first catch.
 
 The tempo is fixed once the tape has audio, because nothing is ever stretched.
 
-*Step 6c* adds the free loop: tap where it starts and where it comes round,
-and each tap snaps to the nearest note you played. It also adds the count-in
-and the click.
-
-**Checks — step 6a:**
+**Checks — steps 6a and 6c:**
 
 - [demo] On a take page, select 2 seconds and choose **More → Send to tape**
   → a toast says it was sent. On the tape page, track 1 holds the clip, the
@@ -486,8 +498,16 @@ and the click.
 - [demo] Press ▶ → the playhead goes round the loop, the position counts
   bars, and the passes row fills, one button a pass.
 - [demo] Make a new tape, set 90 BPM and 4 bars → it reads *90.0 BPM · 4
-  bars*, and the lanes show four empty bars. After the first catch, the tempo
-  can't be changed.
+  bars*, and the lanes show four empty bars. Press ▶ → a click on every
+  beat, higher on the bar. After the first catch, the click goes off and the
+  tempo can't be changed.
+- [demo] Make a new tape, choose *aux*, tap on a kick, then tap about 2.5 s
+  later on another → a 2.50 s loop, *1 bar at 96 BPM*, playing on track 1.
+- [demo] Tap the tempo under the name, choose 2 bars → it reads *192 BPM ·
+  2 bars*; the loop sounds the same.
+- [rig] Play a phrase on the Orchid into aux, tap on its first note, and on
+  the same note when it comes round → the loop plays out of channel 1 in
+  time with you, and the tempo reads sensibly.
 - [rig] Send a take to tape on the Pi and press ▶ → the loop plays out of
   channel 1, and within a few seconds the dot turns green.
 - [rig] Turn the Sidekick off and on again while the tape plays → ▶ reads
@@ -530,11 +550,21 @@ for the tape's name. The loaded tape can't be deleted; open another one first.
 Deleting frees whatever audio no other tape uses, including what's only in
 other tapes' undo.
 
-*Step 6c* adds Rec: punch in on the next pass, or arm the track and count
-in from stopped. *Step 6d* adds *replace* instead of layering, pan, and
-selecting bars on a ruler.
+**Rec (6c).** Choose a source and select a track, then:
 
-**Checks — step 6a:**
+- **While playing,** tap **● Rec** and recording starts at the next bar line.
+  Tap ● again (or ■) to keep it. With the loop on, it keeps the last full
+  pass it covered -- the others are still in the passes row. Otherwise, or
+  if no pass was full, it keeps the bars up to the last complete one.
+- **While stopped,** tap ● to arm the track (*● Armed*). Press ▶: a bar of
+  click counts you in, then the tape plays from the playhead's bar and
+  records. ■ keeps it.
+- The toast has **Cancel** while it records, and **Undo** once kept.
+
+*Step 6d* adds *replace* instead of layering, pan, and selecting bars on a
+ruler.
+
+**Checks — steps 6a and 6c:**
 
 - [demo] Send 2 s to an empty tape and press ▶. Choose *aux*, select track 2,
   wait four passes, then tap **−3** → a 2.0 s clip lands on track 2 at bar 1,
@@ -551,6 +581,13 @@ selecting bars on a ruler.
   clone → it plays fully.
 - [demo] Restart Hindsight → the tape that was loaded is loaded again, with
   its undo.
+- [demo] With a 1-bar loop playing, select track 2, tap ●, wait three passes,
+  tap ● → *Kept 1 bar from aux on track 2*: the last full pass.
+- [demo] Stop. Select track 3, tap ● (*● Armed 3*), press ▶ → the position
+  reads *count-in 1 of 4…4 of 4* over a bar of click, then the tape plays;
+  after two bars press ■ → the bars it played are kept on track 3.
+- [rig] Arm track 3 with the guitar in aux, press ▶, play over the count-in
+  and two passes, press ■ → the guitar is on track 3, in time.
 - [rig] Turn channel 1's FX knob → the tape's sound changes, and the live
   instrument on aux doesn't.
 - [rig] Play the Orchid into aux over the loop for two passes, catch −1
@@ -730,6 +767,10 @@ has no tip.
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape |
+| ● Rec (tape) | Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it |
+| ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty |
+| Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the nearest attack |
+| Tempo (tape) | Call the loop more bars or fewer: the same length, so nothing is stretched |
 | ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded |
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
 | Clip level | This clip's level within its track |

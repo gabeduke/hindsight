@@ -187,6 +187,10 @@ func TestTheTransportAndCatchesRefuseWhatTheyCant(t *testing.T) {
 	}
 	// No capture here: a catch is refused, not an error.
 	want(t, send(t, r, http.MethodPost, "/api/tapes/catch?id="+id, `{"track":1,"source":"aux","pass":1}`), http.StatusConflict, "catch")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/record?id="+id, `{"track":1,"source":"aux"}`), http.StatusConflict, "record")
+	want(t, send(t, r, http.MethodDelete, "/api/tapes/record?id="+id, ""), http.StatusConflict, "end a recording that isn't")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/tap?id="+id, `{"track":1,"source":"aux"}`), http.StatusConflict, "tap")
+	want(t, send(t, r, http.MethodDelete, "/api/tapes/tap?id="+id, ""), http.StatusOK, "forget a tap")
 }
 
 func TestDroppingATakesSpanOntoAnEmptyTapeMakesTheFirstLoop(t *testing.T) {

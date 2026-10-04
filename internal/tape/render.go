@@ -170,6 +170,8 @@ type Mix struct {
 	tapeID string
 	length int64
 	grid   *Grid
+	click  bool // the metronome on bus A while playing
+	sr     float64
 }
 
 type mixTrack struct {
@@ -201,6 +203,7 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 		loop:    s.Loop,
 		xfade:   int64(xfadeSeconds * float64(sampleRate)),
 		declick: int64(declickSeconds * float64(sampleRate)),
+		sr:      float64(sampleRate),
 	}
 	if s.Grid != nil {
 		g := *s.Grid
@@ -315,6 +318,73 @@ func (m *Mix) render(dst []float32, pos int64, n int, afterWrap bool) {
 					}
 				}
 			}
+		}
+	}
+	m.renderClick(dst, pos, n)
+}
+
+// The click: a short sine blip on every beat, higher on the bar, on bus A.
+const (
+	clickSeconds = 0.025
+	clickLevel   = 0.25
+	clickHz      = 1000.0
+	clickBarHz   = 1600.0
+)
+
+// clickAt is the click's sample k frames into a blip.
+func (m *Mix) clickAt(k int64, accent bool) float32 {
+	hz := clickHz
+	if accent {
+		hz = clickBarHz
+	}
+	t := float64(k) / m.sr
+	env := math.Exp(-t / (clickSeconds / 4))
+	if k < 48 {
+		env *= float64(k) / 48 // no click of its own at the start
+	}
+	return float32(clickLevel * env * math.Sin(2*math.Pi*hz*t))
+}
+
+// renderClick adds the metronome for tape frames [pos, pos+n).
+func (m *Mix) renderClick(dst []float32, pos int64, n int) {
+	if !m.click || m.grid == nil {
+		return
+	}
+	g := *m.grid
+	length := int64(clickSeconds * m.sr)
+	beat := g.BarFrames() / BeatsPerBar
+	first := int64(math.Floor(float64(pos-length) / beat))
+	for b := first; ; b++ {
+		at := g.BeatStart(b)
+		if at >= pos+int64(n) {
+			break
+		}
+		from, to := max64(pos, at), min64(pos+int64(n), at+length)
+		for f := from; f < to; f++ {
+			v := m.clickAt(f-at, b%BeatsPerBar == 0)
+			i := int(f-pos) * OutChannels
+			dst[i] += v
+			dst[i+1] += v
+		}
+	}
+}
+
+// renderCountIn adds n frames of a count-in, k frames into its bar: four
+// beats of click, the first accented, whatever the click setting.
+func (m *Mix) renderCountIn(dst []float32, k int64, n int) {
+	if m.grid == nil {
+		return
+	}
+	length := int64(clickSeconds * m.sr)
+	beat := m.grid.BarFrames() / BeatsPerBar
+	for b := int64(0); b < BeatsPerBar; b++ {
+		at := int64(math.Round(float64(b) * beat))
+		from, to := max64(k, at), min64(k+int64(n), at+length)
+		for f := from; f < to; f++ {
+			v := m.clickAt(f-at, b == 0)
+			i := int(f-k) * OutChannels
+			dst[i] += v
+			dst[i+1] += v
 		}
 	}
 }
