@@ -184,16 +184,18 @@ func (e *Engine) Stop() {
 func (e *Engine) pull(out []int32) {
 	// It runs on the device's thread -- in the demo, the capture's: a bug
 	// here plays silence rather than taking the recording down.
+	start := e.delivered.Load()
 	defer func() {
 		if p := recover(); p != nil {
 			clear(out)
 			e.cur = nil
+			e.delivered.Store(start + uint64(len(out)/OutChannels)) // the tape counts on
 			e.panicked.Store(fmt.Sprint(p))
 		}
 	}()
 	need := len(out) / OutChannels
 	o := 0
-	d := e.delivered.Load()
+	d := start
 	for need > 0 {
 		if e.cur == nil {
 			select {
@@ -257,6 +259,10 @@ func (e *Engine) renderLoop() {
 		}
 		if e.sink == nil {
 			e.safely(func() { e.idle(out) })
+		} else if out-d >= aheadBlocks*BlockFrames {
+			// Far enough ahead to wait -- but not to leave a load waiting
+			// on a device that isn't pulling.
+			e.safely(func() { e.drain(out, e.mix.Load()) })
 		}
 		if out-d >= aheadBlocks*BlockFrames || e.sink == nil {
 			select {
@@ -307,20 +313,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 	tr := e.tr
 	m := e.mix.Load()
 	length := m.length
-	for {
-		select {
-		case a := <-e.actions:
-			if a.Kind == "reset" {
-				tr.reset(out)
-				close(a.done)
-				continue
-			}
-			tr.queue(pending{at: tr.target(a, out, m, m.grid), action: a})
-			continue
-		default:
-		}
-		break
-	}
+	e.drain(out, m)
 	off := 0
 	for n > 0 {
 		for len(tr.pend) > 0 && tr.pend[0].at <= out {
@@ -346,7 +339,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				span = min64(span, end-tr.pos)
 			}
 			if dst != nil {
-				m.render(dst[off*OutChannels:], tr.pos, int(span), tr.afterWrap)
+				m.render(dst[off*OutChannels:], tr.pos, int(span), tr.sinceWrap(out, m.loop))
 			}
 			tr.pos += span
 			if looping && tr.pos == m.loop.Out {
@@ -359,7 +352,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				}
 				tr.pos = m.loop.In
 				tr.cycleStart, tr.cycleIn = int64(at), m.loop.In
-				tr.afterWrap = true
+				tr.wrapped, tr.wrapOut, tr.wrapIn = true, at, m.loop.In
 				tr.record(at)
 			}
 		}
@@ -370,6 +363,26 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 	tr.mu.Lock()
 	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out, Pending: len(tr.pend)}
 	tr.mu.Unlock()
+}
+
+// drain takes what's been asked of the transport, with the render head at
+// out: a reset at once, anything else queued for its frame.
+func (e *Engine) drain(out uint64, m *Mix) {
+	tr := e.tr
+	for {
+		select {
+		case a := <-e.actions:
+			if a.Kind == "reset" {
+				tr.reset(out)
+				close(a.done)
+				continue
+			}
+			tr.queue(pending{at: tr.target(a, out, m, m.grid), action: a})
+			continue
+		default:
+		}
+		return
+	}
 }
 
 // idle applies queued actions when nothing plays the tape: without an

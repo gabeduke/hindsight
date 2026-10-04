@@ -61,7 +61,11 @@ type transport struct {
 	pos        int64
 	cycleStart int64 // output frame the current cycle began at, or -1
 	cycleIn    int64 // and the loop's In it began at
-	afterWrap  bool  // pos was reached by wrapping from the loop's Out
+	// The last wrap: at output frame wrapOut the tape jumped from Out to
+	// wrapIn. The renderer crossfades across it.
+	wrapped bool
+	wrapOut uint64
+	wrapIn  int64
 
 	pend []pending
 
@@ -164,12 +168,19 @@ func (t *transport) Status() Status {
 // be caught onto it. Called by the render goroutine, or before it starts.
 func (t *transport) reset(out uint64) {
 	t.pend = nil
-	t.playing, t.cycleStart, t.afterWrap = false, -1, false
+	t.playing, t.cycleStart, t.wrapped = false, -1, false
 	t.record(out)
 	t.mu.Lock()
 	t.cycles = nil
 	t.view.Playing, t.view.Pending = false, 0
 	t.mu.Unlock()
+}
+
+// sinceWrap reports whether the tape got to its position, at output frame
+// out, by wrapping at the loop's Out and playing on unbroken since.
+func (t *transport) sinceWrap(out uint64, loop Loop) bool {
+	return t.wrapped && loop.On && t.wrapIn == loop.In && t.pos >= loop.In &&
+		t.pos-loop.In == int64(out-t.wrapOut)
 }
 
 // queue adds an action in the order it takes effect.
@@ -231,14 +242,14 @@ func (t *transport) apply(a Action, out uint64, m *Mix, length int64) {
 		}
 		t.playing = true
 		t.cycleStart = -1
-		t.afterWrap = false
+		t.wrapped = false
 		if m.loop.On && t.pos == m.loop.In {
 			t.cycleStart, t.cycleIn = int64(out), m.loop.In
 		}
 	case "stop":
 		t.playing = false
 		t.cycleStart = -1
-		t.afterWrap = false
+		t.wrapped = false
 	case "locate":
 		p := a.Pos
 		if p < 0 {
@@ -249,7 +260,7 @@ func (t *transport) apply(a Action, out uint64, m *Mix, length int64) {
 		}
 		t.pos = p
 		t.cycleStart = -1
-		t.afterWrap = false
+		t.wrapped = false
 		if t.playing && m.loop.On && p == m.loop.In {
 			t.cycleStart, t.cycleIn = int64(out), m.loop.In
 		}

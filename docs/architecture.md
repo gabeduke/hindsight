@@ -472,9 +472,11 @@ beside them: where audio meets audio (two clips end to end, or a clip
 wrapping into itself at the loop's seam) a 5 ms equal-power crossfade runs
 from the outgoing clip's overhang; an edge with silence beside it gets the
 3 ms declick cuts use. A catch split at the seam is the same audio carrying
-on, so it gets no fade at all. While looping, the loop's Out and In are edges
-too: a clip running past Out fades out before it, and one that started
-before In fades in when the tape wraps to it (not when it plays through).
+on, so it gets no fade in. While looping, the wrap itself is an edge when
+clips run across the loop's ends: for 5 ms after In, what a clip past Out
+would have played next fades out as a clip begun before In fades in, equal
+power, only when the tape got there by wrapping (not when it plays through
+In).
 
 **The transport and the player.** One render goroutine owns the transport.
 It applies queued actions (play, stop, locate) on the exact output frame

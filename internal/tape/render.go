@@ -186,9 +186,10 @@ type mixClip struct {
 	audio   *ClipAudio
 	prev    *mixClip // the clip whose end this one's start crossfades from
 	joined  bool     // audio follows this clip's end: no declick there
-	cont    bool     // prev's own continuation in the same file: no fade at all
+	cont    bool     // prev's own continuation in the same file: no fade in
 	// Across the loop's ends, while looping: playback leaves the clip at Out
-	// and enters it at In mid-way, so those are edges too.
+	// and enters it at In mid-way. At the wrap, what it would have played
+	// after Out fades out as what's at In fades in.
 	crossOut, crossIn bool
 }
 
@@ -276,9 +277,14 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 func (m *Mix) Render(dst []float32, pos int64, n int) { m.render(dst, pos, n, false) }
 
 // render is Render, told whether the tape got to pos by wrapping from the
-// loop's Out: a clip across In is then entered mid-way, and fades in.
+// loop's Out and playing on since: the first xfade frames after In are then
+// a crossfade from what would have followed Out.
 func (m *Mix) render(dst []float32, pos int64, n int, afterWrap bool) {
 	end := pos + int64(n)
+	wrapFrom, wrapTo := int64(0), int64(0) // the crossfade's tape frames, if in this span
+	if afterWrap {
+		wrapFrom, wrapTo = max64(pos, m.loop.In), min64(end, m.loop.In+m.xfade)
+	}
 	for ti := range m.tracks {
 		t := &m.tracks[ti]
 		if t.silent {
@@ -296,6 +302,18 @@ func (m *Mix) render(dst []float32, pos int64, n int, afterWrap bool) {
 					dst[i+ch] += l * t.gainL
 					dst[i+ch+1] += r * t.gainR
 				}
+				if c.crossOut {
+					// Past Out it carries on, fading out, under what's at In.
+					for f := wrapFrom; f < wrapTo; f++ {
+						k := f - m.loop.In
+						x := (float64(k) + 0.5) / float64(m.xfade)
+						g := c.gain * float32(math.Cos(x*math.Pi/2))
+						l, r := c.audio.at(c.src + (m.loop.Out + k - c.at))
+						i := int(f-pos) * OutChannels
+						dst[i+ch] += l * g * t.gainL
+						dst[i+ch+1] += r * g * t.gainR
+					}
+				}
 			}
 		}
 	}
@@ -306,17 +324,17 @@ func (m *Mix) sample(c *mixClip, f int64, afterWrap bool) (float32, float32) {
 	local := f - c.at
 	l, r := c.audio.at(c.src + local)
 	g := c.gain
-	if c.crossOut && f < m.loop.Out {
-		if left := m.loop.Out - f; left <= m.declick {
-			g *= float32(float64(left)-0.5) / float32(m.declick)
-		}
-	}
 	if c.crossIn && afterWrap && f >= m.loop.In {
-		if in := f - m.loop.In; in < m.declick {
-			g *= float32(float64(in)+0.5) / float32(m.declick)
+		if k := f - m.loop.In; k < m.xfade {
+			x := (float64(k) + 0.5) / float64(m.xfade)
+			g *= float32(math.Sin(x * math.Pi / 2))
 		}
 	}
 	if c.cont {
+		// The head carrying on: no fade in, but its own end still declicks.
+		if left := c.end - f; left <= m.declick && !c.joined {
+			g *= float32(float64(left)-0.5) / float32(m.declick)
+		}
 		return l * g, r * g
 	}
 	if local < m.xfade && c.prev != nil {

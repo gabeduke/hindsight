@@ -189,34 +189,46 @@ func TestACatchSplitAtTheSeamCarriesOnWithoutAFade(t *testing.T) {
 	if v := dst[399*OutChannels]; !approx(v, 0.5) {
 		t.Fatalf("the head's last frame = %.4f, want 0.5", v)
 	}
+	// The tail's own end, with silence after it, is still declicked.
+	dst = make([]float32, 400*OutChannels)
+	m.render(dst, 3600, 400, true)
+	if v := dst[399*OutChannels]; v <= 0 || v > 0.01 {
+		t.Fatalf("the tail's last frame = %.4f, want it faded out", v)
+	}
 }
 
-func TestClipsAcrossTheLoopsEndsAreDeclickedAtTheWrap(t *testing.T) {
+func TestTheWrapCrossfadesClipsAcrossTheLoopsEnds(t *testing.T) {
 	s := newTestStore(t)
 	pool := NewPool(s)
 	rel := poolWAV(t, s, 40000, func(int) float64 { return 0.5 })
-	// The loop is 12000..24000; one clip runs from before In to after Out.
+	// The loop is 12000..24000. "in" starts before In; "out" runs past Out.
 	st := State{Loop: Loop{In: 12000, Out: 24000, On: true}, Tracks: []Track{{N: 1, Bus: BusA, Clips: []Clip{
-		{ID: "long", File: rel, Src: 0, Frames: 36000, At: 0},
+		{ID: "in", File: rel, Src: 0, Frames: 18000, At: 0},
+		{ID: "out", File: rel, Src: 0, Frames: 10000, At: 20000},
 	}}}}
 	m := NewMix(st, pool, 48000)
+	// Up to Out, "out" plays on at full level: the wrap, not Out, is the edge.
 	dst := make([]float32, 400*OutChannels)
 	m.render(dst, 23600, 400, false)
-	if v := dst[399*OutChannels]; v <= 0 || v > 0.01 {
-		t.Fatalf("the frame before Out = %.4f, want it faded out", v)
+	if v := dst[399*OutChannels]; !approx(v, 0.5) {
+		t.Fatalf("the frame before Out = %.4f, want 0.5", v)
 	}
-	if v := dst[0]; !approx(v, 0.5) {
-		t.Fatalf("well before Out = %.4f, want 0.5", v)
-	}
-	// Entered at In by a wrap, it fades in; played through In, it doesn't.
+	// After the wrap, what "out" would have played next fades out as "in"
+	// fades in: no gap at the seam.
 	dst = make([]float32, 400*OutChannels)
 	m.render(dst, 12000, 400, true)
-	if v := dst[0]; v <= 0 || v > 0.01 {
-		t.Fatalf("the first frame after the wrap = %.4f, want it faded in", v)
+	for f := 0; f < 400; f++ {
+		if v := dst[f*OutChannels]; v < 0.49 || v > 0.71 {
+			t.Fatalf("frame %d after the wrap = %.4f: a dip or a jump", f, v)
+		}
+	}
+	if v := dst[0]; !approx(v, 0.5) && v < 0.49 {
+		t.Fatalf("the first frame after the wrap = %.4f, want about 0.5", v)
 	}
 	if v := dst[300*OutChannels]; !approx(v, 0.5) {
-		t.Fatalf("after the fade = %.4f", v)
+		t.Fatalf("after the crossfade = %.4f, want 0.5 (\"in\" alone)", v)
 	}
+	// Played through In without a wrap, "in" is simply there.
 	dst = make([]float32, 400*OutChannels)
 	m.render(dst, 12000, 400, false)
 	if v := dst[0]; !approx(v, 0.5) {

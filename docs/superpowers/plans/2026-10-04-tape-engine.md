@@ -85,3 +85,10 @@ than the code did.
    *Send to tape* on the take page; the Tape chip; tips.
 7. Docs: guide §8 as built, api.md, architecture.md, configuration.md.
 8. Verify in Playwright against `--demo`.
+
+A second pass on those fixes found three more, also fixed: a load waited
+two seconds (and kept the old passes) while the output wasn't pulling; a
+seam-split catch's tail wasn't declicked at its own end; and a poll started
+during an edit could still undo it on screen. The wrap is now an equal-power
+crossfade rather than a fade out and in, and a load on this page no longer
+reads as another device's.

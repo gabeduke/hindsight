@@ -69,8 +69,9 @@ async function boot() {
   setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
 }
 
-// gen counts changes this page has made; a poll that was in flight across
-// one answers with the tape from before it, and is dropped.
+// gen counts this page's changes, bumped as each is sent and again as its
+// answer arrives: a poll in flight across either may answer with the tape
+// from before the change, and is dropped.
 let polling = false;
 let gen = 0;
 async function poll() {
@@ -79,26 +80,42 @@ async function poll() {
   const g = gen;
   try {
     const s = await api(`/api/tapes/state?${q()}`);
+    if (g !== gen) return;
     if (!s.loaded) { await follow(); return; }
-    if (g === gen) apply(s);
+    apply(s);
   } catch (e) {
-    if (e.status === 404) await follow();
+    if (e.status === 404 && g === gen) await follow();
   } finally {
     polling = false;
   }
 }
 
-// follow switches to the tape that's loaded now: another device loaded it,
-// or deleted this one.
+// follow switches to the tape that's loaded now, because another device
+// loaded it.
 async function follow() {
   try {
     const l = await api('/api/tapes');
-    if (l.loaded && l.loaded !== state.id) {
-      state.id = l.loaded;
-      state.tape = null;
-      toast('Another device loaded a different tape');
-    }
+    if (!l.loaded || l.loaded === state.id) return;
+    const s = await api(`/api/tapes/state?id=${encodeURIComponent(l.loaded)}`);
+    state.id = l.loaded;
+    closeSheets();
+    apply(s);
+    toast('Another device loaded a different tape');
   } catch { /* the next poll tries again */ }
+}
+
+// change sends one change and shows the tape it answers with.
+async function change(send) {
+  gen++;
+  try {
+    const s = await send();
+    gen++;
+    if (s && s.tape) apply(s);
+    return s;
+  } catch (e) {
+    gen++;
+    throw e;
+  }
 }
 
 function apply(s) {
@@ -352,9 +369,8 @@ function drawOverview() {
 
 // patch changes the tape, and says whether it did.
 async function patch(body) {
-  gen++;
   try {
-    apply(await api(`/api/tapes?${q()}`, { method: 'PATCH', body }));
+    await change(() => api(`/api/tapes?${q()}`, { method: 'PATCH', body }));
     return true;
   } catch (e) {
     toast(`Could not change the tape: ${e.message}`, 'bad');
@@ -383,10 +399,9 @@ function laneTap(lane, e) {
 }
 
 async function doCatch(what) {
-  gen++;
   const body = { track: state.track, source: state.source, ...what };
   try {
-    const b = await api(`/api/tapes/catch?${q()}`, { method: 'POST', body });
+    const b = await change(() => api(`/api/tapes/catch?${q()}`, { method: 'POST', body }));
     const s = (b.clip.frames / state.tape.sample_rate).toFixed(1);
     toast(`Caught ${s} s from ${state.source} onto track ${state.track}${b.clip.clean ? '' : ' — the tape was in that source too'}`, 'ok', {
       action: { label: 'Undo', run: () => undoRedo(false) },
@@ -398,12 +413,19 @@ async function doCatch(what) {
 }
 
 async function undoRedo(redo) {
-  gen++;
   try {
-    apply(await api(`/api/tapes/${redo ? 'redo' : 'undo'}?${q()}`, { method: 'POST' }));
+    await change(() => api(`/api/tapes/${redo ? 'redo' : 'undo'}?${q()}`, { method: 'POST' }));
   } catch (e) {
     toast(e.message, 'bad');
   }
+}
+
+// closeSheets closes what belongs to the tape shown, before another is.
+function closeSheets() {
+  const sh = $('clip-sheet');
+  if (sh.open) sh.close();
+  state.clip = null;
+  $('tape-menu').hidden = true;
 }
 
 function openClip(c) {
@@ -428,10 +450,13 @@ async function newTape() {
 
 async function loadTape(id) {
   try {
-    const s = await api(`/api/tapes/load?id=${encodeURIComponent(id)}`, { method: 'POST' });
-    state.id = id;
-    state.tape = null;
-    apply(s);
+    await change(async () => {
+      const s = await api(`/api/tapes/load?id=${encodeURIComponent(id)}`, { method: 'POST' });
+      state.id = id;
+      state.tape = null;
+      closeSheets();
+      return s;
+    });
   } catch (e) {
     toast(`Could not load the tape: ${e.message}`, 'bad');
   }

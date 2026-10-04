@@ -199,10 +199,21 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	case b.Clip != nil && b.Clip.NudgeMS != nil && !b.Clip.Remove:
 		kind = "clip-nudge:" + b.Clip.ID
 	}
+	meta := func(t *tape.Tape) {
+		if b.Name != nil {
+			if n := sanitizeLabel(*b.Name); n != "" {
+				t.Name = n
+			}
+		}
+		if b.Click != nil {
+			t.Click = *b.Click
+		}
+	}
 	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil
 	if undoable {
 		sr := a.tape.Store().SampleRate()
-		err := a.tape.Edit(id, kind, func(_ *tape.Tape, s *tape.State) error {
+		err := a.tape.Edit(id, kind, func(t *tape.Tape, s *tape.State) error {
+			meta(t) // the name and click ride along, outside undo
 			if tm := b.Tempo; tm != nil {
 				// Only while the tape is empty: once it has audio its tempo is
 				// fixed, since nothing is ever stretched. Bars relabel it instead.
@@ -274,19 +285,8 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			tapeErr(w, err)
 			return
 		}
-	}
-	if b.Name != nil || b.Click != nil {
-		err := a.tape.SetMeta(id, func(t *tape.Tape) error {
-			if b.Name != nil {
-				if n := sanitizeLabel(*b.Name); n != "" {
-					t.Name = n
-				}
-			}
-			if b.Click != nil {
-				t.Click = *b.Click
-			}
-			return nil
-		})
+	} else if b.Name != nil || b.Click != nil {
+		err := a.tape.SetMeta(id, func(t *tape.Tape) error { meta(t); return nil })
 		if err != nil {
 			tapeErr(w, err)
 			return

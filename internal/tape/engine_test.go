@@ -335,3 +335,27 @@ func TestAFirstLoopMustBeASensibleTempo(t *testing.T) {
 		t.Fatalf("a 0.1 s first loop = %v, want ErrBadParameter", err)
 	}
 }
+
+func TestALoadWhileTheOutputIsntPullingIsPrompt(t *testing.T) {
+	e, sink, tp := newEngine(t)
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
+	if _, err := e.DropTake(tp.ID, take, 0, 96000, 1, 1, []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	e.Do(Action{Kind: "play"})
+	e.Start()
+	sink.play(t, 96000*2+1000)
+	// The device stops pulling; the renderer sits ahead, waiting.
+	time.Sleep(50 * time.Millisecond)
+	other, _ := e.store.Create("other", 120, 1, time.Now())
+	start := time.Now()
+	if _, err := e.Load(other.ID); err != nil {
+		t.Fatal(err)
+	}
+	if d := time.Since(start); d > 500*time.Millisecond {
+		t.Fatalf("Load took %v with the output idle", d)
+	}
+	if c := e.Live().Cycles; len(c) != 0 {
+		t.Fatalf("passes survived the load: %+v", c)
+	}
+}
