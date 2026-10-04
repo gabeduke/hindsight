@@ -50,7 +50,12 @@ func main() {
 	audio.SweepPartials(cfg.OutputDir)
 	// Takes saved before the peaks pyramid existed get one, one at a time in
 	// the background; until then their zooms read the WAV, as they always did.
-	go audio.BackfillPyramids(cfg.OutputDir)
+	// Then any take without a preview gets one -- a phone recording the sweep
+	// just recovered, or an encode a restart cut short.
+	go func() {
+		audio.BackfillPyramids(cfg.OutputDir)
+		audio.BackfillPreviews(cfg)
+	}()
 
 	// DemoDevice and Watcher each satisfy every consumer, so both are held
 	// through their interfaces rather than asserted back out of one.

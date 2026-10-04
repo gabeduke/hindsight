@@ -54,6 +54,12 @@ type API struct {
 	// each other and with everything else for no gain. A second share waits
 	// its turn rather than failing.
 	renderSlot chan struct{}
+
+	// phones holds the recordings phones are streaming in (see phone.go).
+	phones phoneRegistry
+	// phoneGrace is how long a recording waits for its phone to reconnect;
+	// zero means defaultPhoneGrace. Tests shorten it.
+	phoneGrace time.Duration
 }
 
 func New(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, env *audio.Envelope, m MIDISource) *API {
@@ -110,6 +116,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/peaks", a.handlePeaks).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/envelope", a.handleEnvelope).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/live", a.handleLive).Methods(http.MethodGet)
+	r.HandleFunc("/api/phone", a.handlePhone).Methods(http.MethodGet)
 	r.HandleFunc("/api/slice", a.handleSlice).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/render", a.handleRender).Methods(http.MethodGet)
 	r.HandleFunc("/api/midi", a.handleMIDI).Methods(http.MethodGet, http.MethodHead)

@@ -364,6 +364,15 @@ func SweepPartials(dir string) {
 		if e.IsDir() {
 			continue
 		}
+		// A phone recording's marker whose recording is gone (finished, but
+		// the process died before the marker was removed).
+		if strings.HasPrefix(n, ".") && strings.HasSuffix(n, ".phone.json") {
+			stem := strings.TrimSuffix(strings.TrimPrefix(n, "."), ".phone.json")
+			if !exists(PartPath(filepath.Join(dir, stem+".wav"))) {
+				os.Remove(filepath.Join(dir, n))
+			}
+			continue
+		}
 		// A sidecar write's temporary file, from a crash mid-write.
 		if (strings.HasPrefix(n, ".meta-") || strings.HasPrefix(n, ".pyramid-")) && strings.HasSuffix(n, ".tmp") {
 			os.Remove(filepath.Join(dir, n))
@@ -383,8 +392,19 @@ func SweepPartials(dir string) {
 			continue
 		}
 		final := strings.TrimSuffix(strings.TrimPrefix(n, "."), ".part")
+		// A phone recording cut short is kept as a partial take: that audio
+		// exists nowhere else.
+		if wav := filepath.Join(dir, final); exists(phoneMarkerPath(wav)) && !exists(wav) {
+			if err := recoverPhonePart(dir, filepath.Join(dir, n), wav); err != nil {
+				// Left as it is, to try again next time: never delete audio
+				// that exists nowhere else.
+				log.Printf("[!] could not recover phone recording %s: %v", final, err)
+			}
+			continue
+		}
 		log.Printf("[*] removing unfinished take %s", final)
 		os.Remove(filepath.Join(dir, n))
+		os.Remove(phoneMarkerPath(filepath.Join(dir, final)))
 		if !exists(filepath.Join(dir, final)) {
 			RemoveTake(dir, final)
 		}
@@ -565,6 +585,25 @@ func MakePreview(cfg *config.Config, wavPath string, outCh int) {
 		return
 	}
 	log.Printf("[*] preview ready: %s", filepath.Base(mp3Path))
+}
+
+// BackfillPreviews encodes the preview of any take that lacks one: a phone
+// recording recovered at startup, or a take whose encode was cut short by a
+// restart. Takes made in the last two minutes are left to the encode their
+// own save started. Run once, in the background, at startup.
+func BackfillPreviews(cfg *config.Config) {
+	takes, err := ListTakes(cfg.OutputDir)
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-2 * time.Minute)
+	for _, t := range takes {
+		if t.HasPreview || t.Channels == 0 || t.Created.After(cutoff) {
+			continue
+		}
+		log.Printf("[*] encoding the missing preview of %s", t.Name)
+		MakePreview(cfg, filepath.Join(cfg.OutputDir, t.Name), t.Channels)
+	}
 }
 
 // Prune enforces MAX_SAVES now, sparing the takes named in keep. Save does

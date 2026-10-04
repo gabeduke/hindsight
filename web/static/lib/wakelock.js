@@ -117,3 +117,54 @@ export function initWakeLock({ onChange } = {}) {
     },
   };
 }
+
+// holdScreen keeps the screen on regardless of charging, for as long as
+// something needs it: a phone recording, which a locked screen would cut off.
+// It's the one exception to the charging rule above, and it ends when the
+// caller releases it. Like the lock above it re-acquires whenever the page
+// comes back into view. onChange(held) reports whether the lock is in place,
+// so the recorder can say when it isn't.
+export function holdScreen({ onChange } = {}) {
+  const supported = 'wakeLock' in navigator && window.isSecureContext;
+  let sentinel = null;
+  let released = false;
+  let asking = false; // one request at a time, or two locks could be taken
+
+  async function acquire() {
+    if (released || !supported || document.hidden || asking) return;
+    if (sentinel && !sentinel.released) return;
+    asking = true;
+    try {
+      sentinel = await navigator.wakeLock.request('screen');
+    } catch {
+      sentinel = null;
+      onChange?.(false);
+      return;
+    } finally {
+      asking = false;
+    }
+    if (released) {
+      sentinel.release().catch(() => {});
+      return;
+    }
+    sentinel.addEventListener('release', () => {
+      sentinel = null;
+      if (!released) onChange?.(false);
+    });
+    onChange?.(true);
+  }
+
+  const onVisible = () => { if (!document.hidden) acquire(); };
+  document.addEventListener('visibilitychange', onVisible);
+  if (!supported) onChange?.(false);
+  acquire();
+
+  return {
+    release() {
+      released = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      sentinel?.release().catch(() => {});
+      sentinel = null;
+    },
+  };
+}

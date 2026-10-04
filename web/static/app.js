@@ -5,6 +5,7 @@ import { Meters, FLOOR_DB, fmtDur } from '/lib/meter.js';
 import { Ribbon } from '/lib/ribbon.js';
 import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';
+import { initPhone } from '/lib/phone/recorder.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -262,6 +263,16 @@ async function capture() {
 }
 
 el.captureBtn.addEventListener('click', capture);
+
+initPhone({
+  button: $('phone-btn'),
+  sheet: $('phone-sheet'),
+  toast,
+  onSaved: (name) => {
+    takes.markFresh(name);
+    pollTakes(true);
+  },
+});
 
 async function mark() {
   const btn = el.markBtn;

@@ -415,6 +415,96 @@ main {
   word-break: break-all;
 }
 .last span { color: var(--ink-dim); }
+.last-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.last-row .last {
+  margin: 0;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone-btn {
+  flex: none;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 650;
+  padding: 6px 12px;
+  min-height: 34px;
+  cursor: pointer;
+}
+.phone-btn:active { background: var(--panel); }
+.phone-btn.recording { color: var(--danger); border-color: var(--danger); font-family: var(--mono); }
+
+/* ---------- phone recorder ---------- */
+
+/* .sheet-inner p is set up for a filename (mono, break-all); the recorder's
+   lines are prose. */
+.sheet-inner.phone-inner p {
+  font-family: var(--font);
+  word-break: normal;
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+.sheet-inner.phone-inner .phone-insecure { color: var(--warn); }
+.phone-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-bottom: 14px;
+}
+.phone-field select {
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  padding: 0 10px;
+}
+.phone-meter { display: grid; gap: 4px; margin-bottom: 12px; }
+.phone-lane {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.phone-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 60ms linear;
+}
+.phone-bar.clip { background: var(--danger); }
+.phone-status {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.phone-time {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.phone-state { color: var(--ink-dim); font-size: 13px; }
+.icon-btn.phone-rec { background: var(--danger); color: #2a0808; border-color: transparent; font-weight: 700; }
+.icon-btn.phone-rec.recording { background: var(--panel-2); color: var(--danger); border-color: var(--danger); }
 
 /* ---------- takes ---------- */
 
@@ -750,6 +840,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
   .capture-btn { min-height: 50px; margin-top: 10px; }
   .wave { height: 40px; }
   .last { margin: 8px 0 0; }
+  .last-row { margin-top: 8px; }
 }
 
 /* A phone held sideways, roughly 390px tall. The tier above is tuned for a
