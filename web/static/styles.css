@@ -1647,7 +1647,7 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 /* lib/tape/machine.js: reels that turn with the playhead, and a meter
    bridge. Its height follows the screen's, so a short tablet keeps its
    lanes; on a phone it's the reels alone. */
-.tape-page { --machine-h: clamp(90px, 18svh, 150px); }
+.tape-page { --machine-h: clamp(90px, 16svh, 150px); }
 .tape-machine {
   height: var(--machine-h); overflow: hidden; border-radius: 8px;
   background: var(--machine); border: 1px solid var(--line);

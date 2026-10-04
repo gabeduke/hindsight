@@ -8,7 +8,7 @@ the whole ring to disk. Nothing touches disk until you ask.
 
 It exists because the take you want is the one you already played.
 
-![The Hindsight UI on a desktop browser: live meters, the buffer ribbon, capture buttons and a list of saved takes](docs/images/desktop.png)
+![The Hindsight UI on a desktop browser: the buffer ribbon, VU meters, the capture keys and the latest take, in Solarized Light](docs/images/desktop.png)
 
 ## Features
 
