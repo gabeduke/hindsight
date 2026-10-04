@@ -383,8 +383,18 @@ func SweepPartials(dir string) {
 			continue
 		}
 		final := strings.TrimSuffix(strings.TrimPrefix(n, "."), ".part")
+		// A phone recording cut short is kept as a partial take: that audio
+		// exists nowhere else.
+		if wav := filepath.Join(dir, final); exists(phoneMarkerPath(wav)) && !exists(wav) {
+			err := recoverPhonePart(dir, filepath.Join(dir, n), wav)
+			if err == nil {
+				continue
+			}
+			log.Printf("[!] could not recover phone recording %s: %v", final, err)
+		}
 		log.Printf("[*] removing unfinished take %s", final)
 		os.Remove(filepath.Join(dir, n))
+		os.Remove(phoneMarkerPath(filepath.Join(dir, final)))
 		if !exists(filepath.Join(dir, final)) {
 			RemoveTake(dir, final)
 		}

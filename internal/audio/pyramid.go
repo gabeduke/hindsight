@@ -57,6 +57,65 @@ func newPyramidAcc(channels int, frames int64) *pyramidAcc {
 	return &pyramidAcc{channels: channels, frames: frames, data: d}
 }
 
+// grow extends the pyramid to cover frames, for a take whose length isn't
+// known until it ends: a phone recording grows as it streams in.
+func (p *pyramidAcc) grow(frames int64) {
+	if frames <= p.frames {
+		return
+	}
+	buckets := (frames + PyramidBase - 1) / PyramidBase
+	for n := int64(len(p.data)); n < buckets*int64(p.channels)*2; n += 2 {
+		p.data = append(p.data, math.MaxInt16, math.MinInt16)
+	}
+	p.frames = frames
+}
+
+// wholePeaks is the take's .peaks.json drawn from the pyramid rather than
+// from the audio: up to peakBuckets buckets, each the extremes of a run of
+// base buckets. Used where the audio was never in memory in one piece.
+func (p *pyramidAcc) wholePeaks(sampleRate int) *PeakData {
+	ch := p.channels
+	base := int64(0)
+	if ch > 0 {
+		base = int64(len(p.data)) / int64(ch*2)
+	}
+	n := int64(peakBuckets)
+	if base < n {
+		n = base
+	}
+	data := make([][]float32, ch)
+	for c := range data {
+		data[c] = make([]float32, 0, n*2)
+	}
+	for k := int64(0); k < n; k++ {
+		lo, hi := k*base/n, (k+1)*base/n
+		for c := 0; c < ch; c++ {
+			mn, mx := int16(math.MaxInt16), int16(math.MinInt16)
+			for b := lo; b < hi; b++ {
+				i := (b*int64(ch) + int64(c)) * 2
+				if p.data[i] < mn {
+					mn = p.data[i]
+				}
+				if p.data[i+1] > mx {
+					mx = p.data[i+1]
+				}
+			}
+			if mn > mx {
+				mn, mx = 0, 0
+			}
+			data[c] = append(data[c], float32(mn)/32768, float32(mx)/32768)
+		}
+	}
+	return &PeakData{
+		Version:    1,
+		Channels:   ch,
+		SampleRate: sampleRate,
+		Duration:   float64(p.frames) / float64(sampleRate),
+		Buckets:    int(n),
+		Data:       data,
+	}
+}
+
 // add folds sample v of channel ch at frame into its bucket. The int16 min is
 // rounded down and the max up, so a quantised bucket never claims less than
 // the audio reached (bar a max within 1/32768 of full scale, which is clamped
