@@ -458,4 +458,15 @@ func TestAnEmptyTapeSuggestsTheTempoYouWerePlaying(t *testing.T) {
 	if got := suggest(); got != 100 {
 		t.Fatalf("suggest_bpm %v, want the clipboard's 100", got)
 	}
+	// A take played after the copy is newer than the clipboard.
+	newer := filepath.Join(dir, "jam_2026-10-04_12-00-00.wav")
+	write("jam_2026-10-04_12-00-00.wav", 110)
+	later := time.Now().Add(time.Hour)
+	bpm := 110.0
+	if err := audio.WriteMeta(newer, audio.Meta{BPM: &bpm, Created: &later}); err != nil {
+		t.Fatal(err)
+	}
+	if got := suggest(); got != 110 {
+		t.Fatalf("suggest_bpm %v, want the newer take's 110", got)
+	}
 }

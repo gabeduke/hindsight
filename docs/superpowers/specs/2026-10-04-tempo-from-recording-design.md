@@ -62,11 +62,12 @@ type Result struct {
   (at least 0.8 of the best) wins; else the best's octave in 80–160 BPM.
   A hint far from every reading is ignored: the clock is a hint, never a
   fact.
-- **Refine.** Find the autocorrelation peak near the longest multiple of the
-  beat that fits in half the window, at a 1 ms hop, at 8, 16, 32… beats,
-  each peak's centre of mass above 0.7 of its height, fitted by least squares,
-  and divide by the number of beats. This is within a few hundredths of a BPM
-  on 30 s of audio, and closer on longer takes.
+- **Refine.** At the 1 ms hop, refine the beat at 8 beats, then at 16, 32…
+  up to half the audio. Each autocorrelation peak is centred on the part
+  above 0.7 of its height, and the beat is fitted to all the peaks so far by
+  least squares (lag = beats × beat). This is within a few hundredths of a
+  BPM on 30 s of audio, and closer on longer takes. A peak too weak to trust
+  ends the refining, and the beat so far stands.
 - **Confidence** is the normalised autocorrelation at the refined lag. Below
   a threshold (fixed by the tests), `Measure` answers false: free time, a
   drone or silence gives no tempo rather than a wrong one.
@@ -83,7 +84,9 @@ job measures the tempo from up to two minutes from the middle of the take:
 
 - **Where:** the saver's background work (`afterSave`, which ring saves and
   ribbon saves both reach), and the phone recording's background step in
-  `api/phone.go`. Mixdowns already carry the tape's tempo and are left alone.
+  `api/phone.go`. Mixdowns already carry the tape's tempo and are left alone:
+  the mixdown's save skips the measurement, so it can't race the tape's own
+  write of the tempo.
 - **Never in the way:** it runs with the preview encode, under the same
   recover rule as `stampTempo`. A failure or panic is logged and costs only
   the measurement.
@@ -91,6 +94,10 @@ job measures the tempo from up to two minutes from the middle of the take:
   the save stamped (compare-and-set inside `UpdateMeta`). An edit made in
   those seconds wins.
 - **Hint:** the clock's BPM if the save stamped one; none for a phone take.
+- **The clock when it agrees:** if the hint came from the clock and the
+  measurement is within 0.05 BPM of it, the clock's value stays, still from
+  `clock`. An instrument slaved to the clock keeps its exact tempo, while one
+  that drifts from it, like the stylophone at 0.14 off, gets the measured one.
 - **Kept as:** the BPM to two decimals, as now, plus a new optional sidecar
   field, `tempo_from`: `clock` (stamped from MIDI), `audio` (measured), or
   `you` (edited on the take page, which sets it). Additive, so no

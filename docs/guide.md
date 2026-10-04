@@ -156,9 +156,12 @@ point at the gestures that matter; **Got it** puts them away for good.
   **?** is help mode; **⋯** resets the downbeat or opens this guide. On a
   phone with MIDI, **♪** opens the notes, and the name has a row of its own
   under the buttons.
-- **The tempo** is measured from the audio after every save, with the MIDI
-  clock as a hint: it reads *125.17 bpm · measured*. A take with no steady
-  pulse keeps the clock's (*· clock*). Tap it to type your own.
+- **The tempo** is measured from the audio after every capture, ribbon save
+  and phone recording (a mixdown keeps the tape's tempo), with the MIDI clock
+  as a hint: it reads *125.17 bpm · measured*. If the clock agrees to within
+  0.05, the clock's is kept (*· clock*), and so it is for a take with no steady
+  pulse. Takes from before this update keep their clock tempo until you edit
+  them. Tap it to type your own.
 - **The overview:** the whole take. Drag its window to move along; double-tap
   to see it all.
 - **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
@@ -540,7 +543,8 @@ is made.
 
 - On an empty tape, the selection becomes the first loop, on track 1. Its
   length sets the tempo: with the take's tempo, it's that many whole bars
-  (any number); without one, Hindsight picks the number of bars that puts it
+  (1 to 64), if the selection is within about 1% of whole bars at that tempo;
+  otherwise, or without one, Hindsight picks the number of bars that puts it
   nearest your last tape's tempo (or 90 BPM). The loop turns on. A
   selection too short or too long to be 20–400 BPM is refused.
 - On a tape that already has a tempo, it lands at the playhead on track 1,
@@ -549,7 +553,8 @@ is made.
 **From a tempo.** On an empty tape, type a BPM and a number of bars and tap
 **Set**. The loop is that long and empty, ready to catch into, and the
 **♩ click** plays on every beat until the first catch. The BPM starts at the
-tempo you were last playing: the clipboard's, else your newest take's.
+tempo you were last playing: the clipboard's or your newest take's, whichever
+is newer.
 
 The tempo is fixed once the tape has audio, because nothing is ever stretched.
 

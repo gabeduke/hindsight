@@ -1201,11 +1201,11 @@ dialog.sheet::backdrop { background: var(--scrim); }
 /* display: block, so the label truncates with an ellipsis rather than
    spilling: a centred flex label never truncates. */
 .tb-row.verbs .icon-btn { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; display: block; line-height: 42px; text-align: center; }
-.tb-row.verbs #more-btn { flex: 0.7 1 0; }
 /* With Send to tape showing there are four verbs, and at phone width they
    can't share one line without clipping. Each keeps at least its own text,
    and the row wraps rather than shrinking it; with three they still split
-   the line evenly. */
+   the line evenly. More is one of them: wrapped on a line of its own it fills
+   the line like the rest, not two-thirds of it. */
 .tb-row.verbs { flex-wrap: wrap; }
 .tb-row.verbs .icon-btn { min-width: max-content; }
 .tb-row.footer { flex-wrap: wrap; justify-content: space-between; }

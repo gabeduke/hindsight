@@ -5,7 +5,7 @@ import {
   frameToX, xToFrame, levelFor, tileSpan, tilesFor, fileLevel,
   gridLines, barBeat, fmtTime, clampRegion, TILE_BUCKETS,
   edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fmtRegionLength,
-  initialSnap, tempoLabel,
+  initialSnap, tempoLabel, snapOnTempo, tempoPending,
 } from './geometry.js';
 
 const view = { start: 48000, fpp: 100, width: 390 };
@@ -198,4 +198,19 @@ test('the tempo says where it came from', () => {
   assert.equal(tempoLabel(120, 'you'), '120 bpm');
   assert.equal(tempoLabel(96, undefined), '96 bpm');
   assert.equal(tempoLabel(null, 'audio'), '+ bpm');
+});
+
+test('a tempo that arrives late turns on bar snap, unless the snap was chosen', () => {
+  assert.equal(snapOnTempo('off', false, false, true), 'bar');
+  assert.equal(snapOnTempo('off', true, false, true), 'off', 'a choice is kept');
+  assert.equal(snapOnTempo('beat', false, true, true), 'beat', 'it already had a tempo');
+  assert.equal(snapOnTempo('off', false, false, false), 'off', 'still no tempo');
+});
+
+test('only the clock\'s tempo, or none, is still waiting for a measurement', () => {
+  assert.equal(tempoPending('clock'), true);
+  assert.equal(tempoPending(''), true);
+  assert.equal(tempoPending(undefined), true);
+  assert.equal(tempoPending('audio'), false);
+  assert.equal(tempoPending('you'), false);
 });

@@ -179,22 +179,24 @@ func (a *API) writeTapeStateWith(w http.ResponseWriter, id string, edit *tape.Ed
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// suggestBPM is where an empty tape's tempo form starts: the clipboard's
-// tempo, else the newest take's that has one, else the last tape's, else 90.
+// suggestBPM is where an empty tape's tempo form starts: the tempo of the
+// newer of the clipboard and the newest take that has one, else the last
+// tape's, else 90. A clipboard copied long ago doesn't beat a take played
+// since.
 func (a *API) suggestBPM(id string) float64 {
-	if c, err := a.tape.Clipboard(); err == nil && c != nil && c.BPM > 0 {
-		return c.BPM
-	}
+	var newest *audio.Take
 	if takes, _, err := a.takes.List(); err == nil {
-		var newest *audio.Take
 		for i := range takes {
 			if takes[i].BPM != nil && *takes[i].BPM > 0 && (newest == nil || takes[i].Created.After(newest.Created)) {
 				newest = &takes[i]
 			}
 		}
-		if newest != nil {
-			return *newest.BPM
-		}
+	}
+	if c, err := a.tape.Clipboard(); err == nil && c != nil && c.BPM > 0 && (newest == nil || !c.Created.Before(newest.Created)) {
+		return c.BPM
+	}
+	if newest != nil {
+		return *newest.BPM
 	}
 	if bpm, ok := a.tape.LastTapeBPM(id); ok {
 		return bpm

@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
 } from './geometry.js';
 import { peakColumns, foldChannels, drawColumns } from './draw.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
@@ -77,6 +77,9 @@ async function main() {
   const sr = take.sample_rate || 48000;
   const total = Math.round(take.duration_seconds * sr);
   const minLen = Math.floor(sr * 3 / 1000) * 2 + 1;
+
+  // Whether the snap is one chosen before, not the default for the take.
+  let snapChosen = SNAPS.includes(readPref('wave.snap', null));
 
   // --- state (the page owns it; the views read it each draw) -------------
   const state = {
@@ -159,6 +162,26 @@ async function main() {
       try {
         const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
         if (res.ok && (await res.json()).has_preview) previewLanded();
+      } catch {}
+    }, 2000);
+  }
+
+  // The measurement of the take's audio lands a few seconds after the save
+  // that made it. A page opened before then has the clock's tempo, and Send
+  // to tape would give the tape that, so it looks again until the tempo is
+  // settled. Nothing is applied while a save of ours is still on its way, or
+  // once the tempo was edited here: an edit always wins.
+  if (tempoPending(take.tempo_from)) {
+    let tries = 0;
+    const poll = setInterval(async () => {
+      if (!tempoPending(take.tempo_from) || ++tries > 30) { clearInterval(poll); return; }
+      if (savesInFlight > 0) return;
+      try {
+        const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store', headers: withClient() });
+        if (!res.ok) return;
+        const fresh = await res.json();
+        if (savesInFlight > 0 || !tempoPending(take.tempo_from) || tempoPending(fresh.tempo_from)) return;
+        applyTake(fresh);
       } catch {}
     }, 2000);
   }
@@ -257,6 +280,7 @@ async function main() {
     if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
     if (state.selectedFlag === null && !sheet.hidden) sheet.hidden = true;
     take.label = fresh.label;
+    state.snap = snapOnTempo(state.snap, snapChosen, !!take.bpm, !!fresh.bpm);
     take.bpm = fresh.bpm;
     take.tempo_from = fresh.tempo_from;
     take.starred = fresh.starred;
@@ -617,6 +641,7 @@ async function main() {
   $('snap').addEventListener('click', () => {
     state.snap = SNAPS[(SNAPS.indexOf(state.snap) + 1) % SNAPS.length];
     writePref('wave.snap', state.snap);
+    snapChosen = true;
     renderSnap();
   });
 

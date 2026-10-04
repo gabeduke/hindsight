@@ -253,6 +253,26 @@ export function initialSnap(stored, hasBpm) {
   return hasBpm ? 'bar' : 'off';
 }
 
+/**
+ * snapOnTempo is the snap after the take's tempo arrives later than the page
+ * (the measurement lands a few seconds after a save): a take that had no
+ * tempo, and whose snap was the default rather than a choice, now starts on
+ * bars, as it would have opened.
+ */
+export function snapOnTempo(snap, chosen, hadBpm, hasBpm) {
+  if (chosen || hadBpm || !hasBpm) return snap;
+  return initialSnap(null, true);
+}
+
+/**
+ * tempoPending is whether a take's tempo may still change by itself: the
+ * clock's (or none yet) is replaced when the measurement of its audio lands.
+ * One that was measured, or typed, is settled.
+ */
+export function tempoPending(from) {
+  return !from || from === 'clock';
+}
+
 /** tempoLabel is the take's tempo as its header reads it, and where it came from. */
 export function tempoLabel(bpm, from) {
   if (!bpm) return '+ bpm';

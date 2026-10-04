@@ -163,7 +163,7 @@ async function change(send) {
 
 function apply(s) {
   const changed = JSON.stringify(s.tape) !== JSON.stringify(state.tape);
-  if (state.tape && s.tape && s.tape.id !== state.tape.id) state.zoom = null;
+  if (state.tape && s.tape && s.tape.id !== state.tape.id) { state.zoom = null; delete $('new-bpm').dataset.touched; }
   state.tape = s.tape;
   // The empty-tape form starts at the tempo you were playing, until you type.
   if (s.suggest_bpm && !$('new-bpm').dataset.touched) $('new-bpm').value = String(s.suggest_bpm);
