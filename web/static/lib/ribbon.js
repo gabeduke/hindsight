@@ -24,6 +24,7 @@
 
 import { fmtDur } from '/lib/meter.js';
 import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from '/lib/ribbonmath.js';
+import { isSilent } from '/lib/tape/levels.js';
 
 const HOLD_MS = 350;
 const MOVE_PX = 8;
@@ -205,7 +206,12 @@ export class Ribbon {
       const b = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
       const note = b.clamped ? ' (its start had already left the buffer)' : '';
-      this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}: Drop it on a tape`, 'ok');
+      const clip = b.clipboard && b.clipboard.tracks && b.clipboard.tracks[0] && b.clipboard.tracks[0][0];
+      if (clip && isSilent(clip.peak_db)) {
+        this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}, but it’s silent: nothing was coming in then`, 'warn');
+      } else {
+        this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}: Drop it on a tape`, 'ok');
+      }
     } catch (e) {
       this.onToast?.(`Could not copy: ${e.message}`, 'bad');
     }

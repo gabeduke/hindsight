@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/config"
-	"github.com/gabeduke/hindsight/internal/mono"
 )
 
 // writeFakeTake creates a file that ListTakes will pick up. The WAV header is
@@ -567,9 +566,21 @@ func TestProcessAudioRecordsBridgePairsOnlyForHandedBlocks(t *testing.T) {
 	if c.Bridge().Len() != 5 {
 		t.Errorf("a dropped block recorded a pair: %d", c.Bridge().Len())
 	}
-	f, ok := c.Bridge().FrameAt(mono.Now())
-	if !ok || f < 5*256-1 {
-		t.Errorf("FrameAt(now) = %.0f, %v; want about %d", f, ok, 5*256)
+	// The last pair is the fifth block's end: a pair for the dropped block
+	// would say 1536. (This used to read FrameAt(now) and want at least
+	// 1279, but that's a least-squares line through pairs recorded
+	// microseconds apart, which a scheduler's hiccup tilts by hundreds of
+	// frames -- 1244 on a loaded CI runner -- and "now" moves on at the
+	// sample rate besides.)
+	b := c.Bridge()
+	b.mu.Lock()
+	lastNS, lastFrame := b.at(b.count - 1)
+	b.mu.Unlock()
+	if lastFrame != 5*256 {
+		t.Errorf("the last pair is at frame %d, want %d", lastFrame, 5*256)
+	}
+	if _, ok := b.FrameAt(lastNS - b.PipelineLatency()); !ok {
+		t.Error("the bridge can't place the moment of its own last pair")
 	}
 }
 

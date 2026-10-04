@@ -818,7 +818,7 @@ loop, otherwise its first loop sets the tempo.
                           "clips": [ { "id": "c1a2b3c4", "file": "audio/drop_….wav", "src": 480,
                                        "frames": 96000, "at": 0, "layer": 0, "gain_db": 0, "source": "take" } ] } ] },
   "loaded": true, "undo": 1, "redo": 0, "bpm": 120,
-  "sources": [ { "name": "aux", "leaks": [], "clean": true } ],
+  "sources": [ { "name": "aux", "leaks": [], "clean": true, "peak_db": -120 } ],
   "live": { "playing": true, "pos": 41984, "heard": 37888, "delivered": 229376, "late": 0,
             "output": "Demo loopback (the demo source hears it)", "delta": 2048, "aligned": "exact",
             "cycles": [ { "out": 96000, "in": 0, "len": 96000 } ], "failed": [] } }
@@ -831,8 +831,14 @@ loop, otherwise its first loop sets the tempo.
   `at`. The file carries 10 ms either side, for crossfades. `layer` 0 is the
   base; a catch onto audio goes on a layer above it, summed. `source` is
   where it came from, and `clean` is set when no tape bus was in that source.
+  A caught clip has `peak_db`, its loudest sample when caught (−120 for
+  digital silence), so the page can say when a catch came from a source with
+  nothing in it.
 - **`sources`** lists what a catch can take from, and whether each is clean
-  on this tape: no unmuted audio on a bus that leaks into it.
+  on this tape: no unmuted audio on a bus that leaks into it. `peak_db` is
+  its meter: the loudest sample of the last 0.3 s, in dBFS (−120 for digital
+  silence; absent with no capture, or when no audio has arrived since the
+  last reading, so a meter doesn't hold what it heard before a dropout).
 - **`live`**, only for the loaded tape:
   - `pos` is the render head and `heard` the frame the device is playing.
   - `delta` is ring frame minus output frame: where what the tape played

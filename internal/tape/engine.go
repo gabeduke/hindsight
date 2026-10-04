@@ -136,6 +136,11 @@ type Engine struct {
 	mixMu   sync.Mutex
 	mixdown *Mixdown // the last mixdown
 
+	meterMu    sync.Mutex
+	meter      []float64 // each capture channel's last meter reading; nil: none
+	meterAt    time.Time
+	meterTotal uint64 // the ring's TotalFrames at that reading
+
 	clockOut  ClockOut
 	clock     clockState
 	clockDone chan struct{} // closed when the clock's goroutine has stopped
@@ -935,7 +940,8 @@ func (e *Engine) catchSpan(t *Tape, src Source, outFrom uint64, frames, at int64
 	if err != nil {
 		return nil, err
 	}
-	if err := audio.WriteSpan(ring, uint64(ringFrom), uint64(ringTo), src.Pair[:], path, int(sr)); err != nil {
+	peak, err := audio.WriteSpan(ring, uint64(ringFrom), uint64(ringTo), src.Pair[:], path, int(sr))
+	if err != nil {
 		return nil, err
 	}
 	clean := true
@@ -946,7 +952,7 @@ func (e *Engine) catchSpan(t *Tape, src Source, outFrom uint64, frames, at int64
 			}
 		}
 	}
-	clip := Clip{File: rel, Src: over, Frames: frames, At: at, Source: src.Name, Clean: clean, Aligned: aligned}
+	clip := Clip{File: rel, Src: over, Frames: frames, At: at, Source: src.Name, Clean: clean, Aligned: aligned, PeakDB: peakDB(peak)}
 	var placed []Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() {
@@ -1144,11 +1150,15 @@ func (e *Engine) LoadedID() string {
 // it's clean -- no bus with audio sounding into it -- on the loaded tape.
 func (e *Engine) Sources() []SourceState {
 	t := e.Loaded()
+	pk := e.sourcePeaks()
 	var out []SourceState
 	for _, s := range e.sources {
 		st := SourceState{Name: s.Name, Leaks: s.Leaks, Clean: true}
 		if st.Leaks == nil {
 			st.Leaks = []string{}
+		}
+		if pk != nil && s.Pair[0] < len(pk) && s.Pair[1] < len(pk) {
+			st.PeakDB = peakDB(math.Max(pk[s.Pair[0]], pk[s.Pair[1]]))
 		}
 		if t != nil {
 			for _, b := range s.Leaks {
@@ -1169,6 +1179,49 @@ type SourceState struct {
 	Name  string   `json:"name"`
 	Leaks []string `json:"leaks"`
 	Clean bool     `json:"clean"`
+	// PeakDB is its meter: the loudest sample in the last third of a
+	// second, in dBFS (-120 for digital silence). Unset with no capture, or
+	// no audio arriving.
+	PeakDB *float64 `json:"peak_db,omitempty"`
+}
+
+// peakDB is a peak (a fraction of full scale) in dBFS to a tenth, with
+// digital silence at -120.
+func peakDB(p float64) *float64 {
+	db := -120.0
+	if p > 0 {
+		db = math.Max(-120, 20*math.Log10(p))
+	}
+	db = math.Round(db*10) / 10
+	return &db
+}
+
+// meterWindow is how far back a source's meter looks, and meterHold how
+// long one reading serves every page that asks.
+const (
+	meterWindow = 0.3
+	meterHold   = 100 * time.Millisecond
+)
+
+// sourcePeaks is each capture channel's meter reading, read from the ring
+// at most every meterHold: several pages polling share one scan. Nil when no
+// audio has arrived since the last reading -- the capture dropped out, or
+// never started -- so a meter doesn't hold up the last thing it heard.
+func (e *Engine) sourcePeaks() []float64 {
+	if e.capture == nil {
+		return nil
+	}
+	e.meterMu.Lock()
+	defer e.meterMu.Unlock()
+	if !e.meterAt.IsZero() && time.Since(e.meterAt) < meterHold {
+		return e.meter
+	}
+	pk, total := e.capture.Ring().Peaks(int(meterWindow * float64(e.store.SampleRate())))
+	if total == e.meterTotal {
+		pk = nil
+	}
+	e.meter, e.meterAt, e.meterTotal = pk, time.Now(), total
+	return e.meter
 }
 
 // Store is the engine's tape store.

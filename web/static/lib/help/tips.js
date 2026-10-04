@@ -85,7 +85,7 @@ export const TIPS = [
   { control: 'Track name', ids: ['track-name'], tip: 'What’s on this track, for you: chords, bass…' },
   { control: 'Pan', ids: ['track-pan'], tip: 'Where this track sits between left and right' },
   { control: 'Copy (ribbon)', ids: ['ribbon-copy'], tip: 'Put the span you selected on the clipboard, to drop onto a tape' },
-  { control: '● Rec (tape)', ids: ['tape-rec'], tip: 'Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it' },
+  { control: '● Rec (tape)', ids: ['tape-rec'], tip: 'Records from the source it names (chosen under Record from). Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it' },
   { control: '♩ Click', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty' },
   { control: 'Tap (empty tape)', ids: ['tape-tap'], tip: 'Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it' },
   { control: 'Tempo (tape)', ids: ['tape-tempo'], tip: 'Call the loop more bars or fewer: the same length, so nothing is stretched' },
@@ -111,7 +111,7 @@ export const TIPS = [
   { control: 'Mix down', ids: ['mixdown'], tip: 'Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included' },
   { control: 'Export stems', ids: ['export-stems'], tip: 'Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW' },
   { control: 'Bus A / B', ids: ['bus'], tip: 'Which Sidekick channel this track plays through, for its EQ and FX' },
-  { control: 'Source chip', ids: ['source-chip'], tip: 'Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too' },
+  { control: 'Source chip', ids: ['source-chip'], tip: 'Which input ● Rec and a catch take from; its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too' },
   { control: 'Clock → (tape)', ids: ['tape-clock'], tip: 'Who follows the tape\'s MIDI clock (TAPE_CLOCK=lead); ● while they\'re running' },
   { control: 'Lock dot', ids: ['lock-dot'], tip: 'How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet' },
 ];

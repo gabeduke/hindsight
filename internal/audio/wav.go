@@ -27,6 +27,23 @@ type PeakData struct {
 	Data [][]float32 `json:"data"`
 }
 
+// Peak is the largest absolute sample the peaks describe, across every
+// channel, as a fraction of full scale: 0 for digital silence.
+func (pd *PeakData) Peak() float64 {
+	if pd == nil {
+		return 0
+	}
+	var m float64
+	for _, ch := range pd.Data {
+		for _, v := range ch {
+			if a := math.Abs(float64(v)); a > m {
+				m = a
+			}
+		}
+	}
+	return m
+}
+
 // peakBuckets is the horizontal resolution of a stored waveform. Fixed rather
 // than proportional to length so a long take costs no more to draw than a
 // short one.

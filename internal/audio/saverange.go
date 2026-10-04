@@ -247,12 +247,14 @@ func (ww *wavWriter) close() (*PeakData, *pyramidAcc, error) {
 // WriteSpan writes the absolute ring frames [from, to) of the channels in
 // pick to path as a 32-bit WAV, chunk by chunk (Ring.Range), with its
 // whole-file peaks beside it as .peaks.json. It is the tape's one write path:
-// a catch is a span of the ring. On failure the file is removed.
-func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int) error {
+// a catch is a span of the ring. It answers the largest absolute sample
+// written, as a fraction of full scale, so a caller can say when what it
+// caught is silent. On failure the file is removed.
+func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int) (float64, error) {
 	ww, err := createWAV(path, int(to-from), len(pick), sampleRate)
 	if err != nil {
 		os.Remove(path)
-		return err
+		return 0, err
 	}
 	err = r.Range(from, to, pick, ww.write)
 	peaks, _, cerr := ww.close()
@@ -261,12 +263,12 @@ func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int
 	}
 	if err != nil {
 		os.Remove(path)
-		return err
+		return 0, err
 	}
 	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {
 		log.Printf("[!] peaks for %s: %v", path, perr)
 	}
-	return nil
+	return peaks.Peak(), nil
 }
 
 // CopyWAVSpan writes frames [from, to) of a 32-bit WAV's channels in pick to

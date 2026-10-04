@@ -157,7 +157,8 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 	if err != nil {
 		return TapResult{}, err
 	}
-	if err := audio.WriteSpan(r, uint64(start-over), uint64(end+over), src.Pair[:], path, int(sr)); err != nil {
+	peak, err := audio.WriteSpan(r, uint64(start-over), uint64(end+over), src.Pair[:], path, int(sr))
+	if err != nil {
 		return TapResult{}, err
 	}
 	clean := true
@@ -168,7 +169,7 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 			}
 		}
 	}
-	clip := Clip{File: rel, Src: over, Frames: frames, Source: src.Name, Clean: clean}
+	clip := Clip{File: rel, Src: over, Frames: frames, Source: src.Name, Clean: clean, PeakDB: peakDB(peak)}
 	var placed Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if s.Grid != nil || !tp.Empty() {

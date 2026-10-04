@@ -11,6 +11,7 @@ import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled,
 } from './geometry.js';
+import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -213,7 +214,17 @@ function render() {
   rb.setAttribute('aria-pressed', String(!!(rec && rec.state === 'on' && !counting)));
   rb.classList.toggle('armed', !!(rec && rec.state === 'armed'));
   rb.classList.toggle('counting', counting);
-  rb.textContent = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
+  // It names the source it records from, under its label: that's easy to
+  // lose sight of in the row below.
+  if (!rb.firstElementChild) {
+    rb.replaceChildren(Object.assign(document.createElement('span'), { className: 'rec-what' }),
+      Object.assign(document.createElement('span'), { className: 'rec-src' }));
+  }
+  const recWhat = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
+  const recSrc = rec ? rec.source : state.source;
+  rb.firstElementChild.textContent = recWhat;
+  rb.lastElementChild.textContent = recSrc;
+  setIf(rb, 'aria-label', `${recWhat.slice(2)} from ${recSrc}`);
   rb.disabled = !rec && (!live || live.aligned === 'none' || !t.grid || mixing);
   $('click').setAttribute('aria-pressed', String(!!t.click));
   $('click').disabled = !t.grid;
@@ -300,7 +311,9 @@ async function drop(merge = false) {
     const n = c ? c.tracks.filter((tr) => tr && tr.length).length : 0;
     const what = merge ? `Merged ${n} track${n === 1 ? '' : 's'}, ${secs} s, onto track ${state.track}`
       : `Dropped ${secs} s on track ${state.track}${d.tracks > 1 ? ` and the ${d.tracks - 1} after it` : ''}`;
-    toast(what, 'ok', {
+    // A copy from the ribbon carries its level: say if it's silent.
+    const silent = c && c.tracks.some((tr) => tr && tr.some((x) => isSilent(x.peak_db)));
+    toast(silent ? `${what} — some of it is silent: nothing came in where it was copied from` : what, silent ? 'warn' : 'ok', {
       action: { label: 'Undo', run: () => undoRedo(false) },
     });
     poll();
@@ -672,18 +685,69 @@ function panText(p) {
   return `${Math.round(Math.abs(p) * 100)}% ${p < 0 ? 'left' : 'right'}`;
 }
 
+// renderSources draws the source chips, each with its meter: built once,
+// then updated in place on every poll so a meter moves without the chip
+// being replaced under a finger.
 function renderSources() {
   const box = $('sources');
-  box.replaceChildren(...state.sources.map((s) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.dataset.tip = 'source-chip';
-    b.setAttribute('aria-pressed', String(s.name === state.source));
-    b.textContent = `${s.name} ${s.clean ? '●' : '○'}`;
-    b.title = s.clean ? 'clean: no tape in it' : `the tape is in it (bus ${s.leaks.join('+')})`;
-    b.addEventListener('click', () => { state.source = s.name; writePref('tape.source', s.name); renderSources(); });
-    return b;
-  }));
+  const names = state.sources.map((s) => s.name).join(' ');
+  if (box.dataset.names !== names) {
+    box.dataset.names = names;
+    box.replaceChildren(...state.sources.map((s) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'source';
+      b.dataset.tip = 'source-chip';
+      b.dataset.name = s.name;
+      const label = document.createElement('span');
+      label.className = 'source-name';
+      const meter = document.createElement('span');
+      meter.className = 'meter';
+      meter.setAttribute('aria-hidden', 'true');
+      meter.appendChild(document.createElement('i'));
+      b.append(label, meter);
+      b.addEventListener('click', () => {
+        const r = state.live && state.live.record;
+        if (r && r.source !== s.name) {
+          // An armed or running punch keeps the source it began with.
+          toast(`● Rec is ${r.state === 'armed' ? 'armed' : 'recording'} from ${r.source}: end it to record from ${s.name}`, 'warn');
+          return;
+        }
+        state.source = s.name;
+        writePref('tape.source', s.name);
+        render();
+      });
+      return b;
+    }));
+  }
+  // While a punch is armed or running, the lit chip is the one it records.
+  const r = state.live && state.live.record;
+  const lit = r ? r.source : state.source;
+  for (const b of box.children) {
+    const s = state.sources.find((x) => x.name === b.dataset.name);
+    if (!s) continue;
+    setIf(b, 'aria-pressed', String(s.name === lit));
+    const label = `${s.name} ${s.clean ? '●' : '○'}`;
+    if (b.firstChild.textContent !== label) b.firstChild.textContent = label;
+    const bar = b.lastChild.firstChild;
+    const width = `${Math.round(meterFill(s.peak_db) * 100)}%`;
+    if (bar.style.width !== width) bar.style.width = width;
+    bar.classList.toggle('hot', typeof s.peak_db === 'number' && s.peak_db > -1);
+    const lvl = levelText(s.peak_db);
+    const title = (s.clean ? 'clean: no tape in it' : `the tape is in it (bus ${s.leaks.join('+')})`) + (lvl ? ` · ${lvl}` : '');
+    if (b.title !== title) b.title = title;
+  }
+}
+
+function setIf(el, attr, v) {
+  if (el.getAttribute(attr) !== v) el.setAttribute(attr, v);
+}
+
+// caughtToast adds a word to a catch's toast when it came back silent or very
+// quiet, and makes it a warning.
+function caughtToast(msg, clip, opts) {
+  const note = quietNote(clip);
+  toast(note ? `${msg} — ${note}` : msg, note ? 'warn' : 'ok', note ? { ...opts, ms: 12000 } : opts);
 }
 
 function renderPasses() {
@@ -905,7 +969,7 @@ function keptToast(k) {
   const bars = state.tape && state.tape.grid ? k.frames / (state.tape.grid.frames / state.tape.grid.bars) : 0;
   const n = Math.round(bars);
   const what = Math.abs(bars - n) < 0.01 && n > 0 ? `${n} bar${n === 1 ? '' : 's'}` : `${(k.frames / state.tape.sample_rate).toFixed(1)} s`;
-  toast(`Kept ${what} from ${k.clip.source} on track ${k.track}`, 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } });
+  caughtToast(`Kept ${what} from ${k.clip.source} on track ${k.track}`, k.clip, { action: { label: 'Undo', run: () => undoRedo(false) } });
 }
 
 // rec arms the selected track, punches in, or ends the punch and keeps it.
@@ -915,7 +979,8 @@ async function rec() {
     if (!r) {
       const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.track, source: state.source, replace: state.mode === 'replace' } }));
       const armed = b.record.state === 'armed';
-      toast(armed ? `Track ${state.track} armed: press ▶ to count in` : `Recording ${state.source} onto track ${state.track} from the next bar — tap ● again to keep it`, 'ok', {
+      const { track, source } = b.record;
+      toast(armed ? `Track ${track} armed to record ${source}: press ▶ to count in` : `Recording ${source} onto track ${track} from the next bar — tap ● again to keep it`, 'ok', {
         ms: 8000, action: { label: 'Cancel', run: () => api(`/api/tapes/record?${q()}&cancel=1`, { method: 'DELETE' }).then(poll, () => {}) },
       });
     } else {
@@ -937,7 +1002,7 @@ async function tap() {
     if (b.stage === 'first') {
       toast('Now tap where it comes round', 'ok', { action: { label: 'Start over', run: () => api(`/api/tapes/tap?${q()}`, { method: 'DELETE' }).then(poll, () => {}) } });
     } else {
-      toast(`A ${(b.clip.frames / state.tape.sample_rate).toFixed(2)} s loop: ${b.bars} bar${b.bars === 1 ? '' : 's'} at ${b.bpm} BPM`, 'ok', {
+      caughtToast(`A ${(b.clip.frames / state.tape.sample_rate).toFixed(2)} s loop: ${b.bars} bar${b.bars === 1 ? '' : 's'} at ${b.bpm} BPM`, b.clip, {
         ms: 8000, action: { label: 'Undo', run: () => undoRedo(false) },
       });
     }
@@ -989,7 +1054,7 @@ async function doCatch(what) {
   try {
     const b = await change(() => api(`/api/tapes/catch?${q()}`, { method: 'POST', body }));
     const s = (b.clip.frames / state.tape.sample_rate).toFixed(1);
-    toast(`Caught ${s} s from ${state.source} onto track ${state.track}${b.clip.clean ? '' : ' — the tape was in that source too'}`, 'ok', {
+    caughtToast(`Caught ${s} s from ${b.clip.source} onto track ${state.track}${b.clip.clean ? '' : ' — the tape was in that source too'}`, b.clip, {
       action: { label: 'Undo', run: () => undoRedo(false) },
     });
     poll();
@@ -1018,7 +1083,8 @@ function closeSheets() {
 
 function openClip(c) {
   state.clip = c;
-  $('clip-title').textContent = `Clip on track ${state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}`
+  const lvl = typeof c.peak_db === 'number' && c.peak_db < QUIET ? ` · ${levelText(c.peak_db)} when caught` : '';
+  $('clip-title').textContent = `Clip on track ${state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}${lvl}`
     + (c.aligned === 'estimated' ? ' · caught before the lock: nudge it if it’s early or late' : '');
   $('clip-gain').value = String(c.gain_db || 0);
   $('clip-gain-val').textContent = `${c.gain_db || 0} dB`;
