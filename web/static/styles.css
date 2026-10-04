@@ -10,28 +10,103 @@
 @font-face { font-family: 'IBM Plex Mono'; src: url('/fonts/ibm-plex-mono-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
 
 :root {
-  --bg:        #0b1120;
-  --panel:     #131c2e;
-  --panel-2:   #1a2437;
-  --line:      #26324a;
-  --ink:       #eef2f8;
-  --ink-dim:   #8b9ab4;
-  --ink-faint: #5d6b85;
-  --accent:    #34d399;
-  --accent-dk: #0f7f5f;
-  --warn:      #fbbf24;
-  --danger:    #f87171;
-  --flag:      #ffb020;
-  --radius:    14px;
-  --tap:       48px;
-  /* 10px top padding + 24px logo + 10px bottom padding + 1px border. The
-     sticky monitor column parks just below it. */
-  --topbar-h:  calc(45px + env(safe-area-inset-top));
+  /* Solarized Light: a cream faceplate. The dark block below is the same
+     desk after hours; it follows the device, there is no switch. */
+  color-scheme: light dark;
+  --bg:        #fdf6e3;
+  --panel:     #eee8d5;
+  --panel-2:   #e4ddc8;
+  --line:      #d3cab0;
+  --rule:      #c9c0a4;
+  --ink:       #073642;
+  /* base00/base01 are under 4.5:1 on cream, so dim text is a shade darker
+     than Solarized's own, and faint is barely fainter: hierarchy comes from
+     size and face, not from text you cannot read. */
+  --ink-dim:   #52666d;
+  --ink-faint: #566a70;
 
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-          "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-          "Liberation Mono", monospace;
+  /* What a colour means, everywhere: orange is the one main action on a
+     screen, red is recording (and a destructive confirm), green is playing
+     or healthy, yellow is loop, flags and mute. */
+  --accent:      #cb4b16;
+  --accent-edge: #8f3410;
+  --on-accent:   #fdf6e3;
+  --rec:         #dc322f;
+  --danger:      #dc322f;
+  --on-danger:   #fdf6e3;
+  --go:          #859900;
+  --warn:        #b58900;
+  --flag:        #b58900;
+  --on-flag:     #002b36;
+
+  /* Audio: the waveform, what is not in play, and a selection over it. */
+  --wave:      #268bd2;
+  --wave-dim:  #a3b0ae;
+  --sel:       #268bd2;
+
+  /* Hardware: recessed wells, tape-deck keys, LEDs, amber LCD readouts. */
+  --well:      #e9e2cd;
+  --well-line: #d3cab0;
+  --key:       #fbf6e8;
+  --key-edge:  #bdb397;
+  --key-down:  #e6dfc9;
+  --key-bed:   #ddd5bd;
+  --led-off:   #cfc6ab;
+  --lcd:       #002b36;
+  --lcd-ink:   #b58900;
+  --label:     #fffcf2;
+  --link:      #1f6fa8;
+  --shadow:    rgba(7, 54, 66, .18);
+  --scrim:     rgba(7, 54, 66, .45);
+
+  /* Tracks 1-4 on the tape, and MIDI lanes. */
+  --t1: #268bd2;
+  --t2: #2aa198;
+  --t3: #b58900;
+  --t4: #d33682;
+
+  --radius:    10px;
+  --tap:       48px;
+  /* 10px top padding + 24px logo + 10px bottom padding + a 3px double rule.
+     The sticky monitor column parks just below it. */
+  --topbar-h:  calc(47px + env(safe-area-inset-top));
+
+  --font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+          Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+          Consolas, "Liberation Mono", monospace;
+  /* Silkscreen: key legends, section labels, the brand. Always caps. */
+  --label-font: "Barlow Condensed", "Arial Narrow", "Roboto Condensed",
+          var(--font);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #002b36;
+    --panel:     #073642;
+    --panel-2:   #0a3d49;
+    --line:      #00222b;
+    --rule:      #2c5964;
+    --ink:       #eee8d5;
+    --ink-dim:   #93a1a1;
+    --ink-faint: #8c9b9c;
+    --accent-edge: #7a2a0c;
+    --wave:      #2aa198;
+    --wave-dim:  #2c5964;
+    --sel:       #2aa198;
+    --well:      #00212b;
+    --well-line: #0e3f4b;
+    --key:       #0b4250;
+    --key-edge:  #001c24;
+    --key-down:  #06323d;
+    --key-bed:   #00212b;
+    --led-off:   #1b4f5b;
+    --lcd:       #00212b;
+    --label:     #0b4250;
+    --link:      #3fb5ab;
+    --shadow:    rgba(0, 0, 0, .45);
+    --scrim:     rgba(0, 16, 20, .7);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -66,7 +141,7 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
-  background: rgba(11, 17, 32, 0.86);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
 }
@@ -91,10 +166,10 @@ body {
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--ink-faint); flex: none;
 }
-.dot.ok    { background: var(--accent); box-shadow: 0 0 0 3px rgba(52,211,153,.16); animation: breathe 2.4s ease-in-out infinite; }
-.dot.bad   { background: var(--danger); box-shadow: 0 0 0 3px rgba(248,113,113,.16); }
+.dot.ok    { background: var(--go); box-shadow: 0 0 0 3px color-mix(in srgb, var(--go) 22%, transparent); animation: breathe 2.4s ease-in-out infinite; }
+.dot.bad   { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
 /* Waiting for the interface: not an error, just not there yet. */
-.dot.wait  { background: var(--warn); box-shadow: 0 0 0 3px rgba(251,191,36,.16); }
+.dot.wait  { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 20%, transparent); }
 @keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
 @media (prefers-reduced-motion: reduce) { .dot.ok { animation: none } }
 
@@ -140,7 +215,7 @@ main {
 .viz-wrap {
   position: relative;
   height: 132px;
-  background: #060b16;
+  background: var(--well);
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
@@ -151,30 +226,30 @@ main {
 .rb-layer { position: absolute; inset: 0; pointer-events: none; }
 
 .rb-wave { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.rb-wave path { fill: rgba(52, 211, 153, .72); }
+.rb-wave path { fill: var(--wave); }
 
 /* Time the buffer has not reached yet. Never drawn as a flat line: that reads
    as silence, and the two are completely different facts. */
 .rb-hatch {
   position: absolute; top: 0; bottom: 0; left: 0; width: 0;
   background: repeating-linear-gradient(
-    45deg, rgba(38, 50, 74, .55) 0 5px, rgba(6, 11, 22, 0) 5px 10px);
+    45deg, color-mix(in srgb, var(--rule) 55%, transparent) 0 5px, transparent 5px 10px);
 }
 
-.rb-band { position: absolute; top: 0; bottom: 0; background: rgba(52, 211, 153, .13); }
+.rb-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 /* A span held and dragged on the ribbon. Hold-to-select must not start the
    phone's text selection or callout, and a vertical swipe still scrolls. */
 .viz-wrap { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .rb-sel-band {
   position: absolute; top: 0; bottom: 0;
-  background: rgba(52, 211, 153, .22);
-  border-left: 2px solid var(--accent); border-right: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--sel) 22%, transparent);
+  border-left: 2px solid var(--sel); border-right: 2px solid var(--sel);
 }
 .rb-sel {
   display: flex; align-items: center; gap: 8px;
   margin-top: -6px; padding: 8px 10px;
-  background: var(--panel); border: 1px solid var(--accent-dk); border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--sel); border-radius: 10px;
 }
 .rb-sel[hidden] { display: none; }
 .rb-sel-text { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
@@ -182,8 +257,8 @@ main {
 .rb-sel .icon-btn { flex: none; min-height: var(--tap); }
 .rb-flag-actions { flex-direction: column; align-items: stretch; }
 
-.rb-mark { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(38, 50, 74, .9); }
-.rb-mark.on { background: rgba(52, 211, 153, .55); }
+.rb-mark { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--rule) 90%, transparent); }
+.rb-mark.on { background: color-mix(in srgb, var(--accent) 70%, transparent); }
 
 /* A live flag: a point, not a range, so it is a positioned tick rather than a
    library region. The flag glyph on top makes it findable at a glance among
@@ -197,7 +272,7 @@ main {
   width: 2px;
   margin-left: -1px;
   background: var(--flag);
-  box-shadow: 0 0 4px rgba(255, 176, 32, 0.6);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--flag) 60%, transparent);
   pointer-events: auto;
   cursor: pointer;
 }
@@ -224,7 +299,7 @@ main {
 
 .rb-scrim {
   position: absolute; top: 0; left: 0; right: 0; height: 22px;
-  background: linear-gradient(to bottom, rgba(6, 11, 22, .92), rgba(6, 11, 22, 0));
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--well) 92%, transparent), transparent);
 }
 
 .rb-label {
@@ -233,9 +308,9 @@ main {
   color: var(--ink-faint); white-space: nowrap;
 }
 .rb-label.on { color: var(--accent); }
-.rb-now-label { right: 7px; left: auto; color: var(--accent); }
+.rb-now-label { right: 7px; left: auto; color: var(--rec); }
 
-.rb-now { position: absolute; top: 0; bottom: 0; right: 0; width: 2px; background: var(--accent); }
+.rb-now { position: absolute; top: 0; bottom: 0; right: 0; width: 2px; background: var(--rec); }
 
 .rb-readout {
   position: absolute; left: 9px; bottom: 6px; margin: 0;
@@ -250,7 +325,7 @@ main {
   display: grid; place-items: center;
   font-family: var(--mono); font-size: 12px; letter-spacing: .12em;
   text-transform: uppercase; color: var(--danger);
-  background: rgba(6, 11, 22, .72);
+  background: color-mix(in srgb, var(--well) 80%, transparent);
 }
 
 /* meters */
@@ -272,7 +347,7 @@ main {
   position: absolute; inset: 0 auto 0 0;
   width: 0%;
   border-radius: 5px;
-  background: linear-gradient(90deg, var(--accent-dk), var(--accent) 72%, var(--warn) 92%, var(--danger));
+  background: linear-gradient(90deg, var(--go), var(--go) 72%, var(--warn) 92%, var(--danger));
   transition: width 60ms linear;
 }
 .bar .peak {
@@ -349,7 +424,7 @@ main {
   flex-shrink: 0;
   font-size: 14px;
   line-height: 1;
-  color: var(--accent);
+  color: var(--go);
   opacity: 0.85;
 }
 
@@ -394,7 +469,7 @@ main {
   text-overflow: ellipsis;
   padding: 0 2px;
 }
-.seg button[aria-pressed="true"] { background: var(--panel); color: var(--accent); }
+.seg button[aria-pressed="true"] { background: var(--key-down); color: var(--ink); }
 
 .mark-btn {
   flex: none;
@@ -410,7 +485,7 @@ main {
   cursor: pointer;
   transition: background 140ms, opacity 140ms;
 }
-.mark-btn:active { background: rgba(255, 176, 32, 0.16); }
+.mark-btn:active { background: color-mix(in srgb, var(--flag) 16%, transparent); }
 .mark-btn[disabled] {
   border-color: var(--line);
   color: var(--ink-faint);
@@ -424,7 +499,7 @@ main {
   border: 0;
   border-radius: 12px;
   background: var(--accent);
-  color: #062015;
+  color: var(--on-accent);
   font-family: var(--font);
   font-size: 17px;
   font-weight: 750;
@@ -515,7 +590,7 @@ main {
 .phone-bar {
   height: 100%;
   width: 0%;
-  background: var(--accent);
+  background: var(--go);
   transition: width 60ms linear;
 }
 .phone-bar.clip { background: var(--danger); }
@@ -532,7 +607,7 @@ main {
   font-variant-numeric: tabular-nums;
 }
 .phone-state { color: var(--ink-dim); font-size: 13px; }
-.icon-btn.phone-rec { background: var(--danger); color: #2a0808; border-color: transparent; font-weight: 700; }
+.icon-btn.phone-rec { background: var(--danger); color: var(--on-danger); border-color: transparent; font-weight: 700; }
 .icon-btn.phone-rec.recording { background: var(--panel-2); color: var(--danger); border-color: var(--danger); }
 /* The tape page's overdub sheet borrows the phone recorder's pieces. */
 .away-inner p#away-what { margin: 0 0 12px; }
@@ -571,10 +646,10 @@ body.selecting .take-check {
   width: 22px; height: 22px; border-radius: 50%;
   border: 2px solid var(--ink-faint); background: var(--panel);
 }
-body.selecting .take.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(52,211,153,.25); }
+body.selecting .take.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
 body.selecting .take.selected .take-check { border-color: var(--accent); background: var(--accent); }
 body.selecting .take.selected .take-check::after {
-  content: '✓'; display: block; text-align: center; line-height: 18px; font-size: 13px; font-weight: 800; color: #062015;
+  content: '✓'; display: block; text-align: center; line-height: 18px; font-size: 13px; font-weight: 800; color: var(--on-accent);
 }
 body.selecting .take-actions, body.selecting .take-head > *:not(.star):not(.take-name):not(.take-info) { opacity: .5; }
 .select-bar {
@@ -582,7 +657,7 @@ body.selecting .take-actions, body.selecting .take-head > *:not(.star):not(.take
   display: flex; align-items: center; gap: 8px;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   background: var(--panel-2); border-top: 1px solid var(--line);
-  box-shadow: 0 -10px 30px rgba(0,0,0,.4);
+  box-shadow: 0 -10px 30px var(--shadow);
 }
 .select-bar[hidden] { display: none; }
 #select-count { flex: 1 1 0; min-width: 0; font-size: 13px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -607,7 +682,7 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .trash-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
 .trash-keep { font-size: 12px; color: var(--ink-faint); }
 @keyframes land {
-  from { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,211,153,.14); }
+  from { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
   to   { border-color: var(--line);   box-shadow: none; }
 }
 
@@ -762,7 +837,7 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   padding: 2px 5px;
   border-radius: 4px;
   background: var(--flag);
-  color: #000;
+  color: var(--on-flag);
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -811,7 +886,7 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   transition: background 140ms, color 140ms, border-color 140ms;
 }
 .icon-btn:active { background: var(--line); }
-.icon-btn.play { min-width: 74px; color: var(--accent); border-color: var(--accent-dk); }
+.icon-btn.play { min-width: 74px; color: var(--ink); }
 .icon-btn.danger { color: var(--danger); margin-left: auto; }
 .icon-btn[disabled] { opacity: .45; cursor: default; }
 
@@ -837,12 +912,12 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .toast {
   background: var(--panel-2);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--go);
   border-radius: 10px;
   padding: 11px 13px;
   font-size: 13.5px;
   color: var(--ink);
-  box-shadow: 0 10px 30px rgba(0,0,0,.45);
+  box-shadow: 0 10px 30px var(--shadow);
   animation: rise 200ms ease;
   word-break: break-word;
 }
@@ -854,7 +929,7 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .toast-text { flex: 1; min-width: 0; }
 .toast-action {
   flex: none; min-height: 36px; padding: 0 12px; border-radius: 8px;
-  background: none; border: 1px solid var(--accent-dk); color: var(--accent);
+  background: none; border: 1px solid var(--key-edge); color: var(--link);
   font: 600 13px var(--font); cursor: pointer;
 }
 .toast-action:disabled { opacity: .5; }
@@ -869,7 +944,7 @@ dialog.sheet {
   width: min(420px, calc(100vw - 24px));
   color: var(--ink);
 }
-dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
+dialog.sheet::backdrop { background: var(--scrim); }
 .sheet-inner {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -883,7 +958,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 }
 .sheet-actions { display: flex; gap: 8px; }
 .sheet-actions button { flex: 1; min-height: var(--tap); }
-.sheet-actions .confirm { background: var(--danger); color: #2a0808; border-color: transparent; }
+.sheet-actions .confirm { background: var(--danger); color: var(--on-danger); border-color: transparent; }
 
 /* ---------- wider screens ---------- */
 
@@ -998,7 +1073,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 }
 .take-title-name.unlabelled { color: var(--ink-dim); font-family: var(--mono); font-size: 13px; }
 .take-title-input, .take-sub-input {
-  min-width: 0; flex: 1; border: 1px solid var(--accent-dk); border-radius: 6px;
+  min-width: 0; flex: 1; border: 1px solid var(--accent); border-radius: 6px;
   background: var(--panel); color: var(--ink); font: 600 15px var(--font); padding: 2px 6px;
 }
 .take-sub-input { flex: none; width: 6em; font-size: 12px; font-weight: 500; }
@@ -1007,7 +1082,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 .take-sub-bpm { appearance: none; background: none; border: 0; padding: 0; color: var(--ink-dim); font: 12px var(--font); cursor: pointer; }
 .take-sub-bpm.unset { opacity: .7; }
 .take-sub-len { color: var(--ink-faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.take-sub-src { color: var(--accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.take-sub-src { color: var(--link); text-decoration: none; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .take-top .icon-btn { min-height: 36px; padding: 0 8px; flex: none; }
 .take-top .step-btn { min-width: 30px; padding: 0 4px; border-color: transparent; background: none; font-size: 15px; }
 .take-top .help-btn, .take-top .menu-btn, .take-top .undo-btn { min-width: 34px; padding: 0 6px; }
@@ -1036,7 +1111,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
   position: absolute; right: 8px; top: 100%; z-index: 40; min-width: 200px;
   display: flex; flex-direction: column; padding: 6px;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(0,0,0,.5);
+  box-shadow: 0 12px 30px var(--shadow);
 }
 .menu-up { top: auto; bottom: calc(100% + 6px); }
 .menu > button, .menu > a {
@@ -1077,7 +1152,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 .tb-row { display: flex; align-items: center; gap: 6px; position: relative; }
 .tb-row.transport .icon-btn { flex: 1 1 0; min-width: 0; padding: 0 4px; white-space: nowrap; }
 .tb-row.transport .tb-play { flex: 1.3 1 0; font-size: 16px; }
-.tb-row.transport .tb-play.playing { background: var(--accent); color: #062015; border-color: var(--accent); }
+.tb-row.transport .tb-play.playing { color: var(--go); }
 .tb-row.transport .tb-loop { flex: 1.6 1 0; }
 .tb-row.transport .tb-flag { color: var(--flag); }
 .tb-row.transport .tb-point.pending { border-color: var(--accent); color: var(--accent); }
@@ -1101,33 +1176,33 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 .speed-seg { margin-left: auto; }
 .speed-seg button { min-height: 32px; min-width: 40px; }
 .speed-seg button:disabled { opacity: .35; cursor: default; }
-#snap[aria-pressed="true"] { border-color: var(--accent-dk); color: var(--accent); }
+#snap[aria-pressed="true"] { color: var(--ink); }
 
 /* ---------- help ---------- */
 /* Help mode: tapping a control shows its tip instead of using it. */
-body.help-mode [data-tip] { outline: 1px dashed rgba(52, 211, 153, .55); outline-offset: 2px; }
-body.help-mode .help-btn { background: var(--accent); color: #062015; }
+body.help-mode [data-tip] { outline: 1px dashed color-mix(in srgb, var(--accent) 65%, transparent); outline-offset: 2px; }
+body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); border-color: var(--accent-edge); }
 .tip-pop {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 70;
   width: min(420px, calc(100vw - 24px));
   display: flex; flex-direction: column; gap: 4px;
   padding: 12px 14px; border-radius: 12px;
-  background: var(--panel-2); border: 1px solid var(--accent-dk);
-  box-shadow: 0 10px 30px rgba(0,0,0,.45); font-size: 13.5px;
+  background: var(--panel-2); border: 1px solid var(--rule);
+  box-shadow: 0 10px 30px var(--shadow); font-size: 13.5px;
 }
-.tip-pop b { font-size: 13px; color: var(--accent); }
-.tip-pop a { color: var(--accent); font-size: 12.5px; }
+.tip-pop b { font-size: 13px; color: var(--ink); }
+.tip-pop a { color: var(--link); font-size: 12.5px; }
 /* First-run hints: once per device per page. */
 .hints {
-  border: 1px solid var(--accent-dk); border-radius: 12px; background: var(--panel);
+  border: 1px solid var(--rule); border-radius: 12px; background: var(--panel);
   padding: 10px 12px; font-size: 13px;
 }
-.hints b { color: var(--accent); }
+.hints b { color: var(--ink); }
 .hints ul { margin: 6px 0 8px; padding-left: 18px; color: var(--ink-dim); }
 .hints li { margin: 3px 0; }
 .hints-actions { display: flex; align-items: center; justify-content: space-between; }
-.hints-actions a { color: var(--accent); font-size: 13px; }
+.hints-actions a { color: var(--link); font-size: 13px; }
 
 /* ---------- the guide page ---------- */
 .guide-page .topbar { display: flex; align-items: center; gap: 8px; }
@@ -1135,7 +1210,7 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
 .guide { max-width: 760px; margin: 0 auto; padding: 8px 16px 64px; line-height: 1.55; font-size: 15px; }
 .guide h1 { font-size: 24px; } .guide h2 { font-size: 19px; margin-top: 32px; } .guide h3 { font-size: 16px; }
 .guide h1, .guide h2, .guide h3 { scroll-margin-top: calc(var(--topbar-h) + 8px); }
-.guide a { color: var(--accent); }
+.guide a { color: var(--link); }
 .guide code { font-family: var(--mono); font-size: .9em; background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
 .guide pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto; }
 .guide pre code { background: none; padding: 0; }
@@ -1145,7 +1220,7 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
 .guide th { background: var(--panel-2); }
 .guide blockquote { margin: 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--ink-dim); }
 
-.linkish { appearance: none; background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0; }
+.linkish { appearance: none; background: none; border: none; color: var(--link); font: inherit; cursor: pointer; padding: 0; }
 .mono { font-family: var(--mono); }
 .nudge {
   appearance: none; min-width: var(--tap); min-height: 40px;
@@ -1153,8 +1228,8 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
   background: var(--panel); color: var(--ink); font-size: 16px; cursor: pointer;
 }
 .nudge:disabled { opacity: 0.4; }
-.icon-btn.primary { background: var(--accent-dk); color: var(--ink); border-color: var(--accent-dk); }
-.icon-btn[aria-pressed="true"] { background: var(--accent); color: #000; }
+.icon-btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent-edge); }
+.icon-btn[aria-pressed="true"] { background: var(--key-down); color: var(--ink); }
 /* Scoped to the id, not to .sheet: the takes page's delete-confirm is a
    <dialog class="sheet">, and a bare .sheet { display: flex } here would
    outrank dialog:not([open]) and pin that dialog open. */
@@ -1285,18 +1360,18 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
 .tape-toolbar .tb-row.transport .tb-rec { flex: 1.3 1 0; flex-direction: column; gap: 0; line-height: 1.15; overflow: hidden; }
 .tape-toolbar .tb-row.transport .tb-rec .rec-what { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .tape-toolbar .tb-row.transport .tb-rec .rec-src { font: 600 11px var(--mono); opacity: .8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] { color: #fff; background: var(--danger); border-color: var(--danger); }
+.tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] { color: var(--on-danger); background: var(--rec); border-color: var(--rec); }
 .tape-toolbar .tb-row.transport .tb-rec.armed { color: var(--danger); border-color: var(--danger); animation: breathe 1.2s ease-in-out infinite; }
 .tape-toolbar .tb-row.transport .tb-rec.counting { animation: breathe .5s ease-in-out infinite; }
 .tape-toolbar .tb-row.transport .tb-click { flex: 0 0 48px; font-size: 18px; }
-.tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { color: var(--ink); }
 .tape-where { min-height: 18px; }
 .tape-ruler-row { display: grid; grid-template-columns: 112px 1fr; gap: 6px; }
 .tape-ruler-gap { display: flex; align-items: center; justify-content: flex-end; }
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
 .tape-ruler { width: 100%; height: 26px; display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; touch-action: pan-y; cursor: pointer; }
 .tape-toolbar .tb-row.clipboard .clip-chip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; }
-.tape-toolbar .tb-row.clipboard .clip-chip.playing { color: var(--accent); border-color: var(--accent); }
+.tape-toolbar .tb-row.clipboard .clip-chip.playing { color: var(--go); }
 .tape-toolbar .tb-row.edit .icon-btn { flex: 1 1 0; min-width: 0; padding: 0 6px; white-space: nowrap; }
 .tape-toolbar .tb-row.edit .seg { flex: none; }
 .tape-toolbar .tb-row.edit .seg button { white-space: nowrap; }
@@ -1304,7 +1379,7 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
 .tape-where .readout { font-size: 13px; color: var(--ink-dim); }
 .tape-where { justify-content: space-between; flex-wrap: wrap; }
 .tape-where .clock-out { font-size: 12px; color: var(--ink-faint); }
-.tape-where .clock-out.none { color: var(--warn, #fbbf24); }
+.tape-where .clock-out.none { color: var(--warn); }
 .tape-tap { width: 100%; min-height: 56px; font-size: 16px; margin: 4px 0 10px; }
 .tape-tap.second { animation: breathe 1.2s ease-in-out infinite; }
 .tape-top .icon-btn { min-height: 36px; min-width: 34px; padding: 0 6px; flex: none; }
@@ -1318,24 +1393,24 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
 .tape-empty p { margin: 0 0 8px; }
 .tape-tempo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .tape-tempo-row input { width: 5.5em; min-height: 36px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font: 14px var(--mono); }
-.tape-overview { width: 100%; height: 28px; display: block; background: #060b16; border: 1px solid var(--line); border-radius: 8px; }
+.tape-overview { width: 100%; height: 28px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; }
 .tape-lanes { display: flex; flex-direction: column; gap: 6px; }
 .tape-track { display: grid; grid-template-columns: 112px 1fr; gap: 6px; align-items: stretch; }
-.tape-track.selected .tt-head { border-color: var(--accent); }
+.tape-track.selected .tt-head { border-color: var(--rec); box-shadow: inset 0 0 0 1px var(--rec); }
 .tt-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
   padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
 }
 .tt-name { appearance: none; background: none; border: 0; color: var(--ink); font: 600 13px var(--font); min-height: 28px; padding: 0 4px; cursor: pointer; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .tt-head .chip { min-height: 28px; padding: 0 8px; }
-.tt-head .chip[aria-pressed="true"] { color: #062015; background: var(--warn); border-color: var(--warn); }
-.tt-head .tt-solo[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
+.tt-head .chip[aria-pressed="true"] { color: var(--on-flag); background: var(--warn); border-color: var(--warn); }
+.tt-head .tt-solo[aria-pressed="true"] { color: var(--on-flag); background: var(--go); border-color: var(--go); }
 .tt-gain { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); }
-.tt-lane { width: 100%; height: 64px; display: block; background: #060b16; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.tt-lane { width: 100%; height: 64px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .tt-lane.sliding { cursor: grabbing; }
 .tape-toolbar .tb-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tape-toolbar .tb-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
-.tape-toolbar .seg button[aria-pressed="true"] { color: var(--accent); }
+.tape-toolbar .seg button[aria-pressed="true"] { color: var(--ink); }
 /* A source chip: its name, with a meter along the bottom. */
 .tape-toolbar .seg button.source { position: relative; padding-bottom: 6px; }
 .tape-toolbar .seg button.source .meter {
@@ -1343,7 +1418,7 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
   border-radius: 2px; background: var(--line); overflow: hidden;
 }
 .tape-toolbar .seg button.source .meter i {
-  display: block; height: 100%; width: 0; background: var(--accent);
+  display: block; height: 100%; width: 0; background: var(--go);
   transition: width 120ms linear;
 }
 .tape-toolbar .seg button.source .meter i.hot { background: var(--danger); }
@@ -1351,7 +1426,7 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
 .passes-row .pass { min-height: var(--tap); min-width: 48px; border-radius: 10px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); font: 600 14px var(--mono); }
 .passes-row .muted { font-size: 12px; color: var(--ink-faint); }
 .tape-list { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
-.tape-list button.on { color: var(--accent); }
+.tape-list button.on { color: var(--ink); font-weight: 700; }
 .clip-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; font-size: 13px; color: var(--ink-dim); }
 .clip-field input[type=range] { accent-color: var(--accent); }
 @media (max-width: 480px) {
