@@ -111,6 +111,11 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagPost).Methods(http.MethodPost)
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagPatch).Methods(http.MethodPatch)
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/api/take/undo", a.handleTakeUndo).Methods(http.MethodPost)
+	r.HandleFunc("/api/trash", a.handleTrashList).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/trash/restore", a.handleTrashRestore).Methods(http.MethodPost)
+	r.HandleFunc("/api/trash", a.handleTrashDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/api/export", a.handleExport).Methods(http.MethodGet)
 	r.HandleFunc("/api/cut", a.handleCut).Methods(http.MethodPost)
 	r.HandleFunc("/api/flag", a.handleFlagPost).Methods(http.MethodPost)
 	r.HandleFunc("/api/flag", a.handleFlagDelete).Methods(http.MethodDelete)
@@ -280,8 +285,14 @@ func (a *API) handleDelete(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	audio.RemoveTake(a.cfg.OutputDir, name)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted", "name": name})
+	// To the trash, not gone: GET /api/trash lists it, and restore brings it
+	// back.
+	if err := audio.TrashTake(a.cfg.OutputDir, name, audio.TrashDeleted, time.Now()); err != nil {
+		log.Printf("trash %s: %v", name, err)
+		writeErr(w, http.StatusInternalServerError, "could not move the take to the trash")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "trashed", "name": name})
 }
 
 // maxTakeFlags bounds what a single take may carry.
@@ -563,6 +574,11 @@ func (a *API) safeTakeName(raw string) (string, error) {
 	if filepath.Ext(name) != ".wav" {
 		return "", fmt.Errorf("only .wav takes are addressable")
 	}
+	// A take's name never starts with a dot: those are a save in progress
+	// (.jam_….wav.part) or the trash, and "..wav" would name the trash itself.
+	if strings.HasPrefix(name, ".") {
+		return "", fmt.Errorf("invalid file name")
+	}
 	return name, nil
 }
 
@@ -636,7 +652,7 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "need 0 <= start_frame < end_frame")
 		return
 	}
-	if free, _ := audio.FreeGB(a.cfg.OutputDir); free < a.cfg.MinFreeGB {
+	if free := audio.EnsureFree(a.cfg.OutputDir, a.cfg.MinFreeGB); free < a.cfg.MinFreeGB {
 		writeErr(w, http.StatusInsufficientStorage,
 			fmt.Sprintf("low disk: %.2f GB free, need %.2f GB", free, a.cfg.MinFreeGB))
 		return
@@ -884,6 +900,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m := audio.ReadMeta(wav)
+	before := m // every change below replaces a field; none mutates in place
 
 	if body.Label != nil {
 		m.Label = sanitizeLabel(*body.Label)
@@ -1038,6 +1055,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		writeMetaErr(w, name, err)
 		return
 	}
+	undo := recordUndo(wav, before, m)
 
 	// The sidecar is the source of truth and is already written; a cue failure
 	// is reported -- on the response, not just the log, since the caller has no
@@ -1067,7 +1085,8 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Downbeat  *int64            `json:"downbeat_frame"`
 		LaneKinds map[string]string `json:"lane_kinds"`
 		CueError  string            `json:"cue_error,omitempty"`
-	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr})
+		Undo      audio.UndoInfo    `json:"undo"`
+	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr, Undo: undo})
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control

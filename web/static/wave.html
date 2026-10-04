@@ -37,6 +37,7 @@
   <!-- Phone only: opens the rising-notes pane fullscreen. Revealed once
        /api/midi has returned tracks; on the bench the pane is always there. -->
   <button id="notes-open" class="icon-btn notes-btn" type="button" hidden aria-label="Notes" data-tip="notes-open"><span class="wide-only">Notes</span><span class="narrow-only">♪</span></button>
+  <button id="take-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" data-tip="undo">↶</button>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   <button id="menu-btn" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More options" data-tip="menu">⋯</button>
   <div id="take-menu" class="menu" role="menu" hidden>
@@ -128,17 +129,6 @@
   <button id="flag-delete" class="icon-btn danger" type="button" data-tip="flag-delete">Delete</button>
   <button id="flag-done" class="icon-btn" type="button">Done</button>
 </div>
-
-<dialog class="sheet" id="confirm">
-  <form method="dialog" class="sheet-inner">
-    <h3>Delete this take?</h3>
-    <p id="confirm-name"></p>
-    <div class="sheet-actions">
-      <button class="icon-btn" value="cancel">Cancel</button>
-      <button class="icon-btn confirm" value="delete">Delete</button>
-    </div>
-  </form>
-</dialog>
 
 <div id="toasts" aria-live="polite"></div>
 <script type="module" src="/lib/wave/page.js"></script>

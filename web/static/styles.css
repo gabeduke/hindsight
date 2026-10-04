@@ -520,6 +520,56 @@ main {
   padding: 11px 12px;
 }
 .take.fresh { animation: land 1.1s ease; }
+
+/* ---------- several takes at once ---------- */
+/* A long press on a row starts select mode, so a row's text must not start a
+   text selection or the phone's callout instead. */
+.take { position: relative; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.take input { -webkit-user-select: text; user-select: text; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.panel-head h2 { margin: 0; }
+.take-check { display: none; }
+body.selecting .take { cursor: pointer; }
+body.selecting .take-check {
+  display: block; position: absolute; top: 10px; right: 10px; z-index: 2;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--ink-faint); background: var(--panel);
+}
+body.selecting .take.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(52,211,153,.25); }
+body.selecting .take.selected .take-check { border-color: var(--accent); background: var(--accent); }
+body.selecting .take.selected .take-check::after {
+  content: '✓'; display: block; text-align: center; line-height: 18px; font-size: 13px; font-weight: 800; color: #062015;
+}
+body.selecting .take-actions, body.selecting .take-head > *:not(.star):not(.take-name):not(.take-info) { opacity: .5; }
+.select-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 55;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--panel-2); border-top: 1px solid var(--line);
+  box-shadow: 0 -10px 30px rgba(0,0,0,.4);
+}
+.select-bar[hidden] { display: none; }
+#select-count { flex: 1 1 0; min-width: 0; font-size: 13px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sel-star { min-width: var(--tap); font-size: 17px; }
+.select-bar .icon-btn { min-height: var(--tap); }
+body.selecting { padding-bottom: 76px; }
+body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
+
+/* ---------- recently deleted ---------- */
+.trash summary { list-style: none; cursor: pointer; }
+.trash summary::-webkit-details-marker { display: none; }
+.trash summary h2 { margin: 0; }
+.trash summary h2::before { content: '▸ '; }
+.trash[open] summary h2::before { content: '▾ '; }
+.trash-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.trash-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+.trash-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.trash-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trash-name.unlabelled { color: var(--ink-dim); font-family: var(--mono); font-size: 13px; }
+.trash-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.trash-row .icon-btn { flex: none; }
+.trash-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.trash-keep { font-size: 12px; color: var(--ink-faint); }
 @keyframes land {
   from { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,211,153,.14); }
   to   { border-color: var(--line);   box-shadow: none; }
@@ -763,6 +813,15 @@ main {
 /* #toasts is pointer-events: none so it never swallows taps on the page
    behind it; a toast's own content (the export link) still needs them. */
 .toast { pointer-events: auto; }
+/* A toast with an action: "Flag deleted · Undo". */
+.toast:has(.toast-action) { display: flex; align-items: center; gap: 12px; padding-right: 6px; }
+.toast-text { flex: 1; min-width: 0; }
+.toast-action {
+  flex: none; min-height: 36px; padding: 0 12px; border-radius: 8px;
+  background: none; border: 1px solid var(--accent-dk); color: var(--accent);
+  font: 600 13px var(--font); cursor: pointer;
+}
+.toast-action:disabled { opacity: .5; }
 .toast.bad  { border-left-color: var(--danger); }
 .toast.warn { border-left-color: var(--warn); }
 @keyframes rise { from { opacity: 0; transform: translateY(10px) } }
@@ -915,7 +974,9 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 .take-sub-src { color: var(--accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .take-top .icon-btn { min-height: 36px; padding: 0 8px; flex: none; }
 .take-top .step-btn { min-width: 30px; padding: 0 4px; border-color: transparent; background: none; font-size: 15px; }
-.take-top .help-btn, .take-top .menu-btn { min-width: 34px; padding: 0 6px; }
+.take-top .help-btn, .take-top .menu-btn, .take-top .undo-btn { min-width: 34px; padding: 0 6px; }
+.take-top .undo-btn { font-size: 18px; }
+.take-top .undo-btn:disabled { opacity: .35; }
 .narrow-only { display: none; }
 @media (max-width: 440px) {
   .narrow-only { display: inline; }
@@ -923,9 +984,9 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
   .take-top { gap: 4px; }
   .take-top .notes-btn { min-width: 34px; padding: 0 6px; }
 }
-/* The smallest phones: the buttons keep the top row and the name gets a row
-   of its own, rather than being squeezed to its first letter. */
-@media (max-width: 359.98px) {
+/* Phones: the buttons keep the top row and the name gets a row of its own,
+   rather than being squeezed to its first few letters by ◂ ▸ ♪ ↶ ? ⋯. */
+@media (max-width: 480px) {
   .take-top { flex-wrap: wrap; row-gap: 0; }
   .take-top .take-title { order: 10; flex-basis: 100%; padding: 0 6px 6px; }
   .take-top #take-next { margin-right: auto; }

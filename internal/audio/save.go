@@ -173,7 +173,9 @@ func FreeGB(dir string) (float64, float64) {
 func (s *Saver) Save(seconds float64) (string, error) {
 	cfg := s.cap.cfg
 
-	freeGB, _ := s.FreeGB()
+	// The trash goes first, oldest deletion first: it must never be why a
+	// capture is refused.
+	freeGB := EnsureFree(cfg.OutputDir, cfg.MinFreeGB)
 	if freeGB < cfg.MinFreeGB {
 		return "", fmt.Errorf("%w: %.2f GB free, need %.2f GB", ErrLowDisk, freeGB, cfg.MinFreeGB)
 	}
@@ -411,13 +413,13 @@ func SweepPartials(dir string) {
 	}
 }
 
-// internalSidecarStem returns the take stem of a .meta.json, .peaks.json or
-// .peaks.bin name.
+// internalSidecarStem returns the take stem of a .meta.json, .peaks.json,
+// .peaks.bin or .history.json name.
 func internalSidecarStem(name string) (string, bool) {
 	if strings.HasPrefix(name, ".") {
 		return "", false
 	}
-	for _, suf := range []string{".meta.json", ".peaks.json", ".peaks.bin"} {
+	for _, suf := range []string{".meta.json", ".peaks.json", ".peaks.bin", ".history.json"} {
 		if strings.HasSuffix(name, suf) {
 			return strings.TrimSuffix(name, suf), true
 		}
@@ -610,9 +612,10 @@ func BackfillPreviews(cfg *config.Config) {
 // it itself; anything else that makes a take -- a cut, for now -- calls this.
 func (s *Saver) Prune(keep ...string) { s.prune(keep...) }
 
-// prune enforces MAX_SAVES by deleting the oldest takes and their sidecars.
-// A take in keep is skipped, which can leave the list one or two over until
-// the next save prunes again.
+// prune enforces MAX_SAVES by moving the oldest takes to the trash, where
+// they wait out TrashKeep (or disk pressure) like a deleted take. A take in
+// keep is skipped, which can leave the list one or two over until the next
+// save prunes again.
 func (s *Saver) prune(keep ...string) {
 	max := s.cap.cfg.MaxSaves
 	if max <= 0 {
@@ -626,8 +629,10 @@ func (s *Saver) prune(keep ...string) {
 		if slices.Contains(keep, t.Name) {
 			continue
 		}
-		log.Printf("[*] pruning %s (over MAX_SAVES=%d)", t.Name, max)
-		RemoveTake(s.cap.cfg.OutputDir, t.Name)
+		log.Printf("[*] pruning %s to the trash (over MAX_SAVES=%d)", t.Name, max)
+		if err := TrashTake(s.cap.cfg.OutputDir, t.Name, TrashPruned, time.Now()); err != nil {
+			log.Printf("[!] prune %s: %v", t.Name, err)
+		}
 	}
 }
 
@@ -738,20 +743,17 @@ func takeFromFile(dir, name string, info os.FileInfo) Take {
 	return t
 }
 
-// RemoveTake deletes a take and its sidecar files. It holds the take's lock
-// so a sidecar write in flight cannot recreate a .meta.json for a take that
-// is already gone.
+// RemoveTake deletes a take and its sidecar files for good. It holds the
+// take's lock so a sidecar write in flight cannot recreate a .meta.json for a
+// take that is already gone. A person's delete and MAX_SAVES pruning go to
+// the trash instead (TrashTake); this is for what was never a finished take.
 func RemoveTake(dir, name string) {
 	base := filepath.Join(dir, filepath.Base(name))
 	unlock := LockTake(base)
 	defer unlock()
-	os.Remove(base)
-	os.Remove(previewPath(base))
-	os.Remove(peaksPath(base))
-	os.Remove(pyramidPath(base))
-	os.Remove(metaPath(base))
-	os.Remove(MIDIPath(base))
-	os.Remove(ManifestPath(base))
+	for _, f := range takeFiles(base) {
+		os.Remove(f)
+	}
 }
 
 func previewPath(wav string) string { return strings.TrimSuffix(wav, ".wav") + "_preview.mp3" }

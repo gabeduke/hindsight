@@ -276,6 +276,7 @@ stem:
 | `.peaks.bin` | at save or cut; backfilled at startup for older takes | The peaks pyramid: min and max per 256 frames |
 | `_preview.mp3` | in the background after a save or cut | What the list plays, and what the waveform page scrubs |
 | `.mid`, `.manifest.json` | at save, when MIDI was flowing; a cut gets its region of the source's | The take's MIDI and how it lines up |
+| `.history.json` | on every edit a person makes | The last 50 changes, for Undo |
 
 ### A take appears only when it's complete
 
@@ -286,8 +287,8 @@ written; a 15-minute save takes long enough that it used to. A take's name
 is reserved by creating its `.part` exclusively, so a save and a cut in the
 same second can't both write to one file. At startup, a `.part` left by a
 crash is removed with the sidecars of the take that never made it, along with
-sidecar temp files and any `.meta.json`, `.peaks.json` or `.peaks.bin` whose
-take is gone.
+sidecar temp files and any `.meta.json`, `.peaks.json`, `.peaks.bin` or
+`.history.json` whose take is gone.
 
 ### One writer per take at a time
 
@@ -303,9 +304,40 @@ a delete answers 404 instead of writing a sidecar for a take that's gone.
 Flags carry ids, so an edit names the flag it changes rather than replacing
 the list. A flag from before ids reads as `f<frame>`.
 
+### Undo
+
+`internal/audio/history.go`. The API records each edit a person makes -- the
+PATCH and the per-flag endpoints, not the saver's own stamps -- as a diff of
+the sidecar before and after, under the take's lock: one operation per field
+(name, selection, tempo, downbeat, lanes) and one per flag, by id, each with
+its JSON value before and after. The newest 50 are kept in `.history.json`.
+A change to the same thing within 2 s, carrying on from where the last ended,
+extends that step instead of adding one, so a held nudge undoes in one go;
+adding and removing never merge, because a removal's toast needs a step of
+its own to undo.
+
+Undo puts an operation's "before" back only while the field still holds its
+"after"; otherwise the step is dropped and reported as skipped. That is what
+keeps an Undo on one device from overwriting a change made since on another,
+and it lets a toast undo its own step by id even after later edits to other
+things. There is no redo.
+
+### The trash
+
+`internal/audio/trash.go`. Deleting a take and `MAX_SAVES` pruning both move
+the take and its sidecars into `OUTPUT_DIR/.trash/<stem>/` with `rename`,
+beside a `trashed.json` saying when and why; restoring moves them back and
+stars the take. `takeFiles` is the one list of a take's files that deleting,
+trashing and restoring share. A janitor empties trash older than 7 days, at
+startup and every 10 minutes, and `EnsureFree` empties it oldest first while
+free space is under `MIN_FREE_GB`; every write that refuses for low disk (a
+save, a cut, a phone recording) calls it first, so the trash is never why a
+capture fails. Nothing in the trash is hard-linked, so emptying it frees what
+it says.
+
 ### When a take was made
 
-The list sorts, and the pruner deletes, by the `created` time in the
+The list sorts, and the pruner trashes, by the `created` time in the
 sidecar. A take older than that field falls back to the time in its name,
 then to the file's modification time. Modification time alone was wrong:
 rewriting the cue chunk on a flag edit made an old take look new.
@@ -413,6 +445,8 @@ the tape page will share. The pure parts of each are node-tested.
 | `wave/page` | Owns the take's editable state and wires the rest together |
 | `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, first-run hints |
 | `help/markdown` | Renders the guide for `/guide.html`, from `/guide.md`, which the binary serves compiled in (`docs/embed.go`) |
+| `toast` | Both pages' toasts, with an optional action ("Flag deleted · Undo"), and one carried to the next page |
+| `takes`, `trash` (main page) | The list, with select mode for several takes at once; *Recently deleted* |
 
 A few rules hold the page together:
 
@@ -429,6 +463,9 @@ A few rules hold the page together:
   merging what another device changed (flags, name, star, tempo, grid, and
   the selection unless it has an unsaved one). Flags go one at a time through
   `/api/take/flags`; the header's rename, star and tempo through the PATCH.
+- **Undo is the Pi's.** ↶ and every toast's *Undo* call `POST /api/take/undo`
+  and put back the take it answers with; edits still on their way are sent
+  first, so Undo acts on what's on screen.
 - **Back is the browser's back** when the list is where you came from, so the
   list keeps its scroll; the list also restores it when the browser reloads
   it instead. ◂ ▸ step through the takes in the order the list last showed.
