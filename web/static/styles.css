@@ -1608,6 +1608,25 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .vu-foot b { font: 700 14px var(--label-font); letter-spacing: .12em; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .vu-needle { transition: none; } }
 
+/* ---------- the main page on a short wide screen ---------- */
+/* A docked tablet (1024x600) or a small laptop: not enough height for the
+   ribbon, the VU faces over the stats, and Capture. The ribbon gets shorter
+   and the faces sit beside the stats, so Capture is on screen without a
+   scroll. A phone held sideways has its own tier (the bars) further down. */
+@media (min-width: 700px) and (min-height: 441px) and (max-height: 820px) {
+  .main-page .viz-wrap { height: 100px; }
+  .col-monitor > .panel:first-child {
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 18px; row-gap: 6px; align-items: center;
+  }
+  .col-monitor > .panel:first-child > .vu-row { grid-column: 1; grid-row: 1 / span 2; margin: 0; gap: 8px; }
+  .col-monitor > .panel:first-child .vu { flex: none; width: 120px; }
+  .col-monitor > .panel:first-child .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
+  .col-monitor > .panel:first-child > .stats { grid-column: 2; grid-row: 1; margin-top: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+  .col-monitor > .panel:first-child > .chan { grid-column: 2; grid-row: 2; margin-top: 0; }
+  .col-monitor > .panel:first-child > .meters { grid-column: 1 / -1; }
+}
+
 /* ---------- the app bar ---------- */
 /* One header on every page: the brand (home), the switch between Capture,
    Takes and Tape, help, and under them the page's own row -- its title, its
