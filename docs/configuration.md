@@ -226,6 +226,7 @@ running without one; neither can stop the dashcam recording.
 | `TAPE_TRACKS` | `4` | Tracks a new tape has (1–16) |
 | `TAPE_LENGTH_S` | `360` | How long a track is, in seconds: the OP-1's six minutes |
 | `TAPE_SOURCES` | `main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8` | The inputs a catch can take from: space-separated `name=L,R[:buses]`, with 1-indexed capture channels and the tape buses heard in each |
+| `TAPE_MIXDOWN_TAIL_S` | `2` | How long a mixdown runs on past Out, so the strips' reverb and delay ring out instead of being cut (0 to 30). With the tail and a 5-second margin, a mixdown must fit in `RING_SECONDS` |
 
 `TAPE_SOURCES` is the Sidekick's map. MAIN carries both of the tape's buses,
 channel 1's tap carries bus A, channel 2's tap carries bus B, and aux carries

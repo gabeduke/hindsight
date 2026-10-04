@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,6 +40,8 @@ import (
 //	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape;
 //	                                   {track, merge}: the clipboard, at the playhead
 //	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply, track, all, clip, pos, at}
+//	POST   /api/tapes/mixdown?id=      {all}: play In to Out (all: the whole tape) once, save it as a take
+//	GET    /api/tapes/export?id=       the loaded tape as stems and a tempo map, in a zip
 //	POST   /api/tapes/undo?id=         and /redo
 //	POST   /api/tapes/clone?id=        {name}: a new tape sharing this one's audio
 //	POST   /api/tapes/cleanup          remove pool audio nothing uses
@@ -68,7 +71,8 @@ func tapeErr(w http.ResponseWriter, err error) {
 		errors.Is(err, tape.ErrGone), errors.Is(err, tape.ErrNoPass), errors.Is(err, tape.ErrNothingToDo),
 		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed),
 		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
-		errors.Is(err, tape.ErrEmptyClipboard):
+		errors.Is(err, tape.ErrEmptyClipboard), errors.Is(err, tape.ErrNoOutput), errors.Is(err, tape.ErrMixingDown),
+		errors.Is(err, tape.ErrNoSaver), errors.Is(err, tape.ErrExporting):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
 		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid):
@@ -604,6 +608,64 @@ func (a *API) handleTapeEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.writeTapeStateWith(w, id, &res)
+}
+
+// handleTapeMixdown starts a mixdown and answers at once; the state's
+// live.mixdown follows it to its take.
+func (a *API) handleTapeMixdown(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		All bool `json:"all"` // the whole tape, not the loop
+	}
+	if r.ContentLength != 0 && !decodeBody(w, r, &b) {
+		return
+	}
+	m, err := a.tape.StartMixdown(r.URL.Query().Get("id"), b.All)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"mixdown": m})
+}
+
+// exportStall is how long an export waits on a client that stopped
+// reading before giving up the one export slot.
+const exportStall = 30 * time.Second
+
+// handleTapeExport streams the loaded tape's stems and tempo map as a zip.
+// HEAD answers whether a GET would start, without rendering: the page asks
+// first, so a refusal is a toast, not a page of JSON.
+func (a *API) handleTapeExport(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if r.Method == http.MethodHead {
+		if err := a.tape.CheckExport(id); err != nil {
+			tapeErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	x, err := a.tape.Export(id)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": x.Name}))
+	w.Header().Set("Cache-Control", "no-store")
+	// A client that stops reading -- a phone locked mid-download -- fails
+	// the write once the deadline passes, and frees the slot.
+	rc := http.NewResponseController(w)
+	beat := func() { _ = rc.SetWriteDeadline(time.Now().Add(exportStall)) }
+	if err := x.WriteZip(w, beat); err != nil {
+		// Headers are gone: the client sees a truncated zip.
+		log.Printf("[!] tape export: %v", err)
+	}
 }
 
 func (a *API) handleTapeUndo(redo bool) http.HandlerFunc {

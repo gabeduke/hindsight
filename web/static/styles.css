@@ -1029,6 +1029,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
 }
 .menu > button:hover, .menu > a:hover { background: var(--panel); }
 .menu > .danger { color: var(--danger); }
+.menu > button:disabled { opacity: .4; cursor: default; }
 
 /* align-items is spelled out because the takes page's two-column rule at
    >=860px sets `main { display: grid; align-items: start }` unscoped. */

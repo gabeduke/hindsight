@@ -688,20 +688,46 @@ try something. It costs no disk space.
 
 ### 8.6 Mixdown and export
 
-*Step 7b.*
+*Step 7b.* Both are in the tape menu: tap the tape's name.
 
-- **Mixdown.** Set In and Out around the song and tap *Mixdown*. The tape
-  plays once, and what came out of the mixer — FX, live playing and all — is
-  saved as a take. To share a song, mix it down and share the take.
-- **Export** downloads each track as its own WAV, plus a MIDI file with the
-  tempo, for a DAW.
+- **Mix down the loop** plays the loop's bars once, or **Mix down the whole
+  tape** plays from bar 1 to the end of the last clip. Then the tape stops,
+  back where it started, and the recording keeps going for two seconds so
+  reverb and delay ring out
+  ([`TAPE_MIXDOWN_TAIL_S`](configuration.md#the-tape)).
+  - What came out of the mixer is saved as a take. The Sidekick's FX and
+    anything you played live over the tape are in it.
+  - The take is labelled with the tape's name and has its tempo, with bar 1
+    at its start.
+  - The loop is ignored and the click is silent while it plays. The readout
+    shows how far it's got, then *letting it ring out*. **■** cancels it
+    until then, and nothing is saved.
+  - If the Pi falls behind while it plays, nothing is saved rather than a
+    take with a gap in it; mix down again.
+  - It needs the tape playing through the Sidekick and lined up (the dot
+    amber or green). It also has to fit in the recording buffer:
+    `RING_SECONDS` less the tail and five seconds.
+  - To share a song, mix it down and share the take.
+- **Export stems** downloads a zip:
+  - a 32-bit float WAV for each track with audio, each from bar 1 to the end of
+    the last clip on any track. They're all the same length, so they line
+    up when dropped at the start of a DAW project. Each has its track's
+    level and pan, but not its mute or solo, and no FX: the FX happen in the
+    Sidekick.
+  - a `.mid` with the tempo, 4/4, and the loop's In and Out as markers.
 
 **Checks — step 7b:**
 
-- [demo] Mix down 8 bars → a take of exactly those 8 bars plus 2 seconds of
-  tail appears, named after the tape.
+- [demo] Mix down a 1-bar loop → the readout counts *mixing down … of …*.
+  A few seconds later the toast reads *Mixed down as a take*, and **Open
+  it** shows a take of that bar plus 2 seconds, labelled with the tape's
+  name, at its tempo.
+- [demo] Start a mixdown and press ■ → *The mixdown didn't save*, and no
+  take appears.
 - [rig] Mix down with an FX on channel 1 → the take has the FX.
-- [demo] Export → a zip with four WAVs that line up at bar 1 in a DAW.
+- [demo] Export stems → a zip with a WAV for each track with audio, all the
+  same length, plus a `.mid` at the tape's tempo. In a DAW they line up at
+  bar 1.
 
 ### 8.7 The Bento follows the tape
 
@@ -854,7 +880,8 @@ has no tip.
 | Multiply | Double the loop, copying what's in it over what follows |
 | Slide snaps to | Where a clip you slide can land: on a bar, a beat, an eighth, or anywhere |
 | Clone | Copy this whole tape. Costs no disk space |
-| Mixdown | Play In to Out once and save what came out of the mixer as a take |
+| Mix down | Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included |
+| Export stems | Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
 | Source chip | Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too |
 | Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet |

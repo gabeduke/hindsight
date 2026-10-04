@@ -76,6 +76,12 @@ type Options struct {
 	// (TAPE_LATENCY_MS): for hearing the tape later than the instrument,
 	// which makes a part land that much late.
 	LatencyMS float64
+	// Saver saves a mixdown as a take, in TakesDir; nil: no mixdowns.
+	Saver    TakeSaver
+	TakesDir string
+	// MixdownTail is how many seconds a mixdown runs past Out
+	// (TAPE_MIXDOWN_TAIL_S), up to 30.
+	MixdownTail float64
 }
 
 type block struct {
@@ -117,7 +123,13 @@ type Engine struct {
 	started  atomic.Bool
 	panicked atomic.Value // string: the last recovered panic
 
-	latencyMS float64
+	latencyMS   float64
+	saver       TakeSaver
+	takesDir    string
+	tailSeconds float64
+
+	mixMu   sync.Mutex
+	mixdown *Mixdown // the last mixdown
 
 	recMu sync.Mutex
 	rec   *Recording // a punch, or an armed track
@@ -144,6 +156,8 @@ func NewEngine(o Options) *Engine {
 		sources:   src,
 		minFreeGB: o.MinFreeGB,
 		latencyMS: o.LatencyMS,
+		saver:     o.Saver,
+		takesDir:  o.TakesDir,
 		tr:        newTransport(),
 		actions:   make(chan Action, 32),
 		blocks:    make(chan *block, aheadBlocks+3),
@@ -152,6 +166,7 @@ func NewEngine(o Options) *Engine {
 		stop:      make(chan struct{}),
 		done:      make(chan struct{}),
 	}
+	e.tailSeconds = math.Max(0, math.Min(maxMixdownTail, o.MixdownTail))
 	e.mix.Store(&Mix{})
 	e.panicked.Store("")
 	return e
@@ -375,6 +390,30 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				}
 				tr.record(at)
 			}
+		} else if tr.playing && tr.onceEnd > 0 {
+			// A mixdown's pass: In to Out once through the loop-off mix, no
+			// click, declicked where it starts and stops; then the tape
+			// stands back where the pass began.
+			end := min64(tr.onceEnd, length)
+			span = min64(span, max64(0, end-tr.pos))
+			if dst != nil {
+				lm := m.straight
+				if lm == nil {
+					lm = m
+				}
+				d := dst[off*OutChannels:]
+				lm.renderTape(d, tr.pos, int(span), false)
+				lm.declickEdges(d, tr.pos, int(span), tr.onceFrom, end)
+			} else if span > 0 {
+				tr.lateOnce() // the device played silence here: a gap in the take
+			}
+			tr.pos += span
+			if tr.pos >= end {
+				at := out + uint64(span)
+				tr.playing, tr.pos = false, tr.onceFrom
+				tr.record(at)
+				tr.endOnce(at)
+			}
 		} else if tr.playing {
 			looping := m.loop.On && tr.pos < m.loop.Out
 			if looping {
@@ -448,7 +487,7 @@ func (e *Engine) idle(out uint64) {
 			case "reset":
 				tr.reset(out)
 				close(a.done)
-			case "play":
+			case "play", "once": // nothing plays it
 			default:
 				tr.apply(a, out, m, m.length)
 			}
@@ -572,6 +611,11 @@ func (e *Engine) rebuild() {
 	e.mu.Unlock()
 	m := NewMix(st, e.pool, e.store.SampleRate())
 	m.tapeID, m.length, m.click = id, length, click
+	// The same tape with the loop off, for a mixdown's straight pass: no
+	// seam joins Out to In there.
+	straight := st
+	straight.Loop = Loop{}
+	m.straight = NewMix(straight, e.pool, e.store.SampleRate())
 	e.mix.Store(m)
 	e.pool.Keep(keep)
 }
@@ -670,8 +714,9 @@ type Live struct {
 	Cycles    []Cycle    `json:"cycles"`    // the last complete passes
 	Failed    []string   `json:"failed"`    // pool files that couldn't be read
 	Problem   string     `json:"problem,omitempty"`
-	Record    *Recording `json:"record,omitempty"` // a punch, or an armed track
-	Tapped    bool       `json:"tapped,omitempty"` // a free loop's first tap is in
+	Record    *Recording `json:"record,omitempty"`  // a punch, or an armed track
+	Tapped    bool       `json:"tapped,omitempty"`  // a free loop's first tap is in
+	Mixdown   *Mixdown   `json:"mixdown,omitempty"` // the last mixdown
 }
 
 func (e *Engine) Live() Live {
@@ -693,6 +738,7 @@ func (e *Engine) Live() Live {
 	}
 	l.Record = e.Recording()
 	l.Tapped = e.tapPending()
+	l.Mixdown = e.MixdownStatus()
 	l.Cycles = e.tr.Cycles()
 	if l.Cycles == nil {
 		l.Cycles = []Cycle{}
@@ -786,7 +832,19 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 	default:
 		return Clip{}, fmt.Errorf("%w: catch a pass or some bars", ErrBadParameter)
 	}
+	// Split at the seam only if it played across it: a span that ran on
+	// straight through Out (a mixdown's pass) is laid down straight.
+	wrapped := false
+	for _, p := range e.tr.pieces(outFrom, outFrom+uint64(frames)) {
+		if p.Wrap && p.Out > outFrom {
+			wrapped = true
+		}
+	}
 	placed, err := e.catchSpan(t, src, outFrom, frames, at, func(s *State, c Clip) ([]Clip, error) {
+		if !wrapped {
+			p, err := s.Place(req.Track, c, req.Replace)
+			return []Clip{p}, err
+		}
 		return placeWrapped(s, req.Track, c, req.Replace)
 	})
 	if err != nil {

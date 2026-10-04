@@ -74,6 +74,9 @@ func (e *Engine) Record(id string, track int, source string, replace bool) (Reco
 	}
 	e.recMu.Lock()
 	defer e.recMu.Unlock()
+	if e.mixdownBusy() { // under recMu, the order StartMixdown takes them in
+		return Recording{}, ErrMixingDown
+	}
 	// Under the lock a load clears recordings under: the tape must still be
 	// this one.
 	if e.LoadedID() != id {

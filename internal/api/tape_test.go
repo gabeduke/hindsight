@@ -1,6 +1,8 @@
 package api
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -325,4 +327,37 @@ func TestTheTapesEditsLiftSplitAndMultiply(t *testing.T) {
 	edit(`{"op":"slide","clip":"x"}`, http.StatusBadRequest, "slide with no at")
 	edit(`{"op":"nope"}`, http.StatusBadRequest, "no such edit")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id=other", `{"op":"multiply"}`), http.StatusConflict, "another tape")
+}
+
+func TestATapeExportsAsStemsAndRefusesAMixdownWithNothingToPlayIt(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_11-00-00.wav", 192000)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodGet, "/api/tapes/export?id="+id, ""), http.StatusBadRequest, "export an empty tape")
+	want(t, send(t, r, http.MethodHead, "/api/tapes/export?id="+id, ""), http.StatusBadRequest, "ask to export an empty tape")
+	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-04_11-00-00.wav","from":0,"to":96000}`), http.StatusOK, "copy")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":2}`), http.StatusOK, "drop")
+
+	want(t, send(t, r, http.MethodHead, "/api/tapes/export?id="+id, ""), http.StatusOK, "ask to export")
+	w := send(t, r, http.MethodGet, "/api/tapes/export?id="+id, "")
+	want(t, w, http.StatusOK, "export")
+	if ct := w.Header().Get("Content-Type"); ct != "application/zip" || !strings.Contains(w.Header().Get("Content-Disposition"), "Song one stems.zip") {
+		t.Fatalf("export headers: %v", w.Header())
+	}
+	zr, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, f := range zr.File {
+		names = append(names, f.Name)
+	}
+	if strings.Join(names, ",") != "Song one/2.wav,Song one/Song one.mid" {
+		t.Fatalf("zip = %v", names)
+	}
+	want(t, send(t, r, http.MethodGet, "/api/tapes/export?id=other", ""), http.StatusConflict, "another tape")
+
+	// This engine has no output and no recorder: a mixdown can't run.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, `{}`), http.StatusConflict, "mixdown")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, ""), http.StatusConflict, "mixdown, no body")
 }
