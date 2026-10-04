@@ -11,7 +11,11 @@ export const TIPS = [
   // The main page
   { control: 'Capture', ids: ['capture'], tip: 'Save the last 30 s, 2 m, 7 m or all of what you just played as a take' },
   { control: 'Flag now', ids: ['flag-now'], tip: 'Mark this moment. Any take that includes it gets a flag here' },
-  { control: 'Ribbon', ids: ['ribbon'], tip: 'The last 15 minutes, recent end stretched. Hold and drag to select a span' },
+  { control: 'Ribbon', ids: ['ribbon'], tip: 'The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options' },
+  { control: 'Save as take (ribbon)', ids: ['ribbon-save'], tip: 'Save exactly the span you selected on the ribbon as a take' },
+  { control: '× (ribbon)', ids: ['ribbon-clear'], tip: 'Forget the span selected on the ribbon' },
+  { control: 'Save from here to now', ids: ['flag-save-from'], tip: 'Save a take that starts at this flag and runs to now' },
+  { control: 'Delete flag (ribbon)', ids: ['flag-remove'], tip: 'Remove this flag. Takes saved later won\'t carry it' },
   { control: 'Phone', ids: ['phone'], tip: "Record from this phone's mic or a plugged-in input, straight into Hindsight" },
   { control: 'Open', ids: ['open'], tip: 'Open the take to select, loop, save or share part of it' },
   { control: 'Select', ids: ['select'], tip: 'Pick several takes to star, export or delete together. Holding a take does the same' },

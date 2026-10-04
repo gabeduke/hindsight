@@ -299,18 +299,37 @@ them to the trash, with Undo. **Done** or Escape stops selecting.
 
 *Step 5.*
 
-**Hold and drag across the buffer ribbon** to select any stretch of the last
-15 minutes, not just the last N minutes, then tap *Save as take*. The ribbon
-squeezes older time together, so select generously and trim on the take page.
+**Hold, then drag, across the ribbon** to select any stretch of the last 15
+minutes, not just the last N, then tap **Save as take** in the bar that
+appears under it. The bar says how long the span is and how long ago
+("1:32 · 8:12–6:40 ago"). The ribbon squeezes older time together, so
+select generously and trim on the take page. Hold without dragging to select
+from there to now. **×** forgets the selection.
 
-**A flag's sheet** also offers *Save from here to now*.
+The selection names the audio, not a place on the screen: it slides left as
+time passes, like the audio it holds. If its start leaves the buffer before
+you save, the bar says so and the take starts at the oldest audio there is.
+
+The take is named and dated by when its last moment was played, so it sorts
+among the others by when it happened, and its tempo is read over that span,
+not over the last few seconds. Flags inside it come with it.
+
+**Tap a flag on the ribbon** for its sheet: **Save from here to now** makes
+a take that starts at the flag; **Delete flag** removes it.
 
 **Checks — step 5:**
 
 - [demo] Wait ten minutes, then select a span about eight minutes back on the
-  ribbon and save → the take holds roughly that span, not the last N minutes.
-- [demo] Tap a flag on the ribbon → its sheet opens. Today a tap deletes it.
-  *Save from here to now* makes a take starting at the flag.
+  ribbon and save → the take holds roughly that span, not the last N minutes,
+  and sits in the list by when it was played.
+- [demo] Hold on the ribbon without dragging → the bar reads "… ago to now".
+- [demo] A quick tap, or a vertical swipe over the ribbon → nothing selected;
+  the page scrolls.
+- [demo] Tap a flag on the ribbon → its sheet opens. *Save from here to now*
+  makes a take starting at the flag, carrying the flag at its first moment.
+- [demo] Select a span near the old end and wait until its start passes the
+  oldest audio → the bar turns amber and says so; saving still works, from
+  the oldest audio.
 
 ## 7. Recording from your phone
 
@@ -552,7 +571,11 @@ has no tip.
 |---|---|
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
-| Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span |
+| Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |
+| Save as take (ribbon) | Save exactly the span you selected on the ribbon as a take |
+| × (ribbon) | Forget the span selected on the ribbon |
+| Save from here to now | Save a take that starts at this flag and runs to now |
+| Delete flag (ribbon) | Remove this flag. Takes saved later won't carry it |
 | Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
 | Open | Open the take to select, loop, save or share part of it |
 | Select | Pick several takes to star, export or delete together. Holding a take does the same |

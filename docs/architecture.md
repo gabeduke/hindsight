@@ -304,6 +304,19 @@ a delete answers 404 instead of writing a sidecar for a take that's gone.
 Flags carry ids, so an edit names the flag it changes rather than replacing
 the list. A flag from before ids reads as `f<frame>`.
 
+### Saving any span of the ring
+
+`Saver.SaveRange` (`internal/audio/saverange.go`) saves absolute ring frames
+`[from, to)`, the clock flags already use, so a span picked on the ribbon or
+starting at a flag is the audio that was there, however long ago. It reads
+through `Ring.Range`: the chosen channel pair only, a chunk at a time under
+the ring's lock with the window re-checked before each, and writes as it
+goes (`wavWriter`), so a minutes-long span never holds up the ring writer.
+`SnapshotAt`, which copies the newest N frames of every channel under one
+lock, stays for the capture buttons. The take's name, `created` time and
+tempo window come from when its frames were played, through the clock
+bridge; MIDI is exported for the span like any save.
+
 ### Undo
 
 `internal/audio/history.go`. The API records each edit a person makes -- the

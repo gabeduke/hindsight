@@ -92,9 +92,23 @@ type Saver struct {
 	saving    bool
 	tempo     TempoSource
 	midi      MIDIExporter
+
+	bg sync.WaitGroup // the preview encode and the prune a save leaves running
 }
 
 func NewSaver(c *Capture) *Saver { return &Saver{cap: c} }
+
+// afterSave starts what a save leaves to the background: the preview encode
+// and MAX_SAVES pruning.
+func (s *Saver) afterSave(wavPath string, outCh int, keep ...string) {
+	s.bg.Add(2)
+	go func() { defer s.bg.Done(); s.makePreview(wavPath, outCh) }()
+	go func() { defer s.bg.Done(); s.prune(keep...) }()
+}
+
+// WaitBackground waits for what earlier saves left running. Tests call it
+// before their takes directory is removed.
+func (s *Saver) WaitBackground() { s.bg.Wait() }
 
 // SetTempoSource attaches a clock. Nil, or never called, means takes carry no
 // BPM -- which is the correct behaviour on a machine with no MIDI at all.
@@ -308,8 +322,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	s.lastSaved = name
 	s.mu.Unlock()
 
-	go s.makePreview(wavPath, len(pick))
-	go s.prune()
+	s.afterSave(wavPath, len(pick))
 
 	return name, nil
 }

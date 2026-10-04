@@ -14,8 +14,19 @@
 // It replaces the live visualiser rather than sitting beside it. Resolution at
 // the right edge improves (~50 px/s against the old flat 37.6), latency gets
 // worse by 1-2s. Live level lives on the meters, still on the websocket.
+//
+// Hold, then drag, selects any span of the ring; Save as take saves exactly
+// that span (POST /api/trigger?from=&to=, absolute ring frames), not the last
+// N minutes. A hold released without a drag selects from there to now. A
+// selection is kept in absolute frames, so it slides left as time passes,
+// like the audio it names. Tapping a flag opens its sheet: Save from here to
+// now, or delete it.
 
 import { fmtDur } from '/lib/meter.js';
+import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from '/lib/ribbonmath.js';
+
+const HOLD_MS = 350;
+const MOVE_PX = 8;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_BUCKETS = 600;
@@ -41,9 +52,14 @@ export class Ribbon {
    * @param {HTMLElement} wrap the existing .viz-wrap
    * @param {{onToast?: (msg: string, kind?: string) => void}} [opts]
    */
-  constructor(wrap, { onToast } = {}) {
+  constructor(wrap, { onToast, onSaved, selBar, flagSheet } = {}) {
     this.wrap = wrap;
     this.onToast = onToast;
+    this.onSaved = onSaved;
+    this.selBar = selBar || null;
+    this.flagSheet = flagSheet || null;
+    this.sel = null;   // {from, to}: absolute ring frames; to null means "now"
+    this.press = null; // the pointer gesture in progress
     this.spans = [];      // capture tiers in seconds; 0 means the whole ring
     this.selected = null;
     this.data = null;
@@ -63,6 +79,7 @@ export class Ribbon {
     wrap.appendChild(this.svg);
 
     this.markLayer = add(wrap, 'div', 'rb-layer');
+    this.selLayer = add(wrap, 'div', 'rb-layer');
     this.flagLayer = add(wrap, 'div', 'rb-layer');
     add(wrap, 'div', 'rb-scrim');
     this.labelLayer = add(wrap, 'div', 'rb-layer');
@@ -77,6 +94,160 @@ export class Ribbon {
     this._onVis = () => (document.hidden ? this.stop() : this.start());
     document.addEventListener('visibilitychange', this._onVis);
     if (!document.hidden) this.start();
+
+    this.wireSelect();
+    this.wireBar();
+    this.wireFlagSheet();
+  }
+
+  // --- selecting a span -------------------------------------------------------
+
+  /** The axis of the data last drawn, or null before there is one that can
+   * name frames (an older server's response has no total_frames). */
+  axis() {
+    const d = this.data;
+    if (!d || !d.total_frames || !d.sample_rate) return null;
+    return { A: d.edge_seconds, T: d.ring_seconds, total: d.total_frames, sr: d.sample_rate };
+  }
+
+  frameAtX(clientX) {
+    const ax = this.axis();
+    const r = this.wrap.getBoundingClientRect();
+    const pct = ((clientX - r.left) / r.width) * 100;
+    if (pct >= 99.5) return null; // at the right edge: now
+    return frameAt(ageAt(pct, ax.A, ax.T), ax.total, ax.sr);
+  }
+
+  wireSelect() {
+    const w = this.wrap;
+    w.addEventListener('pointerdown', (e) => {
+      if (e.button > 0 || e.target.closest('.rb-flag') || !this.axis()) return;
+      const p = { id: e.pointerId, x: e.clientX, y: e.clientY, armed: false, anchor: null, end: null };
+      p.timer = setTimeout(() => {
+        p.armed = true;
+        p.anchor = this.frameAtX(p.x) ?? this.axis().total;
+        p.end = null;
+        try { w.setPointerCapture(p.id); } catch { /* fine */ }
+        try { navigator.vibrate?.(10); } catch { /* not everywhere */ }
+        this.setSel({ from: p.anchor, to: null }, true);
+      }, HOLD_MS);
+      this.press = p;
+    });
+    w.addEventListener('pointermove', (e) => {
+      const p = this.press;
+      if (!p || e.pointerId !== p.id) return;
+      if (!p.armed) {
+        if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > MOVE_PX) { clearTimeout(p.timer); this.press = null; }
+        return;
+      }
+      e.preventDefault();
+      p.end = Math.abs(e.clientX - p.x) > MOVE_PX ? this.frameAtX(e.clientX) : undefined;
+      this.setSel(this.spanOf(p), true);
+    });
+    const finish = (e, commit) => {
+      const p = this.press;
+      if (!p || e.pointerId !== p.id) return;
+      clearTimeout(p.timer);
+      this.press = null;
+      if (!p.armed) return;
+      if (commit) this.setSel(this.spanOf(p));
+      else this.setSel(this.prevSel ?? null);
+    };
+    w.addEventListener('pointerup', (e) => finish(e, true));
+    w.addEventListener('pointercancel', (e) => finish(e, false));
+    w.addEventListener('contextmenu', (e) => { if (this.press) e.preventDefault(); });
+  }
+
+  // A held press with no drag is "from here to now"; with one, the span
+  // between the press and the finger, either way round.
+  spanOf(p) {
+    if (p.end == null) return { from: p.anchor, to: null }; // no drag, or dragged to now
+    const a = Math.min(p.anchor, p.end);
+    const b = Math.max(p.anchor, p.end);
+    return { from: a, to: Math.max(b, a + 1) };
+  }
+
+  setSel(sel, provisional = false) {
+    if (!provisional) this.prevSel = sel;
+    this.sel = sel;
+    this.render();
+  }
+
+  wireBar() {
+    const bar = this.selBar;
+    if (!bar) return;
+    bar.querySelector('.rb-sel-clear').addEventListener('click', () => this.setSel(null));
+    bar.querySelector('.rb-sel-save').addEventListener('click', () => this.saveSel());
+  }
+
+  async saveSpan(from, to) {
+    const q = `from=${from}${to != null ? `&to=${to}` : ''}`;
+    const res = await fetch(`/api/trigger?${q}`, { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    const note = body.clamped ? ' (its start had already left the buffer)' : '';
+    this.onToast?.(`Saved ${fmtAge(body.seconds)} as a take${note}`, 'ok');
+    this.onSaved?.(body.name);
+    return body;
+  }
+
+  async saveSel() {
+    const sel = this.sel;
+    if (!sel) return;
+    const btn = this.selBar?.querySelector('.rb-sel-save');
+    if (btn) btn.disabled = true;
+    try {
+      await this.saveSpan(sel.from, sel.to);
+      this.setSel(null);
+    } catch (e) {
+      this.onToast?.(`Could not save: ${e.message}`, 'bad');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  renderBar(ax) {
+    const bar = this.selBar;
+    if (!bar) return;
+    const sel = this.sel;
+    bar.hidden = !sel;
+    if (!sel || !ax) return;
+    const to = sel.to ?? ax.total;
+    const fromAge = ageOf(sel.from, ax.total, ax.sr);
+    const toAge = sel.to == null ? 0 : ageOf(to, ax.total, ax.sr);
+    const len = (to - sel.from) / ax.sr;
+    const gone = fromAge > (this.data?.buffered_seconds ?? Infinity);
+    const when = sel.to == null ? `${fmtAge(fromAge)} ago to now` : `${fmtAge(fromAge)}–${fmtAge(toAge)} ago`;
+    bar.querySelector('.rb-sel-text').textContent = `${fmtAge(len)} · ${when}`
+      + (gone ? ' · starts before the oldest audio' : '');
+    bar.classList.toggle('gone', gone);
+  }
+
+  // --- a flag's sheet ---------------------------------------------------------
+
+  wireFlagSheet() {
+    const sh = this.flagSheet;
+    if (!sh) return;
+    sh.querySelector('.rb-flag-save').addEventListener('click', async () => {
+      const f = this.sheetFlag;
+      sh.close();
+      if (!f) return;
+      try { await this.saveSpan(f.frame, null); } catch (e) { this.onToast?.(`Could not save: ${e.message}`, 'bad'); }
+    });
+    sh.querySelector('.rb-flag-delete').addEventListener('click', () => {
+      const f = this.sheetFlag;
+      sh.close();
+      if (f) this.removeFlag(f.frame);
+    });
+    sh.querySelector('.rb-flag-cancel').addEventListener('click', () => sh.close());
+  }
+
+  openFlag(f) {
+    const sh = this.flagSheet;
+    if (!sh || typeof sh.showModal !== 'function') { this.removeFlag(f.frame); return; }
+    this.sheetFlag = f;
+    sh.querySelector('.rb-flag-title').textContent = `Flag, ${fmtAge(f.age_seconds)} ago`;
+    sh.showModal();
   }
 
   /** @param {number[]} spans tier lengths in seconds; 0 means the whole ring */
@@ -156,8 +327,7 @@ export class Ribbon {
 
     const T = d.ring_seconds;
     const A = d.edge_seconds;
-    const denom = Math.log(T / A);
-    const leftPct = (age) => (1 - Math.log(Math.max(age, A) / A) / denom) * 100;
+    const leftPct = (age) => axisPct(age, A, T);
     const abs = (s) => (s === 0 ? T : s);
 
     this.drawWave(decode(d.buckets));
@@ -169,9 +339,23 @@ export class Ribbon {
     const tiers = this.spans.map((s) => ({ s, age: abs(s) }));
     const sel = this.selected;
 
+    // A span selected on the ribbon, in place of the tier's shading.
+    const ax = this.axis();
+    this.selLayer.textContent = '';
+    if (this.sel && ax) {
+      const fromAge = Math.min(ageOf(this.sel.from, ax.total, ax.sr), d.buffered_seconds);
+      const toAge = this.sel.to == null ? 0 : ageOf(this.sel.to, ax.total, ax.sr);
+      const l = leftPct(fromAge);
+      const r = this.sel.to == null ? 100 : leftPct(toAge);
+      const band = add(this.selLayer, 'div', 'rb-sel-band');
+      band.style.left = `${l.toFixed(2)}%`;
+      band.style.width = `${Math.max(0.4, r - l).toFixed(2)}%`;
+    }
+    this.renderBar(ax);
+
     this.bandLayer.textContent = '';
     for (const t of tiers) {
-      if (t.s !== sel) continue;
+      if (t.s !== sel || this.sel) continue;
       const band = add(this.bandLayer, 'div', 'rb-band');
       const l = leftPct(t.age);
       band.style.left = `${l.toFixed(2)}%`;
@@ -209,10 +393,10 @@ export class Ribbon {
     for (const f of d.flags || []) {
       const flag = add(this.flagLayer, 'div', 'rb-flag');
       flag.style.left = `${leftPct(f.age_seconds).toFixed(2)}%`;
-      flag.title = `flag at ${fmtDur(f.age_seconds)} ago — click to remove`;
+      flag.title = `flag at ${fmtDur(f.age_seconds)} ago — tap for its options`;
       flag.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.removeFlag(f.frame);
+        this.openFlag(f);
       });
     }
 
