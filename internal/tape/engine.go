@@ -400,7 +400,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				tr.pos = m.loop.In
 				tr.cycleStart, tr.cycleIn = int64(at), m.loop.In
 				tr.wrapped, tr.wrapOut, tr.wrapIn = true, at, m.loop.In
-				tr.record(at)
+				tr.recordWrap(at)
 			}
 		}
 		out += uint64(span)
@@ -472,12 +472,14 @@ func (e *Engine) Load(id string) (*Tape, error) {
 	// Stop the last tape, and forget its passes, before this one can play.
 	// A punch or a tap was for the last one too.
 	e.reset()
-	e.recMu.Lock()
-	e.rec, e.tap = nil, nil
-	e.recMu.Unlock()
 	e.mu.Lock()
 	e.tape = t
 	e.mu.Unlock()
+	// After the switch: a Record or Tap checks the tape under recMu, so one
+	// racing this either sees the new tape or is cleared here.
+	e.recMu.Lock()
+	e.rec, e.tap = nil, nil
+	e.recMu.Unlock()
 	if err := e.store.Remember(id); err != nil {
 		log.Printf("[!] tape: noting %s as loaded: %v", id, err)
 	}
@@ -760,27 +762,34 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 	default:
 		return Clip{}, fmt.Errorf("%w: catch a pass or some bars", ErrBadParameter)
 	}
-	return e.catchSpan(t, req.Track, src, outFrom, frames, at, req.Replace)
+	placed, err := e.catchSpan(t, src, outFrom, frames, at, func(s *State, c Clip) ([]Clip, error) {
+		return placeWrapped(s, req.Track, c, req.Replace)
+	})
+	if err != nil {
+		return Clip{}, err
+	}
+	return placed[0], nil
 }
 
 // catchSpan copies what a source heard while the tape played output frames
-// [outFrom, outFrom+frames) into the pool, and places it on a track at tape
-// frame at, as it was played.
-func (e *Engine) catchSpan(t *Tape, track int, src Source, outFrom uint64, frames, at int64, replace bool) (Clip, error) {
+// [outFrom, outFrom+frames) into the pool, as one clip that starts at tape
+// frame at, and has place put it on the tape -- split where it was played,
+// if it wrapped.
+func (e *Engine) catchSpan(t *Tape, src Source, outFrom uint64, frames, at int64, place func(*State, Clip) ([]Clip, error)) ([]Clip, error) {
 	id := t.ID
 	if frames <= 0 {
-		return Clip{}, fmt.Errorf("%w: nothing to keep", ErrNotPlayed)
+		return nil, fmt.Errorf("%w: nothing to keep", ErrNotPlayed)
 	}
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
 	// The Δ that held when the span played, and any latency set by hand. A
 	// span with a slip inside it has no one Δ.
 	if e.segAt(outFrom) != e.segAt(outFrom+uint64(frames)-1) {
-		return Clip{}, ErrSlipped
+		return nil, ErrSlipped
 	}
 	delta, aligned := e.deltaAt(outFrom)
 	if aligned == "none" {
-		return Clip{}, ErrNotLined
+		return nil, ErrNotLined
 	}
 	delta += int64(math.Round(e.latencyMS * float64(sr) / 1000))
 	ringFrom := int64(outFrom) + delta - over
@@ -791,28 +800,28 @@ func (e *Engine) catchSpan(t *Tape, track int, src Source, outFrom uint64, frame
 	for tries := 0; ; tries++ {
 		oldest, total := ring.Window()
 		if ringFrom < int64(oldest) {
-			return Clip{}, ErrGone
+			return nil, ErrGone
 		}
 		if ringTo <= int64(total) {
 			break
 		}
 		if tries >= 100 {
-			return Clip{}, ErrNotYet
+			return nil, ErrNotYet
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 
 	if e.minFreeGB > 0 {
 		if free, _ := audio.FreeGB(e.store.Dir()); free < e.minFreeGB {
-			return Clip{}, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
+			return nil, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
 		}
 	}
 	rel, path, err := e.store.NewPoolFile("catch", time.Now())
 	if err != nil {
-		return Clip{}, err
+		return nil, err
 	}
 	if err := audio.WriteSpan(ring, uint64(ringFrom), uint64(ringTo), src.Pair[:], path, int(sr)); err != nil {
-		return Clip{}, err
+		return nil, err
 	}
 	clean := true
 	for _, b := range src.Leaks {
@@ -829,13 +838,13 @@ func (e *Engine) catchSpan(t *Tape, track int, src Source, outFrom uint64, frame
 			tp.Click = false // the click is for a tape with nothing on it
 		}
 		var err error
-		placed, err = placeWrapped(s, track, clip, replace)
+		placed, err = place(s, clip)
 		return err
 	})
 	if err != nil {
-		return Clip{}, err
+		return nil, err
 	}
-	return placed[0], nil
+	return placed, nil
 }
 
 // placeWrapped places a clip, splitting one that runs across the loop's seam

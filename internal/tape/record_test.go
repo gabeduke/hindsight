@@ -1,6 +1,7 @@
 package tape
 
 import (
+	"errors"
 	"math"
 	"math/rand"
 	"testing"
@@ -80,14 +81,15 @@ func TestPlayingArmedCountsInABarThenRecordsFromTheBar(t *testing.T) {
 		t.Fatalf("after the count-in: %+v, want playing from bar 1", st.Status)
 	}
 	sink.play(t, 96000*2+30000) // two and a bit bars
-	clip, err := e.Transport(tp.ID, Action{Kind: "stop"})
-	if err != nil || clip == nil {
-		t.Fatalf("stop = %v %v, want the recording kept", clip, err)
+	kept, err := e.Transport(tp.ID, Action{Kind: "stop"})
+	if err != nil || kept == nil {
+		t.Fatalf("stop = %v %v, want the recording kept", kept, err)
 	}
 	// From bar 1 to the last complete bar: two bars, at the loop's start,
 	// holding what aux heard from the end of the count-in.
-	if clip.At != 0 || clip.Frames != 192000 {
-		t.Fatalf("kept %+v, want two bars at 0", clip)
+	clip := kept.Clip
+	if clip.At != 0 || clip.Frames != 192000 || kept.Frames != 192000 || kept.Track != 2 {
+		t.Fatalf("kept %+v, want two bars at 0 on track 2", kept)
 	}
 	data := readPool(t, e.store, clip.File)
 	if data[2*clip.Src] != auxAt(96000) {
@@ -114,10 +116,11 @@ func TestAPunchOverSeveralPassesKeepsTheLastFullOne(t *testing.T) {
 		t.Fatal("a second Record should be refused")
 	}
 	sink.play(t, 96000*3) // to 318000: passes at 96000 and 192000 are full
-	clip, err := e.EndRecording(tp.ID, false)
-	if err != nil || clip == nil {
+	kept, err := e.EndRecording(tp.ID, false)
+	if err != nil || kept == nil {
 		t.Fatal(err)
 	}
+	clip := kept.Clip
 	if clip.At != 0 || clip.Frames != 96000 {
 		t.Fatalf("kept %+v, want a whole pass", clip)
 	}
@@ -128,8 +131,8 @@ func TestAPunchOverSeveralPassesKeepsTheLastFullOne(t *testing.T) {
 	// Cancelling keeps nothing.
 	e.Record(tp.ID, 3, "aux")
 	sink.play(t, 96000*2)
-	if clip, err := e.EndRecording(tp.ID, true); clip != nil || err != nil {
-		t.Fatalf("cancel = %v %v", clip, err)
+	if kept, err := e.EndRecording(tp.ID, true); kept != nil || err != nil {
+		t.Fatalf("cancel = %v %v", kept, err)
 	}
 	if n := len(e.Loaded().Tracks[2].Clips); n != 0 {
 		t.Fatalf("track 3 has %d clips after a cancel", n)
@@ -198,5 +201,70 @@ func TestAnAttackIsFoundToTheMillisecond(t *testing.T) {
 	}
 	if got := attackIn(make([]float64, 15000)); got != -1 {
 		t.Fatalf("silence has an attack at %d", got)
+	}
+}
+
+func TestAPunchThatPlaysPastTheEndKeepsItsBars(t *testing.T) {
+	e, sink, tp := tempoEngine(t, 4)
+	e.SetMeta(tp.ID, func(t *Tape) error { t.Click = false; return nil })
+	take := takeWAV(t, 400000, func(i int) float64 { return 0.5 })
+	// The loop off: a 4-bar clip, and the tape stops at its end.
+	if _, err := e.DropTake(tp.ID, take, 0, 384000, 1, 0, []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	e.Edit(tp.ID, "loop", func(_ *Tape, s *State) error { s.Loop.On = false; return nil })
+	e.Do(Action{Kind: "play"})
+	e.Start()
+	sink.play(t, 50000)
+	if _, err := e.Record(tp.ID, 2, "aux"); err != nil {
+		t.Fatal(err)
+	}
+	sink.play(t, 384000) // past the end: it stopped by itself
+	kept, err := e.EndRecording(tp.ID, false)
+	if err != nil || kept == nil {
+		t.Fatalf("end after the tape stopped = %v %v, want the bars kept", kept, err)
+	}
+	// From the bar line after the Rec (tape 96000) to the end (384000).
+	if kept.Clip.At != 96000 || kept.Frames != 288000 {
+		t.Fatalf("kept %+v, want bars 2-4", kept)
+	}
+}
+
+func TestEndingAPunchInItsCountInKeepsNothingQuietly(t *testing.T) {
+	e, sink, tp := tempoEngine(t, 4)
+	e.Start()
+	e.Record(tp.ID, 2, "aux")
+	e.Transport(tp.ID, Action{Kind: "play"})
+	sink.play(t, 40000) // inside the count-in
+	if kept, err := e.EndRecording(tp.ID, false); kept != nil || err != nil {
+		t.Fatalf("ending in the count-in = %v %v, want nothing, quietly", kept, err)
+	}
+}
+
+func TestAPunchAfterALocateKeepsWholeBarsOnly(t *testing.T) {
+	e, sink, tp := tempoEngine(t, 4)
+	e.SetMeta(tp.ID, func(t *Tape) error { t.Click = false; return nil })
+	e.Do(Action{Kind: "play"})
+	e.Start()
+	sink.play(t, 20000)
+	e.Record(tp.ID, 2, "aux")
+	sink.play(t, 200000) // bar 2 (96000-192000) is played whole, bar 3 begun
+	// Locate somewhere else, just past a bar line, and play on a little.
+	e.Do(Action{Kind: "locate", Pos: 288000 + 1000})
+	sink.play(t, 50000)
+	kept, err := e.EndRecording(tp.ID, false)
+	if err != nil {
+		t.Fatalf("end = %v", err)
+	}
+	// Bar 2 alone: what played after the locate isn't part of the punch.
+	if kept == nil || kept.Clip.At != 96000 || kept.Frames != 96000 {
+		t.Fatalf("kept %+v, want bar 2 alone", kept)
+	}
+}
+
+func TestAPunchNeedsBars(t *testing.T) {
+	e, _, tp := newEngine(t) // an empty tape with no tempo
+	if _, err := e.Record(tp.ID, 1, "aux"); !errors.Is(err, ErrNoGrid) {
+		t.Fatalf("Record with no tempo = %v, want ErrNoGrid", err)
 	}
 }

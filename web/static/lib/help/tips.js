@@ -79,7 +79,7 @@ export const TIPS = [
   { control: '▶ (tape)', ids: ['tape-play'], tip: 'Play or stop the tape' },
   { control: '● Rec (tape)', ids: ['tape-rec'], tip: 'Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it' },
   { control: '♩ Click', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty' },
-  { control: 'Tap (empty tape)', ids: ['tape-tap'], tip: 'Tap where the loop starts, then where it comes round: each tap snaps to the nearest attack' },
+  { control: 'Tap (empty tape)', ids: ['tape-tap'], tip: 'Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it' },
   { control: 'Tempo (tape)', ids: ['tape-tempo'], tip: 'Call the loop more bars or fewer: the same length, so nothing is stretched' },
   { control: '⟲ Loop (tape)', ids: ['tape-loop'], tip: 'Loop the bracket, or play on to the end of what’s recorded' },
   { control: '1 bar, 2, 4', ids: ['catch-bars'], tip: 'Catch the last bars you played, ending on the last bar line, where they were played' },

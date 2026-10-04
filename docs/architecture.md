@@ -579,7 +579,11 @@ while stopped arms the track, and the next ▶ becomes a play with a count-in
 -- a bar of click rendered with the tape standing at its bar line, then
 play. Ending it works out what it covered from the cycle log and the
 position map -- the last full pass inside it, or the bars from the first bar
-line it played to the last complete one -- and catches that span.
+line it played to the last complete one before the tape stopped, moved or
+the punch ended -- and catches that span, placing each piece of it where it
+played: every wrap in the position map is marked as one, so a span that went
+round the loop is split at the loop as it was then, even if it has moved
+since. ■ during a punch stops the tape before the catch is written.
 
 **The click** is rendered into bus A by the mix: a 25 ms sine blip on each
 beat line, higher on the bar. It's on for a new tape and goes off with the

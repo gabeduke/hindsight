@@ -21,11 +21,13 @@ const (
 	tapBefore = 0.250 // seconds before a tap an attack may be
 	tapAfter  = 0.050 // and after
 	tapExpiry = 2 * time.Minute
-	// minLoopSeconds is the shortest free loop: shorter is a double tap.
-	minLoopSeconds = 0.5
+	// minLoopSeconds is the shortest free loop: one bar at 400 BPM.
+	// Shorter is a double tap, taken as a new first tap.
+	minLoopSeconds = 0.6
 )
 
 type pendingTap struct {
+	tape   string
 	ring   int64 // the ring frame being converted when it arrived
 	track  int
 	source string
@@ -86,29 +88,45 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 	}
 	ring := int64(math.Round(f))
 
+	sr := int64(e.store.SampleRate())
+	this := &pendingTap{tape: id, ring: ring, track: track, source: source, at: time.Now()}
 	e.recMu.Lock()
+	if e.LoadedID() != id { // a load raced this tap
+		e.recMu.Unlock()
+		return TapResult{}, ErrWrongTape
+	}
 	first := e.tap
-	if first != nil && (time.Since(first.at) > tapExpiry || first.source != source || first.track != track) {
+	if first != nil && (time.Since(first.at) > tapExpiry || first.source != source || first.track != track || first.tape != id) {
 		first = nil
 	}
-	if first == nil {
-		e.tap = &pendingTap{ring: ring, track: track, source: source, at: time.Now()}
+	// A second tap too soon after the first is a fresh first tap.
+	if first == nil || ring-first.ring < int64(minLoopSeconds*float64(sr)) {
+		e.tap = this
 		e.recMu.Unlock()
 		return TapResult{Stage: "first"}, nil
 	}
 	e.tap = nil
 	e.recMu.Unlock()
+	keepFirst := func() {
+		e.recMu.Lock()
+		if e.tap == nil && e.LoadedID() == id {
+			e.tap = first
+		}
+		e.recMu.Unlock()
+	}
 
-	sr := int64(e.store.SampleRate())
 	before, after := int64(tapBefore*float64(sr)), int64(tapAfter*float64(sr))
+	over := int64(OverhangSeconds * float64(sr))
 	r := e.capture.Ring()
-	// Wait for the ring to hold the second tap's window.
+	// Wait for the ring to hold the second tap's window, and the overhang
+	// past wherever in it the loop's end snaps to.
 	for tries := 0; ; tries++ {
 		_, total := r.Window()
-		if ring+after <= int64(total) {
+		if ring+after+over <= int64(total) {
 			break
 		}
 		if tries >= 100 {
+			keepFirst()
 			return TapResult{}, ErrNotYet
 		}
 		time.Sleep(20 * time.Millisecond)
@@ -117,7 +135,8 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 	end := snapAttack(r, src.Pair, ring, before, after)
 	frames := end - start
 	if frames < int64(minLoopSeconds*float64(sr)) {
-		return TapResult{}, fmt.Errorf("%w: the taps are too close together; tap where the loop starts, then where it comes round", ErrBadParameter)
+		keepFirst()
+		return TapResult{}, fmt.Errorf("%w: both taps found the same hit; tap where the loop starts, then where it comes round", ErrBadParameter)
 	}
 	bars := guessBarsNear(frames, int(sr), e.lastBPM(id))
 	g := Grid{Frames: frames, Bars: bars}
@@ -125,7 +144,6 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 		return TapResult{}, fmt.Errorf("%w: %.1f s doesn't make a tempo of 20–400 BPM", ErrBadParameter, float64(frames)/float64(sr))
 	}
 
-	over := int64(OverhangSeconds * float64(sr))
 	oldest, _ := r.Window()
 	if start-over < int64(oldest) {
 		return TapResult{}, ErrGone
@@ -169,6 +187,7 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 	// In phase: the loop came round at ring frame end, which the output
 	// played at end - Δ; it has been going round since.
 	if d, how := e.delta(); how != "none" {
+		d += int64(math.Round(e.latencyMS * float64(sr) / 1000)) // as catches do
 		e.Do(Action{Kind: "phase", Anchor: end - d})
 	} else {
 		e.Do(Action{Kind: "locate", Pos: 0})

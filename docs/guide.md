@@ -552,7 +552,8 @@ other tapes' undo.
 
 **Rec (6c).** Choose a source and select a track, then:
 
-- **While playing,** tap **● Rec** and recording starts at the next bar line.
+- **While playing,** tap **● Rec** and recording starts at the next bar line
+  (or the one you just passed, if it was less than a quarter second ago).
   Tap ● again (or ■) to keep it. With the loop on, it keeps the last full
   pass it covered -- the others are still in the passes row. Otherwise, or
   if no pass was full, it keeps the bars up to the last complete one.
@@ -585,7 +586,9 @@ ruler.
   tap ● → *Kept 1 bar from aux on track 2*: the last full pass.
 - [demo] Stop. Select track 3, tap ● (*● Armed 3*), press ▶ → the position
   reads *count-in 1 of 4…4 of 4* over a bar of click, then the tape plays;
-  after two bars press ■ → the bars it played are kept on track 3.
+  after two passes press ■ → *Kept 1 bar*: the last full pass, on track 3.
+- [demo] Arm, press ▶, and press ■ during the count-in → nothing is kept,
+  and nothing complains.
 - [rig] Arm track 3 with the guitar in aux, press ▶, play over the count-in
   and two passes, press ■ → the guitar is on track 3, in time.
 - [rig] Turn channel 1's FX knob → the tape's sound changes, and the live
@@ -769,7 +772,7 @@ has no tip.
 | ▶ (tape) | Play or stop the tape |
 | ● Rec (tape) | Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it |
 | ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty |
-| Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the nearest attack |
+| Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
 | Tempo (tape) | Call the loop more bars or fewer: the same length, so nothing is stretched |
 | ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded |
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |

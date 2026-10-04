@@ -44,6 +44,7 @@ type segment struct {
 	out     uint64
 	pos     int64
 	playing bool
+	wrap    bool // it began where the loop wrapped: playing on, unbroken
 }
 
 // Cycle is one complete pass of the loop, as played.
@@ -98,9 +99,14 @@ func newTransport() *transport { return &transport{cycleStart: -1} }
 
 // record notes a change of the map at output frame out. Called by the render
 // goroutine.
-func (t *transport) record(out uint64) {
+func (t *transport) record(out uint64) { t.recordSeg(out, false) }
+
+// recordWrap notes a wrap at out: the tape played on, from In.
+func (t *transport) recordWrap(out uint64) { t.recordSeg(out, true) }
+
+func (t *transport) recordSeg(out uint64, wrap bool) {
 	t.mu.Lock()
-	t.segments = append(t.segments, segment{out: out, pos: t.pos, playing: t.playing})
+	t.segments = append(t.segments, segment{out: out, pos: t.pos, playing: t.playing, wrap: wrap})
 	if len(t.segments) > maxSegments {
 		t.segments = t.segments[len(t.segments)-maxSegments:]
 	}
@@ -151,14 +157,48 @@ func (t *transport) continuous(from, to uint64, loop Loop) (int64, bool) {
 			continue
 		}
 		// A segment boundary inside the span is fine only if it's a wrap:
-		// still playing, from Out back to In.
+		// still playing, from Out back to In -- the loop as it was then.
 		expect := p + int64(s.out-at)
-		if !s.playing || !(loop.On && expect == loop.Out && s.pos == loop.In) {
+		if !s.playing || !(s.wrap || loop.On && expect == loop.Out && s.pos == loop.In) {
 			return 0, false
 		}
 		p, at = s.pos, s.out
 	}
 	return pos, true
+}
+
+// piece is a stretch of the position map: from output frame Out, Len
+// frames, the tape at Pos and moving (or standing). Wrap: it began where the
+// loop wrapped, so it carries straight on from the one before.
+type piece struct {
+	Out     uint64
+	Pos     int64
+	Len     int64
+	Playing bool
+	Wrap    bool
+}
+
+// pieces is the position map over output frames [from, to).
+func (t *transport) pieces(from, to uint64) []piece {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	var out []piece
+	for i, sg := range t.segments {
+		end := to
+		if i+1 < len(t.segments) && t.segments[i+1].out < end {
+			end = t.segments[i+1].out
+		}
+		start := max(sg.out, from)
+		if start >= end {
+			continue
+		}
+		p := sg.pos
+		if sg.playing {
+			p += int64(start - sg.out)
+		}
+		out = append(out, piece{Out: start, Pos: p, Len: int64(end - start), Playing: sg.playing, Wrap: sg.wrap && start == sg.out})
+	}
+	return out
 }
 
 // firstBarLine is the first output frame in [from, to) at which the tape

@@ -33,6 +33,19 @@ click", the *Free* and *Punch* rows of "Catching". **Checks:**
   the bar it starts (an old off-by-one that put a catch a bar early when a
   bar line rounded down).
 
+## After the independent review
+
+Fixed: ■ during a punch waited for the catch before stopping; a punch that
+played past the end of the material (loop off) was lost; a locate during a
+punch could keep a span ending mid-bar; ending a punch in its count-in was a
+409; Rec on a tape with no tempo was a dead end (now refused); a tap's
+overhang could be past the end of the ring; the free loop's phase ignored
+`TAPE_LATENCY_MS`; the kept toast named the selected track and only the
+first piece's length; Record and Tap could race a load; a punch's span was
+placed against the loop as it was at the end. Also: a too-soon second tap
+is a fresh first tap; a failed second tap keeps the first; a Rec just after
+a bar line means that bar; the count-in readout follows what's heard.
+
 ## Tasks
 
 1. Transport: count-in, the phase action; Status.count_in.

@@ -404,12 +404,12 @@ func (a *API) handleTapeTransport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// ▶ with a track armed counts in and records; ■ during a punch keeps it.
-	clip, err := a.tape.Transport(id, act)
+	kept, err := a.tape.Transport(id, act)
 	if err != nil {
 		tapeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"status": "queued", "clip": clip})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "queued", "kept": kept})
 }
 
 // handleTapeRecord arms a track (stopped) or punches in (playing).
@@ -438,12 +438,12 @@ func (a *API) handleTapeRecordEnd(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
 	}
-	clip, err := a.tape.EndRecording(r.URL.Query().Get("id"), r.URL.Query().Get("cancel") == "1")
+	kept, err := a.tape.EndRecording(r.URL.Query().Get("id"), r.URL.Query().Get("cancel") == "1")
 	if err != nil {
 		tapeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"clip": clip})
+	writeJSON(w, http.StatusOK, map[string]any{"kept": kept})
 }
 
 // handleTapeTap takes a free-loop tap. It's stamped the moment it arrives:

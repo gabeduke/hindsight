@@ -877,7 +877,8 @@ original's pool files.
 `{"action": "play" | "stop" | "locate", "quantum": "now" | "beat" | "bar" | "loop", "pos": F, "count_in": true}`.
 `count_in` starts a play with a bar of click, from the playhead's bar.
 The action takes effect on the exact output frame its quantum falls on
-(`now`, the default, at the next block). Answers 200 `{"status":"queued"}`.
+(`now`, the default, at the next block). Answers 200 `{"status":"queued"}`,
+with `kept` when a stop ended a punch (below).
 `play` is 409 when the tape has no output (a build without PortAudio);
 `locate` still moves it. Loading a tape stops the transport and forgets the
 passes played, so a pass of one tape is never caught onto another.
@@ -902,17 +903,24 @@ waits up to two seconds for the newest audio to reach the ring. Answers
 `POST {"track": 2, "source": "aux"}` arms the track while the tape is stopped
 (`{"record": {"state": "armed", …}}`), or punches in while it plays
 (`"state": "on"`). Nothing is recorded specially -- the ring always is; a
-punch notes the output frame it was asked at (`from`). 409 if a track is
-already recording.
+punch notes the output frame it was asked at, less a quarter second (`from`),
+so a Rec just after a downbeat means that bar. 400 on a tape with no tempo
+(a punch needs bars); 409 if a track is already recording.
 
 With a track armed, the next `play` counts in a bar of click and plays from
 the playhead's bar, and the punch starts there.
 
-`DELETE` ends it and keeps what it covered, answering `{"clip": …}`: with the
-loop on, the last full pass inside it; otherwise, or with no full pass, the
-bars from the first bar line it played to the last complete one. A `stop`
-during a punch does the same, and its answer carries the clip. `?cancel=1`
-keeps nothing; on an armed track, it disarms. 409 if nothing is recording.
+`DELETE` ends it and keeps what it covered, answering
+`{"kept": {"clip": …, "frames": F, "track": 2}}`: with the loop on, the last
+full pass inside it; otherwise, or with no full pass, the bars from the first
+bar line it played to the last complete one before the tape stopped, moved,
+or the punch ended. What wrapped round the loop is placed in pieces where it
+played; `clip` is the first piece and `frames` all of it. A punch ended
+before the tape reached a bar line (in its count-in) keeps nothing:
+`{"kept": null}`. A `stop` during a punch stops the tape first, then does the
+same, and its answer carries `kept`; if the catch fails, the tape has still
+stopped. `?cancel=1` keeps nothing; on an armed track, it disarms. 409 if
+nothing is recording.
 
 ### `POST /api/tapes/tap?id=`, `DELETE /api/tapes/tap?id=`
 

@@ -174,8 +174,10 @@ function render() {
   const heard = live ? live.heard : 0;
   const counting = !!(live && live.count_in > 0);
   if (counting && t.grid) {
+    // The render head is ahead of what's heard by what's rendered ahead.
     const beat = t.grid.frames / t.grid.bars / 4;
-    $('position').textContent = `count-in ${Math.max(1, 4 - Math.floor((live.count_in - 1) / beat))} of 4`;
+    const left = Math.min(t.grid.frames / t.grid.bars, live.count_in + Math.max(0, live.out - live.delivered));
+    $('position').textContent = `count-in ${Math.min(4, Math.max(1, 4 - Math.floor((left - 1) / beat)))} of 4`;
   } else {
     $('position').textContent = live ? `${barBeat(heard, t.grid) || ''} ${fmtSecs(heard, sr)}${live.output ? '' : ' · no output'}` : '';
   }
@@ -186,7 +188,7 @@ function render() {
   rb.classList.toggle('armed', !!(rec && rec.state === 'armed'));
   rb.classList.toggle('counting', counting);
   rb.textContent = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
-  rb.disabled = !live || live.aligned === 'none' && !rec;
+  rb.disabled = !rec && (!live || live.aligned === 'none' || !t.grid);
   $('click').setAttribute('aria-pressed', String(!!t.click));
   $('click').disabled = !t.grid;
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
@@ -401,18 +403,20 @@ async function patch(body) {
 async function transport(action, extra = {}) {
   try {
     const b = await change(() => api(`/api/tapes/transport?${q()}`, { method: 'POST', body: { action, ...extra } }));
-    if (b && b.clip) keptToast(b.clip);
+    if (b && b.kept) keptToast(b.kept);
     setTimeout(poll, 150);
   } catch (e) {
     toast(e.message, 'bad');
   }
 }
 
-// keptToast says what a punch kept, with Undo.
-function keptToast(c) {
-  const bars = state.tape && state.tape.grid ? c.frames / (state.tape.grid.frames / state.tape.grid.bars) : 0;
-  const what = bars >= 0.99 ? `${Math.round(bars)} bar${Math.round(bars) === 1 ? '' : 's'}` : `${(c.frames / state.tape.sample_rate).toFixed(1)} s`;
-  toast(`Kept ${what} from ${c.source} on track ${state.track}`, 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } });
+// keptToast says what a punch kept -- on its own track, all of it, even
+// split where the loop wrapped -- with Undo.
+function keptToast(k) {
+  const bars = state.tape && state.tape.grid ? k.frames / (state.tape.grid.frames / state.tape.grid.bars) : 0;
+  const n = Math.round(bars);
+  const what = Math.abs(bars - n) < 0.01 && n > 0 ? `${n} bar${n === 1 ? '' : 's'}` : `${(k.frames / state.tape.sample_rate).toFixed(1)} s`;
+  toast(`Kept ${what} from ${k.clip.source} on track ${k.track}`, 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } });
 }
 
 // rec arms the selected track, punches in, or ends the punch and keeps it.
@@ -427,8 +431,8 @@ async function rec() {
       });
     } else {
       const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'DELETE' }));
-      if (b.clip) keptToast(b.clip);
-      else toast(`Track ${r.track} disarmed`);
+      if (b.kept) keptToast(b.kept);
+      else toast(r.state === 'armed' ? `Track ${r.track} disarmed` : 'Nothing to keep yet: the tape hadn’t reached a bar line');
     }
     poll();
   } catch (e) {
@@ -459,6 +463,7 @@ async function tap() {
 function openTempo() {
   const t = state.tape;
   const menu = $('tempo-menu');
+  $('tape-menu').hidden = true;
   if (!t || !t.grid || !menu.hidden) { menu.hidden = true; return; }
   const opts = [];
   for (const bars of [t.grid.bars / 4, t.grid.bars / 2, t.grid.bars, t.grid.bars * 2, t.grid.bars * 4]) {
@@ -558,6 +563,7 @@ async function loadTape(id) {
 
 async function openMenu() {
   const menu = $('tape-menu');
+  $('tempo-menu').hidden = true;
   if (!menu.hidden) { menu.hidden = true; return; }
   let list = { tapes: [] };
   try { list = await api('/api/tapes'); } catch { /* show what we can */ }
