@@ -101,7 +101,13 @@
         <button class="mark-btn" id="mark-btn" title="Mark this moment">Mark</button>
       </div>
       <button class="capture-btn" id="capture-btn">Capture</button>
-      <p class="last">last saved <span id="last-saved">none</span></p>
+      <div class="last-row">
+        <p class="last">last saved <span id="last-saved">none</span></p>
+        <!-- Records from this phone's mic, or an input plugged into it,
+             straight into Hindsight (lib/phone/). In the "last saved" row so
+             it costs Capture no height in landscape. -->
+        <button class="phone-btn" id="phone-btn" type="button" title="Record from this phone">&#9679; Phone</button>
+      </div>
     </section>
 
   </div>
@@ -129,6 +135,31 @@
       <button class="icon-btn confirm" value="delete">Delete</button>
     </div>
   </form>
+</dialog>
+
+<dialog class="sheet" id="phone-sheet" aria-labelledby="phone-title">
+  <div class="sheet-inner phone-inner">
+    <h3 id="phone-title">Record from this phone</h3>
+    <p class="phone-insecure" id="phone-insecure" hidden></p>
+    <div id="phone-controls">
+      <label class="phone-field">Input
+        <select id="phone-input"></select>
+      </label>
+      <div class="phone-meter" aria-hidden="true">
+        <div class="phone-lane"><div class="phone-bar" id="phone-bar-l"></div></div>
+        <div class="phone-lane"><div class="phone-bar" id="phone-bar-r"></div></div>
+      </div>
+      <div class="phone-status">
+        <span class="phone-time" id="phone-time">0:00</span>
+        <span class="phone-state" id="phone-state"></span>
+      </div>
+      <p class="phone-note" id="phone-note"></p>
+    </div>
+    <div class="sheet-actions">
+      <button class="icon-btn" id="phone-close" type="button">Close</button>
+      <button class="icon-btn phone-rec" id="phone-rec" type="button">Record</button>
+    </div>
+  </div>
 </dialog>
 
 <script type="module" src="/app.js"></script>
