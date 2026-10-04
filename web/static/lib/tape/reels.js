@@ -15,6 +15,7 @@ export const EASE_MS = 450;
 const AHEAD_S = 0.5; // the furthest a playing tape is run on past a poll
 const JUMP_S = 0.5;  // a poll this far from where the tape was is a jump
 const SPEED = 45;    // tape travel per second of audio, in reel-radius units
+const STALE_MS = 2000; // no poll for this long: the Pi isn't answering, so stop
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
@@ -73,7 +74,10 @@ export class ReelMotion {
   frame(now) {
     const target = this.runAt(now);
     let pos = target;
-    let moving = this.base && this.base.playing ? 'play' : 'stop';
+    // A playing tape with no word from the Pi for a while is shown stopped
+    // where it got to, rather than animated forever on a guess.
+    const fresh = this.base && now - this.base.at < STALE_MS;
+    let moving = this.base && this.base.playing && fresh ? 'play' : 'stop';
     if (this.ease) {
       const t = (now - this.ease.start) / EASE_MS;
       if (t >= 1) {

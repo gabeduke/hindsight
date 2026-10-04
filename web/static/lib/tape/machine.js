@@ -146,12 +146,15 @@ export class TapeMachine {
     const d = `M${lx.toFixed(1)} ${ly.toFixed(1)} L203 156 L397 156 L${rx.toFixed(1)} ${ry.toFixed(1)}`;
     this.tape.setAttribute('d', d);
     this.sheen.setAttribute('d', d);
-    this.sheen.style.strokeDashoffset = String((-m.pos / this.motion.sr) * 45 % 12);
-    this.heads[1].classList.toggle('on', this.recording && m.moving === 'play');
-    const word = this.recording && m.moving === 'play' ? 'REC' : { play: 'PLAY', wind: 'WIND ▶▶', rewind: '◀◀ REWIND', stop: 'STOP' }[m.moving];
+    if (!this.reduced) this.sheen.style.strokeDashoffset = String((-m.pos / this.motion.sr) * 45 % 12);
+    // Recording, the machine says so through a loop's wrap too: the sign in
+    // the header stays lit, and the two shouldn't disagree.
+    const rec = this.recording && m.moving !== 'stop';
+    this.heads[1].classList.toggle('on', rec);
+    const word = rec ? 'REC' : { play: 'PLAY', wind: 'WIND ▶▶', rewind: '◀◀ REWIND', stop: 'STOP' }[m.moving];
     if (this.state.textContent !== word) this.state.textContent = word;
     if (this.meters) {
-      const lv = m.moving === 'play' ? this.levels(m.pos) : [];
+      const lv = m.moving === 'play' || rec ? this.levels(m.pos) : [];
       this.meters.update(lv, lv, null);
     }
     return m.moving !== 'stop';

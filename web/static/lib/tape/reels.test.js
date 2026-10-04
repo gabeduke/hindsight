@@ -81,3 +81,12 @@ test('with reduced motion the reels jump instead of spinning', () => {
   assert.equal(r.pos, 0);
   assert.equal(r.moving, 'stop');
 });
+
+test('when the polls stop coming, the machine stops rather than run on forever', () => {
+  const m = new ReelMotion({ sampleRate: SR, length: 600 * SR });
+  m.poll(SR, true, 0);
+  assert.equal(m.frame(500).moving, 'play');
+  const late = m.frame(3000);
+  assert.equal(late.moving, 'stop');
+  assert.ok(late.pos <= SR + 0.5 * SR + 1);
+});

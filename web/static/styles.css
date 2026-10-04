@@ -1551,7 +1551,9 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tape-toolbar {
     grid-area: side;
     position: sticky; top: calc(var(--topbar-h) + 10px);
-    max-height: calc(100svh - var(--topbar-h) - 20px); overflow-y: auto; box-sizing: border-box;
+    /* The machine spans both columns above it, so it gives the toolbar that
+       much less height; the toolbar scrolls inside rather than off the page. */
+    max-height: calc(100svh - var(--topbar-h) - 30px - var(--machine-h)); overflow-y: auto; box-sizing: border-box;
     padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
   }
   .tape-track, .tape-ruler-row { grid-template-columns: 168px 1fr; }
@@ -1660,8 +1662,12 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
   align-items: center; gap: 10px; padding: 6px 12px;
   background: var(--bridge); border-left: 1px solid var(--line);
 }
-.tm-bridge .vu { max-width: none; height: 100%; justify-content: center; gap: 2px; }
-.tm-bridge .vu-face { width: auto; height: calc(100% - 20px); max-width: 100%; }
+.tm-bridge .vu { max-width: none; height: 100%; min-height: 0; justify-content: center; gap: 2px; }
+/* The face takes what the number under it leaves, so the number shows. */
+.tm-bridge .vu-face { flex: 1 1 0; min-height: 0; width: auto; height: auto; max-width: 100%; }
+.tm-bridge .vu-foot { flex: none; line-height: 1.2; }
+/* Small faces: the PEAK lamp without its word, which won't fit. */
+.tm-bridge .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
 .tm-bridge .vu-foot { font-size: 11px; }
 .tm-well { fill: var(--machine-well); }
 .tm-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
@@ -1679,6 +1685,11 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .tm-guide-pin { fill: var(--flange-edge); }
 .tm-plate { font: 700 12px var(--label-font); letter-spacing: 3.5px; fill: var(--ink-dim); text-anchor: middle; }
 .tm-state { font: 600 13px var(--mono); fill: var(--ink); text-anchor: middle; }
+/* Four lit faces at once outshine the lanes in the dark: the bridge's are
+   dimmer than the main page's single pair. */
+@media (prefers-color-scheme: dark) {
+  .tm-bridge { --vu-face: #b9ae8c; --vu-base: #a49974; }
+}
 @media (max-width: 699.98px) {
   .tape-page { --machine-h: 96px; }
   .tm-deck { justify-content: center; }
@@ -1709,6 +1720,9 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .rec-sign.on { opacity: 1; background: var(--rec); border-color: var(--rec-edge); color: var(--on-danger); box-shadow: 0 0 14px color-mix(in srgb, var(--rec) 55%, transparent); }
 .rec-short { display: none; }
 @media (max-width: 480px) {
+  /* A narrow head: the number before the chips, on a narrower strip. */
+  .tt-head .tt-name { padding: 1px 4px; font-size: 14px; }
+  .tape-track.selected .tt-name::after { margin-left: 3px; }
   .rec-long { display: none; }
   .rec-short { display: inline; }
   .rec-sign { padding: 3px 7px; letter-spacing: .12em; }
