@@ -53,17 +53,19 @@ type Result struct {
 - **Onset envelope.** RMS energy in short hops, then the rise in log energy
   from hop to hop, half-wave rectified, mean removed.
 - **Coarse period.** Autocorrelate the envelope over beat periods for
-  40–240 BPM. Score each candidate beat period by its autocorrelation at 1,
-  2, 4 and 8 beats (a comb), so the true pulse beats its sub-divisions.
-- **Octave choice.** Among a candidate, half it and double it, take the one
-  nearest the hint when the hint is within 8% of one of them; otherwise the
-  one in 80–160 BPM, else the strongest. A hint far from every reading is
-  ignored: the clock is a hint, never a fact.
+  40–240 BPM, in tenths of a 10 ms hop (a beat is rarely a whole number of
+  hops). Score each by its autocorrelation at 1, 2, 3 and 4 beats, weighted
+  towards 120 BPM so a period three beats long doesn't outscore the beat.
+- **Octave choice.** A hint within 8% of the best reading, or of its half
+  or double time, picks that; else a strong peak within 8% of the hint
+  (at least 0.8 of the best) wins; else the best's octave in 80–160 BPM.
+  A hint far from every reading is ignored: the clock is a hint, never a
+  fact.
 - **Refine.** Find the autocorrelation peak near the longest multiple of the
-  beat that fits in half the window, at a 1 ms hop, with parabolic
-  interpolation, and divide by the number of beats. Over a minute of audio
-  this is precise to well under 0.01 BPM, the precision the take's two
-  decimals keep.
+  beat that fits in half the window, at a 1 ms hop, at 8, 16, 32… beats,
+  each peak's centre of mass above half its height, fitted by least squares,
+  and divide by the number of beats. Over a minute of audio this is precise
+  to well under 0.01 BPM, the precision the take's two decimals keep.
 - **Confidence** is the normalised autocorrelation at the refined lag. Below
   a threshold (fixed by the tests), `Measure` answers false: free time, a
   drone or silence gives no tempo rather than a wrong one.
