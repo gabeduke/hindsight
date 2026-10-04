@@ -32,12 +32,23 @@ export class TakesList {
    * list re-renders (a prune or a delete also changed the trash);
    * selectBar is the bar select mode shows, with #select-count, #sel-star,
    * #sel-export, #sel-delete and #sel-done inside.
+   *
+   * shape(takes) decides what is shown: groups of takes, each under a
+   * heading ({label, takes}); an empty label draws no heading. By default
+   * every take, in the server's order, under none. The take page's ◂ ▸ step
+   * through what is shown, or with stepOrder 'all' through every take.
    */
-  constructor(container, emptyEl, { onToast, onListChange, selectBar }) {
+  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown' }) {
     this.container = container;
     this.emptyEl = emptyEl;
     this.onToast = onToast;
     this.onListChange = onListChange;
+    this.shape = shape || ((takes) => [{ label: '', takes }]);
+    this.stepOrder = stepOrder;
+    this.all = []; // every take, as the server last listed them
+    this.shownCount = 0;
+    /** @type {Map<string, HTMLElement>} heading label -> heading */
+    this.headings = new Map();
 
     // Select mode: several takes at once (see enterSelect).
     this.selecting = false;
@@ -119,35 +130,65 @@ export class TakesList {
 
     this.etag = res.headers.get('ETag');
     const takes = await res.json();
-    this.render(Array.isArray(takes) ? takes : []);
+    this.all = Array.isArray(takes) ? takes : [];
+    this.reshape();
     this.onListChange?.();
   }
 
-  render(takes) {
+  /** reshape re-renders the last list through shape, without a fetch. */
+  reshape() {
+    this.render(this.shape(this.all));
+  }
+
+  render(groups) {
     const seen = new Set();
+    const seenHeadings = new Set();
+    const shown = [];
     this.reorderDeferred = false;
 
-    takes.forEach((t, i) => {
-      seen.add(t.name);
-      let row = this.rows.get(t.name);
-      if (!row) {
-        row = this.createRow(t);
-        this.rows.set(t.name, row);
-      }
-      this.updateRow(row, t);
+    // Keep DOM order matching the groups without touching other nodes. A row
+    // being renamed is left where it is. Moving a node blurs any focused
+    // input inside it, and the blur handler commits — so a poll that
+    // reordered the list would silently save half a name the user never
+    // confirmed. The move is deferred to endEdit instead.
+    let pos = 0;
+    const place = (node, editing) => {
+      const at = this.container.children[pos++];
+      if (at === node) return;
+      if (editing) this.reorderDeferred = true;
+      else this.container.insertBefore(node, at ?? null);
+    };
 
-      // Keep DOM order matching server order without touching other nodes.
-      // A row being renamed is left where it is. Moving a node blurs any
-      // focused input inside it, and the blur handler commits — so a poll
-      // that reordered the list would silently save half a name the user
-      // never confirmed. The move is deferred to endEdit instead.
-      const at = this.container.children[i];
-      if (at !== row.el) {
-        if (row.editing || row.editingBpm) this.reorderDeferred = true;
-        else this.container.insertBefore(row.el, at ?? null);
+    for (const g of groups) {
+      if (g.label) {
+        let h = this.headings.get(g.label);
+        if (!h) {
+          h = document.createElement('h3');
+          h.className = 'shelf-day';
+          h.textContent = g.label;
+          this.headings.set(g.label, h);
+        }
+        seenHeadings.add(g.label);
+        place(h, false);
       }
-    });
+      for (const t of g.takes) {
+        seen.add(t.name);
+        shown.push(t.name);
+        let row = this.rows.get(t.name);
+        if (!row) {
+          row = this.createRow(t);
+          this.rows.set(t.name, row);
+        }
+        this.updateRow(row, t);
+        place(row.el, row.editing || row.editingBpm);
+      }
+    }
 
+    for (const [label, h] of this.headings) {
+      if (seenHeadings.has(label)) continue;
+      h.remove();
+      this.headings.delete(label);
+    }
     for (const [name, row] of this.rows) {
       if (seen.has(name)) continue;
       this.destroyRow(row);
@@ -156,10 +197,11 @@ export class TakesList {
     }
     if (this.selecting) this.renderSelect();
 
-    const any = takes.length > 0;
-    this.emptyEl.hidden = any;
+    this.shownCount = shown.length;
+    this.emptyEl.hidden = shown.length > 0;
     // The take page's ◂ ▸ step through the takes in this order.
-    try { sessionStorage.setItem('hindsight.order', JSON.stringify(takes.map((t) => t.name))); } catch { /* fine */ }
+    const order = this.stepOrder === 'all' ? this.all.map((t) => t.name) : shown;
+    try { sessionStorage.setItem('hindsight.order', JSON.stringify(order)); } catch { /* fine */ }
   }
 
   createRow(t) {

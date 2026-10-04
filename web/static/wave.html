@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hindsight — take</title>
-<meta name="theme-color" content="#0b1120">
-<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#fdf6e3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#002b36" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -18,7 +19,7 @@
 <!-- The take's header: the same controls the list row has (name, star,
      tempo), so nothing about a take can only be changed from one page. -->
 <header class="topbar take-top">
-  <a class="back" href="/" aria-label="Back to takes" data-tip="back">‹</a>
+  <a class="back" href="/takes.html" aria-label="Back to takes" data-tip="back">‹</a>
   <button id="take-prev" class="icon-btn step-btn" type="button" aria-label="Previous take" data-tip="take-prev" disabled>◂</button>
   <div class="take-title">
     <div class="take-title-row">

@@ -17,6 +17,12 @@ export const TIPS = [
   { control: 'Save from here to now', ids: ['flag-save-from'], tip: 'Save a take that starts at this flag and runs to now' },
   { control: 'Delete flag (ribbon)', ids: ['flag-remove'], tip: 'Remove this flag. Takes saved later won\'t carry it' },
   { control: 'Phone', ids: ['phone'], tip: "Record from this phone's mic or a plugged-in input, straight into Hindsight" },
+  // The takes page
+  { control: 'All takes', ids: ['all-takes'], tip: 'Every take, on a page of its own, to search, filter and sort' },
+  { control: 'Search', ids: ['search'], tip: 'Find a take by its name, its time or its tempo' },
+  { control: 'Filters', ids: ['filter'], tip: 'Show only starred takes, takes with MIDI, takes from a phone, or tape mixdowns' },
+  { control: 'Newest / Longest', ids: ['sort'], tip: 'Newest groups the takes by the day they were made; Longest puts the longest first' },
+  { control: '‹ (takes page)', ids: ['back-main'], tip: 'Back to the main page: capture, the meters and the latest take' },
   { control: 'Open', ids: ['open'], tip: 'Open the take to select, loop, save or share part of it' },
   { control: 'Select', ids: ['select'], tip: 'Pick several takes to star, export or delete together. Holding a take does the same' },
   { control: '★ Star (selecting)', ids: ['bulk-star'], tip: 'Star the picked takes, or unstar them if they all are' },
@@ -27,7 +33,7 @@ export const TIPS = [
   { control: '× (Recently deleted)', ids: ['delete-forever'], tip: 'Delete this take for good' },
   { control: 'Empty', ids: ['trash-empty'], tip: 'Delete everything in the trash for good' },
   // A take, on either page
-  { control: '★', ids: ['star'], tip: 'Starred takes stay at the top and are pruned last' },
+  { control: '★', ids: ['star'], tip: 'Star the takes worth keeping: they are pruned last, and the Starred filter shows them alone' },
   { control: 'Name', ids: ['rename'], tip: 'Tap to rename the take' },
   { control: 'BPM', ids: ['bpm'], tip: 'Tap to set the tempo. It draws the bar grid and makes Snap possible' },
   { control: 'Download WAV', ids: ['dl-wav'], tip: 'The whole take, as recorded' },

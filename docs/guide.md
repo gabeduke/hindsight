@@ -71,23 +71,24 @@ just move references around.
 
 - **The buffer ribbon.** It draws the last 15 minutes, with the recent end
   stretched so you can see it.
-- **The meters.**
+- **The meters,** VU needles for the channels being saved, with the level in
+  dBFS under each. On a phone held sideways they fold to two bars.
 - **Capture.** Choose 30 s, 2 m, 7 m or Full, and tap *Capture* to save that
   much of the past as a take.
 - **Flag now.** It marks this moment in the ring;
   the flag rides along into any take that includes it.
-- **The takes list,** newest first. Starred takes always come first. Tap a
-  name to rename it, ★ to star it, and the waveform to hear it. Tap the take
-  to open its page.
+- **The latest take.** Tap its name to rename it, ★ to star it, and the
+  waveform to hear it; *Open* opens its page. **All takes** goes to the
+  takes page (§3.1), where the rest live.
 
 **Checks — today:**
 
-- [demo] Tap *Capture* with 30 s chosen → a new take appears at the top within
+- [demo] Tap *Capture* with 30 s chosen → it becomes the latest take within
   a few seconds, about 30 s long, and plays.
 - [demo] Tap *Flag now*, wait, then capture → the take has a flag at that
   moment.
-- [demo] Star an older take → it moves to the top and stays there after
-  newer captures.
+- [demo] Star an older take → it is pruned last, and the takes page's
+  *Starred* filter shows it.
 
 **Checks — step 1** (data safety; looks the same):
 
@@ -113,6 +114,33 @@ just move references around.
   the interface*, with no error toast. Switch it on → it records again.
 - [demo] The bottom of the page shows the running version and links to this
   guide.
+
+### 3.1 The takes page
+
+*Today.*
+
+Every take, from **All takes** on the main page.
+
+- **Search** finds a take by its name, the time in its name, or its tempo.
+- **Filters** show only what is on: *Starred*, takes with *MIDI*, takes
+  recorded from a *Phone*, and *Tape* mixdowns. They are remembered on the
+  device; the search is not.
+- **Newest** groups the takes by the day they were made — *Today*,
+  *Yesterday*, then the date. **Longest** puts the longest first.
+- **Select**, **Recently deleted** and everything a take's row does are the
+  same as they always were. The take page's ◂ ▸ step through the takes in
+  the order this page shows them, and its ‹ comes back here.
+
+**Checks — today:**
+
+- [demo] Capture from the main page, then open All takes → the take is first
+  under *Today*.
+- [demo] Turn on *Starred* with nothing starred → "No takes match", not
+  "No takes yet".
+- [demo] Record from a phone, then turn on *Phone* → only that take shows.
+- [demo] Open a take from a filtered list and press ▸ → the next take is the
+  next one the list showed.
+- [demo] Delete a take on its page → back here, with an Undo.
 
 ## 4. The take page
 
@@ -911,6 +939,11 @@ has no tip.
 | Save from here to now | Save a take that starts at this flag and runs to now |
 | Delete flag (ribbon) | Remove this flag. Takes saved later won't carry it |
 | Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
+| All takes | Every take, on a page of its own, to search, filter and sort |
+| Search | Find a take by its name, its time or its tempo |
+| Filters | Show only starred takes, takes with MIDI, takes from a phone, or tape mixdowns |
+| Newest / Longest | Newest groups the takes by the day they were made; Longest puts the longest first |
+| ‹ (takes page) | Back to the main page: capture, the meters and the latest take |
 | Open | Open the take to select, loop, save or share part of it |
 | Select | Pick several takes to star, export or delete together. Holding a take does the same |
 | ★ Star (selecting) | Star the picked takes, or unstar them if they all are |
@@ -920,7 +953,7 @@ has no tip.
 | Restore | Put this take back in the list, starred |
 | × (Recently deleted) | Delete this take for good |
 | Empty | Delete everything in the trash for good |
-| ★ | Starred takes stay at the top and are pruned last |
+| ★ | Star the takes worth keeping: they are pruned last, and the Starred filter shows them alone |
 | Name | Tap to rename the take |
 | BPM | Tap to set the tempo. It draws the bar grid and makes Snap possible |
 | Download WAV | The whole take, as recorded |
