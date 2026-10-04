@@ -5,6 +5,38 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.11 — 2026-10-04
+
+- A stale clipboard yields to a newer take; the take page picks up a late measurement (6630671)
+- Don't measure mixdowns; keep the clock when the audio agrees; no sidecar for a deleted take (ad6584d)
+- Hear the beat under a held bass (bd6c413)
+- Take page: the tempo says where it came from, snap starts on bars (dc6e124)
+- Offer the tempo suggestion only when asked (cfe7af2)
+- An empty tape suggests the tempo you were playing (0e1fdde)
+- A take's tempo sets the first loop's bars (d0e936a)
+- Keep tempo_from honest through undo, mixdown, cut and a racing edit (730a1f6)
+- Measure every take's tempo after it's saved (eb33ab9)
+- Measure a recording's tempo from its audio (d1f8693)
+- Plan: tempo from the recording (7bd3efa)
+- Spec: take a tape's tempo from the recording (51b38eb)
+- Fix review findings: the way back to the takes page, quiet controls (3fdf809)
+- VU meters on the main page (b62e2e4)
+- The main page keeps only the latest take (64e2689)
+- A takes page: every take, searched, filtered and grouped by day (21ea942)
+- Add lib/shelf.js: search, filters, sort and day groups for the takes page (8cafd30)
+- Takes say where they came from: phone or tape (1334d38)
+- Plan PR 2: the main page and the takes shelf (d66e44a)
+- Quieten the deck: keys only where you play (75e876f)
+- Fix review findings: readable readouts, visible warnings, sharp canvases (54d8853)
+- Dress the UI as a tape deck (ef72b91)
+- Canvases read the palette and repaint when the scheme flips (67403fe)
+- Solarized Light and Dark tokens, following the device (be199a2)
+- Add lib/theme.js: token colours for canvas code (c821353)
+- Serve vendored fonts, typed as font/woff2 (e093543)
+- Plan the Solarized 4-track restyle (87fabc2)
+- Record v2026.10.04.10 in the changelog [skip ci] (1e999ff)
+
+
 ## v2026.10.04.10 — 2026-10-04
 
 - Tape page: pinch and pan the lanes, and show a punch as it records (1450c47)
