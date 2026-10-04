@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.7 — 2026-10-04
+
+- Test the bridge after a dropped block by its last pair, not FrameAt(now) (e5d9495)
+- CI: name a failing Go test in the run's annotations (4c6c0a2)
+- Levels: fixes from an independent review (9504543)
+- Show each source's level, and say when a catch comes back silent (a122eba)
+- Record v2026.10.04.6 in the changelog [skip ci] (5b6de32)
+- Record v2026.10.04.5 in the changelog [skip ci] (5111508)
+
+
 ## v2026.10.04.6 — 2026-10-04
 
 - Fix the review's findings on reverse and sharing a clip (f44665e)
