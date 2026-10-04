@@ -243,6 +243,7 @@ func TestASpanIsDatedAndTimedThroughTheClockBridge(t *testing.T) {
 	br := cap.Bridge()
 	br.SetPipelineLatency(int64(200 * time.Millisecond))
 	now := mono.Now()
+	wall := time.Now() // the same moment, on the wall clock
 	total := 48000 * 6
 	for f := 256; f <= total; f += 256 {
 		br.Record(now-int64(float64(total-f)/48000*1e9), uint64(f))
@@ -253,8 +254,11 @@ func TestASpanIsDatedAndTimedThroughTheClockBridge(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := ReadMeta(filepath.Join(cfg.OutputDir, got.Name))
-	if ago := time.Since(*m.Created).Seconds(); ago < 3.1 || ago > 3.4 { // 3 s, plus 0.2 s of pipeline
-		t.Errorf("created %.3f s ago, want about 3.2", ago)
+	// Its last frame was converted 3 s before the bridge's newest, plus the
+	// 0.2 s pipeline -- measured from that moment, not from after the save,
+	// however long the save took.
+	if ago := wall.Sub(*m.Created).Seconds(); ago < 3.15 || ago > 3.25 {
+		t.Errorf("created %.3f s before the bridge's newest pair, want 3.2", ago)
 	}
 	if w := ft.gotEnd.Sub(ft.gotStart).Seconds(); w < 1.99 || w > 2.01 {
 		t.Errorf("tempo window %.3f s, want the span's 2", w)
