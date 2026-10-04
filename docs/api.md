@@ -273,16 +273,19 @@ and the live flags' `frame` are on.
   "from_frame": 1234000, "to_frame": 5669200, "clamped": false, "buffered": 900 }
 ```
 
-- A start older than the ring's oldest frame is moved to it (plus a quarter
-  second, once the ring is full and overwriting), and `clamped` says so.
+- A start older than the ring's oldest frame is moved to it (plus a second,
+  once the ring is full and overwriting, re-checked just before the copy
+  starts), and `clamped` says so.
 - The audio is copied out of the ring in short chunks (`Ring.Range`, a
   fraction of a millisecond each under the ring's lock), the selected pair
   only, and written as it goes, so a long span never holds up recording. If
   the ring overwrites the span while it's being saved, the save fails (409)
   and nothing is left behind.
-- The take is named and its `created` set from when its last frame was
-  played (through the clock bridge), so it sorts by when it happened. Its BPM
-  is read over the span's own times. Live flags inside it come with it, and
+- The take's `created` is when its last frame was played (through the clock
+  bridge), so the list sorts it by when it happened; its name, like every
+  take's, is from when it was saved, so it can never be the name of a take
+  deleted earlier, whose pages a phone may have cached. Its BPM is read over
+  the span's own times. Live flags inside it come with it, and
   MIDI is exported for the span as for any save. `MIDI_SNAP_BARS` doesn't
   move it: the span is what was selected.
 

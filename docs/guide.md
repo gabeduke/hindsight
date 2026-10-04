@@ -310,9 +310,12 @@ The selection names the audio, not a place on the screen: it slides left as
 time passes, like the audio it holds. If its start leaves the buffer before
 you save, the bar says so and the take starts at the oldest audio there is.
 
-The take is named and dated by when its last moment was played, so it sorts
-among the others by when it happened, and its tempo is read over that span,
-not over the last few seconds. Flags inside it come with it.
+The take is dated by when its last moment was played, so it sorts among the
+others by when it happened, and its tempo is read over that span, not over
+the last few seconds. Flags inside it come with it. If a span leaves the
+buffer altogether before you save, the bar says so and Save is off. With
+`MAX_SAVES` set, remember a take dated in the past is pruned like one: star
+it to keep it.
 
 **Tap a flag on the ribbon** for its sheet: **Save from here to now** makes
 a take that starts at the flag; **Delete flag** removes it.

@@ -17,9 +17,11 @@ import (
 // is absolute ring frames, the clock flags use, and it may end in the past.
 
 // rangeMargin is how far inside the ring's oldest frame a span is allowed to
-// start. The ring overwrites its oldest audio as it records, and a save that
-// starts right at the edge would lose that race before its first chunk.
-const rangeMargin = 0.25 // seconds
+// start, once the ring is full and overwriting its oldest audio as it
+// records: a save that starts right at the edge would lose that race before
+// its first chunk. A second covers a busy SD card between the clamp and the
+// copy, which re-clamps just before it starts anyway.
+const rangeMargin = 1.0 // seconds
 
 // SavedRange describes a span saved by SaveRange.
 type SavedRange struct {
@@ -32,33 +34,20 @@ type SavedRange struct {
 
 // SaveRange saves the absolute ring frames [from, to) as a take. to == 0
 // means "now", the newest frame. A start the ring no longer holds is moved to
-// the oldest it does, and reported. The take is named, and dated, by when its
-// last frame was played, so it sorts among the others by when it happened;
-// its tempo is read over its own times, through the clock bridge, not over
-// the last N seconds.
+// the oldest it does, and reported. The take is dated by when its last frame
+// was played, so the list sorts it by when it happened, and its tempo is read
+// over its own times, through the clock bridge, not over the last N seconds.
+// Its name, like every take's, is from when it was saved: a name from the
+// past could be one a deleted take had, and its pages are cached by name.
 func (s *Saver) SaveRange(from, to uint64) (SavedRange, error) {
 	cfg := s.cap.cfg
-	ring := s.cap.Ring()
-	oldest, total := ring.Window()
-	if total == 0 {
+	if _, total := s.cap.Ring().Window(); total == 0 {
 		return SavedRange{}, ErrNoAudio
 	}
-	if to == 0 || to > total {
-		to = total
-	}
-	out := SavedRange{From: from, To: to, Clamped: from < oldest}
-	// Once the ring is full it overwrites its oldest frames as it records,
-	// so a span starting at the very edge keeps a small margin from it.
-	margin := uint64(rangeMargin * float64(cfg.SampleRate))
-	if oldest > 0 && out.From < oldest+margin {
-		out.From = oldest + margin
-	} else if out.From < oldest {
-		out.From = oldest
-	}
-	if out.To <= out.From {
+	out := SavedRange{}
+	if _, ok := s.clampRange(from, to, &out); !ok {
 		return out, fmt.Errorf("%w: that span is no longer in the buffer", ErrRangeGone)
 	}
-	frames := out.To - out.From
 
 	// Low on disk: the trash first, as for a capture (see EnsureFree).
 	if free, _ := s.FreeGB(); free < cfg.MinFreeGB {
@@ -67,27 +56,30 @@ func (s *Saver) SaveRange(from, to uint64) (SavedRange, error) {
 		}
 	}
 
-	// When the span's ends were played, on the wall clock.
-	endAt := s.wallAt(out.To)
-	startAt := s.wallAt(out.From)
-	takeFlags := flagsForWindow(s.cap.Flags().Active(total, uint64(cfg.RingFrames())), out.From, out.To)
+	s.beginSave()
+	defer s.endSave()
 
-	s.mu.Lock()
-	s.saving = true
-	s.mu.Unlock()
-	defer func() {
-		s.mu.Lock()
-		s.saving = false
-		s.mu.Unlock()
-	}()
-
-	name, wavPath, err := freeTakeName(cfg.OutputDir, endAt)
+	name, wavPath, err := freeTakeName(cfg.OutputDir, time.Now())
 	if err != nil {
 		return out, fmt.Errorf("name take: %w", err)
 	}
 	out.Name = name
 	tmpPath := PartPath(wavPath)
 	pick := cfg.OutChannels()
+
+	// Again, now: emptying the trash and naming can take a while on a busy
+	// SD card, and the ring hasn't stopped recording meanwhile.
+	total, ok := s.clampRange(from, to, &out)
+	if !ok {
+		os.Remove(tmpPath)
+		return out, fmt.Errorf("%w: that span is no longer in the buffer", ErrRangeGone)
+	}
+	frames := out.To - out.From
+	// When the span's ends were played, on the wall clock.
+	endAt := s.wallAt(out.To)
+	startAt := s.wallAt(out.From)
+	takeFlags := flagsForWindow(s.cap.Flags().Active(total, uint64(cfg.RingFrames())), out.From, out.To)
+	ring := s.cap.Ring()
 
 	started := time.Now()
 	ww, err := createWAV(tmpPath, int(frames), len(pick), cfg.SampleRate)
@@ -141,6 +133,27 @@ func (s *Saver) SaveRange(from, to uint64) (SavedRange, error) {
 
 	s.afterSave(wavPath, len(pick), name)
 	return out, nil
+}
+
+// clampRange fits [from, to) to what the ring holds right now, into out,
+// and returns the ring's newest frame and whether anything is left. Once the
+// ring is full, the start keeps rangeMargin from the frame it will overwrite
+// next; to == 0 is now.
+func (s *Saver) clampRange(from, to uint64, out *SavedRange) (uint64, bool) {
+	oldest, total := s.cap.Ring().Window()
+	if to == 0 || to > total {
+		to = total
+	}
+	start := from
+	if start < oldest {
+		start = oldest
+	}
+	margin := uint64(rangeMargin * float64(s.cap.cfg.SampleRate))
+	if capF := uint64(s.cap.Ring().Capacity()); total+margin > capF && start < total+margin-capF {
+		start = total + margin - capF
+	}
+	out.From, out.To, out.Clamped = start, to, from < start
+	return total, to > start
 }
 
 // wallAt is when an absolute ring frame was played, on the wall clock (with

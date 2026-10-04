@@ -418,9 +418,6 @@ type flagEnvelope struct {
 	Frame      uint64  `json:"frame"`
 }
 
-// liveFlags reports every live mark's age and frame. The age conversion
-// belongs here rather than in the client, which would otherwise need the
-// ring's frame counter too.
 // totalFrames is the ring's newest frame, or 0 with no capture.
 func (a *API) totalFrames() uint64 {
 	if a.cap == nil {
@@ -429,6 +426,9 @@ func (a *API) totalFrames() uint64 {
 	return a.cap.Ring().TotalFrames()
 }
 
+// liveFlags reports every live mark's age and frame. The age conversion
+// belongs here rather than in the client, which would otherwise need the
+// ring's frame counter too.
 func (a *API) liveFlags() []flagEnvelope {
 	// Non-nil so it always marshals as [] rather than null, and nil-safe on
 	// Capture because handleEnvelope is reachable with no Capture attached --

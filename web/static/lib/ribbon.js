@@ -27,6 +27,9 @@ import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from '/lib/ribbonma
 
 const HOLD_MS = 350;
 const MOVE_PX = 8;
+// The last ten seconds share the ribbon's last pixel or two: a finger
+// stopping this close to the right edge means "now".
+const NOW_ZONE_PX = 16;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_BUCKETS = 600;
@@ -113,15 +116,16 @@ export class Ribbon {
   frameAtX(clientX) {
     const ax = this.axis();
     const r = this.wrap.getBoundingClientRect();
+    if (r.right - clientX < NOW_ZONE_PX) return null; // at the right edge: now
     const pct = ((clientX - r.left) / r.width) * 100;
-    if (pct >= 99.5) return null; // at the right edge: now
     return frameAt(ageAt(pct, ax.A, ax.T), ax.total, ax.sr);
   }
 
   wireSelect() {
     const w = this.wrap;
     w.addEventListener('pointerdown', (e) => {
-      if (e.button > 0 || e.target.closest('.rb-flag') || !this.axis()) return;
+      if (!e.isPrimary || e.button > 0 || e.target.closest('.rb-flag') || !this.axis()) return;
+      if (this.press) clearTimeout(this.press.timer);
       const p = { id: e.pointerId, x: e.clientX, y: e.clientY, armed: false, anchor: null, end: null };
       p.timer = setTimeout(() => {
         p.armed = true;
@@ -156,6 +160,9 @@ export class Ribbon {
     w.addEventListener('pointerup', (e) => finish(e, true));
     w.addEventListener('pointercancel', (e) => finish(e, false));
     w.addEventListener('contextmenu', (e) => { if (this.press) e.preventDefault(); });
+    // Once a hold has armed, a drag that starts out vertical must select, not
+    // scroll the page: pan-y would otherwise take it and cancel the pointer.
+    w.addEventListener('touchmove', (e) => { if (this.press?.armed) e.preventDefault(); }, { passive: false });
   }
 
   // A held press with no drag is "from here to now"; with one, the span
@@ -170,7 +177,7 @@ export class Ribbon {
   setSel(sel, provisional = false) {
     if (!provisional) this.prevSel = sel;
     this.sel = sel;
-    this.render();
+    if (this.data) this.renderSel(); // just the band and the bar, at finger speed
   }
 
   wireBar() {
@@ -198,7 +205,7 @@ export class Ribbon {
     if (btn) btn.disabled = true;
     try {
       await this.saveSpan(sel.from, sel.to);
-      this.setSel(null);
+      if (this.sel === sel) this.setSel(null); // not one made since
     } catch (e) {
       this.onToast?.(`Could not save: ${e.message}`, 'bad');
     } finally {
@@ -216,11 +223,15 @@ export class Ribbon {
     const fromAge = ageOf(sel.from, ax.total, ax.sr);
     const toAge = sel.to == null ? 0 : ageOf(to, ax.total, ax.sr);
     const len = (to - sel.from) / ax.sr;
-    const gone = fromAge > (this.data?.buffered_seconds ?? Infinity);
+    const buffered = this.data?.buffered_seconds ?? Infinity;
+    const allGone = sel.to != null && toAge > buffered;
+    const gone = fromAge > buffered;
     const when = sel.to == null ? `${fmtAge(fromAge)} ago to now` : `${fmtAge(fromAge)}–${fmtAge(toAge)} ago`;
-    bar.querySelector('.rb-sel-text').textContent = `${fmtAge(len)} · ${when}`
-      + (gone ? ' · starts before the oldest audio' : '');
+    bar.querySelector('.rb-sel-text').textContent = allGone
+      ? 'This span has left the buffer'
+      : `${fmtAge(len)} · ${when}${gone ? ' · starts before the oldest audio' : ''}`;
     bar.classList.toggle('gone', gone);
+    bar.querySelector('.rb-sel-save').disabled = allGone;
   }
 
   // --- a flag's sheet ---------------------------------------------------------
@@ -301,6 +312,14 @@ export class Ribbon {
 
     if (seq !== this._seq) return; // a newer poll already superseded this one
 
+    // The ring's frames count from the Pi's start: fewer than before means it
+    // restarted, and a selection or open flag would now name other audio.
+    if (this.data && data.total_frames < this.data.total_frames) {
+      this.sel = null;
+      this.prevSel = null;
+      if (this.flagSheet?.open) this.flagSheet.close();
+    }
+
     this.data = data;
     this.dataSpans = spans;
     this.render();
@@ -339,23 +358,11 @@ export class Ribbon {
     const tiers = this.spans.map((s) => ({ s, age: abs(s) }));
     const sel = this.selected;
 
-    // A span selected on the ribbon, in place of the tier's shading.
-    const ax = this.axis();
-    this.selLayer.textContent = '';
-    if (this.sel && ax) {
-      const fromAge = Math.min(ageOf(this.sel.from, ax.total, ax.sr), d.buffered_seconds);
-      const toAge = this.sel.to == null ? 0 : ageOf(this.sel.to, ax.total, ax.sr);
-      const l = leftPct(fromAge);
-      const r = this.sel.to == null ? 100 : leftPct(toAge);
-      const band = add(this.selLayer, 'div', 'rb-sel-band');
-      band.style.left = `${l.toFixed(2)}%`;
-      band.style.width = `${Math.max(0.4, r - l).toFixed(2)}%`;
-    }
-    this.renderBar(ax);
+    this.renderSel();
 
     this.bandLayer.textContent = '';
     for (const t of tiers) {
-      if (t.s !== sel || this.sel) continue;
+      if (t.s !== sel) continue;
       const band = add(this.bandLayer, 'div', 'rb-band');
       const l = leftPct(t.age);
       band.style.left = `${l.toFixed(2)}%`;
@@ -401,6 +408,24 @@ export class Ribbon {
     }
 
     this.readout.textContent = this.readoutText(d, abs(sel));
+  }
+
+  // A span selected on the ribbon, in place of the tier's shading.
+  renderSel() {
+    const d = this.data;
+    const ax = this.axis();
+    this.selLayer.textContent = '';
+    if (this.sel && ax) {
+      const fromAge = Math.min(ageOf(this.sel.from, ax.total, ax.sr), d.buffered_seconds);
+      const toAge = this.sel.to == null ? 0 : Math.min(ageOf(this.sel.to, ax.total, ax.sr), d.buffered_seconds);
+      const l = axisPct(fromAge, ax.A, ax.T);
+      const r = this.sel.to == null ? 100 : axisPct(toAge, ax.A, ax.T);
+      const band = add(this.selLayer, 'div', 'rb-sel-band');
+      band.style.left = `${l.toFixed(2)}%`;
+      band.style.width = `${Math.max(0.4, r - l).toFixed(2)}%`;
+    }
+    this.bandLayer.hidden = !!this.sel;
+    this.renderBar(ax);
   }
 
   drawWave(bytes) {

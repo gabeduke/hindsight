@@ -89,7 +89,7 @@ type Saver struct {
 
 	mu        sync.Mutex
 	lastSaved string
-	saving    bool
+	saving    int // saves in progress: a capture and a ribbon save can overlap
 	tempo     TempoSource
 	midi      MIDIExporter
 
@@ -164,10 +164,14 @@ func (s *Saver) LastSaved() string {
 	return s.lastSaved
 }
 
+// beginSave and endSave bracket a save, for Saving.
+func (s *Saver) beginSave() { s.mu.Lock(); s.saving++; s.mu.Unlock() }
+func (s *Saver) endSave()   { s.mu.Lock(); s.saving--; s.mu.Unlock() }
+
 func (s *Saver) Saving() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.saving
+	return s.saving > 0
 }
 
 // FreeGB reports free space on the output volume.
@@ -260,14 +264,8 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		winStart, endFrame,
 	)
 
-	s.mu.Lock()
-	s.saving = true
-	s.mu.Unlock()
-	defer func() {
-		s.mu.Lock()
-		s.saving = false
-		s.mu.Unlock()
-	}()
+	s.beginSave()
+	defer s.endSave()
 
 	savedAt := time.Now()
 	name, wavPath, err := freeTakeName(cfg.OutputDir, savedAt)
