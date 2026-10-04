@@ -85,12 +85,26 @@ export function initHelp({ page, doc = document } = {}) {
     if (!on) return;
     const el = e.target.closest?.('[data-tip]');
     if (!el || el === btn || btn?.contains(el) || pop.contains(e.target)) return;
-    e.preventDefault();
+    // A wheel over the waveform must not zoom it, but the page under it
+    // may still scroll, so that one is stopped without being prevented.
+    if (e.type !== 'wheel') e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
     if (e.type === 'click') show(controlFor(el.dataset.tip), tipFor(el.dataset.tip), GUIDE[page]);
   };
-  for (const t of ['pointerdown', 'pointerup', 'click', 'dblclick', 'change']) doc.addEventListener(t, intercept, true);
+  for (const t of ['pointerdown', 'pointerup', 'click', 'dblclick', 'change', 'wheel']) doc.addEventListener(t, intercept, true);
+  // Keyboard shortcuts are actions too: in help mode only Escape works, and
+  // it leaves help mode.
+  doc.addEventListener('keydown', (e) => {
+    if (!on) return;
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    // Enter or Space on a focused control presses it, and that click shows
+    // its tip (above): how help mode works from a keyboard.
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('[data-tip]')) return;
+    if (e.key === 'Escape') setOn(false);
+    if (e.key !== 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
 
   // First-run hints, once per device per page.
   const hints = HINTS[page];

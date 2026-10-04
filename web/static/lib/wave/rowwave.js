@@ -97,6 +97,9 @@ export class RowWave {
   loop() {
     cancelAnimationFrame(this.raf);
     const step = () => {
+      // Clear the id first: draw() treats a non-zero raf as "a frame is
+      // coming", and a stale one would freeze the row after one play.
+      this.raf = 0;
       this.paint();
       if (this.isPlaying()) this.raf = requestAnimationFrame(step);
     };
@@ -143,6 +146,7 @@ export class RowWave {
     this.ro.disconnect();
     this.audio.pause();
     this.audio.removeAttribute('src');
+    this.audio.load(); // let go of the stream, not just the attribute
     this.canvas.remove();
   }
 }

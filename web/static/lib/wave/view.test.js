@@ -68,7 +68,7 @@ test('grips sit outside the selection ends, the move handle between them', () =>
   assert.deepEqual(v.hit(190, GRIP_Y), { kind: 'grip', grab: true, edge: 'start' });
   assert.deepEqual(v.hit(205, GRIP_Y), { kind: 'grip', grab: true, edge: 'start' });
   assert.deepEqual(v.hit(450, GRIP_Y), { kind: 'move', grab: true }); // the middle, x=450
-  assert.deepEqual(v.hit(300, GRIP_Y), { kind: 'body', select: true });
+  assert.deepEqual(v.hit(300, GRIP_Y), { kind: 'body', select: true, strip: true });
   // Inside the selection in the body, nothing grabs.
   assert.deepEqual(v.hit(300, BODY_Y), { kind: 'body', select: true });
 });
@@ -78,6 +78,29 @@ test('a selection a pixel wide still has two grips and no move handle', () => {
   assert.equal(v.hit(185, GRIP_Y).edge, 'start');
   assert.equal(v.hit(215, GRIP_Y).edge, 'end');
   assert.equal(v.moveHandleShown(200, 201), false);
+  // Their reach inside the selection overlaps; the side of the middle decides.
+  assert.equal(v.hit(199, GRIP_Y).edge, 'start');
+  assert.equal(v.hit(203, GRIP_Y).edge, 'end');
+});
+
+test('bar 1 and the playhead both at the start: each keeps a target', () => {
+  // On open the playhead and the downbeat are both at frame 0.
+  const { v } = harness({ cursor: 0, start: 0, grid: { bpm: 120, downbeat: 0, sampleRate: 48000 } });
+  assert.equal(v.hit(1, PIN_H + 8).kind, 'playhead'); // on the line: the handle
+  assert.equal(v.hit(9, PIN_H + 8).kind, 'downbeat'); // on the "1": bar 1
+  // Apart, the nearer one wins.
+  const far = harness({ cursor: 8000, grid: { bpm: 120, downbeat: 8200, sampleRate: 48000 } }).v; // x 300 and 320
+  assert.equal(far.hit(302, PIN_H + 8).kind, 'playhead');
+  assert.equal(far.hit(326, PIN_H + 8).kind, 'downbeat');
+});
+
+test('two taps under the waveform do not add a flag', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { v, log } = harness();
+  v.down(at(200, GRIP_Y)); v.up(at(200, GRIP_Y));
+  v.down(at(202, GRIP_Y)); v.up(at(202, GRIP_Y));
+  assert.deepEqual(only(log, 'addFlag'), []);
+  assert.equal(only(log, 'seek').length, 2);
 });
 
 // --- the body ----------------------------------------------------------------
@@ -244,11 +267,37 @@ test('a cancelled pin drag puts the flag back', () => {
 test('the playhead handle scrubs silently and hands back where it stopped', () => {
   const { v, log } = harness({ cursor: 7000 });
   v.down(at(200, PIN_H + 8));
-  assert.deepEqual(log.at(-1), ['scrubStart', {}]);
+  assert.deepEqual(log, []); // nothing goes quiet until the handle moves
   v.move(at(260, PIN_H + 8));
-  assert.deepEqual(log.at(-1), ['scrub', { frame: 7600 }]);
+  assert.deepEqual(log.slice(-2), [['scrubStart', {}], ['scrub', { frame: 7600 }]]);
   v.up(at(260, PIN_H + 8));
   assert.deepEqual(log.at(-1), ['scrubEnd', { frame: 7600 }]);
+});
+
+test('a press on the playhead handle that never moves leaves playback alone', () => {
+  const { v, log } = harness({ cursor: 7000 });
+  v.down(at(200, PIN_H + 8)); v.cancel({ pointerId: 1 });
+  v.down(at(200, PIN_H + 8)); v.up(at(200, PIN_H + 8));
+  assert.deepEqual(only(log, 'scrubStart').concat(only(log, 'scrubEnd')), []);
+});
+
+test('a cancelled scrub goes back to where the playhead was', () => {
+  const { v, log } = harness({ cursor: 7000 });
+  v.down(at(200, PIN_H + 8));
+  v.move(at(260, PIN_H + 8));
+  v.cancel({ pointerId: 1 });
+  assert.deepEqual(log.at(-1), ['scrubEnd', { frame: 7000 }]);
+});
+
+test('a pin drag finishes where the finger left it, even if the list was replaced', () => {
+  const flag = { id: 'r1', frame: 7000 };
+  const { v, log, state } = harness({ flags: [flag] });
+  v.down(at(201, 8));
+  v.move(at(251, 8));
+  // The server's answer to an earlier edit lands mid-drag: a fresh list.
+  state.flags = [{ id: 'r1', frame: 7000, label: 'verse' }];
+  v.up(at(251, 8));
+  assert.deepEqual(log.at(-1), ['flagMove', { flag: state.flags[0], frame: 7500, final: true }]);
 });
 
 test('bar 1 drags the downbeat', () => {

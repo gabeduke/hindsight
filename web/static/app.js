@@ -73,9 +73,11 @@ let ribbon = null;
 let mainMeters = null;
 let chanMeters = null;
 let selSeconds = 30;
-// Last capture error already surfaced, so a 2-second poll does not re-toast the
-// same failure forever. Cleared on recovery, so a repeat failure toasts again.
-let lastCaptureError = '';
+// The capture error on screen, since when, and whether it has been toasted:
+// once per failure, so a 2-second poll does not re-toast it forever; cleared
+// on recovery, so a repeat failure toasts again.
+let captureErr = { text: '', since: 0, shown: false };
+const CAPTURE_ERR_HOLD_MS = 3500;
 
 const takes = new TakesList(el.takes, el.takesEmpty, {
   onToast: toast,
@@ -161,8 +163,15 @@ function applyStatus(s) {
       : (detail ? 'capture error' : 'no capture');
   el.healthText.title = detail;
 
-  if (detail && !waiting && detail !== lastCaptureError) toast(detail, 'bad', 8000);
-  lastCaptureError = detail;
+  // Only once it has stood for a few seconds: switching the interface off
+  // first reads as a stalled stream, then as waiting, and the stall on the
+  // way there is not worth a red toast.
+  const errNow = detail && !waiting ? detail : '';
+  if (errNow !== captureErr.text) captureErr = { text: errNow, since: Date.now(), shown: false };
+  else if (errNow && !captureErr.shown && Date.now() - captureErr.since >= CAPTURE_ERR_HOLD_MS) {
+    captureErr.shown = true;
+    toast(errNow, 'bad', 8000);
+  }
   if (s.version) $('version').textContent = s.version;
 
   el.vizWrap.classList.toggle('stale', !healthy);

@@ -216,8 +216,14 @@ export class Lanes {
       for (const k of this.cards) if (k !== c) k.menu.hidden = true;
       c.menu.hidden = !c.menu.hidden;
     };
-    c.head.addEventListener('click', open, sig);
-    c.head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }, sig);
+    c.head.addEventListener('click', (e) => { e.stopPropagation(); open(); }, sig);
+    c.head.addEventListener('keydown', (e) => {
+      // Handled here, so the page's Space-for-Play never sees it too.
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); open(); }
+    }, sig);
+    // Like the page's other menus: a tap anywhere else, or Escape, closes it.
+    document.addEventListener('click', (e) => { if (!c.menu.hidden && !c.menu.contains(e.target)) c.menu.hidden = true; }, sig);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') c.menu.hidden = true; }, sig);
   }
 
   /** Flip a track's kind locally: colour, rows and meta follow. */

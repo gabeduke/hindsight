@@ -16,27 +16,40 @@ export function slug(text) {
     .replace(/\s+/g, '-');
 }
 
+// A link may point at http(s), mailto, an anchor or a relative path; any
+// other scheme (javascript:, data:, vbscript: ...) leaves just the label.
+const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+const ALLOWED = /^(https?:\/\/|mailto:)/i;
+
+function emphasis(s) {
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^\w*])\*([^*\s][^*]*?)\*(?!\w)/g, '$1<em>$2</em>');
+  return s.replace(/(^|[^\w])_([^_\s][^_]*?)_(?!\w)/g, '$1<em>$2</em>');
+}
+
 /** inline renders one line's inline markup: code, links, bold, italics. */
 export function inline(text) {
-  // Code spans first, held aside so nothing inside them is touched.
-  const codes = [];
-  let s = text.replace(/`([^`]+)`/g, (_, c) => { codes.push(`<code>${esc(c)}</code>`); return `\u0000${codes.length - 1}\u0000`; });
+  // Code spans first, then links, each held aside so nothing inside them is
+  // touched -- an underscore in a file name must not turn into italics.
+  const held = [];
+  const hold = (html) => { held.push(html); return `\u0000${held.length - 1}\u0000`; };
+  let s = text.replace(/`([^`]+)`/g, (_, c) => hold(`<code>${esc(c)}</code>`));
   s = esc(s);
   s = s.replace(/\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g, (_, label, href) => {
-    // Only plain relative links, anchors and http(s): no javascript: and the like.
-    const safe = /^(https?:\/\/|\/|#|\.{0,2}\/?[\w.-])/.test(href) && !/^\s*javascript:/i.test(href);
+    const safe = !SCHEME.test(href) || ALLOWED.test(href);
     // Links between docs point at the guide where it makes sense, else at
     // the repository's copy.
     let h = href;
-    if (/^superpowers\//.test(h) || /^\.\.\//.test(h) || /\.md(#|$)/.test(h)) {
+    if (!SCHEME.test(h) && (/^superpowers\//.test(h) || /^\.\.\//.test(h) || /\.md(#|$)/.test(h))) {
       h = `https://github.com/gabeduke/hindsight/blob/main/docs/${h.replace(/^\.\.\//, '')}`;
     }
-    return safe ? `<a href="${h}">${label}</a>` : label;
+    return safe ? hold(`<a href="${h}">${emphasis(label)}</a>`) : emphasis(label);
   });
-  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  s = s.replace(/(^|[^\w*])\*([^*\s][^*]*?)\*(?!\w)/g, '$1<em>$2</em>');
-  s = s.replace(/(^|[^\w])_([^_\s][^_]*?)_(?!\w)/g, '$1<em>$2</em>');
-  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => codes[Number(i)]);
+  s = emphasis(s);
+  // Restore until nothing is left: a link's label can hold a code span.
+  const back = /\u0000(\d+)\u0000/g;
+  while (back.test(s)) s = s.replace(back, (_, i) => held[Number(i)]);
+  return s;
 }
 
 function splitRow(line) {
@@ -115,8 +128,10 @@ export function renderMarkdown(src) {
       out.push(renderList(items, 0, items.length));
       continue;
     }
-    // Paragraph: until a blank line or the start of another block
-    const para = [];
+    // Paragraph: until a blank line or the start of another block. Its first
+    // line is taken whatever it looks like -- a lone "|" that isn't a table
+    // would otherwise be taken by nothing, and the loop would never end.
+    const para = [lines[i++].trim()];
     while (i < lines.length && !isBlank(lines[i]) && !/^(#{1,6}\s|\s*```|\s*\||\s*>)/.test(lines[i]) && !listItem.test(lines[i])) {
       para.push(lines[i++].trim());
     }

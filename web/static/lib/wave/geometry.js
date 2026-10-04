@@ -112,16 +112,6 @@ export function edgeScrollStep(x, width, margin = EDGE_MARGIN_PX, maxStep = EDGE
   return 0;
 }
 
-// A -38 dBFS take drawn on an absolute scale is a flat line. This is the
-// display-only multiplier that lifts its loudest sample to `target`; it never
-// touches audio, and the takes list keeps its absolute scale on purpose.
-export function fitGain(filePeaks, target = 0.9, max = 100) {
-  let peak = 0;
-  for (const ch of filePeaks.data || []) for (const v of ch) peak = Math.max(peak, Math.abs(v));
-  if (!(peak > 0) || peak >= target) return 1;
-  return Math.min(max, target / peak);
-}
-
 // --- snap, In/Out, flag stepping (the editing model's step 3) ------------
 
 /** The snap settings the Snap chip cycles through, in order. */
@@ -147,6 +137,23 @@ export function snapFrame(frame, grid, snap) {
 /** nudgeStep is how far one nudge moves an edge: one snap step, or 10 ms. */
 export function nudgeStep(grid, snap) {
   return Math.round(snapStep(grid, snap) || grid.sampleRate * 0.01);
+}
+
+/**
+ * nudgeFrame is where one nudge in direction sign (+1 or -1) takes a frame.
+ * With snap on it is the next grid line that way, so an edge that sits off
+ * the grid lands on it rather than staying off by the same amount; with snap
+ * off it is 10 ms.
+ */
+export function nudgeFrame(frame, sign, grid, snap) {
+  const step = snapStep(grid, snap);
+  if (!step) return frame + sign * nudgeStep(grid, snap);
+  const k = (frame - grid.downbeat) / step;
+  // A frame a rounding error from a line counts as on it.
+  const near = Math.round(k);
+  const on = Math.abs(k - near) * step < 0.5;
+  const n = sign > 0 ? (on ? near + 1 : Math.ceil(k)) : (on ? near - 1 : Math.floor(k));
+  return Math.round(grid.downbeat + n * step);
 }
 
 /**

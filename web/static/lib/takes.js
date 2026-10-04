@@ -139,9 +139,11 @@ export class TakesList {
         <button class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
         <button class="take-name" type="button" data-tip="rename"></button>
         <input class="take-name-input" type="text" maxlength="120" hidden>
-        <button class="take-bpm" type="button" data-tip="bpm"></button>
-        <input class="take-bpm-input" type="text" inputmode="decimal" maxlength="7" hidden>
-        <span class="take-meta"></span>
+        <span class="take-info">
+          <button class="take-bpm" type="button" data-tip="bpm"></button>
+          <input class="take-bpm-input" type="text" inputmode="decimal" maxlength="7" hidden>
+          <span class="take-meta"></span>
+        </span>
       </div>
       <div class="wave pending">waveform pending…</div>
       <div class="take-actions">

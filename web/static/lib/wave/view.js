@@ -30,6 +30,7 @@ export const GRIP_H = 30;    // the strip under the waveform
 const PIN_HIT = 12;          // px each side of a pin
 const PLAYHEAD_HIT = 16;
 const DOWNBEAT_HIT = 18;
+const DOWNBEAT_LABEL = 7;    // the middle of bar 1's "1", right of its line
 const GRIP_W = 22;           // a grip tab's width, outside the selection's edge
 const GRIP_IN = 8;           // how far a grip's hit zone reaches inside it
 const MOVE_W = 36;           // the move handle's width
@@ -108,18 +109,40 @@ export class WaveView extends GestureSurface {
       return { kind: 'ruler' };
     }
     if (y < RULER_H) {
-      if (st.cursor != null && Math.abs(x - frameToX(st.cursor, v)) <= PLAYHEAD_HIT) return { kind: 'playhead', grab: true };
-      if (st.grid.bpm && Math.abs(x - frameToX(st.grid.downbeat, v)) <= DOWNBEAT_HIT) return { kind: 'downbeat', grab: true };
+      // The playhead's handle is centred on its line; bar 1's target is its
+      // "1", just right of the line. Both open at frame 0, so neither may
+      // simply win: the nearer target does, and the playhead on a tie.
+      let best = null;
+      if (st.cursor != null) {
+        const d = Math.abs(x - frameToX(st.cursor, v));
+        if (d <= PLAYHEAD_HIT) best = { kind: 'playhead', grab: true, d };
+      }
+      if (st.grid.bpm) {
+        const bx = frameToX(st.grid.downbeat, v);
+        if (x >= bx - DOWNBEAT_HIT / 2 && x <= bx + DOWNBEAT_HIT + 8) {
+          const d = Math.abs(x - (bx + DOWNBEAT_LABEL));
+          if (!best || d < best.d) best = { kind: 'downbeat', grab: true, d };
+        }
+      }
+      if (best) { delete best.d; return best; }
       return { kind: 'ruler' };
     }
-    if (y >= this.bodyBottom() && st.region) {
-      const x0 = frameToX(st.region.start, v), x1 = frameToX(st.region.end, v);
-      // The grips sit just outside the selection's ends, so even a selection
-      // a pixel wide keeps two separate tabs to hold.
-      if (x >= x0 - GRIP_W - 4 && x <= x0 + GRIP_IN) return { kind: 'grip', grab: true, edge: 'start' };
-      if (x >= x1 - GRIP_IN && x <= x1 + GRIP_W + 4) return { kind: 'grip', grab: true, edge: 'end' };
-      const mid = (x0 + x1) / 2;
-      if (this.moveHandleShown(x0, x1) && Math.abs(x - mid) <= MOVE_W / 2 + 4) return { kind: 'move', grab: true };
+    if (y >= this.bodyBottom()) {
+      if (st.region) {
+        const x0 = frameToX(st.region.start, v), x1 = frameToX(st.region.end, v);
+        const mid = (x0 + x1) / 2;
+        // The grips sit just outside the selection's ends, so even a selection
+        // a pixel wide keeps two separate tabs to hold. Their reach inside
+        // overlaps on a narrow one; the side of the middle decides.
+        const inStart = x >= x0 - GRIP_W - 4 && x <= x0 + GRIP_IN;
+        const inEnd = x >= x1 - GRIP_IN && x <= x1 + GRIP_W + 4;
+        if (inStart && inEnd) return { kind: 'grip', grab: true, edge: x < mid ? 'start' : 'end' };
+        if (inStart) return { kind: 'grip', grab: true, edge: 'start' };
+        if (inEnd) return { kind: 'grip', grab: true, edge: 'end' };
+        if (this.moveHandleShown(x0, x1) && Math.abs(x - mid) <= MOVE_W / 2 + 4) return { kind: 'move', grab: true };
+      }
+      // Below the waveform: a hold still selects, but two taps don't flag.
+      return { kind: 'body', select: true, strip: true };
     }
     return { kind: 'body', select: true };
   }
@@ -134,9 +157,9 @@ export class WaveView extends GestureSurface {
     const st = this.getState();
     switch (h.kind) {
       case 'pin': return { what: 'pin', flag: h.flag, prev: h.flag.frame, grabOffset: p.x - frameToX(h.flag.frame, this.view) };
-      case 'playhead':
-        this.emit('scrubStart', {});
-        return { what: 'playhead', prev: st.cursor, grabOffset: p.x - frameToX(st.cursor, this.view) };
+      // The take goes quiet only once the handle actually moves (grabMove), so
+      // a press that is cancelled or released still leaves it playing.
+      case 'playhead': return { what: 'playhead', prev: st.cursor, grabOffset: p.x - frameToX(st.cursor, this.view), scrubbing: false };
       case 'downbeat': return { what: 'downbeat', prev: st.grid.downbeat, grabOffset: p.x - frameToX(st.grid.downbeat, this.view) };
       case 'grip': return { what: 'grip', edge: h.edge, region: { ...st.region }, grabOffset: p.x - frameToX(st.region[h.edge], this.view) };
       case 'move': return { what: 'move', region: { ...st.region } };
@@ -148,8 +171,14 @@ export class WaveView extends GestureSurface {
     const st = this.getState();
     const at = (x) => Math.max(0, Math.min(this.total, snapFrame(xToFrame(x, this.view), st.grid, st.snap)));
     switch (g.what) {
-      case 'pin': this.emit('flagMove', { flag: g.flag, frame: Math.min(this.total - 1, at(p.x - g.grabOffset)), final: false }); break;
-      case 'playhead': this.emit('scrub', { frame: Math.max(0, Math.min(this.total - 1, xToFrame(p.x - g.grabOffset, this.view))) }); break;
+      case 'pin':
+        g.frame = Math.min(this.total - 1, at(p.x - g.grabOffset));
+        this.emit('flagMove', { flag: g.flag, frame: g.frame, final: false });
+        break;
+      case 'playhead':
+        if (!g.scrubbing) { g.scrubbing = true; this.emit('scrubStart', {}); }
+        this.emit('scrub', { frame: Math.max(0, Math.min(this.total - 1, xToFrame(p.x - g.grabOffset, this.view))) });
+        break;
       case 'downbeat': this.emit('downbeatChange', { frame: Math.max(0, Math.min(this.total - 1, xToFrame(p.x - g.grabOffset, this.view))), final: false }); break;
       case 'grip': {
         const f = at(p.x - g.grabOffset);
@@ -174,13 +203,18 @@ export class WaveView extends GestureSurface {
   grabEnd(g, p, tap) {
     const st = this.getState();
     switch (g.what) {
-      case 'pin':
-        if (tap) this.emit('selectFlag', { flag: g.flag });
-        else if (g.moved) this.emit('flagMove', { flag: g.flag, frame: g.flag.frame, final: true });
+      case 'pin': {
+        // By id, and to where the finger left it: the page may have swapped
+        // its flag list for the server's answer mid-drag, and g.flag would
+        // then be a stale copy holding the old frame.
+        const f = (st.flags || []).find((x) => x.id === g.flag.id) || g.flag;
+        if (tap) this.emit('selectFlag', { flag: f });
+        else if (g.moved) this.emit('flagMove', { flag: f, frame: g.frame ?? f.frame, final: true });
         break;
+      }
       case 'playhead':
-        // A tap on the handle is a tap on the ruler: it seeks to itself.
-        this.emit('scrubEnd', { frame: st.cursor });
+        // A still press on the handle changes nothing.
+        if (g.scrubbing) this.emit('scrubEnd', { frame: st.cursor });
         break;
       case 'downbeat':
         if (g.moved) this.emit('downbeatChange', { frame: st.grid.downbeat, final: true });
@@ -196,7 +230,7 @@ export class WaveView extends GestureSurface {
   grabRollback(g) {
     switch (g.what) {
       case 'pin': this.emit('flagMove', { flag: g.flag, frame: g.prev, final: true }); break;
-      case 'playhead': this.emit('scrubEnd', { frame: g.prev }); break;
+      case 'playhead': if (g.scrubbing) this.emit('scrubEnd', { frame: g.prev }); break;
       case 'downbeat': this.emit('downbeatChange', { frame: g.prev, final: true }); break;
       case 'grip':
       case 'move': this.emit('regionChange', { region: g.region, final: true }); break;
@@ -208,7 +242,7 @@ export class WaveView extends GestureSurface {
   // waveform adds a flag there.
   tapAt(p, h, double) {
     const frame = this.snapX(p.x);
-    if (double && h.kind === 'body') this.emit('addFlag', { frame: Math.min(this.total - 1, frame) });
+    if (double && h.kind === 'body' && !h.strip) this.emit('addFlag', { frame: Math.min(this.total - 1, frame) });
     else this.emit('seek', { frame });
   }
 

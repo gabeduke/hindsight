@@ -146,7 +146,10 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **One-finger drag moves along the take,** even inside the selection.
 - **Pinch** (or the mouse wheel) zooms.
 - **Tap** moves the playhead; **tap twice** drops a flag there.
-- **Back** returns to the list where you left it.
+- **Drag the playhead's handle** ▾ in the ruler to move it silently; the take
+  carries on from where you let go. **Drag bar 1** — the yellow "1" just
+  right of its line — to say where the music starts.
+- **Back** returns to the list where you left it, even after ◂ ▸.
 
 **Selecting:**
 
@@ -156,8 +159,9 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **Adjust an end** by dragging its grip, or with its ◂ ▸ nudges.
 - **Move the whole selection** with the handle between the grips. A plain
   drag never moves it, so it can't happen by accident.
-- **Snap.** With a BPM set, the *Snap* chip makes taps, the selection and the
-  nudges land on bars, beats or 8ths.
+- **Snap.** With a BPM set, the *Snap* chip makes taps, the selection, **In**
+  and **Out** and the nudges land on bars, beats or 8ths. A nudge from an end
+  that sits between lines goes to the next line.
 - **Clear** forgets the selection; the take is untouched.
 
 **Playing:**
@@ -223,6 +227,17 @@ point at the gestures that matter; **Got it** puts them away for good.
 - [demo] Tap a lane's name → a menu to collapse it, show it as drums or
   notes, or hide it.
 - [demo] ◂ ▸ in the header → the previous or next take in the list's order.
+  Then **‹** → the list, scrolled where you left it.
+- [demo] Open a take with a BPM and drag the yellow "1" at the very start →
+  the downbeat moves (the playhead, also at the start, stays put).
+- [demo] Press ▶, then press and release the playhead's handle without
+  moving → the take keeps playing.
+- [demo] *Snap: beat*, play, and tap **In** then **Out** → both land on
+  beats.
+- [demo] In help mode, press Space → nothing plays; Escape leaves help mode.
+- [demo] At 320 px wide → the take's name gets its own row under the header
+  buttons; in the list a long name keeps its row and the tempo and length
+  move under it.
 
 ## 5. Undo and the trash
 
@@ -537,9 +552,9 @@ has no tip.
 | ⚑ | Drop a flag at the playhead |
 | ◂⚑ ⚑▸ | Jump to the previous or next flag |
 | Delete flag | Remove this flag |
-| ◂ ▸ beside In and Out | Move that end of the selection by one snap step, or 10 ms |
+| ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
 | Clear | Forget the selection. The take itself is untouched |
-| Snap | Make the selection and nudges land on bars, beats or 8ths |
+| Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
 | Save as take | Make a new take of just the selection |
 | Share | Send the selection from your phone as an MP3 |

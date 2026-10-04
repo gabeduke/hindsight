@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, nudgeStep, setPoint, prevFlag, nextFlag,
+  SNAPS, SNAP_LABELS, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
 } from './geometry.js';
 import { peakColumns, foldChannels, drawColumns } from './draw.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
@@ -249,7 +249,8 @@ async function main() {
     if (!pendingTrim) {
       const r = fresh.trim ? { start: fresh.trim.start_frame, end: fresh.trim.end_frame } : null;
       const same = (r && state.region && r.start === state.region.start && r.end === state.region.end) || (!r && !state.region);
-      if (!same) { state.region = r; selectionChanged(); }
+      // Show it and re-arm the loop, but don't save: it came from the Pi.
+      if (!same) { state.region = r; state.pending = null; renderSelection(); scheduleLoop(); }
     }
     renderHeader();
     updateReadout();
@@ -321,13 +322,14 @@ async function main() {
       case 'scrubStart':
         scrubResume = clock.playing;
         if (clock.playing) clock.pause();
+        syncTransport();
         break;
       case 'scrub':
         state.cursor = p.frame; updateReadout(); redraw();
         break;
       case 'scrubEnd':
         seekTo(p.frame);
-        if (scrubResume) { scrubResume = false; togglePlay(); }
+        if (scrubResume) { scrubResume = false; togglePlay(); } else syncTransport();
         break;
       case 'viewChange': if (overview) overview.draw(); if (lanes) lanes.draw(); break;
     }
@@ -444,7 +446,10 @@ async function main() {
 
   // In and Out, at the playhead: the OP-1's loop points.
   function setPointAt(edge) {
-    const next = setPoint(edge, state.cursor, { selection: state.region, pending: state.pending }, total, minLen);
+    // With Snap on, In and Out land on the grid like every other edit: the
+    // nearest line to the playhead, which keeps moving while it plays.
+    const at = snapFrame(state.cursor, state.grid, state.snap);
+    const next = setPoint(edge, at, { selection: state.region, pending: state.pending }, total, minLen);
     const changed = JSON.stringify(next.selection) !== JSON.stringify(state.region);
     state.pending = next.pending;
     state.region = next.selection;
@@ -481,7 +486,7 @@ async function main() {
   const nudge = (edge, sign) => () => {
     if (!state.region) return;
     const r = { ...state.region };
-    r[edge] += sign * nudgeStep(state.grid, state.snap);
+    r[edge] = nudgeFrame(r[edge], sign, state.grid, state.snap);
     if (edge === 'start') r.start = Math.min(r.start, r.end - minLen);
     else r.end = Math.max(r.end, r.start + minLen);
     setRegion(r);
@@ -628,17 +633,32 @@ async function main() {
     }
     if (!Array.isArray(order)) return;
     const i = order.indexOf(file);
-    const go = (name) => () => { location.href = `/wave.html?file=${encodeURIComponent(name)}`; };
+    // replace, not a new entry: Back from any take in a run of ◂/▸ still
+    // goes straight to the list (see the back button below).
+    const go = (name) => () => {
+      flushRegion();
+      try { sessionStorage.setItem('hindsight.hop', '1'); } catch {}
+      location.replace(`/wave.html?file=${encodeURIComponent(name)}`);
+    };
     if (i > 0) { $('take-prev').disabled = false; $('take-prev').onclick = go(order[i - 1]); }
     if (i >= 0 && i < order.length - 1) { $('take-next').disabled = false; $('take-next').onclick = go(order[i + 1]); }
   }
 
   // Back returns to the list as it was: the browser's own Back keeps its
   // scroll, where a fresh load of "/" would start at the top.
+  // A ◂/▸ hop replaces the page, so the referrer is then the last take, not
+  // the list; whether the run began at the list is kept for the session.
+  let fromList = false;
+  try {
+    const ref = document.referrer && new URL(document.referrer);
+    const hop = sessionStorage.getItem('hindsight.hop') === '1';
+    sessionStorage.removeItem('hindsight.hop');
+    if (hop) fromList = sessionStorage.getItem('hindsight.fromList') === '1';
+    else fromList = !!ref && ref.origin === location.origin && ref.pathname === '/';
+    sessionStorage.setItem('hindsight.fromList', fromList ? '1' : '0');
+  } catch {}
   document.querySelector('.topbar .back').addEventListener('click', (e) => {
     if (document.body.classList.contains('notes-open')) { e.preventDefault(); closeNotes(); return; }
-    let fromList = false;
-    try { fromList = !!document.referrer && new URL(document.referrer).origin === location.origin && new URL(document.referrer).pathname === '/'; } catch {}
     if (fromList && history.length > 1) { e.preventDefault(); history.back(); }
   });
 
@@ -903,6 +923,10 @@ async function main() {
   document.addEventListener('keydown', (e) => {
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    // Cmd-+, Ctrl-0 and friends belong to the browser.
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Space on a focused control presses that control; it is not Play too.
+    if (e.key === ' ' && e.target.closest?.('button, a, select, [role="button"], [tabindex]')) return;
     switch (e.key) {
       case ' ': e.preventDefault(); togglePlay(); break;
       case 'f': case 'F': addFlagAt(Math.min(total - 1, state.cursor)); break;

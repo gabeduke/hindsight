@@ -259,6 +259,13 @@ func (c *Capture) supervise() {
 		tick.Stop()
 		c.src.Close()
 		c.healthy.Store(false)
+		// A stall is most often the interface going away. PortAudio's device
+		// list is frozen until a rescan, so rescan now: the next Open then
+		// sees it gone and reports waiting, rather than failing on a stale
+		// entry first.
+		if err := c.src.Reset(); err != nil {
+			log.Printf("[!] device rescan: %v", err)
+		}
 	}
 }
 

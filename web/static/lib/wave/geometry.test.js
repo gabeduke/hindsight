@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   frameToX, xToFrame, levelFor, tileSpan, tilesFor, fileLevel,
   gridLines, barBeat, fmtTime, clampRegion, TILE_BUCKETS,
-  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fitGain, fmtRegionLength,
+  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fmtRegionLength,
 } from './geometry.js';
 
 const view = { start: 48000, fpp: 100, width: 390 };
@@ -100,25 +100,7 @@ test('edge scroll step ramps inside the margins and is zero elsewhere', () => {
   assert.equal(edgeScrollStep(-50, 390), -EDGE_MAX_STEP_PX); // clamped past the edge
 });
 
-// The owner's real takes peak around -38 dBFS. On an absolute scale that is a
-// flat line, so the page offers a display-only multiplier -- which must never
-// shrink a take that is already loud enough, and must not run away on silence.
-test('fitGain scales a quiet take up to the target and never down', () => {
-  const pk = (v) => ({ channels: 1, buckets: 2, data: [[-v, v, -v / 2, v / 2]] });
-  assert.equal(fitGain(pk(0.9)), 1);   // already at the target
-  assert.equal(fitGain(pk(1.0)), 1);   // above it: never scaled down
-  assert.ok(Math.abs(fitGain(pk(0.05)) - 0.9 / 0.05) < 1e-9);
-  // A -38 dBFS take wants ~73x, under the default cap -- it fills the lane.
-  // The cap still keeps a near-silent take from amplifying its own noise
-  // floor to full scale.
-  assert.ok(Math.abs(fitGain(pk(0.0123)) - 0.9 / 0.0123) < 1e-9);
-  assert.equal(fitGain(pk(0.0001)), 100);
-  assert.equal(fitGain(pk(0.0123), 0.9, 40), 40);
-  assert.equal(fitGain({ channels: 1, buckets: 0, data: [[]] }), 1);
-  assert.equal(fitGain({}), 1);        // peaks that never arrived
-});
-
-import { snapFrame, snapStep, nudgeStep, setPoint, prevFlag, nextFlag, fmtPoint, rulerTicks } from './geometry.js';
+import { snapFrame, snapStep, nudgeStep, nudgeFrame, setPoint, prevFlag, nextFlag, fmtPoint, rulerTicks } from './geometry.js';
 
 const grid120 = { bpm: 120, sampleRate: 48000, downbeat: 1000 }; // a beat is 24000 frames
 
@@ -137,6 +119,18 @@ test('a nudge is one snap step, or 10 ms with snap off', () => {
   assert.equal(nudgeStep(grid120, 'beat'), 24000);
   assert.equal(nudgeStep(grid120, 'off'), 480);
   assert.equal(nudgeStep({ bpm: null, sampleRate: 44100, downbeat: 0 }, 'beat'), 441);
+});
+
+test('a snapped nudge goes to the next grid line, from on or off the grid', () => {
+  // 120 BPM at 48 kHz, downbeat 1000: beats at 1000, 25000, 49000 ...
+  const g = { bpm: 120, sampleRate: 48000, downbeat: 1000 };
+  assert.equal(nudgeFrame(25000, 1, g, 'beat'), 49000);   // on a line: one step
+  assert.equal(nudgeFrame(25000, -1, g, 'beat'), 1000);
+  assert.equal(nudgeFrame(30000, 1, g, 'beat'), 49000);   // off it: onto the next line
+  assert.equal(nudgeFrame(30000, -1, g, 'beat'), 25000);
+  assert.equal(nudgeFrame(25000.3, 1, g, 'beat'), 49000); // a rounding error is on the line
+  assert.equal(nudgeFrame(30000, 1, g, 'off'), 30480);    // snap off: 10 ms
+  assert.equal(nudgeFrame(30000, -1, { ...g, bpm: null }, 'beat'), 29520);
 });
 
 test('In then Out makes a selection, through a pending point', () => {

@@ -43,8 +43,8 @@ test('every control in the UI that names a tip has one', () => {
   const missing = [];
   for (const f of walk(join(root, 'web', 'static'))) {
     const src = readFileSync(f, 'utf8');
-    for (const m of src.matchAll(/data-tip="([^"]+)"|dataset\.tip\s*=\s*'([^']+)'/g)) {
-      const id = m[1] || m[2];
+    for (const m of src.matchAll(/data-tip="([^"]+)"|dataset\.tip\s*=\s*(['"`])([^'"`$]+)\2/g)) {
+      const id = m[1] || m[3];
       if (!tipFor(id)) missing.push(`${f.slice(root.length + 1)}: ${id}`);
     }
   }
@@ -93,6 +93,24 @@ test('the renderer escapes HTML and refuses script links', () => {
   assert.equal(inline('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;');
   assert.equal(inline('[x](javascript:alert(1))'), 'x');
   assert.match(inline('[guide](#9-tips-in-the-app)'), /<a href="#9-tips-in-the-app">guide<\/a>/);
+  // Any scheme but http(s) and mailto leaves just the label.
+  assert.equal(inline('[x](data:text/html,hi)'), 'x');
+  assert.equal(inline('[x](vbscript:msgbox)'), 'x');
+  assert.equal(inline('[x](JavaScript:alert)'), 'x');
+  assert.match(inline('[mail](mailto:a@b.c)'), /<a href="mailto:a@b.c">mail<\/a>/);
+  assert.match(inline('[site](https://example.com/a_b_c)'), /<a href="https:\/\/example.com\/a_b_c">site<\/a>/);
+});
+
+test('emphasis never reaches inside a link or code', () => {
+  assert.equal(inline('[spec](superpowers/specs/2026_10_03_x.md)'),
+    '<a href="https://github.com/gabeduke/hindsight/blob/main/docs/superpowers/specs/2026_10_03_x.md">spec</a>');
+  assert.equal(inline('`a_b_c` and _this_'), '<code>a_b_c</code> and <em>this</em>');
+  assert.equal(inline('[the `x_y_z` call](#calls)'), '<a href="#calls">the <code>x_y_z</code> call</a>');
+});
+
+test('a line that only looks like a table is a paragraph, not a hang', () => {
+  assert.equal(renderMarkdown('|'), '<p>|</p>');
+  assert.equal(renderMarkdown('| a | b |\nno separator'), '<p>| a | b | no separator</p>');
 });
 
 test('the whole guide renders, and its section links resolve', () => {

@@ -182,6 +182,12 @@ func TestSupervisorRestartsASilentSource(t *testing.T) {
 		return opens >= 2 && closes >= 1
 	}, "the stalled source to be closed and reopened")
 
+	// A stall is usually the interface going away, so the device list is
+	// rescanned before the reopen; otherwise the reopen tries a stale entry.
+	if _, _, resets, _ := src.counts(); resets < 1 {
+		t.Errorf("resets = %d after a stall, want a rescan before reopening", resets)
+	}
+
 	// Deliberately not asserted: that LastError still explains the stall.
 	// It does not. supervise clears lastErr and re-stamps lastCallback the
 	// moment Open succeeds (capture.go, the "backoff = time.Second" block),
