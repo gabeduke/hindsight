@@ -165,6 +165,12 @@ func NormalizeFlags(in []Flag) []Flag {
 
 // CutSource is a cut's lineage: the take it was cut from and the frame range,
 // in the source's frames.
+// Origins a take's sidecar can name.
+const (
+	OriginPhone = "phone" // recorded from a phone's mic (phone.go)
+	OriginTape  = "tape"  // a tape mixdown (internal/tape)
+)
+
 type CutSource struct {
 	Name       string `json:"name"`
 	StartFrame int64  `json:"start_frame"`
@@ -187,6 +193,11 @@ type Meta struct {
 
 	// Source records where a cut came from. Nil for a take saved from the ring.
 	Source *CutSource `json:"source,omitempty"`
+
+	// Origin says what made the take when it wasn't the ring: OriginPhone or
+	// OriginTape. Empty for a ring capture, and for any take saved before the
+	// field existed. Optional and additive, so it needs no MetaVersion bump.
+	Origin string `json:"origin,omitempty"`
 
 	// BPM is the tempo the take was played at, read from the EP's MIDI clock
 	// at save time and editable afterwards.

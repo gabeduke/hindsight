@@ -90,7 +90,7 @@ func TestPhoneTakeWritesChunksInOrderWhateverOrderTheyArrive(t *testing.T) {
 		}
 	}
 	m := ReadMeta(filepath.Join(dir, name))
-	if m.Label != "Phone" || m.Created == nil || !m.Created.Equal(started) {
+	if m.Label != "Phone" || m.Origin != OriginPhone || m.Created == nil || !m.Created.Equal(started) {
 		t.Errorf("meta = %+v", m)
 	}
 	for _, p := range []string{peaksPath(filepath.Join(dir, name)), pyramidPath(filepath.Join(dir, name))} {

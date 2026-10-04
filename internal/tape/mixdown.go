@@ -277,6 +277,7 @@ func (e *Engine) runMixdown(id uint64, name string, grid *Grid, passFrom, frames
 	if e.takesDir != "" {
 		_, err := audio.UpdateMeta(filepath.Join(e.takesDir, saved.Name), func(m *audio.Meta) error {
 			m.Label = name
+			m.Origin = audio.OriginTape
 			if grid != nil {
 				bpm := math.Round(grid.BPM(int(sr))*100) / 100
 				m.BPM = &bpm

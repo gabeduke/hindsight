@@ -48,6 +48,28 @@ func TestListTakesMergesSidecar(t *testing.T) {
 	}
 }
 
+// Where a take came from -- the phone, a tape mixdown -- rides from its
+// sidecar onto the list, so the shelf can filter by it.
+func TestListTakesReportsOrigin(t *testing.T) {
+	dir := t.TempDir()
+	writeFakeTake(t, dir, "jam_a.wav", time.Minute)
+	wav := writeFakeTake(t, dir, "jam_b.wav", time.Minute)
+	if err := WriteMeta(wav, Meta{Origin: OriginTape}); err != nil {
+		t.Fatal(err)
+	}
+	takes, err := ListTakes(dir)
+	if err != nil {
+		t.Fatalf("ListTakes: %v", err)
+	}
+	got := map[string]string{}
+	for _, tk := range takes {
+		got[tk.Name] = tk.Origin
+	}
+	if got["jam_a.wav"] != "" || got["jam_b.wav"] != "tape" {
+		t.Errorf("origins = %v, want jam_a none and jam_b tape", got)
+	}
+}
+
 func TestListTakesWithoutSidecarHasEmptyLabel(t *testing.T) {
 	dir := t.TempDir()
 	writeFakeTake(t, dir, "jam_a.wav", time.Minute)

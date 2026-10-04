@@ -385,7 +385,7 @@ func finishPhoneTake(dir, name, wav, part string, started time.Time, pyr *pyrami
 		label += " (partial)"
 	}
 	created := started
-	if err := WriteMeta(wav, Meta{Label: label, Created: &created}); err != nil {
+	if err := WriteMeta(wav, Meta{Label: label, Created: &created, Origin: OriginPhone}); err != nil {
 		return fail(fmt.Errorf("sidecar: %w", err))
 	}
 	if err := os.Rename(part, wav); err != nil {

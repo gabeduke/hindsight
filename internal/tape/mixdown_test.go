@@ -124,7 +124,7 @@ func TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail(t *testing.T) {
 	}
 	// It's labelled with the tape, on its tempo from bar 1.
 	meta := audio.ReadMeta(filepath.Join(dir, "jam_mix.wav"))
-	if meta.Label != "song" || meta.BPM == nil || meta.DownbeatFrame == nil || *meta.DownbeatFrame != 0 {
+	if meta.Label != "song" || meta.Origin != audio.OriginTape || meta.BPM == nil || meta.DownbeatFrame == nil || *meta.DownbeatFrame != 0 {
 		t.Fatalf("meta = %+v", meta)
 	}
 	// The tape stands back at In after it.

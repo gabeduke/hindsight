@@ -681,6 +681,7 @@ type Take struct {
 	Flags         []Flag            `json:"flags,omitempty"`
 	DownbeatFrame *int64            `json:"downbeat_frame,omitempty"`
 	Source        *CutSource        `json:"source,omitempty"`
+	Origin        string            `json:"origin,omitempty"`
 	LaneKinds     map[string]string `json:"lane_kinds,omitempty"`
 }
 
@@ -763,6 +764,7 @@ func takeFromFile(dir, name string, info os.FileInfo) Take {
 	t.Flags = EnsureFlagIDs(m.Flags)
 	t.DownbeatFrame = m.DownbeatFrame
 	t.Source = m.Source
+	t.Origin = m.Origin
 	t.LaneKinds = m.LaneKinds
 	return t
 }
