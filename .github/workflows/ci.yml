@@ -41,7 +41,16 @@ jobs:
         run: go vet ./...
 
       - name: go test
-        run: go test -race ./...
+        run: |
+          set -o pipefail
+          go test -race ./... 2>&1 | tee go-test.log
+
+      # The job's log isn't always at hand where a PR is read; a failing
+      # test's name and message are, as annotations on the run.
+      - name: Name the failing tests
+        if: failure()
+        run: |
+          grep -E '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' go-test.log | head -40 | sed 's/^/::error::/' || true
 
       - uses: actions/setup-node@v4
         with:
