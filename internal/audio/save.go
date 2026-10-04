@@ -257,7 +257,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 
 	pick := cfg.OutChannels()
 	start := time.Now()
-	peaks, err := WriteWAV(tmpPath, data, cfg.Channels, pick, cfg.SampleRate)
+	peaks, pyr, err := writeWAV(tmpPath, data, cfg.Channels, pick, cfg.SampleRate)
 	if err != nil {
 		os.Remove(tmpPath)
 		return "", fmt.Errorf("write wav: %w", err)
@@ -268,6 +268,9 @@ func (s *Saver) Save(seconds float64) (string, error) {
 
 	if err := WritePeaks(peaksPath(wavPath), peaks); err != nil {
 		log.Printf("[!] peaks for %s: %v", name, err)
+	}
+	if err := pyr.write(wavPath, cfg.SampleRate); err != nil {
+		log.Printf("[!] peaks pyramid for %s: %v", name, err)
 	}
 	stampCreated(wavPath, savedAt)
 	stampFlagsAt(wavPath, tmpPath, takeFlags)
@@ -324,8 +327,9 @@ func PartPath(wav string) string {
 }
 
 // SweepPartials removes what a crash mid-save or mid-cut can leave behind: a
-// .part file, and the sidecars written for a take whose WAV never made it.
-// Called once at startup, before anything else writes to the directory.
+// .part file, and the sidecars written for a take whose WAV never made it --
+// and any peaks pyramid whose take is gone. Called once at startup, before
+// anything else writes to the directory.
 func SweepPartials(dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -333,6 +337,14 @@ func SweepPartials(dir string) {
 	}
 	for _, e := range entries {
 		n := e.Name()
+		if !e.IsDir() && strings.HasSuffix(n, ".peaks.bin") {
+			// A pyramid whose take is gone: one built while the take was
+			// being deleted, or a take removed by hand.
+			if !exists(filepath.Join(dir, strings.TrimSuffix(n, ".peaks.bin")+".wav")) {
+				os.Remove(filepath.Join(dir, n))
+			}
+			continue
+		}
 		if e.IsDir() || !strings.HasPrefix(n, ".") || !strings.HasSuffix(n, ".wav.part") {
 			continue
 		}
@@ -644,6 +656,7 @@ func RemoveTake(dir, name string) {
 	os.Remove(base)
 	os.Remove(previewPath(base))
 	os.Remove(peaksPath(base))
+	os.Remove(pyramidPath(base))
 	os.Remove(metaPath(base))
 	os.Remove(MIDIPath(base))
 	os.Remove(ManifestPath(base))

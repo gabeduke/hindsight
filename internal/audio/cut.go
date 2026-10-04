@@ -61,7 +61,7 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 		RemoveTake(dir, name)
 		return "", err
 	}
-	if err := writeCutWAV(srcPath, tmpPath, peaksPath(outPath), info, req.StartFrame, req.EndFrame, fade); err != nil {
+	if err := writeCutWAV(srcPath, tmpPath, outPath, info, req.StartFrame, req.EndFrame, fade); err != nil {
 		return fail(err)
 	}
 
@@ -174,8 +174,8 @@ func cutDownbeat(src Meta, from, to int64, sampleRate int) (int64, bool) {
 }
 
 // writeRegion32 streams frames [from, to) of srcPath through the fades to w
-// as a 32-bit WAV with a canonical 44-byte header. acc may be nil.
-func writeRegion32(w io.Writer, srcPath string, info WAVInfo, from, to, fade int64, acc *peakAccumulator) error {
+// as a 32-bit WAV with a canonical 44-byte header. acc and pyr may be nil.
+func writeRegion32(w io.Writer, srcPath string, info WAVInfo, from, to, fade int64, acc *peakAccumulator, pyr *pyramidAcc) error {
 	total := to - from
 	ch := info.Channels
 	bw := bufio.NewWriterSize(w, 1<<18)
@@ -197,6 +197,9 @@ func writeRegion32(w io.Writer, srcPath string, info WAVInfo, from, to, fade int
 				}
 				if acc != nil {
 					acc.add(c, int(rel)+i, float32(float64(v)/2147483648.0))
+				}
+				if pyr != nil {
+					pyr.add(c, rel+int64(i), v)
 				}
 			}
 		}
@@ -227,27 +230,32 @@ func WriteRegion32(w io.Writer, path string, from, to int64) error {
 	if to-from < 2*fade+1 {
 		return ErrTooShort
 	}
-	return writeRegion32(w, path, info, from, to, fade, nil)
+	return writeRegion32(w, path, info, from, to, fade, nil, nil)
 }
 
 // writeCutWAV streams the region through the fades into a canonical 44-byte
-// header WAV at outPath and writes the peaks to peaksOut.
-func writeCutWAV(srcPath, outPath, peaksOut string, info WAVInfo, from, to, fade int64) error {
+// header WAV at tmpPath, and writes the peaks and the peaks pyramid under
+// finalPath's names, where the WAV will be renamed to.
+func writeCutWAV(srcPath, tmpPath, finalPath string, info WAVInfo, from, to, fade int64) error {
 	total := to - from
-	f, err := os.Create(outPath)
+	f, err := os.Create(tmpPath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	acc := newPeakAccumulator(info.Channels, int(total))
-	if err := writeRegion32(f, srcPath, info, from, to, fade, acc); err != nil {
+	pyr := newPyramidAcc(info.Channels, total)
+	if err := writeRegion32(f, srcPath, info, from, to, fade, acc, pyr); err != nil {
 		return err
 	}
 	if err := f.Sync(); err != nil {
 		return err
 	}
-	if err := WritePeaks(peaksOut, acc.finish(info.SampleRate, int(total))); err != nil {
-		log.Printf("[!] peaks for %s: %v", filepath.Base(outPath), err)
+	if err := WritePeaks(peaksPath(finalPath), acc.finish(info.SampleRate, int(total))); err != nil {
+		log.Printf("[!] peaks for %s: %v", filepath.Base(finalPath), err)
+	}
+	if err := pyr.write(finalPath, info.SampleRate); err != nil {
+		log.Printf("[!] peaks pyramid for %s: %v", filepath.Base(finalPath), err)
 	}
 	return nil
 }

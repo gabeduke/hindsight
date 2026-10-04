@@ -48,6 +48,9 @@ func main() {
 	// A crash mid-save leaves a hidden .part file; nothing else writes to the
 	// directory yet, so this is the moment to clear it.
 	audio.SweepPartials(cfg.OutputDir)
+	// Takes saved before the peaks pyramid existed get one, one at a time in
+	// the background; until then their zooms read the WAV, as they always did.
+	go audio.BackfillPyramids(cfg.OutputDir)
 
 	// DemoDevice and Watcher each satisfy every consumer, so both are held
 	// through their interfaces rather than asserted back out of one.

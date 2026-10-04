@@ -10,9 +10,14 @@ import (
 const MaxRangeBuckets = 4096
 
 // RangePeaks computes min/max peaks per channel over frames [from, to) in
-// exactly `buckets` buckets, reading only that range of the file. The last
-// bucket absorbs any remainder frames so the count is always what was asked
-// for. Buckets past the end of a very short range are empty (0,0).
+// exactly `buckets` buckets. The last bucket absorbs any remainder frames so
+// the count is always what was asked for. Buckets past the end of a very short
+// range are empty (0,0).
+//
+// When each bucket spans at least PyramidBase frames and the take has a
+// pyramid, the answer comes from the pyramid: a few hundred kilobytes rather
+// than the range's audio. Otherwise -- a deep zoom, or a take whose pyramid
+// isn't built yet -- it reads only that range of the WAV.
 func RangePeaks(path string, from, to int64, buckets int) (*PeakData, error) {
 	if buckets < 1 || buckets > MaxRangeBuckets {
 		return nil, fmt.Errorf("buckets must be 1..%d", MaxRangeBuckets)
@@ -27,6 +32,11 @@ func RangePeaks(path string, from, to int64, buckets int) (*PeakData, error) {
 	per := frames / int64(buckets)
 	if per < 1 {
 		per = 1
+	}
+	if per >= PyramidBase && from >= 0 && to <= info.Frames() {
+		if pd, err := rangeFromPyramid(path, info, from, to, buckets, per); err == nil {
+			return pd, nil
+		}
 	}
 	bucketOf := func(frame int64) int {
 		b := int((frame - from) / per)
