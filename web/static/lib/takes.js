@@ -7,8 +7,7 @@
 // list is skipped entirely when the server's ETag is unchanged, and polling
 // pauses outright while something is playing.
 
-import WaveSurfer from '/vendor/wavesurfer.esm.js';
-import { ampToFrac } from '/lib/meter.js';
+import { RowWave } from '/lib/wave/rowwave.js';
 import { flagRequest } from '/lib/flags.js';
 
 const fmtTime = (s) => {
@@ -127,6 +126,8 @@ export class TakesList {
 
     const any = takes.length > 0;
     this.emptyEl.hidden = any;
+    // The take page's ◂ ▸ step through the takes in this order.
+    try { sessionStorage.setItem('hindsight.order', JSON.stringify(takes.map((t) => t.name))); } catch { /* fine */ }
   }
 
   createRow(t) {
@@ -135,20 +136,20 @@ export class TakesList {
     el.dataset.name = t.name;
     el.innerHTML = `
       <div class="take-head">
-        <button class="star" type="button" aria-pressed="false" aria-label="Star this take">★</button>
-        <button class="take-name" type="button" title="Rename"></button>
+        <button class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
+        <button class="take-name" type="button" data-tip="rename"></button>
         <input class="take-name-input" type="text" maxlength="120" hidden>
-        <button class="take-bpm" type="button" title="Set the tempo"></button>
+        <button class="take-bpm" type="button" data-tip="bpm"></button>
         <input class="take-bpm-input" type="text" inputmode="decimal" maxlength="7" hidden>
         <span class="take-meta"></span>
       </div>
       <div class="wave pending">waveform pending…</div>
       <div class="take-actions">
-        <button class="icon-btn play" type="button">Play</button>
-        <a class="icon-btn open">Open</a>
-        <a class="icon-btn dl" download>WAV</a>
-        <a class="icon-btn midi" download hidden>MIDI</a>
-        <button class="icon-btn danger del" type="button">Delete</button>
+        <button class="icon-btn play" type="button" data-tip="play">Play</button>
+        <a class="icon-btn open" data-tip="open">Open</a>
+        <a class="icon-btn dl" download data-tip="dl-wav">WAV</a>
+        <a class="icon-btn midi" download hidden data-tip="dl-midi">MIDI</a>
+        <button class="icon-btn danger del" type="button" data-tip="delete">Delete</button>
       </div>`;
 
     const row = {
@@ -183,12 +184,10 @@ export class TakesList {
     // second listener would turn one dblclick into two flags. row.waveEl is
     // the same element across a wave's whole life, mounted or not.
     //
-    // This is a *double*-click, not a click: WaveSurfer's own click handler
-    // seeks the playhead and never calls stopPropagation, so a single click
-    // here would both seek and permanently write a flag -- there would be no
-    // way left to scrub a take without marking it. WaveSurfer emits dblclick
-    // but never treats it as a seek, so the two gestures coexist without
-    // stepping on each other. Do not "simplify" this back to click.
+    // This is a *double*-click, not a click: a single click on the wave
+    // seeks the playhead (RowWave), so a click here would both seek and
+    // permanently write a flag -- there would be no way left to scrub a take
+    // without marking it. Do not "simplify" this back to click.
     row.waveEl.addEventListener('dblclick', (e) => {
       if (e.target.classList.contains('take-flag')) return; // the tick's own click opens its editor
       if (!row.ws) return; // no mounted waveform to flag against (pending/unavailable placeholders)
@@ -337,7 +336,12 @@ export class TakesList {
       row.bpmEl.textContent = t.bpm == null ? '+ bpm' : `${t.bpm.toFixed(1)} bpm`;
       row.bpmEl.classList.toggle('unset', t.bpm == null);
     }
-    row.metaEl.textContent = `${fmtTime(t.duration_seconds)} · ${fmtSize(t.size_mb)}`;
+    // With a selection, its length "of" the take's, as the take page's header
+    // says it.
+    const sr = t.sample_rate || 48000;
+    const len = t.trim ? `${fmtTime((t.trim.end_frame - t.trim.start_frame) / sr)} of ${fmtTime(t.duration_seconds)}` : fmtTime(t.duration_seconds);
+    row.metaEl.textContent = `${len} · ${fmtSize(t.size_mb)}`;
+    row.ws?.setSelection(t.trim, (t.duration_seconds || 0) * sr);
     row.dlEl.href = `/api/download?file=${encodeURIComponent(t.name)}&dl=1`;
     row.openEl.href = `/wave.html?file=${encodeURIComponent(t.name)}`;
     // The .mid exists only when something was received during the take, so
@@ -513,34 +517,11 @@ export class TakesList {
     row.waveEl.classList.remove('pending');
     row.waveEl.textContent = '';
 
-    // Recode to the dB scale the meters and the ribbon use. The stored peaks
-    // are linear amplitude, and this was the only level display in the app
-    // still drawing them that way -- a MAIN-bus take at -25 dBFS rendered as a
-    // one-pixel band here while the same signal filled 57% of the ribbon.
-    //
-    // Display-only, so peaks.json stays linear for trim and offline analysis,
-    // and every take already on disk renders correctly without regeneration.
-    // normalize stays false on purpose: the point is an absolute scale, so two
-    // takes at the same level look the same. Normalising would make a whisper
-    // and a full band identical.
-    const shaped = peaks.data.map((chan) => Float32Array.from(chan, ampToFrac));
-
-    const ws = WaveSurfer.create({
-      container: row.waveEl,
-      media: audio,
-      peaks: shaped,
-      duration: peaks.duration || t.duration_seconds,
-      height: 48,
-      waveColor: '#2c5f52',
-      progressColor: '#34d399',
-      cursorColor: '#eef2f8',
-      cursorWidth: 1,
-      barWidth: 2,
-      barGap: 1,
-      barRadius: 2,
-      normalize: false,
-      dragToSeek: true,
-    });
+    // Drawn by the renderer the take page and the overview use, on the dB
+    // scale the meters and the ribbon use, so a take looks the same
+    // everywhere it's drawn (lib/wave/draw.js).
+    const ws = new RowWave({ container: row.waveEl, peaks, duration: peaks.duration || t.duration_seconds, audio });
+    ws.setSelection(t.trim, (t.duration_seconds || 0) * (t.sample_rate || 48000));
 
     ws.on('play', () => {
       this.stopOthers(row.name);
@@ -561,7 +542,7 @@ export class TakesList {
       row.playBtn.textContent = 'Play';
     });
 
-    // row.waveEl.textContent was just cleared to give WaveSurfer an empty
+    // row.waveEl.textContent was just cleared to give the wave an empty
     // container, which also erased any flag layer an earlier updateRow had
     // drawn into the "pending" placeholder. Redraw it now that the container
     // holds the wave, or existing flags would stay invisible until the next

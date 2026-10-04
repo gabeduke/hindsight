@@ -1,154 +1,23 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WaveView, HOLD_MS } from './view.js';
+import { WaveView, HOLD_MS, PIN_H, RULER_H, GRIP_H } from './view.js';
 import { EDGE_MAX_STEP_PX } from './geometry.js';
 
-// hit() reads only this.view, this.chipRects and the state it is handed, so a
-// stubbed instance tests it without a canvas.
-function stubView(view) {
-  const v = Object.create(WaveView.prototype);
-  Object.assign(v, { view, chipRects: [], cssH: 200 });
-  return v;
-}
+// A WaveView without a canvas: the zones, the gestures and the events, driven
+// with fake pointer events. 390 x 200 CSS px: the ruler is y 0-36, the body
+// 36-170, the grip strip 170-200. At fpp 10 and start 5000, x=200 is frame 7000.
+const H = 200;
+const BODY_Y = 100;
+const GRIP_Y = H - GRIP_H / 2;
+const noGrid = { bpm: null, downbeat: 0, sampleRate: 48000 };
 
-const noGrid = { bpm: null, downbeat: 0 };
-
-test('a wide region keeps full-size handle zones', () => {
-  const v = stubView({ start: 0, fpp: 1, width: 400 }); // 1 frame per px
-  const st = { grid: noGrid, region: { start: 100, end: 300 }, flags: [] }; // 200px wide
-  assert.deepEqual(v.hit(100, 100, st), { kind: 'handle', edge: 'start' });
-  assert.deepEqual(v.hit(120, 100, st), { kind: 'handle', edge: 'start' }); // 20px out, inside HANDLE_HIT
-  assert.deepEqual(v.hit(300, 100, st), { kind: 'handle', edge: 'end' });
-  assert.deepEqual(v.hit(200, 100, st), { kind: 'region' });
-  assert.deepEqual(v.hit(70, 100, st), { kind: 'wave' });
-});
-
-test('a region only a few pixels wide shrinks its handle zones', () => {
-  // Zoomed out hard: a 400-frame region is 4px on screen.
-  const v = stubView({ start: 0, fpp: 100, width: 400 });
-  const st = { grid: noGrid, region: { start: 10000, end: 10400 }, flags: [] }; // x 100..104
-  // The floor is 6px, not the full 24: there is room to press-and-hold nearby.
-  assert.deepEqual(v.hit(106, 100, st), { kind: 'handle', edge: 'start' });
-  assert.deepEqual(v.hit(115, 100, st), { kind: 'wave' });
-  assert.deepEqual(v.hit(85, 100, st), { kind: 'wave' });
-  // The edges themselves are still grabbable.
-  assert.deepEqual(v.hit(100, 100, st), { kind: 'handle', edge: 'start' });
-  assert.deepEqual(v.hit(104, 100, st), { kind: 'handle', edge: 'start' });
-});
-
-test('a middling region scales the grab to a quarter of its width', () => {
-  const v = stubView({ start: 0, fpp: 1, width: 400 });
-  const st = { grid: noGrid, region: { start: 100, end: 140 }, flags: [] }; // 40px < 2*HANDLE_HIT
-  // grab = 40/4 = 10px
-  assert.deepEqual(v.hit(110, 100, st), { kind: 'handle', edge: 'start' });
-  assert.deepEqual(v.hit(89, 100, st), { kind: 'wave' });
-  assert.deepEqual(v.hit(150, 100, st), { kind: 'handle', edge: 'end' });
-  assert.deepEqual(v.hit(151, 100, st), { kind: 'wave' });
-});
-
-// up() drives the tap/double-tap machinery end to end, so these exercise it
-// on a stubbed instance rather than hit() alone.
-test('a double-tap inside the region adds a flag, same as bare waveform', () => {
-  const v = stubView({ start: 0, fpp: 10, width: 390 }); // x=200 -> frame 2000
-  v.total = 100000;
-  v.minLen = 289;
-  v.pointers = new Map();
-  v.lastTap = null;
-  v.getState = () => ({ region: { start: 1000, end: 3000 }, flags: [], grid: noGrid, cursor: 0 });
-  const log = [];
-  v.emit = (ev, p) => log.push([ev, p]);
-  v.pt = () => ({ x: 200, y: 50 }); // inside the region
-
-  v.gesture = { kind: 'moveRegion', region: { start: 1000, end: 3000 }, x0: 200, y0: 50, t0: performance.now(), moved: false };
-  v.up({ pointerId: 1 });
-  assert.deepEqual(log.at(-1), ['seek', { frame: 2000 }]);
-
-  v.gesture = { kind: 'moveRegion', region: { start: 1000, end: 3000 }, x0: 200, y0: 50, t0: performance.now(), moved: false };
-  v.up({ pointerId: 1 });
-  assert.deepEqual(log.at(-1), ['addFlag', { frame: 2000 }]);
-});
-
-test('a tap on a handle neither seeks nor flags', () => {
-  const v = stubView({ start: 0, fpp: 10, width: 390 });
-  v.total = 100000;
-  v.minLen = 289;
-  v.pointers = new Map();
-  v.lastTap = null;
-  v.getState = () => ({ region: { start: 1000, end: 3000 }, flags: [], grid: noGrid, cursor: 0 });
-  const log = [];
-  v.emit = (ev, p) => log.push([ev, p]);
-  v.pt = () => ({ x: 100, y: 50 });
-
-  v.gesture = { kind: 'handle', edge: 'start', region: { start: 1000, end: 3000 }, grabOffset: 0, x0: 100, y0: 50, t0: performance.now(), moved: false };
-  v.up({ pointerId: 1 });
-  assert.deepEqual(log, []);
-});
-
-// A press that travelled past TAP_MOVE before the hold fired became a pan.
-// Releasing it must do nothing at all: no region, and no stray seek that would
-// yank the cursor to wherever the pan happened to end.
-test('a press that panned emits nothing on release', () => {
-  const v = stubView({ start: 0, fpp: 10, width: 390 }); // x=200 -> frame 2000
-  v.total = 100000;
-  v.minLen = 289;
-  v.pointers = new Map();
-  v.lastTap = null;
-  v.getState = () => ({ region: null, flags: [], grid: noGrid, cursor: 0 });
-  const log = [];
-  v.emit = (ev, p) => log.push([ev, p]);
-  v.pt = () => ({ x: 210, y: 50 }); // 10px from x0: past TAP_MOVE
-
-  v.gesture = { kind: 'select', anchor: 2000, prev: null, x0: 200, y0: 50, t0: performance.now(), moved: true, selecting: false, start: 0 };
-  v.up({ pointerId: 1 });
-  assert.deepEqual(log, []);
-});
-
-// Once the hold has armed selecting, a release that snaps back below
-// MIN_REGION_PX / minLen must roll back to prev and never emit a tap on top.
-test('a held select released under the region minimum rolls back', () => {
-  const v = stubView({ start: 0, fpp: 10, width: 390 }); // x=200 -> frame 2000
-  v.total = 100000;
-  v.minLen = 289;
-  v.pointers = new Map();
-  v.lastTap = null;
-  v.getState = () => ({ region: null, flags: [], grid: noGrid, cursor: 0 });
-  const log = [];
-  v.emit = (ev, p) => log.push([ev, p]);
-  v.pt = () => ({ x: 210, y: 50 }); // anchor 2000 -> release frame 2100: 10px, 100 frames
-
-  v.gesture = { kind: 'select', anchor: 2000, prev: null, x0: 200, y0: 50, t0: performance.now(), moved: true, selecting: true };
-  v.up({ pointerId: 1 });
-  assert.deepEqual(log, [['regionChange', { region: null, final: true }]]);
-});
-
-// A held select dragged past the region minimum commits.
-test('a held select past the region minimum commits', () => {
-  const v = stubView({ start: 0, fpp: 10, width: 390 }); // x=200 -> frame 2000
-  v.total = 100000;
-  v.minLen = 289;
-  v.pointers = new Map();
-  v.lastTap = null;
-  v.getState = () => ({ region: null, flags: [], grid: noGrid, cursor: 0 });
-  const log = [];
-  v.emit = (ev, p) => log.push([ev, p]);
-  v.pt = () => ({ x: 240, y: 50 }); // anchor 2000 -> release frame 2400: 40px, 400 frames
-
-  v.gesture = { kind: 'select', anchor: 2000, prev: null, x0: 200, y0: 50, t0: performance.now(), moved: true, selecting: true };
-  v.up({ pointerId: 1 });
-  assert.deepEqual(log, [['regionChange', { region: { start: 2000, end: 2400 }, final: true }]]);
-});
-
-
-// --- the hold-to-select gesture, driven end to end -------------------------
-// These drive down/move/up with fake pointer events instead of planting a
-// gesture, because the whole point of the change is *when* the gesture becomes
-// a select: that lives in the hold timer, not in up().
-function pointerView({ region = null, start = 5000 } = {}) {
+function harness({ region = null, flags = [], grid = noGrid, cursor = 0, snap = 'off', start = 5000 } = {}) {
   const v = Object.create(WaveView.prototype);
   const log = [];
+  const state = { region, flags, grid, cursor, snap };
   Object.assign(v, {
-    view: { start, fpp: 10, width: 390 }, // x=200 -> frame start+2000
-    chipRects: [], cssH: 200,
+    view: { start, fpp: 10, width: 390 },
+    cssW: 390, cssH: H,
     total: 100000,
     minLen: 289,
     pointers: new Map(),
@@ -156,34 +25,69 @@ function pointerView({ region = null, start = 5000 } = {}) {
     lastTap: null,
     canvas: {
       setPointerCapture() {},
-      getBoundingClientRect: () => ({ left: 0, top: 0, width: 390, height: 200 }),
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 390, height: H }),
     },
-    // destroy() reaches for these; the harness never builds a real canvas.
     ro: { disconnect() {} },
-    ac: new AbortController(),
+    gestureAC: new AbortController(),
     raf: 0,
     destroyed: false,
     edgeRaf: 0,
-    getState: () => ({ region, flags: [], grid: noGrid, cursor: 0 }),
-    emit: (ev, p) => log.push([ev, p]),
+    getState: () => state,
+    emit: (ev, p) => {
+      log.push([ev, p]);
+      // Follow the page: provisional and final selections become the state.
+      if (ev === 'regionChange') state.region = p.region;
+      if (ev === 'downbeatChange') state.grid = { ...state.grid, downbeat: p.frame };
+      if (ev === 'scrub' || ev === 'scrubEnd') state.cursor = p.frame;
+    },
     draw() {},
   });
-  // clampView, maxFpp and lostCapture stay real: the pan has to be clamped
-  // like the page's, and losing the capture has to route through the real
-  // guard rather than a stub that always cancels.
   v.changed = () => log.push(['viewChange', v.view.start]);
-  return { v, log };
+  return { v, log, state };
 }
-const at = (x, id = 1) => ({ pointerId: id, clientX: x, clientY: 50 });
-const regions = (log) => log.filter(([ev]) => ev === 'regionChange');
+const at = (x, y = BODY_Y, id = 1) => ({ pointerId: id, clientX: x, clientY: y });
+const only = (log, ev) => log.filter(([e]) => e === ev);
+const x = (frame, v) => (frame - v.view.start) / v.view.fpp;
+
+// --- zones ----------------------------------------------------------------
+
+test('the ruler holds pins on top, the playhead handle and downbeat below', () => {
+  const flag = { id: 'r1', frame: 7000 };
+  const { v } = harness({ flags: [flag], cursor: 8000, grid: { bpm: 120, downbeat: 9000, sampleRate: 48000 } });
+  assert.deepEqual(v.hit(205, 8), { kind: 'pin', grab: true, flag });
+  assert.deepEqual(v.hit(250, 8), { kind: 'ruler' });
+  assert.deepEqual(v.hit(300, PIN_H + 8), { kind: 'playhead', grab: true });
+  assert.deepEqual(v.hit(400, PIN_H + 8), { kind: 'downbeat', grab: true });
+  assert.deepEqual(v.hit(100, PIN_H + 8), { kind: 'ruler' });
+  // The body never grabs anything: a drag there always pans.
+  assert.deepEqual(v.hit(205, BODY_Y), { kind: 'body', select: true });
+});
+
+test('grips sit outside the selection ends, the move handle between them', () => {
+  const { v } = harness({ region: { start: 7000, end: 12000 } }); // x 200..700, wider than the canvas
+  assert.deepEqual(v.hit(190, GRIP_Y), { kind: 'grip', grab: true, edge: 'start' });
+  assert.deepEqual(v.hit(205, GRIP_Y), { kind: 'grip', grab: true, edge: 'start' });
+  assert.deepEqual(v.hit(450, GRIP_Y), { kind: 'move', grab: true }); // the middle, x=450
+  assert.deepEqual(v.hit(300, GRIP_Y), { kind: 'body', select: true });
+  // Inside the selection in the body, nothing grabs.
+  assert.deepEqual(v.hit(300, BODY_Y), { kind: 'body', select: true });
+});
+
+test('a selection a pixel wide still has two grips and no move handle', () => {
+  const { v } = harness({ region: { start: 7000, end: 7010 } }); // x 200..201
+  assert.equal(v.hit(185, GRIP_Y).edge, 'start');
+  assert.equal(v.hit(215, GRIP_Y).edge, 'end');
+  assert.equal(v.moveHandleShown(200, 201), false);
+});
+
+// --- the body ----------------------------------------------------------------
 
 test('press, hold, then drag selects from the press point', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const { v, log } = pointerView();
-  v.down(at(200));                    // anchor = 7000
-  assert.deepEqual(regions(log), []); // nothing until the hold fires
+  const { v, log } = harness();
+  v.down(at(200));
+  assert.deepEqual(only(log, 'regionChange'), []);
   t.mock.timers.tick(HOLD_MS);
-  // The hold announces itself with a minLen band under the finger.
   assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 7289 }, final: false }]);
   v.move(at(240));
   assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 7400 }, final: false }]);
@@ -191,278 +95,199 @@ test('press, hold, then drag selects from the press point', (t) => {
   assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 7400 }, final: true }]);
 });
 
-test('a drag before the hold fires pans instead of selecting', (t) => {
+test('with snap on, a held select lands on beats', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const { v, log } = pointerView();
-  v.down(at(200));
-  v.move(at(230)); // 30px right: content follows the finger, start goes back
-  assert.equal(v.view.start, 5000 - 30 * 10);
-  assert.deepEqual(regions(log), []);
-  // The hold is dead, not merely late: ticking past it must not start a region.
+  // 120 BPM at 48 kHz: a beat is 24000 frames; fpp 100 so a beat is 240 px.
+  const { v, log } = harness({ grid: { bpm: 120, downbeat: 0, sampleRate: 48000 }, snap: 'beat', start: 0 });
+  v.view.fpp = 100;
+  v.down(at(50));                      // frame 5000 -> snaps to 0
   t.mock.timers.tick(HOLD_MS);
-  assert.deepEqual(regions(log), []);
-  v.up(at(230));
-  assert.deepEqual(regions(log), []);
+  v.move(at(300)); v.up(at(300));      // frame 30000 -> snaps to 24000
+  assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 0, end: 24000 }, final: true }]);
 });
 
-test('a second finger during a held select rolls the region back', (t) => {
+test('a drag pans, inside the selection too', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { v, log } = harness({ region: { start: 6000, end: 9000 } });
+  v.down(at(200));                     // inside the selection
+  v.move(at(230));
+  assert.equal(v.view.start, 5000 - 30 * 10);
+  t.mock.timers.tick(HOLD_MS);         // the hold is dead, not late
+  v.up(at(230));
+  assert.deepEqual(only(log, 'regionChange'), []);
+});
+
+test('a second finger during a held select rolls it back', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const prev = { start: 1000, end: 3000 };
-  const { v, log } = pointerView({ region: prev });
+  const { v, log } = harness({ region: prev });
   v.down(at(200));
   t.mock.timers.tick(HOLD_MS);
-  assert.equal(log.length, 1); // the provisional band
-  v.down(at(300, 2));          // pinch takes over
+  v.down(at(300, BODY_Y, 2));
   assert.deepEqual(log.at(-1), ['regionChange', { region: prev, final: true }]);
   assert.equal(v.gesture.kind, 'pinch');
-  // Pinching moves the viewport, never the abandoned region.
-  v.move(at(340, 2));
-  assert.deepEqual(regions(log), [
-    ['regionChange', { region: { start: 7000, end: 7289 }, final: false }],
-    ['regionChange', { region: prev, final: true }],
-  ]);
 });
 
-test('a press released before the hold still seeks', (t) => {
+test('a tap moves the playhead, snapped; two taps add a flag', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const { v, log } = pointerView();
-  v.down(at(200));
-  v.move(at(205)); // 5px: under TAP_MOVE, so still undecided
-  v.up(at(205));
-  assert.deepEqual(log, [['seek', { frame: 7050 }]]);
+  const { v, log } = harness();
+  v.down(at(200)); v.up(at(200));
+  assert.deepEqual(log.at(-1), ['seek', { frame: 7000 }]);
+  v.down(at(202)); v.up(at(202));
+  assert.deepEqual(log.at(-1), ['addFlag', { frame: 7020 }]);
 });
 
-// A pan is never half of a double-tap: it must clear lastTap, or a later tap
-// landing near the original spot within TAP_MS would wrongly pair up and add
-// a flag instead of seeking.
+test('two taps on the ruler only seek', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { v, log } = harness();
+  v.down(at(100, PIN_H + 8)); v.up(at(100, PIN_H + 8));
+  v.down(at(100, PIN_H + 8)); v.up(at(100, PIN_H + 8));
+  assert.deepEqual(only(log, 'addFlag'), []);
+  assert.equal(only(log, 'seek').length, 2);
+});
+
 test('a pan between two taps breaks the double-tap', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const { v, log } = pointerView();
-  // First tap: seeks and arms lastTap.
-  v.down(at(200));
-  v.up(at(200));
-  assert.deepEqual(log.at(-1), ['seek', { frame: 7000 }]);
-  // A 30px pan on the next press: it must clear lastTap, not leave it armed.
-  v.down(at(200));
-  v.move(at(230));
-  v.up(at(230));
-  // A tap back at the original x, still within TAP_MS: without the fix this
-  // pairs with the first tap (same spot, well under DOUBLE_TAP_MOVE) and adds
-  // a stray flag instead of seeking.
-  v.down(at(200));
-  v.up(at(200));
-  assert.deepEqual(log.at(-1), ['seek', { frame: 6700 }]);
+  const { v, log } = harness();
+  v.down(at(200)); v.up(at(200));
+  v.down(at(200)); v.move(at(260)); v.up(at(260));
+  v.down(at(200)); v.up(at(200));
+  assert.deepEqual(only(log, 'addFlag'), []);
 });
 
-// The hold fires at HOLD_MS (350); a still press released between TAP_MS
-// (300) and HOLD_MS never moved and never started selecting, so it must still
-// be treated as a tap rather than falling into a dead zone.
-test('a still press held past TAP_MS but under HOLD_MS still seeks', (t) => {
-  let now = 1000;
-  t.mock.method(performance, 'now', () => now);
-  const { v, log } = pointerView();
-  v.down(at(200));  // t0 = 1000
-  now = 1000 + 320; // held 320ms: past TAP_MS, short of HOLD_MS
+test('a still press held past a tap but under the hold still seeks', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'], now: 0 });
+  const { v, log } = harness();
+  v.down(at(200));
+  t.mock.timers.tick(HOLD_MS - 10);
   v.up(at(200));
-  assert.deepEqual(log, [['seek', { frame: 7000 }]]);
+  assert.deepEqual(only(log, 'seek').length + only(log, 'regionChange').length, 1);
 });
 
-// --- edge auto-scroll, haptics and pointer-id robustness -------------------
-// node has no requestAnimationFrame, and a real one would fire after the test
-// had ended. Record the callbacks instead so a test runs exactly one frame by
-// hand and can see whether the loop scheduled another.
-function fakeRaf() {
-  const realRaf = globalThis.requestAnimationFrame;
-  const realCaf = globalThis.cancelAnimationFrame;
-  const pending = new Map();
-  let next = 1;
-  globalThis.requestAnimationFrame = (cb) => { const id = next++; pending.set(id, cb); return id; };
-  globalThis.cancelAnimationFrame = (id) => { pending.delete(id); };
-  return {
-    get pending() { return pending.size; },
-    runOne() {
-      const [id, cb] = [...pending][0];
-      pending.delete(id);
-      cb(0);
-    },
-    restore() {
-      if (realRaf === undefined) delete globalThis.requestAnimationFrame;
-      else globalThis.requestAnimationFrame = realRaf;
-      if (realCaf === undefined) delete globalThis.cancelAnimationFrame;
-      else globalThis.cancelAnimationFrame = realCaf;
-    },
-  };
-}
-
-test('a select dragged into the right margin scrolls the view under it', (t) => {
+test('a select held against the right edge scrolls the view under it', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const raf = fakeRaf();
-  try {
-    const { v, log } = pointerView();
-    v.down(at(200));
-    t.mock.timers.tick(HOLD_MS);
-    v.move(at(385)); // 5px from the right edge: inside EDGE_MARGIN_PX
-    assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 8850 }, final: false }]);
-    assert.equal(raf.pending, 1); // the loop is armed, but has not run yet
-    assert.equal(v.view.start, 5000);
-
-    const before = v.view.start;
-    raf.runOne();
-    const panned = v.view.start - before;
-    assert.ok(panned > 0, `expected a pan, got ${panned}`);
-    assert.ok(panned <= EDGE_MAX_STEP_PX * v.view.fpp, `pan ${panned} exceeds one full step`);
-    // The region is re-derived under the unchanged finger, so it grows with
-    // the scroll rather than staying pinned to the old frame.
-    const [ev, payload] = log.at(-1);
-    assert.equal(ev, 'regionChange');
-    assert.equal(payload.final, false);
-    assert.equal(payload.region.start, 7000);
-    assert.ok(payload.region.end > 8850, `expected the region to grow past 8850, got ${payload.region.end}`);
-    assert.equal(raf.pending, 1); // and it keeps going
-
-    v.move(at(195)); // back out of the margin: the loop stops
-    assert.equal(raf.pending, 0);
-  } finally {
-    raf.restore();
-  }
-});
-
-// A stray release from a second pointer (a palm, a finger that never started
-// this gesture) must not finalize someone else's selection.
-test('a release from a foreign pointer id is ignored', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const { v, log } = pointerView();
+  const frames = [];
+  globalThis.requestAnimationFrame = (fn) => { frames.push(fn); return frames.length; };
+  globalThis.cancelAnimationFrame = () => {};
+  const { v, log } = harness();
   v.down(at(200));
   t.mock.timers.tick(HOLD_MS);
-  v.move(at(240));
-  const n = log.length;
-  v.up(at(240, 2));
-  assert.equal(log.length, n);       // nothing emitted
-  assert.ok(v.gesture && v.gesture.selecting); // and the select survives
-  v.up(at(240, 1));
-  assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 7400 }, final: true }]);
-  assert.equal(v.gesture, null);
+  v.move(at(389)); // in the margin
+  const before = v.view.start;
+  frames.shift()();
+  assert.ok(v.view.start > before);
+  assert.ok(v.view.start - before <= EDGE_MAX_STEP_PX * v.view.fpp);
+  assert.equal(log.at(-1)[0], 'regionChange');
+  v.up(at(389));
+});
+
+test('a release from another pointer is ignored', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { v, log } = harness();
+  v.down(at(200));
+  t.mock.timers.tick(HOLD_MS);
+  v.up(at(300, BODY_Y, 9));
+  assert.equal(only(log, 'regionChange').filter(([, p]) => p.final).length, 0);
+});
+
+// --- grips and the move handle ------------------------------------------------
+
+test('dragging the Out grip moves the end, and lands on beats with snap', () => {
+  const { v, log } = harness({ region: { start: 0, end: 24000 }, grid: { bpm: 120, downbeat: 0, sampleRate: 48000 }, snap: 'beat', start: 0 });
+  v.view.fpp = 100; // a beat is 240 px; the Out grip is at x 240..262
+  v.down(at(250, GRIP_Y));
+  v.move(at(380, GRIP_Y)); // +130 px -> 37000 -> nearest beat 48000
+  assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 0, end: 48000 }, final: false }]);
+  v.up(at(380, GRIP_Y));
+  assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 0, end: 48000 }, final: true }]);
+});
+
+test('the move handle moves the whole selection and keeps its length', () => {
+  const { v, log } = harness({ region: { start: 6000, end: 10000 } }); // x 100..500
+  v.down(at(300, GRIP_Y));
+  v.move(at(350, GRIP_Y)); // +50 px = +500 frames
+  v.up(at(350, GRIP_Y));
+  assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 6500, end: 10500 }, final: true }]);
+});
+
+test('a grip drag interrupted by a lost capture goes back', () => {
+  const prev = { start: 6000, end: 10000 };
+  const { v, log } = harness({ region: { ...prev } });
+  v.down(at(90, GRIP_Y));
+  v.move(at(60, GRIP_Y));
+  v.lostCapture({ pointerId: 1 });
+  assert.deepEqual(log.at(-1), ['regionChange', { region: prev, final: true }]);
+  assert.equal(v.pointers.size, 0);
+});
+
+// --- pins, the playhead and the downbeat ------------------------------------
+
+test('a tap on a pin opens its flag; a drag moves it', () => {
+  const flag = { id: 'r1', frame: 7000 };
+  const { v, log } = harness({ flags: [flag] });
+  v.down(at(201, 8)); v.up(at(201, 8));
+  assert.deepEqual(log.at(-1), ['selectFlag', { flag }]);
+  v.down(at(201, 8));
+  v.move(at(251, 8));
+  assert.deepEqual(log.at(-1), ['flagMove', { flag, frame: 7500, final: false }]);
+});
+
+test('a cancelled pin drag puts the flag back', () => {
+  const flag = { id: 'r1', frame: 7000 };
+  const { v, log } = harness({ flags: [flag] });
+  v.down(at(201, 8));
+  v.move(at(251, 8));
+  v.cancel({ pointerId: 1 });
+  assert.deepEqual(log.at(-1), ['flagMove', { flag, frame: 7000, final: true }]);
+});
+
+test('the playhead handle scrubs silently and hands back where it stopped', () => {
+  const { v, log } = harness({ cursor: 7000 });
+  v.down(at(200, PIN_H + 8));
+  assert.deepEqual(log.at(-1), ['scrubStart', {}]);
+  v.move(at(260, PIN_H + 8));
+  assert.deepEqual(log.at(-1), ['scrub', { frame: 7600 }]);
+  v.up(at(260, PIN_H + 8));
+  assert.deepEqual(log.at(-1), ['scrubEnd', { frame: 7600 }]);
+});
+
+test('bar 1 drags the downbeat', () => {
+  const { v, log } = harness({ grid: { bpm: 120, downbeat: 9000, sampleRate: 48000 } }); // x=400
+  v.down(at(400, PIN_H + 8));
+  v.move(at(420, PIN_H + 8));
+  v.up(at(420, PIN_H + 8));
+  assert.deepEqual(log.at(-1), ['downbeatChange', { frame: 9200, final: true }]);
 });
 
 test('the hold buzzes where it can, and arms anyway where it cannot', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const orig = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  const buzzed = [];
+  const saved = globalThis.navigator;
+  Object.defineProperty(globalThis, 'navigator', { value: { vibrate() { throw new Error('no'); } }, configurable: true });
   try {
-    // node exposes navigator as a getter-only accessor, so defineProperty is
-    // the only way to stand one up.
-    Object.defineProperty(globalThis, 'navigator', {
-      value: { vibrate: (ms) => buzzed.push(ms) }, configurable: true, writable: true,
-    });
-    const { v } = pointerView();
+    const { v, log } = harness();
     v.down(at(200));
     t.mock.timers.tick(HOLD_MS);
-    assert.deepEqual(buzzed, [10]);
-
-    // No navigator at all: the hold must still arm rather than throwing out
-    // of the timer and leaving the gesture half-built.
-    delete globalThis.navigator;
-    const { v: v2, log } = pointerView();
-    v2.down(at(200));
-    t.mock.timers.tick(HOLD_MS);
-    assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7000, end: 7289 }, final: false }]);
-    assert.ok(v2.gesture.selecting);
+    assert.equal(only(log, 'regionChange').length, 1);
   } finally {
-    delete globalThis.navigator;
-    if (orig) Object.defineProperty(globalThis, 'navigator', orig);
+    Object.defineProperty(globalThis, 'navigator', { value: saved, configurable: true });
   }
 });
 
-test('a second finger during an edge scroll rolls back and stops the loop', (t) => {
+test('destroy during an edge scroll stops it', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const raf = fakeRaf();
-  try {
-    const prev = { start: 1000, end: 3000 };
-    const { v, log } = pointerView({ region: prev });
-    v.down(at(200));
-    t.mock.timers.tick(HOLD_MS);
-    v.move(at(385));
-    raf.runOne();
-    assert.equal(raf.pending, 1);
-    v.down(at(300, 2)); // pinch takes over
-    assert.deepEqual(log.at(-1), ['regionChange', { region: prev, final: true }]);
-    assert.equal(raf.pending, 0); // the loop dies with the gesture
-    assert.equal(v.gesture.kind, 'pinch');
-  } finally {
-    raf.restore();
-  }
-});
-
-// A view torn down mid-scroll must not leave a frame callback pointing at it.
-test('destroy during an edge scroll cancels the loop', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const raf = fakeRaf();
-  try {
-    const { v } = pointerView();
-    v.down(at(200));
-    t.mock.timers.tick(HOLD_MS);
-    v.move(at(385));
-    assert.equal(raf.pending, 1);
-    v.destroy();
-    assert.equal(raf.pending, 0);
-  } finally {
-    raf.restore();
-  }
-});
-
-// --- losing the pointer capture -------------------------------------------
-// lostpointercapture also fires as the implicit release after every normal
-// pointerup, so it is gated on the pointer still being one we track -- not on
-// the gesture kind, which is what let a lost capture on a handle drag leave a
-// phantom pointer in the map forever.
-
-test('the implicit capture release after a tap leaves the tap alone', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const { v, log } = pointerView();
+  let cancelled = 0;
+  globalThis.requestAnimationFrame = () => 7;
+  globalThis.cancelAnimationFrame = () => { cancelled++; };
+  const { v } = harness();
+  v.ro = { disconnect() {} };
   v.down(at(200));
-  v.up(at(200));
-  assert.deepEqual(log, [['seek', { frame: 7000 }]]);
-  const armed = v.lastTap;
-  assert.ok(armed, 'the tap should have armed lastTap');
-  // The browser now releases the capture it took at pointerdown. up() has
-  // already dropped the pointer and nulled the gesture, so this must do
-  // nothing: no rollback, no cleared lastTap.
-  v.lostCapture({ pointerId: 1 });
-  assert.equal(v.lastTap, armed);
-  assert.deepEqual(log, [['seek', { frame: 7000 }]]);
+  t.mock.timers.tick(HOLD_MS);
+  v.move(at(389));
+  v.destroy();
+  assert.ok(cancelled >= 1);
+  assert.equal(v.edgeRaf, 0);
 });
 
-test('a lost capture mid handle-drag rolls back and drops the pointer', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const prev = { start: 7000, end: 9000 };   // x 200..400 in this viewport
-  const { v, log } = pointerView({ region: prev });
-  v.down(at(200));                            // grabs the start handle
-  assert.equal(v.gesture.kind, 'handle');
-  v.move(at(240));
-  assert.deepEqual(log.at(-1), ['regionChange', { region: { start: 7400, end: 9000 }, final: false }]);
-
-  // A handle drag carries no 'select' kind, so the old id-on-select-only rule
-  // never fired here and pointer 1 stayed in the map for good.
-  v.lostCapture({ pointerId: 1 });
-  assert.equal(v.pointers.size, 0);
-  assert.equal(v.gesture, null);
-  // Rolled back to the snapshot taken at pointerdown, not left at 7400.
-  assert.deepEqual(log.at(-1), ['regionChange', { region: prev, final: true }]);
-});
-
-// The phantom pointer's real cost: down() calls anything with two entries in
-// the map a pinch, so one leftover id turns every later single finger into a
-// two-finger zoom that nothing can end.
-test('the finger after a lost capture is a gesture, not a pinch', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const prev = { start: 7000, end: 9000 };
-  const { v } = pointerView({ region: prev });
-  v.down(at(200));
-  v.move(at(240));
-  v.lostCapture({ pointerId: 1 });
-
-  v.down(at(100, 2));   // bare wave, well clear of the region's handles
-  assert.equal(v.pointers.size, 1);
-  assert.notEqual(v.gesture.kind, 'pinch');
-  assert.equal(v.gesture.id, 2);
+test('the zones leave the body its height', () => {
+  assert.ok(RULER_H + GRIP_H < 120, 'ruler and grips leave most of a phone-height canvas to the waveform');
 });

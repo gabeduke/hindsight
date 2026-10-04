@@ -1,36 +1,42 @@
 // web/static/lib/wave/view.js
-// The canvas view of the waveform page: it paints from state it is handed and
-// turns pointer/wheel gestures into events. It owns exactly one piece of
-// state, the viewport {start, fpp, width}; everything else is read fresh from
-// getState() on each paint so the page stays the single source of truth.
-import { frameToX, xToFrame, gridLines, clampRegion, edgeScrollStep } from './geometry.js';
+// The take page's editing canvas. It paints from state it is handed and turns
+// gestures into events; the page owns the take. It owns one piece of state
+// of its own, the viewport {start, fpp, width}.
+//
+// The canvas is three zones, so gestures never compete (see the editing
+// model spec, "One set of gestures"):
+//
+//   ruler   top half: flag pins -- tap one to open it, drag to move it.
+//           bottom half: bar numbers (or seconds), the playhead handle ▾ to
+//           scrub silently, and bar 1 to drag the downbeat.
+//   body    the waveform. A drag pans, always, inside the selection too; a
+//           hold then a drag selects; a tap moves the playhead; two taps
+//           add a flag.
+//   grips   below the waveform: the In and Out grips at the selection's
+//           ends, and the move handle between them, the only way to move a
+//           whole selection, so it can't happen by accident.
+//
+// The pointer machinery is lib/edit/gestures.js, shared with the tape page.
 
-const HANDLE_HIT = 24;   // CSS px each side of a handle
-const FLAG_HIT = 12;
-const TAP_MOVE = 8;
-// A plain one-finger drag pans -- the gesture a waveform invites, and the one
-// a thumb produces by accident. Selecting is the deliberate gesture: hold the
-// press still for HOLD_MS and it becomes a region drag, announced by a band
-// under the finger. Move past TAP_MOVE before the hold fires and the press has
-// already committed to panning, so a hair trigger cannot cost you the region.
-export const HOLD_MS = 350; // ms; exported so the tests can tick exactly this far
-const TAP_MS = 300;
-const MIN_FPP = 1 / 8;   // 8 px per frame: far enough
-const CHIP_H = 16;
-const DOWNBEAT_HIT_H = 24; // the downbeat is only grabbable in the top strip
-const DOUBLE_TAP_MOVE = 20;
-const MIN_PINCH = 8;       // below this the ratio g.dist/dist goes wild
-// this.minLen alone (a few ms) is invisible at most zoom levels: a region
-// also has to span this many screen pixels to survive release, so a hold that
-// barely moved puts the old region back instead of leaving a sliver.
-const MIN_REGION_PX = 24;
+import { frameToX, xToFrame, gridLines, rulerTicks, snapFrame, clampRegion } from './geometry.js';
+import { drawColumns } from './draw.js';
+import { GestureSurface } from '../edit/gestures.js';
 
-// True separation of two fingers, floored so a near-vertical pinch cannot
-// divide by ~0 and fling the zoom.
-function pinchDist(a, b) { return Math.max(MIN_PINCH, Math.hypot(a.x - b.x, a.y - b.y)); }
+export { HOLD_MS } from '../edit/gestures.js';
 
-export class WaveView {
+export const PIN_H = 16;     // the ruler's top half: flag pins
+export const RULER_H = 36;   // the whole ruler
+export const GRIP_H = 30;    // the strip under the waveform
+const PIN_HIT = 12;          // px each side of a pin
+const PLAYHEAD_HIT = 16;
+const DOWNBEAT_HIT = 18;
+const GRIP_W = 22;           // a grip tab's width, outside the selection's edge
+const GRIP_IN = 8;           // how far a grip's hit zone reaches inside it
+const MOVE_W = 36;           // the move handle's width
+
+export class WaveView extends GestureSurface {
   constructor({ canvas, tiles, totalFrames, sampleRate, getState, emit }) {
+    super();
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.tiles = tiles;
@@ -43,38 +49,20 @@ export class WaveView {
     this.cssW = 0;
     this.cssH = 0;
     this.raf = 0;
-    this.edgeRaf = 0;      // the edge auto-scroll loop, live only while selecting
-    this.fitted = false;      // has a first real layout happened yet?
+    this.fitted = false;
     this.destroyed = false;
-    this.pointers = new Map();
-    this.gesture = null;      // { kind, ...}
-    this.lastTap = null;
     this.minLen = Math.floor(sampleRate * 3 / 1000) * 2 + 1;
-    this.chipRects = [];      // [{flag, x, y, w, h}] from the last draw
     this.resize = this.resize.bind(this);
     this.ro = new ResizeObserver(this.resize);
     this.ro.observe(canvas);
-    canvas.style.touchAction = 'none';
-    // One AbortController so destroy() actually detaches the listeners.
-    this.ac = new AbortController();
-    const sig = { signal: this.ac.signal };
-    canvas.addEventListener('pointerdown', (e) => this.down(e), sig);
-    canvas.addEventListener('pointermove', (e) => this.move(e), sig);
-    canvas.addEventListener('pointerup', (e) => this.up(e), sig);
-    canvas.addEventListener('pointercancel', (e) => this.cancel(e), sig);
-    canvas.addEventListener('lostpointercapture', (e) => this.lostCapture(e), sig);
-    canvas.addEventListener('wheel', (e) => this.wheel(e), { passive: false, signal: this.ac.signal });
+    this.initGestures(canvas);
     this.resize();
   }
 
   destroy() {
     this.destroyed = true;
-    // A pending hold, or a live edge scroll, would otherwise fire into a
-    // torn-down view.
-    this.clearHold(this.gesture);
-    this.stopEdgeLoop();
+    this.destroyGestures();
     this.ro.disconnect();
-    this.ac.abort();
     cancelAnimationFrame(this.raf);
     this.raf = 0;
   }
@@ -86,34 +74,14 @@ export class WaveView {
     this.canvas.width = Math.round(r.width * dpr);
     this.canvas.height = Math.round(r.height * dpr);
     this.cssW = r.width; this.cssH = r.height;
-    // A zero-width layout (hidden panel) carries no information: keep the
-    // viewport we have and wait for a real one, or maxFpp() goes infinite.
+    // A zero-width layout (a hidden panel) carries no information: keep the
+    // viewport and wait for a real one, or maxFpp() goes infinite.
     if (r.width <= 0) return;
     this.view.width = r.width;
-    // Fit only on the first real layout; later resizes keep start/fpp and are
-    // merely re-clamped against the new width.
     if (!this.fitted) { this.fitted = true; this.fitAll(); } else { this.clampView(); }
     this.draw();
   }
 
-  maxFpp() { return Math.max(MIN_FPP, this.total / this.view.width); }
-  fitAll() { this.view.fpp = this.maxFpp(); this.view.start = 0; this.changed(); }
-  centerOn(frame) { this.view.start = frame - (this.view.width * this.view.fpp) / 2; this.clampView(); this.changed(); }
-  panTo(start) { this.view.start = start; this.clampView(); this.changed(); }
-  zoomTo(fpp, aroundX) {
-    const f = xToFrame(aroundX, this.view);
-    this.view.fpp = Math.min(this.maxFpp(), Math.max(MIN_FPP, fpp));
-    this.view.start = f - aroundX * this.view.fpp;
-    this.clampView(); this.changed();
-  }
-  clampView() {
-    // fpp first: a resize changes what maxFpp() means, and leaving fpp above it
-    // would leave width*fpp > total, i.e. dead space past the end of the file.
-    this.view.fpp = Math.min(this.maxFpp(), Math.max(MIN_FPP, this.view.fpp));
-    const span = this.view.width * this.view.fpp;
-    this.view.start = Math.max(0, Math.min(this.total - span, this.view.start));
-    if (span >= this.total) this.view.start = 0;
-  }
   changed() { this.emit('viewChange', { view: { ...this.view } }); this.draw(); }
 
   draw() {
@@ -121,421 +89,267 @@ export class WaveView {
     this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); });
   }
 
-  paint() {
-    const { ctx, view, dpr } = this;
-    const st = this.getState();
-    const flags = st.flags || [];
-    const css = getComputedStyle(this.canvas);
-    const col = (name, fb) => css.getPropertyValue(name).trim() || fb;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, this.cssW, this.cssH);
-    ctx.fillStyle = col('--panel', '#131c2e');
-    ctx.fillRect(0, 0, this.cssW, this.cssH);
+  // --- zones ---------------------------------------------------------------
+  bodyTop() { return RULER_H; }
+  bodyBottom() { return Math.max(RULER_H + 1, this.cssH - GRIP_H); }
 
-    // Grid
-    for (const g of gridLines(view, st.grid)) {
-      const x = frameToX(g.frame, view);
-      ctx.fillStyle = g.bar ? col('--line', '#26324a') : 'rgba(255,255,255,0.06)';
-      ctx.fillRect(Math.round(x), 0, 1, this.cssH);
-    }
+  /** The move handle shows only when the selection has room for it between the grips. */
+  moveHandleShown(x0, x1) { return x1 - x0 >= MOVE_W + 2 * GRIP_IN + 8; }
 
-    // Waveform: channels stacked. st.gain is the display-only fit-to-peak
-    // multiplier (geometry.fitGain); it is read fresh here so toggling it is
-    // nothing but a redraw. Clamped so an amplified column stays in its lane.
-    const { cols, channels } = this.tiles.columns(view, dpr);
-    const gain = st.gain ?? 1;
-    const laneH = (this.cssH - CHIP_H) / channels;
-    ctx.fillStyle = col('--accent', '#34d399');
-    for (let x = 0; x < Math.ceil(view.width); x++) {
-      for (let c = 0; c < channels; c++) {
-        const raw0 = cols[(x * channels + c) * 2], raw1 = cols[(x * channels + c) * 2 + 1];
-        if (!(raw1 >= raw0)) continue;
-        const mn = Math.max(-1, Math.min(1, raw0 * gain)), mx = Math.max(-1, Math.min(1, raw1 * gain));
-        const mid = CHIP_H + laneH * c + laneH / 2;
-        const y0 = mid - mx * (laneH / 2) * 0.95, y1 = mid - mn * (laneH / 2) * 0.95;
-        ctx.fillRect(x, y0, 1, Math.max(1, y1 - y0));
-      }
-    }
-
-    // Region
-    if (st.region) {
-      const x0 = frameToX(st.region.start, view), x1 = frameToX(st.region.end, view);
-      ctx.fillStyle = 'rgba(52,211,153,0.14)';
-      ctx.fillRect(x0, CHIP_H, x1 - x0, this.cssH - CHIP_H);
-      ctx.fillStyle = col('--accent', '#34d399');
-      for (const x of [x0, x1]) {
-        ctx.fillRect(Math.round(x) - 1, CHIP_H, 2, this.cssH - CHIP_H);
-        ctx.fillRect(Math.round(x) - 8, 0, 16, CHIP_H - 2); // grip tab
-      }
-    }
-
-    // Downbeat marker
-    if (st.grid.bpm) {
-      const x = frameToX(st.grid.downbeat, view);
-      ctx.fillStyle = col('--warn', '#fbbf24');
-      ctx.fillRect(Math.round(x) - 1, 0, 2, this.cssH);
-      ctx.beginPath(); ctx.moveTo(x - 6, 0); ctx.lineTo(x + 6, 0); ctx.lineTo(x, 8); ctx.fill();
-    }
-
-    // Flags with chips (a chip is hidden if it would overlap the previous one)
-    this.chipRects = [];
-    let lastChipRight = -Infinity;
-    ctx.font = '11px ' + col('--font', 'system-ui');
-    for (const f of flags) {
-      const x = frameToX(f.frame, view);
-      if (x < -200 || x > this.cssW + 200) continue;
-      const sel = st.selectedFlag && st.selectedFlag.frame === f.frame;
-      ctx.fillStyle = col('--flag', '#ffb020');
-      ctx.fillRect(Math.round(x) - (sel ? 2 : 1), CHIP_H, sel ? 4 : 2, this.cssH - CHIP_H);
-      if (f.label && x + 4 > lastChipRight) {
-        const w = Math.min(160, ctx.measureText(f.label).width + 10);
-        ctx.fillRect(x + 4, 1, w, CHIP_H - 3);
-        ctx.fillStyle = '#000';
-        ctx.fillText(f.label, x + 9, CHIP_H - 5, w - 10);
-        this.chipRects.push({ flag: f, x: x + 4, y: 0, w, h: CHIP_H });
-        lastChipRight = x + 4 + w + 4;
-      }
-    }
-
-    // Cursor
-    if (st.cursor != null) {
-      const cx = frameToX(st.cursor, view);
-      ctx.fillStyle = col('--ink', '#eef2f8');
-      ctx.fillRect(Math.round(cx), 0, 1, this.cssH);
-    }
-  }
-
-  // --- hit testing -------------------------------------------------------
-  // Priority: chips, downbeat, handles, region body, flag ticks, bare wave.
-  // The downbeat outranks the region because the region body matches at every
-  // y: left below it, a downbeat enclosed by the region would be ungrabbable.
-  // It is gated to the top strip, so it only steals from the drawn grip tab.
   hit(x, y, st = this.getState()) {
-    for (const r of this.chipRects) if (x >= r.x && x <= r.x + r.w && y <= r.h) return { kind: 'flag', flag: r.flag };
-    if (st.grid.bpm && Math.abs(x - frameToX(st.grid.downbeat, this.view)) <= HANDLE_HIT && y < DOWNBEAT_HIT_H) return { kind: 'downbeat' };
-    if (st.region) {
-      const x0 = frameToX(st.region.start, this.view), x1 = frameToX(st.region.end, this.view);
-      // A saved region seen from far out can be a few pixels wide, and two
-      // full-size handle zones around it would swallow everything nearby:
-      // there would be nowhere left to start a fresh press-and-hold. Shrink the
-      // grab with the region (never below 6px) so a tiny region stays
-      // draggable by its edges without owning the screen around it.
-      const grab = x1 - x0 >= 2 * HANDLE_HIT ? HANDLE_HIT : Math.max(6, (x1 - x0) / 4);
-      if (Math.abs(x - x0) <= grab) return { kind: 'handle', edge: 'start' };
-      if (Math.abs(x - x1) <= grab) return { kind: 'handle', edge: 'end' };
-      if (x > x0 && x < x1) return { kind: 'region' };
+    const v = this.view;
+    if (y < PIN_H) {
+      let best = null;
+      for (const f of st.flags || []) {
+        const d = Math.abs(x - frameToX(f.frame, v));
+        if (d <= PIN_HIT && (!best || d < best.d)) best = { f, d };
+      }
+      if (best) return { kind: 'pin', grab: true, flag: best.f };
+      return { kind: 'ruler' };
     }
-    for (const f of (st.flags || [])) if (Math.abs(x - frameToX(f.frame, this.view)) <= FLAG_HIT) return { kind: 'flag', flag: f };
-    return { kind: 'wave' };
+    if (y < RULER_H) {
+      if (st.cursor != null && Math.abs(x - frameToX(st.cursor, v)) <= PLAYHEAD_HIT) return { kind: 'playhead', grab: true };
+      if (st.grid.bpm && Math.abs(x - frameToX(st.grid.downbeat, v)) <= DOWNBEAT_HIT) return { kind: 'downbeat', grab: true };
+      return { kind: 'ruler' };
+    }
+    if (y >= this.bodyBottom() && st.region) {
+      const x0 = frameToX(st.region.start, v), x1 = frameToX(st.region.end, v);
+      // The grips sit just outside the selection's ends, so even a selection
+      // a pixel wide keeps two separate tabs to hold.
+      if (x >= x0 - GRIP_W - 4 && x <= x0 + GRIP_IN) return { kind: 'grip', grab: true, edge: 'start' };
+      if (x >= x1 - GRIP_IN && x <= x1 + GRIP_W + 4) return { kind: 'grip', grab: true, edge: 'end' };
+      const mid = (x0 + x1) / 2;
+      if (this.moveHandleShown(x0, x1) && Math.abs(x - mid) <= MOVE_W / 2 + 4) return { kind: 'move', grab: true };
+    }
+    return { kind: 'body', select: true };
   }
 
-  // --- pointer events ----------------------------------------------------
-  pt(e) { const r = this.canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-
-  down(e) {
-    this.canvas.setPointerCapture(e.pointerId);
-    const p = this.pt(e);
-    this.pointers.set(e.pointerId, p);
-    // Two or more fingers is always a pinch: replacing this.gesture discards
-    // whatever the first finger had started (a select, a handle drag) so a
-    // pinch never also selects. A third finger must not fall through to the
-    // hit test. Roll the discarded gesture back first -- it may have emitted
-    // provisional regions, and nothing else will ever finalize them.
-    if (this.pointers.size >= 2) {
-      this.rollback(this.gesture);
-      const [a, b] = [...this.pointers.values()];
-      this.gesture = { kind: 'pinch', dist: pinchDist(a, b), mid: (a.x + b.x) / 2, fpp: this.view.fpp, start: this.view.start };
-      this.lastTap = null;
-      return;
-    }
+  snapX(x) {
     const st = this.getState();
-    const h = this.hit(p.x, p.y, st);
-    // Every one-finger gesture carries the pointer that owns it: up(), cancel()
-    // and lostCapture() all key off it, so a palm or a stray second pointer can
-    // neither finalize nor cancel someone else's drag. (A pinch has no single
-    // owner and deliberately leaves id undefined.)
-    const base = { x0: p.x, y0: p.y, t0: performance.now(), moved: false, id: e.pointerId };
-    // Every drag carries the offset from the grab point to the thing being
-    // dragged, so the first pointermove nudges it instead of teleporting it
-    // under the finger.
+    return Math.max(0, Math.min(this.total, snapFrame(xToFrame(x, this.view), st.grid, st.snap)));
+  }
+
+  // --- grabs ----------------------------------------------------------------
+  grabStart(h, p) {
+    const st = this.getState();
     switch (h.kind) {
-      case 'handle': this.gesture = { ...base, kind: 'handle', edge: h.edge, region: { ...st.region }, grabOffset: p.x - frameToX(st.region[h.edge], this.view) }; break;
-      case 'region': this.gesture = { ...base, kind: 'moveRegion', region: { ...st.region } }; break;
-      case 'downbeat': this.gesture = { ...base, kind: 'downbeat', prev: st.grid.downbeat, grabOffset: p.x - frameToX(st.grid.downbeat, this.view) }; break;
-      case 'flag': this.gesture = { ...base, kind: 'flag', flag: h.flag }; break;
-      // A press on bare waveform is undecided: it pans if it moves first and
-      // selects if it holds still for HOLD_MS (see beginSelect). start is the
-      // viewport to pan from, prev the region a select would restore on a
-      // sliver release, and selecting flips true only in beginSelect().
-      default: {
-        const g = { ...base, kind: 'select', anchor: xToFrame(p.x, this.view), prev: st.region ? { ...st.region } : null, selecting: false, start: this.view.start, holdTimer: null, lastX: p.x };
-        g.holdTimer = setTimeout(() => this.beginSelect(g), HOLD_MS);
-        this.gesture = g;
-      }
+      case 'pin': return { what: 'pin', flag: h.flag, prev: h.flag.frame, grabOffset: p.x - frameToX(h.flag.frame, this.view) };
+      case 'playhead':
+        this.emit('scrubStart', {});
+        return { what: 'playhead', prev: st.cursor, grabOffset: p.x - frameToX(st.cursor, this.view) };
+      case 'downbeat': return { what: 'downbeat', prev: st.grid.downbeat, grabOffset: p.x - frameToX(st.grid.downbeat, this.view) };
+      case 'grip': return { what: 'grip', edge: h.edge, region: { ...st.region }, grabOffset: p.x - frameToX(st.region[h.edge], this.view) };
+      case 'move': return { what: 'move', region: { ...st.region } };
+      default: return null;
     }
-    // Handles, the downbeat and flags break a double-tap pair; bare waveform
-    // and the region body do not, so a tap-then-flag-tap never lands an
-    // unwanted flag but a moment can still be flagged wherever it sits.
-    if (h.kind !== 'wave' && h.kind !== 'region') this.lastTap = null;
   }
 
-  // The hold fired: the press becomes a region drag. Guarded because the timer
-  // outlives the gesture -- a second finger, a cancel or a release may have
-  // replaced it, and a press that already moved has chosen panning instead.
-  // The immediate provisional region is the cue: a minLen band appears under
-  // the finger, so the hold is visible rather than a secret.
-  beginSelect(g) {
-    if (this.gesture !== g || g.moved) return;
-    g.holdTimer = null;
-    g.selecting = true;
-    // A hold that changes meaning deserves a tick of feedback. Android obliges;
-    // iOS Safari has no vibrate at all, and some embeddings have no navigator,
-    // so this is best-effort and must never take the gesture down with it.
-    try { navigator.vibrate?.(10); } catch { /* no haptics here */ }
-    this.emit('regionChange', { region: clampRegion({ start: g.anchor, end: g.anchor + this.minLen }, this.total, this.minLen), final: false });
-    this.draw();
-  }
-
-  clearHold(g) { if (g && g.holdTimer) { clearTimeout(g.holdTimer); g.holdTimer = null; } }
-
-  // A selection can only reach as far as the screen unless the screen moves.
-  // While the finger sits inside an edge margin, pan a little every frame and
-  // re-derive the region from the anchor to whatever frame now sits under the
-  // (stationary) finger, so the band keeps growing without any further moves.
-  // At the ends of the take the clamp pins start where it already is, so the
-  // loop keeps spinning but does no work: it emits no viewChange and schedules
-  // no repaint until the finger moves the window again.
-  updateEdgeLoop(g) {
-    const step = edgeScrollStep(g.lastX, this.view.width);
-    if (!step) { this.stopEdgeLoop(); return; }
-    if (this.edgeRaf) return; // already running; it re-reads g.lastX each frame
-    const tick = () => {
-      this.edgeRaf = 0;
-      if (this.gesture !== g || !g.selecting) return;
-      const s = edgeScrollStep(g.lastX, this.view.width);
-      if (!s) return;
-      const before = this.view.start;
-      // Clamp the target the way panTo would, and only call it if it would
-      // actually move: panTo always emits viewChange and repaints, and against
-      // either end of the take that is a full frame of work for no change.
-      const span = this.view.width * this.view.fpp;
-      const target = span >= this.total ? 0 : Math.max(0, Math.min(this.total - span, before + s * this.view.fpp));
-      if (target !== before) {
-        this.panTo(target);
-        const cur = xToFrame(g.lastX, this.view);
-        const r = { start: Math.min(g.anchor, cur), end: Math.max(g.anchor, cur) };
-        this.emit('regionChange', { region: clampRegion(r, this.total, Math.max(1, Math.min(this.minLen, r.end - r.start))), final: false });
-      }
-      // Re-arm only if this gesture still owns the loop and the view is alive,
-      // so a destroy() or a takeover inside the emit above cannot leave a frame
-      // callback pointing at a torn-down view.
-      if (this.gesture === g && g.selecting && !this.destroyed) this.edgeRaf = requestAnimationFrame(tick);
-    };
-    this.edgeRaf = requestAnimationFrame(tick);
-  }
-
-  stopEdgeLoop() { if (this.edgeRaf) { cancelAnimationFrame(this.edgeRaf); this.edgeRaf = 0; } }
-
-  move(e) {
-    if (!this.pointers.has(e.pointerId)) return;
-    const p = this.pt(e);
-    this.pointers.set(e.pointerId, p);
-    const g = this.gesture;
-    if (!g) return;
-    if (g.kind === 'pinch' && this.pointers.size >= 2) {
-      const [a, b] = [...this.pointers.values()];
-      const dist = pinchDist(a, b);
-      const mid = (a.x + b.x) / 2;
-      const fpp = Math.min(this.maxFpp(), Math.max(MIN_FPP, g.fpp * (g.dist / dist)));
-      const anchor = g.start + g.mid * g.fpp; // frame under the original midpoint
-      this.view.fpp = fpp;
-      this.view.start = anchor - mid * fpp;
-      this.clampView(); this.changed();
-      return;
-    }
-    const dx = p.x - g.x0;
-    if (Math.abs(dx) > TAP_MOVE || Math.abs(p.y - g.y0) > TAP_MOVE) g.moved = true;
-    switch (g.kind) {
-      case 'select': {
-        if (g.selecting) {
-          const cur = xToFrame(p.x, this.view);
-          const r = { start: Math.min(g.anchor, cur), end: Math.max(g.anchor, cur) };
-          // The provisional clamp allows a region shorter than minLen while the
-          // finger is still moving, so the band tracks the finger from the
-          // moment the hold fired; the minimum is enforced only on release.
-          this.emit('regionChange', { region: clampRegion(r, this.total, Math.max(1, Math.min(this.minLen, r.end - r.start))), final: false });
-          this.draw();
-          // The finger may be pinned against an edge with more take beyond it.
-          g.lastX = p.x;
-          this.updateEdgeLoop(g);
-        } else if (g.moved) {
-          // Moved before the hold fired: this press is a pan, and it stays one
-          // for the rest of the gesture -- killing the timer is what decides.
-          this.clearHold(g);
-          // A drag is never half of a double-tap: a pan must not leave a
-          // stray lastTap for a later tap to pair up into a flag.
-          this.lastTap = null;
-          this.view.start = g.start - dx * this.view.fpp;
-          this.clampView(); this.changed();
-        }
-        break;
-      }
-      case 'handle': {
-        const f = xToFrame(p.x - g.grabOffset, this.view);
+  grabMove(g, p) {
+    const st = this.getState();
+    const at = (x) => Math.max(0, Math.min(this.total, snapFrame(xToFrame(x, this.view), st.grid, st.snap)));
+    switch (g.what) {
+      case 'pin': this.emit('flagMove', { flag: g.flag, frame: Math.min(this.total - 1, at(p.x - g.grabOffset)), final: false }); break;
+      case 'playhead': this.emit('scrub', { frame: Math.max(0, Math.min(this.total - 1, xToFrame(p.x - g.grabOffset, this.view))) }); break;
+      case 'downbeat': this.emit('downbeatChange', { frame: Math.max(0, Math.min(this.total - 1, xToFrame(p.x - g.grabOffset, this.view))), final: false }); break;
+      case 'grip': {
+        const f = at(p.x - g.grabOffset);
         const r = { ...g.region, [g.edge]: f };
         if (g.edge === 'start') r.start = Math.min(r.start, r.end - this.minLen);
         else r.end = Math.max(r.end, r.start + this.minLen);
         this.emit('regionChange', { region: clampRegion(r, this.total, this.minLen), final: false });
-        this.draw(); break;
+        break;
       }
-      case 'moveRegion': {
-        const d = Math.round(dx * this.view.fpp);
+      case 'move': {
         const len = g.region.end - g.region.start;
-        const start = Math.max(0, Math.min(this.total - len, g.region.start + d));
+        // Snap where the selection's start lands, and keep its length.
+        let start = at(frameToX(g.region.start, this.view) + g.dx);
+        start = Math.max(0, Math.min(this.total - len, start));
         this.emit('regionChange', { region: { start, end: start + len }, final: false });
-        this.draw(); break;
+        break;
       }
-      case 'downbeat':
-        this.emit('downbeatChange', { frame: Math.max(0, Math.min(this.total - 1, xToFrame(p.x - g.grabOffset, this.view))), final: false });
-        this.draw(); break;
       default: break;
     }
   }
 
-  up(e) {
-    const g = this.gesture;
-    // A release from some other pointer (a palm, a finger that never started
-    // this gesture) must not finalize this one. Pinches have no id and keep
-    // their own two-finger bookkeeping below.
-    if (g && g.id !== undefined && e.pointerId !== g.id) return;
-    const p = this.pt(e);
-    this.pointers.delete(e.pointerId);
-    if (!g) return;
-    // Dropping to one finger ends the pinch outright: the survivor does
-    // nothing until it too lifts, rather than selecting from a stale anchor.
-    if (g.kind === 'pinch') { if (this.pointers.size < 2) this.gesture = null; return; }
-    this.gesture = null;
+  grabEnd(g, p, tap) {
     const st = this.getState();
-    const isTap = !g.moved && performance.now() - g.t0 < TAP_MS;
-    switch (g.kind) {
-      case 'handle':
-      case 'moveRegion':
-        // A region drag is never half of a double-tap, exactly as a select
-        // drag is not: drag-then-tap must not land a stray flag.
-        if (g.moved) { this.lastTap = null; this.emit('regionChange', { region: st.region, final: true }); }
-        else if (g.kind === 'moveRegion' && isTap) this.tapOnWave(p);
+    switch (g.what) {
+      case 'pin':
+        if (tap) this.emit('selectFlag', { flag: g.flag });
+        else if (g.moved) this.emit('flagMove', { flag: g.flag, frame: g.flag.frame, final: true });
+        break;
+      case 'playhead':
+        // A tap on the handle is a tap on the ruler: it seeks to itself.
+        this.emit('scrubEnd', { frame: st.cursor });
         break;
       case 'downbeat':
         if (g.moved) this.emit('downbeatChange', { frame: st.grid.downbeat, final: true });
         break;
-      case 'flag':
-        // A tap on a flag selects it and never reaches the double-tap path,
-        // so double-tapping a flag cannot stack a second flag on top of it.
-        if (isTap) this.emit('selectFlag', { flag: g.flag });
+      case 'grip':
+      case 'move':
+        if (g.moved) this.emit('regionChange', { region: st.region, final: true });
         break;
-      case 'select': {
-        // Released before the hold could fire: nothing else will, so drop it.
-        this.clearHold(g);
-        this.stopEdgeLoop();
-        // The hold fires at 350ms, so a still press released between TAP_MS
-        // and HOLD_MS never started selecting and never moved: it is still a
-        // tap, not a dead zone, regardless of how long it was held.
-        const stillPress = !g.moved && !g.selecting;
-        if (g.selecting) {
-          const cur = xToFrame(p.x, this.view);
-          const r = { start: Math.min(g.anchor, cur), end: Math.max(g.anchor, cur) };
-          // minLen alone (a few ms) is invisible at most zooms, so a held
-          // select only commits if it left a visible band on screen.
-          const bigEnough = r.end - r.start >= this.minLen && (r.end - r.start) / this.view.fpp >= MIN_REGION_PX;
-          if (bigEnough) {
-            // A drag is never half of a double-tap, or tap-drag-tap flags.
-            this.lastTap = null;
-            this.emit('regionChange', { region: clampRegion(r, this.total, this.minLen), final: true });
-          } else {
-            // Held, then barely moved (or pulled back): discard the band and
-            // put back whatever region the press began from, so a hold that
-            // changed its mind does not destroy the take.
-            this.emit('regionChange', { region: g.prev, final: true });
-          }
-        } else if (stillPress) {
-          // Never held and never travelled: a tap seeks, two flag. A press
-          // that panned has g.moved set and ends silently.
-          this.tapOnWave(p);
-        }
-        break;
-      }
-    }
-  }
-
-  // A tap seeks; two taps within TAP_MS and DOUBLE_TAP_MOVE add a flag. Shared
-  // by bare-waveform taps and taps inside the region, so a moment can be
-  // flagged wherever it sits.
-  tapOnWave(p) {
-    const now = performance.now();
-    if (this.lastTap && now - this.lastTap.t < TAP_MS && Math.hypot(p.x - this.lastTap.x, p.y - this.lastTap.y) < DOUBLE_TAP_MOVE) {
-      this.lastTap = null;
-      this.emit('addFlag', { frame: xToFrame(p.x, this.view) });
-    } else {
-      this.lastTap = { t: now, x: p.x, y: p.y };
-      this.emit('seek', { frame: xToFrame(p.x, this.view) });
-    }
-  }
-
-  // Losing the capture mid-gesture (the browser taking over, the element going
-  // away) is a cancel, not a release. It also fires as the implicit release
-  // after every pointerup, so it only counts while this pointer is still one we
-  // are tracking: by the time a normal up() has run, the pointer is out of the
-  // map and the gesture is null, so a plain tap cannot land here and have
-  // cancel() wipe the lastTap it just armed.
-  lostCapture(e) {
-    if (this.gesture && this.pointers.has(e.pointerId)) this.cancel(e);
-  }
-
-  // A cancelled pointer (the browser taking the gesture over, a palm, the tab
-  // going away) is not a release: it must not commit anything. Roll the gesture
-  // back and emit nothing else.
-  cancel(e) {
-    // Same guard as up(): another pointer's cancel is not this gesture's.
-    if (this.gesture && this.gesture.id !== undefined && e.pointerId !== this.gesture.id) return;
-    this.pointers.delete(e.pointerId);
-    const g = this.gesture;
-    this.gesture = null;
-    this.lastTap = null;
-    this.rollback(g);
-    this.draw();
-  }
-
-  // Undo a drag that will never get a release, by re-emitting the snapshot
-  // taken at pointerdown as the final value. A drag that never moved (or, for
-  // select, whose hold never fired) emitted nothing, so there is nothing to
-  // undo -- a sub-threshold press interrupted by a second finger must emit
-  // nothing. Clearing the hold first is what stops a pinch from sprouting a
-  // region 350ms in.
-  rollback(g) {
-    if (!g) return;
-    this.clearHold(g);
-    this.stopEdgeLoop();
-    switch (g.kind) {
-      case 'select': if (g.selecting) this.emit('regionChange', { region: g.prev, final: true }); break;
-      case 'handle':
-      case 'moveRegion': if (g.moved) this.emit('regionChange', { region: g.region, final: true }); break;
-      case 'downbeat': if (g.moved) this.emit('downbeatChange', { frame: g.prev, final: true }); break;
       default: break;
     }
   }
 
-  wheel(e) {
-    e.preventDefault();
-    const p = this.pt(e);
-    // Plain wheel zooms about the pointer: on a timeline that is the thing a
-    // mouse user reaches for first, and the overview strip covers panning.
-    // Shift, or a trackpad's horizontal axis, pans.
-    // Firefox reports lines (deltaMode 1) or pages (2), not pixels: scale them
-    // so one notch moves about as far as it does everywhere else.
-    const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
-    const dx = e.deltaX * k, dy = e.deltaY * k;
-    const horizontal = Math.abs(dx) > Math.abs(dy);
-    if (e.shiftKey || horizontal) this.panTo(this.view.start + (horizontal ? dx : dy) * this.view.fpp);
-    else this.zoomTo(this.view.fpp * Math.exp(dy * 0.01), p.x);
+  grabRollback(g) {
+    switch (g.what) {
+      case 'pin': this.emit('flagMove', { flag: g.flag, frame: g.prev, final: true }); break;
+      case 'playhead': this.emit('scrubEnd', { frame: g.prev }); break;
+      case 'downbeat': this.emit('downbeatChange', { frame: g.prev, final: true }); break;
+      case 'grip':
+      case 'move': this.emit('regionChange', { region: g.region, final: true }); break;
+      default: break;
+    }
   }
+
+  // A tap moves the playhead (snapped); the second of two taps on the
+  // waveform adds a flag there.
+  tapAt(p, h, double) {
+    const frame = this.snapX(p.x);
+    if (double && h.kind === 'body') this.emit('addFlag', { frame: Math.min(this.total - 1, frame) });
+    else this.emit('seek', { frame });
+  }
+
+  // --- painting ---------------------------------------------------------------
+  paint() {
+    const { ctx, view, dpr } = this;
+    const st = this.getState();
+    const W = this.cssW, H = this.cssH;
+    if (!W || !H) return;
+    const css = getComputedStyle(this.canvas);
+    const col = (name, fb) => css.getPropertyValue(name).trim() || fb;
+    const top = this.bodyTop(), bottom = this.bodyBottom();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = col('--panel', '#131c2e');
+    ctx.fillRect(0, 0, W, H);
+    // The ruler and the grip strip are a shade apart from the waveform.
+    ctx.fillStyle = col('--panel-2', '#1a2437');
+    ctx.fillRect(0, 0, W, RULER_H);
+    ctx.fillRect(0, bottom, W, H - bottom);
+
+    const sel = st.region;
+    const sx0 = sel ? frameToX(sel.start, view) : 0, sx1 = sel ? frameToX(sel.end, view) : 0;
+
+    // Selection band, across ruler, body and grips, so its extent reads at
+    // a glance wherever the eye is.
+    if (sel) {
+      ctx.fillStyle = 'rgba(52,211,153,0.13)';
+      ctx.fillRect(sx0, 0, sx1 - sx0, H);
+    }
+
+    // Beat and bar lines in the body.
+    for (const g of gridLines(view, st.grid)) {
+      const x = frameToX(g.frame, view);
+      ctx.fillStyle = g.bar ? col('--line', '#26324a') : 'rgba(255,255,255,0.06)';
+      ctx.fillRect(Math.round(x), top, 1, bottom - top);
+    }
+
+    // The waveform, on the shared dB scale.
+    const { cols, channels } = this.tiles.columns(view, dpr);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, top, W, bottom - top); ctx.clip();
+    drawColumns(ctx, cols, channels, { top: top + 2, height: bottom - top - 4, color: col('--accent', '#34d399') });
+    ctx.restore();
+
+    // Selection edges.
+    if (sel) {
+      ctx.fillStyle = col('--accent', '#34d399');
+      ctx.fillRect(Math.round(sx0) - 1, PIN_H, 2, bottom - PIN_H);
+      ctx.fillRect(Math.round(sx1) - 1, PIN_H, 2, bottom - PIN_H);
+    }
+
+    // A pending In or Out, waiting for its other half.
+    if (st.pending) {
+      const x = frameToX(st.pending.frame, view);
+      ctx.strokeStyle = col('--accent', '#34d399');
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, PIN_H); ctx.lineTo(Math.round(x) + 0.5, bottom); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = `600 10px ${col('--font', 'system-ui')}`;
+      ctx.fillStyle = col('--accent', '#34d399');
+      const label = st.pending.edge === 'start' ? 'In' : 'Out';
+      ctx.fillText(label, st.pending.edge === 'start' ? x + 4 : x - 4 - ctx.measureText(label).width, bottom - 6);
+    }
+
+    // Ruler: bar numbers (or seconds), with the downbeat's "1" in its own
+    // colour when it can be dragged.
+    ctx.font = `11px ${col('--mono', 'monospace')}`;
+    ctx.textBaseline = 'middle';
+    for (const t of rulerTicks(view, st.grid)) {
+      const x = frameToX(t.frame, view);
+      const isDownbeat = st.grid.bpm && t.frame === Math.round(st.grid.downbeat);
+      ctx.fillStyle = isDownbeat ? col('--warn', '#fbbf24') : col('--ink-faint', '#5d6b85');
+      ctx.fillRect(Math.round(x), PIN_H + 6, 1, RULER_H - PIN_H - 6);
+      ctx.fillStyle = isDownbeat ? col('--warn', '#fbbf24') : col('--ink-dim', '#8b9ab4');
+      ctx.fillText(t.label, x + 3, PIN_H + (RULER_H - PIN_H) / 2 + 1);
+    }
+    // The downbeat itself, when it isn't on a labelled tick at this zoom.
+    if (st.grid.bpm) {
+      const x = frameToX(st.grid.downbeat, view);
+      ctx.fillStyle = col('--warn', '#fbbf24');
+      ctx.fillRect(Math.round(x) - 1, PIN_H, 2, RULER_H - PIN_H);
+    }
+
+    // Flags: a line through the body, a pin in the ruler, and its name when
+    // there is room before the next one.
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = `11px ${col('--font', 'system-ui')}`;
+    let lastRight = -Infinity;
+    for (const f of st.flags || []) {
+      const x = frameToX(f.frame, view);
+      if (x < -200 || x > W + 200) continue;
+      const selected = st.selectedFlag && st.selectedFlag.id === f.id;
+      ctx.fillStyle = col('--flag', '#ffb020');
+      ctx.fillRect(Math.round(x) - (selected ? 1 : 0), PIN_H, selected ? 3 : 1, bottom - PIN_H);
+      // The pin: a small pennant on a stem.
+      ctx.fillRect(Math.round(x), 2, 2, PIN_H - 2);
+      ctx.beginPath(); ctx.moveTo(x + 2, 2); ctx.lineTo(x + 10, 6); ctx.lineTo(x + 2, 10); ctx.closePath(); ctx.fill();
+      if (f.label && x + 12 > lastRight) {
+        const w = Math.min(140, ctx.measureText(f.label).width);
+        ctx.fillStyle = col('--ink', '#eef2f8');
+        ctx.fillText(f.label, x + 12, PIN_H - 4, 140);
+        lastRight = x + 12 + w + 6;
+      }
+    }
+
+    // Grips and the move handle.
+    if (sel) {
+      ctx.fillStyle = col('--accent', '#34d399');
+      const gy = bottom + 3, gh = H - bottom - 6;
+      roundRect(ctx, sx0 - GRIP_W, gy, GRIP_W, gh, 5); ctx.fill();
+      roundRect(ctx, sx1, gy, GRIP_W, gh, 5); ctx.fill();
+      ctx.fillStyle = '#062015';
+      ctx.font = `700 11px ${col('--font', 'system-ui')}`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText('◀', sx0 - GRIP_W + 6, gy + gh / 2 + 1);
+      ctx.fillText('▶', sx1 + 6, gy + gh / 2 + 1);
+      if (this.moveHandleShown(sx0, sx1)) {
+        const mx = (sx0 + sx1) / 2;
+        ctx.fillStyle = 'rgba(52,211,153,0.35)';
+        roundRect(ctx, mx - MOVE_W / 2, gy + 4, MOVE_W, gh - 8, (gh - 8) / 2); ctx.fill();
+        ctx.fillStyle = col('--accent', '#34d399');
+        for (const dy of [-3, 0, 3]) ctx.fillRect(mx - 8, gy + gh / 2 + dy, 16, 1);
+      }
+      ctx.textBaseline = 'alphabetic';
+    }
+
+    // The playhead: a line, and the handle in the ruler.
+    if (st.cursor != null) {
+      const cx = frameToX(st.cursor, view);
+      ctx.fillStyle = col('--ink', '#eef2f8');
+      ctx.fillRect(Math.round(cx), PIN_H, 1, bottom - PIN_H);
+      ctx.beginPath();
+      ctx.moveTo(cx - 7, PIN_H + 1); ctx.lineTo(cx + 7, PIN_H + 1); ctx.lineTo(cx, PIN_H + 11); ctx.closePath();
+      ctx.fill();
+    }
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+  ctx.rect(x, y, w, h);
 }

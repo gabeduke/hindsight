@@ -76,12 +76,11 @@ export function noteRects(track, layout, view) {
 
 // ---------------------------------------------------------------- DOM
 
-const HOLD_MS = 500;
-const HOLD_MOVE = 8;
-
 /**
  * One card per track: a header (swatch, name, meta, chevron) and a canvas
- * body. Tap the header to collapse; hold it to flip drums/notes.
+ * body. Tapping the header opens a small menu: collapse or expand, show as
+ * drums or as notes, and hide. (It used to be a tap to collapse and a hidden
+ * half-second hold to flip drums/notes, which nobody could discover.)
  */
 export class Lanes {
   constructor({ container, tracks, storageKey, getState, getView, onKindChange }) {
@@ -93,6 +92,8 @@ export class Lanes {
     this.onKindChange = onKindChange;
     this.collapsed = {};
     try { this.collapsed = JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch {}
+    this.hidden = new Set();
+    try { this.hidden = new Set(JSON.parse(localStorage.getItem(`${storageKey}.hidden`) || '[]')); } catch {}
     this.cards = [];
     this.raf = 0;
     this.ac = new AbortController();
@@ -127,21 +128,51 @@ export class Lanes {
       meta.className = 'lane-meta mono';
       const chev = document.createElement('span');
       chev.className = 'lane-chev';
-      head.title = 'Tap to collapse · hold to switch drums/notes';
+      head.setAttribute('role', 'button');
+      head.setAttribute('aria-haspopup', 'menu');
+      head.tabIndex = 0;
+      head.dataset.tip = 'lane';
       head.append(swatch, name, meta, chev);
+      const menu = document.createElement('div');
+      menu.className = 'lane-menu';
+      menu.setAttribute('role', 'menu');
+      menu.hidden = true;
       const body = document.createElement('canvas');
       body.className = 'lane-body';
-      card.append(head, body);
+      card.append(head, menu, body);
       this.container.appendChild(card);
-      const c = { track: t, color: colors[i], card, head, meta, chev, body, ctx: body.getContext('2d') };
+      const c = { track: t, color: colors[i], card, head, menu, meta, chev, body, ctx: body.getContext('2d') };
       this.cards.push(c);
       this.wireHeader(c);
       this.applyCollapse(c);
     });
+    this.showAll = document.createElement('button');
+    this.showAll.type = 'button';
+    this.showAll.className = 'linkish lane-show-all';
+    this.showAll.addEventListener('click', () => {
+      this.hidden.clear();
+      this.saveHidden();
+      this.cards.forEach((c) => this.applyCollapse(c));
+      this.draw();
+    }, { signal: this.ac.signal });
+    this.container.appendChild(this.showAll);
+    this.syncShowAll();
+  }
+
+  saveHidden() {
+    try { localStorage.setItem(`${this.storageKey}.hidden`, JSON.stringify([...this.hidden])); } catch {}
+    this.syncShowAll();
+  }
+
+  syncShowAll() {
+    const n = this.hidden.size;
+    this.showAll.hidden = n === 0;
+    this.showAll.textContent = n === 1 ? 'Show the hidden lane' : `Show ${n} hidden lanes`;
   }
 
   applyCollapse(c) {
     const collapsed = !!this.collapsed[c.track.name];
+    c.card.hidden = this.hidden.has(c.track.name);
     c.card.classList.toggle('collapsed', collapsed);
     c.chev.textContent = collapsed ? '▸' : '▾';
     const notes = c.track.notes.length;
@@ -153,29 +184,40 @@ export class Lanes {
 
   wireHeader(c) {
     const sig = { signal: this.ac.signal };
-    let hold = 0, held = false, x0 = 0, y0 = 0;
-    c.head.addEventListener('pointerdown', (e) => {
-      held = false; x0 = e.clientX; y0 = e.clientY;
-      hold = setTimeout(() => {
-        held = true;
-        const kind = c.track.kind === 'drums' ? 'notes' : 'drums';
-        this.setKind(c.track.name, kind);
-        this.onKindChange?.(c.track.name, kind);
-      }, HOLD_MS);
-    }, sig);
-    c.head.addEventListener('pointermove', (e) => {
-      if (Math.hypot(e.clientX - x0, e.clientY - y0) > HOLD_MOVE) clearTimeout(hold);
-    }, sig);
-    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
-      c.head.addEventListener(ev, () => clearTimeout(hold), sig);
-    }
-    c.head.addEventListener('click', () => {
-      if (held) { held = false; return; } // the hold already acted
-      this.collapsed[c.track.name] = !this.collapsed[c.track.name];
-      try { localStorage.setItem(this.storageKey, JSON.stringify(this.collapsed)); } catch {}
-      this.applyCollapse(c);
-      this.draw();
-    }, sig);
+    const item = (label, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'menuitem');
+      b.textContent = label;
+      b.addEventListener('click', (e) => { e.stopPropagation(); c.menu.hidden = true; fn(); }, sig);
+      return b;
+    };
+    const open = () => {
+      const collapsed = !!this.collapsed[c.track.name];
+      const other = c.track.kind === 'drums' ? 'notes' : 'drums';
+      c.menu.replaceChildren(
+        item(collapsed ? 'Expand' : 'Collapse', () => {
+          this.collapsed[c.track.name] = !collapsed;
+          try { localStorage.setItem(this.storageKey, JSON.stringify(this.collapsed)); } catch {}
+          this.applyCollapse(c);
+          this.draw();
+        }),
+        item(other === 'drums' ? 'Show as drums' : 'Show as notes', () => {
+          this.setKind(c.track.name, other);
+          this.onKindChange?.(c.track.name, other);
+        }),
+        item('Hide', () => {
+          this.hidden.add(c.track.name);
+          this.saveHidden();
+          this.applyCollapse(c);
+          this.draw();
+        }),
+      );
+      for (const k of this.cards) if (k !== c) k.menu.hidden = true;
+      c.menu.hidden = !c.menu.hidden;
+    };
+    c.head.addEventListener('click', open, sig);
+    c.head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }, sig);
   }
 
   /** Flip a track's kind locally: colour, rows and meta follow. */

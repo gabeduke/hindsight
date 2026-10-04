@@ -269,7 +269,7 @@ export class RisingNotes {
       const sw = document.createElement('span');
       sw.className = 'chip-swatch';
       b.append(sw, document.createTextNode(t.name));
-      b.title = 'Tap to mute this track in the view';
+      b.title = 'Tap to hide this track here (the audio is untouched)';
       b.addEventListener('click', () => {
         if (this.muted.has(t.name)) this.muted.delete(t.name); else this.muted.add(t.name);
         try { localStorage.setItem(this.storageKey, JSON.stringify([...this.muted])); } catch {}

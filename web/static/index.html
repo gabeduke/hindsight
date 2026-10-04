@@ -40,6 +40,7 @@
           aria-label="Screen kept awake while charging" role="img">&#9788;</span>
     <span class="dot" id="health-dot"></span>
     <span id="health-text">connecting</span>
+    <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   </div>
 </header>
 
@@ -49,7 +50,7 @@
        two-column breakpoints it spans both (grid-column: 1 / -1), which is the
        only way the compressed old end gets enough pixels to be readable.
        Its contents are built by lib/ribbon.js. -->
-  <div class="viz-wrap" id="viz-wrap"></div>
+  <div class="viz-wrap" id="viz-wrap" data-tip="ribbon"></div>
 
   <div class="col col-monitor">
 
@@ -92,21 +93,21 @@
 
     <section class="panel">
       <h2>Capture</h2>
-      <!-- Mark sits beside the tier buttons, not in a row of its own: a new
-           row pushes Capture toward the bottom edge, and 844x390 landscape
-           has no margin left to give (see .capture-btn below the fold in
-           styles.css). -->
+      <!-- Flag now sits beside the tier buttons, not in a row of its own: a
+           new row pushes Capture toward the bottom edge, and 844x390
+           landscape has no margin left to give (see .capture-btn below the
+           fold in styles.css). -->
       <div class="capture-row">
-        <div class="seg" id="dur-seg" role="group" aria-label="Capture length"></div>
-        <button class="mark-btn" id="mark-btn" title="Mark this moment">Mark</button>
+        <div class="seg" id="dur-seg" role="group" aria-label="Capture length" data-tip="capture"></div>
+        <button class="mark-btn" id="mark-btn" type="button" data-tip="flag-now">Flag now</button>
       </div>
-      <button class="capture-btn" id="capture-btn">Capture</button>
+      <button class="capture-btn" id="capture-btn" data-tip="capture">Capture</button>
       <div class="last-row">
         <p class="last">last saved <span id="last-saved">none</span></p>
         <!-- Records from this phone's mic, or an input plugged into it,
              straight into Hindsight (lib/phone/). In the "last saved" row so
              it costs Capture no height in landscape. -->
-        <button class="phone-btn" id="phone-btn" type="button" title="Record from this phone">&#9679; Phone</button>
+        <button class="phone-btn" id="phone-btn" type="button" data-tip="phone">&#9679; Phone</button>
       </div>
     </section>
 
@@ -119,6 +120,7 @@
       <div class="takes" id="takes"></div>
       <p class="empty" id="takes-empty">No takes yet — hit Capture.</p>
     </section>
+    <p class="about">Hindsight <span id="version" class="mono">–</span> · <a href="/guide.html" data-tip="guide">the guide</a></p>
 
   </div>
 

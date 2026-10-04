@@ -6,6 +6,7 @@ import { Ribbon } from '/lib/ribbon.js';
 import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';
 import { initPhone } from '/lib/phone/recorder.js';
+import { initHelp } from '/lib/help/help.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -146,17 +147,23 @@ function applyStatus(s) {
   }
 
   const healthy = s.capture_healthy;
-  el.healthDot.className = `dot ${healthy ? 'ok' : 'bad'}`;
+  // An interface that's switched off, or still booting, isn't an error: the
+  // Pi keeps trying and picks it up the moment it appears.
+  const waiting = !healthy && s.capture_waiting;
+  el.healthDot.className = `dot ${healthy ? 'ok' : waiting ? 'wait' : 'bad'}`;
 
   // The bar is narrow and device errors are long ("Illegal combination of I/O
   // devices" and friends), so it carries a short status only. The full text
   // goes to a toast, which has the width for it, and to the title for a hover.
   const detail = healthy ? '' : (s.last_error || '');
-  el.healthText.textContent = healthy ? 'recording' : (detail ? 'capture error' : 'no capture');
+  el.healthText.textContent = healthy ? 'recording'
+    : waiting ? 'waiting for the interface'
+      : (detail ? 'capture error' : 'no capture');
   el.healthText.title = detail;
 
-  if (detail && detail !== lastCaptureError) toast(detail, 'bad', 8000);
+  if (detail && !waiting && detail !== lastCaptureError) toast(detail, 'bad', 8000);
   lastCaptureError = detail;
+  if (s.version) $('version').textContent = s.version;
 
   el.vizWrap.classList.toggle('stale', !healthy);
 
@@ -222,12 +229,27 @@ async function pollStatus() {
   }
 }
 
+// Back from a take returns to the list where you left it. The browser keeps
+// the scroll when it restores the page from its cache; when it reloads it
+// instead, the list isn't there yet when it tries, so it's put back here once
+// the takes have rendered.
+const SCROLL_KEY = 'hindsight.scroll';
+let restoreScroll = null;
+try {
+  const nav = performance.getEntriesByType('navigation')[0];
+  if (nav && nav.type === 'back_forward') restoreScroll = Number(sessionStorage.getItem(SCROLL_KEY)) || null;
+} catch { /* fine */ }
+window.addEventListener('pagehide', () => {
+  try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch { /* fine */ }
+});
+
 async function pollTakes(force = false) {
   // Never disturb the list while something is playing — this is what used to
   // kill playback every few seconds.
   if (!force && takes.isPlaying()) return;
   try {
     await takes.refresh();
+    if (restoreScroll != null) { window.scrollTo(0, restoreScroll); restoreScroll = null; }
   } catch {
     /* transient; the next tick retries */
   }
@@ -264,6 +286,8 @@ async function capture() {
 
 el.captureBtn.addEventListener('click', capture);
 
+initHelp({ page: 'main' });
+
 initPhone({
   button: $('phone-btn'),
   sheet: $('phone-sheet'),
@@ -281,12 +305,12 @@ async function mark() {
     const res = await fetch('/api/flag', { method: 'POST' });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      toast(body.error || 'could not mark', 'bad');
+      toast(body.error || 'could not flag', 'bad');
       return;
     }
     ribbon.poll(); // draw the new tick without waiting for the next poll
   } catch {
-    toast('could not mark', 'bad');
+    toast('could not flag', 'bad');
   } finally {
     // The next status poll re-enables it if audio is still buffered; this
     // just guards against a second click landing mid-request.
