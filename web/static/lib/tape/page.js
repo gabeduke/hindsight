@@ -11,7 +11,7 @@ import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled,
 } from './geometry.js';
-import { meterFill, quietNote, levelText } from './levels.js';
+import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -214,9 +214,17 @@ function render() {
   rb.setAttribute('aria-pressed', String(!!(rec && rec.state === 'on' && !counting)));
   rb.classList.toggle('armed', !!(rec && rec.state === 'armed'));
   rb.classList.toggle('counting', counting);
-  // It names the source it records from, which is easy to lose sight of
-  // in the row below.
-  rb.textContent = !rec ? `● Rec · ${state.source}` : rec.state === 'armed' ? `● Armed ${rec.track} · ${rec.source}` : `● Rec ${rec.track} · ${rec.source}`;
+  // It names the source it records from, under its label: that's easy to
+  // lose sight of in the row below.
+  if (!rb.firstElementChild) {
+    rb.replaceChildren(Object.assign(document.createElement('span'), { className: 'rec-what' }),
+      Object.assign(document.createElement('span'), { className: 'rec-src' }));
+  }
+  const recWhat = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
+  const recSrc = rec ? rec.source : state.source;
+  rb.firstElementChild.textContent = recWhat;
+  rb.lastElementChild.textContent = recSrc;
+  setIf(rb, 'aria-label', `${recWhat.slice(2)} from ${recSrc}`);
   rb.disabled = !rec && (!live || live.aligned === 'none' || !t.grid || mixing);
   $('click').setAttribute('aria-pressed', String(!!t.click));
   $('click').disabled = !t.grid;
@@ -303,7 +311,9 @@ async function drop(merge = false) {
     const n = c ? c.tracks.filter((tr) => tr && tr.length).length : 0;
     const what = merge ? `Merged ${n} track${n === 1 ? '' : 's'}, ${secs} s, onto track ${state.track}`
       : `Dropped ${secs} s on track ${state.track}${d.tracks > 1 ? ` and the ${d.tracks - 1} after it` : ''}`;
-    toast(what, 'ok', {
+    // A copy from the ribbon carries its level: say if it's silent.
+    const silent = c && c.tracks.some((tr) => tr && tr.some((x) => isSilent(x.peak_db)));
+    toast(silent ? `${what} — some of it is silent: nothing came in where it was copied from` : what, silent ? 'warn' : 'ok', {
       action: { label: 'Undo', run: () => undoRedo(false) },
     });
     poll();
@@ -696,22 +706,41 @@ function renderSources() {
       meter.setAttribute('aria-hidden', 'true');
       meter.appendChild(document.createElement('i'));
       b.append(label, meter);
-      b.addEventListener('click', () => { state.source = s.name; writePref('tape.source', s.name); render(); });
+      b.addEventListener('click', () => {
+        const r = state.live && state.live.record;
+        if (r && r.source !== s.name) {
+          // An armed or running punch keeps the source it began with.
+          toast(`● Rec is ${r.state === 'armed' ? 'armed' : 'recording'} from ${r.source}: end it to record from ${s.name}`, 'warn');
+          return;
+        }
+        state.source = s.name;
+        writePref('tape.source', s.name);
+        render();
+      });
       return b;
     }));
   }
+  // While a punch is armed or running, the lit chip is the one it records.
+  const r = state.live && state.live.record;
+  const lit = r ? r.source : state.source;
   for (const b of box.children) {
     const s = state.sources.find((x) => x.name === b.dataset.name);
     if (!s) continue;
-    b.setAttribute('aria-pressed', String(s.name === state.source));
-    b.firstChild.textContent = `${s.name} ${s.clean ? '●' : '○'}`;
-    const fill = meterFill(s.peak_db);
+    setIf(b, 'aria-pressed', String(s.name === lit));
+    const label = `${s.name} ${s.clean ? '●' : '○'}`;
+    if (b.firstChild.textContent !== label) b.firstChild.textContent = label;
     const bar = b.lastChild.firstChild;
-    bar.style.width = `${Math.round(fill * 100)}%`;
+    const width = `${Math.round(meterFill(s.peak_db) * 100)}%`;
+    if (bar.style.width !== width) bar.style.width = width;
     bar.classList.toggle('hot', typeof s.peak_db === 'number' && s.peak_db > -1);
     const lvl = levelText(s.peak_db);
-    b.title = (s.clean ? 'clean: no tape in it' : `the tape is in it (bus ${s.leaks.join('+')})`) + (lvl ? ` · ${lvl}` : '');
+    const title = (s.clean ? 'clean: no tape in it' : `the tape is in it (bus ${s.leaks.join('+')})`) + (lvl ? ` · ${lvl}` : '');
+    if (b.title !== title) b.title = title;
   }
+}
+
+function setIf(el, attr, v) {
+  if (el.getAttribute(attr) !== v) el.setAttribute(attr, v);
 }
 
 // caughtToast adds a word to a catch's toast when it came back silent or very
@@ -950,7 +979,8 @@ async function rec() {
     if (!r) {
       const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.track, source: state.source, replace: state.mode === 'replace' } }));
       const armed = b.record.state === 'armed';
-      toast(armed ? `Track ${state.track} armed: press ▶ to count in` : `Recording ${state.source} onto track ${state.track} from the next bar — tap ● again to keep it`, 'ok', {
+      const { track, source } = b.record;
+      toast(armed ? `Track ${track} armed to record ${source}: press ▶ to count in` : `Recording ${source} onto track ${track} from the next bar — tap ● again to keep it`, 'ok', {
         ms: 8000, action: { label: 'Cancel', run: () => api(`/api/tapes/record?${q()}&cancel=1`, { method: 'DELETE' }).then(poll, () => {}) },
       });
     } else {
@@ -1053,7 +1083,7 @@ function closeSheets() {
 
 function openClip(c) {
   state.clip = c;
-  const lvl = typeof c.peak_db === 'number' && c.peak_db < -50 ? ` · ${levelText(c.peak_db)} when caught` : '';
+  const lvl = typeof c.peak_db === 'number' && c.peak_db < QUIET ? ` · ${levelText(c.peak_db)} when caught` : '';
   $('clip-title').textContent = `Clip on track ${state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}${lvl}`
     + (c.aligned === 'estimated' ? ' · caught before the lock: nudge it if it’s early or late' : '');
   $('clip-gain').value = String(c.gain_db || 0);

@@ -2,6 +2,7 @@ package tape
 
 import (
 	"testing"
+	"time"
 )
 
 // A catch remembers how loud it was, so one from a source with nothing in it
@@ -34,9 +35,16 @@ func TestACatchSaysHowLoudItWasAndTheSourcesHaveMeters(t *testing.T) {
 		t.Fatalf("ch2 catch peak = %v, want -120 (digital silence)", quiet.PeakDB)
 	}
 	// It goes with the clip: into tape.json, and through a split.
-	got := e.Loaded().Tracks[2].Clips[0]
-	if got.PeakDB == nil || *got.PeakDB != -120 {
-		t.Fatalf("saved clip peak = %v", got.PeakDB)
+	pos := quiet.At + quiet.Frames/2
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "split", Track: 3, Pos: &pos}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := e.store.Load(tp.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cs := saved.Tracks[2].Clips; len(cs) != 2 || cs[0].PeakDB == nil || *cs[0].PeakDB != -120 || cs[1].PeakDB == nil || *cs[1].PeakDB != -120 {
+		t.Fatalf("saved, split clips = %+v", cs)
 	}
 
 	meters := map[string]float64{}
@@ -55,6 +63,16 @@ func TestACatchSaysHowLoudItWasAndTheSourcesHaveMeters(t *testing.T) {
 	}
 	if meters["aux"] < -40 {
 		t.Fatalf("aux meter %.1f", meters["aux"])
+	}
+	// With no audio arriving since -- the capture dropped out -- the meters
+	// say nothing rather than hold what they last heard.
+	time.Sleep(meterHold + 20*time.Millisecond)
+	e.Sources() // the reading after the last audio
+	time.Sleep(meterHold + 20*time.Millisecond)
+	for _, s := range e.Sources() {
+		if s.PeakDB != nil {
+			t.Fatalf("%s still reads %.1f with no audio arriving", s.Name, *s.PeakDB)
+		}
 	}
 }
 

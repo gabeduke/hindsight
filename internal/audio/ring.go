@@ -125,9 +125,12 @@ func (r *Ring) SnapshotAt(frames int) ([]int32, int, uint64) {
 
 // Peaks reports each channel's largest absolute sample over the most recent
 // frames (fewer if the ring holds fewer), as a fraction of full scale: a
-// meter's reading. It scans in place under the lock -- a third of a second
-// of eight channels is well under a millisecond -- rather than copying out.
-func (r *Ring) Peaks(frames int) []float64 {
+// meter's reading. It also answers TotalFrames as of the scan, so a caller
+// can tell a reading of fresh audio from one of the last audio before a
+// dropout. It scans in place under the lock, keeping each channel's min and
+// max: a third of a second of eight channels takes about a millisecond on a
+// Pi, and the writer has seconds of blocks in hand.
+func (r *Ring) Peaks(frames int) ([]float64, uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	out := make([]float64, r.channels)
@@ -136,19 +139,18 @@ func (r *Ring) Peaks(frames int) []float64 {
 		frames = avail
 	}
 	if frames == 0 {
-		return out
+		return out, r.totalFrames
 	}
-	peak := make([]int64, r.channels)
+	lo := make([]int32, r.channels)
+	hi := make([]int32, r.channels)
 	n := len(r.buf)
 	pos := ((r.writePos-frames*r.channels)%n + n) % n
 	for f := 0; f < frames; f++ {
-		for c := 0; c < r.channels; c++ {
-			v := int64(r.buf[pos+c])
-			if v < 0 {
-				v = -v
-			}
-			if v > peak[c] {
-				peak[c] = v
+		for c, v := range r.buf[pos : pos+r.channels] {
+			if v < lo[c] {
+				lo[c] = v
+			} else if v > hi[c] {
+				hi[c] = v
 			}
 		}
 		pos += r.channels
@@ -156,10 +158,10 @@ func (r *Ring) Peaks(frames int) []float64 {
 			pos -= n
 		}
 	}
-	for c, p := range peak {
-		out[c] = float64(p) / 2147483648.0
+	for c := range out {
+		out[c] = max(-float64(lo[c]), float64(hi[c])) / 2147483648.0
 	}
-	return out
+	return out, r.totalFrames
 }
 
 // ErrRangeGone reports a range the ring doesn't hold: older than its oldest

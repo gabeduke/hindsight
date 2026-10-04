@@ -457,8 +457,10 @@ From the top:
   tape plays on to the end of what's recorded. Beside them is where the tape
   is, as bar.beat and time.
 - **Record from** chooses the input ● Rec, a catch and a free loop take
-  from: main, ch1, ch2 or aux. ● Rec names it too (*● Rec · ch2*), so you can
-  see what it will record without looking down.
+  from: main, ch1, ch2 or aux. ● Rec names it too, under its label, so you
+  can see what it will record without looking down. While a track is armed
+  or recording, the lit chip is the source it's recording, and changing it
+  waits until that punch ends.
   - Each chip has a **meter**: the loudest moment of the last third of a
     second. The source with your instrument in it is the one that moves.
     Aux with nothing plugged in is exact silence, and reads empty.
@@ -466,8 +468,9 @@ From the top:
   - **○** means the tape is in it: ch1 hears bus A, ch2 hears bus B, and main
     hears both.
 - **A catch that comes back silent or very quiet says so**: the toast turns
-  amber and reads *nothing came in on aux* (digital silence) or *very quiet
-  on ch2 (peak −62 dB)*, with Undo. The clip's sheet says it too.
+  amber and reads *it's silent: nothing came in* (digital silence) or *it's
+  very quiet (peak −62 dB)*, with Undo. The clip's sheet says it too, and so
+  does dropping or copying a silent stretch from the ribbon.
 - **Catch the last pass** and **1 bar / 2 / 4** catch onto the selected track.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
 
@@ -612,8 +615,7 @@ page shows how long it is and where it came from:
   too.
 - [demo] With the tape playing, the meters on *main* and *ch1* move and
   *ch2*'s stays empty (bus B is silent). Choose *ch2* and tap **1 bar** → the
-  toast is amber: *nothing came in on ch2: it's silent*. ● Rec reads
-  *● Rec · ch2*.
+  toast is amber: *it's silent: nothing came in*. ● Rec has *ch2* under it.
 - [rig] Play the Bento into jack 2: the *ch2* meter moves, and *aux*'s stays
   empty until the instrument on aux plays.
 - [demo] On a 4-bar loop, play for a pass, then tap **1 bar** → a one-bar
@@ -628,7 +630,7 @@ page shows how long it is and where it came from:
   its undo.
 - [demo] With a 1-bar loop playing, select track 2, tap ●, wait three passes,
   tap ● → *Kept 1 bar from aux on track 2*: the last full pass.
-- [demo] Stop. Select track 3, tap ● (*● Armed 3*), press ▶ → the position
+- [demo] Stop. Select track 3, tap ● (*● Armed 3*, with *aux* under it), press ▶ → the position
   reads *count-in 1 of 4…4 of 4* over a bar of click, then the tape plays;
   after two passes press ■ → *Kept 1 bar*: the last full pass, on track 3.
 - [demo] Arm, press ▶, and press ■ during the count-in → nothing is kept,
@@ -945,7 +947,7 @@ has no tip.
 | The dot by ↶ is amber | Playback and recording are lined up only by the clocks, to a few milliseconds; it locks once the tape plays something with a clear attack on bus A or B | Play the tape for a few seconds, with drums or another percussive part on it. Catches still work meanwhile; nudge one if it's off |
 | The dot by ↶ is red | Nothing is lined up yet: the tape hasn't played since Hindsight started, or there's no output | Press ▶. If ▶ reads *no output*, check the Sidekick is on and plugged in |
 | A source chip shows ○ | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
-| A new clip is a flat line, and the toast said *nothing came in on …* | It was recorded from a source with nothing in it, usually aux with nothing plugged in. ● Rec records from the lit chip under **Record from** | Undo, tap the chip whose meter moves when you play, and record again |
+| A new clip is a flat line, and the toast said *it's silent: nothing came in* | It was recorded from a source with nothing in it, usually aux with nothing plugged in. ● Rec records from the lit chip under **Record from** | Undo, tap the chip whose meter moves when you play, and record again |
 | "Too long for the ring" on Mixdown | The selection is longer than the last 15 minutes can hold | Mix down in parts, or raise `RING_SECONDS` |
 | "Not enough room on the tape" | The track would run past six minutes | Lift something, or raise `TAPE_LENGTH_S` |
 | *Phone* says the microphone needs a secure page | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |

@@ -837,7 +837,8 @@ loop, otherwise its first loop sets the tempo.
 - **`sources`** lists what a catch can take from, and whether each is clean
   on this tape: no unmuted audio on a bus that leaks into it. `peak_db` is
   its meter: the loudest sample of the last 0.3 s, in dBFS (−120 for digital
-  silence; absent with no capture).
+  silence; absent with no capture, or when no audio has arrived since the
+  last reading, so a meter doesn't hold what it heard before a dropout).
 - **`live`**, only for the loaded tape:
   - `pos` is the render head and `heard` the frame the device is playing.
   - `delta` is ring frame minus output frame: where what the tape played

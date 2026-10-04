@@ -136,9 +136,10 @@ type Engine struct {
 	mixMu   sync.Mutex
 	mixdown *Mixdown // the last mixdown
 
-	meterMu sync.Mutex
-	meter   []float64 // each capture channel's last meter reading
-	meterAt time.Time
+	meterMu    sync.Mutex
+	meter      []float64 // each capture channel's last meter reading; nil: none
+	meterAt    time.Time
+	meterTotal uint64 // the ring's TotalFrames at that reading
 
 	clockOut  ClockOut
 	clock     clockState
@@ -1179,7 +1180,8 @@ type SourceState struct {
 	Leaks []string `json:"leaks"`
 	Clean bool     `json:"clean"`
 	// PeakDB is its meter: the loudest sample in the last third of a
-	// second, in dBFS (-120 for digital silence). Unset with no capture.
+	// second, in dBFS (-120 for digital silence). Unset with no capture, or
+	// no audio arriving.
 	PeakDB *float64 `json:"peak_db,omitempty"`
 }
 
@@ -1202,18 +1204,23 @@ const (
 )
 
 // sourcePeaks is each capture channel's meter reading, read from the ring
-// at most every meterHold: several pages polling share one scan.
+// at most every meterHold: several pages polling share one scan. Nil when no
+// audio has arrived since the last reading -- the capture dropped out, or
+// never started -- so a meter doesn't hold up the last thing it heard.
 func (e *Engine) sourcePeaks() []float64 {
 	if e.capture == nil {
 		return nil
 	}
 	e.meterMu.Lock()
 	defer e.meterMu.Unlock()
-	if e.meter != nil && time.Since(e.meterAt) < meterHold {
+	if !e.meterAt.IsZero() && time.Since(e.meterAt) < meterHold {
 		return e.meter
 	}
-	e.meter = e.capture.Ring().Peaks(int(meterWindow * float64(e.store.SampleRate())))
-	e.meterAt = time.Now()
+	pk, total := e.capture.Ring().Peaks(int(meterWindow * float64(e.store.SampleRate())))
+	if total == e.meterTotal {
+		pk = nil
+	}
+	e.meter, e.meterAt, e.meterTotal = pk, time.Now(), total
 	return e.meter
 }
 
