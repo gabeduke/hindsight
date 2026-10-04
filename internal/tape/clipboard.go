@@ -22,8 +22,12 @@ import (
 
 // Clipboard is what was copied.
 type Clipboard struct {
-	Tracks  [][]Clip  `json:"tracks"`
-	Frames  int64     `json:"frames"`
+	Tracks [][]Clip `json:"tracks"`
+	Frames int64    `json:"frames"`
+	// BPM is the tempo of the take it was copied from, if that take has
+	// one: a drop onto an empty tape counts bars by it. 0 for a copy from
+	// the ring or a tape.
+	BPM     float64   `json:"bpm,omitempty"`
 	From    string    `json:"from"` // where it came from, in words
 	Created time.Time `json:"created"`
 }
@@ -129,6 +133,9 @@ func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipb
 		Frames:  to - from,
 		From:    name,
 		Created: time.Now(),
+	}
+	if m := audio.ReadMeta(take); m.BPM != nil {
+		c.BPM = *m.BPM
 	}
 	return c, e.store.SaveClipboard(c)
 }
@@ -250,7 +257,7 @@ func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error
 	var out Dropped
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() && s.Grid == nil {
-			bars := guessBarsNear(c.Frames, sr, near)
+			bars := barsFor(c.Frames, sr, c.BPM, near)
 			g := Grid{Frames: c.Frames, Bars: bars}
 			if bpm := g.BPM(sr); bpm < 20 || bpm > 400 {
 				return fmt.Errorf("%w: %.2f s doesn't make a tempo of 20–400 BPM", ErrBadParameter, float64(c.Frames)/float64(sr))

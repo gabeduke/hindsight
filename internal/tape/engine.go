@@ -1058,7 +1058,11 @@ func (e *Engine) DropTake(id string, take string, from, to int64, track, bars in
 		if tp.Empty() && s.Grid == nil {
 			// The first loop: its length is the grid, and it loops.
 			if bars <= 0 {
-				bars = guessBars(frames, e.store.SampleRate())
+				bpm := 0.0
+				if m := audio.ReadMeta(take); m.BPM != nil {
+					bpm = *m.BPM
+				}
+				bars = barsFor(frames, e.store.SampleRate(), bpm, 90)
 			}
 			if bpm := (Grid{Frames: frames, Bars: bars}).BPM(e.store.SampleRate()); bars > 64 || bpm < 20 || bpm > 400 {
 				return fmt.Errorf("%w: %.2f s as %d bars is %.0f BPM; a first loop is 20–400 BPM",
@@ -1177,9 +1181,6 @@ func (e *Engine) PlaceTake(id string, take string, from, to int64, track int, at
 	}
 	return placed, nil
 }
-
-// guessBars picks the bar count that puts a loop's tempo nearest 90 BPM.
-func guessBars(frames int64, sampleRate int) int { return guessBarsNear(frames, sampleRate, 90) }
 
 // SetMeta changes what isn't part of undo -- the name, the click -- on the
 // loaded tape, and saves it.

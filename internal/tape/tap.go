@@ -210,6 +210,22 @@ func (e *Engine) lastBPM(except string) float64 {
 	return 90
 }
 
+// barsFor is how many bars a first loop of frames is. With the tempo of the
+// take it came from, it's that many whole bars when the frames are within
+// 1% of a bar of a whole number of them (1–64); else, or with no tempo,
+// it's guessBarsNear, hinted by that tempo or, with none, by near.
+func barsFor(frames int64, sampleRate int, bpm, near float64) int {
+	if bpm > 0 {
+		bar := 4 * 60 * float64(sampleRate) / bpm
+		n := math.Round(float64(frames) / bar)
+		if n >= 1 && n <= 64 && math.Abs(float64(frames)-n*bar) <= 0.01*bar {
+			return int(n)
+		}
+		near = bpm
+	}
+	return guessBarsNear(frames, sampleRate, near)
+}
+
 // guessBarsNear picks the bar count, a power of two, that puts a loop's
 // tempo nearest bpm, among those that make a tempo of 20–400 BPM (1 if
 // none does; the caller refuses it).

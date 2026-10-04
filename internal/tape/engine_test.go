@@ -359,3 +359,83 @@ func TestALoadWhileTheOutputIsntPullingIsPrompt(t *testing.T) {
 		t.Fatalf("passes survived the load: %+v", c)
 	}
 }
+
+func TestBarsForCountsWholeBarsAtATakesTempo(t *testing.T) {
+	bar := func(bpm float64) float64 { return 4 * 60 * 48000 / bpm }
+	cases := []struct {
+		name      string
+		frames    int64
+		bpm, near float64
+		want      int
+	}{
+		{"six bars at 125.25", int64(math.Round(6 * bar(125.25))), 125.25, 90, 6},
+		{"three bars", int64(math.Round(3 * bar(96))), 96, 90, 3},
+		{"half a percent of a bar long", int64(math.Round(8*bar(120) + 0.005*bar(120))), 120, 90, 8},
+		{"not whole bars: the guess, hinted by the take", int64(math.Round(5.5 * bar(125.25))), 125.25, 90, 4},
+		{"no tempo: the guess near the last tape's", 96000, 0, 120, 1},
+	}
+	for _, c := range cases {
+		if got := barsFor(c.frames, 48000, c.bpm, c.near); got != c.want {
+			t.Errorf("%s: %d bars, want %d", c.name, got, c.want)
+		}
+	}
+}
+
+func TestATakesTempoMakesTheFirstLoopExactly(t *testing.T) {
+	e, _, tp := newEngine(t)
+	take := takeWAV(t, 600000, func(i int) float64 { return 0.25 })
+	bpm := 125.25
+	if err := audio.WriteMeta(take, audio.Meta{BPM: &bpm}); err != nil {
+		t.Fatal(err)
+	}
+	frames := int64(math.Round(6 * 4 * 60 * 48000 / bpm)) // six bars
+	c, err := e.CopyTake(take, "jam_take.wav", 0, frames, []int{0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.BPM != 125.25 {
+		t.Fatalf("clipboard BPM %v, want the take's 125.25", c.BPM)
+	}
+	if _, err := e.DropClipboard(tp.ID, 1, false); err != nil {
+		t.Fatal(err)
+	}
+	g := e.Loaded().Grid
+	if g == nil || g.Frames != frames || g.Bars != 6 {
+		t.Fatalf("grid %+v, want %d frames as 6 bars", g, frames)
+	}
+}
+
+func TestAClipboardWithNoTempoDropsAsBefore(t *testing.T) {
+	e, _, tp := newEngine(t)
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 }) // no sidecar
+	c, err := e.CopyTake(take, "jam_take.wav", 0, 96000, []int{0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.BPM != 0 {
+		t.Fatalf("clipboard BPM %v, want none", c.BPM)
+	}
+	if _, err := e.DropClipboard(tp.ID, 1, false); err != nil {
+		t.Fatal(err)
+	}
+	// 2 s: one bar at 120, the guess nearest 90 with no other tapes.
+	if g := e.Loaded().Grid; g == nil || g.Frames != 96000 || g.Bars != 1 {
+		t.Fatalf("grid %+v, want 96000 frames as 1 bar", g)
+	}
+}
+
+func TestDropTakeCountsBarsFromTheTakesTempo(t *testing.T) {
+	e, _, tp := newEngine(t)
+	take := takeWAV(t, 600000, func(i int) float64 { return 0.25 })
+	bpm := 96.0
+	if err := audio.WriteMeta(take, audio.Meta{BPM: &bpm}); err != nil {
+		t.Fatal(err)
+	}
+	frames := int64(3 * 4 * 60 * 48000 / 96) // three bars, 360000
+	if _, err := e.DropTake(tp.ID, take, 0, frames, 1, 0, []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	if g := e.Loaded().Grid; g == nil || g.Bars != 3 || g.Frames != frames {
+		t.Fatalf("grid %+v, want %d frames as 3 bars", g, frames)
+	}
+}
