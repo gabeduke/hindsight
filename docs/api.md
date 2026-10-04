@@ -1,6 +1,6 @@
 # HTTP API
 
-Twenty-seven routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Twenty-seven routes (one, `/api/trigger`, in two forms), registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -15,6 +15,7 @@ internet.
 | `GET /api/phone` | WebSocket: a phone streams a recording into a new take |
 | `GET /api/envelope` | The buffer ribbon's amplitude envelope over the whole ring |
 | `POST /api/trigger?seconds=N` | Save the last N seconds; `0` is the whole ring |
+| `POST /api/trigger?from=F[&to=T]` | Save any span of the ring, in absolute frames; no `to` is now |
 | `GET /api/jams` | Takes, starred first then newest first. Sends an ETag |
 | `GET /api/take?file=` | One take, in the same shape as an entry of `/api/jams` |
 | `PATCH /api/take?file=` | Edit a take's label, star, trim, BPM, downbeat, lane kinds and flags |
@@ -196,7 +197,9 @@ not just what the browser has been open for.
   "edge_seconds": 10,
   "buckets": "AAAAAAAAAOA=",
   "signal_seconds": [4.99, 4.99],
-  "flags": [{ "age_seconds": 1.5, "frame": 24000 }]
+  "flags": [{ "age_seconds": 1.5, "frame": 24000 }],
+  "total_frames": 239520,
+  "sample_rate": 48000
 }
 ```
 
@@ -216,6 +219,10 @@ logarithmic axis can address.
 positions the tick on the ribbon's log axis, in the same currency the rest of
 the envelope speaks; `frame` is the mark's absolute ring frame, which the
 client sends back to `DELETE /api/flag?frame=` to undo a mistap.
+
+`total_frames` is the ring's newest absolute frame when the envelope was
+drawn, and `sample_rate` its rate: a point `age` seconds back on the ribbon is
+frame `total_frames − age × sample_rate`, which is what a span save asks for.
 
 Returns 503 if the envelope is unavailable, 400 if `buckets` or `spans` will
 not parse. `Cache-Control: no-store`.
@@ -253,6 +260,41 @@ the window is moved back to the last downbeat the ring still holds, so the
 take may be up to one bar longer than `seconds` asked for and its first frame
 is bar 1 of the `.mid`. A whole-ring save, which cannot go back, is moved
 forward to the first downbeat instead.
+
+## `POST /api/trigger?from=F[&to=T]`
+
+Saves the absolute ring frames `[F, T)` as a take: any span the ring still
+holds, ending in the past or now (no `to`). The ribbon's selection and a
+flag's *Save from here to now* use it; frames are the clock `total_frames`
+and the live flags' `frame` are on.
+
+```json
+{ "status": "saved", "name": "jam_2026-10-04_014412.wav", "seconds": 92.4,
+  "from_frame": 1234000, "to_frame": 5669200, "clamped": false, "buffered": 900 }
+```
+
+- A start older than the ring's oldest frame is moved to it (plus a second,
+  once the ring is full and overwriting, re-checked just before the copy
+  starts), and `clamped` says so.
+- The audio is copied out of the ring in short chunks (`Ring.Range`, a
+  fraction of a millisecond each under the ring's lock), the selected pair
+  only, and written as it goes, so a long span never holds up recording. If
+  the ring overwrites the span while it's being saved, the save fails (409)
+  and nothing is left behind.
+- The take's `created` is when its last frame was played (through the clock
+  bridge), so the list sorts it by when it happened; its name, like every
+  take's, is from when it was saved, so it can never be the name of a take
+  deleted earlier, whose pages a phone may have cached. Its BPM is read over
+  the span's own times. Live flags inside it come with it, and
+  MIDI is exported for the span as for any save. `MIDI_SNAP_BARS` doesn't
+  move it: the span is what was selected.
+
+| Status | When |
+|---|---|
+| 400 | `from` or `to` isn't a frame number, or `to` isn't after `from` |
+| 409 | Nothing is buffered, or the span is no longer (or not yet) in the ring |
+| 507 | Free space is below `MIN_FREE_GB`, even after emptying the trash |
+| 500 | The write itself failed |
 
 ## `GET /api/jams`
 

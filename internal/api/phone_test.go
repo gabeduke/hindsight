@@ -20,6 +20,7 @@ func newPhoneServer(t *testing.T, grace time.Duration) (*httptest.Server, string
 	t.Helper()
 	dir := t.TempDir()
 	a := New(&config.Config{OutputDir: dir, SaveChannels: []int{0, 1}}, nil, nil, nil, nil)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	a.phoneGrace = grace
 	r := mux.NewRouter()
 	a.SetupRoutes(r)

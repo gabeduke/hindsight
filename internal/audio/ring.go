@@ -1,6 +1,9 @@
 package audio
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 // Ring is a fixed-capacity circular buffer of interleaved int32 frames.
 //
@@ -118,6 +121,71 @@ func (r *Ring) SnapshotAt(frames int) ([]int32, int, uint64) {
 
 	r.mu.Unlock()
 	return out, frames, end
+}
+
+// ErrRangeGone reports a range the ring doesn't hold: older than its oldest
+// frame (overwritten), or newer than its newest (not recorded yet).
+var ErrRangeGone = errors.New("that audio is no longer in the buffer")
+
+// rangeChunkFrames is how much Range copies per lock: under a millisecond of
+// memcpy, so the ring writer never waits on a long save.
+const rangeChunkFrames = 1 << 15
+
+// Range copies the absolute frames [from, to) out of the ring, only the
+// channels in pick, in order, handing each chunk to emit (interleaved,
+// len(pick) channels; the slice is reused, so emit must not keep it). It
+// holds the lock for one chunk at a time and re-checks the window before
+// each, so a long range costs the writer nothing, and a range that the ring
+// overwrites while it is being copied fails with ErrRangeGone rather than
+// handing out newer audio in its place.
+//
+// Today's SnapshotAt copies the most recent N frames of every channel under
+// one lock; for a span of minutes that is the whole ring held while
+// gigabytes move. This is what the ribbon's saves (and the tape's catches)
+// use instead.
+func (r *Ring) Range(from, to uint64, pick []int, emit func([]int32) error) error {
+	if to <= from {
+		return nil
+	}
+	for _, c := range pick {
+		if c < 0 || c >= r.channels {
+			return errors.New("channel out of range")
+		}
+	}
+	out := make([]int32, rangeChunkFrames*len(pick))
+	n := len(r.buf)
+	for at := from; at < to; {
+		frames := to - at
+		if frames > rangeChunkFrames {
+			frames = rangeChunkFrames
+		}
+		r.mu.Lock()
+		oldest := r.totalFrames - uint64(r.bufferedLocked())
+		if at < oldest || at+frames > r.totalFrames {
+			r.mu.Unlock()
+			return ErrRangeGone
+		}
+		// writePos is where frame totalFrames would go; count back from it.
+		back := int(r.totalFrames-at) * r.channels
+		pos := ((r.writePos-back)%n + n) % n
+		k := 0
+		for f := uint64(0); f < frames; f++ {
+			for _, c := range pick {
+				out[k] = r.buf[pos+c]
+				k++
+			}
+			pos += r.channels
+			if pos >= n {
+				pos -= n
+			}
+		}
+		r.mu.Unlock()
+		if err := emit(out[:k]); err != nil {
+			return err
+		}
+		at += frames
+	}
+	return nil
 }
 
 // Capacity returns the ring size in frames.

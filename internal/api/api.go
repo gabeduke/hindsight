@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -62,7 +63,20 @@ type API struct {
 	// phoneGrace is how long a recording waits for its phone to reconnect;
 	// zero means defaultPhoneGrace. Tests shorten it.
 	phoneGrace time.Duration
+
+	// bg counts work a request leaves running -- a preview encode, a prune --
+	// so a test can wait for it before its takes folder goes.
+	bg sync.WaitGroup
 }
+
+// background runs f after the response, counted in bg.
+func (a *API) background(f func()) {
+	a.bg.Add(1)
+	go func() { defer a.bg.Done(); f() }()
+}
+
+// WaitBackground waits for what earlier requests left running.
+func (a *API) WaitBackground() { a.bg.Wait() }
 
 func New(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, env *audio.Envelope, m MIDISource) *API {
 	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m,
@@ -248,6 +262,11 @@ func (a *API) handleJams(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleTrigger(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if q.Has("from") {
+		a.handleTriggerRange(w, r)
+		return
+	}
 	seconds := 0.0 // 0 = whole ring
 	if v := r.URL.Query().Get("seconds"); v != "" {
 		f, err := strconv.ParseFloat(v, 64)
@@ -276,6 +295,47 @@ func (a *API) handleTrigger(w http.ResponseWriter, r *http.Request) {
 		"name":     name,
 		"seconds":  seconds,
 		"buffered": a.cap.BufferedSeconds(),
+	})
+}
+
+// handleTriggerRange saves any span of the ring: ?from=F[&to=T], absolute
+// ring frames (the clock /api/envelope's total_frames and the live flags'
+// frames are on). No to means now. The ribbon's selection and a flag's
+// "Save from here to now" use it.
+func (a *API) handleTriggerRange(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	from, err := strconv.ParseUint(q.Get("from"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "from must be a frame number")
+		return
+	}
+	var to uint64
+	if v := q.Get("to"); v != "" {
+		if to, err = strconv.ParseUint(v, 10, 64); err != nil || to <= from {
+			writeErr(w, http.StatusBadRequest, "to must be a frame number after from")
+			return
+		}
+	}
+	got, err := a.saver.SaveRange(from, to)
+	switch {
+	case errors.Is(err, audio.ErrLowDisk):
+		writeErr(w, http.StatusInsufficientStorage, err.Error())
+		return
+	case errors.Is(err, audio.ErrNoAudio), errors.Is(err, audio.ErrRangeGone):
+		writeErr(w, http.StatusConflict, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":     "saved",
+		"name":       got.Name,
+		"seconds":    got.Seconds,
+		"from_frame": got.From,
+		"to_frame":   got.To,
+		"clamped":    got.Clamped,
+		"buffered":   a.cap.BufferedSeconds(),
 	})
 }
 
@@ -370,6 +430,14 @@ func (a *API) handleFlagDelete(w http.ResponseWriter, r *http.Request) {
 type flagEnvelope struct {
 	AgeSeconds float64 `json:"age_seconds"`
 	Frame      uint64  `json:"frame"`
+}
+
+// totalFrames is the ring's newest frame, or 0 with no capture.
+func (a *API) totalFrames() uint64 {
+	if a.cap == nil {
+		return 0
+	}
+	return a.cap.Ring().TotalFrames()
 }
 
 // liveFlags reports every live mark's age and frame. The age conversion
@@ -504,6 +572,11 @@ type envelopeResponse struct {
 	Buckets       []byte         `json:"buckets"`
 	SignalSeconds []float64      `json:"signal_seconds"`
 	Flags         []flagEnvelope `json:"flags"`
+	// TotalFrames is the ring's newest frame when this was drawn, and
+	// SampleRate its rate: what turns a point on the ribbon (an age) into
+	// the absolute frame a span save asks for.
+	TotalFrames uint64 `json:"total_frames"`
+	SampleRate  int    `json:"sample_rate"`
 }
 
 // handleEnvelope serves the buffer ribbon: log-spaced buckets over the whole
@@ -563,6 +636,8 @@ func (a *API) handleEnvelope(w http.ResponseWriter, r *http.Request) {
 		Buckets:         a.env.Buckets(buckets),
 		SignalSeconds:   sig,
 		Flags:           a.liveFlags(),
+		TotalFrames:     a.totalFrames(),
+		SampleRate:      a.cfg.SampleRate,
 	})
 }
 
@@ -686,12 +761,12 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 	}
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
-	go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels()))
+	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels())) })
 	// A cut is a new take, so MAX_SAVES applies to it as it does to a save --
 	// but never to the cut itself, or to the take it was cut from: the owner
 	// is on that take's page, and may be about to cut from it again.
 	if a.saver != nil {
-		go a.saver.Prune(name, out)
+		a.background(func() { a.saver.Prune(name, out) })
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"name": out})
 }

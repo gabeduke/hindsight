@@ -156,6 +156,25 @@ main {
 
 .rb-band { position: absolute; top: 0; bottom: 0; background: rgba(52, 211, 153, .13); }
 
+/* A span held and dragged on the ribbon. Hold-to-select must not start the
+   phone's text selection or callout, and a vertical swipe still scrolls. */
+.viz-wrap { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.rb-sel-band {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(52, 211, 153, .22);
+  border-left: 2px solid var(--accent); border-right: 2px solid var(--accent);
+}
+.rb-sel {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: -6px; padding: 8px 10px;
+  background: var(--panel); border: 1px solid var(--accent-dk); border-radius: 10px;
+}
+.rb-sel[hidden] { display: none; }
+.rb-sel-text { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+.rb-sel.gone .rb-sel-text { color: var(--warn); }
+.rb-sel .icon-btn { flex: none; min-height: var(--tap); }
+.rb-flag-actions { flex-direction: column; align-items: stretch; }
+
 .rb-mark { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(38, 50, 74, .9); }
 .rb-mark.on { background: rgba(52, 211, 153, .55); }
 
@@ -885,7 +904,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 15, .65); }
      column (338px -> 522px) fights a curve that needs about 10x. Spanning both
      gets 1246px, where an 8-bar phrase at the old end is 4.3px instead of
      1.8px -- the difference between visible and not. */
-  .viz-wrap { grid-column: 1 / -1; }
+  .viz-wrap, .rb-sel { grid-column: 1 / -1; }
 
   .viz-wrap { height: 160px; }
 }

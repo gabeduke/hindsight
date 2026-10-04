@@ -207,6 +207,7 @@ func TestTrimPastTheEndIsRefused(t *testing.T) {
 
 func TestRendersTakeTurns(t *testing.T) {
 	a := New(&config.Config{OutputDir: t.TempDir()}, nil, nil, nil, nil)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	release, ok := a.acquireRender(context.Background())
 	if !ok {
 		t.Fatal("the first render should get the slot at once")

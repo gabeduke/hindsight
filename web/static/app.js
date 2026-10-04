@@ -353,7 +353,15 @@ el.markBtn.addEventListener('click', mark);
 
 // ---------------------------------------------------------------- live
 
-ribbon = new Ribbon(el.vizWrap, { onToast: toast });
+ribbon = new Ribbon(el.vizWrap, {
+  onToast: toast,
+  selBar: $('rb-sel'),
+  flagSheet: $('rb-flag-sheet'),
+  onSaved: (name) => {
+    takes.markFresh(name);
+    pollTakes(true);
+  },
+});
 
 connectLive({
   onFrame: (f) => {

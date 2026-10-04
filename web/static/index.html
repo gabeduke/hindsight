@@ -51,6 +51,12 @@
        only way the compressed old end gets enough pixels to be readable.
        Its contents are built by lib/ribbon.js. -->
   <div class="viz-wrap" id="viz-wrap" data-tip="ribbon"></div>
+  <!-- A span held and dragged on the ribbon, and what to do with it. -->
+  <div class="rb-sel" id="rb-sel" hidden>
+    <span class="rb-sel-text"></span>
+    <button class="icon-btn rb-sel-clear" type="button" aria-label="Clear the selection" data-tip="ribbon-clear">×</button>
+    <button class="icon-btn primary rb-sel-save" type="button" data-tip="ribbon-save">Save as take</button>
+  </div>
 
   <div class="col col-monitor">
 
@@ -158,6 +164,18 @@
       <button class="icon-btn confirm" value="delete">Delete</button>
     </div>
   </form>
+</dialog>
+
+<!-- A flag on the ribbon (lib/ribbon.js). -->
+<dialog class="sheet" id="rb-flag-sheet">
+  <div class="sheet-inner">
+    <h3 class="rb-flag-title">Flag</h3>
+    <div class="sheet-actions rb-flag-actions">
+      <button class="icon-btn primary rb-flag-save" type="button" data-tip="flag-save-from">Save from here to now</button>
+      <button class="icon-btn danger rb-flag-delete" type="button" data-tip="flag-remove">Delete flag</button>
+      <button class="icon-btn rb-flag-cancel" type="button">Cancel</button>
+    </div>
+  </div>
 </dialog>
 
 <dialog class="sheet" id="phone-sheet" aria-labelledby="phone-title">

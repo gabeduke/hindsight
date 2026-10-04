@@ -89,12 +89,26 @@ type Saver struct {
 
 	mu        sync.Mutex
 	lastSaved string
-	saving    bool
+	saving    int // saves in progress: a capture and a ribbon save can overlap
 	tempo     TempoSource
 	midi      MIDIExporter
+
+	bg sync.WaitGroup // the preview encode and the prune a save leaves running
 }
 
 func NewSaver(c *Capture) *Saver { return &Saver{cap: c} }
+
+// afterSave starts what a save leaves to the background: the preview encode
+// and MAX_SAVES pruning.
+func (s *Saver) afterSave(wavPath string, outCh int, keep ...string) {
+	s.bg.Add(2)
+	go func() { defer s.bg.Done(); s.makePreview(wavPath, outCh) }()
+	go func() { defer s.bg.Done(); s.prune(keep...) }()
+}
+
+// WaitBackground waits for what earlier saves left running. Tests call it
+// before their takes directory is removed.
+func (s *Saver) WaitBackground() { s.bg.Wait() }
 
 // SetTempoSource attaches a clock. Nil, or never called, means takes carry no
 // BPM -- which is the correct behaviour on a machine with no MIDI at all.
@@ -150,10 +164,14 @@ func (s *Saver) LastSaved() string {
 	return s.lastSaved
 }
 
+// beginSave and endSave bracket a save, for Saving.
+func (s *Saver) beginSave() { s.mu.Lock(); s.saving++; s.mu.Unlock() }
+func (s *Saver) endSave()   { s.mu.Lock(); s.saving--; s.mu.Unlock() }
+
 func (s *Saver) Saving() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.saving
+	return s.saving > 0
 }
 
 // FreeGB reports free space on the output volume.
@@ -246,14 +264,8 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		winStart, endFrame,
 	)
 
-	s.mu.Lock()
-	s.saving = true
-	s.mu.Unlock()
-	defer func() {
-		s.mu.Lock()
-		s.saving = false
-		s.mu.Unlock()
-	}()
+	s.beginSave()
+	defer s.endSave()
 
 	savedAt := time.Now()
 	name, wavPath, err := freeTakeName(cfg.OutputDir, savedAt)
@@ -308,8 +320,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	s.lastSaved = name
 	s.mu.Unlock()
 
-	go s.makePreview(wavPath, len(pick))
-	go s.prune()
+	s.afterSave(wavPath, len(pick))
 
 	return name, nil
 }
