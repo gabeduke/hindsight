@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.9 — 2026-10-04
+
+- Wait for a save's background work before its test folder goes (477c775)
+- Record v2026.10.04.8 in the changelog [skip ci] (dd7eb63)
+- Record v2026.10.04.7 in the changelog [skip ci] (e8a36fe)
+
+
 ## v2026.10.04.8 — 2026-10-04
 
 - Note the three additions in the editing model spec's status (d3087c6)
