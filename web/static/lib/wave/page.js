@@ -10,7 +10,7 @@ import { Lanes } from './lanes.js';
 import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
-import { flagRequest, asFlags } from '/lib/flags.js';
+import { flagRequest, asFlags, newFlagId } from '/lib/flags.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -163,15 +163,28 @@ async function main() {
   }
 
   // --- sidecar patches ----------------------------------------------------
-  async function patch(body) {
-    const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  // Saves still on their way to the Pi. A refetch that lands meanwhile would
+  // put the server's older selection, tempo or grid back on screen, so it
+  // waits for them (see refetchTake).
+  let savesInFlight = 0;
+  let refetchWanted = false;
+  function track(p) {
+    savesInFlight++;
+    return p.finally(() => {
+      if (--savesInFlight === 0 && refetchWanted) { refetchWanted = false; refetchTake(); }
     });
-    if (!res.ok) {
-      const b = await res.json().catch(() => ({}));
-      throw new Error(b.error || `status ${res.status}`);
-    }
-    return res.json();
+  }
+  function patch(body) {
+    return track((async () => {
+      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error || `status ${res.status}`);
+      }
+      return res.json();
+    })());
   }
   let regionTimer = 0;
   let pendingTrim = null;   // the body the debounced save will send, if any
@@ -192,17 +205,17 @@ async function main() {
     clearTimeout(regionTimer);
     const body = pendingTrim;
     pendingTrim = null;
-    fetch(`/api/take?file=${encodeURIComponent(file)}`, {
+    track(fetch(`/api/take?file=${encodeURIComponent(file)}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body), keepalive: true,
-    }).catch(() => {});
+    })).catch(() => {});
   }
   function saveDownbeat() {
     patch({ downbeat_frame: state.grid.downbeat }).catch((e) => toast(`Could not save downbeat: ${e.message}`, 'bad'));
   }
-  // One flag per request, by id (see /lib/flags.js). The page shows the
-  // change at once; the server's answer then replaces the whole list, which
-  // also brings in any flag another device added meanwhile.
+  // One flag per request, by id (see /lib/flags.js), sent in order. The page
+  // shows the change at once; the server's answer then replaces the whole
+  // list, which also brings in any flag another device added meanwhile.
   function flagOp(op, args) {
     flagRequest(file, op, args).then((b) => {
       if (b.cue_error) toast(b.cue_error, 'bad');
@@ -216,10 +229,12 @@ async function main() {
     });
   }
   // The take as the server has it now, merged in: flags, name, tempo and
-  // downbeat always, the region only when no edit of ours is waiting to be
-  // saved. Called when the page comes back into view and after a failed flag
-  // edit, so changes made from another device show up without a reload.
+  // downbeat, and the region unless an edit of ours is waiting to be saved.
+  // Called when the page comes back into view and after a failed flag edit,
+  // so changes made from another device show up without a reload. While a
+  // save of ours is still in flight it waits for that to land first.
   async function refetchTake() {
+    if (savesInFlight > 0) { refetchWanted = true; return; }
     let fresh;
     try {
       const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
@@ -287,11 +302,13 @@ async function main() {
         // The cursor stays where it was tapped; Play picks the loop back up.
         if (state.region && !clock.loop) applyLoop(state.region);
         state.cursor = p.frame; updateReadout(); redraw(); break;
-      case 'addFlag':
+      case 'addFlag': {
         if (state.flags.some((f) => f.frame === p.frame)) break;
-        state.flags.push({ id: '', frame: p.frame, label: '' });
+        const id = newFlagId();
+        state.flags.push({ id, frame: p.frame, label: '' });
         state.flags.sort((a, b) => a.frame - b.frame);
-        flagOp('add', { frame: p.frame }); redraw(); break;
+        flagOp('add', { id, frame: p.frame }); redraw(); break;
+      }
       case 'selectFlag': openSheet(p.flag); break;
       case 'regionChange':
         state.region = p.region; updateActionRow(); redraw();
@@ -325,9 +342,9 @@ async function main() {
       const label = $('flag-label').value.trim();
       if (label !== f.label) {
         f.label = label;
-        // A flag added a moment ago has no id until its POST answers; the
-        // label waits for the next open of the sheet in that rare case.
-        if (f.id) flagOp('edit', { id: f.id, label });
+        // A flag added a moment ago already has its id (made here, not by
+        // the server), and flagOp sends this after the add.
+        flagOp('edit', { id: f.id, label });
       }
     }
     state.selectedFlag = null;
@@ -345,7 +362,7 @@ async function main() {
     state.flags = state.flags.filter((x) => x !== f);
     state.selectedFlag = null;
     sheet.hidden = true;
-    if (f.id) flagOp('remove', { id: f.id });
+    flagOp('remove', { id: f.id });
     redraw();
   });
 

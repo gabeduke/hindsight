@@ -6,15 +6,39 @@
 // Every call resolves to the server's answer, {flag, flags, cue_error?}:
 // `flags` is the take's whole list as it now stands, which is what the
 // caller should redraw from.
+//
+// A new flag's id is made here, not by the server, so the page can label,
+// move or delete a flag the moment it appears rather than waiting for the
+// POST to answer. And the requests for one take go out one after another:
+// a label sent straight after an add must not reach the server first, and
+// each answer must be newer than the last one the page redrew from.
 
-export async function flagRequest(file, op, { id, frame, label } = {}, fetchImpl = globalThis.fetch) {
+/** A fresh flag id, the same shape the server makes: "r" and eight hex. */
+export function newFlagId() {
+  const b = new Uint8Array(4);
+  globalThis.crypto.getRandomValues(b);
+  return 'r' + Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+const queues = new Map(); // file -> the promise the next request waits for
+
+export function flagRequest(file, op, args = {}, fetchImpl = globalThis.fetch) {
+  const prev = queues.get(file) || Promise.resolve();
+  const run = prev.catch(() => {}).then(() => send(file, op, args, fetchImpl));
+  const tail = run.catch(() => {});
+  queues.set(file, tail);
+  tail.then(() => { if (queues.get(file) === tail) queues.delete(file); });
+  return run;
+}
+
+async function send(file, op, { id, frame, label } = {}, fetchImpl) {
   let url = `/api/take/flags?file=${encodeURIComponent(file)}`;
   let method;
   let body = null;
   switch (op) {
     case 'add':
       method = 'POST';
-      body = { frame };
+      body = { id: id || newFlagId(), frame };
       if (label != null) body.label = label;
       break;
     case 'edit':
