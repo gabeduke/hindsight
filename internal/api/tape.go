@@ -38,9 +38,11 @@ import (
 //	POST   /api/tapes/tap?id=          {track, source}: a free-loop tap
 //	DELETE /api/tapes/tap?id=          forget a first tap
 //	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape;
+//	                                   {..., at, wrap, replace, source}: at that tape frame;
 //	                                   {track, merge}: the clipboard, at the playhead
 //	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse, track, all, clip, pos, at}
 //	GET    /api/tapes/clip?id=&clip=   one clip as a 16-bit WAV, to share
+//	GET    /api/tapes/listen?id=       the loop as a 16-bit WAV, to overdub on a phone
 //	POST   /api/tapes/mixdown?id=      {all}: play In to Out (all: the whole tape) once, save it as a take
 //	GET    /api/tapes/export?id=       the loaded tape as stems and a tempo map, in a zip
 //	POST   /api/tapes/undo?id=         and /redo
@@ -546,6 +548,13 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		Track int    `json:"track"`
 		Bars  int    `json:"bars"`
 		Merge bool   `json:"merge"` // the clipboard's tracks all onto this one
+		// At places a take's span at that tape frame, layered unless
+		// Replace, and wrapped from Out to In with the loop on: a part
+		// recorded over the loop on a phone. Without it, the playhead.
+		At      *int64 `json:"at"`
+		Replace bool   `json:"replace"`
+		Wrap    bool   `json:"wrap"` // played over the loop going round
+		Source  string `json:"source"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
@@ -580,12 +589,53 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 	if info, err := audio.ReadWAVInfo(path); err == nil {
 		pick = a.takePair(info.Channels)
 	}
+	if b.At != nil {
+		src := b.Source
+		if src != "phone" {
+			src = "take"
+		}
+		clips, err := a.tape.PlaceTake(r.URL.Query().Get("id"), path, b.From, b.To, b.Track, *b.At, b.Replace, b.Wrap, src, pick)
+		if err != nil {
+			tapeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"clip": clips[0], "clips": clips})
+		return
+	}
 	clip, err := a.tape.DropTake(r.URL.Query().Get("id"), path, b.From, b.To, b.Track, b.Bars, pick)
 	if err != nil {
 		tapeErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"clip": clip})
+}
+
+// handleTapeListen serves the loaded tape's mix -- the loop, or the whole
+// tape with all=1 -- as a WAV a phone plays while recording over it.
+// click=1 adds the click. The headers say where it sits on the tape.
+func (a *API) handleTapeListen(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	q := r.URL.Query()
+	l, err := a.tape.Listen(q.Get("id"), q.Get("all") == "1", q.Get("click") == "1")
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	h := w.Header()
+	h.Set("Content-Type", "audio/wav")
+	h.Set("Content-Length", fmt.Sprint(l.Bytes()))
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Tape-From", fmt.Sprint(l.From))
+	h.Set("X-Tape-Frames", fmt.Sprint(l.Frames))
+	h.Set("X-Tape-Loop", fmt.Sprint(l.Loop))
+	if r.Method == http.MethodHead {
+		return
+	}
+	if _, err := l.WriteTo(&stallWriter{w: w, rc: http.NewResponseController(w)}); err != nil {
+		log.Printf("[!] tape listen: %v", err)
+	}
 }
 
 // handleTapeEdit is the tape's editing: lift and copy to the clipboard,

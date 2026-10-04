@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -371,4 +372,43 @@ func TestATapeExportsAsStemsAndRefusesAMixdownWithNothingToPlayIt(t *testing.T) 
 	// This engine has no output and no recorder: a mixdown can't run.
 	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, `{}`), http.StatusConflict, "mixdown")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, ""), http.StatusConflict, "mixdown, no body")
+}
+
+// Away from the rig: the loop to listen to, and a phone's part placed back
+// where it was played.
+func TestTheLoopToListenToAndAPhonePartPlacedBack(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_12-00-00.wav", 192000)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodGet, "/api/tapes/listen?id="+id, ""), http.StatusBadRequest, "listen to an empty tape")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":0,"to":96000,"track":1,"bars":1}`), http.StatusOK, "first loop")
+
+	w := send(t, r, http.MethodHead, "/api/tapes/listen?id="+id, "")
+	want(t, w, http.StatusOK, "ask for the loop")
+	if h := w.Header(); h.Get("Content-Type") != "audio/wav" || h.Get("X-Tape-From") != "0" || h.Get("X-Tape-Frames") != "96000" || h.Get("X-Tape-Loop") != "true" || h.Get("Content-Length") != fmt.Sprint(44+96000*4) {
+		t.Fatalf("listen headers: %v", h)
+	}
+	w = send(t, r, http.MethodGet, "/api/tapes/listen?id="+id+"&click=1", "")
+	want(t, w, http.StatusOK, "the loop")
+	if w.Body.Len() != 44+96000*4 {
+		t.Fatalf("listen body: %d bytes", w.Body.Len())
+	}
+	want(t, send(t, r, http.MethodGet, "/api/tapes/listen?id=other", ""), http.StatusConflict, "another tape")
+
+	// The part: half a bar from the take, placed three quarters through the
+	// loop on track 2, so it wraps to bar 1's start.
+	w = send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":96000,"to":144000,"track":2,"at":72000,"wrap":true,"source":"phone"}`)
+	want(t, w, http.StatusOK, "place")
+	var placed struct {
+		Clips []struct {
+			At     int64  `json:"at"`
+			Frames int64  `json:"frames"`
+			Source string `json:"source"`
+		} `json:"clips"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &placed)
+	if len(placed.Clips) != 2 || placed.Clips[0].At != 72000 || placed.Clips[0].Frames != 24000 || placed.Clips[1].At != 0 || placed.Clips[1].Source != "phone" {
+		t.Fatalf("placed: %+v", placed)
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":0,"to":96001,"track":2,"at":0,"wrap":true}`), http.StatusBadRequest, "longer than the loop")
 }

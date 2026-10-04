@@ -66,20 +66,7 @@ func (w *ClipWAV) WriteTo(dst io.Writer) (int64, error) {
 	cw := &countWriter{w: dst}
 	bw := bufio.NewWriterSize(cw, 1<<16)
 	le := binary.LittleEndian
-	var h [44]byte
-	copy(h[0:4], "RIFF")
-	le.PutUint32(h[4:8], uint32(w.Bytes()-8))
-	copy(h[8:12], "WAVE")
-	copy(h[12:16], "fmt ")
-	le.PutUint32(h[16:20], 16)
-	le.PutUint16(h[20:22], 1)
-	le.PutUint16(h[22:24], 2)
-	le.PutUint32(h[24:28], uint32(w.sr))
-	le.PutUint32(h[28:32], uint32(w.sr*4))
-	le.PutUint16(h[32:34], 4)
-	le.PutUint16(h[34:36], 16)
-	copy(h[36:40], "data")
-	le.PutUint32(h[40:44], uint32(w.Frames*4))
+	h := wav16Header(w.Frames, w.sr)
 	if _, err := bw.Write(h[:]); err != nil {
 		return cw.n, err
 	}
@@ -112,6 +99,26 @@ func (w *ClipWAV) WriteTo(dst io.Writer) (int64, error) {
 	}
 	err = bw.Flush()
 	return cw.n, err
+}
+
+// wav16Header is a 16-bit stereo PCM WAV's 44-byte header.
+func wav16Header(frames int64, sampleRate int) [44]byte {
+	le := binary.LittleEndian
+	var h [44]byte
+	copy(h[0:4], "RIFF")
+	le.PutUint32(h[4:8], uint32(36+frames*4))
+	copy(h[8:12], "WAVE")
+	copy(h[12:16], "fmt ")
+	le.PutUint32(h[16:20], 16)
+	le.PutUint16(h[20:22], 1)
+	le.PutUint16(h[22:24], 2)
+	le.PutUint32(h[24:28], uint32(sampleRate))
+	le.PutUint32(h[28:32], uint32(sampleRate*4))
+	le.PutUint16(h[32:34], 4)
+	le.PutUint16(h[34:36], 16)
+	copy(h[36:40], "data")
+	le.PutUint32(h[40:44], uint32(frames*4))
+	return h
 }
 
 // countWriter counts what's written through it.

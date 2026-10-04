@@ -527,6 +527,14 @@ main {
 .phone-state { color: var(--ink-dim); font-size: 13px; }
 .icon-btn.phone-rec { background: var(--danger); color: #2a0808; border-color: transparent; font-weight: 700; }
 .icon-btn.phone-rec.recording { background: var(--panel-2); color: var(--danger); border-color: var(--danger); }
+/* The tape page's overdub sheet borrows the phone recorder's pieces. */
+.away-inner p#away-what { margin: 0 0 12px; }
+.away-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.away-row .seg { flex: 1; min-width: 0; }
+.away-rt { font-size: 13px; color: var(--ink-dim); }
+.away-rt span { flex: 1 1 100%; }
+.away-rt .chip { min-height: 32px; }
+.tape-toolbar .tb-row.away .away-btn { flex: 1; }
 
 /* ---------- takes ---------- */
 

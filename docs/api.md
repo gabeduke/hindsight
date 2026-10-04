@@ -55,6 +55,7 @@ internet.
 | `POST /api/tapes/mixdown?id=` | Play the loop or the whole tape once and save what the mixer put out as a take |
 | `GET /api/tapes/export?id=` | The loaded tape as a zip of stems and a tempo map |
 | `GET /api/tapes/clip?id=&clip=` | One clip as a 16-bit WAV, to share |
+| `GET /api/tapes/listen?id=` | The loop (or the whole tape) as a 16-bit WAV, to play and record over on a phone |
 | `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=` | Step the tape's history back or forward |
 | `POST /api/tapes/clone?id=` | A copy of a tape, sharing its audio |
 | `POST /api/tapes/cleanup` | Delete pool audio that no tape, and no tape's history, uses |
@@ -975,6 +976,13 @@ at bar 1, `bars` long (0: the bar count that puts it nearest 90 BPM).
 Otherwise it goes at the playhead, replacing what's under it, and is refused
 if it would run past the end of the tape. Answers `{"clip": …}`.
 
+With `"at": F` the span goes at tape frame `F` instead -- how a part recorded
+on a phone over the tape goes back where it was played. It's layered on what's
+there unless `"replace": true`. `"wrap": true` says it was played over the
+loop going round: it must sit inside the loop and be no longer than it, and a
+span that runs past Out carries on from In, as two clips. `"source": "phone"`
+labels it. Answers `{"clip": …, "clips": […]}`: the first, and all of them.
+
 ### `POST /api/tapes/edit?id=`
 
 The tape's editing (step 7a): `{"op": …, "track": 1, …}`, each edit one undo
@@ -1057,6 +1065,20 @@ track's level or pan), with the 3 ms declick at either end. Named
 `Content-Disposition`, with a `Content-Length`; `HEAD` answers the headers
 alone. 400 for no such clip, 404 for no such tape, 500 for a pool file that
 can't be read. A client that stops reading for 30 s loses the download.
+
+### `GET /api/tapes/listen?id=`
+
+The loaded tape's mix as a 16-bit stereo WAV, for the tape page's *Overdub on
+this device*: every track at its level and pan, mutes and solos as they are,
+bus A and bus B summed, through the renderer the tape plays with (without the
+Sidekick's strips). With the loop on, it's the loop, rendered as a pass after
+the first, so its seam crossfades as the tape's does and the file loops
+without a click; `all=1`, or the loop off, gives the tape from its start to
+the end of its last clip. `click=1` adds the click on every beat (on an empty
+tape, a bar of it). Headers: `X-Tape-From` and `X-Tape-Frames` (the tape
+frames it holds), `X-Tape-Loop` (`true` for the loop), and
+`Content-Length`; `HEAD` answers them alone. 400 for a tape with nothing to
+hear, 409 for a tape that isn't loaded.
 
 ### The clipboard: `/api/clipboard`
 

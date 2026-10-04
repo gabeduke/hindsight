@@ -121,7 +121,7 @@ func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipb
 	if err != nil {
 		return nil, err
 	}
-	if err := audio.CopyWAVSpan(take, fileFrom, fileTo, pick, path); err != nil {
+	if _, err := audio.CopyWAVSpan(take, fileFrom, fileTo, pick, path); err != nil {
 		return nil, err
 	}
 	c := &Clipboard{

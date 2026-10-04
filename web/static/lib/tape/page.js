@@ -12,6 +12,7 @@ import {
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled,
 } from './geometry.js';
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
+import { initAway } from './away-sheet.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -58,6 +59,21 @@ const q = () => `id=${encodeURIComponent(state.id)}`;
 
 async function boot() {
   initHelp({ page: 'tape', toast });
+  initAway({
+    button: $('away'),
+    sheet: $('away-sheet'),
+    toast,
+    api,
+    getTape: () => state.tape && { id: state.id, tape: state.tape, track: state.track, replace: state.mode === 'replace' },
+    onPlaced: (d, k) => {
+      const t = state.tape;
+      const bars = t && t.grid ? (k.to - k.from) / (t.grid.frames / t.grid.bars) : 0;
+      const n = Math.round(bars);
+      const what = n > 0 && Math.abs(bars - n) < 0.01 ? `${n} bar${n === 1 ? '' : 's'}` : `${((k.to - k.from) / 48000).toFixed(1)} s`;
+      caughtToast(`Kept ${what} from this device on track ${k.track}`, d.clip, { action: { label: 'Undo', run: () => undoRedo(false) } });
+      poll();
+    },
+  });
   let list;
   try {
     list = await api('/api/tapes');
@@ -1223,12 +1239,13 @@ function wire() {
       return;
     }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (document.querySelector('dialog[open]')) return; // a sheet's keys are its own
     if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('play').click(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
     // which track catches go onto. Not under a dialog or a menu, and not on
     // a held key's repeats, which would toggle Rec or the loop over and over.
     // By physical key, so they work on any keyboard layout.
-    if (!state.tape || document.querySelector('dialog[open]') || !$('tape-menu').hidden || !$('tempo-menu').hidden) return;
+    if (!state.tape || !$('tape-menu').hidden || !$('tempo-menu').hidden) return;
     const press = (id) => { if (!e.repeat && !$(id).disabled) $(id).click(); };
     const pick = (n) => {
       if (n < 1 || n > state.tape.tracks.length || n === state.track) return false;

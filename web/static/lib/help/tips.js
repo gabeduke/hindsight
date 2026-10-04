@@ -112,6 +112,13 @@ export const TIPS = [
   { control: 'Export stems', ids: ['export-stems'], tip: 'Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW' },
   { control: 'Bus A / B', ids: ['bus'], tip: 'Which Sidekick channel this track plays through, for its EQ and FX' },
   { control: 'Source chip', ids: ['source-chip'], tip: 'Which input ● Rec and a catch take from; its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too' },
+  { control: '🎧 Overdub on this device', ids: ['away'], tip: 'Play the tape here, not in the jam room, and record a part over it that goes onto the selected track where you played it' },
+  { control: 'The loop / The whole tape (overdub)', ids: ['away-span'], tip: 'Play the loop round and round, or the whole tape once' },
+  { control: '♩ Click (overdub)', ids: ['away-click'], tip: 'A click on every beat, in what plays here' },
+  { control: 'Round trip (overdub)', ids: ['away-rt'], tip: 'How late what you play reaches the recording, from hearing the tape: a part lands that much earlier. −5 and +5 move it by hand' },
+  { control: 'Calibrate (overdub)', ids: ['away-cal'], tip: 'Measure the round trip: six clicks through the speaker, heard through the mic. Headphones off, somewhere quiet' },
+  { control: '▶ Listen (overdub)', ids: ['away-play'], tip: 'Play it here, without recording' },
+  { control: '● Record (overdub)', ids: ['away-rec'], tip: 'Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too' },
   { control: 'Clock → (tape)', ids: ['tape-clock'], tip: 'Who follows the tape\'s MIDI clock (TAPE_CLOCK=lead); ● while they\'re running' },
   { control: 'Lock dot', ids: ['lock-dot'], tip: 'How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet' },
 ];

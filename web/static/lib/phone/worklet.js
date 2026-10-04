@@ -9,6 +9,9 @@
 //
 // Messages in: {cmd: 'record'} starts sending chunks, {cmd: 'stop'} sends the
 // partial last chunk and then {done: true}. Before 'record' it only meters.
+// When recording starts it posts {started: frame}: the context frame of the
+// first sample recorded, for a recording that has to line up with what the
+// context played (the tape page's overdub).
 
 class HindsightTap extends AudioWorkletProcessor {
   constructor(options) {
@@ -23,6 +26,7 @@ class HindsightTap extends AudioWorkletProcessor {
     this.port.onmessage = (e) => {
       if (e.data.cmd === 'record') {
         this.recording = true;
+        this.started = false;
         this.n = 0;
       } else if (e.data.cmd === 'stop') {
         if (this.recording && this.n > 0) this.flush();
@@ -43,6 +47,10 @@ class HindsightTap extends AudioWorkletProcessor {
     if (!input || input.length === 0) return true;
     const l = input[0];
     const r = input[1] || input[0];
+    if (this.recording && !this.started) {
+      this.started = true;
+      this.port.postMessage({ started: currentFrame });
+    }
     for (let i = 0; i < l.length; i++) {
       const a = l[i];
       const b = r[i];
