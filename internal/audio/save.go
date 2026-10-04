@@ -528,7 +528,7 @@ func ListTakes(dir string) ([]Take, error) {
 		t.Starred = m.Starred
 		t.Trim = m.Trim
 		t.BPM = m.BPM
-		t.Flags = m.Flags
+		t.Flags = EnsureFlagIDs(m.Flags)
 		t.DownbeatFrame = m.DownbeatFrame
 		t.Source = m.Source
 		t.LaneKinds = m.LaneKinds

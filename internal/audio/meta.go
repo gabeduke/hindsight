@@ -1,25 +1,27 @@
 package audio
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // MetaVersion is the sidecar schema version. Bump it only for a change that
 // older readers cannot tolerate.
 const MetaVersion = 1
 
-// Trim marks the region of a take to export, in frames. Frames rather than
-// seconds so the bounds are sample-exact and survive as integers, and so they
-// line up with the RIFF cue points other tools use.
-//
-// Nothing in phase 1 reads this; it exists so adding trim later needs no
-// schema change.
+// Trim is the take's selection -- the waveform page's region -- in frames.
+// Frames rather than seconds so the bounds are sample-exact and survive as
+// integers, and so they line up with the RIFF cue points other tools use. The
+// page saves it here and restores it when the take is opened again.
 type Trim struct {
 	StartFrame int64 `json:"start_frame"`
 	EndFrame   int64 `json:"end_frame"`
@@ -31,28 +33,84 @@ type Trim struct {
 //
 // Label is the owner's name for the moment. It is mirrored into the WAV as a
 // LIST/adtl "labl" record so DAWs show it beside the marker.
+//
+// ID is what the flag endpoints address it by, so an edit or a delete names
+// one flag rather than replacing the whole list -- which is what let two
+// devices undo each other's flags. A flag written before ids existed has
+// none on disk and reads as its legacy id, "f<frame>" (see EnsureFlagIDs).
 type Flag struct {
+	ID    string `json:"id,omitempty"`
 	Frame int64  `json:"frame"`
 	Label string `json:"label,omitempty"`
 }
 
+// LegacyFlagID is the id a flag with none on disk reads as. It is derived
+// from the frame so it is stable across reads before anything is written;
+// new flags get NewFlagID's "r" ids, which can never collide with it.
+func LegacyFlagID(frame int64) string { return "f" + strconv.FormatInt(frame, 10) }
+
+// NewFlagID returns a fresh flag id: "r" and eight random hex characters.
+func NewFlagID() string {
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		// crypto/rand does not fail on Linux; the clock is a good enough
+		// fallback for an id that only has to be unique within one take.
+		return fmt.Sprintf("r%08x", uint32(time.Now().UnixNano()))
+	}
+	return "r" + hex.EncodeToString(b[:])
+}
+
+// EnsureFlagIDs returns a copy of flags in which every flag has an id: the
+// ones that had none get their legacy id.
+func EnsureFlagIDs(in []Flag) []Flag {
+	if len(in) == 0 {
+		return in
+	}
+	out := make([]Flag, len(in))
+	copy(out, in)
+	for i := range out {
+		if out[i].ID == "" {
+			out[i].ID = LegacyFlagID(out[i].Frame)
+		}
+	}
+	return out
+}
+
+// flagKey is what NormalizeFlags dedupes on: the id, or for a flag with none,
+// its frame -- which is exactly the pre-id behaviour, kept for old sidecars
+// and old clients.
+func flagKey(f Flag) string {
+	if f.ID != "" {
+		return f.ID
+	}
+	return LegacyFlagID(f.Frame)
+}
+
 // NormalizeFlags returns flags sorted by frame with duplicates and negative
-// frames removed. The first occurrence of a frame wins, so a label already
-// attached to it is not lost to a later bare mark.
+// frames removed. Duplicates are flags with the same id; a flag without an id
+// is a duplicate of another at the same frame, as before ids existed. The
+// first occurrence wins, so a label already attached is not lost to a later
+// bare mark. Two flags with different ids may share a frame.
 func NormalizeFlags(in []Flag) []Flag {
 	if len(in) == 0 {
 		return nil
 	}
 	out := make([]Flag, 0, len(in))
-	seen := make(map[int64]bool, len(in))
+	seen := make(map[string]bool, len(in))
 	for _, f := range in {
-		if f.Frame < 0 || seen[f.Frame] {
+		k := flagKey(f)
+		if f.Frame < 0 || seen[k] {
 			continue
 		}
-		seen[f.Frame] = true
+		seen[k] = true
 		out = append(out, f)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Frame < out[j].Frame })
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Frame != out[j].Frame {
+			return out[i].Frame < out[j].Frame
+		}
+		return flagKey(out[i]) < flagKey(out[j])
+	})
 	if len(out) == 0 {
 		return nil
 	}
@@ -152,7 +210,9 @@ func WriteMeta(wav string, m Meta) error {
 		return fmt.Errorf("%w: sidecar is version %d, this build writes %d", ErrNewerSidecar, m.Version, MetaVersion)
 	}
 	m.Version = MetaVersion
-	m.Flags = NormalizeFlags(m.Flags)
+	// Ids are persisted on every write, so a legacy flag keeps the id it was
+	// read with even after an edit moves its frame.
+	m.Flags = EnsureFlagIDs(NormalizeFlags(m.Flags))
 
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
