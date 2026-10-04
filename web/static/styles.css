@@ -1343,3 +1343,53 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
   .tt-head .chip { padding: 0 6px; }
   .tt-name { padding: 0 2px; }
 }
+/* The track's number never gives way to the chips beside it; between a
+   phone and a tablet the head is wide enough for both on one row. */
+.tt-name { min-width: 1.1em; }
+@media (min-width: 481px) {
+  .tape-track, .tape-ruler-row { grid-template-columns: 136px 1fr; }
+}
+
+/* A tablet held upright: one column, as on a phone, but the full width and
+   taller lanes -- the toolbar under them is about 430 px, and the lanes
+   share what's left. */
+@media (min-width: 700px) {
+  .tape-main { max-width: none; padding-left: 16px; padding-right: 16px; }
+  .tape-track, .tape-ruler-row { grid-template-columns: 150px 1fr; }
+  .tt-lane { height: clamp(72px, calc((100dvh - var(--topbar-h) - 560px) / 4), 150px); }
+}
+
+/* Wide -- a tablet on its side, a laptop: the tracks take the width, and the
+   controls sit beside them in a column of their own that stays in view while
+   the page scrolls. The generic main grid (two columns from 860 px) is the
+   takes page's; the tape page lays out its body itself. */
+@media (min-width: 860px) {
+  main.tape-main { display: block; max-width: 1800px; }
+  #tape-body:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 372px;
+    grid-template-areas: "empty side" "overview side" "ruler side" "lanes side" ". side";
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 16px; row-gap: 0;
+    align-items: start;
+  }
+  #tape-empty { grid-area: empty; margin-bottom: 10px; }
+  .tape-overview { grid-area: overview; margin-bottom: 10px; }
+  .tape-ruler-row { grid-area: ruler; margin-bottom: 8px; }
+  .tape-lanes { grid-area: lanes; gap: 8px; }
+  .tape-toolbar {
+    grid-area: side;
+    position: sticky; top: calc(var(--topbar-h) + 10px);
+    max-height: calc(100dvh - var(--topbar-h) - 20px); overflow-y: auto;
+    padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .tape-toolbar .seg { background: var(--panel-2); }
+  .tape-track, .tape-ruler-row { grid-template-columns: 168px 1fr; }
+  /* Four lanes fill the height under the overview and ruler. */
+  .tt-lane { height: clamp(80px, calc((100dvh - var(--topbar-h) - 150px) / 4 - 8px), 220px); }
+  .tt-head { align-content: center; }
+}
+@media (min-width: 1400px) {
+  #tape-body:not([hidden]) { grid-template-columns: minmax(0, 1fr) 400px; }
+  .tape-track, .tape-ruler-row { grid-template-columns: 200px 1fr; }
+}

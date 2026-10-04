@@ -1219,6 +1219,20 @@ function wire() {
       return;
     }
     if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex]')) { e.preventDefault(); $('play').click(); }
+    // With a keyboard -- a laptop, or a tablet with one: the transport, and
+    // which track catches go onto.
+    if (!state.tape || document.querySelector('dialog[open]')) return;
+    const press = (id) => { if (!$(id).disabled) $(id).click(); };
+    const pick = (n) => { if (n >= 1 && n <= state.tape.tracks.length) { state.track = n; render(); } };
+    switch (e.key) {
+      case 'r': case 'R': press('rec'); break;
+      case 'l': case 'L': press('loop'); break;
+      case 'k': case 'K': press('click'); break;
+      case '1': case '2': case '3': case '4': pick(Number(e.key)); break;
+      case 'ArrowUp': e.preventDefault(); pick(state.track - 1); break;
+      case 'ArrowDown': e.preventDefault(); pick(state.track + 1); break;
+      default:
+    }
   });
   $('tape-new').addEventListener('click', () => { $('tape-menu').hidden = true; newTape(); });
   $('tape-mixdown').addEventListener('click', () => { $('tape-menu').hidden = true; mixdown(false); });

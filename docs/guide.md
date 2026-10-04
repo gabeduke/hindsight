@@ -473,6 +473,11 @@ From the top:
   does dropping or copying a silent stretch from the ribbon.
 - **Catch the last pass** and **1 bar / 2 / 4** catch onto the selected track.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
+- **On a tablet or a computer** the page uses the width: the tracks fill the
+  screen, taller, and the controls sit in a column beside them that stays in
+  view. With a keyboard: **Space** plays and stops, **R** is ● Rec, **L** is
+  ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, and
+  **⌘Z / Ctrl-Z** undoes (with **⇧** to redo).
 
 ### 8.3 Your first loop
 
@@ -898,10 +903,10 @@ has no tip.
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps |
 | Tape overview | The whole tape, six minutes a track; the loop in amber |
 | A lane | Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there |
-| A track header | Tap the number to pick the track catches go onto |
+| A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
-| ▶ (tape) | Play or stop the tape |
+| ▶ (tape) | Play or stop the tape. Key: Space |
 | Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
 | Clipboard | What you copied last, from a take or the ribbon. Tap to hear it |
@@ -910,11 +915,11 @@ has no tip.
 | Track name | What’s on this track, for you: chords, bass… |
 | Pan | Where this track sits between left and right |
 | Copy (ribbon) | Put the span you selected on the clipboard, to drop onto a tape |
-| ● Rec (tape) | Records from the source it names (chosen under Record from). Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it |
-| ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty |
+| ● Rec (tape) | Records from the source it names (chosen under Record from). Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it. Key: R |
+| ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty. Key: K |
 | Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
 | Tempo (tape) | Call the loop more bars or fewer: the same length, so nothing is stretched |
-| ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded |
+| ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded. Key: L |
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
 | Clip level | This clip's level within its track |
 | Nudge | Move the clip a few milliseconds, for a part a little early or late |
