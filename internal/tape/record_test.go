@@ -66,7 +66,7 @@ func TestPlayingArmedCountsInABarThenRecordsFromTheBar(t *testing.T) {
 	e, sink, tp := tempoEngine(t, 4) // a 4-bar loop of 384000; a bar is 96000
 	e.SetMeta(tp.ID, func(t *Tape) error { t.Click = false; return nil })
 	e.Start()
-	if r, err := e.Record(tp.ID, 2, "aux"); err != nil || r.State != "armed" {
+	if r, err := e.Record(tp.ID, 2, "aux", false); err != nil || r.State != "armed" {
 		t.Fatalf("Record while stopped = %+v %v, want armed", r, err)
 	}
 	if _, err := e.Transport(tp.ID, Action{Kind: "play"}); err != nil {
@@ -109,10 +109,10 @@ func TestAPunchOverSeveralPassesKeepsTheLastFullOne(t *testing.T) {
 	e.Do(Action{Kind: "play"})
 	e.Start()
 	sink.play(t, 30000) // into the first pass
-	if r, err := e.Record(tp.ID, 2, "aux"); err != nil || r.State != "on" {
+	if r, err := e.Record(tp.ID, 2, "aux", false); err != nil || r.State != "on" {
 		t.Fatalf("Record while playing = %+v %v, want on", r, err)
 	}
-	if _, err := e.Record(tp.ID, 3, "aux"); err == nil {
+	if _, err := e.Record(tp.ID, 3, "aux", false); err == nil {
 		t.Fatal("a second Record should be refused")
 	}
 	sink.play(t, 96000*3) // to 318000: passes at 96000 and 192000 are full
@@ -129,7 +129,7 @@ func TestAPunchOverSeveralPassesKeepsTheLastFullOne(t *testing.T) {
 		t.Fatalf("kept the pass from ring frame %d, want the last full one at 192000", data[2*clip.Src]/1000)
 	}
 	// Cancelling keeps nothing.
-	e.Record(tp.ID, 3, "aux")
+	e.Record(tp.ID, 3, "aux", false)
 	sink.play(t, 96000*2)
 	if kept, err := e.EndRecording(tp.ID, true); kept != nil || err != nil {
 		t.Fatalf("cancel = %v %v", kept, err)
@@ -216,7 +216,7 @@ func TestAPunchThatPlaysPastTheEndKeepsItsBars(t *testing.T) {
 	e.Do(Action{Kind: "play"})
 	e.Start()
 	sink.play(t, 50000)
-	if _, err := e.Record(tp.ID, 2, "aux"); err != nil {
+	if _, err := e.Record(tp.ID, 2, "aux", false); err != nil {
 		t.Fatal(err)
 	}
 	sink.play(t, 384000) // past the end: it stopped by itself
@@ -233,7 +233,7 @@ func TestAPunchThatPlaysPastTheEndKeepsItsBars(t *testing.T) {
 func TestEndingAPunchInItsCountInKeepsNothingQuietly(t *testing.T) {
 	e, sink, tp := tempoEngine(t, 4)
 	e.Start()
-	e.Record(tp.ID, 2, "aux")
+	e.Record(tp.ID, 2, "aux", false)
 	e.Transport(tp.ID, Action{Kind: "play"})
 	sink.play(t, 40000) // inside the count-in
 	if kept, err := e.EndRecording(tp.ID, false); kept != nil || err != nil {
@@ -247,7 +247,7 @@ func TestAPunchAfterALocateKeepsWholeBarsOnly(t *testing.T) {
 	e.Do(Action{Kind: "play"})
 	e.Start()
 	sink.play(t, 20000)
-	e.Record(tp.ID, 2, "aux")
+	e.Record(tp.ID, 2, "aux", false)
 	sink.play(t, 200000) // bar 2 (96000-192000) is played whole, bar 3 begun
 	// Locate somewhere else, just past a bar line, and play on a little.
 	e.Do(Action{Kind: "locate", Pos: 288000 + 1000})
@@ -264,7 +264,17 @@ func TestAPunchAfterALocateKeepsWholeBarsOnly(t *testing.T) {
 
 func TestAPunchNeedsBars(t *testing.T) {
 	e, _, tp := newEngine(t) // an empty tape with no tempo
-	if _, err := e.Record(tp.ID, 1, "aux"); !errors.Is(err, ErrNoGrid) {
+	if _, err := e.Record(tp.ID, 1, "aux", false); !errors.Is(err, ErrNoGrid) {
 		t.Fatalf("Record with no tempo = %v, want ErrNoGrid", err)
+	}
+}
+
+func TestTheBarCountIsNearTheLastTempoButNeverOutOfRange(t *testing.T) {
+	// 2 s: 1 bar is 120 BPM, 2 bars 240, 4 bars 480 -- too fast.
+	if b := guessBarsNear(96000, 48000, 361); b != 2 {
+		t.Fatalf("near 361 BPM: %d bars, want 2 (240), not 4 (480)", b)
+	}
+	if b := guessBarsNear(96000, 48000, 90); b != 1 {
+		t.Fatalf("near 90 BPM: %d bars, want 1", b)
 	}
 }

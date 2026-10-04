@@ -1,6 +1,6 @@
 # HTTP API
 
-Forty-five routes (one, `/api/trigger`, in two forms), eighteen of them the tape's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Forty-nine routes (one, `/api/trigger`, in two forms), twenty-two of them the tape's and its clipboard's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -55,6 +55,10 @@ internet.
 | `POST /api/tapes/clone?id=` | A copy of a tape, sharing its audio |
 | `POST /api/tapes/cleanup` | Delete pool audio that no tape, and no tape's history, uses |
 | `GET /api/tapes/peaks?file=` | A pool file's whole-file waveform |
+| `GET /api/clipboard` | What's on the clipboard |
+| `GET /api/clipboard/audio` | The clipboard, its tracks summed, as a WAV to audition |
+| `POST /api/clipboard` | Copy a take's span or a span of the ring onto it |
+| `DELETE /api/clipboard` | Empty it |
 
 `GET` routes also accept `HEAD`, except `/api/live` and `/api/phone`, which
 are WebSocket upgrades, and `/api/render`, `/api/bundle` and `/api/export`,
@@ -858,7 +862,7 @@ All of it is one change: if any field is refused, none is made.
 | `bars` | Relabel the loop's bar count (1–64) without changing its length |
 | `loop: {in?, out?, on?}` | The loop, in tape frames |
 | `track: {n, name?, bus?, gain_db?, pan?, mute?, solo?}` | A track's mix: bus `A` or `B`, gain −60..12 dB, pan −1..1 |
-| `clip: {id, gain_db?, nudge_ms?, remove?}` | A clip's level (−60..12 dB), its nudge (±500 ms), or take it off |
+| `clip: {id, gain_db?, nudge_ms?, remove?, tile?}` | A clip's level (−60..12 dB), its nudge (±500 ms), take it off, or `tile`: copies end to end to the loop's end wherever its layer is free (400 if there's no room) |
 
 Each PATCH is one undo step. Changes to the same track's level or pan, or the
 same clip's level or nudge, within 2 s of each other are one step, so a
@@ -900,7 +904,7 @@ waits up to two seconds for the newest audio to reach the ring. Answers
 
 ### `POST /api/tapes/record?id=`, `DELETE /api/tapes/record?id=`
 
-`POST {"track": 2, "source": "aux"}` arms the track while the tape is stopped
+`POST {"track": 2, "source": "aux", "replace": false}` arms the track while the tape is stopped
 (`{"record": {"state": "armed", …}}`), or punches in while it plays
 (`"state": "on"`). Nothing is recorded specially -- the ring always is; a
 punch notes the output frame it was asked at, less a quarter second (`from`),
@@ -937,12 +941,41 @@ takes no taps (400). `DELETE` forgets a first tap.
 
 ### `POST /api/tapes/drop?id=`
 
+`{"track": 1}` drops the clipboard: at the playhead (what's heard, while
+playing), on that track and the next for each further clipboard track,
+replacing what's under it; or, on an empty tape with no tempo, as its first
+loop, its bar count the one nearest the last tape's tempo. Stopped, the
+playhead moves to the drop's end. Answers
+`{"clip": …, "tracks": 1, "end": F}`; 409 if the clipboard is empty, 400 if
+its tracks don't fit from that one or it would run past the end of the tape.
+
 `{"take": "jam_….wav", "from": F, "to": T, "track": 1, "bars": 0}` copies
 frames `[from, to)` of a take into the pool (its `SAVE_CHANNELS` pair, for a
 multichannel take). On an empty tape with no tempo, it becomes the first loop
 at bar 1, `bars` long (0: the bar count that puts it nearest 90 BPM).
 Otherwise it goes at the playhead, replacing what's under it, and is refused
 if it would run past the end of the tape. Answers `{"clip": …}`.
+
+### The clipboard: `/api/clipboard`
+
+The app's one clipboard, kept in `TAPE_DIR/clipboard.json` so it survives a
+restart; 404 when the tape is off.
+
+- `GET` answers `{"clipboard": null}` or
+  `{"clipboard": {"tracks": [[clip…]], "frames": F, "from": "jam_….wav", "created": …}, "seconds": 2.5}`.
+  Its clips are laid out from frame 0.
+- `POST {"take": "jam_….wav", "from": F, "to": T}` copies a take's span: the
+  take's pair (`SAVE_CHANNELS`' for a multichannel take, both sides of a mono
+  one) is written into the pool with 10 ms either side. A take's own WAV is
+  never referenced, since flag edits rewrite it.
+- `POST {"ring_from": F, "ring_to": T, "source": "main"}` copies a span of
+  the ring, in absolute frames (`ring_to` left out: up to now), from a
+  `TAPE_SOURCES` pair. 409 if it's left the ring or isn't in it yet.
+- Both answer the new clipboard; 507 for low disk.
+- `GET /api/clipboard/audio` streams it, every track summed, as a 16-bit
+  stereo WAV. 404 when it's empty.
+- `DELETE` empties it. Its audio stays until a clean-up finds nothing using
+  it; the clean-up keeps whatever the clipboard holds.
 
 ### `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=`
 

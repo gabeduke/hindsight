@@ -989,16 +989,7 @@ func (e *Engine) DropTake(id string, take string, from, to int64, track, bars in
 }
 
 // guessBars picks the bar count that puts a loop's tempo nearest 90 BPM.
-func guessBars(frames int64, sampleRate int) int {
-	best, bestDiff := 1, math.Inf(1)
-	for b := 1; b <= 32; b *= 2 {
-		bpm := Grid{Frames: frames, Bars: b}.BPM(sampleRate)
-		if d := math.Abs(math.Log(bpm / 90)); d < bestDiff {
-			best, bestDiff = b, d
-		}
-	}
-	return best
-}
+func guessBars(frames int64, sampleRate int) int { return guessBarsNear(frames, sampleRate, 90) }
 
 // SetMeta changes what isn't part of undo -- the name, the click -- on the
 // loaded tape, and saves it.

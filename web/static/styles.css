@@ -1270,6 +1270,10 @@ body.help-mode .help-btn { background: var(--accent); color: #062015; }
 .tape-toolbar .tb-row.transport .tb-click { flex: 0 0 48px; font-size: 18px; }
 .tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .tape-where { min-height: 18px; }
+.tape-ruler-row { display: grid; grid-template-columns: 112px 1fr; gap: 6px; }
+.tape-ruler { width: 100%; height: 26px; display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; touch-action: none; cursor: pointer; }
+.tape-toolbar .tb-row.clipboard .clip-chip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; }
+.tape-toolbar .tb-row.clipboard .clip-chip.playing { color: var(--accent); border-color: var(--accent); }
 .tape-where .readout { font-size: 13px; color: var(--ink-dim); }
 .tape-tap { width: 100%; min-height: 56px; font-size: 16px; margin: 4px 0 10px; }
 .tape-tap.second { animation: breathe 1.2s ease-in-out infinite; }

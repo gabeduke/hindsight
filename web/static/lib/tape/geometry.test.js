@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -31,4 +31,19 @@ test('a clip draws the part of its file it plays', () => {
   const pd = { duration: 2, sample_rate: 48000, buckets: 1024 };
   assert.deepEqual(clipBuckets({ src: 480, frames: 48000 }, pd), [5, 518]);
   assert.equal(fmtSecs(48000 * 61.25, 48000), '1:01.3');
+});
+
+test('the lanes show the loop and a bar either side, to drag it wider', () => {
+  const grid = { frames: 192000, bars: 4 }; // a bar is 48000
+  assert.deepEqual(editView({ sample_rate: 48000, grid, loop: { in: 96000, out: 288000 }, tracks: [] }), { from: 48000, to: 336000 });
+  assert.deepEqual(editView({ sample_rate: 48000, grid, loop: { in: 0, out: 192000 }, tracks: [] }), { from: 0, to: 240000 });
+  assert.deepEqual(editView({ sample_rate: 48000, loop: {}, tracks: [] }), { from: 0, to: 48000 * 30 });
+});
+
+test('a drag on the ruler takes whole bars, whichever way it goes', () => {
+  const grid = { frames: 548571, bars: 4 }; // 84 BPM
+  assert.deepEqual(barSpan(grid, 150000, 20000), { from: 0, to: 274286 });
+  assert.deepEqual(barSpan(grid, 137143, 137143), { from: 137143, to: 274286 });
+  assert.equal(nearestBar(grid, 200000), 137143);
+  assert.equal(nearestBar(grid, 210000), 274286);
 });

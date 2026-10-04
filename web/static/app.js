@@ -99,7 +99,10 @@ function showNextToast() {
 }
 showNextToast();
 // The tape's link, when the Pi runs one.
-fetch('/api/tapes', { cache: 'no-store' }).then((r) => { $('tape-link').hidden = !r.ok; }).catch(() => {});
+fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
+  $('tape-link').hidden = !r.ok;
+  ribbon?.offerCopy(r.ok); // with the tape on, a span can be copied for it
+}).catch(() => {});
 // Back from the take page can restore this page from the browser's cache,
 // scripts and all, without loading it: catch up then.
 window.addEventListener('pageshow', (e) => {

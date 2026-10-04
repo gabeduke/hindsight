@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -234,4 +235,50 @@ func TestDroppingATakesSpanOntoAnEmptyTapeMakesTheFirstLoop(t *testing.T) {
 	}
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"nope","gain_db":0}}`), http.StatusBadRequest, "no clip")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+dropped.Clip.ID+`","gain_db":40}}`), http.StatusBadRequest, "loud clip")
+}
+
+func TestTheClipboardCopiesATakeAndDropsItOnATape(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_11-00-00.wav", 192000)
+	id := makeLoadedTape(t, r)
+
+	w := send(t, r, http.MethodGet, "/api/clipboard", "")
+	want(t, w, http.StatusOK, "empty clipboard")
+	if !strings.Contains(w.Body.String(), `"clipboard":null`) {
+		t.Fatalf("empty clipboard = %s", w.Body.String())
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":1}`), http.StatusConflict, "drop nothing")
+	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"take":"../x.wav","from":0,"to":10}`), http.StatusBadRequest, "bad take")
+	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{}`), http.StatusBadRequest, "nothing named")
+
+	w = send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-04_11-00-00.wav","from":0,"to":48000}`)
+	want(t, w, http.StatusOK, "copy")
+	if !strings.Contains(w.Body.String(), `"seconds":1`) {
+		t.Fatalf("copy = %s", w.Body.String())
+	}
+	w = send(t, r, http.MethodGet, "/api/clipboard/audio", "")
+	want(t, w, http.StatusOK, "audition")
+	if b := w.Body.Bytes(); len(b) != 44+48000*4 || string(b[:4]) != "RIFF" {
+		t.Fatalf("audition: %d bytes", len(b))
+	}
+
+	// Dropped on the empty tape, it's the first loop; tile a copy through a
+	// four-bar loop.
+	w = send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":2}`)
+	want(t, w, http.StatusOK, "drop")
+	s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, ""))
+	if s.Tape.Grid == nil || s.Tape.Grid.Frames != 48000 || len(s.Tape.Tracks[1].Clips) != 1 {
+		t.Fatalf("after the drop: %+v", s.Tape)
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"bars":1}`), http.StatusOK, "relabel")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"loop":{"out":192000}}`), http.StatusOK, "longer loop")
+	clip := s.Tape.Tracks[1].Clips[0].ID
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","tile":true}}`), http.StatusOK, "tile")
+	if n := len(stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")).Tape.Tracks[1].Clips); n != 4 {
+		t.Fatalf("tiled into %d clips, want 4", n)
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","tile":true}}`), http.StatusBadRequest, "no room to tile")
+
+	want(t, send(t, r, http.MethodDelete, "/api/clipboard", ""), http.StatusOK, "clear")
+	want(t, send(t, r, http.MethodGet, "/api/clipboard/audio", ""), http.StatusNotFound, "audition nothing")
 }

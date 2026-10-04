@@ -186,7 +186,8 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **Save as take** makes a new take of just the selection.
 - **Share** sends it from your phone as an MP3 (the whole take, with no
   selection).
-- **Send to tape** puts it on the loaded tape (step 6).
+- **Copy** puts it on the clipboard, to drop onto a tape (step 6d).
+- **Send to tape** copies it and drops it on the loaded tape (step 6).
 - **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
   delete.
 - **Undo** in the header steps back through anything you changed (step 4).
@@ -320,6 +321,9 @@ it to keep it.
 **Tap a flag on the ribbon** for its sheet: **Save from here to now** makes
 a take that starts at the flag; **Delete flag** removes it.
 
+**Copy** *(step 6d, with the tape on)* puts the selected span of MAIN on the
+clipboard, to drop onto a tape.
+
 **Checks — step 5:**
 
 - [demo] Wait ten minutes, then select a span about eight minutes back on the
@@ -333,6 +337,8 @@ a take that starts at the flag; **Delete flag** removes it.
 - [demo] Select a span near the old end and wait until its start passes the
   oldest audio → the bar turns amber and says so; saving still works, from
   the oldest audio.
+- [demo] With the tape on, select a span and tap **Copy** → *Copied …: Drop
+  it on a tape*; the tape page's clipboard shows it. *(Step 6d.)*
 
 ## 7. Recording from your phone
 
@@ -479,8 +485,8 @@ is made.
 
 - On an empty tape, the selection becomes the first loop, on track 1. Its
   length sets the tempo: Hindsight picks the number of bars that puts it
-  nearest 90 BPM, and the loop turns on. A selection too short or too long
-  to be 20–400 BPM is refused.
+  nearest your last tape's tempo (or 90 BPM), and the loop turns on. A
+  selection too short or too long to be 20–400 BPM is refused.
 - On a tape that already has a tempo, it lands at the playhead on track 1,
   replacing what's there.
 
@@ -492,9 +498,10 @@ The tempo is fixed once the tape has audio, because nothing is ever stretched.
 
 **Checks — steps 6a and 6c:**
 
-- [demo] On a take page, select 2 seconds and choose **More → Send to tape**
-  → a toast says it was sent. On the tape page, track 1 holds the clip, the
-  tempo reads *120.0 BPM · 1 bar*, and ⟲ Loop is on.
+- [demo] With no other tapes, on a take page select 2 seconds and choose
+  **More → Send to tape** → a toast says it was sent. On the tape page,
+  track 1 holds the clip, the tempo reads *120.0 BPM · 1 bar*, and ⟲ Loop
+  is on.
 - [demo] Press ▶ → the playhead goes round the loop, the position counts
   bars, and the passes row fills, one button a pass.
 - [demo] Make a new tape, set 90 BPM and 4 bars → it reads *90.0 BPM · 4
@@ -562,8 +569,27 @@ other tapes' undo.
   records. ■ keeps it.
 - The toast has **Cancel** while it records, and **Undo** once kept.
 
-*Step 6d* adds *replace* instead of layering, pan, and selecting bars on a
-ruler.
+**The clipboard (6d)** holds what you last copied -- from a take, the
+ribbon, or a tape (step 7) -- and keeps it through a restart. Its row on the
+tape page shows how long it is and where it came from:
+
+- **Tap it** to hear it.
+- **Drop** puts it on the selected track at the playhead, replacing what's
+  there. Stopped, the playhead moves to the drop's end, so **Drop, Drop,
+  Drop** lays copies end to end. On an empty tape, a drop is the first loop.
+- **×** empties it.
+
+**More (6d):**
+
+- **Layer / Replace** chooses what a catch or a punch does to audio already
+  on the track: sits on top of it, or clears it first.
+- **The ruler** over the lanes shows the bars, with the loop shaded. Tap it
+  to move the playhead to a bar line; hold, then drag across it to loop
+  those bars. The lanes show the loop and a bar either side, so you can drag
+  it a bar wider at a time.
+- **A clip's sheet** has *Repeat to the loop's end*: copies of the clip end
+  to end, wherever its layer is free -- one bar through four.
+- **Tap a track's number again** for its sheet: its name, level and pan.
 
 **Checks — steps 6a and 6c:**
 
@@ -591,6 +617,18 @@ ruler.
   and nothing complains.
 - [rig] Arm track 3 with the guitar in aux, press ▶, play over the count-in
   and two passes, press ■ → the guitar is on track 3, in time.
+- [demo] On a take page choose **More → Copy**, then on an empty tape tap
+  **Drop** three times → the first is the loop, and the next two lie end to
+  end after it. Undo takes them back one at a time.
+- [demo] Tap the clipboard → you hear it; tap again → it stops.
+- [demo] Choose **Replace**, catch a pass onto a track that has audio →
+  the old audio under it is gone, not layered.
+- [demo] Hold on the ruler, drag across two bars → *Looping 2 bars*; the tape
+  loops those.
+- [demo] Tap a 1-bar clip in a 4-bar loop, *Repeat to the loop's end* → four
+  copies.
+- [demo] Tap the selected track's number, set its pan to the left → it sits
+  left.
 - [rig] Turn channel 1's FX knob → the tape's sound changes, and the live
   instrument on aux doesn't.
 - [rig] Play the Orchid into aux over the loop for two passes, catch −1
@@ -770,6 +808,14 @@ has no tip.
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape |
+| Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars |
+| Layer / Replace | Onto audio already there: layer on top of it, or replace it |
+| Clipboard | What you copied last, from a take, the ribbon or a tape. Tap to hear it |
+| × (clipboard) | Empty the clipboard |
+| Repeat to the loop’s end | Copies of this clip end to end, to the end of the loop: one bar through four |
+| Track name | What’s on this track, for you: chords, bass… |
+| Pan | Where this track sits between left and right |
+| Copy (ribbon) | Put the span you selected on the clipboard, to drop onto a tape |
 | ● Rec (tape) | Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it |
 | ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty |
 | Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
@@ -779,12 +825,11 @@ has no tip.
 | Clip level | This clip's level within its track |
 | Nudge | Move the clip a few milliseconds, for a part a little early or late |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
-| Rec | Record the next time round the loop. Stopped: arm, then ▶ counts you in |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
 | Lift | Cut the selection into the clipboard |
-| Copy | Copy the selection into the clipboard |
-| Drop | Paste the clipboard at the playhead; tap again to lay another copy after it |
+| Copy | Put the selection on the clipboard, to drop onto a tape |
+| Drop | The clipboard onto the selected track at the playhead, replacing what’s there. Drop again to lay another copy after it |
 | Merge drop | Paste a four-track clipboard onto one track, mixed |
 | Split | Cut the clip in two at the playhead |
 | Join | Rejoin two neighbouring clips |

@@ -210,11 +210,15 @@ func (e *Engine) lastBPM(except string) float64 {
 }
 
 // guessBarsNear picks the bar count, a power of two, that puts a loop's
-// tempo nearest bpm.
+// tempo nearest bpm, among those that make a tempo of 20–400 BPM (1 if
+// none does; the caller refuses it).
 func guessBarsNear(frames int64, sampleRate int, bpm float64) int {
 	best, bestDiff := 1, math.Inf(1)
 	for b := 1; b <= 32; b *= 2 {
 		got := Grid{Frames: frames, Bars: b}.BPM(sampleRate)
+		if got < 20 || got > 400 {
+			continue
+		}
 		if d := math.Abs(math.Log(got / bpm)); d < bestDiff {
 			best, bestDiff = b, d
 		}

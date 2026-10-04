@@ -1,10 +1,12 @@
 package api
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -62,7 +64,8 @@ func tapeErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, tape.ErrNoTape), errors.Is(err, tape.ErrWrongTape), errors.Is(err, tape.ErrNotYet),
 		errors.Is(err, tape.ErrGone), errors.Is(err, tape.ErrNoPass), errors.Is(err, tape.ErrNothingToDo),
 		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed),
-		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording):
+		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
+		errors.Is(err, tape.ErrEmptyClipboard):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
 		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid):
@@ -186,6 +189,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			GainDB  *float64 `json:"gain_db"`
 			NudgeMS *float64 `json:"nudge_ms"`
 			Remove  bool     `json:"remove"`
+			Tile    bool     `json:"tile"`
 		} `json:"clip"`
 	}
 	if !decodeBody(w, r, &b) {
@@ -283,7 +287,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if c := b.Clip; c != nil {
-				return patchClip(s, c.ID, c.GainDB, c.NudgeMS, c.Remove)
+				return patchClip(s, c.ID, c.GainDB, c.NudgeMS, c.Remove, c.Tile)
 			}
 			return nil
 		})
@@ -301,8 +305,8 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	a.writeTapeState(w, id)
 }
 
-// patchClip changes or removes one clip of a state.
-func patchClip(s *tape.State, id string, gainDB, nudgeMS *float64, remove bool) error {
+// patchClip changes, tiles or removes one clip of a state.
+func patchClip(s *tape.State, id string, gainDB, nudgeMS *float64, remove, tile bool) error {
 	for ti := range s.Tracks {
 		for ci := range s.Tracks[ti].Clips {
 			cl := &s.Tracks[ti].Clips[ci]
@@ -311,6 +315,32 @@ func patchClip(s *tape.State, id string, gainDB, nudgeMS *float64, remove bool) 
 			}
 			if remove {
 				s.Tracks[ti].Clips = append(s.Tracks[ti].Clips[:ci], s.Tracks[ti].Clips[ci+1:]...)
+				return nil
+			}
+			if tile {
+				// Copies end to end on its own layer, to the loop's end --
+				// one bar through four -- wherever that layer is free.
+				c := *cl
+				n := 0
+				for at := c.End(); s.Loop.On && at+c.Frames <= s.Loop.Out; at += c.Frames {
+					free := true
+					for _, o := range s.Tracks[ti].Clips {
+						if o.Layer == c.Layer && o.At < at+c.Frames && at < o.End() {
+							free = false
+							break
+						}
+					}
+					if !free {
+						continue
+					}
+					cp := c
+					cp.ID, cp.At = tape.NewClipID(), at
+					s.Tracks[ti].Clips = append(s.Tracks[ti].Clips, cp)
+					n++
+				}
+				if n == 0 {
+					return fmt.Errorf("%w: there's no free room in the loop after it for a copy", tape.ErrBadParameter)
+				}
 				return nil
 			}
 			if gainDB != nil {
@@ -418,13 +448,14 @@ func (a *API) handleTapeRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var b struct {
-		Track  int    `json:"track"`
-		Source string `json:"source"`
+		Track   int    `json:"track"`
+		Source  string `json:"source"`
+		Replace bool   `json:"replace"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
-	rec, err := a.tape.Record(r.URL.Query().Get("id"), b.Track, b.Source)
+	rec, err := a.tape.Record(r.URL.Query().Get("id"), b.Track, b.Source, b.Replace)
 	if err != nil {
 		tapeErr(w, err)
 		return
@@ -506,6 +537,19 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &b) {
 		return
 	}
+	if b.Track == 0 {
+		b.Track = 1
+	}
+	if b.Take == "" {
+		// The clipboard, at the playhead.
+		d, err := a.tape.DropClipboard(r.URL.Query().Get("id"), b.Track)
+		if err != nil {
+			tapeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, d)
+		return
+	}
 	name, err := a.safeTakeName(b.Take)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -519,11 +563,9 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 	if b.Track == 0 {
 		b.Track = 1
 	}
-	// The take's configured pair, as previews and slices use: a stereo take
-	// is its own pair, a multichannel one gives SAVE_CHANNELS'.
 	pick := []int{0, 1}
-	if info, err := audio.ReadWAVInfo(path); err == nil && info.Channels > 2 && len(a.cfg.SaveChannels) > 0 {
-		pick = []int{a.cfg.SaveChannels[0], a.cfg.SaveChannels[len(a.cfg.SaveChannels)-1]}
+	if info, err := audio.ReadWAVInfo(path); err == nil {
+		pick = a.takePair(info.Channels)
 	}
 	clip, err := a.tape.DropTake(r.URL.Query().Get("id"), path, b.From, b.To, b.Track, b.Bars, pick)
 	if err != nil {
@@ -596,4 +638,150 @@ func (a *API) handleTapePeaks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.Write(b)
+}
+
+// takePair is the pair of a take that goes onto tape, as previews and slices
+// use: a stereo take is its own pair, a multichannel one gives
+// SAVE_CHANNELS', and a mono one both sides.
+func (a *API) takePair(channels int) []int {
+	switch {
+	case channels == 1:
+		return []int{0, 0}
+	case channels > 2 && len(a.cfg.SaveChannels) > 0:
+		return []int{a.cfg.SaveChannels[0], a.cfg.SaveChannels[len(a.cfg.SaveChannels)-1]}
+	}
+	return []int{0, 1}
+}
+
+// --- the clipboard -----------------------------------------------------------
+
+//	GET    /api/clipboard        what's on it
+//	GET    /api/clipboard/audio  its tracks summed, as a WAV, to audition
+//	POST   /api/clipboard        copy {take, from, to} or {ring_from, ring_to, source}
+//	DELETE /api/clipboard        clear it
+
+func (a *API) handleClipboard(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	c := a.tape.Clipboard()
+	resp := map[string]any{"clipboard": nil}
+	if !c.Empty() {
+		resp = map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())}
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		Take     string `json:"take"`
+		From     int64  `json:"from"`
+		To       int64  `json:"to"`
+		RingFrom *int64 `json:"ring_from"`
+		RingTo   *int64 `json:"ring_to"`
+		Source   string `json:"source"`
+	}
+	if !decodeBody(w, r, &b) {
+		return
+	}
+	var c *tape.Clipboard
+	var err error
+	switch {
+	case b.Take != "":
+		name, nerr := a.safeTakeName(b.Take)
+		if nerr != nil {
+			writeErr(w, http.StatusBadRequest, nerr.Error())
+			return
+		}
+		path := filepath.Join(a.cfg.OutputDir, name)
+		info, serr := audio.ReadWAVInfo(path)
+		if serr != nil {
+			writeErr(w, http.StatusNotFound, "no such take")
+			return
+		}
+		c, err = a.tape.CopyTake(path, name, b.From, b.To, a.takePair(info.Channels))
+	case b.RingFrom != nil:
+		to := int64(-1)
+		if b.RingTo != nil {
+			to = *b.RingTo
+		} else if a.cap != nil {
+			_, total := a.cap.Ring().Window()
+			to = int64(total)
+		}
+		src := b.Source
+		if src == "" {
+			src = "main"
+		}
+		c, err = a.tape.CopyRing(*b.RingFrom, to, src)
+	default:
+		writeErr(w, http.StatusBadRequest, "copy a take's {take, from, to} or the ring's {ring_from, ring_to, source}")
+		return
+	}
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())})
+}
+
+func (a *API) handleClipboardClear(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	if err := a.tape.ClearClipboard(); err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"clipboard": nil})
+}
+
+// handleClipboardAudio streams the clipboard, its tracks summed, as a
+// 16-bit WAV.
+func (a *API) handleClipboardAudio(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	c := a.tape.Clipboard()
+	if c.Empty() {
+		writeErr(w, http.StatusNotFound, tape.ErrEmptyClipboard.Error())
+		return
+	}
+	sr := a.tape.Store().SampleRate()
+	w.Header().Set("Content-Type", "audio/wav")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(wav16Header(int(c.Frames), 2, sr))
+	buf := make([]byte, 0, 4*tape.BlockFrames)
+	a.tape.ClipboardAudio(func(b []float32) error {
+		buf = buf[:0]
+		for _, v := range b {
+			x := int32(math.Round(float64(v) * 32767))
+			x = max(-32768, min(32767, x))
+			buf = append(buf, byte(x), byte(x>>8))
+		}
+		_, err := w.Write(buf)
+		return err
+	})
+}
+
+// wav16Header is a 44-byte RIFF header for 16-bit PCM.
+func wav16Header(frames, channels, sampleRate int) []byte {
+	data := frames * channels * 2
+	h := make([]byte, 44)
+	copy(h[0:], "RIFF")
+	binary.LittleEndian.PutUint32(h[4:], uint32(36+data))
+	copy(h[8:], "WAVEfmt ")
+	binary.LittleEndian.PutUint32(h[16:], 16)
+	binary.LittleEndian.PutUint16(h[20:], 1)
+	binary.LittleEndian.PutUint16(h[22:], uint16(channels))
+	binary.LittleEndian.PutUint32(h[24:], uint32(sampleRate))
+	binary.LittleEndian.PutUint32(h[28:], uint32(sampleRate*channels*2))
+	binary.LittleEndian.PutUint16(h[32:], uint16(channels*2))
+	binary.LittleEndian.PutUint16(h[34:], 16)
+	copy(h[36:], "data")
+	binary.LittleEndian.PutUint32(h[40:], uint32(data))
+	return h
 }

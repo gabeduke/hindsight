@@ -16,6 +16,38 @@ export function viewRange(tape) {
   return { from: 0, to: Math.max(end, 30 * sr) };
 }
 
+/**
+ * editView is what the lanes and the ruler show: with a loop on the grid,
+ * the loop and a bar either side, so the loop can be dragged a bar wider;
+ * otherwise viewRange's.
+ */
+export function editView(tape) {
+  const g = tape.grid;
+  const l = tape.loop || {};
+  if (!g || !(g.frames > 0) || !(l.out > l.in)) return viewRange(tape);
+  const bar = g.frames / g.bars;
+  return { from: Math.max(0, Math.round(l.in - bar)), to: Math.round(l.out + bar) };
+}
+
+/**
+ * barSpan turns a drag across the ruler, between two tape frames in either
+ * order, into whole bars: from the bar line at or before the earlier to the
+ * one at or after the later, at least one bar.
+ */
+export function barSpan(grid, a, b) {
+  const bar = grid.frames / grid.bars;
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  const n0 = Math.max(0, Math.floor(lo / bar + 1e-9));
+  const n1 = Math.max(n0 + 1, Math.ceil(hi / bar - 1e-9));
+  return { from: Math.round(n0 * bar), to: Math.round(n1 * bar) };
+}
+
+/** nearestBar is the bar line nearest a tape frame. */
+export function nearestBar(grid, f) {
+  const bar = grid.frames / grid.bars;
+  return Math.round(Math.max(0, Math.round(f / bar)) * bar);
+}
+
 /** xOf is where a tape frame sits across `width` pixels of a view. */
 export function xOf(frame, view, width) {
   return ((frame - view.from) / (view.to - view.from)) * width;
