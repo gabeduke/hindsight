@@ -169,7 +169,7 @@ func startTape(cfg *config.Config, cap *audio.Capture, src audio.Source, demo bo
 	}
 	var sink audio.Sink
 	if demo {
-		sink = audio.NewDemoSink(src)
+		sink = audio.NewDemoSink(src, cap)
 	} else {
 		// The PortAudio output, sharing the capture's lifecycle, is the next
 		// step. Until then tapes can be made from takes and edited, but not

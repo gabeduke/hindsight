@@ -60,9 +60,10 @@ type demoSource struct {
 // MAIN. With it open, AUX (7/8) carries the synthetic loop, standing in for
 // the instrument being layered, and the taps carry only the returns.
 //
-// Both sides run off the source's one frame counter, one block apart, so
-// where the output lands in the ring is fixed and known exactly: the demo's
-// version of the Pi hearing itself.
+// Each block pulled is played into the next input block, so where the output
+// lands in the ring is known exactly: the demo's version of the Pi hearing
+// itself. It's counted against the frames the capture has actually handed to
+// the ring, so a dropped block or a reopened source doesn't throw it off.
 type demoLoop struct {
 	mu       sync.Mutex
 	pull     func([]int32) // the sink's consumer; nil when closed
@@ -71,6 +72,10 @@ type demoLoop struct {
 	pulled   int64   // output frames pulled since Open
 	delta    int64   // ring frame = output frame + delta
 	known    bool
+	// handed is the capture's count of frames handed to the ring: the ring
+	// frame the block being delivered will start at. Read only on the
+	// source's delivery goroutine, where the capture writes it.
+	handed func() uint64
 }
 
 // MIDISink is the optional capability of a Source that can also say what a
@@ -347,11 +352,20 @@ func (s *demoSource) loopback(block []int32, n int64) {
 			set(6, synthL) // AUX: the instrument being layered
 			set(7, synthR)
 		}
+		// The held block, output frames [pulled-fpb, pulled), is in this
+		// one, which the ring will hold from the frame handed counts to.
+		if l.handed != nil {
+			l.delta = int64(l.handed()) - (l.pulled - int64(fpb))
+		}
 	}
 	if l.held == nil {
 		l.held = make([]int32, fpb*l.channels)
 		// What's pulled now plays into the next block.
-		l.delta = n + int64(fpb) - l.pulled
+		if l.handed != nil {
+			l.delta = int64(l.handed()) + int64(fpb) - l.pulled
+		} else {
+			l.delta = n + int64(fpb) - l.pulled
+		}
 		l.known = true
 	}
 	l.pull(l.held)
@@ -369,17 +383,21 @@ func sat32(v int64) int32 {
 }
 
 // demoSink is the demo's tape output: it plays into the demo source.
-type demoSink struct{ src *demoSource }
+type demoSink struct {
+	src *demoSource
+	cap *Capture
+}
 
 // NewDemoSink returns a Sink that plays into the demo source -- the tape
 // heard in the ribbon and the takes, as the Sidekick would make it -- or nil
-// for a source that isn't the demo.
-func NewDemoSink(src Source) Sink {
+// for a source that isn't the demo. cap is the capture the source feeds
+// (nil: count by the source's own frames).
+func NewDemoSink(src Source, cap *Capture) Sink {
 	d, ok := src.(*demoSource)
 	if !ok {
 		return nil
 	}
-	return &demoSink{src: d}
+	return &demoSink{src: d, cap: cap}
 }
 
 func (d *demoSink) Open(channels int, pull func([]int32)) (string, error) {
@@ -387,6 +405,10 @@ func (d *demoSink) Open(channels int, pull func([]int32)) (string, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.pull, l.channels, l.held, l.pulled, l.known = pull, channels, nil, 0, false
+	l.handed = nil
+	if c := d.cap; c != nil {
+		l.handed = func() uint64 { return c.handed }
+	}
 	return "Demo loopback (the demo source hears it)", nil
 }
 

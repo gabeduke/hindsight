@@ -424,8 +424,9 @@ From the top:
 - **The dot** is green when the tape's playback and the recording are lined
   up to the sample. Catching needs it. The demo is always lined up; on the Pi
   that arrives with step 6b.
-- **↶ ↷** undo and redo every change to the tape. 100 steps are kept, with
-  the tape, so they survive a restart and every device shares them.
+- **↶ ↷** undo and redo every change to the tape except its name. 100 steps
+  are kept, with the tape, so they survive a restart and every device shares
+  them.
 - **The overview** is the whole tape, six minutes: what's on each track, and
   the loop in amber.
 - **Four lanes**, one per track:
@@ -435,8 +436,9 @@ From the top:
     another clip is drawn blue.
   - Tap a clip to open its sheet. Tap an empty part of a lane to move the
     playhead there.
-- **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off. Beside
-  them is where the tape is, as bar.beat and time.
+- **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
+  tape plays on to the end of what's recorded. Beside them is where the tape
+  is, as bar.beat and time.
 - **Catch from** chooses the input a catch takes from: main, ch1, ch2 or aux.
   - **●** means clean: none of the tape's own playback is in it.
   - **○** means the tape is in it: ch1 hears bus A, ch2 hears bus B, and main
@@ -454,7 +456,8 @@ is made.
 
 - On an empty tape, the selection becomes the first loop, on track 1. Its
   length sets the tempo: Hindsight picks the number of bars that puts it
-  nearest 90 BPM, and the loop turns on.
+  nearest 90 BPM, and the loop turns on. A selection too short or too long
+  to be 20–400 BPM is refused.
 - On a tape that already has a tempo, it lands at the playhead on track 1,
   replacing what's there.
 
@@ -488,10 +491,12 @@ and the click.
 anyway. Choose a source and select a track, then:
 
 - **Catch the last pass**, or tap a pass in the row, to put that whole time
-  round on the track, where it was played.
+  round on the track, where it was played. Moving the loop, or loading
+  another tape, starts the passes again.
 - **1 bar / 2 / 4** catches the last bars, up to the last bar line the ring
   has heard. A catch that runs across the loop's end is split in two, so it
-  still plays where it was played.
+  still plays where it was played, and carries on across the seam without a
+  bump.
 
 A catch goes on top of what's already on the track, as a layer, the way an
 OP-1 overdubs. Its toast has **Undo**.
@@ -707,7 +712,7 @@ has no tip.
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape |
-| ⟲ Loop (tape) | Loop the bracket, or play on to the end of the tape |
+| ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded |
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
 | Clip level | This clip's level within its track |
 | Nudge | Move the clip a few milliseconds, for a part a little early or late |

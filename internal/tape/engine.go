@@ -90,6 +90,8 @@ type Engine struct {
 	mu   sync.Mutex // the model: the loaded tape
 	tape *Tape
 
+	rebuildMu sync.Mutex // one mix built at a time, so the newest is stored last
+
 	mix     atomic.Pointer[Mix]
 	tr      *transport
 	actions chan Action
@@ -140,19 +142,25 @@ func NewEngine(o Options) *Engine {
 // Start opens the output and starts rendering. Without a sink, nothing
 // plays and the transport stands still, but tapes can still be edited and
 // caught onto.
+//
+// If the output won't open, the engine runs without one, and says why.
 func (e *Engine) Start() error {
+	var err error
 	if e.sink != nil {
-		name, err := e.sink.Open(OutChannels, e.pull)
-		if err != nil {
-			return fmt.Errorf("tape output: %w", err)
-		}
-		e.sinkName = name
+		// The device may pull the moment it's open.
 		e.sinkBase.Store(int64(e.delivered.Load()))
-		log.Printf("[*] tape output on %q", name)
+		name, oerr := e.sink.Open(OutChannels, e.pull)
+		if oerr != nil {
+			e.sink = nil
+			err = fmt.Errorf("tape output: %w", oerr)
+		} else {
+			e.sinkName = name
+			log.Printf("[*] tape output on %q", name)
+		}
 	}
 	e.started.Store(true)
 	go e.renderLoop()
-	return nil
+	return err
 }
 
 // Stop closes the output and stops rendering.
@@ -174,6 +182,15 @@ func (e *Engine) Stop() {
 // pull is the device's callback: copy what's rendered, or silence. It never
 // blocks and, once warm, never allocates.
 func (e *Engine) pull(out []int32) {
+	// It runs on the device's thread -- in the demo, the capture's: a bug
+	// here plays silence rather than taking the recording down.
+	defer func() {
+		if p := recover(); p != nil {
+			clear(out)
+			e.cur = nil
+			e.panicked.Store(fmt.Sprint(p))
+		}
+	}()
 	need := len(out) / OutChannels
 	o := 0
 	d := e.delivered.Load()
@@ -289,18 +306,16 @@ func (e *Engine) safely(f func()) {
 func (e *Engine) advance(dst []float32, out uint64, n int) {
 	tr := e.tr
 	m := e.mix.Load()
-	length := e.length()
-	var grid *Grid
-	e.mu.Lock()
-	if e.tape != nil && e.tape.Grid != nil {
-		g := *e.tape.Grid
-		grid = &g
-	}
-	e.mu.Unlock()
+	length := m.length
 	for {
 		select {
 		case a := <-e.actions:
-			tr.pend = append(tr.pend, pending{at: tr.target(a, out, m, grid), action: a})
+			if a.Kind == "reset" {
+				tr.reset(out)
+				close(a.done)
+				continue
+			}
+			tr.queue(pending{at: tr.target(a, out, m, m.grid), action: a})
 			continue
 		default:
 		}
@@ -331,16 +346,20 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				span = min64(span, end-tr.pos)
 			}
 			if dst != nil {
-				m.Render(dst[off*OutChannels:], tr.pos, int(span))
+				m.render(dst[off*OutChannels:], tr.pos, int(span), tr.afterWrap)
 			}
 			tr.pos += span
 			if looping && tr.pos == m.loop.Out {
 				at := out + uint64(span)
-				if tr.cycleStart >= 0 {
+				// A whole pass: from this loop's In to its Out without a
+				// break. One begun under another loop (an edit moved In or
+				// Out mid-pass) isn't one, and isn't logged.
+				if tr.cycleStart >= 0 && tr.cycleIn == m.loop.In && int64(at)-tr.cycleStart == m.loop.Len() {
 					tr.logCycle(Cycle{Out: uint64(tr.cycleStart), In: m.loop.In, Len: m.loop.Len()})
 				}
 				tr.pos = m.loop.In
-				tr.cycleStart = int64(at)
+				tr.cycleStart, tr.cycleIn = int64(at), m.loop.In
+				tr.afterWrap = true
 				tr.record(at)
 			}
 		}
@@ -358,12 +377,16 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 func (e *Engine) idle(out uint64) {
 	tr := e.tr
 	m := e.mix.Load()
-	length := e.length()
 	for {
 		select {
 		case a := <-e.actions:
-			if a.Kind != "play" {
-				tr.apply(a, out, m, length)
+			switch a.Kind {
+			case "reset":
+				tr.reset(out)
+				close(a.done)
+			case "play":
+			default:
+				tr.apply(a, out, m, m.length)
 			}
 			continue
 		default:
@@ -378,15 +401,6 @@ func (e *Engine) idle(out uint64) {
 // HasOutput reports whether anything plays the tape.
 func (e *Engine) HasOutput() bool { return e.sink != nil }
 
-func (e *Engine) length() int64 {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.tape == nil {
-		return 0
-	}
-	return e.tape.Length
-}
-
 // --- the model ----------------------------------------------------------------
 
 // Load makes a tape the loaded one, stopped at its start.
@@ -395,6 +409,8 @@ func (e *Engine) Load(id string) (*Tape, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Stop the last tape, and forget its passes, before this one can play.
+	e.reset()
 	e.mu.Lock()
 	e.tape = t
 	e.mu.Unlock()
@@ -402,10 +418,36 @@ func (e *Engine) Load(id string) (*Tape, error) {
 		log.Printf("[!] tape: noting %s as loaded: %v", id, err)
 	}
 	e.rebuild()
-	e.Do(Action{Kind: "stop"})
-	e.Do(Action{Kind: "forget"})
 	e.Do(Action{Kind: "locate", Pos: t.Loop.In})
 	return t, nil
+}
+
+// reset stops the transport, drops its queue and forgets its passes, and
+// waits until that's done: the render goroutine owns the transport, so it
+// does it, between two blocks.
+func (e *Engine) reset() {
+	select {
+	case <-e.stop:
+		return
+	default:
+	}
+	if !e.started.Load() {
+		e.tr.reset(e.delivered.Load())
+		return
+	}
+	done := make(chan struct{})
+	select {
+	case e.actions <- Action{Kind: "reset", done: done}:
+	case <-time.After(time.Second):
+		log.Printf("[!] tape: the transport queue is stuck; loading anyway")
+		return
+	}
+	select {
+	case <-done:
+	case <-e.stop:
+	case <-time.After(2 * time.Second):
+		log.Printf("[!] tape: the transport didn't answer; loading anyway")
+	}
 }
 
 // Loaded is a copy of the loaded tape, or nil.
@@ -431,14 +473,33 @@ func (e *Engine) UndoDepth() (undo, redo int) {
 	return len(e.tape.History), len(e.tape.Future)
 }
 
+// rebuild makes the mix the render goroutine plays from the loaded tape.
+// Rebuilds take turns, each from the tape as it is when its turn comes, so
+// the last one stored is always the newest.
 func (e *Engine) rebuild() {
+	e.rebuildMu.Lock()
+	defer e.rebuildMu.Unlock()
 	e.mu.Lock()
 	var st State
-	if e.tape != nil {
-		st = e.tape.State.clone()
+	var id string
+	var length int64
+	keep := map[string]bool{}
+	if t := e.tape; t != nil {
+		st, id, length = t.State.clone(), t.ID, t.Length
+		// Keep what one undo or redo would play, so it's heard at once.
+		st.files(keep)
+		if n := len(t.History); n > 0 {
+			t.History[n-1].files(keep)
+		}
+		if n := len(t.Future); n > 0 {
+			t.Future[n-1].files(keep)
+		}
 	}
 	e.mu.Unlock()
-	e.mix.Store(NewMix(st, e.pool, e.store.SampleRate()))
+	m := NewMix(st, e.pool, e.store.SampleRate())
+	m.tapeID, m.length = id, length
+	e.mix.Store(m)
+	e.pool.Keep(keep)
 }
 
 // Edit changes the loaded tape (which must be id) as one undo step, saves it
@@ -453,10 +514,13 @@ func (e *Engine) Edit(id, kind string, fn func(t *Tape, s *State) error) error {
 		e.mu.Unlock()
 		return ErrWrongTape
 	}
-	t := e.tape
+	t := e.tape.draft()
 	err := t.Change(kind, time.Now(), func(s *State) error { return fn(t, s) })
 	if err == nil {
 		err = e.store.Save(t)
+	}
+	if err == nil {
+		e.tape = t
 	}
 	e.mu.Unlock()
 	if err != nil {
@@ -473,14 +537,18 @@ func (e *Engine) Undo(id string, redo bool) error {
 		e.mu.Unlock()
 		return ErrWrongTape
 	}
+	t := e.tape.draft()
 	var err error
 	if redo {
-		err = e.tape.Redo()
+		err = t.Redo()
 	} else {
-		err = e.tape.Undo()
+		err = t.Undo()
 	}
 	if err == nil {
-		err = e.store.Save(e.tape)
+		err = e.store.Save(t)
+	}
+	if err == nil {
+		e.tape = t
 	}
 	e.mu.Unlock()
 	if err == nil {
@@ -504,7 +572,7 @@ type Live struct {
 	Status
 	Heard     int64    `json:"heard"`     // the tape frame at the device now
 	Delivered uint64   `json:"delivered"` // output frames played
-	Late      uint64   `json:"late"`      // blocks played as silence
+	Late      uint64   `json:"late"`      // device periods with nothing rendered, played as silence
 	Output    string   `json:"output"`    // the output device, or ""
 	Delta     *int64   `json:"delta"`     // ring frame − output frame, if known
 	Aligned   string   `json:"aligned"`   // exact, estimated or none
@@ -550,11 +618,15 @@ func (e *Engine) delta() (int64, string) {
 
 // CatchRequest names what to catch and where it goes.
 type CatchRequest struct {
-	Track   int    `json:"track"`
-	Source  string `json:"source"`
-	Pass    int    `json:"pass"`    // 1 is the last complete pass of the loop, 2 the one before
-	Bars    int    `json:"bars"`    // or: the last this many bars
-	Replace bool   `json:"replace"` // clear what's under it instead of layering
+	Track  int    `json:"track"`
+	Source string `json:"source"`
+	Pass   int    `json:"pass"` // 1 is the last complete pass of the loop, 2 the one before
+	// Out names a pass by the output frame it began at (a cycle's out), so
+	// a tap means the pass that was on screen even if another has finished
+	// since. It wins over Pass.
+	Out     *uint64 `json:"out,omitempty"`
+	Bars    int     `json:"bars"`    // or: the last this many bars
+	Replace bool    `json:"replace"` // clear what's under it instead of layering
 }
 
 func (e *Engine) source(name string) (Source, bool) {
@@ -596,6 +668,16 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 	var outFrom uint64
 	var frames, at int64
 	switch {
+	case req.Out != nil:
+		found := false
+		for _, c := range e.tr.Cycles() {
+			if c.Out == *req.Out {
+				outFrom, frames, at, found = c.Out, c.Len, c.In, true
+			}
+		}
+		if !found {
+			return Clip{}, fmt.Errorf("%w: that pass is no longer kept", ErrNoPass)
+		}
 	case req.Pass > 0:
 		cyc := e.tr.Cycles()
 		if req.Pass > len(cyc) {
@@ -787,6 +869,10 @@ func (e *Engine) DropTake(id string, take string, from, to int64, track, bars in
 			if bars <= 0 {
 				bars = guessBars(frames, e.store.SampleRate())
 			}
+			if bpm := (Grid{Frames: frames, Bars: bars}).BPM(e.store.SampleRate()); bars > 64 || bpm < 20 || bpm > 400 {
+				return fmt.Errorf("%w: %.2f s as %d bars is %.0f BPM; a first loop is 20–400 BPM",
+					ErrBadParameter, float64(frames)/float64(e.store.SampleRate()), bars, bpm)
+			}
 			s.Grid = &Grid{Frames: frames, Bars: bars}
 			s.Loop = Loop{In: 0, Out: frames, On: true}
 			clip.At = 0
@@ -824,10 +910,15 @@ func (e *Engine) SetMeta(id string, fn func(t *Tape) error) error {
 	if e.tape == nil || e.tape.ID != id {
 		return ErrWrongTape
 	}
-	if err := fn(e.tape); err != nil {
+	t := e.tape.draft()
+	if err := fn(t); err != nil {
 		return err
 	}
-	return e.store.Save(e.tape)
+	if err := e.store.Save(t); err != nil {
+		return err
+	}
+	e.tape = t
+	return nil
 }
 
 // LoadedID is the loaded tape's id, or "".

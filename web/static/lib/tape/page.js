@@ -69,20 +69,36 @@ async function boot() {
   setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
 }
 
+// gen counts changes this page has made; a poll that was in flight across
+// one answers with the tape from before it, and is dropped.
 let polling = false;
+let gen = 0;
 async function poll() {
   if (polling || !state.id) return;
   polling = true;
+  const g = gen;
   try {
-    apply(await api(`/api/tapes/state?${q()}`));
+    const s = await api(`/api/tapes/state?${q()}`);
+    if (!s.loaded) { await follow(); return; }
+    if (g === gen) apply(s);
   } catch (e) {
-    if (e.status === 404 || e.status === 409) {
-      // Another device loaded a different tape: follow it.
-      try { const l = await api('/api/tapes'); if (l.loaded && l.loaded !== state.id) { state.id = l.loaded; } } catch { /* next poll */ }
-    }
+    if (e.status === 404) await follow();
   } finally {
     polling = false;
   }
+}
+
+// follow switches to the tape that's loaded now: another device loaded it,
+// or deleted this one.
+async function follow() {
+  try {
+    const l = await api('/api/tapes');
+    if (l.loaded && l.loaded !== state.id) {
+      state.id = l.loaded;
+      state.tape = null;
+      toast('Another device loaded a different tape');
+    }
+  } catch { /* the next poll tries again */ }
 }
 
 function apply(s) {
@@ -174,7 +190,9 @@ function renderPasses() {
     b.dataset.tip = 'passes';
     b.textContent = `−${k}`;
     b.title = `Catch pass −${k} onto track ${state.track}`;
-    b.addEventListener('click', () => doCatch({ pass: k }));
+    // By the pass's own start, so it's the one on screen even if another
+    // has finished since.
+    b.addEventListener('click', () => doCatch({ out: c.out }));
     return b;
   }));
   if (!recent.length) {
@@ -334,6 +352,7 @@ function drawOverview() {
 
 // patch changes the tape, and says whether it did.
 async function patch(body) {
+  gen++;
   try {
     apply(await api(`/api/tapes?${q()}`, { method: 'PATCH', body }));
     return true;
@@ -364,6 +383,7 @@ function laneTap(lane, e) {
 }
 
 async function doCatch(what) {
+  gen++;
   const body = { track: state.track, source: state.source, ...what };
   try {
     const b = await api(`/api/tapes/catch?${q()}`, { method: 'POST', body });
@@ -378,6 +398,7 @@ async function doCatch(what) {
 }
 
 async function undoRedo(redo) {
+  gen++;
   try {
     apply(await api(`/api/tapes/${redo ? 'redo' : 'undo'}?${q()}`, { method: 'POST' }));
   } catch (e) {

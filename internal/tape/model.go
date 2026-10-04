@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"time"
 )
@@ -130,7 +131,7 @@ type Clip struct {
 	NudgeMS float64 `json:"nudge_ms,omitempty"`
 	Source  string  `json:"source,omitempty"`  // the capture pair it came from: aux, main, ch1, ch2, or a take
 	Clean   bool    `json:"clean,omitempty"`   // no tape bus was leaking into that source
-	Aligned string  `json:"aligned,omitempty"` // locked, estimated, or "" for a drop
+	Aligned string  `json:"aligned,omitempty"` // how the catch was lined up: exact (the demo), locked or estimated (6b); "" for a drop
 }
 
 // End is the tape frame after the clip's last.
@@ -270,6 +271,25 @@ func (t *Tape) Change(kind string, now time.Time, fn func(s *State) error) error
 	t.State = next
 	t.lastKind, t.lastAt = kind, now
 	return nil
+}
+
+// draft is a copy of the tape to change: edit it, save it, and only then
+// make it the tape, so a failed save changes nothing. States are never
+// changed in place, so only the lists of them are copied.
+func (t *Tape) draft() *Tape {
+	c := *t
+	c.History = slices.Clone(t.History)
+	c.Future = slices.Clone(t.Future)
+	return &c
+}
+
+// files lists the pool files a state plays.
+func (s State) files(into map[string]bool) {
+	for _, tr := range s.Tracks {
+		for _, c := range tr.Clips {
+			into[c.File] = true
+		}
+	}
 }
 
 // Undo steps back one version, Redo forward one.

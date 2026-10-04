@@ -137,8 +137,12 @@ func (s *Store) Create(name string, bpm float64, bars int, now time.Time) (*Tape
 	base := now.Format("2006-01-02") + "_" + slug(name)
 	id := base
 	for n := 2; ; n++ {
-		if _, err := os.Stat(filepath.Join(s.dir, "tapes", id)); errors.Is(err, fs.ErrNotExist) {
+		_, err := os.Stat(filepath.Join(s.dir, "tapes", id))
+		if errors.Is(err, fs.ErrNotExist) {
 			break
+		}
+		if err != nil {
+			return nil, err
 		}
 		id = fmt.Sprintf("%s_%d", base, n)
 	}
@@ -154,10 +158,15 @@ func (s *Store) Create(name string, bpm float64, bars int, now time.Time) (*Tape
 		t.Grid = &g
 		t.Loop = Loop{In: 0, Out: g.Frames, On: true}
 	}
-	if err := os.MkdirAll(filepath.Join(s.dir, "tapes", id), 0o755); err != nil {
+	if err := t.State.validate(t.Length); err != nil {
+		return nil, fmt.Errorf("%w: that loop is longer than a track", err)
+	}
+	dir := filepath.Join(s.dir, "tapes", id)
+	if err := os.Mkdir(dir, 0o755); err != nil {
 		return nil, err
 	}
 	if err := s.writeLocked(t); err != nil {
+		os.RemoveAll(dir) // no folder without its tape.json
 		return nil, err
 	}
 	return t, nil
@@ -380,10 +389,13 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 		return 0, 0, err
 	}
 	for _, e := range entries {
-		if !e.IsDir() {
+		if !e.IsDir() || !idPattern.MatchString(e.Name()) {
 			continue
 		}
 		t, err := s.Load(e.Name())
+		if errors.Is(err, ErrNoSuchTape) {
+			continue // a folder with no tape.json: nothing in it uses audio
+		}
 		if err != nil {
 			// A tape that can't be read might still use anything: keep it all.
 			return 0, 0, fmt.Errorf("tape %s can't be read, so nothing was cleaned up: %w", e.Name(), err)

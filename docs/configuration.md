@@ -215,8 +215,9 @@ with it as the clock device that is the normal case.
 ## The tape
 
 The tape ([guide §8](guide.md#8-tape)) is off unless `TAPE=true`. When it's
-on, the main page shows a **Tape** chip. A tape that fails to start is logged
-and left off; it can never stop the dashcam recording.
+on, the main page shows a **Tape** chip. A tape store that won't open is
+logged and the tape left off, and an output that won't open leaves the tape
+running without one; neither can stop the dashcam recording.
 
 | Variable | Default | What it does |
 |---|---|---|

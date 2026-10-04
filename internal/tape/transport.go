@@ -24,9 +24,11 @@ const (
 
 // Action is a transport command.
 type Action struct {
-	Kind    string `json:"action"`  // play, stop, locate (and forget, which only Load sends)
+	Kind    string `json:"action"`  // play, stop, locate
 	Quantum string `json:"quantum"` // now, beat, bar, loop
 	Pos     int64  `json:"pos"`     // for locate
+
+	done chan struct{} // a reset's: closed once it's carried out
 }
 
 // segment is one stretch of the position map: from output frame out, the
@@ -58,6 +60,8 @@ type transport struct {
 	playing    bool
 	pos        int64
 	cycleStart int64 // output frame the current cycle began at, or -1
+	cycleIn    int64 // and the loop's In it began at
+	afterWrap  bool  // pos was reached by wrapping from the loop's Out
 
 	pend []pending
 
@@ -155,6 +159,30 @@ func (t *transport) Status() Status {
 	return t.view
 }
 
+// reset stops the tape, drops whatever was queued, and forgets the passes
+// played: another tape is being loaded, and a pass of the last one must not
+// be caught onto it. Called by the render goroutine, or before it starts.
+func (t *transport) reset(out uint64) {
+	t.pend = nil
+	t.playing, t.cycleStart, t.afterWrap = false, -1, false
+	t.record(out)
+	t.mu.Lock()
+	t.cycles = nil
+	t.view.Playing, t.view.Pending = false, 0
+	t.mu.Unlock()
+}
+
+// queue adds an action in the order it takes effect.
+func (t *transport) queue(p pending) {
+	i := len(t.pend)
+	for i > 0 && t.pend[i-1].at > p.at {
+		i--
+	}
+	t.pend = append(t.pend, pending{})
+	copy(t.pend[i+1:], t.pend[i:])
+	t.pend[i] = p
+}
+
 // target is the output frame an action queued with the render head at
 // (out, pos) takes effect at.
 func (t *transport) target(a Action, out uint64, m *Mix, grid *Grid) uint64 {
@@ -203,20 +231,14 @@ func (t *transport) apply(a Action, out uint64, m *Mix, length int64) {
 		}
 		t.playing = true
 		t.cycleStart = -1
+		t.afterWrap = false
 		if m.loop.On && t.pos == m.loop.In {
-			t.cycleStart = int64(out)
+			t.cycleStart, t.cycleIn = int64(out), m.loop.In
 		}
 	case "stop":
 		t.playing = false
 		t.cycleStart = -1
-	case "forget":
-		// Another tape was loaded: the passes played were of the last one,
-		// and catching one would put it on the wrong tape.
-		t.cycleStart = -1
-		t.mu.Lock()
-		t.cycles = nil
-		t.mu.Unlock()
-		return
+		t.afterWrap = false
 	case "locate":
 		p := a.Pos
 		if p < 0 {
@@ -227,8 +249,9 @@ func (t *transport) apply(a Action, out uint64, m *Mix, length int64) {
 		}
 		t.pos = p
 		t.cycleStart = -1
+		t.afterWrap = false
 		if t.playing && m.loop.On && p == m.loop.In {
-			t.cycleStart = int64(out)
+			t.cycleStart, t.cycleIn = int64(out), m.loop.In
 		}
 	default:
 		return

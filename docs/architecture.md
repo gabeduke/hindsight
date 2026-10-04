@@ -445,8 +445,9 @@ and each track's mix. A clip points into a pool WAV: `src` and `frames` in
 the file, `at` on the tape, a `layer`. Undo is a list of earlier versions of
 the whole state, 100 deep, saved in the file; an edit of the same kind
 within 2 s extends the last step. Every edit goes through `Tape.Change`,
-which validates the result (buses, pan, nothing past the end) before it's
-kept, so a bad edit changes nothing.
+which validates the result (buses, pan, nothing past the end), on a draft of
+the tape that becomes the tape only once it's saved: a refused edit or a
+failed save changes nothing, in memory or on disk.
 
 **The store.** `TAPE_DIR/tapes/<id>/tape.json` is rewritten after every
 edit through a synced temporary file and a rename. `TAPE_DIR/audio/` is the
@@ -457,15 +458,23 @@ uses, and spares any less than a minute old, which may belong to a catch
 still being placed.
 
 **The renderer.** `Mix` is built from a state whenever it changes and
-swapped in atomically. It reads pool files fully into memory as float32;
-nothing is memory-mapped, because a mapped file on a bumped USB disk faults
-and would take the ring down with it. For each block it sums every clip in
+swapped in atomically; rebuilds take turns, so the newest is always the one
+playing. It carries everything the render goroutine needs (the loop, the
+grid, the tape's length), so that goroutine never takes the engine's lock,
+and an edit waiting on a slow card can't make it late. It reads pool files
+fully into memory as float32; nothing is memory-mapped, because a mapped
+file on a bumped USB disk faults and would take the ring down with it. The
+pool keeps only the files the tape plays and those its next undo or redo
+would, so memory doesn't grow with every tape ever loaded. For each block it sums every clip in
 the block's span into its track's bus (A or B) at the clip's and track's
 gain and the track's pan, honouring mute and solo. Edges follow what's
 beside them: where audio meets audio (two clips end to end, or a clip
 wrapping into itself at the loop's seam) a 5 ms equal-power crossfade runs
 from the outgoing clip's overhang; an edge with silence beside it gets the
-3 ms declick cuts use.
+3 ms declick cuts use. A catch split at the seam is the same audio carrying
+on, so it gets no fade at all. While looping, the loop's Out and In are edges
+too: a clip running past Out fades out before it, and one that started
+before In fades in when the tape wraps to it (not when it plays through).
 
 **The transport and the player.** One render goroutine owns the transport.
 It applies queued actions (play, stop, locate) on the exact output frame
@@ -475,8 +484,12 @@ The device's callback takes blocks from the FIFO and never blocks or
 allocates; if none is ready it plays silence, counts it as late, and the
 tape counts on, so the tape never drifts against the device. Everything the
 transport did is kept: a map from output frame to tape position, and a log
-of each complete pass of the loop. Panics in the engine are recovered and
-reported in the state; the dashcam keeps rolling.
+of each complete pass of the loop; a pass is logged only if it ran from this
+loop's In to its Out unbroken. Loading a tape resets the transport between
+two blocks, before the new tape can play: it stops, drops whatever was
+queued, and forgets the passes, so one tape's pass is never caught onto
+another. Panics in the render goroutine and the device callback are
+recovered and reported in the state; the dashcam keeps rolling.
 
 **Catching.** What the tape played at output frame `o` is in the capture
 ring at `o + delta`. A catch looks up the output frames it wants -- a pass
@@ -488,7 +501,9 @@ needs `delta`:
 
 - The demo knows it exactly. The demo sink is a loopback: what it plays is
   mixed into the demo source's next input block, MAIN and both channel taps
-  by bus, as the Sidekick would, and `delta` is fixed at its first pull.
+  by bus, as the Sidekick would. `delta` is counted against the frames the
+  capture has handed to the ring, so a dropped block or a reopened source
+  doesn't throw it off.
 - On hardware the PortAudio output and the aligner that measures `delta` are
   step 6b. Until then the engine runs with no sink: tapes can be made from
   takes and edited, and nothing plays or can be caught.

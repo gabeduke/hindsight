@@ -222,3 +222,46 @@ func TestDemoMIDIMatchesTheLoop(t *testing.T) {
 		t.Errorf("kick note-offs = %d, want 4", offs)
 	}
 }
+
+func TestTheDemoLoopbackLandsTheTapeWhereItsDeltaSays(t *testing.T) {
+	cfg := demoConfig()
+	cfg.RingSeconds = 5
+	src := NewDemoSource(cfg)
+	cap := NewCapture(cfg, src)
+	sink := NewDemoSink(src, cap)
+	// Output frame o carries (o+1)*100 on bus A.
+	var out int64
+	if _, err := sink.Open(4, func(b []int32) {
+		for i := 0; i < len(b)/4; i++ {
+			v := int32((out + int64(i) + 1) * 100)
+			b[i*4], b[i*4+1], b[i*4+2], b[i*4+3] = v, v, 0, 0
+		}
+		out += int64(len(b) / 4)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer sink.Close()
+	if err := cap.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer cap.Stop()
+	time.Sleep(700 * time.Millisecond)
+
+	delta, ok := sink.(KnownDelta).Delta()
+	if !ok {
+		t.Fatal("the demo should know its delta")
+	}
+	_, total := cap.Ring().Window()
+	from, to := total-4096, total-2048
+	var got []int32
+	if err := cap.Ring().Range(from, to, []int{2, 3}, func(b []int32) error { got = append(got, b...); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	// The CH1 tap hears bus A alone: ring frame f is output frame f - delta.
+	for i := 0; i < len(got)/2; i++ {
+		f := int64(from) + int64(i)
+		if want := int32((f - delta + 1) * 100); got[2*i] != want {
+			t.Fatalf("ring frame %d holds %d, want output frame %d (%d); delta %d", f, got[2*i], f-delta, want, delta)
+		}
+	}
+}

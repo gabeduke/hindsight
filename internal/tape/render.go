@@ -87,6 +87,24 @@ func (p *Pool) Audio(rel string) (*ClipAudio, error) {
 	return a, nil
 }
 
+// Keep drops every loaded or failed file not in files: the pool holds what
+// the tape plays (and its next undo or redo), not everything ever loaded. A
+// mix already playing keeps its own references.
+func (p *Pool) Keep(files map[string]bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for f := range p.files {
+		if !files[f] {
+			delete(p.files, f)
+		}
+	}
+	for f := range p.failed {
+		if !files[f] {
+			delete(p.failed, f)
+		}
+	}
+}
+
 // Forget drops a failed load, so the next use tries again.
 func (p *Pool) Forget(rel string) {
 	p.mu.Lock()
@@ -146,6 +164,12 @@ type Mix struct {
 	tracks  []mixTrack
 	xfade   int64
 	declick int64
+
+	// What the render goroutine needs of the tape, so it never takes the
+	// engine's lock: an edit saving to a slow card can't make it late.
+	tapeID string
+	length int64
+	grid   *Grid
 }
 
 type mixTrack struct {
@@ -162,6 +186,10 @@ type mixClip struct {
 	audio   *ClipAudio
 	prev    *mixClip // the clip whose end this one's start crossfades from
 	joined  bool     // audio follows this clip's end: no declick there
+	cont    bool     // prev's own continuation in the same file: no fade at all
+	// Across the loop's ends, while looping: playback leaves the clip at Out
+	// and enters it at In mid-way, so those are edges too.
+	crossOut, crossIn bool
 }
 
 func dbToGain(db float64) float32 { return float32(math.Pow(10, db/20)) }
@@ -172,6 +200,10 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 		loop:    s.Loop,
 		xfade:   int64(xfadeSeconds * float64(sampleRate)),
 		declick: int64(declickSeconds * float64(sampleRate)),
+	}
+	if s.Grid != nil {
+		g := *s.Grid
+		m.grid = &g
 	}
 	solo := false
 	for _, t := range s.Tracks {
@@ -197,6 +229,10 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 			a, _ := pool.Audio(c.File)
 			nudge := int64(math.Round(c.NudgeMS / 1000 * float64(sampleRate)))
 			mc := &mixClip{at: c.At + nudge, end: c.End() + nudge, src: c.Src, gain: dbToGain(c.GainDB), audio: a}
+			if m.loop.On {
+				mc.crossOut = mc.at < m.loop.Out && mc.end > m.loop.Out
+				mc.crossIn = mc.at < m.loop.In && mc.end > m.loop.In
+			}
 			if mc.end > m.end {
 				m.end = mc.end
 			}
@@ -216,6 +252,9 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 					if o.end == c.at || seam {
 						c.prev = o
 						o.joined = true
+						// A catch split at the seam: the tail is the head's
+						// own audio carrying on, so it needs no fade.
+						c.cont = o.audio != nil && o.audio == c.audio && o.src+(o.end-o.at) == c.src
 					}
 				}
 				// A clip filling the whole loop wraps into itself.
@@ -234,7 +273,11 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 // Render adds n frames of the tape from position pos into dst (interleaved,
 // OutChannels wide, n frames). It doesn't wrap: the transport splits a block
 // at the loop's end.
-func (m *Mix) Render(dst []float32, pos int64, n int) {
+func (m *Mix) Render(dst []float32, pos int64, n int) { m.render(dst, pos, n, false) }
+
+// render is Render, told whether the tape got to pos by wrapping from the
+// loop's Out: a clip across In is then entered mid-way, and fades in.
+func (m *Mix) render(dst []float32, pos int64, n int, afterWrap bool) {
 	end := pos + int64(n)
 	for ti := range m.tracks {
 		t := &m.tracks[ti]
@@ -248,7 +291,7 @@ func (m *Mix) Render(dst []float32, pos int64, n int) {
 				// The crossfade into c reads its predecessor's overhang
 				// even where c itself has already started.
 				for f := from; f < to; f++ {
-					l, r := m.sample(c, f)
+					l, r := m.sample(c, f, afterWrap)
 					i := int(f-pos) * OutChannels
 					dst[i+ch] += l * t.gainL
 					dst[i+ch+1] += r * t.gainR
@@ -259,10 +302,23 @@ func (m *Mix) Render(dst []float32, pos int64, n int) {
 }
 
 // sample is clip c's contribution at tape frame f, edges applied.
-func (m *Mix) sample(c *mixClip, f int64) (float32, float32) {
+func (m *Mix) sample(c *mixClip, f int64, afterWrap bool) (float32, float32) {
 	local := f - c.at
 	l, r := c.audio.at(c.src + local)
 	g := c.gain
+	if c.crossOut && f < m.loop.Out {
+		if left := m.loop.Out - f; left <= m.declick {
+			g *= float32(float64(left)-0.5) / float32(m.declick)
+		}
+	}
+	if c.crossIn && afterWrap && f >= m.loop.In {
+		if in := f - m.loop.In; in < m.declick {
+			g *= float32(float64(in)+0.5) / float32(m.declick)
+		}
+	}
+	if c.cont {
+		return l * g, r * g
+	}
 	if local < m.xfade && c.prev != nil {
 		// Equal power: the incoming rises on a sine as the outgoing falls on
 		// a cosine, read from where the outgoing would have continued.

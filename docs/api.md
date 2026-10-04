@@ -770,16 +770,18 @@ or a bad one; 404 naming the first take that isn't there.
 ## The tape: `/api/tapes…`
 
 Every tape route answers 404 when the tape is off (`TAPE` unset). One tape is
-*loaded*: the one the transport plays and catches go onto. Routes that change
-a tape name it with `?id=`, and a change to the transport, a catch or a drop
-on a tape that isn't loaded is refused with 409, so a page that's out of date
-can't edit the wrong tape. Every response that changes a tape answers with
-the new state, as `GET /api/tapes/state` would.
+*loaded*: the one the transport plays and catches go onto. Routes name their
+tape with `?id=`. Every change except delete and clone is made to the loaded
+tape only, and any other id is refused with 409, so a page that's out of date
+can't edit the wrong tape. PATCH, load, undo and redo answer with the new
+state, as `GET /api/tapes/state` would; create and clone with the tape; catch
+and drop with the clip.
 
 Errors: 400 for a bad parameter, a track or clip that doesn't exist, or a span
-that runs past the end of the tape; 404 for a tape that doesn't exist; 409 for
-the wrong tape, nothing to undo, or a catch that can't happen yet (not lined
-up, no complete pass, not in the ring yet, or gone from it); 507 for low disk.
+that runs past the end of the tape; 404 for a tape that doesn't exist (to
+state, load, delete or clone); 409 for a tape that isn't the loaded one,
+nothing to undo, or a catch that can't happen yet (not lined up, no complete
+pass, not in the ring yet, or gone from it); 507 for low disk.
 
 ### `GET /api/tapes`, `POST /api/tapes`
 
@@ -823,8 +825,9 @@ loop, otherwise its first loop sets the tempo.
   - `delta` is ring frame minus output frame: where what the tape played
     lands in the capture. `aligned` is `exact` when it's known (the demo),
     `none` when it isn't, and catches need it.
-  - `cycles` are the last complete passes of the loop, as played; `late`
-    counts blocks the device got as silence because the renderer was late;
+  - `cycles` are the last complete passes of the loop, as played (a pass
+    begun before the loop was moved isn't one); `late` counts device periods
+    played as silence because nothing was rendered in time;
     `failed` lists pool files that couldn't be read.
   - `output` is "" when nothing plays the tape.
 
@@ -833,6 +836,8 @@ loop, otherwise its first loop sets the tempo.
 ### `PATCH /api/tapes?id=`
 
 Any of:
+
+All of it is one change: if any field is refused, none is made.
 
 | Field | Change |
 |---|---|
@@ -844,7 +849,9 @@ Any of:
 | `track: {n, name?, bus?, gain_db?, pan?, mute?, solo?}` | A track's mix: bus `A` or `B`, gain −60..12 dB, pan −1..1 |
 | `clip: {id, gain_db?, nudge_ms?, remove?}` | A clip's level (−60..12 dB), its nudge (±500 ms), or take it off |
 
-Each field is one undo step; changes to the same thing within 2 s are one.
+Each PATCH is one undo step. Changes to the same track's level or pan, or the
+same clip's level or nudge, within 2 s of each other are one step, so a
+dragged slider undoes in one go.
 
 ### `DELETE /api/tapes?id=`, `POST /api/tapes/load?id=`, `POST /api/tapes/clone?id=`
 
@@ -866,7 +873,9 @@ passes played, so a pass of one tape is never caught onto another.
 ### `POST /api/tapes/catch?id=`
 
 `{"track": 2, "source": "aux", "pass": 1}` catches a whole pass of the loop:
-1 is the last complete one. `{"track": 2, "source": "aux", "bars": 4}` catches
+1 is the last complete one. `{"out": F}` instead names a pass by the output
+frame it began at (a `cycles` entry's `out`), so a tap catches the pass that
+was on screen even if another has finished since. `{"track": 2, "source": "aux", "bars": 4}` catches
 the last 4 bars up to the last bar line the ring has heard. `replace: true`
 clears what's under it instead of adding a layer.
 

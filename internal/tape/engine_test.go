@@ -3,6 +3,7 @@ package tape
 import (
 	"errors"
 	"math"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -111,34 +112,34 @@ func newEngine(t *testing.T) (*Engine, *loopSink, *Tape) {
 
 func TestADropBecomesTheFirstLoopAndPlaysLooped(t *testing.T) {
 	e, sink, tp := newEngine(t)
-	// A 0.25 s take: frames carry 0.5.
-	take := takeWAV(t, 48000, func(i int) float64 { return 0.5 })
-	clip, err := e.DropTake(tp.ID, take, 12000, 24000, 1, 1, []int{0, 1})
+	// A take whose frames carry 0.5; 2 s of it, as one bar at 120 BPM.
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
+	clip, err := e.DropTake(tp.ID, take, 96000, 192000, 1, 1, []int{0, 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	loaded := e.Loaded()
-	if loaded.Grid == nil || loaded.Grid.Frames != 12000 || !loaded.Loop.On || loaded.Loop.Out != 12000 {
+	if loaded.Grid == nil || loaded.Grid.Frames != 96000 || !loaded.Loop.On || loaded.Loop.Out != 96000 {
 		t.Fatalf("the first drop should set the loop: %+v %+v", loaded.Grid, loaded.Loop)
 	}
-	if clip.At != 0 || clip.Frames != 12000 || clip.Src != 480 {
+	if clip.At != 0 || clip.Frames != 96000 || clip.Src != 480 {
 		t.Fatalf("clip %+v: 10 ms of overhang before it", clip)
 	}
 	e.Do(Action{Kind: "play"})
 	if err := e.Start(); err != nil {
 		t.Fatal(err)
 	}
-	out := sink.play(t, 48000) // four passes
+	out := sink.play(t, 4*96000) // four passes
 	// At -6 dB, 0.5 plays as about 0.25 on bus A, all the way round. At the
 	// seam the clip crossfades into itself (equal power: correlated audio
 	// swells by up to 3 dB for 5 ms), and never drops out.
 	want := 0.5 * math.Pow(10, -6.0/20)
-	for f := 11990; f < 12300; f++ {
+	for f := 95990; f < 96300; f++ {
 		if got := float64(out[f*OutChannels]) / 2147483647; got < want*0.98 || got > want*1.42 {
 			t.Fatalf("frame %d at the seam = %.4f", f, got)
 		}
 	}
-	for _, f := range []int{1000, 11999, 12300, 30000} {
+	for _, f := range []int{1000, 95999, 96300, 240000} {
 		got := float64(out[f*OutChannels]) / 2147483647
 		if math.Abs(got-want) > 0.02 {
 			t.Fatalf("frame %d bus A = %.4f, want %.4f", f, got, want)
@@ -147,32 +148,32 @@ func TestADropBecomesTheFirstLoopAndPlaysLooped(t *testing.T) {
 			t.Fatalf("frame %d: bus B should be silent", f)
 		}
 	}
-	if c := e.Live().Cycles; len(c) < 2 || c[0].Out != 0 || c[1].Out != 12000 || c[0].Len != 12000 {
+	if c := e.Live().Cycles; len(c) < 2 || c[0].Out != 0 || c[1].Out != 96000 || c[0].Len != 96000 {
 		t.Fatalf("cycles = %+v", c)
 	}
 }
 
 func TestCatchingAPassPutsTheRingsSpanWhereItWasPlayed(t *testing.T) {
 	e, sink, tp := newEngine(t)
-	take := takeWAV(t, 48000, func(i int) float64 { return 0.5 })
-	if _, err := e.DropTake(tp.ID, take, 0, 12000, 1, 1, []int{0, 1}); err != nil {
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
+	if _, err := e.DropTake(tp.ID, take, 0, 96000, 1, 1, []int{0, 1}); err != nil {
 		t.Fatal(err)
 	}
 	e.Do(Action{Kind: "play"})
 	e.Start()
-	sink.play(t, 12000*3+2000) // three passes, and into the fourth
+	sink.play(t, 96000*3+2000) // three passes, and into the fourth
 	clip, err := e.Catch(tp.ID, CatchRequest{Track: 2, Source: "aux", Pass: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The last complete pass began at output frame 24000; with delta 0 the
-	// ring heard it at 24000, and the file starts 10 ms (480) before.
-	if clip.At != 0 || clip.Frames != 12000 || clip.Src != 480 || clip.Source != "aux" || !clip.Clean {
+	// The last complete pass began at output frame 192000; with delta 0 the
+	// ring heard it at 192000, and the file starts 10 ms (480) before.
+	if clip.At != 0 || clip.Frames != 96000 || clip.Src != 480 || clip.Source != "aux" || !clip.Clean {
 		t.Fatalf("clip = %+v", clip)
 	}
 	data := readPool(t, e.store, clip.File)
-	if data[2*480] != auxAt(24000) || data[2*(480+11999)] != auxAt(24000+11999) {
-		t.Fatalf("the catch holds ring frames %d.., want 24000..", data[2*480]/1000)
+	if data[2*480] != auxAt(192000) || data[2*(480+95999)] != auxAt(192000+95999) {
+		t.Fatalf("the catch holds ring frames %d.., want 192000..", data[2*480]/1000)
 	}
 	// Catching from the CH1 tap, which bus A is sounding into, is flagged.
 	clip2, err := e.Catch(tp.ID, CatchRequest{Track: 3, Source: "ch1", Pass: 2})
@@ -190,40 +191,42 @@ func TestCatchingAPassPutsTheRingsSpanWhereItWasPlayed(t *testing.T) {
 
 func TestCatchingTheLastBarsThroughTheSeam(t *testing.T) {
 	e, sink, tp := newEngine(t)
-	take := takeWAV(t, 48000, func(i int) float64 { return 0.5 })
-	// A 4-bar loop of 24000 frames: a bar is 6000.
-	if _, err := e.DropTake(tp.ID, take, 0, 24000, 1, 4, []int{0, 1}); err != nil {
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
+	// A 4-bar loop of 192000 frames (4 s, 240 BPM): a bar is 48000.
+	if _, err := e.DropTake(tp.ID, take, 0, 192000, 1, 4, []int{0, 1}); err != nil {
 		t.Fatal(err)
 	}
 	e.Do(Action{Kind: "play"})
 	e.Start()
-	sink.play(t, 24000+8000) // into the second pass: bar 1 of it is done at 30000
+	sink.play(t, 192000+64000) // into the second pass: bar 1 of it is done at 240000
 	clip, err := e.Catch(tp.ID, CatchRequest{Track: 2, Source: "aux", Bars: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The last bar line in the ring is output 30000 (tape 6000); two bars
-	// back is output 18000, tape 18000 -- across the seam, so the catch is
-	// split: 6000 at tape 18000, and 6000 at tape 0.
+	// The last bar line in the ring is output 240000 (tape 48000); two bars
+	// back is output 144000, tape 144000 -- across the seam, so the catch is
+	// split: 48000 at tape 144000, and 48000 at tape 0.
 	clips := e.Loaded().Tracks[1].Clips
 	if len(clips) != 2 {
 		t.Fatalf("clips = %+v, want the catch split at the seam", clips)
 	}
 	byAt := map[int64]Clip{clips[0].At: clips[0], clips[1].At: clips[1]}
-	head, tail := byAt[18000], byAt[0]
-	if head.Frames != 6000 || tail.Frames != 6000 || tail.Src != head.Src+6000 || clip.At != 18000 {
+	head, tail := byAt[144000], byAt[0]
+	if head.Frames != 48000 || tail.Frames != 48000 || tail.Src != head.Src+48000 || clip.At != 144000 {
 		t.Fatalf("head %+v tail %+v", head, tail)
 	}
 	data := readPool(t, e.store, head.File)
-	if data[2*head.Src] != auxAt(18000) {
-		t.Fatalf("starts at ring frame %d, want 18000", data[2*head.Src]/1000)
+	if data[2*head.Src] != auxAt(144000) {
+		t.Fatalf("starts at ring frame %d, want 144000", data[2*head.Src]/1000)
 	}
 }
 
 func TestALateRenderPlaysSilenceAndTheTapeCountsOn(t *testing.T) {
 	e, _, tp := newEngine(t)
-	take := takeWAV(t, 48000, func(i int) float64 { return 0.5 })
-	e.DropTake(tp.ID, take, 0, 12000, 1, 1, []int{0, 1})
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
+	if _, err := e.DropTake(tp.ID, take, 0, 96000, 1, 1, []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
 	// No Start: drive pull directly with nothing rendered.
 	out := make([]int32, 512*OutChannels)
 	e.pull(out)
@@ -251,13 +254,13 @@ func readPool(t *testing.T, s *Store, rel string) []int32 {
 
 func TestALoadForgetsThePassesOfTheLastTape(t *testing.T) {
 	e, sink, tp := newEngine(t)
-	take := takeWAV(t, 48000, func(i int) float64 { return 0.5 })
-	if _, err := e.DropTake(tp.ID, take, 0, 12000, 1, 1, []int{0, 1}); err != nil {
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
+	if _, err := e.DropTake(tp.ID, take, 0, 96000, 1, 1, []int{0, 1}); err != nil {
 		t.Fatal(err)
 	}
 	e.Do(Action{Kind: "play"})
 	e.Start()
-	sink.play(t, 12000*3)
+	sink.play(t, 96000*3)
 	if len(e.Live().Cycles) == 0 {
 		t.Fatal("no passes logged")
 	}
@@ -303,5 +306,32 @@ func TestWithoutAnOutputTheTapeLocatesButDoesNotPlay(t *testing.T) {
 	}
 	if l := e.Live(); l.Pos != 4800 || l.Playing {
 		t.Fatalf("live = %+v, want stopped at 4800", l.Status)
+	}
+}
+
+func TestAnEditThatCantBeSavedChangesNothing(t *testing.T) {
+	e, _, tp := newEngine(t)
+	// The tape's folder is gone: its save fails.
+	if err := os.RemoveAll(filepath.Join(e.store.Dir(), "tapes", tp.ID)); err != nil {
+		t.Fatal(err)
+	}
+	err := e.Edit(tp.ID, "gain:1", func(_ *Tape, s *State) error { s.Tracks[0].GainDB = -20; return nil })
+	if err == nil {
+		t.Fatal("the save should have failed")
+	}
+	if g := e.Loaded().Tracks[0].GainDB; g != DefaultTrackGainDB {
+		t.Fatalf("gain is %v after a failed save; want it unchanged", g)
+	}
+	if u, _ := e.UndoDepth(); u != 0 {
+		t.Fatalf("undo depth %d after a failed save", u)
+	}
+}
+
+func TestAFirstLoopMustBeASensibleTempo(t *testing.T) {
+	e, _, tp := newEngine(t)
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
+	// 0.1 s as a bar is 2400 BPM.
+	if _, err := e.DropTake(tp.ID, take, 0, 4800, 1, 1, []int{0, 1}); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("a 0.1 s first loop = %v, want ErrBadParameter", err)
 	}
 }

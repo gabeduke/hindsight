@@ -124,6 +124,13 @@ func TestATapesTempoTracksAndUndo(t *testing.T) {
 		t.Fatalf("track 2 = %+v, undo %d", s.Tape.Tracks[1], s.Undo)
 	}
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"track":{"n":2,"bus":"C"}}`), http.StatusBadRequest, "bus C")
+	// A PATCH is all or nothing: a bad clip leaves the mute alone.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"track":{"n":3,"mute":true},"clip":{"id":"nope","gain_db":0}}`), http.StatusBadRequest, "half bad")
+	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); s.Tape.Tracks[2].Mute {
+		t.Fatal("half a refused PATCH was applied")
+	}
+	// Edits go to the loaded tape only.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id=2026-01-01_other", `{"track":{"n":1,"mute":true}}`), http.StatusConflict, "other tape")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"track":{"n":9,"mute":true}}`), http.StatusBadRequest, "track 9")
 	w = send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, "")
 	want(t, w, http.StatusOK, "undo")

@@ -50,6 +50,8 @@ func tapeErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, tape.ErrNoSuchTape):
 		writeErr(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, audio.ErrRangeGone):
+		writeErr(w, http.StatusConflict, tape.ErrGone.Error())
 	case errors.Is(err, audio.ErrLowDisk):
 		writeErr(w, http.StatusInsufficientStorage, err.Error())
 	case errors.Is(err, tape.ErrNoTape), errors.Is(err, tape.ErrWrongTape), errors.Is(err, tape.ErrNotYet),
@@ -183,6 +185,96 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &b) {
 		return
 	}
+	// Everything undoable is one edit, so a field that's refused leaves the
+	// tape as it was. Quick changes to one level or nudge are one undo step;
+	// a toggle or a removal is always its own.
+	kind := ""
+	switch {
+	case b.Track != nil && b.Track.GainDB != nil:
+		kind = fmt.Sprintf("gain:%d", b.Track.N)
+	case b.Track != nil && b.Track.Pan != nil:
+		kind = fmt.Sprintf("pan:%d", b.Track.N)
+	case b.Clip != nil && b.Clip.GainDB != nil && !b.Clip.Remove:
+		kind = "clip-gain:" + b.Clip.ID
+	case b.Clip != nil && b.Clip.NudgeMS != nil && !b.Clip.Remove:
+		kind = "clip-nudge:" + b.Clip.ID
+	}
+	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil
+	if undoable {
+		sr := a.tape.Store().SampleRate()
+		err := a.tape.Edit(id, kind, func(_ *tape.Tape, s *tape.State) error {
+			if tm := b.Tempo; tm != nil {
+				// Only while the tape is empty: once it has audio its tempo is
+				// fixed, since nothing is ever stretched. Bars relabel it instead.
+				for _, tr := range s.Tracks {
+					if len(tr.Clips) > 0 {
+						return fmt.Errorf("%w: the tempo is fixed once the tape has audio; change its bars instead", tape.ErrBadParameter)
+					}
+				}
+				if tm.BPM < 20 || tm.BPM > 400 || tm.Bars < 1 || tm.Bars > 64 {
+					return fmt.Errorf("%w: tempo 20–400 BPM, 1 to 64 bars", tape.ErrBadParameter)
+				}
+				g := tape.GridFor(tm.BPM, tm.Bars, sr)
+				s.Grid = &g
+				s.Loop = tape.Loop{In: 0, Out: g.Frames, On: true}
+			}
+			if b.Bars != nil {
+				if s.Grid == nil {
+					return tape.ErrNoGrid
+				}
+				if *b.Bars < 1 || *b.Bars > 64 {
+					return fmt.Errorf("%w: 1 to 64 bars", tape.ErrBadParameter)
+				}
+				s.Grid.Bars = *b.Bars
+			}
+			if l := b.Loop; l != nil {
+				if l.In != nil {
+					s.Loop.In = *l.In
+				}
+				if l.Out != nil {
+					s.Loop.Out = *l.Out
+				}
+				if l.On != nil {
+					s.Loop.On = *l.On
+				}
+			}
+			if tr := b.Track; tr != nil {
+				if tr.N < 1 || tr.N > len(s.Tracks) {
+					return tape.ErrNoSuchTrack
+				}
+				t := &s.Tracks[tr.N-1]
+				if tr.Name != nil {
+					t.Name = sanitizeLabel(*tr.Name)
+				}
+				if tr.Bus != nil {
+					t.Bus = strings.ToUpper(*tr.Bus)
+				}
+				if tr.GainDB != nil {
+					if *tr.GainDB < -60 || *tr.GainDB > 12 {
+						return fmt.Errorf("%w: gain -60..12 dB", tape.ErrBadParameter)
+					}
+					t.GainDB = *tr.GainDB
+				}
+				if tr.Pan != nil {
+					t.Pan = *tr.Pan
+				}
+				if tr.Mute != nil {
+					t.Mute = *tr.Mute
+				}
+				if tr.Solo != nil {
+					t.Solo = *tr.Solo
+				}
+			}
+			if c := b.Clip; c != nil {
+				return patchClip(s, c.ID, c.GainDB, c.NudgeMS, c.Remove)
+			}
+			return nil
+		})
+		if err != nil {
+			tapeErr(w, err)
+			return
+		}
+	}
 	if b.Name != nil || b.Click != nil {
 		err := a.tape.SetMeta(id, func(t *tape.Tape) error {
 			if b.Name != nil {
@@ -200,135 +292,37 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	edit := func(kind string, fn func(s *tape.State) error) bool {
-		if err := a.tape.Edit(id, kind, func(_ *tape.Tape, s *tape.State) error { return fn(s) }); err != nil {
-			tapeErr(w, err)
-			return false
-		}
-		return true
-	}
-	if tm := b.Tempo; tm != nil {
-		// Only while the tape is empty: once it has audio its tempo is fixed,
-		// since nothing is ever stretched. Bars relabel it instead.
-		if !edit("tempo", func(s *tape.State) error {
-			for _, tr := range s.Tracks {
-				if len(tr.Clips) > 0 {
-					return fmt.Errorf("%w: the tempo is fixed once the tape has audio; change its bars instead", tape.ErrBadParameter)
-				}
+	a.writeTapeState(w, id)
+}
+
+// patchClip changes or removes one clip of a state.
+func patchClip(s *tape.State, id string, gainDB, nudgeMS *float64, remove bool) error {
+	for ti := range s.Tracks {
+		for ci := range s.Tracks[ti].Clips {
+			cl := &s.Tracks[ti].Clips[ci]
+			if cl.ID != id {
+				continue
 			}
-			if tm.BPM < 20 || tm.BPM > 400 || tm.Bars < 1 || tm.Bars > 64 {
-				return fmt.Errorf("%w: tempo 20–400 BPM, 1 to 64 bars", tape.ErrBadParameter)
+			if remove {
+				s.Tracks[ti].Clips = append(s.Tracks[ti].Clips[:ci], s.Tracks[ti].Clips[ci+1:]...)
+				return nil
 			}
-			g := tape.GridFor(tm.BPM, tm.Bars, a.tape.Store().SampleRate())
-			s.Grid = &g
-			s.Loop = tape.Loop{In: 0, Out: g.Frames, On: true}
-			return nil
-		}) {
-			return
-		}
-	}
-	if b.Bars != nil {
-		if !edit("bars", func(s *tape.State) error {
-			if s.Grid == nil {
-				return tape.ErrNoGrid
-			}
-			if *b.Bars < 1 || *b.Bars > 64 {
-				return fmt.Errorf("%w: 1 to 64 bars", tape.ErrBadParameter)
-			}
-			s.Grid.Bars = *b.Bars
-			return nil
-		}) {
-			return
-		}
-	}
-	if l := b.Loop; l != nil {
-		if !edit("loop", func(s *tape.State) error {
-			if l.In != nil {
-				s.Loop.In = *l.In
-			}
-			if l.Out != nil {
-				s.Loop.Out = *l.Out
-			}
-			if l.On != nil {
-				s.Loop.On = *l.On
-			}
-			return nil
-		}) {
-			return
-		}
-	}
-	if tr := b.Track; tr != nil {
-		kind := fmt.Sprintf("track:%d", tr.N)
-		if tr.GainDB != nil {
-			kind = fmt.Sprintf("gain:%d", tr.N)
-		} else if tr.Pan != nil {
-			kind = fmt.Sprintf("pan:%d", tr.N)
-		}
-		if !edit(kind, func(s *tape.State) error {
-			if tr.N < 1 || tr.N > len(s.Tracks) {
-				return tape.ErrNoSuchTrack
-			}
-			t := &s.Tracks[tr.N-1]
-			if tr.Name != nil {
-				t.Name = sanitizeLabel(*tr.Name)
-			}
-			if tr.Bus != nil {
-				t.Bus = strings.ToUpper(*tr.Bus)
-			}
-			if tr.GainDB != nil {
-				if *tr.GainDB < -60 || *tr.GainDB > 12 {
+			if gainDB != nil {
+				if *gainDB < -60 || *gainDB > 12 {
 					return fmt.Errorf("%w: gain -60..12 dB", tape.ErrBadParameter)
 				}
-				t.GainDB = *tr.GainDB
+				cl.GainDB = *gainDB
 			}
-			if tr.Pan != nil {
-				t.Pan = *tr.Pan
-			}
-			if tr.Mute != nil {
-				t.Mute = *tr.Mute
-			}
-			if tr.Solo != nil {
-				t.Solo = *tr.Solo
+			if nudgeMS != nil {
+				if *nudgeMS < -500 || *nudgeMS > 500 {
+					return fmt.Errorf("%w: nudge ±500 ms", tape.ErrBadParameter)
+				}
+				cl.NudgeMS = *nudgeMS
 			}
 			return nil
-		}) {
-			return
 		}
 	}
-	if c := b.Clip; c != nil {
-		kind := "clip:" + c.ID
-		if !edit(kind, func(s *tape.State) error {
-			for ti := range s.Tracks {
-				for ci := range s.Tracks[ti].Clips {
-					cl := &s.Tracks[ti].Clips[ci]
-					if cl.ID != c.ID {
-						continue
-					}
-					if c.Remove {
-						s.Tracks[ti].Clips = append(s.Tracks[ti].Clips[:ci], s.Tracks[ti].Clips[ci+1:]...)
-						return nil
-					}
-					if c.GainDB != nil {
-						if *c.GainDB < -60 || *c.GainDB > 12 {
-							return fmt.Errorf("%w: gain -60..12 dB", tape.ErrBadParameter)
-						}
-						cl.GainDB = *c.GainDB
-					}
-					if c.NudgeMS != nil {
-						if *c.NudgeMS < -500 || *c.NudgeMS > 500 {
-							return fmt.Errorf("%w: nudge ±500 ms", tape.ErrBadParameter)
-						}
-						cl.NudgeMS = *c.NudgeMS
-					}
-					return nil
-				}
-			}
-			return tape.ErrNoSuchClip
-		}) {
-			return
-		}
-	}
-	a.writeTapeState(w, id)
+	return tape.ErrNoSuchClip
 }
 
 func (a *API) writeTapeState(w http.ResponseWriter, id string) {

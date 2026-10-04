@@ -165,3 +165,80 @@ func TestAMissingFileIsSilentNotFatal(t *testing.T) {
 		t.Fatal("a missing file should play silence and be reported")
 	}
 }
+
+func TestACatchSplitAtTheSeamCarriesOnWithoutAFade(t *testing.T) {
+	s := newTestStore(t)
+	pool := NewPool(s)
+	rel := poolWAV(t, s, 20000, func(int) float64 { return 0.5 })
+	// One file, caught across the loop's end: the head plays up to Out, the
+	// tail -- the same audio carrying on -- from In.
+	st := State{Loop: Loop{In: 0, Out: 12000, On: true}, Tracks: []Track{{N: 1, Bus: BusA, Clips: []Clip{
+		{ID: "head", File: rel, Src: 480, Frames: 4000, At: 8000},
+		{ID: "tail", File: rel, Src: 4480, Frames: 4000, At: 0},
+	}}}}
+	m := NewMix(st, pool, 48000)
+	dst := make([]float32, 400*OutChannels)
+	m.render(dst, 0, 400, true)
+	for f := 0; f < 400; f++ {
+		if v := dst[f*OutChannels]; !approx(v, 0.5) {
+			t.Fatalf("frame %d after the wrap = %.4f, want 0.5: no swell, no dip", f, v)
+		}
+	}
+	dst = make([]float32, 400*OutChannels)
+	m.render(dst, 11600, 400, false)
+	if v := dst[399*OutChannels]; !approx(v, 0.5) {
+		t.Fatalf("the head's last frame = %.4f, want 0.5", v)
+	}
+}
+
+func TestClipsAcrossTheLoopsEndsAreDeclickedAtTheWrap(t *testing.T) {
+	s := newTestStore(t)
+	pool := NewPool(s)
+	rel := poolWAV(t, s, 40000, func(int) float64 { return 0.5 })
+	// The loop is 12000..24000; one clip runs from before In to after Out.
+	st := State{Loop: Loop{In: 12000, Out: 24000, On: true}, Tracks: []Track{{N: 1, Bus: BusA, Clips: []Clip{
+		{ID: "long", File: rel, Src: 0, Frames: 36000, At: 0},
+	}}}}
+	m := NewMix(st, pool, 48000)
+	dst := make([]float32, 400*OutChannels)
+	m.render(dst, 23600, 400, false)
+	if v := dst[399*OutChannels]; v <= 0 || v > 0.01 {
+		t.Fatalf("the frame before Out = %.4f, want it faded out", v)
+	}
+	if v := dst[0]; !approx(v, 0.5) {
+		t.Fatalf("well before Out = %.4f, want 0.5", v)
+	}
+	// Entered at In by a wrap, it fades in; played through In, it doesn't.
+	dst = make([]float32, 400*OutChannels)
+	m.render(dst, 12000, 400, true)
+	if v := dst[0]; v <= 0 || v > 0.01 {
+		t.Fatalf("the first frame after the wrap = %.4f, want it faded in", v)
+	}
+	if v := dst[300*OutChannels]; !approx(v, 0.5) {
+		t.Fatalf("after the fade = %.4f", v)
+	}
+	dst = make([]float32, 400*OutChannels)
+	m.render(dst, 12000, 400, false)
+	if v := dst[0]; !approx(v, 0.5) {
+		t.Fatalf("played through In = %.4f, want 0.5", v)
+	}
+}
+
+func TestThePoolKeepsOnlyWhatItsTold(t *testing.T) {
+	s := newTestStore(t)
+	pool := NewPool(s)
+	a := poolWAV(t, s, 100, func(int) float64 { return 0.1 })
+	b := poolWAV(t, s, 100, func(int) float64 { return 0.2 })
+	pool.Audio(a)
+	pool.Audio(b)
+	pool.Audio("audio/missing.wav")
+	pool.Keep(map[string]bool{a: true})
+	pool.mu.Lock()
+	_, hasA := pool.files[a]
+	_, hasB := pool.files[b]
+	nFailed := len(pool.failed)
+	pool.mu.Unlock()
+	if !hasA || hasB || nFailed != 0 {
+		t.Fatalf("after Keep(a): a %v, b %v, failed %d", hasA, hasB, nFailed)
+	}
+}

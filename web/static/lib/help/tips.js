@@ -77,7 +77,7 @@ export const TIPS = [
   { control: 'M, S', ids: ['track-mute', 'track-solo'], tip: 'Mute this track, or solo it: only soloed tracks play' },
   { control: 'Track level', ids: ['track-gain'], tip: 'The track\'s level into its bus, -30 to +6 dB. Tracks start at -6' },
   { control: '▶ (tape)', ids: ['tape-play'], tip: 'Play or stop the tape' },
-  { control: '⟲ Loop (tape)', ids: ['tape-loop'], tip: 'Loop the bracket, or play on to the end of the tape' },
+  { control: '⟲ Loop (tape)', ids: ['tape-loop'], tip: 'Loop the bracket, or play on to the end of what’s recorded' },
   { control: '1 bar, 2, 4', ids: ['catch-bars'], tip: 'Catch the last bars you played, ending on the last bar line, where they were played' },
   { control: 'Clip level', ids: ['clip-gain'], tip: 'This clip\'s level within its track' },
   { control: 'Nudge', ids: ['clip-nudge'], tip: 'Move the clip a few milliseconds, for a part a little early or late' },

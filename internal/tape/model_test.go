@@ -208,3 +208,43 @@ func TestATrackWithNoClipsIsAnEmptyListNotNull(t *testing.T) {
 		}
 	}
 }
+
+func TestAPassBegunUnderAnotherLoopIsNotLogged(t *testing.T) {
+	tr := newTransport()
+	m1 := &Mix{loop: Loop{In: 0, Out: 1000, On: true}, length: 100000, end: 100000}
+	m2 := &Mix{loop: Loop{In: 500, Out: 1500, On: true}, length: 100000, end: 100000}
+	e := &Engine{tr: tr, actions: make(chan Action, 4), pool: nil}
+	e.mix.Store(m1)
+	tr.apply(Action{Kind: "play"}, 0, m1, m1.length)
+	e.advance(nil, 0, 1000) // one whole pass of [0, 1000)
+	e.advance(nil, 1000, 600)
+	// The loop moves mid-pass: [500, 1500). The pass that began at In 0
+	// isn't a pass of this loop.
+	e.mix.Store(m2)
+	e.advance(nil, 1600, 900) // reaches 1500, wraps to 500
+	e.advance(nil, 2500, 1000)
+	cyc := tr.Cycles()
+	if len(cyc) != 2 || cyc[0] != (Cycle{Out: 0, In: 0, Len: 1000}) || cyc[1] != (Cycle{Out: 2500, In: 500, Len: 1000}) {
+		t.Fatalf("cycles = %+v", cyc)
+	}
+}
+
+func TestATapeCantStartWithALoopLongerThanATrack(t *testing.T) {
+	s := newTestStore(t) // 60 s tracks
+	if _, err := s.Create("long", 20, 40, time.Now()); err == nil {
+		t.Fatal("a 480 s loop on a 60 s tape should be refused")
+	}
+	if l, _ := s.List(); len(l) != 0 {
+		t.Fatalf("a refused tape left %d behind", len(l))
+	}
+}
+
+func TestCleanupIgnoresAFolderWithNoTape(t *testing.T) {
+	s := newTestStore(t)
+	if err := os.MkdirAll(filepath.Join(s.Dir(), "tapes", "2026-10-04_half-made"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.Cleanup(nil); err != nil {
+		t.Fatalf("a folder with no tape.json blocked clean-up: %v", err)
+	}
+}

@@ -49,6 +49,29 @@ Step 6 is split in two so each part can be reviewed and tried on its own:
 - **On hardware the engine runs with no sink** until 6b: tapes can be made
   from takes and edited, nothing plays, and catches are refused as not lined
   up.
+- **Edits are drafts** until saved: a refused field or a failed save leaves
+  the tape as it was. A PATCH is one edit.
+- **The render goroutine never takes the engine's lock:** the mix carries
+  the loop, grid and length.
+- **Loading resets the transport synchronously** (stop, drop the queue,
+  forget the passes) before the new tape can play.
+- **The pool holds what's playing,** plus the next undo and redo, not every
+  file ever loaded.
+
+## After the independent review
+
+Fixed: pool memory growth; edits stalling the renderer; a failed save
+applying the edit; passes begun under a moved loop being logged; a load's
+actions waiting behind a quantized one, so an old pass could be caught onto
+a new tape; rebuilds finishing out of order; clips across the loop's ends
+cut hard at the wrap; a seam-split catch swelling 3 dB; a half-made tape
+folder blocking clean-up; a tape created with a loop longer than a track;
+the page not following another device's load; the demo's delta drifting
+after a dropped block or a reopen; a PATCH applied field by field; no
+recover in the device callback; a failed output open leaving the transport
+stuck; passes caught by index instead of by the pass on screen; stale polls
+overwriting fresh edits; first loops of any tempo; and docs that said more
+than the code did.
 
 ## Tasks
 
