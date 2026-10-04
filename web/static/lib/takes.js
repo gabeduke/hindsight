@@ -7,9 +7,14 @@
 // list is skipped entirely when the server's ETag is unchanged, and polling
 // pauses outright while something is playing.
 
-import WaveSurfer from '/vendor/wavesurfer.esm.js';
-import { ampToFrac } from '/lib/meter.js';
+import { RowWave } from '/lib/wave/rowwave.js';
 import { flagRequest } from '/lib/flags.js';
+import { restoreTake } from '/lib/trash.js';
+import { undoSkipped } from '/lib/toast.js';
+import { withClient } from '/lib/client.js';
+
+// How long a press on a row is held to start selecting several takes.
+export const SELECT_HOLD_MS = 500;
 
 const fmtTime = (s) => {
   if (!isFinite(s) || s <= 0) return '0:00';
@@ -21,11 +26,30 @@ const fmtTime = (s) => {
 const fmtSize = (mb) => (mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`);
 
 export class TakesList {
-  constructor(container, emptyEl, { onToast, onConfirm }) {
+  /**
+   * onToast(msg, kind, opts) shows a toast; onListChange() runs after the
+   * list re-renders (a prune or a delete also changed the trash);
+   * selectBar is the bar select mode shows, with #select-count, #sel-star,
+   * #sel-export, #sel-delete and #sel-done inside.
+   */
+  constructor(container, emptyEl, { onToast, onListChange, selectBar }) {
     this.container = container;
     this.emptyEl = emptyEl;
     this.onToast = onToast;
-    this.onConfirm = onConfirm;
+    this.onListChange = onListChange;
+
+    // Select mode: several takes at once (see enterSelect).
+    this.selecting = false;
+    this.selected = new Set();
+    this.swallowClick = false;
+    this.bar = selectBar || null;
+    if (this.bar) {
+      this.bar.querySelector('#sel-done').addEventListener('click', () => this.exitSelect());
+      this.bar.querySelector('#sel-star').addEventListener('click', () => this.bulkStar());
+      this.bar.querySelector('#sel-delete').addEventListener('click', () => this.bulkDelete());
+      this.bar.querySelector('#sel-export').addEventListener('click', () => this.bulkExport());
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.selecting) this.exitSelect(); });
+    }
 
     /** @type {Map<string, object>} name -> row state */
     this.rows = new Map();
@@ -63,7 +87,7 @@ export class TakesList {
   async patchTake(name, patch) {
     const res = await fetch(`/api/take?file=${encodeURIComponent(name)}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: withClient({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(patch),
     });
     if (!res.ok) {
@@ -92,6 +116,7 @@ export class TakesList {
     this.etag = res.headers.get('ETag');
     const takes = await res.json();
     this.render(Array.isArray(takes) ? takes : []);
+    this.onListChange?.();
   }
 
   render(takes) {
@@ -123,10 +148,14 @@ export class TakesList {
       if (seen.has(name)) continue;
       this.destroyRow(row);
       this.rows.delete(name);
+      this.selected.delete(name);
     }
+    if (this.selecting) this.renderSelect();
 
     const any = takes.length > 0;
     this.emptyEl.hidden = any;
+    // The take page's ◂ ▸ step through the takes in this order.
+    try { sessionStorage.setItem('hindsight.order', JSON.stringify(takes.map((t) => t.name))); } catch { /* fine */ }
   }
 
   createRow(t) {
@@ -134,21 +163,24 @@ export class TakesList {
     el.className = 'take';
     el.dataset.name = t.name;
     el.innerHTML = `
+      <span class="take-check" aria-hidden="true"></span>
       <div class="take-head">
-        <button class="star" type="button" aria-pressed="false" aria-label="Star this take">★</button>
-        <button class="take-name" type="button" title="Rename"></button>
+        <button class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
+        <button class="take-name" type="button" data-tip="rename"></button>
         <input class="take-name-input" type="text" maxlength="120" hidden>
-        <button class="take-bpm" type="button" title="Set the tempo"></button>
-        <input class="take-bpm-input" type="text" inputmode="decimal" maxlength="7" hidden>
-        <span class="take-meta"></span>
+        <span class="take-info">
+          <button class="take-bpm" type="button" data-tip="bpm"></button>
+          <input class="take-bpm-input" type="text" inputmode="decimal" maxlength="7" hidden>
+          <span class="take-meta"></span>
+        </span>
       </div>
       <div class="wave pending">waveform pending…</div>
       <div class="take-actions">
-        <button class="icon-btn play" type="button">Play</button>
-        <a class="icon-btn open">Open</a>
-        <a class="icon-btn dl" download>WAV</a>
-        <a class="icon-btn midi" download hidden>MIDI</a>
-        <button class="icon-btn danger del" type="button">Delete</button>
+        <button class="icon-btn play" type="button" data-tip="play">Play</button>
+        <a class="icon-btn open" data-tip="open">Open</a>
+        <a class="icon-btn dl" download data-tip="dl-wav">WAV</a>
+        <a class="icon-btn midi" download hidden data-tip="dl-midi">MIDI</a>
+        <button class="icon-btn danger del" type="button" data-tip="delete">Delete</button>
       </div>`;
 
     const row = {
@@ -176,19 +208,18 @@ export class TakesList {
     };
 
     row.playBtn.addEventListener('click', () => this.togglePlay(row));
-    row.delBtn.addEventListener('click', () => this.confirmDelete(row));
+    row.delBtn.addEventListener('click', () => this.deleteTake(row));
+    this.wireSelect(row);
 
     // Attached once, here, rather than in mountWave: mountWave can run more
     // than once for a row (it's guarded, but callers don't know that), and a
     // second listener would turn one dblclick into two flags. row.waveEl is
     // the same element across a wave's whole life, mounted or not.
     //
-    // This is a *double*-click, not a click: WaveSurfer's own click handler
-    // seeks the playhead and never calls stopPropagation, so a single click
-    // here would both seek and permanently write a flag -- there would be no
-    // way left to scrub a take without marking it. WaveSurfer emits dblclick
-    // but never treats it as a seek, so the two gestures coexist without
-    // stepping on each other. Do not "simplify" this back to click.
+    // This is a *double*-click, not a click: a single click on the wave
+    // seeks the playhead (RowWave), so a click here would both seek and
+    // permanently write a flag -- there would be no way left to scrub a take
+    // without marking it. Do not "simplify" this back to click.
     row.waveEl.addEventListener('dblclick', (e) => {
       if (e.target.classList.contains('take-flag')) return; // the tick's own click opens its editor
       if (!row.ws) return; // no mounted waveform to flag against (pending/unavailable placeholders)
@@ -337,7 +368,12 @@ export class TakesList {
       row.bpmEl.textContent = t.bpm == null ? '+ bpm' : `${t.bpm.toFixed(1)} bpm`;
       row.bpmEl.classList.toggle('unset', t.bpm == null);
     }
-    row.metaEl.textContent = `${fmtTime(t.duration_seconds)} · ${fmtSize(t.size_mb)}`;
+    // With a selection, its length "of" the take's, as the take page's header
+    // says it.
+    const sr = t.sample_rate || 48000;
+    const len = t.trim ? `${fmtTime((t.trim.end_frame - t.trim.start_frame) / sr)} of ${fmtTime(t.duration_seconds)}` : fmtTime(t.duration_seconds);
+    row.metaEl.textContent = `${len} · ${fmtSize(t.size_mb)}`;
+    row.ws?.setSelection(t.trim, (t.duration_seconds || 0) * sr);
     row.dlEl.href = `/api/download?file=${encodeURIComponent(t.name)}&dl=1`;
     row.openEl.href = `/wave.html?file=${encodeURIComponent(t.name)}`;
     // The .mid exists only when something was received during the take, so
@@ -444,7 +480,7 @@ export class TakesList {
       e.stopPropagation();
       done = true;
       box.remove();
-      this.flagOp(row, 'remove', { id: flag.id });
+      this.flagOp(row, 'remove', { id: flag.id }, flag);
     });
     box.addEventListener('click', (e) => e.stopPropagation());
     box.addEventListener('dblclick', (e) => e.stopPropagation());
@@ -456,7 +492,7 @@ export class TakesList {
   // One flag per request, by id (see /lib/flags.js), then a fresh list: the
   // ticks redraw from the server's own answer rather than from what was just
   // clicked, and a flag added from another device since is kept.
-  async flagOp(row, op, args) {
+  async flagOp(row, op, args, flag) {
     try {
       const body = await flagRequest(row.name, op, args);
       if (body.cue_error) {
@@ -464,6 +500,11 @@ export class TakesList {
         // cue chunk, a derived export, failed to update. Worth a toast, not a
         // thrown error that would read as the flag edit itself having failed.
         this.onToast?.(body.cue_error, 'bad');
+      } else if (op === 'remove' && body.undo?.op) {
+        const opId = body.undo.op;
+        this.onToast?.(flag?.label ? `Flag "${flag.label}" deleted` : 'Flag deleted', 'ok', {
+          action: { label: 'Undo', run: () => this.undoOp(row.name, opId) },
+        });
       }
     } catch (e) {
       this.onToast?.(`Could not update flags: ${e.message}`, 'bad');
@@ -513,34 +554,11 @@ export class TakesList {
     row.waveEl.classList.remove('pending');
     row.waveEl.textContent = '';
 
-    // Recode to the dB scale the meters and the ribbon use. The stored peaks
-    // are linear amplitude, and this was the only level display in the app
-    // still drawing them that way -- a MAIN-bus take at -25 dBFS rendered as a
-    // one-pixel band here while the same signal filled 57% of the ribbon.
-    //
-    // Display-only, so peaks.json stays linear for trim and offline analysis,
-    // and every take already on disk renders correctly without regeneration.
-    // normalize stays false on purpose: the point is an absolute scale, so two
-    // takes at the same level look the same. Normalising would make a whisper
-    // and a full band identical.
-    const shaped = peaks.data.map((chan) => Float32Array.from(chan, ampToFrac));
-
-    const ws = WaveSurfer.create({
-      container: row.waveEl,
-      media: audio,
-      peaks: shaped,
-      duration: peaks.duration || t.duration_seconds,
-      height: 48,
-      waveColor: '#2c5f52',
-      progressColor: '#34d399',
-      cursorColor: '#eef2f8',
-      cursorWidth: 1,
-      barWidth: 2,
-      barGap: 1,
-      barRadius: 2,
-      normalize: false,
-      dragToSeek: true,
-    });
+    // Drawn by the renderer the take page and the overview use, on the dB
+    // scale the meters and the ribbon use, so a take looks the same
+    // everywhere it's drawn (lib/wave/draw.js).
+    const ws = new RowWave({ container: row.waveEl, peaks, duration: peaks.duration || t.duration_seconds, audio });
+    ws.setSelection(t.trim, (t.duration_seconds || 0) * (t.sample_rate || 48000));
 
     ws.on('play', () => {
       this.stopOthers(row.name);
@@ -561,7 +579,7 @@ export class TakesList {
       row.playBtn.textContent = 'Play';
     });
 
-    // row.waveEl.textContent was just cleared to give WaveSurfer an empty
+    // row.waveEl.textContent was just cleared to give the wave an empty
     // container, which also erased any flag layer an earlier updateRow had
     // drawn into the "pending" placeholder. Redraw it now that the container
     // holds the wave, or existing flags would stay invisible until the next
@@ -591,20 +609,189 @@ export class TakesList {
     }
   }
 
-  async confirmDelete(row) {
-    const ok = await this.onConfirm?.(row.data.name);
-    if (!ok) return;
+  // Undo one change a toast offered to undo, by its id: a later edit
+  // elsewhere on the take doesn't change what this Undo means.
+  async undoOp(name, op) {
     try {
-      const res = await fetch(`/api/delete?file=${encodeURIComponent(row.data.name)}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this.etag = null; // force the next refresh to re-render
-      await this.refresh();
-      this.onToast?.('Deleted');
+      const res = await fetch(`/api/take/undo?file=${encodeURIComponent(name)}&op=${encodeURIComponent(op)}`, { method: 'POST', headers: withClient() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      if (body.skipped) this.onToast?.(undoSkipped(body.skipped), 'warn');
+    } catch (e) {
+      this.onToast?.(`Could not undo: ${e.message}`, 'bad');
+    }
+    this.etag = null;
+    try { await this.refresh(); } catch { /* next poll */ }
+  }
+
+  // Delete goes to the trash, so it doesn't ask: the toast offers Undo, and
+  // Recently deleted keeps it for a week.
+  async deleteTake(row) {
+    const name = row.data.name;
+    const label = row.data.label || name.replace(/^jam_|\.wav$/g, '');
+    try {
+      await this.trash([name]);
     } catch (e) {
       this.onToast?.(`Delete failed: ${e.message}`, 'bad');
+      return;
     }
+    this.onToast?.(`Deleted ${label}`, 'ok', { action: { label: 'Undo', run: () => this.restore([name]) } });
+  }
+
+  async trash(names) {
+    let failed = null;
+    for (const name of names) {
+      const res = await fetch(`/api/delete?file=${encodeURIComponent(name)}`, { method: 'DELETE' }).catch((e) => ({ ok: false, status: e.message }));
+      if (!res.ok) failed = `HTTP ${res.status}`;
+    }
+    this.etag = null; // force the next refresh to re-render
+    try { await this.refresh(); } catch { /* next poll */ }
+    if (failed) throw new Error(failed);
+  }
+
+  async restore(names) {
+    let failed = null;
+    for (const name of names) {
+      try { await restoreTake(name); } catch (e) { failed = e.message; }
+    }
+    this.etag = null;
+    try { await this.refresh(); } catch { /* next poll */ }
+    if (failed) this.onToast?.(`Could not restore: ${failed}`, 'bad');
+    else this.onToast?.(names.length === 1 ? 'Restored, starred' : `Restored ${names.length} takes, starred`);
+  }
+
+  // --- several takes at once --------------------------------------------------
+  // A long press on a row, or Select in the list's header, starts select
+  // mode: taps then pick rows instead of doing what they'd do, and a bar at
+  // the bottom stars, exports or deletes what's picked.
+
+  wireSelect(row) {
+    const el = row.el;
+    let hold = 0, at = null;
+    const cancel = () => { clearTimeout(hold); hold = 0; at = null; };
+    el.addEventListener('pointerdown', (e) => {
+      if (this.selecting || e.button > 0) return;
+      // Controls keep their own press; the waveform and the row's body don't.
+      if (e.target.closest('button, a, input, .take-flag, .take-flag-edit')) return;
+      at = { x: e.clientX, y: e.clientY };
+      hold = setTimeout(() => {
+        hold = 0;
+        // The release that ends this hold must not also toggle, or seek;
+        // wherever it lands, stop waiting for its click soon after.
+        this.swallowClick = true;
+        document.addEventListener('pointerup', () => setTimeout(() => { this.swallowClick = false; }, 400), { once: true, capture: true });
+        try { navigator.vibrate?.(10); } catch { /* not everywhere */ }
+        this.enterSelect(row.name);
+      }, SELECT_HOLD_MS);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > 8) cancel();
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(ev, cancel);
+    // In select mode a tap anywhere on a row picks it; nothing inside the row
+    // sees it. Caught on the way down, before the row's own handlers.
+    const swallow = (e) => {
+      if (!this.selecting) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    el.addEventListener('pointerdown', swallow, true);
+    el.addEventListener('pointerup', swallow, true);
+    el.addEventListener('dblclick', swallow, true);
+    el.addEventListener('click', (e) => {
+      if (!this.selecting) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.swallowClick) { this.swallowClick = false; return; }
+      this.toggleSelected(row.name);
+    }, true);
+    el.addEventListener('contextmenu', (e) => { if (hold || this.selecting) e.preventDefault(); });
+  }
+
+  enterSelect(name) {
+    if (!this.bar) return;
+    this.selecting = true;
+    this.selected.clear();
+    if (name) this.selected.add(name);
+    for (const r of this.rows.values()) r.ws?.pause();
+    this.renderSelect();
+  }
+
+  exitSelect() {
+    this.selecting = false;
+    this.selected.clear();
+    this.swallowClick = false;
+    this.renderSelect();
+  }
+
+  toggleSelected(name) {
+    if (this.selected.has(name)) this.selected.delete(name);
+    else this.selected.add(name);
+    this.renderSelect();
+  }
+
+  renderSelect() {
+    document.body.classList.toggle('selecting', this.selecting);
+    for (const [name, r] of this.rows) {
+      const on = this.selecting && this.selected.has(name);
+      r.el.classList.toggle('selected', on);
+      r.el.setAttribute('aria-selected', this.selecting ? String(on) : 'false');
+    }
+    if (!this.bar) return;
+    this.bar.hidden = !this.selecting;
+    const n = this.selected.size;
+    this.bar.querySelector('#select-count').textContent = n ? `${n} selected` : 'Tap takes to select';
+    for (const id of ['#sel-star', '#sel-export', '#sel-delete']) this.bar.querySelector(id).disabled = n === 0;
+    const allStarred = n > 0 && [...this.selected].every((k) => this.rows.get(k)?.data.starred);
+    const star = this.bar.querySelector('#sel-star');
+    star.textContent = allStarred ? '☆' : '★';
+    star.setAttribute('aria-label', allStarred ? 'Unstar' : 'Star');
+    const sb = document.getElementById('select-btn');
+    if (sb) sb.textContent = this.selecting ? 'Done' : 'Select';
+  }
+
+  async bulkStar() {
+    const names = [...this.selected];
+    const allStarred = names.every((k) => this.rows.get(k)?.data.starred);
+    let failed = 0;
+    for (const name of names) {
+      const res = await fetch(`/api/take?file=${encodeURIComponent(name)}`, {
+        method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ starred: !allStarred }),
+      }).catch(() => ({ ok: false }));
+      if (!res.ok) failed++;
+    }
+    this.etag = null;
+    try { await this.refresh(); } catch { /* next poll */ }
+    if (failed) this.onToast?.(`Could not star ${failed} of them`, 'bad');
+    this.renderSelect();
+  }
+
+  async bulkDelete() {
+    const names = [...this.selected];
+    if (!names.length) return;
+    this.exitSelect();
+    try {
+      await this.trash(names);
+    } catch (e) {
+      this.onToast?.(`Some could not be deleted: ${e.message}`, 'bad');
+    }
+    const msg = names.length === 1 ? 'Deleted 1 take' : `Deleted ${names.length} takes`;
+    this.onToast?.(msg, 'ok', { action: { label: 'Undo', run: () => this.restore(names) } });
+  }
+
+  // One zip, streamed by the Pi: a plain download link, not a fetch, so a
+  // big export never sits in the phone's memory.
+  bulkExport() {
+    const names = [...this.selected];
+    if (!names.length) return;
+    const a = document.createElement('a');
+    a.href = exportURL(names);
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    this.onToast?.(names.length === 1 ? 'Exporting 1 take…' : `Exporting ${names.length} takes…`);
   }
 
   destroyRow(row) {
@@ -613,4 +800,9 @@ export class TakesList {
     this.io.unobserve(row.el);
     row.el.remove();
   }
+}
+
+/** exportURL is the zip of several takes: GET /api/export?file=…&file=…. */
+export function exportURL(names) {
+  return `/api/export?${names.map((n) => `file=${encodeURIComponent(n)}`).join('&')}`;
 }

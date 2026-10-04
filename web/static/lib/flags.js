@@ -20,6 +20,8 @@ export function newFlagId() {
   return 'r' + Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+import { withClient } from './client.js';
+
 const queues = new Map(); // file -> the promise the next request waits for
 
 export function flagRequest(file, op, args = {}, fetchImpl = globalThis.fetch) {
@@ -55,9 +57,10 @@ async function send(file, op, { id, frame, label } = {}, fetchImpl) {
     default:
       throw new Error(`unknown flag op: ${op}`);
   }
-  const init = { method };
+  // The device header is what lets this device's Undo find its own changes.
+  const init = { method, headers: withClient() };
   if (body) {
-    init.headers = { 'Content-Type': 'application/json' };
+    init.headers = withClient({ 'Content-Type': 'application/json' });
     init.body = JSON.stringify(body);
   }
   const res = await fetchImpl(url, init);

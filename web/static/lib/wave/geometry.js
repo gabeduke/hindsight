@@ -112,12 +112,133 @@ export function edgeScrollStep(x, width, margin = EDGE_MARGIN_PX, maxStep = EDGE
   return 0;
 }
 
-// A -38 dBFS take drawn on an absolute scale is a flat line. This is the
-// display-only multiplier that lifts its loudest sample to `target`; it never
-// touches audio, and the takes list keeps its absolute scale on purpose.
-export function fitGain(filePeaks, target = 0.9, max = 100) {
-  let peak = 0;
-  for (const ch of filePeaks.data || []) for (const v of ch) peak = Math.max(peak, Math.abs(v));
-  if (!(peak > 0) || peak >= target) return 1;
-  return Math.min(max, target / peak);
+// --- snap, In/Out, flag stepping (the editing model's step 3) ------------
+
+/** The snap settings the Snap chip cycles through, in order. */
+export const SNAPS = ['off', 'bar', 'beat', 'eighth'];
+export const SNAP_LABELS = { off: 'off', bar: 'bar', beat: 'beat', eighth: '⅛' };
+
+/** snapStep is the grid step for a snap setting, in frames; 0 when off. */
+export function snapStep(grid, snap) {
+  if (!grid.bpm || !snap || snap === 'off') return 0;
+  const fpb = framesPerBeat(grid);
+  if (snap === 'bar') return fpb * BEATS_PER_BAR;
+  if (snap === 'eighth') return fpb / 2;
+  return fpb;
+}
+
+/** snapFrame moves a frame to the nearest grid line, counted from the downbeat. */
+export function snapFrame(frame, grid, snap) {
+  const step = snapStep(grid, snap);
+  if (!step) return Math.round(frame);
+  return Math.round(grid.downbeat + Math.round((frame - grid.downbeat) / step) * step);
+}
+
+/** nudgeStep is how far one nudge moves an edge: one snap step, or 10 ms. */
+export function nudgeStep(grid, snap) {
+  return Math.round(snapStep(grid, snap) || grid.sampleRate * 0.01);
+}
+
+/**
+ * nudgeFrame is where one nudge in direction sign (+1 or -1) takes a frame.
+ * With snap on it is the next grid line that way, so an edge that sits off
+ * the grid lands on it rather than staying off by the same amount; with snap
+ * off it is 10 ms.
+ */
+export function nudgeFrame(frame, sign, grid, snap) {
+  const step = snapStep(grid, snap);
+  if (!step) return frame + sign * nudgeStep(grid, snap);
+  const k = (frame - grid.downbeat) / step;
+  // A frame a rounding error from a line counts as on it.
+  const near = Math.round(k);
+  const on = Math.abs(k - near) * step < 0.5;
+  const n = sign > 0 ? (on ? near + 1 : Math.ceil(k)) : (on ? near - 1 : Math.floor(k));
+  return Math.round(grid.downbeat + n * step);
+}
+
+/**
+ * setPoint applies In (edge 'start') or Out (edge 'end') at frame `at`, the
+ * OP-1's loop points. With a selection, it moves that end -- unless that would
+ * turn the selection inside out, in which case the old selection goes and
+ * `at` is held as a pending point. With no selection, a pending point of the
+ * other kind completes one; otherwise `at` becomes the pending point. Either
+ * order works: In then Out, or Out then In.
+ *
+ * Returns { selection, pending } where pending is null or { edge, frame }.
+ */
+export function setPoint(edge, at, { selection, pending }, total, minLen) {
+  at = Math.max(0, Math.min(total, Math.round(at)));
+  const other = edge === 'start' ? 'end' : 'start';
+  const fits = (s, e) => e - s >= minLen;
+  if (selection) {
+    const s = edge === 'start' ? at : selection.start;
+    const e = edge === 'end' ? at : selection.end;
+    if (fits(s, e)) return { selection: { start: s, end: e }, pending: null };
+    return { selection: null, pending: { edge, frame: at } };
+  }
+  if (pending && pending.edge === other) {
+    const s = edge === 'start' ? at : pending.frame;
+    const e = edge === 'end' ? at : pending.frame;
+    if (fits(s, e)) return { selection: { start: s, end: e }, pending: null };
+  }
+  return { selection: null, pending: { edge, frame: at } };
+}
+
+/** prevFlag and nextFlag are the flags either side of a frame, or null. */
+export function prevFlag(flags, at) {
+  let best = null;
+  for (const f of flags || []) if (f.frame < at - 1 && (!best || f.frame > best.frame)) best = f;
+  return best;
+}
+export function nextFlag(flags, at) {
+  let best = null;
+  for (const f of flags || []) if (f.frame > at + 1 && (!best || f.frame < best.frame)) best = f;
+  return best;
+}
+
+/** fmtClock is m:ss, for lengths in the header and on buttons. */
+export function fmtClock(frames, sampleRate) {
+  const s = Math.floor(frames / sampleRate);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** fmtPoint is a point in a take, m:ss.cc, for the In and Out readouts. */
+export function fmtPoint(frame, sampleRate) {
+  const cs = Math.floor((frame / sampleRate) * 100);
+  const m = Math.floor(cs / 6000);
+  const s = Math.floor((cs % 6000) / 100);
+  return `${m}:${String(s).padStart(2, '0')}.${String(cs % 100).padStart(2, '0')}`;
+}
+
+/**
+ * rulerTicks lays out the ruler: bar numbers with a BPM (every bar, or every
+ * 2nd, 4th... when bars are narrow), seconds without one (at 1, 5, 10, 30 or
+ * 60 s spacing). Each tick is { frame, label, major }.
+ */
+export function rulerTicks(view, grid, minLabelPx = 34) {
+  const end = view.start + view.width * view.fpp;
+  const out = [];
+  if (grid.bpm) {
+    const bar = framesPerBeat(grid) * BEATS_PER_BAR;
+    let every = 1;
+    while ((bar * every) / view.fpp < minLabelPx) every *= 2;
+    const step = bar * every;
+    let n = Math.ceil((view.start - grid.downbeat) / step);
+    for (;; n++) {
+      const frame = grid.downbeat + n * step;
+      if (frame >= end) break;
+      const barNo = n * every;
+      out.push({ frame: Math.round(frame), label: String(barNo >= 0 ? barNo + 1 : barNo), major: true });
+    }
+    return out;
+  }
+  const sr = grid.sampleRate;
+  const steps = [1, 5, 10, 30, 60, 300];
+  let sec = steps.find((s) => (s * sr) / view.fpp >= minLabelPx) || 600;
+  const step = sec * sr;
+  for (let n = Math.ceil(view.start / step); n * step < end; n++) {
+    const t = n * sec;
+    out.push({ frame: n * step, label: `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`, major: true });
+  }
+  return out;
 }

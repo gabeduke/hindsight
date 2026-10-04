@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   frameToX, xToFrame, levelFor, tileSpan, tilesFor, fileLevel,
   gridLines, barBeat, fmtTime, clampRegion, TILE_BUCKETS,
-  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fitGain, fmtRegionLength,
+  edgeScrollStep, EDGE_MARGIN_PX, EDGE_MAX_STEP_PX, fmtRegionLength,
 } from './geometry.js';
 
 const view = { start: 48000, fpp: 100, width: 390 };
@@ -100,20 +100,85 @@ test('edge scroll step ramps inside the margins and is zero elsewhere', () => {
   assert.equal(edgeScrollStep(-50, 390), -EDGE_MAX_STEP_PX); // clamped past the edge
 });
 
-// The owner's real takes peak around -38 dBFS. On an absolute scale that is a
-// flat line, so the page offers a display-only multiplier -- which must never
-// shrink a take that is already loud enough, and must not run away on silence.
-test('fitGain scales a quiet take up to the target and never down', () => {
-  const pk = (v) => ({ channels: 1, buckets: 2, data: [[-v, v, -v / 2, v / 2]] });
-  assert.equal(fitGain(pk(0.9)), 1);   // already at the target
-  assert.equal(fitGain(pk(1.0)), 1);   // above it: never scaled down
-  assert.ok(Math.abs(fitGain(pk(0.05)) - 0.9 / 0.05) < 1e-9);
-  // A -38 dBFS take wants ~73x, under the default cap -- it fills the lane.
-  // The cap still keeps a near-silent take from amplifying its own noise
-  // floor to full scale.
-  assert.ok(Math.abs(fitGain(pk(0.0123)) - 0.9 / 0.0123) < 1e-9);
-  assert.equal(fitGain(pk(0.0001)), 100);
-  assert.equal(fitGain(pk(0.0123), 0.9, 40), 40);
-  assert.equal(fitGain({ channels: 1, buckets: 0, data: [[]] }), 1);
-  assert.equal(fitGain({}), 1);        // peaks that never arrived
+import { snapFrame, snapStep, nudgeStep, nudgeFrame, setPoint, prevFlag, nextFlag, fmtPoint, rulerTicks } from './geometry.js';
+
+const grid120 = { bpm: 120, sampleRate: 48000, downbeat: 1000 }; // a beat is 24000 frames
+
+test('snap moves a frame to the nearest bar, beat or eighth from the downbeat', () => {
+  assert.equal(snapFrame(1000 + 24000 * 1.4, grid120, 'beat'), 1000 + 24000);
+  assert.equal(snapFrame(1000 + 24000 * 1.6, grid120, 'beat'), 1000 + 48000);
+  assert.equal(snapFrame(1000 + 24000 * 1.3, grid120, 'eighth'), 1000 + 36000);
+  assert.equal(snapFrame(1000 + 24000 * 1.9, grid120, 'bar'), 1000);
+  assert.equal(snapFrame(1000 + 24000 * 2.9, grid120, 'bar'), 97000);
+  assert.equal(snapFrame(12345.6, grid120, 'off'), 12346);
+  assert.equal(snapFrame(12345, { bpm: null, sampleRate: 48000, downbeat: 0 }, 'beat'), 12345, 'no BPM, no snap');
+  assert.equal(snapStep(grid120, 'bar'), 96000);
+});
+
+test('a nudge is one snap step, or 10 ms with snap off', () => {
+  assert.equal(nudgeStep(grid120, 'beat'), 24000);
+  assert.equal(nudgeStep(grid120, 'off'), 480);
+  assert.equal(nudgeStep({ bpm: null, sampleRate: 44100, downbeat: 0 }, 'beat'), 441);
+});
+
+test('a snapped nudge goes to the next grid line, from on or off the grid', () => {
+  // 120 BPM at 48 kHz, downbeat 1000: beats at 1000, 25000, 49000 ...
+  const g = { bpm: 120, sampleRate: 48000, downbeat: 1000 };
+  assert.equal(nudgeFrame(25000, 1, g, 'beat'), 49000);   // on a line: one step
+  assert.equal(nudgeFrame(25000, -1, g, 'beat'), 1000);
+  assert.equal(nudgeFrame(30000, 1, g, 'beat'), 49000);   // off it: onto the next line
+  assert.equal(nudgeFrame(30000, -1, g, 'beat'), 25000);
+  assert.equal(nudgeFrame(25000.3, 1, g, 'beat'), 49000); // a rounding error is on the line
+  assert.equal(nudgeFrame(30000, 1, g, 'off'), 30480);    // snap off: 10 ms
+  assert.equal(nudgeFrame(30000, -1, { ...g, bpm: null }, 'beat'), 29520);
+});
+
+test('In then Out makes a selection, through a pending point', () => {
+  let s = { selection: null, pending: null };
+  s = setPoint('start', 1000, s, 100000, 289);
+  assert.deepEqual(s, { selection: null, pending: { edge: 'start', frame: 1000 } });
+  s = setPoint('end', 5000, s, 100000, 289);
+  assert.deepEqual(s, { selection: { start: 1000, end: 5000 }, pending: null });
+});
+
+test('Out then In works too, and so does moving one end of a selection', () => {
+  let s = setPoint('end', 5000, { selection: null, pending: null }, 100000, 289);
+  s = setPoint('start', 1000, s, 100000, 289);
+  assert.deepEqual(s.selection, { start: 1000, end: 5000 });
+  s = setPoint('start', 2000, s, 100000, 289);
+  assert.deepEqual(s.selection, { start: 2000, end: 5000 });
+  s = setPoint('end', 9000, s, 100000, 289);
+  assert.deepEqual(s.selection, { start: 2000, end: 9000 });
+});
+
+test('an In past the Out starts over from a pending In', () => {
+  const s = setPoint('start', 9500, { selection: { start: 2000, end: 9000 }, pending: null }, 100000, 289);
+  assert.deepEqual(s, { selection: null, pending: { edge: 'start', frame: 9500 } });
+  // Two Ins in a row: the second replaces the first.
+  const t = setPoint('start', 300, s, 100000, 289);
+  assert.deepEqual(t.pending, { edge: 'start', frame: 300 });
+});
+
+test('flag stepping finds the flags either side of the playhead', () => {
+  const flags = [{ frame: 100 }, { frame: 500 }, { frame: 900 }];
+  assert.equal(prevFlag(flags, 500).frame, 100);
+  assert.equal(nextFlag(flags, 500).frame, 900);
+  assert.equal(prevFlag(flags, 50), null);
+  assert.equal(nextFlag(flags, 950), null);
+});
+
+test('points read m:ss.cc', () => {
+  assert.equal(fmtPoint(48000 * 62.345, 48000), '1:02.34');
+});
+
+test('the ruler numbers bars from the downbeat, thinning when they are narrow', () => {
+  const view = { start: 0, fpp: 100, width: 400 }; // 40000 frames shown
+  const ticks = rulerTicks(view, { bpm: 120, sampleRate: 48000, downbeat: 0 }); // a bar is 960 px... at fpp 100
+  assert.equal(ticks[0].label, '1');
+  const dense = rulerTicks({ start: 0, fpp: 10000, width: 400 }, { bpm: 120, sampleRate: 48000, downbeat: 0 });
+  // A bar is 9.6 px here: labels every 4th bar at least 34 px apart.
+  assert.ok(dense.length >= 2);
+  assert.ok((dense[1].frame - dense[0].frame) / 10000 >= 34);
+  const secs = rulerTicks({ start: 0, fpp: 1000, width: 400 }, { bpm: null, sampleRate: 48000, downbeat: 0 });
+  assert.deepEqual(secs.slice(0, 2).map((t) => t.label), ['0:00', '0:01']);
 });

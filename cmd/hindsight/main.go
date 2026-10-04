@@ -18,6 +18,7 @@ import (
 	"github.com/gabeduke/hindsight/internal/bundle"
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/midi"
+	"github.com/gabeduke/hindsight/internal/tape"
 	"github.com/gorilla/mux"
 )
 
@@ -50,7 +51,15 @@ func main() {
 	audio.SweepPartials(cfg.OutputDir)
 	// Takes saved before the peaks pyramid existed get one, one at a time in
 	// the background; until then their zooms read the WAV, as they always did.
-	go audio.BackfillPyramids(cfg.OutputDir)
+	// Then any take without a preview gets one -- a phone recording the sweep
+	// just recovered, or an encode a restart cut short.
+	go func() {
+		audio.BackfillPyramids(cfg.OutputDir)
+		audio.BackfillPreviews(cfg)
+	}()
+	// Deleted and pruned takes wait in the trash for a week, or until the
+	// disk runs low; this empties it on that schedule. It runs until exit.
+	go audio.TrashJanitor(cfg.OutputDir, cfg.MinFreeGB, 10*time.Minute, nil)
 
 	// DemoDevice and Watcher each satisfy every consumer, so both are held
 	// through their interfaces rather than asserted back out of one.
@@ -110,7 +119,14 @@ func main() {
 	saver.SetMIDIExporter(exporter)
 
 	r := mux.NewRouter()
-	api.New(cfg, cap, saver, cap.Envelope(), clock).SetupRoutes(r)
+	srvAPI := api.New(cfg, cap, saver, cap.Envelope(), clock)
+	if cfg.Tape {
+		if eng := startTape(cfg, cap, src, *demo); eng != nil {
+			srvAPI.SetTape(eng)
+			defer eng.Stop()
+		}
+	}
+	srvAPI.SetupRoutes(r)
 	r.PathPrefix("/").Handler(noCacheShell(http.FileServer(http.Dir(staticDir()))))
 
 	srv := &http.Server{
@@ -135,6 +151,43 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
+}
+
+// startTape opens the tape store and starts the engine, loading the tape
+// that was loaded last. The tape can never cost a recording: any failure here
+// is logged and the dashcam runs on without it.
+func startTape(cfg *config.Config, cap *audio.Capture, src audio.Source, demo bool) *tape.Engine {
+	store, err := tape.OpenStore(cfg.TapeDir, cfg.SampleRate, cfg.TapeTracks, cfg.TapeLengthS)
+	if err != nil {
+		log.Printf("[!] tape off: %v", err)
+		return nil
+	}
+	sources, err := tape.ParseSources(cfg.TapeSources, cfg.Channels)
+	if err != nil {
+		log.Printf("[!] tape off: %v", err)
+		return nil
+	}
+	var sink audio.Sink
+	if demo {
+		sink = audio.NewDemoSink(src, cap)
+	} else {
+		// The PortAudio output, sharing the capture's lifecycle, is the next
+		// step. Until then tapes can be made from takes and edited, but not
+		// heard, and nothing can be caught: a catch needs the output lined up
+		// with the capture.
+		log.Printf("[!] tape: playback through the interface isn't built yet; tapes can be made from takes and edited")
+	}
+	eng := tape.NewEngine(tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources, MinFreeGB: cfg.MinFreeGB})
+	if id := store.Remembered(); id != "" {
+		if _, err := eng.Load(id); err != nil {
+			log.Printf("[!] tape %s: %v", id, err)
+		}
+	}
+	if err := eng.Start(); err != nil {
+		log.Printf("[!] tape: %v", err)
+	}
+	log.Printf("[*] tape on — %s, %d tracks of %ds", cfg.TapeDir, cfg.TapeTracks, cfg.TapeLengthS)
+	return eng
 }
 
 // staticDir resolves the UI directory. It is a thin wrapper so that the
@@ -181,8 +234,7 @@ func dirExists(p string) bool {
 // CSS, JSON and directory indexes -- so the browser revalidates them and a
 // redeploy is picked up on reload rather than on a cache expiry.
 //
-// Nothing under web/static is fingerprinted, so this covers the vendored
-// WaveSurfer copy too: /vendor/wavesurfer.esm.js is a .js like any other.
+// Nothing under web/static is fingerprinted, so every module is covered.
 // Everything else -- the icons, and anything else without one of those
 // extensions -- falls through to http.FileServer's ETag and Last-Modified
 // handling untouched.

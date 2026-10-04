@@ -17,8 +17,8 @@ means a missing file is not an error, because every value has a default.
 | `SAMPLE_RATE` | `48000` | Capture sample rate, in Hz |
 | `SAVE_CHANNELS` | `1,2` | 1-indexed channel pair written to a take |
 | `SAVE_ALL_CHANNELS` | `false` | Write every channel instead of the pair above |
-| `MIN_FREE_GB` | `1.0` | Refuse to save below this much free disk |
-| `MAX_SAVES` | `0` | Keep at most this many takes, deleting the oldest. `0` disables pruning |
+| `MIN_FREE_GB` | `1.0` | Refuse to save below this much free disk, after emptying the trash |
+| `MAX_SAVES` | `0` | Keep at most this many takes, moving the oldest to the trash. `0` disables pruning |
 | `INPUT_LATENCY_MS` | `100` | Input latency requested from PortAudio. Do not lower it |
 | `MIDI_CAPTURE` | `true` | Record MIDI from every connected device and write a `.mid` beside each take |
 | `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`)* | Substring naming the device whose MIDI clock is the tempo source |
@@ -131,19 +131,26 @@ is about to make. With `MIN_FREE_GB=1.0`, 1.1 GB free and a 1.3 GB full-ring
 save, the check passes and the write proceeds — and can fill the volume. Set it
 comfortably above one full-ring take, not just above zero.
 
+Before refusing, a save (or a cut, or a phone recording) empties the trash,
+oldest deletion first, until there is `MIN_FREE_GB` free or the trash is
+empty, and a janitor does the same every 10 minutes. The trash is never why a
+capture is refused.
+
 `MAX_SAVES` prunes in the background after a successful save or cut. It keeps
 the first `MAX_SAVES` takes in the order `/api/jams` lists them — starred
-first, then newest first by creation time — and deletes the rest along with
-their sidecars. A cut never prunes itself or the take it was cut from. Starring a take therefore keeps it out of the pruner's reach,
+first, then newest first by creation time — and moves the rest, with their
+sidecars, to the trash, where they wait 7 days (or until the disk runs low)
+under *Recently deleted*. A cut never prunes itself or the take it was cut from. Starring a take therefore keeps it out of the pruner's reach,
 until the starred takes alone exceed `MAX_SAVES`. Editing an old take's flags
 doesn't make it new again.
 
-Each take is a `.wav` plus up to six sidecars in the same directory: a
+Each take is a `.wav` plus up to seven sidecars in the same directory: a
 `_preview.mp3`; a `.peaks.json` and a `.peaks.bin` (the whole-take waveform,
 and the pyramid zoomed-out views are drawn from); a `.meta.json` holding the
-label, star, selection, BPM, downbeat, flags and creation time; and, when MIDI
-was captured, a `.mid` and a `.manifest.json`. Deleting a take through the API
-removes all of them. A take still being written is a hidden `.<name>.part`
+label, star, selection, BPM, downbeat, flags and creation time; a
+`.history.json` of the last 50 edits, for Undo; and, when MIDI was captured,
+a `.mid` and a `.manifest.json`. Deleting a take through the API moves all of
+them to `.trash/<name>/`. A take still being written is a hidden `.<name>.part`
 file and isn't listed; one left by a crash is cleared at startup.
 
 ## MIDI
@@ -204,3 +211,39 @@ the window is left alone and bar 1 is declared to be the take's first frame,
 which the manifest's `downbeat.source` (`window-start` rather than
 `midi-start`) says. The EP-136 never sends Start — it has no transport — so
 with it as the clock device that is the normal case.
+
+## The tape
+
+The tape ([guide §8](guide.md#8-tape)) is off unless `TAPE=true`. When it's
+on, the main page shows a **Tape** chip. A tape store that won't open is
+logged and the tape left off, and an output that won't open leaves the tape
+running without one; neither can stop the dashcam recording.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `TAPE` | `false` | Turn the tape on |
+| `TAPE_DIR` | `~/hindsight/tapes` | Where tapes and their audio live. Put it on the same disk as `OUTPUT_DIR`; `MIN_FREE_GB` guards it as it guards takes |
+| `TAPE_TRACKS` | `4` | Tracks a new tape has (1–16) |
+| `TAPE_LENGTH_S` | `360` | How long a track is, in seconds: the OP-1's six minutes |
+| `TAPE_SOURCES` | `main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8` | The inputs a catch can take from: space-separated `name=L,R[:buses]`, with 1-indexed capture channels and the tape buses heard in each |
+
+`TAPE_SOURCES` is the Sidekick's map. MAIN carries both of the tape's buses,
+channel 1's tap carries bus A, channel 2's tap carries bus B, and aux carries
+neither. A source that hears a bus is shown with ○ on the tape page, because
+catching from it records the tape as well as you. A channel past `CHANNELS`
+is refused at startup.
+
+On disk, `TAPE_DIR` holds:
+
+- `tapes/<id>/tape.json` for each tape: its tracks, clips, mix and undo
+  history. It's rewritten after every change, to a temporary file that's
+  synced and renamed, so a power cut leaves the old version or the new one.
+- `audio/`, the pool of every caught or sent piece of audio, as 32-bit WAVs
+  with peaks beside them. Clips point into the pool and never change it, so a
+  clone costs nothing. Deleting a tape frees the pool files that no tape, and
+  no tape's undo history, still uses.
+- `loaded`, naming the tape that was loaded, so a restart loads it again.
+
+In this version the tape plays only in the demo. On the Pi, playback through
+the Sidekick is the next step; until then tapes can be made from takes and
+edited, but not heard or caught onto.

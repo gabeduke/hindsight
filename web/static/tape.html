@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hindsight — tape</title>
+<meta name="theme-color" content="#0b1120">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="tape-page">
+
+<!-- The tape: four tracks of clips played back through the Sidekick, caught
+     from the ring after the fact (lib/tape/page.js, internal/tape). -->
+<header class="topbar tape-top">
+  <a class="back" href="/" aria-label="Back to the main page" data-tip="back">‹</a>
+  <div class="tape-title">
+    <button id="tape-name" class="tape-title-name" type="button" aria-haspopup="menu" data-tip="tape-menu">…</button>
+    <span id="tape-sub" class="tape-sub mono"></span>
+  </div>
+  <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
+  <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" data-tip="tape-undo">↶</button>
+  <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" data-tip="tape-redo">↷</button>
+  <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
+  <div id="tape-menu" class="menu" role="menu" hidden>
+    <div id="tape-list" class="tape-list"></div>
+    <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
+    <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
+    <button id="tape-delete" class="danger" type="button" role="menuitem" data-tip="tape-delete">Delete a tape…</button>
+    <a href="/guide.html#8-tape" role="menuitem" data-tip="guide">The guide</a>
+  </div>
+</header>
+
+<main class="tape-main">
+  <div id="tape-off" class="tape-empty" hidden>
+    <p><b>The tape is off.</b> Start Hindsight with <code>TAPE=true</code> to use it.</p>
+  </div>
+
+  <div id="tape-body" hidden>
+    <div id="tape-empty" class="tape-empty" hidden>
+      <p><b>This tape is empty.</b> Its first loop sets the tempo.</p>
+      <p>Open a take, select the part, and choose <b>More → Send to tape</b>. Or start from a tempo:</p>
+      <div class="tape-tempo-row">
+        <label>BPM <input id="new-bpm" type="number" min="20" max="400" step="0.1" value="90" inputmode="decimal" data-tip="tape-bpm"></label>
+        <label>Bars <input id="new-bars" type="number" min="1" max="64" value="4" inputmode="numeric" data-tip="tape-bpm"></label>
+        <button id="set-tempo" class="icon-btn primary" type="button" data-tip="tape-bpm">Set</button>
+      </div>
+    </div>
+
+    <canvas id="tape-overview" class="tape-overview" aria-label="The whole tape" data-tip="tape-overview"></canvas>
+    <div id="lanes" class="tape-lanes"></div>
+
+    <div class="toolbar tape-toolbar">
+      <div class="tb-row transport">
+        <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="tape-play">▶</button>
+        <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="tape-loop">⟲ Loop</button>
+        <span id="position" class="readout mono"></span>
+      </div>
+      <div class="tb-row sources" role="group" aria-label="Catch from">
+        <span class="tb-label">Catch from</span>
+        <div id="sources" class="seg"></div>
+      </div>
+      <div class="tb-row catch">
+        <button id="catch-pass" class="icon-btn" type="button" data-tip="catch">Catch the last pass</button>
+        <div class="seg" id="catch-bars" role="group" aria-label="Catch the last bars">
+          <button type="button" data-bars="1" data-tip="catch-bars">1 bar</button>
+          <button type="button" data-bars="2" data-tip="catch-bars">2</button>
+          <button type="button" data-bars="4" data-tip="catch-bars">4</button>
+        </div>
+      </div>
+      <div class="tb-row passes">
+        <span class="tb-label">Passes</span>
+        <div id="passes" class="passes-row" data-tip="passes"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- A clip's sheet. -->
+<dialog class="sheet" id="clip-sheet">
+  <div class="sheet-inner">
+    <h3 id="clip-title">Clip</h3>
+    <label class="clip-field">Level <span id="clip-gain-val" class="mono"></span>
+      <input id="clip-gain" type="range" min="-30" max="6" step="0.5" data-tip="clip-gain">
+    </label>
+    <div class="clip-field">Nudge <span id="clip-nudge-val" class="mono"></span>
+      <div class="seg">
+        <button id="nudge-back" type="button" data-tip="clip-nudge">−5 ms</button>
+        <button id="nudge-fwd" type="button" data-tip="clip-nudge">+5 ms</button>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button id="clip-remove" class="icon-btn danger" type="button" data-tip="clip-remove">Remove</button>
+      <button id="clip-done" class="icon-btn" type="button">Done</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toasts" aria-live="polite"></div>
+<script type="module" src="/lib/tape/page.js"></script>
+</body>
+</html>

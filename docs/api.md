@@ -1,6 +1,6 @@
 # HTTP API
 
-Twenty routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Forty-one routes (one, `/api/trigger`, in two forms), fourteen of them the tape's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -12,27 +12,49 @@ internet.
 |---|---|
 | `GET /api/status` | Health, ring fill, per-channel dB, disk, live tempo, version |
 | `GET /api/live` | WebSocket: min/max peak bins (~100/s) plus peak-hold |
+| `GET /api/phone` | WebSocket: a phone streams a recording into a new take |
 | `GET /api/envelope` | The buffer ribbon's amplitude envelope over the whole ring |
 | `POST /api/trigger?seconds=N` | Save the last N seconds; `0` is the whole ring |
+| `POST /api/trigger?from=F[&to=T]` | Save any span of the ring, in absolute frames; no `to` is now |
 | `GET /api/jams` | Takes, starred first then newest first. Sends an ETag |
 | `GET /api/take?file=` | One take, in the same shape as an entry of `/api/jams` |
 | `PATCH /api/take?file=` | Edit a take's label, star, trim, BPM, downbeat, lane kinds and flags |
 | `POST /api/take/flags?file=` | Add one flag to a take |
 | `PATCH /api/take/flags?file=&id=` | Move or relabel one flag |
 | `DELETE /api/take/flags?file=&id=` | Remove one flag |
-| `POST /api/flag` | Mark a moment of interest at the ring's newest frame |
+| `POST /api/take/undo?file=[&op=]` | Undo the newest change to a take, or the one named |
+| `GET /api/trash` | Deleted and pruned takes, most recently deleted first |
+| `POST /api/trash/restore?file=` | Put a take back from the trash, starred |
+| `DELETE /api/trash?file=` | Delete one take from the trash for good (`?all=1`: empty it) |
+| `GET /api/export?file=…&file=…` | One zip of several takes: WAVs, sidecars, MIDI |
+| `POST /api/flag` | Flag a moment at the ring's newest frame (the main page's *Flag now*) |
 | `DELETE /api/flag` | Remove one live mark (`?frame=`), or every one (`?all=1`) |
 | `GET /api/peaks?file=` | Precomputed waveform, so phones do not download audio to draw one; with a range, that range's peaks |
 | `GET /api/download?file=[&dl=1]` | Stream inline, or force a download |
-| `DELETE /api/delete?file=` | Remove a take and its sidecars |
+| `DELETE /api/delete?file=` | Move a take and its sidecars to the trash |
 | `POST /api/cut?file=` | Export a region of a take as a new take, with 3ms declick fades |
 | `GET /api/slice?file=&from=&to=` | A region as a 16-bit WAV with the same fades a cut gets, for auditioning |
 | `GET /api/render?file=&from=&to=` | An MP3 of a region, streamed from ffmpeg with the cut's fades, for the share sheet |
 | `GET /api/midi?file=` | The take's `.mid` decoded to notes in frames, one track per device and channel, for the lanes |
+| `GET /guide.md` | The user guide, compiled into the binary, for `/guide.html` to render |
 | `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
+| `GET /api/tapes` | The tapes, newest change first, and which is loaded |
+| `POST /api/tapes` | A new, empty tape |
+| `GET /api/tapes/state?id=` | One tape, with the transport and catch state when it's the loaded one |
+| `PATCH /api/tapes?id=` | Name, tempo, bars, loop, a track's mix, a clip's level or nudge, or remove a clip |
+| `DELETE /api/tapes?id=` | Delete a tape that isn't loaded, and free the audio only it used |
+| `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
+| `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
+| `POST /api/tapes/catch?id=` | Put the last pass, or the last N bars, from an input onto a track |
+| `POST /api/tapes/drop?id=` | Put a span of a take onto the tape |
+| `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=` | Step the tape's history back or forward |
+| `POST /api/tapes/clone?id=` | A copy of a tape, sharing its audio |
+| `POST /api/tapes/cleanup` | Delete pool audio that no tape, and no tape's history, uses |
+| `GET /api/tapes/peaks?file=` | A pool file's whole-file waveform |
 
-`GET` routes also accept `HEAD`, except `/api/live`, which is a WebSocket
-upgrade, and `/api/render` and `/api/bundle`, which stream.
+`GET` routes also accept `HEAD`, except `/api/live` and `/api/phone`, which
+are WebSocket upgrades, and `/api/render`, `/api/bundle` and `/api/export`,
+which stream.
 
 ---
 
@@ -45,6 +67,7 @@ The poll everything else hangs off. The UI reads it every two seconds.
   "version": "dev",
   "is_recording": true,
   "capture_healthy": true,
+  "capture_waiting": false,
   "last_error": "",
   "device": "Demo signal generator (synthetic, 96 BPM)",
   "xruns": 0,
@@ -84,6 +107,10 @@ The poll everything else hangs off. The UI reads it every two seconds.
   before it finished booting -- is simply absent from it.
 - `capture_healthy` is what the installer greps for to decide whether the
   service actually came up recording.
+- `capture_waiting` is true when capture is down only because no interface
+  with enough channels is there to open (switched off, still booting,
+  unplugged). Capture keeps retrying; the main page says *waiting for the
+  interface* rather than reporting an error.
 - `version` is stamped at build time; a development build reports `dev`.
 
 ## `GET /api/live`
@@ -111,6 +138,61 @@ socket but ignores the contents; reading is what surfaces close frames. Origin
 is not checked — the app is reached by hostname, IP and `.local` alias, so
 origin pinning would only break access.
 
+## `GET /api/phone`
+
+WebSocket. A phone records into it, and the recording becomes a take. The
+Phone button on the main page is its client (`web/static/lib/phone/`).
+
+```
+phone → {"type":"start","id":"<recording id>","rate":48000}
+Pi    → {"type":"ready","next":0,"name":"jam_2026-10-04_213000.wav"}
+phone → binary: uint32 LE chunk number, then interleaved stereo float32 LE
+Pi    → {"type":"ack","next":12}          chunks 0–11 are on disk
+phone → {"type":"stop","chunks":40}       40 chunks were sent in all
+Pi    → {"type":"saved","name":"jam_2026-10-04_213000.wav","seconds":4,"partial":false,"reason":"stop"}
+```
+
+- **The recording id** is made by the phone, 8–64 characters of
+  `[A-Za-z0-9_-]`, and names the recording rather than the connection. After a
+  dropout the phone reconnects and sends the same `start`; `ready` says which
+  chunk the Pi is waiting for, and the phone resends from there. A chunk
+  already written is ignored, and one that arrives early waits for those
+  before it.
+- **The audio** is stereo (a mono input is sent as dual mono) at the phone's
+  rate, 8–192 kHz. The Pi writes it as it arrives, as 32-bit 48 kHz PCM,
+  resampling when the rate differs, into the take's hidden `.part` file. A
+  chunk is any whole number of frames; the page sends a tenth of a second.
+- **Stop** gives the number of chunks sent. The Pi finishes the take once it
+  holds them all: the header is filled in, `.peaks.json`, `.peaks.bin` and a
+  `.meta.json` labelled *Phone* (with `created` set to when recording
+  started) are written, and the WAV is renamed into place. The preview is
+  encoded afterwards and `MAX_SAVES` applies, as after a save.
+- **`saved`** reports how it ended. `reason` is `stop`, `limit` (three hours,
+  just under what a WAV header can hold), `disk` (free space fell under
+  `MIN_FREE_GB`; checked at the start and every five seconds or so),
+  `disconnected` or `error`. An empty `name` means nothing was recorded. A
+  phone that reconnects within ten minutes of the end gets the same `saved`.
+- **A phone that doesn't come back** within ten minutes has its recording
+  finished as *Phone (partial)*, as does one with a chunk that never arrived.
+  A restart mid-recording recovers what reached the disk the same way, at
+  startup, and encodes its preview.
+- **`first`** in `start` is the oldest chunk the phone still holds. It only
+  matters when the Pi doesn't know the recording (it restarted, or the
+  result was dropped ten minutes after the end): the Pi then starts a new
+  take at that chunk, marked partial, instead of waiting for chunks the
+  phone no longer has.
+- **Errors writing** never cost audio already on disk: the take is finished
+  from what reached the file, as partial, or if even that fails, the `.part`
+  is left for the next startup to recover (`saved` with `reason: "error"`
+  and no name).
+- **Refusals** are `{"type":"error","error":"…"}` in place of `ready`: a
+  malformed start, a rate outside 8–192 kHz, the disk under `MIN_FREE_GB`,
+  or eight recordings already in progress. A chunk is at most 256 KB, and at
+  most 8 MB of chunks may wait for a missing one.
+
+The browser opens the mic only on a secure page, so this is used from the
+Pi's HTTPS address (`tailscale serve`), or from `localhost`.
+
 ## `GET /api/envelope`
 
 What the buffer ribbon draws: a dB-coded amplitude envelope of the entire ring,
@@ -128,7 +210,9 @@ not just what the browser has been open for.
   "edge_seconds": 10,
   "buckets": "AAAAAAAAAOA=",
   "signal_seconds": [4.99, 4.99],
-  "flags": [{ "age_seconds": 1.5, "frame": 24000 }]
+  "flags": [{ "age_seconds": 1.5, "frame": 24000 }],
+  "total_frames": 239520,
+  "sample_rate": 48000
 }
 ```
 
@@ -148,6 +232,10 @@ logarithmic axis can address.
 positions the tick on the ribbon's log axis, in the same currency the rest of
 the envelope speaks; `frame` is the mark's absolute ring frame, which the
 client sends back to `DELETE /api/flag?frame=` to undo a mistap.
+
+`total_frames` is the ring's newest absolute frame when the envelope was
+drawn, and `sample_rate` its rate: a point `age` seconds back on the ribbon is
+frame `total_frames − age × sample_rate`, which is what a span save asks for.
 
 Returns 503 if the envelope is unavailable, 400 if `buckets` or `spans` will
 not parse. `Cache-Control: no-store`.
@@ -185,6 +273,41 @@ the window is moved back to the last downbeat the ring still holds, so the
 take may be up to one bar longer than `seconds` asked for and its first frame
 is bar 1 of the `.mid`. A whole-ring save, which cannot go back, is moved
 forward to the first downbeat instead.
+
+## `POST /api/trigger?from=F[&to=T]`
+
+Saves the absolute ring frames `[F, T)` as a take: any span the ring still
+holds, ending in the past or now (no `to`). The ribbon's selection and a
+flag's *Save from here to now* use it; frames are the clock `total_frames`
+and the live flags' `frame` are on.
+
+```json
+{ "status": "saved", "name": "jam_2026-10-04_014412.wav", "seconds": 92.4,
+  "from_frame": 1234000, "to_frame": 5669200, "clamped": false, "buffered": 900 }
+```
+
+- A start older than the ring's oldest frame is moved to it (plus a second,
+  once the ring is full and overwriting, re-checked just before the copy
+  starts), and `clamped` says so.
+- The audio is copied out of the ring in short chunks (`Ring.Range`, a
+  fraction of a millisecond each under the ring's lock), the selected pair
+  only, and written as it goes, so a long span never holds up recording. If
+  the ring overwrites the span while it's being saved, the save fails (409)
+  and nothing is left behind.
+- The take's `created` is when its last frame was played (through the clock
+  bridge), so the list sorts it by when it happened; its name, like every
+  take's, is from when it was saved, so it can never be the name of a take
+  deleted earlier, whose pages a phone may have cached. Its BPM is read over
+  the span's own times. Live flags inside it come with it, and
+  MIDI is exported for the span as for any save. `MIDI_SNAP_BARS` doesn't
+  move it: the span is what was selected.
+
+| Status | When |
+|---|---|
+| 400 | `from` or `to` isn't a frame number, or `to` isn't after `from` |
+| 409 | Nothing is buffered, or the span is no longer (or not yet) in the ring |
+| 507 | Free space is below `MIN_FREE_GB`, even after emptying the trash |
+| 500 | The write itself failed |
 
 ## `GET /api/jams`
 
@@ -244,11 +367,26 @@ hidden `.<name>.part` file and rename it into place last.
 
 ## `GET /api/take?file=`
 
-One take, in exactly the shape of an entry of `GET /api/jams`. The waveform
-page loads with this rather than fetching the whole list, and fetches it again
-when it comes back into view, to pick up edits made on another device.
-`Cache-Control: no-cache`. 400 for a bad `file`, 404 if there is no such
-take.
+One take, in exactly the shape of an entry of `GET /api/jams`, plus `undo`
+(below). The take page loads with this rather than fetching the whole list,
+and fetches it again when it comes back into view, to pick up edits made on
+another device. `Cache-Control: no-cache`. 400 for a bad `file`, 404 if
+there is no such take.
+
+```json
+{ "name": "jam_2026-09-09_145852.wav", "...": "...", "undo": { "count": 3, "next": "rename" } }
+```
+
+`undo.count` is how many of the take's logged changes (at most 50) came from
+this device, and `undo.next` what `POST /api/take/undo` would undo first:
+`rename`, `selection`, `tempo`, `downbeat`, `lanes`, `flag added`,
+`flag moved`, `flag renamed` or `flag deleted`.
+
+**Devices.** The pages send `X-Hindsight-Client: <id>`, a random id kept per
+browser (up to 32 of `A-Z a-z 0-9 - _`), on every edit and on these reads.
+Each logged change keeps it, so a device's Undo walks back through its own
+changes and never another's. A request without one (a script) sees, and
+undoes, everyone's.
 
 ## `PATCH /api/take?file=`
 
@@ -272,11 +410,20 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 | `downbeat_frame` | integer or `null` | Where bar 1 falls, for the waveform page's grid. `>= 0` and less than the take's frame count; `null` clears |
 | `lane_kinds` | `{"<track name>": "drums"\|"notes"}` or `null` | A full replacement of the take's per-lane overrides for `GET /api/midi`'s drum guess. At most 64 entries; keys sanitized like labels; `null` clears |
 
-The response is the merged result:
+The response is the merged result, with the take's `undo` state; `undo.op`
+is the id of the change this request recorded, for a toast's *Undo*:
 
 ```json
-{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {} }
+{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {},
+  "undo": { "count": 2, "next": "tempo", "op": "r1f0c9a3e" } }
 ```
+
+Each field a person changes, and each flag, is logged in the take's
+`.history.json` with its value before and after and the device that made it,
+under the take's lock. Starring is not logged. A change by the same device
+to the same field within 2 s of the last, starting where it ended, extends
+that step, so a held nudge is one step; adding and removing never merge.
+`undo.op` is the newest change the request recorded.
 
 If `flags` changed, the sidecar write is also mirrored into the WAV as RIFF
 `cue ` points, with labelled flags also written as `labl` records in a `LIST`/`adtl` chunk so DAWs show the name beside the marker. That second write can fail on its own — a take whose layout
@@ -332,12 +479,14 @@ arrives first. Each call runs under the take's lock, rewrites
 the WAV's cue points like the whole-array PATCH, and answers:
 
 ```json
-{ "flag": { "id": "r9c41e0a2", "frame": 96000, "label": "drop" }, "flags": [ ... ], "cue_error": "..." }
+{ "flag": { "id": "r9c41e0a2", "frame": 96000, "label": "drop" }, "flags": [ ... ], "cue_error": "...",
+  "undo": { "count": 4, "next": "flag deleted", "op": "r77a0e1d2" } }
 ```
 
 `flag` is the flag added, changed or removed; `flags` is the take's whole list
 afterwards, so the caller can resync; `cue_error` appears only when the
-sidecar saved but the cue chunk could not be rewritten.
+sidecar saved but the cue chunk could not be rewritten; `undo` is as for the
+`PATCH`.
 
 | Status | When |
 |---|---|
@@ -549,18 +698,212 @@ response carries `X-Hindsight-Midi: none`.
 | 400 | Bad `file`, non-integer or inverted frames, past the end, over 10 minutes, shorter than two fades, or a non-32-bit take |
 | 404 | No such take |
 
-## `DELETE /api/delete?file=`
+## `POST /api/take/undo?file=[&op=]`
 
-Removes the take and every sidecar: `_preview.mp3`, `.peaks.json`,
-`.peaks.bin`, `.meta.json`, `.mid` and `.manifest.json`. Takes the `.wav`
-name.
+Undoes one change to a take: this device's newest (see *Devices* above), or,
+with `op`, the one with that id (what a toast's *Undo* sends, so it still
+means what it said after later edits). The change leaves the log once it is
+undone or skipped; a sidecar write that fails leaves it there.
+
+It is undone only if its field still holds what the change left there. If
+something else changed it since -- another device, a script -- it is
+skipped rather than overwritten:
 
 ```json
-{ "status": "deleted", "name": "jam_2026-09-09_145852.wav" }
+{ "undone": "flag deleted", "take": { "...": "..." }, "undo": { "count": 1, "next": "rename" } }
+{ "skipped": "rename", "take": { "...": "..." }, "undo": { "count": 0 } }
 ```
 
-Succeeds whether or not the files were there. 400 if `file` is missing, has a
-path in it, or has an extension other than `.wav`.
+`take` is the take afterwards, in the shape of `GET /api/take`. A flag change
+rewrites the cue chunk, with `cue_error` as for the flag endpoints. 409 when
+there is nothing to undo (or no change with that `op`); 404 for no such take.
+
+## `DELETE /api/delete?file=`
+
+Moves the take and every sidecar (`_preview.mp3`, `.peaks.json`,
+`.peaks.bin`, `.meta.json`, `.history.json`, `.mid`, `.manifest.json`) to
+the trash, `OUTPUT_DIR/.trash/<name>/`. Takes the `.wav` name.
+
+```json
+{ "status": "trashed", "name": "jam_2026-09-09_145852.wav" }
+```
+
+Succeeds whether or not the take was there. 400 if `file` is missing, has a
+path in it, starts with a dot, or has an extension other than `.wav`; 409 if
+an older take of the same name is still in the trash (a new take never gets
+a trashed take's name, so only a file put there by hand can). `MAX_SAVES`
+pruning goes to the trash the same way.
+
+## `GET /api/trash`, `POST /api/trash/restore?file=`, `DELETE /api/trash`
+
+```json
+{ "keep_days": 7, "takes": [ { "name": "jam_…wav", "...": "...", "deleted_at": "2026-10-04T01:18:00Z", "reason": "deleted" } ] }
+```
+
+Each take is in the shape of a `GET /api/jams` entry, plus when it was
+deleted and why (`deleted`, or `pruned` for `MAX_SAVES`). Most recently
+deleted first. Its `preview_name` and `midi_name` aren't downloadable while
+it's in the trash; restore it first.
+
+`POST /api/trash/restore?file=` moves it back and stars it, so the next
+prune doesn't take it straight back, and answers with the take. 404 if it
+isn't in the trash; 409 if a take of that name exists again.
+
+`DELETE /api/trash?file=` deletes one for good (404 if it isn't there);
+`DELETE /api/trash?all=1` empties the trash, whatever the clock says about
+when things went in.
+
+The trash also empties itself: after 7 days, and, oldest deletion first,
+whenever free space falls under `MIN_FREE_GB` -- checked every 10 minutes and
+before every save, cut and phone recording, so the trash is never why a
+capture is refused.
+
+## `GET /api/export?file=…&file=…`
+
+One zip of up to 100 takes, streamed: each take's `.wav` (stored, not
+deflated), its `.meta.json`, and its `.mid` and `.manifest.json` when it has
+them, under their own names. Repeated names count once. 400 for no `file`
+or a bad one; 404 naming the first take that isn't there.
+
+---
+
+## The tape: `/api/tapes…`
+
+Every tape route answers 404 when the tape is off (`TAPE` unset). One tape is
+*loaded*: the one the transport plays and catches go onto. Routes name their
+tape with `?id=`. Every change except delete and clone is made to the loaded
+tape only, and any other id is refused with 409, so a page that's out of date
+can't edit the wrong tape. PATCH, load, undo and redo answer with the new
+state, as `GET /api/tapes/state` would; create and clone with the tape; catch
+and drop with the clip.
+
+Errors: 400 for a bad parameter, a track or clip that doesn't exist, or a span
+that runs past the end of the tape; 404 for a tape that doesn't exist (to
+state, load, delete or clone); 409 for a tape that isn't the loaded one,
+nothing to undo, or a catch that can't happen yet (not lined up, no complete
+pass, not in the ring yet, or gone from it); 507 for low disk.
+
+### `GET /api/tapes`, `POST /api/tapes`
+
+```json
+{ "loaded": "2026-10-04_song-one",
+  "tapes": [ { "id": "2026-10-04_song-one", "name": "Song one", "created": "…", "bpm": 120,
+               "bars": 1, "seconds": 2, "clips": 1, "size_mb": 0.4, "modified": "…" } ] }
+```
+
+`POST` takes `{name, bpm?, bars?}` and answers with the new tape. A tape's id
+is its creation date and a slug of its name. A new tape has `TAPE_TRACKS`
+tracks, every one on bus A at −6 dB; with `bpm` and `bars` it starts with that
+loop, otherwise its first loop sets the tempo.
+
+### `GET /api/tapes/state?id=`
+
+```json
+{ "tape": { "id": "…", "name": "Song one", "sample_rate": 48000, "length": 17280000,
+            "grid": { "frames": 96000, "bars": 1 }, "loop": { "in": 0, "out": 96000, "on": true },
+            "tracks": [ { "n": 1, "bus": "A", "gain_db": -6, "pan": 0,
+                          "clips": [ { "id": "c1a2b3c4", "file": "audio/drop_….wav", "src": 480,
+                                       "frames": 96000, "at": 0, "layer": 0, "gain_db": 0, "source": "take" } ] } ] },
+  "loaded": true, "undo": 1, "redo": 0, "bpm": 120,
+  "sources": [ { "name": "aux", "leaks": [], "clean": true } ],
+  "live": { "playing": true, "pos": 41984, "heard": 37888, "delivered": 229376, "late": 0,
+            "output": "Demo loopback (the demo source hears it)", "delta": 2048, "aligned": "exact",
+            "cycles": [ { "out": 96000, "in": 0, "len": 96000 } ], "failed": [] } }
+```
+
+- **Frames throughout.** `grid.frames` is the first loop's exact length, and
+  the tempo is derived from it (`bpm`), because a bar at most tempos isn't a
+  whole number of frames.
+- **A clip** plays `frames` of its pool `file` from `src`, at tape frame
+  `at`. The file carries 10 ms either side, for crossfades. `layer` 0 is the
+  base; a catch onto audio goes on a layer above it, summed. `source` is
+  where it came from, and `clean` is set when no tape bus was in that source.
+- **`sources`** lists what a catch can take from, and whether each is clean
+  on this tape: no unmuted audio on a bus that leaks into it.
+- **`live`**, only for the loaded tape:
+  - `pos` is the render head and `heard` the frame the device is playing.
+  - `delta` is ring frame minus output frame: where what the tape played
+    lands in the capture. `aligned` is `exact` when it's known (the demo),
+    `none` when it isn't, and catches need it.
+  - `cycles` are the last complete passes of the loop, as played (a pass
+    begun before the loop was moved isn't one); `late` counts device periods
+    played as silence because nothing was rendered in time;
+    `failed` lists pool files that couldn't be read.
+  - `output` is "" when nothing plays the tape.
+
+`HEAD` is accepted. It's polled a few times a second, so it's `no-store`.
+
+### `PATCH /api/tapes?id=`
+
+Any of:
+
+All of it is one change: if any field is refused, none is made.
+
+| Field | Change |
+|---|---|
+| `name` | Rename (not undoable) |
+| `click` | The click on or off (not undoable) |
+| `tempo: {bpm, bars}` | Set the tempo of an empty tape: 20–400 BPM, 1–64 bars. Refused once the tape has audio |
+| `bars` | Relabel the loop's bar count (1–64) without changing its length |
+| `loop: {in?, out?, on?}` | The loop, in tape frames |
+| `track: {n, name?, bus?, gain_db?, pan?, mute?, solo?}` | A track's mix: bus `A` or `B`, gain −60..12 dB, pan −1..1 |
+| `clip: {id, gain_db?, nudge_ms?, remove?}` | A clip's level (−60..12 dB), its nudge (±500 ms), or take it off |
+
+Each PATCH is one undo step. Changes to the same track's level or pan, or the
+same clip's level or nudge, within 2 s of each other are one step, so a
+dragged slider undoes in one go.
+
+### `DELETE /api/tapes?id=`, `POST /api/tapes/load?id=`, `POST /api/tapes/clone?id=`
+
+Delete answers 409 for the loaded tape. It then frees, in the background,
+every pool file that no remaining tape uses, counting undo histories. Load
+stops the transport at the loop's start and answers with the state. Clone
+takes an optional `{name}` and answers with the new tape; it shares the
+original's pool files.
+
+### `POST /api/tapes/transport?id=`
+
+`{"action": "play" | "stop" | "locate", "quantum": "now" | "beat" | "bar" | "loop", "pos": F}`.
+The action takes effect on the exact output frame its quantum falls on
+(`now`, the default, at the next block). Answers 200 `{"status":"queued"}`.
+`play` is 409 while nothing plays the tape (on the Pi, until step 6b);
+`locate` still moves it. Loading a tape stops the transport and forgets the
+passes played, so a pass of one tape is never caught onto another.
+
+### `POST /api/tapes/catch?id=`
+
+`{"track": 2, "source": "aux", "pass": 1}` catches a whole pass of the loop:
+1 is the last complete one. `{"out": F}` instead names a pass by the output
+frame it began at (a `cycles` entry's `out`), so a tap catches the pass that
+was on screen even if another has finished since. `{"track": 2, "source": "aux", "bars": 4}` catches
+the last 4 bars up to the last bar line the ring has heard. `replace: true`
+clears what's under it instead of adding a layer.
+
+The span is the range of the ring that heard what the tape played then, by
+`delta`, written once into the pool with 10 ms either side and placed where
+it was played. A catch across the loop's end is split into two clips. It
+waits up to two seconds for the newest audio to reach the ring. Answers
+`{"clip": …}` (the part played first, when split).
+
+### `POST /api/tapes/drop?id=`
+
+`{"take": "jam_….wav", "from": F, "to": T, "track": 1, "bars": 0}` copies
+frames `[from, to)` of a take into the pool (its `SAVE_CHANNELS` pair, for a
+multichannel take). On an empty tape with no tempo, it becomes the first loop
+at bar 1, `bars` long (0: the bar count that puts it nearest 90 BPM).
+Otherwise it goes at the playhead, replacing what's under it, and is refused
+if it would run past the end of the tape. Answers `{"clip": …}`.
+
+### `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=`
+
+Step back or forward one version of the tape: up to 100, kept in its
+`tape.json`, shared by every device. 409 when there's nothing to step to.
+
+### `GET /api/tapes/peaks?file=`
+
+The `.peaks.json` beside a pool file, in the shape `/api/peaks` gives for a
+whole take. `file` is a clip's `file`; anything outside the pool is 400.
+Pool files never change, so it's cached for good.
 
 ---
 

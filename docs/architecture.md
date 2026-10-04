@@ -5,16 +5,22 @@ and serves a small vanilla-JS UI. No database, no message broker, no build
 step for the frontend.
 
 ```
-cmd/hindsight       wiring and flags
-internal/config     environment → Config
-internal/audio      device, ring, levels, envelope, saving  (cgo, PortAudio)
-internal/midi       rawmidi watcher, parser, event ring, clock, tempo map, SMF export
-internal/smf        Standard MIDI File writer and reader
-internal/bundle     writes a take's .mid and manifest from audio's window and midi's events
-internal/mono       the one monotonic clock audio and MIDI both stamp with
-internal/api        HTTP and WebSocket handlers
-web/static          the UI, served from disk per request
-web/static/lib/wave the waveform page: geometry, tiles, view, clock, page
+cmd/hindsight        wiring and flags
+internal/config      environment → Config
+internal/audio       device, ring, levels, envelope, saving  (cgo, PortAudio)
+internal/midi        rawmidi watcher, parser, event ring, clock, tempo map, SMF export
+internal/smf         Standard MIDI File writer and reader
+internal/bundle      writes a take's .mid and manifest from audio's window and midi's events
+internal/mono        the one monotonic clock audio and MIDI both stamp with
+internal/tape        the tape: model and undo, store and pool, renderer, transport, player, catching
+internal/api         HTTP and WebSocket handlers
+web/static           the UI, served from disk per request
+web/static/lib/wave  the take page: view, geometry, draw, tiles, clock, lanes, page
+web/static/lib/edit  the gestures every editing surface shares
+web/static/lib/help  tips, help mode, and the guide renderer
+web/static/lib/phone the phone recorder
+web/static/lib/tape  the tape page
+docs/embed.go        the guide, compiled into the binary
 ```
 
 ## Data flow
@@ -266,12 +272,13 @@ stem:
 
 | File | Written | Holds |
 |---|---|---|
-| `jam_<ts>.wav` | at save or cut | The audio, 32-bit, plus RIFF `cue ` points mirroring the flags |
+| `jam_<ts>.wav` | at save, cut or the end of a phone recording | The audio, 32-bit, plus RIFF `cue ` points mirroring the flags |
 | `.meta.json` | at save or cut, then on every edit | Label, star, selection, tempo, downbeat, flags, lane kinds, creation time, a cut's source |
 | `.peaks.json` | at save or cut | 1024 min/max buckets for the whole take, drawn before anything finer arrives |
 | `.peaks.bin` | at save or cut; backfilled at startup for older takes | The peaks pyramid: min and max per 256 frames |
 | `_preview.mp3` | in the background after a save or cut | What the list plays, and what the waveform page scrubs |
 | `.mid`, `.manifest.json` | at save, when MIDI was flowing; a cut gets its region of the source's | The take's MIDI and how it lines up |
+| `.history.json` | on every edit a person makes | The last 50 changes, for Undo |
 
 ### A take appears only when it's complete
 
@@ -282,8 +289,8 @@ written; a 15-minute save takes long enough that it used to. A take's name
 is reserved by creating its `.part` exclusively, so a save and a cut in the
 same second can't both write to one file. At startup, a `.part` left by a
 crash is removed with the sidecars of the take that never made it, along with
-sidecar temp files and any `.meta.json`, `.peaks.json` or `.peaks.bin` whose
-take is gone.
+sidecar temp files and any `.meta.json`, `.peaks.json`, `.peaks.bin` or
+`.history.json` whose take is gone.
 
 ### One writer per take at a time
 
@@ -299,9 +306,60 @@ a delete answers 404 instead of writing a sidecar for a take that's gone.
 Flags carry ids, so an edit names the flag it changes rather than replacing
 the list. A flag from before ids reads as `f<frame>`.
 
+### Saving any span of the ring
+
+`Saver.SaveRange` (`internal/audio/saverange.go`) saves absolute ring frames
+`[from, to)`, the clock flags already use, so a span picked on the ribbon or
+starting at a flag is the audio that was there, however long ago. It reads
+through `Ring.Range`: the chosen channel pair only, a chunk at a time under
+the ring's lock with the window re-checked before each, and writes as it
+goes (`wavWriter`), so a minutes-long span never holds up the ring writer.
+`SnapshotAt`, which copies the newest N frames of every channel under one
+lock, stays for the capture buttons. The take's name, `created` time and
+tempo window come from when its frames were played, through the clock
+bridge; MIDI is exported for the span like any save.
+
+### Undo
+
+`internal/audio/history.go`. The API records each edit a person makes -- the
+PATCH and the per-flag endpoints, not the saver's own stamps -- as a diff of
+the sidecar before and after, under the take's lock: one operation per field
+(name, selection, tempo, downbeat, lanes) and one per flag, by id, each with
+its JSON value before and after and the device that made it (the pages send
+a random per-browser id). The newest 50 are kept in `.history.json`. Each
+device's Undo walks back through its own operations only.
+A change to the same thing within 2 s, carrying on from where the last ended,
+extends that step instead of adding one, so a held nudge undoes in one go;
+adding and removing never merge, because a removal's toast needs a step of
+its own to undo.
+
+Undo puts an operation's "before" back only while the field still holds its
+"after"; otherwise the step is dropped and reported as skipped. The log is
+rewritten only after the sidecar, so a failed write keeps the step. That is what
+keeps an Undo on one device from overwriting a change made since on another,
+and it lets a toast undo its own step by id even after later edits to other
+things. There is no redo.
+
+### The trash
+
+`internal/audio/trash.go`. Deleting a take and `MAX_SAVES` pruning both move
+the take and its sidecars into `OUTPUT_DIR/.trash/<stem>/` with `rename`,
+beside a `trashed.json` saying when and why; restoring moves them back and
+stars the take. `takeFiles` is the one list of a take's files that deleting,
+trashing and restoring share. Every change to the trash holds one lock
+(after the take's own, when both are needed), so emptying can never catch a
+take half-moved; a crash half-way leaves sidecars beside a WAV that's in the
+trash, and the startup sweep puts them back with it. A new take never gets
+the name of one in the trash, and a delete never replaces one there. A janitor empties trash older than 7 days, at
+startup and every 10 minutes, and `EnsureFree` empties it oldest first while
+free space is under `MIN_FREE_GB`; every write that refuses for low disk (a
+save, a cut, a phone recording) calls it first, so the trash is never why a
+capture fails. Nothing in the trash is hard-linked, so emptying it frees what
+it says.
+
 ### When a take was made
 
-The list sorts, and the pruner deletes, by the `created` time in the
+The list sorts, and the pruner trashes, by the `created` time in the
 sidecar. A take older than that field falls back to the time in its name,
 then to the file's modification time. Modification time alone was wrong:
 rewriting the cue chunk on a flag edit made an old take look new.
@@ -328,24 +386,152 @@ anyway. It is built in the same loop that writes the WAV, so it costs no
 extra read, and it is checked against the take's channels and length before
 use. Takes older than the pyramid get one in the background at startup.
 
+### Phone recordings
+
+A phone records into `/api/phone` (`internal/api/phone.go`), and the take is
+written as the audio arrives (`internal/audio/phone.go`):
+
+- **Name first.** The take's name is reserved when recording starts, from
+  the start time, so the take sorts by when it was played. A marker,
+  `.<stem>.phone.json`, holds the phone's rate and the start time.
+- **Audio as it arrives.** Chunks are written in order into the `.part` file
+  as 32-bit 48 kHz stereo; a chunk that arrives early, after a reconnect,
+  waits for those before it. A phone at another rate goes through a
+  windowed-sinc resampler (`resample.go`): centred, so the output starts on
+  time, and tracked in exact ratios, so a long recording doesn't drift.
+- **The pyramid grows** with the audio, so finishing needs no read of the
+  take; the whole-take `.peaks.json` is drawn from the pyramid too.
+- **Finishing** patches the WAV header's sizes, writes the sidecars, renames
+  the WAV into place and removes the marker. A recording whose phone never
+  comes back is finished as *Phone (partial)* after ten minutes.
+- **Audio on disk is never thrown away.** A write error finishes the take
+  from what reached the file; a failure even then leaves the `.part` and its
+  marker for the startup sweep.
+- **A restart mid-recording** leaves a `.part` with its marker; the startup
+  sweep finishes it as a partial take, its length read from the file, rather
+  than deleting it as it does an unfinished save, and the preview backfill
+  encodes its preview. The phone, still recording, names the oldest chunk it
+  holds when it reconnects, and the Pi starts a second partial take there.
+
+The page side is `web/static/lib/phone/`: an AudioWorklet that taps raw float
+PCM, an uploader that numbers chunks, keeps them until they're acked and
+resends after a reconnect, and the recorder sheet.
+
 ### Shares queue
 
 `GET /api/render` runs ffmpeg. Two at once on a Pi compete with the capture
 path for CPU, so renders take turns: a second request waits, and gives up
 without starting ffmpeg if its client goes away first.
 
+## The tape
+
+`internal/tape`, behind `TAPE=true`. The design is
+[the tape spec](superpowers/specs/2026-10-03-tape-design.md); this is how
+the first part (step 6a) is built.
+
+```
+API ─edit─▶ Tape (model, undo) ─save─▶ tapes/<id>/tape.json
+              │ new Mix
+              ▼
+     render goroutine: transport + Mix ─blocks─▶ FIFO ─pull─▶ Sink (device)
+                                                                │ plays
+                                                                ▼
+     Catch ◀── cycle log + position map ── ring (capture) ◀── Sidekick
+```
+
+**The model.** A tape is one `tape.json`: tracks of clips, the grid (the
+first loop's exact length in frames, and how many bars it is), the loop,
+and each track's mix. A clip points into a pool WAV: `src` and `frames` in
+the file, `at` on the tape, a `layer`. Undo is a list of earlier versions of
+the whole state, 100 deep, saved in the file; an edit of the same kind
+within 2 s extends the last step. Every edit goes through `Tape.Change`,
+which validates the result (buses, pan, nothing past the end), on a draft of
+the tape that becomes the tape only once it's saved: a refused edit or a
+failed save changes nothing, in memory or on disk.
+
+**The store.** `TAPE_DIR/tapes/<id>/tape.json` is rewritten after every
+edit through a synced temporary file and a rename. `TAPE_DIR/audio/` is the
+pool: every catch and drop is written there once, with 10 ms either side
+for crossfades, and its peaks beside it, and never changed. Clones copy only
+`tape.json`. Clean-up deletes pool files that no tape's state or history
+uses, and spares any less than a minute old, which may belong to a catch
+still being placed.
+
+**The renderer.** `Mix` is built from a state whenever it changes and
+swapped in atomically; rebuilds take turns, so the newest is always the one
+playing. It carries everything the render goroutine needs (the loop, the
+grid, the tape's length), so that goroutine never takes the engine's lock,
+and an edit waiting on a slow card can't make it late. It reads pool files
+fully into memory as float32; nothing is memory-mapped, because a mapped
+file on a bumped USB disk faults and would take the ring down with it. The
+pool keeps only the files the tape plays and those its next undo or redo
+would, so memory doesn't grow with every tape ever loaded. For each block it sums every clip in
+the block's span into its track's bus (A or B) at the clip's and track's
+gain and the track's pan, honouring mute and solo. Edges follow what's
+beside them: where audio meets audio (two clips end to end, or a clip
+wrapping into itself at the loop's seam) a 5 ms equal-power crossfade runs
+from the outgoing clip's overhang; an edge with silence beside it gets the
+3 ms declick cuts use. A catch split at the seam is the same audio carrying
+on, so it gets no fade in. While looping, the wrap itself is an edge when
+clips run across the loop's ends: for 5 ms after In, what a clip past Out
+would have played next fades out as a clip begun before In fades in, equal
+power, only when the tape got there by wrapping (not when it plays through
+In).
+
+**The transport and the player.** One render goroutine owns the transport.
+It applies queued actions (play, stop, locate) on the exact output frame
+their quantum falls on, advances one tape frame per output frame, wraps at
+the loop's Out, and renders a few blocks (about 100 ms) ahead into a FIFO.
+The device's callback takes blocks from the FIFO and never blocks or
+allocates; if none is ready it plays silence, counts it as late, and the
+tape counts on, so the tape never drifts against the device. Everything the
+transport did is kept: a map from output frame to tape position, and a log
+of each complete pass of the loop; a pass is logged only if it ran from this
+loop's In to its Out unbroken. Loading a tape resets the transport between
+two blocks, before the new tape can play: it stops, drops whatever was
+queued, and forgets the passes, so one tape's pass is never caught onto
+another. Panics in the render goroutine and the device callback are
+recovered and reported in the state; the dashcam keeps rolling.
+
+**Catching.** What the tape played at output frame `o` is in the capture
+ring at `o + delta`. A catch looks up the output frames it wants -- a pass
+from the cycle log, or the last N bars from the position map, back from the
+newest frame the ring has heard -- and copies that range of the ring, on the
+chosen source's channel pair, into the pool, then places it where it was
+played. N bars that cross the loop's end are split into two clips. Catching
+needs `delta`:
+
+- The demo knows it exactly. The demo sink is a loopback: what it plays is
+  mixed into the demo source's next input block, MAIN and both channel taps
+  by bus, as the Sidekick would. `delta` is counted against the frames the
+  capture has handed to the ring, so a dropped block or a reopened source
+  doesn't throw it off.
+- On hardware the PortAudio output and the aligner that measures `delta` are
+  step 6b. Until then the engine runs with no sink: tapes can be made from
+  takes and edited, and nothing plays or can be caught.
+
+**Sources** (`TAPE_SOURCES`) name capture pairs and the buses heard in each.
+A source is clean on a tape when no bus that leaks into it has unmuted audio,
+and each caught clip records whether its source was.
+
+**Drops** copy a span of a take into the pool. On an empty tape the first
+drop becomes the grid and the loop; later ones go at the playhead.
+
+The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
+times a second, draws the lanes from each pool file's peaks, and sends what
+you tap; the Pi holds all the state, so several devices stay in step.
+
 ## The UI
 
-Mobile-first, no build step, no npm, no framework. Vanilla ES modules plus a
-vendored copy of WaveSurfer.js for scrubbing takes.
+Mobile-first, no build step, no npm, no framework, no vendored libraries:
+vanilla ES modules.
 
 It is served with `http.FileServer` straight from disk on every request, which
 is why `./deploy.sh --static` can push a CSS change in about a second with no
 rebuild and no restart. Anything served with an `.html`, `.js`, `.css` or
 `.json` extension is sent `Cache-Control: no-cache`, so the browser revalidates
-it and a redeploy is picked up on reload. Nothing here is fingerprinted, so
-that includes the vendored WaveSurfer copy; the icons carry no explicit
-directive and fall through to `http.FileServer`'s ETag and `Last-Modified`
+it and a redeploy is picked up on reload. Nothing here is fingerprinted; the
+icons carry no explicit directive and fall through to `http.FileServer`'s ETag and `Last-Modified`
 handling.
 
 The takes list is polled every five seconds and guarded by the `/api/jams`
@@ -355,27 +541,54 @@ Service-worker registration and the screen wake lock are both guarded on
 `window.isSecureContext`, so they switch themselves on if the Pi is ever given
 an HTTPS name and stay quiet otherwise.
 
-### The waveform page
+### The take page
 
-`web/static/lib/wave/` is nine modules. The pure parts of each are
-node-tested.
+The take page is the one place a take is edited, and it is laid out as the
+tape page will be (the editing-model spec, step 3): a header, the overview, an
+editing canvas in three zones, a toolbar, and the MIDI lanes.
+
+`web/static/lib/wave/` holds the page; `lib/edit/` and `lib/help/` hold what
+the tape page will share. The pure parts of each are node-tested.
 
 | Module | What it does |
 |---|---|
-| `geometry` | Pixel and frame math every other module shares |
-| `tiles` | Fetches and caches `/api/peaks` ranges, drawing the coarsest thing it has until the finer tile arrives |
-| `overview` | The whole-take strip above the main waveform: drag, tap and double-tap-to-fit navigation |
-| `view` | Canvas painting and gestures. One finger pans; press and hold, then drag, to select a region; wheel, pinch and two fingers zoom |
-| `clock` | The one playback position: the preview MP3 for the whole take, or `/api/slice` looped in Web Audio for a region |
-| `lanes` | The MIDI lanes under the waveform, from `/api/midi` |
-| `rising` | The rising-notes view of the same MIDI |
-| `share` | The action row's wording, and getting a rendered region off the phone |
-| `page` | Owns the take's editable state and wires the rest together |
+| `edit/gestures` | The pointer machinery any editing surface extends: a drag pans, a hold then a drag selects (with the view scrolling under a finger held at an edge), taps and double-taps, pinch and wheel, and rollback on a cancel or a second finger |
+| `wave/view` | The take's editing canvas, in three zones. The ruler: flag pins on top (tap to open, drag to move), bar numbers below, the playhead handle ▾ (drag to scrub silently) and bar 1 (drag the downbeat). The body: the waveform. The grips: In and Out at the selection's ends and the move handle between them |
+| `wave/geometry` | Pixel and frame math, the bar grid and ruler ticks, Snap, In/Out with a pending point, flag stepping |
+| `wave/draw` | The one waveform renderer: list rows, the overview and the take page all draw through it, on the dB scale the meters use |
+| `wave/rowwave` | A list row's waveform and its playback, with the selection's bracket |
+| `wave/tiles` | Fetches and caches `/api/peaks` ranges, drawing the coarsest thing it has until the finer tile arrives |
+| `wave/overview` | The whole-take strip: drag, tap and double-tap-to-fit navigation |
+| `wave/clock` | The one playback position: the preview MP3, or with Loop on, `/api/slice` looped in Web Audio, sample-exact |
+| `wave/lanes`, `wave/rising` | The MIDI lanes (with a menu per lane) and the rising-notes view |
+| `wave/share` | Getting a rendered MP3 or bundle off the phone |
+| `wave/page` | Owns the take's editable state and wires the rest together |
+| `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, first-run hints |
+| `help/markdown` | Renders the guide for `/guide.html`, from `/guide.md`, which the binary serves compiled in (`docs/embed.go`) |
+| `toast` | Both pages' toasts, with an optional action ("Flag deleted · Undo"), and one carried to the next page |
+| `takes`, `trash` (main page) | The list, with select mode for several takes at once; *Recently deleted* |
 
-The page loads its take with `GET /api/take?file=` and fetches it again when
-it comes back into view, merging what another device changed: flags, label,
-tempo and grid always, the selection only when there's no unsaved edit of
-its own. Flags are added, relabelled and removed one at a time through
-`/api/take/flags`, by id. Exports go through `POST /api/cut` (a new take with
-declick fades), `GET /api/render` (an MP3 for the share sheet) and
-`GET /api/bundle` (a zip with the MIDI).
+A few rules hold the page together:
+
+- **One finger moves along the take, always.** Nothing in the waveform's
+  body is draggable; what can be dragged lives in the ruler or the grip
+  strip, so gestures never compete.
+- **Loop is a toggle,** off on every open. Off, the preview plays from the
+  playhead straight through; on, the selection is fetched as a slice and
+  looped sample-exact. Practice speed applies only to the preview.
+- **In and Out** set the selection's ends at the playhead. The first of a
+  pair waits as a pending point until the other completes it.
+- **The page is the state's owner.** It loads its take with
+  `GET /api/take?file=` and fetches it again when it comes back into view,
+  merging what another device changed (flags, name, star, tempo, grid, and
+  the selection unless it has an unsaved one). Flags go one at a time through
+  `/api/take/flags`; the header's rename, star and tempo through the PATCH.
+- **Undo is the Pi's.** ↶ and every toast's *Undo* call `POST /api/take/undo`
+  and put back the take it answers with; edits still on their way are sent
+  first, so Undo acts on what's on screen.
+- **Back is the browser's back** when the list is where you came from, so the
+  list keeps its scroll; the list also restores it when the browser reloads
+  it instead. ◂ ▸ step through the takes in the order the list last showed.
+- **Tips live in one file,** `lib/help/tips.js`, and the guide's §9 table is
+  the same list; a node test fails if they differ or if any `data-tip` in the
+  UI has no tip.

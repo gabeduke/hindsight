@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"errors"
 	"sync"
 	"testing"
 )
@@ -162,5 +163,76 @@ func TestSnapshotStillReturnsTwoValues(t *testing.T) {
 		if data[i] != want[i] {
 			t.Fatalf("data = %v, want %v", data, want)
 		}
+	}
+}
+
+// rangeAll collects Range's chunks.
+func rangeAll(t *testing.T, r *Ring, from, to uint64, pick []int) ([]int32, error) {
+	t.Helper()
+	var got []int32
+	err := r.Range(from, to, pick, func(c []int32) error { got = append(got, c...); return nil })
+	return got, err
+}
+
+func TestRangeCopiesAbsoluteFramesOfTheChosenChannels(t *testing.T) {
+	r := NewRing(100, 3)
+	// Frame f carries f*10+c on channel c; write 250 frames so the ring has
+	// wrapped twice and holds frames 150..249.
+	for f := 0; f < 250; f += 10 {
+		block := make([]int32, 0, 30)
+		for i := f; i < f+10; i++ {
+			for c := 0; c < 3; c++ {
+				block = append(block, int32(i*10+c))
+			}
+		}
+		r.WriteFrames(block)
+	}
+	got, err := rangeAll(t, r, 160, 240, []int{2, 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 80*2 {
+		t.Fatalf("len = %d, want 160", len(got))
+	}
+	for i := 0; i < 80; i++ {
+		f := int32(160 + i)
+		if got[2*i] != f*10+2 || got[2*i+1] != f*10 {
+			t.Fatalf("frame %d = %d,%d", f, got[2*i], got[2*i+1])
+		}
+	}
+	if _, err := rangeAll(t, r, 149, 160, []int{0}); !errors.Is(err, ErrRangeGone) {
+		t.Fatalf("a range older than the ring: %v", err)
+	}
+	if _, err := rangeAll(t, r, 240, 251, []int{0}); !errors.Is(err, ErrRangeGone) {
+		t.Fatalf("a range newer than the ring: %v", err)
+	}
+}
+
+func TestRangeSpansChunksAndStopsOnAnEmitError(t *testing.T) {
+	frames := rangeChunkFrames*2 + 7
+	r := NewRing(frames+10, 2)
+	data := make([]int32, frames*2)
+	for i := range data {
+		data[i] = int32(i)
+	}
+	r.WriteFrames(data)
+	chunks := 0
+	var got []int32
+	err := r.Range(0, uint64(frames), []int{0, 1}, func(c []int32) error {
+		chunks++
+		got = append(got, c...)
+		return nil
+	})
+	if err != nil || chunks != 3 || len(got) != len(data) {
+		t.Fatalf("chunks %d len %d err %v", chunks, len(got), err)
+	}
+	for i := range data {
+		if got[i] != data[i] {
+			t.Fatalf("sample %d = %d", i, got[i])
+		}
+	}
+	stop := errors.New("disk full")
+	if err := r.Range(0, uint64(frames), []int{0}, func([]int32) error { return stop }); !errors.Is(err, stop) {
+		t.Fatalf("emit error = %v", err)
 	}
 }

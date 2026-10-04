@@ -73,7 +73,7 @@ func (l *TakeList) List() ([]Take, string, error) {
 			continue // removed between the listing and the lstat
 		}
 		infos[e.Name()] = info
-		if filepath.Ext(e.Name()) == ".wav" {
+		if filepath.Ext(e.Name()) == ".wav" && !strings.HasPrefix(e.Name(), ".") {
 			wavs = append(wavs, e.Name())
 		}
 	}

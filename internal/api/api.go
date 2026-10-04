@@ -2,6 +2,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,14 +16,17 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/gabeduke/hindsight/docs"
 	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/bundle"
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/midi"
+	"github.com/gabeduke/hindsight/internal/tape"
 	"github.com/gorilla/mux"
 )
 
@@ -54,7 +58,29 @@ type API struct {
 	// each other and with everything else for no gain. A second share waits
 	// its turn rather than failing.
 	renderSlot chan struct{}
+
+	// phones holds the recordings phones are streaming in (see phone.go).
+	phones phoneRegistry
+	// phoneGrace is how long a recording waits for its phone to reconnect;
+	// zero means defaultPhoneGrace. Tests shorten it.
+	phoneGrace time.Duration
+
+	// tape is the tape engine, or nil with TAPE off.
+	tape *tape.Engine
+
+	// bg counts work a request leaves running -- a preview encode, a prune --
+	// so a test can wait for it before its takes folder goes.
+	bg sync.WaitGroup
 }
+
+// background runs f after the response, counted in bg.
+func (a *API) background(f func()) {
+	a.bg.Add(1)
+	go func() { defer a.bg.Done(); f() }()
+}
+
+// WaitBackground waits for what earlier requests left running.
+func (a *API) WaitBackground() { a.bg.Wait() }
 
 func New(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, env *audio.Envelope, m MIDISource) *API {
 	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m,
@@ -103,6 +129,11 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagPost).Methods(http.MethodPost)
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagPatch).Methods(http.MethodPatch)
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/api/take/undo", a.handleTakeUndo).Methods(http.MethodPost)
+	r.HandleFunc("/api/trash", a.handleTrashList).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/trash/restore", a.handleTrashRestore).Methods(http.MethodPost)
+	r.HandleFunc("/api/trash", a.handleTrashDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/api/export", a.handleExport).Methods(http.MethodGet)
 	r.HandleFunc("/api/cut", a.handleCut).Methods(http.MethodPost)
 	r.HandleFunc("/api/flag", a.handleFlagPost).Methods(http.MethodPost)
 	r.HandleFunc("/api/flag", a.handleFlagDelete).Methods(http.MethodDelete)
@@ -110,10 +141,26 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/peaks", a.handlePeaks).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/envelope", a.handleEnvelope).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/live", a.handleLive).Methods(http.MethodGet)
+	r.HandleFunc("/api/phone", a.handlePhone).Methods(http.MethodGet)
 	r.HandleFunc("/api/slice", a.handleSlice).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/render", a.handleRender).Methods(http.MethodGet)
 	r.HandleFunc("/api/midi", a.handleMIDI).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/bundle", a.handleBundle).Methods(http.MethodGet)
+	r.HandleFunc("/guide.md", handleGuide).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes", a.handleTapes).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes", a.handleTapeCreate).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes", a.handleTapePatch).Methods(http.MethodPatch)
+	r.HandleFunc("/api/tapes", a.handleTapeDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/api/tapes/state", a.handleTapeState).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes/load", a.handleTapeLoad).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/transport", a.handleTapeTransport).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/catch", a.handleTapeCatch).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/drop", a.handleTapeDrop).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/undo", a.handleTapeUndo(false)).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/redo", a.handleTapeUndo(true)).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/clone", a.handleTapeClone).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/cleanup", a.handleTapeCleanup).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/peaks", a.handleTapePeaks).Methods(http.MethodGet, http.MethodHead)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
@@ -130,6 +177,7 @@ type statusResponse struct {
 	Version         string    `json:"version"`
 	IsRecording     bool      `json:"is_recording"`
 	CaptureHealthy  bool      `json:"capture_healthy"`
+	CaptureWaiting  bool      `json:"capture_waiting"`
 	LastError       string    `json:"last_error"`
 	Device          string    `json:"device"`
 	XRuns           uint64    `json:"xruns"`
@@ -167,6 +215,7 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Version:         a.cfg.Version,
 		IsRecording:     a.cap.Healthy(),
 		CaptureHealthy:  a.cap.Healthy(),
+		CaptureWaiting:  a.cap.Waiting(),
 		LastError:       a.cap.LastError(),
 		Device:          a.cap.DeviceName(),
 		XRuns:           a.cap.XRuns(),
@@ -231,6 +280,11 @@ func (a *API) handleJams(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleTrigger(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if q.Has("from") {
+		a.handleTriggerRange(w, r)
+		return
+	}
 	seconds := 0.0 // 0 = whole ring
 	if v := r.URL.Query().Get("seconds"); v != "" {
 		f, err := strconv.ParseFloat(v, 64)
@@ -262,18 +316,69 @@ func (a *API) handleTrigger(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleTriggerRange saves any span of the ring: ?from=F[&to=T], absolute
+// ring frames (the clock /api/envelope's total_frames and the live flags'
+// frames are on). No to means now. The ribbon's selection and a flag's
+// "Save from here to now" use it.
+func (a *API) handleTriggerRange(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	from, err := strconv.ParseUint(q.Get("from"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "from must be a frame number")
+		return
+	}
+	var to uint64
+	if v := q.Get("to"); v != "" {
+		if to, err = strconv.ParseUint(v, 10, 64); err != nil || to <= from {
+			writeErr(w, http.StatusBadRequest, "to must be a frame number after from")
+			return
+		}
+	}
+	got, err := a.saver.SaveRange(from, to)
+	switch {
+	case errors.Is(err, audio.ErrLowDisk):
+		writeErr(w, http.StatusInsufficientStorage, err.Error())
+		return
+	case errors.Is(err, audio.ErrNoAudio), errors.Is(err, audio.ErrRangeGone):
+		writeErr(w, http.StatusConflict, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":     "saved",
+		"name":       got.Name,
+		"seconds":    got.Seconds,
+		"from_frame": got.From,
+		"to_frame":   got.To,
+		"clamped":    got.Clamped,
+		"buffered":   a.cap.BufferedSeconds(),
+	})
+}
+
 func (a *API) handleDelete(w http.ResponseWriter, r *http.Request) {
 	name, err := a.safeTakeName(r.URL.Query().Get("file"))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	audio.RemoveTake(a.cfg.OutputDir, name)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted", "name": name})
+	// To the trash, not gone: GET /api/trash lists it, and restore brings it
+	// back.
+	if err := audio.TrashTake(a.cfg.OutputDir, name, audio.TrashDeleted, time.Now()); err != nil {
+		if errors.Is(err, audio.ErrNameTaken) {
+			writeErr(w, http.StatusConflict, "an older take of that name is in the trash; delete it there first")
+			return
+		}
+		log.Printf("trash %s: %v", name, err)
+		writeErr(w, http.StatusInternalServerError, "could not move the take to the trash")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "trashed", "name": name})
 }
 
 // maxTakeFlags bounds what a single take may carry.
-const maxTakeFlags = 512
+const maxTakeFlags = audio.MaxTakeFlags
 
 // maxLaneKinds bounds how many lane kind overrides a take may carry.
 const maxLaneKinds = 64
@@ -343,6 +448,14 @@ func (a *API) handleFlagDelete(w http.ResponseWriter, r *http.Request) {
 type flagEnvelope struct {
 	AgeSeconds float64 `json:"age_seconds"`
 	Frame      uint64  `json:"frame"`
+}
+
+// totalFrames is the ring's newest frame, or 0 with no capture.
+func (a *API) totalFrames() uint64 {
+	if a.cap == nil {
+		return 0
+	}
+	return a.cap.Ring().TotalFrames()
 }
 
 // liveFlags reports every live mark's age and frame. The age conversion
@@ -477,6 +590,11 @@ type envelopeResponse struct {
 	Buckets       []byte         `json:"buckets"`
 	SignalSeconds []float64      `json:"signal_seconds"`
 	Flags         []flagEnvelope `json:"flags"`
+	// TotalFrames is the ring's newest frame when this was drawn, and
+	// SampleRate its rate: what turns a point on the ribbon (an age) into
+	// the absolute frame a span save asks for.
+	TotalFrames uint64 `json:"total_frames"`
+	SampleRate  int    `json:"sample_rate"`
 }
 
 // handleEnvelope serves the buffer ribbon: log-spaced buckets over the whole
@@ -536,6 +654,8 @@ func (a *API) handleEnvelope(w http.ResponseWriter, r *http.Request) {
 		Buckets:         a.env.Buckets(buckets),
 		SignalSeconds:   sig,
 		Flags:           a.liveFlags(),
+		TotalFrames:     a.totalFrames(),
+		SampleRate:      a.cfg.SampleRate,
 	})
 }
 
@@ -550,6 +670,11 @@ func (a *API) safeTakeName(raw string) (string, error) {
 	}
 	if filepath.Ext(name) != ".wav" {
 		return "", fmt.Errorf("only .wav takes are addressable")
+	}
+	// A take's name never starts with a dot: those are a save in progress
+	// (.jam_….wav.part) or the trash, and "..wav" would name the trash itself.
+	if strings.HasPrefix(name, ".") {
+		return "", fmt.Errorf("invalid file name")
 	}
 	return name, nil
 }
@@ -624,7 +749,7 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "need 0 <= start_frame < end_frame")
 		return
 	}
-	if free, _ := audio.FreeGB(a.cfg.OutputDir); free < a.cfg.MinFreeGB {
+	if free := audio.EnsureFree(a.cfg.OutputDir, a.cfg.MinFreeGB); free < a.cfg.MinFreeGB {
 		writeErr(w, http.StatusInsufficientStorage,
 			fmt.Sprintf("low disk: %.2f GB free, need %.2f GB", free, a.cfg.MinFreeGB))
 		return
@@ -654,12 +779,12 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 	}
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
-	go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels()))
+	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels())) })
 	// A cut is a new take, so MAX_SAVES applies to it as it does to a save --
 	// but never to the cut itself, or to the take it was cut from: the owner
 	// is on that take's page, and may be about to cut from it again.
 	if a.saver != nil {
-		go a.saver.Prune(name, out)
+		a.background(func() { a.saver.Prune(name, out) })
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"name": out})
 }
@@ -872,6 +997,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m := audio.ReadMeta(wav)
+	before := m // every change below replaces a field; none mutates in place
 
 	if body.Label != nil {
 		m.Label = sanitizeLabel(*body.Label)
@@ -1026,6 +1152,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		writeMetaErr(w, name, err)
 		return
 	}
+	undo := recordUndo(r, wav, before, m)
 
 	// The sidecar is the source of truth and is already written; a cue failure
 	// is reported -- on the response, not just the log, since the caller has no
@@ -1055,7 +1182,8 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Downbeat  *int64            `json:"downbeat_frame"`
 		LaneKinds map[string]string `json:"lane_kinds"`
 		CueError  string            `json:"cue_error,omitempty"`
-	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr})
+		Undo      audio.UndoInfo    `json:"undo"`
+	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr, Undo: undo})
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control
@@ -1078,3 +1206,15 @@ func sanitizeLabel(s string) string {
 	}
 	return s
 }
+
+// handleGuide serves the user guide (docs/guide.md, compiled in) for the
+// guide page, /guide.html, to render.
+func handleGuide(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	http.ServeContent(w, r, "guide.md", startTime, bytes.NewReader(docs.Guide))
+}
+
+// startTime stands in for the guide's modification time: it changes only
+// with the binary.
+var startTime = time.Now()

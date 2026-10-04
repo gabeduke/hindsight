@@ -77,7 +77,7 @@ ever be exercised by a real release.
 The waveform page's pure geometry has JavaScript tests under node's built-in
 runner — no package.json, no dependencies:
 
-    node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js'
+    node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' 'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' 'web/static/lib/tape/*.test.js'
 
 ### Checking the waveform page by hand
 

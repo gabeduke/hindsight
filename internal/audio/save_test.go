@@ -473,7 +473,11 @@ func newSaveFixture(t *testing.T) (*config.Config, *Capture, *Saver) {
 		OutputDir:    t.TempDir(),
 	}
 	cap := NewCapture(cfg, nil)
-	return cfg, cap, NewSaver(cap)
+	s := NewSaver(cap)
+	// Runs before the TempDir's own cleanup (cleanups run last-first): an
+	// encode still writing into the directory would make its removal fail.
+	t.Cleanup(s.WaitBackground)
+	return cfg, cap, s
 }
 
 // The exporter is handed the window Save actually snapshotted, in absolute

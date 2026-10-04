@@ -5,6 +5,10 @@ import { Meters, FLOOR_DB, fmtDur } from '/lib/meter.js';
 import { Ribbon } from '/lib/ribbon.js';
 import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';
+import { initPhone } from '/lib/phone/recorder.js';
+import { initHelp } from '/lib/help/help.js';
+import { toast, takeNextToast } from '/lib/toast.js';
+import { TrashList } from '/lib/trash.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,29 +34,23 @@ const el = {
   takesEmpty: $('takes-empty'),
   toasts: $('toasts'),
   confirm: $('confirm'),
+  confirmTitle: $('confirm-title'),
   confirmName: $('confirm-name'),
 };
 
 // ---------------------------------------------------------------- toasts
 
-function toast(msg, kind = 'ok', ms = 4000) {
-  const t = document.createElement('div');
-  t.className = `toast ${kind}`;
-  t.textContent = msg;
-  el.toasts.appendChild(t);
-  setTimeout(() => {
-    t.style.transition = 'opacity 240ms';
-    t.style.opacity = '0';
-    setTimeout(() => t.remove(), 260);
-  }, ms);
-}
+// toast is lib/toast.js: a message, and optionally one action ("Undo").
 
-function confirmDelete(name) {
+// Asks before something that can't be undone: deleting from the trash, or
+// emptying it. Deleting a take doesn't ask; it goes to the trash.
+function confirmForever(title, name) {
   return new Promise((resolve) => {
     if (typeof el.confirm.showModal !== 'function') {
-      resolve(window.confirm(`Delete ${name}?`));
+      resolve(window.confirm(`${title} ${name}`));
       return;
     }
+    el.confirmTitle.textContent = title;
     el.confirmName.textContent = name;
     el.confirm.returnValue = 'cancel';
     const done = () => {
@@ -71,13 +69,43 @@ let ribbon = null;
 let mainMeters = null;
 let chanMeters = null;
 let selSeconds = 30;
-// Last capture error already surfaced, so a 2-second poll does not re-toast the
-// same failure forever. Cleared on recovery, so a repeat failure toasts again.
-let lastCaptureError = '';
+// The capture error on screen, since when, and whether it has been toasted:
+// once per failure, so a 2-second poll does not re-toast it forever; cleared
+// on recovery, so a repeat failure toasts again.
+let captureErr = { text: '', since: 0, shown: false };
+const CAPTURE_ERR_HOLD_MS = 3500;
 
+const trash = new TrashList($('trash'), {
+  onToast: toast,
+  onConfirm: confirmForever,
+  onRestored: () => pollTakes(true),
+});
+let trashTimer = 0;
 const takes = new TakesList(el.takes, el.takesEmpty, {
   onToast: toast,
-  onConfirm: confirmDelete,
+  // The list changed, so the trash may have too: a delete, a restore, or a
+  // save that pruned. Coalesced, since a bulk delete re-renders per take.
+  onListChange: () => { clearTimeout(trashTimer); trashTimer = setTimeout(() => trash.refresh(), 150); },
+  selectBar: $('select-bar'),
+});
+$('select-btn').addEventListener('click', () => (takes.selecting ? takes.exitSelect() : takes.enterSelect()));
+
+// A take deleted from its own page comes back here with its Undo.
+function showNextToast() {
+  const next = takeNextToast();
+  if (!next) return;
+  const opts = next.restore ? { action: { label: 'Undo', run: () => takes.restore([next.restore]) } } : {};
+  toast(next.msg, next.kind || 'ok', opts);
+}
+showNextToast();
+// The tape's link, when the Pi runs one.
+fetch('/api/tapes', { cache: 'no-store' }).then((r) => { $('tape-link').hidden = !r.ok; }).catch(() => {});
+// Back from the take page can restore this page from the browser's cache,
+// scripts and all, without loading it: catch up then.
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  showNextToast();
+  pollTakes(true);
 });
 
 // ---------------------------------------------------------------- status
@@ -145,17 +173,30 @@ function applyStatus(s) {
   }
 
   const healthy = s.capture_healthy;
-  el.healthDot.className = `dot ${healthy ? 'ok' : 'bad'}`;
+  // An interface that's switched off, or still booting, isn't an error: the
+  // Pi keeps trying and picks it up the moment it appears.
+  const waiting = !healthy && s.capture_waiting;
+  el.healthDot.className = `dot ${healthy ? 'ok' : waiting ? 'wait' : 'bad'}`;
 
   // The bar is narrow and device errors are long ("Illegal combination of I/O
   // devices" and friends), so it carries a short status only. The full text
   // goes to a toast, which has the width for it, and to the title for a hover.
   const detail = healthy ? '' : (s.last_error || '');
-  el.healthText.textContent = healthy ? 'recording' : (detail ? 'capture error' : 'no capture');
+  el.healthText.textContent = healthy ? 'recording'
+    : waiting ? 'waiting for the interface'
+      : (detail ? 'capture error' : 'no capture');
   el.healthText.title = detail;
 
-  if (detail && detail !== lastCaptureError) toast(detail, 'bad', 8000);
-  lastCaptureError = detail;
+  // Only once it has stood for a few seconds: switching the interface off
+  // first reads as a stalled stream, then as waiting, and the stall on the
+  // way there is not worth a red toast.
+  const errNow = detail && !waiting ? detail : '';
+  if (errNow !== captureErr.text) captureErr = { text: errNow, since: Date.now(), shown: false };
+  else if (errNow && !captureErr.shown && Date.now() - captureErr.since >= CAPTURE_ERR_HOLD_MS) {
+    captureErr.shown = true;
+    toast(errNow, 'bad', 8000);
+  }
+  if (s.version) $('version').textContent = s.version;
 
   el.vizWrap.classList.toggle('stale', !healthy);
 
@@ -221,12 +262,27 @@ async function pollStatus() {
   }
 }
 
+// Back from a take returns to the list where you left it. The browser keeps
+// the scroll when it restores the page from its cache; when it reloads it
+// instead, the list isn't there yet when it tries, so it's put back here once
+// the takes have rendered.
+const SCROLL_KEY = 'hindsight.scroll';
+let restoreScroll = null;
+try {
+  const nav = performance.getEntriesByType('navigation')[0];
+  if (nav && nav.type === 'back_forward') restoreScroll = Number(sessionStorage.getItem(SCROLL_KEY)) || null;
+} catch { /* fine */ }
+window.addEventListener('pagehide', () => {
+  try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch { /* fine */ }
+});
+
 async function pollTakes(force = false) {
   // Never disturb the list while something is playing — this is what used to
   // kill playback every few seconds.
   if (!force && takes.isPlaying()) return;
   try {
     await takes.refresh();
+    if (restoreScroll != null) { window.scrollTo(0, restoreScroll); restoreScroll = null; }
   } catch {
     /* transient; the next tick retries */
   }
@@ -263,6 +319,18 @@ async function capture() {
 
 el.captureBtn.addEventListener('click', capture);
 
+initHelp({ page: 'main' });
+
+initPhone({
+  button: $('phone-btn'),
+  sheet: $('phone-sheet'),
+  toast,
+  onSaved: (name) => {
+    takes.markFresh(name);
+    pollTakes(true);
+  },
+});
+
 async function mark() {
   const btn = el.markBtn;
   btn.disabled = true;
@@ -270,12 +338,12 @@ async function mark() {
     const res = await fetch('/api/flag', { method: 'POST' });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      toast(body.error || 'could not mark', 'bad');
+      toast(body.error || 'could not flag', 'bad');
       return;
     }
     ribbon.poll(); // draw the new tick without waiting for the next poll
   } catch {
-    toast('could not mark', 'bad');
+    toast('could not flag', 'bad');
   } finally {
     // The next status poll re-enables it if audio is still buffered; this
     // just guards against a second click landing mid-request.
@@ -287,7 +355,15 @@ el.markBtn.addEventListener('click', mark);
 
 // ---------------------------------------------------------------- live
 
-ribbon = new Ribbon(el.vizWrap, { onToast: toast });
+ribbon = new Ribbon(el.vizWrap, {
+  onToast: toast,
+  selBar: $('rb-sel'),
+  flagSheet: $('rb-flag-sheet'),
+  onSaved: (name) => {
+    takes.markFresh(name);
+    pollTakes(true);
+  },
+});
 
 connectLive({
   onFrame: (f) => {

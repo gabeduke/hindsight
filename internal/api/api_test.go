@@ -30,6 +30,7 @@ func newTestAPI(t *testing.T) (*mux.Router, string) {
 	t.Helper()
 	dir := t.TempDir()
 	a := New(&config.Config{OutputDir: dir}, nil, nil, nil, nil)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
 	return r, dir
@@ -68,6 +69,7 @@ func newFlagAPI(t *testing.T) (*mux.Router, *audio.Capture, string) {
 	}
 	cap := audio.NewCapture(cfg, nil)
 	a := New(cfg, cap, nil, cap.Envelope(), nil)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
 	return r, cap, dir
@@ -318,6 +320,7 @@ func newEnvelopeAPI(t *testing.T, capBins, bins int) *mux.Router {
 		e.PushBin(audio.Bin{Min: []float32{-0.5}, Max: []float32{0.5}, RMS: []float32{0}})
 	}
 	a := New(&config.Config{OutputDir: t.TempDir()}, nil, nil, e, nil)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
 	return r
@@ -443,6 +446,7 @@ func TestEnvelopeRejectsNonNumericParams(t *testing.T) {
 
 func TestEnvelopeWithoutAnEnvelopeIs503(t *testing.T) {
 	a := New(&config.Config{OutputDir: t.TempDir()}, nil, nil, nil, nil)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
 
@@ -482,6 +486,7 @@ func (f *fakeMIDI) BPM(start, end time.Time) (float64, bool) {
 func newStatusAPI(t *testing.T, m MIDISource) *mux.Router {
 	t.Helper()
 	a := New(&config.Config{OutputDir: t.TempDir()}, nil, nil, nil, m)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	r := mux.NewRouter()
 	// Only the MIDI half of the status response is exercised here; the rest
 	// needs a live Capture.
@@ -1185,6 +1190,7 @@ func TestCutValidation(t *testing.T) {
 func TestCutRefusesWhenDiskIsLow(t *testing.T) {
 	dir := t.TempDir()
 	a := New(&config.Config{OutputDir: dir, MinFreeGB: 1e9}, nil, nil, nil, nil)
+	t.Cleanup(a.WaitBackground) // a preview encode must not outlive the takes folder
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
 	writeRealTake(t, dir, "jam_src.wav", 48000)
@@ -1502,5 +1508,16 @@ func TestPatchTakeCapsLaneKindsAtSixtyFour(t *testing.T) {
 	sb.WriteString(`}}`)
 	if w := patch(t, r, "a.wav", sb.String()); w.Code != http.StatusBadRequest {
 		t.Fatalf("status %d, want 400", w.Code)
+	}
+}
+
+func TestTheGuideIsServed(t *testing.T) {
+	r, _ := newTestAPI(t)
+	w := do(t, r, http.MethodGet, "/guide.md")
+	if w.Code != http.StatusOK || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/markdown") {
+		t.Fatalf("status %d, type %q", w.Code, w.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(w.Body.String(), "# The Hindsight guide") {
+		t.Error("that isn't the guide")
 	}
 }

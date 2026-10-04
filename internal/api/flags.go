@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
 )
@@ -31,9 +32,17 @@ import (
 // twice adds the flag once: a retried POST is harmless.
 
 type flagResponse struct {
-	Flag     *audio.Flag  `json:"flag,omitempty"`
-	Flags    []audio.Flag `json:"flags"`
-	CueError string       `json:"cue_error,omitempty"`
+	Flag     *audio.Flag    `json:"flag,omitempty"`
+	Flags    []audio.Flag   `json:"flags"`
+	CueError string         `json:"cue_error,omitempty"`
+	Undo     audio.UndoInfo `json:"undo"`
+}
+
+// takeResponse is a take as /api/jams describes it, plus what its Undo would
+// do.
+type takeResponse struct {
+	audio.Take
+	Undo audio.UndoInfo `json:"undo"`
 }
 
 // handleTakeGet describes one take, in the same shape as an entry of
@@ -50,7 +59,7 @@ func (a *API) handleTakeGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-cache")
-	writeJSON(w, http.StatusOK, t)
+	writeJSON(w, http.StatusOK, takeResponse{Take: t, Undo: audio.HistoryInfo(filepath.Join(a.cfg.OutputDir, name), clientOf(r))})
 }
 
 // takeForWrite validates ?file= and returns the take's path, or writes the
@@ -130,15 +139,16 @@ func checkFrame(w http.ResponseWriter, frame, frames int64) bool {
 	return true
 }
 
-// commitFlags writes the take's sidecar with flags, mirrors them into the
-// cue chunk and answers. The caller holds the take's lock.
-func (a *API) commitFlags(w http.ResponseWriter, name, wav string, m audio.Meta, changed *audio.Flag) {
+// commitFlags writes the take's sidecar with flags, records the change for
+// Undo, mirrors the flags into the cue chunk and answers. before is the
+// sidecar as it was read. The caller holds the take's lock.
+func (a *API) commitFlags(w http.ResponseWriter, r *http.Request, name, wav string, before, m audio.Meta, changed *audio.Flag) {
 	m.Flags = audio.EnsureFlagIDs(audio.NormalizeFlags(m.Flags))
 	if err := audio.WriteMeta(wav, m); err != nil {
 		writeMetaErr(w, name, err)
 		return
 	}
-	resp := flagResponse{Flag: changed, Flags: m.Flags}
+	resp := flagResponse{Flag: changed, Flags: m.Flags, Undo: recordUndo(r, wav, before, m)}
 	if resp.Flags == nil {
 		resp.Flags = []audio.Flag{}
 	}
@@ -193,12 +203,13 @@ func (a *API) handleTakeFlagPost(w http.ResponseWriter, r *http.Request) {
 	if !stillThere(w, wav) {
 		return
 	}
-	m := audio.ReadMeta(wav)
-	m.Flags = audio.EnsureFlagIDs(m.Flags)
+	before := audio.ReadMeta(wav)
+	m := before
+	m.Flags = audio.EnsureFlagIDs(m.Flags) // a copy: before keeps its own
 	if i := indexOfFlag(m.Flags, id); i >= 0 {
 		// Already added: a retry, or a double send. Answer as if it were new.
 		f := m.Flags[i]
-		writeJSON(w, http.StatusOK, flagResponse{Flag: &f, Flags: m.Flags})
+		writeJSON(w, http.StatusOK, flagResponse{Flag: &f, Flags: m.Flags, Undo: audio.HistoryInfo(wav, clientOf(r))})
 		return
 	}
 	if len(m.Flags) >= maxTakeFlags {
@@ -210,7 +221,7 @@ func (a *API) handleTakeFlagPost(w http.ResponseWriter, r *http.Request) {
 		f.Label = sanitizeLabel(*b.Label)
 	}
 	m.Flags = append(m.Flags, f)
-	a.commitFlags(w, name, wav, m, &f)
+	a.commitFlags(w, r, name, wav, before, m, &f)
 }
 
 func (a *API) handleTakeFlagPatch(w http.ResponseWriter, r *http.Request) {
@@ -236,8 +247,9 @@ func (a *API) handleTakeFlagPatch(w http.ResponseWriter, r *http.Request) {
 	if !stillThere(w, wav) {
 		return
 	}
-	m := audio.ReadMeta(wav)
-	m.Flags = audio.EnsureFlagIDs(m.Flags)
+	before := audio.ReadMeta(wav)
+	m := before
+	m.Flags = audio.EnsureFlagIDs(m.Flags) // a copy: before keeps its own
 	i := indexOfFlag(m.Flags, id)
 	if i < 0 {
 		writeErr(w, http.StatusNotFound, "no such flag")
@@ -250,7 +262,7 @@ func (a *API) handleTakeFlagPatch(w http.ResponseWriter, r *http.Request) {
 		m.Flags[i].Label = sanitizeLabel(*b.Label)
 	}
 	f := m.Flags[i]
-	a.commitFlags(w, name, wav, m, &f)
+	a.commitFlags(w, r, name, wav, before, m, &f)
 }
 
 func (a *API) handleTakeFlagDelete(w http.ResponseWriter, r *http.Request) {
@@ -269,8 +281,9 @@ func (a *API) handleTakeFlagDelete(w http.ResponseWriter, r *http.Request) {
 	if !stillThere(w, wav) {
 		return
 	}
-	m := audio.ReadMeta(wav)
-	m.Flags = audio.EnsureFlagIDs(m.Flags)
+	before := audio.ReadMeta(wav)
+	m := before
+	m.Flags = audio.EnsureFlagIDs(m.Flags) // a copy: before keeps its own
 	i := indexOfFlag(m.Flags, id)
 	if i < 0 {
 		writeErr(w, http.StatusNotFound, "no such flag")
@@ -278,7 +291,7 @@ func (a *API) handleTakeFlagDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	removed := m.Flags[i]
 	m.Flags = append(m.Flags[:i], m.Flags[i+1:]...)
-	a.commitFlags(w, name, wav, m, &removed)
+	a.commitFlags(w, r, name, wav, before, m, &removed)
 }
 
 func indexOfFlag(flags []audio.Flag, id string) int {
@@ -288,4 +301,101 @@ func indexOfFlag(flags []audio.Flag, id string) int {
 		}
 	}
 	return -1
+}
+
+// clientHeader names the device a request comes from, so each device's Undo
+// walks back through its own changes (audio.RecordHistory). The pages send a
+// random id kept per browser; a request without one (a script) is "".
+const clientHeader = "X-Hindsight-Client"
+
+func clientOf(r *http.Request) string {
+	c := r.Header.Get(clientHeader)
+	if len(c) == 0 || len(c) > 32 {
+		return ""
+	}
+	for _, ch := range c {
+		if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_') {
+			return ""
+		}
+	}
+	return c
+}
+
+// recordUndo logs what changed between before and after for Undo, and
+// answers with the take's undo state for this device and the operation just
+// recorded (the newest, if the request changed several things). A failure to
+// log is not the edit's failure: the edit is saved.
+func recordUndo(r *http.Request, wav string, before, after audio.Meta) audio.UndoInfo {
+	client := clientOf(r)
+	op, err := audio.RecordHistory(wav, before, after, time.Now(), client)
+	if err != nil {
+		log.Printf("history for %s: %v", filepath.Base(wav), err)
+	}
+	info := audio.HistoryInfo(wav, client)
+	info.Op = op
+	return info
+}
+
+// handleTakeUndo undoes one change to a take: this device's newest, or with
+// ?op= the one a toast's Undo names. A change made since by someone else is
+// not overwritten: the step is skipped and the answer says so. The log is
+// saved only after the sidecar, so a failed write keeps the step.
+//
+//	POST /api/take/undo?file=[&op=]
+//	-> {"undone"|"skipped": "rename", "take": {...}, "undo": {...}, "cue_error"?}
+func (a *API) handleTakeUndo(w http.ResponseWriter, r *http.Request) {
+	name, wav, ok := a.takeForWrite(w, r)
+	if !ok {
+		return
+	}
+	opID := r.URL.Query().Get("op")
+	unlock := audio.LockTake(wav)
+	defer unlock()
+	if !stillThere(w, wav) {
+		return
+	}
+	m := audio.ReadMeta(wav)
+	client := clientOf(r)
+	op, rest, err := audio.PlanUndo(wav, &m, opID, client)
+	resp := struct {
+		Undone   string         `json:"undone,omitempty"`
+		Skipped  string         `json:"skipped,omitempty"`
+		Take     *audio.Take    `json:"take,omitempty"`
+		Undo     audio.UndoInfo `json:"undo"`
+		CueError string         `json:"cue_error,omitempty"`
+	}{}
+	switch {
+	case errors.Is(err, audio.ErrNothingToUndo):
+		writeErr(w, http.StatusConflict, "nothing to undo")
+		return
+	case errors.Is(err, audio.ErrUndoClash):
+		resp.Skipped = op.What
+		if err := audio.SaveHistory(wav, rest); err != nil {
+			log.Printf("history for %s: %v", name, err)
+		}
+	case err != nil:
+		log.Printf("undo %s: %v", name, err)
+		writeErr(w, http.StatusInternalServerError, "could not undo")
+		return
+	default:
+		if err := audio.WriteMeta(wav, m); err != nil {
+			writeMetaErr(w, name, err)
+			return
+		}
+		if err := audio.SaveHistory(wav, rest); err != nil {
+			log.Printf("history for %s: %v", name, err)
+		}
+		resp.Undone = op.What
+		if op.Field == "flag" {
+			if err := audio.WriteCuePoints(wav, audio.EnsureFlagIDs(audio.NormalizeFlags(m.Flags))); err != nil {
+				log.Printf("cue points for %s: %v", name, err)
+				resp.CueError = "flags saved, but the take's cue points could not be updated"
+			}
+		}
+	}
+	if t, err := audio.ReadTake(a.cfg.OutputDir, name); err == nil {
+		resp.Take = &t
+	}
+	resp.Undo = audio.HistoryInfo(wav, client)
+	writeJSON(w, http.StatusOK, resp)
 }

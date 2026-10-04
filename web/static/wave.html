@@ -15,84 +15,119 @@
 </head>
 <body class="wave-page">
 
-<header class="topbar">
-  <a class="back" href="/" aria-label="Back to takes">‹</a>
-  <div class="wave-title">
-    <span id="wave-name" class="wave-name">…</span>
-    <span id="wave-bpm" class="wave-bpm"></span>
+<!-- The take's header: the same controls the list row has (name, star,
+     tempo), so nothing about a take can only be changed from one page. -->
+<header class="topbar take-top">
+  <a class="back" href="/" aria-label="Back to takes" data-tip="back">‹</a>
+  <button id="take-prev" class="icon-btn step-btn" type="button" aria-label="Previous take" data-tip="take-prev" disabled>◂</button>
+  <div class="take-title">
+    <div class="take-title-row">
+      <button id="take-name" class="take-title-name" type="button" data-tip="rename">…</button>
+      <input id="take-name-input" class="take-title-input" type="text" maxlength="120" hidden aria-label="Take name">
+      <button id="take-star" class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
+    </div>
+    <div class="take-sub">
+      <button id="take-bpm" class="take-sub-bpm" type="button" data-tip="bpm">+ bpm</button>
+      <input id="take-bpm-input" class="take-sub-input" type="text" inputmode="decimal" maxlength="7" hidden aria-label="Tempo in BPM">
+      <span id="take-len" class="take-sub-len mono"></span>
+      <a id="take-source" class="take-sub-src" hidden data-tip="source"></a>
+    </div>
   </div>
-  <!-- Phone only: opens the rising-notes pane fullscreen. Revealed by
-       page.js once /api/midi has returned tracks, so a take without MIDI
-       never offers a view of nothing. On the bench the pane is always
-       there and this stays hidden. -->
-  <button id="notes-open" class="icon-btn notes-btn" type="button" hidden>Notes</button>
+  <button id="take-next" class="icon-btn step-btn" type="button" aria-label="Next take" data-tip="take-next" disabled>▸</button>
+  <!-- Phone only: opens the rising-notes pane fullscreen. Revealed once
+       /api/midi has returned tracks; on the bench the pane is always there. -->
+  <button id="notes-open" class="icon-btn notes-btn" type="button" hidden aria-label="Notes" data-tip="notes-open"><span class="wide-only">Notes</span><span class="narrow-only">♪</span></button>
+  <button id="take-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" data-tip="undo">↶</button>
+  <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
+  <button id="menu-btn" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More options" data-tip="menu">⋯</button>
+  <div id="take-menu" class="menu" role="menu" hidden>
+    <button id="downbeat-reset" type="button" role="menuitem" data-tip="downbeat-reset">Reset the downbeat</button>
+    <a href="/guide.html#4-the-take-page" role="menuitem" data-tip="guide">The guide</a>
+  </div>
 </header>
 
 <main class="wave-main">
-  <div class="wave-col">
+  <div class="wave-col" data-hints>
     <div id="wave-error" class="wave-error" hidden></div>
-    <canvas id="overview-canvas" class="overview-canvas" aria-label="Whole take"></canvas>
-    <canvas id="wave-canvas" class="wave-canvas" aria-label="Waveform"></canvas>
+    <canvas id="overview-canvas" class="overview-canvas" aria-label="Whole take" data-tip="overview"></canvas>
+    <canvas id="wave-canvas" class="wave-canvas" aria-label="Waveform" data-tip="waveform"></canvas>
 
-    <!-- One lane per MIDI track, built by lib/wave/lanes.js when the take has
-         a .mid; stays empty and takes no space otherwise. -->
-    <div id="lanes" class="lanes" hidden></div>
+    <div class="toolbar">
+      <div class="tb-row transport">
+        <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="play">▶</button>
+        <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="loop">⟲ Loop</button>
+        <button id="set-in" class="icon-btn tb-point" type="button" data-tip="in">In</button>
+        <button id="set-out" class="icon-btn tb-point" type="button" data-tip="out">Out</button>
+        <button id="flag-now" class="icon-btn tb-flag" type="button" aria-label="Flag" data-tip="flag">⚑</button>
+        <button id="flag-prev" class="icon-btn tb-step" type="button" aria-label="Previous flag" data-tip="flag-prev">◂⚑</button>
+        <button id="flag-next" class="icon-btn tb-step" type="button" aria-label="Next flag" data-tip="flag-next">⚑▸</button>
+      </div>
 
-    <div class="wave-row action">
-      <button id="play" class="icon-btn" type="button">Play</button>
-      <button id="bundle" class="icon-btn" type="button">DAW bundle</button>
-      <button id="share" class="icon-btn primary" type="button">Share MP3</button>
-      <button id="region-clear" class="region-x" type="button" aria-label="Clear region" hidden>×</button>
+      <div id="sel-row" class="tb-row selection" hidden>
+        <span class="sel-edge">
+          <span class="sel-label">In</span>
+          <button id="in-dec" class="nudge" type="button" aria-label="In earlier" data-tip="nudge">◂</button>
+          <span id="sel-in" class="mono sel-time"></span>
+          <button id="in-inc" class="nudge" type="button" aria-label="In later" data-tip="nudge">▸</button>
+        </span>
+        <span id="sel-len" class="mono sel-len"></span>
+        <span class="sel-edge">
+          <span class="sel-label">Out</span>
+          <button id="out-dec" class="nudge" type="button" aria-label="Out earlier" data-tip="nudge">◂</button>
+          <span id="sel-out" class="mono sel-time"></span>
+          <button id="out-inc" class="nudge" type="button" aria-label="Out later" data-tip="nudge">▸</button>
+        </span>
+        <button id="sel-clear" class="linkish sel-clear" type="button" data-tip="clear">Clear</button>
+      </div>
+
+      <div class="tb-row verbs">
+        <button id="save-take" class="icon-btn" type="button" disabled data-tip="save-take">Save as take</button>
+        <button id="share" class="icon-btn primary" type="button" data-tip="share">Share</button>
+        <button id="more-btn" class="icon-btn" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="more">More</button>
+        <div id="more-menu" class="menu menu-up" role="menu" hidden>
+          <button id="bundle" type="button" role="menuitem" data-tip="bundle">DAW bundle</button>
+          <a id="dl-wav" role="menuitem" download data-tip="dl-wav">Download WAV</a>
+          <a id="dl-midi" role="menuitem" download hidden data-tip="dl-midi">Download MIDI</a>
+          <button id="send-to-tape" type="button" role="menuitem" hidden data-tip="send-to-tape">Send to tape</button>
+          <button id="delete-take" class="danger" type="button" role="menuitem" data-tip="delete">Delete take</button>
+        </div>
+      </div>
+
+      <div class="tb-row footer">
+        <span class="readout"><span id="pos-bar" class="mono"></span> <span id="pos-time" class="mono"></span></span>
+        <button id="snap" class="chip" type="button" hidden data-tip="snap">Snap: off</button>
+        <div id="speed" class="seg speed-seg" role="group" aria-label="Practice speed" data-tip="speed">
+          <button type="button" data-rate="0.5" aria-pressed="false" data-tip="speed">½×</button>
+          <button type="button" data-rate="1" aria-pressed="true" data-tip="speed">1×</button>
+          <button type="button" data-rate="2" aria-pressed="false" data-tip="speed">2×</button>
+        </div>
+      </div>
     </div>
 
-    <details id="fine" class="fine">
-      <summary>Fine tune</summary>
-      <div class="fine-grid">
-        <span class="fine-label">Region</span>
-        <span id="region-length" class="mono fine-hint">—</span>
-        <span class="fine-label">Start</span>
-        <span class="edge">
-          <button id="start-dec" class="nudge" type="button" aria-label="Region start earlier">−</button>
-          <button id="start-inc" class="nudge" type="button" aria-label="Region start later">+</button>
-        </span>
-        <span class="fine-label">End</span>
-        <span class="edge">
-          <button id="end-dec" class="nudge" type="button" aria-label="Region end earlier">−</button>
-          <button id="end-inc" class="nudge" type="button" aria-label="Region end later">+</button>
-        </span>
-        <span class="fine-label">Position</span>
-        <span class="readout"><span id="pos-bar" class="mono"></span> <span id="pos-time" class="mono"></span></span>
-        <span class="fine-label">Waveform</span>
-        <label class="fine-hint fine-check"><input id="fit-peak" type="checkbox"> fit quiet takes to the height</label>
-        <span class="fine-label">Downbeat</span>
-        <span class="fine-hint">drag the marker on the waveform · <button id="downbeat-reset" class="linkish" type="button">reset</button></span>
-        <span class="fine-label"></span>
-        <span class="edge">
-          <button id="export" class="icon-btn" type="button" disabled>Export as take</button>
-          <button id="region-delete" class="icon-btn danger" type="button" disabled>Delete region</button>
-        </span>
-      </div>
-    </details>
+    <!-- One lane per MIDI track, built by lib/wave/lanes.js when the take has
+         a .mid; stays empty and takes no space otherwise. Below the toolbar,
+         so the transport stays in reach on a phone. -->
+    <div id="lanes" class="lanes" hidden></div>
   </div>
 
   <!-- Rising notes: the take's MIDI coming out of a keyboard as it plays.
-       Built by lib/wave/rising.js from the same /api/midi response as the
-       lanes. On a bench-width screen it is the right column; on a phone
-       it opens fullscreen from the Notes button. -->
+       On a bench-width screen it is the right column; on a phone it opens
+       fullscreen from the Notes button, with a strip of the waveform above. -->
   <section id="notes-pane" class="notes-pane" hidden aria-label="Rising notes">
+    <canvas id="notes-strip" class="notes-strip phone-only" aria-hidden="true"></canvas>
     <div class="notes-chips">
       <div id="notes-tracks" class="notes-tracks"></div>
-      <button id="notes-speed" class="chip" type="button" aria-label="Playback speed">1×</button>
+      <button id="notes-speed" class="chip" type="button" aria-label="Practice speed" data-tip="speed">1×</button>
       <span id="notes-bar" class="mono notes-bar phone-only"></span>
-      <button id="notes-play" class="icon-btn phone-only" type="button">Play</button>
+      <button id="notes-play" class="icon-btn phone-only" type="button" data-tip="play">Play</button>
     </div>
     <canvas id="notes-canvas" class="notes-canvas" aria-label="Rising notes"></canvas>
   </section>
 </main>
 
 <div id="flag-sheet" class="sheet" hidden>
-  <input id="flag-label" type="text" maxlength="120" placeholder="name this moment">
-  <button id="flag-delete" class="icon-btn danger" type="button">Delete</button>
+  <input id="flag-label" type="text" maxlength="120" placeholder="name this moment" aria-label="Flag name">
+  <button id="flag-delete" class="icon-btn danger" type="button" data-tip="flag-delete">Delete</button>
   <button id="flag-done" class="icon-btn" type="button">Done</button>
 </div>
 

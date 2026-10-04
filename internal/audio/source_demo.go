@@ -47,6 +47,35 @@ type demoSource struct {
 	mu   sync.Mutex
 	stop chan struct{}
 	done chan struct{}
+
+	// loop is the demo's stand-in for the Sidekick's returns: what a tape
+	// plays through the demo sink comes back in the capture, as the real
+	// strips bring it back (see demoLoop).
+	loop demoLoop
+}
+
+// demoLoop carries the demo sink's output into the demo source's input, the
+// way the Sidekick does: bus A (playback 1/2) into strip 1 -- the CH1 tap,
+// 3/4, and MAIN -- and bus B (3/4) into strip 2 -- the CH2 tap, 5/6, and
+// MAIN. With it open, AUX (7/8) carries the synthetic loop, standing in for
+// the instrument being layered, and the taps carry only the returns.
+//
+// Each block pulled is played into the next input block, so where the output
+// lands in the ring is known exactly: the demo's version of the Pi hearing
+// itself. It's counted against the frames the capture has actually handed to
+// the ring, so a dropped block or a reopened source doesn't throw it off.
+type demoLoop struct {
+	mu       sync.Mutex
+	pull     func([]int32) // the sink's consumer; nil when closed
+	channels int
+	held     []int32 // the block pulled last time, played into this one
+	pulled   int64   // output frames pulled since Open
+	delta    int64   // ring frame = output frame + delta
+	known    bool
+	// handed is the capture's count of frames handed to the ring: the ring
+	// frame the block being delivered will start at. Read only on the
+	// source's delivery goroutine, where the capture writes it.
+	handed func() uint64
 }
 
 // MIDISink is the optional capability of a Source that can also say what a
@@ -99,6 +128,7 @@ func (s *demoSource) Open(sink func([]int32)) (string, error) {
 				return
 			case tick := <-t.C:
 				s.fill(block, n)
+				s.loopback(block, n)
 				n += int64(s.cfg.FramesPerBuf)
 				sink(block)
 				if s.midi != nil {
@@ -284,4 +314,115 @@ func DemoMIDI(n int64, frames int, sampleRate int) []DemoEvent {
 	out = append(out, offs...)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Frame < out[j].Frame })
 	return out
+}
+
+// loopback mixes the output block the sink pulled last time into this input
+// block, then pulls the next one. Output frame o thus comes back at input
+// frame o + delta, delta fixed from the first pull.
+func (s *demoSource) loopback(block []int32, n int64) {
+	l := &s.loop
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.pull == nil {
+		return
+	}
+	fpb := s.cfg.FramesPerBuf
+	ch := s.cfg.Channels
+	if l.held != nil {
+		for i := 0; i < fpb; i++ {
+			o := l.held[i*l.channels:]
+			aL, aR := int64(o[0]), int64(o[1])
+			var bL, bR int64
+			if l.channels >= 4 {
+				bL, bR = int64(o[2]), int64(o[3])
+			}
+			in := block[i*ch:]
+			synthL, synthR := int64(in[0]), int64(in[1%ch])
+			set := func(c int, v int64) {
+				if c < ch {
+					in[c] = sat32(v)
+				}
+			}
+			set(0, synthL+aL+bL) // MAIN: everything
+			set(1, synthR+aR+bR)
+			set(2, aL) // CH1 tap: bus A (nothing in jack 1)
+			set(3, aR)
+			set(4, bL) // CH2 tap: bus B (nothing in jack 2)
+			set(5, bR)
+			set(6, synthL) // AUX: the instrument being layered
+			set(7, synthR)
+		}
+		// The held block, output frames [pulled-fpb, pulled), is in this
+		// one, which the ring will hold from the frame handed counts to.
+		if l.handed != nil {
+			l.delta = int64(l.handed()) - (l.pulled - int64(fpb))
+		}
+	}
+	if l.held == nil {
+		l.held = make([]int32, fpb*l.channels)
+		// What's pulled now plays into the next block.
+		if l.handed != nil {
+			l.delta = int64(l.handed()) + int64(fpb) - l.pulled
+		} else {
+			l.delta = n + int64(fpb) - l.pulled
+		}
+		l.known = true
+	}
+	l.pull(l.held)
+	l.pulled += int64(fpb)
+}
+
+func sat32(v int64) int32 {
+	if v > 2147483647 {
+		return 2147483647
+	}
+	if v < -2147483648 {
+		return -2147483648
+	}
+	return int32(v)
+}
+
+// demoSink is the demo's tape output: it plays into the demo source.
+type demoSink struct {
+	src *demoSource
+	cap *Capture
+}
+
+// NewDemoSink returns a Sink that plays into the demo source -- the tape
+// heard in the ribbon and the takes, as the Sidekick would make it -- or nil
+// for a source that isn't the demo. cap is the capture the source feeds
+// (nil: count by the source's own frames).
+func NewDemoSink(src Source, cap *Capture) Sink {
+	d, ok := src.(*demoSource)
+	if !ok {
+		return nil
+	}
+	return &demoSink{src: d, cap: cap}
+}
+
+func (d *demoSink) Open(channels int, pull func([]int32)) (string, error) {
+	l := &d.src.loop
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.pull, l.channels, l.held, l.pulled, l.known = pull, channels, nil, 0, false
+	l.handed = nil
+	if c := d.cap; c != nil {
+		l.handed = func() uint64 { return c.handed }
+	}
+	return "Demo loopback (the demo source hears it)", nil
+}
+
+func (d *demoSink) Close() {
+	l := &d.src.loop
+	l.mu.Lock()
+	l.pull, l.held, l.known = nil, nil, false
+	l.mu.Unlock()
+}
+
+// Delta is exact in the demo: where output frame 0 lands in the ring.
+func (d *demoSink) Delta() (int64, bool) {
+	l := &d.src.loop
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.delta, l.known
 }

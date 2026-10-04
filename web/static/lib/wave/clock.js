@@ -73,7 +73,7 @@ export class Clock {
     }
     const t = this.audio.currentTime;
     if (!this.playing) return Math.floor(t * this.sr);
-    return Math.floor(smoothTime(this.smooth, t, performance.now(), this.rate) * this.sr);
+    return Math.floor(smoothTime(this.smooth, t, performance.now(), this.playRate()) * this.sr);
   }
 
   seek(frame) {
@@ -117,7 +117,7 @@ export class Clock {
     if (this.playing && this.engine === 'preview') return;
     const at = this.audio.currentTime;
     this.audio.addEventListener('loadedmetadata', () => {
-      this.audio.playbackRate = this.rate;
+      this.audio.playbackRate = this.playRate();
       if (at > 0) this.audio.currentTime = at;
     }, { once: true });
     this.audio.load();
@@ -135,12 +135,17 @@ export class Clock {
     cancelAnimationFrame(this.raf);
   }
 
-  /** 0.5, 1 or 2: the preview plays at this speed; a slice loop stays at 1×. */
+  /** 0.5, 1 or 2: the preview plays at this speed; any loop stays at 1×. */
   setRate(rate) {
     this.rate = rate;
-    this.audio.playbackRate = rate;
     this.audio.defaultPlaybackRate = rate; // survives a reload of the element
+    this.audio.playbackRate = this.playRate();
   }
+
+  // The speed the preview actually plays at. A loop is 1× whichever engine
+  // plays it: one over the slice cap loops through the preview, and it
+  // must not come out at practice speed when a short one wouldn't.
+  playRate() { return this.loop ? 1 : this.rate; }
 
   // region null clears the loop and returns to the preview engine at the
   // current position. A region over the cap loops through the preview by
@@ -150,6 +155,7 @@ export class Clock {
     const wasPlaying = this.playing;
     const at = this.position();
     this.loop = region;
+    this.audio.playbackRate = this.playRate();
     if (!region || region.end - region.start > SLICE_CAP_SECONDS * this.sr) {
       if (this.engine === 'slice') { this.stopSource(); this.engine = 'preview'; this.slice = null; }
       this.audio.currentTime = at / this.sr;
@@ -168,6 +174,7 @@ export class Clock {
       this.stopSource();
       this.slice = null;
       this.loop = null;
+      this.audio.playbackRate = this.playRate();
       this.engine = 'preview';
       this.audio.currentTime = at / this.sr;
       if (wasPlaying) this.audio.play().catch(() => {});

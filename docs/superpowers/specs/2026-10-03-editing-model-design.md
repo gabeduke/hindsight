@@ -1,6 +1,6 @@
 # The editing model, and refining the base app
 
-**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; step 1 (solid ground) built · **Repo:** `hindsight`
+**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; steps 1 (solid ground), 2 (phone recording), 3 (one take page), 4 (undo and trash; several takes at once), 5 (the ribbon) and 6a (the tape engine, in the demo) built · **Repo:** `hindsight`
 
 Companions: [the tape design](2026-10-03-tape-design.md),
 [the OP-1 Field tape study](2026-10-03-op1-tape-study.md),

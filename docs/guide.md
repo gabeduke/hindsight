@@ -74,7 +74,7 @@ just move references around.
 - **The meters.**
 - **Capture.** Choose 30 s, 2 m, 7 m or Full, and tap *Capture* to save that
   much of the past as a take.
-- **Flag now** (today labelled *Mark*). It marks this moment in the ring;
+- **Flag now.** It marks this moment in the ring;
   the flag rides along into any take that includes it.
 - **The takes list,** newest first. Starred takes always come first. Tap a
   name to rename it, ★ to star it, and the waveform to hear it. Tap the take
@@ -84,7 +84,8 @@ just move references around.
 
 - [demo] Tap *Capture* with 30 s chosen → a new take appears at the top within
   a few seconds, about 30 s long, and plays.
-- [demo] Tap *Mark*, wait, then capture → the take has a flag at that moment.
+- [demo] Tap *Flag now*, wait, then capture → the take has a flag at that
+  moment.
 - [demo] Star an older take → it moves to the top and stays there after
   newer captures.
 
@@ -103,65 +104,92 @@ just move references around.
   stays low. An unchanged list costs a directory listing, not a scan (watch
   `top`, or the request timings in the browser's network tab).
 
+**Checks — step 3:**
+
+- [demo] A take with a selection shows it in the list as a bracket on its
+  waveform, and its length as "0:30 of 0:59".
+- [demo] The list and the take page draw the same take at the same height.
+- [rig] Switch the interface off → the dot turns amber and says *waiting for
+  the interface*, with no error toast. Switch it on → it records again.
+- [demo] The bottom of the page shows the running version and links to this
+  guide.
+
 ## 4. The take page
 
-*Today, reworked in step 3.* Open any take from the list.
+*Step 3.* Open any take from the list. The first time you do, three hints
+point at the gestures that matter; **Got it** puts them away for good.
 
 **The layout, top to bottom:**
 
-- **The ruler** shows bars (if the take has a BPM) and the flags as pins.
-  ▾ is the playhead; drag it to scrub silently.
-- **The waveform.**
-- **The selection grips,** along the bottom edge.
-- **Two rows of buttons.**
+- **The header:** the take's name (tap to rename), ★, its tempo (tap to set),
+  its length ("0:30 of 0:59" when part of it is selected) and, for a take
+  saved from another, "from *that take*", which opens it. **◂ ▸** step to the
+  previous and next take in the list; **↶** undoes your last change (§5);
+  **?** is help mode; **⋯** resets the downbeat or opens this guide. On a
+  phone with MIDI, **♪** opens the notes, and the name has a row of its own
+  under the buttons.
+- **The overview:** the whole take. Drag its window to move along; double-tap
+  to see it all.
+- **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
+  pins above them. **▾** is the playhead; drag it to scrub silently. With a
+  BPM, bar **1** is the downbeat; drag it to line the grid up.
+- **The waveform,** drawn on the same scale as the list and the meters.
+- **The grips,** under the waveform at the selection's ends, with the move
+  handle between them.
+- **The toolbar:** ▶ · ⟲ Loop · In · Out · ⚑ · ◂⚑ ⚑▸; then, with a
+  selection, its In and Out times with their nudges, its length and *Clear*;
+  then *Save as take* · *Share* · *More*; then the position, *Snap* and
+  *Practice speed*.
+- **The MIDI lanes,** if the take has MIDI. Tap a lane's name for its menu:
+  collapse, show as drums or notes, or hide.
 
 **Getting around:**
 
-- **One-finger drag pans,** even inside the selection.
-- **Pinch** zooms.
-- **Tap** moves the playhead.
-- **◂ ▸ in the header** go to the previous and next take.
+- **One-finger drag moves along the take,** even inside the selection.
+- **Pinch** (or the mouse wheel) zooms.
+- **Tap** moves the playhead; **tap twice** drops a flag there.
+- **Drag the playhead's handle** ▾ in the ruler to move it silently; the take
+  carries on from where you let go. **Drag bar 1** — the yellow "1" just
+  right of its line — to say where the music starts.
+- **Back** returns to the list where you left it, even after ◂ ▸.
 
 **Selecting:**
 
 - **Hold, then drag** across the waveform to select a span. Or tap where it
   should start and press **In**, then tap where it should end and press
-  **Out**.
+  **Out** (either order; the first one waits, dashed, for the other).
 - **Adjust an end** by dragging its grip, or with its ◂ ▸ nudges.
-- **Move the whole selection** with the handle in the middle of its bottom
-  edge. A plain drag never moves it, so it can't happen by accident.
-- **Snap.** With a BPM set, the *Snap* chip makes the selection and the nudges
-  snap to bars, beats or 8ths.
+- **Move the whole selection** with the handle between the grips. A plain
+  drag never moves it, so it can't happen by accident.
+- **Snap.** With a BPM set, the *Snap* chip makes taps, the selection, **In**
+  and **Out** and the nudges land on bars, beats or 8ths. A nudge from an end
+  that sits between lines goes to the next line.
+- **Clear** forgets the selection; the take is untouched.
 
 **Playing:**
 
 - **▶** plays from the playhead.
-- **⟲ Loop** makes ▶ repeat the selection instead. It's off by default.
+- **⟲ Loop** makes ▶ repeat the selection instead. It's off each time you
+  open a take.
 - **Practice speed** (½× 1× 2×) slows or speeds the take without changing its
-  pitch. It's disabled while Loop is on.
+  pitch. It's off while Loop is on: the loop plays at 1×, exactly.
+- The screen stays on while a take plays.
 
 **Flags:**
 
 - **⚑** drops a flag at the playhead.
-- **Tap a pin** to label or delete it.
-- **Drag a pin** to move it.
+- **Tap a pin** to name or delete it. **Drag a pin** to move it.
 - **◂⚑ ⚑▸** jump between flags.
 
 **Doing things with the selection:**
 
 - **Save as take** makes a new take of just the selection.
-- **Share** sends it from your phone as an MP3.
+- **Share** sends it from your phone as an MP3 (the whole take, with no
+  selection).
 - **Send to tape** puts it on the loaded tape (step 6).
 - **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
   delete.
 - **Undo** in the header steps back through anything you changed (step 4).
-
-**Checks — today:**
-
-- [demo] Hold and drag on the waveform → a selection appears and loops when
-  you press play. (Today it always loops; from step 3, only with Loop on.)
-- [demo] *Export as take* → a new take appears at the top of the list with
-  just that span. In step 3 this becomes *Save as take*.
 
 **Checks — step 1:**
 
@@ -195,54 +223,116 @@ just move references around.
 - [demo] Go back to the list → it's scrolled where you left it.
 - [demo] Tap **?**, then tap any button → a tip explains it, and the button
   doesn't act. Tap **?** again to leave help mode.
+- [demo] On a computer, hover any button → its tip shows.
+- [demo] Open a take for the first time on a device → three hints; *Got it*
+  → they don't come back.
+- [demo] Tap a lane's name → a menu to collapse it, show it as drums or
+  notes, or hide it.
+- [demo] ◂ ▸ in the header → the previous or next take in the list's order.
+  Then **‹** → the list, scrolled where you left it.
+- [demo] Open a take with a BPM and drag the yellow "1" at the very start →
+  the downbeat moves (the playhead, also at the start, stays put).
+- [demo] Press ▶, then press and release the playhead's handle without
+  moving → the take keeps playing.
+- [demo] *Snap: beat*, play, and tap **In** then **Out** → both land on
+  beats.
+- [demo] In help mode, press Space → nothing plays; Escape leaves help mode.
+- [demo] On a phone → the take's name gets its own row under the header
+  buttons; in the list a long name keeps its row and the tempo and length
+  move under it.
 
 ## 5. Undo and the trash
 
 *Step 4.*
 
-**Undo.** Every change to a take is remembered: flags, the selection, the
-name, the BPM, the downbeat, drum lanes. **Undo** in the take's header steps
-back one change at a time. Removing something — deleting a flag, clearing the
-selection — shows a toast with its own Undo. If another device changed the
-same thing since, Undo skips it rather than overwriting their change, and says
-so.
+**Undo.** Every change you make to a take is remembered, the last 50 of them:
+its flags (added, moved, renamed, deleted), the selection, the name, the
+tempo, the downbeat, and drum or notes lanes. Starring isn't: tap the star
+again. **↶** in the take's header (or Ctrl-Z / ⌘-Z) steps back one change at
+a time through the changes made on this phone or computer, never another
+device's; its tip says what the next step will undo. Changes made quickly to
+one thing, like holding a nudge, are one step.
 
-**The trash.** Deleting a take, or having it pruned by `MAX_SAVES`, moves it
-to the trash. *Recently deleted*, at the bottom of the list, brings it back,
-starred so it isn't pruned again straight away. The trash empties after 7
-days, or sooner if the disk runs low, so it never stops a capture.
+Removing something — deleting a flag, clearing the selection, deleting a
+take — shows a toast with its own **Undo**, which undoes exactly that, even if
+you've changed something else since. If another device changed the same
+thing in the meantime, Undo leaves their change alone and says so.
 
-**Selecting several takes.** Hold a take in the list to start selecting.
-Then star, delete or export them together. Export downloads one zip.
+**The trash.** Deleting a take doesn't ask any more: it moves the take, with
+everything saved beside it, to the trash, and the toast offers Undo. So does
+`MAX_SAVES` pruning. **Recently deleted**, under the list, shows what's there
+and when it went; **Restore** brings a take back starred, so the next prune
+doesn't take it straight back. **×** deletes one for good and **Empty**
+empties the trash, and those two do ask. The trash empties itself after 7
+days, and sooner, oldest first, whenever the disk falls under `MIN_FREE_GB`,
+so it never stops a capture.
+
+**Several takes at once.** Hold a take in the list for half a second, or tap
+**Select** above it. Tap takes to pick them; a bar at the bottom then
+**★** stars them (or unstars them, if they all are), **Export** downloads
+one zip of their WAVs with their names, flags and MIDI, and **Delete** moves
+them to the trash, with Undo. **Done** or Escape stops selecting.
 
 **Checks — step 4:**
 
 - [demo] Delete a flag → the toast offers Undo; tap it → the flag is back.
-- [demo] Change a take's name, then its BPM, then tap Undo twice → both are
-  back as they were.
-- [demo] Delete a take → it disappears from the list and shows under
-  *Recently deleted*. Restore it → it's back, starred, with its flags.
+- [demo] Change a take's name, then its BPM, then tap ↶ twice → both are
+  back as they were. ↶'s tip says "Undo the tempo change" before the first
+  tap.
+- [demo] Clear the selection → the toast offers Undo; tap it → the selection
+  is back.
+- [demo] Delete a take from its page → you're back at the list with "Deleted
+  … · Undo"; tap Undo → it's back, starred, with its flags.
+- [demo] Delete a take from the list → it shows under *Recently deleted*.
+  Restore it → it's back, starred.
 - [demo] Fill the disk to just above `MIN_FREE_GB` with the trash full, then
   capture → the capture succeeds and the oldest trash goes.
 - [demo] Select three takes and export → one zip with their WAVs, sidecars and
   MIDI.
+- [demo] Select two takes and Delete → both go; the toast's Undo brings both
+  back.
+- [demo] Rename a take on one device, rename it again on another, then tap
+  ↶ on the first → "Not undone: the name has changed since", and the other
+  device's name stays.
 
 ## 6. The ribbon
 
 *Step 5.*
 
-**Hold and drag across the buffer ribbon** to select any stretch of the last
-15 minutes, not just the last N minutes, then tap *Save as take*. The ribbon
-squeezes older time together, so select generously and trim on the take page.
+**Hold, then drag, across the ribbon** to select any stretch of the last 15
+minutes, not just the last N, then tap **Save as take** in the bar that
+appears under it. The bar says how long the span is and how long ago
+("1:32 · 8:12–6:40 ago"). The ribbon squeezes older time together, so
+select generously and trim on the take page. Hold without dragging to select
+from there to now. **×** forgets the selection.
 
-**A flag's sheet** also offers *Save from here to now*.
+The selection names the audio, not a place on the screen: it slides left as
+time passes, like the audio it holds. If its start leaves the buffer before
+you save, the bar says so and the take starts at the oldest audio there is.
+
+The take is dated by when its last moment was played, so it sorts among the
+others by when it happened, and its tempo is read over that span, not over
+the last few seconds. Flags inside it come with it. If a span leaves the
+buffer altogether before you save, the bar says so and Save is off. With
+`MAX_SAVES` set, remember a take dated in the past is pruned like one: star
+it to keep it.
+
+**Tap a flag on the ribbon** for its sheet: **Save from here to now** makes
+a take that starts at the flag; **Delete flag** removes it.
 
 **Checks — step 5:**
 
 - [demo] Wait ten minutes, then select a span about eight minutes back on the
-  ribbon and save → the take holds roughly that span, not the last N minutes.
-- [demo] Tap a flag on the ribbon → its sheet opens. Today a tap deletes it.
-  *Save from here to now* makes a take starting at the flag.
+  ribbon and save → the take holds roughly that span, not the last N minutes,
+  and sits in the list by when it was played.
+- [demo] Hold on the ribbon without dragging → the bar reads "… ago to now".
+- [demo] A quick tap, or a vertical swipe over the ribbon → nothing selected;
+  the page scrolls.
+- [demo] Tap a flag on the ribbon → its sheet opens. *Save from here to now*
+  makes a take starting at the flag, carrying the flag at its first moment.
+- [demo] Select a span near the old end and wait until its start passes the
+  oldest audio → the bar turns amber and says so; saving still works, from
+  the oldest audio.
 
 ## 7. Recording from your phone
 
@@ -252,17 +342,35 @@ squeezes older time together, so select generously and trim on the take page.
 **Recording:**
 
 1. Open Hindsight on its HTTPS address — the `tailscale serve` one. The mic
-   only works over HTTPS.
-2. Tap **Phone**.
+   only works over HTTPS; on the plain address, *Phone* tells you so.
+2. Tap **Phone**, in the row under Capture.
 3. Choose the mic, or an input plugged into the phone (the Orchid through a
-   USB-C adapter, say).
-4. Record, then tap Stop.
+   USB-C adapter, say). The meter moves before you record, so you can check
+   the level first. A cable beats the mic for anything you mean to keep.
+4. Tap **Record**, play, then tap **Stop**.
 
 **What happens to it.** The take streams to the Pi as you play and appears in
-the list when you stop.
+the list, labelled *Phone*, when you stop. It's a take like any other: open
+it, select, save part of it, share it.
 
-**Keep the page open.** Locking the phone or switching apps stops the
-recording.
+**If the Wi-Fi drops.** The recorder says *Reconnecting…* and keeps the audio
+on the phone until the Pi is back, then sends it. Nothing is lost as long as
+the page stays open and the Pi hears from it again within ten minutes.
+
+**Keep the page open.** Locking the phone or switching apps pauses the
+recording, and the take skips that stretch; the page tells you how much is
+missing when you come back. The screen is kept awake while you record, even
+on battery; the sheet says if the phone won't allow it. You can hide the
+sheet while recording: the Phone button turns into a red *REC* timer, and
+tapping it brings the sheet back.
+
+**If something goes wrong.** If the page closes before Stop, whatever reached
+the Pi is kept as *Phone (partial)*, ten minutes later. If the Pi restarts
+mid-recording, what it had is kept the same way, and the phone carries on
+into a second partial take.
+
+**Limits.** Recording stops by itself at three hours, or if the Pi's free
+space falls under `MIN_FREE_GB`; what was recorded is kept.
 
 **Checks — step 2:**
 
@@ -273,10 +381,24 @@ recording.
 - [rig] Open the plain `http://` address → the Phone button explains that it
   needs the HTTPS address.
 - [demo] Watch the list while recording → nothing appears until Stop.
+- [demo] Record from a desktop browser at `http://localhost:5000` (a secure
+  page) → the take is 48 kHz stereo, labelled *Phone*, with a waveform.
+- [rig] Record, then close the tab without Stop → about ten minutes later a
+  take labelled *Phone (partial)* appears.
 
 ## 8. Tape
 
 *Steps 6–9.* Full design: [tape](superpowers/specs/2026-10-03-tape-design.md).
+Step 6 comes in two parts:
+
+- **6a** is the tape itself: tapes, tracks, clips, the mix, the transport,
+  catching passes and bars, sending a take to tape, and undo. It plays in the
+  demo.
+- **6b** plays the tape through the Sidekick on the Pi, and adds free loops,
+  punch-in and the click.
+
+Turn the tape on with `TAPE=true` ([configuration](configuration.md#the-tape)).
+The main page then shows a **Tape** chip that opens the tape page.
 
 ### 8.1 Plug in
 
@@ -288,72 +410,138 @@ recording.
 
 The Bento's USB goes to the Pi's hub too, for MIDI only.
 
+Playback through the Sidekick is step 6b. Until then, on the Pi you can make
+tapes from takes and edit them, but ▶ reads *no output* and nothing can be
+caught.
+
 ### 8.2 The tape page
 
-Four lanes, one per track. Each has a name, its bus (A or B), mute (M) and
-solo (S).
+From the top:
 
-- **Tap a track's header** to select it.
-- **The ruler** across the top shows bars and the playhead. Hold and drag on
-  it to select bars.
-- **The buttons:** ▶, ⟲ Loop, In, Out, Rec, Catch.
-- **Source chips** show which input is sounding and whether it's clean, meaning
-  free of the tape's own playback.
-- **The passes row** shows the last eight times round the loop.
-- **The dot** by the tempo means playback and recording are lined up to the
-  sample.
+- **The name.** Tap it for the tape menu: open another tape, start a new one,
+  clone this one, delete one, or this guide. Under the name: the tempo and how
+  many bars the loop is.
+- **The dot** is green when the tape's playback and the recording are lined
+  up to the sample. Catching needs it. The demo is always lined up; on the Pi
+  that arrives with step 6b.
+- **↶ ↷** undo and redo every change to the tape except its name. 100 steps
+  are kept, with the tape, so they survive a restart and every device shares
+  them.
+- **The overview** is the whole tape, six minutes: what's on each track, and
+  the loop in amber.
+- **Four lanes**, one per track:
+  - Each header has the track's number (tap it to select the track), its bus
+    (A or B; tap to swap), **M** (mute), **S** (solo) and its level.
+  - In the lane: the bar lines, the clips and the playhead. A layer on top of
+    another clip is drawn blue.
+  - Tap a clip to open its sheet. Tap an empty part of a lane to move the
+    playhead there.
+- **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
+  tape plays on to the end of what's recorded. Beside them is where the tape
+  is, as bar.beat and time.
+- **Catch from** chooses the input a catch takes from: main, ch1, ch2 or aux.
+  - **●** means clean: none of the tape's own playback is in it.
+  - **○** means the tape is in it: ch1 hears bus A, ch2 hears bus B, and main
+    hears both.
+- **Catch the last pass** and **1 bar / 2 / 4** catch onto the selected track.
+- **Passes** keeps the last six times round the loop; −1 is the newest.
 
 ### 8.3 Your first loop
 
-*Step 6.* **Free (the default).**
+*Step 6a.* There are two ways to start a tape.
 
-1. Play until a part sounds right.
-2. Tap where the loop starts, then tap where it comes round again.
-3. Hindsight snaps each tap to the nearest note you played, and the loop starts
-   playing back right away, in time with you.
-4. Its length sets the tempo. If it guessed 168 BPM and you meant 84, tap the
-   tempo and choose the other — nothing is stretched, only relabelled.
+**From a take.** On a take page, select the loop, with In and Out on the
+downbeats, and choose **More → Send to tape**. If no tape is loaded, a new one
+is made.
 
-**From a tempo.** Set a BPM and Hindsight plays a one-bar count-in and a click.
-Play along, and after a few times round tap **Catch ▸ 4 bars**.
+- On an empty tape, the selection becomes the first loop, on track 1. Its
+  length sets the tempo: Hindsight picks the number of bars that puts it
+  nearest 90 BPM, and the loop turns on. A selection too short or too long
+  to be 20–400 BPM is refused.
+- On a tape that already has a tempo, it lands at the playhead on track 1,
+  replacing what's there.
 
-**Checks — step 6:**
+**From a tempo.** On an empty tape, type a BPM and a number of bars and tap
+**Set**. The loop is that long and empty, ready to catch into.
 
-- [demo] With the demo loop playing, catch the last 4 bars onto track 1 → the
-  loop plays back from track 1 in time with the demo, and the dot shows
-  *locked*.
-- [rig] Play the Orchid into aux, tap start and end around a phrase → the loop
-  plays out of channel 1 in phase with you; the tempo reads sensibly.
-- [rig] Turn the Orchid off → the loop keeps playing.
+The tempo is fixed once the tape has audio, because nothing is ever stretched.
+
+*Step 6b* adds the free loop: tap where it starts and where it comes round,
+and each tap snaps to the nearest note you played. It also adds the count-in
+and the click.
+
+**Checks — step 6a:**
+
+- [demo] On a take page, select 2 seconds and choose **More → Send to tape**
+  → a toast says it was sent. On the tape page, track 1 holds the clip, the
+  tempo reads *120.0 BPM · 1 bar*, and ⟲ Loop is on.
+- [demo] Press ▶ → the playhead goes round the loop, the position counts
+  bars, and the passes row fills, one button a pass.
+- [demo] Make a new tape, set 90 BPM and 4 bars → it reads *90.0 BPM · 4
+  bars*, and the lanes show four empty bars. After the first catch, the tempo
+  can't be changed.
+- [rig] Send a take to tape on the Pi → it's on the tape, and ▶ reads
+  *no output* until step 6b.
 
 ### 8.4 Building it up
 
-*Step 6.*
+*Step 6a.*
 
-**Passes.** While the loop plays, everything you play is recorded anyway. The
-passes row shows each time round; tap one and it lands on the selected track.
+**Catching.** While the loop plays, everything you play is in the ring
+anyway. Choose a source and select a track, then:
 
-**Punch.** Tap **Rec** while playing and the next time round is recorded.
-While stopped, Rec arms the track and ▶ counts you in.
+- **Catch the last pass**, or tap a pass in the row, to put that whole time
+  round on the track, where it was played. Moving the loop, or loading
+  another tape, starts the passes again.
+- **1 bar / 2 / 4** catches the last bars, up to the last bar line the ring
+  has heard. A catch that runs across the loop's end is split in two, so it
+  still plays where it was played, and carries on across the seam without a
+  bump.
 
-**Layers.** Catching onto a track that already has audio adds a layer on top.
-Choose *replace* instead to clear what's there.
+A catch goes on top of what's already on the track, as a layer, the way an
+OP-1 overdubs. Its toast has **Undo**.
 
-**Mix.** Each track has level, pan, mute and solo. The Sidekick's channel 1
-knobs — EQ, FX, fader — act on bus A, which is the whole tape by default.
+**Clips.** Tap a clip for its sheet: its level, a ±5 ms nudge for timing, and
+**Remove**.
 
-**Checks — step 6:**
+**Mix.** Each track has a level, mute, solo and a bus. Every track starts on
+bus A, 6 dB down.
 
-- [demo] Play over the loop for four passes, then tap pass −3 → that pass
-  lands on track 2, in time.
-- [demo] Arm Rec while stopped, press ▶ → you hear a one-bar count-in, then
-  recording starts.
+- Bus A plays out of the Sidekick's channel 1, and bus B out of channel 2.
+- So the Sidekick's channel knobs (EQ, FX, fader) act on a whole bus.
+
+**Undo** steps back through every change, catches included. Quick changes to
+the same thing, like dragging a level, are one step.
+
+**Clone and delete.** *Clone this tape*, in the tape menu, makes a copy that
+shares the original's audio, so it costs no disk space. *Delete a tape…* asks
+for the tape's name. The loaded tape can't be deleted; open another one first.
+Deleting frees whatever audio no other tape uses, including what's only in
+other tapes' undo.
+
+*Step 6b* adds Rec (punch in on the next pass, or arm the track and count in
+from stopped), *replace* instead of layering, pan, and selecting bars on a
+ruler.
+
+**Checks — step 6a:**
+
+- [demo] Send 2 s to an empty tape and press ▶. Choose *aux*, select track 2,
+  wait four passes, then tap **−3** → a 2.0 s clip lands on track 2 at bar 1,
+  and the toast says *Caught 2.0 s from aux onto track 2*.
+- [demo] Catch from *ch1* → the toast warns that the tape was in that source
+  too.
+- [demo] On a 4-bar loop, play for a pass, then tap **1 bar** → a one-bar
+  clip lands on the bar that just finished.
+- [demo] Tap a clip, choose **Remove**, then **Undo** in the toast → the clip
+  is back. ↶ and ↷ step through the same history.
+- [demo] Open the tape page on two devices and mute a track on one → the
+  other shows it within a second.
+- [demo] Clone a tape and open the clone, delete the original, then play the
+  clone → it plays fully.
+- [demo] Restart Hindsight → the tape that was loaded is loaded again, with
+  its undo.
 - [rig] Turn channel 1's FX knob → the tape's sound changes, and the live
-  instrument on aux doesn't.
-- [demo] Catch onto a track that has audio, with *replace* off → both are
-  heard. Undo → only the first remains.
-- [demo] Fill a track to six minutes, then catch more → it's refused with the
-  room left shown.
+  instrument on aux doesn't. *(Step 6b.)*
 
 ### 8.5 Editing like an OP-1
 
@@ -462,21 +650,73 @@ has no tip.
 |---|---|
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
-| Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span |
+| Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |
+| Save as take (ribbon) | Save exactly the span you selected on the ribbon as a take |
+| × (ribbon) | Forget the span selected on the ribbon |
+| Save from here to now | Save a take that starts at this flag and runs to now |
+| Delete flag (ribbon) | Remove this flag. Takes saved later won't carry it |
+| Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
+| Open | Open the take to select, loop, save or share part of it |
+| Select | Pick several takes to star, export or delete together. Holding a take does the same |
+| ★ Star (selecting) | Star the picked takes, or unstar them if they all are |
+| Export | One zip of the picked takes: each WAV, its name and flags, and its MIDI |
+| Delete (selecting) | Move the picked takes to the trash |
+| Done | Stop selecting |
+| Restore | Put this take back in the list, starred |
+| × (Recently deleted) | Delete this take for good |
+| Empty | Delete everything in the trash for good |
 | ★ | Starred takes stay at the top and are pruned last |
+| Name | Tap to rename the take |
+| BPM | Tap to set the tempo. It draws the bar grid and makes Snap possible |
+| Download WAV | The whole take, as recorded |
+| Download MIDI | The take's MIDI file |
+| Delete take | Move this take to the trash. Recently deleted, under the list, keeps it a week |
+| ‹ | Back to the list, where you left it |
+| ◂ ▸ | The previous or next take in the list |
+| from … | This take was saved from another one. Tap to open that one |
+| ↶ | Undo your last change to this take: a flag, the selection, the name, tempo, downbeat or lanes |
+| ? | Help mode: tap anything to read what it does, instead of doing it |
+| ⋯ | Reset the downbeat, or open this guide |
+| Reset the downbeat | Put bar 1 back at the start of the take |
+| The guide | How Hindsight works, in plain words |
+| Overview | The whole take. Drag the window to move along it; double-tap to see it all |
+| Waveform | Drag to move along, pinch to zoom. Hold, then drag, to select. Tap to move the playhead; tap twice to flag |
 | ▶ | Play from the playhead |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |
 | ⚑ | Drop a flag at the playhead |
 | ◂⚑ ⚑▸ | Jump to the previous or next flag |
-| Snap | Make the selection and nudges land on bars, beats or 8ths |
+| Delete flag | Remove this flag |
+| ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
+| Clear | Forget the selection. The take itself is untouched |
+| Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
 | Save as take | Make a new take of just the selection |
 | Share | Send the selection from your phone as an MP3 |
-| Send to tape | Put the selection on the loaded tape, at its playhead |
-| Undo | Step back through your changes to this take |
-| Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
+| More | The DAW bundle, the WAV and MIDI downloads, and delete |
+| DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
+| Notes | Watch the take's MIDI rise out of a keyboard as it plays |
+| Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
+| Send to tape | Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape |
+| Tape (main page) | The tape: layer loops caught from what you just played |
+| Tape name | Your tapes: load one, make a new one, clone this one |
+| A tape in the list | Load this tape: the transport plays the loaded one |
+| New tape | Start an empty tape. Its first loop sets the tempo |
+| Delete a tape | Delete another tape. Audio it shares with others stays |
+| BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
+| ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps |
+| Tape overview | The whole tape, six minutes a track; the loop in amber |
+| A lane | Tap a clip for its level, nudge or removal; tap elsewhere to move the playhead there |
+| A track header | Tap the number to pick the track catches go onto |
+| M, S | Mute this track, or solo it: only soloed tracks play |
+| Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
+| ▶ (tape) | Play or stop the tape |
+| ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded |
+| 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
+| Clip level | This clip's level within its track |
+| Nudge | Move the clip a few milliseconds, for a part a little early or late |
+| Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Rec | Record the next time round the loop. Stopped: arm, then ▶ counts you in |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
@@ -490,16 +730,19 @@ has no tip.
 | Clone | Copy this whole tape. Costs no disk space |
 | Mixdown | Play In to Out once and save what came out of the mixer as a take |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
-| Source chip | Which input you'd catch from. Filled = sounding; ring = clean of the tape |
-| Lock dot | Playback and recording are lined up to the sample |
+| Source chip | Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too |
+| Lock dot | Green: playback and recording are lined up to the sample. Catching needs it |
 
 ## 10. When something's off
 
 | You see | It means | Do |
 |---|---|---|
-| The lock dot is hollow | Playback and recording haven't been lined up yet; it locks once the tape plays something with a clear attack | Play the tape for a few seconds. Catches still work, marked *estimated*, and can be nudged |
-| A source chip says *not clean* | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
+| The dot by ↶ isn't green | The tape's playback isn't lined up with the recording, so catches are off. On the Pi that's until step 6b; from then it lines up once the tape plays something with a clear attack | In the demo it's always lined up. From step 6b: play the tape for a few seconds |
+| A source chip shows ○ | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
 | "Too long for the ring" on Mixdown | The selection is longer than the last 15 minutes can hold | Mix down in parts, or raise `RING_SECONDS` |
 | "Not enough room on the tape" | The track would run past six minutes | Lift something, or raise `TAPE_LENGTH_S` |
-| The Phone button is greyed out | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |
+| *Phone* says the microphone needs a secure page | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |
+| The recorder says *Reconnecting…* | The phone lost the Pi for a moment; the audio is kept on the phone meanwhile | Nothing: it resends when the Pi is back. Keep the page open |
+| "The recording paused while the page was hidden" | The phone locked or you switched apps, and the browser stopped the mic | The take skips that stretch. Keep Hindsight in front while recording |
+| A take is labelled *Phone (partial)* | The recording never got its Stop: the page closed, or the Pi restarted mid-recording | It holds everything that reached the Pi |
 | A capture or catch is refused for disk space | Free space is under `MIN_FREE_GB` | Empty the trash, or delete old takes |
