@@ -38,6 +38,7 @@ var (
 	ErrNoCapture = errors.New("there's no capture to catch from")
 	ErrNotLined  = errors.New("the tape's output isn't lined up with the capture yet")
 	ErrNotPlayed = errors.New("the tape didn't play those bars")
+	ErrSlipped   = errors.New("the output slipped against the recording during that span; catch a later one")
 )
 
 // Source is a named capture pair the tape can catch from, with the buses that
@@ -71,8 +72,9 @@ type Options struct {
 	// MinFreeGB guards catches and drops as it guards saves, on the tapes'
 	// own volume.
 	MinFreeGB float64
-	// LatencyMS moves every catch later (TAPE_LATENCY_MS): for hearing the
-	// instrument from its own speaker rather than through the Sidekick.
+	// LatencyMS takes every catch this much later in the recording
+	// (TAPE_LATENCY_MS): for hearing the tape later than the instrument,
+	// which makes a part land that much late.
 	LatencyMS float64
 }
 
@@ -264,6 +266,8 @@ func (e *Engine) pull(out []int32) {
 // renderLoop keeps aheadBlocks rendered ahead of the device.
 func (e *Engine) renderLoop() {
 	defer close(e.done)
+	// What the device played before the renderer was running isn't late.
+	e.late.Store(0)
 	var out uint64 // the next output frame to render
 	fbuf := make([]float32, BlockFrames*OutChannels)
 	for {
@@ -729,7 +733,11 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
-	// The Δ that held when the span played, and any latency set by hand.
+	// The Δ that held when the span played, and any latency set by hand. A
+	// span with a slip inside it has no one Δ.
+	if e.segAt(outFrom) != e.segAt(outFrom+uint64(frames)-1) {
+		return Clip{}, ErrSlipped
+	}
 	delta, aligned = e.deltaAt(outFrom)
 	delta += int64(math.Round(e.latencyMS * float64(sr) / 1000))
 	ringFrom := int64(outFrom) + delta - over

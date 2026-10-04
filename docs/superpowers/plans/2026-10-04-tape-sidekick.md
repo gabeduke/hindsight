@@ -39,11 +39,30 @@ PortAudio lifecycle", "Alignment: the Pi hears itself". **Checks:**
 - The aligner's correlation is the CH taps'; MAIN isn't used, since it
   carries both buses and the live instruments.
 
+## After the independent review
+
+Fixed: the output closed with Stop under the lifecycle lock (now Abort); a
+stalled output reopening every few seconds with no backoff; a slip's
+segment starting when it was noticed rather than where it happened; input
+overflows not counted; a lock taken on an echo of a rhythm whose true Δ was
+outside the window (the search is now ±150 ms, accepted within ±50, and two
+measurements must agree); the capture's fallback device leading the output
+onto "default"; no recover in the output callback; a re-lock overwriting a
+whole segment; a catch across a slip; a log line per stall. The
+`TAPE_LATENCY_MS` sign is the spec's (plus), and its docs now say why.
+
+Differences from the spec: the lock correlates 1 s, not 2, and keeps 5.5 s
+of history, not 4; a catch takes the Δ of its span's start and refuses a span
+with a slip inside.
+
 ## Still to verify on the rig
 
 The [rig] checks in guide §8.1–8.4, and the spec's verify list item 6: a
 PortAudio output on the EP-136 beside the running capture, its CPU, and how
-often it underflows at `OUTPUT_LATENCY_MS=100`.
+often it underflows at `OUTPUT_LATENCY_MS=100`. If the Sidekick's USB
+playback uses implicit feedback, its period may have to match the running
+capture's (2048 frames, against the output's 1024): if the output won't
+open, try the output's `FramesPerBuffer` at `FRAMES_PER_BUFFER`.
 
 ## Tasks
 

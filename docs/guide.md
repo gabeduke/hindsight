@@ -431,7 +431,7 @@ From the top:
     playing something with a clear attack, like drums.
   - **Amber:** estimated from the clocks, to a few milliseconds. Catches
     work, and say so in their sheet; nudge one if it's early or late.
-  - **Red:** not at all yet. Catches wait for it.
+  - **Red:** not at all yet. Catches are refused until it's amber.
 - **↶ ↷** undo and redo every change to the tape except its name. 100 steps
   are kept, with the tape, so they survive a restart and every device shares
   them.
@@ -557,7 +557,9 @@ selecting bars on a ruler.
   onto track 2, and play → the part plays back in time with the loop, to
   the sample.
 - [demo] Start the demo with `TAPE_DEMO_ALIGN=true`, send drums to tape and
-  play → the dot goes from amber to green within a few seconds.
+  play → the dot goes from amber to green within about five seconds.
+- [rig] Play a loop that's only a sustained pad → the dot stays amber; it
+  never guesses at a lock it can't be sure of.
 
 ### 8.5 Editing like an OP-1
 

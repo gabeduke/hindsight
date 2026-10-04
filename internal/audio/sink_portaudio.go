@@ -39,8 +39,11 @@ type deviceSink struct {
 	frames       atomic.Uint64 // output frames pulled, across reopens: the engine's count since Open
 	lastCallback atomic.Int64
 	restarts     atomic.Uint64 // stream reopens and output underflows: where the output may have slipped
+	lastSlip     atomic.Uint64 // the output frame (since Open) of the latest
 	name         atomic.Value  // string: the device while open, else ""
 	reported     atomic.Int64  // the output latency PortAudio reported, ns
+	returned     atomic.Bool   // Open has returned: the supervisor logs opens from now on
+	panicked     atomic.Value  // string
 }
 
 // NewDeviceSink returns the tape's PortAudio output. captureName names the
@@ -49,6 +52,7 @@ func NewDeviceSink(cfg *config.Config, captureName func() string) Sink {
 	s := &deviceSink{cfg: cfg, pa: sharedPA, captureName: captureName,
 		bridge: NewClockBridge(256, cfg.SampleRate)}
 	s.name.Store("")
+	s.panicked.Store("")
 	return s
 }
 
@@ -65,6 +69,7 @@ func (s *deviceSink) Open(channels int, pull func([]int32)) (string, error) {
 	s.stop, s.done = make(chan struct{}), make(chan struct{})
 	s.mu.Unlock()
 	go s.supervise()
+	defer s.returned.Store(true)
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
 		if n := s.Name(); n != "" {
@@ -98,6 +103,10 @@ func (s *deviceSink) OutputBridge() *ClockBridge { return s.bridge }
 // longer holds.
 func (s *deviceSink) Restarts() uint64 { return s.restarts.Load() }
 
+// LastSlip is the output frame, counted from Open, of the latest restart or
+// underflow: where a measured delta stopped holding.
+func (s *deviceSink) LastSlip() uint64 { return s.lastSlip.Load() }
+
 func (s *deviceSink) supervise() {
 	defer close(s.done)
 	s.mu.Lock()
@@ -105,7 +114,18 @@ func (s *deviceSink) supervise() {
 	s.mu.Unlock()
 	backoff := time.Second
 	lastErr := ""
-	first := true // the engine logs the first open
+	var openedAt time.Time
+	wait := func() bool { // false: stopping
+		select {
+		case <-stop:
+			return false
+		case <-time.After(backoff):
+		}
+		if backoff < 15*time.Second {
+			backoff *= 2
+		}
+		return true
+	}
 	for {
 		if !s.isOpen() {
 			if err := s.openStream(); err != nil {
@@ -113,21 +133,15 @@ func (s *deviceSink) supervise() {
 					log.Printf("[!] tape output: %v (retrying)", err)
 					lastErr = err.Error()
 				}
-				select {
-				case <-stop:
+				if !wait() {
 					return
-				case <-time.After(backoff):
-				}
-				if backoff < 15*time.Second {
-					backoff *= 2
 				}
 				continue
 			}
-			backoff, lastErr = time.Second, ""
-			if !first {
-				log.Printf("[*] tape output on %q again", s.Name())
+			openedAt, lastErr = time.Now(), ""
+			if s.returned.Load() {
+				log.Printf("[*] tape output on %q", s.Name())
 			}
-			first = false
 		}
 		select {
 		case <-stop:
@@ -135,14 +149,30 @@ func (s *deviceSink) supervise() {
 			return
 		case <-time.After(500 * time.Millisecond):
 		}
+		// A stream that has run a while has earned a fresh backoff; one that
+		// fails as soon as it's open keeps backing off, so a wedged output
+		// doesn't churn the USB interface beside the capture.
+		if time.Since(openedAt) > 10*time.Second {
+			backoff = time.Second
+		}
 		last := s.lastCallback.Load()
+		reason := ""
 		switch {
 		case s.pa.Gen() != s.genOpen():
-			log.Printf("[!] tape output: closed by a device rescan; reopening")
-			s.closeStream()
+			reason = "closed by a device rescan"
 		case last != 0 && time.Since(time.Unix(0, last)) > staleAfter:
-			log.Printf("[!] tape output stalled (no callback for %s); reopening", staleAfter)
-			s.closeStream()
+			reason = fmt.Sprintf("stalled (no callback for %s)", staleAfter)
+		}
+		if reason == "" {
+			continue
+		}
+		if reason != lastErr {
+			log.Printf("[!] tape output %s; reopening", reason)
+			lastErr = reason
+		}
+		s.closeStream()
+		if time.Since(openedAt) < 10*time.Second && !wait() {
+			return
 		}
 	}
 }
@@ -194,7 +224,10 @@ func (s *deviceSink) openStream() error {
 		}
 		name = dev.Name
 		return func() {
-			_ = st.Stop()
+			// Abort, not Stop: there's nothing to drain, and a wedged ALSA
+			// stream can keep Stop waiting for tens of seconds -- with the
+			// lifecycle's lock held, so the capture would wait too.
+			_ = st.Abort()
 			_ = st.Close()
 		}, nil
 	})
@@ -219,18 +252,33 @@ func (s *deviceSink) closeStream() {
 	s.pa.Close(h)
 	s.name.Store("")
 	if wasOpen {
-		s.restarts.Add(1)
+		s.slip()
 	}
+}
+
+func (s *deviceSink) slip() {
+	s.lastSlip.Store(s.frames.Load())
+	s.restarts.Add(1)
 }
 
 // callback runs on PortAudio's thread. It never blocks: the engine's pull
 // copies a rendered block or plays silence.
+//
+// A panic here would reach the binding's own recover, which exits the
+// process -- the dashcam with it -- so it's recovered first, as silence.
 func (s *deviceSink) callback(out []int32, ti portaudio.StreamCallbackTimeInfo, flags portaudio.StreamCallbackFlags) {
+	defer func() {
+		if p := recover(); p != nil {
+			clear(out)
+			s.panicked.Store(fmt.Sprint(p))
+		}
+	}()
 	now := mono.Now()
 	d := s.frames.Load()
 	s.pull(out)
 	s.frames.Store(d + uint64(len(out)/s.channels))
 	if flags&portaudio.OutputUnderflow != 0 {
+		s.lastSlip.Store(d)
 		s.restarts.Add(1)
 	}
 	// The buffer's first frame is heard at its DAC time. A host that doesn't

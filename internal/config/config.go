@@ -48,8 +48,9 @@ type Config struct {
 	// OutputLatencyMS is asked of PortAudio for the tape's output, generous
 	// for the same busy-poll reason as the input's.
 	OutputLatencyMS int
-	// TapeLatencyMS moves every catch later: for hearing the instrument
-	// from its own speaker rather than through the Sidekick.
+	// TapeLatencyMS takes every catch this much later in the recording:
+	// for hearing the tape later than the instrument (the instrument from
+	// its own speaker), which makes a part land that much late.
 	TapeLatencyMS float64
 	// TapeDemoAlign makes the demo's output hide where it lands in the ring,
 	// so the aligner has to find it, as on the Pi.

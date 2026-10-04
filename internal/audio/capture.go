@@ -128,7 +128,16 @@ func (c *Capture) Healthy() bool {
 	return last != 0 && time.Since(time.Unix(0, last)) < staleAfter
 }
 
-func (c *Capture) XRuns() uint64      { return c.xruns.Load() }
+func (c *Capture) XRuns() uint64 { return c.xruns.Load() }
+
+// InputOverflows counts the overflows the device reported: frames lost
+// before they reached the capture at all. Only a real device knows.
+func (c *Capture) InputOverflows() uint64 {
+	if o, ok := c.src.(interface{ Overflows() uint64 }); ok {
+		return o.Overflows()
+	}
+	return 0
+}
 func (c *Capture) DeviceName() string { s, _ := c.deviceName.Load().(string); return s }
 func (c *Capture) LastError() string  { s, _ := c.lastErr.Load().(string); return s }
 

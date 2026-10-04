@@ -191,9 +191,23 @@ func TestTheTapeOutputGoesToTheCapturesCardOrNowhere(t *testing.T) {
 	if i, err := pickOutput(devs, "", "EP-136", 4); err != nil || i != 2 {
 		t.Fatalf("by match = %d, %v", i, err)
 	}
-	// Never HDMI or "default", even with nothing else.
+	// Never HDMI or "default", even with nothing else -- and not even when
+	// the capture itself fell back to one.
 	if _, err := pickOutput(devs[:1], "", "EP-136", 4); !errors.Is(err, ErrNoDevice) {
 		t.Fatalf("no match = %v, want ErrNoDevice", err)
+	}
+	if i, err := pickOutput(devs, "default", "EP-136", 4); err != nil || i != 2 {
+		t.Fatalf("with the capture on default = %d, %v; want the EP-136", i, err)
+	}
+	if _, err := pickOutput([]outDev{{Name: "default", MaxOut: 32}, {Name: "pulse", MaxOut: 32}}, "default", "EP-136", 4); err == nil {
+		t.Fatal("the capture on default with no EP-136 should give no output")
+	}
+	if _, err := pickOutput(devs, "", "", 4); err == nil {
+		t.Fatal("no DEVICE_MATCH should give no output")
+	}
+	// A plug device on the right card isn't direct enough.
+	if _, err := pickOutput([]outDev{{Name: "EP-136: USB Audio (plughw:2,0)", MaxOut: 4}}, "", "EP-136", 4); err == nil {
+		t.Fatal("plughw should be refused")
 	}
 	// Too few channels doesn't count.
 	if _, err := pickOutput([]outDev{{Name: "EP-136: USB Audio (hw:2,0)", MaxOut: 2}}, "", "EP-136", 4); err == nil {

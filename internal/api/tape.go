@@ -56,7 +56,8 @@ func tapeErr(w http.ResponseWriter, err error) {
 		writeErr(w, http.StatusInsufficientStorage, err.Error())
 	case errors.Is(err, tape.ErrNoTape), errors.Is(err, tape.ErrWrongTape), errors.Is(err, tape.ErrNotYet),
 		errors.Is(err, tape.ErrGone), errors.Is(err, tape.ErrNoPass), errors.Is(err, tape.ErrNothingToDo),
-		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed):
+		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed),
+		errors.Is(err, tape.ErrSlipped):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
 		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid):

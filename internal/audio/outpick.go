@@ -11,28 +11,31 @@ type outDev struct {
 	MaxOut int
 }
 
-// pickOutput chooses the device the tape plays through: the capture's own
-// device when it can play that many channels, else the most direct one
-// matching DEVICE_MATCH. Never anything else -- the tape out of HDMI, on
-// another clock, would be worse than no tape -- so no match is an error.
+// pickOutput chooses the device the tape plays through: a direct device on
+// the card DEVICE_MATCH names -- the capture's own device if it's one,
+// otherwise the most direct match. Never a plug, a mixer or a sound server
+// ("default", "pulse"), and never another card: the tape out of HDMI, on
+// another clock, would be worse than no tape. So no match, or no
+// DEVICE_MATCH, is an error.
 func pickOutput(devs []outDev, captureName, match string, channels int) (int, error) {
 	best, bestScore := -1, -1
 	for i, d := range devs {
-		if d.MaxOut < channels {
+		if d.MaxOut < channels || match == "" || !strings.Contains(d.Name, match) {
 			continue
 		}
-		if captureName != "" && d.Name == captureName {
+		s := deviceScore(d.Name)
+		if s < 2 {
+			continue // plug, dmix, default: conversion or another clock
+		}
+		if d.Name == captureName {
 			return i, nil
 		}
-		if match == "" || !strings.Contains(d.Name, match) {
-			continue
-		}
-		if s := deviceScore(d.Name); s > bestScore {
+		if s > bestScore {
 			best, bestScore = i, s
 		}
 	}
 	if best < 0 {
-		return -1, fmt.Errorf("%w: no output matching %q with >=%d channels", ErrNoDevice, match, channels)
+		return -1, fmt.Errorf("%w: no direct output matching %q with >=%d channels", ErrNoDevice, match, channels)
 	}
 	return best, nil
 }
@@ -42,7 +45,8 @@ func pickOutput(devs []outDev, captureName, match string, channels int) (int, er
 func deviceScore(name string) int {
 	n := strings.ToLower(name)
 	switch {
-	case strings.Contains(n, "dsnoop"), strings.Contains(n, "dmix"), strings.Contains(n, "plughw"):
+	case strings.Contains(n, "dsnoop"), strings.Contains(n, "dmix"), strings.Contains(n, "plughw"),
+		strings.Contains(n, "pulse"), strings.Contains(n, "pipewire"), strings.Contains(n, "jack"):
 		return 0
 	case strings.Contains(n, "sysdefault"), strings.Contains(n, "default"):
 		return 1

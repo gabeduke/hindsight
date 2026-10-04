@@ -74,7 +74,27 @@ func (f lagFit) Sharp() bool {
 // a matched filter. len(y) must be at least len(x); lags 0..len(y)-len(x) are
 // searched. guard is how near the peak a second candidate may be and still
 // count as the same one.
-func findLag(x, y []float64, guard int) lagFit {
+func findLag(x, y []float64, guard int) lagFit { return findLagWith(nil, x, y, guard) }
+
+// xcorrScratch holds findLag's buffers between calls, so a caller that
+// correlates every few seconds doesn't make megabytes of garbage each time.
+type xcorrScratch struct{ X, Y []complex128 }
+
+func (s *xcorrScratch) get(n int) ([]complex128, []complex128) {
+	if s == nil {
+		return make([]complex128, n), make([]complex128, n)
+	}
+	if cap(s.X) < n {
+		s.X, s.Y = make([]complex128, n), make([]complex128, n)
+	}
+	X, Y := s.X[:n], s.Y[:n]
+	clear(X)
+	clear(Y)
+	return X, Y
+}
+
+// findLagWith is findLag with reusable buffers (nil: fresh ones).
+func findLagWith(s *xcorrScratch, x, y []float64, guard int) lagFit {
 	n := nextPow2(len(y))
 	if len(x) == 0 || len(y) < len(x) {
 		return lagFit{}
@@ -82,8 +102,7 @@ func findLag(x, y []float64, guard int) lagFit {
 	// Twice differentiated first: a steep tilt up the spectrum, so a loop's
 	// bass -- strong, and periodic within the search -- doesn't drown out
 	// the attacks that pin the match down.
-	X := make([]complex128, n)
-	Y := make([]complex128, n)
+	X, Y := s.get(n)
 	for i := 2; i < len(x); i++ {
 		X[i] = complex(x[i]-2*x[i-1]+x[i-2], 0)
 	}

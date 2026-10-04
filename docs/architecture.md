@@ -515,11 +515,17 @@ direct device matching `DEVICE_MATCH`, and never anything else -- the tape
 out of HDMI, on another clock, would be worse than none. It is a separate
 stream rather than a duplex one, so the dashcam's health never depends on
 playback's. It keeps itself open with its own supervisor, as the capture
-does, and plays silence while the transport is stopped, so what it has
-measured survives stop and play. Its callback calls the engine's pull, which
-never blocks, notes output underflows, and records in a clock bridge of its
+does -- backing off while it can't open, or while it fails soon after
+opening -- and plays silence while the transport is stopped, so what it has
+measured survives stop and play. It's closed with Abort rather than Stop,
+since a wedged ALSA stream can keep Stop waiting for tens of seconds with
+the lifecycle's lock held. Its callback calls the engine's pull, which
+never blocks, notes output underflows, records in a clock bridge of its
 own when each buffer's first frame will be heard (the buffer's DAC time from
-PortAudio).
+PortAudio), and recovers its own panics: the binding's recover would exit
+the process. The output never rescans by itself, since a rescan closes the
+capture's stream too; if the Sidekick's playback wasn't enumerated, it waits
+for the capture's next rescan or a restart.
 
 **One PortAudio.** The library is process-global, so the capture and the
 output share one lifecycle (`palifecycle.go`), with a registry of open
@@ -540,17 +546,24 @@ ring: at *o* + Δ.
 - *Locked:* every couple of seconds while unlocked (every ten once locked),
   the last second each bus delivered -- kept by the device callback in a
   lock-free history -- is correlated against that bus's channel tap in the
-  ring, ±50 ms around the estimate, by a phase-transform cross-correlation
-  computed by FFT (`xcorr.go`). The signals are differentiated twice first,
-  so a loop's bass doesn't drown out the attacks that pin the match down. A
-  lock is taken only for one sharp peak, well above the rest of the
-  correlation and any other candidate, so a sustained tone, which matches
-  itself every period, is never guessed at.
+  ring by a phase-transform cross-correlation computed by FFT (`xcorr.go`),
+  over ±150 ms around where Δ should be. The signals are differentiated
+  twice first, so a loop's bass doesn't drown out the attacks that pin the
+  match down. A peak counts only if it's one sharp peak, well above the rest
+  of the correlation and any other candidate, so a sustained tone, which
+  matches itself every period, is never guessed at; and only within ±50 ms
+  of the estimate (±10 ms once a lock has measured how good the estimate
+  is), so a rhythm repeating at its true Δ, beyond that, is seen and refused
+  rather than an echo of it inside being taken. Two measurements in a row
+  must agree to the frame before a lock is taken or moved.
 - *Slips:* both sides of the Sidekick run off one crystal, so Δ moves only
   when one side loses frames: the output restarts or underflows, or the
-  capture drops a block. Each starts a new segment, estimated until it
-  locks again, and a catch uses the segment that held when its span
-  played.
+  capture drops a block or the device reports an input overflow. Each starts
+  a new segment, estimated until it locks again: from the output frame the
+  output says it slipped at, or for the capture's, the step before it was
+  noticed. A lock that moves with no slip seen starts a segment where its
+  window began, so what played before keeps the old Δ. A catch uses the
+  segment its span played in, and a span with a slip inside is refused.
 
 `TAPE_DEMO_ALIGN=true` makes the demo's output keep its Δ to itself, with a
 clock bridge like a device's, so the estimate and the lock run in the demo

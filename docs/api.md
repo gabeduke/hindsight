@@ -780,8 +780,9 @@ and drop with the clip.
 Errors: 400 for a bad parameter, a track or clip that doesn't exist, or a span
 that runs past the end of the tape; 404 for a tape that doesn't exist (to
 state, load, delete or clone); 409 for a tape that isn't the loaded one,
-nothing to undo, or a catch that can't happen yet (not lined up, no complete
-pass, not in the ring yet, or gone from it); 507 for low disk.
+nothing to undo, or a catch that can't happen (not lined up, no complete
+pass, not in the ring yet or gone from it, or the output slipped against the
+recording during the span); 507 for low disk.
 
 ### `GET /api/tapes`, `POST /api/tapes`
 

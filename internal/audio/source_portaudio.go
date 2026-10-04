@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/config"
@@ -25,6 +26,8 @@ type deviceSource struct {
 	mu     sync.Mutex
 	stream *portaudio.Stream
 	handle int // the stream's registration with pa
+
+	overflows atomic.Uint64 // input overflows ALSA reported: frames lost before the ring
 }
 
 func NewDeviceSource(cfg *config.Config) Source {
@@ -52,7 +55,15 @@ func (s *deviceSource) Open(sink func([]int32)) (string, error) {
 		// latency requirement.
 		p.Input.Latency = time.Duration(s.cfg.InputLatencyMS) * time.Millisecond
 
-		st, err := portaudio.OpenStream(p, sink)
+		// The status flags ride along so an input overflow -- frames the
+		// device lost before they reached us -- is counted: the tape's
+		// alignment has to know when the recording skipped.
+		st, err := portaudio.OpenStream(p, func(in []int32, _ portaudio.StreamCallbackTimeInfo, flags portaudio.StreamCallbackFlags) {
+			if flags&portaudio.InputOverflow != 0 {
+				s.overflows.Add(1)
+			}
+			sink(in)
+		})
 		if err != nil {
 			return nil, fmt.Errorf("open %q: %w", dev.Name, err)
 		}
@@ -91,6 +102,9 @@ func (s *deviceSource) InputLatency() time.Duration {
 	}
 	return 0
 }
+
+// Overflows counts the input overflows ALSA has reported.
+func (s *deviceSource) Overflows() uint64 { return s.overflows.Load() }
 
 func (s *deviceSource) Close() {
 	s.mu.Lock()

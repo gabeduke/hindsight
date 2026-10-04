@@ -33,7 +33,14 @@ const (
 	histMask   = histFrames - 1
 
 	alignWindow = 48000 // frames of delivered audio a lock correlates: 1 s
-	alignSearch = 2400  // ± frames around the estimate it searches: 50 ms
+	// alignSpan is how far either side of where Δ should be the
+	// correlation looks: 150 ms. A peak is taken only within alignAccept of
+	// it -- 50 ms, or 10 ms once a lock has said how good the estimate is --
+	// so a strong match farther out (a rhythm repeating at its true Δ)
+	// is seen and refused rather than an echo of it inside being taken.
+	alignSpan        = 7200
+	alignAccept      = 2400
+	alignAcceptTight = 480
 	// alignMinRMS is how loud a bus must be to lock on: -50 dBFS.
 	alignMinRMS = 0.00316
 )
@@ -48,10 +55,16 @@ type deltaSeg struct {
 type aligner struct {
 	mu       sync.Mutex
 	segs     []deltaSeg
-	residual int64 // the last lock minus its estimate
-	locked   bool  // residual is from a lock
-	slips    uint64
-	lastLock time.Time
+	residual int64  // the last lock minus its estimate
+	locked   bool   // residual is from a lock
+	outSlips uint64 // the output's slips seen so far
+	capSlips uint64 // and the capture's
+	prevOut  uint64 // the output frame at the last step
+	lastTry  time.Time
+	// A lock is taken when two measurements in a row agree.
+	candidate int64
+	haveCand  bool
+	scratch   xcorrScratch
 }
 
 // Optional capabilities the aligner uses.
@@ -59,13 +72,16 @@ type (
 	bridged interface {
 		Bridge() *audio.ClockBridge
 	}
-	xrunner interface{ XRuns() uint64 }
-	// OutputSink is a sink that can say when its output is heard and when
+	xrunner    interface{ XRuns() uint64 }
+	overflower interface{ InputOverflows() uint64 }
+	// outputSink is a sink that can say when its output is heard and when
 	// it may have slipped: the device sink.
 	outputSink interface {
 		OutputBridge() *audio.ClockBridge
 		Restarts() uint64
 	}
+	// slipPlacer says where its latest slip was, in its own output frames.
+	slipPlacer interface{ LastSlip() uint64 }
 )
 
 // startAligner runs the aligner when the output doesn't know its own Δ.
@@ -119,15 +135,19 @@ func (e *Engine) estimate() (int64, bool) {
 	return int64(math.Round(rf - (of + float64(e.sinkBase.Load())))), true
 }
 
-func (e *Engine) slipCount() uint64 {
-	var n uint64
+// slipCounts counts the output's slips and the capture's: frames one side
+// lost that the other didn't.
+func (e *Engine) slipCounts() (out, capture uint64) {
 	if o, ok := e.sink.(outputSink); ok {
-		n += o.Restarts()
+		out = o.Restarts()
 	}
 	if x, ok := e.capture.(xrunner); ok {
-		n += x.XRuns()
+		capture += x.XRuns()
 	}
-	return n
+	if x, ok := e.capture.(overflower); ok {
+		capture += x.InputOverflows()
+	}
+	return out, capture
 }
 
 // alignStep keeps the current segment's Δ up to date, starts a new one at a
@@ -139,73 +159,112 @@ func (e *Engine) alignStep() {
 	}
 	a := &e.align
 	now := e.delivered.Load()
-	slips := e.slipCount()
+	outSlips, capSlips := e.slipCounts()
 
 	a.mu.Lock()
-	if len(a.segs) == 0 || slips != a.slips {
-		from := uint64(0) // the first holds from the start
-		if len(a.segs) > 0 {
-			log.Printf("[!] tape: the output slipped against the capture; re-measuring")
-			from = now
+	if len(a.segs) == 0 {
+		a.segs = append(a.segs, deltaSeg{From: 0, Delta: est, How: "estimated"})
+	} else if outSlips != a.outSlips || capSlips != a.capSlips {
+		// Where it slipped. The output says exactly; the capture's drops are
+		// placed at the last step, the earliest they can have been.
+		from := uint64(math.MaxUint64)
+		if capSlips != a.capSlips {
+			from = a.prevOut
 		}
-		a.slips = slips
+		if outSlips != a.outSlips {
+			f := a.prevOut
+			if sp, ok := e.sink.(slipPlacer); ok {
+				f = sp.LastSlip() + uint64(e.sinkBase.Load())
+			}
+			from = min(from, f)
+		}
+		if last := a.segs[len(a.segs)-1].From; from <= last {
+			from = last + 1
+		}
+		log.Printf("[!] tape: the output slipped against the capture; re-measuring")
 		a.segs = append(a.segs, deltaSeg{From: from, Delta: est + a.residual, How: "estimated"})
 		if len(a.segs) > 16 {
 			a.segs = a.segs[len(a.segs)-16:]
 		}
+		a.haveCand = false
 	}
+	a.outSlips, a.capSlips, a.prevOut = outSlips, capSlips, now
 	cur := &a.segs[len(a.segs)-1]
 	if cur.How == "estimated" {
 		cur.Delta = est + a.residual
 	}
-	from, how := cur.From, cur.How
-	due := how == "estimated" && time.Since(a.lastLock) > 2*time.Second ||
-		how == "locked" && time.Since(a.lastLock) > 10*time.Second
+	from, how, center := cur.From, cur.How, cur.Delta
+	due := how == "estimated" && time.Since(a.lastTry) > 2*time.Second ||
+		how == "locked" && time.Since(a.lastTry) > 10*time.Second
+	if due {
+		a.lastTry = time.Now()
+	}
+	accept := int64(alignAccept)
+	if a.locked {
+		accept = alignAcceptTight
+	}
 	a.mu.Unlock()
 	if !due {
 		return
 	}
 
-	d, ok := e.measure(est, from)
+	d, oStart, ok := e.measure(center, accept, from)
 	if !ok {
 		return
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.lastLock = time.Now()
 	cur = &a.segs[len(a.segs)-1]
-	if cur.From != from {
-		return // slipped meanwhile
+	// Two in a row, agreeing to a frame, before anything changes.
+	if !a.haveCand || d < a.candidate-1 || d > a.candidate+1 {
+		a.candidate, a.haveCand = d, true
+		return
 	}
-	if cur.How == "locked" && cur.Delta != d {
-		log.Printf("[!] tape: the lock moved %d frames without a slip; taking the new one", d-cur.Delta)
-	} else if cur.How != "locked" {
+	a.haveCand = false
+	switch {
+	case cur.How != "locked":
 		log.Printf("[*] tape: locked, Δ %d frames (%.1f ms off the estimate)", d, float64(d-est)*1000/float64(e.store.SampleRate()))
+		cur.Delta, cur.How = d, "locked"
+	case cur.Delta != d:
+		// It moved with no slip seen: from the window on, take the new one,
+		// and leave what played before it with the old.
+		log.Printf("[!] tape: the lock moved %d frames with no slip seen; re-locked", d-cur.Delta)
+		if uint64(oStart) > cur.From {
+			a.segs = append(a.segs, deltaSeg{From: uint64(oStart), Delta: d, How: "locked"})
+		} else {
+			cur.Delta = d
+		}
 	}
-	cur.Delta, cur.How = d, "locked"
 	a.residual, a.locked = d-est, true
 }
 
 // measure correlates the last second a bus delivered against its tap in the
-// ring, around the estimate. It answers the locked Δ, if the match is sharp.
-func (e *Engine) measure(est int64, segFrom uint64) (int64, bool) {
+// ring, around where Δ should be. It answers the locked Δ, if the match is
+// sharp and near enough, and the output frame the window began at.
+func (e *Engine) measure(center, accept int64, segFrom uint64) (int64, int64, bool) {
 	if e.hist[0] == nil {
-		return 0, false
+		return 0, 0, false
 	}
 	ring := e.capture.Ring()
-	_, total := ring.Window()
+	oldest, total := ring.Window()
 	end := e.histEnd.Load()
-	// The output frames whose sound the ring holds by now, ±search.
+	// The output frames whose sound the ring holds by now, with the span.
 	oEnd := int64(end)
-	if lim := int64(total) - est - alignSearch; lim < oEnd {
+	if lim := int64(total) - center - alignSpan; lim < oEnd {
 		oEnd = lim
 	}
 	oStart := oEnd - alignWindow
 	// Inside this segment, and still in the history (with a block to spare
 	// for the pulls that land while it's read).
 	if oStart < 0 || oStart < int64(segFrom) || int64(end)-oStart > histFrames-BlockFrames {
-		return 0, false
+		return 0, 0, false
 	}
+	from := oStart + center - alignSpan
+	to := oEnd + center + alignSpan
+	if from < int64(oldest) {
+		return 0, 0, false
+	}
+	a := &e.align
 	for bus := 0; bus < 2; bus++ {
 		tap, ok := e.tapFor(bus)
 		if !ok {
@@ -221,12 +280,6 @@ func (e *Engine) measure(est int64, segFrom uint64) (int64, bool) {
 		if math.Sqrt(sum/alignWindow) < alignMinRMS {
 			continue // this bus isn't sounding
 		}
-		from := oStart + est - alignSearch
-		to := oEnd + est + alignSearch
-		oldest, _ := ring.Window()
-		if from < int64(oldest) {
-			return 0, false
-		}
 		y := make([]float64, 0, to-from)
 		err := ring.Range(uint64(from), uint64(to), []int{tap.Pair[0], tap.Pair[1]}, func(b []int32) error {
 			for i := 0; i < len(b); i += 2 {
@@ -235,15 +288,16 @@ func (e *Engine) measure(est int64, segFrom uint64) (int64, bool) {
 			return nil
 		})
 		if err != nil || len(y) != int(to-from) {
-			return 0, false
+			return 0, 0, false
 		}
-		fit := findLag(x, y, 48)
-		if !fit.Sharp() {
+		fit := findLagWith(&a.scratch, x, y, 48)
+		off := int64(fit.Lag) - alignSpan
+		if !fit.Sharp() || off < -accept || off > accept {
 			continue
 		}
-		return est - alignSearch + int64(fit.Lag), true
+		return center + off, oStart, true
 	}
-	return 0, false
+	return 0, 0, false
 }
 
 // tapFor is the source that hears one bus alone: where that bus's sound is
@@ -277,6 +331,19 @@ func (e *Engine) deltaAt(o uint64) (int64, string) {
 		}
 	}
 	return 0, "none"
+}
+
+// segAt is which segment output frame o is in (-1: none yet).
+func (e *Engine) segAt(o uint64) int {
+	a := &e.align
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for i := len(a.segs) - 1; i >= 0; i-- {
+		if a.segs[i].From <= o {
+			return i
+		}
+	}
+	return -1
 }
 
 // delta is the Δ that holds now.
