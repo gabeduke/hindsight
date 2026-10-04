@@ -64,28 +64,36 @@ export function initPhone({ button, sheet, toast, onSaved }) {
     close: q('phone-close'),
     rec: q('phone-rec'),
   };
+  const buttonLabel = button.innerHTML;
 
-  let mode = 'closed'; // closed | monitor | recording | saving
+  // closed: no mic. monitor: the sheet is open, metering. recording. saving:
+  // Stop was pressed (or the Pi ended it) and the take is being finished.
+  // A recording carries on with the sheet closed; the Phone button then
+  // shows it and reopens the sheet.
+  let mode = 'closed';
   let stream = null;
   let ctx = null;
   let node = null;
-  let uploader = null;
+  let uploader = null;   // the current recording's; an older one finishing is not "ours"
   let lock = null;
   let timer = 0;
   let recordedFrames = 0;
-  let flushed = null; // resolves when the worklet has sent its last chunk
+  let recordStart = 0;   // performance.now() at Record
+  let reportedGap = 0;   // seconds of missing audio already reported
+  let flushed = null;    // resolves when the worklet has sent its last chunk
+  let monitorToken = 0;  // so an older startMonitor can't install its audio over a newer one
 
   button.addEventListener('click', open);
-  ui.close.addEventListener('click', () => close());
+  ui.close.addEventListener('click', () => hide());
   ui.rec.addEventListener('click', () => (mode === 'recording' ? stop() : record()));
   ui.input.addEventListener('change', () => {
     try { localStorage.setItem(INPUT_KEY, ui.input.value); } catch { /* private mode */ }
     if (mode === 'monitor') startMonitor(ui.input.value);
   });
-  sheet.addEventListener('cancel', (e) => {
-    // Escape mid-recording would throw the recording away; Stop is the way out.
-    if (mode === 'recording' || mode === 'saving') e.preventDefault();
-    else teardown();
+  // Escape or the back gesture just hides the sheet. While recording that's
+  // harmless -- the recording carries on -- and otherwise the mic is let go.
+  sheet.addEventListener('close', () => {
+    if (mode === 'monitor') teardown();
   });
   window.addEventListener('beforeunload', (e) => {
     if (mode === 'recording' || mode === 'saving') {
@@ -94,14 +102,36 @@ export function initPhone({ button, sheet, toast, onSaved }) {
     }
   });
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (document.hidden) return;
+    // iOS can leave the context "interrupted" or suspended after a call or
+    // an app switch.
+    if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+    if (mode === 'recording') reportGap();
   });
 
   function setState(text) { ui.state.textContent = text; }
 
-  async function open() {
+  function showSheet() {
+    if (sheet.open) return;
     if (typeof sheet.showModal === 'function') sheet.showModal();
     else sheet.setAttribute('open', '');
+  }
+
+  function hide() {
+    if (mode === 'monitor' || mode === 'closed') teardown();
+    if (sheet.open) sheet.close();
+  }
+
+  function updateButton() {
+    button.classList.toggle('recording', mode === 'recording' || mode === 'saving');
+    if (mode === 'recording') button.textContent = `● REC ${fmtClock(recordedFrames / (ctx?.sampleRate || 48000))}`;
+    else if (mode === 'saving') button.textContent = 'Saving…';
+    else button.innerHTML = buttonLabel;
+  }
+
+  async function open() {
+    if (mode === 'recording' || mode === 'saving') { showSheet(); return; }
+    showSheet();
     const why = canRecordHere(window);
     ui.insecure.hidden = !why;
     ui.insecure.textContent = why;
@@ -111,35 +141,47 @@ export function initPhone({ button, sheet, toast, onSaved }) {
     mode = 'monitor';
     ui.time.textContent = '0:00';
     ui.rec.textContent = 'Record';
+    ui.close.textContent = 'Close';
     ui.rec.disabled = true;
-    ui.note.textContent = 'Keep this page open while recording: locking the phone or switching apps stops it.';
+    ui.note.textContent = 'Keep this page open while recording: locking the phone or switching apps pauses it.';
     let saved = '';
     try { saved = localStorage.getItem(INPUT_KEY) || ''; } catch { /* fine */ }
     await startMonitor(saved);
   }
 
   async function startMonitor(deviceId) {
+    const token = ++monitorToken;
+    const current = () => token === monitorToken && mode === 'monitor';
     stopAudio();
+    ui.rec.disabled = true;
     setState('Opening the input…');
+    let s;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      s = await navigator.mediaDevices.getUserMedia({
         audio: deviceId ? { ...VOICE_PROCESSING_OFF, deviceId: { exact: deviceId } } : VOICE_PROCESSING_OFF,
       });
     } catch (e) {
+      if (!current()) return;
       if (deviceId) return startMonitor(''); // the saved input is gone: use the default
       setState(e && e.name === 'NotAllowedError'
         ? 'Microphone access was refused. Allow it in the browser’s settings for this site.'
         : 'No input to record from.');
       return;
     }
-    if (mode === 'closed') { stopAudio(); return; }
-    await listInputs(stream);
+    if (!current()) { s.getTracks().forEach((t) => t.stop()); return; }
+    stream = s;
+    await listInputs(s);
+    let graph;
     try {
-      await buildGraph(stream);
+      graph = await buildGraph(s);
     } catch (e) {
-      setState(`Could not start audio: ${e.message || e}`);
+      if (current()) setState(`Could not start audio: ${e.message || e}`);
       return;
     }
+    if (!current()) { graph.ctx.close().catch(() => {}); return; }
+    ctx = graph.ctx;
+    node = graph.node;
+    node.port.onmessage = (e) => onWorklet(e.data);
     ui.rec.disabled = false;
     const rate = ctx.sampleRate;
     setState(`Ready · ${rate / 1000} kHz${rate === 48000 ? '' : ', converted to 48 on the Pi'}`);
@@ -164,34 +206,40 @@ export function initPhone({ button, sheet, toast, onSaved }) {
   async function buildGraph(s) {
     // 48 kHz if the browser will convert to it; some won't with a mic at
     // another rate, and then the Pi converts instead.
+    let c;
     let src;
     try {
-      ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'playback' });
-      src = ctx.createMediaStreamSource(s);
+      c = new AudioContext({ sampleRate: 48000, latencyHint: 'playback' });
+      src = c.createMediaStreamSource(s);
     } catch {
-      try { await ctx?.close(); } catch { /* fine */ }
-      ctx = new AudioContext({ latencyHint: 'playback' });
-      src = ctx.createMediaStreamSource(s);
+      try { await c?.close(); } catch { /* fine */ }
+      c = new AudioContext({ latencyHint: 'playback' });
+      src = c.createMediaStreamSource(s);
     }
-    await ctx.audioWorklet.addModule('/lib/phone/worklet.js');
-    node = new AudioWorkletNode(ctx, 'hindsight-tap', {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [1],
-      channelCount: 2,
-      channelCountMode: 'explicit', // a mono mic arrives as dual mono
-      channelInterpretation: 'speakers',
-      processorOptions: { chunkFrames: Math.round(ctx.sampleRate / 10) },
-    });
-    // Connected through a muted gain so the browser keeps pulling audio
-    // through the worklet; nothing is heard.
-    const sink = ctx.createGain();
-    sink.gain.value = 0;
-    src.connect(node);
-    node.connect(sink);
-    sink.connect(ctx.destination);
-    node.port.onmessage = (e) => onWorklet(e.data);
-    await ctx.resume();
+    try {
+      await c.audioWorklet.addModule('/lib/phone/worklet.js');
+      const n = new AudioWorkletNode(c, 'hindsight-tap', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+        channelCount: 2,
+        channelCountMode: 'explicit', // a mono mic arrives as dual mono
+        channelInterpretation: 'speakers',
+        processorOptions: { chunkFrames: Math.round(c.sampleRate / 10) },
+      });
+      // Connected through a muted gain so the browser keeps pulling audio
+      // through the worklet; nothing is heard.
+      const sink = c.createGain();
+      sink.gain.value = 0;
+      src.connect(n);
+      n.connect(sink);
+      sink.connect(c.destination);
+      await c.resume();
+      return { ctx: c, node: n };
+    } catch (e) {
+      c.close().catch(() => {});
+      throw e;
+    }
   }
 
   function onWorklet(d) {
@@ -208,43 +256,62 @@ export function initPhone({ button, sheet, toast, onSaved }) {
     }
   }
 
+  // A phone that locked, or a switch to another app, pauses the audio; the
+  // take skips that stretch. Say so when the page comes back.
+  function reportGap() {
+    const wall = (performance.now() - recordStart) / 1000;
+    const missing = wall - recordedFrames / ctx.sampleRate - reportedGap;
+    if (missing > 1.5) {
+      reportedGap += missing;
+      toast(`The recording paused while the page was hidden — about ${Math.round(missing)} s are missing`, 'warn', 8000);
+    }
+  }
+
   function record() {
     if (mode !== 'monitor' || !ctx) return;
     mode = 'recording';
     recordedFrames = 0;
+    reportedGap = 0;
+    recordStart = performance.now();
     ui.input.disabled = true;
-    ui.close.disabled = true;
+    ui.close.textContent = 'Hide';
     ui.rec.textContent = 'Stop';
     ui.rec.classList.add('recording');
-    uploader = new Uploader({
+    const u = new Uploader({
       url: wsURL(),
       rate: ctx.sampleRate,
       onState: (s, info) => {
+        if (u !== uploader) return;
         if (info?.warning) toast(info.warning, 'warn', 6000);
         if (s === 'recording') setState('Recording · streaming to the Pi');
         else if (s === 'connecting') setState('Connecting to the Pi…');
-        else if (s === 'reconnecting') setState(`Reconnecting… ${Math.round(uploader.pendingSeconds)} s waiting to send`);
+        else if (s === 'reconnecting') setState(`Reconnecting… ${Math.round(u.pendingSeconds)} s waiting to send`);
       },
       onEnd: (result) => {
         // The Pi can end a recording itself: disk nearly full, three hours.
-        if (mode === 'recording') stopCapture().then(() => done(result));
+        if (u === uploader && mode === 'recording') {
+          mode = 'saving';
+          stopCapture().then(() => done(result, u));
+        }
       },
     });
-    uploader.start();
+    uploader = u;
+    u.start();
     node.port.postMessage({ cmd: 'record' });
     lock = holdScreen({
       onChange: (held) => {
+        if (u !== uploader) return;
         ui.note.textContent = held
-          ? 'Screen kept awake while recording. Keep this page open: switching apps stops the recording.'
-          : 'Couldn’t keep the screen awake — don’t let the phone lock, or the recording stops.';
+          ? 'Screen kept awake while recording. Keep this page open: switching apps pauses the recording.'
+          : 'Couldn’t keep the screen awake — don’t let the phone lock, or the recording pauses.';
       },
     });
     timer = setInterval(() => {
       ui.time.textContent = fmtClock(recordedFrames / ctx.sampleRate);
-      if (uploader?.state === 'reconnecting') {
-        setState(`Reconnecting… ${Math.round(uploader.pendingSeconds)} s waiting to send`);
-      }
+      updateButton();
+      if (u.state === 'reconnecting') setState(`Reconnecting… ${Math.round(u.pendingSeconds)} s waiting to send`);
     }, 250);
+    updateButton();
   }
 
   // stopCapture stops the worklet and waits for its last partial chunk.
@@ -259,36 +326,36 @@ export function initPhone({ button, sheet, toast, onSaved }) {
 
   async function stop() {
     if (mode !== 'recording') return;
+    const u = uploader;
     mode = 'saving';
     ui.rec.disabled = true;
     setState('Saving…');
+    updateButton();
     await stopCapture();
-    // A Pi that's unreachable keeps the sheet on "Saving…" -- the uploader
-    // keeps trying as long as the page is open -- but don't trap the user.
+    // A Pi that's unreachable keeps this on "Saving…" -- the uploader keeps
+    // trying while the page is open -- but say what's happening.
     setTimeout(() => {
-      if (mode !== 'saving') return;
-      ui.close.disabled = false;
-      setState('Still sending to the Pi. It keeps trying while this page is open.');
+      if (u === uploader && mode === 'saving') setState('Still sending to the Pi. It keeps trying while this page is open.');
     }, 10000);
-    const result = await uploader.stop();
-    done(result);
+    done(await u.stop(), u);
   }
 
-  function done(result) {
-    // The sheet may have been closed (or opened again) while this finished.
-    const ours = mode === 'saving' || mode === 'recording';
+  function done(result, u) {
     if (result.error) {
       toast(`Recording failed: ${result.error}`, 'bad', 8000);
     } else if (result.name) {
       const why = { disk: ' — the Pi’s disk is nearly full', limit: ' — three hours is the limit' }[result.reason] || '';
-      toast(`Saved the phone take · ${fmtClock(result.seconds)}${result.partial ? ' (partial)' : ''}${why}`, result.reason === 'stop' ? 'ok' : 'warn', 7000);
+      toast(`Saved the phone take · ${fmtClock(result.seconds)}${result.partial ? ' (partial)' : ''}${why}`,
+        result.reason === 'stop' && !result.partial ? 'ok' : 'warn', 7000);
       onSaved?.(result.name);
+    } else if (result.reason === 'error') {
+      toast('The Pi couldn’t finish the take. What reached it is recovered when it next restarts.', 'bad', 9000);
     } else {
       toast('Nothing was recorded', 'warn');
     }
-    if (ours) {
-      mode = 'saving';
-      close();
+    if (u === uploader) {
+      teardown();
+      if (sheet.open) sheet.close();
     }
   }
 
@@ -306,20 +373,16 @@ export function initPhone({ button, sheet, toast, onSaved }) {
     lock?.release();
     lock = null;
     uploader = null;
+    monitorToken++;
     stopAudio();
     mode = 'closed';
     ui.input.disabled = false;
-    ui.close.disabled = false;
+    ui.close.textContent = 'Close';
     ui.rec.disabled = false;
     ui.rec.textContent = 'Record';
     ui.rec.classList.remove('recording');
     ui.barL.style.width = '0%';
     ui.barR.style.width = '0%';
-  }
-
-  function close() {
-    if (mode === 'recording') return;
-    teardown();
-    if (sheet.open) sheet.close();
+    updateButton();
   }
 }

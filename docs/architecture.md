@@ -345,10 +345,15 @@ written as the audio arrives (`internal/audio/phone.go`):
   take; the whole-take `.peaks.json` is drawn from the pyramid too.
 - **Finishing** patches the WAV header's sizes, writes the sidecars, renames
   the WAV into place and removes the marker. A recording whose phone never
-  comes back is finished as *Phone (partial)* after five minutes.
+  comes back is finished as *Phone (partial)* after ten minutes.
+- **Audio on disk is never thrown away.** A write error finishes the take
+  from what reached the file; a failure even then leaves the `.part` and its
+  marker for the startup sweep.
 - **A restart mid-recording** leaves a `.part` with its marker; the startup
   sweep finishes it as a partial take, its length read from the file, rather
-  than deleting it as it does an unfinished save.
+  than deleting it as it does an unfinished save, and the preview backfill
+  encodes its preview. The phone, still recording, names the oldest chunk it
+  holds when it reconnects, and the Pi starts a second partial take there.
 
 The page side is `web/static/lib/phone/`: an AudioWorklet that taps raw float
 PCM, an uploader that numbers chunks, keeps them until they're acked and

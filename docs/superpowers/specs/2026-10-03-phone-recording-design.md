@@ -119,9 +119,17 @@ Choices made while building it, on 2026-10-04:
   during the recording, with the peaks pyramid growing beside it, so Stop
   only patches the header and writes the sidecars. Nothing re-reads the
   audio.
-- **The grace period** for a phone that drops off is five minutes, long
+- **The grace period** for a phone that drops off is ten minutes, long
   enough for a walk out of Wi-Fi range and back. The phone keeps unsent audio
-  for as long as the page is open.
+  for as long as the page is open, and replaces a connection that has gone
+  quiet for ten seconds with audio outstanding.
+- **A Pi restart mid-recording** gives two partial takes: what the Pi had,
+  recovered at startup, and the rest, which the phone sends into a new take
+  starting at the oldest chunk it still holds.
+- **Locking the phone or switching apps pauses** the recording rather than
+  ending it; the take skips the stretch and the page says how much is
+  missing. The sheet can be hidden while recording; the Phone button becomes
+  a REC timer.
 - **A restart mid-recording** keeps what reached the disk, as *Phone
   (partial)*, via a marker file beside the `.part`.
 - **Limits:** three hours per recording, just under the 4.29 GB a WAV header

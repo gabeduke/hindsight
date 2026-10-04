@@ -47,8 +47,10 @@ const (
 	// recording finishes itself there.
 	PhoneMaxSeconds = 3 * 60 * 60
 
-	// phoneMaxEarly bounds how many chunks may wait for an earlier one.
-	phoneMaxEarly = 256
+	// phoneMaxEarly and phoneMaxEarlyBytes bound the chunks that may wait
+	// for an earlier one, so one client can't fill the Pi's memory.
+	phoneMaxEarly      = 256
+	phoneMaxEarlyBytes = 8 << 20
 )
 
 // ErrPhoneTooLong reports a recording that reached PhoneMaxSeconds.
@@ -81,16 +83,22 @@ type PhoneTake struct {
 	pyr    *pyramidAcc
 	frames int64 // output frames written
 
-	next  uint32               // the next chunk to write
-	early map[uint32][]float32 // chunks that arrived before an earlier one
-	done  bool
-	err   error // a write failure; the take stops accepting audio
-	raw   [8]byte
+	next       uint32               // the next chunk to write
+	early      map[uint32][]float32 // chunks that arrived before an earlier one
+	earlyBytes int
+	continued  bool // started past chunk 0: the Pi lost the recording's start
+	done       bool
+	partial    bool  // how it finished
+	err        error // a write failure; the take stops accepting audio
+	raw        [8]byte
 }
 
 // StartPhoneTake reserves a take name for a recording that starts now and
-// opens its .part file. rate is the phone's sample rate.
-func StartPhoneTake(dir string, rate int, started time.Time) (*PhoneTake, error) {
+// opens its .part file. rate is the phone's sample rate. first is the first
+// chunk the take will hold: 0 for a new recording, more for one whose start
+// the Pi lost to a restart, which the phone is still sending the rest of.
+// Such a take is a partial one.
+func StartPhoneTake(dir string, rate int, started time.Time, first uint32) (*PhoneTake, error) {
 	if rate < 8000 || rate > 192000 {
 		return nil, fmt.Errorf("unsupported sample rate %d", rate)
 	}
@@ -110,6 +118,7 @@ func StartPhoneTake(dir string, rate int, started time.Time) (*PhoneTake, error)
 		f: f, bw: bufio.NewWriterSize(f, 1<<16),
 		pyr:   newPyramidAcc(PhoneChannels, 0),
 		early: map[uint32][]float32{},
+		next:  first, continued: first > 0,
 	}
 	if rate != PhoneRate {
 		t.rs = newResampler(rate, PhoneRate, PhoneChannels)
@@ -165,12 +174,14 @@ func (t *PhoneTake) Write(seq uint32, samples []float32) (uint32, error) {
 	case seq < t.next:
 		return t.next, nil // a resend of something already written
 	case seq > t.next:
-		if len(t.early) >= phoneMaxEarly {
+		if _, ok := t.early[seq]; ok {
+			return t.next, nil
+		}
+		if len(t.early) >= phoneMaxEarly || t.earlyBytes+4*len(samples) > phoneMaxEarlyBytes {
 			return t.next, errors.New("too many chunks ahead of a missing one")
 		}
-		if _, ok := t.early[seq]; !ok {
-			t.early[seq] = append([]float32(nil), samples...)
-		}
+		t.early[seq] = append([]float32(nil), samples...)
+		t.earlyBytes += 4 * len(samples)
 		return t.next, nil
 	}
 	if err := t.append(samples); err != nil {
@@ -183,10 +194,17 @@ func (t *PhoneTake) Write(seq uint32, samples []float32) (uint32, error) {
 			break
 		}
 		delete(t.early, t.next)
+		t.earlyBytes -= 4 * len(s)
 		if err := t.append(s); err != nil {
 			return t.next, err
 		}
 		t.next++
+	}
+	// What is acked must be in the file, not in this process's buffer: a
+	// restart recovers the file, and the phone forgets what was acked.
+	if err := t.bw.Flush(); err != nil {
+		t.err = err
+		return t.next, err
 	}
 	return t.next, nil
 }
@@ -223,7 +241,11 @@ func (t *PhoneTake) writeFrames(out []float32) error {
 }
 
 // floatToPCM32 maps a [-1, 1] float sample onto int32, clipping outside it.
+// NaN, which a misbehaving browser could send, is silence.
 func floatToPCM32(v float32) int32 {
+	if v != v {
+		return 0
+	}
 	x := math.Round(float64(v) * 2147483648)
 	if x > math.MaxInt32 {
 		return math.MaxInt32
@@ -234,46 +256,76 @@ func floatToPCM32(v float32) int32 {
 	return int32(x)
 }
 
-// Finish writes what has arrived as a finished take and returns its name.
-// partial marks a recording that never got its Stop. A recording with no
-// audio at all is discarded, and Finish returns "".
-func (t *PhoneTake) Finish(partial bool) (string, error) {
+// Finish writes what has arrived as a finished take, and returns its name
+// and whether it is partial. partial marks a recording that never got its
+// Stop; one with a gap, or whose start was lost, is partial too. A recording
+// with no audio at all is discarded, and Finish returns "".
+//
+// Audio that reached the disk is never thrown away on an error: if the
+// writer has failed, what is in the file is recovered as a partial take, and
+// if even that fails, the .part and its marker stay for the startup sweep.
+func (t *PhoneTake) Finish(partial bool) (string, bool, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.done {
-		return t.name, nil
+		return t.name, t.partial, nil
 	}
 	t.done = true
-	if t.rs != nil && t.err == nil {
-		if err := t.writeFrames(t.rs.Flush()); err != nil && !errors.Is(err, ErrPhoneTooLong) {
-			t.abortLocked()
-			return "", err
-		}
-	}
-	if t.frames == 0 {
-		t.abortLocked()
-		return "", nil
-	}
-	if err := t.bw.Flush(); err != nil {
-		t.abortLocked()
-		return "", err
-	}
-	if err := patchWAVSizes(t.f, t.frames*PhoneChannels*4); err != nil {
-		t.abortLocked()
-		return "", err
-	}
-	if err := t.f.Sync(); err != nil {
-		t.abortLocked()
-		return "", err
-	}
-	t.f.Close()
-	if err := finishPhoneTake(t.dir, t.name, t.wav, t.part, t.started, t.pyr, partial || len(t.early) > 0); err != nil {
-		return "", err
-	}
+	defer t.release()
+	partial = partial || t.continued || len(t.early) > 0
 	if len(t.early) > 0 {
 		log.Printf("[!] phone take %s finished with %d chunk(s) never filled in", t.name, len(t.early))
 	}
-	return t.name, nil
+	if t.rs != nil && t.err == nil {
+		if err := t.writeFrames(t.rs.Flush()); err != nil && !errors.Is(err, ErrPhoneTooLong) {
+			t.err = err
+		}
+	}
+	if t.frames == 0 && t.err == nil {
+		t.abortLocked()
+		return "", false, nil
+	}
+	if t.err != nil && !errors.Is(t.err, ErrPhoneTooLong) {
+		return t.salvage(t.err)
+	}
+	if err := t.bw.Flush(); err != nil {
+		return t.salvage(err)
+	}
+	if err := patchWAVSizes(t.f, t.frames*PhoneChannels*4); err != nil {
+		return t.salvage(err)
+	}
+	if err := t.f.Sync(); err != nil {
+		return t.salvage(err)
+	}
+	t.f.Close()
+	if err := finishPhoneTake(t.dir, t.name, t.wav, t.part, t.started, t.pyr, partial); err != nil {
+		return "", false, err
+	}
+	t.partial = partial
+	return t.name, partial, nil
+}
+
+// salvage keeps what reached the disk after the writer failed. The caller
+// holds mu.
+func (t *PhoneTake) salvage(cause error) (string, bool, error) {
+	log.Printf("[!] phone take %s: %v; keeping what reached the disk", t.name, cause)
+	t.f.Close()
+	if err := recoverPhonePart(t.dir, t.part, t.wav); err != nil {
+		log.Printf("[!] phone take %s left for the next startup to recover: %v", t.name, err)
+		return "", false, cause
+	}
+	if !exists(t.wav) {
+		return "", false, cause // nothing had reached the disk
+	}
+	t.partial = true
+	return t.name, true, nil
+}
+
+// release drops what a finished take no longer needs; a finished session is
+// kept around for a while to answer a reconnecting phone.
+func (t *PhoneTake) release() {
+	t.early, t.earlyBytes = nil, 0
+	t.pyr, t.rs, t.bw = nil, nil, nil
 }
 
 // Abort throws the recording away.
@@ -315,11 +367,10 @@ func patchWAVSizes(f *os.File, dataBytes int64) error {
 }
 
 // finishPhoneTake writes a finished recording's sidecars under the final
-// name, then renames the WAV into place.
+// name, then renames the WAV into place. On failure it removes the sidecars
+// but leaves the .part and its marker, which the startup sweep recovers.
 func finishPhoneTake(dir, name, wav, part string, started time.Time, pyr *pyramidAcc, partial bool) error {
 	fail := func(err error) error {
-		os.Remove(part)
-		os.Remove(phoneMarkerPath(wav))
 		RemoveTake(dir, name)
 		return err
 	}
@@ -350,13 +401,9 @@ func finishPhoneTake(dir, name, wav, part string, started time.Time, pyr *pyrami
 // sizes filled in from the file's length. Called by SweepPartials, which
 // would otherwise delete it.
 func recoverPhonePart(dir, part, wav string) error {
-	b, err := os.ReadFile(phoneMarkerPath(wav))
-	if err != nil {
-		return err
-	}
 	var m phoneMarker
-	if err := json.Unmarshal(b, &m); err != nil {
-		return err
+	if b, err := os.ReadFile(phoneMarkerPath(wav)); err == nil {
+		_ = json.Unmarshal(b, &m)
 	}
 	f, err := os.OpenFile(part, os.O_RDWR, 0)
 	if err != nil {
@@ -366,6 +413,9 @@ func recoverPhonePart(dir, part, wav string) error {
 	fi, err := f.Stat()
 	if err != nil {
 		return err
+	}
+	if m.Started.IsZero() {
+		m.Started = fi.ModTime() // a marker that didn't survive: the best we know
 	}
 	frameBytes := int64(PhoneChannels * 4)
 	frames := (fi.Size() - wavHeaderBytes) / frameBytes

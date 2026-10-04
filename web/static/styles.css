@@ -445,6 +445,7 @@ main {
   cursor: pointer;
 }
 .phone-btn:active { background: var(--panel); }
+.phone-btn.recording { color: var(--danger); border-color: var(--danger); font-family: var(--mono); }
 
 /* ---------- phone recorder ---------- */
 

@@ -69,10 +69,12 @@ const chunk = (i) => new Float32Array([i, -i, i, -i]);
 
 function makeUploader(pi, extra = {}) {
   const timers = [];
+  const clock = { t: 1000 };
   const up = new Uploader({
     url: 'ws://pi/api/phone', rate: 48000, id: 'test-recording-1',
-    WebSocketImpl: pi.WS, schedule: (fn) => timers.push(fn), ...extra,
+    WebSocketImpl: pi.WS, schedule: (fn) => timers.push(fn), now: () => clock.t, ...extra,
   });
+  up.clock = clock;
   up.runTimers = () => { for (const fn of timers.splice(0)) fn(); };
   return up;
 }
@@ -175,4 +177,51 @@ test('recording ids match what the Pi accepts', () => {
   const id = newRecordingId();
   assert.match(id, /^[A-Za-z0-9_-]{8,64}$/);
   assert.notEqual(id, newRecordingId());
+});
+
+test('start names the oldest chunk still held, so a Pi that restarted can carry on', async () => {
+  const pi = new FakePi();
+  const up = makeUploader(pi);
+  up.start();
+  await tick(); await tick();
+  for (let i = 0; i < 3; i++) up.push(chunk(i));
+  await tick();
+  assert.equal(pi.starts[0].first, 0);
+  // The Pi restarts: it forgets everything, and the phone still holds 3 and 4.
+  const dead = pi.live;
+  dead.send = () => {};
+  up.push(chunk(3)); up.push(chunk(4));
+  dead.drop();
+  const fresh = new FakePi();
+  fresh.next = 0;
+  // The new Pi starts a take at the chunk the phone names.
+  fresh.onText = function (ws, m) {
+    if (m.type === 'start') { this.starts.push(m); this.next = m.first; return ws.reply({ type: 'ready', next: m.first }); }
+    if (m.type === 'stop') { this.stopAt = m.chunks; this.maybeEnd(ws); }
+  };
+  up.WS = fresh.WS;
+  await tick();
+  up.runTimers();
+  await tick(); await tick(); await tick();
+  assert.equal(fresh.starts[0].first, 3);
+  const res = await up.stop();
+  assert.equal(res.name, 'jam_x.wav');
+  assert.deepEqual([...fresh.got.keys()], [3, 4]);
+});
+
+test('a connection that goes quiet with audio outstanding is replaced', async () => {
+  const pi = new FakePi();
+  const up = makeUploader(pi);
+  up.start();
+  await tick(); await tick();
+  const quiet = pi.live;
+  quiet.send = () => {}; // half-open: sends vanish, nothing comes back
+  up.push(chunk(0));
+  up.clock.t += 11000;
+  up.runTimers(); // the watchdog
+  await tick();
+  up.runTimers(); // the reconnect
+  await tick(); await tick(); await tick();
+  assert.equal(pi.sockets.length, 2, 'a new connection');
+  assert.ok(pi.got.has(0), 'chunk 0 resent on it');
 });

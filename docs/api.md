@@ -145,14 +145,24 @@ Pi    → {"type":"saved","name":"jam_2026-10-04_213000.wav","seconds":4,"partia
   just under what a WAV header can hold), `disk` (free space fell under
   `MIN_FREE_GB`; checked at the start and every five seconds or so),
   `disconnected` or `error`. An empty `name` means nothing was recorded. A
-  phone that reconnects after its recording ended gets the same `saved`.
-- **A phone that doesn't come back** within five minutes has its recording
+  phone that reconnects within ten minutes of the end gets the same `saved`.
+- **A phone that doesn't come back** within ten minutes has its recording
   finished as *Phone (partial)*, as does one with a chunk that never arrived.
   A restart mid-recording recovers what reached the disk the same way, at
-  startup.
+  startup, and encodes its preview.
+- **`first`** in `start` is the oldest chunk the phone still holds. It only
+  matters when the Pi doesn't know the recording (it restarted, or the
+  result was dropped ten minutes after the end): the Pi then starts a new
+  take at that chunk, marked partial, instead of waiting for chunks the
+  phone no longer has.
+- **Errors writing** never cost audio already on disk: the take is finished
+  from what reached the file, as partial, or if even that fails, the `.part`
+  is left for the next startup to recover (`saved` with `reason: "error"`
+  and no name).
 - **Refusals** are `{"type":"error","error":"…"}` in place of `ready`: a
-  malformed start, the disk under `MIN_FREE_GB`, or eight recordings already
-  in progress.
+  malformed start, a rate outside 8–192 kHz, the disk under `MIN_FREE_GB`,
+  or eight recordings already in progress. A chunk is at most 256 KB, and at
+  most 8 MB of chunks may wait for a missing one.
 
 The browser opens the mic only on a secure page, so this is used from the
 Pi's HTTPS address (`tailscale serve`), or from `localhost`.

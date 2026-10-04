@@ -128,16 +128,20 @@ export function holdScreen({ onChange } = {}) {
   const supported = 'wakeLock' in navigator && window.isSecureContext;
   let sentinel = null;
   let released = false;
+  let asking = false; // one request at a time, or two locks could be taken
 
   async function acquire() {
-    if (released || !supported || document.hidden) return;
+    if (released || !supported || document.hidden || asking) return;
     if (sentinel && !sentinel.released) return;
+    asking = true;
     try {
       sentinel = await navigator.wakeLock.request('screen');
     } catch {
       sentinel = null;
       onChange?.(false);
       return;
+    } finally {
+      asking = false;
     }
     if (released) {
       sentinel.release().catch(() => {});

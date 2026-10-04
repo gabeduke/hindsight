@@ -18,7 +18,7 @@ import (
 
 // GET /api/phone is a WebSocket a phone records into. The protocol:
 //
-//	phone → {"type":"start","id":"<recording id>","rate":48000}
+//	phone → {"type":"start","id":"<recording id>","rate":48000,"first":0}
 //	Pi    → {"type":"ready","next":0,"name":"jam_….wav"}
 //	phone → binary: uint32 LE chunk number, then interleaved stereo float32 LE
 //	Pi    → {"type":"ack","next":N}       every chunk before N is on disk
@@ -27,15 +27,18 @@ import (
 //
 // The id is made by the phone and names the recording, not the connection:
 // after a dropout the phone reconnects, sends the same start, gets "ready"
-// with the chunk the Pi is waiting for, and resends from there. A recording
-// whose phone never comes back is finished as a partial take after
+// with the chunk the Pi is waiting for, and resends from there. "first" is
+// the oldest chunk the phone still holds; it matters only when the Pi has
+// lost the recording (a restart), and then the take starts there, partial,
+// rather than waiting forever for chunks the phone no longer has. A
+// recording whose phone never comes back is finished as a partial take after
 // phoneGrace. "saved" with an empty name means nothing was recorded.
 // Failures are {"type":"error","error":"…"}.
 
 const (
 	// defaultPhoneGrace is how long a recording waits for its phone to
 	// reconnect before it is finished as a partial take.
-	defaultPhoneGrace = 5 * time.Minute
+	defaultPhoneGrace = 10 * time.Minute
 	// phoneKeepResult is how long a finished recording's result is kept,
 	// for a phone that reconnects to ask how it ended.
 	phoneKeepResult = 10 * time.Minute
@@ -44,7 +47,8 @@ const (
 	// phoneDiskCheckEvery is how many chunks pass between free-space checks:
 	// about five seconds of audio at the page's tenth-of-a-second chunks.
 	phoneDiskCheckEvery = 50
-	maxPhoneChunkBytes  = 1 << 20
+	// A tenth of a second at 192 kHz stereo float is 150 KB.
+	maxPhoneChunkBytes = 256 << 10
 )
 
 var phoneIDRE = regexp.MustCompile(`^[A-Za-z0-9_-]{8,64}$`)
@@ -60,14 +64,15 @@ type phoneResult struct {
 type phoneSession struct {
 	take *audio.PhoneTake
 
-	mu       sync.Mutex
-	conn     *websocket.Conn // the phone's current connection, if any
-	gen      int             // bumped per connection, so a stale one can't detach a newer
-	stopAt   int64           // chunks the phone says it sent; -1 until Stop
-	chunks   int             // chunks received, for the disk checks
-	finished bool
-	result   phoneResult
-	grace    *time.Timer
+	mu        sync.Mutex
+	conn      *websocket.Conn // the phone's current connection, if any
+	gen       int             // bumped per connection, so a stale one can't detach a newer
+	stopAt    int64           // chunks the phone says it sent; -1 until Stop
+	chunks    int             // chunks received, for the disk checks
+	finishing bool            // set once; result follows when done closes
+	done      chan struct{}
+	result    phoneResult
+	grace     *time.Timer
 }
 
 type phoneRegistry struct {
@@ -114,9 +119,10 @@ func (a *API) handlePhone(w http.ResponseWriter, r *http.Request) {
 
 	// The first message names the recording.
 	var start struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-		Rate int    `json:"rate"`
+		Type  string `json:"type"`
+		ID    string `json:"id"`
+		Rate  int    `json:"rate"`
+		First uint32 `json:"first"`
 	}
 	mt, msg, err := conn.ReadMessage()
 	if err != nil {
@@ -127,19 +133,19 @@ func (a *API) handlePhone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s, gen, errMsg := a.attachPhone(start.ID, start.Rate, conn)
+	s, gen, errMsg := a.attachPhone(start.ID, start.Rate, start.First, conn)
 	if errMsg != "" {
 		fail(errMsg)
 		return
 	}
 	s.mu.Lock()
-	if s.finished {
-		res := s.result
-		s.mu.Unlock()
-		send(res)
+	finishing := s.finishing
+	s.mu.Unlock()
+	if finishing {
+		<-s.done
+		send(s.result)
 		return
 	}
-	s.mu.Unlock()
 	if !send(map[string]any{"type": "ready", "next": s.take.Next(), "name": s.take.Name()}) {
 		a.detachPhone(start.ID, s, gen)
 		return
@@ -167,15 +173,14 @@ func (a *API) handlePhone(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case errors.Is(werr, audio.ErrPhoneFinished):
 				// A stale connection, or audio after the end: say how it ended.
-				send(a.finishPhone(start.ID, s, false, "stop"))
+				send(a.finishPhone(start.ID, s, false, "stop", nil))
 				return
 			case errors.Is(werr, audio.ErrPhoneTooLong):
-				send(a.finishPhone(start.ID, s, false, "limit"))
+				send(a.finishPhone(start.ID, s, false, "limit", nil))
 				return
 			case werr != nil:
 				log.Printf("[!] phone take %s: %v", s.take.Name(), werr)
-				fail("the Pi could not write the recording; what arrived is saved")
-				send(a.finishPhone(start.ID, s, true, "error"))
+				send(a.finishPhone(start.ID, s, true, "error", nil))
 				return
 			}
 			if !send(map[string]any{"type": "ack", "next": next}) {
@@ -189,12 +194,12 @@ func (a *API) handlePhone(w http.ResponseWriter, r *http.Request) {
 			s.mu.Unlock()
 			if check {
 				if free, _ := audio.FreeGB(a.cfg.OutputDir); free < a.cfg.MinFreeGB {
-					send(a.finishPhone(start.ID, s, false, "disk"))
+					send(a.finishPhone(start.ID, s, false, "disk", nil))
 					return
 				}
 			}
 			if stopAt >= 0 && int64(next) >= stopAt {
-				send(a.finishPhone(start.ID, s, false, "stop"))
+				send(a.finishPhone(start.ID, s, false, "stop", nil))
 				return
 			}
 		case websocket.TextMessage:
@@ -210,7 +215,7 @@ func (a *API) handlePhone(w http.ResponseWriter, r *http.Request) {
 			s.stopAt = m.Chunks
 			s.mu.Unlock()
 			if int64(s.take.Next()) >= m.Chunks {
-				send(a.finishPhone(start.ID, s, false, "stop"))
+				send(a.finishPhone(start.ID, s, false, "stop", nil))
 				return
 			}
 			// Otherwise the missing chunks are on their way; the binary case
@@ -222,7 +227,7 @@ func (a *API) handlePhone(w http.ResponseWriter, r *http.Request) {
 // attachPhone finds or starts the recording id and makes conn its current
 // connection. It returns the connection's generation, or a message for the
 // phone when the recording can't start.
-func (a *API) attachPhone(id string, rate int, conn *websocket.Conn) (*phoneSession, int, string) {
+func (a *API) attachPhone(id string, rate int, first uint32, conn *websocket.Conn) (*phoneSession, int, string) {
 	a.phones.mu.Lock()
 	defer a.phones.mu.Unlock()
 	if a.phones.sessions == nil {
@@ -233,7 +238,7 @@ func (a *API) attachPhone(id string, rate int, conn *websocket.Conn) (*phoneSess
 		active := 0
 		for _, o := range a.phones.sessions {
 			o.mu.Lock()
-			if !o.finished {
+			if !o.finishing {
 				active++
 			}
 			o.mu.Unlock()
@@ -244,13 +249,17 @@ func (a *API) attachPhone(id string, rate int, conn *websocket.Conn) (*phoneSess
 		if free, _ := audio.FreeGB(a.cfg.OutputDir); free < a.cfg.MinFreeGB {
 			return nil, 0, "the Pi's disk is nearly full"
 		}
-		take, err := audio.StartPhoneTake(a.cfg.OutputDir, rate, time.Now())
+		take, err := audio.StartPhoneTake(a.cfg.OutputDir, rate, time.Now(), first)
 		if err != nil {
 			log.Printf("[!] phone take: %v", err)
 			return nil, 0, "could not start the recording: " + err.Error()
 		}
-		log.Printf("[*] phone recording %s started at %d Hz", take.Name(), rate)
-		s = &phoneSession{take: take, stopAt: -1}
+		if first > 0 {
+			log.Printf("[*] phone recording %s continues one the Pi lost, from chunk %d", take.Name(), first)
+		} else {
+			log.Printf("[*] phone recording %s started at %d Hz", take.Name(), rate)
+		}
+		s = &phoneSession{take: take, stopAt: -1, done: make(chan struct{})}
 		a.phones.sessions[id] = s
 	}
 	s.mu.Lock()
@@ -273,7 +282,7 @@ func (a *API) attachPhone(id string, rate int, conn *websocket.Conn) (*phoneSess
 func (a *API) detachPhone(id string, s *phoneSession, gen int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.finished || gen != s.gen {
+	if s.finishing || gen != s.gen {
 		return
 	}
 	s.conn = nil
@@ -282,40 +291,42 @@ func (a *API) detachPhone(id string, s *phoneSession, gen int) {
 		grace = defaultPhoneGrace
 	}
 	s.grace = time.AfterFunc(grace, func() {
-		s.mu.Lock()
-		stale := gen != s.gen || s.conn != nil
-		s.mu.Unlock()
-		if !stale {
-			a.finishPhone(id, s, true, "disconnected")
-		}
+		// Only if no phone has come back since, checked in the same
+		// critical section that commits to finishing.
+		a.finishPhone(id, s, true, "disconnected", func() bool { return gen == s.gen && s.conn == nil })
 	})
 }
 
-// finishPhone ends a recording once, and returns how it ended.
-func (a *API) finishPhone(id string, s *phoneSession, partial bool, reason string) phoneResult {
+// finishPhone ends a recording once, and returns how it ended; a second
+// caller waits for the first's result. guard, if given, is checked under the
+// session's lock, and finishPhone does nothing (returning a zero result)
+// when it says no.
+func (a *API) finishPhone(id string, s *phoneSession, partial bool, reason string, guard func() bool) phoneResult {
 	s.mu.Lock()
-	if s.finished {
-		res := s.result
+	if s.finishing {
 		s.mu.Unlock()
-		return res
+		<-s.done
+		return s.result
 	}
-	s.finished = true
+	if guard != nil && !guard() {
+		s.mu.Unlock()
+		return phoneResult{}
+	}
+	s.finishing = true
 	if s.grace != nil {
 		s.grace.Stop()
 		s.grace = nil
 	}
 	s.mu.Unlock()
 
-	seconds := s.take.Seconds()
-	name, err := s.take.Finish(partial)
-	res := phoneResult{Type: "saved", Name: name, Seconds: seconds, Partial: partial, Reason: reason}
+	name, gotPartial, err := s.take.Finish(partial)
+	res := phoneResult{Type: "saved", Name: name, Seconds: s.take.Seconds(), Partial: gotPartial, Reason: reason}
 	if err != nil {
 		log.Printf("[!] phone take %s: %v", s.take.Name(), err)
-		res = phoneResult{Type: "saved", Reason: "error"}
+		res = phoneResult{Type: "saved", Name: name, Seconds: s.take.Seconds(), Partial: true, Reason: "error"}
 	}
-	s.mu.Lock()
-	s.result = res
-	s.mu.Unlock()
+	s.result = res // published by closing done
+	close(s.done)
 
 	if name != "" {
 		go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, name), audio.PhoneChannels)

@@ -5,13 +5,20 @@
 // it. When the connection drops -- Wi-Fi blinking as you walk upstairs -- the
 // uploader reconnects with the same recording id, the Pi says which chunk it
 // is waiting for, and everything from there is sent again. Nothing is lost
-// as long as the page stays open. Stop sends the chunk count; the Pi
-// finishes the take once it holds them all and answers with its name.
+// as long as the page stays open and the Pi hears from it again within ten
+// minutes (after that it saves what it has as a partial take). Stop sends
+// the chunk count; the Pi finishes the take once it holds them all and
+// answers with its name.
 //
 // Pure apart from the WebSocket it's handed, so node can test it with a fake.
 
 const RETRY_MIN_MS = 500;
 const RETRY_MAX_MS = 5000;
+// A connection that has had audio sent on it but heard nothing back for this
+// long is treated as dead and replaced: a half-open socket otherwise looks
+// like "streaming" while nothing arrives.
+const SILENT_MS = 10000;
+const WATCH_MS = 2000;
 // Above this many bytes waiting in the socket, new chunks stay queued until
 // it drains: on a slow link the queue here is the buffer, not the socket's.
 const MAX_BUFFERED = 2 * 1024 * 1024;
@@ -43,12 +50,14 @@ export class Uploader {
    *   including the Pi ending it (disk nearly full, the length limit)
    */
   constructor({ url, rate, id = newRecordingId(), WebSocketImpl = globalThis.WebSocket,
-    schedule = (fn, ms) => setTimeout(fn, ms), onState, onEnd }) {
+    schedule = (fn, ms) => setTimeout(fn, ms), now = () => Date.now(), onState, onEnd }) {
     this.url = url;
     this.rate = rate;
     this.id = id;
     this.WS = WebSocketImpl;
     this.schedule = schedule;
+    this.now = now;
+    this.heardAt = 0;       // when this connection last heard from the Pi
     this.onState = onState;
     this.onEnd = onEnd;
     this.queue = [];        // [{ seq, msg, frames, sentOn }] not yet acked
@@ -73,6 +82,20 @@ export class Uploader {
 
   start() {
     this.connect();
+    this.watch();
+  }
+
+  // watch replaces a connection that has gone quiet with audio outstanding.
+  watch() {
+    if (this.ended) return;
+    const ws = this.ws;
+    const waiting = this.queue.some((q) => q.sentOn === this.gen);
+    if (ws && this.ready && waiting && this.now() - this.heardAt > SILENT_MS) {
+      this.ready = false;
+      this.retry(this.gen);
+      try { ws.close(); } catch { /* already gone */ }
+    }
+    this.schedule(() => this.watch(), WATCH_MS);
   }
 
   /** push queues one chunk: interleaved stereo Float32Array at this.rate. */
@@ -129,10 +152,16 @@ export class Uploader {
     this.ws = ws;
     ws.onopen = () => {
       if (gen !== this.gen) return;
-      ws.send(JSON.stringify({ type: 'start', id: this.id, rate: this.rate }));
+      this.heardAt = this.now();
+      // first: the oldest chunk still held here. If the Pi has lost the
+      // recording (it restarted), it starts a new take from there rather
+      // than waiting for chunks that are gone.
+      const first = this.queue.length ? this.queue[0].seq : this.seq;
+      ws.send(JSON.stringify({ type: 'start', id: this.id, rate: this.rate, first }));
     };
     ws.onmessage = (ev) => {
       if (gen !== this.gen || typeof ev.data !== 'string') return;
+      this.heardAt = this.now();
       let m;
       try { m = JSON.parse(ev.data); } catch { return; }
       this.onMessage(m);
@@ -147,6 +176,7 @@ export class Uploader {
 
   retry(gen) {
     if (this.ended || gen !== this.gen) return;
+    gen = ++this.gen; // whatever the old socket does from now on is ignored
     this.setState(this.stopping ? 'saving' : 'reconnecting');
     const ms = this.retryMs;
     this.retryMs = Math.min(RETRY_MAX_MS, this.retryMs * 2);

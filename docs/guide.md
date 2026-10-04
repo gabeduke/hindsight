@@ -265,12 +265,19 @@ it, select, save part of it, share it.
 
 **If the Wi-Fi drops.** The recorder says *Reconnecting…* and keeps the audio
 on the phone until the Pi is back, then sends it. Nothing is lost as long as
-the page stays open.
+the page stays open and the Pi hears from it again within ten minutes.
 
-**Keep the page open.** Locking the phone or switching apps stops the
-recording. The screen is kept awake while you record, even on battery; the
-sheet says if the phone won't allow it. If the page closes anyway, or the Pi
-restarts, whatever reached the Pi is kept as *Phone (partial)*.
+**Keep the page open.** Locking the phone or switching apps pauses the
+recording, and the take skips that stretch; the page tells you how much is
+missing when you come back. The screen is kept awake while you record, even
+on battery; the sheet says if the phone won't allow it. You can hide the
+sheet while recording: the Phone button turns into a red *REC* timer, and
+tapping it brings the sheet back.
+
+**If something goes wrong.** If the page closes before Stop, whatever reached
+the Pi is kept as *Phone (partial)*, ten minutes later. If the Pi restarts
+mid-recording, what it had is kept the same way, and the phone carries on
+into a second partial take.
 
 **Limits.** Recording stops by itself at three hours, or if the Pi's free
 space falls under `MIN_FREE_GB`; what was recorded is kept.
@@ -286,8 +293,8 @@ space falls under `MIN_FREE_GB`; what was recorded is kept.
 - [demo] Watch the list while recording → nothing appears until Stop.
 - [demo] Record from a desktop browser at `http://localhost:5000` (a secure
   page) → the take is 48 kHz stereo, labelled *Phone*, with a waveform.
-- [rig] Record, then close the tab without Stop → within five minutes a take
-  labelled *Phone (partial)* appears.
+- [rig] Record, then close the tab without Stop → about ten minutes later a
+  take labelled *Phone (partial)* appears.
 
 ## 8. Tape
 
@@ -518,5 +525,6 @@ has no tip.
 | "Not enough room on the tape" | The track would run past six minutes | Lift something, or raise `TAPE_LENGTH_S` |
 | *Phone* says the microphone needs a secure page | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |
 | The recorder says *Reconnecting…* | The phone lost the Pi for a moment; the audio is kept on the phone meanwhile | Nothing: it resends when the Pi is back. Keep the page open |
+| "The recording paused while the page was hidden" | The phone locked or you switched apps, and the browser stopped the mic | The take skips that stretch. Keep Hindsight in front while recording |
 | A take is labelled *Phone (partial)* | The recording never got its Stop: the page closed, or the Pi restarted mid-recording | It holds everything that reached the Pi |
 | A capture or catch is refused for disk space | Free space is under `MIN_FREE_GB` | Empty the trash, or delete old takes |

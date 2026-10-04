@@ -59,7 +59,12 @@ func readPhone(t *testing.T, c *websocket.Conn) phoneMsg {
 
 func startPhone(t *testing.T, c *websocket.Conn, id string, rate int) phoneMsg {
 	t.Helper()
-	if err := c.WriteJSON(map[string]any{"type": "start", "id": id, "rate": rate}); err != nil {
+	return startPhoneFrom(t, c, id, rate, 0)
+}
+
+func startPhoneFrom(t *testing.T, c *websocket.Conn, id string, rate int, first uint32) phoneMsg {
+	t.Helper()
+	if err := c.WriteJSON(map[string]any{"type": "start", "id": id, "rate": rate, "first": first}); err != nil {
 		t.Fatal(err)
 	}
 	return readPhone(t, c)
@@ -259,4 +264,28 @@ func TestPhoneStopWithNothingRecordedSavesNothing(t *testing.T) {
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
 		t.Errorf("left %d file(s)", len(entries))
 	}
+}
+
+func TestAPhoneOutlivingAPiRestartContinuesInANewTake(t *testing.T) {
+	// The Pi restarted: it doesn't know the id, and the phone holds only
+	// chunks 5 on. The take starts there rather than waiting for 0-4.
+	srv, dir := newPhoneServer(t, time.Minute)
+	c := dialPhone(t, srv)
+	defer c.Close()
+	if m := startPhoneFrom(t, c, "phone-test-0007", 48000, 5); m.Type != "ready" || m.Next != 5 {
+		t.Fatalf("start = %+v", m)
+	}
+	for seq := 5; seq < 8; seq++ {
+		sendChunk(t, c, seq)
+		readPhone(t, c)
+	}
+	c.WriteJSON(map[string]any{"type": "stop", "chunks": 8})
+	m := readPhone(t, c)
+	if m.Type != "saved" || m.Name == "" || !m.Partial {
+		t.Fatalf("saved = %+v; want a partial take", m)
+	}
+	if info, _ := audio.ReadWAVInfo(filepath.Join(dir, m.Name)); info.Frames() != 3*4800 {
+		t.Errorf("frames = %d", info.Frames())
+	}
+	waitForPreview(dir, m.Name)
 }

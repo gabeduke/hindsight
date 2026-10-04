@@ -3,9 +3,12 @@ package audio
 import (
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/gabeduke/hindsight/internal/config"
 )
 
 // tone is n stereo frames of a sine at freq Hz and rate, left and right at
@@ -40,7 +43,7 @@ func readTake(t *testing.T, path string) (WAVInfo, []int32) {
 func TestPhoneTakeWritesChunksInOrderWhateverOrderTheyArrive(t *testing.T) {
 	dir := t.TempDir()
 	started := time.Date(2026, 10, 4, 1, 2, 3, 0, time.Local)
-	pt, err := StartPhoneTake(dir, 48000, started)
+	pt, err := StartPhoneTake(dir, 48000, started, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,9 +73,9 @@ func TestPhoneTakeWritesChunksInOrderWhateverOrderTheyArrive(t *testing.T) {
 	if takes, _ := ListTakes(dir); len(takes) != 0 {
 		t.Errorf("listed while recording: %+v", takes)
 	}
-	name, err := pt.Finish(false)
-	if err != nil {
-		t.Fatal(err)
+	name, partial, err := pt.Finish(false)
+	if err != nil || partial {
+		t.Fatal(err, partial)
 	}
 	info, got := readTake(t, filepath.Join(dir, name))
 	if info.Channels != 2 || info.SampleRate != 48000 || info.BitsPerSample != 32 {
@@ -116,7 +119,7 @@ func TestPhoneTakeWritesChunksInOrderWhateverOrderTheyArrive(t *testing.T) {
 
 func TestPhoneTakeResamples44100To48000(t *testing.T) {
 	dir := t.TempDir()
-	pt, err := StartPhoneTake(dir, 44100, time.Now())
+	pt, err := StartPhoneTake(dir, 44100, time.Now(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +129,7 @@ func TestPhoneTakeResamples44100To48000(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	name, err := pt.Finish(false)
+	name, _, err := pt.Finish(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,11 +152,11 @@ func TestPhoneTakeResamples44100To48000(t *testing.T) {
 
 func TestPhoneTakeWithNoAudioLeavesNothing(t *testing.T) {
 	dir := t.TempDir()
-	pt, err := StartPhoneTake(dir, 48000, time.Now())
+	pt, err := StartPhoneTake(dir, 48000, time.Now(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if name, err := pt.Finish(true); err != nil || name != "" {
+	if name, _, err := pt.Finish(true); err != nil || name != "" {
 		t.Errorf("Finish = %q, %v; want nothing", name, err)
 	}
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
@@ -163,12 +166,12 @@ func TestPhoneTakeWithNoAudioLeavesNothing(t *testing.T) {
 
 func TestPhoneTakeMarksAPartialOne(t *testing.T) {
 	dir := t.TempDir()
-	pt, _ := StartPhoneTake(dir, 48000, time.Now())
+	pt, _ := StartPhoneTake(dir, 48000, time.Now(), 0)
 	pt.Write(0, tone(4800, 48000, 440, 0))
 	pt.Write(2, tone(4800, 48000, 440, 9600)) // chunk 1 never comes
-	name, err := pt.Finish(false)
-	if err != nil {
-		t.Fatal(err)
+	name, partial, err := pt.Finish(false)
+	if err != nil || !partial {
+		t.Fatal(err, partial)
 	}
 	if m := ReadMeta(filepath.Join(dir, name)); m.Label != "Phone (partial)" {
 		t.Errorf("label = %q: a recording with a gap is partial", m.Label)
@@ -181,7 +184,7 @@ func TestPhoneTakeMarksAPartialOne(t *testing.T) {
 func TestARestartMidRecordingKeepsWhatReachedTheDisk(t *testing.T) {
 	dir := t.TempDir()
 	started := time.Date(2026, 10, 4, 1, 0, 0, 0, time.Local)
-	pt, _ := StartPhoneTake(dir, 48000, started)
+	pt, _ := StartPhoneTake(dir, 48000, started, 0)
 	data := tone(48000, 48000, 440, 0)
 	pt.Write(0, data)
 	pt.bw.Flush() // what the OS had when the Pi went down
@@ -208,10 +211,10 @@ func TestARestartMidRecordingKeepsWhatReachedTheDisk(t *testing.T) {
 }
 
 func TestPhoneTakeRefusesOddChunksAndRates(t *testing.T) {
-	if _, err := StartPhoneTake(t.TempDir(), 1000, time.Now()); err == nil {
+	if _, err := StartPhoneTake(t.TempDir(), 1000, time.Now(), 0); err == nil {
 		t.Error("a 1 kHz rate was accepted")
 	}
-	pt, _ := StartPhoneTake(t.TempDir(), 48000, time.Now())
+	pt, _ := StartPhoneTake(t.TempDir(), 48000, time.Now(), 0)
 	defer pt.Abort()
 	if _, err := pt.Write(0, make([]float32, 3)); err == nil {
 		t.Error("half a stereo frame was accepted")
@@ -219,9 +222,113 @@ func TestPhoneTakeRefusesOddChunksAndRates(t *testing.T) {
 }
 
 func TestFloatToPCM32Clips(t *testing.T) {
+	if got := floatToPCM32(float32(math.NaN())); got != 0 {
+		t.Errorf("NaN = %d, want silence", got)
+	}
 	for in, want := range map[float32]int32{0: 0, 1: math.MaxInt32, -1: math.MinInt32, 2: math.MaxInt32, -3: math.MinInt32, 0.5: 1 << 30} {
 		if got := floatToPCM32(in); got != want {
 			t.Errorf("floatToPCM32(%v) = %d, want %d", in, got, want)
 		}
+	}
+}
+
+func TestPhoneTakeContinuingALostRecordingStartsWhereThePhoneIs(t *testing.T) {
+	dir := t.TempDir()
+	pt, err := StartPhoneTake(dir, 48000, time.Now(), 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pt.Next() != 5 {
+		t.Fatalf("next = %d, want 5", pt.Next())
+	}
+	for seq := 5; seq < 8; seq++ {
+		if next, err := pt.Write(uint32(seq), tone(4800, 48000, 440, seq*4800)); err != nil || next != uint32(seq+1) {
+			t.Fatalf("write %d: next %d, %v", seq, next, err)
+		}
+	}
+	name, partial, err := pt.Finish(false)
+	if err != nil || !partial {
+		t.Fatalf("finish = %q %v %v; a continued recording is partial", name, partial, err)
+	}
+	if info, _ := ReadWAVInfo(filepath.Join(dir, name)); info.Frames() != 3*4800 {
+		t.Errorf("frames = %d", info.Frames())
+	}
+}
+
+func TestAFailedWriteKeepsWhatReachedTheDisk(t *testing.T) {
+	dir := t.TempDir()
+	pt, _ := StartPhoneTake(dir, 48000, time.Now(), 0)
+	for seq := 0; seq < 20; seq++ {
+		pt.Write(uint32(seq), tone(4800, 48000, 440, seq*4800))
+	}
+	pt.mu.Lock()
+	pt.bw.Flush()
+	pt.f.Close() // the next write fails, as on a dead disk
+	pt.mu.Unlock()
+	for seq := 20; seq < 40; seq++ {
+		pt.Write(uint32(seq), tone(4800, 48000, 440, seq*4800))
+	}
+	name, partial, err := pt.Finish(false)
+	if err != nil || name == "" || !partial {
+		t.Fatalf("finish = %q %v %v; want the audio that reached the disk, as partial", name, partial, err)
+	}
+	info, err := ReadWAVInfo(filepath.Join(dir, name))
+	if err != nil || info.Frames() < 20*4800 {
+		t.Errorf("frames = %d, %v; want at least the 20 chunks written before the failure", info.Frames(), err)
+	}
+	if m := ReadMeta(filepath.Join(dir, name)); m.Label != "Phone (partial)" {
+		t.Errorf("label = %q", m.Label)
+	}
+}
+
+func TestEarlyChunksAreBoundedInBytes(t *testing.T) {
+	pt, _ := StartPhoneTake(t.TempDir(), 48000, time.Now(), 0)
+	defer pt.Abort()
+	big := make([]float32, 2*48000) // a second: 384 KB
+	var err error
+	for seq := uint32(1); seq < 100 && err == nil; seq++ {
+		_, err = pt.Write(seq, big)
+	}
+	if err == nil {
+		t.Fatal("unbounded chunks were held waiting for chunk 0")
+	}
+	if pt.earlyBytes > phoneMaxEarlyBytes {
+		t.Errorf("held %d bytes, cap is %d", pt.earlyBytes, phoneMaxEarlyBytes)
+	}
+}
+
+func TestStartupRecoversAPhonePartEvenWithABrokenMarker(t *testing.T) {
+	dir := t.TempDir()
+	pt, _ := StartPhoneTake(dir, 48000, time.Now(), 0)
+	pt.Write(0, tone(4800, 48000, 440, 0))
+	pt.bw.Flush()
+	wav := filepath.Join(dir, pt.Name())
+	os.WriteFile(phoneMarkerPath(wav), []byte("{not json"), 0o644)
+
+	// An orphan marker, with no .part, is swept.
+	orphan := filepath.Join(dir, "jam_2026-10-04_020000.wav")
+	os.WriteFile(phoneMarkerPath(orphan), []byte(`{}`), 0o644)
+
+	SweepPartials(dir)
+	if !exists(wav) || exists(PartPath(wav)) {
+		t.Fatal("the recording was not recovered")
+	}
+	if m := ReadMeta(wav); m.Label != "Phone (partial)" || m.Created == nil {
+		t.Errorf("meta = %+v", m)
+	}
+	if exists(phoneMarkerPath(orphan)) {
+		t.Error("an orphan marker survived")
+	}
+}
+
+func TestStartupEncodesMissingPreviews(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("no ffmpeg")
+	}
+	dir := t.TempDir()
+	old := writeTestTake(t, dir, "jam_2026-09-01_100000.wav", 48000)
+	BackfillPreviews(&config.Config{OutputDir: dir, SaveChannels: []int{0, 1}})
+	if !exists(previewPath(old)) {
+		t.Error("no preview was made for a take without one")
 	}
 }
