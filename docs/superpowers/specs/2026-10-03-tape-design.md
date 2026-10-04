@@ -513,8 +513,8 @@ is refused for any other.
 | `POST` | `/api/tapes/cleanup?id=` | Delete audio nothing references |
 | `GET` | `/api/tapes/peaks?id=&file=&from=&to=&buckets=` | A region's peaks, as `/api/peaks` does for takes |
 | `GET` | `/api/tapes/live` | WebSocket: transport, meters, lock, passes |
+| `POST` | `/api/tapes/import?id=` | A region of a take onto a track, or as the first loop — *Send to tape* from the waveform page |
 | `POST` | `/api/tapes/edit?id=` | Phase 2: copy, cut, paste, duplicate, reverse, clear, multiply over bars and tracks |
-| `POST` | `/api/tapes/import?id=` | Phase 2: a region of a take onto a track — *Send to tape* from the waveform page |
 | `GET` | `/api/tapes/export?id=` | Phase 2: a zip of per-track stems from bar 1, a mix, and a `.mid` with the tempo |
 
 ### Configuration
@@ -590,12 +590,15 @@ test is to recover that offset exactly. Beyond that:
 - Lifts — by bars, by pass, free and punched — with placement, tiling, layers
   and nudge.
 - Tracks with gain, pan, mute and bus.
+- *Send to tape* from the waveform page: a region of any take onto a track, or
+  as a tape's first loop. That's how a
+  [phone recording](2026-10-03-phone-recording-design.md) made away from the
+  jam space gets onto tape.
 - The tape page.
 
 **Phase 2 — Splice.** A linear tape longer than the loop, with the loop as a
 bracket on it. Copy, cut, paste, duplicate, reverse and clear over bar ranges
-on one track or all of them; multiply; *Send to tape* from the waveform page;
-export as stems plus `.mid`.
+on one track or all of them; multiply; export as stems plus `.mid`.
 
 **Phase 3 — The brain.** The MIDI out writer; clock lead and follow; takes
 snapped to tape bars; strip scenes over CC; the pedal.
