@@ -671,6 +671,36 @@ func TestPatchTakeResponseCarriesTheBPM(t *testing.T) {
 	}
 }
 
+// A tempo typed on the take page is yours: the measurement leaves it alone,
+// and the page stops calling it measured.
+func TestEditingTheTempoMakesItYours(t *testing.T) {
+	r, dir := newTestAPI(t)
+	wav := writeTake(t, dir, "jam_a.wav")
+	measured := 125.17
+	if err := audio.WriteMeta(wav, audio.Meta{BPM: &measured, TempoFrom: audio.TempoFromAudio}); err != nil {
+		t.Fatal(err)
+	}
+
+	w := patch(t, r, "jam_a.wav", `{"bpm":125.2}`)
+	var got struct {
+		TempoFrom string `json:"tempo_from"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.TempoFrom != audio.TempoFromYou {
+		t.Errorf("response tempo_from = %q, want you", got.TempoFrom)
+	}
+	if m := audio.ReadMeta(wav); m.TempoFrom != audio.TempoFromYou {
+		t.Errorf("sidecar tempo_from = %q, want you", m.TempoFrom)
+	}
+
+	patch(t, r, "jam_a.wav", `{"bpm":null}`)
+	if m := audio.ReadMeta(wav); m.BPM != nil || m.TempoFrom != "" {
+		t.Errorf("cleared: BPM %v, tempo_from %q; want neither", m.BPM, m.TempoFrom)
+	}
+}
+
 func TestPostFlagOnAnEmptyRingIsRejected(t *testing.T) {
 	r, _, _ := newFlagAPI(t)
 	if w := do(t, r, http.MethodPost, "/api/flag"); w.Code != http.StatusConflict {

@@ -93,16 +93,17 @@ type Saver struct {
 	tempo     TempoSource
 	midi      MIDIExporter
 
-	bg sync.WaitGroup // the preview encode and the prune a save leaves running
+	bg sync.WaitGroup // the preview encode, tempo measurement and prune a save leaves running
 }
 
 func NewSaver(c *Capture) *Saver { return &Saver{cap: c} }
 
-// afterSave starts what a save leaves to the background: the preview encode
-// and MAX_SAVES pruning.
+// afterSave starts what a save leaves to the background: the preview encode,
+// measuring the take's tempo, and MAX_SAVES pruning.
 func (s *Saver) afterSave(wavPath string, outCh int, keep ...string) {
-	s.bg.Add(2)
+	s.bg.Add(3)
 	go func() { defer s.bg.Done(); s.makePreview(wavPath, outCh) }()
+	go func() { defer s.bg.Done(); measureTempo(wavPath) }()
 	go func() { defer s.bg.Done(); s.prune(keep...) }()
 }
 
@@ -500,7 +501,7 @@ func stampTempo(wavPath string, src TempoSource, end time.Time, window time.Dura
 	// the field is a starting point the owner edits, not a measurement.
 	bpm = math.Round(bpm*100) / 100
 
-	if _, err := UpdateMeta(wavPath, func(m *Meta) error { m.BPM = &bpm; return nil }); err != nil {
+	if _, err := UpdateMeta(wavPath, func(m *Meta) error { m.BPM = &bpm; m.TempoFrom = TempoFromClock; return nil }); err != nil {
 		log.Printf("[!] midi: bpm for %s: %v", filepath.Base(wavPath), err)
 		return
 	}
@@ -678,6 +679,7 @@ type Take struct {
 	Starred       bool              `json:"starred"`
 	Trim          *Trim             `json:"trim,omitempty"`
 	BPM           *float64          `json:"bpm,omitempty"`
+	TempoFrom     string            `json:"tempo_from,omitempty"`
 	Flags         []Flag            `json:"flags,omitempty"`
 	DownbeatFrame *int64            `json:"downbeat_frame,omitempty"`
 	Source        *CutSource        `json:"source,omitempty"`
@@ -761,6 +763,7 @@ func takeFromFile(dir, name string, info os.FileInfo) Take {
 	t.Starred = m.Starred
 	t.Trim = m.Trim
 	t.BPM = m.BPM
+	t.TempoFrom = m.TempoFrom
 	t.Flags = EnsureFlagIDs(m.Flags)
 	t.DownbeatFrame = m.DownbeatFrame
 	t.Source = m.Source

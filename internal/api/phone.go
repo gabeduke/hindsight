@@ -330,6 +330,7 @@ func (a *API) finishPhone(id string, s *phoneSession, partial bool, reason strin
 
 	if name != "" {
 		a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, name), audio.PhoneChannels) })
+		a.background(func() { audio.MeasureTempo(filepath.Join(a.cfg.OutputDir, name)) })
 		if a.saver != nil {
 			a.background(func() { a.saver.Prune(name) })
 		}

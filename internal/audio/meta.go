@@ -210,6 +210,12 @@ type Meta struct {
 	// the owner overrides, never a fact.
 	BPM *float64 `json:"bpm,omitempty"`
 
+	// TempoFrom says where BPM came from: TempoFromClock (the MIDI clock, at
+	// save), TempoFromAudio (measured from the take), or TempoFromYou
+	// (edited). Empty for a take saved before it was kept. Optional and
+	// additive, like BPM.
+	TempoFrom string `json:"tempo_from,omitempty"`
+
 	// Flags mark moments of interest, in frames from the take's first frame.
 	// Optional and additive, like BPM, so it needs no MetaVersion bump.
 	Flags []Flag `json:"flags,omitempty"`
@@ -226,6 +232,13 @@ type Meta struct {
 	// BPM and Flags, so it needs no MetaVersion bump.
 	LaneKinds map[string]string `json:"lane_kinds,omitempty"`
 }
+
+// Where a take's tempo came from: Meta.TempoFrom.
+const (
+	TempoFromClock = "clock"
+	TempoFromAudio = "audio"
+	TempoFromYou   = "you"
+)
 
 // ErrNewerSidecar reports a sidecar written by a build that knew fields this
 // one does not. Rewriting it would drop them.
