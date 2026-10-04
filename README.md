@@ -99,8 +99,9 @@ free/filled block pool ──► ring writer goroutine ──► Ring (RING_SECO
    │                                                   │
    │ Levels (10ms min/max/RMS bins)                    │ Snapshot(seconds)
    ▼                                                   ▼
-WebSocket /api/live ──► live waveform + meters    WAV ─┬─► mp3 preview
-                                                       └─► .peaks.json
+WebSocket /api/live ──► level meters              WAV ─┬─► mp3 preview
+/api/envelope ──► buffer ribbon                        ├─► .peaks.json + .peaks.bin
+                                                       └─► .meta.json (label, flags, tempo)
 ```
 
 The audio callback only computes levels and hands the block to a pooled
@@ -145,10 +146,10 @@ install guide covers putting the Pi on an HTTPS name with `tailscale serve`.
 
 | | |
 |---|---|
-| [docs/guide.md](docs/guide.md) | How to use it, in plain words, with the checks each feature must pass |
+| [docs/guide.md](docs/guide.md) | How to use it, in plain words: what the words mean (§2), and the checks each feature must pass |
 | [docs/install-raspberry-pi.md](docs/install-raspberry-pi.md) | Getting it running on a Pi, and operating it afterwards |
 | [docs/configuration.md](docs/configuration.md) | Every environment variable, and why the defaults are what they are |
-| [docs/api.md](docs/api.md) | The fourteen HTTP endpoints |
+| [docs/api.md](docs/api.md) | The twenty HTTP endpoints |
 | [docs/architecture.md](docs/architecture.md) | How the capture path is put together, and the traps it avoids |
 | [docs/development.md](docs/development.md) | Building, testing, deploying, and the hardware probes |
 

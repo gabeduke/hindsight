@@ -54,13 +54,14 @@ func (e *Exporter) CutMIDI(srcWav, dstWav string, startFrame, endFrame int64) er
 	// The cut's grid: the same rule as a save, a Start-fixed downbeat and
 	// only when the sidecar has none.
 	if m.Downbeat != nil && m.Downbeat.Source == "midi-start" {
-		meta := audio.ReadMeta(dstWav)
-		if meta.DownbeatFrame == nil {
-			frame := int64(m.Downbeat.Sec * float64(m.SampleRate))
-			meta.DownbeatFrame = &frame
-			if err := audio.WriteMeta(dstWav, meta); err != nil {
-				log.Printf("[!] midi: downbeat for %s: %v", filepath.Base(dstWav), err)
+		frame := int64(m.Downbeat.Sec * float64(m.SampleRate))
+		if _, err := audio.UpdateMeta(dstWav, func(meta *audio.Meta) error {
+			if meta.DownbeatFrame == nil {
+				meta.DownbeatFrame = &frame
 			}
+			return nil
+		}); err != nil {
+			log.Printf("[!] midi: downbeat for %s: %v", filepath.Base(dstWav), err)
 		}
 	}
 	return nil

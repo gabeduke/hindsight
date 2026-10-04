@@ -1,7 +1,7 @@
 # Screen Wake Lock Design
 
 **Date:** 2026-09-08
-**Status:** approved, implementing
+**Status:** implemented
 
 ## Goal
 

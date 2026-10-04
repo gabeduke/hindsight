@@ -106,6 +106,23 @@ export class Clock {
     this.tick();
   }
 
+  /**
+   * Fetch the preview again: the page calls this once a preview that did not
+   * exist when the page loaded has been encoded. Left alone while the preview
+   * is actually playing, which means it loaded after all. load() puts the
+   * element back at 0 and at its default rate, so both are put back once it
+   * knows the file again: a tap at 3:00 still plays from 3:00.
+   */
+  reloadPreview() {
+    if (this.playing && this.engine === 'preview') return;
+    const at = this.audio.currentTime;
+    this.audio.addEventListener('loadedmetadata', () => {
+      this.audio.playbackRate = this.rate;
+      if (at > 0) this.audio.currentTime = at;
+    }, { once: true });
+    this.audio.load();
+  }
+
   pause() {
     if (this.engine === 'slice') {
       const at = this.position();
@@ -122,6 +139,7 @@ export class Clock {
   setRate(rate) {
     this.rate = rate;
     this.audio.playbackRate = rate;
+    this.audio.defaultPlaybackRate = rate; // survives a reload of the element
   }
 
   // region null clears the loop and returns to the preview engine at the

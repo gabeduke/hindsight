@@ -10,6 +10,7 @@ import { Lanes } from './lanes.js';
 import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import { barBeat, fmtTime, framesPerBeat, clampRegion, fitGain, fmtRegionLength } from './geometry.js';
+import { flagRequest, asFlags, newFlagId } from '/lib/flags.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -45,13 +46,15 @@ async function main() {
   // that would otherwise pop straight into the (unbuilt) pane on the first
   // back gesture.
   if (history.state && history.state.notes) history.replaceState(null, '');
-  const [jamsRes, peaksRes] = await Promise.all([
-    fetch('/api/jams'),
+  const [takeRes, peaksRes] = await Promise.all([
+    fetch(`/api/take?file=${encodeURIComponent(file)}`),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
   ]);
-  if (!jamsRes.ok) return fail('Could not load takes.');
-  const take = (await jamsRes.json()).find((t) => t.name === file);
-  if (!take) return fail('That take is gone.');
+  if (takeRes.status === 404) return fail('That take is gone.');
+  if (!takeRes.ok) return fail('Could not load the take.');
+  const take = await takeRes.json();
+  // Whether the preview mp3 exists yet; see waitForPreview below.
+  let previewReady = !!take.has_preview;
   if (!peaksRes.ok) return fail('This take has no waveform yet. Try again in a moment.');
   const filePeaks = await peaksRes.json();
 
@@ -71,7 +74,7 @@ async function main() {
   // --- state (the page owns it; the view reads it each draw) -------------
   const state = {
     region: take.trim ? { start: take.trim.start_frame, end: take.trim.end_frame } : null,
-    flags: (take.flags || []).map((f) => ({ frame: f.frame, label: f.label || '' })),
+    flags: asFlags(take.flags),
     grid: { bpm: take.bpm || null, sampleRate: sr, downbeat: take.downbeat_frame || 0 },
     cursor: 0,
     selectedFlag: null,
@@ -125,8 +128,10 @@ async function main() {
       else if (ev === 'fitAll') view.fitAll();
     },
   });
-  // A take whose preview has not landed yet has no URL to play: say so once
-  // rather than fetching '/api/download?file=undefined' on the first tap.
+  // The server always names the preview, but the mp3 itself is encoded in the
+  // background after a save or cut, so it may not exist yet; waitForPreview
+  // reloads it when it does. The guard only keeps a malformed answer from
+  // fetching '/api/download?file=undefined'.
   const previewUrl = take.preview_name
     ? `/api/download?file=${encodeURIComponent(take.preview_name)}`
     : '';
@@ -137,17 +142,49 @@ async function main() {
     onError: (m) => toast(m, 'bad'),
     onEnded: () => { $('play').textContent = 'Play'; syncNotes(); },
   });
+  // A take opened straight from the "Saved as" toast can beat its preview:
+  // the element then holds a 404 and would never play until a reload. Check
+  // back every two seconds for a couple of minutes, and point the element at
+  // the mp3 again once it exists.
+  function previewLanded() {
+    if (previewReady) return;
+    previewReady = true;
+    clock.reloadPreview();
+  }
+  if (!previewReady) {
+    let tries = 0;
+    const poll = setInterval(async () => {
+      if (previewReady || ++tries > 60) { clearInterval(poll); return; }
+      try {
+        const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
+        if (res.ok && (await res.json()).has_preview) previewLanded();
+      } catch {}
+    }, 2000);
+  }
 
   // --- sidecar patches ----------------------------------------------------
-  async function patch(body) {
-    const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  // Saves still on their way to the Pi. A refetch that lands meanwhile would
+  // put the server's older selection, tempo or grid back on screen, so it
+  // waits for them (see refetchTake).
+  let savesInFlight = 0;
+  let refetchWanted = false;
+  function track(p) {
+    savesInFlight++;
+    return p.finally(() => {
+      if (--savesInFlight === 0 && refetchWanted) { refetchWanted = false; refetchTake(); }
     });
-    if (!res.ok) {
-      const b = await res.json().catch(() => ({}));
-      throw new Error(b.error || `status ${res.status}`);
-    }
-    return res.json();
+  }
+  function patch(body) {
+    return track((async () => {
+      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error || `status ${res.status}`);
+      }
+      return res.json();
+    })());
   }
   let regionTimer = 0;
   let pendingTrim = null;   // the body the debounced save will send, if any
@@ -168,18 +205,63 @@ async function main() {
     clearTimeout(regionTimer);
     const body = pendingTrim;
     pendingTrim = null;
-    fetch(`/api/take?file=${encodeURIComponent(file)}`, {
+    track(fetch(`/api/take?file=${encodeURIComponent(file)}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body), keepalive: true,
-    }).catch(() => {});
+    })).catch(() => {});
   }
   function saveDownbeat() {
     patch({ downbeat_frame: state.grid.downbeat }).catch((e) => toast(`Could not save downbeat: ${e.message}`, 'bad'));
   }
-  function saveFlags() {
-    patch({ flags: state.flags }).then((b) => {
+  // One flag per request, by id (see /lib/flags.js), sent in order. The page
+  // shows the change at once; the server's answer then replaces the whole
+  // list, which also brings in any flag another device added meanwhile.
+  function flagOp(op, args) {
+    flagRequest(file, op, args).then((b) => {
       if (b.cue_error) toast(b.cue_error, 'bad');
-    }).catch((e) => toast(`Could not save flags: ${e.message}`, 'bad'));
+      const keep = state.selectedFlag && state.selectedFlag.id;
+      state.flags = asFlags(b.flags);
+      if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
+      redraw();
+    }).catch((e) => {
+      toast(`Could not save flags: ${e.message}`, 'bad');
+      refetchTake();
+    });
+  }
+  // The take as the server has it now, merged in: flags, name, tempo and
+  // downbeat, and the region unless an edit of ours is waiting to be saved.
+  // Called when the page comes back into view and after a failed flag edit,
+  // so changes made from another device show up without a reload. While a
+  // save of ours is still in flight it waits for that to land first.
+  async function refetchTake() {
+    if (savesInFlight > 0) { refetchWanted = true; return; }
+    let fresh;
+    try {
+      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      fresh = await res.json();
+    } catch { return; }
+    const keep = state.selectedFlag && state.selectedFlag.id;
+    state.flags = asFlags(fresh.flags);
+    if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
+    take.label = fresh.label;
+    take.bpm = fresh.bpm;
+    if (fresh.has_preview) previewLanded();
+    $('wave-name').textContent = fresh.label || file.replace(/\.wav$/, '');
+    $('wave-bpm').textContent = fresh.bpm ? `${fresh.bpm} BPM` : '';
+    state.grid.bpm = fresh.bpm || null;
+    state.grid.downbeat = fresh.downbeat_frame || 0;
+    if (!pendingTrim) {
+      const r = fresh.trim ? { start: fresh.trim.start_frame, end: fresh.trim.end_frame } : null;
+      const same = (r && state.region && r.start === state.region.start && r.end === state.region.end) || (!r && !state.region);
+      if (!same) {
+        state.region = r;
+        updateActionRow();
+        scheduleLoop();
+      }
+    }
+    updateReadout();
+    redraw();
   }
   // The loop is implicit now: a region is a loop. setLoop decodes a slice over
   // the network, and when the slice cannot be fetched it *resolves* after
@@ -200,8 +282,9 @@ async function main() {
       toast(`Could not loop: ${e.message}`, 'bad');
     }
   }
-  // Dragging an edge and holding a nudge both emit a *final* region many times
-  // over; only the one the hand settles on is worth a slice. Reads state.region
+  // Holding a nudge emits a *final* region many times over, and separate edits
+  // can land in quick succession; only the region the hand settles on is
+  // worth a slice. Reads state.region
   // when it fires, not the region it was handed, so the last edit wins.
   function scheduleLoop() {
     clearTimeout(loopTimer);
@@ -219,11 +302,13 @@ async function main() {
         // The cursor stays where it was tapped; Play picks the loop back up.
         if (state.region && !clock.loop) applyLoop(state.region);
         state.cursor = p.frame; updateReadout(); redraw(); break;
-      case 'addFlag':
+      case 'addFlag': {
         if (state.flags.some((f) => f.frame === p.frame)) break;
-        state.flags.push({ frame: p.frame, label: '' });
+        const id = newFlagId();
+        state.flags.push({ id, frame: p.frame, label: '' });
         state.flags.sort((a, b) => a.frame - b.frame);
-        saveFlags(); redraw(); break;
+        flagOp('add', { id, frame: p.frame }); redraw(); break;
+      }
       case 'selectFlag': openSheet(p.flag); break;
       case 'regionChange':
         state.region = p.region; updateActionRow(); redraw();
@@ -255,7 +340,12 @@ async function main() {
     if (!f) return;
     if (commit) {
       const label = $('flag-label').value.trim();
-      if (label !== f.label) { f.label = label; saveFlags(); }
+      if (label !== f.label) {
+        f.label = label;
+        // A flag added a moment ago already has its id (made here, not by
+        // the server), and flagOp sends this after the add.
+        flagOp('edit', { id: f.id, label });
+      }
     }
     state.selectedFlag = null;
     sheet.hidden = true;
@@ -269,10 +359,11 @@ async function main() {
   $('flag-delete').addEventListener('click', () => {
     const f = state.selectedFlag;
     if (!f) return;
-    state.flags = state.flags.filter((x) => x.frame !== f.frame);
+    state.flags = state.flags.filter((x) => x !== f);
     state.selectedFlag = null;
     sheet.hidden = true;
-    saveFlags(); redraw();
+    flagOp('remove', { id: f.id });
+    redraw();
   });
 
   // --- transport ----------------------------------------------------------
@@ -515,7 +606,7 @@ async function main() {
     if (!midi.tracks || !midi.tracks.length) return;
     // /api/midi is served immutable, so a browser holding a cached response
     // from before a kind flip would otherwise show the old kind and colour
-    // here even though the sidecar (and /api/jams) already have the new one.
+    // here even though the sidecar (and /api/take) already have the new one.
     for (const t of midi.tracks) if (laneKinds[t.name]) t.kind = laneKinds[t.name];
     const container = $('lanes');
     container.hidden = false;
@@ -632,7 +723,10 @@ async function main() {
   // Two hooks, because neither alone covers a phone: pagehide is the one that
   // fires on navigation, and visibilitychange is the only one that reliably
   // fires when the app is switched away from or the screen locks.
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushRegion(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushRegion();
+    else refetchTake();
+  });
   // flushRegion is the only thing that has to outlive the page; a pending loop
   // does not -- cancel it so it cannot arm a clock that has just been destroyed.
   window.addEventListener('pagehide', () => { clearTimeout(loopTimer); flushRegion(); bench.removeEventListener('change', onBenchChange); clock.destroy(); tiles.stop(); view.destroy(); overview.destroy(); if (lanes) lanes.destroy(); if (notes) notes.destroy(); });

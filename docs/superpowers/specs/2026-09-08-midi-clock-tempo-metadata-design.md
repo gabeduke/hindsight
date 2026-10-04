@@ -1,7 +1,7 @@
 # MIDI Clock and Tempo Metadata Design
 
 **Date:** 2026-09-08
-**Status:** awaiting owner review
+**Status:** implemented
 
 ## Goal
 

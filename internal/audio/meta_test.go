@@ -357,3 +357,58 @@ func TestMetaWithNoFlagsOmitsTheKey(t *testing.T) {
 		t.Errorf("sidecar mentions flags with none set:\n%s", b)
 	}
 }
+
+func TestEnsureFlagIDsGivesLegacyFlagsTheirFrameID(t *testing.T) {
+	got := EnsureFlagIDs([]Flag{{Frame: 480}, {ID: "rdeadbeef", Frame: 960}})
+	if got[0].ID != "f480" {
+		t.Errorf("legacy id = %q, want f480", got[0].ID)
+	}
+	if got[1].ID != "rdeadbeef" {
+		t.Errorf("existing id changed to %q", got[1].ID)
+	}
+}
+
+func TestEnsureFlagIDsDoesNotModifyItsInput(t *testing.T) {
+	in := []Flag{{Frame: 1}}
+	_ = EnsureFlagIDs(in)
+	if in[0].ID != "" {
+		t.Errorf("input mutated: %+v", in)
+	}
+}
+
+func TestNewFlagIDCannotCollideWithALegacyID(t *testing.T) {
+	seen := map[string]bool{}
+	for i := 0; i < 1000; i++ {
+		id := NewFlagID()
+		if len(id) != 9 || id[0] != 'r' {
+			t.Fatalf("NewFlagID() = %q, want r + 8 hex", id)
+		}
+		if seen[id] {
+			t.Fatalf("duplicate id %q in 1000 draws", id)
+		}
+		seen[id] = true
+	}
+}
+
+// Two flags with different ids at the same frame are two flags: one device
+// can add a flag where another already put one, and both are kept.
+func TestNormalizeFlagsKeepsDistinctIDsAtTheSameFrame(t *testing.T) {
+	got := NormalizeFlags([]Flag{{ID: "ra", Frame: 7}, {ID: "rb", Frame: 7}, {ID: "ra", Frame: 9}})
+	if len(got) != 2 {
+		t.Fatalf("got %+v, want ra and rb at frame 7 (the second ra is a duplicate)", got)
+	}
+	if got[0].ID != "ra" || got[1].ID != "rb" {
+		t.Errorf("order = %+v, want ra then rb", got)
+	}
+}
+
+func TestWriteMetaPersistsFlagIDs(t *testing.T) {
+	wav := filepath.Join(t.TempDir(), "jam_x.wav")
+	if err := WriteMeta(wav, Meta{Flags: []Flag{{Frame: 100}, {ID: "r00000001", Frame: 50}}}); err != nil {
+		t.Fatalf("WriteMeta: %v", err)
+	}
+	got := ReadMeta(wav).Flags
+	if len(got) != 2 || got[0].ID != "r00000001" || got[1].ID != "f100" {
+		t.Errorf("flags = %+v, want r00000001@50 then f100@100", got)
+	}
+}

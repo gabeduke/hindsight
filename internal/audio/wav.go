@@ -40,26 +40,33 @@ const peakBuckets = 1024
 // through reflection and is dramatically slower than encoding into a buffered
 // writer directly.
 func WriteWAV(path string, data []int32, srcChannels int, pick []int, sampleRate int) (*PeakData, error) {
+	pd, _, err := writeWAV(path, data, srcChannels, pick, sampleRate)
+	return pd, err
+}
+
+// writeWAV is WriteWAV that also returns the take's peaks pyramid, built in
+// the same pass; the saver writes it beside the finished take.
+func writeWAV(path string, data []int32, srcChannels int, pick []int, sampleRate int) (*PeakData, *pyramidAcc, error) {
 	if srcChannels <= 0 {
-		return nil, fmt.Errorf("srcChannels must be positive")
+		return nil, nil, fmt.Errorf("srcChannels must be positive")
 	}
 	frames := len(data) / srcChannels
 	if frames == 0 {
-		return nil, fmt.Errorf("no audio frames to write")
+		return nil, nil, fmt.Errorf("no audio frames to write")
 	}
 	outCh := len(pick)
 	if outCh == 0 {
-		return nil, fmt.Errorf("no output channels selected")
+		return nil, nil, fmt.Errorf("no output channels selected")
 	}
 	for _, c := range pick {
 		if c < 0 || c >= srcChannels {
-			return nil, fmt.Errorf("channel %d out of range for %d-channel source", c+1, srcChannels)
+			return nil, nil, fmt.Errorf("channel %d out of range for %d-channel source", c+1, srcChannels)
 		}
 	}
 
 	f, err := os.Create(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer f.Close()
 
@@ -67,10 +74,11 @@ func WriteWAV(path string, data []int32, srcChannels int, pick []int, sampleRate
 
 	dataBytes := uint32(frames * outCh * 4)
 	if err := writeWAVHeader(w, dataBytes, outCh, sampleRate, 32); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	pk := newPeakAccumulator(outCh, frames)
+	pyr := newPyramidAcc(outCh, int64(frames))
 	var scratch [4]byte
 
 	for i := 0; i < frames; i++ {
@@ -79,20 +87,21 @@ func WriteWAV(path string, data []int32, srcChannels int, pick []int, sampleRate
 			s := data[base+c]
 			binary.LittleEndian.PutUint32(scratch[:], uint32(s))
 			if _, err := w.Write(scratch[:]); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			pk.add(oc, i, float32(float64(s)/2147483648.0))
+			pyr.add(oc, int64(i), s)
 		}
 	}
 
 	if err := w.Flush(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := f.Sync(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return pk.finish(sampleRate, frames), nil
+	return pk.finish(sampleRate, frames), pyr, nil
 }
 
 func writeWAVHeader(w *bufio.Writer, dataBytes uint32, channels, sampleRate, bitsPerSample int) error {

@@ -33,7 +33,7 @@ ring writer goroutine ──► Ring (RING_SECONDS)               │
    ├──► Envelope (whole ring) │                             │
    ▼                          ▼                             ▼
 /api/live   (WebSocket)   WAV ─┬──► _preview.mp3      .meta.json (bpm, flags, downbeat)
-/api/envelope (ribbon)         ├──► .peaks.json       .mid + .manifest.json
+/api/envelope (ribbon)         ├──► .peaks.json/.bin  .mid + .manifest.json
                                 └──► cue points, written into the WAV itself
 ```
 
@@ -259,6 +259,81 @@ exporter, so `--demo` writes a real `.mid` and the whole path runs with no
 hardware. Its tempo tile reads the estimator against that clock rather than a
 constant, which is why it says 96.0 and not exactly 96.
 
+## Takes on disk
+
+A take is a WAV in `OUTPUT_DIR` and the sidecars beside it, all sharing its
+stem:
+
+| File | Written | Holds |
+|---|---|---|
+| `jam_<ts>.wav` | at save or cut | The audio, 32-bit, plus RIFF `cue ` points mirroring the flags |
+| `.meta.json` | at save or cut, then on every edit | Label, star, selection, tempo, downbeat, flags, lane kinds, creation time, a cut's source |
+| `.peaks.json` | at save or cut | 1024 min/max buckets for the whole take, drawn before anything finer arrives |
+| `.peaks.bin` | at save or cut; backfilled at startup for older takes | The peaks pyramid: min and max per 256 frames |
+| `_preview.mp3` | in the background after a save or cut | What the list plays, and what the waveform page scrubs |
+| `.mid`, `.manifest.json` | at save, when MIDI was flowing; a cut gets its region of the source's | The take's MIDI and how it lines up |
+
+### A take appears only when it's complete
+
+Save and cut write the audio to a hidden `.<name>.part` file, write the
+sidecars under the final names, and rename the WAV into place last. The list
+only shows `.wav` files, so it never offers a take that is still being
+written; a 15-minute save takes long enough that it used to. A take's name
+is reserved by creating its `.part` exclusively, so a save and a cut in the
+same second can't both write to one file. At startup, a `.part` left by a
+crash is removed with the sidecars of the take that never made it, along with
+sidecar temp files and any `.meta.json`, `.peaks.json` or `.peaks.bin` whose
+take is gone.
+
+### One writer per take at a time
+
+Every read-modify-write of a take's sidecar holds that take's lock
+(`audio.LockTake`, or `audio.UpdateMeta` for the whole cycle): the PATCH, the
+per-flag endpoints, the saver's tempo and flag stamps, the MIDI exporter's
+downbeat, and `RemoveTake`. The lock also covers rewriting the WAV's cue
+chunk, so two cue rewrites never interleave. Before it, two edits landing
+together meant the second silently threw the first away. The API handlers
+check the take still exists once they hold the lock, so an edit queued behind
+a delete answers 404 instead of writing a sidecar for a take that's gone.
+
+Flags carry ids, so an edit names the flag it changes rather than replacing
+the list. A flag from before ids reads as `f<frame>`.
+
+### When a take was made
+
+The list sorts, and the pruner deletes, by the `created` time in the
+sidecar. A take older than that field falls back to the time in its name,
+then to the file's modification time. Modification time alone was wrong:
+rewriting the cue chunk on a flag edit made an old take look new.
+
+### The list is cached
+
+`/api/jams` is polled every five seconds by every open page. It now costs one
+directory listing: each take's signature is the size and modification time of
+its WAV and sidecar, the sidecar's inode (every sidecar write is a new file,
+so two same-size edits within one clock tick still differ), and which other
+sidecars exist, all from that one listing. Takes are cached by signature, and the ETag is a hash of the
+signatures, so an unchanged list answers 304 without opening a file, and a
+changed one re-reads only the takes that changed.
+
+### The peaks pyramid
+
+The waveform page asks `/api/peaks` for ranges as it zooms. Zoomed out on a
+long take, a range spans minutes of audio, and answering it from the WAV
+meant reading most of the take off the SD card. The pyramid holds min and max
+per 256 frames, per channel, as int16 (about 1.3 MB for a 15-minute stereo
+take). Any request whose buckets are at least 256 frames wide is answered
+from it; deeper zooms read the WAV, which is a short read at that zoom
+anyway. It is built in the same loop that writes the WAV, so it costs no
+extra read, and it is checked against the take's channels and length before
+use. Takes older than the pyramid get one in the background at startup.
+
+### Shares queue
+
+`GET /api/render` runs ffmpeg. Two at once on a Pi compete with the capture
+path for CPU, so renders take turns: a second request waits, and gives up
+without starting ffmpeg if its client goes away first.
+
 ## The UI
 
 Mobile-first, no build step, no npm, no framework. Vanilla ES modules plus a
@@ -282,15 +357,25 @@ an HTTPS name and stay quiet otherwise.
 
 ### The waveform page
 
-`web/static/lib/wave/` is seven modules: `geometry` (pure pixel/frame math,
-node-tested), `tiles` (fetches and caches `/api/peaks` ranges), `overview`
-(the strip above the main waveform — drag, tap and double-tap-to-fit
-navigation, node-tested), `view` (canvas rendering and gestures: one-finger
-drag selects a region, which always loops; wheel/pinch/two-finger zoom and
-pan), `clock` (playback position), `share` (MP3 sniffing and the
-share-sheet/download fallback for a rendered region, node-tested), and `page`
-(wiring). It is backed by four endpoints: `GET /api/peaks?file=&from=&to=&buckets=`
-for on-demand ranges, `POST /api/cut?file=` to export a region as a new take
-with declick fades, `GET /api/slice?file=&from=&to=` to audition a region
-before cutting it, and `GET /api/render?file=&from=&to=` to stream an MP3 of
-the region through ffmpeg for the share sheet.
+`web/static/lib/wave/` is nine modules. The pure parts of each are
+node-tested.
+
+| Module | What it does |
+|---|---|
+| `geometry` | Pixel and frame math every other module shares |
+| `tiles` | Fetches and caches `/api/peaks` ranges, drawing the coarsest thing it has until the finer tile arrives |
+| `overview` | The whole-take strip above the main waveform: drag, tap and double-tap-to-fit navigation |
+| `view` | Canvas painting and gestures. One finger pans; press and hold, then drag, to select a region; wheel, pinch and two fingers zoom |
+| `clock` | The one playback position: the preview MP3 for the whole take, or `/api/slice` looped in Web Audio for a region |
+| `lanes` | The MIDI lanes under the waveform, from `/api/midi` |
+| `rising` | The rising-notes view of the same MIDI |
+| `share` | The action row's wording, and getting a rendered region off the phone |
+| `page` | Owns the take's editable state and wires the rest together |
+
+The page loads its take with `GET /api/take?file=` and fetches it again when
+it comes back into view, merging what another device changed: flags, label,
+tempo and grid always, the selection only when there's no unsaved edit of
+its own. Flags are added, relabelled and removed one at a time through
+`/api/take/flags`, by id. Exports go through `POST /api/cut` (a new take with
+declick fades), `GET /api/render` (an MP3 for the share sheet) and
+`GET /api/bundle` (a zip with the MIDI).

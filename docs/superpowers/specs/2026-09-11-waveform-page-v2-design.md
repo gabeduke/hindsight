@@ -1,6 +1,6 @@
 # Waveform page v2 — the late-night share flow
 
-**Date:** 2026-09-11 · **Status:** approved by the owner in chat, not planned · **Repo:** `hindsight`
+**Date:** 2026-09-11 · **Status:** implemented · **Repo:** `hindsight`
 
 ## Goal
 

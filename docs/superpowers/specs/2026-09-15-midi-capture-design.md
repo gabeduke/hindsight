@@ -1,6 +1,6 @@
 # MIDI capture — aligned multitrack MIDI beside every take
 
-**Date:** 2026-09-15 · **Status:** built overnight from the owner's plan, awaiting owner review · **Repo:** `hindsight`
+**Date:** 2026-09-15 · **Status:** implemented · **Repo:** `hindsight`
 
 ## Goal
 

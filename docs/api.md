@@ -1,6 +1,6 @@
 # HTTP API
 
-Sixteen routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Twenty routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -15,10 +15,14 @@ internet.
 | `GET /api/envelope` | The buffer ribbon's amplitude envelope over the whole ring |
 | `POST /api/trigger?seconds=N` | Save the last N seconds; `0` is the whole ring |
 | `GET /api/jams` | Takes, starred first then newest first. Sends an ETag |
-| `PATCH /api/take?file=` | Edit a take's label, star, trim, BPM and flags |
+| `GET /api/take?file=` | One take, in the same shape as an entry of `/api/jams` |
+| `PATCH /api/take?file=` | Edit a take's label, star, trim, BPM, downbeat, lane kinds and flags |
+| `POST /api/take/flags?file=` | Add one flag to a take |
+| `PATCH /api/take/flags?file=&id=` | Move or relabel one flag |
+| `DELETE /api/take/flags?file=&id=` | Remove one flag |
 | `POST /api/flag` | Mark a moment of interest at the ring's newest frame |
 | `DELETE /api/flag` | Remove one live mark (`?frame=`), or every one (`?all=1`) |
-| `GET /api/peaks?file=` | Precomputed waveform, so phones do not download audio to draw one |
+| `GET /api/peaks?file=` | Precomputed waveform, so phones do not download audio to draw one; with a range, that range's peaks |
 | `GET /api/download?file=[&dl=1]` | Stream inline, or force a download |
 | `DELETE /api/delete?file=` | Remove a take and its sidecars |
 | `POST /api/cut?file=` | Export a region of a take as a new take, with 3ms declick fades |
@@ -28,7 +32,7 @@ internet.
 | `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
 
 `GET` routes also accept `HEAD`, except `/api/live`, which is a WebSocket
-upgrade, and `/api/render`, which does not.
+upgrade, and `/api/render` and `/api/bundle`, which stream.
 
 ---
 
@@ -153,8 +157,8 @@ not parse. `Cache-Control: no-store`.
 Copies the last `N` seconds out of the ring and writes a WAV. `seconds=0`, or
 omitting it, means the whole ring.
 
-The response is not sent until the WAV and its `.peaks.json` are on disk, and
-the BPM stamped. Only the `_preview.mp3` is backgrounded, so a take appears in
+The response is not sent until the WAV, its `.peaks.json` and `.peaks.bin`
+are on disk, and the BPM stamped. Only the `_preview.mp3` is backgrounded, so a take appears in
 the list with `has_peaks` already true and `has_preview` false for the length of
 one ffmpeg encode — which is what the UI's "waveform pending…" row is waiting
 on.
@@ -187,6 +191,13 @@ forward to the first downbeat instead.
 Every take in `OUTPUT_DIR`, **starred first, then newest first**. Starring is
 how a take stays in reach once newer ones have pushed it down.
 
+"Newest" is the take's `created` time: written into its sidecar when it is
+saved or cut, and for a take older than that field, read from its
+`jam_<timestamp>` name (local time), falling back to the file's modification
+time. It used to be the modification time alone, which moved an old take back
+to the top -- and out of the pruner's reach -- whenever a flag edit rewrote
+its cue chunk.
+
 ```json
 [{
   "name": "jam_2026-09-09_145852.wav",
@@ -203,7 +214,7 @@ how a take stays in reach once newer ones have pushed it down.
   "label": "",
   "starred": false,
   "bpm": 96,
-  "flags": [{ "frame": 100 }, { "frame": 900 }],
+  "flags": [{ "id": "f100", "frame": 100 }, { "id": "r9c41e0a2", "frame": 900, "label": "drop" }],
   "downbeat_frame": null,
   "lane_kinds": { "bento ch1": "notes" },
   "source": { "name": "jam_src.wav", "start_frame": 1000, "end_frame": 9000 }
@@ -216,9 +227,28 @@ how a take stays in reach once newer ones have pushed it down.
 Duration and layout come from each file's own header, so takes recorded under
 an older channel configuration still report correctly.
 
+Every flag has an `id`, which is what the per-flag endpoints below address it
+by. A flag saved before ids existed reads as `f<frame>`, and keeps that id
+from then on even if it moves.
+
 The response carries an `ETag`; send it back as `If-None-Match` and an
 unchanged list answers 304. That is what keeps the 5-second poll from
-re-rendering the list and interrupting a playing preview.
+re-rendering the list and interrupting a playing preview. The ETag is a hash
+of each take's file sizes and modification times, from one directory listing,
+and the takes are cached against the same signatures, so a 304 costs no
+header parsing and no sidecar reads, and a change re-reads only the takes it
+touched.
+
+A take appears only once it is complete: saves and cuts write the audio to a
+hidden `.<name>.part` file and rename it into place last.
+
+## `GET /api/take?file=`
+
+One take, in exactly the shape of an entry of `GET /api/jams`. The waveform
+page loads with this rather than fetching the whole list, and fetches it again
+when it comes back into view, to pick up edits made on another device.
+`Cache-Control: no-cache`. 400 for a bad `file`, 404 if there is no such
+take.
 
 ## `PATCH /api/take?file=`
 
@@ -236,9 +266,9 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 |---|---|---|
 | `label` | string | Control and Unicode format characters stripped, trimmed, capped at 120 runes |
 | `starred` | bool | |
-| `trim` | `{start_frame, end_frame}` or `null` | `start_frame` must be `>= 0` **and** `end_frame` must exceed `start_frame`; `null` clears |
+| `trim` | `{start_frame, end_frame}` or `null` | `start_frame` must be `>= 0`, `end_frame` must exceed `start_frame`, and `end_frame` must not pass the take's frame count; `null` clears |
 | `bpm` | number or `null` | 20–400, rounded to two decimals; rejects NaN and ±Inf; `null` clears |
-| `flags` | `[{frame, label}]` or `null` | A full replacement of the take's flags. Capped at 512; `frame` must be `>= 0` and less than the take's frame count; `null` clears. `label` is sanitized like the take label (control characters stripped, trimmed, 120 runes) |
+| `flags` | `[{id?, frame, label}]` or `null` | A full replacement of the take's flags. An `id` that isn't one the server could have made is dropped, and the flag gets a legacy one. Capped at 512; `frame` must be `>= 0` and less than the take's frame count; `null` clears. `label` is sanitized like the take label (control characters stripped, trimmed, 120 runes). Kept for scripts: the UI uses the per-flag endpoints below, because a full replacement from a page that has been open a while silently undoes a flag another device added |
 | `downbeat_frame` | integer or `null` | Where bar 1 falls, for the waveform page's grid. `>= 0` and less than the take's frame count; `null` clears |
 | `lane_kinds` | `{"<track name>": "drums"\|"notes"}` or `null` | A full replacement of the take's per-lane overrides for `GET /api/midi`'s drum guess. At most 64 entries; keys sanitized like labels; `null` clears |
 
@@ -262,10 +292,60 @@ stays 200, because the sidecar (the source of truth) already saved.
 | 500 | The sidecar write failed for any other reason. The detail is logged, not returned — the real error names absolute paths and the temp-file scheme |
 | 507 | Disk full |
 
+Every write to a take's sidecar -- this PATCH, the per-flag endpoints, the
+saver's tempo and flag stamps, the MIDI exporter's downbeat -- runs under a
+per-take lock, from the read through the cue-chunk rewrite. Two edits at once
+both land; before the lock, the second silently discarded the first.
+
 The tempo range is deliberately far wider than any interface will produce,
 because the stamped BPM is a device's guess rather than ground truth — see the
 MIDI section of [architecture.md](architecture.md). The field exists to be
 overridden, including for takes whose clock reading was confidently wrong.
+
+## `POST /api/take/flags?file=`, `PATCH /api/take/flags?file=&id=`, `DELETE /api/take/flags?file=&id=`
+
+One flag at a time, by id, so two devices editing the same take's flags can't
+undo each other's work.
+
+```bash
+# add
+curl -X POST 'http://127.0.0.1:5000/api/take/flags?file=jam_2026-09-09_145852.wav' \
+  -H 'Content-Type: application/json' -d '{"frame":96000,"label":"drop"}'
+# relabel or move
+curl -X PATCH 'http://127.0.0.1:5000/api/take/flags?file=jam_2026-09-09_145852.wav&id=r9c41e0a2' \
+  -H 'Content-Type: application/json' -d '{"label":"the drop"}'
+# remove
+curl -X DELETE 'http://127.0.0.1:5000/api/take/flags?file=jam_2026-09-09_145852.wav&id=r9c41e0a2'
+```
+
+| Field | Notes |
+|---|---|
+| `id` | `POST` only, optional: the new flag's id, `r` and eight lowercase hex characters. Made by the page, so it can label or delete a flag before the `POST` answers |
+| `frame` | Required for `POST`, optional for `PATCH`. `>= 0` and less than the take's frame count |
+| `label` | Optional. Sanitized like the take label |
+
+Without an `id`, the server makes one. A `POST` whose `id` the take already
+has adds nothing and answers as if it had, so a retry is harmless. Two flags
+may share a frame if their ids differ. The page sends its flag requests for a
+take one at a time, in order, so a label sent straight after an add never
+arrives first. Each call runs under the take's lock, rewrites
+the WAV's cue points like the whole-array PATCH, and answers:
+
+```json
+{ "flag": { "id": "r9c41e0a2", "frame": 96000, "label": "drop" }, "flags": [ ... ], "cue_error": "..." }
+```
+
+`flag` is the flag added, changed or removed; `flags` is the take's whole list
+afterwards, so the caller can resync; `cue_error` appears only when the
+sidecar saved but the cue chunk could not be rewritten.
+
+| Status | When |
+|---|---|
+| 400 | Bad `file`, malformed body, missing `frame` (`POST`) or `id` (`PATCH`, `DELETE`), a malformed `id`, a frame out of range, or a take already carrying 512 flags |
+| 404 | No such take (including one deleted while the request waited for the lock), or no flag with that `id` |
+| 409 | The sidecar was written by a newer build |
+| 500 | The sidecar write failed. The detail is logged |
+| 507 | Disk full |
 
 ## `POST /api/flag`
 
@@ -329,6 +409,14 @@ that range instead of served from the file. The response has the same shape
 plus `"from"`, and `duration` describes the range. All three or none: a
 partial set is 400. The waveform page uses this for every zoomed view.
 
+When each bucket spans at least 256 frames, the answer comes from the take's
+peaks pyramid (`.peaks.bin`: min and max per 256 frames, as 16-bit values)
+rather than from the audio, so a zoomed-out view of a 15-minute take reads at most
+1.3 MB instead of most of the WAV's 350. Values are then rounded outward
+to the nearest 1/32768, and a bucket edge that falls inside a 256-frame block
+takes in that whole block (at most 5ms). Deeper zooms, and takes whose
+pyramid has not been built yet, read the WAV exactly as before.
+
 ## `GET /api/download?file=[&dl=1]`
 
 Serves the take, its mp3 preview, its `.mid` or its `.manifest.json`, with
@@ -353,10 +441,17 @@ Writes frames `[start_frame, end_frame)` of the take as a new take
 `jam_<now>.wav` in the same directory, with a linear 3ms fade at each edge
 and the audio between them byte-identical to the source. The new sidecar
 carries the given `label` (sanitized like a take label; default
-`"<source label or stem> cut"`), the source's `bpm`, any flags inside the
+`"<source label or stem> · <m:ss>–<m:ss>"`, with tenths of a second for a
+region under ten seconds, and a cut of a cut replacing the span rather than
+adding another), the source's `bpm` and `lane_kinds`, any flags inside the
 region rebased to it, and a `source` field `{name, start_frame, end_frame}`.
-Star, trim and downbeat are not copied. The source is never modified.
-The preview mp3 is rendered in the background, as after a save.
+The source's downbeat is carried onto the cut's grid: with a BPM, the first
+bar line at or after the region's start; without one, only a downbeat inside
+the region. Star and trim are not copied. The source is never modified.
+The cut appears in the list only once it is complete, and `MAX_SAVES` is
+enforced afterwards, as after a save -- sparing the cut and the take it was
+cut from, which can leave the list one or two over until the next capture. The preview mp3 is rendered in the
+background.
 
 Response: `200 {"name": "jam_2026-09-10_221441.wav"}`.
 
@@ -379,7 +474,9 @@ region was chosen by ear rather than by the grid.
 Streams frames `[from, to)` as a complete **16-bit** PCM WAV with the same
 3ms fades `POST /api/cut` applies, so what the waveform page loops is exactly
 what a cut will produce. 16-bit because browsers cannot reliably decode
-32-bit integer WAV. Capped at 60 seconds. `Content-Length` is exact.
+32-bit integer WAV. A take with more than two channels plays the
+`SAVE_CHANNELS` pair, as previews and shares do. Capped at 60 seconds.
+`Content-Length` is exact.
 
 | Status | When |
 |---|---|
@@ -395,6 +492,11 @@ at 10 minutes. `Content-Disposition` names the file
 `<label or stem> <m.ss>-<m.ss>.mp3`, or `<label or stem>.mp3` for the whole
 take, so the share sheet shows a readable title. No `Content-Length`: the
 stream's size is unknown until it ends.
+
+Renders run one at a time: each is an ffmpeg process, and two at once on a
+Pi starve the capture path of CPU. A second request waits for the first to
+finish, and gives up without starting ffmpeg if its client disconnects
+while waiting.
 
 | Status | When |
 |---|---|
@@ -450,7 +552,8 @@ response carries `X-Hindsight-Midi: none`.
 ## `DELETE /api/delete?file=`
 
 Removes the take and every sidecar: `_preview.mp3`, `.peaks.json`,
-`.meta.json`. Takes the `.wav` name.
+`.peaks.bin`, `.meta.json`, `.mid` and `.manifest.json`. Takes the `.wav`
+name.
 
 ```json
 { "status": "deleted", "name": "jam_2026-09-09_145852.wav" }

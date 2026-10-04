@@ -231,13 +231,14 @@ func (e *Exporter) Export(req audio.MIDIExportRequest) error {
 	// an arbitrary bar line on a take the owner has not looked at yet. And
 	// only when the sidecar has none: an owner's placement is never moved.
 	if downbeat != nil && downbeat.Source == "midi-start" {
-		meta := audio.ReadMeta(req.WavPath)
-		if meta.DownbeatFrame == nil {
-			frame := int64(downbeat.Sec * float64(req.SampleRate))
-			meta.DownbeatFrame = &frame
-			if err := audio.WriteMeta(req.WavPath, meta); err != nil {
-				log.Printf("[!] midi: downbeat for %s: %v", filepath.Base(req.WavPath), err)
+		frame := int64(downbeat.Sec * float64(req.SampleRate))
+		if _, err := audio.UpdateMeta(req.WavPath, func(meta *audio.Meta) error {
+			if meta.DownbeatFrame == nil {
+				meta.DownbeatFrame = &frame
 			}
+			return nil
+		}); err != nil {
+			log.Printf("[!] midi: downbeat for %s: %v", filepath.Base(req.WavPath), err)
 		}
 	}
 	return nil

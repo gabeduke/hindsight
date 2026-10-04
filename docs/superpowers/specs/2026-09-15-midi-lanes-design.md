@@ -1,6 +1,6 @@
 # MIDI lanes on the take page, and the DAW bundle
 
-**Date:** 2026-09-15 · **Status:** approved by the owner in chat · **Repo:** `hindsight`
+**Date:** 2026-09-15 · **Status:** implemented · **Repo:** `hindsight`
 
 ## Goal
 

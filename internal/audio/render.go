@@ -37,15 +37,11 @@ func RenderArgs(wavPath string, info WAVInfo, saveChannels []int, from, to int64
 		"atrim=start_sample=%d:end_sample=%d,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=%g,afade=t=out:st=%s:d=%g",
 		from, to, renderFadeSeconds, trimFloat(st), renderFadeSeconds,
 	)
-	if info.Channels > 2 {
-		l, r := 0, 0
-		if len(saveChannels) > 0 {
-			l, r = saveChannels[0], saveChannels[0]
-		}
-		if len(saveChannels) > 1 {
-			r = saveChannels[1]
-		}
-		chain += fmt.Sprintf(",pan=stereo|c0=c%d|c1=c%d", l, r)
+	if pick := SlicePick(info, saveChannels); pick != nil {
+		// The same pair a slice plays, so the share is what was looped --
+		// including the fallback to the first two channels when the
+		// configured pair isn't in this take.
+		chain += fmt.Sprintf(",pan=stereo|c0=c%d|c1=c%d", pick[0], pick[1])
 	} else if info.Channels == 1 {
 		chain += ",pan=stereo|c0=c0|c1=c0"
 	}

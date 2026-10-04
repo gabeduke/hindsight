@@ -1,6 +1,6 @@
 # The editing model, and refining the base app
 
-**Date:** 2026-10-03 · **Status:** design, awaiting owner review · **Repo:** `hindsight`
+**Date:** 2026-10-03 · **Status:** approved by the owner 2026-10-03; step 1 (solid ground) built · **Repo:** `hindsight`
 
 Companions: [the tape design](2026-10-03-tape-design.md),
 [the OP-1 Field tape study](2026-10-03-op1-tape-study.md),
@@ -350,9 +350,9 @@ These land first. Most are invisible.
 4. **Creation time is stored, not read from the filesystem.**
    - Every take gets `created` in its sidecar: stamped at save, cut or phone
      upload, as RFC 3339 with its zone.
-   - A take that has none is stamped from its modification time the first
-     time the server sees it, and the server never reads the modification time
-     again.
+   - A take that predates the field takes its time from its `jam_<ts>` name,
+     and only failing that from its modification time. That way a list request
+     never writes anything.
    - Cue rewrites then can't reorder a take or protect it from pruning.
 5. **Smaller fixes:**
    - The trim PATCH is bounds-checked.

@@ -1,7 +1,7 @@
 // web/static/lib/wave/overview.js
-// The whole-take strip above the main waveform. It exists so the main
-// waveform's one-finger drag can select a region: navigation lives here.
-// The pure functions are what the tests cover; the class is the canvas
+// The whole-take strip above the main waveform: navigation across the whole
+// take. Drag the window to pan, tap outside it to centre the view there, and
+// double-tap to fit the whole take. The pure functions are what the tests cover; the class is the canvas
 // and pointer plumbing around them.
 export const OVERVIEW_MIN_WINDOW_PX = 24;
 const TAP_MOVE = 6;

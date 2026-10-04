@@ -3,11 +3,13 @@ package audio
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -247,33 +249,36 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		s.mu.Unlock()
 	}()
 
-	ts := time.Now().Format("2006-01-02_150405")
-	name := fmt.Sprintf("jam_%s.wav", ts)
-	wavPath := filepath.Join(cfg.OutputDir, name)
-	// Two saves in the same second must not collide: the second becomes _2,
-	// as Cut already does. Overwriting a take is the one failure that loses
-	// audio outright, and a double tap on the capture button is how it
-	// would happen.
-	for n := 2; exists(wavPath); n++ {
-		name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
-		wavPath = filepath.Join(cfg.OutputDir, name)
+	savedAt := time.Now()
+	name, wavPath, err := freeTakeName(cfg.OutputDir, savedAt)
+	if err != nil {
+		return "", fmt.Errorf("name take: %w", err)
 	}
+	// The audio goes to a hidden temporary file and is renamed into place
+	// only once its sidecars are written: the list is polled every five
+	// seconds, and a 15-minute take takes long enough to write that it used
+	// to be listed, and openable, while still half on disk.
+	tmpPath := PartPath(wavPath)
 
 	pick := cfg.OutChannels()
 	start := time.Now()
-	peaks, err := WriteWAV(wavPath, data, cfg.Channels, pick, cfg.SampleRate)
+	peaks, pyr, err := writeWAV(tmpPath, data, cfg.Channels, pick, cfg.SampleRate)
 	if err != nil {
-		os.Remove(wavPath)
+		os.Remove(tmpPath)
 		return "", fmt.Errorf("write wav: %w", err)
 	}
 	log.Printf("[*] saved %s — %.1fs, %d ch, %s in %s",
 		name, float64(gotFrames)/float64(cfg.SampleRate), len(pick),
-		sizeOf(wavPath), time.Since(start).Round(time.Millisecond))
+		sizeOf(tmpPath), time.Since(start).Round(time.Millisecond))
 
 	if err := WritePeaks(peaksPath(wavPath), peaks); err != nil {
 		log.Printf("[!] peaks for %s: %v", name, err)
 	}
-	stampFlags(wavPath, takeFlags)
+	if err := pyr.write(wavPath, cfg.SampleRate); err != nil {
+		log.Printf("[!] peaks pyramid for %s: %v", name, err)
+	}
+	stampCreated(wavPath, savedAt)
+	stampFlagsAt(wavPath, tmpPath, takeFlags)
 
 	stampTempo(wavPath, s.tempoSource(), capturedAt,
 		time.Duration(float64(gotFrames)/float64(cfg.SampleRate)*float64(time.Second)))
@@ -287,6 +292,12 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		SavedAt:    capturedAt,
 	})
 
+	if err := os.Rename(tmpPath, wavPath); err != nil {
+		os.Remove(tmpPath)
+		RemoveTake(cfg.OutputDir, name) // the sidecars, which would otherwise be orphans
+		return "", fmt.Errorf("finish wav: %w", err)
+	}
+
 	s.mu.Lock()
 	s.lastSaved = name
 	s.mu.Unlock()
@@ -295,6 +306,111 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	go s.prune()
 
 	return name, nil
+}
+
+// freeTakeName picks the take's name from the time it was saved: jam_<ts>.wav,
+// or jam_<ts>_N.wav when that second is taken -- by a finished take or by one
+// still being written -- and reserves it by creating its empty .part file.
+// Two takes in the same second must not collide: overwriting a take is the
+// one failure that loses audio outright, and a save and a cut landing
+// together is how it would happen. The .part is created exclusively, so only
+// one writer can hold a name, and the final name is checked again once it is
+// held, in case another writer renamed its take into place in between.
+func freeTakeName(dir string, at time.Time) (name, path string, err error) {
+	ts := at.Format(takeNameLayout)
+	for n := 1; ; n++ {
+		name = fmt.Sprintf("jam_%s.wav", ts)
+		if n > 1 {
+			name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
+		}
+		path = filepath.Join(dir, name)
+		if exists(path) {
+			continue
+		}
+		f, err := os.OpenFile(PartPath(path), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return "", "", err
+		}
+		f.Close()
+		if exists(path) {
+			os.Remove(PartPath(path))
+			continue
+		}
+		return name, path, nil
+	}
+}
+
+// PartPath is where a take's audio is written before it is complete: the
+// same directory, a dot-prefixed name and a .part extension, both of which
+// keep it out of ListTakes.
+func PartPath(wav string) string {
+	return filepath.Join(filepath.Dir(wav), "."+filepath.Base(wav)+".part")
+}
+
+// SweepPartials removes what a crash mid-save or mid-cut can leave behind: a
+// .part file, and the sidecars written for a take whose WAV never made it --
+// and any peaks pyramid whose take is gone. Called once at startup, before
+// anything else writes to the directory.
+func SweepPartials(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() {
+			continue
+		}
+		// A sidecar write's temporary file, from a crash mid-write.
+		if (strings.HasPrefix(n, ".meta-") || strings.HasPrefix(n, ".pyramid-")) && strings.HasSuffix(n, ".tmp") {
+			os.Remove(filepath.Join(dir, n))
+			continue
+		}
+		// This program's own sidecars whose take is gone: a pyramid built
+		// while its take was being deleted, a take removed by hand. Exports
+		// a person might want (.mp3, .mid, the manifest) are left alone.
+		if stem, ok := internalSidecarStem(n); ok {
+			wav := filepath.Join(dir, stem+".wav")
+			if !exists(wav) && !exists(PartPath(wav)) {
+				os.Remove(filepath.Join(dir, n))
+			}
+			continue
+		}
+		if e.IsDir() || !strings.HasPrefix(n, ".") || !strings.HasSuffix(n, ".wav.part") {
+			continue
+		}
+		final := strings.TrimSuffix(strings.TrimPrefix(n, "."), ".part")
+		log.Printf("[*] removing unfinished take %s", final)
+		os.Remove(filepath.Join(dir, n))
+		if !exists(filepath.Join(dir, final)) {
+			RemoveTake(dir, final)
+		}
+	}
+}
+
+// internalSidecarStem returns the take stem of a .meta.json, .peaks.json or
+// .peaks.bin name.
+func internalSidecarStem(name string) (string, bool) {
+	if strings.HasPrefix(name, ".") {
+		return "", false
+	}
+	for _, suf := range []string{".meta.json", ".peaks.json", ".peaks.bin"} {
+		if strings.HasSuffix(name, suf) {
+			return strings.TrimSuffix(name, suf), true
+		}
+	}
+	return "", false
+}
+
+// stampCreated records when a take was made. Like the other stamps it runs
+// after the audio is safely written and never fails the save.
+func stampCreated(wavPath string, at time.Time) {
+	if _, err := UpdateMeta(wavPath, func(m *Meta) error { m.Created = &at; return nil }); err != nil {
+		log.Printf("[!] created time for %s: %v", filepath.Base(wavPath), err)
+	}
 }
 
 // flagsForWindow maps live marks, which are absolute ring frames, into frames
@@ -340,9 +456,7 @@ func stampTempo(wavPath string, src TempoSource, end time.Time, window time.Dura
 	// the field is a starting point the owner edits, not a measurement.
 	bpm = math.Round(bpm*100) / 100
 
-	m := ReadMeta(wavPath)
-	m.BPM = &bpm
-	if err := WriteMeta(wavPath, m); err != nil {
+	if _, err := UpdateMeta(wavPath, func(m *Meta) error { m.BPM = &bpm; return nil }); err != nil {
 		log.Printf("[!] midi: bpm for %s: %v", filepath.Base(wavPath), err)
 		return
 	}
@@ -386,24 +500,32 @@ func exportMIDI(e MIDIExporter, req MIDIExportRequest) {
 // Like stampTempo, this runs after the audio is safely on disk and must never
 // fail the save. The sidecar is the source of truth; the cue chunk is a derived
 // export, so a cue failure is logged and the flags are kept.
-func stampFlags(wavPath string, flags []Flag) {
+func stampFlags(wavPath string, flags []Flag) { stampFlagsAt(wavPath, wavPath, flags) }
+
+// stampFlagsAt is stampFlags for a take whose audio is still being written
+// under another name: the sidecar belongs to the take's final name, metaWav,
+// while the cue chunk goes into the file that holds the audio right now,
+// cueWav. A save and a cut both write the WAV under a temporary name and
+// rename it into place last, so the list never shows a half-written take.
+func stampFlagsAt(metaWav, cueWav string, flags []Flag) {
 	flags = NormalizeFlags(flags)
 	if len(flags) == 0 {
 		return
 	}
 
-	m := ReadMeta(wavPath)
-	m.Flags = flags
-	if err := WriteMeta(wavPath, m); err != nil {
-		log.Printf("[!] flags for %s: %v", filepath.Base(wavPath), err)
+	unlock := LockTake(metaWav)
+	defer unlock()
+	m, err := updateMetaLocked(metaWav, func(m *Meta) error { m.Flags = flags; return nil })
+	if err != nil {
+		log.Printf("[!] flags for %s: %v", filepath.Base(metaWav), err)
 		return
 	}
 
-	if err := WriteCuePoints(wavPath, flags); err != nil {
-		log.Printf("[!] cue points for %s: %v", filepath.Base(wavPath), err)
+	if err := WriteCuePoints(cueWav, m.Flags); err != nil {
+		log.Printf("[!] cue points for %s: %v", filepath.Base(metaWav), err)
 		return
 	}
-	log.Printf("[*] %s — %d flag(s)", filepath.Base(wavPath), len(flags))
+	log.Printf("[*] %s — %d flag(s)", filepath.Base(metaWav), len(m.Flags))
 }
 
 func (s *Saver) makePreview(wavPath string, outCh int) { MakePreview(s.cap.cfg, wavPath, outCh) }
@@ -445,8 +567,14 @@ func MakePreview(cfg *config.Config, wavPath string, outCh int) {
 	log.Printf("[*] preview ready: %s", filepath.Base(mp3Path))
 }
 
+// Prune enforces MAX_SAVES now, sparing the takes named in keep. Save does
+// it itself; anything else that makes a take -- a cut, for now -- calls this.
+func (s *Saver) Prune(keep ...string) { s.prune(keep...) }
+
 // prune enforces MAX_SAVES by deleting the oldest takes and their sidecars.
-func (s *Saver) prune() {
+// A take in keep is skipped, which can leave the list one or two over until
+// the next save prunes again.
+func (s *Saver) prune(keep ...string) {
 	max := s.cap.cfg.MaxSaves
 	if max <= 0 {
 		return
@@ -456,6 +584,9 @@ func (s *Saver) prune() {
 		return
 	}
 	for _, t := range takes[max:] {
+		if slices.Contains(keep, t.Name) {
+			continue
+		}
 		log.Printf("[*] pruning %s (over MAX_SAVES=%d)", t.Name, max)
 		RemoveTake(s.cap.cfg.OutputDir, t.Name)
 	}
@@ -504,54 +635,81 @@ func ListTakes(dir string) ([]Take, error) {
 		if err != nil {
 			continue
 		}
-		full := filepath.Join(dir, e.Name())
-		prev := filepath.Base(previewPath(full))
-
-		t := Take{
-			Name:       e.Name(),
-			SizeMB:     float64(info.Size()) / (1024 * 1024),
-			Created:    info.ModTime(),
-			HasPreview: exists(previewPath(full)),
-			HasPeaks:   exists(peaksPath(full)),
-			HasMIDI:    exists(MIDIPath(full)),
-			Preview:    prev,
-			MIDI:       filepath.Base(MIDIPath(full)),
-		}
-		if wi, err := ReadWAVInfo(full); err == nil {
-			t.Duration = wi.Duration()
-			t.Channels = wi.Channels
-			t.SampleRate = wi.SampleRate
-		}
-
-		m := ReadMeta(full)
-		t.Label = m.Label
-		t.Starred = m.Starred
-		t.Trim = m.Trim
-		t.BPM = m.BPM
-		t.Flags = m.Flags
-		t.DownbeatFrame = m.DownbeatFrame
-		t.Source = m.Source
-		t.LaneKinds = m.LaneKinds
-
-		out = append(out, t)
+		out = append(out, takeFromFile(dir, e.Name(), info))
 	}
-	// Starred first, then newest. Starring is how a take is kept in reach once
-	// newer ones have pushed it down the list.
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Starred != out[j].Starred {
-			return out[i].Starred
-		}
-		return out[i].Created.After(out[j].Created)
-	})
+	SortTakes(out)
 	return out, nil
 }
 
-// RemoveTake deletes a take and its sidecar files.
+// SortTakes orders takes the way the list shows them: starred first, then
+// newest. Starring is how a take is kept in reach once newer ones have pushed
+// it down the list.
+func SortTakes(takes []Take) {
+	sort.SliceStable(takes, func(i, j int) bool {
+		if takes[i].Starred != takes[j].Starred {
+			return takes[i].Starred
+		}
+		if !takes[i].Created.Equal(takes[j].Created) {
+			return takes[i].Created.After(takes[j].Created)
+		}
+		return takes[i].Name > takes[j].Name
+	})
+}
+
+// ReadTake describes one take, exactly as ListTakes would.
+func ReadTake(dir, name string) (Take, error) {
+	info, err := os.Stat(filepath.Join(dir, filepath.Base(name)))
+	if err != nil {
+		return Take{}, err
+	}
+	if !info.Mode().IsRegular() {
+		return Take{}, os.ErrNotExist
+	}
+	return takeFromFile(dir, filepath.Base(name), info), nil
+}
+
+// takeFromFile reads one take's header and sidecar into a Take.
+func takeFromFile(dir, name string, info os.FileInfo) Take {
+	full := filepath.Join(dir, name)
+	t := Take{
+		Name:       name,
+		SizeMB:     float64(info.Size()) / (1024 * 1024),
+		HasPreview: exists(previewPath(full)),
+		HasPeaks:   exists(peaksPath(full)),
+		HasMIDI:    exists(MIDIPath(full)),
+		Preview:    filepath.Base(previewPath(full)),
+		MIDI:       filepath.Base(MIDIPath(full)),
+	}
+	if wi, err := ReadWAVInfo(full); err == nil {
+		t.Duration = wi.Duration()
+		t.Channels = wi.Channels
+		t.SampleRate = wi.SampleRate
+	}
+
+	m := ReadMeta(full)
+	t.Created = TakeCreated(name, m, info.ModTime())
+	t.Label = m.Label
+	t.Starred = m.Starred
+	t.Trim = m.Trim
+	t.BPM = m.BPM
+	t.Flags = EnsureFlagIDs(m.Flags)
+	t.DownbeatFrame = m.DownbeatFrame
+	t.Source = m.Source
+	t.LaneKinds = m.LaneKinds
+	return t
+}
+
+// RemoveTake deletes a take and its sidecar files. It holds the take's lock
+// so a sidecar write in flight cannot recreate a .meta.json for a take that
+// is already gone.
 func RemoveTake(dir, name string) {
 	base := filepath.Join(dir, filepath.Base(name))
+	unlock := LockTake(base)
+	defer unlock()
 	os.Remove(base)
 	os.Remove(previewPath(base))
 	os.Remove(peaksPath(base))
+	os.Remove(pyramidPath(base))
 	os.Remove(metaPath(base))
 	os.Remove(MIDIPath(base))
 	os.Remove(ManifestPath(base))

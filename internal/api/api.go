@@ -2,8 +2,7 @@
 package api
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -49,10 +47,29 @@ type API struct {
 	saver *audio.Saver
 	env   *audio.Envelope
 	midi  MIDISource
+	takes *audio.TakeList
+
+	// renderSlot lets one share render run at a time. Each is an ffmpeg
+	// encode of up to ten minutes of audio; two at once on a Pi compete with
+	// each other and with everything else for no gain. A second share waits
+	// its turn rather than failing.
+	renderSlot chan struct{}
 }
 
 func New(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, env *audio.Envelope, m MIDISource) *API {
-	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m}
+	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m,
+		takes: audio.NewTakeList(cfg.OutputDir), renderSlot: make(chan struct{}, 1)}
+}
+
+// acquireRender waits for the render slot, or gives up when ctx ends -- a
+// client that closes the tab stops waiting as well as stops encoding.
+func (a *API) acquireRender(ctx context.Context) (release func(), ok bool) {
+	select {
+	case a.renderSlot <- struct{}{}:
+		return func() { <-a.renderSlot }, true
+	case <-ctx.Done():
+		return nil, false
+	}
 }
 
 // liveTempoWindow is how far back the status poll asks about. Eight seconds is
@@ -81,7 +98,11 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/jams", a.handleJams).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/trigger", a.handleTrigger).Methods(http.MethodPost)
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/api/take", a.handleTakeGet).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/take", a.handleTakePatch).Methods(http.MethodPatch)
+	r.HandleFunc("/api/take/flags", a.handleTakeFlagPost).Methods(http.MethodPost)
+	r.HandleFunc("/api/take/flags", a.handleTakeFlagPatch).Methods(http.MethodPatch)
+	r.HandleFunc("/api/take/flags", a.handleTakeFlagDelete).Methods(http.MethodDelete)
 	r.HandleFunc("/api/cut", a.handleCut).Methods(http.MethodPost)
 	r.HandleFunc("/api/flag", a.handleFlagPost).Methods(http.MethodPost)
 	r.HandleFunc("/api/flag", a.handleFlagDelete).Methods(http.MethodDelete)
@@ -179,29 +200,30 @@ func (a *API) midiDevices() []midi.DeviceInfo {
 }
 
 func (a *API) handleJams(w http.ResponseWriter, r *http.Request) {
-	takes, err := audio.ListTakes(a.cfg.OutputDir)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if takes == nil {
-		takes = []audio.Take{}
-	}
-
-	body, err := json.Marshal(takes)
+	takes, tag, err := a.takes.List()
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// An ETag lets the client skip re-rendering the list entirely when nothing
-	// changed, which is what keeps a playing preview from being disturbed.
-	sum := sha1.Sum(body)
-	etag := `"` + hex.EncodeToString(sum[:8]) + `"`
+	// changed, which is what keeps a playing preview from being disturbed. It
+	// is computed from one directory listing (see audio.TakeList), so an
+	// unchanged list costs no JSON and no file reads.
+	etag := `"` + tag + `"`
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "no-cache")
 	if r.Header.Get("If-None-Match") == etag {
 		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	if takes == nil {
+		takes = []audio.Take{}
+	}
+	body, err := json.Marshal(takes)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -633,6 +655,12 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
 	go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels()))
+	// A cut is a new take, so MAX_SAVES applies to it as it does to a save --
+	// but never to the cut itself, or to the take it was cut from: the owner
+	// is on that take's page, and may be about to cut from it again.
+	if a.saver != nil {
+		go a.saver.Prune(name, out)
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"name": out})
 }
 
@@ -671,14 +699,15 @@ func (a *API) handleSlice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "audio/wav")
-	w.Header().Set("Content-Length", strconv.FormatInt(audio.SliceBytes(info, from, to), 10))
+	pick := audio.SlicePick(info, a.cfg.SaveChannels)
+	w.Header().Set("Content-Length", strconv.FormatInt(audio.SliceBytes(info, from, to, pick), 10))
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	// A HEAD gets the same headers -- Content-Length above is the whole point
 	// of asking -- but none of the bytes, and none of the read of the take.
 	if r.Method == http.MethodHead {
 		return
 	}
-	if err := audio.WriteSlice16(w, path, from, to); err != nil {
+	if err := audio.WriteSlice16(w, path, from, to, pick); err != nil {
 		// Headers are gone; all we can do is log and let the client see a
 		// short body, which decodeAudioData rejects.
 		log.Printf("slice %s: %v", name, err)
@@ -752,6 +781,11 @@ func (a *API) handleRender(w http.ResponseWriter, r *http.Request) {
 	// client sniffs the body for a short or non-MP3 result. Failing before the
 	// first byte (no ffmpeg on PATH, a file that vanished) is still ours to
 	// report, and a 200 with an empty body would be a lie.
+	release, ok := a.acquireRender(r.Context())
+	if !ok {
+		return // the client went away while waiting its turn
+	}
+	defer release()
 	cw := &countingWriter{w: w}
 	if err := audio.RenderMP3(r.Context(), cw, a.cfg.SaveChannels, path, from, to); err != nil {
 		log.Printf("render %s [%d,%d): %v", name, from, to, err)
@@ -830,6 +864,13 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// One writer at a time per take, from the read through the cue rewrite:
+	// see audio.LockTake.
+	unlock := audio.LockTake(wav)
+	defer unlock()
+	if !stillThere(w, wav) {
+		return
+	}
 	m := audio.ReadMeta(wav)
 
 	if body.Label != nil {
@@ -849,6 +890,10 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 			}
 			if tr.StartFrame < 0 || tr.EndFrame <= tr.StartFrame {
 				writeErr(w, http.StatusBadRequest, "trim end_frame must be greater than start_frame")
+				return
+			}
+			if n := takeFrameCount(wav); n >= 0 && tr.EndFrame > n {
+				writeErr(w, http.StatusBadRequest, "trim is past the end of the take")
 				return
 			}
 			m.Trim = &tr
@@ -919,6 +964,11 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				fl[i].Label = sanitizeLabel(fl[i].Label)
+				// An id this code could not have made is dropped, and the
+				// flag reads as a legacy one; a script can't store junk.
+				if fl[i].ID != "" && !audio.ValidFlagID(fl[i].ID) {
+					fl[i].ID = ""
+				}
 			}
 			// An impossible flag must not reach the sidecar either: reject the
 			// whole patch here rather than letting WriteCues bail out below and
@@ -973,17 +1023,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := audio.WriteMeta(wav, m); err != nil {
-		switch {
-		case errors.Is(err, audio.ErrNewerSidecar):
-			writeErr(w, http.StatusConflict, "this take was edited by a newer version")
-		case errors.Is(err, syscall.ENOSPC):
-			writeErr(w, http.StatusInsufficientStorage, "disk full")
-		default:
-			// The real error names absolute paths and the temp-file scheme, so log
-			// it and keep it off the wire.
-			log.Printf("take patch %s: %v", name, err)
-			writeErr(w, http.StatusInternalServerError, "could not save")
-		}
+		writeMetaErr(w, name, err)
 		return
 	}
 
@@ -1015,7 +1055,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Downbeat  *int64            `json:"downbeat_frame"`
 		LaneKinds map[string]string `json:"lane_kinds"`
 		CueError  string            `json:"cue_error,omitempty"`
-	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: m.Flags, Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr})
+	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr})
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control
