@@ -6,7 +6,7 @@
 
 Record from the phone, anywhere in the house, straight into Hindsight: the
 Orchid at bedtime upstairs, a riff on the couch, an idea before it's gone. It
-lands in the takes list like any other take, with the waveform, looping, cuts
+lands in the takes list like any other take, with the waveform, looping, saving
 and sharing that come with it, and it can go onto tape from there. There's no
 file to move and no second app.
 
@@ -26,16 +26,20 @@ before it.
    `MediaRecorder`: that hands back compressed AAC or Opus, in a different
    container on each browser. Because the audio goes up as it's recorded, a
    take never exists only on the phone.
-4. **The Pi writes it as it arrives,** then finalises on Stop:
+4. **The Pi writes it as it arrives, under a temporary name** the takes list
+   ignores, so a half-recorded take never shows up. On Stop it finalises:
    - resamples to 48 kHz if the phone ran at 44.1;
    - writes a 32-bit stereo WAV, with mono duplicated to both sides, so the
-     preview, waveform, cut and share paths work unchanged;
+     preview, waveform, save-as-take and share paths work unchanged;
    - builds the peaks and mp3 preview through the existing save path;
-   - writes a sidecar labelled *Phone*.
+   - writes a sidecar labelled *Phone*, with `created` set to when recording
+     started;
+   - renames the WAV into place last.
 
-   It is named like any take or cut, `jam_<ts>.wav`, with the same `_2` rule
-   for a collision, so the takes list, pruning and starring treat it like
-   everything else. `MIN_FREE_GB` is checked when recording starts.
+   It is named like any take, `jam_<ts>.wav`, with the same `_2` rule for a
+   collision, so the takes list, pruning and starring treat it like everything
+   else. `MIN_FREE_GB` is checked when recording starts, and pruning runs
+   after it lands, as after a save.
 
 ## What the browser makes us do
 
@@ -66,8 +70,8 @@ nothing on a home network or a tailnet.
 A phone has its own clock, so a phone take arrives as free material, like a
 take from the dashcam with no MIDI clock.
 
-- **Onto tape.** Trim the part on the waveform page and send it to a track.
-  As the first loop of a tape, it sets the tempo, the same way a free lift
+- **Onto tape.** Select the part on the take page and *Send to tape*.
+  As the first loop of a tape, it sets the tempo, the same way a free catch
   does. This makes *Send to tape* the bedtime path, so it moves from phase 2 of
   the tape engine into phase 1.
 - **In time with the tape, from another room.** That needs two things that
@@ -75,7 +79,7 @@ take from the dashcam with no MIDI clock.
   phase 4), and the phone's own output-to-input round trip, measured by
   playing a click through its speaker into its mic. With both, a phone part
   can land on the bar it started on. Until then, phone parts are placed by ear,
-  with the region nudge.
+  with the clip nudge.
 
 ## Building it
 
