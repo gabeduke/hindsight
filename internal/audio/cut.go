@@ -51,18 +51,17 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 		return "", ErrTooShort
 	}
 
-	name := fmt.Sprintf("jam_%s.wav", now.Format("2006-01-02_150405"))
-	outPath := filepath.Join(dir, name)
-	// Two cuts in the same second must not collide: the second becomes _2.
-	// Overwriting a take is the one failure that loses audio outright.
-	for n := 2; exists(outPath); n++ {
-		name = fmt.Sprintf("jam_%s_%d.wav", now.Format("2006-01-02_150405"), n)
-		outPath = filepath.Join(dir, name)
-	}
-	if err := writeCutWAV(srcPath, outPath, info, req.StartFrame, req.EndFrame, fade); err != nil {
-		os.Remove(outPath)
-		os.Remove(peaksPath(outPath))
+	name, outPath := freeTakeName(dir, now)
+	// Written under a temporary name and renamed into place last, like a
+	// save, so the list never shows a cut that is still being written.
+	tmpPath := PartPath(outPath)
+	fail := func(err error) (string, error) {
+		os.Remove(tmpPath)
+		RemoveTake(dir, name)
 		return "", err
+	}
+	if err := writeCutWAV(srcPath, tmpPath, peaksPath(outPath), info, req.StartFrame, req.EndFrame, fade); err != nil {
+		return fail(err)
 	}
 
 	srcMeta := ReadMeta(srcPath)
@@ -86,14 +85,17 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 			flags = append(flags, Flag{Frame: f.Frame - req.StartFrame, Label: f.Label})
 		}
 	}
+	created := now
+	m.Created = &created
 	if err := WriteMeta(outPath, m); err != nil {
-		os.Remove(outPath)
-		os.Remove(peaksPath(outPath))
-		return "", fmt.Errorf("sidecar: %w", err)
+		return fail(fmt.Errorf("sidecar: %w", err))
 	}
-	// stampFlags writes the flags into the sidecar and the cue chunk, and
+	// stampFlagsAt writes the flags into the sidecar and the cue chunk, and
 	// never fails the take (it logs), matching a save.
-	stampFlags(outPath, flags)
+	stampFlagsAt(outPath, tmpPath, flags)
+	if err := os.Rename(tmpPath, outPath); err != nil {
+		return fail(fmt.Errorf("finish wav: %w", err))
+	}
 	log.Printf("[*] cut %s from %s [%d, %d) — %.1fs", name, req.Source, req.StartFrame, req.EndFrame,
 		float64(total)/float64(info.SampleRate))
 	return name, nil
@@ -157,8 +159,8 @@ func WriteRegion32(w io.Writer, path string, from, to int64) error {
 }
 
 // writeCutWAV streams the region through the fades into a canonical 44-byte
-// header WAV and writes the peaks file beside it.
-func writeCutWAV(srcPath, outPath string, info WAVInfo, from, to, fade int64) error {
+// header WAV at outPath and writes the peaks to peaksOut.
+func writeCutWAV(srcPath, outPath, peaksOut string, info WAVInfo, from, to, fade int64) error {
 	total := to - from
 	f, err := os.Create(outPath)
 	if err != nil {
@@ -172,7 +174,7 @@ func writeCutWAV(srcPath, outPath string, info WAVInfo, from, to, fade int64) er
 	if err := f.Sync(); err != nil {
 		return err
 	}
-	if err := WritePeaks(peaksPath(outPath), acc.finish(info.SampleRate, int(total))); err != nil {
+	if err := WritePeaks(peaksOut, acc.finish(info.SampleRate, int(total))); err != nil {
 		log.Printf("[!] peaks for %s: %v", filepath.Base(outPath), err)
 	}
 	return nil

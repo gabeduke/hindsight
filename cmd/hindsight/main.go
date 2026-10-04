@@ -45,6 +45,9 @@ func main() {
 		log.Fatalf("output dir: %v", err)
 	}
 	log.Printf("[*] hindsight %s — %s", version, cfg)
+	// A crash mid-save leaves a hidden .part file; nothing else writes to the
+	// directory yet, so this is the moment to clear it.
+	audio.SweepPartials(cfg.OutputDir)
 
 	// DemoDevice and Watcher each satisfy every consumer, so both are held
 	// through their interfaces rather than asserted back out of one.

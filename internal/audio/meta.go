@@ -157,6 +157,13 @@ type Meta struct {
 	// Optional and additive, like BPM, so it needs no MetaVersion bump.
 	Flags []Flag `json:"flags,omitempty"`
 
+	// Created is when the take was saved, cut or uploaded. The takes list
+	// sorts and prunes by it. It used to be the WAV's modification time, but
+	// editing a flag rewrites the WAV's cue chunk, which moved an old take to
+	// the top of the list and out of the pruner's reach. A take that predates
+	// the field falls back to the time in its jam_<ts> name (see TakeCreated).
+	Created *time.Time `json:"created,omitempty"`
+
 	// LaneKinds overrides the notes endpoint's drum/notes guess per track,
 	// keyed by SMF track name ("bento ch1"). Optional and additive, like
 	// BPM and Flags, so it needs no MetaVersion bump.
@@ -244,4 +251,45 @@ func WriteMeta(wav string, m Meta) error {
 		return err
 	}
 	return os.Rename(name, p)
+}
+
+// takeNameLayout is the timestamp in a take's name: jam_2006-01-02_150405.wav,
+// with an optional _N suffix when two takes landed in the same second.
+const takeNameLayout = "2006-01-02_150405"
+
+// TakeCreated decides when a take was made: the sidecar's Created if it has
+// one, else the time in its jam_<ts> name (local time, as the name was
+// written), else the file's modification time. The _N suffix of a same-second
+// collision adds N milliseconds, so the later take sorts as the newer one.
+func TakeCreated(name string, m Meta, modTime time.Time) time.Time {
+	if m.Created != nil && !m.Created.IsZero() {
+		return *m.Created
+	}
+	if t, ok := createdFromName(name); ok {
+		return t
+	}
+	return modTime
+}
+
+func createdFromName(name string) (time.Time, bool) {
+	s := strings.TrimSuffix(filepath.Base(name), ".wav")
+	if !strings.HasPrefix(s, "jam_") {
+		return time.Time{}, false
+	}
+	s = strings.TrimPrefix(s, "jam_")
+	if len(s) < len(takeNameLayout) {
+		return time.Time{}, false
+	}
+	t, err := time.ParseInLocation(takeNameLayout, s[:len(takeNameLayout)], time.Local)
+	if err != nil {
+		return time.Time{}, false
+	}
+	if rest := s[len(takeNameLayout):]; rest != "" {
+		n, err := strconv.Atoi(strings.TrimPrefix(rest, "_"))
+		if err != nil || !strings.HasPrefix(rest, "_") || n < 0 {
+			return time.Time{}, false
+		}
+		t = t.Add(time.Duration(n) * time.Millisecond)
+	}
+	return t, true
 }

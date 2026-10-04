@@ -247,33 +247,30 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		s.mu.Unlock()
 	}()
 
-	ts := time.Now().Format("2006-01-02_150405")
-	name := fmt.Sprintf("jam_%s.wav", ts)
-	wavPath := filepath.Join(cfg.OutputDir, name)
-	// Two saves in the same second must not collide: the second becomes _2,
-	// as Cut already does. Overwriting a take is the one failure that loses
-	// audio outright, and a double tap on the capture button is how it
-	// would happen.
-	for n := 2; exists(wavPath); n++ {
-		name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
-		wavPath = filepath.Join(cfg.OutputDir, name)
-	}
+	savedAt := time.Now()
+	name, wavPath := freeTakeName(cfg.OutputDir, savedAt)
+	// The audio goes to a hidden temporary file and is renamed into place
+	// only once its sidecars are written: the list is polled every five
+	// seconds, and a 15-minute take takes long enough to write that it used
+	// to be listed, and openable, while still half on disk.
+	tmpPath := PartPath(wavPath)
 
 	pick := cfg.OutChannels()
 	start := time.Now()
-	peaks, err := WriteWAV(wavPath, data, cfg.Channels, pick, cfg.SampleRate)
+	peaks, err := WriteWAV(tmpPath, data, cfg.Channels, pick, cfg.SampleRate)
 	if err != nil {
-		os.Remove(wavPath)
+		os.Remove(tmpPath)
 		return "", fmt.Errorf("write wav: %w", err)
 	}
 	log.Printf("[*] saved %s — %.1fs, %d ch, %s in %s",
 		name, float64(gotFrames)/float64(cfg.SampleRate), len(pick),
-		sizeOf(wavPath), time.Since(start).Round(time.Millisecond))
+		sizeOf(tmpPath), time.Since(start).Round(time.Millisecond))
 
 	if err := WritePeaks(peaksPath(wavPath), peaks); err != nil {
 		log.Printf("[!] peaks for %s: %v", name, err)
 	}
-	stampFlags(wavPath, takeFlags)
+	stampCreated(wavPath, savedAt)
+	stampFlagsAt(wavPath, tmpPath, takeFlags)
 
 	stampTempo(wavPath, s.tempoSource(), capturedAt,
 		time.Duration(float64(gotFrames)/float64(cfg.SampleRate)*float64(time.Second)))
@@ -287,6 +284,12 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		SavedAt:    capturedAt,
 	})
 
+	if err := os.Rename(tmpPath, wavPath); err != nil {
+		os.Remove(tmpPath)
+		RemoveTake(cfg.OutputDir, name) // the sidecars, which would otherwise be orphans
+		return "", fmt.Errorf("finish wav: %w", err)
+	}
+
 	s.mu.Lock()
 	s.lastSaved = name
 	s.mu.Unlock()
@@ -295,6 +298,59 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	go s.prune()
 
 	return name, nil
+}
+
+// freeTakeName picks the take's name from the time it was saved: jam_<ts>.wav,
+// or jam_<ts>_N.wav when that second is taken -- by a finished take or by one
+// still being written. Two saves in the same second must not collide:
+// overwriting a take is the one failure that loses audio outright, and a
+// double tap on the capture button is how it would happen.
+func freeTakeName(dir string, at time.Time) (name, path string) {
+	ts := at.Format(takeNameLayout)
+	name = fmt.Sprintf("jam_%s.wav", ts)
+	path = filepath.Join(dir, name)
+	for n := 2; exists(path) || exists(PartPath(path)); n++ {
+		name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
+		path = filepath.Join(dir, name)
+	}
+	return name, path
+}
+
+// PartPath is where a take's audio is written before it is complete: the
+// same directory, a dot-prefixed name and a .part extension, both of which
+// keep it out of ListTakes.
+func PartPath(wav string) string {
+	return filepath.Join(filepath.Dir(wav), "."+filepath.Base(wav)+".part")
+}
+
+// SweepPartials removes what a crash mid-save or mid-cut can leave behind: a
+// .part file, and the sidecars written for a take whose WAV never made it.
+// Called once at startup, before anything else writes to the directory.
+func SweepPartials(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || !strings.HasPrefix(n, ".") || !strings.HasSuffix(n, ".wav.part") {
+			continue
+		}
+		final := strings.TrimSuffix(strings.TrimPrefix(n, "."), ".part")
+		log.Printf("[*] removing unfinished take %s", final)
+		os.Remove(filepath.Join(dir, n))
+		if !exists(filepath.Join(dir, final)) {
+			RemoveTake(dir, final)
+		}
+	}
+}
+
+// stampCreated records when a take was made. Like the other stamps it runs
+// after the audio is safely written and never fails the save.
+func stampCreated(wavPath string, at time.Time) {
+	if _, err := UpdateMeta(wavPath, func(m *Meta) error { m.Created = &at; return nil }); err != nil {
+		log.Printf("[!] created time for %s: %v", filepath.Base(wavPath), err)
+	}
 }
 
 // flagsForWindow maps live marks, which are absolute ring frames, into frames
@@ -516,7 +572,6 @@ func ListTakes(dir string) ([]Take, error) {
 		t := Take{
 			Name:       e.Name(),
 			SizeMB:     float64(info.Size()) / (1024 * 1024),
-			Created:    info.ModTime(),
 			HasPreview: exists(previewPath(full)),
 			HasPeaks:   exists(peaksPath(full)),
 			HasMIDI:    exists(MIDIPath(full)),
@@ -530,6 +585,7 @@ func ListTakes(dir string) ([]Take, error) {
 		}
 
 		m := ReadMeta(full)
+		t.Created = TakeCreated(e.Name(), m, info.ModTime())
 		t.Label = m.Label
 		t.Starred = m.Starred
 		t.Trim = m.Trim
