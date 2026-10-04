@@ -291,7 +291,11 @@ the saver's MIDI steps do.
 model, from phase 1. Four tracks of clips sit at absolute tape frames. *In*
 and *Out* are the selection, and *Loop* says whether playback wraps inside it.
 With Loop off, playback runs on to the end of the material and stops. The tape
-has no fixed length; the overview shows what's used plus room to grow. Phase
+is **six minutes a track**, as on the OP-1: `TAPE_LENGTH_S`, default 360.
+The overview always shows the whole six minutes, so you can see how much is
+left. A catch or drop that would run past the end is refused, with the room
+that's left stated. The length is a starting point, not a technical limit, and
+raising it is a config change. Phase
 1's page shows mostly the loop, but nothing in the model assumes the tape is
 only a loop, so phase 2 adds no migration.
 
@@ -716,6 +720,7 @@ anything.
 | `TAPE` | `false` | Turns on the tape engine and the output stream. Off by default, so a rig that only wants the dashcam never opens playback |
 | `TAPE_DIR` | `~/hindsight/tapes` | Where tapes live. Put it on the SSD |
 | `TAPE_TRACKS` | `4` | Tracks in a new tape |
+| `TAPE_LENGTH_S` | `360` | Length of each track, the OP-1's six minutes. A starting point; raise it freely |
 | `OUTPUT_CHANNELS` | `4` | Playback channels opened |
 | `OUTPUT_LATENCY_MS` | `100` | Same reasoning as `INPUT_LATENCY_MS` |
 | `TAPE_BUSES` | `A=1,2 B=3,4` | Bus → 1-indexed playback pair |
@@ -845,28 +850,24 @@ verbs.
   rather than a second interface beside the Sidekick. Buses and sources are
   configuration, so the engine moves over without code changes.
 
-## Open decisions for the owner
+## Decisions
 
-1. **Who leads the clock.** The 2026-09-14 plan made the Bento the clock
-   source. For tape I'd flip it and let the tape lead. The Orchid can't sync
-   either way; a leading tape is sample-exact, and it works without the Bento
-   in the room. The Bento keeps its sequencer and follows. *Follow* stays
-   available for when a Bento song is the arrangement.
-2. ~~The patch.~~ Decided 2026-10-03: tape on strip 1, MPC on jack 1, Bento
-   on jack 2, the layering instrument on aux, every track on bus A, bus B
-   spare. See [the patch](#the-patch).
-3. **How a tape starts:** free first loop by default, or a click and a tempo.
-4. **Overdub default:** layer (summed, undoable) or replace. Layer is
-   recommended.
-5. **Four tracks or eight.** The OP-1's four keeps the phone page readable;
-   eight costs the engine nothing.
-6. **Tempo fixed once a tape has audio,** with no stretching; speed changes
+All settled with the owner on 2026-10-03.
+
+1. **The tape leads the clock** (Lead mode); the Bento follows. *Follow*
+   stays available for when a Bento song is the arrangement.
+2. **The patch:** tape on strip 1, MPC on jack 1, Bento on jack 2, the
+   layering instrument on aux, every track on bus A, bus B spare. See
+   [the patch](#the-patch).
+3. **A tape starts with a free first loop,** with a click and a tempo as the
+   alternative.
+4. **Overdubs layer** (summed, undoable); *replace* is the alternative.
+5. **Four tracks.** Eight stays a config value.
+6. **Tempo is fixed once a tape has audio,** with no stretching; speed changes
    pitch, as on the OP-1.
-7. **Phase order.** Splicing comes before clock as written. Swap them if the
-   Bento's drums need to sit under the tape soon.
-8. **No fixed tape length.** The OP-1's six minutes a track is a memory limit;
-   here the tape grows. Say if a fixed length, as a creative limit, is wanted
-   back.
+7. **Phases in the order written:** splicing before clock.
+8. **Six minutes a track,** as on the OP-1, as a starting point:
+   `TAPE_LENGTH_S`, default 360 (see the transport).
 9. **The word *catch*** for recording from the ring, keeping *lift* and *drop*
    for their OP-1 meanings.
 

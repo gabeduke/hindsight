@@ -96,12 +96,13 @@ take from the dashcam with no MIDI clock.
   - A node test covers the uploader's resend logic.
   - Resampling is checked against a 44.1 kHz source.
 
-## Open decisions for the owner
+## Decisions
 
-1. **Where the button lives.** The main page is proposed. The tape page could
-   also take a phone recording straight onto a track once it exists.
-2. **Mono or stereo.** The phone's mic is mono and is stored as dual mono. A
-   stereo input through an adapter is kept stereo.
+Settled with the owner on 2026-10-03.
+
+1. **The button lives on the main page.** The tape page can take a phone
+   recording straight onto a track once it exists.
+2. **Mono stays dual mono; a stereo input stays stereo.**
 
 ## Still to verify on the phone
 

@@ -295,6 +295,33 @@ their sidecars, the history included.
 
 **Tapes** keep their own 100-step undo (tape design).
 
+### Help, tooltips and the guide
+
+The OP-1's workflow is new to most people, the owner included, so the app
+explains itself.
+
+- **Tooltips.** Every control has a tip: a `title` on a computer, and on a
+  phone a **?** button in the header that turns on help mode. In help mode,
+  tapping any control shows its tip instead of acting. A long press can't do
+  this job, because the nudges already repeat on hold.
+- **First-run hints.** The first time a device opens the take page or the
+  tape page, three short hints point at the gestures that matter: hold to
+  select, drag pans, Loop is a toggle (and on the tape: drop, drop, drop).
+  They're dismissed for good per device, in `localStorage`.
+- **The guide.** [`docs/guide.md`](../../guide.md) explains everything in
+  plain words, from the main page to tape tricks. The release copies it next
+  to the UI, and `/guide.html` renders it with a small vanilla renderer. Each
+  page's **?** sheet links to its section.
+- **One source of truth.** Tip text lives in `web/static/lib/help/tips.js`
+  and in the guide's tip table. A node test fails if a `data-tip` in the HTML
+  has no entry, or if `tips.js` and the guide's table disagree.
+- **The guide is the acceptance test.** Every section ends with checks marked
+  [demo] or [rig]. A roadmap step is done when its checks pass. The [demo]
+  ones are the CI's end-to-end smoke test against `--demo`.
+
+Tips and the guide page arrive with step 3 for takes, and with step 6 for the
+tape.
+
 ## Fixes to the base app
 
 These land first. Most are invisible.
@@ -426,7 +453,7 @@ Each step ships alone.
 |---|---|---|
 | 1 | **Solid ground:** data safety, Pi load, docs | — |
 | 2 | **Phone recording** | 1 (atomic saves, the lock, `created`) |
-| 3 | **One take page:** header, ruler, toolbar, gestures, Loop toggle, snap, renderer, words | 1 |
+| 3 | **One take page:** header, ruler, toolbar, gestures, Loop toggle, snap, renderer, words, tips and the guide page | 1 |
 | 4 | **Undo and trash; several takes at once** | 1, 3 (the header's *Undo*) |
 | 5 | **The ribbon:** select, save any span, save from a flag; `Ring.Range`; the past-ending save window | 1 |
 | 6 | **Tape phase 1:** loop and layer, the clipboard, *Drop*, *Send to tape*, *Copy* on takes and the ribbon | 3, 5 |
@@ -438,13 +465,15 @@ Steps 1–5 make today's Hindsight better whether or not the tape ever ships.
 Step 3 is the biggest UI change, and its gesture module is reused by the tape
 page in step 6.
 
-## Open decisions for the owner
+## Decisions
 
-1. **Loop off by default,** now that a selection no longer forces a loop.
-   Recommended, since it's the OP-1's model.
-2. **The screen layout:** grips and move handle at the bottom, ruler at the
-   top. Recommended for thumbs.
+All settled with the owner on 2026-10-03.
+
+1. **Loop is off by default,** now that a selection no longer forces a loop.
+2. **Layout:** grips and the move handle at the bottom, the ruler at the top.
 3. **The trash:** 7 days, plus emptying under disk pressure. Pruning goes to
    the trash too.
-4. **The word changes,** especially *Flag now* replacing *Mark*.
-5. **Phone recording second.** It's small and independent.
+4. **The word changes,** including *Flag now* replacing *Mark*.
+5. **Phone recording is second** on the roadmap.
+6. **In-app help and the guide** ([above](#help-tooltips-and-the-guide)), because the
+   OP-1's workflow is new to the owner as well as to anyone else.

@@ -166,7 +166,7 @@ encoders.
 | OP-1 | Hindsight | Why |
 |---|---|---|
 | 4 stereo tracks | **Adopt** | Four keeps the phone page readable and forces decisions. Eight stays a config value |
-| Six minutes a track | **Adapt:** no hard length. The overview shows the used length plus room | The limit exists to fit memory; on an SSD it's only a constraint |
+| Six minutes a track | **Adopt as a starting point** (`TAPE_LENGTH_S`, default 360). The overview always shows the whole tape | Chosen by the owner on 2026-10-03. Here it's a creative limit, not a memory one, so raising it is a config change |
 | Eight tapes, switched instantly, saved with their mix and tempo | **Adopt,** as the tape browser. Plus **clone**, which costs nothing here because audio files are shared | Clone is the OP-1's own safety-copy habit made free |
 | Loop in, loop out, loop on/off | **Adopt everywhere.** *In* and *Out* are the selection on the ribbon, on a take and on a tape; *Loop* is a separate toggle | Today the take page's region forces a loop; separating them fixes the "region traps playback" problem |
 | The loop is the edit range | **Adopt.** Copy, lift and save act on the selection | One concept instead of two |
