@@ -21,6 +21,7 @@
 import { frameToX, xToFrame, gridLines, rulerTicks, snapFrame, clampRegion } from './geometry.js';
 import { drawColumns } from './draw.js';
 import { GestureSurface } from '../edit/gestures.js';
+import { withAlpha } from '../theme.js';
 
 export { HOLD_MS } from '../edit/gestures.js';
 
@@ -257,10 +258,10 @@ export class WaveView extends GestureSurface {
     const top = this.bodyTop(), bottom = this.bodyBottom();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = col('--panel', '#131c2e');
+    ctx.fillStyle = col('--well', '#e9e2cd');
     ctx.fillRect(0, 0, W, H);
     // The ruler and the grip strip are a shade apart from the waveform.
-    ctx.fillStyle = col('--panel-2', '#1a2437');
+    ctx.fillStyle = col('--panel', '#eee8d5');
     ctx.fillRect(0, 0, W, RULER_H);
     ctx.fillRect(0, bottom, W, H - bottom);
 
@@ -270,14 +271,14 @@ export class WaveView extends GestureSurface {
     // Selection band, across ruler, body and grips, so its extent reads at
     // a glance wherever the eye is.
     if (sel) {
-      ctx.fillStyle = 'rgba(52,211,153,0.13)';
+      ctx.fillStyle = withAlpha(col('--sel', '#268bd2'), 0.14);
       ctx.fillRect(sx0, 0, sx1 - sx0, H);
     }
 
     // Beat and bar lines in the body.
     for (const g of gridLines(view, st.grid)) {
       const x = frameToX(g.frame, view);
-      ctx.fillStyle = g.bar ? col('--line', '#26324a') : 'rgba(255,255,255,0.06)';
+      ctx.fillStyle = g.bar ? col('--rule', '#c9c0a4') : withAlpha(col('--ink', '#073642'), 0.07);
       ctx.fillRect(Math.round(x), top, 1, bottom - top);
     }
 
@@ -285,12 +286,12 @@ export class WaveView extends GestureSurface {
     const { cols, channels } = this.tiles.columns(view, dpr);
     ctx.save();
     ctx.beginPath(); ctx.rect(0, top, W, bottom - top); ctx.clip();
-    drawColumns(ctx, cols, channels, { top: top + 2, height: bottom - top - 4, color: col('--accent', '#34d399') });
+    drawColumns(ctx, cols, channels, { top: top + 2, height: bottom - top - 4, color: col('--wave', '#268bd2') });
     ctx.restore();
 
     // Selection edges.
     if (sel) {
-      ctx.fillStyle = col('--accent', '#34d399');
+      ctx.fillStyle = col('--sel', '#268bd2');
       ctx.fillRect(Math.round(sx0) - 1, PIN_H, 2, bottom - PIN_H);
       ctx.fillRect(Math.round(sx1) - 1, PIN_H, 2, bottom - PIN_H);
     }
@@ -298,12 +299,12 @@ export class WaveView extends GestureSurface {
     // A pending In or Out, waiting for its other half.
     if (st.pending) {
       const x = frameToX(st.pending.frame, view);
-      ctx.strokeStyle = col('--accent', '#34d399');
+      ctx.strokeStyle = col('--accent', '#cb4b16');
       ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, PIN_H); ctx.lineTo(Math.round(x) + 0.5, bottom); ctx.stroke();
       ctx.setLineDash([]);
       ctx.font = `600 10px ${col('--font', 'system-ui')}`;
-      ctx.fillStyle = col('--accent', '#34d399');
+      ctx.fillStyle = col('--accent', '#cb4b16');
       const label = st.pending.edge === 'start' ? 'In' : 'Out';
       ctx.fillText(label, st.pending.edge === 'start' ? x + 4 : x - 4 - ctx.measureText(label).width, bottom - 6);
     }
@@ -315,15 +316,15 @@ export class WaveView extends GestureSurface {
     for (const t of rulerTicks(view, st.grid)) {
       const x = frameToX(t.frame, view);
       const isDownbeat = st.grid.bpm && t.frame === Math.round(st.grid.downbeat);
-      ctx.fillStyle = isDownbeat ? col('--warn', '#fbbf24') : col('--ink-faint', '#5d6b85');
+      ctx.fillStyle = isDownbeat ? col('--warn', '#b58900') : col('--ink-faint', '#566a70');
       ctx.fillRect(Math.round(x), PIN_H + 6, 1, RULER_H - PIN_H - 6);
-      ctx.fillStyle = isDownbeat ? col('--warn', '#fbbf24') : col('--ink-dim', '#8b9ab4');
+      ctx.fillStyle = isDownbeat ? col('--warn', '#b58900') : col('--ink-dim', '#52666d');
       ctx.fillText(t.label, x + 3, PIN_H + (RULER_H - PIN_H) / 2 + 1);
     }
     // The downbeat itself, when it isn't on a labelled tick at this zoom.
     if (st.grid.bpm) {
       const x = frameToX(st.grid.downbeat, view);
-      ctx.fillStyle = col('--warn', '#fbbf24');
+      ctx.fillStyle = col('--warn', '#b58900');
       ctx.fillRect(Math.round(x) - 1, PIN_H, 2, RULER_H - PIN_H);
     }
 
@@ -336,14 +337,14 @@ export class WaveView extends GestureSurface {
       const x = frameToX(f.frame, view);
       if (x < -200 || x > W + 200) continue;
       const selected = st.selectedFlag && st.selectedFlag.id === f.id;
-      ctx.fillStyle = col('--flag', '#ffb020');
+      ctx.fillStyle = col('--flag', '#b58900');
       ctx.fillRect(Math.round(x) - (selected ? 1 : 0), PIN_H, selected ? 3 : 1, bottom - PIN_H);
       // The pin: a small pennant on a stem.
       ctx.fillRect(Math.round(x), 2, 2, PIN_H - 2);
       ctx.beginPath(); ctx.moveTo(x + 2, 2); ctx.lineTo(x + 10, 6); ctx.lineTo(x + 2, 10); ctx.closePath(); ctx.fill();
       if (f.label && x + 12 > lastRight) {
         const w = Math.min(140, ctx.measureText(f.label).width);
-        ctx.fillStyle = col('--ink', '#eef2f8');
+        ctx.fillStyle = col('--ink', '#073642');
         ctx.fillText(f.label, x + 12, PIN_H - 4, 140);
         lastRight = x + 12 + w + 6;
       }
@@ -351,20 +352,20 @@ export class WaveView extends GestureSurface {
 
     // Grips and the move handle.
     if (sel) {
-      ctx.fillStyle = col('--accent', '#34d399');
+      ctx.fillStyle = col('--sel', '#268bd2');
       const gy = bottom + 3, gh = H - bottom - 6;
       roundRect(ctx, sx0 - GRIP_W, gy, GRIP_W, gh, 5); ctx.fill();
       roundRect(ctx, sx1, gy, GRIP_W, gh, 5); ctx.fill();
-      ctx.fillStyle = '#062015';
+      ctx.fillStyle = col('--on-accent', '#fdf6e3');
       ctx.font = `700 11px ${col('--font', 'system-ui')}`;
       ctx.textBaseline = 'middle';
       ctx.fillText('◀', sx0 - GRIP_W + 6, gy + gh / 2 + 1);
       ctx.fillText('▶', sx1 + 6, gy + gh / 2 + 1);
       if (this.moveHandleShown(sx0, sx1)) {
         const mx = (sx0 + sx1) / 2;
-        ctx.fillStyle = 'rgba(52,211,153,0.35)';
+        ctx.fillStyle = withAlpha(col('--sel', '#268bd2'), 0.35);
         roundRect(ctx, mx - MOVE_W / 2, gy + 4, MOVE_W, gh - 8, (gh - 8) / 2); ctx.fill();
-        ctx.fillStyle = col('--accent', '#34d399');
+        ctx.fillStyle = col('--sel', '#268bd2');
         for (const dy of [-3, 0, 3]) ctx.fillRect(mx - 8, gy + gh / 2 + dy, 16, 1);
       }
       ctx.textBaseline = 'alphabetic';
@@ -373,7 +374,7 @@ export class WaveView extends GestureSurface {
     // The playhead: a line, and the handle in the ruler.
     if (st.cursor != null) {
       const cx = frameToX(st.cursor, view);
-      ctx.fillStyle = col('--ink', '#eef2f8');
+      ctx.fillStyle = col('--accent', '#cb4b16');
       ctx.fillRect(Math.round(cx), PIN_H, 1, bottom - PIN_H);
       ctx.beginPath();
       ctx.moveTo(cx - 7, PIN_H + 1); ctx.lineTo(cx + 7, PIN_H + 1); ctx.lineTo(cx, PIN_H + 11); ctx.closePath();

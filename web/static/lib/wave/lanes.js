@@ -3,10 +3,13 @@
 // exactly under its audio at every zoom. The geometry here is pure and
 // tested; the Lanes class at the bottom owns the DOM and the canvases.
 import { frameToX, gridLines } from './geometry.js';
+import { withAlpha } from '../theme.js';
 
 export const LANE_H = { notes: 56, drums: 36, collapsed: 18 };
-export const DRUM_COLOR = '#fbbf24';
-export const MELODIC_COLORS = ['#34d399', '#3b9dd4', '#f87171', '#a78bfa'];
+// Solarized: drums yellow, melodic parts blue, cyan, magenta, violet -- the
+// tape's track colours, so a part keeps its colour from lane to tape.
+export const DRUM_COLOR = '#b58900';
+export const MELODIC_COLORS = ['#268bd2', '#2aa198', '#d33682', '#6c71c4'];
 const MIN_ROW_PX = 4;
 const MIN_NOTE_PX = 2;
 const DRUM_TICK_PX = 2;
@@ -257,18 +260,18 @@ export class Lanes {
       }
       const ctx = c.ctx;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = col('--bg', '#0b1120');
+      ctx.fillStyle = col('--well', '#e9e2cd');
       ctx.fillRect(0, 0, W, H);
       const layout = laneLayout(c.track, !!this.collapsed[c.track.name]);
       // Rows
       for (const row of layout.rows) {
         if (!row.tint) continue;
-        ctx.fillStyle = col('--panel-2', '#1a2437');
+        ctx.fillStyle = withAlpha(col('--ink', '#073642'), 0.04);
         ctx.fillRect(0, row.top, W, row.h);
       }
       // Bar lines, from the same call the wave makes.
       for (const g of gridLines(view, st.grid)) {
-        ctx.fillStyle = g.bar ? col('--line', '#26324a') : 'rgba(255,255,255,0.06)';
+        ctx.fillStyle = g.bar ? col('--rule', '#c9c0a4') : withAlpha(col('--ink', '#073642'), 0.07);
         ctx.fillRect(Math.round(frameToX(g.frame, view)), 0, 1, H);
       }
       // Notes
@@ -281,14 +284,14 @@ export class Lanes {
       // Region: the wave's exact shade and edges.
       if (st.region) {
         const x0 = frameToX(st.region.start, view), x1 = frameToX(st.region.end, view);
-        ctx.fillStyle = 'rgba(52,211,153,0.14)';
+        ctx.fillStyle = withAlpha(col('--sel', '#268bd2'), 0.14);
         ctx.fillRect(x0, 0, x1 - x0, H);
-        ctx.fillStyle = col('--accent', '#34d399');
+        ctx.fillStyle = col('--sel', '#268bd2');
         for (const x of [x0, x1]) ctx.fillRect(Math.round(x) - 1, 0, 2, H);
       }
       // Cursor
       if (st.cursor != null) {
-        ctx.fillStyle = col('--ink', '#eef2f8');
+        ctx.fillStyle = col('--accent', '#cb4b16');
         ctx.fillRect(Math.round(frameToX(st.cursor, view)), 0, 1, H);
       }
     }

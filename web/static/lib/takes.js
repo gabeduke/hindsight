@@ -12,6 +12,7 @@ import { flagRequest } from '/lib/flags.js';
 import { restoreTake } from '/lib/trash.js';
 import { undoSkipped } from '/lib/toast.js';
 import { withClient } from '/lib/client.js';
+import { onSchemeChange } from '/lib/theme.js';
 
 // How long a press on a row is held to start selecting several takes.
 export const SELECT_HOLD_MS = 500;
@@ -53,6 +54,9 @@ export class TakesList {
 
     /** @type {Map<string, object>} name -> row state */
     this.rows = new Map();
+    // Row waveforms are canvases: repaint them when the device turns dark or
+    // light.
+    onSchemeChange(() => { for (const row of this.rows.values()) row.ws?.draw(); });
     this.etag = null;
     this.playing = null; // name of the currently playing take
     this.fresh = null;

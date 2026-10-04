@@ -377,7 +377,7 @@ export class RisingNotes {
     const geo = { fpb, keyTop, riseH, keys, pads, padW, padCol, muted: this.muted, colors: laneColors(this.tracks), cursors: this.cursors };
 
     // Ground
-    ctx.fillStyle = col('--bg', '#0b1120');
+    ctx.fillStyle = col('--stage', '#073642');
     ctx.fillRect(0, 0, W, H);
 
     // Beat lines from the downbeat, scrolling up with the notes. Without a
@@ -388,7 +388,7 @@ export class RisingNotes {
       const y = yAt(downbeat + b * fpb, now, fpb, keyTop);
       if (y < 0) break;
       const bar = hasTempo && ((b % 4) + 4) % 4 === 0;
-      ctx.fillStyle = bar ? col('--line', '#26324a') : 'rgba(255,255,255,0.06)';
+      ctx.fillStyle = bar ? col('--stage-ink', '#93a1a1') : col('--stage-line', '#0e4552');
       ctx.fillRect(0, Math.round(y), W, 1);
       b--;
     }
@@ -406,7 +406,7 @@ export class RisingNotes {
         ctx.fillRect(n.x, n.y0, n.w, 1);
       }
       if (n.clamp) {
-        ctx.fillStyle = col('--ink', '#eef2f8');
+        ctx.fillStyle = col('--stage-ink', '#93a1a1');
         ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
         ctx.textAlign = 'center';
         // Near the bottom for a below-window note, near the top for one above.
@@ -419,23 +419,23 @@ export class RisingNotes {
     const lit = glow(this.tracks, now, geo);
     const mono = col('--mono', 'ui-monospace, monospace');
     for (const k of keys.whites) {
-      ctx.fillStyle = col('--panel', '#131c2e');
+      ctx.fillStyle = col('--ivory', '#fdf6e3');
       ctx.fillRect(padCol + k.x, keyTop, k.w, keyH);
       const g = lit.keys.get(k.p);
       if (g) { ctx.globalAlpha = g.alpha; ctx.fillStyle = g.color; ctx.fillRect(padCol + k.x, keyTop, k.w, keyH); ctx.globalAlpha = 1; }
-      ctx.fillStyle = col('--line', '#26324a');
+      ctx.fillStyle = col('--ivory-edge', '#bdb397');
       ctx.fillRect(padCol + k.x, keyTop, 1, keyH);
       if (k.p % 12 === 0 && k.w >= 9) {
-        ctx.fillStyle = col('--ink-faint', '#5d6b85');
+        ctx.fillStyle = col('--ivory-ink', '#52666d');
         ctx.font = `${k.w >= 14 ? 10 : 8}px ${mono}`;
         ctx.textAlign = 'center';
         ctx.fillText(`C${Math.floor(k.p / 12) - 1}`, padCol + k.x + k.w / 2, H - 6);
       }
     }
-    ctx.fillStyle = col('--line', '#26324a');
+    ctx.fillStyle = col('--ivory-edge', '#bdb397');
     ctx.fillRect(padCol, keyTop, W - padCol, 1);
     for (const k of keys.blacks) {
-      ctx.fillStyle = '#060a14';
+      ctx.fillStyle = col('--ebony', '#073642');
       ctx.fillRect(padCol + k.x, keyTop, k.w, keyH * 0.6);
       const g = lit.keys.get(k.p);
       if (g) { ctx.globalAlpha = g.alpha; ctx.fillStyle = g.color; ctx.fillRect(padCol + k.x, keyTop, k.w, keyH * 0.6); ctx.globalAlpha = 1; }
@@ -444,19 +444,19 @@ export class RisingNotes {
     // Pads: a row at the left, lowest pitch first, each padW wide.
     for (const p of pads.pads) {
       const x = p.col * padW;
-      ctx.fillStyle = col('--panel-2', '#1a2437');
+      ctx.fillStyle = col('--pad', '#0a3d49');
       ctx.fillRect(x + 1, keyTop + 1, padW - 2, keyH - 2);
       const g = lit.pads.get(p.col);
       if (g) { ctx.globalAlpha = g.alpha; ctx.fillStyle = g.color; ctx.fillRect(x + 1, keyTop + 1, padW - 2, keyH - 2); ctx.globalAlpha = 1; }
       if (padW >= 16) {
-        ctx.fillStyle = col('--ink-dim', '#8b9ab4');
+        ctx.fillStyle = col('--stage-ink', '#93a1a1');
         ctx.font = `9px ${mono}`;
         ctx.textAlign = 'center';
         ctx.fillText(p.short, x + padW / 2, H - 6);
       }
     }
     if (pads.pads.length) {
-      ctx.fillStyle = col('--line', '#26324a');
+      ctx.fillStyle = col('--stage-line', '#0e4552');
       ctx.fillRect(padCol - 1, keyTop, 2, keyH);
     }
   }

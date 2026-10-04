@@ -23,6 +23,7 @@ import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
 import { toast, toastNext, undoSkipped, undoPhrase } from '../toast.js';
 import { withClient } from '../client.js';
+import { token, withAlpha, onSchemeChange } from '../theme.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -115,6 +116,9 @@ async function main() {
     if (notes && !notes.running && notesVisible()) notes.draw();
     drawStrip();
   }
+  // Canvases don't restyle themselves when the device turns dark or light.
+  // The overview caches its waveform, so that cache goes too.
+  onSchemeChange(() => { if (overview) overview.cachedKey = null; redraw(); });
   const view = new WaveView({ canvas, tiles, totalFrames: total, sampleRate: sr, getState: () => state, emit });
   overview = new Overview({
     canvas: $('overview-canvas'), filePeaks, totalFrames: total,
@@ -1050,9 +1054,10 @@ async function main() {
     stripCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     stripCtx.clearRect(0, 0, W, H);
     const played = (state.cursor / total) * W;
-    drawColumns(stripCtx, stripCols, 1, { top: 0, height: H, color: (x) => (x < played ? '#34d399' : '#2c5f52') });
+    const waveOn = token('--wave', '#268bd2'), waveOff = token('--wave-dim', '#a3b0ae');
+    drawColumns(stripCtx, stripCols, 1, { top: 0, height: H, color: (x) => (x < played ? waveOn : waveOff) });
     if (state.region) {
-      stripCtx.fillStyle = 'rgba(52,211,153,0.2)';
+      stripCtx.fillStyle = withAlpha(waveOn, 0.2);
       stripCtx.fillRect((state.region.start / total) * W, 0, ((state.region.end - state.region.start) / total) * W, H);
     }
   }

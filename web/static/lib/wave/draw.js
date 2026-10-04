@@ -65,7 +65,7 @@ export function foldChannels(cols, channels) {
  * lanes stacked top to bottom inside {top, height}. `color` may be a
  * function of x, for a played/unplayed split.
  */
-export function drawColumns(ctx, cols, channels, { top = 0, height, color = '#34d399', fill = 0.95 }) {
+export function drawColumns(ctx, cols, channels, { top = 0, height, color = '#268bd2', fill = 0.95 }) {
   const width = cols.length / (channels * 2);
   const laneH = height / channels;
   const colorAt = typeof color === 'function' ? color : null;

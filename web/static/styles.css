@@ -65,6 +65,17 @@
   --t3: #b58900;
   --t4: #d33682;
 
+  /* The rising-notes stage stays dark in both schemes, like a lit keyboard
+     in a dim room; its keys are ivory and ebony. */
+  --stage:      #073642;
+  --stage-line: #0e4552;
+  --stage-ink:  #93a1a1;
+  --pad:        #0a3d49;
+  --ivory:      #fdf6e3;
+  --ivory-ink:  #52666d;
+  --ivory-edge: #bdb397;
+  --ebony:      #073642;
+
   --radius:    10px;
   --tap:       48px;
   /* 10px top padding + 24px logo + 10px bottom padding + a 3px double rule.
@@ -106,6 +117,11 @@
     --link:      #3fb5ab;
     --shadow:    rgba(0, 0, 0, .45);
     --scrim:     rgba(0, 16, 20, .7);
+    --stage:      #00212b;
+    --stage-line: #0b3540;
+    --pad:        #06323d;
+    --ivory:      #eee8d5;
+    --ebony:      #00161c;
   }
 }
 

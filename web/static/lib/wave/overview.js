@@ -4,6 +4,7 @@
 // double-tap to fit the whole take. The pure functions are what the tests cover; the class is the canvas
 // and pointer plumbing around them.
 import { peakColumns, foldChannels, drawColumns } from './draw.js';
+import { withAlpha } from '../theme.js';
 
 export const OVERVIEW_MIN_WINDOW_PX = 24;
 const TAP_MOVE = 6;
@@ -88,10 +89,10 @@ export class Overview {
     cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(this.canvas);
     const col = (n, fb) => css.getPropertyValue(n).trim() || fb;
-    cctx.fillStyle = col('--panel-2', '#1a2437');
+    cctx.fillStyle = col('--well', '#e9e2cd');
     cctx.fillRect(0, 0, W, H);
     const cols = foldChannels(peakColumns(this.peaks, Math.round(W)), this.peaks.channels);
-    drawColumns(cctx, cols, 1, { top: 2, height: H - 4, color: col('--ink-faint', '#5d6b85') });
+    drawColumns(cctx, cols, 1, { top: 2, height: H - 4, color: col('--wave-dim', '#a3b0ae') });
     this.cachedKey = `${W}x${H}@${dpr}`;
   }
 
@@ -110,22 +111,22 @@ export class Overview {
 
     // Selection band and flags
     if (st.region) {
-      ctx.fillStyle = 'rgba(52,211,153,0.25)';
+      ctx.fillStyle = withAlpha(col('--sel', '#268bd2'), 0.25);
       const x0 = (st.region.start / this.total) * W, x1 = (st.region.end / this.total) * W;
       ctx.fillRect(x0, 0, Math.max(1, x1 - x0), H);
     }
-    ctx.fillStyle = col('--flag', '#ffb020');
+    ctx.fillStyle = col('--flag', '#b58900');
     for (const f of st.flags || []) ctx.fillRect(Math.round((f.frame / this.total) * W), 0, 1, H);
 
     // Playhead
-    ctx.fillStyle = col('--ink', '#eef2f8');
+    ctx.fillStyle = col('--accent', '#cb4b16');
     ctx.fillRect(Math.round((st.cursor / this.total) * W), 0, 1, H);
 
     // Viewport window
     const { x, w } = windowRect(this.getView(), this.total, W);
-    ctx.fillStyle = 'rgba(238,242,248,0.12)';
+    ctx.fillStyle = withAlpha(col('--ink', '#073642'), 0.08);
     ctx.fillRect(x, 0, w, H);
-    ctx.strokeStyle = 'rgba(238,242,248,0.6)';
+    ctx.strokeStyle = col('--ink', '#073642');
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, 0.5, w - 1, H - 1);
   }

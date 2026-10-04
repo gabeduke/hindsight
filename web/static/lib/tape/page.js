@@ -14,6 +14,7 @@ import {
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
 import { initAway } from './away-sheet.js';
+import { token, withAlpha, onSchemeChange } from '../theme.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -660,24 +661,25 @@ function drawRuler() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   const view = laneView();
+  const ink = token('--ink', '#073642'), warn = token('--warn', '#b58900');
   const span = (from, to, fill) => {
     const x0 = Math.max(0, xOf(from, view, W)), x1 = Math.min(W, xOf(to, view, W));
     if (x1 > x0) { ctx.fillStyle = fill; ctx.fillRect(x0, 0, x1 - x0, H); }
   };
-  if (t.loop.out > t.loop.in) span(t.loop.in, t.loop.out, t.loop.on ? 'rgba(251,191,36,0.22)' : 'rgba(251,191,36,0.08)');
-  if (state.sel) span(state.sel.from, state.sel.to, 'rgba(52,211,153,0.35)');
-  ctx.font = '10px ui-monospace, monospace';
+  if (t.loop.out > t.loop.in) span(t.loop.in, t.loop.out, withAlpha(warn, t.loop.on ? 0.22 : 0.08));
+  if (state.sel) span(state.sel.from, state.sel.to, withAlpha(token('--sel', '#268bd2'), 0.35));
+  ctx.font = `10px ${token('--mono', 'ui-monospace, monospace')}`;
   ctx.textBaseline = 'middle';
   for (const b of barLines(t.grid, view)) {
     const x = Math.round(xOf(b.frame, view, W));
-    ctx.fillStyle = 'rgba(238,242,248,0.35)';
+    ctx.fillStyle = withAlpha(ink, 0.35);
     ctx.fillRect(x, H * 0.45, 1, H * 0.55);
-    ctx.fillStyle = 'rgba(238,242,248,0.7)';
+    ctx.fillStyle = ink;
     if (x + 3 < W - 8) ctx.fillText(String(b.n), x + 3, H * 0.3);
   }
   if (state.live) {
     const x = xOf(state.live.heard, view, W);
-    if (x >= 0 && x <= W) { ctx.fillStyle = '#eef2f8'; ctx.fillRect(Math.round(x), 0, 1, H); }
+    if (x >= 0 && x <= W) { ctx.fillStyle = token('--accent', '#cb4b16'); ctx.fillRect(Math.round(x), 0, 2, H); }
   }
 }
 
@@ -743,6 +745,9 @@ function redrawView() {
   if (viewRaf) return;
   viewRaf = requestAnimationFrame(() => { viewRaf = 0; drawLanes(); drawRuler(); drawOverview(); renderFit(); });
 }
+
+// Canvases don't restyle themselves when the device turns dark or light.
+onSchemeChange(redrawView);
 
 function renderFit() { $('view-fit').hidden = !state.zoom; }
 
@@ -1008,10 +1013,12 @@ function drawLanes() {
     // Bar lines.
     for (const b of barLines(t.grid, view)) {
       const x = Math.round(xOf(b.frame, view, W));
-      ctx.fillStyle = col('--line', '#26324a');
+      ctx.fillStyle = col('--well-line', '#d3cab0');
       ctx.fillRect(x, 0, 1, H);
     }
-    // Clips, base layer first.
+    // Clips, base layer first, in the track's colour; a layer over
+    // another is the same colour, fainter.
+    const tc = trackColor(lane.n, col);
     lane.hits = [];
     const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
     for (const c of sorted) {
@@ -1021,7 +1028,7 @@ function drawLanes() {
       const top = 2 + Math.min(c.layer, 3) * 3, h = H - 4 - Math.min(c.layer, 3) * 3;
       // One being slid stays where it is, faint, until it lands.
       ctx.globalAlpha = state.slide && state.slide.clip.id === c.id ? 0.35 : 1;
-      ctx.fillStyle = c.layer ? 'rgba(96,165,250,0.18)' : 'rgba(52,211,153,0.16)';
+      ctx.fillStyle = withAlpha(tc, c.layer ? 0.1 : 0.16);
       ctx.fillRect(x0, top, Math.max(1, x1 - x0), h);
       const pd = peaks.get(c.file);
       const w = Math.max(1, Math.round(x1 - x0));
@@ -1030,10 +1037,10 @@ function drawLanes() {
         const cols = foldChannels(peakColumns(pd, w, b0, b1), pd.channels);
         ctx.save();
         ctx.translate(Math.round(x0), 0);
-        drawColumns(ctx, cols, 1, { top, height: h, color: c.layer ? '#60a5fa' : '#34d399' });
+        drawColumns(ctx, cols, 1, { top, height: h, color: c.layer ? withAlpha(tc, 0.6) : tc });
         ctx.restore();
       }
-      ctx.strokeStyle = state.clip && state.clip.id === c.id ? '#eef2f8' : 'rgba(238,242,248,0.25)';
+      ctx.strokeStyle = state.clip && state.clip.id === c.id ? col('--ink', '#073642') : withAlpha(tc, 0.5);
       ctx.strokeRect(x0 + 0.5, top + 0.5, Math.max(1, x1 - x0) - 1, h - 1);
       ctx.globalAlpha = 1;
       lane.hits.push({ x0, x1, clip: c });
@@ -1044,14 +1051,15 @@ function drawLanes() {
     if (sl && sl.n === lane.n) {
       const from = sl.at + nudgeFrames(sl.clip, t.sample_rate); // where it'll sound, as the clip itself is drawn
       const x0 = xOf(from, view, W), x1 = xOf(from + sl.clip.frames, view, W);
-      ctx.fillStyle = 'rgba(251,191,36,0.22)';
+      const warn = col('--warn', '#b58900');
+      ctx.fillStyle = withAlpha(warn, 0.22);
       ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
-      ctx.strokeStyle = '#fbbf24';
+      ctx.strokeStyle = warn;
       ctx.setLineDash([4, 3]);
       ctx.strokeRect(x0 + 0.5, 1.5, Math.max(1, x1 - x0) - 1, H - 3);
       ctx.setLineDash([]);
-      ctx.fillStyle = '#fbbf24';
-      ctx.font = '11px ui-monospace, monospace';
+      ctx.fillStyle = warn;
+      ctx.font = `11px ${col('--mono', 'ui-monospace, monospace')}`;
       ctx.textBaseline = 'top';
       ctx.fillText(t.grid ? barBeat(sl.at, t.grid) : fmtSecs(sl.at, t.sample_rate), Math.max(2, x0 + 4), 4);
     }
@@ -1059,11 +1067,17 @@ function drawLanes() {
     if (state.live) {
       const x = xOf(state.live.heard, view, W);
       if (x >= 0 && x <= W) {
-        ctx.fillStyle = col('--ink', '#eef2f8');
-        ctx.fillRect(Math.round(x), 0, 1, H);
+        ctx.fillStyle = col('--accent', '#cb4b16');
+        ctx.fillRect(Math.round(x), 0, 2, H);
       }
     }
   }
+}
+
+// trackColor is track n's colour: --t1 to --t4, round again past four.
+function trackColor(n, col) {
+  const i = ((n - 1) % 4) + 1;
+  return col(`--t${i}`, ['#268bd2', '#2aa198', '#b58900', '#d33682'][i - 1]);
 }
 
 // drawPunch draws a punch recording onto its lane: the span this pass has
@@ -1072,7 +1086,7 @@ function drawLanes() {
 function drawPunch(ctx, view, W, H, col) {
   const rec = state.rec, live = state.live, t = state.tape;
   if (rec.start === null || !live) return;
-  const red = col('--danger', '#f87171');
+  const red = col('--rec', '#dc322f');
   ctx.save();
   ctx.font = '11px ui-monospace, monospace';
   ctx.textBaseline = 'top';
@@ -1124,8 +1138,10 @@ function drawOverview() {
   ctx.clearRect(0, 0, W, H);
   // The whole tape, six minutes: what's recorded, and the loop.
   const all = { from: 0, to: t.length };
-  ctx.fillStyle = 'rgba(52,211,153,0.5)';
+  const css = getComputedStyle(document.body);
+  const col = (n, d) => css.getPropertyValue(n).trim() || d;
   t.tracks.forEach((tr, i) => {
+    ctx.fillStyle = withAlpha(trackColor(tr.n, col), 0.75);
     for (const c of tr.clips) {
       const x0 = xOf(c.at, all, W), x1 = xOf(c.at + c.frames, all, W);
       ctx.fillRect(x0, 2 + i * ((H - 4) / t.tracks.length), Math.max(1, x1 - x0), (H - 4) / t.tracks.length - 1);
@@ -1133,19 +1149,19 @@ function drawOverview() {
   });
   if (t.loop.out > t.loop.in) {
     const x0 = xOf(t.loop.in, all, W), x1 = xOf(t.loop.out, all, W);
-    ctx.strokeStyle = t.loop.on ? '#fbbf24' : 'rgba(251,191,36,0.4)';
+    ctx.strokeStyle = withAlpha(col('--warn', '#b58900'), t.loop.on ? 1 : 0.4);
     ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
   }
   if (state.zoom) {
     const x0 = xOf(state.zoom.from, all, W), x1 = xOf(state.zoom.to, all, W);
-    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--ink-dim').trim() || '#8b9ab4';
+    ctx.strokeStyle = col('--ink-dim', '#52666d');
     ctx.setLineDash([3, 2]);
     ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
     ctx.setLineDash([]);
   }
   if (state.live) {
-    ctx.fillStyle = '#eef2f8';
-    ctx.fillRect(Math.round(xOf(state.live.heard, all, W)), 0, 1, H);
+    ctx.fillStyle = col('--accent', '#cb4b16');
+    ctx.fillRect(Math.round(xOf(state.live.heard, all, W)), 0, 2, H);
   }
 }
 

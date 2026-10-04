@@ -10,9 +10,12 @@
 // playPause(), pause(), isPlaying(), destroy().
 
 import { peakColumns, foldChannels, drawColumns } from './draw.js';
+import { token, withAlpha } from '../theme.js';
 
-const PLAYED = '#34d399';
-const UNPLAYED = '#2c5f52';
+// The played part in the waveform colour, the rest in its dim twin; both
+// read from the stylesheet at paint time so they follow light and dark.
+const playedColor = (el) => token('--wave', '#268bd2', el);
+const unplayed = (el) => token('--wave-dim', '#a3b0ae', el);
 
 export class RowWave {
   constructor({ container, peaks, duration, audio }) {
@@ -123,9 +126,10 @@ export class RowWave {
     ctx.clearRect(0, 0, W, H);
     const d = this.audio.duration || this.duration;
     const played = d ? (this.audio.currentTime / d) * W : 0;
+    const PLAYED = playedColor(this.canvas), UNPLAYED = unplayed(this.canvas);
     if (this.selection) {
       const x0 = this.selection.start * W, x1 = this.selection.end * W;
-      ctx.fillStyle = 'rgba(52,211,153,0.14)';
+      ctx.fillStyle = withAlpha(PLAYED, 0.14);
       ctx.fillRect(x0, 0, x1 - x0, H);
       // A bracket at each end, so the selection reads at a glance.
       ctx.fillStyle = PLAYED;
@@ -138,7 +142,7 @@ export class RowWave {
     }
     drawColumns(ctx, this.cols, 1, { top: 2, height: H - 4, color: (x) => (x < played ? PLAYED : UNPLAYED) });
     if (played > 0) {
-      ctx.fillStyle = '#eef2f8';
+      ctx.fillStyle = token('--accent', '#cb4b16', this.canvas);
       ctx.fillRect(Math.round(played), 0, 1, H);
     }
   }
