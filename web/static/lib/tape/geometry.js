@@ -103,3 +103,79 @@ export function clipBuckets(clip, pd) {
   const b1 = Math.max(b0 + 1, Math.ceil(((clip.src + clip.frames) / fileFrames) * pd.buckets));
   return [Math.min(b0, pd.buckets), Math.min(b1, pd.buckets)];
 }
+
+/** SNAPS are what a slid clip can snap to, and how many to a bar. */
+export const SNAPS = [
+  { id: 'bar', label: 'Bar', per: 1 },
+  { id: 'beat', label: 'Beat', per: 4 },
+  { id: '8th', label: '⅛', per: 8 },
+  { id: 'off', label: 'Off', per: 0 },
+];
+
+/**
+ * snapFrame is the grid line nearest a tape frame -- a bar, beat or eighth
+ * line, placed as the Pi places them (n × the exact length, rounded) -- or
+ * the frame itself with the snap off or no grid. Never before 0.
+ */
+export function snapFrame(grid, f, snap) {
+  const s = SNAPS.find((x) => x.id === snap);
+  if (!grid || !(grid.frames > 0) || !(grid.bars > 0) || !s || !s.per) return Math.max(0, Math.round(f));
+  const step = grid.frames / grid.bars / s.per;
+  return Math.round(Math.max(0, Math.round(f / step)) * step);
+}
+
+/**
+ * slideTo is where a clip starting at `at` lands when dragged df frames. On
+ * a line of the snap's grid, it lands on the line nearest; off the grid --
+ * a free catch, say -- it moves by whole steps, keeping its offset. Never
+ * before 0.
+ */
+export function slideTo(grid, at, df, snap) {
+  const s = SNAPS.find((x) => x.id === snap);
+  if (!grid || !(grid.frames > 0) || !(grid.bars > 0) || !s || !s.per) return Math.max(0, Math.round(at + df));
+  const step = grid.frames / grid.bars / s.per;
+  const n = Math.round(at / step);
+  if (Math.abs(Math.round(n * step) - at) <= 1) return snapFrame(grid, at + df, snap);
+  const k = Math.round(df / step);
+  let to = at + Math.round(k * step);
+  while (to < 0) to += Math.round(step);
+  return to;
+}
+
+/** nudgeFrames is how far from its `at` a clip sounds, as the Pi rounds it. */
+export function nudgeFrames(clip, sampleRate) {
+  return Math.round(((clip.nudge_ms || 0) / 1000) * sampleRate);
+}
+
+/**
+ * splitAt is how many clips on a track a split at pos would cut: those that
+ * sound across it, on any layer (a nudged clip is cut where it's heard).
+ */
+export function splitAt(track, pos, sampleRate = 48000) {
+  return (track.clips || []).filter((c) => {
+    const at = pos - nudgeFrames(c, sampleRate);
+    return c.at < at && at < c.at + c.frames;
+  }).length;
+}
+
+/**
+ * joinPartner is the clip a join would merge this one with: its neighbour
+ * on its layer -- the next, or else the one before -- when one carries
+ * straight on from the other in the same recording, at the same level and
+ * nudge: what a split made. null if none.
+ */
+export function joinPartner(track, clip) {
+  const clips = track.clips || [];
+  const same = (a, b) => b.file === a.file && b.src === a.src + a.frames
+    && (b.gain_db || 0) === (a.gain_db || 0) && (b.nudge_ms || 0) === (a.nudge_ms || 0);
+  const next = clips.find((o) => o.layer === clip.layer && o.at === clip.at + clip.frames);
+  if (next) return same(clip, next) ? next : null;
+  const prev = clips.find((o) => o.layer === clip.layer && o.at + o.frames === clip.at);
+  return prev && same(prev, clip) ? prev : null;
+}
+
+/** fitsDoubled says whether the loop, doubled, still ends on the tape. */
+export function fitsDoubled(tape) {
+  const l = tape.loop || {};
+  return l.out > l.in && l.out + (l.out - l.in) <= tape.length;
+}

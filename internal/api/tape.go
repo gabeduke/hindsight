@@ -36,7 +36,9 @@ import (
 //	DELETE /api/tapes/record?id=       end the punch and keep it (?cancel=1: don't)
 //	POST   /api/tapes/tap?id=          {track, source}: a free-loop tap
 //	DELETE /api/tapes/tap?id=          forget a first tap
-//	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape
+//	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape;
+//	                                   {track, merge}: the clipboard, at the playhead
+//	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply, track, all, clip, pos, at}
 //	POST   /api/tapes/undo?id=         and /redo
 //	POST   /api/tapes/clone?id=        {name}: a new tape sharing this one's audio
 //	POST   /api/tapes/cleanup          remove pool audio nothing uses
@@ -128,14 +130,19 @@ type tapeStateResponse struct {
 	Redo    int                `json:"redo"`
 	Sources []tape.SourceState `json:"sources"`
 	BPM     float64            `json:"bpm,omitempty"`
+	Edit    *tape.EditResult   `json:"edit,omitempty"` // what an edit did
 }
 
 func (a *API) handleTapeState(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
 	}
-	id := r.URL.Query().Get("id")
-	resp := tapeStateResponse{Sources: a.tape.Sources()}
+	a.writeTapeStateWith(w, r.URL.Query().Get("id"), nil)
+}
+
+// writeTapeStateWith answers a tape's state, and what an edit did to it.
+func (a *API) writeTapeStateWith(w http.ResponseWriter, id string, edit *tape.EditResult) {
+	resp := tapeStateResponse{Sources: a.tape.Sources(), Edit: edit}
 	if id != "" && id == a.tape.LoadedID() {
 		resp.Tape = a.tape.Loaded()
 		resp.Loaded = true
@@ -364,10 +371,7 @@ func patchClip(s *tape.State, id string, gainDB, nudgeMS *float64, remove, tile 
 	return tape.ErrNoSuchClip
 }
 
-func (a *API) writeTapeState(w http.ResponseWriter, id string) {
-	r, _ := http.NewRequest(http.MethodGet, "/?id="+id, nil)
-	a.handleTapeState(w, r)
-}
+func (a *API) writeTapeState(w http.ResponseWriter, id string) { a.writeTapeStateWith(w, id, nil) }
 
 func (a *API) handleTapeDelete(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
@@ -536,6 +540,7 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		To    int64  `json:"to"`
 		Track int    `json:"track"`
 		Bars  int    `json:"bars"`
+		Merge bool   `json:"merge"` // the clipboard's tracks all onto this one
 	}
 	if !decodeBody(w, r, &b) {
 		return
@@ -545,7 +550,7 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 	}
 	if b.Take == "" {
 		// The clipboard, at the playhead.
-		d, err := a.tape.DropClipboard(r.URL.Query().Get("id"), b.Track)
+		d, err := a.tape.DropClipboard(r.URL.Query().Get("id"), b.Track, b.Merge)
 		if err != nil {
 			tapeErr(w, err)
 			return
@@ -576,6 +581,29 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"clip": clip})
+}
+
+// handleTapeEdit is the tape's editing: lift and copy to the clipboard,
+// split, join, slide and multiply. It answers what the edit did, and the
+// tape after it.
+func (a *API) handleTapeEdit(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var req tape.EditRequest
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	if req.Track == 0 {
+		req.Track = 1
+	}
+	id := r.URL.Query().Get("id")
+	res, err := a.tape.EditOp(id, req)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	a.writeTapeStateWith(w, id, &res)
 }
 
 func (a *API) handleTapeUndo(redo bool) http.HandlerFunc {

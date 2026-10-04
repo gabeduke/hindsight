@@ -606,7 +606,19 @@ clips, then, stopped, moves the playhead to its end. The audition renders it
 through a mix of its own, every track on bus A.
 
 **Drops** copy a span of a take into the pool. On an empty tape the first
-drop becomes the grid and the loop; later ones go at the playhead.
+drop becomes the grid and the loop; later ones go at the playhead. A merge
+drop places every clipboard track on one track instead, each clip on the
+lowest layer free.
+
+**Editing** (`edit.go`) never touches audio. A clip is a window onto an
+immutable pool file, so lift and copy are windows trimmed to the loop's In
+and Out (a lift also clears the span with the same cut a replace uses);
+split is two windows; join merges two that carry straight on in one file;
+slide re-places a clip at a new start; multiply copies the loop's windows
+into the span after it. Each goes through `Engine.Edit`, so each is one undo
+step and is saved before it's heard. A lift's clipboard is written after the
+tape; if it can't be, the lift is undone. The crossfades the renderer already
+does where clips meet make the joins silent.
 
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what

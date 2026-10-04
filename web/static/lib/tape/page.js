@@ -6,7 +6,10 @@
 import { toast } from '../toast.js';
 import { initHelp } from '../help/help.js';
 import { peakColumns, foldChannels, drawColumns } from '../wave/draw.js';
-import { editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets } from './geometry.js';
+import {
+  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets,
+  SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled,
+} from './geometry.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -24,6 +27,9 @@ const state = {
   clip: null,       // the clip whose sheet is open
   clipboard: null,  // what /api/clipboard says
   sel: null,        // a ruler drag in progress: {from, to} tape frames
+  scope: readPref('tape.scope', 'one'), // lift and copy: the selected track, or all
+  snap: readPref('tape.snap', 'bar'),   // what a slid clip snaps to
+  slide: null,      // a clip being slid: {n, clip, at}
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
 
@@ -211,6 +217,7 @@ function render() {
   for (const b of $('catch-bars').querySelectorAll('button')) b.disabled = !canCatch || !t.grid;
   renderMode();
   renderClipboard();
+  renderEdit();
   drawLanes();
   drawOverview();
   drawRuler();
@@ -222,12 +229,20 @@ function renderMode() {
 
 // --- the clipboard -------------------------------------------------------------
 
+// cbGen moves when this page learns the clipboard from an edit's answer, so
+// a fetch already in flight with the old one is dropped.
+let cbGen = 0;
 async function fetchClipboard() {
+  const g = cbGen;
+  let c = null, err = '';
   try {
     const b = await api('/api/clipboard');
-    state.clipboard = b.clipboard || null;
-    state.clipboardError = b.error || '';
-  } catch { state.clipboard = null; state.clipboardError = ''; }
+    c = b.clipboard || null;
+    err = b.error || '';
+  } catch { /* shown as empty */ }
+  if (g !== cbGen) return;
+  state.clipboard = c;
+  state.clipboardError = err;
   renderClipboard();
 }
 
@@ -246,7 +261,13 @@ function renderClipboard() {
   }
   chip.disabled = !c;
   chip.classList.toggle('playing', !$('clip-audio').paused);
-  $('drop').disabled = !c || !t;
+  // A several-track clipboard lands from the selected track down; Merge
+  // puts it on the one.
+  const fits = !!(c && t && state.track + c.tracks.length - 1 <= t.tracks.length);
+  $('drop').disabled = !fits;
+  $('drop').title = c && t && !fits ? `${c.tracks.length} tracks don't fit from track ${state.track}: Merge puts them on it` : '';
+  $('merge').hidden = !(c && c.tracks.length > 1);
+  $('merge').disabled = !t;
   $('clip-clear').disabled = !c && !state.clipboardError;
 }
 
@@ -258,18 +279,167 @@ function auditionClipboard() {
   renderClipboard();
 }
 
-async function drop() {
+async function drop(merge = false) {
   // Read before the request: a poll may change the clipboard meanwhile.
-  const secs = state.clipboard && state.tape ? (state.clipboard.frames / state.tape.sample_rate).toFixed(1) : '';
+  const c = state.clipboard;
+  const secs = c && state.tape ? (c.frames / state.tape.sample_rate).toFixed(1) : '';
   try {
-    const d = await change(() => api(`/api/tapes/drop?${q()}`, { method: 'POST', body: { track: state.track } }));
-    toast(`Dropped ${secs} s on track ${state.track}${d.tracks > 1 ? ` and the ${d.tracks - 1} after it` : ''}`, 'ok', {
+    const d = await change(() => api(`/api/tapes/drop?${q()}`, { method: 'POST', body: { track: state.track, merge } }));
+    const n = c ? c.tracks.filter((tr) => tr && tr.length).length : 0;
+    const what = merge ? `Merged ${n} track${n === 1 ? '' : 's'}, ${secs} s, onto track ${state.track}`
+      : `Dropped ${secs} s on track ${state.track}${d.tracks > 1 ? ` and the ${d.tracks - 1} after it` : ''}`;
+    toast(what, 'ok', {
       action: { label: 'Undo', run: () => undoRedo(false) },
     });
     poll();
   } catch (e) {
     toast(`Could not drop: ${e.message}`, 'bad');
   }
+}
+
+// --- editing: lift, copy, split, join, slide, multiply ------------------------
+
+function renderEdit() {
+  const t = state.tape;
+  const live = state.live;
+  for (const b of $('edit-scope').querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.scope === state.scope));
+    if (b.dataset.scope === 'one') b.textContent = `Track ${state.track}`;
+  }
+  const sel = t.loop.out > t.loop.in;
+  $('ed-lift').disabled = !sel;
+  $('ed-copy').disabled = !sel;
+  $('ed-split').disabled = !live || !track(state.track) || splitAt(track(state.track), live.heard, t.sample_rate) === 0;
+  $('ed-x2').disabled = !fitsDoubled(t);
+  const box = $('snap');
+  if (!box.children.length) {
+    for (const s of SNAPS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.snap = s.id;
+      b.dataset.tip = 'tape-snap';
+      b.textContent = s.label;
+      b.addEventListener('click', () => { state.snap = s.id; writePref('tape.snap', s.id); renderEdit(); });
+      box.appendChild(b);
+    }
+  }
+  for (const b of box.querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.snap === (t.grid ? state.snap : 'off')));
+    b.disabled = !t.grid && b.dataset.snap !== 'off';
+  }
+}
+
+// edit sends one edit, shows the tape it answers with, and answers what the
+// edit did -- or null, having said why not.
+async function edit(op, extra = {}) {
+  try {
+    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, track: state.track, ...extra } }));
+    const e = (s && s.edit) || {};
+    if (e.clipboard) { cbGen++; state.clipboard = e.clipboard; state.clipboardError = ''; renderClipboard(); }
+    return e;
+  } catch (err) {
+    toast(`Could not ${op === 'multiply' ? 'double the loop' : op}: ${err.message}`, 'bad');
+    return null;
+  }
+}
+
+const undoAction = { label: 'Undo', run: () => undoRedo(false) };
+
+// spanText reads the loop as bars, or seconds with no tempo.
+function spanText() {
+  const t = state.tape;
+  const l = t.loop;
+  if (!t.grid) return `${((l.out - l.in) / t.sample_rate).toFixed(1)} s`;
+  const n = Math.round((l.out - l.in) / (t.grid.frames / t.grid.bars));
+  return `${n} bar${n === 1 ? '' : 's'}`;
+}
+
+async function liftCopy(op) {
+  const all = state.scope === 'all';
+  const what = `${spanText()} of ${all ? 'every track' : `track ${state.track}`}`;
+  const e = await edit(op, { all });
+  if (!e) return;
+  if (op === 'lift') toast(`Lifted ${what} to the clipboard: Drop puts it at the playhead`, 'ok', { action: undoAction });
+  else toast(`Copied ${what}: Drop puts it at the playhead`, 'ok');
+}
+
+async function split() {
+  const e = await edit('split');
+  if (e) toast(`Split ${e.clips} clip${e.clips === 1 ? '' : 's'} on track ${state.track}`, 'ok', { action: undoAction });
+}
+
+async function multiply() {
+  const e = await edit('multiply');
+  if (e) toast(`The loop is ${spanText()} now`, 'ok', { action: undoAction });
+}
+
+async function slide(clip, at) {
+  const e = await edit('slide', { clip: clip.id, at });
+  const t = state.tape;
+  if (e) toast(`Slid to ${t.grid ? `bar ${barBeat(at, t.grid)}` : fmtSecs(at, t.sample_rate)}`, 'ok', { action: undoAction });
+}
+
+// wireLane: tap a clip for its sheet, or an empty part of the lane to move
+// the playhead (a click, so the sheet opens after the tap is done with);
+// hold a clip, then drag, to slide it along its track, snapping as chosen.
+function wireLane(lane) {
+  const cv = lane.canvas;
+  let down = null;      // the one pointer being followed
+  let slidUntil = 0;    // a click before this ends a slide, not a tap
+  const hitAt = (x) => (lane.hits || []).filter((h) => x >= h.x0 && x <= h.x1).pop();
+  const finish = (commit) => {
+    const d = down;
+    down = null;
+    if (!d) return;
+    clearTimeout(d.timer);
+    if (!d.held) return;
+    const sl = state.slide;
+    state.slide = null;
+    cv.classList.remove('sliding');
+    drawLanes();
+    if (d.moved) slidUntil = performance.now() + 600;
+    // Only a drag commits: a held tap that wobbled a pixel moves nothing.
+    if (commit && d.moved && sl && sl.at !== sl.clip.at) slide(sl.clip, sl.at);
+  };
+  cv.addEventListener('contextmenu', (e) => e.preventDefault());
+  cv.addEventListener('click', (e) => {
+    if (performance.now() < slidUntil) { slidUntil = 0; return; }
+    laneTap(lane, e);
+  });
+  cv.addEventListener('pointerdown', (e) => {
+    if (!state.tape || e.button > 0 || down) return; // one pointer at a time
+    const hit = hitAt(e.clientX - cv.getBoundingClientRect().left);
+    if (!hit) return;
+    down = { x: e.clientX, y: e.clientY, hit, moved: false, held: false, id: e.pointerId };
+    down.timer = setTimeout(() => {
+      if (!down || down.moved) return;
+      down.held = true;
+      try { cv.setPointerCapture(down.id); } catch { /* the pointer's gone */ }
+      state.slide = { n: lane.n, clip: hit.clip, at: hit.clip.at };
+      cv.classList.add('sliding');
+      if (navigator.vibrate) navigator.vibrate(10);
+      drawLanes();
+    }, 300);
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!down || e.pointerId !== down.id) return;
+    const far = Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8;
+    if (!down.held) {
+      if (far) { down.moved = true; clearTimeout(down.timer); down = null; } // a swipe: the browser's
+      return;
+    }
+    if (far) down.moved = true;
+    if (!down.moved || !state.slide) return;
+    const view = viewRange(state.tape);
+    const df = ((e.clientX - down.x) / cv.getBoundingClientRect().width) * (view.to - view.from);
+    state.slide.at = slideTo(state.tape.grid, down.hit.clip.at, df, state.snap);
+    drawLanes();
+  });
+  // While a slide is held, a finger's drag is the slide's, not a scroll.
+  cv.addEventListener('touchmove', (e) => { if (down && down.held) e.preventDefault(); }, { passive: false });
+  cv.addEventListener('pointerup', (e) => { if (down && e.pointerId === down.id) finish(true); });
+  cv.addEventListener('pointercancel', (e) => { if (down && e.pointerId === down.id) finish(false); });
+  cv.addEventListener('lostpointercapture', (e) => { if (down && down.held && e.pointerId === down.id) finish(false); });
 }
 
 // --- the ruler -----------------------------------------------------------------
@@ -460,7 +630,7 @@ function buildLanes() {
       lane.solo.addEventListener('click', () => patch({ track: { n, solo: !track(n).solo } }));
       lane.gain.addEventListener('input', () => { lane.gain.dataset.busy = '1'; });
       lane.gain.addEventListener('change', () => { delete lane.gain.dataset.busy; patch({ track: { n, gain_db: Number(lane.gain.value) } }); });
-      lane.canvas.addEventListener('click', (e) => laneTap(lane, e));
+      wireLane(lane);
       box.appendChild(row);
       lanes.push(lane);
     }
@@ -507,10 +677,12 @@ function drawLanes() {
     lane.hits = [];
     const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
     for (const c of sorted) {
-      const nudge = Math.round(((c.nudge_ms || 0) / 1000) * t.sample_rate);
+      const nudge = nudgeFrames(c, t.sample_rate);
       const x0 = xOf(c.at + nudge, view, W), x1 = xOf(c.at + nudge + c.frames, view, W);
       if (x1 < 0 || x0 > W) continue;
       const top = 2 + Math.min(c.layer, 3) * 3, h = H - 4 - Math.min(c.layer, 3) * 3;
+      // One being slid stays where it is, faint, until it lands.
+      ctx.globalAlpha = state.slide && state.slide.clip.id === c.id ? 0.35 : 1;
       ctx.fillStyle = c.layer ? 'rgba(96,165,250,0.18)' : 'rgba(52,211,153,0.16)';
       ctx.fillRect(x0, top, Math.max(1, x1 - x0), h);
       const pd = peaks.get(c.file);
@@ -525,7 +697,24 @@ function drawLanes() {
       }
       ctx.strokeStyle = state.clip && state.clip.id === c.id ? '#eef2f8' : 'rgba(238,242,248,0.25)';
       ctx.strokeRect(x0 + 0.5, top + 0.5, Math.max(1, x1 - x0) - 1, h - 1);
+      ctx.globalAlpha = 1;
       lane.hits.push({ x0, x1, clip: c });
+    }
+    // A clip being slid: where it would land.
+    const sl = state.slide;
+    if (sl && sl.n === lane.n) {
+      const from = sl.at + nudgeFrames(sl.clip, t.sample_rate); // where it'll sound, as the clip itself is drawn
+      const x0 = xOf(from, view, W), x1 = xOf(from + sl.clip.frames, view, W);
+      ctx.fillStyle = 'rgba(251,191,36,0.22)';
+      ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
+      ctx.strokeStyle = '#fbbf24';
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(x0 + 0.5, 1.5, Math.max(1, x1 - x0) - 1, H - 3);
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = '11px ui-monospace, monospace';
+      ctx.textBaseline = 'top';
+      ctx.fillText(t.grid ? barBeat(sl.at, t.grid) : fmtSecs(sl.at, t.sample_rate), Math.max(2, x0 + 4), 4);
     }
     // The playhead: what the device is playing now.
     if (state.live) {
@@ -718,6 +907,8 @@ function openClip(c) {
   $('clip-nudge-val').textContent = `${c.nudge_ms || 0} ms`;
   const lp = state.tape.loop;
   $('clip-tile').disabled = !(lp.on && c.at + 2 * c.frames <= lp.out);
+  const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
+  $('clip-join').disabled = !home || !joinPartner(home, c);
   const sh = $('clip-sheet');
   if (typeof sh.showModal === 'function') sh.showModal();
   drawLanes();
@@ -778,7 +969,20 @@ function wire() {
   $('clip-audio').addEventListener('ended', renderClipboard);
   $('clip-audio').addEventListener('pause', renderClipboard);
   $('clip-audio').addEventListener('error', () => { $('clip-audio').pause(); renderClipboard(); });
-  $('drop').addEventListener('click', drop);
+  $('drop').addEventListener('click', () => drop(false));
+  $('merge').addEventListener('click', () => drop(true));
+  for (const b of $('edit-scope').querySelectorAll('button')) {
+    b.addEventListener('click', () => { state.scope = b.dataset.scope; writePref('tape.scope', state.scope); renderEdit(); });
+  }
+  $('ed-lift').addEventListener('click', () => liftCopy('lift'));
+  $('ed-copy').addEventListener('click', () => liftCopy('copy'));
+  $('ed-split').addEventListener('click', split);
+  $('ed-x2').addEventListener('click', multiply);
+  $('clip-join').addEventListener('click', async () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c && await edit('join', { clip: c.id })) toast('Joined', 'ok', { action: undoAction });
+  });
   $('clip-clear').addEventListener('click', async () => {
     try { await api('/api/clipboard', { method: 'DELETE' }); } catch (e) { toast(e.message, 'bad'); }
     $('clip-audio').pause();

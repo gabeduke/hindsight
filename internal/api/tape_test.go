@@ -282,3 +282,47 @@ func TestTheClipboardCopiesATakeAndDropsItOnATape(t *testing.T) {
 	want(t, send(t, r, http.MethodDelete, "/api/clipboard", ""), http.StatusOK, "clear")
 	want(t, send(t, r, http.MethodGet, "/api/clipboard/audio", ""), http.StatusNotFound, "audition nothing")
 }
+
+func TestTheTapesEditsLiftSplitAndMultiply(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_11-00-00.wav", 192000)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-04_11-00-00.wav","from":0,"to":96000}`), http.StatusOK, "copy")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":1}`), http.StatusOK, "drop")
+
+	edit := func(body string, code int, what string) map[string]any {
+		t.Helper()
+		w := send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, body)
+		want(t, w, code, what)
+		var out map[string]any
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return out
+	}
+	// Split the loop in two at 1 s, then join it back.
+	edit(`{"op":"split","track":1,"pos":48000}`, http.StatusOK, "split")
+	s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, ""))
+	if n := len(s.Tape.Tracks[0].Clips); n != 2 {
+		t.Fatalf("split into %d", n)
+	}
+	edit(`{"op":"join","clip":"`+s.Tape.Tracks[0].Clips[0].ID+`"}`, http.StatusOK, "join")
+	// Double the loop, then lift all four tracks: the tape is left empty.
+	out := edit(`{"op":"multiply"}`, http.StatusOK, "multiply")
+	if e, _ := out["edit"].(map[string]any); e["frames"] != float64(192000) {
+		t.Fatalf("multiply = %v", out["edit"])
+	}
+	out = edit(`{"op":"lift","all":true}`, http.StatusOK, "lift")
+	if e, _ := out["edit"].(map[string]any); e["clips"] != float64(2) || e["clipboard"] == nil {
+		t.Fatalf("lift = %v", out["edit"])
+	}
+	s = stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, ""))
+	if n := len(s.Tape.Tracks[0].Clips); n != 0 || s.Undo == 0 {
+		t.Fatalf("after lifting everything: %d clips, undo %d", n, s.Undo)
+	}
+	// Merged onto track 3: the four-track clipboard becomes one.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":3,"merge":true}`), http.StatusOK, "merge drop")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":3}`), http.StatusBadRequest, "four tracks from 3")
+	edit(`{"op":"lift","track":2}`, http.StatusBadRequest, "nothing to lift")
+	edit(`{"op":"slide","clip":"x"}`, http.StatusBadRequest, "slide with no at")
+	edit(`{"op":"nope"}`, http.StatusBadRequest, "no such edit")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id=other", `{"op":"multiply"}`), http.StatusConflict, "another tape")
+}
