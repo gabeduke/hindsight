@@ -278,10 +278,12 @@ stem:
 Save and cut write the audio to a hidden `.<name>.part` file, write the
 sidecars under the final names, and rename the WAV into place last. The list
 only shows `.wav` files, so it never offers a take that is still being
-written; a 15-minute save takes long enough that it used to. A `.part` left
-by a crash is removed at startup, with the sidecars of the take that never
-made it. Names are chosen against both finished takes and `.part` files, so
-two saves in the same second can't collide.
+written; a 15-minute save takes long enough that it used to. A take's name
+is reserved by creating its `.part` exclusively, so a save and a cut in the
+same second can't both write to one file. At startup, a `.part` left by a
+crash is removed with the sidecars of the take that never made it, along with
+sidecar temp files and any `.meta.json`, `.peaks.json` or `.peaks.bin` whose
+take is gone.
 
 ### One writer per take at a time
 
@@ -290,7 +292,9 @@ Every read-modify-write of a take's sidecar holds that take's lock
 per-flag endpoints, the saver's tempo and flag stamps, the MIDI exporter's
 downbeat, and `RemoveTake`. The lock also covers rewriting the WAV's cue
 chunk, so two cue rewrites never interleave. Before it, two edits landing
-together meant the second silently threw the first away.
+together meant the second silently threw the first away. The API handlers
+check the take still exists once they hold the lock, so an edit queued behind
+a delete answers 404 instead of writing a sidecar for a take that's gone.
 
 Flags carry ids, so an edit names the flag it changes rather than replacing
 the list. A flag from before ids reads as `f<frame>`.
@@ -306,8 +310,9 @@ rewriting the cue chunk on a flag edit made an old take look new.
 
 `/api/jams` is polled every five seconds by every open page. It now costs one
 directory listing: each take's signature is the size and modification time of
-its WAV and sidecar and which other sidecars exist, all from that one
-listing. Takes are cached by signature, and the ETag is a hash of the
+its WAV and sidecar, the sidecar's inode (every sidecar write is a new file,
+so two same-size edits within one clock tick still differ), and which other
+sidecars exist, all from that one listing. Takes are cached by signature, and the ETag is a hash of the
 signatures, so an unchanged list answers 304 without opening a file, and a
 changed one re-reads only the takes that changed.
 

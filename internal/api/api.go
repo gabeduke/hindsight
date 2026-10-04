@@ -655,9 +655,11 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
 	go audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels()))
-	// A cut is a new take, so MAX_SAVES applies to it as it does to a save.
+	// A cut is a new take, so MAX_SAVES applies to it as it does to a save --
+	// but never to the cut itself, or to the take it was cut from: the owner
+	// is on that take's page, and may be about to cut from it again.
 	if a.saver != nil {
-		go a.saver.Prune()
+		go a.saver.Prune(name, out)
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"name": out})
 }
@@ -866,6 +868,9 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	// see audio.LockTake.
 	unlock := audio.LockTake(wav)
 	defer unlock()
+	if !stillThere(w, wav) {
+		return
+	}
 	m := audio.ReadMeta(wav)
 
 	if body.Label != nil {
@@ -959,6 +964,11 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				fl[i].Label = sanitizeLabel(fl[i].Label)
+				// An id this code could not have made is dropped, and the
+				// flag reads as a legacy one; a script can't store junk.
+				if fl[i].ID != "" && !audio.ValidFlagID(fl[i].ID) {
+					fl[i].ID = ""
+				}
 			}
 			// An impossible flag must not reach the sidecar either: reject the
 			// whole patch here rather than letting WriteCues bail out below and
@@ -1045,7 +1055,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Downbeat  *int64            `json:"downbeat_frame"`
 		LaneKinds map[string]string `json:"lane_kinds"`
 		CueError  string            `json:"cue_error,omitempty"`
-	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: m.Flags, Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr})
+	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr})
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control

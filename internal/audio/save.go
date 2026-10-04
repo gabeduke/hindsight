@@ -3,11 +3,13 @@ package audio
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -248,7 +250,10 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	}()
 
 	savedAt := time.Now()
-	name, wavPath := freeTakeName(cfg.OutputDir, savedAt)
+	name, wavPath, err := freeTakeName(cfg.OutputDir, savedAt)
+	if err != nil {
+		return "", fmt.Errorf("name take: %w", err)
+	}
 	// The audio goes to a hidden temporary file and is renamed into place
 	// only once its sidecars are written: the list is polled every five
 	// seconds, and a 15-minute take takes long enough to write that it used
@@ -305,18 +310,37 @@ func (s *Saver) Save(seconds float64) (string, error) {
 
 // freeTakeName picks the take's name from the time it was saved: jam_<ts>.wav,
 // or jam_<ts>_N.wav when that second is taken -- by a finished take or by one
-// still being written. Two saves in the same second must not collide:
-// overwriting a take is the one failure that loses audio outright, and a
-// double tap on the capture button is how it would happen.
-func freeTakeName(dir string, at time.Time) (name, path string) {
+// still being written -- and reserves it by creating its empty .part file.
+// Two takes in the same second must not collide: overwriting a take is the
+// one failure that loses audio outright, and a save and a cut landing
+// together is how it would happen. The .part is created exclusively, so only
+// one writer can hold a name, and the final name is checked again once it is
+// held, in case another writer renamed its take into place in between.
+func freeTakeName(dir string, at time.Time) (name, path string, err error) {
 	ts := at.Format(takeNameLayout)
-	name = fmt.Sprintf("jam_%s.wav", ts)
-	path = filepath.Join(dir, name)
-	for n := 2; exists(path) || exists(PartPath(path)); n++ {
-		name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
+	for n := 1; ; n++ {
+		name = fmt.Sprintf("jam_%s.wav", ts)
+		if n > 1 {
+			name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
+		}
 		path = filepath.Join(dir, name)
+		if exists(path) {
+			continue
+		}
+		f, err := os.OpenFile(PartPath(path), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return "", "", err
+		}
+		f.Close()
+		if exists(path) {
+			os.Remove(PartPath(path))
+			continue
+		}
+		return name, path, nil
 	}
-	return name, path
 }
 
 // PartPath is where a take's audio is written before it is complete: the
@@ -337,10 +361,20 @@ func SweepPartials(dir string) {
 	}
 	for _, e := range entries {
 		n := e.Name()
-		if !e.IsDir() && strings.HasSuffix(n, ".peaks.bin") {
-			// A pyramid whose take is gone: one built while the take was
-			// being deleted, or a take removed by hand.
-			if !exists(filepath.Join(dir, strings.TrimSuffix(n, ".peaks.bin")+".wav")) {
+		if e.IsDir() {
+			continue
+		}
+		// A sidecar write's temporary file, from a crash mid-write.
+		if (strings.HasPrefix(n, ".meta-") || strings.HasPrefix(n, ".pyramid-")) && strings.HasSuffix(n, ".tmp") {
+			os.Remove(filepath.Join(dir, n))
+			continue
+		}
+		// This program's own sidecars whose take is gone: a pyramid built
+		// while its take was being deleted, a take removed by hand. Exports
+		// a person might want (.mp3, .mid, the manifest) are left alone.
+		if stem, ok := internalSidecarStem(n); ok {
+			wav := filepath.Join(dir, stem+".wav")
+			if !exists(wav) && !exists(PartPath(wav)) {
 				os.Remove(filepath.Join(dir, n))
 			}
 			continue
@@ -355,6 +389,20 @@ func SweepPartials(dir string) {
 			RemoveTake(dir, final)
 		}
 	}
+}
+
+// internalSidecarStem returns the take stem of a .meta.json, .peaks.json or
+// .peaks.bin name.
+func internalSidecarStem(name string) (string, bool) {
+	if strings.HasPrefix(name, ".") {
+		return "", false
+	}
+	for _, suf := range []string{".meta.json", ".peaks.json", ".peaks.bin"} {
+		if strings.HasSuffix(name, suf) {
+			return strings.TrimSuffix(name, suf), true
+		}
+	}
+	return "", false
 }
 
 // stampCreated records when a take was made. Like the other stamps it runs
@@ -519,12 +567,14 @@ func MakePreview(cfg *config.Config, wavPath string, outCh int) {
 	log.Printf("[*] preview ready: %s", filepath.Base(mp3Path))
 }
 
-// Prune enforces MAX_SAVES now. Save does it itself; anything else that
-// makes a take -- a cut, for now -- calls this.
-func (s *Saver) Prune() { s.prune() }
+// Prune enforces MAX_SAVES now, sparing the takes named in keep. Save does
+// it itself; anything else that makes a take -- a cut, for now -- calls this.
+func (s *Saver) Prune(keep ...string) { s.prune(keep...) }
 
 // prune enforces MAX_SAVES by deleting the oldest takes and their sidecars.
-func (s *Saver) prune() {
+// A take in keep is skipped, which can leave the list one or two over until
+// the next save prunes again.
+func (s *Saver) prune(keep ...string) {
 	max := s.cap.cfg.MaxSaves
 	if max <= 0 {
 		return
@@ -534,6 +584,9 @@ func (s *Saver) prune() {
 		return
 	}
 	for _, t := range takes[max:] {
+		if slices.Contains(keep, t.Name) {
+			continue
+		}
 		log.Printf("[*] pruning %s (over MAX_SAVES=%d)", t.Name, max)
 		RemoveTake(s.cap.cfg.OutputDir, t.Name)
 	}

@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -52,7 +53,10 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 		return "", ErrTooShort
 	}
 
-	name, outPath := freeTakeName(dir, now)
+	name, outPath, err := freeTakeName(dir, now)
+	if err != nil {
+		return "", err
+	}
 	// Written under a temporary name and renamed into place last, like a
 	// save, so the list never shows a cut that is still being written.
 	tmpPath := PartPath(outPath)
@@ -137,14 +141,15 @@ func spanLabel(from, to int64, sampleRate int) string {
 // "riff · 0:05–0:10" rather than piling spans up.
 func cutLabelBase(label string) string {
 	label = strings.TrimSpace(label)
-	if i := strings.LastIndex(label, " · "); i >= 0 {
-		rest := label[i+len(" · "):]
-		if strings.Contains(rest, "–") && strings.Trim(rest, "0123456789:.–") == "" {
-			return label[:i]
-		}
+	if i := strings.LastIndex(label, " · "); i >= 0 && spanLabelRE.MatchString(label[i+len(" · "):]) {
+		return label[:i]
 	}
 	return label
 }
+
+// spanLabelRE matches exactly what spanLabel writes, so a label the owner
+// typed that merely ends in something like " · 1–2" is left alone.
+var spanLabelRE = regexp.MustCompile(`^\d+:\d{2}(\.\d)?–\d+:\d{2}(\.\d)?$`)
 
 // cutDownbeat carries the source's downbeat onto a cut of [from, to). With a
 // tempo, it is the first bar line at or after the cut's start, so the cut's

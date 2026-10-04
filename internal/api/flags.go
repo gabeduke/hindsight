@@ -19,12 +19,16 @@ import (
 // another device. The whole-array PATCH still works for scripts; the UI uses
 // these.
 //
-//	POST   /api/take/flags?file=        {"frame": N, "label": "..."}
+//	POST   /api/take/flags?file=        {"id"?: "r…", "frame": N, "label": "..."}
 //	PATCH  /api/take/flags?file=&id=    {"frame"?: N, "label"?: "..."}
 //	DELETE /api/take/flags?file=&id=
 //
 // Every one runs under the take's lock, from the read through the cue
 // rewrite, and answers {"flag": ..., "flags": [...], "cue_error"?: "..."}.
+//
+// A POST may carry the new flag's id, made by the client, so the page can
+// label or delete a flag before the POST has answered. Sending the same id
+// twice adds the flag once: a retried POST is harmless.
 
 type flagResponse struct {
 	Flag     *audio.Flag  `json:"flag,omitempty"`
@@ -81,9 +85,22 @@ func takeFrameCount(wav string) int64 {
 }
 
 // flagBody is what POST and PATCH accept. Pointers tell "absent" from zero.
+// ID is read only by POST.
 type flagBody struct {
+	ID    *string `json:"id"`
 	Frame *int64  `json:"frame"`
 	Label *string `json:"label"`
+}
+
+// stillThere reports whether the take survived until its lock was taken. A
+// delete can land between the existence check and the lock; writing the
+// sidecar then would leave a .meta.json for a take that is gone.
+func stillThere(w http.ResponseWriter, wav string) bool {
+	if _, err := os.Stat(wav); err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return false
+	}
+	return true
 }
 
 func decodeFlagBody(w http.ResponseWriter, r *http.Request) (flagBody, bool) {
@@ -162,19 +179,37 @@ func (a *API) handleTakeFlagPost(w http.ResponseWriter, r *http.Request) {
 	if !checkFrame(w, *b.Frame, takeFrameCount(wav)) {
 		return
 	}
+	id := audio.NewFlagID()
+	if b.ID != nil {
+		if len(*b.ID) != 9 || (*b.ID)[0] != 'r' || !audio.ValidFlagID(*b.ID) {
+			writeErr(w, http.StatusBadRequest, "a new flag's id is r and eight hex digits")
+			return
+		}
+		id = *b.ID
+	}
 
 	unlock := audio.LockTake(wav)
 	defer unlock()
+	if !stillThere(w, wav) {
+		return
+	}
 	m := audio.ReadMeta(wav)
+	m.Flags = audio.EnsureFlagIDs(m.Flags)
+	if i := indexOfFlag(m.Flags, id); i >= 0 {
+		// Already added: a retry, or a double send. Answer as if it were new.
+		f := m.Flags[i]
+		writeJSON(w, http.StatusOK, flagResponse{Flag: &f, Flags: m.Flags})
+		return
+	}
 	if len(m.Flags) >= maxTakeFlags {
 		writeErr(w, http.StatusBadRequest, fmt.Sprintf("a take may carry at most %d flags", maxTakeFlags))
 		return
 	}
-	f := audio.Flag{ID: audio.NewFlagID(), Frame: *b.Frame}
+	f := audio.Flag{ID: id, Frame: *b.Frame}
 	if b.Label != nil {
 		f.Label = sanitizeLabel(*b.Label)
 	}
-	m.Flags = append(audio.EnsureFlagIDs(m.Flags), f)
+	m.Flags = append(m.Flags, f)
 	a.commitFlags(w, name, wav, m, &f)
 }
 
@@ -198,6 +233,9 @@ func (a *API) handleTakeFlagPatch(w http.ResponseWriter, r *http.Request) {
 
 	unlock := audio.LockTake(wav)
 	defer unlock()
+	if !stillThere(w, wav) {
+		return
+	}
 	m := audio.ReadMeta(wav)
 	m.Flags = audio.EnsureFlagIDs(m.Flags)
 	i := indexOfFlag(m.Flags, id)
@@ -228,6 +266,9 @@ func (a *API) handleTakeFlagDelete(w http.ResponseWriter, r *http.Request) {
 
 	unlock := audio.LockTake(wav)
 	defer unlock()
+	if !stillThere(w, wav) {
+		return
+	}
 	m := audio.ReadMeta(wav)
 	m.Flags = audio.EnsureFlagIDs(m.Flags)
 	i := indexOfFlag(m.Flags, id)

@@ -46,7 +46,8 @@ type Flag struct {
 
 // LegacyFlagID is the id a flag with none on disk reads as. It is derived
 // from the frame so it is stable across reads before anything is written;
-// new flags get NewFlagID's "r" ids, which can never collide with it.
+// new flags get NewFlagID's "r" ids, which can never collide with it. (Two
+// legacy ids can: see EnsureFlagIDs.)
 func LegacyFlagID(frame int64) string { return "f" + strconv.FormatInt(frame, 10) }
 
 // NewFlagID returns a fresh flag id: "r" and eight random hex characters.
@@ -61,29 +62,74 @@ func NewFlagID() string {
 }
 
 // EnsureFlagIDs returns a copy of flags in which every flag has an id: the
-// ones that had none get their legacy id.
+// ones that had none get their legacy id. If that id is already taken -- a
+// legacy flag that has since moved keeps "f<old frame>", and a new id-less
+// flag can land on that old frame -- it gets "f<frame>_2", "_3" and so on,
+// in list order, so the answer is the same on every read.
 func EnsureFlagIDs(in []Flag) []Flag {
 	if len(in) == 0 {
 		return in
 	}
 	out := make([]Flag, len(in))
 	copy(out, in)
-	for i := range out {
-		if out[i].ID == "" {
-			out[i].ID = LegacyFlagID(out[i].Frame)
+	used := make(map[string]bool, len(out))
+	for _, f := range out {
+		if f.ID != "" {
+			used[f.ID] = true
 		}
+	}
+	for i := range out {
+		if out[i].ID != "" {
+			continue
+		}
+		base := LegacyFlagID(out[i].Frame)
+		id := base
+		for n := 2; used[id]; n++ {
+			id = base + "_" + strconv.Itoa(n)
+		}
+		used[id] = true
+		out[i].ID = id
 	}
 	return out
 }
 
+// ValidFlagID reports whether id is one this code could have made: a new
+// flag's "r" and eight hex characters, or a legacy "f<frame>" with an
+// optional "_N". Ids sent by clients are checked against it, so a script
+// can't store an arbitrary string as an id.
+func ValidFlagID(id string) bool {
+	if len(id) == 9 && id[0] == 'r' {
+		for _, c := range id[1:] {
+			if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+				return false
+			}
+		}
+		return true
+	}
+	if len(id) < 2 || len(id) > 26 || id[0] != 'f' {
+		return false
+	}
+	num, suffix, hasSuffix := strings.Cut(id[1:], "_")
+	if _, err := strconv.ParseUint(num, 10, 63); err != nil {
+		return false
+	}
+	if hasSuffix {
+		if n, err := strconv.Atoi(suffix); err != nil || n < 2 {
+			return false
+		}
+	}
+	return true
+}
+
 // flagKey is what NormalizeFlags dedupes on: the id, or for a flag with none,
 // its frame -- which is exactly the pre-id behaviour, kept for old sidecars
-// and old clients.
+// and old clients. The two are kept apart, so a flag with no id at frame F is
+// never taken for a moved legacy flag whose id still reads "f<F>".
 func flagKey(f Flag) string {
 	if f.ID != "" {
 		return f.ID
 	}
-	return LegacyFlagID(f.Frame)
+	return "\x00" + strconv.FormatInt(f.Frame, 10)
 }
 
 // NormalizeFlags returns flags sorted by frame with duplicates and negative

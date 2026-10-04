@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // The peaks pyramid: min and max per 256-frame bucket for every channel of a
@@ -298,6 +299,17 @@ func BackfillPyramids(dir string) {
 		wav := filepath.Join(dir, n)
 		if exists(pyramidPath(wav)) {
 			continue
+		}
+		// Takes this can't make a pyramid for (a 16-bit WAV dropped in by
+		// hand) are skipped quietly rather than complained about every boot;
+		// their zooms read the WAV, as before.
+		if info, err := ReadWAVInfo(wav); err != nil || info.BitsPerSample != 32 || info.Frames() == 0 {
+			continue
+		}
+		// A breath between takes, so a backfill of many old takes doesn't
+		// hold the SD card against a save that starts meanwhile.
+		if built > 0 {
+			time.Sleep(100 * time.Millisecond)
 		}
 		if err := BuildPyramid(wav); err != nil {
 			log.Printf("[!] peaks pyramid for %s: %v", n, err)

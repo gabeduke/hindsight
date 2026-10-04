@@ -43,8 +43,13 @@ type cachedTake struct {
 type takeSig struct {
 	wavSize, wavMod   int64
 	metaSize, metaMod int64 // -1 when there is no sidecar
-	preview, peaks    bool
-	midi              bool
+	// The sidecar's inode. Every sidecar write is a new file renamed into
+	// place, so this changes on every write even when the size and the
+	// modification time don't: two same-size label edits inside one tick of
+	// a coarse filesystem clock would otherwise be cached as one.
+	metaIno        uint64
+	preview, peaks bool
+	midi           bool
 }
 
 func NewTakeList(dir string) *TakeList {
@@ -113,6 +118,7 @@ func sigFor(wav string, infos map[string]fs.FileInfo) takeSig {
 	}
 	if i := infos[stem+".meta.json"]; i != nil {
 		s.metaSize, s.metaMod = i.Size(), i.ModTime().UnixNano()
+		s.metaIno = inodeOf(i)
 	}
 	_, s.preview = infos[stem+"_preview.mp3"]
 	_, s.peaks = infos[stem+".peaks.json"]

@@ -134,7 +134,7 @@ comfortably above one full-ring take, not just above zero.
 `MAX_SAVES` prunes in the background after a successful save or cut. It keeps
 the first `MAX_SAVES` takes in the order `/api/jams` lists them — starred
 first, then newest first by creation time — and deletes the rest along with
-their sidecars. Starring a take therefore keeps it out of the pruner's reach,
+their sidecars. A cut never prunes itself or the take it was cut from. Starring a take therefore keeps it out of the pruner's reach,
 until the starred takes alone exceed `MAX_SAVES`. Editing an old take's flags
 doesn't make it new again.
 

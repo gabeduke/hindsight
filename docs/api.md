@@ -268,7 +268,7 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 | `starred` | bool | |
 | `trim` | `{start_frame, end_frame}` or `null` | `start_frame` must be `>= 0`, `end_frame` must exceed `start_frame`, and `end_frame` must not pass the take's frame count; `null` clears |
 | `bpm` | number or `null` | 20–400, rounded to two decimals; rejects NaN and ±Inf; `null` clears |
-| `flags` | `[{id?, frame, label}]` or `null` | A full replacement of the take's flags. Capped at 512; `frame` must be `>= 0` and less than the take's frame count; `null` clears. `label` is sanitized like the take label (control characters stripped, trimmed, 120 runes). Kept for scripts: the UI uses the per-flag endpoints below, because a full replacement from a page that has been open a while silently undoes a flag another device added |
+| `flags` | `[{id?, frame, label}]` or `null` | A full replacement of the take's flags. An `id` that isn't one the server could have made is dropped, and the flag gets a legacy one. Capped at 512; `frame` must be `>= 0` and less than the take's frame count; `null` clears. `label` is sanitized like the take label (control characters stripped, trimmed, 120 runes). Kept for scripts: the UI uses the per-flag endpoints below, because a full replacement from a page that has been open a while silently undoes a flag another device added |
 | `downbeat_frame` | integer or `null` | Where bar 1 falls, for the waveform page's grid. `>= 0` and less than the take's frame count; `null` clears |
 | `lane_kinds` | `{"<track name>": "drums"\|"notes"}` or `null` | A full replacement of the take's per-lane overrides for `GET /api/midi`'s drum guess. At most 64 entries; keys sanitized like labels; `null` clears |
 
@@ -320,11 +320,15 @@ curl -X DELETE 'http://127.0.0.1:5000/api/take/flags?file=jam_2026-09-09_145852.
 
 | Field | Notes |
 |---|---|
+| `id` | `POST` only, optional: the new flag's id, `r` and eight lowercase hex characters. Made by the page, so it can label or delete a flag before the `POST` answers |
 | `frame` | Required for `POST`, optional for `PATCH`. `>= 0` and less than the take's frame count |
 | `label` | Optional. Sanitized like the take label |
 
-A new flag gets a fresh id: `r` and eight hex characters. Two flags may share
-a frame if their ids differ. Each call runs under the take's lock, rewrites
+Without an `id`, the server makes one. A `POST` whose `id` the take already
+has adds nothing and answers as if it had, so a retry is harmless. Two flags
+may share a frame if their ids differ. The page sends its flag requests for a
+take one at a time, in order, so a label sent straight after an add never
+arrives first. Each call runs under the take's lock, rewrites
 the WAV's cue points like the whole-array PATCH, and answers:
 
 ```json
@@ -337,8 +341,8 @@ sidecar saved but the cue chunk could not be rewritten.
 
 | Status | When |
 |---|---|
-| 400 | Bad `file`, malformed body, missing `frame` (`POST`) or `id` (`PATCH`, `DELETE`), a frame out of range, or a take already carrying 512 flags |
-| 404 | No such take, or no flag with that `id` |
+| 400 | Bad `file`, malformed body, missing `frame` (`POST`) or `id` (`PATCH`, `DELETE`), a malformed `id`, a frame out of range, or a take already carrying 512 flags |
+| 404 | No such take (including one deleted while the request waited for the lock), or no flag with that `id` |
 | 409 | The sidecar was written by a newer build |
 | 500 | The sidecar write failed. The detail is logged |
 | 507 | Disk full |
@@ -445,7 +449,8 @@ The source's downbeat is carried onto the cut's grid: with a BPM, the first
 bar line at or after the region's start; without one, only a downbeat inside
 the region. Star and trim are not copied. The source is never modified.
 The cut appears in the list only once it is complete, and `MAX_SAVES` is
-enforced afterwards, as after a save. The preview mp3 is rendered in the
+enforced afterwards, as after a save -- sparing the cut and the take it was
+cut from, which can leave the list one or two over until the next capture. The preview mp3 is rendered in the
 background.
 
 Response: `200 {"name": "jam_2026-09-10_221441.wav"}`.

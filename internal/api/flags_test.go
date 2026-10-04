@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -220,5 +221,76 @@ func TestRendersTakeTurns(t *testing.T) {
 		t.Fatal("the slot was not given back")
 	} else {
 		release2()
+	}
+}
+
+func TestPostFlagTakesTheClientsIDOnce(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeRealTake(t, dir, "jam_c.wav", 48000)
+	for i := 0; i < 2; i++ { // the second is a retry: one flag, same answer
+		w := send(t, r, http.MethodPost, "/api/take/flags?file=jam_c.wav", `{"id":"r0123abcd","frame":100}`)
+		if w.Code != http.StatusOK {
+			t.Fatalf("post %d: status = %d: %s", i, w.Code, w.Body)
+		}
+		resp := decodeFlags(t, w)
+		if resp.Flag == nil || resp.Flag.ID != "r0123abcd" || len(resp.Flags) != 1 {
+			t.Fatalf("post %d: %+v", i, resp)
+		}
+	}
+	// The page labels the flag straight after adding it, by that id.
+	w := send(t, r, http.MethodPatch, "/api/take/flags?file=jam_c.wav&id=r0123abcd", `{"label":"drop"}`)
+	if w.Code != http.StatusOK || decodeFlags(t, w).Flag.Label != "drop" {
+		t.Errorf("label by the client's id: %d %s", w.Code, w.Body)
+	}
+	for _, bad := range []string{`"f100"`, `"r123"`, `"RABCDEF01"`, `"r0123abcg"`, `"../x"`} {
+		w := send(t, r, http.MethodPost, "/api/take/flags?file=jam_c.wav", `{"id":`+bad+`,"frame":5}`)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("id %s: status = %d, want 400", bad, w.Code)
+		}
+	}
+}
+
+func TestWholeArrayPatchAnswersWithIDsAndDropsJunkOnes(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeRealTake(t, dir, "jam_w.wav", 48000)
+	w := patch(t, r, "jam_w.wav", `{"flags":[{"frame":10},{"id":"<script>","frame":20},{"id":"r0000beef","frame":30}]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", w.Code, w.Body)
+	}
+	var resp struct{ Flags []audio.Flag }
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	got := []string{}
+	for _, f := range resp.Flags {
+		got = append(got, f.ID)
+	}
+	if want := []string{"f10", "f20", "r0000beef"}; strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("ids = %v, want %v", got, want)
+	}
+	m := audio.ReadMeta(dir + "/jam_w.wav")
+	for i, f := range m.Flags {
+		if f.ID != resp.Flags[i].ID {
+			t.Errorf("stored id %q, answered %q", f.ID, resp.Flags[i].ID)
+		}
+	}
+}
+
+func TestEditsToADeletedTakeLeaveNoSidecar(t *testing.T) {
+	r, dir := newTestAPI(t)
+	wav := writeRealTake(t, dir, "jam_d.wav", 48000)
+	// Hold the take's lock, as an edit in flight would, while the take is
+	// deleted underneath: the edit that was waiting must not recreate it.
+	unlock := audio.LockTake(wav)
+	done := make(chan *httptest.ResponseRecorder)
+	go func() {
+		done <- send(t, r, http.MethodPost, "/api/take/flags?file=jam_d.wav", `{"frame":10}`)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	os.Remove(wav)
+	unlock()
+	if w := <-done; w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", w.Code)
+	}
+	if _, err := os.Stat(strings.TrimSuffix(wav, ".wav") + ".meta.json"); err == nil {
+		t.Error("an edit recreated the sidecar of a deleted take")
 	}
 }
