@@ -70,8 +70,7 @@ func (a *API) handleTrashRestore(w http.ResponseWriter, r *http.Request) {
 func (a *API) handleTrashDelete(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	if q.Get("all") == "1" {
-		// Everything deleted before "now", which is everything.
-		n := audio.EmptyTrash(a.cfg.OutputDir, time.Now().Add(time.Second))
+		n := audio.EmptyAllTrash(a.cfg.OutputDir)
 		writeJSON(w, http.StatusOK, map[string]any{"status": "emptied", "count": n})
 		return
 	}

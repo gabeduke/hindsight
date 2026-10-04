@@ -18,6 +18,7 @@ const SHELL = [
   '/lib/ribbon.js',
   '/lib/takes.js',
   '/lib/toast.js',
+  '/lib/client.js',
   '/lib/trash.js',
   '/lib/wakelock.js',
   '/lib/phone/recorder.js',

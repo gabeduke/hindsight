@@ -2,8 +2,10 @@ package audio
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -18,7 +20,7 @@ func takeWithSidecars(t *testing.T, dir, name string) string {
 	for _, p := range []string{previewPath(wav), peaksPath(wav), pyramidPath(wav), MIDIPath(wav), ManifestPath(wav)} {
 		os.WriteFile(p, []byte("x"), 0o644)
 	}
-	if _, err := RecordHistory(wav, Meta{}, Meta{Label: "keeper"}, time.Now()); err != nil {
+	if _, err := RecordHistory(wav, Meta{}, Meta{Label: "keeper"}, time.Now(), ""); err != nil {
 		t.Fatal(err)
 	}
 	return wav
@@ -55,7 +57,7 @@ func TestTrashThenRestoreKeepsEverything(t *testing.T) {
 	if !m.Starred || m.Label != "keeper" || len(m.Flags) != 1 {
 		t.Fatalf("restored meta = %+v, want starred with its label and flag", m)
 	}
-	if HistoryInfo(wav).Count != 1 {
+	if HistoryInfo(wav, "").Count != 1 {
 		t.Error("the history should come back with the take")
 	}
 	if tr, _ := ListTrash(dir); len(tr) != 0 {
@@ -100,11 +102,11 @@ func TestLowDiskEmptiesTheOldestTrashFirst(t *testing.T) {
 		TrashTake(dir, n, TrashDeleted, now.Add(time.Duration(i)*time.Minute))
 	}
 	// Each trashed take removed frees 1 GB; start 1.5 GB short of 2.
-	saved := freeGBFunc
-	defer func() { freeGBFunc = saved }()
-	freeGBFunc = func(string) float64 {
+	saved := diskFreeGB
+	defer func() { diskFreeGB = saved }()
+	diskFreeGB = func(string) (float64, bool) {
 		tr, _ := ListTrash(dir)
-		return 0.5 + float64(3-len(tr))
+		return 0.5 + float64(3-len(tr)), true
 	}
 	if free := EnsureFree(dir, 2); free < 2 {
 		t.Fatalf("free = %v, want at least 2", free)
@@ -151,5 +153,100 @@ func TestSweepRemovesAnOrphanHistory(t *testing.T) {
 	SweepPartials(dir)
 	if exists(orphan) {
 		t.Error("an orphan history should be swept")
+	}
+}
+
+func TestADiskThatCantBeReadEmptiesNothing(t *testing.T) {
+	dir := t.TempDir()
+	takeWithSidecars(t, dir, "jam_e.wav")
+	TrashTake(dir, "jam_e.wav", TrashDeleted, time.Now())
+	saved := diskFreeGB
+	defer func() { diskFreeGB = saved }()
+	diskFreeGB = func(string) (float64, bool) { return 0, false }
+	EnsureFree(dir, 100)
+	if tr, _ := ListTrash(dir); len(tr) != 1 {
+		t.Fatal("an unreadable disk was taken for a full one and the trash emptied")
+	}
+}
+
+// Emptying the trash while takes are going into it -- the janitor's tick, or
+// Empty, during a delete or a prune -- must never lose a take or leave one
+// "deleted" in place. Found by an independent review.
+func TestEmptyingRacesNoDelete(t *testing.T) {
+	dir := t.TempDir()
+	const n = 400
+	for i := 0; i < n; i++ {
+		os.WriteFile(filepath.Join(dir, fmt.Sprintf("jam_%05d.wav", i)), []byte("RIFF"), 0o644)
+	}
+	var stop atomic.Bool
+	done := make(chan struct{})
+	go func() {
+		for !stop.Load() {
+			EmptyTrash(dir, time.Now().Add(-TrashKeep))
+		}
+		close(done)
+	}()
+	bad := 0
+	for i := 0; i < n; i++ {
+		name := fmt.Sprintf("jam_%05d.wav", i)
+		if err := TrashTake(dir, name, TrashDeleted, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		if exists(filepath.Join(dir, name)) || !exists(filepath.Join(trashSlot(dir, name), name)) {
+			bad++
+		}
+	}
+	stop.Store(true)
+	<-done
+	if bad > 0 {
+		t.Fatalf("%d of %d deletes lost the take or left it in place", bad, n)
+	}
+}
+
+func TestANewTakeNeverGetsATrashedName(t *testing.T) {
+	dir := t.TempDir()
+	at := time.Date(2026, 10, 4, 12, 0, 0, 0, time.Local)
+	name, _, err := freeTakeName(dir, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(PartPath(filepath.Join(dir, name)))
+	writeFakeTake(t, dir, name, 0)
+	TrashTake(dir, name, TrashDeleted, time.Now())
+	// The clock repeats the second (a Pi with no RTC after a power cut).
+	again, _, err := freeTakeName(dir, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again == name {
+		t.Fatalf("got %s again, which is in the trash", again)
+	}
+	// And a delete never replaces a trashed take of the same name.
+	writeFakeTake(t, dir, name, 0)
+	if err := TrashTake(dir, name, TrashDeleted, time.Now()); !errors.Is(err, ErrNameTaken) {
+		t.Fatalf("trash over a trashed name = %v, want ErrNameTaken", err)
+	}
+	if !exists(filepath.Join(dir, name)) {
+		t.Fatal("a refused delete moved the take anyway")
+	}
+}
+
+func TestSweepPutsAStrandedSidecarBackWithItsTrashedTake(t *testing.T) {
+	dir := t.TempDir()
+	wav := takeWithSidecars(t, dir, "jam_s.wav")
+	TrashTake(dir, "jam_s.wav", TrashDeleted, time.Now())
+	// A crash between moving the WAV and its sidecars: put two back live.
+	slot := trashSlot(dir, "jam_s.wav")
+	os.Rename(filepath.Join(slot, filepath.Base(metaPath(wav))), metaPath(wav))
+	os.Rename(filepath.Join(slot, filepath.Base(MIDIPath(wav))), MIDIPath(wav))
+	SweepPartials(dir)
+	if exists(metaPath(wav)) || exists(MIDIPath(wav)) {
+		t.Fatal("stranded sidecars still beside a take that isn't there")
+	}
+	if err := RestoreTake(dir, "jam_s.wav"); err != nil {
+		t.Fatal(err)
+	}
+	if m := ReadMeta(wav); m.Label != "keeper" || !exists(MIDIPath(wav)) {
+		t.Fatalf("restored take lost its sidecars: %+v", m)
 	}
 }

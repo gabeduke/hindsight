@@ -29,10 +29,15 @@ const HistoryMax = 50
 // to count as one step: a held nudge, or In then Out in quick succession.
 const coalesceWindow = 2 * time.Second
 
+// MaxTakeFlags bounds what a single take may carry; an Undo that would bring
+// back a flag past it is skipped.
+const MaxTakeFlags = 512
+
 // Op is one undoable change to a take.
 type Op struct {
 	ID     string          `json:"id"`
 	At     time.Time       `json:"at"`
+	Client string          `json:"client,omitempty"`  // the device that made it; see RecordHistory
 	Field  string          `json:"field"`             // label, trim, bpm, downbeat_frame, lane_kinds, flags, flag
 	FlagID string          `json:"flag_id,omitempty"` // for field "flag"
 	What   string          `json:"what"`              // what Undo will say it undid: "rename", "flag moved"
@@ -156,11 +161,13 @@ func DiffMeta(before, after Meta) []Op {
 
 // RecordHistory appends what changed between before and after to the take's
 // log, and returns the id of the newest operation it recorded or extended
-// ("" when nothing changed). A change that continues the newest operation --
-// the same field, within coalesceWindow, starting where it ended, and neither
-// adding nor removing -- extends it instead of adding a step. The caller
-// holds the take's lock.
-func RecordHistory(wav string, before, after Meta, now time.Time) (string, error) {
+// ("" when nothing changed). client names the device that made the change
+// ("" for a script): each device's Undo walks back through its own changes,
+// so one device can't undo another's. A change that continues the newest
+// operation -- the same device and field, within coalesceWindow, starting
+// where it ended, and neither adding nor removing -- extends it instead of
+// adding a step. The caller holds the take's lock.
+func RecordHistory(wav string, before, after Meta, now time.Time, client string) (string, error) {
 	diff := DiffMeta(before, after)
 	if len(diff) == 0 {
 		return "", nil
@@ -173,8 +180,9 @@ func RecordHistory(wav string, before, after Meta, now time.Time) (string, error
 			// Adding and removing never merge: a removal gets a toast with its
 			// own Undo, and that Undo must have a step to undo.
 			grows := string(d.Before) == "null" || string(d.After) == "null"
-			if !grows && last.Field == d.Field && last.FlagID == d.FlagID && now.Sub(last.At) < coalesceWindow &&
-				bytes.Equal(last.After, d.Before) {
+			gap := now.Sub(last.At) // negative after a clock that went back: no merge
+			if !grows && last.Client == client && last.Field == d.Field && last.FlagID == d.FlagID &&
+				gap >= 0 && gap < coalesceWindow && bytes.Equal(last.After, d.Before) {
 				last.After, last.At = d.After, now
 				if last.What != "flag added" { // added, then moved, is still an add
 					last.What = d.What
@@ -188,7 +196,7 @@ func RecordHistory(wav string, before, after Meta, now time.Time) (string, error
 				continue
 			}
 		}
-		d.ID, d.At = NewFlagID(), now // the same short random id a flag uses
+		d.ID, d.At, d.Client = NewFlagID(), now, client // the same short random id a flag uses
 		ops = append(ops, d)
 		id = d.ID
 	}
@@ -203,39 +211,49 @@ type UndoInfo struct {
 	Op    string `json:"op,omitempty"` // the operation the request just recorded, if any
 }
 
-// HistoryInfo summarises a take's log for a page.
-func HistoryInfo(wav string) UndoInfo {
-	ops := ReadHistory(wav)
-	if len(ops) == 0 {
-		return UndoInfo{}
+// mine reports whether op is one client's to undo: a page undoes its own
+// device's changes; a script ("") undoes anyone's.
+func mine(op Op, client string) bool { return client == "" || op.Client == client }
+
+// HistoryInfo summarises a take's log for one device's page: how many of the
+// changes are its own, and what its Undo would undo next.
+func HistoryInfo(wav, client string) UndoInfo {
+	var info UndoInfo
+	for _, op := range ReadHistory(wav) {
+		if mine(op, client) {
+			info.Count++
+			info.Next = op.What
+		}
 	}
-	return UndoInfo{Count: len(ops), Next: ops[len(ops)-1].What}
+	return info
 }
 
-// Undo reverses one operation of the take's log in m -- the newest, or the
-// one named by opID -- and removes it from the log. It returns the operation
-// and whether flags changed (so the caller rewrites the cue chunk). When the
-// field no longer holds what the operation left there, the operation is
-// dropped from the log and ErrUndoClash returned, with m untouched. The
-// caller holds the take's lock and writes m.
-func Undo(wav string, m *Meta, opID string) (Op, error) {
+// PlanUndo reverses one operation of the take's log in m -- client's newest,
+// or the one named by opID -- and returns it with the log as it should be
+// afterwards. Nothing is written: the caller writes m, then the log
+// (SaveHistory), so a failed write leaves the step to try again. When the
+// field no longer holds what the operation left there, m is untouched and
+// ErrUndoClash returned; the log without the operation is still returned, to
+// be saved. The caller holds the take's lock.
+func PlanUndo(wav string, m *Meta, opID, client string) (Op, []Op, error) {
 	ops := ReadHistory(wav)
 	i := len(ops) - 1
-	if opID != "" {
-		for i = len(ops) - 1; i >= 0 && ops[i].ID != opID; i-- {
+	for ; i >= 0; i-- {
+		if opID != "" && ops[i].ID == opID || opID == "" && mine(ops[i], client) {
+			break
 		}
 	}
 	if i < 0 {
-		return Op{}, ErrNothingToUndo
+		return Op{}, ops, ErrNothingToUndo
 	}
 	op := ops[i]
-	ops = append(ops[:i], ops[i+1:]...)
-	err := applyUndo(m, op)
-	if werr := writeHistory(wav, ops); werr != nil && err == nil {
-		err = werr
-	}
-	return op, err
+	rest := append(append([]Op(nil), ops[:i]...), ops[i+1:]...)
+	return op, rest, applyUndo(m, op)
 }
+
+// SaveHistory replaces a take's log; see PlanUndo. The caller holds the
+// take's lock.
+func SaveHistory(wav string, ops []Op) error { return writeHistory(wav, ops) }
 
 // applyUndo puts op.Before back into m if the field still holds op.After.
 func applyUndo(m *Meta, op Op) error {
@@ -312,6 +330,9 @@ func applyUndo(m *Meta, op Op) error {
 		case prev != nil && at >= 0: // undo a move or rename
 			flags[at] = *prev
 		case prev != nil: // undo a delete
+			if len(flags) >= MaxTakeFlags {
+				return ErrUndoClash
+			}
 			flags = append(flags, *prev)
 		}
 		m.Flags = NormalizeFlags(flags)

@@ -288,6 +288,10 @@ func (a *API) handleDelete(w http.ResponseWriter, r *http.Request) {
 	// To the trash, not gone: GET /api/trash lists it, and restore brings it
 	// back.
 	if err := audio.TrashTake(a.cfg.OutputDir, name, audio.TrashDeleted, time.Now()); err != nil {
+		if errors.Is(err, audio.ErrNameTaken) {
+			writeErr(w, http.StatusConflict, "an older take of that name is in the trash; delete it there first")
+			return
+		}
 		log.Printf("trash %s: %v", name, err)
 		writeErr(w, http.StatusInternalServerError, "could not move the take to the trash")
 		return
@@ -296,7 +300,7 @@ func (a *API) handleDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // maxTakeFlags bounds what a single take may carry.
-const maxTakeFlags = 512
+const maxTakeFlags = audio.MaxTakeFlags
 
 // maxLaneKinds bounds how many lane kind overrides a take may carry.
 const maxLaneKinds = 64
@@ -1055,7 +1059,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		writeMetaErr(w, name, err)
 		return
 	}
-	undo := recordUndo(wav, before, m)
+	undo := recordUndo(r, wav, before, m)
 
 	// The sidecar is the source of truth and is already written; a cue failure
 	// is reported -- on the response, not just the log, since the caller has no

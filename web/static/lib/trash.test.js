@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ago } from './trash.js';
-import { undoSkipped, toastNext, takeNextToast } from './toast.js';
+import { undoSkipped, undoPhrase, toastNext, takeNextToast } from './toast.js';
+import { clientId, withClient, CLIENT_HEADER } from './client.js';
 
 test('the trash says how long ago, coarsely', () => {
   const now = Date.parse('2026-10-04T12:00:00Z');
@@ -14,10 +15,26 @@ test('the trash says how long ago, coarsely', () => {
 });
 
 test('a skipped undo names the thing that changed', () => {
-  assert.match(undoSkipped('rename'), /the name was changed/);
-  assert.match(undoSkipped('flag moved'), /the flag was changed/);
-  assert.match(undoSkipped('selection'), /the selection was changed/);
-  assert.match(undoSkipped('something new'), /the take was changed/);
+  assert.equal(undoSkipped('rename'), 'Not undone: the name has changed since');
+  assert.match(undoSkipped('flag moved'), /the flag has changed/);
+  assert.match(undoSkipped('selection'), /the selection has changed/);
+  assert.match(undoSkipped('something new'), /the take has changed/);
+  assert.equal(undoPhrase('flag deleted'), 'deleting a flag');
+  assert.equal(undoPhrase('tempo'), 'the tempo change');
+  assert.equal(undoPhrase('???'), 'the last change');
+});
+
+test('this device keeps one id, and every edit carries it', () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+  try {
+    const id = clientId();
+    assert.match(id, /^[0-9a-f]{16}$/);
+    assert.equal(store.get('hindsight.client'), id);
+    assert.deepEqual(withClient({ a: '1' }), { a: '1', [CLIENT_HEADER]: id });
+  } finally {
+    delete globalThis.localStorage;
+  }
 });
 
 test('a toast for the next page is taken once', () => {

@@ -310,14 +310,17 @@ the list. A flag from before ids reads as `f<frame>`.
 PATCH and the per-flag endpoints, not the saver's own stamps -- as a diff of
 the sidecar before and after, under the take's lock: one operation per field
 (name, selection, tempo, downbeat, lanes) and one per flag, by id, each with
-its JSON value before and after. The newest 50 are kept in `.history.json`.
+its JSON value before and after and the device that made it (the pages send
+a random per-browser id). The newest 50 are kept in `.history.json`. Each
+device's Undo walks back through its own operations only.
 A change to the same thing within 2 s, carrying on from where the last ended,
 extends that step instead of adding one, so a held nudge undoes in one go;
 adding and removing never merge, because a removal's toast needs a step of
 its own to undo.
 
 Undo puts an operation's "before" back only while the field still holds its
-"after"; otherwise the step is dropped and reported as skipped. That is what
+"after"; otherwise the step is dropped and reported as skipped. The log is
+rewritten only after the sidecar, so a failed write keeps the step. That is what
 keeps an Undo on one device from overwriting a change made since on another,
 and it lets a toast undo its own step by id even after later edits to other
 things. There is no redo.
@@ -328,7 +331,11 @@ things. There is no redo.
 the take and its sidecars into `OUTPUT_DIR/.trash/<stem>/` with `rename`,
 beside a `trashed.json` saying when and why; restoring moves them back and
 stars the take. `takeFiles` is the one list of a take's files that deleting,
-trashing and restoring share. A janitor empties trash older than 7 days, at
+trashing and restoring share. Every change to the trash holds one lock
+(after the take's own, when both are needed), so emptying can never catch a
+take half-moved; a crash half-way leaves sidecars beside a WAV that's in the
+trash, and the startup sweep puts them back with it. A new take never gets
+the name of one in the trash, and a delete never replaces one there. A janitor empties trash older than 7 days, at
 startup and every 10 minutes, and `EnsureFree` empties it oldest first while
 free space is under `MIN_FREE_GB`; every write that refuses for low disk (a
 save, a cut, a phone recording) calls it first, so the trash is never why a

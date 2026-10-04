@@ -173,12 +173,11 @@ func FreeGB(dir string) (float64, float64) {
 func (s *Saver) Save(seconds float64) (string, error) {
 	cfg := s.cap.cfg
 
-	// The trash goes first, oldest deletion first: it must never be why a
-	// capture is refused.
-	freeGB := EnsureFree(cfg.OutputDir, cfg.MinFreeGB)
-	if freeGB < cfg.MinFreeGB {
-		return "", fmt.Errorf("%w: %.2f GB free, need %.2f GB", ErrLowDisk, freeGB, cfg.MinFreeGB)
-	}
+	// Low on disk: the trash is emptied before anything is refused (it must
+	// never be why a capture fails), but after the snapshot below, so the
+	// time that takes can't move the window the press asked for.
+	freeGB, _ := s.FreeGB()
+	lowDisk := freeGB < cfg.MinFreeGB
 
 	frames := 0
 	if seconds > 0 {
@@ -231,6 +230,11 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	capturedAt := time.Now()
 	if gotFrames == 0 {
 		return "", ErrNoAudio
+	}
+	if lowDisk {
+		if freeGB = EnsureFree(cfg.OutputDir, cfg.MinFreeGB); freeGB < cfg.MinFreeGB {
+			return "", fmt.Errorf("%w: %.2f GB free, need %.2f GB", ErrLowDisk, freeGB, cfg.MinFreeGB)
+		}
 	}
 
 	// Read the marks against the same window the snapshot describes. Active
@@ -326,7 +330,9 @@ func freeTakeName(dir string, at time.Time) (name, path string, err error) {
 			name = fmt.Sprintf("jam_%s_%d.wav", ts, n)
 		}
 		path = filepath.Join(dir, name)
-		if exists(path) {
+		// A name held by a take in the trash is taken too: restoring it must
+		// never meet a new take of the same name.
+		if exists(path) || exists(trashSlot(dir, name)) {
 			continue
 		}
 		f, err := os.OpenFile(PartPath(path), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
@@ -378,6 +384,11 @@ func SweepPartials(dir string) {
 		// A sidecar write's temporary file, from a crash mid-write.
 		if (strings.HasPrefix(n, ".meta-") || strings.HasPrefix(n, ".pyramid-")) && strings.HasSuffix(n, ".tmp") {
 			os.Remove(filepath.Join(dir, n))
+			continue
+		}
+		// A sidecar whose take is in the trash: a crash between moving the
+		// WAV and its sidecars. It goes to the take, not away.
+		if recoverTrashSidecar(dir, n) {
 			continue
 		}
 		// This program's own sidecars whose take is gone: a pyramid built
@@ -672,7 +683,9 @@ func ListTakes(dir string) ([]Take, error) {
 	}
 	var out []Take
 	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".wav" {
+		// A dot-name is never a take: a save in progress, or a stray file
+		// the API can't address (and so couldn't delete or prune).
+		if e.IsDir() || filepath.Ext(e.Name()) != ".wav" || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		info, err := e.Info()

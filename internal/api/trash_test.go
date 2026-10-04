@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/gabeduke/hindsight/internal/audio"
@@ -203,5 +205,55 @@ func TestExportZipsSeveralTakesWithTheirSidecars(t *testing.T) {
 	}
 	if w := do(t, r, http.MethodGet, "/api/export"); w.Code != http.StatusBadRequest {
 		t.Errorf("export of nothing = %d, want 400", w.Code)
+	}
+}
+
+func sendAs(t *testing.T, r http.Handler, client, method, url, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, url, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(clientHeader, client)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// The guide's check: rename on one device, again on another, ↶ on the first.
+func TestOneDevicesUndoLeavesAnothersChange(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeRealTake(t, dir, "jam_2d.wav", 4800)
+	sendAs(t, r, "phone", http.MethodPatch, "/api/take?file=jam_2d.wav", `{"label":"phone's"}`)
+	sendAs(t, r, "tablet", http.MethodPatch, "/api/take?file=jam_2d.wav", `{"label":"tablet's"}`)
+
+	g := decodeAs[takeResponse](t, sendAs(t, r, "phone", http.MethodGet, "/api/take?file=jam_2d.wav", "").Body.Bytes())
+	if g.Undo.Count != 1 || g.Undo.Next != "rename" {
+		t.Fatalf("the phone's undo = %+v, want its own one rename", g.Undo)
+	}
+	u := decodeAs[undoAnswer](t, sendAs(t, r, "phone", http.MethodPost, "/api/take/undo?file=jam_2d.wav", "").Body.Bytes())
+	if u.Skipped != "rename" || u.Take.Label != "tablet's" {
+		t.Fatalf("phone undo = %+v, want skipped and the tablet's name kept", u)
+	}
+	u = decodeAs[undoAnswer](t, sendAs(t, r, "tablet", http.MethodPost, "/api/take/undo?file=jam_2d.wav", "").Body.Bytes())
+	if u.Undone != "rename" || u.Take.Label != "phone's" {
+		t.Fatalf("tablet undo = %+v", u)
+	}
+	// A bad client id is no client: a script, which undoes anyone's.
+	if clientOf(httptest.NewRequest(http.MethodGet, "/", nil)) != "" {
+		t.Fatal("no header should be no client")
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(clientHeader, "../../etc")
+	if clientOf(req) != "" {
+		t.Fatal("a malformed client id should be ignored")
+	}
+}
+
+func TestDeleteRefusesANameStillInTheTrash(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeTake(t, dir, "jam_x.wav")
+	do(t, r, http.MethodDelete, "/api/delete?file=jam_x.wav")
+	writeTake(t, dir, "jam_x.wav") // put there by hand
+	if w := do(t, r, http.MethodDelete, "/api/delete?file=jam_x.wav"); w.Code != http.StatusConflict {
+		t.Fatalf("delete = %d, want 409", w.Code)
 	}
 }

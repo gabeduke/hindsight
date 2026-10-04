@@ -11,6 +11,7 @@ import { RowWave } from '/lib/wave/rowwave.js';
 import { flagRequest } from '/lib/flags.js';
 import { restoreTake } from '/lib/trash.js';
 import { undoSkipped } from '/lib/toast.js';
+import { withClient } from '/lib/client.js';
 
 // How long a press on a row is held to start selecting several takes.
 export const SELECT_HOLD_MS = 500;
@@ -86,7 +87,7 @@ export class TakesList {
   async patchTake(name, patch) {
     const res = await fetch(`/api/take?file=${encodeURIComponent(name)}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: withClient({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(patch),
     });
     if (!res.ok) {
@@ -612,7 +613,7 @@ export class TakesList {
   // elsewhere on the take doesn't change what this Undo means.
   async undoOp(name, op) {
     try {
-      const res = await fetch(`/api/take/undo?file=${encodeURIComponent(name)}&op=${encodeURIComponent(op)}`, { method: 'POST' });
+      const res = await fetch(`/api/take/undo?file=${encodeURIComponent(name)}&op=${encodeURIComponent(op)}`, { method: 'POST', headers: withClient() });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       if (body.skipped) this.onToast?.(undoSkipped(body.skipped), 'warn');
@@ -675,8 +676,10 @@ export class TakesList {
       at = { x: e.clientX, y: e.clientY };
       hold = setTimeout(() => {
         hold = 0;
-        // The release that ends this hold must not also toggle, or seek.
+        // The release that ends this hold must not also toggle, or seek;
+        // wherever it lands, stop waiting for its click soon after.
         this.swallowClick = true;
+        document.addEventListener('pointerup', () => setTimeout(() => { this.swallowClick = false; }, 400), { once: true, capture: true });
         try { navigator.vibrate?.(10); } catch { /* not everywhere */ }
         this.enterSelect(row.name);
       }, SELECT_HOLD_MS);
@@ -693,12 +696,7 @@ export class TakesList {
       e.stopPropagation();
     };
     el.addEventListener('pointerdown', swallow, true);
-    el.addEventListener('pointerup', (e) => {
-      // The click that follows the hold's release is swallowed below; if
-      // none comes (a touch that ended in a context menu), stop waiting.
-      if (this.swallowClick) setTimeout(() => { this.swallowClick = false; }, 400);
-      swallow(e);
-    }, true);
+    el.addEventListener('pointerup', swallow, true);
     el.addEventListener('dblclick', swallow, true);
     el.addEventListener('click', (e) => {
       if (!this.selecting) return;
@@ -758,7 +756,7 @@ export class TakesList {
     let failed = 0;
     for (const name of names) {
       const res = await fetch(`/api/take?file=${encodeURIComponent(name)}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ starred: !allStarred }),
       }).catch(() => ({ ok: false }));
       if (!res.ok) failed++;

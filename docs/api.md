@@ -322,10 +322,16 @@ there is no such take.
 { "name": "jam_2026-09-09_145852.wav", "...": "...", "undo": { "count": 3, "next": "rename" } }
 ```
 
-`undo.count` is how many changes the take's log holds (at most 50), and
-`undo.next` what `POST /api/take/undo` would undo first: `rename`,
-`selection`, `tempo`, `downbeat`, `lanes`, `flag added`, `flag moved`,
-`flag renamed` or `flag deleted`.
+`undo.count` is how many of the take's logged changes (at most 50) came from
+this device, and `undo.next` what `POST /api/take/undo` would undo first:
+`rename`, `selection`, `tempo`, `downbeat`, `lanes`, `flag added`,
+`flag moved`, `flag renamed` or `flag deleted`.
+
+**Devices.** The pages send `X-Hindsight-Client: <id>`, a random id kept per
+browser (up to 32 of `A-Z a-z 0-9 - _`), on every edit and on these reads.
+Each logged change keeps it, so a device's Undo walks back through its own
+changes and never another's. A request without one (a script) sees, and
+undoes, everyone's.
 
 ## `PATCH /api/take?file=`
 
@@ -358,10 +364,11 @@ is the id of the change this request recorded, for a toast's *Undo*:
 ```
 
 Each field a person changes, and each flag, is logged in the take's
-`.history.json` with its value before and after, under the take's lock.
-Starring is not logged. A change to the same field within 2 s of the last,
-starting where it ended, extends that step, so a held nudge is one step;
-adding and removing never merge.
+`.history.json` with its value before and after and the device that made it,
+under the take's lock. Starring is not logged. A change by the same device
+to the same field within 2 s of the last, starting where it ended, extends
+that step, so a held nudge is one step; adding and removing never merge.
+`undo.op` is the newest change the request recorded.
 
 If `flags` changed, the sidecar write is also mirrored into the WAV as RIFF
 `cue ` points, with labelled flags also written as `labl` records in a `LIST`/`adtl` chunk so DAWs show the name beside the marker. That second write can fail on its own — a take whose layout
@@ -638,9 +645,10 @@ response carries `X-Hindsight-Midi: none`.
 
 ## `POST /api/take/undo?file=[&op=]`
 
-Undoes one change to a take: the newest in its log, or, with `op`, the one
-with that id (what a toast's *Undo* sends, so it still means what it said
-after later edits). The change leaves the log either way.
+Undoes one change to a take: this device's newest (see *Devices* above), or,
+with `op`, the one with that id (what a toast's *Undo* sends, so it still
+means what it said after later edits). The change leaves the log once it is
+undone or skipped; a sidecar write that fails leaves it there.
 
 It is undone only if its field still holds what the change left there. If
 something else changed it since -- another device, a script -- it is
@@ -666,8 +674,10 @@ the trash, `OUTPUT_DIR/.trash/<name>/`. Takes the `.wav` name.
 ```
 
 Succeeds whether or not the take was there. 400 if `file` is missing, has a
-path in it, starts with a dot, or has an extension other than `.wav`.
-`MAX_SAVES` pruning goes to the trash the same way.
+path in it, starts with a dot, or has an extension other than `.wav`; 409 if
+an older take of the same name is still in the trash (a new take never gets
+a trashed take's name, so only a file put there by hand can). `MAX_SAVES`
+pruning goes to the trash the same way.
 
 ## `GET /api/trash`, `POST /api/trash/restore?file=`, `DELETE /api/trash`
 
@@ -677,14 +687,16 @@ path in it, starts with a dot, or has an extension other than `.wav`.
 
 Each take is in the shape of a `GET /api/jams` entry, plus when it was
 deleted and why (`deleted`, or `pruned` for `MAX_SAVES`). Most recently
-deleted first.
+deleted first. Its `preview_name` and `midi_name` aren't downloadable while
+it's in the trash; restore it first.
 
 `POST /api/trash/restore?file=` moves it back and stars it, so the next
 prune doesn't take it straight back, and answers with the take. 404 if it
 isn't in the trash; 409 if a take of that name exists again.
 
-`DELETE /api/trash?file=` deletes one for good; `DELETE /api/trash?all=1`
-empties the trash.
+`DELETE /api/trash?file=` deletes one for good (404 if it isn't there);
+`DELETE /api/trash?all=1` empties the trash, whatever the clock says about
+when things went in.
 
 The trash also empties itself: after 7 days, and, oldest deletion first,
 whenever free space falls under `MIN_FREE_GB` -- checked every 10 minutes and

@@ -21,7 +21,8 @@ import { peakColumns, foldChannels, drawColumns } from './draw.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
-import { toast, toastNext, undoSkipped } from '../toast.js';
+import { toast, toastNext, undoSkipped, undoPhrase } from '../toast.js';
+import { withClient } from '../client.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -61,7 +62,7 @@ async function main() {
   if (history.state && history.state.notes) history.replaceState(null, '');
   initHelp({ page: 'take', toast });
   const [takeRes, peaksRes] = await Promise.all([
-    fetch(`/api/take?file=${encodeURIComponent(file)}`),
+    fetch(`/api/take?file=${encodeURIComponent(file)}`, { headers: withClient() }),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
   ]);
   if (takeRes.status === 404) return fail('That take is gone.');
@@ -170,10 +171,13 @@ async function main() {
       if (refetchWanted) { refetchWanted = false; refetchTake(); }
     });
   }
+  // PATCHes go one at a time, in order: a Clear sent straight after a
+  // selection's save must reach the Pi after it, not race it.
+  let patchChain = Promise.resolve();
   function patch(body) {
-    return track((async () => {
+    const run = patchChain.then(async () => {
       const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }), body: JSON.stringify(body),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
@@ -182,7 +186,9 @@ async function main() {
       const b = await res.json();
       if (b.undo) setUndo(b.undo);
       return b;
-    })());
+    });
+    patchChain = run.catch(() => {});
+    return track(run);
   }
   let regionTimer = 0;
   let pendingTrim = null; // the body the debounced save will send, if any
@@ -203,7 +209,7 @@ async function main() {
     const body = pendingTrim;
     pendingTrim = null;
     track(fetch(`/api/take?file=${encodeURIComponent(file)}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body), keepalive: true,
     })).catch(() => {});
   }
@@ -233,7 +239,7 @@ async function main() {
     if (savesInFlight > 0) { refetchWanted = true; return; }
     let fresh;
     try {
-      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store', headers: withClient() });
       if (!res.ok) return;
       fresh = await res.json();
     } catch { return; }
@@ -265,15 +271,16 @@ async function main() {
   }
 
   // --- undo -----------------------------------------------------------------
-  // The Pi keeps each take's last 50 changes (internal/audio/history.go).
-  // ↶ undoes the newest; a toast's Undo names its own, so it still means
-  // what it said after a later edit.
+  // The Pi keeps each take's last 50 changes with the device that made them
+  // (internal/audio/history.go). ↶ undoes this device's newest; a toast's
+  // Undo names its own step, so it still means what it said after a later
+  // edit.
   let undoInfo = take.undo || { count: 0 };
   function setUndo(u) {
     undoInfo = u;
     const b = $('take-undo');
     b.disabled = !u.count;
-    const what = u.next ? `Undo ${u.next}` : 'Nothing to undo';
+    const what = u.count ? `Undo ${undoPhrase(u.next)}` : 'Nothing to undo';
     b.title = what;
     b.setAttribute('aria-label', what);
   }
@@ -284,27 +291,32 @@ async function main() {
     if (pendingTrim) { const body = pendingTrim; pendingTrim = null; clearTimeout(regionTimer); patch(body).catch(() => {}); }
     return savesInFlight ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve();
   }
-  let undoing = false;
-  async function undo(op) {
-    if (undoing) return;
-    undoing = true;
+  // Undos go one at a time: a toast's Undo tapped during ↶'s waits its turn
+  // rather than being dropped.
+  let undoChain = Promise.resolve();
+  function undo(op) {
+    undoChain = undoChain.then(() => undoNow(op));
+    return undoChain;
+  }
+  async function undoNow(op) {
     $('take-undo').disabled = true;
     try {
       await whenSaved();
       const q = op ? `&op=${encodeURIComponent(op)}` : '';
-      const res = await fetch(`/api/take/undo?file=${encodeURIComponent(file)}${q}`, { method: 'POST' });
+      const res = await fetch(`/api/take/undo?file=${encodeURIComponent(file)}${q}`, { method: 'POST', headers: withClient() });
       const b = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(b.error || `status ${res.status}`);
-      if (b.take) applyTake({ ...b.take, undo: b.undo });
+      // An edit made while this was on its way is newer than this answer:
+      // fetch the take again once it lands, rather than show the older one.
+      if (savesInFlight > 0) { refetchWanted = true; if (b.undo) setUndo(b.undo); }
+      else if (b.take) applyTake({ ...b.take, undo: b.undo });
       else if (b.undo) setUndo(b.undo);
       if (b.cue_error) toast(b.cue_error, 'bad');
       if (b.skipped) toast(undoSkipped(b.skipped), 'warn');
-      else toast(`Undid ${b.undone}`, 'ok', 2000);
+      else toast(`Undone: ${undoPhrase(b.undone)}`, 'ok', { ms: 2500 });
     } catch (e) {
       toast(`Could not undo: ${e.message}`, 'bad');
-      setUndo(undoInfo);
-    } finally {
-      undoing = false;
+      refetchTake(); // what Undo would do now, from the Pi
     }
   }
   $('take-undo').addEventListener('click', () => undo());
@@ -757,7 +769,7 @@ async function main() {
   $('delete-take').addEventListener('click', async () => {
     try {
       await whenSaved();
-      const res = await fetch(`/api/delete?file=${encodeURIComponent(file)}`, { method: 'DELETE' });
+      const res = await fetch(`/api/delete?file=${encodeURIComponent(file)}`, { method: 'DELETE', headers: withClient() });
       if (!res.ok) throw new Error(`status ${res.status}`);
       pendingTrim = null; // nothing left to save it to
       clock.pause();

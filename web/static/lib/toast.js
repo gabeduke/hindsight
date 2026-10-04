@@ -53,7 +53,8 @@ export function toast(msg, kind = 'ok', opts = {}) {
 // the list, which shows "Deleted · Undo" there. Kept for this tab only.
 const NEXT_KEY = 'hindsight.nextToast';
 
-/** toastNext queues {msg, kind, undoRestore?} for the next page load. */
+/** toastNext queues {msg, kind?, restore?} for the next page load; restore
+ * names a take the toast's Undo brings back from the trash. */
 export function toastNext(t) {
   try { sessionStorage.setItem(NEXT_KEY, JSON.stringify(t)); } catch {}
 }
@@ -73,8 +74,21 @@ export function takeNextToast() {
 // by what they did ("rename", "flag moved"); this names the thing.
 const SUBJECTS = { rename: 'name', tempo: 'tempo', selection: 'selection', downbeat: 'downbeat', lanes: 'lanes' };
 
+// How Undo names a step: "Undo the rename", "Undone: deleting a flag".
+const PHRASES = {
+  rename: 'the rename', tempo: 'the tempo change', selection: 'the selection change',
+  downbeat: 'the downbeat move', lanes: 'the lane change',
+  'flag added': 'adding a flag', 'flag moved': 'moving a flag',
+  'flag renamed': 'renaming a flag', 'flag deleted': 'deleting a flag',
+};
+
+/** undoPhrase names an operation the Pi reports ("flag deleted") for Undo. */
+export function undoPhrase(what) {
+  return PHRASES[what] || 'the last change';
+}
+
 /** undoSkipped is the message for an Undo the Pi skipped. */
 export function undoSkipped(what) {
   const thing = SUBJECTS[what] || (String(what).startsWith('flag') ? 'flag' : 'take');
-  return `Not undone: the ${thing} was changed since, somewhere else`;
+  return `Not undone: the ${thing} has changed since`;
 }

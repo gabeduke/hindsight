@@ -249,7 +249,8 @@ point at the gestures that matter; **Got it** puts them away for good.
 its flags (added, moved, renamed, deleted), the selection, the name, the
 tempo, the downbeat, and drum or notes lanes. Starring isn't: tap the star
 again. **↶** in the take's header (or Ctrl-Z / ⌘-Z) steps back one change at
-a time; its tip says what the next step will undo. Changes made quickly to
+a time through the changes made on this phone or computer, never another
+device's; its tip says what the next step will undo. Changes made quickly to
 one thing, like holding a nudge, are one step.
 
 Removing something — deleting a flag, clearing the selection, deleting a
@@ -276,7 +277,8 @@ them to the trash, with Undo. **Done** or Escape stops selecting.
 
 - [demo] Delete a flag → the toast offers Undo; tap it → the flag is back.
 - [demo] Change a take's name, then its BPM, then tap ↶ twice → both are
-  back as they were. ↶'s tip says "Undo tempo" before the first tap.
+  back as they were. ↶'s tip says "Undo the tempo change" before the first
+  tap.
 - [demo] Clear the selection → the toast offers Undo; tap it → the selection
   is back.
 - [demo] Delete a take from its page → you're back at the list with "Deleted
@@ -290,7 +292,8 @@ them to the trash, with Undo. **Done** or Escape stops selecting.
 - [demo] Select two takes and Delete → both go; the toast's Undo brings both
   back.
 - [demo] Rename a take on one device, rename it again on another, then tap
-  ↶ on the first → "Not undone: the name was changed since".
+  ↶ on the first → "Not undone: the name has changed since", and the other
+  device's name stays.
 
 ## 6. The ribbon
 
