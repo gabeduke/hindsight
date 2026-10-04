@@ -22,6 +22,7 @@ const SHELL = [
   '/lib/client.js',
   '/lib/trash.js',
   '/lib/wakelock.js',
+  '/lib/theme.js',
   '/lib/phone/recorder.js',
   '/lib/phone/uploader.js',
   '/lib/phone/worklet.js',
