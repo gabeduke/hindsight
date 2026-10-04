@@ -46,11 +46,16 @@ jobs:
           go test -race ./... 2>&1 | tee go-test.log
 
       # The job's log isn't always at hand where a PR is read; a failing
-      # test's name and message are, as annotations on the run.
+      # test's name and message are, as one annotation on the run -- with
+      # what the testing package itself says (a TempDir that couldn't be
+      # removed) and the race detector's reports, which name no _test.go.
       - name: Name the failing tests
         if: failure()
         run: |
-          grep -E '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' go-test.log | head -40 | sed 's/^/::error::/' || true
+          [ -f go-test.log ] || exit 0
+          grep -E -B2 -A30 '^(--- FAIL|WARNING: DATA RACE|panic:)|_test\.go:[0-9]+:|testing\.go:[0-9]+:' go-test.log \
+            | head -200 | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}' > failures.txt || true
+          echo "::error title=go test::$(cat failures.txt)"
 
       - uses: actions/setup-node@v4
         with:
