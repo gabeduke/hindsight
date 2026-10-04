@@ -65,13 +65,15 @@ func TestAnEmptyTapeWithATempoClicksOnTheBeat(t *testing.T) {
 func TestPlayingArmedCountsInABarThenRecordsFromTheBar(t *testing.T) {
 	e, sink, tp := tempoEngine(t, 4) // a 4-bar loop of 384000; a bar is 96000
 	e.SetMeta(tp.ID, func(t *Tape) error { t.Click = false; return nil })
-	e.Start()
 	if r, err := e.Record(tp.ID, 2, "aux"); err != nil || r.State != "armed" {
 		t.Fatalf("Record while stopped = %+v %v, want armed", r, err)
 	}
 	if _, err := e.Transport(tp.ID, Action{Kind: "play"}); err != nil {
 		t.Fatal(err)
 	}
+	// Started after ▶ is queued, so the count-in begins at output frame 0:
+	// started first, the renderer may already be blocks ahead in silence.
+	e.Start()
 	out := sink.play(t, 96000+1000)
 	// The count-in: four clicks with the tape standing at bar 1.
 	if v := math.Abs(busA(out, 100)); v < 0.001 {
