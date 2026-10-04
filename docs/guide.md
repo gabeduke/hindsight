@@ -654,11 +654,11 @@ loop's bars on the selected track, or on all four, kept apart.
 |---|---|
 | **Lift** | Cuts the selection into the clipboard, leaving silence. Undo puts it back |
 | **Copy** | Copies it to the clipboard, leaving the tape alone |
-| **Drop** | Pastes the clipboard at the playhead, from the selected track down, replacing what's there, and moves the playhead to its end. **Drop, drop, drop** lays copies end to end — the quickest way to turn four bars into sixteen |
-| **Merge** | Beside Drop when the clipboard has more than one track: drops them all onto the selected track, layered — a bounce that costs nothing |
-| **Split** | Cuts the clips on the selected track in two at the playhead |
-| **Join** | In a clip's sheet: joins it back to the half that was split from it |
-| **Slide** | Hold a clip, then drag it along its track. It lands on the nearest bar, beat or eighth (**Slide snaps to**), on top of anything already there |
+| **Drop** | Pastes the clipboard at the playhead, from the selected track down, replacing what's there, and moves the playhead to its end. A four-track clipboard lands on all four, silence and all. **Drop, drop, drop** lays copies end to end — the quickest way to turn four bars into sixteen |
+| **Merge** | Beside Drop when the clipboard has more than one track: drops them all onto the selected track, layered, each clip at its own level. The tracks' level, pan and mutes are the mixer's, so they don't come with it |
+| **Split** | Cuts the clips on the selected track in two at the playhead, where they're heard (a nudged clip is cut where it sounds) |
+| **Join** | In a clip's sheet: joins it and the half split from it back into one |
+| **Slide** | Hold a clip, then drag it along its track. A clip on the grid lands on the nearest bar, beat or eighth (**Slide snaps to**); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
 | **×2** | Doubles the loop, copying what's in it over what follows |
 
 Nothing is cut out of the audio. A clip is a window onto a recording, so an
@@ -676,7 +676,7 @@ try something. It costs no disk space.
   the copies meet.
 - [demo] Put the playhead inside a clip, **Split**, hold the second half and
   slide it a bar later, then ↶ twice → the clip is whole again.
-- [demo] Split a clip, tap its first half, **Join to the next** → one clip.
+- [demo] Split a clip, tap either half, **Join the split** → one clip.
 - [demo] **×2** on a 2-bar loop → a 4-bar loop whose second half is a copy of
   the first.
 - [demo] Copy **All** with audio on two tracks, select track 3, **Merge** →
@@ -848,9 +848,9 @@ has no tip.
 | Lift | Cut the loop’s bars into the clipboard, leaving silence |
 | Copy | Put the selection on the clipboard, to drop onto a tape |
 | Drop | The clipboard onto the selected track at the playhead, replacing what’s there. Drop again to lay another copy after it |
-| Merge drop | Drop every track on the clipboard onto the selected one, layered: a bounce that costs nothing |
+| Merge drop | Drop every track on the clipboard onto the selected one, layered, each clip at its own level |
 | Split | Cut the clips on the selected track in two at the playhead |
-| Join | Join this clip to the half that was split from it |
+| Join | Join this clip and the half that was split from it back into one |
 | Multiply | Double the loop, copying what's in it over what follows |
 | Slide snaps to | Where a clip you slide can land: on a bar, a beat, an eighth, or anywhere |
 | Clone | Copy this whole tape. Costs no disk space |

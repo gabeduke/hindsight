@@ -2,6 +2,7 @@ package tape
 
 import (
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -29,7 +30,7 @@ type EditResult struct {
 	Board  *Clipboard `json:"clipboard,omitempty"`
 }
 
-// Edit carries out an edit on the loaded tape.
+// EditOp carries out an edit on the loaded tape.
 func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 	t := e.Loaded()
 	if t == nil {
@@ -42,14 +43,16 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 	case "lift", "copy":
 		return e.liftCopy(t, req)
 	case "split":
-		pos := e.playhead()
+		var pos int64
 		if req.Pos != nil {
 			pos = *req.Pos
+		} else {
+			pos = e.playhead()
 		}
 		var made int
-		err := e.Edit(id, "", func(_ *Tape, s *State) error {
+		err := e.Edit(id, "", func(tp *Tape, s *State) error {
 			var err error
-			made, err = s.split(req.Track, pos)
+			made, err = s.split(req.Track, pos, tp.SampleRate)
 			return err
 		})
 		return EditResult{Op: "split", Clips: made}, err
@@ -60,7 +63,7 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		if req.At == nil {
 			return EditResult{}, fmt.Errorf("%w: slide needs at", ErrBadParameter)
 		}
-		err := e.Edit(id, "", func(_ *Tape, s *State) error { return s.slide(req.Clip, *req.At) })
+		err := e.Edit(id, "", func(tp *Tape, s *State) error { return s.slide(req.Clip, *req.At, tp.Length) })
 		return EditResult{Op: "slide", Clips: 1}, err
 	case "multiply":
 		var n int
@@ -145,8 +148,14 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 		}
 		return EditResult{Op: req.Op, Clips: n, Frames: c.Frames, Board: c}, nil
 	}
+	// The clipboard is written inside the edit, before the tape is saved: if
+	// it can't be, nothing is lifted; if the tape then can't be saved, the
+	// clipboard holds a copy, which loses nothing.
 	err := e.Edit(t.ID, "", func(tp *Tape, s *State) error {
 		if err := take(tp, s); err != nil {
+			return err
+		}
+		if err := e.store.SaveClipboard(c); err != nil {
 			return err
 		}
 		for _, tn := range tracks {
@@ -155,15 +164,6 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 		return nil
 	})
 	if err != nil {
-		return EditResult{}, err
-	}
-	// The tape first, so a lift that can't be made takes nothing; if the
-	// clipboard then can't be written, the lift is undone rather than lose
-	// what it took.
-	if err := e.store.SaveClipboard(c); err != nil {
-		if uerr := e.Undo(t.ID, false); uerr != nil {
-			return EditResult{}, fmt.Errorf("%w (and undo it to get the audio back: %v)", err, uerr)
-		}
 		return EditResult{}, err
 	}
 	return EditResult{Op: req.Op, Clips: n, Frames: c.Frames, Board: c}, nil
@@ -181,9 +181,10 @@ func barsText(g *Grid, sampleRate int, from, to int64) string {
 	return fmt.Sprintf("bars %d–%d", a, b)
 }
 
-// split cuts the clips on a track that run across pos in two there, on
-// every layer. It answers how many it split.
-func (s *State) split(track int, pos int64) (int, error) {
+// split cuts the clips on a track that sound across pos in two there, on
+// every layer: where it sounds, so a nudged clip is cut where it's heard,
+// and both halves keep the nudge. It answers how many it split.
+func (s *State) split(track int, pos int64, sampleRate int) (int, error) {
 	if track < 1 || track > len(s.Tracks) {
 		return 0, ErrNoSuchTrack
 	}
@@ -191,11 +192,12 @@ func (s *State) split(track int, pos int64) (int, error) {
 	var out []Clip
 	n := 0
 	for _, c := range tr.Clips {
-		if c.At < pos && pos < c.End() {
+		at := pos - nudgeFrames(c, sampleRate) // pos, where the clip is placed
+		if c.At < at && at < c.End() {
 			head, tail := c, c
-			head.Frames = pos - c.At
+			head.Frames = at - c.At
 			tail.ID = NewClipID()
-			tail.At, tail.Src, tail.Frames = pos, c.Src+(pos-c.At), c.End()-pos
+			tail.At, tail.Src, tail.Frames = at, c.Src+(at-c.At), c.End()-at
 			out = append(out, head, tail)
 			n++
 			continue
@@ -209,8 +211,10 @@ func (s *State) split(track int, pos int64) (int, error) {
 	return n, nil
 }
 
-// join merges a clip with the next one on its layer, if that one carries
-// straight on from it in the same recording -- what a split made.
+// join merges a clip with its neighbour on its layer -- the one after it,
+// or else the one before -- if the second carries straight on from the
+// first in the same recording, at the same level and nudge: what a split
+// made, so a join never changes what's heard.
 func (s *State) join(id string) error {
 	for ti := range s.Tracks {
 		tr := &s.Tracks[ti]
@@ -218,31 +222,52 @@ func (s *State) join(id string) error {
 			if c.ID != id {
 				continue
 			}
-			for j, n := range tr.Clips {
-				if n.Layer != c.Layer || n.At != c.End() {
-					continue
+			first, second := -1, -1
+			for j, o := range tr.Clips {
+				if o.Layer == c.Layer && o.At == c.End() {
+					first, second = i, j
+					break
 				}
-				if n.File != c.File || n.Src != c.Src+c.Frames {
-					return fmt.Errorf("%w: the next clip is a different recording; only a split can be joined", ErrBadParameter)
-				}
-				if n.GainDB != c.GainDB || n.NudgeMS != c.NudgeMS {
-					return fmt.Errorf("%w: the two halves have a different level or nudge; set them the same first", ErrBadParameter)
-				}
-				tr.Clips[i].Frames += n.Frames
-				tr.Clips = append(tr.Clips[:j], tr.Clips[j+1:]...)
-				return nil
 			}
-			return fmt.Errorf("%w: nothing follows this clip to join", ErrBadParameter)
+			if first < 0 {
+				for j, o := range tr.Clips {
+					if o.Layer == c.Layer && o.End() == c.At {
+						first, second = j, i
+						break
+					}
+				}
+			}
+			if first < 0 {
+				return fmt.Errorf("%w: no clip meets this one to join", ErrBadParameter)
+			}
+			a, b := tr.Clips[first], tr.Clips[second]
+			if b.File != a.File || b.Src != a.Src+a.Frames {
+				return fmt.Errorf("%w: its neighbour is a different recording; only a split can be joined", ErrBadParameter)
+			}
+			if b.GainDB != a.GainDB || b.NudgeMS != a.NudgeMS {
+				return fmt.Errorf("%w: the two halves have a different level or nudge; set them the same first", ErrBadParameter)
+			}
+			tr.Clips[first].Frames += b.Frames
+			tr.Clips = append(tr.Clips[:second], tr.Clips[second+1:]...)
+			return nil
 		}
 	}
 	return ErrNoSuchClip
 }
 
+// nudgeFrames is a clip's nudge in frames: how far from At it sounds.
+func nudgeFrames(c Clip, sampleRate int) int64 {
+	return int64(math.Round(c.NudgeMS / 1000 * float64(sampleRate)))
+}
+
 // slide moves a clip along its track to start at at, on the lowest layer
 // free there.
-func (s *State) slide(id string, at int64) error {
+func (s *State) slide(id string, at, length int64) error {
 	if at < 0 {
 		return fmt.Errorf("%w: before the tape's start", ErrBadParameter)
+	}
+	if at >= length {
+		return ErrPastTheEnd
 	}
 	for ti := range s.Tracks {
 		tr := &s.Tracks[ti]

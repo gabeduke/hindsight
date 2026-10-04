@@ -2,6 +2,9 @@ package tape
 
 import (
 	"errors"
+	"math"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -232,5 +235,71 @@ func TestAnEditNamesItsTape(t *testing.T) {
 	}
 	if _, err := e.EditOp(e.LoadedID(), EditRequest{Op: "explode"}); !errors.Is(err, ErrBadParameter) {
 		t.Fatalf("no such edit = %v", err)
+	}
+}
+
+func TestALiftWhoseClipboardCantBeWrittenLiftsNothing(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	setLoop(t, e, 0, 48000)
+	undo, _ := e.UndoDepth()
+	// A directory where clipboard.json goes: the write fails.
+	os.Remove(e.store.clipboardPath())
+	if err := os.MkdirAll(filepath.Join(e.store.clipboardPath(), "x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "lift", Track: 1}); err == nil {
+		t.Fatal("a lift with nowhere to put it succeeded")
+	}
+	if cl := track(e, 1); len(cl) != 1 || cl[0] != orig {
+		t.Fatalf("the tape after a failed lift = %+v", cl)
+	}
+	if u, r := e.UndoDepth(); u != undo || r != 0 {
+		t.Fatalf("undo %d redo %d after a failed lift, want %d and 0", u, r, undo)
+	}
+}
+
+func TestJoinWorksFromEitherHalf(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	pos := int64(30000)
+	e.EditOp(tp.ID, EditRequest{Op: "split", Track: 1, Pos: &pos})
+	tail := track(e, 1)[1]
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "join", Clip: tail.ID}); err != nil {
+		t.Fatalf("join from the second half: %v", err)
+	}
+	if got := track(e, 1); len(got) != 1 || got[0] != orig {
+		t.Fatalf("joined = %+v, want %+v", got, orig)
+	}
+}
+
+func TestANudgedClipSplitsWhereItsHeard(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	// +100 ms: it sounds from 4800 to 100800.
+	e.Edit(tp.ID, "", func(_ *Tape, s *State) error { s.Tracks[0].Clips[0].NudgeMS = 100; return nil })
+	pos := int64(2000) // before it sounds
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "split", Track: 1, Pos: &pos}); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("split before a nudged clip sounds = %v", err)
+	}
+	pos = 98000 // after it's placed, but while it sounds
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "split", Track: 1, Pos: &pos}); err != nil {
+		t.Fatalf("split while it sounds: %v", err)
+	}
+	cl := track(e, 1)
+	if len(cl) != 2 || cl[1].At != 98000-4800 || cl[1].Src != orig.Src+98000-4800 || cl[1].NudgeMS != 100 {
+		t.Fatalf("split = %+v", cl)
+	}
+}
+
+func TestASlideFarPastTheEndIsRefused(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	for _, at := range []int64{e.Loaded().Length, math.MaxInt64 - 10} {
+		at := at
+		if _, err := e.EditOp(tp.ID, EditRequest{Op: "slide", Clip: orig.ID, At: &at}); !errors.Is(err, ErrPastTheEnd) {
+			t.Fatalf("slide to %d = %v", at, err)
+		}
+	}
+	// And a state with such a clip doesn't validate, however it got there.
+	err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error { s.Tracks[0].Clips[0].At = math.MaxInt64 - 10; return nil })
+	if !errors.Is(err, ErrPastTheEnd) {
+		t.Fatalf("a clip at MaxInt64 = %v", err)
 	}
 }

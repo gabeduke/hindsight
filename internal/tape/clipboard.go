@@ -213,7 +213,7 @@ type Dropped struct {
 // or -- on an empty tape with no tempo -- as its first loop. Stopped, the
 // playhead moves to the drop's end, so drop, drop, drop lays copies end to
 // end. merge drops every clipboard track onto the one track instead,
-// layered: the OP-1's merge drop, a bounce that costs nothing.
+// layered, each clip at its own level: the OP-1's merge drop.
 func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error) {
 	c, err := e.Clipboard()
 	if err != nil {

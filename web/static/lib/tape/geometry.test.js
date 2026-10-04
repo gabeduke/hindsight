@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, splitAt, joinPartner, fitsDoubled } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -70,7 +70,8 @@ test('split and join find what the Pi would', () => {
   assert.equal(splitAt(tr, 1000), 1); // on a's end: only the layer above runs across
   assert.equal(splitAt(tr, 3000), 0);
   assert.equal(joinPartner(tr, a), b);
-  assert.equal(joinPartner(tr, b), null);
+  assert.equal(joinPartner(tr, b), a, 'from the second half too');
+  assert.equal(joinPartner(tr, top), null);
   assert.equal(joinPartner({ clips: [a, { ...b, src: 1500 }] }, a), null, 'not straight on');
   assert.equal(joinPartner({ clips: [a, { ...b, gain_db: -3 }] }, a), null, 'a different level');
   assert.equal(joinPartner({ clips: [a, { ...b, layer: 1 }] }, a), null, 'another layer');
@@ -80,4 +81,29 @@ test('a loop doubles only while it fits on the tape', () => {
   assert.equal(fitsDoubled({ length: 1000, loop: { in: 0, out: 500 } }), true);
   assert.equal(fitsDoubled({ length: 1000, loop: { in: 100, out: 600 } }), false);
   assert.equal(fitsDoubled({ length: 1000, loop: { in: 0, out: 0 } }), false);
+});
+
+test('a nudged clip splits where it is heard', () => {
+  // +100 ms at 48 kHz: it sounds from 4800 to 100800.
+  const tr = { clips: [{ at: 0, frames: 96000, layer: 0, nudge_ms: 100 }] };
+  assert.equal(splitAt(tr, 2000, 48000), 0);
+  assert.equal(splitAt(tr, 98000, 48000), 1);
+  assert.equal(splitAt(tr, 100800, 48000), 0);
+});
+
+test('a slid clip on the grid lands on a line; off it, keeps its offset', () => {
+  const grid = { frames: 548571, bars: 4 }; // a bar is 137142.857 frames
+  // On bar 2, dragged most of a bar: bar 3.
+  assert.equal(slideTo(grid, 137143, 120000, 'bar'), 274286);
+  // A little: stays.
+  assert.equal(slideTo(grid, 137143, 30000, 'bar'), 137143);
+  // On beat 2 of bar 1, by a bar: beat 2 of bar 2, with the bar snap.
+  assert.equal(slideTo(grid, 34286, 140000, 'bar'), 34286 + 137143);
+  // 1000 frames late, by a bar: still 1000 frames late.
+  assert.equal(slideTo(grid, 138143, 137000, 'bar'), 138143 + 137143);
+  // Never before the start: an off-grid clip goes back whole steps only.
+  assert.equal(slideTo(grid, 1000, -200000, 'bar'), 1000);
+  assert.equal(slideTo(grid, 137143, -400000, 'bar'), 0);
+  assert.equal(slideTo(grid, 5000, 12.6, 'off'), 5013);
+  assert.equal(slideTo(null, 5000, -9000, 'bar'), 0);
 });

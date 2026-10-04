@@ -354,7 +354,7 @@ func (s *State) validate(length int64) error {
 			if c.Frames <= 0 || c.Src < 0 || c.At < 0 {
 				return fmt.Errorf("%w: clip %s", ErrBadParameter, c.ID)
 			}
-			if c.End() > length {
+			if c.Frames > length || c.At > length-c.Frames { // End() > length, without overflowing
 				return ErrPastTheEnd
 			}
 		}

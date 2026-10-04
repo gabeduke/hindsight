@@ -8,7 +8,7 @@ import { initHelp } from '../help/help.js';
 import { peakColumns, foldChannels, drawColumns } from '../wave/draw.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets,
-  SNAPS, snapFrame, splitAt, joinPartner, fitsDoubled,
+  SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled,
 } from './geometry.js';
 
 const $ = (id) => document.getElementById(id);
@@ -229,12 +229,20 @@ function renderMode() {
 
 // --- the clipboard -------------------------------------------------------------
 
+// cbGen moves when this page learns the clipboard from an edit's answer, so
+// a fetch already in flight with the old one is dropped.
+let cbGen = 0;
 async function fetchClipboard() {
+  const g = cbGen;
+  let c = null, err = '';
   try {
     const b = await api('/api/clipboard');
-    state.clipboard = b.clipboard || null;
-    state.clipboardError = b.error || '';
-  } catch { state.clipboard = null; state.clipboardError = ''; }
+    c = b.clipboard || null;
+    err = b.error || '';
+  } catch { /* shown as empty */ }
+  if (g !== cbGen) return;
+  state.clipboard = c;
+  state.clipboardError = err;
   renderClipboard();
 }
 
@@ -253,7 +261,11 @@ function renderClipboard() {
   }
   chip.disabled = !c;
   chip.classList.toggle('playing', !$('clip-audio').paused);
-  $('drop').disabled = !c || !t;
+  // A several-track clipboard lands from the selected track down; Merge
+  // puts it on the one.
+  const fits = !!(c && t && state.track + c.tracks.length - 1 <= t.tracks.length);
+  $('drop').disabled = !fits;
+  $('drop').title = c && t && !fits ? `${c.tracks.length} tracks don't fit from track ${state.track}: Merge puts them on it` : '';
   $('merge').hidden = !(c && c.tracks.length > 1);
   $('merge').disabled = !t;
   $('clip-clear').disabled = !c && !state.clipboardError;
@@ -297,7 +309,7 @@ function renderEdit() {
   const sel = t.loop.out > t.loop.in;
   $('ed-lift').disabled = !sel;
   $('ed-copy').disabled = !sel;
-  $('ed-split').disabled = !live || !track(state.track) || splitAt(track(state.track), live.heard) === 0;
+  $('ed-split').disabled = !live || !track(state.track) || splitAt(track(state.track), live.heard, t.sample_rate) === 0;
   $('ed-x2').disabled = !fitsDoubled(t);
   const box = $('snap');
   if (!box.children.length) {
@@ -323,7 +335,7 @@ async function edit(op, extra = {}) {
   try {
     const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, track: state.track, ...extra } }));
     const e = (s && s.edit) || {};
-    if (e.clipboard) { state.clipboard = e.clipboard; state.clipboardError = ''; renderClipboard(); }
+    if (e.clipboard) { cbGen++; state.clipboard = e.clipboard; state.clipboardError = ''; renderClipboard(); }
     return e;
   } catch (err) {
     toast(`Could not ${op === 'multiply' ? 'double the loop' : op}: ${err.message}`, 'bad');
@@ -367,19 +379,38 @@ async function slide(clip, at) {
   if (e) toast(`Slid to ${t.grid ? `bar ${barBeat(at, t.grid)}` : fmtSecs(at, t.sample_rate)}`, 'ok', { action: undoAction });
 }
 
-// wireSlide: tap a clip for its sheet; hold it, then drag, to slide it
-// along its track, snapping as chosen; tap an empty part of the lane to
-// move the playhead.
-function wireSlide(lane) {
+// wireLane: tap a clip for its sheet, or an empty part of the lane to move
+// the playhead (a click, so the sheet opens after the tap is done with);
+// hold a clip, then drag, to slide it along its track, snapping as chosen.
+function wireLane(lane) {
   const cv = lane.canvas;
-  let down = null;
+  let down = null;      // the one pointer being followed
+  let slidUntil = 0;    // a click before this ends a slide, not a tap
   const hitAt = (x) => (lane.hits || []).filter((h) => x >= h.x0 && x <= h.x1).pop();
+  const finish = (commit) => {
+    const d = down;
+    down = null;
+    if (!d) return;
+    clearTimeout(d.timer);
+    if (!d.held) return;
+    const sl = state.slide;
+    state.slide = null;
+    cv.classList.remove('sliding');
+    drawLanes();
+    if (d.moved) slidUntil = performance.now() + 600;
+    // Only a drag commits: a held tap that wobbled a pixel moves nothing.
+    if (commit && d.moved && sl && sl.at !== sl.clip.at) slide(sl.clip, sl.at);
+  };
   cv.addEventListener('contextmenu', (e) => e.preventDefault());
+  cv.addEventListener('click', (e) => {
+    if (performance.now() < slidUntil) { slidUntil = 0; return; }
+    laneTap(lane, e);
+  });
   cv.addEventListener('pointerdown', (e) => {
-    if (!state.tape || e.button > 0) return;
+    if (!state.tape || e.button > 0 || down) return; // one pointer at a time
     const hit = hitAt(e.clientX - cv.getBoundingClientRect().left);
-    down = { x: e.clientX, y: e.clientY, hit, moved: false, held: false, id: e.pointerId };
     if (!hit) return;
+    down = { x: e.clientX, y: e.clientY, hit, moved: false, held: false, id: e.pointerId };
     down.timer = setTimeout(() => {
       if (!down || down.moved) return;
       down.held = true;
@@ -391,33 +422,24 @@ function wireSlide(lane) {
     }, 300);
   });
   cv.addEventListener('pointermove', (e) => {
-    if (!down) return;
-    if (down.held && state.slide) {
-      const view = viewRange(state.tape);
-      const df = ((e.clientX - down.x) / cv.getBoundingClientRect().width) * (view.to - view.from);
-      state.slide.at = snapFrame(state.tape.grid, down.hit.clip.at + df, state.snap);
-      drawLanes();
-    } else if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) {
-      down.moved = true; // a swipe, not a tap or a hold
-    }
-  });
-  const end = (e, cancelled) => {
-    if (!down) return;
-    clearTimeout(down.timer);
-    const d = down;
-    down = null;
-    if (d.held) {
-      const sl = state.slide;
-      state.slide = null;
-      cv.classList.remove('sliding');
-      drawLanes();
-      if (!cancelled && sl && sl.at !== sl.clip.at) slide(sl.clip, sl.at);
+    if (!down || e.pointerId !== down.id) return;
+    const far = Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8;
+    if (!down.held) {
+      if (far) { down.moved = true; clearTimeout(down.timer); down = null; } // a swipe: the browser's
       return;
     }
-    if (!d.moved && !cancelled) laneTap(lane, e);
-  };
-  cv.addEventListener('pointerup', (e) => end(e, false));
-  cv.addEventListener('pointercancel', (e) => end(e, true));
+    if (far) down.moved = true;
+    if (!down.moved || !state.slide) return;
+    const view = viewRange(state.tape);
+    const df = ((e.clientX - down.x) / cv.getBoundingClientRect().width) * (view.to - view.from);
+    state.slide.at = slideTo(state.tape.grid, down.hit.clip.at, df, state.snap);
+    drawLanes();
+  });
+  // While a slide is held, a finger's drag is the slide's, not a scroll.
+  cv.addEventListener('touchmove', (e) => { if (down && down.held) e.preventDefault(); }, { passive: false });
+  cv.addEventListener('pointerup', (e) => { if (down && e.pointerId === down.id) finish(true); });
+  cv.addEventListener('pointercancel', (e) => { if (down && e.pointerId === down.id) finish(false); });
+  cv.addEventListener('lostpointercapture', (e) => { if (down && down.held && e.pointerId === down.id) finish(false); });
 }
 
 // --- the ruler -----------------------------------------------------------------
@@ -608,7 +630,7 @@ function buildLanes() {
       lane.solo.addEventListener('click', () => patch({ track: { n, solo: !track(n).solo } }));
       lane.gain.addEventListener('input', () => { lane.gain.dataset.busy = '1'; });
       lane.gain.addEventListener('change', () => { delete lane.gain.dataset.busy; patch({ track: { n, gain_db: Number(lane.gain.value) } }); });
-      wireSlide(lane);
+      wireLane(lane);
       box.appendChild(row);
       lanes.push(lane);
     }
@@ -655,7 +677,7 @@ function drawLanes() {
     lane.hits = [];
     const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
     for (const c of sorted) {
-      const nudge = Math.round(((c.nudge_ms || 0) / 1000) * t.sample_rate);
+      const nudge = nudgeFrames(c, t.sample_rate);
       const x0 = xOf(c.at + nudge, view, W), x1 = xOf(c.at + nudge + c.frames, view, W);
       if (x1 < 0 || x0 > W) continue;
       const top = 2 + Math.min(c.layer, 3) * 3, h = H - 4 - Math.min(c.layer, 3) * 3;
@@ -681,7 +703,8 @@ function drawLanes() {
     // A clip being slid: where it would land.
     const sl = state.slide;
     if (sl && sl.n === lane.n) {
-      const x0 = xOf(sl.at, view, W), x1 = xOf(sl.at + sl.clip.frames, view, W);
+      const from = sl.at + nudgeFrames(sl.clip, t.sample_rate); // where it'll sound, as the clip itself is drawn
+      const x0 = xOf(from, view, W), x1 = xOf(from + sl.clip.frames, view, W);
       ctx.fillStyle = 'rgba(251,191,36,0.22)';
       ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
       ctx.strokeStyle = '#fbbf24';
