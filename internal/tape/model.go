@@ -143,6 +143,27 @@ type Clip struct {
 	Source  string  `json:"source,omitempty"`  // the capture pair it came from: aux, main, ch1, ch2, or a take
 	Clean   bool    `json:"clean,omitempty"`   // no tape bus was leaking into that source
 	Aligned string  `json:"aligned,omitempty"` // how the catch was lined up: exact (the demo), locked or estimated (6b); "" for a drop
+	// Reversed is set on a clip playing backwards: its File is a reversed
+	// copy of the one it came from, which this names. Never changed in
+	// place, so a copy of a clip can share it.
+	Reversed *Reversal `json:"reversed,omitempty"`
+}
+
+// Reversal says where a reversed clip's audio came from: frame i of the
+// reversed file is frame End-1-i of File.
+type Reversal struct {
+	File string `json:"file"`
+	End  int64  `json:"end"`
+}
+
+// poolFiles marks every pool file the clip needs: the one it plays, and the
+// one a reversed clip turns back to. Anything that keeps pool files --
+// clean-up, the clipboard, the engine's memory -- asks this.
+func (c Clip) poolFiles(into map[string]bool) {
+	into[c.File] = true
+	if c.Reversed != nil {
+		into[c.Reversed.File] = true
+	}
 }
 
 // End is the tape frame after the clip's last.
@@ -294,11 +315,11 @@ func (t *Tape) draft() *Tape {
 	return &c
 }
 
-// files lists the pool files a state plays.
+// files lists the pool files a state needs.
 func (s State) files(into map[string]bool) {
 	for _, tr := range s.Tracks {
 		for _, c := range tr.Clips {
-			into[c.File] = true
+			c.poolFiles(into)
 		}
 	}
 }

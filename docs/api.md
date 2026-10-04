@@ -1,6 +1,6 @@
 # HTTP API
 
-Fifty-two routes (one, `/api/trigger`, in two forms), twenty-five of them the tape's and its clipboard's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Fifty-three routes (one, `/api/trigger`, in two forms), twenty-six of them the tape's and its clipboard's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -51,9 +51,10 @@ internet.
 | `POST /api/tapes/tap?id=` | A free-loop tap: the first waits, the second makes the loop |
 | `DELETE /api/tapes/tap?id=` | Forget a first tap |
 | `POST /api/tapes/drop?id=` | Put the clipboard, or a span of a take, onto the tape |
-| `POST /api/tapes/edit?id=` | Lift, copy, split, join, slide or multiply |
+| `POST /api/tapes/edit?id=` | Lift, copy, split, join, slide, multiply or reverse |
 | `POST /api/tapes/mixdown?id=` | Play the loop or the whole tape once and save what the mixer put out as a take |
 | `GET /api/tapes/export?id=` | The loaded tape as a zip of stems and a tempo map |
+| `GET /api/tapes/clip?id=&clip=` | One clip as a 16-bit WAV, to share |
 | `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=` | Step the tape's history back or forward |
 | `POST /api/tapes/clone?id=` | A copy of a tape, sharing its audio |
 | `POST /api/tapes/cleanup` | Delete pool audio that no tape, and no tape's history, uses |
@@ -984,11 +985,15 @@ added.
 | `join` | `clip` | Joins a clip to the next on its layer, if that one carries straight on in the same recording at the same level and nudge: what a split made |
 | `slide` | `clip`, `at` | Moves a clip along its track to start at `at`, on the lowest layer free there. The page snaps `at` to the grid; the server takes it as given |
 | `multiply` | | Doubles the loop: everything in it is copied into the span after it, replacing what was there, and Out moves on by the loop's length. `edit.frames` is the new length |
+| `reverse` | `clip` | Plays the clip backwards: its audio, with the overhang either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
 
 400 for a lift or copy with no loop, or nothing in it; a split with no clip
 across `pos`; a join with nothing to join; a slide off either end of the tape;
-a multiply that would run past the end; or an unknown `op`. 409 for a tape
-that isn't the loaded one.
+a multiply that would run past the end; a reverse of a clip that changed
+meanwhile, or whose audio is shorter than it; or an unknown `op`. 409 for a
+tape that isn't the loaded one; 507 when a reverse would need disk the tapes'
+volume doesn't have; 500 when the audio a reversed clip turns back to can't
+be read.
 
 ### `POST /api/tapes/mixdown?id=`
 
@@ -1036,6 +1041,16 @@ The zip is rendered as it streams, one export at a time (409 while another
 is), and 400 for a tape with nothing on it. A client that stops reading for
 30 s loses the download and frees the slot. `HEAD` answers the same status a
 `GET` would start with, without rendering anything.
+
+### `GET /api/tapes/clip?id=&clip=`
+
+One clip of a tape as a 16-bit stereo WAV, for the share sheet: frames
+`[src, src+frames)` of its pool file at the clip's `gain_db` (not the
+track's level or pan), with the 3 ms declick at either end. Named
+`<tape> track <n>.wav` (`… reversed.wav` for a reversed clip) in
+`Content-Disposition`, with a `Content-Length`; `HEAD` answers the headers
+alone. 400 for no such clip, 404 for no such tape, 500 for a pool file that
+can't be read. A client that stops reading for 30 s loses the download.
 
 ### The clipboard: `/api/clipboard`
 

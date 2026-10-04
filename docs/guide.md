@@ -660,6 +660,8 @@ loop's bars on the selected track, or on all four, kept apart.
 | **Join** | In a clip's sheet: joins it and the half split from it back into one |
 | **Slide** | Hold a clip, then drag it along its track. A clip on the grid lands on the nearest bar, beat or eighth (**Slide snaps to**); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
 | **×2** | Doubles the loop, copying what's in it over what follows |
+| **Reverse** | In a clip's sheet: plays it backwards. Tap again (*Play forwards*) to turn it back |
+| **Share as WAV** | In a clip's sheet: sends just that clip, at its level, to another app; a clip over a minute downloads instead |
 
 Nothing is cut out of the audio. A clip is a window onto a recording, so an
 edit only moves windows, and each one is a single undo. Where an edit leaves
@@ -679,6 +681,10 @@ try something. It costs no disk space.
 - [demo] Split a clip, tap either half, **Join the split** → one clip.
 - [demo] **×2** on a 2-bar loop → a 4-bar loop whose second half is a copy of
   the first.
+- [demo] Tap a clip, **Reverse** → its waveform turns round and it plays
+  backwards; **Play forwards** turns it back.
+- [demo] Tap a clip, **Share as WAV** → the share sheet (or a download)
+  offers *<tape> track 1.wav*.
 - [demo] Copy **All** with audio on two tracks, select track 3, **Merge** →
   both parts on track 3, one above the other.
 - [demo] Clone a tape, delete the original, then play the clone → it plays
@@ -896,6 +902,8 @@ has no tip.
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
 | Clip level | This clip's level within its track |
 | Nudge | Move the clip a few milliseconds, for a part a little early or late |
+| Reverse (clip) | Play this clip backwards, or forwards again. Undo puts it back |
+| Share as WAV (clip) | Send just this clip, at its level, to another app; a long one downloads |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |

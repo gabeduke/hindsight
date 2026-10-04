@@ -4,6 +4,7 @@
 // state a few times a second and sends what you tap.
 
 import { toast } from '../toast.js';
+import { canShareFiles, shareOrDownload } from '../wave/share.js';
 import { initHelp } from '../help/help.js';
 import { peakColumns, foldChannels, drawColumns } from '../wave/draw.js';
 import {
@@ -377,6 +378,41 @@ async function exportStems(e) {
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+// shareClip offers a clip to the share sheet as a WAV -- a short one; a long
+// one downloads, without holding it all in the phone's memory. A sheet that
+// won't open (too long after the tap, say) downloads too.
+async function shareClip(c) {
+  const t = state.tape;
+  const url = `/api/tapes/clip?${q()}&clip=${encodeURIComponent(c.id)}`;
+  if (c.frames / t.sample_rate > 60 || !canShareFiles()) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return;
+  }
+  toast('Preparing the WAV…');
+  let res;
+  try {
+    res = await fetch(url, { cache: 'no-store' });
+  } catch (e) {
+    toast(`Could not share it: ${e.message}`, 'bad');
+    return;
+  }
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    toast(`Could not share it: ${b.error || `HTTP ${res.status}`}`, 'bad');
+    return;
+  }
+  const cd = res.headers.get('Content-Disposition') || '';
+  const m = /filename\*=utf-8''([^;]+)/i.exec(cd) || /filename="([^"]+)"/.exec(cd);
+  let name = 'clip.wav';
+  try { if (m) name = decodeURIComponent(m[1]); } catch { /* keep the plain one */ }
+  await shareOrDownload(await res.blob(), name, name, 'audio/wav');
 }
 
 // --- editing: lift, copy, split, join, slide, multiply ------------------------
@@ -991,6 +1027,7 @@ function openClip(c) {
   $('clip-tile').disabled = !(lp.on && c.at + 2 * c.frames <= lp.out);
   const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
   $('clip-join').disabled = !home || !joinPartner(home, c);
+  $('clip-reverse').textContent = c.reversed ? 'Play forwards' : 'Reverse';
   const sh = $('clip-sheet');
   if (typeof sh.showModal === 'function') sh.showModal();
   drawLanes();
@@ -1064,6 +1101,18 @@ function wire() {
   $('ed-copy').addEventListener('click', () => liftCopy('copy'));
   $('ed-split').addEventListener('click', split);
   $('ed-x2').addEventListener('click', multiply);
+  $('clip-reverse').addEventListener('click', async () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c && await edit('reverse', { clip: c.id })) {
+      toast(c.reversed ? 'Playing forwards' : 'Reversed', 'ok', { action: undoAction });
+    }
+  });
+  $('clip-share').addEventListener('click', () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c) shareClip(c);
+  });
   $('clip-join').addEventListener('click', async () => {
     const c = state.clip;
     $('clip-sheet').close();

@@ -357,6 +357,17 @@ func TestATapeExportsAsStemsAndRefusesAMixdownWithNothingToPlayIt(t *testing.T) 
 	}
 	want(t, send(t, r, http.MethodGet, "/api/tapes/export?id=other", ""), http.StatusConflict, "another tape")
 
+	// A clip: reversed, then shared as a WAV.
+	s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, ""))
+	clip := s.Tape.Tracks[1].Clips[0].ID
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"reverse","clip":"`+clip+`"}`), http.StatusOK, "reverse")
+	w = send(t, r, http.MethodGet, "/api/tapes/clip?id="+id+"&clip="+clip, "")
+	want(t, w, http.StatusOK, "share a clip")
+	if w.Header().Get("Content-Type") != "audio/wav" || w.Body.Len() != 44+96000*4 || !strings.Contains(w.Header().Get("Content-Disposition"), "reversed") {
+		t.Fatalf("clip: %v, %d bytes", w.Header(), w.Body.Len())
+	}
+	want(t, send(t, r, http.MethodGet, "/api/tapes/clip?id="+id+"&clip=nope", ""), http.StatusBadRequest, "no such clip")
+
 	// This engine has no output and no recorder: a mixdown can't run.
 	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, `{}`), http.StatusConflict, "mixdown")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, ""), http.StatusConflict, "mixdown, no body")

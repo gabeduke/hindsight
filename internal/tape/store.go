@@ -405,11 +405,7 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 			return 0, 0, fmt.Errorf("tape %s can't be read, so nothing was cleaned up: %w", e.Name(), err)
 		}
 		for _, st := range append(append([]State{t.State}, t.History...), t.Future...) {
-			for _, tr := range st.Tracks {
-				for _, c := range tr.Clips {
-					used[c.File] = true
-				}
-			}
+			st.files(used)
 		}
 	}
 	pool, err := os.ReadDir(filepath.Join(s.dir, "audio"))

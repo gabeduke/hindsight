@@ -39,7 +39,8 @@ import (
 //	DELETE /api/tapes/tap?id=          forget a first tap
 //	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape;
 //	                                   {track, merge}: the clipboard, at the playhead
-//	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply, track, all, clip, pos, at}
+//	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse, track, all, clip, pos, at}
+//	GET    /api/tapes/clip?id=&clip=   one clip as a 16-bit WAV, to share
 //	POST   /api/tapes/mixdown?id=      {all}: play In to Out (all: the whole tape) once, save it as a take
 //	GET    /api/tapes/export?id=       the loaded tape as stems and a tempo map, in a zip
 //	POST   /api/tapes/undo?id=         and /redo
@@ -628,6 +629,42 @@ func (a *API) handleTapeMixdown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"mixdown": m})
+}
+
+// handleTapeClip is one clip as a WAV file, to share.
+func (a *API) handleTapeClip(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	q := r.URL.Query()
+	c, err := a.tape.ShareClip(q.Get("id"), q.Get("clip"))
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "audio/wav")
+	w.Header().Set("Content-Length", fmt.Sprint(c.Bytes()))
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": c.Name}))
+	w.Header().Set("Cache-Control", "no-store")
+	if r.Method == http.MethodHead {
+		return
+	}
+	// A phone that stops reading lets go of the file after a while.
+	if _, err := c.WriteTo(&stallWriter{w: w, rc: http.NewResponseController(w)}); err != nil {
+		log.Printf("[!] tape clip: %v", err)
+	}
+}
+
+// stallWriter moves the write deadline on with each write: a client may be
+// slow, but not stopped for exportStall.
+type stallWriter struct {
+	w  http.ResponseWriter
+	rc *http.ResponseController
+}
+
+func (s *stallWriter) Write(b []byte) (int, error) {
+	_ = s.rc.SetWriteDeadline(time.Now().Add(exportStall))
+	return s.w.Write(b)
 }
 
 // exportStall is how long an export waits on a client that stopped
