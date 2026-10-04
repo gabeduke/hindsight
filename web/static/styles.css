@@ -84,6 +84,8 @@
   --wood:         #6b4425;
   /* Masking tape on the track heads, written on in marker. */
   --mask:         #efe2bb;
+  /* Grease pencil: the take page's In and Out marks. */
+  --grease:       #7a5c00;
   --marker:       #14252b;
   --link:      #1f6fa8;
   --shadow:    rgba(7, 54, 66, .18);
@@ -157,6 +159,7 @@
     --head-ink:     #93a1a1;
     --wood:         #4a2c17;
     --mask:         #d9caa0;
+    --grease:       #e0b22e;
     --link:      #3fb5ab;
     --danger-ink: #ff8a7f;
     --warn-ink:   #e0b22e;
@@ -1727,6 +1730,15 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
   .rec-short { display: inline; }
   .rec-sign { padding: 3px 7px; letter-spacing: .12em; }
 }
+
+/* The take page's In and Out: written in marker, in grease pencil, as on
+   the waveform. And the practice speeds are what a deck calls them. */
+.sel-label { font-family: 'Permanent Marker', var(--font); font-size: 15px; color: var(--grease); min-width: 2.4em; }
+.speed-label {
+  margin-left: auto; font: 600 12px var(--label-font); letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink-dim);
+}
+.speed-label + .speed-seg { margin-left: 0; }
 
 /* ---------- the deck ---------- */
 /* Retro, but quiet. Only a control you press while playing looks like a

@@ -22,6 +22,7 @@ import { frameToX, xToFrame, gridLines, rulerTicks, snapFrame, clampRegion } fro
 import { drawColumns } from './draw.js';
 import { GestureSurface } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
+import { greaseStroke } from './grease.js';
 
 export { HOLD_MS } from '../edit/gestures.js';
 
@@ -289,11 +290,38 @@ export class WaveView extends GestureSurface {
     drawColumns(ctx, cols, channels, { top: top + 2, height: bottom - top - 4, color: col('--wave', '#268bd2') });
     ctx.restore();
 
-    // Selection edges.
+    // Selection edges: grease pencil, the way an edit point was marked on
+    // tape. Each mark's wobble is seeded by its frame, so it stays put on
+    // the audio as the view moves. IN and OUT are written inside the
+    // selection, or outside it when it's too narrow to hold them.
     if (sel) {
-      ctx.fillStyle = col('--sel', '#268bd2');
-      ctx.fillRect(Math.round(sx0) - 1, PIN_H, 2, bottom - PIN_H);
-      ctx.fillRect(Math.round(sx1) - 1, PIN_H, 2, bottom - PIN_H);
+      const grease = col('--grease', '#7a5c00');
+      ctx.strokeStyle = grease;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (const [x, frame] of [[sx0, sel.start], [sx1, sel.end]]) {
+        if (x < -4 || x > W + 4) continue;
+        const pts = greaseStroke(x, PIN_H + 2, bottom - 2, frame);
+        ctx.beginPath();
+        pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+        ctx.stroke();
+      }
+      ctx.lineWidth = 1;
+      ctx.fillStyle = grease;
+      ctx.font = `18px "Permanent Marker", ${col('--font', 'system-ui')}`;
+      ctx.textBaseline = 'top';
+      const inside = sx1 - sx0 >= 96;
+      const y = top + 6;
+      const label = (text, x, align) => {
+        const w = ctx.measureText(text).width;
+        const left = align === 'right' ? x - w : x;
+        if (left + w < 0 || left > W) return;
+        ctx.fillText(text, Math.max(2, Math.min(W - w - 2, left)), y);
+      };
+      label('IN', inside ? sx0 + 7 : sx0 - 7, inside ? 'left' : 'right');
+      label('OUT', inside ? sx1 - 7 : sx1 + 7, inside ? 'right' : 'left');
+      ctx.textBaseline = 'alphabetic';
     }
 
     // A pending In or Out, waiting for its other half.

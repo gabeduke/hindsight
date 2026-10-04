@@ -123,6 +123,8 @@ async function main() {
   // Canvases don't restyle themselves when the device turns dark or light.
   // The overview caches its waveform, so that cache goes too.
   onSchemeChange(() => { if (overview) overview.cachedKey = null; redraw(); });
+  // IN and OUT are written in marker; paint again once the face has loaded.
+  document.fonts?.load('18px "Permanent Marker"').then(() => redraw()).catch(() => {});
   const view = new WaveView({ canvas, tiles, totalFrames: total, sampleRate: sr, getState: () => state, emit });
   overview = new Overview({
     canvas: $('overview-canvas'), filePeaks, totalFrames: total,
@@ -767,6 +769,9 @@ async function main() {
     sessionStorage.setItem('hindsight.list', list || '');
   } catch {}
   const fromList = !!list;
+  // The ‹ says where it goes: the list the take was opened from.
+  const backLink = document.querySelector('.topbar .back');
+  if (list === '/') { backLink.href = '/'; backLink.setAttribute('aria-label', 'Back to the main page'); }
   document.querySelector('.topbar .back').addEventListener('click', (e) => {
     if (document.body.classList.contains('notes-open')) { e.preventDefault(); closeNotes(); return; }
     if (fromList && history.length > 1) { e.preventDefault(); history.back(); }
