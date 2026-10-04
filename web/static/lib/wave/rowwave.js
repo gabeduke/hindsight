@@ -12,10 +12,10 @@
 import { peakColumns, foldChannels, drawColumns } from './draw.js';
 import { token, withAlpha } from '../theme.js';
 
-// The played part in the waveform colour, the rest in its dim twin; both
+// The played part in the waveform colour, the rest the same colour, fainter;
 // read from the stylesheet at paint time so they follow light and dark.
 const playedColor = (el) => token('--wave', '#268bd2', el);
-const unplayed = (el) => token('--wave-dim', '#a3b0ae', el);
+const unplayed = (el) => withAlpha(playedColor(el), 0.5);
 
 export class RowWave {
   constructor({ container, peaks, duration, audio }) {

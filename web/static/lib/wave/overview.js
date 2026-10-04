@@ -92,7 +92,7 @@ export class Overview {
     cctx.fillStyle = col('--well', '#e9e2cd');
     cctx.fillRect(0, 0, W, H);
     const cols = foldChannels(peakColumns(this.peaks, Math.round(W)), this.peaks.channels);
-    drawColumns(cctx, cols, 1, { top: 2, height: H - 4, color: col('--wave-dim', '#a3b0ae') });
+    drawColumns(cctx, cols, 1, { top: 2, height: H - 4, color: withAlpha(col('--wave', '#268bd2'), 0.7) });
     this.cachedKey = `${W}x${H}@${dpr}`;
   }
 

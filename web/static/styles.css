@@ -34,6 +34,8 @@
   --rec:         #dc322f;
   --danger:      #dc322f;
   --on-danger:   #fdf6e3;
+  /* Red as text on a key: the fill red is under 4.5:1 there. */
+  --danger-ink:  #b02a27;
   --go:          #859900;
   --warn:        #b58900;
   --flag:        #b58900;
@@ -115,6 +117,7 @@
     --lcd:       #00212b;
     --label:     #0b4250;
     --link:      #3fb5ab;
+    --danger-ink: #ff8a7f;
     --shadow:    rgba(0, 0, 0, .45);
     --scrim:     rgba(0, 16, 20, .7);
     --stage:      #00212b;
@@ -1518,3 +1521,158 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 }
 /* The click, on: the accent ♩ on the accent background vanished. */
 .tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { background: var(--panel-2); }
+
+/* ---------- the deck ---------- */
+/* The hardware: tape-deck keys, faceplates, silkscreen legends and amber
+   readouts. Only how things look is set here -- never a height, padding or
+   margin -- so every layout rule above, and the landscape tiers that keep
+   Capture above the fold, still decide where things go. A key's travel is a
+   box-shadow, not a border, for the same reason: it takes no layout space. */
+
+.topbar { border-bottom: 3px double var(--rule); }
+.brand b {
+  font-family: var(--label-font); font-weight: 700; font-size: 20px;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.health { font-family: var(--label-font); font-weight: 600; font-size: 14px; letter-spacing: .12em; text-transform: uppercase; }
+
+.panel { border-color: var(--line); box-shadow: 0 2px 0 var(--line); }
+.panel h2, .tape-toolbar .tb-label, .stat .k, .chan summary {
+  font-family: var(--label-font); font-weight: 600; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink-dim);
+}
+.panel h2 { font-size: 15px; display: flex; align-items: center; gap: 10px; }
+.panel h2::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+.panel-head h2 { flex: 1; }
+.stat .k { font-size: 12px; letter-spacing: .14em; }
+.chan summary { font-size: 13px; }
+
+/* Readouts: amber digits in a dark window, in both schemes. */
+.stat { background: none; padding: 0; }
+.stat .v, .readout {
+  background: var(--lcd); color: var(--lcd-ink);
+  border-radius: 3px; box-shadow: inset 0 2px 0 rgba(0, 0, 0, .35);
+  font-family: var(--mono); font-weight: 600;
+}
+.stat .v { padding: 5px 7px; margin-top: 3px; font-size: 15px; }
+.readout { padding: 3px 8px; }
+.stat .v.bad { color: #ff8a7f; }
+
+/* Wells: where audio is drawn, recessed into the faceplate. */
+.viz-wrap, .overview-canvas, .wave-canvas, .tape-overview, .tt-lane, .lane, .tape-ruler {
+  background: var(--well);
+  border: 1px solid var(--well-line);
+  box-shadow: inset 0 2px 0 var(--shadow);
+  border-radius: 6px;
+}
+.bar, .phone-lane { background: var(--well); box-shadow: inset 0 1px 0 var(--shadow); }
+
+/* Keys. At rest a 3 px edge under the face; pressed or latched, the face
+   drops onto it. */
+.icon-btn, .seg button, .nudge, .mark-btn, .phone-btn, .chip, .passes-row .pass {
+  background: var(--key);
+  color: var(--ink);
+  border: 1px solid var(--key-edge);
+  box-shadow: 0 3px 0 var(--key-edge);
+  transition: transform 70ms ease, box-shadow 70ms ease, background 140ms;
+}
+.icon-btn, .seg button, .mark-btn, .phone-btn, .passes-row .pass { border-radius: 5px; }
+.icon-btn, .seg button, .mark-btn, .phone-btn {
+  font-family: var(--label-font); font-weight: 700; font-size: 16px;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+/* A row of keys shares its width: tighter legends, so "Full 15m" fits. */
+.seg button { font-size: 15px; letter-spacing: .04em; }
+a.chip, a.icon-btn { text-decoration: none; }
+.chip { border-radius: 5px; box-shadow: 0 2px 0 var(--key-edge); }
+.icon-btn:active, .seg button:active, .nudge:active, .mark-btn:active, .phone-btn:active, .chip:active,
+.icon-btn[aria-pressed="true"], .seg button[aria-pressed="true"], .tb-play.playing {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--key-edge);
+  background: var(--key-down);
+}
+.chip[aria-pressed="true"] { transform: none; box-shadow: none; background: transparent; }
+.icon-btn[disabled], .icon-btn:disabled { box-shadow: 0 3px 0 var(--key-edge); transform: none; }
+.icon-btn.danger, .menu > .danger, .take-flag-rm { color: var(--danger-ink); }
+.icon-btn.play { color: var(--ink); }
+
+/* A row of keys sits in a bed. */
+.seg { background: var(--key-bed); border-radius: 6px; }
+
+/* LEDs: a key that latches says so with a light as well as by sitting low. */
+.tb-play::before, #dur-seg button::before, .tb-loop::before, .tb-click::before, #snap::before {
+  content: ''; display: inline-block; flex: none;
+  width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
+  background: var(--led-off); vertical-align: middle;
+}
+.tb-play.playing::before { background: var(--go); box-shadow: 0 0 6px var(--go); }
+#dur-seg button[aria-pressed="true"]::before { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.tb-loop[aria-pressed="true"]::before, .tb-click[aria-pressed="true"]::before,
+#snap[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.tb-row.transport .tb-play.playing, .tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { color: var(--ink); background: var(--key-down); }
+
+/* The one main action on a screen is orange, with a deeper edge. */
+.capture-btn, .icon-btn.primary {
+  background: var(--accent); color: var(--on-accent);
+  border: 1px solid var(--accent-edge);
+  box-shadow: 0 5px 0 var(--accent-edge);
+}
+.capture-btn {
+  border-radius: 6px;
+  font-family: var(--label-font); font-weight: 700; font-size: 26px;
+  letter-spacing: .14em; text-transform: uppercase;
+  transition: transform 70ms ease, box-shadow 70ms ease, background 140ms;
+}
+.capture-btn:active { transform: translateY(5px); box-shadow: 0 0 0 var(--accent-edge); }
+.capture-btn[disabled] { background: var(--key); color: var(--ink-faint); border-color: var(--key-edge); box-shadow: 0 3px 0 var(--key-edge); transform: none; }
+.icon-btn.primary:active { box-shadow: 0 0 0 var(--accent-edge); }
+
+/* Flag: ink legend, a yellow pennant -- yellow text is unreadable on cream. */
+.mark-btn { color: var(--ink); }
+.mark-btn::before { content: '⚑ '; color: var(--flag); }
+.mark-btn[disabled] { color: var(--ink-faint); }
+.phone-btn { border-radius: 5px; }
+.phone-btn.recording { color: var(--danger-ink); border-color: var(--rec); }
+
+/* Recording keys stay unmistakable. */
+.icon-btn.phone-rec, .tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] {
+  background: var(--rec); color: var(--on-danger); border-color: #a5231f; box-shadow: 0 3px 0 #a5231f;
+}
+.tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] { transform: translateY(3px); box-shadow: 0 0 0 #a5231f; }
+.tape-toolbar .tb-row.transport .tb-rec.armed { color: var(--danger-ink); border-color: var(--rec); }
+
+/* A take in the list is a cassette label: two stripes across the top. */
+.take {
+  background-color: var(--label);
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--flag), var(--flag));
+  background-size: 100% 5px, 100% 2px;
+  background-position: 0 0, 0 7px;
+  background-repeat: no-repeat;
+  border-color: var(--line);
+  box-shadow: 0 2px 0 var(--line);
+  border-radius: 6px;
+  padding-top: 17px;
+}
+.take-name { font-weight: 600; }
+
+/* Track heads on the tape. */
+.tt-head { background: var(--panel); border-color: var(--line); box-shadow: 0 2px 0 var(--line); }
+.tt-name { font-family: var(--label-font); font-weight: 700; font-size: 16px; letter-spacing: .06em; }
+
+/* Menus, sheets, tips. */
+.menu, .sheet-inner { background: var(--panel); border-color: var(--rule); }
+.menu > button:hover, .menu > a:hover { background: var(--key-down); }
+.sheet-inner h3 { font-family: var(--label-font); font-weight: 700; font-size: 20px; letter-spacing: .06em; }
+input, select, textarea { color-scheme: inherit; }
+.take-name-input, .take-bpm-input, .take-title-input, .take-sub-input, .tape-tempo-row input, .phone-field select, #flag-sheet input, .take-flag-edit input {
+  background: var(--well); color: var(--ink);
+}
+
+/* A phone held sideways: the deck above sits after the landscape tiers, so it
+   gives back here what its readouts and rule took. The readouts get a slim
+   window and the legends a smaller face; Capture stays above the fold. */
+@media (orientation: landscape) and (max-height: 440px) {
+  .topbar { border-bottom-width: 1px; border-bottom-style: solid; }
+  .stat .k { font-size: 11px; line-height: 1.2; }
+  .stat .v { padding: 2px 6px; margin-top: 2px; font-size: 14px; }
+}
