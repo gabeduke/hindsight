@@ -321,6 +321,9 @@ func (t *transport) apply(a Action, out uint64, m *Mix, length int64) {
 		if t.pos >= m.end && !m.loop.On {
 			t.pos = 0 // played to the end: start again
 		}
+		if m.loop.On && t.pos >= m.loop.Out && t.pos >= m.end {
+			t.pos = m.loop.In // past the loop with nothing after it: the loop again
+		}
 		if a.CountIn && m.grid != nil {
 			// A bar of click first, the tape standing at its bar line.
 			t.pos = m.grid.BarStart(m.grid.BarAt(t.pos))

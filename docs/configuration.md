@@ -243,6 +243,7 @@ On disk, `TAPE_DIR` holds:
   clone costs nothing. Deleting a tape frees the pool files that no tape, and
   no tape's undo history, still uses.
 - `loaded`, naming the tape that was loaded, so a restart loads it again.
+- `clipboard.json`, what was last copied, so it survives a restart too.
 
 On the Pi the tape plays through the Sidekick's USB playback, on the same
 card the capture uses (see [architecture](architecture.md#the-tape)):

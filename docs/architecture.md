@@ -598,6 +598,13 @@ the pool and becomes the grid, the loop and the first clip; then a "phase"
 action starts the transport as if the loop had been going round since the
 second tap, using Δ to turn that ring frame into an output frame.
 
+**The clipboard** (`clipboard.go`) is `TAPE_DIR/clipboard.json`: clips in
+the pool, laid out from frame 0, one track's worth or more. Copying from a
+take or the ring writes the pool first; the clean-up treats the clipboard as
+a root. A drop clears the span on each track it lands on and places the
+clips, then, stopped, moves the playhead to its end. The audition renders it
+through a mix of its own, every track on bus A.
+
 **Drops** copy a span of a take into the pool. On an empty tape the first
 drop becomes the grid and the loop; later ones go at the playhead.
 

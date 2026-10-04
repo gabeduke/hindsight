@@ -185,6 +185,30 @@ export class Ribbon {
     if (!bar) return;
     bar.querySelector('.rb-sel-clear').addEventListener('click', () => this.setSel(null));
     bar.querySelector('.rb-sel-save').addEventListener('click', () => this.saveSel());
+    bar.querySelector('.rb-sel-copy')?.addEventListener('click', () => this.copySel());
+  }
+
+  // offerCopy shows Copy on the selection bar: the tape is on, so there's
+  // somewhere to drop it.
+  offerCopy(on) {
+    const b = this.selBar?.querySelector('.rb-sel-copy');
+    if (b) b.hidden = !on;
+  }
+
+  async copySel() {
+    const sel = this.sel;
+    if (!sel) return;
+    const body = { ring_from: sel.from }; // MAIN, what the ribbon draws
+    if (sel.to != null) body.ring_to = sel.to;
+    try {
+      const res = await fetch('/api/clipboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
+      const note = b.clamped ? ' (its start had already left the buffer)' : '';
+      this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}: Drop it on a tape`, 'ok');
+    } catch (e) {
+      this.onToast?.(`Could not copy: ${e.message}`, 'bad');
+    }
   }
 
   async saveSpan(from, to) {
@@ -232,6 +256,8 @@ export class Ribbon {
       : `${fmtAge(len)} · ${when}${gone ? ' · starts before the oldest audio' : ''}`;
     bar.classList.toggle('gone', gone);
     bar.querySelector('.rb-sel-save').disabled = allGone;
+    const copy = bar.querySelector('.rb-sel-copy');
+    if (copy) copy.disabled = allGone;
   }
 
   // --- a flag's sheet ---------------------------------------------------------

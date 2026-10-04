@@ -792,12 +792,32 @@ async function main() {
     return b;
   };
   fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
-    if (r.ok) $('send-to-tape').hidden = false;
+    if (r.ok) { $('send-to-tape').hidden = false; $('copy-take').hidden = false; }
   }).catch(() => {});
-  $('send-to-tape').addEventListener('click', async () => {
+  // Copy: the selection (or the whole take) onto the clipboard, for Drop on
+  // a tape.
+  const copyTake = async () => {
     const from = state.region ? state.region.start : 0;
     const to = state.region ? state.region.end : total;
+    await tapeAPI('/api/clipboard', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ take: file, from, to }),
+    });
+    return to - from;
+  };
+  $('copy-take').addEventListener('click', async () => {
     try {
+      const n = await copyTake();
+      toast(`Copied ${fmtClock(n, sr)}: Drop it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+    } catch (e) {
+      toast(`Could not copy: ${e.message}`, 'bad');
+    }
+  });
+  // Send to tape: copy, then drop at the loaded tape's playhead, on track 1
+  // -- or, on an empty tape, as its first loop.
+  $('send-to-tape').addEventListener('click', async () => {
+    try {
+      const n = await copyTake();
       // Whichever tape is loaded now: another device may have changed it.
       let id = (await tapeAPI('/api/tapes')).loaded;
       if (!id) {
@@ -807,9 +827,9 @@ async function main() {
       }
       await tapeAPI(`/api/tapes/drop?id=${encodeURIComponent(id)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ take: file, from, to, track: 1, bars: 0 }),
+        body: JSON.stringify({ track: 1 }),
       });
-      toast(`Sent ${fmtClock(to - from, sr)} to tape, track 1`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+      toast(`Sent ${fmtClock(n, sr)} to tape, track 1`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
     } catch (e) {
       toast(`Could not send to tape: ${e.message}`, 'bad');
     }

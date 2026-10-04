@@ -56,6 +56,10 @@
     </div>
 
     <canvas id="tape-overview" class="tape-overview" aria-label="The whole tape" data-tip="tape-overview"></canvas>
+    <div class="tape-ruler-row">
+      <span class="tape-ruler-gap"></span>
+      <canvas id="tape-ruler" class="tape-ruler" aria-label="Bars: tap to move the playhead, hold and drag to set the loop" data-tip="tape-ruler"></canvas>
+    </div>
     <div id="lanes" class="tape-lanes"></div>
 
     <div class="toolbar tape-toolbar">
@@ -79,6 +83,17 @@
           <button type="button" data-bars="2" data-tip="catch-bars">2</button>
           <button type="button" data-bars="4" data-tip="catch-bars">4</button>
         </div>
+        <div class="seg" id="catch-mode" role="group" aria-label="Onto audio already there">
+          <button type="button" data-mode="layer" data-tip="catch-mode">Layer</button>
+          <button type="button" data-mode="replace" data-tip="catch-mode">Replace</button>
+        </div>
+      </div>
+      <div class="tb-row clipboard">
+        <span class="tb-label">Clipboard</span>
+        <button id="clip-play" class="chip clip-chip" type="button" disabled data-tip="clipboard">empty</button>
+        <button id="drop" class="icon-btn" type="button" disabled data-tip="drop">Drop</button>
+        <button id="clip-clear" class="icon-btn" type="button" disabled aria-label="Clear the clipboard" data-tip="clipboard-clear">×</button>
+        <audio id="clip-audio" preload="none"></audio>
       </div>
       <div class="tb-row passes">
         <span class="tb-label">Passes</span>
@@ -102,8 +117,30 @@
       </div>
     </div>
     <div class="sheet-actions">
+      <button id="clip-tile" class="icon-btn" type="button" data-tip="clip-tile">Repeat to the loop’s end</button>
+    </div>
+    <div class="sheet-actions">
       <button id="clip-remove" class="icon-btn danger" type="button" data-tip="clip-remove">Remove</button>
       <button id="clip-done" class="icon-btn" type="button">Done</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- A track's sheet. -->
+<dialog class="sheet" id="track-sheet">
+  <div class="sheet-inner">
+    <h3 id="track-title">Track</h3>
+    <label class="clip-field">Name
+      <input id="track-name" type="text" maxlength="40" placeholder="chords, bass…" data-tip="track-name">
+    </label>
+    <label class="clip-field">Level <span id="track-gain-val" class="mono"></span>
+      <input id="track-gain" type="range" min="-30" max="6" step="0.5" data-tip="track-gain">
+    </label>
+    <label class="clip-field">Pan <span id="track-pan-val" class="mono"></span>
+      <input id="track-pan" type="range" min="-1" max="1" step="0.05" data-tip="track-pan">
+    </label>
+    <div class="sheet-actions">
+      <button id="track-done" class="icon-btn" type="button">Done</button>
     </div>
   </div>
 </dialog>

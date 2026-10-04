@@ -6,7 +6,7 @@
 import { toast } from '../toast.js';
 import { initHelp } from '../help/help.js';
 import { peakColumns, foldChannels, drawColumns } from '../wave/draw.js';
-import { viewRange, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets } from './geometry.js';
+import { editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets } from './geometry.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -20,7 +20,10 @@ const state = {
   redo: 0,
   track: 1,         // the selected track
   source: readPref('tape.source', 'aux'),
+  mode: readPref('tape.mode', 'layer'), // a catch onto audio: layer or replace
   clip: null,       // the clip whose sheet is open
+  clipboard: null,  // what /api/clipboard says
+  sel: null,        // a ruler drag in progress: {from, to} tape frames
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
 
@@ -66,7 +69,9 @@ async function boot() {
   }
   wire();
   await poll();
+  fetchClipboard();
   setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+  setInterval(() => { if (!document.hidden) fetchClipboard(); }, 2000);
 }
 
 // gen counts this page's changes, bumped as each is sent and again as its
@@ -151,9 +156,14 @@ function render() {
   const sr = t.sample_rate;
   $('tape-name').textContent = `${t.name} ▾`;
   document.title = `${t.name} — tape — Hindsight`;
-  $('tape-sub').textContent = t.grid
-    ? `${bpmOf(t.grid, sr).toFixed(1)} BPM · ${t.grid.bars} bar${t.grid.bars === 1 ? '' : 's'} ▾`
-    : 'no tempo yet';
+  // The tempo, and the loop in bars (the grid's own until the ruler moves
+  // it).
+  let sub = 'no tempo yet';
+  if (t.grid) {
+    const bars = t.loop.out > t.loop.in ? Math.round((t.loop.out - t.loop.in) / (t.grid.frames / t.grid.bars)) : t.grid.bars;
+    sub = `${bpmOf(t.grid, sr).toFixed(1)} BPM · ${bars} bar${bars === 1 ? '' : 's'}${t.loop.on ? '' : ', not looping'} ▾`;
+  }
+  $('tape-sub').textContent = sub;
   $('tape-sub').disabled = !t.grid;
   const empty = t.tracks.every((tr) => tr.clips.length === 0);
   $('tape-empty').hidden = !(empty && !t.grid);
@@ -199,8 +209,179 @@ function render() {
   const canCatch = live && live.aligned !== 'none';
   $('catch-pass').disabled = !canCatch || !(live.cycles || []).length;
   for (const b of $('catch-bars').querySelectorAll('button')) b.disabled = !canCatch || !t.grid;
+  renderMode();
+  renderClipboard();
   drawLanes();
   drawOverview();
+  drawRuler();
+}
+
+function renderMode() {
+  for (const b of $('catch-mode').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
+}
+
+// --- the clipboard -------------------------------------------------------------
+
+async function fetchClipboard() {
+  try {
+    const b = await api('/api/clipboard');
+    state.clipboard = b.clipboard || null;
+    state.clipboardError = b.error || '';
+  } catch { state.clipboard = null; state.clipboardError = ''; }
+  renderClipboard();
+}
+
+function renderClipboard() {
+  const c = state.clipboard;
+  const t = state.tape;
+  const chip = $('clip-play');
+  if (state.clipboardError) {
+    chip.textContent = 'can’t be read: × clears it';
+  } else if (!c || !t) {
+    chip.textContent = 'empty';
+  } else {
+    const secs = (c.frames / t.sample_rate).toFixed(1);
+    const n = c.tracks.length;
+    chip.textContent = `${$('clip-audio').paused ? '▶' : '■'} ${secs} s${n > 1 ? ` · ${n} tracks` : ''} · ${c.from}`;
+  }
+  chip.disabled = !c;
+  chip.classList.toggle('playing', !$('clip-audio').paused);
+  $('drop').disabled = !c || !t;
+  $('clip-clear').disabled = !c && !state.clipboardError;
+}
+
+function auditionClipboard() {
+  const a = $('clip-audio');
+  if (!a.paused) { a.pause(); renderClipboard(); return; }
+  a.src = `/api/clipboard/audio?t=${encodeURIComponent(state.clipboard ? state.clipboard.created : '')}`;
+  a.play().catch((e) => toast(`Could not play the clipboard: ${e.message}`, 'bad'));
+  renderClipboard();
+}
+
+async function drop() {
+  // Read before the request: a poll may change the clipboard meanwhile.
+  const secs = state.clipboard && state.tape ? (state.clipboard.frames / state.tape.sample_rate).toFixed(1) : '';
+  try {
+    const d = await change(() => api(`/api/tapes/drop?${q()}`, { method: 'POST', body: { track: state.track } }));
+    toast(`Dropped ${secs} s on track ${state.track}${d.tracks > 1 ? ` and the ${d.tracks - 1} after it` : ''}`, 'ok', {
+      action: { label: 'Undo', run: () => undoRedo(false) },
+    });
+    poll();
+  } catch (e) {
+    toast(`Could not drop: ${e.message}`, 'bad');
+  }
+}
+
+// --- the ruler -----------------------------------------------------------------
+
+function drawRuler() {
+  const t = state.tape;
+  if (!t) return;
+  const cv = $('tape-ruler');
+  const r = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) {
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  }
+  const W = r.width, H = r.height;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const view = viewRange(t);
+  const span = (from, to, fill) => {
+    const x0 = Math.max(0, xOf(from, view, W)), x1 = Math.min(W, xOf(to, view, W));
+    if (x1 > x0) { ctx.fillStyle = fill; ctx.fillRect(x0, 0, x1 - x0, H); }
+  };
+  if (t.loop.out > t.loop.in) span(t.loop.in, t.loop.out, t.loop.on ? 'rgba(251,191,36,0.22)' : 'rgba(251,191,36,0.08)');
+  if (state.sel) span(state.sel.from, state.sel.to, 'rgba(52,211,153,0.35)');
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.textBaseline = 'middle';
+  for (const b of barLines(t.grid, view)) {
+    const x = Math.round(xOf(b.frame, view, W));
+    ctx.fillStyle = 'rgba(238,242,248,0.35)';
+    ctx.fillRect(x, H * 0.45, 1, H * 0.55);
+    ctx.fillStyle = 'rgba(238,242,248,0.7)';
+    if (x + 3 < W - 8) ctx.fillText(String(b.n), x + 3, H * 0.3);
+  }
+  if (state.live) {
+    const x = xOf(state.live.heard, view, W);
+    if (x >= 0 && x <= W) { ctx.fillStyle = '#eef2f8'; ctx.fillRect(Math.round(x), 0, 1, H); }
+  }
+}
+
+// Tap the ruler: the playhead to the nearest bar line. Hold, then drag:
+// select whole bars, which become the loop.
+function wireRuler() {
+  const cv = $('tape-ruler');
+  let down = null;
+  const frameOf = (e) => {
+    const r = cv.getBoundingClientRect();
+    return frameAt(Math.min(r.width, Math.max(0, e.clientX - r.left)), viewRange(state.tape), r.width);
+  };
+  cv.addEventListener('pointerdown', (e) => {
+    if (!state.tape) return;
+    cv.setPointerCapture(e.pointerId);
+    down = { x: e.clientX, y: e.clientY, f: frameOf(e), held: false, moved: false };
+    down.timer = setTimeout(() => {
+      if (!down || down.moved || !state.tape.grid) return;
+      down.held = true;
+      state.sel = barSpan(state.tape.grid, down.f, down.f);
+      if (navigator.vibrate) navigator.vibrate(10);
+      drawRuler();
+    }, 300);
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!down) return;
+    if (down.held) {
+      state.sel = barSpan(state.tape.grid, down.f, frameOf(e));
+      drawRuler();
+    } else if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) {
+      down.moved = true; // a swipe, not a tap or a hold
+    }
+  });
+  const end = (e, cancelled) => {
+    if (!down) return;
+    clearTimeout(down.timer);
+    const d = down;
+    down = null;
+    if (d.held) {
+      const sel = state.sel;
+      state.sel = null;
+      drawRuler();
+      if (!cancelled && sel) {
+        const n = Math.round((sel.to - sel.from) / (state.tape.grid.frames / state.tape.grid.bars));
+        patch({ loop: { in: sel.from, out: sel.to, on: true } }).then((ok) => ok && toast(`Looping ${n} bar${n === 1 ? '' : 's'}`, 'ok', {
+          action: { label: 'Undo', run: () => undoRedo(false) },
+        }));
+      }
+    } else if (!d.moved && !cancelled) {
+      const f = frameOf(e);
+      transport('locate', { pos: state.tape.grid ? nearestBar(state.tape.grid, f) : f });
+    }
+  };
+  cv.addEventListener('pointerup', (e) => end(e, false));
+  cv.addEventListener('pointercancel', (e) => end(e, true));
+}
+
+// --- a track's sheet -------------------------------------------------------------
+
+function openTrack(n) {
+  const tr = track(n);
+  if (!tr) return;
+  state.sheetTrack = n;
+  $('track-title').textContent = `Track ${n}`;
+  $('track-name').value = tr.name || '';
+  $('track-gain').value = String(tr.gain_db);
+  $('track-gain-val').textContent = `${tr.gain_db} dB`;
+  $('track-pan').value = String(tr.pan || 0);
+  $('track-pan-val').textContent = panText(tr.pan || 0);
+  const sh = $('track-sheet');
+  if (typeof sh.showModal === 'function') sh.showModal();
+}
+
+function panText(p) {
+  if (Math.abs(p) < 0.01) return 'centre';
+  return `${Math.round(Math.abs(p) * 100)}% ${p < 0 ? 'left' : 'right'}`;
 }
 
 function renderSources() {
@@ -272,7 +453,8 @@ function buildLanes() {
         gain: row.querySelector('.tt-gain'),
         canvas: row.querySelector('.tt-lane'),
       };
-      lane.name.addEventListener('click', () => { state.track = n; render(); });
+      // Tap a track to select it; tap it again for its sheet.
+      lane.name.addEventListener('click', () => { if (state.track === n) openTrack(n); else { state.track = n; render(); } });
       lane.bus.addEventListener('click', () => patch({ track: { n, bus: track(n).bus === 'A' ? 'B' : 'A' } }));
       lane.mute.addEventListener('click', () => patch({ track: { n, mute: !track(n).mute } }));
       lane.solo.addEventListener('click', () => patch({ track: { n, solo: !track(n).solo } }));
@@ -424,7 +606,7 @@ async function rec() {
   const r = state.live && state.live.record;
   try {
     if (!r) {
-      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.track, source: state.source } }));
+      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.track, source: state.source, replace: state.mode === 'replace' } }));
       const armed = b.record.state === 'armed';
       toast(armed ? `Track ${state.track} armed: press ▶ to count in` : `Recording ${state.source} onto track ${state.track} from the next bar — tap ● again to keep it`, 'ok', {
         ms: 8000, action: { label: 'Cancel', run: () => api(`/api/tapes/record?${q()}&cancel=1`, { method: 'DELETE' }).then(poll, () => {}) },
@@ -496,7 +678,7 @@ function laneTap(lane, e) {
 }
 
 async function doCatch(what) {
-  const body = { track: state.track, source: state.source, ...what };
+  const body = { track: state.track, source: state.source, replace: state.mode === 'replace', ...what };
   try {
     const b = await change(() => api(`/api/tapes/catch?${q()}`, { method: 'POST', body }));
     const s = (b.clip.frames / state.tape.sample_rate).toFixed(1);
@@ -521,6 +703,7 @@ async function undoRedo(redo) {
 function closeSheets() {
   const sh = $('clip-sheet');
   if (sh.open) sh.close();
+  if ($('track-sheet').open) $('track-sheet').close();
   state.clip = null;
   $('tape-menu').hidden = true;
   $('tempo-menu').hidden = true;
@@ -533,6 +716,8 @@ function openClip(c) {
   $('clip-gain').value = String(c.gain_db || 0);
   $('clip-gain-val').textContent = `${c.gain_db || 0} dB`;
   $('clip-nudge-val').textContent = `${c.nudge_ms || 0} ms`;
+  const lp = state.tape.loop;
+  $('clip-tile').disabled = !(lp.on && c.at + 2 * c.frames <= lp.out);
   const sh = $('clip-sheet');
   if (typeof sh.showModal === 'function') sh.showModal();
   drawLanes();
@@ -586,6 +771,31 @@ function wire() {
   $('click').addEventListener('click', () => patch({ click: !state.tape.click }));
   $('tap').addEventListener('click', tap);
   $('tape-sub').addEventListener('click', (e) => { e.stopPropagation(); openTempo(); });
+  for (const b of $('catch-mode').querySelectorAll('button')) {
+    b.addEventListener('click', () => { state.mode = b.dataset.mode; writePref('tape.mode', state.mode); renderMode(); });
+  }
+  $('clip-play').addEventListener('click', auditionClipboard);
+  $('clip-audio').addEventListener('ended', renderClipboard);
+  $('clip-audio').addEventListener('pause', renderClipboard);
+  $('clip-audio').addEventListener('error', () => { $('clip-audio').pause(); renderClipboard(); });
+  $('drop').addEventListener('click', drop);
+  $('clip-clear').addEventListener('click', async () => {
+    try { await api('/api/clipboard', { method: 'DELETE' }); } catch (e) { toast(e.message, 'bad'); }
+    $('clip-audio').pause();
+    fetchClipboard();
+  });
+  $('clip-tile').addEventListener('click', () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c) patch({ clip: { id: c.id, tile: true } }).then((ok) => ok && toast('Repeated to the loop’s end', 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } }));
+  });
+  $('track-name').addEventListener('change', () => patch({ track: { n: state.sheetTrack, name: $('track-name').value } }));
+  $('track-gain').addEventListener('input', () => { $('track-gain-val').textContent = `${$('track-gain').value} dB`; });
+  $('track-gain').addEventListener('change', () => patch({ track: { n: state.sheetTrack, gain_db: Number($('track-gain').value) } }));
+  $('track-pan').addEventListener('input', () => { $('track-pan-val').textContent = panText(Number($('track-pan').value)); });
+  $('track-pan').addEventListener('change', () => patch({ track: { n: state.sheetTrack, pan: Number($('track-pan').value) } }));
+  $('track-done').addEventListener('click', () => $('track-sheet').close());
+  wireRuler();
   $('loop').addEventListener('click', () => patch({ loop: { on: !state.tape.loop.on } }));
   $('tape-undo').addEventListener('click', () => undoRedo(false));
   $('tape-redo').addEventListener('click', () => undoRedo(true));
@@ -644,7 +854,7 @@ function wire() {
   });
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
   $('clip-sheet').addEventListener('close', () => { state.clip = null; drawLanes(); });
-  new ResizeObserver(() => { drawLanes(); drawOverview(); }).observe($('lanes'));
+  new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); }).observe($('lanes'));
 }
 
 boot();

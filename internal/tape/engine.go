@@ -347,8 +347,12 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 	off := 0
 	for n > 0 {
 		for len(tr.pend) > 0 && tr.pend[0].at <= out {
-			tr.apply(tr.pend[0].action, out, m, length)
+			a := tr.pend[0].action
+			tr.apply(a, out, m, length)
 			tr.pend = tr.pend[1:]
+			if a.done != nil {
+				close(a.done)
+			}
 		}
 		span := int64(n)
 		if len(tr.pend) > 0 {
@@ -447,6 +451,9 @@ func (e *Engine) idle(out uint64) {
 			case "play":
 			default:
 				tr.apply(a, out, m, m.length)
+			}
+			if a.done != nil && a.Kind != "reset" {
+				close(a.done)
 			}
 			continue
 		default:
@@ -622,6 +629,23 @@ func (e *Engine) Undo(id string, redo bool) error {
 		e.rebuild()
 	}
 	return err
+}
+
+// doWait queues an action and waits, briefly, until it's carried out: for
+// a caller whose answer depends on it.
+func (e *Engine) doWait(a Action) {
+	if !e.started.Load() {
+		e.Do(a)
+		return
+	}
+	done := make(chan struct{})
+	a.done = done
+	e.Do(a)
+	select {
+	case <-done:
+	case <-e.stop:
+	case <-time.After(500 * time.Millisecond):
+	}
 }
 
 // Do queues a transport action; the render goroutine carries it out on its
@@ -989,16 +1013,7 @@ func (e *Engine) DropTake(id string, take string, from, to int64, track, bars in
 }
 
 // guessBars picks the bar count that puts a loop's tempo nearest 90 BPM.
-func guessBars(frames int64, sampleRate int) int {
-	best, bestDiff := 1, math.Inf(1)
-	for b := 1; b <= 32; b *= 2 {
-		bpm := Grid{Frames: frames, Bars: b}.BPM(sampleRate)
-		if d := math.Abs(math.Log(bpm / 90)); d < bestDiff {
-			best, bestDiff = b, d
-		}
-	}
-	return best
-}
+func guessBars(frames int64, sampleRate int) int { return guessBarsNear(frames, sampleRate, 90) }
 
 // SetMeta changes what isn't part of undo -- the name, the click -- on the
 // loaded tape, and saves it.

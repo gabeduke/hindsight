@@ -23,7 +23,9 @@ type Recording struct {
 	Tape   string `json:"tape"`
 	Track  int    `json:"track"`
 	Source string `json:"source"`
-	State  string `json:"state"` // armed or on
+	// Replace clears what's under the punch instead of layering on it.
+	Replace bool   `json:"replace,omitempty"`
+	State   string `json:"state"` // armed or on
 	// From is the output frame it was asked for at, less a quarter second
 	// for the tap and Wi-Fi: the punch starts at the first bar line the
 	// tape plays from there.
@@ -50,7 +52,7 @@ var (
 )
 
 // Record arms a track, or punches in if the tape is playing.
-func (e *Engine) Record(id string, track int, source string) (Recording, error) {
+func (e *Engine) Record(id string, track int, source string, replace bool) (Recording, error) {
 	if e.capture == nil {
 		return Recording{}, ErrNoCapture
 	}
@@ -80,7 +82,7 @@ func (e *Engine) Record(id string, track int, source string) (Recording, error) 
 	if e.rec != nil {
 		return *e.rec, ErrRecording
 	}
-	r := Recording{Tape: id, Track: track, Source: source, State: "armed"}
+	r := Recording{Tape: id, Track: track, Source: source, Replace: replace, State: "armed"}
 	if st := e.tr.Status(); st.Playing || st.CountIn > 0 {
 		r.State, r.From = "on", e.lateFrom()
 	}
@@ -183,7 +185,7 @@ func (e *Engine) endRecordingAt(id string, cancel bool, end uint64) (*Kept, erro
 			part.ID = ""
 			part.At, part.Src, part.Frames = p.Pos, c.Src+off, p.Len
 			off += p.Len
-			pl, err := s.Place(r.Track, part, false)
+			pl, err := s.Place(r.Track, part, r.Replace)
 			if err != nil {
 				return nil, err
 			}
