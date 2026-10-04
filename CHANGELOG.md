@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.4 — 2026-10-04
+
+- Record v2026.10.04.3 in the changelog [skip ci] (59f4be0)
+- The tape on the Sidekick: fixes from an independent review (473a3bd)
+- The tape on the Sidekick: PortAudio output and the aligner (step 6b) (4549693)
+
+
 ## v2026.10.04.3 — 2026-10-04
 
 - Record v2026.10.04.2 in the changelog [skip ci] (3710262)
