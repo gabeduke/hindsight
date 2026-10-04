@@ -5,16 +5,20 @@ and serves a small vanilla-JS UI. No database, no message broker, no build
 step for the frontend.
 
 ```
-cmd/hindsight       wiring and flags
-internal/config     environment → Config
-internal/audio      device, ring, levels, envelope, saving  (cgo, PortAudio)
-internal/midi       rawmidi watcher, parser, event ring, clock, tempo map, SMF export
-internal/smf        Standard MIDI File writer and reader
-internal/bundle     writes a take's .mid and manifest from audio's window and midi's events
-internal/mono       the one monotonic clock audio and MIDI both stamp with
-internal/api        HTTP and WebSocket handlers
-web/static          the UI, served from disk per request
-web/static/lib/wave the waveform page: geometry, tiles, view, clock, page
+cmd/hindsight        wiring and flags
+internal/config      environment → Config
+internal/audio       device, ring, levels, envelope, saving  (cgo, PortAudio)
+internal/midi        rawmidi watcher, parser, event ring, clock, tempo map, SMF export
+internal/smf         Standard MIDI File writer and reader
+internal/bundle      writes a take's .mid and manifest from audio's window and midi's events
+internal/mono        the one monotonic clock audio and MIDI both stamp with
+internal/api         HTTP and WebSocket handlers
+web/static           the UI, served from disk per request
+web/static/lib/wave  the take page: view, geometry, draw, tiles, clock, lanes, page
+web/static/lib/edit  the gestures every editing surface shares
+web/static/lib/help  tips, help mode, and the guide renderer
+web/static/lib/phone the phone recorder
+docs/embed.go        the guide, compiled into the binary
 ```
 
 ## Data flow
@@ -367,16 +371,15 @@ without starting ffmpeg if its client goes away first.
 
 ## The UI
 
-Mobile-first, no build step, no npm, no framework. Vanilla ES modules plus a
-vendored copy of WaveSurfer.js for scrubbing takes.
+Mobile-first, no build step, no npm, no framework, no vendored libraries:
+vanilla ES modules.
 
 It is served with `http.FileServer` straight from disk on every request, which
 is why `./deploy.sh --static` can push a CSS change in about a second with no
 rebuild and no restart. Anything served with an `.html`, `.js`, `.css` or
 `.json` extension is sent `Cache-Control: no-cache`, so the browser revalidates
-it and a redeploy is picked up on reload. Nothing here is fingerprinted, so
-that includes the vendored WaveSurfer copy; the icons carry no explicit
-directive and fall through to `http.FileServer`'s ETag and `Last-Modified`
+it and a redeploy is picked up on reload. Nothing here is fingerprinted; the
+icons carry no explicit directive and fall through to `http.FileServer`'s ETag and `Last-Modified`
 handling.
 
 The takes list is polled every five seconds and guarded by the `/api/jams`
@@ -386,27 +389,49 @@ Service-worker registration and the screen wake lock are both guarded on
 `window.isSecureContext`, so they switch themselves on if the Pi is ever given
 an HTTPS name and stay quiet otherwise.
 
-### The waveform page
+### The take page
 
-`web/static/lib/wave/` is nine modules. The pure parts of each are
-node-tested.
+The take page is the one place a take is edited, and it is laid out as the
+tape page will be (the editing-model spec, step 3): a header, the overview, an
+editing canvas in three zones, a toolbar, and the MIDI lanes.
+
+`web/static/lib/wave/` holds the page; `lib/edit/` and `lib/help/` hold what
+the tape page will share. The pure parts of each are node-tested.
 
 | Module | What it does |
 |---|---|
-| `geometry` | Pixel and frame math every other module shares |
-| `tiles` | Fetches and caches `/api/peaks` ranges, drawing the coarsest thing it has until the finer tile arrives |
-| `overview` | The whole-take strip above the main waveform: drag, tap and double-tap-to-fit navigation |
-| `view` | Canvas painting and gestures. One finger pans; press and hold, then drag, to select a region; wheel, pinch and two fingers zoom |
-| `clock` | The one playback position: the preview MP3 for the whole take, or `/api/slice` looped in Web Audio for a region |
-| `lanes` | The MIDI lanes under the waveform, from `/api/midi` |
-| `rising` | The rising-notes view of the same MIDI |
-| `share` | The action row's wording, and getting a rendered region off the phone |
-| `page` | Owns the take's editable state and wires the rest together |
+| `edit/gestures` | The pointer machinery any editing surface extends: a drag pans, a hold then a drag selects (with the view scrolling under a finger held at an edge), taps and double-taps, pinch and wheel, and rollback on a cancel or a second finger |
+| `wave/view` | The take's editing canvas, in three zones. The ruler: flag pins on top (tap to open, drag to move), bar numbers below, the playhead handle ▾ (drag to scrub silently) and bar 1 (drag the downbeat). The body: the waveform. The grips: In and Out at the selection's ends and the move handle between them |
+| `wave/geometry` | Pixel and frame math, the bar grid and ruler ticks, Snap, In/Out with a pending point, flag stepping |
+| `wave/draw` | The one waveform renderer: list rows, the overview and the take page all draw through it, on the dB scale the meters use |
+| `wave/rowwave` | A list row's waveform and its playback, with the selection's bracket |
+| `wave/tiles` | Fetches and caches `/api/peaks` ranges, drawing the coarsest thing it has until the finer tile arrives |
+| `wave/overview` | The whole-take strip: drag, tap and double-tap-to-fit navigation |
+| `wave/clock` | The one playback position: the preview MP3, or with Loop on, `/api/slice` looped in Web Audio, sample-exact |
+| `wave/lanes`, `wave/rising` | The MIDI lanes (with a menu per lane) and the rising-notes view |
+| `wave/share` | Getting a rendered MP3 or bundle off the phone |
+| `wave/page` | Owns the take's editable state and wires the rest together |
+| `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, first-run hints |
+| `help/markdown` | Renders the guide for `/guide.html`, from `/guide.md`, which the binary serves compiled in (`docs/embed.go`) |
 
-The page loads its take with `GET /api/take?file=` and fetches it again when
-it comes back into view, merging what another device changed: flags, label,
-tempo and grid always, the selection only when there's no unsaved edit of
-its own. Flags are added, relabelled and removed one at a time through
-`/api/take/flags`, by id. Exports go through `POST /api/cut` (a new take with
-declick fades), `GET /api/render` (an MP3 for the share sheet) and
-`GET /api/bundle` (a zip with the MIDI).
+A few rules hold the page together:
+
+- **One finger moves along the take, always.** Nothing in the waveform's
+  body is draggable; what can be dragged lives in the ruler or the grip
+  strip, so gestures never compete.
+- **Loop is a toggle,** off on every open. Off, the preview plays from the
+  playhead straight through; on, the selection is fetched as a slice and
+  looped sample-exact. Practice speed applies only to the preview.
+- **In and Out** set the selection's ends at the playhead. The first of a
+  pair waits as a pending point until the other completes it.
+- **The page is the state's owner.** It loads its take with
+  `GET /api/take?file=` and fetches it again when it comes back into view,
+  merging what another device changed (flags, name, star, tempo, grid, and
+  the selection unless it has an unsaved one). Flags go one at a time through
+  `/api/take/flags`; the header's rename, star and tempo through the PATCH.
+- **Back is the browser's back** when the list is where you came from, so the
+  list keeps its scroll; the list also restores it when the browser reloads
+  it instead. ◂ ▸ step through the takes in the order the list last showed.
+- **Tips live in one file,** `lib/help/tips.js`, and the guide's §9 table is
+  the same list; a node test fails if they differ or if any `data-tip` in the
+  UI has no tip.

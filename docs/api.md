@@ -1,6 +1,6 @@
 # HTTP API
 
-Twenty-one routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Twenty-two routes, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -21,7 +21,7 @@ internet.
 | `POST /api/take/flags?file=` | Add one flag to a take |
 | `PATCH /api/take/flags?file=&id=` | Move or relabel one flag |
 | `DELETE /api/take/flags?file=&id=` | Remove one flag |
-| `POST /api/flag` | Mark a moment of interest at the ring's newest frame |
+| `POST /api/flag` | Flag a moment at the ring's newest frame (the main page's *Flag now*) |
 | `DELETE /api/flag` | Remove one live mark (`?frame=`), or every one (`?all=1`) |
 | `GET /api/peaks?file=` | Precomputed waveform, so phones do not download audio to draw one; with a range, that range's peaks |
 | `GET /api/download?file=[&dl=1]` | Stream inline, or force a download |
@@ -30,6 +30,7 @@ internet.
 | `GET /api/slice?file=&from=&to=` | A region as a 16-bit WAV with the same fades a cut gets, for auditioning |
 | `GET /api/render?file=&from=&to=` | An MP3 of a region, streamed from ffmpeg with the cut's fades, for the share sheet |
 | `GET /api/midi?file=` | The take's `.mid` decoded to notes in frames, one track per device and channel, for the lanes |
+| `GET /guide.md` | The user guide, compiled into the binary, for `/guide.html` to render |
 | `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
 
 `GET` routes also accept `HEAD`, except `/api/live` and `/api/phone`, which
@@ -46,6 +47,7 @@ The poll everything else hangs off. The UI reads it every two seconds.
   "version": "dev",
   "is_recording": true,
   "capture_healthy": true,
+  "capture_waiting": false,
   "last_error": "",
   "device": "Demo signal generator (synthetic, 96 BPM)",
   "xruns": 0,
@@ -85,6 +87,10 @@ The poll everything else hangs off. The UI reads it every two seconds.
   before it finished booting -- is simply absent from it.
 - `capture_healthy` is what the installer greps for to decide whether the
   service actually came up recording.
+- `capture_waiting` is true when capture is down only because no interface
+  with enough channels is there to open (switched off, still booting,
+  unplugged). Capture keeps retrying; the main page says *waiting for the
+  interface* rather than reporting an error.
 - `version` is stamped at build time; a development build reports `dev`.
 
 ## `GET /api/live`

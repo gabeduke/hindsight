@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"errors"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -9,6 +10,11 @@ import (
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/mono"
 )
+
+// ErrNoDevice is what a source returns when the interface isn't there to
+// open. Capture keeps retrying, and reports itself as waiting rather than
+// failed.
+var ErrNoDevice = errors.New("no input device")
 
 // blockPoolSize bounds how much audio can be in flight between the source's
 // delivery goroutine and the ring writer. At 2048 frames per block this is
@@ -47,6 +53,7 @@ type Capture struct {
 	healthy      atomic.Bool
 	deviceName   atomic.Value // string
 	lastErr      atomic.Value // string
+	waiting      atomic.Bool  // the last open failed with ErrNoDevice
 
 	stop     chan struct{}
 	stopOnce sync.Once
@@ -125,6 +132,12 @@ func (c *Capture) XRuns() uint64      { return c.xruns.Load() }
 func (c *Capture) DeviceName() string { s, _ := c.deviceName.Load().(string); return s }
 func (c *Capture) LastError() string  { s, _ := c.lastErr.Load().(string); return s }
 
+// Waiting reports that capture is down only because the interface isn't
+// there yet -- switched off, or still booting -- rather than because
+// something failed. The main page says "waiting for the interface" then,
+// not "capture error".
+func (c *Capture) Waiting() bool { return c.waiting.Load() }
+
 // BufferedSeconds reports how much audio is currently retrievable.
 func (c *Capture) BufferedSeconds() float64 {
 	return float64(c.ring.BufferedFrames()) / float64(c.cfg.SampleRate)
@@ -195,6 +208,7 @@ func (c *Capture) supervise() {
 		name, err := c.src.Open(c.processAudio)
 		if err != nil {
 			c.lastErr.Store(err.Error())
+			c.waiting.Store(errors.Is(err, ErrNoDevice))
 			c.healthy.Store(false)
 			log.Printf("[!] capture: %v (retry in %s)", err, backoff)
 			select {
@@ -213,6 +227,7 @@ func (c *Capture) supervise() {
 
 		backoff = time.Second
 		c.lastErr.Store("")
+		c.waiting.Store(false)
 		c.deviceName.Store(name)
 		if l, ok := c.src.(Latent); ok {
 			c.bridge.SetPipelineLatency(int64(l.InputLatency()))
@@ -244,6 +259,13 @@ func (c *Capture) supervise() {
 		tick.Stop()
 		c.src.Close()
 		c.healthy.Store(false)
+		// A stall is most often the interface going away. PortAudio's device
+		// list is frozen until a rescan, so rescan now: the next Open then
+		// sees it gone and reports waiting, rather than failing on a stale
+		// entry first.
+		if err := c.src.Reset(); err != nil {
+			log.Printf("[!] device rescan: %v", err)
+		}
 	}
 }
 

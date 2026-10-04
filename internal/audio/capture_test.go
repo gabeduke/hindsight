@@ -2,6 +2,7 @@ package audio
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -181,6 +182,12 @@ func TestSupervisorRestartsASilentSource(t *testing.T) {
 		return opens >= 2 && closes >= 1
 	}, "the stalled source to be closed and reopened")
 
+	// A stall is usually the interface going away, so the device list is
+	// rescanned before the reopen; otherwise the reopen tries a stale entry.
+	if _, _, resets, _ := src.counts(); resets < 1 {
+		t.Errorf("resets = %d after a stall, want a rescan before reopening", resets)
+	}
+
 	// Deliberately not asserted: that LastError still explains the stall.
 	// It does not. supervise clears lastErr and re-stamps lastCallback the
 	// moment Open succeeds (capture.go, the "backoff = time.Second" block),
@@ -229,5 +236,34 @@ func TestStopClosesThenShutsDownTheSource(t *testing.T) {
 	_, _, _, shutdowns = src.counts()
 	if shutdowns != 1 {
 		t.Errorf("Shutdown() called %d times after a second Stop, want exactly 1", shutdowns)
+	}
+}
+
+// An interface that isn't there yet is waiting, not failing; once it opens,
+// neither.
+func TestAMissingInterfaceIsWaitingNotAnError(t *testing.T) {
+	src := &fakeSource{openErrs: []error{fmt.Errorf("%w: none with >=2 channels", ErrNoDevice)}}
+	c := NewCapture(testConfig(), src)
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer c.Stop()
+	waitFor(t, 5*time.Second, func() bool { return c.Waiting() }, "capture to report waiting")
+	waitFor(t, 10*time.Second, func() bool { return c.Healthy() }, "the retry to bring capture up")
+	if c.Waiting() {
+		t.Error("still waiting after the interface opened")
+	}
+}
+
+func TestAFailedOpenIsNotWaiting(t *testing.T) {
+	src := &fakeSource{openErrs: []error{errors.New("device busy")}}
+	c := NewCapture(testConfig(), src)
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer c.Stop()
+	waitFor(t, 5*time.Second, func() bool { return c.LastError() != "" }, "the failed open")
+	if c.Waiting() {
+		t.Error("an ordinary failure reported as waiting")
 	}
 }

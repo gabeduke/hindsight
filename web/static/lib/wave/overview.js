@@ -3,6 +3,8 @@
 // take. Drag the window to pan, tap outside it to centre the view there, and
 // double-tap to fit the whole take. The pure functions are what the tests cover; the class is the canvas
 // and pointer plumbing around them.
+import { peakColumns, foldChannels, drawColumns } from './draw.js';
+
 export const OVERVIEW_MIN_WINDOW_PX = 24;
 const TAP_MOVE = 6;
 const TAP_MS = 300;
@@ -69,11 +71,10 @@ export class Overview {
     this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); });
   }
 
-  // Renders the static, whole-take waveform (both channels folded into one
-  // lane) into this.waveCache at the current device-pixel size. This is the
-  // expensive min/max scan over the file's peaks; paint() only re-runs it
-  // when size, dpr, or gain change, instead of on every clock tick.
-  renderWaveCache(gain) {
+  // Renders the static, whole-take waveform (channels folded into one lane,
+  // on the shared dB scale) into this.waveCache at the current device-pixel
+  // size. paint() only re-runs it when the size changes, not on every tick.
+  renderWaveCache() {
     const { dpr, cssW: W, cssH: H } = this;
     const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
     if (!this.waveCache) {
@@ -89,39 +90,25 @@ export class Overview {
     const col = (n, fb) => css.getPropertyValue(n).trim() || fb;
     cctx.fillStyle = col('--panel-2', '#1a2437');
     cctx.fillRect(0, 0, W, H);
-
-    const pd = this.peaks;
-    cctx.fillStyle = col('--ink-faint', '#5d6b85');
-    const mid = H / 2;
-    for (let x = 0; x < W; x++) {
-      const b0 = Math.floor((x / W) * pd.buckets), b1 = Math.max(b0, Math.floor(((x + 1) / W) * pd.buckets) - 1);
-      let mn = Infinity, mx = -Infinity;
-      for (let c = 0; c < pd.channels; c++) for (let b = b0; b <= b1; b++) {
-        mn = Math.min(mn, pd.data[c][b * 2]); mx = Math.max(mx, pd.data[c][b * 2 + 1]);
-      }
-      if (!(mx >= mn)) continue;
-      mn = Math.max(-1, Math.min(1, mn * gain));
-      mx = Math.max(-1, Math.min(1, mx * gain));
-      cctx.fillRect(x, mid - mx * mid * 0.9, 1, Math.max(1, (mx - mn) * mid * 0.9));
-    }
-    this.cachedKey = `${W}x${H}@${dpr}:${gain}`;
+    const cols = foldChannels(peakColumns(this.peaks, Math.round(W)), this.peaks.channels);
+    drawColumns(cctx, cols, 1, { top: 2, height: H - 4, color: col('--ink-faint', '#5d6b85') });
+    this.cachedKey = `${W}x${H}@${dpr}`;
   }
 
   paint() {
     const { ctx, dpr, cssW: W, cssH: H } = this;
-    // A zero-width *or* zero-height layout (a hidden panel, a collapsed row)
-    // would render a 0-px cache that drawImage then refuses to draw.
+    // A zero-width or zero-height layout would render a 0-px cache that
+    // drawImage then refuses to draw.
     if (!W || !H) return;
     const st = this.getState();
     const css = getComputedStyle(this.canvas);
     const col = (n, fb) => css.getPropertyValue(n).trim() || fb;
-    const gain = st.gain ?? 1;
-    const key = `${W}x${H}@${dpr}:${gain}`;
-    if (key !== this.cachedKey) this.renderWaveCache(gain);
+    const key = `${W}x${H}@${dpr}`;
+    if (key !== this.cachedKey) this.renderWaveCache();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.drawImage(this.waveCache, 0, 0, W, H);
 
-    // Region band and flags
+    // Selection band and flags
     if (st.region) {
       ctx.fillStyle = 'rgba(52,211,153,0.25)';
       const x0 = (st.region.start / this.total) * W, x1 = (st.region.end / this.total) * W;
@@ -130,7 +117,7 @@ export class Overview {
     ctx.fillStyle = col('--flag', '#ffb020');
     for (const f of st.flags || []) ctx.fillRect(Math.round((f.frame / this.total) * W), 0, 1, H);
 
-    // Cursor
+    // Playhead
     ctx.fillStyle = col('--ink', '#eef2f8');
     ctx.fillRect(Math.round((st.cursor / this.total) * W), 0, 1, H);
 
