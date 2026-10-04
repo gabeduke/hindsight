@@ -4,6 +4,7 @@
 // state a few times a second and sends what you tap.
 
 import { toast } from '../toast.js';
+import { canShareFiles, shareOrDownload } from '../wave/share.js';
 import { initHelp } from '../help/help.js';
 import { peakColumns, foldChannels, drawColumns } from '../wave/draw.js';
 import {
@@ -380,33 +381,38 @@ async function exportStems(e) {
 }
 
 // shareClip offers a clip to the share sheet as a WAV -- a short one; a long
-// one, or a phone that can't share files, downloads it.
+// one downloads, without holding it all in the phone's memory. A sheet that
+// won't open (too long after the tap, say) downloads too.
 async function shareClip(c) {
   const t = state.tape;
-  const n = t.tracks.findIndex((tr) => tr.clips.some((x) => x.id === c.id)) + 1;
   const url = `/api/tapes/clip?${q()}&clip=${encodeURIComponent(c.id)}`;
-  const name = `${t.name} track ${n}${c.reversed ? ' reversed' : ''}.wav`;
-  if (navigator.canShare && c.frames / t.sample_rate <= 60) {
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const file = new File([await res.blob()], name, { type: 'audio/wav' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: name });
-        return;
-      }
-    } catch (e) {
-      if (e.name === 'AbortError') return; // the sheet was closed
-      toast(`Could not share it: ${e.message}`, 'bad');
-      return;
-    }
+  if (c.frames / t.sample_rate > 60 || !canShareFiles()) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return;
   }
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  toast('Preparing the WAV…');
+  let res;
+  try {
+    res = await fetch(url, { cache: 'no-store' });
+  } catch (e) {
+    toast(`Could not share it: ${e.message}`, 'bad');
+    return;
+  }
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    toast(`Could not share it: ${b.error || `HTTP ${res.status}`}`, 'bad');
+    return;
+  }
+  const cd = res.headers.get('Content-Disposition') || '';
+  const m = /filename\*=utf-8''([^;]+)/i.exec(cd) || /filename="([^"]+)"/.exec(cd);
+  let name = 'clip.wav';
+  try { if (m) name = decodeURIComponent(m[1]); } catch { /* keep the plain one */ }
+  await shareOrDownload(await res.blob(), name, name, 'audio/wav');
 }
 
 // --- editing: lift, copy, split, join, slide, multiply ------------------------

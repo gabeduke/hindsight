@@ -39,7 +39,7 @@ func (c *Clipboard) files(into map[string]bool) {
 	}
 	for _, tr := range c.Tracks {
 		for _, cl := range tr {
-			into[cl.File] = true
+			cl.poolFiles(into)
 		}
 	}
 }

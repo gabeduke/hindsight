@@ -3,6 +3,8 @@ package tape
 import (
 	"fmt"
 	"math"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
@@ -326,13 +328,24 @@ func (e *Engine) reverseClip(t *Tape, id string) (EditResult, error) {
 	}
 	was := *c
 	file, src, rev := "", int64(0), (*Reversal)(nil)
+	var made string // a reversed file written for this, to remove if it isn't used
 	if was.Reversed != nil {
 		file, src = was.Reversed.File, was.Reversed.End-was.Src-was.Frames
+		info, err := audio.ReadWAVInfo(e.store.AudioPath(file))
+		if err != nil {
+			return EditResult{}, fmt.Errorf("the audio it was reversed from can't be read: %w", err)
+		}
+		if src < 0 || src+was.Frames > info.Frames() {
+			return EditResult{}, fmt.Errorf("%w: the audio it was reversed from is shorter than the clip", ErrBadParameter)
+		}
 	} else {
 		path := e.store.AudioPath(was.File)
 		info, err := audio.ReadWAVInfo(path)
 		if err != nil {
 			return EditResult{}, err
+		}
+		if was.Src < 0 || was.Src+was.Frames > info.Frames() {
+			return EditResult{}, fmt.Errorf("%w: the clip runs past its audio", ErrBadParameter)
 		}
 		if err := e.diskOK(); err != nil {
 			return EditResult{}, err
@@ -344,8 +357,10 @@ func (e *Engine) reverseClip(t *Tape, id string) (EditResult, error) {
 			return EditResult{}, err
 		}
 		if err := audio.ReverseWAVSpan(path, lo, hi, dst); err != nil {
+			os.Remove(dst)
 			return EditResult{}, err
 		}
+		made = dst
 		file, src, rev = rel, hi-(was.Src+was.Frames), &Reversal{File: was.File, End: hi}
 	}
 	err = e.Edit(t.ID, "", func(_ *Tape, s *State) error {
@@ -364,5 +379,10 @@ func (e *Engine) reverseClip(t *Tape, id string) (EditResult, error) {
 		}
 		return ErrNoSuchClip
 	})
+	if err != nil && made != "" {
+		// Nothing plays it: don't leave it for a clean-up to find.
+		os.Remove(made)
+		os.Remove(strings.TrimSuffix(made, ".wav") + ".peaks.json")
+	}
 	return EditResult{Op: "reverse", Clips: 1}, err
 }

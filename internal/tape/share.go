@@ -47,6 +47,9 @@ func (e *Engine) ShareClip(id, clipID string) (*ClipWAV, error) {
 	if err != nil {
 		return nil, err
 	}
+	if info.BitsPerSample != 32 {
+		return nil, fmt.Errorf("%w: %d-bit audio in the pool", ErrBadParameter, info.BitsPerSample)
+	}
 	if c.Src < 0 || c.Src+c.Frames > info.Frames() {
 		return nil, fmt.Errorf("%w: the clip runs past its audio", ErrBadParameter)
 	}
@@ -58,9 +61,10 @@ func (e *Engine) ShareClip(id, clipID string) (*ClipWAV, error) {
 		gain: math.Pow(10, c.GainDB/20), sr: info.SampleRate, ch: info.Channels}, nil
 }
 
-// WriteTo writes the WAV.
+// WriteTo writes the WAV, and answers how much of it was written.
 func (w *ClipWAV) WriteTo(dst io.Writer) (int64, error) {
-	bw := bufio.NewWriterSize(dst, 1<<16)
+	cw := &countWriter{w: dst}
+	bw := bufio.NewWriterSize(cw, 1<<16)
 	le := binary.LittleEndian
 	var h [44]byte
 	copy(h[0:4], "RIFF")
@@ -77,7 +81,7 @@ func (w *ClipWAV) WriteTo(dst io.Writer) (int64, error) {
 	copy(h[36:40], "data")
 	le.PutUint32(h[40:44], uint32(w.Frames*4))
 	if _, err := bw.Write(h[:]); err != nil {
-		return 0, err
+		return cw.n, err
 	}
 	fade := int64(declickSeconds * float64(w.sr))
 	out := make([]byte, 0, 4*(1<<14))
@@ -104,9 +108,22 @@ func (w *ClipWAV) WriteTo(dst io.Writer) (int64, error) {
 		return err
 	})
 	if err != nil {
-		return 0, err
+		return cw.n, err
 	}
-	return w.Bytes(), bw.Flush()
+	err = bw.Flush()
+	return cw.n, err
+}
+
+// countWriter counts what's written through it.
+type countWriter struct {
+	w io.Writer
+	n int64
+}
+
+func (c *countWriter) Write(b []byte) (int, error) {
+	n, err := c.w.Write(b)
+	c.n += int64(n)
+	return n, err
 }
 
 func to16(v float64) int16 {

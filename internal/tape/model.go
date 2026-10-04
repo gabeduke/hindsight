@@ -156,6 +156,16 @@ type Reversal struct {
 	End  int64  `json:"end"`
 }
 
+// poolFiles marks every pool file the clip needs: the one it plays, and the
+// one a reversed clip turns back to. Anything that keeps pool files --
+// clean-up, the clipboard, the engine's memory -- asks this.
+func (c Clip) poolFiles(into map[string]bool) {
+	into[c.File] = true
+	if c.Reversed != nil {
+		into[c.Reversed.File] = true
+	}
+}
+
 // End is the tape frame after the clip's last.
 func (c Clip) End() int64 { return c.At + c.Frames }
 
@@ -305,11 +315,11 @@ func (t *Tape) draft() *Tape {
 	return &c
 }
 
-// files lists the pool files a state plays.
+// files lists the pool files a state needs.
 func (s State) files(into map[string]bool) {
 	for _, tr := range s.Tracks {
 		for _, c := range tr.Clips {
-			into[c.File] = true
+			c.poolFiles(into)
 		}
 	}
 }

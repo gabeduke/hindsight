@@ -649,9 +649,22 @@ func (a *API) handleTapeClip(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodHead {
 		return
 	}
-	if _, err := c.WriteTo(w); err != nil {
+	// A phone that stops reading lets go of the file after a while.
+	if _, err := c.WriteTo(&stallWriter{w: w, rc: http.NewResponseController(w)}); err != nil {
 		log.Printf("[!] tape clip: %v", err)
 	}
+}
+
+// stallWriter moves the write deadline on with each write: a client may be
+// slow, but not stopped for exportStall.
+type stallWriter struct {
+	w  http.ResponseWriter
+	rc *http.ResponseController
+}
+
+func (s *stallWriter) Write(b []byte) (int, error) {
+	_ = s.rc.SetWriteDeadline(time.Now().Add(exportStall))
+	return s.w.Write(b)
 }
 
 // exportStall is how long an export waits on a client that stopped

@@ -3,8 +3,12 @@ package tape
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 // at is what the tape plays at frame f on bus A's left, before the track's
@@ -82,4 +86,58 @@ func TestAClipSharesAsA16BitWAV(t *testing.T) {
 	if _, err := e.ShareClip(tp.ID, "nope"); err == nil {
 		t.Fatal("shared no clip")
 	}
+}
+
+func TestCleanUpKeepsTheAudioAReversedClipTurnsBackTo(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "reverse", Clip: orig.ID}); err != nil {
+		t.Fatal(err)
+	}
+	// Only the reversal names the original now: no history, no clipboard.
+	saved, err := e.store.Load(tp.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved.History, saved.Future = nil, nil
+	if err := e.store.Save(saved); err != nil {
+		t.Fatal(err)
+	}
+	e.ClearClipboard()
+	old := time.Now().Add(-time.Hour)
+	osChtimes(e.store.AudioPath(orig.File), old)
+	if _, _, err := e.store.Cleanup(nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(e.store.AudioPath(orig.File)); err != nil {
+		t.Fatalf("clean-up took the original: %v", err)
+	}
+	// And a clipboard holding only the reversed clip keeps it too.
+	files := map[string]bool{}
+	(&Clipboard{Frames: 1, Tracks: [][]Clip{{track(e, 1)[0]}}}).files(files)
+	if !files[orig.File] {
+		t.Fatal("the clipboard doesn't keep a reversed clip's original")
+	}
+}
+
+func TestAReverseThatCantBeMadeLeavesNoFileBehind(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	stale := e.Loaded()
+	pos := int64(30000)
+	e.EditOp(tp.ID, EditRequest{Op: "split", Track: 1, Pos: &pos}) // the clip changes
+	before := poolCount(t, e)
+	if _, err := e.reverseClip(stale, orig.ID); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("a reverse of a changed clip = %v", err)
+	}
+	if after := poolCount(t, e); after != before {
+		t.Fatalf("%d pool files before, %d after", before, after)
+	}
+}
+
+func poolCount(t *testing.T, e *Engine) int {
+	t.Helper()
+	ents, err := os.ReadDir(filepath.Join(e.store.Dir(), "audio"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(ents)
 }

@@ -313,46 +313,59 @@ func CopyWAVSpan(src string, from, to int64, pick []int, path string) error {
 
 // ReverseWAVSpan writes frames [from, to) of a 32-bit WAV to path backwards,
 // every channel, with its peaks beside it: a clip played in reverse is a
-// clip of this. It reads the span a block at a time from its end, so a long
-// one costs no more memory than a short one. On failure the file is removed.
-func ReverseWAVSpan(src string, from, to int64, path string) error {
+// clip of this. It reads the span a block at a time from its end, into the
+// same buffers, so a long one costs no more memory than a short one. On
+// failure path is removed.
+func ReverseWAVSpan(src string, from, to int64, path string) (err error) {
+	defer func() {
+		if err != nil {
+			os.Remove(path)
+		}
+	}()
 	info, err := ReadWAVInfo(src)
 	if err != nil {
 		return err
 	}
+	if info.BitsPerSample != 32 {
+		return ErrBitDepth
+	}
 	if from < 0 || to <= from || to > info.Frames() {
 		return fmt.Errorf("%w: [%d, %d) of %d frames", ErrRange, from, to, info.Frames())
 	}
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 	ch := info.Channels
 	ww, err := createWAV(path, int(to-from), ch, info.SampleRate)
 	if err != nil {
-		os.Remove(path)
 		return err
 	}
 	const block = 1 << 14
-	rev := make([]int32, 0, block*ch)
+	raw := make([]byte, block*ch*4)
+	rev := make([]int32, block*ch)
+	le := binary.LittleEndian
 	for end := to; end > from && err == nil; end -= block {
 		start := max(from, end-block)
-		var chunk []int32
-		_, err = ReadFrames(src, start, end, block, func(b []int32, _ int64) error {
-			chunk = append(chunk, b...)
-			return nil
-		})
-		if err != nil {
+		n := int(end - start)
+		buf := raw[:n*ch*4]
+		if _, err = f.ReadAt(buf, info.DataOffset+start*int64(ch)*4); err != nil {
 			break
 		}
-		rev = rev[:0]
-		for i := len(chunk)/ch - 1; i >= 0; i-- {
-			rev = append(rev, chunk[i*ch:(i+1)*ch]...)
+		// Frame j of the block goes out as frame n-1-j.
+		for j := 0; j < n; j++ {
+			for k := 0; k < ch; k++ {
+				rev[(n-1-j)*ch+k] = int32(le.Uint32(buf[(j*ch+k)*4:]))
+			}
 		}
-		err = ww.write(rev)
+		err = ww.write(rev[:n*ch])
 	}
 	peaks, _, cerr := ww.close()
 	if err == nil {
 		err = cerr
 	}
 	if err != nil {
-		os.Remove(path)
 		return err
 	}
 	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {

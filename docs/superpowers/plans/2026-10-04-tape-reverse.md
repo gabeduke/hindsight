@@ -20,6 +20,27 @@ stacked on `tape-clock`. The last of phase 2's list.
   goes to the share sheet; longer, or a phone that can't share files,
   downloads.
 
+## After the independent review
+
+Fixed:
+- Clean-up deleted a reversed clip's original audio, so *Play forwards*
+  went silent. This happened once the original's only reference was inside
+  the reversal: after a clone with the original tape deleted, a trip through
+  the clipboard, or 100 later edits. Clean-up, the clipboard and the
+  engine's memory now count every pool file a clip names.
+- A reverse whose edit failed left its new file in the pool.
+- The share flow had no download fallback when the sheet refused (Chrome
+  allows about 5 s after the tap, and the WAV is fetched first). It now uses
+  the take page's share-or-download, shows *Preparing…*, reports the
+  server's error, and takes the server's file name.
+- Also:
+  - a failed reverse removes its reserved file;
+  - the reverse reads with one open file and reused buffers;
+  - a clip's WAV can't stall a goroutine forever;
+  - the docs list reverse's errors.
+- Left as is: reversing, then playing forwards, then reversing again makes a
+  new file each time. Undo keeps each one alive while it can be reached.
+
 ## Tasks
 
 1. `audio.ReverseWAVSpan`. Test.
