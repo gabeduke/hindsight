@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest } from './shelf.js';
+import { matches, shelve, latest, listFrom } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -78,4 +78,15 @@ test('the latest take is the newest, not the first starred one', () => {
   assert.equal(latest(takes).name, 'jam_new.wav');
   assert.equal(latest([]), null);
   assert.equal(latest([take('undated', 'nope')]).name, 'jam_undated.wav');
+});
+
+test('a take opened from either list knows which one to go back to', () => {
+  const origin = 'http://pi.local:5000';
+  assert.equal(listFrom('http://pi.local:5000/', origin), '/');
+  assert.equal(listFrom('http://pi.local:5000/takes.html', origin), '/takes.html');
+  assert.equal(listFrom('http://pi.local:5000/takes.html?x=1#top', origin), '/takes.html');
+  assert.equal(listFrom('http://pi.local:5000/tape.html', origin), null);
+  assert.equal(listFrom('https://elsewhere.example/takes.html', origin), null);
+  assert.equal(listFrom('', origin), null);
+  assert.equal(listFrom('not a url', origin), null);
 });

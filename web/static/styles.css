@@ -1578,10 +1578,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   font-family: var(--label-font); font-weight: 700; font-size: 20px;
   letter-spacing: .1em; text-transform: uppercase;
 }
-.shelf-count {
-  padding: 1px 7px; border-radius: 3px; background: var(--lcd); color: var(--lcd-ink);
-  font-family: var(--mono); font-weight: 600; font-size: 14px; letter-spacing: 0;
-}
+.shelf-count { font-family: var(--mono); font-weight: 400; font-size: 15px; letter-spacing: 0; color: var(--ink-dim); text-transform: none; }
 main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 14px; }
 .shelf-tools { display: flex; flex-direction: column; gap: 10px; }
 .shelf-search {
@@ -1595,8 +1592,10 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 }
 .shelf-search:focus-within { border-color: var(--ink-dim); }
 .shelf-sort-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.shelf-sort-row .seg { flex: none; }
-.shelf-sort-row .seg button { padding: 0 14px; }
+.shelf-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Browsing, not playing: flat toggles, the chosen ones filled in ink. */
+.icon-btn.toggle { min-height: 40px; padding: 0 12px; }
+.icon-btn.toggle[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .shelf-store { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
 .shelf-page .takes { gap: 10px; }
 .shelf-day {

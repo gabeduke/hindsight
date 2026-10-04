@@ -24,6 +24,7 @@ import { initHelp } from '../help/help.js';
 import { toast, toastNext, undoSkipped, undoPhrase } from '../toast.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
+import { listFrom } from '../shelf.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -723,19 +724,20 @@ async function main() {
     if (i >= 0 && i < order.length - 1) { $('take-next').disabled = false; $('take-next').onclick = go(order[i + 1]); }
   }
 
-  // Back returns to the list as it was: the browser's own Back keeps its
-  // scroll, where a fresh load of "/" would start at the top.
-  // A ◂/▸ hop replaces the page, so the referrer is then the last take, not
-  // the list; whether the run began at the list is kept for the session.
-  let fromList = false;
+  // Back returns to the list as it was -- the main page or the takes page --
+  // with the browser's own Back, which keeps its scroll, where a fresh load
+  // would start at the top. A ◂/▸ hop replaces the page, so the referrer is
+  // then the last take, not the list; the list the run began at is kept for
+  // the session.
+  let list = null;
   try {
-    const ref = document.referrer && new URL(document.referrer);
     const hop = sessionStorage.getItem('hindsight.hop') === '1';
     sessionStorage.removeItem('hindsight.hop');
-    if (hop) fromList = sessionStorage.getItem('hindsight.fromList') === '1';
-    else fromList = !!ref && ref.origin === location.origin && ref.pathname === '/';
-    sessionStorage.setItem('hindsight.fromList', fromList ? '1' : '0');
+    if (hop) list = sessionStorage.getItem('hindsight.list') || null;
+    else list = listFrom(document.referrer, location.origin);
+    sessionStorage.setItem('hindsight.list', list || '');
   } catch {}
+  const fromList = !!list;
   document.querySelector('.topbar .back').addEventListener('click', (e) => {
     if (document.body.classList.contains('notes-open')) { e.preventDefault(); closeNotes(); return; }
     if (fromList && history.length > 1) { e.preventDefault(); history.back(); }
@@ -779,7 +781,7 @@ async function main() {
       clock.pause();
       toastNext({ msg: `Deleted ${take.label || stampOf(file)}`, restore: file });
       if (fromList && history.length > 1) history.back();
-      else location.href = '/';
+      else location.href = list || '/takes.html';
     } catch (e) {
       toast(`Could not delete: ${e.message}`, 'bad');
     }

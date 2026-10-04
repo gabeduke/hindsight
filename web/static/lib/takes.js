@@ -191,6 +191,9 @@ export class TakesList {
     }
     for (const [name, row] of this.rows) {
       if (seen.has(name)) continue;
+      // Being renamed: keep it, or a new take arriving would take the input
+      // away mid-word. endEdit re-renders, and it goes then.
+      if (row.editing || row.editingBpm) { this.reorderDeferred = true; continue; }
       this.destroyRow(row);
       this.rows.delete(name);
       this.selected.delete(name);
@@ -712,6 +715,9 @@ export class TakesList {
   // the bottom stars, exports or deletes what's picked.
 
   wireSelect(row) {
+    // A page without a select bar (the main page) has no select mode: a hold
+    // there must not swallow the next tap for a mode that can't start.
+    if (!this.bar) return;
     const el = row.el;
     let hold = 0, at = null;
     const cancel = () => { clearTimeout(hold); hold = 0; at = null; };

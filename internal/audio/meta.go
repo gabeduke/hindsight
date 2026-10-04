@@ -163,14 +163,14 @@ func NormalizeFlags(in []Flag) []Flag {
 	return out
 }
 
-// CutSource is a cut's lineage: the take it was cut from and the frame range,
-// in the source's frames.
 // Origins a take's sidecar can name.
 const (
 	OriginPhone = "phone" // recorded from a phone's mic (phone.go)
 	OriginTape  = "tape"  // a tape mixdown (internal/tape)
 )
 
+// CutSource is a cut's lineage: the take it was cut from and the frame range,
+// in the source's frames.
 type CutSource struct {
 	Name       string `json:"name"`
 	StartFrame int64  `json:"start_frame"`

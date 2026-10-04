@@ -30,16 +30,16 @@
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M11.5 11.5 L16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
       <input id="shelf-q" type="search" placeholder="Search names, times, tempo" aria-label="Search takes" autocomplete="off" enterkeyhint="search">
     </label>
-    <div class="seg shelf-filters" id="shelf-filters" role="group" aria-label="Show only" data-tip="filter">
-      <button type="button" data-filter="starred" aria-pressed="false">★ Starred</button>
-      <button type="button" data-filter="midi" aria-pressed="false">MIDI</button>
-      <button type="button" data-filter="phone" aria-pressed="false">Phone</button>
-      <button type="button" data-filter="tape" aria-pressed="false">Tape</button>
+    <div class="shelf-toggles" id="shelf-filters" role="group" aria-label="Show only" data-tip="filter">
+      <button class="icon-btn toggle" type="button" data-filter="starred" aria-pressed="false">★ Starred</button>
+      <button class="icon-btn toggle" type="button" data-filter="midi" aria-pressed="false">MIDI</button>
+      <button class="icon-btn toggle" type="button" data-filter="phone" aria-pressed="false">Phone</button>
+      <button class="icon-btn toggle" type="button" data-filter="tape" aria-pressed="false">Tape</button>
     </div>
     <div class="shelf-sort-row">
-      <div class="seg" id="shelf-sort" role="group" aria-label="Sort" data-tip="sort">
-        <button type="button" data-sort="newest" aria-pressed="true">Newest</button>
-        <button type="button" data-sort="longest" aria-pressed="false">Longest</button>
+      <div class="shelf-toggles" id="shelf-sort" role="group" aria-label="Sort" data-tip="sort">
+        <button class="icon-btn toggle" type="button" data-sort="newest" aria-pressed="true">Newest</button>
+        <button class="icon-btn toggle" type="button" data-sort="longest" aria-pressed="false">Longest</button>
       </div>
       <span class="shelf-store" id="shelf-store"></span>
     </div>

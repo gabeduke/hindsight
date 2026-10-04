@@ -76,3 +76,17 @@ export function latest(takes) {
   }
   return best;
 }
+
+/**
+ * listFrom is the list a take page was opened from -- '/' or '/takes.html'
+ * -- read off the referrer, or null when it came from anywhere else.
+ */
+export function listFrom(referrer, origin) {
+  try {
+    const ref = new URL(referrer);
+    if (ref.origin !== origin) return null;
+    return ref.pathname === '/' || ref.pathname === '/takes.html' ? ref.pathname : null;
+  } catch {
+    return null;
+  }
+}
