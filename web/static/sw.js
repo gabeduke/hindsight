@@ -60,6 +60,7 @@ const SHELL = [
   '/fonts/ibm-plex-sans-600.woff2',
   '/fonts/ibm-plex-mono-400.woff2',
   '/fonts/ibm-plex-mono-600.woff2',
+  '/fonts/permanent-marker-400.woff2',
   '/manifest.json',
   '/icons/icon-192.png',
 ];

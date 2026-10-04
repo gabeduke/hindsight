@@ -61,9 +61,14 @@ const el = (tag, attrs) => {
   return n;
 };
 
-/** VUMeters draws one meter per label into container and moves them. */
+/**
+ * VUMeters draws one meter per label into container and moves them. ref is
+ * the level that reads 0 VU: the main page feeds RMS and keeps the usual
+ * −18 dBFS; a feed of peaks wants a higher one, or it reads hot.
+ */
 export class VUMeters {
-  constructor(container, { labels }) {
+  constructor(container, { labels, ref = REF_DBFS }) {
+    this.ref = ref;
     const scale = vuScale();
     this.peakUntil = labels.map(() => 0);
     this.meters = labels.map((label) => {
@@ -110,7 +115,7 @@ export class VUMeters {
     const now = performance.now();
     this.meters.forEach((m, i) => {
       const db = rms?.[i];
-      m.needle.style.transform = `rotate(${vuAngle(db).toFixed(1)}deg)`;
+      m.needle.style.transform = `rotate(${vuAngle(db, this.ref).toFixed(1)}deg)`;
       m.val.textContent = !Number.isFinite(db) || db <= -60 ? '−∞' : db.toFixed(1);
       // Held a moment, so a single loud hit is still seen.
       if (clip?.[i] || (peak?.[i] ?? -Infinity) >= -1) this.peakUntil[i] = now + 700;

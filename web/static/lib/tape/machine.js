@@ -95,7 +95,10 @@ export class TapeMachine {
     if (n === this.trackCount) return;
     this.trackCount = n;
     this.bridge.replaceChildren();
-    this.meters = new VUMeters(this.bridge, { labels: Array.from({ length: n }, (_, i) => String(i + 1)) });
+    // The bridge reads the clips' peaks, which run several dB over the RMS
+    // a VU is lined up for: 0 VU at −10 dBFS puts a well-recorded part around
+    // 0 VU, as the main page's meters do with RMS at −18.
+    this.meters = new VUMeters(this.bridge, { labels: Array.from({ length: n }, (_, i) => String(i + 1)), ref: -10 });
   }
 
   /**

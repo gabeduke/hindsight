@@ -276,6 +276,10 @@ function render() {
   $('tape-undo').disabled = !state.undo;
   $('tape-redo').disabled = !state.redo;
   const lock = live ? live.aligned : 'none';
+  // The sign over the door: lit only while a punch is going onto tape.
+  const onAir = !!(live && live.playing && live.record && live.record.state === 'on' && live.record.tape === t.id);
+  $('rec-sign').classList.toggle('on', onAir);
+  $('rec-sign').setAttribute('aria-label', onAir ? 'Recording' : 'Not recording');
   $('lock-dot').className = `dot lock ${lock === 'exact' || lock === 'locked' ? 'ok' : lock === 'estimated' ? 'wait' : 'bad'}`;
   $('lock-dot').title = lock === 'none' ? 'not lined up yet: catches wait'
     : lock === 'estimated' ? 'lined up by the clocks: nudge a catch if it’s off' : `lined up to the sample (${lock})`;
