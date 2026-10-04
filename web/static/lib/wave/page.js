@@ -25,6 +25,7 @@ import { toast, toastNext, undoSkipped, undoPhrase } from '../toast.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { listFrom } from '../shelf.js';
+import { initNav } from '../nav.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -63,6 +64,7 @@ async function main() {
   // that would otherwise pop straight into the (unbuilt) pane on Back.
   if (history.state && history.state.notes) history.replaceState(null, '');
   initHelp({ page: 'take', toast });
+  initNav();
   const [takeRes, peaksRes] = await Promise.all([
     fetch(`/api/take?file=${encodeURIComponent(file)}`, { headers: withClient() }),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
@@ -770,8 +772,12 @@ async function main() {
   } catch {}
   const fromList = !!list;
   // The ‹ says where it goes: the list the take was opened from.
-  const backLink = document.querySelector('.topbar .back');
-  if (list === '/') { backLink.href = '/'; backLink.setAttribute('aria-label', 'Back to the main page'); }
+  const backLink = document.querySelector('.appbar .back');
+  if (list === '/') {
+    backLink.href = '/';
+    backLink.setAttribute('aria-label', 'Back to the main page');
+    backLink.querySelector('.back-text').textContent = 'Capture';
+  }
   backLink.addEventListener('click', (e) => {
     if (document.body.classList.contains('notes-open')) { e.preventDefault(); closeNotes(); return; }
     if (fromList && history.length > 1) { e.preventDefault(); history.back(); }

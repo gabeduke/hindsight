@@ -16,6 +16,7 @@ import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec
 import { initAway } from './away-sheet.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { TapeMachine } from './machine.js';
+import { initNav } from '../nav.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -67,6 +68,7 @@ const q = () => `id=${encodeURIComponent(state.id)}`;
 
 async function boot() {
   initHelp({ page: 'tape', toast });
+  initNav();
   initAway({
     button: $('away'),
     sheet: $('away-sheet'),
@@ -476,7 +478,7 @@ function noteMixdown(md) {
 // JSON, then downloads the zip as it renders.
 async function exportStems(e) {
   e.preventDefault();
-  $('tape-menu').hidden = true;
+  closeMenus();
   const url = `/api/tapes/export?${q()}`;
   const res = await fetch(url, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
   if (!res || !res.ok) {
@@ -1273,8 +1275,9 @@ async function tap() {
 function openTempo() {
   const t = state.tape;
   const menu = $('tempo-menu');
-  $('tape-menu').hidden = true;
-  if (!t || !t.grid || !menu.hidden) { menu.hidden = true; return; }
+  const wasOpen = !menu.hidden;
+  closeMenus();
+  if (!t || !t.grid || wasOpen) return;
   const opts = [];
   for (const bars of [t.grid.bars / 4, t.grid.bars / 2, t.grid.bars, t.grid.bars * 2, t.grid.bars * 4]) {
     if (!Number.isInteger(bars) || bars < 1 || bars > 64) continue;
@@ -1288,10 +1291,10 @@ function openTempo() {
     b.setAttribute('role', 'menuitem');
     b.className = o.bars === t.grid.bars ? 'on' : '';
     b.textContent = `${o.bars} bar${o.bars === 1 ? '' : 's'} at ${o.bpm.toFixed(1)} BPM`;
-    b.addEventListener('click', () => { menu.hidden = true; if (o.bars !== t.grid.bars) patch({ bars: o.bars }); });
+    b.addEventListener('click', () => { closeMenus(); if (o.bars !== t.grid.bars) patch({ bars: o.bars }); });
     return b;
   }));
-  menu.hidden = false;
+  showMenu('tempo-menu');
 }
 
 function laneTap(lane, e) {
@@ -1333,8 +1336,7 @@ function closeSheets() {
   if (sh.open) sh.close();
   if ($('track-sheet').open) $('track-sheet').close();
   state.clip = null;
-  $('tape-menu').hidden = true;
-  $('tempo-menu').hidden = true;
+  closeMenus();
 }
 
 function openClip(c) {
@@ -1378,14 +1380,32 @@ async function loadTape(id) {
   }
 }
 
-async function openMenu() {
-  const menu = $('tape-menu');
-  $('tempo-menu').hidden = true;
-  if (!menu.hidden) { menu.hidden = true; return; }
+// The header's three menus: the title's (the tapes), the tempo's, and ⋯
+// (this tape's actions). One open at a time; each says so to assistive tech.
+const MENUS = [['tape-menu', 'tape-name'], ['tempo-menu', 'tape-sub'], ['tape-actions', 'tape-more']];
+function closeMenus() {
+  for (const [m, b] of MENUS) { $(m).hidden = true; $(b).setAttribute('aria-expanded', 'false'); }
+}
+function showMenu(id) {
+  for (const [m, b] of MENUS) {
+    $(m).hidden = m !== id;
+    $(b).setAttribute('aria-expanded', String(m === id));
+  }
+}
+const menusOpen = () => MENUS.some(([m]) => !$(m).hidden);
+
+function openActions() {
+  if (!$('tape-actions').hidden) { closeMenus(); return; }
   const t0 = state.tape, live = state.live;
   const playable = !!(t0 && live && live.output && t0.tracks.some((tr) => tr.clips.length));
   $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
   $('tape-mixdown-all').disabled = !playable;
+  showMenu('tape-actions');
+}
+
+async function openMenu() {
+  const menu = $('tape-menu');
+  if (!menu.hidden) { closeMenus(); return; }
   let list = { tapes: [] };
   try { list = await api('/api/tapes'); } catch { /* show what we can */ }
   $('tape-list').replaceChildren(...list.tapes.map((t) => {
@@ -1395,10 +1415,10 @@ async function openMenu() {
     b.dataset.tip = 'tape-load';
     b.className = t.id === state.id ? 'on' : '';
     b.textContent = `${t.name}${t.bpm ? ` · ${t.bpm} BPM` : ''} · ${t.clips} clip${t.clips === 1 ? '' : 's'}`;
-    b.addEventListener('click', () => { menu.hidden = true; if (t.id !== state.id) loadTape(t.id); });
+    b.addEventListener('click', () => { closeMenus(); if (t.id !== state.id) loadTape(t.id); });
     return b;
   }));
-  menu.hidden = false;
+  showMenu('tape-menu');
 }
 
 function wire() {
@@ -1463,12 +1483,12 @@ function wire() {
   $('catch-pass').addEventListener('click', () => doCatch({ pass: 1 }));
   for (const b of $('catch-bars').querySelectorAll('button')) b.addEventListener('click', () => doCatch({ bars: Number(b.dataset.bars) }));
   $('tape-name').addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
+  $('tape-more').addEventListener('click', (e) => { e.stopPropagation(); openActions(); });
   document.addEventListener('click', (e) => {
-    if (!$('tape-menu').contains(e.target)) $('tape-menu').hidden = true;
-    if (!$('tempo-menu').contains(e.target)) $('tempo-menu').hidden = true;
+    if (!MENUS.some(([m]) => $(m).contains(e.target))) closeMenus();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { $('tape-menu').hidden = true; $('tempo-menu').hidden = true; }
+    if (e.key === 'Escape') closeMenus();
     // Typing is typing; a level slider with focus still lets the keys work.
     const typing = e.target && (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable
       || (e.target.tagName === 'INPUT' && e.target.type !== 'range'));
@@ -1485,7 +1505,7 @@ function wire() {
     // which track catches go onto. Not under a dialog or a menu, and not on
     // a held key's repeats, which would toggle Rec or the loop over and over.
     // By physical key, so they work on any keyboard layout.
-    if (!state.tape || !$('tape-menu').hidden || !$('tempo-menu').hidden) return;
+    if (!state.tape || menusOpen()) return;
     const press = (id) => { if (!e.repeat && !$(id).disabled) $(id).click(); };
     const pick = (n) => {
       if (n < 1 || n > state.tape.tracks.length || n === state.track) return false;
@@ -1504,19 +1524,19 @@ function wire() {
       default:
     }
   });
-  $('tape-new').addEventListener('click', () => { $('tape-menu').hidden = true; newTape(); });
-  $('tape-mixdown').addEventListener('click', () => { $('tape-menu').hidden = true; mixdown(false); });
-  $('tape-mixdown-all').addEventListener('click', () => { $('tape-menu').hidden = true; mixdown(true); });
+  $('tape-new').addEventListener('click', () => { closeMenus(); newTape(); });
+  $('tape-mixdown').addEventListener('click', () => { closeMenus(); mixdown(false); });
+  $('tape-mixdown-all').addEventListener('click', () => { closeMenus(); mixdown(true); });
   $('tape-export').addEventListener('click', exportStems);
   $('tape-clone').addEventListener('click', async () => {
-    $('tape-menu').hidden = true;
+    closeMenus();
     try {
       const t = await api(`/api/tapes/clone?${q()}`, { method: 'POST' });
       toast(`Cloned as “${t.name}”`, 'ok', { action: { label: 'Open it', run: () => loadTape(t.id) } });
     } catch (e) { toast(e.message, 'bad'); }
   });
   $('tape-delete').addEventListener('click', async () => {
-    $('tape-menu').hidden = true;
+    closeMenus();
     let list = { tapes: [] };
     try { list = await api('/api/tapes'); } catch { /* none */ }
     const others = list.tapes.filter((t) => t.id !== state.id);

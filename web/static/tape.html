@@ -18,27 +18,44 @@
 
 <!-- The tape: four tracks of clips played back through the Sidekick, caught
      from the ring after the fact (lib/tape/page.js, internal/tape). -->
-<header class="topbar tape-top">
-  <a class="back" href="/" aria-label="Back to the main page" data-tip="back">‹</a>
-  <div class="tape-title">
-    <button id="tape-name" class="tape-title-name" type="button" aria-haspopup="menu" data-tip="tape-menu">…</button>
-    <button id="tape-sub" class="tape-sub mono" type="button" aria-haspopup="menu" data-tip="tape-tempo"></button>
-  </div>
-  <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
-  <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
-  <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo">↶</button>
-  <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo">↷</button>
+<header class="appbar tape-top">
+  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-192.png" alt=""><b>Hindsight</b></a>
+  <!-- The switch between the three pages; on a phone, tabs along the
+       bottom (lib/nav.js keeps it true). -->
+  <nav class="appnav" aria-label="Pages">
+    <a href="/" data-tab="capture" data-tip="nav-capture"><span class="appnav-lamp" aria-hidden="true"></span>Capture</a>
+    <a href="/takes.html" data-tab="takes" data-tip="nav-takes"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
+    <a href="/tape.html" data-tab="tape" data-tip="nav-tape" aria-current="page"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
+  </nav>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
-  <div id="tempo-menu" class="menu" role="menu" hidden></div>
-  <div id="tape-menu" class="menu" role="menu" hidden>
-    <div id="tape-list" class="tape-list"></div>
-    <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
-    <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
-    <button id="tape-mixdown" type="button" role="menuitem" data-tip="mixdown">Mix down the loop</button>
-    <button id="tape-mixdown-all" type="button" role="menuitem" data-tip="mixdown">Mix down the whole tape</button>
-    <a id="tape-export" href="#" role="menuitem" data-tip="export-stems">Export stems</a>
-    <button id="tape-delete" class="danger" type="button" role="menuitem" data-tip="tape-delete">Delete a tape…</button>
-    <a href="/guide.html#8-tape" role="menuitem" data-tip="guide">The guide</a>
+  <div class="appbar-page">
+    <!-- The title switches tapes; its tempo sets the loop's bars. Both open
+         under themselves. -->
+    <div class="tape-title menu-anchor">
+      <button id="tape-name" class="tape-title-name" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu">…</button>
+      <button id="tape-sub" class="tape-sub mono" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-tempo"></button>
+      <div id="tape-menu" class="menu from-left" role="menu" hidden>
+        <div id="tape-list" class="tape-list"></div>
+        <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
+      </div>
+      <div id="tempo-menu" class="menu from-left" role="menu" hidden></div>
+    </div>
+    <span class="appbar-spacer"></span>
+    <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
+    <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
+    <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo">↶</button>
+    <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo">↷</button>
+    <span class="menu-anchor">
+      <button id="tape-more" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More for this tape" data-tip="tape-more">⋯</button>
+      <div id="tape-actions" class="menu" role="menu" hidden>
+        <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
+        <button id="tape-mixdown" type="button" role="menuitem" data-tip="mixdown">Mix down the loop</button>
+        <button id="tape-mixdown-all" type="button" role="menuitem" data-tip="mixdown">Mix down the whole tape</button>
+        <a id="tape-export" href="#" role="menuitem" data-tip="export-stems">Export stems</a>
+        <button id="tape-delete" class="danger" type="button" role="menuitem" data-tip="tape-delete">Delete a tape…</button>
+        <a href="/guide.html#8-tape" role="menuitem" data-tip="guide">The guide</a>
+      </div>
+    </span>
   </div>
 </header>
 

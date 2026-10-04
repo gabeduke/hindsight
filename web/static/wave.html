@@ -18,32 +18,47 @@
 
 <!-- The take's header: the same controls the list row has (name, star,
      tempo), so nothing about a take can only be changed from one page. -->
-<header class="topbar take-top">
-  <a class="back" href="/takes.html" aria-label="Back to takes" data-tip="back">‹</a>
-  <button id="take-prev" class="icon-btn step-btn" type="button" aria-label="Previous take" data-tip="take-prev" disabled>◂</button>
-  <div class="take-title">
-    <div class="take-title-row">
-      <button id="take-name" class="take-title-name" type="button" data-tip="rename">…</button>
-      <input id="take-name-input" class="take-title-input" type="text" maxlength="120" hidden aria-label="Take name">
-      <button id="take-star" class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
-    </div>
-    <div class="take-sub">
-      <button id="take-bpm" class="take-sub-bpm" type="button" data-tip="bpm">+ bpm</button>
-      <input id="take-bpm-input" class="take-sub-input" type="text" inputmode="decimal" maxlength="7" hidden aria-label="Tempo in BPM">
-      <span id="take-len" class="take-sub-len mono"></span>
-      <a id="take-source" class="take-sub-src" hidden data-tip="source"></a>
-    </div>
-  </div>
-  <button id="take-next" class="icon-btn step-btn" type="button" aria-label="Next take" data-tip="take-next" disabled>▸</button>
-  <!-- Phone only: opens the rising-notes pane fullscreen. Revealed once
-       /api/midi has returned tracks; on the bench the pane is always there. -->
-  <button id="notes-open" class="icon-btn notes-btn" type="button" hidden aria-label="Notes" data-tip="notes-open"><span class="wide-only">Notes</span><span class="narrow-only">♪</span></button>
-  <button id="take-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" data-tip="undo">↶</button>
+<header class="appbar take-top">
+  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-192.png" alt=""><b>Hindsight</b></a>
+  <!-- The switch between the three pages; on a phone, tabs along the
+       bottom (lib/nav.js keeps it true). -->
+  <nav class="appnav" aria-label="Pages">
+    <a href="/" data-tab="capture" data-tip="nav-capture"><span class="appnav-lamp" aria-hidden="true"></span>Capture</a>
+    <a href="/takes.html" data-tab="takes" data-tip="nav-takes" aria-current="page"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
+    <a href="/tape.html" data-tab="tape" data-tip="nav-tape"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
+  </nav>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
-  <button id="menu-btn" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More options" data-tip="menu">⋯</button>
-  <div id="take-menu" class="menu" role="menu" hidden>
-    <button id="downbeat-reset" type="button" role="menuitem" data-tip="downbeat-reset">Reset the downbeat</button>
-    <a href="/guide.html#4-the-take-page" role="menuitem" data-tip="guide">The guide</a>
+  <div class="appbar-page">
+    <a class="back" href="/takes.html" aria-label="Back to takes" data-tip="back"><span aria-hidden="true">‹</span><span class="back-text">Takes</span></a>
+    <div class="take-title">
+      <div class="take-title-row">
+        <button id="take-name" class="take-title-name" type="button" data-tip="rename">…</button>
+        <input id="take-name-input" class="take-title-input" type="text" maxlength="120" hidden aria-label="Take name">
+        <button id="take-star" class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
+      </div>
+      <div class="take-sub">
+        <button id="take-bpm" class="take-sub-bpm" type="button" data-tip="bpm">+ bpm</button>
+        <input id="take-bpm-input" class="take-sub-input" type="text" inputmode="decimal" maxlength="7" hidden aria-label="Tempo in BPM">
+        <span id="take-len" class="take-sub-len mono"></span>
+        <a id="take-source" class="take-sub-src" hidden data-tip="source"></a>
+      </div>
+    </div>
+    <span class="step-group">
+      <button id="take-prev" class="icon-btn step-btn" type="button" aria-label="Previous take" data-tip="take-prev" disabled>◂</button>
+      <button id="take-next" class="icon-btn step-btn" type="button" aria-label="Next take" data-tip="take-next" disabled>▸</button>
+    </span>
+    <span class="appbar-spacer"></span>
+    <!-- Phone only: opens the rising-notes pane fullscreen. Revealed once
+         /api/midi has returned tracks; on the bench the pane is always there. -->
+    <button id="notes-open" class="icon-btn notes-btn" type="button" hidden aria-label="Notes" data-tip="notes-open"><span class="wide-only">Notes</span><span class="narrow-only">♪</span></button>
+    <button id="take-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" data-tip="undo">↶</button>
+    <span class="menu-anchor">
+      <button id="menu-btn" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More options" data-tip="menu">⋯</button>
+      <div id="take-menu" class="menu" role="menu" hidden>
+        <button id="downbeat-reset" type="button" role="menuitem" data-tip="downbeat-reset">Reset the downbeat</button>
+        <a href="/guide.html#4-the-take-page" role="menuitem" data-tip="guide">The guide</a>
+      </div>
+    </span>
   </div>
 </header>
 

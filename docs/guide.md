@@ -943,6 +943,10 @@ has no tip.
 
 | Control | Tip |
 |---|---|
+| Hindsight | Back to Capture, from anywhere |
+| Capture (tab) | The ribbon, the meters and Capture. The lamp is the ring: green while it records |
+| Takes (tab) | Every take, to search, filter, sort and open |
+| Tape (tab) | The tape: layer loops caught from what you just played |
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
 | Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |
@@ -955,7 +959,6 @@ has no tip.
 | Search | Find a take by its name, its time or its tempo |
 | Filters | Show only starred takes, takes with MIDI, takes from a phone, or tape mixdowns |
 | Newest / Longest | Newest groups the takes by the day they were made; Longest puts the longest first |
-| ‹ (takes page) | Back to the main page: capture, the meters and the latest take |
 | Open | Open the take to select, loop, save or share part of it |
 | Select | Pick several takes to star, export or delete together. Holding a take does the same |
 | ★ Star (selecting) | Star the picked takes, or unstar them if they all are |
@@ -999,8 +1002,8 @@ has no tip.
 | Notes | Watch the take's MIDI rise out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
 | Send to tape | Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape |
-| Tape (main page) | The tape: layer loops caught from what you just played |
-| Tape name | Your tapes: load one, make a new one, clone this one |
+| Tape name | Your tapes: load one, or make a new one |
+| ⋯ (tape) | This tape: clone it, mix it down, export its stems, or delete a tape |
 | A tape in the list | Load this tape: the transport plays the loaded one |
 | New tape | Start an empty tape. Its first loop sets the tempo |
 | Delete a tape | Delete another tape. Audio it shares with others stays |

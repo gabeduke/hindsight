@@ -7,6 +7,7 @@ import { TrashList } from '/lib/trash.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { initHelp } from '/lib/help/help.js';
 import { shelve } from '/lib/shelf.js';
+import { initNav } from '/lib/nav.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -171,6 +172,7 @@ document.addEventListener('visibilitychange', () => {
 renderControls();
 showNextToast();
 initHelp({ page: 'takes' });
+initNav();
 poll(true);
 pollStatus();
 setInterval(() => poll(), 5000);

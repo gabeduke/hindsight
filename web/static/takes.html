@@ -18,11 +18,21 @@
 <body class="shelf-page">
 <!-- Every take, to search, filter and sort (lib/shelf-page.js). The main
      page keeps only the latest; this is where the rest live. -->
-<header class="topbar shelf-top">
-  <a class="back" href="/" aria-label="Back to the main page" data-tip="back-main">‹</a>
-  <h1 class="shelf-title">Takes <span class="shelf-count" id="shelf-count" aria-label="takes shown">–</span></h1>
-  <button class="chip" id="select-btn" type="button" data-tip="select">Select</button>
+<header class="appbar">
+  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-192.png" alt=""><b>Hindsight</b></a>
+  <!-- The switch between the three pages; on a phone, tabs along the
+       bottom (lib/nav.js keeps it true). -->
+  <nav class="appnav" aria-label="Pages">
+    <a href="/" data-tab="capture" data-tip="nav-capture"><span class="appnav-lamp" aria-hidden="true"></span>Capture</a>
+    <a href="/takes.html" data-tab="takes" data-tip="nav-takes" aria-current="page"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
+    <a href="/tape.html" data-tab="tape" data-tip="nav-tape"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
+  </nav>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
+  <div class="appbar-page">
+    <h1 class="shelf-title">Takes <span class="shelf-count" id="shelf-count" aria-label="takes shown">–</span></h1>
+    <span class="appbar-spacer"></span>
+    <button class="chip" id="select-btn" type="button" data-tip="select">Select</button>
+  </div>
 </header>
 <main class="shelf-main">
   <div class="shelf-tools">

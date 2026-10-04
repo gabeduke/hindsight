@@ -13,9 +13,19 @@
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="guide-page">
-<header class="topbar">
-  <a class="back" href="/" aria-label="Back to Hindsight">‹</a>
-  <b>The guide</b>
+<header class="appbar">
+  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-192.png" alt=""><b>Hindsight</b></a>
+  <!-- The switch between the three pages; on a phone, tabs along the
+       bottom (lib/nav.js keeps it true). -->
+  <nav class="appnav" aria-label="Pages">
+    <a href="/" data-tab="capture" data-tip="nav-capture"><span class="appnav-lamp" aria-hidden="true"></span>Capture</a>
+    <a href="/takes.html" data-tab="takes" data-tip="nav-takes"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
+    <a href="/tape.html" data-tab="tape" data-tip="nav-tape"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
+  </nav>
+  <div class="appbar-page">
+    <a class="back" href="/" aria-label="Back to Hindsight"><span aria-hidden="true">‹</span><span class="back-text">Back</span></a>
+    <h1 class="guide-title">The guide</h1>
+  </div>
 </header>
 <main>
   <!-- docs/guide.md, served from the binary at /guide.md and rendered by
@@ -24,6 +34,8 @@
 </main>
 <script type="module">
   import { renderMarkdown } from '/lib/help/markdown.js';
+  import { initNav } from '/lib/nav.js';
+  initNav();
   const el = document.getElementById('guide');
   try {
     const res = await fetch('/guide.md');

@@ -8,6 +8,11 @@
 // ahead of it, so the guide's table and this file stay one list.
 
 export const TIPS = [
+  // Every page's header
+  { control: 'Hindsight', ids: ['home'], tip: 'Back to Capture, from anywhere' },
+  { control: 'Capture (tab)', ids: ['nav-capture'], tip: 'The ribbon, the meters and Capture. The lamp is the ring: green while it records' },
+  { control: 'Takes (tab)', ids: ['nav-takes'], tip: 'Every take, to search, filter, sort and open' },
+  { control: 'Tape (tab)', ids: ['nav-tape'], tip: 'The tape: layer loops caught from what you just played' },
   // The main page
   { control: 'Capture', ids: ['capture'], tip: 'Save the last 30 s, 2 m, 7 m or all of what you just played as a take' },
   { control: 'Flag now', ids: ['flag-now'], tip: 'Mark this moment. Any take that includes it gets a flag here' },
@@ -22,7 +27,6 @@ export const TIPS = [
   { control: 'Search', ids: ['search'], tip: 'Find a take by its name, its time or its tempo' },
   { control: 'Filters', ids: ['filter'], tip: 'Show only starred takes, takes with MIDI, takes from a phone, or tape mixdowns' },
   { control: 'Newest / Longest', ids: ['sort'], tip: 'Newest groups the takes by the day they were made; Longest puts the longest first' },
-  { control: '‹ (takes page)', ids: ['back-main'], tip: 'Back to the main page: capture, the meters and the latest take' },
   { control: 'Open', ids: ['open'], tip: 'Open the take to select, loop, save or share part of it' },
   { control: 'Select', ids: ['select'], tip: 'Pick several takes to star, export or delete together. Holding a take does the same' },
   { control: '★ Star (selecting)', ids: ['bulk-star'], tip: 'Star the picked takes, or unstar them if they all are' },
@@ -70,8 +74,8 @@ export const TIPS = [
   // Later steps
   { control: 'Send to tape', ids: ['send-to-tape'], tip: 'Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape' },
   // The tape page
-  { control: 'Tape (main page)', ids: ['tape-link'], tip: 'The tape: layer loops caught from what you just played' },
-  { control: 'Tape name', ids: ['tape-menu'], tip: 'Your tapes: load one, make a new one, clone this one' },
+  { control: 'Tape name', ids: ['tape-menu'], tip: 'Your tapes: load one, or make a new one' },
+  { control: '⋯ (tape)', ids: ['tape-more'], tip: 'This tape: clone it, mix it down, export its stems, or delete a tape' },
   { control: 'A tape in the list', ids: ['tape-load'], tip: 'Load this tape: the transport plays the loaded one' },
   { control: 'New tape', ids: ['tape-new'], tip: 'Start an empty tape. Its first loop sets the tempo' },
   { control: 'Delete a tape', ids: ['tape-delete'], tip: 'Delete another tape. Audio it shares with others stays' },

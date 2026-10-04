@@ -27,11 +27,15 @@
 </head>
 <body class="main-page">
 
-<header class="topbar">
-  <div class="brand">
-    <img src="/icons/icon-192.png" alt="">
-    <b>Hindsight</b>
-  </div>
+<header class="appbar">
+  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-192.png" alt=""><b>Hindsight</b></a>
+  <!-- The switch between the three pages; on a phone, tabs along the
+       bottom (lib/nav.js keeps it true). -->
+  <nav class="appnav" aria-label="Pages">
+    <a href="/" data-tab="capture" data-tip="nav-capture" aria-current="page"><span class="appnav-lamp" aria-hidden="true"></span>Capture</a>
+    <a href="/takes.html" data-tab="takes" data-tip="nav-takes"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
+    <a href="/tape.html" data-tab="tape" data-tip="nav-tape"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
+  </nav>
   <div class="health">
     <!-- Shown only while a screen wake lock is actually held. Icon-only on
          purpose: .health has caused a topbar overflow before, and a phone that
@@ -41,10 +45,8 @@
           aria-label="Screen kept awake while charging" role="img">&#9788;</span>
     <span class="dot" id="health-dot"></span>
     <span id="health-text">connecting</span>
-    <!-- Shown only when the Pi runs with TAPE=true. -->
-    <a class="chip tape-link" id="tape-link" href="/tape.html" hidden data-tip="tape-link">Tape</a>
-    <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   </div>
+  <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
 </header>
 
 <main>
