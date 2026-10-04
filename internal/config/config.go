@@ -45,6 +45,15 @@ type Config struct {
 	TapeTracks  int
 	TapeLengthS int    // a track's length, the OP-1's six minutes
 	TapeSources string // name=L,R[:buses] ..., parsed by the tape package
+	// OutputLatencyMS is asked of PortAudio for the tape's output, generous
+	// for the same busy-poll reason as the input's.
+	OutputLatencyMS int
+	// TapeLatencyMS moves every catch later: for hearing the instrument
+	// from its own speaker rather than through the Sidekick.
+	TapeLatencyMS float64
+	// TapeDemoAlign makes the demo's output hide where it lands in the ring,
+	// so the aligner has to find it, as on the Pi.
+	TapeDemoAlign bool
 
 	// Server
 	Port string
@@ -79,6 +88,9 @@ func Load() (*Config, error) {
 		TapeTracks:      envInt("TAPE_TRACKS", 4),
 		TapeLengthS:     envInt("TAPE_LENGTH_S", 360),
 		TapeSources:     env("TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
+		OutputLatencyMS: envInt("OUTPUT_LATENCY_MS", 100),
+		TapeLatencyMS:   envFloat("TAPE_LATENCY_MS", 0),
+		TapeDemoAlign:   envBool("TAPE_DEMO_ALIGN", false),
 		Port:            env("PORT", "5000"),
 		Version:         "dev",
 	}

@@ -427,7 +427,7 @@ without starting ffmpeg if its client goes away first.
 
 `internal/tape`, behind `TAPE=true`. The design is
 [the tape spec](superpowers/specs/2026-10-03-tape-design.md); this is how
-the first part (step 6a) is built.
+steps 6a (the engine) and 6b (playing it through the Sidekick) are built.
 
 ```
 API ─edit─▶ Tape (model, undo) ─save─▶ tapes/<id>/tape.json
@@ -506,9 +506,55 @@ needs `delta`:
   by bus, as the Sidekick would. `delta` is counted against the frames the
   capture has handed to the ring, so a dropped block or a reopened source
   doesn't throw it off.
-- On hardware the PortAudio output and the aligner that measures `delta` are
-  step 6b. Until then the engine runs with no sink: tapes can be made from
-  takes and edited, and nothing plays or can be caught.
+- On the Sidekick it's measured (`align.go`, below).
+
+**The output** (`internal/audio/sink_portaudio.go`) is an output-only
+PortAudio stream, four channels of 32-bit at 48 kHz, on the capture's own
+card: the capture's device if it can play four channels, else the most
+direct device matching `DEVICE_MATCH`, and never anything else -- the tape
+out of HDMI, on another clock, would be worse than none. It is a separate
+stream rather than a duplex one, so the dashcam's health never depends on
+playback's. It keeps itself open with its own supervisor, as the capture
+does, and plays silence while the transport is stopped, so what it has
+measured survives stop and play. Its callback calls the engine's pull, which
+never blocks, notes output underflows, and records in a clock bridge of its
+own when each buffer's first frame will be heard (the buffer's DAC time from
+PortAudio).
+
+**One PortAudio.** The library is process-global, so the capture and the
+output share one lifecycle (`palifecycle.go`), with a registry of open
+streams under one lock held across every open, close and rescan. A rescan --
+the capture's, when the interface vanishes -- closes every registered stream
+before `Pa_Terminate`, which would otherwise close them underneath their
+owners and leave a dangling pointer to be freed twice, and moves the
+generation on. The output's supervisor sees the generation move and opens
+again in the new one.
+
+**Alignment** (`align.go`). Δ is where output frame *o* shows up in the
+ring: at *o* + Δ.
+
+- *Estimated:* the capture's clock bridge gives the ring frame being
+  converted at a moment, the output's the output frame being heard then;
+  their difference, plus the residual of the last lock, is good to a few
+  milliseconds.
+- *Locked:* every couple of seconds while unlocked (every ten once locked),
+  the last second each bus delivered -- kept by the device callback in a
+  lock-free history -- is correlated against that bus's channel tap in the
+  ring, ±50 ms around the estimate, by a phase-transform cross-correlation
+  computed by FFT (`xcorr.go`). The signals are differentiated twice first,
+  so a loop's bass doesn't drown out the attacks that pin the match down. A
+  lock is taken only for one sharp peak, well above the rest of the
+  correlation and any other candidate, so a sustained tone, which matches
+  itself every period, is never guessed at.
+- *Slips:* both sides of the Sidekick run off one crystal, so Δ moves only
+  when one side loses frames: the output restarts or underflows, or the
+  capture drops a block. Each starts a new segment, estimated until it
+  locks again, and a catch uses the segment that held when its span
+  played.
+
+`TAPE_DEMO_ALIGN=true` makes the demo's output keep its Δ to itself, with a
+clock bridge like a device's, so the estimate and the lock run in the demo
+too; a test checks that a catch then holds exactly what played.
 
 **Sources** (`TAPE_SOURCES`) name capture pairs and the buses heard in each.
 A source is clean on a tape when no bus that leaks into it has unmuted audio,

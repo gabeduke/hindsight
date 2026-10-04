@@ -389,13 +389,16 @@ space falls under `MIN_FREE_GB`; what was recorded is kept.
 ## 8. Tape
 
 *Steps 6–9.* Full design: [tape](superpowers/specs/2026-10-03-tape-design.md).
-Step 6 comes in two parts:
+Step 6 comes in parts:
 
 - **6a** is the tape itself: tapes, tracks, clips, the mix, the transport,
   catching passes and bars, sending a take to tape, and undo. It plays in the
   demo.
-- **6b** plays the tape through the Sidekick on the Pi, and adds free loops,
-  punch-in and the click.
+- **6b** plays the tape through the Sidekick on the Pi, and lines its
+  playback up with the recording by listening to itself.
+- **6c** adds punch-in, arming, the count-in and click, and free loops.
+- **6d** adds the clipboard (*Copy* on takes and the ribbon), *replace*,
+  pan, tiling, and selecting bars on a ruler.
 
 Turn the tape on with `TAPE=true` ([configuration](configuration.md#the-tape)).
 The main page then shows a **Tape** chip that opens the tape page.
@@ -410,9 +413,9 @@ The main page then shows a **Tape** chip that opens the tape page.
 
 The Bento's USB goes to the Pi's hub too, for MIDI only.
 
-Playback through the Sidekick is step 6b. Until then, on the Pi you can make
-tapes from takes and edit them, but ▶ reads *no output* and nothing can be
-caught.
+*Step 6b.* The tape plays out of the Sidekick's USB playback: bus A on 1/2
+into channel 1, bus B on 3/4 into channel 2. If the Sidekick isn't there,
+▶ reads *no output* until it is.
 
 ### 8.2 The tape page
 
@@ -421,9 +424,14 @@ From the top:
 - **The name.** Tap it for the tape menu: open another tape, start a new one,
   clone this one, delete one, or this guide. Under the name: the tempo and how
   many bars the loop is.
-- **The dot** is green when the tape's playback and the recording are lined
-  up to the sample. Catching needs it. The demo is always lined up; on the Pi
-  that arrives with step 6b.
+- **The dot** says how well the tape's playback and the recording are lined
+  up:
+  - **Green:** to the sample. On the Pi, Hindsight listens for the tape in
+    channel 1's (or 2's) recording and locks on within a few seconds of it
+    playing something with a clear attack, like drums.
+  - **Amber:** estimated from the clocks, to a few milliseconds. Catches
+    work, and say so in their sheet; nudge one if it's early or late.
+  - **Red:** not at all yet. Catches wait for it.
 - **↶ ↷** undo and redo every change to the tape except its name. 100 steps
   are kept, with the tape, so they survive a restart and every device shares
   them.
@@ -466,7 +474,7 @@ is made.
 
 The tempo is fixed once the tape has audio, because nothing is ever stretched.
 
-*Step 6b* adds the free loop: tap where it starts and where it comes round,
+*Step 6c* adds the free loop: tap where it starts and where it comes round,
 and each tap snaps to the nearest note you played. It also adds the count-in
 and the click.
 
@@ -480,8 +488,11 @@ and the click.
 - [demo] Make a new tape, set 90 BPM and 4 bars → it reads *90.0 BPM · 4
   bars*, and the lanes show four empty bars. After the first catch, the tempo
   can't be changed.
-- [rig] Send a take to tape on the Pi → it's on the tape, and ▶ reads
-  *no output* until step 6b.
+- [rig] Send a take to tape on the Pi and press ▶ → the loop plays out of
+  channel 1, and within a few seconds the dot turns green.
+- [rig] Turn the Sidekick off and on again while the tape plays → ▶ reads
+  *no output*, then the tape plays again; the dot is amber until it locks
+  again.
 
 ### 8.4 Building it up
 
@@ -519,9 +530,9 @@ for the tape's name. The loaded tape can't be deleted; open another one first.
 Deleting frees whatever audio no other tape uses, including what's only in
 other tapes' undo.
 
-*Step 6b* adds Rec (punch in on the next pass, or arm the track and count in
-from stopped), *replace* instead of layering, pan, and selecting bars on a
-ruler.
+*Step 6c* adds Rec: punch in on the next pass, or arm the track and count
+in from stopped. *Step 6d* adds *replace* instead of layering, pan, and
+selecting bars on a ruler.
 
 **Checks — step 6a:**
 
@@ -541,7 +552,12 @@ ruler.
 - [demo] Restart Hindsight → the tape that was loaded is loaded again, with
   its undo.
 - [rig] Turn channel 1's FX knob → the tape's sound changes, and the live
-  instrument on aux doesn't. *(Step 6b.)*
+  instrument on aux doesn't.
+- [rig] Play the Orchid into aux over the loop for two passes, catch −1
+  onto track 2, and play → the part plays back in time with the loop, to
+  the sample.
+- [demo] Start the demo with `TAPE_DEMO_ALIGN=true`, send drums to tape and
+  play → the dot goes from amber to green within a few seconds.
 
 ### 8.5 Editing like an OP-1
 
@@ -731,13 +747,14 @@ has no tip.
 | Mixdown | Play In to Out once and save what came out of the mixer as a take |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
 | Source chip | Which input a catch takes from. ● clean: none of the tape is in it. ○ the tape is in it too |
-| Lock dot | Green: playback and recording are lined up to the sample. Catching needs it |
+| Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet |
 
 ## 10. When something's off
 
 | You see | It means | Do |
 |---|---|---|
-| The dot by ↶ isn't green | The tape's playback isn't lined up with the recording, so catches are off. On the Pi that's until step 6b; from then it lines up once the tape plays something with a clear attack | In the demo it's always lined up. From step 6b: play the tape for a few seconds |
+| The dot by ↶ is amber | Playback and recording are lined up only by the clocks, to a few milliseconds; it locks once the tape plays something with a clear attack on bus A or B | Play the tape for a few seconds, with drums or another percussive part on it. Catches still work meanwhile; nudge one if it's off |
+| The dot by ↶ is red | Nothing is lined up yet: the tape hasn't played since Hindsight started, or there's no output | Press ▶. If ▶ reads *no output*, check the Sidekick is on and plugged in |
 | A source chip shows ○ | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
 | "Too long for the ring" on Mixdown | The selection is longer than the last 15 minutes can hold | Mix down in parts, or raise `RING_SECONDS` |
 | "Not enough room on the tape" | The track would run past six minutes | Lift something, or raise `TAPE_LENGTH_S` |

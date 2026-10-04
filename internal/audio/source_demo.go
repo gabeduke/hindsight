@@ -76,6 +76,9 @@ type demoLoop struct {
 	// frame the block being delivered will start at. Read only on the
 	// source's delivery goroutine, where the capture writes it.
 	handed func() uint64
+	// bridge, when set, records when each output frame is heard, as a
+	// device's output would, for the aligner to measure Δ from.
+	bridge *ClockBridge
 }
 
 // MIDISink is the optional capability of a Source that can also say what a
@@ -357,6 +360,11 @@ func (s *demoSource) loopback(block []int32, n int64) {
 		if l.handed != nil {
 			l.delta = int64(l.handed()) - (l.pulled - int64(fpb))
 		}
+		// The capture records this block as handed now; its last frame
+		// came from output frame pulled.
+		if l.bridge != nil {
+			l.bridge.Record(mono.Now(), uint64(l.pulled))
+		}
 	}
 	if l.held == nil {
 		l.held = make([]int32, fpb*l.channels)
@@ -384,28 +392,47 @@ func sat32(v int64) int32 {
 
 // demoSink is the demo's tape output: it plays into the demo source.
 type demoSink struct {
-	src *demoSource
-	cap *Capture
+	src    *demoSource
+	cap    *Capture
+	bridge *ClockBridge // set for the aligning kind
 }
+
+// demoAligningSink is the demo's output keeping where it lands to itself, so
+// the tape's aligner has to measure it from the clock bridges and the
+// correlation, as on the Sidekick (TAPE_DEMO_ALIGN).
+type demoAligningSink struct{ demoSink }
 
 // NewDemoSink returns a Sink that plays into the demo source -- the tape
 // heard in the ribbon and the takes, as the Sidekick would make it -- or nil
 // for a source that isn't the demo. cap is the capture the source feeds
-// (nil: count by the source's own frames).
-func NewDemoSink(src Source, cap *Capture) Sink {
+// (nil: count by the source's own frames). An aligning sink doesn't say
+// where its output lands; the tape measures it.
+func NewDemoSink(src Source, cap *Capture, aligning bool) Sink {
 	d, ok := src.(*demoSource)
 	if !ok {
 		return nil
 	}
+	if aligning {
+		return &demoAligningSink{demoSink{src: d, cap: cap, bridge: NewClockBridge(256, d.cfg.SampleRate)}}
+	}
 	return &demoSink{src: d, cap: cap}
 }
+
+// Delta isn't told: the aligner finds it.
+func (d *demoAligningSink) Delta() (int64, bool) { return 0, false }
+
+// OutputBridge maps the monotonic clock to the output frame being heard.
+func (d *demoAligningSink) OutputBridge() *ClockBridge { return d.bridge }
+
+// Restarts: the demo's output never slips.
+func (d *demoAligningSink) Restarts() uint64 { return 0 }
 
 func (d *demoSink) Open(channels int, pull func([]int32)) (string, error) {
 	l := &d.src.loop
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.pull, l.channels, l.held, l.pulled, l.known = pull, channels, nil, 0, false
-	l.handed = nil
+	l.handed, l.bridge = nil, d.bridge
 	if c := d.cap; c != nil {
 		l.handed = func() uint64 { return c.handed }
 	}

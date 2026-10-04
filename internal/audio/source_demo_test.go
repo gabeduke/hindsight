@@ -228,7 +228,7 @@ func TestTheDemoLoopbackLandsTheTapeWhereItsDeltaSays(t *testing.T) {
 	cfg.RingSeconds = 5
 	src := NewDemoSource(cfg)
 	cap := NewCapture(cfg, src)
-	sink := NewDemoSink(src, cap)
+	sink := NewDemoSink(src, cap, false)
 	// Output frame o carries (o+1)*100 on bus A.
 	var out int64
 	if _, err := sink.Open(4, func(b []int32) {

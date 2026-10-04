@@ -71,6 +71,9 @@ type Options struct {
 	// MinFreeGB guards catches and drops as it guards saves, on the tapes'
 	// own volume.
 	MinFreeGB float64
+	// LatencyMS moves every catch later (TAPE_LATENCY_MS): for hearing the
+	// instrument from its own speaker rather than through the Sidekick.
+	LatencyMS float64
 }
 
 type block struct {
@@ -111,6 +114,14 @@ type Engine struct {
 	done     chan struct{}
 	started  atomic.Bool
 	panicked atomic.Value // string: the last recovered panic
+
+	latencyMS float64
+
+	// What each bus delivered, for the aligner (nil when the output knows
+	// its own Δ), and the output frame after the newest.
+	hist    [2][]atomic.Int32
+	histEnd atomic.Uint64
+	align   aligner
 }
 
 // NewEngine makes an engine with nothing loaded.
@@ -126,6 +137,7 @@ func NewEngine(o Options) *Engine {
 		sink:      o.Sink,
 		sources:   src,
 		minFreeGB: o.MinFreeGB,
+		latencyMS: o.LatencyMS,
 		tr:        newTransport(),
 		actions:   make(chan Action, 32),
 		blocks:    make(chan *block, aheadBlocks+3),
@@ -147,6 +159,10 @@ func NewEngine(o Options) *Engine {
 func (e *Engine) Start() error {
 	var err error
 	if e.sink != nil {
+		if _, ok := e.sink.(outputSink); ok {
+			e.hist[0] = make([]atomic.Int32, histFrames)
+			e.hist[1] = make([]atomic.Int32, histFrames)
+		}
 		// The device may pull the moment it's open.
 		e.sinkBase.Store(int64(e.delivered.Load()))
 		name, oerr := e.sink.Open(OutChannels, e.pull)
@@ -155,11 +171,16 @@ func (e *Engine) Start() error {
 			err = fmt.Errorf("tape output: %w", oerr)
 		} else {
 			e.sinkName = name
-			log.Printf("[*] tape output on %q", name)
+			if name != "" {
+				log.Printf("[*] tape output on %q", name)
+			} else {
+				log.Printf("[!] tape output: waiting for the device")
+			}
 		}
 	}
 	e.started.Store(true)
 	go e.renderLoop()
+	e.startAligner()
 	return err
 }
 
@@ -232,6 +253,7 @@ func (e *Engine) pull(out []int32) {
 			e.cur = nil
 		}
 	}
+	e.keepHistory(start, out)
 	e.delivered.Store(d)
 	select {
 	case e.kick <- struct{}{}:
@@ -588,7 +610,7 @@ type Live struct {
 	Late      uint64   `json:"late"`      // device periods with nothing rendered, played as silence
 	Output    string   `json:"output"`    // the output device, or ""
 	Delta     *int64   `json:"delta"`     // ring frame − output frame, if known
-	Aligned   string   `json:"aligned"`   // exact, estimated or none
+	Aligned   string   `json:"aligned"`   // exact (the demo), locked, estimated or none
 	Cycles    []Cycle  `json:"cycles"`    // the last complete passes
 	Failed    []string `json:"failed"`    // pool files that couldn't be read
 	Problem   string   `json:"problem,omitempty"`
@@ -597,6 +619,9 @@ type Live struct {
 func (e *Engine) Live() Live {
 	l := Live{Status: e.tr.Status(), Delivered: e.delivered.Load(), Late: e.late.Load(), Output: e.sinkName,
 		Failed: e.pool.Failed(), Problem: e.panicked.Load().(string)}
+	if n, ok := e.sink.(interface{ Name() string }); ok && e.sink != nil {
+		l.Output = n.Name() // "" while the device is away
+	}
 	if p, ok := e.tr.PosAt(l.Delivered); ok {
 		l.Heard = p
 	} else {
@@ -609,22 +634,13 @@ func (e *Engine) Live() Live {
 		l.Aligned = "none"
 	}
 	l.Cycles = e.tr.Cycles()
+	if l.Cycles == nil {
+		l.Cycles = []Cycle{}
+	}
 	if l.Failed == nil {
 		l.Failed = []string{}
 	}
 	return l
-}
-
-// delta is where output frame o lands in the ring: o + delta. Exact from a
-// sink that knows (the demo); the aligner that measures it on hardware comes
-// with the device sink.
-func (e *Engine) delta() (int64, string) {
-	if kd, ok := e.sink.(audio.KnownDelta); ok && e.sink != nil {
-		if d, ok := kd.Delta(); ok {
-			return d - e.sinkBase.Load(), "exact"
-		}
-	}
-	return 0, "none"
 }
 
 // --- catching -----------------------------------------------------------------
@@ -713,6 +729,9 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
+	// The Δ that held when the span played, and any latency set by hand.
+	delta, aligned = e.deltaAt(outFrom)
+	delta += int64(math.Round(e.latencyMS * float64(sr) / 1000))
 	ringFrom := int64(outFrom) + delta - over
 	ringTo := int64(outFrom) + frames + delta + over
 	ring := e.capture.Ring()

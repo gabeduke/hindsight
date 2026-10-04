@@ -823,13 +823,16 @@ loop, otherwise its first loop sets the tempo.
 - **`live`**, only for the loaded tape:
   - `pos` is the render head and `heard` the frame the device is playing.
   - `delta` is ring frame minus output frame: where what the tape played
-    lands in the capture. `aligned` is `exact` when it's known (the demo),
-    `none` when it isn't, and catches need it.
+    lands in the capture. `aligned` is `exact` when the output says (the
+    demo), `locked` when it's been measured by correlation, `estimated`
+    from the clocks alone, and `none` before anything is known; catches
+    need anything but `none`, and a clip records how its catch was lined
+    up in its own `aligned`.
+  - `output` is the device the tape plays through, "" while it's away.
   - `cycles` are the last complete passes of the loop, as played (a pass
     begun before the loop was moved isn't one); `late` counts device periods
     played as silence because nothing was rendered in time;
     `failed` lists pool files that couldn't be read.
-  - `output` is "" when nothing plays the tape.
 
 `HEAD` is accepted. It's polled a few times a second, so it's `no-store`.
 
@@ -866,7 +869,7 @@ original's pool files.
 `{"action": "play" | "stop" | "locate", "quantum": "now" | "beat" | "bar" | "loop", "pos": F}`.
 The action takes effect on the exact output frame its quantum falls on
 (`now`, the default, at the next block). Answers 200 `{"status":"queued"}`.
-`play` is 409 while nothing plays the tape (on the Pi, until step 6b);
+`play` is 409 when the tape has no output (a build without PortAudio);
 `locate` still moves it. Loading a tape stops the transport and forgets the
 passes played, so a pass of one tape is never caught onto another.
 

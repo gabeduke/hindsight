@@ -169,15 +169,17 @@ func startTape(cfg *config.Config, cap *audio.Capture, src audio.Source, demo bo
 	}
 	var sink audio.Sink
 	if demo {
-		sink = audio.NewDemoSink(src, cap)
+		sink = audio.NewDemoSink(src, cap, cfg.TapeDemoAlign)
 	} else {
-		// The PortAudio output, sharing the capture's lifecycle, is the next
-		// step. Until then tapes can be made from takes and edited, but not
-		// heard, and nothing can be caught: a catch needs the output lined up
-		// with the capture.
-		log.Printf("[!] tape: playback through the interface isn't built yet; tapes can be made from takes and edited")
+		// An output-only stream on the capture's own card, opened through the
+		// lifecycle the capture shares; without cgo, none.
+		sink = audio.NewDeviceSink(cfg, cap.DeviceName)
+		if sink == nil {
+			log.Printf("[!] tape: built without cgo, so nothing plays the tape")
+		}
 	}
-	eng := tape.NewEngine(tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources, MinFreeGB: cfg.MinFreeGB})
+	eng := tape.NewEngine(tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources,
+		MinFreeGB: cfg.MinFreeGB, LatencyMS: cfg.TapeLatencyMS})
 	if id := store.Remembered(); id != "" {
 		if _, err := eng.Load(id); err != nil {
 			log.Printf("[!] tape %s: %v", id, err)

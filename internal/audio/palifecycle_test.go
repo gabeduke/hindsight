@@ -130,3 +130,73 @@ func TestInitErrorLeavesLifecycleDownSoRetryWorks(t *testing.T) {
 		t.Fatalf("want two init attempts, got %v", r.calls)
 	}
 }
+
+func TestARescanClosesOpenStreamsFirstAndMovesTheGeneration(t *testing.T) {
+	r := &recorder{}
+	p := newPALifecycle(r.init, r.term)
+	h, gen, err := p.Open(func() (func(), error) {
+		r.calls = append(r.calls, "open")
+		return func() { r.calls = append(r.calls, "close") }, nil
+	})
+	if err != nil || h == 0 {
+		t.Fatalf("Open = %d, %v", h, err)
+	}
+	if err := p.Rescan(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"init", "open", "close", "term", "init"}
+	if len(r.calls) != len(want) {
+		t.Fatalf("calls %v, want %v", r.calls, want)
+	}
+	for i := range want {
+		if r.calls[i] != want[i] {
+			t.Fatalf("calls %v, want %v", r.calls, want)
+		}
+	}
+	if p.Gen() == gen {
+		t.Fatal("a rescan should move the generation")
+	}
+	// The owner's own close, after the rescan closed it, does nothing.
+	p.Close(h)
+	if n := len(r.calls); n != len(want) {
+		t.Fatalf("a second close reached the stream: %v", r.calls)
+	}
+}
+
+func TestAFailedOpenRegistersNothing(t *testing.T) {
+	r := &recorder{}
+	p := newPALifecycle(r.init, r.term)
+	if _, _, err := p.Open(func() (func(), error) { return nil, errors.New("busy") }); err == nil {
+		t.Fatal("want the open's error")
+	}
+	if err := p.Term(); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.calls) != 2 || r.calls[0] != "init" || r.calls[1] != "term" {
+		t.Fatalf("calls %v", r.calls)
+	}
+}
+
+func TestTheTapeOutputGoesToTheCapturesCardOrNowhere(t *testing.T) {
+	devs := []outDev{
+		{Name: "bcm2835 HDMI 1: (hw:0,0)", MaxOut: 8},
+		{Name: "EP-136: USB Audio (plughw:2,0)", MaxOut: 4},
+		{Name: "EP-136: USB Audio (hw:2,0)", MaxOut: 4},
+		{Name: "default", MaxOut: 32},
+	}
+	if i, err := pickOutput(devs, "EP-136: USB Audio (hw:2,0)", "EP-136", 4); err != nil || i != 2 {
+		t.Fatalf("with the capture's device = %d, %v", i, err)
+	}
+	// Without the capture's name, the most direct match.
+	if i, err := pickOutput(devs, "", "EP-136", 4); err != nil || i != 2 {
+		t.Fatalf("by match = %d, %v", i, err)
+	}
+	// Never HDMI or "default", even with nothing else.
+	if _, err := pickOutput(devs[:1], "", "EP-136", 4); !errors.Is(err, ErrNoDevice) {
+		t.Fatalf("no match = %v, want ErrNoDevice", err)
+	}
+	// Too few channels doesn't count.
+	if _, err := pickOutput([]outDev{{Name: "EP-136: USB Audio (hw:2,0)", MaxOut: 2}}, "", "EP-136", 4); err == nil {
+		t.Fatal("a 2-channel output can't play two buses")
+	}
+}
