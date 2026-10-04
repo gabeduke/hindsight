@@ -125,50 +125,22 @@
 
   <div class="col col-library">
 
+    <!-- The newest take only; the rest are on the takes page (takes.html). -->
     <section class="panel">
-      <div class="panel-head">
-        <h2>Takes</h2>
-        <button class="chip" id="select-btn" type="button" data-tip="select">Select</button>
-      </div>
+      <h2>Latest take</h2>
       <div class="takes" id="takes"></div>
       <p class="empty" id="takes-empty">No takes yet — hit Capture.</p>
+      <a class="icon-btn all-takes" id="all-takes" href="/takes.html" data-tip="all-takes"><span>All takes <span class="all-count" id="all-count"></span></span><span aria-hidden="true">›</span></a>
     </section>
-    <!-- Deleted and pruned takes, for a week (lib/trash.js). Hidden while empty. -->
-    <details class="panel trash" id="trash" hidden>
-      <summary><h2>Recently deleted <span class="trash-count"></span></h2></summary>
-      <ul class="trash-list"></ul>
-      <div class="trash-foot">
-        <span class="trash-keep"></span>
-        <button class="icon-btn danger trash-empty" type="button" data-tip="trash-empty">Empty</button>
-      </div>
-    </details>
     <p class="about">Hindsight <span id="version" class="mono">–</span> · <a href="/guide.html" data-tip="guide">the guide</a></p>
 
   </div>
 
 </main>
 
-<!-- Select mode's actions, over the bottom of the list (lib/takes.js). -->
-<div class="select-bar" id="select-bar" hidden>
-  <button class="icon-btn" id="sel-done" type="button" data-tip="select-done">Done</button>
-  <span id="select-count">Tap takes to select</span>
-  <button class="icon-btn" id="sel-star" type="button" aria-label="Star" data-tip="bulk-star">★</button>
-  <button class="icon-btn" id="sel-export" type="button" data-tip="bulk-export">Export</button>
-  <button class="icon-btn danger" id="sel-delete" type="button" data-tip="bulk-delete">Delete</button>
-</div>
 
 <div id="toasts" aria-live="polite"></div>
 
-<dialog class="sheet" id="confirm">
-  <form method="dialog" class="sheet-inner">
-    <h3 id="confirm-title">Delete this take for good?</h3>
-    <p id="confirm-name"></p>
-    <div class="sheet-actions">
-      <button class="icon-btn" value="cancel">Cancel</button>
-      <button class="icon-btn confirm" value="delete">Delete</button>
-    </div>
-  </form>
-</dialog>
 
 <!-- A flag on the ribbon (lib/ribbon.js). -->
 <dialog class="sheet" id="rb-flag-sheet">

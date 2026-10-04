@@ -1528,6 +1528,13 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 /* The click, on: the accent ♩ on the accent background vanished. */
 .tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { background: var(--panel-2); }
 
+/* The main page's way to every take. */
+.icon-btn.all-takes {
+  display: flex; justify-content: space-between; width: 100%; margin-top: 12px;
+  min-height: var(--tap); padding: 0 14px; font-size: 15px;
+}
+.all-count { margin-left: 6px; font-family: var(--mono); font-weight: 400; color: var(--ink-dim); }
+
 /* ---------- the takes page ---------- */
 /* One column at every width: a list reads best at a phone's measure, and the
    main page's >=860px grid rule is for a bare `main`, so it's undone here. */
