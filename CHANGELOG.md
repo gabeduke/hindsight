@@ -5,6 +5,28 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.04.3 — 2026-10-04
+
+- Record v2026.10.04.2 in the changelog [skip ci] (3710262)
+- Test a span's date from the bridge's moment, not after the save (df13bb1)
+- Tape engine: fixes from a second review pass (4bc2421)
+- Tape engine: fixes from an independent review (fd4d7e7)
+- Tape engine: tapes, catching and Send to tape, in the demo (step 6a) (a4cce25)
+- Tests wait for the previews and prunes requests leave running (307c15f)
+- The ribbon: fixes from an independent review (6a7f9f6)
+- The ribbon: select any span of the ring and save it (step 5) (e2a6adf)
+- Undo and trash: fixes from an independent review (25ab72f)
+- Undo and trash; several takes at once (step 4) (5096566)
+- Take page: fixes from an independent review (7aafb5c)
+- Docs: the take page as built, step 3 checks, the plan (202ef5f)
+- One take page: gesture zones, In/Out, Loop, Snap, header, toolbar, help (091c7a7)
+- Serve the guide from the binary; report a missing interface as waiting (0aabff4)
+- Phone recording: fixes from an independent review (b637df6)
+- Docs: phone recording in the API, architecture, guide and README (6b7044e)
+- Phone button and recorder sheet on the main page (08222b1)
+- Record from a phone: the /api/phone WebSocket and the streaming take (6269c89)
+
+
 ## v2026.10.04.2 — 2026-10-04
 
 - Record v2026.10.04.1 in the changelog [skip ci] (0188813)
