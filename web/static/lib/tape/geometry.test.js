@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -106,4 +106,35 @@ test('a slid clip on the grid lands on a line; off it, keeps its offset', () => 
   assert.equal(slideTo(grid, 137143, -400000, 'bar'), 0);
   assert.equal(slideTo(grid, 5000, 12.6, 'off'), 5013);
   assert.equal(slideTo(null, 5000, -9000, 'bar'), 0);
+});
+
+test('a pinch zooms about the frame under the fingers, within the tape', () => {
+  const v = { from: 1000, to: 3000 };
+  // Twice as close about 2000: that frame stays where it was on screen.
+  assert.deepEqual(zoomView(v, 2000, 0.5, 100000, 10), { from: 1500, to: 2500 });
+  // Anchored off-centre, the anchor keeps its fraction across the view.
+  assert.deepEqual(zoomView(v, 1500, 2, 100000, 10), { from: 500, to: 4500 });
+  // No closer than minSpan, no wider than the tape, never off either end.
+  assert.deepEqual(zoomView(v, 2000, 0.001, 100000, 400), { from: 1800, to: 2200 });
+  assert.deepEqual(zoomView(v, 2000, 1000, 100000, 10), { from: 0, to: 100000 });
+  assert.deepEqual(zoomView({ from: 0, to: 2000 }, 0, 2, 100000, 10), { from: 0, to: 4000 });
+});
+
+test('a drag pans the view, and stops at the tape\'s ends', () => {
+  const v = { from: 1000, to: 3000 };
+  assert.deepEqual(panView(v, 500, 10000), { from: 1500, to: 3500 });
+  assert.deepEqual(panView(v, -5000, 10000), { from: 0, to: 2000 });
+  assert.deepEqual(panView(v, 50000, 10000), { from: 8000, to: 10000 });
+});
+
+test('the view pages to follow a playhead that leaves it', () => {
+  const v = { from: 1000, to: 3000 };
+  assert.equal(followView(v, 2000, 100000), v, 'in view: unchanged, the same object');
+  assert.equal(followView(v, 3000, 100000), v);
+  // Past the right edge: the playhead lands a tenth of the way in.
+  assert.deepEqual(followView(v, 3001, 100000), { from: 2801, to: 4801 });
+  // Before the left edge (a wrap, a locate): the same.
+  assert.deepEqual(followView(v, 100, 100000), { from: 0, to: 2000 });
+  // At the tape's end the view stops there.
+  assert.deepEqual(followView(v, 99900, 100000), { from: 98000, to: 100000 });
 });
