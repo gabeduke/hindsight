@@ -50,7 +50,7 @@ function fail(msg) {
   $('wave-error').textContent = msg;
   $('wave-error').hidden = false;
   $('wave-canvas').hidden = true;
-  $('overview-canvas').hidden = true;
+  $('np').hidden = true; // nothing to play: the bar's keys would be dead
 }
 
 // Mirrors the server's render filename sanitiser (internal/audio/render.go).
@@ -147,7 +147,7 @@ async function main() {
     getState: () => state, getView: () => view.view,
     emit: (ev, p) => {
       if (ev === 'panTo') view.panTo(p.start);
-      else if (ev === 'seek') { seekTo(p.frame); view.follow(p.frame); }
+      else if (ev === 'seek') { seekTo(p.frame); if (!state.edit) view.follow(p.frame); }
       else if (ev === 'fitAll') view.fitAll();
     },
   });
@@ -177,7 +177,9 @@ async function main() {
   reels.setLevels(Array.from({ length: Math.min(2, filePeaks.channels) }, () => lcdInk),
     (frame) => peakDbAt(filePeaks, frame / total, gain));
   function feedReels() {
-    reels.poll({ heard: state.cursor, playing: clock.playing, length: total, sampleRate: sr * (clock.rate || 1) });
+    // The take's own rate: polled every frame, the reels follow the clock
+    // at any practice speed without running on ahead of it.
+    reels.poll({ heard: state.cursor, playing: clock.playing, length: total, sampleRate: sr });
   }
   function previewLanded() {
     if (previewReady) return;
@@ -566,7 +568,7 @@ async function main() {
     $('play').textContent = playing ? '❚❚' : '▶';
     $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
     $('play').classList.toggle('playing', playing);
-    // The editor hides the transport, so its own ▶ is the pause too.
+    // The editor's own ▶ is a pause too, beside the point being edited.
     $('be-play').textContent = playing ? '❚❚' : '▶';
     $('be-play').setAttribute('aria-label', playing ? 'Pause' : 'Play from here');
     $('loop').setAttribute('aria-pressed', String(state.loop));
@@ -583,13 +585,14 @@ async function main() {
   $('to-start').addEventListener('click', () => {
     const at = state.region ? state.region.start : 0;
     seekTo(at);
-    view.follow(at);
+    if (!state.edit) view.follow(at); // the view stays on a point being edited
   });
   // The scrubber is a slider for the keyboard too: ← → a second, and Space
   // still plays (the page's Space leaves focused controls alone).
   $('overview-canvas').addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) togglePlay(); return; }
+    // Through ▶'s own click, so help mode can answer it with ▶'s tip.
+    if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) $('play').click(); return; }
     if (state.edit || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
     e.preventDefault();
     e.stopPropagation();
@@ -597,6 +600,8 @@ async function main() {
     seekTo(at);
     view.follow(at);
   });
+  // While a boundary is being edited, the arrows step the point (the page's
+  // handler); a tap still moves the playhead but leaves the view on the point.
   $('notes-play').addEventListener('click', togglePlay);
   $('loop').addEventListener('click', () => setLoop(!state.loop));
 
@@ -1443,16 +1448,25 @@ async function main() {
     setText($('np-mini'), lcd.big);
     setText($('np-time'), lcd.small);
     setText($('np-unit'), lcd.unit);
-    $('np-status').dataset.state = lcd.status;
-    setText($('np-marquee'), takeMarquee({ name: take.label || stampOf(file), bpm: state.grid.bpm, region: state.region, sampleRate: sr }));
+    setAttr($('np-status'), 'data-state', lcd.status);
+    // The marquee's words change with the name, tempo and selection only.
+    const mk = `${take.label}|${state.grid.bpm}|${state.region ? `${state.region.start}-${state.region.end}` : ''}`;
+    if (mk !== marqueeKey) {
+      marqueeKey = mk;
+      setText($('np-marquee'), takeMarquee({ name: take.label || stampOf(file), bpm: state.grid.bpm, region: state.region, sampleRate: sr }));
+    }
+    // The slider, for a screen reader: to the tenth of a second, not every frame.
     const ov = $('overview-canvas');
-    ov.setAttribute('aria-valuemax', String(total));
-    ov.setAttribute('aria-valuenow', String(Math.round(state.cursor)));
-    ov.setAttribute('aria-valuetext', `${bar ? `bar ${bar}, ` : ''}${fmtTime(state.cursor, sr)}`);
+    setAttr(ov, 'aria-valuemax', String(total));
+    setAttr(ov, 'aria-valuenow', String(Math.round(state.cursor / (sr / 10)) * (sr / 10)));
+    setAttr(ov, 'aria-valuetext', `${bar ? `bar ${bar}, ` : ''}${fmtTime(Math.round(state.cursor / (sr / 10)) * (sr / 10), sr)}`);
+    setAttr($('to-start'), 'aria-label', state.region ? 'Back to In' : 'Back to the start');
     $('notes-bar').textContent = bar || fmtTime(state.cursor, sr);
     feedReels();
   }
+  let marqueeKey = null;
   function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
+  function setAttr(el, k, v) { if (el.getAttribute(k) !== v) el.setAttribute(k, v); }
 
   renderHeader();
   renderSelection();

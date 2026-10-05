@@ -2599,6 +2599,11 @@ body.tape-page:has(#out-strip:not([hidden])) { --np-h: 160px; }
 .np-here { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; color: var(--ink-dim); font: 600 13px var(--font); }
 /* The take page's notes, opened full screen on a phone, have their own Play. */
 body.notes-open .np { display: none; }
+/* The take page is a column at least the window's height, so the bar sits
+   at its foot even when the take is short; main still shrinks where the
+   bench's notes pane makes the page exactly the window's height. */
+body.wave-page { min-height: 100svh; display: flex; flex-direction: column; }
+body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; }
 .np-out .tape-out { min-height: 40px; }
 .np-mini { display: none; }
 /* From 700 px the bar has OUT; the header's pill is the phone's. */
@@ -3040,6 +3045,8 @@ input, select, textarea { color-scheme: inherit; }
 @media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) { :is(body.tape-page, body.wave-page) { --dock-b: env(safe-area-inset-bottom); } }
 @media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
   :is(body.tape-page, body.wave-page) { --np-h: 106px; padding-bottom: calc(var(--dock-b, 0px) + var(--np-h)); }
+  /* A take's notes, full screen, hide the bar: no room kept for it. */
+  body.wave-page.notes-open { padding-bottom: 0; }
   body.tape-page:has(#out-strip:not([hidden])) { --np-h: 144px; }
   /* Under the app bar (z 20), whose menus open over the dock. */
   .np {
@@ -3089,7 +3096,7 @@ input, select, textarea { color-scheme: inherit; }
   .np-keys { order: 2; flex: none; }
   .np .np-keys .icon-btn { flex: none; min-width: 48px; width: auto; padding: 0 9px; }
   .np .np-scrub { order: 3; flex: 1 1 0; min-width: 80px; height: 48px; }
-  .np-own { order: 4; flex: none; }
+  .np .np-own { order: 4; flex: none; }
   .np .np-catch { width: auto; min-width: 116px; }
 }
 /* An upright phone's bar is narrow: |◂ gives way to the scrubber, Catch takes
