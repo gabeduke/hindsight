@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.4 — 2026-10-05
+
+- Tape page: rename a tape from the ⋯ menu (0e4bbec)
+- Record v2026.10.05.3 in the changelog [skip ci] (2de3dde)
+
+
 ## v2026.10.05.3 — 2026-10-05
 
 - Seam view: light neither half by a playhead it doesn't draw (0a70ca7)
