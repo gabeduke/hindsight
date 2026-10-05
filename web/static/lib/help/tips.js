@@ -92,7 +92,7 @@ export const TIPS = [
   { control: 'Delete a tape', ids: ['tape-delete'], tip: 'Delete another tape. Audio it shares with others stays' },
   { control: 'BPM, Bars (empty tape)', ids: ['tape-bpm'], tip: 'Start from a tempo instead of a first loop' },
   { control: '↶ ↷ (tape)', ids: ['tape-undo', 'tape-redo'], tip: 'Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo' },
-  { control: 'Tape overview', ids: ['tape-overview'], tip: 'The whole tape, six minutes a track; the loop in amber, and a dashed box round what the lanes show once you zoom' },
+  { control: 'Tape overview', ids: ['tape-overview'], tip: 'The whole tape, six minutes a track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop' },
   { control: 'A lane', ids: ['tape-lane'], tip: 'Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records' },
   { control: 'A track header', ids: ['track'], tip: 'Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓' },
   { control: 'M, S', ids: ['track-mute', 'track-solo'], tip: 'Mute this track, or solo it: only soloed tracks play' },

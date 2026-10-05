@@ -559,7 +559,9 @@ From the top:
   REWIND or STOP. The meter bridge has a backlit VU for each track, its number in a
   ring of the track's colour.
 - **The overview** is the whole tape, six minutes: what's on each track, and
-  the loop in amber.
+  the loop in amber. It's a scrubber too. The box is what the lanes show: drag
+  it to move along the tape. Tap anywhere to move the playhead there (to the
+  nearest bar), and double-tap to go back to the loop.
 - **Four lanes**, one per track:
   - Each header has the track's number (in a ring of its colour where there's
     room, otherwise printed on the tape), its name on masking tape (tap it
@@ -1202,7 +1204,7 @@ has no tip.
 | Delete a tape | Delete another tape. Audio it shares with others stays |
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
-| Tape overview | The whole tape, six minutes a track; the loop in amber, and a dashed box round what the lanes show once you zoom |
+| Tape overview | The whole tape, six minutes a track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop |
 | A lane | Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
 | M, S | Mute this track, or solo it: only soloed tracks play |
