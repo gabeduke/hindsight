@@ -5,6 +5,25 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.7 — 2026-10-05
+
+- Clip editor: a move saved as the editor closes still goes (9eaa484)
+- Guide: Hit → Track's reach, declining without a hit, the wheel and keys (fc2310a)
+- Clip editor: Hit → Track finds a hit at a clip's start, at any zoom (43c1333)
+- Guide: fix Hit → Track wording (064878c)
+- Guide: lining clips up exactly (22c0b85)
+- Clip editor: find a hit near a pool file's start, and keep every move (f1fe223)
+- Align a clip on the tape: the editor bar, Hit → Grid, Hit → Track (640d808)
+- The tape zooms to the sample, and clips draw their detail (49e9e03)
+- Share the editor bar's gesture core (1fd73ef)
+- Clip alignment maths: where a clip sounds, and the two moves (cd163c9)
+- Tiles and the audio round a point can come from another endpoint (f426a03)
+- The tape serves a pool file's range peaks and a slice of it (330dce9)
+- Plan: align clips on the tape (3ba6b78)
+- Spec: align clips on the tape to the sample (79c4301)
+- Record v2026.10.05.6 in the changelog [skip ci] (421e0c8)
+
+
 ## v2026.10.05.6 — 2026-10-05
 
 - Record v2026.10.05.5 in the changelog [skip ci] (17c2484)
