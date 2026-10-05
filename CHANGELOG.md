@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.6 — 2026-10-05
+
+- Record v2026.10.05.5 in the changelog [skip ci] (17c2484)
+- Record v2026.10.05.4 in the changelog [skip ci] (bd3367a)
+- The midi out tests keep their own time: no flakes under a loaded machine (c46ab81)
+
+
 ## v2026.10.05.5 — 2026-10-05
 
 - Tape page: draw the tape name and tempo as pills that look like menus (b4dce00)
