@@ -1094,6 +1094,56 @@ git commit -m "PR 1: cache v28, the bar's modules in the shell, its tests in CI"
   opening Record shows `#jam-only-note` and hides `#sources`.
 - **Tips.** `drawer-rec` and `drawer-edit`.
 
+### PR 2 in detail (written 2026-10-05, when it started)
+
+**Branch:** `claude/bar-2-drawers`, from `main` after PR 1.
+
+**Decisions made while detailing it:**
+- **The dock.** The drawers and `#np` share one wrapper,
+  `<div class="np-dock">`, after `</main>`.
+  - From 700 px (except a short phone on its side), `body.tape-page` is
+    exactly `100svh` and `main` scrolls inside it. A drawer opening grows the
+    dock and shrinks `main`; the lanes flex down to 56 px each, then `main`
+    scrolls.
+  - On a phone, `#np` stays fixed above the tabs, out of the dock's flow.
+    Both drawers sit in the page's flow, always shown, without their strips:
+    the rows as they are today.
+- **Open state.** A drawer's open state is a class (`open`), not `hidden`,
+  so CSS can show every drawer on a phone.
+- **The clip editor** moves into the dock. `renderAlign()` already toggles
+  `editing` on its parent, and CSS hides the drawers under
+  `.np-dock.editing`.
+- **The bench header** reuses the sideways phone's one-row header ("nav page
+  help", no brand). At 1024 px the page row keeps ↷ and Help, so nothing
+  moves into ⋯.
+
+**Tasks:**
+1. Markup:
+   - `tape.html`: the dock; `#drawer-rec` holding the jam-only note,
+     sources, catch, passes and away; `#drawer-edit` holding the clipboard,
+     edit and snap. Each drawer gets a strip and a ✕.
+   - the clip editor moves into the dock;
+   - `#np-drawer-rec` and `#np-drawer-edit` go in `.np-own`, before Catch;
+   - `.tape-toolbar` goes.
+2. `page.js`:
+   - `state.drawer` (`tape.drawer` pref) and `renderDrawers()`;
+   - the keys and the ✕s; Escape closes an open drawer;
+   - in phone output mode, hide the whole sources, catch and passes rows.
+3. CSS:
+   - re-scope `.tape-toolbar` rules to `.np-dock`;
+   - remove the ≥1000 px grid, the sticky panel and its shadows;
+   - the dock and drawers (strip, three-column body);
+   - the full-height column, with the lanes flexing;
+   - the bench header;
+   - the phone overrides.
+4. Tips (`drawer-rec`, `drawer-edit`), guide §8.2, and `smoke-tape.mjs`:
+   - at 1024 × 768 with the drawers closed, the lanes are full width and
+     ≥ 100 px;
+   - at 1024 × 600 with Edit open, every lane is ≥ 48 px and `#np` and the
+     drawer are on screen;
+   - phone mode opens Record before checking the note.
+5. Ship-ready: `CACHE` v29, the tests, the review, merge, deploy.
+
 **PR 3: a take** (branch `claude/bar-3-take`; `wave.html`, `lib/wave/page.js`,
 `lib/wave/overview.js`, `lib/bar/lcd.js`, `styles.css`, guide §4, tips)
 
