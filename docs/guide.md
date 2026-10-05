@@ -554,14 +554,27 @@ From the top:
 - **↶ ↷** undo and redo every change to the tape except its name. 100 steps
   are kept, with the tape, so they survive a restart and every device shares
   them.
-- **The deck.** The reels turn with the playhead, and run back on a
-  rewind or the loop's wrap; the window between them says PLAY, REC, WIND,
-  REWIND or STOP. The meter bridge has a backlit VU for each track, its number in a
-  ring of the track's colour.
-- **The overview** is the whole tape, six minutes: what's on each track, and
-  the loop in amber. It's a scrubber too. The box is what the lanes show: drag
-  it to move along the tape. Tap anywhere to move the playhead there (to the
-  nearest bar), and double-tap to go back to the loop.
+- **The bar,** along the foot of the page, is the tape's player. From the
+  left:
+  - **The reels** either side of an amber window. They turn with the
+    playhead, and wind or rewind to a jump such as the loop's wrap. The
+    window says where the tape is, large, as bar.beat, with the time beside
+    it. Its lamp is ▶ playing, ■ stopped, or a red ● for a punch: steady
+    while armed, blinking while recording. A level bar per track, in the
+    track's colour, moves while it plays. Under them a line scrolls past
+    naming the tape, its tempo, the loop, where it's playing and what's
+    armed. In its place, the window says when it's counting in, mixing down
+    or has no output.
+  - **The keys:** **|◂** goes back to the loop's start (or, with Loop off,
+    to the top of the tape), then **▶ / ■**, **⟲ Loop**, **● Rec** and the
+    click **♩**.
+  - **Catch**, orange, at the right end.
+  - **Under them, the overview:** the whole tape, six minutes, with what's
+    on each track and the loop in amber. It's a scrubber too. The box is what
+    the lanes show: drag it to move along the tape. Tap anywhere to move the
+    playhead there (to the nearest bar), and double-tap to go back to the
+    loop. With it focused, ← and → move a bar.
+  - **OUT**, at the end of the overview, chooses where the tape plays (8.10).
 - **Four lanes**, one per track:
   - Each header has the track's number (in a ring of its colour where there's
     room, otherwise printed on the tape), its name on masking tape (tap it
@@ -576,8 +589,7 @@ From the top:
   - Tap a clip to open its sheet. Hold a clip, then drag, to slide it
     (7a). Tap an empty part of a lane to move the playhead there.
 - **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
-  tape plays on to the end of what's recorded. Beside them is where the tape
-  is, as bar.beat and time.
+  tape plays on to the end of what's recorded.
 - **Record from** chooses the input ● Rec, a catch and a free loop take
   from: main, ch1, ch2 or aux. ● Rec names it too, under its label, so you
   can see what it will record without looking down. While a track is armed
@@ -593,15 +605,18 @@ From the top:
   amber and reads *it's silent: nothing came in* (digital silence) or *it's
   very quiet (peak −62 dB)*, with Undo. The clip's sheet says it too, and so
   does dropping or copying a silent stretch from the ribbon.
-- **Catch the last pass** and **1 bar / 2 / 4** catch onto the selected track.
+- **Catch** (in the bar) catches the last pass, and **Catch the last: 1 bar /
+  2 / 4** catch the last bars, onto the selected track.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
-- **On a phone,** upright or on its side, ▶, ⟲ Loop, ● Rec, the click and
-  **Catch the last pass** stay docked at the bottom, so a catch never waits
-  for a scroll.
+- **On a phone,** upright or on its side, the bar stays docked at the
+  bottom (above the tabs): ▶, ⟲ Loop, ● Rec, the click and **Catch** (on a
+  narrow phone |◂ gives way), and under them a small window with where the
+  tape is, beside the overview. A catch never waits for a scroll. OUT is in
+  the top bar.
 - **On a tablet or a computer** the page uses the space. A tablet held
   upright keeps one column, with taller lanes. A tablet on its side, or a
-  window 1000 px wide or more, puts the controls in a panel beside the
-  tracks, which stays in view while the lanes fill the height.
+  window 1000 px wide or more, puts the rest of the controls in a panel
+  beside the tracks, which stays in view while the lanes fill the height.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
   ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, and
   **⌘Z / Ctrl-Z** undoes (with **⇧** to redo). Holding a key doesn't repeat
@@ -1104,7 +1119,7 @@ One phone at a time. If the Wi-Fi drops for 2 s, the tape stops where it was;
 the page reconnects and plays on, if it's back within 30 s and the tape is
 still stopped. If the tape has gone back to the jam room meanwhile, the phone
 lets it go. If the sound stops when the screen locks, tap **Tap to play here**
-on the strip under the deck.
+on the strip across the top of the bar.
 
 ## 9. Tips in the app
 
@@ -1204,12 +1219,13 @@ has no tip.
 | Delete a tape | Delete another tape. Audio it shares with others stays |
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
-| Tape overview | The whole tape, six minutes a track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop |
+| Tape overview | The whole tape, in the bar: what’s on each track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop. With it focused, ← → move a bar |
 | A lane | Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape. Key: Space |
+| To the loop’s start (tape) | Back to the loop’s start; with Loop off, to the top of the tape |
 | Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars. Drag sideways to pan, pinch to zoom |
 | Fit | Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
@@ -1240,7 +1256,7 @@ has no tip.
 | Hit → Grid | Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off |
 | Track picker | Choose the track to line this clip up against |
 | Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
-| Catch | Put what you just played onto the selected track: the last bars, or a pass |
+| Catch | Catch the last time round the loop onto the selected track. The last 1, 2 or 4 bars are beside the tracks |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
 | Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |
 | Lift | Cut the loop’s bars into the clipboard, leaving silence |
