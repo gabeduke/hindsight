@@ -46,11 +46,11 @@ editing* at a time.
   - the waveform centres on it and **follows it**: every change keeps it in the
     middle of the view, so it never drifts off screen;
   - it is drawn as a bright full-height line with a small label (*In*, *Out*,
-    *1*), and its readout shows the frame time to the sample (*0:02.500 31*
-    style: seconds to the ms, then the extra samples) plus its offset from the
-    nearest grid line when there's a BPM (*+3.1 ms from 3.1*);
-  - the **editor bar** replaces the transport toolbar's second row (see the
-    layout section), holding the two encoders and the snaps.
+    *1*), and its readout shows its time to the sample — *0:02.500 +31* is
+    2.500 s and 31 samples — and, with a BPM, its offset from the nearest
+    beat line as bar.beat (*+3.1 ms from 3.1*);
+  - the **editor bar** takes the place of the toolbar rows below the
+    waveform (see Layout), holding the two encoders, the snaps and the steps.
 
 ### 2. The two encoders
 
