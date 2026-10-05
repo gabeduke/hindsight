@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.9 — 2026-10-05
+
+- Tape: a track's name gets its own strip on a narrow head, so it isn't cut short (a806781)
+- Record v2026.10.05.8 in the changelog [skip ci] (4e8b744)
+
+
 ## v2026.10.05.8 — 2026-10-05
 
 - Record v2026.10.05.7 in the changelog [skip ci] (5a82876)
