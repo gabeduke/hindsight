@@ -135,3 +135,14 @@ export function sheetState(prev, ev) {
     default: return { open: prev.open, history: null };
   }
 }
+
+/**
+ * spineTitle is what a spine prints: the take's name, or -- for one never
+ * named -- the time it was caught, which is what tells today's takes apart
+ * (the rack already groups them by day). The full name stays in its label.
+ */
+export function spineTitle(take) {
+  if (take.label) return take.label;
+  const m = /_(\d{2})(\d{2})(\d{2})\.wav$/.exec(take.name || '');
+  return m ? `${m[1]}:${m[2]}:${m[3]}` : (take.name || '').replace(/^jam_|\.wav$/g, '');
+}

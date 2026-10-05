@@ -101,6 +101,10 @@ let sheet = { open: null };
 // sheet once its take is listed (syncPick).
 let reopen = history.state?.cassette || null;
 if (reopen) history.replaceState(null, '');
+// /takes.html?take=NAME (the Capture page's "Name it", or a held spine on
+// its shelf) picks that take, and opens its sheet on a phone.
+const asked = new URLSearchParams(location.search).get('take');
+if (asked) { reopen = asked; history.replaceState(null, '', location.pathname); }
 const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about')].filter(Boolean);
 
 function setSheet(on, from) {
@@ -173,6 +177,7 @@ function syncPick() {
     reopen = null;
     if (!wide.matches) { pick(name); openSheet(name); return; }
     picked = name;
+    requestAnimationFrame(() => takes.rows.get(name)?.el.scrollIntoView({ block: 'nearest' }));
   }
   // On a phone nothing is picked until a spine is pressed; a sheet whose
   // take has gone (deleted, filtered out) closes.

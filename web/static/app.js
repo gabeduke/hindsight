@@ -63,7 +63,7 @@ const CAPTURE_ERR_HOLD_MS = 3500;
 // as many as the screen holds; the takes page (takes.html) has the rest. Its
 // ◂ ▸ still step through every take, in the list's own order.
 const shelfWide = matchMedia('(min-width: 1100px)');
-const shelfBench = matchMedia('(min-width: 900px) and (orientation: landscape)');
+const shelfBench = matchMedia('(min-width: 900px) and (orientation: landscape) and (min-height: 561px)');
 const shelfCount = () => (shelfWide.matches ? 6 : shelfBench.matches ? 4 : 3);
 const takes = new TakesList(el.takes, el.takesEmpty, {
   onToast: toast,
@@ -72,6 +72,8 @@ const takes = new TakesList(el.takes, el.takesEmpty, {
   stepOrder: 'all',
   spines: true,
   spineAction: 'play',
+  // A hold opens the take on the takes page, to name it, star it, open it.
+  onSpineHold: (name) => location.assign(`/takes.html?take=${encodeURIComponent(name)}`),
 });
 for (const m of [shelfWide, shelfBench]) m.addEventListener('change', () => takes.reshape());
 
@@ -285,6 +287,7 @@ async function capture() {
   const btn = el.captureBtn;
   btn.disabled = true;
   el.capWord.textContent = 'Saving…';
+  let saved = false;
 
   try {
     const res = await fetch(`/api/trigger?seconds=${selSeconds}`, { method: 'POST' });
@@ -297,10 +300,10 @@ async function capture() {
     }
 
     takes.markFresh(body.name);
-    toast(`Saved ${body.name}`, 'ok');
-    // The key glows a moment: it caught something.
-    btn.classList.add('saved');
-    setTimeout(() => btn.classList.remove('saved'), 1200);
+    toast(`Saved ${body.name}`, 'ok', {
+      action: { label: 'Name it', run: () => location.assign(`/takes.html?take=${encodeURIComponent(body.name)}`) },
+    });
+    saved = true;
     await pollTakes(true);
     await pollStatus();
   } catch (e) {
@@ -308,6 +311,12 @@ async function capture() {
   } finally {
     el.capWord.textContent = 'Capture';
     btn.disabled = false;
+    // The key glows a moment once it's back: it caught something. (While
+    // it's disabled, refreshing the list, its glow wouldn't show.)
+    if (saved) {
+      btn.classList.add('saved');
+      setTimeout(() => btn.classList.remove('saved'), 1200);
+    }
   }
 }
 

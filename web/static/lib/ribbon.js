@@ -423,7 +423,7 @@ export class Ribbon {
     }
 
     this.ruler.textContent = '';
-    for (const t of rulerTicks(T, leftPct)) {
+    for (const t of rulerTicks(T, leftPct, { width: this.wrap.clientWidth || 340, minPx: 44 })) {
       const tick = add(this.ruler, 'span', 'rb-tick' + (t.x <= 1 ? ' edge' : t.x >= 99.5 ? ' now' : ''));
       tick.textContent = t.label;
       tick.style.left = `${t.x.toFixed(2)}%`;
@@ -495,7 +495,7 @@ export class Ribbon {
       lit = [px(this.selected === 0 ? T : this.selected), W];
     }
     this.colors ||= ribbonColors((name, fb) => token(name, fb, this.wrap));
-    drawRibbon(ctx, { W, H, levels: this.levels, lit, colors: this.colors });
+    drawRibbon(ctx, { W, H, levels: this.levels, lit, recordedFrom: px(d.buffered_seconds), colors: this.colors });
   }
 
   readoutText(d, span) {

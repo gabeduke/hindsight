@@ -158,6 +158,7 @@
   --vu-face-mid:  #f6d98f;
   --vu-face-lo:   #e0ad50;
   --vu-glow:      rgba(255,190,90,.35);
+  --vu-red:       #8a140d;
   /* The tape machine: a brushed faceplate, brown tape on silver reels. */
   --machine:      #dedcd5;
   --machine-well: #cfcec7;
@@ -478,7 +479,8 @@ main {
   background: var(--rec); box-shadow: 0 0 12px color-mix(in srgb, var(--rec) 90%, transparent), 0 0 2px var(--rec);
 }
 .rb-now-label {
-  position: absolute; right: 10px; top: 8px; display: inline-flex; align-items: center; gap: 5px;
+  position: absolute; right: 10px; top: 6px; display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 7px; border-radius: 5px; background: var(--oxide-ruler);
   font: 600 10.5px var(--mono); letter-spacing: .12em;
   color: color-mix(in srgb, var(--rec) 70%, var(--well-ink));
   text-shadow: 0 0 7px color-mix(in srgb, var(--rec) 85%, transparent);
@@ -506,8 +508,11 @@ main {
 .rb-tick.now { transform: translateX(calc(-100% - 8px)); }
 .rb-tick.now::before { display: none; }
 
+/* The readout sits on a plate (the trace can run behind it) and lets a tap
+   through to the flags under it. */
 .rb-readout {
   position: absolute; left: 9px; bottom: calc(var(--rb-ruler) + 6px); margin: 0;
+  padding: 1px 6px; border-radius: 5px; background: var(--oxide-ruler); pointer-events: none;
   font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
   color: var(--oxide-label); white-space: nowrap;
 }
@@ -612,8 +617,10 @@ main {
   text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.stat .v.warn { color: var(--warn); }
-.stat .v.bad  { color: color-mix(in srgb, var(--rec) 70%, var(--well-ink)); }
+/* A readout that warns lights its whole window, so it can't pass for a
+   normal reading in the same amber. */
+.stat .v.warn { background: color-mix(in srgb, var(--warn) 88%, var(--lcd)); color: var(--lcd); text-shadow: none; }
+.stat .v.bad  { background: color-mix(in srgb, var(--rec) 85%, var(--lcd)); color: var(--on-danger); text-shadow: none; }
 
 /* ---------- capture ---------- */
 
@@ -1220,12 +1227,14 @@ dialog.sheet::backdrop { background: var(--scrim); }
   .col-monitor > .panel:last-child { grid-column: 2; display: flex; flex-direction: column; }
   .col-library { grid-column: 3; }
   .viz-wrap { height: clamp(150px, 26svh, 270px); }
-  .main-page .capture-btn { flex: 1; min-height: 100px; font-size: 28px; }
+  /* It fills its column, but no further: an open "Input channels" makes the
+     row taller, and the key must not follow it off the screen. */
+  .main-page .capture-btn { flex: 1; min-height: 100px; max-height: 150px; font-size: 28px; }
   .main-page .cap-sub { font-size: 12.5px; }
 }
 @media (min-width: 1100px) and (orientation: landscape) and (min-height: 760px) {
   .viz-wrap { height: clamp(190px, 30svh, 296px); --rb-ruler: 26px; }
-  .main-page .capture-btn { min-height: 160px; font-size: 40px; letter-spacing: .18em; }
+  .main-page .capture-btn { min-height: 160px; max-height: 320px; font-size: 40px; letter-spacing: .18em; }
   .main-page .cap-sub { font-size: 14px; }
 }
 
@@ -1762,7 +1771,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .vu-red { fill: none; stroke: var(--rec); stroke-width: 1.3; }
 .vu-red-arc { stroke-width: 3.5; }
 .vu-num { font: 600 10px var(--label-font); fill: var(--vu-ink); text-anchor: middle; dominant-baseline: middle; }
-.vu-num.red { fill: var(--rec); }
+.vu-num.red { fill: var(--vu-red); }
 .vu-word { font: 700 13px var(--label-font); letter-spacing: 2px; fill: var(--vu-ink); text-anchor: middle; }
 .vu-needle { transform-box: view-box; transform-origin: 80px 112px; transition: transform 140ms cubic-bezier(.25, .8, .35, 1); }
 .vu-needle line { stroke: var(--vu-needle); stroke-width: 1.6; stroke-linecap: round; }
@@ -2630,3 +2639,14 @@ input, select, textarea { color-scheme: inherit; }
      to spare above the 390px fold. */
   .stat { gap: 1px; }
 }
+
+/* A phone's readouts: "99.5 GB" must fit a quarter of 390 px. */
+@media (max-width: 479.98px) {
+  .stats .stat .v { font-size: 15px; padding-left: 4px; padding-right: 4px; }
+}
+@media (max-width: 379.98px) {
+  .stats .stat .v { font-size: 14px; }
+}
+/* A take still encoding can't play yet: its light is out. */
+.take.spine.encoding { cursor: progress; }
+.take.spine.encoding .spine-led { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--paper-ink) 30%, transparent); }

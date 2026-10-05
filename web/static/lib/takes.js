@@ -14,7 +14,7 @@ import { undoSkipped } from '/lib/toast.js';
 import { withClient } from '/lib/client.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeOf } from '/lib/cassette-geom.js';
-import { parseBpm } from '/lib/shelf.js';
+import { parseBpm, spineTitle } from '/lib/shelf.js';
 
 // How long a press on a row is held to start selecting several takes.
 export const SELECT_HOLD_MS = 500;
@@ -44,12 +44,31 @@ export class TakesList {
    * rack) for picking, its controls on the picked take's cassette; with
    * spineAction 'play' (the main page's shelf), a press plays or pauses it.
    */
-  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick' }) {
+  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold }) {
     this.spines = spines;
     this.spineAction = spineAction;
     if (spines && spineAction === 'play') {
-      const act = (row) => { const r = row && this.rows.get(row.dataset.name); if (r) this.togglePlay(r); };
-      container.addEventListener('click', (e) => act(e.target.closest('.take.spine')));
+      const act = (row) => {
+        const r = row && this.rows.get(row.dataset.name);
+        if (!r) return;
+        // Pressed before its preview is ready: say so, rather than nothing.
+        if (!r.data.has_preview) { this.onToast?.('Still encoding — a moment', 'warn'); return; }
+        this.togglePlay(r);
+      };
+      // A hold opens the take where it can be named and edited
+      // (onSpineHold); the release that ends it doesn't also play.
+      let hold = 0, at = null, held = false;
+      container.addEventListener('pointerdown', (e) => {
+        const row = e.target.closest('.take.spine');
+        if (!row || !onSpineHold || e.button > 0) return;
+        at = { x: e.clientX, y: e.clientY };
+        held = false;
+        hold = setTimeout(() => { held = true; onSpineHold(row.dataset.name); }, SELECT_HOLD_MS);
+      });
+      container.addEventListener('pointermove', (e) => { if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > 8) clearTimeout(hold); });
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) container.addEventListener(ev, () => { clearTimeout(hold); at = null; });
+      container.addEventListener('contextmenu', (e) => { if (e.target.closest('.take.spine') && onSpineHold) e.preventDefault(); });
+      container.addEventListener('click', (e) => { if (held) { held = false; return; } act(e.target.closest('.take.spine')); });
       container.addEventListener('keydown', (e) => {
         if ((e.key !== 'Enter' && e.key !== ' ') || !e.target.classList?.contains('spine')) return;
         e.preventDefault();
@@ -473,7 +492,9 @@ export class TakesList {
     // overwrite what they are typing.
     if (!row.editing) {
       const stamp = t.name.replace(/^jam_|\.wav$/g, '');
-      row.nameEl.textContent = t.label || stamp;
+      // A spine prints the time a never-named take was caught: the full
+      // stamp is in its label (below), and is the same for every take today.
+      row.nameEl.textContent = this.spines ? spineTitle(t) : t.label || stamp;
       row.nameEl.classList.toggle('unlabelled', !t.label);
     }
     // Skip while the user is mid-edit so a poll cannot overwrite what they are
@@ -489,7 +510,11 @@ export class TakesList {
     row.metaEl.textContent = this.spines ? fmtTime(t.duration_seconds) : `${len} · ${fmtSize(t.size_mb)}`;
     if (this.spines) {
       const name = t.label || t.name.replace(/^jam_|\.wav$/g, '');
-      row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null].filter(Boolean).join(', '));
+      const encoding = !t.has_preview;
+      row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null, encoding ? 'still encoding' : null].filter(Boolean).join(', '));
+      row.el.classList.toggle('encoding', encoding);
+      if (encoding && this.spineAction === 'play') row.el.setAttribute('aria-disabled', 'true');
+      else row.el.removeAttribute('aria-disabled');
     }
     row.ws?.setSelection(t.trim, (t.duration_seconds || 0) * sr);
     row.dlEl.href = `/api/download?file=${encodeURIComponent(t.name)}&dl=1`;

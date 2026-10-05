@@ -226,10 +226,11 @@ test('the VU faces are backlit, and their scale reads on the dimmest part', () =
   }
 });
 
-test('stats read as amber LCD readouts, in every state', () => {
+test('stats read as amber LCD readouts', () => {
   const v = RULES.filter((r) => r.sel.includes('.stat .v'));
   assert.ok(v.some((r) => /background:\s*var\(--lcd\)/.test(r.body)), '.stat .v sits in an LCD window');
-  for (const [sel, scheme, t] of [['.stat .v', 'light', light], ['.stat .v.warn', 'light', light], ['.stat .v.bad', 'light', light], ['.stat .v.bad', 'dark', dark]]) {
+  // Warnings have windows of their own (the next test); a normal reading sits in the LCD.
+  for (const [sel, scheme, t] of [['.stat .v', 'light', light], ['.stat .v', 'dark', dark]]) {
     const r = RULES.filter((x) => x.sel.includes(sel)).map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
     assert.ok(r, `${sel} has a colour`);
     const c = contrast(resolve(r[1], t), t['--lcd']);
@@ -243,6 +244,43 @@ test("a short landscape screen hides the Capture key's second line", () => {
   const at = css.indexOf('@media (orientation: landscape) and (max-height: 560px)');
   assert.ok(at > 0);
   assert.match(block(at), /\.cap-sub\s*\{[^}]*display:\s*none/);
+});
+
+// A readout that warns must look different from one that doesn't: its own
+// window, not just a shade of the same amber.
+test('a warning readout has its own window, and reads in it', () => {
+  for (const sel of ['.stat .v.warn', '.stat .v.bad']) {
+    const rules = RULES.filter((x) => x.sel.includes(sel));
+    const bg = rules.map((x) => /background:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
+    const fg = rules.map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
+    assert.ok(bg && bg[1].trim() !== 'var(--lcd)', `${sel} sits in its own window`);
+    for (const [scheme, t] of [['light', light], ['dark', dark]]) {
+      const c = contrast(resolve(fg[1], t), resolve(bg[1], t));
+      assert.ok(c >= 4.5, `${scheme} ${sel} is ${c.toFixed(2)}:1 in its window`);
+    }
+  }
+});
+
+// Print on the tape gets a dark plate: the trace can run behind it at any
+// brightness. The readout lets a tap through to the flags under it.
+test('REC and the readout sit on plates, and the readout takes no taps', () => {
+  for (const sel of ['.rb-now-label', '.rb-readout']) {
+    const at = css.search(new RegExp('^' + sel.replace(/\./g, '\\.') + '\\s*\\{', 'm'));
+    const b = block(at);
+    assert.match(b, /background:\s*var\(--oxide-ruler\)/, `${sel} has a plate`);
+    const fg = /(?:^|[;{\s])color:\s*([^;]+);/.exec(b)[1];
+    for (const [scheme, t] of [['light', light], ['dark', dark]]) {
+      const c = contrast(resolve(fg, t), t['--oxide-ruler']);
+      assert.ok(c >= 4.5, `${scheme} ${sel} is ${c.toFixed(2)}:1 on its plate`);
+    }
+  }
+  assert.match(block(css.search(/^\.rb-readout\s*\{/m)), /pointer-events:\s*none/);
+});
+
+test("the VU scale's red numerals read on the backlit face", () => {
+  const c = contrast(light['--vu-red'], light['--vu-face-lo']);
+  assert.ok(c >= 4.5, `--vu-red on --vu-face-lo is ${c.toFixed(2)}:1`);
+  assert.ok(RULES.some((r) => r.sel.includes('.vu-num.red') && /fill:\s*var\(--vu-red\)/.test(r.body)));
 });
 
 test('inputs sit on the field, not the well', () => {

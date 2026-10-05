@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -153,4 +153,10 @@ test('newest is the n newest takes, newest first, undated ones last', () => {
   assert.deepEqual(newest(t, 3).map((x) => x.name), ['jam_b.wav', 'jam_d.wav', 'jam_a.wav']);
   assert.deepEqual(newest(t, 9).map((x) => x.name).at(-1), 'jam_c.wav');
   assert.deepEqual(newest([], 3), []);
+});
+
+test("spineTitle is a take's name, or the time it was caught when it has none", () => {
+  assert.equal(spineTitle({ name: 'jam_2026-10-05_201512.wav', label: 'Verse' }), 'Verse');
+  assert.equal(spineTitle({ name: 'jam_2026-10-05_201512.wav', label: '' }), '20:15:12');
+  assert.equal(spineTitle({ name: 'phone_odd.wav' }), 'phone_odd');
 });

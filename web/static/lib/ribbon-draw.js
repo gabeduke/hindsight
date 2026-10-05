@@ -31,10 +31,12 @@ const TICKS = [900, 600, 300, 120, 60, 30, 10];
 
 /**
  * rulerTicks labels the strip under the ribbon: the ring's oldest end, the
- * round ages it holds, and "now", dropping any mark closer than `minGap`
- * percent to the one before it.
+ * round ages it holds, and "now", dropping any mark too close to the one
+ * before it -- `opts` is a gap in percent, or {width, minPx} to keep labels
+ * `minPx` apart on a strip `width` px wide.
  */
-export function rulerTicks(T, at, minGap = 6) {
+export function rulerTicks(T, at, opts = 6) {
+  const minGap = typeof opts === 'number' ? opts : ((opts.minPx ?? 44) / opts.width) * 100;
   const ages = [T, ...TICKS.filter((a) => a < T)];
   const out = [];
   for (const age of ages) {
@@ -64,7 +66,7 @@ export function ribbonColors(token) {
  * whole trace unlit, then the part from `lit[0]` to `lit[1]` (px) hot and
  * glowing -- the chosen length, or a span held on the ribbon.
  */
-export function drawRibbon(ctx, { W, H, levels, lit = null, colors }) {
+export function drawRibbon(ctx, { W, H, levels, lit = null, recordedFrom = 0, colors }) {
   paintOxide(ctx, W, H, colors.oxide);
   ctx.save();
   ctx.fillStyle = colors.centre;
@@ -73,14 +75,21 @@ export function drawRibbon(ctx, { W, H, levels, lit = null, colors }) {
   const n = levels.length;
   if (!n) return;
   const opts = { cy: H / 2, half: H / 2 - 6, x0: 0, dx: W / n };
+  // Time the ring never recorded gets no trace: a flat line there would read
+  // as silence (the hatch over it says what it is).
+  const from = Math.max(0, recordedFrom);
   ctx.save();
+  ctx.beginPath();
+  ctx.rect(from, 0, W - from, H);
+  ctx.clip();
   ctx.globalAlpha = 0.6;
   drawTrace(ctx, levels, levels, { ...opts, line: colors.trace, glow: [{ color: colors.haze, blur: 3 }] });
   ctx.restore();
-  if (lit && lit[1] > lit[0]) {
+  const l0 = lit ? Math.max(lit[0], from) : 0;
+  if (lit && lit[1] > l0) {
     ctx.save();
     ctx.beginPath();
-    ctx.rect(lit[0], 0, lit[1] - lit[0], H);
+    ctx.rect(l0, 0, lit[1] - l0, H);
     ctx.clip();
     drawTrace(ctx, levels, levels, {
       ...opts, line: colors.hot, fillAlpha: 0.14, width: 1.2,
