@@ -187,7 +187,7 @@ test('the cassette tokens exist, and print reads on paper and on its stripe', ()
     assert.ok(c >= 4.5, `${ink} on --paper-lo is ${c.toFixed(2)}:1`);
   }
   assert.ok(contrast(light['--paper-bars-on'], light['--paper-lo']) >= 3, 'picked bars must show on paper');
-  for (let n = 1; n <= 5; n++) {
+  for (let n = 1; n <= 8; n++) {
     for (const t of [`--stripe-${n}`, `--stripe-${n}-ink`, `--stripe-${n}-under`]) assert.ok(light[t], `light lacks ${t}`);
     const c = contrast(light[`--stripe-${n}-ink`], light[`--stripe-${n}`]);
     assert.ok(c >= 4.5, `--stripe-${n}-ink on --stripe-${n} is ${c.toFixed(2)}:1`);

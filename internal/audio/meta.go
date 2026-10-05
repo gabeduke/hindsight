@@ -186,6 +186,12 @@ type Meta struct {
 	Starred bool   `json:"starred,omitempty"`
 	Trim    *Trim  `json:"trim,omitempty"`
 
+	// Tag is the id of one of the server-wide tags (tags.json): a named color
+	// the owner sorts takes by. Empty means untagged. An id the list no
+	// longer holds reads as untagged. Optional and additive, so it needs no
+	// MetaVersion bump.
+	Tag string `json:"tag,omitempty"`
+
 	// DownbeatFrame is where bar 1 beat 1 falls, for the waveform page's
 	// grid. Optional; absent means "unknown", and the page then starts the
 	// grid at frame 0.

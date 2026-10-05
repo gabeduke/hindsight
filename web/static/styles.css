@@ -112,6 +112,10 @@
   --stripe-3: #d9a114; --stripe-3-ink: #1c2430; --stripe-3-under: #2aa198;
   --stripe-4: #2e93db; --stripe-4-ink: #1c2430; --stripe-4-under: #d9a114;
   --stripe-5: #e85aa0; --stripe-5-ink: #1c2430; --stripe-5-under: #2e93db;
+  /* 6-8 are only worn by tags (a name hashes to 1-5): violet, green, slate. */
+  --stripe-6: #b48cf0; --stripe-6-ink: #1c2430; --stripe-6-under: #e85aa0;
+  --stripe-7: #5fb85a; --stripe-7-ink: #1c2430; --stripe-7-under: #d9a114;
+  --stripe-8: #aab4bd; --stripe-8-ink: #1c2430; --stripe-8-under: #1c2430;
   --cas-hi:    #3a3b40;
   --cas-mid:   #1d1e21;
   --cas-lo:    #121315;
@@ -2179,6 +2183,41 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 /* Browsing, not playing: flat toggles, the chosen ones filled in ink. */
 .icon-btn.toggle { min-height: 40px; padding: 0 12px; }
 .icon-btn.toggle[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* ---------- tags: a name and a color, worn by a take's stripe ---------- */
+.tag-filters { align-items: center; flex: 1 1 100%; }
+.tag-chip { display: inline-flex; align-items: center; gap: 7px; }
+.tag-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--stripe, var(--ink-faint)); flex: none; }
+.tag-n { opacity: .65; font-variant-numeric: tabular-nums; }
+/* A lit tag chip keeps its own color, as the stripe it names: ink on the
+   toggle's usual fill would lose it. */
+.icon-btn.toggle.tag-chip[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--stripe) 28%, var(--panel));
+  color: var(--ink);
+  border-color: var(--stripe);
+  box-shadow: inset 0 0 0 1px var(--stripe);
+}
+.detail-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 2px; }
+.detail-tags .tag-chip {
+  min-height: 34px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--ink); font: 600 13px var(--font);
+}
+.detail-tags .tag-chip[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--stripe) 28%, var(--panel)); border-color: var(--stripe); box-shadow: inset 0 0 0 1px var(--stripe);
+}
+.tag-edit-btn { min-height: 34px; }
+
+.tag-sheet .tag-help { margin: 0 0 10px; color: var(--ink-faint); font-size: 13px; word-break: normal; overflow-wrap: break-word; }
+.tag-edit-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 10px; max-height: 50svh; overflow: auto; }
+.tag-edit { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: center; padding-left: 10px; border-left: 6px solid var(--stripe); }
+.tag-edit input { min-width: 0; min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--ink); font: inherit; }
+.tag-swatches { grid-column: 1; display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.tag-swatch[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
+.tag-del { grid-column: 2; grid-row: 1 / span 2; }
+.tag-add { margin-bottom: 10px; }
+.tag-error { color: var(--danger-ink, var(--danger)); margin: 0 0 8px; font-size: 13px; }
+.tag-sheet .sheet-actions .confirm { background: var(--accent); color: var(--on-accent); }
 .shelf-store { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
 .shelf-page .takes { gap: 10px; }
 .shelf-day {
@@ -2199,6 +2238,9 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .stripe-3 { --stripe: var(--stripe-3); --stripe-ink: var(--stripe-3-ink); --stripe-under: var(--stripe-3-under); }
 .stripe-4 { --stripe: var(--stripe-4); --stripe-ink: var(--stripe-4-ink); --stripe-under: var(--stripe-4-under); }
 .stripe-5 { --stripe: var(--stripe-5); --stripe-ink: var(--stripe-5-ink); --stripe-under: var(--stripe-5-under); }
+.stripe-6 { --stripe: var(--stripe-6); --stripe-ink: var(--stripe-6-ink); --stripe-under: var(--stripe-6-under); }
+.stripe-7 { --stripe: var(--stripe-7); --stripe-ink: var(--stripe-7-ink); --stripe-under: var(--stripe-7-under); }
+.stripe-8 { --stripe: var(--stripe-8); --stripe-ink: var(--stripe-8-ink); --stripe-under: var(--stripe-8-under); }
 .shelf-page .takes { gap: 6px; }
 .take.spine {
   display: flex; align-items: stretch; height: 52px; box-sizing: border-box;

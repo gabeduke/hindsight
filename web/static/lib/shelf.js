@@ -16,18 +16,36 @@ function when(t) {
   return t.created ? Date.parse(t.created) : NaN;
 }
 
+/** tagOf is the tag a take carries, or null: untagged, or tagged with one the list has dropped. */
+export function tagOf(t, tags = []) {
+  return (t.tag && tags.find((g) => g.id === t.tag)) || null;
+}
+
+/** tagCounts is how many of the takes carry each tag, by id, with '' for untagged. */
+export function tagCounts(takes, tags = []) {
+  const n = { '': 0 };
+  for (const g of tags) n[g.id] = 0;
+  for (const t of takes) n[tagOf(t, tags)?.id ?? '']++;
+  return n;
+}
+
 /**
  * matches says whether a take passes the search and every filter that is
- * on. The search looks at the label, the timestamp in the name and the tempo.
+ * on. The search looks at the label, the timestamp in the name, the tempo and
+ * the tag's name. `tag` is a tag's id, or 'none' for the untagged; '' is off.
  */
-export function matches(t, { query = '', starred = false, midi = false, phone = false, tape = false } = {}) {
+export function matches(t, { query = '', starred = false, midi = false, phone = false, tape = false, tag = '', tags = [] } = {}) {
   if (starred && !t.starred) return false;
+  if (tag) {
+    const own = tagOf(t, tags);
+    if (tag === 'none' ? own : own?.id !== tag) return false;
+  }
   if (midi && !t.has_midi) return false;
   if (phone && t.origin !== 'phone') return false;
   if (tape && t.origin !== 'tape') return false;
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  const hay = [t.label || '', stamp(t), t.bpm == null ? '' : t.bpm.toFixed(1)].join(' ').toLowerCase();
+  const hay = [t.label || '', stamp(t), t.bpm == null ? '' : t.bpm.toFixed(1), tagOf(t, tags)?.name || ''].join(' ').toLowerCase();
   return hay.includes(q);
 }
 
@@ -46,7 +64,8 @@ function dayLabel(ms, now) {
 
 /**
  * shelve filters the takes and puts them in groups to show: by day, newest
- * first, or with sort 'longest' in one group, longest first. A take with no
+ * first; with sort 'longest' in one group, longest first; with sort 'tag' one
+ * group per tag. A take with no
  * readable date goes in a last group, EARLIER.
  */
 export function shelve(takes, opts = {}, now = Date.now()) {
@@ -54,6 +73,20 @@ export function shelve(takes, opts = {}, now = Date.now()) {
   if (!shown.length) return [];
   if (opts.sort === 'longest') {
     return [{ label: 'LONGEST FIRST', takes: [...shown].sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0)) }];
+  }
+  if (opts.sort === 'tag') {
+    // One group per tag, in the list's order, newest first inside; the
+    // untagged last. A tag nobody wears gets no heading.
+    const tags = opts.tags || [];
+    const newestFirst = (a, b) => (Number.isNaN(when(b)) ? -Infinity : when(b)) - (Number.isNaN(when(a)) ? -Infinity : when(a));
+    const groups = [];
+    for (const g of tags) {
+      const mine = shown.filter((t) => tagOf(t, tags)?.id === g.id).sort(newestFirst);
+      if (mine.length) groups.push({ label: g.name.toUpperCase(), tag: g.id, takes: mine });
+    }
+    const none = shown.filter((t) => !tagOf(t, tags)).sort(newestFirst);
+    if (none.length) groups.push({ label: tags.length ? 'UNTAGGED' : 'NO TAGS YET', tag: '', takes: none });
+    return groups;
   }
   const dated = shown.filter((t) => !Number.isNaN(when(t))).sort((a, b) => when(b) - when(a));
   const undated = shown.filter((t) => Number.isNaN(when(t)));

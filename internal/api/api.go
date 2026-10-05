@@ -68,6 +68,9 @@ type API struct {
 	// tape is the tape engine, or nil with TAPE off.
 	tape *tape.Engine
 
+	// tagsMu serialises writes to tags.json (see tags.go).
+	tagsMu sync.Mutex
+
 	// bg counts work a request leaves running -- a preview encode, a prune --
 	// so a test can wait for it before its takes folder goes.
 	bg sync.WaitGroup
@@ -126,6 +129,8 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)
 	r.HandleFunc("/api/take", a.handleTakeGet).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/take", a.handleTakePatch).Methods(http.MethodPatch)
+	r.HandleFunc("/api/tags", a.handleTagsGet).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tags", a.handleTagsPut).Methods(http.MethodPut)
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagPost).Methods(http.MethodPost)
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagPatch).Methods(http.MethodPatch)
 	r.HandleFunc("/api/take/flags", a.handleTakeFlagDelete).Methods(http.MethodDelete)
@@ -1005,6 +1010,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Label     *string         `json:"label"`
 		Starred   *bool           `json:"starred"`
+		Tag       *string         `json:"tag"`
 		Trim      json.RawMessage `json:"trim"`
 		BPM       json.RawMessage `json:"bpm"`
 		Flags     json.RawMessage `json:"flags"`
@@ -1037,6 +1043,14 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Starred != nil {
 		m.Starred = *body.Starred
+	}
+	// "" clears the tag; anything else must be a tag the list holds.
+	if body.Tag != nil {
+		if *body.Tag != "" && !a.hasTag(*body.Tag) {
+			writeErr(w, http.StatusBadRequest, "unknown tag")
+			return
+		}
+		m.Tag = *body.Tag
 	}
 	if body.Trim != nil {
 		if string(body.Trim) == "null" {
@@ -1211,6 +1225,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, struct {
 		Label     string            `json:"label"`
 		Starred   bool              `json:"starred"`
+		Tag       string            `json:"tag"`
 		Trim      *audio.Trim       `json:"trim"`
 		BPM       *float64          `json:"bpm"`
 		TempoFrom string            `json:"tempo_from"`
@@ -1219,7 +1234,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		LaneKinds map[string]string `json:"lane_kinds"`
 		CueError  string            `json:"cue_error,omitempty"`
 		Undo      audio.UndoInfo    `json:"undo"`
-	}{Label: m.Label, Starred: m.Starred, Trim: m.Trim, BPM: m.BPM, TempoFrom: m.TempoFrom, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr, Undo: undo})
+	}{Label: m.Label, Starred: m.Starred, Tag: m.Tag, Trim: m.Trim, BPM: m.BPM, TempoFrom: m.TempoFrom, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr, Undo: undo})
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control

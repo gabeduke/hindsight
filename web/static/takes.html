@@ -50,9 +50,12 @@
       <div class="shelf-toggles" id="shelf-sort" role="group" aria-label="Sort" data-tip="sort">
         <button class="icon-btn toggle" type="button" data-sort="newest" aria-pressed="true">Newest</button>
         <button class="icon-btn toggle" type="button" data-sort="longest" aria-pressed="false">Longest</button>
+        <button class="icon-btn toggle" type="button" data-sort="tag" aria-pressed="false">By tag</button>
       </div>
       <span class="shelf-store" id="shelf-store"></span>
     </div>
+    <!-- One chip per tag, to show only that tag's takes (lib/shelf-page.js). -->
+    <div class="shelf-toggles tag-filters" id="shelf-tags" role="group" aria-label="Tag" data-tip="tag-filter"></div>
   </div>
 
   <div class="takes" id="takes"></div>

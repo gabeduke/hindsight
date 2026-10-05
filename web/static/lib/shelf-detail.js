@@ -6,7 +6,9 @@
 // so the pane and the row never play over each other.
 
 import { CassetteFace } from '/lib/cassette.js';
-import { flagChips, parseBpm } from '/lib/shelf.js';
+import { flagChips, parseBpm, tagOf } from '/lib/shelf.js';
+import { tagStore } from '/lib/tags.js';
+import { openTagManager } from '/lib/tags-dialog.js';
 
 const stamp = (t) => t.name.replace(/^jam_|\.wav$/g, '');
 const fmtTime = (s) => {
@@ -34,6 +36,7 @@ export class TakeDetail {
         <input class="take-name-input detail-name-input" type="text" maxlength="120" aria-label="Name this take" hidden>
         <span class="detail-meta"><button class="detail-bpm" type="button" data-tip="bpm"></button><input class="take-bpm-input detail-bpm-input" type="text" inputmode="decimal" maxlength="7" aria-label="Tempo in beats per minute" hidden><span class="detail-meta-rest"></span></span>
       </div>
+      <div class="detail-tags" role="group" aria-label="Tag" data-tip="tag-pick"></div>
       <div class="detail-cassette"></div>
       <div class="detail-actions">
         <button class="icon-btn play detail-play" type="button" data-tip="play">Play</button>
@@ -50,6 +53,8 @@ export class TakeDetail {
       <div class="detail-flags"></div>`;
     this.el = (sel) => root.querySelector(sel);
     this.el('.sheet-back').addEventListener('click', () => onBack?.());
+    // A tag renamed or recolored: the chips, and the cassette's stripe.
+    tagStore.subscribe(() => { if (this.take) { this.renderTags(); this.ws?.setTake(this.take); } });
     this.el('.detail-play').addEventListener('click', () => this.player?.toggle());
     this.el('.detail-delete').addEventListener('click', () => { if (this.name) takes.deleteByName(this.name); });
     this.el('.star').addEventListener('click', async () => {
@@ -138,6 +143,7 @@ export class TakeDetail {
     bpm.textContent = t.bpm == null ? '+ bpm' : `${t.bpm.toFixed(1)} bpm`;
     bpm.classList.toggle('unset', t.bpm == null);
     this.el('.detail-meta-rest').textContent = ' · ' + [len, `${(t.size_mb || 0).toFixed(1)} MB`, t.has_midi ? 'MIDI' : null].filter(Boolean).join(' · ');
+    this.renderTags();
     this.el('.detail-sel').textContent = t.trim ? `selection ${fmtTime(t.trim.start_frame / sr)} – ${fmtTime(t.trim.end_frame / sr)}` : '';
     this.el('.detail-open').href = `/wave.html?file=${encodeURIComponent(t.name)}`;
     this.el('.detail-wav').href = `/api/download?file=${encodeURIComponent(t.name)}&dl=1`;
@@ -184,6 +190,38 @@ export class TakeDetail {
     const label = () => { this.el('.detail-play').textContent = p.audio.paused ? 'Play' : 'Pause'; };
     for (const ev of ['play', 'pause', 'ended']) p.audio.addEventListener(ev, label, { signal: this.ac.signal });
     label();
+  }
+
+  /** renderTags draws the tag chips: one per tag, the take's lit; a press
+   *  gives the take that tag, or takes it off if it already wears it. */
+  renderTags() {
+    const t = this.take, box = this.el('.detail-tags');
+    if (!t) return;
+    const own = tagOf(t, tagStore.list);
+    const sig = `${t.name}|${own?.id}|${tagStore.list.map((g) => `${g.id}:${g.name}:${g.color}`).join(',')}`;
+    if (sig === this.tagSig) return; // a poll must not rebuild what's under a finger
+    this.tagSig = sig;
+    const chips = tagStore.list.map((g) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `tag-chip stripe-${g.color}`;
+      b.setAttribute('aria-pressed', String(g.id === own?.id));
+      const dot = document.createElement('span');
+      dot.className = 'tag-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      b.append(dot, g.name);
+      b.addEventListener('click', async () => {
+        try { await this.takes.patchTake(t.name, { tag: g.id === own?.id ? '' : g.id }); }
+        catch (e) { this.onToast?.(`Could not tag: ${e.message}`, 'bad'); }
+      });
+      return b;
+    });
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'chip tag-edit-btn';
+    edit.textContent = tagStore.list.length ? 'Edit tags' : '+ New tag';
+    edit.addEventListener('click', () => openTagManager({ onToast: this.onToast }));
+    box.replaceChildren(...chips, edit);
   }
 
   unmount() {
