@@ -33,9 +33,43 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   await p.context().close();
 }
 
-// Track heads fit their lanes (no key wraps to a row of its own), the bench
-// keeps all four tracks on screen, and every track shows its number.
-for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1280, 800], [844, 390], [1440, 900]]) {
+// The bar runs: its reels are drawn, its line names the tape, its counter
+// moves while the tape plays, and |◂ goes back to the loop's start.
+{
+  const p = await (await browser.newContext({ viewport: { width: 1024, height: 768 } })).newPage();
+  await p.goto(`${BASE}/tape.html`);
+  await p.waitForTimeout(1500);
+  const before = await p.evaluate(async () => {
+    const st = await (await fetch('/api/tapes/state?id=' + (await (await fetch('/api/tapes')).json()).loaded)).json();
+    return { name: st.tape.name, grid: !!st.tape.grid, loopOn: st.tape.loop.on && st.tape.loop.out > st.tape.loop.in,
+      pack: !!document.querySelector('#np-reel-l .np-pack'), marquee: document.getElementById('np-marquee').textContent,
+      playing: document.getElementById('play').classList.contains('playing') };
+  });
+  check('the bar: the reels are drawn', before.pack);
+  check('the bar: its line names the tape', before.marquee.startsWith(before.name.toUpperCase()), before.marquee);
+  if (!before.playing) await p.click('#play');
+  const a = await p.textContent('#position');
+  await p.waitForTimeout(1500);
+  const b = await p.textContent('#position');
+  const t = await p.textContent('#np-time');
+  check('the bar: the counter moves while the tape plays', a !== b || t !== '', `${a} → ${b} (${t})`);
+  if (before.grid && before.loopOn) {
+    await p.click('#to-start');
+    await p.waitForTimeout(600);
+    const pos = await p.evaluate(async () => {
+      const st = await (await fetch('/api/tapes/state?id=' + (await (await fetch('/api/tapes')).json()).loaded)).json();
+      return { heard: st.live.heard, in: st.tape.loop.in, bar: st.tape.grid.frames / st.tape.grid.bars };
+    });
+    check('the bar: |◂ goes back to the loop’s start', pos.heard >= pos.in && pos.heard < pos.in + pos.bar, JSON.stringify(pos));
+  }
+  if (!before.playing) await p.click('#play');
+  await p.context().close();
+}
+
+// Track heads fit their lanes (no key wraps to a row of its own), the lanes
+// end above the now-playing bar on a tablet or computer (the bench included),
+// and every track shows its number.
+for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 800], [844, 390], [1440, 900], [1470, 900]]) {
   const p = await (await browser.newContext({ viewport: { width: w, height: h }, hasTouch: w < 900 })).newPage();
   await p.goto(`${BASE}/tape.html`);
   await p.waitForTimeout(1800);
@@ -48,11 +82,12 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1280, 800], [844, 39
       return getComputedStyle(row.querySelector('.tt-name'), '::before').content.includes(String(i + 1));
     });
     const last = rows.at(-1)?.getBoundingClientRect().bottom;
-    return { tall, numbered, last: Math.round(last) };
+    const np = document.getElementById('np').getBoundingClientRect().top;
+    return { tall, numbered, last: Math.round(last), np: Math.round(np) };
   });
   check(`${w}x${h}: track heads are no taller than their lanes`, r.tall.every((d) => d <= 2), JSON.stringify(r.tall));
   check(`${w}x${h}: every track shows its number`, r.numbered);
-  if (w === 1024 && h === 600) check('1024x600: track 4 is on screen', r.last <= 600, `bottom ${r.last}`);
+  if (w >= 700 && h > 440) check(`${w}x${h}: the lanes end above the bar`, r.last <= r.np + 1, `lanes ${r.last}, bar ${r.np}`);
   await p.context().close();
 }
 
