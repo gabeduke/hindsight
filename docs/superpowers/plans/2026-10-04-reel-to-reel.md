@@ -491,7 +491,7 @@ git commit -m "Canvases draw on black windows with the window inks"
 - **The shelf:** "On the shelf" spines replace the latest-take card. A new capture slides in with a NEW sticker.
 - **Bench tablet** layout.
 
-**PR 5: Tape** (`tape.html`, `lib/tape/*.js`)
+**PR 5: Tape**: detailed below, after PR 4. Scope as first written: (`tape.html`, `lib/tape/*.js`)
 - **Deck:** a brushed-metal deck with reels that turn and reverse on loop wrap, and the amber counter.
 - **Meters:** backlit VU meters that follow each track.
 - **Lanes:** black windows with clip blocks of rounded bars (labels such as pass −n, repeat, split), and red A/M/S states.
@@ -776,3 +776,74 @@ git commit -m "Canvases draw on black windows with the window inks"
 - [ ] Run `go vet ./... && go test ./...` and the node suite.
 - [ ] Take review screenshots and retake the README images (`scripts/screenshots.mjs`).
 - [ ] Commit `PR 4: cache bump, the guide, screenshots`.
+
+---
+
+## PR 5: Tape (detailed 2026-10-05)
+
+**Branch:** `claude/reel-5-tape` from `main` after PR 4. **Scope:** the tape page (`tape.html`, `lib/tape/page.js`, `lib/tape/machine.js`, `styles.css`), plus a new pure `lib/tape/blocks.js`.
+
+**How it fits the code today.**
+- **Lanes:** `drawLanes()` (page.js ~1018) draws each track's canvas in this order:
+  - bar lines in `--well-rule`;
+  - each clip as a translucent block in its track's colour, with `drawColumns` on the dB scale from the pool file's peaks (`/api/tapes/peaks`, cached in `peaks`) and a 1 px outline;
+  - the punch overlay, the slide ghost, and the 2 px playhead.
+- **The machine strip:** `machine.js` builds the strip as SVG (`tm-*` classes): reels that turn with the playhead (`reels.js`; a loop wrap is a rewind), heads, a plate and a state word. Its meter bridge reuses `lib/vu.js`, which PR 4 made backlit.
+- **Track heads:** each is a masking-tape name, a bus chip (A/B), M, S and a gain slider. The selected track is the record target, shown with a red border and dot.
+- **On a phone:** the transport and Catch are in the toolbar, below the lanes; held sideways, Catch is far below the fold.
+
+**The change (rulings):**
+- **Lanes: blocks of rounded bars, as the boards.** Each clip is drawn as follows:
+  - **The block:** a rounded block (6 px radius) tinted in its track's colour (16 %, 10 % for a layer), with a 1.5 px edge in the track's colour; selected, the edge is 2 px `--well-ink`.
+  - **Bars:** rounded bars inside, drawn with `drawBars` of `smooth(levelsFor(pd, n, clipBuckets))` at a 4 px pitch, scaled by the pool file's `takeGain`. Unplayed bars are the track colour at 55 %; played bars are the full colour with a 4 px glow.
+  - **Label:** in the top-left corner when the block is at least 64 px wide (mono 10 px, the track colour lifted towards `--well-ink`). It reads `reversed` for a reversed clip, `repeat` for a clip that replays an earlier clip's audio on the same track (same file and `src`), and otherwise its source (`aux`, `main`, `ch1`, `take`).
+  - **Why not "pass −3":** the model doesn't record pass numbers, and the plan doesn't invent them.
+- **Bar and beat lines** stay faint. The loop span gets an amber tint across every lane.
+- **Deck:** brushed metal (fine horizontal stripes over `--deck-hi → --deck-lo`) with a cap at the left, reels in metal (a light flange with three holes and a sheen) carrying the brown pack, and the state word lit (amber for PLAY or WIND, red for REC). Colours are tokens, the same in both schemes.
+- **Meter bridge:** each VU's label sits in a ring in its track's colour.
+- **Track heads:** a card, its number in a ring of the track's colour, the masking-tape name, and square raised keys (34 × 30, Barlow 700) for bus, M and S. M lights yellow and S blue (`--t1`) when pressed. The record target keeps its red edge with a slow red LED.
+- **RECORDING sign:** lit red with a glow while recording, dim otherwise.
+- **Phone and phone held sideways: a dock.**
+  - **What it holds:** Play, Loop, Rec and the click on the left, and the orange **Catch** on the right, fixed above the bottom tabs (portrait) or at the bottom edge (sideways), so Catch is always on screen.
+  - **How it's built:** with CSS alone. The transport row and `#catch-pass` become fixed; no DOM moves.
+  - **The page underneath:** it gets the dock's height as bottom padding.
+
+### Task 22: Lane blocks of rounded bars
+- **Files:** create `lib/tape/blocks.js` and `lib/tape/blocks.test.js`; modify `lib/tape/page.js`.
+- **Interfaces:**
+  - `clipLabel(clip, track) → string`: as above.
+  - `blockLevels(pd, clip, width, pitch = 4) → Float32Array`: `smooth(levelsFor(pd, n, {b0, b1}))` with `n = max(1, floor((width − 8) / pitch) + 1)` and `[b0, b1] = clipBuckets(clip, pd)`.
+  - `labelFits(width) → width >= 64`.
+- **Steps:**
+  - [ ] Failing tests:
+    - `clipLabel`: reversed, repeat (the second of two clips with the same file and `src`), source, and none;
+    - `blockLevels` covers the clip's buckets only (a clip over the second half of a file gives the second half's levels), and has as many levels as fit;
+    - `labelFits`.
+  - [ ] Implement, and redraw lanes with blocks.
+  - [ ] Browser check on the demo tape, in both schemes at 1440 × 900 and 390 × 844: blocks with bars, a label, played bars glowing during play, the selected clip's edge, and slide and punch unchanged.
+  - [ ] Commit `Tape lanes: blocks of rounded bars in the track's colour`.
+
+### Task 23: The deck, the bridge and the track heads
+- **Files:** `lib/tape/machine.js` (reel holes, sheen, the state word's classes), `lib/tape/page.js` (the heads' number ring), `styles.css`, `lib/styles.test.js`.
+- **Tokens:** `--deck-hi`, `--deck-lo`, `--deck-cap`, `--reel-metal`, `--reel-edge`, `--reel-hub`, `--head-metal`, the same in both schemes.
+- **Steps:**
+  - [ ] Failing test: the tokens exist; the state word's lit colours read on the deck plate at ≥ 4.5:1.
+  - [ ] Implement.
+  - [ ] Browser check: reels turn during play and reverse on a loop wrap (`reels.js`, unchanged); the bridge labels sit in their rings; S lights blue, M yellow; the record target's head reads red.
+  - [ ] Commit `The tape deck in brushed metal, and the track heads as cards`.
+
+### Task 24: The dock on a phone
+- **Files:** `styles.css`, `lib/styles.test.js`.
+- **Steps:**
+  - [ ] Failing test: under 700 px wide, and in the sideways tier, `.tape-toolbar .tb-row.transport` and `#catch-pass` are `position: fixed`.
+  - [ ] Implement.
+  - [ ] Browser check at 390 × 844 and 844 × 390: Play, Loop, Rec and Catch are on screen with nothing scrolled; nothing hides under the dock at the end of the page; the away sheet and toasts sit above it.
+  - [ ] Commit `On a phone, the transport and Catch are always in reach`.
+
+### Task 25: Ship-ready
+- [ ] Bump `sw.js` and add `lib/tape/blocks.js` to `SHELL`.
+- [ ] Update the guide's tape section (blocks, dock).
+- [ ] Run Go and node tests.
+- [ ] Extend `scripts/smoke-takes.mjs` or add `scripts/smoke-tape.mjs`: the dock is on screen at both phone sizes, and a lane draws.
+- [ ] Take review screenshots.
+- [ ] Commit `PR 5: cache bump, the guide, a smoke test`.
