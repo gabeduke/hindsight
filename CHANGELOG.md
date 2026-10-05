@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.5 — 2026-10-05
+
+- Tape page: draw the tape name and tempo as pills that look like menus (b4dce00)
+
+
 ## v2026.10.05.4 — 2026-10-05
 
 - Tape page: rename a tape from the ⋯ menu (0e4bbec)
