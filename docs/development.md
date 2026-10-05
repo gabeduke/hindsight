@@ -129,7 +129,7 @@ there is no runner to add one to.
 
 `deploy.sh` rsyncs the tree, builds on the Pi (PortAudio is cgo, so it is built
 where it runs) and restarts the service. It needs an **untracked**
-`deploy.local.env` next to it:
+`deploy.local.env` next to it (a git worktree reads the main checkout's):
 
 ```bash
 # deploy.local.env — not tracked, never commit it
@@ -137,9 +137,16 @@ HINDSIGHT_HOST=pi@<pi-host>
 ```
 
 ```bash
-./deploy.sh              # sync, rebuild, restart
-./deploy.sh --static     # sync web/static only
+make pi-status           # is the rig idle? (not saving, meters at the floor)
+make deploy-dry          # what a deploy would send and delete, by content
+make deploy              # sync, rebuild, restart (./deploy.sh)
+make deploy-static       # sync web/static only (./deploy.sh --static)
 ```
+
+A restart clears the ring, so check `make pi-status` and read `make deploy-dry`'s
+deletions first. The sync never sends, or deletes on the Pi, `.claude`,
+`.playwright-mcp` or `.superpowers`: tooling scratch that belongs to the
+checkout it's in.
 
 `--static` takes about a second: no rebuild, no restart. The UI is served with
 `http.FileServer` straight from disk on each request, so an HTML, CSS or JS

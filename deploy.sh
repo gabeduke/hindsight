@@ -1,11 +1,25 @@
 #!/bin/bash
 # Sync to the Pi, build there (PortAudio is cgo), and restart the service.
+#
+#   ./deploy.sh            sync, build, restart (clears the ring)
+#   ./deploy.sh --static   web/static only: no rebuild, no restart
+#   ./deploy.sh --dry-run  what a deploy would change, by content, and delete
+#   ./deploy.sh --status   the rig's /api/status: is it idle?
+#
+# `make deploy`, `make deploy-static`, `make deploy-dry` and `make pi-status`
+# run these.
 set -euo pipefail
+cd "$(dirname "$0")"
 
 # Host/user live in an untracked file so this repo carries no personal config.
 # Create deploy.local.env with e.g.  HINDSIGHT_HOST=pi@hindsight.local
-# The older DASHCAM_* spellings still work; see the fallbacks below.
-[ -f "$(dirname "$0")/deploy.local.env" ] && . "$(dirname "$0")/deploy.local.env"
+# The older DASHCAM_* spellings still work; see the fallbacks below. A git
+# worktree has no copy of its own, so it reads the main checkout's.
+ENV_FILE=deploy.local.env
+if [ ! -f "$ENV_FILE" ] && common="$(git rev-parse --git-common-dir 2>/dev/null)"; then
+  ENV_FILE="$common/../deploy.local.env"
+fi
+[ -f "$ENV_FILE" ] && . "$ENV_FILE"
 
 # host resolution — keep an existing deploy.local.env working
 HOST="${HINDSIGHT_HOST:-${DASHCAM_HOST:-}}"
@@ -34,6 +48,11 @@ if [ "${HINDSIGHT_NO_AGENT:-${DASHCAM_NO_AGENT:-}}" = "1" ]; then
   echo "[*] bypassing the ssh agent, using $KEY"
 fi
 
+if [ "${1:-}" = "--status" ]; then
+  "${SSH[@]}" "$HOST" "curl -fsS http://127.0.0.1:5000/api/status" && echo
+  exit 0
+fi
+
 # Static-only fast path. main.go serves the UI with
 # http.FileServer(http.Dir(staticDir())), so HTML/CSS/JS changes are picked up
 # from disk on the next request -- no rebuild, no restart. That turns the
@@ -45,21 +64,40 @@ if [ "${1:-}" = "--static" ]; then
   exit 0
 fi
 
+# What never goes to the Pi. An excluded path is also safe from --delete, so
+# the Pi keeps its own copy.
+#   node_modules: docs/development.md tells you to install Playwright at the
+#     repo root to take screenshots; a deploy before you clean it up would push
+#     a few hundred MB of Chromium to the Pi over the LAN.
+#   .claude, .playwright-mcp, .superpowers: tooling scratch in a checkout. The
+#     Pi's .playwright-mcp holds older screenshots and a jam zip that exist
+#     nowhere else; a checkout's own copy must never replace it.
+EXCLUDES=(
+  --exclude 'jam_saves'
+  --exclude '.venv'
+  --exclude '.git'
+  --exclude '*.log'
+  --exclude 'bin'
+  --exclude 'hindsight.env'
+  --exclude 'deploy.local.env'
+  --exclude 'node_modules'
+  --exclude '.superpowers'
+  --exclude '.claude'
+  --exclude '.playwright-mcp'
+)
+
+if [ "${1:-}" = "--dry-run" ]; then
+  # By content (-c): timestamps differ between checkouts, so a plain dry run
+  # lists every file.
+  echo "[*] what a deploy would change on $HOST:~/$DEST (nothing is sent)"
+  out="$(rsync -azc --dry-run --itemize-changes --delete -e "${SSH[*]}" "${EXCLUDES[@]}" ./ "$HOST:~/$DEST/")"
+  printf '%s\n' "$out" | grep -E '^(<f|cd|\*deleting)' || true
+  echo "[*] $(printf '%s\n' "$out" | grep -c '^<f' || true) files to send, $(printf '%s\n' "$out" | grep -c '^\*deleting' || true) to delete"
+  exit 0
+fi
+
 echo "[*] syncing to $HOST:~/$DEST"
-# node_modules is excluded because docs/development.md tells you to install
-# Playwright at the repo root to take screenshots; a deploy before you clean it
-# up would push a few hundred MB of Chromium to the Pi over the LAN.
-rsync -az --delete -e "${SSH[*]}" \
-  --exclude 'jam_saves' \
-  --exclude '.venv' \
-  --exclude '.git' \
-  --exclude '*.log' \
-  --exclude 'bin' \
-  --exclude 'hindsight.env' \
-  --exclude 'deploy.local.env' \
-  --exclude 'node_modules' \
-  --exclude '.superpowers' \
-  ./ "$HOST:~/$DEST/"
+rsync -az --delete -e "${SSH[*]}" "${EXCLUDES[@]}" ./ "$HOST:~/$DEST/"
 
 echo "[*] building on the Pi"
 "${SSH[@]}" "$HOST" "cd ~/$DEST && go build -o bin/hindsight ./cmd/hindsight"
