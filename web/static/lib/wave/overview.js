@@ -3,7 +3,8 @@
 // take. Drag the window to pan, tap outside it to centre the view there, and
 // double-tap to fit the whole take. The pure functions are what the tests cover; the class is the canvas
 // and pointer plumbing around them.
-import { peakColumns, foldChannels, drawColumns } from './draw.js';
+import { levelsFor, takeGain } from './draw.js';
+import { drawTrace, paintOxide, oxideColors } from './tape-strip.js';
 import { withAlpha } from '../theme.js';
 
 export const OVERVIEW_MIN_WINDOW_PX = 24;
@@ -89,10 +90,13 @@ export class Overview {
     cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(this.canvas);
     const col = (n, fb) => css.getPropertyValue(n).trim() || fb;
-    cctx.fillStyle = col('--well', '#e9e2cd');
-    cctx.fillRect(0, 0, W, H);
-    const cols = foldChannels(peakColumns(this.peaks, Math.round(W)), this.peaks.channels);
-    drawColumns(cctx, cols, 1, { top: 2, height: H - 4, color: withAlpha(col('--wave', '#268bd2'), 0.7) });
+    // The whole take on a strip of tape: its trace, folded to one lane, on
+    // the take's own scale (as its zoomed view and its cassette).
+    paintOxide(cctx, W, H, oxideColors(col));
+    const lv = levelsFor(this.peaks, Math.max(1, Math.round(W)));
+    cctx.globalAlpha = 0.7;
+    drawTrace(cctx, lv, lv, { cy: H / 2, half: H / 2 - 3, gain: takeGain(this.peaks), line: col('--trace', '#f6e7c4') });
+    cctx.globalAlpha = 1;
     this.cachedKey = `${W}x${H}@${dpr}`;
   }
 

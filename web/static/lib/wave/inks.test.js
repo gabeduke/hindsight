@@ -30,7 +30,7 @@ test('canvas code paints window surfaces, not page surfaces', () => {
 // scale -- like the cassette that shows the same take; drawColumns (the
 // meters' dB scale) is for the takes list's rows alone.
 test('the take view and its overview draw on tape', () => {
-  for (const f of ['./view.js']) {
+  for (const f of ['./view.js', './overview.js']) {
     const src = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/drawColumns\(/.test(src), `${f} still draws columns`);
     assert.ok(/drawTrace\(/.test(src) && /paintOxide\(/.test(src), `${f} draws a trace on oxide`);
