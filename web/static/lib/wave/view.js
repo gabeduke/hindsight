@@ -262,7 +262,7 @@ export class WaveView extends GestureSurface {
     ctx.fillStyle = col('--well', '#e9e2cd');
     ctx.fillRect(0, 0, W, H);
     // The ruler and the grip strip are a shade apart from the waveform.
-    ctx.fillStyle = col('--panel', '#eee8d5');
+    ctx.fillStyle = col('--well-hi', '#0e0f10');
     ctx.fillRect(0, 0, W, RULER_H);
     ctx.fillRect(0, bottom, W, H - bottom);
 
@@ -279,7 +279,7 @@ export class WaveView extends GestureSurface {
     // Beat and bar lines in the body.
     for (const g of gridLines(view, st.grid)) {
       const x = frameToX(g.frame, view);
-      ctx.fillStyle = g.bar ? col('--rule', '#c9c0a4') : withAlpha(col('--ink', '#073642'), 0.07);
+      ctx.fillStyle = g.bar ? col('--well-rule', 'rgba(242,230,200,.14)') : withAlpha(col('--well-ink', '#f2e6c8'), 0.07);
       ctx.fillRect(Math.round(x), top, 1, bottom - top);
     }
 
@@ -295,7 +295,7 @@ export class WaveView extends GestureSurface {
     // the audio as the view moves. IN and OUT are written inside the
     // selection, or outside it when it's too narrow to hold them.
     if (sel) {
-      const grease = col('--grease', '#7a5c00');
+      const grease = col('--grease-mark', '#f0c419');
       ctx.save();
       ctx.strokeStyle = grease;
       ctx.lineWidth = 4;
@@ -345,9 +345,9 @@ export class WaveView extends GestureSurface {
     for (const t of rulerTicks(view, st.grid)) {
       const x = frameToX(t.frame, view);
       const isDownbeat = st.grid.bpm && t.frame === Math.round(st.grid.downbeat);
-      ctx.fillStyle = isDownbeat ? col('--warn', '#b58900') : col('--ink-faint', '#566a70');
+      ctx.fillStyle = isDownbeat ? col('--warn', '#b58900') : col('--well-dim', '#a39d90');
       ctx.fillRect(Math.round(x), PIN_H + 6, 1, RULER_H - PIN_H - 6);
-      ctx.fillStyle = isDownbeat ? col('--warn', '#b58900') : col('--ink-dim', '#52666d');
+      ctx.fillStyle = isDownbeat ? col('--warn', '#b58900') : col('--well-dim', '#a39d90');
       ctx.fillText(t.label, x + 3, PIN_H + (RULER_H - PIN_H) / 2 + 1);
     }
     // The downbeat itself, when it isn't on a labelled tick at this zoom.
@@ -373,7 +373,7 @@ export class WaveView extends GestureSurface {
       ctx.beginPath(); ctx.moveTo(x + 2, 2); ctx.lineTo(x + 10, 6); ctx.lineTo(x + 2, 10); ctx.closePath(); ctx.fill();
       if (f.label && x + 12 > lastRight) {
         const w = Math.min(140, ctx.measureText(f.label).width);
-        ctx.fillStyle = col('--ink', '#073642');
+        ctx.fillStyle = col('--well-ink', '#f2e6c8');
         ctx.fillText(f.label, x + 12, PIN_H - 4, 140);
         lastRight = x + 12 + w + 6;
       }

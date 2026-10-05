@@ -82,6 +82,34 @@ test('every control shows a focus ring', () => {
     assert.ok(rules.includes(sel), `no :focus-visible rule for ${sel}`);
 });
 
+// A colour value as hex: a token, a hex, or a color-mix of two of them.
+function resolve(v, t) {
+  v = v.trim();
+  const ref = /^var\((--[a-z0-9-]+)\)$/.exec(v);
+  if (ref) return resolve(t[ref[1]], t);
+  const mix = /^color-mix\(in srgb,\s*(.+?)\s+(\d+)%,\s*(.+)\)$/.exec(v);
+  if (mix) {
+    const a = rgb(resolve(mix[1], t)), b = rgb(resolve(mix[3], t)), p = Number(mix[2]) / 100;
+    return '#' + a.map((c, i) => Math.round(c * p + b[i] * (1 - p)).toString(16).padStart(2, '0')).join('');
+  }
+  return v;
+}
+
+// Text laid over a black window is not on the page: it needs the window's inks.
+const WELL_TEXT = ['.rb-label', '.rb-label.on', '.rb-now-label', '.rb-readout', '.lane-name', '.lane-meta', '.lane-chev'];
+for (const [scheme, t] of [['light', light], ['dark', dark]]) {
+  test(`${scheme}: text over the black windows is readable`, () => {
+    for (const sel of WELL_TEXT) {
+      const at = css.search(new RegExp('^' + sel.replace(/\./g, '\\.') + '\\s*\\{', 'm'));
+      assert.ok(at >= 0, `no rule for ${sel}`);
+      const color = /(?:^|[;{\s])color:\s*([^;]+);/.exec(block(at));
+      assert.ok(color, `${sel} sets no colour, so it inherits a page ink`);
+      const c = contrast(resolve(color[1], t), t['--well']);
+      assert.ok(c >= 4.5, `${scheme} ${sel} on --well is ${c.toFixed(2)}:1`);
+    }
+  });
+}
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);

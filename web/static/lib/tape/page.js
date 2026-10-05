@@ -694,7 +694,7 @@ function drawRuler() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   const view = laneView();
-  const ink = token('--ink', '#073642'), warn = token('--warn', '#b58900');
+  const ink = token('--well-ink', '#f2e6c8'), warn = token('--warn', '#b58900');
   const span = (from, to, fill) => {
     const x0 = Math.max(0, xOf(from, view, W)), x1 = Math.min(W, xOf(to, view, W));
     if (x1 > x0) { ctx.fillStyle = fill; ctx.fillRect(x0, 0, x1 - x0, H); }
@@ -1073,7 +1073,7 @@ function drawLanes() {
         drawColumns(ctx, cols, 1, { top, height: h, color: c.layer ? withAlpha(tc, 0.6) : tc });
         ctx.restore();
       }
-      ctx.strokeStyle = state.clip && state.clip.id === c.id ? col('--ink', '#073642') : withAlpha(tc, 0.5);
+      ctx.strokeStyle = state.clip && state.clip.id === c.id ? col('--well-ink', '#f2e6c8') : withAlpha(tc, 0.5);
       ctx.strokeRect(x0 + 0.5, top + 0.5, Math.max(1, x1 - x0) - 1, h - 1);
       ctx.globalAlpha = 1;
       lane.hits.push({ x0, x1, clip: c });
@@ -1187,7 +1187,7 @@ function drawOverview() {
   }
   if (state.zoom) {
     const x0 = xOf(state.zoom.from, all, W), x1 = xOf(state.zoom.to, all, W);
-    ctx.strokeStyle = col('--ink-dim', '#52666d');
+    ctx.strokeStyle = col('--well-dim', '#a39d90');
     ctx.setLineDash([3, 2]);
     ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
     ctx.setLineDash([]);

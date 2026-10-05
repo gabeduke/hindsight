@@ -266,12 +266,12 @@ export class Lanes {
       // Rows
       for (const row of layout.rows) {
         if (!row.tint) continue;
-        ctx.fillStyle = withAlpha(col('--ink', '#073642'), 0.04);
+        ctx.fillStyle = withAlpha(col('--well-ink', '#f2e6c8'), 0.04);
         ctx.fillRect(0, row.top, W, row.h);
       }
       // Bar lines, from the same call the wave makes.
       for (const g of gridLines(view, st.grid)) {
-        ctx.fillStyle = g.bar ? col('--rule', '#c9c0a4') : withAlpha(col('--ink', '#073642'), 0.07);
+        ctx.fillStyle = g.bar ? col('--well-rule', 'rgba(242,230,200,.14)') : withAlpha(col('--well-ink', '#f2e6c8'), 0.07);
         ctx.fillRect(Math.round(frameToX(g.frame, view)), 0, 1, H);
       }
       // Notes

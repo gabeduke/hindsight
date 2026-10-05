@@ -124,9 +124,9 @@ export class Overview {
 
     // Viewport window
     const { x, w } = windowRect(this.getView(), this.total, W);
-    ctx.fillStyle = withAlpha(col('--ink', '#073642'), 0.08);
+    ctx.fillStyle = withAlpha(col('--well-ink', '#f2e6c8'), 0.08);
     ctx.fillRect(x, 0, w, H);
-    ctx.strokeStyle = col('--ink', '#073642');
+    ctx.strokeStyle = col('--well-ink', '#f2e6c8');
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, 0.5, w - 1, H - 1);
   }
