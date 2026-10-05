@@ -5,6 +5,31 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.1 — 2026-10-05
+
+- Fix review findings: the switch holds still, the pane retries, rows pick by keyboard (d410d43)
+- A phone held sideways: one header row (6c71939)
+- The tape on a laptop: nothing cut off, and a panel that shows it scrolls (82edbb4)
+- A take on a laptop: the waveform takes the width (e0f3bb9)
+- The takes page on a laptop: the list beside the picked take (eb76da9)
+- Capture on screen on the bench tablet and small laptops (ac4c5fa)
+- One header on every page, with a switch between Capture, Takes and Tape (56cd327)
+- Scope the main page's layout to the main page (dc85c87)
+- Plan PR 5: layout and navigation (e598e94)
+- Fix review findings: IN and OUT never overlap, the speed keys stay put (3b0b92d)
+- Grease pencil on the take page (ebdfc6d)
+- Add lib/wave/grease.js: a grease-pencil stroke for edit marks (da2991b)
+- Plan PR 3: grease pencil on the take page (71ab05a)
+- Fix review findings: the transport fits, the meters' numbers show (3697c56)
+- Fit the lanes under the machine on a 600px tablet; new screenshots (5abedc6)
+- Masking tape on the tracks, and a RECORDING sign (a424c92)
+- A tape machine over the lanes: reels that turn with the playhead (4dd03d2)
+- Add levelAt: what each track has under the playhead, for the meters (33b845b)
+- Add lib/tape/reels.js: how the tape machine's reels move (0d17960)
+- Plan PR 4: the tape machine (8ae2d5a)
+- Record v2026.10.04.11 in the changelog [skip ci] (8ccb64e)
+
+
 ## v2026.10.04.11 — 2026-10-04
 
 - A stale clipboard yields to a newer take; the take page picks up a late measurement (6630671)
