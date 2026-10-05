@@ -1,11 +1,11 @@
 // web/static/lib/shelf-detail.js
 // The takes page's detail pane, on a screen wide enough for it: the take
-// picked in the list, large -- its name and star, its waveform with its
-// selection, Play, the way into the take page, its downloads, Delete, and
+// picked in the rack as a cassette (lib/cassette.js) -- its name and star,
+// its bars with its selection, Play, the way into the take page, its downloads, Delete, and
 // its flags. It plays through the list row's own player (TakesList.player),
 // so the pane and the row never play over each other.
 
-import { RowWave } from '/lib/wave/rowwave.js';
+import { CassetteFace } from '/lib/cassette.js';
 import { flagChips } from '/lib/shelf.js';
 
 const stamp = (t) => t.name.replace(/^jam_|\.wav$/g, '');
@@ -30,7 +30,7 @@ export class TakeDetail {
         <h2 class="detail-name"></h2>
         <span class="detail-meta"></span>
       </div>
-      <div class="detail-wave wave"></div>
+      <div class="detail-cassette"></div>
       <div class="detail-actions">
         <button class="icon-btn play detail-play" type="button" data-tip="play">Play</button>
         <span class="detail-sel"></span>
@@ -82,7 +82,7 @@ export class TakeDetail {
     }));
     // The same take, drawn: just its selection. The same take, not drawn yet
     // (its preview was still encoding): try again below.
-    if (t.name === this.name && this.ws) { this.ws.setSelection(t.trim, (t.duration_seconds || 0) * sr); return; }
+    if (t.name === this.name && this.ws) { this.ws.setTake(t); this.ws.setSelection(t.trim, (t.duration_seconds || 0) * sr); return; }
     if (t.name === this.name && this.loading) return;
 
     // A different take: draw it from its row's player.
@@ -94,12 +94,12 @@ export class TakeDetail {
     this.loading = false;
     if (this.name !== name) return; // picked another meanwhile
     this.player = p;
-    const box = this.el('.detail-wave');
+    const box = this.el('.detail-cassette');
     box.textContent = p ? '' : (t.has_preview ? 'waveform unavailable' : 'waveform pending…');
     box.classList.toggle('pending', !p);
     // No player yet: the next show() -- the next poll -- tries again.
     if (!p) return;
-    this.ws = new RowWave({ container: box, peaks: p.peaks, duration: p.peaks.duration || t.duration_seconds, audio: p.audio });
+    this.ws = new CassetteFace({ container: box, peaks: p.peaks, duration: p.peaks.duration || t.duration_seconds, audio: p.audio, take: t });
     this.ws.setSelection(t.trim, (t.duration_seconds || 0) * sr);
     // The button follows the shared player, whichever view started it.
     this.ac = new AbortController();

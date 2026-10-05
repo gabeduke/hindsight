@@ -2022,7 +2022,61 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 .detail-head .star { margin: 0; width: 40px; height: 40px; font-size: 22px; }
 .detail-name { margin: 0; font: 600 22px var(--font); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; }
 .detail-meta { font-family: var(--mono); font-size: 13px; color: var(--ink-dim); }
-.take-detail .detail-wave { height: 200px; margin: 0; }
+.detail-cassette.pending { min-height: 60px; display: grid; place-items: center; color: var(--ink-dim); font: 12px var(--mono); }
+
+/* ---------- the cassette (lib/cassette.js) ---------- */
+/* The picked take as an object: plastic, a paper label in its stripe, a glass
+   window with the reels. The same in both schemes; parts are placed by the
+   script from cassette-geom.js, for the width it's given. */
+.cassette {
+  position: relative; width: 100%; overflow: hidden; flex: none;
+  background: radial-gradient(ellipse at 30% 0%, var(--cas-hi) 0%, var(--cas-mid) 55%, var(--cas-lo) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 0 0 1px rgba(0,0,0,.6), 0 22px 40px -24px rgba(0,0,0,.7);
+}
+.cas-screws { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cas-screws circle { fill: var(--cas-screw); stroke: var(--cas-slot); }
+.cas-screws path { stroke: var(--cas-slot); stroke-width: 1.4; }
+.cas-label {
+  position: absolute; border-radius: 10px; color: var(--paper-ink);
+  background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 1px 2px rgba(0,0,0,.4);
+}
+.cas-band { position: absolute; left: 0; right: 0; top: 0; border-radius: 10px 10px 0 0; background: var(--stripe); box-shadow: inset 0 -4px 0 rgba(0,0,0,.08); }
+.cas-under { position: absolute; left: 0; right: 0; height: 3px; background: var(--stripe-under); }
+.cas-side {
+  position: absolute; left: 10px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 5px; background: rgba(255,255,255,.92); color: var(--paper-ink); font-family: var(--label-font); font-weight: 700;
+}
+.cas-brand { position: absolute; top: 0; font-family: var(--label-font); font-weight: 700; letter-spacing: .22em; color: var(--stripe-ink); }
+.cas-stamp { position: absolute; right: 12px; top: 0; font-family: var(--mono); font-weight: 600; color: var(--stripe-ink); }
+.cas-rule { position: absolute; left: 16px; right: 16px; height: 1px; background: var(--paper-rule); }
+.cas-name {
+  position: absolute; left: 16px; right: 16px; line-height: 1.2; color: var(--paper-ink);
+  font-family: 'Permanent Marker', var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transform: rotate(-.6deg);
+}
+.cas-window {
+  position: absolute; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, var(--glass-hi) 0%, var(--glass-lo) 70%);
+  box-shadow: inset 0 3px 8px rgba(0,0,0,.8), inset 0 0 0 2px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.5);
+}
+.cas-canvas { position: absolute; left: 0; top: 0; display: block; cursor: pointer; }
+.cas-hub { position: absolute; width: 44px; height: 44px; pointer-events: none; }
+.cas-spin { width: 44px; height: 44px; animation: reelspin 2.2s linear infinite; animation-play-state: paused; }
+.cassette.playing .cas-spin { animation-play-state: running; }
+.cas-spin svg { display: block; }
+.cas-hub-ring { stroke: var(--hub); }
+.cas-hub-disc { fill: var(--hub); }
+.cas-hub-core { fill: var(--hub-core); }
+.cas-tooth { fill: var(--hub-tooth); }
+.cas-glare { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(170deg, rgba(255,255,255,.16), rgba(255,255,255,0) 42%); }
+.cas-foot {
+  position: absolute; left: 50%; bottom: 0; display: flex; justify-content: space-evenly; align-items: center;
+  background: linear-gradient(180deg, var(--cas-mid), var(--cas-lo)); box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
+}
+.cas-foot span { width: 9%; height: 28%; border-radius: 3px; background: var(--cas-slot); box-shadow: inset 0 1px 2px rgba(0,0,0,.9); }
+@keyframes reelspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cas-spin { animation: none; } }
 .detail-actions, .detail-more { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .detail-sel { font-family: var(--mono); font-size: 13px; color: var(--ink-dim); }
 .detail-open { text-decoration: none; }
