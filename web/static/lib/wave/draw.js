@@ -1,18 +1,14 @@
 // web/static/lib/wave/draw.js
-// One waveform renderer for every place a take is drawn: a row in the list,
-// the overview strip, and the take page. They used to disagree -- the list on
-// a dB scale, the take page linear with a "fit quiet takes" gain -- so the
-// same take looked loud in one place and silent in the other.
+// Waveform drawing. A take is drawn on one scale wherever it's drawn -- its
+// cassette and spine, the tape's blocks, its take page and overview: levels,
+// the loudest moment of each slice, scaled by the take's own peak (takeGain,
+// at most x8 so a near-silent take still looks quiet). Bars bend them by a
+// 0.85 power, as the boards draw them; the trace draws them straight.
 //
-// Two scales live here. drawColumns draws on the dB scale the meters and the
-// buffer ribbon use (meter.js ampToFrac: -60..0 dBFS, sign kept): below about
-// -20 dBFS linear amplitude looks like silence, and a home recording mostly
-// lives there. But on that scale a whole take reads as one flat block, so the
-// Reel-to-reel bars and trace use levels instead: the loudest moment of each
-// slice, scaled by the take's own peak (takeGain, at most x8 so a near-silent
-// take still looks quiet) and lifted by a 0.85 power. Every view of a take
-// uses the same gain, so it looks the same everywhere. Pure apart from the
-// canvas context it's handed.
+// drawColumns is the older renderer, on the dB scale the meters and the
+// buffer ribbon use (meter.js ampToFrac): it draws a list row (RowWave's
+// 'row' look) and nothing else now. Pure apart from the canvas context it's
+// handed.
 
 import { ampToFrac } from '../meter.js';
 

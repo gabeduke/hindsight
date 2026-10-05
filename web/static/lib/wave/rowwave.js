@@ -1,6 +1,6 @@
 // web/static/lib/wave/rowwave.js
-// A take's waveform in the list: drawn by the same renderer as the take page
-// and the overview (draw.js, on the dB scale), played through a plain
+// A take's waveform in a list row (draw.js drawColumns, on the meters' dB
+// scale), played through a plain
 // <audio> on the take's preview. Tap or drag to seek; the played part is
 // brighter; the take's selection shows as a bracket.
 //

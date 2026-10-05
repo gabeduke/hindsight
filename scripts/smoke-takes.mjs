@@ -144,6 +144,22 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await ctx.close();
 }
 
+// The take page draws its take on tape, and a phone's notes strip draws it too.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage();
+  const takes = await (await fetch(`${BASE}/api/jams`)).json();
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(takes[0].name)}`);
+  await p.waitForTimeout(2500);
+  const px = await p.evaluate(() => {
+    const cv = document.querySelector('.wave-canvas');
+    const d = cv.getContext('2d').getImageData(Math.round(cv.width * 0.5), Math.round(cv.height * 0.3), 1, 1).data;
+    return [...d];
+  });
+  check('the take view is on tape (brown under the trace)', px[0] > px[1] && px[1] > px[2] && px[3] === 255, px.join(','));
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

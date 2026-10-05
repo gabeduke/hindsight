@@ -17,7 +17,8 @@ import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
   SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
 } from './geometry.js';
-import { peakColumns, foldChannels, drawColumns } from './draw.js';
+import { levelsFor, takeGain } from './draw.js';
+import { drawTrace } from './tape-strip.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
@@ -1080,13 +1081,14 @@ async function main() {
   const strip = $('notes-strip');
   const stripCtx = strip.getContext('2d');
   let stripCols = null;
+  let stripGain = null;
   function stripResize() {
     const r = strip.getBoundingClientRect();
     if (r.width <= 0) return;
     const dpr = window.devicePixelRatio || 1;
     strip.width = Math.round(r.width * dpr);
     strip.height = Math.round(r.height * dpr);
-    stripCols = foldChannels(peakColumns(filePeaks, Math.round(r.width)), filePeaks.channels);
+    stripCols = levelsFor(filePeaks, Math.max(1, Math.round(r.width)));
     drawStrip();
   }
   function drawStrip() {
@@ -1097,7 +1099,15 @@ async function main() {
     stripCtx.clearRect(0, 0, W, H);
     const played = (state.cursor / total) * W;
     const waveOn = token('--wave', '#268bd2'), waveOff = token('--wave-dim', '#a3b0ae');
-    drawColumns(stripCtx, stripCols, 1, { top: 0, height: H, color: (x) => (x < played ? waveOn : waveOff) });
+    // The take's trace, on its own scale (as its view above), lit where played.
+    const opts = { cy: H / 2, half: H / 2 - 2, gain: stripGain ??= takeGain(filePeaks), fillAlpha: 0.3 };
+    drawTrace(stripCtx, stripCols, stripCols, { ...opts, line: waveOff });
+    stripCtx.save();
+    stripCtx.beginPath();
+    stripCtx.rect(0, 0, played, H);
+    stripCtx.clip();
+    drawTrace(stripCtx, stripCols, stripCols, { ...opts, line: waveOn });
+    stripCtx.restore();
     if (state.region) {
       stripCtx.fillStyle = withAlpha(waveOn, 0.2);
       stripCtx.fillRect((state.region.start / total) * W, 0, ((state.region.end - state.region.start) / total) * W, H);

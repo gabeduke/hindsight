@@ -73,8 +73,8 @@ export class Overview {
     this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); });
   }
 
-  // Renders the static, whole-take waveform (channels folded into one lane,
-  // on the shared dB scale) into this.waveCache at the current device-pixel
+  // Renders the static, whole-take trace on tape (channels folded into one
+  // lane, on the take's own scale) into this.waveCache at the current device-pixel
   // size. paint() only re-runs it when the size changes, not on every tick.
   renderWaveCache() {
     const { dpr, cssW: W, cssH: H } = this;
