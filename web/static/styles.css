@@ -1693,6 +1693,20 @@ body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
 /* The tape's title is two lines -- its name, its tempo -- with their menus. */
 .tape-title.menu-anchor { display: flex; flex-direction: column; align-items: flex-start; gap: 0; flex: 0 1 auto; }
 
+/* A phone held sideways: height is what it's short of, so the switch and
+   the page row share one row (the brand goes; Capture's tab is home). The
+   main page, with no page row, keeps its one row as it is. */
+@media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) {
+  .appbar:has(.appbar-page) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "nav page help";
+  }
+  .appbar:has(.appbar-page) > .brand { display: none; }
+  .appbar:has(.appbar-page) .appbar-page { margin: 0; padding: 0 0 0 12px; border-top: 0; min-height: 54px; }
+  .appbar:has(.appbar-page) .appnav a { padding: 0 12px; }
+  body:has(.appbar-page) { --topbar-h: calc(55px + env(safe-area-inset-top)); }
+}
+
 @media (max-width: 699.98px) {
   /* No blur here: a backdrop-filter makes the bar the containing block for
      anything fixed inside it, and the tabs below must fix to the screen. */
