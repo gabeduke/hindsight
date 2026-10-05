@@ -121,6 +121,7 @@ func (o *Output) Open(channels int, pull func([]int32)) (string, error) {
 		return "", err
 	}
 	o.name = name
+	o.lastDevCall.Store(o.now()) // the device is fresh until it has been quiet for a while
 	if o.stream == nil {
 		return name, nil // no tapes: the device alone
 	}
@@ -256,6 +257,9 @@ func (o *Output) paceStep() {
 	}
 }
 
+// watchDrop stops a phone's tape once nobody has listened for 2 s of its
+// playing. It counts only while the tape plays, and fires again if the tape
+// is started again with still nobody there.
 func (o *Output) watchDrop(now int64) {
 	heard := o.stream.Attaches() > o.modeAttaches.Load()
 	if o.Mode() != ModePhone || o.stream.Listeners() > 0 || !heard {
@@ -263,15 +267,18 @@ func (o *Output) watchDrop(now int64) {
 		o.lost.Store(false)
 		return
 	}
+	if !o.eng.tr.Status().Playing {
+		o.lostSince = 0
+		return
+	}
 	if o.lostSince == 0 {
 		o.lostSince = now
 		return
 	}
-	if now-o.lostSince >= int64(dropPause) && !o.lost.Load() {
+	if now-o.lostSince >= int64(dropPause) {
+		o.lostSince = 0
 		o.lost.Store(true)
-		if o.eng.tr.Status().Playing {
-			o.eng.Do(Action{Kind: "stop"})
-		}
+		o.eng.Do(Action{Kind: "stop"})
 	}
 }
 

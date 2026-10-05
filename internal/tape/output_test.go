@@ -133,7 +133,8 @@ func TestThePacerHandsBackToTheDeviceWithoutLosingAFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := e.sinkBase.Load()
-	o.paceStep() // the device has never pulled: the pacer starts its clock
+	now.Add(int64(300 * time.Millisecond)) // the device never called: quiet
+	o.paceStep()                           // the device has never pulled: the pacer starts its clock
 	now.Add(int64(100 * time.Millisecond))
 	o.paceStep() // five 20 ms steps
 	if d := e.delivered.Load(); d != 4800 {
@@ -184,5 +185,33 @@ func TestAListenerGoneForTwoSecondsStopsThePhonesTape(t *testing.T) {
 	o.paceStep()
 	if o.status().State == "lost" {
 		t.Fatal("a listener back clears lost")
+	}
+}
+
+func TestAListenerGoneWhileStoppedIsNotLostAndTheNextPlayStillStops(t *testing.T) {
+	e, sink, o, _ := newOutputEngine(t)
+	detach := o.Stream().Attach(&recorder{})
+	o.setMode(ModePhone)
+	var now atomic.Int64
+	now.Store(int64(time.Hour))
+	o.now = now.Load
+	if err := e.Start(); err != nil {
+		t.Fatal(err)
+	}
+	detach()
+	o.paceStep()
+	now.Add(int64(3 * time.Second))
+	o.paceStep()
+	if st := o.status().State; st == "lost" {
+		t.Fatalf("state %q though nothing was playing", st)
+	}
+	e.Do(Action{Kind: "play"})
+	sink.play(t, 4096)
+	o.paceStep() // starts counting
+	now.Add(int64(2100 * time.Millisecond))
+	o.paceStep()
+	sink.play(t, 8192)
+	if e.tr.Status().Playing || o.status().State != "lost" {
+		t.Fatalf("playing %v, state %q", e.tr.Status().Playing, o.status().State)
 	}
 }
