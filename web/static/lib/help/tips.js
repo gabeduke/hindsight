@@ -69,7 +69,7 @@ export const TIPS = [
   { control: 'POSITION', ids: ['be-pos'], tip: 'Drag sideways to move the point: zoomed out it travels bars, zoomed in it moves samples' },
   { control: 'Attack', ids: ['be-attack'], tip: 'Move the point to the start of the hit nearest it' },
   { control: 'Zero', ids: ['be-zero'], tip: "Move the point to the nearest zero crossing, so the cut doesn't click" },
-  { control: 'Grid', ids: ['be-grid'], tip: 'Move the point to the nearest line of the Snap setting' },
+  { control: 'Grid', ids: ['be-grid'], tip: 'Move the point to the nearest line of the Snap setting, or the nearest beat with Snap off' },
   { control: '◂ ▸ in the editor', ids: ['be-step'], tip: 'One step: a millisecond, or a sample when zoomed right in. Keys: ← →, with ⇧ for ten' },
   { control: '▶ in the editor', ids: ['be-play'], tip: 'Play from the point (from a second before Out)' },
   { control: 'Seam', ids: ['be-seam'], tip: "Show the loop's end running into its start, to see a click or a stutter. Tap a half to move that side" },

@@ -124,3 +124,13 @@ export function snapRadius(kind, sampleRate, view) {
 export function playFrom(edge, frame, sampleRate) {
   return edge === 'end' ? Math.max(0, frame - sampleRate) : frame;
 }
+
+/**
+ * wholeFrames takes the whole frames out of a running total of fractional
+ * ones: { whole, rest }, both toward zero, so a small move backwards adds up
+ * as a small move forwards does. The encoders and the wheel keep the rest.
+ */
+export function wholeFrames(acc) {
+  const whole = Math.trunc(acc);
+  return { whole: whole + 0, rest: acc - whole }; // + 0: never -0
+}

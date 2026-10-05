@@ -19,7 +19,7 @@ import {
 } from './geometry.js';
 import {
   viewAbout, zoomBy, positionBy, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
-  snapRadius, playFrom,
+  snapRadius, playFrom, wholeFrames,
 } from './boundary.js';
 import { NearAudio } from './near.js';
 import { findAttack, findZero } from './onset.js';
@@ -336,6 +336,7 @@ async function main() {
   // Saves still on their way go first, so Undo acts on what's on screen.
   let idleWaiters = [];
   function whenSaved() {
+    commitEdit(); // a move still being made is saved first, so Undo undoes it
     if (pendingTrim) { const body = pendingTrim; pendingTrim = null; clearTimeout(regionTimer); patch(body).catch(() => {}); }
     return savesInFlight ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve();
   }
@@ -550,6 +551,9 @@ async function main() {
     $('play').textContent = playing ? '❚❚' : '▶';
     $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
     $('play').classList.toggle('playing', playing);
+    // The editor hides the transport, so its own ▶ is the pause too.
+    $('be-play').textContent = playing ? '❚❚' : '▶';
+    $('be-play').setAttribute('aria-label', playing ? 'Pause' : 'Play from here');
     $('loop').setAttribute('aria-pressed', String(state.loop));
     $('loop').disabled = !state.region && !state.loop;
     // The sample-exact loop runs at 1×; practice speed is for the preview.
@@ -671,6 +675,7 @@ async function main() {
   // saves, so a whole gesture is one undo step.
   let editDirty = false;
   let wheelTimer = 0;
+  let wheelAcc = 0; // fractional frames the wheel has turned but not yet moved
   let snapping = false; // an Attack or Zero is waiting on its audio
   const editFrame = () => {
     const e = state.edit;
@@ -700,7 +705,8 @@ async function main() {
     const e = state.edit;
     if (!e) return;
     if (e.seam && !(state.region && state.loop)) { e.edge = e.side; e.seam = false; follow(); }
-    if (e.edge === 'downbeat' ? !state.grid.bpm : !state.region) { state.edit = null; editDirty = false; }
+    // (In the seam view the edge is the side, which needs the selection it has.)
+    if (!e.seam && (e.edge === 'downbeat' ? !state.grid.bpm : !state.region)) { state.edit = null; editDirty = false; }
   }
   function renderEditor() {
     checkEdit();
@@ -721,8 +727,16 @@ async function main() {
     $('be-pos').setAttribute('aria-valuetext', $('boundary-readout').textContent);
     $('be-zoom').setAttribute('aria-valuetext', `${stepLabel(stepFrames(view.view.fpp, sr), sr)} a step`);
   }
+  // Saves a move still being made (a drag, a held key, a wheel burst), so
+  // nothing that reaches the screen is lost to what happens next.
+  function commitEdit() {
+    clearTimeout(wheelTimer);
+    wheelAcc = 0;
+    if (state.edit && editDirty) moveEdit(editFrame(), true);
+  }
   function startEditing(edge) {
     if (edge === 'downbeat' ? !state.grid.bpm : !state.region) return;
+    commitEdit(); // opening another boundary mid-gesture saves the one before
     state.edit = { edge, seam: false, side: edge === 'end' ? 'end' : 'start' };
     editDirty = false;
     follow();
@@ -731,8 +745,9 @@ async function main() {
   }
   function stopEditing() {
     if (!state.edit) return;
-    clearTimeout(wheelTimer);
-    if (editDirty) moveEdit(editFrame(), true);
+    commitEdit();
+    // Out of the seam first: the continuous view comes back on the edited point.
+    if (state.edit.seam) setSeam(false);
     const edge = editEdge();
     const inside = $('boundary-editor').contains(document.activeElement);
     state.edit = null;
@@ -817,9 +832,8 @@ async function main() {
       if (editDirty) moveEdit(editFrame(), true);
       return;
     }
-    posAcc += positionBy(dx, w, view.view);
-    const whole = Math.trunc(posAcc);
-    posAcc -= whole;
+    const { whole, rest } = wholeFrames(posAcc + positionBy(dx, w, view.view));
+    posAcc = rest;
     if (whole) moveEdit(editFrame() + whole, false);
   }, () => { posAcc = 0; });
 
@@ -882,10 +896,11 @@ async function main() {
 
   // Hearing it: from the point (Out: a second before it); the seam, with the loop.
   $('be-play').addEventListener('click', () => {
+    if (clock.playing) { togglePlay(); return; } // the editor's pause
     const f = editFrame();
     if (f == null) return;
     seekTo(playFrom(editEdge(), f, sr));
-    if (!clock.playing) togglePlay();
+    togglePlay();
   });
   $('be-seam').addEventListener('click', () => setSeam(!state.edit?.seam));
   $('be-done').addEventListener('click', stopEditing);
@@ -908,9 +923,12 @@ async function main() {
     if (e.metaKey || e.ctrlKey) {
       follow(view.view.fpp * Math.exp(e.deltaY * k * 0.01));
     } else {
-      moveEdit(editFrame() + Math.round((e.deltaY + e.deltaX) * k * view.view.fpp), false);
+      // Small deltas at a deep zoom add up to a frame, in either direction.
+      const { whole, rest } = wholeFrames(wheelAcc + (e.deltaY + e.deltaX) * k * view.view.fpp);
+      wheelAcc = rest;
+      if (whole) moveEdit(editFrame() + whole, false);
       clearTimeout(wheelTimer);
-      wheelTimer = setTimeout(() => { if (state.edit && editDirty) moveEdit(editFrame(), true); }, 250);
+      wheelTimer = setTimeout(commitEdit, 250);
     }
     renderEditor();
     return true;
@@ -958,6 +976,8 @@ async function main() {
       $('take-source').href = `/wave.html?file=${encodeURIComponent(src.name)}`;
     }
     renderSnap();
+    // A tempo cleared while bar 1 is being edited ends that edit.
+    renderEditor();
   }
 
   function inlineEdit(button, input, { initial, commit }) {
@@ -1093,6 +1113,7 @@ async function main() {
     state.grid.downbeat = 0;
     patch({ downbeat_frame: null }).catch((e) => toast(`Could not reset the downbeat: ${e.message}`, 'bad'));
     updateReadout();
+    follow(); renderEditor(); // bar 1 being edited has moved
     redraw();
   });
   $('dl-wav').href = `/api/download?file=${encodeURIComponent(file)}&dl=1`;
@@ -1404,11 +1425,18 @@ async function main() {
   new ResizeObserver(stripResize).observe(strip);
 
   // --- keyboard -----------------------------------------------------------
+  // The menus close themselves on Escape before the handler below runs, so
+  // whether one was open is noted on the way down (capture comes first).
+  let menuWasOpen = false;
+  document.addEventListener('keydown', (e) => {
+    menuWasOpen = e.key === 'Escape' && !!document.querySelector('.menu:not([hidden])');
+  }, true);
   document.addEventListener('keydown', (e) => {
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
       e.preventDefault();
+      commitEdit(); // so ⌘Z undoes a move still being made
       if (undoInfo.count) undo();
       return;
     }
@@ -1423,7 +1451,8 @@ async function main() {
         stepBy(e.key === 'ArrowLeft' ? -1 : 1, e.shiftKey ? 10 : 1, !e.repeat);
         return;
       }
-      if (e.key === 'Escape') { e.preventDefault(); stopEditing(); return; }
+      // Escape closes an open menu and nothing else (see menuWasOpen).
+      if (e.key === 'Escape' && !menuWasOpen) { e.preventDefault(); stopEditing(); return; }
     }
     switch (e.key) {
       case ' ': e.preventDefault(); togglePlay(); break;
@@ -1456,12 +1485,12 @@ async function main() {
   // Two hooks, because neither alone covers a phone: pagehide fires on
   // navigation, visibilitychange when the app is switched or the screen locks.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushRegion();
+    if (document.visibilityState === 'hidden') { commitEdit(); flushRegion(); }
     else refetchTake();
   });
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
-    clearTimeout(wheelTimer);
+    commitEdit();
     editResize.disconnect();
     flushRegion();
     screenLock?.release();

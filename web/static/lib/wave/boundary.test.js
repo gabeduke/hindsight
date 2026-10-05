@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewAbout, zoomBy, positionBy, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine, seamHalves, snapRadius, playFrom, ZOOM_PER_PAD } from './boundary.js';
+import { viewAbout, zoomBy, positionBy, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine, seamHalves, snapRadius, playFrom, wholeFrames, ZOOM_PER_PAD } from './boundary.js';
 
 const sr = 48000;
 
@@ -88,4 +88,15 @@ test('play from here: In and bar 1 at the point, Out a second ahead of it, never
   assert.equal(playFrom('downbeat', 100000, sr), 100000);
   assert.equal(playFrom('end', 100000, sr), 52000);
   assert.equal(playFrom('end', 1000, sr), 0);
+});
+
+test('fractional frames add up, backwards as well as forwards, and never give -0', () => {
+  assert.deepEqual(wholeFrames(2.75), { whole: 2, rest: 0.75 });
+  assert.deepEqual(wholeFrames(-2.75), { whole: -2, rest: -0.75 });
+  const small = wholeFrames(-0.5);
+  assert.ok(Object.is(small.whole, 0), 'not -0');
+  assert.equal(small.rest, -0.5);
+  let acc = 0, moved = 0;
+  for (let i = 0; i < 4; i++) { const w = wholeFrames(acc - 0.3); moved += w.whole; acc = w.rest; }
+  assert.equal(moved, -1, 'four small backward notches add up to a frame');
 });

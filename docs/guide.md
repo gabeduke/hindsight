@@ -1036,7 +1036,7 @@ has no tip.
 | POSITION | Drag sideways to move the point: zoomed out it travels bars, zoomed in it moves samples |
 | Attack | Move the point to the start of the hit nearest it |
 | Zero | Move the point to the nearest zero crossing, so the cut doesn't click |
-| Grid | Move the point to the nearest line of the Snap setting |
+| Grid | Move the point to the nearest line of the Snap setting, or the nearest beat with Snap off |
 | ◂ ▸ in the editor | One step: a millisecond, or a sample when zoomed right in. Keys: ← →, with ⇧ for ten |
 | ▶ in the editor | Play from the point (from a second before Out) |
 | Seam | Show the loop's end running into its start, to see a click or a stutter. Tap a half to move that side |

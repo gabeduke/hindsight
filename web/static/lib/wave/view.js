@@ -439,11 +439,13 @@ export class WaveView extends GestureSurface {
         ctx.strokeStyle = c;
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, bottom); ctx.stroke();
-        ctx.font = `600 11px ${col('--font', 'system-ui')}`;
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = c;
-        const label = ed.edge === 'start' ? 'In' : ed.edge === 'end' ? 'Out' : '1';
-        ctx.fillText(label, x + 4, top + 4);
+        // In and Out are named by their grease-pencil marks; bar 1 has no other.
+        if (ed.edge === 'downbeat') {
+          ctx.font = `600 11px ${col('--font', 'system-ui')}`;
+          ctx.textBaseline = 'top';
+          ctx.fillStyle = c;
+          ctx.fillText('1', x + 4, top + 4);
+        }
         ctx.restore();
       }
     }
