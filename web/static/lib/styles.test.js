@@ -283,6 +283,37 @@ test("the VU scale's red numerals read on the backlit face", () => {
   assert.ok(RULES.some((r) => r.sel.includes('.vu-num.red') && /fill:\s*var\(--vu-red\)/.test(r.body)));
 });
 
+// A token defined twice in one block silently takes the later value: the
+// tape machine's --hub once overwrote the cassette's.
+test('no token is defined twice in a scheme', () => {
+  for (const [name, body] of [[':root', block(css.indexOf(':root'))], ['dark', block(darkAt)]]) {
+    const seen = new Set();
+    for (const m of body.matchAll(/(--[a-z0-9-]+)\s*:/g)) {
+      assert.ok(!seen.has(m[1]), `${name} defines ${m[1]} twice`);
+      seen.add(m[1]);
+    }
+  }
+});
+
+// The tape deck: brushed metal in each scheme, metal reels the same in both,
+// keys that light yellow (mute) and blue (solo), and a lit state window.
+test('the tape deck tokens exist, and its lit legends read', () => {
+  for (const t of ['--deck-hi', '--deck-lo', '--deck-cap', '--reel-metal', '--reel-edge', '--reel-hub', '--mute-hi', '--mute-lo', '--mute-ink', '--solo-hi', '--solo-lo', '--solo-ink'])
+    assert.ok(light[t], `light lacks ${t}`);
+  for (const [fg, bg] of [['--mute-ink', '--mute-lo'], ['--mute-ink', '--mute-hi'], ['--solo-ink', '--solo-lo'], ['--solo-ink', '--solo-hi']]) {
+    const c = contrast(light[fg], light[bg]);
+    assert.ok(c >= 4.5, `${fg} on ${bg} is ${c.toFixed(2)}:1`);
+  }
+  for (const sel of ['.tm-state.run', '.tm-state.rec']) {
+    const r = RULES.filter((x) => x.sel.includes(sel)).map((x) => /fill:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
+    assert.ok(r, `${sel} has a fill`);
+    for (const [scheme, t] of [['light', light], ['dark', dark]]) {
+      const c = contrast(resolve(r[1], t), t['--lcd']);
+      assert.ok(c >= 4.5, `${scheme} ${sel} on --lcd is ${c.toFixed(2)}:1`);
+    }
+  }
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);

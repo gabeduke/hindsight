@@ -77,7 +77,8 @@ export class TapeMachine {
     }
     const plate = el('text', { class: 'tm-plate', x: 300, y: 30 }, svg);
     plate.textContent = 'HINDSIGHT · 4-TRACK';
-    this.state = el('text', { class: 'tm-state', x: 300, y: 58 }, svg);
+    el('rect', { class: 'tm-lamp', x: 248, y: 41, width: 104, height: 23, rx: 4 }, svg);
+    this.state = el('text', { class: 'tm-state', x: 300, y: 57 }, svg);
     this.state.textContent = 'STOP';
 
     this.bridge = document.createElement('div');
@@ -153,6 +154,8 @@ export class TapeMachine {
     this.heads[1].classList.toggle('on', rec);
     const word = rec ? 'REC' : { play: 'PLAY', wind: 'WIND ▶▶', rewind: '◀◀ REWIND', stop: 'STOP' }[m.moving];
     if (this.state.textContent !== word) this.state.textContent = word;
+    this.state.classList.toggle('rec', rec);
+    this.state.classList.toggle('run', !rec && m.moving !== 'stop');
     if (this.meters) {
       const lv = m.moving === 'play' || rec ? this.levels(m.pos) : [];
       this.meters.update(lv, lv, null);

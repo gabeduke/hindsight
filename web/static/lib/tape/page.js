@@ -991,6 +991,7 @@ function buildLanes() {
       row.className = 'tape-track';
       row.innerHTML = `
         <div class="tt-head" data-tip="track">
+          <span class="tt-num" aria-hidden="true"></span>
           <button class="tt-name" type="button"></button>
           <button class="chip tt-bus" type="button" data-tip="bus"></button>
           <button class="chip tt-mute" type="button" aria-pressed="false" data-tip="track-mute">M</button>
@@ -999,6 +1000,10 @@ function buildLanes() {
         </div>
         <canvas class="tt-lane" data-tip="tape-lane"></canvas>`;
       const n = tr.n;
+      // The track's colour, for its number's ring (styles.css .tt-num).
+      row.style.setProperty('--tc', `var(--t${((n - 1) % 4) + 1})`);
+      row.querySelector('.tt-num').textContent = String(n);
+      row.querySelector('.tt-name').dataset.n = String(n);
       const lane = {
         n, row,
         name: row.querySelector('.tt-name'),
@@ -1034,7 +1039,10 @@ function drawLanes() {
     const tr = track(lane.n);
     if (!tr) continue;
     lane.row.classList.toggle('selected', lane.n === state.track);
-    lane.name.textContent = `${tr.n}${tr.name ? ` ${tr.name}` : ''}`;
+    // The number is in its ring; the masking tape carries the name, blank until
+    // there is one, as a strip waiting to be written on.
+    lane.name.textContent = tr.name || '';
+    lane.name.setAttribute('aria-label', `Track ${tr.n}${tr.name ? `, ${tr.name}` : ''}`);
     lane.bus.textContent = tr.bus;
     lane.mute.setAttribute('aria-pressed', String(!!tr.mute));
     lane.solo.setAttribute('aria-pressed', String(!!tr.solo));

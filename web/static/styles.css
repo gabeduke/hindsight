@@ -68,6 +68,21 @@
   --wave-hot:  #7fe6dc;
   --wave-dim:  #2f5f5b;
   --sel:       #4ebeb4;
+  /* the tape deck: brushed metal (each scheme sets its own), metal reels and
+     lit keys the same in both */
+  --deck-hi:       #f4f3ee;
+  --deck-lo:       #cfcec6;
+  --deck-cap:      #1b1c1e;
+  --reel-metal:    #c4c7cb;
+  --reel-edge:     #868a90;
+  --reel-hub:      #17181a;
+  --reel-hub-edge: #3a3b3f;
+  --mute-hi:       #f0c04a;
+  --mute-lo:       #d9a114;
+  --mute-ink:      #2a1f00;
+  --solo-hi:       #5cb3f0;
+  --solo-lo:       #3a93df;
+  --solo-ink:      #0b1a2a;
   /* tape: oxide and trace, the same in both schemes -- tape is an object */
   --oxide-edge:  #23150b;
   --oxide-lo:    #4a2e19;
@@ -160,19 +175,13 @@
   --vu-glow:      rgba(255,190,90,.35);
   --vu-red:       #8a140d;
   /* The tape machine: a brushed faceplate, brown tape on silver reels. */
-  --machine:      #dedcd5;
-  --machine-well: #cfcec7;
   --bridge:       #d8d7d0;
   --tape-pack:    #4a2e18;
   --tape-sheen:   #8a5a32;
-  --flange:       #b8bdb7;
-  --flange-edge:  #7d8784;
-  --hub:          #1b1d1f;
   --guide:        #f5f2e8;
   --head-block:   #2a2c2f;
   --head:         #b8bdb7;
   --head-ink:     #d8d0b6;
-  --wood:         #6b4425;
   /* Masking tape on the track heads, written on in marker. */
   --mask:         #efe2bb;
   /* Grease pencil: the take page's In and Out. --grease is its legend on a
@@ -265,21 +274,18 @@
     --field-sh:    rgba(0, 0, 0, .6);
     --led-off:     #3a3b3e;
     --lcd:         #060503;
+    --deck-hi:     #2c2d31;
+    --deck-lo:     #1b1c1f;
+    --deck-cap:    #0b0c0d;
     --label:       #27282c;
     --case-hi:     #303135;
     --case-lo:     #141517;
     --case-edge:   rgba(0, 0, 0, .75);
-    --machine:      #1d1e21;
-    --machine-well: #141517;
     --bridge:       #1d1e21;
-    --flange:       #93a1a1;
-    --flange-edge:  #3d5d64;
-    --hub:          #0b0c0d;
     --guide:        #c9c6b9;
     --head-block:   #0b0c0d;
     --head:         #93a1a1;
     --head-ink:     #93a1a1;
-    --wood:         #4a2c17;
     --mask:         #d9caa0;
     --grease:       #e0b22e;
     --link:        #6aa8e8;
@@ -1637,15 +1643,21 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-overview { width: 100%; height: 28px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; }
 .tape-lanes { display: flex; flex-direction: column; gap: 6px; }
 .tape-track { display: grid; grid-template-columns: 112px 1fr; gap: 6px; align-items: stretch; }
-.tape-track.selected .tt-head { border-color: var(--rec); box-shadow: inset 0 0 0 1px var(--rec); }
+.tape-track.selected .tt-head { border-color: var(--rec); box-shadow: 0 0 0 1px var(--rec), 0 0 14px color-mix(in srgb, var(--rec) 35%, transparent); }
 .tt-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
   padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
 }
 .tt-name { appearance: none; background: none; border: 0; color: var(--ink); font: 600 13px var(--font); min-height: 28px; padding: 0 4px; cursor: pointer; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.tt-head .chip { min-height: 28px; padding: 0 8px; }
-.tt-head .chip[aria-pressed="true"] { color: var(--on-flag); background: var(--warn); border-color: var(--warn); }
-.tt-head .tt-solo[aria-pressed="true"] { color: var(--on-flag); background: var(--go); border-color: var(--go); }
+/* Square keys, lit when pressed: mute yellow, solo blue. */
+.tt-head .chip { min-height: 30px; min-width: 34px; padding: 0 8px; border-radius: 8px; font: 700 14px var(--label-font); letter-spacing: .04em; }
+.tt-head .tt-mute[aria-pressed="true"] { color: var(--mute-ink); background: linear-gradient(180deg, var(--mute-hi), var(--mute-lo)); border-color: var(--mute-lo); }
+.tt-head .tt-solo[aria-pressed="true"] { color: var(--solo-ink); background: linear-gradient(180deg, var(--solo-hi), var(--solo-lo)); border-color: var(--solo-lo); }
+/* The track's number, in a ring of its colour. */
+.tt-num {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; box-sizing: border-box;
+  border-radius: 50%; border: 3px solid var(--tc, var(--t1)); font: 700 12px var(--label-font); color: var(--ink);
+}
 .tt-gain { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); }
 .tt-lane { width: 100%; height: 64px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .tt-lane.sliding { cursor: grabbing; }
@@ -2254,9 +2266,13 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
    lanes; on a phone it's the reels alone. */
 .tape-page { --machine-h: clamp(90px, 16svh, 150px); }
 .tape-machine {
-  height: var(--machine-h); overflow: hidden; border-radius: 8px;
-  background: var(--machine); border: 1px solid var(--line);
-  border-left: 12px solid var(--wood); border-right: 12px solid var(--wood);
+  height: var(--machine-h); overflow: hidden; border-radius: 14px;
+  /* Brushed metal: fine lines over the deck's own light-to-dark. */
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--deck-hi), var(--deck-lo));
+  border: 1px solid var(--edge); border-left: 10px solid var(--deck-cap);
+  box-shadow: inset 0 1px 0 var(--hl), 0 16px 30px -22px var(--sh-strong);
 }
 .tm-deck { display: flex; height: 100%; }
 .tm-reels { display: block; flex: none; height: 100%; width: auto; aspect-ratio: 600 / 190; }
@@ -2272,22 +2288,36 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 /* Small faces: the PEAK lamp without its word, which won't fit. */
 .tm-bridge .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
 .tm-bridge .vu-foot { font-size: 11px; }
-.tm-well { fill: var(--machine-well); }
+.tm-well { fill: rgba(0,0,0,.06); }
 .tm-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
 .tm-turn { transform-box: view-box; }
-.tm-flange { fill: var(--flange); stroke: var(--flange-edge); stroke-width: 1.2; }
-.tm-hub { fill: var(--hub); }
-.tm-spokes { stroke: var(--flange); stroke-width: 3; stroke-linecap: round; }
+.tm-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
+.tm-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
+.tm-spokes { stroke: var(--reel-edge); stroke-width: 3; stroke-linecap: round; }
 .tm-tape { fill: none; stroke: var(--tape-pack); stroke-width: 3; }
 .tm-sheen { fill: none; stroke: var(--tape-sheen); stroke-width: 3; stroke-dasharray: 2 10; }
 .tm-block { fill: var(--head-block); }
 .tm-head { fill: var(--head); }
 .tm-head.on { fill: var(--rec); }
 .tm-head-label { font: 700 10px var(--label-font); fill: var(--head-ink); text-anchor: middle; }
-.tm-guide { fill: var(--guide); stroke: var(--flange-edge); }
-.tm-guide-pin { fill: var(--flange-edge); }
+.tm-guide { fill: var(--guide); stroke: var(--reel-edge); }
+.tm-guide-pin { fill: var(--reel-edge); }
 .tm-plate { font: 700 12px var(--label-font); letter-spacing: 3.5px; fill: var(--ink-dim); text-anchor: middle; }
-.tm-state { font: 600 13px var(--mono); fill: var(--ink); text-anchor: middle; }
+/* The state word, in a lit window: amber while the tape runs, red recording. */
+.tm-lamp { fill: var(--lcd); stroke: var(--lcd-edge); }
+.tm-state { font: 600 11px var(--mono); letter-spacing: .14em; fill: var(--well-dim); text-anchor: middle; }
+.tm-state.run { fill: var(--lcd-ink); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--lcd-ink) 70%, transparent)); }
+.tm-state.rec { fill: color-mix(in srgb, var(--rec) 70%, var(--well-ink)); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--rec) 80%, transparent)); }
+/* The bridge: each meter's number in a ring of its track's colour. */
+.tm-bridge { background: linear-gradient(180deg, var(--panel-hi), var(--panel)); }
+.tm-bridge .vu:nth-child(4n+1) { --tc: var(--t1); }
+.tm-bridge .vu:nth-child(4n+2) { --tc: var(--t2); }
+.tm-bridge .vu:nth-child(4n+3) { --tc: var(--t3); }
+.tm-bridge .vu:nth-child(4n+4) { --tc: var(--t4); }
+.tm-bridge .vu-foot b {
+  display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; box-sizing: border-box;
+  border-radius: 50%; border: 2.5px solid var(--tc); font-size: 11px; letter-spacing: 0;
+}
 /* Four lit faces at once outshine the lanes in the dark: the bridge's are
    dimmer than the main page's single pair. */
 @media (prefers-color-scheme: dark) {
@@ -2577,7 +2607,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 .take-name { font-weight: 600; }
 
 /* Track heads on the tape. */
-.tt-head { background: var(--panel); border-color: var(--line); }
+.tt-head { background: linear-gradient(180deg, var(--card-hi), var(--card-lo)); border-color: var(--edge); border-radius: 12px; }
 .tt-name { font-family: var(--label-font); font-weight: 700; font-size: 16px; letter-spacing: .06em; }
 
 /* Menus, sheets, tips. */
@@ -2650,3 +2680,11 @@ input, select, textarea { color-scheme: inherit; }
 /* A take still encoding can't play yet: its light is out. */
 .take.spine.encoding { cursor: progress; }
 .take.spine.encoding .spine-led { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--paper-ink) 30%, transparent); }
+
+/* A phone's track head is 112 px: the keys shrink, and the number moves from
+   its ring onto the masking tape of a track that has no name. */
+@media (max-width: 479.98px) {
+  .tt-num { display: none; }
+  .tt-head .chip { min-width: 26px; padding: 0 4px; }
+  .tt-head .tt-name:empty::before { content: attr(data-n); }
+}
