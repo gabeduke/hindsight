@@ -169,6 +169,35 @@ func TestAStalledListenerNeverHoldsUpTheTape(t *testing.T) {
 	}
 }
 
+func TestASilentPhoneIsDroppedPromptly(t *testing.T) {
+	srv, eng, _ := newStreamServer(t)
+	putOutput(t, srv, "phone")
+	c := dialStream(t, srv)
+	readJSON(t, c)
+	if n := eng.Live().Stream.Listeners; n != 1 {
+		t.Fatalf("%d listeners", n)
+	}
+	// The page reports its fill every 500 ms; a phone that says nothing for
+	// 2 s has gone, and the Pi must notice in time for its drop-pause.
+	start := time.Now()
+	c.SetReadDeadline(start.Add(4 * time.Second))
+	for {
+		if _, _, err := c.ReadMessage(); err != nil {
+			break
+		}
+	}
+	if d := time.Since(start); d > 3*time.Second {
+		t.Fatalf("dropped after %v", d)
+	}
+	deadline := time.Now().Add(time.Second)
+	for eng.Live().Stream.Listeners != 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("%d listeners", eng.Live().Stream.Listeners)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func TestTheOutputEndpointRefusesAndExplains(t *testing.T) {
 	srv, _, _ := newStreamServer(t)
 	if code := putOutput(t, srv, "radio"); code != 400 {

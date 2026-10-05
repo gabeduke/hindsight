@@ -16,6 +16,12 @@ import (
 // hello, mode and moved; the page reports its buffer as {"type":"fill"}.
 // PUT /api/tapes/output moves the tape between the jam room, a phone, both.
 
+// streamReadWait is how long the stream waits to hear from the page. It
+// reports its fill every 500 ms, so 2 s of silence means the phone has gone
+// (a Wi-Fi blip, a locked screen): drop it now, so the tape's 2 s
+// drop-pause fires, rather than when the TCP buffer finally fills.
+const streamReadWait = 2 * time.Second
+
 // wsListener queues packets for the connection's writer. Send never blocks:
 // a full queue loses its oldest packet.
 type wsListener struct {
@@ -80,14 +86,14 @@ func (a *API) handleTapeStream(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer close(gone)
 		conn.SetReadLimit(1024)
-		_ = conn.SetReadDeadline(time.Now().Add(pongWait))
-		conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Now().Add(pongWait)) })
+		_ = conn.SetReadDeadline(time.Now().Add(streamReadWait))
+		conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Now().Add(streamReadWait)) })
 		for {
 			_, b, err := conn.ReadMessage()
 			if err != nil {
 				return
 			}
-			_ = conn.SetReadDeadline(time.Now().Add(pongWait))
+			_ = conn.SetReadDeadline(time.Now().Add(streamReadWait))
 			var m struct {
 				Type string `json:"type"`
 				MS   int    `json:"ms"`
