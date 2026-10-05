@@ -501,13 +501,22 @@ From the top:
 - **↶ ↷** undo and redo every change to the tape except its name. 100 steps
   are kept, with the tape, so they survive a restart and every device shares
   them.
+- **The deck.** The reels turn with the playhead, and run back on a
+  rewind or the loop's wrap; the window between them says PLAY, REC, WIND or
+  STOP. The meter bridge has a backlit VU for each track, its number in a
+  ring of the track's colour.
 - **The overview** is the whole tape, six minutes: what's on each track, and
   the loop in amber.
 - **Four lanes**, one per track:
-  - Each header has the track's number (tap it to select the track), its bus
-    (A or B; tap to swap), **M** (mute), **S** (solo) and its level.
-  - In the lane: the bar lines, the clips and the playhead. A layer on top of
-    another clip is drawn blue.
+  - Each header has the track's number in a ring of its colour, its name on
+    masking tape (tap it to select the track), its bus (A or B; tap to
+    swap), **M** (mute, yellow when on), **S** (solo, blue when on) and its
+    level. The track being recorded to is edged red.
+  - In the lane: the bar lines, the clips and the playhead. Each clip is a
+    block in the track's colour with its sound drawn as bars, lit where it
+    has played, and labelled with where it came from (*aux*, *main*, a
+    *take*), *repeat* when it plays the same audio as one before it, or
+    *reversed*. A layer on top of another clip is fainter.
   - Tap a clip to open its sheet. Hold a clip, then drag, to slide it
     (7a). Tap an empty part of a lane to move the playhead there.
 - **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
@@ -530,6 +539,9 @@ From the top:
   does dropping or copying a silent stretch from the ribbon.
 - **Catch the last pass** and **1 bar / 2 / 4** catch onto the selected track.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
+- **On a phone,** upright or on its side, ▶, ⟲ Loop, ● Rec, the click and
+  **Catch the last pass** stay docked at the bottom, so a catch never waits
+  for a scroll.
 - **On a tablet or a computer** the page uses the space. A tablet held
   upright keeps one column, with taller lanes. A tablet on its side, or a
   window 1000 px wide or more, puts the controls in a panel beside the
