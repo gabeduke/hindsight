@@ -2630,6 +2630,12 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
    included, so a border would squeeze and blur them: their edge is an
    outline, which takes no room. */
 .overview-canvas, .wave-canvas { border: 0; outline: 1px solid var(--well-line); outline-offset: -1px; }
+/* The tape page's bitmaps are sized the same way (from getBoundingClientRect),
+   so the same rule applies. With a border, a canvas whose height comes from
+   its bitmap's aspect ratio came out 2px taller than the box it was measured
+   from, and every redraw grew it again: on a phone the lanes crept taller
+   and taller. */
+.tape-overview, .tt-lane, .tape-ruler { border: 0; outline: 1px solid var(--well-line); outline-offset: -1px; }
 .bar, .phone-lane { background: var(--well); box-shadow: inset 0 1px 0 var(--shadow); }
 
 /* ---------- surfaces ---------- */
