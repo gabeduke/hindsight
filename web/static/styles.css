@@ -460,7 +460,7 @@ main {
   z-index: 2;
   display: grid; place-items: center;
   font-family: var(--mono); font-size: 12px; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--danger);
+  text-transform: uppercase; color: color-mix(in srgb, var(--rec) 70%, var(--well-ink));
   background: color-mix(in srgb, var(--well) 80%, transparent);
 }
 
@@ -1855,14 +1855,14 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .shelf-tools { display: flex; flex-direction: column; gap: 10px; }
 .shelf-search {
   display: flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 12px;
-  border-radius: 6px; background: var(--well); color: var(--ink-dim);
-  border: 1px solid var(--well-line); box-shadow: inset 0 2px 0 var(--shadow);
+  border-radius: 10px; background: var(--field); color: var(--ink-dim);
+  border: 1px solid var(--edge-soft); box-shadow: inset 0 1px 3px var(--field-sh);
 }
 .shelf-search input {
   flex: 1; min-width: 0; border: 0; outline: none; background: transparent;
   color: var(--ink); font: 16px var(--font);
 }
-.shelf-search:focus-within { border-color: var(--ink-dim); }
+.shelf-search:focus-within { border-color: var(--focus); }
 .shelf-sort-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .shelf-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
 /* Browsing, not playing: flat toggles, the chosen ones filled in ink. */
@@ -2251,7 +2251,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 input, select, textarea { color-scheme: inherit; }
 
 /* Fields: pressed into the panel. */
-.take-name-input, .take-bpm-input, .take-title-input, .take-sub-input, .tape-tempo-row input, .phone-field select, #flag-sheet input, .take-flag-edit input, .shelf-search input {
+.take-name-input, .take-bpm-input, .take-title-input, .take-sub-input, .tape-tempo-row input, .phone-field select, #flag-sheet input, .take-flag-edit input {
   background: var(--field); color: var(--ink);
   border: 1px solid var(--edge-soft); border-radius: 10px;
   box-shadow: inset 0 1px 3px var(--field-sh);

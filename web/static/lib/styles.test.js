@@ -96,7 +96,7 @@ function resolve(v, t) {
 }
 
 // Text laid over a black window is not on the page: it needs the window's inks.
-const WELL_TEXT = ['.rb-label', '.rb-label.on', '.rb-now-label', '.rb-readout', '.lane-name', '.lane-meta', '.lane-chev'];
+const WELL_TEXT = ['.rb-label', '.rb-label.on', '.rb-now-label', '.rb-readout', '.viz-wrap.stale::after', '.lane-name', '.lane-meta', '.lane-chev'];
 for (const [scheme, t] of [['light', light], ['dark', dark]]) {
   test(`${scheme}: text over the black windows is readable`, () => {
     for (const sel of WELL_TEXT) {
@@ -113,5 +113,12 @@ for (const [scheme, t] of [['light', light], ['dark', dark]]) {
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);
+  assert.match(block(at), /background:\s*var\(--field\)/);
+});
+
+// The takes search is a box with a bare input inside: the box is the field.
+test('the takes search is a field, not a window', () => {
+  const at = css.search(/^\.shelf-search\s*\{/m);
+  assert.ok(at >= 0);
   assert.match(block(at), /background:\s*var\(--field\)/);
 });
