@@ -12,101 +12,144 @@
 @font-face { font-family: 'Permanent Marker'; src: url('/fonts/permanent-marker-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
 
 :root {
-  /* Solarized Light: a cream faceplate. The dark block below is the same
-     desk after hours; it follows the device, there is no switch. */
+  /* Reel-to-reel: brushed aluminium by day. The dark block below is the same
+     deck in black anodising; it follows the device, there is no switch.
+     Audio windows (wells, lanes, the ribbon) are black in both, as on the
+     hardware, so anything drawn on them uses the --well-* inks. */
   color-scheme: light dark;
-  --bg:        #fdf6e3;
-  --panel:     #eee8d5;
-  --panel-2:   #e4ddc8;
-  --line:      #d3cab0;
-  --rule:      #c9c0a4;
-  --ink:       #073642;
-  /* base00/base01 are under 4.5:1 on cream, so dim text is a shade darker
-     than Solarized's own, and faint is barely fainter: hierarchy comes from
-     size and face, not from text you cannot read. */
-  --ink-dim:   #52666d;
-  --ink-faint: #566a70;
+  --bg:        #e4e3dd;
+  --face-hi:   #f2f1ec;
+  --face-lo:   #d9d8d1;
+  --panel:     #d8d7d0;
+  --panel-hi:  #e7e6e0;
+  --panel-2:   #dddcd5;
+  --card-hi:   #f6f5f1;
+  --card-lo:   #e9e8e2;
+  --line:      #c5c4bd;
+  --rule:      #b9b8b1;
+  /* Depth: a hairline edge, a highlight along the top of anything raised,
+     and the shadow under it. */
+  --edge:        rgba(20, 22, 24, .16);
+  --edge-soft:   rgba(20, 22, 24, .08);
+  --edge-strong: rgba(20, 22, 24, .32);
+  --hl:          rgba(255, 255, 255, .9);
+  --sh:          rgba(20, 22, 24, .14);
+  --sh-strong:   rgba(20, 22, 24, .36);
+  --ink:       #1b1d1f;
+  /* Hierarchy comes from size and face, not from text you cannot read: dim
+     and faint both stay above 4.5:1 on the ground and the panels. */
+  --ink-dim:   #53575a;
+  --ink-faint: #5d6164;
 
   /* What a colour means, everywhere: orange is the one main action on a
      screen, red is recording (and a destructive confirm), green is playing
      or healthy, yellow is loop, flags and mute. */
-  --accent:      #cb4b16;
-  --accent-edge: #8f3410;
-  --on-accent:   #fdf6e3;
+  --accent:      #b84a1b;
+  --accent-hi:   #c9531f;
+  --accent-lo:   #a83f14;
+  --accent-edge: #7e2e0e;
+  --accent-glow: rgba(201, 83, 31, .7);
+  --on-accent:   #fff7ea;
   --rec:         #dc322f;
   --danger:      #dc322f;
-  --on-danger:   #fdf6e3;
+  --on-danger:   #fff7ea;
   /* Red as text on a key: the fill red is under 4.5:1 there. */
-  --danger-ink:  #b02a27;
-  --go:          #859900;
-  --warn:        #b58900;
-  --flag:        #b58900;
-  --on-flag:     #002b36;
+  --danger-ink:  #b3261e;
+  --go:          #6faa32;
+  --go-glow:     rgba(111, 170, 50, .85);
+  --warn:        #d99a0a;
+  --warn-glow:   rgba(217, 154, 10, .9);
+  --flag:        #d99a0a;
+  --on-flag:     #1b1d1f;
+  --focus:       #2f6fb3;
 
   /* Audio: the waveform, what is not in play, and a selection over it. */
-  --wave:      #268bd2;
-  --wave-dim:  #a3b0ae;
-  --sel:       #268bd2;
+  --wave:      #4ebeb4;
+  --wave-hot:  #7fe6dc;
+  --wave-dim:  #2f5f5b;
+  --sel:       #4ebeb4;
 
-  /* Hardware: recessed wells, tape-deck keys, LEDs, amber LCD readouts. */
-  --well:      #e9e2cd;
-  --well-line: #d3cab0;
-  --key:       #fbf6e8;
-  --key-edge:  #bdb397;
-  --key-down:  #e6dfc9;
-  --key-bed:   #ddd5bd;
-  --led-off:   #cfc6ab;
-  --lcd:       #002b36;
-  --lcd-ink:   #b58900;
+  /* Hardware: black windows, a recessed track for switches with a raised
+     thumb, keys, fields, LEDs, amber LCD readouts. */
+  --well:      #161718;
+  --well-hi:   #0e0f10;
+  --well-line: rgba(0, 0, 0, .6);
+  --well-ink:  #f2e6c8;
+  --well-dim:  #a39d90;
+  --well-rule: rgba(242, 230, 200, .14);
+  --lane:      #101114;
+  --lane-hi:   #16171a;
+  --track:     #cfcec7;
+  --seg-hover: rgba(20, 22, 24, .06);
+  --thumb-hi:  #fcfcfa;
+  --thumb-lo:  #e3e2dc;
+  --key:       #f1f0eb;
+  --key-hi:    #fbfbf8;
+  --key-lo:    #e2e1db;
+  --key-edge:  #a9a8a1;
+  --key-down:  #d5d4cd;
+  --key-bed:   #cfcec7;
+  --field:     #eeede8;
+  --field-sh:  rgba(20, 22, 24, .2);
+  --led-off:   #b8b7b0;
+  --lcd:       #0b0905;
+  --lcd-ink:   #ffb547;
   /* A readout that needs attention: warn inverts the window, bad turns the
      digits red -- amber digits alone would read as normal. */
   --warn-ink:  #8f3410;
-  --lcd-edge:  rgba(0, 0, 0, .35);
+  --lcd-edge:  rgba(0, 0, 0, .7);
   --rec-edge:  #a5231f;
-  --label:     #fffcf2;
+  /* A take's card. (The cassette's paper arrives with the cassettes.) */
+  --label:     #f6f5f1;
+  /* Cassette cases, seen edge-on. */
+  --case-hi:   #eef0f2;
+  --case-lo:   #c6c9ce;
+  --case-edge: rgba(20, 22, 24, .28);
   /* A VU meter's face is paper in both schemes; its printing is ink. */
   --vu-face:   #fbf3dc;
   --vu-base:   #ece2c6;
   --vu-ink:    #073642;
-  /* The tape machine: a faceplate, brown tape on silver reels, wood ends. */
-  --machine:      #e9e2cd;
-  --machine-well: #ddd5bd;
-  --bridge:       #e4ddc8;
+  /* The tape machine: a brushed faceplate, brown tape on silver reels. */
+  --machine:      #dedcd5;
+  --machine-well: #cfcec7;
+  --bridge:       #d8d7d0;
   --tape-pack:    #4a2e18;
   --tape-sheen:   #8a5a32;
   --flange:       #b8bdb7;
   --flange-edge:  #7d8784;
-  --hub:          #073642;
+  --hub:          #1b1d1f;
   --guide:        #f5f2e8;
-  --head-block:   #3d4f55;
+  --head-block:   #2a2c2f;
   --head:         #b8bdb7;
   --head-ink:     #d8d0b6;
   --wood:         #6b4425;
   /* Masking tape on the track heads, written on in marker. */
   --mask:         #efe2bb;
-  /* Grease pencil: the take page's In and Out marks. */
+  /* Grease pencil: the take page's In and Out. --grease is its legend on a
+     panel; --grease-mark is the stroke on a black window. */
   --grease:       #7a5c00;
+  --grease-mark:  #f0c419;
   --marker:       #14252b;
-  --link:      #1f6fa8;
-  --shadow:    rgba(7, 54, 66, .18);
-  --scrim:     rgba(7, 54, 66, .45);
+  --link:      #24609e;
+  --shadow:    rgba(20, 22, 24, .18);
+  --scrim:     rgba(20, 22, 24, .45);
 
-  /* Tracks 1-4 on the tape, and MIDI lanes. */
-  --t1: #268bd2;
-  --t2: #2aa198;
-  --t3: #b58900;
-  --t4: #d33682;
+  /* Tracks 1-4 on the tape, and MIDI lanes: bright enough for black lanes. */
+  --t1: #3a96dd;
+  --t2: #2fb3a7;
+  --t3: #d9a114;
+  --t4: #e0559a;
 
   /* The rising-notes stage stays dark in both schemes, like a lit keyboard
      in a dim room; its keys are ivory and ebony. */
-  --stage:      #073642;
-  --stage-line: #0e4552;
-  --stage-ink:  #93a1a1;
-  --pad:        #0a3d49;
-  --ivory:      #fdf6e3;
-  --ivory-ink:  #52666d;
-  --ivory-edge: #bdb397;
-  --ebony:      #073642;
+  --stage:      #1a1f26;
+  --stage-line: #232a33;
+  --stage-ink:  #a3a29c;
+  --pad:        #20262e;
+  --ivory:      #f7f5ef;
+  --ivory-ink:  #53575a;
+  --ivory-edge: #a9a8a1;
+  --ebony:      #1b1d1f;
 
   --radius:    10px;
   --tap:       48px;
@@ -125,51 +168,81 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:        #002b36;
-    --panel:     #073642;
-    --panel-2:   #0a3d49;
-    --line:      #00222b;
-    --rule:      #2c5964;
-    --ink:       #eee8d5;
-    --ink-dim:   #93a1a1;
-    --ink-faint: #8c9b9c;
-    --accent-edge: #7a2a0c;
-    --wave:      #2aa198;
-    --wave-dim:  #2c5964;
-    --sel:       #2aa198;
-    --well:      #00212b;
-    --well-line: #0e3f4b;
-    --key:       #0b4250;
-    --key-edge:  #001c24;
-    --key-down:  #06323d;
-    --key-bed:   #00212b;
-    --led-off:   #1b4f5b;
-    --lcd:       #00212b;
-    --label:     #0b4250;
-    --vu-face:   #e8dcb4;
-    --vu-base:   #d6c89c;
-    --machine:      #0a3b47;
-    --machine-well: #06303a;
-    --bridge:       #073642;
+    --bg:          #141516;
+    --face-hi:     #242528;
+    --face-lo:     #1a1b1d;
+    --panel:       #1d1e21;
+    --panel-hi:    #26272b;
+    --panel-2:     #222326;
+    --card-hi:     #27282c;
+    --card-lo:     #1f2023;
+    --line:        #2c2d31;
+    --rule:        #38393c;
+    --edge:        rgba(255, 255, 255, .08);
+    --edge-soft:   rgba(255, 255, 255, .045);
+    --edge-strong: rgba(255, 255, 255, .18);
+    --hl:          rgba(255, 255, 255, .07);
+    --sh:          rgba(0, 0, 0, .4);
+    --sh-strong:   rgba(0, 0, 0, .72);
+    --ink:         #ecebe6;
+    --ink-dim:     #a3a29c;
+    --ink-faint:   #8f8e88;
+    --accent-edge: #5e220a;
+    --danger-ink:  #ff8a7a;
+    --go:          #7dbb3c;
+    --go-glow:     rgba(125, 187, 60, .85);
+    --warn:        #e5a50a;
+    --warn-glow:   rgba(229, 165, 10, .9);
+    --flag:        #e5a50a;
+    --focus:       #5b9be0;
+    --well:        #0a0a0b;
+    --well-hi:     #060607;
+    --well-line:   rgba(0, 0, 0, .7);
+    --well-dim:    #958f83;
+    --lane:        #0b0c0e;
+    --lane-hi:     #111215;
+    --track:       #0e0f10;
+    --seg-hover:   rgba(255, 255, 255, .05);
+    --thumb-hi:    #3b3c40;
+    --thumb-lo:    #2d2e32;
+    --key:         #303135;
+    --key-hi:      #37383c;
+    --key-lo:      #2a2b2e;
+    --key-edge:    #08090a;
+    --key-down:    #1f2023;
+    --key-bed:     #0e0f10;
+    --field:       #0f1011;
+    --field-sh:    rgba(0, 0, 0, .6);
+    --led-off:     #3a3b3e;
+    --lcd:         #060503;
+    --label:       #27282c;
+    --case-hi:     #303135;
+    --case-lo:     #141517;
+    --case-edge:   rgba(0, 0, 0, .75);
+    --vu-face:     #e8dcb4;
+    --vu-base:     #d6c89c;
+    --machine:      #1d1e21;
+    --machine-well: #141517;
+    --bridge:       #1d1e21;
     --flange:       #93a1a1;
     --flange-edge:  #3d5d64;
+    --hub:          #0b0c0d;
     --guide:        #c9c6b9;
-    --head-block:   #00212b;
+    --head-block:   #0b0c0d;
     --head:         #93a1a1;
     --head-ink:     #93a1a1;
     --wood:         #4a2c17;
     --mask:         #d9caa0;
     --grease:       #e0b22e;
-    --link:      #3fb5ab;
-    --danger-ink: #ff8a7f;
-    --warn-ink:   #e0b22e;
-    --shadow:    rgba(0, 0, 0, .45);
-    --scrim:     rgba(0, 16, 20, .7);
-    --stage:      #00212b;
-    --stage-line: #0b3540;
-    --pad:        #06323d;
-    --ivory:      #eee8d5;
-    --ebony:      #00161c;
+    --link:        #6aa8e8;
+    --warn-ink:    #e0b22e;
+    --shadow:      rgba(0, 0, 0, .5);
+    --scrim:       rgba(0, 0, 0, .7);
+    --stage:       #12161b;
+    --stage-line:  #1d232a;
+    --pad:         #181d23;
+    --ivory:       #ecebe6;
+    --ebony:       #0b0c0d;
   }
 }
 
