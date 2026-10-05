@@ -497,7 +497,7 @@ git commit -m "Canvases draw on black windows with the window inks"
 - **Lanes:** black windows with clip blocks of rounded bars (labels such as pass −n, repeat, split), and red A/M/S states.
 - **Phone:** Play / Loop / Rec / Catch pinned above the tabs, so Catch is always reachable.
 
-**PR 6: a take** (`wave.html`, `lib/wave/view.js`, `rising.js`)
+**PR 6: a take**: detailed below, after PR 5. Scope as first written: (`wave.html`, `lib/wave/view.js`, `rising.js`)
 - **The zoomed view:** trace on tape, with an overview window, grease-pencil IN/OUT on the tape, and keys with LEDs.
 - **The edit strip:** an amber LCD.
 - **MIDI lanes:** on black windows.
@@ -847,3 +847,65 @@ git commit -m "Canvases draw on black windows with the window inks"
 - [ ] Extend `scripts/smoke-takes.mjs` or add `scripts/smoke-tape.mjs`: the dock is on screen at both phone sizes, and a lane draws.
 - [ ] Take review screenshots.
 - [ ] Commit `PR 5: cache bump, the guide, a smoke test`.
+
+---
+
+## PR 6: a take (detailed 2026-10-05)
+
+**Branch:** `claude/reel-6-take` from `main` after PR 5. **Scope:** the take page (`wave.html`, `lib/wave/view.js`, `lib/wave/overview.js`, `lib/wave/page.js`, `lib/wave/draw.js`), and the user-facing scale sentence in the guide.
+
+**How it fits the code today.**
+- **The zoomed view:** `WaveView.paint()` (view.js) fills a `--well` body with a `--well-hi` ruler and grip strip. It draws the waveform with `drawColumns` from TileCache columns (per-pixel min/max per channel, on the dB scale), then grease IN/OUT, flags and the playhead.
+- **The overview:** `Overview.renderWaveCache()` (overview.js) draws the folded whole-take peaks with `drawColumns` into an offscreen cache. Its `paint()` adds the selection, flags, the playhead and the viewport window.
+- **Rising notes** already light their keys as notes sound. **The edit strip** already reads in an amber LCD, and **the keys** already have LEDs (PR 1).
+
+**The change (rulings):**
+- **The zoomed view on tape, as the boards draw it.**
+  - **The tape:** the body is oxide (`paintOxide`), with a dark centre line (`--oxide-edge`). The ruler and grip strips are `--oxide-ruler`.
+  - **Lanes:** a stereo take is two trace lanes, left above and right below, each symmetric about its lane's centre line. A mono take is one lane.
+  - **Levels:** come from the tile columns through a new `levelsOfColumns(cols, channels, channel)` (the loudest absolute value per column), scaled by the take's own `takeGain` from its file peaks, which `page.js` already loads.
+  - **The trace:** unplayed, it is drawn at 55 % with the faint haze. Clipped to the playhead, it is `--trace-hot` with the two glows (PR 2's documented recipe).
+  - **Marks:** grease IN/OUT, flags and the playhead stay as they are, on top.
+  - **Why this scale:** it ends PR 2's accepted interim. The take page now draws on the same scale as the cassette that shows the same take.
+- **The overview on tape:** an oxide strip with the folded trace (`--trace` at 70 %) in its offscreen cache. Selection, flags, the playhead and the window stay as they are.
+- **Comments and guide:** the scale comments in view.js, overview.js and draw.js, and docs/guide.md's take-page scale sentence, say what is drawn now.
+
+### Task 26: Levels from tile columns
+- **Files:** `lib/wave/draw.js`, `lib/wave/levels.test.js`.
+- **Interface:** `levelsOfColumns(cols, channels, channel = -1) → Float32Array(width)`.
+  - Input layout: `cols` is the `peakColumns` layout (width × channels × [min, max]).
+  - Output: the largest `|min|` or `|max|` of one channel, or of all channels when `channel < 0`. A NaN column is 0.
+- **Steps:**
+  - [ ] Failing tests: two channels, three columns, one of them NaN. Check per channel, folded, and the NaN column.
+  - [ ] Implement.
+  - [ ] Run the suite: PASS.
+  - [ ] Commit `Levels from tile columns`.
+
+### Task 27: The zoomed view on tape
+- **Files:** `lib/wave/view.js`, `lib/wave/page.js`, `lib/wave/inks.test.js` (if needed).
+- **Interface:** `WaveView` takes `gain` (default 1) in its options; `page.js` passes `takeGain(filePeaks)`.
+- **Steps:**
+  - [ ] Failing test in `inks.test.js`: `view.js` no longer calls `drawColumns` (the take view draws on tape).
+  - [ ] Implement.
+  - [ ] Browser check on a demo take, light and dark, at 1440 × 900 and 390 × 844:
+    - a stereo trace on oxide, lit up to the playhead during play;
+    - grease IN/OUT, flags, the ruler's bar numbers and the playhead read;
+    - zoom and pan stay smooth;
+    - the overview and view agree.
+  - [ ] Commit `The take's zoomed view on tape`.
+
+### Task 28: The overview on tape
+- **Files:** `lib/wave/overview.js`; extend the same `inks.test.js` check.
+- **Steps:**
+  - [ ] Failing test: `overview.js` doesn't call `drawColumns`.
+  - [ ] Implement.
+  - [ ] Browser check.
+  - [ ] Commit `The take's overview on tape`.
+
+### Task 29: Ship-ready
+- [ ] Update the scale comments and the guide.
+- [ ] Bump `sw.js`.
+- [ ] Run Go and node tests and all three smoke scripts.
+- [ ] Extend `smoke-takes.mjs` with a check that the take page's view draws.
+- [ ] Take review screenshots and retake the README images.
+- [ ] Commit `PR 6: the take on tape, the guide, cache bump`.
