@@ -74,12 +74,14 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await p.goto(`${BASE}/takes.html`);
   await settle(p);
   await p.locator('#select-btn').click();
-  await p.locator('.take.spine').nth(1).focus();
+  // A folded take's row is a hidden spine: count the ones on the shelf.
+  const spine = p.locator('.take.spine:not(.folded)').nth(1);
+  await spine.focus();
   await p.keyboard.press('Enter');
   await settle(p, 200);
   const n = await p.locator('.take.spine.selected').count();
   check('Enter on a spine in select mode selects it', n === 1, `${n} selected`);
-  const pressed = await p.locator('.take.spine').nth(1).getAttribute('aria-pressed');
+  const pressed = await spine.getAttribute('aria-pressed');
   check('a selected spine says so', pressed === 'true', `aria-pressed=${pressed}`);
   await ctx.close();
 }
@@ -219,6 +221,53 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
     check(`a take, ${w}x${h}: ▶, In and the scrubber on screen`, on);
     await q.context().close();
   }
+}
+
+// Families: cuts fold into the take they were cut from, and come back out
+// when it's deleted.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1470, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  const jam = await p.evaluate(async () => {
+    const r = await fetch('/api/trigger?seconds=12', { method: 'POST' }).then((x) => x.json());
+    const cut = (a, b) => fetch(`/api/cut?file=${encodeURIComponent(r.name)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start_frame: a, end_frame: b, label: '' }),
+    }).then((x) => x.json());
+    // Cuts are named by the second they're made: one second apart.
+    const c1 = await cut(48000, 144000);
+    await new Promise((res) => setTimeout(res, 1100));
+    const c2 = await cut(240000, 384000);
+    return { name: r.name, cuts: [c1.name, c2.name] };
+  });
+  await p.goto(`${BASE}/takes.html`);
+  await settle(p, 1500);
+  const spine = p.locator(`.take[data-name="${jam.name}"]`);
+  check('a take with two cuts wears ✂2', (await spine.locator('.spine-fold').textContent()) === '✂2');
+  const folded = await p.evaluate((names) => names.map((n) => document.querySelector(`.take[data-name="${n}"]`)?.hidden), jam.cuts);
+  check('its cuts ride hidden behind it', folded.every((h) => h === true), JSON.stringify(folded));
+  await spine.click();
+  await settle(p, 600);
+  check('its cassette lists both cuts', (await p.locator('.detail-cuts .detail-member').count()) === 2);
+  await p.locator('.detail-cuts .detail-member').first().click();
+  await settle(p, 500);
+  const inCut = await p.evaluate(() => ({ up: !document.querySelector('.detail-up').hidden, from: document.querySelector('.detail-from').textContent }));
+  check('a cut shows in the cassette, with ‹ and where it came from', inCut.up && /^Cut from /.test(inCut.from), JSON.stringify(inCut));
+  await p.locator('.detail-up').click();
+  await settle(p, 500);
+  check('‹ goes back to the take', !(await p.locator('.detail-cuts').isHidden()));
+  await p.locator('.detail-delete').click();
+  await settle(p, 2500);
+  const toastText = await p.locator('.toast').last().textContent();
+  check('deleting it says its cuts are back', /its 2 cuts are back on the shelf/.test(toastText), toastText);
+  const out = await p.evaluate((names) => names.map((n) => document.querySelector(`.take[data-name="${n}"]`)?.hidden), jam.cuts);
+  check('its cuts are spines again', out.every((h) => h === false), JSON.stringify(out));
+  await p.locator('.toast button', { hasText: 'Undo' }).last().click();
+  await settle(p, 2500);
+  const back = await p.evaluate((names) => names.map((n) => document.querySelector(`.take[data-name="${n}"]`)?.hidden), jam.cuts);
+  check('Undo folds them in again', back.every((h) => h === true), JSON.stringify(back));
+  await ctx.close();
 }
 
 await browser.close();

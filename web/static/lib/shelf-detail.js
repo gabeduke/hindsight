@@ -4,9 +4,13 @@
 // its bars with its selection, Play, the way into the take page, its downloads, Delete, and
 // its flags. It plays through the list row's own player (TakesList.player),
 // so the pane and the row never play over each other.
+//
+// A spine with a family (lib/shelf.js fold) lists the takes folded into it:
+// its cuts, and its tape's earlier mixdowns. Pressing one shows it here, with
+// a ‹ key back to the spine.
 
 import { CassetteFace } from '/lib/cassette.js';
-import { flagChips, parseBpm, tagOf } from '/lib/shelf.js';
+import { flagChips, parseBpm, tagOf, tapeName } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 
@@ -17,25 +21,41 @@ const fmtTime = (s) => {
   return `${m}:${String(r === 60 ? 59 : r).padStart(2, '0')}`;
 };
 
+// clockOf is when a take was made, as a mix's line says it: the time today,
+// the day and time before that.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function clockOf(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return d.toDateString() === new Date().toDateString() ? hm : `${d.getDate()} ${MONTHS[d.getMonth()]} ${hm}`;
+}
+
 export class TakeDetail {
   /** takes is the page's TakesList; onToast shows a toast; onBack closes the
-   *  pane when it's a phone's sheet (its "‹ Takes" key shows only then). */
-  constructor(root, { takes, onToast, onBack }) {
+   *  pane when it's a phone's sheet (its "‹ Takes" key shows only then);
+   *  onPick(name) picks a take from the pane (a family's line, its ‹, or a
+   *  cut's original); isShown(name) says whether a take can be picked. */
+  constructor(root, { takes, onToast, onBack, onPick, isShown }) {
     this.root = root;
     this.takes = takes;
     this.onToast = onToast;
+    this.onPick = onPick;
+    this.isShown = isShown || (() => false);
     this.name = null;
     this.ws = null;
     this.ac = null;
     this.gen = 0;
     root.innerHTML = `
       <button class="icon-btn sheet-back" type="button" aria-label="Back to the takes">‹ Takes</button>
+      <button class="icon-btn detail-up" type="button" data-tip="detail-up" hidden></button>
       <div class="detail-head">
         <button class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
         <h2 class="detail-name"><button class="detail-rename" type="button" data-tip="rename"></button></h2>
         <input class="take-name-input detail-name-input" type="text" maxlength="120" aria-label="Name this take" hidden>
         <span class="detail-meta"><button class="detail-bpm" type="button" data-tip="bpm"></button><input class="take-bpm-input detail-bpm-input" type="text" inputmode="decimal" maxlength="7" aria-label="Tempo in beats per minute" hidden><span class="detail-meta-rest"></span></span>
       </div>
+      <p class="detail-from" hidden></p>
       <div class="detail-tags" role="group" aria-label="Tag" data-tip="tag-pick"></div>
       <div class="detail-cassette"></div>
       <div class="detail-actions">
@@ -50,9 +70,26 @@ export class TakeDetail {
         <span class="appbar-spacer"></span>
         <button class="icon-btn danger detail-delete" type="button" data-tip="delete">Delete</button>
       </div>
-      <div class="detail-flags"></div>`;
+      <div class="detail-flags"></div>
+      <section class="detail-family detail-cuts" data-tip="detail-cuts" aria-label="Cuts" hidden>
+        <h3 class="detail-family-h">Cuts</h3><ol class="detail-family-list"></ol>
+      </section>
+      <section class="detail-family detail-mixes" data-tip="detail-mixes" aria-label="Earlier mixes" hidden>
+        <h3 class="detail-family-h">Earlier mixes</h3><ol class="detail-family-list"></ol>
+      </section>`;
     this.el = (sel) => root.querySelector(sel);
     this.el('.sheet-back').addEventListener('click', () => onBack?.());
+    // A family's line, a cut's original, or ‹ picks that take. The button
+    // pressed is gone or hidden after, so focus goes to the new take's ‹ (or
+    // its name), at the top of the pane.
+    root.addEventListener('click', (e) => {
+      const b = e.target.closest('.detail-member, .detail-source, .detail-up');
+      if (!b?.dataset.name) return;
+      onPick?.(b.dataset.name);
+      const up = this.el('.detail-up');
+      (up.hidden ? this.el('.detail-rename') : up).focus({ preventScroll: true });
+      root.scrollTop = 0;
+    });
     // A tag renamed or recolored: the chips, and the cassette's stripe.
     tagStore.subscribe(() => { if (this.take) { this.renderTags(); this.ws?.setTake(this.take); } });
     this.el('.detail-play').addEventListener('click', () => this.player?.toggle());
@@ -126,11 +163,13 @@ export class TakeDetail {
     });
   }
 
-  /** show puts a take in the pane, or empties it for null. */
-  async show(t) {
+  /** show puts a take in the pane, or empties it for null. family is
+   *  {spine, cuts, mixes} from lib/shelf.js familyOf, when it has one. */
+  async show(t, family = null) {
     this.take = t;
     this.root.hidden = !t;
     if (!t) { this.gen++; this.loading = false; this.unmount(); this.name = null; return; }
+    this.renderFamily(t, family);
     const sr = t.sample_rate || 48000;
     const star = this.el('.star');
     star.setAttribute('aria-pressed', String(!!t.starred));
@@ -190,6 +229,95 @@ export class TakeDetail {
     const label = () => { this.el('.detail-play').textContent = p.audio.paused ? 'Play' : 'Pause'; };
     for (const ev of ['play', 'pause', 'ended']) p.audio.addEventListener(ev, label, { signal: this.ac.signal });
     label();
+  }
+
+  /** renderFamily draws where the take sits in its family: the ‹ key back to
+   *  the spine it's folded into, where it came from, and -- on the spine --
+   *  the lines for its cuts and its tape's earlier mixes. */
+  renderFamily(t, family) {
+    const spine = family?.spine || t;
+    const cuts = family?.cuts || [], mixes = family?.mixes || [];
+    const src = t.source ? this.takes.all.find((x) => x.name === t.source.name) : null;
+    const sig = JSON.stringify([t.name, t.source?.name, !!src, src?.label, this.isShown(t.source?.name || ''), spine.name, spine.label,
+      [...cuts, ...mixes].map((m) => [m.name, m.label, m.duration_seconds])]);
+    if (sig === this.familySig) return; // a poll must not rebuild what's under a finger
+    this.familySig = sig;
+
+    const up = this.el('.detail-up');
+    up.hidden = spine.name === t.name;
+    up.dataset.name = spine.name;
+    up.textContent = `‹ ${spine.label || stamp(spine)}`;
+    up.setAttribute('aria-label', `Back to ${spine.label || stamp(spine)}`);
+
+    // Where it came from: a cut's original (picked, or opened when a filter
+    // hides it), or which of its tape's mixdowns this is.
+    const from = this.el('.detail-from');
+    from.replaceChildren();
+    const tapeMixes = spine.origin === 'tape' ? [spine, ...mixes] : [];
+    // The tape's name, from the label most of its mixdowns wear: one renamed
+    // "final?" doesn't rename the tape, or every other mix.
+    const tape = tapeName(tapeMixes);
+    if (t.source) {
+      const name = src ? src.label || stamp(src) : stamp({ name: t.source.name });
+      from.append('Cut from ');
+      if (src && this.isShown(src.name)) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'detail-source';
+        b.dataset.name = src.name;
+        b.dataset.tip = 'source';
+        b.textContent = `${name} ›`;
+        from.append(b);
+      } else if (src) {
+        const a = document.createElement('a');
+        a.className = 'detail-source';
+        a.href = `/wave.html?file=${encodeURIComponent(src.name)}`;
+        a.dataset.tip = 'source';
+        a.textContent = `${name} ›`;
+        from.append(a);
+      } else {
+        from.append(`${name}, which was deleted`);
+      }
+    } else if (tapeMixes.length > 1 && t.origin === 'tape') {
+      const k = tapeMixes.length - tapeMixes.findIndex((m) => m.name === t.name);
+      from.append(`Mix ${k} of ${tapeMixes.length} · ${tape || 'its tape'}`);
+    }
+    from.hidden = !from.childNodes.length;
+
+    const sr = (x) => x.sample_rate || 48000;
+    const line = (m, mark, name, span) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'detail-member';
+      b.dataset.name = m.name;
+      const parts = [['dm-mark', mark], ['dm-name', name], ['dm-span', span], ['dm-len', fmtTime(m.duration_seconds)]];
+      for (const [cls, text] of parts) {
+        const s = document.createElement('span');
+        s.className = cls;
+        s.textContent = text;
+        if (cls === 'dm-mark') s.setAttribute('aria-hidden', 'true');
+        b.append(s);
+      }
+      li.append(b);
+      return li;
+    };
+    const onSpine = spine.name === t.name;
+    const cutBox = this.el('.detail-cuts');
+    cutBox.hidden = !onSpine || !cuts.length;
+    cutBox.querySelector('.detail-family-list').replaceChildren(...(onSpine ? cuts : []).map((c) => {
+      const s = c.source;
+      const span = s ? `${fmtTime(s.start_frame / sr(c))}–${fmtTime(s.end_frame / sr(c))}` : '';
+      return line(c, '✂', c.label || stamp(c), span);
+    }));
+    const mixBox = this.el('.detail-mixes');
+    mixBox.hidden = !onSpine || !mixes.length;
+    mixBox.querySelector('.detail-family-list').replaceChildren(...(onSpine ? mixes : []).map((m, i) => {
+      const k = mixes.length - i;
+      // Its number always; its own name too, if it's been given one.
+      const own = m.label && m.label !== tape;
+      return line(m, '◎', own ? `mix ${k} · ${m.label}` : `mix ${k}`, clockOf(m.created));
+    }));
   }
 
   /** renderTags draws the tag chips: one per tag, the take's lit; a press

@@ -136,7 +136,7 @@ func (e *Engine) StartMixdown(id string, all bool) (Mixdown, error) {
 	e.recMu.Unlock()
 
 	e.Do(Action{Kind: "once", Pos: from, End: to, job: m.ID})
-	go e.runMixdown(m.ID, t.Name, t.Grid, from, to-from)
+	go e.runMixdown(m.ID, t.ID, t.Name, t.Grid, from, to-from)
 	return snapshot, nil
 }
 
@@ -173,7 +173,7 @@ func (e *Engine) setMixdown(id uint64, fn func(m *Mixdown)) {
 }
 
 // runMixdown follows a mixdown's pass, then saves it.
-func (e *Engine) runMixdown(id uint64, name string, grid *Grid, passFrom, frames int64) {
+func (e *Engine) runMixdown(id uint64, tapeID, name string, grid *Grid, passFrom, frames int64) {
 	fail := func(err error) {
 		log.Printf("[!] tape: mixdown: %v", err)
 		e.setMixdown(id, func(m *Mixdown) { m.State, m.Error = "failed", err.Error() })
@@ -287,6 +287,7 @@ func (e *Engine) runMixdown(id uint64, name string, grid *Grid, passFrom, frames
 		_, err := audio.UpdateMeta(filepath.Join(e.takesDir, saved.Name), func(m *audio.Meta) error {
 			m.Label = name
 			m.Origin = audio.OriginTape
+			m.TapeID = tapeID
 			if grid != nil {
 				bpm := math.Round(grid.BPM(int(sr))*100) / 100
 				m.BPM = &bpm

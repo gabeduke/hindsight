@@ -15,7 +15,7 @@ import { withClient } from '/lib/client.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeFor, STRIPES } from '/lib/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
-import { parseBpm, spineTitle, tagOf } from '/lib/shelf.js';
+import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
 
 /** setStripe puts one printed stripe on a spine, in place of the one it wore. */
 function setStripe(el, n) {
@@ -44,8 +44,12 @@ export class TakesList {
    *
    * shape(takes) decides what is shown: groups of takes, each under a
    * heading ({label, takes}); an empty label draws no heading. By default
-   * every take, in the server's order, under none. The take page's ◂ ▸ step
-   * through what is shown, or with stepOrder 'all' through every take.
+   * every take, in the server's order, under none. A group's `members` (a
+   * Map, from lib/shelf.js) names the takes folded into each of its spines:
+   * they get rows too, hidden, right after their spine, so the cassette pane
+   * can play and delete them like any other. The take page's ◂ ▸ step
+   * through what is shown, each spine's folded takes after it, or with
+   * stepOrder 'all' through every take.
    *
    * spines draws each take as a cassette spine: on the takes page (the
    * rack) for picking, its controls on the picked take's cassette; with
@@ -207,6 +211,17 @@ export class TakesList {
       else this.container.insertBefore(node, at ?? null);
     };
 
+    // The take page's ◂ ▸ order: each spine, then the takes folded into it.
+    const order = [];
+    const rowFor = (t) => {
+      let row = this.rows.get(t.name);
+      if (!row) {
+        row = this.createRow(t);
+        this.rows.set(t.name, row);
+      }
+      return row;
+    };
+
     for (const g of groups) {
       if (g.label) {
         let h = this.headings.get(g.label);
@@ -222,13 +237,27 @@ export class TakesList {
       for (const t of g.takes) {
         seen.add(t.name);
         shown.push(t.name);
-        let row = this.rows.get(t.name);
-        if (!row) {
-          row = this.createRow(t);
-          this.rows.set(t.name, row);
-        }
-        this.updateRow(row, t);
+        order.push(t.name);
+        const members = g.members?.get(t.name) || [];
+        const row = rowFor(t);
+        // Hidden before updateRow, which mounts a waveform only on a row in view.
+        row.el.hidden = false;
+        row.el.classList.remove('folded');
+        this.updateRow(row, t, { ...familyCounts(members), freed: freedBy(t.name, members) });
         place(row.el, row.editing || row.editingBpm);
+        for (const m of members) {
+          seen.add(m.name);
+          order.push(m.name);
+          const mr = rowFor(m);
+          mr.el.hidden = true;
+          mr.el.classList.add('folded');
+          // Off the shelf, as a take leaving it was: not selected, not playing
+          // with no control in sight.
+          this.selected.delete(m.name);
+          if (this.playing === m.name) mr.ws?.pause();
+          this.updateRow(mr, m, { ...NO_FAMILY, freed: freedBy(m.name, members) });
+          place(mr.el, mr.editing || mr.editingBpm);
+        }
       }
     }
 
@@ -251,8 +280,8 @@ export class TakesList {
     this.shownCount = shown.length;
     this.emptyEl.hidden = shown.length > 0;
     // The take page's ◂ ▸ step through the takes in this order.
-    const order = this.stepOrder === 'all' ? this.all.map((t) => t.name) : shown;
-    try { sessionStorage.setItem('hindsight.order', JSON.stringify(order)); } catch { /* fine */ }
+    const steps = this.stepOrder === 'all' ? this.all.map((t) => t.name) : order;
+    try { sessionStorage.setItem('hindsight.order', JSON.stringify(steps)); } catch { /* fine */ }
   }
 
   // A cassette spine: the case edge, and on its J-card the side-A band, the
@@ -496,8 +525,12 @@ export class TakesList {
     return row;
   }
 
-  updateRow(row, t) {
+  /** fam is {cuts, mixes, freed}: on a spine, how many takes are folded
+   *  into it; for any take, how many of those were cut from it, which come
+   *  back onto the shelf if it's deleted. */
+  updateRow(row, t, fam = NO_FAMILY) {
     row.data = t;
+    row.family = fam;
     if (this.spines) setStripe(row.el, stripeFor(t, tagStore.list));
     row.starBtn.setAttribute('aria-pressed', t.starred ? 'true' : 'false');
     row.starBtn.classList.toggle('on', !!t.starred);
@@ -525,7 +558,21 @@ export class TakesList {
     if (this.spines) {
       const name = t.label || t.name.replace(/^jam_|\.wav$/g, '');
       const encoding = !t.has_preview;
-      row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null, tagOf(t, tagStore.list)?.name, encoding ? 'still encoding' : null].filter(Boolean).join(', '));
+      row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null, tagOf(t, tagStore.list)?.name,
+        fam.cuts ? plural(fam.cuts, 'cut') : null, fam.mixes ? plural(fam.mixes, 'mix', 'mixes') : null,
+        encoding ? 'still encoding' : null].filter(Boolean).join(', '));
+      // The family's count, printed on the J-card beside the length.
+      const sticker = familySticker(fam);
+      if (sticker && !row.foldEl) {
+        row.foldEl = document.createElement('span');
+        row.foldEl.className = 'spine-fold';
+        row.foldEl.setAttribute('aria-hidden', 'true');
+        row.metaEl.after(row.foldEl);
+      }
+      if (row.foldEl) {
+        row.foldEl.textContent = sticker;
+        row.foldEl.hidden = !sticker;
+      }
       row.el.classList.toggle('encoding', encoding);
       if (encoding && this.spineAction === 'play') row.el.setAttribute('aria-disabled', 'true');
       else row.el.removeAttribute('aria-disabled');
@@ -674,6 +721,9 @@ export class TakesList {
   }
 
   isVisible(el) {
+    // A folded take's row is hidden, and a hidden box measures 0,0 -- which
+    // would read as in view and load every folded take's waveform.
+    if (!el.getClientRects().length) return false;
     const r = el.getBoundingClientRect();
     return r.bottom > -200 && r.top < window.innerHeight + 200;
   }
@@ -824,13 +874,14 @@ export class TakesList {
   async deleteTake(row) {
     const name = row.data.name;
     const label = row.data.label || name.replace(/^jam_|\.wav$/g, '');
+    const cuts = row.family?.freed || 0;
     try {
       await this.trash([name]);
     } catch (e) {
       this.onToast?.(`Delete failed: ${e.message}`, 'bad');
       return;
     }
-    this.onToast?.(`Deleted ${label}`, 'ok', { action: { label: 'Undo', run: () => this.restore([name]) } });
+    this.onToast?.(`Deleted ${label}${cutsBack(cuts)}`, 'ok', { action: { label: 'Undo', run: () => this.restore([name]) } });
   }
 
   async trash(names) {
@@ -975,13 +1026,15 @@ export class TakesList {
   async bulkDelete() {
     const names = [...this.selected];
     if (!names.length) return;
+    // Counted now: the delete's re-render folds nothing into these any more.
+    const cuts = names.reduce((n, k) => n + (this.rows.get(k)?.family?.freed || 0), 0);
     this.exitSelect();
     try {
       await this.trash(names);
     } catch (e) {
       this.onToast?.(`Some could not be deleted: ${e.message}`, 'bad');
     }
-    const msg = names.length === 1 ? 'Deleted 1 take' : `Deleted ${names.length} takes`;
+    const msg = (names.length === 1 ? 'Deleted 1 take' : `Deleted ${names.length} takes`) + cutsBack(cuts, names.length > 1);
     this.onToast?.(msg, 'ok', { action: { label: 'Undo', run: () => this.restore(names) } });
   }
 
@@ -1006,6 +1059,10 @@ export class TakesList {
     row.el.remove();
   }
 }
+
+const NO_FAMILY = { cuts: 0, mixes: 0, freed: 0 };
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** exportURL is the zip of several takes: GET /api/export?file=…&file=…. */
 export function exportURL(names) {

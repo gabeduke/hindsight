@@ -6,7 +6,7 @@ import { TakesList } from '/lib/takes.js';
 import { TrashList } from '/lib/trash.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { initHelp } from '/lib/help/help.js';
-import { shelve, sheetState, tagCounts } from '/lib/shelf.js';
+import { shelve, sheetState, tagCounts, fold, familyOf, matches } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 import { initNav } from '/lib/nav.js';
@@ -54,6 +54,8 @@ const trash = new TrashList($('trash'), {
   onRestored: () => poll(true),
 });
 let trashTimer = 0;
+// What the shelf folded on its last draw (lib/shelf.js fold).
+let fam = fold([]);
 const takes = new TakesList($('takes'), $('takes-empty'), {
   onToast: toast,
   onListChange: () => {
@@ -64,7 +66,12 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
     syncPick();
   },
   selectBar: $('select-bar'),
-  shape: (all) => shelve(all, { ...view, tags: tagStore.list, tag: shownTag() }),
+  shape: (all) => {
+    const opts = { ...view, tags: tagStore.list, tag: shownTag() };
+    // The same fold the shelf is drawn from, for the pane's families.
+    fam = fold(all.filter((t) => matches(t, opts)));
+    return shelve(all, opts);
+  },
   spines: true,
 });
 $('select-btn').addEventListener('click', () => (takes.selecting ? takes.exitSelect() : takes.enterSelect()));
@@ -112,7 +119,9 @@ function renderTagFilters() {
   els.push(edit);
   box.replaceChildren(...els);
 }
-tagStore.subscribe(() => renderTagFilters());
+// After the list's own subscription has reshaped the shelf: a tag deleted, or
+// the tags loading under a saved tag filter, can fold the picked take.
+tagStore.subscribe(() => { renderTagFilters(); syncPick(); });
 
 function renderControls() {
   for (const b of $('shelf-filters').querySelectorAll('button')) {
@@ -135,8 +144,13 @@ function reshape() {
 // Every take is a spine, for picking; the picked take is a cassette, with the
 // controls. Wide enough, the cassette sits beside the rack.
 const wide = matchMedia('(min-width: 1100px)');
-const detail = new TakeDetail($('take-detail'), { takes, onToast: toast, onBack: () => closeSheet() });
+const detail = new TakeDetail($('take-detail'), {
+  takes, onToast: toast, onBack: () => closeSheet(), onPick: (name) => pick(name), isShown: (name) => present(name),
+});
 let picked = null;
+// The spine the pick is on: the pick itself, or the spine it's folded into.
+// Deleting a folded take goes back to it.
+let pickedSpine = null;
 
 // --- the cassette sheet, on a phone ------------------------------------------
 
@@ -162,7 +176,7 @@ function setSheet(on, from) {
   else { pane.removeAttribute('role'); pane.removeAttribute('aria-modal'); }
   for (const el of behind()) el.inert = on;
   if (on) {
-    detail.show(takes.all.find((t) => t.name === sheet.open) || null);
+    showDetail(picked === sheet.open || spineOf(picked) === sheet.open ? picked : sheet.open);
     $('take-detail').scrollTop = 0;
     detail.el('.sheet-back').focus();
   } else {
@@ -200,38 +214,61 @@ addEventListener('popstate', (e) => {
 });
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheet.open && !e.target.closest?.('input')) closeSheet(); });
 
-const shownNames = () => [...$('takes').querySelectorAll('.take')].map((e) => e.dataset.name);
+// The spines on the shelf; a folded take's row is there too, hidden.
+const shownNames = () => [...$('takes').querySelectorAll('.take:not(.folded)')].map((e) => e.dataset.name);
+const spineOf = (name) => (name && fam.under.get(name)) || name;
+// present: a take the pane can show -- a spine, or one folded into a spine.
+const present = (name) => !!name && takes.rows.has(name) && (fam.under.has(name) || shownNames().includes(name));
+
+function showDetail(name) {
+  const t = (name && takes.all.find((x) => x.name === name)) || null;
+  detail.show(t, t ? familyOf(fam, t.name) : null);
+}
 
 function pick(name) {
   // A take left playing would lose its Pause with its controls in the pane:
   // picking another stops it.
   if (name !== picked && takes.playing && takes.playing !== name) takes.stopOthers(name);
   picked = name;
+  pickedSpine = spineOf(name);
   for (const [n, row] of takes.rows) {
-    const on = n === picked;
+    const on = n === pickedSpine;
     row.el.classList.toggle('picked', on);
     row.el.setAttribute('aria-current', on ? 'true' : 'false');
     row.ws?.setPicked?.(on);
   }
-  detail.show(wide.matches || sheet.open ? takes.all.find((t) => t.name === picked) || null : null);
+  showDetail(wide.matches || sheet.open ? picked : null);
 }
+
+// kept is the take to stay on after a poll: the pick, or -- when the pick was
+// folded and has gone -- the spine it was folded into.
+const kept = () => (present(picked) ? picked : present(pickedSpine) ? pickedSpine : null);
 
 // syncPick keeps the pick on a take that's shown: the first, when the one
 // picked has gone -- deleted, or filtered out.
 function syncPick() {
   const shown = shownNames();
-  if (reopen && shown.includes(reopen)) {
+  if (reopen && present(reopen)) {
     const name = reopen;
     reopen = null;
-    if (!wide.matches) { pick(name); openSheet(name); return; }
+    if (!wide.matches) { pick(name); openSheet(spineOf(name)); return; }
     picked = name;
-    requestAnimationFrame(() => takes.rows.get(name)?.el.scrollIntoView({ block: 'nearest' }));
+    pickedSpine = spineOf(name);
+    requestAnimationFrame(() => takes.rows.get(pickedSpine)?.el.scrollIntoView({ block: 'nearest' }));
   }
   // On a phone nothing is picked until a spine is pressed; a sheet whose
   // take has gone (deleted, filtered out) closes.
   if (!wide.matches) {
-    if (sheet.open && !shown.includes(sheet.open)) closeSheet();
-    pick(shown.includes(picked) ? picked : null);
+    if (sheet.open && !present(sheet.open)) {
+      // The sheet's spine has gone. A take folded into it that's still here
+      // (a cut, now a spine of its own) keeps the sheet; otherwise it closes.
+      const still = kept();
+      if (still) {
+        sheet = { open: spineOf(still), history: null };
+        history.replaceState({ cassette: sheet.open }, '');
+      } else closeSheet();
+    }
+    pick(kept());
     return;
   }
   if (sheet.open) {
@@ -241,7 +278,7 @@ function syncPick() {
     if (sheet.history === 'back') history.back();
     setSheet(false, was);
   }
-  pick(shown.includes(picked) ? picked : shown[0] || null);
+  pick(kept() || shown[0] || null);
 }
 
 // A row's body picks it; its own controls keep their press, and a press on

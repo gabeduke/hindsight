@@ -9,7 +9,7 @@ import { initWakeLock } from '/lib/wakelock.js';
 import { initPhone } from '/lib/phone/recorder.js';
 import { initHelp } from '/lib/help/help.js';
 import { toast, takeNextToast } from '/lib/toast.js';
-import { newest } from '/lib/shelf.js';
+import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
 
 const $ = (id) => document.getElementById(id);
@@ -60,15 +60,21 @@ let captureErr = { text: '', since: 0, shown: false };
 const CAPTURE_ERR_HOLD_MS = 3500;
 
 // On the shelf: the newest takes as cassette spines -- a press plays one --
-// as many as the screen holds; the takes page (takes.html) has the rest. Its
-// ◂ ▸ still step through every take, in the list's own order.
+// as many as the screen holds; the takes page (takes.html) has the rest. Cuts
+// and a tape's earlier mixdowns fold into their spine (lib/shelf.js fold), as
+// they do there. Its ◂ ▸ still step through every take, in the list's own
+// order.
 const shelfWide = matchMedia('(min-width: 1100px)');
 const shelfBench = matchMedia('(min-width: 900px) and (orientation: landscape) and (min-height: 561px)');
 const shelfCount = () => (shelfWide.matches ? 6 : shelfBench.matches ? 4 : 3);
 const takes = new TakesList(el.takes, el.takesEmpty, {
   onToast: toast,
   onListChange: () => { el.allCount.textContent = takes.all.length ? String(takes.all.length) : ''; },
-  shape: (all) => [{ label: '', takes: newest(all, shelfCount()) }],
+  shape: (all) => {
+    const f = fold(all);
+    const top = newest(f.shelf, shelfCount());
+    return [{ label: '', takes: top, members: membersOf(f, top) }];
+  },
   stepOrder: 'all',
   spines: true,
   spineAction: 'play',

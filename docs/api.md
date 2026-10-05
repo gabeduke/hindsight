@@ -364,6 +364,11 @@ its cue chunk.
 `source` is present only on a take that was cut from another (see
 `POST /api/cut` below); it is absent for a take saved from the ring.
 
+`origin` is `"phone"` on a phone recording and `"tape"` on a tape mixdown, and
+absent on a take saved from the ring. A mixdown also has `tape_id`, the id of
+the tape it was mixed from, so the shelf can fold one tape's mixdowns together;
+mixdowns made before the field existed have none.
+
 Duration and layout come from each file's own header, so takes recorded under
 an older channel configuration still report correctly.
 
@@ -1046,8 +1051,9 @@ fade at either edge -- then stands back at its start while
 as a take, as `POST /api/trigger?from=&to=` would save it. The span is found
 through the measured Δ alone: `TAPE_LATENCY_MS` is for a player hearing the
 tape late, and the tape itself isn't. The take's sidecar gets the tape's
-name as its label, the tape's tempo as its BPM, and as `downbeat_frame` the
-first bar line in it (0 when the span starts on one, as a loop does).
+name as its label, the tape's id as its `tape_id`, the tape's tempo as its
+BPM, and as `downbeat_frame` the first bar line in it (0 when the span starts
+on one, as a loop does).
 
 It answers at once with `{"mixdown": {"id", "tape", "state": "playing",
 "from", "to", "tail"}}` (tape frames, and the tail in frames). The tape's
