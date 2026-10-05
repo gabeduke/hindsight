@@ -11,6 +11,7 @@ import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 import { initNav } from '/lib/nav.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
+import { pageBar } from '/lib/bar/bar.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -145,7 +146,7 @@ function reshape() {
 // controls. Wide enough, the cassette sits beside the rack.
 const wide = matchMedia('(min-width: 1100px)');
 const detail = new TakeDetail($('take-detail'), {
-  takes, onToast: toast, onBack: () => closeSheet(), onPick: (name) => pick(name), isShown: (name) => present(name),
+  takes, onToast: toast, onBack: () => closeSheet(), onPick: (name) => pick(name, true), isShown: (name) => present(name),
 });
 let picked = null;
 // The spine the pick is on: the pick itself, or the spine it's folded into.
@@ -206,7 +207,7 @@ addEventListener('popstate', (e) => {
   if (sheet.open) {
     // Forward, onto a sheet's entry: open it again, if its take is still here.
     if (wide.matches || !takes.rows.has(sheet.open)) { history.replaceState(null, ''); sheet = { open: null }; return; }
-    pick(sheet.open);
+    pick(sheet.open, true);
     setSheet(true);
   } else if (was) {
     setSheet(false, was);
@@ -225,7 +226,9 @@ function showDetail(name) {
   detail.show(t, t ? familyOf(fam, t.name) : null);
 }
 
-function pick(name) {
+// pick shows take `name` in the pane, and puts it in the now-playing bar.
+// hand: picked by a press, not the first take a wide screen shows by itself.
+function pick(name, hand = false) {
   // A take left playing would lose its Pause with its controls in the pane:
   // picking another stops it.
   if (name !== picked && takes.playing && takes.playing !== name) takes.stopOthers(name);
@@ -238,6 +241,22 @@ function pick(name) {
     row.ws?.setPicked?.(on);
   }
   showDetail(wide.matches || sheet.open ? picked : null);
+  offerBar(name, hand);
+}
+
+// The bar holds the picked take -- except that arriving while the tape
+// plays, it keeps the tape until a take is picked by hand.
+let np = null;
+async function offerBar(name, hand) {
+  if (!np || !name || np.takeName === name) return;
+  if (!hand) {
+    await np.ready;
+    if (np.tapePlaying() && !np.takeName) return;
+  }
+  const t = takes.all.find((x) => x.name === name);
+  const p = t && await takes.player(name);
+  if (!p || picked !== name) return; // no preview yet, or another pick since
+  np.loadTake(t, p);
 }
 
 // kept is the take to stay on after a poll: the pick, or -- when the pick was
@@ -251,7 +270,7 @@ function syncPick() {
   if (reopen && present(reopen)) {
     const name = reopen;
     reopen = null;
-    if (!wide.matches) { pick(name); openSheet(spineOf(name)); return; }
+    if (!wide.matches) { pick(name, true); openSheet(spineOf(name)); return; }
     picked = name;
     pickedSpine = spineOf(name);
     requestAnimationFrame(() => takes.rows.get(pickedSpine)?.el.scrollIntoView({ block: 'nearest' }));
@@ -287,7 +306,7 @@ $('takes').addEventListener('click', (e) => {
   if (takes.selecting) return;
   const row = e.target.closest('.take');
   if (!row || e.target.closest('button, a, input, .take-flag, .take-flag-edit')) return;
-  pick(row.dataset.name);
+  pick(row.dataset.name, true);
   if (!wide.matches) openSheet(row.dataset.name);
 });
 $('takes').addEventListener('keydown', (e) => {
@@ -297,7 +316,7 @@ $('takes').addEventListener('keydown', (e) => {
   e.preventDefault();
   // Selecting: the key picks the spine into the selection, as a tap does.
   if (takes.selecting) { takes.toggleSelected(row.dataset.name); return; }
-  pick(row.dataset.name);
+  pick(row.dataset.name, true);
   if (!wide.matches) openSheet(row.dataset.name);
 });
 wide.addEventListener('change', syncPick);
@@ -396,7 +415,7 @@ document.addEventListener('visibilitychange', () => {
 renderControls();
 showNextToast();
 initHelp({ page: 'takes' });
-initNav();
+np = pageBar({ tapes: initNav(), onToast: toast });
 poll(true);
 pollStatus();
 setInterval(() => poll(), 5000);

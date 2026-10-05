@@ -75,6 +75,43 @@
   <p class="about"><a href="/guide.html#31-the-takes-page" data-tip="guide">the guide</a></p>
 </main>
 
+<!-- The now-playing bar (docs/superpowers/specs/2026-10-05-transport-bar-design.md;
+     lib/bar/bar.js): the tape, or a take you play, in the reel window and its
+     LCD; |◂ ▶ ⟲; the way to its own page (and ⏏ back to the tape); the whole
+     tape or take as a scrubber. Hidden until there's something to hold. -->
+<section id="np" class="np" aria-label="Now playing" hidden>
+  <div class="np-row np-row-1">
+    <div class="np-window">
+      <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+      <div class="np-lcd">
+        <div class="np-lcd-top">
+          <span id="np-status" class="np-status" data-state="stop" aria-hidden="true"></span>
+          <span id="np-unit" class="np-unit" aria-hidden="true"></span>
+          <span id="position" class="np-pos"></span>
+          <span id="np-time" class="np-time"></span>
+          <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+        </div>
+        <div class="np-marquee" aria-hidden="true"><span id="np-marquee"></span></div>
+      </div>
+      <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+    </div>
+    <div class="np-keys tb-row transport" role="group" aria-label="Transport">
+      <button id="np-start" class="icon-btn np-start" type="button" aria-label="Back to the start" data-tip="to-start"><svg width="18" height="16" viewBox="0 0 24 22" aria-hidden="true"><rect x="4" y="3" width="3" height="16" rx="1" fill="currentColor"/><path d="M20 4.2v13.6a1 1 0 0 1-1.55.84L9 12.84a1 1 0 0 1 0-1.68l9.45-6.8A1 1 0 0 1 20 4.2z" fill="currentColor"/></svg></button>
+      <button id="np-play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="tape-play">▶</button>
+      <button id="np-loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="np-loop">⟲ Loop</button>
+    </div>
+    <div class="np-own">
+      <button id="np-eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" hidden>⏏</button>
+      <a id="np-open" class="icon-btn np-open" href="/tape.html" data-tip="np-open">Open the tape ›</a>
+    </div>
+  </div>
+  <div class="np-row np-row-2">
+    <span id="np-mini" class="np-mini" aria-hidden="true"></span>
+    <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub"></canvas>
+    <span class="np-out np-here"><span class="pill-out" aria-hidden="true">OUT</span><span id="np-out">Jam room</span></span>
+  </div>
+</section>
+
 <!-- Select mode's actions, over the bottom of the list (lib/takes.js). -->
 <div class="select-bar" id="select-bar" hidden>
   <button class="icon-btn" id="sel-done" type="button" data-tip="select-done">Done</button>

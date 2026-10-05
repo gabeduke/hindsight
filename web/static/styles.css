@@ -2599,6 +2599,24 @@ body.tape-page:has(#out-strip:not([hidden])) { --np-h: 160px; }
 .np-here { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; color: var(--ink-dim); font: 600 13px var(--font); }
 /* The take page's notes, opened full screen on a phone, have their own Play. */
 body.notes-open .np { display: none; }
+/* Takes and Capture: the bar holds the tape, or a take you play (lib/bar/
+   bar.js), at the foot of a page at least the window's height. From 700 px;
+   on a phone it waits for its mini player (the phone's PR). */
+:is(body.main-page, body.shelf-page) { --np-h: 120px; min-height: 100svh; display: flex; flex-direction: column; }
+:is(body.main-page, body.shelf-page) > main { flex: 1 0 auto; width: 100%; box-sizing: border-box; }
+:is(body.main-page, body.shelf-page):has(> .np:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--np-h) + 12px + env(safe-area-inset-bottom)); }
+/* Select mode's actions take the foot of the takes page. */
+body.selecting > .np { display: none; }
+/* The strip is a well, like the tape page's overview; a take paints its
+   tape over it. */
+#np-scrub { display: block; background: var(--well); outline: 1px solid var(--well-line); outline-offset: -1px; cursor: pointer; }
+.np .np-own .np-open { height: 52px; min-height: 52px; display: inline-flex; align-items: center; padding: 0 16px; text-decoration: none; white-space: nowrap; }
+.np .np-own .np-eject { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; font-size: 20px; }
+@media (min-width: 1100px) {
+  /* The picked take's Play is the bar's now; its pane stops above the bar. */
+  body.shelf-page:has(> .np:not([hidden])) .detail-play { display: none; }
+  body.shelf-page:has(> .np:not([hidden])) .take-detail:not([hidden]) { max-height: calc(100svh - var(--topbar-h) - 32px - var(--np-h)); }
+}
 /* The take page is a column at least the window's height, so the bar sits
    at its foot even when the take is short; main still shrinks where the
    bench's notes pane makes the page exactly the window's height. */
@@ -3054,6 +3072,8 @@ input, select, textarea { color-scheme: inherit; }
     padding: 8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left)); gap: 6px;
   }
   .np-window, .np-out, .np .np-drawer-key { display: none; }
+  /* Takes and Capture: their bar waits for the phone's mini player. */
+  :is(body.main-page, body.shelf-page) > .np { display: none !important; }
   /* A column as tall as it needs, scrolled as a page: the bar is fixed. */
   body.tape-page { height: auto; min-height: 100svh; }
   body.tape-page > main.tape-main { flex: 1 0 auto; overflow: visible; padding-bottom: 12px; }

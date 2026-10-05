@@ -11,6 +11,7 @@ import { initHelp } from '/lib/help/help.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
+import { pageBar } from '/lib/bar/bar.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -67,6 +68,8 @@ const CAPTURE_ERR_HOLD_MS = 3500;
 const shelfWide = matchMedia('(min-width: 1100px)');
 const shelfBench = matchMedia('(min-width: 900px) and (orientation: landscape) and (min-height: 561px)');
 const shelfCount = () => (shelfWide.matches ? 6 : shelfBench.matches ? 4 : 3);
+// The now-playing bar: the tape, or a spine pressed (lib/bar/bar.js).
+let np = null;
 const takes = new TakesList(el.takes, el.takesEmpty, {
   onToast: toast,
   onListChange: () => { el.allCount.textContent = takes.all.length ? String(takes.all.length) : ''; },
@@ -80,6 +83,15 @@ const takes = new TakesList(el.takes, el.takesEmpty, {
   spineAction: 'play',
   // A hold opens the take on the takes page, to name it, star it, open it.
   onSpineHold: (name) => location.assign(`/takes.html?take=${encodeURIComponent(name)}`),
+  // A spine pressed plays its take in the now-playing bar; when it plays to
+  // its end, or ⏏, the bar goes back to the tape.
+  onPlay: async (name) => {
+    if (!np || np.takeName === name) return;
+    const t = takes.all.find((x) => x.name === name);
+    const p = t && await takes.player(name);
+    if (p) np.loadTake(t, p);
+  },
+  onEnded: (name) => { if (np && np.takeName === name) np.backToTape(); },
 });
 for (const m of [shelfWide, shelfBench]) m.addEventListener('change', () => takes.reshape());
 
@@ -329,7 +341,7 @@ async function capture() {
 el.captureBtn.addEventListener('click', capture);
 
 initHelp({ page: 'main' });
-initNav();
+np = pageBar({ tapes: initNav(), onToast: toast });
 
 initPhone({
   button: $('phone-btn'),
