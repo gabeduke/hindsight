@@ -32,6 +32,11 @@ type Out struct {
 	sndDir    string
 	// open opens a port for writing; tests replace it.
 	open func(node string) (io.WriteCloser, error)
+	// now and sleep are the clock the ports wait on; tests replace them, so
+	// what's checked is when a message was meant to go rather than how late
+	// a loaded machine woke up to send it.
+	now   func() int64
+	sleep func(time.Duration)
 
 	mu       sync.Mutex
 	ports    map[string]*outPort  // by node
@@ -121,6 +126,8 @@ func NewOut(targets []OutTarget) *Out {
 		open: func(node string) (io.WriteCloser, error) {
 			return os.OpenFile(node, os.O_WRONLY|syscall.O_NONBLOCK, 0)
 		},
+		now:    mono.Now,
+		sleep:  time.Sleep,
 		ports:  map[string]*outPort{},
 		failed: map[string]time.Time{},
 		stop:   make(chan struct{}),
@@ -328,8 +335,8 @@ func (p *outPort) send(t timed) {
 // run writes each message at its time.
 func (p *outPort) run() {
 	for t := range p.q {
-		if d := time.Duration(t.at - mono.Now()); d > 0 {
-			time.Sleep(d)
+		if d := time.Duration(t.at - p.out.now()); d > 0 {
+			p.out.sleep(d)
 		}
 		if p.dead.Load() {
 			return
@@ -337,7 +344,7 @@ func (p *outPort) run() {
 		if t.epoch != p.epoch.Load() {
 			continue // dropped by SendNow
 		}
-		if late := time.Duration(mono.Now() - t.at); late > outStale {
+		if late := time.Duration(p.out.now() - t.at); late > outStale {
 			p.lost.Store(true) // stuck a while: not a burst of old clock
 			continue
 		}
@@ -382,6 +389,7 @@ func (p *outPort) close() {
 // the clock it hears, so the demo can show the tempo arriving.
 type Follower struct {
 	clock   *Clock
+	now     func() time.Time // tests replace it
 	mu      sync.Mutex
 	running bool
 	spp     int // the last song position, in 16ths
@@ -390,11 +398,11 @@ type Follower struct {
 }
 
 // NewFollower makes one with a few seconds of clock history.
-func NewFollower() *Follower { return &Follower{clock: NewClock(4096)} }
+func NewFollower() *Follower { return &Follower{clock: NewClock(4096), now: time.Now} }
 
 // Write takes MIDI bytes as they arrive.
 func (f *Follower) Write(b []byte) (int, error) {
-	now := time.Now()
+	now := f.now()
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	for _, c := range b {
@@ -427,7 +435,7 @@ func (f *Follower) Close() error { return nil }
 // Heard is what the follower makes of it: the tempo over the last three
 // seconds, whether it's running, and the last song position.
 func (f *Follower) Heard() (bpm float64, ok, running bool, spp int) {
-	now := time.Now()
+	now := f.now()
 	bpm, ok = f.clock.BPM(now.Add(-3*time.Second), now)
 	f.mu.Lock()
 	defer f.mu.Unlock()

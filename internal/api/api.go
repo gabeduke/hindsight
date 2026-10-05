@@ -172,6 +172,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/clone", a.handleTapeClone).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/cleanup", a.handleTapeCleanup).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/peaks", a.handleTapePeaks).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes/slice", a.handleTapeSlice).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/clipboard", a.handleClipboard).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/clipboard/audio", a.handleClipboardAudio).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/clipboard", a.handleClipboardCopy).Methods(http.MethodPost)
@@ -543,11 +544,20 @@ func (a *API) handlePeaks(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "peaks.json", statModTime(f), f)
 }
 
-// handlePeaksRange computes peaks for [from, to) on demand. All three params
-// are required together: a partial request is a client bug, not a request
-// for the file. The result is immutable for the same reason the file is --
-// a take's samples never change after save -- so it is cached the same way.
+// handlePeaksRange computes peaks for [from, to) of a take on demand. See
+// writeRangePeaks for the params; a take's samples never change after save,
+// so the result is cached as immutable.
 func (a *API) handlePeaksRange(w http.ResponseWriter, r *http.Request, name string) {
+	writeRangePeaks(w, r, filepath.Join(a.cfg.OutputDir, name), "take")
+}
+
+// writeRangePeaks answers peaks for [from, to) of the WAV at path, from the
+// request's from, to and buckets: the take page's tiles, and the tape's
+// (a pool file's). what names the file in errors. All three params are
+// required together: a partial request is a client bug, not a request for the
+// file. The result is immutable for the same reason the file is, so it is
+// cached that way.
+func writeRangePeaks(w http.ResponseWriter, r *http.Request, path, what string) {
 	q := r.URL.Query()
 	if !(q.Has("from") && q.Has("to") && q.Has("buckets")) {
 		writeErr(w, http.StatusBadRequest, "from, to and buckets are required together")
@@ -568,7 +578,6 @@ func (a *API) handlePeaksRange(w http.ResponseWriter, r *http.Request, name stri
 		writeErr(w, http.StatusBadRequest, fmt.Sprintf("buckets must be 1..%d", audio.MaxRangeBuckets))
 		return
 	}
-	path := filepath.Join(a.cfg.OutputDir, name)
 	if _, err := os.Stat(path); err != nil {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
@@ -576,10 +585,10 @@ func (a *API) handlePeaksRange(w http.ResponseWriter, r *http.Request, name stri
 	pd, err := audio.RangePeaks(path, from, to, buckets)
 	switch {
 	case errors.Is(err, audio.ErrRange):
-		writeErr(w, http.StatusBadRequest, "range is past the end of the take")
+		writeErr(w, http.StatusBadRequest, "range is past the end of the "+what)
 		return
 	case err != nil:
-		log.Printf("range peaks %s: %v", name, err)
+		log.Printf("range peaks %s: %v", filepath.Base(path), err)
 		writeErr(w, http.StatusInternalServerError, "could not compute peaks")
 		return
 	}
@@ -813,6 +822,16 @@ func (a *API) handleSlice(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	writeSlice(w, r, filepath.Join(a.cfg.OutputDir, name), func(info audio.WAVInfo) []int {
+		return audio.SlicePick(info, a.cfg.SaveChannels)
+	}, "take")
+}
+
+// writeSlice streams a faded 16-bit WAV of [from, to) of the 32-bit WAV at
+// path, from the request's from and to: the take page's slices, and the
+// tape's (a pool file's). pickFor chooses the channels from the file's
+// header (nil: all of them). what names the file in errors.
+func writeSlice(w http.ResponseWriter, r *http.Request, path string, pickFor func(audio.WAVInfo) []int, what string) {
 	q := r.URL.Query()
 	from, err1 := strconv.ParseInt(q.Get("from"), 10, 64)
 	to, err2 := strconv.ParseInt(q.Get("to"), 10, 64)
@@ -820,18 +839,17 @@ func (a *API) handleSlice(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "need integer 0 <= from < to")
 		return
 	}
-	path := filepath.Join(a.cfg.OutputDir, name)
 	info, err := audio.ReadWAVInfo(path)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
 	if info.BitsPerSample != 32 {
-		writeErr(w, http.StatusBadRequest, "only 32-bit takes can be sliced")
+		writeErr(w, http.StatusBadRequest, "only 32-bit "+what+"s can be sliced")
 		return
 	}
 	if to > info.Frames() {
-		writeErr(w, http.StatusBadRequest, "range is past the end of the take")
+		writeErr(w, http.StatusBadRequest, "range is past the end of the "+what)
 		return
 	}
 	if to-from > int64(audio.MaxSliceSeconds*info.SampleRate) {
@@ -839,18 +857,18 @@ func (a *API) handleSlice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "audio/wav")
-	pick := audio.SlicePick(info, a.cfg.SaveChannels)
+	pick := pickFor(info)
 	w.Header().Set("Content-Length", strconv.FormatInt(audio.SliceBytes(info, from, to, pick), 10))
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	// A HEAD gets the same headers -- Content-Length above is the whole point
-	// of asking -- but none of the bytes, and none of the read of the take.
+	// of asking -- but none of the bytes, and none of the read of the file.
 	if r.Method == http.MethodHead {
 		return
 	}
 	if err := audio.WriteSlice16(w, path, from, to, pick); err != nil {
 		// Headers are gone; all we can do is log and let the client see a
 		// short body, which decodeAudioData rejects.
-		log.Printf("slice %s: %v", name, err)
+		log.Printf("slice %s: %v", filepath.Base(path), err)
 	}
 }
 

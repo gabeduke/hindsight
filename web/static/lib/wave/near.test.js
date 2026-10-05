@@ -74,3 +74,17 @@ test('near the take\'s ends, a kept span that reaches the end is reused', async 
   await b.around(480000 - 200);
   assert.equal(calls, 1, 'at the end');
 });
+
+test('a urlFor points the slice request at another endpoint', async () => {
+  const urls = [];
+  const fetchFn = async (url) => {
+    urls.push(url);
+    const u = new URL(url, 'http://x');
+    return { ok: true, arrayBuffer: async () => wav(Number(u.searchParams.get('to')) - Number(u.searchParams.get('from'))) };
+  };
+  const urlFor = (f, t) => `/api/tapes/slice?file=x&from=${f}&to=${t}`;
+  const near = new NearAudio({ file: 'a.wav', sampleRate: 48000, total: 480000, fetchFn, urlFor });
+  await near.around(100000);
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /^\/api\/tapes\/slice\?file=x&from=\d+&to=\d+$/);
+});

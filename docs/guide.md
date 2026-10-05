@@ -864,6 +864,66 @@ try something. It costs no disk space.
 - [demo] Copy a selection on a take page, then Drop it on a tape → it's
   there.
 
+**Lining clips up exactly:**
+
+Sliding gets a clip near. To put it right to the sample, zoom the tape in
+(pinch, or ⌘ or Ctrl with the wheel) until each lane draws single samples.
+Every lane shows its detail at once, so you can compare a hit on one track
+with a hit on another by eye. Then tap a clip and choose **Align**. The sheet
+closes and the editor bar opens on that clip, with the view centred on the
+clip's first hit. It finds that hit from the clip's start, within 60 ms. If
+there's none, it uses the start, and the readout says *start*; Hit → Grid and
+Hit → Track then say there's no hit and leave the clip where it is. ZOOM,
+POSITION and the steps still move it.
+
+- **ZOOM and POSITION** work as they do on the take page, but POSITION moves
+  the whole clip. Zoomed out it travels bars; zoomed in it moves single
+  samples. A whole drag is one undo.
+- **◂ ▸** move the clip 1 ms, or one sample when you're zoomed right in. Each
+  step is one undo.
+- **▶** plays from a second before the hit, and pauses.
+- **Hit → Grid** moves the clip so its first hit lands on the nearest line of
+  the *Snap* setting, or the nearest beat with Snap off. It's hidden when the
+  tape has no tempo. Use it for a catch that was played at the tape's tempo.
+- **The track picker and Hit → Track** are for an overdub. Pick the track the
+  part was played over, then press **Hit → Track**: the clip moves so its hit
+  lands on the nearest hit of that track, within 60 ms, at any zoom. A hit
+  right at the start of a clip on that track counts, so a rushed part finds
+  the loop's first kick. If that track has nothing within 60 ms, or no hit
+  there, or the clip has no hit of its own, it says so and leaves the clip
+  where it is. Tap the picked track's key again to unpick it.
+- **The readout** gives the hit's time to the sample and how far it is from
+  the nearest beat (*+2.5 ms from 5.1*). Once Hit → Track has found a hit on
+  a track, it also says how far the clip's hit is from that one (*−1.3 ms
+  from track 1*).
+- **Done**, or Escape, closes the editor.
+- **On a computer,** the wheel over the lanes moves the clip; ⌘ or Ctrl with
+  the wheel zooms; ← → step; Shift steps ten.
+
+A clip's nudge is kept and counted. A clip sounds at its place plus its
+nudge, so that's where Align measures from and moves. Hit → Grid and
+Hit → Track change the place, and leave the nudge as it was. A move that
+would go past the start or end of the tape stops there. If that stops
+Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
+
+**Checks — lining clips up:**
+
+- [demo] Zoom the tape's lanes right in → every lane draws single samples,
+  not blocks.
+- [demo] Catch a pass onto track 2, tap the clip, **Align** → the view
+  centres on its first hit. **Hit → Grid** → the readout says *on* a beat.
+- [demo] Nudge a clip 7 ms late, **Align**, pick track 1, **Hit → Track** →
+  the readout says *0.0 ms from track 1*. **↶** once → the clip is
+  back where it was.
+- [demo] At sample zoom, with an overdub rushed 3 ms against a loop clip
+  on track 1 that starts on its kick: **Align**, pick track 1,
+  **Hit → Track** → the readout says *0.0 ms from track 1*.
+- [demo] Turn POSITION in one drag, then **↶** → the clip is back, in one
+  step.
+- [demo] On the take page, the editor bar behaves as before.
+- [rig] Overdub a part on the phone over a loop, then Align it to the loop's
+  track by ear and by **Hit → Track** → no flam.
+
 ### 8.6 Mixdown and export
 
 *Step 7b.* Both are under the tape's ⋯.
@@ -1169,6 +1229,15 @@ has no tip.
 | Reverse (clip) | Play this clip backwards, or forwards again. Undo puts it back |
 | Share as WAV (clip) | Send just this clip, at its level, to another app; a long one downloads |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
+| Align | Line the clip up to the sample: the editor bar opens on its first hit |
+| Done | Close the editor. Esc does too |
+| ZOOM on the tape | Drag sideways to zoom about the clip’s first hit: right is closer |
+| POSITION on the tape | Drag sideways to move the whole clip: zoomed out it travels bars, zoomed in it moves samples |
+| ◂ ▸ on the tape | Move the clip a millisecond, or a sample when zoomed right in |
+| ▶ on the tape | Play from a second before the hit, or pause |
+| Hit → Grid | Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off |
+| Track picker | Choose the track to line this clip up against |
+| Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
 | Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |

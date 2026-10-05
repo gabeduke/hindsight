@@ -48,7 +48,8 @@ import (
 //	POST   /api/tapes/undo?id=         and /redo
 //	POST   /api/tapes/clone?id=        {name}: a new tape sharing this one's audio
 //	POST   /api/tapes/cleanup          remove pool audio nothing uses
-//	GET    /api/tapes/peaks?file=      a pool file's peaks
+//	GET    /api/tapes/peaks?file=      a pool file's peaks (&from=&to=&buckets=: just that range)
+//	GET    /api/tapes/slice?file=&from=&to=  a 16-bit WAV of [from, to) of a pool file
 
 // SetTape attaches the tape engine; without it the tape routes answer 404.
 func (a *API) SetTape(e *tape.Engine) { a.tape = e }
@@ -841,7 +842,8 @@ func (a *API) handleTapeCleanup(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTapePeaks serves a pool file's whole-file peaks, as /api/peaks does
-// for takes. Pool files never change, so it's cached for good.
+// for takes, or with from, to and buckets the peaks of just that range.
+// Pool files never change, so it's cached for good.
 func (a *API) handleTapePeaks(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
@@ -849,6 +851,11 @@ func (a *API) handleTapePeaks(w http.ResponseWriter, r *http.Request) {
 	p := a.tape.Store().AudioPath(r.URL.Query().Get("file"))
 	if p == "" {
 		writeErr(w, http.StatusBadRequest, "not a pool file")
+		return
+	}
+	q := r.URL.Query()
+	if q.Has("from") || q.Has("to") || q.Has("buckets") {
+		writeRangePeaks(w, r, p, "pool file")
 		return
 	}
 	b, err := os.ReadFile(strings.TrimSuffix(p, ".wav") + ".peaks.json")
@@ -859,6 +866,21 @@ func (a *API) handleTapePeaks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.Write(b)
+}
+
+// handleTapeSlice streams a 16-bit WAV of [from, to) of a pool file, both
+// channels: the audio round a point that the tape's clip editor reads for
+// Attack. A pool file is immutable, so it caches like a take's slice.
+func (a *API) handleTapeSlice(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	p := a.tape.Store().AudioPath(r.URL.Query().Get("file"))
+	if p == "" {
+		writeErr(w, http.StatusBadRequest, "not a pool file")
+		return
+	}
+	writeSlice(w, r, p, func(audio.WAVInfo) []int { return nil }, "pool file")
 }
 
 // takePair is the pair of a take that goes onto tape, as previews and slices
