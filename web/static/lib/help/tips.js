@@ -67,7 +67,7 @@ export const TIPS = [
   { control: 'Done', ids: ['be-done'], tip: 'Close the editor. Esc does too' },
   { control: 'ZOOM', ids: ['be-zoom'], tip: 'Drag sideways to zoom about the point: right is closer' },
   { control: 'POSITION', ids: ['be-pos'], tip: 'Drag sideways to move the point: zoomed out it travels bars, zoomed in it moves samples' },
-  { control: 'Attack', ids: ['be-attack'], tip: 'Move the point to the start of the hit nearest it' },
+  { control: 'Attack', ids: ['be-attack'], tip: 'Move the point to the start of the strongest hit within reach; zoom out a little if it finds none' },
   { control: 'Zero', ids: ['be-zero'], tip: "Move the point to the nearest zero crossing, so the cut doesn't click" },
   { control: 'Grid', ids: ['be-grid'], tip: 'Move the point to the nearest line of the Snap setting, or the nearest beat with Snap off' },
   { control: '◂ ▸ in the editor', ids: ['be-step'], tip: 'One step: a millisecond, or a sample when zoomed right in. Keys: ← →, with ⇧ for ten' },

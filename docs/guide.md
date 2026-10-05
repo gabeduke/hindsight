@@ -236,7 +236,7 @@ and the editor bar takes the place of the toolbar.
   get near, zoom in, get nearer. POSITION moves half of what's on screen for a
   drag across the pad, so it's coarse zoomed out and moves single samples
   zoomed in.
-- **Attack** puts the point on the start of the nearest hit, within 60 ms or
+- **Attack** puts the point on the start of the strongest hit, within 60 ms or
   half of what's on screen, if that's less. It works over a held bass. If it
   finds nothing, zoom out a little and try again.
 - **Zero** puts it on the nearest zero crossing, within 5 ms, so a cut doesn't
@@ -1081,7 +1081,7 @@ has no tip.
 | Done | Close the editor. Esc does too |
 | ZOOM | Drag sideways to zoom about the point: right is closer |
 | POSITION | Drag sideways to move the point: zoomed out it travels bars, zoomed in it moves samples |
-| Attack | Move the point to the start of the hit nearest it |
+| Attack | Move the point to the start of the strongest hit within reach; zoom out a little if it finds none |
 | Zero | Move the point to the nearest zero crossing, so the cut doesn't click |
 | Grid | Move the point to the nearest line of the Snap setting, or the nearest beat with Snap off |
 | ◂ ▸ in the editor | One step: a millisecond, or a sample when zoomed right in. Keys: ← →, with ⇧ for ten |
