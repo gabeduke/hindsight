@@ -16,6 +16,7 @@ import {
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
 import { initAway } from './away-sheet.js';
+import { initOutput } from './output-ui.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { TapeMachine } from './machine.js';
 import { initNav } from '../nav.js';
@@ -97,6 +98,7 @@ async function boot() {
     },
     onUndo: () => undoRedo(false),
   });
+  output = initOutput({ api, toast, poll, transport, getTape: () => state.tape, getGhost: () => ghost });
   let list;
   try {
     list = await api('/api/tapes');
@@ -195,6 +197,8 @@ function apply(s) {
 // the tape is, whether it plays or records, and how to read each track's
 // level at a frame.
 let machine = null;
+let output = null;
+let ghost = null; // a locate seen but not yet heard (Task 9)
 function feedMachine() {
   const t = state.tape, live = state.live;
   if (!t) return;
@@ -366,6 +370,7 @@ function render() {
   drawOverview();
   drawRuler();
   renderFit();
+  if (output) output.render(state.live);
 }
 
 function renderMode() {

@@ -1688,6 +1688,32 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tape-pill[aria-expanded="true"] { border-color: var(--line); background: var(--panel-2); }
   .tape-title > .menu-anchor:last-child .tape-pill[aria-expanded="true"] { border-top-color: var(--line); }
 }
+
+/* Where the tape plays: the OUT pill, the strip under the deck, the banner
+   other devices show while a phone has the tape, and the Output sheet. */
+.tape-out[hidden] { display: none; }
+.pill-out { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: .16em; color: var(--ink-dim); }
+.out-anchor { flex: none; }
+.out-strip, .out-banner { display: flex; align-items: center; gap: 10px; padding: 0 12px; min-height: 40px; border-radius: 10px;
+  background: var(--well); color: var(--well-ink); box-shadow: inset 0 2px 5px rgba(0,0,0,.6), 0 1px 0 var(--hl); font-size: 13.5px; }
+.out-strip[hidden], .out-banner[hidden] { display: none; }
+.out-banner { border-radius: 0; min-height: 56px; padding: 0 20px; font-size: 14.5px; }
+.out-banner-text { flex: 1; min-width: 0; }
+#out-strip-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#out-strip-right { color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent); font-size: 12px; font-weight: 600; }
+.out-led { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); flex: none; }
+.out-led.on, .out-choice[aria-pressed="true"] .out-led { background: var(--go); box-shadow: 0 0 7px var(--go-glow); }
+.out-led.wait { background: var(--warn); box-shadow: 0 0 7px var(--warn-glow); animation: recblink 1s steps(2) infinite; }
+.out-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.out-choice { display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; align-items: center; text-align: left; min-height: 72px; padding: 12px 14px; }
+.out-choice b { font-family: 'Barlow Condensed', sans-serif; font-size: 17px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); }
+.out-choice span:not(.out-led) { grid-column: 1; font-size: 13px; font-weight: 400; color: var(--ink-dim); }
+.out-choice .out-led { grid-column: 2; grid-row: 1 / span 2; }
+.out-measured { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-dim); }
+@media (max-width: 599.98px) {
+  .tape-out .pill-text, .tape-out .pill-chev { display: none; }
+  .tape-out { width: auto; padding: 0 10px; min-height: 40px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+}
 /* ● Rec: what it does, and under it the source it records from. */
 .tape-toolbar .tb-row.transport .tb-rec { flex: 1.3 1 0; flex-direction: column; gap: 0; line-height: 1.15; overflow: hidden; }
 .tape-toolbar .tb-row.transport .tb-rec .rec-what { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }

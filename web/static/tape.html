@@ -44,6 +44,9 @@
         <div id="tempo-menu" class="menu from-left" role="menu" hidden></div>
       </span>
     </div>
+    <span class="menu-anchor out-anchor">
+      <button id="tape-out" class="tape-pill tape-out" type="button" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span id="tape-out-text" class="pill-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+    </span>
     <span class="appbar-spacer"></span>
     <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
     <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
@@ -63,6 +66,11 @@
     </span>
   </div>
 </header>
+<div id="out-banner" class="out-banner" role="status" hidden>
+  <span class="out-led on"></span>
+  <span class="out-banner-text"><b id="out-banner-what">Tape 1 is playing on a phone</b>, <span id="out-banner-delay">0.8 s</span> behind. The jam room is silent, so Rec and Catch are off.</span>
+  <button id="out-jam" class="icon-btn primary" type="button" data-tip="out-jam">Play in the jam room</button>
+</div>
 
 <main class="tape-main">
   <div id="tape-off" class="tape-empty" hidden>
@@ -85,6 +93,11 @@
     <!-- The machine: reels that turn with the playhead and a meter bridge
          (lib/tape/machine.js). A picture of the transport, not a control. -->
     <div id="tape-machine" class="tape-machine" aria-hidden="true"></div>
+    <div id="out-strip" class="out-strip" role="status" hidden>
+      <span id="out-strip-led" class="out-led"></span>
+      <span id="out-strip-text">Ready on this phone</span>
+      <span id="out-strip-right" class="mono"></span>
+    </div>
     <canvas id="tape-overview" class="tape-overview" aria-label="The whole tape" data-tip="tape-overview"></canvas>
     <div class="tape-ruler-row">
       <span class="tape-ruler-gap"><button id="view-fit" class="chip view-fit" type="button" hidden data-tip="view-fit">Fit</button></span>
@@ -151,6 +164,21 @@
     </div>
   </div>
 </main>
+
+<dialog class="sheet" id="out-sheet" aria-labelledby="out-title">
+  <div class="sheet-inner out-inner">
+    <h3 id="out-title">Output</h3>
+    <p class="sheet-hint">Where <span id="out-tape-name">this tape</span> plays. Switching keeps the tape rolling from the same spot.</p>
+    <div class="out-choices" role="group" aria-label="Output">
+      <button type="button" class="icon-btn out-choice" data-mode="jam" aria-pressed="true" data-tip="out-choice"><b>Jam room</b><span>Through the Sidekick downstairs. Rec, Catch and mixdown work.</span><span class="out-led"></span></button>
+      <button type="button" class="icon-btn out-choice" data-mode="phone" aria-pressed="false" data-tip="out-choice"><b>This phone</b><span>A backing track here, about 0.8 s behind. The jam room stays silent.</span><span class="out-led"></span></button>
+      <button type="button" class="icon-btn out-choice" data-mode="both" aria-pressed="false" data-tip="out-choice"><b>Both</b><span>The jam room plays and records as usual; this phone hears it 0.8 s late.</span><span class="out-led"></span></button>
+    </div>
+    <p id="out-measured" class="out-measured" hidden><span id="out-delay" class="lcd mono">0.8 s</span> late, measured. The playhead and meters here move back by this much, so what you see is what you hear.</p>
+    <p class="sheet-hint">One phone at a time: choosing This phone on another device moves the tape there.</p>
+    <div class="sheet-actions"><button class="icon-btn" id="out-close" type="button">Done</button></div>
+  </div>
+</dialog>
 
 <!-- Overdub on this device: the tape plays here, and a part recorded over
      it goes back where it was played (lib/tape/away-sheet.js). -->
