@@ -187,6 +187,8 @@ function apply(s) {
   // reads live.heard.
   if (state.live && output && output.streamingHere()) {
     const h = output.player.heard();
+    // The punch and record code keeps the engine's position: what lands on tape.
+    state.live.heardEngine = state.live.heard;
     if (h) state.live.heard = h.pos;
   }
   state.sources = s.sources || [];
@@ -277,14 +279,14 @@ function tracePunch() {
   if (!state.rec || state.rec.key !== key) state.rec = { key, track: r.track, start: null, trace: null, wrapped: false };
   const counting = live.count_in > 0;
   if (state.rec.start === null && (counting || live.playing)) {
-    const obs = { counting, pos: live.pos, heard: live.heard, delivered: live.delivered, from: r.from };
+    const obs = { counting, pos: live.pos, heard: live.heardEngine ?? live.heard, delivered: live.delivered, from: r.from };
     state.rec.start = punchStart(t.grid, t.loop, obs);
     // A page opened mid-punch: the loop may have come round already.
     state.rec.wrapped = !counting && wrappedSince(t.loop, obs);
   }
   if (live.playing && !counting) {
     const src = state.sources.find((x) => x.name === r.source);
-    state.rec.trace = traceAdd(state.rec.trace, live.heard, src && src.peak_db);
+    state.rec.trace = traceAdd(state.rec.trace, live.heardEngine ?? live.heard, src && src.peak_db);
   }
 }
 
@@ -609,7 +611,7 @@ function renderEdit() {
   const sel = t.loop.out > t.loop.in;
   $('ed-lift').disabled = !sel;
   $('ed-copy').disabled = !sel;
-  $('ed-split').disabled = !live || !track(state.track) || splitAt(track(state.track), live.heard, t.sample_rate) === 0;
+  $('ed-split').disabled = !live || !track(state.track) || splitAt(track(state.track), live.heardEngine ?? live.heard, t.sample_rate) === 0;
   $('ed-x2').disabled = !fitsDoubled(t);
   const box = $('snap');
   if (!box.children.length) {
@@ -1102,6 +1104,8 @@ function drawLanes() {
   const view = laneView();
   const css = getComputedStyle(document.body);
   const col = (n, d) => css.getPropertyValue(n).trim() || d;
+  const heardTr = heardTracks();
+  const heardSolo = heardTr.some((x) => x.solo);
   for (const lane of lanes) {
     const tr = track(lane.n);
     if (!tr) continue;
@@ -1115,9 +1119,7 @@ function drawLanes() {
     lane.mute.setAttribute('aria-pressed', String(!!tr.mute));
     lane.solo.setAttribute('aria-pressed', String(!!tr.solo));
     // The keys show the ask; the lane dims with the sound, until it is heard.
-    const heardTr = heardTracks();
     const ht = heardTr.find((x) => x.n === tr.n);
-    const heardSolo = heardTr.some((x) => x.solo);
     const isPending = pending.pending(tr.n, performance.now());
     lane.row.classList.toggle('unheard', !!ht && (ht.mute || (heardSolo && !ht.solo)));
     lane.row.classList.toggle('pending', isPending);
@@ -1269,7 +1271,7 @@ function drawPunch(ctx, view, W, H, col) {
   ctx.textBaseline = 'top';
   ctx.fillStyle = red;
   ctx.strokeStyle = red;
-  const reg = recRegion(rec.wrapped || !!(rec.trace && rec.trace.passes > 0), rec.start, t.loop, live.heard);
+  const reg = recRegion(rec.wrapped || !!(rec.trace && rec.trace.passes > 0), rec.start, t.loop, live.heardEngine ?? live.heard);
   if (!reg) {
     const x = Math.round(xOf(rec.start, view, W)) + 0.5;
     ctx.setLineDash([4, 3]);
