@@ -151,9 +151,24 @@ Every take, from **All takes** on the main page.
   its window seeks. A selection shows as grease-pencil IN and OUT. Tap the
   name to rename the take, the tempo to set it, a flag to play from it.
   **Open the take**, the downloads and **Delete** are under it.
+- **Families.** A take you made with *Save as take* folds into the take you
+  cut it from, and a tape's mixdowns fold into the newest of them. So the
+  rack keeps one spine for a jam and its riffs, and one for a tape however
+  often you mix it down. That spine wears a count, **✂3** for its cuts and
+  **MIX ×4** for the tape's mixdowns, and its cassette lists them under
+  **Cuts** and **Earlier mixes**. Tap one to see it there, with **‹** back to
+  the spine; a cut says what it was cut from.
+  - A family sits on its spine's day: a riff cut today from last Tuesday's
+    jam stays with last Tuesday.
+  - Search and the filters look at every take before anything folds. A
+    starred riff shows under *Starred* even when its jam isn't starred; a
+    search finds it by its own name.
+  - Delete a jam and its cuts stay. They come back onto the rack as spines of
+    their own, still named after it; Undo folds them in again.
 - **Select** and **Recently deleted** are as they were: hold a spine to start
   selecting. The take page's ◂ ▸ step through the takes in the order this
-  page shows them, and its ‹ comes back here.
+  page shows them, a spine's folded takes right after it, and its ‹ comes
+  back here.
 
 **Checks — today:**
 
@@ -179,6 +194,12 @@ Every take, from **All takes** on the main page.
   colors on the same takes.
 - [demo] Delete a tag that has takes → they show as untagged, nothing else
   changes, and a filter that was on that tag turns itself off.
+- [demo] Open a take, select two parts and *Save as take* each → back here,
+  the take has one spine wearing **✂2**, and its cassette lists both cuts.
+  Tap one → it's in the cassette, with *Cut from …* and a **‹** back.
+- [demo] Delete that take → the toast says its 2 cuts are back on the shelf,
+  and they're spines of their own; Undo → they fold in again.
+- [demo] Star one of the cuts and turn on *Starred* → the cut shows alone.
 
 ## 4. The take page
 
@@ -290,7 +311,8 @@ and the editor bar takes the place of the toolbar.
 
 **Doing things with the selection:**
 
-- **Save as take** makes a new take of just the selection.
+- **Save as take** makes a new take of just the selection. On the takes
+  page it folds into this take (§3.1).
 - **Share** sends it from your phone as an MP3 (the whole take, with no
   selection).
 - **Copy** puts it on the clipboard, to drop onto a tape (step 6d).
@@ -985,6 +1007,9 @@ Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
     anything you played live over the tape are in it.
   - The take is labelled with the tape's name and has its tempo, with bar 1
     at its start.
+  - On the takes page, a tape's mixdowns fold into the newest one, which
+    wears **MIX ×** and how many there are; the earlier ones are listed in
+    its cassette (§3.1).
   - The loop is ignored and the click is silent while it plays. The readout
     shows how far it's got, then *letting it ring out*. **■** cancels it
     until then, and nothing is saved.
@@ -1010,6 +1035,8 @@ Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
   name, at its tempo.
 - [demo] Start a mixdown and press ■ → *The mixdown didn't save*, and no
   take appears.
+- [demo] Mix the same tape down three times → the takes page shows one spine
+  for it, wearing **MIX ×3**, and its cassette lists the two earlier mixes.
 - [rig] Mix down with an FX on channel 1 → the take has the FX.
 - [demo] Export stems → a zip with a WAV for each track with audio, all the
   same length, plus a `.mid` at the tape's tempo. In a DAW they line up at
@@ -1192,6 +1219,9 @@ has no tip.
 | Edit tags | Make, rename, recolor or delete tags. They are the same on every device |
 | Newest / Longest / By tag | Newest groups the takes by the day they were made; Longest puts the longest first; By tag gives each tag its own group |
 | Tag (take) | Give this take a tag and its cassette wears the tag's color. Press the lit tag again to take it off |
+| Cuts | The takes saved from parts of this one. They fold in here to keep the shelf short; tap one to see it |
+| Earlier mixes | This tape's earlier mixdowns. The newest stands on the shelf for them all; tap one to see it |
+| ‹ (folded take) | Back to the take this one is folded into on the shelf |
 | Open | Open the take to select, loop, save or share part of it |
 | Select | Pick several takes to star, export or delete together. Holding a take does the same |
 | ★ Star (selecting) | Star the picked takes, or unstar them if they all are |

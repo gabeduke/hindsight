@@ -1051,8 +1051,9 @@ fade at either edge -- then stands back at its start while
 as a take, as `POST /api/trigger?from=&to=` would save it. The span is found
 through the measured Δ alone: `TAPE_LATENCY_MS` is for a player hearing the
 tape late, and the tape itself isn't. The take's sidecar gets the tape's
-name as its label, the tape's tempo as its BPM, and as `downbeat_frame` the
-first bar line in it (0 when the span starts on one, as a loop does).
+name as its label, the tape's id as its `tape_id`, the tape's tempo as its
+BPM, and as `downbeat_frame` the first bar line in it (0 when the span starts
+on one, as a loop does).
 
 It answers at once with `{"mixdown": {"id", "tape", "state": "playing",
 "from", "to", "tail"}}` (tape frames, and the tail in frames). The tape's

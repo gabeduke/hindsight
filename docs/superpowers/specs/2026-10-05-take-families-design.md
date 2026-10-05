@@ -85,8 +85,8 @@ What the app records already:
 - **The day, Longest and Tag sorts place a family by its spine.** That
   includes a cut tagged differently from its jam: in the Tag sort it stays
   folded under the jam. Filtering by its tag shows it alone.
-- **NEW sticker.** When a new take folds into a spine, the spine wears the NEW
-  sticker.
+- **NEW sticker.** Unchanged. Only a capture on the main page wears it, and
+  a capture never folds.
 - **Counts.** The shelf's count is the number of spines. "N takes · x GB"
   still counts every take.
 

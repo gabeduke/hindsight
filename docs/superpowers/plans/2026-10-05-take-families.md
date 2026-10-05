@@ -423,17 +423,16 @@ export function shelve(takes, opts = {}, now = Date.now()) {
     count includes the spine itself.
   - It appends "3 cuts" and "4 mixes" to the spine's `aria-label`.
   - Nothing is drawn when there's no family.
-- [ ] **Step 4: NEW on the spine.** In `createRow`'s fresh block, a fresh take
-  that is folded puts the NEW sticker on its spine's row instead. Pass the
-  spine name in from `render`, which knows it.
+- [ ] **Step 4: NEW on the spine.** Dropped while building: only `app.js`
+  marks a take fresh, after a capture, and a capture never folds.
 - [ ] **Step 5: Select mode.** Select all and the selection count skip
   `.folded` rows. Check `enterSelect`, `renderSelect` and the Select all
   handler.
-- [ ] **Step 6: The delete toast.** `deleteTake(row)` takes an optional
-  `{ cuts: n }`. With `n > 0`, the toast reads
-  `Deleted ${label} · its ${n} cut${n === 1 ? '' : 's'} are back on the shelf`
-  ("its 1 cut is back" for one). The Undo is unchanged.
-  `deleteByName(name, opts)` passes it through.
+- [ ] **Step 6: The delete toast.** `updateRow` keeps the spine's counts on
+  `row.family`, and `deleteTake(row)` reads them. With cuts, the toast adds
+  `cutsBack(n)` from `lib/shelf.js`: " · its 3 cuts are back on the shelf"
+  ("its cut is back" for one). `bulkDelete` counts before the delete
+  re-renders, and says "their". The Undo is unchanged.
 - [ ] **Step 7: Run the node suite, then check by hand on the demo:**
   - make a cut;
   - the shelf shows one spine with ✂1;

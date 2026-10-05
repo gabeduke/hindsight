@@ -2238,6 +2238,20 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .take.spine .take-info { order: 3; }
 .take.spine .take-bpm { display: none; pointer-events: none; }
 .take.spine .take-meta { font: 11.5px var(--mono); color: var(--paper-dim); white-space: nowrap; }
+/* The takes folded into a spine (lib/shelf.js fold), counted on its J-card:
+   "✂3", "MIX ×4". Printed in the card's ink, boxed like a hand-ruled note. */
+.spine-fold {
+  flex: none; padding: 1px 5px; border-radius: 3px; white-space: nowrap;
+  font: 600 11.5px var(--mono); color: var(--paper-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper-ink) 40%, transparent);
+}
+/* The Capture page's shelf is a narrow column: its bars give the sticker
+   room, so the name still reads. */
+.main-page .take.spine:has(.spine-fold:not([hidden])) .wave { width: 56px; }
+.main-page .spine-fold { padding: 0 4px; font-size: 10.5px; }
+@media (max-width: 599.98px) {
+  .spine-fold { padding: 0 4px; font-size: 10.5px; }
+}
 .take.spine .wave {
   flex: none; width: 150px; height: 26px; margin: 0; pointer-events: none;
   background: none; box-shadow: none; border-radius: 0; font-size: 0;
@@ -2319,11 +2333,14 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
     grid-auto-rows: min-content; align-content: start; column-gap: 16px; row-gap: 10px;
   }
   body.cassette-open .take-detail > .sheet-back { grid-column: 1; grid-row: 1; justify-self: start; }
+  body.cassette-open .take-detail > .detail-up { grid-column: 1; grid-row: 1; justify-self: end; max-width: 60%; }
   body.cassette-open .take-detail > .detail-head { grid-column: 2; grid-row: 1; }
   body.cassette-open .take-detail > .detail-cassette { grid-column: 1; grid-row: 2 / span 3; }
   body.cassette-open .take-detail > .detail-actions,
   body.cassette-open .take-detail > .detail-more,
-  body.cassette-open .take-detail > .detail-flags { grid-column: 2; }
+  body.cassette-open .take-detail > .detail-flags,
+  body.cassette-open .take-detail > .detail-from,
+  body.cassette-open .take-detail > .detail-family { grid-column: 2; }
 }
 
 /* The takes page on a wide screen: the list beside the picked take. */
@@ -2431,6 +2448,40 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 .detail-flag { appearance: none; border: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 4px; background: var(--mask); color: var(--marker); font: 13px var(--font); }
 .detail-flag > span:first-child { color: var(--flag); }
 .detail-flag .flag-at { font-family: var(--mono); color: var(--ink-dim); }
+/* A family in the pane (lib/shelf-detail.js renderFamily): the ‹ key back to
+   the spine a take is folded into, where it came from, and on the spine the
+   lines for its cuts and its tape's earlier mixes. */
+.detail-up { align-self: flex-start; min-height: 40px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-from { margin: -6px 0 0; font-size: 13px; color: var(--ink-dim); }
+.detail-source {
+  appearance: none; background: none; border: 0; padding: 0; font: inherit; color: var(--ink); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px;
+}
+.detail-source:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.detail-family-h {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 6px;
+  font: 600 13px var(--label-font); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim);
+}
+.detail-family-h::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+.detail-family-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.detail-member {
+  appearance: none; width: 100%; min-height: 44px; box-sizing: border-box; cursor: pointer;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
+  padding: 6px 12px; border: 1px solid var(--rule); border-radius: 6px; background: transparent;
+  color: var(--ink); font: 14px var(--font); text-align: left;
+}
+.detail-member .dm-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-member .dm-mark { color: var(--ink-dim); }
+.detail-member .dm-span, .detail-member .dm-len { font: 12.5px var(--mono); color: var(--ink-dim); white-space: nowrap; }
+.detail-member:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) {
+  .detail-member:hover { border-color: var(--ink-dim); }
+}
+@media (max-width: 599.98px) {
+  /* A phone: the span gives way to the name. */
+  .detail-member { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .detail-member .dm-span { display: none; }
+}
 
 /* ---------- the now-playing bar ---------- */
 /* docs/superpowers/specs/2026-10-05-transport-bar-design.md: docked at the
