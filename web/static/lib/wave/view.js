@@ -19,7 +19,8 @@
 // The pointer machinery is lib/edit/gestures.js, shared with the tape page.
 
 import { frameToX, xToFrame, gridLines, rulerTicks, snapFrame, clampRegion } from './geometry.js';
-import { drawColumns } from './draw.js';
+import { levelsOfColumns, takeGain } from './draw.js';
+import { drawTrace, paintOxide, oxideColors } from './tape-strip.js';
 import { GestureSurface } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
 import { greaseStroke, labelPlaces } from './grease.js';
@@ -259,12 +260,13 @@ export class WaveView extends GestureSurface {
     const top = this.bodyTop(), bottom = this.bodyBottom();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = col('--well', '#e9e2cd');
+    // The take on tape: brown oxide between a dark ruler and grip strip.
+    ctx.fillStyle = col('--oxide-ruler', '#1d1209');
     ctx.fillRect(0, 0, W, H);
-    // The ruler and the grip strip are a shade apart from the waveform.
-    ctx.fillStyle = col('--well-hi', '#0e0f10');
-    ctx.fillRect(0, 0, W, RULER_H);
-    ctx.fillRect(0, bottom, W, H - bottom);
+    ctx.save();
+    ctx.translate(0, top);
+    paintOxide(ctx, W, bottom - top, oxideColors(col));
+    ctx.restore();
 
     const sel = st.region;
     const sx0 = sel ? frameToX(sel.start, view) : 0, sx1 = sel ? frameToX(sel.end, view) : 0;
@@ -283,11 +285,37 @@ export class WaveView extends GestureSurface {
       ctx.fillRect(Math.round(x), top, 1, bottom - top);
     }
 
-    // The waveform, on the shared dB scale.
+    // The take as a trace on the tape (lib/wave/tape-strip.js), on its own
+    // scale: levels from the tiles, scaled by the take's peak (takeGain, once
+    // per file), the same scale as its cassette on the takes page. A stereo
+    // take is two lanes, left above right; the part played is lit.
     const { cols, channels } = this.tiles.columns(view, dpr);
+    this.gain ??= takeGain(this.tiles.filePeaks);
+    const lanes = Math.min(2, channels);
+    const laneH = (bottom - top) / lanes;
+    const edge = col('--oxide-edge', '#23150b');
     ctx.save();
     ctx.beginPath(); ctx.rect(0, top, W, bottom - top); ctx.clip();
-    drawColumns(ctx, cols, channels, { top: top + 2, height: bottom - top - 4, color: col('--wave', '#268bd2') });
+    if (lanes === 2) { ctx.fillStyle = edge; ctx.fillRect(0, top + laneH - 1.25, W, 2.5); }
+    const glow = col('--trace-glow', 'rgba(255,226,170,.75)');
+    const cx = st.cursor != null ? frameToX(st.cursor, view) : 0;
+    for (let i = 0; i < lanes; i++) {
+      const lv = levelsOfColumns(cols, channels, lanes === 2 ? i : -1);
+      const opts = { cy: top + laneH * (i + 0.5), half: laneH / 2 - 7, gain: this.gain };
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      drawTrace(ctx, lv, lv, { ...opts, line: col('--trace', '#f6e7c4'), glow: [{ color: withAlpha(glow, 0.25), blur: 3 }] });
+      ctx.restore();
+      if (cx > 0) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0, top, cx, bottom - top); ctx.clip();
+        drawTrace(ctx, lv, lv, {
+          ...opts, line: col('--trace-hot', '#fff8e8'), fillAlpha: 0.14, width: 1.3,
+          glow: [{ color: glow, blur: 2 }, { color: withAlpha(glow, 0.35), blur: 8 }],
+        });
+        ctx.restore();
+      }
+    }
     ctx.restore();
 
     // Selection edges: grease pencil, the way an edit point was marked on
