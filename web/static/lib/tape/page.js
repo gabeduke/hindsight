@@ -28,6 +28,7 @@ import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec
 import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
+import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { TapeMachine } from './machine.js';
 import { initNav } from '../nav.js';
@@ -1276,6 +1277,55 @@ function setView(v) {
 // (a vertical one still scrolls the page); with a trackpad or a wheel,
 // ctrl/⌘ zooms and a sideways scroll pans. A held slide or loop drag keeps
 // its finger. The view stays where it's put until Fit.
+// The overview is the whole tape's scrubber: drag its window to move what the
+// lanes show, tap to move the playhead there (to the nearest bar), double-tap
+// to go back to the loop.
+function wireOverview() {
+  const cv = $('tape-overview');
+  cv.style.touchAction = 'none';
+  let down = null, lastTap = null;
+  const at = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, w: r.width }; };
+  cv.addEventListener('pointerdown', (e) => {
+    if (!state.tape || down) return;
+    const { x, w } = at(e);
+    const win = overviewWindow(laneView(), state.tape.length, w);
+    // On the window, the drag holds it where it was grabbed; off it, the
+    // window's middle comes to the finger.
+    down = { id: e.pointerId, x0: x, grab: onWindow(x, win) ? x - win.x : win.w / 2, moved: false };
+    cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!down || e.pointerId !== down.id || !state.tape) return;
+    const { x, w } = at(e);
+    if (!down.moved && Math.abs(x - down.x0) < 6) return;
+    down.moved = true;
+    setView(dragTo(x, down.grab, laneView(), state.tape.length, w));
+  });
+  const up = (e) => {
+    if (!down || e.pointerId !== down.id) return;
+    const moved = down.moved;
+    down = null;
+    const t = state.tape;
+    if (!t || moved || e.type === 'pointercancel') return;
+    const { x, w } = at(e);
+    const tap = { t: performance.now(), x };
+    if (isDoubleTap(lastTap, tap)) {
+      lastTap = null;
+      state.zoom = null;
+      state.touchedView = performance.now();
+      redrawView();
+      return;
+    }
+    lastTap = tap;
+    const pos = tapAt(x, t.length, w, t.grid);
+    const v = laneView();
+    if (pos < v.from || pos > v.to) setView(followView(v, pos, t.length));
+    transport('locate', { pos });
+  };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+}
+
 function wireView(el, rectOf) {
   const pts = new Map();
   let g = null;
@@ -1786,13 +1836,15 @@ function drawOverview() {
     ctx.strokeStyle = withAlpha(col('--warn', '#b58900'), t.loop.on ? 1 : 0.4);
     ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
   }
-  if (state.zoom) {
-    const x0 = xOf(state.zoom.from, all, W), x1 = xOf(state.zoom.to, all, W);
-    ctx.strokeStyle = col('--well-dim', '#a39d90');
-    ctx.setLineDash([3, 2]);
-    ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
-    ctx.setLineDash([]);
-  }
+  // The window: what the lanes show, there to be dragged. Dashed until a
+  // pinch, a pan or a drag here has moved it off the loop.
+  const win = overviewWindow(laneView(), t.length, W);
+  ctx.fillStyle = withAlpha(col('--well-ink', '#f2e6c8'), 0.1);
+  ctx.fillRect(win.x, 0, win.w, H);
+  ctx.strokeStyle = col('--well-dim', '#a39d90');
+  if (!state.zoom) ctx.setLineDash([3, 2]);
+  ctx.strokeRect(win.x + 0.5, 0.5, Math.max(2, win.w) - 1, H - 1);
+  ctx.setLineDash([]);
   if (state.live) {
     ctx.fillStyle = col('--accent', '#cb4b16');
     ctx.fillRect(Math.round(xOf(state.live.heard, all, W)), 0, 2, H);
@@ -2112,6 +2164,7 @@ function wire() {
   $('track-pan').addEventListener('change', () => patch({ track: { n: state.sheetTrack, pan: Number($('track-pan').value) } }));
   $('track-done').addEventListener('click', () => $('track-sheet').close());
   wireRuler();
+  wireOverview();
   $('loop').addEventListener('click', () => patch({ loop: { on: !state.tape.loop.on } }));
   $('tape-undo').addEventListener('click', () => undoRedo(false));
   $('tape-redo').addEventListener('click', () => undoRedo(true));
