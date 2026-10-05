@@ -3,7 +3,7 @@
 // to the take's own peak and lifted the way the design draws them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelsFor, takeGain, lift, barSegments, drawBars } from './draw.js';
+import { levelsFor, takeGain, lift, smooth, barSegments, drawBars } from './draw.js';
 
 // Two channels, eight buckets of min,max pairs.
 const pd = {
@@ -27,9 +27,13 @@ test('levelsFor can read one channel', () => {
 });
 
 test('levelsFor gives every slice a bucket when there are more slices than buckets', () => {
-  const lv = levelsFor(pd, 16);
-  assert.equal(lv.length, 16);
-  for (const v of lv) assert.ok(v > 0);
+  // Two slices per bucket: each bucket's level, twice.
+  same(levelsFor(pd, 16), [0.3, 0.3, 0.1, 0.1, 0.6, 0.6, 0.1, 0.1, 0.7, 0.7, 0.4, 0.4, 0.05, 0.05, 0.02, 0.02]);
+});
+
+test('levelsFor reads a channel the take lacks as silence, and whole buckets only', () => {
+  same(levelsFor(pd, 2, { channel: 5 }), [0, 0]);
+  same(levelsFor(pd, 2, { b0: 3.5, b1: 8 }), levelsFor(pd, 2, { b0: 3, b1: 8 }));
 });
 
 test('levelsFor covers only the buckets asked for', () => {
@@ -46,12 +50,21 @@ test("takeGain scales the take's loudest peak to full, at most eight times", () 
   near(takeGain(one(0.01)), 8);
   near(takeGain(one(1.2)), 1);
   near(takeGain(one(0)), 1);
+  // Every channel and every bucket counts, not just the first.
+  near(takeGain(pd), 1 / 0.7);
 });
 
 test('lift scales, clamps and bends a level like the design', () => {
   near(lift(0.5, 2), 1);
   near(lift(0.25), 0.25 ** 0.85);
   near(lift(-0.1), 0);
+  near(lift(NaN), 0);
+  near(lift(0.25, 1, 1), 0.25);
+});
+
+test('smooth weights each point twice its neighbours', () => {
+  assert.deepEqual([...smooth([0, 4, 0])], [1, 2, 1]);
+  assert.deepEqual([...smooth([2])], [2]);
 });
 
 test('barSegments puts one rounded bar per pitch, never thinner than a dot', () => {
@@ -71,8 +84,12 @@ test("barSegments scales by the take's gain", () => {
 function recorder() {
   const calls = [];
   const ctx = { calls, lineCap: 'butt', lineWidth: 1, strokeStyle: '#000' };
-  for (const m of ['beginPath', 'moveTo', 'lineTo', 'stroke'])
-    ctx[m] = (...a) => calls.push([m, ...a, m === 'stroke' ? ctx.strokeStyle : undefined].filter((v) => v !== undefined));
+  for (const m of ['beginPath', 'moveTo', 'lineTo'])
+    ctx[m] = (...a) => calls.push([m, ...a]);
+  ctx.stroke = () => calls.push(['stroke', ctx.strokeStyle, ctx.lineCap, ctx.lineWidth]);
+  const stack = [];
+  ctx.save = () => stack.push({ lineCap: ctx.lineCap, lineWidth: ctx.lineWidth, strokeStyle: ctx.strokeStyle });
+  ctx.restore = () => Object.assign(ctx, stack.pop());
   return ctx;
 }
 
@@ -80,9 +97,19 @@ test('drawBars strokes one path per colour run, with round caps', () => {
   const ctx = recorder();
   drawBars(ctx, [0.5, 0.5, 0.5, 0.5], { pitch: 4, cy: 10, half: 8, color: (i) => (i < 2 ? 'a' : 'b') });
   const strokes = ctx.calls.filter((c) => c[0] === 'stroke');
-  assert.deepEqual(strokes, [['stroke', 'a'], ['stroke', 'b']]);
-  assert.equal(ctx.lineCap, 'round');
-  assert.equal(ctx.lineWidth, 2.2);
-  assert.deepEqual(ctx.calls.filter((c) => c[0] === 'moveTo').map((c) => c[1]), [0, 4, 8, 12]);
-  assert.equal(ctx.calls.filter((c) => c[0] === 'lineTo').length, 4);
+  assert.deepEqual(strokes, [['stroke', 'a', 'round', 2.2], ['stroke', 'b', 'round', 2.2]]);
+  const moves = ctx.calls.filter((c) => c[0] === 'moveTo');
+  const lines = ctx.calls.filter((c) => c[0] === 'lineTo');
+  assert.deepEqual(moves.map((c) => c[1]), [0, 4, 8, 12]);
+  const a = 0.5 ** 0.85 * 8;
+  for (const c of moves) near(c[2], 10 - a);
+  for (const c of lines) near(c[2], 10 + a);
+});
+
+test('drawBars hands the context back as it found it', () => {
+  const ctx = recorder();
+  drawBars(ctx, [0.5], { pitch: 4, cy: 10, half: 8, color: 'a' });
+  assert.equal(ctx.lineCap, 'butt');
+  assert.equal(ctx.lineWidth, 1);
+  assert.equal(ctx.strokeStyle, '#000');
 });

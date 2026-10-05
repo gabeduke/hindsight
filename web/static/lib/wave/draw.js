@@ -73,9 +73,12 @@ export function foldChannels(cols, channels) {
  */
 export function levelsFor(pd, n, { b0 = 0, b1 = pd.buckets, channel = -1 } = {}) {
   const out = new Float32Array(Math.max(0, n));
+  b0 = Math.floor(b0);
+  b1 = Math.floor(b1);
   const span = b1 - b0;
   if (!(span > 0) || n <= 0) return out;
-  const chans = channel < 0 ? [...Array(pd.channels).keys()] : [channel];
+  // A channel the take doesn't have reads as silence.
+  const chans = channel < 0 ? [...Array(pd.channels).keys()] : channel < pd.channels ? [channel] : [];
   for (let i = 0; i < n; i++) {
     const lo = b0 + Math.floor((i / n) * span);
     const hi = Math.max(lo + 1, b0 + Math.floor(((i + 1) / n) * span));
@@ -95,7 +98,9 @@ export function levelsFor(pd, n, { b0 = 0, b1 = pd.buckets, channel = -1 } = {})
 /**
  * takeGain is the gain that brings a take's loudest peak to full scale,
  * clamped to [1, max]: a clipped take is not shrunk, and a near-silent one is
- * not blown up into a loud-looking one.
+ * not blown up into a loud-looking one. Hand it the whole take's peaks (the
+ * file's, from /api/peaks), never a tile or a clip's range, or the gain would
+ * change from one piece of the same take to the next.
  */
 export function takeGain(pd, max = 8) {
   let peak = 0;
@@ -109,9 +114,24 @@ export function takeGain(pd, max = 8) {
   return peak > 0 ? Math.min(max, Math.max(1, 1 / peak)) : 1;
 }
 
-/** lift maps a level (0..1) to a drawn height fraction, as the design does. */
-export function lift(v, gain = 1) {
-  return Math.min(1, Math.max(0, v) * gain) ** 0.85;
+/**
+ * lift maps a level to a drawn height fraction (0..1): scaled by the take's
+ * gain, then bent by `gamma` -- 0.85 for the bars, as the design draws them;
+ * the trace is drawn straight (gamma 1). No data (NaN) is silence.
+ */
+export function lift(v, gain = 1, gamma = 0.85) {
+  return v > 0 ? Math.min(1, v * gain) ** gamma : 0;
+}
+
+/** smooth weights each point twice its neighbours: (a + 2b + c) / 4. */
+export function smooth(a) {
+  const n = a.length;
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const v = a[i];
+    out[i] = ((i > 0 ? a[i - 1] : v) + 2 * v + (i < n - 1 ? a[i + 1] : v)) / 4;
+  }
+  return out;
 }
 
 /**
@@ -129,10 +149,13 @@ export function barSegments(levels, { x0 = 0, pitch, cy, half, gain = 1, min = 0
 /**
  * drawBars draws the cassette window's waveform: rounded bars, one path per
  * run of one colour, so a played/unplayed split costs two strokes. `color` is
- * a colour or a function of the bar's index.
+ * a colour or a function of the bar's index. The boards draw bars from
+ * smoothed levels: pass smooth(levelsFor(...)). The context comes back as it
+ * was handed over.
  */
 export function drawBars(ctx, levels, { color, width = 2.2, ...opts }) {
   const colorAt = typeof color === 'function' ? color : () => color;
+  ctx.save();
   ctx.lineCap = 'round';
   ctx.lineWidth = width;
   let run = null;
@@ -148,6 +171,7 @@ export function drawBars(ctx, levels, { color, width = 2.2, ...opts }) {
     ctx.lineTo(s.x, s.y1);
   }
   if (run !== null) ctx.stroke();
+  ctx.restore();
 }
 
 /**

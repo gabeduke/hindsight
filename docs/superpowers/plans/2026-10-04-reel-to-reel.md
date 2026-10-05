@@ -511,6 +511,17 @@ git commit -m "Canvases draw on black windows with the window inks"
 
 **The scale (a ruling, taken here once):** the design's bars and trace use linear peak levels lifted by a 0.85 power, scaled to the take's own peak. The dB scale in `draw.js` (`shape = ampToFrac`) is what made every take look like a flat block. One gain per take, `takeGain(pd)` = 1 / the take's loudest peak, capped at ×8 (+18 dB), is used by *every* view of that take, so a take still looks the same everywhere (the reason `draw.js` moved to one scale), and a near-silent take still looks quiet. `drawColumns`/`shape` stay until PRs 3 and 6 replace their callers.
 
+**After review (2026-10-05):**
+- **Bars** are drawn from *smoothed* levels, as the boards draw them: `drawBars(ctx, smooth(levelsFor(…)))`.
+- **The trace** is drawn straight (`gamma` 1): only the gain, no 0.85 lift.
+- **A lit trace** takes two passes, as `tape-strip.js` documents:
+  - everything at 55 % alpha, glow `--trace-glow` at .25, 3 px;
+  - clipped to the playhead: `--trace-hot`, 1.3 px, fill 14 %, glows `[{2 px, .75}, {8 px, .35}]`.
+- **Glow blur** is in CSS px, scaled to device pixels inside `drawTrace`.
+- **`traceLines`/`drawTrace` take `x0`/`dx`**, so a strip with fewer points than pixels (the ribbon gets at most 600 buckets) spreads them across.
+- **The ribbon (PR 4)** is a live meter of the ring, read beside the VU meters. It stays on the meters' dB scale: its envelope bytes are dB-coded and there is no take to gain. Spines caught on Capture use the saved take's own peaks and `takeGain`, like everywhere else.
+- **Until PR 6** a take's cassette (this scale) and its take page (dB) look different. That is accepted because PRs 3–6 all land before the next deploy. Each PR updates the scale comments in the files it moves (`takes.js`, `rowwave.js`, `overview.js`, `view.js`, `tape/page.js`, `docs/guide.md`).
+
 **Design values** (from the canvas generators): bars are vertical strokes from `cy − a` to `cy + a`, `a = max(0.6, lift(v) · half)`, `lift(v) = min(1, v · gain)^0.85`, stroke 2.2 px, round caps, one per `pitch` px, each the loudest moment of its slice. The trace is a 1 px polyline along the top and bottom of the envelope (points at `x + 0.5`), smoothed `[1, 2, 1] / 4`, over a fill of the same colour at 7 % (14 % played), unplayed at 55 % opacity with a 3 px glow, played brighter (`--trace-hot`) with a 2 px + 8 px glow. Oxide: a vertical gradient `#23150b 0 %, #4a2e19 14 %, #5b3a20 50 %, #4a2e19 86 %, #23150b 100 %`, a sheen `rgba(255,236,210,.12)` at the top fading by 30 %, a shade `rgba(0,0,0,.18)` from 70 % to the bottom, and a 1 px grain line `rgba(0,0,0,.05)` every 5 px.
 
 ### Task 6: Tape tokens, `levelsFor` and `takeGain`
