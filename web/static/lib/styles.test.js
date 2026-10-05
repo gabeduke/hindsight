@@ -167,6 +167,14 @@ test('every waveform sits in a black window', () => {
   }
 });
 
+// Tape is an object: brown oxide and a cream trace, the same in both schemes.
+const TAPE = ['--oxide-edge', '--oxide-lo', '--oxide', '--oxide-sheen', '--oxide-shade', '--oxide-grain', '--trace', '--trace-hot', '--trace-glow'];
+test('the tape tokens exist, and the trace reads on the oxide', () => {
+  for (const t of TAPE) assert.ok(light[t], `light lacks ${t}`);
+  const c = contrast(light['--trace'], light['--oxide']);
+  assert.ok(c >= 4.5, `--trace on --oxide is ${c.toFixed(2)}:1`);
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);

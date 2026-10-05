@@ -4,10 +4,15 @@
 // a dB scale, the take page linear with a "fit quiet takes" gain -- so the
 // same take looked loud in one place and silent in the other.
 //
-// Everything is drawn on the dB scale the meters and the buffer ribbon use
-// (meter.js ampToFrac: -60..0 dBFS, sign kept), because below about -20 dBFS
-// linear amplitude looks like silence and a home recording mostly lives
-// there. Pure apart from the canvas context it's handed.
+// Two scales live here. drawColumns draws on the dB scale the meters and the
+// buffer ribbon use (meter.js ampToFrac: -60..0 dBFS, sign kept): below about
+// -20 dBFS linear amplitude looks like silence, and a home recording mostly
+// lives there. But on that scale a whole take reads as one flat block, so the
+// Reel-to-reel bars and trace use levels instead: the loudest moment of each
+// slice, scaled by the take's own peak (takeGain, at most x8 so a near-silent
+// take still looks quiet) and lifted by a 0.85 power. Every view of a take
+// uses the same gain, so it looks the same everywhere. Pure apart from the
+// canvas context it's handed.
 
 import { ampToFrac } from '../meter.js';
 
@@ -58,6 +63,55 @@ export function foldChannels(cols, channels) {
     if (mx >= mn) { out[x * 2] = mn; out[x * 2 + 1] = mx; }
   }
   return out;
+}
+
+/**
+ * levelsFor folds whole-take peaks into `n` levels over buckets [b0, b1):
+ * for each slice, the largest absolute sample on one channel, or on all of
+ * them when `channel` is negative. Slices map onto buckets as in
+ * peakColumns, so every slice has at least one bucket.
+ */
+export function levelsFor(pd, n, { b0 = 0, b1 = pd.buckets, channel = -1 } = {}) {
+  const out = new Float32Array(Math.max(0, n));
+  const span = b1 - b0;
+  if (!(span > 0) || n <= 0) return out;
+  const chans = channel < 0 ? [...Array(pd.channels).keys()] : [channel];
+  for (let i = 0; i < n; i++) {
+    const lo = b0 + Math.floor((i / n) * span);
+    const hi = Math.max(lo + 1, b0 + Math.floor(((i + 1) / n) * span));
+    let v = 0;
+    for (const c of chans) {
+      const d = pd.data[c];
+      for (let b = lo; b < hi && b < pd.buckets; b++) {
+        const a = Math.max(-d[b * 2], d[b * 2 + 1]);
+        if (a > v) v = a;
+      }
+    }
+    out[i] = v;
+  }
+  return out;
+}
+
+/**
+ * takeGain is the gain that brings a take's loudest peak to full scale,
+ * clamped to [1, max]: a clipped take is not shrunk, and a near-silent one is
+ * not blown up into a loud-looking one.
+ */
+export function takeGain(pd, max = 8) {
+  let peak = 0;
+  for (let c = 0; c < pd.channels; c++) {
+    const d = pd.data[c];
+    for (let i = 0; i < pd.buckets * 2; i++) {
+      const a = Math.abs(d[i]);
+      if (a > peak) peak = a;
+    }
+  }
+  return peak > 0 ? Math.min(max, Math.max(1, 1 / peak)) : 1;
+}
+
+/** lift maps a level (0..1) to a drawn height fraction, as the design does. */
+export function lift(v, gain = 1) {
+  return Math.min(1, Math.max(0, v) * gain) ** 0.85;
 }
 
 /**

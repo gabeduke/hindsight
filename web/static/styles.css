@@ -68,6 +68,16 @@
   --wave-hot:  #7fe6dc;
   --wave-dim:  #2f5f5b;
   --sel:       #4ebeb4;
+  /* tape: oxide and trace, the same in both schemes -- tape is an object */
+  --oxide-edge:  #23150b;
+  --oxide-lo:    #4a2e19;
+  --oxide:       #5b3a20;
+  --oxide-sheen: rgba(255,236,210,.12);
+  --oxide-shade: rgba(0,0,0,.18);
+  --oxide-grain: rgba(0,0,0,.05);
+  --trace:       #f6e7c4;
+  --trace-hot:   #fff8e8;
+  --trace-glow:  rgba(255,226,170,.75);
 
   /* Hardware: black windows, a recessed track for switches with a raised
      thumb, keys, fields, LEDs, amber LCD readouts. */
