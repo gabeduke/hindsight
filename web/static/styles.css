@@ -1709,7 +1709,12 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .out-choice b { font-family: 'Barlow Condensed', sans-serif; font-size: 17px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); }
 .out-choice span:not(.out-led) { grid-column: 1; font-size: 13px; font-weight: 400; color: var(--ink-dim); }
 .out-choice .out-led { grid-column: 2; grid-row: 1 / span 2; }
-.out-measured { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-dim); }
+/* .sheet-inner p is set up for a filename (mono, break-all); these lines are prose. */
+.sheet-inner.out-inner p { font-family: var(--font); word-break: normal; font-size: 13px; margin: 8px 0 0; }
+.out-measured { display: flex; align-items: center; gap: 12px; color: var(--ink-dim); }
+.out-measured .lcd { flex: none; white-space: nowrap; padding: 3px 8px; border-radius: 7px; font-weight: 600; font-size: 14px;
+  background: var(--lcd); color: var(--lcd-ink); box-shadow: inset 0 2px 5px var(--lcd-edge), inset 0 0 0 1px var(--lcd-edge), 0 1px 0 var(--hl);
+  text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent); }
 @media (max-width: 599.98px) {
   .tape-out .pill-text, .tape-out .pill-chev { display: none; }
   .tape-out { width: auto; padding: 0 10px; min-height: 40px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }

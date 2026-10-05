@@ -26,13 +26,22 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
     // The audio starts inside the tap that chose it, before any await: a
     // phone's browser only lets a tap start sound.
     const starting = mode !== 'jam' && !player.active ? player.start() : null;
+    // If the PUT fails first, a later start failure must not go unhandled.
+    if (starting) starting.catch(() => {});
+    let put = false;
     try {
       await api('/api/tapes/output', { method: 'PUT', body: { mode } });
+      put = true;
       await starting;
       if (mode === 'jam') player.stop();
       setTimeout(poll, 100);
     } catch (e) {
       if (starting) player.stop();
+      // The phone never started: don't leave the jam room silent.
+      if (put && mode !== 'jam') {
+        try { await api('/api/tapes/output', { method: 'PUT', body: { mode: 'jam' } }); } catch { /* best effort */ }
+        poll();
+      }
       toast(e.message, 'bad');
     }
   }
