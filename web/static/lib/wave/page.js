@@ -35,6 +35,8 @@ import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { listFrom } from '../shelf.js';
 import { initNav } from '../nav.js';
+import { ReelWindow, peakDbAt } from '../bar/reel-window.js';
+import { takeCounter, takeMarquee } from '../bar/lcd.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -145,7 +147,7 @@ async function main() {
     getState: () => state, getView: () => view.view,
     emit: (ev, p) => {
       if (ev === 'panTo') view.panTo(p.start);
-      else if (ev === 'centerOn') view.centerOn(p.frame);
+      else if (ev === 'seek') { seekTo(p.frame); view.follow(p.frame); }
       else if (ev === 'fitAll') view.fitAll();
     },
   });
@@ -167,6 +169,16 @@ async function main() {
     onError: (m) => toast(m, 'bad'),
     onEnded: () => { syncTransport(); syncNotes(); },
   });
+  // The bar's reel window: the take's reels turn with the playhead, and the
+  // LCD's two level bars read the take's peaks under it (left and right).
+  const reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
+  const gain = takeGain(filePeaks);
+  const lcdInk = 'var(--lcd-ink)';
+  reels.setLevels(Array.from({ length: Math.min(2, filePeaks.channels) }, () => lcdInk),
+    (frame) => peakDbAt(filePeaks, frame / total, gain));
+  function feedReels() {
+    reels.poll({ heard: state.cursor, playing: clock.playing, length: total, sampleRate: sr * (clock.rate || 1) });
+  }
   function previewLanded() {
     if (previewReady) return;
     previewReady = true;
@@ -559,6 +571,7 @@ async function main() {
     $('be-play').setAttribute('aria-label', playing ? 'Pause' : 'Play from here');
     $('loop').setAttribute('aria-pressed', String(state.loop));
     $('loop').disabled = !state.region && !state.loop;
+    updateReadout();
     // The sample-exact loop runs at 1×; practice speed is for the preview.
     const speedOff = state.loop && !!state.region;
     for (const b of $('speed').querySelectorAll('button')) b.disabled = speedOff;
@@ -566,6 +579,24 @@ async function main() {
     syncScreenLock();
   }
   $('play').addEventListener('click', togglePlay);
+  // |◂: back to In, or to the top of a take with no selection.
+  $('to-start').addEventListener('click', () => {
+    const at = state.region ? state.region.start : 0;
+    seekTo(at);
+    view.follow(at);
+  });
+  // The scrubber is a slider for the keyboard too: ← → a second, and Space
+  // still plays (the page's Space leaves focused controls alone).
+  $('overview-canvas').addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) togglePlay(); return; }
+    if (state.edit || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const at = Math.max(0, Math.min(total - 1, state.cursor + (e.key === 'ArrowRight' ? sr : -sr)));
+    seekTo(at);
+    view.follow(at);
+  });
   $('notes-play').addEventListener('click', togglePlay);
   $('loop').addEventListener('click', () => setLoop(!state.loop));
 
@@ -1403,11 +1434,25 @@ async function main() {
   });
 
   // --- readout ------------------------------------------------------------
+  // The bar's LCD: where the take is, the lamp, and its scrolling line; the
+  // scrubber says the same to a screen reader. The reels hear of it too.
   function updateReadout() {
-    $('pos-bar').textContent = barBeat(state.cursor, state.grid);
-    $('pos-time').textContent = fmtTime(state.cursor, sr);
-    $('notes-bar').textContent = barBeat(state.cursor, state.grid) || fmtTime(state.cursor, sr);
+    const bar = barBeat(state.cursor, state.grid);
+    const lcd = takeCounter({ pos: state.cursor, length: total, sampleRate: sr, bar, playing: clock.playing });
+    setText($('position'), lcd.big);
+    setText($('np-mini'), lcd.big);
+    setText($('np-time'), lcd.small);
+    setText($('np-unit'), lcd.unit);
+    $('np-status').dataset.state = lcd.status;
+    setText($('np-marquee'), takeMarquee({ name: take.label || stampOf(file), bpm: state.grid.bpm, region: state.region, sampleRate: sr }));
+    const ov = $('overview-canvas');
+    ov.setAttribute('aria-valuemax', String(total));
+    ov.setAttribute('aria-valuenow', String(Math.round(state.cursor)));
+    ov.setAttribute('aria-valuetext', `${bar ? `bar ${bar}, ` : ''}${fmtTime(state.cursor, sr)}`);
+    $('notes-bar').textContent = bar || fmtTime(state.cursor, sr);
+    feedReels();
   }
+  function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
 
   renderHeader();
   renderSelection();

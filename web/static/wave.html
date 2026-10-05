@@ -65,20 +65,9 @@
 <main class="wave-main">
   <div class="wave-col" data-hints>
     <div id="wave-error" class="wave-error" hidden></div>
-    <canvas id="overview-canvas" class="overview-canvas" aria-label="Whole take" data-tip="overview"></canvas>
     <canvas id="wave-canvas" class="wave-canvas" aria-label="Waveform" data-tip="waveform"></canvas>
 
     <div class="toolbar">
-      <div class="tb-row transport">
-        <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="play">▶</button>
-        <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="loop">⟲ Loop</button>
-        <button id="set-in" class="icon-btn tb-point" type="button" data-tip="in">In</button>
-        <button id="set-out" class="icon-btn tb-point" type="button" data-tip="out">Out</button>
-        <button id="flag-now" class="icon-btn tb-flag" type="button" aria-label="Flag" data-tip="flag">⚑</button>
-        <button id="flag-prev" class="icon-btn tb-step" type="button" aria-label="Previous flag" data-tip="flag-prev">◂⚑</button>
-        <button id="flag-next" class="icon-btn tb-step" type="button" aria-label="Next flag" data-tip="flag-next">⚑▸</button>
-      </div>
-
       <div id="sel-row" class="tb-row selection" hidden>
         <span class="sel-edge">
           <span class="sel-label">In</span>
@@ -137,7 +126,10 @@
       </div>
 
       <div class="tb-row footer">
-        <span class="readout"><span id="pos-bar" class="mono"></span> <span id="pos-time" class="mono"></span></span>
+        <span class="step-group">
+          <button id="flag-prev" class="icon-btn tb-step" type="button" aria-label="Previous flag" data-tip="flag-prev">◂⚑</button>
+          <button id="flag-next" class="icon-btn tb-step" type="button" aria-label="Next flag" data-tip="flag-next">⚑▸</button>
+        </span>
         <button id="snap" class="chip" type="button" hidden data-tip="snap">Snap: off</button>
         <div id="speed" class="seg speed-seg" role="group" aria-label="Practice speed" data-tip="speed">
           <button type="button" data-rate="0.5" aria-pressed="false" data-tip="speed">½×</button>
@@ -167,6 +159,44 @@
     <canvas id="notes-canvas" class="notes-canvas" aria-label="Rising notes"></canvas>
   </section>
 </main>
+
+<!-- The now-playing bar (docs/superpowers/specs/2026-10-05-transport-bar-design.md),
+     as on the tape page: the reel window and its LCD, ▶ and Loop, and this
+     page's own keys -- In, Out, ⚑; under them the whole take as a scrubber.
+     A take plays here, on this device. -->
+<section id="np" class="np" aria-label="Now playing">
+  <div class="np-row np-row-1">
+    <div class="np-window">
+      <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+      <div class="np-lcd">
+        <div class="np-lcd-top">
+          <span id="np-status" class="np-status" data-state="pause" aria-hidden="true"></span>
+          <span id="np-unit" class="np-unit" aria-hidden="true"></span>
+          <span id="position" class="np-pos"></span>
+          <span id="np-time" class="np-time"></span>
+          <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+        </div>
+        <div class="np-marquee" aria-hidden="true"><span id="np-marquee"></span></div>
+      </div>
+      <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+    </div>
+    <div class="np-keys tb-row transport" role="group" aria-label="Transport">
+      <button id="to-start" class="icon-btn np-start" type="button" aria-label="Back to In" data-tip="take-to-start"><svg width="18" height="16" viewBox="0 0 24 22" aria-hidden="true"><rect x="4" y="3" width="3" height="16" rx="1" fill="currentColor"/><path d="M20 4.2v13.6a1 1 0 0 1-1.55.84L9 12.84a1 1 0 0 1 0-1.68l9.45-6.8A1 1 0 0 1 20 4.2z" fill="currentColor"/></svg></button>
+      <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="play">▶</button>
+      <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="loop">⟲ Loop</button>
+    </div>
+    <div class="np-own">
+      <button id="set-in" class="icon-btn tb-point" type="button" data-tip="in">In</button>
+      <button id="set-out" class="icon-btn tb-point" type="button" data-tip="out">Out</button>
+      <button id="flag-now" class="icon-btn tb-flag" type="button" aria-label="Flag" data-tip="flag">⚑</button>
+    </div>
+  </div>
+  <div class="np-row np-row-2">
+    <span id="np-mini" class="np-mini" aria-hidden="true"></span>
+    <canvas id="overview-canvas" class="overview-canvas np-scrub" role="slider" tabindex="0" aria-label="The whole take: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="overview"></canvas>
+    <span class="np-out np-here"><span class="pill-out" aria-hidden="true">OUT</span><span>This device</span></span>
+  </div>
+</section>
 
 <div id="flag-sheet" class="sheet" hidden>
   <input id="flag-label" type="text" maxlength="120" placeholder="name this moment" aria-label="Flag name">
