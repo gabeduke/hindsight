@@ -20,10 +20,15 @@ export function navTabs(pathname, tapeOn) {
     .map(({ id, href, label, paths }) => ({ id, href, label, current: paths.includes(pathname) }));
 }
 
-/** initNav brings the page's switch in line with navTabs and lights the lamp. */
+/**
+ * initNav brings the page's switch in line with navTabs and lights the lamp.
+ * It answers with the Pi's tapes ({loaded, tapes}), or null with the tape
+ * off, so a page's now-playing bar can find the loaded tape without asking
+ * again.
+ */
 export function initNav(doc = document) {
   const nav = doc.querySelector('.appnav');
-  if (!nav) return;
+  if (!nav) return Promise.resolve(null);
   const apply = (tapeOn) => {
     const tabs = navTabs(location.pathname, tapeOn);
     for (const a of nav.querySelectorAll('a[data-tab]')) {
@@ -38,14 +43,15 @@ export function initNav(doc = document) {
   let known = null;
   try { known = localStorage.getItem('hindsight.tapeOn'); } catch { /* fine */ }
   apply(known !== 'false');
-  fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
+  const tapes = fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
     apply(r.ok);
     try { localStorage.setItem('hindsight.tapeOn', String(r.ok)); } catch { /* fine */ }
-  }).catch(() => {});
+    return r.ok ? r.json() : null;
+  }).catch(() => null);
 
   // Capture's lamp: the ring is recording, waiting for the interface, or not.
   const lamp = nav.querySelector('.appnav-lamp');
-  if (!lamp) return;
+  if (!lamp) return tapes;
   const poll = async () => {
     try {
       const s = await (await fetch('/api/status', { cache: 'no-store' })).json();
@@ -59,4 +65,5 @@ export function initNav(doc = document) {
   };
   poll();
   setInterval(() => { if (!doc.hidden) poll(); }, 10000);
+  return tapes;
 }

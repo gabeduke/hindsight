@@ -55,7 +55,10 @@ export class TakesList {
    * rack) for picking, its controls on the picked take's cassette; with
    * spineAction 'play' (the main page's shelf), a press plays or pauses it.
    */
-  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold }) {
+  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded }) {
+    // A take starting, and playing to its end: the page's now-playing bar hears of both.
+    this.onPlay = onPlay;
+    this.onEnded = onEnded;
     this.spines = spines;
     this.spineAction = spineAction;
     if (spines && spineAction === 'play') {
@@ -782,6 +785,7 @@ export class TakesList {
       row.playBtn.textContent = 'Pause';
       row.el.classList.add('playing');
       if (this.spineAction === 'play') row.el.setAttribute('aria-pressed', 'true');
+      this.onPlay?.(row.name);
     });
     ws.on('pause', () => {
       if (this.playing === row.name) this.playing = null;
@@ -794,6 +798,7 @@ export class TakesList {
       row.playBtn.textContent = 'Play';
       row.el.classList.remove('playing');
       if (this.spineAction === 'play') row.el.setAttribute('aria-pressed', 'false');
+      this.onEnded?.(row.name);
     });
     ws.on('error', () => {
       this.onToast?.('Preview failed to load', 'bad');
