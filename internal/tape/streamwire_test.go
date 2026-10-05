@@ -10,14 +10,18 @@ func TestMixStereoSumsTheBusesAndClips(t *testing.T) {
 	src := []int32{
 		half, -half, half, -half, // A and B both at half: sums to full scale, clipped
 		1 << 16, 2 << 16, 3 << 16, 4 << 16, // small: A.L+B.L = 4, A.R+B.R = 6 (in int16 steps)
+		math.MaxInt32, math.MinInt32, math.MaxInt32, math.MinInt32, // overflow: must clip
 	}
-	dst := make([]int16, 4)
+	dst := make([]int16, 6)
 	MixStereo(dst, src)
 	if dst[0] != math.MaxInt16 || dst[1] != math.MinInt16 {
 		t.Fatalf("full scale should clip: %v", dst[:2])
 	}
 	if dst[2] != 4 || dst[3] != 6 {
 		t.Fatalf("left = A.L + B.L, right = A.R + B.R: %v", dst[2:])
+	}
+	if dst[4] != math.MaxInt16 || dst[5] != math.MinInt16 {
+		t.Fatalf("overflow should clip: %v", dst[4:])
 	}
 }
 
