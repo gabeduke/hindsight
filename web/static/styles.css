@@ -2683,8 +2683,39 @@ input, select, textarea { color-scheme: inherit; }
 
 /* A phone's track head is 112 px: the keys shrink, and the number moves from
    its ring onto the masking tape of a track that has no name. */
-@media (max-width: 479.98px) {
+@media (max-width: 479.98px), (orientation: landscape) and (max-height: 440px) {
   .tt-num { display: none; }
   .tt-head .chip { min-width: 26px; padding: 0 4px; }
   .tt-head .tt-name:empty::before { content: attr(data-n); }
+}
+
+/* ---------- the tape page's dock, on a phone ---------- */
+/* Upright or sideways, Play, Loop, Rec and the click on the left and the
+   orange Catch on the right stay fixed at the bottom -- above the tabs on an
+   upright phone -- so catching a pass never waits for a scroll. CSS alone:
+   the transport row and #catch-pass are placed, nothing moves in the DOM. */
+@media (max-width: 699.98px) { body.tape-page { --dock-b: calc(61px + env(safe-area-inset-bottom)); } }
+@media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) { body.tape-page { --dock-b: env(safe-area-inset-bottom); } }
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  body.tape-page { --dock-h: 60px; padding-bottom: calc(var(--dock-b, 0px) + var(--dock-h)); }
+  body.tape-page .tape-toolbar .tb-row.transport {
+    position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); z-index: 25;
+    height: var(--dock-h); box-sizing: border-box; margin: 0; padding: 8px 12px; padding-right: calc(34% + 18px);
+    background: linear-gradient(180deg, var(--face-hi), var(--face-lo));
+    border-top: 1px solid var(--edge); box-shadow: 0 -10px 20px -16px var(--sh-strong);
+  }
+  body.tape-page #catch-pass {
+    position: fixed; right: 12px; bottom: calc(var(--dock-b, 0px) + 8px); z-index: 26;
+    width: 34%; height: 44px; min-height: 44px; margin: 0;
+  }
+  body.tape-page #toasts { bottom: calc(var(--dock-b, 0px) + var(--dock-h) + 12px); }
+  body.tape-page.notes-open .tb-row.transport, body.tape-page.notes-open #catch-pass { display: none; }
+}
+/* An upright phone's dock is narrow: Catch takes less, the click key slims,
+   and Rec drops the source line the "Record from" row already shows. */
+@media (max-width: 479.98px) {
+  body.tape-page .tape-toolbar .tb-row.transport { gap: 6px; padding-right: calc(30% + 16px); }
+  body.tape-page #catch-pass { width: 30%; padding: 0 8px; font-size: 13px; line-height: 1.15; }
+  body.tape-page .tape-toolbar .tb-row.transport .tb-click { flex: 0 0 40px; }
+  body.tape-page .tape-toolbar .tb-row.transport .tb-rec .rec-src { display: none; }
 }

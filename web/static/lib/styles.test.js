@@ -314,6 +314,16 @@ test('the tape deck tokens exist, and its lit legends read', () => {
   }
 });
 
+// On a phone, upright or sideways, the transport and Catch are docked: always
+// on screen, whatever the page has scrolled to.
+test('a phone docks the tape transport and Catch', () => {
+  const at = css.indexOf('@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px)');
+  assert.ok(at > 0, 'a media block for both phone shapes');
+  const b = block(at);
+  assert.match(b, /\.tb-row\.transport\s*\{[^}]*position:\s*fixed/);
+  assert.match(b, /#catch-pass\s*\{[^}]*position:\s*fixed/);
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);
