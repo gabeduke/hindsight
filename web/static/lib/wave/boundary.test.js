@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewAbout, zoomBy, positionBy, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine, seamHalves, ZOOM_PER_PAD } from './boundary.js';
+import { viewAbout, zoomBy, positionBy, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine, seamHalves, snapRadius, playFrom, ZOOM_PER_PAD } from './boundary.js';
 
 const sr = 48000;
 
@@ -75,4 +75,17 @@ test('a beat that is not a whole number of frames is still named for the beat th
   for (let k = 0; k < 16; k++) {
     assert.equal(beatOffset(Math.round(k * beat), grid).at, `${Math.floor(k / 4) + 1}.${(k % 4) + 1}`, `beat ${k}`);
   }
+});
+
+test('Attack looks 60 ms either side, or half the screen if less; Zero 5 ms', () => {
+  assert.equal(snapRadius('attack', sr, { width: 400, fpp: 100 }), 2880, 'a wide view: 60 ms');
+  assert.equal(snapRadius('attack', sr, { width: 400, fpp: 1 }), 200, 'a close view: half of what is on screen');
+  assert.equal(snapRadius('zero', sr, { width: 400, fpp: 1 }), 240, '5 ms, whatever the view');
+});
+
+test('play from here: In and bar 1 at the point, Out a second ahead of it, never before 0', () => {
+  assert.equal(playFrom('start', 100000, sr), 100000);
+  assert.equal(playFrom('downbeat', 100000, sr), 100000);
+  assert.equal(playFrom('end', 100000, sr), 52000);
+  assert.equal(playFrom('end', 1000, sr), 0);
 });

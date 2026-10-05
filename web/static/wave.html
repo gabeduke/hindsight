@@ -83,17 +83,43 @@
         <span class="sel-edge">
           <span class="sel-label">In</span>
           <button id="in-dec" class="nudge" type="button" aria-label="In earlier" data-tip="nudge">◂</button>
-          <span id="sel-in" class="mono sel-time"></span>
+          <span id="sel-in" class="mono sel-time" role="button" tabindex="0" data-tip="be-open"></span>
           <button id="in-inc" class="nudge" type="button" aria-label="In later" data-tip="nudge">▸</button>
         </span>
         <span id="sel-len" class="mono sel-len"></span>
         <span class="sel-edge">
           <span class="sel-label">Out</span>
           <button id="out-dec" class="nudge" type="button" aria-label="Out earlier" data-tip="nudge">◂</button>
-          <span id="sel-out" class="mono sel-time"></span>
+          <span id="sel-out" class="mono sel-time" role="button" tabindex="0" data-tip="be-open"></span>
           <button id="out-inc" class="nudge" type="button" aria-label="Out later" data-tip="nudge">▸</button>
         </span>
         <button id="sel-clear" class="linkish sel-clear" type="button" data-tip="clear">Clear</button>
+      </div>
+
+      <!-- The boundary editor (lib/wave/page.js, "the boundary editor"): while
+           In, Out or bar 1 is being edited this takes the place of the rows
+           around it. Two encoder pads, the snaps and the steps. -->
+      <div id="boundary-editor" class="boundary-editor" hidden>
+        <div class="be-head">
+          <span id="boundary-readout" class="mono be-readout"></span>
+          <button id="be-done" class="icon-btn" type="button" data-tip="be-done">Done</button>
+        </div>
+        <div id="be-zoom" class="be-pad" role="slider" tabindex="0" aria-label="Zoom about the point" data-tip="be-zoom"><span>ZOOM</span></div>
+        <div id="be-pos" class="be-pad" role="slider" tabindex="0" aria-label="Move the point" data-tip="be-pos"><span>POSITION</span></div>
+        <div class="tb-row be-keys">
+          <div class="be-group be-snaps">
+            <button id="be-attack" class="icon-btn" type="button" data-tip="be-attack">Attack</button>
+            <button id="be-zero" class="icon-btn" type="button" data-tip="be-zero">Zero</button>
+            <button id="be-grid" class="icon-btn" type="button" data-tip="be-grid">Grid</button>
+          </div>
+          <div class="be-group be-moves">
+            <button id="be-back" class="nudge" type="button" aria-label="Back one step" data-tip="be-step">◂</button>
+            <span id="be-step" class="mono be-step"></span>
+            <button id="be-fwd" class="nudge" type="button" aria-label="On one step" data-tip="be-step">▸</button>
+            <button id="be-play" class="icon-btn" type="button" aria-label="Play from here" data-tip="be-play">▶</button>
+            <button id="be-seam" class="icon-btn" type="button" aria-pressed="false" data-tip="be-seam">Seam</button>
+          </div>
+        </div>
       </div>
 
       <div class="tb-row verbs">

@@ -106,3 +106,21 @@ export function seamHalves(region, fpp, width) {
     right: { start: region.start, fpp, width: half },
   };
 }
+
+/**
+ * snapRadius is how far either side of the point Attack or Zero looks, in
+ * frames: Attack ±60 ms, or half of what is on screen if that is less; Zero
+ * ±5 ms.
+ */
+export function snapRadius(kind, sampleRate, view) {
+  if (kind === 'zero') return Math.round(sampleRate * 0.005);
+  return Math.min(Math.round(sampleRate * 0.06), Math.round((view.width * view.fpp) / 2));
+}
+
+/**
+ * playFrom is where "play from here" starts for a boundary: In and bar 1 at
+ * the point itself, Out a second before it, so the edge arrives.
+ */
+export function playFrom(edge, frame, sampleRate) {
+  return edge === 'end' ? Math.max(0, frame - sampleRate) : frame;
+}

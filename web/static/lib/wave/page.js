@@ -15,8 +15,15 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, snapFrame, setPoint, prevFlag, nextFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, snapFrame, snapStep, setPoint, prevFlag, nextFlag,
 } from './geometry.js';
+import {
+  viewAbout, zoomBy, positionBy, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
+  snapRadius, playFrom,
+} from './boundary.js';
+import { NearAudio } from './near.js';
+import { findAttack, findZero } from './onset.js';
+import { MIN_FPP } from '../edit/gestures.js';
 import { levelsFor, takeGain } from './draw.js';
 import { drawTrace } from './tape-strip.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
@@ -94,6 +101,9 @@ async function main() {
     cursor: 0,
     selectedFlag: null,
     loop: false, // off on every open (editing model, decision 1)
+    // The boundary being edited, if any: { edge: 'start' | 'end' | 'downbeat',
+    // seam, side } -- see "the boundary editor" below. The view reads it.
+    edit: null,
   };
 
   // --- pieces --------------------------------------------------------------
@@ -149,7 +159,8 @@ async function main() {
     onTick: (frame) => {
       state.cursor = frame;
       // Keep the playhead in view while it plays, unless a finger is busy.
-      if (clock.playing && !view.gesture) view.follow(frame);
+      // Not while a boundary is being edited: the view stays on the point.
+      if (clock.playing && !view.gesture && !state.edit) view.follow(frame);
       updateReadout(); redraw();
     },
     onError: (m) => toast(m, 'bad'),
@@ -301,6 +312,8 @@ async function main() {
     applyLaneKinds(fresh.lane_kinds || {});
     if (fresh.undo) setUndo(fresh.undo);
     renderHeader();
+    renderEditor();
+    follow(); // an Undo may have moved the point being edited
     updateReadout();
     redraw();
   }
@@ -381,6 +394,8 @@ async function main() {
     state.loop = on;
     syncTransport();
     applyLoop();
+    // The seam view needs the loop: turning it off leaves the seam.
+    if (state.edit) { renderEditor(); redraw(); }
   }
 
   // --- view events --------------------------------------------------------
@@ -416,6 +431,12 @@ async function main() {
         state.grid.downbeat = p.frame; updateReadout(); redraw();
         if (p.final) saveDownbeat();
         break;
+      // A still press on bar 1 opens it in the boundary editor.
+      case 'downbeatTap': startEditing('downbeat'); break;
+      // In the seam view, a tap on a half picks the side the encoders move.
+      case 'seamSide':
+        if (state.edit?.seam) { state.edit.side = p.side; renderEditor(); redraw(); }
+        break;
       // The playhead handle is the OP-1's lifted tape head: the take goes
       // quiet while it's dragged, then carries on from where it's put down.
       case 'scrubStart':
@@ -430,7 +451,11 @@ async function main() {
         seekTo(p.frame);
         if (scrubResume) { scrubResume = false; togglePlay(); } else syncTransport();
         break;
-      case 'viewChange': if (overview) overview.draw(); if (lanes) lanes.draw(); break;
+      case 'viewChange':
+        if (overview) overview.draw();
+        if (lanes) lanes.draw();
+        if (state.edit) renderEditor(); // the step is named for the zoom
+        break;
     }
   }
 
@@ -634,7 +659,270 @@ async function main() {
     setShareLabel();
     renderHeader();
     syncTransport();
+    renderEditor(); // an In or Out edit ends with its selection
   }
+
+  // --- the boundary editor ---------------------------------------------------
+  // A boundary (In, Out or bar 1) selected for editing: the view centres on
+  // it and follows it, and the editor bar's two encoders, snaps and steps
+  // move it. See docs/superpowers/specs/2026-10-05-boundary-editor-design.md.
+  const near = new NearAudio({ file, sampleRate: sr, total });
+  // Moved but not yet saved (a drag, a held key, a wheel): the next final one
+  // saves, so a whole gesture is one undo step.
+  let editDirty = false;
+  let wheelTimer = 0;
+  let snapping = false; // an Attack or Zero is waiting on its audio
+  const editFrame = () => {
+    const e = state.edit;
+    if (!e) return null;
+    if (e.seam) return e.side === 'start' ? state.region?.start : state.region?.end;
+    return e.edge === 'start' ? state.region?.start : e.edge === 'end' ? state.region?.end : state.grid.downbeat;
+  };
+  const editEdge = () => (state.edit?.seam ? state.edit.side : state.edit?.edge);
+  // Centre the view on the point at fpp (as it is, by default). In the seam
+  // view there is no continuous view to centre: only the zoom applies.
+  function follow(fpp = view.view.fpp) {
+    const f = editFrame();
+    if (f == null) return;
+    if (state.edit.seam) {
+      view.view.fpp = Math.min(view.maxFpp(), Math.max(MIN_FPP, fpp));
+      view.clampView(); view.changed();
+      return;
+    }
+    Object.assign(view.view, viewAbout(f, fpp, view.view.width, total, MIN_FPP));
+    view.changed();
+  }
+  // What can no longer be edited ends: the seam without its loop or selection
+  // (back to the edge it was editing, centred again, for a drag on the canvas
+  // may have panned the view while it was hidden), an In or Out without a
+  // selection, bar 1 without a tempo.
+  function checkEdit() {
+    const e = state.edit;
+    if (!e) return;
+    if (e.seam && !(state.region && state.loop)) { e.edge = e.side; e.seam = false; follow(); }
+    if (e.edge === 'downbeat' ? !state.grid.bpm : !state.region) { state.edit = null; editDirty = false; }
+  }
+  function renderEditor() {
+    checkEdit();
+    const e = state.edit;
+    const el = $('boundary-editor');
+    el.hidden = !e;
+    el.parentElement.classList.toggle('editing', !!e);
+    if (!e) return;
+    const edge = editEdge();
+    const f = editFrame();
+    const off = fmtOffset(beatOffset(f, state.grid));
+    $('boundary-readout').textContent = `${edge === 'start' ? 'In' : edge === 'end' ? 'Out' : 'Bar 1'} ${fmtSample(f, sr)}${off ? ` · ${off}` : ''}`;
+    $('be-step').textContent = stepLabel(stepFrames(view.view.fpp, sr), sr);
+    // Bar 1 is what the grid is counted from: snapping it to the grid does nothing.
+    $('be-grid').hidden = !state.grid.bpm || edge === 'downbeat';
+    $('be-seam').hidden = !state.region;
+    $('be-seam').setAttribute('aria-pressed', String(!!e.seam));
+    $('be-pos').setAttribute('aria-valuetext', $('boundary-readout').textContent);
+    $('be-zoom').setAttribute('aria-valuetext', `${stepLabel(stepFrames(view.view.fpp, sr), sr)} a step`);
+  }
+  function startEditing(edge) {
+    if (edge === 'downbeat' ? !state.grid.bpm : !state.region) return;
+    state.edit = { edge, seam: false, side: edge === 'end' ? 'end' : 'start' };
+    editDirty = false;
+    follow();
+    renderEditor(); redraw();
+    $('be-pos').focus({ preventScroll: true });
+  }
+  function stopEditing() {
+    if (!state.edit) return;
+    clearTimeout(wheelTimer);
+    if (editDirty) moveEdit(editFrame(), true);
+    const edge = editEdge();
+    const inside = $('boundary-editor').contains(document.activeElement);
+    state.edit = null;
+    editDirty = false;
+    renderEditor(); redraw();
+    // The editor's keys are gone; keyboard focus goes back to the readout.
+    if (inside) $(edge === 'end' ? 'sel-out' : 'sel-in').focus({ preventScroll: true });
+  }
+  // Moves the edited boundary to frame; final saves (one undo step, however
+  // many moves came before it).
+  function moveEdit(frame, final) {
+    const edge = editEdge();
+    const prev = editFrame();
+    if (prev == null) return;
+    const f = placeEdge(edge, frame, { region: state.region, total, minLen });
+    const changed = f !== prev;
+    if (!final && changed) editDirty = true;
+    const save = final && (changed || editDirty);
+    if (final) editDirty = false;
+    if (edge === 'downbeat') {
+      state.grid.downbeat = f;
+      updateReadout();
+      if (save) saveDownbeat();
+    } else {
+      state.region = { ...state.region, [edge]: f };
+      if (save) selectionChanged(); else renderSelection();
+    }
+    // A tick for each grid line the point crosses. Not for bar 1: the grid is
+    // counted from it, so it carries every line along.
+    const step = snapStep(state.grid, state.snap === 'off' ? 'beat' : state.snap);
+    if (edge !== 'downbeat' && step && crossedLine(prev, f, state.grid.downbeat, step)) {
+      try { navigator.vibrate?.(5); } catch { /* no haptics here */ }
+    }
+    if (state.edit && !state.edit.seam) follow();
+    renderEditor(); redraw();
+  }
+  function setSeam(on) {
+    const e = state.edit;
+    if (!e || e.seam === on) return;
+    if (on) {
+      if (!state.region) return;
+      // The editor hides the Loop key, and the seam is the loop's: Seam turns it on.
+      if (!state.loop) setLoop(true);
+      e.side = e.edge === 'end' ? 'end' : 'start';
+      e.seam = true;
+    } else {
+      e.edge = e.side; // keep editing the side the seam was moving
+      e.seam = false;
+    }
+    follow();
+    renderEditor(); redraw();
+  }
+
+  // A pad turned by dragging sideways, like a knob: fn(dx, padWidth, final)
+  // for each move, and once more with final on release.
+  function wirePad(pad, fn, onStart) {
+    let last = null, id = null;
+    pad.addEventListener('pointerdown', (e) => {
+      if (!state.edit || id !== null) return;
+      id = e.pointerId; last = e.clientX;
+      onStart?.();
+      pad.setPointerCapture(id); pad.classList.add('active');
+    });
+    pad.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== id) return;
+      const dx = e.clientX - last; last = e.clientX;
+      if (dx && state.edit) fn(dx, pad.getBoundingClientRect().width, false);
+    });
+    const end = (e) => {
+      if (e.pointerId !== id) return;
+      id = null; pad.classList.remove('active');
+      if (state.edit) fn(0, pad.getBoundingClientRect().width, true);
+    };
+    pad.addEventListener('pointerup', end);
+    pad.addEventListener('pointercancel', end);
+  }
+  let posAcc = 0; // fractional frames the POSITION pad has turned but not yet moved
+  wirePad($('be-zoom'), (dx, w) => { follow(zoomBy(view.view.fpp, dx, w)); renderEditor(); });
+  wirePad($('be-pos'), (dx, w, final) => {
+    if (final) {
+      posAcc = 0;
+      if (editDirty) moveEdit(editFrame(), true);
+      return;
+    }
+    posAcc += positionBy(dx, w, view.view);
+    const whole = Math.trunc(posAcc);
+    posAcc -= whole;
+    if (whole) moveEdit(editFrame() + whole, false);
+  }, () => { posAcc = 0; });
+
+  // One step on the keys and the pads' arrows; a held key saves when it lets go.
+  const stepBy = (sign, n = 1, final = true) => moveEdit(editFrame() + sign * n * stepFrames(view.view.fpp, sr), final);
+  $('be-back').addEventListener('click', () => stepBy(-1));
+  $('be-fwd').addEventListener('click', () => stepBy(1));
+  // On a focused pad: ← / → are a step on POSITION, a halving or doubling of
+  // the zoom on ZOOM; Shift is ten times as much.
+  $('be-pos').addEventListener('keydown', (e) => {
+    if (!state.edit || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault(); e.stopPropagation();
+    stepBy(e.key === 'ArrowLeft' ? -1 : 1, e.shiftKey ? 10 : 1, !e.repeat);
+  });
+  $('be-zoom').addEventListener('keydown', (e) => {
+    if (!state.edit || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault(); e.stopPropagation();
+    const k = e.shiftKey ? 10 : 2;
+    follow(e.key === 'ArrowRight' ? view.view.fpp / k : view.view.fpp * k);
+    renderEditor();
+  });
+  document.addEventListener('keyup', (e) => {
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && state.edit && editDirty) moveEdit(editFrame(), true);
+  });
+
+  // Attack, Zero and Grid act once, on the point.
+  async function snapTo(kind) {
+    const f = editFrame();
+    if (f == null || snapping) return;
+    if (kind === 'grid') {
+      moveEdit(snapFrame(f, state.grid, state.snap === 'off' ? 'beat' : state.snap), true);
+      return;
+    }
+    const edge = editEdge();
+    const btn = $(kind === 'attack' ? 'be-attack' : 'be-zero');
+    const radius = snapRadius(kind, sr, view.view);
+    const at = Math.round(f);
+    snapping = true;
+    btn.classList.add('waiting');
+    btn.setAttribute('aria-busy', 'true');
+    try {
+      const { x, from } = await near.around(at);
+      // The point moved, or editing ended, while the audio came.
+      if (!state.edit || editEdge() !== edge || editFrame() !== f) return;
+      const i = at - from;
+      const j = i >= 0 && i < x.length ? (kind === 'attack' ? findAttack(x, sr, i, radius) : findZero(x, i, radius)) : -1;
+      if (j < 0) { toast(kind === 'attack' ? 'No hit near here' : 'No zero crossing near here'); return; }
+      moveEdit(from + j, true);
+    } catch (e) {
+      toast(`Could not read the audio: ${e.message}`, 'bad');
+    } finally {
+      snapping = false;
+      btn.classList.remove('waiting');
+      btn.removeAttribute('aria-busy');
+    }
+  }
+  $('be-attack').addEventListener('click', () => snapTo('attack'));
+  $('be-zero').addEventListener('click', () => snapTo('zero'));
+  $('be-grid').addEventListener('click', () => snapTo('grid'));
+
+  // Hearing it: from the point (Out: a second before it); the seam, with the loop.
+  $('be-play').addEventListener('click', () => {
+    const f = editFrame();
+    if (f == null) return;
+    seekTo(playFrom(editEdge(), f, sr));
+    if (!clock.playing) togglePlay();
+  });
+  $('be-seam').addEventListener('click', () => setSeam(!state.edit?.seam));
+  $('be-done').addEventListener('click', stopEditing);
+
+  // The In and Out readouts open the editor; the same one again closes it.
+  for (const [id, edge] of [['sel-in', 'start'], ['sel-out', 'end']]) {
+    const b = $(id);
+    const toggle = () => { if (state.edit && editEdge() === edge) stopEditing(); else startEditing(edge); };
+    b.addEventListener('click', toggle);
+    b.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  }
+
+  // The wheel moves the point (⌘ or Ctrl with it zooms), a notch about as far
+  // as it goes on the canvas elsewhere. A burst of notches is one undo step.
+  view.onWheel = (e) => {
+    if (!state.edit) return false;
+    const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    if (e.metaKey || e.ctrlKey) {
+      follow(view.view.fpp * Math.exp(e.deltaY * k * 0.01));
+    } else {
+      moveEdit(editFrame() + Math.round((e.deltaY + e.deltaX) * k * view.view.fpp), false);
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => { if (state.edit && editDirty) moveEdit(editFrame(), true); }, 250);
+    }
+    renderEditor();
+    return true;
+  };
+  // A resize keeps the point in view (the seam view has no point to keep).
+  const editResize = new ResizeObserver(() => {
+    const f = editFrame();
+    if (f == null || state.edit.seam) return;
+    const v = view.view;
+    if (f < v.start || f > v.start + v.width * v.fpp) follow();
+  });
+  editResize.observe(canvas);
 
   // --- snap -----------------------------------------------------------------
   function renderSnap() {
@@ -1128,6 +1416,15 @@ async function main() {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     // Space on a focused control presses that control; it is not Play too.
     if (e.key === ' ' && e.target.closest?.('button, a, select, [role="button"], [tabindex]')) return;
+    // While a boundary is being edited the arrows step it, Shift by ten.
+    if (state.edit) {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        stepBy(e.key === 'ArrowLeft' ? -1 : 1, e.shiftKey ? 10 : 1, !e.repeat);
+        return;
+      }
+      if (e.key === 'Escape') { e.preventDefault(); stopEditing(); return; }
+    }
     switch (e.key) {
       case ' ': e.preventDefault(); togglePlay(); break;
       case 'f': case 'F': addFlagAt(Math.min(total - 1, state.cursor)); break;
@@ -1164,6 +1461,8 @@ async function main() {
   });
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
+    clearTimeout(wheelTimer);
+    editResize.disconnect();
     flushRegion();
     screenLock?.release();
     bench.removeEventListener('change', onBenchChange);

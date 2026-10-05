@@ -228,7 +228,9 @@ export class WaveView extends GestureSurface {
         if (g.scrubbing) this.emit('scrubEnd', { frame: st.cursor });
         break;
       case 'downbeat':
+        // A still press on bar 1 opens it for editing (the boundary editor).
         if (g.moved) this.emit('downbeatChange', { frame: st.grid.downbeat, final: true });
+        else this.emit('downbeatTap', {});
         break;
       case 'grip':
       case 'move':
