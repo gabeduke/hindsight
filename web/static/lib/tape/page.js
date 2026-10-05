@@ -482,9 +482,10 @@ function render() {
 // both are rows in the page (styles.css, "the dock").
 function renderDrawers() {
   for (const [key, id] of [['rec', 'drawer-rec'], ['edit', 'drawer-edit']]) {
-    const open = state.drawer === key;
+    const open = state.drawer === key && !state.align;
     $(id).classList.toggle('open', open);
     setIf($(`np-${id}`), 'aria-expanded', String(open));
+    $(`np-${id}`).disabled = !!state.align; // the editor has the place
   }
 }
 
@@ -998,6 +999,10 @@ async function openAlign(c) {
   renderAlign();
   const el = $('clip-editor');
   el.scrollIntoView?.({ block: 'nearest' });
+  // The editor docks over the bar and the tracks give it the height: on a
+  // short screen the clip's track may have gone below them.
+  const lane = lanes.find((l) => l.n === h.n);
+  if (lane) lane.row.scrollIntoView?.({ block: 'nearest' });
   $('ce-pos').focus({ preventScroll: true });
 }
 
@@ -1018,6 +1023,7 @@ function renderAlign() {
   const el = $('clip-editor');
   el.hidden = !a;
   el.parentElement.classList.toggle('editing', !!a);
+  renderDrawers(); // the drawers wait under the editor, their keys unlit
   if (!a) return;
   const t = state.tape;
   const sr = t.sample_rate;
@@ -2180,11 +2186,17 @@ function wire() {
   const wide = matchMedia('(min-width: 1000px)');
   const placeKeys = () => {
     const keys = [$('np-drawer-rec'), $('np-drawer-edit')];
+    const had = keys.find((k) => k === document.activeElement);
     if (wide.matches) $('catch-pass').before(...keys);
     else document.querySelector('.np-out').before(...keys);
+    if (had) had.focus({ preventScroll: true }); // a move would drop it
   };
   wide.addEventListener('change', placeKeys);
   placeKeys();
+  // Toasts and tips rise over the dock: its height, a drawer included.
+  new ResizeObserver(() => {
+    document.body.style.setProperty('--dock-h', `${Math.round($('np-dock').getBoundingClientRect().height)}px`);
+  }).observe($('np-dock'));
   // |◂: to the loop's start while looping, else to the top of the tape.
   $('to-start').addEventListener('click', () => {
     const t = state.tape;
@@ -2283,7 +2295,14 @@ function wire() {
       if (e.key === 'Escape' && !menuWasOpen) { e.preventDefault(); closeAlign(); return; }
     }
     // Escape closes an open drawer, once nothing nearer was open.
-    if (e.key === 'Escape' && !menuWasOpen && state.drawer) { e.preventDefault(); setDrawer(''); return; }
+    if (e.key === 'Escape' && !menuWasOpen && state.drawer) {
+      e.preventDefault();
+      const key = state.drawer;
+      const inside = $(`drawer-${key}`).contains(document.activeElement);
+      setDrawer('');
+      if (inside) $(`np-drawer-${key}`).focus(); // not lost to the page
+      return;
+    }
     if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('play').click(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
     // which track catches go onto. Not under a dialog or a menu, and not on

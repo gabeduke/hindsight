@@ -1759,7 +1759,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-ruler { width: 100%; height: 26px; display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; touch-action: pan-y; cursor: pointer; }
 .np-drawer .tb-row.clipboard .clip-chip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; }
 .np-drawer .tb-row.clipboard .clip-chip.playing { color: var(--go); }
-.np-drawer .tb-row.edit .icon-btn { flex: 1 1 0; min-width: 0; padding: 0 6px; white-space: nowrap; }
+.np-drawer .tb-row.edit .icon-btn { flex: 1 0 auto; min-width: 44px; padding: 0 8px; white-space: nowrap; }
 .np-drawer .tb-row.edit .seg { flex: none; }
 .np-drawer .tb-row.edit .seg button { white-space: nowrap; }
 .sheet-hint { margin: 8px 0 0; font-size: 12px; color: var(--ink-faint); }
@@ -2440,8 +2440,9 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 .tape-page { --np-h: 120px; }
 /* This device playing the tape: the strip across the top makes the bar taller. */
 body.tape-page:has(#out-strip:not([hidden])) { --np-h: 160px; }
-/* Toasts and tips rise clear of the bar, whose keys they would cover. */
-body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--np-h) + 12px + env(safe-area-inset-bottom)); }
+/* Toasts and tips rise clear of the dock -- the bar and an open drawer,
+   whose keys they would cover (--dock-h, measured by page.js). */
+body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--dock-h, calc(var(--np-h) + env(safe-area-inset-bottom))) + 12px); }
 .np {
   position: sticky; bottom: 0; z-index: 18; flex: none;
   display: flex; flex-direction: column; gap: 8px;
@@ -2938,8 +2939,13 @@ input, select, textarea { color-scheme: inherit; }
   background: transparent; color: var(--ink-dim); font: 600 14px var(--font); cursor: pointer;
 }
 .np-drawer-close:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.np-drawer-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 22px; padding: 12px 16px 14px; align-items: start; }
+.np-drawer-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 10px 22px; padding: 12px 16px 14px; align-items: start; }
 .np-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* From 1000 px the edit row (Track N/All, Lift, Copy, Split, ×2) needs more
+   than a third, the snaps less: one row each. */
+@media (min-width: 1000px) {
+  #drawer-edit .np-drawer-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, .8fr); }
+}
 /* The keys that open them: an amber LED, lit while the drawer is open, and
    a chevron that turns over. */
 .np .np-drawer-key { height: 52px; min-height: 52px; padding: 0 14px; gap: 8px; }
@@ -2980,7 +2986,7 @@ input, select, textarea { color-scheme: inherit; }
   .np-window, .np-out, .np .np-drawer-key { display: none; }
   /* A column as tall as it needs, scrolled as a page: the bar is fixed. */
   body.tape-page { height: auto; min-height: 100svh; }
-  body.tape-page > main.tape-main { flex: 1 0 auto; overflow: visible; }
+  body.tape-page > main.tape-main { flex: 1 0 auto; overflow: visible; padding-bottom: 12px; }
   .tape-track { flex: none; }
   .tt-lane { position: static; min-height: 64px; height: auto; }
   /* The drawers are the rows they were, in the page under the tracks. */

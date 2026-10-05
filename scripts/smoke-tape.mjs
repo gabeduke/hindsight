@@ -90,6 +90,13 @@ for (const [w, h] of [[1024, 768], [1024, 600], [768, 1024], [1470, 900]]) {
   const exp = await p.getAttribute('#np-drawer-edit', 'aria-expanded');
   check(`${w}x${h}: Edit opens its drawer above the bar`, open.drawer.length === 1 && open.drawer[0][1] <= open.npTop + 1 && exp === 'true', JSON.stringify(open.drawer));
   check(`${w}x${h}: the bar stays on screen`, open.npBottom <= h + 1, `bar bottom ${open.npBottom}`);
+  const room = await p.evaluate(() => ({
+    keys: ['ed-lift', 'ed-copy', 'ed-split', 'ed-x2'].map((id) => Math.round(document.getElementById(id).getBoundingClientRect().width)),
+    toasts: parseFloat(getComputedStyle(document.getElementById('toasts')).bottom),
+    dock: document.getElementById('np-dock').getBoundingClientRect().height,
+  }));
+  check(`${w}x${h}: the edit keys keep their words`, room.keys.every((x) => x >= 40), JSON.stringify(room.keys));
+  check(`${w}x${h}: toasts rise over the open drawer`, room.toasts >= room.dock, `toasts ${room.toasts}, dock ${Math.round(room.dock)}`);
   // Shorter, unless they were already as short as their heads.
   check(`${w}x${h}: the lanes are pushed up, 48 px or more`, open.h.every((x) => x >= 48) && (open.h[0] < closed.h[0] || closed.h[0] <= 72), `${JSON.stringify(closed.h)} → ${JSON.stringify(open.h)}`);
   await p.keyboard.press('Escape');
