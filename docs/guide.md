@@ -225,6 +225,35 @@ point at the gestures that matter; **Got it** puts them away for good.
   that sits between lines goes to the next line.
 - **Clear** forgets the selection; the take is untouched.
 
+**Placing a boundary exactly:**
+
+Dragging gets you near. To put In, Out or bar 1 on the very sample, open it in
+the editor. Tap **In**'s or **Out**'s time in the selection row (they look like
+small keys), or tap bar 1's "1" on the ruler. The view centres on the point,
+and the editor bar takes the place of the toolbar.
+
+- **ZOOM and POSITION** are two knobs you turn by dragging sideways. Zoom out,
+  get near, zoom in, get nearer. POSITION moves half of what's on screen for a
+  drag across the pad, so it's coarse zoomed out and moves single samples
+  zoomed in.
+- **Attack** puts the point on the start of the nearest hit, within 60 ms. It
+  works over a held bass.
+- **Zero** puts it on the nearest zero crossing, within 5 ms, so a cut doesn't
+  click.
+- **Grid** puts it on the nearest line of the *Snap* setting, or the nearest
+  beat with Snap off. It's hidden for bar 1.
+- **◂ ▸** step 1 ms, or one sample when you're zoomed right in.
+- **▶** plays from the point (from a second before Out), and pauses.
+- **Seam** (with a selection) turns the loop on and shows the end of the loop
+  on the left running into its start on the right. A jump at the middle line
+  is the click or stutter. Tap a half to choose which edge moves.
+- **The readout** gives the time to the sample (*0:02.502 +23*) and, with a
+  tempo, how far the point is from the nearest beat (*+2.5 ms from 2.1*).
+- **Undo** takes back a whole drag of a pad in one step.
+- **Done**, or Escape, closes the editor.
+- **On a computer,** the wheel moves the point; ⌘ or Ctrl with the wheel
+  zooms; ← → step; Shift steps ten.
+
 **Playing:**
 
 - **▶** plays from the playhead.
@@ -300,6 +329,23 @@ point at the gestures that matter; **Got it** puts them away for good.
 - [demo] On a phone → the take's name gets its own row under the header
   buttons; in the list a long name keeps its row and the tempo and length
   move under it.
+
+**Checks — the boundary editor:**
+
+- [demo] Tap In's time → the view centres on In and the editor bar shows. Zoom
+  out with ZOOM, POSITION the line near a kick, zoom in, then **Attack** → In
+  sits on the kick's start, and the readout says *+0.0 ms from* a beat (the
+  demo is on its grid). **Zero** → In moves by under 5 ms. **Done** → the
+  toolbar returns.
+- [demo] With an 8-bar selection, **Seam** → the end and start meet at the
+  centre and the loop is on. Tap the Out half and step it → only Out moves.
+- [demo] At 390 × 844, nothing in the editor bar is cut off, and the waveform
+  keeps at least half the screen.
+- [demo] Turn POSITION in one drag, then **↶** → the point is back where it
+  started, in one step.
+- [rig] On a stylophone take with a part played over it, set a loop's In on
+  the first beat's hit and its Out on the last bar line, check the seam, send
+  it to tape → no stutter.
 
 ## 5. Undo and the trash
 
@@ -1038,7 +1084,7 @@ has no tip.
 | Zero | Move the point to the nearest zero crossing, so the cut doesn't click |
 | Grid | Move the point to the nearest line of the Snap setting, or the nearest beat with Snap off |
 | ◂ ▸ in the editor | One step: a millisecond, or a sample when zoomed right in. Keys: ← →, with ⇧ for ten |
-| ▶ in the editor | Play from the point (from a second before Out) |
+| ▶ in the editor | Play from the point (from a second before Out), or pause |
 | Seam | Show the loop's end running into its start, to see a click or a stutter. Tap a half to move that side |
 | Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
