@@ -159,3 +159,14 @@ test('the default fetch is called with no receiver of ours', async () => {
     globalThis.fetch = real;
   }
 });
+
+test('a urlFor points the tile requests at another endpoint', () => {
+  const log = [];
+  const urlFor = (f, t, b) => `/api/tapes/peaks?file=x&from=${f}&to=${t}&buckets=${b}`;
+  const tc = new TileCache({ file: 'a.wav', totalFrames: TOTAL, filePeaks, fetchFn: fakeFetch(log), urlFor, onChange() {} });
+  tc.columns({ start: 0, fpp: 1, width: 100 }, 1);
+  assert.ok(log.length > 0);
+  assert.ok(log[0].startsWith('/api/tapes/peaks?file=x&from=0&to='), log[0]);
+  assert.ok(log.every((u) => u.startsWith('/api/tapes/peaks?')));
+  tc.stop();
+});

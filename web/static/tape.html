@@ -93,6 +93,30 @@
     <div id="lanes" class="tape-lanes"></div>
 
     <div class="toolbar tape-toolbar">
+      <!-- The clip editor (lib/tape/page.js, "the clip editor"): while a clip
+           is being aligned this takes the place of the toolbar's rows. The
+           take page's editor bar, moving the whole clip by its first hit. -->
+      <div id="clip-editor" class="boundary-editor clip-editor" hidden>
+        <div class="be-head">
+          <span id="ce-readout" class="mono be-readout"></span>
+          <button id="ce-done" class="icon-btn" type="button" data-tip="ce-done">Done</button>
+        </div>
+        <div id="ce-zoom" class="be-pad" role="slider" tabindex="0" aria-label="Zoom about the clip’s first hit" data-tip="ce-zoom"><span>ZOOM</span></div>
+        <div id="ce-pos" class="be-pad" role="slider" tabindex="0" aria-label="Move the clip" data-tip="ce-pos"><span>POSITION</span></div>
+        <div class="tb-row be-keys">
+          <div class="be-group be-snaps ce-snaps">
+            <button id="ce-grid" class="icon-btn" type="button" data-tip="ce-grid">Hit → Grid</button>
+            <div id="ce-ref" class="ce-ref" role="group" aria-label="Line it up against track" data-tip="ce-ref"></div>
+            <button id="ce-track" class="icon-btn" type="button" hidden data-tip="ce-track">Hit → Track</button>
+          </div>
+          <div class="be-group be-moves">
+            <button id="ce-back" class="nudge" type="button" aria-label="Back one step" data-tip="ce-step">◂</button>
+            <span id="ce-step" class="mono be-step"></span>
+            <button id="ce-fwd" class="nudge" type="button" aria-label="On one step" data-tip="ce-step">▸</button>
+            <button id="ce-play" class="icon-btn" type="button" aria-label="Play from a second before the hit" data-tip="ce-play">▶</button>
+          </div>
+        </div>
+      </div>
       <div class="tb-row transport">
         <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play">▶</button>
         <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop">⟲ Loop</button>
@@ -218,7 +242,10 @@
       <button id="clip-reverse" class="icon-btn" type="button" data-tip="clip-reverse">Reverse</button>
       <button id="clip-share" class="icon-btn" type="button" data-tip="clip-share">Share as WAV</button>
     </div>
-    <p class="sheet-hint muted">To slide it, hold the clip in its lane, then drag.</p>
+    <div class="sheet-actions">
+      <button id="clip-align" class="icon-btn" type="button" data-tip="clip-align">Align</button>
+    </div>
+    <p class="sheet-hint muted">To slide it, hold the clip in its lane, then drag; to line it up to the sample, Align.</p>
     <div class="sheet-actions">
       <button id="clip-remove" class="icon-btn danger" type="button" data-tip="clip-remove">Remove</button>
       <button id="clip-done" class="icon-btn" type="button">Done</button>

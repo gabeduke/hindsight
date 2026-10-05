@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -265,6 +266,55 @@ func TestDroppingATakesSpanOntoAnEmptyTapeMakesTheFirstLoop(t *testing.T) {
 	}
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"nope","gain_db":0}}`), http.StatusBadRequest, "no clip")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+dropped.Clip.ID+`","gain_db":40}}`), http.StatusBadRequest, "loud clip")
+}
+
+func TestAPoolFileServesRangePeaksAndASlice(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_10-00-00.wav", 96000)
+	id := makeLoadedTape(t, r)
+	w := send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_10-00-00.wav","from":24000,"to":72000,"track":1,"bars":1}`)
+	want(t, w, http.StatusOK, "drop")
+	file := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")).Tape.Tracks[0].Clips[0].File
+	if file == "" {
+		t.Fatal("the clip has no file")
+	}
+
+	// Range peaks.
+	w = send(t, r, http.MethodGet, "/api/tapes/peaks?file="+file+"&from=0&to=4800&buckets=16", "")
+	want(t, w, http.StatusOK, "range peaks")
+	var pd struct {
+		Buckets int `json:"buckets"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &pd)
+	if pd.Buckets != 16 {
+		t.Fatalf("range peaks = %s", w.Body.String())
+	}
+	if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "immutable") {
+		t.Fatalf("range peaks Cache-Control = %q", cc)
+	}
+	want(t, send(t, r, http.MethodGet, "/api/tapes/peaks?file="+file+"&from=0&to=9600000&buckets=16", ""), http.StatusBadRequest, "past the end")
+	want(t, send(t, r, http.MethodGet, "/api/tapes/peaks?file="+file+"&from=0&to=4800&buckets=0", ""), http.StatusBadRequest, "no buckets")
+	want(t, send(t, r, http.MethodGet, "/api/tapes/peaks?file="+file+"&from=0", ""), http.StatusBadRequest, "only from")
+	want(t, send(t, r, http.MethodGet, "/api/tapes/peaks?file=audio/copy_2000-01-01_000000.wav&from=0&to=10&buckets=4", ""), http.StatusNotFound, "missing pool file peaks")
+	want(t, send(t, r, http.MethodGet, "/api/tapes/peaks?file="+file, ""), http.StatusOK, "whole-file peaks")
+
+	// Slice.
+	w = send(t, r, http.MethodGet, "/api/tapes/slice?file="+file+"&from=0&to=4800", "")
+	want(t, w, http.StatusOK, "slice")
+	if ct := w.Header().Get("Content-Type"); ct != "audio/wav" {
+		t.Fatalf("slice Content-Type = %q", ct)
+	}
+	if n := w.Body.Len(); n != 44+4800*2*2 {
+		t.Fatalf("slice is %d bytes, want %d", n, 44+4800*2*2)
+	}
+	w = send(t, r, http.MethodHead, "/api/tapes/slice?file="+file+"&from=0&to=4800", "")
+	want(t, w, http.StatusOK, "slice HEAD")
+	if w.Body.Len() != 0 || w.Header().Get("Content-Length") != strconv.Itoa(44+4800*2*2) {
+		t.Fatalf("HEAD: %d body bytes, Content-Length %q", w.Body.Len(), w.Header().Get("Content-Length"))
+	}
+	want(t, send(t, r, http.MethodGet, "/api/tapes/slice?file=../etc/passwd&from=0&to=10", ""), http.StatusBadRequest, "slice escape")
+	want(t, send(t, r, http.MethodGet, "/api/tapes/slice?file=audio/copy_2000-01-01_000000.wav&from=0&to=10", ""), http.StatusNotFound, "missing pool file")
+	want(t, send(t, r, http.MethodGet, "/api/tapes/slice?file="+file+"&from=0&to=9600000", ""), http.StatusBadRequest, "slice too long")
 }
 
 func TestTheClipboardCopiesATakeAndDropsItOnATape(t *testing.T) {

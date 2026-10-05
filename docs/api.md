@@ -59,7 +59,8 @@ internet.
 | `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=` | Step the tape's history back or forward |
 | `POST /api/tapes/clone?id=` | A copy of a tape, sharing its audio |
 | `POST /api/tapes/cleanup` | Delete pool audio that no tape, and no tape's history, uses |
-| `GET /api/tapes/peaks?file=` | A pool file's whole-file waveform |
+| `GET /api/tapes/peaks?file=` | A pool file's whole-file waveform, or with `from`, `to` and `buckets` just a range of it |
+| `GET /api/tapes/slice?file=&from=&to=` | A 16-bit WAV of a range of a pool file |
 | `GET /api/clipboard` | What's on the clipboard |
 | `GET /api/clipboard/audio` | The clipboard, its tracks summed, as a WAV to audition |
 | `POST /api/clipboard` | Copy a take's span or a span of the ring onto it |
@@ -1119,6 +1120,19 @@ Step back or forward one version of the tape: up to 100, kept in its
 The `.peaks.json` beside a pool file, in the shape `/api/peaks` gives for a
 whole take. `file` is a clip's `file`; anything outside the pool is 400.
 Pool files never change, so it's cached for good.
+
+With `from`, `to` and `buckets` (all three, in frames, as `/api/peaks` takes
+them) it computes the peaks of `[from, to)` on demand instead: 400 for a
+partial set, a bad range or a range past the end, 404 for a pool file that
+isn't there.
+
+### `GET /api/tapes/slice?file=&from=&to=`
+
+A 16-bit WAV of frames `[from, to)` of a pool file, both channels, as
+`/api/slice` does for a take (`HEAD` gives the headers and no body). The tape's
+clip editor reads the audio round a point from it. 400 for a name outside the
+pool, a bad or past-the-end range, or more than 60 s; 404 for a pool file that
+isn't there. Pool files never change, so it's cached for good.
 
 ---
 

@@ -6,8 +6,18 @@
 import { toast } from '../toast.js';
 import { canShareFiles, shareOrDownload } from '../wave/share.js';
 import { initHelp } from '../help/help.js';
-import { drawBars, takeGain } from '../wave/draw.js';
-import { clipLabel, blockLevels, labelFits, placeLabel } from './blocks.js';
+import { drawBars, takeGain, levelsOfColumns, laneChannels } from '../wave/draw.js';
+import { drawTrace, traceLines } from '../wave/tape-strip.js';
+import { TileCache } from '../wave/tiles.js';
+import { MIN_FPP } from '../edit/gestures.js';
+import { EditorBar } from '../edit/editor-bar.js';
+import { NearAudio } from '../wave/near.js';
+import { stepFrames, stepLabel } from '../wave/boundary.js';
+import { clipLabel, blockLevels, labelFits, placeLabel, needsDetail } from './blocks.js';
+import {
+  fileView, soundingAt, toTape, gridMove, alignLand, alignEdge, alignView, clipNumber, alignReadout,
+  padStart, hitIn, placeAt, refClipsNear, refHitNear, REACH_MS,
+} from './align.js';
 import { roundRectPath } from '../cassette-geom.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
@@ -54,12 +64,42 @@ function gainOf(file, pd) {
   return gains.get(file);
 }
 
+// Range peaks per pool file, for the stretch of a clip on screen at deep zoom
+// (/api/tapes/peaks), cached as tiles the way the take page's are.
+const tiles = new Map(); // pool file -> TileCache
+function tilesOf(file, pd) {
+  let tc = tiles.get(file);
+  if (!tc) {
+    tc = new TileCache({
+      file, totalFrames: Math.round(pd.duration * pd.sample_rate), filePeaks: pd,
+      urlFor: (f, t, b) => `/api/tapes/peaks?file=${encodeURIComponent(file)}&from=${f}&to=${t}&buckets=${b}`,
+      onChange: redrawLanes,
+    });
+    tiles.set(file, tc);
+  }
+  return tc;
+}
+
+// dropTiles lets go of the tiles of files no longer on the tape.
+function dropTiles(t) {
+  const on = new Set(t.tracks.flatMap((tr) => tr.clips.map((c) => c.file)));
+  for (const [f, tc] of tiles) if (!on.has(f)) { tc.stop(); tiles.delete(f); }
+}
+
+// redrawLanes redraws the lanes once a frame however many tiles arrive.
+let lanesRaf = 0;
+function redrawLanes() {
+  if (lanesRaf) return;
+  lanesRaf = requestAnimationFrame(() => { lanesRaf = 0; drawLanes(); });
+}
+
 function readPref(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }
 function writePref(k, v) { try { localStorage.setItem(k, v); } catch { /* fine */ } }
 
-async function api(path, { method = 'GET', body } = {}) {
+// keepalive lets a save outlive the page (a move committed at pagehide).
+async function api(path, { method = 'GET', body, keepalive = false } = {}) {
   const res = await fetch(path, {
-    method, cache: 'no-store',
+    method, cache: 'no-store', keepalive,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -184,7 +224,8 @@ function apply(s) {
   state.undo = s.undo || 0;
   state.redo = s.redo || 0;
   if (state.track > state.tape.tracks.length) state.track = 1;
-  if (changed) { buildLanes(); loadPeaks(); }
+  if (changed) { buildLanes(); loadPeaks(); dropTiles(state.tape); }
+  syncAlign();
   followPlayhead();
   tracePunch();
   render();
@@ -223,7 +264,8 @@ function laneView() {
 // view a moment ago.
 function followPlayhead() {
   const live = state.live;
-  if (!live || !live.playing || live.count_in > 0 || state.pinch || state.slide || state.sel) return;
+  // Not while a clip is being aligned: the view is the hit's then.
+  if (!live || !live.playing || live.count_in > 0 || state.pinch || state.slide || state.sel || state.align) return;
   if (performance.now() - state.touchedView < 2500) return;
   const v = laneView();
   const f = followView(v, live.heard, state.tape.length);
@@ -362,6 +404,7 @@ function render() {
   renderMode();
   renderClipboard();
   renderEdit();
+  renderAlign();
   drawLanes();
   drawOverview();
   drawRuler();
@@ -584,9 +627,9 @@ function renderEdit() {
 
 // edit sends one edit, shows the tape it answers with, and answers what the
 // edit did -- or null, having said why not.
-async function edit(op, extra = {}) {
+async function edit(op, extra = {}, { keepalive = false } = {}) {
   try {
-    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, track: state.track, ...extra } }));
+    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, track: state.track, ...extra }, keepalive }));
     const e = (s && s.edit) || {};
     if (e.clipboard) { cbGen++; state.clipboard = e.clipboard; state.clipboardError = ''; renderClipboard(); }
     return e;
@@ -696,6 +739,356 @@ function wireLane(lane) {
   cv.addEventListener('lostpointercapture', (e) => { if (down && down.held && e.pointerId === down.id) finish(false); });
 }
 
+// --- the clip editor --------------------------------------------------------------
+// Align: the take page's editor bar on one clip, its point the clip's first
+// hit. The pads, the steps, their keys and the wheel move the whole clip;
+// each gesture is one slide edit, so one undo step. Hit → Grid and Hit →
+// Track move it so the hit lands on a line, or on another track's hit. See
+// docs/superpowers/specs/2026-10-05-tape-align-design.md. The bar's gestures
+// are lib/edit/editor-bar.js's; what the point is, where it lands and how a
+// move is saved are here (the bar's host, below). Everything is in sounding
+// frames (at plus nudge); a move writes at and leaves the nudge alone.
+//
+// state.align: null, or { clipId, hitOff, found, at, ref, refHit, saving } --
+// hitOff the hit's frames from where the clip sounds, found whether Align
+// found a hit (else the point is the clip's start, and the snaps decline), at
+// where it is drawn (ahead of the stored one while a gesture runs or a save
+// is on its way), ref the track picked to line up against, refHit the hit
+// Hit → Track found there ({ track, clipId, k }, k in that clip's file),
+// saving the slides sent and not yet answered.
+
+// The audio round a point, per pool file: the clip's own, and the tracks it
+// is lined up against.
+const nears = new Map(); // pool file -> NearAudio
+async function nearOf(file) {
+  let n = nears.get(file);
+  if (n) return n;
+  let pd = peaks.get(file);
+  if (pd instanceof Promise) { await pd; pd = peaks.get(file); }
+  if (!pd) throw new Error('its peaks didn’t load');
+  n = nears.get(file); // another call may have made it meanwhile
+  if (n) return n;
+  n = new NearAudio({
+    file, sampleRate: pd.sample_rate, total: Math.round(pd.duration * pd.sample_rate),
+    urlFor: (f, t) => `/api/tapes/slice?file=${encodeURIComponent(file)}&from=${f}&to=${t}`,
+  });
+  nears.set(file, n);
+  if (nears.size > 8) nears.delete(nears.keys().next().value); // a few are plenty
+  return n;
+}
+
+// audioAbout is a pool file's audio round file frames [a, b], with the room
+// Attack wants: about 105 ms before a and 65 ms after b. NearAudio reuses a
+// stretch while the point is in its middle half, which may leave less; then
+// it fetches one centred on the search instead. Before the file's start
+// padStart makes the room.
+async function audioAbout(file, a, b) {
+  const n = await nearOf(file);
+  const ms = (m) => Math.round((n.sr * m) / 1000);
+  const lo = Math.max(0, a - ms(110)), hi = Math.min(n.total, b + ms(70));
+  const k = n.kept;
+  if (k && (k.from > lo || k.from + k.x.length < hi)) n.kept = null;
+  return n.around(Math.round((a + b) / 2));
+}
+
+// alignHome is the clip being aligned as the tape has it, and its track's
+// number, or null.
+function alignHome() {
+  return state.align ? clipHome(state.align.clipId) : null;
+}
+
+// clipHome is a clip of the loaded tape and its track, by id, or null.
+function clipHome(id) {
+  if (!state.tape) return null;
+  for (const tr of state.tape.tracks) {
+    const clip = tr.clips.find((c) => c.id === id);
+    if (clip) return { n: tr.n, track: tr, clip };
+  }
+  return null;
+}
+// alignPoint is the point: where the clip's first hit sounds, at the
+// previewed at.
+function alignPoint() {
+  const h = alignHome();
+  return h ? soundingAt({ ...h.clip, at: state.align.at }, state.tape.sample_rate) + state.align.hitOff : null;
+}
+const alignFpp = () => { const v = laneView(); return (v.to - v.from) / (laneWidth() || 1); };
+
+// alignFollow centres the lanes on the point at fpp (as they are, by
+// default), as a pinch sets the view, within the zoom's limits.
+function alignFollow(fpp = alignFpp()) {
+  const f = alignPoint();
+  const w = laneWidth();
+  if (f == null || !w) return;
+  setView(alignView(f, fpp, w, state.tape.length));
+}
+
+// Slides go one after another, in the order they were made, so the last one
+// lands last; an undo waits for them (undoRedo).
+let alignSaves = Promise.resolve();
+function saveAlign(clipId, at) {
+  const a = state.align;
+  const tape = state.id;
+  // Where this move was made from: the last slide sent, or the stored clip.
+  const was = a.saving ? a.sent : alignHome().clip.at;
+  a.saving++;
+  a.sent = at;
+  alignSaves = alignSaves.then(async () => {
+    try {
+      // Not onto another tape loaded meanwhile: edit sends to the one loaded.
+      // An undo that went first moved the clip, so the move goes from where
+      // the undo put it, not back over it; a clip it took away isn't moved.
+      // By id, not through state.align: a move saved as the editor closes
+      // (or opens on another clip) still goes.
+      const h = state.id === tape && clipHome(clipId);
+      if (h) {
+        const to = h.clip.at === was ? at : placeAt(h.clip, at - was, state.tape.length);
+        await edit('slide', { clip: clipId, at: to }, { keepalive: true });
+      }
+    } finally {
+      if (state.align === a) {
+        a.saving--;
+        // Answered (or refused, having said why): from here the stored clip
+        // is where it is drawn.
+        if (syncAlign()) { renderAlign(); redrawView(); }
+      }
+    }
+  }).catch((e) => console.error(e)); // the next slide still goes
+}
+
+// syncAlign follows the tape as it arrives: the clip moved by a save landing,
+// another device or an undo is drawn where it now is -- unless a gesture or a
+// save is under way -- and a clip that's gone closes the editor. True when it
+// changed anything.
+function syncAlign() {
+  const a = state.align;
+  if (!a) return false;
+  const h = alignHome();
+  if (!h) { state.align = null; bar.dirty = false; return true; }
+  if (a.ref != null && (a.ref === h.n || !track(a.ref))) { a.ref = null; a.refHit = null; }
+  if (bar.dirty || a.saving || a.at === h.clip.at) return false;
+  a.at = h.clip.at;
+  alignFollow();
+  return true;
+}
+
+let alignTicket = 0; // the latest Align: one whose audio comes late is dropped
+// openAlign opens the editor on a clip from its sheet. The sheet stays open,
+// Align waiting, while the audio round the clip's start comes; letting the
+// sheet go meanwhile lets Align go too.
+async function openAlign(c) {
+  const t = state.tape;
+  const sr = t.sample_rate;
+  const ticket = ++alignTicket;
+  const btn = $('clip-align');
+  btn.classList.add('waiting');
+  btn.setAttribute('aria-busy', 'true');
+  // The first hit: the strongest starting within 60 ms of the clip's start;
+  // else its start, and the snaps decline. The pool file keeps only a little
+  // before the clip, so the audio is padded for Attack to see back far
+  // enough (padStart).
+  let hitOff = 0, found = false;
+  try {
+    const end = c.src + Math.round((sr * REACH_MS) / 1000);
+    const audio = padStart(await audioAbout(c.file, c.src, end), c.src, sr);
+    const j = hitIn(audio, c.src, end, sr);
+    found = j >= 0;
+    hitOff = found ? Math.min(c.frames - 1, Math.max(0, j - c.src)) : 0;
+  } catch (e) {
+    toast(`Could not read the clip’s audio: ${e.message}`, 'bad');
+  } finally {
+    if (ticket === alignTicket) { btn.classList.remove('waiting'); btn.removeAttribute('aria-busy'); }
+  }
+  // Another Align, the sheet let go of, or another tape.
+  if (ticket !== alignTicket || !state.tape || state.tape.id !== t.id) return;
+  const sh = $('clip-sheet');
+  if (!sh.open || !state.clip || state.clip.id !== c.id) return;
+  sh.close();
+  bar.commit(); // another clip mid-gesture saves first
+  state.align = { clipId: c.id, hitOff, found, at: c.at, ref: null, refHit: null, saving: 0, sent: c.at };
+  bar.dirty = false;
+  const h = alignHome();
+  if (!h) { state.align = null; return; }
+  state.align.at = h.clip.at;
+  alignFollow();
+  renderAlign();
+  const el = $('clip-editor');
+  el.scrollIntoView?.({ block: 'nearest' });
+  $('ce-pos').focus({ preventScroll: true });
+}
+
+function closeAlign() {
+  if (!state.align) return;
+  bar.commit();
+  const inside = $('clip-editor').contains(document.activeElement);
+  state.align = null;
+  bar.dirty = false;
+  renderAlign();
+  drawLanes();
+  // The editor's keys are gone; keyboard focus goes back to the transport.
+  if (inside) $('play').focus({ preventScroll: true });
+}
+
+function renderAlign() {
+  const a = state.align;
+  const el = $('clip-editor');
+  el.hidden = !a;
+  el.parentElement.classList.toggle('editing', !!a);
+  if (!a) return;
+  const t = state.tape;
+  const sr = t.sample_rate;
+  const h = alignHome();
+  if (!h) return;
+  const point = alignPoint();
+  // The reference hit, where its clip is now.
+  let ref = null;
+  const rh = a.refHit;
+  const rc = rh && rh.track === a.ref && track(rh.track) ? track(rh.track).clips.find((c) => c.id === rh.clipId) : null;
+  if (rc) ref = { track: rh.track, hit: toTape(rc, rh.k, sr) };
+  $('ce-readout').textContent = alignReadout({
+    track: h.n, n: clipNumber(h.track, h.clip), point, sampleRate: sr, grid: t.grid, ref, start: !a.found,
+  });
+  bar.renderStep();
+  $('ce-pos').setAttribute('aria-valuetext', $('ce-readout').textContent);
+  $('ce-zoom').setAttribute('aria-valuetext', `${stepLabel(stepFrames(alignFpp(), sr), sr)} a step`);
+  $('ce-grid').hidden = !t.grid;
+  // The picker: every other track, in its colour, by its number.
+  const box = $('ce-ref');
+  const others = t.tracks.filter((tr) => tr.n !== h.n).map((tr) => tr.n);
+  if (box.dataset.tracks !== others.join(' ')) {
+    box.dataset.tracks = others.join(' ');
+    box.replaceChildren(...others.map((n) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'icon-btn ce-ref-key';
+      b.dataset.track = String(n);
+      b.dataset.tip = 'ce-ref';
+      b.setAttribute('aria-label', `Track ${n}`);
+      b.style.setProperty('--tc', `var(--t${((n - 1) % 4) + 1})`);
+      const num = document.createElement('span');
+      num.textContent = String(n);
+      b.appendChild(num);
+      b.addEventListener('click', () => pickRef(n));
+      return b;
+    }));
+  }
+  box.hidden = !others.length;
+  for (const b of box.children) b.setAttribute('aria-pressed', String(Number(b.dataset.track) === a.ref));
+  $('ce-track').hidden = a.ref == null;
+  const live = state.live;
+  const playing = !!(live && (live.playing || live.count_in > 0));
+  $('ce-play').textContent = playing ? '❚❚' : '▶';
+  $('ce-play').setAttribute('aria-label', playing ? 'Pause' : 'Play from a second before the hit');
+  $('ce-play').disabled = !live || !live.output;
+}
+
+// pickRef picks the track to line up against; the picked one again unpicks it.
+function pickRef(n) {
+  const a = state.align;
+  if (!a) return;
+  a.ref = a.ref === n ? null : n;
+  a.refHit = null;
+  renderAlign();
+}
+
+// snapTo moves the hit onto tape frame f for Hit → Grid and Hit → Track,
+// saying so when the tape's start or end stops it short.
+function snapTo(f) {
+  const h = alignHome();
+  const a = state.align;
+  const edge = alignEdge(h.clip, a.at, a.hitOff, f, state.tape.length, state.tape.sample_rate);
+  bar.move(f, true);
+  if (edge) toast(edge === 'start' ? 'The tape starts here' : 'The tape ends here');
+}
+
+// Without a hit of its own the point is only the clip's start: nothing to
+// snap (the snaps decline rather than guess).
+function noHit() {
+  if (state.align.found) return false;
+  toast('No hit near the clip’s start');
+  return true;
+}
+
+// Hit → Grid: the hit onto the nearest line of the Snap setting (the beat
+// with it off).
+function hitToGrid() {
+  const p = alignPoint();
+  if (p == null || !state.tape.grid || noHit()) return;
+  snapTo(p + gridMove(p, state.tape.grid, state.snap));
+}
+
+// Hit → Track: the hit onto the nearest hit of the picked track within 60 ms
+// of the point, whatever the zoom, found with Attack in the audio of each
+// clip heard there -- so a hit at the very start of a clip counts when the
+// point is a little early.
+let seeking = false;
+async function hitToTrack() {
+  const a = state.align;
+  const p = alignPoint();
+  if (!a || a.ref == null || p == null || seeking || noHit()) return;
+  const t = state.tape;
+  const sr = t.sample_rate;
+  const r = a.ref;
+  const spans = refClipsNear(track(r), p, Math.round((sr * REACH_MS) / 1000), sr);
+  if (!spans.length) { toast(`Track ${r} has nothing here`); return; }
+  const btn = $('ce-track');
+  seeking = true;
+  btn.classList.add('waiting');
+  btn.setAttribute('aria-busy', 'true');
+  try {
+    const hit = await refHitNear(spans, p, sr, (c, lo, hi) => audioAbout(c.file, lo, hi));
+    // The clip moved, or the editor closed, while the audio came.
+    if (state.align !== a || a.ref !== r || alignPoint() !== p) return;
+    if (!hit) { toast(`No hit near here on track ${r}`); return; }
+    a.refHit = { track: r, clipId: hit.clip.id, k: hit.k };
+    snapTo(hit.at);
+  } catch (e) {
+    toast(`Could not read the audio: ${e.message}`, 'bad');
+  } finally {
+    seeking = false;
+    btn.classList.remove('waiting');
+    btn.removeAttribute('aria-busy');
+  }
+}
+
+// ▶ hears it: the tape from a second before the hit; while playing, it stops.
+async function alignPlay() {
+  const live = state.live;
+  if (live && (live.playing || live.count_in > 0)) { transport('stop'); return; }
+  const p = alignPoint();
+  if (p == null) return;
+  bar.commit();
+  if (await transport('locate', { pos: Math.max(0, p - state.tape.sample_rate) })) transport('play');
+}
+
+// The editor bar, one for the page: its listeners live as long as it does.
+const bar = new EditorBar({
+  els: { zoom: $('ce-zoom'), pos: $('ce-pos'), back: $('ce-back'), fwd: $('ce-fwd'), step: $('ce-step') },
+  host: {
+    active: () => !!state.align,
+    frame: alignPoint,
+    land: (f) => {
+      const h = alignHome();
+      return alignLand(h.clip, state.align.at, state.align.hitOff, f, state.tape.length, state.tape.sample_rate).point;
+    },
+    place: (f, save) => {
+      const h = alignHome();
+      const a = state.align;
+      a.at = alignLand(h.clip, a.at, a.hitOff, f, state.tape.length, state.tape.sample_rate).at;
+      // Against the last slide sent while any are on their way, so a move
+      // back to the stored at is still sent.
+      if (save && a.at !== (a.saving ? a.sent : h.clip.at)) saveAlign(h.clip.id, a.at);
+      alignFollow();
+    },
+    fpp: alignFpp,
+    width: () => laneWidth(),
+    follow: alignFollow,
+    get sampleRate() { return state.tape ? state.tape.sample_rate : 48000; },
+    render: () => { renderAlign(); redrawView(); },
+    readout: renderAlign,
+  },
+});
+
 // --- the ruler -----------------------------------------------------------------
 
 function drawRuler() {
@@ -802,8 +1195,9 @@ onSchemeChange(redrawView);
 
 function renderFit() { $('view-fit').hidden = !state.zoom; }
 
-// The closest the view goes: a quarter of a second across.
-const minSpan = () => Math.round(state.tape.sample_rate * 0.25);
+// The closest the view goes: the take page's 8 px to the sample.
+const laneWidth = () => (lanes[0] ? lanes[0].canvas.getBoundingClientRect().width : 0) || 0;
+const minSpan = () => Math.max(1, Math.round(MIN_FPP * laneWidth()));
 
 function setView(v) {
   const now = performance.now();
@@ -864,6 +1258,8 @@ function wireView(el, rectOf) {
   el.addEventListener('pointercancel', up);
   el.addEventListener('wheel', (e) => {
     if (!state.tape) return;
+    // While a clip is being aligned the wheel moves it (⌘ or Ctrl zooms); see the bar.
+    if (bar.wheel(e)) { e.preventDefault(); return; }
     const r = rectOf(), v = laneView(), span = v.to - v.from;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -1091,7 +1487,12 @@ function drawLanes() {
     lane.hits = [];
     const labels = [];
     const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
-    for (const c of sorted) {
+    const al = state.align;
+    for (const stored of sorted) {
+      // The clip being aligned is drawn where the editor has it, which runs
+      // ahead of the stored one through a gesture.
+      const aligning = !!al && stored.id === al.clipId;
+      const c = aligning ? { ...stored, at: al.at } : stored;
       const nudge = nudgeFrames(c, t.sample_rate);
       const x0 = xOf(c.at + nudge, view, W), x1 = xOf(c.at + nudge + c.frames, view, W);
       if (x1 < 0 || x0 > W) continue;
@@ -1105,7 +1506,38 @@ function drawLanes() {
       ctx.fillStyle = withAlpha(tc, c.layer ? 0.1 : 0.16);
       ctx.fill();
       const pd = peaks.get(c.file);
-      if (pd && !(pd instanceof Promise) && bw > 8) {
+      const ready = pd && !(pd instanceof Promise);
+      if (ready && bw > 8 && needsDetail(c, pd, view, W)) {
+        // Deep in: the stretch of the file on screen as a trace, from range
+        // peaks (the coarser level shows while a tile loads), one lane a channel.
+        const xa = Math.max(0, x0), xb = Math.min(W, x1);
+        const fv = fileView(c, view, W, t.sample_rate);
+        const { cols, channels } = tilesOf(c.file, pd).columns({ start: fv.start + xa * fv.fpp, fpp: fv.fpp, width: xb - xa }, dpr);
+        const laneCh = laneChannels(channels);
+        const laneH = h / laneCh.length;
+        const gain = gainOf(c.file, pd);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(xa, top, xb - xa, h);
+        ctx.clip();
+        const lit = heard != null && heard > xa;
+        const drawn = laneCh.map((ch, i) => {
+          const lv = levelsOfColumns(cols, channels, ch);
+          const opts = { cy: top + laneH * (i + 0.5), half: Math.max(1, laneH / 2 - 4), gain, x0: xa };
+          const lines = traceLines(lv, lv, opts);
+          drawTrace(ctx, null, null, { ...opts, lines, line: withAlpha(tc, c.layer ? 0.4 : 0.55) });
+          return { opts, lines };
+        });
+        if (lit) {
+          ctx.beginPath();
+          ctx.rect(xa, top, Math.min(heard, xb) - xa, h);
+          ctx.clip();
+          for (const { opts, lines } of drawn) {
+            drawTrace(ctx, null, null, { ...opts, lines, line: tc, fillAlpha: 0.14, width: 1.3, glow: [{ color: withAlpha(tc, 0.7), blur: 4 }] });
+          }
+        }
+        ctx.restore();
+      } else if (ready && bw > 8) {
         const lv = blockLevels(pd, c, bw);
         const bars = { x0: x0 + 4, pitch: 4, cy: top + h / 2 + 3, half: Math.max(1, h / 2 - 12), gain: gainOf(c.file, pd), width: 2.2 };
         ctx.save();
@@ -1124,7 +1556,7 @@ function drawLanes() {
         ctx.restore();
       }
       if (labelFits(bw)) {
-        const label = clipLabel(c, tr);
+        const label = clipLabel(stored, tr);
         ctx.save();
         ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
         const lw = label ? Math.min(bw - 12, ctx.measureText(label).width) : 0;
@@ -1137,14 +1569,31 @@ function drawLanes() {
         }
         ctx.restore();
       }
-      const picked = state.clip && state.clip.id === c.id;
+      const picked = (state.clip && state.clip.id === c.id) || aligning;
       ctx.lineWidth = picked ? 2 : 1.5;
       ctx.strokeStyle = picked ? ink : tc;
       block();
       ctx.stroke();
       ctx.lineWidth = 1;
       ctx.globalAlpha = 1;
-      lane.hits.push({ x0, x1, clip: c });
+      lane.hits.push({ x0, x1, clip: stored });
+      // The hit the editor follows: a line across the lane.
+      if (aligning) {
+        const x = Math.round(xOf(soundingAt(c, t.sample_rate) + al.hitOff, view, W));
+        if (x >= 0 && x <= W) { ctx.fillStyle = ink; ctx.fillRect(x, 0, 1, H); }
+      }
+    }
+    // The hit Hit → Track lined it up against, dashed, where its clip is now.
+    const rh = al && al.refHit;
+    const rc = rh && rh.track === lane.n && al.ref === lane.n ? tr.clips.find((x) => x.id === rh.clipId) : null;
+    if (rc) {
+      const x = Math.round(xOf(toTape(rc, rh.k, t.sample_rate), view, W)) + 0.5;
+      if (x >= 0 && x <= W) {
+        ctx.strokeStyle = ink;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        ctx.setLineDash([]);
+      }
     }
     if (state.rec && state.rec.track === lane.n) drawPunch(ctx, view, W, H, col);
     // A clip being slid: where it would land.
@@ -1284,8 +1733,10 @@ async function transport(action, extra = {}) {
     const b = await change(() => api(`/api/tapes/transport?${q()}`, { method: 'POST', body: { action, ...extra } }));
     if (b && b.kept) keptToast(b.kept);
     setTimeout(poll, 150);
+    return true;
   } catch (e) {
     toast(e.message, 'bad');
+    return false;
   }
 }
 
@@ -1391,11 +1842,19 @@ async function doCatch(what) {
 }
 
 async function undoRedo(redo) {
-  try {
-    await change(() => api(`/api/tapes/${redo ? 'redo' : 'undo'}?${q()}`, { method: 'POST' }));
-  } catch (e) {
-    toast(e.message, 'bad');
-  }
+  // A clip editor's move still being made is saved first, and the undo goes
+  // after it and every slide before it, in the same line, so a step made
+  // while it's on its way waits behind it (saveAlign).
+  bar.commit();
+  const run = alignSaves.then(async () => {
+    try {
+      await change(() => api(`/api/tapes/${redo ? 'redo' : 'undo'}?${q()}`, { method: 'POST' }));
+    } catch (e) {
+      toast(e.message, 'bad');
+    }
+  });
+  alignSaves = run;
+  await run;
 }
 
 // closeSheets closes what belongs to the tape shown, before another is.
@@ -1405,6 +1864,9 @@ function closeSheets() {
   if ($('track-sheet').open) $('track-sheet').close();
   if ($('rename-sheet').open) $('rename-sheet').close();
   state.clip = null;
+  // The clip editor's clip was on the tape going away: nothing to save.
+  state.align = null;
+  bar.dirty = false;
   closeMenus();
 }
 
@@ -1568,6 +2030,8 @@ function wire() {
     if (!MENUS.some(([m]) => $(m).contains(e.target))) closeMenus();
   });
   document.addEventListener('keydown', (e) => {
+    // Escape closes an open menu and nothing else.
+    const menuWasOpen = e.key === 'Escape' && menusOpen();
     if (e.key === 'Escape') closeMenus();
     // Typing is typing; a level slider with focus still lets the keys work.
     const typing = e.target && (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable
@@ -1580,6 +2044,17 @@ function wire() {
     }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (document.querySelector('dialog[open]')) return; // a sheet's keys are its own
+    // While a clip is being aligned the arrows step it, Shift by ten (not on
+    // a level slider or in a menu, whose arrows are their own), and Escape
+    // closes the editor.
+    if (state.align) {
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.tagName !== 'INPUT' && !menusOpen()) {
+        e.preventDefault();
+        bar.step(e.key === 'ArrowLeft' ? -1 : 1, e.shiftKey ? 10 : 1, !e.repeat);
+        return;
+      }
+      if (e.key === 'Escape' && !menuWasOpen) { e.preventDefault(); closeAlign(); return; }
+    }
     if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('play').click(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
     // which track catches go onto. Not under a dialog or a menu, and not on
@@ -1655,7 +2130,27 @@ function wire() {
     if (c) patch({ clip: { id: c.id, remove: true } }).then((ok) => ok && toast('Clip removed', 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } }));
   });
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
-  $('clip-sheet').addEventListener('close', () => { state.clip = null; drawLanes(); });
+  $('clip-align').addEventListener('click', () => {
+    if (state.clip && !$('clip-align').classList.contains('waiting')) openAlign(state.clip);
+  });
+  // The clip editor.
+  $('ce-done').addEventListener('click', closeAlign);
+  $('ce-grid').addEventListener('click', hitToGrid);
+  $('ce-track').addEventListener('click', hitToTrack);
+  $('ce-play').addEventListener('click', alignPlay);
+  $('clip-sheet').addEventListener('close', () => {
+    state.clip = null;
+    // An Align still waiting for its audio is let go of with the sheet.
+    alignTicket++;
+    $('clip-align').classList.remove('waiting');
+    $('clip-align').removeAttribute('aria-busy');
+    drawLanes();
+  });
+  // A clip editor's move still being made is saved when the page goes. Two
+  // hooks, as on the take page: pagehide fires on navigation,
+  // visibilitychange when the app is switched or the screen locks.
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') bar.commit(); });
+  window.addEventListener('pagehide', () => bar.commit());
   new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); }).observe($('lanes'));
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
