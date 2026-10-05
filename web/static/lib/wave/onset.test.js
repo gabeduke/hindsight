@@ -71,3 +71,14 @@ test('a 16-bit WAV from the slice endpoint reads back as mono', () => {
   assert.equal(got.channels, 2);
   assert.deepEqual([...got.mono].map((v) => Math.round(v * 1000) / 1000 + 0), [0.5, -0.25, 0, 0]);
 });
+
+test('a hit near the start of the array is found, or declined, and never guessed from reads before index 0', () => {
+  // The soft kick's one-cycle residual reads up to 25 ms behind each sample, so
+  // within that of index 0 it would read undefined. 5760 (~120 ms in) was fine
+  // before the fix; 3000 and 3500 returned 1771 and 2271.
+  for (const early of [3000, 3500, 5760]) {
+    const x = kickOverBass(24000, 0).subarray(24000 - early);
+    const got = findAttack(x, sr, early - 1500, 2880);
+    assert.ok(got === -1 || Math.abs(got - early) <= 48, `hit at ${early}: found ${got}, want ${early} ± 1 ms, or -1`);
+  }
+});

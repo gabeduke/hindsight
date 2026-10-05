@@ -152,7 +152,8 @@ function onsetIn(res, preLo, from, best, envN) {
 export function findAttack(x, sr, i, radius) {
   const ms = (m) => Math.max(1, Math.round((sr * m) / 1000));
   const long = ms(LONG_MS), slack = ms(SLACK_MS), pre = ms(PRE_MS);
-  const lo = Math.max(ORDER + 1, i - radius - 2 * long - slack - pre - ms(CYCLE_MS[1]));
+  // The one-cycle residual reads up to CYCLE_MS[1] behind the first sample used, so keep that much room before index 0.
+  const lo = Math.max(ORDER + 1 + ms(CYCLE_MS[1]), i - radius - 2 * long - slack - pre - ms(CYCLE_MS[1]));
   const hi = Math.min(x.length, i + radius + long);
   if (hi - lo < 3 * long) return -1;
   const E = rms((n) => x[n], lo, hi, long);
