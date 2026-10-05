@@ -1144,6 +1144,15 @@ has no tip.
 | Reverse (clip) | Play this clip backwards, or forwards again. Undo puts it back |
 | Share as WAV (clip) | Send just this clip, at its level, to another app; a long one downloads |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
+| Align | Line the clip up to the sample: the editor bar opens on its first hit |
+| Done | Close the editor. Esc does too |
+| ZOOM on the tape | Drag sideways to zoom about the clip’s first hit: right is closer |
+| POSITION on the tape | Drag sideways to move the whole clip: zoomed out it travels bars, zoomed in it moves samples |
+| ◂ ▸ on the tape | Move the clip a millisecond, or a sample when zoomed right in |
+| ▶ on the tape | Play from a second before the hit, or pause |
+| Hit → Grid | Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off |
+| Track picker | Choose the track to line this clip up against |
+| Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
 | Catch | Put what you just played onto the selected track: the last bars, or a pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
 | Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |
