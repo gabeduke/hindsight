@@ -650,6 +650,9 @@ bus A, 6 dB down.
 **Undo** steps back through every change, catches included. Quick changes to
 the same thing, like dragging a level, are one step.
 
+**Rename.** *Rename this tape…*, under ⋯, gives the loaded tape a new name.
+It shows at once on every device, and isn't a step in undo.
+
 **Clone and delete.** *Clone this tape*, under ⋯, makes a copy that
 shares the original's audio, so it costs no disk space. *Delete a tape…* asks
 for the tape's name. The loaded tape can't be deleted; open another one first.
@@ -720,6 +723,9 @@ page shows how long it is and where it came from:
   is back. ↶ and ↷ step through the same history.
 - [demo] Open the tape page on two devices and mute a track on one → the
   other shows it within a second.
+- [demo] Under ⋯ choose **Rename this tape…**, type a new name and tap Save →
+  the title and the tape list show it, and a second device shows it within a
+  second. An empty name can't be saved, and ↶ doesn't undo a rename.
 - [demo] Clone a tape and open the clone, delete the original, then play the
   clone → it plays fully.
 - [demo] Restart Hindsight → the tape that was loaded is loaded again, with
@@ -1040,9 +1046,10 @@ has no tip.
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
 | Send to tape | Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape |
 | Tape name | Your tapes: load one, or make a new one |
-| ⋯ (tape) | This tape: clone it, mix it down, export its stems, or delete a tape |
+| ⋯ (tape) | This tape: rename it, clone it, mix it down, export its stems, or delete a tape |
 | A tape in the list | Load this tape: the transport plays the loaded one |
 | New tape | Start an empty tape. Its first loop sets the tempo |
+| Rename tape | Give this tape a new name |
 | Delete a tape | Delete another tape. Audio it shares with others stays |
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
