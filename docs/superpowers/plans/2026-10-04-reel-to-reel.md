@@ -476,12 +476,7 @@ git commit -m "Canvases draw on black windows with the window inks"
 
 ## PRs 2–6 (scoped; each is detailed here when it starts)
 
-**PR 2: waveform drawing** (`lib/wave/draw.js`, `lib/wave/tape-strip.js`)
-- **Bars:** `drawBars(ctx, levels, {x0, pitch, cy, half, color, cap: 'round'})` draws the rounded bars of the cassette windows and Tape blocks.
-- **Trace on tape:** `drawTrace(ctx, top, bot, {cy, half, line, fill, glow})` draws it, and `paintOxide(ctx, w, h)` draws the brown strip with its sheen and grain.
-- **Levels:** `levelsFor(peaks, n)` folds stored peaks into n bars.
-- **Tests:** pure tests on path and level maths.
-- **No page changes in this PR.**
+**PR 2: waveform drawing**: detailed below, after PR 6.
 
 **PR 3: takes as cassettes** (`lib/shelf*.js`, `takes.html`, `styles.css`)
 - **The rack:** each row becomes a spine: a case edge with a J-card, a coloured side-A band, the name in Permanent Marker, the length, small bars and an LED.
@@ -507,3 +502,77 @@ git commit -m "Canvases draw on black windows with the window inks"
 - **The edit strip:** an amber LCD.
 - **MIDI lanes:** on black windows.
 - **Rising notes:** over a lit keyboard.
+
+---
+
+## PR 2: waveform drawing (detailed 2026-10-05)
+
+**Branch:** `claude/reel-2-waves` from `main` after PR 1. **Files:** `web/static/lib/wave/draw.js` (levels, bars), new `web/static/lib/wave/tape-strip.js` (trace, oxide), `web/static/styles.css` (tape tokens), tests beside each. **No page changes**: PRs 3–6 call these.
+
+**The scale (a ruling, taken here once):** the design's bars and trace use linear peak levels lifted by a 0.85 power, scaled to the take's own peak. The dB scale in `draw.js` (`shape = ampToFrac`) is what made every take look like a flat block. One gain per take, `takeGain(pd)` = 1 / the take's loudest peak, capped at ×8 (+18 dB), is used by *every* view of that take, so a take still looks the same everywhere (the reason `draw.js` moved to one scale), and a near-silent take still looks quiet. `drawColumns`/`shape` stay until PRs 3 and 6 replace their callers.
+
+**Design values** (from the canvas generators): bars are vertical strokes from `cy − a` to `cy + a`, `a = max(0.6, lift(v) · half)`, `lift(v) = min(1, v · gain)^0.85`, stroke 2.2 px, round caps, one per `pitch` px, each the loudest moment of its slice. The trace is a 1 px polyline along the top and bottom of the envelope (points at `x + 0.5`), smoothed `[1, 2, 1] / 4`, over a fill of the same colour at 7 % (14 % played), unplayed at 55 % opacity with a 3 px glow, played brighter (`--trace-hot`) with a 2 px + 8 px glow. Oxide: a vertical gradient `#23150b 0 %, #4a2e19 14 %, #5b3a20 50 %, #4a2e19 86 %, #23150b 100 %`, a sheen `rgba(255,236,210,.12)` at the top fading by 30 %, a shade `rgba(0,0,0,.18)` from 70 % to the bottom, and a 1 px grain line `rgba(0,0,0,.05)` every 5 px.
+
+### Task 6: Tape tokens, `levelsFor` and `takeGain`
+
+**Files:** Modify `web/static/styles.css` (`:root`), `web/static/lib/styles.test.js`, `web/static/lib/wave/draw.js`. Create `web/static/lib/wave/levels.test.js`.
+
+**Interfaces:**
+- Produces tokens (one value in both schemes: tape is an object): `--oxide-edge #23150b`, `--oxide-lo #4a2e19`, `--oxide #5b3a20`, `--oxide-sheen rgba(255,236,210,.12)`, `--oxide-shade rgba(0,0,0,.18)`, `--oxide-grain rgba(0,0,0,.05)`, `--trace #f6e7c4`, `--trace-hot #fff8e8`, `--trace-glow rgba(255,226,170,.75)`.
+- Produces `levelsFor(pd, n, {b0 = 0, b1 = pd.buckets, channel = -1} = {}) → Float32Array(n)`: for slice `i` of buckets `[b0 + floor(i·span/n), max(lo + 1, b0 + floor((i+1)·span/n)))`, the largest `|min|` or `|max|` over the slice (one channel, or all when `channel < 0`), 0 for an empty slice or `n ≤ 0` (returns an empty array).
+- Produces `takeGain(pd, max = 8) → number`: `1 / peak` over every bucket and channel, clamped to `[1, max]`; 1 for a silent take.
+- Produces `lift(v, gain = 1) → number`: `min(1, max(0, v) · gain) ** 0.85`.
+
+- [ ] **Step 1: Failing tests.** In `levels.test.js`, with a hand-made `pd = {channels: 2, buckets: 8, data: [Float32Array([...]), Float32Array([...])]}` (min,max pairs):
+  - `levelsFor(pd, 4)` returns the largest absolute value of each pair of buckets across both channels, including a negative min that outweighs the max.
+  - `levelsFor(pd, 4, {channel: 1})` reads channel 1 only.
+  - `levelsFor(pd, 16)` (more slices than buckets) gives every slice a bucket, none empty.
+  - `levelsFor(pd, 2, {b0: 4, b1: 8})` covers only the second half.
+  - `levelsFor(pd, 0)` is empty.
+  - `takeGain` of a take peaking at 0.5 is 2; at 0.01 is 8 (capped); at 1.2 (clipped) is 1; all zeros is 1.
+  - `lift(0.5, 2)` is 1; `lift(0.25)` is `0.25 ** 0.85`; `lift(-0.1)` is 0.
+  In `styles.test.js`, a test that `:root` defines each tape token, and that `--trace` on `--oxide` is ≥ 4.5:1.
+- [ ] **Step 2:** `node --test web/static/lib/wave/levels.test.js web/static/lib/styles.test.js` FAILs (missing exports, missing tokens).
+- [ ] **Step 3:** Implement in `draw.js` (after `foldChannels`) and add the tokens to `:root` under a `/* tape: oxide and trace, the same in both schemes */` comment. Update the `draw.js` header comment to describe the two scales and why.
+- [ ] **Step 4:** Both files PASS; the whole node suite PASSes.
+- [ ] **Step 5:** Commit `Levels for bars and traces: the take's own peak, lifted like the design`.
+
+### Task 7: Rounded bars
+
+**Files:** Modify `web/static/lib/wave/draw.js`; test in `levels.test.js`.
+
+**Interfaces:**
+- Produces `barSegments(levels, {x0 = 0, pitch, cy, half, gain = 1, min = 0.6}) → [{i, x, y0, y1}]`: one per level, `x = x0 + i · pitch`, `a = max(min, lift(levels[i], gain) · half)`, `y0 = cy − a`, `y1 = cy + a`.
+- Produces `drawBars(ctx, levels, {…barSegments options, color, width = 2.2})`: `color` is a string or `(i) => string`; sets `lineCap = 'round'`, `lineWidth = width`, and strokes one path per run of equal colour (so a played/unplayed split costs two strokes, not one per bar).
+
+- [ ] **Step 1: Failing tests.**
+  - `barSegments([0, 1, 0.25], {x0: 3, pitch: 4, cy: 10, half: 8})` gives x 3, 7, 11; the silent bar is `±0.6`; the full bar spans `2..18`; the third is `±(0.25 ** 0.85 · 8)`.
+  - `gain: 4` lifts `0.25` to full height.
+  - `drawBars` on a small recording fake context (`{beginPath, moveTo, lineTo, stroke, set strokeStyle, …}` written inline in the test) with `color: (i) => (i < 2 ? 'a' : 'b')` over 4 levels strokes twice, with `'a'` then `'b'`, `lineCap 'round'` and `lineWidth 2.2`; each bar is one `moveTo` + `lineTo` at its x.
+- [ ] **Step 2:** FAIL (missing exports).
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** PASS; whole suite PASSes.
+- [ ] **Step 5:** Commit `Rounded bars, the cassette window's waveform`.
+
+### Task 8: Trace on tape
+
+**Files:** Create `web/static/lib/wave/tape-strip.js` and `web/static/lib/wave/tape-strip.test.js`. Add `./tape-strip.js` to `inks.test.js`'s FILES.
+
+**Interfaces:**
+- Produces `smooth(a) → Float32Array`: `(a[i−1] + 2a[i] + a[i+1]) / 4`, an edge using itself for its missing neighbour.
+- Produces `traceLines(top, bot, {cy, half, gain = 1}) → {upper: [[x, y]…], lower: [[x, y]…]}`: values lifted (`lift`), then smoothed; `x = i + 0.5`; `upper y = cy − v · half`, `lower y = cy + v · half`.
+- Produces `drawTrace(ctx, top, bot, {cy, half, gain = 1, line, fill, fillAlpha = 0.07, width = 1, glow = null, blur = 3})`: fills the envelope (from `(0, cy)` along `upper`, to `(n, cy)`, back along `lower`) in `fill` (default `line`) at `fillAlpha`, then strokes `upper` and `lower` in `line` at `width`, with `shadowColor = glow` and `shadowBlur = blur` when `glow` is set, restoring the context after.
+- Produces `grainXs(w, step = 5) → number[]`: `0, 5, 10 …` below `w`.
+- Produces `paintOxide(ctx, w, h, {edge, lo, mid, sheen, shade, grain})`: the base gradient (stops 0, .14, .5, .86, 1 = edge, lo, mid, lo, edge), the sheen (0 → `sheen`, .3 → transparent) and shade (.7 → transparent, 1 → `shade`) as two gradients, then a 1 px `grain` rect at each `grainXs(w)`. Colours are passed in; callers read the `--oxide-*` tokens. `oxideColors(token)` returns them from a `token(name, fallback)` function so callers write one line.
+
+- [ ] **Step 1: Failing tests.**
+  - `smooth([0, 4, 0])` is `[1, 2, 1]`; `smooth([2])` is `[2]`.
+  - `traceLines([1, 1], [0.5, 0.5], {cy: 20, half: 10})` gives upper `[[0.5, 10], [1.5, 10]]` and lower y `20 + 0.5 ** 0.85 · 10`.
+  - `grainXs(12)` is `[0, 5, 10]`.
+  - `paintOxide` on a fake context records the base gradient's five stops in order with the colours passed, two overlay gradients, and `grainXs(w).length` grain rects of width 1.
+  - `drawTrace` on a fake context fills once and strokes once (both lines in one path), sets `shadowBlur` only when `glow` is given, and leaves `shadowBlur` as it found it.
+- [ ] **Step 2:** FAIL (no module).
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** PASS; whole suite PASSes. Then a visual check: a scratch page (not committed) draws one demo take's peaks as bars (cassette window, 2.2 px at 4 px pitch on `--well`) and as a stereo trace on oxide, in light and dark, side by side with the canvas boards. Compare and note differences in the ledger.
+- [ ] **Step 5:** Commit `Trace on tape: a glowing line on brown oxide`.
+
