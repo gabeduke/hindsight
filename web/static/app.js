@@ -86,12 +86,12 @@ const takes = new TakesList(el.takes, el.takesEmpty, {
   // A spine pressed plays its take in the now-playing bar; when it plays to
   // its end, or ⏏, the bar goes back to the tape.
   onPlay: async (name) => {
-    if (!np || np.takeName === name) return;
+    if (!np) return;
     const t = takes.all.find((x) => x.name === name);
     const p = t && await takes.player(name);
     if (p) np.loadTake(t, p);
   },
-  onEnded: (name) => { if (np && np.takeName === name) np.backToTape(); },
+  onEnded: (name) => { if (np && np.takeName === name && !np.looping) np.backToTape(); },
 });
 for (const m of [shelfWide, shelfBench]) m.addEventListener('change', () => takes.reshape());
 

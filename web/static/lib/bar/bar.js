@@ -29,7 +29,8 @@ export class NowPlaying {
     });
     $('np-loop').addEventListener('click', () => { if (this.src) this.src.setLoop(!this.src.loop); });
     $('np-start').addEventListener('click', () => { if (this.src) this.src.seek(this.src.start()); });
-    $('np-eject').addEventListener('click', () => onEject?.());
+    // ⏏ hides itself: the focus goes to ▶, not to the page.
+    $('np-eject').addEventListener('click', () => { onEject?.(); $('np-play').focus(); });
 
     // The strip: a tap or a drag moves the playhead. The tape's Pi hears a
     // drag at most every 150 ms, and where it ends.
@@ -60,6 +61,7 @@ export class NowPlaying {
       const s = this.src;
       if (!s || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === ' ') { e.preventDefault(); if (!e.repeat) $('np-play').click(); return; }
+      if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); s.seek(e.key === 'Home' ? 0 : s.length - 1); this.kick(); return; }
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       e.preventDefault();
       s.seek(s.pos() + (e.key === 'ArrowRight' ? s.step() : -s.step()));
@@ -165,8 +167,9 @@ const hooked = new WeakSet();
  * tape was already playing when it opened.
  */
 export function pageBar({ tapes, onToast }) {
-  let tape = null, take = null; // take: { name, src }
-  const bar = new NowPlaying({ onEject: () => backToTape() });
+  let tape = null, take = null; // take: { name, audio, src }
+  let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
+  const bar = new NowPlaying({ onEject: () => backToTape({ byHand: true }) });
   const eject = () => { $('np-eject').hidden = !(tape && take); };
   const ready = Promise.resolve(tapes).then((list) => {
     if (!list || !list.loaded) return;
@@ -175,7 +178,8 @@ export function pageBar({ tapes, onToast }) {
     eject();
     return new Promise((done) => { tape.on(done); setTimeout(done, 1500); });
   });
-  function backToTape() {
+  function backToTape({ byHand = false } = {}) {
+    if (byHand) ejected = true;
     if (take) {
       const old = take;
       take = null;
@@ -188,12 +192,21 @@ export function pageBar({ tapes, onToast }) {
   return {
     ready,
     get takeName() { return take ? take.name : null; },
+    /** ejected: ⏏ put the tape back; automatic picks leave it there. */
+    get ejected() { return ejected; },
+    /** looping: a take in the bar is on Loop, so its end isn't the end. */
+    get looping() { return !!(take && take.src.loop); },
     tapePlaying: () => !!(tape && tape.ready && tape.playing()),
-    /** loadTake puts take `t` in the bar, played by its list row's `player`. */
+    /**
+     * loadTake puts take `t` in the bar, played by its list row's `player`.
+     * The same take with a new player (its row rebuilt) replaces the old one.
+     */
     loadTake(t, player) {
-      if (take && take.name === t.name) return;
+      ejected = false;
+      if (take && take.name === t.name && take.audio === player.audio) return;
       const old = take;
-      take = { name: t.name, src: takeSource(t, player) };
+      const src = takeSource(t, player, { onGone: () => { if (take && take.src === src) backToTape(); } });
+      take = { name: t.name, audio: player.audio, src };
       bar.load(take.src);
       old?.src.destroy();
       eject();

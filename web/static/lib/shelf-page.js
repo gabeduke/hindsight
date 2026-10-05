@@ -168,7 +168,7 @@ if (reopen) history.replaceState(null, '');
 // its shelf) picks that take, and opens its sheet on a phone.
 const asked = new URLSearchParams(location.search).get('take');
 if (asked) { reopen = asked; history.replaceState(null, '', location.pathname); }
-const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about')].filter(Boolean);
+const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about'), $('np')].filter(Boolean);
 
 function setSheet(on, from) {
   document.body.classList.toggle('cassette-open', on);
@@ -248,14 +248,17 @@ function pick(name, hand = false) {
 // plays, it keeps the tape until a take is picked by hand.
 let np = null;
 async function offerBar(name, hand) {
-  if (!np || !name || np.takeName === name) return;
-  if (!hand) {
-    await np.ready;
-    if (np.tapePlaying() && !np.takeName) return;
-  }
+  if (!np || !name) return;
+  // The tape -- playing as the page opened, or put back with ⏏ -- stays
+  // until a take is picked by hand.
+  const keepTape = () => !hand && (np.ejected || (np.tapePlaying() && !np.takeName));
+  if (!hand) await np.ready;
+  if (keepTape()) return;
   const t = takes.all.find((x) => x.name === name);
   const p = t && await takes.player(name);
-  if (!p || picked !== name) return; // no preview yet, or another pick since
+  if (picked !== name || keepTape()) return; // another pick since, or ⏏ meanwhile
+  // No player yet (still encoding): not another take's ▶ beside this one.
+  if (!p) { if (hand) np.backToTape(); return; }
   np.loadTake(t, p);
 }
 

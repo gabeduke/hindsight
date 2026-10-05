@@ -10,14 +10,17 @@ import { paintTapeOverview } from '../tape/overview.js';
 
 const POLL_MS = 500;
 const AHEAD_S = 0.5; // the furthest the playhead is run on past a poll
+const STALE_MS = 2000; // no answer for this long: shown stopped, not run on forever
+const HOLD_MS = 1000; // a locate is shown where it was asked, over polls already on their way
 const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 
 /**
  * tapeSource is the bar's source for the tape loaded on the Pi (`id`).
  * onError(message) hears of a press the Pi refused.
  */
-export function tapeSource(id, { onError } = {}) {
-  let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true;
+export function tapeSource(loadedId, { onError } = {}) {
+  let id = loadedId;
+  let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true, holdUntil = 0;
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
 
@@ -29,9 +32,17 @@ export function tapeSource(id, { onError } = {}) {
       const s = await res.json();
       if (g !== gen) return;
       t = s.tape;
-      live = s.loaded ? s.live : null;
-      at = performance.now();
+      // Another device loaded another tape: follow it.
+      if (!s.loaded) { follow(); return; }
+      // Just located: keep showing where it was asked until the Pi has it.
+      if (performance.now() >= holdUntil) { live = s.live; at = performance.now(); }
       fire();
+    } catch { /* the next tick asks again */ }
+  }
+  async function follow() {
+    try {
+      const list = await (await fetch('/api/tapes', { cache: 'no-store' })).json();
+      if (list.loaded && list.loaded !== id) { id = list.loaded; live = null; poll(); }
     } catch { /* the next tick asks again */ }
   }
   const tick = () => {
@@ -60,14 +71,25 @@ export function tapeSource(id, { onError } = {}) {
   }
 
   const sr = () => (t ? t.sample_rate : 48000);
+  const fresh = () => performance.now() - at < STALE_MS;
   const counting = () => !!(live && live.count_in > 0);
-  const playing = () => !!(live && (live.playing || counting()));
   const mixdown = () => (live && live.mixdown && t && live.mixdown.tape === t.id ? live.mixdown : null);
-  // Where the tape is now: the last poll's, run on at its rate while it plays.
+  // Playing, as the tape page reads it: through a count-in, and through a
+  // mixdown and its tail (■ cancels it). Not on a poll gone quiet.
+  const playing = () => {
+    const md = mixdown();
+    return fresh() && (!!(live && (live.playing || counting())) || !!(md && (md.state === 'playing' || md.state === 'tail')));
+  };
+  // Where the tape is now: the last poll's, run on at its rate while it
+  // plays -- round the loop at its Out, as the tape does.
   const pos = () => {
     if (!live || !t) return 0;
     let p = live.heard;
-    if (live.playing && !counting()) p += Math.min(AHEAD_S, (performance.now() - at) / 1000) * sr();
+    if (live.playing && !counting() && fresh()) {
+      p += Math.min(AHEAD_S, (performance.now() - at) / 1000) * sr();
+      const { in: a, out: b, on } = t.loop;
+      if (on && b > a && live.heard < b && p >= b) p = a + (p - b);
+    }
     return Math.min(p, t.length);
   };
   const loopable = () => !!(t && t.loop.out > t.loop.in);
@@ -88,7 +110,10 @@ export function tapeSource(id, { onError } = {}) {
     seek(frame) {
       if (!t) return;
       const p = Math.max(0, Math.min(t.length, Math.round(frame)));
-      // Shown at once; the next poll confirms it.
+      // Shown at once and held a moment; a poll already on its way with
+      // the old place is dropped.
+      gen++;
+      holdUntil = performance.now() + HOLD_MS;
       if (live) { live = { ...live, heard: p }; at = performance.now(); fire(); }
       send('/api/tapes/transport', 'POST', { action: 'locate', pos: p });
     },

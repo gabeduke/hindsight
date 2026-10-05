@@ -13,8 +13,12 @@ import { barBeat } from '../wave/geometry.js';
 
 const stamp = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 
-/** takeSource is the bar's source for take `t`, played by `player` ({audio, peaks, toggle}). */
-export function takeSource(t, player) {
+/**
+ * takeSource is the bar's source for take `t`, played by `player` ({audio,
+ * peaks, toggle}). onGone hears when its row lets the audio go (the take
+ * deleted, or off the shelf): the bar mustn't keep a player that's empty.
+ */
+export function takeSource(t, player, { onGone } = {}) {
   const sr = t.sample_rate || 48000;
   const { audio, peaks } = player;
   const length = Math.max(1, Math.round((peaks.duration || t.duration_seconds || 0) * sr));
@@ -26,6 +30,7 @@ export function takeSource(t, player) {
   const fire = () => { for (const f of listeners) f(); };
   const ac = new AbortController();
   for (const ev of ['play', 'pause', 'ended', 'seeked', 'loadedmetadata']) audio.addEventListener(ev, fire, { signal: ac.signal });
+  audio.addEventListener('emptied', () => onGone?.(), { signal: ac.signal });
   let loop = false;
   let cache = null; // the trace on tape, drawn once per size
 
@@ -38,6 +43,7 @@ export function takeSource(t, player) {
   return {
     kind: 'take',
     name: t.name,
+    audio,
     title,
     href: `/wave.html?file=${encodeURIComponent(t.name)}`,
     sampleRate: sr,
@@ -54,7 +60,9 @@ export function takeSource(t, player) {
     step: () => sr,
     get loop() { return loop; },
     canLoop: () => true,
-    setLoop(on) { loop = on; fire(); },
+    // Without a selection the audio loops itself, so a missed frame or a
+    // hidden page can't let it end; a selection is looped by tick().
+    setLoop(on) { loop = on; audio.loop = on && !region; fire(); },
     // Each frame while playing: Loop takes the playhead back to In at Out.
     tick() {
       if (!loop || !playing()) return;
@@ -95,6 +103,6 @@ export function takeSource(t, player) {
       ctx.fillRect(px - 1, 0, 2, H);
     },
     on(fn) { listeners.add(fn); },
-    destroy() { ac.abort(); listeners.clear(); cache = null; },
+    destroy() { ac.abort(); listeners.clear(); cache = null; audio.loop = false; },
   };
 }
