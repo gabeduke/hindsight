@@ -30,7 +30,8 @@ import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { TapeMachine } from './machine.js';
+import { ReelWindow } from '../bar/reel-window.js';
+import { tapeCounter, tapeMarquee } from '../bar/lcd.js';
 import { initNav } from '../nav.js';
 
 const $ = (id) => document.getElementById(id);
@@ -156,6 +157,7 @@ async function boot() {
     return;
   }
   $('tape-body').hidden = false;
+  $('np').hidden = false;
   if (!list.loaded) {
     // No tape yet: make the first one.
     const t = list.tapes[0] || await api('/api/tapes', { method: 'POST', body: { name: '' } });
@@ -247,13 +249,13 @@ function apply(s) {
   followPlayhead();
   tracePunch();
   render();
-  feedMachine();
+  feedReels();
 }
 
-// feedMachine hands the machine over the lanes what this poll said: where
-// the tape is, whether it plays or records, and how to read each track's
-// level at a frame.
-let machine = null;
+// feedReels hands the bar's reel window what this poll said: where the tape
+// is, whether it plays, and how to read each track's level at a frame for
+// the LCD's level bars.
+let reels = null;
 let output = null;
 let ghost = null; // a locate seen but not yet heard, { pos, until }
 const pending = new Pending();
@@ -280,21 +282,22 @@ function jamOnly() {
   $('jam-only').showModal();
   return true;
 }
-function feedMachine() {
+function feedReels() {
   const t = state.tape, live = state.live;
   if (!t) return;
-  machine ??= new TapeMachine($('tape-machine'));
-  machine.setTracks(t.tracks.length);
+  reels ??= new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
   const tracks = heardTracks();
   const anySolo = tracks.some((tr) => tr.solo);
   const peaksOf = (f) => peaks.get(f);
-  machine.poll({
+  const css = getComputedStyle(document.body);
+  const col = (n, d) => css.getPropertyValue(n).trim() || d;
+  reels.setLevels(tracks.map((tr) => trackColor(tr.n, col)),
+    (frame) => tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)));
+  reels.poll({
     heard: live ? live.heard : 0,
     playing: !!(live && live.playing && !(live.count_in > 0)),
-    recording: !!(live && live.record && live.record.state === 'on' && live.record.tape === t.id),
     length: t.length,
     sampleRate: t.sample_rate,
-    levels: (frame) => tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)),
   });
 }
 
@@ -402,22 +405,22 @@ function render() {
   $('play').disabled = !live || !live.output;
   $('loop').setAttribute('aria-pressed', String(!!t.loop.on));
   $('loop').disabled = !(t.loop.out > t.loop.in);
-  const heard = live ? live.heard : 0;
   const counting = !!(live && live.count_in > 0);
-  if (counting && t.grid) {
-    // The render head is ahead of what's heard by what's rendered ahead.
-    const beat = t.grid.frames / t.grid.bars / 4;
-    const left = Math.min(t.grid.frames / t.grid.bars, live.count_in + Math.max(0, live.out - live.delivered));
-    $('position').textContent = `count-in ${Math.min(4, Math.max(1, 4 - Math.floor((left - 1) / beat)))} of 4`;
-  } else if (md && md.state === 'playing') {
-    $('position').textContent = `mixing down · ${fmtSecs(Math.max(0, heard - md.from), sr)} of ${fmtSecs(md.to - md.from, sr)} · ■ cancels`;
-  } else if (md && md.state === 'tail') {
-    $('position').textContent = 'mixing down · letting it ring out · ■ cancels';
-  } else if (md && md.state === 'saving') {
-    $('position').textContent = 'saving the mixdown as a take…';
-  } else {
-    $('position').textContent = live ? `${barBeat(heard, t.grid) || ''} ${fmtSecs(heard, sr)}${live.output ? '' : ' · no output'}` : '';
-  }
+  // The bar's LCD: the position (or what's happening instead), the time, the
+  // lamp, and the line that names what's loaded.
+  const lcd = tapeCounter(t, live, md);
+  setText($('position'), lcd.big);
+  setText($('np-mini'), lcd.big);
+  setText($('np-time'), lcd.small);
+  setText($('np-unit'), lcd.unit);
+  setIf($('np-status'), 'data-state', lcd.status);
+  setText($('np-marquee'), tapeMarquee(t, live));
+  const ov = $('tape-overview');
+  setIf(ov, 'aria-valuemax', String(t.length));
+  setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
+  setIf(ov, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
+  $('to-start').disabled = !live;
+  setIf($('to-start'), 'aria-label', t.loop.on && t.loop.out > t.loop.in ? 'Back to the loop’s start' : 'Back to the top of the tape');
   // Rec: armed (waiting for ▶), counting in, or recording.
   const rec = live && live.record;
   const rb = $('rec');
@@ -452,7 +455,8 @@ function render() {
   rb.setAttribute('aria-disabled', String(phoneOut));
   rb.classList.toggle('dim', phoneOut);
   $('catch-pass').classList.toggle('jam-only', phoneOut);
-  $('catch-pass').textContent = phoneOut ? 'Catch · jam room only' : 'Catch the last pass';
+  setText($('catch-pass').querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : 'the last pass');
+  setIf($('catch-pass'), 'aria-label', phoneOut ? 'Catch: needs the jam room' : `Catch the last pass onto track ${state.track}`);
   $('jam-only-note').hidden = !phoneOut;
   for (const id of ['sources', 'catch-bars', 'catch-mode', 'passes']) $(id).hidden = phoneOut;
   renderMode();
@@ -1283,6 +1287,18 @@ function setView(v) {
 function wireOverview() {
   const cv = $('tape-overview');
   cv.style.touchAction = 'none';
+  // A slider for the keyboard too: ← → a bar (a second with no tempo).
+  // While a clip is being aligned the arrows are the editor's.
+  cv.addEventListener('keydown', (e) => {
+    const t = state.tape, live = state.live;
+    if (!t || !live || state.align || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const step = t.grid ? t.grid.frames / t.grid.bars : t.sample_rate;
+    const pos = Math.max(0, Math.min(t.length, live.heard + (e.key === 'ArrowRight' ? step : -step)));
+    transport('locate', { pos });
+  });
   let down = null, lastTap = null;
   const at = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, w: r.width }; };
   cv.addEventListener('pointerdown', (e) => {
@@ -1459,6 +1475,10 @@ function renderSources() {
     const title = (s.clean ? 'clean: no tape in it' : `the tape is in it (bus ${s.leaks.join('+')})`) + (lvl ? ` · ${lvl}` : '');
     if (b.title !== title) b.title = title;
   }
+}
+
+function setText(el, v) {
+  if (el.textContent !== v) el.textContent = v;
 }
 
 function setIf(el, attr, v) {
@@ -2110,6 +2130,12 @@ function wire() {
   $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('tape-out').click(); });
   $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('tape-out').click(); });
   $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
+  // |◂: to the loop's start while looping, else to the top of the tape.
+  $('to-start').addEventListener('click', () => {
+    const t = state.tape;
+    if (!t) return;
+    transport('locate', { pos: t.loop.on && t.loop.out > t.loop.in ? t.loop.in : 0 });
+  });
   $('rec').addEventListener('click', rec);
   $('click').addEventListener('click', () => patch({ click: !state.tape.click }));
   $('tap').addEventListener('click', tap);
@@ -2297,7 +2323,10 @@ function wire() {
   // visibilitychange when the app is switched or the screen locks.
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') bar.commit(); });
   window.addEventListener('pagehide', () => bar.commit());
-  new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); }).observe($('lanes'));
+  // The lanes and the bar's scrubber change width apart: each redraws all three.
+  const ro = new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); });
+  ro.observe($('lanes'));
+  ro.observe($('tape-overview'));
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
   $('view-fit').addEventListener('click', () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); });

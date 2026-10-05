@@ -52,11 +52,13 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
     }
   }
 
-  $('tape-out').addEventListener('click', () => {
+  // Two OUT pills, one control: the bar's, and the header's on a phone.
+  const openSheet = () => {
     const t = getTape();
     $('out-tape-name').textContent = (t && t.name) || 'this tape';
     sheet.showModal();
-  });
+  };
+  for (const b of document.querySelectorAll('.tape-out')) b.addEventListener('click', openSheet);
   $('out-close').addEventListener('click', () => sheet.close());
   for (const b of sheet.querySelectorAll('.out-choice')) b.addEventListener('click', () => setMode(b.dataset.mode));
   $('out-jam').addEventListener('click', () => setMode('jam'));
@@ -70,8 +72,11 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
     const st = (l && l.stream) || {};
     const here = player.active;
     const delay = `${((here ? player.delayMs() : st.delay_ms) / 1000 || 0.8).toFixed(1)} s`;
-    $('tape-out').hidden = !(l && l.output_mode);
-    $('tape-out-text').textContent = NAMES[mode];
+    for (const b of document.querySelectorAll('.tape-out')) {
+      b.hidden = !(l && l.output_mode);
+      const txt = b.querySelector('.tape-out-text');
+      if (txt.textContent !== NAMES[mode]) txt.textContent = NAMES[mode];
+    }
     for (const b of sheet.querySelectorAll('.out-choice')) b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
     $('out-measured').hidden = mode === 'jam';
     $('out-delay').textContent = delay;

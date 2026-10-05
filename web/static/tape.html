@@ -45,7 +45,7 @@
       </span>
     </div>
     <span class="menu-anchor out-anchor">
-      <button id="tape-out" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span id="tape-out-text" class="pill-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+      <button id="tape-out-top" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
     </span>
     <span class="appbar-spacer"></span>
     <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
@@ -90,16 +90,6 @@
       </div>
     </div>
 
-    <!-- The machine: reels that turn with the playhead and a meter bridge
-         (lib/tape/machine.js). A picture of the transport, not a control. -->
-    <div id="tape-machine" class="tape-machine" aria-hidden="true"></div>
-    <div id="out-strip" class="out-strip" role="status" hidden>
-      <span id="out-strip-led" class="out-led"></span>
-      <span id="out-strip-text">Ready on this phone</span>
-      <span id="out-strip-right" class="mono"></span>
-      <button id="out-strip-resume" class="chip" type="button" aria-label="Tap to play here on this phone" hidden>Tap to play here</button>
-    </div>
-    <canvas id="tape-overview" class="tape-overview" aria-label="The whole tape" data-tip="tape-overview"></canvas>
     <div class="tape-ruler-row">
       <span class="tape-ruler-gap"><button id="view-fit" class="chip view-fit" type="button" hidden data-tip="view-fit">Fit</button></span>
       <canvas id="tape-ruler" class="tape-ruler" aria-label="Bars: tap to move the playhead, hold and drag to set the loop" data-tip="tape-ruler"></canvas>
@@ -131,16 +121,6 @@
           </div>
         </div>
       </div>
-      <div class="tb-row transport">
-        <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play">▶</button>
-        <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop">⟲ Loop</button>
-        <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" aria-keyshortcuts="R" data-tip="tape-rec">● Rec</button>
-        <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
-      </div>
-      <div class="tb-row tape-where">
-        <span id="position" class="readout mono"></span>
-        <span id="clock-out" class="readout clock-out" hidden data-tip="tape-clock"></span>
-      </div>
       <p id="jam-only-note" class="jam-only-note" hidden>Rec, Catch and the passes wait for the jam room: this phone hears the tape late, so a pass would land off the beat. <a href="#" id="jam-only-change">Change the output</a></p>
       <div class="tb-row sources" role="group" aria-label="Record from">
         <span class="tb-label">Record from</span>
@@ -150,7 +130,7 @@
         <button id="away" class="icon-btn away-btn" type="button" data-tip="away">🎧 Overdub on this device</button>
       </div>
       <div class="tb-row catch">
-        <button id="catch-pass" class="icon-btn primary" type="button" data-tip="catch">Catch the last pass</button>
+        <span class="tb-label">Catch the last</span>
         <div class="seg" id="catch-bars" role="group" aria-label="Catch the last bars">
           <button type="button" data-bars="1" data-tip="catch-bars">1 bar</button>
           <button type="button" data-bars="2" data-tip="catch-bars">2</button>
@@ -190,6 +170,53 @@
     </div>
   </div>
 </main>
+
+<!-- The now-playing bar (docs/superpowers/specs/2026-10-05-transport-bar-design.md):
+     the reel window and its LCD, the transport, the page's own keys, the whole
+     tape as a scrubber, and OUT. Docked at the foot of the page; shown with
+     the tape's body. -->
+<section id="np" class="np" aria-label="Now playing" hidden>
+  <div id="out-strip" class="out-strip" role="status" hidden>
+    <span id="out-strip-led" class="out-led"></span>
+    <span id="out-strip-text">Ready on this phone</span>
+    <span id="out-strip-right" class="mono"></span>
+    <button id="out-strip-resume" class="chip" type="button" aria-label="Tap to play here on this phone" hidden>Tap to play here</button>
+  </div>
+  <div class="np-row np-row-1">
+    <div class="np-window">
+      <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+      <div class="np-lcd">
+        <div class="np-lcd-top">
+          <span id="np-status" class="np-status" data-state="stop" aria-hidden="true"></span>
+          <span id="np-unit" class="np-unit" aria-hidden="true">BAR</span>
+          <span id="position" class="np-pos"></span>
+          <span id="np-time" class="np-time"></span>
+          <span id="clock-out" class="np-clock" hidden data-tip="tape-clock"></span>
+          <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+        </div>
+        <div class="np-marquee" aria-hidden="true"><span id="np-marquee"></span></div>
+      </div>
+      <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+    </div>
+    <div class="np-keys tb-row transport" role="group" aria-label="Transport">
+      <button id="to-start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start"><svg width="18" height="16" viewBox="0 0 24 22" aria-hidden="true"><rect x="4" y="3" width="3" height="16" rx="1" fill="currentColor"/><path d="M20 4.2v13.6a1 1 0 0 1-1.55.84L9 12.84a1 1 0 0 1 0-1.68l9.45-6.8A1 1 0 0 1 20 4.2z" fill="currentColor"/></svg></button>
+      <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play">▶</button>
+      <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop">⟲ Loop</button>
+      <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" aria-keyshortcuts="R" data-tip="tape-rec">● Rec</button>
+      <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
+    </div>
+    <div class="np-own">
+      <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
+    </div>
+  </div>
+  <div class="np-row np-row-2">
+    <span id="np-mini" class="np-mini" aria-hidden="true"></span>
+    <canvas id="tape-overview" class="tape-overview np-scrub" role="slider" tabindex="0" aria-label="The whole tape: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="tape-overview"></canvas>
+    <span class="menu-anchor out-anchor np-out">
+      <button id="tape-out" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+    </span>
+  </div>
+</section>
 
 <dialog class="sheet" id="jam-only" aria-labelledby="jam-only-title">
   <div class="sheet-inner out-inner">
