@@ -3,7 +3,7 @@
 // to the take's own peak and lifted the way the design draws them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelsFor, takeGain, lift } from './draw.js';
+import { levelsFor, takeGain, lift, barSegments, drawBars } from './draw.js';
 
 // Two channels, eight buckets of min,max pairs.
 const pd = {
@@ -52,4 +52,37 @@ test('lift scales, clamps and bends a level like the design', () => {
   near(lift(0.5, 2), 1);
   near(lift(0.25), 0.25 ** 0.85);
   near(lift(-0.1), 0);
+});
+
+test('barSegments puts one rounded bar per pitch, never thinner than a dot', () => {
+  const segs = barSegments([0, 1, 0.25], { x0: 3, pitch: 4, cy: 10, half: 8 });
+  assert.deepEqual(segs.map((s) => s.x), [3, 7, 11]);
+  near(segs[0].y0, 9.4); near(segs[0].y1, 10.6);
+  near(segs[1].y0, 2); near(segs[1].y1, 18);
+  near(segs[2].y1 - 10, 0.25 ** 0.85 * 8);
+});
+
+test("barSegments scales by the take's gain", () => {
+  const [s] = barSegments([0.25], { pitch: 4, cy: 10, half: 8, gain: 4 });
+  near(s.y0, 2);
+});
+
+// A context that records what it is asked to do.
+function recorder() {
+  const calls = [];
+  const ctx = { calls, lineCap: 'butt', lineWidth: 1, strokeStyle: '#000' };
+  for (const m of ['beginPath', 'moveTo', 'lineTo', 'stroke'])
+    ctx[m] = (...a) => calls.push([m, ...a, m === 'stroke' ? ctx.strokeStyle : undefined].filter((v) => v !== undefined));
+  return ctx;
+}
+
+test('drawBars strokes one path per colour run, with round caps', () => {
+  const ctx = recorder();
+  drawBars(ctx, [0.5, 0.5, 0.5, 0.5], { pitch: 4, cy: 10, half: 8, color: (i) => (i < 2 ? 'a' : 'b') });
+  const strokes = ctx.calls.filter((c) => c[0] === 'stroke');
+  assert.deepEqual(strokes, [['stroke', 'a'], ['stroke', 'b']]);
+  assert.equal(ctx.lineCap, 'round');
+  assert.equal(ctx.lineWidth, 2.2);
+  assert.deepEqual(ctx.calls.filter((c) => c[0] === 'moveTo').map((c) => c[1]), [0, 4, 8, 12]);
+  assert.equal(ctx.calls.filter((c) => c[0] === 'lineTo').length, 4);
 });

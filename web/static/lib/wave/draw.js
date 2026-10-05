@@ -115,6 +115,42 @@ export function lift(v, gain = 1) {
 }
 
 /**
+ * barSegments places one bar per level, `pitch` px apart from x0: a vertical
+ * stroke centred on cy, `min` px either side at the least so silence still
+ * shows as a dot.
+ */
+export function barSegments(levels, { x0 = 0, pitch, cy, half, gain = 1, min = 0.6 }) {
+  return Array.from(levels, (v, i) => {
+    const a = Math.max(min, lift(v, gain) * half);
+    return { i, x: x0 + i * pitch, y0: cy - a, y1: cy + a };
+  });
+}
+
+/**
+ * drawBars draws the cassette window's waveform: rounded bars, one path per
+ * run of one colour, so a played/unplayed split costs two strokes. `color` is
+ * a colour or a function of the bar's index.
+ */
+export function drawBars(ctx, levels, { color, width = 2.2, ...opts }) {
+  const colorAt = typeof color === 'function' ? color : () => color;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = width;
+  let run = null;
+  for (const s of barSegments(levels, opts)) {
+    const c = colorAt(s.i);
+    if (c !== run) {
+      if (run !== null) ctx.stroke();
+      ctx.beginPath();
+      ctx.strokeStyle = c;
+      run = c;
+    }
+    ctx.moveTo(s.x, s.y0);
+    ctx.lineTo(s.x, s.y1);
+  }
+  if (run !== null) ctx.stroke();
+}
+
+/**
  * drawColumns paints columns (from peakColumns or TileCache.columns) as
  * lanes stacked top to bottom inside {top, height}. `color` may be a
  * function of x, for a played/unplayed split.
