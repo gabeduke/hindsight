@@ -9,7 +9,7 @@ import { initWakeLock } from '/lib/wakelock.js';
 import { initPhone } from '/lib/phone/recorder.js';
 import { initHelp } from '/lib/help/help.js';
 import { toast, takeNextToast } from '/lib/toast.js';
-import { latest } from '/lib/shelf.js';
+import { newest } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
 
 const $ = (id) => document.getElementById(id);
@@ -59,14 +59,21 @@ let selSeconds = 30;
 let captureErr = { text: '', since: 0, shown: false };
 const CAPTURE_ERR_HOLD_MS = 3500;
 
-// The newest take only: the takes page (takes.html) has the rest. Its ◂ ▸
-// still step through every take, in the list's own order.
+// On the shelf: the newest takes as cassette spines -- a press plays one --
+// as many as the screen holds; the takes page (takes.html) has the rest. Its
+// ◂ ▸ still step through every take, in the list's own order.
+const shelfWide = matchMedia('(min-width: 1100px)');
+const shelfBench = matchMedia('(min-width: 900px) and (orientation: landscape)');
+const shelfCount = () => (shelfWide.matches ? 6 : shelfBench.matches ? 4 : 3);
 const takes = new TakesList(el.takes, el.takesEmpty, {
   onToast: toast,
   onListChange: () => { el.allCount.textContent = takes.all.length ? String(takes.all.length) : ''; },
-  shape: (all) => { const t = latest(all); return [{ label: '', takes: t ? [t] : [] }]; },
+  shape: (all) => [{ label: '', takes: newest(all, shelfCount()) }],
   stepOrder: 'all',
+  spines: true,
+  spineAction: 'play',
 });
+for (const m of [shelfWide, shelfBench]) m.addEventListener('change', () => takes.reshape());
 
 // A take deleted from its own page comes back here with its Undo.
 function showNextToast() {

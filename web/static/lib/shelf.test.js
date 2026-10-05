@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, listFrom, parseBpm, flagChips, sheetState } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -146,4 +146,11 @@ test("the device's Forward reopens the sheet its entry names", () => {
 test('widening past the pane closes the sheet and takes its entry back', () => {
   assert.deepEqual(sheetState({ open: 'a' }, { type: 'widen' }), { open: null, history: 'back' });
   assert.deepEqual(sheetState({ open: null }, { type: 'widen' }), { open: null, history: null });
+});
+
+test('newest is the n newest takes, newest first, undated ones last', () => {
+  const t = [take('a', at(2026, 10, 1)), take('b', at(2026, 10, 3)), take('c', 'not a date'), take('d', at(2026, 10, 2))];
+  assert.deepEqual(newest(t, 3).map((x) => x.name), ['jam_b.wav', 'jam_d.wav', 'jam_a.wav']);
+  assert.deepEqual(newest(t, 9).map((x) => x.name).at(-1), 'jam_c.wav');
+  assert.deepEqual(newest([], 3), []);
 });

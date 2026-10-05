@@ -69,6 +69,12 @@ export function shelve(takes, opts = {}, now = Date.now()) {
 }
 
 /** latest is the newest take by when it was made, or null for none. */
+/** newest is the `n` newest takes, newest first; a take with no date goes last. */
+export function newest(takes, n) {
+  const at = (t) => { const w = when(t); return Number.isNaN(w) ? -Infinity : w; };
+  return [...takes].sort((a, b) => at(b) - at(a)).slice(0, n);
+}
+
 export function latest(takes) {
   let best = null;
   for (const t of takes) {

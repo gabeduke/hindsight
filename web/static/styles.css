@@ -1961,7 +1961,7 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .stripe-4 { --stripe: var(--stripe-4); --stripe-ink: var(--stripe-4-ink); --stripe-under: var(--stripe-4-under); }
 .stripe-5 { --stripe: var(--stripe-5); --stripe-ink: var(--stripe-5-ink); --stripe-under: var(--stripe-5-under); }
 .shelf-page .takes { gap: 6px; }
-.shelf-page .take.spine {
+.take.spine {
   display: flex; align-items: stretch; height: 52px; box-sizing: border-box;
   padding: 3px 3px 4px; border-radius: 7px; cursor: pointer; color: var(--paper-ink);
   background: linear-gradient(180deg, var(--case-hi), var(--case-lo));
@@ -1980,52 +1980,71 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
   background: var(--stripe); color: var(--stripe-ink); font: 700 15px var(--label-font);
   box-shadow: inset -2px 0 0 rgba(0,0,0,.14);
 }
-.shelf-page .take.spine .take-head { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; margin: 0; }
-.shelf-page .take.spine .take-name {
+.take.spine .take-head { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; margin: 0; }
+.take.spine .take-name {
   flex: 1 1 auto; min-width: 0; padding: 0; pointer-events: none;
   font: 400 17px/1.15 'Permanent Marker', var(--font); color: var(--paper-ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
 }
-.shelf-page .take.spine .star { order: 2; width: auto; height: auto; margin: 0; font-size: 14px; pointer-events: none; }
-.shelf-page .take.spine .star:not(.on) { display: none; }
-.shelf-page .take.spine .take-info { order: 3; }
-.shelf-page .take.spine .take-bpm { display: none; pointer-events: none; }
-.shelf-page .take.spine .take-meta { font: 11.5px var(--mono); color: var(--paper-dim); white-space: nowrap; }
-.shelf-page .take.spine .wave {
+.take.spine .star { order: 2; width: auto; height: auto; margin: 0; font-size: 14px; pointer-events: none; }
+.take.spine .star:not(.on) { display: none; }
+.take.spine .take-info { order: 3; }
+.take.spine .take-bpm { display: none; pointer-events: none; }
+.take.spine .take-meta { font: 11.5px var(--mono); color: var(--paper-dim); white-space: nowrap; }
+.take.spine .wave {
   flex: none; width: 150px; height: 26px; margin: 0; pointer-events: none;
   background: none; box-shadow: none; border-radius: 0; font-size: 0;
 }
-.shelf-page .take.spine .take-flags, .shelf-page .take.spine .take-actions { display: none; }
+.take.spine .take-flags, .take.spine .take-actions { display: none; }
 .spine-led {
   flex: none; width: 7px; height: 7px; border-radius: 50%;
   background: color-mix(in srgb, var(--paper-ink) 18%, transparent);
 }
-.shelf-page .take.spine.picked .spine-led, .shelf-page .take.spine.playing .spine-led {
+.take.spine.picked .spine-led, .take.spine.playing .spine-led {
   background: var(--wave-hot); box-shadow: 0 0 8px var(--wave-hot);
 }
-.shelf-page .take.spine.playing .spine-led { animation: ledpulse 1.1s ease-in-out infinite; }
+.take.spine.playing .spine-led { animation: ledpulse 1.1s ease-in-out infinite; }
 @keyframes ledpulse { 50% { opacity: .45; } }
-.shelf-page .take.spine.picked {
+.take.spine.picked {
   transform: translateX(12px);
   box-shadow: 0 14px 24px -14px rgba(0,0,0,.7), 0 0 0 2px var(--focus), inset 0 1px 0 rgba(255,255,255,.35);
 }
-.shelf-page .take.spine:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.take.spine:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 @media (hover: hover) {
-  .shelf-page .take.spine:not(.picked):hover { box-shadow: 0 10px 18px -12px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.35); }
+  .take.spine:not(.picked):hover { box-shadow: 0 10px 18px -12px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.35); }
 }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .shelf-page .take.spine:not(.picked):hover { transform: translateX(6px); }
+  .take.spine:not(.picked):hover { transform: translateX(6px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .shelf-page .take.spine { transition: none; }
-  .shelf-page .take.spine.playing .spine-led { animation: none; }
+  .take.spine { transition: none; }
+  .take.spine.playing .spine-led { animation: none; }
 }
+/* A fresh capture slides onto the shelf, wearing a sticker. */
+.take.spine.fresh { animation: spinein .38s cubic-bezier(.2,.8,.3,1); }
+@keyframes spinein { from { transform: translateX(-40px); opacity: 0; } }
+.spine-new {
+  position: absolute; right: -6px; top: -7px; padding: 1px 6px; border-radius: 4px;
+  background: var(--accent); color: var(--on-accent); font: 700 11px var(--label-font); letter-spacing: .1em;
+  box-shadow: 0 2px 6px rgba(0,0,0,.35); transform: rotate(4deg); pointer-events: none;
+}
+/* The Capture page's shelf: smaller spines, and the one playing slides out
+   as a picked one does on the takes page. */
+.main-page .takes { gap: 7px; padding-right: 14px; }
+.main-page .take.spine { height: 46px; }
+.main-page .take.spine .take-name { font-size: 15px; }
+.main-page .take.spine .wave { width: 90px; height: 24px; }
+.main-page .take.spine.playing {
+  transform: translateX(12px);
+  box-shadow: 0 14px 24px -14px rgba(0,0,0,.7), 0 0 0 2px var(--focus), inset 0 1px 0 rgba(255,255,255,.35);
+}
+@media (prefers-reduced-motion: reduce) { .take.spine.fresh { animation: none; } }
 @media (max-width: 599.98px) {
-  .shelf-page .take.spine { height: 46px; }
+  .take.spine { height: 46px; }
   .spine-card { gap: 8px; padding-right: 8px; }
-  .shelf-page .take.spine .take-name { font-size: 15px; }
-  .shelf-page .take.spine .wave { width: 52px; height: 22px; }
+  .take.spine .take-name { font-size: 15px; }
+  .take.spine .wave { width: 52px; height: 22px; }
 }
 
 /* On a phone (narrower than rack-and-pane), the picked take's cassette is a

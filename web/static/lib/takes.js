@@ -40,11 +40,22 @@ export class TakesList {
    * every take, in the server's order, under none. The take page's ◂ ▸ step
    * through what is shown, or with stepOrder 'all' through every take.
    *
-   * spines draws each take as a cassette spine (the takes page's rack): for
-   * picking, its controls on the picked take's cassette instead of the row.
+   * spines draws each take as a cassette spine: on the takes page (the
+   * rack) for picking, its controls on the picked take's cassette; with
+   * spineAction 'play' (the main page's shelf), a press plays or pauses it.
    */
-  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown', spines = false }) {
+  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick' }) {
     this.spines = spines;
+    this.spineAction = spineAction;
+    if (spines && spineAction === 'play') {
+      const act = (row) => { const r = row && this.rows.get(row.dataset.name); if (r) this.togglePlay(r); };
+      container.addEventListener('click', (e) => act(e.target.closest('.take.spine')));
+      container.addEventListener('keydown', (e) => {
+        if ((e.key !== 'Enter' && e.key !== ' ') || !e.target.classList?.contains('spine')) return;
+        e.preventDefault();
+        act(e.target);
+      });
+    }
     this.container = container;
     this.emptyEl = emptyEl;
     this.onToast = onToast;
@@ -275,6 +286,7 @@ export class TakesList {
       el.classList.add('spine', `stripe-${stripeOf(t.name)}`);
       el.tabIndex = 0;
       el.setAttribute('role', 'button');
+      if (this.spineAction === 'play') el.setAttribute('aria-pressed', 'false');
     }
 
     const row = {
@@ -437,6 +449,15 @@ export class TakesList {
       el.classList.add('fresh');
       this.fresh = null;
       setTimeout(() => el.classList.remove('fresh'), 1400);
+      // A new cassette on the shelf wears a sticker for a while.
+      if (this.spines) {
+        const tag = document.createElement('span');
+        tag.className = 'spine-new';
+        tag.setAttribute('aria-hidden', 'true');
+        tag.textContent = 'NEW';
+        el.append(tag);
+        setTimeout(() => tag.remove(), 6000);
+      }
     }
 
     this.io.observe(el);
@@ -671,22 +692,26 @@ export class TakesList {
       this.playing = row.name;
       row.playBtn.textContent = 'Pause';
       row.el.classList.add('playing');
+      if (this.spineAction === 'play') row.el.setAttribute('aria-pressed', 'true');
     });
     ws.on('pause', () => {
       if (this.playing === row.name) this.playing = null;
       row.playBtn.textContent = 'Play';
       row.el.classList.remove('playing');
+      if (this.spineAction === 'play') row.el.setAttribute('aria-pressed', 'false');
     });
     ws.on('finish', () => {
       if (this.playing === row.name) this.playing = null;
       row.playBtn.textContent = 'Play';
       row.el.classList.remove('playing');
+      if (this.spineAction === 'play') row.el.setAttribute('aria-pressed', 'false');
     });
     ws.on('error', () => {
       this.onToast?.('Preview failed to load', 'bad');
       if (this.playing === row.name) this.playing = null;
       row.playBtn.textContent = 'Play';
       row.el.classList.remove('playing');
+      if (this.spineAction === 'play') row.el.setAttribute('aria-pressed', 'false');
     });
 
     // row.waveEl.textContent was just cleared to give the wave an empty
