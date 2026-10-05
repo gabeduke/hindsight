@@ -46,3 +46,29 @@ export function heardIndex({ rd, at }, now, rate, latencyS) {
 }
 
 export function nextBackoff(ms) { return Math.min(5000, ms ? ms * 2 : 500); }
+
+// step is the worklet's decision for one render quantum of n frames, from
+// its write index w and read index rd: whether to play, and from where. It
+// waits for 0.8 s, then starts exactly 0.8 s behind the newest frame (a
+// burst after a stall must not leave it seconds behind); it stops on an
+// underrun; every 2048 frames it trims a frame to hold 0.8 s against the
+// Pi's clock; an overrun keeps the newest. stream-worklet.js has an
+// identical copy (a worklet can't import reliably on older Safari); a test
+// holds them the same.
+export function step({ w, rd, started, since, n, rate }) {
+  const target = Math.round(0.8 * rate), band = Math.round(0.05 * rate), size = 1 << 17;
+  if (w - rd > size - 4096) rd = w - target; // overrun: keep the newest
+  if (!started) {
+    if (w - rd < target) return { rd, started, since, underrun: false };
+    return { rd: w - target, started: true, since: 0, underrun: false };
+  }
+  const fill = w - rd;
+  if (fill < n) return { rd, started: false, since, underrun: true };
+  since += n;
+  if (since >= 2048) {
+    since = 0;
+    if (fill > target + band) rd++;       // the Pi runs fast: skip a frame
+    else if (fill < target - band) rd--;  // slow: play one twice
+  }
+  return { rd, started, since, underrun: false };
+}

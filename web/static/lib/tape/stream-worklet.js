@@ -1,7 +1,26 @@
 // Plays the tape's stream: stereo PCM16 fed over the port into a ring, held
 // at about 0.8 s, trimmed a frame at a time to follow the Pi's clock. It
 // reports its read index so the page knows what is being heard.
-const TARGET_S = 0.8, BAND_S = 0.05, EVERY = 2048, SIZE = 1 << 17, MASK = SIZE - 1;
+const SIZE = 1 << 17, MASK = SIZE - 1; // step's size
+
+// step is a copy of stream-buffer.js's, which has the tests: keep them the same.
+function step({ w, rd, started, since, n, rate }) {
+  const target = Math.round(0.8 * rate), band = Math.round(0.05 * rate), size = 1 << 17;
+  if (w - rd > size - 4096) rd = w - target; // overrun: keep the newest
+  if (!started) {
+    if (w - rd < target) return { rd, started, since, underrun: false };
+    return { rd: w - target, started: true, since: 0, underrun: false };
+  }
+  const fill = w - rd;
+  if (fill < n) return { rd, started: false, since, underrun: true };
+  since += n;
+  if (since >= 2048) {
+    since = 0;
+    if (fill > target + band) rd++;       // the Pi runs fast: skip a frame
+    else if (fill < target - band) rd--;  // slow: play one twice
+  }
+  return { rd, started, since, underrun: false };
+}
 
 class HindsightStream extends AudioWorkletProcessor {
   constructor() {
@@ -18,35 +37,27 @@ class HindsightStream extends AudioWorkletProcessor {
         this.r[this.w & MASK] = pcm[i + 1] / 32768;
         this.w++;
       }
-      if (this.w - this.rd > SIZE - 4096) this.rd = this.w - Math.round(TARGET_S * sampleRate); // overrun: keep the newest
     };
   }
 
   process(_in, outputs) {
     const [L, R] = outputs[0];
-    const n = L.length, target = TARGET_S * sampleRate, band = BAND_S * sampleRate;
-    let fill = this.w - this.rd;
-    if (!this.started && fill >= target) this.started = true;
-    if (!this.started || fill < n) {
+    const n = L.length;
+    const s = step({ w: this.w, rd: this.rd, started: this.started, since: this.since, n, rate: sampleRate });
+    this.rd = s.rd; this.started = s.started; this.since = s.since;
+    if (s.underrun) this.port.postMessage({ underrun: true });
+    if (!this.started) {
       L.fill(0); if (R) R.fill(0);
-      if (this.started) { this.started = false; this.port.postMessage({ underrun: true }); }
     } else {
-      this.since += n;
-      if (this.since >= EVERY) {
-        this.since = 0;
-        if (fill > target + band) this.rd++;          // the Pi runs fast: skip a frame
-        else if (fill < target - band) this.rd--;     // slow: play one twice
-      }
       for (let i = 0; i < n; i++) {
         L[i] = this.l[this.rd & MASK];
         if (R) R[i] = this.r[this.rd & MASK];
         this.rd++;
       }
-      fill = this.w - this.rd;
     }
     if (currentTime - this.lastReport >= 0.05) {
       this.lastReport = currentTime;
-      this.port.postMessage({ rd: this.rd, at: currentTime, fill, started: this.started });
+      this.port.postMessage({ rd: this.rd, at: currentTime, fill: this.w - this.rd, started: this.started });
     }
     return true;
   }

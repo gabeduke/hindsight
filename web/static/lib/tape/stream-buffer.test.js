@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePacket, StampLog, heardIndex, nextBackoff } from './stream-buffer.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parsePacket, StampLog, heardIndex, nextBackoff, step } from './stream-buffer.js';
 
 function packet(frame, pos, playing, frames = 4) {
   const b = new ArrayBuffer(24 + frames * 4);
@@ -49,4 +52,54 @@ test('the heard index is the read index, plus time since, less the output latenc
 test('reconnects back off to five seconds', () => {
   assert.deepEqual([0, 500, 1000, 2000, 4000].map(nextBackoff), [500, 1000, 2000, 4000, 5000]);
   assert.equal(nextBackoff(5000), 5000);
+});
+
+// The worklet's ring at 48 kHz: 0.8 s is 38400 frames, the band 2400.
+const at = (o) => step({ rd: 0, started: true, since: 0, n: 128, rate: 48000, ...o });
+
+test('the ring waits for 0.8 s before it plays', () => {
+  assert.deepEqual(step({ w: 38399, rd: 0, started: false, since: 0, n: 128, rate: 48000 }),
+    { rd: 0, started: false, since: 0, underrun: false });
+});
+
+test('it starts exactly 0.8 s behind the newest frame, however much a burst brought', () => {
+  assert.deepEqual(step({ w: 38400, rd: 0, started: false, since: 500, n: 128, rate: 48000 }),
+    { rd: 0, started: true, since: 0, underrun: false });
+  assert.deepEqual(step({ w: 90000, rd: 0, started: false, since: 0, n: 128, rate: 48000 }),
+    { rd: 90000 - 38400, started: true, since: 0, underrun: false });
+});
+
+test('too little to fill the quantum is an underrun', () => {
+  assert.deepEqual(at({ w: 100, rd: 0 }), { rd: 0, started: false, since: 0, underrun: true });
+});
+
+test('running fast, it skips one frame every 2048', () => {
+  const fill = 38400 + 2400 + 1;
+  assert.deepEqual(at({ w: fill, since: 1920 }), { rd: 1, started: true, since: 0, underrun: false });
+  assert.deepEqual(at({ w: fill, since: 1792 }), { rd: 0, started: true, since: 1920, underrun: false });
+});
+
+test('running slow, it plays one frame twice', () => {
+  assert.deepEqual(at({ w: 1000 + 38400 - 2400 - 1, rd: 1000, since: 1920 }), { rd: 999, started: true, since: 0, underrun: false });
+});
+
+test('inside the band it leaves the read alone', () => {
+  assert.deepEqual(at({ w: 38400 + 2400, since: 1920 }), { rd: 0, started: true, since: 0, underrun: false });
+});
+
+test('an overrun keeps the newest 0.8 s', () => {
+  const w = 200000;
+  assert.deepEqual(at({ w, rd: w - (1 << 17) }), { rd: w - 38400, started: true, since: 128, underrun: false });
+});
+
+test('the worklet plays by the same step', () => {
+  const dir = path.dirname(fileURLToPath(import.meta.url));
+  const body = (f) => {
+    const s = fs.readFileSync(path.join(dir, f), 'utf8');
+    const i = s.indexOf('function step(');
+    return s.slice(i, s.indexOf('\n}\n', i));
+  };
+  const a = body('stream-buffer.js');
+  assert.ok(a.length > 100);
+  assert.equal(body('stream-worklet.js'), a);
 });
