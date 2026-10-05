@@ -187,6 +187,40 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await phone.close();
 }
 
+// The take's now-playing bar: its overview is the bar's scrubber, ▶ turns to
+// ❚❚ and the lamp lights, a tap on the scrubber moves the playhead, and on a
+// phone, upright or sideways, ▶ and In are on screen.
+{
+  const takes = await (await fetch(`${BASE}/api/jams`)).json();
+  const url = `${BASE}/wave.html?file=${encodeURIComponent(takes[0].name)}`;
+  const p = await (await browser.newContext({ viewport: { width: 1024, height: 768 } })).newPage();
+  await p.goto(url);
+  await p.waitForTimeout(2000);
+  check('a take: the overview is the bar\'s scrubber', await p.evaluate(() => !!document.querySelector('#np #overview-canvas')));
+  await p.click('#play');
+  await p.waitForTimeout(1200);
+  const playing = await p.evaluate(() => ({ glyph: document.getElementById('play').textContent, lamp: document.getElementById('np-status').dataset.state }));
+  check('a take: ▶ turns to ❚❚ and the lamp lights', playing.glyph === '❚❚' && playing.lamp === 'play', JSON.stringify(playing));
+  await p.click('#play');
+  const box = await p.locator('#overview-canvas').boundingBox();
+  await p.mouse.click(box.x + box.width * 0.75, box.y + box.height / 2);
+  await p.waitForTimeout(400);
+  const at = await p.evaluate(() => Number(document.getElementById('overview-canvas').getAttribute('aria-valuenow')) / Number(document.getElementById('overview-canvas').getAttribute('aria-valuemax')));
+  check('a take: a tap on the scrubber moves the playhead there', Math.abs(at - 0.75) < 0.03, at.toFixed(3));
+  await p.context().close();
+  for (const [w, h] of [[390, 844], [844, 390]]) {
+    const q = await (await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true })).newPage();
+    await q.goto(url);
+    await q.waitForTimeout(1800);
+    const on = await q.evaluate(() => ['#play', '#set-in', '#overview-canvas'].every((s) => {
+      const b = document.querySelector(s).getBoundingClientRect();
+      return b.width > 0 && b.top >= 0 && b.bottom <= innerHeight;
+    }));
+    check(`a take, ${w}x${h}: ▶, In and the scrubber on screen`, on);
+    await q.context().close();
+  }
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

@@ -200,8 +200,6 @@ point at the gestures that matter; **Got it** puts them away for good.
   0.05, the clock's is kept (*· clock*), and so it is for a take with no steady
   pulse. Takes from before this update keep their clock tempo until you edit
   them. Tap it to type your own.
-- **The overview:** the whole take. Drag its window to move along; double-tap
-  to see it all.
 - **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
   pins above them. **▾** is the playhead; drag it to scrub silently. With a
   BPM, bar **1** is the downbeat; drag it to line the grid up.
@@ -211,11 +209,19 @@ point at the gestures that matter; **Got it** puts them away for good.
   sound's envelope: at the closest zoom it doesn't show each wave crossing.
 - **The grips,** under the waveform at the selection's ends, with the move
   handle between them.
-- **The toolbar:** ▶ · ⟲ Loop · In · Out · ⚑ · ◂⚑ ⚑▸; then, with a
-  selection, its In and Out times with their nudges, its length and *Clear*;
-  then *Save as take* · *Send to tape* (when the Pi runs the tape) · *Share*
-  · *More*; then the position, *Snap* and
+- **The toolbar:** with a selection, its In and Out times with their
+  nudges, its length and *Clear*; then *Save as take* · *Send to tape* (when
+  the Pi runs the tape) · *Share* · *More*; then ◂⚑ ⚑▸, *Snap* and
   *Practice speed*.
+- **The bar,** along the foot of the page, as on the tape page: the take's
+  reels either side of an amber window, which says where it is (bar.beat
+  with a BPM, with the time beside it; otherwise the time, and the take's
+  length) with ▶ or ❚❚ and a level bar for each side; then **|◂** (back to
+  In, or to the start), **▶ / ❚❚** and **⟲ Loop**; then **IN**, **OUT** and
+  **⚑**. Under them, **the overview:** the whole take, its scrubber. Tap it to
+  move the playhead there, drag its window to move along, double-tap to see
+  it all; with it focused, ← → move a second. **OUT · This device**: a take
+  plays here. On a phone the bar is docked above the tabs.
 - **The MIDI lanes,** if the take has MIDI. Tap a lane's name for its menu:
   collapse, show as drums or notes, or hide.
 
@@ -1215,9 +1221,10 @@ has no tip.
 | ⋯ | Reset the downbeat, or open this guide |
 | Reset the downbeat | Put bar 1 back at the start of the take |
 | The guide | How Hindsight works, in plain words |
-| Overview | The whole take. Drag the window to move along it; double-tap to see it all |
+| Overview | The whole take, in the bar. Tap to move the playhead there; drag the window to move along it; double-tap to see it all. With it focused, ← → move a second |
 | Waveform | Drag to move along, pinch to zoom. Hold, then drag, to select. Tap to move the playhead; tap twice to flag |
 | ▶ | Play from the playhead |
+| To In (take) | Back to In; with nothing selected, to the start of the take |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |
