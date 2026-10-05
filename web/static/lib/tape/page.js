@@ -6,8 +6,12 @@
 import { toast } from '../toast.js';
 import { canShareFiles, shareOrDownload } from '../wave/share.js';
 import { initHelp } from '../help/help.js';
-import { drawBars, takeGain } from '../wave/draw.js';
-import { clipLabel, blockLevels, labelFits, placeLabel } from './blocks.js';
+import { drawBars, takeGain, levelsOfColumns, laneChannels } from '../wave/draw.js';
+import { drawTrace, traceLines } from '../wave/tape-strip.js';
+import { TileCache } from '../wave/tiles.js';
+import { MIN_FPP } from '../edit/gestures.js';
+import { clipLabel, blockLevels, labelFits, placeLabel, needsDetail } from './blocks.js';
+import { fileView } from './align.js';
 import { roundRectPath } from '../cassette-geom.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
@@ -52,6 +56,35 @@ const gains = new Map();
 function gainOf(file, pd) {
   if (!gains.has(file)) gains.set(file, takeGain(pd));
   return gains.get(file);
+}
+
+// Range peaks per pool file, for the stretch of a clip on screen at deep zoom
+// (/api/tapes/peaks), cached as tiles the way the take page's are.
+const tiles = new Map(); // pool file -> TileCache
+function tilesOf(file, pd) {
+  let tc = tiles.get(file);
+  if (!tc) {
+    tc = new TileCache({
+      file, totalFrames: Math.round(pd.duration * pd.sample_rate), filePeaks: pd,
+      urlFor: (f, t, b) => `/api/tapes/peaks?file=${encodeURIComponent(file)}&from=${f}&to=${t}&buckets=${b}`,
+      onChange: redrawLanes,
+    });
+    tiles.set(file, tc);
+  }
+  return tc;
+}
+
+// dropTiles lets go of the tiles of files no longer on the tape.
+function dropTiles(t) {
+  const on = new Set(t.tracks.flatMap((tr) => tr.clips.map((c) => c.file)));
+  for (const [f, tc] of tiles) if (!on.has(f)) { tc.stop(); tiles.delete(f); }
+}
+
+// redrawLanes redraws the lanes once a frame however many tiles arrive.
+let lanesRaf = 0;
+function redrawLanes() {
+  if (lanesRaf) return;
+  lanesRaf = requestAnimationFrame(() => { lanesRaf = 0; drawLanes(); });
 }
 
 function readPref(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }
@@ -184,7 +217,7 @@ function apply(s) {
   state.undo = s.undo || 0;
   state.redo = s.redo || 0;
   if (state.track > state.tape.tracks.length) state.track = 1;
-  if (changed) { buildLanes(); loadPeaks(); }
+  if (changed) { buildLanes(); loadPeaks(); dropTiles(state.tape); }
   followPlayhead();
   tracePunch();
   render();
@@ -802,8 +835,9 @@ onSchemeChange(redrawView);
 
 function renderFit() { $('view-fit').hidden = !state.zoom; }
 
-// The closest the view goes: a quarter of a second across.
-const minSpan = () => Math.round(state.tape.sample_rate * 0.25);
+// The closest the view goes: the take page's 8 px to the sample.
+const laneWidth = () => (lanes[0] ? lanes[0].canvas.getBoundingClientRect().width : 0) || 0;
+const minSpan = () => Math.max(1, Math.round(MIN_FPP * laneWidth()));
 
 function setView(v) {
   const now = performance.now();
@@ -1105,7 +1139,38 @@ function drawLanes() {
       ctx.fillStyle = withAlpha(tc, c.layer ? 0.1 : 0.16);
       ctx.fill();
       const pd = peaks.get(c.file);
-      if (pd && !(pd instanceof Promise) && bw > 8) {
+      const ready = pd && !(pd instanceof Promise);
+      if (ready && bw > 8 && needsDetail(c, pd, view, W)) {
+        // Deep in: the stretch of the file on screen as a trace, from range
+        // peaks (the coarser level shows while a tile loads), one lane a channel.
+        const xa = Math.max(0, x0), xb = Math.min(W, x1);
+        const fv = fileView(c, view, W, t.sample_rate);
+        const { cols, channels } = tilesOf(c.file, pd).columns({ start: fv.start + xa * fv.fpp, fpp: fv.fpp, width: xb - xa }, dpr);
+        const laneCh = laneChannels(channels);
+        const laneH = h / laneCh.length;
+        const gain = gainOf(c.file, pd);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(xa, top, xb - xa, h);
+        ctx.clip();
+        const lit = heard != null && heard > xa;
+        const drawn = laneCh.map((ch, i) => {
+          const lv = levelsOfColumns(cols, channels, ch);
+          const opts = { cy: top + laneH * (i + 0.5), half: Math.max(1, laneH / 2 - 4), gain, x0: xa };
+          const lines = traceLines(lv, lv, opts);
+          drawTrace(ctx, null, null, { ...opts, lines, line: withAlpha(tc, c.layer ? 0.4 : 0.55) });
+          return { opts, lines };
+        });
+        if (lit) {
+          ctx.beginPath();
+          ctx.rect(xa, top, Math.min(heard, xb) - xa, h);
+          ctx.clip();
+          for (const { opts, lines } of drawn) {
+            drawTrace(ctx, null, null, { ...opts, lines, line: tc, fillAlpha: 0.14, width: 1.3, glow: [{ color: withAlpha(tc, 0.7), blur: 4 }] });
+          }
+        }
+        ctx.restore();
+      } else if (ready && bw > 8) {
         const lv = blockLevels(pd, c, bw);
         const bars = { x0: x0 + 4, pitch: 4, cy: top + h / 2 + 3, half: Math.max(1, h / 2 - 12), gain: gainOf(c.file, pd), width: 2.2 };
         ctx.save();

@@ -46,3 +46,14 @@ export function placeLabel(placed, r) {
   if (!hit) placed.push(r);
   return !hit;
 }
+
+/**
+ * needsDetail says whether a clip's block is drawn from range peaks rather
+ * than the whole file's: when a bucket of the file's peaks spans more than
+ * two pixels of the view (`view` is {from, to} in tape frames, `width` px
+ * across).
+ */
+export function needsDetail(clip, pd, view, width) {
+  if (!pd || !(pd.buckets > 0) || !(width > 0)) return false;
+  return (pd.duration * pd.sample_rate) / pd.buckets > (2 * (view.to - view.from)) / width;
+}
