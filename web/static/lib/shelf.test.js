@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -206,4 +206,119 @@ test('sorting by tag makes a group per tag in list order, the untagged last', ()
   // A tag nobody wears has no heading; with no tags at all there is one group.
   assert.deepEqual(shelve([takes[3]], { sort: 'tag', tags: TAGS }, NOW).map((g) => g.label), ['UNTAGGED']);
   assert.deepEqual(shelve(takes, { sort: 'tag', tags: [] }, NOW).map((g) => g.label), ['NO TAGS YET']);
+});
+
+// --- families: cuts and mixdowns fold into a spine ---------------------------
+
+const cutOf = (name, created, from, extra = {}) =>
+  take(name, created, { source: { name: `jam_${from}.wav`, start_frame: 0, end_frame: 1 }, ...extra });
+const mixOf = (name, created, tape_id, label = 'Night tape') => take(name, created, { origin: 'tape', tape_id, label });
+const names = (l) => l.map((t) => t.name.replace(/^jam_|\.wav$/g, ''));
+
+test('fold: nothing to fold leaves the list as it is', () => {
+  const f = fold([take('a', at(2026, 10, 4, 10)), take('b', at(2026, 10, 4, 9))]);
+  assert.deepEqual(names(f.shelf), ['a', 'b']);
+  assert.equal(f.cuts.size + f.mixes.size + f.under.size, 0);
+});
+
+test('fold: cuts fold into their original, oldest first', () => {
+  const f = fold([cutOf('c2', at(2026, 10, 4, 12), 'jam'), take('jam', at(2026, 10, 4, 10)), cutOf('c1', at(2026, 10, 4, 11), 'jam')]);
+  assert.deepEqual(names(f.shelf), ['jam']);
+  assert.deepEqual(names(f.cuts.get('jam_jam.wav')), ['c1', 'c2']);
+  assert.equal(f.under.get('jam_c2.wav'), 'jam_jam.wav');
+});
+
+test('fold: a cut of a cut folds into the first take, in either order', () => {
+  const jam = take('jam', at(2026, 10, 4, 10)), c = cutOf('c', at(2026, 10, 4, 11), 'jam'), cc = cutOf('cc', at(2026, 10, 4, 12), 'c');
+  for (const l of [[cc, c, jam], [jam, c, cc]]) {
+    const f = fold(l);
+    assert.deepEqual(names(f.shelf), ['jam']);
+    assert.deepEqual(names(f.cuts.get('jam_jam.wav')), ['c', 'cc']);
+  }
+});
+
+test('fold: a cut whose original is not in the list stands on the shelf', () => {
+  const f = fold([cutOf('c', at(2026, 10, 4, 11), 'gone'), cutOf('cc', at(2026, 10, 4, 12), 'c')]);
+  assert.deepEqual(names(f.shelf), ['c']);
+  assert.deepEqual(names(f.cuts.get('jam_c.wav')), ['cc']);
+});
+
+test('fold: one tape\'s mixdowns fold into the newest, the rest newest first', () => {
+  const f = fold([
+    mixOf('m1', at(2026, 10, 4, 19, 58), 't1'), mixOf('m3', at(2026, 10, 4, 20, 55), 't1'),
+    mixOf('m2', at(2026, 10, 4, 20, 31), 't1'), mixOf('x', at(2026, 10, 4, 20), 't2'),
+  ]);
+  assert.deepEqual(names(f.shelf), ['m3', 'x']);
+  assert.deepEqual(names(f.mixes.get('jam_m3.wav')), ['m2', 'm1']);
+  assert.equal(f.mixes.has('jam_x.wav'), false);
+});
+
+test('fold: mixdowns from before tape_id group by label; a renamed one with an id stays with its tape', () => {
+  const old = fold([mixOf('a1', at(2026, 10, 1), undefined), mixOf('a2', at(2026, 10, 2), undefined), mixOf('b', at(2026, 10, 2, 13), undefined, 'Day tape')]);
+  assert.deepEqual(names(old.shelf), ['a2', 'b']);
+  const renamed = fold([mixOf('m1', at(2026, 10, 4, 10), 't1', 'final?'), mixOf('m2', at(2026, 10, 4, 11), 't1')]);
+  assert.deepEqual(names(renamed.shelf), ['m2']);
+});
+
+test('fold: a cut of an earlier mix folds into the mix that stands in', () => {
+  const f = fold([mixOf('m1', at(2026, 10, 4, 10), 't1'), mixOf('m2', at(2026, 10, 4, 11), 't1'), cutOf('c', at(2026, 10, 4, 12), 'm1')]);
+  assert.deepEqual(names(f.shelf), ['m2']);
+  assert.deepEqual(names(f.cuts.get('jam_m2.wav')), ['c']);
+  assert.deepEqual(names(f.mixes.get('jam_m2.wav')), ['m1']);
+});
+
+test('fold: a lineage that loops leaves its takes on the shelf', () => {
+  const f = fold([cutOf('a', at(2026, 10, 4, 10), 'b'), cutOf('b', at(2026, 10, 4, 11), 'a')]);
+  assert.deepEqual(names(f.shelf), ['a', 'b']);
+});
+
+test('fold: every take is a spine or a member, exactly once', () => {
+  const l = [
+    take('jam', at(2026, 10, 4, 10)), cutOf('c', at(2026, 10, 4, 11), 'jam'), cutOf('cc', at(2026, 10, 4, 12), 'c'),
+    cutOf('lost', at(2026, 10, 4, 12), 'gone'), mixOf('m1', at(2026, 10, 4, 13), 't1'), mixOf('m2', at(2026, 10, 4, 14), 't1'),
+    cutOf('mc', at(2026, 10, 4, 15), 'm1'), take('phone', at(2026, 10, 4, 16), { origin: 'phone' }),
+  ];
+  const f = fold(l);
+  const all = [...f.shelf.map((t) => t.name), ...f.under.keys()].sort();
+  assert.deepEqual(all, l.map((t) => t.name).sort());
+  const members = [...f.cuts.values(), ...f.mixes.values()].flat().map((t) => t.name).sort();
+  assert.deepEqual(members, [...f.under.keys()].sort());
+});
+
+test('shelve: a cut folds into its original, on the original\'s day', () => {
+  const jam = take('2026-10-03_210000', at(2026, 10, 3, 21), { label: 'Tuesday jam' });
+  const riff = cutOf('2026-10-04_101500', at(2026, 10, 4, 10, 15), '2026-10-03_210000', { label: 'Tuesday jam · 0:42–1:10' });
+  const g = shelve([riff, jam], {}, NOW);
+  assert.equal(g.length, 1);
+  assert.match(g[0].label, /^YESTERDAY/);
+  assert.deepEqual(g[0].takes.map((t) => t.name), [jam.name]);
+  assert.deepEqual(g[0].members.get(jam.name).map((t) => t.name), [riff.name]);
+});
+
+test('shelve: a filter the original fails leaves the cut on its own, on its own day', () => {
+  const jam = take('2026-10-03_210000', at(2026, 10, 3, 21));
+  const riff = cutOf('2026-10-04_101500', at(2026, 10, 4, 10, 15), '2026-10-03_210000', { starred: true });
+  const g = shelve([riff, jam], { starred: true }, NOW);
+  assert.deepEqual(g.flatMap((x) => x.takes).map((t) => t.name), [riff.name]);
+  assert.match(g[0].label, /^TODAY/);
+});
+
+test('shelve: longest and tag sorts place a family by its spine', () => {
+  const jam = take('jam', at(2026, 10, 4, 10), { duration_seconds: 900, tag: 'g1' });
+  const riff = cutOf('riff', at(2026, 10, 4, 11), 'jam', { duration_seconds: 28, tag: 'g2' });
+  const short = take('short', at(2026, 10, 4, 12), { duration_seconds: 60 });
+  const long = shelve([riff, jam, short], { sort: 'longest' }, NOW);
+  assert.deepEqual(names(long[0].takes), ['jam', 'short']);
+  const tags = [{ id: 'g1', name: 'Keep', color: 'red' }, { id: 'g2', name: 'Riffs', color: 'blue' }];
+  const byTag = shelve([riff, jam, short], { sort: 'tag', tags }, NOW);
+  assert.deepEqual(byTag.map((x) => x.label), ['KEEP', 'UNTAGGED']);
+  assert.deepEqual(names(byTag[0].members.get(jam.name)), ['riff']);
+});
+
+test('familyOf names a member\'s spine and lists a spine\'s family', () => {
+  const jam = take('jam', at(2026, 10, 4, 10)), c = cutOf('c', at(2026, 10, 4, 11), 'jam');
+  const f = fold([jam, c]);
+  assert.equal(familyOf(f, c.name).spine.name, jam.name);
+  assert.deepEqual(names(familyOf(f, jam.name).cuts), ['c']);
+  assert.deepEqual(familyOf(f, jam.name).mixes, []);
 });

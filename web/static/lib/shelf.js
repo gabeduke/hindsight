@@ -49,6 +49,82 @@ export function matches(t, { query = '', starred = false, midi = false, phone = 
   return hay.includes(q);
 }
 
+// --- families: cuts and mixdowns fold into a spine ---------------------------
+
+const atMs = (t) => { const w = when(t); return Number.isNaN(w) ? -Infinity : w; };
+const isMix = (t) => t.origin === 'tape';
+// A tape's mixdowns share its id; ones made before tape_id share its name.
+const tapeKey = (t) => (t.tape_id ? `id:${t.tape_id}` : `label:${t.label || ''}`);
+
+/**
+ * fold decides which takes stand on the shelf. A cut folds into the take it
+ * was cut from (the first one up its line that is in `takes`); mixdowns of
+ * one tape fold into the newest of them. `shelf` keeps the input's order;
+ * `cuts` (oldest first) and `mixes` (newest first) are keyed by the spine
+ * they fold into; `under` maps each folded take to that spine.
+ */
+export function fold(takes) {
+  const byName = new Map(takes.map((t) => [t.name, t]));
+  const newestMix = new Map();
+  for (const t of takes) {
+    if (!isMix(t)) continue;
+    const k = tapeKey(t), cur = newestMix.get(k);
+    if (!cur || atMs(t) > atMs(cur) || (atMs(t) === atMs(cur) && t.name > cur.name)) newestMix.set(k, t);
+  }
+  const mixUnder = new Map();
+  for (const t of takes) {
+    const s = isMix(t) && newestMix.get(tapeKey(t));
+    if (s && s !== t) mixUnder.set(t.name, s);
+  }
+  // Up the line to the first take, then to the mix that stands in for it.
+  // A line that loops (no real list has one) leaves the take on the shelf.
+  const spineOf = (t) => {
+    const seen = new Set([t.name]);
+    let cur = t;
+    for (;;) {
+      const up = mixUnder.get(cur.name) || (cur.source && byName.get(cur.source.name));
+      if (!up) return cur;
+      if (seen.has(up.name)) return t;
+      seen.add(up.name);
+      cur = up;
+    }
+  };
+  const under = new Map([...mixUnder].map(([n, s]) => [n, s.name]));
+  for (const t of takes) {
+    if (!t.source) continue;
+    const s = spineOf(t);
+    if (s !== t) under.set(t.name, s.name);
+  }
+  const cuts = new Map(), mixes = new Map();
+  for (const t of takes) {
+    const s = under.get(t.name);
+    if (!s) continue;
+    const m = t.source ? cuts : mixes;
+    if (!m.has(s)) m.set(s, []);
+    m.get(s).push(t);
+  }
+  for (const l of cuts.values()) l.sort((a, b) => atMs(a) - atMs(b));
+  for (const l of mixes.values()) l.sort((a, b) => atMs(b) - atMs(a));
+  return { shelf: takes.filter((t) => !under.has(t.name)), cuts, mixes, under };
+}
+
+/** membersOf is each spine's folded takes: its cuts, then its earlier mixes. */
+export function membersOf(f, spines) {
+  const m = new Map();
+  for (const t of spines) {
+    const l = [...(f.cuts.get(t.name) || []), ...(f.mixes.get(t.name) || [])];
+    if (l.length) m.set(t.name, l);
+  }
+  return m;
+}
+
+/** familyOf is the spine a take is on, and that spine's cuts and earlier mixes. */
+export function familyOf(f, name) {
+  const spineName = f.under.get(name) || name;
+  const spine = f.shelf.find((t) => t.name === spineName) || null;
+  return { spine, cuts: f.cuts.get(spineName) || [], mixes: f.mixes.get(spineName) || [] };
+}
+
 // dayKey is a local calendar day, comparable as a number.
 const dayKey = (d) => d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
 
@@ -63,14 +139,19 @@ function dayLabel(ms, now) {
 }
 
 /**
- * shelve filters the takes and puts them in groups to show: by day, newest
- * first; with sort 'longest' in one group, longest first; with sort 'tag' one
- * group per tag. A take with no
- * readable date goes in a last group, EARLIER.
+ * shelve filters the takes, folds what's left (see fold), and puts the spines
+ * in groups to show: by day, newest first; with sort 'longest' in one group,
+ * longest first; with sort 'tag' one group per tag. A take with no readable
+ * date goes in a last group, EARLIER. Each group's `members` holds, for each
+ * of its spines with a family, the takes folded into it.
  */
 export function shelve(takes, opts = {}, now = Date.now()) {
-  const shown = takes.filter((t) => matches(t, opts));
-  if (!shown.length) return [];
+  const f = fold(takes.filter((t) => matches(t, opts)));
+  if (!f.shelf.length) return [];
+  return shelveGroups(f.shelf, opts, now).map((g) => ({ ...g, members: membersOf(f, g.takes) }));
+}
+
+function shelveGroups(shown, opts, now) {
   if (opts.sort === 'longest') {
     return [{ label: 'LONGEST FIRST', takes: [...shown].sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0)) }];
   }
