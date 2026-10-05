@@ -33,8 +33,15 @@ export function initNav(doc = document) {
       else a.removeAttribute('aria-current');
     }
   };
-  apply(true);
-  fetch('/api/tapes', { cache: 'no-store' }).then((r) => apply(r.ok)).catch(() => {});
+  // Last time's answer first, so a Pi without the tape doesn't flash a Tape
+  // tab while it's asked again.
+  let known = null;
+  try { known = localStorage.getItem('hindsight.tapeOn'); } catch { /* fine */ }
+  apply(known !== 'false');
+  fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
+    apply(r.ok);
+    try { localStorage.setItem('hindsight.tapeOn', String(r.ok)); } catch { /* fine */ }
+  }).catch(() => {});
 
   // Capture's lamp: the ring is recording, waiting for the interface, or not.
   const lamp = nav.querySelector('.appnav-lamp');
@@ -46,6 +53,9 @@ export function initNav(doc = document) {
     } catch {
       lamp.dataset.state = 'bad';
     }
+    // The lamp is colour; the tab says it in words too.
+    const words = { ok: 'recording', wait: 'waiting for the interface', bad: 'not recording' }[lamp.dataset.state];
+    lamp.closest('a')?.setAttribute('aria-label', `Capture, ${words}`);
   };
   poll();
   setInterval(() => { if (!doc.hidden) poll(); }, 10000);

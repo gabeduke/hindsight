@@ -92,8 +92,17 @@ let picked = null;
 const shownNames = () => [...$('takes').querySelectorAll('.take')].map((e) => e.dataset.name);
 
 function pick(name) {
+  // A take left playing would lose its Pause with its controls in the pane:
+  // picking another stops it.
+  if (name !== picked && takes.playing && takes.playing !== name) takes.stopOthers(name);
   picked = name;
-  for (const [n, row] of takes.rows) row.el.classList.toggle('picked', wide.matches && n === picked);
+  for (const [n, row] of takes.rows) {
+    const on = wide.matches && n === picked;
+    row.el.classList.toggle('picked', on);
+    // Rows are picked from the keyboard too, where there's a pane.
+    if (wide.matches) { row.el.tabIndex = 0; row.el.setAttribute('aria-current', on ? 'true' : 'false'); }
+    else { row.el.removeAttribute('tabindex'); row.el.removeAttribute('aria-current'); }
+  }
   detail.show(wide.matches ? takes.all.find((t) => t.name === picked) || null : null);
 }
 
@@ -111,6 +120,13 @@ $('takes').addEventListener('click', (e) => {
   if (!wide.matches || takes.selecting) return;
   const row = e.target.closest('.take');
   if (!row || e.target.closest('button, a, input, .take-flag, .take-flag-edit')) return;
+  pick(row.dataset.name);
+});
+$('takes').addEventListener('keydown', (e) => {
+  if (!wide.matches || takes.selecting || (e.key !== 'Enter' && e.key !== ' ')) return;
+  const row = e.target.closest('.take');
+  if (!row || e.target !== row) return; // a row's own controls keep their keys
+  e.preventDefault();
   pick(row.dataset.name);
 });
 wide.addEventListener('change', syncPick);

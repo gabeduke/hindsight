@@ -446,7 +446,7 @@ Step 7 comes in two: **7a** is editing (lift, copy, split, join, slide,
 multiply and merge drop), and **7b** is mixdown and export.
 
 Turn the tape on with `TAPE=true` ([configuration](configuration.md#the-tape)).
-The main page then shows a **Tape** chip that opens the tape page.
+Every page's header then has a **Tape** tab beside Capture and Takes.
 
 ### 8.1 Plug in
 
@@ -466,9 +466,10 @@ into channel 1, bus B on 3/4 into channel 2. If the Sidekick isn't there,
 
 From the top:
 
-- **The name.** Tap it for the tape menu: open another tape, start a new one,
-  clone this one, delete one, or this guide. Under the name: the tempo and how
-  many bars the loop is.
+- **The name.** Tap it to open another tape or start a new one. Under the name:
+  the tempo and how many bars the loop is.
+- **⋯** holds what you do with this tape: clone it, mix it down, export its
+  stems, delete a tape, or open this guide.
 - **The dot** says how well the tape's playback and the recording are lined
   up:
   - **Green:** to the sample. On the Pi, Hindsight listens for the tape in
@@ -613,7 +614,7 @@ bus A, 6 dB down.
 **Undo** steps back through every change, catches included. Quick changes to
 the same thing, like dragging a level, are one step.
 
-**Clone and delete.** *Clone this tape*, in the tape menu, makes a copy that
+**Clone and delete.** *Clone this tape*, under ⋯, makes a copy that
 shares the original's audio, so it costs no disk space. *Delete a tape…* asks
 for the tape's name. The loaded tape can't be deleted; open another one first.
 Deleting frees whatever audio no other tape uses, including what's only in
@@ -769,7 +770,7 @@ try something. It costs no disk space.
 
 ### 8.6 Mixdown and export
 
-*Step 7b.* Both are in the tape menu: tap the tape's name.
+*Step 7b.* Both are under the tape's ⋯.
 
 - **Mix down the loop** plays the loop's bars once, or **Mix down the whole
   tape** plays from bar 1 to the end of the last clip. Then the tape stops,

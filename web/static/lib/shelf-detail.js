@@ -80,18 +80,24 @@ export class TakeDetail {
       c.querySelector('.flag-at').textContent = f.at;
       return c;
     }));
-    if (t.name === this.name) { this.ws?.setSelection(t.trim, (t.duration_seconds || 0) * sr); return; }
+    // The same take, drawn: just its selection. The same take, not drawn yet
+    // (its preview was still encoding): try again below.
+    if (t.name === this.name && this.ws) { this.ws.setSelection(t.trim, (t.duration_seconds || 0) * sr); return; }
+    if (t.name === this.name && this.loading) return;
 
     // A different take: draw it from its row's player.
     this.unmount();
     this.name = t.name;
     const name = t.name;
+    this.loading = true;
     const p = await this.takes.player(name);
+    this.loading = false;
     if (this.name !== name) return; // picked another meanwhile
     this.player = p;
     const box = this.el('.detail-wave');
-    box.textContent = p ? '' : 'waveform pending…';
+    box.textContent = p ? '' : (t.has_preview ? 'waveform unavailable' : 'waveform pending…');
     box.classList.toggle('pending', !p);
+    // No player yet: the next show() -- the next poll -- tries again.
     if (!p) return;
     this.ws = new RowWave({ container: box, peaks: p.peaks, duration: p.peaks.duration || t.duration_seconds, audio: p.audio });
     this.ws.setSelection(t.trim, (t.duration_seconds || 0) * sr);

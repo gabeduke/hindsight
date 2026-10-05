@@ -1648,15 +1648,20 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
 .appbar > .brand { grid-area: brand; height: 54px; color: var(--ink); text-decoration: none; }
 .appbar > .health { grid-area: status; }
-.appbar > #help { grid-area: help; min-width: 44px; min-height: 40px; padding: 0; }
+.appbar > #help { grid-area: help; min-width: 44px; min-height: 44px; padding: 0; }
+.appbar .icon-btn { min-width: 44px; min-height: 44px; }
+/* The switch is centred on the bar itself, not in a grid column, so it sits
+   in the same place on every page whatever is beside it. */
 .appnav {
-  grid-area: nav; justify-self: center;
+  /* grid-area auto: an absolutely placed grid child with an area is placed
+     in that area; without one, against the whole bar. */
+  grid-area: auto; position: absolute; left: 50%; top: calc(env(safe-area-inset-top) + 3px); transform: translateX(-50%);
   display: flex; gap: 3px; padding: 3px;
   border-radius: 9px; background: var(--panel); border: 1px solid var(--line);
 }
 .appnav a {
   display: inline-flex; align-items: center; gap: 7px;
-  height: 34px; padding: 0 16px; border-radius: 6px;
+  height: 40px; padding: 0 16px; border-radius: 6px;
   color: var(--ink); text-decoration: none; font: 600 14px var(--font);
 }
 .appnav a[aria-current="page"] { background: var(--ink); color: var(--bg); }
@@ -1703,6 +1708,7 @@ body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
   }
   .appbar:has(.appbar-page) > .brand { display: none; }
   .appbar:has(.appbar-page) .appbar-page { margin: 0; padding: 0 0 0 12px; border-top: 0; min-height: 54px; }
+  .appbar:has(.appbar-page) .appnav { grid-area: nav; position: static; transform: none; justify-self: start; }
   .appbar:has(.appbar-page) .appnav a { padding: 0 12px; }
   body:has(.appbar-page) { --topbar-h: calc(55px + env(safe-area-inset-top)); }
 }
@@ -1724,7 +1730,7 @@ body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
 
   /* The switch: tabs along the bottom, in reach of a thumb. */
   .appnav {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; transform: none; z-index: 30;
     justify-self: stretch; width: 100%; box-sizing: border-box;
     justify-content: stretch; gap: 0; padding: 0 0 env(safe-area-inset-bottom);
     border-radius: 0; border: 0; border-top: 1px solid var(--line);
@@ -1754,6 +1760,10 @@ body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
   #toasts { bottom: calc(76px + env(safe-area-inset-bottom)); }
   .select-bar { bottom: calc(61px + env(safe-area-inset-bottom)); padding-bottom: 10px; }
   body.selecting #toasts { bottom: calc(144px + env(safe-area-inset-bottom)); }
+  body.selecting { padding-bottom: calc(131px + env(safe-area-inset-bottom)); }
+  .tip-pop { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  /* ? sits on the page row's first line, where a long title wraps below. */
+  .appbar > #help { align-self: start; margin-top: 6px; }
   /* The take page's notes, open, are the whole screen. */
   body.notes-open .appnav { display: none; }
   body.notes-open { padding-bottom: 0; }
@@ -1818,6 +1828,7 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
   .take-detail:not([hidden]) {
     grid-area: detail; display: flex; flex-direction: column; gap: 14px;
     position: sticky; top: calc(var(--topbar-h) + 16px); padding: 20px;
+    max-height: calc(100svh - var(--topbar-h) - 32px); overflow-y: auto; box-sizing: border-box;
   }
   /* Rows are for picking here: compact, their controls in the pane. */
   .shelf-page #takes .take { cursor: pointer; }
