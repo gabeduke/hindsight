@@ -18,7 +18,9 @@ internet.
 | `POST /api/trigger?from=F[&to=T]` | Save any span of the ring, in absolute frames; no `to` is now |
 | `GET /api/jams` | Takes, starred first then newest first. Sends an ETag |
 | `GET /api/take?file=` | One take, in the same shape as an entry of `/api/jams` |
-| `PATCH /api/take?file=` | Edit a take's label, star, trim, BPM, downbeat, lane kinds and flags |
+| `PATCH /api/take?file=` | Edit a take's label, star, tag, trim, BPM, downbeat, lane kinds and flags |
+| `GET /api/tags` | The tags: `{"tags":[{"id","name","color"}]}`, `color` 1–8 a slot in the stripe palette |
+| `PUT /api/tags` | Replace the whole tag list (at most 24; names unique, 24 characters). A tag with no `id` gets one |
 | `POST /api/take/flags?file=` | Add one flag to a take |
 | `PATCH /api/take/flags?file=&id=` | Move or relabel one flag |
 | `DELETE /api/take/flags?file=&id=` | Remove one flag |
@@ -350,6 +352,7 @@ its cue chunk.
   "midi_name": "jam_2026-09-09_145852.mid",
   "label": "",
   "starred": false,
+  "tag": "t3f9a01",
   "bpm": 96,
   "flags": [{ "id": "f100", "frame": 100 }, { "id": "r9c41e0a2", "frame": 900, "label": "drop" }],
   "downbeat_frame": null,
@@ -418,6 +421,7 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 |---|---|---|
 | `label` | string | Control and Unicode format characters stripped, trimmed, capped at 120 runes |
 | `starred` | bool | |
+| `tag` | string | The `id` of a tag in `GET /api/tags`, or `""` to clear it; any other id is a 400. A take whose tag has since been dropped from the list reads as untagged. Not undoable |
 | `trim` | `{start_frame, end_frame}` or `null` | `start_frame` must be `>= 0`, `end_frame` must exceed `start_frame`, and `end_frame` must not pass the take's frame count; `null` clears |
 | `bpm` | number or `null` | 20–400, rounded to two decimals; rejects NaN and ±Inf; `null` clears |
 | `flags` | `[{id?, frame, label}]` or `null` | A full replacement of the take's flags. An `id` that isn't one the server could have made is dropped, and the flag gets a legacy one. Capped at 512; `frame` must be `>= 0` and less than the take's frame count; `null` clears. `label` is sanitized like the take label (control characters stripped, trimmed, 120 runes). Kept for scripts: the UI uses the per-flag endpoints below, because a full replacement from a page that has been open a while silently undoes a flag another device added |
@@ -462,6 +466,26 @@ The tempo range is deliberately far wider than any interface will produce,
 because the stamped BPM is a device's guess rather than ground truth — see the
 MIDI section of [architecture.md](architecture.md). The field exists to be
 overridden, including for takes whose clock reading was confidently wrong.
+
+## `GET /api/tags`, `PUT /api/tags`
+
+The tags the takes are sorted by: a name and a color, one list for the whole
+rig, kept in `OUTPUT_DIR/tags.json`. A take names at most one tag, by `id`, in
+its sidecar (`tag` on `PATCH /api/take`).
+
+```json
+{"tags": [{"id": "t3f9a01", "name": "Ideas", "color": 6}]}
+```
+
+`color` is 1–8: a slot in the page's stripe palette (`--stripe-1` …
+`--stripe-8`). `PUT` replaces the whole list, so a client sends back what it
+read with its change; a tag sent without an `id` is given one, and an `id` is
+kept across renames. At most 24 tags; names are sanitized like labels, 1–24
+characters, and unique ignoring case. Anything else is a 400 and the saved
+list is left as it was.
+
+Dropping a tag from the list does not touch the takes that wore it: their
+sidecars keep the id, and a take whose tag is not in the list is untagged.
 
 ## `POST /api/take/flags?file=`, `PATCH /api/take/flags?file=&id=`, `DELETE /api/take/flags?file=&id=`
 

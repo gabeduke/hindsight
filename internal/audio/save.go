@@ -684,6 +684,7 @@ type Take struct {
 	// called it.
 	Label         string            `json:"label"`
 	Starred       bool              `json:"starred"`
+	Tag           string            `json:"tag,omitempty"`
 	Trim          *Trim             `json:"trim,omitempty"`
 	BPM           *float64          `json:"bpm,omitempty"`
 	TempoFrom     string            `json:"tempo_from,omitempty"`
@@ -768,6 +769,7 @@ func takeFromFile(dir, name string, info os.FileInfo) Take {
 	t.Created = TakeCreated(name, m, info.ModTime())
 	t.Label = m.Label
 	t.Starred = m.Starred
+	t.Tag = m.Tag
 	t.Trim = m.Trim
 	t.BPM = m.BPM
 	t.TempoFrom = m.TempoFrom

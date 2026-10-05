@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.13 — 2026-10-05
+
+- Shrink the Capture key on tablet and desktop layouts (#41) (9894645)
+- Record v2026.10.05.12 in the changelog [skip ci] (700f206)
+
+
 ## v2026.10.05.12 — 2026-10-05
 
 - Fix tape lanes growing taller on phones (6195973)

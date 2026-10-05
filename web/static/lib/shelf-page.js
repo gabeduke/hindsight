@@ -6,7 +6,9 @@ import { TakesList } from '/lib/takes.js';
 import { TrashList } from '/lib/trash.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { initHelp } from '/lib/help/help.js';
-import { shelve, sheetState } from '/lib/shelf.js';
+import { shelve, sheetState, tagCounts } from '/lib/shelf.js';
+import { tagStore } from '/lib/tags.js';
+import { openTagManager } from '/lib/tags-dialog.js';
 import { initNav } from '/lib/nav.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
 
@@ -15,16 +17,17 @@ const $ = (id) => document.getElementById(id);
 // What the shelf shows, remembered per device. Never the search: a search
 // left in from last week would hide takes without saying why.
 const VIEW_KEY = 'hindsight.shelf';
-const view = { query: '', starred: false, midi: false, phone: false, tape: false, sort: 'newest' };
+const view = { query: '', starred: false, midi: false, phone: false, tape: false, sort: 'newest', tag: '' };
 try {
   const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || '{}');
   for (const k of ['starred', 'midi', 'phone', 'tape']) view[k] = saved[k] === true;
-  if (saved.sort === 'longest') view.sort = 'longest';
+  if (saved.sort === 'longest' || saved.sort === 'tag') view.sort = saved.sort;
+  if (typeof saved.tag === 'string') view.tag = saved.tag;
 } catch { /* fine */ }
 function saveView() {
   try {
-    const { starred, midi, phone, tape, sort } = view;
-    localStorage.setItem(VIEW_KEY, JSON.stringify({ starred, midi, phone, tape, sort }));
+    const { starred, midi, phone, tape, sort, tag } = view;
+    localStorage.setItem(VIEW_KEY, JSON.stringify({ starred, midi, phone, tape, sort, tag }));
   } catch { /* private mode */ }
 }
 
@@ -57,15 +60,59 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
     clearTimeout(trashTimer);
     trashTimer = setTimeout(() => trash.refresh(), 150);
     renderCounts();
+    renderTagFilters();
     syncPick();
   },
   selectBar: $('select-bar'),
-  shape: (all) => shelve(all, view),
+  shape: (all) => shelve(all, { ...view, tags: tagStore.list, tag: shownTag() }),
   spines: true,
 });
 $('select-btn').addEventListener('click', () => (takes.selecting ? takes.exitSelect() : takes.enterSelect()));
 
 // --- the view: search, filters, sort --------------------------------------
+
+// The tag filter in force: one a tag was deleted from can't hide every take.
+function shownTag() {
+  if (view.tag === '' || view.tag === 'none') return view.tag;
+  return tagStore.list.some((g) => g.id === view.tag) ? view.tag : '';
+}
+
+// One chip per tag with how many takes wear it, the untagged, and the way
+// into the tag manager. Pressing the lit chip turns the filter off.
+function renderTagFilters() {
+  const box = $('shelf-tags'), list = tagStore.list, on = shownTag();
+  const n = tagCounts(takes.all, list);
+  // A poll that changes nothing must not rebuild the chips under a finger.
+  const sig = JSON.stringify([list, n, on]);
+  if (sig === renderTagFilters.sig) return;
+  renderTagFilters.sig = sig;
+  const chip = (cls, label, pressed, run) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    b.setAttribute('aria-pressed', String(pressed));
+    if (typeof label === 'string') b.textContent = label; else b.append(...label);
+    b.addEventListener('click', run);
+    return b;
+  };
+  const pick = (id) => { view.tag = view.tag === id ? '' : id; saveView(); renderTagFilters(); reshape(); };
+  const els = list.map((g) => {
+    const dot = document.createElement('span');
+    dot.className = 'tag-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    const count = document.createElement('span');
+    count.className = 'tag-n';
+    count.textContent = String(n[g.id]);
+    const b = chip(`icon-btn toggle tag-chip stripe-${g.color}`, [dot, g.name, ' ', count], on === g.id, () => pick(g.id));
+    return b;
+  });
+  if (list.length) els.push(chip('icon-btn toggle', `Untagged ${n['']}`, on === 'none', () => pick('none')));
+  const edit = chip('chip tag-edit-btn', list.length ? 'Edit tags' : '+ Tags', false, () => openTagManager({ onToast: toast }));
+  edit.setAttribute('data-tip', 'tags-edit');
+  els.push(edit);
+  box.replaceChildren(...els);
+}
+tagStore.subscribe(() => renderTagFilters());
 
 function renderControls() {
   for (const b of $('shelf-filters').querySelectorAll('button')) {
@@ -74,6 +121,7 @@ function renderControls() {
   for (const b of $('shelf-sort').querySelectorAll('button')) {
     b.setAttribute('aria-pressed', String(b.dataset.sort === view.sort));
   }
+  renderTagFilters();
 }
 
 function reshape() {

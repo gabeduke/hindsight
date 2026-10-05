@@ -12,7 +12,8 @@
 
 import { levelsFor, takeGain, smooth, drawBars } from './wave/draw.js';
 import { token, withAlpha } from './theme.js';
-import { stripeOf, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
+import { tagStore } from './tags.js';
+import { stripeFor, STRIPES, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 // A reel hub: a ring, a disc, a dark core and six teeth.
 function hubSVG() {
@@ -126,8 +127,8 @@ export class CassetteFace {
   /** setTake writes the take on the label: its stripe, stamp and name. */
   setTake(take) {
     this.take = take;
-    for (let n = 1; n <= 5; n++) this.el.classList.remove(`stripe-${n}`);
-    this.el.classList.add(`stripe-${stripeOf(take.name)}`);
+    for (let n = 1; n <= STRIPES; n++) this.el.classList.remove(`stripe-${n}`);
+    this.el.classList.add(`stripe-${stripeFor(take, tagStore.list)}`);
     this.parts.stamp.textContent = stampOf(take);
     this.parts.name.textContent = take.label || take.name.replace(/^jam_|\.wav$/g, '');
   }
