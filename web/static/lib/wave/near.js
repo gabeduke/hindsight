@@ -23,7 +23,9 @@ export class NearAudio {
   /** around answers { x, from }: mono samples x[k] at frame from + k, reaching SPAN_MS either side of frame where the take allows. */
   async around(frame) {
     const k = this.kept;
-    if (k && frame - k.from >= this.half / 2 && k.from + k.x.length - frame >= this.half / 2) return k;
+    // A span cut off by the take's start or end covers everything up to there.
+    if (k && (k.from === 0 || frame - k.from >= this.half / 2) &&
+        (k.from + k.x.length === this.total || k.from + k.x.length - frame >= this.half / 2)) return k;
     const from = Math.max(0, Math.round(frame) - this.half);
     const to = Math.min(this.total, Math.round(frame) + this.half);
     const res = await this.fetchFn(`/api/slice?file=${encodeURIComponent(this.file)}&from=${from}&to=${to}`);

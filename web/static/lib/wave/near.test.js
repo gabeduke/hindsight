@@ -56,3 +56,21 @@ test('a failed load rejects, saying why, and a later call tries again', async ()
   await assert.rejects(near.around(100000), /404/);
   assert.equal(calls, 2);
 });
+
+test('near the take\'s ends, a kept span that reaches the end is reused', async () => {
+  let calls = 0;
+  const fetchFn = async (url) => {
+    calls++;
+    const u = new URL(url, 'http://x');
+    return { ok: true, arrayBuffer: async () => wav(Number(u.searchParams.get('to')) - Number(u.searchParams.get('from'))) };
+  };
+  const a = new NearAudio({ file: 'a.wav', sampleRate: 48000, total: 480000, fetchFn });
+  await a.around(100);
+  await a.around(200);
+  assert.equal(calls, 1, 'at the start');
+  calls = 0;
+  const b = new NearAudio({ file: 'a.wav', sampleRate: 48000, total: 480000, fetchFn });
+  await b.around(480000 - 100);
+  await b.around(480000 - 200);
+  assert.equal(calls, 1, 'at the end');
+});
