@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const FILES = ['./view.js', './lanes.js', './overview.js', './rising.js', './rowwave.js', './page.js', '../tape/page.js'];
+const FILES = ['./view.js', './lanes.js', './overview.js', './rising.js', './rowwave.js', './page.js', './tape-strip.js', '../tape/page.js'];
 test('canvas code draws with window inks, not page inks', () => {
   for (const f of FILES) {
     const src = readFileSync(new URL(f, import.meta.url), 'utf8');
