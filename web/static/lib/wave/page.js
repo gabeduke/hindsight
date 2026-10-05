@@ -218,10 +218,11 @@ async function main() {
   // PATCHes go one at a time, in order: a Clear sent straight after a
   // selection's save must reach the Pi after it, not race it.
   let patchChain = Promise.resolve();
-  function patch(body) {
+  // keepalive lets a save outlive the page (a move committed at pagehide).
+  function patch(body, { keepalive = false } = {}) {
     const run = patchChain.then(async () => {
       const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, {
-        method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }), body: JSON.stringify(body),
+        method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }), body: JSON.stringify(body), keepalive,
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
@@ -258,7 +259,8 @@ async function main() {
     })).catch(() => {});
   }
   function saveDownbeat() {
-    patch({ downbeat_frame: state.grid.downbeat }).catch((e) => toast(`Could not save the downbeat: ${e.message}`, 'bad'));
+    // keepalive, as flushRegion's: a bar-1 move committed at pagehide must not be dropped.
+    patch({ downbeat_frame: state.grid.downbeat }, { keepalive: true }).catch((e) => toast(`Could not save the downbeat: ${e.message}`, 'bad'));
   }
   // One flag per request, by id (see /lib/flags.js), sent in order. The page
   // shows the change at once; the server's answer then replaces the list.
@@ -806,7 +808,7 @@ async function main() {
   function wirePad(pad, fn, onStart) {
     let last = null, id = null;
     pad.addEventListener('pointerdown', (e) => {
-      if (!state.edit || id !== null) return;
+      if (!state.edit || id !== null || e.button !== 0) return; // the primary button; touch and pen report 0
       id = e.pointerId; last = e.clientX;
       onStart?.();
       pad.setPointerCapture(id); pad.classList.add('active');
@@ -823,6 +825,7 @@ async function main() {
     };
     pad.addEventListener('pointerup', end);
     pad.addEventListener('pointercancel', end);
+    pad.addEventListener('lostpointercapture', end); // a lost capture ends the drag too, or the pad is dead
   }
   let posAcc = 0; // fractional frames the POSITION pad has turned but not yet moved
   wirePad($('be-zoom'), (dx, w) => { follow(zoomBy(view.view.fpp, dx, w)); renderEditor(); });
@@ -879,7 +882,9 @@ async function main() {
       // The point moved, or editing ended, while the audio came.
       if (!state.edit || editEdge() !== edge || editFrame() !== f) return;
       const i = at - from;
-      const j = i >= 0 && i < x.length ? (kind === 'attack' ? findAttack(x, sr, i, radius) : findZero(x, i, radius)) : -1;
+      // Out at the take's very end is one past the last sample: search from the last.
+      const k = Math.min(i, x.length - 1);
+      const j = i >= 0 && k >= 0 && i <= x.length ? (kind === 'attack' ? findAttack(x, sr, k, radius) : findZero(x, k, radius)) : -1;
       if (j < 0) { toast(kind === 'attack' ? 'No hit near here' : 'No zero crossing near here'); return; }
       moveEdit(from + j, true);
     } catch (e) {
