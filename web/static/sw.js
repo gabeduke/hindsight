@@ -27,6 +27,8 @@ const SHELL = [
   '/lib/theme.js',
   '/lib/nav.js',
   '/lib/shelf.js',
+  '/lib/tags.js',
+  '/lib/tags-dialog.js',
   '/lib/shelf-page.js',
   '/lib/shelf-detail.js',
   '/lib/cassette.js',
