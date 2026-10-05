@@ -794,10 +794,14 @@ async function audioAbout(file, a, b) {
 // alignHome is the clip being aligned as the tape has it, and its track's
 // number, or null.
 function alignHome() {
-  const a = state.align;
-  if (!a || !state.tape) return null;
+  return state.align ? clipHome(state.align.clipId) : null;
+}
+
+// clipHome is a clip of the loaded tape and its track, by id, or null.
+function clipHome(id) {
+  if (!state.tape) return null;
   for (const tr of state.tape.tracks) {
-    const clip = tr.clips.find((c) => c.id === a.clipId);
+    const clip = tr.clips.find((c) => c.id === id);
     if (clip) return { n: tr.n, track: tr, clip };
   }
   return null;
@@ -834,8 +838,10 @@ function saveAlign(clipId, at) {
       // Not onto another tape loaded meanwhile: edit sends to the one loaded.
       // An undo that went first moved the clip, so the move goes from where
       // the undo put it, not back over it; a clip it took away isn't moved.
-      const h = state.id === tape && alignHome();
-      if (h && h.clip.id === clipId) {
+      // By id, not through state.align: a move saved as the editor closes
+      // (or opens on another clip) still goes.
+      const h = state.id === tape && clipHome(clipId);
+      if (h) {
         const to = h.clip.at === was ? at : placeAt(h.clip, at - was, state.tape.length);
         await edit('slide', { clip: clipId, at: to }, { keepalive: true });
       }
