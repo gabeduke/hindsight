@@ -29,16 +29,20 @@
   </nav>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   <div class="appbar-page">
-    <!-- The title switches tapes; its tempo sets the loop's bars. Both open
-         under themselves. -->
-    <div class="tape-title menu-anchor">
-      <button id="tape-name" class="tape-title-name" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu">…</button>
-      <button id="tape-sub" class="tape-sub mono" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-tempo"></button>
-      <div id="tape-menu" class="menu from-left" role="menu" hidden>
-        <div id="tape-list" class="tape-list"></div>
-        <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
-      </div>
-      <div id="tempo-menu" class="menu from-left" role="menu" hidden></div>
+    <!-- Two pills, each a menu: the tape's name switches tapes; its tempo
+         sets the loop's bars. Each opens under itself. -->
+    <div class="tape-title">
+      <span class="menu-anchor">
+        <button id="tape-name" class="tape-pill tape-title-name" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu"><svg class="pill-ico" width="22" height="16" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg><span id="tape-name-text" class="pill-text">…</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+        <div id="tape-menu" class="menu from-left" role="menu" hidden>
+          <div id="tape-list" class="tape-list"></div>
+          <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
+        </div>
+      </span>
+      <span class="menu-anchor">
+        <button id="tape-sub" class="tape-pill tape-sub mono" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-tempo"><span class="pill-ico" aria-hidden="true">♩</span><span id="tape-sub-long" class="pill-text sub-long"></span><span id="tape-sub-short" class="pill-text sub-short" aria-hidden="true"></span><span class="pill-chev" aria-hidden="true">▾</span></button>
+        <div id="tempo-menu" class="menu from-left" role="menu" hidden></div>
+      </span>
     </div>
     <span class="appbar-spacer"></span>
     <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
