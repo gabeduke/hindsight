@@ -826,7 +826,7 @@ main {
 .away-rt { font-size: 13px; color: var(--ink-dim); }
 .away-rt span { flex: 1 1 100%; }
 .away-rt .chip { min-height: 32px; }
-.tape-toolbar .tb-row.away .away-btn { flex: 1; }
+.np-drawer .tb-row.away .away-btn { flex: 1; }
 .away-kept { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); font-size: 13.5px; }
 .away-kept span { flex: 1; }
 
@@ -1757,11 +1757,11 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-ruler-gap { display: flex; align-items: center; justify-content: flex-end; }
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
 .tape-ruler { width: 100%; height: 26px; display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; touch-action: pan-y; cursor: pointer; }
-.tape-toolbar .tb-row.clipboard .clip-chip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; }
-.tape-toolbar .tb-row.clipboard .clip-chip.playing { color: var(--go); }
-.tape-toolbar .tb-row.edit .icon-btn { flex: 1 1 0; min-width: 0; padding: 0 6px; white-space: nowrap; }
-.tape-toolbar .tb-row.edit .seg { flex: none; }
-.tape-toolbar .tb-row.edit .seg button { white-space: nowrap; }
+.np-drawer .tb-row.clipboard .clip-chip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; }
+.np-drawer .tb-row.clipboard .clip-chip.playing { color: var(--go); }
+.np-drawer .tb-row.edit .icon-btn { flex: 1 1 0; min-width: 0; padding: 0 6px; white-space: nowrap; }
+.np-drawer .tb-row.edit .seg { flex: none; }
+.np-drawer .tb-row.edit .seg button { white-space: nowrap; }
 .sheet-hint { margin: 8px 0 0; font-size: 12px; color: var(--ink-faint); }
 .tape-tap { width: 100%; min-height: 56px; font-size: 16px; margin: 4px 0 10px; }
 .tape-tap.second { animation: breathe 1.2s ease-in-out infinite; }
@@ -1823,20 +1823,20 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
    lane, out of the row's height: without it the two feed each other. */
 .tt-lane { width: 100%; height: auto; min-height: 64px; contain: size; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .tt-lane.sliding { cursor: grabbing; }
-.tape-toolbar .tb-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tape-toolbar .tb-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
-.tape-toolbar .seg button[aria-pressed="true"] { color: var(--ink); }
+.np-drawer .tb-row, .np-dock > .clip-editor .tb-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.np-drawer .tb-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.np-drawer .seg button[aria-pressed="true"] { color: var(--ink); }
 /* A source chip: its name, with a meter along the bottom. */
-.tape-toolbar .seg button.source { position: relative; padding-bottom: 6px; }
-.tape-toolbar .seg button.source .meter {
+.np-drawer .seg button.source { position: relative; padding-bottom: 6px; }
+.np-drawer .seg button.source .meter {
   position: absolute; left: 8px; right: 8px; bottom: 5px; height: 3px;
   border-radius: 2px; background: var(--line); overflow: hidden;
 }
-.tape-toolbar .seg button.source .meter i {
+.np-drawer .seg button.source .meter i {
   display: block; height: 100%; width: 0; background: var(--go);
   transition: width 120ms linear;
 }
-.tape-toolbar .seg button.source .meter i.hot { background: var(--danger); }
+.np-drawer .seg button.source .meter i.hot { background: var(--danger); }
 .passes-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .passes-row .pass { min-height: var(--tap); min-width: 48px; border-radius: 10px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); font: 600 14px var(--mono); }
 .passes-row .muted { font-size: 12px; color: var(--ink-faint); }
@@ -1864,56 +1864,30 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
    landscape grid would otherwise shrink it to fit its content. */
 .tape-main { align-items: stretch; }
 
-/* A tablet held upright, or a small laptop window: one column, as on a
-   phone, but the full width and taller lanes -- the toolbar under them is
-   about 370 px, and the lanes share what's left. svh, not dvh: lanes that
-   resized as a phone's address bar came and went would jump mid-scroll. */
+/* From 700 px the tape page is a column the height of the window: the
+   header, the tracks (they scroll inside if they must), then the dock -- an
+   open drawer and the bar. The four lanes share the height, the full width;
+   a drawer opening pushes them up, down to their heads' height, and then
+   the tracks scroll. svh, not dvh: lanes that resized as an address bar came
+   and went would jump mid-scroll. */
 @media (min-width: 700px) {
-  main.tape-main { display: flex; max-width: none; padding-left: 16px; padding-right: 16px; }
+  body.tape-page { height: 100svh; min-height: 0; }
+  body.tape-page > main.tape-main {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; max-width: none;
+    display: flex; flex-direction: column; padding: 10px 16px;
+  }
+  #tape-body:not([hidden]) { flex: 1 1 auto; min-height: 0; }
+  .tape-lanes { flex: 1 1 auto; min-height: 0; gap: 8px; }
+  /* The lane stretches to its track (as to its head below 700 px); a
+     height of 100% would make the track's minimum the lane's own height,
+     and neither could shrink. */
+  .tape-track { flex: 1 1 0; }
+  .tt-lane { min-height: 0; }
   .tape-track, .tape-ruler-row { grid-template-columns: 150px 1fr; }
-  .tt-lane { min-height: clamp(72px, calc((100svh - var(--topbar-h) - 492px - var(--np-h)) / 4), 150px); }
-}
-
-/* Wide -- a tablet on its side, a laptop: the tracks take the width, and the
-   controls sit beside them in a panel of their own that stays in view. From
-   1000 px, so the lanes beside the panel are never narrower than a phone's. */
-@media (min-width: 1000px) {
-  main.tape-main { display: block; max-width: 1800px; padding-bottom: 10px; }
-  #tape-body:not([hidden]) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 400px;
-    grid-template-areas: "empty side" "ruler side" "lanes side" ". side";
-    grid-template-rows: auto auto auto 1fr;
-    column-gap: 16px; row-gap: 0;
-    align-items: start;
-  }
-  #tape-empty { grid-area: empty; margin-bottom: 10px; }
-  .tape-ruler-row { grid-area: ruler; margin-bottom: 8px; }
-  .tape-lanes { grid-area: lanes; gap: 8px; }
-  /* Sticky under the header, and never taller than the window under it --
-     main's own padding included -- so it can't push the page past the
-     window and scroll away; on a short window it scrolls inside. */
-  .tape-toolbar {
-    grid-area: side;
-    position: sticky; top: calc(var(--topbar-h) + 10px);
-    /* The bar is docked under it, so it gives the toolbar that much less
-       height; the toolbar scrolls inside rather than off the page. */
-    max-height: calc(100svh - var(--topbar-h) - 30px - var(--np-h)); overflow-y: auto; box-sizing: border-box;
-    padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-  }
-  .tape-track, .tape-ruler-row { grid-template-columns: 168px 1fr; }
-  /* Four lanes fill the height under the overview and ruler... */
-  .tt-lane { min-height: clamp(80px, calc((100svh - var(--topbar-h) - 122px - var(--np-h)) / 4 - 8px), 220px); }
-  /* ...unless the empty tape's card is above them. */
-  #tape-body:has(#tape-empty:not([hidden])) .tt-lane { min-height: 80px; }
   .tt-head { align-content: center; }
-  /* Toasts over the tracks, clear of the panel. */
-  .tape-page #toasts { left: calc((100vw - 400px - 16px) / 2); }
 }
 @media (min-width: 1400px) {
-  #tape-body:not([hidden]) { grid-template-columns: minmax(0, 1fr) 400px; }
   .tape-track, .tape-ruler-row { grid-template-columns: 200px 1fr; }
-  .tape-page #toasts { left: calc((100vw - 400px - 16px) / 2); }
 }
 /* The click, on: the accent ♩ on the accent background vanished. */
 .tape-page .tb-row.transport .tb-click[aria-pressed="true"] { background: var(--panel-2); }
@@ -2611,12 +2585,10 @@ body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--np-h) + 12p
    the waveform. */
 .sel-label { font-family: 'Permanent Marker', var(--font); font-size: 15px; color: var(--grease); min-width: 2.4em; }
 
-/* ---------- the tape's side panel ---------- */
-/* Catch is the tape's main key: orange, the width of the panel, its bars and
-   Layer/Replace on one row under it. Overdub-on-this-device goes to the end,
-   so the transport and Catch are what a short screen shows first. The passes
-   scroll sideways rather than wrap; the clipboard says all it has. */
-.tape-toolbar .tb-row.catch { flex-wrap: wrap; }
+/* ---------- the tape's drawers ---------- */
+/* Catch the last bars and Layer/Replace share a row. The passes scroll
+   sideways rather than wrap; the clipboard says all it has. */
+.np-drawer .tb-row.catch { flex-wrap: wrap; }
 /* Catch is the page's one main action: the orange key in the bar, lit from
    above -- unless the tape is on a phone, when it says it needs the jam room. */
 .np #catch-pass:not(:disabled):not(.jam-only) {
@@ -2624,29 +2596,26 @@ body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--np-h) + 12p
   border-color: var(--accent-edge); text-shadow: 0 1px 0 rgba(0,0,0,.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
 }
-.tape-toolbar .tb-row.catch .seg { flex: 1 1 0; }
-.tape-toolbar .tb-row.away { order: 10; }
-.tape-toolbar .tb-row.passes { flex-wrap: nowrap; }
-.tape-toolbar .passes-row { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 3px; }
-.tape-toolbar .tb-row.clipboard .clip-chip { white-space: normal; text-overflow: clip; text-align: left; line-height: 1.25; padding: 4px 10px; }
-.tape-toolbar { display: flex; flex-direction: column; }
-@media (min-width: 1000px) {
-  /* Where the panel scrolls, a shadow at that edge says so. */
-  .tape-toolbar {
-    background:
-      linear-gradient(var(--panel) 30%, transparent) top / 100% 28px no-repeat local,
-      linear-gradient(transparent, var(--panel) 70%) bottom / 100% 28px no-repeat local,
-      radial-gradient(farthest-side at 50% 0, var(--shadow), transparent) top / 100% 12px no-repeat scroll,
-      radial-gradient(farthest-side at 50% 100%, var(--shadow), transparent) bottom / 100% 12px no-repeat scroll,
-      var(--panel);
-  }
-  /* An empty tape's card is tall; shorter lanes keep all four on screen. */
-  #tape-body:has(#tape-empty:not([hidden])) .tt-lane { min-height: 56px; }
-}
-/* A short screen -- the bench tablet docked at 1024x600 -- under the header
-   and the machine: four lanes at 64px fit where 80 didn't. */
+.np-drawer .tb-row.catch .seg { flex: 1 1 auto; }
+.np-drawer .tb-row.catch > .tb-label, .np-drawer .tb-row.sources > .tb-label { flex: 1 1 100%; }
+.np-drawer .tb-row.catch .seg button { white-space: nowrap; }
+.np-drawer .tb-row.away { order: 10; }
+.np-drawer .tb-row.passes { flex-wrap: nowrap; }
+.np-drawer .passes-row { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 3px; }
+.np-drawer .tb-row.clipboard .clip-chip { white-space: normal; text-overflow: clip; text-align: left; line-height: 1.25; padding: 4px 10px; }
+/* A short screen -- the bench tablet docked at 1024x600: the header is one
+   row (the page switch at its left, as on a phone on its side), and the
+   heads are tighter, so the four lanes keep their height over a drawer. */
 @media (min-width: 1000px) and (max-height: 640px) {
-  .tt-lane { min-height: 64px; }
+  .tape-page .appbar:has(.appbar-page) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "nav page help";
+  }
+  .tape-page .appbar:has(.appbar-page) > .brand { display: none; }
+  .tape-page .appbar:has(.appbar-page) .appbar-page { margin: 0; padding: 0 0 0 12px; border-top: 0; min-height: 54px; }
+  .tape-page .appbar:has(.appbar-page) .appnav { grid-area: nav; position: static; transform: none; justify-self: start; }
+  .tape-page .appbar:has(.appbar-page) .appnav a { padding: 0 12px; }
+  body.tape-page { --topbar-h: calc(55px + env(safe-area-inset-top)); }
   /* The head's two rows (the name's strip; the keys and level) fit in 64. */
   .tt-head { gap: 3px; padding: 3px 4px; }
   .tt-head .chip { min-height: 28px; }
@@ -2672,7 +2641,7 @@ body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--np-h) + 12p
   letter-spacing: .1em; text-transform: uppercase;
 }
 
-.panel h2, .tape-toolbar .tb-label, .stat .k, .chan summary {
+.panel h2, .np-drawer .tb-label, .stat .k, .chan summary {
   font-family: var(--label-font); font-weight: 600; letter-spacing: .16em;
   text-transform: uppercase; color: var(--ink-dim);
 }
@@ -2756,7 +2725,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 
 /* ---------- keys: what you press while playing ---------- */
 .seg button, .mark-btn, .icon-btn.play,
-.tb-row.transport .icon-btn, .np-own .icon-btn, .tape-toolbar .tb-row.catch .icon-btn, .tape-toolbar .tb-row.edit .icon-btn {
+.tb-row.transport .icon-btn, .np-own .icon-btn, .np-drawer .tb-row.catch .icon-btn, .np-drawer .tb-row.edit .icon-btn {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   border: 1px solid var(--edge);
   border-radius: 11px;
@@ -2766,7 +2735,7 @@ a.chip, a.icon-btn { text-decoration: none; }
   letter-spacing: 0; text-transform: none;
 }
 .seg button:active, .mark-btn:active, .icon-btn.play:active,
-.tb-row.transport .icon-btn:active, .np-own .icon-btn:active, .tape-toolbar .tb-row.catch .icon-btn:active, .tape-toolbar .tb-row.edit .icon-btn:active,
+.tb-row.transport .icon-btn:active, .np-own .icon-btn:active, .np-drawer .tb-row.catch .icon-btn:active, .np-drawer .tb-row.edit .icon-btn:active,
 .tb-row.transport .icon-btn[aria-pressed="true"], .tb-row.transport .tb-play.playing {
   background: linear-gradient(180deg, var(--key-down), var(--key-lo));
   border-color: var(--edge-strong);
@@ -2775,7 +2744,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 /* A key that can't be pressed stays up. */
 .mark-btn[disabled], .tb-row.transport .icon-btn:disabled,
-.np-own .icon-btn:disabled, .tape-toolbar .tb-row.catch .icon-btn:disabled, .tape-toolbar .tb-row.edit .icon-btn:disabled {
+.np-own .icon-btn:disabled, .np-drawer .tb-row.catch .icon-btn:disabled, .np-drawer .tb-row.edit .icon-btn:disabled {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
   transform: none;
@@ -2940,6 +2909,56 @@ input, select, textarea { color-scheme: inherit; }
 .take.spine.encoding .spine-led { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--paper-ink) 30%, transparent); }
 
 
+/* ---------- the dock: the tape's drawers over the bar ---------- */
+/* The bar's Record and Edit keys open one drawer at a time. It docks above
+   the bar like a window -- grip lines, its name, a ✕ -- and, the page being
+   a column the height of the window from 700 px, pushes the lanes up rather
+   than covering one. The clip editor docks in the same place while a clip
+   is aligned, and the drawers wait under it. */
+.np-dock { flex: none; position: relative; z-index: 18; display: flex; flex-direction: column; }
+.np-dock[hidden] { display: none; }
+.np-drawer { display: none; }
+.np-drawer.open, .np-dock > .clip-editor:not([hidden]) {
+  display: block; margin: 0 12px; border: 1px solid var(--edge-strong); border-bottom: 0; border-radius: 12px 12px 0 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--face-hi), var(--face-lo));
+  box-shadow: inset 0 1px 0 var(--hl), 0 -14px 28px -18px var(--sh-strong);
+}
+.np-dock > .clip-editor:not([hidden]) { display: grid; padding: 12px 16px; }
+.np-dock.editing > .np-drawer { display: none; }
+.np-drawer-strip { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 6px 0 14px; border-bottom: 1px solid var(--edge-soft); }
+.np-grip { flex: none; width: 40px; height: 7px; border-top: 1px solid var(--edge-strong); border-bottom: 1px solid var(--edge-strong); opacity: .7; }
+.np-grip-fill { flex: 1; width: auto; }
+.np-drawer-title { margin: 0; font: 700 12.5px var(--label-font); letter-spacing: .22em; text-transform: uppercase; color: var(--ink-dim); white-space: nowrap; }
+.np-drawer-close {
+  appearance: none; flex: none; width: 40px; height: 28px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-dim); font: 600 14px var(--font); cursor: pointer;
+}
+.np-drawer-close:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.np-drawer-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 22px; padding: 12px 16px 14px; align-items: start; }
+.np-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* The keys that open them: an amber LED, lit while the drawer is open, and
+   a chevron that turns over. */
+.np .np-drawer-key { height: 52px; min-height: 52px; padding: 0 14px; gap: 8px; }
+/* Under 1000 px they sit in the bar's second row, beside OUT (page.js). */
+.np .np-row-2 .np-drawer-key { height: 40px; min-height: 40px; padding: 0 12px; flex: none; }
+.np-drawer-key::before {
+  content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--led-off); box-shadow: inset 0 1px 1px rgba(0,0,0,.35);
+}
+.np-drawer-key[aria-expanded="true"] {
+  background: linear-gradient(180deg, var(--key-down), var(--key-lo));
+  border-color: var(--edge-strong); box-shadow: inset 0 2px 4px var(--sh), inset 0 0 0 1px var(--edge-soft); transform: translateY(1px);
+}
+.np-drawer-key[aria-expanded="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); }
+.np-chev { color: var(--ink-dim); font-size: 11px; transition: transform .16s ease; }
+.np-drawer-key[aria-expanded="true"] .np-chev { transform: rotate(180deg); }
+@media (hover: hover) {
+  .np-drawer-close:hover { background: var(--seg-hover); color: var(--ink); }
+}
+@media (prefers-reduced-motion: reduce) { .np-chev { transition: none; } }
+
 /* ---------- the bar, on a phone ---------- */
 /* Upright or sideways, the bar is docked at the bottom -- above the tabs on
    an upright phone -- so catching a pass never waits for a scroll: the keys
@@ -2956,7 +2975,19 @@ input, select, textarea { color-scheme: inherit; }
     position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); height: var(--np-h); z-index: 18;
     padding: 8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left)); gap: 6px;
   }
-  .np-window, .np-out { display: none; }
+  .np-window, .np-out, .np .np-drawer-key { display: none; }
+  /* A column as tall as it needs, scrolled as a page: the bar is fixed. */
+  body.tape-page { height: auto; min-height: 100svh; }
+  body.tape-page > main.tape-main { flex: 1 0 auto; overflow: visible; }
+  .tape-track { flex: none; }
+  .tt-lane { min-height: 64px; height: auto; }
+  /* The drawers are the rows they were, in the page under the tracks. */
+  .np-dock { padding: 0 12px 12px; }
+  .np-drawer, .np-drawer.open, .np-dock > .clip-editor:not([hidden]) { display: block; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+  .np-dock > .clip-editor:not([hidden]) { display: grid; padding: 0 0 8px; }
+  .np-drawer-strip { display: none; }
+  .np-drawer-body { display: flex; flex-direction: column; gap: 8px; padding: 0 0 8px; }
+  .np-col { gap: 8px; }
   .tape-top .out-anchor { display: inline-flex; }
   .np-row-1 { height: 48px; gap: 8px; }
   .np-row-2 { height: 34px; gap: 8px; }

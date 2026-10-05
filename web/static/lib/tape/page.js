@@ -58,6 +58,8 @@ const state = {
   noClickUntil: 0,  // a lane's click before this ends a pan, not a tap
   pinch: false,     // two fingers are on the lanes or the ruler
   rec: null,        // a punch being recorded: {key, track, start, trace, wrapped}
+  // The bar's open drawer: 'rec' (Record · Catch), 'edit' (Clipboard · Edit) or ''.
+  drawer: ['rec', 'edit'].includes(readPref('tape.drawer', '')) ? readPref('tape.drawer', '') : '',
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
 // A pool file's gain for its bars (lib/wave/draw.js takeGain): one per file,
@@ -157,7 +159,7 @@ async function boot() {
     return;
   }
   $('tape-body').hidden = false;
-  $('np').hidden = false;
+  $('np-dock').hidden = false;
   if (!list.loaded) {
     // No tape yet: make the first one.
     const t = list.tapes[0] || await api('/api/tapes', { method: 'POST', body: { name: '' } });
@@ -460,8 +462,11 @@ function render() {
   setText($('catch-pass').querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : 'the last pass');
   setIf($('catch-pass'), 'aria-label', phoneOut ? 'Catch: needs the jam room' : `Catch the last pass onto track ${state.track}`);
   $('jam-only-note').hidden = !phoneOut;
-  for (const id of ['sources', 'catch-bars', 'catch-mode', 'passes']) $(id).hidden = phoneOut;
+  // What needs the jam room goes, rows and all: the Record drawer keeps the
+  // note and Overdub on this device.
+  for (const row of ['sources', 'catch', 'passes']) document.querySelector(`.np-dock .tb-row.${row}`).hidden = phoneOut;
   renderMode();
+  renderDrawers();
   renderClipboard();
   renderEdit();
   renderAlign();
@@ -470,6 +475,23 @@ function render() {
   drawRuler();
   renderFit();
   if (output) output.render(state.live);
+}
+
+// renderDrawers opens the bar's one open drawer and lights its key. From
+// 700 px a drawer docks above the bar and pushes the lanes up; on a phone
+// both are rows in the page (styles.css, "the dock").
+function renderDrawers() {
+  for (const [key, id] of [['rec', 'drawer-rec'], ['edit', 'drawer-edit']]) {
+    const open = state.drawer === key;
+    $(id).classList.toggle('open', open);
+    setIf($(`np-${id}`), 'aria-expanded', String(open));
+  }
+}
+
+function setDrawer(key) {
+  state.drawer = key;
+  writePref('tape.drawer', key);
+  renderDrawers();
 }
 
 function renderMode() {
@@ -2146,6 +2168,23 @@ function wire() {
   $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('tape-out').click(); });
   $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('tape-out').click(); });
   $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
+  // The bar's drawer keys open one drawer, or close it; its ✕ closes it.
+  $('np-drawer-rec').addEventListener('click', () => setDrawer(state.drawer === 'rec' ? '' : 'rec'));
+  $('np-drawer-edit').addEventListener('click', () => setDrawer(state.drawer === 'edit' ? '' : 'edit'));
+  for (const b of document.querySelectorAll('.np-drawer-close')) {
+    b.addEventListener('click', () => { const key = b.dataset.drawer; setDrawer(''); $(`np-drawer-${key}`).focus(); });
+  }
+  // From 1000 px the drawer keys sit beside Catch; narrower, the top row has
+  // no room for them, and they sit under it, beside OUT. Moved, not
+  // reordered in CSS, so the tab order stays the order on screen.
+  const wide = matchMedia('(min-width: 1000px)');
+  const placeKeys = () => {
+    const keys = [$('np-drawer-rec'), $('np-drawer-edit')];
+    if (wide.matches) $('catch-pass').before(...keys);
+    else document.querySelector('.np-out').before(...keys);
+  };
+  wide.addEventListener('change', placeKeys);
+  placeKeys();
   // |◂: to the loop's start while looping, else to the top of the tape.
   $('to-start').addEventListener('click', () => {
     const t = state.tape;
@@ -2243,6 +2282,8 @@ function wire() {
       }
       if (e.key === 'Escape' && !menuWasOpen) { e.preventDefault(); closeAlign(); return; }
     }
+    // Escape closes an open drawer, once nothing nearer was open.
+    if (e.key === 'Escape' && !menuWasOpen && state.drawer) { e.preventDefault(); setDrawer(''); return; }
     if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('play').click(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
     // which track catches go onto. Not under a dialog or a menu, and not on
