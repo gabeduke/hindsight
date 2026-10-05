@@ -69,22 +69,27 @@ just move references around.
 
 **What's on it, top to bottom:**
 
-- **The buffer ribbon.** It draws the last 15 minutes, with the recent end
-  stretched so you can see it.
-- **The meters,** VU needles for the channels being saved, with the level in
-  dBFS under each. On a phone held sideways they fold to two bars.
-- **Capture.** Choose 30 s, 2 m, 7 m or Full, and tap *Capture* to save that
-  much of the past as a take.
+- **The buffer ribbon.** The last 15 minutes on tape, passing the red record
+  head at *REC*, with the recent end stretched so you can see it. The length
+  Capture would catch is lit orange; the pills along the top mark each
+  length, and the strip underneath says how long ago.
+- **The meters,** backlit VU needles for the channels being saved, with the
+  level in dBFS under each, and the buffer, disk, dropped and tempo
+  readouts in amber. On a phone held sideways the needles fold to two bars.
+- **Capture.** Choose 30 s, 2 m, 7 m or Full -- the key says how much it
+  will catch -- and tap *Capture* to save that much of the past as a take.
+  It glows a moment when it has.
 - **Flag now.** It marks this moment in the ring;
   the flag rides along into any take that includes it.
-- **The latest take.** Tap its name to rename it, ★ to star it, and the
-  waveform to hear it; *Open* opens its page. **All takes** goes to the
-  takes page (§3.1), where the rest live.
+- **On the shelf.** The newest takes as cassettes, a new one sliding in with
+  a *NEW* sticker. Tap one to hear it, tap again to stop. **All takes** goes
+  to the takes page (§3.1), where the rest live and where a take is renamed,
+  starred and opened.
 
 **Checks — today:**
 
-- [demo] Tap *Capture* with 30 s chosen → it becomes the latest take within
-  a few seconds, about 30 s long, and plays.
+- [demo] Tap *Capture* with 30 s chosen → a cassette slides onto the shelf
+  with *NEW* within a few seconds, about 30 s long, and plays when tapped.
 - [demo] Tap *Flag now*, wait, then capture → the take has a flag at that
   moment.
 - [demo] Star an older take → it is pruned last, and the takes page's

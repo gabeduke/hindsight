@@ -1815,14 +1815,18 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .main-page main { padding-bottom: 14px; }
   .main-page .about { display: none; }
   body.main-page .take.spine { height: 38px; }
-  body.main-page .take.spine .take-meta { display: none; }
-  body.main-page .take.spine .take-name { font-size: 14px; }
-  body.main-page .take.spine .wave { width: 70px; height: 20px; }
   .main-page .mark-btn { font-size: 0; min-width: 44px; padding: 0 12px; }
   .main-page .mark-btn::before { font-size: 16px; }
 }
 @media (min-width: 900px) and (orientation: landscape) and (min-height: 760px) {
   .main-page main { padding-bottom: 20px; }
+}
+/* Three columns under 1100 px wide: the shelf column is narrow, so a spine
+   keeps its name and gives up its length and some bars. */
+@media (min-width: 900px) and (max-width: 1099.98px) and (orientation: landscape) and (min-height: 561px) {
+  body.main-page .take.spine .take-meta { display: none; }
+  body.main-page .take.spine .take-name { font-size: 14px; }
+  body.main-page .take.spine .wave { width: 70px; height: 20px; }
 }
 
 /* ---------- the app bar ---------- */
