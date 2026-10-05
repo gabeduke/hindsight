@@ -364,6 +364,11 @@ its cue chunk.
 `source` is present only on a take that was cut from another (see
 `POST /api/cut` below); it is absent for a take saved from the ring.
 
+`origin` is `"phone"` on a phone recording and `"tape"` on a tape mixdown, and
+absent on a take saved from the ring. A mixdown also has `tape_id`, the id of
+the tape it was mixed from, so the shelf can fold one tape's mixdowns together;
+mixdowns made before the field existed have none.
+
 Duration and layout come from each file's own header, so takes recorded under
 an older channel configuration still report correctly.
 

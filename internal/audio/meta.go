@@ -205,6 +205,12 @@ type Meta struct {
 	// field existed. Optional and additive, so it needs no MetaVersion bump.
 	Origin string `json:"origin,omitempty"`
 
+	// TapeID is the tape a mixdown was made from (OriginTape only), so the
+	// shelf can fold one tape's mixdowns together. Empty on every other take,
+	// and on mixdowns made before the field existed. Optional and additive, so
+	// it needs no MetaVersion bump.
+	TapeID string `json:"tape_id,omitempty"`
+
 	// BPM is the tempo the take was played at, read from the EP's MIDI clock
 	// at save time and editable afterwards.
 	//

@@ -130,6 +130,10 @@ func TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail(t *testing.T) {
 	if meta.TempoFrom != audio.TempoFromYou {
 		t.Errorf("tempo_from = %q, want you: the tape's tempo is the owner's", meta.TempoFrom)
 	}
+	// It names its tape, so the shelf can fold the tape's mixdowns together.
+	if meta.TapeID != tp.ID {
+		t.Errorf("tape_id = %q, want %q", meta.TapeID, tp.ID)
+	}
 	// The tape stands back at In after it.
 	if st := e.tr.Status(); st.Playing || st.Pos != 0 {
 		t.Fatalf("after the mixdown: %+v", st)
