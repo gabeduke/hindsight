@@ -179,6 +179,10 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 			log.Printf("[!] tape: built without cgo, so nothing plays the tape")
 		}
 	}
+	if sink != nil {
+		// Between the engine and the device: the output can move to a phone.
+		sink = tape.NewOutput(sink)
+	}
 	opts := tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources,
 		MinFreeGB: cfg.MinFreeGB, LatencyMS: cfg.TapeLatencyMS,
 		Saver: saver, TakesDir: cfg.OutputDir, MixdownTail: cfg.TapeMixdownTailS}
