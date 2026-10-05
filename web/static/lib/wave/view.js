@@ -359,8 +359,10 @@ export class WaveView extends GestureSurface {
     // whole body.
     if (st.edit?.seam && sel) {
       const { left, right } = seamHalves(sel, view.fpp, W);
-      this.paintBody(left, 0, top, bottom, col, st, true);
-      this.paintBody(right, W / 2, top, bottom, col, st, true);
+      // No playhead is drawn here, so neither half is lit by one.
+      const still = { ...st, cursor: null };
+      this.paintBody(left, 0, top, bottom, col, still, true);
+      this.paintBody(right, W / 2, top, bottom, col, still, true);
       // The join, and a wash over the side the encoders move.
       ctx.save();
       const mid = Math.round(W / 2) + 0.5;
@@ -434,7 +436,7 @@ export class WaveView extends GestureSurface {
       const frame = ed.edge === 'start' ? sel?.start : ed.edge === 'end' ? sel?.end : st.grid.downbeat;
       if (frame != null) {
         const x = Math.round(frameToX(frame, view)) + 0.5;
-        const c = ed.edge === 'downbeat' ? col('--warn', '#b58900') : col('--sel', '#268bd2');
+        const c = ed.edge === 'downbeat' ? col('--warn', '#b58900') : col('--sel', '#4ebeb4');
         ctx.save();
         ctx.strokeStyle = c;
         ctx.lineWidth = 2;
