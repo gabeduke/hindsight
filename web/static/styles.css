@@ -1217,6 +1217,8 @@ dialog.sheet::backdrop { background: var(--scrim); }
   .panel { padding: 12px; }
   .viz-wrap { height: 96px; }
   .capture-btn { min-height: 50px; margin-top: 10px; }
+  /* No height for the second line here. */
+  .cap-sub { display: none; }
   .wave { height: 40px; }
   .last { margin: 8px 0 0; }
   .last-row { margin-top: 8px; }
@@ -2458,6 +2460,14 @@ a.chip, a.icon-btn { text-decoration: none; }
   transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
 }
 .capture-btn:active, .icon-btn.primary:active { filter: brightness(.94); box-shadow: inset 0 2px 5px rgba(0,0,0,.28); transform: translateY(1px); }
+/* Two lines: the word, and what it will catch. */
+.capture-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+.cap-sub { font: 500 13px var(--font); letter-spacing: 0; text-transform: none; opacity: .92; }
+.cap-sub:empty { display: none; }
+/* It caught something: a glow for a moment after a save. */
+.capture-btn.saved {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 34px var(--accent-glow);
+}
 .capture-btn[disabled] { background: var(--key); color: var(--ink-faint); border-color: var(--edge); box-shadow: none; transform: none; filter: none; text-shadow: none; }
 
 /* Flag: ink legend, a yellow pennant -- yellow text is unreadable on cream. */

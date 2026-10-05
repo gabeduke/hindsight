@@ -1,7 +1,7 @@
 // Hindsight — app entry.
 
 import { connectLive } from '/lib/live.js';
-import { Meters, FLOOR_DB, fmtDur } from '/lib/meter.js';
+import { Meters, FLOOR_DB, fmtDur, tierPhrase } from '/lib/meter.js';
 import { VUMeters } from '/lib/vu.js';
 import { Ribbon } from '/lib/ribbon.js';
 import { TakesList } from '/lib/takes.js';
@@ -32,6 +32,8 @@ const el = {
   durSeg: $('dur-seg'),
   markBtn: $('mark-btn'),
   captureBtn: $('capture-btn'),
+  capWord: $('cap-word'),
+  capSub: $('cap-sub'),
   lastSaved: $('last-saved'),
   takes: $('takes'),
   takesEmpty: $('takes-empty'),
@@ -111,9 +113,11 @@ function buildDurations(ringSeconds) {
         other.setAttribute('aria-pressed', String(Number(other.dataset.seconds) === selSeconds));
       }
       ribbon?.setSelected(selSeconds);
+      el.capSub.textContent = tierPhrase(selSeconds, ringSeconds);
     });
     el.durSeg.appendChild(b);
   }
+  el.capSub.textContent = tierPhrase(selSeconds, ringSeconds);
 
   ribbon?.setSpans(opts.map((o) => o.s));
   ribbon?.setSelected(selSeconds);
@@ -209,9 +213,11 @@ function applyStatus(s) {
   el.lastSaved.textContent = s.last_saved || 'none';
 
   el.captureBtn.disabled = !healthy || s.saving;
-  if (s.saving) el.captureBtn.textContent = 'Saving…';
-  else if (!healthy) el.captureBtn.textContent = 'No input';
-  else el.captureBtn.textContent = 'Capture';
+  // The word changes with the state; what it catches only matters when it can.
+  if (s.saving) el.capWord.textContent = 'Saving…';
+  else if (!healthy) el.capWord.textContent = 'No input';
+  else el.capWord.textContent = 'Capture';
+  el.capSub.hidden = !healthy || !!s.saving;
 
   // Not `healthy`: an interface can be powered off with a full buffer still
   // in memory, and marking a moment in audio you can still capture is the
@@ -271,7 +277,7 @@ async function pollTakes(force = false) {
 async function capture() {
   const btn = el.captureBtn;
   btn.disabled = true;
-  btn.textContent = 'Saving…';
+  el.capWord.textContent = 'Saving…';
 
   try {
     const res = await fetch(`/api/trigger?seconds=${selSeconds}`, { method: 'POST' });
@@ -285,12 +291,15 @@ async function capture() {
 
     takes.markFresh(body.name);
     toast(`Saved ${body.name}`, 'ok');
+    // The key glows a moment: it caught something.
+    btn.classList.add('saved');
+    setTimeout(() => btn.classList.remove('saved'), 1200);
     await pollTakes(true);
     await pollStatus();
   } catch (e) {
     toast(`Capture failed: ${e.message}`, 'bad', 7000);
   } finally {
-    btn.textContent = 'Capture';
+    el.capWord.textContent = 'Capture';
     btn.disabled = false;
   }
 }

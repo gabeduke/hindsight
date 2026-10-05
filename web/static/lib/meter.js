@@ -75,4 +75,16 @@ export function fmtDur(s) {
   return `${s}s`;
 }
 
+/**
+ * tierPhrase is what the Capture key catches, in words: "the last 30
+ * seconds". 0 is the whole ring, `ringSeconds` long.
+ */
+export function tierPhrase(seconds, ringSeconds) {
+  const s = seconds === 0 ? ringSeconds : seconds;
+  if (s < 60) return `the last ${s} seconds`;
+  if (s === 60) return 'the last minute';
+  const m = s / 60;
+  return `the last ${Number.isInteger(m) ? m : m.toFixed(1)} minutes`;
+}
+
 export { FLOOR_DB, dbToFrac, ampToFrac };

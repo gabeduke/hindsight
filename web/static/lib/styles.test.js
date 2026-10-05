@@ -237,6 +237,14 @@ test('stats read as amber LCD readouts, in every state', () => {
   }
 });
 
+// The Capture key's second line is extra height, which a short landscape
+// screen hasn't got: the 844x390 fold is a Global Constraint.
+test("a short landscape screen hides the Capture key's second line", () => {
+  const at = css.indexOf('@media (orientation: landscape) and (max-height: 560px)');
+  assert.ok(at > 0);
+  assert.match(block(at), /\.cap-sub\s*\{[^}]*display:\s*none/);
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);
