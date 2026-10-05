@@ -4,6 +4,7 @@ import { StreamPlayer } from './stream-player.js';
 import { barBeat } from './geometry.js';
 
 const NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
+const REPLAY_MS = 30000; // play on after a loss shorter than this
 const $ = (id) => document.getElementById(id);
 
 export function initOutput({ api, toast, poll, transport, getTape, getGhost = () => null }) {
@@ -16,11 +17,16 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
       render(live);
     },
     onTransport: (kind) => transport(kind),
-    // The Pi stopped the tape when the stream dropped (2 s): play on from there.
-    onReconnect: () => { if (wasPlaying) transport('play'); },
+    // The Pi stopped the tape when the stream dropped (2 s): play on from
+    // there, but only after a short blip, and only if the tape (as the first
+    // packet back stamps it) is still stopped. A late return mustn't start
+    // whatever the room is doing now.
+    onReconnect: ({ lostMs, playing }) => { if (wasPlaying && !playing && lostMs < REPLAY_MS) transport('play'); },
     getLoop: () => { const t = getTape(); return t && t.loop; },
-    title: (getTape() && getTape().name) || 'Tape',
+    getTitle: () => (getTape() && getTape().name) || 'Tape',
   });
+  // A suspended context needs a tap to run again.
+  $('out-strip-resume').addEventListener('click', () => player.resume());
 
   async function setMode(mode) {
     // The audio starts inside the tap that chose it, before any await: a
@@ -77,6 +83,7 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
     // This device has it: the strip.
     const strip = $('out-strip');
     strip.hidden = !(here && mode !== 'jam');
+    $('out-strip-resume').hidden = strip.hidden || player.state !== 'locked';
     if (!strip.hidden) {
       const s = player.state;
       const wait = s === 'buffering' || s === 'lost' || s === 'locked';
@@ -88,7 +95,7 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
         : ghostNow() ? `Moving to bar ${barBeat(ghostNow().pos, getTape().grid) || ''}…`
         : l && l.playing ? 'Playing on this phone' : 'Ready on this phone';
       $('out-strip-right').textContent = s === 'buffering' ? 'buffering' : s === 'lost' ? 'reconnecting'
-        : ghostNow() ? `in ${delay}` : `${delay} behind`;
+        : s === 'locked' ? '' : ghostNow() ? `in ${delay}` : `${delay} behind`;
     }
   }
 
