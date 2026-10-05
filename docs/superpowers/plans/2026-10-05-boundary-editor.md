@@ -654,7 +654,7 @@ export class NearAudio {
 ### Task 4: Draw the edited boundary and the seam view
 
 **Files:**
-- Modify: `web/static/lib/wave/view.js` (`paint()`, `hit()`, `tapAt()`)
+- Modify: `web/static/lib/wave/view.js` (`paint()` → a new `paintBody()`, `hit()`, `tapAt()`)
 - Modify: `web/static/lib/edit/gestures.js` (`wheel(e)`)
 
 **Interfaces:**
@@ -694,26 +694,37 @@ export class NearAudio {
     }
 ```
 
-- [ ] **Step 3: The seam view.** At the top of the waveform drawing in `paint()` (where it calls `this.tiles.columns(view, dpr)` and `drawColumns`), branch: when `st.edit?.seam && sel`, draw two halves instead of one:
+- [ ] **Step 3: The seam view.** Reel-to-reel PR 6 draws the body as a trace on tape: oxide painted once per size, then the grid lines, then each lane's trace (`traceLines` / `drawTrace` from `tape-strip.js`, levels from `this.tiles.columns(view, dpr)`, scaled by `this.gain`, the played part lit up to the cursor). Make that one method, so the seam view can draw it twice:
+
+  1. Move the code in `paint()` from the comment `// Beat and bar lines in the body.` through the end of the trace lanes (the `ctx.restore()` after the lanes loop) into a new method that draws a given view into the strip `[x0, x0 + width)` of the canvas:
+
+```js
+  // paintBody draws the grid lines and the take's trace for v into the
+  // canvas strip [x0, x0 + v.width), clipped to it: once for the whole
+  // view, or once for each half of the seam view.
+  paintBody(v, x0, top, bottom, col, st) {
+    const { ctx, dpr } = this;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x0, top, v.width, bottom - top); ctx.clip();
+    ctx.translate(x0, 0);
+    // (the moved code, with every `view` replaced by `v` and every `W` that
+    // meant the view's width replaced by `v.width`; the cursor's x is
+    // frameToX(st.cursor, v), so in the seam view the lit part follows each
+    // half's own frames)
+    ctx.restore();
+  }
+```
+
+  and in `paint()` call it where that code was: `this.paintBody(view, 0, top, bottom, col, st);`. Check the take page looks exactly as before (the demo, Task 7) — this step must not change any pixels outside the seam view.
+
+  2. In `paint()`, when `st.edit?.seam && sel`, draw two halves instead, then the join:
 
 ```js
     if (st.edit?.seam && sel) {
       const { left, right } = seamHalves(sel, view.fpp, W);
-      for (const [half, x0] of [[left, 0], [right, W / 2]]) {
-        // Grid lines and the waveform of this half, clipped to it.
-        ctx.save();
-        ctx.beginPath(); ctx.rect(x0, top, W / 2, bottom - top); ctx.clip();
-        ctx.translate(x0, 0);
-        for (const g of gridLines(half, st.grid)) {
-          const gx = frameToX(g.frame, half);
-          ctx.fillStyle = g.bar ? col('--well-rule', '#3a3a3a') : withAlpha(col('--well-ink', '#e8e4d8'), 0.07);
-          ctx.fillRect(Math.round(gx), top, 1, bottom - top);
-        }
-        const { cols, channels } = this.tiles.columns(half, dpr);
-        drawColumns(ctx, cols, channels, { top: top + 2, height: bottom - top - 4, color: col('--wave', '#4ebeb4') });
-        ctx.restore();
-      }
-      // The join, and which side the encoders move.
+      this.paintBody(left, 0, top, bottom, col, st);
+      this.paintBody(right, W / 2, top, bottom, col, st);
+      // The join, and a wash over the side the encoders move.
       const mid = Math.round(W / 2) + 0.5;
       ctx.strokeStyle = col('--sel', '#4ebeb4');
       ctx.lineWidth = 2;
@@ -721,16 +732,16 @@ export class NearAudio {
       ctx.fillStyle = withAlpha(col('--sel', '#4ebeb4'), 0.12);
       ctx.fillRect(st.edit.side === 'end' ? 0 : W / 2, top, W / 2, bottom - top);
       ctx.font = `600 11px ${col('--font', 'system-ui')}`;
-      ctx.fillStyle = col('--well-dim', '#9a958a');
+      ctx.fillStyle = col('--well-dim', '#a39d90');
       ctx.textBaseline = 'top';
       ctx.fillText('…end', 6, top + 4);
       ctx.fillText('start…', W / 2 + 6, top + 4);
     } else {
-      // (the existing single waveform drawing, unchanged)
+      this.paintBody(view, 0, top, bottom, col, st);
     }
 ```
 
-  Import `seamHalves` from `./boundary.js` and `gridLines` (already imported). In seam view, skip the selection band, the grease marks, the grips and the ruler ticks' bar labels for frames outside each half (the simplest correct choice: skip the selection band, grips and flags entirely in seam view; keep the ruler blank but for the two labels above). Use the token names PR 1 defines; if a name differs, use PR 1's and say so in the report.
+  `seamHalves` is from `./boundary.js` (Task 2). In the seam view, skip what belongs to a single continuous view: the selection band, the grease-pencil marks, the grips, the flags and the ruler's ticks (leave the ruler blank but for the two labels above). The oxide is drawn as now, across the whole body.
 
 - [ ] **Step 4: Tapping a seam half.** In `hit(x, y)`, when `st.edit?.seam`, any point in the body returns `{ kind: 'seam', side: x < this.cssW / 2 ? 'end' : 'start' }`; in `tapAt(p, h)`, `if (h.kind === 'seam') { this.emit('seamSide', { side: h.side }); return; }`. Grips, pins and the downbeat handle are not hit-tested in seam view.
 
