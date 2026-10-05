@@ -332,9 +332,6 @@ main {
 }
 
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
   padding: 14px;
 }
 
@@ -849,7 +846,7 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   transition: color .15s ease, transform .15s ease;
 }
 
-.star:hover  { color: var(--ink-dim); }
+@media (hover: hover) { .star:hover { color: var(--ink-dim); } }
 .star.on     { color: var(--warn); }
 .star:active { transform: scale(.88); }
 .star:disabled { opacity: .5; cursor: default; }
@@ -907,7 +904,7 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
 .take-bpm::after { content: ' ·'; }
 .take-bpm.unset { color: var(--ink-dim); opacity: .7; }
-.take-bpm:hover { color: var(--ink); }
+@media (hover: hover) { .take-bpm:hover { color: var(--ink); } }
 
 .take-bpm-input {
   flex: none;
@@ -954,9 +951,11 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   pointer-events: auto;
   cursor: pointer;
 }
-.take-flag:hover {
-  width: 4px;
-  margin-left: -2px;
+@media (hover: hover) {
+  .take-flag:hover {
+    width: 4px;
+    margin-left: -2px;
+  }
 }
 /* A flag's name sits just right of its tick; the editor replaces it while
    open. Both are wider than the tick, so they re-enable pointer events for
@@ -1256,7 +1255,6 @@ dialog.sheet::backdrop { background: var(--scrim); }
   color: var(--ink); font: 14px var(--font); padding: 10px 12px; border-radius: 8px; cursor: pointer;
   min-height: 40px;
 }
-.menu > button:hover, .menu > a:hover { background: var(--panel); }
 .menu > .danger { color: var(--danger); }
 .menu > button:disabled { opacity: .4; cursor: default; }
 
@@ -1714,9 +1712,6 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   grid-template-areas: "brand nav status help" "page page page page";
   align-items: center; column-gap: 12px;
   padding: env(safe-area-inset-top) 16px 0;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
 }
 body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
 .appbar > .brand { grid-area: brand; height: 54px; color: var(--ink); text-decoration: none; }
@@ -2045,24 +2040,24 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 }
 
 /* ---------- the deck ---------- */
-/* Retro, but quiet. Only a control you press while playing looks like a
-   tape-deck key -- raised, with travel, sometimes an LED: the capture lengths,
-   Flag, a take's Play, the transports. Capture, the one main action, is the
-   orange key. Every other button is flat and outlined, in plain case, so it
-   reads as a button without shouting. Readouts are plain numbers; only a
-   running counter (the tape and take positions) sits in an amber window.
+/* A brushed-aluminium deck. Buttons and keys are raised: a highlight along the
+   top, a shadow underneath, and pressed or latched they sink into the panel.
+   A switch is a recessed track with a raised thumb. Keys you press while
+   playing (the capture lengths, Flag, a take's Play, the transports) may
+   carry an LED. Capture, the one main action, is the orange key. Readouts are
+   plain numbers; only a running counter (the tape and take positions) sits in
+   an amber window.
 
    This section sets type sizes and a take row's top padding, so it changes
    heights: anything added here must be checked at 844x390 with Capture's
    bottom edge, shadow included, inside the viewport. A key's travel is a
-   box-shadow, not a border, so a press never moves the layout. */
+   transform and its depth a box-shadow, so a press never moves the layout. */
 
 .brand b {
   font-family: var(--label-font); font-weight: 700; font-size: 19px;
   letter-spacing: .1em; text-transform: uppercase;
 }
 
-.panel { border-color: var(--line); }
 .panel h2, .tape-toolbar .tb-label, .stat .k, .chan summary {
   font-family: var(--label-font); font-weight: 600; letter-spacing: .16em;
   text-transform: uppercase; color: var(--ink-dim);
@@ -2102,80 +2097,123 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .overview-canvas, .wave-canvas { border: 0; outline: 1px solid var(--well-line); outline-offset: -1px; }
 .bar, .phone-lane { background: var(--well); box-shadow: inset 0 1px 0 var(--shadow); }
 
-/* Buttons: flat and outlined. */
-.icon-btn, .chip, .nudge, .phone-btn, .passes-row .pass {
-  background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  box-shadow: none;
-  font-family: var(--font); font-weight: 600; font-size: 14px;
-  letter-spacing: 0; text-transform: none;
-  transition: transform 70ms ease, box-shadow 70ms ease, background 140ms;
+/* ---------- surfaces ---------- */
+.appbar {
+  background: linear-gradient(180deg, var(--face-hi), var(--face-lo));
+  border-bottom: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 var(--hl), 0 10px 20px -16px var(--sh-strong);
+  backdrop-filter: none;
 }
-a.chip, a.icon-btn { text-decoration: none; }
-.icon-btn:active, .chip:active, .nudge:active, .phone-btn:active, .passes-row .pass:active { background: var(--key-down); }
-.icon-btn[aria-pressed="true"] { background: var(--key-down); border-color: var(--ink-dim); }
-.chip[aria-pressed="true"] { background: transparent; }
-.icon-btn.danger, .menu > .danger, .take-flag-rm { color: var(--danger-ink); }
-.take-actions .icon-btn.danger { border-color: transparent; }
-.take-top .step-btn { border-color: transparent; }
+.panel, .menu, .sheet-inner {
+  background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 var(--hl), 0 16px 30px -24px var(--sh-strong);
+}
+/* A menu floats over the page, so it throws a longer shadow. */
+.menu { box-shadow: inset 0 1px 0 var(--hl), 0 14px 32px -8px var(--sh-strong); }
 
-/* Keys: what you press while playing. A 3 px edge under the face; pressed or
-   latched, the face drops onto it. */
+/* ---------- raised: buttons and chips ---------- */
+.icon-btn, .chip, .nudge, .phone-btn, .passes-row .pass {
+  background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
+  color: var(--ink);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge), 0 2px 4px -2px var(--sh);
+  font: 600 14px var(--font);
+  letter-spacing: 0; text-transform: none;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+}
+.chip, .phone-btn { border-radius: 999px; }
+a.chip, a.icon-btn { text-decoration: none; }
+.icon-btn:active, .chip:active, .nudge:active, .phone-btn:active, .passes-row .pass:active,
+.icon-btn[aria-pressed="true"], .chip[aria-pressed="true"] {
+  background: linear-gradient(180deg, var(--key-down), var(--key-lo));
+  border-color: var(--edge-strong);
+  box-shadow: inset 0 2px 4px var(--sh), inset 0 0 0 1px var(--edge-soft);
+  transform: translateY(1px);
+}
+.icon-btn.danger, .menu > .danger, .take-flag-rm { color: var(--danger-ink); }
+.take-actions .icon-btn.danger { background: transparent; border-color: transparent; box-shadow: none; }
+.take-top .step-btn { border-color: transparent; background: none; box-shadow: none; }
+
+/* ---------- keys: what you press while playing ---------- */
 .seg button, .mark-btn, .icon-btn.play,
 .tb-row.transport .icon-btn, .tape-toolbar .tb-row.catch .icon-btn, .tape-toolbar .tb-row.edit .icon-btn {
-  background: var(--key);
-  border: 1px solid var(--key-edge);
-  border-radius: 5px;
-  box-shadow: 0 3px 0 var(--key-edge);
+  background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
+  border: 1px solid var(--edge);
+  border-radius: 11px;
+  box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge), 0 3px 8px -4px var(--sh-strong);
   color: var(--ink);
-  font-family: var(--font); font-weight: 600; font-size: 14px;
+  font: 600 14px var(--font);
   letter-spacing: 0; text-transform: none;
 }
 .seg button:active, .mark-btn:active, .icon-btn.play:active,
 .tb-row.transport .icon-btn:active, .tape-toolbar .tb-row.catch .icon-btn:active, .tape-toolbar .tb-row.edit .icon-btn:active,
-.seg button[aria-pressed="true"], .tb-row.transport .icon-btn[aria-pressed="true"], .tb-play.playing {
-  transform: translateY(3px);
-  box-shadow: 0 0 0 var(--key-edge);
-  background: var(--key-down);
-  border-color: var(--key-edge);
+.tb-row.transport .icon-btn[aria-pressed="true"], .tb-play.playing {
+  background: linear-gradient(180deg, var(--key-down), var(--key-lo));
+  border-color: var(--edge-strong);
+  box-shadow: inset 0 2px 4px var(--sh), inset 0 0 0 1px var(--edge-soft);
+  transform: translateY(1px);
 }
-.seg button:disabled, .mark-btn[disabled], .tb-row.transport .icon-btn:disabled,
+/* A key that can't be pressed stays up. */
+.mark-btn[disabled], .tb-row.transport .icon-btn:disabled,
 .tape-toolbar .tb-row.catch .icon-btn:disabled, .tape-toolbar .tb-row.edit .icon-btn:disabled {
-  box-shadow: 0 3px 0 var(--key-edge); transform: none;
+  background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
+  box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
+  transform: none;
 }
 
-/* A row of keys sits in a bed. */
-.seg { background: var(--key-bed); border-radius: 6px; }
+/* A segmented switch: a recessed track with a raised thumb. */
+.seg { background: var(--track); border-radius: 12px; padding: 3px; gap: 2px;
+  box-shadow: inset 0 1px 2px var(--sh), inset 0 0 0 1px var(--edge-soft); }
+.seg button { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-dim); border-radius: 9px; }
+.seg button[aria-pressed="true"] {
+  background: linear-gradient(180deg, var(--thumb-hi), var(--thumb-lo));
+  box-shadow: 0 1px 2px var(--sh-strong), 0 0 0 1px var(--edge), inset 0 1px 0 var(--hl);
+  color: var(--ink); transform: none;
+}
+.seg button:disabled { transform: none; }
 
-/* LEDs: a key that latches says so with a light as well as by sitting low. */
+/* The page switch is the same kind of switch. On a phone it is the tab bar
+   along the bottom instead, set above. */
+@media (min-width: 700px) {
+  .appnav { background: var(--track); border: 0; border-radius: 12px; box-shadow: inset 0 1px 2px var(--sh), inset 0 0 0 1px var(--edge-soft); }
+  .appnav a { color: var(--ink-dim); border-radius: 9px; }
+  .appnav a[aria-current="page"] {
+    background: linear-gradient(180deg, var(--thumb-hi), var(--thumb-lo)); color: var(--ink);
+    box-shadow: 0 1px 2px var(--sh-strong), 0 0 0 1px var(--edge), inset 0 1px 0 var(--hl);
+  }
+}
+
+/* LEDs: a latched key says so with a light as well as by sitting low. */
 .tb-play::before, #dur-seg button::before, .tb-loop::before, .tb-click::before, .wave-page #snap::before {
   content: ''; display: inline-block; flex: none;
   width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
   background: var(--led-off); vertical-align: middle;
+  box-shadow: inset 0 1px 1px rgba(0,0,0,.35);
 }
-.tb-play.playing::before { background: var(--go); box-shadow: 0 0 6px var(--go); }
-#dur-seg button[aria-pressed="true"]::before { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.tb-play.playing::before { background: var(--go); box-shadow: 0 0 0 2px color-mix(in srgb, var(--go) 22%, transparent), 0 0 9px var(--go-glow); }
+#dur-seg button[aria-pressed="true"]::before { background: var(--accent); box-shadow: 0 0 9px var(--accent-glow); }
 .tb-loop[aria-pressed="true"]::before, .tb-click[aria-pressed="true"]::before,
-.wave-page #snap[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.wave-page #snap[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); }
 
-/* The one main action on a screen is orange, with a deeper edge. */
+/* The one main action: orange, lit from above. */
 .capture-btn, .icon-btn.primary {
-  background: var(--accent); color: var(--on-accent);
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo));
+  color: var(--on-accent);
   border: 1px solid var(--accent-edge);
-  box-shadow: 0 5px 0 var(--accent-edge);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
+  text-shadow: 0 1px 0 rgba(0,0,0,.18);
 }
-.icon-btn.primary { box-shadow: 0 3px 0 var(--accent-edge); }
 .capture-btn {
-  border-radius: 6px;
+  border-radius: 16px;
   font-family: var(--label-font); font-weight: 700; font-size: 26px;
   letter-spacing: .14em; text-transform: uppercase;
-  transition: transform 70ms ease, box-shadow 70ms ease, background 140ms;
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
 }
-.capture-btn:active { transform: translateY(5px); box-shadow: 0 0 0 var(--accent-edge); }
-.capture-btn[disabled] { background: var(--key); color: var(--ink-faint); border-color: var(--key-edge); box-shadow: 0 3px 0 var(--key-edge); transform: none; }
-.icon-btn.primary:active { transform: translateY(3px); box-shadow: 0 0 0 var(--accent-edge); }
+.capture-btn:active, .icon-btn.primary:active { filter: brightness(.94); box-shadow: inset 0 2px 5px rgba(0,0,0,.28); transform: translateY(1px); }
+.capture-btn[disabled] { background: var(--key); color: var(--ink-faint); border-color: var(--edge); box-shadow: none; transform: none; filter: none; text-shadow: none; }
 
 /* Flag: ink legend, a yellow pennant -- yellow text is unreadable on cream. */
 .mark-btn::before { content: '⚑ '; color: var(--flag); }
@@ -2206,12 +2244,46 @@ a.chip, a.icon-btn { text-decoration: none; }
 .tt-name { font-family: var(--label-font); font-weight: 700; font-size: 16px; letter-spacing: .06em; }
 
 /* Menus, sheets, tips. */
-.menu, .sheet-inner { background: var(--panel); border-color: var(--rule); }
-.menu > button:hover, .menu > a:hover { background: var(--key-down); }
 .sheet-inner h3 { font-family: var(--label-font); font-weight: 700; font-size: 20px; letter-spacing: .06em; }
 input, select, textarea { color-scheme: inherit; }
-.take-name-input, .take-bpm-input, .take-title-input, .take-sub-input, .tape-tempo-row input, .phone-field select, #flag-sheet input, .take-flag-edit input {
-  background: var(--well); color: var(--ink);
+
+/* Fields: pressed into the panel. */
+.take-name-input, .take-bpm-input, .take-title-input, .take-sub-input, .tape-tempo-row input, .phone-field select, #flag-sheet input, .take-flag-edit input, .shelf-search input {
+  background: var(--field); color: var(--ink);
+  border: 1px solid var(--edge-soft); border-radius: 10px;
+  box-shadow: inset 0 1px 3px var(--field-sh);
+}
+
+/* ---------- hover: only where there is a pointer to hover with ---------- */
+@media (hover: hover) {
+  .icon-btn:not(.primary):not(.phone-rec):not([aria-pressed="true"]):not(:disabled):hover, .chip:not([aria-pressed="true"]):not(:disabled):hover,
+  .nudge:not(:disabled):hover, .phone-btn:hover, .mark-btn:not([disabled]):hover {
+    border-color: var(--edge-strong);
+    box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge), 0 8px 16px -8px var(--sh-strong);
+  }
+  .seg button:not([aria-pressed="true"]):not(:disabled):hover, .appnav a:not([aria-current="page"]):hover { background: var(--seg-hover); color: var(--ink); }
+  .capture-btn:not([disabled]):hover, .icon-btn.primary:not(:disabled):hover { filter: brightness(1.07); }
+  .menu > button:not(:disabled):hover, .menu > a:hover { background: var(--seg-hover); }
+}
+/* The lift on hover is motion, so it waits for permission. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .icon-btn:not(.primary):not(.phone-rec):not([aria-pressed="true"]):not(:disabled):hover, .chip:not([aria-pressed="true"]):not(:disabled):hover,
+  .nudge:not(:disabled):hover, .phone-btn:hover, .mark-btn:not([disabled]):hover,
+  .capture-btn:not([disabled]):hover, .icon-btn.primary:not(:disabled):hover { transform: translateY(-1px); }
+}
+
+/* ---------- focus: always visible from the keyboard ---------- */
+/* An outline, not a shadow: the keys' own shadows outrank a plain
+   :focus-visible, and the ring must win over every one of them. */
+.icon-btn:focus-visible, .chip:focus-visible, .seg button:focus-visible, .appnav a:focus-visible,
+.capture-btn:focus-visible, .nudge:focus-visible, .phone-btn:focus-visible, .mark-btn:focus-visible,
+.passes-row .pass:focus-visible, .menu > button:focus-visible, .menu > a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn, .chip, .nudge, .phone-btn, .passes-row .pass, .seg button, .capture-btn, .mark-btn { transition: none; }
 }
 
 /* A phone held sideways: the deck above sits after the landscape tiers, so it
