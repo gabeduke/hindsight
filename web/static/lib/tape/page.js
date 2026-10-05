@@ -6,9 +6,11 @@
 import { toast } from '../toast.js';
 import { canShareFiles, shareOrDownload } from '../wave/share.js';
 import { initHelp } from '../help/help.js';
-import { peakColumns, foldChannels, drawColumns } from '../wave/draw.js';
+import { drawBars, takeGain } from '../wave/draw.js';
+import { clipLabel, blockLevels, labelFits } from './blocks.js';
+import { roundRectPath } from '../cassette-geom.js';
 import {
-  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs, clipBuckets,
+  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
 } from './geometry.js';
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
@@ -44,6 +46,13 @@ const state = {
   rec: null,        // a punch being recorded: {key, track, start, trace, wrapped}
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
+// A pool file's gain for its bars (lib/wave/draw.js takeGain): one per file,
+// so every clip of it -- a repeat, a split's halves -- is drawn alike.
+const gains = new Map();
+function gainOf(file, pd) {
+  if (!gains.has(file)) gains.set(file, takeGain(pd));
+  return gains.get(file);
+}
 
 function readPref(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }
 function writePref(k, v) { try { localStorage.setItem(k, v); } catch { /* fine */ } }
@@ -1049,9 +1058,12 @@ function drawLanes() {
       ctx.fillStyle = col('--well-rule', 'rgba(242,230,200,.14)');
       ctx.fillRect(x, 0, 1, H);
     }
-    // Clips, base layer first, in the track's colour; a layer over
-    // another is the same colour, fainter.
+    // Clips, base layer first: each a rounded block in the track's colour
+    // with rounded bars inside (lib/tape/blocks.js), lit where it has played,
+    // and a label when it's wide enough. A layer over another is fainter.
     const tc = trackColor(lane.n, col);
+    const ink = col('--well-ink', '#f2e6c8');
+    const heard = state.live ? xOf(state.live.heard, view, W) : null;
     lane.hits = [];
     const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
     for (const c of sorted) {
@@ -1059,22 +1071,52 @@ function drawLanes() {
       const x0 = xOf(c.at + nudge, view, W), x1 = xOf(c.at + nudge + c.frames, view, W);
       if (x1 < 0 || x0 > W) continue;
       const top = 2 + Math.min(c.layer, 3) * 3, h = H - 4 - Math.min(c.layer, 3) * 3;
+      const bw = Math.max(1, x1 - x0);
+      const radius = Math.min(6, bw / 2, h / 2);
+      const block = () => { ctx.beginPath(); roundRectPath(ctx, x0 + 0.75, top + 0.75, Math.max(0.5, bw - 1.5), h - 1.5, radius); };
       // One being slid stays where it is, faint, until it lands.
       ctx.globalAlpha = state.slide && state.slide.clip.id === c.id ? 0.35 : 1;
+      block();
       ctx.fillStyle = withAlpha(tc, c.layer ? 0.1 : 0.16);
-      ctx.fillRect(x0, top, Math.max(1, x1 - x0), h);
+      ctx.fill();
       const pd = peaks.get(c.file);
-      const w = Math.max(1, Math.round(x1 - x0));
-      if (pd && !(pd instanceof Promise)) {
-        const [b0, b1] = clipBuckets(c, pd);
-        const cols = foldChannels(peakColumns(pd, w, b0, b1), pd.channels);
+      if (pd && !(pd instanceof Promise) && bw > 8) {
+        const lv = blockLevels(pd, c, bw);
+        const bars = { x0: x0 + 4, pitch: 4, cy: top + h / 2 + 3, half: Math.max(1, h / 2 - 12), gain: gainOf(c.file, pd), width: 2.2 };
         ctx.save();
-        ctx.translate(Math.round(x0), 0);
-        drawColumns(ctx, cols, 1, { top, height: h, color: c.layer ? withAlpha(tc, 0.6) : tc });
+        ctx.beginPath();
+        ctx.rect(x0, top, bw, h);
+        ctx.clip();
+        drawBars(ctx, lv, { ...bars, color: withAlpha(tc, c.layer ? 0.4 : 0.55) });
+        if (heard != null && heard > x0) {
+          ctx.beginPath();
+          ctx.rect(x0, top, Math.min(heard, x1) - x0, h);
+          ctx.clip();
+          ctx.shadowColor = withAlpha(tc, 0.7);
+          ctx.shadowBlur = 4 * dpr;
+          drawBars(ctx, lv, { ...bars, color: tc });
+        }
         ctx.restore();
       }
-      ctx.strokeStyle = state.clip && state.clip.id === c.id ? col('--well-ink', '#f2e6c8') : withAlpha(tc, 0.5);
-      ctx.strokeRect(x0 + 0.5, top + 0.5, Math.max(1, x1 - x0) - 1, h - 1);
+      if (labelFits(bw)) {
+        const label = clipLabel(c, tr);
+        if (label) {
+          ctx.save();
+          ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
+          ctx.textBaseline = 'top';
+          ctx.shadowColor = 'rgba(0,0,0,.9)';
+          ctx.shadowBlur = 3 * dpr;
+          ctx.fillStyle = withAlpha(ink, 0.85);
+          ctx.fillText(label, x0 + 6, top + 4, bw - 12);
+          ctx.restore();
+        }
+      }
+      const picked = state.clip && state.clip.id === c.id;
+      ctx.lineWidth = picked ? 2 : 1.5;
+      ctx.strokeStyle = picked ? ink : tc;
+      block();
+      ctx.stroke();
+      ctx.lineWidth = 1;
       ctx.globalAlpha = 1;
       lane.hits.push({ x0, x1, clip: c });
     }
