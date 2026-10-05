@@ -608,6 +608,15 @@ From the top:
     (7a). Tap an empty part of a lane to move the playhead there.
 - **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
   tape plays on to the end of what's recorded.
+- **The drawers.** The bar's **Record ▴** and **Edit ▴** open a drawer
+  above it, one at a time; the key's light is on while its drawer is open.
+  The drawer pushes the lanes up rather than covering one, and its key, its
+  **✕** or **Esc** closes it. Each device remembers which was open.
+  - **Record · Catch** holds Record from, Catch the last 1, 2 or 4 bars,
+    Layer or Replace, the passes, and Overdub on this device.
+  - **Clipboard · Edit** holds the clipboard, Lift, Copy, Split and ×2 on
+    the loop's bars, and what a slid clip snaps to.
+  - While a clip is being aligned, its editor opens there instead.
 - **Record from** chooses the input ● Rec, a catch and a free loop take
   from: main, ch1, ch2 or aux. ● Rec names it too, under its label, so you
   can see what it will record without looking down. While a track is armed
@@ -631,10 +640,14 @@ From the top:
   narrow phone |◂ gives way), and under them a small window with where the
   tape is, beside the overview. A catch never waits for a scroll. OUT is in
   the top bar.
-- **On a tablet or a computer** the page uses the space. A tablet held
-  upright keeps one column, with taller lanes. A tablet on its side, or a
-  window 1000 px wide or more, puts the rest of the controls in a panel
-  beside the tracks, which stays in view while the lanes fill the height.
+- **On a phone** the drawers aren't drawers: Record from, Catch the last,
+  the passes, the clipboard and the edits are rows under the tracks, as
+  they always were.
+- **On a tablet or a computer** the tracks take the whole width and share
+  the height of the window between the header and the bar; a drawer opening
+  makes them shorter, and they scroll once they're as short as their heads.
+  Narrower than 1000 px, **Record ▴** and **Edit ▴** sit beside OUT. On the
+  1024 × 600 bench the header is one row, the page switch at its left.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
   ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, and
   **⌘Z / Ctrl-Z** undoes (with **⇧** to redo). Holding a key doesn't repeat
@@ -1247,6 +1260,8 @@ has no tip.
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape. Key: Space |
 | To the loop’s start (tape) | Back to the loop’s start; with Loop off, to the top of the tape |
+| Record ▴ (tape) | Record from, Catch the last 1, 2 or 4 bars, Layer or Replace, the passes, and Overdub on this device. Esc closes it |
+| Edit ▴ (tape) | The clipboard and Drop, Lift, Copy, Split and ×2 on the loop’s bars, and what a slid clip snaps to. Esc closes it |
 | Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars. Drag sideways to pan, pinch to zoom |
 | Fit | Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
@@ -1277,7 +1292,7 @@ has no tip.
 | Hit → Grid | Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off |
 | Track picker | Choose the track to line this clip up against |
 | Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
-| Catch | Catch the last time round the loop onto the selected track. The last 1, 2 or 4 bars are beside the tracks |
+| Catch | Catch the last time round the loop onto the selected track. The last 1, 2 or 4 bars are under Record |
 | Passes | Every time round the loop, kept. Tap one to put it on the selected track |
 | Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |
 | Lift | Cut the loop’s bars into the clipboard, leaving silence |
