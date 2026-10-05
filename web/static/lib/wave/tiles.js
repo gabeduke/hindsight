@@ -12,11 +12,14 @@ import { levelFor, tileSpan, tilesFor, fileLevel, TILE_BUCKETS } from './geometr
 const defaultFetch = (...args) => globalThis.fetch(...args);
 
 export class TileCache {
-  constructor({ file, totalFrames, filePeaks, fetchFn = defaultFetch, onChange, onGone, maxTiles = 256 }) {
+  constructor({ file, totalFrames, filePeaks, fetchFn = defaultFetch, onChange, onGone, maxTiles = 256, urlFor }) {
     this.file = file;
     this.totalFrames = totalFrames;
     this.filePeaks = filePeaks;
     this.fetchFn = fetchFn;
+    // urlFor(from, to, buckets) is the URL of a range of peaks; the default is
+    // the take's /api/peaks, the tape page hands in /api/tapes/peaks.
+    this.urlFor = urlFor || ((f, t, b) => `/api/peaks?file=${encodeURIComponent(file)}&from=${f}&to=${t}&buckets=${b}`);
     this.onChange = onChange;
     this.onGone = onGone;
     this.maxTiles = maxTiles;
@@ -56,7 +59,7 @@ export class TileCache {
     const to = Math.min(this.totalFrames, from + span);
     if (from >= to) return;
     this.inflight.add(k);
-    const url = `/api/peaks?file=${encodeURIComponent(this.file)}&from=${from}&to=${to}&buckets=${TILE_BUCKETS}`;
+    const url = this.urlFor(from, to, TILE_BUCKETS);
     this.fetchFn(url).then(async (res) => {
       if (res.status === 404) {
         const first = !this.gone;

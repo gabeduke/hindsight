@@ -11,11 +11,14 @@ export const SPAN_MS = 250;
 const defaultFetch = (...args) => globalThis.fetch(...args);
 
 export class NearAudio {
-  constructor({ file, sampleRate, total, fetchFn = defaultFetch }) {
+  constructor({ file, sampleRate, total, fetchFn = defaultFetch, urlFor }) {
     this.file = file;
     this.sr = sampleRate;
     this.total = total;
     this.fetchFn = fetchFn;
+    // urlFor(from, to) is the URL of a stretch of audio; the default is the
+    // take's /api/slice, the tape page hands in /api/tapes/slice.
+    this.urlFor = urlFor || ((f, t) => `/api/slice?file=${encodeURIComponent(file)}&from=${f}&to=${t}`);
     this.half = Math.round((sampleRate * SPAN_MS) / 1000);
     this.kept = null; // { from, x }
   }
@@ -28,7 +31,7 @@ export class NearAudio {
         (k.from + k.x.length === this.total || k.from + k.x.length - frame >= this.half / 2)) return k;
     const from = Math.max(0, Math.round(frame) - this.half);
     const to = Math.min(this.total, Math.round(frame) + this.half);
-    const res = await this.fetchFn(`/api/slice?file=${encodeURIComponent(this.file)}&from=${from}&to=${to}`);
+    const res = await this.fetchFn(this.urlFor(from, to));
     if (!res.ok) throw new Error(`the audio there didn't load (${res.status})`);
     const { mono } = parseWav16(await res.arrayBuffer());
     this.kept = { from, x: mono };
