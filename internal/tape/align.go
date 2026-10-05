@@ -194,8 +194,8 @@ func (e *Engine) alignStep() {
 		cur.Delta = est + a.residual
 	}
 	from, how, center := cur.From, cur.How, cur.Delta
-	due := how == "estimated" && time.Since(a.lastTry) > 2*time.Second ||
-		how == "locked" && time.Since(a.lastTry) > 10*time.Second
+	due := (how == "estimated" && time.Since(a.lastTry) > 2*time.Second ||
+		how == "locked" && time.Since(a.lastTry) > 10*time.Second) && !e.outputSilent()
 	if due {
 		a.lastTry = time.Now()
 	}
@@ -362,4 +362,11 @@ func (e *Engine) keepHistory(start uint64, out []int32) {
 		e.hist[1][k].Store(out[i*OutChannels+2])
 	}
 	e.histEnd.Store(start + uint64(n))
+}
+
+// outputSilent says the device is playing silence (the tape is on a phone):
+// there's nothing of the tape's in the capture to lock on to.
+func (e *Engine) outputSilent() bool {
+	r := e.router()
+	return r != nil && r.Silent()
 }

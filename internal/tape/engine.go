@@ -190,6 +190,9 @@ func NewEngine(o Options) *Engine {
 		e.pullBridge = audio.NewClockBridge(256, o.Store.SampleRate())
 	}
 	e.mix.Store(&Mix{})
+	if b, ok := e.sink.(interface{ bind(*Engine) }); ok {
+		b.bind(e)
+	}
 	e.panicked.Store("")
 	return e
 }
@@ -542,6 +545,14 @@ func (e *Engine) idle(out uint64) {
 
 // HasOutput reports whether anything plays the tape.
 func (e *Engine) HasOutput() bool { return e.sink != nil }
+
+// router is the tape's Output, if its sink is one.
+func (e *Engine) router() *Output {
+	if r, ok := e.sink.(interface{ router() *Output }); ok {
+		return r.router()
+	}
+	return nil
+}
 
 // --- the model ----------------------------------------------------------------
 
