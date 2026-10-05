@@ -61,6 +61,9 @@ func (e *Engine) CancelTap() {
 
 // Tap takes a free-loop tap that arrived at monotonic time ns.
 func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, error) {
+	if err := e.jamOnly(); err != nil {
+		return TapResult{}, err
+	}
 	t := e.Loaded()
 	if t == nil {
 		return TapResult{}, ErrNoTape

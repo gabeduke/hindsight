@@ -53,6 +53,9 @@ var (
 
 // Record arms a track, or punches in if the tape is playing.
 func (e *Engine) Record(id string, track int, source string, replace bool) (Recording, error) {
+	if err := e.jamOnly(); err != nil {
+		return Recording{}, err
+	}
 	if e.capture == nil {
 		return Recording{}, ErrNoCapture
 	}
@@ -74,6 +77,9 @@ func (e *Engine) Record(id string, track int, source string, replace bool) (Reco
 	}
 	e.recMu.Lock()
 	defer e.recMu.Unlock()
+	if err := e.jamOnly(); err != nil { // a switch to a phone may have come in since
+		return Recording{}, err
+	}
 	if e.mixdownBusy() { // under recMu, the order StartMixdown takes them in
 		return Recording{}, ErrMixingDown
 	}

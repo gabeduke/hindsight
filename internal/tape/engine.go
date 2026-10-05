@@ -40,6 +40,9 @@ var (
 	ErrNotLined  = errors.New("the tape's output isn't lined up with the capture yet")
 	ErrNotPlayed = errors.New("the tape didn't play those bars")
 	ErrSlipped   = errors.New("the output slipped against the recording during that span; catch a later one")
+
+	ErrNeedsJamRoom = errors.New("that needs the jam room: the tape is playing on a phone")
+	ErrNoStream     = errors.New("this tape's output can't stream")
 )
 
 // Source is a named capture pair the tape can catch from, with the buses that
@@ -190,6 +193,9 @@ func NewEngine(o Options) *Engine {
 		e.pullBridge = audio.NewClockBridge(256, o.Store.SampleRate())
 	}
 	e.mix.Store(&Mix{})
+	if b, ok := e.sink.(interface{ bind(*Engine) }); ok {
+		b.bind(e)
+	}
 	e.panicked.Store("")
 	return e
 }
@@ -543,6 +549,67 @@ func (e *Engine) idle(out uint64) {
 // HasOutput reports whether anything plays the tape.
 func (e *Engine) HasOutput() bool { return e.sink != nil }
 
+// router is the tape's Output, if its sink is one.
+func (e *Engine) router() *Output {
+	if r, ok := e.sink.(interface{ router() *Output }); ok {
+		return r.router()
+	}
+	return nil
+}
+
+// OutputMode is where the tape plays.
+func (e *Engine) OutputMode() OutputMode {
+	if r := e.router(); r != nil {
+		return r.Mode()
+	}
+	return ModeJam
+}
+
+// Stream is the tape's stream hub, or nil.
+func (e *Engine) Stream() *Stream {
+	if r := e.router(); r != nil {
+		return r.Stream()
+	}
+	return nil
+}
+
+// SetOutputMode moves the tape's output. The transport plays on from where
+// it is. A phone can't take the tape while a track is armed or recording, or
+// a mixdown plays: those are the jam room's.
+func (e *Engine) SetOutputMode(m OutputMode) error {
+	switch m {
+	case ModeJam, ModePhone, ModeBoth:
+	default:
+		return fmt.Errorf("%w: no output %q", ErrBadParameter, m)
+	}
+	r := e.router()
+	if r == nil || r.Stream() == nil {
+		return ErrNoStream
+	}
+	if m == ModePhone {
+		// Held across the checks and the switch: Record and StartMixdown
+		// re-check the mode under this lock, so one of the two loses.
+		e.recMu.Lock()
+		defer e.recMu.Unlock()
+		if e.rec != nil {
+			return ErrRecording
+		}
+		if e.mixdownBusy() {
+			return ErrMixingDown
+		}
+	}
+	r.setMode(m)
+	return nil
+}
+
+// jamOnly refuses what needs the jam room while the tape plays on a phone.
+func (e *Engine) jamOnly() error {
+	if e.OutputMode() == ModePhone {
+		return ErrNeedsJamRoom
+	}
+	return nil
+}
+
 // --- the model ----------------------------------------------------------------
 
 // Load makes a tape the loaded one, stopped at its start.
@@ -741,19 +808,21 @@ func (e *Engine) Do(a Action) {
 // Live is what the page shows.
 type Live struct {
 	Status
-	Heard     int64        `json:"heard"`     // the tape frame at the device now
-	Delivered uint64       `json:"delivered"` // output frames played
-	Late      uint64       `json:"late"`      // device periods with nothing rendered, played as silence
-	Output    string       `json:"output"`    // the output device, or ""
-	Delta     *int64       `json:"delta"`     // ring frame − output frame, if known
-	Aligned   string       `json:"aligned"`   // exact (the demo), locked, estimated or none
-	Cycles    []Cycle      `json:"cycles"`    // the last complete passes
-	Failed    []string     `json:"failed"`    // pool files that couldn't be read
-	Problem   string       `json:"problem,omitempty"`
-	Record    *Recording   `json:"record,omitempty"`  // a punch, or an armed track
-	Tapped    bool         `json:"tapped,omitempty"`  // a free loop's first tap is in
-	Mixdown   *Mixdown     `json:"mixdown,omitempty"` // the last mixdown
-	Clock     *ClockStatus `json:"clock,omitempty"`   // the clock the tape leads
+	Heard      int64         `json:"heard"`     // the tape frame at the device now
+	Delivered  uint64        `json:"delivered"` // output frames played
+	Late       uint64        `json:"late"`      // device periods with nothing rendered, played as silence
+	Output     string        `json:"output"`    // the output device, or ""
+	Delta      *int64        `json:"delta"`     // ring frame − output frame, if known
+	Aligned    string        `json:"aligned"`   // exact (the demo), locked, estimated or none
+	Cycles     []Cycle       `json:"cycles"`    // the last complete passes
+	Failed     []string      `json:"failed"`    // pool files that couldn't be read
+	Problem    string        `json:"problem,omitempty"`
+	Record     *Recording    `json:"record,omitempty"`      // a punch, or an armed track
+	Tapped     bool          `json:"tapped,omitempty"`      // a free loop's first tap is in
+	Mixdown    *Mixdown      `json:"mixdown,omitempty"`     // the last mixdown
+	Clock      *ClockStatus  `json:"clock,omitempty"`       // the clock the tape leads
+	OutputMode string        `json:"output_mode,omitempty"` // jam, phone or both
+	Stream     *StreamStatus `json:"stream,omitempty"`      // the stream to a phone
 }
 
 func (e *Engine) Live() Live {
@@ -777,6 +846,11 @@ func (e *Engine) Live() Live {
 	l.Tapped = e.tapPending()
 	l.Mixdown = e.MixdownStatus()
 	l.Clock = e.ClockStatus()
+	if r := e.router(); r != nil && r.Stream() != nil {
+		l.OutputMode = string(r.Mode())
+		st := r.status()
+		l.Stream = &st
+	}
 	l.Cycles = e.tr.Cycles()
 	if l.Cycles == nil {
 		l.Cycles = []Cycle{}
@@ -815,6 +889,9 @@ func (e *Engine) source(name string) (Source, bool) {
 // last N bars -- from a capture source onto a track: the range of the ring
 // that heard it, written once to the pool, placed where it was played.
 func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
+	if err := e.jamOnly(); err != nil {
+		return Clip{}, err
+	}
 	if e.capture == nil {
 		return Clip{}, ErrNoCapture
 	}

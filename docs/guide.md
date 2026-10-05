@@ -1079,6 +1079,31 @@ machine.
 - [demo] Set tape speed to 50% → the tape plays an octave lower and at half
   tempo.
 
+### 8.10 Taking the tape upstairs
+
+The tape can play on your phone as a backing track, anywhere in the house.
+Tap **OUT** in the tape's header and choose **This phone**: the jam room goes
+silent, and the tape plays here about 0.8 s behind. Everything on the tape
+works as usual — play, locate, the loop, mute, solo, levels — and the
+playhead and meters are moved back to match what you hear, so a mute shows
+`in 0.8 s` until you hear it.
+
+Rec and Catch wait for the jam room: you hear the tape late up here, so a pass
+would land off the beat. For an idea, use **Overdub on this device** (8.8);
+in This phone mode its Listen and Record stop the tape here, so you don't
+hear it twice (in Both they leave the jam room playing).
+When you're back downstairs, tap **Play in the jam room** on the laptop or the
+bench, or choose **Jam room** under OUT: the tape plays on from the same spot.
+
+**Both** plays the jam room as usual and sends the phone a copy, for when
+someone is listening elsewhere while you record.
+
+One phone at a time. If the Wi-Fi drops for 2 s, the tape stops where it was;
+the page reconnects and plays on, if it's back within 30 s and the tape is
+still stopped. If the tape has gone back to the jam room meanwhile, the phone
+lets it go. If the sound stops when the screen locks, tap **Tap to play here**
+on the strip under the deck.
+
 ## 9. Tips in the app
 
 *Step 3 for takes, step 6 for tapes.*
@@ -1238,6 +1263,9 @@ has no tip.
 | ● Record (overdub) | Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too |
 | Clock → (tape) | Who follows the tape's MIDI clock (TAPE_CLOCK=lead); ● while they're running |
 | Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet |
+| OUT (tape) | Where the tape plays: the jam room, this phone, or both. Switching keeps it rolling from the same spot |
+| Jam room / This phone / Both | The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both |
+| Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |
 
 ## 10. When something's off
 

@@ -154,6 +154,9 @@ export const TIPS = [
   { control: '● Record (overdub)', ids: ['away-rec'], tip: 'Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too' },
   { control: 'Clock → (tape)', ids: ['tape-clock'], tip: 'Who follows the tape\'s MIDI clock (TAPE_CLOCK=lead); ● while they\'re running' },
   { control: 'Lock dot', ids: ['lock-dot'], tip: 'How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet' },
+  { control: 'OUT (tape)', ids: ['tape-out'], tip: 'Where the tape plays: the jam room, this phone, or both. Switching keeps it rolling from the same spot' },
+  { control: 'Jam room / This phone / Both', ids: ['out-choice'], tip: 'The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both' },
+  { control: 'Play in the jam room', ids: ['out-jam'], tip: 'Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back' },
 ];
 
 const byId = new Map();

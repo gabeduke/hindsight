@@ -26,6 +26,8 @@ import {
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
 import { initAway } from './away-sheet.js';
+import { initOutput } from './output-ui.js';
+import { Pending } from './pending.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { TapeMachine } from './machine.js';
 import { initNav } from '../nav.js';
@@ -136,7 +138,14 @@ async function boot() {
       return note ? `${msg} — ${note}` : msg;
     },
     onUndo: () => undoRedo(false),
+    // Its own copy of the tape plays here: stop the stream's, or the phone
+    // plays both, 0.8 s apart. The output stays on this phone. Only in This
+    // phone mode: in Both the jam room is the clock and may be recording.
+    onPlay: () => {
+      if (output && output.streamingHere() && state.live && state.live.output_mode === 'phone') transport('stop');
+    },
   });
+  output = initOutput({ api, toast, poll, transport, getTape: () => state.tape, getGhost: () => ghost });
   let list;
   try {
     list = await api('/api/tapes');
@@ -220,6 +229,14 @@ function apply(s) {
   // The empty-tape form starts at the tempo you were playing, until you type.
   if (s.suggest_bpm && !$('new-bpm').dataset.touched) $('new-bpm').value = String(s.suggest_bpm);
   state.live = s.live || null;
+  // On this phone, show what's heard: everything that draws the playhead
+  // reads live.heard.
+  if (state.live && output && output.streamingHere()) {
+    const h = output.player.heard();
+    // The punch and record code keeps the engine's position: what lands on tape.
+    state.live.heardEngine = state.live.heard;
+    if (h) state.live.heard = h.pos;
+  }
   state.sources = s.sources || [];
   state.undo = s.undo || 0;
   state.redo = s.redo || 0;
@@ -236,12 +253,39 @@ function apply(s) {
 // the tape is, whether it plays or records, and how to read each track's
 // level at a frame.
 let machine = null;
+let output = null;
+let ghost = null; // a locate seen but not yet heard, { pos, until }
+const pending = new Pending();
+
+// askHeard notes a mute or solo press, so the track keeps sounding as it did
+// until the change reaches this phone's speaker.
+function askHeard(n) {
+  if (!output || !output.streamingHere()) return;
+  const tr = track(n);
+  pending.ask(n, { mute: tr.mute, solo: tr.solo }, output.player.delayMs(), performance.now());
+}
+
+// heardTracks is the tracks as the speaker plays them now.
+function heardTracks() {
+  const now = performance.now();
+  return state.tape.tracks.map((tr) => ({ ...tr, ...pending.heard(tr.n, tr, now) }));
+}
+
+// jamOnly explains, and refuses, what needs the jam room while the tape
+// plays on a phone.
+function jamOnly() {
+  if (!state.live || state.live.output_mode !== 'phone') return false;
+  $('jam-only-delay').textContent = `${(((output && output.player.delayMs()) || 800) / 1000).toFixed(1)} s`;
+  $('jam-only').showModal();
+  return true;
+}
 function feedMachine() {
   const t = state.tape, live = state.live;
   if (!t) return;
   machine ??= new TapeMachine($('tape-machine'));
   machine.setTracks(t.tracks.length);
-  const anySolo = t.tracks.some((tr) => tr.solo);
+  const tracks = heardTracks();
+  const anySolo = tracks.some((tr) => tr.solo);
   const peaksOf = (f) => peaks.get(f);
   machine.poll({
     heard: live ? live.heard : 0,
@@ -249,7 +293,7 @@ function feedMachine() {
     recording: !!(live && live.record && live.record.state === 'on' && live.record.tape === t.id),
     length: t.length,
     sampleRate: t.sample_rate,
-    levels: (frame) => t.tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)),
+    levels: (frame) => tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)),
   });
 }
 
@@ -283,14 +327,14 @@ function tracePunch() {
   if (!state.rec || state.rec.key !== key) state.rec = { key, track: r.track, start: null, trace: null, wrapped: false };
   const counting = live.count_in > 0;
   if (state.rec.start === null && (counting || live.playing)) {
-    const obs = { counting, pos: live.pos, heard: live.heard, delivered: live.delivered, from: r.from };
+    const obs = { counting, pos: live.pos, heard: live.heardEngine ?? live.heard, delivered: live.delivered, from: r.from };
     state.rec.start = punchStart(t.grid, t.loop, obs);
     // A page opened mid-punch: the loop may have come round already.
     state.rec.wrapped = !counting && wrappedSince(t.loop, obs);
   }
   if (live.playing && !counting) {
     const src = state.sources.find((x) => x.name === r.source);
-    state.rec.trace = traceAdd(state.rec.trace, live.heard, src && src.peak_db);
+    state.rec.trace = traceAdd(state.rec.trace, live.heardEngine ?? live.heard, src && src.peak_db);
   }
 }
 
@@ -341,8 +385,10 @@ function render() {
   // The sign over the door: lit only while a punch is going onto tape.
   const onAir = !!(live && live.playing && live.record && live.record.state === 'on' && live.record.tape === t.id);
   $('rec-sign').classList.toggle('on', onAir);
-  $('lock-dot').className = `dot lock ${lock === 'exact' || lock === 'locked' ? 'ok' : lock === 'estimated' ? 'wait' : 'bad'}`;
-  $('lock-dot').title = lock === 'none' ? 'not lined up yet: catches wait'
+  // Playing on a phone, there is nothing to line up: grey, not red.
+  const phoneOut = !!(live && live.output_mode === 'phone');
+  $('lock-dot').className = `dot lock ${phoneOut ? 'off' : lock === 'exact' || lock === 'locked' ? 'ok' : lock === 'estimated' ? 'wait' : 'bad'}`;
+  $('lock-dot').title = phoneOut ? 'no lock: the tape is playing on a phone' : lock === 'none' ? 'not lined up yet: catches wait'
     : lock === 'estimated' ? 'lined up by the clocks: nudge a catch if it’s off' : `lined up to the sample (${lock})`;
 
   const md = live && live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
@@ -388,7 +434,8 @@ function render() {
   rb.firstElementChild.textContent = recWhat;
   rb.lastElementChild.textContent = recSrc;
   setIf(rb, 'aria-label', `${recWhat.slice(2)} from ${recSrc}`);
-  rb.disabled = !rec && (!live || live.aligned === 'none' || !t.grid || mixing);
+  // In phone mode it stays pressable whatever else is true, so the jam-room sheet can explain.
+  rb.disabled = !rec && !phoneOut && (!live || live.aligned === 'none' || !t.grid || mixing);
   $('click').setAttribute('aria-pressed', String(!!t.click));
   $('click').disabled = !t.grid;
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
@@ -399,8 +446,14 @@ function render() {
   renderSources();
   renderPasses();
   const canCatch = live && live.aligned !== 'none';
-  $('catch-pass').disabled = !canCatch || !(live.cycles || []).length;
+  $('catch-pass').disabled = !phoneOut && (!canCatch || !(live.cycles || []).length);
   for (const b of $('catch-bars').querySelectorAll('button')) b.disabled = !canCatch || !t.grid;
+  rb.setAttribute('aria-disabled', String(phoneOut));
+  rb.classList.toggle('dim', phoneOut);
+  $('catch-pass').classList.toggle('jam-only', phoneOut);
+  $('catch-pass').textContent = phoneOut ? 'Catch · jam room only' : 'Catch the last pass';
+  $('jam-only-note').hidden = !phoneOut;
+  for (const id of ['sources', 'catch-bars', 'catch-mode', 'passes']) $(id).hidden = phoneOut;
   renderMode();
   renderClipboard();
   renderEdit();
@@ -409,6 +462,7 @@ function render() {
   drawOverview();
   drawRuler();
   renderFit();
+  if (output) output.render(state.live);
 }
 
 function renderMode() {
@@ -505,6 +559,7 @@ function renderClock(c, t) {
 // mixdown plays the loop (or, with all, the whole tape) once and saves what
 // the mixer put out as a take; live.mixdown follows it.
 async function mixdown(all) {
+  if (jamOnly()) return;
   try {
     const b = await change(() => api(`/api/tapes/mixdown?${q()}`, { method: 'POST', body: { all } }));
     const md = b.mixdown;
@@ -605,7 +660,7 @@ function renderEdit() {
   const sel = t.loop.out > t.loop.in;
   $('ed-lift').disabled = !sel;
   $('ed-copy').disabled = !sel;
-  $('ed-split').disabled = !live || !track(state.track) || splitAt(track(state.track), live.heard, t.sample_rate) === 0;
+  $('ed-split').disabled = !live || !track(state.track) || splitAt(track(state.track), live.heardEngine ?? live.heard, t.sample_rate) === 0;
   $('ed-x2').disabled = !fitsDoubled(t);
   const box = $('snap');
   if (!box.children.length) {
@@ -1105,6 +1160,7 @@ function drawRuler() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   const view = laneView();
+  if (ghost && performance.now() >= ghost.until) ghost = null;
   const ink = token('--well-ink', '#f2e6c8'), warn = token('--warn', '#b58900');
   const span = (from, to, fill) => {
     const x0 = Math.max(0, xOf(from, view, W)), x1 = Math.min(W, xOf(to, view, W));
@@ -1124,6 +1180,14 @@ function drawRuler() {
   if (state.live) {
     const x = xOf(state.live.heard, view, W);
     if (x >= 0 && x <= W) { ctx.fillStyle = token('--accent', '#cb4b16'); ctx.fillRect(Math.round(x), 0, 2, H); }
+  }
+  // A locate seen but not yet heard: a hollow marker where the sound will be.
+  if (ghost) {
+    const x = xOf(ghost.pos, view, W);
+    if (x >= 0 && x <= W) {
+      ctx.strokeStyle = token('--accent', '#cb4b16'); ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(x - 5, 1); ctx.lineTo(x + 5, 1); ctx.lineTo(x, 9); ctx.closePath(); ctx.stroke();
+    }
   }
 }
 
@@ -1401,6 +1465,7 @@ function buildLanes() {
           <button class="chip tt-bus" type="button" data-tip="bus"></button>
           <button class="chip tt-mute" type="button" aria-pressed="false" data-tip="track-mute">M</button>
           <button class="chip tt-solo" type="button" aria-pressed="false" data-tip="track-solo">S</button>
+          <span class="tt-pend" hidden></span>
           <input class="tt-gain" type="range" min="-30" max="6" step="0.5" aria-label="Track level" data-tip="track-gain">
         </div>
         <canvas class="tt-lane" data-tip="tape-lane"></canvas>`;
@@ -1415,14 +1480,15 @@ function buildLanes() {
         bus: row.querySelector('.tt-bus'),
         mute: row.querySelector('.tt-mute'),
         solo: row.querySelector('.tt-solo'),
+        pend: row.querySelector('.tt-pend'),
         gain: row.querySelector('.tt-gain'),
         canvas: row.querySelector('.tt-lane'),
       };
       // Tap a track to select it; tap it again for its sheet.
       lane.name.addEventListener('click', () => { if (state.track === n) openTrack(n); else { state.track = n; render(); } });
       lane.bus.addEventListener('click', () => patch({ track: { n, bus: track(n).bus === 'A' ? 'B' : 'A' } }));
-      lane.mute.addEventListener('click', () => patch({ track: { n, mute: !track(n).mute } }));
-      lane.solo.addEventListener('click', () => patch({ track: { n, solo: !track(n).solo } }));
+      lane.mute.addEventListener('click', () => { askHeard(n); patch({ track: { n, mute: !track(n).mute } }); });
+      lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
       lane.gain.addEventListener('input', () => { lane.gain.dataset.busy = '1'; });
       lane.gain.addEventListener('change', () => { delete lane.gain.dataset.busy; patch({ track: { n, gain_db: Number(lane.gain.value) } }); });
       wireLane(lane);
@@ -1440,6 +1506,8 @@ function drawLanes() {
   const view = laneView();
   const css = getComputedStyle(document.body);
   const col = (n, d) => css.getPropertyValue(n).trim() || d;
+  const heardTr = heardTracks();
+  const heardSolo = heardTr.some((x) => x.solo);
   for (const lane of lanes) {
     const tr = track(lane.n);
     if (!tr) continue;
@@ -1452,6 +1520,13 @@ function drawLanes() {
     lane.bus.textContent = tr.bus;
     lane.mute.setAttribute('aria-pressed', String(!!tr.mute));
     lane.solo.setAttribute('aria-pressed', String(!!tr.solo));
+    // The keys show the ask; the lane dims with the sound, until it is heard.
+    const ht = heardTr.find((x) => x.n === tr.n);
+    const isPending = pending.pending(tr.n, performance.now());
+    lane.row.classList.toggle('unheard', !!ht && (ht.mute || (heardSolo && !ht.solo)));
+    lane.row.classList.toggle('pending', isPending);
+    lane.pend.hidden = !isPending;
+    if (isPending) lane.pend.textContent = `in ${(output.player.delayMs() / 1000).toFixed(1)} s`;
     if (!lane.gain.dataset.busy) lane.gain.value = String(tr.gain_db);
     lane.gain.title = `${tr.gain_db} dB`;
 
@@ -1621,6 +1696,15 @@ function drawLanes() {
         ctx.fillRect(Math.round(x), 0, 2, H);
       }
     }
+    // A locate not yet heard: a dashed line where the sound will be.
+    if (ghost && performance.now() < ghost.until) {
+      const gx = xOf(ghost.pos, view, W);
+      if (gx >= 0 && gx <= W) {
+        ctx.strokeStyle = col('--accent', '#cb4b16'); ctx.lineWidth = 1.6; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(Math.round(gx) + 0.5, 0); ctx.lineTo(Math.round(gx) + 0.5, H); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
   }
 }
 
@@ -1642,7 +1726,7 @@ function drawPunch(ctx, view, W, H, col) {
   ctx.textBaseline = 'top';
   ctx.fillStyle = red;
   ctx.strokeStyle = red;
-  const reg = recRegion(rec.wrapped || !!(rec.trace && rec.trace.passes > 0), rec.start, t.loop, live.heard);
+  const reg = recRegion(rec.wrapped || !!(rec.trace && rec.trace.passes > 0), rec.start, t.loop, live.heardEngine ?? live.heard);
   if (!reg) {
     const x = Math.round(xOf(rec.start, view, W)) + 0.5;
     ctx.setLineDash([4, 3]);
@@ -1729,6 +1813,9 @@ async function patch(body) {
 }
 
 async function transport(action, extra = {}) {
+  if (action === 'locate' && output && output.streamingHere()) {
+    ghost = { pos: extra.pos, until: performance.now() + output.player.delayMs() };
+  }
   try {
     const b = await change(() => api(`/api/tapes/transport?${q()}`, { method: 'POST', body: { action, ...extra } }));
     if (b && b.kept) keptToast(b.kept);
@@ -1752,6 +1839,7 @@ function keptToast(k) {
 // rec arms the selected track, punches in, or ends the punch and keeps it.
 async function rec() {
   const r = state.live && state.live.record;
+  if (!r && jamOnly()) return; // keeping a take already running stays possible
   try {
     if (!r) {
       const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.track, source: state.source, replace: state.mode === 'replace' } }));
@@ -1774,6 +1862,7 @@ async function rec() {
 
 // tap is a free-loop tap.
 async function tap() {
+  if (jamOnly()) return;
   try {
     const b = await change(() => api(`/api/tapes/tap?${q()}`, { method: 'POST', body: { track: state.track, source: state.source } }));
     if (b.stage === 'first') {
@@ -1828,6 +1917,7 @@ function laneTap(lane, e) {
 }
 
 async function doCatch(what) {
+  if (jamOnly()) return;
   const body = { track: state.track, source: state.source, replace: state.mode === 'replace', ...what };
   try {
     const b = await change(() => api(`/api/tapes/catch?${q()}`, { method: 'POST', body }));
@@ -1964,6 +2054,9 @@ async function openMenu() {
 }
 
 function wire() {
+  $('jam-only-close').addEventListener('click', () => $('jam-only').close());
+  $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('tape-out').click(); });
+  $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('tape-out').click(); });
   $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
   $('rec').addEventListener('click', rec);
   $('click').addEventListener('click', () => patch({ click: !state.tape.click }));

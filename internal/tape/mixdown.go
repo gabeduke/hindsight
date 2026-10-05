@@ -59,6 +59,9 @@ var mixdownIDs atomic.Uint64
 // all, the whole tape from its start to the end of its last clip. It
 // answers at once; Live's mixdown follows it.
 func (e *Engine) StartMixdown(id string, all bool) (Mixdown, error) {
+	if err := e.jamOnly(); err != nil {
+		return Mixdown{}, err
+	}
 	t := e.Loaded()
 	if t == nil {
 		return Mixdown{}, ErrNoTape
@@ -110,6 +113,11 @@ func (e *Engine) StartMixdown(id string, all bool) (Mixdown, error) {
 	// takes them in -- so a punch and a mixdown can't both start.
 	e.recMu.Lock()
 	e.mixMu.Lock()
+	if err := e.jamOnly(); err != nil { // a switch to a phone may have come in since
+		e.mixMu.Unlock()
+		e.recMu.Unlock()
+		return Mixdown{}, err
+	}
 	if e.mixdown != nil && e.mixdown.busy() {
 		e.mixMu.Unlock()
 		e.recMu.Unlock()
