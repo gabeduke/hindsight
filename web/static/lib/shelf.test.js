@@ -138,3 +138,12 @@ test("the device's Back closes an open sheet without going back again", () => {
 test('closing a closed sheet does nothing', () => {
   assert.deepEqual(sheetState({ open: null }, { type: 'close' }), { open: null, history: null });
 });
+
+test("the device's Forward reopens the sheet its entry names", () => {
+  assert.deepEqual(sheetState({ open: null }, { type: 'popstate', state: { cassette: 'a' } }), { open: 'a', history: null });
+});
+
+test('widening past the pane closes the sheet and takes its entry back', () => {
+  assert.deepEqual(sheetState({ open: 'a' }, { type: 'widen' }), { open: null, history: 'back' });
+  assert.deepEqual(sheetState({ open: null }, { type: 'widen' }), { open: null, history: null });
+});

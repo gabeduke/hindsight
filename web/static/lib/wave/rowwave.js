@@ -121,6 +121,8 @@ export class RowWave {
   }
 
   loop() {
+    // A spine's bars don't move with the playhead.
+    if (this.look === 'spine') { this.draw(); return; }
     cancelAnimationFrame(this.raf);
     const step = () => {
       // Clear the id first: draw() treats a non-zero raf as "a frame is

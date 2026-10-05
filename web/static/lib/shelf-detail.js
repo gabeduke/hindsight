@@ -25,6 +25,7 @@ export class TakeDetail {
     this.name = null;
     this.ws = null;
     this.ac = null;
+    this.gen = 0;
     root.innerHTML = `
       <button class="icon-btn sheet-back" type="button" aria-label="Back to the takes">‹ Takes</button>
       <div class="detail-head">
@@ -83,23 +84,29 @@ export class TakeDetail {
       const a = this.player?.audio;
       if (!b || !a || !this.take) return;
       a.currentTime = Number(b.dataset.frame) / (this.take.sample_rate || 48000);
+      if (a.paused) this.player.toggle();
     });
   }
 
   // editor swaps a button for its field while editing.
   editor(btn, input, { value, placeholder, save }) {
-    let editing = false;
+    let editing = null; // the take being edited, as it was when editing began
+    let refocus = false;
     const end = async (commit) => {
       if (!editing) return;
-      editing = false;
+      const take = editing;
+      editing = null;
       input.hidden = true;
       btn.hidden = false;
-      if (commit && this.take) await save(this.take, input.value);
-      btn.focus();
+      // Back to the button after Enter or Escape; a Tab or a click elsewhere
+      // goes where it was going.
+      if (refocus) btn.focus();
+      refocus = false;
+      if (commit) await save(take, input.value);
     };
     btn.addEventListener('click', () => {
       if (!this.take) return;
-      editing = true;
+      editing = this.take;
       input.value = value(this.take);
       input.placeholder = placeholder(this.take);
       btn.hidden = true;
@@ -109,8 +116,8 @@ export class TakeDetail {
     });
     input.addEventListener('blur', () => end(true));
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      else if (e.key === 'Escape') { e.preventDefault(); end(false); }
+      if (e.key === 'Enter') { e.preventDefault(); refocus = true; input.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); refocus = true; end(false); }
     });
   }
 
@@ -118,7 +125,7 @@ export class TakeDetail {
   async show(t) {
     this.take = t;
     this.root.hidden = !t;
-    if (!t) { this.unmount(); this.name = null; return; }
+    if (!t) { this.gen++; this.loading = false; this.unmount(); this.name = null; return; }
     const sr = t.sample_rate || 48000;
     const star = this.el('.star');
     star.setAttribute('aria-pressed', String(!!t.starred));
@@ -156,11 +163,14 @@ export class TakeDetail {
     // A different take: draw it from its row's player.
     this.unmount();
     this.name = t.name;
-    const name = t.name;
+    // Only the latest call draws: a slow load for an earlier pick (or the
+    // same pick asked for twice) must not mount a second cassette.
+    const gen = ++this.gen;
     this.loading = true;
-    const p = await this.takes.player(name);
+    const p = await this.takes.player(t.name);
+    if (gen !== this.gen) return;
     this.loading = false;
-    if (this.name !== name) return; // picked another meanwhile
+    this.unmount();
     this.player = p;
     const box = this.el('.detail-cassette');
     box.textContent = p ? '' : (t.has_preview ? 'waveform unavailable' : 'waveform pending…');

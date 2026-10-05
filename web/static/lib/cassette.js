@@ -12,7 +12,7 @@
 
 import { levelsFor, takeGain, smooth, drawBars } from './wave/draw.js';
 import { token, withAlpha } from './theme.js';
-import { stripeOf, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark } from './cassette-geom.js';
+import { stripeOf, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 // A reel hub: a ring, a disc, a dark core and six teeth.
 function hubSVG() {
@@ -37,7 +37,7 @@ export class CassetteFace {
     this.el.className = 'cassette';
     this.el.innerHTML = `
       <svg class="cas-screws" aria-hidden="true"></svg>
-      <div class="cas-label">
+      <div class="cas-label" aria-hidden="true">
         <div class="cas-band"></div><div class="cas-under"></div>
         <span class="cas-side" aria-hidden="true">A</span>
         <span class="cas-brand" aria-hidden="true">HINDSIGHT</span>
@@ -106,6 +106,12 @@ export class CassetteFace {
     this.relayout();
     // The IN and OUT labels are in marker: draw again once it has loaded.
     document.fonts?.ready.then(() => this.draw());
+    // The colours are read once per layout, not every frame; a flip between
+    // light and dark reads them again.
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { this.colors = null; this.draw(); }, sig);
+    // Built over a player that's already going (the take was playing when
+    // its cassette was opened): keep up with it.
+    if (this.isPlaying()) this.loop();
   }
 
   on(ev, fn) { (this.handlers[ev] ||= []).push(fn); }
@@ -138,7 +144,10 @@ export class CassetteFace {
   // cassette under 600 px, the desk's above.
   relayout() {
     const W = Math.round(this.container.getBoundingClientRect().width);
-    if (W <= 0 || W === this.layout?.W) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (W <= 0 || (W === this.layout?.W && dpr === this.dpr)) return;
+    this.dpr = dpr;
+    this.colors = null;
     const L = windowLayout(W, W < 600 ? 'phone' : 'desk');
     this.layout = L;
     const px = (v) => `${v}px`;
@@ -165,7 +174,6 @@ export class CassetteFace {
     this.parts.screws.setAttribute('viewBox', `0 0 ${W} ${L.H}`);
     this.parts.screws.innerHTML = [[si, si], [W - si, si], [si, L.H - si], [W - si, L.H - si], [W / 2, L.H - si]]
       .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="${r}"/><path d="M${x - r * 0.6} ${y}h${r * 1.2}"/>`).join('');
-    const dpr = window.devicePixelRatio || 1;
     const cv = this.parts.canvas;
     cv.width = Math.round(win.w * dpr);
     cv.height = Math.round(win.h * dpr);
@@ -177,12 +185,32 @@ export class CassetteFace {
 
   loop() {
     cancelAnimationFrame(this.raf);
+    let last = null;
     const step = () => {
       this.raf = 0;
-      this.paint();
+      // Repaint only when the playhead has moved a device pixel: the lit
+      // bars' glow is the costly part of a frame.
+      const at = this.layout ? Math.round(playedX(this.fraction(), this.layout) * (this.dpr || 1)) : null;
+      if (at !== last) { this.paint(); last = at; }
       if (this.isPlaying()) this.raf = requestAnimationFrame(step);
     };
     this.raf = requestAnimationFrame(step);
+  }
+
+  fraction() {
+    const d = this.audio.duration || this.duration;
+    return d ? this.audio.currentTime / d : 0;
+  }
+
+  // The cassette's colours, read from the stylesheet.
+  palette() {
+    if (this.colors) return this.colors;
+    const tk = (name) => token(name, 'transparent', this.parts.canvas);
+    this.colors = {
+      pack: tk('--pack'), packEdge: tk('--pack-edge'), grease: tk('--grease-mark'), wave: tk('--wave'), hot: tk('--wave-hot'),
+      accent: tk('--accent'), accentGlow: tk('--accent-glow'), font: tk('--font'),
+    };
+    return this.colors;
   }
 
   draw() {
@@ -195,13 +223,12 @@ export class CassetteFace {
     if (!L || !this.levels) return;
     const { win } = L;
     const cv = this.parts.canvas;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.dpr || 1;
     const ctx = this.ctx;
-    const tk = (name) => token(name, 'transparent', cv);
+    const C = this.palette();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, win.w, win.h);
-    const d = this.audio.duration || this.duration;
-    const frac = d ? this.audio.currentTime / d : 0;
+    const frac = this.fraction();
     const px = playedX(frac, L);
 
     // The tape packs: the left reel gives tape to the right one.
@@ -210,34 +237,34 @@ export class CassetteFace {
     for (const [x, r] of [[win.rc, rl], [win.w - win.rc, rr]]) {
       ctx.beginPath();
       ctx.arc(x, win.cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = tk('--pack');
+      ctx.fillStyle = C.pack;
       ctx.fill();
-      ctx.strokeStyle = tk('--pack-edge');
+      ctx.strokeStyle = C.packEdge;
       ctx.stroke();
     }
 
     // The selection, a faint grease wash between its marks.
-    const grease = tk('--grease-mark');
+    const grease = C.grease;
     const sel = this.selection;
     const sx0 = sel ? playedX(sel.start, L) : 0, sx1 = sel ? playedX(sel.end, L) : 0;
     if (sel) {
       ctx.fillStyle = withAlpha(grease, 0.12);
       ctx.beginPath();
-      ctx.roundRect(sx0 - 4, 7, sx1 - sx0 + 8, win.h - 14, 6);
+      roundRectPath(ctx, sx0 - 4, 7, sx1 - sx0 + 8, win.h - 14, 6);
       ctx.fill();
     }
 
     // The bars: unplayed, then the played part lit, clipped to the playhead.
     const bars = { x0: win.x0, pitch: win.pitch, cy: win.cy, half: win.half, gain: this.gain };
-    drawBars(ctx, this.levels, { ...bars, color: withAlpha(tk('--wave'), 0.55) });
+    drawBars(ctx, this.levels, { ...bars, color: withAlpha(C.wave, 0.55) });
     if (frac > 0) {
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, px + 2, win.h);
       ctx.clip();
-      ctx.shadowColor = withAlpha(tk('--wave-hot'), 0.7);
+      ctx.shadowColor = withAlpha(C.hot, 0.7);
       ctx.shadowBlur = 4 * dpr;
-      drawBars(ctx, this.levels, { ...bars, color: tk('--wave-hot') });
+      drawBars(ctx, this.levels, { ...bars, color: C.hot });
       ctx.restore();
     }
 
@@ -260,7 +287,7 @@ export class CassetteFace {
       if (lab) {
         ctx.save();
         ctx.fillStyle = grease;
-        ctx.font = `${win.marks}px 'Permanent Marker', ${tk('--font')}`;
+        ctx.font = `${win.marks}px 'Permanent Marker', ${C.font}`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.fillText('IN', lab.inX, 3);
@@ -273,8 +300,8 @@ export class CassetteFace {
     // The playhead, once there's somewhere to show it.
     if (this.isPlaying() || frac > 0) {
       ctx.save();
-      ctx.fillStyle = tk('--accent');
-      ctx.shadowColor = tk('--accent-glow');
+      ctx.fillStyle = C.accent;
+      ctx.shadowColor = C.accentGlow;
       ctx.shadowBlur = 8 * dpr;
       ctx.fillRect(px - 1, 7, 2, win.h - 14);
       ctx.restore();

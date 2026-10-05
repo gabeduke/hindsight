@@ -869,7 +869,14 @@ export class TakesList {
     for (const [name, r] of this.rows) {
       const on = this.selecting && this.selected.has(name);
       r.el.classList.toggle('selected', on);
-      r.el.setAttribute('aria-selected', this.selecting ? String(on) : 'false');
+      // A spine is a button, which says it's selected with aria-pressed;
+      // aria-selected is for rows of a list, and isn't read on a button.
+      if (this.spines) {
+        if (this.selecting) r.el.setAttribute('aria-pressed', String(on));
+        else r.el.removeAttribute('aria-pressed');
+      } else {
+        r.el.setAttribute('aria-selected', this.selecting ? String(on) : 'false');
+      }
     }
     if (!this.bar) return;
     this.bar.hidden = !this.selecting;

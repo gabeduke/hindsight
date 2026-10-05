@@ -96,10 +96,18 @@ let picked = null;
 // sheet over the page. One history entry per opening (lib/shelf.js
 // sheetState), so the device's Back closes it; the page behind it is inert.
 let sheet = { open: null };
+// A reload, or a return the browser didn't keep in memory, brings the
+// sheet's entry back with the sheet closed: drop the entry, and reopen the
+// sheet once its take is listed (syncPick).
+let reopen = history.state?.cassette || null;
+if (reopen) history.replaceState(null, '');
 const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about')].filter(Boolean);
 
 function setSheet(on, from) {
   document.body.classList.toggle('cassette-open', on);
+  const pane = $('take-detail');
+  if (on) { pane.setAttribute('role', 'dialog'); pane.setAttribute('aria-modal', 'true'); }
+  else { pane.removeAttribute('role'); pane.removeAttribute('aria-modal'); }
   for (const el of behind()) el.inert = on;
   if (on) {
     detail.show(takes.all.find((t) => t.name === sheet.open) || null);
@@ -107,7 +115,8 @@ function setSheet(on, from) {
     detail.el('.sheet-back').focus();
   } else {
     if (!wide.matches) detail.show(null);
-    takes.rows.get(from)?.el.focus();
+    // Back to the spine it came from, or the first one if that take has gone.
+    (takes.rows.get(from)?.el || $('takes').querySelector('.take.spine'))?.focus();
   }
 }
 
@@ -125,10 +134,17 @@ function closeSheet() {
   if (was) setSheet(false, was);
 }
 
-addEventListener('popstate', () => {
+addEventListener('popstate', (e) => {
   const was = sheet.open;
-  sheet = sheetState(sheet, { type: 'popstate' });
-  if (was) setSheet(false, was);
+  sheet = sheetState(sheet, { type: 'popstate', state: e.state });
+  if (sheet.open) {
+    // Forward, onto a sheet's entry: open it again, if its take is still here.
+    if (wide.matches || !takes.rows.has(sheet.open)) { history.replaceState(null, ''); sheet = { open: null }; return; }
+    pick(sheet.open);
+    setSheet(true);
+  } else if (was) {
+    setSheet(false, was);
+  }
 });
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheet.open && !e.target.closest?.('input')) closeSheet(); });
 
@@ -152,6 +168,12 @@ function pick(name) {
 // picked has gone -- deleted, or filtered out.
 function syncPick() {
   const shown = shownNames();
+  if (reopen && shown.includes(reopen)) {
+    const name = reopen;
+    reopen = null;
+    if (!wide.matches) { pick(name); openSheet(name); return; }
+    picked = name;
+  }
   // On a phone nothing is picked until a spine is pressed; a sheet whose
   // take has gone (deleted, filtered out) closes.
   if (!wide.matches) {
@@ -159,7 +181,13 @@ function syncPick() {
     pick(shown.includes(picked) ? picked : null);
     return;
   }
-  if (sheet.open) { sheet = { open: null }; document.body.classList.remove('cassette-open'); for (const el of behind()) el.inert = false; }
+  if (sheet.open) {
+    // Wide enough for the pane: the sheet goes, and its history entry too.
+    const was = sheet.open;
+    sheet = sheetState(sheet, { type: 'widen' });
+    if (sheet.history === 'back') history.back();
+    setSheet(false, was);
+  }
   pick(shown.includes(picked) ? picked : shown[0] || null);
 }
 
@@ -173,10 +201,12 @@ $('takes').addEventListener('click', (e) => {
   if (!wide.matches) openSheet(row.dataset.name);
 });
 $('takes').addEventListener('keydown', (e) => {
-  if (takes.selecting || (e.key !== 'Enter' && e.key !== ' ')) return;
+  if (e.key !== 'Enter' && e.key !== ' ') return;
   const row = e.target.closest('.take');
   if (!row || e.target !== row) return; // a row's own controls keep their keys
   e.preventDefault();
+  // Selecting: the key picks the spine into the selection, as a tap does.
+  if (takes.selecting) { takes.toggleSelected(row.dataset.name); return; }
   pick(row.dataset.name);
   if (!wide.matches) openSheet(row.dataset.name);
 });

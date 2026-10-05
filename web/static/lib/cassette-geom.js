@@ -101,3 +101,18 @@ export function greaseMark(x, dir, seed, L) {
   const { markTop: top, markBottom: bottom, hook } = L.win;
   return [[x + dir * hook, top + 1], ...greaseStroke(x, top, bottom, seed), [x + dir * hook, bottom - 1]];
 }
+
+/**
+ * roundRectPath adds a rounded rectangle to ctx's path: ctx.roundRect where
+ * the browser has it, arcs where it doesn't (iOS before 16).
+ */
+export function roundRectPath(ctx, x, y, w, h, r) {
+  if (typeof ctx.roundRect === 'function') { ctx.roundRect(x, y, w, h, r); return; }
+  const k = Math.min(r, w / 2, h / 2);
+  ctx.moveTo(x + k, y);
+  ctx.arcTo(x + w, y, x + w, y + h, k);
+  ctx.arcTo(x + w, y + h, x, y + h, k);
+  ctx.arcTo(x, y + h, x, y, k);
+  ctx.arcTo(x, y, x + w, y, k);
+  ctx.closePath();
+}

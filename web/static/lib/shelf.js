@@ -122,7 +122,10 @@ export function sheetState(prev, ev) {
   switch (ev.type) {
     case 'open': return { open: ev.name, history: prev.open ? 'replace' : 'push' };
     case 'close': return { open: null, history: prev.open ? 'back' : null };
-    case 'popstate': return { open: null, history: null };
+    // Back lands on an entry without a cassette; Forward on one with.
+    case 'popstate': return { open: ev.state?.cassette ?? null, history: null };
+    // Wide enough for the pane: the sheet goes, and its entry with it.
+    case 'widen': return { open: null, history: prev.open ? 'back' : null };
     default: return { open: prev.open, history: null };
   }
 }

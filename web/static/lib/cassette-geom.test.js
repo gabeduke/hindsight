@@ -3,7 +3,7 @@
 // everything sits in the window.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stripeOf, packRadii, stampOf, windowLayout, playedX, fracAt, inOutLabels, greaseMark } from './cassette-geom.js';
+import { stripeOf, packRadii, stampOf, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 const near = (a, b, e = 1e-6) => assert.ok(Math.abs(a - b) < e, `${a} != ${b}`);
 
@@ -93,4 +93,15 @@ test('greaseMark is a wobbling stroke with a hook at each end, pointing inward',
   for (const [x] of pts.slice(1, -1)) assert.ok(Math.abs(x - 200) <= 1.5);
   assert.deepEqual(greaseMark(200, 1, 51, L), pts); // the same seed, the same stroke
   assert.equal(greaseMark(300, -1, 52, L)[0][0], 294);
+});
+
+test('roundRectPath draws a rounded rectangle where the canvas has no roundRect', () => {
+  const calls = [];
+  const ctx = { moveTo: (...a) => calls.push(['moveTo', ...a]), arcTo: (...a) => calls.push(['arcTo', ...a]), closePath: () => calls.push(['closePath']) };
+  roundRectPath(ctx, 10, 20, 100, 40, 6);
+  assert.equal(calls.filter((c) => c[0] === 'arcTo').length, 4);
+  assert.deepEqual(calls[0], ['moveTo', 16, 20]);
+  const native = [];
+  roundRectPath({ roundRect: (...a) => native.push(a) }, 1, 2, 3, 4, 5);
+  assert.deepEqual(native, [[1, 2, 3, 4, 5]]);
 });
