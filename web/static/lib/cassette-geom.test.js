@@ -3,7 +3,7 @@
 // everything sits in the window.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stripeOf, packRadii, stampOf, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
+import { stripeOf, stripeFor, STRIPES, packRadii, stampOf, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 const near = (a, b, e = 1e-6) => assert.ok(Math.abs(a - b) < e, `${a} != ${b}`);
 
@@ -104,4 +104,14 @@ test('roundRectPath draws a rounded rectangle where the canvas has no roundRect'
   const native = [];
   roundRectPath({ roundRect: (...a) => native.push(a) }, 1, 2, 3, 4, 5);
   assert.deepEqual(native, [[1, 2, 3, 4, 5]]);
+});
+
+test('a tagged take wears its tag color, an untagged one its hash, and a dropped tag the hash', () => {
+  const tags = [{ id: 't0000a1', name: 'Ideas', color: 7 }];
+  const name = 'jam_2026-10-04_201512.wav';
+  assert.equal(stripeFor({ name, tag: 't0000a1' }, tags), 7);
+  assert.equal(stripeFor({ name }, tags), stripeOf(name));
+  assert.equal(stripeFor({ name, tag: 't0000gone' }, tags), stripeOf(name));
+  assert.equal(stripeFor({ name }), stripeOf(name));
+  assert.equal(STRIPES, 8);
 });

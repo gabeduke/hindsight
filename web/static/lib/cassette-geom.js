@@ -16,6 +16,20 @@ export function stripeOf(name) {
   return (h % 5) + 1;
 }
 
+/** STRIPES is how many printed stripes there are: --stripe-1 .. --stripe-8. A
+ *  take with no tag takes one of the first five by its name; a tag may be any. */
+export const STRIPES = 8;
+
+/**
+ * stripeFor is the stripe a take wears: its tag's color when the tag is in
+ * `tags`, else the one its name hashes to. A tag the list no longer holds
+ * (deleted since) reads as untagged.
+ */
+export function stripeFor(take, tags = []) {
+  const tag = tags.find((g) => g.id === take.tag);
+  return tag ? tag.color : stripeOf(take.name);
+}
+
 /**
  * packRadii is the radius of the tape on the left and right reels with
  * `frac` of the take played: tape moves from left to right, and a pack's area

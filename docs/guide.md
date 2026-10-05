@@ -131,7 +131,15 @@ Every take, from **All takes** on the main page.
   recorded from a *Phone*, and *Tape* mixdowns. They are remembered on the
   device; the search is not.
 - **Newest** groups the takes by the day they were made — *Today*,
-  *Yesterday*, then the date. **Longest** puts the longest first.
+  *Yesterday*, then the date. **Longest** puts the longest first. **By tag**
+  gives each tag its own group, the untagged last.
+- **Tags.** A tag is a name and a color. Make them with **Edit tags** (up to
+  24, eight colors); the list is kept on the Pi, so every device sees the
+  same one. Pick a take and press a tag under its name to give it that tag:
+  its cassette and spine wear the tag's color. A take has one tag; a take
+  with none keeps the color its name gave it. The tag chips above the list
+  show only one tag's takes, or only the *Untagged*, with a count on each;
+  search also matches a tag's name. Deleting a tag leaves its takes untagged.
 - **The rack.** Every take is a cassette, seen by its spine: its stripe,
   its name, a star when it's starred, its length, its bars printed on the
   card, and a light that's on for the picked take and pulses while it plays.
@@ -161,6 +169,16 @@ Every take, from **All takes** on the main page.
 - [demo] Open a take from a filtered list and press ▸ → the next take is the
   next one the list showed.
 - [demo] Delete a take on its page → back here, with an Undo.
+- [demo] **Edit tags** → add "Ideas" with a color, Save. Pick a take and press
+  *Ideas* → its spine and cassette turn that color; press it again → the
+  take goes back to the color its name gave it.
+- [demo] Press the *Ideas* chip above the list → only tagged takes show;
+  press *Untagged* → only the rest; press the lit chip → everything.
+- [demo] Choose **By tag** → one group per tag, in the order of the tag list.
+- [demo] Open the page on a second device → the same tags, and the same
+  colors on the same takes.
+- [demo] Delete a tag that has takes → they show as untagged, nothing else
+  changes, and a filter that was on that tag turns itself off.
 
 ## 4. The take page
 
@@ -1142,7 +1160,10 @@ has no tip.
 | All takes | Every take, on a page of its own, to search, filter and sort |
 | Search | Find a take by its name, its time or its tempo |
 | Filters | Show only starred takes, takes with MIDI, takes from a phone, or tape mixdowns |
-| Newest / Longest | Newest groups the takes by the day they were made; Longest puts the longest first |
+| Tags | Show only the takes with this tag, or only the untagged. Press the lit one again to see everything |
+| Edit tags | Make, rename, recolor or delete tags. They are the same on every device |
+| Newest / Longest / By tag | Newest groups the takes by the day they were made; Longest puts the longest first; By tag gives each tag its own group |
+| Tag (take) | Give this take a tag and its cassette wears the tag's color. Press the lit tag again to take it off |
 | Open | Open the take to select, loop, save or share part of it |
 | Select | Pick several takes to star, export or delete together. Holding a take does the same |
 | ★ Star (selecting) | Star the picked takes, or unstar them if they all are |

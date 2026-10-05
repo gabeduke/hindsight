@@ -13,8 +13,15 @@ import { restoreTake } from '/lib/trash.js';
 import { undoSkipped } from '/lib/toast.js';
 import { withClient } from '/lib/client.js';
 import { onSchemeChange } from '/lib/theme.js';
-import { stripeOf } from '/lib/cassette-geom.js';
-import { parseBpm, spineTitle } from '/lib/shelf.js';
+import { stripeFor, STRIPES } from '/lib/cassette-geom.js';
+import { tagStore } from '/lib/tags.js';
+import { parseBpm, spineTitle, tagOf } from '/lib/shelf.js';
+
+/** setStripe puts one printed stripe on a spine, in place of the one it wore. */
+function setStripe(el, n) {
+  for (let i = 1; i <= STRIPES; i++) if (i !== n) el.classList.remove(`stripe-${i}`);
+  el.classList.add(`stripe-${n}`);
+}
 
 // How long a press on a row is held to start selecting several takes.
 export const SELECT_HOLD_MS = 500;
@@ -108,6 +115,11 @@ export class TakesList {
     this.playing = null; // name of the currently playing take
     this.fresh = null;
     this.reorderDeferred = false; // a render held back a move; see render()
+
+    // A tag renamed, recolored or dropped changes the stripes, and what a
+    // tag filter or a sort by tag shows.
+    tagStore.subscribe(() => this.reshape());
+    tagStore.load();
 
     this.io = new IntersectionObserver(
       (entries) => {
@@ -302,7 +314,8 @@ export class TakesList {
 
     if (this.spines) {
       // The spine is the control: its parts are print on the J-card.
-      el.classList.add('spine', `stripe-${stripeOf(t.name)}`);
+      el.classList.add('spine');
+      setStripe(el, stripeFor(t, tagStore.list));
       el.tabIndex = 0;
       el.setAttribute('role', 'button');
       if (this.spineAction === 'play') el.setAttribute('aria-pressed', 'false');
@@ -485,6 +498,7 @@ export class TakesList {
 
   updateRow(row, t) {
     row.data = t;
+    if (this.spines) setStripe(row.el, stripeFor(t, tagStore.list));
     row.starBtn.setAttribute('aria-pressed', t.starred ? 'true' : 'false');
     row.starBtn.classList.toggle('on', !!t.starred);
     // A take with no label still needs something to show, and the timestamp is
@@ -511,7 +525,7 @@ export class TakesList {
     if (this.spines) {
       const name = t.label || t.name.replace(/^jam_|\.wav$/g, '');
       const encoding = !t.has_preview;
-      row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null, encoding ? 'still encoding' : null].filter(Boolean).join(', '));
+      row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null, tagOf(t, tagStore.list)?.name, encoding ? 'still encoding' : null].filter(Boolean).join(', '));
       row.el.classList.toggle('encoding', encoding);
       if (encoding && this.spineAction === 'play') row.el.setAttribute('aria-disabled', 'true');
       else row.el.removeAttribute('aria-disabled');

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -159,4 +159,51 @@ test("spineTitle is a take's name, or the time it was caught when it has none", 
   assert.equal(spineTitle({ name: 'jam_2026-10-05_201512.wav', label: 'Verse' }), 'Verse');
   assert.equal(spineTitle({ name: 'jam_2026-10-05_201512.wav', label: '' }), '20:15:12');
   assert.equal(spineTitle({ name: 'phone_odd.wav' }), 'phone_odd');
+});
+
+// --- tags -----------------------------------------------------------------
+
+const TAGS = [
+  { id: 't0000a1', name: 'Ideas', color: 6 },
+  { id: 't0000b2', name: 'Keepers', color: 7 },
+];
+
+test('a take wears the tag whose id it names, and a dropped tag reads as none', () => {
+  assert.equal(tagOf(take('a', at(2026, 10, 4), { tag: 't0000a1' }), TAGS).name, 'Ideas');
+  assert.equal(tagOf(take('a', at(2026, 10, 4), { tag: 't0000zz' }), TAGS), null);
+  assert.equal(tagOf(take('a', at(2026, 10, 4)), TAGS), null);
+  assert.deepEqual(tagCounts([
+    take('a', at(2026, 10, 4), { tag: 't0000a1' }),
+    take('b', at(2026, 10, 4), { tag: 't0000a1' }),
+    take('c', at(2026, 10, 4), { tag: 't0000gone' }),
+    take('d', at(2026, 10, 4)),
+  ], TAGS), { '': 2, t0000a1: 2, t0000b2: 0 });
+});
+
+test('the tag filter shows one tag, or only the untagged, and the search finds a tag by name', () => {
+  const idea = take('a', at(2026, 10, 4), { tag: 't0000a1' });
+  const keep = take('b', at(2026, 10, 4), { tag: 't0000b2' });
+  const none = take('c', at(2026, 10, 4));
+  const stale = take('d', at(2026, 10, 4), { tag: 't0000gone' });
+  assert.deepEqual([idea, keep, none, stale].filter((t) => matches(t, { tag: 't0000a1', tags: TAGS })), [idea]);
+  assert.deepEqual([idea, keep, none, stale].filter((t) => matches(t, { tag: 'none', tags: TAGS })), [none, stale]);
+  assert.equal(matches(keep, { tag: '', tags: TAGS }), true);
+  assert.equal(matches(keep, { query: 'keepers', tags: TAGS }), true);
+  assert.equal(matches(idea, { query: 'keepers', tags: TAGS }), false);
+  assert.equal(matches(idea, { tag: 't0000a1', starred: true, tags: TAGS }), false, 'filters combine');
+});
+
+test('sorting by tag makes a group per tag in list order, the untagged last', () => {
+  const takes = [
+    take('old-keep', at(2026, 10, 1), { tag: 't0000b2' }),
+    take('new-keep', at(2026, 10, 3), { tag: 't0000b2' }),
+    take('idea', at(2026, 10, 2), { tag: 't0000a1' }),
+    take('loose', at(2026, 10, 4)),
+  ];
+  const groups = shelve(takes, { sort: 'tag', tags: TAGS }, NOW);
+  assert.deepEqual(groups.map((g) => g.label), ['IDEAS', 'KEEPERS', 'UNTAGGED']);
+  assert.deepEqual(groups[1].takes.map((t) => t.name), ['jam_new-keep.wav', 'jam_old-keep.wav']);
+  // A tag nobody wears has no heading; with no tags at all there is one group.
+  assert.deepEqual(shelve([takes[3]], { sort: 'tag', tags: TAGS }, NOW).map((g) => g.label), ['UNTAGGED']);
+  assert.deepEqual(shelve(takes, { sort: 'tag', tags: [] }, NOW).map((g) => g.label), ['NO TAGS YET']);
 });
