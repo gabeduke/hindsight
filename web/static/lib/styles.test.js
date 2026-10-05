@@ -295,18 +295,19 @@ test('no token is defined twice in a scheme', () => {
   }
 });
 
-// The tape deck: brushed metal in each scheme, metal reels the same in both,
-// keys that light yellow (mute) and blue (solo), and a lit state window.
-test('the tape deck tokens exist, and its lit legends read', () => {
+// The tape's metal: brushed in each scheme, metal reels the same in both,
+// keys that light yellow (mute) and blue (solo); and the bar's LCD, whose
+// position and dim lines read on its black.
+test('the tape deck tokens exist, and the bar\'s LCD reads', () => {
   for (const t of ['--deck-hi', '--deck-lo', '--deck-cap', '--reel-metal', '--reel-edge', '--reel-hub', '--mute-hi', '--mute-lo', '--mute-ink', '--solo-hi', '--solo-lo', '--solo-ink'])
     assert.ok(light[t], `light lacks ${t}`);
   for (const [fg, bg] of [['--mute-ink', '--mute-lo'], ['--mute-ink', '--mute-hi'], ['--solo-ink', '--solo-lo'], ['--solo-ink', '--solo-hi']]) {
     const c = contrast(light[fg], light[bg]);
     assert.ok(c >= 4.5, `${fg} on ${bg} is ${c.toFixed(2)}:1`);
   }
-  for (const sel of ['.tm-state.run', '.tm-state.rec']) {
-    const r = RULES.filter((x) => x.sel.includes(sel)).map((x) => /fill:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
-    assert.ok(r, `${sel} has a fill`);
+  for (const sel of ['.np-pos', '.np-time']) {
+    const r = RULES.filter((x) => x.sel.includes(sel)).map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
+    assert.ok(r, `${sel} has a colour`);
     for (const [scheme, t] of [['light', light], ['dark', dark]]) {
       const c = contrast(resolve(r[1], t), t['--lcd']);
       assert.ok(c >= 4.5, `${scheme} ${sel} on --lcd is ${c.toFixed(2)}:1`);
@@ -314,14 +315,12 @@ test('the tape deck tokens exist, and its lit legends read', () => {
   }
 });
 
-// On a phone, upright or sideways, the transport and Catch are docked: always
-// on screen, whatever the page has scrolled to.
-test('a phone docks the tape transport and Catch', () => {
+// On a phone, upright or sideways, the now-playing bar is docked: Play, Loop,
+// Rec and Catch always on screen, whatever the page has scrolled to.
+test('a phone docks the now-playing bar', () => {
   const at = css.indexOf('@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px)');
   assert.ok(at > 0, 'a media block for both phone shapes');
-  const b = block(at);
-  assert.match(b, /\.tb-row\.transport\s*\{[^}]*position:\s*fixed/);
-  assert.match(b, /#catch-pass\s*\{[^}]*position:\s*fixed/);
+  assert.match(block(at), /\.np\s*\{[^}]*position:\s*fixed/);
 });
 
 test('inputs sit on the field, not the well', () => {

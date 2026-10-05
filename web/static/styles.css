@@ -150,6 +150,8 @@
   --led-off:   #b8b7b0;
   --lcd:       #0b0905;
   --lcd-ink:   #ffb547;
+  /* The LCD's second line: its ink at 74 %, flattened onto its black. */
+  --lcd-dim:   #c08836;
   /* A readout that needs attention: warn inverts the window, bad turns the
      digits red -- amber digits alone would read as normal. */
   --warn-ink:  #8f3410;
@@ -174,14 +176,9 @@
   --vu-face-lo:   #e0ad50;
   --vu-glow:      rgba(255,190,90,.35);
   --vu-red:       #8a140d;
-  /* The tape machine: a brushed faceplate, brown tape on silver reels. */
-  --bridge:       #d8d7d0;
+  /* The tape's reels, in the bar: brown tape on silver reels. */
   --tape-pack:    #4a2e18;
   --tape-sheen:   #8a5a32;
-  --guide:        #f5f2e8;
-  --head-block:   #2a2c2f;
-  --head:         #b8bdb7;
-  --head-ink:     #d8d0b6;
   /* Masking tape on the track heads, written on in marker. */
   --mask:         #efe2bb;
   /* Grease pencil: the take page's In and Out. --grease is its legend on a
@@ -274,6 +271,7 @@
     --field-sh:    rgba(0, 0, 0, .6);
     --led-off:     #3a3b3e;
     --lcd:         #060503;
+    --lcd-dim:     #be8735;
     --deck-hi:     #2c2d31;
     --deck-lo:     #1b1c1f;
     --deck-cap:    #0b0c0d;
@@ -281,11 +279,6 @@
     --case-hi:     #303135;
     --case-lo:     #141517;
     --case-edge:   rgba(0, 0, 0, .75);
-    --bridge:       #1d1e21;
-    --guide:        #c9c6b9;
-    --head-block:   #0b0c0d;
-    --head:         #93a1a1;
-    --head-ink:     #93a1a1;
     --mask:         #d9caa0;
     --grease:       #e0b22e;
     --link:        #6aa8e8;
@@ -1717,7 +1710,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tape-title > .menu-anchor:last-child .tape-pill[aria-expanded="true"] { border-top-color: var(--line); }
 }
 
-/* Where the tape plays: the OUT pill, the strip under the deck, the banner
+/* Where the tape plays: the OUT pill, the strip across the top of the bar, the banner
    other devices show while a phone has the tape, and the Output sheet. */
 .tape-out[hidden] { display: none; }
 .pill-out { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: .16em; color: var(--ink-dim); }
@@ -1748,15 +1741,14 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tape-out { width: auto; padding: 0 10px; min-height: 40px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
 }
 /* ● Rec: what it does, and under it the source it records from. */
-.tape-toolbar .tb-row.transport .tb-rec { flex: 1.3 1 0; flex-direction: column; gap: 0; line-height: 1.15; overflow: hidden; }
-.tape-toolbar .tb-row.transport .tb-rec .rec-what { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.tape-toolbar .tb-row.transport .tb-rec .rec-src { font: 600 11px var(--mono); opacity: .8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] { color: var(--on-danger); background: var(--rec); border-color: var(--rec); }
-.tape-toolbar .tb-row.transport .tb-rec.armed { color: var(--danger); border-color: var(--danger); animation: breathe 1.2s ease-in-out infinite; }
-.tape-toolbar .tb-row.transport .tb-rec.counting { animation: breathe .5s ease-in-out infinite; }
-.tape-toolbar .tb-row.transport .tb-click { flex: 0 0 48px; font-size: 18px; }
-.tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { color: var(--ink); }
-.tape-where { min-height: 18px; }
+.tape-page .tb-row.transport .tb-rec { flex: 1.3 1 0; flex-direction: column; gap: 0; line-height: 1.15; overflow: hidden; }
+.tape-page .tb-row.transport .tb-rec .rec-what { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tape-page .tb-row.transport .tb-rec .rec-src { font: 600 11px var(--mono); opacity: .8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tape-page .tb-row.transport .tb-rec[aria-pressed="true"] { color: var(--on-danger); background: var(--rec); border-color: var(--rec); }
+.tape-page .tb-row.transport .tb-rec.armed { color: var(--danger); border-color: var(--danger); animation: breathe 1.2s ease-in-out infinite; }
+.tape-page .tb-row.transport .tb-rec.counting { animation: breathe .5s ease-in-out infinite; }
+.tape-page .tb-row.transport .tb-click { flex: 0 0 48px; font-size: 18px; }
+.tape-page .tb-row.transport .tb-click[aria-pressed="true"] { color: var(--ink); }
 .tape-ruler-row { display: grid; grid-template-columns: 112px 1fr; gap: 6px; }
 .tape-ruler-gap { display: flex; align-items: center; justify-content: flex-end; }
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
@@ -1767,10 +1759,6 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-toolbar .tb-row.edit .seg { flex: none; }
 .tape-toolbar .tb-row.edit .seg button { white-space: nowrap; }
 .sheet-hint { margin: 8px 0 0; font-size: 12px; color: var(--ink-faint); }
-.tape-where .readout { font-size: 13px; color: var(--ink-dim); }
-.tape-where { justify-content: space-between; flex-wrap: wrap; }
-.tape-where .clock-out { font-size: 12px; color: var(--ink-faint); }
-.tape-where .clock-out.none { color: var(--warn); }
 .tape-tap { width: 100%; min-height: 56px; font-size: 16px; margin: 4px 0 10px; }
 .tape-tap.second { animation: breathe 1.2s ease-in-out infinite; }
 .tape-top .icon-btn { min-height: 36px; min-width: 34px; padding: 0 6px; flex: none; }
@@ -1778,13 +1766,17 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-top .undo-btn:disabled { opacity: .35; }
 .dot.lock { flex: none; }
 .tape-main { max-width: 900px; margin: 0 auto; padding: 10px 12px 40px; display: flex; flex-direction: column; gap: 10px; }
+/* The tape page is one column the height of the window: the header, main
+   (it scrolls), then the bar. */
+body.tape-page { min-height: 100svh; display: flex; flex-direction: column; }
+body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 #tape-body { display: flex; flex-direction: column; gap: 10px; }
 #tape-body[hidden] { display: none; }
 .tape-empty { background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius); padding: 12px 14px; color: var(--ink-dim); font-size: 14px; }
 .tape-empty p { margin: 0 0 8px; }
 .tape-tempo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .tape-tempo-row input { width: 5.5em; min-height: 36px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font: 14px var(--mono); }
-.tape-overview { width: 100%; height: 28px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.tape-overview { width: 100%; height: 40px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .tape-lanes { display: flex; flex-direction: column; gap: 6px; }
 .tape-track { display: grid; grid-template-columns: 112px 1fr; gap: 6px; align-items: stretch; }
 .tape-track.selected .tt-head { border-color: var(--rec); box-shadow: 0 0 0 1px var(--rec), 0 0 14px color-mix(in srgb, var(--rec) 35%, transparent); }
@@ -1875,7 +1867,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 @media (min-width: 700px) {
   main.tape-main { display: flex; max-width: none; padding-left: 16px; padding-right: 16px; }
   .tape-track, .tape-ruler-row { grid-template-columns: 150px 1fr; }
-  .tt-lane { min-height: clamp(72px, calc((100svh - var(--topbar-h) - 530px - var(--machine-h)) / 4), 150px); }
+  .tt-lane { min-height: clamp(72px, calc((100svh - var(--topbar-h) - 492px - var(--np-h)) / 4), 150px); }
 }
 
 /* Wide -- a tablet on its side, a laptop: the tracks take the width, and the
@@ -1886,14 +1878,12 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   #tape-body:not([hidden]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 400px;
-    grid-template-areas: "machine machine" "empty side" "overview side" "ruler side" "lanes side" ". side";
-    grid-template-rows: auto auto auto auto auto 1fr;
+    grid-template-areas: "empty side" "ruler side" "lanes side" ". side";
+    grid-template-rows: auto auto auto 1fr;
     column-gap: 16px; row-gap: 0;
     align-items: start;
   }
-  .tape-machine { grid-area: machine; margin-bottom: 10px; }
   #tape-empty { grid-area: empty; margin-bottom: 10px; }
-  .tape-overview { grid-area: overview; margin-bottom: 10px; }
   .tape-ruler-row { grid-area: ruler; margin-bottom: 8px; }
   .tape-lanes { grid-area: lanes; gap: 8px; }
   /* Sticky under the header, and never taller than the window under it --
@@ -1902,14 +1892,14 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tape-toolbar {
     grid-area: side;
     position: sticky; top: calc(var(--topbar-h) + 10px);
-    /* The machine spans both columns above it, so it gives the toolbar that
-       much less height; the toolbar scrolls inside rather than off the page. */
-    max-height: calc(100svh - var(--topbar-h) - 30px - var(--machine-h)); overflow-y: auto; box-sizing: border-box;
+    /* The bar is docked under it, so it gives the toolbar that much less
+       height; the toolbar scrolls inside rather than off the page. */
+    max-height: calc(100svh - var(--topbar-h) - 30px - var(--np-h)); overflow-y: auto; box-sizing: border-box;
     padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
   }
   .tape-track, .tape-ruler-row { grid-template-columns: 168px 1fr; }
   /* Four lanes fill the height under the overview and ruler... */
-  .tt-lane { min-height: clamp(80px, calc((100svh - var(--topbar-h) - 160px - var(--machine-h)) / 4 - 8px), 220px); }
+  .tt-lane { min-height: clamp(80px, calc((100svh - var(--topbar-h) - 122px - var(--np-h)) / 4 - 8px), 220px); }
   /* ...unless the empty tape's card is above them. */
   #tape-body:has(#tape-empty:not([hidden])) .tt-lane { min-height: 80px; }
   .tt-head { align-content: center; }
@@ -1922,7 +1912,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tape-page #toasts { left: calc((100vw - 400px - 16px) / 2); }
 }
 /* The click, on: the accent ♩ on the accent background vanished. */
-.tape-toolbar .tb-row.transport .tb-click[aria-pressed="true"] { background: var(--panel-2); }
+.tape-page .tb-row.transport .tb-click[aria-pressed="true"] { background: var(--panel-2); }
 
 /* The main page's way to every take. */
 .icon-btn.all-takes {
@@ -2424,73 +2414,107 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 .detail-flag > span:first-child { color: var(--flag); }
 .detail-flag .flag-at { font-family: var(--mono); color: var(--ink-dim); }
 
-/* ---------- the tape machine ---------- */
-/* lib/tape/machine.js: reels that turn with the playhead, and a meter
-   bridge. Its height follows the screen's, so a short tablet keeps its
-   lanes; on a phone it's the reels alone. */
-.tape-page { --machine-h: clamp(90px, 16svh, 150px); }
-.tape-machine {
-  height: var(--machine-h); overflow: hidden; border-radius: 14px;
-  /* Brushed metal: fine lines over the deck's own light-to-dark. */
+/* ---------- the now-playing bar ---------- */
+/* docs/superpowers/specs/2026-10-05-transport-bar-design.md: docked at the
+   foot of the page, two rows. The reel window (two reels and the LCD
+   between them, lib/bar/reel-window.js), the transport, the page's own keys;
+   under them the whole tape as a scrubber, and OUT. */
+.tape-page { --np-h: 120px; }
+.np {
+  position: sticky; bottom: 0; z-index: 18; flex: none;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--face-hi), var(--face-lo));
+  border-top: 1px solid var(--edge-strong);
+  box-shadow: inset 0 1px 0 var(--hl), 0 -12px 24px -18px var(--sh-strong);
+}
+.np[hidden] { display: none; }
+.np .out-strip { min-height: 32px; font-size: 13px; }
+.np-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.np-row-1 { height: 52px; }
+.np-row-2 { height: 40px; }
+/* The reel window: the deck's brushed metal, a reel either side of the LCD,
+   and the tape running under it from reel to reel. */
+.np-window {
+  position: relative; flex: none; width: clamp(220px, 30vw, 316px); height: 52px;
+  display: flex; align-items: center; gap: 6px; padding: 0 4px;
+  border-radius: 10px; border: 1px solid var(--edge);
   background:
     repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
     linear-gradient(180deg, var(--deck-hi), var(--deck-lo));
-  border: 1px solid var(--edge); border-left: 10px solid var(--deck-cap);
-  box-shadow: inset 0 1px 0 var(--hl), 0 16px 30px -22px var(--sh-strong);
+  box-shadow: inset 0 1px 0 var(--hl), 0 2px 6px -3px var(--sh-strong);
 }
-.tm-deck { display: flex; height: 100%; }
-.tm-reels { display: block; flex: none; height: 100%; width: auto; aspect-ratio: 600 / 190; }
-.tm-bridge {
-  flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
-  align-items: center; gap: 10px; padding: 6px 12px;
-  background: var(--bridge); border-left: 1px solid var(--line);
+.np-window::after {
+  content: ''; position: absolute; left: 26px; right: 26px; bottom: 3px; height: 2.5px;
+  border-radius: 2px; background: var(--tape-pack);
 }
-.tm-bridge .vu { max-width: none; height: 100%; min-height: 0; justify-content: center; gap: 2px; }
-/* The face takes what the number under it leaves, so the number shows. */
-.tm-bridge .vu-face { flex: 1 1 0; min-height: 0; width: auto; height: auto; max-width: 100%; }
-.tm-bridge .vu-foot { flex: none; line-height: 1.2; }
-/* Small faces: the PEAK lamp without its word, which won't fit. */
-.tm-bridge .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
-.tm-bridge .vu-foot { font-size: 11px; }
-.tm-well { fill: rgba(0,0,0,.06); }
-.tm-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
-.tm-turn { transform-box: view-box; }
-.tm-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
-.tm-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
-.tm-spokes { stroke: var(--reel-edge); stroke-width: 3; stroke-linecap: round; }
-.tm-tape { fill: none; stroke: var(--tape-pack); stroke-width: 3; }
-.tm-sheen { fill: none; stroke: var(--tape-sheen); stroke-width: 3; stroke-dasharray: 2 10; }
-.tm-block { fill: var(--head-block); }
-.tm-head { fill: var(--head); }
-.tm-head.on { fill: var(--rec); }
-.tm-head-label { font: 700 10px var(--label-font); fill: var(--head-ink); text-anchor: middle; }
-.tm-guide { fill: var(--guide); stroke: var(--reel-edge); }
-.tm-guide-pin { fill: var(--reel-edge); }
-.tm-plate { font: 700 12px var(--label-font); letter-spacing: 3.5px; fill: var(--ink-dim); text-anchor: middle; }
-/* The state word, in a lit window: amber while the tape runs, red recording. */
-.tm-lamp { fill: var(--lcd); stroke: var(--lcd-edge); }
-.tm-state { font: 600 11px var(--mono); letter-spacing: .14em; fill: var(--well-dim); text-anchor: middle; }
-.tm-state.run { fill: var(--lcd-ink); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--lcd-ink) 70%, transparent)); }
-.tm-state.rec { fill: color-mix(in srgb, var(--rec) 70%, var(--well-ink)); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--rec) 80%, transparent)); }
-/* The bridge: each meter's number in a ring of its track's colour. */
-.tm-bridge { background: linear-gradient(180deg, var(--panel-hi), var(--panel)); }
-.tm-bridge .vu:nth-child(4n+1) { --tc: var(--t1); }
-.tm-bridge .vu:nth-child(4n+2) { --tc: var(--t2); }
-.tm-bridge .vu:nth-child(4n+3) { --tc: var(--t3); }
-.tm-bridge .vu:nth-child(4n+4) { --tc: var(--t4); }
-.tm-bridge .vu-foot b {
-  display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; box-sizing: border-box;
-  border-radius: 50%; border: 2.5px solid var(--tc); font-size: 11px; letter-spacing: 0;
+.np-reel { flex: none; width: 44px; height: 44px; position: relative; z-index: 1; }
+.np-well { fill: rgba(0,0,0,.06); }
+.np-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
+.np-turn { transform-box: view-box; }
+.np-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
+.np-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
+/* The LCD: amber on black in both schemes, like every counter here. */
+.np-lcd {
+  flex: 1; min-width: 0; align-self: stretch; margin: 5px 0 7px; position: relative; z-index: 1;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 3px 9px;
+  border-radius: 7px; background: var(--lcd); overflow: hidden;
+  box-shadow: inset 0 2px 5px var(--lcd-edge), inset 0 0 0 1px var(--lcd-edge), 0 1px 0 var(--hl);
+  font-family: var(--mono);
 }
-/* Four lit faces at once outshine the lanes in the dark: the bridge's are
-   dimmer than the main page's single pair. */
-@media (prefers-color-scheme: dark) {
-  .tm-bridge { --vu-face: #b9ae8c; --vu-base: #a49974; }
+.np-lcd-top { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.np-pos {
+  color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
+  font-weight: 600; font-size: 21px; line-height: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
-@media (max-width: 699.98px) {
-  .tape-page { --machine-h: 96px; }
-  .tm-deck { justify-content: center; }
-  .tm-bridge { display: none; }
+.np-time, .np-unit, .np-clock, .np-marquee {
+  color: var(--lcd-dim); text-shadow: 0 0 5px color-mix(in srgb, var(--lcd-ink) 35%, transparent); font-size: 10.5px;
+}
+.np-unit { font: 700 9.5px var(--label-font); letter-spacing: .14em; }
+.np-unit:empty, .np-time:empty { display: none; }
+.np-clock { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.np-clock.none { color: var(--warn); }
+/* The lamp: ▶ playing, ■ stopped, ● red recording (blinking) or armed (steady). */
+.np-status { flex: none; width: 10px; height: 10px; background: var(--lcd-dim); clip-path: inset(12%); }
+.np-status[data-state="play"] { background: var(--lcd-ink); clip-path: polygon(8% 0, 100% 50%, 8% 100%); }
+.np-status[data-state="rec"], .np-status[data-state="armed"] {
+  clip-path: none; border-radius: 50%; background: #ff4a3d; box-shadow: 0 0 8px rgba(255,74,61,.9);
+}
+.np-status[data-state="rec"] { animation: recblink 1s steps(1) infinite; }
+.np-levels { margin-left: auto; flex: none; display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+.np-levels i {
+  display: block; width: 3px; height: 100%; border-radius: 1px; transform-origin: bottom; transform: scaleY(.08);
+  box-shadow: 0 0 5px currentColor; transition: transform .12s linear;
+}
+.np-marquee { overflow: hidden; white-space: nowrap; letter-spacing: .08em; }
+.np-marquee span { display: inline-block; padding-left: 100%; animation: np-marquee 18s linear infinite; }
+@keyframes np-marquee { to { transform: translateX(-100%); } }
+/* The keys: an LED over each glyph, as on the canvas. */
+.np-keys { display: flex; gap: 6px; margin: 0; padding: 0; flex: none; }
+.np .np-keys .icon-btn {
+  flex: none; min-width: 52px; width: auto; height: 52px; min-height: 52px; padding: 0 10px;
+  flex-direction: column; gap: 4px; justify-content: center;
+}
+.np .np-keys .icon-btn::before { margin: 0; }
+.np .np-keys .tb-rec { min-width: 64px; }
+.np .np-keys .tb-click { font-size: 18px; }
+.np-own { margin-left: auto; display: flex; gap: 10px; align-items: center; flex: none; }
+.np .np-catch { height: 52px; min-height: 52px; min-width: 112px; flex-direction: column; gap: 1px; padding: 0 18px; }
+.np-catch-word { font-size: 15.5px; font-weight: 700; }
+.np-catch-sub { font: 500 10.5px var(--mono); opacity: .88; }
+.np .tape-overview { flex: 1; min-width: 0; height: 40px; border-radius: 8px; }
+.np .tape-overview:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.np-out .tape-out { min-height: 40px; }
+.np-mini { display: none; }
+/* From 700 px the bar has OUT; the header's pill is the phone's. */
+.tape-top .out-anchor { display: none; }
+@media (max-width: 899.98px) { .np-levels { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .np-marquee { text-overflow: ellipsis; }
+  .np-marquee span { animation: none; padding-left: 0; }
+  .np-status[data-state="rec"] { animation: none; }
 }
 
 /* Track names on masking tape, in marker: each head's own strip. */
@@ -2540,9 +2564,9 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
    so the transport and Catch are what a short screen shows first. The passes
    scroll sideways rather than wrap; the clipboard says all it has. */
 .tape-toolbar .tb-row.catch { flex-wrap: wrap; }
-.tape-toolbar .tb-row.catch #catch-pass { flex: 1 1 100%; min-height: 48px; }
-/* Catch is the page's one main action: the orange key, lit from above. */
-.tape-toolbar .tb-row.catch #catch-pass:not(:disabled) {
+/* Catch is the page's one main action: the orange key in the bar, lit from
+   above -- unless the tape is on a phone, when it says it needs the jam room. */
+.np #catch-pass:not(:disabled):not(.jam-only) {
   background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo)); color: var(--on-accent);
   border-color: var(--accent-edge); text-shadow: 0 1px 0 rgba(0,0,0,.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
@@ -2612,12 +2636,11 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 
 /* A running counter: amber digits in a dark window, in both schemes. Earlier
    rules colour these dim, so they are named here at the same weight. */
-.readout, .tape-where .readout, .tape-where .clock-out, .tb-row.footer .readout {
+.readout, .tb-row.footer .readout {
   background: var(--lcd); color: var(--lcd-ink);
   border-radius: 3px; box-shadow: inset 0 2px 0 var(--lcd-edge);
   font-family: var(--mono); font-weight: 600; padding: 3px 8px;
 }
-.tape-where .clock-out.none { background: var(--warn); color: var(--lcd); }
 
 /* Wells: where audio is drawn, recessed into the faceplate. */
 .overview-canvas, .wave-canvas, .tape-overview, .tt-lane, .lane, .tape-ruler {
@@ -2680,7 +2703,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 
 /* ---------- keys: what you press while playing ---------- */
 .seg button, .mark-btn, .icon-btn.play,
-.tb-row.transport .icon-btn, .tape-toolbar .tb-row.catch .icon-btn, .tape-toolbar .tb-row.edit .icon-btn {
+.tb-row.transport .icon-btn, .np-own .icon-btn, .tape-toolbar .tb-row.catch .icon-btn, .tape-toolbar .tb-row.edit .icon-btn {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   border: 1px solid var(--edge);
   border-radius: 11px;
@@ -2690,7 +2713,7 @@ a.chip, a.icon-btn { text-decoration: none; }
   letter-spacing: 0; text-transform: none;
 }
 .seg button:active, .mark-btn:active, .icon-btn.play:active,
-.tb-row.transport .icon-btn:active, .tape-toolbar .tb-row.catch .icon-btn:active, .tape-toolbar .tb-row.edit .icon-btn:active,
+.tb-row.transport .icon-btn:active, .np-own .icon-btn:active, .tape-toolbar .tb-row.catch .icon-btn:active, .tape-toolbar .tb-row.edit .icon-btn:active,
 .tb-row.transport .icon-btn[aria-pressed="true"], .tb-row.transport .tb-play.playing {
   background: linear-gradient(180deg, var(--key-down), var(--key-lo));
   border-color: var(--edge-strong);
@@ -2699,7 +2722,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 /* A key that can't be pressed stays up. */
 .mark-btn[disabled], .tb-row.transport .icon-btn:disabled,
-.tape-toolbar .tb-row.catch .icon-btn:disabled, .tape-toolbar .tb-row.edit .icon-btn:disabled {
+.np-own .icon-btn:disabled, .tape-toolbar .tb-row.catch .icon-btn:disabled, .tape-toolbar .tb-row.edit .icon-btn:disabled {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
   transform: none;
@@ -2770,11 +2793,11 @@ a.chip, a.icon-btn { text-decoration: none; }
 .phone-btn.recording, .icon-btn.phone-rec.recording { color: var(--danger-ink); border-color: var(--rec); }
 
 /* Recording keys stay unmistakable. */
-.icon-btn.phone-rec, .tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] {
+.icon-btn.phone-rec, .tape-page .tb-row.transport .tb-rec[aria-pressed="true"] {
   background: var(--rec); color: var(--on-danger); border-color: var(--rec-edge); box-shadow: 0 3px 0 var(--rec-edge);
 }
-.tape-toolbar .tb-row.transport .tb-rec[aria-pressed="true"] { transform: translateY(3px); box-shadow: 0 0 0 var(--rec-edge); }
-.tape-toolbar .tb-row.transport .tb-rec.armed { color: var(--danger-ink); border-color: var(--rec); }
+.tape-page .tb-row.transport .tb-rec[aria-pressed="true"] { transform: translateY(3px); box-shadow: 0 0 0 var(--rec-edge); }
+.tape-page .tb-row.transport .tb-rec.armed { color: var(--danger-ink); border-color: var(--rec); }
 
 /* A take in the list is a cassette label: one stripe across the top. */
 .take {
@@ -2864,44 +2887,68 @@ input, select, textarea { color-scheme: inherit; }
 .take.spine.encoding .spine-led { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--paper-ink) 30%, transparent); }
 
 
-/* ---------- the tape page's dock, on a phone ---------- */
-/* Upright or sideways, Play, Loop, Rec and the click on the left and the
-   orange Catch on the right stay fixed at the bottom -- above the tabs on an
-   upright phone -- so catching a pass never waits for a scroll. CSS alone:
-   the transport row and #catch-pass are placed, nothing moves in the DOM. */
+/* ---------- the bar, on a phone ---------- */
+/* Upright or sideways, the bar is docked at the bottom -- above the tabs on
+   an upright phone -- so catching a pass never waits for a scroll: the keys
+   and the orange Catch, then a small LCD beside the scrubber. The reel window
+   and the bar's OUT give way (the header has OUT). The player that pulls up
+   from here comes with the phone's own PR. */
 @media (max-width: 699.98px) { body.tape-page { --dock-b: calc(61px + env(safe-area-inset-bottom)); } }
 @media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) { body.tape-page { --dock-b: env(safe-area-inset-bottom); } }
 @media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
-  body.tape-page { --dock-h: 60px; padding-bottom: calc(var(--dock-b, 0px) + var(--dock-h)); }
+  body.tape-page { --np-h: 106px; padding-bottom: calc(var(--dock-b, 0px) + var(--np-h)); }
+  body.tape-page:has(#out-strip:not([hidden])) { --np-h: 144px; }
   /* Under the app bar (z 20), whose menus open over the dock. */
-  body.tape-page .tape-toolbar .tb-row.transport {
-    position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); z-index: 18;
-    height: var(--dock-h); box-sizing: border-box; margin: 0;
-    padding: 8px 12px 8px calc(12px + env(safe-area-inset-left)); padding-right: calc(34% + 18px + env(safe-area-inset-right));
-    background: linear-gradient(180deg, var(--face-hi), var(--face-lo));
-    border-top: 1px solid var(--edge); box-shadow: 0 -10px 20px -16px var(--sh-strong);
+  .np {
+    position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); height: var(--np-h); z-index: 18;
+    padding: 8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left)); gap: 6px;
   }
-  body.tape-page .tape-toolbar .tb-row.catch #catch-pass {
-    position: fixed; right: calc(12px + env(safe-area-inset-right)); bottom: calc(var(--dock-b, 0px) + 8px); z-index: 19;
-    width: 34%; height: 44px; min-height: 44px; margin: 0;
+  .np-window, .np-out { display: none; }
+  .tape-top .out-anchor { display: inline-flex; }
+  .np-row-1 { height: 48px; gap: 8px; }
+  .np-row-2 { height: 34px; gap: 8px; }
+  .np-keys { flex: 1 1 auto; min-width: 0; }
+  .np .np-keys .icon-btn { flex: 1 1 0; min-width: 0; height: 48px; min-height: 48px; padding: 0 4px; }
+  .np .np-keys .tb-rec { flex: 1.3 1 0; }
+  .np-own { flex: 0 0 30%; margin-left: 0; }
+  .np .np-catch { width: 100%; min-width: 0; height: 48px; min-height: 48px; padding: 0 8px; }
+  .np .tape-overview { height: 34px; }
+  .np-mini {
+    display: inline-flex; align-items: center; flex: none; height: 34px; padding: 0 9px; border-radius: 7px;
+    background: var(--lcd); color: var(--lcd-ink); box-shadow: inset 0 2px 5px var(--lcd-edge), 0 1px 0 var(--hl);
+    text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
+    font: 600 14px var(--mono); white-space: nowrap; max-width: 34%; overflow: hidden; text-overflow: ellipsis;
   }
-  body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--dock-b, 0px) + var(--dock-h) + 12px); }
+  body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--dock-b, 0px) + var(--np-h) + 12px); }
 }
-/* An upright phone's dock is narrow: Catch takes less, the click key slims,
-   and Rec drops the source line the "Record from" row already shows. */
+/* A phone on its side is short: the bar is one row -- the small LCD, the keys,
+   the scrubber between them and Catch -- so the lanes keep the height. */
+@media (orientation: landscape) and (max-height: 440px) {
+  body.tape-page { --np-h: 66px; }
+  body.tape-page:has(#out-strip:not([hidden])) { --np-h: 106px; }
+  .np { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .np-row { display: contents; }
+  .np .out-strip { flex: 1 1 100%; }
+  .np-mini { order: 1; height: 48px; }
+  .np-keys { order: 2; flex: none; }
+  .np .np-keys .icon-btn { flex: none; min-width: 48px; width: auto; padding: 0 9px; }
+  .np .tape-overview { order: 3; flex: 1 1 0; min-width: 80px; height: 48px; }
+  .np-own { order: 4; flex: none; }
+  .np .np-catch { width: auto; min-width: 116px; }
+}
+/* An upright phone's bar is narrow: |◂ gives way to the scrubber, Catch takes
+   less, and Rec drops the source line the "Record from" row already shows. */
 @media (max-width: 479.98px) {
-  body.tape-page .tape-toolbar .tb-row.transport { gap: 6px; padding-right: calc(30% + 16px); }
-  body.tape-page .tape-toolbar .tb-row.catch #catch-pass { width: 30%; padding: 0 8px; font-size: 13px; line-height: 1.15; }
-  body.tape-page .tape-toolbar .tb-row.transport .tb-click { flex: 0 0 40px; }
-  body.tape-page .tape-toolbar .tb-row.transport .tb-rec .rec-src { display: none; }
+  .np #to-start { display: none; }
+  .np-keys { gap: 6px; }
+  .np-own { flex-basis: 28%; }
+  .np .np-catch-sub { display: none; }
+  .np .np-keys .tb-rec .rec-src { display: none; }
 }
-/* Under 400 px the dock's keys need every pixel: Catch gives some back, and
-   the keys' type and lights shrink a little, so Rec keeps its armed track. */
 @media (max-width: 399.98px) {
-  body.tape-page .tape-toolbar .tb-row.transport { gap: 4px; padding-right: calc(26% + 14px); }
-  body.tape-page .tape-toolbar .tb-row.catch #catch-pass { width: 26%; font-size: 12px; padding: 0 6px; }
-  body.tape-page .tape-toolbar .tb-row.transport .icon-btn { font-size: 13px; padding: 0 6px; }
-  body.tape-page .tape-toolbar .tb-row.transport .icon-btn::before { margin-right: 3px; }
+  .np-keys { gap: 4px; }
+  .np .np-keys .icon-btn { font-size: 13px; }
+  .np-own { flex-basis: 26%; }
 }
 
 /* Playing on this phone: heard late, so what is asked shows at once and is marked until heard. */

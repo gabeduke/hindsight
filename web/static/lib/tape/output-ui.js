@@ -1,5 +1,5 @@
 // Where the tape plays: the OUT pill, the Output sheet, the status strip
-// under the deck, and the banner other devices show while a phone has it.
+// across the top of the bar, and the banner other devices show while a phone has it.
 import { StreamPlayer } from './stream-player.js';
 import { barBeat } from './geometry.js';
 
