@@ -12,11 +12,11 @@ import { TileCache } from '../wave/tiles.js';
 import { MIN_FPP } from '../edit/gestures.js';
 import { EditorBar } from '../edit/editor-bar.js';
 import { NearAudio } from '../wave/near.js';
-import { snapRadius, stepFrames, stepLabel } from '../wave/boundary.js';
+import { stepFrames, stepLabel } from '../wave/boundary.js';
 import { clipLabel, blockLevels, labelFits, placeLabel, needsDetail } from './blocks.js';
 import {
-  fileView, soundingAt, toFile, toTape, gridMove, clipUnder, alignLand, alignView, clipNumber, alignReadout,
-  padStart, hitIn,
+  fileView, soundingAt, toTape, gridMove, alignLand, alignEdge, alignView, clipNumber, alignReadout,
+  padStart, hitIn, placeAt, refClipsNear, refHitNear, REACH_MS,
 } from './align.js';
 import { roundRectPath } from '../cassette-geom.js';
 import {
@@ -96,9 +96,10 @@ function redrawLanes() {
 function readPref(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }
 function writePref(k, v) { try { localStorage.setItem(k, v); } catch { /* fine */ } }
 
-async function api(path, { method = 'GET', body } = {}) {
+// keepalive lets a save outlive the page (a move committed at pagehide).
+async function api(path, { method = 'GET', body, keepalive = false } = {}) {
   const res = await fetch(path, {
-    method, cache: 'no-store',
+    method, cache: 'no-store', keepalive,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -626,9 +627,9 @@ function renderEdit() {
 
 // edit sends one edit, shows the tape it answers with, and answers what the
 // edit did -- or null, having said why not.
-async function edit(op, extra = {}) {
+async function edit(op, extra = {}, { keepalive = false } = {}) {
   try {
-    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, track: state.track, ...extra } }));
+    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, track: state.track, ...extra }, keepalive }));
     const e = (s && s.edit) || {};
     if (e.clipboard) { cbGen++; state.clipboard = e.clipboard; state.clipboardError = ''; renderClipboard(); }
     return e;
@@ -748,12 +749,13 @@ function wireLane(lane) {
 // move is saved are here (the bar's host, below). Everything is in sounding
 // frames (at plus nudge); a move writes at and leaves the nudge alone.
 //
-// state.align: null, or { clipId, hitOff, at, ref, refHit, saving } --
-// hitOff the hit's frames from where the clip sounds, at where it is drawn
-// (ahead of the stored one while a gesture runs or a save is on its way),
-// ref the track picked to line up against, refHit the hit Hit → Track found
-// there ({ track, clipId, k }, k in that clip's file), saving the slides sent
-// and not yet answered.
+// state.align: null, or { clipId, hitOff, found, at, ref, refHit, saving } --
+// hitOff the hit's frames from where the clip sounds, found whether Align
+// found a hit (else the point is the clip's start, and the snaps decline), at
+// where it is drawn (ahead of the stored one while a gesture runs or a save
+// is on its way), ref the track picked to line up against, refHit the hit
+// Hit → Track found there ({ track, clipId, k }, k in that clip's file),
+// saving the slides sent and not yet answered.
 
 // The audio round a point, per pool file: the clip's own, and the tracks it
 // is lined up against.
@@ -773,6 +775,20 @@ async function nearOf(file) {
   nears.set(file, n);
   if (nears.size > 8) nears.delete(nears.keys().next().value); // a few are plenty
   return n;
+}
+
+// audioAbout is a pool file's audio round file frames [a, b], with the room
+// Attack wants: about 105 ms before a and 65 ms after b. NearAudio reuses a
+// stretch while the point is in its middle half, which may leave less; then
+// it fetches one centred on the search instead. Before the file's start
+// padStart makes the room.
+async function audioAbout(file, a, b) {
+  const n = await nearOf(file);
+  const ms = (m) => Math.round((n.sr * m) / 1000);
+  const lo = Math.max(0, a - ms(110)), hi = Math.min(n.total, b + ms(70));
+  const k = n.kept;
+  if (k && (k.from > lo || k.from + k.x.length < hi)) n.kept = null;
+  return n.around(Math.round((a + b) / 2));
 }
 
 // alignHome is the clip being aligned as the tape has it, and its track's
@@ -809,12 +825,20 @@ let alignSaves = Promise.resolve();
 function saveAlign(clipId, at) {
   const a = state.align;
   const tape = state.id;
+  // Where this move was made from: the last slide sent, or the stored clip.
+  const was = a.saving ? a.sent : alignHome().clip.at;
   a.saving++;
   a.sent = at;
   alignSaves = alignSaves.then(async () => {
     try {
       // Not onto another tape loaded meanwhile: edit sends to the one loaded.
-      if (state.id === tape) await edit('slide', { clip: clipId, at });
+      // An undo that went first moved the clip, so the move goes from where
+      // the undo put it, not back over it; a clip it took away isn't moved.
+      const h = state.id === tape && alignHome();
+      if (h && h.clip.id === clipId) {
+        const to = h.clip.at === was ? at : placeAt(h.clip, at - was, state.tape.length);
+        await edit('slide', { clip: clipId, at: to }, { keepalive: true });
+      }
     } finally {
       if (state.align === a) {
         a.saving--;
@@ -854,13 +878,16 @@ async function openAlign(c) {
   btn.classList.add('waiting');
   btn.setAttribute('aria-busy', 'true');
   // The first hit: the strongest starting within 60 ms of the clip's start;
-  // else its start. The pool file keeps only a little before the clip, so
-  // the audio is padded for Attack to see back far enough (padStart).
-  let hitOff = 0;
+  // else its start, and the snaps decline. The pool file keeps only a little
+  // before the clip, so the audio is padded for Attack to see back far
+  // enough (padStart).
+  let hitOff = 0, found = false;
   try {
-    const audio = padStart(await (await nearOf(c.file)).around(c.src), c.src, sr);
-    const j = hitIn(audio, c.src, c.src + Math.round(sr * 0.06), sr);
-    hitOff = j < 0 ? 0 : Math.min(c.frames - 1, Math.max(0, j - c.src));
+    const end = c.src + Math.round((sr * REACH_MS) / 1000);
+    const audio = padStart(await audioAbout(c.file, c.src, end), c.src, sr);
+    const j = hitIn(audio, c.src, end, sr);
+    found = j >= 0;
+    hitOff = found ? Math.min(c.frames - 1, Math.max(0, j - c.src)) : 0;
   } catch (e) {
     toast(`Could not read the clip’s audio: ${e.message}`, 'bad');
   } finally {
@@ -872,7 +899,7 @@ async function openAlign(c) {
   if (!sh.open || !state.clip || state.clip.id !== c.id) return;
   sh.close();
   bar.commit(); // another clip mid-gesture saves first
-  state.align = { clipId: c.id, hitOff, at: c.at, ref: null, refHit: null, saving: 0, sent: c.at };
+  state.align = { clipId: c.id, hitOff, found, at: c.at, ref: null, refHit: null, saving: 0, sent: c.at };
   bar.dirty = false;
   const h = alignHome();
   if (!h) { state.align = null; return; }
@@ -912,7 +939,9 @@ function renderAlign() {
   const rh = a.refHit;
   const rc = rh && rh.track === a.ref && track(rh.track) ? track(rh.track).clips.find((c) => c.id === rh.clipId) : null;
   if (rc) ref = { track: rh.track, hit: toTape(rc, rh.k, sr) };
-  $('ce-readout').textContent = alignReadout({ track: h.n, n: clipNumber(h.track, h.clip), point, sampleRate: sr, grid: t.grid, ref });
+  $('ce-readout').textContent = alignReadout({
+    track: h.n, n: clipNumber(h.track, h.clip), point, sampleRate: sr, grid: t.grid, ref, start: !a.found,
+  });
   bar.renderStep();
   $('ce-pos').setAttribute('aria-valuetext', $('ce-readout').textContent);
   $('ce-zoom').setAttribute('aria-valuetext', `${stepLabel(stepFrames(alignFpp(), sr), sr)} a step`);
@@ -956,42 +985,57 @@ function pickRef(n) {
   renderAlign();
 }
 
+// snapTo moves the hit onto tape frame f for Hit → Grid and Hit → Track,
+// saying so when the tape's start or end stops it short.
+function snapTo(f) {
+  const h = alignHome();
+  const a = state.align;
+  const edge = alignEdge(h.clip, a.at, a.hitOff, f, state.tape.length, state.tape.sample_rate);
+  bar.move(f, true);
+  if (edge) toast(edge === 'start' ? 'The tape starts here' : 'The tape ends here');
+}
+
+// Without a hit of its own the point is only the clip's start: nothing to
+// snap (the snaps decline rather than guess).
+function noHit() {
+  if (state.align.found) return false;
+  toast('No hit near the clip’s start');
+  return true;
+}
+
 // Hit → Grid: the hit onto the nearest line of the Snap setting (the beat
 // with it off).
 function hitToGrid() {
   const p = alignPoint();
-  if (p == null || !state.tape.grid) return;
-  bar.move(p + gridMove(p, state.tape.grid, state.snap), true);
+  if (p == null || !state.tape.grid || noHit()) return;
+  snapTo(p + gridMove(p, state.tape.grid, state.snap));
 }
 
-// Hit → Track: the hit onto the nearest hit of the picked track, found with
-// Attack in that track's audio where the point is.
+// Hit → Track: the hit onto the nearest hit of the picked track within 60 ms
+// of the point, whatever the zoom, found with Attack in the audio of each
+// clip heard there -- so a hit at the very start of a clip counts when the
+// point is a little early.
 let seeking = false;
 async function hitToTrack() {
   const a = state.align;
   const p = alignPoint();
-  if (!a || a.ref == null || p == null || seeking) return;
+  if (!a || a.ref == null || p == null || seeking || noHit()) return;
   const t = state.tape;
   const sr = t.sample_rate;
   const r = a.ref;
-  const rc = clipUnder(track(r), p, sr);
-  if (!rc) { toast(`Track ${r} has nothing here`); return; }
-  const k = Math.round(toFile(rc, p, sr));
-  const radius = snapRadius('attack', sr, { width: laneWidth(), fpp: alignFpp() });
+  const spans = refClipsNear(track(r), p, Math.round((sr * REACH_MS) / 1000), sr);
+  if (!spans.length) { toast(`Track ${r} has nothing here`); return; }
   const btn = $('ce-track');
   seeking = true;
   btn.classList.add('waiting');
   btn.setAttribute('aria-busy', 'true');
   try {
-    // Padded near the file's start, as for the clip's own first hit.
-    const audio = padStart(await (await nearOf(rc.file)).around(k), rc.src, sr);
+    const hit = await refHitNear(spans, p, sr, (c, lo, hi) => audioAbout(c.file, lo, hi));
     // The clip moved, or the editor closed, while the audio came.
     if (state.align !== a || a.ref !== r || alignPoint() !== p) return;
-    // Only where the reference clip is heard: from its src on.
-    const j = hitIn(audio, Math.max(rc.src, k - radius), k + radius, sr);
-    if (j < 0 || j >= rc.src + rc.frames) { toast(`No hit near here on track ${r}`); return; }
-    a.refHit = { track: r, clipId: rc.id, k: j };
-    bar.move(toTape(rc, j, sr), true);
+    if (!hit) { toast(`No hit near here on track ${r}`); return; }
+    a.refHit = { track: r, clipId: hit.clip.id, k: hit.k };
+    snapTo(hit.at);
   } catch (e) {
     toast(`Could not read the audio: ${e.message}`, 'bad');
   } finally {
@@ -1793,14 +1837,18 @@ async function doCatch(what) {
 
 async function undoRedo(redo) {
   // A clip editor's move still being made is saved first, and the undo goes
-  // after it and every slide before it.
+  // after it and every slide before it, in the same line, so a step made
+  // while it's on its way waits behind it (saveAlign).
   bar.commit();
-  await alignSaves;
-  try {
-    await change(() => api(`/api/tapes/${redo ? 'redo' : 'undo'}?${q()}`, { method: 'POST' }));
-  } catch (e) {
-    toast(e.message, 'bad');
-  }
+  const run = alignSaves.then(async () => {
+    try {
+      await change(() => api(`/api/tapes/${redo ? 'redo' : 'undo'}?${q()}`, { method: 'POST' }));
+    } catch (e) {
+      toast(e.message, 'bad');
+    }
+  });
+  alignSaves = run;
+  await run;
 }
 
 // closeSheets closes what belongs to the tape shown, before another is.
@@ -2092,6 +2140,11 @@ function wire() {
     $('clip-align').removeAttribute('aria-busy');
     drawLanes();
   });
+  // A clip editor's move still being made is saved when the page goes. Two
+  // hooks, as on the take page: pagehide fires on navigation,
+  // visibilitychange when the app is switched or the screen locks.
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') bar.commit(); });
+  window.addEventListener('pagehide', () => bar.commit());
   new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); }).observe($('lanes'));
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());

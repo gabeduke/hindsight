@@ -65,6 +65,7 @@ const SHELL = [
   '/lib/tape/machine.js',
   '/lib/tape/blocks.js',
   '/lib/tape/align.js',
+  '/lib/tape/rec.js',
   '/guide.html',
   '/tape.html',
   '/fonts/barlow-condensed-600.woff2',

@@ -2,8 +2,9 @@
 // Aligning a clip on the tape: where it sounds, how tape frames map to its
 // pool file's frames, the view of its file under a tape view, and the moves
 // Hit → Grid and Hit → Track make, and the clip editor's sums: where a move
-// lands, the view about the hit, how the readout reads, and finding a hit
-// near a pool file's start. Pure; node-tested.
+// lands, the view about the hit, how the readout reads, finding a hit near a
+// pool file's start, and finding the reference track's hit for Hit → Track.
+// Pure; node-tested.
 import { snapFrame, nudgeFrames } from './geometry.js';
 import { viewAbout, fmtSample, beatOffset, fmtOffset } from '../wave/boundary.js';
 import { MIN_FPP } from '../edit/gestures.js';
@@ -83,6 +84,15 @@ export function alignLand(clip, at, hitOff, f, length, sampleRate) {
 }
 
 /**
+ * alignEdge is the tape's end that stops a move of the point to tape frame f
+ * short of it (as alignLand clamps): 'start', 'end', or '' when it gets there.
+ */
+export function alignEdge(clip, at, hitOff, f, length, sampleRate) {
+  const want = Math.round(at + f - (soundingAt({ ...clip, at }, sampleRate) + hitOff));
+  return want < 0 ? 'start' : want > length - 1 ? 'end' : '';
+}
+
+/**
  * alignView is the tape view ({from, to}, whole frames) width px wide at
  * fpp with frame in the middle, or as near as the tape's ends allow: no
  * closer than MIN_FPP, no wider than the tape.
@@ -105,9 +115,10 @@ export function clipNumber(track, clip) {
  * sample, the point's offset from the nearest beat (with a tempo), and from
  * the reference track's hit once Hit → Track has found one (ref: { track,
  * hit }): "Clip 2.1 0:02.500 +31 · +2.5 ms from 5.1 · −1.3 ms from track 1".
+ * With no hit found, the point is the clip's start, and says so (start).
  */
-export function alignReadout({ track, n, point, sampleRate, grid, ref }) {
-  const parts = [`Clip ${track}.${n} ${fmtSample(point, sampleRate)}`];
+export function alignReadout({ track, n, point, sampleRate, grid, ref, start = false }) {
+  const parts = [`Clip ${track}.${n} ${start ? 'start ' : ''}${fmtSample(point, sampleRate)}`];
   const off = fmtOffset(beatOffset(point, beatGrid(grid, sampleRate)));
   if (off) parts.push(off);
   if (ref) {
@@ -155,4 +166,53 @@ export function hitIn(audio, a, b, sampleRate) {
   if (i1 < i0 || i1 < 0 || i0 >= x.length) return -1;
   const j = findAttack(x, sampleRate, Math.round((i0 + i1) / 2), Math.ceil((i1 - i0) / 2));
   return j < 0 ? -1 : from + j;
+}
+
+/** REACH_MS is how far either side of the point Hit → Track looks, at any zoom. */
+export const REACH_MS = 60;
+
+/**
+ * refClipsNear is what of a reference track is heard within reach of tape
+ * frame p, [p − reach, p + reach]: { clip, from, to } (tape frames, to
+ * not included) in order, the top layer where clips overlap, as clipUnder
+ * has it. A hit right at a clip's start, just after p, is its own; on a
+ * tiled loop each copy is searched, not only the one under p.
+ */
+export function refClipsNear(track, p, reach, sampleRate) {
+  const lo = Math.round(p - reach), hi = Math.round(p + reach) + 1;
+  const cuts = new Set([lo, hi]);
+  for (const c of track.clips || []) {
+    const s = soundingAt(c, sampleRate);
+    for (const f of [s, s + c.frames]) if (f > lo && f < hi) cuts.add(f);
+  }
+  const at = [...cuts].sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i + 1 < at.length; i++) {
+    const clip = clipUnder(track, at[i], sampleRate);
+    if (!clip) continue;
+    const last = out[out.length - 1];
+    if (last && last.clip === clip && last.to === at[i]) last.to = at[i + 1];
+    else out.push({ clip, from: at[i], to: at[i + 1] });
+  }
+  return out;
+}
+
+/**
+ * refHitNear is the hit on a reference track nearest tape frame p, searching
+ * each stretch refClipsNear found in its clip's own audio: { clip, k, at },
+ * k in the clip's file and at on the tape, or null. audioOf(clip, a, b)
+ * answers the clip's file's audio { x, from } round file frames [a, b],
+ * with room for Attack either side; near the file's start it is padded
+ * (padStart), as for a clip's own first hit.
+ */
+export async function refHitNear(spans, p, sampleRate, audioOf) {
+  let best = null;
+  for (const { clip, from, to } of spans) {
+    const a = Math.round(toFile(clip, from, sampleRate)), b = Math.round(toFile(clip, to - 1, sampleRate));
+    const k = hitIn(padStart(await audioOf(clip, a, b), clip.src, sampleRate), a, b, sampleRate);
+    if (k < 0) continue;
+    const at = toTape(clip, k, sampleRate);
+    if (!best || Math.abs(at - p) < Math.abs(best.at - p)) best = { clip, k, at };
+  }
+  return best;
 }

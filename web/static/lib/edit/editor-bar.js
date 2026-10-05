@@ -1,7 +1,7 @@
 // web/static/lib/edit/editor-bar.js
 // The editor bar's gesture core, shared by every page that edits a point to
-// the sample: the take page's boundary editor (In, Out, bar 1) now, the tape
-// page's clip editor later. Moved here from lib/wave/page.js; see
+// the sample: the take page's boundary editor (In, Out, bar 1) and the tape
+// page's clip editor (Align). Moved here from lib/wave/page.js; see
 // docs/superpowers/specs/2026-10-05-boundary-editor-design.md.
 //
 // It owns how a hand moves the point -- the two encoder pads, the ◂ ▸ steps,
