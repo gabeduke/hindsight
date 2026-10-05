@@ -12,11 +12,11 @@ import { TileCache } from '../wave/tiles.js';
 import { MIN_FPP } from '../edit/gestures.js';
 import { EditorBar } from '../edit/editor-bar.js';
 import { NearAudio } from '../wave/near.js';
-import { findAttack } from '../wave/onset.js';
 import { snapRadius, stepFrames, stepLabel } from '../wave/boundary.js';
 import { clipLabel, blockLevels, labelFits, placeLabel, needsDetail } from './blocks.js';
 import {
   fileView, soundingAt, toFile, toTape, gridMove, clipUnder, alignLand, alignView, clipNumber, alignReadout,
+  padStart, hitIn,
 } from './align.js';
 import { roundRectPath } from '../cassette-geom.js';
 import {
@@ -808,10 +808,13 @@ function alignFollow(fpp = alignFpp()) {
 let alignSaves = Promise.resolve();
 function saveAlign(clipId, at) {
   const a = state.align;
+  const tape = state.id;
   a.saving++;
+  a.sent = at;
   alignSaves = alignSaves.then(async () => {
     try {
-      await edit('slide', { clip: clipId, at });
+      // Not onto another tape loaded meanwhile: edit sends to the one loaded.
+      if (state.id === tape) await edit('slide', { clip: clipId, at });
     } finally {
       if (state.align === a) {
         a.saving--;
@@ -840,25 +843,36 @@ function syncAlign() {
 }
 
 let alignTicket = 0; // the latest Align: one whose audio comes late is dropped
+// openAlign opens the editor on a clip from its sheet. The sheet stays open,
+// Align waiting, while the audio round the clip's start comes; letting the
+// sheet go meanwhile lets Align go too.
 async function openAlign(c) {
   const t = state.tape;
   const sr = t.sample_rate;
-  bar.commit(); // another clip mid-gesture saves first
   const ticket = ++alignTicket;
-  // The first hit: Attack from the clip's start, within 60 ms; else its start.
+  const btn = $('clip-align');
+  btn.classList.add('waiting');
+  btn.setAttribute('aria-busy', 'true');
+  // The first hit: the strongest starting within 60 ms of the clip's start;
+  // else its start. The pool file keeps only a little before the clip, so
+  // the audio is padded for Attack to see back far enough (padStart).
   let hitOff = 0;
   try {
-    const { x, from } = await (await nearOf(c.file)).around(c.src);
-    const i = c.src - from;
-    const j = i >= 0 && i < x.length ? findAttack(x, sr, i, Math.round(sr * 0.06)) : -1;
-    // A hit that starts before the clip does isn't heard in it: its start is.
-    hitOff = j < 0 ? 0 : Math.min(c.frames - 1, Math.max(0, from + j - c.src));
+    const audio = padStart(await (await nearOf(c.file)).around(c.src), c.src, sr);
+    const j = hitIn(audio, c.src, c.src + Math.round(sr * 0.06), sr);
+    hitOff = j < 0 ? 0 : Math.min(c.frames - 1, Math.max(0, j - c.src));
   } catch (e) {
     toast(`Could not read the clip’s audio: ${e.message}`, 'bad');
+  } finally {
+    if (ticket === alignTicket) { btn.classList.remove('waiting'); btn.removeAttribute('aria-busy'); }
   }
-  if (ticket !== alignTicket || !state.tape || state.tape.id !== t.id) return; // another Align, or another tape
-  bar.commit();
-  state.align = { clipId: c.id, hitOff, at: c.at, ref: null, refHit: null, saving: 0 };
+  // Another Align, the sheet let go of, or another tape.
+  if (ticket !== alignTicket || !state.tape || state.tape.id !== t.id) return;
+  const sh = $('clip-sheet');
+  if (!sh.open || !state.clip || state.clip.id !== c.id) return;
+  sh.close();
+  bar.commit(); // another clip mid-gesture saves first
+  state.align = { clipId: c.id, hitOff, at: c.at, ref: null, refHit: null, saving: 0, sent: c.at };
   bar.dirty = false;
   const h = alignHome();
   if (!h) { state.align = null; return; }
@@ -969,15 +983,15 @@ async function hitToTrack() {
   btn.classList.add('waiting');
   btn.setAttribute('aria-busy', 'true');
   try {
-    const { x, from } = await (await nearOf(rc.file)).around(k);
+    // Padded near the file's start, as for the clip's own first hit.
+    const audio = padStart(await (await nearOf(rc.file)).around(k), rc.src, sr);
     // The clip moved, or the editor closed, while the audio came.
     if (state.align !== a || a.ref !== r || alignPoint() !== p) return;
-    const i = k - from;
-    const j = i >= 0 && i < x.length ? findAttack(x, sr, i, radius) : -1;
-    // A hit outside the clip's stretch of its file isn't heard on the track.
-    if (j < 0 || from + j < rc.src || from + j >= rc.src + rc.frames) { toast(`No hit near here on track ${r}`); return; }
-    a.refHit = { track: r, clipId: rc.id, k: from + j };
-    bar.move(toTape(rc, from + j, sr), true);
+    // Only where the reference clip is heard: from its src on.
+    const j = hitIn(audio, Math.max(rc.src, k - radius), k + radius, sr);
+    if (j < 0 || j >= rc.src + rc.frames) { toast(`No hit near here on track ${r}`); return; }
+    a.refHit = { track: r, clipId: rc.id, k: j };
+    bar.move(toTape(rc, j, sr), true);
   } catch (e) {
     toast(`Could not read the audio: ${e.message}`, 'bad');
   } finally {
@@ -994,8 +1008,7 @@ async function alignPlay() {
   const p = alignPoint();
   if (p == null) return;
   bar.commit();
-  await transport('locate', { pos: Math.max(0, p - state.tape.sample_rate) });
-  transport('play');
+  if (await transport('locate', { pos: Math.max(0, p - state.tape.sample_rate) })) transport('play');
 }
 
 // The editor bar, one for the page: its listeners live as long as it does.
@@ -1012,7 +1025,9 @@ const bar = new EditorBar({
       const h = alignHome();
       const a = state.align;
       a.at = alignLand(h.clip, a.at, a.hitOff, f, state.tape.length, state.tape.sample_rate).at;
-      if (save && a.at !== h.clip.at) saveAlign(h.clip.id, a.at);
+      // Against the last slide sent while any are on their way, so a move
+      // back to the stored at is still sent.
+      if (save && a.at !== (a.saving ? a.sent : h.clip.at)) saveAlign(h.clip.id, a.at);
       alignFollow();
     },
     fpp: alignFpp,
@@ -1668,8 +1683,10 @@ async function transport(action, extra = {}) {
     const b = await change(() => api(`/api/tapes/transport?${q()}`, { method: 'POST', body: { action, ...extra } }));
     if (b && b.kept) keptToast(b.kept);
     setTimeout(poll, 150);
+    return true;
   } catch (e) {
     toast(e.message, 'bad');
+    return false;
   }
 }
 
@@ -1974,9 +1991,10 @@ function wire() {
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (document.querySelector('dialog[open]')) return; // a sheet's keys are its own
     // While a clip is being aligned the arrows step it, Shift by ten (not on
-    // a level slider, whose arrows are its own), and Escape closes the editor.
+    // a level slider or in a menu, whose arrows are their own), and Escape
+    // closes the editor.
     if (state.align) {
-      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.tagName !== 'INPUT') {
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.tagName !== 'INPUT' && !menusOpen()) {
         e.preventDefault();
         bar.step(e.key === 'ArrowLeft' ? -1 : 1, e.shiftKey ? 10 : 1, !e.repeat);
         return;
@@ -2059,16 +2077,21 @@ function wire() {
   });
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
   $('clip-align').addEventListener('click', () => {
-    const c = state.clip;
-    $('clip-sheet').close();
-    if (c) openAlign(c);
+    if (state.clip && !$('clip-align').classList.contains('waiting')) openAlign(state.clip);
   });
   // The clip editor.
   $('ce-done').addEventListener('click', closeAlign);
   $('ce-grid').addEventListener('click', hitToGrid);
   $('ce-track').addEventListener('click', hitToTrack);
   $('ce-play').addEventListener('click', alignPlay);
-  $('clip-sheet').addEventListener('close', () => { state.clip = null; drawLanes(); });
+  $('clip-sheet').addEventListener('close', () => {
+    state.clip = null;
+    // An Align still waiting for its audio is let go of with the sheet.
+    alignTicket++;
+    $('clip-align').classList.remove('waiting');
+    $('clip-align').removeAttribute('aria-busy');
+    drawLanes();
+  });
   new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); }).observe($('lanes'));
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());

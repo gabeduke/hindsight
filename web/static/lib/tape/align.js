@@ -2,10 +2,12 @@
 // Aligning a clip on the tape: where it sounds, how tape frames map to its
 // pool file's frames, the view of its file under a tape view, and the moves
 // Hit → Grid and Hit → Track make, and the clip editor's sums: where a move
-// lands, the view about the hit, and how the readout reads. Pure; node-tested.
+// lands, the view about the hit, how the readout reads, and finding a hit
+// near a pool file's start. Pure; node-tested.
 import { snapFrame, nudgeFrames } from './geometry.js';
 import { viewAbout, fmtSample, beatOffset, fmtOffset } from '../wave/boundary.js';
 import { MIN_FPP } from '../edit/gestures.js';
+import { findAttack } from '../wave/onset.js';
 
 /** soundingAt is the tape frame a clip's first frame is heard at: its at plus its nudge. */
 export function soundingAt(clip, sampleRate) {
@@ -114,4 +116,43 @@ export function alignReadout({ track, n, point, sampleRate, grid, ref }) {
     parts.push(`${sign}${Math.abs(ms).toFixed(1)} ms from track ${ref.track}`);
   }
   return parts.join(' · ');
+}
+
+/** PAD_MS is how far before its pool file's start padStart lengthens the audio. */
+export const PAD_MS = 150;
+
+/**
+ * padStart lengthens audio that begins at its pool file's start ({ x, from:
+ * 0 }) by at least PAD_MS in front, the file's overhang before the clip --
+ * x[0, over) -- mirrored back and forth: { x, from } with from below 0. A
+ * pool file keeps only a few ms before a clip's src, and findAttack needs
+ * about 105 ms behind where it looks to see a hit, so a clip's first hit
+ * would be out of its sight. Zeros wouldn't do: anything after silence is a
+ * rise. Audio further in, or with no overhang, comes back as it is.
+ */
+export function padStart(audio, over, sampleRate) {
+  const { x, from } = audio;
+  const o = Math.min(Math.round(over), x.length);
+  if (from !== 0 || o < 1) return audio;
+  const P = Math.round((sampleRate * PAD_MS) / 1000);
+  const y = new Float32Array(P + x.length);
+  y.set(x, P);
+  for (let k = 1; k <= P; k++) {
+    const m = Math.floor((k - 1) / o), r = (k - 1) % o;
+    y[P - k] = x[m % 2 === 0 ? r : o - 1 - r];
+  }
+  return { x: y, from: -P };
+}
+
+/**
+ * hitIn is where the strongest hit starting within file frames [a, b] of
+ * audio { x, from } starts, in file frames, or -1 (findAttack declines
+ * rather than guesses).
+ */
+export function hitIn(audio, a, b, sampleRate) {
+  const { x, from } = audio;
+  const i0 = Math.round(a) - from, i1 = Math.round(b) - from;
+  if (i1 < i0 || i1 < 0 || i0 >= x.length) return -1;
+  const j = findAttack(x, sampleRate, Math.round((i0 + i1) / 2), Math.ceil((i1 - i0) / 2));
+  return j < 0 ? -1 : from + j;
 }

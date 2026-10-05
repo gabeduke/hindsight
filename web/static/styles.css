@@ -1450,7 +1450,7 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .be-keys .icon-btn { min-height: 44px; padding: 0 10px; white-space: nowrap; }
 .be-keys .nudge { min-width: 40px; min-height: 44px; font-size: 14px; }
 .be-step { min-width: 46px; text-align: center; font-size: 12px; color: var(--ink-dim); }
-.be-keys .icon-btn.waiting { cursor: progress; opacity: .6; }
+.be-keys .icon-btn.waiting, #clip-align.waiting { cursor: progress; opacity: .6; }
 /* The In and Out readouts open the editor: they are keys of a sort. */
 .sel-time[role="button"] {
   cursor: pointer; padding: 7px 4px; border-radius: 8px;
