@@ -85,9 +85,10 @@ export const TIPS = [
   { control: 'Send to tape', ids: ['send-to-tape'], tip: 'Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape' },
   // The tape page
   { control: 'Tape name', ids: ['tape-menu'], tip: 'Your tapes: load one, or make a new one' },
-  { control: '⋯ (tape)', ids: ['tape-more'], tip: 'This tape: clone it, mix it down, export its stems, or delete a tape' },
+  { control: '⋯ (tape)', ids: ['tape-more'], tip: 'This tape: rename it, clone it, mix it down, export its stems, or delete a tape' },
   { control: 'A tape in the list', ids: ['tape-load'], tip: 'Load this tape: the transport plays the loaded one' },
   { control: 'New tape', ids: ['tape-new'], tip: 'Start an empty tape. Its first loop sets the tempo' },
+  { control: 'Rename tape', ids: ['tape-rename'], tip: 'Give this tape a new name' },
   { control: 'Delete a tape', ids: ['tape-delete'], tip: 'Delete another tape. Audio it shares with others stays' },
   { control: 'BPM, Bars (empty tape)', ids: ['tape-bpm'], tip: 'Start from a tempo instead of a first loop' },
   { control: '↶ ↷ (tape)', ids: ['tape-undo', 'tape-redo'], tip: 'Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo' },

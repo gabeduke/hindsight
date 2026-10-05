@@ -1394,6 +1394,7 @@ function closeSheets() {
   const sh = $('clip-sheet');
   if (sh.open) sh.close();
   if ($('track-sheet').open) $('track-sheet').close();
+  if ($('rename-sheet').open) $('rename-sheet').close();
   state.clip = null;
   closeMenus();
 }
@@ -1460,6 +1461,17 @@ function openActions() {
   $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
   $('tape-mixdown-all').disabled = !playable;
   showMenu('tape-actions');
+}
+
+// openRename asks for a new name for the loaded tape. An empty name is
+// refused here; the Pi would ignore it anyway.
+function openRename() {
+  if (!state.tape) return;
+  const input = $('rename-name');
+  input.value = state.tape.name;
+  $('rename-sheet').showModal();
+  input.focus();
+  input.select();
 }
 
 async function openMenu() {
@@ -1587,6 +1599,15 @@ function wire() {
   $('tape-mixdown').addEventListener('click', () => { closeMenus(); mixdown(false); });
   $('tape-mixdown-all').addEventListener('click', () => { closeMenus(); mixdown(true); });
   $('tape-export').addEventListener('click', exportStems);
+  $('tape-rename').addEventListener('click', () => { closeMenus(); openRename(); });
+  $('rename-cancel').addEventListener('click', () => $('rename-sheet').close());
+  $('rename-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('rename-name').value.trim();
+    if (!name) { $('rename-name').focus(); return; }
+    $('rename-sheet').close();
+    if (name !== state.tape.name) await patch({ name });
+  });
   $('tape-clone').addEventListener('click', async () => {
     closeMenus();
     try {

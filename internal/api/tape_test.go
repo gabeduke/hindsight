@@ -52,6 +52,7 @@ func want(t *testing.T, w *httptest.ResponseRecorder, code int, what string) {
 type tapeStateBody struct {
 	Tape struct {
 		ID   string `json:"id"`
+		Name string `json:"name"`
 		Grid *struct {
 			Frames int64 `json:"frames"`
 			Bars   int   `json:"bars"`
@@ -91,6 +92,30 @@ func makeLoadedTape(t *testing.T, r *mux.Router) string {
 	json.Unmarshal(w.Body.Bytes(), &made)
 	want(t, send(t, r, http.MethodPost, "/api/tapes/load?id="+made.ID, ""), http.StatusOK, "load")
 	return made.ID
+}
+
+// The tape page's Rename sheet sends only a name. It must stick, be kept out
+// of undo (the guide says a rename isn't a step), and an empty or blank name
+// must leave the old one alone.
+func TestARenamedTapeKeepsItsNameAndStaysOutOfUndo(t *testing.T) {
+	r, _ := newTapeAPI(t)
+	id := makeLoadedTape(t, r)
+
+	w := send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"name":"  Bedtime loops  "}`)
+	want(t, w, http.StatusOK, "rename")
+	s := stateOf(t, w)
+	if s.Tape.Name != "Bedtime loops" {
+		t.Fatalf("name %q, want %q", s.Tape.Name, "Bedtime loops")
+	}
+	if s.Undo != 0 {
+		t.Fatalf("a rename took an undo step: %d", s.Undo)
+	}
+
+	w = send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"name":"   "}`)
+	want(t, w, http.StatusOK, "blank rename")
+	if got := stateOf(t, w).Tape.Name; got != "Bedtime loops" {
+		t.Fatalf("a blank name changed it to %q", got)
+	}
 }
 
 func TestTapeRoutesAnswer404WhenTheTapeIsOff(t *testing.T) {

@@ -48,6 +48,7 @@
     <span class="menu-anchor">
       <button id="tape-more" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More for this tape" data-tip="tape-more">⋯</button>
       <div id="tape-actions" class="menu" role="menu" hidden>
+        <button id="tape-rename" type="button" role="menuitem" data-tip="tape-rename">Rename this tape…</button>
         <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
         <button id="tape-mixdown" type="button" role="menuitem" data-tip="mixdown">Mix down the loop</button>
         <button id="tape-mixdown-all" type="button" role="menuitem" data-tip="mixdown">Mix down the whole tape</button>
@@ -238,6 +239,19 @@
       <button id="track-done" class="icon-btn" type="button">Done</button>
     </div>
   </div>
+</dialog>
+
+<dialog class="sheet" id="rename-sheet" aria-labelledby="rename-title">
+  <form class="sheet-inner" id="rename-form" method="dialog">
+    <h3 id="rename-title">Rename this tape</h3>
+    <label class="clip-field">Name
+      <input id="rename-name" type="text" maxlength="120" autocomplete="off" enterkeyhint="done" required>
+    </label>
+    <div class="sheet-actions">
+      <button id="rename-cancel" class="icon-btn" type="button">Cancel</button>
+      <button id="rename-save" class="icon-btn primary" type="submit">Save</button>
+    </div>
+  </form>
 </dialog>
 
 <div id="toasts" aria-live="polite"></div>
