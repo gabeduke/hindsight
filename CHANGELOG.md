@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.10 — 2026-10-05
+
+- Tape overview: a scrubber — drag the window, tap to move the playhead, double-tap for the loop (46c7e06)
+
+
 ## v2026.10.05.9 — 2026-10-05
 
 - Tape: a track's name gets its own strip on a narrow head, so it isn't cut short (a806781)
