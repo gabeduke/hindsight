@@ -659,9 +659,9 @@ export class TakesList {
     row.waveEl.classList.remove('pending');
     row.waveEl.textContent = '';
 
-    // Drawn by the renderer the take page and the overview use, on the dB
-    // scale the meters and the ribbon use, so a take looks the same
-    // everywhere it's drawn (lib/wave/draw.js).
+    // A row draws on the dB scale the meters use (draw.js drawColumns); a
+    // spine prints bars from the take's own levels, as its cassette does
+    // (RowWave look 'spine', lib/cassette.js).
     const ws = new RowWave({ container: row.waveEl, peaks, duration: peaks.duration || t.duration_seconds, audio, look: this.spines ? 'spine' : 'row' });
     row.peaks = peaks;
     ws.setSelection(t.trim, (t.duration_seconds || 0) * (t.sample_rate || 48000));

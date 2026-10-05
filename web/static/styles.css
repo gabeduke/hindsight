@@ -2011,6 +2011,20 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 @media (max-width: 1099.98px) and (prefers-reduced-motion: no-preference) {
   body.cassette-open .take-detail:not([hidden]) { animation: rise .24s ease; }
 }
+/* A phone held sideways: the cassette on the left, the keys beside it, so
+   Play is on the screen without a scroll. */
+@media (max-width: 1099.98px) and (orientation: landscape) and (max-height: 500px) {
+  body.cassette-open .take-detail:not([hidden]) {
+    display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-auto-rows: min-content; align-content: start; column-gap: 16px; row-gap: 10px;
+  }
+  body.cassette-open .take-detail > .sheet-back { grid-column: 1; grid-row: 1; justify-self: start; }
+  body.cassette-open .take-detail > .detail-head { grid-column: 2; grid-row: 1; }
+  body.cassette-open .take-detail > .detail-cassette { grid-column: 1; grid-row: 2 / span 3; }
+  body.cassette-open .take-detail > .detail-actions,
+  body.cassette-open .take-detail > .detail-more,
+  body.cassette-open .take-detail > .detail-flags { grid-column: 2; }
+}
 
 /* The takes page on a wide screen: the list beside the picked take. */
 .take-detail { display: none; }

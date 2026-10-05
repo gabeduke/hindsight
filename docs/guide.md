@@ -127,9 +127,20 @@ Every take, from **All takes** on the main page.
   device; the search is not.
 - **Newest** groups the takes by the day they were made — *Today*,
   *Yesterday*, then the date. **Longest** puts the longest first.
-- **Select**, **Recently deleted** and everything a take's row does are the
-  same as they always were. The take page's ◂ ▸ step through the takes in
-  the order this page shows them, and its ‹ comes back here.
+- **The rack.** Every take is a cassette, seen by its spine: its stripe,
+  its name, a star when it's starred, its length, its bars printed on the
+  card, and a light that's on for the picked take and pulses while it plays.
+  Tap a spine to pick it. On a wide screen the picked take sits beside the
+  rack as a cassette; on a phone it opens as a sheet, and Back or **‹ Takes**
+  puts it away.
+- **The cassette.** **Play** turns its reels and winds the tape from one
+  pack to the other; the bars light up as they play, and a tap or a drag in
+  its window seeks. A selection shows as grease-pencil IN and OUT. Tap the
+  name to rename the take, the tempo to set it, a flag to play from it.
+  **Open the take**, the downloads and **Delete** are under it.
+- **Select** and **Recently deleted** are as they were: hold a spine to start
+  selecting. The take page's ◂ ▸ step through the takes in the order this
+  page shows them, and its ‹ comes back here.
 
 **Checks — today:**
 
@@ -138,6 +149,10 @@ Every take, from **All takes** on the main page.
 - [demo] Turn on *Starred* with nothing starred → "No takes match", not
   "No takes yet".
 - [demo] Record from a phone, then turn on *Phone* → only that take shows.
+- [demo] On a phone, tap a spine → its cassette opens as a sheet; Back
+  closes it and the rack is where you left it.
+- [demo] Play the picked take → the reels turn and the tape moves from the
+  left pack to the right.
 - [demo] Open a take from a filtered list and press ▸ → the next take is the
   next one the list showed.
 - [demo] Delete a take on its page → back here, with an Undo.
@@ -167,7 +182,7 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
   pins above them. **▾** is the playhead; drag it to scrub silently. With a
   BPM, bar **1** is the downbeat; drag it to line the grid up.
-- **The waveform,** drawn on the same scale as the list and the meters.
+- **The waveform,** drawn on the meters' scale.
 - **The grips,** under the waveform at the selection's ends, with the move
   handle between them.
 - **The toolbar:** ▶ · ⟲ Loop · In · Out · ⚑ · ◂⚑ ⚑▸; then, with a
