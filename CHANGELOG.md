@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.11 — 2026-10-05
+
+- Record v2026.10.05.9 in the changelog [skip ci] (8cdee37)
+- make deploy: dry run, status and deploy targets; deploy.sh safe from any checkout (b08b79e)
+
+
 ## v2026.10.05.10 — 2026-10-05
 
 - Tape overview: a scrubber — drag the window, tap to move the playhead, double-tap for the loop (46c7e06)
