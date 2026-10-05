@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, listFrom } from './shelf.js';
+import { matches, shelve, latest, listFrom, parseBpm, flagChips } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -92,13 +92,25 @@ test('a take opened from either list knows which one to go back to', () => {
 });
 
 // flagChips: a take's flags, as the detail pane lists them.
-import { flagChips } from './shelf.js';
 
 test('flags read as their label and the time into the take, in order', () => {
   const t = { sample_rate: 48000, flags: [{ frame: 48000 * 21, label: 'chorus' }, { frame: 48000 * 4, label: 'verse' }, { frame: 48000 * 65.4, label: '' }] };
   assert.deepEqual(flagChips(t), [
-    { label: 'verse', at: '0:04' }, { label: 'chorus', at: '0:21' }, { label: 'flag', at: '1:05' },
+    { label: 'verse', at: '0:04', frame: 48000 * 4 }, { label: 'chorus', at: '0:21', frame: 48000 * 21 }, { label: 'flag', at: '1:05', frame: 48000 * 65.4 },
   ]);
-  assert.deepEqual(flagChips({ flags: [{ frame: 96000, label: 'x' }] }), [{ label: 'x', at: '0:02' }], 'a take with no rate is 48 kHz');
+  assert.deepEqual(flagChips({ flags: [{ frame: 96000, label: 'x' }] }), [{ label: 'x', at: '0:02', frame: 96000 }], 'a take with no rate is 48 kHz');
   assert.deepEqual(flagChips({}), []);
+});
+
+test('parseBpm reads a tempo, clears on empty, and refuses what no take can have', () => {
+  assert.deepEqual(parseBpm(''), { ok: true, value: null });
+  assert.deepEqual(parseBpm('  96.5 '), { ok: true, value: 96.5 });
+  assert.equal(parseBpm('fast').ok, false);
+  assert.equal(parseBpm('0').ok, false);
+  assert.equal(parseBpm('-90').ok, false);
+});
+
+test('flagChips carries each flag\'s frame, so a chip can seek to it', () => {
+  const chips = flagChips({ sample_rate: 48000, flags: [{ frame: 96000, label: 'b' }, { frame: 48000, label: 'a' }] });
+  assert.deepEqual(chips.map((c) => [c.label, c.at, c.frame]), [['a', '0:01', 48000], ['b', '0:02', 96000]]);
 });

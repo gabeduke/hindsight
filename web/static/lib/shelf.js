@@ -91,11 +91,23 @@ export function listFrom(referrer, origin) {
   }
 }
 
-/** flagChips is a take's flags in time order: each one's label and m:ss into the take. */
+/** flagChips is a take's flags in time order: each one's label, m:ss into the take, and frame. */
 export function flagChips(take) {
   const sr = take.sample_rate || 48000;
   return [...(take.flags || [])].sort((a, b) => a.frame - b.frame).map((f) => {
     const s = Math.floor(f.frame / sr);
-    return { label: f.label || 'flag', at: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` };
+    return { label: f.label || 'flag', at: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`, frame: f.frame };
   });
+}
+
+/**
+ * parseBpm reads a tempo typed by hand: empty clears it (null, which the
+ * server reads as "clear"), a positive number sets it, anything else is
+ * refused -- 0 would store a tempo no take can have.
+ */
+export function parseBpm(raw) {
+  const t = String(raw).trim();
+  if (t === '') return { ok: true, value: null };
+  const v = Number(t);
+  return Number.isFinite(v) && v > 0 ? { ok: true, value: v } : { ok: false };
 }

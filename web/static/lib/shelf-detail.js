@@ -6,7 +6,7 @@
 // so the pane and the row never play over each other.
 
 import { CassetteFace } from '/lib/cassette.js';
-import { flagChips } from '/lib/shelf.js';
+import { flagChips, parseBpm } from '/lib/shelf.js';
 
 const stamp = (t) => t.name.replace(/^jam_|\.wav$/g, '');
 const fmtTime = (s) => {
@@ -27,8 +27,9 @@ export class TakeDetail {
     root.innerHTML = `
       <div class="detail-head">
         <button class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
-        <h2 class="detail-name"></h2>
-        <span class="detail-meta"></span>
+        <h2 class="detail-name"><button class="detail-rename" type="button" data-tip="rename"></button></h2>
+        <input class="take-name-input detail-name-input" type="text" maxlength="120" aria-label="Name this take" hidden>
+        <span class="detail-meta"><button class="detail-bpm" type="button" data-tip="bpm"></button><input class="take-bpm-input detail-bpm-input" type="text" inputmode="decimal" maxlength="7" aria-label="Tempo in beats per minute" hidden><span class="detail-meta-rest"></span></span>
       </div>
       <div class="detail-cassette"></div>
       <div class="detail-actions">
@@ -52,6 +53,62 @@ export class TakeDetail {
       if (!t) return;
       try { await takes.patchTake(t.name, { starred: !t.starred }); } catch (e) { onToast?.(`Could not star: ${e.message}`, 'bad'); }
     });
+    // Rename and tempo, here rather than on the spines: the heading and the
+    // tempo turn into fields, Enter or leaving saves, Escape puts them back.
+    this.editor(this.el('.detail-rename'), this.el('.detail-name-input'), {
+      value: (t) => t.label || '',
+      placeholder: (t) => stamp(t),
+      save: async (t, raw) => {
+        const label = raw.trim();
+        if (label === (t.label || '')) return;
+        try { await takes.patchTake(t.name, { label }); } catch (e) { onToast?.(`Could not rename: ${e.message}`, 'bad'); }
+      },
+    });
+    this.editor(this.el('.detail-bpm'), this.el('.detail-bpm-input'), {
+      value: (t) => (t.bpm == null ? '' : String(t.bpm)),
+      placeholder: () => 'bpm',
+      save: async (t, raw) => {
+        const parsed = parseBpm(raw);
+        if (!parsed.ok) { onToast?.('Tempo must be a number above 0', 'bad'); return; }
+        if (parsed.value === (t.bpm ?? null)) return;
+        try { await takes.patchTake(t.name, { bpm: parsed.value }); } catch (e) { onToast?.(`Could not set tempo: ${e.message}`, 'bad'); }
+      },
+    });
+    // A flag seeks the take to it.
+    this.el('.detail-flags').addEventListener('click', (e) => {
+      const b = e.target.closest('.detail-flag');
+      const a = this.player?.audio;
+      if (!b || !a || !this.take) return;
+      a.currentTime = Number(b.dataset.frame) / (this.take.sample_rate || 48000);
+    });
+  }
+
+  // editor swaps a button for its field while editing.
+  editor(btn, input, { value, placeholder, save }) {
+    let editing = false;
+    const end = async (commit) => {
+      if (!editing) return;
+      editing = false;
+      input.hidden = true;
+      btn.hidden = false;
+      if (commit && this.take) await save(this.take, input.value);
+      btn.focus();
+    };
+    btn.addEventListener('click', () => {
+      if (!this.take) return;
+      editing = true;
+      input.value = value(this.take);
+      input.placeholder = placeholder(this.take);
+      btn.hidden = true;
+      input.hidden = false;
+      input.focus();
+      input.select();
+    });
+    input.addEventListener('blur', () => end(true));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); end(false); }
+    });
   }
 
   /** show puts a take in the pane, or empties it for null. */
@@ -63,9 +120,14 @@ export class TakeDetail {
     const star = this.el('.star');
     star.setAttribute('aria-pressed', String(!!t.starred));
     star.classList.toggle('on', !!t.starred);
-    this.el('.detail-name').textContent = t.label || stamp(t);
+    const rename = this.el('.detail-rename');
+    rename.textContent = t.label || stamp(t);
+    rename.classList.toggle('unlabelled', !t.label);
     const len = t.trim ? `${fmtTime((t.trim.end_frame - t.trim.start_frame) / sr)} of ${fmtTime(t.duration_seconds)}` : fmtTime(t.duration_seconds);
-    this.el('.detail-meta').textContent = [t.bpm == null ? null : `${t.bpm.toFixed(1)} bpm`, len, `${(t.size_mb || 0).toFixed(1)} MB`, t.has_midi ? 'MIDI' : null].filter(Boolean).join(' · ');
+    const bpm = this.el('.detail-bpm');
+    bpm.textContent = t.bpm == null ? '+ bpm' : `${t.bpm.toFixed(1)} bpm`;
+    bpm.classList.toggle('unset', t.bpm == null);
+    this.el('.detail-meta-rest').textContent = ' · ' + [len, `${(t.size_mb || 0).toFixed(1)} MB`, t.has_midi ? 'MIDI' : null].filter(Boolean).join(' · ');
     this.el('.detail-sel').textContent = t.trim ? `selection ${fmtTime(t.trim.start_frame / sr)} – ${fmtTime(t.trim.end_frame / sr)}` : '';
     this.el('.detail-open').href = `/wave.html?file=${encodeURIComponent(t.name)}`;
     this.el('.detail-wav').href = `/api/download?file=${encodeURIComponent(t.name)}&dl=1`;
@@ -73,8 +135,11 @@ export class TakeDetail {
     midi.hidden = !t.has_midi;
     if (t.has_midi) midi.href = `/api/download?file=${encodeURIComponent(t.midi_name)}&dl=1`;
     this.el('.detail-flags').replaceChildren(...flagChips(t).map((f) => {
-      const c = document.createElement('span');
+      const c = document.createElement('button');
+      c.type = 'button';
       c.className = 'detail-flag';
+      c.dataset.frame = String(f.frame);
+      c.setAttribute('aria-label', `Play from ${f.label} at ${f.at}`);
       c.innerHTML = '<span aria-hidden="true">⚑</span><span class="flag-name"></span><span class="flag-at"></span>';
       c.querySelector('.flag-name').textContent = f.label;
       c.querySelector('.flag-at').textContent = f.at;

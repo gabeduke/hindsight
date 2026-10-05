@@ -14,6 +14,7 @@ import { undoSkipped } from '/lib/toast.js';
 import { withClient } from '/lib/client.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeOf } from '/lib/cassette-geom.js';
+import { parseBpm } from '/lib/shelf.js';
 
 // How long a press on a row is held to start selecting several takes.
 export const SELECT_HOLD_MS = 500;
@@ -403,14 +404,13 @@ export class TakesList {
       row.bpmEl.hidden = false;
       if (!commit) return;
 
-      const raw = row.bpmInput.value.trim();
-      // Empty clears the field. null is what the server reads as "clear";
-      // sending 0 would store a tempo no take can have.
-      const next = raw === '' ? null : Number(raw);
-      if (next !== null && !Number.isFinite(next)) {
-        this.onToast?.('Tempo must be a number', 'bad');
+      // Empty clears the field; see parseBpm.
+      const parsed = parseBpm(row.bpmInput.value);
+      if (!parsed.ok) {
+        this.onToast?.('Tempo must be a number above 0', 'bad');
         return;
       }
+      const next = parsed.value;
       const before = row.data.bpm ?? null;
       if (next === before) return;
 
