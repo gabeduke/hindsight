@@ -48,7 +48,8 @@ export function stepLabel(frames, sampleRate) {
  * 'end' or 'downbeat'.
  */
 export function placeEdge(edge, frame, { region, total, minLen }) {
-  let f = Math.round(Math.min(total - 1, Math.max(0, frame)));
+  // Out may sit at the take's very end (total); In and bar 1 must be a frame in it.
+  let f = Math.round(Math.min(edge === 'end' ? total : total - 1, Math.max(0, frame)));
   if (region && edge === 'start') f = Math.max(0, Math.min(f, region.end - minLen));
   if (region && edge === 'end') f = Math.min(total, Math.max(f, region.start + minLen));
   return f;

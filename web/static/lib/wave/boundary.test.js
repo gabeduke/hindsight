@@ -40,6 +40,14 @@ test('a boundary stays in the take, and In stays before Out', () => {
   assert.equal(placeEdge('downbeat', 123.6, ctx), 124);
 });
 
+test('Out may sit at the take\'s very end; In and bar 1 may not', () => {
+  const ctx = { region: { start: 1000, end: 5000 }, total: 10000, minLen: 100 };
+  assert.equal(placeEdge('end', 10000 + 48, ctx), 10000);
+  assert.equal(placeEdge('end', 10000, ctx), 10000);
+  assert.equal(placeEdge('start', 10000 + 48, { ...ctx, region: { start: 1000, end: 10000 } }), 9900);
+  assert.equal(placeEdge('downbeat', 10000, ctx), 9999);
+});
+
 test('the point reads to the sample', () => {
   assert.equal(fmtSample(120031, sr), '0:02.500 +31');
   assert.equal(fmtSample(0, sr), '0:00.000 +0');
