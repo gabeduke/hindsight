@@ -1,6 +1,7 @@
 package tape
 
 import (
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -213,5 +214,73 @@ func TestAListenerGoneWhileStoppedIsNotLostAndTheNextPlayStillStops(t *testing.T
 	sink.play(t, 8192)
 	if e.tr.Status().Playing || o.status().State != "lost" {
 		t.Fatalf("playing %v, state %q", e.tr.Status().Playing, o.status().State)
+	}
+}
+
+func TestPhoneModeRefusesWhatNeedsTheJamRoom(t *testing.T) {
+	e, _, _, tp := newOutputEngine(t)
+	if err := e.SetOutputMode(ModePhone); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Record(tp.ID, 2, "main", false); !errors.Is(err, ErrNeedsJamRoom) {
+		t.Fatalf("Record: %v", err)
+	}
+	if _, err := e.Catch(tp.ID, CatchRequest{Track: 2, Source: "main", Pass: 1}); !errors.Is(err, ErrNeedsJamRoom) {
+		t.Fatalf("Catch: %v", err)
+	}
+	if _, err := e.Tap(tp.ID, 2, "main", 0); !errors.Is(err, ErrNeedsJamRoom) {
+		t.Fatalf("Tap: %v", err)
+	}
+	if _, err := e.StartMixdown(tp.ID, false); !errors.Is(err, ErrNeedsJamRoom) {
+		t.Fatalf("StartMixdown: %v", err)
+	}
+	if err := e.SetOutputMode(ModeBoth); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Catch(tp.ID, CatchRequest{Track: 2, Source: "main", Pass: 1}); errors.Is(err, ErrNeedsJamRoom) {
+		t.Fatal("both refuses nothing")
+	}
+}
+
+func TestSwitchingToPhoneIsRefusedWhileATrackIsArmed(t *testing.T) {
+	e, _, _, tp := newOutputEngine(t)
+	if _, err := e.Record(tp.ID, 2, "main", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.SetOutputMode(ModePhone); !errors.Is(err, ErrRecording) {
+		t.Fatalf("switching with a track armed: %v", err)
+	}
+	if e.OutputMode() != ModeJam {
+		t.Fatal("a refused switch changes nothing")
+	}
+	if err := e.SetOutputMode("radio"); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("unknown mode: %v", err)
+	}
+}
+
+func TestLiveSaysWhereTheTapePlays(t *testing.T) {
+	e, _, _, _ := newOutputEngine(t)
+	l := e.Live()
+	if l.OutputMode != "jam" || l.Stream == nil || l.Stream.State != "idle" || l.Stream.Rate != 48000 {
+		t.Fatalf("%+v %+v", l.OutputMode, l.Stream)
+	}
+	if err := e.SetOutputMode(ModePhone); err != nil {
+		t.Fatal(err)
+	}
+	e.Stream().Attach(&recorder{})
+	e.Stream().SetFill(790)
+	l = e.Live()
+	if l.OutputMode != "phone" || l.Stream.Listeners != 1 || l.Stream.DelayMS != 790 || l.Stream.State != "playing" {
+		t.Fatalf("%+v %+v", l.OutputMode, l.Stream)
+	}
+}
+
+func TestWithoutARouterTheOutputIsTheJamRoom(t *testing.T) {
+	e, _, _ := newEngine(t) // a plain sink
+	if e.OutputMode() != ModeJam || e.Stream() != nil || e.Live().Stream != nil {
+		t.Fatal("no router: jam, no stream")
+	}
+	if err := e.SetOutputMode(ModePhone); !errors.Is(err, ErrNoStream) {
+		t.Fatalf("%v", err)
 	}
 }

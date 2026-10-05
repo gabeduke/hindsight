@@ -53,6 +53,9 @@ var (
 
 // Record arms a track, or punches in if the tape is playing.
 func (e *Engine) Record(id string, track int, source string, replace bool) (Recording, error) {
+	if err := e.jamOnly(); err != nil {
+		return Recording{}, err
+	}
 	if e.capture == nil {
 		return Recording{}, ErrNoCapture
 	}
