@@ -1423,6 +1423,47 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .speed-seg button:disabled { opacity: .35; cursor: default; }
 .wave-page #snap[aria-pressed="true"] { color: var(--ink); }
 
+/* ---------- the boundary editor ---------- */
+/* While In, Out or bar 1 is being edited, the editor takes the place of the
+   toolbar's rows (see lib/wave/page.js). Nothing here is orange: the pads are
+   wells, the keys are the page's keys, and Seam latches with a yellow LED. */
+.toolbar.editing > .tb-row { display: none; }
+.boundary-editor { display: grid; gap: 6px; }
+.be-head { display: flex; align-items: center; gap: 8px; }
+.be-readout { flex: 1; min-width: 0; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.be-head .icon-btn { min-height: 40px; }
+.be-pad {
+  height: 40px; border-radius: 8px;
+  background: var(--well); color: var(--well-dim);
+  border: 1px solid var(--well-line); box-shadow: inset 0 2px 0 var(--shadow);
+  display: flex; align-items: center; padding: 0 12px;
+  font: 600 11px var(--font); letter-spacing: .08em;
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: ew-resize;
+}
+.be-pad span { pointer-events: none; }
+.be-pad.active { color: var(--well-ink); }
+.be-keys { flex-wrap: wrap; row-gap: 6px; }
+.be-group { display: flex; align-items: center; gap: 6px; }
+.be-snaps { flex: 1 1 200px; }
+.be-snaps .icon-btn { flex: 1 1 0; min-width: 0; }
+.be-moves { flex: 1 1 auto; justify-content: space-between; }
+.be-keys .icon-btn { min-height: 44px; padding: 0 10px; white-space: nowrap; }
+.be-keys .nudge { min-width: 40px; min-height: 44px; font-size: 14px; }
+.be-step { min-width: 46px; text-align: center; font-size: 12px; color: var(--ink-dim); }
+.be-keys .icon-btn.waiting { cursor: progress; opacity: .6; }
+/* The In and Out readouts open the editor: they are keys of a sort. */
+.sel-time[role="button"] {
+  cursor: pointer; padding: 7px 4px; border-radius: 8px;
+  border: 1px solid var(--edge);
+  background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
+  box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
+}
+.sel-time[role="button"]:active { background: linear-gradient(180deg, var(--key-down), var(--key-lo)); box-shadow: inset 0 2px 4px var(--sh); }
+.be-pad:focus-visible, .sel-time[role="button"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) {
+  .sel-time[role="button"]:hover { background: var(--seg-hover); }
+}
+
 /* ---------- help ---------- */
 /* Help mode: tapping a control shows its tip instead of using it. */
 body.help-mode [data-tip] { outline: 1px dashed color-mix(in srgb, var(--accent) 65%, transparent); outline-offset: 2px; }
@@ -2564,7 +2605,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 
 /* LEDs: a latched key says so with a light as well as by sitting low. */
-.tb-play::before, #dur-seg button::before, .tb-loop::before, .tb-click::before, .wave-page #snap::before {
+.tb-play::before, #dur-seg button::before, .tb-loop::before, .tb-click::before, .wave-page #snap::before, #be-seam::before {
   content: ''; display: inline-block; flex: none;
   width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
   background: var(--led-off); vertical-align: middle;
@@ -2573,7 +2614,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 .tb-play.playing::before { background: var(--go); box-shadow: 0 0 0 2px color-mix(in srgb, var(--go) 22%, transparent), 0 0 9px var(--go-glow); }
 #dur-seg button[aria-pressed="true"]::before { background: var(--accent); box-shadow: 0 0 9px var(--accent-glow); }
 .tb-loop[aria-pressed="true"]::before, .tb-click[aria-pressed="true"]::before,
-.wave-page #snap[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); }
+.wave-page #snap[aria-pressed="true"]::before, #be-seam[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); }
 
 /* The one main action: orange, lit from above. */
 .capture-btn, .icon-btn.primary {

@@ -340,3 +340,17 @@ test('destroy during an edge scroll stops it', (t) => {
 test('the zones leave the body its height', () => {
   assert.ok(RULER_H + GRIP_H < 120, 'ruler and grips leave most of a phone-height canvas to the waveform');
 });
+
+// --- bar 1: a tap opens it for editing, a drag moves it --------------------------
+
+test('a still press on bar 1 is a downbeatTap; a drag is a downbeatChange', () => {
+  const { v, log } = harness({ grid: { bpm: 120, downbeat: 6000, sampleRate: 48000 } }); // bar 1 at x 100
+  v.down(at(107, PIN_H + 8)); v.up(at(107, PIN_H + 8));
+  assert.deepEqual(only(log, 'downbeatTap'), [['downbeatTap', {}]]);
+  assert.deepEqual(only(log, 'downbeatChange'), []);
+  assert.deepEqual(only(log, 'seek'), [], 'and nothing seeks');
+  log.length = 0;
+  v.down(at(107, PIN_H + 8)); v.move(at(160, PIN_H + 8)); v.up(at(160, PIN_H + 8));
+  assert.deepEqual(only(log, 'downbeatTap'), []);
+  assert.equal(only(log, 'downbeatChange').at(-1)[1].final, true);
+});

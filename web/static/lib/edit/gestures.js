@@ -291,6 +291,9 @@ export class GestureSurface {
 
   wheel(e) {
     e.preventDefault();
+    // A surface can take the wheel over (the take page's boundary editor
+    // moves its point with it).
+    if (this.onWheel && this.onWheel(e)) return;
     const p = this.pt(e);
     // A plain wheel zooms about the pointer; shift, or a trackpad's sideways
     // axis, pans. Firefox reports lines or pages rather than pixels: scale
