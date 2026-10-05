@@ -5,6 +5,53 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.2 — 2026-10-05
+
+- Fix review findings: a lighter paint, every channel, a playhead you can see (77b2d52)
+- PR 6: the take on tape everywhere, the guide, cache bump (906d817)
+- The take's overview on tape (845441f)
+- The take's zoomed view on tape (4ab53fb)
+- Levels from tile columns (dc4ffb8)
+- Plan PR 6 in detail: the take on tape (2672744)
+- Fix review findings: heads fit, numbers show, the dock under the menus (e972828)
+- PR 5: cache bump, the guide, a smoke test (b2ce807)
+- On a phone, the transport and Catch are always in reach (a12b116)
+- The tape deck in brushed metal, and the track heads as cards (56fd584)
+- Tape lanes: blocks of rounded bars in the track's colour (fa38469)
+- Plan PR 5 in detail: lane blocks, the deck, the heads, the phone dock (78c1f96)
+- Fix review findings: warnings stand out, plates on the tape, a way to name it (f09d899)
+- PR 4: cache bump, the guide, screenshots (c952b6d)
+- Capture on a laptop and the bench: the ribbon over three columns (bb12cf5)
+- On the shelf: the newest takes as spines, a press plays one (dac017b)
+- A Capture key that says what it catches, and glows when it has (1643e3c)
+- Backlit VU meters and amber readouts (6d47b95)
+- The ribbon on tape: a glowing trace passing the record head (3ec3058)
+- Plan PR 4 in detail: the ribbon on tape, the monitor, the key, the shelf (63147d1)
+- Fix review findings: the cassette keeps up, select by keyboard, history in step (9665801)
+- PR 3: cache bump, the guide, and the sheet held sideways (3201a4c)
+- On a phone, a spine opens its cassette (916c4d3)
+- Rename, tempo and flags live on the cassette (1566e36)
+- The picked take as a cassette (e70385f)
+- Takes as spines in a rack (13b0687)
+- Cassette maths: a stripe per take, packs that trade tape (2fa1187)
+- Cassette colours: paper, printed stripes and plastic (a257ac3)
+- Plan PR 3 in detail: spines, the cassette, the sheet on a phone (3aa30ab)
+- Fix review findings: glows in device pixels, two glows, strips with fewer points (45595d1)
+- Trace on tape: a glowing line on brown oxide (688f989)
+- Rounded bars, the cassette window's waveform (5d0bfd3)
+- Levels for bars and traces: the take's own peak, lifted like the design (195e706)
+- Plan PR 2 in detail: levels, rounded bars, trace on tape (4d22891)
+- Fix review findings: the tape grid shows, fields show focus, Play sinks (ae39f90)
+- PR 1: cache bump and fresh screenshots (b34ff50)
+- The takes search is a field, and "no signal" reads on the black window (91e723e)
+- Canvases draw on black windows with the window inks (032df04)
+- Controls with depth: raised keys, recessed switches, the orange key lit from above (b0b80f1)
+- Reel-to-reel palette: aluminium by day, black by night, and depth tokens (d45c3fb)
+- A stylesheet test: tokens in both schemes, contrast, hover, focus (fe9ea56)
+- Plan the Reel-to-reel restyle: PR 1 in detail, PRs 2-6 scoped (625a4a6)
+- Record v2026.10.05.1 in the changelog [skip ci] (092d219)
+
+
 ## v2026.10.05.1 — 2026-10-05
 
 - Fix review findings: the switch holds still, the pane retries, rows pick by keyboard (d410d43)
