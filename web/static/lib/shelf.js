@@ -125,6 +125,27 @@ export function familyOf(f, name) {
   return { spine, cuts: f.cuts.get(spineName) || [], mixes: f.mixes.get(spineName) || [] };
 }
 
+/** familyCounts is what a spine's sticker counts: its cuts, and its tape's
+ *  mixdowns -- itself included -- when earlier ones are folded into it. */
+export function familyCounts(members) {
+  const cuts = members.filter((m) => m.source).length;
+  const earlier = members.length - cuts;
+  return { cuts, mixes: earlier ? earlier + 1 : 0 };
+}
+
+/** familySticker is a spine's printed count: "✂3", "MIX ×4", or both. */
+export function familySticker({ cuts, mixes }) {
+  return [cuts ? `✂${cuts}` : '', mixes ? `MIX ×${mixes}` : ''].filter(Boolean).join(' · ');
+}
+
+/** cutsBack is a delete toast's note that the cuts folded into what was
+ *  deleted are back on the shelf: "its" one take's, "their" several's. */
+export function cutsBack(n, several = false) {
+  if (!n) return '';
+  const whose = several ? 'their' : 'its';
+  return n === 1 ? ` · ${whose} cut is back on the shelf` : ` · ${whose} ${n} cuts are back on the shelf`;
+}
+
 // dayKey is a local calendar day, comparable as a number.
 const dayKey = (d) => d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -321,4 +321,23 @@ test('familyOf names a member\'s spine and lists a spine\'s family', () => {
   assert.equal(familyOf(f, c.name).spine.name, jam.name);
   assert.deepEqual(names(familyOf(f, jam.name).cuts), ['c']);
   assert.deepEqual(familyOf(f, jam.name).mixes, []);
+});
+
+test('a spine\'s sticker counts its cuts, and its tape\'s mixdowns with itself', () => {
+  const jam = take('jam', at(2026, 10, 4, 10));
+  const c1 = cutOf('c1', at(2026, 10, 4, 11), 'jam'), c2 = cutOf('c2', at(2026, 10, 4, 12), 'jam');
+  assert.deepEqual(familyCounts([c1, c2]), { cuts: 2, mixes: 0 });
+  assert.equal(familySticker(familyCounts([c1, c2])), '✂2');
+  const m2 = mixOf('m2', at(2026, 10, 4, 11), 't1'), m1 = mixOf('m1', at(2026, 10, 4, 10), 't1');
+  const mc = cutOf('mc', at(2026, 10, 4, 12), 'm2');
+  assert.deepEqual(familyCounts([mc, m1]), { cuts: 1, mixes: 2 });
+  assert.equal(familySticker(familyCounts([mc, m1])), '✂1 · MIX ×2');
+  assert.equal(familySticker(familyCounts([])), '');
+});
+
+test('a delete\'s toast says the cuts are back on the shelf', () => {
+  assert.equal(cutsBack(0), '');
+  assert.equal(cutsBack(1), ' · its cut is back on the shelf');
+  assert.equal(cutsBack(3), ' · its 3 cuts are back on the shelf');
+  assert.equal(cutsBack(2, true), ' · their 2 cuts are back on the shelf');
 });
