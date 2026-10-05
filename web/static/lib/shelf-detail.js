@@ -16,8 +16,9 @@ const fmtTime = (s) => {
 };
 
 export class TakeDetail {
-  /** takes is the page's TakesList; onToast shows a toast. */
-  constructor(root, { takes, onToast }) {
+  /** takes is the page's TakesList; onToast shows a toast; onBack closes the
+   *  pane when it's a phone's sheet (its "‹ Takes" key shows only then). */
+  constructor(root, { takes, onToast, onBack }) {
     this.root = root;
     this.takes = takes;
     this.onToast = onToast;
@@ -25,6 +26,7 @@ export class TakeDetail {
     this.ws = null;
     this.ac = null;
     root.innerHTML = `
+      <button class="icon-btn sheet-back" type="button" aria-label="Back to the takes">‹ Takes</button>
       <div class="detail-head">
         <button class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
         <h2 class="detail-name"><button class="detail-rename" type="button" data-tip="rename"></button></h2>
@@ -46,6 +48,7 @@ export class TakeDetail {
       </div>
       <div class="detail-flags"></div>`;
     this.el = (sel) => root.querySelector(sel);
+    this.el('.sheet-back').addEventListener('click', () => onBack?.());
     this.el('.detail-play').addEventListener('click', () => this.player?.toggle());
     this.el('.detail-delete').addEventListener('click', () => { if (this.name) takes.deleteByName(this.name); });
     this.el('.star').addEventListener('click', async () => {

@@ -1994,6 +1994,24 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
   .shelf-page .take.spine .wave { width: 52px; height: 22px; }
 }
 
+/* On a phone (narrower than rack-and-pane), the picked take's cassette is a
+   sheet over the page, with a "‹ Takes" key; lib/shelf-page.js opens it. */
+.sheet-back { display: none; }
+@media (max-width: 1099.98px) {
+  body.cassette-open { overflow: hidden; }
+  body.cassette-open .appnav { display: none; }
+  body.cassette-open .take-detail:not([hidden]) {
+    display: flex; flex-direction: column; gap: 14px;
+    position: fixed; inset: 0; z-index: 60; overflow-y: auto; overscroll-behavior: contain;
+    padding: calc(10px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    background: var(--bg); border: 0; border-radius: 0; box-shadow: none;
+  }
+  body.cassette-open .sheet-back { display: inline-flex; align-self: flex-start; min-height: 40px; }
+}
+@media (max-width: 1099.98px) and (prefers-reduced-motion: no-preference) {
+  body.cassette-open .take-detail:not([hidden]) { animation: rise .24s ease; }
+}
+
 /* The takes page on a wide screen: the list beside the picked take. */
 .take-detail { display: none; }
 @media (min-width: 1100px) {

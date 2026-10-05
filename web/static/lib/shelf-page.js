@@ -6,7 +6,7 @@ import { TakesList } from '/lib/takes.js';
 import { TrashList } from '/lib/trash.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { initHelp } from '/lib/help/help.js';
-import { shelve } from '/lib/shelf.js';
+import { shelve, sheetState } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
 
@@ -87,8 +87,50 @@ function reshape() {
 // Every take is a spine, for picking; the picked take is a cassette, with the
 // controls. Wide enough, the cassette sits beside the rack.
 const wide = matchMedia('(min-width: 1100px)');
-const detail = new TakeDetail($('take-detail'), { takes, onToast: toast });
+const detail = new TakeDetail($('take-detail'), { takes, onToast: toast, onBack: () => closeSheet() });
 let picked = null;
+
+// --- the cassette sheet, on a phone ------------------------------------------
+
+// Narrower than the rack-and-pane layout, a spine opens its cassette as a
+// sheet over the page. One history entry per opening (lib/shelf.js
+// sheetState), so the device's Back closes it; the page behind it is inert.
+let sheet = { open: null };
+const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about')].filter(Boolean);
+
+function setSheet(on, from) {
+  document.body.classList.toggle('cassette-open', on);
+  for (const el of behind()) el.inert = on;
+  if (on) {
+    detail.show(takes.all.find((t) => t.name === sheet.open) || null);
+    $('take-detail').scrollTop = 0;
+    detail.el('.sheet-back').focus();
+  } else {
+    if (!wide.matches) detail.show(null);
+    takes.rows.get(from)?.el.focus();
+  }
+}
+
+function openSheet(name) {
+  sheet = sheetState(sheet, { type: 'open', name });
+  if (sheet.history === 'push') history.pushState({ cassette: name }, '');
+  else if (sheet.history === 'replace') history.replaceState({ cassette: name }, '');
+  setSheet(true);
+}
+
+function closeSheet() {
+  const was = sheet.open;
+  sheet = sheetState(sheet, { type: 'close' });
+  if (sheet.history === 'back') history.back();
+  if (was) setSheet(false, was);
+}
+
+addEventListener('popstate', () => {
+  const was = sheet.open;
+  sheet = sheetState(sheet, { type: 'popstate' });
+  if (was) setSheet(false, was);
+});
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheet.open && !e.target.closest?.('input')) closeSheet(); });
 
 const shownNames = () => [...$('takes').querySelectorAll('.take')].map((e) => e.dataset.name);
 
@@ -103,15 +145,21 @@ function pick(name) {
     row.el.setAttribute('aria-current', on ? 'true' : 'false');
     row.ws?.setPicked?.(on);
   }
-  detail.show(wide.matches ? takes.all.find((t) => t.name === picked) || null : null);
+  detail.show(wide.matches || sheet.open ? takes.all.find((t) => t.name === picked) || null : null);
 }
 
 // syncPick keeps the pick on a take that's shown: the first, when the one
 // picked has gone -- deleted, or filtered out.
 function syncPick() {
   const shown = shownNames();
-  // On a phone nothing is picked until a spine is pressed.
-  if (!wide.matches) { pick(shown.includes(picked) ? picked : null); return; }
+  // On a phone nothing is picked until a spine is pressed; a sheet whose
+  // take has gone (deleted, filtered out) closes.
+  if (!wide.matches) {
+    if (sheet.open && !shown.includes(sheet.open)) closeSheet();
+    pick(shown.includes(picked) ? picked : null);
+    return;
+  }
+  if (sheet.open) { sheet = { open: null }; document.body.classList.remove('cassette-open'); for (const el of behind()) el.inert = false; }
   pick(shown.includes(picked) ? picked : shown[0] || null);
 }
 
@@ -122,6 +170,7 @@ $('takes').addEventListener('click', (e) => {
   const row = e.target.closest('.take');
   if (!row || e.target.closest('button, a, input, .take-flag, .take-flag-edit')) return;
   pick(row.dataset.name);
+  if (!wide.matches) openSheet(row.dataset.name);
 });
 $('takes').addEventListener('keydown', (e) => {
   if (takes.selecting || (e.key !== 'Enter' && e.key !== ' ')) return;
@@ -129,6 +178,7 @@ $('takes').addEventListener('keydown', (e) => {
   if (!row || e.target !== row) return; // a row's own controls keep their keys
   e.preventDefault();
   pick(row.dataset.name);
+  if (!wide.matches) openSheet(row.dataset.name);
 });
 wide.addEventListener('change', syncPick);
 
