@@ -1046,7 +1046,7 @@ function drawLanes() {
     // Bar lines.
     for (const b of barLines(t.grid, view)) {
       const x = Math.round(xOf(b.frame, view, W));
-      ctx.fillStyle = col('--well-line', '#d3cab0');
+      ctx.fillStyle = col('--well-rule', 'rgba(242,230,200,.14)');
       ctx.fillRect(x, 0, 1, H);
     }
     // Clips, base layer first, in the track's colour; a layer over

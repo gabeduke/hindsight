@@ -110,6 +110,63 @@ for (const [scheme, t] of [['light', light], ['dark', dark]]) {
   });
 }
 
+// Selector specificity as [ids, classes, types]; enough for these rules.
+function specificity(sel) {
+  const s = sel.replace(/::[a-z-]+/g, '').replace(/:not\(([^)]*)\)/g, ' $1');
+  const ids = (s.match(/#[\w-]+/g) || []).length;
+  const classes = (s.match(/\.[\w-]+|\[[^\]]+\]|:[a-z-]+/g) || []).length;
+  const types = (s.replace(/#[\w-]+|\.[\w-]+|\[[^\]]+\]|:[a-z-]+/g, ' ').match(/[a-z][\w-]*/gi) || []).length;
+  return [ids, classes, types];
+}
+const outranks = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+// Every rule as { sel: [parts], body }, top level or inside @media.
+const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+const RULES = [...bare.matchAll(/([^{}@;]+)\{([^{}]*)\}/g)]
+  .map((m) => ({ sel: m[1].split(',').map((x) => x.trim()).filter(Boolean), body: m[2] }));
+
+test('a latched transport key sits as low as the raised key rule it overrides', () => {
+  const raised = specificity('.tb-row.transport .icon-btn');
+  const pressed = RULES.find((r) => r.sel.includes('.tb-row.transport .icon-btn[aria-pressed="true"]'));
+  assert.ok(pressed);
+  for (const part of pressed.sel.filter((x) => x.includes('.tb-')))
+    assert.ok(outranks(specificity(part), raised) >= 0, `${part} loses to .tb-row.transport .icon-btn`);
+});
+
+test('hovering a key never hides its state', () => {
+  const hoverBlocks = [...css.matchAll(/@media \(hover: hover\)[^{]*/g)].map((m) => block(m.index)).join('\n');
+  const lifts = [...hoverBlocks.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter((m) => /border-color|box-shadow|transform/.test(m[2]))
+    .flatMap((m) => m[1].split(',').map((x) => x.trim()));
+  for (const part of lifts.filter((x) => x.startsWith('.icon-btn:')))
+    for (const state of ['.playing', '.pending', '.armed', '.recording'])
+      assert.ok(part.includes(`:not(${state})`), `${part} restyles a ${state} key under the cursor`);
+  for (const part of lifts.filter((x) => x.startsWith('.phone-btn')))
+    assert.ok(part.includes(':not(.recording)'), `${part} restyles a recording phone key under the cursor`);
+});
+
+// A field you are typing into says so: no field turns its outline off, and
+// each has a focus ring.
+test('every text field shows focus', () => {
+  const at = bare.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
+  const fields = bare.slice(bare.lastIndexOf('}', at) + 1, bare.indexOf('{', at)).split(',').map((x) => x.trim());
+  for (const r of RULES.filter((r) => r.sel.some((x) => /:focus/.test(x)) && /outline:\s*none/.test(r.body)))
+    for (const f of fields)
+      assert.ok(!r.sel.some((x) => x.startsWith(f + ':focus')), `${f} turns its outline off on focus`);
+  const rings = RULES.filter((r) => /outline:\s*2px solid var\(--focus\)/.test(r.body)).flatMap((r) => r.sel);
+  for (const f of fields) assert.ok(rings.includes(`${f}:focus-visible`), `${f} has no focus ring`);
+});
+
+// Audio is drawn in black windows in both themes: the waveform colours are
+// chosen for black, and wash out on the aluminium.
+test('every waveform sits in a black window', () => {
+  for (const sel of ['.wave:not(.pending)', '.notes-strip']) {
+    const bg = RULES.filter((r) => r.sel.includes(sel) && /background:/.test(r.body))
+      .map((r) => /background:\s*([^;]+);/.exec(r.body)[1].trim());
+    assert.ok(bg.length, `no background for ${sel}`);
+    assert.equal(bg.at(-1), 'var(--well)', `${sel} is drawn on ${bg.at(-1)}`);
+  }
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);

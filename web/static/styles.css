@@ -883,7 +883,6 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   color: var(--ink);
 }
 
-.take-name-input:focus { outline: none; }
 .take-meta {
   font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
   white-space: nowrap; flex: none;
@@ -919,11 +918,12 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   font-family: var(--mono); font-size: 12px;
   color: var(--ink);
 }
-.take-bpm-input:focus { outline: none; }
 
 /* manipulation: a flag is placed with a double-tap, and without this a phone
    reads that as a request to zoom the page instead of the wave. */
 .wave { position: relative; height: 48px; margin-bottom: 9px; touch-action: manipulation; }
+/* A take's waveform is a black window, on its label as on the tape. */
+.wave:not(.pending) { background: var(--well); border-radius: 8px; box-shadow: inset 0 1px 3px var(--sh-strong); }
 .row-wave { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
 .wave.pending {
   display: grid; place-items: center;
@@ -1410,7 +1410,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 }
 .lane-show-all { font-size: 12px; align-self: flex-start; padding: 4px 2px; }
 /* The phone's notes view keeps a strip of the waveform on top. */
-.notes-strip { display: none; width: 100%; height: 28px; background: var(--panel); flex: none; }
+.notes-strip { display: none; width: 100%; height: 28px; background: var(--well); flex: none; }
 
 /* ---------- rising notes ---------- */
 .notes-pane {
@@ -1862,7 +1862,7 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
   flex: 1; min-width: 0; border: 0; outline: none; background: transparent;
   color: var(--ink); font: 16px var(--font);
 }
-.shelf-search:focus-within { border-color: var(--focus); }
+.shelf-search:focus-within { border-color: var(--focus); box-shadow: inset 0 1px 3px var(--field-sh), 0 0 0 1px var(--focus); }
 .shelf-sort-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .shelf-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
 /* Browsing, not playing: flat toggles, the chosen ones filled in ink. */
@@ -2153,7 +2153,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 .seg button:active, .mark-btn:active, .icon-btn.play:active,
 .tb-row.transport .icon-btn:active, .tape-toolbar .tb-row.catch .icon-btn:active, .tape-toolbar .tb-row.edit .icon-btn:active,
-.tb-row.transport .icon-btn[aria-pressed="true"], .tb-play.playing {
+.tb-row.transport .icon-btn[aria-pressed="true"], .tb-row.transport .tb-play.playing {
   background: linear-gradient(180deg, var(--key-down), var(--key-lo));
   border-color: var(--edge-strong);
   box-shadow: inset 0 2px 4px var(--sh), inset 0 0 0 1px var(--edge-soft);
@@ -2256,11 +2256,15 @@ input, select, textarea { color-scheme: inherit; }
   border: 1px solid var(--edge-soft); border-radius: 10px;
   box-shadow: inset 0 1px 3px var(--field-sh);
 }
+.take-name-input:focus-visible, .take-bpm-input:focus-visible, .take-title-input:focus-visible, .take-sub-input:focus-visible,
+.tape-tempo-row input:focus-visible, .phone-field select:focus-visible, #flag-sheet input:focus-visible, .take-flag-edit input:focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 1px;
+}
 
 /* ---------- hover: only where there is a pointer to hover with ---------- */
 @media (hover: hover) {
-  .icon-btn:not(.primary):not(.phone-rec):not([aria-pressed="true"]):not(:disabled):hover, .chip:not([aria-pressed="true"]):not(:disabled):hover,
-  .nudge:not(:disabled):hover, .phone-btn:hover, .mark-btn:not([disabled]):hover {
+  .icon-btn:not(.primary):not(.phone-rec):not(.playing):not(.pending):not(.armed):not(.recording):not([aria-pressed="true"]):not(:disabled):hover, .chip:not([aria-pressed="true"]):not(:disabled):hover,
+  .nudge:not(:disabled):hover, .phone-btn:not(.recording):hover, .mark-btn:not([disabled]):hover {
     border-color: var(--edge-strong);
     box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge), 0 8px 16px -8px var(--sh-strong);
   }
@@ -2270,8 +2274,8 @@ input, select, textarea { color-scheme: inherit; }
 }
 /* The lift on hover is motion, so it waits for permission. */
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .icon-btn:not(.primary):not(.phone-rec):not([aria-pressed="true"]):not(:disabled):hover, .chip:not([aria-pressed="true"]):not(:disabled):hover,
-  .nudge:not(:disabled):hover, .phone-btn:hover, .mark-btn:not([disabled]):hover,
+  .icon-btn:not(.primary):not(.phone-rec):not(.playing):not(.pending):not(.armed):not(.recording):not([aria-pressed="true"]):not(:disabled):hover, .chip:not([aria-pressed="true"]):not(:disabled):hover,
+  .nudge:not(:disabled):hover, .phone-btn:not(.recording):hover, .mark-btn:not([disabled]):hover,
   .capture-btn:not([disabled]):hover, .icon-btn.primary:not(:disabled):hover { transform: translateY(-1px); }
 }
 
