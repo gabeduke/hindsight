@@ -102,6 +102,29 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1280, 800], [844, 39
   await p.context().close();
 }
 
+// Playing on a phone: a browser that isn't listening shows the banner, and
+// Rec explains that it needs the jam room.
+{
+  const put = (mode) => fetch(`${BASE}/api/tapes/output`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) });
+  const p = await (await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })).newPage();
+  try {
+    await put('phone');
+    await p.goto(`${BASE}/tape.html`);
+    await p.waitForTimeout(2500);
+    check('phone mode: the banner shows on a browser that is not listening', await p.locator('#out-banner').isVisible());
+    await p.locator('#rec').click({ force: true }); // aria-disabled, but pressable
+    check('phone mode: Rec opens the jam-room sheet', await p.evaluate(() => document.getElementById('jam-only').open));
+    await p.locator('#jam-only-close').click();
+    check('phone mode: the panel says Rec and Catch wait', await p.locator('#jam-only-note').isVisible());
+    await put('jam');
+    await p.waitForTimeout(4000);
+    check('jam mode: the banner hides again', !(await p.locator('#out-banner').isVisible()));
+  } finally {
+    await put('jam');
+    await p.context().close();
+  }
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

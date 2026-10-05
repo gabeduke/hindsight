@@ -116,6 +116,7 @@
         <span id="position" class="readout mono"></span>
         <span id="clock-out" class="readout clock-out" hidden data-tip="tape-clock"></span>
       </div>
+      <p id="jam-only-note" class="jam-only-note" hidden>Rec, Catch and the passes wait for the jam room: this phone hears the tape late, so a pass would land off the beat. <a href="#" id="jam-only-change">Change the output</a></p>
       <div class="tb-row sources" role="group" aria-label="Record from">
         <span class="tb-label">Record from</span>
         <div id="sources" class="seg"></div>
@@ -164,6 +165,17 @@
     </div>
   </div>
 </main>
+
+<dialog class="sheet" id="jam-only" aria-labelledby="jam-only-title">
+  <div class="sheet-inner out-inner">
+    <h3 id="jam-only-title">Rec and Catch need the jam room</h3>
+    <p>This phone hears the tape about <span id="jam-only-delay">0.8 s</span> late, so anything played along up here would land off the beat. To try an idea here, use <b>Overdub on this device</b>.</p>
+    <div class="sheet-actions">
+      <button class="icon-btn" id="jam-only-close" type="button">Not now</button>
+      <button class="icon-btn primary" id="jam-only-switch" type="button" data-tip="out-jam">Switch to the jam room</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog class="sheet" id="out-sheet" aria-labelledby="out-title">
   <div class="sheet-inner out-inner">

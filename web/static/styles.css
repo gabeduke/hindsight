@@ -360,6 +360,7 @@ body {
 .dot.ok    { background: var(--go); box-shadow: 0 0 0 3px color-mix(in srgb, var(--go) 22%, transparent); animation: breathe 2.4s ease-in-out infinite; }
 .dot.bad   { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
 /* Waiting for the interface: not an error, just not there yet. */
+.dot.off   { background: var(--led-off); }
 .dot.wait  { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 20%, transparent); }
 @keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
 @media (prefers-reduced-motion: reduce) { .dot.ok { animation: none } }
@@ -2853,3 +2854,11 @@ input, select, textarea { color-scheme: inherit; }
   body.tape-page .tape-toolbar .tb-row.transport .icon-btn { font-size: 13px; padding: 0 6px; }
   body.tape-page .tape-toolbar .tb-row.transport .icon-btn::before { margin-right: 3px; }
 }
+
+/* Playing on this phone: heard late, so what is asked shows at once and is marked until heard. */
+.tape-track.unheard .tt-lane { opacity: .35; }
+.tt-pend { flex: none; font: 10px var(--mono, ui-monospace, monospace); color: var(--ink-dim); white-space: nowrap; }
+.dim { opacity: .5; }
+#catch-pass.jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
+.jam-only-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; color: var(--ink-dim); }
+.jam-only-note a { color: var(--accent); }
