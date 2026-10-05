@@ -1029,7 +1029,8 @@ playhead and meters are moved back to match what you hear, so a mute shows
 `in 0.8 s` until you hear it.
 
 Rec and Catch wait for the jam room: you hear the tape late up here, so a pass
-would land off the beat. For an idea, use **Overdub on this device** (8.8).
+would land off the beat. For an idea, use **Overdub on this device** (8.8);
+its Listen and Record stop the tape here, so you don't hear it twice.
 When you're back downstairs, tap **Play in the jam room** on the laptop or the
 bench, or choose **Jam room** under OUT: the tape plays on from the same spot.
 
@@ -1037,7 +1038,10 @@ bench, or choose **Jam room** under OUT: the tape plays on from the same spot.
 someone is listening elsewhere while you record.
 
 One phone at a time. If the Wi-Fi drops for 2 s, the tape stops where it was;
-the page reconnects and plays on.
+the page reconnects and plays on, if it's back within 30 s and the tape is
+still stopped. If the tape has gone back to the jam room meanwhile, the phone
+lets it go. If the sound stops when the screen locks, tap **Tap to play here**
+on the strip under the deck.
 
 ## 9. Tips in the app
 
