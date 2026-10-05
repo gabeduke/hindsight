@@ -484,7 +484,7 @@ git commit -m "Canvases draw on black windows with the window inks"
 - **Phone:** a spine opens the cassette view.
 - **Stripe colour:** each take keeps a stable stripe colour (from a hash of its name).
 
-**PR 4: Capture** (`index.html`, `lib/ribbon.js`, `lib/vu.js`, `app.js`)
+**PR 4: Capture**: detailed below, after PR 3. Scope as first written: (`index.html`, `lib/ribbon.js`, `lib/vu.js`, `app.js`)
 - **The ribbon:** trace on tape on its log axis, with a red record head at "now", the chosen length lit orange, and the length markers as pills.
 - **Monitor:** backlit amber VU meters and amber LCD stats.
 - **Capture key:** larger; it glows on save.
@@ -683,3 +683,96 @@ git commit -m "Canvases draw on black windows with the window inks"
 ### Task 15: Ship-ready
 
 - [ ] Bump `sw.js` `CACHE`; add `lib/cassette.js` and `lib/cassette-geom.js` to `SHELL`. Update the scale comments in `takes.js` and `rowwave.js` (the spine look draws on the new scale) and `docs/guide.md`'s scale sentence. Update the guide's takes section (`web/static/guide.html` or the guide source) where it describes rows' inline controls. `go vet ./... && go test ./...` and the node suite PASS. Review screenshots (takes page, 3 sizes × 2 schemes, plus the open sheet on a phone) into the workspace. Commit `PR 3: cache bump and the guide`.
+
+---
+
+## PR 4: Capture (detailed 2026-10-05)
+
+**Branch:** `claude/reel-4-capture` from `main` after PR 3. **Scope:** the main page (`index.html`, `app.js`, `lib/ribbon.js`, `lib/vu.js`, `styles.css`), plus making the spine styles page-independent.
+
+**How it fits the code today.**
+- **The ribbon** (`lib/ribbon.js`) polls `/api/envelope` (mono, dB-coded bytes, ≤ 600 buckets on a log age axis) and draws it as an SVG path. Over it are DOM layers: a hatch for never-recorded time, the chosen tier's band, tier marks and labels, flags, a scrim, the `now` line and a readout. Hold-and-drag selects a span.
+- **The monitor** is `lib/vu.js`'s needles (bars when held sideways) and four stats.
+- **The capture panel:** the tier switch, Flag now, Capture, last saved and Phone.
+- **The library column:** `TakesList` with `shape: latest`, showing one row.
+
+**The change (rulings):**
+- **Ribbon (trace on tape).** The ribbon is drawn on a canvas, not an SVG path:
+  - **Strip and trace:** an oxide strip (`paintOxide`), the trace (`drawTrace`, `x0 = 0`, `dx = W / n`) at 60 % with the faint glow, and the chosen length lit (clipped to the band: `--trace-hot` with the two glows).
+  - **Scale:** the envelope stays on the meters' dB scale: `bytes / 255` drawn straight, as PR 2's ruling says.
+  - **Mono:** one lane, symmetric about the centre. The server's envelope is mono; a stereo envelope is a server change and out of scope.
+  - **Chosen length:** an orange wash with a 2 px orange left edge. Tier markers become pills (lit orange when chosen).
+  - **Record head:** a red line with a glow at the right edge and a blinking `REC`, which replaces "now" (blinking stops under reduced motion).
+  - **Below:** a ruler strip with time-ago labels.
+  - **Pins:** flags are yellow pennants.
+  - **Kept as they are:** hold-and-drag selection, the readout and the flag sheet.
+  - **Hatch:** never-recorded time keeps a hatch, drawn on the oxide in `--well-rule`.
+- **Monitor.** The VU meters become backlit amber faces (warm face, dark bezel, glare); the stats become amber LCD readouts with a Barlow label above. Every colour is a token.
+- **Capture key.** Two lines: CAPTURE, and under it "the last 30 seconds" (the chosen tier). It is taller on a laptop (200 px at 1440 × 900, 100 px on the bench) but keeps today's height in the sideways-phone tier: the 844 × 390 fold is a Global Constraint. It glows for 1.2 s after a save.
+- **On the shelf.** The latest-take card becomes a panel of the newest takes as spines:
+  - 6 on a laptop, 4 on the bench, 3 on a phone, then "All takes N ›".
+  - A spine opens the takes page with that take picked (`/takes.html?take=NAME`); the takes page honours `?take=` on load, and on a phone opens its sheet.
+  - A new capture slides in from the left with a NEW sticker.
+  - The spine CSS moves from `.shelf-page .take.spine` to `.take.spine` with the rack's sizes as defaults, and the shelf sets its own: 46 / 38 px spines, 90 / 70 px bars.
+- **Layouts.**
+  - **Laptop and bench** (≥ 900 px wide, landscape): the ribbon across the top, then three columns — Monitor | Capture | On the shelf.
+  - **Phone portrait:** the order stays ribbon, capture, monitor, shelf. It is today's order with the shelf in place of the card.
+  - **Phone sideways:** keeps today's arrangement (VU bars, Capture above the fold).
+
+### Task 16: The ribbon on tape
+- **Files:** `lib/ribbon.js`, `styles.css`, a new `lib/ribbon-draw.js` (pure), and `lib/ribbon-draw.test.js`.
+- **Interfaces:**
+  - `ribbonLevels(bytes) → Float32Array` (bytes / 255);
+  - `tierPills(tiers, selected, leftPct) → [{x%, label, on}]`;
+  - `rulerTicks(T, A, leftPct) → [{x%, label}]`: labels at 15m, 10m, 5m, 2m, 1m, 30s, 10s inside the ring, then 'now';
+  - `drawRibbon(ctx, {W, H, levels, bandFrom%, colors})`: oxide, the unlit trace, then the band lit.
+- **Steps:**
+  - [ ] Failing tests for the three pure functions. A 900 s ring with A = 1 has ticks in order, with no label left of 0 % or right of 100 %. Pills mark the selected tier `on`.
+  - [ ] Implement, keeping the DOM layers for pills, flags, the record head, the readout and the selection.
+  - [ ] In the browser, light and dark at 1440 × 900 and 390 × 844: the trace glows in the chosen length; selection, flags and the flag sheet still work; the readout stays readable on the oxide.
+  - [ ] Commit `The ribbon on tape: a glowing trace passing the record head`.
+
+### Task 17: The monitor, backlit
+- **Files:** `lib/vu.js`, `styles.css`, `lib/styles.test.js`.
+- **Tokens:** `--vu-bezel-hi #2b2c30`, `--vu-bezel-lo #0d0e10`, `--vu-face-hi #fff3cf`, `--vu-face-mid #f6d98f`, `--vu-face-lo #e0ad50`, `--vu-glow rgba(255,190,90,.35)`, `--vu-needle #1a1206`. VU ink keeps `--vu-ink` and must read on `--vu-face-lo` at ≥ 4.5:1 (test). The `.stat .v` readouts use `--lcd`, `--lcd-ink` and `--lcd-edge` with a glow; the test checks `--lcd-ink` on `--lcd`, which already passes.
+- **Steps:**
+  - [ ] Failing token and contrast test.
+  - [ ] Implement.
+  - [ ] Browser check in both schemes, and that the sideways-phone bars are unchanged.
+  - [ ] Commit `Backlit VU meters and amber readouts`.
+
+### Task 18: The Capture key
+- **Files:** `index.html`, `app.js`, `styles.css`, a test in `lib/styles.test.js`.
+- **Interfaces:** `#capture-btn` holds `<span class="cap-word">Capture</span><span class="cap-sub">the last 30 seconds</span>`. `app.js` keeps `.cap-sub` in step with the chosen tier (pure `tierPhrase(seconds)` in `lib/meter.js`: 30 → "the last 30 seconds", 120 → "the last 2 minutes", 0 or the ring → "the whole ring"). After a successful save it adds `.saved` for 1.2 s.
+- **Steps:**
+  - [ ] Failing tests for `tierPhrase`, and a styles test that the 844 × 390 tier doesn't raise `.capture-btn`'s height.
+  - [ ] Implement.
+  - [ ] Browser check: Capture's bottom ≤ 390 at 844 × 390; the key is two lines at 1440 × 900 and glows after a save.
+  - [ ] Commit `A bigger Capture key that says what it catches`.
+
+### Task 19: On the shelf
+- **Files:** `index.html`, `app.js`, `lib/takes.js`, `lib/shelf.js`, `lib/shelf-page.js`, `styles.css`, `lib/shelf.test.js`.
+- **Interfaces:**
+  - `newest(takes, n)` in `lib/shelf.js` returns the n newest, in the server's order.
+  - `TakesList({spines: true, onPick})`: when given, a spine press calls `onPick(name)` instead of picking. The main page navigates to `/takes.html?take=…`.
+  - `shelf-page.js` reads `?take=` on load: it picks that take, scrolls its spine into view and opens the sheet on a phone. It then drops the parameter with `replaceState`.
+  - `.take.spine.fresh` slides in (`spinein`, .38 s) with a `.spine-new` sticker for 6 s.
+- **Steps:**
+  - [ ] Failing tests for `newest`.
+  - [ ] Implement.
+  - [ ] Browser check: the shelf shows the newest takes as spines; a capture slides one in with NEW; a spine opens the takes page with it picked, and on a phone opens the sheet.
+  - [ ] Commit `On the shelf: the newest takes as spines`.
+
+### Task 20: Laptop and bench layouts
+- **Files:** `styles.css`.
+- **Change:** at ≥ 900 px wide in landscape, the ribbon spans the top, then three columns. The ribbon height follows the screen: `clamp(150px, 30svh, 270px)`.
+- **Steps:**
+  - [ ] Browser checks at 1440 × 900, 1024 × 600, 844 × 390 and 390 × 844, light and dark. Nothing overflows; Capture is above the fold at 844 × 390 and 1024 × 600.
+  - [ ] Commit `Capture on a laptop and the bench: ribbon over three columns`.
+
+### Task 21: Ship-ready
+- [ ] Bump `sw.js`; add `lib/ribbon-draw.js` and `lib/wave/tape-strip.js` to `SHELL`.
+- [ ] Update the guide's Capture section (the ribbon, the shelf).
+- [ ] Run `go vet ./... && go test ./...` and the node suite.
+- [ ] Take review screenshots and retake the README images (`scripts/screenshots.mjs`).
+- [ ] Commit `PR 4: cache bump, the guide, screenshots`.
