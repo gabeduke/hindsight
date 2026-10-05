@@ -215,6 +215,28 @@ test('print on the ribbon reads on the oxide and on its ruler', () => {
   assert.match(block(at), /color:\s*var\(--oxide-label\)/);
 });
 
+// The monitor: VU meters backlit amber, stats in amber LCD windows -- both
+// objects, the same in both schemes.
+test('the VU faces are backlit, and their scale reads on the dimmest part', () => {
+  for (const t of ['--vu-bezel-hi', '--vu-bezel-lo', '--vu-face-hi', '--vu-face-mid', '--vu-face-lo', '--vu-needle'])
+    assert.ok(light[t], `light lacks ${t}`);
+  for (const [scheme, t] of [['light', light], ['dark', dark]]) {
+    const c = contrast(t['--vu-ink'], t['--vu-face-lo']);
+    assert.ok(c >= 4.5, `${scheme} --vu-ink on --vu-face-lo is ${c.toFixed(2)}:1`);
+  }
+});
+
+test('stats read as amber LCD readouts, in every state', () => {
+  const v = RULES.filter((r) => r.sel.includes('.stat .v'));
+  assert.ok(v.some((r) => /background:\s*var\(--lcd\)/.test(r.body)), '.stat .v sits in an LCD window');
+  for (const [sel, scheme, t] of [['.stat .v', 'light', light], ['.stat .v.warn', 'light', light], ['.stat .v.bad', 'light', light], ['.stat .v.bad', 'dark', dark]]) {
+    const r = RULES.filter((x) => x.sel.includes(sel)).map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
+    assert.ok(r, `${sel} has a colour`);
+    const c = contrast(resolve(r[1], t), t['--lcd']);
+    assert.ok(c >= 4.5, `${scheme} ${sel} on --lcd is ${c.toFixed(2)}:1`);
+  }
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);

@@ -147,9 +147,17 @@
   --case-lo:   #c6c9ce;
   --case-edge: rgba(20, 22, 24, .28);
   /* A VU meter's face is paper in both schemes; its printing is ink. */
-  --vu-face:   #fbf3dc;
-  --vu-base:   #ece2c6;
-  --vu-ink:    #073642;
+  /* VU meters: backlit amber faces in dark bezels, the same in both schemes */
+  --vu-face:      #f6d98f;
+  --vu-base:      #d49a3c;
+  --vu-ink:       #2a1d08;
+  --vu-needle:    #1a1206;
+  --vu-bezel-hi:  #2b2c30;
+  --vu-bezel-lo:  #0d0e10;
+  --vu-face-hi:   #fff3cf;
+  --vu-face-mid:  #f6d98f;
+  --vu-face-lo:   #e0ad50;
+  --vu-glow:      rgba(255,190,90,.35);
   /* The tape machine: a brushed faceplate, brown tape on silver reels. */
   --machine:      #dedcd5;
   --machine-well: #cfcec7;
@@ -260,8 +268,6 @@
     --case-hi:     #303135;
     --case-lo:     #141517;
     --case-edge:   rgba(0, 0, 0, .75);
-    --vu-face:     #e8dcb4;
-    --vu-base:     #d6c89c;
     --machine:      #1d1e21;
     --machine-well: #141517;
     --bridge:       #1d1e21;
@@ -577,14 +583,14 @@ main {
   gap: 8px;
 }
 .stat {
-  background: var(--panel-2);
+  display: flex; flex-direction: column; gap: 4px;
   border-radius: 9px;
   /* 8px, not 10px. At four tiles on a 390px phone the content box is 62px and
      "DISK FREE" needs 61.4px -- at 10px padding it was 1.8px short, wrapped to
      two lines, and added 14px to every tile in the row. That pushed Capture
      from 385px to 399px in a 390px-tall landscape viewport: below the fold,
      which is the one invariant this layout exists to protect. */
-  padding: 8px 8px;
+  padding: 0;
   min-width: 0;
 }
 .stat .k {
@@ -596,13 +602,18 @@ main {
      made impossible rather than merely unlikely. */
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* An amber LCD window, right-aligned like a counter. Its padding replaces the
+   tile's, so a tile is no taller than it was (see .stat). */
 .stat .v {
-  font-family: var(--mono); font-size: 14px; color: var(--ink);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--mono); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums;
+  padding: 3px 8px; border-radius: 7px; text-align: right;
+  background: var(--lcd); color: var(--lcd-ink);
+  box-shadow: inset 0 2px 5px var(--lcd-edge), inset 0 0 0 1px var(--lcd-edge), 0 1px 0 var(--hl);
+  text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .stat .v.warn { color: var(--warn); }
-.stat .v.bad  { color: var(--danger); }
+.stat .v.bad  { color: color-mix(in srgb, var(--rec) 70%, var(--well-ink)); }
 
 /* ---------- capture ---------- */
 
@@ -1714,9 +1725,15 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .meters { display: none; }
 .vu-row { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
 .vu { position: relative; flex: 1 1 0; min-width: 0; max-width: 220px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+/* Backlit: a warm face lit from below, a glare across it, in a dark bezel. */
 .vu-face {
-  display: block; width: 100%; aspect-ratio: 160 / 96;
-  background: var(--vu-face); border: 1px solid var(--rule); border-radius: 6px;
+  display: block; width: 100%; aspect-ratio: 160 / 96; box-sizing: border-box;
+  border: 5px solid transparent; border-radius: 10px;
+  background:
+    linear-gradient(165deg, rgba(255,255,255,.38), rgba(255,255,255,0) 46%) padding-box,
+    radial-gradient(ellipse at 50% 120%, var(--vu-face-hi) 0%, var(--vu-face-mid) 55%, var(--vu-face-lo) 100%) padding-box,
+    linear-gradient(180deg, var(--vu-bezel-hi), var(--vu-bezel-lo)) border-box;
+  box-shadow: inset 0 0 12px rgba(120,70,0,.35), 0 0 18px var(--vu-glow), 0 2px 6px rgba(0,0,0,.35);
 }
 .vu-ink { fill: none; stroke: var(--vu-ink); stroke-width: 1.1; }
 .vu-red { fill: none; stroke: var(--rec); stroke-width: 1.3; }
@@ -1725,7 +1742,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .vu-num.red { fill: var(--rec); }
 .vu-word { font: 700 13px var(--label-font); letter-spacing: 2px; fill: var(--vu-ink); text-anchor: middle; }
 .vu-needle { transform-box: view-box; transform-origin: 80px 112px; transition: transform 140ms cubic-bezier(.25, .8, .35, 1); }
-.vu-needle line { stroke: var(--vu-ink); stroke-width: 1.6; stroke-linecap: round; }
+.vu-needle line { stroke: var(--vu-needle); stroke-width: 1.6; stroke-linecap: round; }
 .vu-base { fill: var(--vu-base); }
 .vu-peak {
   position: absolute; top: 6px; right: 8px; display: flex; align-items: center; gap: 3px;
@@ -2301,9 +2318,7 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 /* Readouts: plain numbers. A warning colours the number; amber is unreadable
    on cream, so warn has an ink of its own. */
 .stat { background: none; padding: 0; }
-.stat .v { margin-top: 1px; font-family: var(--mono); font-weight: 600; font-size: 17px; color: var(--ink); }
-.stat .v.warn { color: var(--warn-ink); }
-.stat .v.bad { color: var(--danger-ink); }
+.stat .v { font-family: var(--mono); font-weight: 600; font-size: 17px; }
 
 /* A running counter: amber digits in a dark window, in both schemes. Earlier
    rules colour these dim, so they are named here at the same weight. */
@@ -2527,5 +2542,8 @@ input, select, textarea { color-scheme: inherit; }
   .vu-row { display: none; }
   .meters { display: flex; }
   .stat .k { font-size: 11px; line-height: 1.2; }
-  .stat .v { font-size: 15px; line-height: 1.25; }
+  .stat .v { font-size: 15px; line-height: 1.25; padding: 0 6px; }
+  /* The LCD window gives up its vertical padding here: Capture has no pixels
+     to spare above the 390px fold. */
+  .stat { gap: 1px; }
 }
