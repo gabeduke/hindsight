@@ -99,8 +99,11 @@ async function boot() {
     },
     onUndo: () => undoRedo(false),
     // Its own copy of the tape plays here: stop the stream's, or the phone
-    // plays both, 0.8 s apart. The output stays on this phone.
-    onPlay: () => { if (output && output.streamingHere()) transport('stop'); },
+    // plays both, 0.8 s apart. The output stays on this phone. Only in This
+    // phone mode: in Both the jam room is the clock and may be recording.
+    onPlay: () => {
+      if (output && output.streamingHere() && state.live && state.live.output_mode === 'phone') transport('stop');
+    },
   });
   output = initOutput({ api, toast, poll, transport, getTape: () => state.tape, getGhost: () => ghost });
   let list;
