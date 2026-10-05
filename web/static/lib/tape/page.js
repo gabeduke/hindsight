@@ -28,7 +28,7 @@ import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec
 import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
-import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap } from './overview.js';
+import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
 import { tapeCounter, tapeMarquee } from '../bar/lcd.js';
@@ -1822,11 +1822,6 @@ function drawLanes() {
   }
 }
 
-// trackColor is track n's colour: --t1 to --t4, round again past four.
-function trackColor(n, col) {
-  const i = ((n - 1) % 4) + 1;
-  return col(`--t${i}`, ['#268bd2', '#2aa198', '#b58900', '#d33682'][i - 1]);
-}
 
 // drawPunch draws a punch recording onto its lane: the span this pass has
 // covered, and the source's level along it; or, before the tape reaches it,
@@ -1882,37 +1877,12 @@ function drawOverview() {
   if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
   const ctx = cv.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const W = r.width, H = r.height;
-  ctx.clearRect(0, 0, W, H);
-  // The whole tape, six minutes: what's recorded, and the loop.
-  const all = { from: 0, to: t.length };
   const css = getComputedStyle(document.body);
   const col = (n, d) => css.getPropertyValue(n).trim() || d;
-  t.tracks.forEach((tr, i) => {
-    ctx.fillStyle = withAlpha(trackColor(tr.n, col), 0.75);
-    for (const c of tr.clips) {
-      const x0 = xOf(c.at, all, W), x1 = xOf(c.at + c.frames, all, W);
-      ctx.fillRect(x0, 2 + i * ((H - 4) / t.tracks.length), Math.max(1, x1 - x0), (H - 4) / t.tracks.length - 1);
-    }
-  });
-  if (t.loop.out > t.loop.in) {
-    const x0 = xOf(t.loop.in, all, W), x1 = xOf(t.loop.out, all, W);
-    ctx.strokeStyle = withAlpha(col('--warn', '#b58900'), t.loop.on ? 1 : 0.4);
-    ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
-  }
-  // The window: what the lanes show, there to be dragged. Dashed until a
-  // pinch, a pan or a drag here has moved it off the loop.
-  const win = overviewWindow(laneView(), t.length, W);
-  ctx.fillStyle = withAlpha(col('--well-ink', '#f2e6c8'), 0.1);
-  ctx.fillRect(win.x, 0, win.w, H);
-  ctx.strokeStyle = col('--well-dim', '#a39d90');
-  if (!state.zoom) ctx.setLineDash([3, 2]);
-  ctx.strokeRect(win.x + 0.5, 0.5, Math.max(2, win.w) - 1, H - 1);
-  ctx.setLineDash([]);
-  if (state.live) {
-    ctx.fillStyle = col('--accent', '#cb4b16');
-    ctx.fillRect(Math.round(xOf(state.live.heard, all, W)), 0, 2, H);
-  }
+  // The window: what the lanes show. Dashed until a pinch, a pan or a drag
+  // here has moved it off the loop.
+  paintTapeOverview(ctx, r.width, r.height, t, state.live ? state.live.heard : null,
+    { col, win: overviewWindow(laneView(), t.length, r.width), dashed: !state.zoom });
 }
 
 // --- actions --------------------------------------------------------------------
