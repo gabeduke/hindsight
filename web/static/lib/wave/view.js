@@ -24,6 +24,7 @@ import { drawTrace, traceLines, sliceLines, paintOxide, oxideColors } from './ta
 import { GestureSurface } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
 import { greaseStroke, labelPlaces } from './grease.js';
+import { seamHalves } from './boundary.js';
 
 export { HOLD_MS } from '../edit/gestures.js';
 
@@ -102,6 +103,13 @@ export class WaveView extends GestureSurface {
 
   hit(x, y, st = this.getState()) {
     const v = this.view;
+    // The seam view is two halves, not one continuous view: the body is the
+    // only target, and which half decides the side the encoders move. Pins,
+    // the playhead, the downbeat and the grips are not hit-tested.
+    if (st.edit?.seam && st.region) {
+      if (y >= RULER_H && y < this.bodyBottom()) return { kind: 'seam', side: x < this.cssW / 2 ? 'end' : 'start' };
+      return { kind: 'seamOff' };
+    }
     if (y < PIN_H) {
       let best = null;
       for (const f of st.flags || []) {
@@ -244,12 +252,73 @@ export class WaveView extends GestureSurface {
   // A tap moves the playhead (snapped); the second of two taps on the
   // waveform adds a flag there.
   tapAt(p, h, double) {
+    if (h.kind === 'seam') { this.emit('seamSide', { side: h.side }); return; }
+    if (h.kind === 'seamOff') return;
     const frame = this.snapX(p.x);
     if (double && h.kind === 'body' && !h.strip) this.emit('addFlag', { frame: Math.min(this.total - 1, frame) });
     else this.emit('seek', { frame });
   }
 
   // --- painting ---------------------------------------------------------------
+  // paintBody draws the grid lines and the take's trace for v into the
+  // canvas strip [x0, x0 + v.width), clipped to it: once for the whole
+  // view, or once for each half of the seam view. The seam view's halves can
+  // reach before the take's first frame or past its last (a loop shorter than
+  // half the screen): inTake leaves that stretch empty tape, with no grid
+  // lines and no trace. (The columns there are already zero, never NaN.)
+  paintBody(v, x0, top, bottom, col, st, inTake = false) {
+    const { ctx, dpr } = this;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x0, top, v.width, bottom - top); ctx.clip();
+    ctx.translate(x0, 0);
+    // Beat and bar lines in the body.
+    for (const g of gridLines(v, st.grid)) {
+      if (inTake && (g.frame < 0 || g.frame > this.total)) continue;
+      const x = frameToX(g.frame, v);
+      ctx.fillStyle = g.bar ? col('--well-rule', 'rgba(242,230,200,.14)') : withAlpha(col('--well-ink', '#f2e6c8'), 0.07);
+      ctx.fillRect(Math.round(x), top, 1, bottom - top);
+    }
+
+    // The take as a trace on the tape (lib/wave/tape-strip.js), on its own
+    // scale: levels from the tiles, scaled by the take's peak (takeGain, once
+    // per file), the same scale as its cassette on the takes page. A stereo
+    // take is two lanes, left above right; the part played is lit.
+    const { cols, channels } = this.tiles.columns(v, dpr);
+    this.gain ??= takeGain(this.tiles.filePeaks);
+    const laneCh = laneChannels(channels);
+    const lanes = laneCh.length;
+    const laneH = (bottom - top) / lanes;
+    const edge = col('--oxide-edge', '#23150b');
+    ctx.save();
+    const tx0 = inTake ? Math.max(0, frameToX(0, v)) : 0;
+    const tx1 = inTake ? Math.min(v.width, frameToX(this.total, v)) : v.width;
+    ctx.beginPath(); ctx.rect(tx0, top, Math.max(0, tx1 - tx0), bottom - top); ctx.clip();
+    if (lanes === 2) { ctx.fillStyle = edge; ctx.fillRect(0, top + laneH - 1.25, v.width, 2.5); }
+    const glow = col('--trace-glow', 'rgba(255,226,170,.75)');
+    const cx = st.cursor != null ? frameToX(st.cursor, v) : 0;
+    for (let i = 0; i < lanes; i++) {
+      const lv = levelsOfColumns(cols, channels, laneCh[i]);
+      const opts = { cy: top + laneH * (i + 0.5), half: laneH / 2 - 7, gain: this.gain };
+      // Worked out once; the lit pass draws only the part played.
+      const lines = traceLines(lv, lv, opts);
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      drawTrace(ctx, null, null, { ...opts, lines, line: col('--trace', '#f6e7c4'), glow: [{ color: withAlpha(glow, 0.25), blur: 3 }] });
+      ctx.restore();
+      if (cx > 0) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0, top, cx, bottom - top); ctx.clip();
+        drawTrace(ctx, null, null, {
+          ...opts, lines: sliceLines(lines, cx), line: col('--trace-hot', '#fff8e8'), fillAlpha: 0.14, width: 1.3,
+          glow: [{ color: glow, blur: 2 }, { color: withAlpha(glow, 0.35), blur: 8 }],
+        });
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
   paint() {
     const { ctx, view, dpr } = this;
     const st = this.getState();
@@ -280,6 +349,33 @@ export class WaveView extends GestureSurface {
     ctx.drawImage(this.oxide, 0, top, W, bodyH);
 
     const sel = st.region;
+
+    // The seam view: Out's side of the loop joined to In's, in two halves.
+    // What belongs to one continuous view (the selection band, the grease
+    // marks, the pending mark, the ruler's ticks, the flags, the grips and
+    // the playhead) is left out; the oxide above is the same, across the
+    // whole body.
+    if (st.edit?.seam && sel) {
+      const { left, right } = seamHalves(sel, view.fpp, W);
+      this.paintBody(left, 0, top, bottom, col, st, true);
+      this.paintBody(right, W / 2, top, bottom, col, st, true);
+      // The join, and a wash over the side the encoders move.
+      ctx.save();
+      const mid = Math.round(W / 2) + 0.5;
+      ctx.strokeStyle = col('--sel', '#4ebeb4');
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(mid, 0); ctx.lineTo(mid, bottom); ctx.stroke();
+      ctx.fillStyle = withAlpha(col('--sel', '#4ebeb4'), 0.12);
+      ctx.fillRect(st.edit.side === 'end' ? 0 : W / 2, top, W / 2, bottom - top);
+      ctx.font = `600 11px ${col('--font', 'system-ui')}`;
+      ctx.fillStyle = col('--well-dim', '#a39d90');
+      ctx.textBaseline = 'top';
+      ctx.fillText('…end', 6, top + 4);
+      ctx.fillText('start…', W / 2 + 6, top + 4);
+      ctx.restore();
+      return;
+    }
+
     const sx0 = sel ? frameToX(sel.start, view) : 0, sx1 = sel ? frameToX(sel.end, view) : 0;
 
     // Selection band, across ruler, body and grips, so its extent reads at
@@ -292,48 +388,7 @@ export class WaveView extends GestureSurface {
       ctx.fillRect(sx0, top, sx1 - sx0, bottom - top);
     }
 
-    // Beat and bar lines in the body.
-    for (const g of gridLines(view, st.grid)) {
-      const x = frameToX(g.frame, view);
-      ctx.fillStyle = g.bar ? col('--well-rule', 'rgba(242,230,200,.14)') : withAlpha(col('--well-ink', '#f2e6c8'), 0.07);
-      ctx.fillRect(Math.round(x), top, 1, bottom - top);
-    }
-
-    // The take as a trace on the tape (lib/wave/tape-strip.js), on its own
-    // scale: levels from the tiles, scaled by the take's peak (takeGain, once
-    // per file), the same scale as its cassette on the takes page. A stereo
-    // take is two lanes, left above right; the part played is lit.
-    const { cols, channels } = this.tiles.columns(view, dpr);
-    this.gain ??= takeGain(this.tiles.filePeaks);
-    const laneCh = laneChannels(channels);
-    const lanes = laneCh.length;
-    const laneH = (bottom - top) / lanes;
-    const edge = col('--oxide-edge', '#23150b');
-    ctx.save();
-    ctx.beginPath(); ctx.rect(0, top, W, bottom - top); ctx.clip();
-    if (lanes === 2) { ctx.fillStyle = edge; ctx.fillRect(0, top + laneH - 1.25, W, 2.5); }
-    const glow = col('--trace-glow', 'rgba(255,226,170,.75)');
-    const cx = st.cursor != null ? frameToX(st.cursor, view) : 0;
-    for (let i = 0; i < lanes; i++) {
-      const lv = levelsOfColumns(cols, channels, laneCh[i]);
-      const opts = { cy: top + laneH * (i + 0.5), half: laneH / 2 - 7, gain: this.gain };
-      // Worked out once; the lit pass draws only the part played.
-      const lines = traceLines(lv, lv, opts);
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-      drawTrace(ctx, null, null, { ...opts, lines, line: col('--trace', '#f6e7c4'), glow: [{ color: withAlpha(glow, 0.25), blur: 3 }] });
-      ctx.restore();
-      if (cx > 0) {
-        ctx.save();
-        ctx.beginPath(); ctx.rect(0, top, cx, bottom - top); ctx.clip();
-        drawTrace(ctx, null, null, {
-          ...opts, lines: sliceLines(lines, cx), line: col('--trace-hot', '#fff8e8'), fillAlpha: 0.14, width: 1.3,
-          glow: [{ color: glow, blur: 2 }, { color: withAlpha(glow, 0.35), blur: 8 }],
-        });
-        ctx.restore();
-      }
-    }
-    ctx.restore();
+    this.paintBody(view, 0, top, bottom, col, st);
 
     // Selection edges: grease pencil, the way an edit point was marked on
     // tape. Each mark's wobble is seeded by its frame, so it stays put on
@@ -368,6 +423,27 @@ export class WaveView extends GestureSurface {
         ctx.fillText(text, p.x, top + 6 + p.y);
       }
       ctx.restore();
+    }
+
+    // The boundary being edited: a bright line through ruler and body, and
+    // its name, so it reads at any zoom.
+    const ed = st.edit;
+    if (ed && !ed.seam) {
+      const frame = ed.edge === 'start' ? sel?.start : ed.edge === 'end' ? sel?.end : st.grid.downbeat;
+      if (frame != null) {
+        const x = Math.round(frameToX(frame, view)) + 0.5;
+        const c = ed.edge === 'downbeat' ? col('--warn', '#b58900') : col('--sel', '#268bd2');
+        ctx.save();
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, bottom); ctx.stroke();
+        ctx.font = `600 11px ${col('--font', 'system-ui')}`;
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = c;
+        const label = ed.edge === 'start' ? 'In' : ed.edge === 'end' ? 'Out' : '1';
+        ctx.fillText(label, x + 4, top + 4);
+        ctx.restore();
+      }
     }
 
     // A pending In or Out, waiting for its other half.
