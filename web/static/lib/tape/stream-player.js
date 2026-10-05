@@ -21,24 +21,38 @@ export class StreamPlayer {
   async start() {
     if (!this.stopped) return;
     this.stopped = false;
-    this.ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'playback' });
-    this.ctx.onstatechange = () => {
-      if (!this.stopped && (this.ctx.state === 'suspended' || this.ctx.state === 'interrupted')) this.setState('locked');
-    };
-    await this.ctx.audioWorklet.addModule('/lib/tape/stream-worklet.js');
-    this.node = new AudioWorkletNode(this.ctx, 'hindsight-stream', { outputChannelCount: [2] });
-    this.node.port.onmessage = (e) => {
-      const d = e.data;
-      if (d.underrun) { this.setState('buffering'); return; }
-      this.report = d;
-      if (d.started && this._state === 'buffering') this.setState('playing');
-    };
-    this.node.connect(this.ctx.destination);
-    this.wake = holdScreen({});
-    this.mediaSession();
-    this.fillTimer = setInterval(() => this.sendFill(), 500);
-    this.connect();
+    let ctx = null;
+    try {
+      ctx = this.ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'playback' });
+      ctx.onstatechange = () => {
+        if (this.stopped || this.ctx !== ctx) return;
+        if (ctx.state === 'suspended' || ctx.state === 'interrupted') this.setState('locked');
+        else if (ctx.state === 'running' && this._state === 'locked') this.setState('buffering');
+      };
+      await ctx.audioWorklet.addModule('/lib/tape/stream-worklet.js');
+      // stop() (and maybe a new start()) may have run during the await.
+      if (this.stopped || this.ctx !== ctx) { if (this.ctx !== ctx) ctx.close().catch(() => {}); return; }
+      this.node = new AudioWorkletNode(ctx, 'hindsight-stream', { outputChannelCount: [2] });
+      this.node.port.onmessage = (e) => {
+        const d = e.data;
+        if (d.underrun) { this.setState('buffering'); return; }
+        this.report = d;
+        if (d.started && this._state === 'buffering') this.setState('playing');
+      };
+      this.node.connect(ctx.destination);
+      this.wake = holdScreen({});
+      this.mediaSession();
+      this.fillTimer = setInterval(() => this.sendFill(), 500);
+      this.connect();
+    } catch (err) {
+      if (this.ctx === ctx) this.stop('off');
+      else if (ctx) ctx.close().catch(() => {});
+      throw err;
+    }
   }
+
+  // For a tap: a suspended context needs a gesture to run again.
+  resume() { return this.ctx && this.ctx.resume(); }
 
   connect() {
     if (this.stopped) return;
@@ -47,8 +61,10 @@ export class StreamPlayer {
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
     ws.onmessage = (e) => {
+      if (this.ws !== ws) return;
       if (typeof e.data === 'string') {
-        const m = JSON.parse(e.data);
+        let m;
+        try { m = JSON.parse(e.data); } catch { return; }
         if (m.type === 'hello') {
           this.backoff = 0; this.reset();
           if (this.wasLost) { this.wasLost = false; this.onReconnect(); }
@@ -68,7 +84,8 @@ export class StreamPlayer {
       this.setState('lost');
       this.wasLost = true;
       this.backoff = nextBackoff(this.backoff);
-      setTimeout(() => this.connect(), this.backoff);
+      clearTimeout(this.retryTimer);
+      this.retryTimer = setTimeout(() => this.connect(), this.backoff);
     };
   }
 
@@ -105,6 +122,8 @@ export class StreamPlayer {
     if (this.stopped) return;
     this.stopped = true;
     clearInterval(this.fillTimer);
+    clearTimeout(this.retryTimer);
+    this.wasLost = false;
     const ws = this.ws; this.ws = null;
     if (ws) ws.close();
     if (this.ctx) this.ctx.close();
