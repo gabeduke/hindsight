@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -283,6 +283,47 @@ test('fold: every take is a spine or a member, exactly once', () => {
   assert.deepEqual(all, l.map((t) => t.name).sort());
   const members = [...f.cuts.values(), ...f.mixes.values()].flat().map((t) => t.name).sort();
   assert.deepEqual(members, [...f.under.keys()].sort());
+  const spines = new Set(f.shelf.map((t) => t.name));
+  assert.ok([...f.under.values()].every((s) => spines.has(s)), 'every take folds into a spine on the shelf');
+});
+
+test('fold: mixdowns from before tape_id join the tape whose newer mixdowns share their label', () => {
+  const f = fold([
+    mixOf('old1', at(2026, 10, 1), undefined), mixOf('old2', at(2026, 10, 2), undefined),
+    mixOf('new1', at(2026, 10, 5, 10), 't1'), mixOf('new2', at(2026, 10, 5, 11), 't1', 'final?'),
+  ]);
+  assert.deepEqual(names(f.shelf), ['new2']);
+  assert.deepEqual(names(f.mixes.get('jam_new2.wav')), ['new1', 'old2', 'old1']);
+});
+
+test('fold: an old mixdown whose label two tapes share stays with the other old ones', () => {
+  const f = fold([mixOf('old', at(2026, 10, 1), undefined), mixOf('a', at(2026, 10, 5, 10), 't1'), mixOf('b', at(2026, 10, 5, 11), 't2')]);
+  assert.deepEqual(names(f.shelf), ['old', 'a', 'b']);
+});
+
+test('fold: a mixdown that was itself cut from a take takes its tape with it', () => {
+  // No server writes this today; the shelf still never loses a take to it.
+  const f = fold([
+    take('jam', at(2026, 10, 4, 9)),
+    mixOf('m1', at(2026, 10, 4, 10), 't1'),
+    { ...mixOf('m2', at(2026, 10, 4, 11), 't1'), source: { name: 'jam_jam.wav', start_frame: 0, end_frame: 1 } },
+  ]);
+  assert.deepEqual(names(f.shelf), ['jam']);
+  assert.equal(f.under.get('jam_m1.wav'), 'jam_jam.wav');
+});
+
+test('freedBy counts only the takes cut from that one', () => {
+  const c = cutOf('c', at(2026, 10, 4, 11), 'jam'), cc = cutOf('cc', at(2026, 10, 4, 12), 'c');
+  assert.equal(freedBy('jam_jam.wav', [c, cc]), 1);
+  assert.equal(freedBy('jam_c.wav', [c, cc]), 1);
+  assert.equal(freedBy('jam_cc.wav', [c, cc]), 0);
+});
+
+test('tapeName is the label most of a tape\'s mixdowns wear', () => {
+  const l = [mixOf('m3', at(2026, 10, 4, 12), 't1', 'final?'), mixOf('m2', at(2026, 10, 4, 11), 't1'), mixOf('m1', at(2026, 10, 4, 10), 't1')];
+  assert.equal(tapeName(l), 'Night tape');
+  assert.equal(tapeName([mixOf('a', at(2026, 10, 4, 12), 't1', 'B'), mixOf('b', at(2026, 10, 4, 11), 't1', 'A')]), 'B');
+  assert.equal(tapeName([]), '');
 });
 
 test('shelve: a cut folds into its original, on the original\'s day', () => {

@@ -15,7 +15,7 @@ import { withClient } from '/lib/client.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeFor, STRIPES } from '/lib/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
-import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack } from '/lib/shelf.js';
+import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
 
 /** setStripe puts one printed stripe on a spine, in place of the one it wore. */
 function setStripe(el, n) {
@@ -243,7 +243,7 @@ export class TakesList {
         // Hidden before updateRow, which mounts a waveform only on a row in view.
         row.el.hidden = false;
         row.el.classList.remove('folded');
-        this.updateRow(row, t, familyCounts(members));
+        this.updateRow(row, t, { ...familyCounts(members), freed: freedBy(t.name, members) });
         place(row.el, row.editing || row.editingBpm);
         for (const m of members) {
           seen.add(m.name);
@@ -251,7 +251,11 @@ export class TakesList {
           const mr = rowFor(m);
           mr.el.hidden = true;
           mr.el.classList.add('folded');
-          this.updateRow(mr, m);
+          // Off the shelf, as a take leaving it was: not selected, not playing
+          // with no control in sight.
+          this.selected.delete(m.name);
+          if (this.playing === m.name) mr.ws?.pause();
+          this.updateRow(mr, m, { ...NO_FAMILY, freed: freedBy(m.name, members) });
           place(mr.el, mr.editing || mr.editingBpm);
         }
       }
@@ -521,7 +525,9 @@ export class TakesList {
     return row;
   }
 
-  /** fam is {cuts, mixes}: on a spine, how many takes are folded into it. */
+  /** fam is {cuts, mixes, freed}: on a spine, how many takes are folded
+   *  into it; for any take, how many of those were cut from it, which come
+   *  back onto the shelf if it's deleted. */
   updateRow(row, t, fam = NO_FAMILY) {
     row.data = t;
     row.family = fam;
@@ -868,7 +874,7 @@ export class TakesList {
   async deleteTake(row) {
     const name = row.data.name;
     const label = row.data.label || name.replace(/^jam_|\.wav$/g, '');
-    const cuts = row.family?.cuts || 0;
+    const cuts = row.family?.freed || 0;
     try {
       await this.trash([name]);
     } catch (e) {
@@ -1021,7 +1027,7 @@ export class TakesList {
     const names = [...this.selected];
     if (!names.length) return;
     // Counted now: the delete's re-render folds nothing into these any more.
-    const cuts = names.reduce((n, k) => n + (this.rows.get(k)?.family?.cuts || 0), 0);
+    const cuts = names.reduce((n, k) => n + (this.rows.get(k)?.family?.freed || 0), 0);
     this.exitSelect();
     try {
       await this.trash(names);
@@ -1054,7 +1060,7 @@ export class TakesList {
   }
 }
 
-const NO_FAMILY = { cuts: 0, mixes: 0 };
+const NO_FAMILY = { cuts: 0, mixes: 0, freed: 0 };
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 

@@ -53,31 +53,54 @@ export function matches(t, { query = '', starred = false, midi = false, phone = 
 
 const atMs = (t) => { const w = when(t); return Number.isNaN(w) ? -Infinity : w; };
 const isMix = (t) => t.origin === 'tape';
-// A tape's mixdowns share its id; ones made before tape_id share its name.
-const tapeKey = (t) => (t.tape_id ? `id:${t.tape_id}` : `label:${t.label || ''}`);
+
+// tapeKeys says which tape each mixdown is of: its tape_id. A mixdown made
+// before tape_id existed goes by its label -- the tape's name when it was
+// mixed -- and joins the one tape whose newer mixdowns carry that label, so
+// a tape mixed down before and after the field came in is still one family.
+function tapeKeys(takes) {
+  const labelsOf = new Map(); // tape_id -> the labels its mixdowns wear
+  for (const t of takes) {
+    if (!isMix(t) || !t.tape_id) continue;
+    if (!labelsOf.has(t.tape_id)) labelsOf.set(t.tape_id, new Set());
+    labelsOf.get(t.tape_id).add(t.label || '');
+  }
+  const keys = new Map();
+  for (const t of takes) {
+    if (!isMix(t)) continue;
+    if (t.tape_id) { keys.set(t.name, `id:${t.tape_id}`); continue; }
+    const ids = [...labelsOf].filter(([, labels]) => labels.has(t.label || '')).map(([id]) => id);
+    keys.set(t.name, ids.length === 1 ? `id:${ids[0]}` : `label:${t.label || ''}`);
+  }
+  return keys;
+}
 
 /**
  * fold decides which takes stand on the shelf. A cut folds into the take it
  * was cut from (the first one up its line that is in `takes`); mixdowns of
  * one tape fold into the newest of them. `shelf` keeps the input's order;
  * `cuts` (oldest first) and `mixes` (newest first) are keyed by the spine
- * they fold into; `under` maps each folded take to that spine.
+ * they fold into; `under` maps each folded take to that spine, which is
+ * always on the shelf.
  */
 export function fold(takes) {
   const byName = new Map(takes.map((t) => [t.name, t]));
+  const keyOf = tapeKeys(takes);
   const newestMix = new Map();
   for (const t of takes) {
-    if (!isMix(t)) continue;
-    const k = tapeKey(t), cur = newestMix.get(k);
+    const k = keyOf.get(t.name);
+    if (!k) continue;
+    const cur = newestMix.get(k);
     if (!cur || atMs(t) > atMs(cur) || (atMs(t) === atMs(cur) && t.name > cur.name)) newestMix.set(k, t);
   }
   const mixUnder = new Map();
   for (const t of takes) {
-    const s = isMix(t) && newestMix.get(tapeKey(t));
+    const s = keyOf.has(t.name) && newestMix.get(keyOf.get(t.name));
     if (s && s !== t) mixUnder.set(t.name, s);
   }
-  // Up the line to the first take, then to the mix that stands in for it.
-  // A line that loops (no real list has one) leaves the take on the shelf.
+  // Up the line to the first take, through the mix that stands in for an
+  // earlier one. A line that loops (no real list has one) leaves the take on
+  // the shelf.
   const spineOf = (t) => {
     const seen = new Set([t.name]);
     let cur = t;
@@ -89,9 +112,8 @@ export function fold(takes) {
       cur = up;
     }
   };
-  const under = new Map([...mixUnder].map(([n, s]) => [n, s.name]));
+  const under = new Map();
   for (const t of takes) {
-    if (!t.source) continue;
     const s = spineOf(t);
     if (s !== t) under.set(t.name, s.name);
   }
@@ -144,6 +166,22 @@ export function cutsBack(n, several = false) {
   if (!n) return '';
   const whose = several ? 'their' : 'its';
   return n === 1 ? ` · ${whose} cut is back on the shelf` : ` · ${whose} ${n} cuts are back on the shelf`;
+}
+
+/** freedBy is how many of a family's takes were cut from `name` itself:
+ *  the ones that come back onto the shelf when it's deleted. */
+export function freedBy(name, members) {
+  return members.filter((m) => m.source?.name === name).length;
+}
+
+/** tapeName is what a tape's mixdowns are called: the label most of them
+ *  wear (the tape's name when each was mixed), newest first on a tie. */
+export function tapeName(mixes) {
+  const n = new Map();
+  for (const m of mixes) if (m.label) n.set(m.label, (n.get(m.label) || 0) + 1);
+  let best = '';
+  for (const [label, k] of n) if (!best || k > n.get(best)) best = label;
+  return best;
 }
 
 // dayKey is a local calendar day, comparable as a number.

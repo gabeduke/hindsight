@@ -10,7 +10,7 @@
 // a ‹ key back to the spine.
 
 import { CassetteFace } from '/lib/cassette.js';
-import { flagChips, parseBpm, tagOf } from '/lib/shelf.js';
+import { flagChips, parseBpm, tagOf, tapeName } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 
@@ -79,11 +79,16 @@ export class TakeDetail {
       </section>`;
     this.el = (sel) => root.querySelector(sel);
     this.el('.sheet-back').addEventListener('click', () => onBack?.());
-    this.el('.detail-up').addEventListener('click', (e) => onPick?.(e.currentTarget.dataset.name));
-    // A family's line, or a cut's original, picks that take.
+    // A family's line, a cut's original, or ‹ picks that take. The button
+    // pressed is gone or hidden after, so focus goes to the new take's ‹ (or
+    // its name), at the top of the pane.
     root.addEventListener('click', (e) => {
-      const b = e.target.closest('.detail-member, .detail-source');
-      if (b?.dataset.name) onPick?.(b.dataset.name);
+      const b = e.target.closest('.detail-member, .detail-source, .detail-up');
+      if (!b?.dataset.name) return;
+      onPick?.(b.dataset.name);
+      const up = this.el('.detail-up');
+      (up.hidden ? this.el('.detail-rename') : up).focus({ preventScroll: true });
+      root.scrollTop = 0;
     });
     // A tag renamed or recolored: the chips, and the cassette's stripe.
     tagStore.subscribe(() => { if (this.take) { this.renderTags(); this.ws?.setTake(this.take); } });
@@ -232,7 +237,8 @@ export class TakeDetail {
   renderFamily(t, family) {
     const spine = family?.spine || t;
     const cuts = family?.cuts || [], mixes = family?.mixes || [];
-    const sig = JSON.stringify([t.name, t.source?.name, this.isShown(t.source?.name || ''), spine.name, spine.label,
+    const src = t.source ? this.takes.all.find((x) => x.name === t.source.name) : null;
+    const sig = JSON.stringify([t.name, t.source?.name, !!src, src?.label, this.isShown(t.source?.name || ''), spine.name, spine.label,
       [...cuts, ...mixes].map((m) => [m.name, m.label, m.duration_seconds])]);
     if (sig === this.familySig) return; // a poll must not rebuild what's under a finger
     this.familySig = sig;
@@ -248,8 +254,10 @@ export class TakeDetail {
     const from = this.el('.detail-from');
     from.replaceChildren();
     const tapeMixes = spine.origin === 'tape' ? [spine, ...mixes] : [];
+    // The tape's name, from the label most of its mixdowns wear: one renamed
+    // "final?" doesn't rename the tape, or every other mix.
+    const tape = tapeName(tapeMixes);
     if (t.source) {
-      const src = this.takes.all.find((x) => x.name === t.source.name);
       const name = src ? src.label || stamp(src) : stamp({ name: t.source.name });
       from.append('Cut from ');
       if (src && this.isShown(src.name)) {
@@ -272,7 +280,7 @@ export class TakeDetail {
       }
     } else if (tapeMixes.length > 1 && t.origin === 'tape') {
       const k = tapeMixes.length - tapeMixes.findIndex((m) => m.name === t.name);
-      from.append(`Mix ${k} of ${tapeMixes.length} · ${spine.label || 'its tape'}`);
+      from.append(`Mix ${k} of ${tapeMixes.length} · ${tape || 'its tape'}`);
     }
     from.hidden = !from.childNodes.length;
 
@@ -306,8 +314,9 @@ export class TakeDetail {
     mixBox.hidden = !onSpine || !mixes.length;
     mixBox.querySelector('.detail-family-list').replaceChildren(...(onSpine ? mixes : []).map((m, i) => {
       const k = mixes.length - i;
-      const own = m.label && m.label !== spine.label;
-      return line(m, '◎', own ? m.label : `mix ${k}`, clockOf(m.created));
+      // Its number always; its own name too, if it's been given one.
+      const own = m.label && m.label !== tape;
+      return line(m, '◎', own ? `mix ${k} · ${m.label}` : `mix ${k}`, clockOf(m.created));
     }));
   }
 

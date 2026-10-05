@@ -119,7 +119,9 @@ function renderTagFilters() {
   els.push(edit);
   box.replaceChildren(...els);
 }
-tagStore.subscribe(() => renderTagFilters());
+// After the list's own subscription has reshaped the shelf: a tag deleted, or
+// the tags loading under a saved tag filter, can fold the picked take.
+tagStore.subscribe(() => { renderTagFilters(); syncPick(); });
 
 function renderControls() {
   for (const b of $('shelf-filters').querySelectorAll('button')) {
@@ -257,7 +259,15 @@ function syncPick() {
   // On a phone nothing is picked until a spine is pressed; a sheet whose
   // take has gone (deleted, filtered out) closes.
   if (!wide.matches) {
-    if (sheet.open && !present(sheet.open)) closeSheet();
+    if (sheet.open && !present(sheet.open)) {
+      // The sheet's spine has gone. A take folded into it that's still here
+      // (a cut, now a spine of its own) keeps the sheet; otherwise it closes.
+      const still = kept();
+      if (still) {
+        sheet = { open: spineOf(still), history: null };
+        history.replaceState({ cassette: sheet.open }, '');
+      } else closeSheet();
+    }
     pick(kept());
     return;
   }
