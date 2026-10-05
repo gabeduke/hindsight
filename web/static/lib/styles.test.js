@@ -194,6 +194,16 @@ test('the cassette tokens exist, and print reads on paper and on its stripe', ()
   }
 });
 
+// A spine is for picking: a press anywhere on it picks the take, so its
+// parts take no clicks, and the row's own controls live on the cassette.
+test('a spine hides its controls and lets a press fall through to it', () => {
+  const rules = RULES.filter((r) => r.sel.some((x) => x.startsWith('.shelf-page .take.spine')));
+  const said = (part, re) => rules.some((r) => r.sel.includes(part) && re.test(r.body));
+  assert.ok(said('.shelf-page .take.spine .take-actions', /display:\s*none/), 'the actions stay on the cassette');
+  for (const p of ['.take-name', '.take-bpm', '.star', '.wave'])
+    assert.ok(said(`.shelf-page .take.spine ${p}`, /pointer-events:\s*none/), `${p} takes the spine's press`);
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);

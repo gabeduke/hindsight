@@ -13,6 +13,7 @@ import { restoreTake } from '/lib/trash.js';
 import { undoSkipped } from '/lib/toast.js';
 import { withClient } from '/lib/client.js';
 import { onSchemeChange } from '/lib/theme.js';
+import { stripeOf } from '/lib/cassette-geom.js';
 
 // How long a press on a row is held to start selecting several takes.
 export const SELECT_HOLD_MS = 500;
@@ -37,8 +38,12 @@ export class TakesList {
    * heading ({label, takes}); an empty label draws no heading. By default
    * every take, in the server's order, under none. The take page's ◂ ▸ step
    * through what is shown, or with stepOrder 'all' through every take.
+   *
+   * spines draws each take as a cassette spine (the takes page's rack): for
+   * picking, its controls on the picked take's cassette instead of the row.
    */
-  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown' }) {
+  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown', spines = false }) {
+    this.spines = spines;
     this.container = container;
     this.emptyEl = emptyEl;
     this.onToast = onToast;
@@ -207,11 +212,43 @@ export class TakesList {
     try { sessionStorage.setItem('hindsight.order', JSON.stringify(order)); } catch { /* fine */ }
   }
 
+  // A cassette spine: the case edge, and on its J-card the side-A band, the
+  // name, a star when starred, the length, printed bars and an LED. The row's
+  // controls are all here, hidden and out of the tab order, so the code that
+  // keeps a row up to date runs unchanged; the picked take's cassette is
+  // where they're used.
+  spineHTML() {
+    return `
+      <span class="take-check" aria-hidden="true"></span>
+      <span class="spine-card">
+        <span class="spine-side" aria-hidden="true">A</span>
+        <div class="take-head" aria-hidden="true">
+          <button class="star" type="button" aria-pressed="false" tabindex="-1">★</button>
+          <button class="take-name" type="button" tabindex="-1"></button>
+          <input class="take-name-input" type="text" maxlength="120" hidden tabindex="-1">
+          <span class="take-info">
+            <button class="take-bpm" type="button" tabindex="-1"></button>
+            <input class="take-bpm-input" type="text" inputmode="decimal" maxlength="7" hidden tabindex="-1">
+            <span class="take-meta"></span>
+          </span>
+        </div>
+        <div class="wave pending" aria-hidden="true"></div>
+        <span class="spine-led" aria-hidden="true"></span>
+      </span>
+      <div class="take-actions" hidden>
+        <button class="icon-btn play" type="button">Play</button>
+        <a class="icon-btn open">Open</a>
+        <a class="icon-btn dl" download>WAV</a>
+        <a class="icon-btn midi" download hidden>MIDI</a>
+        <button class="icon-btn danger del" type="button">Delete</button>
+      </div>`;
+  }
+
   createRow(t) {
     const el = document.createElement('article');
     el.className = 'take';
     el.dataset.name = t.name;
-    el.innerHTML = `
+    el.innerHTML = this.spines ? this.spineHTML() : `
       <span class="take-check" aria-hidden="true"></span>
       <div class="take-head">
         <button class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
@@ -231,6 +268,13 @@ export class TakesList {
         <a class="icon-btn midi" download hidden data-tip="dl-midi">MIDI</a>
         <button class="icon-btn danger del" type="button" data-tip="delete">Delete</button>
       </div>`;
+
+    if (this.spines) {
+      // The spine is the control: its parts are print on the J-card.
+      el.classList.add('spine', `stripe-${stripeOf(t.name)}`);
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+    }
 
     const row = {
       name: t.name,
@@ -421,7 +465,11 @@ export class TakesList {
     // says it.
     const sr = t.sample_rate || 48000;
     const len = t.trim ? `${fmtTime((t.trim.end_frame - t.trim.start_frame) / sr)} of ${fmtTime(t.duration_seconds)}` : fmtTime(t.duration_seconds);
-    row.metaEl.textContent = `${len} · ${fmtSize(t.size_mb)}`;
+    row.metaEl.textContent = this.spines ? fmtTime(t.duration_seconds) : `${len} · ${fmtSize(t.size_mb)}`;
+    if (this.spines) {
+      const name = t.label || t.name.replace(/^jam_|\.wav$/g, '');
+      row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null].filter(Boolean).join(', '));
+    }
     row.ws?.setSelection(t.trim, (t.duration_seconds || 0) * sr);
     row.dlEl.href = `/api/download?file=${encodeURIComponent(t.name)}&dl=1`;
     row.openEl.href = `/wave.html?file=${encodeURIComponent(t.name)}`;
@@ -614,7 +662,7 @@ export class TakesList {
     // Drawn by the renderer the take page and the overview use, on the dB
     // scale the meters and the ribbon use, so a take looks the same
     // everywhere it's drawn (lib/wave/draw.js).
-    const ws = new RowWave({ container: row.waveEl, peaks, duration: peaks.duration || t.duration_seconds, audio });
+    const ws = new RowWave({ container: row.waveEl, peaks, duration: peaks.duration || t.duration_seconds, audio, look: this.spines ? 'spine' : 'row' });
     row.peaks = peaks;
     ws.setSelection(t.trim, (t.duration_seconds || 0) * (t.sample_rate || 48000));
 
@@ -622,19 +670,23 @@ export class TakesList {
       this.stopOthers(row.name);
       this.playing = row.name;
       row.playBtn.textContent = 'Pause';
+      row.el.classList.add('playing');
     });
     ws.on('pause', () => {
       if (this.playing === row.name) this.playing = null;
       row.playBtn.textContent = 'Play';
+      row.el.classList.remove('playing');
     });
     ws.on('finish', () => {
       if (this.playing === row.name) this.playing = null;
       row.playBtn.textContent = 'Play';
+      row.el.classList.remove('playing');
     });
     ws.on('error', () => {
       this.onToast?.('Preview failed to load', 'bad');
       if (this.playing === row.name) this.playing = null;
       row.playBtn.textContent = 'Play';
+      row.el.classList.remove('playing');
     });
 
     // row.waveEl.textContent was just cleared to give the wave an empty
@@ -647,6 +699,8 @@ export class TakesList {
     row.ws = ws;
     row.audio = audio;
     row.mounting = false;
+    // A spine picked before its bars were drawn prints them picked.
+    if (row.el.classList.contains('picked')) ws.setPicked?.(true);
   }
 
   stopOthers(except) {

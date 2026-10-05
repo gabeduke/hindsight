@@ -61,6 +61,7 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
   },
   selectBar: $('select-bar'),
   shape: (all) => shelve(all, view),
+  spines: true,
 });
 $('select-btn').addEventListener('click', () => (takes.selecting ? takes.exitSelect() : takes.enterSelect()));
 
@@ -83,8 +84,8 @@ function reshape() {
 
 // --- the detail pane, on a wide screen ------------------------------------
 
-// Wide enough for a list and the picked take beside it. Narrower, a row
-// carries its own controls and there is no pane.
+// Every take is a spine, for picking; the picked take is a cassette, with the
+// controls. Wide enough, the cassette sits beside the rack.
 const wide = matchMedia('(min-width: 1100px)');
 const detail = new TakeDetail($('take-detail'), { takes, onToast: toast });
 let picked = null;
@@ -97,11 +98,10 @@ function pick(name) {
   if (name !== picked && takes.playing && takes.playing !== name) takes.stopOthers(name);
   picked = name;
   for (const [n, row] of takes.rows) {
-    const on = wide.matches && n === picked;
+    const on = n === picked;
     row.el.classList.toggle('picked', on);
-    // Rows are picked from the keyboard too, where there's a pane.
-    if (wide.matches) { row.el.tabIndex = 0; row.el.setAttribute('aria-current', on ? 'true' : 'false'); }
-    else { row.el.removeAttribute('tabindex'); row.el.removeAttribute('aria-current'); }
+    row.el.setAttribute('aria-current', on ? 'true' : 'false');
+    row.ws?.setPicked?.(on);
   }
   detail.show(wide.matches ? takes.all.find((t) => t.name === picked) || null : null);
 }
@@ -109,21 +109,22 @@ function pick(name) {
 // syncPick keeps the pick on a take that's shown: the first, when the one
 // picked has gone -- deleted, or filtered out.
 function syncPick() {
-  if (!wide.matches) { pick(picked); return; }
   const shown = shownNames();
+  // On a phone nothing is picked until a spine is pressed.
+  if (!wide.matches) { pick(shown.includes(picked) ? picked : null); return; }
   pick(shown.includes(picked) ? picked : shown[0] || null);
 }
 
 // A row's body picks it; its own controls keep their press, and a press on
 // its waveform both seeks and picks.
 $('takes').addEventListener('click', (e) => {
-  if (!wide.matches || takes.selecting) return;
+  if (takes.selecting) return;
   const row = e.target.closest('.take');
   if (!row || e.target.closest('button, a, input, .take-flag, .take-flag-edit')) return;
   pick(row.dataset.name);
 });
 $('takes').addEventListener('keydown', (e) => {
-  if (!wide.matches || takes.selecting || (e.key !== 'Enter' && e.key !== ' ')) return;
+  if (takes.selecting || (e.key !== 'Enter' && e.key !== ' ')) return;
   const row = e.target.closest('.take');
   if (!row || e.target !== row) return; // a row's own controls keep their keys
   e.preventDefault();

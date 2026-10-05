@@ -8,9 +8,19 @@
 // the one waveform in the app that couldn't show what the others do.
 // The interface is the small part of WaveSurfer's the list used: on(),
 // playPause(), pause(), isPlaying(), destroy().
+//
+// look 'spine' is a cassette spine's printed bars instead (the takes page's
+// rack): rounded bars from the take's own levels (draw.js levelsFor, scaled
+// by takeGain), in the J-card's ink, darker on the picked spine. A spine is
+// for picking, so that look takes no pointer input and draws no playhead.
 
-import { peakColumns, foldChannels, drawColumns } from './draw.js';
+import { peakColumns, foldChannels, drawColumns, levelsFor, takeGain, smooth, drawBars } from './draw.js';
 import { token, withAlpha } from '../theme.js';
+
+/** spineBarCount is how many printed bars fit a spine `w` px wide. */
+export function spineBarCount(w, pitch = 4) {
+  return w >= 4 ? Math.floor((w - 4) / pitch) + 1 : 0;
+}
 
 // The played part in the waveform colour, the rest the same colour, fainter;
 // read from the stylesheet at paint time so they follow light and dark.
@@ -18,7 +28,9 @@ const playedColor = (el) => token('--wave', '#268bd2', el);
 const unplayed = (el) => withAlpha(playedColor(el), 0.5);
 
 export class RowWave {
-  constructor({ container, peaks, duration, audio }) {
+  constructor({ container, peaks, duration, audio, look = 'row' }) {
+    this.look = look;
+    this.picked = false;
     this.container = container;
     this.peaks = peaks;
     this.duration = duration;
@@ -42,6 +54,13 @@ export class RowWave {
       }, sig);
     }
     audio.addEventListener('seeked', () => this.draw(), sig);
+    if (look === 'spine') {
+      this.gain = takeGain(peaks);
+      this.ro = new ResizeObserver(() => this.resize());
+      this.ro.observe(this.canvas);
+      this.resize();
+      return;
+    }
     // Seeking: a tap, or a horizontal drag.
     let dragging = null;
     const seekTo = (e) => {
@@ -96,7 +115,8 @@ export class RowWave {
     const dpr = window.devicePixelRatio || 1;
     this.canvas.width = Math.round(r.width * dpr);
     this.canvas.height = Math.round(r.height * dpr);
-    this.cols = foldChannels(peakColumns(this.peaks, Math.round(r.width)), this.peaks.channels);
+    if (this.look === 'spine') this.levels = smooth(levelsFor(this.peaks, spineBarCount(r.width)));
+    else this.cols = foldChannels(peakColumns(this.peaks, Math.round(r.width)), this.peaks.channels);
     this.draw();
   }
 
@@ -117,7 +137,26 @@ export class RowWave {
     this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); });
   }
 
+  /** setPicked prints the spine's bars darker while it's the picked take. */
+  setPicked(on) {
+    if (on === this.picked) return;
+    this.picked = on;
+    this.draw();
+  }
+
+  paintSpine() {
+    if (!this.levels) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = this.canvas.width / dpr, H = this.canvas.height / dpr;
+    const ctx = this.ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const ink = token(this.picked ? '--paper-bars-on' : '--paper-bars', 'transparent', this.canvas);
+    drawBars(ctx, this.levels, { x0: 2, pitch: 4, cy: H / 2, half: H / 2 - 2, gain: this.gain, width: 2, color: ink });
+  }
+
   paint() {
+    if (this.look === 'spine') { this.paintSpine(); return; }
     if (!this.cols) return;
     const dpr = window.devicePixelRatio || 1;
     const W = this.canvas.width / dpr, H = this.canvas.height / dpr;
