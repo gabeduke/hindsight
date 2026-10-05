@@ -1030,6 +1030,16 @@ has no tip.
 | Delete flag | Remove this flag |
 | ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
 | Clear | Forget the selection. The take itself is untouched |
+| In / Out time | Tap to place it exactly: the view centres on it and the editor opens. Tap bar 1 on the ruler to place the downbeat |
+| Done | Close the editor. Esc does too |
+| ZOOM | Drag sideways to zoom about the point: right is closer |
+| POSITION | Drag sideways to move the point: zoomed out it travels bars, zoomed in it moves samples |
+| Attack | Move the point to the start of the hit nearest it |
+| Zero | Move the point to the nearest zero crossing, so the cut doesn't click |
+| Grid | Move the point to the nearest line of the Snap setting |
+| ◂ ▸ in the editor | One step: a millisecond, or a sample when zoomed right in. Keys: ← →, with ⇧ for ten |
+| ▶ in the editor | Play from the point (from a second before Out) |
+| Seam | Show the loop's end running into its start, to see a click or a stutter. Tap a half to move that side |
 | Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
 | Save as take | Make a new take of just the selection |
