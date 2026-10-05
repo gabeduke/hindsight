@@ -1878,11 +1878,13 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
   }
   #tape-body:not([hidden]) { flex: 1 1 auto; min-height: 0; }
   .tape-lanes { flex: 1 1 auto; min-height: 0; gap: 8px; }
-  /* The lane stretches to its track (as to its head below 700 px); a
-     height of 100% would make the track's minimum the lane's own height,
-     and neither could shrink. */
-  .tape-track { flex: 1 1 0; }
-  .tt-lane { min-height: 0; }
+  /* The lane fills its cell without sizing it: placed absolutely in its
+     grid area, so a track's least height is its head's. In flow, the
+     canvas's drawn size (its bitmap's shape) counted towards the track's
+     minimum, size containment or not, and a drawer couldn't push the lanes
+     up past the height they were last drawn at. */
+  .tape-track { flex: 1 1 0; position: relative; }
+  .tt-lane { position: absolute; grid-column: 2; grid-row: 1; inset: 0; width: 100%; height: 100%; min-height: 0; }
   .tape-track, .tape-ruler-row { grid-template-columns: 150px 1fr; }
   .tt-head { align-content: center; }
 }
@@ -2980,7 +2982,7 @@ input, select, textarea { color-scheme: inherit; }
   body.tape-page { height: auto; min-height: 100svh; }
   body.tape-page > main.tape-main { flex: 1 0 auto; overflow: visible; }
   .tape-track { flex: none; }
-  .tt-lane { min-height: 64px; height: auto; }
+  .tt-lane { position: static; min-height: 64px; height: auto; }
   /* The drawers are the rows they were, in the page under the tracks. */
   .np-dock { padding: 0 12px 12px; }
   .np-drawer, .np-drawer.open, .np-dock > .clip-editor:not([hidden]) { display: block; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }

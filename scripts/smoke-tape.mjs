@@ -70,7 +70,7 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
 // a drawer opens above the bar and pushes the lanes up without hiding the
 // bar, its key says so, and Escape closes it. On the bench every lane keeps
 // 48 px with Edit open.
-for (const [w, h] of [[1024, 768], [1024, 600], [768, 1024]]) {
+for (const [w, h] of [[1024, 768], [1024, 600], [768, 1024], [1470, 900]]) {
   const p = await (await browser.newContext({ viewport: { width: w, height: h } })).newPage();
   await p.goto(`${BASE}/tape.html`);
   await p.waitForTimeout(1500);
@@ -90,7 +90,8 @@ for (const [w, h] of [[1024, 768], [1024, 600], [768, 1024]]) {
   const exp = await p.getAttribute('#np-drawer-edit', 'aria-expanded');
   check(`${w}x${h}: Edit opens its drawer above the bar`, open.drawer.length === 1 && open.drawer[0][1] <= open.npTop + 1 && exp === 'true', JSON.stringify(open.drawer));
   check(`${w}x${h}: the bar stays on screen`, open.npBottom <= h + 1, `bar bottom ${open.npBottom}`);
-  check(`${w}x${h}: the lanes are pushed up, 48 px or more`, open.h.every((x) => x >= 48) && open.h[0] <= closed.h[0], `${JSON.stringify(closed.h)} → ${JSON.stringify(open.h)}`);
+  // Shorter, unless they were already as short as their heads.
+  check(`${w}x${h}: the lanes are pushed up, 48 px or more`, open.h.every((x) => x >= 48) && (open.h[0] < closed.h[0] || closed.h[0] <= 72), `${JSON.stringify(closed.h)} → ${JSON.stringify(open.h)}`);
   await p.keyboard.press('Escape');
   await p.waitForTimeout(300);
   check(`${w}x${h}: Escape closes it`, (await p.getAttribute('#np-drawer-edit', 'aria-expanded')) === 'false');
