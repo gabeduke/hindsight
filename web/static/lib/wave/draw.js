@@ -96,6 +96,28 @@ export function levelsFor(pd, n, { b0 = 0, b1 = pd.buckets, channel = -1 } = {})
 }
 
 /**
+ * levelsOfColumns reads levels from columns in peakColumns' layout (the
+ * take page's tiles: width x channels x min,max): per column, the largest
+ * absolute sample on one channel, or on all of them when `channel` is
+ * negative. A column with no data yet (NaN) is silence.
+ */
+export function levelsOfColumns(cols, channels, channel = -1) {
+  const width = Math.floor(cols.length / (channels * 2));
+  const out = new Float32Array(width);
+  const chans = channel < 0 ? [...Array(channels).keys()] : channel < channels ? [channel] : [];
+  for (let x = 0; x < width; x++) {
+    let v = 0;
+    for (const c of chans) {
+      const i = (x * channels + c) * 2;
+      const a = Math.max(-cols[i], cols[i + 1]);
+      if (a > v) v = a;
+    }
+    out[x] = v;
+  }
+  return out;
+}
+
+/**
  * takeGain is the gain that brings a take's loudest peak to full scale,
  * clamped to [1, max]: a clipped take is not shrunk, and a near-silent one is
  * not blown up into a loud-looking one. Hand it the whole take's peaks (the

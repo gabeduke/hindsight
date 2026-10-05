@@ -3,7 +3,7 @@
 // to the take's own peak and lifted the way the design draws them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelsFor, takeGain, lift, smooth, barSegments, drawBars } from './draw.js';
+import { levelsFor, levelsOfColumns, takeGain, lift, smooth, barSegments, drawBars } from './draw.js';
 
 // Two channels, eight buckets of min,max pairs.
 const pd = {
@@ -112,4 +112,20 @@ test('drawBars hands the context back as it found it', () => {
   assert.equal(ctx.lineCap, 'butt');
   assert.equal(ctx.lineWidth, 1);
   assert.equal(ctx.strokeStyle, '#000');
+});
+
+// Tile columns (the take page's zoomed view): per column, per channel, min,max.
+const cols = Float32Array.from([
+  -0.2, 0.1, -0.5, 0.4, // column 0: ch0, ch1
+  NaN, NaN, NaN, NaN,   // column 1: no data yet
+  -0.1, 0.6, -0.3, 0.2, // column 2
+]);
+
+test('levelsOfColumns reads one channel of tile columns', () => {
+  same(levelsOfColumns(cols, 2, 0), [0.2, 0, 0.6]);
+  same(levelsOfColumns(cols, 2, 1), [0.5, 0, 0.3]);
+});
+
+test('levelsOfColumns folds every channel, and a column with no data is silence', () => {
+  same(levelsOfColumns(cols, 2), [0.5, 0, 0.6]);
 });
