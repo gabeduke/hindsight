@@ -50,10 +50,14 @@ func TestPhoneModeStreamsTheMixAndTheDevicePlaysSilence(t *testing.T) {
 	if err := e.Start(); err != nil {
 		t.Fatal(err)
 	}
-	if out := sink.play(t, 48000); !allZero(out) {
-		t.Fatal("the jam room should be silent in phone mode")
+	// pull the second in 960-frame steps, flushing after each, to avoid
+	// dropping packets when the hub's ring falls more than half full behind
+	for i := 0; i < 50; i++ {
+		if out := sink.play(t, 960); !allZero(out) {
+			t.Fatal("the jam room should be silent in phone mode")
+		}
+		o.Stream().flush()
 	}
-	o.Stream().flush()
 	p := r.got()
 	if len(p) < 45 {
 		t.Fatalf("%d packets for a second", len(p))
