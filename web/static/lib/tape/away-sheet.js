@@ -50,9 +50,10 @@ function writeRT(v) {
  * initAway wires the sheet. getTape answers { id, tape, track, replace }:
  * the loaded tape, and where a part goes. onPlaced runs after a part lands,
  * with the drop's answer and what was kept, and answers a line saying so;
- * onUndo undoes it.
+ * onUndo undoes it. onPlay runs as this page starts playing the tape (to
+ * listen or record), so a stream playing here can go quiet.
  */
-export function initAway({ button, sheet, toast, getTape, onPlaced, onUndo, api }) {
+export function initAway({ button, sheet, toast, getTape, onPlaced, onUndo, api, onPlay = () => {} }) {
   const q = (id) => document.getElementById(id);
   const ui = {
     what: q('away-what'),
@@ -310,6 +311,7 @@ export function initAway({ button, sheet, toast, getTape, onPlaced, onUndo, api 
 
   function play() {
     if (!buffer || src || mode === 'closed') return;
+    onPlay();
     const c = ensureCtx();
     const s = c.createBufferSource();
     s.buffer = buffer;
