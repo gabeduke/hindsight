@@ -5,6 +5,33 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.3 — 2026-10-05
+
+- Seam view: light neither half by a playhead it doesn't draw (0a70ca7)
+- Boundary editor: Out at the end can search, a lost drag ends, bar 1 saves at pagehide (f9ac11d)
+- Attack's words: the strongest hit within reach, not the nearest (616ff55)
+- Attack: decline rather than guess, and keep to its reach (460b300)
+- Let Out sit at the take's very end (afa4a5f)
+- Guide: Attack's reach, and what the readout says on a beat (1d8235a)
+- Guide: placing a boundary exactly (f5502a3)
+- Fix the boundary editor: save moves in flight, a pause key, stale edits (741d93a)
+- Edit a boundary to the sample: two encoders, Attack, Zero, Grid and the seam (27a2521)
+- Add the boundary editor's tips to the help table and the guide (187c966)
+- Draw the boundary being edited, and the seam (3c334b4)
+- Reuse a kept span that the take's start or end cut short (b67a384)
+- Keep findAttack a cycle's room clear of index 0 (3ece8e8)
+- Name the beat a frame is on when a beat is not a whole number of frames (a43ac90)
+- Fetch the audio round a point, for Attack and Zero (1e85928)
+- The boundary editor's maths: encoders, steps, the readout, the seam (8d293bc)
+- Find where a hit starts, and the nearest zero crossing (4cfe3f1)
+- Plan: the seam view reuses the take-on-tape body drawing (0d0e1b4)
+- Plan: the boundary editor (409ca36)
+- Spec: the boundary editor follows the reel-to-reel rules (91f2c67)
+- Spec: the editor bar's place and the readout, said once (0b82a1a)
+- Spec: the boundary editor, two encoders and a seam view (99e5a18)
+- Record v2026.10.05.2 in the changelog [skip ci] (7a9d1ec)
+
+
 ## v2026.10.05.2 — 2026-10-05
 
 - Fix review findings: a lighter paint, every channel, a playhead you can see (77b2d52)
