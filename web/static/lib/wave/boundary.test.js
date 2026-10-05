@@ -68,3 +68,11 @@ test('the seam view: the end of the loop on the left, its start on the right, me
   assert.deepEqual(left, { start: 528000 - 400, fpp: 2, width: 200 });
   assert.deepEqual(right, { start: 48000, fpp: 2, width: 200 });
 });
+
+test('a beat that is not a whole number of frames is still named for the beat the frame is on', () => {
+  const grid = { bpm: 97, sampleRate: sr, downbeat: 0 };
+  const beat = (60 / 97) * 48000;
+  for (let k = 0; k < 16; k++) {
+    assert.equal(beatOffset(Math.round(k * beat), grid).at, `${Math.floor(k / 4) + 1}.${(k % 4) + 1}`, `beat ${k}`);
+  }
+});

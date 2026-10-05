@@ -72,7 +72,9 @@ export function beatOffset(frame, grid) {
   const beat = (60 / grid.bpm) * grid.sampleRate;
   const k = Math.round((frame - grid.downbeat) / beat);
   const line = grid.downbeat + k * beat;
-  return { ms: ((frame - line) * 1000) / grid.sampleRate, at: barBeat(Math.round(line), grid) };
+  // ceil, not round: a beat that isn't a whole number of frames has its line at
+  // a fraction, and barBeat floors, so rounding down would name the beat before.
+  return { ms: ((frame - line) * 1000) / grid.sampleRate, at: barBeat(Math.ceil(line), grid) };
 }
 
 /** fmtOffset reads beatOffset: "+3.1 ms from 3.1", "on 3.1". */
