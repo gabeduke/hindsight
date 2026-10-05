@@ -1650,12 +1650,22 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 }
 .tt-name { appearance: none; background: none; border: 0; color: var(--ink); font: 600 13px var(--font); min-height: 28px; padding: 0 4px; cursor: pointer; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 /* Square keys, lit when pressed: mute yellow, solo blue. */
-.tt-head .chip { min-height: 30px; min-width: 34px; padding: 0 8px; border-radius: 8px; font: 700 14px var(--label-font); letter-spacing: .04em; }
+.tt-head .chip { min-height: 30px; min-width: 26px; padding: 0 4px; border-radius: 8px; font: 700 14px var(--label-font); letter-spacing: .04em; }
 .tt-head .tt-mute[aria-pressed="true"] { color: var(--mute-ink); background: linear-gradient(180deg, var(--mute-hi), var(--mute-lo)); border-color: var(--mute-lo); }
 .tt-head .tt-solo[aria-pressed="true"] { color: var(--solo-ink); background: linear-gradient(180deg, var(--solo-hi), var(--solo-lo)); border-color: var(--solo-lo); }
-/* The track's number, in a ring of its colour. */
+/* The track's number: printed on the masking tape where the head is narrow
+   (most screens), in a ring of the track's colour where it's wide, with
+   room for full-size keys beside it. The head's own width decides. */
+.tt-head { container: tthead / inline-size; }
+.tt-head .tt-name::before { content: attr(data-n) " "; }
+.tt-num { display: none; }
+@container tthead (min-width: 200px) {
+  .tt-num { display: inline-flex; }
+  .tt-head .tt-name::before { content: none; }
+  .tt-head .chip { min-width: 34px; padding: 0 8px; }
+}
 .tt-num {
-  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; box-sizing: border-box;
+  flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; box-sizing: border-box;
   border-radius: 50%; border: 3px solid var(--tc, var(--t1)); font: 700 12px var(--label-font); color: var(--ink);
 }
 .tt-gain { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); }
@@ -2341,7 +2351,9 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 .tape-track.selected .tt-name::after {
   content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 6px;
   border-radius: 50%; background: var(--rec); vertical-align: middle;
+  animation: recblink 2.4s ease-in-out infinite;
 }
+@media (prefers-reduced-motion: reduce) { .tape-track.selected .tt-name::after { animation: none; } }
 
 /* The sign over the door: dim, until a punch goes onto tape. */
 .rec-sign {
@@ -2375,6 +2387,12 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
    scroll sideways rather than wrap; the clipboard says all it has. */
 .tape-toolbar .tb-row.catch { flex-wrap: wrap; }
 .tape-toolbar .tb-row.catch #catch-pass { flex: 1 1 100%; min-height: 48px; }
+/* Catch is the page's one main action: the orange key, lit from above. */
+.tape-toolbar .tb-row.catch #catch-pass:not(:disabled) {
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo)); color: var(--on-accent);
+  border-color: var(--accent-edge); text-shadow: 0 1px 0 rgba(0,0,0,.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
+}
 .tape-toolbar .tb-row.catch .seg { flex: 1 1 0; }
 .tape-toolbar .tb-row.away { order: 10; }
 .tape-toolbar .tb-row.passes { flex-wrap: nowrap; }
@@ -2681,13 +2699,6 @@ input, select, textarea { color-scheme: inherit; }
 .take.spine.encoding { cursor: progress; }
 .take.spine.encoding .spine-led { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--paper-ink) 30%, transparent); }
 
-/* A phone's track head is 112 px: the keys shrink, and the number moves from
-   its ring onto the masking tape of a track that has no name. */
-@media (max-width: 479.98px), (orientation: landscape) and (max-height: 440px) {
-  .tt-num { display: none; }
-  .tt-head .chip { min-width: 26px; padding: 0 4px; }
-  .tt-head .tt-name:empty::before { content: attr(data-n); }
-}
 
 /* ---------- the tape page's dock, on a phone ---------- */
 /* Upright or sideways, Play, Loop, Rec and the click on the left and the
@@ -2698,24 +2709,33 @@ input, select, textarea { color-scheme: inherit; }
 @media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) { body.tape-page { --dock-b: env(safe-area-inset-bottom); } }
 @media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
   body.tape-page { --dock-h: 60px; padding-bottom: calc(var(--dock-b, 0px) + var(--dock-h)); }
+  /* Under the app bar (z 20), whose menus open over the dock. */
   body.tape-page .tape-toolbar .tb-row.transport {
-    position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); z-index: 25;
-    height: var(--dock-h); box-sizing: border-box; margin: 0; padding: 8px 12px; padding-right: calc(34% + 18px);
+    position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); z-index: 18;
+    height: var(--dock-h); box-sizing: border-box; margin: 0;
+    padding: 8px 12px 8px calc(12px + env(safe-area-inset-left)); padding-right: calc(34% + 18px + env(safe-area-inset-right));
     background: linear-gradient(180deg, var(--face-hi), var(--face-lo));
     border-top: 1px solid var(--edge); box-shadow: 0 -10px 20px -16px var(--sh-strong);
   }
-  body.tape-page #catch-pass {
-    position: fixed; right: 12px; bottom: calc(var(--dock-b, 0px) + 8px); z-index: 26;
+  body.tape-page .tape-toolbar .tb-row.catch #catch-pass {
+    position: fixed; right: calc(12px + env(safe-area-inset-right)); bottom: calc(var(--dock-b, 0px) + 8px); z-index: 19;
     width: 34%; height: 44px; min-height: 44px; margin: 0;
   }
-  body.tape-page #toasts { bottom: calc(var(--dock-b, 0px) + var(--dock-h) + 12px); }
-  body.tape-page.notes-open .tb-row.transport, body.tape-page.notes-open #catch-pass { display: none; }
+  body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--dock-b, 0px) + var(--dock-h) + 12px); }
 }
 /* An upright phone's dock is narrow: Catch takes less, the click key slims,
    and Rec drops the source line the "Record from" row already shows. */
 @media (max-width: 479.98px) {
   body.tape-page .tape-toolbar .tb-row.transport { gap: 6px; padding-right: calc(30% + 16px); }
-  body.tape-page #catch-pass { width: 30%; padding: 0 8px; font-size: 13px; line-height: 1.15; }
+  body.tape-page .tape-toolbar .tb-row.catch #catch-pass { width: 30%; padding: 0 8px; font-size: 13px; line-height: 1.15; }
   body.tape-page .tape-toolbar .tb-row.transport .tb-click { flex: 0 0 40px; }
   body.tape-page .tape-toolbar .tb-row.transport .tb-rec .rec-src { display: none; }
+}
+/* Under 400 px the dock's keys need every pixel: Catch gives some back, and
+   the keys' type and lights shrink a little, so Rec keeps its armed track. */
+@media (max-width: 399.98px) {
+  body.tape-page .tape-toolbar .tb-row.transport { gap: 4px; padding-right: calc(26% + 14px); }
+  body.tape-page .tape-toolbar .tb-row.catch #catch-pass { width: 26%; font-size: 12px; padding: 0 6px; }
+  body.tape-page .tape-toolbar .tb-row.transport .icon-btn { font-size: 13px; padding: 0 6px; }
+  body.tape-page .tape-toolbar .tb-row.transport .icon-btn::before { margin-right: 3px; }
 }

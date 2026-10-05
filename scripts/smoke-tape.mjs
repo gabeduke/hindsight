@@ -33,6 +33,60 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   await p.context().close();
 }
 
+// Track heads fit their lanes (no key wraps to a row of its own), the bench
+// keeps all four tracks on screen, and every track shows its number.
+for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1280, 800], [844, 390], [1440, 900]]) {
+  const p = await (await browser.newContext({ viewport: { width: w, height: h }, hasTouch: w < 900 })).newPage();
+  await p.goto(`${BASE}/tape.html`);
+  await p.waitForTimeout(1800);
+  const r = await p.evaluate(() => {
+    const rows = [...document.querySelectorAll('.tape-track')];
+    const tall = rows.map((row) => Math.round(row.querySelector('.tt-head').getBoundingClientRect().height - row.querySelector('.tt-lane').getBoundingClientRect().height));
+    const numbered = rows.every((row, i) => {
+      const ring = row.querySelector('.tt-num');
+      if (ring && getComputedStyle(ring).display !== 'none' && ring.textContent === String(i + 1)) return true;
+      return getComputedStyle(row.querySelector('.tt-name'), '::before').content.includes(String(i + 1));
+    });
+    const last = rows.at(-1)?.getBoundingClientRect().bottom;
+    return { tall, numbered, last: Math.round(last) };
+  });
+  check(`${w}x${h}: track heads are no taller than their lanes`, r.tall.every((d) => d <= 2), JSON.stringify(r.tall));
+  check(`${w}x${h}: every track shows its number`, r.numbered);
+  if (w === 1024 && h === 600) check('1024x600: track 4 is on screen', r.last <= 600, `bottom ${r.last}`);
+  await p.context().close();
+}
+
+// The dock stays under the header's menus: a tap on a menu item is the item's.
+{
+  const p = await (await browser.newContext({ viewport: { width: 667, height: 375 }, hasTouch: true })).newPage();
+  await p.goto(`${BASE}/tape.html`);
+  await p.waitForTimeout(1500);
+  await p.locator('#tape-more').click();
+  await p.waitForTimeout(300);
+  const hit = await p.evaluate(() => {
+    const items = [...document.querySelectorAll('#tape-actions > button, #tape-actions > a')].filter((e) => e.offsetParent);
+    const last = items.at(-1).getBoundingClientRect();
+    const e = document.elementFromPoint(last.left + last.width / 2, last.top + last.height / 2);
+    return e?.closest('#tape-actions') ? 'menu' : (e?.id || e?.className || '');
+  });
+  check("667x375: the ⋯ menu's last item takes its own tap", hit === 'menu', hit);
+  await p.context().close();
+}
+
+// Catch is the page's one main action: orange.
+{
+  const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+  await p.goto(`${BASE}/tape.html`);
+  await p.waitForTimeout(1500);
+  const bg = await p.evaluate(() => {
+    const b = document.getElementById('catch-pass');
+    b.disabled = false;
+    return getComputedStyle(b).backgroundImage;
+  });
+  check('Catch is orange', /linear-gradient/.test(bg) && /\b(20[0-9]|19[0-9]|21[0-9]), (7[0-9]|8[0-9]|6[0-9]), (2[0-9]|3[0-9]|1[0-9])\b/.test(bg), bg.slice(0, 80));
+  await p.context().close();
+}
+
 // A lane draws: its canvas has something on it.
 {
   const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();

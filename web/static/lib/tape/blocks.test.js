@@ -2,7 +2,7 @@
 // A clip on a tape lane as a block: what it's labelled, and the bars inside.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clipLabel, blockLevels, labelFits } from './blocks.js';
+import { clipLabel, blockLevels, labelFits, placeLabel } from './blocks.js';
 
 test('clipLabel says reversed, repeat, or where the clip came from', () => {
   const a = { id: 'a', file: 'audio/x.wav', src: 0, at: 0, source: 'aux' };
@@ -43,4 +43,12 @@ test('blockLevels holds as many bars as fit, 4 px apart', () => {
 test('a label fits a block 64 px wide or more', () => {
   assert.equal(labelFits(63), false);
   assert.equal(labelFits(64), true);
+});
+
+test('placeLabel keeps a label clear of the ones already on its lane', () => {
+  const placed = [];
+  assert.equal(placeLabel(placed, { x: 10, y: 4, w: 30, h: 12 }), true);
+  assert.equal(placeLabel(placed, { x: 12, y: 7, w: 30, h: 12 }), false); // a layer's, 3 px lower: skipped
+  assert.equal(placeLabel(placed, { x: 60, y: 4, w: 30, h: 12 }), true);
+  assert.equal(placed.length, 2);
 });

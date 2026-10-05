@@ -35,3 +35,14 @@ export function blockLevels(pd, clip, width, pitch = 4) {
 export function labelFits(width) {
   return width >= 64;
 }
+
+/**
+ * placeLabel takes a label's box if it's clear of every label already placed
+ * on its lane (`placed`, which it adds to), so a layer caught over a clip
+ * doesn't print its label on top of the clip's.
+ */
+export function placeLabel(placed, r) {
+  const hit = placed.some((o) => r.x < o.x + o.w && o.x < r.x + r.w && r.y < o.y + o.h && o.y < r.y + r.h);
+  if (!hit) placed.push(r);
+  return !hit;
+}

@@ -7,7 +7,7 @@ import { toast } from '../toast.js';
 import { canShareFiles, shareOrDownload } from '../wave/share.js';
 import { initHelp } from '../help/help.js';
 import { drawBars, takeGain } from '../wave/draw.js';
-import { clipLabel, blockLevels, labelFits } from './blocks.js';
+import { clipLabel, blockLevels, labelFits, placeLabel } from './blocks.js';
 import { roundRectPath } from '../cassette-geom.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
@@ -1043,6 +1043,7 @@ function drawLanes() {
     // there is one, as a strip waiting to be written on.
     lane.name.textContent = tr.name || '';
     lane.name.setAttribute('aria-label', `Track ${tr.n}${tr.name ? `, ${tr.name}` : ''}`);
+    lane.name.title = tr.name ? `${tr.n} ${tr.name}` : `Track ${tr.n}`;
     lane.bus.textContent = tr.bus;
     lane.mute.setAttribute('aria-pressed', String(!!tr.mute));
     lane.solo.setAttribute('aria-pressed', String(!!tr.solo));
@@ -1060,6 +1061,12 @@ function drawLanes() {
     const ctx = cv.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    // The loop, a faint amber band across every lane.
+    if (t.loop && t.loop.out > t.loop.in) {
+      const lx0 = xOf(t.loop.in, view, W), lx1 = xOf(t.loop.out, view, W);
+      ctx.fillStyle = withAlpha(col('--warn', '#b58900'), t.loop.on ? 0.07 : 0.03);
+      ctx.fillRect(lx0, 0, Math.max(0, lx1 - lx0), H);
+    }
     // Bar lines.
     for (const b of barLines(t.grid, view)) {
       const x = Math.round(xOf(b.frame, view, W));
@@ -1073,6 +1080,7 @@ function drawLanes() {
     const ink = col('--well-ink', '#f2e6c8');
     const heard = state.live ? xOf(state.live.heard, view, W) : null;
     lane.hits = [];
+    const labels = [];
     const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
     for (const c of sorted) {
       const nudge = nudgeFrames(c, t.sample_rate);
@@ -1108,16 +1116,17 @@ function drawLanes() {
       }
       if (labelFits(bw)) {
         const label = clipLabel(c, tr);
-        if (label) {
-          ctx.save();
-          ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
+        ctx.save();
+        ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
+        const lw = label ? Math.min(bw - 12, ctx.measureText(label).width) : 0;
+        if (label && placeLabel(labels, { x: x0 + 6, y: top + 4, w: lw, h: 11 })) {
           ctx.textBaseline = 'top';
           ctx.shadowColor = 'rgba(0,0,0,.9)';
           ctx.shadowBlur = 3 * dpr;
           ctx.fillStyle = withAlpha(ink, 0.85);
           ctx.fillText(label, x0 + 6, top + 4, bw - 12);
-          ctx.restore();
         }
+        ctx.restore();
       }
       const picked = state.clip && state.clip.id === c.id;
       ctx.lineWidth = picked ? 2 : 1.5;

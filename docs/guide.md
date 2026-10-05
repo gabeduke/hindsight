@@ -502,14 +502,15 @@ From the top:
   are kept, with the tape, so they survive a restart and every device shares
   them.
 - **The deck.** The reels turn with the playhead, and run back on a
-  rewind or the loop's wrap; the window between them says PLAY, REC, WIND or
-  STOP. The meter bridge has a backlit VU for each track, its number in a
+  rewind or the loop's wrap; the window between them says PLAY, REC, WIND,
+  REWIND or STOP. The meter bridge has a backlit VU for each track, its number in a
   ring of the track's colour.
 - **The overview** is the whole tape, six minutes: what's on each track, and
   the loop in amber.
 - **Four lanes**, one per track:
-  - Each header has the track's number in a ring of its colour, its name on
-    masking tape (tap it to select the track), its bus (A or B; tap to
+  - Each header has the track's number (in a ring of its colour where there's
+    room, otherwise printed on the tape), its name on masking tape (tap it
+    to select the track), its bus (A or B; tap to
     swap), **M** (mute, yellow when on), **S** (solo, blue when on) and its
     level. The track being recorded to is edged red.
   - In the lane: the bar lines, the clips and the playhead. Each clip is a
