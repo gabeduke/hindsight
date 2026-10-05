@@ -175,6 +175,25 @@ test('the tape tokens exist, and the trace reads on the oxide', () => {
   assert.ok(c >= 4.5, `--trace on --oxide is ${c.toFixed(2)}:1`);
 });
 
+// Cassettes are objects: paper, printed stripes and plastic, the same in
+// both schemes, with legends that read on what they're printed on.
+const CASSETTE = ['--paper-hi', '--paper-lo', '--paper-ink', '--paper-dim', '--paper-bars', '--paper-bars-on', '--paper-rule',
+  '--cas-hi', '--cas-mid', '--cas-lo', '--cas-screw', '--cas-slot', '--glass-hi', '--glass-lo',
+  '--hub', '--hub-core', '--hub-tooth', '--pack', '--pack-edge'];
+test('the cassette tokens exist, and print reads on paper and on its stripe', () => {
+  for (const t of CASSETTE) assert.ok(light[t], `light lacks ${t}`);
+  for (const ink of ['--paper-ink', '--paper-dim']) {
+    const c = contrast(light[ink], light['--paper-lo']);
+    assert.ok(c >= 4.5, `${ink} on --paper-lo is ${c.toFixed(2)}:1`);
+  }
+  assert.ok(contrast(light['--paper-bars-on'], light['--paper-lo']) >= 3, 'picked bars must show on paper');
+  for (let n = 1; n <= 5; n++) {
+    for (const t of [`--stripe-${n}`, `--stripe-${n}-ink`, `--stripe-${n}-under`]) assert.ok(light[t], `light lacks ${t}`);
+    const c = contrast(light[`--stripe-${n}-ink`], light[`--stripe-${n}`]);
+    assert.ok(c >= 4.5, `--stripe-${n}-ink on --stripe-${n} is ${c.toFixed(2)}:1`);
+  }
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);

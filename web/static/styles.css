@@ -78,6 +78,34 @@
   --trace:       #f6e7c4;
   --trace-hot:   #fff8e8;
   --trace-glow:  rgba(255,226,170,.75);
+  /* cassettes: paper, printed stripes and plastic, the same in both schemes.
+     Stripe legends are dark: the design's light legends on orange, teal and
+     blue read under 4.5:1, and blue and magenta are a shade lighter so a
+     dark legend reads on them. --stripe-N-under is the thin second stripe. */
+  --paper-hi:      #f8f1de;
+  --paper-lo:      #eadfc2;
+  --paper-ink:     #1c2430;
+  --paper-dim:     #5a5547;
+  --paper-bars:    rgba(40,52,60,.62);
+  --paper-bars-on: #1f6f68;
+  --paper-rule:    rgba(28,36,48,.16);
+  --stripe-1: #e0662a; --stripe-1-ink: #1c2430; --stripe-1-under: #1c2430;
+  --stripe-2: #2aa198; --stripe-2-ink: #1c2430; --stripe-2-under: #e0662a;
+  --stripe-3: #d9a114; --stripe-3-ink: #1c2430; --stripe-3-under: #2aa198;
+  --stripe-4: #2e93db; --stripe-4-ink: #1c2430; --stripe-4-under: #d9a114;
+  --stripe-5: #e85aa0; --stripe-5-ink: #1c2430; --stripe-5-under: #2e93db;
+  --cas-hi:    #3a3b40;
+  --cas-mid:   #1d1e21;
+  --cas-lo:    #121315;
+  --cas-screw: #3a3b40;
+  --cas-slot:  #0c0c0d;
+  --glass-hi:  #2a2a2c;
+  --glass-lo:  #121214;
+  --hub:       #efe9d8;
+  --hub-core:  #1a1b1d;
+  --hub-tooth: #d9d4c6;
+  --pack:      #3b2516;
+  --pack-edge: rgba(255,220,180,.16);
 
   /* Hardware: black windows, a recessed track for switches with a raised
      thumb, keys, fields, LEDs, amber LCD readouts. */
