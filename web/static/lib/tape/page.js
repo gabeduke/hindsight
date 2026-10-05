@@ -271,16 +271,25 @@ function render() {
   const t = state.tape;
   const live = state.live;
   const sr = t.sample_rate;
-  $('tape-name').textContent = `${t.name} ▾`;
+  $('tape-name-text').textContent = t.name;
+  $('tape-name').title = `${t.name}: switch tape`;
   document.title = `${t.name} — tape — Hindsight`;
   // The tempo, and the loop in bars (the grid's own until the ruler moves
   // it).
-  let sub = 'no tempo yet';
+  let sub = 'no tempo yet', short = '–', full = 'No tempo yet';
   if (t.grid) {
     const bars = t.loop.out > t.loop.in ? Math.round((t.loop.out - t.loop.in) / (t.grid.frames / t.grid.bars)) : t.grid.bars;
-    sub = `${bpmOf(t.grid, sr).toFixed(1)} BPM · ${bars} bar${bars === 1 ? '' : 's'}${t.loop.on ? '' : ', not looping'} ▾`;
+    const bpm = bpmOf(t.grid, sr);
+    sub = `${bpm.toFixed(1)} BPM · ${bars} bar${bars === 1 ? '' : 's'}${t.loop.on ? '' : ', not looping'}`;
+    // A narrow phone has no room for the words: the note says tempo, the
+    // pair reads "84 · 4", and the words are in the label.
+    short = `${Math.round(bpm)} · ${bars}`;
+    full = `Tempo ${sub}: change the bars`;
   }
-  $('tape-sub').textContent = sub;
+  $('tape-sub-long').textContent = sub;
+  $('tape-sub-short').textContent = short;
+  $('tape-sub').setAttribute('aria-label', full);
+  $('tape-sub').title = full;
   $('tape-sub').disabled = !t.grid;
   const empty = t.tracks.every((tr) => tr.clips.length === 0);
   $('tape-empty').hidden = !(empty && !t.grid);

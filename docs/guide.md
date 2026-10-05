@@ -536,8 +536,11 @@ into channel 1, bus B on 3/4 into channel 2. If the Sidekick isn't there,
 
 From the top:
 
-- **The name.** Tap it to open another tape or start a new one. Under the name:
-  the tempo and how many bars the loop is.
+- **The name and the tempo** are two menus, each drawn as a pill with a ▾.
+  The name (with the cassette) opens another tape or starts a new one. The
+  tempo (with the ♩) shows the BPM and how many bars the loop is, and sets
+  the bars. On a phone they stack as one capsule, the tempo reading "84 · 4"
+  (BPM · bars); the full words are in its label for a screen reader, and show on hover on a computer.
 - **⋯** holds what you do with this tape: clone it, mix it down, export its
   stems, delete a tape, or open this guide.
 - **The dot** says how well the tape's playback and the recording are lined
@@ -618,7 +621,7 @@ where it comes round.
    at once, in time with you, as if it had been playing all along.
 3. Its length sets the tempo: the number of bars that puts it nearest your
    last tape's tempo (or 90 BPM). If it guessed 168 and you meant 84, tap
-   the tempo under the name and choose the other. Nothing is stretched,
+   the tempo pill and choose the other. Nothing is stretched,
    only relabelled.
 
 **From a take.** On a take page, select the loop, with In and Out on the
@@ -656,8 +659,12 @@ The tempo is fixed once the tape has audio, because nothing is ever stretched.
   tempo can't be changed.
 - [demo] Make a new tape, choose *aux*, tap on a kick, then tap about 2.5 s
   later on another → a 2.50 s loop, *1 bar at 96 BPM*, playing on track 1.
-- [demo] Tap the tempo under the name, choose 2 bars → it reads *192 BPM ·
+- [demo] Tap the tempo pill, choose 2 bars → it reads *192 BPM ·
   2 bars*; the loop sounds the same.
+- [demo] On a phone, the name and tempo stack as one bordered capsule with a
+  ▾ on each half, and the header stays one row tall with undo, redo and ⋯
+  beside it. At 600 px or wider they are two separate pills. A tape with no
+  tempo yet shows its tempo pill dimmed, with no ▾.
 - [rig] Play a phrase on the Orchid into aux, tap on its first note, and on
   the same note when it comes round → the loop plays out of channel 1 in
   time with you, and the tempo reads sensibly.
