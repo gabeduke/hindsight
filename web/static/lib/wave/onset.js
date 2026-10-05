@@ -147,21 +147,26 @@ function onsetIn(res, preLo, from, best, envN) {
 
 /**
  * findAttack is the index where the strongest hit within radius of i starts,
- * or -1 when nothing there rises. See the passes above.
+ * or -1: when nothing there rises, when it rises but never stands clear of
+ * what came before (a swell, not a hit: no start to name, and the earliest it
+ * could have begun is a guess), or when the start found is more than radius
+ * from i. See the passes above.
  */
 export function findAttack(x, sr, i, radius) {
   const ms = (m) => Math.max(1, Math.round((sr * m) / 1000));
   const long = ms(LONG_MS), slack = ms(SLACK_MS), pre = ms(PRE_MS);
   // The one-cycle residual reads up to CYCLE_MS[1] behind the first sample used, so keep that much room before index 0.
   const lo = Math.max(ORDER + 1 + ms(CYCLE_MS[1]), i - radius - 2 * long - slack - pre - ms(CYCLE_MS[1]));
-  const hi = Math.min(x.length, i + radius + long);
+  const hi = Math.min(x.length, i + radius + long + slack);
   if (hi - lo < 3 * long) return -1;
   const E = rms((n) => x[n], lo, hi, long);
   const e = (n) => E[n - lo];
   const tiny = 1e-6;
-  // The strongest rise of the long energy, its window ending within reach.
+  // The strongest rise of the long energy whose window ends where a hit
+  // within reach puts it: the rise peaks about LONG_MS after the hit, so a
+  // stronger hit just outside reach can't mask one inside it.
   let best = -1, bestRatio = RISE;
-  for (let n = Math.max(lo + 2 * long, i - radius); n < Math.min(hi, i + radius + long); n++) {
+  for (let n = Math.max(lo + 2 * long, i - radius + long); n < Math.min(hi, i + radius + long + slack); n++) {
     const r = (e(n) + tiny) / (e(n - long) + tiny);
     if (r > bestRatio) { bestRatio = r; best = n; }
   }
@@ -171,12 +176,13 @@ export function findAttack(x, sr, i, radius) {
   const preLo = Math.max(lo + 1, from - pre);
   const A = predictor(x, preLo, from, Math.min(ORDER, from - preLo - 1));
   const envN = ms(ENV_MS);
+  const within = (at) => (Math.abs(at - i) <= radius ? at : -1);
   if (A) {
     const err = (n) => { let v = x[n]; for (let k = 1; k < A.length; k++) v += A[k] * x[n - k]; return v; };
     const at = onsetIn(err, preLo, from, best, envN);
-    if (at >= 0) return at;
+    if (at >= 0) return within(at);
   }
   const L = cycle(x, preLo, from, ms(CYCLE_MS[0]), Math.min(ms(CYCLE_MS[1]), from - preLo - 1));
   const at = onsetIn(L ? (n) => x[n] - x[n - L] : (n) => x[n], preLo, from, best, envN);
-  return at >= 0 ? at : from; // it rose, but never stood clear: the earliest it can have begun
+  return at >= 0 ? within(at) : -1; // it rose, but never stood clear: no start to name
 }

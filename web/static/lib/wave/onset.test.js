@@ -72,13 +72,57 @@ test('a 16-bit WAV from the slice endpoint reads back as mono', () => {
   assert.deepEqual([...got.mono].map((v) => Math.round(v * 1000) / 1000 + 0), [0.5, -0.25, 0, 0]);
 });
 
-test('a hit near the start of the array is found, or declined, and never guessed from reads before index 0', () => {
+test('a hit near the start of the array is found, and never guessed from reads before index 0', () => {
   // The soft kick's one-cycle residual reads up to 25 ms behind each sample, so
   // within that of index 0 it would read undefined. 5760 (~120 ms in) was fine
   // before the fix; 3000 and 3500 returned 1771 and 2271.
   for (const early of [3000, 3500, 5760]) {
     const x = kickOverBass(24000, 0).subarray(24000 - early);
     const got = findAttack(x, sr, early - 1500, 2880);
-    assert.ok(got === -1 || Math.abs(got - early) <= 48, `hit at ${early}: found ${got}, want ${early} ± 1 ms, or -1`);
+    assert.ok(got !== -1 && Math.abs(got - early) <= 48, `hit at ${early}: found ${got}, want ${early} ± 1 ms`);
+  }
+});
+
+test('a hit outside the radius is not reached for', () => {
+  const x = new Float32Array(sr / 2);
+  const at = 12000;
+  for (let n = at; n < x.length; n++) x[n] = 0.6 * Math.exp(-(n - at) / 480) * Math.sin((2 * Math.PI * 180 * (n - at)) / sr + 0.8);
+  assert.equal(findAttack(x, sr, at + 1500, 480), -1); // 31 ms away, ±10 ms asked
+  assert.ok(Math.abs(findAttack(x, sr, at + 300, 480) - at) <= 48); // and within reach it is found
+});
+
+test('a swell with no hit declines rather than naming the earliest it could have begun', () => {
+  const x = new Float32Array(sr / 2);
+  for (let n = 0; n < x.length; n++) {
+    const t = Math.min(1, Math.max(0, (n - 0.1 * sr) / (0.2 * sr)));
+    x[n] = (0.05 + 0.45 * t) * Math.sin((2 * Math.PI * 220 * n) / sr);
+  }
+  assert.equal(findAttack(x, sr, 0.2 * sr, 2880), -1);
+});
+
+test('a snare in a dense bed is found to the millisecond, or declined', () => {
+  const rnd = seeded(5);
+  const x = new Float32Array(sr);
+  const step = (sr * 60) / 120 / 4; // 1/16 at 120 BPM
+  const at = 27000;
+  for (let n = 0; n < x.length; n++) {
+    const sinceHat = n % step;
+    const hat = 0.3 * Math.exp(-sinceHat / (0.008 * sr)) * rnd();
+    const k = n - at;
+    const snare = k >= 0 ? 0.6 * Math.exp(-k / (0.06 * sr)) * rnd() : 0;
+    x[n] = 0.3 * Math.sin((2 * Math.PI * 55 * n) / sr) + hat + snare;
+  }
+  const got = findAttack(x, sr, at + 960, 2880); // asked 20 ms after
+  assert.ok(got === -1 || Math.abs(got - at) <= 48, `found ${got}, want ${at} ± 1 ms, or -1`);
+  if (got !== -1) assert.ok(Math.abs(got - at) <= 48, `a guess ${got} is 1 ms or more from ${at}`);
+});
+
+test('pressing Attack again on a found point does not move it', () => {
+  const at = 24000;
+  for (const [name, x, asked] of [['click', kickOverBass(at, Math.PI / 2), at - 1500], ['soft', kickOverBass(at, 0), at - 1500]]) {
+    const first = findAttack(x, sr, asked, 2880);
+    assert.ok(first !== -1, `${name}: first press found nothing`);
+    const second = findAttack(x, sr, first, 2880);
+    assert.ok(Math.abs(second - first) <= 1, `${name}: ${first} then ${second}`);
   }
 });
