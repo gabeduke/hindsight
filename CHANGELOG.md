@@ -5,6 +5,35 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.05.8 — 2026-10-05
+
+- Record v2026.10.05.7 in the changelog [skip ci] (5a82876)
+- Service worker: v25, so the merged shell (stream player and clip editor) reaches every phone (a3e440a)
+- Overdub on this device: stop the stream's tape only in This phone mode (0fcf062)
+- Guide: a late reconnect, Tap to play here, and Overdub on this device stopping the stream (06323da)
+- Overdub on this device: its Listen and Record stop the stream here (96ecabd)
+- Tape on this phone: a late return lets the tape go, a locked phone resumes, blips reconnect (b3b9706)
+- Stream worklet: the ring's step is pure and tested, and starts 0.8 s behind the newest (df66b2d)
+- Stream: drop a phone that has said nothing for 2 s (4ed55ea)
+- Tape page: punch and record read the engine's position, not the phone's heard one (b6f97a7)
+- Tape output test: push the second at the pace the hub flushes (db4d3a9)
+- Tape page: play here with the heard playhead, pending mutes, and the jam room's guards (46d566f)
+- Output: revert to jam room if the phone audio fails, handle start rejection, prose styling, OUT label (8743917)
+- Tape page: the OUT menu, the Output sheet, the strip and the banner (387583e)
+- Tape stream: player start/stop lifecycle, one socket, locked recovers (c3e5c61)
+- Tape stream: the page's player, an AudioWorklet holding 0.8 s (2e955c4)
+- Tape stream: the page's stamp log and heard position (b04a34c)
+- Tape stream: a WebSocket to the page, and PUT /api/tapes/output (3ddfcd3)
+- Tape output: switch to a phone under the recording lock, re-check the mode in Record and StartMixdown (d03c6f5)
+- Tape output: the engine's output mode, the jam room's guards, and live state (47171a7)
+- Tape output: count the listener's absence only while playing; seed the device clock (4709f98)
+- Tape output: route to the jam room, a phone or both; pace while the Sidekick is away (bfbec9a)
+- Tape stream: a hub that stamps packets for one listener (6d95a6d)
+- Fix: test MixStereo clipping by adding overflow frame (23d3486)
+- Tape stream: mix the buses to stereo and stamp 20 ms packets (78b5423)
+- Tape on this phone: spec and plan (#29) (cba4817)
+
+
 ## v2026.10.05.7 — 2026-10-05
 
 - Clip editor: a move saved as the editor closes still goes (9eaa484)
