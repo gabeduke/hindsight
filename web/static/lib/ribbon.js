@@ -25,6 +25,8 @@
 import { fmtDur } from '/lib/meter.js';
 import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from '/lib/ribbonmath.js';
 import { isSilent } from '/lib/tape/levels.js';
+import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from '/lib/ribbon-draw.js';
+import { token } from '/lib/theme.js';
 
 const HOLD_MS = 350;
 const MOVE_PX = 8;
@@ -32,7 +34,6 @@ const MOVE_PX = 8;
 // stopping this close to the right edge means "now".
 const NOW_ZONE_PX = 16;
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_BUCKETS = 600;
 const POLL_MS = 1000;
 
@@ -75,22 +76,25 @@ export class Ribbon {
     this.hatch = add(wrap, 'div', 'rb-hatch');
     this.bandLayer = add(wrap, 'div', 'rb-layer');
 
-    this.svg = document.createElementNS(SVG_NS, 'svg');
-    this.svg.setAttribute('class', 'rb-wave');
-    this.svg.setAttribute('preserveAspectRatio', 'none');
-    this.path = document.createElementNS(SVG_NS, 'path');
-    this.svg.appendChild(this.path);
-    wrap.appendChild(this.svg);
+    // The ring on tape (lib/ribbon-draw.js), under everything else.
+    this.canvas = document.createElement('canvas');
+    this.canvas.className = 'rb-canvas';
+    wrap.insertBefore(this.canvas, wrap.firstChild);
+    this.ctx = this.canvas.getContext('2d');
+    this.levels = new Float32Array(0);
+    this.ro = new ResizeObserver(() => this.paint());
+    this.ro.observe(wrap);
 
     this.markLayer = add(wrap, 'div', 'rb-layer');
     this.selLayer = add(wrap, 'div', 'rb-layer');
     this.flagLayer = add(wrap, 'div', 'rb-layer');
-    add(wrap, 'div', 'rb-scrim');
     this.labelLayer = add(wrap, 'div', 'rb-layer');
     add(wrap, 'div', 'rb-now');
-
-    const now = add(this.labelLayer, 'span', 'rb-label rb-now-label');
-    now.textContent = 'now';
+    // The record head: always recording, so always lit.
+    const now = add(this.labelLayer, 'span', 'rb-now-label');
+    now.innerHTML = '<span class="rb-rec-dot" aria-hidden="true"></span>REC';
+    // The strip under the tape: how long ago, from the ring's oldest end to now.
+    this.ruler = add(wrap, 'div', 'rb-ruler');
 
     this.readout = add(wrap, 'p', 'rb-readout');
     this.readout.textContent = 'connecting';
@@ -321,6 +325,7 @@ export class Ribbon {
 
   destroy() {
     this.stop();
+    this.ro.disconnect();
     document.removeEventListener('visibilitychange', this._onVis);
   }
 
@@ -381,7 +386,7 @@ export class Ribbon {
     const leftPct = (age) => axisPct(age, A, T);
     const abs = (s) => (s === 0 ? T : s);
 
-    this.drawWave(decode(d.buckets));
+    this.levels = ribbonLevels(decode(d.buckets));
 
     // Everything older than what is buffered is time that was never recorded,
     // not silence. Drawing it flat would read as "twelve minutes of quiet".
@@ -407,20 +412,22 @@ export class Ribbon {
       mark.style.left = `${leftPct(t.age).toFixed(2)}%`;
     }
 
-    // Rebuild labels but keep the fixed "now" at the right edge.
-    for (const old of this.labelLayer.querySelectorAll('.rb-label:not(.rb-now-label)')) {
-      old.remove();
-    }
-    tiers.forEach((t, i) => {
+    // A pill at each capture length, the chosen one lit; the fixed REC stays.
+    for (const old of this.labelLayer.querySelectorAll('.rb-label')) old.remove();
+    for (const p of tierPills(this.spans, sel, T, leftPct)) {
       const label = document.createElement('span');
-      label.className = 'rb-label' + (t.s === sel ? ' on' : '');
-      label.textContent = fmtDur(t.age);
-      label.style.left = `${leftPct(t.age).toFixed(2)}%`;
-      // The oldest label sits at 0% and would hang off the left edge if it
-      // were centred like the rest.
-      label.style.transform = i === tiers.length - 1 ? 'translateX(0)' : 'translateX(-50%)';
+      label.className = 'rb-label' + (p.on ? ' on' : '') + (p.x <= 1 ? ' edge' : '');
+      label.textContent = p.label;
+      label.style.left = `${p.x.toFixed(2)}%`;
       this.labelLayer.appendChild(label);
-    });
+    }
+
+    this.ruler.textContent = '';
+    for (const t of rulerTicks(T, leftPct)) {
+      const tick = add(this.ruler, 'span', 'rb-tick' + (t.x <= 1 ? ' edge' : t.x >= 99.5 ? ' now' : ''));
+      tick.textContent = t.label;
+      tick.style.left = `${t.x.toFixed(2)}%`;
+    }
 
     // Live marks, drawn on the same log axis as everything else. The server
     // sends each mark as {age_seconds, frame}: age for the log-axis position,
@@ -458,21 +465,37 @@ export class Ribbon {
     }
     this.bandLayer.hidden = !!this.sel;
     this.renderBar(ax);
+    this.paint();
   }
 
-  drawWave(bytes) {
-    const n = bytes.length;
-    if (!n) return;
-    this.svg.setAttribute('viewBox', `0 0 ${Math.max(n - 1, 1)} 100`);
-
-    const top = [];
-    const bot = [];
-    for (let i = 0; i < n; i++) {
-      const a = (bytes[i] / 255) * 47; // 47 leaves room for the label scrim
-      top.push(`${i},${(50 - a).toFixed(2)}`);
-      bot.push(`${i},${(50 + a).toFixed(2)}`);
+  // paint draws the tape: the whole ring, with the chosen length -- or a span
+  // held on the ribbon -- lit.
+  paint() {
+    const d = this.data;
+    const r = this.canvas.getBoundingClientRect();
+    if (!d || r.width <= 0 || r.height <= 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = r.width, H = r.height;
+    if (this.canvas.width !== Math.round(W * dpr) || this.canvas.height !== Math.round(H * dpr)) {
+      this.canvas.width = Math.round(W * dpr);
+      this.canvas.height = Math.round(H * dpr);
     }
-    this.path.setAttribute('d', `M${top.join(' L')} L${bot.reverse().join(' L')} Z`);
+    const ctx = this.ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const T = d.ring_seconds, A = d.edge_seconds;
+    const px = (age) => (axisPct(age, A, T) / 100) * W;
+    let lit = null;
+    const ax = this.axis();
+    if (this.sel && ax) {
+      const fromAge = Math.min(ageOf(this.sel.from, ax.total, ax.sr), d.buffered_seconds);
+      const toAge = this.sel.to == null ? 0 : Math.min(ageOf(this.sel.to, ax.total, ax.sr), d.buffered_seconds);
+      lit = [px(fromAge), this.sel.to == null ? W : px(toAge)];
+    } else if (this.selected != null) {
+      lit = [px(this.selected === 0 ? T : this.selected), W];
+    }
+    this.colors ||= ribbonColors((name, fb) => token(name, fb, this.wrap));
+    drawRibbon(ctx, { W, H, levels: this.levels, lit, colors: this.colors });
   }
 
   readoutText(d, span) {

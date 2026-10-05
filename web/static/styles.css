@@ -78,6 +78,9 @@
   --trace:       #f6e7c4;
   --trace-hot:   #fff8e8;
   --trace-glow:  rgba(255,226,170,.75);
+  --oxide-ruler: #1d1209;
+  --oxide-tick:  rgba(255,236,210,.35);
+  --oxide-label: #cdb894;
   /* cassettes: paper, printed stripes and plastic, the same in both schemes.
      Stripe legends are dark: the design's light legends on orange, teal and
      blue read under 4.5:1, and blue and magenta are a shade lighter so a
@@ -387,28 +390,33 @@ main {
 .viz-wrap {
   position: relative;
   height: 132px;
-  background: var(--well);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  --rb-ruler: 22px;
+  background: var(--oxide);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 1px 0 var(--hl), 0 18px 34px -24px var(--sh-strong);
   overflow: hidden;
 }
-/* Ribbon internals. Every layer is inset:0 and unpositioned in the stacking
-   sense, so paint order is DOM order and .stale::after -- generated content,
-   and therefore the last box -- still lands on top. */
-.rb-layer { position: absolute; inset: 0; pointer-events: none; }
-
-.rb-wave { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.rb-wave path { fill: var(--wave); }
+/* Ribbon internals: the tape is a canvas (lib/ribbon-draw.js), with the
+   tiers, flags, selection and the record head in layers over it. Every layer
+   is unpositioned in the stacking sense, so paint order is DOM order and
+   .stale::after -- generated content, and therefore the last box -- still
+   lands on top. The ruler strip runs along the bottom. */
+.rb-canvas { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - var(--rb-ruler)); display: block; }
+.rb-layer { position: absolute; inset: 0 0 var(--rb-ruler); pointer-events: none; }
 
 /* Time the buffer has not reached yet. Never drawn as a flat line: that reads
    as silence, and the two are completely different facts. */
 .rb-hatch {
-  position: absolute; top: 0; bottom: 0; left: 0; width: 0;
-  background: repeating-linear-gradient(
-    45deg, color-mix(in srgb, var(--rule) 55%, transparent) 0 5px, transparent 5px 10px);
+  position: absolute; top: 0; bottom: var(--rb-ruler); left: 0; width: 0;
+  background: repeating-linear-gradient(45deg, var(--well-rule) 0 5px, transparent 5px 10px);
 }
 
-.rb-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* The chosen length, an orange wash with a bright leading edge. */
+.rb-band {
+  position: absolute; top: 0; bottom: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 
 /* A span held and dragged on the ribbon. Hold-to-select must not start the
    phone's text selection or callout, and a vertical swipe still scrolls. */
@@ -429,67 +437,73 @@ main {
 .rb-sel .icon-btn { flex: none; min-height: var(--tap); }
 .rb-flag-actions { flex-direction: column; align-items: stretch; }
 
-.rb-mark { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--rule) 90%, transparent); }
-.rb-mark.on { background: color-mix(in srgb, var(--accent) 70%, transparent); }
+/* Where each capture length starts: a dashed line down the tape. */
+.rb-mark { position: absolute; top: 0; bottom: 0; width: 1px; background: repeating-linear-gradient(180deg, var(--oxide-tick) 0 3px, transparent 3px 6px); }
+.rb-mark.on { background: var(--accent); }
 
-/* A live flag: a point, not a range, so it is a positioned tick rather than a
-   library region. The flag glyph on top makes it findable at a glance among
-   the tier marks, which share this layer's general shape but not its color.
-   Clickable -- it backs undo of a mistap (DELETE /api/flag?frame=N) -- so
-   .rb-layer's blanket pointer-events: none is overridden back to auto here. */
+/* A live flag: a yellow pennant stuck in the tape. Clickable -- it backs undo
+   of a mistap (DELETE /api/flag?frame=N) -- so .rb-layer's blanket
+   pointer-events: none is overridden back to auto here. */
 .rb-flag {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--flag);
-  box-shadow: 0 0 4px color-mix(in srgb, var(--flag) 60%, transparent);
-  pointer-events: auto;
-  cursor: pointer;
+  position: absolute; bottom: 4px; height: 18px; width: 2px; margin-left: -1px;
+  background: var(--flag); border-radius: 1px;
+  pointer-events: auto; cursor: pointer;
 }
 .rb-flag::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -3px;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid var(--flag);
+  content: ''; position: absolute; top: 0; left: 2px; width: 9px; height: 7px;
+  background: var(--flag); clip-path: polygon(0 0, 100% 0, 72% 50%, 100% 100%, 0 100%);
 }
-/* A transparent hit box, well past the 2px visual bar: a hairline is nearly
-   impossible to land a tap on, and this widens the target without touching
-   how the tick itself looks. */
-.rb-flag::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -6px;
-  right: -6px;
-}
+/* A transparent hit box, well past the pennant: a hairline is nearly
+   impossible to land a tap on. */
+.rb-flag::after { content: ''; position: absolute; top: -8px; bottom: -6px; left: -8px; right: -14px; }
 
-.rb-scrim {
-  position: absolute; top: 0; left: 0; right: 0; height: 22px;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--well) 92%, transparent), transparent);
-}
-
+/* A pill at each capture length; the chosen one lit orange. */
 .rb-label {
-  position: absolute; top: 5px; padding: 0 4px;
-  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
-  color: var(--well-dim); white-space: nowrap;
+  position: absolute; top: 7px; transform: translateX(-50%); padding: 1px 7px; border-radius: 6px;
+  font: 600 11px var(--mono); white-space: nowrap;
+  background: rgba(0,0,0,.45); color: var(--well-ink);
 }
-/* Orange and red are too dark to read on the black window at 10px, so the
-   window's own ink lifts them. */
-.rb-label.on { color: color-mix(in srgb, var(--accent) 60%, var(--well-ink)); }
-.rb-now-label { right: 7px; left: auto; color: color-mix(in srgb, var(--rec) 70%, var(--well-ink)); }
+.rb-label.edge { transform: translateX(6px); }
+.rb-label.on { background: var(--accent); color: var(--on-accent); box-shadow: 0 0 10px var(--accent-glow); }
 
-.rb-now { position: absolute; top: 0; bottom: 0; right: 0; width: 2px; background: var(--rec); }
+/* The record head at "now": always recording, so always lit. */
+.rb-now {
+  position: absolute; top: 0; bottom: var(--rb-ruler); right: 0; width: 3px;
+  background: var(--rec); box-shadow: 0 0 12px color-mix(in srgb, var(--rec) 90%, transparent), 0 0 2px var(--rec);
+}
+.rb-now-label {
+  position: absolute; right: 10px; top: 8px; display: inline-flex; align-items: center; gap: 5px;
+  font: 600 10.5px var(--mono); letter-spacing: .12em;
+  color: color-mix(in srgb, var(--rec) 70%, var(--well-ink));
+  text-shadow: 0 0 7px color-mix(in srgb, var(--rec) 85%, transparent);
+}
+.rb-rec-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--rec);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--rec) 90%, transparent);
+  animation: recblink 1.6s ease-in-out infinite;
+}
+@keyframes recblink { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .rb-rec-dot { animation: none; } }
+
+/* The strip under the tape: how long ago, from the ring's oldest end to now. */
+.rb-ruler {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--rb-ruler); overflow: hidden;
+  background: var(--oxide-ruler); box-shadow: inset 0 1px 0 rgba(0,0,0,.45);
+}
+.rb-tick {
+  position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding-top: 2px;
+  transform: translateX(-50%); font: 10.5px/1 var(--mono); color: var(--oxide-label); white-space: nowrap;
+}
+.rb-tick::before { content: ''; position: absolute; top: 0; left: 50%; width: 1px; height: 4px; background: var(--oxide-tick); }
+.rb-tick.edge { transform: translateX(6px); }
+.rb-tick.edge::before { left: -6px; }
+.rb-tick.now { transform: translateX(calc(-100% - 8px)); }
+.rb-tick.now::before { display: none; }
 
 .rb-readout {
-  position: absolute; left: 9px; bottom: 6px; margin: 0;
+  position: absolute; left: 9px; bottom: calc(var(--rb-ruler) + 6px); margin: 0;
   font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
-  color: var(--well-dim); white-space: nowrap;
+  color: var(--oxide-label); white-space: nowrap;
 }
 
 .viz-wrap.stale::after {
@@ -1212,11 +1226,12 @@ dialog.sheet::backdrop { background: var(--scrim); }
   .main-page main { padding-top: 8px; gap: 10px; }
   .col { gap: 8px; }
   .panel { padding: 10px; }
-  .viz-wrap { height: 64px; }
+  .viz-wrap { height: 64px; --rb-ruler: 0px; }
 
-  /* 64px of ribbon has no room for a readout under the waveform. The same
-     tier already drops .last and the channel diagnostic. */
-  .rb-readout { display: none; }
+  /* 64px of ribbon has no room for a readout or a ruler under the tape. The
+     same tier already drops .last and the channel diagnostic. */
+  .rb-readout, .rb-ruler { display: none; }
+  .rb-label { top: 4px; }
 
   .col-monitor #chan-diag { display: none; }
   .last { display: none; }
@@ -2300,7 +2315,7 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 .tape-where .clock-out.none { background: var(--warn); color: var(--lcd); }
 
 /* Wells: where audio is drawn, recessed into the faceplate. */
-.viz-wrap, .overview-canvas, .wave-canvas, .tape-overview, .tt-lane, .lane, .tape-ruler {
+.overview-canvas, .wave-canvas, .tape-overview, .tt-lane, .lane, .tape-ruler {
   background: var(--well);
   border: 1px solid var(--well-line);
   box-shadow: inset 0 2px 0 var(--shadow);

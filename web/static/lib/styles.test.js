@@ -204,6 +204,17 @@ test('a spine hides its controls and lets a press fall through to it', () => {
     assert.ok(said(`.shelf-page .take.spine ${p}`, /pointer-events:\s*none/), `${p} takes the spine's press`);
 });
 
+// The ribbon's print -- its ruler and readout -- sits on the tape itself.
+test('print on the ribbon reads on the oxide and on its ruler', () => {
+  for (const bg of ['--oxide', '--oxide-ruler']) {
+    assert.ok(light[bg], `light lacks ${bg}`);
+    const c = contrast(light['--oxide-label'], light[bg]);
+    assert.ok(c >= 4.5, `--oxide-label on ${bg} is ${c.toFixed(2)}:1`);
+  }
+  const at = css.search(/^\.rb-readout\s*\{/m);
+  assert.match(block(at), /color:\s*var\(--oxide-label\)/);
+});
+
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);
