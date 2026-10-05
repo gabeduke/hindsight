@@ -187,9 +187,10 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
   pins above them. **▾** is the playhead; drag it to scrub silently. With a
   BPM, bar **1** is the downbeat; drag it to line the grid up.
-- **The take, on tape:** its sound as a glowing trace on brown oxide, left
-  above right, lit where it has played, on the same scale as its cassette on
-  the takes page.
+- **The take, on tape:** its sound as a glowing trace on brown oxide (a
+  stereo take left above right; anything else as one lane), lit where it has
+  played, on the same scale as its cassette on the takes page. It's the
+  sound's envelope: at the closest zoom it doesn't show each wave crossing.
 - **The grips,** under the waveform at the selection's ends, with the move
   handle between them.
 - **The toolbar:** ▶ · ⟲ Loop · In · Out · ⚑ · ◂⚑ ⚑▸; then, with a

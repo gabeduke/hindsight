@@ -48,8 +48,10 @@ function deviceScale(ctx) {
  * {color, blur}, blur in CSS px. The fill follows the edges from x0 to
  * x0 + n * dx. The context comes back as it was handed over.
  */
-export function drawTrace(ctx, top, bot, { cy, half, gain = 1, gamma = 1, x0 = 0, dx = 1, line, fill = line, fillAlpha = 0.07, width = 1, glow = [] }) {
-  const { x, upper, lower } = traceLines(top, bot, { cy, half, gain, gamma, x0, dx });
+export function drawTrace(ctx, top, bot, { cy, half, gain = 1, gamma = 1, x0 = 0, dx = 1, line, fill = line, fillAlpha = 0.07, width = 1, glow = [], lines = null }) {
+  // `lines` (from traceLines, or sliceLines of them) skips working them out
+  // again: a lit pass over an unlit one draws the same geometry.
+  const { x, upper, lower } = lines || traceLines(top, bot, { cy, half, gain, gamma, x0, dx });
   const n = x.length;
   if (!n) return;
   ctx.save();
@@ -79,6 +81,13 @@ export function drawTrace(ctx, top, bot, { cy, half, gain = 1, gamma = 1, x0 = 0
     ctx.stroke();
   }
   ctx.restore();
+}
+
+/** sliceLines keeps a trace's points up to x = xMax (and one past it). */
+export function sliceLines(lines, xMax) {
+  let k = 0;
+  while (k < lines.x.length && lines.x[k] <= xMax + 1) k++;
+  return { x: lines.x.subarray(0, k), upper: lines.upper.subarray(0, k), lower: lines.lower.subarray(0, k) };
 }
 
 /** grainXs are the x positions of the oxide's grain lines. */

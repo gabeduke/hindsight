@@ -3,7 +3,7 @@
 // to the take's own peak and lifted the way the design draws them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelsFor, levelsOfColumns, takeGain, lift, smooth, barSegments, drawBars } from './draw.js';
+import { levelsFor, levelsOfColumns, laneChannels, takeGain, lift, smooth, barSegments, drawBars } from './draw.js';
 
 // Two channels, eight buckets of min,max pairs.
 const pd = {
@@ -128,4 +128,10 @@ test('levelsOfColumns reads one channel of tile columns', () => {
 
 test('levelsOfColumns folds every channel, and a column with no data is silence', () => {
   same(levelsOfColumns(cols, 2), [0.5, 0, 0.6]);
+});
+
+test('laneChannels: a stereo take is two lanes, anything else one folded lane', () => {
+  assert.deepEqual(laneChannels(2), [0, 1]);
+  assert.deepEqual(laneChannels(1), [-1]);
+  assert.deepEqual(laneChannels(8), [-1]); // SAVE_ALL_CHANNELS: folded, as the overview and cassette
 });

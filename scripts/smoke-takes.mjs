@@ -144,20 +144,47 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await ctx.close();
 }
 
-// The take page draws its take on tape, and a phone's notes strip draws it too.
+// The take page draws its take on tape -- brown oxide with a cream trace on
+// it, without an error -- and a phone's notes strip draws it too.
 {
+  const takes = await (await fetch(`${BASE}/api/jams`)).json();
+  const url = `${BASE}/wave.html?file=${encodeURIComponent(takes[0].name)}`;
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const p = await ctx.newPage();
-  const takes = await (await fetch(`${BASE}/api/jams`)).json();
-  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(takes[0].name)}`);
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  await p.goto(url);
   await p.waitForTimeout(2500);
-  const px = await p.evaluate(() => {
+  const r = await p.evaluate(() => {
     const cv = document.querySelector('.wave-canvas');
-    const d = cv.getContext('2d').getImageData(Math.round(cv.width * 0.5), Math.round(cv.height * 0.3), 1, 1).data;
-    return [...d];
+    const g = cv.getContext('2d');
+    const mid = g.getImageData(Math.round(cv.width * 0.5), Math.round(cv.height * 0.3), 1, 1).data;
+    // Somewhere down one column of the body, the trace: a light, warm pixel.
+    const col = g.getImageData(Math.round(cv.width * 0.6), 0, 1, cv.height).data;
+    let trace = false;
+    for (let i = 0; i < col.length; i += 4) if (col[i] > 180 && col[i + 1] > 150 && col[i] >= col[i + 2]) trace = true;
+    return { oxide: mid[0] > mid[1] && mid[1] > mid[2], trace };
   });
-  check('the take view is on tape (brown under the trace)', px[0] > px[1] && px[1] > px[2] && px[3] === 255, px.join(','));
+  check('the take view is on tape (brown under the trace)', r.oxide);
+  check('the take view draws its trace', r.trace);
+  check('the take page draws without an error', errors.length === 0, errors.join('; '));
   await ctx.close();
+
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  const q = await phone.newPage();
+  await q.goto(url);
+  await q.waitForTimeout(2500);
+  const lit = await q.evaluate(async () => {
+    document.getElementById('notes-open').click();
+    await new Promise((res) => setTimeout(res, 800));
+    const cv = document.getElementById('notes-strip');
+    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    let n = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
+    return n;
+  });
+  check("a phone's notes strip draws the take", lit > 0, `${lit} px`);
+  await phone.close();
 }
 
 await browser.close();

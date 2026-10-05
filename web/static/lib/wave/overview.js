@@ -122,9 +122,12 @@ export class Overview {
     ctx.fillStyle = col('--flag', '#b58900');
     for (const f of st.flags || []) ctx.fillRect(Math.round((f.frame / this.total) * W), 0, 1, H);
 
-    // Playhead
-    ctx.fillStyle = col('--accent', '#cb4b16');
-    ctx.fillRect(Math.round((st.cursor / this.total) * W), 0, 1, H);
+    // Playhead: light, with a dark edge, to read on the tape.
+    const px = Math.round((st.cursor / this.total) * W);
+    ctx.fillStyle = col('--oxide-edge', '#23150b');
+    ctx.fillRect(px - 1, 0, 4, H);
+    ctx.fillStyle = col('--trace-hot', '#fff8e8');
+    ctx.fillRect(px, 0, 2, H);
 
     // Viewport window
     const { x, w } = windowRect(this.getView(), this.total, W);

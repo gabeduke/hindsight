@@ -1101,7 +1101,7 @@ async function main() {
     const waveOn = token('--wave', '#268bd2'), waveOff = token('--wave-dim', '#a3b0ae');
     // The take's trace, on its own scale (as its view above), lit where played.
     const opts = { cy: H / 2, half: H / 2 - 2, gain: stripGain ??= takeGain(filePeaks), fillAlpha: 0.3 };
-    drawTrace(stripCtx, stripCols, stripCols, { ...opts, line: waveOff });
+    drawTrace(stripCtx, stripCols, stripCols, { ...opts, fillAlpha: 0.45, line: waveOff });
     stripCtx.save();
     stripCtx.beginPath();
     stripCtx.rect(0, 0, played, H);

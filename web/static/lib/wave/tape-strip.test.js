@@ -2,7 +2,7 @@
 // The trace on tape: a smoothed line along the envelope over brown oxide.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { traceLines, grainXs, paintOxide, drawTrace, oxideColors } from './tape-strip.js';
+import { traceLines, grainXs, paintOxide, drawTrace, oxideColors, sliceLines } from './tape-strip.js';
 
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, `${a} != ${b}`);
 
@@ -110,4 +110,19 @@ test('drawTrace draws as many points as both edges have', () => {
   const ctx = recorder();
   drawTrace(ctx, [0.5, 0.5, 0.5], [0.5], { cy: 10, half: 8, line: '#fff' });
   assert.equal(ctx.calls.filter((c) => c[0] === 'stroke').length, 1);
+});
+
+test('drawTrace draws lines it is handed, without working them out again', () => {
+  const ctx = recorder();
+  const lines = { x: Float32Array.from([7, 8]), upper: Float32Array.from([1, 2]), lower: Float32Array.from([3, 4]) };
+  drawTrace(ctx, null, null, { cy: 10, half: 8, line: '#fff', lines });
+  const moves = ctx.calls.filter((c) => c[0] === 'moveTo').map((c) => c.slice(1));
+  assert.deepEqual(moves.slice(1), [[7, 1], [7, 3]]);
+});
+
+test('sliceLines keeps the points up to an x, for the part played', () => {
+  const lines = traceLines([0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5], { cy: 10, half: 8 });
+  const cut = sliceLines(lines, 2);
+  assert.deepEqual([...cut.x], [0.5, 1.5, 2.5]);
+  assert.equal(cut.upper.length, 3);
 });

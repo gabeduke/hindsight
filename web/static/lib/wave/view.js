@@ -19,8 +19,8 @@
 // The pointer machinery is lib/edit/gestures.js, shared with the tape page.
 
 import { frameToX, xToFrame, gridLines, rulerTicks, snapFrame, clampRegion } from './geometry.js';
-import { levelsOfColumns, takeGain } from './draw.js';
-import { drawTrace, paintOxide, oxideColors } from './tape-strip.js';
+import { levelsOfColumns, laneChannels, takeGain } from './draw.js';
+import { drawTrace, traceLines, sliceLines, paintOxide, oxideColors } from './tape-strip.js';
 import { GestureSurface } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
 import { greaseStroke, labelPlaces } from './grease.js';
@@ -263,10 +263,21 @@ export class WaveView extends GestureSurface {
     // The take on tape: brown oxide between a dark ruler and grip strip.
     ctx.fillStyle = col('--oxide-ruler', '#1d1209');
     ctx.fillRect(0, 0, W, H);
-    ctx.save();
-    ctx.translate(0, top);
-    paintOxide(ctx, W, bottom - top, oxideColors(col));
-    ctx.restore();
+    // The oxide doesn't change with the view: painted once per size into a
+    // cache (its three gradients are most of a frame's cost where the canvas
+    // is drawn on the CPU), then copied.
+    const bodyH = bottom - top;
+    const okey = `${W}x${bodyH}@${dpr}`;
+    if (this.oxideKey !== okey) {
+      this.oxide ||= typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
+      this.oxide.width = Math.max(1, Math.round(W * dpr));
+      this.oxide.height = Math.max(1, Math.round(bodyH * dpr));
+      const octx = this.oxide.getContext('2d');
+      octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      paintOxide(octx, W, bodyH, oxideColors(col));
+      this.oxideKey = okey;
+    }
+    ctx.drawImage(this.oxide, 0, top, W, bodyH);
 
     const sel = st.region;
     const sx0 = sel ? frameToX(sel.start, view) : 0, sx1 = sel ? frameToX(sel.end, view) : 0;
@@ -274,8 +285,11 @@ export class WaveView extends GestureSurface {
     // Selection band, across ruler, body and grips, so its extent reads at
     // a glance wherever the eye is.
     if (sel) {
+      // A little stronger over the tape, where brown takes some of it.
       ctx.fillStyle = withAlpha(col('--sel', '#268bd2'), 0.14);
       ctx.fillRect(sx0, 0, sx1 - sx0, H);
+      ctx.fillStyle = withAlpha(col('--sel', '#268bd2'), 0.08);
+      ctx.fillRect(sx0, top, sx1 - sx0, bottom - top);
     }
 
     // Beat and bar lines in the body.
@@ -291,7 +305,8 @@ export class WaveView extends GestureSurface {
     // take is two lanes, left above right; the part played is lit.
     const { cols, channels } = this.tiles.columns(view, dpr);
     this.gain ??= takeGain(this.tiles.filePeaks);
-    const lanes = Math.min(2, channels);
+    const laneCh = laneChannels(channels);
+    const lanes = laneCh.length;
     const laneH = (bottom - top) / lanes;
     const edge = col('--oxide-edge', '#23150b');
     ctx.save();
@@ -300,17 +315,19 @@ export class WaveView extends GestureSurface {
     const glow = col('--trace-glow', 'rgba(255,226,170,.75)');
     const cx = st.cursor != null ? frameToX(st.cursor, view) : 0;
     for (let i = 0; i < lanes; i++) {
-      const lv = levelsOfColumns(cols, channels, lanes === 2 ? i : -1);
+      const lv = levelsOfColumns(cols, channels, laneCh[i]);
       const opts = { cy: top + laneH * (i + 0.5), half: laneH / 2 - 7, gain: this.gain };
+      // Worked out once; the lit pass draws only the part played.
+      const lines = traceLines(lv, lv, opts);
       ctx.save();
       ctx.globalAlpha = 0.55;
-      drawTrace(ctx, lv, lv, { ...opts, line: col('--trace', '#f6e7c4'), glow: [{ color: withAlpha(glow, 0.25), blur: 3 }] });
+      drawTrace(ctx, null, null, { ...opts, lines, line: col('--trace', '#f6e7c4'), glow: [{ color: withAlpha(glow, 0.25), blur: 3 }] });
       ctx.restore();
       if (cx > 0) {
         ctx.save();
         ctx.beginPath(); ctx.rect(0, top, cx, bottom - top); ctx.clip();
-        drawTrace(ctx, lv, lv, {
-          ...opts, line: col('--trace-hot', '#fff8e8'), fillAlpha: 0.14, width: 1.3,
+        drawTrace(ctx, null, null, {
+          ...opts, lines: sliceLines(lines, cx), line: col('--trace-hot', '#fff8e8'), fillAlpha: 0.14, width: 1.3,
           glow: [{ color: glow, blur: 2 }, { color: withAlpha(glow, 0.35), blur: 8 }],
         });
         ctx.restore();
@@ -356,7 +373,8 @@ export class WaveView extends GestureSurface {
     // A pending In or Out, waiting for its other half.
     if (st.pending) {
       const x = frameToX(st.pending.frame, view);
-      ctx.strokeStyle = col('--accent', '#cb4b16');
+      // On tape the orange is too dark to find: the trace's own light ink.
+      ctx.strokeStyle = col('--trace-hot', '#fff8e8');
       ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, PIN_H); ctx.lineTo(Math.round(x) + 0.5, bottom); ctx.stroke();
       ctx.setLineDash([]);
@@ -431,8 +449,13 @@ export class WaveView extends GestureSurface {
     // The playhead: a line, and the handle in the ruler.
     if (st.cursor != null) {
       const cx = frameToX(st.cursor, view);
+      // A light line with a dark edge either side, so it reads on oxide (the
+      // orange alone is under 2:1 there); the handle in the ruler stays orange.
+      ctx.fillStyle = col('--oxide-edge', '#23150b');
+      ctx.fillRect(Math.round(cx) - 1, PIN_H + 11, 4, bottom - PIN_H - 11);
+      ctx.fillStyle = col('--trace-hot', '#fff8e8');
+      ctx.fillRect(Math.round(cx), PIN_H + 11, 2, bottom - PIN_H - 11);
       ctx.fillStyle = col('--accent', '#cb4b16');
-      ctx.fillRect(Math.round(cx), PIN_H, 1, bottom - PIN_H);
       ctx.beginPath();
       ctx.moveTo(cx - 7, PIN_H + 1); ctx.lineTo(cx + 7, PIN_H + 1); ctx.lineTo(cx, PIN_H + 11); ctx.closePath();
       ctx.fill();

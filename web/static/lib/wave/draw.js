@@ -95,7 +95,8 @@ export function levelsFor(pd, n, { b0 = 0, b1 = pd.buckets, channel = -1 } = {})
  * levelsOfColumns reads levels from columns in peakColumns' layout (the
  * take page's tiles: width x channels x min,max): per column, the largest
  * absolute sample on one channel, or on all of them when `channel` is
- * negative. A column with no data yet (NaN) is silence.
+ * negative. A column with no data (NaN, or the zeros the tile cache fills a
+ * pending one with) is silence.
  */
 export function levelsOfColumns(cols, channels, channel = -1) {
   const width = Math.floor(cols.length / (channels * 2));
@@ -111,6 +112,16 @@ export function levelsOfColumns(cols, channels, channel = -1) {
     out[x] = v;
   }
   return out;
+}
+
+/**
+ * laneChannels is which channels a take's view draws as lanes: a stereo take
+ * left above right; anything else -- mono, or every input saved
+ * (SAVE_ALL_CHANNELS) -- one lane of them all folded, as its overview and
+ * its cassette draw it.
+ */
+export function laneChannels(channels) {
+  return channels === 2 ? [0, 1] : [-1];
 }
 
 /**
