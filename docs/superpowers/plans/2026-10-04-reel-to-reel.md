@@ -478,7 +478,7 @@ git commit -m "Canvases draw on black windows with the window inks"
 
 **PR 2: waveform drawing**: detailed below, after PR 6.
 
-**PR 3: takes as cassettes** (`lib/shelf*.js`, `takes.html`, `styles.css`)
+**PR 3: takes as cassettes**: detailed below, after PR 2. Scope as first written: (`lib/shelf*.js`, `takes.html`, `styles.css`)
 - **The rack:** each row becomes a spine: a case edge with a J-card, a coloured side-A band, the name in Permanent Marker, the length, small bars and an LED.
 - **The picked take:** a full cassette with a label, a window, hubs that turn while playing (CSS `animation-play-state`), and packs that follow the playhead.
 - **Phone:** a spine opens the cassette view.
@@ -587,3 +587,99 @@ git commit -m "Canvases draw on black windows with the window inks"
 - [ ] **Step 4:** PASS; whole suite PASSes. Then a visual check: a scratch page (not committed) draws one demo take's peaks as bars (cassette window, 2.2 px at 4 px pitch on `--well`) and as a stereo trace on oxide, in light and dark, side by side with the canvas boards. Compare and note differences in the ledger.
 - [ ] **Step 5:** Commit `Trace on tape: a glowing line on brown oxide`.
 
+---
+
+## PR 3: takes as cassettes (detailed 2026-10-05)
+
+**Branch:** `claude/reel-3-cassettes` from `main` after PR 2. **Scope:** the takes page only. The main page's latest-take card keeps its row until PR 4 replaces it with the shelf of spines, so everything here is opt-in (`TakesList({spines: true})`, `.shelf-page` CSS).
+
+**How it fits the code today.** `lib/takes.js` `TakesList` owns a row per take (`createRow`/`updateRow`): star, rename, tempo, a `RowWave` with flags, Play/Open/WAV/MIDI/Delete, long-press select. `lib/shelf-page.js` drives the takes page: on a wide screen (≥ 1100 px) a click picks a row and `lib/shelf-detail.js` `TakeDetail` shows it in a pane, playing through the row's own player (`takes.player(name)`). Narrower, rows carry their own controls and there is no pane.
+
+**The change (rulings, taken here once):**
+- On the takes page every row is a **spine** at every width: a case edge, a cream J-card with a coloured side-A band, the name in Permanent Marker, a star when starred, the length, small printed bars and an LED. A spine is for picking: its name, tempo, star and bars take no clicks of their own, so a press anywhere picks it. Long-press still selects.
+- Everything a row did inline moves to the **cassette**: the picked take's pane, which shows the take as a cassette (label with the stripe band, HINDSIGHT, the date stamp and the handwritten name; a window with the bars, turning hubs, tape packs that move with the playhead, grease IN/OUT and the playhead), and under it Play, Open the take, the downloads, Delete, rename (the name), tempo and the flags (each a button that seeks).
+- **Wide** (≥ 1100 px): rack and cassette side by side, as the pane works today. **Narrower**: a spine opens the cassette as a full-screen sheet with a "‹ Takes" back key; the device's Back closes it (one history entry per opening), as does Escape. Focus moves into the sheet and back to the spine.
+- The J-card is paper and the stripes are printed, so their colours are the same in both schemes. Each take keeps its stripe: `stripeOf(name)` hashes the name onto five stripes.
+- The LED is lit on the picked spine (`--wave-hot`, as the design), and pulses while that take plays.
+
+**Design values** (canvas `cassette.py`): spine 48 px tall, 7 px radius, padding 3/3/4, case gradient `--case-hi → --case-lo`, 1 px `--case-edge`; J-card `linear-gradient(--paper-hi, --paper-lo)`, 4 px radius; side band 30 px wide, Barlow 700 15 px; name Permanent Marker 16 px; meta Plex Mono 11.5 px; bars 150 × 24, 2 px round strokes at 4 px pitch; LED 7 px. Picked: `translateX(12px)`, a 2 px `--focus` ring and a deeper shadow; hover (pointer only) `translateX(6px)`; transitions .22 s `cubic-bezier(.3,.7,.3,1)`, none under reduced motion. Cassette face (desk 786 × 300, phone 362 × 220): body `radial-gradient(ellipse at 30% 0%, #3a3b40, #1d1e21 55%, #121315)`, radius 20 (14), five screws; label inset 34/22 (14/14), paper, 10 px radius, band 34 (26) px in the stripe colour with a 3 px second stripe under it; window inset 40 px into the label at y 98 (72), height 104 (84), pill-shaped, dark glass `radial-gradient(#2a2a2c, #121214 70%)` with an inset shadow and a glare `linear-gradient(170deg, rgba(255,255,255,.16), transparent 42%)`; hubs 44 px at 60 (40) px from each end, turning 2.2 s per turn while playing; packs `#3b2516` circles from 14 px to 40 px radius (area-true); bars `--wave` at 55 % unplayed and `--wave-hot` with a 4 px glow played, 2.2 px at 4 px pitch; grease IN/OUT 2.6 px `--grease-mark` with Permanent Marker labels; playhead 2 px `--accent` with a glow. Colours that are object colours (body, glass, packs, screws, hub plastic) become tokens beside the tape tokens, the same in both schemes.
+
+### Task 9: Paper, stripes and cassette colours
+
+**Files:** `web/static/styles.css` (`:root`), `web/static/lib/styles.test.js`.
+
+**Interfaces:** produces tokens, one value in both schemes:
+- paper: `--paper-hi #f8f1de`, `--paper-lo #eadfc2`, `--paper-ink #1c2430`, `--paper-dim #5a5547`, `--paper-bars rgba(40,52,60,.62)`, `--paper-bars-on #1f6f68`, `--paper-rule rgba(28,36,48,.16)`
+- stripes `--stripe-1` … `--stripe-5` = `#e0662a #2aa198 #d9a114 #268bd2 #d33682`, each with `--stripe-N-ink` (the band's legend) and `--stripe-N-under` (the thin second stripe: the next stripe's colour)
+- cassette: `--cas-hi #3a3b40`, `--cas-mid #1d1e21`, `--cas-lo #121315`, `--cas-screw #3a3b40`, `--cas-slot #0c0c0d`, `--glass-hi #2a2a2c`, `--glass-lo #121214`, `--hub #efe9d8`, `--hub-core #1a1b1d`, `--hub-tooth #d9d4c6`, `--pack #3b2516`, `--pack-edge rgba(255,220,180,.16)`
+
+- [ ] **Step 1: Failing test.** `styles.test.js`: every token above exists in `:root`; `--paper-ink` and `--paper-dim` on `--paper-lo` ≥ 4.5:1; each `--stripe-N-ink` on `--stripe-N` ≥ 4.5:1 (pick `#1c2430` or `#fff7ea` per stripe, whichever passes; the design's light inks on orange, teal and blue are under 4.5); `--paper-bars-on` on `--paper-lo` ≥ 3:1 (graphics).
+- [ ] **Step 2:** FAIL. **Step 3:** add the tokens under a `/* cassettes: paper, stripes and plastic, the same in both schemes */` comment. **Step 4:** PASS, whole suite PASS.
+- [ ] **Step 5:** Commit `Cassette colours: paper, printed stripes and plastic`.
+
+### Task 10: Cassette maths
+
+**Files:** create `web/static/lib/cassette-geom.js` and `web/static/lib/cassette-geom.test.js`.
+
+**Interfaces:**
+- `stripeOf(name) → 1..5`: FNV-1a of the name, mod 5, plus 1. The same name gives the same stripe on every page and load.
+- `packRadii(frac, rMin = 14, rMax = 40) → [left, right]`: tape moves from the left pack to the right one, area-true: `left = sqrt(rMin² + (rMax² − rMin²)(1 − f))`, `right = sqrt(rMin² + (rMax² − rMin²) f)`, `f` clamped to [0, 1].
+- `stampOf(take) → string`: `'SUN 4 OCT · 20:15'` from the take's name timestamp (`jam_YYYY-MM-DD_HHMMSS`), else from `mod_time`, else `''`.
+- `windowLayout(W, kind) → {…}`: the DESK / PHONE geometry above as numbers, so the DOM and the canvas share one source.
+
+- [ ] **Step 1: Failing tests:** `stripeOf` is stable and in range over 200 names and spreads them (each stripe gets 10–30 % of 200 generated names); `packRadii(0)` is `[40, 14]`, `packRadii(1)` is `[14, 40]`, `packRadii(.5)` gives equal areas, out-of-range fractions clamp; `stampOf({name: 'jam_2026-10-04_201512.wav'})` is `'SUN 4 OCT · 20:15'`; `windowLayout(786, 'desk').win.h` is 104 and `windowLayout(362, 'phone').win.h` is 84.
+- [ ] **Step 2–4:** FAIL, implement, PASS + suite.
+- [ ] **Step 5:** Commit `Cassette maths: a stripe per take, packs that trade tape`.
+
+### Task 11: Spines in the rack
+
+**Files:** `web/static/lib/takes.js`, `web/static/lib/wave/rowwave.js`, `web/static/lib/shelf-page.js`, `web/static/styles.css`; test `web/static/lib/wave/rowwave-look.test.js` (pure part).
+
+**Interfaces:**
+- `TakesList` option `spines = false`. With it, `createRow` adds `spine` and `stripe-N` classes to the row, an `<span class="spine-side" aria-hidden="true">A</span>` first and an `<span class="spine-led">` last inside `.take-head`, and the row gets `tabindex="0"` and `role="button"`, `aria-label` = the take's name and length.
+- `RowWave` option `look = 'row' | 'spine'`. `'spine'` draws `drawBars` of `smooth(levelsFor(…))` (2 px, pitch 4, `takeGain`) in `--paper-bars`, or `--paper-bars-on` when the row is picked (`setPicked(bool)`), takes no pointer input, and doesn't draw a selection or playhead.
+- The spine's layout is CSS only: `.shelf-page .take.spine` hides `.take-actions`, the inputs and the flag layer; the name, tempo, star and wave get `pointer-events: none`; the star shows only when starred.
+
+- [ ] **Step 1: Failing tests.** `rowwave-look.test.js`: a pure `spineBarCount(width, pitch = 4)` used by the spine look (`floor((w − 4) / pitch)`); styles tests: hover rules for `.spine` live in the hover block (the existing test covers it); a new test that `.shelf-page .take.spine` hides `.take-actions` and gives `.take-name, .take-bpm, .star, .wave` `pointer-events: none`.
+- [ ] **Step 2–3:** FAIL, then implement. `shelf-page.js` builds the list with `spines: true`; a click or Enter/Space on a spine picks it at every width (today: wide only); `pick` toggles `aria-current` and the row's `setPicked`.
+- [ ] **Step 4:** PASS + suite; in the browser at 1440 × 900 and 390 × 844, light and dark: spines read (name, star, length, bars, LED), the picked one slides out with its ring, Tab moves between spines with a visible ring, long-press still enters select mode, and the main page's latest take is unchanged.
+- [ ] **Step 5:** Commit `Takes as spines in a rack`.
+
+### Task 12: The cassette face
+
+**Files:** create `web/static/lib/cassette.js`; modify `web/static/lib/shelf-detail.js`, `web/static/styles.css`.
+
+**Interfaces:**
+- `CassetteFace({container, peaks, duration, audio, take, kind})` with RowWave's interface (`on`, `isPlaying`, `playPause`, `pause`, `setSelection`, `detach`, `destroy`) plus `setTake(take)` (name, stamp, stripe). DOM: `.cassette > svg.cas-screws, .cas-label (.cas-band, .cas-side, .cas-brand, .cas-stamp, .cas-name, .cas-window (canvas.cas-bars, .cas-hub ×2, .cas-glare)), .cas-foot`. The canvas draws packs, the selection tint, bars (unplayed, then played clipped to the playhead with a 4 px glow), grease IN/OUT (`greaseStroke`, seeded by frame) with their labels, and the playhead. Hubs are inline SVG turned by CSS `@keyframes reelspin`, `animation-play-state: running` only while playing; reduced motion leaves them still. A tap or horizontal drag in the window seeks, as RowWave.
+- `TakeDetail` draws a `CassetteFace` where it drew a `RowWave` (`kind` from the pane's width: phone geometry under 600 px).
+
+- [ ] **Step 1: Failing tests.** In `cassette-geom.test.js`: `playedX(frac, layout)` maps 0 and 1 to the window's bar extent; `inOutLabels(sel, layout)` keeps IN left of OUT and both inside the window, moving labels outside a selection narrower than 64 px (the design's rule).
+- [ ] **Step 2–3:** FAIL, implement.
+- [ ] **Step 4:** PASS + suite; in the browser: the picked take is a cassette in light and dark; Play turns the hubs and moves the packs and playhead; a tap in the window seeks; a take with a selection shows grease IN/OUT; reduced motion (emulated) keeps the hubs still.
+- [ ] **Step 5:** Commit `The picked take as a cassette`.
+
+### Task 13: Rename, tempo and flags on the cassette
+
+**Files:** `web/static/lib/shelf-detail.js`, `web/static/styles.css`.
+
+**Interfaces:** the pane's heading is a button that turns into `.take-name-input` (Enter or blur saves, Escape cancels, as the rows did); the meta's tempo is a button that turns into `.take-bpm-input` (empty clears; a non-number toasts); both call `takes.patchTake`. Flags are buttons (`.detail-flag`) that seek the player to the flag's frame.
+
+- [ ] **Step 1: Failing test.** Move the tempo parsing the rows use into a pure `parseBpm(raw) → {ok, value}` in `lib/shelf.js` and test it there (empty → null, `'96.5'` → 96.5, `'fast'` → not ok, `'0'` → not ok).
+- [ ] **Step 2–3:** FAIL, implement (rows and pane both use `parseBpm`).
+- [ ] **Step 4:** PASS + suite; in the browser: rename and tempo from the pane, the spine updates; a flag button seeks; keyboard only works.
+- [ ] **Step 5:** Commit `Rename, tempo and flags live on the cassette`.
+
+### Task 14: The cassette sheet on a phone
+
+**Files:** `web/static/lib/shelf-page.js`, `web/static/takes.html`, `web/static/styles.css`.
+
+**Interfaces:** below 1100 px, picking a spine opens `#take-detail` as a sheet (`body.cassette-open`): fixed, full height under the safe area, scrolling inside, with a `‹ Takes` back key (`.sheet-back`) at its top. Opening pushes one history entry (`{cassette: name}`); Back, the back key and Escape close it (closing by key pops the entry). Focus moves to the sheet heading on open and back to the spine on close. The bottom tabs stay hidden while the sheet is open.
+
+- [ ] **Step 1: Failing test.** A pure `sheetState(prev, event)` reducer in `lib/shelf.js` (`open name` / `close` / `popstate`) that says whether to push or pop history and what is open; tests cover open → back key (pop), open → popstate (no pop), open → open another (replace, not push).
+- [ ] **Step 2–3:** FAIL, implement.
+- [ ] **Step 4:** PASS + suite; in the browser at 390 × 844 and 844 × 390: a spine opens the sheet, the cassette fits, Back closes it, the list keeps its scroll position.
+- [ ] **Step 5:** Commit `On a phone, a spine opens its cassette`.
+
+### Task 15: Ship-ready
+
+- [ ] Bump `sw.js` `CACHE`; add `lib/cassette.js` and `lib/cassette-geom.js` to `SHELL`. Update the scale comments in `takes.js` and `rowwave.js` (the spine look draws on the new scale) and `docs/guide.md`'s scale sentence. Update the guide's takes section (`web/static/guide.html` or the guide source) where it describes rows' inline controls. `go vet ./... && go test ./...` and the node suite PASS. Review screenshots (takes page, 3 sizes × 2 schemes, plus the open sheet on a phone) into the workspace. Commit `PR 3: cache bump and the guide`.
