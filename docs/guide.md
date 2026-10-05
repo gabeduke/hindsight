@@ -885,17 +885,20 @@ there's none, it uses the start.
   tape has no tempo. Use it for a catch that was played at the tape's tempo.
 - **The track picker and Hit → Track** are for an overdub. Pick the track the
   part was played over, then press **Hit → Track**: the clip moves so its hit
-  lands on the nearest hit of that track. If either side has no hit to find,
-  it says so and doesn't move the clip.
+  lands on the nearest hit of that track. If that track has nothing under
+  the clip's hit, or no hit near it, it says so and leaves the clip where it
+  is. Tap the picked track's key again to unpick it.
 - **The readout** gives the hit's time to the sample and how far it is from
-  the nearest beat (*+2.5 ms from 5.1*). Once Hit → Track has a track to
-  work from, it also says how far it is from that track's hit (*−1.3 ms from
-  track 1*).
+  the nearest beat (*+2.5 ms from 5.1*). Once Hit → Track has found a hit on
+  a track, it also says how far the clip's hit is from that one (*−1.3 ms
+  from track 1*).
 - **Done**, or Escape, closes the editor.
 
 A clip's nudge is kept and counted. A clip sounds at its place plus its
 nudge, so that's where Align measures from and moves. Hit → Grid and
-Hit → Track change the place, and leave the nudge as it was.
+Hit → Track change the place, and leave the nudge as it was. A move that
+would go past the start or end of the tape stops there, so at the start
+Hit → Grid or Hit → Track may have nothing to do.
 
 **Checks — lining clips up:**
 
@@ -904,7 +907,7 @@ Hit → Track change the place, and leave the nudge as it was.
 - [demo] Catch a pass onto track 2, tap the clip, **Align** → the view
   centres on its first hit. **Hit → Grid** → the readout says *on* a beat.
 - [demo] Nudge a clip 7 ms late, **Align**, pick track 1, **Hit → Track** →
-  the readout says *0.0 ms from track 1* (or *on*). **↶** once → the clip is
+  the readout says *0.0 ms from track 1*. **↶** once → the clip is
   back where it was.
 - [demo] Turn POSITION in one drag, then **↶** → the clip is back, in one
   step.
