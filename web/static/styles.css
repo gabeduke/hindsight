@@ -1784,7 +1784,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-empty p { margin: 0 0 8px; }
 .tape-tempo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .tape-tempo-row input { width: 5.5em; min-height: 36px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font: 14px var(--mono); }
-.tape-overview { width: 100%; height: 28px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; }
+.tape-overview { width: 100%; height: 28px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .tape-lanes { display: flex; flex-direction: column; gap: 6px; }
 .tape-track { display: grid; grid-template-columns: 112px 1fr; gap: 6px; align-items: stretch; }
 .tape-track.selected .tt-head { border-color: var(--rec); box-shadow: 0 0 0 1px var(--rec), 0 0 14px color-mix(in srgb, var(--rec) 35%, transparent); }
@@ -1808,12 +1808,24 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tt-head .tt-name::before { content: none; }
   .tt-head .chip { min-width: 34px; padding: 0 8px; }
 }
+/* Narrow (phones, tablets): the name gets a strip of its own across the head,
+   like a scribble strip. Beside the keys it was left a few pixels, and even
+   "Drums" was cut short. The lane grows to the taller head (.tt-lane). */
+@container tthead (max-width: 199.98px) {
+  .tt-head .tt-name { flex: 1 0 100%; min-height: 24px; }
+  /* The level shares the keys' row while it has room for a usable slider
+     (the bench and tablets), so the head stays two rows; narrower, it wraps. */
+  .tt-head .tt-gain { flex: 1 1 48px; width: auto; min-width: 48px; }
+}
 .tt-num {
   flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; box-sizing: border-box;
   border-radius: 50%; border: 3px solid var(--tc, var(--t1)); font: 700 12px var(--label-font); color: var(--ink);
 }
 .tt-gain { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); }
-.tt-lane { width: 100%; height: 64px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+/* The lane stretches to its head's height (a narrow head is taller). Size
+   containment keeps the canvas's own buffer, which drawLanes sizes from the
+   lane, out of the row's height: without it the two feed each other. */
+.tt-lane { width: 100%; height: auto; min-height: 64px; contain: size; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .tt-lane.sliding { cursor: grabbing; }
 .tape-toolbar .tb-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tape-toolbar .tb-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
@@ -1863,7 +1875,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 @media (min-width: 700px) {
   main.tape-main { display: flex; max-width: none; padding-left: 16px; padding-right: 16px; }
   .tape-track, .tape-ruler-row { grid-template-columns: 150px 1fr; }
-  .tt-lane { height: clamp(72px, calc((100svh - var(--topbar-h) - 530px - var(--machine-h)) / 4), 150px); }
+  .tt-lane { min-height: clamp(72px, calc((100svh - var(--topbar-h) - 530px - var(--machine-h)) / 4), 150px); }
 }
 
 /* Wide -- a tablet on its side, a laptop: the tracks take the width, and the
@@ -1897,9 +1909,9 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   }
   .tape-track, .tape-ruler-row { grid-template-columns: 168px 1fr; }
   /* Four lanes fill the height under the overview and ruler... */
-  .tt-lane { height: clamp(80px, calc((100svh - var(--topbar-h) - 160px - var(--machine-h)) / 4 - 8px), 220px); }
+  .tt-lane { min-height: clamp(80px, calc((100svh - var(--topbar-h) - 160px - var(--machine-h)) / 4 - 8px), 220px); }
   /* ...unless the empty tape's card is above them. */
-  #tape-body:has(#tape-empty:not([hidden])) .tt-lane { height: 80px; }
+  #tape-body:has(#tape-empty:not([hidden])) .tt-lane { min-height: 80px; }
   .tt-head { align-content: center; }
   /* Toasts over the tracks, clear of the panel. */
   .tape-page #toasts { left: calc((100vw - 400px - 16px) / 2); }
@@ -2552,12 +2564,16 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
       var(--panel);
   }
   /* An empty tape's card is tall; shorter lanes keep all four on screen. */
-  #tape-body:has(#tape-empty:not([hidden])) .tt-lane { height: 56px; }
+  #tape-body:has(#tape-empty:not([hidden])) .tt-lane { min-height: 56px; }
 }
 /* A short screen -- the bench tablet docked at 1024x600 -- under the header
    and the machine: four lanes at 64px fit where 80 didn't. */
 @media (min-width: 1000px) and (max-height: 640px) {
-  .tt-lane { height: 64px; }
+  .tt-lane { min-height: 64px; }
+  /* The head's two rows (the name's strip; the keys and level) fit in 64. */
+  .tt-head { gap: 3px; padding: 3px 4px; }
+  .tt-head .chip { min-height: 28px; }
+  .tt-head .tt-name { min-height: 22px; font-size: 15px; padding-block: 0; }
 }
 
 /* ---------- the deck ---------- */
