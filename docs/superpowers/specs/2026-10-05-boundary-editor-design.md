@@ -148,9 +148,34 @@ waveform:
 
 It takes the place of the toolbar rows below the waveform while a boundary is
 being edited, and gives them back on Done. It uses the page's existing
-tokens and button classes only — the take page is being restyled in another
-session, so the editor's markup is one self-contained block
-(`#boundary-editor`) that restyle can dress later.
+tokens and button classes only, in one self-contained block
+(`#boundary-editor`), so the reel-to-reel restyle can dress it (below).
+
+### Fits the reel-to-reel restyle
+
+The take page is being restyled as a reel-to-reel deck
+(`docs/superpowers/plans/2026-10-04-reel-to-reel.md`, on branch
+`claude/reel-1-tokens`; its PR 6 redraws the take page with "trace on tape",
+grease-pencil IN/OUT and an amber-LCD edit strip). The editor is built to that
+plan's rules from the start, so PR 6 restyles it rather than rebuilds it:
+
+- **Windows:** the waveform, both seam halves included, is a black window in
+  both themes; anything drawn on it uses `--well-ink`, `--well-dim` and
+  `--well-rule`, never `--ink`. The selected boundary's line and label use the
+  existing selection colour (`--sel`); bar 1 keeps its downbeat colour.
+- **Keys:** Attack, Zero, Grid, the steps, ▶ and Seam are keys: raised, sitting
+  low when pressed, and Seam latches with a yellow LED (yellow is loop, flags,
+  snap). Orange stays the page's one main action; nothing in the editor is
+  orange.
+- **The readout** is a single element (`#boundary-readout`) that PR 6 can
+  dress as the amber LCD.
+- **Encoder pads** are recessed controls (wells), not keys.
+- **Rules carried over:** no new hex literals in JS (token fallbacks only);
+  hover styles only inside `@media (hover: hover)`; every control shows the
+  `:focus-visible` ring; `prefers-reduced-motion` turns off any slide-in of the
+  editor bar; fonts are the vendored ones.
+- **Order:** this work starts after reel PR 1 (tokens, depth, window inks)
+  merges, because both touch `lib/wave/view.js`, and builds on its tokens.
 
 ## Not in this
 
