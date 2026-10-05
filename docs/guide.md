@@ -236,8 +236,9 @@ and the editor bar takes the place of the toolbar.
   get near, zoom in, get nearer. POSITION moves half of what's on screen for a
   drag across the pad, so it's coarse zoomed out and moves single samples
   zoomed in.
-- **Attack** puts the point on the start of the nearest hit, within 60 ms. It
-  works over a held bass.
+- **Attack** puts the point on the start of the nearest hit, within 60 ms or
+  half of what's on screen, if that's less. It works over a held bass. If it
+  finds nothing, zoom out a little and try again.
 - **Zero** puts it on the nearest zero crossing, within 5 ms, so a cut doesn't
   click.
 - **Grid** puts it on the nearest line of the *Snap* setting, or the nearest
@@ -334,8 +335,8 @@ and the editor bar takes the place of the toolbar.
 
 - [demo] Tap In's time → the view centres on In and the editor bar shows. Zoom
   out with ZOOM, POSITION the line near a kick, zoom in, then **Attack** → In
-  sits on the kick's start, and the readout says *+0.0 ms from* a beat (the
-  demo is on its grid). **Zero** → In moves by under 5 ms. **Done** → the
+  sits on the kick's start, and the readout says *on* a beat, such as *on 2.1*
+  (the demo is on its grid). **Zero** → In moves by under 5 ms. **Done** → the
   toolbar returns.
 - [demo] With an 8-bar selection, **Seam** → the end and start meet at the
   centre and the loop is on. Tap the Out half and step it → only Out moves.
