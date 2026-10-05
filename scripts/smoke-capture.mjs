@@ -90,7 +90,8 @@ for (const [w, h] of [[390, 844], [360, 780]]) {
 // A phone held sideways shows as many spines as its two-column layout holds.
 {
   const [ctx, p] = await open(932, 430);
-  const n = await p.locator('.take.spine').count();
+  // A folded take's row is a hidden spine: count the ones on the shelf.
+  const n = await p.locator('.take.spine:not(.folded)').count();
   check('a sideways phone shelves 3 takes', n <= 3, `${n} shown`);
   await ctx.close();
 }
