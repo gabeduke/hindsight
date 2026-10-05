@@ -67,3 +67,25 @@ export function tapeMarquee(tape, live) {
   if (rec) parts.push(rec.state === 'on' ? `RECORDING TRACK ${rec.track}` : `TRACK ${rec.track} ARMED`);
   return parts.join(' · ');
 }
+
+/**
+ * takeCounter is the LCD for a take: bar.beat large with the time beside it
+ * when the take has a tempo (`bar`, already read on its grid), else the time
+ * large and its length beside it; the lamp is ▶ or ❚❚.
+ */
+export function takeCounter({ pos, length, sampleRate, bar, playing }) {
+  const time = fmtSecs(pos, sampleRate);
+  const status = playing ? 'play' : 'pause';
+  if (bar) return { big: bar, small: time, note: '', status, unit: 'BAR' };
+  const s = Math.floor(length / sampleRate);
+  return { big: time, small: `/ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`, note: '', status, unit: '' };
+}
+
+/** takeMarquee is a take's scrolling line: its name, tempo, In and Out, and where it plays. */
+export function takeMarquee({ name, bpm, region, sampleRate }) {
+  const parts = [String(name).toUpperCase()];
+  if (bpm) parts.push(`${Math.round(bpm * 10) / 10} BPM`);
+  if (region) parts.push(`IN ${fmtSecs(region.start, sampleRate)}`, `OUT ${fmtSecs(region.end, sampleRate)}`);
+  parts.push('ON THIS DEVICE');
+  return parts.join(' · ');
+}

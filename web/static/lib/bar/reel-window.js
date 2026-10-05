@@ -18,6 +18,23 @@ export function levelFrac(db, ref = -10) {
   return clamp((db + 40) / (ref + 3 + 40), 0, 1);
 }
 
+/**
+ * peakDbAt is a take's level at `frac` of the way through it, one value per
+ * channel, in dBFS: the loudest edge of that bucket of its peaks (the
+ * {buckets, channels, data} that /api/peaks returns, min/max pairs per
+ * bucket), times `gain`.
+ */
+export function peakDbAt(pd, frac, gain = 1) {
+  const b = clamp(Math.floor(frac * pd.buckets), 0, pd.buckets - 1);
+  const out = [];
+  for (let c = 0; c < pd.channels; c++) {
+    const d = pd.data[c];
+    const a = Math.max(Math.abs(d[2 * b]), Math.abs(d[2 * b + 1])) * gain;
+    out.push(a > 0 ? 20 * Math.log10(a) : -Infinity);
+  }
+  return out;
+}
+
 function el(tag, attrs, parent) {
   const n = document.createElementNS(NS, tag);
   for (const k in attrs) n.setAttribute(k, attrs[k]);

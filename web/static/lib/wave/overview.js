@@ -1,7 +1,7 @@
 // web/static/lib/wave/overview.js
-// The whole-take strip above the main waveform: navigation across the whole
-// take. Drag the window to pan, tap outside it to centre the view there, and
-// double-tap to fit the whole take. The pure functions are what the tests cover; the class is the canvas
+// The whole take, in the now-playing bar: its scrubber. Tap to move the
+// playhead there (the view follows), drag the window to pan, and double-tap
+// to fit the whole take. The pure functions are what the tests cover; the class is the canvas
 // and pointer plumbing around them.
 import { levelsFor, takeGain } from './draw.js';
 import { drawTrace, paintOxide, oxideColors } from './tape-strip.js';
@@ -172,6 +172,6 @@ export class Overview {
     const now = performance.now();
     if (now - this.lastTap < TAP_MS) { this.lastTap = 0; this.emit('fitAll', {}); return; }
     this.lastTap = now;
-    if (!g.inside) this.emit('centerOn', { frame: stripXToFrame(p.x, this.total, this.cssW) });
+    this.emit('seek', { frame: stripXToFrame(p.x, this.total, this.cssW) });
   }
 }

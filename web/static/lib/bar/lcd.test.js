@@ -1,7 +1,7 @@
 // web/static/lib/bar/lcd.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tapeCounter, tapeMarquee } from './lcd.js';
+import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
 
 const SR = 48000;
 // 96 BPM, 4/4: a bar is 2.5 s. Sixteen bars on the grid, the loop bars 5–8.
@@ -79,4 +79,24 @@ test('the marquee names the tape, the tempo, the loop, the output and the punch'
   assert.equal(tapeMarquee(tape({ grid: null }), null), 'TAPE 1 · NO TEMPO YET · IN THE JAM ROOM');
   // A one-bar loop reads as one bar.
   assert.equal(tapeMarquee(tape({ loop: { in: 4 * BAR, out: 5 * BAR, on: true } }), live()), 'TAPE 1 · 96.0 BPM · 4/4 · LOOP BAR 5 · IN THE JAM ROOM');
+});
+
+// A take: its position as bar.beat when it has a tempo (the time beside),
+// else the time large and the length beside; ▶ or ❚❚.
+test('a take with a tempo reads bar.beat, the time beside it', () => {
+  const c = takeCounter({ pos: Math.round(13.2 * SR), length: 58 * SR, sampleRate: SR, bar: '6.2', playing: true });
+  assert.deepEqual([c.big, c.small, c.unit, c.status, c.note], ['6.2', '0:13.2', 'BAR', 'play', '']);
+});
+
+test('a take with no tempo reads its time, and its length beside it', () => {
+  const c = takeCounter({ pos: 3 * SR, length: Math.round(58.4 * SR), sampleRate: SR, bar: '', playing: false });
+  assert.deepEqual([c.big, c.small, c.unit, c.status], ['0:03.0', '/ 0:58', '', 'pause']);
+});
+
+test('a take\'s marquee names it, its tempo, In and Out, and where it plays', () => {
+  assert.equal(takeMarquee({ name: 'Bass idea', bpm: 96, region: { start: Math.round(12.4 * SR), end: Math.round(20.8 * SR) }, sampleRate: SR }),
+    'BASS IDEA · 96 BPM · IN 0:12.4 · OUT 0:20.8 · ON THIS DEVICE');
+  assert.equal(takeMarquee({ name: '2026-10-04_201512', bpm: 84.25, region: null, sampleRate: SR }),
+    '2026-10-04_201512 · 84.3 BPM · ON THIS DEVICE');
+  assert.equal(takeMarquee({ name: 'x', bpm: null, region: null, sampleRate: SR }), 'X · ON THIS DEVICE');
 });
