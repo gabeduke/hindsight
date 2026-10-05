@@ -77,6 +77,9 @@ func (e *Engine) Record(id string, track int, source string, replace bool) (Reco
 	}
 	e.recMu.Lock()
 	defer e.recMu.Unlock()
+	if err := e.jamOnly(); err != nil { // a switch to a phone may have come in since
+		return Recording{}, err
+	}
 	if e.mixdownBusy() { // under recMu, the order StartMixdown takes them in
 		return Recording{}, ErrMixingDown
 	}

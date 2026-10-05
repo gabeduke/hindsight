@@ -113,6 +113,11 @@ func (e *Engine) StartMixdown(id string, all bool) (Mixdown, error) {
 	// takes them in -- so a punch and a mixdown can't both start.
 	e.recMu.Lock()
 	e.mixMu.Lock()
+	if err := e.jamOnly(); err != nil { // a switch to a phone may have come in since
+		e.mixMu.Unlock()
+		e.recMu.Unlock()
+		return Mixdown{}, err
+	}
 	if e.mixdown != nil && e.mixdown.busy() {
 		e.mixMu.Unlock()
 		e.recMu.Unlock()

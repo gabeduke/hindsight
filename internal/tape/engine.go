@@ -587,7 +587,11 @@ func (e *Engine) SetOutputMode(m OutputMode) error {
 		return ErrNoStream
 	}
 	if m == ModePhone {
-		if e.Recording() != nil {
+		// Held across the checks and the switch: Record and StartMixdown
+		// re-check the mode under this lock, so one of the two loses.
+		e.recMu.Lock()
+		defer e.recMu.Unlock()
+		if e.rec != nil {
 			return ErrRecording
 		}
 		if e.mixdownBusy() {
