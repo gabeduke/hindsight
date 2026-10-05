@@ -223,6 +223,44 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   }
 }
 
+// The now-playing bar on a wide takes page: it holds the picked take (the
+// cassette's own Play gives way to it), ▶ turns the cassette's hubs, a press
+// on another spine puts that take in the bar, and ⏏ puts the tape back.
+{
+  const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+  await p.goto(`${BASE}/takes.html`);
+  await p.waitForTimeout(2500);
+  const bar = () => p.evaluate(() => ({
+    shown: !document.getElementById('np').hidden,
+    marquee: document.getElementById('np-marquee').textContent,
+    open: document.getElementById('np-open').textContent,
+    eject: !document.getElementById('np-eject').hidden,
+    picked: document.querySelector('.take.picked')?.dataset.name || '',
+    hubs: !!document.querySelector('.cassette.playing'),
+    detailPlay: getComputedStyle(document.querySelector('.detail-play')).display,
+  }));
+  const a = await bar();
+  check('takes: the bar holds the picked take', a.shown && a.open === 'Open the take ›' && a.detailPlay === 'none', JSON.stringify(a));
+  await p.click('#np-play');
+  await p.waitForTimeout(1200);
+  check('takes: ▶ in the bar turns the cassette', (await bar()).hubs);
+  await p.click('#np-play');
+  const other = await p.evaluate(() => [...document.querySelectorAll('.take.spine')].find((e) => !e.hidden && !e.classList.contains('picked'))?.dataset.name);
+  if (other) {
+    await p.click(`.take[data-name="${other}"]`);
+    await p.waitForTimeout(1500);
+    const b = await bar();
+    check('takes: another spine puts its take in the bar', b.picked === other && b.marquee !== a.marquee, JSON.stringify(b));
+  }
+  if (a.eject) {
+    await p.click('#np-eject');
+    await p.waitForTimeout(1200);
+    const c = await bar();
+    check('takes: ⏏ puts the tape back', /^Open (?!the take)/.test(c.open) && !c.eject, JSON.stringify(c));
+  }
+  await p.context().close();
+}
+
 // Families: cuts fold into the take they were cut from, and come back out
 // when it's deleted.
 {

@@ -108,6 +108,38 @@ for (const [w, h] of [[390, 844], [360, 780]]) {
   await ctx.close();
 }
 
+// The now-playing bar on Capture: the tape when there is one; a spine pressed
+// plays its take in the bar, and ⏏ puts the tape back.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  await p.waitForTimeout(2500);
+  const bar = () => p.evaluate(() => ({
+    shown: !document.getElementById('np').hidden,
+    open: document.getElementById('np-open').textContent,
+    eject: !document.getElementById('np-eject').hidden,
+    play: document.getElementById('np-play').textContent,
+  }));
+  const tapeOn = (await fetch(`${BASE}/api/tapes`)).ok;
+  const a = await bar();
+  if (tapeOn) check('capture: the bar holds the tape', a.shown && /^Open /.test(a.open) && a.open !== 'Open the take ›', JSON.stringify(a));
+  const spine = p.locator('.shelf-panel .take.spine').first();
+  if (await spine.count()) {
+    await spine.click();
+    await p.waitForTimeout(1800);
+    const b = await bar();
+    check('capture: a spine plays its take in the bar', b.shown && b.open === 'Open the take ›' && b.play === '❚❚', JSON.stringify(b));
+    if (tapeOn) {
+      await p.click('#np-eject');
+      await p.waitForTimeout(1200);
+      const c = await bar();
+      check('capture: ⏏ puts the tape back', c.open !== 'Open the take ›' && !c.eject, JSON.stringify(c));
+    }
+  }
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

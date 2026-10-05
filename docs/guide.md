@@ -85,6 +85,13 @@ just move references around.
   a *NEW* sticker. Tap one to hear it, tap again to stop. **All takes** goes
   to the takes page (§3.1), where the rest live and where a take is renamed,
   starred and opened.
+- **The bar,** along the foot of the page on a tablet or a computer, is the
+  same now-playing bar as on the tape page (§8.2), holding the tape: its
+  reels and amber window, **|◂ ▶ ⟲**, and the whole tape as a strip to tap
+  or drag. **Open (the tape) ›** goes to it. A cassette tapped on the shelf
+  plays in the bar instead; when it ends, or with **⏏**, the bar has the tape
+  again. Without the tape it shows only while a take plays. On a phone the
+  shelf plays as before; the bar comes with a later update.
 
 **Checks — today:**
 
@@ -146,7 +153,13 @@ Every take, from **All takes** on the main page.
   Tap a spine to pick it. On a wide screen the picked take sits beside the
   rack as a cassette; on a phone it opens as a sheet, and Back or **‹ Takes**
   puts it away.
-- **The cassette.** **Play** turns its reels and winds the tape from one
+- **The bar,** along the foot of the page on a tablet or a computer, holds
+  the picked take: **▶** plays it (its cassette's reels turn), **⟲ Loop**
+  repeats its selection or the whole take, **|◂** goes back to its In, and the
+  strip under them is the whole take to tap or drag. **Open the take ›** opens
+  it. If the tape was playing when you came to the page, the bar keeps the
+  tape until you pick a take; **⏏** puts the tape back in it.
+- **The cassette.** **Play** (in the bar on a wide screen) turns its reels and winds the tape from one
   pack to the other; the bars light up as they play, and a tap or a drag in
   its window seeks. A selection shows as grease-pencil IN and OUT. Tap the
   name to rename the take, the tempo to set it, a flag to play from it.
@@ -1255,6 +1268,10 @@ has no tip.
 | Waveform | Drag to move along, pinch to zoom. Hold, then drag, to select. Tap to move the playhead; tap twice to flag |
 | ▶ | Play from the playhead |
 | To In (take) | Back to In; with nothing selected, to the start of the take |
+| ⟲ Loop (bar) | Loop what’s in the bar: the tape’s loop, or a take’s selection (the whole take without one) |
+| ⏏ (bar) | Stop the take in the bar and put the tape back in it |
+| Open › (bar) | Open what’s in the bar on its own page: the tape, or the take |
+| The bar’s strip | The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |
