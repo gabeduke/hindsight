@@ -414,7 +414,9 @@ function render() {
   setText($('np-time'), lcd.small);
   setText($('np-unit'), lcd.unit);
   setIf($('np-status'), 'data-state', lcd.status);
-  setText($('np-marquee'), tapeMarquee(t, live));
+  // A message's details hold still where the marquee scrolls.
+  setText($('np-marquee'), lcd.note || tapeMarquee(t, live));
+  $('np-marquee').parentElement.classList.toggle('still', !!lcd.note);
   const ov = $('tape-overview');
   setIf(ov, 'aria-valuemax', String(t.length));
   setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
@@ -1287,16 +1289,30 @@ function setView(v) {
 function wireOverview() {
   const cv = $('tape-overview');
   cv.style.touchAction = 'none';
-  // A slider for the keyboard too: ← → a bar (a second with no tempo).
-  // While a clip is being aligned the arrows are the editor's.
+  // A slider for the keyboard too: ← → a bar (a second with no tempo). A
+  // held arrow steps on from where it last asked for, not from a stale poll,
+  // and no faster than the Pi can answer. While a clip is being aligned the
+  // arrows are the editor's. Tapping it focuses it, and Space still plays:
+  // the page's own Space handler leaves focused controls alone.
+  let asked = null; // { pos, at }
   cv.addEventListener('keydown', (e) => {
     const t = state.tape, live = state.live;
-    if (!t || !live || state.align || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (!t || !live || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) $('play').click();
+      return;
+    }
+    if (state.align || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
     e.preventDefault();
     e.stopPropagation();
+    const now = performance.now();
+    if (asked && now - asked.at < 150) return;
+    const from = asked && now - asked.at < 1000 ? asked.pos : live.heard;
     const step = t.grid ? t.grid.frames / t.grid.bars : t.sample_rate;
-    const pos = Math.max(0, Math.min(t.length, live.heard + (e.key === 'ArrowRight' ? step : -step)));
+    const pos = Math.max(0, Math.min(t.length, from + (e.key === 'ArrowRight' ? step : -step)));
+    asked = { pos, at: now };
     transport('locate', { pos });
   });
   let down = null, lastTap = null;

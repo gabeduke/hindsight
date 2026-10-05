@@ -37,17 +37,23 @@ test('a count-in takes over the position, as #position read', () => {
   assert.equal(c.status, 'play');
 });
 
-test('a mixdown takes over the position, with the words #position had', () => {
+test('a mixdown takes over the position, its details the second line, in the words #position had', () => {
   const md = { tape: 't1', state: 'playing', from: 0, to: 8 * BAR };
   const c = tapeCounter(tape(), live({ playing: true, heard: 2 * BAR }), md);
-  assert.equal(c.big, 'mixing down');
-  assert.equal(c.small, '0:05.0 of 0:20.0 · ■ cancels');
-  assert.equal(tapeCounter(tape(), live(), { ...md, state: 'tail' }).small, 'letting it ring out · ■ cancels');
-  assert.equal(tapeCounter(tape(), live(), { ...md, state: 'saving' }).big, 'saving');
+  assert.deepEqual([c.big, c.small, c.note], ['mixing down', '', '0:05.0 of 0:20.0 · ■ cancels']);
+  const tail = tapeCounter(tape(), live(), { ...md, state: 'tail' });
+  assert.deepEqual([tail.big, tail.note], ['mixing down', 'letting it ring out · ■ cancels']);
+  const saving = tapeCounter(tape(), live(), { ...md, state: 'saving' });
+  assert.deepEqual([saving.big, saving.note], ['saving', 'the mixdown as a take…']);
+  // Otherwise there is no note, and the second line is the marquee.
+  assert.equal(tapeCounter(tape(), live(), null).note, '');
 });
 
-test('no output says so where the time was', () => {
-  assert.equal(tapeCounter(tape(), live({ output: '' }), null).small, 'no output');
+test('no output says so after the time, as #position did', () => {
+  const c = tapeCounter(tape(), live({ output: '', heard: Math.round(13.2 * SR) }), null);
+  assert.equal(c.big, '6.2');
+  assert.equal(c.small, '0:13.2 · no output');
+  assert.equal(tapeCounter(tape({ grid: null }), live({ output: '' }), null).small, 'no output');
 });
 
 test('a tape with no tempo shows its time large, with no unit', () => {

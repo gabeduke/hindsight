@@ -2462,6 +2462,10 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
    between them, lib/bar/reel-window.js), the transport, the page's own keys;
    under them the whole tape as a scrubber, and OUT. */
 .tape-page { --np-h: 120px; }
+/* This device playing the tape: the strip across the top makes the bar taller. */
+body.tape-page:has(#out-strip:not([hidden])) { --np-h: 160px; }
+/* Toasts and tips rise clear of the bar, whose keys they would cover. */
+body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--np-h) + 12px + env(safe-area-inset-bottom)); }
 .np {
   position: sticky; bottom: 0; z-index: 18; flex: none;
   display: flex; flex-direction: column; gap: 8px;
@@ -2501,22 +2505,27 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 /* The LCD: amber on black in both schemes, like every counter here. */
 .np-lcd {
   flex: 1; min-width: 0; align-self: stretch; margin: 5px 0 7px; position: relative; z-index: 1;
-  display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 3px 9px;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 2px 9px;
   border-radius: 7px; background: var(--lcd); overflow: hidden;
   box-shadow: inset 0 2px 5px var(--lcd-edge), inset 0 0 0 1px var(--lcd-edge), 0 1px 0 var(--hl);
   font-family: var(--mono);
 }
-.np-lcd-top { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+/* Two lines in the LCD's height: the position's (20 px) and the marquee's
+   (12 px). */
+.np-lcd-top { flex: none; height: 20px; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
 .np-pos {
   color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
-  font-weight: 600; font-size: 21px; line-height: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 600; font-size: 19px; line-height: 20px;
 }
 .np-time, .np-unit, .np-clock, .np-marquee {
   color: var(--lcd-dim); text-shadow: 0 0 5px color-mix(in srgb, var(--lcd-ink) 35%, transparent); font-size: 10.5px;
 }
 .np-unit { font: 700 9.5px var(--label-font); letter-spacing: .14em; }
 .np-unit:empty, .np-time:empty { display: none; }
-.np-clock { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The time and the clock line give all their room before the position
+   gives any: shrink weighted a thousand to one. */
+.np-time, .np-clock { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .np-clock.none { color: var(--warn); }
 /* The lamp: ▶ playing, ■ stopped, ● red recording (blinking) or armed (steady). */
 .np-status { flex: none; width: 10px; height: 10px; background: var(--lcd-dim); clip-path: inset(12%); }
@@ -2530,8 +2539,10 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
   display: block; width: 3px; height: 100%; border-radius: 1px; transform-origin: bottom; transform: scaleY(.08);
   box-shadow: 0 0 5px currentColor; transition: transform .12s linear;
 }
-.np-marquee { overflow: hidden; white-space: nowrap; letter-spacing: .08em; }
+.np-marquee { flex: none; height: 12px; line-height: 12px; overflow: hidden; white-space: nowrap; letter-spacing: .08em; }
 .np-marquee span { display: inline-block; padding-left: 100%; animation: np-marquee 18s linear infinite; }
+.np-marquee.still { text-overflow: ellipsis; color: var(--lcd-ink); }
+.np-marquee.still span { display: inline; padding-left: 0; animation: none; }
 @keyframes np-marquee { to { transform: translateX(-100%); } }
 /* The keys: an LED over each glyph, as on the canvas. */
 .np-keys { display: flex; gap: 6px; margin: 0; padding: 0; flex: none; }
@@ -2555,7 +2566,7 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 @media (max-width: 899.98px) { .np-levels { display: none; } }
 @media (prefers-reduced-motion: reduce) {
   .np-marquee { text-overflow: ellipsis; }
-  .np-marquee span { animation: none; padding-left: 0; }
+  .np-marquee span { display: inline; animation: none; padding-left: 0; }
   .np-status[data-state="rec"] { animation: none; }
 }
 
@@ -2959,7 +2970,7 @@ input, select, textarea { color-scheme: inherit; }
     display: inline-flex; align-items: center; flex: none; height: 34px; padding: 0 9px; border-radius: 7px;
     background: var(--lcd); color: var(--lcd-ink); box-shadow: inset 0 2px 5px var(--lcd-edge), 0 1px 0 var(--hl);
     text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
-    font: 600 14px var(--mono); white-space: nowrap; max-width: 34%; overflow: hidden; text-overflow: ellipsis;
+    font: 600 14px var(--mono); white-space: nowrap; max-width: 44%; overflow: hidden; text-overflow: ellipsis;
   }
   body.tape-page #toasts, body.tape-page .tip-pop { bottom: calc(var(--dock-b, 0px) + var(--np-h) + 12px); }
 }

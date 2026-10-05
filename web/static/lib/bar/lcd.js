@@ -3,6 +3,10 @@
 // (large), the line beside it (small), the status lamp, and the line that
 // scrolls under them naming what's loaded. Pure, so every state is tested.
 //
+// A message -- a mixdown and its tail, saving -- takes the large place, and
+// its details (with "■ cancels") take the second line, still, as `note`: the
+// top line has no room for both.
+//
 // The tape's messages -- the count-in, a mixdown and its tail, saving, no
 // output -- are the ones #position used to show, word for word.
 
@@ -11,8 +15,8 @@ import { barBeat, fmtSecs, bpm } from '../tape/geometry.js';
 const OUT_WORDS = { jam: 'IN THE JAM ROOM', phone: 'ON A PHONE', both: 'IN THE JAM ROOM AND ON A PHONE' };
 
 /**
- * tapeCounter is the LCD for the tape at one poll. md is the live mixdown
- * when it is this tape's (else null).
+ * tapeCounter is the LCD for the tape at one poll: {big, small, note, status,
+ * unit}. md is the live mixdown when it is this tape's (else null).
  */
 export function tapeCounter(tape, live, md) {
   const sr = tape.sample_rate;
@@ -22,23 +26,24 @@ export function tapeCounter(tape, live, md) {
   const playing = !!(live && (live.playing || counting)) || mixing;
   const status = rec && rec.state === 'on' && !counting ? 'rec' : rec && rec.state === 'armed' ? 'armed' : playing ? 'play' : 'stop';
   const unit = tape.grid ? 'BAR' : '';
-  if (!live) return { big: '', small: '', status, unit };
+  if (!live) return { big: '', small: '', note: '', status, unit };
   const heard = live.heard;
   if (counting && tape.grid) {
     // The render head is ahead of what's heard by what's rendered ahead.
     const beat = tape.grid.frames / tape.grid.bars / 4;
     const left = Math.min(tape.grid.frames / tape.grid.bars, live.count_in + Math.max(0, live.out - live.delivered));
-    return { big: `count-in ${Math.min(4, Math.max(1, 4 - Math.floor((left - 1) / beat)))} of 4`, small: '', status, unit: '' };
+    return { big: `count-in ${Math.min(4, Math.max(1, 4 - Math.floor((left - 1) / beat)))} of 4`, small: '', note: '', status, unit: '' };
   }
   if (md && md.state === 'playing') {
-    return { big: 'mixing down', small: `${fmtSecs(Math.max(0, heard - md.from), sr)} of ${fmtSecs(md.to - md.from, sr)} · ■ cancels`, status, unit: '' };
+    return { big: 'mixing down', small: '', note: `${fmtSecs(Math.max(0, heard - md.from), sr)} of ${fmtSecs(md.to - md.from, sr)} · ■ cancels`, status, unit: '' };
   }
-  if (md && md.state === 'tail') return { big: 'mixing down', small: 'letting it ring out · ■ cancels', status, unit: '' };
-  if (md && md.state === 'saving') return { big: 'saving', small: 'the mixdown, as a take…', status, unit: '' };
+  if (md && md.state === 'tail') return { big: 'mixing down', small: '', note: 'letting it ring out · ■ cancels', status, unit: '' };
+  if (md && md.state === 'saving') return { big: 'saving', small: '', note: 'the mixdown as a take…', status, unit: '' };
+  // As #position read: the time beside bar.beat, and "no output" after it.
   const time = fmtSecs(heard, sr);
   const big = tape.grid ? barBeat(heard, tape.grid) : time;
-  const small = !live.output ? 'no output' : tape.grid ? time : '';
-  return { big, small, status, unit };
+  const small = [tape.grid ? time : '', live.output ? '' : 'no output'].filter(Boolean).join(' · ');
+  return { big, small, note: '', status, unit };
 }
 
 /** tapeMarquee is the scrolling line: the tape, its tempo and loop, where it plays, and a punch. */
