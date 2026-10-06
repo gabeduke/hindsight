@@ -1215,7 +1215,9 @@ the meantime. Most phones hold the sound back until you tap, so the bar
 says *tap ▶ to play here* (on the tape page, the strip says *Still on this
 phone*): tap **▶** or **Tap to play here** and it's heard again. That tap
 never stops the tape. A take's page doesn't play the tape: opening a take
-stops it after 6 s, where it was, and coming back finds it there.
+stops it after 6 s, where it was, and coming back finds it there. Playing a
+take in the bar on Takes or Capture stops it too, in This phone mode, so
+the phone never plays both.
 
 ## 9. Tips in the app
 
