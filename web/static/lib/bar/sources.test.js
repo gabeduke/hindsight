@@ -150,3 +150,31 @@ test('the tape: loaded somewhere else, the bar follows it', async () => {
   assert.ok(asked.some((u) => u.startsWith('/api/tapes/state?id=t2')), JSON.stringify(asked));
   assert.equal(s.title, 'Tape 2');
 });
+
+test('the tape on this phone: held back, the LCD asks for ▶, and ▶ wakes it without stopping the tape', async () => {
+  const sent = [];
+  let playing = true;
+  stubs(() => ({ tape: tapeJSON(), loaded: true, live: { playing, heard: 0, count_in: 0, output: 'stream', output_mode: 'phone' } }));
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, o) => { if (o?.method) sent.push(JSON.parse(o.body)); return realFetch(url, o); };
+  const player = { active: true, state: 'locked', waitingTap: true, resumed: 0, resume() { this.resumed++; } };
+  const s = stopper = tapeSource('t1', { stream: () => player });
+  await settle();
+  assert.equal(s.waiting(), true);
+  assert.equal(s.lcd().note, 'tap ▶ to play here');
+  assert.equal(s.press(), true);
+  assert.equal(player.resumed, 1);
+  assert.deepEqual(sent, [], 'playing already: the tap only wakes the sound');
+  playing = false;
+  s.setActive(true);
+  await settle();
+  s.press();
+  assert.deepEqual(sent, [{ action: 'play' }], 'stopped: the tap plays it too');
+  player.state = 'buffering';
+  assert.equal(s.waiting(), false);
+  assert.equal(s.press(), false, 'heard here: ▶ is ▶ again');
+  assert.equal(s.lcd().note, 'reconnecting…');
+  player.state = 'playing';
+  player.waitingTap = false;
+  assert.equal(s.lcd().note, '');
+});

@@ -22,8 +22,8 @@ const (
 const (
 	paceStep    = 20 * time.Millisecond
 	deviceQuiet = 200 * time.Millisecond
-	dropPause   = 2 * time.Second
-	maxCatchUp  = 10 // pacer steps at most per tick: a stalled Pi drops time rather than racing
+	dropPause   = 6 * time.Second // long enough for a page change on the phone to reconnect
+	maxCatchUp  = 10              // pacer steps at most per tick: a stalled Pi drops time rather than racing
 )
 
 // StreamStatus is the stream as the page shows it.
@@ -257,7 +257,7 @@ func (o *Output) paceStep() {
 	}
 }
 
-// watchDrop stops a phone's tape once nobody has listened for 2 s of its
+// watchDrop stops a phone's tape once nobody has listened for 6 s of its
 // playing. It counts only while the tape plays, and fires again if the tape
 // is started again with still nobody there.
 func (o *Output) watchDrop(now int64) {

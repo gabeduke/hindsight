@@ -216,6 +216,49 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   }
 }
 
+// The tape on this phone, across pages: Takes joins the stream again as it
+// opens, the tape plays on, and ▶ is the tap its sound waits for (held back
+// here as a phone holds it: a page's sound starts only from a tap on it).
+{
+  const put = (mode) => fetch(`${BASE}/api/tapes/output`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) });
+  const id = (await (await fetch(`${BASE}/api/tapes`)).json()).loaded;
+  const live = async () => (await (await fetch(`${BASE}/api/tapes/state?id=${id}`)).json()).live;
+  const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 } });
+  await ctx.addInitScript(() => {
+    const AC = window.AudioContext;
+    window.AudioContext = class extends AC {
+      constructor(...a) { super(...a); if (!navigator.userActivation.isActive) super.suspend(); }
+      resume() { return navigator.userActivation.isActive ? super.resume() : Promise.reject(new Error('needs a tap')); }
+    };
+  });
+  const p = await ctx.newPage();
+  try {
+    await p.goto(`${BASE}/tape.html`);
+    await p.waitForTimeout(1500);
+    await p.click('#tape-out');
+    await p.click('.out-choice[data-mode="phone"]');
+    await p.waitForTimeout(1500);
+    await p.click('#out-close');
+    if (!(await live()).playing) await p.click('#play');
+    await p.waitForTimeout(1000);
+    await p.goto(`${BASE}/takes.html`);
+    await p.waitForTimeout(2000);
+    const bar = () => p.evaluate(() => ({ note: document.getElementById('np-marquee').textContent, label: document.getElementById('np-play').getAttribute('aria-label') }));
+    const brief = async () => { const l = await live(); return { ...(await bar()), playing: l.playing, listeners: l.stream.listeners }; };
+    const a = await brief();
+    check('across pages: Takes joins the stream again, and the tape plays on', a.playing && a.listeners === 1, JSON.stringify(a));
+    check('across pages: the bar asks for ▶', a.note === 'tap ▶ to play here' && a.label === 'Play here', JSON.stringify(a));
+    await p.click('#np-play');
+    await p.waitForTimeout(1000);
+    const b = await brief();
+    check('across pages: ▶ wakes the sound without stopping the tape', b.note !== 'tap ▶ to play here' && b.label === 'Stop' && b.playing, JSON.stringify(b));
+  } finally {
+    await fetch(`${BASE}/api/tapes/transport?id=${id}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'stop' }) });
+    await put('jam');
+    await ctx.close();
+  }
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

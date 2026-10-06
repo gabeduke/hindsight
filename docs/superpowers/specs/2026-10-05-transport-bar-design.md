@@ -227,6 +227,14 @@ right-hand column.
      reconnects at once, and the LCD says `Reconnecting…` until it plays.
    - The Pi's grace goes from 2 s to 6 s, so a page change doesn't stop the
      tape.
+   - *As built (PR 6):* Tape, Takes and Capture join the stream again
+     (`lib/tape/listener.js`, the listener remembered in localStorage
+     `tape.listener`). A take's page doesn't: its bar holds the take and has
+     no way to stop the tape, so opening a take stops the tape after 6 s.
+     Where the browser holds the sound back, the bar says *tap ▶ to play
+     here* (the tape page's strip, *Still on this phone*), and that ▶ never
+     stops the tape.
+
 6. **Changing page stops a take.** The tape plays on in the jam room. Making
    the app a single page, so a take could survive navigation, is not in
    scope.

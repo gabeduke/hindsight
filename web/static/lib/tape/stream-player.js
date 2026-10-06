@@ -3,6 +3,7 @@
 // screen's play and pause.
 import { parsePacket, StampLog, heardIndex, nextBackoff } from './stream-buffer.js';
 import { holdScreen } from '../wakelock.js';
+import { rememberListener } from './listener.js';
 
 // A socket that has carried nothing for this long has stalled: close it, and
 // the reconnect takes over. The Pi sends a packet every 20 ms.
@@ -12,6 +13,7 @@ export class StreamPlayer {
   constructor({ onState = () => {}, onTransport = () => {}, onReconnect = () => {}, getLoop = () => null, getTitle = () => 'Tape' } = {}) {
     Object.assign(this, { onState, onTransport, onReconnect, getLoop, getTitle });
     this.wasLost = false; this.lostAt = 0; this.lastPacket = 0; this.flowing = false; this.rejoin = null;
+    this.joining = false; this.rejoined = false;
     this.log = new StampLog();
     this.queued = 0; this.report = null; this.ws = null; this.ctx = null; this.node = null;
     this._state = 'off'; this.backoff = 0; this.wake = null; this.stopped = true;
@@ -20,12 +22,23 @@ export class StreamPlayer {
 
   get active() { return !this.stopped; }
   get state() { return this._state; }
+  /** waitingTap: joined again on a new page, and not heard here since. */
+  get waitingTap() { return this.rejoined; }
 
-  setState(s) { if (s !== this._state) { this._state = s; this.onState(s); } }
+  setState(s) {
+    if (s === 'playing') this.rejoined = false;
+    if (s !== this._state) { this._state = s; this.onState(s); }
+  }
 
-  async start() {
+  /**
+   * start plays the stream here. From a tap, it plays at once; `rejoin` is
+   * a new page joining again without one (listener.js), which waits as
+   * 'locked' for a tap if the browser holds the sound back.
+   */
+  async start({ rejoin = false } = {}) {
     if (!this.stopped) return;
     this.stopped = false;
+    this.joining = this.rejoined = rejoin;
     let ctx = null;
     try {
       // iOS: Web Audio follows the ring/silent switch unless the session
@@ -57,6 +70,11 @@ export class StreamPlayer {
       document.addEventListener('visibilitychange', this.onVisible);
       this.fillTimer = setInterval(() => { this.sendFill(); this.checkStall(); }, 500);
       this.connect();
+      // Started without a tap, the browser may hold the sound back.
+      if (ctx.state !== 'running') {
+        ctx.resume().catch(() => {});
+        if (ctx.state !== 'running') this.setState('locked');
+      }
     } catch (err) {
       if (this.ctx === ctx) this.stop('off');
       else if (ctx) ctx.close().catch(() => {});
@@ -81,9 +99,11 @@ export class StreamPlayer {
         let m;
         try { m = JSON.parse(e.data); } catch { return; }
         if (m.type === 'hello') {
-          // Back after a loss to find the tape in the jam room (switched
-          // there, or the Pi restarted): this phone has given it up.
-          if (this.wasLost && m.mode === 'jam') { this.stop('off'); return; }
+          // Back after a loss, or on a new page, to find the tape in the
+          // jam room (switched there, or the Pi restarted): this phone has
+          // given it up.
+          if ((this.wasLost || this.joining) && m.mode === 'jam') { this.stop('off'); return; }
+          this.joining = false;
           this.backoff = 0; this.reset();
           if (this.wasLost) {
             this.wasLost = false; this.rejoin = { lostMs: Date.now() - this.lostAt };
@@ -173,7 +193,9 @@ export class StreamPlayer {
     // A headset or the lock screen mustn't drive the Pi once this phone has
     // given up the tape.
     this.setActions(null, null);
-    this.wasLost = false; this.rejoin = null;
+    this.wasLost = false; this.rejoin = null; this.joining = this.rejoined = false;
+    // Stopped here, this device is no longer the tape's listener.
+    rememberListener(false);
     const ws = this.ws; this.ws = null;
     if (ws) ws.close();
     if (this.ctx) this.ctx.close().catch(() => {});

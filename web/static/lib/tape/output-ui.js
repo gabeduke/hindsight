@@ -1,6 +1,7 @@
 // Where the tape plays: the OUT pill, the Output sheet, the status strip
 // across the top of the bar, and the banner other devices show while a phone has it.
 import { StreamPlayer } from './stream-player.js';
+import { rejoin, rememberListener } from './listener.js';
 import { barBeat } from './geometry.js';
 
 const NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
@@ -17,7 +18,7 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
       render(live);
     },
     onTransport: (kind) => transport(kind),
-    // The Pi stopped the tape when the stream dropped (2 s): play on from
+    // The Pi stopped the tape when the stream dropped (6 s): play on from
     // there, but only after a short blip, and only if the tape (as the first
     // packet back stamps it) is still stopped. A late return mustn't start
     // whatever the room is doing now.
@@ -25,8 +26,10 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
     getLoop: () => { const t = getTape(); return t && t.loop; },
     getTitle: () => (getTape() && getTape().name) || 'Tape',
   });
-  // A suspended context needs a tap to run again.
+  // A suspended context needs a tap to run again: the strip's, or ▶ (which
+  // plays or stops the tape as well).
   $('out-strip-resume').addEventListener('click', () => player.resume());
+  $('play').addEventListener('click', () => { if (player.state === 'locked') player.resume(); });
 
   async function setMode(mode) {
     // The audio starts inside the tap that chose it, before any await: a
@@ -40,6 +43,8 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
       put = true;
       await starting;
       if (mode === 'jam') player.stop();
+      // The next page joins the stream again (listener.js).
+      rememberListener(mode !== 'jam' && player.active);
       setTimeout(poll, 100);
     } catch (e) {
       if (starting) player.stop();
@@ -96,13 +101,16 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
       $('out-strip-text').textContent =
         s === 'buffering' ? 'Starting on this phone…'
         : s === 'lost' ? `Stream lost · paused at ${(l && getTape() && barBeat(l.heard, getTape().grid)) || 'the same spot'}`
-        : s === 'locked' ? 'Paused when the screen locked'
+        : s === 'locked' ? (player.waitingTap ? 'Still on this phone' : 'Paused when the screen locked')
         : ghostNow() ? `Moving to bar ${barBeat(ghostNow().pos, getTape().grid) || ''}…`
         : l && l.playing ? 'Playing on this phone' : 'Ready on this phone';
       $('out-strip-right').textContent = s === 'buffering' ? 'buffering' : s === 'lost' ? 'reconnecting'
         : s === 'locked' ? '' : ghostNow() ? `in ${delay}` : `${delay} behind`;
     }
   }
+
+  // This device was listening on the page before: join again.
+  rejoin(player);
 
   return { render, player, streamingHere: () => player.active && !!live && live.output_mode !== 'jam' };
 }

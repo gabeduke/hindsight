@@ -1203,11 +1203,19 @@ bench, or choose **Jam room** under OUT: the tape plays on from the same spot.
 **Both** plays the jam room as usual and sends the phone a copy, for when
 someone is listening elsewhere while you record.
 
-One phone at a time. If the Wi-Fi drops for 2 s, the tape stops where it was;
+One phone at a time. If the Wi-Fi drops for 6 s, the tape stops where it was;
 the page reconnects and plays on, if it's back within 30 s and the tape is
 still stopped. If the tape has gone back to the jam room meanwhile, the phone
 lets it go. If the sound stops when the screen locks, tap **Tap to play here**
 on the strip across the top of the bar.
+
+**Moving between pages** keeps the tape on the phone. Tape, Takes and
+Capture each join the stream again as they open, and the tape plays on in
+the meantime. Most phones hold the sound back until you tap, so the bar
+says *tap ▶ to play here* (on the tape page, the strip says *Still on this
+phone*): tap **▶** or **Tap to play here** and it's heard again. That tap
+never stops the tape. A take's page doesn't play the tape: opening a take
+stops it after 6 s, where it was, and coming back finds it there.
 
 ## 9. Tips in the app
 

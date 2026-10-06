@@ -10,6 +10,8 @@ import { ReelWindow } from './reel-window.js';
 import { tapeSource } from './tape-source.js';
 import { takeSource } from './take-source.js';
 import { initPlayer } from './player.js';
+import { StreamPlayer } from '../tape/stream-player.js';
+import { rejoin } from '../tape/listener.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -26,7 +28,8 @@ export class NowPlaying {
     $('np-play').addEventListener('click', () => {
       const s = this.src;
       if (!s) return;
-      if (s.playing()) s.pause(); else s.play();
+      // The source's own say first: the tape's sound waiting for a tap.
+      if (!s.press?.()) { if (s.playing()) s.pause(); else s.play(); }
       this.kick();
     });
     $('np-loop').addEventListener('click', () => { if (this.src) this.src.setLoop(!this.src.loop); });
@@ -111,6 +114,8 @@ export class NowPlaying {
     if (!s) return;
     const lcd = s.lcd();
     const playing = s.playing();
+    // Playing on the Pi, but not yet heard here: ▶ is the tap it waits for.
+    const waiting = !!s.waiting?.();
     setText($('position'), lcd.big);
     setText($('np-mini'), lcd.big);
     setText($('np-time'), lcd.small);
@@ -125,10 +130,11 @@ export class NowPlaying {
     }
     // ▶ and its pause: ■ for the tape, as on its page; ❚❚ for a take.
     const play = $('np-play');
-    setText(play, playing ? (s.kind === 'tape' ? '■' : '❚❚') : '▶');
-    setAttr(play, 'aria-label', playing ? (s.kind === 'tape' ? 'Stop' : 'Pause') : 'Play');
-    play.classList.toggle('playing', playing);
-    play.disabled = !playing && !s.canPlay();
+    const shown = playing && !waiting;
+    setText(play, shown ? (s.kind === 'tape' ? '■' : '❚❚') : '▶');
+    setAttr(play, 'aria-label', waiting ? 'Play here' : shown ? (s.kind === 'tape' ? 'Stop' : 'Pause') : 'Play');
+    play.classList.toggle('playing', shown);
+    play.disabled = !playing && !waiting && !s.canPlay();
     setAttr($('np-loop'), 'aria-pressed', String(!!s.loop));
     $('np-loop').disabled = !s.canLoop();
     setAttr($('np-start'), 'aria-label', s.startLabel());
@@ -170,12 +176,14 @@ const hooked = new WeakSet();
  */
 export function pageBar({ tapes, onToast }) {
   let tape = null, take = null; // take: { name, audio, src }
+  let stream = null; // the tape on this phone, joined again from the page before
   let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
   const bar = new NowPlaying({ onEject: () => backToTape({ byHand: true }) });
   const eject = () => { $('np-eject').hidden = !(tape && take); };
   const ready = Promise.resolve(tapes).then((list) => {
     if (!list || !list.loaded) return;
-    tape = tapeSource(list.loaded, { onError: (m) => onToast?.(`The tape: ${m}`, 'bad') });
+    tape = tapeSource(list.loaded, { onError: (m) => onToast?.(`The tape: ${m}`, 'bad'), stream: () => stream });
+    stream = tapeStream(tape, onToast);
     if (!take) bar.load(tape);
     eject();
     return new Promise((done) => { tape.on(done); setTimeout(done, 1500); });
@@ -215,6 +223,28 @@ export function pageBar({ tapes, onToast }) {
     },
     backToTape,
   };
+}
+
+/**
+ * tapeStream is the tape's stream player on Takes and Capture: started only
+ * by joining again (OUT is chosen on the tape page), and heard once ▶ is
+ * tapped if the browser held its sound back. As on the tape page, a loss
+ * that stopped the tape (6 s) plays on when the stream is back soon.
+ */
+function tapeStream(tape, onToast) {
+  let wasPlaying = false;
+  const player = new StreamPlayer({
+    onState: (s) => {
+      if (s === 'moved') onToast?.(`${tape.title} moved to another device`, 'warn');
+      tape.changed();
+    },
+    onTransport: (kind) => (kind === 'play' ? tape.play() : tape.pause()),
+    onReconnect: ({ lostMs, playing }) => { if (wasPlaying && !playing && lostMs < 30000) tape.play(); },
+    getTitle: () => tape.title,
+  });
+  tape.on(() => { if (player.state === 'playing') wasPlaying = tape.playing(); });
+  rejoin(player);
+  return player;
 }
 
 function setText(el, v) { if (el.textContent !== v) el.textContent = v; }

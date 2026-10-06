@@ -3,7 +3,9 @@
 // polled from the Pi while the page is visible, twice a second (the tape
 // page asks five times a second), and the bar runs the playhead on between
 // polls. ▶ ■, |◂, Loop and the scrubber drive its transport; Rec and Catch
-// stay on the tape page.
+// stay on the tape page. Played on this phone (`stream`, a StreamPlayer the
+// bar joined again from the page before), the LCD says how that's going and
+// ▶ is the tap its sound waits for.
 
 import { tapeCounter, tapeMarquee } from './lcd.js';
 import { paintTapeOverview } from '../tape/overview.js';
@@ -16,9 +18,10 @@ const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 
 /**
  * tapeSource is the bar's source for the tape loaded on the Pi (`id`).
- * onError(message) hears of a press the Pi refused.
+ * onError(message) hears of a press the Pi refused; stream() is the tape's
+ * player on this phone, if there is one.
  */
-export function tapeSource(loadedId, { onError } = {}) {
+export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
   let id = loadedId;
   let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true, holdUntil = 0;
   const listeners = new Set();
@@ -93,6 +96,15 @@ export function tapeSource(loadedId, { onError } = {}) {
     return Math.min(p, t.length);
   };
   const loopable = () => !!(t && t.loop.out > t.loop.in);
+  // On this phone: its sound held back until a tap, or on its way.
+  const here = () => { const p = stream(); return p && p.active ? p : null; };
+  const waiting = () => here()?.state === 'locked';
+  const streamNote = () => {
+    const p = here();
+    if (!p) return '';
+    if (p.state === 'locked') return 'tap ▶ to play here';
+    return p.state === 'lost' || (p.state === 'buffering' && p.waitingTap) ? 'reconnecting…' : '';
+  };
 
   return {
     kind: 'tape',
@@ -105,6 +117,15 @@ export function tapeSource(loadedId, { onError } = {}) {
     playing,
     // ▶ needs a device to play out of; the Pi refuses it otherwise.
     canPlay: () => !!(live && live.output),
+    waiting,
+    // ▶ while the sound waits for a tap: the tap wakes it, and starts the
+    // tape if it's stopped -- it never stops what it's waking.
+    press() {
+      if (!waiting()) return false;
+      here().resume();
+      if (!playing()) this.play();
+      return true;
+    },
     play: () => send('/api/tapes/transport', 'POST', { action: 'play' }),
     pause: () => send('/api/tapes/transport', 'POST', { action: 'stop' }),
     seek(frame) {
@@ -127,7 +148,11 @@ export function tapeSource(loadedId, { onError } = {}) {
     tick() {},
     // The bar holding a take instead: no polling until it's back.
     setActive(on) { active = on; if (on) poll(); },
-    lcd: () => (t ? tapeCounter(t, live ? { ...live, heard: pos() } : null, mixdown()) : { big: '', small: '', note: '', status: 'stop', unit: '' }),
+    lcd: () => {
+      const c = t ? tapeCounter(t, live ? { ...live, heard: pos() } : null, mixdown()) : { big: '', small: '', note: '', status: 'stop', unit: '' };
+      const n = streamNote();
+      return n ? { ...c, note: n } : c;
+    },
     marquee: () => (t ? tapeMarquee(t, live) : 'THE TAPE'),
     levels: null,
     out: () => OUT_NAMES[(live && live.output_mode) || 'jam'],
@@ -136,6 +161,8 @@ export function tapeSource(loadedId, { onError } = {}) {
       paintTapeOverview(ctx, W, H, t, live ? pos() : null, { col });
     },
     on(fn) { listeners.add(fn); },
+    /** changed: something the LCD shows changed (the stream's state). */
+    changed: fire,
     destroy() {
       stopped = true;
       clearTimeout(timer);

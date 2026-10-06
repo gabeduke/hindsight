@@ -160,7 +160,7 @@ func TestThePacerHandsBackToTheDeviceWithoutLosingAFrame(t *testing.T) {
 	}
 }
 
-func TestAListenerGoneForTwoSecondsStopsThePhonesTape(t *testing.T) {
+func TestAListenerGoneForSixSecondsStopsThePhonesTape(t *testing.T) {
 	e, sink, o, _ := newOutputEngine(t)
 	detach := o.Stream().Attach(&recorder{})
 	o.setMode(ModePhone)
@@ -174,11 +174,11 @@ func TestAListenerGoneForTwoSecondsStopsThePhonesTape(t *testing.T) {
 	sink.play(t, 4096)
 	detach()
 	o.paceStep()
-	now.Add(int64(1900 * time.Millisecond))
+	now.Add(int64(5900 * time.Millisecond)) // a page change on the phone takes about a second
 	o.paceStep()
 	sink.play(t, 4096)
 	if !e.tr.Status().Playing {
-		t.Fatal("stopped before 2 s")
+		t.Fatal("stopped before 6 s")
 	}
 	now.Add(int64(200 * time.Millisecond))
 	o.paceStep()
@@ -205,7 +205,7 @@ func TestAListenerGoneWhileStoppedIsNotLostAndTheNextPlayStillStops(t *testing.T
 	}
 	detach()
 	o.paceStep()
-	now.Add(int64(3 * time.Second))
+	now.Add(int64(7 * time.Second))
 	o.paceStep()
 	if st := o.status().State; st == "lost" {
 		t.Fatalf("state %q though nothing was playing", st)
@@ -213,7 +213,7 @@ func TestAListenerGoneWhileStoppedIsNotLostAndTheNextPlayStillStops(t *testing.T
 	e.Do(Action{Kind: "play"})
 	sink.play(t, 4096)
 	o.paceStep() // starts counting
-	now.Add(int64(2100 * time.Millisecond))
+	now.Add(int64(6100 * time.Millisecond))
 	o.paceStep()
 	sink.play(t, 8192)
 	if e.tr.Status().Playing || o.status().State != "lost" {
