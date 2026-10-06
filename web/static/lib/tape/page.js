@@ -403,10 +403,14 @@ function render() {
   const mixing = !!(md && (md.state === 'playing' || md.state === 'tail'));
   // Through a mixdown's tail too: ■ there cancels it.
   const playing = !!(live && (live.playing || live.count_in > 0)) || mixing;
-  $('play').textContent = playing ? '■' : '▶';
-  $('play').setAttribute('aria-label', playing ? 'Stop' : 'Play');
-  $('play').classList.toggle('playing', playing);
-  $('play').disabled = !live || !live.output;
+  // On this phone with its sound held back for a tap: ▶ is that tap
+  // (output-ui.js), and never stops the tape.
+  const waiting = !!(output && output.player.state === 'locked');
+  const shown = playing && !waiting;
+  $('play').textContent = shown ? '■' : '▶';
+  $('play').setAttribute('aria-label', waiting ? 'Play here' : shown ? 'Stop' : 'Play');
+  $('play').classList.toggle('playing', shown);
+  $('play').disabled = (!live || !live.output) && !waiting;
   $('loop').setAttribute('aria-pressed', String(!!t.loop.on));
   $('loop').disabled = !(t.loop.out > t.loop.in);
   const counting = !!(live && live.count_in > 0);

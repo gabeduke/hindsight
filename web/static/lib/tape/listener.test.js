@@ -59,13 +59,27 @@ test('the page left behind still holding its socket a moment is waited out', asy
   assert.equal(p.starts.length, 1);
 });
 
-test('another device listening all along has the tape: this one forgets', async () => {
+test('another device listening all along: this one leaves it, and keeps its note', async () => {
   rememberListener(true);
   pi([phone(1)]);
   const p = aPlayer();
   assert.equal(await rejoin(p, { gap: 0, tries: 3 }), false);
   assert.equal(p.starts.length, 0);
-  assert.equal(wasListener(), false);
+  assert.equal(wasListener(), true, "'moved' forgets it, if that device ever takes it from this one");
+});
+
+test('started by a tap meanwhile: this device is the listener, and keeps its note', async () => {
+  rememberListener(true);
+  const p = aPlayer();
+  let n = 0;
+  globalThis.fetch = async (url) => {
+    if (url === '/api/tapes') return { json: async () => ({ loaded: 't1' }) };
+    if (++n === 2) p.active = true; // the tap lands while the Pi is asked
+    return { json: async () => ({ live: phone(1) }) };
+  };
+  assert.equal(await rejoin(p, { gap: 0 }), true);
+  assert.equal(p.starts.length, 0);
+  assert.equal(wasListener(), true);
 });
 
 test('the tape back in the jam room: this device forgets', async () => {

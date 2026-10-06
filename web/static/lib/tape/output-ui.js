@@ -26,12 +26,19 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
     getLoop: () => { const t = getTape(); return t && t.loop; },
     getTitle: () => (getTape() && getTape().name) || 'Tape',
   });
-  // A suspended context needs a tap to run again: the strip's, or ▶ (which
-  // plays or stops the tape as well).
+  // A suspended context needs a tap to run again: the strip's, or ▶. That ▶
+  // plays the tape if it's stopped, and never stops it (page.js shows ▶ for
+  // it, and its own handler is held back while the tape plays).
   $('out-strip-resume').addEventListener('click', () => player.resume());
-  $('play').addEventListener('click', () => { if (player.state === 'locked') player.resume(); });
+  $('play').addEventListener('click', (e) => {
+    if (player.state !== 'locked') return;
+    player.resume();
+    if (live && (live.playing || live.count_in > 0)) e.stopImmediatePropagation();
+  }, true);
 
   async function setMode(mode) {
+    // Already listening, with the sound held back: this tap wakes it.
+    if (mode !== 'jam' && player.active) player.resume();
     // The audio starts inside the tap that chose it, before any await: a
     // phone's browser only lets a tap start sound.
     const starting = mode !== 'jam' && !player.active ? player.start() : null;

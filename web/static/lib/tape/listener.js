@@ -23,31 +23,33 @@ export function wasListener() {
  * rejoin starts `player` again when this device was the listener and the
  * tape still plays on a phone with nobody else listening. The page this
  * device left can hold its socket a moment, so a listener is asked about
- * again for a while before another device is taken to have it. Once the
- * Pi says otherwise, this device is no longer the listener.
+ * again for a while. Still taken after that, the note stays: another device
+ * that had it lets it go, and this one finds it again; one that has it while
+ * this one listens moves it ('moved', which forgets). The Pi saying the tape
+ * is in the jam room, or that there is none, forgets it.
  */
 export async function rejoin(player, { tries = 8, gap = 400 } = {}) {
-  if (!wasListener() || player.active) return false;
-  let answered = false;
+  if (!wasListener()) return false;
   for (let i = 0; i < tries; i++) {
     if (i) await new Promise((r) => setTimeout(r, gap));
-    let l;
+    // Started by a tap meanwhile (OUT on the tape page): this device listens.
+    if (player.active) return true;
+    let list, l;
     try {
-      const list = await (await fetch('/api/tapes', { cache: 'no-store' })).json();
-      answered = true;
-      if (!list.loaded) break;
-      l = (await (await fetch(`/api/tapes/state?id=${encodeURIComponent(list.loaded)}`, { cache: 'no-store' })).json()).live;
+      list = await (await fetch('/api/tapes', { cache: 'no-store' })).json();
+      if (list.loaded) l = (await (await fetch(`/api/tapes/state?id=${encodeURIComponent(list.loaded)}`, { cache: 'no-store' })).json()).live;
     } catch {
       continue; // the Pi didn't answer: ask again
     }
-    if (!l || !l.output_mode || l.output_mode === 'jam') break;
+    if (player.active) return true;
+    if (!list.loaded || !l || !l.output_mode || l.output_mode === 'jam') {
+      rememberListener(false);
+      return false;
+    }
     if (l.stream && l.stream.listeners > 0) continue;
-    if (player.active) return true; // started by a tap meanwhile
     // A failed start stops the player, and with it the note.
     try { await player.start({ rejoin: true }); } catch { return false; }
     return true;
   }
-  // The Pi never answered: keep the note for the next page.
-  if (answered) rememberListener(false);
   return false;
 }

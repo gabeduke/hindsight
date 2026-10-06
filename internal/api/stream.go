@@ -18,8 +18,8 @@ import (
 
 // streamReadWait is how long the stream waits to hear from the page. It
 // reports its fill every 500 ms, so 2 s of silence means the phone has gone
-// (a Wi-Fi blip, a locked screen): drop it now, so the tape's 2 s
-// drop-pause fires, rather than when the TCP buffer finally fills.
+// (a Wi-Fi blip, a locked screen): drop it now, so the tape's 6 s
+// drop-pause starts counting, rather than when the TCP buffer finally fills.
 const streamReadWait = 2 * time.Second
 
 // wsListener queues packets for the connection's writer. Send never blocks:

@@ -184,7 +184,8 @@ export function pageBar({ tapes, onToast }) {
     if (!list || !list.loaded) return;
     tape = tapeSource(list.loaded, { onError: (m) => onToast?.(`The tape: ${m}`, 'bad'), stream: () => stream });
     stream = tapeStream(tape, onToast);
-    if (!take) bar.load(tape);
+    if (take) stream.setQuiet(true); // picked before the tape's state was in
+    else bar.load(tape);
     eject();
     return new Promise((done) => { tape.on(done); setTimeout(done, 1500); });
   });
@@ -194,11 +195,17 @@ export function pageBar({ tapes, onToast }) {
       const old = take;
       take = null;
       old.src.pause();
+      old.off();
       bar.load(tape);
       old.src.destroy();
+      stream?.setQuiet(false);
     }
     eject();
   }
+  // A take played here while the tape plays on this phone: stop the tape,
+  // or the phone plays both (as the tape page does). Only in This phone
+  // mode: in Both the jam room is the clock and may be recording.
+  const takePlays = () => { if (stream?.active && stream.mode === 'phone') tape.pause(); };
   return {
     ready,
     get takeName() { return take ? take.name : null; },
@@ -216,9 +223,15 @@ export function pageBar({ tapes, onToast }) {
       if (take && take.name === t.name && take.audio === player.audio) return;
       const old = take;
       const src = takeSource(t, player, { onGone: () => { if (take && take.src === src) backToTape(); } });
-      take = { name: t.name, audio: player.audio, src };
+      const audio = player.audio;
+      audio.addEventListener('play', takePlays);
+      take = { name: t.name, audio, src, off: () => audio.removeEventListener('play', takePlays) };
       bar.load(take.src);
+      old?.off();
       old?.src.destroy();
+      // The lock screen and a headset are the take's while it's in the bar.
+      stream?.setQuiet(true);
+      if (!audio.paused) takePlays();
       eject();
     },
     backToTape,

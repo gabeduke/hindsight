@@ -3,7 +3,7 @@
 // screen's play and pause.
 import { parsePacket, StampLog, heardIndex, nextBackoff } from './stream-buffer.js';
 import { holdScreen } from '../wakelock.js';
-import { rememberListener } from './listener.js';
+import { rememberListener, rejoin } from './listener.js';
 
 // A socket that has carried nothing for this long has stalled: close it, and
 // the reconnect takes over. The Pi sends a packet every 20 ms.
@@ -13,11 +13,16 @@ export class StreamPlayer {
   constructor({ onState = () => {}, onTransport = () => {}, onReconnect = () => {}, getLoop = () => null, getTitle = () => 'Tape' } = {}) {
     Object.assign(this, { onState, onTransport, onReconnect, getLoop, getTitle });
     this.wasLost = false; this.lostAt = 0; this.lastPacket = 0; this.flowing = false; this.rejoin = null;
-    this.joining = false; this.rejoined = false;
+    this.joining = false; this.rejoined = false; this.mode = null; this.quiet = false; this.kept = false;
     this.log = new StampLog();
     this.queued = 0; this.report = null; this.ws = null; this.ctx = null; this.node = null;
     this._state = 'off'; this.backoff = 0; this.wake = null; this.stopped = true;
     this.onVisible = () => { if (!document.hidden && !this.stopped && this.ctx) this.ctx.resume().catch(() => {}); };
+    // A page the browser keeps for Back (bfcache): the stream goes with it,
+    // the note stays, and the page joins again when it's shown -- as a page
+    // opened fresh does.
+    addEventListener('pagehide', (e) => { if (e.persisted && !this.stopped) { this.stop('off', { forget: false }); this.kept = true; } });
+    addEventListener('pageshow', (e) => { if (e.persisted && this.kept) { this.kept = false; rejoin(this); } });
   }
 
   get active() { return !this.stopped; }
@@ -26,7 +31,11 @@ export class StreamPlayer {
   get waitingTap() { return this.rejoined; }
 
   setState(s) {
-    if (s === 'playing') this.rejoined = false;
+    if (s === 'playing') {
+      this.rejoined = false;
+      // Heard here: keep the screen on (joined again, it waited for this).
+      if (!this.wake && !this.stopped) this.wake = holdScreen({});
+    }
     if (s !== this._state) { this._state = s; this.onState(s); }
   }
 
@@ -65,7 +74,9 @@ export class StreamPlayer {
         if (d.started && this._state === 'buffering') this.setState('playing');
       };
       this.node.connect(ctx.destination);
-      this.wake = holdScreen({});
+      // From a tap the screen stays on at once; joined again, only once it's
+      // heard (setState): a phone held back for a tap mustn't stay awake.
+      if (!rejoin) this.wake = holdScreen({});
       this.mediaSession();
       document.addEventListener('visibilitychange', this.onVisible);
       this.fillTimer = setInterval(() => { this.sendFill(); this.checkStall(); }, 500);
@@ -98,6 +109,7 @@ export class StreamPlayer {
       if (typeof e.data === 'string') {
         let m;
         try { m = JSON.parse(e.data); } catch { return; }
+        if (m.type === 'hello' || m.type === 'mode') this.mode = m.mode;
         if (m.type === 'hello') {
           // Back after a loss, or on a new page, to find the tape in the
           // jam room (switched there, or the Pi restarted): this phone has
@@ -169,8 +181,20 @@ export class StreamPlayer {
     return Math.round((this.report.fill / this.ctx.sampleRate + lat) * 1000);
   }
 
+  /**
+   * setQuiet hands the lock screen and a headset to something else playing
+   * on the page (a take in the bar), and takes them back.
+   */
+  setQuiet(on) {
+    this.quiet = on;
+    if (on) {
+      this.setActions(null, null);
+      try { if ('mediaSession' in navigator) navigator.mediaSession.metadata = null; } catch { /* not supported */ }
+    } else if (!this.stopped) this.mediaSession();
+  }
+
   mediaSession() {
-    if (!('mediaSession' in navigator)) return;
+    if (!('mediaSession' in navigator) || this.quiet) return;
     navigator.mediaSession.metadata = new MediaMetadata({ title: this.getTitle() || 'Tape', artist: 'Hindsight' });
     // ▶ on the lock screen or a headset is a gesture: wake the context too.
     this.setActions(() => { this.resume(); this.onTransport('play'); }, () => this.onTransport('stop'));
@@ -184,7 +208,8 @@ export class StreamPlayer {
     } catch { /* not supported */ }
   }
 
-  stop(state = 'off') {
+  /** stop lets the stream go; `forget`: this device is no longer the listener. */
+  stop(state = 'off', { forget = true } = {}) {
     if (this.stopped) return;
     this.stopped = true;
     clearInterval(this.fillTimer);
@@ -194,8 +219,7 @@ export class StreamPlayer {
     // given up the tape.
     this.setActions(null, null);
     this.wasLost = false; this.rejoin = null; this.joining = this.rejoined = false;
-    // Stopped here, this device is no longer the tape's listener.
-    rememberListener(false);
+    if (forget) rememberListener(false);
     const ws = this.ws; this.ws = null;
     if (ws) ws.close();
     if (this.ctx) this.ctx.close().catch(() => {});
