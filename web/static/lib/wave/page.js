@@ -33,7 +33,7 @@ import { initHelp } from '../help/help.js';
 import { toast, toastNext, undoSkipped, undoPhrase } from '../toast.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { listFrom } from '../shelf.js';
+import { listFrom, fold, familyOf } from '../shelf.js';
 import { cutLabel } from './cut-label.js';
 import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../bar/reel-window.js';
@@ -95,10 +95,11 @@ async function main() {
   // Whether the snap is one chosen before, not the default for the take.
   let snapChosen = SNAPS.includes(readPref('wave.snap', null));
 
-  // Save as take's name field (below): here, ahead of renderSelection's first
-  // call, which keeps an open field in step with the selection.
+  // Save as take's name field (below): here, ahead of the first calls of
+  // renderSelection and renderHeader, which keep an open field in step.
   const saveForm = $('save-name'), saveInput = $('save-name-input');
   let offered = ''; // the name the field was last filled with
+  let saving = false; // a cut on its way: the field can't close or save again
 
   // --- state (the page owns it; the views read it each draw) -------------
   const state = {
@@ -935,6 +936,8 @@ async function main() {
 
   // --- header ---------------------------------------------------------------
   function renderHeader() {
+    // A rename here or on another device: Save as take's offer follows it.
+    followSaveName();
     const name = take.label || stampOf(file);
     $('take-name').textContent = name;
     $('take-name').classList.toggle('unlabelled', !take.label);
@@ -1172,47 +1175,63 @@ async function main() {
   // It asks for the new take's name first, in the verbs' place: offered as
   // the server would name it ("Tuesday jam · 0:42–1:10") and selected, so
   // typing replaces it. Enter or Save saves; Escape or Cancel puts the verbs
-  // back. The new take folds into this one on the takes page.
+  // back. On the takes page the new take folds in with this one.
+  function offerName() { return cutLabel(take, state.region.start, state.region.end, sr); }
   function openSaveName() {
-    if (!state.region) return;
+    if (!state.region || saving) return;
     offered = offerName();
     saveInput.value = offered;
-    $('save-name-ok').disabled = false;
+    // The offer can be longer than a typed name may be; it mustn't make the
+    // field refuse to submit.
+    saveInput.maxLength = Math.max(120, offered.length);
     document.querySelector('.tb-row.verbs').hidden = true;
     saveForm.hidden = false;
     saveInput.focus();
     saveInput.select();
   }
-  function offerName() { return cutLabel(take, state.region.start, state.region.end, sr); }
   function closeSaveName(refocus = true) {
-    if (saveForm.hidden) return;
+    if (saveForm.hidden || saving) return;
     saveForm.hidden = true;
     document.querySelector('.tb-row.verbs').hidden = false;
     if (refocus) $('save-take').focus();
   }
-  // The selection moved while the field is open: an untouched name follows
-  // it; one the owner typed stays. No selection, nothing to save.
+  // The selection moved, or the take was renamed, while the field is open:
+  // the offer follows, and so does the field if it still holds the offer;
+  // a name the owner typed stays. No selection, nothing to save.
   function followSaveName() {
-    if (saveForm.hidden) return;
+    if (saveForm.hidden || saving) return;
     if (!state.region) { closeSaveName(false); return; }
-    if (saveInput.value === offered) {
-      offered = offerName();
-      saveInput.value = offered;
-    }
+    const was = offered;
+    offered = offerName();
+    saveInput.maxLength = Math.max(120, offered.length);
+    if (saveInput.value === was) saveInput.value = offered;
+  }
+  function setSaving(on) {
+    saving = on;
+    for (const id of ['save-name-ok', 'save-name-cancel', 'save-name-input']) $(id).disabled = on;
+  }
+  // The spine the new take sits under on the takes page: this take's, which
+  // is further up the line when this take is itself a cut or an earlier mix.
+  async function spineName(name) {
+    try {
+      const list = await fetch('/api/jams', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : []));
+      const s = familyOf(fold(Array.isArray(list) ? list : []), name).spine;
+      return s && s.name !== name ? s.label || stampOf(s.name) : '';
+    } catch { return ''; }
   }
   $('save-take').addEventListener('click', openSaveName);
   $('save-name-cancel').addEventListener('click', () => closeSaveName());
-  saveInput.addEventListener('keydown', (e) => {
+  saveForm.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.preventDefault(); closeSaveName(); }
   });
   saveForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!state.region) return;
-    const ok = $('save-name-ok');
-    if (ok.disabled) return;
-    ok.disabled = true;
-    // Empty means the server's own name, which is what was offered.
-    const label = saveInput.value.trim();
+    if (!state.region || saving) return;
+    // The offer, untouched, goes as no name at all: the server names it as
+    // it always has, rather than taking the offer as typed (and capping it).
+    const typed = saveInput.value.trim();
+    const label = typed === offered ? '' : typed;
+    setSaving(true);
     try {
       const res = await fetch(`/api/cut?file=${encodeURIComponent(file)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1220,21 +1239,23 @@ async function main() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `status ${res.status}`);
+      setSaving(false);
       closeSaveName();
+      const under = await spineName(body.name);
       // Built as nodes: the names are the owner's and never markup.
       const t = document.createElement('div');
       t.className = 'toast ok';
       t.append('Saved ');
       const a = document.createElement('a');
       a.href = `/wave.html?file=${encodeURIComponent(body.name)}`;
-      a.textContent = label || offered;
-      t.append(a, ` · in ${take.label || stampOf(file)} on the shelf`);
+      a.textContent = typed || offered;
+      t.append(a, under ? ` · in ${under} on the shelf` : '');
       $('toasts').appendChild(t);
       setTimeout(() => t.remove(), 8000);
     } catch (err) {
       toast(`Could not save as a take: ${err.message}`, 'bad');
     } finally {
-      ok.disabled = false;
+      setSaving(false);
     }
   });
 

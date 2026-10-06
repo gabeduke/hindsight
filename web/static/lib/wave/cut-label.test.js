@@ -34,3 +34,9 @@ test('a cut is named from its take, or from the file when the take has no name',
   assert.equal(cutLabel({ name: 'jam_a.wav', label: 'riff · 0:42–1:10' }, 0, 12 * SR, SR), 'riff · 0:00–0:12');
   assert.equal(cutLabel({ name: 'jam_2026-10-05_163610.wav', label: '' }, 0, 12 * SR, SR), 'jam_2026-10-05_163610 · 0:00–0:12');
 });
+
+test('ten seconds exactly is whole seconds; past an hour the minutes run on', () => {
+  assert.equal(spanLabel(0, 10 * SR, SR), '0:00–0:10');
+  assert.equal(spanLabel(0, 10 * SR - 1, SR), '0:00.0–0:09.9');
+  assert.equal(spanLabel((62 * 60 + 10) * SR, (75 * 60 + 20) * SR, SR), '62:10–75:20');
+});
