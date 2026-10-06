@@ -140,6 +140,25 @@ for (const [w, h] of [[390, 844], [360, 780]]) {
   await ctx.close();
 }
 
+// On a phone the bar is a mini player; a tap pulls the player up, with Loop
+// and the strip, and Escape puts it away.
+if ((await fetch(`${BASE}/api/tapes`)).ok) {
+  const [ctx, p] = await open(390, 844);
+  await p.waitForTimeout(1500);
+  const on = (sel) => p.evaluate((sel) => sel.every((s) => {
+    const b = document.querySelector(s).getBoundingClientRect();
+    return b.width > 0 && b.top >= 0 && b.bottom <= innerHeight;
+  }), sel);
+  check('capture, 390x844: the mini player has its window and ▶', await on(['#np-expand', '#np-play']) && !(await on(['#np-loop'])));
+  await p.click('#np-expand');
+  await p.waitForTimeout(300);
+  check('capture, 390x844: the player has ▶, Loop and the strip', await on(['#np-play', '#np-loop', '#np-scrub']));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  check('capture, 390x844: Escape puts the player away', await p.evaluate(() => !document.body.classList.contains('player-open')));
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

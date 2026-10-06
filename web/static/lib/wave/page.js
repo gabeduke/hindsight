@@ -37,6 +37,7 @@ import { listFrom } from '../shelf.js';
 import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../bar/reel-window.js';
 import { takeCounter, takeMarquee } from '../bar/lcd.js';
+import { initPlayer } from '../bar/player.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -172,6 +173,7 @@ async function main() {
   // The bar's reel window: the take's reels turn with the playhead, and the
   // LCD's two level bars read the take's peaks under it (left and right).
   const reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
+  initPlayer();
   const gain = takeGain(filePeaks);
   const lcdInk = 'var(--lcd-ink)';
   reels.setLevels(Array.from({ length: Math.min(2, filePeaks.channels) }, () => lcdInk),

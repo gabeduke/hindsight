@@ -14,21 +14,34 @@ const check = (name, ok, detail = '') => {
 };
 const browser = await chromium.launch();
 
-// On a phone, upright or sideways, the transport and Catch are on screen.
+// On a phone, upright or sideways, the bar is a mini player above the tabs:
+// its window, ▶ and Catch. A tap on the window pulls the player up, with
+// the transport, Rec and Catch on screen; Back puts it away.
 for (const [w, h] of [[390, 844], [844, 390]]) {
   const p = await (await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true })).newPage();
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(`${BASE}/tape.html`);
   await p.waitForTimeout(2000);
-  const r = await p.evaluate(() => {
-    const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.top >= 0 && b.bottom <= innerHeight; };
+  const look = () => p.evaluate(() => {
+    const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight; };
     const tabs = document.querySelector('.appnav')?.getBoundingClientRect();
     const c = document.querySelector('#catch-pass').getBoundingClientRect();
-    return { play: on('#play'), loop: on('#loop'), rec: on('#rec'), catch: on('#catch-pass'), aboveTabs: !tabs || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1 };
+    return { window: on('#np-expand'), play: on('#play'), loop: on('#loop'), rec: on('#rec'), catch: on('#catch-pass'),
+      open: document.body.classList.contains('player-open'),
+      aboveTabs: !tabs || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1 };
   });
-  check(`${w}x${h}: Play, Loop, Rec and Catch on screen`, r.play && r.loop && r.rec && r.catch, JSON.stringify(r));
-  check(`${w}x${h}: the dock sits above the tabs`, r.aboveTabs);
+  const mini = await look();
+  check(`${w}x${h}: the mini player shows its window, ▶ and Catch`, mini.window && mini.play && mini.catch && !mini.loop, JSON.stringify(mini));
+  check(`${w}x${h}: the mini player sits above the tabs`, mini.aboveTabs);
+  await p.click('#np-expand');
+  await p.waitForTimeout(300);
+  const big = await look();
+  check(`${w}x${h}: the player has Play, Loop, Rec and Catch on screen`, big.open && big.play && big.loop && big.rec && big.catch, JSON.stringify(big));
+  await p.goBack();
+  await p.waitForTimeout(300);
+  const back = await look();
+  check(`${w}x${h}: Back puts the player away, on the same page`, !back.open && back.window && p.url().endsWith('/tape.html'), p.url());
   check(`${w}x${h}: no page errors`, errors.length === 0, errors.join('; '));
   await p.context().close();
 }
@@ -186,9 +199,11 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     await p.goto(`${BASE}/tape.html`);
     await p.waitForTimeout(2500);
     check('phone mode: the banner shows on a browser that is not listening', await p.locator('#out-banner').isVisible());
+    await p.click('#np-expand'); // Rec is in the player
     await p.locator('#rec').click({ force: true }); // aria-disabled, but pressable
     check('phone mode: Rec opens the jam-room sheet', await p.evaluate(() => document.getElementById('jam-only').open));
     await p.locator('#jam-only-close').click();
+    await p.click('#np-expand');
     check('phone mode: the panel says Rec and Catch wait', await p.locator('#jam-only-note').isVisible());
     check('phone mode: Record from, Catch the last and the passes wait too',
       !(await p.locator('.tb-row.sources').isVisible()) && !(await p.locator('.tb-row.catch').isVisible()) && !(await p.locator('.tb-row.passes').isVisible()));

@@ -90,8 +90,8 @@ just move references around.
   reels and amber window, **|◂ ▶ ⟲**, and the whole tape as a strip to tap
   or drag. **Open (the tape) ›** goes to it. A cassette tapped on the shelf
   plays in the bar instead; when it ends, or with **⏏**, the bar has the tape
-  again. Without the tape it shows only while a take plays. On a phone the
-  shelf plays as before; the bar comes with a later update.
+  again. Without the tape it shows only while a take plays. On a phone it's
+  the mini player above the tabs: tap its window for the whole bar (§8.2).
 
 **Checks — today:**
 
@@ -158,7 +158,9 @@ Every take, from **All takes** on the main page.
   repeats its selection or the whole take, **|◂** goes back to its In, and the
   strip under them is the whole take to tap or drag. **Open the take ›** opens
   it. If the tape was playing when you came to the page, the bar keeps the
-  tape until you pick a take; **⏏** puts the tape back in it.
+  tape until you pick a take; **⏏** puts the tape back in it. On a phone
+  it's the mini player above the tabs, and the cassette's sheet covers it
+  while it's open (§8.2).
 - **The cassette.** **Play** (in the bar on a wide screen) turns its reels and winds the tape from one
   pack to the other; the bars light up as they play, and a tap or a drag in
   its window seeks. A selection shows as grease-pencil IN and OUT. Tap the
@@ -255,7 +257,8 @@ point at the gestures that matter; **Got it** puts them away for good.
   **⚑**. Under them, **the overview:** the whole take, its scrubber. Tap it to
   move the playhead there, drag its window to move along, double-tap to see
   it all; with it focused, ← → move a second. **OUT · This device**: a take
-  plays here. On a phone the bar is docked above the tabs.
+  plays here. On a phone it's the mini player above the tabs, with ▶; tap
+  its window for the whole bar (§8.2).
 - **The MIDI lanes,** if the take has MIDI. Tap a lane's name for its menu:
   collapse, show as drums or notes, or hide.
 
@@ -676,14 +679,19 @@ From the top:
 - **Catch** (in the bar) catches the last pass, and **Catch the last: 1 bar /
   2 / 4** catch the last bars, onto the selected track.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
-- **On a phone,** upright or on its side, the bar stays docked at the
-  bottom (above the tabs): ▶, ⟲ Loop, ● Rec, the click and **Catch** (on a
-  narrow phone |◂ gives way), and under them a small window with where the
-  tape is, beside the overview. A catch never waits for a scroll. OUT is in
-  the top bar.
-- **On a phone** the drawers aren't drawers: Record from, Catch the last,
-  the passes, the clipboard and the edits are rows under the tracks, as
-  they always were.
+- **On a phone,** upright or on its side, the bar is a **mini player**
+  above the tabs: the reel window with where the tape is, **▶** and
+  **Catch**, and a line along its top as far as the tape has got. A catch
+  never waits for a scroll. Playing on this phone, its strip (and *Tap to
+  play here*) sits on top. OUT is in the top bar.
+- **Tap the mini player's window** to pull up **the player** over the page:
+  the whole bar, large (**|◂ ▶ ⟲ Loop ● Rec**, the click, **Catch** and the
+  overview), and under it **Record ▴** and **Edit ▴**, which show their
+  drawer below them. **Down**, Back or **Esc** puts it away. Takes, Capture
+  and a take's page have the same mini player and player.
+- **On a phone,** with the player down, Record from, Catch the last, the
+  passes, the clipboard and the edits are rows under the tracks, as they
+  always were.
 - **On a tablet or a computer** the tracks take the whole width and share
   the height of the window between the header and the bar; a drawer opening
   makes them shorter, and they scroll once they're as short as their heads.
@@ -1272,6 +1280,7 @@ has no tip.
 | ⏏ (bar) | Stop the take in the bar and put the tape back in it |
 | Open › (bar) | Open what’s in the bar on its own page: the tape, or the take |
 | The bar’s strip | The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays |
+| The mini player (phone) | On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |

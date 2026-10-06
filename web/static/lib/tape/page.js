@@ -32,6 +32,7 @@ import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
 import { tapeCounter, tapeMarquee } from '../bar/lcd.js';
+import { initPlayer } from '../bar/player.js';
 import { initNav } from '../nav.js';
 
 const $ = (id) => document.getElementById(id);
@@ -160,6 +161,7 @@ async function boot() {
   }
   $('tape-body').hidden = false;
   $('np-dock').hidden = false;
+  initPlayer();
   if (!list.loaded) {
     // No tape yet: make the first one.
     const t = list.tapes[0] || await api('/api/tapes', { method: 'POST', body: { name: '' } });

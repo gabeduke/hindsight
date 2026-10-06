@@ -64,6 +64,8 @@ export class ReelWindow {
     this.left = reel(left);
     this.right = reel(right);
     this.levelsEl = levels;
+    // The bar, for the mini player's hairline of how far along it is.
+    this.np = typeof left.closest === 'function' ? left.closest('.np') : null;
     this.bars = [];
     this.levels = () => [];
     this.motion = null;
@@ -111,6 +113,7 @@ export class ReelWindow {
     this.right.pack.setAttribute('r', m.right.toFixed(1));
     this.left.turn.style.transform = `rotate(${m.angleL.toFixed(1)}deg)`;
     this.right.turn.style.transform = `rotate(${m.angleR.toFixed(1)}deg)`;
+    if (this.np && this.motion.length > 0) this.np.style.setProperty('--np-progress', String(clamp(m.pos / this.motion.length, 0, 1)));
     const lv = m.moving === 'play' ? this.levels(m.pos) : [];
     this.bars.forEach((b, i) => { b.style.transform = `scaleY(${Math.max(0.08, levelFrac(lv[i])).toFixed(3)})`; });
     return m.moving !== 'stop';

@@ -191,7 +191,8 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
 
 // The take's now-playing bar: its overview is the bar's scrubber, ▶ turns to
 // ❚❚ and the lamp lights, a tap on the scrubber moves the playhead, and on a
-// phone, upright or sideways, ▶ and In are on screen.
+// phone, upright or sideways, the mini player has ▶ and its pulled-up player
+// ▶, In and the scrubber.
 {
   const takes = await (await fetch(`${BASE}/api/jams`)).json();
   const url = `${BASE}/wave.html?file=${encodeURIComponent(takes[0].name)}`;
@@ -214,11 +215,15 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
     const q = await (await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true })).newPage();
     await q.goto(url);
     await q.waitForTimeout(1800);
-    const on = await q.evaluate(() => ['#play', '#set-in', '#overview-canvas'].every((s) => {
+    const on = (sel) => q.evaluate((sel) => sel.every((s) => {
       const b = document.querySelector(s).getBoundingClientRect();
       return b.width > 0 && b.top >= 0 && b.bottom <= innerHeight;
-    }));
-    check(`a take, ${w}x${h}: ▶, In and the scrubber on screen`, on);
+    }), sel);
+    check(`a take, ${w}x${h}: the mini player has its window and ▶`, await on(['#np-expand', '#play']));
+    await q.click('#np-expand');
+    await q.waitForTimeout(300);
+    const big = await on(['#play', '#set-in', '#overview-canvas']);
+    check(`a take, ${w}x${h}: the player has ▶, In and the scrubber on screen`, big);
     await q.context().close();
   }
 }

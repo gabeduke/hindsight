@@ -9,6 +9,7 @@
 import { ReelWindow } from './reel-window.js';
 import { tapeSource } from './tape-source.js';
 import { takeSource } from './take-source.js';
+import { initPlayer } from './player.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -20,6 +21,7 @@ export class NowPlaying {
     this.marqueeKey = null;
     this.reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
     this.scrub = $('np-scrub');
+    initPlayer();
 
     $('np-play').addEventListener('click', () => {
       const s = this.src;

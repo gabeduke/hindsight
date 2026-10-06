@@ -66,6 +66,7 @@ export const TIPS = [
   { control: '⏏ (bar)', ids: ['np-eject'], tip: 'Stop the take in the bar and put the tape back in it' },
   { control: 'Open › (bar)', ids: ['np-open'], tip: 'Open what’s in the bar on its own page: the tape, or the take' },
   { control: 'The bar’s strip', ids: ['np-scrub'], tip: 'The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays' },
+  { control: 'The mini player (phone)', ids: ['np-expand'], tip: 'On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away' },
   { control: '⟲ Loop', ids: ['loop'], tip: 'Repeat the selection instead of playing straight through' },
   { control: 'In', ids: ['in'], tip: 'Start the selection at the playhead' },
   { control: 'Out', ids: ['out'], tip: 'End the selection at the playhead' },
