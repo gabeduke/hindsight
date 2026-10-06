@@ -583,19 +583,33 @@ export function shelve(takes, opts = {}, now = Date.now()) {
 
 ---
 
-## PR 2: name it when you save (scoped; detailed here when it starts)
+## PR 2: name it when you save (branch `claude/take-families-2`)
 
-- **`lib/wave/cut-label.js` (new):** `spanLabel(from, to, sampleRate)` and
-  `cutLabelBase(label)`, ported from `internal/audio/cut.go`.
-  - Tested on the same cases as the Go tests, plus "a label the owner typed
-    that ends in ` · 1–2` is left alone".
-- **The take page:** `#save-take` opens an inline name field in the editor bar.
-  - It's pre-filled with `cutLabelBase(take.label || stem) + ' · ' + spanLabel(…)`
-    and selected.
-  - Enter or **Save** posts `/api/cut` with `label`; Escape cancels.
-  - On a phone the field takes the bar's width.
-- **The toast:** "Saved *name* · in *original* on the shelf", with the link to
-  the new take.
-- **Tips and guide:** a `save-name` tip; §4's *Save as take* bullet.
-- `SHELL` gains `lib/wave/cut-label.js`; `CACHE` goes up by one;
-  `make deploy-static`.
+Built on 2026-10-05 from local `main` after the transport bar's PRs 3 and 4.
+
+- **`lib/wave/cut-label.js` (new):**
+  - `spanLabel(from, to, sampleRate)` and `cutLabelBase(label)` are ported
+    from `internal/audio/cut.go`.
+  - `cutLabel(take, from, to, sampleRate)` is the server's default name for
+    a cut.
+  - Tested in `cut-label.test.js` on every case in the Go tests.
+- **The take page (`wave.html`, `lib/wave/page.js`):**
+  - `#save-take` opens `<form id="save-name">` in place of the verbs row. Its
+    field is pre-filled with `cutLabel(…)` and selected.
+  - Enter or **Save** posts `/api/cut` with `label`. An empty field means
+    the server's default, which is what was offered.
+  - Escape or **Cancel** puts the verbs back.
+  - While the field is open, an untouched name follows the selection, and
+    one the owner typed stays. Clearing the selection closes the field.
+  - The field's declarations sit above `state`, because `renderSelection()`
+    (which calls `followSaveName()`) runs during setup.
+- **The toast:** "Saved *name* · in *original* on the shelf", built as
+  nodes, with the link to the new take.
+- **Tips and guide:** a `save-name` tip, on the field and both keys, and the
+  same row in §9; §4's *Save as take* bullet.
+- **Smoke:**
+  - `smoke-takes.mjs` checks the offered name, Enter, and that the verbs
+    come back.
+  - `smoke-capture.mjs`'s still-encoding check marks every take, because the
+    list's first take can be a cut folded behind its original.
+- `SHELL` gains `lib/wave/cut-label.js`; `CACHE` v33; `make deploy-static`.

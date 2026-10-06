@@ -34,6 +34,7 @@ import { toast, toastNext, undoSkipped, undoPhrase } from '../toast.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { listFrom } from '../shelf.js';
+import { cutLabel } from './cut-label.js';
 import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../bar/reel-window.js';
 import { takeCounter, takeMarquee } from '../bar/lcd.js';
@@ -93,6 +94,11 @@ async function main() {
 
   // Whether the snap is one chosen before, not the default for the take.
   let snapChosen = SNAPS.includes(readPref('wave.snap', null));
+
+  // Save as take's name field (below): here, ahead of renderSelection's first
+  // call, which keeps an open field in step with the selection.
+  const saveForm = $('save-name'), saveInput = $('save-name-input');
+  let offered = ''; // the name the field was last filled with
 
   // --- state (the page owns it; the views read it each draw) -------------
   const state = {
@@ -696,6 +702,7 @@ async function main() {
       $('sel-len').textContent = fmtRegionLength(r, state.grid);
     }
     $('save-take').disabled = !r;
+    followSaveName();
     $('set-in').classList.toggle('pending', state.pending?.edge === 'start');
     $('set-out').classList.toggle('pending', state.pending?.edge === 'end');
     if (!r && state.loop) { state.loop = false; applyLoop(); }
@@ -1162,31 +1169,72 @@ async function main() {
   });
 
   // --- Save as take ---------------------------------------------------------
-  $('save-take').addEventListener('click', async () => {
+  // It asks for the new take's name first, in the verbs' place: offered as
+  // the server would name it ("Tuesday jam · 0:42–1:10") and selected, so
+  // typing replaces it. Enter or Save saves; Escape or Cancel puts the verbs
+  // back. The new take folds into this one on the takes page.
+  function openSaveName() {
     if (!state.region) return;
-    const btn = $('save-take');
-    btn.disabled = true;
+    offered = offerName();
+    saveInput.value = offered;
+    $('save-name-ok').disabled = false;
+    document.querySelector('.tb-row.verbs').hidden = true;
+    saveForm.hidden = false;
+    saveInput.focus();
+    saveInput.select();
+  }
+  function offerName() { return cutLabel(take, state.region.start, state.region.end, sr); }
+  function closeSaveName(refocus = true) {
+    if (saveForm.hidden) return;
+    saveForm.hidden = true;
+    document.querySelector('.tb-row.verbs').hidden = false;
+    if (refocus) $('save-take').focus();
+  }
+  // The selection moved while the field is open: an untouched name follows
+  // it; one the owner typed stays. No selection, nothing to save.
+  function followSaveName() {
+    if (saveForm.hidden) return;
+    if (!state.region) { closeSaveName(false); return; }
+    if (saveInput.value === offered) {
+      offered = offerName();
+      saveInput.value = offered;
+    }
+  }
+  $('save-take').addEventListener('click', openSaveName);
+  $('save-name-cancel').addEventListener('click', () => closeSaveName());
+  saveInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeSaveName(); }
+  });
+  saveForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!state.region) return;
+    const ok = $('save-name-ok');
+    if (ok.disabled) return;
+    ok.disabled = true;
+    // Empty means the server's own name, which is what was offered.
+    const label = saveInput.value.trim();
     try {
       const res = await fetch(`/api/cut?file=${encodeURIComponent(file)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start_frame: state.region.start, end_frame: state.region.end, label: '' }),
+        body: JSON.stringify({ start_frame: state.region.start, end_frame: state.region.end, label }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `status ${res.status}`);
-      // Built as nodes: the name comes from the server and is never markup.
+      closeSaveName();
+      // Built as nodes: the names are the owner's and never markup.
       const t = document.createElement('div');
       t.className = 'toast ok';
-      t.append('Saved as ');
+      t.append('Saved ');
       const a = document.createElement('a');
       a.href = `/wave.html?file=${encodeURIComponent(body.name)}`;
-      a.textContent = body.name;
-      t.appendChild(a);
+      a.textContent = label || offered;
+      t.append(a, ` · in ${take.label || stampOf(file)} on the shelf`);
       $('toasts').appendChild(t);
       setTimeout(() => t.remove(), 8000);
-    } catch (e) {
-      toast(`Could not save as a take: ${e.message}`, 'bad');
+    } catch (err) {
+      toast(`Could not save as a take: ${err.message}`, 'bad');
     } finally {
-      btn.disabled = !state.region;
+      ok.disabled = false;
     }
   });
 

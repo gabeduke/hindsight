@@ -330,8 +330,11 @@ and the editor bar takes the place of the toolbar.
 
 **Doing things with the selection:**
 
-- **Save as take** makes a new take of just the selection. On the takes
-  page it folds into this take (§3.1).
+- **Save as take** makes a new take of just the selection. It asks for a
+  name first, offering the one it would get anyway ("Tuesday jam ·
+  0:42–1:10") already selected, so typing replaces it; Enter or **Save**
+  saves it, Escape or **Cancel** doesn't. On the takes page it folds into
+  this take (§3.1).
 - **Share** sends it from your phone as an MP3 (the whole take, with no
   selection).
 - **Copy** puts it on the clipboard, to drop onto a tape (step 6d).
@@ -1293,6 +1296,7 @@ has no tip.
 | Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
 | Save as take | Make a new take of just the selection |
+| Name (Save as take) | Name the new take, then Save. It folds into this one on the takes page. Cancel saves nothing |
 | Share | Send the selection from your phone as an MP3 |
 | More | The DAW bundle, the WAV and MIDI downloads, and delete |
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |

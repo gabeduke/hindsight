@@ -45,7 +45,9 @@ for (const [w, h] of [[390, 844], [360, 780]]) {
     const res = await route.fetch({ headers });
     const list = await res.json().catch(() => null);
     if (!Array.isArray(list)) { await route.fulfill({ response: res }); return; }
-    if (list[0]) list[0].has_preview = false;
+    // Every take, so whichever is the first spine is one: the list is starred
+    // first, the shelf newest first, and a cut folds behind its original.
+    for (const t of list) t.has_preview = false;
     await route.fulfill({ response: res, json: list });
   }));
   // force: aria-disabled makes Playwright wait for it to enable; a finger doesn't.

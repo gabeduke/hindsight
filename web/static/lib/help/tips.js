@@ -87,6 +87,7 @@ export const TIPS = [
   { control: 'Snap', ids: ['snap'], tip: 'Make the selection, In, Out and the nudges land on bars, beats or 8ths' },
   { control: 'Practice speed', ids: ['speed'], tip: 'Slow down or speed up without changing pitch' },
   { control: 'Save as take', ids: ['save-take'], tip: 'Make a new take of just the selection' },
+  { control: 'Name (Save as take)', ids: ['save-name'], tip: 'Name the new take, then Save. It folds into this one on the takes page. Cancel saves nothing' },
   { control: 'Share', ids: ['share'], tip: 'Send the selection from your phone as an MP3' },
   { control: 'More', ids: ['more'], tip: 'The DAW bundle, the WAV and MIDI downloads, and delete' },
   { control: 'DAW bundle', ids: ['bundle'], tip: "The selection's WAV and MIDI, lined up, in a zip for a DAW" },
