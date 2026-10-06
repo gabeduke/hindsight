@@ -3092,7 +3092,7 @@ input, select, textarea { color-scheme: inherit; }
   body:has(.np:not([hidden])) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h)); }
   /* A take's notes, full screen, and select mode's own bar hide it. */
   body.wave-page.notes-open { padding-bottom: 0; }
-  body.selecting:has(.np) { padding-bottom: 76px; }
+  body.selecting:has(.np) { padding-bottom: calc(var(--dock-b, 0px) + 70px); }
   body:has(.np:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--dock-b, 0px) + var(--np-h) + 12px); }
   /* The mini player, under the app bar (z 20), whose menus open over it. */
   body:not(.player-open) .np {
@@ -3135,7 +3135,7 @@ input, select, textarea { color-scheme: inherit; }
   body.player-open .np-dock, body.player-open > .np {
     position: fixed; inset: 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain;
     display: flex; flex-direction: column; gap: 14px; height: auto;
-    padding: calc(64px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    padding: calc(64px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     background: linear-gradient(180deg, var(--face-hi), var(--face-lo));
   }
   body.player-open .np-dock > .np { order: -1; position: static; padding: 0; background: none; border: 0; box-shadow: none; }
@@ -3161,7 +3161,7 @@ input, select, textarea { color-scheme: inherit; }
   /* ▾ puts it away: at the top of the sheet. */
   body.player-open .np-expand {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 16px; z-index: 51;
+    position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); z-index: 51;
     min-width: 72px; height: 44px; padding: 0 14px; border-radius: 11px; border: 1px solid var(--edge);
     background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink); font: 600 14px var(--font); cursor: pointer;
     box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge), 0 3px 8px -4px var(--sh-strong);

@@ -3,7 +3,8 @@
 //
 //   - on a computer, every control with a data-tip gets its tip as a title;
 //   - on a phone, the ? button turns on help mode: tapping a control shows
-//     its tip instead of using it, until ? is tapped again;
+//     its tip instead of using it, until ? is tapped again (a control with
+//     data-tip-pass shows its tip and is used too);
 //   - the first time a page is opened on a device, a card with three hints
 //     points at what matters most, and is dismissed for good.
 //
@@ -85,6 +86,12 @@ export function initHelp({ page, doc = document } = {}) {
     if (!on) return;
     const el = e.target.closest?.('[data-tip]');
     if (!el || el === btn || btn?.contains(el) || pop.contains(e.target)) return;
+    // A control marked to pass (the phone's player handle) shows its tip and
+    // still works: the controls it opens onto have tips of their own.
+    if (el.hasAttribute('data-tip-pass')) {
+      if (e.type === 'click') show(controlFor(el.dataset.tip), tipFor(el.dataset.tip), GUIDE[page]);
+      return;
+    }
     // A wheel over the waveform must not zoom it, but the page under it
     // may still scroll, so that one is stopped without being prevented.
     if (e.type !== 'wheel') e.preventDefault();

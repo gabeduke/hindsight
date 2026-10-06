@@ -1214,7 +1214,9 @@ on the strip across the top of the bar.
 
 - **On a computer,** every button has a tooltip.
 - **On a phone,** tap **?** in the header to enter help mode, then tap
-  anything to read its tip instead of using it.
+  anything to read its tip instead of using it. The mini player's window
+  is the one exception: it shows its tip and still pulls the player up, so
+  its keys can be read too; **Down** brings **?** back.
 - **The first time you open** the take page or the tape page, three short
   hints point at the gestures that matter most. They're remembered per
   device.
