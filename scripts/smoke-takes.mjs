@@ -313,6 +313,34 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await ctx.close();
 }
 
+// Save as take asks for a name first, offering the one it would get anyway.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  const jam = await p.evaluate(async () => {
+    const r = await fetch('/api/trigger?seconds=12', { method: 'POST' }).then((x) => x.json());
+    await fetch(`/api/take?file=${encodeURIComponent(r.name)}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'smoke jam', trim: { start_frame: 96000, end_frame: 240000 } }),
+    });
+    return r.name;
+  });
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(jam)}`);
+  await settle(p, 2000);
+  await p.locator('#save-take').click();
+  const offered = await p.locator('#save-name-input').inputValue();
+  check('Save as take offers the name it would get', offered === 'smoke jam · 0:02.0–0:05.0', offered);
+  await p.locator('#save-name-input').fill('smoke riff');
+  await p.keyboard.press('Enter');
+  await settle(p, 1500);
+  const saved = await p.evaluate((src) => fetch('/api/jams').then((r) => r.json())
+    .then((l) => l.filter((t) => t.source?.name === src).map((t) => t.label)), jam);
+  check('Enter saves it under the name typed', saved.includes('smoke riff'), JSON.stringify(saved));
+  check('the verbs come back after a save', await p.locator('.tb-row.verbs').isVisible());
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

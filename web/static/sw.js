@@ -53,6 +53,7 @@ const SHELL = [
   '/lib/wave/boundary.js',
   '/lib/wave/near.js',
   '/lib/wave/onset.js',
+  '/lib/wave/cut-label.js',
   '/lib/edit/gestures.js',
   '/lib/edit/editor-bar.js',
   '/lib/help/help.js',
