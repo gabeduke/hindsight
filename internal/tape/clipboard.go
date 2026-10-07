@@ -30,6 +30,10 @@ type Clipboard struct {
 	BPM     float64   `json:"bpm,omitempty"`
 	From    string    `json:"from"` // where it came from, in words
 	Created time.Time `json:"created"`
+	// Clips marks clips copied as they lay (several picked clips), not a
+	// span: a drop replaces only what's under each of them, and leaves the
+	// rest of the span -- the tracks between them, the gaps -- alone.
+	Clips bool `json:"clips,omitempty"`
 }
 
 var ErrEmptyClipboard = errors.New("the clipboard is empty: copy something first")
@@ -283,10 +287,17 @@ func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error
 		if at+c.Frames > tp.Length {
 			return roomErr(tp.Length-at, tp.Length, sr)
 		}
-		// Clear the span on each track, then lay the clipboard's clips in.
+		// Clear the span on each track (or, for clips copied as they lay,
+		// just what's under each), then lay the clipboard's clips in.
 		for i := 0; i < spans; i++ {
 			tr := &s.Tracks[track-1+i]
-			tr.Clips = clearRange(tr.Clips, at, at+c.Frames)
+			if !c.Clips || merge {
+				tr.Clips = clearRange(tr.Clips, at, at+c.Frames)
+				continue
+			}
+			for _, cl := range c.Tracks[i] {
+				tr.Clips = clearRange(tr.Clips, at+cl.At, at+cl.At+cl.Frames)
+			}
 		}
 		for i, clips := range c.Tracks {
 			to := track + i

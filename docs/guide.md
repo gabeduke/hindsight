@@ -713,9 +713,13 @@ From the top:
   Narrower than 1000 px, **Record ▴** and **Edit ▴** sit beside OUT. On the
   1024 × 600 bench the header is one row, the page switch at its left.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
-  ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, and
-  **⌘Z / Ctrl-Z** undoes (with **⇧** to redo). Holding a key doesn't repeat
-  it, and none of them fire while you're typing or a sheet is open.
+  ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, **S**
+  splits at the playhead, and **⌘Z / Ctrl-Z** undoes (with **⇧** to redo).
+  With a clip picked, or several: **Delete** removes them, **⌘C / Ctrl-C**
+  copies them as they lie, and **⌘D / Ctrl-D** lays a copy right after them
+  and picks the copy, so pressing it again carries the run on.
+  **Shift** with a click picks several. Holding a key doesn't repeat it, and
+  none of them fire while you're typing or a sheet is open.
 - **After a sleep.** Lock a tablet and wake it, and the page asks the Pi
   again at once: no refresh. If the Pi doesn't answer, a small
   **Reconnecting…** note shows at the top (not for a blink) and goes when it
@@ -977,6 +981,22 @@ loop's bars on the selected track, or on all four, kept apart.
 | **Reverse** | In a clip's sheet: plays it backwards. Tap again (*Play forwards*) to turn it back |
 | **Share as WAV** | In a clip's sheet: sends just that clip, at its level, to another app; a clip over a minute downloads instead |
 
+**Several clips at once.** **Select more** in a clip's sheet (or **Shift**
+with a click on a computer) picks several. Then a tap on a clip adds it or
+takes it off, and a bar over the transport says how many and does to them
+all at once, each one undo:
+
+| Do | Gets you |
+|---|---|
+| **Drag any of them** (hold, then drag) | Moves them all by the same time and the same number of tracks, as far as the tape and its tracks go |
+| **Move here** | Moves them so the first starts at the playhead, keeping their spacing and tracks |
+| **Copy** | Copies them to the clipboard as they lie, on their tracks and as far apart: **Drop** lays them out again from the selected track, replacing only what's under each |
+| **Reverse** | Turns each round |
+| **Remove** | Takes them off the tape |
+| **Done** | Lets go of them. So does Escape |
+
+Align still works on one clip at a time.
+
 Nothing is cut out of the audio. A clip is a window onto a recording, so an
 edit only moves windows, and each one is a single undo. A clip dropped or
 copied from a take keeps 2 seconds of it either side (`TAPE_HANDLE_S`), so
@@ -1031,6 +1051,16 @@ try something. It costs no disk space.
   loop) → its copies are on its layer, with no dips where they meet.
 - [demo] Repeat a clip, then change one copy's level → the others keep
   theirs.
+- [demo] Tap a clip, **Select more**, then tap a clip on another track → the
+  bar says *2 clips*. Hold one and drag both a bar later and a track down →
+  they move together; ↶ → both back.
+- [demo] Drag a picked pair up past track 1 → they stop with the higher one
+  on track 1.
+- [demo] With two picked, **Copy**, then select track 3 and **Drop** → the
+  pair again from track 3, as far apart as they were.
+- [demo] On a computer, click a clip, Shift-click another, **⌘D** → a copy
+  of both right after them; **Delete** → the two picked are gone; ↶ → back.
+- [demo] Put the playhead in a clip and press **S** → it's split there.
 - [demo] Zoom out until a clip is narrow → no grips; its sheet's **Start
   here** and **End here** trim it to the playhead.
 - [demo] Split a clip, tap either half, **Join the split** → one clip.
@@ -1419,7 +1449,7 @@ has no tip.
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
 | Tape overview | The whole tape, in the bar: what’s on each track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop. With it focused, ← → move a bar |
-| A lane | Tap a clip for its sheet; it stays picked: drag its edges to trim it, or its ⟳ corner to repeat it. Hold a clip, then drag, to slide it along its track or onto another. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
+| A lane | Tap a clip for its sheet; it stays picked: drag its edges to trim it, or its ⟳ corner to repeat it. Shift with a click, or Select more, picks several. Hold a clip, then drag, to slide it along its track or onto another. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
@@ -1449,6 +1479,12 @@ has no tip.
 | Share as WAV (clip) | Send just this clip, at its level, to another app; a long one downloads |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Start here, End here (clip) | Trim the clip's start or end to the playhead, for a clip too short to drag. What's trimmed is kept: drag or trim back out |
+| Select more (clip) | Pick more clips with this one: tap others to add them, then move, copy, reverse or remove them together |
+| Move here (clips) | Move the picked clips so the first starts at the playhead, keeping their spacing and tracks |
+| Copy (clips) | Copy the picked clips as they lie, on their tracks: Drop lays them out again. Key: ⌘C or Ctrl-C |
+| Reverse (clips) | Turn each picked clip round. One undo turns them all back |
+| Remove (clips) | Take the picked clips off the tape. Key: Delete |
+| Done (clips) | Let go of the picked clips. Esc does too |
 | Align | Line the clip up to the sample: the editor bar opens on its first hit |
 | Done | Close the editor. Esc does too |
 | ZOOM on the tape | Drag sideways to zoom about the clip’s first hit: right is closer |
@@ -1465,7 +1501,7 @@ has no tip.
 | Copy | Put the selection on the clipboard, to drop onto a tape |
 | Drop | The clipboard onto the selected track at the playhead, replacing what’s there. Drop again to lay another copy after it |
 | Merge drop | Drop every track on the clipboard onto the selected one, layered, each clip at its own level |
-| Split | Cut the clips on the selected track in two at the playhead |
+| Split | Cut the clips on the selected track in two at the playhead. Key: S |
 | Join | Join this clip and the half that was split from it back into one |
 | Multiply | Double the loop, copying what's in it over what follows |
 | Slide snaps to | Where a clip you slide can land: on a bar, a beat, an eighth, or anywhere |

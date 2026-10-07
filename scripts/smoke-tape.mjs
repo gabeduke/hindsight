@@ -343,6 +343,45 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('a clip: ↶ takes the copies back', (await loadedState()).tape.tracks[0].clips.length === n0);
+  // Several clips: Select more, ⌘D or Ctrl-D for a copy after it, Shift-click
+  // the copy, then drag the pair a lane down together; ↶; Delete; ↶; Done.
+  // (Reloaded: the corner's drag scrolled the view.)
+  await p.reload();
+  await p.waitForTimeout(2000);
+  await p.mouse.click(s.x, s.y);
+  await p.waitForTimeout(400);
+  await p.click('#clip-select');
+  await p.waitForTimeout(300);
+  check('several clips: Select more shows the bar', await p.isVisible('#multi-bar') && (await p.textContent('#multi-count')) === '1 clip');
+  await p.keyboard.press('ControlOrMeta+KeyD');
+  await p.waitForTimeout(1000);
+  const dup = (await loadedState()).tape.tracks[0].clips.find((x) => x.at === c0.at + c0.frames);
+  check('several clips: ⌘D lays a copy right after it, and picks the copy', !!dup && (await p.textContent('#multi-count')) === '1 clip');
+  await p.keyboard.down('Shift');
+  await p.mouse.click(s.x, s.y);
+  await p.keyboard.up('Shift');
+  await p.waitForTimeout(300);
+  check('several clips: Shift-click adds the first again', (await p.textContent('#multi-count')) === '2 clips');
+  await p.mouse.move(s.x, s.y);
+  await p.mouse.down();
+  await p.waitForTimeout(450);
+  await p.mouse.move(s.x, s.y + pitch, { steps: 8 });
+  await p.mouse.up();
+  await p.waitForTimeout(1000);
+  const moved = (await loadedState()).tape.tracks[1].clips.map((x) => x.id);
+  check('several clips: dragging one moves both a lane down', moved.includes(c0.id) && dup && moved.includes(dup.id), JSON.stringify(moved));
+  await p.click('#tape-undo');
+  await p.waitForTimeout(1000);
+  check('several clips: ↶ puts both back', (await loadedState()).tape.tracks[0].clips.filter((x) => x.id === c0.id || x.id === dup?.id).length === 2);
+  await p.keyboard.press('Delete');
+  await p.waitForTimeout(1000);
+  const left = (await loadedState()).tape.tracks[0].clips;
+  check('several clips: Delete removes both', !left.some((x) => x.id === c0.id || x.id === dup?.id) && !(await p.isVisible('#multi-bar')));
+  await p.click('#tape-undo');
+  await p.waitForTimeout(800);
+  await p.click('#tape-undo');
+  await p.waitForTimeout(1000);
+  check('several clips: ↶ ↶ → the clip alone, as it was', (await loadedState()).tape.tracks[0].clips.length === n0);
   check('a clip: no page errors', errors.length === 0, errors.join('; '));
   await p.context().close();
 }

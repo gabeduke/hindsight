@@ -411,8 +411,36 @@ func TestTheTapesEditsLiftSplitAndMultiply(t *testing.T) {
 	}
 	want(t, send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, ""), http.StatusOK, "undo the repeat")
 	edit(`{"op":"repeat","clip":"`+joined+`","count":0}`, http.StatusBadRequest, "repeat no times")
+	// Several at once: duplicated after itself, then both moved a track
+	// down, then both removed; each one step.
+	edit(`{"op":"duplicate","clips":["`+joined+`"]}`, http.StatusOK, "duplicate")
+	cl := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")).Tape.Tracks[0].Clips
+	if len(cl) != 2 {
+		t.Fatalf("duplicated into %d clips", len(cl))
+	}
+	both := `["` + cl[0].ID + `","` + cl[1].ID + `"]`
+	edit(`{"op":"move","clips":`+both+`,"dt":0,"dtrack":1}`, http.StatusOK, "move both")
+	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); len(s.Tape.Tracks[1].Clips) != 2 {
+		t.Fatalf("after the move track 2 has %d clips", len(s.Tape.Tracks[1].Clips))
+	}
+	edit(`{"op":"move","clips":`+both+`,"dtrack":-2}`, http.StatusBadRequest, "move off the tracks")
+	out := edit(`{"op":"copy","clips":`+both+`}`, http.StatusOK, "copy both")
+	if e, _ := out["edit"].(map[string]any); e["clips"] != float64(2) || e["clipboard"] == nil {
+		t.Fatalf("copy both = %v", out["edit"])
+	}
+	edit(`{"op":"remove","clips":`+both+`}`, http.StatusOK, "remove both")
+	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); len(s.Tape.Tracks[1].Clips) != 0 {
+		t.Fatal("remove left clips")
+	}
+	edit(`{"op":"remove","clips":[]}`, http.StatusBadRequest, "remove nothing")
+	for _, what := range []string{"undo the remove", "undo the move", "undo the duplicate"} {
+		want(t, send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, ""), http.StatusOK, what)
+	}
+	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); len(s.Tape.Tracks[0].Clips) != 1 {
+		t.Fatalf("after three undos track 1 has %d clips", len(s.Tape.Tracks[0].Clips))
+	}
 	// Double the loop, then lift all four tracks: the tape is left empty.
-	out := edit(`{"op":"multiply"}`, http.StatusOK, "multiply")
+	out = edit(`{"op":"multiply"}`, http.StatusOK, "multiply")
 	if e, _ := out["edit"].(map[string]any); e["frames"] != float64(192000) {
 		t.Fatalf("multiply = %v", out["edit"])
 	}

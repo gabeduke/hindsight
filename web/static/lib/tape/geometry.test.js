@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -261,4 +261,15 @@ test('repeatCount: a copy each half a copy dragged, none back, up to the room', 
   assert.equal(repeatCount(-500, 100, 9), 0);
   assert.equal(repeatCount(5000, 100, 9), 9);
   assert.equal(repeatCount(500, 0, 9), 0);
+});
+
+test('groupMove holds several clips inside the tape and on its tracks', () => {
+  const clips = [{ at: 1000, frames: 500, track: 2 }, { at: 3000, frames: 1000, track: 3 }];
+  const tape = { tracks: 4, length: 10000 };
+  assert.deepEqual(groupMove(clips, 200, 1, tape), { dt: 200, dtrack: 1 });
+  assert.deepEqual(groupMove(clips, -5000, 0, tape), { dt: -1000, dtrack: 0 }, 'the first stops at the start');
+  assert.deepEqual(groupMove(clips, 9000, 0, tape), { dt: 6000, dtrack: 0 }, 'the last stops at the end');
+  assert.deepEqual(groupMove(clips, 0, 3, tape), { dt: 0, dtrack: 1 }, 'the lowest stops on track 4');
+  assert.deepEqual(groupMove(clips, 0, -3, tape), { dt: 0, dtrack: -1 }, 'the highest stops on track 1');
+  assert.deepEqual(groupMove([], 50, 1, tape), { dt: 0, dtrack: 0 });
 });
