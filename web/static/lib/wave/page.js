@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, snapFrame, snapStep, setPoint, prevFlag, nextFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag,
 } from './geometry.js';
 import {
   viewAbout, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
@@ -283,9 +283,20 @@ async function main() {
     })).catch(() => {});
   }
   function saveDownbeat() {
+    clearTimeout(downbeatTimer); downbeatPending = false;
     // keepalive, as flushRegion's: a bar-1 move committed at pagehide must not be dropped.
     patch({ downbeat_frame: state.grid.downbeat }, { keepalive: true }).catch((e) => toast(`Could not save the downbeat: ${e.message}`, 'bad'));
   }
+  // Holding a nudge moves bar 1 many times a second: one save, and so one
+  // undo step, once the hand settles.
+  let downbeatTimer = 0;
+  let downbeatPending = false;
+  function saveDownbeatSoon() {
+    clearTimeout(downbeatTimer);
+    downbeatPending = true;
+    downbeatTimer = setTimeout(saveDownbeat, 300);
+  }
+  function flushDownbeat() { if (downbeatPending) saveDownbeat(); }
   // One flag per request, by id (see /lib/flags.js), sent in order. The page
   // shows the change at once; the server's answer then replaces the list.
   function flagOp(op, args, then) {
@@ -328,7 +339,7 @@ async function main() {
     take.starred = fresh.starred;
     if (fresh.has_preview) previewLanded();
     state.grid.bpm = fresh.bpm || null;
-    state.grid.downbeat = fresh.downbeat_frame || 0;
+    state.grid.downbeat = adoptDownbeat(fresh.downbeat_frame, state.grid.downbeat, downbeatPending);
     if (!pendingTrim) {
       const r = fresh.trim ? { start: fresh.trim.start_frame, end: fresh.trim.end_frame } : null;
       const same = (r && state.region && r.start === state.region.start && r.end === state.region.end) || (!r && !state.region);
@@ -363,6 +374,7 @@ async function main() {
   let idleWaiters = [];
   function whenSaved() {
     bar.commit(); // a move still being made is saved first, so Undo undoes it
+    flushDownbeat();
     if (pendingTrim) { const body = pendingTrim; pendingTrim = null; clearTimeout(regionTimer); patch(body).catch(() => {}); }
     return savesInFlight ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve();
   }
@@ -455,7 +467,7 @@ async function main() {
         redraw();
         break;
       case 'downbeatChange':
-        state.grid.downbeat = p.frame; updateReadout(); redraw();
+        state.grid.downbeat = p.frame; updateReadout(); renderDownbeat(); redraw();
         if (p.final) saveDownbeat();
         break;
       // A still press on bar 1 opens it in the boundary editor.
@@ -696,6 +708,51 @@ async function main() {
       });
     }
   }
+  // --- bar 1 row ---------------------------------------------------------------
+  // Bar 1's own keys, in the toolbar for as long as the take has a tempo: the
+  // ruler's "1" and the editor's pads set the same state.grid.downbeat. A
+  // drag or a pad saves once it's done; these save after a pause.
+  function setDownbeat(f) {
+    const next = placeDownbeat(f, total);
+    if (next === state.grid.downbeat) return;
+    state.grid.downbeat = next;
+    updateReadout();
+    renderDownbeat();
+    saveDownbeatSoon();
+    if (state.edit?.edge === 'downbeat') { follow(); renderEditor(); }
+    redraw();
+  }
+  function renderDownbeat() {
+    const on = !!state.grid.bpm;
+    $('db-row').hidden = !on;
+    if (on) $('db-time').textContent = fmtPoint(state.grid.downbeat, sr);
+  }
+  const nudgeBar1 = (sign) => () => setDownbeat(nudgeDownbeat(state.grid.downbeat, sign, state.grid, state.snap, total));
+  for (const [id, sign] of [['db-dec', -1], ['db-inc', 1]]) {
+    const b = $(id);
+    const step = nudgeBar1(sign);
+    let hold = 0, rep = 0, repeated = false;
+    // Press-and-hold repeats, as the In and Out nudges do.
+    b.addEventListener('click', () => { if (repeated) { repeated = false; return; } step(); });
+    b.addEventListener('pointerdown', () => {
+      repeated = false;
+      hold = setTimeout(() => { repeated = true; rep = setInterval(step, 120); }, 500);
+    });
+    for (const evName of ['pointerup', 'pointercancel', 'pointerleave']) {
+      b.addEventListener(evName, () => {
+        clearTimeout(hold); clearInterval(rep);
+        setTimeout(() => { repeated = false; }, 0);
+      });
+    }
+  }
+  const barOneAtPlayhead = () => { if (state.grid.bpm) setDownbeat(state.cursor); };
+  $('db-set').addEventListener('click', barOneAtPlayhead);
+  const dbTime = $('db-time');
+  dbTime.addEventListener('click', () => startEditing('downbeat'));
+  dbTime.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startEditing('downbeat'); }
+  });
+
   function renderSelection() {
     const r = state.region;
     $('sel-row').hidden = !r;
@@ -804,7 +861,7 @@ async function main() {
     const prev = editFrame();
     if (edge === 'downbeat') {
       state.grid.downbeat = f;
-      updateReadout();
+      updateReadout(); renderDownbeat();
       if (save) saveDownbeat();
     } else {
       state.region = { ...state.region, [edge]: f };
@@ -940,6 +997,7 @@ async function main() {
   function renderHeader() {
     // A rename here or on another device: Save as take's offer follows it.
     followSaveName();
+    renderDownbeat();
     const name = take.label || stampOf(file);
     $('take-name').textContent = name;
     $('take-name').classList.toggle('unlabelled', !take.label);
@@ -1041,6 +1099,7 @@ async function main() {
     // goes straight to the list (see the back button below).
     const go = (name) => () => {
       flushRegion();
+      flushDownbeat();
       try { sessionStorage.setItem('hindsight.hop', '1'); } catch {}
       location.replace(`/wave.html?file=${encodeURIComponent(name)}`);
     };
@@ -1093,8 +1152,9 @@ async function main() {
 
   $('downbeat-reset').addEventListener('click', () => {
     state.grid.downbeat = 0;
+    clearTimeout(downbeatTimer); downbeatPending = false;
     patch({ downbeat_frame: null }).catch((e) => toast(`Could not reset the downbeat: ${e.message}`, 'bad'));
-    updateReadout();
+    updateReadout(); renderDownbeat();
     follow(); renderEditor(); // bar 1 being edited has moved
     redraw();
   });
@@ -1500,6 +1560,7 @@ async function main() {
       case 'f': case 'F': addFlagAt(Math.min(total - 1, state.cursor)); break;
       case '[': setPointAt('start'); break;
       case ']': setPointAt('end'); break;
+      case 'b': case 'B': barOneAtPlayhead(); break;
       case 'l': case 'L': if (state.region || state.loop) setLoop(!state.loop); break;
       case '+': case '=': view.zoomTo(view.view.fpp / 2, view.view.width / 2); break;
       case '-': view.zoomTo(view.view.fpp * 2, view.view.width / 2); break;
@@ -1546,6 +1607,10 @@ async function main() {
   view.fitAll();
   loadLanes();
   neighbours();
+  // A bar 1 nudge still in its pause saves before the page goes away.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushDownbeat();
+  });
   // Two hooks, because neither alone covers a phone: pagehide fires on
   // navigation, visibilitychange when the app is switched or the screen locks.
   document.addEventListener('visibilitychange', () => {
@@ -1557,6 +1622,7 @@ async function main() {
     bar.commit();
     editResize.disconnect();
     flushRegion();
+    flushDownbeat();
     screenLock?.release();
     bench.removeEventListener('change', onBenchChange);
     clock.destroy(); tiles.stop(); view.destroy(); overview.destroy();

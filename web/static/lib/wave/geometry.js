@@ -157,6 +157,34 @@ export function nudgeFrame(frame, sign, grid, snap) {
 }
 
 /**
+ * placeDownbeat is where bar 1 may go: a whole frame inside the take. The
+ * downbeat is an absolute frame, not an offset within a bar, so it can sit
+ * anywhere from the first frame to the last.
+ */
+export function placeDownbeat(frame, total) {
+  return Math.round(Math.min(Math.max(0, total - 1), Math.max(0, frame)));
+}
+
+/**
+ * nudgeDownbeat is where one nudge in direction sign (+1 or -1) takes bar 1:
+ * one snap step (a bar, a beat or an eighth, as In and Out nudges), else
+ * 10 ms with Snap off, kept inside the take. It moves by the step rather than
+ * to a line: the grid is counted from bar 1, so there is no line to land on.
+ */
+export function nudgeDownbeat(frame, sign, grid, snap, total) {
+  return placeDownbeat(frame + sign * nudgeStep(grid, snap), total);
+}
+
+/**
+ * adoptDownbeat is the downbeat to show after the Pi's copy of the take
+ * arrives: the Pi's, unless a nudge of ours is still waiting to be saved, which
+ * is newer than anything the Pi has.
+ */
+export function adoptDownbeat(served, local, pending) {
+  return pending ? local : (served || 0);
+}
+
+/**
  * setPoint applies In (edge 'start') or Out (edge 'end') at frame `at`, the
  * OP-1's loop points. With a selection, it moves that end -- unless that would
  * turn the selection inside out, in which case the old selection goes and

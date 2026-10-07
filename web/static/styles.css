@@ -1402,6 +1402,14 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .sel-label { font-size: 11px; color: var(--ink-faint); min-width: 2.2em; }
 .sel-time { font-size: 13px; color: var(--ink); min-width: 4.6em; text-align: center; }
 .sel-len { font-size: 12px; color: var(--ink-dim); }
+/* Bar 1: the same keys as In and Out's row, a full tap high. */
+.tb-row.downbeat {
+  flex-wrap: wrap;
+  padding: 6px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+}
+.tb-row.downbeat .nudge { min-width: 44px; min-height: 44px; font-size: 14px; }
+.tb-row.downbeat .icon-btn { min-height: 44px; margin-left: auto; padding: 0 12px; white-space: nowrap; }
+.tb-row.downbeat .sel-time { cursor: pointer; }
 /* Clear forgets the selection, nothing more: not styled as dangerous. */
 .sel-clear { color: var(--ink-dim); font-size: 13px; padding: 8px 4px; }
 /* display: block, so the label truncates with an ellipsis rather than

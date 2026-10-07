@@ -85,6 +85,16 @@
         <button id="sel-clear" class="linkish sel-clear" type="button" data-tip="clear">Clear</button>
       </div>
 
+      <!-- Bar 1, once the take has a tempo: always here, not behind the ruler's
+           "1". Set to the playhead, nudge, or tap the time to place it exactly. -->
+      <div id="db-row" class="tb-row downbeat" hidden>
+        <span class="sel-label">Bar 1</span>
+        <button id="db-dec" class="nudge" type="button" aria-label="Bar 1 earlier" data-tip="db-nudge">◂</button>
+        <span id="db-time" class="mono sel-time" role="button" tabindex="0" data-tip="db-open"></span>
+        <button id="db-inc" class="nudge" type="button" aria-label="Bar 1 later" data-tip="db-nudge">▸</button>
+        <button id="db-set" class="icon-btn" type="button" data-tip="db-set">Set to playhead</button>
+      </div>
+
       <!-- The boundary editor (lib/wave/page.js, "the boundary editor"): while
            In, Out or bar 1 is being edited this takes the place of the rows
            around it. Two encoder pads, the snaps and the steps. -->
