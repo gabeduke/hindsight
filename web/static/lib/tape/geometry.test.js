@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -245,4 +245,20 @@ test('trimmed moves the In edge with the audio, the Out edge alone', () => {
   assert.deepEqual(trimmed(c, 'in', 200000), { id: 'c', at: 200000, src: 56000, frames: 88000 });
   assert.deepEqual(trimmed(c, 'in', 150000), { id: 'c', at: 150000, src: 6000, frames: 138000 });
   assert.deepEqual(trimmed(c, 'out', 250000), { id: 'c', at: 192000, src: 48000, frames: 58000 });
+});
+
+test('repeatRoom: the copies that fit before the tape ends, at most 64', () => {
+  assert.equal(repeatRoom({ at: 0, frames: 100 }, 1000), 9);
+  assert.equal(repeatRoom({ at: 850, frames: 100 }, 1000), 0);
+  assert.equal(repeatRoom({ at: 0, frames: 1 }, 1e6), MAX_REPEAT);
+});
+
+test('repeatCount: a copy each half a copy dragged, none back, up to the room', () => {
+  assert.equal(repeatCount(0, 100, 9), 0);
+  assert.equal(repeatCount(49, 100, 9), 0);
+  assert.equal(repeatCount(50, 100, 9), 1);
+  assert.equal(repeatCount(260, 100, 9), 3);
+  assert.equal(repeatCount(-500, 100, 9), 0);
+  assert.equal(repeatCount(5000, 100, 9), 9);
+  assert.equal(repeatCount(500, 0, 9), 0);
 });

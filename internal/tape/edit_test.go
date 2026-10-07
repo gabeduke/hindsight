@@ -363,3 +363,152 @@ func TestSlideOntoAnotherTrack(t *testing.T) {
 		t.Fatalf("a refused slide moved it: %+v", c)
 	}
 }
+
+func TestRepeatLaysCopiesEndToEnd(t *testing.T) {
+	e, _, tp, orig := firstLoop(t) // 96000 frames at 0
+	res, err := e.EditOp(tp.ID, EditRequest{Op: "repeat", Clip: orig.ID, Count: 3})
+	if err != nil || res.Clips != 3 {
+		t.Fatalf("repeat = %+v %v", res, err)
+	}
+	cl := track(e, 1)
+	if len(cl) != 4 {
+		t.Fatalf("%d clips, want the clip and 3 copies", len(cl))
+	}
+	ids := map[string]bool{}
+	for k, c := range cl {
+		if c.At != int64(k)*96000 || c.Frames != orig.Frames || c.File != orig.File || c.Src != orig.Src || c.Layer != 0 {
+			t.Fatalf("clip %d = %+v", k, c)
+		}
+		ids[c.ID] = true
+	}
+	if len(ids) != 4 {
+		t.Fatal("the copies need ids of their own")
+	}
+	// Not linked: a copy's level is its own.
+	g := -6.0
+	if err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error { s.Tracks[0].Clips[2].GainDB = g; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if cl := track(e, 1); cl[1].GainDB != 0 || cl[3].GainDB != 0 {
+		t.Fatalf("changing one copy changed another: %+v", cl)
+	}
+	// Over audio already there, all the copies go on one layer above it, so
+	// they meet on their layer and crossfade, never dip.
+	e.Undo(tp.ID, false)
+	e.Undo(tp.ID, false)
+	other := Clip{File: orig.File, Src: orig.Src, Frames: 1000, At: 100000}
+	e.Edit(tp.ID, "", func(_ *Tape, s *State) error { _, err := s.Place(1, other, false); return err })
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "repeat", Clip: orig.ID, Count: 2}); err != nil {
+		t.Fatal(err)
+	}
+	layers := map[int64]int{}
+	for _, c := range track(e, 1) {
+		if c.Frames == orig.Frames {
+			layers[c.At] = c.Layer
+		}
+	}
+	if layers[0] != 0 || layers[96000] != 1 || layers[192000] != 1 {
+		t.Fatalf("copies' layers = %v: both on the layer free for both", layers)
+	}
+	// One undo takes all the copies back.
+	e.Undo(tp.ID, false)
+	if n := len(track(e, 1)); n != 2 {
+		t.Fatalf("after one undo: %d clips, want the clip and the other", n)
+	}
+}
+
+// A clip layered over a bed is repeated on its own layer, so the copies meet
+// it and each other there: the seams crossfade.
+func TestRepeatKeepsTheClipsLayerSoTheSeamsCrossfade(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	over := Clip{File: orig.File, Src: orig.Src, Frames: orig.Frames, At: 0}
+	if err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error { var err error; over, err = s.Place(1, over, false); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "repeat", Clip: over.ID, Count: 2}); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range track(e, 1) {
+		if c.At > 0 && c.Layer != 1 {
+			t.Fatalf("a copy at %d is on layer %d, not the clip's layer 1", c.At, c.Layer)
+		}
+	}
+	// The renderer joins them: the copy at 96000 crossfades from the clip.
+	m := e.mix.Load()
+	joined := 0
+	for _, layer := range m.tracks[0].layers {
+		for _, c := range layer {
+			if c.prev != nil {
+				joined++
+			}
+		}
+	}
+	if joined < 2 {
+		t.Fatalf("%d clips crossfade from the one before; want both copies to", joined)
+	}
+}
+
+// A copy is the clip again -- its audio, level, nudge and reversal -- with an
+// id and a place of its own.
+func TestACopyIsTheClipAgain(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "reverse", Clip: orig.ID}); err != nil {
+		t.Fatal(err)
+	}
+	at, to := int64(48000), 2
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "slide", Clip: orig.ID, At: &at, To: to}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error {
+		c := &s.Tracks[1].Clips[0]
+		c.GainDB, c.NudgeMS, c.Src, c.Frames = -6, 7, c.Src+100, c.Frames-200
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	src := findClip(t, e, orig.ID)
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "repeat", Clip: orig.ID, Count: 2}); err != nil {
+		t.Fatal(err)
+	}
+	cl := track(e, 2)
+	if len(cl) != 3 {
+		t.Fatalf("track 2 has %d clips", len(cl))
+	}
+	for k, c := range cl[1:] {
+		want := src
+		want.ID, want.At = c.ID, src.At+int64(k+1)*src.Frames
+		if c.ID == src.ID || c != want {
+			t.Fatalf("copy %d = %+v, want %+v", k+1, c, want)
+		}
+	}
+}
+
+func TestRepeatNeedsRoomAndACount(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	for _, n := range []int{0, -1, MaxRepeat + 1} {
+		if _, err := e.EditOp(tp.ID, EditRequest{Op: "repeat", Clip: orig.ID, Count: n}); !errors.Is(err, ErrBadParameter) {
+			t.Fatalf("count %d = %v", n, err)
+		}
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "repeat", Clip: "nope", Count: 1}); !errors.Is(err, ErrNoSuchClip) {
+		t.Fatalf("no clip = %v", err)
+	}
+	if n := len(track(e, 1)); n != 1 {
+		t.Fatalf("refused repeats left %d clips", n)
+	}
+}
+
+func TestRepeatStopsAtTheTapesEnd(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	// Slid so that exactly two copies fit before the end.
+	at := e.Loaded().Length - 3*orig.Frames
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "slide", Clip: orig.ID, At: &at}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "repeat", Clip: orig.ID, Count: 3}); !errors.Is(err, ErrPastTheEnd) {
+		t.Fatalf("three copies past the end = %v", err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "repeat", Clip: orig.ID, Count: 2}); err != nil {
+		t.Fatalf("two copies to the end = %v", err)
+	}
+}
