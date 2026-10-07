@@ -715,6 +715,10 @@ From the top:
   ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, and
   **⌘Z / Ctrl-Z** undoes (with **⇧** to redo). Holding a key doesn't repeat
   it, and none of them fire while you're typing or a sheet is open.
+- **After a sleep.** Lock a tablet and wake it, and the page asks the Pi
+  again at once: no refresh. If the Pi doesn't answer, a small
+  **Reconnecting…** note shows at the top (not for a blink) and goes when it
+  does. The tape page, the main page, Takes and the take page all do this.
 
 ### 8.3 Your first loop
 
@@ -1425,6 +1429,7 @@ has no tip.
 | "Too long for the ring" on Mixdown | The selection is longer than the last 15 minutes can hold | Mix down in parts, or raise `RING_SECONDS` |
 | "Not enough room on the tape" | The track would run past six minutes | Lift something, or raise `TAPE_LENGTH_S` |
 | *Phone* says the microphone needs a secure page | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |
+| *Reconnecting…* at the top of a page | The page can't reach the Pi: it's off or restarting, or the tablet's Wi-Fi is still waking up | Nothing: it tries again every few seconds and catches up on its own; no refresh needed |
 | The recorder says *Reconnecting…* | The phone lost the Pi for a moment; the audio is kept on the phone meanwhile | Nothing: it resends when the Pi is back. Keep the page open |
 | "The recording paused while the page was hidden" | The phone locked or you switched apps, and the browser stopped the mic | The take skips that stretch. Keep Hindsight in front while recording |
 | A take is labelled *Phone (partial)* | The recording never got its Stop: the page closed, or the Pi restarted mid-recording | It holds everything that reached the Pi |

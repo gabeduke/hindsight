@@ -149,6 +149,11 @@ lets the client draw a real waveform envelope rather than mirroring a single
 RMS scalar. `peak` is a decaying peak-hold in dBFS; `clip` says a sample hit
 full scale during the frame.
 
+A client treats 4 s without a frame as a dead socket and reconnects (a sleeping
+tablet drops it without a close), so a stalled capture looks like one: the
+socket is replaced every few seconds until frames come again. That costs
+nothing, and the server sends no heartbeat message for it.
+
 The server pings every 25 s and expects a pong within 60 s. It reads from the
 socket but ignores the contents; reading is what surfaces close frames. Origin
 is not checked — the app is reached by hostname, IP and `.local` alias, so

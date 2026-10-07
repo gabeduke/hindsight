@@ -34,6 +34,8 @@ import { ReelWindow } from '../bar/reel-window.js';
 import { tapeCounter, tapeMarquee } from '../bar/lcd.js';
 import { initPlayer } from '../bar/player.js';
 import { initNav } from '../nav.js';
+import { timedFetch, watchLink } from '../link.js';
+import { pollGate } from './poll-gate.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -104,12 +106,16 @@ function readPref(k, d) { try { return localStorage.getItem(k) ?? d; } catch { r
 function writePref(k, v) { try { localStorage.setItem(k, v); } catch { /* fine */ } }
 
 // keepalive lets a save outlive the page (a move committed at pagehide).
-async function api(path, { method = 'GET', body, keepalive = false } = {}) {
-  const res = await fetch(path, {
+// A read gives up after `timeout` ms (a tablet that slept leaves requests
+// that are never answered); a change is left to take as long as it takes.
+async function api(path, { method = 'GET', body, keepalive = false, timeout } = {}) {
+  const init = {
     method, cache: 'no-store', keepalive,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
-  });
+  };
+  const pending = method === 'GET' ? timedFetch(path, init, timeout) : fetch(path, init);
+  const res = await pending;
   const b = await res.json().catch(() => ({}));
   if (!res.ok) {
     const e = new Error(b.error || `HTTP ${res.status}`);
@@ -173,6 +179,9 @@ async function boot() {
   wire();
   await poll();
   fetchClipboard();
+  // Back from a sleep (or the network back): the tape as the Pi has it now,
+  // at once, not at the next tick -- and a "Reconnecting…" note till it answers.
+  link = watchLink(() => { poll(true); fetchClipboard(); });
   setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
   setInterval(() => { if (!document.hidden) fetchClipboard(); }, 2000);
 }
@@ -180,24 +189,34 @@ async function boot() {
 // gen counts this page's changes, bumped as each is sent and again as its
 // answer arrives: a poll in flight across either may answer with the tape
 // from before the change, and is dropped.
-let polling = false;
+// The gate (poll-gate.js) lets one poll be in flight, except that a wake-up
+// poll goes ahead of one that was lost, and drops the lost one's answer.
+const gate = pollGate();
 let gen = 0;
-async function poll() {
-  if (polling || !state.id) return;
-  polling = true;
+// The page's link to the Pi (lib/link.js); a stand-in until boot makes it.
+let link = { ok() {}, fail() {} };
+const POLL_TIMEOUT_MS = 4000;
+async function poll(force = false) {
+  if (!state.id) return;
+  const mine = gate.begin(force === true);
+  if (!mine) return;
   const g = gen;
   try {
     // Only an empty tape with no grid can use a suggested tempo, so only
     // then is one asked for.
     const bare = state.tape && !state.tape.grid && state.tape.tracks.every((tr) => tr.clips.length === 0);
-    const s = await api(`/api/tapes/state?${q()}${bare ? '&suggest=1' : ''}`);
-    if (g !== gen) return;
+    const s = await api(`/api/tapes/state?${q()}${bare ? '&suggest=1' : ''}`, { timeout: POLL_TIMEOUT_MS });
+    link.ok('tape');
+    if (g !== gen || !gate.current(mine)) return;
     if (!s.loaded) { await follow(); return; }
     apply(s);
   } catch (e) {
-    if (e.status === 404 && g === gen) await follow();
+    // An answer of any kind (a 404) was the Pi; none at all is the link.
+    if (e.status === undefined) link.fail('tape');
+    else link.ok('tape');
+    if (e.status === 404 && g === gen && gate.current(mine)) await follow();
   } finally {
-    polling = false;
+    gate.end(mine);
   }
 }
 

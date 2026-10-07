@@ -683,6 +683,38 @@ handling.
 The takes list is polled every five seconds and guarded by the `/api/jams`
 ETag, so an unchanged list does not re-render and interrupt a playing preview.
 
+### Waking up
+
+A tablet that sleeps freezes its page, and a request or socket that was in
+flight is often neither answered nor failed: it never comes back. Every page
+therefore gives its reads a deadline and checks its link on waking
+(`lib/link.js`, node-tested):
+
+- **Reads time out.** `timedFetch` aborts a request that isn't answered
+  (8 s; the tape page's poll, which runs five times a second, gives up after
+  4 s). The tape page's poll used to run only when the last one had finished,
+  so one lost poll stopped them all, and the page showed the tape as it was
+  when the tablet went to sleep. Now `lib/tape/poll-gate.js` lets a poll
+  forced on waking go ahead of one that may be lost, and drops the lost
+  one's answer if it ever arrives.
+- **A dead socket is noticed.** Nothing tells a page that its socket died
+  in its sleep, so `/api/live`'s client (`lib/live.js`) treats 4 s without a
+  frame as dead (frames come ~100 times a second) and replaces it, waiting
+  0.5 s after a failure and up to 5 s after repeated ones. The server sends
+  no heartbeat of its own: its pings are answered by the browser below
+  JavaScript, where the page can't see them.
+- **Waking is an event.** `onResume` fires when the page is visible again,
+  shown again (`pageshow`, bfcache or not), online again, or when a one-second
+  tick arrives more than 3.5 s late (the clock jumped; timers were frozen,
+  whatever events fired). The page then refetches at once: the tape page its
+  tape state and clipboard, the main page its status, takes and meters, the
+  takes page its list, the take page the take (merged as after any return to
+  the page, so an edit still being saved, or a selection not yet saved, is
+  kept).
+- **The note.** A source that fails (`link.fail('tape')`) and doesn't recover
+  within a second shows *Reconnecting…* (`.link-note`) and clears when every
+  source answers; a failure that clears first is never shown.
+
 Service-worker registration and the screen wake lock are both guarded on
 `window.isSecureContext`, so they switch themselves on if the Pi is ever given
 an HTTPS name and stay quiet otherwise.
@@ -713,6 +745,7 @@ the tape page will share. The pure parts of each are node-tested.
 | `wave/page` | Owns the take's editable state and wires the rest together |
 | `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, first-run hints |
 | `help/markdown` | Renders the guide for `/guide.html`, from `/guide.md`, which the binary serves compiled in (`docs/embed.go`) |
+| `link`, `live`, `tape/poll-gate` | Reads that time out, the wake-up refetch, the *Reconnecting…* note, and the live meters' socket that replaces itself (see *Waking up*) |
 | `toast` | Both pages' toasts, with an optional action ("Flag deleted · Undo"), and one carried to the next page |
 | `takes`, `trash` (main page) | The list, with select mode for several takes at once; *Recently deleted* |
 

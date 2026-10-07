@@ -39,6 +39,7 @@ import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../bar/reel-window.js';
 import { takeCounter, takeMarquee } from '../bar/lcd.js';
 import { initPlayer } from '../bar/player.js';
+import { timedFetch, watchLink } from '../link.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -72,6 +73,8 @@ function writePref(key, value) {
 }
 
 async function main() {
+  // The page's link to the Pi; the real one is made once the page is up.
+  let link = { ok() {}, fail() {} };
   if (!file) return fail('No take given.');
   // A reload while the notes pane was open leaves a stale {notes:1} entry
   // that would otherwise pop straight into the (unbuilt) pane on Back.
@@ -320,10 +323,11 @@ async function main() {
     if (savesInFlight > 0) { refetchWanted = true; return; }
     let fresh;
     try {
-      const res = await fetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store', headers: withClient() });
-      if (!res.ok) return;
+      const res = await timedFetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store', headers: withClient() });
+      if (!res.ok) { link.ok('take'); return; } // the Pi answered
       fresh = await res.json();
-    } catch { return; }
+    } catch { link.fail('take'); return; }
+    link.ok('take');
     applyTake(fresh);
   }
   // Put the take as the Pi has it on screen: after a refetch, or an Undo.
@@ -1615,8 +1619,10 @@ async function main() {
   // navigation, visibilitychange when the app is switched or the screen locks.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { bar.commit(); flushRegion(); }
-    else refetchTake();
   });
+  // Back in view, back online, or back from a sleep that stopped the clock:
+  // the take as the Pi has it now, with a "Reconnecting…" note until it answers.
+  link = watchLink(() => refetchTake(), { retryMs: 3000 });
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
     bar.commit();
