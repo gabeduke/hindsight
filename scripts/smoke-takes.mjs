@@ -612,7 +612,12 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const p = await ctx.newPage();
   await p.goto(BASE);
-  const name = await p.evaluate(() => fetch('/api/trigger?seconds=10', { method: 'POST' }).then((r) => r.json()).then((b) => b.name));
+  const name = await p.evaluate(async () => {
+    const n = (await fetch('/api/trigger?seconds=10', { method: 'POST' }).then((r) => r.json())).name;
+    await fetch(`/api/take?file=${encodeURIComponent(n)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trim: { start_frame: 48000, end_frame: 144000 } }) });
+    return n;
+  });
   await p.waitForTimeout(3000);
   await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(name)}`);
   await settle(p, 1500);
@@ -620,6 +625,12 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await settle(p, 800);
   const said = await p.textContent('#level');
   check('Level says the gain it plays and shares at', /^Level [+−]\d+\.\d dB$|^Level 0 dB$/.test(said) && (await p.getAttribute('#level', 'aria-pressed')) === 'true', said);
+  check('and Share’s key says it', (await p.textContent('#share')).includes(said.replace('Level ', '')), await p.textContent('#share'));
+  // Clearing the selection reads the whole take's level again.
+  const reread = p.waitForRequest((r) => r.url().includes('/api/level') && r.url().includes('from=0'), { timeout: 5000 }).then(() => true).catch(() => false);
+  await p.click('#sel-clear');
+  check('clearing the selection reads the level again', await reread);
+  await settle(p, 600);
   await p.click('#play');
   await settle(p, 900);
   check('Level on, the take plays (through the gain)', (await p.getAttribute('#play', 'aria-label')) === 'Pause');

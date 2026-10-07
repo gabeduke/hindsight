@@ -979,6 +979,7 @@ func (a *API) handleRender(w http.ResponseWriter, r *http.Request) {
 			// replaced by writeErr, so drop it -- a 500 must not carry a
 			// filename for a file that was never sent.
 			w.Header().Del("Content-Disposition")
+			w.Header().Del("X-Hindsight-Gain-Db")
 			writeErr(w, http.StatusInternalServerError, "render failed")
 		}
 	}
@@ -1007,6 +1008,10 @@ func (a *API) handleLevel(w http.ResponseWriter, r *http.Request) {
 	info, err := audio.ReadWAVInfo(path)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if info.BitsPerSample != 32 {
+		writeErr(w, http.StatusBadRequest, "only 32-bit takes can be levelled")
 		return
 	}
 	if to > info.Frames() {

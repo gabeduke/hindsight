@@ -2,6 +2,7 @@ package audio
 
 import (
 	"math"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -13,11 +14,11 @@ func TestLevelForBringsThePeakToOneDecibelUnder(t *testing.T) {
 		peak         float64
 		peakDB, gain float64
 	}{
-		{0.5, -6, 5},                   // -6.02 dBFS: up 5 dB
-		{1, 0, -1},                     // full scale: down a decibel
-		{math.Pow(10, -1.0/20), -1, 0}, // already there
-		{0.001, -60, 24},               // near silence: capped
-		{0, silentDB, 0},               // silence: nothing to bring up
+		{0.5, -6, 4.5},                   // -6.02 dBFS: up 4.5 dB
+		{1, 0, -1.5},                     // full scale: down 1.5 dB
+		{math.Pow(10, -1.5/20), -1.5, 0}, // already there
+		{0.001, -60, 24},                 // near silence: capped
+		{0, silentDB, 0},                 // silence: nothing to bring up
 	} {
 		got := levelFor(c.peak)
 		if got.PeakDB != c.peakDB || got.GainDB != c.gain {
@@ -48,6 +49,39 @@ func TestLevelOfReadsTheSpansPeak(t *testing.T) {
 	}
 	if math.Abs(fromPyr.PeakDB-fromWAV.PeakDB) > 0.1 || fromPyr.GainDB != MaxNormalizeGainDB {
 		t.Fatalf("pyramid %+v vs WAV %+v", fromPyr, fromWAV)
+	}
+}
+
+// A quiet span that ends a few frames before a loud entry is measured on its
+// own frames, not on the pyramid's whole bucket that holds the entry too.
+func TestLevelOfReadsOnlyTheSpanAtItsEdges(t *testing.T) {
+	dir := t.TempDir()
+	wav := filepath.Join(dir, "jam_e.wav")
+	data := make([]int32, 2*96000)
+	for i := 0; i < 96000; i++ {
+		a := 0.1 // -20 dBFS, then -1 from frame 48000
+		if i >= 48000 {
+			a = 0.89
+		}
+		v := int32(a * math.MaxInt32 * math.Sin(2*math.Pi*441*float64(i)/48000))
+		data[2*i], data[2*i+1] = v, v
+	}
+	if _, err := WriteWAV(wav, data, 2, []int{0, 1}, 48000); err != nil {
+		t.Fatal(err)
+	}
+	if err := BuildPyramid(wav); err != nil {
+		t.Fatal(err)
+	}
+	lv, err := LevelOf(wav, []int{0, 1}, 1000, 48000-15)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lv.PeakDB > -19.9 || lv.GainDB != 18.5 {
+		t.Fatalf("level = %+v, want the quiet span's -20 dBFS and +18.5", lv)
+	}
+	// A whole cycle into the loud part, it counts.
+	if lv, _ := LevelOf(wav, []int{0, 1}, 1000, 48000+120); lv.PeakDB < -1.2 {
+		t.Fatalf("a cycle into the loud part: %+v, want about -1 dBFS", lv)
 	}
 }
 

@@ -357,13 +357,15 @@ and the editor bar takes the place of the toolbar.
 - **Practice speed** (½× 1× 2×) slows or speeds the take without changing its
   pitch. It's off while Loop is on: the loop plays at 1×, exactly.
 - **Level** normalizes: it brings the selection (or the whole take) up, or
-  down, so its loudest moment is a decibel under full scale, and says by how
+  down, so its loudest moment is 1.5 dB under full scale, and says by how
   much (*Level +6.2 dB*). On, the take plays here at that level and
-  **Share** sends it so: what you hear is what you share. A quiet take is
-  brought up no more than 24 dB, so its hiss isn't shared at full volume.
-  The level is read off the take's peaks, not its audio, so it's instant.
-  Off, everything is as recorded. It's remembered on the device, and the DAW
-  bundle is always as recorded.
+  **Share** sends it so (its key says *Share · 0:12 · +6.2 dB*): what you
+  hear is what you share. It follows the selection as it changes. A quiet
+  take is brought up no more than 24 dB, so its hiss isn't shared at full
+  volume, and played past the selection, anything louder is held under full
+  scale rather than clipping. The level is read off the take's peaks, so
+  it's instant. Off, everything is as recorded. It's remembered on the
+  device, and the DAW bundle is always as recorded.
 - The screen stays on while a take plays.
 
 **Flags:**
@@ -435,10 +437,11 @@ and the editor bar takes the place of the toolbar.
   through the selection and on. Turn Loop on → it repeats In to Out.
 - [demo] Tap **In**, move the playhead, tap **Out** → you get the same
   selection as by holding and dragging.
-- [demo] Select a quiet part of a take and turn on **Level** → it says
-  *Level +N dB*, and ▶ plays it louder; **Share** (or Download) → the MP3 is
-  that loud, and the toast says *Levelled +N dB*. Move the selection → the
-  number follows it. Turn Level off → as recorded.
+- [demo] Select part of a take and turn on **Level** → it says *Level +N dB*,
+  and ▶ plays it louder; **Share** (or Download) → its key says the gain, the
+  MP3 peaks at about −1.5 dBFS, and the toast says *Levelled +N dB*. Move or
+  clear the selection, or ↶ it → the number follows. Turn Level off → as
+  recorded.
 - [demo] Drop two flags and name one, then tap **⚑ 2** → both, in time
   order, with the name and the times; tap the second → the sheet closes
   and the take plays from it.
@@ -1658,7 +1661,7 @@ has no tip.
 | Seam | Show the loop's end running into its start, to see a click or a stutter. Tap a half to move that side |
 | Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
-| Level | Normalize: play and share the selection with its loudest moment a decibel under full scale |
+| Level | Normalize: play and share the selection with its loudest moment just under full scale |
 | Save as take | Make a new take of just the selection |
 | Name (Save as take) | Name the new take, then Save. On the takes page it folds in with this take. Cancel saves nothing |
 | Share | Send the selection from your phone as an MP3 |

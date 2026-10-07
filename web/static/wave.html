@@ -164,7 +164,8 @@
         </div>
         <!-- Normalize: plays the take, and shares it, with its loudest moment
              a decibel under full scale (GET /api/level). -->
-        <button id="level" class="chip" type="button" aria-pressed="false" data-tip="level">Level</button>
+        <button id="level" class="chip level-chip" type="button" aria-pressed="false" aria-label="Level" aria-describedby="level-gain" data-tip="level">Level</button>
+        <span id="level-gain" class="sr-only" role="status"></span>
       </div>
     </div>
 

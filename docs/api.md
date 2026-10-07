@@ -706,7 +706,7 @@ at 10 minutes. `Content-Disposition` names the file
 take, so the share sheet shows a readable title. No `Content-Length`: the
 stream's size is unknown until it ends.
 
-`&normalize=1` brings the region's loudest moment to −1 dBFS (at most
+`&normalize=1` brings the region's loudest moment to −1.5 dBFS (at most
 +24 dB up; silence is left alone), with ffmpeg's `volume=`, and says the gain
 in `X-Hindsight-Gain-Db` (`6.2`). The peak is read from the take's peaks
 pyramid, as `GET /api/level` reads it; a region whose level can't be read is
@@ -730,10 +730,12 @@ while waiting.
 
 Frames `[from, to)`'s loudest sample in dBFS, on the pair a render plays (the
 configured pair of a take with more than two channels), read from the take's
-peaks pyramid (from the WAV without one), and the gain that brings it to
-−1 dBFS: at most +24, 0 for silence (`peak_db` −120), negative for a peak
-already over −1. The take page's **Level** plays at this gain. 400 for bad
-`file` or frames, or past the end; 404 for no such take.
+peaks pyramid (its whole 256-frame buckets; the part buckets at its ends from
+the WAV, so audio just outside it doesn't count), and the gain that brings it
+to −1.5 dBFS: at most +24, 0 for silence (`peak_db` −120), negative for a peak
+already over −1.5. The take page's **Level** plays at this gain. 400 for bad
+`file` or frames, past the end, or a take that isn't 32-bit; 404 for no such
+take.
 
 ## `GET /api/midi?file=`
 

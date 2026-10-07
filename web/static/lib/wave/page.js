@@ -156,6 +156,11 @@ async function main() {
   let saving = false; // a cut on its way: the field can't close or save again
 
   // --- state (the page owns it; the views read it each draw) -------------
+  // Level (step C5, below): declared here, as Share's label reads it.
+  let levelOn = readPref('wave.level', 'off') === 'on';
+  let levelDb = 0;
+  let levelRead = true; // the last read of the level worked
+  let refreshShareLabel = () => {}; // Share's label, once Share is wired
   const state = {
     region: take.trim ? { start: take.trim.start_frame, end: take.trim.end_frame } : null,
     pending: null, // a lone In or Out waiting for its other half
@@ -402,7 +407,7 @@ async function main() {
       const r = fresh.trim ? { start: fresh.trim.start_frame, end: fresh.trim.end_frame } : null;
       const same = (r && state.region && r.start === state.region.start && r.end === state.region.end) || (!r && !state.region);
       // Show it and re-arm the loop, but don't save: it came from the Pi.
-      if (!same) { state.region = r; state.pending = null; renderSelection(); scheduleLoop(); }
+      if (!same) { state.region = r; state.pending = null; renderSelection(); scheduleLoop(); levelSoon(); }
     }
     applyLaneKinds(fresh.lane_kinds || {});
     if (fresh.undo) setUndo(fresh.undo);
@@ -584,34 +589,40 @@ async function main() {
   }
 
   // --- Level (step C5) ---------------------------------------------------------
-  // Normalize: the selection (or the whole take) brought to a decibel under
-  // full scale, from its peak as /api/level reads it off the peaks pyramid.
-  // On, the take plays here at that gain and Share sends it so, so what's
-  // heard is what's shared. Remembered per device.
-  let levelOn = readPref('wave.level', 'off') === 'on';
-  let levelDb = 0;
+  // Normalize: the selection (or the whole take) brought to 1.5 dB under full
+  // scale, from its peak as /api/level reads it. On, the take plays here at
+  // that gain and Share sends it so, so what's heard is what's shared. It
+  // follows every change of the selection (made here, cleared, an Undo, another
+  // device). Remembered per device; the take is routed through the gain only
+  // from a tap (Level's own, or ▶), as iOS asks.
   let levelSeq = 0;
   let levelTimer = 0;
   function renderLevel() {
     $('level').setAttribute('aria-pressed', String(levelOn));
-    $('level').textContent = levelOn ? `Level ${gainText(levelDb)}` : 'Level';
+    $('level').textContent = levelOn ? `Level ${levelRead ? gainText(levelDb) : '–'}` : 'Level';
+    $('level-gain').textContent = levelOn
+      ? (levelRead ? `Plays and shares ${gainText(levelDb)}` : "The level couldn't be read: playing as recorded")
+      : '';
+    refreshShareLabel();
   }
   async function fetchLevel() {
     const seq = ++levelSeq;
-    let db = 0;
+    let db = 0, ok = true;
     if (levelOn) {
       const from = state.region ? state.region.start : 0;
       const to = state.region ? state.region.end : total;
       try {
         const res = await fetch(`/api/level?file=${encodeURIComponent(file)}&from=${from}&to=${to}`);
-        if (!res.ok) throw new Error(`status ${res.status}`);
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `status ${res.status}`);
         db = (await res.json()).gain_db || 0;
       } catch (e) {
+        ok = false;
         if (seq === levelSeq) toast(`Could not read the level: ${e.message}`, 'bad');
       }
     }
     if (seq !== levelSeq) return;
     levelDb = db;
+    levelRead = ok;
     clock.setGain(db);
     renderLevel();
   }
@@ -623,6 +634,7 @@ async function main() {
   $('level').addEventListener('click', () => {
     levelOn = !levelOn;
     writePref('wave.level', levelOn ? 'on' : 'off');
+    if (levelOn) clock.route(); // in the tap
     renderLevel();
     fetchLevel();
   });
@@ -846,6 +858,7 @@ async function main() {
     state.pending = null;
     renderSelection();
     scheduleLoop();
+    levelSoon(); // the whole take's level now
     clearTimeout(regionTimer);
     pendingTrim = null;
     patch({ trim: null }).then((b) => {
@@ -1603,8 +1616,11 @@ async function main() {
   const shareVerb = canShareFiles() ? 'Share' : 'Download';
   function setShareLabel() {
     const r = state.region;
-    shareBtn.textContent = r ? `${shareVerb} · ${fmtClock(r.end - r.start, sr)}` : shareVerb;
+    // With Level on, the key says it shares levelled.
+    const lv = levelOn && levelRead && levelDb ? ` · ${gainText(levelDb)}` : '';
+    shareBtn.textContent = (r ? `${shareVerb} · ${fmtClock(r.end - r.start, sr)}` : shareVerb) + lv;
   }
+  refreshShareLabel = setShareLabel;
   shareBtn.addEventListener('click', async () => {
     if (!state.region && total > MAX_SHARE_SECONDS * sr) {
       toast(`Select a part first — the whole take is over ${MAX_SHARE_SECONDS / 60} minutes`, 'bad');
@@ -1630,6 +1646,8 @@ async function main() {
       const gain = res.headers.get('X-Hindsight-Gain-Db');
       if (result === 'downloaded' && shareVerb === 'Share') toast(`Shared as a download${gain ? `, levelled ${gainText(Number(gain))}` : ''}`);
       else if (result !== 'cancelled' && gain) toast(`Levelled ${gainText(Number(gain))}`);
+      // Asked to level, and the Pi couldn't read the level: it went as recorded.
+      if (result !== 'cancelled' && levelOn && gain === null) toast("Shared as recorded: its level couldn't be read", 'warn');
     } catch (e) {
       toast(`${shareVerb} failed: ${e.message}`, 'bad');
     } finally {

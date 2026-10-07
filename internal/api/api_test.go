@@ -1558,7 +1558,7 @@ func TestTheGuideIsServed(t *testing.T) {
 func TestRenderNormalizesAndLevelSaysBy(t *testing.T) {
 	r, dir := newTestAPI(t)
 	// Two seconds of a tone at a quarter of full scale: -12 dBFS, so
-	// Normalize brings it up 11 dB.
+	// Normalize brings it up 10.5 dB, to -1.5.
 	data := make([]int32, 48000*2*2)
 	for i := 0; i < 48000*2; i++ {
 		v := int32(0.25 * math.MaxInt32 * math.Sin(2*math.Pi*440*float64(i)/48000))
@@ -1572,8 +1572,8 @@ func TestRenderNormalizesAndLevelSaysBy(t *testing.T) {
 		t.Fatalf("level: %d %s", w.Code, w.Body.String())
 	}
 	var lv audio.Level
-	if err := json.Unmarshal(w.Body.Bytes(), &lv); err != nil || lv.PeakDB != -12 || lv.GainDB != 11 {
-		t.Fatalf("level = %+v %v, want peak -12, gain 11", lv, err)
+	if err := json.Unmarshal(w.Body.Bytes(), &lv); err != nil || lv.PeakDB != -12 || lv.GainDB != 10.5 {
+		t.Fatalf("level = %+v %v, want peak -12, gain 10.5", lv, err)
 	}
 	for path, code := range map[string]int{
 		"/api/level?file=jam_r.wav&from=10&to=5":       http.StatusBadRequest,
