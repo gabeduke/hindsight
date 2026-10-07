@@ -869,7 +869,7 @@ function wireLane(lane) {
       const df = (fx.dx / cv.getBoundingClientRect().width) * (view.to - view.from);
       state.repeat.count = repeatCount(df, state.repeat.clip.frames, state.repeat.max);
       drawLanes();
-    } else if ((fx.type === 'gripEnd' || fx.type === 'release') && state.repeat) {
+    } else if (state.repeat && state.repeat.n === lane.n && (fx.type === 'gripEnd' || fx.type === 'release')) {
       const rp = state.repeat;
       state.repeat = null;
       cv.classList.remove('repeating');
