@@ -63,20 +63,25 @@ def clearances(parts) -> None:
     row("The Pi to the walls", "USB-A/Ethernet faces → rear wall's outside face", k.rear_jack_proud,
         note=note(pi_um, "by design (`rear_jack_proud`): the jacks reach into the open notch"))
 
-    # ── Standoffs (hex, measured across the corners) to the parts on the board ──
+    # ── Spacers, screws and nuts ──
     top_parts = [b for b in k.pi_keepout if b.name not in ("board", "SD card")]
     gap, name = min(((k._circle_box_gap(x, y, k.spacer_d / 2, b), b.name) for x, y in k.pi_holes for b in top_parts))
-    row("The Pi, spacers and screws", f"spacer tube → nearest part on the board ({name})", gap, note=pi_um)
+    g = "The Pi, spacers and screws"
+    row(g, f"spacer tube → nearest part on the board ({name})", gap, note=pi_um)
     walls = min(min(x, k.cav_w - x, y, k.cav_d - y) - k.spacer_d / 2 for x, y in k.pi_holes)
-    row("The Pi, spacers and screws", "spacer tube → nearest wall", walls)
-    nut_bottom = k.boss_h - k.nut_t - k.nut_pocket_extra
-    row("The Pi, spacers and screws", f"M2 × {k.screw_len:g} screw: thread past the bottom of its nut",
-        nut_bottom - k.screw_tip_z, needed=0.0, note="0 means the tip just reaches the nut's far face")
-    row("The Pi, spacers and screws", "screw tip → bottom of its bore", k.screw_tip_z - k.screw_bore_z0)
-    row("The Pi, spacers and screws", "nut pocket corners → outside of the boss", (k.pi_boss_d - k.nut_pocket_d) / 2,
-        needed=0.8, note="enough plastic round the pocket")
-    row("The Pi, spacers and screws", "magnet pocket roof (inside the case)",
+    row(g, "spacer tube → nearest wall", walls)
+    worst_tip = k.screw_tip_z + k.stack_tol + k.screw_len_tol + k.screw_tip_chamfer  # tallest stack, shortest screw
+    row(g, f"M2 × {k.screw_len:g}: full thread in the nut, worst case", min(k.nut_t, k.nut_slot_z1 - worst_tip),
+        needed=1.0, note=f"nut is {k.nut_t:g}; 1.0 is 2.5 threads, plenty for a lid clamp; nominal tip "
+                         f"{_f(k.nut_clamped_z0 - k.screw_tip_z)} past the nut")
+    deepest = k.screw_tip_z - k.head_sink - k.stack_tol - k.screw_len_tol  # shortest stack, longest screw
+    row(g, "screw tip → bottom of its bore, worst case", deepest - k.screw_bore_z0)
+    row(g, "floor left under the screw bore", k.floor_t + k.screw_bore_z0, needed=0.6, note="3 layers")
+    row(g, "nut slot roof (the clamp bears on it)", k.nut_roof, needed=1.0)
+    row(g, "nut slot side walls", (k.pi_boss_d - (k.nut_af + k.nut_fit)) / 2, needed=0.8)
+    row(g, "magnet pocket roof (inside the case)",
         k.floor_t + k.magnet_bump_h - (k.magnet_t + k.magnet_fit / 2), needed=0.4)
+    row(g, "magnet bump top → the board's underside parts", k.board_bot_z - k.pi_underside - k.magnet_bump_h)
 
     # ── Up and down ──
     top = max(b.z1 for b in k.pi_keepout if b.name != "heatsink")
@@ -314,7 +319,9 @@ def render_md(prints) -> str:
                 fx, fy = r["footprint"]
                 w(f"| {_f(r['span'])} | {fx:.1f} × {fy:.1f} | {_f(r['z'])} | {r['area']:.1f} |")
             w("")
-    w("Where they come from: the Dual Lock locating grooves under the case are "
+    w(f"Where they come from: the magnet pockets on the case's underside have {_f(k.magnet_pocket_d)} mm roofs; "
+      f"each nut slot's roof bridges its {_f(k.nut_af + k.nut_fit)} mm width (a little more where the screw bore "
+      "breaks it); the Dual Lock locating grooves are "
       f"{_f(k.dl_groove_d)} mm-deep channels on the bed face, so their roofs bridge {_f(k.dl_groove_w)} mm"
       + (f"; on the lid, each fader cap bridges its {_f(k.fader_slot_w)} mm slot" if k.lid_style != "plain" else "")
       + ". Everything else is a wall, a peaked top, the open-topped rear notch, a through-slot, a 45° chamfer, "
@@ -359,11 +366,13 @@ DEPARTURES = """\
    *outside* face, so plugs seat fully and the case stays shallower than the Solo. The notch floor is
    {notch_drop} mm below the board top so the lower plug's body clears it, and the notch runs to the right wall.
 6. **Hardware on hand, not heat-set inserts.** One M2 × {k.screw_len:g} screw per corner runs through the lid, a
-   printed {k.spacer_len:g} mm spacer tube and the Pi's hole into an M2 nut in a hex pocket in the top of the boss,
-   clamping lid, Pi and case together; there's no room for separate lid bosses in a case this tight. The bosses are
-   {k.pi_boss_d:g} mm to leave plastic round the nut pocket. The wall tops stop {seat} mm short of the lid, so the
-   lid clamps on the spacers and can't rock or bow. The lid is {k.lid_t:g} mm, not 3.0, so its heights fall on
-   0.2 mm layers.
+   printed {k.spacer_len:g} mm spacer tube, the Pi's hole and a {k.nut_roof:g} mm plastic roof into an M2 nut slid
+   sideways into a slot in the boss. Tightening pulls the nut up against that roof, so lid, spacer, Pi and case all
+   clamp together; there's no room for separate lid bosses in a case this tight. To let a 25 mm screw reach right
+   through the nut, the bosses are {k.boss_h:g} mm, not 5 (the board's deepest underside part still clears the
+   floor by 2 mm), and the lid sits {k.spacer_len:g} mm above the board. Each boss's top edge is chamfered so it
+   bears only on the Pi's 6 mm mounting pad. The wall tops stop {seat} mm short of the lid, so the lid clamps on the
+   spacers and can't rock or bow. The lid is {k.lid_t:g} mm, not 3.0, so its heights fall on 0.2 mm layers.
    Four D8×3 magnets sit in pockets in the floor, one under each Dual Lock square, ready for the clip saddle.
 7. **Vents in the lid and floor** as well as the left wall: the floor slots draw air through the Dual Lock gap, and
    the lid's openings let it out the top. The side vents are vertical slots with 45° peaked tops, not the
@@ -383,8 +392,9 @@ DEPARTURES = """\
 HARDWARE = """\
 | Qty | Part | Used for | Notes |
 |---:|---|---|---|
-| 4 | M2 × {k.screw_len:g} mm screw, countersunk (flat head) best, pan head works | Lid, spacer and Pi down into the nut | Measured under the head |
-| 4 | M2 nut ({k.nut_af:g} mm across the flats) | In the hex pocket on top of each boss | The board covers it, so it can't turn or fall out |
+| 4 | M2 × {k.screw_len:g} mm countersunk (flat-head) screw | Lid, spacer, Pi and case, down into the nut | A pan head works with an M2 washer under it; without one it bears on the countersink's edge |
+| 4 | M2 nut ({k.nut_af:g} mm across the flats) | Slid sideways into the slot in each boss | The slot stops it turning; the screw pulls it up against the boss's roof |
+| 4 | Any short M2 screw (6–10 mm) | The fit test, optional | Or use the 25 mm ones with the spacers and the fit test's lid rings |
 | 4 | Printed spacer tube, {k.spacer_d:g} mm × {k.spacer_len:g} mm (`out/spacers.stl`) | Between the board and the lid | Round, so nothing turns toward the USB-C |
 | 4 | D8×3 mm magnet | Floor pockets, for the clip saddle later | All four with the same pole facing down; a drop of glue |
 | 4 | 3M Dual Lock square, 1" (25.4 mm), SJ3550 or SJ3560 | Case to the Solo's top, until the saddle | Sticks straight over the magnets |

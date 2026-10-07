@@ -119,7 +119,7 @@ def main(parts: dict) -> None:
            [(kx, ky, 500), (kx, ky, 0), (0, 1, 0)], RENDERS / "lid_top.png", parallel=True, zoom=1.15)
     _shoot(_scene(m, ["case", "lid", "pi"]), f"Close up, front left ({side})",
            [(kx - 120, ky - 150, 170), (kx, ky - 5, 20), (0, 0, 1)], RENDERS / "lid.png")
-    _shoot(case_print, "Case underside: floor vents and the Dual Lock pad grooves",
+    _shoot(case_print, "Case underside: floor vents, magnet pockets and the Dual Lock pad grooves",
            [(0, -60, -240), (0, 0, 0), (0, 1, 0)], RENDERS / "bottom.png")
     _shoot(fit, "Fit test in print orientation: the Pi's four bosses and nut pockets",
            [(40, -130, 150), (0, 0, 0), (0, 0, 1)], RENDERS / "fit_test.png")
