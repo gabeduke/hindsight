@@ -62,7 +62,8 @@ case_end_inset = 0.0   # the case's side face this far in from the Solo's usb_si
 # ── Raspberry Pi board (official Pi 4 mechanical drawing, RP-008343) ────────
 pi_board_l = 85.0
 pi_board_w = 56.0
-pi_board_t = 1.0  # measured 2026-10-07 (Pi 4s are specified 1.4–1.6: worth a second measurement)
+pi_board_t = 1.3  # read by eye as just over 1 mm (2026-10-07); Pi 4s are 1.4–1.6. Modelled mid-range,
+                  # and stack_tol below covers 1.0–1.6
 pi_corner_r = 3.0
 pi_hole_d = 2.7
 pi_hole_pitch_x = 58.0  # along the board's length
@@ -78,7 +79,7 @@ pi_sd_protrude = 3.0  # measured 2026-10-07 (drawing: 2.27)
 
 # Heights above the board's top face
 pi_tallest = 15.0  # measured 2026-10-07: the tallest part above the board (drawing: 16.0)
-pi_heatsink_top = est(12.0, "guess: an under-10 mm heatsink on the 2.4 mm SoC")
+pi_heatsink_top = 8.5  # measured 2026-10-07: the kit's small heatsink stays below the GPIO pins
 pi_underside = 1.5  # deepest part under the board (the SD socket), for the floor check
 
 # Ports, in the board's own frame: x along the length from the SD-card end,
@@ -102,8 +103,8 @@ floor_t = 2.4
 lid_t = 2.4               # a whole number of 0.2 mm layers
 layer_h = 0.2
 lid_seat_gap = 0.3        # at least this between the wall tops and the lid, so the lid clamps on the spacers
-boss_h = 3.5              # the Pi's bosses on the floor (2 mm under the board's deepest part)
-screw_past_nut = 0.8      # how far the screw tip should reach past the nut; sets the spacers' length
+boss_h = 4.0              # the Pi's bosses on the floor (2.5 mm under the board's deepest part)
+screw_past_nut = 1.0      # how far the screw tip should reach past the nut; sets the spacers' length
 spacer_d = 5.5            # their outside diameter (round, so no corner can turn toward the USB-C)
 case_margin_left = 3.0    # beside the GPIO header
 case_margin_front = 0.5   # beyond the SD card's tip
@@ -126,7 +127,7 @@ nut_roof = 1.2            # plastic between the nut and the board: the clamp bea
 pi_boss_d = 6.5
 boss_top_chamfer = 0.5    # keeps the boss's contact face (5.5 mm) inside the Pi's 6 mm mounting pad
 # Tolerances for the screw-stack checks in REPORT.md
-stack_tol = 0.5           # board ±0.15, printed spacer ±0.2, lid ±0.1, worst way round
+stack_tol = 0.6           # board ±0.3 (1.0–1.6), printed spacer ±0.2, lid ±0.1, worst way round
 screw_len_tol = 0.42      # ISO js15 on a 25 mm screw
 screw_tip_chamfer = 0.4   # the last bit of a screw has no full thread
 m2_head_d = 3.8           # an M2 flat head; it sinks (m2_csk_d - m2_head_d)/2 below the lid's top

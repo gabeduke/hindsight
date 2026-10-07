@@ -31,10 +31,10 @@ drawing (2.5 mm). If the real barrel stands proud by more than 3 mm, the Pi won'
   edge.
 - `pi_usb_overhang`: how far the USB-A and Ethernet jacks stick out past the short edge.
 - `pi_sd_protrude`: how far an inserted SD card sticks out past the other short edge.
-- `pi_tallest`: the USB-A stack's top above the board's top face (the lid sits 18 mm above the board).
+- `pi_tallest`: the USB-A stack's top above the board's top face (the lid sits about 17.5 mm above the board).
 - `pi_heatsink_top`: the heatsink's top above the board's top face, once it's stuck on.
-- `pi_board_t`: the board's thickness. It goes into the screw stack, so the screws' reach through the nuts depends
-  on it.
+- `pi_board_t`: the board's thickness. It's modelled at 1.3 mm and the screw stack is checked across 1.0–1.6, so a
+  rough reading is enough.
 
 Each is a one-line change, then `make`.
 
