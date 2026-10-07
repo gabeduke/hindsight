@@ -157,6 +157,26 @@ export function nudgeFrame(frame, sign, grid, snap) {
 }
 
 /**
+ * placeDownbeat is where bar 1 may go: a whole frame inside the take. The
+ * downbeat is an absolute frame, not an offset within a bar, so it can sit
+ * anywhere from the first frame to the last.
+ */
+export function placeDownbeat(frame, total) {
+  return Math.round(Math.min(Math.max(0, total - 1), Math.max(0, frame)));
+}
+
+/**
+ * nudgeDownbeat is where one nudge in direction sign (+1 or -1) takes bar 1:
+ * a beat with Snap on (any setting but off), else 10 ms, kept inside the take.
+ * It moves by the step rather than to a line: the grid is counted from bar 1,
+ * so there is no line for it to land on.
+ */
+export function nudgeDownbeat(frame, sign, grid, snap, total) {
+  const step = snap && snap !== 'off' && grid.bpm ? framesPerBeat(grid) : grid.sampleRate * 0.01;
+  return placeDownbeat(frame + sign * step, total);
+}
+
+/**
  * setPoint applies In (edge 'start') or Out (edge 'end') at frame `at`, the
  * OP-1's loop points. With a selection, it moves that end -- unless that would
  * turn the selection inside out, in which case the old selection goes and

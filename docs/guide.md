@@ -246,7 +246,7 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **The grips,** under the waveform at the selection's ends, with the move
   handle between them.
 - **The toolbar:** with a selection, its In and Out times with their
-  nudges, its length and *Clear*; then *Save as take* · *Send to tape* (when
+  nudges, its length and *Clear*; with a BPM, the *Bar 1* row (below); then *Save as take* · *Send to tape* (when
   the Pi runs the tape) · *Share* · *More*; then ◂⚑ ⚑▸, *Snap* and
   *Practice speed*.
 - **The bar,** along the foot of the page, as on the tape page: the take's
@@ -285,6 +285,14 @@ point at the gestures that matter; **Got it** puts them away for good.
   for a take with a tempo, until you choose another. A nudge from an end
   that sits between lines goes to the next line.
 - **Clear** forgets the selection; the take is untouched.
+
+**Bar 1:**
+
+Once the take has a BPM, a *Bar 1* row stays in the toolbar. **Set to
+playhead** puts bar 1 where the playhead is; **◂ ▸** move it 10 ms, or a beat
+with *Snap* on; the time between them opens the editor on it. The ruler's "1"
+still drags, and **B** on a keyboard is Set to playhead. The grid follows as
+it moves, and ↶ takes a run of nudges back as one step.
 
 **Placing a boundary exactly:**
 
@@ -373,6 +381,9 @@ and the editor bar takes the place of the toolbar.
   selection as by holding and dragging.
 - [demo] On a take with a BPM, choose *Snap: beat* and drag a grip → it jumps
   beat by beat. A nudge moves one beat; with Snap off, a nudge moves 10 ms.
+- [demo] On a take with a BPM, tap **Set to playhead** in the *Bar 1* row
+  → bar 1 and the grid jump to the playhead. **◂ ▸** nudge it; ↶ undoes the
+  run in one step.
 - [demo] Set the BPM from the take page's header → the ruler shows bars
   immediately, without going back to the list.
 - [demo] Go back to the list → it's scrolled where you left it.
@@ -1303,6 +1314,9 @@ has no tip.
 | ◂⚑ ⚑▸ | Jump to the previous or next flag |
 | Delete flag | Remove this flag |
 | ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
+| Bar 1 ◂ ▸ | Move bar 1 by 10 ms, or a beat with Snap on. It stays here once the take has a tempo |
+| Bar 1 time | Tap to place bar 1 exactly, in the editor |
+| Set to playhead | Put bar 1 where the playhead is |
 | Clear | Forget the selection. The take itself is untouched |
 | In / Out time | Tap to place it exactly: the view centres on it and the editor opens. Tap bar 1 on the ruler to place the downbeat |
 | Done | Close the editor. Esc does too |
