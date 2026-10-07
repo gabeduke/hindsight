@@ -103,7 +103,7 @@ floor_t = 2.4
 lid_t = 2.4               # a whole number of 0.2 mm layers
 layer_h = 0.2
 lid_seat_gap = 0.3        # at least this between the wall tops and the lid, so the lid clamps on the spacers
-boss_h = 4.0              # the Pi's bosses on the floor (2.5 mm under the board's deepest part)
+boss_h = 4.5              # the Pi's bosses on the floor (3 mm under the board's deepest part)
 screw_past_nut = 1.0      # how far the screw tip should reach past the nut; sets the spacers' length
 spacer_d = 5.5            # their outside diameter (round, so no corner can turn toward the USB-C)
 case_margin_left = 3.0    # beside the GPIO header
@@ -112,25 +112,26 @@ port_gap = 0.5            # the power-edge connectors stop this far short of the
 rear_jack_proud = 0.5     # USB-A/Ethernet faces stop this far inside the rear wall's outer face
 min_clearance = 0.5       # REPORT.md flags anything tighter
 
-# ── Screws and nuts (hardware on hand: M2–M5 up to 25 mm, no heat-set inserts) ─
-# One M2 screw per corner runs down through the lid, a spacer, the Pi's hole and the boss's
-# roof into an M2 nut slid sideways into a slot in the boss. Tightening pulls the nut up
+# ── Screws and nuts (hardware on hand, no heat-set inserts) ─────────────────
+# One screw per corner runs down through the lid, a spacer, the Pi's hole and the boss's
+# roof into a nut slid sideways into a slot in the boss. Tightening pulls the nut up
 # against the case's own plastic, so lid, spacer, Pi and case all clamp together.
-screw_len = 25.0          # M2 × 25, the longest on hand (a countersunk screw's length is overall)
-m2_clear_d = 2.4          # through the lid, spacers and bosses
-m2_csk_d = 4.2            # countersink at the lid's top face (an M2 flat head is 3.8)
-nut_af = 4.0              # M2 nut across the flats
-nut_t = 1.6
+screw_size = "M2.5"       # the Pi's own size: its holes are 2.7 mm
+screw_len = 25.0          # the longest on hand (a countersunk screw's length is overall)
+screw_clear_d = 2.9       # through the lid, spacers and bosses
+screw_csk_d = 5.0         # countersink at the lid's top face (an M2.5 flat head is 4.7)
+nut_af = 5.0              # M2.5 nut across the flats (ISO 4032)
+nut_t = 2.0
 nut_fit = 0.2             # slot clearance across the flats
 nut_slot_extra = 0.3      # slot height past the nut
 nut_roof = 1.2            # plastic between the nut and the board: the clamp bears on it
-pi_boss_d = 6.5
-boss_top_chamfer = 0.5    # keeps the boss's contact face (5.5 mm) inside the Pi's 6 mm mounting pad
+pi_boss_d = 7.0           # room for the 5.2 mm nut slot
+boss_top_chamfer = 0.5    # keeps the boss's contact face (6.0 mm) inside the Pi's 6 mm mounting pad
 # Tolerances for the screw-stack checks in REPORT.md
 stack_tol = 0.6           # board ±0.3 (1.0–1.6), printed spacer ±0.2, lid ±0.1, worst way round
 screw_len_tol = 0.42      # ISO js15 on a 25 mm screw
-screw_tip_chamfer = 0.4   # the last bit of a screw has no full thread
-m2_head_d = 3.8           # an M2 flat head; it sinks (m2_csk_d - m2_head_d)/2 below the lid's top
+screw_tip_chamfer = 0.45  # the last thread of a screw (one 0.45 mm pitch) isn't full
+screw_head_d = 4.7        # an M2.5 flat head; it sinks (screw_csk_d - screw_head_d)/2 below the lid's top
 
 # ── Magnets for the clip saddle (later): one D8×3 under each Dual Lock square ─
 magnet_d = 8.0
@@ -228,7 +229,7 @@ out_y0, out_y1 = -wall, cav_d + wall
 out_w, out_d = out_x1 - out_x0, out_y1 - out_y0
 board_bot_z = boss_h
 board_top_z = boss_h + pi_board_t
-# Printed spacers, board top to lid underside: as long as lets the M2 screw reach screw_past_nut past its nut
+# Printed spacers, board top to lid underside: as long as lets the screw reach screw_past_nut past its nut
 spacer_len = round(screw_len - lid_t - pi_board_t - nut_roof - nut_t - screw_past_nut, 1)
 cav_h = board_top_z + spacer_len                            # lid underside, on the spacer tops
 wall_top = math.floor((floor_t + cav_h - lid_seat_gap) / layer_h + 1e-6) * layer_h - floor_t  # on a layer
@@ -280,7 +281,7 @@ nut_slot_z1 = boss_h - nut_roof
 nut_slot_z0 = nut_slot_z1 - nut_t - nut_slot_extra
 nut_clamped_z0 = nut_slot_z1 - nut_t                        # the nut's underside once it's pulled up
 screw_tip_z = cav_h + lid_t - screw_len                     # flush countersunk head
-head_sink = (m2_csk_d - m2_head_d) / 2
+head_sink = (screw_csk_d - screw_head_d) / 2
 screw_bore_z0 = screw_tip_z - head_sink - stack_tol - screw_len_tol - min_clearance  # room for the longest case
 assert nut_slot_z0 > 0.2, "the nut slot needs floor under it: raise boss_h or thin nut_roof"
 
@@ -359,11 +360,11 @@ _lid_yc = (sink_box.y0 + sink_box.y1) / 2
 _lid_half = ((lid_vent_rows - 1) * lid_slot_pitch + lid_slot_w) / 2
 lid_slots = slot_grid(board_box.x0 + 3, board_box.x1 - 3, _lid_yc - _lid_half, _lid_yc + _lid_half,
                       lid_slot_l, lid_slot_w, lid_slot_pitch,
-                      [(hx, hy, m2_csk_d / 2 + 2) for hx, hy in pi_holes], [])
+                      [(hx, hy, screw_csk_d / 2 + 2) for hx, hy in pi_holes], [])
 side_slots_y = [cav_d / 2 - side_vent_len / 2 + side_slot_w / 2 + i * side_slot_pitch
                 for i in range(int((side_vent_len - side_slot_w) // side_slot_pitch) + 1)]
 side_slot_z0 = cav_h / 2 - side_slot_h / 2
-wordmark_y = (max(hy for _, hy in pi_holes) + m2_csk_d / 2 + out_y1) / 2
+wordmark_y = (max(hy for _, hy in pi_holes) + screw_csk_d / 2 + out_y1) / 2
 cav_xc = cav_w / 2
 ch_x = [cav_xc + (i - 1.5) * ch_pitch for i in range(4)]
 
@@ -422,7 +423,7 @@ def rounded_prism(x0, x1, y0, y1, z0, z1, r):
 
 
 def nut_slot(x, y, z0, toward_x):
-    """A side slot an M2 nut slides into, flats against its walls, opening toward toward_x."""
+    """A side slot a nut slides into, flats against its walls, opening toward toward_x."""
     sgn = 1 if toward_x > x else -1
     a, b = x - sgn * (nut_corner_r + 0.05), x + sgn * (pi_boss_d / 2 + 1.0)
     return box(min(a, b), max(a, b), y - (nut_af + nut_fit) / 2, y + (nut_af + nut_fit) / 2,
@@ -448,7 +449,7 @@ def make_case(pi_bosses: bool = True) -> Part:
     cuts = [cyl(x, y, -floor_t - EPS, magnet_t + magnet_fit / 2 + EPS, magnet_pocket_d) for x, y in magnets]
     if pi_bosses:
         cuts += [nut_slot(x, y, nut_slot_z0, (board_box.x0 + board_box.x1) / 2) for x, y in pi_holes]
-        cuts += [cyl(x, y, screw_bore_z0, boss_h - screw_bore_z0 + EPS, m2_clear_d) for x, y in pi_holes]
+        cuts += [cyl(x, y, screw_bore_z0, boss_h - screw_bore_z0 + EPS, screw_clear_d) for x, y in pi_holes]
     # Openings: power window, rear notch (open on top), SD slot
     cuts.append(wall_prism("right", peaked(pwr_y - pwr_win_w / 2, pwr_y + pwr_win_w / 2,
                                            pwr_win_z0, pwr_win_z0 + pwr_win_h)))
@@ -499,11 +500,11 @@ def make_lid() -> Part:
     lid = rounded_prism(out_x0, out_x1, out_y0, out_y1, cav_h, top, case_corner_r)
     if lid_edge_r > 0:
         lid = fillet(lid.edges().group_by(Axis.Z)[-1], lid_edge_r)
-    csk_h = (m2_csk_d - m2_clear_d) / 2  # 90° countersink
+    csk_h = (screw_csk_d - screw_clear_d) / 2  # 90° countersink
     adds, cuts = [], []
     for x, y in pi_holes:
-        cuts.append(cyl(x, y, cav_h - EPS, lid_t + 2 * EPS, m2_clear_d))
-        cuts.append(Pos(x, y, top - csk_h) * Cone(m2_clear_d / 2, m2_csk_d / 2 + EPS, csk_h + EPS, align=BOT))
+        cuts.append(cyl(x, y, cav_h - EPS, lid_t + 2 * EPS, screw_clear_d))
+        cuts.append(Pos(x, y, top - csk_h) * Cone(screw_clear_d / 2, screw_csk_d / 2 + EPS, csk_h + EPS, align=BOT))
 
     if lid_style == "plain":
         cuts += [Pos(x, y, cav_h - EPS) * Box(lid_slot_l, lid_slot_w, lid_t + 2 * EPS, align=BOT)
@@ -530,7 +531,7 @@ def make_lid() -> Part:
                 w = 2.6 if t in (0, 3, 6) else 1.6
                 tx = x + fader_slot_w / 2 + 1.0 + w / 2
                 tick = Box3("tick", tx - w / 2, tx + w / 2, ty - line_w / 2, ty + line_w / 2, 0, 0)
-                if min(_circle_box_gap(hx, hy, m2_csk_d / 2, tick) for hx, hy in pi_holes) < 0.8:
+                if min(_circle_box_gap(hx, hy, screw_csk_d / 2, tick) for hx, hy in pi_holes) < 0.8:
                     continue  # keep clear of the lid screws' countersinks
                 cuts.append(_engraved(Rectangle(w, line_w), tx, ty, top))
                 LID_FEATURES.append((f"fader {i + 1} scale", tick))
@@ -572,7 +573,7 @@ def make_lid() -> Part:
 
 def make_fit_test_pi() -> Part:
     """The four Pi bosses with their nut slots on a plate like the case floor, plus four loose
-    rings the lid's thickness, so the real M2 × 25 screws can be tried through real spacers."""
+    rings the lid's thickness, so the real 25 mm screws can be tried through real spacers."""
     hx, hy = pi_hole_pitch_x / 2, pi_hole_pitch_y / 2
     px = hx + pi_boss_d / 2 + fit_plate_margin
     py = hy + pi_boss_d / 2 + fit_plate_margin
@@ -582,12 +583,13 @@ def make_fit_test_pi() -> Part:
     holes = [(sx * hx, sy * hy) for sx in (-1, 1) for sy in (-1, 1)]
     part = plate.fuse(*[pi_boss(x, y, floor_t - EPS, boss_h + EPS) for x, y in holes]).clean()
     cuts = [nut_slot(x, y, floor_t + nut_slot_z0, 0.0) for x, y in holes]
-    cuts += [cyl(x, y, -EPS, floor_t + boss_h + 2 * EPS, m2_clear_d) for x, y in holes]
+    cuts += [cyl(x, y, -EPS, floor_t + boss_h + 2 * EPS, screw_clear_d) for x, y in holes]
     cuts.append(Pos(0, -hy - 0.6, floor_t - 0.6)
                 * extrude(Text(f"NUT {nut_af + nut_fit:g}", font_size=5.0, font_style=FontStyle.BOLD),
                           amount=0.6 + EPS))
     part = part.cut(*cuts).clean()
-    rings = [Pos(sx * 9.0, sy * 7.0, 0) * (Cylinder(4.0, lid_t, align=BOT) - Cylinder(m2_clear_d / 2, lid_t, align=BOT))
+    rings = [Pos(sx * 9.0, sy * 7.0, 0)
+             * (Cylinder(4.0, lid_t, align=BOT) - Cylinder(screw_clear_d / 2, lid_t, align=BOT))
              for sx in (-1, 1) for sy in (-1, 1)]
     return Compound(children=[part, *rings])
 
@@ -595,7 +597,7 @@ def make_fit_test_pi() -> Part:
 def make_spacers() -> Part:
     """Four printed spacer tubes, standing up as they print."""
     tubes = [Pos(i * (spacer_d + 4.0), 0, 0) * (Cylinder(spacer_d / 2, spacer_len, align=BOT)
-                                                - Cylinder(m2_clear_d / 2, spacer_len, align=BOT))
+                                                - Cylinder(screw_clear_d / 2, spacer_len, align=BOT))
              for i in range(4)]
     return Compound(children=tubes)
 
@@ -619,7 +621,7 @@ def make_pi() -> dict[str, Part]:
     sd = [box(-pi_sd_protrude, 12.0, 22.51, 33.51, -1.4, 0)]
     loc = Pos(pi_tx, pi_ty, board_bot_z) * Rot(0, 0, 90)
     tubes = [Pos(x, y, board_top_z) * (Cylinder(spacer_d / 2, spacer_len, align=BOT)
-                                       - Cylinder(m2_clear_d / 2, spacer_len, align=BOT)) for x, y in pi_holes]
+                                       - Cylinder(screw_clear_d / 2, spacer_len, align=BOT)) for x, y in pi_holes]
     return {"board": loc * board, "metal": loc * Compound(children=metal),
             "black": loc * Compound(children=black + sd), "heatsink": loc * Compound(children=sink),
             "spacers": Compound(children=tubes)}

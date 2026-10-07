@@ -22,11 +22,12 @@ plate, plus four printed spacer tubes. The spec's tray, Solo pocket,
 corner posts, Solo fit-test ring and accessory points below no longer apply;
 its Pi numbers, port rules, print settings and thermal rules still do.
 
-**Hardware on hand** (Gabe has M2–M5 screws up to 25 mm, nuts, and D8×3 and
-D6×2 magnets): no heat-set inserts. One M2 × 25 screw per corner runs
-through the lid, a spacer and the Pi into an M2 nut in a pocket on its boss.
+**Hardware on hand** (Gabe has M2.5 screws up to 25 mm with nuts, and D8×3
+and D6×2 magnets): no heat-set inserts. One M2.5 × 25 screw per corner runs
+through the lid, a spacer, the Pi and a plastic roof into a nut slid into a
+slot in its boss, clamping lid, Pi and case together.
 Four D8×3 magnets sit in the case floor for the saddle. In the bill of
-materials, the M2.5 and M3 inserts and screws and the rubber feet are gone;
+materials, the heat-set inserts, the M3 screws and the rubber feet are gone;
 REPORT.md's hardware table is current.
 The Jamstation project doc still describes the original concept.
 

@@ -71,8 +71,8 @@ def clearances(parts) -> None:
     walls = min(min(x, k.cav_w - x, y, k.cav_d - y) - k.spacer_d / 2 for x, y in k.pi_holes)
     row(g, "spacer tube → nearest wall", walls)
     worst_tip = k.screw_tip_z + k.stack_tol + k.screw_len_tol + k.screw_tip_chamfer  # tallest stack, shortest screw
-    row(g, f"M2 × {k.screw_len:g}: full thread in the nut, worst case", min(k.nut_t, k.nut_slot_z1 - worst_tip),
-        needed=1.0, note=f"nut is {k.nut_t:g}; 1.0 is 2.5 threads, plenty for a lid clamp; nominal tip "
+    row(g, f"{k.screw_size} × {k.screw_len:g}: full thread in the nut, worst case", min(k.nut_t, k.nut_slot_z1 - worst_tip),
+        needed=1.0, note=f"nut is {k.nut_t:g}; 1.0 mm is about 2 threads, plenty for a lid clamp; nominal tip "
                          f"{_f(k.nut_clamped_z0 - k.screw_tip_z)} past the nut")
     deepest = k.screw_tip_z - k.head_sink - k.stack_tol - k.screw_len_tol  # shortest stack, longest screw
     row(g, "screw tip → bottom of its bore, worst case", deepest - k.screw_bore_z0)
@@ -141,11 +141,11 @@ def clearances(parts) -> None:
     # ── Lid ──
     row("Lid", "wall tops → lid underside (the lid clamps on the spacers, not the walls)", k.cav_h - k.wall_top,
         needed=0.2, note=_um("pi_board_t"))
-    edge = min(min(x - k.out_x0, k.out_x1 - x, y - k.out_y0, k.out_y1 - y) for x, y in k.pi_holes) - k.m2_csk_d / 2
+    edge = min(min(x - k.out_x0, k.out_x1 - x, y - k.out_y0, k.out_y1 - y) for x, y in k.pi_holes) - k.screw_csk_d / 2
     row("Lid", "screw countersink → lid edge", edge)
     if not k.LID_FEATURES:
         k.make_lid()  # this module's copy of kit hasn't built one yet
-    gap, name = min(((k._circle_box_gap(x, y, k.m2_csk_d / 2, b), n) for x, y in k.pi_holes
+    gap, name = min(((k._circle_box_gap(x, y, k.screw_csk_d / 2, b), n) for x, y in k.pi_holes
                      for n, b in k.LID_FEATURES), default=(99.0, "none"))
     row("Lid", f"screw countersink → nearest opening or engraving in the lid ({name})", gap)
 
@@ -365,8 +365,8 @@ DEPARTURES = """\
 5. **The rear jacks reach into the notch.** Their faces stop {k.rear_jack_proud:g} mm inside the rear wall's
    *outside* face, so plugs seat fully and the case stays shallower than the Solo. The notch floor is
    {notch_drop} mm below the board top so the lower plug's body clears it, and the notch runs to the right wall.
-6. **Hardware on hand, not heat-set inserts.** One M2 × {k.screw_len:g} screw per corner runs through the lid, a
-   printed {k.spacer_len:g} mm spacer tube, the Pi's hole and a {k.nut_roof:g} mm plastic roof into an M2 nut slid
+6. **Hardware on hand, not heat-set inserts.** One {k.screw_size} × {k.screw_len:g} screw per corner runs through the lid, a
+   printed {k.spacer_len:g} mm spacer tube, the Pi's hole and a {k.nut_roof:g} mm plastic roof into a nut slid
    sideways into a slot in the boss. Tightening pulls the nut up against that roof, so lid, spacer, Pi and case all
    clamp together; there's no room for separate lid bosses in a case this tight. To let a 25 mm screw reach right
    through the nut, the bosses are {k.boss_h:g} mm, not 5 (the board's deepest underside part still clears the
@@ -392,9 +392,9 @@ DEPARTURES = """\
 HARDWARE = """\
 | Qty | Part | Used for | Notes |
 |---:|---|---|---|
-| 4 | M2 × {k.screw_len:g} mm countersunk (flat-head) screw | Lid, spacer, Pi and case, down into the nut | A pan head works with an M2 washer under it; without one it bears on the countersink's edge |
-| 4 | M2 nut ({k.nut_af:g} mm across the flats) | Slid sideways into the slot in each boss | The slot stops it turning; the screw pulls it up against the boss's roof |
-| 4 | Any short M2 screw (6–10 mm) | The fit test, optional | Or use the 25 mm ones with the spacers and the fit test's lid rings |
+| 4 | {k.screw_size} × {k.screw_len:g} mm countersunk (flat-head) screw | Lid, spacer, Pi and case, down into the nut | A pan head works with a washer under it; without one it bears on the countersink's edge |
+| 4 | {k.screw_size} nut ({k.nut_af:g} mm across the flats, {k.nut_t:g} mm thick) | Slid sideways into the slot in each boss | The slot stops it turning; the screw pulls it up against the boss's roof |
+| 4 | Any short {k.screw_size} screw (8–12 mm) | The fit test, optional | Or use the 25 mm ones with the spacers and the fit test's lid rings |
 | 4 | Printed spacer tube, {k.spacer_d:g} mm × {k.spacer_len:g} mm (`out/spacers.stl`) | Between the board and the lid | Round, so nothing turns toward the USB-C |
 | 4 | D8×3 mm magnet | Floor pockets, for the clip saddle later | All four with the same pole facing down; a drop of glue |
 | 4 | 3M Dual Lock square, 1" (25.4 mm), SJ3550 or SJ3560 | Case to the Solo's top, until the saddle | Sticks straight over the magnets |
@@ -403,7 +403,7 @@ HARDWARE = """\
 | 1 | Pi 4 heatsink under 10 mm tall | SoC | `pi_heatsink_top` is its top above the board |
 | — | PETG | Case, lid, spacers, fit test | Under {grams:.0f} g (that's if solid; infill uses less). Not PLA |
 
-Spares worth having: a couple of extra M2 nuts; they're small and they roll.
+Spares worth having: a couple of extra nuts; they're small and they roll.
 """
 
 

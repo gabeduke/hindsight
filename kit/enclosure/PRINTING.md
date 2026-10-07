@@ -1,7 +1,7 @@
 # Printing and assembling the Pi case
 
 The Pi rides on top of the Solo in a small case, held on with 3M Dual Lock for now and by magnets on a clip saddle
-later. Its lid looks like the top panel of a cassette 4-track. It all goes together with M2 screws and nuts, and
+later. Its lid looks like the top panel of a cassette 4-track. It all goes together with M2.5 screws and nuts, and
 needs no heat-set inserts or soldering iron.
 
 `out/` isn't in git: `make setup` once, then `make`, builds it. Everything in it is exported **already in print
@@ -67,10 +67,10 @@ labelled 2.6 is the first one of the controls.
 It's the case's floor and bosses on a plate, plus four loose rings the lid's thickness, so you can try the real
 screw stack before printing the case. Print it with `spacers.stl`.
 
-1. Slide an M2 nut **sideways** into each boss's slot (the slots open toward the middle of the plate), flats
+1. Slide an M2.5 nut **sideways** into each boss's slot (the slots open toward the middle of the plate), flats
    against the slot's walls, until it sits under the hole. It should go in with a push and not rattle.
 2. Lay the Pi on the bosses. **All four holes should line up** over the nuts without pushing the board.
-3. Stand a spacer on each hole, a ring on each spacer, and run an M2 × 25 screw down through ring, spacer and board
+3. Stand a spacer on each hole, a ring on each spacer, and run an M2.5 × 25 screw down through ring, spacer and board
    into the nut. It should catch and pull everything tight. The tip may show a hair below the plate; in the case it
    ends inside the floor.
 4. Tune `kit.py`, then `make`:
@@ -92,7 +92,7 @@ that comes later. Fit the magnets now or later:
 
 ## Assembly
 
-1. **Nuts:** slide an M2 nut sideways into the slot in each of the four bosses (they open toward the middle of
+1. **Nuts:** slide an M2.5 nut sideways into the slot in each of the four bosses (they open toward the middle of
    the case), until it sits under the hole.
 2. **Pi:** put the SD card in, then lower the Pi in from above with its USB-A and Ethernet jacks to the rear. They
    drop into the open notch in the back wall, and the USB-C power lines up with the window in the right wall.
@@ -102,9 +102,9 @@ that comes later. Fit the magnets now or later:
    the plug's body has to go into the window: if your supply's plug is bigger than 12 × 7 mm, measure it and set
    `pwr_plug_w`/`pwr_plug_h`. A right-angle USB-A plug should bend **up** or sideways; one that bends down meets the
    notch's sill.
-5. **Lid:** lay it on the spacers. Channel 1 is at the front left and the cassette at the back. Run an M2 × 25 screw
+5. **Lid:** lay it on the spacers. Channel 1 is at the front left and the cassette at the back. Run an M2.5 × 25 screw
    down through each corner hole, through the spacer and the board, into the nut. Snug, not tight: the same four
-   screws hold the lid, the Pi and the case together. A countersunk head sits flush; a pan head needs an M2 washer.
+   screws hold the lid, the Pi and the case together. A countersunk head sits flush; a pan head needs a washer.
 6. **Dual Lock:** press each pair of 1" squares together, peel one backing, and stick them on the case's underside
    inside the four groove outlines (over the magnets, if they're in). Clean the Solo's top with isopropyl alcohol,
    peel the other backings, and press the case onto the end of the Solo's top that its USB-C is on (the right, by
