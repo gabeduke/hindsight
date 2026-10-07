@@ -399,29 +399,48 @@ func (s *State) trim(id, edge string, at int64, file string, fileFrames, length 
 // MaxRepeat is the most copies one repeat lays.
 const MaxRepeat = 64
 
-// repeat lays count copies of a clip end to end after it, on its track, each
-// on the lowest layer free where it lands (the tape's always-overdub rule).
-// A copy is a new clip of the same audio, not linked to the first: editing
-// one leaves the others. The PATCH's tile, Repeat to the loop's end, is the
-// older form: it fills the loop's free room on the clip's own layer.
+// repeat lays count copies of a clip end to end after it, on its track, all
+// on one layer, so each meets the next on its layer and crossfades into it
+// (the renderer joins only clips on the same layer; across layers both
+// edges declick, a dip every time round). They go on the clip's own layer
+// if it's free for all of them, so the first meets the clip itself; else on
+// the lowest layer free for all of them. A copy is a new clip of the same
+// audio, not linked to the first: editing one leaves the others. The
+// PATCH's tile, Repeat to the loop's end, is the older form: it fills the
+// loop's free room on the clip's own layer.
 func (s *State) repeat(id string, count int, length int64) error {
 	if count < 1 || count > MaxRepeat {
 		return fmt.Errorf("%w: repeat 1 to %d times", ErrBadParameter, MaxRepeat)
 	}
 	for ti := range s.Tracks {
-		for _, c := range s.Tracks[ti].Clips {
+		tr := &s.Tracks[ti]
+		for _, c := range tr.Clips {
 			if c.ID != id {
 				continue
 			}
 			if c.End()+int64(count)*c.Frames > length {
 				return fmt.Errorf("%w: %d copies would run past the end of the tape", ErrPastTheEnd, count)
 			}
-			for k := int64(1); k <= int64(count); k++ {
+			copies := make([]Clip, count)
+			for k := range copies {
 				cp := c
-				cp.ID, cp.At = "", c.At+k*c.Frames
-				if _, err := s.Place(ti+1, cp, false); err != nil {
-					return err
+				cp.ID, cp.At = "", c.At+int64(k+1)*c.Frames
+				copies[k] = cp
+			}
+			own := true
+			for _, o := range tr.Clips {
+				if o.Layer == c.Layer && o.At < c.End()+int64(count)*c.Frames && c.End() < o.End() {
+					own = false
+					break
 				}
+			}
+			if !own {
+				_, err := s.PlaceTogether(ti+1, copies, false)
+				return err
+			}
+			for _, cp := range copies {
+				cp.ID = NewClipID()
+				tr.Clips = append(tr.Clips, cp)
 			}
 			return nil
 		}

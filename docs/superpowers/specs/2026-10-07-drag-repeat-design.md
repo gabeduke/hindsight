@@ -19,8 +19,11 @@ you drag past.
 
 **The edit.** `repeat {clip, count}` lays `count` copies (1–64) end to end
 after the clip on its track. It's one undo step.
-- Each copy is placed on the lowest layer free where it lands: the tape's
-  always-overdub rule, the same as a slide.
+- All the copies go on one layer: the clip's own, if it's free for all of
+  them, else the lowest layer free for all of them (`PlaceTogether`). That's
+  the renderer's rule: only clips that meet on one layer crossfade.
+  Across layers both edges declick, which would be a dip at every seam,
+  every time round.
 - A copy is a new clip of the same audio (the same pool file, `src`,
   level, nudge, reversal), with its own id. Copies aren't linked: changing
   one leaves the others.
@@ -41,7 +44,13 @@ free room on the clip's own layer up to the loop's Out.
 - Letting go with one or more lays them (one `repeat`), and toasts with
   Undo. Letting go with none changes nothing.
 - While the corner is held, the lanes don't pan, pinch or follow the
-  playhead (`gripHeld`).
+  playhead, and the wheel does nothing (`gripHeld`). Another finger's hold
+  doesn't start a slide.
+- Held within 32 px of either end of the lane (`EDGE_PX`), the view scrolls
+  that way a little each frame. The count follows the tape frame under the
+  finger, not just its travel, so it keeps growing as the view moves. A
+  clip that fills the view would otherwise need a drag past the screen's
+  edge for its first copy. Trim grips scroll the same way.
 
 ## Tests
 

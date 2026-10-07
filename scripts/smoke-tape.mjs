@@ -325,21 +325,24 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('a clip: ↶ puts it back on track 1', (await loadedState()).tape.tracks[0].clips.some((x) => x.id === c0.id));
-  // Its ⟳ corner, dragged most of a clip's length right, lays one copy after
-  // it; ↶ takes it back.
+  // Its ⟳ corner, dragged to the lane's end and held there, scrolls the
+  // view on and lays copies end to end, as many as it reached; ↶ takes them
+  // back.
   const n0 = (await loadedState()).tape.tracks[0].clips.length;
   const rx = lane.x + ((c0.at + c0.frames - from) / (to - from)) * lane.w - 12;
   const ry = await p.evaluate(() => document.querySelector('.tt-lane').getBoundingClientRect().top + 12);
   await p.mouse.move(rx, ry);
   await p.mouse.down();
-  await p.mouse.move(rx + ((0.8 * c0.frames) / (to - from)) * lane.w, ry, { steps: 8 });
+  await p.mouse.move(lane.x + lane.w - 8, ry, { steps: 8 });
+  await p.waitForTimeout(2500);
   await p.mouse.up();
   await p.waitForTimeout(1000);
-  const reps = (await loadedState()).tape.tracks[0].clips;
-  check('a clip: its ⟳ corner lays a copy end to end', reps.length === n0 + 1 && reps.some((x) => x.at === c0.at + c0.frames && x.frames === c0.frames), JSON.stringify(reps.map((x) => [x.at, x.frames])));
+  const reps = (await loadedState()).tape.tracks[0].clips.filter((x) => x.at >= c0.at + c0.frames);
+  const endToEnd = reps.length >= 1 && reps.every((x) => (x.at - c0.at) % c0.frames === 0 && x.frames === c0.frames && x.layer === 0);
+  check('a clip: its ⟳ corner held at the lane’s end lays copies end to end', endToEnd, JSON.stringify(reps.map((x) => [x.at, x.layer])));
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
-  check('a clip: ↶ takes the copy back', (await loadedState()).tape.tracks[0].clips.length === n0);
+  check('a clip: ↶ takes the copies back', (await loadedState()).tape.tracks[0].clips.length === n0);
   check('a clip: no page errors', errors.length === 0, errors.join('; '));
   await p.context().close();
 }

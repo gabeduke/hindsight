@@ -972,7 +972,7 @@ loop's bars on the selected track, or on all four, kept apart.
 | **Join** | In a clip's sheet: joins it and the half split from it back into one |
 | **Slide** | Hold a clip, then drag it along its track, or up or down onto another: once your finger is half a lane over, that lane is outlined and the clip goes there, and that track is selected. A clip on the grid lands on the nearest bar, beat or eighth (**Slide snaps to**); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
 | **Trim** | Tap a clip, then close its sheet: it stays picked, with a grip inside each edge. Drag a grip to move that edge, on the **Slide snaps to** grid (hold ⌥ to move it freely). Trimming the start keeps the audio where it was played. While you drag, the audio the edge can reach shows faintly past it; the grip turns amber where it can go no further. A clip too short for grips has **Start here** and **End here** in its sheet, which trim it to the playhead. Escape, or a tap on an empty part of a lane, lets go of it |
-| **Repeat** | Drag a picked clip's ⟳ corner (top right) to the right: a ghost of each copy follows, and the count shows (×4 is the clip and three copies). Let go to lay them end to end, each on top of anything already there; drag back to have fewer. The copies aren't linked: change one and the others stay as they were. One undo takes them all back. **Repeat to the loop's end**, in the sheet, still fills the loop |
+| **Repeat** | Drag a picked clip's ⟳ corner (top right) to the right: a ghost of each copy follows, and the count shows (×4 is the clip and three copies). Let go to lay them end to end, on top of anything already there; drag back to have fewer. Held near the lane's end, the view scrolls on, so you can lay more than fit on screen; trim grips do the same. The copies aren't linked: change one and the others stay as they were. One undo takes them all back. **Repeat to the loop's end**, in the sheet, still fills the loop |
 | **×2** | Doubles the loop, copying what's in it over what follows |
 | **Reverse** | In a clip's sheet: plays it backwards. Tap again (*Play forwards*) to turn it back |
 | **Share as WAV** | In a clip's sheet: sends just that clip, at its level, to another app; a clip over a minute downloads instead |
@@ -1024,6 +1024,11 @@ try something. It costs no disk space.
   where they meet; ↶ once → just the one.
 - [demo] Drag the ⟳ corner right, then all the way back, and let go →
   nothing changes.
+- [demo] Pick a clip that fills the view, drag its ⟳ corner to the lane's
+  right end and hold it there → the view scrolls on and the copies and ×N
+  keep coming; let go → that many, end to end.
+- [demo] Repeat a clip that sits a layer above another (a catch over a
+  loop) → its copies are on its layer, with no dips where they meet.
 - [demo] Repeat a clip, then change one copy's level → the others keep
   theirs.
 - [demo] Zoom out until a clip is narrow → no grips; its sheet's **Start

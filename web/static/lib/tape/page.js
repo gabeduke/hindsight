@@ -29,7 +29,7 @@ import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec
 import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
-import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, SLOP_PX, targetTrack } from './clipgestures.js';
+import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, SLOP_PX, EDGE_PX, targetTrack } from './clipgestures.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
@@ -858,20 +858,52 @@ function wireLane(lane) {
   const gest = new ClipGesture();
   let timer = 0;
   const pt = (e) => ({ id: e.pointerId, x: e.clientX, y: e.clientY });
+  // A held grip or ⟳ corner follows the tape frame under the finger, not
+  // just its travel, so it carries on as the view scrolls under it.
+  const frameUnder = (x) => { const r = cv.getBoundingClientRect(); return frameAt(x - r.left, laneView(), r.width); };
+  const held = () => { const g = state.trim || state.repeat; return g && g.n === lane.n ? g : null; };
+  const follow = () => {
+    const g = held();
+    if (!g) return;
+    const df = frameUnder(g.x) - g.f0;
+    if (g === state.repeat) g.count = repeatCount(df, g.clip.frames, g.max);
+    // ⌥ (Alt) moves a trim freely, off the snap.
+    else Object.assign(g, trimTo(g.edge0, df, g.bounds, state.tape.grid, state.snap, g.free));
+    drawLanes();
+  };
+  // Held near either end of the lane, it scrolls the view that way a little
+  // each frame, so a drag can reach past what's shown.
+  let scrollRaf = 0;
+  const edgeScroll = () => {
+    scrollRaf = 0;
+    const g = held();
+    if (!g) return;
+    const r = cv.getBoundingClientRect();
+    const x = g.x - r.left;
+    const dir = x > r.width - EDGE_PX ? 1 : x < EDGE_PX ? -1 : 0;
+    if (!dir) return;
+    const v = laneView();
+    setView(panView(v, dir * (v.to - v.from) * 0.02, state.tape.length));
+    follow();
+    scrollRaf = requestAnimationFrame(edgeScroll);
+  };
+  const letGo = () => { cancelAnimationFrame(scrollRaf); scrollRaf = 0; };
   const run = (fx, e) => {
     if (!fx) return;
     if (fx.type === 'grip' && fx.zone === 'repeat') {
       try { cv.setPointerCapture(e.pointerId); } catch { /* the pointer's gone */ }
-      state.repeat = { n: lane.n, clip: fx.clip, count: 0, max: repeatRoom(fx.clip, state.tape.length) };
+      state.repeat = { n: lane.n, clip: fx.clip, count: 0, max: repeatRoom(fx.clip, state.tape.length), x: e.clientX, f0: frameUnder(e.clientX) };
       cv.classList.add('repeating');
-    } else if (fx.type === 'gripMove' && state.repeat) {
-      const view = laneView();
-      const df = (fx.dx / cv.getBoundingClientRect().width) * (view.to - view.from);
-      state.repeat.count = repeatCount(df, state.repeat.clip.frames, state.repeat.max);
-      drawLanes();
+    } else if (fx.type === 'gripMove' && held()) {
+      const g = held();
+      g.x = e.clientX;
+      g.free = !!e.altKey;
+      follow();
+      if (!scrollRaf) scrollRaf = requestAnimationFrame(edgeScroll);
     } else if (state.repeat && state.repeat.n === lane.n && (fx.type === 'gripEnd' || fx.type === 'release')) {
       const rp = state.repeat;
       state.repeat = null;
+      letGo();
       cv.classList.remove('repeating');
       drawLanes();
       if (fx.commit && rp.count > 0) repeatClip(rp.clip, rp.count);
@@ -881,18 +913,12 @@ function wireLane(lane) {
       const c = fx.clip;
       const edge0 = fx.zone === 'in' ? c.at : c.at + c.frames;
       const bounds = trimRange(c, fx.zone) || { lo: edge0, hi: edge0 };
-      state.trim = { n: lane.n, clip: c, edge: fx.zone, edge0, at: edge0, bounds, limited: false };
+      state.trim = { n: lane.n, clip: c, edge: fx.zone, edge0, at: edge0, bounds, limited: false, x: e.clientX, f0: frameUnder(e.clientX), free: false };
       cv.classList.add('trimming');
-    } else if (fx.type === 'gripMove' && state.trim) {
-      const view = laneView();
-      const df = (fx.dx / cv.getBoundingClientRect().width) * (view.to - view.from);
-      const tr = state.trim;
-      // ⌥ (Alt) moves it freely, off the snap.
-      Object.assign(tr, trimTo(tr.edge0, df, tr.bounds, state.tape.grid, state.snap, !!(e && e.altKey)));
-      drawLanes();
     } else if (fx.type === 'gripEnd' || (fx.type === 'release' && state.trim && state.trim.n === lane.n)) {
       const tr = state.trim;
       state.trim = null;
+      letGo();
       cv.classList.remove('trimming');
       drawLanes();
       if (fx.commit && tr && tr.at !== tr.edge0) trimClip(tr.clip, tr.edge, tr.at);
@@ -936,7 +962,8 @@ function wireLane(lane) {
     if (!state.tape || e.button > 0) return;
     const fx = gest.down(pt(e), laneHit(lane, e));
     if (fx && fx.type === 'press') {
-      timer = setTimeout(() => { if (!state.pinch) run(gest.hold()); }, fx.hold);
+      // Not while two fingers pinch, or another finger holds a grip.
+      timer = setTimeout(() => { if (!state.pinch && !gripHeld()) run(gest.hold()); }, fx.hold);
     } else run(fx, e);
   });
   cv.addEventListener('pointermove', (e) => {
@@ -1569,6 +1596,8 @@ function wireView(el, rectOf) {
     if (!state.tape) return;
     // While a clip is being aligned the wheel moves it (⌘ or Ctrl zooms); see the bar.
     if (bar.wheel(e)) { e.preventDefault(); return; }
+    // While a grip is held, the view is the grip's to scroll.
+    if (gripHeld()) { e.preventDefault(); return; }
     const r = rectOf(), v = laneView(), span = v.to - v.from;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -1807,6 +1836,7 @@ function drawLanes() {
     // and a label when it's wide enough. A layer over another is fainter.
     const tc = trackColor(lane.n, col);
     const ink = col('--well-ink', '#f2e6c8');
+    const mono = col('--mono', 'ui-monospace, monospace');
     const heard = state.live ? xOf(state.live.heard, view, W) : null;
     lane.hits = [];
     const labels = [];
@@ -1903,14 +1933,20 @@ function drawLanes() {
       ctx.stroke();
       ctx.lineWidth = 1;
       ctx.globalAlpha = 1;
-      if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#b58900'), tm);
-      if (state.repeat && state.repeat.clip.id === stored.id) drawRepeats(ctx, stored, state.repeat, view, W, top, h, tc, ink);
+      if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#b58900'), tm, mono);
       lane.hits.push({ x0, x1, top, h, clip: stored });
       // The hit the editor follows: a line across the lane.
       if (aligning) {
         const x = Math.round(xOf(soundingAt(c, t.sample_rate) + al.hitOff, view, W));
         if (x >= 0 && x <= W) { ctx.fillStyle = ink; ctx.fillRect(x, 0, 1, H); }
       }
+    }
+    // A ⟳ corner being dragged: its copies, over everything else on the lane.
+    const rp = state.repeat;
+    const rclip = rp && rp.n === lane.n ? tr.clips.find((x) => x.id === rp.clip.id) : null;
+    if (rclip) {
+      const k = Math.min(rclip.layer, 3) * 3;
+      drawRepeats(ctx, rclip, rp, view, W, 2 + k, H - 4 - k, tc, ink, mono);
     }
     // The hit Hit → Track lined it up against, dashed, where its clip is now.
     const rh = al && al.refHit;
@@ -1994,7 +2030,7 @@ function drawTrimReach(ctx, stored, tm, view, W, top, h, tc, x0, x1) {
 
 // drawRepeats draws the copies a drag of the ⟳ corner would lay: a ghost of
 // the clip after it for each, and how many.
-function drawRepeats(ctx, c, rp, view, W, top, h, tc, ink) {
+function drawRepeats(ctx, c, rp, view, W, top, h, tc, ink, mono) {
   const pd = peaks.get(c.file);
   const ready = pd && !(pd instanceof Promise);
   const nudge = nudgeFrames(c, state.tape.sample_rate);
@@ -2007,7 +2043,8 @@ function drawRepeats(ctx, c, rp, view, W, top, h, tc, ink) {
     ctx.save();
     ctx.fillStyle = withAlpha(tc, 0.08);
     ctx.fillRect(x0, top, bw, h);
-    if (ready && bw > 8) {
+    // Zoomed in past the file's whole peaks, a copy is its outline.
+    if (ready && bw > 8 && !needsDetail(c, pd, view, W)) {
       ctx.beginPath(); ctx.rect(x0, top, bw, h); ctx.clip();
       drawBars(ctx, blockLevels(pd, c, bw), {
         x0: x0 + 4, pitch: 4, cy: top + h / 2 + 3, half: Math.max(1, h / 2 - 12),
@@ -2021,7 +2058,7 @@ function drawRepeats(ctx, c, rp, view, W, top, h, tc, ink) {
     ctx.setLineDash([]);
   }
   if (rp.count > 0 && last > 0) {
-    ctx.font = `11px ${getComputedStyle(document.body).getPropertyValue('--mono').trim() || 'ui-monospace, monospace'}`;
+    ctx.font = `11px ${mono}`;
     ctx.textBaseline = 'top';
     ctx.fillStyle = ink;
     ctx.fillText(`×${rp.count + 1}`, Math.min(W - 28, last + 4), top + 4);
@@ -2031,10 +2068,10 @@ function drawRepeats(ctx, c, rp, view, W, top, h, tc, ink) {
 // drawGrips draws the picked clip's trim grips, a pill inside each edge's
 // zone below its ⟳ corner; a grip pushed against how far it can go turns
 // amber, with a line at the stop.
-function drawGrips(ctx, x0, x1, top, h, ink, warn, tm) {
+function drawGrips(ctx, x0, x1, top, h, ink, warn, tm, mono) {
   // The ⟳ corner, top right (lib/tape/clipgestures.js zonesOf's 'repeat').
   ctx.save();
-  ctx.font = `13px ${getComputedStyle(document.body).getPropertyValue('--mono').trim() || 'ui-monospace, monospace'}`;
+  ctx.font = `13px ${mono}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = withAlpha(ink, 0.9);

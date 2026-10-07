@@ -23,6 +23,7 @@ export const SLOP_PX = 8;          // a finger this still is a press, not a drag
 export const HANDLE_PX = 24;       // a grip's width (and the corner's height)
 export const MIN_GRIPS_PX = 3 * HANDLE_PX; // two grips and a body between
 export const CLICK_GRACE_MS = 600; // a click this soon after a drag ends it, not a tap
+export const EDGE_PX = 32;         // a grip held this near a lane's end scrolls the view
 
 /**
  * zonesOf is the zones of one block, the grips first: a block is {x0, x1,
