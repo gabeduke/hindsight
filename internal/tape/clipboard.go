@@ -217,6 +217,17 @@ func (e *Engine) ringClip(from, to int64, source, kind string) (Clip, string, in
 	return Clip{File: rel, Src: from - lo, Frames: to - from, Source: src.Name, PeakDB: peakDB(peak)}, src.Name, from, clamped, nil
 }
 
+// roomFor refuses a copy of n bytes that would leave less than MIN_FREE_GB
+// where the tapes are: a long one could otherwise stop a recording.
+func (e *Engine) roomFor(n int64) error {
+	if e.minFreeGB > 0 {
+		if free, _ := audio.FreeGB(e.store.Dir()); free-float64(n)/(1<<30) < e.minFreeGB {
+			return fmt.Errorf("%w: %.2f GB free where the tapes are; that needs %.2f GB and leaves less than %.2f GB", audio.ErrLowDisk, free, float64(n)/(1<<30), e.minFreeGB)
+		}
+	}
+	return nil
+}
+
 func (e *Engine) diskOK() error {
 	if e.minFreeGB > 0 {
 		if free, _ := audio.FreeGB(e.store.Dir()); free < e.minFreeGB {

@@ -29,6 +29,15 @@ avoids. And a take's audio never changes.
   - It adds both to the crate in one change, A listed above B.
   - Each half must be at least 10 ms, or it says to put the playhead inside
     the take.
+  - It splits the whole take, whatever is selected.
+  - The disk must keep `MIN_FREE_GB` with a copy of the whole take on it
+    (`roomFor`). Otherwise it's refused with 507, because a long split could
+    stop a recording.
+  - A's file is touched once B is copied. B of a long take can take more
+    than the minute a clean-up spares a young file for. If B fails, A's file
+    is removed.
+- **The page** shows *Splitting…* and takes no second tap while it copies.
+  It splits where the playhead was when it was tapped.
 - **Held back:** *Chop at flags*, one clip per gap between flags, is held
   with the pads idea until the MPC side is settled.
 

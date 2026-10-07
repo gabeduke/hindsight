@@ -1236,7 +1236,8 @@ a pool file, as a tape clip is:
   *Split here*: two kept clips, the take's frames before `at` and from `at`
   to its end, named *take · A* and *take · B*, and answers
   `{"clips": [a, b]}`. The take isn't changed. 400 unless each half is at
-  least 10 ms; 404 for no such take.
+  least 10 ms, or for a take at another sample rate; 404 for no such take;
+  507 when copying the take would leave less than `MIN_FREE_GB`.
 
 404 for a kept clip that isn't there. The crate is a root for the clean-up,
 its deleted clips too until they're let go of; a `crate.json` that can't be

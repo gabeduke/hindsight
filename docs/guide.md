@@ -355,10 +355,11 @@ and the editor bar takes the place of the toolbar.
   **◫** chip in the header says how many clips you've kept from this take,
   and opens them on the tape page.
 - **More → Split here** keeps two clips on the crate, the take before the
-  playhead and from it on, named *take · A* and *take · B*. The take itself
-  isn't changed: a take's audio never is.
-- **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
-  delete.
+  playhead and from it on, named *take · A* and *take · B*. It splits the
+  whole take, whatever's selected. The take itself isn't changed: a take's
+  audio never is.
+- **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, Copy,
+  Split here, and delete.
 - **Undo** in the header steps back through anything you changed (step 4).
 
 **Checks — step 1:**
@@ -1488,13 +1489,14 @@ has no tip.
 | Save as take | Make a new take of just the selection |
 | Name (Save as take) | Name the new take, then Save. On the takes page it folds in with this take. Cancel saves nothing |
 | Share | Send the selection from your phone as an MP3 |
-| More | The DAW bundle, the WAV and MIDI downloads, and delete |
+| More | The DAW bundle, the WAV and MIDI downloads, Copy, Split here, and delete |
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
 | Notes | Watch the take's MIDI rise out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
 | Send to tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop |
 | Keep as clip | Keep the selection, or the whole take, as a clip on the crate: its own copy, so the takes list doesn't grow |
 | ◫ (take) | How many clips you've kept from this take: tap to see them on the tape page's crate |
+| Split here | Keep the take as two clips on the crate, before the playhead and after it. The take isn't changed |
 | Tape name | Your tapes: load one, or make a new one |
 | ⋯ (tape) | This tape: rename it, clone it, mix it down, export its stems, or delete a tape |
 | A tape in the list | Load this tape: the transport plays the loaded one |
@@ -1567,7 +1569,6 @@ has no tip.
 | Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |
 | Lift | Cut the loop’s bars into the clipboard, leaving silence |
 | Copy | Put the selection on the clipboard, to drop onto a tape |
-| Split here | Keep the take as two clips on the crate, before the playhead and after it. The take isn't changed |
 | Drop | The clipboard onto the selected track at the playhead, replacing what’s there. Drop again to lay another copy after it |
 | Merge drop | Drop every track on the clipboard onto the selected one, layered, each clip at its own level |
 | Split | Cut the clips on the selected track in two at the playhead. Key: S |

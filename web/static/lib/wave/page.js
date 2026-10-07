@@ -1220,16 +1220,25 @@ async function main() {
   // Split here: two clips on the crate, the take before the playhead and
   // from it on. The take isn't changed: its audio never is.
   $('split-here').addEventListener('click', async () => {
+    const btn = $('split-here');
+    if (btn.disabled) return;
+    const at = Math.round(state.cursor); // where it splits, whatever plays on
+    // A long take takes a while to copy: one split at a time.
+    btn.disabled = true;
+    btn.textContent = 'Splitting…';
     try {
       const b = await tapeAPI('/api/crate/split', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ take: file, at: Math.round(state.cursor) }),
+        body: JSON.stringify({ take: file, at }),
       });
       const [a, z] = b.clips;
-      toast(`Split at ${fmtClock(state.cursor, sr)} into two clips on the crate: “${a.name}” and “${z.name}”`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
+      toast(`Split at ${fmtClock(at, sr)} into two clips on the crate: “${a.name}” and “${z.name}”`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
       renderCrateChip();
     } catch (e) {
       toast(`Could not split it: ${e.message}`, 'bad');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Split here';
     }
   });
   // Keep as clip: the selection (or the whole take) onto the crate, its audio

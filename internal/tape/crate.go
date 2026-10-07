@@ -175,8 +175,11 @@ func (e *Engine) CrateClip(id string) (CrateClip, error) {
 	return CrateClip{}, ErrNoSuchCrateClip
 }
 
+// newCrateID makes a kept clip's id: "k" and eight hex characters.
+func newCrateID() string { return "k" + NewClipID()[1:] }
+
 func (e *Engine) addToCrate(k CrateClip) (CrateClip, error) {
-	k.ID = "k" + NewClipID()[1:]
+	k.ID = newCrateID()
 	k.Created = time.Now()
 	return k, e.changeCrate(func(c *Crate) error {
 		c.Clips = append(c.Clips, k)
@@ -222,15 +225,19 @@ func (e *Engine) takeClip(take, file, clipName, takeName string, from, to int64,
 
 // SplitTake keeps a take as two clips, before frame at and from it on, named
 // "take · A" and "take · B": the take's Split here. The take isn't changed:
-// its audio never is. Each half must be at least 10 ms.
+// its audio never is. Each half must be at least 10 ms, and the disk must
+// keep MIN_FREE_GB with the copy of the whole take on it.
 func (e *Engine) SplitTake(take, file, name string, at int64, pick []int) ([2]CrateClip, error) {
 	info, err := audio.ReadWAVInfo(take)
 	if err != nil {
 		return [2]CrateClip{}, err
 	}
-	min := int64(OverhangSeconds * float64(info.SampleRate))
-	if at < min || at > info.Frames()-min {
+	edge := int64(OverhangSeconds * float64(info.SampleRate))
+	if at < edge || at > info.Frames()-edge {
 		return [2]CrateClip{}, fmt.Errorf("%w: put the playhead inside the take to split it there", ErrBadParameter)
+	}
+	if err := e.roomFor(info.Frames() * int64(len(pick)) * 4); err != nil {
+		return [2]CrateClip{}, err
 	}
 	a, err := e.takeClip(take, file, name+" · A", name, 0, at, pick)
 	if err != nil {
@@ -238,13 +245,15 @@ func (e *Engine) SplitTake(take, file, name string, at int64, pick []int) ([2]Cr
 	}
 	b, err := e.takeClip(take, file, name+" · B", name, at, info.Frames(), pick)
 	if err != nil {
-		return [2]CrateClip{}, err // a's file is left for a clean-up
+		e.store.removePoolFile(a.File) // nothing will play it
+		return [2]CrateClip{}, err
 	}
+	// B of a long take takes a while to copy: A's file, older than a minute
+	// by now, mustn't look like garbage to a clean-up before it's on the crate.
+	e.store.touchPoolFile(a.File)
 	now := time.Now()
-	for _, k := range []*CrateClip{&a, &b} {
-		k.ID, k.Created = "k"+NewClipID()[1:], now
-	}
-	a.Created = now.Add(time.Millisecond) // newest first: A, then B
+	a.ID, a.Created = newCrateID(), now.Add(time.Millisecond) // newest first: A, then B
+	b.ID, b.Created = newCrateID(), now
 	err = e.changeCrate(func(c *Crate) error {
 		c.Clips = append(c.Clips, a, b)
 		return nil

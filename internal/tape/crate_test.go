@@ -330,3 +330,16 @@ func TestSplitHereKeepsTwoClipsAndLeavesTheTake(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitHereNeedsRoomForTheWholeTake(t *testing.T) {
+	e, _, _ := newEngine(t)
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
+	pool := len(poolNames(t, e))
+	e.minFreeGB = 1 << 20 // more than any disk has
+	if _, err := e.SplitTake(take, "jam_take.wav", "jam", 96000, []int{0, 1}); !errors.Is(err, audio.ErrLowDisk) {
+		t.Fatalf("a split with no room = %v", err)
+	}
+	if l, _ := e.CrateList("", ""); len(l) != 0 || len(poolNames(t, e)) != pool {
+		t.Fatal("a refused split left something behind")
+	}
+}
