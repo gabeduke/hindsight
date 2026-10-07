@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 import pyvista as pv
-from build123d import Pos, export_stl
+from build123d import export_stl
 
 import kit
 
@@ -23,7 +23,6 @@ METAL = "#b8b8b8"
 BLACK = "#222222"
 SINK = "#8d93a0"
 SOLO = "#c0392b"
-BRASS = "#c9a74a"
 
 
 def _mesh(shape, tmp: Path, name: str) -> pv.PolyData:
@@ -88,7 +87,7 @@ def main(parts: dict) -> None:
                    (_mesh(pi["metal"], tmp, "metal"), METAL, 1.0),
                    (_mesh(pi["black"], tmp, "black"), BLACK, 1.0),
                    (_mesh(pi["heatsink"], tmp, "sink"), SINK, 1.0),
-                   (_mesh(pi["standoffs"], tmp, "standoffs"), BRASS, 1.0)],
+                   (_mesh(pi["spacers"], tmp, "spacers"), TRAY, 1.0)],
             "solo": [(_mesh(solo["body"], tmp, "solo"), SOLO, 1.0),
                      (_mesh(solo["feet"], tmp, "feet"), BLACK, 1.0),
                      (_mesh(solo["jacks"], tmp, "jacks"), BLACK, 1.0),
@@ -122,6 +121,6 @@ def main(parts: dict) -> None:
            [(kx - 120, ky - 150, 170), (kx, ky - 5, 20), (0, 0, 1)], RENDERS / "lid.png")
     _shoot(case_print, "Case underside: floor vents and the Dual Lock pad grooves",
            [(0, -60, -240), (0, 0, 0), (0, 1, 0)], RENDERS / "bottom.png")
-    _shoot(fit, "Fit test in print orientation: the Pi's four bosses",
+    _shoot(fit, "Fit test in print orientation: the Pi's four bosses and nut pockets",
            [(40, -130, 150), (0, 0, 0), (0, 0, 1)], RENDERS / "fit_test.png")
     print(f"renders → {RENDERS.relative_to(kit.HERE)}/")
