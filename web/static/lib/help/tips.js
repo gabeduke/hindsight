@@ -75,6 +75,8 @@ export const TIPS = [
   { control: 'Out', ids: ['out'], tip: 'End the selection at the playhead' },
   { control: '⚑', ids: ['flag'], tip: 'Drop a flag at the playhead' },
   { control: '◂⚑ ⚑▸', ids: ['flag-prev', 'flag-next'], tip: 'Jump to the previous or next flag. Past the first or last, on to the take before or after' },
+  { control: '⚑ N', ids: ['flags-list'], tip: "The take's flags as a list, with their names and times. Tap one to play from it" },
+  { control: '↺ 5 s', ids: ['back5'], tip: 'Back five seconds, playing or not. Key: J' },
   { control: 'Delete flag', ids: ['flag-delete'], tip: 'Remove this flag' },
   { control: '◂ ▸ beside In and Out', ids: ['nudge'], tip: 'Move that end of the selection to the next snap line, or by 10 ms' },
   { control: 'Bar 1 ◂ ▸', ids: ['db-nudge'], tip: 'Move bar 1 by 10 ms, or by the Snap step with Snap on. It stays here once the take has a tempo' },

@@ -34,7 +34,7 @@ import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toa
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { listFrom, fold, familyOf } from '../shelf.js';
+import { listFrom, fold, familyOf, flagChips } from '../shelf.js';
 import { cutLabel } from './cut-label.js';
 import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
@@ -191,6 +191,7 @@ async function main() {
     $('notes-play').textContent = clock.playing ? 'Pause' : 'Play';
   }
   function redraw() {
+    setText($('flags-count'), String(state.flags.length));
     view.draw();
     if (overview) overview.draw();
     if (lanes) lanes.draw();
@@ -662,6 +663,43 @@ async function main() {
     seekTo(at);
     if (!state.edit) view.follow(at); // the view stays on a point being edited
   });
+  // ↺ 5 s, or J: back five seconds, playing or not -- to hear a bit again.
+  function back5() {
+    const at = Math.max(0, state.cursor - 5 * sr);
+    seekTo(at);
+    if (!state.edit) view.follow(at);
+  }
+  $('back5').addEventListener('click', back5);
+
+  // The flags as a list, in time order, as the takes page's pane has them: a
+  // tap plays from one.
+  function openFlags() {
+    const items = flagChips({ flags: state.flags, sample_rate: sr }).map((f) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'detail-flag flags-item';
+      b.setAttribute('aria-label', `Play from ${f.label} at ${f.at}`);
+      b.innerHTML = '<span aria-hidden="true">⚑</span><span class="flag-name"></span><span class="flag-at"></span>';
+      b.querySelector('.flag-name').textContent = f.label;
+      b.querySelector('.flag-at').textContent = f.at;
+      b.addEventListener('click', async () => {
+        $('flags-sheet').close();
+        seekTo(f.frame);
+        view.follow(f.frame);
+        if (!clock.playing) await togglePlay();
+      });
+      li.appendChild(b);
+      return li;
+    });
+    $('flags-items').replaceChildren(...items);
+    $('flags-none').hidden = items.length > 0;
+    $('flags-sheet').showModal();
+    (items[0]?.firstChild || $('flags-done')).focus();
+  }
+  $('flags-list').addEventListener('click', openFlags);
+  $('flags-done').addEventListener('click', () => $('flags-sheet').close());
+
   // The scrubber is a slider for the keyboard too: ← → a second, and Space
   // still plays (the page's Space leaves focused controls alone).
   $('overview-canvas').addEventListener('keydown', (e) => {
@@ -1731,6 +1769,7 @@ async function main() {
       case ']': setPointAt('end'); break;
       case 'b': case 'B': barOneAtPlayhead(); break;
       case 'l': case 'L': if (state.region || state.loop) setLoop(!state.loop); break;
+      case 'j': case 'J': if (!e.repeat) back5(); break;
       case '+': case '=': view.zoomTo(view.view.fpp / 2, view.view.width / 2); break;
       case '-': view.zoomTo(view.view.fpp * 2, view.view.width / 2); break;
       case '0': view.fitAll(); break;

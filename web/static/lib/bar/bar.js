@@ -34,6 +34,15 @@ export class NowPlaying {
     });
     $('np-loop').addEventListener('click', () => { if (this.src) this.src.setLoop(!this.src.loop); });
     $('np-start').addEventListener('click', () => { if (this.src) this.src.seek(this.src.start()); });
+    // ↺ 5 s, or J: back five seconds, playing or not.
+    const back5 = () => { const s = this.src; if (s) { s.seek(Math.max(0, s.pos() - 5 * s.sampleRate)); this.kick(); } };
+    $('np-back5').addEventListener('click', back5);
+    addEventListener('keydown', (e) => {
+      if (e.code !== 'KeyJ' || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.target.closest?.('input, textarea, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
+      if (this.root.hidden || !this.src) return;
+      back5();
+    });
     // ⏏ hides itself: the focus goes to ▶, not to the page.
     $('np-eject').addEventListener('click', () => { onEject?.(); $('np-play').focus(); });
 

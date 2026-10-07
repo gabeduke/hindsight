@@ -53,10 +53,10 @@ test('every control in the UI that names a tip has one', () => {
 
 test('every control on the take page has a tip', () => {
   const html = readFileSync(join(root, 'web', 'static', 'wave.html'), 'utf8');
-  // Buttons and links in the page's chrome; the flag sheet's Done and the
-  // delete dialog's buttons speak for themselves.
+  // Buttons and links in the page's chrome; the flag sheet's and the flags
+  // list's Done, and the delete dialog's buttons, speak for themselves.
   const untipped = [...html.matchAll(/<(button|a)\b([^>]*)>/g)]
-    .filter(([, , attrs]) => !/data-tip=/.test(attrs) && !/id="flag-done"|value="(cancel|delete)"/.test(attrs));
+    .filter(([, , attrs]) => !/data-tip=/.test(attrs) && !/id="flags?-done"|value="(cancel|delete)"/.test(attrs));
   assert.deepEqual(untipped.map((m) => m[0]), []);
 });
 

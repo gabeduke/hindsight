@@ -90,7 +90,7 @@ just move references around.
   starred and opened.
 - **The bar,** along the foot of the page on a tablet or a computer, is the
   same now-playing bar as on the tape page (§8.2), holding the tape: its
-  reels and amber window, **|◂ ▶ ⟲**, and the whole tape as a strip to tap
+  reels and amber window, **|◂ ↺ 5 s ▶ ⟲**, and the whole tape as a strip to tap
   or drag. **Open (the tape) ›** goes to it. A cassette tapped on the shelf
   plays in the bar instead; when it ends, or with **⏏**, the bar has the tape
   again. Without the tape it shows only while a take plays. On a phone it's
@@ -268,13 +268,13 @@ point at the gestures that matter; **Got it** puts them away for good.
   handle between them.
 - **The toolbar:** with a selection, its In and Out times with their
   nudges, its length and *Clear*; with a BPM, the *Bar 1* row (below); then *Save as take* · *Send to tape* (when
-  the Pi runs the tape) · *Share* · *More*; then ◂⚑ ⚑▸, *Snap* and
-  *Practice speed*.
+  the Pi runs the tape) · *Share* · *More*; then ◂⚑ ⚑▸, **⚑ N** (the
+  flags as a list), *Snap* and *Practice speed*.
 - **The bar,** along the foot of the page, as on the tape page: the take's
   reels either side of an amber window, which says where it is (bar.beat
   with a BPM, with the time beside it; otherwise the time, and the take's
   length) with ▶ or ❚❚ and a level bar for each side; then **|◂** (back to
-  In, or to the start), **▶ / ❚❚** and **⟲ Loop**; then **IN**, **OUT** and
+  In, or to the start), **↺ 5 s**, **▶ / ❚❚** and **⟲ Loop**; then **IN**, **OUT** and
   **⚑**. Under them, **the overview:** the whole take, its scrubber. Tap it to
   move the playhead there, drag its window to move along, double-tap to see
   it all; with it focused, ← → move a second. **OUT · This device**: a take
@@ -348,6 +348,9 @@ and the editor bar takes the place of the toolbar.
 **Playing:**
 
 - **▶** plays from the playhead.
+- **↺ 5 s**, or **J**, goes back five seconds, playing or not: to hear a
+  bit again without finding it. The bar on Capture and Takes has it too,
+  and J on the tape page goes back five seconds of tape.
 - **⟲ Loop** makes ▶ repeat the selection instead. It's off each time you
   open a take.
 - **Practice speed** (½× 1× 2×) slows or speeds the take without changing its
@@ -362,6 +365,9 @@ and the editor bar takes the place of the toolbar.
   take before or after in the list, at its nearest flag (its last going
   back, its first going on, its start without any), so they walk every flag
   of a run of takes. The take opens stopped; ▶ plays on.
+- **⚑ N**, beside them, says how many flags the take has and opens them as
+  a list, in time order, with their names and times, as the takes page's
+  pane shows them. Tap one to play from it.
 
 **Doing things with the selection:**
 
@@ -411,6 +417,11 @@ and the editor bar takes the place of the toolbar.
   through the selection and on. Turn Loop on → it repeats In to Out.
 - [demo] Tap **In**, move the playhead, tap **Out** → you get the same
   selection as by holding and dragging.
+- [demo] Drop two flags and name one, then tap **⚑ 2** → both, in time
+  order, with the name and the times; tap the second → the sheet closes
+  and the take plays from it.
+- [demo] Play a take for ten seconds and press **J** (or **↺ 5 s**) → it
+  goes back five seconds and plays on. On the takes page's bar, the same.
 - [demo] On a take with a BPM, choose *Snap: beat* and drag a grip → it jumps
   beat by beat. A nudge moves one beat; with Snap off, a nudge moves 10 ms.
 - [demo] On a take with a BPM, tap **Set to playhead** in the *Bar 1* row
@@ -753,7 +764,7 @@ From the top:
   Narrower than 1000 px, **Record ▴** and **Edit ▴** sit beside OUT. On the
   1024 × 600 bench the header is one row, the page switch at its left.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
-  ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, **S**
+  ⟲ Loop, **K** the click, **J** goes back five seconds, **1–4** or **↑ ↓** choose the track, **S**
   splits at the playhead, and **⌘Z / Ctrl-Z** undoes (with **⇧** to redo).
   With a clip picked, or several: **Delete** removes them, **⌘C / Ctrl-C**
   copies them as they lie, and **⌘D / Ctrl-D** lays a copy right after them
@@ -1595,6 +1606,8 @@ has no tip.
 | Out | End the selection at the playhead |
 | ⚑ | Drop a flag at the playhead |
 | ◂⚑ ⚑▸ | Jump to the previous or next flag. Past the first or last, on to the take before or after |
+| ⚑ N | The take's flags as a list, with their names and times. Tap one to play from it |
+| ↺ 5 s | Back five seconds, playing or not. Key: J |
 | Delete flag | Remove this flag |
 | ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
 | Bar 1 ◂ ▸ | Move bar 1 by 10 ms, or by the Snap step with Snap on. It stays here once the take has a tempo |

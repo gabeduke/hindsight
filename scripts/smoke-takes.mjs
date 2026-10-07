@@ -530,6 +530,58 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await ctx.close();
 }
 
+// The flags as a list on the take page, a tap plays from one; J (↺ 5 s)
+// goes back five seconds; and the takes page's bar has ↺ 5 s too.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  const name = await p.evaluate(async () => {
+    const n = (await fetch('/api/trigger?seconds=20', { method: 'POST' }).then((r) => r.json())).name;
+    await fetch(`/api/take?file=${encodeURIComponent(n)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trim: null, flags: [{ id: 'f2', frame: 480000, label: 'chorus' }, { id: 'f1', frame: 96000 }] }) });
+    return n;
+  });
+  await p.waitForTimeout(3000);
+  // The time in the bar's window, in seconds: the small line with a tempo,
+  // else the big one.
+  const secsNow = () => p.evaluate(() => {
+    const m = `${document.getElementById('np-time').textContent} ${document.getElementById('position').textContent}`.match(/(\d+):(\d\d(?:\.\d)?)/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+  });
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(name)}`);
+  await settle(p, 1500);
+  check('⚑ N counts the flags', (await p.textContent('#flags-count')) === '2');
+  await p.click('#flags-list');
+  await settle(p, 300);
+  const items = await p.locator('#flags-items .flags-item').allTextContents();
+  check('the flags list: in time order, named, with times', items.length === 2 && /flag.*0:02/.test(items[0]) && /chorus.*0:10/.test(items[1]), JSON.stringify(items));
+  await p.locator('#flags-items .flags-item').nth(1).click();
+  await settle(p, 1200);
+  const playing = await p.getAttribute('#play', 'aria-label');
+  const at = await secsNow();
+  check('a tap plays from it, and the sheet closes', playing === 'Pause' && at >= 10 && at < 12 && !(await p.evaluate(() => document.getElementById('flags-sheet').open)), `${playing} ${at}`);
+  await p.keyboard.press('j');
+  await settle(p, 300);
+  const back = await secsNow();
+  check('J goes back five seconds and plays on', back >= 5 && back < 7.5 && (await p.getAttribute('#play', 'aria-label')) === 'Pause', `${at} → ${back}`);
+  await p.click('#play');
+  // The takes page's bar.
+  await p.goto(`${BASE}/takes.html`);
+  await settle(p, 1800);
+  await p.locator(`.take[data-name="${name}"]`).click();
+  await settle(p, 1000);
+  const sc = await p.locator('#np-scrub').boundingBox();
+  await p.mouse.click(sc.x + sc.width * 0.5, sc.y + sc.height / 2);
+  await settle(p, 400);
+  const mid = await secsNow();
+  await p.click('#np-back5');
+  await settle(p, 400);
+  const less = await secsNow();
+  check('the takes page’s ↺ 5 s goes back five seconds', Math.abs(mid - less - 5) < 0.3, `${mid} → ${less}`);
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);
