@@ -386,6 +386,6 @@ test('a delete\'s toast says the cuts are back on the shelf', () => {
 test('a take that lost audio says how many times', () => {
   assert.equal(dropoutsText({}), '');
   assert.equal(dropoutsText({ dropouts: [] }), '');
-  assert.equal(dropoutsText({ dropouts: [480] }), '⚠ 1 dropout');
-  assert.equal(dropoutsText({ dropouts: [480, 96000] }), '⚠ 2 dropouts');
+  assert.equal(dropoutsText({ dropouts: [480] }), '⚠\u00a01 dropout');
+  assert.equal(dropoutsText({ dropouts: [480, 96000] }), '⚠\u00a02 dropouts');
 });

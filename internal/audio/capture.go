@@ -61,10 +61,14 @@ type Capture struct {
 	// goroutine's own: the last frame marked (+1), so a burst of drops at
 	// one frame is one dropout, and the device's overflow count last seen
 	// (-1: not seen yet).
-	dropouts   [maxDropouts]atomic.Uint64
-	dropN      atomic.Uint64
-	lastDrop   uint64
-	overflows  int64
+	dropouts  [maxDropouts]atomic.Uint64
+	dropN     atomic.Uint64
+	lastDrop  uint64
+	overflows int64
+	// reopened says supervise opened the stream again (after a stall, a
+	// failure, the interface coming back): the ring then has a splice, and
+	// the first block after it marks one.
+	reopened   atomic.Bool
 	healthy    atomic.Bool
 	deviceName atomic.Value // string
 	lastErr    atomic.Value // string
@@ -168,6 +172,13 @@ func (c *Capture) markDropout(frame uint64) {
 func (c *Capture) Dropouts(start, end uint64) []int64 {
 	n := c.dropN.Load()
 	k := min(n, maxDropouts)
+	// Wrapped, and its oldest kept is inside the span: older ones in it are
+	// forgotten. A rig losing audio that often has bigger problems; say so.
+	if n > maxDropouts {
+		if v := c.dropouts[(n-k)%maxDropouts].Load(); v > 0 && v-1 > start && v-1 < end {
+			log.Printf("[!] more than %d dropouts since this take began: only the last %d are marked", maxDropouts, maxDropouts)
+		}
+	}
 	var out []int64
 	for i := n - k; i < n; i++ {
 		v := c.dropouts[i%maxDropouts].Load()
@@ -257,6 +268,7 @@ func (c *Capture) supervise() {
 	defer c.wg.Done()
 
 	backoff := time.Second
+	opened := false
 	for {
 		select {
 		case <-c.stop:
@@ -266,6 +278,10 @@ func (c *Capture) supervise() {
 		default:
 		}
 
+		// Not the first open: what the ring gets next follows a gap.
+		if opened {
+			c.reopened.Store(true)
+		}
 		name, err := c.src.Open(c.processAudio)
 		if err != nil {
 			c.lastErr.Store(err.Error())
@@ -286,6 +302,7 @@ func (c *Capture) supervise() {
 			continue
 		}
 
+		opened = true
 		backoff = time.Second
 		c.lastErr.Store("")
 		c.waiting.Store(false)
@@ -336,6 +353,11 @@ func (c *Capture) supervise() {
 func (c *Capture) processAudio(in []int32) {
 	c.lastCallback.Store(time.Now().UnixNano())
 	c.levels.Accumulate(in)
+	// The stream was opened again (a stall, the interface back): the audio
+	// between is gone, a gap just before this block.
+	if c.reopened.Load() && c.reopened.Swap(false) && c.handed > 0 {
+		c.markDropout(c.handed)
+	}
 	// The device lost frames before this block: a gap just before it.
 	if ov := int64(c.InputOverflows()); ov != c.overflows {
 		if c.overflows >= 0 && ov > c.overflows {

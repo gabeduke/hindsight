@@ -24,11 +24,15 @@ machine, and can check whether the take is still usable.
   - Each dropped block, and each overflow the interface reports, marks a
     dropout at the ring frame where the gap is: the frame after the last
     one handed over.
+  - So does the stream being opened again (`supervise`, after a stall of
+    2 s or the interface coming back). The ring then holds a splice: a USB
+    hiccup, the most audible gap there is.
   - A burst of drops at one frame is one dropout.
   - The interface's count from before the capture first heard from it isn't
     one.
 - **Storage:** a fixed ring of the newest 64, written on the delivery
-  goroutine without a lock or an allocation (`Capture.markDropout`).
+  goroutine without a lock or an allocation (`Capture.markDropout`). A span
+  older than the oldest one kept logs that its list is incomplete.
   `Capture.Dropouts(start, end)` answers those strictly inside a span, in its
   frames. A gap at the span's first frame is before it.
 - **Saving:**
@@ -45,7 +49,11 @@ machine, and can check whether the take is still usable.
   - In their own field, nothing edits them, and they need no exception in
     the 512-flag cap, the flag endpoints or the undo history.
   - On screen they look as the plan said: ⚠, not editable, not counted.
-- **The demo** has no interface to overrun. In `--demo`, `SIGUSR1` makes the
+  - What it costs: they aren't cue points in the WAV, as flags are, so a
+    DAW importing the take doesn't see them.
+- **The demo** has no interface to overrun. The smoke sends the signal only
+  to a server whose status says it's the demo: to any other, SIGUSR1 is a
+  kill. In `--demo`, `SIGUSR1` makes the
   demo source report an overflow, as an interface does (`kill -USR1
   <pid>`). It's a local signal, not an endpoint.
 
@@ -54,14 +62,18 @@ machine, and can check whether the take is still usable.
 - **The take page:**
   - ⚠ in the ruler, and a dashed line through the waveform, at each
     dropout. Neither can be tapped or dragged.
-  - The header line says *⚠ 2 dropouts*.
+  - The header line says *⚠ 2 dropouts*, in `--warn-ink`, which reads at
+    4.5:1. It shrinks before the take's length does.
   - ⚑ N's list (C3) has the dropouts among the flags, in time, as ⚠
     *dropout*. A tap plays from a second before one, to hear the gap.
     ⚑ N's count is flags only.
 - **The takes page:**
-  - the cassette wears a *⚠ 2 dropouts* sticker by its foot;
+  - the cassette wears a *⚠ 2 dropouts* sticker by its foot (in the
+    corner on a phone), `--on-flag` on `--warn`. Both colour pairs are in
+    `styles.test.js`'s contrast check;
   - the pane's line says *⚠ 2 dropouts* after the size and MIDI.
-- `dropoutsText` in `lib/shelf.js`, tested.
+- `dropoutsText` in `lib/shelf.js`, tested. Its ⚠ and count are joined by
+  a no-break space, so they don't wrap apart.
 
 ## Not in this step
 
@@ -75,6 +87,7 @@ machine, and can check whether the take is still usable.
 - **Go** (`dropout_test.go`):
   - a dropped block is a dropout where the gap is, with a burst counted
     once and the span's edges excluded;
+  - a reopened stream is one;
   - a device overflow is one, but an old count isn't;
   - the ring keeps the newest 64;
   - a save, a range save and a cut carry theirs;

@@ -106,3 +106,18 @@ func TestASaveAndACutCarryTheirDropouts(t *testing.T) {
 		t.Fatalf("cut dropouts = %v, want [7]", m.Dropouts)
 	}
 }
+
+// The stream opened again after a stall (or the interface coming back) is a
+// splice in the ring: the first block after it marks a dropout there.
+func TestAReopenedStreamIsADropout(t *testing.T) {
+	_, c, _ := newSaveFixture(t)
+	block := make([]int32, 256*2)
+	c.processAudio(block)
+	c.processAudio(block)
+	c.reopened.Store(true)
+	c.processAudio(block)
+	c.processAudio(block)
+	if got := c.Dropouts(0, 5000); !slices.Equal(got, []int64{512}) {
+		t.Fatalf("dropouts = %v, want [512]", got)
+	}
+}

@@ -610,7 +610,11 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
 // when the Pi falls behind it; a capture over it says ⚠ 1 dropout on its
 // page, in its flags list, and on its cassette. Needs the demo's pid:
 // HINDSIGHT_PID=… (skipped without it).
-if (process.env.HINDSIGHT_PID) {
+// Only a demo listens for SIGUSR1: to any other server it's a kill.
+const isDemo = process.env.HINDSIGHT_PID
+  && /demo/i.test((await (await fetch(`${BASE}/api/status`)).json()).device || '');
+if (process.env.HINDSIGHT_PID && !isDemo) console.log('skip dropouts: HINDSIGHT_PID is not a --demo server');
+if (isDemo) {
   process.kill(Number(process.env.HINDSIGHT_PID), 'SIGUSR1');
   await new Promise((r) => setTimeout(r, 3000));
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -622,7 +626,7 @@ if (process.env.HINDSIGHT_PID) {
   check('dropouts: a capture over an overflow has one', (tk.dropouts || []).length === 1, JSON.stringify(tk.dropouts));
   await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(name)}`);
   await settle(p, 1500);
-  check('dropouts: the take page says ⚠ 1 dropout', (await p.textContent('#take-drops')) === '⚠ 1 dropout' && await p.isVisible('#take-drops'));
+  check('dropouts: the take page says ⚠ 1 dropout', (await p.textContent('#take-drops')) === '⚠\u00a01 dropout' && await p.isVisible('#take-drops'));
   await p.click('#flags-list');
   await settle(p, 300);
   const rows = await p.locator('#flags-items .flags-item.dropout').count();
@@ -632,7 +636,7 @@ if (process.env.HINDSIGHT_PID) {
   await settle(p, 1800);
   await p.locator(`.take[data-name="${name}"]`).click();
   await settle(p, 1500);
-  check('dropouts: the cassette wears the sticker', (await p.locator('#take-detail .cas-drops').textContent()) === '⚠ 1 dropout' && await p.locator('#take-detail .cas-drops').isVisible());
+  check('dropouts: the cassette wears the sticker', (await p.locator('#take-detail .cas-drops').textContent()) === '⚠\u00a01 dropout' && await p.locator('#take-detail .cas-drops').isVisible());
   await ctx.close();
 } else {
   console.log('skip dropouts: set HINDSIGHT_PID to the demo\'s pid');

@@ -276,7 +276,7 @@ export function listFrom(referrer, origin) {
  */
 export function dropoutsText(take) {
   const n = (take.dropouts || []).length;
-  return n ? `⚠ ${n} dropout${n === 1 ? '' : 's'}` : '';
+  return n ? `⚠\u00a0${n} dropout${n === 1 ? '' : 's'}` : ''; // the ⚠ stays with its count
 }
 
 /** flagChips is a take's flags in time order: each one's label, m:ss into the take, and frame. */
