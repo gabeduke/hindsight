@@ -2739,9 +2739,10 @@ function openClip(c) {
 // bar (geometry.js fadeOptions). A length set another way lights none.
 function renderFades(c) {
   const t = state.tape;
+  const plays = clipFades(c); // what plays, after a trim shorter than a fade
   for (const [edge, key] of [['in', 'fade_in'], ['out', 'fade_out']]) {
     const box = $(`clip-fade-${edge}`);
-    const on = fadeOption(c[key] || 0, t.grid, t.sample_rate);
+    const on = fadeOption(edge === 'in' ? plays.fadeIn : plays.fadeOut, t.grid, t.sample_rate);
     box.replaceChildren(...fadeOptions(t.grid, t.sample_rate).map((o) => {
       const b = document.createElement('button');
       b.type = 'button';

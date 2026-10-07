@@ -394,6 +394,7 @@ func (e *Engine) ClipboardAudio() ([]float32, error) {
 			}
 			ch := info.Channels
 			g := float32(math.Pow(10, cl.GainDB/20))
+			fin, fout := cl.fades()
 			start := cl.Src + (from - cl.At) // the file frame that plays at from
 			_, err = audio.ReadFrames(path, start, start+(to-from), 1<<14, func(b []int32, first int64) error {
 				for i := 0; i < len(b)/ch; i++ {
@@ -404,8 +405,12 @@ func (e *Engine) ClipboardAudio() ([]float32, error) {
 					}
 					k := from + (first - start) + int64(i)
 					if k >= 0 && k < n {
-						out[2*k] += l * g
-						out[2*k+1] += r * g
+						fg := g
+						if fin > 0 || fout > 0 { // its fades, as a drop plays them
+							fg *= float32(fadeGain(k-cl.At, cl.Frames, fin, fout))
+						}
+						out[2*k] += l * fg
+						out[2*k+1] += r * fg
 					}
 				}
 				return nil

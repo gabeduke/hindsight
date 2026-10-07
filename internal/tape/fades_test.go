@@ -129,3 +129,61 @@ func TestASharedClipIsFaded(t *testing.T) {
 		t.Fatalf("after the fade: %.4f", v)
 	}
 }
+
+// A fade on the inner edge of a split -- the usual way to fade at a cut --
+// crossfades there, with no step where the halves meet.
+func TestAFadeAtASplitDoesntClick(t *testing.T) {
+	for _, edge := range []string{"head out", "tail in"} {
+		e, tp, c := steadyLoop(t)
+		pos := int64(48000)
+		if _, err := e.EditOp(tp.ID, EditRequest{Op: "split", Track: 1, Pos: &pos}); err != nil {
+			t.Fatal(err)
+		}
+		head, tail := track(e, 1)[0], track(e, 1)[1]
+		if edge == "head out" {
+			fade(t, e, head.ID, 0, 4800)
+		} else {
+			fade(t, e, tail.ID, 4800, 0)
+		}
+		prev := at(t, e, 47990)
+		for f := int64(47991); f < 48300; f++ {
+			v := at(t, e, f)
+			if math.Abs(v-prev) > 0.02 {
+				t.Fatalf("%s: frame %d jumps %.4f → %.4f", edge, f, prev, v)
+			}
+			prev = v
+		}
+		_ = c
+	}
+}
+
+func TestPastItsEndAFadedClipIsSilent(t *testing.T) {
+	if g := fadeGain(1000, 1000, 0, 100); g != 0 {
+		t.Fatalf("just past the end: %f", g)
+	}
+	if g := fadeGain(1100, 1000, 0, 100); g != 0 {
+		t.Fatalf("well past the end: %f", g)
+	}
+	if g := fadeGain(-1, 1000, 100, 0); g != 0 {
+		t.Fatalf("before the start: %f", g)
+	}
+	if g := fadeGain(1100, 1000, 0, 0); g != 1 {
+		t.Fatalf("no fade, past the end: %f (the declick's business, not the fade's)", g)
+	}
+}
+
+func TestTheClipboardAuditionIsFaded(t *testing.T) {
+	e, tp, c := steadyLoop(t)
+	fade(t, e, c.ID, 4800, 0)
+	setLoop(t, e, 0, 96000)
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "copy", Track: 1}); err != nil {
+		t.Fatal(err)
+	}
+	pcm, err := e.ClipboardAudio()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := pcm[2*2400]; math.Abs(float64(v)-0.5*math.Sin(math.Pi/4)) > 0.01 {
+		t.Fatalf("halfway into the fade the audition plays %.4f", v)
+	}
+}

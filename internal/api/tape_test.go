@@ -379,6 +379,7 @@ func TestTheClipboardCopiesATakeAndDropsItOnATape(t *testing.T) {
 		t.Fatalf("fades = %+v", c)
 	}
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in":-1}}`), http.StatusBadRequest, "a fade below 0")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in":1}}`), http.StatusBadRequest, "a fade shorter than the declick")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_out":99999999}}`), http.StatusBadRequest, "a fade past the clip")
 
 	want(t, send(t, r, http.MethodDelete, "/api/clipboard", ""), http.StatusOK, "clear")

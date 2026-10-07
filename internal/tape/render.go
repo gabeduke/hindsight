@@ -263,8 +263,11 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 						c.prev = o
 						o.joined = true
 						// A catch split at the seam: the tail is the head's
-						// own audio carrying on, so it needs no fade.
-						c.cont = o.audio != nil && o.audio == c.audio && o.src+(o.end-o.at) == c.src
+						// own audio carrying on, so it needs no fade -- unless
+						// a fade was set on that inner edge, which then
+						// crossfades as any join does.
+						c.cont = o.audio != nil && o.audio == c.audio && o.src+(o.end-o.at) == c.src &&
+							o.fadeOut == 0 && c.fadeIn == 0
 					}
 				}
 				// A clip filling the whole loop wraps into itself.

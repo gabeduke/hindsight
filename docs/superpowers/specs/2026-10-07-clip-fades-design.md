@@ -33,8 +33,18 @@ way a DAW's fade handles let you.
   | Join | Keeps the outer two |
   | Reverse | Swaps them: backwards, its end is its start |
   | Trim, slide, move, repeat, duplicate | Keep them as they are, as lengths from the edges |
-- **Edit:** `PATCH /api/tapes {clip: {id, fade_in?, fade_out?}}`, 0 to the
-  clip's length, as one undo step.
+- **Edit:** `PATCH /api/tapes {clip: {id, fade_in?, fade_out?}}`: 0, or 3 ms
+  (the declick) to the clip's length. A fade of a few frames would end in a
+  click. Each change is one undo step of its own, never merged into a level
+  change.
+- **At a split:** a fade set on the inner edge of a split (where the halves
+  carry straight on in one file, and so join without a fade) makes that join
+  crossfade like any other. So fading at a cut is smooth.
+- **Past a clip's end** (the loop's wrap reads a few ms past it) a faded
+  edge is silent.
+- **The clipboard's audition** plays a copied clip's fades, as a drop will.
+- **A clip kept on the crate** keeps its audio, not its fades, as it doesn't
+  keep its level.
 - **UI:** the clip sheet gets *Fade in* and *Fade out* rows of six keys:
   *off · 10 ms · ⅛ beat · ¼ beat · 1 beat · 1 bar* (`fadeOptions`).
   - The beat and bar keys need a tempo; a key longer than the clip is greyed

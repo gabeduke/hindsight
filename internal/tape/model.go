@@ -176,11 +176,16 @@ func (c Clip) fades() (in, out int64) {
 // frames, with in and out frames of fade (Clip.fades): sin of a quarter
 // turn as it rises, the same as it falls.
 func fadeGain(local, frames, in, out int64) float64 {
+	// Outside the clip a faded edge has faded: the loop's wrap reads a little
+	// past a clip's end, where the sine would turn negative.
+	if left := frames - local; (in > 0 && local < 0) || (out > 0 && left <= 0) {
+		return 0
+	}
 	g := 1.0
-	if local < in {
+	if in > 0 && local < in {
 		g *= math.Sin((float64(local) + 0.5) / float64(in) * math.Pi / 2)
 	}
-	if left := frames - local; left <= out {
+	if left := frames - local; out > 0 && left <= out {
 		g *= math.Sin((float64(left) - 0.5) / float64(out) * math.Pi / 2)
 	}
 	return g
