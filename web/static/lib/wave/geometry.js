@@ -242,6 +242,14 @@ export function fmtClock(frames, sampleRate) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** fmtTenths is a point in a take, m:ss.t, as the bar's window reads it. */
+export function fmtTenths(frame, sampleRate) {
+  const ds = Math.floor((frame / sampleRate) * 10);
+  const m = Math.floor(ds / 600);
+  const s = Math.floor((ds % 600) / 10);
+  return `${m}:${String(s).padStart(2, '0')}.${ds % 10}`;
+}
+
 /** fmtPoint is a point in a take, m:ss.cc, for the In and Out readouts. */
 export function fmtPoint(frame, sampleRate) {
   const cs = Math.floor((frame / sampleRate) * 100);

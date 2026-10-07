@@ -26,7 +26,15 @@ phone, mid-song.
   its time. It reuses `flagChips` from `lib/shelf.js` and the pane's
   chip look, one per line. A long list scrolls inside the sheet.
 - **Tapping one** closes the sheet, moves the playhead there, follows it in
-  the view, and plays.
+  the view, and plays. If a looping selection doesn't include the flag,
+  Loop goes off; otherwise ▶ would start at In. The focus goes to ▶, so
+  Space pauses.
+- **Times are to the tenth** (`fmtTenths`), as the bar's window reads them,
+  so two flags a moment apart differ.
+- **The chip's name** says how many flags, for a screen reader; the ⚑ is
+  decoration.
+- **Under the open sheet** the take page's keys do nothing (J, F, ⌘Z…).
+  That holds under any dialog.
 - With no flags, the sheet says how to drop one: ⚑, or F.
 
 ### ↺ 5 s
@@ -42,6 +50,14 @@ phone, mid-song.
 - **On a phone,** the mini player keeps just ▶, as before; ↺ 5 s is in the
   full player.
 - J does nothing while typing, under a dialog, or on a held key's repeats.
+  The take page and the bar read it by its character (`e.key`). The tape
+  page reads all its keys by position (`e.code`), as it always has.
+- **Back from what this device hears.** On a phone playing the tape here,
+  that's behind the Pi's playhead by the stream's buffer. The bar uses the
+  tape source's `heardHere`, and the tape page uses `live.heard`, so five
+  seconds back is five seconds of what was heard.
+- **Looping,** ↺ 5 s doesn't go back past In, since ▶ would start there
+  anyway.
 
 ## Not in this step
 
@@ -51,15 +67,20 @@ phone, mid-song.
 
 ## Tests
 
-- **Node:** `help.test.js` lets the sheet's Done go without a tip, as the
-  flag sheet's does.
+- **Node:**
+  - `help.test.js` lets the sheet's Done go without a tip, as the flag
+    sheet's does;
+  - `fmtTenths` in `geometry.test.js`.
 - **Smoke:**
   - `smoke-takes.mjs`:
     1. ⚑ N counts the flags;
     2. the list is in time order, named, with times;
     3. a tap plays from the flag and closes the sheet;
     4. J goes back five seconds and plays on;
-    5. the takes page's ↺ 5 s goes back five seconds.
+    5. J under the open list moves nothing;
+    6. a flag outside a looping selection plays from the flag, with Loop
+       off;
+    7. the takes page's ↺ 5 s goes back five seconds.
   - `smoke-tape.mjs`: J goes back five seconds of tape.
 - **Guide:**
   - §3: the bar's keys;

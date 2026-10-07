@@ -566,6 +566,30 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   const back = await secsNow();
   check('J goes back five seconds and plays on', back >= 5 && back < 7.5 && (await p.getAttribute('#play', 'aria-label')) === 'Pause', `${at} → ${back}`);
   await p.click('#play');
+  await settle(p, 300);
+  // Under the open list, J moves nothing.
+  const still = await secsNow();
+  await p.click('#flags-list');
+  await settle(p, 300);
+  await p.keyboard.press('j');
+  await settle(p, 300);
+  check('J under the open list moves nothing', Math.abs((await secsNow()) - still) < 0.05, `${still} → ${await secsNow()}`);
+  await p.click('#flags-done');
+  // With a selection looping, a flag outside it turns Loop off and plays
+  // from the flag, not from In.
+  await p.evaluate((n) => fetch(`/api/take?file=${encodeURIComponent(n)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trim: { start_frame: 48000, end_frame: 144000 } }) }), name);
+  await p.reload();
+  await settle(p, 1500);
+  await p.click('#loop');
+  await settle(p, 300);
+  await p.click('#flags-list');
+  await settle(p, 300);
+  await p.locator('#flags-items .flags-item').nth(1).click();
+  await settle(p, 1200);
+  const fromFlag = await secsNow();
+  check('a flag outside a looping selection plays from the flag, Loop off', fromFlag >= 10 && fromFlag < 12 && (await p.getAttribute('#loop', 'aria-pressed')) === 'false', `${fromFlag}`);
+  await p.click('#play');
   // The takes page's bar.
   await p.goto(`${BASE}/takes.html`);
   await settle(p, 1800);

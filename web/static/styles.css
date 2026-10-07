@@ -2520,10 +2520,10 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 .detail-flag { appearance: none; border: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 4px; background: var(--mask); color: var(--marker); font: 13px var(--font); }
 .detail-flag > span:first-child { color: var(--flag); }
 /* The take page's flags sheet: the pane's chips, one to a line, to play from. */
-.flags-items { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
+.flags-items { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: min(60vh, calc(100dvh - 170px)); overflow-y: auto; }
 .flags-item { width: 100%; min-height: var(--tap); justify-content: flex-start; font-size: 14px; }
 .flags-item .flag-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.flags-item .flag-at { font-family: var(--mono); opacity: .8; }
+.flags-item .flag-at { font-family: var(--mono); }
 .sheet-inner p.flags-none { font-family: var(--font); word-break: normal; }
 .detail-flag .flag-at { font-family: var(--mono); color: var(--ink-dim); }
 /* A family in the pane (lib/shelf-detail.js renderFamily): the ‹ key back to

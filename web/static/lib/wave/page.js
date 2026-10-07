@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag, landFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag, landFlag, fmtTenths,
 } from './geometry.js';
 import {
   viewAbout, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
@@ -192,6 +192,7 @@ async function main() {
   }
   function redraw() {
     setText($('flags-count'), String(state.flags.length));
+    setAttr($('flags-list'), 'aria-label', `${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}: show the list`);
     view.draw();
     if (overview) overview.draw();
     if (lanes) lanes.draw();
@@ -665,7 +666,9 @@ async function main() {
   });
   // ↺ 5 s, or J: back five seconds, playing or not -- to hear a bit again.
   function back5() {
-    const at = Math.max(0, state.cursor - 5 * sr);
+    // Looping, not back past In: ▶ would start at In anyway.
+    const lo = state.loop && state.region && state.cursor >= state.region.start ? state.region.start : 0;
+    const at = Math.max(lo, state.cursor - 5 * sr);
     seekTo(at);
     if (!state.edit) view.follow(at);
   }
@@ -675,6 +678,7 @@ async function main() {
   // tap plays from one.
   function openFlags() {
     const items = flagChips({ flags: state.flags, sample_rate: sr }).map((f) => {
+      f.at = fmtTenths(f.frame, sr); // to the tenth, as the LCD: two flags a moment apart differ
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.type = 'button';
@@ -685,9 +689,13 @@ async function main() {
       b.querySelector('.flag-at').textContent = f.at;
       b.addEventListener('click', async () => {
         $('flags-sheet').close();
+        // A flag outside a looping selection: Loop goes off, or ▶ would
+        // start at In, not here.
+        if (state.loop && state.region && (f.frame < state.region.start || f.frame >= state.region.end)) setLoop(false);
         seekTo(f.frame);
         view.follow(f.frame);
         if (!clock.playing) await togglePlay();
+        $('play').focus(); // so Space pauses, not opens the list again
       });
       li.appendChild(b);
       return li;
@@ -1742,6 +1750,8 @@ async function main() {
   document.addEventListener('keydown', (e) => {
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    // A dialog's keys are its own: nothing moves the take behind it.
+    if (document.querySelector('dialog[open]')) return;
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
       e.preventDefault();
       bar.commit(); // so ⌘Z undoes a move still being made

@@ -161,7 +161,8 @@ Every take, from **All takes** on the main page.
   puts it away.
 - **The bar,** along the foot of the page on a tablet or a computer, holds
   the picked take: **▶** plays it (its cassette's reels turn), **⟲ Loop**
-  repeats its selection or the whole take, **|◂** goes back to its In, and the
+  repeats its selection or the whole take, **|◂** goes back to its In,
+  **↺ 5 s** (or **J**) goes back five seconds, and the
   strip under them is the whole take to tap or drag. **Open the take ›** opens
   it. If the tape was playing when you came to the page, the bar keeps the
   tape until you pick a take; **⏏** puts the tape back in it. On a phone
