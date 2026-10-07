@@ -403,6 +403,16 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     check('sections: Verse names it', secs[0]?.name === 'Verse');
     await p.keyboard.press('Escape');
     await p.waitForTimeout(300);
+    // Its right edge dragged a bar on: bars 1–3, in whole frames.
+    await p.mouse.move(fx(secs[0].end) - 3, strip.y);
+    await p.mouse.down();
+    await p.mouse.move(fx(secs[0].end + c0.bar) - 3, strip.y, { steps: 6 });
+    await p.mouse.up();
+    await p.waitForTimeout(800);
+    const grown = ((await loadedState()).tape.sections || [])[0];
+    check('sections: its edge drags a bar on', grown && Number.isInteger(grown.end) && Math.abs(grown.end - 3 * c0.bar) <= 1, JSON.stringify(grown));
+    await p.click('#tape-undo');
+    await p.waitForTimeout(800);
     await p.mouse.click(fx(c0.bar), strip.y);
     await p.waitForTimeout(800);
     const lp = (await loadedState()).tape.loop;

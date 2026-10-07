@@ -1009,7 +1009,9 @@ Align still works on one clip at a time.
 verse, a chorus. **Hold and drag** on it to make one over the bars you drag
 across; it's named the first of *Intro, Verse, Chorus, Drop, Bridge, Outro*
 not yet used, and its sheet opens to call it something else or give it a
-colour. **Tap a section** to select its bars: they become the loop's In and
+colour. With a keyboard, Tab to the strip: **← →** move between sections,
+**Enter** selects one and, again, opens its sheet. **Tap a section** to
+select its bars: they become the loop's In and
 Out, so **Lift**, **Copy** and **×2** act on it. **Tap it again** for its
 sheet: rename, colour, remove. **Drag an edge** to resize it. On a tape with
 a tempo, sections sit on bar lines; they don't overlap; each change is one
@@ -1091,7 +1093,12 @@ try something. It costs no disk space.
 - [demo] Tap the Verse → bars 1–4 are the loop; **Copy**, move the playhead
   to bar 9, **Drop** → the verse again at bar 9.
 - [demo] Tap the Verse again → its sheet; make it red → the strip shows it
-  red. Drag its right edge to bar 6 → it's bars 1–6; ↶ → back to 1–4.
+  red. Drag its right edge a bar to the right → it's bars 1–5; ↶ → back to
+  1–4.
+- [demo] At 84 BPM (a bar isn't a whole number of frames), make a section
+  and drag both its edges → no error; it stays on the bar lines.
+- [demo] Tab to the sections strip, **→** to a section, **Enter** → its bars
+  are selected; **Enter** again → its sheet.
 - [demo] Drag a section's edge into the next → it stops where the next
   begins.
 - [demo] Export stems → the `.mid` has a marker named for each section.

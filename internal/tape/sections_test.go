@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/gabeduke/hindsight/internal/smf"
@@ -136,5 +137,45 @@ func TestSectionsAreMarkersInTheExport(t *testing.T) {
 		if !want[m] {
 			t.Fatalf("markers = %v", markers)
 		}
+	}
+}
+
+func TestSectionNamesAreCountedInCharacters(t *testing.T) {
+	e, _, tp, _ := firstLoop(t)
+	long := strings.Repeat("é", MaxSectionName) // 80 bytes, 40 characters
+	sc := section(t, e, EditRequest{Op: "section-add", Name: str(long + "​\n"), At: i64(0), End: i64(96000)})
+	if sc.Name != long {
+		t.Fatalf("name = %q: control and format characters go", sc.Name)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "section-add", Name: str(long + "é"), At: i64(96000), End: i64(2 * 96000)}); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("41 characters = %v", err)
+	}
+}
+
+func TestOnAnyTempoSectionsSitOnItsBarLines(t *testing.T) {
+	e, _, tp := newEngine(t)
+	g := GridFor(84, 4, 48000) // a bar is 137142.857… frames
+	e.Edit(tp.ID, "", func(_ *Tape, s *State) error { s.Grid = &g; return nil })
+	sc := section(t, e, EditRequest{Op: "section-add", Name: str("Verse"), At: i64(140000), End: i64(400000)})
+	if sc.At != g.BarStart(1) || sc.End != g.BarStart(3) {
+		t.Fatalf("at 84 BPM: %+v, want %d–%d", sc, g.BarStart(1), g.BarStart(3))
+	}
+	// Moving one edge leaves the other: only what's sent moves.
+	moved := section(t, e, EditRequest{Op: "section-set", Section: sc.ID, End: i64(560000)})
+	if moved.At != sc.At || moved.End != g.BarStart(4) {
+		t.Fatalf("moved = %+v", moved)
+	}
+	// An edge past the other is refused, not turned into a bar.
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "section-set", Section: sc.ID, At: i64(900000)}); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("start past the end = %v", err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "section-add", Name: str("x"), At: i64(900000), End: i64(800000)}); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("an add backwards = %v", err)
+	}
+	// A change to what it already is adds no undo step.
+	steps := len(e.Loaded().History)
+	section(t, e, EditRequest{Op: "section-set", Section: sc.ID, Name: str("Verse")})
+	if n := len(e.Loaded().History); n != steps {
+		t.Fatalf("a set that changed nothing added %d undo steps", n-steps)
 	}
 }

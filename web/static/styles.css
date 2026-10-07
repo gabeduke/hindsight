@@ -56,6 +56,7 @@
   /* Red as text on a key: the fill red is under 4.5:1 there. */
   --danger-ink:  #b3261e;
   --go:          #6faa32;
+  --violet:      #8a6fd1;
   --go-glow:     rgba(111, 170, 50, .85);
   --warn:        #d99a0a;
   --warn-glow:   rgba(217, 154, 10, .9);
@@ -250,6 +251,7 @@
     --accent-edge: #5e220a;
     --danger-ink:  #ff8a7a;
     --go:          #7dbb3c;
+    --violet:      #a08ae6;
     --go-glow:     rgba(125, 187, 60, .85);
     --warn:        #e5a50a;
     --warn-glow:   rgba(229, 165, 10, .9);
@@ -1790,6 +1792,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-ruler-gap { display: flex; align-items: center; justify-content: flex-end; }
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
 .tape-sections { width: 100%; height: 22px; display: block; background: var(--well); border-radius: 6px; outline: 1px solid var(--well-line); outline-offset: -1px; touch-action: pan-y; cursor: pointer; }
+.tape-sections:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .tape-sections-gap { font: 600 10px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); }
 .section-names { flex-wrap: wrap; }
 .section-colors { display: flex; gap: 10px; flex-wrap: wrap; }

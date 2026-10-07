@@ -18,7 +18,7 @@ import (
 
 // EditRequest is one edit. The selection is the loop's In and Out.
 type EditRequest struct {
-	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse, trim, repeat, move, remove, duplicate
+	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse, trim, repeat, move, remove, duplicate, section-add, section-set, section-remove
 	Track int    `json:"track"` // the selected track
 	All   bool   `json:"all"`   // lift and copy: all four tracks, kept apart
 	Clip  string `json:"clip"`  // join, slide, reverse, trim, repeat: the clip

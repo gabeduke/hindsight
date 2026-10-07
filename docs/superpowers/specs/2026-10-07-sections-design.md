@@ -45,6 +45,24 @@ tap. They also prepare A7: *Duplicate section* is "the chorus again".
   - `lib/tape/sections.js` holds the pure parts: the hit test (edges within
     10 px, on a section wide enough), the next name, whether it's the loop,
     and its bars as words.
+- **Whole frames, on any tempo.** A bar line is `round(n × bar)` frames, as
+  the Pi's `BarStart` puts it. Bars at most tempos aren't a whole number of
+  frames, so the drag's maths (`makeSpan`, `edgeTo` in `sections.js`) rounds
+  the same way and only ever sends whole frames. Making a section covers the
+  bars dragged across (floor to ceil, as the ruler's loop drag does). An edge
+  stops a bar short of the other, at the sections either side, and at the
+  last bar line on the tape.
+- **On the Pi:** only the edges sent move, so an edge left where it was
+  stays, even off a bar line after a tempo change. A span that ends before it
+  starts is refused, not turned into a bar. A change to what a section
+  already is adds no undo step. Names lose control and format characters
+  (they go into MIDI markers), and are counted in characters.
+- **Keys:** the strip takes the focus (Tab). **← →** move between sections,
+  and **Enter** (or Space) selects one's bars, then opens its sheet. Its
+  label says which section it's on.
+- **Colours:** blue first, as a section's default, so a new one doesn't look
+  like the amber loop. Then amber, red, green (`--go`), violet (a new
+  `--violet` token) and cyan.
 - **Later:**
   - A7 moves sections with *Insert* and *Delete time*, and adds *Duplicate
     section*.
@@ -68,7 +86,7 @@ tap. They also prepare A7: *Duplicate section* is "the chorus again".
 - **Smoke:**
   1. hold and drag makes a section on bar lines;
   2. its sheet opens;
-  3. *Verse* names it;
+  3. *Verse* names it, and its edge drags a bar on;
   4. a tap selects its bars;
   5. Remove takes it away;
   6. ↶ brings it back.
