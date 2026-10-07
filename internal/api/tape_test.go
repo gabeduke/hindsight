@@ -738,3 +738,76 @@ func TestTrimOverTheAPI(t *testing.T) {
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"trim","clip":"`+clip.ID+`","edge":"both","at":0}`), http.StatusBadRequest, "trim a middle")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"trim","clip":"nope","edge":"in","at":0}`), http.StatusBadRequest, "trim no clip")
 }
+
+func TestTheCrateOverTheAPI(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_11-00-00.wav", 192000)
+	id := makeLoadedTape(t, r)
+	type kept struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Frames int64  `json:"frames"`
+		Source struct {
+			Kind, Take string
+		} `json:"source"`
+	}
+	keep := func(body string, code int, what string) kept {
+		t.Helper()
+		w := send(t, r, http.MethodPost, "/api/crate", body)
+		want(t, w, code, what)
+		var out struct{ Clip kept }
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return out.Clip
+	}
+	list := func(q string) []kept {
+		t.Helper()
+		w := send(t, r, http.MethodGet, "/api/crate"+q, "")
+		want(t, w, http.StatusOK, "list")
+		var out struct{ Clips []kept }
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return out.Clips
+	}
+	k := keep(`{"take":"jam_2026-10-04_11-00-00.wav","from":48000,"to":96000}`, http.StatusOK, "keep a take's span")
+	if k.Frames != 48000 || k.Source.Kind != "take" || k.Source.Take != "jam_2026-10-04_11-00-00.wav" || !strings.HasSuffix(k.Name, " · 0:01") {
+		t.Fatalf("kept = %+v", k)
+	}
+	if l := list("?take=jam_2026-10-04_11-00-00.wav"); len(l) != 1 || l[0].ID != k.ID {
+		t.Fatalf("by take = %+v", l)
+	}
+	// Dropped on the empty tape, it's the first loop.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"crate":"`+k.ID+`","track":2}`), http.StatusOK, "drop from the crate")
+	s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, ""))
+	if len(s.Tape.Tracks[1].Clips) != 1 || s.Tape.Tracks[1].Clips[0].Frames != 48000 {
+		t.Fatalf("after the drop: %+v", s.Tape.Tracks[1])
+	}
+	// The tape clip, kept back by reference.
+	tk := keep(`{"tape":"`+id+`","clip":"`+s.Tape.Tracks[1].Clips[0].ID+`"}`, http.StatusOK, "keep a tape clip")
+	if tk.Source.Kind != "tape" {
+		t.Fatalf("kept from the tape = %+v", tk)
+	}
+	// Renamed, played, deleted and brought back.
+	want(t, send(t, r, http.MethodPatch, "/api/crate?id="+k.ID, `{"name":"The verse"}`), http.StatusOK, "rename")
+	if l := list("?q=verse"); len(l) != 1 || l[0].Name != "The verse" {
+		t.Fatalf("by name = %+v", l)
+	}
+	w := send(t, r, http.MethodGet, "/api/crate/audio?id="+k.ID, "")
+	want(t, w, http.StatusOK, "audio")
+	if w.Header().Get("Content-Type") != "audio/wav" || w.Body.Len() != 44+48000*4 {
+		t.Fatalf("audio: %s, %d bytes", w.Header().Get("Content-Type"), w.Body.Len())
+	}
+	want(t, send(t, r, http.MethodDelete, "/api/crate?id="+k.ID, ""), http.StatusOK, "delete")
+	if l := list(""); len(l) != 1 {
+		t.Fatalf("after deleting one: %d", len(l))
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/crate?id="+k.ID, `{"restore":true}`), http.StatusOK, "restore")
+	if l := list(""); len(l) != 2 {
+		t.Fatalf("after restoring it: %d", len(l))
+	}
+	// Refusals.
+	keep(`{}`, http.StatusBadRequest, "keep nothing")
+	keep(`{"take":"jam_nope.wav","from":0,"to":10}`, http.StatusNotFound, "keep no take")
+	keep(`{"take":"jam_2026-10-04_11-00-00.wav","from":0,"to":999999}`, http.StatusBadRequest, "keep past the take")
+	want(t, send(t, r, http.MethodPatch, "/api/crate?id=nope", `{"name":"x"}`), http.StatusNotFound, "rename no clip")
+	want(t, send(t, r, http.MethodPatch, "/api/crate?id="+k.ID, `{}`), http.StatusBadRequest, "patch nothing")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"crate":"nope"}`), http.StatusNotFound, "drop no clip")
+}

@@ -227,6 +227,16 @@ function showDetail(name) {
   detail.show(t, t ? familyOf(fam, t.name) : null);
 }
 
+// The crate's clips, counted by the take they were kept from, for the pane's
+// ◫ line; with the tape off there's no crate, and none is shown.
+fetch('/api/crate', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((b) => {
+  if (!b) return;
+  const counts = new Map();
+  for (const k of b.clips || []) if (k.source && k.source.take) counts.set(k.source.take, (counts.get(k.source.take) || 0) + 1);
+  detail.setCrate(counts);
+  if (picked && (wide.matches || sheet.open)) showDetail(picked);
+}).catch(() => {});
+
 // pick shows take `name` in the pane, and puts it in the now-playing bar.
 // hand: picked by a press, not the first take a wide screen shows by itself.
 function pick(name, hand = false) {

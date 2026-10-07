@@ -1199,8 +1199,36 @@ async function main() {
     return b;
   };
   fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
-    if (r.ok) { $('send-to-tape').hidden = false; $('copy-take').hidden = false; renderSendHint(); }
+    if (r.ok) { $('send-to-tape').hidden = false; $('copy-take').hidden = false; $('keep-clip').hidden = false; renderSendHint(); renderCrateChip(); }
   }).catch(() => {});
+  // The crate chip: how many clips have been kept from this take, a link to
+  // them on the tape page's crate.
+  const crateHref = `/tape.html?crate=${encodeURIComponent(file)}`;
+  async function renderCrateChip() {
+    try {
+      const n = (await tapeAPI(`/api/crate?take=${encodeURIComponent(file)}`)).clips.length;
+      $('crate-chip').hidden = !n;
+      $('crate-chip').textContent = `◫ ${n}`;
+      $('crate-chip').href = crateHref;
+      $('crate-chip').setAttribute('aria-label', `${n} clip${n === 1 ? '' : 's'} kept from this take`);
+    } catch { /* the chip stays as it was */ }
+  }
+  // Keep as clip: the selection (or the whole take) onto the crate, its audio
+  // copied into the tape's pool; the takes list doesn't change.
+  $('keep-clip').addEventListener('click', async () => {
+    const from = state.region ? state.region.start : 0;
+    const to = state.region ? state.region.end : total;
+    try {
+      const b = await tapeAPI('/api/crate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ take: file, from, to }),
+      });
+      toast(`Kept “${b.clip.name}” in the crate, ${fmtClock(to - from, sr)}`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
+      renderCrateChip();
+    } catch (e) {
+      toast(`Could not keep it: ${e.message}`, 'bad');
+    }
+  });
   // What a tap on Send to tape will do, under the verbs.
   function renderSendHint() {
     const el = $('send-hint');

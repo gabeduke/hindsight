@@ -381,7 +381,7 @@ func (s *Store) Clone(id, name string, now time.Time) (*Tape, error) {
 }
 
 // Cleanup removes pool audio that no tape, no tape's undo history, the
-// clipboard and nothing in keep refers to. It runs after a tape is deleted,
+// clipboard, the crate and nothing in keep refers to. It runs after a tape is deleted,
 // and when asked.
 func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error) {
 	s.mu.Lock()
@@ -394,6 +394,13 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 	// copy, so every copy is kept until it's cleared.
 	c, cerr := s.LoadClipboard()
 	c.files(used)
+	// So is the crate, its deleted clips too until they're let go of. One
+	// that can't be read might keep anything: nothing is cleaned up.
+	k, err := s.LoadCrate()
+	if err != nil {
+		return 0, 0, fmt.Errorf("the crate can't be read, so nothing was cleaned up: %w", err)
+	}
+	k.files(used)
 	entries, err := os.ReadDir(filepath.Join(s.dir, "tapes"))
 	if err != nil {
 		return 0, 0, err

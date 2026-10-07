@@ -51,6 +51,8 @@
     <!-- Phone only: opens the rising-notes pane fullscreen. Revealed once
          /api/midi has returned tracks; on the bench the pane is always there. -->
     <button id="notes-open" class="icon-btn notes-btn" type="button" hidden aria-label="Notes" data-tip="notes-open"><span class="wide-only">Notes</span><span class="narrow-only">♪</span></button>
+    <!-- The clips kept from this take, on the tape page's crate. -->
+    <a id="crate-chip" class="chip crate-chip" href="/tape.html" hidden data-tip="crate-chip"></a>
     <button id="take-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" data-tip="undo">↶</button>
     <span class="menu-anchor">
       <button id="menu-btn" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More options" data-tip="menu">⋯</button>
@@ -124,6 +126,7 @@
       <div class="tb-row verbs">
         <button id="save-take" class="icon-btn" type="button" disabled data-tip="save-take">Save as take</button>
         <button id="send-to-tape" class="icon-btn" type="button" hidden data-tip="send-to-tape">Send to tape</button>
+        <button id="keep-clip" class="icon-btn" type="button" hidden data-tip="keep-clip">Keep as clip</button>
         <button id="share" class="icon-btn primary" type="button" data-tip="share">Share</button>
         <button id="more-btn" class="icon-btn" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="more">More</button>
         <div id="more-menu" class="menu menu-up" role="menu" hidden>

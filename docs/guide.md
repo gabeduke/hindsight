@@ -351,6 +351,9 @@ and the editor bar takes the place of the toolbar.
 - **Copy** puts it on the clipboard, to drop onto a tape (step 6d).
 - **Send to tape** puts it on the loaded tape, by its tempo and downbeat if it
   has them (step 6). The line under the buttons says what it will do.
+- **Keep as clip** keeps it on the crate (§8.11), without making a take. The
+  **◫** chip in the header says how many clips you've kept from this take,
+  and opens them on the tape page.
 - **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
   delete.
 - **Undo** in the header steps back through anything you changed (step 4).
@@ -1332,6 +1335,47 @@ stops it after 6 s, where it was, and coming back finds it there. Playing a
 take in the bar on Takes or Capture stops it too, in This phone mode, so
 the phone never plays both.
 
+### 8.11 The crate
+
+*Step B1.* A take is what was played. A piece you want to keep from it, a
+verse or a drop, doesn't need to be another take: keep it as a **clip** on
+the **crate**. The takes list only grows when you capture, and pruning never
+touches the crate. A clip outlives the take it came from.
+
+| Keep a clip from | Do | What's kept |
+|---|---|---|
+| A take | **Keep as clip** (beside Send to tape): the selection, or the whole take | Its own copy of the audio, with 2 s either side to trim back out |
+| The ribbon | Select a span, **Keep as clip** | The same, from the buffer |
+| A clip on the tape | Its sheet's **Keep** | The clip's audio itself: nothing is copied. Its level and nudge stay on the tape |
+| The clipboard | **Keep** beside it, when it holds one clip | The same: nothing is copied |
+
+**Crate ▴**, beside Record and Edit, opens it: the clips, newest first, with
+a box to find one by name.
+- **Tap a clip** to play it here, and again to stop.
+- **Drop** puts it at the playhead on the selected track, over what's there,
+  and moves the playhead to its end, so Drop, Drop, Drop lays copies end to
+  end. On an empty tape it's the first loop, as a clipboard drop is.
+- **⋯** renames it, shares it as a WAV, opens the take it came from, or
+  deletes it. A deleted clip comes back with Undo, or within a week.
+
+A take page's **◫** chip, and a take's line on the takes page (*◫ 3 clips
+kept*), open the crate on that take's clips: **from … ×** shows them all again.
+
+**Checks — the crate:**
+
+- [demo] Select 4 bars of a take, **Keep as clip** → it's on the crate as
+  *take · 0:..*, 4 bars long. The takes list is unchanged.
+- [demo] On a tape, open **Crate ▴** and **Drop** a clip three times → three
+  copies end to end, with no clicks; ↶ three times → as it was.
+- [demo] Delete the take a clip came from → the clip still plays, and still
+  drops.
+- [demo] Delete a clip, then **Undo** → it's back.
+- [demo] Capture until `MAX_SAVES` prunes → the crate is untouched.
+- [demo] Tap a clip on the tape, **Keep** → it's on the crate with the tape's
+  name; no new audio file is written.
+- [demo] Open a take you've kept clips from → the header shows **◫ 2**; tap it
+  → the tape page's crate shows just those two.
+
 ## 9. Tips in the app
 
 *Step 3 for takes, step 6 for tapes.*
@@ -1376,6 +1420,7 @@ has no tip.
 | Tag (take) | Give this take a tag and its cassette wears the tag's color. Press the lit tag again to take it off |
 | Cuts | The takes saved from parts of this one. They fold in here to keep the shelf short; tap one to see it |
 | Earlier mixes | This tape's earlier mixdowns. The newest stands on the shelf for them all; tap one to see it |
+| ◫ clips kept (take) | The clips kept from this take on the crate: tap to see them on the tape page |
 | ‹ (folded take) | Back to the take this one is folded into on the shelf |
 | Open | Open the take to select, loop, save or share part of it |
 | Select | Pick several takes to star, export or delete together. Holding a take does the same |
@@ -1440,6 +1485,8 @@ has no tip.
 | Notes | Watch the take's MIDI rise out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
 | Send to tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop |
+| Keep as clip | Keep the selection, or the whole take, as a clip on the crate: its own copy, so the takes list doesn't grow |
+| ◫ (take) | How many clips you've kept from this take: tap to see them on the tape page's crate |
 | Tape name | Your tapes: load one, or make a new one |
 | ⋯ (tape) | This tape: rename it, clone it, mix it down, export its stems, or delete a tape |
 | A tape in the list | Load this tape: the transport plays the loaded one |
@@ -1457,15 +1504,27 @@ has no tip.
 | To the loop’s start (tape) | Back to the loop’s start; with Loop off, to the top of the tape |
 | Record ▴ (tape) | Record from, Catch the last 1, 2 or 4 bars, Layer or Replace, the passes, and Overdub on this device. Esc closes it |
 | Edit ▴ (tape) | The clipboard and Drop, Lift, Copy, Split and ×2 on the loop’s bars, and what a slid clip snaps to. Esc closes it |
+| Crate ▴ (tape) | The clips you've kept, newest first: play one, drop it at the playhead, or open it. Esc closes it |
+| Find a clip (crate) | Show only the kept clips whose name has this in it |
+| from … × (crate) | Showing the clips kept from one take: press to see them all |
+| A kept clip | Play it here, or stop it |
+| Drop (crate) | Put this clip at the playhead on the selected track, over what's there. Drop again to lay another after it |
+| ⋯ (kept clip) | Rename it, share it, open the take it came from, or delete it |
+| Name (kept clip) | The clip's name in the crate |
+| Share as WAV (kept clip) | Send the clip to another app, or download it |
+| Open its take | The take this clip was kept from, on its own page |
+| Delete (kept clip) | Take it off the crate. Undo brings it back, for a week |
 | Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars. Drag sideways to pan, pinch to zoom |
 | Fit | Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
 | Clipboard | What you copied last, from a take or the ribbon. Tap to hear it |
 | × (clipboard) | Empty the clipboard |
+| Keep (clipboard) | Keep what's on the clipboard as a clip on the crate: the same audio, nothing copied |
 | Repeat to the loop’s end | Copies of this clip end to end, to the end of the loop: one bar through four |
 | Track name | What’s on this track, for you: chords, bass… |
 | Pan | Where this track sits between left and right |
 | Copy (ribbon) | Put the span you selected on the clipboard, to drop onto a tape |
+| Keep as clip (ribbon) | Keep the span you selected as a clip on the crate, not as a take |
 | ● Rec (tape) | Records from the source it names (chosen under Record from). Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it. Key: R |
 | RECORDING | Lit while a punch is recording onto the tape |
 | ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty. Key: K |
@@ -1477,6 +1536,7 @@ has no tip.
 | Nudge | Move the clip a few milliseconds, for a part a little early or late |
 | Reverse (clip) | Play this clip backwards, or forwards again. Undo puts it back |
 | Share as WAV (clip) | Send just this clip, at its level, to another app; a long one downloads |
+| Keep (clip) | Keep this clip on the crate, for another day or another tape: the same audio, nothing copied |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Start here, End here (clip) | Trim the clip's start or end to the playhead, for a clip too short to drag. What's trimmed is kept: drag or trim back out |
 | Select more (clip) | Pick more clips with this one: tap others to add them, then move, copy, reverse or remove them together |

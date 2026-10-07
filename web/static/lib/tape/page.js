@@ -68,7 +68,7 @@ const state = {
   pinch: false,     // two fingers are on the lanes or the ruler
   rec: null,        // a punch being recorded: {key, track, start, trace, wrapped}
   // The bar's open drawer: 'rec' (Record · Catch), 'edit' (Clipboard · Edit) or ''.
-  drawer: ['rec', 'edit'].includes(readPref('tape.drawer', '')) ? readPref('tape.drawer', '') : '',
+  drawer: ['rec', 'edit', 'crate'].includes(readPref('tape.drawer', '')) ? readPref('tape.drawer', '') : '',
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
 // A pool file's gain for its bars (lib/wave/draw.js takeGain): one per file,
@@ -391,6 +391,7 @@ function render() {
   const live = state.live;
   const sr = t.sample_rate;
   renderMulti();
+  renderCrateDrops();
   $('tape-name-text').textContent = t.name;
   $('tape-name').title = `${t.name}: switch tape`;
   document.title = `${t.name} — tape — Hindsight`;
@@ -513,7 +514,7 @@ function render() {
 // 700 px a drawer docks above the bar and pushes the lanes up; on a phone
 // both are rows in the page (styles.css, "the dock").
 function renderDrawers() {
-  for (const [key, id] of [['rec', 'drawer-rec'], ['edit', 'drawer-edit']]) {
+  for (const [key, id] of [['rec', 'drawer-rec'], ['edit', 'drawer-edit'], ['crate', 'drawer-crate']]) {
     const open = state.drawer === key && !state.align;
     $(id).classList.toggle('open', open);
     setIf($(`np-${id}`), 'aria-expanded', String(open));
@@ -525,6 +526,7 @@ function setDrawer(key) {
   state.drawer = key;
   writePref('tape.drawer', key);
   renderDrawers();
+  if (key === 'crate') fetchCrate();
 }
 
 function renderMode() {
@@ -573,6 +575,9 @@ function renderClipboard() {
   $('merge').hidden = !(c && c.tracks.length > 1);
   $('merge').disabled = !t;
   $('clip-clear').disabled = !c && !state.clipboardError;
+  // One clip on it can be kept on the crate, by reference.
+  const one = c ? c.tracks.flat() : [];
+  $('clip-keep-board').hidden = !(one.length === 1 && one[0].at === 0 && one[0].frames === c.frames);
 }
 
 function auditionClipboard() {
@@ -811,6 +816,230 @@ function markTarget(sl) {
   if (sl && sl.group && sl.dtrack) for (const g of sl.group) to.add(g.track + sl.dtrack);
   else if (sl && !sl.group && sl.to !== sl.n) to.add(sl.to);
   for (const l of lanes) l.row.classList.toggle('drop-target', to.has(l.n));
+}
+
+// --- the crate ------------------------------------------------------------------
+// The clips kept from takes, the ribbon and the tape (internal/tape/crate.go):
+// a drawer of rows, newest first, to play here, drop at the playhead, or open
+// for rename, share, the take it came from and delete. tape.html?crate=<take>
+// opens it on the clips kept from that take. See
+// docs/superpowers/specs/2026-10-07-crate-design.md.
+
+const crate = {
+  clips: [], sr: 48000, gen: 0, q: '',
+  take: new URLSearchParams(location.search).get('crate') || '',
+  open: null, // the clip whose sheet is open
+};
+
+async function fetchCrate() {
+  const g = ++crate.gen;
+  const qs = new URLSearchParams();
+  if (crate.q) qs.set('q', crate.q);
+  if (crate.take) qs.set('take', crate.take);
+  try {
+    const b = await api(`/api/crate?${qs}`, { timeout: POLL_TIMEOUT_MS });
+    if (g !== crate.gen) return;
+    crate.clips = b.clips || [];
+    crate.sr = b.sample_rate || crate.sr;
+    renderCrate();
+  } catch (e) {
+    toast(`Could not read the crate: ${e.message}`, 'bad');
+  }
+}
+
+// crateMeta reads a kept clip's length (and bars, with a tempo) and where
+// it came from.
+function crateMeta(k) {
+  const s = k.frames / crate.sr;
+  const len = s >= 60 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : `${s.toFixed(1)} s`;
+  const bars = k.bpm > 0 ? Math.round(((s * k.bpm) / 240) * 10) / 10 : 0;
+  return [len, bars ? `${bars} bar${bars === 1 ? '' : 's'}` : '', k.source && k.source.what].filter(Boolean).join(' · ');
+}
+
+const CRATE_EMPTY = $('crate-empty').innerHTML; // what it says with nothing kept
+
+// renderCrate rebuilds the rows, where they were scrolled to and the focus
+// kept: after a fetch, not for a play or a stop (markPlaying).
+function renderCrate() {
+  const list = $('crate-list');
+  const scroll = list.scrollTop;
+  const focused = document.activeElement && list.contains(document.activeElement)
+    ? [document.activeElement.closest('.crate-row')?.dataset.id, document.activeElement.className] : null;
+  list.replaceChildren();
+  $('crate-from').hidden = !crate.take;
+  if (crate.take) $('crate-from').textContent = `from ${crate.take.replace(/\.wav$/, '')} ×`;
+  $('crate-empty').hidden = crate.clips.length > 0;
+  if (crate.q || crate.take) $('crate-empty').textContent = 'No kept clip matches.';
+  else $('crate-empty').innerHTML = CRATE_EMPTY;
+  for (const k of crate.clips) {
+    const li = document.createElement('li');
+    li.className = 'crate-row';
+    li.dataset.id = k.id;
+    li.innerHTML = `
+      <button class="crate-play" type="button" data-tip="crate-play">
+        <canvas class="crate-wave" aria-hidden="true"></canvas>
+        <span class="crate-text"><span class="crate-name"></span><span class="crate-meta mono"></span></span>
+      </button>
+      <button class="icon-btn crate-drop" type="button" data-tip="crate-drop">Drop</button>
+      <button class="icon-btn crate-more" type="button" aria-label="More for this clip" data-tip="crate-more">⋯</button>`;
+    li.querySelector('.crate-name').textContent = k.name;
+    li.querySelector('.crate-meta').textContent = crateMeta(k);
+    li.querySelector('.crate-play').addEventListener('click', () => auditionCrate(k));
+    li.querySelector('.crate-drop').addEventListener('click', () => dropCrate(k));
+    li.querySelector('.crate-drop').disabled = !state.tape;
+    li.querySelector('.crate-more').addEventListener('click', () => openCrateClip(k));
+    list.appendChild(li);
+  }
+  // The waves once every row is in, so measuring one lays the list out once.
+  for (const li of list.children) drawCrateWave(li.querySelector('.crate-wave'), crate.clips.find((k) => k.id === li.dataset.id));
+  list.scrollTop = scroll;
+  if (focused) list.querySelector(`.crate-row[data-id="${CSS.escape(focused[0] || '')}"] .${focused[1].split(' ').pop()}`)?.focus({ preventScroll: true });
+  markPlaying();
+  renderCrateDrops();
+}
+
+// markPlaying marks the row playing ■, the others ▶, in place.
+function markPlaying() {
+  const a = $('crate-audio');
+  const playing = a.dataset.id && !a.paused ? a.dataset.id : '';
+  for (const li of $('crate-list').children) {
+    li.querySelector('.crate-play').setAttribute('aria-pressed', String(li.dataset.id === playing));
+    li.classList.toggle('playing', li.dataset.id === playing);
+  }
+}
+
+// The rows' Drop keys need a tape to drop on.
+function renderCrateDrops() {
+  for (const b of document.querySelectorAll('#crate-list .crate-drop')) b.disabled = !state.tape;
+}
+
+// drawCrateWave draws a kept clip's bars, small, from its file's peaks.
+async function drawCrateWave(cv, k) {
+  let pd = peaks.get(k.file);
+  if (pd === undefined) {
+    pd = fetch(`/api/tapes/peaks?file=${encodeURIComponent(k.file)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    peaks.set(k.file, pd);
+  }
+  if (pd instanceof Promise) { pd = await pd; peaks.set(k.file, pd); }
+  if (!pd || !cv.isConnected) return;
+  const r = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr);
+  cv.height = Math.round(r.height * dpr);
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const color = getComputedStyle(cv).color;
+  drawBars(ctx, blockLevels(pd, k, r.width), { x0: 2, pitch: 4, cy: r.height / 2, half: Math.max(1, r.height / 2 - 2), gain: gainOf(k.file, pd), width: 2, color });
+}
+
+function auditionCrate(k) {
+  const a = $('crate-audio');
+  if (a.dataset.id === k.id && !a.paused) { a.pause(); return; }
+  a.dataset.id = k.id;
+  a.src = `/api/crate/audio?id=${encodeURIComponent(k.id)}`;
+  // Another row tapped before this one starts aborts it: not an error.
+  a.play().catch((e) => { if (e.name !== 'AbortError') toast(`Could not play it: ${e.message}`, 'bad'); });
+  markPlaying();
+}
+
+async function dropCrate(k) {
+  try {
+    const d = await change(() => api(`/api/tapes/drop?${q()}`, { method: 'POST', body: { crate: k.id, track: state.track } }));
+    caughtToast(`Dropped “${k.name}” on track ${state.track}`, d.clip, { action: undoAction });
+    poll();
+  } catch (e) {
+    toast(`Could not drop it: ${e.message}`, 'bad');
+  }
+}
+
+// keep puts a clip on the crate: a tape clip, or the clipboard, by reference.
+async function keep(body) {
+  try {
+    const b = await api('/api/crate', { method: 'POST', body });
+    toast(`Kept “${b.clip.name}” in the crate`, 'ok', { action: { label: 'Open', run: () => setDrawer('crate') } });
+    fetchCrate(); // on a phone the crate is always on the page
+  } catch (e) {
+    toast(`Could not keep it: ${e.message}`, 'bad');
+  }
+}
+
+function openCrateClip(k) {
+  crate.open = k;
+  $('crate-title').textContent = k.name;
+  $('crate-what').textContent = crateMeta(k);
+  $('crate-name').value = k.name;
+  const take = k.source && k.source.kind === 'take' ? k.source.take : '';
+  $('crate-take').hidden = !take;
+  if (take) $('crate-take').href = `wave.html?file=${encodeURIComponent(take)}`;
+  $('crate-sheet').showModal();
+}
+
+function wireCrate() {
+  let t = 0;
+  $('crate-q').addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { crate.q = $('crate-q').value.trim(); fetchCrate(); }, 200);
+  });
+  $('crate-from').addEventListener('click', () => {
+    crate.take = '';
+    const u = new URL(location.href);
+    u.searchParams.delete('crate');
+    history.replaceState(history.state, '', u);
+    fetchCrate();
+  });
+  for (const ev of ['play', 'playing', 'ended', 'pause']) $('crate-audio').addEventListener(ev, markPlaying);
+  // Enter both submits the form and changes the field: one rename.
+  let renaming = false;
+  const rename = async () => {
+    const k = crate.open;
+    const name = $('crate-name').value.trim();
+    if (!k || !name || name === k.name || renaming) return;
+    renaming = true;
+    try {
+      const b = await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'PATCH', body: { name } });
+      if (crate.open && crate.open.id === b.clip.id) crate.open = b.clip;
+      $('crate-title').textContent = b.clip.name;
+      fetchCrate();
+    } catch (e) {
+      toast(`Could not rename it: ${e.message}`, 'bad');
+    } finally {
+      renaming = false;
+    }
+  };
+  $('crate-rename').addEventListener('submit', (e) => { e.preventDefault(); rename(); });
+  $('crate-name').addEventListener('change', rename);
+  $('crate-share').addEventListener('click', async () => {
+    const k = crate.open;
+    if (!k) return;
+    try {
+      const res = await fetch(`/api/crate/audio?id=${encodeURIComponent(k.id)}&download=1`);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+      const name = `${k.name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'clip'}.wav`;
+      await shareOrDownload(await res.blob(), name, name, 'audio/wav');
+    } catch (e) { toast(`Could not share it: ${e.message}`, 'bad'); }
+  });
+  $('crate-delete').addEventListener('click', async () => {
+    const k = crate.open;
+    $('crate-sheet').close();
+    if (!k) return;
+    try {
+      await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'DELETE' });
+      fetchCrate();
+      toast(`Deleted “${k.name}”: it can come back for a week`, 'ok', {
+        action: { label: 'Undo', run: async () => {
+          try { await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'PATCH', body: { restore: true } }); } catch (e) { toast(`Could not bring it back: ${e.message}`, 'bad'); }
+          fetchCrate();
+        } },
+      });
+    } catch (e) { toast(`Could not delete it: ${e.message}`, 'bad'); }
+  });
+  $('crate-done').addEventListener('click', () => $('crate-sheet').close());
+  $('crate-sheet').addEventListener('close', () => { crate.open = null; });
+  // Opened on a take's clips (from its page, or the takes list): open, but
+  // not remembered as the drawer to open next time. On a phone every drawer
+  // is on the page, so the crate is always read.
+  if (crate.take) { state.drawer = 'crate'; renderDrawers(); }
+  fetchCrate();
 }
 
 // --- several clips -------------------------------------------------------------
@@ -2553,15 +2782,17 @@ function wire() {
   // The bar's drawer keys open one drawer, or close it; its ✕ closes it.
   $('np-drawer-rec').addEventListener('click', () => setDrawer(state.drawer === 'rec' ? '' : 'rec'));
   $('np-drawer-edit').addEventListener('click', () => setDrawer(state.drawer === 'edit' ? '' : 'edit'));
+  $('np-drawer-crate').addEventListener('click', () => setDrawer(state.drawer === 'crate' ? '' : 'crate'));
   for (const b of document.querySelectorAll('.np-drawer-close')) {
     b.addEventListener('click', () => { const key = b.dataset.drawer; setDrawer(''); $(`np-drawer-${key}`).focus(); });
   }
-  // From 1000 px the drawer keys sit beside Catch; narrower, the top row has
-  // no room for them, and they sit under it, beside OUT. Moved, not
-  // reordered in CSS, so the tab order stays the order on screen.
-  const wide = matchMedia('(min-width: 1000px)');
+  // From 1200 px the three drawer keys sit beside Catch; narrower (the
+  // 1024 px bench too), the top row has no room for them, and they sit under
+  // it, beside OUT. Moved, not reordered in CSS, so the tab order stays the
+  // order on screen.
+  const wide = matchMedia('(min-width: 1200px)');
   const placeKeys = () => {
-    const keys = [$('np-drawer-rec'), $('np-drawer-edit')];
+    const keys = [$('np-drawer-rec'), $('np-drawer-edit'), $('np-drawer-crate')];
     const had = keys.find((k) => k === document.activeElement);
     if (wide.matches) $('catch-pass').before(...keys);
     else document.querySelector('.np-out').before(...keys);
@@ -2779,6 +3010,13 @@ function wire() {
     if (c) patch({ clip: { id: c.id, remove: true } }).then((ok) => ok && toast('Clip removed', 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } }));
   });
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
+  $('clip-keep').addEventListener('click', () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c) keep({ tape: state.id, clip: c.id });
+  });
+  $('clip-keep-board').addEventListener('click', () => keep({ clipboard: true }));
+  wireCrate();
   $('clip-select').addEventListener('click', () => {
     const c = state.clip;
     $('clip-sheet').close();

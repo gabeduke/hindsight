@@ -159,6 +159,7 @@
           <button id="clip-play" class="chip clip-chip" type="button" disabled data-tip="clipboard">empty</button>
           <button id="drop" class="icon-btn" type="button" disabled data-tip="drop">Drop</button>
           <button id="merge" class="icon-btn" type="button" hidden data-tip="merge-drop">Merge</button>
+          <button id="clip-keep-board" class="icon-btn" type="button" hidden data-tip="clipboard-keep">Keep</button>
           <button id="clip-clear" class="icon-btn" type="button" disabled aria-label="Clear the clipboard" data-tip="clipboard-clear">×</button>
           <audio id="clip-audio" preload="none"></audio>
         </div>
@@ -181,6 +182,25 @@
           <div class="seg" id="snap" role="group" aria-label="What a slid clip snaps to"></div>
         </div>
       </div>
+    </div>
+  </section>
+  <!-- The crate (lib/tape/page.js, "the crate"): the clips kept from takes,
+       the ribbon and the tape, newest first, to play and drop. -->
+  <section id="drawer-crate" class="np-drawer" aria-label="The crate">
+    <div class="np-drawer-strip">
+      <span class="np-grip" aria-hidden="true"></span>
+      <h2 class="np-drawer-title">Crate</h2>
+      <span class="np-grip np-grip-fill" aria-hidden="true"></span>
+      <button class="np-drawer-close" type="button" data-drawer="crate" aria-label="Close the crate">✕</button>
+    </div>
+    <div class="np-drawer-body crate-body">
+      <div class="tb-row crate-find">
+        <label class="shelf-search crate-search"><input id="crate-q" type="search" placeholder="Find a clip" aria-label="Find a kept clip by name" autocomplete="off" data-tip="crate-search"></label>
+        <button id="crate-from" class="chip" type="button" hidden data-tip="crate-from"></button>
+      </div>
+      <ul id="crate-list" class="crate-list" aria-label="Kept clips"></ul>
+      <p id="crate-empty" class="muted crate-empty" hidden>Nothing kept yet. <b>Keep as clip</b> on a take or the ribbon, or <b>Keep</b> in a clip's sheet or by the clipboard, puts it here.</p>
+      <audio id="crate-audio" preload="none"></audio>
     </div>
   </section>
   <!-- The clip editor (lib/tape/page.js, "the clip editor"): while a clip
@@ -255,6 +275,7 @@
       <div class="np-own">
         <button id="np-drawer-rec" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-rec" data-tip="drawer-rec">Record<span class="np-chev" aria-hidden="true">▴</span></button>
         <button id="np-drawer-edit" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-edit" data-tip="drawer-edit">Edit<span class="np-chev" aria-hidden="true">▴</span></button>
+        <button id="np-drawer-crate" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-crate" data-tip="drawer-crate">Crate<span class="np-chev" aria-hidden="true">▴</span></button>
         <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
       </div>
     </div>
@@ -359,6 +380,7 @@
     <div class="sheet-actions">
       <button id="clip-reverse" class="icon-btn" type="button" data-tip="clip-reverse">Reverse</button>
       <button id="clip-share" class="icon-btn" type="button" data-tip="clip-share">Share as WAV</button>
+      <button id="clip-keep" class="icon-btn" type="button" data-tip="clip-keep">Keep</button>
     </div>
     <div class="sheet-actions">
       <button id="clip-trim-in" class="icon-btn" type="button" data-tip="clip-trim">Start here</button>
@@ -372,6 +394,25 @@
     <div class="sheet-actions">
       <button id="clip-remove" class="icon-btn danger" type="button" data-tip="clip-remove">Remove</button>
       <button id="clip-done" class="icon-btn" type="button">Done</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- A kept clip's sheet (the crate's ⋯). -->
+<dialog class="sheet" id="crate-sheet">
+  <div class="sheet-inner">
+    <h3 id="crate-title">Kept clip</h3>
+    <p id="crate-what" class="muted"></p>
+    <form id="crate-rename" class="clip-field">
+      <label>Name <input id="crate-name" type="text" maxlength="120" autocomplete="off" data-tip="crate-rename"></label>
+    </form>
+    <div class="sheet-actions">
+      <button id="crate-share" class="icon-btn" type="button" data-tip="crate-share">Share as WAV</button>
+      <a id="crate-take" class="icon-btn" href="wave.html" data-tip="crate-take">Open its take</a>
+    </div>
+    <div class="sheet-actions">
+      <button id="crate-delete" class="icon-btn danger" type="button" data-tip="crate-delete">Delete</button>
+      <button id="crate-done" class="icon-btn" type="button">Done</button>
     </div>
   </div>
 </dialog>

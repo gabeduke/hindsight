@@ -68,6 +68,11 @@ internet.
 | `GET /api/clipboard/audio` | The clipboard, its tracks summed, as a WAV to audition |
 | `POST /api/clipboard` | Copy a take's span or a span of the ring onto it |
 | `DELETE /api/clipboard` | Empty it |
+| `GET /api/crate` | The clips kept on the crate, newest first |
+| `POST /api/crate` | Keep a take's span, a span of the ring, a tape clip, or the clipboard |
+| `PATCH /api/crate?id=` | Rename a kept clip, or bring a deleted one back |
+| `DELETE /api/crate?id=` | Delete a kept clip, for a week |
+| `GET /api/crate/audio?id=` | A kept clip as a 16-bit WAV |
 
 `GET` routes also accept `HEAD`, except `/api/live` and `/api/phone`, which
 are WebSocket upgrades, and `/api/render`, `/api/bundle` and `/api/export`,
@@ -1194,6 +1199,42 @@ restart; 404 when the tape is off.
   it; the clean-up keeps whatever the clipboard holds. A `clipboard.json`
   that can't be read is reported by `GET` as `error`, and kept from the
   clean-up (every copy is) until `DELETE` clears it.
+
+### The crate: `/api/crate`
+
+The clips you keep, between a take and a tape (step B1), in
+`TAPE_DIR/crate.json`; 404 when the tape is off. A kept clip is a window onto
+a pool file, as a tape clip is:
+`{"id", "name", "file", "src", "frames", "reversed"?, "bpm"?, "source": {"kind": "take" | "ring" | "tape" | "clipboard", "take"?, "from"?, "to"?, "tape"?, "what"}, "created", "deleted"?}`.
+`source.what` says where it came from in words (*Tuesday jam, 0:42–1:10*).
+
+- `GET` answers `{"clips": […], "sample_rate": 48000}`, newest first, without
+  deleted ones. `?q=` keeps those whose name has it in it, any case;
+  `?take=jam_….wav` those kept from that take.
+- `POST` keeps one, and answers `{"clip": …, "clamped": false}`:
+  - `{"take": "jam_….wav", "from": F, "to": T}` copies the take's span into
+    the pool, as the clipboard's copy does, with handles. It's named for the
+    take (its label, or when it was made) and where the span starts.
+  - `{"ring_from": F, "ring_to": T, "source": "main"}` does the same from the
+    ring, clamped as the clipboard's is.
+  - `{"tape": id, "clip": id}` keeps a clip of the loaded tape, by reference:
+    nothing is copied.
+  - `{"clipboard": true}` keeps the clipboard, by reference, when it holds one
+    clip (400 otherwise).
+
+  404 for no such take; 400 for a span not in it; 507 for low disk.
+- `PATCH ?id=` takes `{"name": "…"}` (1–120 characters) or
+  `{"restore": true}`, and answers `{"clip": …}`.
+- `DELETE ?id=` marks it deleted: gone from the list, back with `restore` for
+  7 days, after which the list lets go of it and a clean-up frees its audio.
+- `GET /api/crate/audio?id=` is the clip as a 16-bit stereo WAV
+  (`?download=1`: as an attachment), with `HEAD`.
+- `POST /api/tapes/drop?id=` with `{"crate": id, "track": 1}` drops it as the
+  clipboard drops: at the playhead, replacing what's under it, one undo.
+
+404 for a kept clip that isn't there. The crate is a root for the clean-up,
+its deleted clips too until they're let go of; a `crate.json` that can't be
+read stops the clean-up altogether.
 
 ### `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=`
 

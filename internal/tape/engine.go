@@ -158,6 +158,8 @@ type Engine struct {
 	pullBridge *audio.ClockBridge
 	heardFn    func(o uint64) (int64, bool) // tests: when output frame o is heard
 
+	crateMu sync.Mutex // one change of crate.json at a time
+
 	recMu sync.Mutex
 	rec   *Recording // a punch, or an armed track
 	tap   *pendingTap
