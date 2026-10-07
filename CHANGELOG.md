@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.07.3 — 2026-10-07
+
+- Phone shell: cache v36, the same bump as #43 and #42, so they merge in any order (3f5639d)
+- Send to tape: name the downbeat's bar only when it was sent; keep the hint current (7f9d28f)
+- Send a take with a tempo to the tape on the tape's bar lines (0ece077)
+
+
 ## v2026.10.07.2 — 2026-10-07
 
 - Record v2026.10.07.1 in the changelog [skip ci] (0eaf6e4)
