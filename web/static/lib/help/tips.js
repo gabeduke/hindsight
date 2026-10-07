@@ -127,7 +127,7 @@ export const TIPS = [
   { control: 'Pan', ids: ['track-pan'], tip: 'Where this track sits between left and right' },
   { control: 'Copy (ribbon)', ids: ['ribbon-copy'], tip: 'Put the span you selected on the clipboard, to drop onto a tape' },
   { control: '● Rec (tape)', ids: ['tape-rec'], tip: 'Records from the source it names (chosen under Record from). Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it. Key: R' },
-  { control: 'RECORDING', ids: ['rec-sign'], tip: 'Lit while a punch is recording onto the tape' },
+  { control: 'RECORDING', ids: ['rec-sign'], tip: 'Shows only while a punch is recording onto the tape' },
   { control: '♩ Click', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty. Key: K' },
   { control: 'Tap (empty tape)', ids: ['tape-tap'], tip: 'Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it' },
   { control: 'Tempo (tape)', ids: ['tape-tempo'], tip: 'Call the loop more bars or fewer: the same length, so nothing is stretched' },

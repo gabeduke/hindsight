@@ -2705,13 +2705,15 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
 }
 @media (prefers-reduced-motion: reduce) { .tape-track.selected .tt-name::after { animation: none; } }
 
-/* The sign over the door: dim, until a punch goes onto tape. */
+/* The sign over the door: there only while a punch goes onto tape. Off, it
+   keeps its place in the bar, so nothing shifts when it lights. */
 .rec-sign {
   flex: none; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--rule);
   font: 700 13px var(--label-font); letter-spacing: .2em; text-transform: uppercase;
-  color: var(--ink-faint); opacity: .55;
-  transition: background 120ms, color 120ms, opacity 120ms;
+  color: var(--ink-faint);
+  transition: background 120ms, color 120ms;
 }
+.rec-sign:not(.on) { visibility: hidden; }
 .rec-sign.on { opacity: 1; background: var(--rec); border-color: var(--rec-edge); color: var(--on-danger); box-shadow: 0 0 14px color-mix(in srgb, var(--rec) 55%, transparent); }
 .rec-short { display: none; }
 @media (max-width: 480px) {
@@ -2720,7 +2722,7 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
   .tape-track.selected .tt-name::after { margin-left: 3px; }
   .rec-long { display: none; }
   .rec-short { display: inline; }
-  /* No room for a dim sign on a phone: it shows when it's lit. */
+  /* No room to hold its place on a phone. */
   .rec-sign:not(.on) { display: none; }
   .tape-top .appbar-page { gap: 6px; }
   .rec-sign { padding: 3px 7px; letter-spacing: .12em; }

@@ -1394,7 +1394,7 @@ has no tip.
 | Pan | Where this track sits between left and right |
 | Copy (ribbon) | Put the span you selected on the clipboard, to drop onto a tape |
 | ● Rec (tape) | Records from the source it names (chosen under Record from). Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it. Key: R |
-| RECORDING | Lit while a punch is recording onto the tape |
+| RECORDING | Shows only while a punch is recording onto the tape |
 | ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty. Key: K |
 | Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
 | Tempo (tape) | Call the loop more bars or fewer: the same length, so nothing is stretched |
