@@ -848,8 +848,10 @@ function wireLane(lane) {
   });
   // While a slide is held, a finger's drag is the slide's, not a scroll.
   cv.addEventListener('touchmove', (e) => { if (gest.held) e.preventDefault(); }, { passive: false });
-  cv.addEventListener('pointerup', (e) => end(gest.up(pt(e))));
-  cv.addEventListener('pointercancel', (e) => end(gest.cancel(pt(e))));
+  // On the window, so a press let go off the lane (a mouse dragged out of it
+  // before the hold) ends there too, and its hold doesn't start a slide.
+  window.addEventListener('pointerup', (e) => end(gest.up(pt(e))));
+  window.addEventListener('pointercancel', (e) => end(gest.cancel(pt(e))));
   cv.addEventListener('lostpointercapture', (e) => end(gest.lost(pt(e))));
 }
 

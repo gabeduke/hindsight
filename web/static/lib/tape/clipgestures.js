@@ -76,8 +76,8 @@ export function hitClip(blocks, x, y, kindsFor = () => []) {
  *                 {type: 'gripMove', zone, clip, dx, dy}
  *   up(p)         {type: 'slideEnd' | 'gripEnd', clip, zone?, dx, commit}, or
  *                 {type: 'release'} for a press that was neither
- *   cancel(p), lost(p)  the same, with commit false (a lost capture ends only
- *                 a drag: a press never captured the pointer)
+ *   cancel(p), lost(p)  the same, with commit false (a lost capture leaves a
+ *                 press on the body alone: it never captured the pointer)
  *
  * `dx` is the travel from the press, in pixels. Only a drag commits: a held
  * press that never moved SLOP_PX moves nothing, and its click opens the sheet.
@@ -97,13 +97,14 @@ export class ClipGesture {
 
   down(p, hit) {
     if (this.g || !hit) return null; // one pointer at a time
-    this.g = { id: p.id, x: p.x, y: p.y, clip: hit.clip, zone: hit.zone, moved: false };
-    if (hit.zone === 'body') {
+    const zone = hit.zone || 'body';
+    this.g = { id: p.id, x: p.x, y: p.y, clip: hit.clip, zone, moved: false };
+    if (zone === 'body') {
       this.g.phase = 'press';
       return { type: 'press', hold: HOLD_MS };
     }
     this.g.phase = 'grip-press';
-    return { type: 'grip', zone: hit.zone, clip: hit.clip };
+    return { type: 'grip', zone, clip: hit.clip };
   }
 
   hold() {
@@ -139,8 +140,11 @@ export class ClipGesture {
 
   cancel(p) { return this.end(p, false); }
 
-  /** A lost capture ends a drag; a press never captured the pointer. */
-  lost(p) { return this.dragging ? this.end(p, false) : null; }
+  /**
+   * A lost capture ends a slide or a grip (a grip is captured as it's
+   * pressed); a press on the body never captured the pointer.
+   */
+  lost(p) { return this.g && this.g.phase !== 'press' ? this.end(p, false) : null; }
 
   end(p, commit) {
     const g = this.g;

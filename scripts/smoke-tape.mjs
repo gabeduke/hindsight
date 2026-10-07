@@ -13,16 +13,21 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures.push(name);
 };
 const browser = await chromium.launch();
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const getJSON = async (path) => (await fetch(`${BASE}${path}`)).json();
 const postJSON = async (path, body = {}) => (await fetch(`${BASE}${path}`, {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
 })).json();
 const loadedState = async () => getJSON(`/api/tapes/state?id=${encodeURIComponent((await getJSON('/api/tapes')).loaded)}`);
 
-// The checks want a loaded tape with a tempo and a clip on track 1. A fresh
-// demo has neither: make a 4-bar tape at 96 BPM and drop the first 4 bars of
-// a take on track 1 (capturing a 30 s take first if there's none).
+// The checks want a loaded tape with a tempo and a clip on track 1 at the
+// loop's start. A fresh demo has neither: make a 4-bar tape at 96 BPM and put
+// the first 4 bars of a take there (capturing a take first if none is long
+// enough). This changes the tape it finds, so it runs only against an
+// address it's given.
+if (!process.env.HINDSIGHT_URL) {
+  console.log('Set HINDSIGHT_URL to a demo instance: this script changes the tape it finds.');
+  process.exit(2);
+}
 {
   const list = await getJSON('/api/tapes');
   let st = list.loaded ? await loadedState() : null;
@@ -31,14 +36,22 @@ const loadedState = async () => getJSON(`/api/tapes/state?id=${encodeURIComponen
     await postJSON(`/api/tapes/load?id=${encodeURIComponent(t.id)}`);
     st = await loadedState();
   }
-  if (!st.tape.tracks[0].clips.length) {
-    const takes = async () => { const j = await getJSON('/api/jams'); return j.jams || j.takes || j; };
-    if (!(await takes()).length) {
-      await fetch(`${BASE}/api/trigger?seconds=30`, { method: 'POST' });
-      await sleep(2500);
-    }
+  const l = st.tape.loop;
+  if (!st.tape.tracks[0].clips.some((c) => c.at <= l.in && l.in < c.at + c.frames)) {
     const bar = st.tape.grid.frames / st.tape.grid.bars;
-    await postJSON(`/api/tapes/drop?id=${encodeURIComponent(st.tape.id)}`, { take: (await takes())[0].name, from: 0, to: Math.round(4 * bar), track: 1 });
+    const need = Math.round(4 * bar);
+    const long = async () => {
+      const j = await getJSON('/api/jams');
+      return (j.jams || j.takes || j).find((t) => t.duration_seconds * (t.sample_rate || 48000) >= need);
+    };
+    let take = await long();
+    if (!take) {
+      await fetch(`${BASE}/api/trigger?seconds=30`, { method: 'POST' });
+      take = await long();
+    }
+    if (!take) throw new Error('no take of 4 bars or more to put on the tape: is the demo older than 10 s?');
+    const d = await postJSON(`/api/tapes/drop?id=${encodeURIComponent(st.tape.id)}`, { take: take.name, from: 0, to: need, track: 1, at: l.in });
+    if (!d.clip) throw new Error(`could not put a take on the tape: ${JSON.stringify(d)}`);
   }
 }
 
@@ -225,11 +238,16 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
+  // The clip on track 1 at the loop's start, the top one if they're layered;
+  // after a slide, the same clip wherever it went.
+  let followId = null;
   const first = async () => {
     const st = await loadedState();
     const t = st.tape;
     const bar = t.grid.frames / t.grid.bars;
-    const c = t.tracks[0].clips.reduce((a, b) => (b.layer > a.layer ? b : a));
+    const cl = t.tracks[0].clips;
+    const c = followId ? cl.find((x) => x.id === followId)
+      : cl.filter((x) => x.at <= t.loop.in && t.loop.in < x.at + x.frames).reduce((a, b) => (b.layer > a.layer ? b : a));
     return { id: c.id, at: c.at, frames: c.frames, bar, loop: t.loop };
   };
   // Where the clip's middle is on screen: the lanes show the loop and a bar
@@ -243,6 +261,7 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.goto(`${BASE}/tape.html`);
   await p.waitForTimeout(2000);
   const c0 = await first();
+  followId = c0.id;
   let s = await spot(c0);
   await p.mouse.click(s.x, s.y);
   await p.waitForTimeout(400);
@@ -254,7 +273,8 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.mouse.move(s.x + s.perBar, s.y, { steps: 4 });
   await p.mouse.up();
   await p.waitForTimeout(800);
-  check('a clip: a quick drag leaves it where it is', (await first()).at === c0.at);
+  check('a clip: a quick drag pans the lanes and leaves it where it is',
+    (await first()).at === c0.at && await p.isVisible('#view-fit'));
   await p.reload();
   await p.waitForTimeout(2000);
   s = await spot(c0);

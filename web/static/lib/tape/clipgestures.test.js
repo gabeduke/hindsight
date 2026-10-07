@@ -210,3 +210,15 @@ test('a grip cancelled mid-drag commits nothing', () => {
   g.down(P(100), hit); g.move(P(150));
   assert.deepEqual(g.cancel(P(150)), { type: 'gripEnd', zone: 'repeat', clip: hit.clip, dx: 50, commit: false });
 });
+
+test('a hit that names no zone is the body', () => {
+  const g = new ClipGesture({ now: clock() });
+  assert.deepEqual(g.down(P(100), { clip: { id: 'a' } }), { type: 'press', hold: HOLD_MS });
+});
+
+test('a lost capture ends a pressed grip, which was captured as it was pressed', () => {
+  const g = new ClipGesture({ now: clock() });
+  g.down(P(100), { clip: { id: 'a' }, zone: 'in' });
+  assert.deepEqual(g.lost(P(100)), { type: 'release' });
+  assert.equal(g.down(P(100), bodyHit).type, 'press', 'free for the next press');
+});
