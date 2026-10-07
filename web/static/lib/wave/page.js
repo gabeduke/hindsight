@@ -12,7 +12,7 @@ import { Overview } from './overview.js';
 import { Clock } from './clock.js';
 import { Lanes } from './lanes.js';
 import { RisingNotes } from './rising.js';
-import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
+import { looksLikeMP3, canShareFiles, shareOrDownload, gainText } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
   SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag, landFlag, fmtTenths,
@@ -580,7 +580,54 @@ async function main() {
     renderSelection();
     saveRegion();
     scheduleLoop();
+    levelSoon(); // Level follows the selection
   }
+
+  // --- Level (step C5) ---------------------------------------------------------
+  // Normalize: the selection (or the whole take) brought to a decibel under
+  // full scale, from its peak as /api/level reads it off the peaks pyramid.
+  // On, the take plays here at that gain and Share sends it so, so what's
+  // heard is what's shared. Remembered per device.
+  let levelOn = readPref('wave.level', 'off') === 'on';
+  let levelDb = 0;
+  let levelSeq = 0;
+  let levelTimer = 0;
+  function renderLevel() {
+    $('level').setAttribute('aria-pressed', String(levelOn));
+    $('level').textContent = levelOn ? `Level ${gainText(levelDb)}` : 'Level';
+  }
+  async function fetchLevel() {
+    const seq = ++levelSeq;
+    let db = 0;
+    if (levelOn) {
+      const from = state.region ? state.region.start : 0;
+      const to = state.region ? state.region.end : total;
+      try {
+        const res = await fetch(`/api/level?file=${encodeURIComponent(file)}&from=${from}&to=${to}`);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        db = (await res.json()).gain_db || 0;
+      } catch (e) {
+        if (seq === levelSeq) toast(`Could not read the level: ${e.message}`, 'bad');
+      }
+    }
+    if (seq !== levelSeq) return;
+    levelDb = db;
+    clock.setGain(db);
+    renderLevel();
+  }
+  function levelSoon() {
+    if (!levelOn) return;
+    clearTimeout(levelTimer);
+    levelTimer = setTimeout(fetchLevel, 300);
+  }
+  $('level').addEventListener('click', () => {
+    levelOn = !levelOn;
+    writePref('wave.level', levelOn ? 'on' : 'off');
+    renderLevel();
+    fetchLevel();
+  });
+  renderLevel();
+  if (levelOn) fetchLevel();
 
   // --- flag sheet ---------------------------------------------------------
   const sheet = $('flag-sheet');
@@ -1568,7 +1615,7 @@ async function main() {
     shareBtn.disabled = true;
     shareBtn.textContent = 'Rendering…';
     try {
-      const res = await fetch(`/api/render?file=${encodeURIComponent(file)}&from=${from}&to=${to}`);
+      const res = await fetch(`/api/render?file=${encodeURIComponent(file)}&from=${from}&to=${to}${levelOn ? '&normalize=1' : ''}`);
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
         throw new Error(b.error || `status ${res.status}`);
@@ -1580,7 +1627,9 @@ async function main() {
       const head = new Uint8Array(await blob.slice(0, 2048).arrayBuffer());
       if (!looksLikeMP3(head) || blob.size <= 1024) throw new Error('render failed, try again');
       const result = await shareOrDownload(blob, filename, filename.replace(/\.mp3$/, ''));
-      if (result === 'downloaded' && shareVerb === 'Share') toast('Shared as a download');
+      const gain = res.headers.get('X-Hindsight-Gain-Db');
+      if (result === 'downloaded' && shareVerb === 'Share') toast(`Shared as a download${gain ? `, levelled ${gainText(Number(gain))}` : ''}`);
+      else if (result !== 'cancelled' && gain) toast(`Levelled ${gainText(Number(gain))}`);
     } catch (e) {
       toast(`${shareVerb} failed: ${e.message}`, 'bad');
     } finally {

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1549,5 +1550,48 @@ func TestTheGuideIsServed(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "# The Hindsight guide") {
 		t.Error("that isn't the guide")
+	}
+}
+
+// Normalize on share (step C5): the render says the gain it applied, and
+// /api/level answers the same for the page's Level.
+func TestRenderNormalizesAndLevelSaysBy(t *testing.T) {
+	r, dir := newTestAPI(t)
+	// Two seconds of a tone at a quarter of full scale: -12 dBFS, so
+	// Normalize brings it up 11 dB.
+	data := make([]int32, 48000*2*2)
+	for i := 0; i < 48000*2; i++ {
+		v := int32(0.25 * math.MaxInt32 * math.Sin(2*math.Pi*440*float64(i)/48000))
+		data[2*i], data[2*i+1] = v, v
+	}
+	if _, err := audio.WriteWAV(filepath.Join(dir, "jam_r.wav"), data, 2, []int{0, 1}, 48000); err != nil {
+		t.Fatal(err)
+	}
+	w := do(t, r, http.MethodGet, "/api/level?file=jam_r.wav&from=0&to=48000")
+	if w.Code != http.StatusOK {
+		t.Fatalf("level: %d %s", w.Code, w.Body.String())
+	}
+	var lv audio.Level
+	if err := json.Unmarshal(w.Body.Bytes(), &lv); err != nil || lv.PeakDB != -12 || lv.GainDB != 11 {
+		t.Fatalf("level = %+v %v, want peak -12, gain 11", lv, err)
+	}
+	for path, code := range map[string]int{
+		"/api/level?file=jam_r.wav&from=10&to=5":       http.StatusBadRequest,
+		"/api/level?file=jam_r.wav&from=0&to=99999999": http.StatusBadRequest,
+		"/api/level?file=jam_nope.wav&from=0&to=10":    http.StatusNotFound,
+	} {
+		if w := do(t, r, http.MethodGet, path); w.Code != code {
+			t.Errorf("%s = %d, want %d", path, w.Code, code)
+		}
+	}
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not on PATH")
+	}
+	w = do(t, r, http.MethodGet, "/api/render?file=jam_r.wav&from=0&to=48000&normalize=1")
+	if w.Code != http.StatusOK || w.Header().Get("X-Hindsight-Gain-Db") != strconv.FormatFloat(lv.GainDB, 'f', 1, 64) {
+		t.Fatalf("render: %d, gain header %q, want %v", w.Code, w.Header().Get("X-Hindsight-Gain-Db"), lv.GainDB)
+	}
+	if w := do(t, r, http.MethodGet, "/api/render?file=jam_r.wav&from=0&to=48000"); w.Header().Get("X-Hindsight-Gain-Db") != "" {
+		t.Error("a render without normalize says a gain")
 	}
 }

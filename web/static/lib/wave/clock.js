@@ -100,6 +100,9 @@ export class Clock {
       const at = this.position();
       this.startSource(at >= this.slice.start && at < this.slice.end ? at - this.slice.start : 0);
     } else {
+      // Routed through the AudioContext (Level), the preview is heard only
+      // while it runs.
+      if (this.out && this.ctx.state === 'suspended') await this.ctx.resume();
       try { await this.audio.play(); } catch (e) { this.onError?.('could not play the preview'); return; }
     }
     this.playing = true;
@@ -202,12 +205,30 @@ export class Clock {
     if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: this.sr });
   }
 
+  /**
+   * setGain plays the take db louder or quieter: Level (step C5), so it
+   * sounds as a normalized share will. The preview's <audio> can't go past
+   * full volume, so a gain routes it through the AudioContext; once routed
+   * it stays, at 0 dB when Level goes off. Nothing changes until a gain is
+   * first asked for.
+   */
+  setGain(db) {
+    if (!db && !this.out) return;
+    if (!this.out) {
+      this.ensureCtx();
+      this.out = this.ctx.createGain();
+      this.out.connect(this.ctx.destination);
+      this.ctx.createMediaElementSource(this.audio).connect(this.out);
+    }
+    this.out.gain.value = Math.pow(10, db / 20);
+  }
+
   startSource(offsetFrames) {
     this.ensureCtx();
     const src = this.ctx.createBufferSource();
     src.buffer = this.slice.buffer;
     src.loop = true;
-    src.connect(this.ctx.destination);
+    src.connect(this.out || this.ctx.destination);
     src.start(0, offsetFrames / this.sr);
     this.src = src;
     this.sliceStartedAt = this.ctx.currentTime;

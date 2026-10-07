@@ -356,6 +356,14 @@ and the editor bar takes the place of the toolbar.
   open a take.
 - **Practice speed** (½× 1× 2×) slows or speeds the take without changing its
   pitch. It's off while Loop is on: the loop plays at 1×, exactly.
+- **Level** normalizes: it brings the selection (or the whole take) up, or
+  down, so its loudest moment is a decibel under full scale, and says by how
+  much (*Level +6.2 dB*). On, the take plays here at that level and
+  **Share** sends it so: what you hear is what you share. A quiet take is
+  brought up no more than 24 dB, so its hiss isn't shared at full volume.
+  The level is read off the take's peaks, not its audio, so it's instant.
+  Off, everything is as recorded. It's remembered on the device, and the DAW
+  bundle is always as recorded.
 - The screen stays on while a take plays.
 
 **Flags:**
@@ -387,7 +395,7 @@ and the editor bar takes the place of the toolbar.
   saves it, Escape or **Cancel** doesn't. On the takes page it folds in
   with this take (§3.1).
 - **Share** sends it from your phone as an MP3 (the whole take, with no
-  selection).
+  selection), levelled when **Level** is on.
 - **Copy** puts it on the clipboard, to drop onto a tape (step 6d).
 - **Send to tape** puts it on the loaded tape, by its tempo and downbeat if it
   has them (step 6). The line under the buttons says what it will do.
@@ -427,6 +435,10 @@ and the editor bar takes the place of the toolbar.
   through the selection and on. Turn Loop on → it repeats In to Out.
 - [demo] Tap **In**, move the playhead, tap **Out** → you get the same
   selection as by holding and dragging.
+- [demo] Select a quiet part of a take and turn on **Level** → it says
+  *Level +N dB*, and ▶ plays it louder; **Share** (or Download) → the MP3 is
+  that loud, and the toast says *Levelled +N dB*. Move the selection → the
+  number follows it. Turn Level off → as recorded.
 - [demo] Drop two flags and name one, then tap **⚑ 2** → both, in time
   order, with the name and the times; tap the second → the sheet closes
   and the take plays from it.
@@ -1646,6 +1658,7 @@ has no tip.
 | Seam | Show the loop's end running into its start, to see a click or a stutter. Tap a half to move that side |
 | Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
+| Level | Normalize: play and share the selection with its loudest moment a decibel under full scale |
 | Save as take | Make a new take of just the selection |
 | Name (Save as take) | Name the new take, then Save. On the takes page it folds in with this take. Cancel saves nothing |
 | Share | Send the selection from your phone as an MP3 |

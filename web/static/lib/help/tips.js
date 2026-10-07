@@ -95,6 +95,7 @@ export const TIPS = [
   { control: 'Seam', ids: ['be-seam'], tip: "Show the loop's end running into its start, to see a click or a stutter. Tap a half to move that side" },
   { control: 'Snap', ids: ['snap'], tip: 'Make the selection, In, Out and the nudges land on bars, beats or 8ths' },
   { control: 'Practice speed', ids: ['speed'], tip: 'Slow down or speed up without changing pitch' },
+  { control: 'Level', ids: ['level'], tip: 'Normalize: play and share the selection with its loudest moment a decibel under full scale' },
   { control: 'Save as take', ids: ['save-take'], tip: 'Make a new take of just the selection' },
   { control: 'Name (Save as take)', ids: ['save-name'], tip: 'Name the new take, then Save. On the takes page it folds in with this take. Cancel saves nothing' },
   { control: 'Share', ids: ['share'], tip: 'Send the selection from your phone as an MP3' },

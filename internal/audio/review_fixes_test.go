@@ -124,7 +124,7 @@ func TestTheTakesCacheSeesSameSizeEditsInOneClockTick(t *testing.T) {
 func TestSharesFallBackToTheSamePairAsSlices(t *testing.T) {
 	info := WAVInfo{Channels: 4, SampleRate: 48000, BitsPerSample: 32}
 	// SAVE_CHANNELS=7,8 on a take recorded with four channels.
-	got := RenderArgs("/t.wav", info, []int{6, 7}, 0, 48000)
+	got := RenderArgs("/t.wav", info, []int{6, 7}, 0, 48000, 0)
 	if pick := SlicePick(info, []int{6, 7}); !strings.HasSuffix(got[6], ",pan=stereo|c0=c0|c1=c1") || pick[0] != 0 || pick[1] != 1 {
 		t.Errorf("render %q, slice %v: want both on channels 1 and 2", got[6], pick)
 	}

@@ -606,6 +606,35 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await ctx.close();
 }
 
+// Level: normalize. On, the chip says the gain, the take plays at it, and
+// Share asks for it (normalize=1) and says so; off, as recorded.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  const name = await p.evaluate(() => fetch('/api/trigger?seconds=10', { method: 'POST' }).then((r) => r.json()).then((b) => b.name));
+  await p.waitForTimeout(3000);
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(name)}`);
+  await settle(p, 1500);
+  await p.click('#level');
+  await settle(p, 800);
+  const said = await p.textContent('#level');
+  check('Level says the gain it plays and shares at', /^Level [+−]\d+\.\d dB$|^Level 0 dB$/.test(said) && (await p.getAttribute('#level', 'aria-pressed')) === 'true', said);
+  await p.click('#play');
+  await settle(p, 900);
+  check('Level on, the take plays (through the gain)', (await p.getAttribute('#play', 'aria-label')) === 'Pause');
+  await p.click('#play');
+  const asked = p.waitForRequest((r) => r.url().includes('/api/render') && r.url().includes('normalize=1'), { timeout: 8000 }).then(() => true).catch(() => false);
+  await p.click('#share');
+  check('Share asks for it levelled', await asked);
+  await p.locator('#toasts .toast', { hasText: 'evelled' }).last().waitFor({ timeout: 10000 }).catch(() => {});
+  check('and says by how much', await p.locator('#toasts .toast', { hasText: 'evelled' }).count() > 0);
+  await p.click('#level');
+  await settle(p, 300);
+  check('Level off: as recorded', (await p.textContent('#level')) === 'Level' && (await p.getAttribute('#level', 'aria-pressed')) === 'false');
+  await ctx.close();
+}
+
 // Dropouts: the demo reports an overflow on SIGUSR1, as an interface does
 // when the Pi falls behind it; a capture over it says ⚠ 1 dropout on its
 // page, in its flags list, and on its cassette. Needs the demo's pid:

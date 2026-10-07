@@ -13,7 +13,7 @@ import (
 
 func TestRenderArgsStereoTake(t *testing.T) {
 	info := WAVInfo{Channels: 2, SampleRate: 48000, BitsPerSample: 32, DataBytes: 48000 * 2 * 4 * 10}
-	got := RenderArgs("/takes/jam_a.wav", info, []int{0, 1}, 48000, 48000*4)
+	got := RenderArgs("/takes/jam_a.wav", info, []int{0, 1}, 48000, 48000*4, 0)
 	want := []string{
 		"-hide_banner", "-loglevel", "error", "-i", "/takes/jam_a.wav",
 		"-af", "atrim=start_sample=48000:end_sample=192000,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.003,afade=t=out:st=2.997:d=0.003",
@@ -26,7 +26,7 @@ func TestRenderArgsStereoTake(t *testing.T) {
 
 func TestRenderArgsMultichannelTakeAppendsPan(t *testing.T) {
 	info := WAVInfo{Channels: 8, SampleRate: 48000, BitsPerSample: 32}
-	got := RenderArgs("/t.wav", info, []int{0, 1}, 0, 48000)
+	got := RenderArgs("/t.wav", info, []int{0, 1}, 0, 48000, 0)
 	af := got[6]
 	if !strings.HasSuffix(af, ",pan=stereo|c0=c0|c1=c1") {
 		t.Errorf("pan not appended after the fades: %q", af)
@@ -38,7 +38,7 @@ func TestRenderArgsMultichannelTakeAppendsPan(t *testing.T) {
 
 func TestRenderArgsMonoTakeUpmixes(t *testing.T) {
 	info := WAVInfo{Channels: 1, SampleRate: 48000, BitsPerSample: 32}
-	got := RenderArgs("/t.wav", info, []int{0}, 0, 48000)
+	got := RenderArgs("/t.wav", info, []int{0}, 0, 48000, 0)
 	if !strings.HasSuffix(got[6], ",pan=stereo|c0=c0|c1=c0") {
 		t.Errorf("mono should upmix like MakePreview: %q", got[6])
 	}
@@ -46,7 +46,7 @@ func TestRenderArgsMonoTakeUpmixes(t *testing.T) {
 
 func TestRenderArgsNeverEmitsANegativeFadeStart(t *testing.T) {
 	info := WAVInfo{Channels: 2, SampleRate: 48000, BitsPerSample: 32}
-	got := RenderArgs("/t.wav", info, []int{0, 1}, 0, 1)
+	got := RenderArgs("/t.wav", info, []int{0, 1}, 0, 1, 0)
 	af := got[6]
 	if !strings.Contains(af, "afade=t=out:st=0:d=0.003") {
 		t.Errorf("fade-out start for a 1-frame region should clamp to 0: %q", af)
@@ -79,10 +79,10 @@ func TestRenderMP3Validates(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 0, 48000*2+1); !errors.Is(err, ErrRange) {
+	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 0, 48000*2+1, 0); !errors.Is(err, ErrRange) {
 		t.Errorf("past end: %v, want ErrRange", err)
 	}
-	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 10, 10); !errors.Is(err, ErrRange) {
+	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 10, 10, 0); !errors.Is(err, ErrRange) {
 		t.Errorf("empty: %v, want ErrRange", err)
 	}
 	// Cap: a 2s file cannot exceed 600s, so fake the check with a long info
@@ -90,7 +90,7 @@ func TestRenderMP3Validates(t *testing.T) {
 	// a long take. Here only the bit-depth guard remains:
 	p16 := filepath.Join(t.TempDir(), "jam_16.wav")
 	write16BitWAV(t, p16, 1000, 2, 48000)
-	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p16, 0, 100); !errors.Is(err, ErrBitDepth) {
+	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p16, 0, 100, 0); !errors.Is(err, ErrBitDepth) {
 		t.Errorf("16-bit: %v, want ErrBitDepth", err)
 	}
 	if buf.Len() != 0 {
@@ -104,14 +104,14 @@ func TestRenderMP3RejectsARegionShorterThanTwoFades(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 0, 288); !errors.Is(err, ErrTooShort) {
+	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 0, 288, 0); !errors.Is(err, ErrTooShort) {
 		t.Errorf("288 frames: %v, want ErrTooShort", err)
 	}
 	if buf.Len() != 0 {
 		t.Error("a rejected render must write nothing")
 	}
 	buf.Reset()
-	err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 0, 289)
+	err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 0, 289, 0)
 	if errors.Is(err, ErrTooShort) || errors.Is(err, ErrRange) {
 		t.Errorf("289 frames should pass validation, got %v", err)
 	}
@@ -135,7 +135,7 @@ func TestRenderMP3ProducesAnMP3(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 4800, 48000*2-4800); err != nil {
+	if err := RenderMP3(context.Background(), &buf, []int{0, 1}, p, 4800, 48000*2-4800, 0); err != nil {
 		t.Fatalf("RenderMP3: %v", err)
 	}
 	b := buf.Bytes()
