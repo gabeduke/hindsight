@@ -13,7 +13,8 @@ import { initNav } from '/lib/nav.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
 import { pageBar } from '/lib/bar/bar.js';
 import { watchLink, timedFetch } from '/lib/link.js';
-import { spanOf, firstOf, nextOf, atEnd } from '/lib/playall.js';
+import { spanOf, firstOf, nextOf, doneAt } from '/lib/playall.js';
+import { holdScreen } from '/lib/wakelock.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -70,6 +71,9 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
     renderPlayAll();
   },
   selectBar: $('select-bar'),
+  // Select mode, however it starts (Select, a hold) or ends (Done, Escape):
+  // Play all stops, and its key is off while it lasts.
+  onSelectChange: () => { stopPlayAll({ pause: true }); renderPlayAll(); },
   shape: (all) => {
     const opts = { ...view, tags: tagStore.list, tag: shownTag() };
     // The same fold the shelf is drawn from, for the pane's families.
@@ -78,11 +82,7 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
   },
   spines: true,
 });
-$('select-btn').addEventListener('click', () => {
-  if (takes.selecting) takes.exitSelect();
-  else { stopPlayAll({ pause: true }); takes.enterSelect(); }
-  renderPlayAll();
-});
+$('select-btn').addEventListener('click', () => (takes.selecting ? takes.exitSelect() : takes.enterSelect()));
 
 // --- the view: search, filters, sort --------------------------------------
 
@@ -145,6 +145,7 @@ function reshape() {
   takes.reshape();
   renderCounts();
   syncPick();
+  renderPlayAll(); // nothing shown: nothing to play
 }
 
 // --- the detail pane, on a wide screen ------------------------------------
@@ -283,14 +284,17 @@ async function offerBar(name, hand) {
 // The takes shown, in their order, through the bar, each from its
 // selection's In to its Out, or the whole take (lib/playall.js). It starts
 // at the picked take, picks each in turn (so the bar, the pane and the
-// spine follow it), and stops at the end of the list, on Pause, on ⏏, on
-// Loop (which stays on the take), or when a take is picked by hand.
-let playAll = null; // { name, audio, span, raf, moving }
+// spine follow it), and stops at the end of the list, on ■ Stop, on Pause
+// (in the bar or the cassette), on ⏏, on Loop (which stays on the take), or
+// when a take is picked by hand. The take's own audio events drive it, as
+// they go on firing with the screen off; animation frames only add
+// precision while the page is in view. The screen is held on meanwhile, as
+// the take page holds it while a take plays.
+let playAll = null; // { name, audio, span, prev, raf, moving, off, lock }
 
 function renderPlayAll() {
   const b = $('play-all');
   b.textContent = playAll ? '■ Stop' : '▶ Play all';
-  b.setAttribute('aria-pressed', String(!!playAll));
   b.disabled = !playAll && (takes.selecting || !shownNames().length);
   for (const [n, row] of takes.rows) row.el.classList.toggle('play-all', !!playAll && n === playAll.name);
 }
@@ -300,53 +304,100 @@ function stopPlayAll({ pause = false } = {}) {
   if (!r) return;
   playAll = null;
   cancelAnimationFrame(r.raf);
+  r.off?.abort();
+  r.lock?.release();
   if (pause && r.audio && !r.audio.paused) r.audio.pause();
   renderPlayAll();
 }
 
+// moveOn leaves the take Play all is on for the next one shown, or stops at
+// the end of the list.
+function moveOn(r) {
+  r.moving = true;
+  r.off?.abort();
+  cancelAnimationFrame(r.raf);
+  if (r.audio && !r.audio.paused) r.audio.pause();
+  const next = nextOf(shownNames(), r.name);
+  if (next) playAllFrom(next); else stopPlayAll();
+}
+
 async function playAllFrom(name) {
   const r = playAll;
-  const t = takes.all.find((x) => x.name === name);
-  const p = t && await takes.player(name);
-  if (playAll !== r) return;
-  // Still encoding, or gone: on to the next.
-  if (!p) {
-    const next = nextOf(shownNames(), name);
-    return next ? playAllFrom(next) : stopPlayAll();
-  }
-  r.name = name;
-  r.span = spanOf(t);
-  r.audio = p.audio;
-  pick(name, true);
-  np.loadTake(t, p);
-  renderPlayAll();
-  takes.rows.get(name)?.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  p.audio.currentTime = r.span.from;
-  if (p.audio.paused) await p.toggle();
-  if (playAll !== r) return;
-  r.moving = false;
-  r.raf = requestAnimationFrame(function tick() {
+  try {
+    const t = takes.all.find((x) => x.name === name);
+    // A pick or ⏏ while its player loads is the person taking over.
+    const was = { picked, bar: np.takeName, ejected: np.ejected };
+    const p = t && await takes.player(name);
     if (playAll !== r) return;
-    const a = r.audio;
-    // Picked by hand, ⏏, or Loop: Play all lets go, and leaves it playing.
-    if (picked !== r.name || np.takeName !== r.name || np.looping) return stopPlayAll();
-    if (atEnd(r.span, a.currentTime, a.ended)) {
-      r.moving = true;
-      a.pause();
-      const next = nextOf(shownNames(), r.name);
-      if (next) playAllFrom(next); else stopPlayAll();
+    if (picked !== was.picked || np.takeName !== was.bar || np.ejected !== was.ejected) return stopPlayAll();
+    // Still encoding, or gone: on to the next.
+    if (!p) {
+      const next = nextOf(shownNames(), name);
+      return next ? playAllFrom(next) : stopPlayAll();
+    }
+    r.name = name;
+    r.span = spanOf(t);
+    r.audio = p.audio;
+    pick(name, true);
+    np.loadTake(t, p);
+    renderPlayAll();
+    takes.rows.get(name)?.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const a = p.audio;
+    a.currentTime = r.span.from;
+    r.prev = r.span.from;
+    try {
+      await a.play();
+    } catch (e) {
+      if (playAll !== r) return;
+      // A browser that wants a tap for each take (an iPhone may): stop on
+      // it, picked, so ▶ Play all goes on from here. Anything else (its
+      // audio wouldn't load): skip it.
+      if (e.name === 'NotAllowedError') {
+        stopPlayAll();
+        toast('This browser wants a tap to play each take: ▶ Play all goes on from here', 'warn');
+        return;
+      }
+      toast(`Skipped ${t.label || name}: it wouldn't play`, 'warn');
+      moveOn(r);
       return;
     }
-    if (a.paused && !r.moving) return stopPlayAll(); // Pause, in the bar or on the spine
+    if (playAll !== r) return;
+    r.moving = false;
+    r.off = new AbortController();
+    const check = () => {
+      if (playAll !== r || r.moving) return;
+      // A hand pick or ⏏ (each pauses it), or Loop (which plays it on).
+      if (picked !== r.name || np.takeName !== r.name || np.looping) return stopPlayAll();
+      if (a.error) { moveOn(r); return; }
+      const now = a.currentTime;
+      const done = doneAt(r.span, r.prev, now, a.ended);
+      r.prev = now;
+      if (done) { moveOn(r); return; }
+      if (a.paused) stopPlayAll(); // Pause, in the bar or the cassette
+    };
+    const sig = { signal: r.off.signal };
+    for (const ev of ['timeupdate', 'pause', 'ended', 'error']) a.addEventListener(ev, check, sig);
+    // A seek is a jump, not playing across Out: count from where it lands.
+    a.addEventListener('seeked', () => { r.prev = a.currentTime; }, sig);
+    const tick = () => {
+      check();
+      if (playAll === r && !r.moving) r.raf = requestAnimationFrame(tick);
+    };
     r.raf = requestAnimationFrame(tick);
-  });
+  } catch (e) {
+    // Nothing may leave Play all on, holding the polls off, with nothing playing.
+    if (playAll === r) {
+      stopPlayAll();
+      toast(`Play all stopped: ${e.message}`, 'bad');
+    }
+  }
 }
 
 $('play-all').addEventListener('click', () => {
   if (playAll) { stopPlayAll({ pause: true }); return; }
   const first = firstOf(shownNames(), pickedSpine);
   if (!first) return;
-  playAll = { name: first, moving: true };
+  playAll = { name: first, moving: true, lock: holdScreen() };
   renderPlayAll();
   playAllFrom(first);
 });

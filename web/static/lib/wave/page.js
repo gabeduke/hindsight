@@ -122,6 +122,13 @@ async function main() {
   // A take trashed on the page before this one: "Deleted … · Undo", and its
   // Undo opens it again, where it was in the list's order.
   const queued = takeNextToast();
+  // Where ◂⚑ or ⚑▸ from the take before or after lands, read once whether or
+  // not this take loads, so it can't land a later visit.
+  let land = null;
+  try {
+    land = JSON.parse(sessionStorage.getItem('hindsight.land') || 'null');
+    sessionStorage.removeItem('hindsight.land');
+  } catch {}
   if (queued) toast(queued.msg, queued.kind || 'ok', queued.restore ? { action: { label: 'Undo', run: () => untrash(queued) } } : {});
   const [takeRes, peaksRes] = await Promise.all([
     // Not from the cache: Back onto a take deleted since must say it's gone.
@@ -1770,11 +1777,6 @@ async function main() {
   loadLanes();
   orderReady = neighbours();
   // Here by ◂⚑ or ⚑▸ from the take before or after: at the nearest flag.
-  let land = null;
-  try {
-    land = JSON.parse(sessionStorage.getItem('hindsight.land') || 'null');
-    sessionStorage.removeItem('hindsight.land');
-  } catch {}
   if (land && land.file === file) {
     const f = landFlag(state.flags, land.flag);
     if (f) { seekTo(f.frame); view.follow(f.frame); }

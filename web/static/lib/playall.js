@@ -26,9 +26,12 @@ export function nextOf(order, name) {
 }
 
 /**
- * atEnd says whether a take playing at `time` (seconds) has done its part:
- * its Out reached, within a frame or so, or the audio ended.
+ * doneAt says whether a take has done its part: it played across its Out
+ * (from `prev` to `time`, in seconds, within a frame or so of Out), or its
+ * audio ended. A seek past Out is a jump, not playing across it: the caller
+ * starts prev again from where a seek lands.
  */
-export function atEnd(span, time, ended) {
-  return ended || time >= span.to - 0.02;
+export function doneAt(span, prev, time, ended) {
+  const out = span.to - 0.02;
+  return ended || (prev < out && time >= out);
 }

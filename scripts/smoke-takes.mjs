@@ -464,6 +464,50 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await p.locator(`.take[data-name="${other}"]`).click();
   await settle(p, 600);
   check('a take picked by hand stops Play all', (await p.textContent('#play-all')).includes('Play all') && !(await p.locator('.take.play-all').count()));
+  // Select mode stops it and turns its key off; Done turns the key on.
+  await p.locator(`.take[data-name="${made[0]}"]`).click();
+  await settle(p, 400);
+  await p.click('#play-all');
+  await settle(p, 600);
+  await p.click('#select-btn');
+  await settle(p, 300);
+  check('Select stops Play all, and its key is off meanwhile', !(await p.locator('.take.play-all').count()) && await p.isDisabled('#play-all'));
+  await p.click('#select-btn');
+  await settle(p, 300);
+  check('leaving Select turns the key on again', !(await p.isDisabled('#play-all')));
+  // With no animation frames (a hidden page, a phone's screen off), the
+  // take's audio still moves it on.
+  const pg = await ctx.newPage();
+  await pg.addInitScript(() => { window.__noFrames = true; });
+  await pg.goto(`${BASE}/takes.html`);
+  await settle(pg, 2000);
+  await pg.locator(`.take[data-name="${made[0]}"]`).click();
+  await settle(pg, 600);
+  await pg.evaluate(() => { window.requestAnimationFrame = () => 0; });
+  await pg.click('#play-all');
+  let movedOn = false;
+  for (let i = 0; i < 40 && !movedOn; i++) {
+    await pg.waitForTimeout(150);
+    movedOn = await pg.evaluate((n) => document.querySelector('.take.play-all')?.dataset.name === n, made[1]);
+  }
+  check('with no animation frames, Play all still moves on', movedOn);
+  await pg.close();
+  // A take whose audio won't load is skipped, not stuck on.
+  const pe = await ctx.newPage();
+  await pe.route(new RegExp(`/api/download\\?file=${made[0].replace('.wav', '_preview.mp3').replace(/\./g, '\\.')}`), (route) => route.fulfill({ status: 404, body: 'gone' }));
+  await pe.goto(`${BASE}/takes.html`);
+  await settle(pe, 2000);
+  await pe.locator(`.take[data-name="${made[0]}"]`).click();
+  await settle(pe, 600);
+  await pe.click('#play-all');
+  let skipped = false;
+  for (let i = 0; i < 40 && !skipped; i++) {
+    await pe.waitForTimeout(150);
+    skipped = await pe.evaluate((n) => document.querySelector('.take.play-all')?.dataset.name === n, made[1]);
+  }
+  check('a take whose audio won’t load is skipped', skipped);
+  await pe.click('#play-all').catch(() => {});
+  await pe.close();
 
   // ⚑▸ past the last flag: the next take in the list's order, at its first flag.
   await p.evaluate(async ([a, b]) => {
