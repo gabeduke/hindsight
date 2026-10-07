@@ -53,6 +53,7 @@ export const TIPS = [
   // The take page
   { control: '‹', ids: ['back'], tip: 'Back to the list, where you left it' },
   { control: '◂ ▸', ids: ['take-prev', 'take-next'], tip: 'The previous or next take in the list' },
+  { control: '🗑', ids: ['take-trash'], tip: 'Delete this take in one tap, and go on to the next. The toast has Undo' },
   { control: 'from …', ids: ['source'], tip: 'This take was saved from another one. Tap to open that one' },
   { control: '↶', ids: ['undo'], tip: 'Undo your last change to this take: a flag, the selection, the name, tempo, downbeat or lanes' },
   { control: '?', ids: ['help'], tip: 'Help mode: tap anything to read what it does, instead of doing it' },

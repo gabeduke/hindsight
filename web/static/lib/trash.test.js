@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ago } from './trash.js';
+import { ago, stepPast, putBack } from './trash.js';
 import { undoSkipped, undoPhrase, toastNext, takeNextToast } from './toast.js';
 import { clientId, withClient, CLIENT_HEADER } from './client.js';
 
@@ -51,4 +51,18 @@ test('a toast for the next page is taken once', () => {
   } finally {
     delete globalThis.sessionStorage;
   }
+});
+
+test('a trashed take steps on to the next, else the one before, and Undo puts it back', () => {
+  const order = ['a', 'b', 'c'];
+  assert.deepEqual(stepPast(order, 'b'), { next: 'c', order: ['a', 'c'], at: 1 });
+  assert.deepEqual(stepPast(order, 'c'), { next: 'b', order: ['a', 'b'], at: 2 }); // the last: the one before
+  assert.deepEqual(stepPast(['a'], 'a'), { next: null, order: [], at: 0 });     // the only one: the list
+  assert.equal(stepPast(order, 'z').next, null);                                // not in the list's order
+  assert.equal(stepPast(null, 'a').next, null);
+  assert.deepEqual(putBack(['a', 'c'], 'b', 1), order);
+  assert.deepEqual(putBack(['a', 'b'], 'c', 2), order);
+  assert.deepEqual(putBack(['a', 'c'], 'b', -1), ['a', 'c', 'b']);
+  assert.deepEqual(putBack(order, 'b', 0), order); // already there
+  assert.equal(putBack(null, 'b', 1), null);
 });

@@ -1166,6 +1166,7 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   font: 600 13px var(--font); cursor: pointer;
 }
 .toast-action:disabled { opacity: .5; }
+.toast-action + .toast-action { margin-left: -6px; }
 .toast.bad  { border-left-color: var(--danger); }
 .toast.warn { border-left-color: var(--warn); }
 @keyframes rise { from { opacity: 0; transform: translateY(10px) } }
@@ -1344,7 +1345,8 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .take-sub-src { color: var(--link); text-decoration: none; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .take-top .icon-btn { min-height: 36px; padding: 0 8px; flex: none; }
 .take-top .step-btn { min-width: 30px; padding: 0 4px; border-color: transparent; background: none; font-size: 15px; }
-.take-top .help-btn, .take-top .menu-btn, .take-top .undo-btn { min-width: 34px; padding: 0 6px; }
+.take-top .help-btn, .take-top .menu-btn, .take-top .undo-btn, .take-top .trash-btn { min-width: 34px; padding: 0 6px; }
+@media (hover: hover) { .take-top .trash-btn:hover:not(:disabled) { color: var(--danger); } }
 .take-top .undo-btn { font-size: 18px; }
 .take-top .undo-btn:disabled { opacity: .35; }
 .narrow-only { display: none; }
@@ -1353,6 +1355,11 @@ dialog.sheet::backdrop { background: var(--scrim); }
   .wide-only { display: none; }
   .take-top { gap: 4px; }
   .take-top .notes-btn { min-width: 34px; padding: 0 6px; }
+  /* ‹ alone, and the keys closer, so ◂ ▸ 🗑 ↶ ⋯ ? keep one row; its label
+     still says where it goes. */
+  .take-top .back-text { display: none; }
+  .take-top .back { min-width: 32px; justify-content: center; }
+  .take-top .appbar-page { column-gap: 4px; }
 }
 /* Phones: the buttons keep the top row and the name gets a row of its own,
    rather than being squeezed to its first few letters by ◂ ▸ ♪ ↶ ? ⋯. */

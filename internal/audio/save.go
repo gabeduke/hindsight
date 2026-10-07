@@ -587,6 +587,8 @@ func (s *Saver) makePreview(wavPath string, outCh int) { MakePreview(s.cap.cfg, 
 // channel 3 into a mono centre and discards channel 4 as LFE entirely — which
 // is exactly what made previews sound wrong.
 func MakePreview(cfg *config.Config, wavPath string, outCh int) {
+	encoding.Store(filepath.Clean(wavPath), true)
+	defer encoding.Delete(filepath.Clean(wavPath))
 	mp3Path := previewPath(wavPath)
 	tmp := mp3Path + ".tmp"
 
@@ -612,11 +614,56 @@ func MakePreview(cfg *config.Config, wavPath string, outCh int) {
 		os.Remove(tmp)
 		return
 	}
+	previewEncoded()
+	// Under the take's lock and the trash's, as a delete or a restore takes
+	// them: the take may have gone to the trash while it encoded (Capture's
+	// Undo, straight after a save). Its preview then goes with it, into its
+	// slot, or nowhere once the trash has let it go -- never into the takes
+	// folder without its WAV.
+	unlock := LockTake(wavPath)
+	defer unlock()
+	trashMu.Lock()
+	defer trashMu.Unlock()
+	if !exists(wavPath) {
+		slot := trashSlot(filepath.Dir(wavPath), wavPath)
+		if exists(filepath.Join(slot, filepath.Base(wavPath))) && os.Rename(tmp, filepath.Join(slot, filepath.Base(mp3Path))) == nil {
+			log.Printf("[*] preview ready, in the trash: %s", filepath.Base(mp3Path))
+			return
+		}
+		os.Remove(tmp)
+		return
+	}
 	if err := os.Rename(tmp, mp3Path); err != nil {
 		log.Printf("[!] preview rename: %v", err)
 		return
 	}
 	log.Printf("[*] preview ready: %s", filepath.Base(mp3Path))
+}
+
+// previewEncoded runs between the encode and putting the preview in place:
+// a test's seam for a take deleted while it encodes.
+var previewEncoded = func() {}
+
+// encoding is the takes whose preview is being encoded now, so a restore
+// doesn't start a second encode beside the first.
+var encoding sync.Map
+
+// AfterRestore finishes, for a take back from the trash, what its save left
+// running and the trash cut short: a delete straight after a save (Capture's
+// Undo) can beat the preview encode and the tempo measurement to the take.
+// In the background it encodes a preview that's missing (unless one is on
+// its way) and measures a tempo that's only the clock's, or none.
+func AfterRestore(cfg *config.Config, wavPath string) {
+	if !exists(previewPath(wavPath)) {
+		if _, busy := encoding.Load(filepath.Clean(wavPath)); !busy {
+			if info, err := ReadWAVInfo(wavPath); err == nil {
+				go MakePreview(cfg, wavPath, info.Channels)
+			}
+		}
+	}
+	if m := ReadMeta(wavPath); m.TempoFrom != TempoFromAudio && m.TempoFrom != TempoFromYou {
+		go measureTempo(wavPath)
+	}
 }
 
 // BackfillPreviews encodes the preview of any take that lacks one: a phone

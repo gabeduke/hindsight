@@ -78,7 +78,10 @@ just move references around.
   readouts in amber. On a phone held sideways the needles fold to two bars.
 - **Capture.** Choose 30 s, 2 m, 7 m or Full -- the key says how much it
   will catch -- and tap *Capture* to save that much of the past as a take.
-  It glows a moment when it has.
+  It glows a moment when it has, and its toast has **Name it** and
+  **Undo**: Undo takes the save straight back to the trash (§5), and the
+  toast that says so has **Restore**. A span saved from the ribbon (§6)
+  says so with an Undo too.
 - **Flag now.** It marks this moment in the ring;
   the flag rides along into any take that includes it.
 - **On the shelf.** The newest takes as cassettes, a new one sliding in with
@@ -97,6 +100,9 @@ just move references around.
 
 - [demo] Tap *Capture* with 30 s chosen → a cassette slides onto the shelf
   with *NEW* within a few seconds, about 30 s long, and plays when tapped.
+- [demo] Capture, then tap the toast's *Undo* → the take leaves the shelf,
+  and shows under the takes page's *Recently deleted*. Capture again and tap
+  *Undo*, then *Restore* → it's back, starred.
 - [demo] Tap *Flag now*, wait, then capture → the take has a flag at that
   moment.
 - [demo] Star an older take → it is pruned last, and the takes page's
@@ -198,7 +204,8 @@ Every take, from **All takes** on the main page.
   left pack to the right.
 - [demo] Open a take from a filtered list and press ▸ → the next take is the
   next one the list showed.
-- [demo] Delete a take on its page → back here, with an Undo.
+- [demo] Delete the only take a filter shows, on its page → back here, with
+  an Undo.
 - [demo] **Edit tags** → add "Ideas" with a color, Save. Pick a take and press
   *Ideas* → its spine and cassette turn that color; press it again → the
   take goes back to the color its name gave it.
@@ -451,7 +458,12 @@ thing in the meantime, Undo leaves their change alone and says so.
 
 **The trash.** Deleting a take doesn't ask any more: it moves the take, with
 everything saved beside it, to the trash, and the toast offers Undo. So does
-`MAX_SAVES` pruning. **Recently deleted**, under the list, shows what's there
+`MAX_SAVES` pruning. On the take page it's one tap: **🗑** in the header
+(or *Delete take* under **More**) deletes the take and opens the next one
+in the list, the one before from the last, so a run of takes can be culled
+one after another, as on a recorder. The next take's toast says *Deleted …*,
+and its **Undo** brings the deleted one back and opens it again. With no
+take left to go on to, it's back to the list, which says it there. **Recently deleted**, under the list, shows what's there
 and when it went; **Restore** brings a take back starred, so the next prune
 doesn't take it straight back. **×** deletes one for good and **Empty**
 empties the trash, and those two do ask. The trash empties itself after 7
@@ -472,8 +484,12 @@ them to the trash, with Undo. **Done** or Escape stops selecting.
   tap.
 - [demo] Clear the selection → the toast offers Undo; tap it → the selection
   is back.
-- [demo] Delete a take from its page → you're back at the list with "Deleted
-  … · Undo"; tap Undo → it's back, starred, with its flags.
+- [demo] Open a take from the list and tap 🗑 → the next take in the list
+  opens, saying "Deleted … · Undo"; ◂ goes to the one before the deleted
+  take, not to it. Tap Undo → the deleted take is open again, starred, with
+  its flags, and ◂ ▸ step through the list as before.
+- [demo] Tap 🗑 on the last take in the list → the one before it opens. On
+  the only take left → you're back at the list with "Deleted … · Undo".
 - [demo] Delete a take from the list → it shows under *Recently deleted*.
   Restore it → it's back, starred.
 - [demo] Fill the disk to just above `MIN_FREE_GB` with the trash full, then
@@ -1540,6 +1556,7 @@ has no tip.
 | Delete take | Move this take to the trash. Recently deleted, under the list, keeps it a week |
 | ‹ | Back to the list, where you left it |
 | ◂ ▸ | The previous or next take in the list |
+| 🗑 | Delete this take in one tap, and go on to the next. The toast has Undo |
 | from … | This take was saved from another one. Tap to open that one |
 | ↶ | Undo your last change to this take: a flag, the selection, the name, tempo, downbeat or lanes |
 | ? | Help mode: tap anything to read what it does, instead of doing it |

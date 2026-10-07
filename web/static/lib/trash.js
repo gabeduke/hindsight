@@ -31,6 +31,27 @@ export async function restoreTake(name) {
   return res.json();
 }
 
+/**
+ * stepPast is where the take page goes once its take is in the trash: the
+ * next take in the list's order, else the one before it (it was the last),
+ * else nowhere (null). order comes back without it, for the next take's ◂
+ * and ▸, and at is where it was, for putBack.
+ */
+export function stepPast(order, name) {
+  const i = Array.isArray(order) ? order.indexOf(name) : -1;
+  if (i < 0) return { next: null, order, at: -1 };
+  const rest = order.filter((n) => n !== name);
+  return { next: rest[i] ?? rest[i - 1] ?? null, order: rest, at: i };
+}
+
+/** putBack is order with name where it was (at), once its Undo restores it. */
+export function putBack(order, name, at) {
+  if (!Array.isArray(order) || order.includes(name)) return order;
+  const out = order.slice();
+  out.splice(at >= 0 ? Math.min(at, out.length) : out.length, 0, name);
+  return out;
+}
+
 export class TrashList {
   /**
    * root: the <details> section; it holds .trash-count, .trash-list,

@@ -341,6 +341,93 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await ctx.close();
 }
 
+// 🗑 on the take page: one tap, and on to the next take in the list's
+// order; its Undo opens the deleted one again. From the last, the one
+// before it opens.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  const order = await p.evaluate(async () => {
+    // The takes these saves made, not the list's first three (starred first).
+    const o = [];
+    for (let i = 0; i < 3; i++) o.push((await fetch('/api/trigger?seconds=8', { method: 'POST' }).then((r) => r.json())).name);
+    sessionStorage.setItem('hindsight.order', JSON.stringify(o));
+    return o;
+  });
+  const shown = () => new URL(p.url()).searchParams.get('file');
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(order[1])}`);
+  await settle(p, 1500);
+  await p.locator('#take-trash').click();
+  await p.waitForURL((u) => u.searchParams.get('file') !== order[1], { timeout: 8000 }).catch(() => {});
+  await settle(p, 1200);
+  check('🗑 opens the next take', shown() === order[2], shown());
+  const said = await p.locator('#toasts .toast').last().textContent();
+  check('the next take says "Deleted … · Undo"', /^Deleted .*Undo$/.test(said), said);
+  const prev = await p.evaluate(() => JSON.parse(sessionStorage.getItem('hindsight.order')));
+  check('the list\'s order no longer has it', JSON.stringify(prev) === JSON.stringify([order[0], order[2]]), JSON.stringify(prev));
+  await p.locator('#toasts .toast-action', { hasText: 'Undo' }).last().click();
+  await p.waitForURL((u) => u.searchParams.get('file') === order[1], { timeout: 8000 }).catch(() => {});
+  await settle(p, 1500);
+  const t = await p.evaluate((n) => fetch(`/api/take?file=${encodeURIComponent(n)}`).then((r) => r.json()), order[1]);
+  check('Undo opens it again, starred', shown() === order[1] && t.starred === true, shown());
+  const again = await p.evaluate(() => JSON.parse(sessionStorage.getItem('hindsight.order')));
+  check('and puts it back in the order', JSON.stringify(again) === JSON.stringify(order), JSON.stringify(again));
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(order[2])}`);
+  await settle(p, 1500);
+  await p.locator('#take-trash').click();
+  await p.waitForURL((u) => u.searchParams.get('file') !== order[2], { timeout: 8000 }).catch(() => {});
+  await settle(p, 1000);
+  check('🗑 on the last opens the one before', shown() === order[1], shown());
+  await p.evaluate((n) => fetch(`/api/trash/restore?file=${encodeURIComponent(n)}`, { method: 'POST' }), order[2]);
+  // A take the list's order doesn't have (a cut opened from its toast):
+  // back to the list, and the order is left as it was.
+  await p.evaluate((o) => sessionStorage.setItem('hindsight.order', JSON.stringify([o[0], o[2]])), order);
+  await p.goto(`${BASE}/takes.html`);
+  await settle(p, 1000);
+  await p.evaluate((o) => sessionStorage.setItem('hindsight.order', JSON.stringify([o[0], o[2]])), order);
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(order[1])}`);
+  await settle(p, 1500);
+  await p.locator('#take-trash').click();
+  await p.waitForURL((u) => u.pathname.endsWith('/takes.html'), { timeout: 8000 }).catch(() => {});
+  await settle(p, 800);
+  const kept = await p.evaluate(() => sessionStorage.getItem('hindsight.order'));
+  check('🗑 on a take the list didn\'t show goes back to the list', p.url().includes('/takes.html') && !kept.includes(order[1]), `${p.url()} ${kept}`);
+  await p.evaluate((n) => fetch(`/api/trash/restore?file=${encodeURIComponent(n)}`, { method: 'POST' }), order[1]);
+  await ctx.close();
+}
+
+// 🗑 on a phone with the notes pane open: the next take opens, and Back
+// goes to the list, not to the deleted take.
+{
+  const ctx = await browser.newContext(phone);
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  const two = await p.evaluate(async () => {
+    const o = [];
+    for (let i = 0; i < 2; i++) o.push((await fetch('/api/trigger?seconds=8', { method: 'POST' }).then((r) => r.json())).name);
+    return o;
+  });
+  await p.goto(`${BASE}/takes.html`);
+  await settle(p, 1500);
+  await p.evaluate((o) => sessionStorage.setItem('hindsight.order', JSON.stringify(o)), two);
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(two[0])}`);
+  await settle(p, 2000);
+  const notes = await p.locator('#notes-open').isVisible();
+  if (notes) {
+    await p.click('#notes-open');
+    await settle(p, 600);
+  }
+  await p.locator('#take-trash').click();
+  await p.waitForURL((u) => u.searchParams.get('file') === two[1], { timeout: 8000 }).catch(() => {});
+  await settle(p, 1200);
+  await p.goBack();
+  await settle(p, 1200);
+  check(`🗑 with the notes pane ${notes ? 'open' : '(none: no MIDI)'}: Back goes to the list, not the deleted take`, p.url().includes('/takes.html'), p.url());
+  await p.evaluate((n) => fetch(`/api/trash/restore?file=${encodeURIComponent(n)}`, { method: 'POST' }), two[0]);
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

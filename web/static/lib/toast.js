@@ -1,7 +1,8 @@
 // web/static/lib/toast.js
-// Toasts for both pages: a short message at the bottom, optionally with one
-// action -- "Flag deleted · Undo". A toast with an action stays longer, and
-// the action runs at most once, then the toast goes.
+// Toasts for both pages: a short message at the bottom, optionally with an
+// action or two -- "Flag deleted · Undo", "Saved … · Name it · Undo". A toast
+// with an action stays longer, and an action runs at most once, then the
+// toast goes.
 //
 // The message is set as text, never markup: names come from the Pi and from
 // whoever named a take.
@@ -10,13 +11,13 @@ const host = () => document.getElementById('toasts');
 
 /**
  * toast shows msg. kind is 'ok', 'bad' or 'warn'. opts.ms is how long it
- * stays (default 4 s, 8 s with an action); opts.action is {label, run}.
- * Returns the element, and a dismiss() on it.
+ * stays (default 4 s, 8 s with an action); opts.action is {label, run}, or
+ * opts.actions a list of them. Returns the element, and a dismiss() on it.
  */
 export function toast(msg, kind = 'ok', opts = {}) {
   if (typeof opts === 'number') opts = { ms: opts }; // the old signature
-  const { action } = opts;
-  const ms = opts.ms ?? (action ? 8000 : 4000);
+  const actions = opts.actions || (opts.action ? [opts.action] : []);
+  const ms = opts.ms ?? (actions.length ? 8000 : 4000);
   const t = document.createElement('div');
   t.className = `toast ${kind}`;
   t.setAttribute('role', 'status');
@@ -31,13 +32,13 @@ export function toast(msg, kind = 'ok', opts = {}) {
     t.style.opacity = '0';
     setTimeout(() => t.remove(), 260);
   };
-  if (action) {
+  for (const action of actions) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'toast-action';
     b.textContent = action.label;
     b.addEventListener('click', () => {
-      b.disabled = true;
+      for (const x of t.querySelectorAll('.toast-action')) x.disabled = true;
       dismiss();
       action.run();
     }, { once: true });
