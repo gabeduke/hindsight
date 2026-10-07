@@ -5,6 +5,15 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.07.1 — 2026-10-07
+
+- Take page: bar 1 flush hook sits above the visibility hook (15c65eb)
+- Take page: flush a pending bar 1 nudge in its own visibility hook (f85fb46)
+- Bar 1 row: nudge by the Snap step, keep an unsaved nudge over a refetch (24265ae)
+- Take page: a Bar 1 row that stays once the take has a tempo (c2a0011)
+- Record v2026.10.06.1 in the changelog [skip ci] (787ce72)
+
+
 ## v2026.10.06.1 — 2026-10-06
 
 - Guide: a take played in the bar stops the tape on this phone (b9f857e)
