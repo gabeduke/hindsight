@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.07.2 — 2026-10-07
+
+- Record v2026.10.07.1 in the changelog [skip ci] (0eaf6e4)
+- Take page: retry the refetch while Reconnecting… is up (492ec3c)
+- Recover the pages after the tablet sleeps (236e2b2)
+
+
 ## v2026.10.07.1 — 2026-10-07
 
 - Take page: bar 1 flush hook sits above the visibility hook (15c65eb)
