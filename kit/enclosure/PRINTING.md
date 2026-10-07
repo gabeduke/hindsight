@@ -9,7 +9,7 @@ bridge is a foot-recess roof at about 10.6 mm, and nothing overhangs past 45°.
 | Order | File | When | Time (rough) | Checks |
 |---:|---|---|---|---|
 | 1 | `out/fit_test_pi.stl` | **Now** | 25 min | The M2.5 insert bore, the Pi's hole pattern, and an M3 insert on the tab |
-| 2 | `out/tray.stl` | **Now**, once the fit test passes | 4–5 h | The Pi drops in, screws down, and every port lines up with its opening |
+| 2 | `out/tray.stl` | **Now**, once the fit test passes **and the Pi is measured** (below) | 4–5 h | The Pi drops in, screws down, and every port lines up with its opening |
 | 3 | `out/fit_test_solo.stl` | When the Solo arrives and is measured | 15 min | The Solo drops between the posts with no force and no rattle |
 | 4 | `out/lid.stl` | After the Solo fit test passes | 2–3 h | |
 
@@ -24,7 +24,7 @@ more than about 1 mm off the published 143 × 96 mm, reprint the tray with the l
 | Setting | Value |
 |---|---|
 | Layer height | 0.2 mm |
-| Walls / perimeters | 4 (the 2.4 mm walls are then solid) |
+| Walls / perimeters | 4, as the spec says; the slicer gap-fills the rest of the 2.4 mm walls. 6 at 0.4 mm makes them fully solid, which is stronger round the inserts |
 | Top and bottom layers | 4 |
 | Infill | 20% gyroid |
 | Supports | **Off** |
@@ -77,6 +77,7 @@ test with a corrected bore, or fill the hole with a slightly bigger insert.
 4. Tune what you found in `kit.py`, then `make`:
    - **The insert spins or pulls out:** take 0.1 off `insert_m25_bore` (or `insert_m3_bore`).
    - **The insert bulged the boss or needed real force:** add 0.1.
+   - **A boss split:** set `pi_boss_d` to 7.0. A 6.5 mm boss leaves only about 1.5 mm of plastic round the insert.
    - **The holes don't line up:** tell Claude. The pattern comes from the official drawing, so that would be news.
 5. The engraved line on the plate says which bores it was printed with.
 
@@ -104,10 +105,12 @@ test with a corrected bore, or fill the hole with a slightly bigger insert.
 
 To get at the Pi later: lift the Solo off, take out the four lid screws, lift the lid.
 
-## After printing, measure and report
+## Measure the Pi before printing the tray
 
-[REPORT.md](REPORT.md) lists every dimension that's still published or guessed. The ones that matter now, with
-the Pi on hand:
+The Pi sits 0.5 mm from the right wall, set by the audio jack's barrel, which the model takes from the official
+drawing (2.5 mm). If the real barrel stands proud by more than 3 mm, the Pi won't drop in. Two minutes with calipers saves
+a 4–5 hour reprint. [REPORT.md](REPORT.md) lists every dimension that's still published or guessed; the ones that
+matter now:
 
 - `pi_usb_overhang`: how far the USB-A and Ethernet jacks stick out past the board edge.
 - `pi_audio_overhang` and `pi_usbc_overhang`: the same for the audio jack and the USB-C on the long edge.

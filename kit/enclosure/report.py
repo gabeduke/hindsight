@@ -89,7 +89,11 @@ def clearances(parts) -> None:
         a0, a1 = sorted((k.wall_u(k.usb_wall, j.x0, j.y0), k.wall_u(k.usb_wall, j.x1, j.y1)))
         row("Port faces to openings", f"{j.name} jack → notch sides", min(a0 - k.notch_u0, k.notch_u1 - a1),
             note=pi_um)
-    row("Port faces to openings", "jack bottoms → notch floor", k.board_top_z - k.notch_z0)
+    row("Port faces to openings", "jack bottoms → notch floor", k.board_top_z - k.notch_z0,
+        note="`notch_floor_drop`, by design")
+    plug_bot = k.board_top_z + k.usb_low_port_zc - k.usb_plug_h / 2
+    row("Port faces to openings", "lower USB-A plug body → notch floor", plug_bot - k.notch_z0,
+        note=_um("usb_low_port_zc", "usb_plug_h"))
     usb_centres = sorted((k.wall_u(k.usb_wall, (j.x0 + j.x1) / 2, (j.y0 + j.y1) / 2)) for j in jacks
                          if j.name.startswith("USB"))
     outer = min(usb_centres[0] - k.notch_u0, k.notch_u1 - usb_centres[-1])
@@ -97,7 +101,8 @@ def clearances(parts) -> None:
         note=_um("usb_plug_w"))
 
     # ── The Solo and its posts ──
-    row("The Solo and the posts", "Solo body → post inside faces", k.fit, note=_um("solo_w", "solo_d"))
+    row("The Solo and the posts", "Solo body → post inside faces", k.fit,
+        note="`fit`, by design; " + _um("solo_w", "solo_d"))
     low = min(k.solo_xlr_z, k.solo_front_low_z)
     row("The Solo and the posts", "post top → lowest XLR or front jack/knob, less 2 (spec)", low - 2 - k.post_h,
         needed=0.0, note=_um("solo_xlr_z", "solo_front_low_z"))
@@ -235,6 +240,9 @@ def render_md(prints) -> str:
       + f" The tightest against its minimum is *{worst[1]}* at {_f(worst[2])} mm (needs {_f(worst[3])}).")
     w(f"- **Printability:** {'no' if not bridges else len(bridges)} bridge over 20 mm, and "
       f"{'no' if not steep else len(steep)} sloping overhang past 45°, across the tray, lid and both fit-test halves.")
+    if not k.usb_side_agrees:
+        w(f"- **⚠ usb_side = {k.usb_side} disagrees with solo_usb_x = {k.solo_usb_x:g}**: the Pi's USB ports face the "
+          "wrong end for the Solo's USB-C. Fix one of them.")
     w(f"- **Unmeasured:** {len(um)} dimensions are still published or guessed. Rows that depend on one say so; "
       "see *Measurements still needed*.")
     w(f"- **Size:** {_f(k.out_w)} × {_f(k.out_d)} mm footprint; base {_f(k.base_h)} mm tall without feet; "
@@ -297,7 +305,9 @@ def render_md(prints) -> str:
                         acc_drop=", ".join(f"{s} wall at Y {u:.1f} ({why})" for s, u, why in k.accessory_dropped)
                         or "none",
                         wall_screw=", ".join(k.wall_screw_names) or "none",
-                        post_over=_f(3.0 - k.wall), n_side=len(k.side_slots_u)))
+                        post_over=_f(3.0 - k.wall), n_side=len(k.side_slots_u),
+                        pwr_wall=k.pwr_wall, usb_wall=k.usb_wall, vent_wall=k.vent_wall,
+                        notch_drop=_f(k.notch_floor_drop)))
 
     w("## Measurements still needed\n")
     w("Each is a one-line change in `kit.py`: replace the `est(...)` with the measured number and run `make`.\n")
@@ -311,7 +321,8 @@ def render_md(prints) -> str:
     w(HARDWARE.format(k=k, n_lid=len(k.lid_screws), n_acc=len(k.accessory),
                       n_m3=len(k.lid_screws) + len(k.accessory), grams=grams,
                       m25_depth=k.insert_m25_len + 1, m25_bite=6 - k.pi_board_t,
-                      m3_depth=k.insert_m3_len + 1, m3_bite=8 - k.lid_t))
+                      m3_depth=k.insert_m3_len + 1, m3_bite=8 - k.lid_t,
+                      usb_wall=k.usb_wall, pwr_wall=k.pwr_wall))
     return "\n".join(out) + "\n"
 
 
@@ -322,9 +333,12 @@ DEPARTURES = """\
    the board instead of mirroring it:
    - `usb_side = right`: the board's long axis runs front to back against the right wall. **USB-A and Ethernet face
      the rear wall**, through an open-topped notch, so the cable to the Solo's rear USB-C is a short hop straight up.
-     **USB-C power enters through a peaked window in the right wall**, {pwr_u} mm from the front inside corner.
+     **USB-C power enters through a peaked window in the right wall.**
    - `usb_side = left`: the spec's layout mirrored, which is a real rotation. USB-A and Ethernet face the left wall,
      and power enters through the rear wall.
+
+   This build: USB-A/Ethernet out of the **{usb_wall}** wall, power in through the **{pwr_wall}** wall, the window
+   centred {pwr_u} mm along it from the cavity's inside corner.
 2. **The power-edge gap uses the audio jack.** On the Pi 4 the audio barrel stands 2.5 mm proud of the board edge,
    further than the USB-C (1.25). The spec's board extent left 2.0 mm, which would push the barrel into the wall. The
    model keeps `port_gap` from whichever connector on that edge reaches furthest ({edge} mm for this build).
@@ -334,8 +348,8 @@ DEPARTURES = """\
 4. **Post thickness** is `wall` ({k.wall:g} mm), not 3 mm. With the inside faces `fit` from the Solo, a 3 mm post
    would hang {post_over} mm past the 149 × 102 footprint.
 5. **Side vents are vertical.** Three horizontal 2 × 40 mm slots would leave 40 mm bridges over their tops. The model
-   uses {n_side} vertical 2 × {k.side_slot_h:g} mm slots with 45° peaked tops across the same 40 mm, on the side wall
-   opposite the USB-A notch.
+   uses {n_side} vertical 2 × {k.side_slot_h:g} mm slots with 45° peaked tops across the same 40 mm, in the
+   {vent_wall} wall, across the Pi from the power edge, for the spec's cross-flow.
 6. **The fit-test plate** is bigger than 60 × 52: four 6.5 mm bosses on a 58 × 49 pattern need about 68 × 60. It
    also carries one M3 lid-insert boss on a tab, so you can practise that insert too. The Solo half is a thin ring
    with a {k.fit_post_slice_h:g} mm slice of each post on it.
@@ -343,7 +357,10 @@ DEPARTURES = """\
    prints without support. Pads the Pi or a port opening would hit are left out: {acc_drop}. Nothing uses them yet.
 8. **No official Pi 4 STEP exists.** Raspberry Pi publishes STEP models for the Pi 5 only. `assembly.step` carries
    a board-plus-ports placeholder built from the official Pi 4 drawing and DXF.
-9. **No wordmark** on the front wall (optional in the spec). Engraving on a vertical face adds many small ceilings.
+9. **The notch floor is lower and the notch runs into the corner.** The spec puts the notch floor 0.5 mm below the
+   board top. The model drops it {notch_drop} mm, so a USB-A plug in the lower port clears it; and where the Pi
+   took a corner from the lid screws, the notch runs on into that corner, so the outer plug has room sideways.
+10. **No wordmark** on the front wall (optional in the spec). Engraving on a vertical face adds many small ceilings.
 """
 
 HARDWARE = """\
@@ -354,8 +371,8 @@ HARDWARE = """\
 | {n_m3} | M3 heat-set insert, {k.insert_m3_len:g} mm long | {n_lid} lid bosses + {n_acc} accessory points | Bore {k.insert_m3_bore:g} mm, {m3_depth:g} mm deep |
 | {n_lid} | M3 × 8 mm countersunk screw (ISO 10642 / DIN 7991) | Lid to tray | Head sits flush in a {k.m3_csk_d:g} mm countersink; {m3_bite:g} mm in the insert |
 | 4 | Adhesive rubber bumper, about 10 mm across | Feet | In {k.foot_recess_d:g} mm × {k.foot_recess_t:g} mm recesses |
-| 1 | USB-A to USB-C cable, 15–20 cm, a right-angle A end if you can | Pi to Solo | Out of the rear notch, up to the Solo's rear USB-C |
-| 1 | Official Pi 4 15 W USB-C supply | Power | Through the side window; see the spec's *Power and RAM* |
+| 1 | USB-A to USB-C cable, 15–20 cm, a right-angle A end if you can | Pi to Solo | Out of the {usb_wall} notch, up to the Solo's rear USB-C |
+| 1 | Official Pi 4 15 W USB-C supply | Power | Through the {pwr_wall}-wall window; see the spec's *Power and RAM* |
 | 1 | Pi 4 heatsink under 10 mm tall | SoC | `pi_heatsink_top` is its top above the board |
 | — | PETG | All four prints | Under {grams:.0f} g (that's if solid; 4 walls and 20% infill use less). Not PLA |
 

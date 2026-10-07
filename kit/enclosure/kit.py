@@ -87,11 +87,11 @@ PI_EDGE_PORTS = {  # on the power/HDMI edge: (name, x centre, width, height)
     5: [("USB-C power", 11.2, 8.65, 3.2), ("micro-HDMI 0", 25.8, 7.2, 3.0),
         ("micro-HDMI 1", 39.2, 7.2, 3.0)],
 }
-PI_END_PORTS = {  # on the far short edge: (name, y from, y to, height, body length)
-    4: [("USB 2", 1.65, 16.35, 16.0, 17.7), ("USB 3", 19.75, 34.25, 16.0, 17.5),
+PI_END_PORTS = {  # on the far short edge: (name, y from, y to, height, body length); USB height is pi_tallest
+    4: [("USB 2", 1.65, 16.35, pi_tallest, 17.7), ("USB 3", 19.75, 34.25, pi_tallest, 17.5),
         ("Ethernet", 37.99, 53.51, 13.5, 21.35)],
-    5: [("Ethernet", 2.45, 17.95, 13.5, 21.35), ("USB 3", 21.85, 36.35, 16.0, 17.5),
-        ("USB 2", 39.75, 54.25, 16.0, 17.5)],
+    5: [("Ethernet", 2.45, 17.95, 13.5, 21.35), ("USB 3", 21.85, 36.35, pi_tallest, 17.5),
+        ("USB 2", 39.75, 54.25, pi_tallest, 17.5)],
 }
 
 # ── Layout (SPEC.md, Layout table) ──────────────────────────────────────────
@@ -121,7 +121,10 @@ pwr_win_w = 13.0   # USB-C power window, peaked top at 45°
 pwr_win_h = 8.0
 pwr_plug_w = est(11.0, "guess: official 15 W supply's USB-C plug body width")
 pwr_plug_h = est(6.5, "guess: its height")
-usb_plug_w = est(16.0, "guess: a USB-A plug body, for the notch edges")
+usb_plug_w = est(16.0, "guess: a USB-A plug body's width, for the notch edges")
+usb_plug_h = est(8.0, "guess: a USB-A plug body's height")
+usb_low_port_zc = est(4.2, "guess: the lower USB-A port's centre above the board top")
+notch_floor_drop = 2.5  # the notch floor sits this far below the board top, for the lower plug's body
 
 # ── Vents ───────────────────────────────────────────────────────────────────
 floor_slot_w = 2.0
@@ -233,7 +236,8 @@ pi_keepout: list[Box3] = [
     pi_box(7.1, 57.9, 50.0, 55.0, 0, 8.5, "GPIO header"),
 ]
 for name, xc, w, h in edge_ports:
-    pi_keepout.append(pi_box(xc - w / 2, xc + w / 2, -_edge_oh[name], 6.5, 0, h, name))
+    depth = 12.5 if name == "audio" else 6.5
+    pi_keepout.append(pi_box(xc - w / 2, xc + w / 2, -_edge_oh[name], depth, 0, h, name))
 for name, ya, yb, h, length in end_ports:
     pi_keepout.append(pi_box(pi_board_l + pi_usb_overhang - length, pi_board_l + pi_usb_overhang,
                              ya, yb, 0, h, name))
@@ -254,7 +258,7 @@ pwr_win_z0 = pwr_zc - pwr_win_h / 2
 # The notch over the USB-A and Ethernet stacks: the board's span less 0.5 a side
 _bu = sorted((wall_u(usb_wall, board_box.x0, board_box.y0), wall_u(usb_wall, board_box.x1, board_box.y1)))
 notch_u0, notch_u1 = _bu[0] + 0.5, _bu[1] - 0.5
-notch_z0 = board_top_z - 0.5
+notch_z0 = board_top_z - notch_floor_drop
 
 
 def _circle_box_gap(cx, cy, r, b: Box3) -> float:
@@ -286,6 +290,15 @@ for _name in lid_screws_dropped:
     _x = pi_ext.x0 - _side if _name.endswith("right") else pi_ext.x1 + _side
     lid_screws[f"rear wall, X {_x:.1f}"] = (_x, _wy)
 wall_screw_names = [n for n in lid_screws if n.startswith("rear wall")]
+
+# Run the notch on into the corner the Pi took from the lid screws: more room for the outer plug.
+if usb_side == "right" and "rear-right" in lid_screws_dropped:
+    notch_u1 = cav_w
+elif usb_side == "left" and "rear-left" in lid_screws_dropped:
+    notch_u1 = cav_d
+
+# usb_side should agree with where the Solo's USB-C actually is
+usb_side_agrees = (solo_usb_x > solo_w / 2) == (usb_side == "right")
 
 # Accessory inserts: two per side wall, 60 apart at mid-height, kept only
 # where their inside pad clears the Pi, the notch and the windows.
