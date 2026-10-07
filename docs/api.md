@@ -36,7 +36,8 @@ internet.
 | `DELETE /api/delete?file=` | Move a take and its sidecars to the trash |
 | `POST /api/cut?file=` | Export a region of a take as a new take, with 3ms declick fades |
 | `GET /api/slice?file=&from=&to=` | A region as a 16-bit WAV with the same fades a cut gets, for auditioning |
-| `GET /api/render?file=&from=&to=` | An MP3 of a region, streamed from ffmpeg with the cut's fades, for the share sheet |
+| `GET /api/render?file=&from=&to=` | An MP3 of a region, streamed from ffmpeg with the cut's fades, for the share sheet (`&normalize=1`: levelled) |
+| `GET /api/level?file=&from=&to=` | A region's peak, and the gain Normalize would give it |
 | `GET /api/midi?file=` | The take's `.mid` decoded to notes in frames, one track per device and channel, for the lanes |
 | `GET /guide.md` | The user guide, compiled into the binary, for `/guide.html` to render |
 | `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
@@ -705,6 +706,12 @@ at 10 minutes. `Content-Disposition` names the file
 take, so the share sheet shows a readable title. No `Content-Length`: the
 stream's size is unknown until it ends.
 
+`&normalize=1` brings the region's loudest moment to −1.5 dBFS (at most
++24 dB up; silence is left alone), with ffmpeg's `volume=`, and says the gain
+in `X-Hindsight-Gain-Db` (`6.2`). The peak is read from the take's peaks
+pyramid, as `GET /api/level` reads it; a region whose level can't be read is
+rendered as it is, without the header.
+
 Renders run one at a time: each is an ffmpeg process, and two at once on a
 Pi starve the capture path of CPU. A second request waits for the first to
 finish, and gives up without starting ffmpeg if its client disconnects
@@ -714,6 +721,21 @@ while waiting.
 |---|---|
 | 400 | Bad `file`, non-integer or inverted frames, past the end, over 10 minutes, shorter than two fades (289 frames at 48kHz), or a non-32-bit take |
 | 404 | No such take |
+
+## `GET /api/level?file=&from=&to=`
+
+```json
+{ "peak_db": -7.2, "gain_db": 6.2 }
+```
+
+Frames `[from, to)`'s loudest sample in dBFS, on the pair a render plays (the
+configured pair of a take with more than two channels), read from the take's
+peaks pyramid (its whole 256-frame buckets; the part buckets at its ends from
+the WAV, so audio just outside it doesn't count), and the gain that brings it
+to −1.5 dBFS: at most +24, 0 for silence (`peak_db` −120), negative for a peak
+already over −1.5. The take page's **Level** plays at this gain. 400 for bad
+`file` or frames, past the end, or a take that isn't 32-bit; 404 for no such
+take.
 
 ## `GET /api/midi?file=`
 

@@ -149,6 +149,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/phone", a.handlePhone).Methods(http.MethodGet)
 	r.HandleFunc("/api/slice", a.handleSlice).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/render", a.handleRender).Methods(http.MethodGet)
+	r.HandleFunc("/api/level", a.handleLevel).Methods(http.MethodGet)
 	r.HandleFunc("/api/midi", a.handleMIDI).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/bundle", a.handleBundle).Methods(http.MethodGet)
 	r.HandleFunc("/guide.md", handleGuide).Methods(http.MethodGet, http.MethodHead)
@@ -925,6 +926,19 @@ func (a *API) handleRender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Normalize (step C5): the span's peak, from the peaks pyramid, brought
+	// to a decibel under full scale. The gain goes back in a header, for the
+	// page to say; a span whose level can't be read is shared as it is.
+	gainDB := 0.0
+	if q.Get("normalize") == "1" {
+		if lv, err := audio.LevelOf(path, a.cfg.SaveChannels, from, to); err == nil {
+			gainDB = lv.GainDB
+			w.Header().Set("X-Hindsight-Gain-Db", strconv.FormatFloat(gainDB, 'f', 1, 64))
+		} else {
+			log.Printf("render %s: level: %v", name, err)
+		}
+	}
+
 	base := audio.ReadMeta(path).Label
 	if base == "" {
 		base = strings.TrimSuffix(name, ".wav")
@@ -957,7 +971,7 @@ func (a *API) handleRender(w http.ResponseWriter, r *http.Request) {
 	}
 	defer release()
 	cw := &countingWriter{w: w}
-	if err := audio.RenderMP3(r.Context(), cw, a.cfg.SaveChannels, path, from, to); err != nil {
+	if err := audio.RenderMP3(r.Context(), cw, a.cfg.SaveChannels, path, from, to, gainDB); err != nil {
 		log.Printf("render %s [%d,%d): %v", name, from, to, err)
 		if cw.n == 0 {
 			// Nothing has been flushed, so writeErr's own Content-Type and
@@ -965,9 +979,51 @@ func (a *API) handleRender(w http.ResponseWriter, r *http.Request) {
 			// replaced by writeErr, so drop it -- a 500 must not carry a
 			// filename for a file that was never sent.
 			w.Header().Del("Content-Disposition")
+			w.Header().Del("X-Hindsight-Gain-Db")
 			writeErr(w, http.StatusInternalServerError, "render failed")
 		}
 	}
+}
+
+// handleLevel is a span's Level (step C5): its peak on the pair a share
+// plays, from the peaks pyramid, and the gain Normalize would give it. The
+// take page plays the take at that gain with Level on, so it sounds as the
+// share will.
+//
+//	GET /api/level?file=&from=&to=   {peak_db, gain_db}
+func (a *API) handleLevel(w http.ResponseWriter, r *http.Request) {
+	name, err := a.safeTakeName(r.URL.Query().Get("file"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	q := r.URL.Query()
+	from, err1 := strconv.ParseInt(q.Get("from"), 10, 64)
+	to, err2 := strconv.ParseInt(q.Get("to"), 10, 64)
+	if err1 != nil || err2 != nil || from < 0 || to <= from {
+		writeErr(w, http.StatusBadRequest, "need integer 0 <= from < to")
+		return
+	}
+	path := filepath.Join(a.cfg.OutputDir, name)
+	info, err := audio.ReadWAVInfo(path)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if info.BitsPerSample != 32 {
+		writeErr(w, http.StatusBadRequest, "only 32-bit takes can be levelled")
+		return
+	}
+	if to > info.Frames() {
+		writeErr(w, http.StatusBadRequest, "range is past the end of the take")
+		return
+	}
+	lv, err := audio.LevelOf(path, a.cfg.SaveChannels, from, to)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, lv)
 }
 
 // countingWriter reports whether anything reached the client yet, which is

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
+import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload, gainText } from './share.js';
 
 test('region text is tenths with an en dash, or whole take', () => {
   assert.equal(fmtRegionText({ start: 48000 * 12.34, end: 48000 * 41.87 }, 48000), '0:12.3 – 0:41.8');
@@ -137,4 +137,11 @@ test('shareOrDownload shares a zip with the type it is given', async () => {
     assert.equal(r, 'shared');
     assert.deepEqual(seen, ['application/zip']);
   } finally { for (const u of undo.reverse()) u(); }
+});
+
+test('a Level gain reads with its sign, to the tenth', () => {
+  assert.equal(gainText(6.2), '+6.2 dB');
+  assert.equal(gainText(24), '+24.0 dB');
+  assert.equal(gainText(-1), '−1.0 dB');
+  assert.equal(gainText(0), '0 dB');
 });

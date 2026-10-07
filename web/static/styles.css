@@ -2923,6 +2923,16 @@ a.chip, a.icon-btn { text-decoration: none; }
 .icon-btn.danger, .menu > .danger, .take-flag-rm { color: var(--danger-ink); }
 .take-actions .icon-btn.danger { background: transparent; border-color: transparent; box-shadow: none; }
 .take-top .step-btn { border-color: transparent; background: none; box-shadow: none; }
+/* Level (normalize): on, it reads in full ink with a lit LED, and its number
+   keeps its width as it changes. */
+.level-chip { font-variant-numeric: tabular-nums; }
+.level-chip[aria-pressed="true"] { color: var(--ink); min-width: 8.8em; }
+.level-chip[aria-pressed="true"]::before {
+  content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
+  background: var(--go); box-shadow: 0 0 6px var(--go); vertical-align: middle;
+}
+/* Words for a screen reader only. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* ---------- keys: what you press while playing ---------- */
 .seg button, .mark-btn, .icon-btn.play,

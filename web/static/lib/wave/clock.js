@@ -39,6 +39,8 @@ export class Clock {
     this.audio = new Audio(previewUrl);
     this.audio.preload = 'auto';
     this.ctx = null;          // AudioContext, created on first play (iOS gesture rule)
+    this.out = null;          // Level's gain, once routed (route())
+    this.gainDb = 0;          // Level's gain, in dB
     this.engine = 'preview';
     this.loop = null;
     this.playing = false;
@@ -88,6 +90,7 @@ export class Clock {
 
   async play() {
     if (this.playing) return;
+    if (this.gainDb && !this.out) this.route(); // Level on: this tap routes it
     if (this.engine === 'slice' && this.slice) {
       this.ensureCtx();
       if (this.ctx.state === 'suspended') await this.ctx.resume();
@@ -100,6 +103,10 @@ export class Clock {
       const at = this.position();
       this.startSource(at >= this.slice.start && at < this.slice.end ? at - this.slice.start : 0);
     } else {
+      // Routed through the AudioContext (Level), the preview is heard only
+      // while it runs: resumed here, in the tap, not awaited (iOS would let
+      // the tap go before audio.play()), and from 'interrupted' too.
+      if (this.out && this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
       try { await this.audio.play(); } catch (e) { this.onError?.('could not play the preview'); return; }
     }
     this.playing = true;
@@ -202,12 +209,53 @@ export class Clock {
     if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: this.sr });
   }
 
+  /**
+   * setGain plays the take db louder or quieter: Level (step C5), so it
+   * sounds as a normalized share will. It takes effect once the take is
+   * routed (route(), from a tap: Level's own, or ▶), and glides there, so a
+   * change doesn't click.
+   */
+  setGain(db) {
+    this.gainDb = db;
+    if (!this.out) return;
+    this.out.gain.setTargetAtTime(Math.pow(10, db / 20), this.ctx.currentTime, 0.015);
+    if (this.playing && this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+  }
+
+  /**
+   * route sends the take through the AudioContext, with Level's gain and,
+   * after it, a limiter at -1 dBFS: the preview's <audio> can't go past full
+   * volume, and outside the levelled selection the gain could push louder
+   * parts past it. Call it from a tap (iOS starts an AudioContext only in
+   * one). Once routed it stays, at 0 dB when Level goes off. The audio
+   * session plays through the silent switch, as the tape's stream does.
+   */
+  route() {
+    if (this.out) return;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* older browsers */ }
+    this.ensureCtx();
+    const limit = this.ctx.createDynamicsCompressor();
+    limit.threshold.value = -1;
+    limit.knee.value = 0;
+    limit.ratio.value = 20;
+    limit.attack.value = 0.001;
+    limit.release.value = 0.05;
+    limit.connect(this.ctx.destination);
+    this.out = this.ctx.createGain();
+    this.out.gain.value = Math.pow(10, (this.gainDb || 0) / 20);
+    this.out.connect(limit);
+    this.ctx.createMediaElementSource(this.audio).connect(this.out);
+    // A loop already playing goes through it too.
+    if (this.src) { this.src.disconnect(); this.src.connect(this.out); }
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+  }
+
   startSource(offsetFrames) {
     this.ensureCtx();
     const src = this.ctx.createBufferSource();
     src.buffer = this.slice.buffer;
     src.loop = true;
-    src.connect(this.ctx.destination);
+    src.connect(this.out || this.ctx.destination);
     src.start(0, offsetFrames / this.sr);
     this.src = src;
     this.sliceStartedAt = this.ctx.currentTime;
@@ -237,6 +285,7 @@ export class Clock {
     this.audio.src = '';
     this.ctx?.close?.();
     this.ctx = null;
+    this.out = null;
     this.src = null;
     this.slice = null;
   }
