@@ -56,9 +56,10 @@ export class TakesList {
    * rack) for picking, its controls on the picked take's cassette; with
    * spineAction 'play' (the main page's shelf), a press plays or pauses it.
    */
-  constructor(container, emptyEl, { onToast, onListChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded }) {
+  constructor(container, emptyEl, { onToast, onListChange, onSelectChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded }) {
     // A take starting, and playing to its end: the page's now-playing bar hears of both.
     this.onPlay = onPlay;
+    this.onSelectChange = onSelectChange; // select mode began or ended
     this.onEnded = onEnded;
     this.spines = spines;
     this.spineAction = spineAction;
@@ -970,6 +971,7 @@ export class TakesList {
     if (name) this.selected.add(name);
     for (const r of this.rows.values()) r.ws?.pause();
     this.renderSelect();
+    this.onSelectChange?.(true);
   }
 
   exitSelect() {
@@ -977,6 +979,7 @@ export class TakesList {
     this.selected.clear();
     this.swallowClick = false;
     this.renderSelect();
+    this.onSelectChange?.(false);
   }
 
   toggleSelected(name) {

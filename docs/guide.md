@@ -186,6 +186,14 @@ Every take, from **All takes** on the main page.
     search finds it by its own name.
   - Delete a jam and its cuts stay. They come back onto the rack as spines of
     their own, still named after it; Undo folds them in again.
+- **▶ Play all** plays the takes shown, in the order shown, one after
+  another through the bar: each from its selection's In to its Out, or the
+  whole take without one. It starts at the picked take (the first, with none
+  picked), picks each as it plays, so the bar, the cassette and the spine
+  follow it, and its spine's ring turns green. **■ Stop**, Pause, ⏏, Loop
+  (which stays on that take) or picking a take by hand stops it moving on.
+  A filter or a search first makes it play just those: *Starred*, a tag, a
+  day.
 - **Select** and **Recently deleted** are as they were: hold a spine to start
   selecting. The take page's ◂ ▸ step through the takes in the order this
   page shows them, a spine's folded takes right after it, and its ‹ comes
@@ -204,6 +212,12 @@ Every take, from **All takes** on the main page.
   left pack to the right.
 - [demo] Open a take from a filtered list and press ▸ → the next take is the
   next one the list showed.
+- [demo] Give two takes a selection, turn on *Starred* with three starred,
+  pick the first and press **▶ Play all** → each plays from its In to its
+  Out, then the next starts, its spine ringed green; after the third it
+  stops, and the key says ▶ Play all again.
+- [demo] Press ▶ Play all, then pick another take by hand → Play all stops;
+  the take you picked is in the bar.
 - [demo] Delete the only take a filter shows, on its page → back here, with
   an Undo.
 - [demo] **Edit tags** → add "Ideas" with a color, Save. Pick a take and press
@@ -344,7 +358,10 @@ and the editor bar takes the place of the toolbar.
 
 - **⚑** drops a flag at the playhead.
 - **Tap a pin** to name or delete it. **Drag a pin** to move it.
-- **◂⚑ ⚑▸** jump between flags.
+- **◂⚑ ⚑▸** jump between flags. Past the first or last, they go on to the
+  take before or after in the list, at its nearest flag (its last going
+  back, its first going on, its start without any), so they walk every flag
+  of a run of takes. The take opens stopped; ▶ plays on.
 
 **Doing things with the selection:**
 
@@ -1540,6 +1557,7 @@ has no tip.
 | ◫ clips kept (take) | The clips kept from this take on the crate: tap to see them on the tape page |
 | ‹ (folded take) | Back to the take this one is folded into on the shelf |
 | Open | Open the take to select, loop, save or share part of it |
+| ▶ Play all | Play the takes shown, one after another, each from its In to its Out. Again to stop |
 | Select | Pick several takes to star, export or delete together. Holding a take does the same |
 | ★ Star (selecting) | Star the picked takes, or unstar them if they all are |
 | Export | One zip of the picked takes: each WAV, its name and flags, and its MIDI |
@@ -1576,7 +1594,7 @@ has no tip.
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |
 | ⚑ | Drop a flag at the playhead |
-| ◂⚑ ⚑▸ | Jump to the previous or next flag |
+| ◂⚑ ⚑▸ | Jump to the previous or next flag. Past the first or last, on to the take before or after |
 | Delete flag | Remove this flag |
 | ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
 | Bar 1 ◂ ▸ | Move bar 1 by 10 ms, or by the Snap step with Snap on. It stays here once the take has a tempo |

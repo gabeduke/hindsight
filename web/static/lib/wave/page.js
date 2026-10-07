@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag, landFlag,
 } from './geometry.js';
 import {
   viewAbout, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
@@ -122,6 +122,13 @@ async function main() {
   // A take trashed on the page before this one: "Deleted … · Undo", and its
   // Undo opens it again, where it was in the list's order.
   const queued = takeNextToast();
+  // Where ◂⚑ or ⚑▸ from the take before or after lands, read once whether or
+  // not this take loads, so it can't land a later visit.
+  let land = null;
+  try {
+    land = JSON.parse(sessionStorage.getItem('hindsight.land') || 'null');
+    sessionStorage.removeItem('hindsight.land');
+  } catch {}
   if (queued) toast(queued.msg, queued.kind || 'ok', queued.restore ? { action: { label: 'Undo', run: () => untrash(queued) } } : {});
   const [takeRes, peaksRes] = await Promise.all([
     // Not from the cache: Back onto a take deleted since must say it's gone.
@@ -699,9 +706,24 @@ async function main() {
   $('flag-now').addEventListener('click', () => addFlagAt(Math.min(total - 1, state.cursor)));
   function stepFlag(dir) {
     const f = dir < 0 ? prevFlag(state.flags, state.cursor) : nextFlag(state.flags, state.cursor);
-    if (!f) return;
+    if (!f) { crossTake(dir); return; }
     seekTo(f.frame);
     view.follow(f.frame);
+  }
+  // Past the first or last flag, ◂⚑ and ⚑▸ go on to the take before or after
+  // in the list's order, at its nearest flag: its last going back, its first
+  // going on (its start without one). So they walk every flag of a run of
+  // takes. The take opens stopped: a browser won't play a page that hasn't
+  // been tapped.
+  async function crossTake(dir) {
+    const order = await orderReady;
+    const i = order ? order.indexOf(file) : -1;
+    const name = i < 0 ? null : order[i + dir];
+    if (!name) return;
+    flushRegion();
+    flushDownbeat();
+    try { sessionStorage.setItem('hindsight.land', JSON.stringify({ file: name, flag: dir < 0 ? 'last' : 'first' })); } catch {}
+    hopTo(name);
   }
   $('flag-prev').addEventListener('click', () => stepFlag(-1));
   $('flag-next').addEventListener('click', () => stepFlag(1));
@@ -1754,6 +1776,11 @@ async function main() {
   view.fitAll();
   loadLanes();
   orderReady = neighbours();
+  // Here by ◂⚑ or ⚑▸ from the take before or after: at the nearest flag.
+  if (land && land.file === file) {
+    const f = landFlag(state.flags, land.flag);
+    if (f) { seekTo(f.frame); view.follow(f.frame); }
+  }
   // A bar 1 nudge still in its pause saves before the page goes away.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushDownbeat();
