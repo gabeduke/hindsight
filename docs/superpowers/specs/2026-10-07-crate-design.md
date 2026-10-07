@@ -99,6 +99,16 @@ The plan's route names are used. The clips design's `/api/clips` and
 
 *Insert* on a crate row comes with A7.
 
+With a third drawer key, the keys sit beside Catch only from 1200 px. Below
+that, the 1024 px bench included, they sit in the bar's second row beside
+OUT, because Catch was pushed off the bar. On a phone every drawer is on the
+page, so the crate is read as the page opens, and after every Keep.
+
+A clip kept from the tape keeps its audio, not its level or nudge: those
+are the tape's. A kept clip can't be played or dropped while it's deleted,
+and deleting it again doesn't restart its week. Keeping more than a track
+holds is refused, as Copy refuses it, because it could never be dropped.
+
 ## Checks
 
 These come from the clips design.

@@ -149,7 +149,7 @@ func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipb
 // that has left the ring moves to the oldest audio, a second in, as a save
 // from the ribbon does; it answers whether it moved.
 func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, error) {
-	cl, src, clamped, err := e.ringClip(from, to, source, "copy")
+	cl, src, _, clamped, err := e.ringClip(from, to, source, "copy")
 	if err != nil {
 		return nil, false, err
 	}
@@ -164,10 +164,11 @@ func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, erro
 
 // ringClip writes ring frames [from, to) of a source into a new pool file
 // named kind, with handles, as CopyRing describes, and answers the clip that
-// plays it, the source's name, and whether the start moved.
-func (e *Engine) ringClip(from, to int64, source, kind string) (Clip, string, bool, error) {
+// plays it, the source's name, the ring frame it starts at, and whether that
+// start moved.
+func (e *Engine) ringClip(from, to int64, source, kind string) (Clip, string, int64, bool, error) {
 	if e.capture == nil {
-		return Clip{}, "", false, ErrNoCapture
+		return Clip{}, "", 0, false, ErrNoCapture
 	}
 	if source == "" {
 		source = "main"
@@ -177,7 +178,7 @@ func (e *Engine) ringClip(from, to int64, source, kind string) (Clip, string, bo
 	}
 	src, ok := e.source(source)
 	if !ok {
-		return Clip{}, "", false, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
+		return Clip{}, "", 0, false, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
 	}
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
@@ -191,29 +192,29 @@ func (e *Engine) ringClip(from, to int64, source, kind string) (Clip, string, bo
 		from, clamped = margin, true
 	}
 	if to <= from {
-		return Clip{}, "", false, fmt.Errorf("%w: that span has left the buffer", ErrGone)
+		return Clip{}, "", 0, false, fmt.Errorf("%w: that span has left the buffer", ErrGone)
 	}
 	if to > int64(total) {
-		return Clip{}, "", false, ErrNotYet
+		return Clip{}, "", 0, false, ErrNotYet
 	}
 	if err := e.tooLong(to - from); err != nil {
-		return Clip{}, "", false, err
+		return Clip{}, "", 0, false, err
 	}
 	if err := e.diskOK(); err != nil {
-		return Clip{}, "", false, err
+		return Clip{}, "", 0, false, err
 	}
 	lo, hi := max64(int64(oldest), from-over), min64(int64(total), to+over)
 	mLo, mHi := lo, hi // the clip and its overhang: what the peak is of
 	lo, hi = ringHandles(r, sr, lo, hi, e.handle(sr)-over)
 	rel, path, err := e.store.NewPoolFile(kind, time.Now())
 	if err != nil {
-		return Clip{}, "", false, err
+		return Clip{}, "", 0, false, err
 	}
 	peak, err := audio.WriteSpanMeasured(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr), mLo-lo, mHi-lo)
 	if err != nil {
-		return Clip{}, "", false, err
+		return Clip{}, "", 0, false, err
 	}
-	return Clip{File: rel, Src: from - lo, Frames: to - from, Source: src.Name, PeakDB: peakDB(peak)}, src.Name, clamped, nil
+	return Clip{File: rel, Src: from - lo, Frames: to - from, Source: src.Name, PeakDB: peakDB(peak)}, src.Name, from, clamped, nil
 }
 
 func (e *Engine) diskOK() error {

@@ -49,7 +49,7 @@ func takeTitle(name, path string) string {
 	if fi, err := os.Stat(path); err == nil {
 		mod = fi.ModTime()
 	}
-	return audio.TakeCreated(name, m, mod).Format("Jan 2 15:04")
+	return audio.TakeCreated(name, m, mod).Format("Mon 2 Jan 15:04") // as its cassette says it
 }
 
 func (a *API) handleCrateKeep(w http.ResponseWriter, r *http.Request) {

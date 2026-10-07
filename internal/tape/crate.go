@@ -194,6 +194,10 @@ func clock(frames int64, sr int) string {
 // with handles, named for the take (name, as the page shows it) and where
 // in it the span starts.
 func (e *Engine) KeepTake(take, file, name string, from, to int64, pick []int) (CrateClip, error) {
+	// No longer than a track: it could never be dropped.
+	if err := e.tooLong(to - from); err != nil {
+		return CrateClip{}, err
+	}
 	c, err := e.copyTake(take, from, to, pick, "keep")
 	if err != nil {
 		return CrateClip{}, err
@@ -211,7 +215,7 @@ func (e *Engine) KeepTake(take, file, name string, from, to int64, pick []int) (
 // KeepRing keeps ring frames [from, to) of a source (to < 0: up to now), as
 // CopyRing copies them to the clipboard.
 func (e *Engine) KeepRing(from, to int64, source string) (CrateClip, bool, error) {
-	c, src, clamped, err := e.ringClip(from, to, source, "keep")
+	c, src, from, clamped, err := e.ringClip(from, to, source, "keep")
 	if err != nil {
 		return CrateClip{}, false, err
 	}
@@ -287,7 +291,11 @@ func (e *Engine) RenameCrateClip(id, name string) (CrateClip, error) {
 // and comes back with RestoreCrateClip for CrateTrashDays.
 func (e *Engine) DeleteCrateClip(id string) (CrateClip, error) {
 	now := time.Now()
-	return e.updateCrateClip(id, func(k *CrateClip) { k.Deleted = &now })
+	return e.updateCrateClip(id, func(k *CrateClip) {
+		if k.Deleted == nil { // deleting it again doesn't start its week over
+			k.Deleted = &now
+		}
+	})
 }
 
 // RestoreCrateClip brings a deleted clip back.
@@ -330,6 +338,9 @@ func (e *Engine) CrateWAV(id string) (*ClipWAV, error) {
 	k, err := e.CrateClip(id)
 	if err != nil {
 		return nil, err
+	}
+	if k.Deleted != nil {
+		return nil, ErrNoSuchCrateClip
 	}
 	return e.clipWAV(k.clip(), k.Name, 0)
 }

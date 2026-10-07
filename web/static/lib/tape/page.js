@@ -391,6 +391,7 @@ function render() {
   const live = state.live;
   const sr = t.sample_rate;
   renderMulti();
+  renderCrateDrops();
   $('tape-name-text').textContent = t.name;
   $('tape-name').title = `${t.name}: switch tape`;
   document.title = `${t.name} — tape — Hindsight`;
@@ -855,17 +856,25 @@ function crateMeta(k) {
   return [len, bars ? `${bars} bar${bars === 1 ? '' : 's'}` : '', k.source && k.source.what].filter(Boolean).join(' · ');
 }
 
+const CRATE_EMPTY = $('crate-empty').innerHTML; // what it says with nothing kept
+
+// renderCrate rebuilds the rows, where they were scrolled to and the focus
+// kept: after a fetch, not for a play or a stop (markPlaying).
 function renderCrate() {
   const list = $('crate-list');
+  const scroll = list.scrollTop;
+  const focused = document.activeElement && list.contains(document.activeElement)
+    ? [document.activeElement.closest('.crate-row')?.dataset.id, document.activeElement.className] : null;
   list.replaceChildren();
   $('crate-from').hidden = !crate.take;
   if (crate.take) $('crate-from').textContent = `from ${crate.take.replace(/\.wav$/, '')} ×`;
   $('crate-empty').hidden = crate.clips.length > 0;
-  if (!crate.clips.length && (crate.q || crate.take)) $('crate-empty').textContent = 'No kept clip matches.';
-  const playing = $('crate-audio').dataset.id && !$('crate-audio').paused ? $('crate-audio').dataset.id : '';
+  if (crate.q || crate.take) $('crate-empty').textContent = 'No kept clip matches.';
+  else $('crate-empty').innerHTML = CRATE_EMPTY;
   for (const k of crate.clips) {
     const li = document.createElement('li');
     li.className = 'crate-row';
+    li.dataset.id = k.id;
     li.innerHTML = `
       <button class="crate-play" type="button" data-tip="crate-play">
         <canvas class="crate-wave" aria-hidden="true"></canvas>
@@ -873,15 +882,35 @@ function renderCrate() {
       </button>
       <button class="icon-btn crate-drop" type="button" data-tip="crate-drop">Drop</button>
       <button class="icon-btn crate-more" type="button" aria-label="More for this clip" data-tip="crate-more">⋯</button>`;
-    li.querySelector('.crate-name').textContent = `${playing === k.id ? '■' : '▶'} ${k.name}`;
+    li.querySelector('.crate-name').textContent = k.name;
     li.querySelector('.crate-meta').textContent = crateMeta(k);
     li.querySelector('.crate-play').addEventListener('click', () => auditionCrate(k));
     li.querySelector('.crate-drop').addEventListener('click', () => dropCrate(k));
     li.querySelector('.crate-drop').disabled = !state.tape;
     li.querySelector('.crate-more').addEventListener('click', () => openCrateClip(k));
     list.appendChild(li);
-    drawCrateWave(li.querySelector('.crate-wave'), k);
   }
+  // The waves once every row is in, so measuring one lays the list out once.
+  for (const li of list.children) drawCrateWave(li.querySelector('.crate-wave'), crate.clips.find((k) => k.id === li.dataset.id));
+  list.scrollTop = scroll;
+  if (focused) list.querySelector(`.crate-row[data-id="${CSS.escape(focused[0] || '')}"] .${focused[1].split(' ').pop()}`)?.focus({ preventScroll: true });
+  markPlaying();
+  renderCrateDrops();
+}
+
+// markPlaying marks the row playing ■, the others ▶, in place.
+function markPlaying() {
+  const a = $('crate-audio');
+  const playing = a.dataset.id && !a.paused ? a.dataset.id : '';
+  for (const li of $('crate-list').children) {
+    li.querySelector('.crate-play').setAttribute('aria-pressed', String(li.dataset.id === playing));
+    li.classList.toggle('playing', li.dataset.id === playing);
+  }
+}
+
+// The rows' Drop keys need a tape to drop on.
+function renderCrateDrops() {
+  for (const b of document.querySelectorAll('#crate-list .crate-drop')) b.disabled = !state.tape;
 }
 
 // drawCrateWave draws a kept clip's bars, small, from its file's peaks.
@@ -905,11 +934,12 @@ async function drawCrateWave(cv, k) {
 
 function auditionCrate(k) {
   const a = $('crate-audio');
-  if (a.dataset.id === k.id && !a.paused) { a.pause(); renderCrate(); return; }
+  if (a.dataset.id === k.id && !a.paused) { a.pause(); return; }
   a.dataset.id = k.id;
   a.src = `/api/crate/audio?id=${encodeURIComponent(k.id)}`;
-  a.play().catch((e) => toast(`Could not play it: ${e.message}`, 'bad'));
-  renderCrate();
+  // Another row tapped before this one starts aborts it: not an error.
+  a.play().catch((e) => { if (e.name !== 'AbortError') toast(`Could not play it: ${e.message}`, 'bad'); });
+  markPlaying();
 }
 
 async function dropCrate(k) {
@@ -927,7 +957,7 @@ async function keep(body) {
   try {
     const b = await api('/api/crate', { method: 'POST', body });
     toast(`Kept “${b.clip.name}” in the crate`, 'ok', { action: { label: 'Open', run: () => setDrawer('crate') } });
-    if (state.drawer === 'crate') fetchCrate();
+    fetchCrate(); // on a phone the crate is always on the page
   } catch (e) {
     toast(`Could not keep it: ${e.message}`, 'bad');
   }
@@ -957,18 +987,24 @@ function wireCrate() {
     history.replaceState(history.state, '', u);
     fetchCrate();
   });
-  $('crate-audio').addEventListener('ended', renderCrate);
-  $('crate-audio').addEventListener('pause', renderCrate);
+  for (const ev of ['play', 'playing', 'ended', 'pause']) $('crate-audio').addEventListener(ev, markPlaying);
+  // Enter both submits the form and changes the field: one rename.
+  let renaming = false;
   const rename = async () => {
     const k = crate.open;
     const name = $('crate-name').value.trim();
-    if (!k || !name || name === k.name) return;
+    if (!k || !name || name === k.name || renaming) return;
+    renaming = true;
     try {
       const b = await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'PATCH', body: { name } });
-      crate.open = b.clip;
+      if (crate.open && crate.open.id === b.clip.id) crate.open = b.clip;
       $('crate-title').textContent = b.clip.name;
       fetchCrate();
-    } catch (e) { toast(`Could not rename it: ${e.message}`, 'bad'); }
+    } catch (e) {
+      toast(`Could not rename it: ${e.message}`, 'bad');
+    } finally {
+      renaming = false;
+    }
   };
   $('crate-rename').addEventListener('submit', (e) => { e.preventDefault(); rename(); });
   $('crate-name').addEventListener('change', rename);
@@ -990,15 +1026,20 @@ function wireCrate() {
       await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'DELETE' });
       fetchCrate();
       toast(`Deleted “${k.name}”: it can come back for a week`, 'ok', {
-        action: { label: 'Undo', run: async () => { await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'PATCH', body: { restore: true } }); fetchCrate(); } },
+        action: { label: 'Undo', run: async () => {
+          try { await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'PATCH', body: { restore: true } }); } catch (e) { toast(`Could not bring it back: ${e.message}`, 'bad'); }
+          fetchCrate();
+        } },
       });
     } catch (e) { toast(`Could not delete it: ${e.message}`, 'bad'); }
   });
   $('crate-done').addEventListener('click', () => $('crate-sheet').close());
   $('crate-sheet').addEventListener('close', () => { crate.open = null; });
-  // Opened on a take's clips (from its page, or the takes list).
-  if (crate.take) setDrawer('crate');
-  else if (state.drawer === 'crate') fetchCrate();
+  // Opened on a take's clips (from its page, or the takes list): open, but
+  // not remembered as the drawer to open next time. On a phone every drawer
+  // is on the page, so the crate is always read.
+  if (crate.take) { state.drawer = 'crate'; renderDrawers(); }
+  fetchCrate();
 }
 
 // --- several clips -------------------------------------------------------------
@@ -2745,10 +2786,11 @@ function wire() {
   for (const b of document.querySelectorAll('.np-drawer-close')) {
     b.addEventListener('click', () => { const key = b.dataset.drawer; setDrawer(''); $(`np-drawer-${key}`).focus(); });
   }
-  // From 1000 px the drawer keys sit beside Catch; narrower, the top row has
-  // no room for them, and they sit under it, beside OUT. Moved, not
-  // reordered in CSS, so the tab order stays the order on screen.
-  const wide = matchMedia('(min-width: 1000px)');
+  // From 1200 px the three drawer keys sit beside Catch; narrower (the
+  // 1024 px bench too), the top row has no room for them, and they sit under
+  // it, beside OUT. Moved, not reordered in CSS, so the tab order stays the
+  // order on screen.
+  const wide = matchMedia('(min-width: 1200px)');
   const placeKeys = () => {
     const keys = [$('np-drawer-rec'), $('np-drawer-edit'), $('np-drawer-crate')];
     const had = keys.find((k) => k === document.activeElement);

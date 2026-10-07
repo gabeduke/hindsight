@@ -234,7 +234,7 @@ fetch('/api/crate', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null))
   const counts = new Map();
   for (const k of b.clips || []) if (k.source && k.source.take) counts.set(k.source.take, (counts.get(k.source.take) || 0) + 1);
   detail.setCrate(counts);
-  if (picked) showDetail(picked);
+  if (picked && (wide.matches || sheet.open)) showDetail(picked);
 }).catch(() => {});
 
 // pick shows take `name` in the pane, and puts it in the now-playing bar.

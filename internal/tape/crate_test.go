@@ -258,3 +258,45 @@ func TestKeepingASpanOfTheRing(t *testing.T) {
 		t.Fatalf("kept from the ring = %+v (clamped %v)", k, clamped)
 	}
 }
+
+func TestADeletedClipNeitherPlaysNorDrops(t *testing.T) {
+	e, _, tp := newEngine(t)
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
+	k, _ := e.KeepTake(take, "jam_take.wav", "jam", 0, 48000, []int{0, 1})
+	e.DeleteCrateClip(k.ID)
+	if _, err := e.CrateWAV(k.ID); !errors.Is(err, ErrNoSuchCrateClip) {
+		t.Fatalf("a deleted clip's WAV = %v", err)
+	}
+	if _, err := e.DropCrate(tp.ID, k.ID, 1); !errors.Is(err, ErrNoSuchCrateClip) {
+		t.Fatalf("a deleted clip's drop = %v", err)
+	}
+	// Deleting it again doesn't start its week over.
+	first, _ := e.CrateClip(k.ID)
+	time.Sleep(2 * time.Millisecond)
+	e.DeleteCrateClip(k.ID)
+	if again, _ := e.CrateClip(k.ID); !again.Deleted.Equal(*first.Deleted) {
+		t.Fatal("deleting it again moved its week")
+	}
+}
+
+func TestKeepingMoreThanATrackIsRefused(t *testing.T) {
+	e, _, _ := newEngine(t)
+	// The test store's tracks are 60 s.
+	take := takeWAV(t, 48000*61, func(i int) float64 { return 0.1 })
+	if _, err := e.KeepTake(take, "jam_take.wav", "jam", 0, 48000*61, []int{0, 1}); err == nil {
+		t.Fatal("a keep longer than a track was let through: it could never be dropped")
+	}
+}
+
+func TestKeepingFromTheRingSaysWhereItStarted(t *testing.T) {
+	e, sink, _ := newEngine(t)
+	sink.ring.WriteFrames(make([]int32, 48000*25*8)) // more than the 20 s ring holds
+	oldest, _ := sink.ring.Window()
+	k, clamped, err := e.KeepRing(0, -1, "aux")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !clamped || k.Source.From != int64(oldest)+48000 || k.Source.To != k.Source.From+k.Frames {
+		t.Fatalf("kept from a span that had left: %+v (clamped %v, oldest %d)", k.Source, clamped, oldest)
+	}
+}

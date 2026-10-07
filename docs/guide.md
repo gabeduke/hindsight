@@ -1346,7 +1346,7 @@ touches the crate. A clip outlives the take it came from.
 |---|---|---|
 | A take | **Keep as clip** (beside Send to tape): the selection, or the whole take | Its own copy of the audio, with 2 s either side to trim back out |
 | The ribbon | Select a span, **Keep as clip** | The same, from the buffer |
-| A clip on the tape | Its sheet's **Keep** | The clip itself: nothing is copied |
+| A clip on the tape | Its sheet's **Keep** | The clip's audio itself: nothing is copied. Its level and nudge stay on the tape |
 | The clipboard | **Keep** beside it, when it holds one clip | The same: nothing is copied |
 
 **Crate ▴**, beside Record and Edit, opens it: the clips, newest first, with
