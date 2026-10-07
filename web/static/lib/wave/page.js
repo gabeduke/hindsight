@@ -30,7 +30,8 @@ import { drawTrace } from './tape-strip.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
-import { toast, toastNext, undoSkipped, undoPhrase } from '../toast.js';
+import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toast.js';
+import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { listFrom, fold, familyOf } from '../shelf.js';
@@ -66,6 +67,31 @@ const stemOf = (name) => (name || '').replace(/\.wav$/, '');
 // What an unnamed take is called: its timestamp, as the list shows it.
 const stampOf = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 
+// hopTo opens another take in this one's place: replace, not a new entry, so
+// Back from any take in a run of ◂/▸ (or of deletes) still goes straight to
+// the list (see the back button in main).
+function hopTo(name) {
+  try { sessionStorage.setItem('hindsight.hop', '1'); } catch {}
+  location.replace(`/wave.html?file=${encodeURIComponent(name)}`);
+}
+
+// untrash is a trashed take's Undo, on the take after it: back from the
+// trash, back in the list's order where it was, and open again.
+async function untrash(q) {
+  try {
+    await restoreTake(q.restore);
+  } catch (e) {
+    toast(`Could not restore: ${e.message}`, 'bad');
+    return;
+  }
+  try {
+    const order = JSON.parse(sessionStorage.getItem('hindsight.order') || 'null');
+    sessionStorage.setItem('hindsight.order', JSON.stringify(putBack(order, q.restore, q.at ?? -1)));
+  } catch {}
+  toastNext({ msg: 'Restored, starred' });
+  hopTo(q.restore);
+}
+
 function readPref(key, fallback) {
   try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
 }
@@ -82,6 +108,10 @@ async function main() {
   if (history.state && history.state.notes) history.replaceState(null, '');
   initHelp({ page: 'take', toast });
   initNav();
+  // A take trashed on the page before this one: "Deleted … · Undo", and its
+  // Undo opens it again, where it was in the list's order.
+  const queued = takeNextToast();
+  if (queued) toast(queued.msg, queued.kind || 'ok', queued.restore ? { action: { label: 'Undo', run: () => untrash(queued) } } : {});
   const [takeRes, peaksRes] = await Promise.all([
     fetch(`/api/take?file=${encodeURIComponent(file)}`, { headers: withClient() }),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
@@ -1090,7 +1120,8 @@ async function main() {
     try { await patch({ starred: take.starred }); } catch (e) { take.starred = !take.starred; renderHeader(); toast(`Could not star: ${e.message}`, 'bad'); }
   });
 
-  // Previous and next take, in the order the list last showed them.
+  // Previous and next take, in the order the list last showed them. Answers
+  // that order (or null), which the trash key steps on through too.
   async function neighbours() {
     let order = null;
     try { order = JSON.parse(sessionStorage.getItem('hindsight.order') || 'null'); } catch {}
@@ -1100,19 +1131,18 @@ async function main() {
         if (res.ok) order = (await res.json()).map((t) => t.name);
       } catch {}
     }
-    if (!Array.isArray(order)) return;
+    if (!Array.isArray(order)) return null;
     const i = order.indexOf(file);
-    // replace, not a new entry: Back from any take in a run of ◂/▸ still
-    // goes straight to the list (see the back button below).
     const go = (name) => () => {
       flushRegion();
       flushDownbeat();
-      try { sessionStorage.setItem('hindsight.hop', '1'); } catch {}
-      location.replace(`/wave.html?file=${encodeURIComponent(name)}`);
+      hopTo(name);
     };
     if (i > 0) { $('take-prev').disabled = false; $('take-prev').onclick = go(order[i - 1]); }
     if (i >= 0 && i < order.length - 1) { $('take-next').disabled = false; $('take-next').onclick = go(order[i + 1]); }
+    return order;
   }
+  let orderReady = Promise.resolve(null);
 
   // Back returns to the list as it was -- the main page or the takes page --
   // with the browser's own Back, which keeps its scroll, where a fresh load
@@ -1170,21 +1200,42 @@ async function main() {
     $('dl-midi').hidden = false;
     $('dl-midi').href = `/api/download?file=${encodeURIComponent(take.midi_name)}&dl=1`;
   }
-  // To the trash, so it doesn't ask: the list says "Deleted · Undo".
-  $('delete-take').addEventListener('click', async () => {
+  // 🗑 in the header, and Delete take in More: to the trash in one tap, so it
+  // doesn't ask, and on to the next take in the list's order (the one before,
+  // from the last), which says "Deleted … · Undo". Undo brings it back,
+  // starred as any restore is, and opens it again. With no take left to go
+  // on to, back to the list, which says it there.
+  let trashing = false;
+  async function trashTake() {
+    if (trashing) return;
+    trashing = true;
+    $('take-trash').disabled = true;
     try {
       await whenSaved();
       const res = await fetch(`/api/delete?file=${encodeURIComponent(file)}`, { method: 'DELETE', headers: withClient() });
       if (!res.ok) throw new Error(`status ${res.status}`);
-      pendingTrim = null; // nothing left to save it to
-      clock.pause();
-      toastNext({ msg: `Deleted ${take.label || stampOf(file)}`, restore: file });
+    } catch (e) {
+      trashing = false;
+      $('take-trash').disabled = false;
+      toast(`Could not delete: ${e.message}`, 'bad');
+      return;
+    }
+    pendingTrim = null; // nothing left to save it to
+    clock.pause();
+    const msg = `Deleted ${take.label || stampOf(file)}`;
+    const step = stepPast(await orderReady, file);
+    if (step.next) {
+      try { sessionStorage.setItem('hindsight.order', JSON.stringify(step.order)); } catch {}
+      toastNext({ msg, restore: file, at: step.at });
+      hopTo(step.next);
+    } else {
+      toastNext({ msg, restore: file });
       if (fromList && history.length > 1) history.back();
       else location.href = list || '/takes.html';
-    } catch (e) {
-      toast(`Could not delete: ${e.message}`, 'bad');
     }
-  });
+  }
+  $('take-trash').addEventListener('click', trashTake);
+  $('delete-take').addEventListener('click', trashTake);
 
   // --- Send to tape -------------------------------------------------------------
   // The selection (or the whole take) onto track 1 of the loaded tape. The Pi
@@ -1680,7 +1731,7 @@ async function main() {
   syncTransport();
   view.fitAll();
   loadLanes();
-  neighbours();
+  orderReady = neighbours();
   // A bar 1 nudge still in its pause saves before the page goes away.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushDownbeat();

@@ -304,6 +304,30 @@ async function pollTakes(force = false) {
 
 // ---------------------------------------------------------------- capture
 
+// Every save says so, with Name it and Undo: a capture you didn't mean goes
+// straight to the trash (Recently deleted, under the takes list), and the
+// toast that says so has Restore.
+function savedToast(msg, name) {
+  toast(msg, 'ok', {
+    actions: [
+      { label: 'Name it', run: () => location.assign(`/takes.html?take=${encodeURIComponent(name)}`) },
+      { label: 'Undo', run: () => undoSave(name) },
+    ],
+  });
+}
+
+async function undoSave(name) {
+  try {
+    await takes.trash([name]);
+  } catch (e) {
+    toast(`Could not undo the save: ${e.message}`, 'bad');
+    return;
+  }
+  toast(`Took back ${name}: it’s in Recently deleted`, 'ok', { action: { label: 'Restore', run: () => takes.restore([name]) } });
+  pollTakes(true);
+  pollStatus();
+}
+
 async function capture() {
   const btn = el.captureBtn;
   btn.disabled = true;
@@ -321,9 +345,7 @@ async function capture() {
     }
 
     takes.markFresh(body.name);
-    toast(`Saved ${body.name}`, 'ok', {
-      action: { label: 'Name it', run: () => location.assign(`/takes.html?take=${encodeURIComponent(body.name)}`) },
-    });
+    savedToast(`Saved ${body.name}`, body.name);
     saved = true;
     await pollTakes(true);
     await pollStatus();
@@ -382,6 +404,7 @@ el.markBtn.addEventListener('click', mark);
 
 ribbon = new Ribbon(el.vizWrap, {
   onToast: toast,
+  onSavedToast: savedToast,
   selBar: $('rb-sel'),
   flagSheet: $('rb-flag-sheet'),
   onSaved: (name) => {

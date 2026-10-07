@@ -57,10 +57,11 @@ export class Ribbon {
    * @param {HTMLElement} wrap the existing .viz-wrap
    * @param {{onToast?: (msg: string, kind?: string) => void}} [opts]
    */
-  constructor(wrap, { onToast, onSaved, selBar, flagSheet } = {}) {
+  constructor(wrap, { onToast, onSaved, onSavedToast, selBar, flagSheet } = {}) {
     this.wrap = wrap;
     this.onToast = onToast;
     this.onSaved = onSaved;
+    this.onSavedToast = onSavedToast; // (msg, name): a save's toast, with its Undo
     this.selBar = selBar || null;
     this.flagSheet = flagSheet || null;
     this.sel = null;   // {from, to}: absolute ring frames; to null means "now"
@@ -248,7 +249,9 @@ export class Ribbon {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
     const note = body.clamped ? ' (its start had already left the buffer)' : '';
-    this.onToast?.(`Saved ${fmtAge(body.seconds)} as a take${note}`, 'ok');
+    const msg = `Saved ${fmtAge(body.seconds)} as a take${note}`;
+    if (this.onSavedToast) this.onSavedToast(msg, body.name);
+    else this.onToast?.(msg, 'ok');
     this.onSaved?.(body.name);
     return body;
   }

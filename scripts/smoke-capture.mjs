@@ -79,6 +79,28 @@ for (const [w, h] of [[390, 844], [360, 780]]) {
   await ctx.close();
 }
 
+// A save's toast has Undo: the take goes to the trash, and Restore in the
+// toast that says so brings it back, starred.
+{
+  const [ctx, p] = await open(1440, 900);
+  const names = () => p.evaluate(() => fetch('/api/jams').then((r) => r.json()).then((l) => l.map((t) => t.name)));
+  const trashed = () => p.evaluate(() => fetch('/api/trash').then((r) => r.json()).then((b) => b.takes.map((t) => t.name)));
+  await p.waitForFunction(() => !document.getElementById('capture-btn').disabled, null, { timeout: 15000 });
+  await p.locator('#capture-btn').click();
+  const saved = p.locator('#toasts .toast', { hasText: 'Saved' }).last();
+  await saved.waitFor({ timeout: 15000 });
+  const name = (await saved.textContent()).match(/jam_\S+?\.wav/)?.[0];
+  check('a save\'s toast has Name it and Undo', (await saved.locator('.toast-action').allTextContents()).join(',') === 'Name it,Undo');
+  await saved.locator('.toast-action', { hasText: 'Undo' }).click();
+  await p.waitForTimeout(1500);
+  check('Undo takes the save to the trash', !!name && !(await names()).includes(name) && (await trashed()).includes(name), name);
+  await p.locator('#toasts .toast-action', { hasText: 'Restore' }).last().click();
+  await p.waitForTimeout(1500);
+  const back = await p.evaluate((n) => fetch('/api/jams').then((r) => r.json()).then((l) => l.find((t) => t.name === n)), name);
+  check('Restore brings it back, starred', !!back && back.starred === true);
+  await ctx.close();
+}
+
 // Opening Input channels on the bench keeps Capture's row on screen.
 {
   const [ctx, p] = await open(1024, 600);
