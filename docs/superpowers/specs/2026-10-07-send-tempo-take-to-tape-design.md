@@ -114,7 +114,8 @@ Under the buttons, one line, when the tape is on:
 - with none, and longer: *… at the tape's playhead as one clip, no loop; an
   empty tape gets no tempo*.
 
-After the send, a toast says what it did: which bar the downbeat landed on,
+After the send, a toast says what it did: which bar the downbeat landed on
+(or, for a selection that leaves the downbeat out, only that it's on the bar lines),
 the tempo the tape took, or the warning for a tempo that didn't match.
 
 ## Not in this

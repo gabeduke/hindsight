@@ -57,3 +57,7 @@ test('a tempo that did not match is a warning, with what the Pi said', () => {
   assert.match(r.msg, /^Sent 0:30 to tape, track 2\. The take is 100\.00 BPM/);
   assert.equal(sentMessage({ mode: 'as-is' }, '0:30').kind, 'ok');
 });
+
+test('a send that left the downbeat out says it is on the bar lines, not which bar', () => {
+  assert.equal(sentMessage({ mode: 'grid', bpm: 120 }, '0:10').msg, "Sent 0:10 to tape, track 1: on the tape's bar lines");
+});

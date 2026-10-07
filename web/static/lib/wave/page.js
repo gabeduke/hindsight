@@ -950,6 +950,7 @@ async function main() {
     $('take-star').classList.toggle('on', !!take.starred);
     $('take-bpm').textContent = tempoLabel(take.bpm, take.tempo_from);
     $('take-bpm').classList.toggle('unset', !take.bpm);
+    renderSendHint(); // the hint follows the tempo and the selection
     $('take-len').textContent = state.region
       ? `${fmtClock(state.region.end - state.region.start, sr)} of ${fmtClock(total, sr)}`
       : fmtClock(total, sr);

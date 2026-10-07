@@ -34,7 +34,7 @@ export function sendHint({ bpm, region, total, sr }) {
 
 /**
  * sentMessage is what the tap did, from the Pi's answer: {mode, bpm?,
- * tempo_set?, bar?, warning?}. len is the sent span as m:ss. Answers
+ * tempo_set?, bar? (the tape bar the downbeat is on, when it was sent), warning?}. len is the sent span as m:ss. Answers
  * {msg, kind}; a tempo that didn't match is a warning, and says so.
  */
 export function sentMessage(res, len, track = 1) {
@@ -42,7 +42,9 @@ export function sentMessage(res, len, track = 1) {
   switch (res.mode) {
     case 'grid': {
       const tempo = res.tempo_set ? `, the tape is now ${fmtBpm(res.bpm)} BPM` : '';
-      return { msg: `${head}: bar 1 on tape bar ${res.bar}${tempo}`, kind: 'ok' };
+      // No bar when the selection left the downbeat out: it still sits on the lines.
+      const where = res.bar ? `bar 1 on tape bar ${res.bar}` : "on the tape's bar lines";
+      return { msg: `${head}: ${where}${tempo}`, kind: 'ok' };
     }
     case 'first-loop':
       return { msg: `${head}: a loop at ${fmtBpm(res.bpm)} BPM, which is now the tape's tempo`, kind: 'ok' };

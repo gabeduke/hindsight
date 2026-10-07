@@ -1044,7 +1044,7 @@ what it uses is what's saved, and places it by what it finds:
 Answers `{"clip": …, "mode": "grid" | "first-loop" | "linear" | "as-is",
 "bpm": 120, "tempo_set": true, "bar": 2, "warning": "…", "end": F}`: `bpm` is
 the tape's tempo afterwards, `bar` the tape bar (from 1) the take's downbeat is
-on, `end` the tape frame after the clip. Stopped, the playhead moves to the
+on (left out when a selection doesn't include the downbeat), `end` the tape frame after the clip. Stopped, the playhead moves to the
 start of the clip. 400 for a span that isn't in the take, a take longer than a
 track, or one that would run past the end from where it lands; both name the
 limit in minutes and `TAPE_LENGTH_S`. 404 for no such take, 409 for a tape that

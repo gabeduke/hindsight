@@ -376,3 +376,25 @@ func TestATapeMadeWithShorterTracksIsAsLongAsTracksAreNow(t *testing.T) {
 		t.Fatalf("loaded %+v %v: want it to keep 360 s", got, err)
 	}
 }
+
+// Bar says where the downbeat landed, so it's only there when the downbeat is
+// in what was sent: a selection after it has no bar 1 to name.
+func TestTheBarNamesTheDownbeatOnlyWhenTheDownbeatWasSent(t *testing.T) {
+	e, _, tp := newEngineLen(t, 60)
+	take := takeWAV(t, 20*48000, func(i int) float64 { return 0.25 })
+	got, err := e.SendTake(tp.ID, sendReq(take, 250000, 300000, 120, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Mode != SendOnGrid || got.Bar != 0 {
+		t.Fatalf("a selection after the downbeat: mode %q bar %d, want on-grid and no bar", got.Mode, got.Bar)
+	}
+	e, _, tp = newEngineLen(t, 60)
+	got, err = e.SendTake(tp.ID, sendReq(take, 20000, 300000, 120, 100000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Bar != 2 { // 80,000 of pickup sits in bar 1; the downbeat is bar 2
+		t.Fatalf("a selection with the downbeat in it: bar %d, want 2", got.Bar)
+	}
+}

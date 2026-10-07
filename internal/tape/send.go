@@ -53,7 +53,9 @@ type Sent struct {
 	BPM float64 `json:"bpm,omitempty"`
 	// TempoSet: the take gave the tape its tempo.
 	TempoSet bool `json:"tempo_set,omitempty"`
-	// Bar is the tape bar (from 1) the span starts in, in on-grid sends.
+	// Bar is the tape bar (from 1) the take's downbeat landed on, in on-grid
+	// sends. Absent when the downbeat isn't in what was sent (a selection
+	// that starts after it, or ends before it).
 	Bar int64 `json:"bar,omitempty"`
 	// Warning is something the owner should know: the tempo didn't match.
 	Warning string `json:"warning,omitempty"`
@@ -212,10 +214,13 @@ func (e *Engine) SendTake(id string, req SendRequest) (Sent, error) {
 			}
 		}
 		if out.Mode == "" {
-			var bar int64
 			out.Mode = SendOnGrid
-			clip.At, bar = GridPlacement(*s.Grid, anchor, req.From, req.Downbeat, req.BPM, sr)
-			out.Bar = bar + 1
+			clip.At, _ = GridPlacement(*s.Grid, anchor, req.From, req.Downbeat, req.BPM, sr)
+			// The downbeat's bar, only if the downbeat is in the clip: a
+			// selection after it sits on the bar lines but has no bar 1.
+			if d := clip.At + req.Downbeat - req.From; d >= clip.At && d < clip.End() {
+				out.Bar = int64(math.Round(float64(d)/s.Grid.BarFrames())) + 1
+			}
 		}
 		if clip.End() > tp.Length {
 			return roomErr(tp.Length-clip.At, tp.Length, sr)
