@@ -22,7 +22,7 @@ type EditRequest struct {
 	Track int    `json:"track"` // the selected track
 	All   bool   `json:"all"`   // lift and copy: all four tracks, kept apart
 	Clip  string `json:"clip"`  // join, slide, reverse, trim, repeat: the clip
-	Pos   *int64 `json:"pos"`   // split: where (default: the playhead)
+	Pos   *int64 `json:"pos"`   // split, insert: where (default: the playhead)
 	At    *int64 `json:"at"`    // slide: where its start goes; trim: where the edge goes
 	Edge  string `json:"edge"`  // trim: "in" (its start) or "out" (its end)
 	// To is the track a slide moves the clip onto (0: its own). Not Track,
@@ -42,6 +42,8 @@ type EditRequest struct {
 	Name    *string `json:"name"`
 	Color   *string `json:"color"`
 	End     *int64  `json:"end"`
+	// Crate is a kept clip to insert, instead of the clipboard.
+	Crate string `json:"crate"`
 }
 
 // EditResult says what an edit did, for the page's toast.
@@ -53,6 +55,7 @@ type EditResult struct {
 	Clip    *Clip      `json:"clip,omitempty"`    // trim: the clip as it is now
 	Section *Section   `json:"section,omitempty"` // a section edit: the section as it is now
 	IDs     []string   `json:"ids,omitempty"`     // duplicate: the copies' ids
+	At      int64      `json:"at"`                // insert, delete time, duplicate section: where (0 is a place)
 }
 
 // EditOp carries out an edit on the loaded tape.
@@ -128,6 +131,8 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		return e.trimClip(t, req)
 	case "section-add", "section-set", "section-remove":
 		return e.sectionEdit(id, req)
+	case "insert", "delete-time", "duplicate-section":
+		return e.timeEdit(t, req)
 	case "repeat":
 		err := e.Edit(id, "", func(tp *Tape, s *State) error { return s.repeat(req.Clip, req.Count, tp.Length) })
 		return EditResult{Op: "repeat", Clips: req.Count}, err

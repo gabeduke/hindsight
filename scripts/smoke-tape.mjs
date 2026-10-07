@@ -430,6 +430,77 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     await fetch(`${BASE}/api/tapes?id=${encodeURIComponent((await getJSON('/api/tapes')).loaded)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ loop: loop0 }) });
     await p.waitForTimeout(500);
   }
+  // Insert and Delete time: hovering Insert previews it on the lanes; a
+  // click inserts the clipboard at bar 2, every track after it moved on; ↶.
+  // Delete time on bars 2–3 closes the gap; ↶. Duplicate section copies one.
+  {
+    const id = (await getJSON('/api/tapes')).loaded;
+    const tq = `id=${encodeURIComponent(id)}`;
+    const patchTape = (body) => fetch(`${BASE}/api/tapes?${tq}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const st0 = await loadedState();
+    const loop0 = st0.tape.loop;
+    await patchTape({ loop: { in: 0, out: Math.round(c0.bar), on: true } });
+    await postJSON(`/api/tapes/edit?${tq}`, { op: 'copy', track: 1 });
+    await postJSON(`/api/tapes/transport?${tq}`, { action: 'locate', pos: Math.round(c0.bar) });
+    await p.reload();
+    await p.waitForTimeout(2000);
+    if ((await p.getAttribute('#np-drawer-edit', 'aria-expanded')) !== 'true') await p.click('#np-drawer-edit');
+    await p.waitForTimeout(400);
+    const lanePic = () => p.evaluate(() => document.querySelector('.tt-lane').toDataURL());
+    const before = await lanePic();
+    await p.hover('#insert');
+    await p.waitForTimeout(400);
+    check('insert: hovering it previews it on the lanes', (await lanePic()) !== before);
+    const n1 = (await loadedState()).tape.tracks[0].clips.length;
+    await p.click('#insert');
+    await p.waitForTimeout(1000);
+    const after = (await loadedState()).tape.tracks[0].clips.map((x) => [x.at, x.frames]).sort((a, b) => a[0] - b[0]);
+    check('insert: the clipboard goes in at the playhead, and the rest moves on', after.length === n1 + 2 && after[1][0] === Math.round(c0.bar) && after[2][0] === Math.round(2 * c0.bar), JSON.stringify(after));
+    await p.click('#tape-undo');
+    await p.waitForTimeout(800);
+    check('insert: ↶ puts it as it was', (await loadedState()).tape.tracks[0].clips.length === n1);
+    // At the tape's start: 0 is a place, and the toast says bar 1.
+    await postJSON(`/api/tapes/transport?${tq}`, { action: 'locate', pos: 0 });
+    await p.waitForTimeout(700);
+    await p.click('#insert');
+    await p.waitForTimeout(1000);
+    const said0 = await p.locator('#toasts .toast').last().textContent();
+    const at0 = (await loadedState()).tape.tracks[0].clips.map((x) => x.at).sort((a, b) => a - b);
+    check('insert: at the start, where it showed, and the toast says bar 1', /at bar 1 ·/.test(said0) && at0[0] === 0 && at0[1] === Math.round(c0.bar), `${said0} ${JSON.stringify(at0)}`);
+    await p.click('#tape-undo');
+    await p.waitForTimeout(800);
+    // Delete time on bar 2.
+    await patchTape({ loop: { in: Math.round(c0.bar), out: Math.round(2 * c0.bar), on: true } });
+    await p.waitForTimeout(600);
+    const len = (await loadedState()).tape.tracks[0].clips.reduce((a, x) => a + x.frames, 0);
+    await p.click('#ed-delete');
+    await p.waitForTimeout(1000);
+    const len2 = (await loadedState()).tape.tracks[0].clips.reduce((a, x) => a + x.frames, 0);
+    check('delete time: a bar comes out and the gap closes', Math.abs(len - len2 - c0.bar) <= 1 && Math.max(...(await loadedState()).tape.tracks[0].clips.map((x) => x.at + x.frames)) <= 3 * c0.bar + 1, `${len} → ${len2}`);
+    await p.click('#tape-undo');
+    await p.waitForTimeout(800);
+    // Duplicate section: a Verse on bar 1, its sheet (the strip from the
+    // keys: Enter selects it, Enter again opens it), Duplicate.
+    const v = (await postJSON(`/api/tapes/edit?${tq}`, { op: 'section-add', name: 'Verse', at: 0, end: Math.round(c0.bar) })).edit.section;
+    await p.waitForTimeout(600);
+    await p.focus('#tape-sections');
+    await p.keyboard.press('Enter');
+    await p.waitForTimeout(500);
+    await p.keyboard.press('Enter');
+    await p.waitForTimeout(400);
+    await p.click('#section-dup');
+    await p.waitForTimeout(1000);
+    const secs = (await loadedState()).tape.sections || [];
+    check('duplicate section: the Verse twice in a row', secs.length === 2 && secs[1].name === 'Verse' && secs[1].at === v.end, JSON.stringify(secs));
+    await p.click('#tape-undo');
+    await p.waitForTimeout(800);
+    check('duplicate section: ↶ takes the copy back', ((await loadedState()).tape.sections || []).length === 1);
+    // No section left for the next run: selecting it with Enter was a step
+    // of its own, so it goes by name.
+    for (const sc of (await loadedState()).tape.sections || []) await postJSON(`/api/tapes/edit?${tq}`, { op: 'section-remove', section: sc.id });
+    await patchTape({ loop: loop0 });
+    await p.waitForTimeout(500);
+  }
   // Fades: in the clip's sheet, Fade in → 1 beat, then off.
   await p.mouse.click(s.x, s.y);
   await p.waitForTimeout(400);
@@ -498,6 +569,28 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   }
   check('a clip: no page errors', errors.length === 0, errors.join('; '));
   await p.context().close();
+}
+
+// On a phone Insert asks first: one tap shows what it will do, a second does
+// it. (The clipboard from the checks above.)
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const p = await ctx.newPage();
+  await p.goto(`${BASE}/tape.html`);
+  await p.waitForTimeout(2000);
+  const count = async () => (await loadedState()).tape.tracks.reduce((a, t) => a + t.clips.length, 0);
+  const n0 = await count();
+  await p.locator('#insert').scrollIntoViewIfNeeded();
+  await p.tap('#insert');
+  await p.waitForTimeout(800);
+  check('phone: a first tap on Insert only shows it', (await count()) === n0 && await p.evaluate(() => document.getElementById('insert').classList.contains('confirming')));
+  await p.tap('#insert');
+  await p.waitForTimeout(1000);
+  check('phone: a second tap inserts', (await count()) > n0);
+  await p.tap('#tape-undo');
+  await p.waitForTimeout(800);
+  check('phone: ↶ after it', (await count()) === n0);
+  await ctx.close();
 }
 
 // Playing on a phone: a browser that isn't listening shows the banner, and
