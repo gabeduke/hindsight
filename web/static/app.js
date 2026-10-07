@@ -1,6 +1,7 @@
 // Hindsight — app entry.
 
 import { connectLive } from '/lib/live.js';
+import { watchLink, timedFetch } from '/lib/link.js';
 import { Meters, FLOOR_DB, fmtDur, tierPhrase } from '/lib/meter.js';
 import { VUMeters } from '/lib/vu.js';
 import { Ribbon } from '/lib/ribbon.js';
@@ -260,10 +261,12 @@ function applyStatus(s) {
 
 async function pollStatus() {
   try {
-    const res = await fetch('/api/status', { cache: 'no-store' });
+    const res = await timedFetch('/api/status', { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     applyStatus(await res.json());
+    link.ok('status');
   } catch {
+    link.fail('status');
     el.healthDot.className = 'dot bad';
     el.healthText.textContent = 'server unreachable';
     el.captureBtn.disabled = true;
@@ -387,7 +390,17 @@ ribbon = new Ribbon(el.vizWrap, {
   },
 });
 
+// The Pi, heard or not: the live meters and the status poll both report here.
+// Back from sleep (or a dropped network) the page asks again at once; the
+// meters' socket replaces itself (lib/live.js).
+const link = watchLink(() => {
+  pollStatus();
+  pollTakes();
+});
+
 connectLive({
+  onOpen: () => link.ok('live'),
+  onClose: () => link.fail('live'),
   onFrame: (f) => {
     if (!mainMeters || !status) return;
     const sel = status.save_channels.map((c) => c - 1);
@@ -406,13 +419,6 @@ connectLive({
 pollStatus().then(() => pollTakes(true));
 setInterval(pollStatus, 2000);
 setInterval(() => pollTakes(), 5000);
-
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    pollStatus();
-    pollTakes();
-  }
-});
 
 // Keep the screen awake while docked on a charger. Charging-only, so a phone
 // on battery is untouched. Like the service worker below, this needs a secure

@@ -12,6 +12,7 @@ import { openTagManager } from '/lib/tags-dialog.js';
 import { initNav } from '/lib/nav.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
 import { pageBar } from '/lib/bar/bar.js';
+import { watchLink, timedFetch } from '/lib/link.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -366,7 +367,7 @@ function renderCounts() {
 
 async function pollStatus() {
   try {
-    const res = await fetch('/api/status', { cache: 'no-store' });
+    const res = await timedFetch('/api/status', { cache: 'no-store' });
     if (!res.ok) return;
     diskFree = (await res.json()).disk_free_gb ?? null;
     renderCounts();
@@ -394,8 +395,9 @@ async function poll(force = false) {
   if (!force && takes.isPlaying()) return;
   try {
     await takes.refresh();
+    link.ok('takes');
     if (restoreScroll != null) { window.scrollTo(0, restoreScroll); restoreScroll = null; }
-  } catch { /* transient; the next tick retries */ }
+  } catch { link.fail('takes'); /* the next tick retries */ }
 }
 
 // A take deleted from its own page comes back here with its Undo.
@@ -411,9 +413,9 @@ window.addEventListener('pageshow', (e) => {
   showNextToast();
   poll(true);
 });
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) { poll(); pollStatus(); }
-});
+// Back from sleep, or the network back: ask the Pi at once, and say so while
+// it doesn't answer.
+const link = watchLink(() => { poll(); pollStatus(); });
 
 renderControls();
 showNextToast();

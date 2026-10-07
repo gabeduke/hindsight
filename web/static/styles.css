@@ -1133,6 +1133,25 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   animation: rise 200ms ease;
   word-break: break-word;
 }
+/* The Pi isn't answering (lib/link.js): a small note at the top, shown only
+   once the link has been down for a second. The recorder's words, the
+   toast's look; it takes no taps. */
+.link-note {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%; transform: translateX(-50%);
+  z-index: 60;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  box-shadow: 0 10px 30px var(--shadow);
+  pointer-events: none;
+}
+.link-note[hidden] { display: none; }
 /* #toasts is pointer-events: none so it never swallows taps on the page
    behind it; a toast's own content (the export link) still needs them. */
 .toast { pointer-events: auto; }

@@ -12,6 +12,7 @@ import { flagRequest } from '/lib/flags.js';
 import { restoreTake } from '/lib/trash.js';
 import { undoSkipped } from '/lib/toast.js';
 import { withClient } from '/lib/client.js';
+import { timedFetch } from '/lib/link.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeFor, STRIPES } from '/lib/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
@@ -179,7 +180,7 @@ export class TakesList {
     const headers = {};
     if (this.etag) headers['If-None-Match'] = this.etag;
 
-    const res = await fetch('/api/jams', { headers, cache: 'no-store' });
+    const res = await timedFetch('/api/jams', { headers, cache: 'no-store' });
     if (res.status === 304) return;
     if (!res.ok) throw new Error(`takes: HTTP ${res.status}`);
 
