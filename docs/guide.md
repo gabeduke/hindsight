@@ -354,8 +354,12 @@ and the editor bar takes the place of the toolbar.
 - **Keep as clip** keeps it on the crate (§8.11), without making a take. The
   **◫** chip in the header says how many clips you've kept from this take,
   and opens them on the tape page.
-- **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
-  delete.
+- **More → Split here** keeps two clips on the crate, the take before the
+  playhead and from it on, named *take · A* and *take · B*. It splits the
+  whole take, whatever's selected. The take itself isn't changed: a take's
+  audio never is.
+- **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, Copy,
+  Split here, and delete.
 - **Undo** in the header steps back through anything you changed (step 4).
 
 **Checks — step 1:**
@@ -1375,6 +1379,11 @@ kept*), open the crate on that take's clips: **from … ×** shows them all agai
   name; no new audio file is written.
 - [demo] Open a take you've kept clips from → the header shows **◫ 2**; tap it
   → the tape page's crate shows just those two.
+- [demo] Put a take's playhead at 0:20, **More → Split here** → two clips on
+  the crate, *take · A* (0:20 long) and *take · B* (the rest); the take is
+  still whole, the same length.
+- [demo] **Split here** with the playhead at the very start → it says to put
+  the playhead inside the take.
 
 ## 9. Tips in the app
 
@@ -1480,13 +1489,14 @@ has no tip.
 | Save as take | Make a new take of just the selection |
 | Name (Save as take) | Name the new take, then Save. On the takes page it folds in with this take. Cancel saves nothing |
 | Share | Send the selection from your phone as an MP3 |
-| More | The DAW bundle, the WAV and MIDI downloads, and delete |
+| More | The DAW bundle, the WAV and MIDI downloads, Copy, Split here, and delete |
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
 | Notes | Watch the take's MIDI rise out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
 | Send to tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop |
 | Keep as clip | Keep the selection, or the whole take, as a clip on the crate: its own copy, so the takes list doesn't grow |
 | ◫ (take) | How many clips you've kept from this take: tap to see them on the tape page's crate |
+| Split here | Keep the take as two clips on the crate, before the playhead and after it. The take isn't changed |
 | Tape name | Your tapes: load one, or make a new one |
 | ⋯ (tape) | This tape: rename it, clone it, mix it down, export its stems, or delete a tape |
 | A tape in the list | Load this tape: the transport plays the loaded one |

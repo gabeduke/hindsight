@@ -380,6 +380,24 @@ func (s *Store) Clone(id, name string, now time.Time) (*Tape, error) {
 	return t, nil
 }
 
+// touchPoolFile marks a pool file and its peaks as just made, so a clean-up
+// leaves it for another minute.
+func (s *Store) touchPoolFile(rel string) {
+	if p := s.AudioPath(rel); p != "" {
+		now := time.Now()
+		os.Chtimes(p, now, now)
+		os.Chtimes(strings.TrimSuffix(p, ".wav")+".peaks.json", now, now)
+	}
+}
+
+// removePoolFile removes a pool file nothing uses, and its peaks.
+func (s *Store) removePoolFile(rel string) {
+	if p := s.AudioPath(rel); p != "" {
+		os.Remove(p)
+		os.Remove(strings.TrimSuffix(p, ".wav") + ".peaks.json")
+	}
+}
+
 // Cleanup removes pool audio that no tape, no tape's undo history, the
 // clipboard, the crate and nothing in keep refers to. It runs after a tape is deleted,
 // and when asked.

@@ -94,7 +94,7 @@ export const TIPS = [
   { control: 'Save as take', ids: ['save-take'], tip: 'Make a new take of just the selection' },
   { control: 'Name (Save as take)', ids: ['save-name'], tip: 'Name the new take, then Save. On the takes page it folds in with this take. Cancel saves nothing' },
   { control: 'Share', ids: ['share'], tip: 'Send the selection from your phone as an MP3' },
-  { control: 'More', ids: ['more'], tip: 'The DAW bundle, the WAV and MIDI downloads, and delete' },
+  { control: 'More', ids: ['more'], tip: 'The DAW bundle, the WAV and MIDI downloads, Copy, Split here, and delete' },
   { control: 'DAW bundle', ids: ['bundle'], tip: "The selection's WAV and MIDI, lined up, in a zip for a DAW" },
   { control: 'Notes', ids: ['notes-open'], tip: "Watch the take's MIDI rise out of a keyboard as it plays" },
   { control: 'Lane', ids: ['lane'], tip: "Tap for this lane's menu: collapse, show as drums or notes, or hide" },
@@ -102,6 +102,7 @@ export const TIPS = [
   { control: 'Send to tape', ids: ['send-to-tape'], tip: 'Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape\'s first loop' },
   { control: 'Keep as clip', ids: ['keep-clip'], tip: 'Keep the selection, or the whole take, as a clip on the crate: its own copy, so the takes list doesn\'t grow' },
   { control: '◫ (take)', ids: ['crate-chip'], tip: 'How many clips you\'ve kept from this take: tap to see them on the tape page\'s crate' },
+  { control: 'Split here', ids: ['split-here'], tip: 'Keep the take as two clips on the crate, before the playhead and after it. The take isn\'t changed' },
   // The tape page
   { control: 'Tape name', ids: ['tape-menu'], tip: 'Your tapes: load one, or make a new one' },
   { control: '⋯ (tape)', ids: ['tape-more'], tip: 'This tape: rename it, clone it, mix it down, export its stems, or delete a tape' },

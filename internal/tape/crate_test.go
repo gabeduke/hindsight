@@ -300,3 +300,46 @@ func TestKeepingFromTheRingSaysWhereItStarted(t *testing.T) {
 		t.Fatalf("kept from a span that had left: %+v (clamped %v, oldest %d)", k.Source, clamped, oldest)
 	}
 }
+
+func TestSplitHereKeepsTwoClipsAndLeavesTheTake(t *testing.T) {
+	e, _, _ := newEngine(t)
+	take := takeWAV(t, 200000, func(i int) float64 { return float64(i) / 1e6 })
+	before, _ := os.Stat(take)
+	ks, err := e.SplitTake(take, "jam_take.wav", "Tuesday jam", 72000, []int{0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := ks[0], ks[1]
+	if a.Name != "Tuesday jam · A" || a.Frames != 72000 || a.Source.From != 0 || a.Source.To != 72000 {
+		t.Fatalf("A = %+v", a)
+	}
+	if b.Name != "Tuesday jam · B" || b.Frames != 128000 || b.Source.From != 72000 || b.Source.To != 200000 {
+		t.Fatalf("B = %+v", b)
+	}
+	if l, _ := e.CrateList("", ""); len(l) != 2 || l[0].ID != a.ID || l[1].ID != b.ID {
+		t.Fatalf("the crate = %+v: A, then B", l)
+	}
+	// The take is as it was.
+	if after, _ := os.Stat(take); after.Size() != before.Size() || !after.ModTime().Equal(before.ModTime()) {
+		t.Fatal("split here changed the take")
+	}
+	// At either end, there's nothing to split.
+	for _, at := range []int64{0, 100, 200000 - 100, 200000} {
+		if _, err := e.SplitTake(take, "jam_take.wav", "jam", at, []int{0, 1}); !errors.Is(err, ErrBadParameter) {
+			t.Fatalf("split at %d = %v", at, err)
+		}
+	}
+}
+
+func TestSplitHereNeedsRoomForTheWholeTake(t *testing.T) {
+	e, _, _ := newEngine(t)
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
+	pool := len(poolNames(t, e))
+	e.minFreeGB = 1 << 20 // more than any disk has
+	if _, err := e.SplitTake(take, "jam_take.wav", "jam", 96000, []int{0, 1}); !errors.Is(err, audio.ErrLowDisk) {
+		t.Fatalf("a split with no room = %v", err)
+	}
+	if l, _ := e.CrateList("", ""); len(l) != 0 || len(poolNames(t, e)) != pool {
+		t.Fatal("a refused split left something behind")
+	}
+}
