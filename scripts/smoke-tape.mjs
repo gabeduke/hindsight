@@ -382,6 +382,54 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('several clips: ↶ ↶ → the clip alone, as it was', (await loadedState()).tape.tracks[0].clips.length === n0);
+  // Sections: hold and drag on the strip over bars 1–2 → a section and its
+  // sheet; call it Verse; tap it → its bars are the loop; remove it; ↶.
+  {
+    const strip = await p.evaluate(() => { const b = document.getElementById('tape-sections').getBoundingClientRect(); return { x: b.left, y: b.top + b.height / 2, w: b.width }; });
+    const fx = (f) => strip.x + ((f - from) / (to - from)) * strip.w;
+    const loop0 = (await loadedState()).tape.loop;
+    await p.mouse.move(fx(c0.bar * 0.2), strip.y);
+    await p.mouse.down();
+    await p.waitForTimeout(450);
+    await p.mouse.move(fx(c0.bar * 1.8), strip.y, { steps: 6 });
+    await p.mouse.up();
+    await p.waitForTimeout(1000);
+    let secs = (await loadedState()).tape.sections || [];
+    check('sections: hold and drag makes one, on bar lines', secs.length === 1 && secs[0].at === 0 && Math.abs(secs[0].end - 2 * c0.bar) <= 1, JSON.stringify(secs));
+    check('sections: its sheet opens', await p.evaluate(() => document.getElementById('section-sheet').open));
+    await p.locator('#section-names button', { hasText: 'Verse' }).click();
+    await p.waitForTimeout(800);
+    secs = (await loadedState()).tape.sections || [];
+    check('sections: Verse names it', secs[0]?.name === 'Verse');
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(300);
+    // Its right edge dragged a bar on: bars 1–3, in whole frames.
+    await p.mouse.move(fx(secs[0].end) - 3, strip.y);
+    await p.mouse.down();
+    await p.mouse.move(fx(secs[0].end + c0.bar) - 3, strip.y, { steps: 6 });
+    await p.mouse.up();
+    await p.waitForTimeout(800);
+    const grown = ((await loadedState()).tape.sections || [])[0];
+    check('sections: its edge drags a bar on', grown && Number.isInteger(grown.end) && Math.abs(grown.end - 3 * c0.bar) <= 1, JSON.stringify(grown));
+    await p.click('#tape-undo');
+    await p.waitForTimeout(800);
+    await p.mouse.click(fx(c0.bar), strip.y);
+    await p.waitForTimeout(800);
+    const lp = (await loadedState()).tape.loop;
+    check('sections: a tap selects its bars', lp.in === secs[0].at && lp.out === secs[0].end, JSON.stringify(lp));
+    await p.mouse.click(fx(c0.bar), strip.y);
+    await p.waitForTimeout(500);
+    await p.click('#section-remove');
+    await p.waitForTimeout(800);
+    check('sections: Remove takes it away', ((await loadedState()).tape.sections || []).length === 0);
+    await p.click('#tape-undo');
+    await p.waitForTimeout(800);
+    check('sections: ↶ brings it back', ((await loadedState()).tape.sections || []).length === 1);
+    // Put the tape as it was for what follows: no section, the old loop.
+    await postJSON(`/api/tapes/edit?id=${encodeURIComponent((await getJSON('/api/tapes')).loaded)}`, { op: 'section-remove', section: secs[0].id });
+    await fetch(`${BASE}/api/tapes?id=${encodeURIComponent((await getJSON('/api/tapes')).loaded)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ loop: loop0 }) });
+    await p.waitForTimeout(500);
+  }
   // Fades: in the clip's sheet, Fade in → 1 beat, then off.
   await p.mouse.click(s.x, s.y);
   await p.waitForTimeout(400);

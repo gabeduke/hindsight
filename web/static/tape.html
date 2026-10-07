@@ -90,6 +90,11 @@
       </div>
     </div>
 
+    <!-- Sections (lib/tape/page.js, "sections"): named spans over the ruler. -->
+    <div class="tape-ruler-row tape-sections-row">
+      <span class="tape-ruler-gap tape-sections-gap" aria-hidden="true">Sections</span>
+      <canvas id="tape-sections" class="tape-sections" tabindex="0" role="group" aria-roledescription="sections" aria-label="Sections: hold and drag to make one, tap one to select its bars" data-tip="tape-sections"></canvas>
+    </div>
     <div class="tape-ruler-row">
       <span class="tape-ruler-gap"><button id="view-fit" class="chip view-fit" type="button" hidden data-tip="view-fit">Fit</button></span>
       <canvas id="tape-ruler" class="tape-ruler" aria-label="Bars: tap to move the playhead, hold and drag to set the loop" data-tip="tape-ruler"></canvas>
@@ -419,6 +424,22 @@
     <div class="sheet-actions">
       <button id="crate-delete" class="icon-btn danger" type="button" data-tip="crate-delete">Delete</button>
       <button id="crate-done" class="icon-btn" type="button">Done</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- A section's sheet. -->
+<dialog class="sheet" id="section-sheet">
+  <div class="sheet-inner">
+    <h3 id="section-title">Section</h3>
+    <div class="seg section-names" id="section-names" role="group" aria-label="Call it"></div>
+    <label class="clip-field">Name
+      <input id="section-name" type="text" maxlength="40" autocomplete="off" data-tip="section-name">
+    </label>
+    <div class="section-colors" id="section-colors" role="group" aria-label="Colour"></div>
+    <div class="sheet-actions">
+      <button id="section-remove" class="icon-btn danger" type="button" data-tip="section-remove">Remove</button>
+      <button id="section-done" class="icon-btn" type="button">Done</button>
     </div>
   </div>
 </dialog>

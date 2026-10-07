@@ -30,6 +30,7 @@ import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
 import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, SLOP_PX, EDGE_PX, targetTrack } from './clipgestures.js';
+import { SECTION_NAMES, SECTION_COLORS, colorOf, sectionHit, newName, isLooped, barsText as sectionBars, makeSpan, edgeTo } from './sections.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
@@ -506,6 +507,7 @@ function render() {
   drawLanes();
   drawOverview();
   drawRuler();
+  drawSections();
   renderFit();
   if (output) output.render(state.live);
 }
@@ -747,6 +749,13 @@ function renderEdit() {
   }
 }
 
+// What each edit is called in a toast that says it couldn't be done.
+const OP_WORDS = {
+  multiply: 'double the loop', 'section-add': 'make the section', 'section-set': 'change the section',
+  'section-remove': 'remove the section', 'delete-time': 'delete the time', 'duplicate-section': 'duplicate the section',
+  move: 'move them', duplicate: 'copy them after themselves',
+};
+
 // edit sends one edit, shows the tape it answers with, and answers what the
 // edit did -- or null, having said why not.
 async function edit(op, extra = {}, { keepalive = false } = {}) {
@@ -756,7 +765,7 @@ async function edit(op, extra = {}, { keepalive = false } = {}) {
     if (e.clipboard) { cbGen++; state.clipboard = e.clipboard; state.clipboardError = ''; renderClipboard(); }
     return e;
   } catch (err) {
-    toast(`Could not ${op === 'multiply' ? 'double the loop' : op}: ${err.message}`, 'bad');
+    toast(`Could not ${OP_WORDS[op] || op}: ${err.message}`, 'bad');
     return null;
   }
 }
@@ -1790,13 +1799,222 @@ function wireRuler() {
   cv.addEventListener('pointercancel', (e) => end(e, true));
 }
 
+// --- sections -------------------------------------------------------------------
+// Named spans over the ruler (internal/tape/sections.go): hold and drag on the
+// strip to make one, tap one to select its bars (the loop's In and Out, so
+// Lift, Copy and ×2 act on it), tap it again for its sheet, drag an edge to
+// resize it. On bar lines, with a tempo. See
+// docs/superpowers/specs/2026-10-07-sections-design.md.
+
+// a drag on the strip; the section whose sheet is open; the one the keys are on
+const sec = { drag: null, open: null, focus: -1 };
+const sectionsOf = () => (state.tape && state.tape.sections) || [];
+
+function drawSections() {
+  const t = state.tape;
+  if (!t) return;
+  const cv = $('tape-sections');
+  const r = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) {
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  }
+  const W = r.width, H = r.height;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const view = laneView();
+  const ink = token('--well-ink', '#f2e6c8');
+  ctx.font = `600 10px ${token('--mono', 'ui-monospace, monospace')}`;
+  ctx.textBaseline = 'middle';
+  const d = sec.drag;
+  for (const stored of sectionsOf()) {
+    const sc = d && d.section && d.section.id === stored.id ? { ...stored, at: d.at, end: d.end } : stored;
+    const x0 = xOf(sc.at, view, W), x1 = xOf(sc.end, view, W);
+    if (x1 < 0 || x0 > W) continue;
+    const c = token(colorOf(sc).token, colorOf(sc).fallback);
+    const looped = isLooped(sc, t.loop);
+    ctx.fillStyle = withAlpha(c, looped ? 0.5 : 0.28);
+    ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
+    ctx.fillStyle = c;
+    ctx.fillRect(x0, 1, 2, H - 2);
+    if (looped) { ctx.strokeStyle = ink; ctx.strokeRect(x0 + 0.5, 1.5, Math.max(1, x1 - x0) - 1, H - 3); }
+    // The one the keys are on, while the strip has the focus.
+    if (document.activeElement === cv && sectionsOf()[sec.focus]?.id === stored.id) {
+      ctx.strokeStyle = token('--focus', '#2f6fb3'); ctx.lineWidth = 2;
+      ctx.strokeRect(x0 + 1, 1, Math.max(1, x1 - x0) - 2, H - 2);
+      ctx.lineWidth = 1;
+    }
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x0, 0, Math.max(0, x1 - x0 - 4), H); ctx.clip();
+    ctx.fillStyle = ink;
+    ctx.fillText(sc.name, Math.max(x0, 0) + 6, H / 2);
+    ctx.restore();
+  }
+  if (d && d.kind === 'make') {
+    const x0 = xOf(d.from, view, W), x1 = xOf(d.to, view, W);
+    const warn = token('--warn', '#b58900');
+    ctx.fillStyle = withAlpha(warn, 0.25);
+    ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
+    ctx.setLineDash([4, 3]); ctx.strokeStyle = warn;
+    ctx.strokeRect(x0 + 0.5, 1.5, Math.max(1, x1 - x0) - 1, H - 3);
+    ctx.setLineDash([]);
+  }
+}
+
+function wireSections() {
+  const cv = $('tape-sections');
+  let down = null;
+  const frameOf = (e) => {
+    const r = cv.getBoundingClientRect();
+    return frameAt(Math.min(r.width, Math.max(0, e.clientX - r.left)), laneView(), r.width);
+  };
+  cv.addEventListener('contextmenu', (e) => e.preventDefault());
+  cv.addEventListener('pointerdown', (e) => {
+    if (!state.tape || down || e.button > 0) return;
+    const r = cv.getBoundingClientRect();
+    const hit = sectionHit(sectionsOf(), e.clientX - r.left, laneView(), r.width);
+    try { cv.setPointerCapture(e.pointerId); } catch { /* the pointer's gone */ }
+    down = { id: e.pointerId, x: e.clientX, y: e.clientY, f: frameOf(e), hit, moved: false };
+    if (hit && hit.zone !== 'body') {
+      // An edge drags at once, a bar at a time with a tempo.
+      sec.drag = { kind: hit.zone, section: hit.section, at: hit.section.at, end: hit.section.end };
+    } else if (!hit) {
+      // Hold, then drag: a new section over the bars dragged across.
+      down.timer = setTimeout(() => {
+        if (!down || down.moved || state.pinch) return;
+        sec.drag = { kind: 'make', ...(makeSpan(down.f, down.f, state.tape.grid) || { from: down.f, to: down.f }) };
+        if (navigator.vibrate) navigator.vibrate(10);
+        drawSections();
+      }, 300);
+    }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!down || e.pointerId !== down.id) return;
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) down.moved = true;
+    const d = sec.drag;
+    if (!d) { if (down.moved) clearTimeout(down.timer); return; }
+    const f = frameOf(e);
+    // Whole frames on bar lines, as the Pi keeps them (sections.js).
+    if (d.kind === 'make') Object.assign(d, makeSpan(down.f, f, state.tape.grid) || { from: down.f, to: down.f });
+    else Object.assign(d, edgeTo(d.section, d.kind, f, sectionsOf(), state.tape.grid, state.tape.length));
+    drawSections();
+  });
+  const end = (e, ok) => {
+    if (!down || e.pointerId !== down.id) return;
+    clearTimeout(down.timer);
+    const dn = down, d = sec.drag;
+    down = null;
+    sec.drag = null;
+    drawSections();
+    if (!ok) return;
+    if (d && d.kind === 'make') {
+      if (d.to > d.from) addSection(d.from, d.to);
+      else toast('Drag across the bars the section should cover', 'warn');
+    }
+    else if (d && dn.moved && (d.at !== d.section.at || d.end !== d.section.end)) setSection(d.section.id, { at: d.at, end: d.end });
+    else if (!dn.moved && dn.hit) tapSection(dn.hit.section);
+  };
+  cv.addEventListener('pointerup', (e) => end(e, true));
+  cv.addEventListener('pointercancel', (e) => end(e, false));
+  // With a keyboard: ← → move between sections, Enter selects one's bars,
+  // and again opens its sheet.
+  const say = () => {
+    const sc = sectionsOf()[sec.focus];
+    cv.setAttribute('aria-label', sc
+      ? `Section ${sc.name}, ${sectionBars(sc, state.tape.grid, state.tape.sample_rate)}${isLooped(sc, state.tape.loop) ? ', selected' : ''}. Left and right to move, Enter to select`
+      : 'Sections: none yet. Hold and drag on the strip to make one');
+  };
+  cv.addEventListener('focus', () => { if (sec.focus < 0 && sectionsOf().length) sec.focus = 0; say(); drawSections(); });
+  cv.addEventListener('blur', drawSections);
+  cv.addEventListener('keydown', (e) => {
+    const n = sectionsOf().length;
+    if (!n) return;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      e.stopPropagation(); // not the page's track keys
+      sec.focus = Math.max(0, Math.min(n - 1, sec.focus + (e.key === 'ArrowRight' ? 1 : -1)));
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      const sc = sectionsOf()[Math.max(0, sec.focus)];
+      if (sc) tapSection(sc);
+    } else return;
+    say();
+    drawSections();
+  });
+  // The sheet.
+  $('section-name').addEventListener('change', () => {
+    const name = $('section-name').value.trim();
+    if (sec.open && name) setSection(sec.open, { name });
+  });
+  $('section-remove').addEventListener('click', async () => {
+    const id = sec.open;
+    $('section-sheet').close();
+    const sc = sectionsOf().find((x) => x.id === id);
+    if (sc && await edit('section-remove', { section: id })) toast(`Removed the section ${sc.name}; the audio under it stays`, 'ok', { action: undoAction });
+  });
+  $('section-done').addEventListener('click', () => $('section-sheet').close());
+  $('section-sheet').addEventListener('close', () => { sec.open = null; });
+}
+
+async function addSection(at, end) {
+  const name = newName(sectionsOf());
+  const e = await edit('section-add', { name, at, end });
+  if (!e || !e.section) return;
+  toast(`Made ${name}, ${sectionBars(e.section, state.tape.grid, state.tape.sample_rate)}: tap it to select its bars`, 'ok', { action: undoAction });
+  openSection(e.section);
+}
+
+async function setSection(id, fields) {
+  const e = await edit('section-set', { section: id, ...fields });
+  if (e && e.section && sec.open === id) openSection(e.section);
+}
+
+// tapSection selects a section's bars; tapped again, it opens its sheet.
+async function tapSection(sc) {
+  if (isLooped(sc, state.tape.loop)) { openSection(sc); return; }
+  if (await patch({ loop: { in: sc.at, out: sc.end } })) {
+    toast(`${sc.name}, ${sectionBars(sc, state.tape.grid, state.tape.sample_rate)}: Lift, Copy and ×2 act on it. Tap it again to rename it`, 'ok', { action: undoAction });
+  }
+}
+
+function openSection(sc) {
+  sec.open = sc.id;
+  sec.focus = sectionsOf().findIndex((x) => x.id === sc.id);
+  const t = state.tape;
+  $('section-title').textContent = `${sc.name} · ${sectionBars(sc, t.grid, t.sample_rate)}`;
+  $('section-name').value = sc.name;
+  $('section-names').replaceChildren(...SECTION_NAMES.map((n) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.tip = 'section-names';
+    b.textContent = n;
+    b.setAttribute('aria-pressed', String(n === sc.name));
+    b.addEventListener('click', () => setSection(sc.id, { name: n }));
+    return b;
+  }));
+  $('section-colors').replaceChildren(...SECTION_COLORS.map((c) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.tip = 'section-color';
+    b.setAttribute('aria-label', c.id);
+    b.style.setProperty('--c', token(c.token, c.fallback));
+    b.setAttribute('aria-pressed', String(colorOf(sc).id === c.id));
+    b.addEventListener('click', () => setSection(sc.id, { color: c.id }));
+    return b;
+  }));
+  const sh = $('section-sheet');
+  if (!sh.open && typeof sh.showModal === 'function') sh.showModal();
+}
+
 // --- the view: pinch, pan, Fit --------------------------------------------------
 
 // redrawView redraws what the view moves, once a frame however many moves.
 let viewRaf = 0;
 function redrawView() {
   if (viewRaf) return;
-  viewRaf = requestAnimationFrame(() => { viewRaf = 0; drawLanes(); drawRuler(); drawOverview(); renderFit(); });
+  viewRaf = requestAnimationFrame(() => { viewRaf = 0; drawLanes(); drawRuler(); drawSections(); drawOverview(); renderFit(); });
 }
 
 // Canvases don't restyle themselves when the device turns dark or light.
@@ -2698,6 +2916,7 @@ function closeSheets() {
   if (sh.open) sh.close();
   if ($('track-sheet').open) $('track-sheet').close();
   if ($('rename-sheet').open) $('rename-sheet').close();
+  if ($('section-sheet').open) $('section-sheet').close();
   state.clip = null;
   // The clip editor's clip was on the tape going away: nothing to save.
   state.align = null;
@@ -2930,6 +3149,7 @@ function wire() {
   $('track-pan').addEventListener('change', () => patch({ track: { n: state.sheetTrack, pan: Number($('track-pan').value) } }));
   $('track-done').addEventListener('click', () => $('track-sheet').close());
   wireRuler();
+  wireSections();
   wireOverview();
   $('loop').addEventListener('click', () => patch({ loop: { on: !state.tape.loop.on } }));
   $('tape-undo').addEventListener('click', () => undoRedo(false));
@@ -3123,9 +3343,10 @@ function wire() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') bar.commit(); });
   window.addEventListener('pagehide', () => bar.commit());
   // The lanes and the bar's scrubber change width apart: each redraws all three.
-  const ro = new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); });
+  const ro = new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); drawSections(); });
   ro.observe($('lanes'));
   ro.observe($('tape-overview'));
+  ro.observe($('tape-sections'));
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
   $('view-fit').addEventListener('click', () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); });
