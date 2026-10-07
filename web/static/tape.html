@@ -162,7 +162,8 @@
         <div class="tb-row clipboard">
           <span class="tb-label">Clipboard</span>
           <button id="clip-play" class="chip clip-chip" type="button" disabled data-tip="clipboard">empty</button>
-          <button id="drop" class="icon-btn" type="button" disabled data-tip="drop">Drop</button>
+          <button id="drop" class="icon-btn" type="button" disabled data-tip="drop"><span aria-hidden="true">⤓ </span>Drop</button>
+          <button id="insert" class="icon-btn key-two" type="button" disabled data-tip="insert"><span class="key-word"><span aria-hidden="true">⇥ </span>Insert</span><span class="key-scope">all tracks</span></button>
           <button id="merge" class="icon-btn" type="button" hidden data-tip="merge-drop">Merge</button>
           <button id="clip-keep-board" class="icon-btn" type="button" hidden data-tip="clipboard-keep">Keep</button>
           <button id="clip-clear" class="icon-btn" type="button" disabled aria-label="Clear the clipboard" data-tip="clipboard-clear">×</button>
@@ -175,7 +176,8 @@
             <button type="button" data-scope="one" data-tip="edit-scope">Track 1</button>
             <button type="button" data-scope="all" data-tip="edit-scope">All</button>
           </div>
-          <button id="ed-lift" class="icon-btn" type="button" data-tip="lift">Lift</button>
+          <button id="ed-lift" class="icon-btn" type="button" data-tip="lift"><span aria-hidden="true">✂ </span>Lift</button>
+          <button id="ed-delete" class="icon-btn key-two" type="button" data-tip="delete-time"><span class="key-word"><span aria-hidden="true">⇤ </span>Delete time</span><span class="key-scope">all tracks</span></button>
           <button id="ed-copy" class="icon-btn" type="button" data-tip="copy">Copy</button>
           <button id="ed-split" class="icon-btn" type="button" data-tip="split">Split</button>
           <button id="ed-x2" class="icon-btn" type="button" aria-label="Double the loop" data-tip="multiply">×2</button>
@@ -185,6 +187,9 @@
         <div class="tb-row snap">
           <span class="tb-label">Slide snaps to</span>
           <div class="seg" id="snap" role="group" aria-label="What a slid clip snaps to"></div>
+        </div>
+        <div class="tb-row ask-first-row">
+          <button id="ask-first" class="chip" type="button" aria-pressed="true" data-tip="ask-first">Ask before Insert and Delete time</button>
         </div>
       </div>
     </div>
@@ -437,6 +442,9 @@
       <input id="section-name" type="text" maxlength="40" autocomplete="off" data-tip="section-name">
     </label>
     <div class="section-colors" id="section-colors" role="group" aria-label="Colour"></div>
+    <div class="sheet-actions">
+      <button id="section-dup" class="icon-btn" type="button" data-tip="section-dup">Duplicate section</button>
+    </div>
     <div class="sheet-actions">
       <button id="section-remove" class="icon-btn danger" type="button" data-tip="section-remove">Remove</button>
       <button id="section-done" class="icon-btn" type="button">Done</button>

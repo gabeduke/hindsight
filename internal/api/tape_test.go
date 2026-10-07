@@ -870,3 +870,40 @@ func TestSectionsOverTheAPI(t *testing.T) {
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-remove","section":"`+sid+`"}`), http.StatusOK, "remove")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-remove","section":"`+sid+`"}`), http.StatusBadRequest, "remove twice")
 }
+
+func TestInsertAndDeleteTimeOverTheAPI(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_11-00-00.wav", 192000)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-04_11-00-00.wav","from":0,"to":96000}`), http.StatusOK, "copy")
+	// On an empty tape there's nothing to push: Drop it.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"insert","track":1}`), http.StatusBadRequest, "insert on an empty tape")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":1}`), http.StatusOK, "drop")
+	w := send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"insert","track":2}`)
+	want(t, w, http.StatusOK, "insert")
+	var out struct {
+		Edit struct {
+			Frames, At int64
+			Clips      int
+		}
+	}
+	json.Unmarshal(w.Body.Bytes(), &out)
+	if out.Edit.Frames != 96000 || out.Edit.Clips != 1 {
+		t.Fatalf("insert = %+v", out.Edit)
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"delete-time"}`), http.StatusOK, "delete time")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-add","name":"Verse","at":0,"end":96000}`), http.StatusOK, "a section")
+	var st struct {
+		Tape struct {
+			Sections []struct{ ID string } `json:"sections"`
+		}
+	}
+	json.Unmarshal(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "").Body.Bytes(), &st)
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"duplicate-section","section":"`+st.Tape.Sections[0].ID+`"}`), http.StatusOK, "duplicate section")
+	json.Unmarshal(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "").Body.Bytes(), &st)
+	if len(st.Tape.Sections) != 2 {
+		t.Fatalf("after duplicating: %d sections", len(st.Tape.Sections))
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"duplicate-section","section":"nope"}`), http.StatusBadRequest, "duplicate no section")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"insert","crate":"nope"}`), http.StatusNotFound, "insert no kept clip")
+}

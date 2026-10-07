@@ -1090,6 +1090,9 @@ added.
 | `remove` | `clips` | Takes the clips off the tape |
 | `duplicate` | `clips` | Lays a copy of the clips right after them, the earliest copy where the last of them ends, each on its own track on the lowest layer free there |
 | `reverse` | `clip`, or `clips` | Plays the clip backwards (or each of `clips`, as one undo step): its audio, with its handles either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
+| `insert` | `track`; `crate`? | Pushes everything from the playhead on later by the clipboard's length, on every track, with the sections and the loop (one across the playhead stretches), and lays the clipboard in the gap from `track` down. A clip across the playhead is cut there first. With `crate` (a kept clip's id), that clip instead of the clipboard. Stopped, the playhead moves to the end of what went in. `edit.at` is where it went in, `edit.frames` its length |
+| `delete-time` | | Cuts the loop's In to Out out of every track and closes the gap: everything after moves earlier by its length. A section inside goes; one across an edge loses the part inside. The loop stays where it is, so it now holds what followed. `edit.at` and `edit.frames` are what went |
+| `duplicate-section` | `section` | Lays the section's span, every track, again right after it, pushing everything after it later, and adds a section of the same name and colour over the copy (`edit.section`) |
 
 400 for a lift or copy with no loop, or nothing in it; a split with no clip
 across `pos`; a join with nothing to join; a slide off either end of the tape, or onto a
@@ -1099,8 +1102,12 @@ or no room at all; a move, remove, duplicate, reverse or copy of `clips` with
 none, or one that isn't there; a move of nowhere, or one that would take a
 clip off the tracks or either end of the tape; a duplicate or repeat that
 would run past the end; a reverse or trim of a clip that changed meanwhile, or a
-reverse of one whose audio is shorter than it; or an unknown `op`. 409 for a
-tape that isn't the loaded one; 507 when a reverse would need disk the tapes'
+reverse of one whose audio is shorter than it; an insert onto an empty tape
+with no tempo (Drop it), or one that would push the tape past its end; a
+delete-time with no loop; a duplicate-section of no such section, or one that
+would push the tape past its end; or an unknown `op`. 404 for an insert of a
+kept clip that isn't there. 409 for an insert with nothing on the clipboard,
+or a tape that isn't the loaded one; 507 when a reverse would need disk the tapes'
 volume doesn't have; 500 when the audio a reversed clip turns back to can't
 be read.
 
