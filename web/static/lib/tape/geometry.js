@@ -319,3 +319,23 @@ export function repeatCount(df, frames, max) {
   if (!(frames > 0)) return 0;
   return Math.max(0, Math.min(max, Math.round(df / frames)));
 }
+
+/**
+ * groupMove holds a move of several clips -- dt frames later, dtrack tracks
+ * down -- inside the tape: none before its start or past its end, and none
+ * off the tracks. `clips` are [{at, frames, track}]; it answers {dt, dtrack}.
+ */
+export function groupMove(clips, dt, dtrack, { tracks, length }) {
+  let first = Infinity, last = -Infinity, top = Infinity, bottom = -Infinity;
+  for (const c of clips) {
+    first = Math.min(first, c.at);
+    last = Math.max(last, c.at + c.frames);
+    top = Math.min(top, c.track);
+    bottom = Math.max(bottom, c.track);
+  }
+  if (!clips.length) return { dt: 0, dtrack: 0 };
+  return {
+    dt: Math.min(Math.max(dt, -first), length - last),
+    dtrack: Math.min(Math.max(dtrack, 1 - top), tracks - bottom),
+  };
+}

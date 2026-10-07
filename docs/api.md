@@ -1070,14 +1070,17 @@ added.
 | `op` | Takes | Does |
 |---|---|---|
 | `lift` | `track`, or `"all": true` | The loop's In to Out, on that track or every track (kept apart, so the clipboard has four), onto the clipboard, leaving silence. The answer's `edit.clipboard` is the new clipboard |
-| `copy` | `track`, or `"all": true` | The same, leaving the tape as it is |
+| `copy` | `track`, or `"all": true`; or `clips` | The same, leaving the tape as it is. With `clips` (ids), those clips instead, as they lie: a clipboard track for each track from the highest of them to the lowest, each clip as far from the first as it is on the tape |
 | `split` | `track`, `pos` (left out: the playhead) | Cuts every clip on the track that runs across `pos` in two there, on every layer |
 | `join` | `clip` | Joins a clip to the next on its layer, if that one carries straight on in the same recording at the same level and nudge: what a split made |
 | `slide` | `clip`, `at`, `to` | Moves a clip to start at `at`, on track `to` (left out or 0: its own track; not `track`, which every edit sends as the selected one), on the lowest layer free there. The page snaps `at` to the grid; the server takes it as given |
 | `multiply` | | Doubles the loop: everything in it is copied into the span after it, replacing what was there, and Out moves on by the loop's length. `edit.frames` is the new length |
 | `trim` | `clip`, `edge` (`in` or `out`), `at` | Moves the clip's start (`in`) or end (`out`) to tape frame `at`. Trimming the start moves `at` and `src` together, so the audio stays where it was played. Clamped: either edge no further out than where its pool file still has the 10 ms overhang beyond it (or where the clip already starts or ends, if further), neither past the clip beside it on its layer or the tape's ends, and at least 10 ms left. `edit.clip` is the clip as trimmed |
 | `repeat` | `clip`, `count` | Lays `count` copies (1–64) of the clip end to end after it on its track, all on one layer so they crossfade where they meet: the clip's own, if it's free for them all, else the lowest free for them all. The copies are new clips of the same audio, not linked. 400 for a count out of range or copies that would run past the end of the tape |
-| `reverse` | `clip` | Plays the clip backwards: its audio, with its handles either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
+| `move` | `clips`, `dt`, `dtrack` | Moves the clips `dt` frames later and `dtrack` tracks down, together, each onto the lowest layer free where it lands (the lowest of them first, so parts stacked stay stacked). Refused whole if any would go before the start, past the end, or off the tracks |
+| `remove` | `clips` | Takes the clips off the tape |
+| `duplicate` | `clips` | Lays a copy of the clips right after them, the earliest copy where the last of them ends, each on its own track on the lowest layer free there |
+| `reverse` | `clip`, or `clips` | Plays the clip backwards (or each of `clips`, as one undo step): its audio, with its handles either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
 
 400 for a lift or copy with no loop, or nothing in it; a split with no clip
 across `pos`; a join with nothing to join; a slide off either end of the tape, or onto a

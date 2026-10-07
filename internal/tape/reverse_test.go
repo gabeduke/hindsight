@@ -125,7 +125,7 @@ func TestAReverseThatCantBeMadeLeavesNoFileBehind(t *testing.T) {
 	pos := int64(30000)
 	e.EditOp(tp.ID, EditRequest{Op: "split", Track: 1, Pos: &pos}) // the clip changes
 	before := poolCount(t, e)
-	if _, err := e.reverseClip(stale, orig.ID); !errors.Is(err, ErrBadParameter) {
+	if _, err := e.reverseClips(stale, []string{orig.ID}); !errors.Is(err, ErrBadParameter) {
 		t.Fatalf("a reverse of a changed clip = %v", err)
 	}
 	if after := poolCount(t, e); after != before {

@@ -22,7 +22,7 @@ import { roundRectPath } from '../cassette-geom.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
-  trimBounds, trimTo, trimmed, repeatRoom, repeatCount,
+  trimBounds, trimTo, trimmed, repeatRoom, repeatCount, groupMove,
 } from './geometry.js';
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
@@ -61,6 +61,7 @@ const state = {
   slide: null,      // a clip being slid: {n, clip, at, to}: from track n to track to
   trim: null,       // a grip being dragged: {n, clip, edge, edge0, at, bounds, limited}
   repeat: null,     // the ⟳ corner being dragged: {n, clip, count, max}
+  multi: null,      // several clips picked: a Set of their ids, or null
   zoom: null,       // the lanes' view once pinched, panned or paged: {from, to}; null shows the loop
   touchedView: 0,   // when a pinch or pan last moved the view: following waits a moment after
   noClickUntil: 0,  // a lane's click before this ends a pan, not a tap
@@ -389,6 +390,7 @@ function render() {
   const t = state.tape;
   const live = state.live;
   const sr = t.sample_rate;
+  renderMulti();
   $('tape-name-text').textContent = t.name;
   $('tape-name').title = `${t.name}: switch tape`;
   document.title = `${t.name} — tape — Hindsight`;
@@ -802,15 +804,110 @@ function lanePitch() {
   return (top(lanes[lanes.length - 1]) - top(lanes[0])) / (lanes.length - 1);
 }
 
-// markTarget lights the lane a slide would land on, when it's another track.
+// markTarget lights the lanes a slide would land on, when they're other
+// tracks: the one track a clip goes to, or each a group's clips go to.
 function markTarget(sl) {
-  for (const l of lanes) l.row.classList.toggle('drop-target', !!sl && sl.to !== sl.n && l.n === sl.to);
+  const to = new Set();
+  if (sl && sl.group && sl.dtrack) for (const g of sl.group) to.add(g.track + sl.dtrack);
+  else if (sl && !sl.group && sl.to !== sl.n) to.add(sl.to);
+  for (const l of lanes) l.row.classList.toggle('drop-target', to.has(l.n));
+}
+
+// --- several clips -------------------------------------------------------------
+// Select more in a clip's sheet, or Shift with a click, picks several clips;
+// then a tap adds or takes one off, the bar (#multi-bar) acts on them all,
+// and dragging any of them moves them all, by the same time and tracks (one
+// move edit). See docs/superpowers/specs/2026-10-07-select-clips-design.md.
+
+// picks is the picked clips as they are on the tape now, each with its
+// track; ids no longer on the tape are let go of.
+function picks() {
+  if (!state.multi || !state.tape) return [];
+  const out = [];
+  for (const tr of state.tape.tracks) for (const c of tr.clips) if (state.multi.has(c.id)) out.push({ ...c, track: tr.n });
+  if (out.length !== state.multi.size) state.multi = new Set(out.map((c) => c.id));
+  return out;
+}
+
+function startMulti(ids) {
+  state.multi = new Set(ids);
+  renderMulti();
+  drawLanes();
+}
+
+function endMulti() {
+  state.multi = null;
+  renderMulti();
+  drawLanes();
+}
+
+// toggleMulti adds a clip to the picked ones, or takes it off; the first
+// Shift-click starts from the clip picked already, if any.
+function toggleMulti(c) {
+  if (!state.multi) state.multi = new Set(state.picked && state.picked !== c.id ? [state.picked] : []);
+  if (state.multi.has(c.id)) state.multi.delete(c.id);
+  else state.multi.add(c.id);
+  if (!state.multi.size) { endMulti(); return; }
+  renderMulti();
+  drawLanes();
+}
+
+function renderMulti() {
+  const n = picks().length;
+  if (state.multi && !n) state.multi = null;
+  $('multi-bar').hidden = !state.multi;
+  setText($('multi-count'), `${n} clip${n === 1 ? '' : 's'}`);
+}
+
+const clipsText = (n) => `${n} clip${n === 1 ? '' : 's'}`;
+
+// The clips keys and the bar act on: the ones picked, or else the one clip.
+const keyed = () => (state.multi ? [...state.multi] : state.picked ? [state.picked] : []);
+
+async function moveClips(ids, dt, dtrack) {
+  const e = await edit('move', { clips: ids, dt, dtrack });
+  if (e) toast(`Moved ${clipsText(e.clips)}`, 'ok', { action: undoAction });
+}
+
+async function removeClips(ids) {
+  const e = await edit('remove', { clips: ids });
+  if (!e) return;
+  if (state.multi) endMulti();
+  if (ids.includes(state.picked)) state.picked = null;
+  toast(`Removed ${clipsText(ids.length)}`, 'ok', { action: undoAction });
+}
+
+async function copyClips(ids) {
+  const e = await edit('copy', { clips: ids });
+  if (e) toast(`Copied ${clipsText(e.clips)}, as they lie: Drop puts them at the playhead`, 'ok');
+}
+
+async function duplicateClips(ids) {
+  const e = await edit('duplicate', { clips: ids });
+  if (e) toast(`Copied ${clipsText(e.clips)} after ${ids.length === 1 ? 'itself' : 'themselves'}`, 'ok', { action: undoAction });
+}
+
+async function reverseClips(ids) {
+  const e = await edit('reverse', { clips: ids });
+  if (e) toast(`Turned ${clipsText(e.clips)} round`, 'ok', { action: undoAction });
+}
+
+// moveHere moves the picked clips so the first starts at the playhead,
+// keeping their spacing and tracks.
+function moveHere() {
+  const ps = picks();
+  const live = state.live;
+  if (!ps.length || !live) return;
+  const first = Math.min(...ps.map((c) => c.at));
+  const m = groupMove(ps, (live.heardEngine ?? live.heard) - first, 0, { tracks: lanes.length, length: state.tape.length });
+  if (!m.dt) { toast('They start at the playhead already', 'warn'); return; }
+  moveClips(ps.map((c) => c.id), m.dt, 0);
 }
 
 // The grips a clip offers on its block (lib/tape/clipgestures.js): the
 // picked clip's edges, to trim it, and its ⟳ corner, to repeat it, unless
-// it's being aligned or slid.
-const gripsOf = (c) => (c.id === state.picked && !state.align && !state.slide ? ['in', 'out', 'repeat'] : []);
+// it's being aligned or slid, or several are picked.
+const gripsOf = (c) => (c.id === state.picked && !state.align && !state.slide && !state.multi ? ['in', 'out', 'repeat'] : []);
 
 // gripHeld: a grip or the ⟳ corner is the finger's, so the lanes leave it be.
 const gripHeld = () => !!(state.trim || state.repeat);
@@ -925,7 +1022,9 @@ function wireLane(lane) {
     } else if (fx.type === 'slideStart' && !state.slide) {
       // (A second finger's hold on another lane, while one slide runs, slides nothing.)
       try { cv.setPointerCapture(fx.id); } catch { /* the pointer's gone */ }
-      state.slide = { n: lane.n, clip: fx.clip, at: fx.clip.at, to: lane.n };
+      // One of several picked: they all go with it.
+      const group = state.multi && state.multi.has(fx.clip.id) ? picks() : null;
+      state.slide = { n: lane.n, clip: fx.clip, at: fx.clip.at, to: lane.n, group, dt: 0, dtrack: 0 };
       cv.classList.add('sliding');
       if (navigator.vibrate) navigator.vibrate(10);
       drawLanes();
@@ -938,7 +1037,16 @@ function wireLane(lane) {
       state.slide.at = slideTo(state.tape.grid, fx.clip.at, df, state.snap);
       // Up or down a lane once it's half a lane over: onto that track.
       state.slide.to = targetTrack(lane.n, fx.dy, lanePitch(), lanes.length);
-      markTarget(state.slide);
+      const sl = state.slide;
+      if (sl.group) {
+        // Held inside the tape and its tracks, all of them.
+        const m = groupMove(sl.group, sl.at - fx.clip.at, sl.to - sl.n, { tracks: lanes.length, length: state.tape.length });
+        sl.dt = m.dt;
+        sl.dtrack = m.dtrack;
+        sl.at = fx.clip.at + m.dt;
+        sl.to = sl.n + m.dtrack;
+      }
+      markTarget(sl);
       drawLanes();
     } else if (fx.type === 'slideEnd' && state.slide && state.slide.n === lane.n) {
       const sl = state.slide;
@@ -947,7 +1055,9 @@ function wireLane(lane) {
       markTarget(null);
       drawLanes();
       // Only a drag commits: a held tap that wobbled a pixel moves nothing.
-      if (fx.commit && sl && (sl.at !== sl.clip.at || sl.to !== sl.n)) slide(sl.clip, sl.at, sl.n, sl.to);
+      if (fx.commit && sl && sl.group) {
+        if (sl.dt || sl.dtrack) moveClips(sl.group.map((g) => g.id), sl.dt, sl.dtrack);
+      } else if (fx.commit && sl && (sl.at !== sl.clip.at || sl.to !== sl.n)) slide(sl.clip, sl.at, sl.n, sl.to);
     }
   };
   // A gesture that ended takes its hold with it; another finger's lift doesn't.
@@ -1858,7 +1968,8 @@ function drawLanes() {
       const block = () => { ctx.beginPath(); roundRectPath(ctx, x0 + 0.75, top + 0.75, Math.max(0.5, bw - 1.5), h - 1.5, radius); };
       if (tm) drawTrimReach(ctx, stored, tm, view, W, top, h, tc, x0, x1);
       // One being slid stays where it is, faint, until it lands.
-      ctx.globalAlpha = state.slide && state.slide.clip.id === c.id ? 0.35 : 1;
+      const sliding = state.slide && (state.slide.clip.id === c.id || (state.slide.group && state.slide.group.some((g) => g.id === c.id)));
+      ctx.globalAlpha = sliding ? 0.35 : 1;
       block();
       ctx.fillStyle = withAlpha(tc, c.layer ? 0.1 : 0.16);
       ctx.fill();
@@ -1926,7 +2037,7 @@ function drawLanes() {
         }
         ctx.restore();
       }
-      const picked = (state.clip && state.clip.id === c.id) || aligning;
+      const picked = (state.clip && state.clip.id === c.id) || aligning || (state.multi && state.multi.has(c.id));
       ctx.lineWidth = picked ? 2 : 1.5;
       ctx.strokeStyle = picked ? ink : tc;
       block();
@@ -1961,11 +2072,15 @@ function drawLanes() {
       }
     }
     if (state.rec && state.rec.track === lane.n) drawPunch(ctx, view, W, H, col);
-    // A clip being slid: where it would land, on the lane it's over.
+    // A clip being slid: where it would land, on the lane it's over; or each
+    // of a group, on the lane it goes to.
     const sl = state.slide;
-    if (sl && sl.to === lane.n) {
-      const from = sl.at + nudgeFrames(sl.clip, t.sample_rate); // where it'll sound, as the clip itself is drawn
-      const x0 = xOf(from, view, W), x1 = xOf(from + sl.clip.frames, view, W);
+    const landing = !sl ? [] : sl.group
+      ? sl.group.filter((g) => g.track + sl.dtrack === lane.n).map((g) => ({ clip: g, at: g.at + sl.dt }))
+      : sl.to === lane.n ? [{ clip: sl.clip, at: sl.at }] : [];
+    for (const { clip: lc, at: lat } of landing) {
+      const from = lat + nudgeFrames(lc, t.sample_rate); // where it'll sound, as the clip itself is drawn
+      const x0 = xOf(from, view, W), x1 = xOf(from + lc.frames, view, W);
       const warn = col('--warn', '#b58900');
       ctx.fillStyle = withAlpha(warn, 0.22);
       ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
@@ -1976,7 +2091,7 @@ function drawLanes() {
       ctx.fillStyle = warn;
       ctx.font = `11px ${col('--mono', 'ui-monospace, monospace')}`;
       ctx.textBaseline = 'top';
-      ctx.fillText(t.grid ? barBeat(sl.at, t.grid) : fmtSecs(sl.at, t.sample_rate), Math.max(2, x0 + 4), 4);
+      ctx.fillText(t.grid ? barBeat(lat, t.grid) : fmtSecs(lat, t.sample_rate), Math.max(2, x0 + 4), 4);
     }
     // The playhead: what the device is playing now.
     if (state.live) {
@@ -2264,9 +2379,11 @@ function laneTap(lane, e) {
   const r = lane.canvas.getBoundingClientRect();
   const x = e.clientX - r.left;
   const hit = laneHit(lane, e);
+  // With several picked, or with Shift, a tap adds the clip or takes it off.
+  if (hit && (state.multi || e.shiftKey)) { toggleMulti(hit.clip); return; }
   if (hit) { openClip(hit.clip); return; }
   // An empty part of a lane moves the playhead there, and lets go of the
-  // picked clip.
+  // picked clip (several picked stay picked).
   state.picked = null;
   transport('locate', { pos: frameAt(x, laneView(), r.width) });
   render();
@@ -2531,6 +2648,14 @@ function wire() {
       undoRedo(e.shiftKey);
       return;
     }
+    // ⌘C or Ctrl+C copies the picked clips (or the one picked clip) as they
+    // lie, unless there's text selected to copy; ⌘D or Ctrl+D lays a copy
+    // of them right after them.
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && !typing && !document.querySelector('dialog[open]')) {
+      const ids = keyed();
+      if (e.code === 'KeyC' && ids.length && !String(window.getSelection?.() || '')) { e.preventDefault(); copyClips(ids); return; }
+      if (e.code === 'KeyD' && ids.length) { e.preventDefault(); duplicateClips(ids); return; }
+    }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (document.querySelector('dialog[open]')) return; // a sheet's keys are its own
     // While a clip is being aligned the arrows step it, Shift by ten (not on
@@ -2553,7 +2678,11 @@ function wire() {
       if (inside) $(`np-drawer-${key}`).focus(); // not lost to the page
       return;
     }
-    // Escape lets go of the picked clip, last of all.
+    // Escape lets go of several picked clips, then of the picked clip.
+    if (e.key === 'Escape' && !menuWasOpen && state.multi) {
+      endMulti();
+      return;
+    }
     if (e.key === 'Escape' && !menuWasOpen && state.picked) {
       state.picked = null;
       drawLanes();
@@ -2576,6 +2705,12 @@ function wire() {
       case 'KeyR': press('rec'); break;
       case 'KeyL': press('loop'); break;
       case 'KeyK': press('click'); break;
+      case 'KeyS': press('ed-split'); break;
+      case 'Delete': case 'Backspace': {
+        const ids = keyed();
+        if (ids.length) { e.preventDefault(); removeClips(ids); }
+        break;
+      }
       case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': pick(Number(e.code.slice(5))); break;
       // Only when it changes the track: otherwise the arrows scroll.
       case 'ArrowUp': if (pick(state.track - 1)) e.preventDefault(); break;
@@ -2634,6 +2769,16 @@ function wire() {
     if (c) patch({ clip: { id: c.id, remove: true } }).then((ok) => ok && toast('Clip removed', 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } }));
   });
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
+  $('clip-select').addEventListener('click', () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c) startMulti([c.id]);
+  });
+  $('multi-move').addEventListener('click', moveHere);
+  $('multi-copy').addEventListener('click', () => copyClips(keyed()));
+  $('multi-reverse').addEventListener('click', () => reverseClips(keyed()));
+  $('multi-remove').addEventListener('click', () => removeClips(keyed()));
+  $('multi-done').addEventListener('click', endMulti);
   for (const edge of ['in', 'out']) {
     $(`clip-trim-${edge}`).addEventListener('click', () => {
       const c = state.clip;

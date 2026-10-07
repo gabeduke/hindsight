@@ -18,7 +18,7 @@ import (
 
 // EditRequest is one edit. The selection is the loop's In and Out.
 type EditRequest struct {
-	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse, trim, repeat
+	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse, trim, repeat, move, remove, duplicate
 	Track int    `json:"track"` // the selected track
 	All   bool   `json:"all"`   // lift and copy: all four tracks, kept apart
 	Clip  string `json:"clip"`  // join, slide, reverse, trim, repeat: the clip
@@ -28,8 +28,14 @@ type EditRequest struct {
 	// To is the track a slide moves the clip onto (0: its own). Not Track,
 	// which every edit sends as the selected track.
 	To int `json:"to"`
-	// Count is how many copies a repeat lays after the clip.
+	// Count is how many copies a repeat lays.
 	Count int `json:"count"`
+	// Clips are several clips at once: move, remove, reverse, copy and
+	// duplicate act on them together, as one undo step. Move moves them all
+	// DT frames later and DTrack tracks down.
+	Clips  []string `json:"clips"`
+	DT     int64    `json:"dt"`
+	DTrack int      `json:"dtrack"`
 }
 
 // EditResult says what an edit did, for the page's toast.
@@ -51,8 +57,32 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		return EditResult{}, ErrWrongTape
 	}
 	switch req.Op {
-	case "lift", "copy":
+	case "copy":
+		if len(req.Clips) > 0 {
+			return e.copyClips(t, req.Clips)
+		}
 		return e.liftCopy(t, req)
+	case "lift":
+		return e.liftCopy(t, req)
+	case "move":
+		var n int
+		err := e.Edit(id, "", func(tp *Tape, s *State) error {
+			var err error
+			n, err = s.moveClips(req.Clips, req.DT, req.DTrack, tp.Length)
+			return err
+		})
+		return EditResult{Op: "move", Clips: n}, err
+	case "remove":
+		err := e.Edit(id, "", func(_ *Tape, s *State) error { return s.removeClips(req.Clips) })
+		return EditResult{Op: "remove", Clips: len(req.Clips)}, err
+	case "duplicate":
+		var n int
+		err := e.Edit(id, "", func(tp *Tape, s *State) error {
+			var err error
+			n, err = s.duplicateClips(req.Clips, tp.Length)
+			return err
+		})
+		return EditResult{Op: "duplicate", Clips: n}, err
 	case "split":
 		var pos int64
 		if req.Pos != nil {
@@ -77,7 +107,10 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		err := e.Edit(id, "", func(tp *Tape, s *State) error { return s.slide(req.Clip, *req.At, req.To, tp.Length) })
 		return EditResult{Op: "slide", Clips: 1}, err
 	case "reverse":
-		return e.reverseClip(t, req.Clip)
+		if len(req.Clips) > 0 {
+			return e.reverseClips(t, req.Clips)
+		}
+		return e.reverseClips(t, []string{req.Clip})
 	case "trim":
 		return e.trimClip(t, req)
 	case "repeat":
@@ -475,72 +508,100 @@ func (s *State) multiply(length int64) (int, int64, error) {
 	return copied, s.Loop.Len(), nil
 }
 
-// reverseClip turns a clip round. Its audio, with handles either side, is
-// written backwards to a new pool file, and the clip plays that -- so
-// every edit still reads a clip forwards. Reversing it again plays its
-// original file the right way round, with no new file.
-func (e *Engine) reverseClip(t *Tape, id string) (EditResult, error) {
-	_, c, err := t.Clip(id)
-	if err != nil {
-		return EditResult{}, err
+// turn is how one clip plays turned round (reverseClips).
+type turn struct {
+	was  Clip
+	file string
+	src  int64
+	rev  *Reversal
+}
+
+// reverseClips turns clips round, as one undo step. Each clip's audio, with
+// handles either side, is written backwards to a new pool file, and the
+// clip plays that -- so every edit still reads a clip forwards. Reversing one
+// again plays its original file the right way round, with no new file.
+func (e *Engine) reverseClips(t *Tape, ids []string) (EditResult, error) {
+	var turns []turn
+	var made []string // reversed files written for this, to remove if they aren't used
+	forget := func() {
+		// Nothing plays them: don't leave them for a clean-up to find.
+		for _, m := range made {
+			os.Remove(m)
+			os.Remove(strings.TrimSuffix(m, ".wav") + ".peaks.json")
+		}
 	}
-	was := *c
-	file, src, rev := "", int64(0), (*Reversal)(nil)
-	var made string // a reversed file written for this, to remove if it isn't used
-	if was.Reversed != nil {
-		file, src = was.Reversed.File, was.Reversed.End-was.Src-was.Frames
-		info, err := audio.ReadWAVInfo(e.store.AudioPath(file))
+	for _, id := range ids {
+		_, c, err := t.Clip(id)
 		if err != nil {
-			return EditResult{}, fmt.Errorf("the audio it was reversed from can't be read: %w", err)
+			forget()
+			return EditResult{}, err
 		}
-		if src < 0 || src+was.Frames > info.Frames() {
-			return EditResult{}, fmt.Errorf("%w: the audio it was reversed from is shorter than the clip", ErrBadParameter)
-		}
-	} else {
-		path := e.store.AudioPath(was.File)
-		info, err := audio.ReadWAVInfo(path)
+		tn, dst, err := e.reversal(*c)
 		if err != nil {
+			forget()
 			return EditResult{}, err
 		}
-		if was.Src < 0 || was.Src+was.Frames > info.Frames() {
-			return EditResult{}, fmt.Errorf("%w: the clip runs past its audio", ErrBadParameter)
+		if dst != "" {
+			made = append(made, dst)
 		}
-		if err := e.diskOK(); err != nil {
-			return EditResult{}, err
-		}
-		hd := e.handle(int64(e.store.SampleRate()))
-		lo, hi := max64(0, was.Src-hd), min64(info.Frames(), was.Src+was.Frames+hd)
-		rel, dst, err := e.store.NewPoolFile("rev", time.Now())
-		if err != nil {
-			return EditResult{}, err
-		}
-		if err := audio.ReverseWAVSpan(path, lo, hi, dst); err != nil {
-			os.Remove(dst)
-			return EditResult{}, err
-		}
-		made = dst
-		file, src, rev = rel, hi-(was.Src+was.Frames), &Reversal{File: was.File, End: hi}
+		turns = append(turns, tn)
 	}
-	err = e.Edit(t.ID, "", func(_ *Tape, s *State) error {
-		for ti := range s.Tracks {
-			for i := range s.Tracks[ti].Clips {
-				c := &s.Tracks[ti].Clips[i]
-				if c.ID != id {
-					continue
-				}
-				if c.File != was.File || c.Src != was.Src || c.Frames != was.Frames {
-					return fmt.Errorf("%w: the clip changed meanwhile; try again", ErrBadParameter)
-				}
-				c.File, c.Src, c.Reversed = file, src, rev
-				return nil
+	err := e.Edit(t.ID, "", func(_ *Tape, s *State) error {
+		for _, tn := range turns {
+			c, err := s.clip(tn.was.ID)
+			if err != nil {
+				return err
 			}
+			if c.File != tn.was.File || c.Src != tn.was.Src || c.Frames != tn.was.Frames {
+				return fmt.Errorf("%w: the clip changed meanwhile; try again", ErrBadParameter)
+			}
+			c.File, c.Src, c.Reversed = tn.file, tn.src, tn.rev
 		}
-		return ErrNoSuchClip
+		return nil
 	})
-	if err != nil && made != "" {
-		// Nothing plays it: don't leave it for a clean-up to find.
-		os.Remove(made)
-		os.Remove(strings.TrimSuffix(made, ".wav") + ".peaks.json")
+	if err != nil {
+		forget()
 	}
-	return EditResult{Op: "reverse", Clips: 1}, err
+	return EditResult{Op: "reverse", Clips: len(turns)}, err
+}
+
+// reversal works out how a clip plays turned round: its original file again,
+// for one already reversed, or a new reversed copy of its audio and handles,
+// whose path it answers so that a failed edit can remove it.
+func (e *Engine) reversal(was Clip) (turn, string, error) {
+	tn := turn{was: was}
+	if was.Reversed != nil {
+		tn.file, tn.src = was.Reversed.File, was.Reversed.End-was.Src-was.Frames
+		info, err := audio.ReadWAVInfo(e.store.AudioPath(tn.file))
+		if err != nil {
+			return tn, "", fmt.Errorf("the audio it was reversed from can't be read: %w", err)
+		}
+		if tn.src < 0 || tn.src+was.Frames > info.Frames() {
+			return tn, "", fmt.Errorf("%w: the audio it was reversed from is shorter than the clip", ErrBadParameter)
+		}
+		return tn, "", nil
+	}
+	path := e.store.AudioPath(was.File)
+	info, err := audio.ReadWAVInfo(path)
+	if err != nil {
+		return tn, "", err
+	}
+	if was.Src < 0 || was.Src+was.Frames > info.Frames() {
+		return tn, "", fmt.Errorf("%w: the clip runs past its audio", ErrBadParameter)
+	}
+	if err := e.diskOK(); err != nil {
+		return tn, "", err
+	}
+	hd := e.handle(int64(e.store.SampleRate()))
+	lo, hi := max64(0, was.Src-hd), min64(info.Frames(), was.Src+was.Frames+hd)
+	rel, dst, err := e.store.NewPoolFile("rev", time.Now())
+	if err != nil {
+		return tn, "", err
+	}
+	if err := audio.ReverseWAVSpan(path, lo, hi, dst); err != nil {
+		os.Remove(dst)
+		return tn, "", err
+	}
+	tn.file, tn.src, tn.rev = rel, hi-(was.Src+was.Frames), &Reversal{File: was.File, End: hi}
+	return tn, dst, nil
 }

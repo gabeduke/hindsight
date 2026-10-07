@@ -207,6 +207,16 @@
       </div>
     </div>
   </div>
+  <!-- Several clips picked (lib/tape/page.js, "several clips"): what they
+       do together. Drag any of them to move them all. -->
+  <div id="multi-bar" class="multi-bar" role="toolbar" aria-label="Picked clips" hidden>
+    <span id="multi-count" class="mono multi-count">0 clips</span>
+    <button id="multi-move" class="icon-btn" type="button" data-tip="multi-move">Move here</button>
+    <button id="multi-copy" class="icon-btn" type="button" data-tip="multi-copy">Copy</button>
+    <button id="multi-reverse" class="icon-btn" type="button" data-tip="multi-reverse">Reverse</button>
+    <button id="multi-remove" class="icon-btn danger" type="button" data-tip="multi-remove">Remove</button>
+    <button id="multi-done" class="icon-btn" type="button" data-tip="multi-done">Done</button>
+  </div>
 <!-- The now-playing bar (docs/superpowers/specs/2026-10-05-transport-bar-design.md):
        the reel window and its LCD, the transport, the page's own keys, the whole
        tape as a scrubber, and OUT. Docked at the foot of the page; shown with
@@ -356,6 +366,7 @@
     </div>
     <div class="sheet-actions">
       <button id="clip-align" class="icon-btn" type="button" data-tip="clip-align">Align</button>
+      <button id="clip-select" class="icon-btn" type="button" data-tip="clip-select">Select more</button>
     </div>
     <p class="sheet-hint muted">To slide it, hold the clip in its lane, then drag. To trim it, drag its edges once it's picked, or move the playhead and Start here or End here. To line it up to the sample, Align.</p>
     <div class="sheet-actions">
