@@ -17,12 +17,13 @@ RENDERS = kit.HERE / "renders"
 SIZE = (1400, 1000)
 
 TRAY = "#e6dcc4"
-LID = "#c9b98f"
+LID = "#40444c"  # a charcoal lid on a cream case reads like a Portastudio
 BOARD = "#2f7d43"
 METAL = "#b8b8b8"
 BLACK = "#222222"
 SINK = "#8d93a0"
 SOLO = "#c0392b"
+BRASS = "#c9a74a"
 
 
 def _mesh(shape, tmp: Path, name: str) -> pv.PolyData:
@@ -35,8 +36,10 @@ def _add(plotter, mesh, color, opacity=1.0, edges=True):
     plotter.add_mesh(mesh, color=color, opacity=opacity, smooth_shading=False,
                      specular=0.15, ambient=0.25)
     if edges:
+        r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+        line = "#d9d2c3" if 0.3 * r + 0.59 * g + 0.11 * b < 110 else "#3a3a3a"
         plotter.add_mesh(mesh.extract_feature_edges(35, boundary_edges=False, non_manifold_edges=False),
-                         color="#3a3a3a", line_width=1.2, opacity=min(1.0, opacity + 0.3))
+                         color=line, line_width=1.2, opacity=min(1.0, opacity + 0.3))
 
 
 def _plotter(title: str) -> pv.Plotter:
@@ -73,41 +76,52 @@ def _shoot(scene, title, cam, path, parallel=False, zoom=1.0):
 
 def main(parts: dict) -> None:
     RENDERS.mkdir(exist_ok=True)
+    for old in RENDERS.glob("*.png"):
+        old.unlink()
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
         pi, solo = parts["pi"], parts["solo"]
         m = {
-            "tray": [(_mesh(parts["tray"], tmp, "tray"), TRAY, 1.0)],
+            "case": [(_mesh(parts["case"], tmp, "case"), TRAY, 1.0)],
             "lid": [(_mesh(parts["lid"], tmp, "lid"), LID, 1.0)],
             "pi": [(_mesh(pi["board"], tmp, "board"), BOARD, 1.0),
                    (_mesh(pi["metal"], tmp, "metal"), METAL, 1.0),
                    (_mesh(pi["black"], tmp, "black"), BLACK, 1.0),
-                   (_mesh(pi["heatsink"], tmp, "sink"), SINK, 1.0)],
-            "solo": [(_mesh(solo["body"], tmp, "solo"), SOLO, 0.35),
-                     (_mesh(solo["feet"], tmp, "feet"), BLACK, 0.6),
-                     (_mesh(solo["jacks"], tmp, "jacks"), BLACK, 0.8)],
+                   (_mesh(pi["heatsink"], tmp, "sink"), SINK, 1.0),
+                   (_mesh(pi["standoffs"], tmp, "standoffs"), BRASS, 1.0)],
+            "solo": [(_mesh(solo["body"], tmp, "solo"), SOLO, 1.0),
+                     (_mesh(solo["feet"], tmp, "feet"), BLACK, 1.0),
+                     (_mesh(solo["jacks"], tmp, "jacks"), BLACK, 1.0),
+                     (_mesh(solo["dual_lock"], tmp, "dl"), BLACK, 1.0)],
         }
-        fit_pi = kit.print_pose(parts["fit_test_pi"])
-        fit_solo = kit.print_pose(parts["fit_test_solo"])
-        fits = [(_mesh(fit_solo, tmp, "fs"), TRAY, 1.0), (_mesh(fit_pi, tmp, "fp"), LID, 1.0)]
+        fit = [(_mesh(kit.print_pose(parts["fit_test_pi"]), tmp, "fp"), LID, 1.0)]
+        case_print = [(_mesh(kit.print_pose(parts["case"]), tmp, "cp"), TRAY, 1.0)]
 
-    cx, cy = kit.cav_w / 2, kit.cav_d / 2
-    zc = kit.stack_h / 2
+    cx, cy = kit.solo_x0 + kit.solo_w / 2, kit.solo_y0 + kit.solo_d / 2
+    zc = kit.solo_body_z0 + kit.stack_h / 2
+    kx, ky = kit.cav_w / 2, kit.cav_d / 2
     side = f"usb_side={kit.usb_side}, Pi {kit.pi_model}"
-    everything = ["tray", "lid", "pi", "solo"]
+    everything = ["case", "lid", "pi", "solo"]
 
-    _shoot(_scene(m, everything), f"Isometric (front-left), {side}. Solo is a placeholder, see-through",
-           [(cx - 260, cy - 330, zc + 230), (cx, cy, zc - 10), (0, 0, 1)], RENDERS / "iso.png")
-    _shoot(_scene(m, ["tray", "pi"]), f"Top, lid off ({side}). Front is at the bottom",
-           [(cx, cy, 500), (cx, cy, 0), (0, 1, 0)], RENDERS / "top.png", parallel=True, zoom=1.15)
+    _shoot(_scene(m, everything), f"Isometric (front-left), {side}. The Solo is a placeholder",
+           [(cx - 260, cy - 330, zc + 220), (cx, cy, zc), (0, 0, 1)], RENDERS / "iso.png")
+    _shoot(_scene(m, ["case", "pi"]), f"Case from above, lid off ({side}). Front is at the bottom",
+           [(kx, ky, 500), (kx, ky, 0), (0, 1, 0)], RENDERS / "top.png", parallel=True, zoom=1.1)
     _shoot(_scene(m, everything), f"Rear ({side}). Viewer's left is the box's right",
            [(cx, cy + 600, zc), (cx, cy, zc), (0, 0, 1)], RENDERS / "rear.png", parallel=True, zoom=1.1)
     _shoot(_scene(m, everything), f"Right side ({side}). Front is on the left",
            [(cx + 600, cy, zc), (cx, cy, zc), (0, 0, 1)], RENDERS / "right.png", parallel=True, zoom=1.1)
-    _shoot(_scene(m, everything, {"pi": 25, "lid": 70, "solo": 115}), f"Exploded ({side})",
-           [(cx + 300, cy - 340, 330), (cx, cy, 70), (0, 0, 1)], RENDERS / "exploded.png")
-    _shoot(_scene(m, ["tray", "pi"]), f"Tray and Pi from the rear right ({side})",
-           [(cx + 260, cy + 280, 220), (cx, cy, 8), (0, 0, 1)], RENDERS / "tray.png")
-    _shoot(fits, "Fit test in print orientation: Solo ring (posts) with the Pi boss plate inside",
-           [(60, -200, 230), (0, 0, 0), (0, 0, 1)], RENDERS / "fit_test.png")
+    _shoot(_scene(m, everything, {"pi": 30, "lid": 75, "case": 0, "solo": -40}), f"Exploded ({side})",
+           [(cx + 320, cy - 360, zc + 260), (cx + 20, cy, zc + 10), (0, 0, 1)], RENDERS / "exploded.png")
+    _shoot(_scene(m, ["case", "pi"]), f"Case and Pi from the rear right ({side})",
+           [(kx + 170, ky + 190, 160), (kx, ky, 8), (0, 0, 1)], RENDERS / "case.png")
+    lid_only = _scene(m, ["lid"])
+    _shoot(lid_only, "Lid from above: faders, knobs, transport keys and the cassette (front at the bottom)",
+           [(kx, ky, 500), (kx, ky, 0), (0, 1, 0)], RENDERS / "lid_top.png", parallel=True, zoom=1.15)
+    _shoot(_scene(m, ["case", "lid", "pi"]), f"Close up, front left ({side})",
+           [(kx - 120, ky - 150, 170), (kx, ky - 5, 20), (0, 0, 1)], RENDERS / "lid.png")
+    _shoot(case_print, "Case underside: floor vents and the Dual Lock pad grooves",
+           [(0, -60, -240), (0, 0, 0), (0, 1, 0)], RENDERS / "bottom.png")
+    _shoot(fit, "Fit test in print orientation: the Pi's four bosses",
+           [(40, -130, 150), (0, 0, 0), (0, 0, 1)], RENDERS / "fit_test.png")
     print(f"renders → {RENDERS.relative_to(kit.HERE)}/")

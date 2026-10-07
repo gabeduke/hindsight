@@ -6,6 +6,23 @@ Copied on 2026-10-07 from the Jamstation project doc
 source as written. Where the model deliberately departs from it, the reason
 is in [REPORT.md](REPORT.md) under "Departures from the spec".
 
+## Revision, 2026-10-07: the Pi rides on top
+
+After the first model, Gabe changed the concept:
+
+- **The Pi goes on top of the Solo**, like a backpack, since the Solo is the
+  heavier part. The Solo sits on its own feet; nothing is printed under it.
+- **Attachment:** 3M Dual Lock now. A clip-on saddle that hooks the Solo's
+  bare ends comes later, once the Solo is measured, and carries the same pads.
+- **Look:** rounded edges, and a lid styled like a cassette 4-track (a
+  Portastudio's top panel).
+
+So the parts are now a Pi **case** (base), its **lid**, and the Pi fit-test
+plate. The spec's tray, Solo pocket, corner posts, Solo fit-test ring and
+accessory points below no longer apply; its Pi numbers, port rules, insert
+sizes, print settings and thermal rules still do. The Jamstation project doc
+still describes the original concept.
+
 ---
 
 ## Bill of materials

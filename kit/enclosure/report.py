@@ -16,6 +16,7 @@ from build123d import Compound
 import kit
 
 ROWS: list[tuple[str, str, float, float, str]] = []  # (group, item, value, needed, note)
+FACET_SLACK = 1.0  # degrees: a curved 45° surface (the chamfer round a corner) tessellates up to ~46°
 
 
 def row(group, item, value, needed=kit.min_clearance, note=""):
@@ -47,28 +48,32 @@ def clearances(parts) -> None:
     pi_um = "unmeasured: Pi connector overhangs" if _um(
         "pi_usb_overhang", "pi_usbc_overhang", "pi_hdmi_overhang", "pi_audio_overhang", "pi_sd_protrude") else ""
 
-    # ── The Pi to the walls ──
-    for wall in ("front", "rear", "left", "right"):
-        nearest = min(k.pi_keepout, key=lambda b: _wall_gap(b, wall))
-        gap = _wall_gap(nearest, wall)
-        note = pi_um
-        if wall == k.usb_wall:
-            note = (note + "; " if note else "") + "jack faces, by design (port_gap); plugs go in through the notch"
-        elif wall == k.pwr_wall:
-            note = (note + "; " if note else "") + "the edge connector that reaches furthest, by design (port_gap)"
-        row("The Pi to the walls", f"{wall} wall ← {nearest.name}", gap, note=note)
+    def note(*parts_):
+        return "; ".join(p for p in parts_ if p)
 
-    # ── The Pi to the bosses and pads (plan view: the Pi drops in from above) ──
-    for name, (x, y) in k.lid_screws.items():
-        row("The Pi to the bosses", f"lid boss, {name}", k.pi_gap_2d(x, y, k.lid_boss_d / 2), note=pi_um)
-    for side, u in k.accessory:
-        x0 = 0.0 if side == "left" else k.cav_w - k.acc_pad_depth
-        pad = k.Box3("pad", x0, x0 + k.acc_pad_depth, u - k.acc_pad_w / 2, u + k.acc_pad_w / 2, 0, k.cav_h)
-        gap = min(max(b.x0 - pad.x1, pad.x0 - b.x1, b.y0 - pad.y1, pad.y0 - b.y1) for b in k.pi_keepout)
-        row("The Pi to the bosses", f"accessory pad, {side} wall at Y {u:.1f}", gap, note=pi_um)
+    # ── The Pi to the walls ──
+    jack_names = [p[0] for p in k.end_ports]
+    others = [b for b in k.pi_keepout if b.name not in jack_names]
+    for wall in ("front", "left", "right"):
+        nearest = min(k.pi_keepout, key=lambda b: _wall_gap(b, wall))
+        extra = "the edge connector that reaches furthest, by design (`port_gap`)" if wall == "right" else ""
+        row("The Pi to the walls", f"{wall} wall ← {nearest.name}", _wall_gap(nearest, wall), note=note(pi_um, extra))
+    nearest = min(others, key=lambda b: _wall_gap(b, "rear"))
+    row("The Pi to the walls", f"rear wall (inside face) ← {nearest.name}", _wall_gap(nearest, "rear"), note=pi_um)
+    row("The Pi to the walls", "USB-A/Ethernet faces → rear wall's outside face", k.rear_jack_proud,
+        note=note(pi_um, "by design (`rear_jack_proud`): the jacks reach into the open notch"))
+
+    # ── Standoffs (hex, measured across the corners) to the parts on the board ──
+    top_parts = [b for b in k.pi_keepout if b.name not in ("board", "SD card")]
+    flat = min(((k._circle_box_gap(x, y, k.standoff_af / 2, b), b.name) for x, y in k.pi_holes for b in top_parts))
+    corner = min(k._circle_box_gap(x, y, k.standoff_r, b) for x, y in k.pi_holes for b in top_parts)
+    row("The Pi and its standoffs", f"M2.5 standoff → nearest part on the board ({flat[1]})", flat[0],
+        note=note(pi_um, f"with a flat of the hex toward it (PRINTING.md); corner-on it would be {corner:.2f}"))
+    walls = min(min(x, k.cav_w - x, y, k.cav_d - y) - k.standoff_r for x, y in k.pi_holes)
+    row("The Pi and its standoffs", "M2.5 standoff → nearest wall", walls)
 
     # ── Up and down ──
-    top = max(b.z1 for b in k.pi_keepout if b.name not in ("heatsink",))
+    top = max(b.z1 for b in k.pi_keepout if b.name != "heatsink")
     row("The Pi, up and down", "tallest jack top → lid underside", k.cav_h - top, note=_um("pi_tallest"))
     row("The Pi, up and down", "heatsink top → lid underside (spec: 5 mm for airflow)",
         k.cav_h - (k.board_top_z + k.pi_heatsink_top), needed=5.0, note=_um("pi_heatsink_top"))
@@ -76,74 +81,71 @@ def clearances(parts) -> None:
 
     # ── Port faces to their openings ──
     usbc = next(b for b in k.pi_keepout if b.name == "USB-C power")
-    u0, u1 = sorted((k.wall_u(k.pwr_wall, usbc.x0, usbc.y0), k.wall_u(k.pwr_wall, usbc.x1, usbc.y1)))
-    w0, w1 = k.pwr_u - k.pwr_win_w / 2, k.pwr_u + k.pwr_win_w / 2
-    row("Port faces to openings", "USB-C receptacle → window sides", min(u0 - w0, w1 - u1), note=pi_um)
+    w0, w1 = k.pwr_y - k.pwr_win_w / 2, k.pwr_y + k.pwr_win_w / 2
+    row("Port faces to openings", "USB-C receptacle → window sides", min(usbc.y0 - w0, w1 - usbc.y1), note=pi_um)
     row("Port faces to openings", "USB-C receptacle → window bottom", usbc.z0 - k.pwr_win_z0)
     row("Port faces to openings", "USB-C plug body → window sides", (k.pwr_win_w - k.pwr_plug_w) / 2,
         note=_um("pwr_plug_w"))
     row("Port faces to openings", "USB-C plug body → window bottom/top", (k.pwr_win_h - k.pwr_plug_h) / 2,
         note=_um("pwr_plug_h"))
-    jacks = [b for b in k.pi_keepout if b.name in [p[0] for p in k.end_ports]]
+    jacks = [b for b in k.pi_keepout if b.name in jack_names]
     for j in jacks:
-        a0, a1 = sorted((k.wall_u(k.usb_wall, j.x0, j.y0), k.wall_u(k.usb_wall, j.x1, j.y1)))
-        row("Port faces to openings", f"{j.name} jack → notch sides", min(a0 - k.notch_u0, k.notch_u1 - a1),
+        row("Port faces to openings", f"{j.name} jack → notch sides", min(j.x0 - k.notch_x0, k.notch_x1 - j.x1),
             note=pi_um)
     row("Port faces to openings", "jack bottoms → notch floor", k.board_top_z - k.notch_z0,
-        note="`notch_floor_drop`, by design")
+        note="by design (`notch_floor_drop`)")
     plug_bot = k.board_top_z + k.usb_low_port_zc - k.usb_plug_h / 2
     row("Port faces to openings", "lower USB-A plug body → notch floor", plug_bot - k.notch_z0,
         note=_um("usb_low_port_zc", "usb_plug_h"))
-    usb_centres = sorted((k.wall_u(k.usb_wall, (j.x0 + j.x1) / 2, (j.y0 + j.y1) / 2)) for j in jacks
-                         if j.name.startswith("USB"))
-    outer = min(usb_centres[0] - k.notch_u0, k.notch_u1 - usb_centres[-1])
+    usb_x = sorted((j.x0 + j.x1) / 2 for j in jacks if j.name.startswith("USB"))
+    outer = min(usb_x[0] - k.notch_x0, k.notch_x1 - usb_x[-1])
     row("Port faces to openings", "USB-A plug body → notch side (outer stack)", outer - k.usb_plug_w / 2,
         note=_um("usb_plug_w"))
+    sd = k.sd_box
+    row("Port faces to openings", "SD card → slot sides", min(sd.x0 - (k.sd_x - k.sd_slot_w / 2),
+                                                              (k.sd_x + k.sd_slot_w / 2) - sd.x1), note=pi_um)
+    row("Port faces to openings", "SD card → slot bottom", sd.z0 - k.sd_slot_z0)
 
-    # ── The Solo and its posts ──
-    row("The Solo and the posts", "Solo body → post inside faces", k.fit,
-        note="`fit`, by design; " + _um("solo_w", "solo_d"))
-    low = min(k.solo_xlr_z, k.solo_front_low_z)
-    row("The Solo and the posts", "post top → lowest XLR or front jack/knob, less 2 (spec)", low - 2 - k.post_h,
-        needed=0.0, note=_um("solo_xlr_z", "solo_front_low_z"))
-    leg_start = k.solo_w - k.post_leg  # Solo-frame X where the rear-right leg begins
-    plug_end = k.solo_usb_x + k.solo_usb_plug_w / 2
+    # ── On the Solo ──
+    solo_um = _um("solo_w", "solo_d")
+    row("On the Solo", "case front face → Solo front face (the case mustn't overhang the controls)",
+        k.out_y0 - k.solo_y0, needed=0.0, note=solo_um)
+    pads_in = min(min(p.x0 - k.solo_x0, k.solo_x0 + k.solo_w - p.x1, p.y0 - k.solo_y0, k.solo_y0 + k.solo_d - p.y1)
+                  for p in k.dl_pads)
+    row("On the Solo", "Dual Lock pads → edge of the Solo's top", pads_in, needed=0.0, note=solo_um)
     if k.usb_side == "left":
-        leg_start, plug_end = k.post_leg, k.solo_usb_x - k.solo_usb_plug_w / 2
-        gap = plug_end - leg_start
-    else:
-        gap = leg_start - plug_end
-    row("The Solo and the posts", f"Solo USB-C plug → rear-{k.usb_side} post leg (sideways)", gap,
-        note=_um("solo_usb_x", "solo_usb_plug_w"))
+        room = k.solo_x0 + k.solo_w - k.out_x1
+        row("On the Solo", "room on the Solo's top for the power plug (right of the case)", room,
+            needed=k.pwr_plug_room, note=solo_um)
+    # Cable: from the nearest Pi USB-A port to the Solo's USB-C, both pointing rearward
+    port_z = k.board_top_z + k.usb_low_port_zc
+    solo_usb = (k.solo_x0 + k.solo_usb_x, k.solo_body_z0 + k.solo_usb_z)
+    near_x = min(usb_x, key=lambda x: abs(x - solo_usb[0]))
+    run = abs(near_x - solo_usb[0]) + abs(port_z - solo_usb[1]) + 2 * 15.0  # two bends
+    row("On the Solo", "USB cable slack (cable less plug bodies, less the run between them)",
+        k.usb_cable_len - 2 * k.plug_body_len - run, needed=0.0, note=_um("solo_usb_x", "solo_usb_z"))
+    if not k.usb_side_agrees:
+        row("On the Solo", "usb_side agrees with solo_usb_x", -1, needed=0.0, note="**fix usb_side or solo_usb_x**")
 
-    # ── Lid screws ──
-    for name, (x, y) in k.lid_screws.items():
-        r = k.m3_csk_d / 2
-        gaps = []
-        for c in kit.CORNERS:
-            # Each post is two rectangles: test the circle against both legs
-            ox = 0 if "left" in c else k.cav_w
-            oy = 0 if "front" in c else k.cav_d
-            sx = -1 if "left" in c else 1
-            sy = -1 if "front" in c else 1
-            L, t = k.post_leg + k.fit, k.post_t
-            legs = [(ox - sx * L, ox + sx * t, oy, oy + sy * t), (ox, ox + sx * t, oy - sy * L, oy + sy * t)]
-            for ax, bx, ay, by in legs:
-                b = k.Box3("leg", min(ax, bx), max(ax, bx), min(ay, by), max(ay, by), 0, 0)
-                gaps.append(kit._circle_box_gap(x, y, r, b))
-        row("Lid screws", f"countersink, {name} → nearest post", min(gaps))
-        edge = min(x + k.wall, k.cav_w + k.wall - x, y + k.wall, k.cav_d + k.wall - y) - r
-        row("Lid screws", f"countersink, {name} → lid edge", edge)
+    # ── Lid ──
+    edge = min(min(x - k.out_x0, k.out_x1 - x, y - k.out_y0, k.out_y1 - y) for x, y in k.pi_holes) - k.m25_csk_d / 2
+    row("Lid", "screw countersink → lid edge", edge)
+    gaps = [k._circle_box_gap(x, y, k.m25_csk_d / 2, k.Box3("s", sx - k.lid_slot_l / 2, sx + k.lid_slot_l / 2,
+                                                           sy - k.lid_slot_w / 2, sy + k.lid_slot_w / 2, 0, 0))
+            for x, y in k.pi_holes for sx, sy in k.lid_slots]
+    row("Lid", "screw countersink → nearest vent slot", min(gaps) if gaps else 99.0)
 
     # ── Geometry cross-check with OpenCascade ──
-    tray_no_bosses = kit.make_tray(pi_bosses=False)
+    case_no_bosses = kit.make_case(pi_bosses=False)
     pi = Compound(children=[parts["pi"]["board"], parts["pi"]["metal"], parts["pi"]["black"],
                             parts["pi"]["heatsink"]])
-    row("Cross-check (OCC solid distance)", "Pi placeholder → tray (less the Pi's own bosses)",
-        pi.distance_to(tray_no_bosses), note=pi_um)
+    row("Cross-check (OCC solid distance)", "Pi placeholder → case (less the Pi's own bosses)",
+        pi.distance_to(case_no_bosses), note=pi_um)
     row("Cross-check (OCC solid distance)", "Pi placeholder → lid", pi.distance_to(parts["lid"]))
-    row("Cross-check (OCC solid distance)", "Solo body → lid posts", parts["solo"]["body"].distance_to(parts["lid"]),
-        note=_um("solo_w", "solo_d"))
+    row("Cross-check (OCC solid distance)", "standoffs → case (less the Pi's own bosses)",
+        parts["pi"]["standoffs"].distance_to(case_no_bosses))
+    row("Cross-check (OCC solid distance)", "Solo body → case (the Dual Lock gap)",
+        parts["solo"]["body"].distance_to(parts["case"]), note=solo_um)
 
 
 # ── Printability ────────────────────────────────────────────────────────────
@@ -167,7 +169,7 @@ def analyse_mesh(mesh: trimesh.Trimesh) -> list[dict]:
     z = mesh.triangles[:, :, 2]
     on_bed = np.all(np.abs(z - mesh.bounds[0][2]) < 1e-3, axis=1)
     over = np.degrees(np.arcsin(np.clip(-n[:, 2], -1, 1)))  # 0° a wall, 90° a flat ceiling
-    flagged = (over > 45.0 + 0.5) & ~on_bed
+    flagged = (over > 45.0 + FACET_SLACK) & ~on_bed
     regions = []
     if not flagged.any():
         return regions
@@ -209,7 +211,7 @@ def printability(name: str) -> dict:
 def main(parts) -> None:
     ROWS.clear()
     clearances(parts)
-    prints = [printability(n) for n in ("tray", "lid", "fit_test_pi", "fit_test_solo")]
+    prints = [printability(n) for n in ("case", "lid", "fit_test_pi")]
     (kit.HERE / "REPORT.md").write_text(render_md(prints))
     tight = [r for r in ROWS if r[2] < r[3] - 1e-6]
     bridges = [r for p in prints for r in p["regions"] if r["span"] > 20.0]
@@ -239,26 +241,30 @@ def render_md(prints) -> str:
       + (f"**{len(tight)} under their minimum**." if tight else "none under its minimum.")
       + f" The tightest against its minimum is *{worst[1]}* at {_f(worst[2])} mm (needs {_f(worst[3])}).")
     w(f"- **Printability:** {'no' if not bridges else len(bridges)} bridge over 20 mm, and "
-      f"{'no' if not steep else len(steep)} sloping overhang past 45°, across the tray, lid and both fit-test halves.")
+      f"{'no' if not steep else len(steep)} sloping overhang past 45°, across the case, lid and fit test.")
     if not k.usb_side_agrees:
         w(f"- **⚠ usb_side = {k.usb_side} disagrees with solo_usb_x = {k.solo_usb_x:g}**: the Pi's USB ports face the "
           "wrong end for the Solo's USB-C. Fix one of them.")
     w(f"- **Unmeasured:** {len(um)} dimensions are still published or guessed. Rows that depend on one say so; "
       "see *Measurements still needed*.")
-    w(f"- **Size:** {_f(k.out_w)} × {_f(k.out_d)} mm footprint; base {_f(k.base_h)} mm tall without feet; "
-      f"about {k.stack_h:.0f} mm with the Solo on top.\n")
+    w(f"- **Size:** the case is {_f(k.out_w)} × {_f(k.out_d)} × {_f(k.case_h)} mm and sits on the Solo's "
+      f"{k.usb_side} end on {k.dl_mated_t:g} mm of Dual Lock; about {k.stack_h:.0f} mm tall all together.\n")
 
     w("![Isometric](renders/iso.png)\n")
-    w("| Top, lid off | Tray from the rear right |\n|---|---|")
-    w("| ![Top](renders/top.png) | ![Tray](renders/tray.png) |\n")
+    w("| Case from above, lid off | Case from the rear right |\n|---|---|")
+    w("| ![Top](renders/top.png) | ![Case](renders/case.png) |\n")
     w("| Rear | Right side |\n|---|---|")
     w("| ![Rear](renders/rear.png) | ![Right](renders/right.png) |\n")
-    w("| Exploded | Fit test |\n|---|---|")
-    w("| ![Exploded](renders/exploded.png) | ![Fit test](renders/fit_test.png) |\n")
+    w("| Lid from above | Close up |\n|---|---|")
+    w("| ![Lid](renders/lid_top.png) | ![Close up](renders/lid.png) |\n")
+    w("| Exploded | Underside |\n|---|---|")
+    w("| ![Exploded](renders/exploded.png) | ![Underside](renders/bottom.png) |\n")
+    w("![Fit test](renders/fit_test.png)\n")
 
     w("## Clearances\n")
     w(f"All in mm. A row passes at or above its minimum ({_f(k.min_clearance)} unless it says otherwise). "
-      "Plan-view rows treat the Pi as a column, because it drops in from above.\n")
+      "Plan-view rows treat the Pi as a column, because it drops in from above. Rows marked *by design* restate "
+      "a parameter; they're listed so nothing is hidden.\n")
     group = None
     for g, item, value, needed, note in ROWS:
         if g != group:
@@ -270,14 +276,14 @@ def render_md(prints) -> str:
 
     w("## Printability\n")
     w("Checked on the exported STLs in print orientation. Every downward-facing triangle steeper than 45° "
+      f"(plus {FACET_SLACK:g}° for the facets of curved 45° surfaces) "
       "from vertical, other than the bed face, is grouped into regions. A region at 90° is a flat ceiling, "
       "so a bridge. Its span is twice the furthest any point of it lies from a *supported* edge, one with "
       "material running down from it: a slot in a wall counts its full length, a pocket roof its width. "
       "`tests.py` checks this against shapes that should fail.\n")
     w("| Part | Orientation | Size (mm) | Watertight | Bodies | Ceiling regions | Longest bridge | Overhangs past 45° |")
     w("|---|---|---|---|---:|---:|---:|---|")
-    orient = {"tray": "floor down", "lid": "deck down, posts up", "fit_test_pi": "plate down",
-              "fit_test_solo": "ring down"}
+    orient = {"case": "floor down", "lid": "top up (as fitted)", "fit_test_pi": "plate down"}
     for p in prints:
         sx, sy, sz = p["size"]
         longest = max((r["span"] for r in p["regions"]), default=0.0)
@@ -296,17 +302,14 @@ def render_md(prints) -> str:
                 fx, fy = r["footprint"]
                 w(f"| {_f(r['span'])} | {fx:.1f} × {fy:.1f} | {_f(r['z'])} | {r['area']:.1f} |")
             w("")
-    w("Where they come from: the four foot recesses under the tray are 1 mm-deep pockets on the bed face, "
-      f"so their roofs bridge {_f(k.foot_recess_d)} mm. Everything else is a wall, a peaked top, an open-topped "
-      "notch, a 45° pad underside, a teardrop bore or an upward-facing countersink. **No part needs supports.**\n")
+    w("Where they come from: the Dual Lock locating grooves under the case are "
+      f"{_f(k.dl_groove_d)} mm-deep channels on the bed face, so their roofs bridge {_f(k.dl_groove_w)} mm"
+      + (f"; on the lid, each fader cap bridges its {_f(k.fader_slot_w)} mm slot" if k.lid_style != "plain" else "")
+      + ". Everything else is a wall, a peaked top, the open-topped rear notch, a through-slot, a 45° chamfer, "
+      "or something standing up from the lid's top face. **No part needs supports.**\n")
 
     w("## Departures from the spec\n")
-    w(DEPARTURES.format(k=k, edge=_f(k.edge_overhang), pwr_u=_f(k.pwr_u),
-                        acc_drop=", ".join(f"{s} wall at Y {u:.1f} ({why})" for s, u, why in k.accessory_dropped)
-                        or "none",
-                        wall_screw=", ".join(k.wall_screw_names) or "none",
-                        post_over=_f(3.0 - k.wall), n_side=len(k.side_slots_u),
-                        pwr_wall=k.pwr_wall, usb_wall=k.usb_wall, vent_wall=k.vent_wall,
+    w(DEPARTURES.format(k=k, edge=_f(k.edge_overhang), n_side=len(k.side_slots_y),
                         notch_drop=_f(k.notch_floor_drop)))
 
     w("## Measurements still needed\n")
@@ -318,66 +321,63 @@ def render_md(prints) -> str:
 
     w("## Hardware\n")
     grams = sum(p["volume"] for p in prints) / 1000 * 1.27  # PETG, as if solid
-    w(HARDWARE.format(k=k, n_lid=len(k.lid_screws), n_acc=len(k.accessory),
-                      n_m3=len(k.lid_screws) + len(k.accessory), grams=grams,
-                      m25_depth=k.insert_m25_len + 1, m25_bite=6 - k.pi_board_t,
-                      m3_depth=k.insert_m3_len + 1, m3_bite=8 - k.lid_t,
-                      usb_wall=k.usb_wall, pwr_wall=k.pwr_wall))
+    w(HARDWARE.format(k=k, grams=grams, m25_depth=k.insert_m25_len + 1,
+                      lid_bite=6 - k.lid_t))
     return "\n".join(out) + "\n"
 
 
 DEPARTURES = """\
-1. **The Pi's rotation.** The spec's default layout puts the SD-card end on the left, the USB end on the right and
-   the power/HDMI edge at the rear. No Pi can sit that way: the board is chiral. Seen from above with the SD end on
-   the left, its power/HDMI edge is at the **front** (official mechanical drawing, RP-008343). So the model rotates
-   the board instead of mirroring it:
-   - `usb_side = right`: the board's long axis runs front to back against the right wall. **USB-A and Ethernet face
-     the rear wall**, through an open-topped notch, so the cable to the Solo's rear USB-C is a short hop straight up.
-     **USB-C power enters through a peaked window in the right wall.**
-   - `usb_side = left`: the spec's layout mirrored, which is a real rotation. USB-A and Ethernet face the left wall,
-     and power enters through the rear wall.
-
-   This build: USB-A/Ethernet out of the **{usb_wall}** wall, power in through the **{pwr_wall}** wall, the window
-   centred {pwr_u} mm along it from the cavity's inside corner.
-2. **The power-edge gap uses the audio jack.** On the Pi 4 the audio barrel stands 2.5 mm proud of the board edge,
-   further than the USB-C (1.25). The spec's board extent left 2.0 mm, which would push the barrel into the wall. The
-   model keeps `port_gap` from whichever connector on that edge reaches furthest ({edge} mm for this build).
-3. **Lid screws.** Corner screws sit {k.lid_screw_inset:g} mm in from the outside edges, not tight in the corner,
-   so their countersinks clear the Solo posts above them. The corner the Pi occupies is dropped, and a boss on the
-   rear wall beside the Pi replaces it: {wall_screw}.
-4. **Post thickness** is `wall` ({k.wall:g} mm), not 3 mm. With the inside faces `fit` from the Solo, a 3 mm post
-   would hang {post_over} mm past the 149 × 102 footprint.
-5. **Side vents are vertical.** Three horizontal 2 × 40 mm slots would leave 40 mm bridges over their tops. The model
-   uses {n_side} vertical 2 × {k.side_slot_h:g} mm slots with 45° peaked tops across the same 40 mm, in the
-   {vent_wall} wall, across the Pi from the power edge, for the spec's cross-flow.
-6. **The fit-test plate** is bigger than 60 × 52: four 6.5 mm bosses on a 58 × 49 pattern need about 68 × 60. It
-   also carries one M3 lid-insert boss on a tab, so you can practise that insert too. The Solo half is a thin ring
-   with a {k.fit_post_slice_h:g} mm slice of each post on it.
-7. **Accessory points.** Each insert sits in a pad inside the wall with a 45° underside and a teardrop bore, so it
-   prints without support. Pads the Pi or a port opening would hit are left out: {acc_drop}. Nothing uses them yet.
-8. **No official Pi 4 STEP exists.** Raspberry Pi publishes STEP models for the Pi 5 only. `assembly.step` carries
-   a board-plus-ports placeholder built from the official Pi 4 drawing and DXF.
-9. **The notch floor is lower and the notch runs into the corner.** The spec puts the notch floor 0.5 mm below the
-   board top. The model drops it {notch_drop} mm, so a USB-A plug in the lower port clears it; and where the Pi
-   took a corner from the lid screws, the notch runs on into that corner, so the outer plug has room sideways.
-10. **No wordmark** on the front wall (optional in the spec). Engraving on a vertical face adds many small ceilings.
+1. **The case rides on top of the Solo** (Gabe's call, 2026-10-07). The spec's tray-under-the-Solo is gone: the
+   Solo is the heavier part (382 g against about 100 g), so it sits on its own feet and the Pi rides on top like a
+   backpack. That retires the spec's tray, lid pocket, corner posts, the Solo fit test and the accessory points, and
+   the Solo dimensions only place the case now. The Pi's heat rises away from the Solo instead of into it.
+2. **Dual Lock now, a clip saddle later.** Four 1" 3M Dual Lock squares hold the case on. A clip-on saddle that hooks
+   the Solo's bare left and right ends can come once the Solo is here; it will carry the same pads, so the case
+   doesn't change. The pads sit in outline grooves rather than recesses: a 25 mm recess roof would be a bridge over
+   20 mm.
+3. **The Pi's rotation.** The spec places the board with the SD end left, USB end right and power/HDMI edge at the
+   rear. No Pi can sit that way: the board is chiral, and with the SD end on the left its power edge is at the
+   **front** (official mechanical drawing, RP-008343). The case lies the board front to back: **USB-A and Ethernet
+   face the rear**, through an open-topped notch, so the cable drops straight down to the Solo's rear USB-C;
+   **power comes in through a peaked window in the right wall**. `usb_side` now only picks which end of the Solo's
+   top the case sits on.
+4. **The power-edge gap uses the audio jack.** On the Pi 4 the audio barrel stands 2.5 mm proud of the board edge,
+   further than the USB-C (1.25). The model keeps `port_gap` from whichever connector on that edge reaches furthest
+   ({edge} mm for this build).
+5. **The rear jacks reach into the notch.** Their faces stop {k.rear_jack_proud:g} mm inside the rear wall's
+   *outside* face, so plugs seat fully and the case stays shallower than the Solo. The notch floor is
+   {notch_drop} mm below the board top so the lower plug's body clears it, and the notch runs to the right wall.
+6. **The lid screws into M2.5 standoffs**, {k.standoff_lid:g} mm brass male-female hex standoffs on the Pi's own
+   mounting holes. That holds the Pi and the lid with the same four points; there's no room for lid bosses in a case
+   this tight.
+7. **Vents in the lid and floor** as well as the left wall: the floor slots draw air through the Dual Lock gap, and
+   the lid slots over the SoC let it out the top. The side vents are vertical slots with 45° peaked tops, not the
+   spec's horizontal ones, which would bridge 40 mm.
+8. **An SD-card slot** in the front wall, so the card comes out without opening the case.
+9. **The fit-test plate** is bigger than 60 × 52: four 6.5 mm bosses on a 58 × 49 pattern need about 68 × 60.
+10. **The look** (Gabe's ask, 2026-10-07): rounded corners and a rounded lid edge, and with
+    `lid_style = "portastudio"` the lid is a cassette 4-track's top panel. Four fader slots (the vents over the
+    SoC) with scales, caps and channel numbers; four knobs; transport keys (rewind, play, stop, fast-forward,
+    record); and a recessed cassette window whose two reel hubs and tape window vent too, with the wordmark on its
+    label. It all stands up from, or cuts into, the lid's top face, so it prints without supports.
+    `lid_style = "plain"` gives a flat lid with vent slots and the wordmark.
+11. **No official Pi 4 STEP exists.** Raspberry Pi publishes STEP models for the Pi 5 only. `assembly.step` carries
+    a board-plus-ports placeholder built from the official Pi 4 drawing and DXF.
 """
 
 HARDWARE = """\
 | Qty | Part | Used for | Notes |
 |---:|---|---|---|
 | 4 | M2.5 heat-set insert, {k.insert_m25_len:g} mm long | Pi bosses | Bore {k.insert_m25_bore:g} mm, {m25_depth:g} mm deep. Check the maker's hole size |
-| 4 | M2.5 × 6 mm screw, pan or cap head | Pi to bosses | Through the {k.pi_board_t:g} mm board leaves {m25_bite:g} mm in the insert |
-| {n_m3} | M3 heat-set insert, {k.insert_m3_len:g} mm long | {n_lid} lid bosses + {n_acc} accessory points | Bore {k.insert_m3_bore:g} mm, {m3_depth:g} mm deep |
-| {n_lid} | M3 × 8 mm countersunk screw (ISO 10642 / DIN 7991) | Lid to tray | Head sits flush in a {k.m3_csk_d:g} mm countersink; {m3_bite:g} mm in the insert |
-| 4 | Adhesive rubber bumper, about 10 mm across | Feet | In {k.foot_recess_d:g} mm × {k.foot_recess_t:g} mm recesses |
-| 1 | USB-A to USB-C cable, 15–20 cm, a right-angle A end if you can | Pi to Solo | Out of the {usb_wall} notch, up to the Solo's rear USB-C |
-| 1 | Official Pi 4 15 W USB-C supply | Power | Through the {pwr_wall}-wall window; see the spec's *Power and RAM* |
+| 4 | M2.5 × {k.standoff_lid:g} mm brass hex standoff, male-female, {k.standoff_af:g} mm across flats | Holds the Pi down; the lid screws into it | Its male thread (usually 5–6 mm) goes through the board into the insert |
+| 4 | M2.5 × 6 mm countersunk (flat-head) screw | Lid to standoffs | Head flush in a {k.m25_csk_d:g} mm countersink; {lid_bite:g} mm into the standoff |
+| 4 | 3M Dual Lock square, 1" (25.4 mm), SJ3550 or SJ3560 | Case to the Solo's top | Stick a mated pair to the case first, then press the case onto the Solo |
+| 1 | USB-A to USB-C cable, 15–20 cm, a right-angle A end if you can | Pi to Solo | Out of the rear notch and straight down to the Solo's rear USB-C |
+| 1 | Official Pi 4 15 W USB-C supply | Power | Through the right-wall window; see the spec's *Power and RAM* |
 | 1 | Pi 4 heatsink under 10 mm tall | SoC | `pi_heatsink_top` is its top above the board |
-| — | PETG | All four prints | Under {grams:.0f} g (that's if solid; 4 walls and 20% infill use less). Not PLA |
+| — | PETG | Case, lid, fit test | Under {grams:.0f} g (that's if solid; infill uses less). Not PLA |
 
-Spares worth having: two extra of each insert, for the fit test and a botched one. The fit test uses 4 × M2.5 and
-1 × M3 insert of its own.
+Spares worth having: two extra inserts for the fit test and a botched one.
 """
 
 

@@ -45,7 +45,7 @@ def test_horizontal_cylinder_overhangs():
     part = Box(20, 20, 2, align=MIN) + Pos(10, 0, 10) * Rot(-90, 0, 0) * Cylinder(4, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))
     part = part + Pos(8, 0, 2) * Box(4, 20, 5, align=MIN)
     r = regions(part)
-    assert any(45.5 < x["angle"] < 89 for x in r), r
+    assert any(46.0 < x["angle"] < 89 for x in r), r
 
 
 def test_45_degree_roof_passes():
