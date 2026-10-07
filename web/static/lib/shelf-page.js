@@ -13,6 +13,7 @@ import { initNav } from '/lib/nav.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
 import { pageBar } from '/lib/bar/bar.js';
 import { watchLink, timedFetch } from '/lib/link.js';
+import { spanOf, firstOf, nextOf, atEnd } from '/lib/playall.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -66,6 +67,7 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
     renderCounts();
     renderTagFilters();
     syncPick();
+    renderPlayAll();
   },
   selectBar: $('select-bar'),
   shape: (all) => {
@@ -76,7 +78,11 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
   },
   spines: true,
 });
-$('select-btn').addEventListener('click', () => (takes.selecting ? takes.exitSelect() : takes.enterSelect()));
+$('select-btn').addEventListener('click', () => {
+  if (takes.selecting) takes.exitSelect();
+  else { stopPlayAll({ pause: true }); takes.enterSelect(); }
+  renderPlayAll();
+});
 
 // --- the view: search, filters, sort --------------------------------------
 
@@ -273,6 +279,78 @@ async function offerBar(name, hand) {
   np.loadTake(t, p);
 }
 
+// --- Play all ------------------------------------------------------------------
+// The takes shown, in their order, through the bar, each from its
+// selection's In to its Out, or the whole take (lib/playall.js). It starts
+// at the picked take, picks each in turn (so the bar, the pane and the
+// spine follow it), and stops at the end of the list, on Pause, on ⏏, on
+// Loop (which stays on the take), or when a take is picked by hand.
+let playAll = null; // { name, audio, span, raf, moving }
+
+function renderPlayAll() {
+  const b = $('play-all');
+  b.textContent = playAll ? '■ Stop' : '▶ Play all';
+  b.setAttribute('aria-pressed', String(!!playAll));
+  b.disabled = !playAll && (takes.selecting || !shownNames().length);
+  for (const [n, row] of takes.rows) row.el.classList.toggle('play-all', !!playAll && n === playAll.name);
+}
+
+function stopPlayAll({ pause = false } = {}) {
+  const r = playAll;
+  if (!r) return;
+  playAll = null;
+  cancelAnimationFrame(r.raf);
+  if (pause && r.audio && !r.audio.paused) r.audio.pause();
+  renderPlayAll();
+}
+
+async function playAllFrom(name) {
+  const r = playAll;
+  const t = takes.all.find((x) => x.name === name);
+  const p = t && await takes.player(name);
+  if (playAll !== r) return;
+  // Still encoding, or gone: on to the next.
+  if (!p) {
+    const next = nextOf(shownNames(), name);
+    return next ? playAllFrom(next) : stopPlayAll();
+  }
+  r.name = name;
+  r.span = spanOf(t);
+  r.audio = p.audio;
+  pick(name, true);
+  np.loadTake(t, p);
+  renderPlayAll();
+  takes.rows.get(name)?.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  p.audio.currentTime = r.span.from;
+  if (p.audio.paused) await p.toggle();
+  if (playAll !== r) return;
+  r.moving = false;
+  r.raf = requestAnimationFrame(function tick() {
+    if (playAll !== r) return;
+    const a = r.audio;
+    // Picked by hand, ⏏, or Loop: Play all lets go, and leaves it playing.
+    if (picked !== r.name || np.takeName !== r.name || np.looping) return stopPlayAll();
+    if (atEnd(r.span, a.currentTime, a.ended)) {
+      r.moving = true;
+      a.pause();
+      const next = nextOf(shownNames(), r.name);
+      if (next) playAllFrom(next); else stopPlayAll();
+      return;
+    }
+    if (a.paused && !r.moving) return stopPlayAll(); // Pause, in the bar or on the spine
+    r.raf = requestAnimationFrame(tick);
+  });
+}
+
+$('play-all').addEventListener('click', () => {
+  if (playAll) { stopPlayAll({ pause: true }); return; }
+  const first = firstOf(shownNames(), pickedSpine);
+  if (!first) return;
+  playAll = { name: first, moving: true };
+  renderPlayAll();
+  playAllFrom(first);
+});
+
 // kept is the take to stay on after a poll: the pick, or -- when the pick was
 // folded and has gone -- the spine it was folded into.
 const kept = () => (present(picked) ? picked : present(pickedSpine) ? pickedSpine : null);
@@ -401,8 +479,9 @@ window.addEventListener('pagehide', () => {
 });
 
 async function poll(force = false) {
-  // Never disturb the list while something is playing.
-  if (!force && takes.isPlaying()) return;
+  // Never disturb the list while something is playing, or Play all is
+  // between two takes.
+  if (!force && (takes.isPlaying() || playAll)) return;
   try {
     await takes.refresh();
     link.ok('takes');

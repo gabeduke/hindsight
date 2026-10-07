@@ -428,6 +428,64 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await ctx.close();
 }
 
+// ▶ Play all: the takes shown, each from its In to its Out, one after
+// another, the playing spine ringed; a take picked by hand stops it. And
+// ⚑▸ past a take's last flag opens the next take at its first flag.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  const made = await p.evaluate(async () => {
+    const names = [];
+    for (let i = 0; i < 2; i++) names.push((await fetch('/api/trigger?seconds=6', { method: 'POST' }).then((r) => r.json())).name);
+    // Each a second's selection, so Play all moves on quickly.
+    for (const n of names) {
+      await fetch(`/api/take?file=${encodeURIComponent(n)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trim: { start_frame: 48000, end_frame: 96000 } }) });
+    }
+    return names.reverse(); // newest first, as the list shows them
+  });
+  await p.waitForTimeout(3000); // their previews
+  await p.goto(`${BASE}/takes.html`);
+  await settle(p, 2000);
+  await p.locator(`.take[data-name="${made[0]}"]`).click();
+  await settle(p, 800);
+  await p.click('#play-all');
+  const seen = [];
+  for (let i = 0; i < 40; i++) {
+    await p.waitForTimeout(100);
+    const n = await p.evaluate(() => document.querySelector('.take.play-all')?.dataset.name || null);
+    if (n && seen[seen.length - 1] !== n) seen.push(n);
+    if (seen.length >= 2) break;
+  }
+  check('▶ Play all plays the picked take, then the next, ringed', seen[0] === made[0] && seen[1] === made[1], JSON.stringify(seen));
+  check('the key says ■ Stop while it plays', (await p.textContent('#play-all')).includes('Stop'));
+  const other = await p.evaluate((skip) => [...document.querySelectorAll('.take:not(.folded)')].map((e) => e.dataset.name).find((n) => !skip.includes(n)), made);
+  await p.locator(`.take[data-name="${other}"]`).click();
+  await settle(p, 600);
+  check('a take picked by hand stops Play all', (await p.textContent('#play-all')).includes('Play all') && !(await p.locator('.take.play-all').count()));
+
+  // ⚑▸ past the last flag: the next take in the list's order, at its first flag.
+  await p.evaluate(async ([a, b]) => {
+    await fetch(`/api/take?file=${encodeURIComponent(b)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flags: [{ id: 'f1', frame: 96000 }, { id: 'f2', frame: 192000 }] }) });
+    sessionStorage.setItem('hindsight.order', JSON.stringify([a, b]));
+  }, made);
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(made[0])}`);
+  await settle(p, 1500);
+  await p.click('#flag-next');
+  await p.waitForURL((u) => u.searchParams.get('file') === made[1], { timeout: 8000 }).catch(() => {});
+  await settle(p, 1500);
+  const where = await p.evaluate(() => `${document.getElementById('position').textContent} ${document.getElementById('np-time').textContent}`);
+  check('⚑▸ past the last flag opens the next take at its first flag', new URL(p.url()).searchParams.get('file') === made[1] && where.includes('0:02.0'), where);
+  await p.click('#flag-prev');
+  await settle(p, 300);
+  await p.click('#flag-prev');
+  await p.waitForURL((u) => u.searchParams.get('file') === made[0], { timeout: 8000 }).catch(() => {});
+  check('◂⚑ past the first flag goes back to the take before', new URL(p.url()).searchParams.get('file') === made[0], p.url());
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);
