@@ -493,9 +493,11 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     const secs = (await loadedState()).tape.sections || [];
     check('duplicate section: the Verse twice in a row', secs.length === 2 && secs[1].name === 'Verse' && secs[1].at === v.end, JSON.stringify(secs));
     await p.click('#tape-undo');
-    await p.waitForTimeout(500);
-    await p.click('#tape-undo');
     await p.waitForTimeout(800);
+    check('duplicate section: ↶ takes the copy back', ((await loadedState()).tape.sections || []).length === 1);
+    // No section left for the next run: selecting it with Enter was a step
+    // of its own, so it goes by name.
+    for (const sc of (await loadedState()).tape.sections || []) await postJSON(`/api/tapes/edit?${tq}`, { op: 'section-remove', section: sc.id });
     await patchTape({ loop: loop0 });
     await p.waitForTimeout(500);
   }
