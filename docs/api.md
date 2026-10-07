@@ -952,8 +952,9 @@ clears what's under it instead of adding a layer.
 
 The span is the range of the ring that heard what the tape played then, by
 `delta`, written once into the pool with handles either side (as much of
-`TAPE_HANDLE_S` as the ring has: all of it before, and after it what had
-arrived by the catch, at least 10 ms) and placed where it was played. A catch across the loop's end is split into two clips. It
+`TAPE_HANDLE_S` as the ring has: before it, as far back as the ring holds
+short of its oldest second; after it, what had arrived by the catch, at
+least 10 ms) and placed where it was played. A catch across the loop's end is split into two clips. It
 waits up to two seconds for the newest audio to reach the ring. Answers
 `{"clip": …}` (the part played first, when split).
 
@@ -1074,7 +1075,7 @@ added.
 | `join` | `clip` | Joins a clip to the next on its layer, if that one carries straight on in the same recording at the same level and nudge: what a split made |
 | `slide` | `clip`, `at` | Moves a clip along its track to start at `at`, on the lowest layer free there. The page snaps `at` to the grid; the server takes it as given |
 | `multiply` | | Doubles the loop: everything in it is copied into the span after it, replacing what was there, and Out moves on by the loop's length. `edit.frames` is the new length |
-| `trim` | `clip`, `edge` (`in` or `out`), `at` | Moves the clip's start (`in`) or end (`out`) to tape frame `at`. Trimming the start moves `at` and `src` together, so the audio stays where it was played. Clamped: the start no earlier than its pool file's first frame, the end no later than where the file still has the 10 ms overhang (or where the clip already ends), neither past the clip beside it on its layer or the tape's ends, and at least 10 ms left. `edit.clip` is the clip as trimmed |
+| `trim` | `clip`, `edge` (`in` or `out`), `at` | Moves the clip's start (`in`) or end (`out`) to tape frame `at`. Trimming the start moves `at` and `src` together, so the audio stays where it was played. Clamped: either edge no further out than where its pool file still has the 10 ms overhang beyond it (or where the clip already starts or ends, if further), neither past the clip beside it on its layer or the tape's ends, and at least 10 ms left. `edit.clip` is the clip as trimmed |
 | `reverse` | `clip` | Plays the clip backwards: its audio, with its handles either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
 
 400 for a lift or copy with no loop, or nothing in it; a split with no clip

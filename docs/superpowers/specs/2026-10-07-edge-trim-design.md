@@ -50,9 +50,10 @@ undo step.
 - **Out** changes `Frames`.
 
 The Pi clamps the edge:
-- the In edge back no further than the file's first frame;
-- the Out edge on no further than where the file still has the 10 ms
-  overhang a crossfade reads (or the clip's end, if that's already later);
+- either edge out no further than where the file still has the 10 ms
+  overhang beyond it (or where the clip already starts or ends, if further).
+  The Out edge's is what a crossfade out of it reads. The In edge's is kept
+  too, because reversing the clip makes its start an end;
 - neither edge past the clip beside it **on its layer**, nor past the tape's
   ends;
 - at least 10 ms left.

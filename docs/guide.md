@@ -977,11 +977,13 @@ loop's bars on the selected track, or on all four, kept apart.
 | **Share as WAV** | In a clip's sheet: sends just that clip, at its level, to another app; a clip over a minute downloads instead |
 
 Nothing is cut out of the audio. A clip is a window onto a recording, so an
-edit only moves windows, and each one is a single undo. Every new clip's
-recording keeps 2 seconds either side of it (`TAPE_HANDLE_S`), so a trimmed
-edge can be dragged back out that far. A clip made before there were
-handles, or one that starts or ends where its recording does, can only be
-trimmed inward. Where an edit leaves
+edit only moves windows, and each one is a single undo. A clip dropped or
+copied from a take keeps 2 seconds of it either side (`TAPE_HANDLE_S`), so
+a trimmed edge can be dragged back out that far. A catch or a punch keeps
+2 seconds before it, but after it only what had reached the buffer when it
+was caught, often a few milliseconds, so its end mostly trims inward. So
+does a clip made before there were handles, or an edge where its recording
+starts or ends. Where an edit leaves
 two clips meeting, they're crossfaded over a few milliseconds, so there's no
 click.
 

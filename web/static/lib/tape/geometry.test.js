@@ -195,11 +195,14 @@ test('silence, a mute, a solo elsewhere or peaks not loaded read as the stop', (
 
 // --- trimming ----------------------------------------------------------------
 
-test('trimBounds: the In edge goes back to the file’s start, the Out edge on to its overhang', () => {
+test('trimBounds: either edge goes out as far as its file still has the overhang', () => {
   // A clip at 192000 playing 96000 frames from 48000 of a 192000-frame file.
   const c = { id: 'c', at: 192000, src: 48000, frames: 96000, layer: 0 };
   const opts = { fileFrames: 192000, length: 48000 * 1200, sampleRate: 48000 };
-  assert.deepEqual(trimBounds(c, 'in', { clips: [c] }, opts), { lo: 144000, hi: 288000 - 480 });
+  assert.deepEqual(trimBounds(c, 'in', { clips: [c] }, opts), { lo: 144480, hi: 288000 - 480 });
+  // A clip that already starts in its overhang isn't made to give it back.
+  const early = { ...c, src: 100 };
+  assert.equal(trimBounds(early, 'in', { clips: [early] }, opts).lo, 192000);
   assert.deepEqual(trimBounds(c, 'out', { clips: [c] }, opts), { lo: 192480, hi: 192000 + 191520 - 48000 });
 });
 

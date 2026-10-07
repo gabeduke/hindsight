@@ -137,9 +137,10 @@ func TestTrimMovesAnEdgeAndKeepsTheAudioWhereItWasPlayed(t *testing.T) {
 		t.Fatalf("frame 250000 plays %.6f, played %.6f", v, before)
 	}
 	// In: back out past where it started, into the handle, to the file's
-	// start and no further.
+	// start less the overhang (kept for a reverse, whose start becomes an
+	// end), and no further.
 	got = trim(t, e, c.ID, "in", 0)
-	if got.At != 192000-48000 || got.Src != 0 || got.End() != c.End() {
+	if got.At != 192000-48000+480 || got.Src != 480 || got.End() != c.End() {
 		t.Fatalf("trimmed in to the file's start = %+v", got)
 	}
 	if v := at(t, e, 150000); math.Abs(v-ramp(150000-144000)) > 1e-4 {

@@ -615,9 +615,10 @@ lowest layer free.
 immutable pool file, so lift and copy are windows trimmed to the loop's In
 and Out (a lift also clears the span with the same cut a replace uses);
 split is two windows; join merges two that carry straight on in one file;
-slide re-places a clip at a new start; multiply copies the loop's windows
-into the span after it. Reverse is the one edit that writes audio: the
-clip's window and its overhang, backwards, to a new pool file
+slide re-places a clip at a new start; trim moves one edge of a window
+within its file's handles; multiply copies the loop's windows into the span
+after it. Reverse is the one edit that writes audio: the clip's window and
+its handles, backwards, to a new pool file
 (`audio.ReverseWAVSpan`, a block at a time from the end), so every other
 edit still reads every clip forwards; turning it back is arithmetic on the
 original's frames. Each goes through `Engine.Edit`, so each is one undo

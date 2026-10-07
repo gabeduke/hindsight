@@ -250,10 +250,11 @@ export const OVERHANG_SECONDS = 0.010;
 /**
  * trimBounds is how far a clip's edge ('in', its start; 'out', its end) can
  * be dragged, as the Pi clamps a trim (internal/tape edit.go, State.trim):
- * the In edge back to its file's start and the clip before it on its layer,
- * and to within 10 ms of its end; the Out edge on to where its file still
- * has the crossfade's overhang (or where it already ends, if later) and the
- * clip after it, and to 10 ms past its start. With fileFrames unknown (the
+ * the In edge back to where its file still has the 10 ms overhang before it
+ * (or where it already starts, if earlier) and the clip before it on its
+ * layer, and to within 10 ms of its end; the Out edge on to where its file
+ * still has the overhang after it (or where it already ends, if later) and
+ * the clip after it, and to 10 ms past its start. With fileFrames unknown (the
  * file's peaks not loaded yet) only the neighbours and the tape bound it.
  * Answers {lo, hi} in tape frames, or null when there's no room at all.
  */
@@ -271,7 +272,7 @@ export function trimBounds(clip, edge, track, { fileFrames, length, sampleRate }
   const known = fileFrames > 0;
   let lo, hi;
   if (edge === 'in') {
-    lo = known ? Math.max(before, clip.at - clip.src) : before;
+    lo = known ? Math.max(before, clip.at - clip.src + Math.min(clip.src, over)) : before;
     hi = end - minLen;
   } else {
     lo = clip.at + minLen;

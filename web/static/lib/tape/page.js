@@ -848,7 +848,7 @@ function wireLane(lane) {
       // ⌥ (Alt) moves it freely, off the snap.
       Object.assign(tr, trimTo(tr.edge0, df, tr.bounds, state.tape.grid, state.snap, !!(e && e.altKey)));
       drawLanes();
-    } else if (fx.type === 'gripEnd' || (fx.type === 'release' && state.trim)) {
+    } else if (fx.type === 'gripEnd' || (fx.type === 'release' && state.trim && state.trim.n === lane.n)) {
       const tr = state.trim;
       state.trim = null;
       cv.classList.remove('trimming');
@@ -1931,6 +1931,9 @@ function drawTrimReach(ctx, stored, tm, view, W, top, h, tc, x0, x1) {
   ctx.strokeStyle = withAlpha(tc, 0.45);
   ctx.strokeRect(rx0 + 0.5, top + 0.5, rx1 - rx0 - 1, h - 1);
   ctx.setLineDash([]);
+  // Zoomed in past the file's whole peaks, its bars would be one a few
+  // samples, across all of the reach: the outline is enough there.
+  if (needsDetail(reach, pd, view, W)) { ctx.restore(); return; }
   drawBars(ctx, blockLevels(pd, reach, rx1 - rx0), {
     x0: rx0 + 4, pitch: 4, cy: top + h / 2 + 3, half: Math.max(1, h / 2 - 12),
     gain: gainOf(stored.file, pd), width: 2.2, color: withAlpha(tc, 0.22),

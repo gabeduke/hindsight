@@ -326,9 +326,10 @@ func (e *Engine) trimClip(t *Tape, req EditRequest) (EditResult, error) {
 
 // trim moves a clip's In edge (its start, moving At and Src together, so the
 // audio stays where it was played) or its Out edge (its end) to at, clamped:
-//   - to its pool file, whose frames are fileFrames: the In edge to the file's
-//     start, the Out edge to where the file still has the overhang a
-//     crossfade out of it reads (or where the clip already ends, if later);
+//   - to its pool file, whose frames are fileFrames, keeping the overhang
+//     either side (or what the clip already has, if less): the Out edge's
+//     for a crossfade out of it, the In edge's for when it's reversed and
+//     its start becomes an end;
 //   - to the clips either side of it on its layer, and the tape's ends;
 //   - to leave it at least the overhang's length.
 //
@@ -360,7 +361,7 @@ func (s *State) trim(id, edge string, at int64, file string, fileFrames, length 
 			}
 			var lo, hi int64
 			if edge == "in" {
-				lo, hi = max64(before, c.At-c.Src), c.End()-minLen
+				lo, hi = max64(before, c.At-c.Src+min64(c.Src, over)), c.End()-minLen
 			} else {
 				fileEnd := max64(c.Src+c.Frames, fileFrames-over)
 				lo, hi = c.At+minLen, min64(after, c.At+fileEnd-c.Src)
