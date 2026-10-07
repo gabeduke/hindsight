@@ -241,6 +241,9 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			NudgeMS *float64 `json:"nudge_ms"`
 			Remove  bool     `json:"remove"`
 			Tile    bool     `json:"tile"`
+			// FadeIn and FadeOut set its fades, in frames (0: none).
+			FadeIn  *int64 `json:"fade_in"`
+			FadeOut *int64 `json:"fade_out"`
 		} `json:"clip"`
 	}
 	if !decodeBody(w, r, &b) {
@@ -255,6 +258,8 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		kind = fmt.Sprintf("gain:%d", b.Track.N)
 	case b.Track != nil && b.Track.Pan != nil:
 		kind = fmt.Sprintf("pan:%d", b.Track.N)
+	case b.Clip != nil && (b.Clip.FadeIn != nil || b.Clip.FadeOut != nil):
+		// A fade is a step of its own, never merged into a level change.
 	case b.Clip != nil && b.Clip.GainDB != nil && !b.Clip.Remove:
 		kind = "clip-gain:" + b.Clip.ID
 	case b.Clip != nil && b.Clip.NudgeMS != nil && !b.Clip.Remove:
@@ -338,6 +343,9 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if c := b.Clip; c != nil {
+				if err := patchFades(s, c.ID, c.FadeIn, c.FadeOut, t.SampleRate); err != nil {
+					return err
+				}
 				return patchClip(s, c.ID, c.GainDB, c.NudgeMS, c.Remove, c.Tile)
 			}
 			return nil
@@ -354,6 +362,37 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.writeTapeState(w, id)
+}
+
+// patchFades sets a clip's fades: whole frames, none longer than the clip,
+// and none shorter than the 3 ms declick, which one only a few frames long
+// would end in a click.
+func patchFades(s *tape.State, id string, in, out *int64, sampleRate int) error {
+	least := int64(math.Round(0.003 * float64(sampleRate)))
+	if in == nil && out == nil {
+		return nil
+	}
+	for ti := range s.Tracks {
+		for ci := range s.Tracks[ti].Clips {
+			cl := &s.Tracks[ti].Clips[ci]
+			if cl.ID != id {
+				continue
+			}
+			for _, f := range []*int64{in, out} {
+				if f != nil && (*f < 0 || *f > cl.Frames || (*f > 0 && *f < least)) {
+					return fmt.Errorf("%w: a fade of 0, or %d to %d frames (3 ms to the clip's length)", tape.ErrBadParameter, least, cl.Frames)
+				}
+			}
+			if in != nil {
+				cl.FadeIn = *in
+			}
+			if out != nil {
+				cl.FadeOut = *out
+			}
+			return nil
+		}
+	}
+	return tape.ErrNoSuchClip
 }
 
 // patchClip changes, tiles or removes one clip of a state.

@@ -382,6 +382,20 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('several clips: ↶ ↶ → the clip alone, as it was', (await loadedState()).tape.tracks[0].clips.length === n0);
+  // Fades: in the clip's sheet, Fade in → 1 beat, then off.
+  await p.mouse.click(s.x, s.y);
+  await p.waitForTimeout(400);
+  const beat = c0.bar / 4;
+  await p.locator('#clip-fade-in button', { hasText: '1 beat' }).click();
+  await p.waitForTimeout(800);
+  const fin = (await loadedState()).tape.tracks[0].clips.find((x) => x.id === c0.id);
+  check('fades: Fade in → 1 beat fades the clip in over a beat', Math.abs((fin.fade_in || 0) - beat) <= 1, `${fin.fade_in} vs ${beat}`);
+  check('fades: the sheet lights it', (await p.getAttribute('#clip-fade-in button:nth-child(5)', 'aria-pressed')) === 'true');
+  await p.locator('#clip-fade-in button', { hasText: 'off' }).click();
+  await p.waitForTimeout(800);
+  check('fades: off takes it off', !((await loadedState()).tape.tracks[0].clips.find((x) => x.id === c0.id).fade_in));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
   // The crate: Keep the clip from its sheet, open Crate ▴, Drop it on track
   // 3; ↶. And a take's span kept, shown on its own with ?crate=.
   const crateBefore = (await getJSON('/api/crate')).clips.length;

@@ -152,6 +152,43 @@ type Clip struct {
 	// copy of the one it came from, which this names. Never changed in
 	// place, so a copy of a clip can share it.
 	Reversed *Reversal `json:"reversed,omitempty"`
+	// FadeIn and FadeOut shape the clip's ends, in frames: an equal-power
+	// rise from silence over its first FadeIn frames, and a fall over its
+	// last FadeOut. 0 is none; the 3 ms declick, or a crossfade where it
+	// meets audio, applies under either way. A clip cut in two keeps each
+	// fade on the piece with that end.
+	FadeIn  int64 `json:"fade_in,omitempty"`
+	FadeOut int64 `json:"fade_out,omitempty"`
+}
+
+// fades are a clip's fades as they play: no longer than the clip between
+// them, the two shortened alike when they'd overlap.
+func (c Clip) fades() (in, out int64) {
+	in, out = max64(0, c.FadeIn), max64(0, c.FadeOut)
+	if in+out > c.Frames && in+out > 0 {
+		in = c.Frames * in / (in + out)
+		out = c.Frames - in
+	}
+	return in, out
+}
+
+// fadeGain is an equal-power fade's gain local frames into a clip of frames
+// frames, with in and out frames of fade (Clip.fades): sin of a quarter
+// turn as it rises, the same as it falls.
+func fadeGain(local, frames, in, out int64) float64 {
+	// Outside the clip a faded edge has faded: the loop's wrap reads a little
+	// past a clip's end, where the sine would turn negative.
+	if left := frames - local; (in > 0 && local < 0) || (out > 0 && left <= 0) {
+		return 0
+	}
+	g := 1.0
+	if in > 0 && local < in {
+		g *= math.Sin((float64(local) + 0.5) / float64(in) * math.Pi / 2)
+	}
+	if left := frames - local; out > 0 && left <= out {
+		g *= math.Sin((float64(left) - 0.5) / float64(out) * math.Pi / 2)
+	}
+	return g
 }
 
 // Reversal says where a reversed clip's audio came from: frame i of the
@@ -503,6 +540,7 @@ func cutRange(clips []Clip, layer int, from, to int64) []Clip {
 		if c.At < from { // the part before
 			head := c
 			head.Frames = from - c.At
+			head.FadeOut = 0 // its end is a cut now
 			out = append(out, head)
 		}
 		if c.End() > to { // the part after
@@ -510,6 +548,7 @@ func cutRange(clips []Clip, layer int, from, to int64) []Clip {
 			tail.ID = NewClipID()
 			cut := to - c.At
 			tail.At, tail.Src, tail.Frames = to, c.Src+cut, c.Frames-cut
+			tail.FadeIn = 0 // its start is a cut now
 			if c.At < from {
 				out = append(out, tail)
 			} else {

@@ -361,6 +361,26 @@ func TestTheClipboardCopiesATakeAndDropsItOnATape(t *testing.T) {
 		t.Fatalf("tiled into %d clips, want 4", n)
 	}
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","tile":true}}`), http.StatusBadRequest, "no room to tile")
+	// Fades: in frames, none longer than the clip.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in":480,"fade_out":4800}}`), http.StatusOK, "fades")
+	var faded struct {
+		Tape struct {
+			Tracks []struct {
+				Clips []struct {
+					ID      string `json:"id"`
+					FadeIn  int64  `json:"fade_in"`
+					FadeOut int64  `json:"fade_out"`
+				} `json:"clips"`
+			} `json:"tracks"`
+		} `json:"tape"`
+	}
+	json.Unmarshal(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "").Body.Bytes(), &faded)
+	if c := faded.Tape.Tracks[1].Clips[0]; c.ID != clip || c.FadeIn != 480 || c.FadeOut != 4800 {
+		t.Fatalf("fades = %+v", c)
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in":-1}}`), http.StatusBadRequest, "a fade below 0")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in":1}}`), http.StatusBadRequest, "a fade shorter than the declick")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_out":99999999}}`), http.StatusBadRequest, "a fade past the clip")
 
 	want(t, send(t, r, http.MethodDelete, "/api/clipboard", ""), http.StatusOK, "clear")
 	want(t, send(t, r, http.MethodGet, "/api/clipboard/audio", ""), http.StatusNotFound, "audition nothing")
