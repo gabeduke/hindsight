@@ -28,6 +28,7 @@ import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec
 import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
+import { hitClip, ClipGesture } from './clipgestures.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
@@ -785,68 +786,71 @@ async function slide(clip, at) {
   if (e) toast(`Slid to ${t.grid ? `bar ${barBeat(at, t.grid)}` : fmtSecs(at, t.sample_rate)}`, 'ok', { action: undoAction });
 }
 
+// The grips a clip offers on its block (lib/tape/clipgestures.js): none yet.
+const gripsOf = () => [];
+
+// laneHit is the clip, and the part of its block, under a pointer on a lane.
+function laneHit(lane, e) {
+  const r = lane.canvas.getBoundingClientRect();
+  return hitClip(lane.hits, e.clientX - r.left, e.clientY - r.top, gripsOf);
+}
+
 // wireLane: tap a clip for its sheet, or an empty part of the lane to move
 // the playhead (a click, so the sheet opens after the tap is done with);
 // hold a clip, then drag, to slide it along its track, snapping as chosen.
+// Which press is which is lib/tape/clipgestures.js's; this does what it says.
 function wireLane(lane) {
   const cv = lane.canvas;
-  let down = null;      // the one pointer being followed
-  let slidUntil = 0;    // a click before this ends a slide, not a tap
-  const hitAt = (x) => (lane.hits || []).filter((h) => x >= h.x0 && x <= h.x1).pop();
-  const finish = (commit) => {
-    const d = down;
-    down = null;
-    if (!d) return;
-    clearTimeout(d.timer);
-    if (!d.held) return;
-    const sl = state.slide;
-    state.slide = null;
-    cv.classList.remove('sliding');
-    drawLanes();
-    if (d.moved) slidUntil = performance.now() + 600;
-    // Only a drag commits: a held tap that wobbled a pixel moves nothing.
-    if (commit && d.moved && sl && sl.at !== sl.clip.at) slide(sl.clip, sl.at);
+  const gest = new ClipGesture();
+  let timer = 0;
+  const pt = (e) => ({ id: e.pointerId, x: e.clientX, y: e.clientY });
+  const run = (fx) => {
+    if (!fx) return;
+    if (fx.type === 'slideStart') {
+      try { cv.setPointerCapture(fx.id); } catch { /* the pointer's gone */ }
+      state.slide = { n: lane.n, clip: fx.clip, at: fx.clip.at };
+      cv.classList.add('sliding');
+      if (navigator.vibrate) navigator.vibrate(10);
+      drawLanes();
+    } else if (fx.type === 'slide' && state.slide) {
+      const view = laneView();
+      const df = (fx.dx / cv.getBoundingClientRect().width) * (view.to - view.from);
+      state.slide.at = slideTo(state.tape.grid, fx.clip.at, df, state.snap);
+      drawLanes();
+    } else if (fx.type === 'slideEnd') {
+      const sl = state.slide;
+      state.slide = null;
+      cv.classList.remove('sliding');
+      drawLanes();
+      // Only a drag commits: a held tap that wobbled a pixel moves nothing.
+      if (fx.commit && sl && sl.at !== sl.clip.at) slide(sl.clip, sl.at);
+    }
   };
+  // A gesture that ended takes its hold with it; another finger's lift doesn't.
+  const end = (fx) => { if (fx) clearTimeout(timer); run(fx); };
   cv.addEventListener('contextmenu', (e) => e.preventDefault());
   cv.addEventListener('click', (e) => {
-    if (performance.now() < slidUntil) { slidUntil = 0; return; }
+    if (!gest.clickIsTap()) return; // the end of a slide
     if (performance.now() < state.noClickUntil) return; // the end of a pan or pinch
     laneTap(lane, e);
   });
   cv.addEventListener('pointerdown', (e) => {
-    if (!state.tape || e.button > 0 || down) return; // one pointer at a time
-    const hit = hitAt(e.clientX - cv.getBoundingClientRect().left);
-    if (!hit) return;
-    down = { x: e.clientX, y: e.clientY, hit, moved: false, held: false, id: e.pointerId };
-    down.timer = setTimeout(() => {
-      if (!down || down.moved || state.pinch) return;
-      down.held = true;
-      try { cv.setPointerCapture(down.id); } catch { /* the pointer's gone */ }
-      state.slide = { n: lane.n, clip: hit.clip, at: hit.clip.at };
-      cv.classList.add('sliding');
-      if (navigator.vibrate) navigator.vibrate(10);
-      drawLanes();
-    }, 300);
+    if (!state.tape || e.button > 0) return;
+    const fx = gest.down(pt(e), laneHit(lane, e));
+    if (fx && fx.type === 'press') {
+      timer = setTimeout(() => { if (!state.pinch) run(gest.hold()); }, fx.hold);
+    }
   });
   cv.addEventListener('pointermove', (e) => {
-    if (!down || e.pointerId !== down.id) return;
-    const far = Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8;
-    if (!down.held) {
-      if (far) { down.moved = true; clearTimeout(down.timer); down = null; } // a swipe: the browser's
-      return;
-    }
-    if (far) down.moved = true;
-    if (!down.moved || !state.slide) return;
-    const view = laneView();
-    const df = ((e.clientX - down.x) / cv.getBoundingClientRect().width) * (view.to - view.from);
-    state.slide.at = slideTo(state.tape.grid, down.hit.clip.at, df, state.snap);
-    drawLanes();
+    const fx = gest.move(pt(e));
+    if (fx && fx.type === 'swipe') clearTimeout(timer); // the browser's, and the lanes' pan
+    else run(fx);
   });
   // While a slide is held, a finger's drag is the slide's, not a scroll.
-  cv.addEventListener('touchmove', (e) => { if (down && down.held) e.preventDefault(); }, { passive: false });
-  cv.addEventListener('pointerup', (e) => { if (down && e.pointerId === down.id) finish(true); });
-  cv.addEventListener('pointercancel', (e) => { if (down && e.pointerId === down.id) finish(false); });
-  cv.addEventListener('lostpointercapture', (e) => { if (down && down.held && e.pointerId === down.id) finish(false); });
+  cv.addEventListener('touchmove', (e) => { if (gest.held) e.preventDefault(); }, { passive: false });
+  cv.addEventListener('pointerup', (e) => end(gest.up(pt(e))));
+  cv.addEventListener('pointercancel', (e) => end(gest.cancel(pt(e))));
+  cv.addEventListener('lostpointercapture', (e) => end(gest.lost(pt(e))));
 }
 
 // --- the clip editor --------------------------------------------------------------
@@ -1790,7 +1794,7 @@ function drawLanes() {
       ctx.stroke();
       ctx.lineWidth = 1;
       ctx.globalAlpha = 1;
-      lane.hits.push({ x0, x1, clip: stored });
+      lane.hits.push({ x0, x1, top, h, clip: stored });
       // The hit the editor follows: a line across the lane.
       if (aligning) {
         const x = Math.round(xOf(soundingAt(c, t.sample_rate) + al.hitOff, view, W));
@@ -2020,7 +2024,7 @@ function laneTap(lane, e) {
   state.track = lane.n;
   const r = lane.canvas.getBoundingClientRect();
   const x = e.clientX - r.left;
-  const hit = (lane.hits || []).filter((h) => x >= h.x0 && x <= h.x1).pop();
+  const hit = laneHit(lane, e);
   if (hit) { openClip(hit.clip); return; }
   // An empty part of a lane moves the playhead there.
   transport('locate', { pos: frameAt(x, laneView(), r.width) });

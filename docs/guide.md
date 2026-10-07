@@ -990,6 +990,11 @@ try something. It costs no disk space.
   the copies meet.
 - [demo] Put the playhead inside a clip, **Split**, hold the second half and
   slide it a bar later, then ↶ twice → the clip is whole again.
+- [demo] Tap a clip → its sheet opens. Drag quickly across a clip → the
+  lanes pan and the clip stays where it was.
+- [demo] Hold a clip until a dashed outline shows where it would land, drag
+  it a bar later and let go → it's a bar later; ↶ → it's back. Hold one and
+  let go without moving → nothing moves.
 - [demo] Split a clip, tap either half, **Join the split** → one clip.
 - [demo] **×2** on a 2-bar loop → a 4-bar loop whose second half is a copy of
   the first.
