@@ -13,7 +13,7 @@ magnet pocket's 8 mm roof, and nothing overhangs past 45°.
 
 | Order | File | When | Time (rough) | Checks |
 |---:|---|---|---|---|
-| 1 | `out/fit_test_pi.stl` and `out/spacers.stl` | **Now** | 35 min | The nut slots, the Pi's hole pattern and the real screw stack |
+| 1 | `out/fit_test_pi.stl` and `out/spacers.stl` | **Now** | 35 min | The nut pockets, the Pi's hole pattern and the real screw stack |
 | 2 | `out/case.stl` | **Now**, once the fit test passes **and the Pi is measured** (below) | 2–3 h | The Pi drops in, and every port lines up with its opening |
 | 3 | `out/lid.stl` | Now | 1 h | |
 
@@ -67,18 +67,18 @@ labelled 2.6 is the first one of the controls.
 It's the case's floor and bosses on a plate, plus four loose rings the lid's thickness, so you can try the real
 screw stack before printing the case. Print it with `spacers.stl`.
 
-1. Slide an M2.5 nut **sideways** into each boss's slot (the slots open toward the middle of the plate), flats
-   against the slot's walls, until it sits under the hole. It should go in with a push and not rattle.
+1. Turn the plate over and press an M2.5 nut **up into each hex pocket** from underneath until it stops at the
+   pocket's roof. It should need a firm push and then stay put on its own. Press it straight; don't hammer it.
 2. Lay the Pi on the bosses. **All four holes should line up** over the nuts without pushing the board.
 3. Stand a spacer on each hole, a ring on each spacer, and run an M2.5 × 25 screw down through ring, spacer and board
-   into the nut. It should catch and pull everything tight. The tip may show a hair below the plate; in the case it
-   ends inside the floor.
+   into the nut. It should catch and pull everything tight. The tip ends inside the pocket, short of the plate's
+   underside.
 4. Tune `kit.py`, then `make`:
-   - **The nut rattles in its slot:** take 0.1 off `nut_fit`.
-   - **The nut won't go in:** add 0.1 to `nut_fit`.
+   - **The nut falls out or spins:** take 0.05 off `nut_fit`.
+   - **The nut won't go in, or the boss splits:** add 0.1 to `nut_fit`.
    - **The boss's top bears on a solder joint and rocks the board:** tell Claude.
    - **The holes don't line up:** tell Claude. The pattern comes from the official drawing, so that would be news.
-5. The engraved line on the plate says which slot width it was printed with.
+5. The engraved line on the plate says which pocket size it was printed with.
 
 ## Magnets
 
@@ -92,8 +92,8 @@ that comes later. Fit the magnets now or later:
 
 ## Assembly
 
-1. **Nuts:** slide an M2.5 nut sideways into the slot in each of the four bosses (they open toward the middle of
-   the case), until it sits under the hole.
+1. **Nuts:** turn the case over and press an M2.5 nut up into each of the four hex pockets in its underside, until
+   it stops. Turn it back over; the press fit holds them, and the Dual Lock squares cover them later.
 2. **Pi:** put the SD card in, then lower the Pi in from above with its USB-A and Ethernet jacks to the rear. They
    drop into the open notch in the back wall, and the USB-C power lines up with the window in the right wall.
 3. **Spacers:** stand a spacer tube on each of the Pi's mounting holes.
@@ -117,7 +117,7 @@ that comes later. Fit the magnets now or later:
 the wall, so use a fingernail or tweezers.
 
 **To get at the Pi:** take out the four lid screws and lift the lid and spacers off; the case can stay on the Solo.
-The Pi then lifts straight out, and the nuts stay in their slots. To take the case off the Solo, pull it straight up,
+The Pi then lifts straight out, and the nuts stay in their pockets. To take the case off the Solo, pull it straight up,
 firmly and evenly: Dual Lock lets go and goes back together.
 
 ## Later: the clip saddle

@@ -103,7 +103,7 @@ floor_t = 2.4
 lid_t = 2.4               # a whole number of 0.2 mm layers
 layer_h = 0.2
 lid_seat_gap = 0.3        # at least this between the wall tops and the lid, so the lid clamps on the spacers
-boss_h = 4.5              # the Pi's bosses on the floor (3 mm under the board's deepest part)
+boss_h = 4.0              # the Pi's bosses on the floor (2.5 mm under the board's deepest part)
 screw_past_nut = 1.0      # how far the screw tip should reach past the nut; sets the spacers' length
 spacer_d = 5.5            # their outside diameter (round, so no corner can turn toward the USB-C)
 case_margin_left = 3.0    # beside the GPIO header
@@ -113,20 +113,19 @@ rear_jack_proud = 0.5     # USB-A/Ethernet faces stop this far inside the rear w
 min_clearance = 0.5       # REPORT.md flags anything tighter
 
 # ── Screws and nuts (hardware on hand, no heat-set inserts) ─────────────────
-# One screw per corner runs down through the lid, a spacer, the Pi's hole and the boss's
-# roof into a nut slid sideways into a slot in the boss. Tightening pulls the nut up
-# against the case's own plastic, so lid, spacer, Pi and case all clamp together.
+# One screw per corner runs down through the lid, a spacer, the Pi's hole and the boss into a
+# nut pressed up into a hex pocket from the case's underside. Tightening pulls the nut up while
+# the board pushes down, squeezing the plastic between them: lid, spacer, Pi and case clamp as one.
 screw_size = "M2.5"       # the Pi's own size: its holes are 2.7 mm
 screw_len = 25.0          # the longest on hand (a countersunk screw's length is overall)
 screw_clear_d = 2.9       # through the lid, spacers and bosses
 screw_csk_d = 5.0         # countersink at the lid's top face (an M2.5 flat head is 4.7)
 nut_af = 5.0              # M2.5 nut across the flats (ISO 4032)
 nut_t = 2.0
-nut_fit = 0.2             # slot clearance across the flats
-nut_slot_extra = 0.3      # slot height past the nut
-nut_roof = 1.2            # plastic between the nut and the board: the clamp bears on it
-pi_boss_d = 7.0           # room for the 5.2 mm nut slot
-boss_top_chamfer = 0.5    # keeps the boss's contact face (6.0 mm) inside the Pi's 6 mm mounting pad
+nut_fit = 0.1             # pocket clearance across the flats: a snug press fit
+nut_roof = 1.6            # plastic between the nut and the board, squeezed by the clamp
+pi_boss_d = 7.5           # 0.8 mm of plastic round the nut pocket's corners
+boss_top_chamfer = 0.75   # 45°: keeps the boss's contact face (6.0 mm) inside the Pi's 6 mm mounting pad
 # Tolerances for the screw-stack checks in REPORT.md
 stack_tol = 0.6           # board ±0.3 (1.0–1.6), printed spacer ±0.2, lid ±0.1, worst way round
 screw_len_tol = 0.42      # ISO js15 on a 25 mm screw
@@ -277,13 +276,10 @@ board_box, sd_box, sink_box = pi_keepout[0], pi_keepout[1], pi_keepout[2]
 pi_holes = [pi_xy(pi_hole_inset + i * pi_hole_pitch_x, pi_hole_inset + j * pi_hole_pitch_y)
             for i in (0, 1) for j in (0, 1)]
 nut_corner_r = (nut_af + nut_fit) / math.sqrt(3)            # half across the corners
-nut_slot_z1 = boss_h - nut_roof
-nut_slot_z0 = nut_slot_z1 - nut_t - nut_slot_extra
-nut_clamped_z0 = nut_slot_z1 - nut_t                        # the nut's underside once it's pulled up
+nut_top_z = boss_h - nut_roof                                # the pocket's roof, where the nut bears
+nut_bottom_z = nut_top_z - nut_t
 screw_tip_z = cav_h + lid_t - screw_len                     # flush countersunk head
 head_sink = (screw_csk_d - screw_head_d) / 2
-screw_bore_z0 = screw_tip_z - head_sink - stack_tol - screw_len_tol - min_clearance  # room for the longest case
-assert nut_slot_z0 > 0.2, "the nut slot needs floor under it: raise boss_h or thin nut_roof"
 
 # USB-C power window, centred on the receptacle (Y along the right wall)
 _usbc = next(p for p in edge_ports if p[0] == "USB-C power")
@@ -317,7 +313,9 @@ dl_pads = []
 for _sx in (0, 1):
     for _sy in (0, 1):
         _x0 = out_x0 + dl_inset if _sx == 0 else out_x1 - dl_inset - dl_pad
-        _y0 = out_y0 + dl_inset if _sy == 0 else out_y1 - dl_inset - dl_pad
+        # The rear pair moves forward if it must, so each square covers a nut pocket
+        _y0 = out_y0 + dl_inset if _sy == 0 else min(out_y1 - dl_inset - dl_pad,
+                                                    max(hy for _, hy in pi_holes) - nut_corner_r - 1.0)
         dl_pads.append(Box3("pad", _x0, _x0 + dl_pad, _y0, _y0 + dl_pad, 0, 0))
 magnets = [((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2) for p in dl_pads]  # centred under each Dual Lock square
 magnet_pocket_d = magnet_d + magnet_fit
@@ -379,7 +377,7 @@ def unmeasured() -> list[tuple[str, float, str]]:
 
 from build123d import (  # noqa: E402  (parameters first, so they read cleanly)
     Align, Axis, Box, Circle, Color, Compound, Cone, Cylinder, Face, Location, Part, Pos,
-    FontStyle, Rectangle, RectangleRounded, Rot, SlotOverall, Text, Wire, chamfer, export_step,
+    FontStyle, Rectangle, RectangleRounded, RegularPolygon, Rot, SlotOverall, Text, Wire, chamfer, export_step,
     export_stl, extrude, fillet,
 )
 
@@ -422,12 +420,9 @@ def rounded_prism(x0, x1, y0, y1, z0, z1, r):
     return Pos((x0 + x1) / 2, (y0 + y1) / 2, z0) * extrude(rr, amount=z1 - z0)
 
 
-def nut_slot(x, y, z0, toward_x):
-    """A side slot a nut slides into, flats against its walls, opening toward toward_x."""
-    sgn = 1 if toward_x > x else -1
-    a, b = x - sgn * (nut_corner_r + 0.05), x + sgn * (pi_boss_d / 2 + 1.0)
-    return box(min(a, b), max(a, b), y - (nut_af + nut_fit) / 2, y + (nut_af + nut_fit) / 2,
-               z0, z0 + nut_t + nut_slot_extra)
+def nut_pocket(x, y, bottom_z, top_z):
+    """A hex pocket a nut presses up into from the underside, flats parallel to X."""
+    return Pos(x, y, bottom_z) * extrude(RegularPolygon(nut_corner_r, 6), amount=top_z - bottom_z)
 
 
 def pi_boss(x, y, z0, h):
@@ -448,8 +443,8 @@ def make_case(pi_bosses: bool = True) -> Part:
     case = case.fuse(*adds).clean()
     cuts = [cyl(x, y, -floor_t - EPS, magnet_t + magnet_fit / 2 + EPS, magnet_pocket_d) for x, y in magnets]
     if pi_bosses:
-        cuts += [nut_slot(x, y, nut_slot_z0, (board_box.x0 + board_box.x1) / 2) for x, y in pi_holes]
-        cuts += [cyl(x, y, screw_bore_z0, boss_h - screw_bore_z0 + EPS, screw_clear_d) for x, y in pi_holes]
+        cuts += [nut_pocket(x, y, -floor_t - EPS, nut_top_z) for x, y in pi_holes]
+        cuts += [cyl(x, y, nut_top_z - EPS, nut_roof + 2 * EPS, screw_clear_d) for x, y in pi_holes]
     # Openings: power window, rear notch (open on top), SD slot
     cuts.append(wall_prism("right", peaked(pwr_y - pwr_win_w / 2, pwr_y + pwr_win_w / 2,
                                            pwr_win_z0, pwr_win_z0 + pwr_win_h)))
@@ -572,7 +567,7 @@ def make_lid() -> Part:
 
 
 def make_fit_test_pi() -> Part:
-    """The four Pi bosses with their nut slots on a plate like the case floor, plus four loose
+    """The four Pi bosses with their nut pockets on a plate like the case floor, plus four loose
     rings the lid's thickness, so the real 25 mm screws can be tried through real spacers."""
     hx, hy = pi_hole_pitch_x / 2, pi_hole_pitch_y / 2
     px = hx + pi_boss_d / 2 + fit_plate_margin
@@ -582,7 +577,7 @@ def make_fit_test_pi() -> Part:
     plate = plate - box(-win_x, win_x, -win_y, win_y, -1, floor_t + 1)
     holes = [(sx * hx, sy * hy) for sx in (-1, 1) for sy in (-1, 1)]
     part = plate.fuse(*[pi_boss(x, y, floor_t - EPS, boss_h + EPS) for x, y in holes]).clean()
-    cuts = [nut_slot(x, y, floor_t + nut_slot_z0, 0.0) for x, y in holes]
+    cuts = [nut_pocket(x, y, -EPS, floor_t + nut_top_z) for x, y in holes]
     cuts += [cyl(x, y, -EPS, floor_t + boss_h + 2 * EPS, screw_clear_d) for x, y in holes]
     cuts.append(Pos(0, -hy - 0.6, floor_t - 0.6)
                 * extrude(Text(f"NUT {nut_af + nut_fit:g}", font_size=5.0, font_style=FontStyle.BOLD),

@@ -24,8 +24,8 @@ its Pi numbers, port rules, print settings and thermal rules still do.
 
 **Hardware on hand** (Gabe has M2.5 screws up to 25 mm with nuts, and D8×3
 and D6×2 magnets): no heat-set inserts. One M2.5 × 25 screw per corner runs
-through the lid, a spacer, the Pi and a plastic roof into a nut slid into a
-slot in its boss, clamping lid, Pi and case together.
+through the lid, a spacer, the Pi and its boss into a nut pressed up into a
+hex pocket from the case's underside, clamping lid, Pi and case together.
 Four D8×3 magnets sit in the case floor for the saddle. In the bill of
 materials, the heat-set inserts, the M3 screws and the rubber feet are gone;
 REPORT.md's hardware table is current.
