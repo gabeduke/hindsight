@@ -1108,32 +1108,50 @@ func (e *Engine) lastBars(t *Tape, n int, delta int64) (uint64, int64, int64, er
 // --- drops ------------------------------------------------------------------------
 
 // DropTake puts frames [from, to) of a take onto a track at the tape's
-// playhead (or, on an empty tape, as its first loop: bars sets its tempo).
+// playhead (or, on an empty tape, as its first loop: bars sets its tempo --
+// unless it's longer than a first loop can be, when it's laid down linear).
 // It's how a phone recording or a take's selection gets onto tape.
 func (e *Engine) DropTake(id string, take string, from, to int64, track, bars int, pick []int) (Clip, error) {
+	clip, _, err := e.dropTake(id, take, from, to, track, bars, pick)
+	return clip, err
+}
+
+// dropTake is DropTake, and says how it landed: SendFirstLoop, SendLinear
+// or SendAsIs (at the playhead).
+func (e *Engine) dropTake(id string, take string, from, to int64, track, bars int, pick []int) (Clip, string, error) {
 	t := e.Loaded()
 	if t == nil {
-		return Clip{}, ErrNoTape
+		return Clip{}, "", ErrNoTape
 	}
 	if t.ID != id {
-		return Clip{}, ErrWrongTape
+		return Clip{}, "", ErrWrongTape
 	}
 	if _, err := t.Track(track); err != nil {
-		return Clip{}, err
+		return Clip{}, "", err
+	}
+	if to-from > t.Length {
+		return Clip{}, "", lengthErr(to-from, t.Length, t.SampleRate)
 	}
 	clip, err := e.copyTake(take, from, to, pick, "drop")
 	if err != nil {
-		return Clip{}, err
+		return Clip{}, "", err
 	}
 	clip.Source = "take"
 	frames := clip.Frames
 	var placed Clip
+	mode := SendAsIs
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() {
 			tp.Click = false
 		}
-		if tp.Empty() && s.Grid == nil {
+		if tp.Empty() && s.Grid == nil && frames > firstLoopMaxSeconds*int64(e.store.SampleRate()) {
+			// Too long to be a loop: laid down as it is, loop off, no tempo.
+			mode = SendLinear
+			s.Loop = Loop{}
+			clip.At = 0
+		} else if tp.Empty() && s.Grid == nil {
 			// The first loop: its length is the grid, and it loops.
+			mode = SendFirstLoop
 			if bars <= 0 {
 				bpm := 0.0
 				if m := audio.ReadMeta(take); m.BPM != nil {
@@ -1151,15 +1169,14 @@ func (e *Engine) DropTake(id string, take string, from, to int64, track, bars in
 		} else {
 			clip.At = e.tr.Status().Pos
 			if clip.At+frames > tp.Length {
-				return fmt.Errorf("%w: %.1f s of room is left after the playhead", ErrPastTheEnd,
-					float64(tp.Length-clip.At)/float64(tp.SampleRate))
+				return roomErr(tp.Length-clip.At, tp.Length, tp.SampleRate)
 			}
 		}
 		var err error
 		placed, err = s.Place(track, clip, true)
 		return err
 	})
-	return placed, err
+	return placed, mode, err
 }
 
 // copyTake copies frames [from, to) of a take, with overhang either side
@@ -1213,8 +1230,11 @@ func (e *Engine) PlaceTake(id string, take string, from, to int64, track int, at
 	if _, err := t.Track(track); err != nil {
 		return nil, err
 	}
-	if at < 0 || to-from > t.Length || at > t.Length-(to-from) {
-		return nil, fmt.Errorf("%w: that doesn't fit on the tape there", ErrPastTheEnd)
+	if to-from > t.Length {
+		return nil, lengthErr(to-from, t.Length, t.SampleRate)
+	}
+	if at < 0 || at > t.Length-(to-from) {
+		return nil, roomErr(t.Length-at, t.Length, t.SampleRate)
 	}
 	inLoop := func(l Loop) error {
 		if !l.On || l.In != played.In || l.Out != played.Out {

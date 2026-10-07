@@ -91,8 +91,7 @@ func (e *Engine) Clipboard() (*Clipboard, error) { return e.store.LoadClipboard(
 // tooLong refuses a copy longer than a track: it could never be dropped.
 func (e *Engine) tooLong(frames int64) error {
 	if l := e.store.length; frames > l {
-		return fmt.Errorf("%w: %.0f s is longer than a track (%.0f s)", ErrBadParameter,
-			float64(frames)/float64(e.store.SampleRate()), float64(l)/float64(e.store.SampleRate()))
+		return lengthErr(frames, l, e.store.SampleRate())
 	}
 	return nil
 }
@@ -256,7 +255,16 @@ func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error
 	near := e.lastBPM(id) // before the edit: it reads every tape
 	var out Dropped
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
-		if tp.Empty() && s.Grid == nil {
+		if tp.Empty() && s.Grid == nil && c.Frames > firstLoopMaxSeconds*int64(sr) {
+			// Too long to be a loop: laid down as it is, loop off. With the
+			// take's tempo the tape has it; without, it has none.
+			if validBPM(c.BPM) {
+				g := GridFor(c.BPM, sendGridBars, sr)
+				s.Grid = &g
+			}
+			s.Loop = Loop{}
+			at = 0
+		} else if tp.Empty() && s.Grid == nil {
 			bars := barsFor(c.Frames, sr, c.BPM, near)
 			g := Grid{Frames: c.Frames, Bars: bars}
 			if bpm := g.BPM(sr); bpm < 20 || bpm > 400 {
@@ -270,7 +278,7 @@ func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error
 			tp.Click = false
 		}
 		if at+c.Frames > tp.Length {
-			return fmt.Errorf("%w: %.1f s of room is left after the playhead", ErrPastTheEnd, float64(tp.Length-at)/float64(sr))
+			return roomErr(tp.Length-at, tp.Length, sr)
 		}
 		// Clear the span on each track, then lay the clipboard's clips in.
 		for i := 0; i < spans; i++ {

@@ -65,7 +65,8 @@ func (e *Engine) Listen(id string, all, click bool) (*Listen, error) {
 		return nil, fmt.Errorf("%w: there's nothing on the tape to hear; add the click to play along with it", ErrBadParameter)
 	}
 	if l.Frames > listenMaxFrames {
-		return nil, fmt.Errorf("%w: that's too long to send", ErrBadParameter)
+		return nil, fmt.Errorf("%w: that's %s, and a phone can be sent %d minutes at most",
+			ErrBadParameter, clockText(l.Frames, sr), listenMaxFrames/48000/60)
 	}
 	return l, nil
 }

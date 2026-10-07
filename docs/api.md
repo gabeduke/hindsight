@@ -53,6 +53,7 @@ internet.
 | `POST /api/tapes/tap?id=` | A free-loop tap: the first waits, the second makes the loop |
 | `DELETE /api/tapes/tap?id=` | Forget a first tap |
 | `POST /api/tapes/drop?id=` | Put the clipboard, or a span of a take, onto the tape |
+| `POST /api/tapes/send?id=` | Send a take, or a selection, onto the tape by its tempo and downbeat |
 | `POST /api/tapes/edit?id=` | Lift, copy, split, join, slide, multiply or reverse |
 | `POST /api/tapes/mixdown?id=` | Play the loop or the whole tape once and save what the mixer put out as a take |
 | `GET /api/tapes/export?id=` | The loaded tape as a zip of stems and a tempo map |
@@ -1000,14 +1001,18 @@ playhead moves to the drop's end. Answers
 `{"clip": …, "tracks": 1, "end": F}` once the playhead has moved; 409 if the
 clipboard is empty, 400 if its tracks don't fit from that one, it would run
 past the end of the tape, or, as a first loop, it makes no tempo of 20–400
-BPM. A drop during a count-in lands where the tape will start, and doesn't
+BPM. A clipboard longer than 60 s dropped on an empty tape isn't a first loop:
+it's laid down with the loop off, and the tape has the clipboard's tempo, if
+it has one, else none. A drop during a count-in lands where the tape will start, and doesn't
 move it. `{"track": 3, "merge": true}` is a merge drop: every clipboard track
 onto that one track, layered, and `tracks` is 1.
 
 `{"take": "jam_….wav", "from": F, "to": T, "track": 1, "bars": 0}` copies
 frames `[from, to)` of a take into the pool (its `SAVE_CHANNELS` pair, for a
 multichannel take). On an empty tape with no tempo, it becomes the first loop
-at bar 1, `bars` long (0: the bar count that puts it nearest 90 BPM).
+at bar 1, `bars` long (0: the bar count that puts it nearest 90 BPM), unless
+it's longer than 60 s, when it's laid down as it is with the loop off and no
+tempo.
 Otherwise it goes at the playhead, replacing what's under it, and is refused
 if it would run past the end of the tape. Answers `{"clip": …}`.
 
@@ -1019,6 +1024,36 @@ it was moved or turned off meanwhile), the part must sit inside it and be no
 longer than it, and a span that runs past Out carries on from In, as two clips
 on one layer. `"source": "phone"` labels it. Answers
 `{"clip": …, "clips": […]}`: the first, and all of them.
+
+### `POST /api/tapes/send?id=`
+
+The take page's **Send to tape**. `{"take": "jam_….wav", "track": 1}` sends
+the whole take; with `"from": F, "to": T` (both, in take frames) just that
+span. The Pi reads the take's `bpm` and `downbeat_frame` from its sidecar, so
+what it uses is what's saved, and places it by what it finds:
+
+- **With a tempo** (20–400 BPM): one clip, loop off, no loop made. The
+  take's downbeat goes on a tape bar line; a span that starts before the
+  downbeat sits that far before it, and one that starts after sits as far
+  past the bar line before it as it does in the take. If that is before the
+  tape's start, it all moves on by whole bars. On a tape with no audio, the
+  tape takes the take's tempo (4 bars, as the empty-tape form does) and the
+  downbeat goes on bar 1 or, with a count-in, as early as it can. On a tape
+  with audio and the same tempo (within 0.1%) it goes on the first bar line at
+  or after the playhead, replacing what's under it. With another tempo, or
+  none, it goes at the playhead as it is, unstretched, with a `warning`.
+- **With no tempo:** on an empty tape, a span up to 60 s is the first loop
+  (as a first-loop drop); a longer one is one clip, loop off, and the tape
+  gets no tempo. Otherwise it goes at the playhead.
+
+Answers `{"clip": …, "mode": "grid" | "first-loop" | "linear" | "as-is",
+"bpm": 120, "tempo_set": true, "bar": 2, "warning": "…", "end": F}`: `bpm` is
+the tape's tempo afterwards, `bar` the tape bar (from 1) the take's downbeat is
+on (left out when a selection doesn't include the downbeat), `end` the tape frame after the clip. Stopped, the playhead moves to the
+start of the clip. 400 for a span that isn't in the take, a take longer than a
+track, or one that would run past the end from where it lands; both name the
+limit in minutes and `TAPE_LENGTH_S`. 404 for no such take, 409 for a tape that
+isn't the loaded one.
 
 ### `POST /api/tapes/edit?id=`
 
