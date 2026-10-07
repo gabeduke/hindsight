@@ -5,6 +5,41 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.07.5 — 2026-10-07
+
+- Record v2026.10.07.4 in the changelog [skip ci] (c5f3939)
+- Normalize: fixes from review (77fcb5e)
+- Take page: Normalize on share (C5) (b4b5700)
+- Dropout flags: fixes from review (37ff5bf)
+- Takes: dropout flags (C4) (aa33af9)
+- Flags list: fixes from review (a6e1461)
+- Play all: fixes from review (a86c6ce)
+- Take page: a flags list, and ↺ 5 s (C3) (93d1c2d)
+- Takes: Play all, and flags that step on to the next take (C2) (62ac85a)
+- One-tap trash: fixes from review (ac76dbe)
+- Takes: one-tap trash and Undo last save (C1) (fc00ace)
+- Insert and delete time: the smoke leaves no section behind (fab2beb)
+- Insert and delete time: fixes from review (1747814)
+- Tape: insert and delete time (A7) (5ff33ad)
+- Sections: fixes from review (e5ea530)
+- Tape: sections (A6) (687f94f)
+- Clip fades: fixes from review (38becb1)
+- Tape: clip fades (A5) (da87ca2)
+- Split here: fixes from review (f988f58)
+- Take page: Split here, two clips on the crate (B2) (25175c2)
+- The crate: fixes from review (0bb3943)
+- The crate: keep clips, and drop them from it (B1) (bb9164c)
+- Several clips: fixes from review (39fffc1)
+- Tape: select several clips (A4) (dec1e32)
+- Drag to repeat: fixes from review (0c42a21)
+- Drag to repeat: a tap on another lane leaves the corner's drag alone (d428fdc)
+- Tape: drag a clip's corner to repeat it (A3) (4ef9ed4)
+- Slide onto another track: fixes from review (736f6ea)
+- Tape: slide a clip onto another track (A2) (d730a27)
+- Edge trim: fixes from review (cc61b0f)
+- Tape: edge trim, with handles (A1) (404142c)
+
+
 ## v2026.10.07.4 — 2026-10-07
 
 - Clip gestures: fixes from review (a3cadd3)
