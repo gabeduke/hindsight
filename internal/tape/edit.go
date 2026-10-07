@@ -11,19 +11,20 @@ import (
 )
 
 // The OP-1's editing (tape phase 2): lift, copy, split, join, slide and
-// multiply (merge drop is a drop: DropClipboard). Nothing is cut out of a file: a clip is a window onto
+// multiply (merge drop is a drop: DropClipboard), and a DAW's edge trim. Nothing is cut out of a file: a clip is a window onto
 // an immutable WAV, so every edit only changes tape.json, and each is one
 // undo step. Where an edit leaves audio meeting audio the renderer
 // crossfades it; next to silence, it declicks.
 
 // EditRequest is one edit. The selection is the loop's In and Out.
 type EditRequest struct {
-	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse
+	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse, trim
 	Track int    `json:"track"` // the selected track
 	All   bool   `json:"all"`   // lift and copy: all four tracks, kept apart
-	Clip  string `json:"clip"`  // join, slide, reverse: the clip
+	Clip  string `json:"clip"`  // join, slide, reverse, trim: the clip
 	Pos   *int64 `json:"pos"`   // split: where (default: the playhead)
-	At    *int64 `json:"at"`    // slide: where its start goes
+	At    *int64 `json:"at"`    // slide: where its start goes; trim: where the edge goes
+	Edge  string `json:"edge"`  // trim: "in" (its start) or "out" (its end)
 }
 
 // EditResult says what an edit did, for the page's toast.
@@ -32,6 +33,7 @@ type EditResult struct {
 	Clips  int        `json:"clips"`            // clips lifted, copied, made or moved
 	Frames int64      `json:"frames,omitempty"` // how long, for lift, copy, multiply
 	Board  *Clipboard `json:"clipboard,omitempty"`
+	Clip   *Clip      `json:"clip,omitempty"` // trim: the clip as it is now
 }
 
 // EditOp carries out an edit on the loaded tape.
@@ -71,6 +73,8 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		return EditResult{Op: "slide", Clips: 1}, err
 	case "reverse":
 		return e.reverseClip(t, req.Clip)
+	case "trim":
+		return e.trimClip(t, req)
 	case "multiply":
 		var n int
 		var frames int64
@@ -290,6 +294,93 @@ func (s *State) slide(id string, at, length int64) error {
 	return ErrNoSuchClip
 }
 
+// trimClip moves one edge of a clip to tape frame at, as far as its audio
+// and its neighbours allow (State.trim).
+func (e *Engine) trimClip(t *Tape, req EditRequest) (EditResult, error) {
+	if req.At == nil {
+		return EditResult{}, fmt.Errorf("%w: trim needs at", ErrBadParameter)
+	}
+	if req.Edge != "in" && req.Edge != "out" {
+		return EditResult{}, fmt.Errorf("%w: trim's edge is in or out", ErrBadParameter)
+	}
+	_, c, err := t.Clip(req.Clip)
+	if err != nil {
+		return EditResult{}, err
+	}
+	file := c.File
+	info, err := audio.ReadWAVInfo(e.store.AudioPath(file))
+	if err != nil {
+		return EditResult{}, fmt.Errorf("the clip's audio can't be read: %w", err)
+	}
+	var got Clip
+	err = e.Edit(t.ID, "", func(tp *Tape, s *State) error {
+		var err error
+		got, err = s.trim(req.Clip, req.Edge, *req.At, file, info.Frames(), tp.Length, tp.SampleRate)
+		return err
+	})
+	if err != nil {
+		return EditResult{}, err
+	}
+	return EditResult{Op: "trim", Clips: 1, Clip: &got}, nil
+}
+
+// trim moves a clip's In edge (its start, moving At and Src together, so the
+// audio stays where it was played) or its Out edge (its end) to at, clamped:
+//   - to its pool file, whose frames are fileFrames: the In edge to the file's
+//     start, the Out edge to where the file still has the overhang a
+//     crossfade out of it reads (or where the clip already ends, if later);
+//   - to the clips either side of it on its layer, and the tape's ends;
+//   - to leave it at least the overhang's length.
+//
+// It answers the clip as trimmed.
+func (s *State) trim(id, edge string, at int64, file string, fileFrames, length int64, sampleRate int) (Clip, error) {
+	over := int64(OverhangSeconds * float64(sampleRate))
+	minLen := max64(1, over)
+	for ti := range s.Tracks {
+		tr := &s.Tracks[ti]
+		for i := range tr.Clips {
+			c := &tr.Clips[i]
+			if c.ID != id {
+				continue
+			}
+			if c.File != file {
+				return Clip{}, fmt.Errorf("%w: the clip changed meanwhile; try again", ErrBadParameter)
+			}
+			before, after := int64(0), length // the room on its layer
+			for j, o := range tr.Clips {
+				if j == i || o.Layer != c.Layer {
+					continue
+				}
+				if o.End() <= c.At && o.End() > before {
+					before = o.End()
+				}
+				if o.At >= c.End() && o.At < after {
+					after = o.At
+				}
+			}
+			var lo, hi int64
+			if edge == "in" {
+				lo, hi = max64(before, c.At-c.Src), c.End()-minLen
+			} else {
+				fileEnd := max64(c.Src+c.Frames, fileFrames-over)
+				lo, hi = c.At+minLen, min64(after, c.At+fileEnd-c.Src)
+			}
+			if hi < lo {
+				return Clip{}, fmt.Errorf("%w: there's no room to trim that edge", ErrBadParameter)
+			}
+			x := min64(max64(at, lo), hi)
+			if edge == "in" {
+				d := x - c.At
+				c.At, c.Src, c.Frames = x, c.Src+d, c.Frames-d
+			} else {
+				c.Frames = x - c.At
+			}
+			return *c, nil
+		}
+	}
+	return Clip{}, ErrNoSuchClip
+}
+
 // multiply doubles the loop, copying everything inside it into the new
 // half. It answers the clips copied and the loop's new length.
 func (s *State) multiply(length int64) (int, int64, error) {
@@ -317,8 +408,8 @@ func (s *State) multiply(length int64) (int, int64, error) {
 	return copied, s.Loop.Len(), nil
 }
 
-// reverseClip turns a clip round. Its audio, with the overhang either side,
-// is written backwards to a new pool file, and the clip plays that -- so
+// reverseClip turns a clip round. Its audio, with handles either side, is
+// written backwards to a new pool file, and the clip plays that -- so
 // every edit still reads a clip forwards. Reversing it again plays its
 // original file the right way round, with no new file.
 func (e *Engine) reverseClip(t *Tape, id string) (EditResult, error) {
@@ -350,8 +441,8 @@ func (e *Engine) reverseClip(t *Tape, id string) (EditResult, error) {
 		if err := e.diskOK(); err != nil {
 			return EditResult{}, err
 		}
-		over := int64(OverhangSeconds * float64(e.store.SampleRate()))
-		lo, hi := max64(0, was.Src-over), min64(info.Frames(), was.Src+was.Frames+over)
+		hd := e.handle(int64(e.store.SampleRate()))
+		lo, hi := max64(0, was.Src-hd), min64(info.Frames(), was.Src+was.Frames+hd)
 		rel, dst, err := e.store.NewPoolFile("rev", time.Now())
 		if err != nil {
 			return EditResult{}, err

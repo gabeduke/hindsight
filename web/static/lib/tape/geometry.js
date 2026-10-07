@@ -242,3 +242,61 @@ export function levelAt(track, frame, peaksOf, sampleRate, anySolo = false) {
   if (!(best > 0)) return -Infinity;
   return 20 * Math.log10(best) + (track.gain_db || 0);
 }
+
+// How much audio a pool file keeps past a clip for the crossfades
+// (internal/tape OverhangSeconds).
+export const OVERHANG_SECONDS = 0.010;
+
+/**
+ * trimBounds is how far a clip's edge ('in', its start; 'out', its end) can
+ * be dragged, as the Pi clamps a trim (internal/tape edit.go, State.trim):
+ * the In edge back to its file's start and the clip before it on its layer,
+ * and to within 10 ms of its end; the Out edge on to where its file still
+ * has the crossfade's overhang (or where it already ends, if later) and the
+ * clip after it, and to 10 ms past its start. With fileFrames unknown (the
+ * file's peaks not loaded yet) only the neighbours and the tape bound it.
+ * Answers {lo, hi} in tape frames, or null when there's no room at all.
+ */
+export function trimBounds(clip, edge, track, { fileFrames, length, sampleRate }) {
+  const over = Math.round(OVERHANG_SECONDS * sampleRate);
+  const minLen = Math.max(1, over);
+  const end = clip.at + clip.frames;
+  let before = 0, after = length;
+  for (const o of track?.clips || []) {
+    if (o.id === clip.id || o.layer !== clip.layer) continue;
+    const oEnd = o.at + o.frames;
+    if (oEnd <= clip.at && oEnd > before) before = oEnd;
+    if (o.at >= end && o.at < after) after = o.at;
+  }
+  const known = fileFrames > 0;
+  let lo, hi;
+  if (edge === 'in') {
+    lo = known ? Math.max(before, clip.at - clip.src) : before;
+    hi = end - minLen;
+  } else {
+    lo = clip.at + minLen;
+    hi = known ? Math.min(after, clip.at + Math.max(clip.src + clip.frames, fileFrames - over) - clip.src) : after;
+  }
+  return hi < lo ? null : { lo, hi };
+}
+
+/**
+ * trimTo is where an edge that started at edge0 lands, dragged df frames:
+ * on the snap's grid (or anywhere when free), then held inside bounds.
+ * limited says the drag is pushing against a bound.
+ */
+export function trimTo(edge0, df, bounds, grid, snap, free) {
+  const raw = edge0 + df;
+  const want = free ? Math.max(0, Math.round(raw)) : snapFrame(grid, raw, snap);
+  const at = Math.min(Math.max(want, bounds.lo), bounds.hi);
+  return { at, limited: want !== at };
+}
+
+/** trimmed is a clip as it would be with its edge at `at`. */
+export function trimmed(clip, edge, at) {
+  if (edge === 'in') {
+    const d = at - clip.at;
+    return { ...clip, at, src: clip.src + d, frames: clip.frames - d };
+  }
+  return { ...clip, frames: at - clip.at };
+}

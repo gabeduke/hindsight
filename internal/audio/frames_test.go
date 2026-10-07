@@ -83,3 +83,36 @@ func TestReadFramesStopsOnCallbackError(t *testing.T) {
 		t.Errorf("err = %v, calls = %d; want boom after one call", err, calls)
 	}
 }
+
+// A span copied with handles answers the peak of the part that matters:
+// loud handles either side don't hide a quiet clip.
+func TestCopyWAVSpanMeasuredPeaksOnlyTheWindow(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "jam_loud_edges.wav")
+	const frames = 300
+	data := make([]int32, frames*2)
+	for i := 0; i < frames; i++ {
+		v := int32(1 << 20) // quiet in the middle
+		if i < 100 || i >= 200 {
+			v = 1 << 30 // loud in the handles
+		}
+		data[i*2], data[i*2+1] = v, -v
+	}
+	if _, err := WriteWAV(p, data, 2, []int{0, 1}, 48000); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "copy.wav")
+	got, err := CopyWAVSpanMeasured(p, 0, frames, []int{0, 1}, dst, 100, 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := float64(1<<20) / 2147483648.0; got != want {
+		t.Errorf("measured peak = %g, want %g (the middle only)", got, want)
+	}
+	whole, err := CopyWAVSpan(p, 0, frames, []int{0, 1}, filepath.Join(t.TempDir(), "whole.wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if whole < 0.49 {
+		t.Errorf("unmeasured peak = %g, want the loud edges (0.5)", whole)
+	}
+}

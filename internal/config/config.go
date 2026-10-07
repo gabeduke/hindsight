@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -45,6 +46,9 @@ type Config struct {
 	TapeTracks  int
 	TapeLengthS int    // a track's length: 20 minutes by default
 	TapeSources string // name=L,R[:buses] ..., parsed by the tape package
+	// TapeHandleS is how much of the source a new pool file keeps either side
+	// of its clip, so a trimmed edge can be dragged back out: 0 to 10 s.
+	TapeHandleS float64
 	// TapeMixdownTailS is how long a mixdown runs on past Out, so the
 	// strips' reverb and delay ring out.
 	TapeMixdownTailS float64
@@ -99,6 +103,7 @@ func Load() (*Config, error) {
 		TapeLengthS:      envInt("TAPE_LENGTH_S", 1200),
 		TapeSources:      env("TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
 		TapeMixdownTailS: envFloat("TAPE_MIXDOWN_TAIL_S", 2),
+		TapeHandleS:      envFloat("TAPE_HANDLE_S", 2),
 		TapeClock:        strings.ToLower(strings.TrimSpace(env("TAPE_CLOCK", "free"))),
 		TapeClockOut:     env("TAPE_CLOCK_OUT", ""),
 		OutputLatencyMS:  envInt("OUTPUT_LATENCY_MS", 100),
@@ -139,6 +144,9 @@ func Load() (*Config, error) {
 	}
 	if c.MIDIRingEvents < 1 {
 		return nil, fmt.Errorf("MIDI_RING_EVENTS must be >= 1, got %d", c.MIDIRingEvents)
+	}
+	if c.TapeHandleS < 0 || c.TapeHandleS > 10 || math.IsNaN(c.TapeHandleS) {
+		return nil, fmt.Errorf("TAPE_HANDLE_S must be 0 to 10, got %g", c.TapeHandleS)
 	}
 	switch c.TapeClock {
 	case "free", "lead", "follow":

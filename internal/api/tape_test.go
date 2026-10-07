@@ -62,8 +62,11 @@ type tapeStateBody struct {
 			Bus   string `json:"bus"`
 			Mute  bool   `json:"mute"`
 			Clips []struct {
-				ID   string `json:"id"`
-				File string `json:"file"`
+				ID     string `json:"id"`
+				File   string `json:"file"`
+				Src    int64  `json:"src"`
+				Frames int64  `json:"frames"`
+				At     int64  `json:"at"`
 			} `json:"clips"`
 		} `json:"tracks"`
 	} `json:"tape"`
@@ -651,4 +654,35 @@ func TestSendingATakeWithNoTempoKeepsTheFirstLoop(t *testing.T) {
 	if sent.Mode != "first-loop" || s.Tape.Grid == nil || s.Tape.Grid.Frames != 4*48000 {
 		t.Fatalf("mode %q grid %+v: want the first loop", sent.Mode, s.Tape.Grid)
 	}
+}
+
+func TestTrimOverTheAPI(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_11-00-00.wav", 192000)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-04_11-00-00.wav","from":0,"to":96000}`), http.StatusOK, "copy")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":1}`), http.StatusOK, "drop")
+	clip := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")).Tape.Tracks[0].Clips[0]
+
+	w := send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"trim","clip":"`+clip.ID+`","edge":"in","at":24000}`)
+	want(t, w, http.StatusOK, "trim in")
+	var out struct {
+		Edit struct {
+			Clip struct {
+				At, Src, Frames int64
+			}
+		}
+	}
+	json.Unmarshal(w.Body.Bytes(), &out)
+	if c := out.Edit.Clip; c.At != 24000 || c.Src != clip.Src+24000 || c.Frames != 72000 {
+		t.Fatalf("trim in answered %+v", c)
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"trim","clip":"`+clip.ID+`","edge":"out","at":48000}`), http.StatusOK, "trim out")
+	got := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")).Tape.Tracks[0].Clips[0]
+	if got.At != 24000 || got.At+got.Frames != 48000 {
+		t.Fatalf("after both trims: %+v", got)
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"trim","clip":"`+clip.ID+`","edge":"in"}`), http.StatusBadRequest, "trim with no at")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"trim","clip":"`+clip.ID+`","edge":"both","at":0}`), http.StatusBadRequest, "trim a middle")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"trim","clip":"nope","edge":"in","at":0}`), http.StatusBadRequest, "trim no clip")
 }

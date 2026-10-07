@@ -198,6 +198,10 @@ type wavWriter struct {
 	frame      int
 	pk         *peakAccumulator
 	pyr        *pyramidAcc
+	// The peak of frames [mFrom, mTo) only, for a file that holds more than
+	// the part that matters (a tape clip and its handles).
+	mFrom, mTo int
+	mPeak      float64
 }
 
 func createWAV(path string, frames, outCh, sampleRate int) (*wavWriter, error) {
@@ -213,7 +217,7 @@ func createWAV(path string, frames, outCh, sampleRate int) (*wavWriter, error) {
 		f.Close()
 		return nil, err
 	}
-	return &wavWriter{f: f, w: w, outCh: outCh, sampleRate: sampleRate, frames: frames,
+	return &wavWriter{f: f, w: w, outCh: outCh, sampleRate: sampleRate, frames: frames, mTo: frames,
 		pk: newPeakAccumulator(outCh, frames), pyr: newPyramidAcc(outCh, int64(frames))}, nil
 }
 
@@ -229,8 +233,17 @@ func (ww *wavWriter) write(samples []int32) error {
 		if _, err := ww.w.Write(scratch[:]); err != nil {
 			return err
 		}
-		ww.pk.add(oc, ww.frame, float32(float64(s)/2147483648.0))
+		v := float64(s) / 2147483648.0
+		ww.pk.add(oc, ww.frame, float32(v))
 		ww.pyr.add(oc, int64(ww.frame), s)
+		if ww.frame >= ww.mFrom && ww.frame < ww.mTo {
+			if v < 0 {
+				v = -v
+			}
+			if v > ww.mPeak {
+				ww.mPeak = v
+			}
+		}
 		if oc == ww.outCh-1 {
 			ww.frame++
 		}
@@ -264,11 +277,25 @@ func (ww *wavWriter) close() (*PeakData, *pyramidAcc, error) {
 // written, as a fraction of full scale, so a caller can say when what it
 // caught is silent. On failure the file is removed.
 func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int) (float64, error) {
+	peaks, _, err := writeSpan(r, from, to, pick, path, sampleRate, 0, int64(to-from))
+	return peaks.Peak(), err
+}
+
+// WriteSpanMeasured is WriteSpan answering the peak of only frames
+// [peakFrom, peakTo) of what it writes, counted from the span's start: a
+// tape clip's own audio, without the handles kept either side of it.
+func WriteSpanMeasured(r *Ring, from, to uint64, pick []int, path string, sampleRate int, peakFrom, peakTo int64) (float64, error) {
+	_, peak, err := writeSpan(r, from, to, pick, path, sampleRate, peakFrom, peakTo)
+	return peak, err
+}
+
+func writeSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int, peakFrom, peakTo int64) (*PeakData, float64, error) {
 	ww, err := createWAV(path, int(to-from), len(pick), sampleRate)
 	if err != nil {
 		os.Remove(path)
-		return 0, err
+		return nil, 0, err
 	}
+	ww.mFrom, ww.mTo = int(peakFrom), int(peakTo)
 	err = r.Range(from, to, pick, ww.write)
 	peaks, _, cerr := ww.close()
 	if err == nil {
@@ -276,12 +303,12 @@ func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int
 	}
 	if err != nil {
 		os.Remove(path)
-		return 0, err
+		return nil, 0, err
 	}
 	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {
 		log.Printf("[!] peaks for %s: %v", path, perr)
 	}
-	return peaks.Peak(), nil
+	return peaks, ww.mPeak, nil
 }
 
 // CopyWAVSpan writes frames [from, to) of a 32-bit WAV's channels in pick to
@@ -289,16 +316,29 @@ func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int
 // tape. A pick past the file's channels repeats its last one (a mono take
 // becomes both sides). It answers the peak it wrote, as WriteSpan does.
 func CopyWAVSpan(src string, from, to int64, pick []int, path string) (float64, error) {
+	peaks, _, err := copyWAVSpan(src, from, to, pick, path, 0, to-from)
+	return peaks.Peak(), err
+}
+
+// CopyWAVSpanMeasured is CopyWAVSpan answering the peak of only frames
+// [peakFrom, peakTo) of what it writes, as WriteSpanMeasured does.
+func CopyWAVSpanMeasured(src string, from, to int64, pick []int, path string, peakFrom, peakTo int64) (float64, error) {
+	_, peak, err := copyWAVSpan(src, from, to, pick, path, peakFrom, peakTo)
+	return peak, err
+}
+
+func copyWAVSpan(src string, from, to int64, pick []int, path string, peakFrom, peakTo int64) (*PeakData, float64, error) {
 	info, err := ReadWAVInfo(src)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	ch := info.Channels
 	ww, err := createWAV(path, int(to-from), len(pick), info.SampleRate)
 	if err != nil {
 		os.Remove(path)
-		return 0, err
+		return nil, 0, err
 	}
+	ww.mFrom, ww.mTo = int(peakFrom), int(peakTo)
 	buf := make([]int32, 0, (1<<14)*len(pick))
 	_, err = ReadFrames(src, from, to, 1<<14, func(b []int32, _ int64) error {
 		buf = buf[:0]
@@ -318,12 +358,12 @@ func CopyWAVSpan(src string, from, to int64, pick []int, path string) (float64, 
 	}
 	if err != nil {
 		os.Remove(path)
-		return 0, err
+		return nil, 0, err
 	}
 	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {
 		log.Printf("[!] peaks for %s: %v", path, perr)
 	}
-	return peaks.Peak(), nil
+	return peaks, ww.mPeak, nil
 }
 
 // ReverseWAVSpan writes frames [from, to) of a 32-bit WAV to path backwards,

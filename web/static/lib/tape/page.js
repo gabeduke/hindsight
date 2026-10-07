@@ -22,13 +22,14 @@ import { roundRectPath } from '../cassette-geom.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
+  trimBounds, trimTo, trimmed,
 } from './geometry.js';
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
 import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
-import { hitClip, ClipGesture } from './clipgestures.js';
+import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX } from './clipgestures.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
@@ -52,11 +53,13 @@ const state = {
   source: readPref('tape.source', 'aux'),
   mode: readPref('tape.mode', 'layer'), // a catch onto audio: layer or replace
   clip: null,       // the clip whose sheet is open
+  picked: null,     // the id of the clip last tapped: its grips show, to trim it
   clipboard: null,  // what /api/clipboard says
   sel: null,        // a ruler drag in progress: {from, to} tape frames
   scope: readPref('tape.scope', 'one'), // lift and copy: the selected track, or all
   snap: readPref('tape.snap', 'bar'),   // what a slid clip snaps to
   slide: null,      // a clip being slid: {n, clip, at}
+  trim: null,       // a grip being dragged: {n, clip, edge, edge0, at, bounds, limited}
   zoom: null,       // the lanes' view once pinched, panned or paged: {from, to}; null shows the loop
   touchedView: 0,   // when a pinch or pan last moved the view: following waits a moment after
   noClickUntil: 0,  // a lane's click before this ends a pan, not a tap
@@ -337,7 +340,7 @@ function laneView() {
 function followPlayhead() {
   const live = state.live;
   // Not while a clip is being aligned: the view is the hit's then.
-  if (!live || !live.playing || live.count_in > 0 || state.pinch || state.slide || state.sel || state.align) return;
+  if (!live || !live.playing || live.count_in > 0 || state.pinch || state.slide || state.trim || state.sel || state.align) return;
   if (performance.now() - state.touchedView < 2500) return;
   const v = laneView();
   const f = followView(v, live.heard, state.tape.length);
@@ -786,8 +789,32 @@ async function slide(clip, at) {
   if (e) toast(`Slid to ${t.grid ? `bar ${barBeat(at, t.grid)}` : fmtSecs(at, t.sample_rate)}`, 'ok', { action: undoAction });
 }
 
-// The grips a clip offers on its block (lib/tape/clipgestures.js): none yet.
-const gripsOf = () => [];
+// The grips a clip offers on its block (lib/tape/clipgestures.js): the
+// picked clip's edges, to trim it, unless it's being aligned or slid.
+const gripsOf = (c) => (c.id === state.picked && !state.align && !state.slide ? ['in', 'out'] : []);
+
+// fileFramesOf is how long a clip's pool file is, from its peaks: 0 until
+// they've loaded (a trim is then bounded by its neighbours alone, and the
+// Pi clamps it to the file).
+function fileFramesOf(c) {
+  const pd = peaks.get(c.file);
+  return pd && !(pd instanceof Promise) ? Math.round(pd.duration * pd.sample_rate) : 0;
+}
+
+// trimRange is how far a clip's edge can go (geometry.js trimBounds).
+function trimRange(c, edge) {
+  const t = state.tape;
+  const tr = t.tracks.find((x) => x.clips.some((o) => o.id === c.id));
+  return trimBounds(c, edge, tr, { fileFrames: fileFramesOf(c), length: t.length, sampleRate: t.sample_rate });
+}
+
+async function trimClip(c, edge, at) {
+  const e = await edit('trim', { clip: c.id, edge, at });
+  if (!e || !e.clip) return;
+  const t = state.tape;
+  const where = edge === 'in' ? e.clip.at : e.clip.at + e.clip.frames;
+  toast(`Trimmed its ${edge === 'in' ? 'start' : 'end'} to ${t.grid ? `bar ${barBeat(where, t.grid)}` : fmtSecs(where, t.sample_rate)}`, 'ok', { action: undoAction });
+}
 
 // laneHit is the clip, and the part of its block, under a pointer on a lane.
 function laneHit(lane, e) {
@@ -804,9 +831,30 @@ function wireLane(lane) {
   const gest = new ClipGesture();
   let timer = 0;
   const pt = (e) => ({ id: e.pointerId, x: e.clientX, y: e.clientY });
-  const run = (fx) => {
+  const run = (fx, e) => {
     if (!fx) return;
-    if (fx.type === 'slideStart') {
+    if (fx.type === 'grip') {
+      // A grip is the finger's from the press: the lanes don't pan it.
+      try { cv.setPointerCapture(e.pointerId); } catch { /* the pointer's gone */ }
+      const c = fx.clip;
+      const edge0 = fx.zone === 'in' ? c.at : c.at + c.frames;
+      const bounds = trimRange(c, fx.zone) || { lo: edge0, hi: edge0 };
+      state.trim = { n: lane.n, clip: c, edge: fx.zone, edge0, at: edge0, bounds, limited: false };
+      cv.classList.add('trimming');
+    } else if (fx.type === 'gripMove' && state.trim) {
+      const view = laneView();
+      const df = (fx.dx / cv.getBoundingClientRect().width) * (view.to - view.from);
+      const tr = state.trim;
+      // ⌥ (Alt) moves it freely, off the snap.
+      Object.assign(tr, trimTo(tr.edge0, df, tr.bounds, state.tape.grid, state.snap, !!(e && e.altKey)));
+      drawLanes();
+    } else if (fx.type === 'gripEnd' || (fx.type === 'release' && state.trim)) {
+      const tr = state.trim;
+      state.trim = null;
+      cv.classList.remove('trimming');
+      drawLanes();
+      if (fx.commit && tr && tr.at !== tr.edge0) trimClip(tr.clip, tr.edge, tr.at);
+    } else if (fx.type === 'slideStart') {
       try { cv.setPointerCapture(fx.id); } catch { /* the pointer's gone */ }
       state.slide = { n: lane.n, clip: fx.clip, at: fx.clip.at };
       cv.classList.add('sliding');
@@ -839,15 +887,21 @@ function wireLane(lane) {
     const fx = gest.down(pt(e), laneHit(lane, e));
     if (fx && fx.type === 'press') {
       timer = setTimeout(() => { if (!state.pinch) run(gest.hold()); }, fx.hold);
-    }
+    } else run(fx, e);
   });
   cv.addEventListener('pointermove', (e) => {
+    // A mouse over a grip shows it can be dragged sideways.
+    if (e.pointerType === 'mouse' && !e.buttons) {
+      const h = laneHit(lane, e);
+      cv.classList.toggle('on-grip', !!h && (h.zone === 'in' || h.zone === 'out'));
+    }
     const fx = gest.move(pt(e));
     if (fx && fx.type === 'swipe') clearTimeout(timer); // the browser's, and the lanes' pan
-    else run(fx);
+    else run(fx, e);
   });
-  // While a slide is held, a finger's drag is the slide's, not a scroll.
-  cv.addEventListener('touchmove', (e) => { if (gest.held) e.preventDefault(); }, { passive: false });
+  // While a slide is held, or a grip pressed, a finger's drag is the clip's,
+  // not a scroll.
+  cv.addEventListener('touchmove', (e) => { if (gest.held || state.trim) e.preventDefault(); }, { passive: false });
   // On the window, so a press let go off the lane (a mouse dragged out of it
   // before the hold) ends there too, and its hold doesn't start a slide.
   window.addEventListener('pointerup', (e) => end(gest.up(pt(e))));
@@ -1427,7 +1481,7 @@ function wireView(el, rectOf) {
   el.addEventListener('pointerdown', (e) => {
     if (!state.tape || e.button > 0 || e.target.tagName !== 'CANVAS') return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 2 && !state.slide && !state.sel) {
+    if (pts.size === 2 && !state.slide && !state.sel && !state.trim) {
       const r = rectOf(), m = mid();
       state.pinch = true;
       state.noClickUntil = performance.now() + 400;
@@ -1440,7 +1494,7 @@ function wireView(el, rectOf) {
     const p = pts.get(e.pointerId);
     if (!p || !g) return;
     p.x = e.clientX; p.y = e.clientY;
-    if (state.slide || state.sel) { g = null; return; }
+    if (state.slide || state.sel || state.trim) { g = null; return; }
     const len = state.tape.length;
     if (g.kind === 'pinch') {
       if (pts.size < 2) return;
@@ -1712,7 +1766,9 @@ function drawLanes() {
       // The clip being aligned is drawn where the editor has it, which runs
       // ahead of the stored one through a gesture.
       const aligning = !!al && stored.id === al.clipId;
-      const c = aligning ? { ...stored, at: al.at } : stored;
+      // A clip being trimmed is drawn with its edge where the grip has it.
+      const tm = state.trim && state.trim.clip.id === stored.id ? state.trim : null;
+      const c = aligning ? { ...stored, at: al.at } : tm ? trimmed(stored, tm.edge, tm.at) : stored;
       const nudge = nudgeFrames(c, t.sample_rate);
       const x0 = xOf(c.at + nudge, view, W), x1 = xOf(c.at + nudge + c.frames, view, W);
       if (x1 < 0 || x0 > W) continue;
@@ -1720,6 +1776,7 @@ function drawLanes() {
       const bw = Math.max(1, x1 - x0);
       const radius = Math.min(6, bw / 2, h / 2);
       const block = () => { ctx.beginPath(); roundRectPath(ctx, x0 + 0.75, top + 0.75, Math.max(0.5, bw - 1.5), h - 1.5, radius); };
+      if (tm) drawTrimReach(ctx, stored, tm, view, W, top, h, tc, x0, x1);
       // One being slid stays where it is, faint, until it lands.
       ctx.globalAlpha = state.slide && state.slide.clip.id === c.id ? 0.35 : 1;
       block();
@@ -1796,6 +1853,7 @@ function drawLanes() {
       ctx.stroke();
       ctx.lineWidth = 1;
       ctx.globalAlpha = 1;
+      if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#b58900'), tm);
       lane.hits.push({ x0, x1, top, h, clip: stored });
       // The hit the editor follows: a line across the lane.
       if (aligning) {
@@ -1853,6 +1911,48 @@ function drawLanes() {
   }
 }
 
+
+// drawTrimReach draws, faintly, the audio a trimmed edge can reach: the
+// clip's file from as far back, or on, as the edge can go, outside the block
+// as it's drawn now, so you see what you'd get back.
+function drawTrimReach(ctx, stored, tm, view, W, top, h, tc, x0, x1) {
+  const pd = peaks.get(stored.file);
+  if (!pd || pd instanceof Promise) return;
+  const reach = trimmed(stored, tm.edge, tm.edge === 'in' ? tm.bounds.lo : tm.bounds.hi);
+  const nudge = nudgeFrames(reach, state.tape.sample_rate);
+  const rx0 = xOf(reach.at + nudge, view, W), rx1 = xOf(reach.at + nudge + reach.frames, view, W);
+  if (rx1 - rx0 <= 8) return;
+  ctx.save();
+  ctx.beginPath();
+  if (x0 > rx0) ctx.rect(rx0, top, x0 - rx0, h);
+  if (rx1 > x1) ctx.rect(x1, top, rx1 - x1, h);
+  ctx.clip();
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = withAlpha(tc, 0.45);
+  ctx.strokeRect(rx0 + 0.5, top + 0.5, rx1 - rx0 - 1, h - 1);
+  ctx.setLineDash([]);
+  drawBars(ctx, blockLevels(pd, reach, rx1 - rx0), {
+    x0: rx0 + 4, pitch: 4, cy: top + h / 2 + 3, half: Math.max(1, h / 2 - 12),
+    gain: gainOf(stored.file, pd), width: 2.2, color: withAlpha(tc, 0.22),
+  });
+  ctx.restore();
+}
+
+// drawGrips draws the picked clip's trim grips, a pill inside each edge's
+// zone; one pushed against how far it can go turns amber, with a line at the
+// stop.
+function drawGrips(ctx, x0, x1, top, h, ink, warn, tm) {
+  const gh = Math.min(28, h * 0.5);
+  const y = top + (h - gh) / 2;
+  for (const [edge, gx] of [['in', x0 + HANDLE_PX / 2 - 2], ['out', x1 - HANDLE_PX / 2 - 2]]) {
+    const stop = tm && tm.edge === edge && tm.limited;
+    ctx.fillStyle = stop ? warn : withAlpha(ink, 0.9);
+    ctx.beginPath();
+    roundRectPath(ctx, gx, y, 4, gh, 2);
+    ctx.fill();
+    if (stop) ctx.fillRect(Math.round(edge === 'in' ? x0 : x1 - 2), top, 2, h);
+  }
+}
 
 // drawPunch draws a punch recording onto its lane: the span this pass has
 // covered, and the source's level along it; or, before the tape reaches it,
@@ -2028,7 +2128,9 @@ function laneTap(lane, e) {
   const x = e.clientX - r.left;
   const hit = laneHit(lane, e);
   if (hit) { openClip(hit.clip); return; }
-  // An empty part of a lane moves the playhead there.
+  // An empty part of a lane moves the playhead there, and lets go of the
+  // picked clip.
+  state.picked = null;
   transport('locate', { pos: frameAt(x, laneView(), r.width) });
   render();
 }
@@ -2079,6 +2181,16 @@ function closeSheets() {
 
 function openClip(c) {
   state.clip = c;
+  state.picked = c.id;
+  // Start here and End here trim to the playhead, where the clip would be
+  // placed to sound there (its nudge taken off).
+  const live = state.live;
+  const here = live ? (live.heardEngine ?? live.heard) - nudgeFrames(c, state.tape.sample_rate) : null;
+  for (const edge of ['in', 'out']) {
+    const b = trimRange(c, edge);
+    const now = edge === 'in' ? c.at : c.at + c.frames;
+    $(`clip-trim-${edge}`).disabled = here == null || !b || here < b.lo || here > b.hi || here === now;
+  }
   const lvl = typeof c.peak_db === 'number' && c.peak_db < QUIET ? ` · ${levelText(c.peak_db)} when caught` : '';
   $('clip-title').textContent = `Clip on track ${state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}${lvl}`
     + (c.aligned === 'estimated' ? ' · caught before the lock: nudge it if it’s early or late' : '');
@@ -2304,6 +2416,12 @@ function wire() {
       if (inside) $(`np-drawer-${key}`).focus(); // not lost to the page
       return;
     }
+    // Escape lets go of the picked clip, last of all.
+    if (e.key === 'Escape' && !menuWasOpen && state.picked) {
+      state.picked = null;
+      drawLanes();
+      return;
+    }
     if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('play').click(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
     // which track catches go onto. Not under a dialog or a menu, and not on
@@ -2379,6 +2497,14 @@ function wire() {
     if (c) patch({ clip: { id: c.id, remove: true } }).then((ok) => ok && toast('Clip removed', 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } }));
   });
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
+  for (const edge of ['in', 'out']) {
+    $(`clip-trim-${edge}`).addEventListener('click', () => {
+      const c = state.clip;
+      const live = state.live;
+      $('clip-sheet').close();
+      if (c && live) trimClip(c, edge, (live.heardEngine ?? live.heard) - nudgeFrames(c, state.tape.sample_rate));
+    });
+  }
   $('clip-align').addEventListener('click', () => {
     if (state.clip && !$('clip-align').classList.contains('waiting')) openAlign(state.clip);
   });

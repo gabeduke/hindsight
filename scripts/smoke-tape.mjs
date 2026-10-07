@@ -289,6 +289,26 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('a clip: ↶ puts it back', (await first()).at === c0.at);
+  // Tapped, it stays picked once its sheet closes, with grips on its edges:
+  // drag the right one a bar left to trim a bar off its end, then ↶.
+  await p.mouse.click(s.x, s.y);
+  await p.waitForTimeout(400);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  const c1 = await first();
+  const lane = await p.evaluate(() => { const b = document.querySelector('.tt-lane').getBoundingClientRect(); return { x: b.left, w: b.width }; });
+  const from = Math.max(0, c1.loop.in - c1.bar), to = c1.loop.out + c1.bar;
+  const gx = lane.x + ((c1.at + c1.frames - from) / (to - from)) * lane.w - 12;
+  await p.mouse.move(gx, s.y);
+  await p.mouse.down();
+  await p.mouse.move(gx - s.perBar, s.y, { steps: 8 });
+  await p.mouse.up();
+  await p.waitForTimeout(1000);
+  const cut = await first();
+  check('a clip: its right grip trims a bar off its end', Math.abs(cut.frames - (c1.frames - c1.bar)) <= 1 && cut.at === c1.at, `${c1.frames} → ${cut.frames}`);
+  await p.click('#tape-undo');
+  await p.waitForTimeout(1000);
+  check('a clip: ↶ puts the trimmed bar back', (await first()).frames === c1.frames);
   check('a clip: no page errors', errors.length === 0, errors.join('; '));
   await p.context().close();
 }

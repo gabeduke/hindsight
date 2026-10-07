@@ -125,3 +125,29 @@ func TestMIDIRingEventsMustBePositive(t *testing.T) {
 		t.Fatal("MIDI_RING_EVENTS=0 must be rejected")
 	}
 }
+
+// Handles: two seconds either side by default, so a trimmed clip can grow
+// back; 0 keeps only the crossfade's overhang; past 10 s is refused.
+func TestTapeHandle(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("TAPE_HANDLE_S", "")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.TapeHandleS != 2 {
+		t.Errorf("default TAPE_HANDLE_S = %g, want 2", c.TapeHandleS)
+	}
+	for _, v := range []string{"0", "0.5", "10"} {
+		t.Setenv("TAPE_HANDLE_S", v)
+		if _, err := Load(); err != nil {
+			t.Errorf("TAPE_HANDLE_S=%s: %v", v, err)
+		}
+	}
+	for _, v := range []string{"-1", "10.5", "NaN"} {
+		t.Setenv("TAPE_HANDLE_S", v)
+		if _, err := Load(); err == nil {
+			t.Errorf("TAPE_HANDLE_S=%s must be refused", v)
+		}
+	}
+}

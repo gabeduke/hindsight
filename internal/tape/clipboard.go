@@ -100,7 +100,8 @@ func (e *Engine) tooLong(frames int64) error {
 func (e *Engine) ClearClipboard() error { return e.store.SaveClipboard(nil) }
 
 // CopyTake puts frames [from, to) of a take onto the clipboard: its pair
-// written into the pool, with the overhang the crossfades need.
+// written into the pool, with handles either side where the take has them
+// (the overhang the crossfades need, and room to trim back out).
 func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipboard, error) {
 	info, err := audio.ReadWAVInfo(take)
 	if err != nil {
@@ -118,8 +119,8 @@ func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipb
 	if err := e.diskOK(); err != nil {
 		return nil, err
 	}
-	over := int64(OverhangSeconds * float64(info.SampleRate))
-	fileFrom, fileTo := max64(0, from-over), min64(info.Frames(), to+over)
+	hd := e.handle(int64(info.SampleRate))
+	fileFrom, fileTo := max64(0, from-hd), min64(info.Frames(), to+hd)
 	rel, path, err := e.store.NewPoolFile("copy", time.Now())
 	if err != nil {
 		return nil, err
@@ -181,11 +182,13 @@ func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, erro
 		return nil, false, err
 	}
 	lo, hi := max64(int64(oldest), from-over), min64(int64(total), to+over)
+	mLo, mHi := lo, hi // the clip and its overhang: what the peak is of
+	lo, hi = ringHandles(r, sr, lo, hi, e.handle(sr)-over)
 	rel, path, err := e.store.NewPoolFile("copy", time.Now())
 	if err != nil {
 		return nil, false, err
 	}
-	peak, err := audio.WriteSpan(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr))
+	peak, err := audio.WriteSpanMeasured(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr), mLo-lo, mHi-lo)
 	if err != nil {
 		return nil, false, err
 	}

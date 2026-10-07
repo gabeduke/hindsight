@@ -971,12 +971,17 @@ loop's bars on the selected track, or on all four, kept apart.
 | **Split** | Cuts the clips on the selected track in two at the playhead, where they're heard (a nudged clip is cut where it sounds) |
 | **Join** | In a clip's sheet: joins it and the half split from it back into one |
 | **Slide** | Hold a clip, then drag it along its track. A clip on the grid lands on the nearest bar, beat or eighth (**Slide snaps to**); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
+| **Trim** | Tap a clip, then close its sheet: it stays picked, with a grip inside each edge. Drag a grip to move that edge, on the **Slide snaps to** grid (hold ⌥ to move it freely). Trimming the start keeps the audio where it was played. While you drag, the audio the edge can reach shows faintly past it; the grip turns amber where it can go no further. A clip too short for grips has **Start here** and **End here** in its sheet, which trim it to the playhead. Escape, or a tap on an empty part of a lane, lets go of it |
 | **×2** | Doubles the loop, copying what's in it over what follows |
 | **Reverse** | In a clip's sheet: plays it backwards. Tap again (*Play forwards*) to turn it back |
 | **Share as WAV** | In a clip's sheet: sends just that clip, at its level, to another app; a clip over a minute downloads instead |
 
 Nothing is cut out of the audio. A clip is a window onto a recording, so an
-edit only moves windows, and each one is a single undo. Where an edit leaves
+edit only moves windows, and each one is a single undo. Every new clip's
+recording keeps 2 seconds either side of it (`TAPE_HANDLE_S`), so a trimmed
+edge can be dragged back out that far. A clip made before there were
+handles, or one that starts or ends where its recording does, can only be
+trimmed inward. Where an edit leaves
 two clips meeting, they're crossfaded over a few milliseconds, so there's no
 click.
 
@@ -995,6 +1000,18 @@ try something. It costs no disk space.
 - [demo] Hold a clip until a dashed outline shows where it would land, drag
   it a bar later and let go → it's a bar later; ↶ → it's back. Hold one and
   let go without moving → nothing moves.
+- [demo] Drop 4 bars from the middle of a take, tap the clip, close its
+  sheet → a grip shows inside each edge. Drag the right grip a bar left →
+  the clip ends a bar sooner, and the toast says where; ↶ → it's back.
+- [demo] With **Slide snaps to** on *Beat*, drag the left grip two beats
+  left → the audio from before it shows faintly as you drag, and the clip
+  starts two beats sooner, what it already played still where it was.
+- [demo] Drag a grip far out → it stops 2 s past where the clip began or
+  ended, and the grip turns amber.
+- [demo] Split a clip, then drag the first half's right grip into the
+  second → it stops where the second starts.
+- [demo] Zoom out until a clip is narrow → no grips; its sheet's **Start
+  here** and **End here** trim it to the playhead.
 - [demo] Split a clip, tap either half, **Join the split** → one clip.
 - [demo] **×2** on a 2-bar loop → a 4-bar loop whose second half is a copy of
   the first.
@@ -1381,7 +1398,7 @@ has no tip.
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
 | Tape overview | The whole tape, in the bar: what’s on each track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop. With it focused, ← → move a bar |
-| A lane | Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
+| A lane | Tap a clip for its sheet; it stays picked, and dragging a picked clip's edges trims it. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
@@ -1410,6 +1427,7 @@ has no tip.
 | Reverse (clip) | Play this clip backwards, or forwards again. Undo puts it back |
 | Share as WAV (clip) | Send just this clip, at its level, to another app; a long one downloads |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
+| Start here, End here (clip) | Trim the clip's start or end to the playhead, for a clip too short to drag. What's trimmed is kept: drag or trim back out |
 | Align | Line the clip up to the sample: the editor bar opens on its first hit |
 | Done | Close the editor. Esc does too |
 | ZOOM on the tape | Drag sideways to zoom about the clip’s first hit: right is closer |

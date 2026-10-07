@@ -86,6 +86,11 @@ type Options struct {
 	// MixdownTail is how many seconds a mixdown runs past Out
 	// (TAPE_MIXDOWN_TAIL_S), up to 30.
 	MixdownTail float64
+	// HandleSeconds is how much of the source a new pool file keeps either
+	// side of its clip, where the source has it (TAPE_HANDLE_S), up to
+	// MaxHandleSeconds: the room a trimmed edge has to be dragged back out.
+	// Never less than the crossfades' overhang.
+	HandleSeconds float64
 	// Clock, when set, is led by the tape (TAPE_CLOCK=lead): it gets MIDI
 	// clock, Start, Stop and Song Position as the tape plays. The engine
 	// stops it when it stops, if it can be.
@@ -135,6 +140,7 @@ type Engine struct {
 	saver       TakeSaver
 	takesDir    string
 	tailSeconds float64
+	handleS     float64
 
 	mixMu   sync.Mutex
 	mixdown *Mixdown // the last mixdown
@@ -163,6 +169,31 @@ type Engine struct {
 	align   aligner
 }
 
+// MaxHandleSeconds is the most a pool file keeps either side of its clip.
+const MaxHandleSeconds = 10
+
+// handle is how many frames a new pool file keeps either side of its clip,
+// where the source has them: TAPE_HANDLE_S, and never less than the overhang
+// the crossfades read.
+func (e *Engine) handle(sr int64) int64 {
+	return max64(int64(OverhangSeconds*float64(sr)), int64(math.Round(e.handleS*float64(sr))))
+}
+
+// ringHandles widens the ring span [lo, hi) -- a clip and its overhang, all
+// in the ring -- by up to extra frames either side, as far as the ring has
+// audio: never into the newest frames not yet written, and never within a
+// second of the oldest, which the capture may overwrite while it's copied.
+func ringHandles(r *audio.Ring, sr, lo, hi, extra int64) (int64, int64) {
+	oldest, total := r.Window()
+	if l := max64(int64(oldest)+sr, lo-extra); l < lo {
+		lo = l
+	}
+	if h := min64(int64(total), hi+extra); h > hi {
+		hi = h
+	}
+	return lo, hi
+}
+
 // NewEngine makes an engine with nothing loaded.
 func NewEngine(o Options) *Engine {
 	src := o.Sources
@@ -189,6 +220,7 @@ func NewEngine(o Options) *Engine {
 		done:      make(chan struct{}),
 	}
 	e.tailSeconds = math.Max(0, math.Min(maxMixdownTail, o.MixdownTail))
+	e.handleS = math.Max(0, math.Min(MaxHandleSeconds, o.HandleSeconds))
 	if o.Store != nil {
 		e.pullBridge = audio.NewClockBridge(256, o.Store.SampleRate())
 	}
@@ -1017,7 +1049,9 @@ func (e *Engine) catchSpan(t *Tape, src Source, outFrom uint64, frames, at int64
 	if err != nil {
 		return nil, err
 	}
-	peak, err := audio.WriteSpan(ring, uint64(ringFrom), uint64(ringTo), src.Pair[:], path, int(sr))
+	// The handles, past the overhang: what the ring has of them now.
+	lo, hi := ringHandles(ring, sr, ringFrom, ringTo, e.handle(sr)-over)
+	peak, err := audio.WriteSpanMeasured(ring, uint64(lo), uint64(hi), src.Pair[:], path, int(sr), ringFrom-lo, ringTo-lo)
 	if err != nil {
 		return nil, err
 	}
@@ -1029,7 +1063,7 @@ func (e *Engine) catchSpan(t *Tape, src Source, outFrom uint64, frames, at int64
 			}
 		}
 	}
-	clip := Clip{File: rel, Src: over, Frames: frames, At: at, Source: src.Name, Clean: clean, Aligned: aligned, PeakDB: peakDB(peak)}
+	clip := Clip{File: rel, Src: ringFrom + over - lo, Frames: frames, At: at, Source: src.Name, Clean: clean, Aligned: aligned, PeakDB: peakDB(peak)}
 	var placed []Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() {
@@ -1179,8 +1213,8 @@ func (e *Engine) dropTake(id string, take string, from, to int64, track, bars in
 	return placed, mode, err
 }
 
-// copyTake copies frames [from, to) of a take, with overhang either side
-// where the take has it, into a new pool file named for what it's for: the
+// copyTake copies frames [from, to) of a take, with handles either side
+// where the take has them, into a new pool file named for what it's for: the
 // clip that plays it, not yet placed.
 func (e *Engine) copyTake(take string, from, to int64, pick []int, kind string) (Clip, error) {
 	info, err := audio.ReadWAVInfo(take)
@@ -1196,13 +1230,16 @@ func (e *Engine) copyTake(take string, from, to int64, pick []int, kind string) 
 	if err := e.diskOK(); err != nil {
 		return Clip{}, err
 	}
-	over := int64(OverhangSeconds * float64(info.SampleRate))
-	fileFrom, fileTo := max64(0, from-over), min64(info.Frames(), to+over)
+	sr := int64(info.SampleRate)
+	over, hd := int64(OverhangSeconds*float64(sr)), e.handle(sr)
+	fileFrom, fileTo := max64(0, from-hd), min64(info.Frames(), to+hd)
 	rel, path, err := e.store.NewPoolFile(kind, time.Now())
 	if err != nil {
 		return Clip{}, err
 	}
-	peak, err := audio.CopyWAVSpan(take, fileFrom, fileTo, pick, path)
+	// The peak is the clip's and its overhang's, as a catch's is, not the handles'.
+	peak, err := audio.CopyWAVSpanMeasured(take, fileFrom, fileTo, pick, path,
+		max64(0, from-over)-fileFrom, min64(info.Frames(), to+over)-fileFrom)
 	if err != nil {
 		return Clip{}, err
 	}
