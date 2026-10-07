@@ -101,7 +101,7 @@ test('edge scroll step ramps inside the margins and is zero elsewhere', () => {
   assert.equal(edgeScrollStep(-50, 390), -EDGE_MAX_STEP_PX); // clamped past the edge
 });
 
-import { snapFrame, snapStep, nudgeStep, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, setPoint, prevFlag, nextFlag, landFlag, fmtPoint, rulerTicks } from './geometry.js';
+import { snapFrame, snapStep, nudgeStep, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, setPoint, prevFlag, nextFlag, landFlag, fmtPoint, fmtTenths, rulerTicks } from './geometry.js';
 
 const grid120 = { bpm: 120, sampleRate: 48000, downbeat: 1000 }; // a beat is 24000 frames
 
@@ -256,4 +256,11 @@ test('◂⚑ lands on the take before at its last flag, ⚑▸ on the next at it
   assert.equal(landFlag(flags, 'first').frame, 100);
   assert.equal(landFlag([], 'first'), null);
   assert.equal(landFlag(undefined, 'last'), null);
+});
+
+test('fmtTenths reads a point to the tenth, as the bar does', () => {
+  assert.equal(fmtTenths(0, 48000), '0:00.0');
+  assert.equal(fmtTenths(96000, 48000), '0:02.0');
+  assert.equal(fmtTenths(99840, 48000), '0:02.0'); // 2.08 s
+  assert.equal(fmtTenths(48000 * 61.55, 48000), '1:01.5');
 });

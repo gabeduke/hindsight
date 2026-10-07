@@ -114,6 +114,9 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     get sampleRate() { return sr(); },
     get length() { return t ? t.length : 1; },
     pos,
+    // heardHere is where this device is hearing the tape: behind pos() when
+    // it plays here, by the stream's buffer and the output's latency.
+    heardHere: () => { const h = here()?.heard?.(); return h ? h.pos : pos(); },
     playing,
     // ▶ needs a device to play out of; the Pi refuses it otherwise.
     canPlay: () => !!(live && live.output),

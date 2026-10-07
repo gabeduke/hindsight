@@ -34,6 +34,24 @@ export class NowPlaying {
     });
     $('np-loop').addEventListener('click', () => { if (this.src) this.src.setLoop(!this.src.loop); });
     $('np-start').addEventListener('click', () => { if (this.src) this.src.seek(this.src.start()); });
+    // ↺ 5 s, or J: back five seconds of what this device hears, playing or
+    // not.
+    const back5 = () => {
+      const s = this.src;
+      if (!s) return;
+      s.seek(Math.max(0, (s.heardHere ? s.heardHere() : s.pos()) - 5 * s.sampleRate));
+      this.kick();
+    };
+    $('np-back5').addEventListener('click', back5);
+    // By the character, as the take page reads its keys.
+    addEventListener('keydown', (e) => {
+      if ((e.key !== 'j' && e.key !== 'J') || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type !== 'range'))) return;
+      if (document.querySelector('dialog[open]')) return;
+      if (this.root.hidden || !this.src) return;
+      back5();
+    });
     // ⏏ hides itself: the focus goes to ▶, not to the page.
     $('np-eject').addEventListener('click', () => { onEject?.(); $('np-play').focus(); });
 

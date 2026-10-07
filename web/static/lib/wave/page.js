@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag, landFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag, landFlag, fmtTenths,
 } from './geometry.js';
 import {
   viewAbout, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
@@ -34,7 +34,7 @@ import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toa
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { listFrom, fold, familyOf } from '../shelf.js';
+import { listFrom, fold, familyOf, flagChips } from '../shelf.js';
 import { cutLabel } from './cut-label.js';
 import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
@@ -191,6 +191,8 @@ async function main() {
     $('notes-play').textContent = clock.playing ? 'Pause' : 'Play';
   }
   function redraw() {
+    setText($('flags-count'), String(state.flags.length));
+    setAttr($('flags-list'), 'aria-label', `${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}: show the list`);
     view.draw();
     if (overview) overview.draw();
     if (lanes) lanes.draw();
@@ -662,6 +664,50 @@ async function main() {
     seekTo(at);
     if (!state.edit) view.follow(at); // the view stays on a point being edited
   });
+  // ↺ 5 s, or J: back five seconds, playing or not -- to hear a bit again.
+  function back5() {
+    // Looping, not back past In: ▶ would start at In anyway.
+    const lo = state.loop && state.region && state.cursor >= state.region.start ? state.region.start : 0;
+    const at = Math.max(lo, state.cursor - 5 * sr);
+    seekTo(at);
+    if (!state.edit) view.follow(at);
+  }
+  $('back5').addEventListener('click', back5);
+
+  // The flags as a list, in time order, as the takes page's pane has them: a
+  // tap plays from one.
+  function openFlags() {
+    const items = flagChips({ flags: state.flags, sample_rate: sr }).map((f) => {
+      f.at = fmtTenths(f.frame, sr); // to the tenth, as the LCD: two flags a moment apart differ
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'detail-flag flags-item';
+      b.setAttribute('aria-label', `Play from ${f.label} at ${f.at}`);
+      b.innerHTML = '<span aria-hidden="true">⚑</span><span class="flag-name"></span><span class="flag-at"></span>';
+      b.querySelector('.flag-name').textContent = f.label;
+      b.querySelector('.flag-at').textContent = f.at;
+      b.addEventListener('click', async () => {
+        $('flags-sheet').close();
+        // A flag outside a looping selection: Loop goes off, or ▶ would
+        // start at In, not here.
+        if (state.loop && state.region && (f.frame < state.region.start || f.frame >= state.region.end)) setLoop(false);
+        seekTo(f.frame);
+        view.follow(f.frame);
+        if (!clock.playing) await togglePlay();
+        $('play').focus(); // so Space pauses, not opens the list again
+      });
+      li.appendChild(b);
+      return li;
+    });
+    $('flags-items').replaceChildren(...items);
+    $('flags-none').hidden = items.length > 0;
+    $('flags-sheet').showModal();
+    (items[0]?.firstChild || $('flags-done')).focus();
+  }
+  $('flags-list').addEventListener('click', openFlags);
+  $('flags-done').addEventListener('click', () => $('flags-sheet').close());
+
   // The scrubber is a slider for the keyboard too: ← → a second, and Space
   // still plays (the page's Space leaves focused controls alone).
   $('overview-canvas').addEventListener('keydown', (e) => {
@@ -1704,6 +1750,8 @@ async function main() {
   document.addEventListener('keydown', (e) => {
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    // A dialog's keys are its own: nothing moves the take behind it.
+    if (document.querySelector('dialog[open]')) return;
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
       e.preventDefault();
       bar.commit(); // so ⌘Z undoes a move still being made
@@ -1731,6 +1779,7 @@ async function main() {
       case ']': setPointAt('end'); break;
       case 'b': case 'B': barOneAtPlayhead(); break;
       case 'l': case 'L': if (state.region || state.loop) setLoop(!state.loop); break;
+      case 'j': case 'J': if (!e.repeat) back5(); break;
       case '+': case '=': view.zoomTo(view.view.fpp / 2, view.view.width / 2); break;
       case '-': view.zoomTo(view.view.fpp * 2, view.view.width / 2); break;
       case '0': view.fitAll(); break;

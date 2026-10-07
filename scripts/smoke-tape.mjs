@@ -498,6 +498,15 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     // No section left for the next run: selecting it with Enter was a step
     // of its own, so it goes by name.
     for (const sc of (await loadedState()).tape.sections || []) await postJSON(`/api/tapes/edit?${tq}`, { op: 'section-remove', section: sc.id });
+    // J: back five seconds of tape.
+    const srJ = st0.tape.sample_rate;
+    await postJSON(`/api/tapes/transport?${tq}`, { action: 'locate', pos: 10 * srJ });
+    await p.waitForTimeout(700);
+    await p.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+    await p.keyboard.press('j');
+    await p.waitForTimeout(900);
+    const heardJ = (await loadedState()).live.heard;
+    check('J goes back five seconds of tape', Math.abs(heardJ - 5 * srJ) <= srJ * 0.1, `${heardJ / srJ} s`);
     await patchTape({ loop: loop0 });
     await p.waitForTimeout(500);
   }

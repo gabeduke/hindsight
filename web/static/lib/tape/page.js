@@ -3455,6 +3455,9 @@ function wire() {
       case 'KeyR': press('rec'); break;
       case 'KeyL': press('loop'); break;
       case 'KeyK': press('click'); break;
+      // Back five seconds, as ↺ 5 s does on a take.
+      // From what this device hears: on a phone playing here, behind the Pi.
+      case 'KeyJ': if (!e.repeat) transport('locate', { pos: Math.max(0, (state.live ? state.live.heard : 0) - 5 * state.tape.sample_rate) }); break;
       case 'KeyS': if (!state.align) press('ed-split'); break;
       case 'Delete': case 'Backspace': {
         // Not while a clip is aligned: the editor's clip is the picked one.

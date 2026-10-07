@@ -153,6 +153,8 @@
           <button id="flag-prev" class="icon-btn tb-step" type="button" aria-label="Previous flag" data-tip="flag-prev">◂⚑</button>
           <button id="flag-next" class="icon-btn tb-step" type="button" aria-label="Next flag" data-tip="flag-next">⚑▸</button>
         </span>
+        <!-- The take's flags as a list: tap one to play from it. -->
+        <button id="flags-list" class="chip" type="button" aria-haspopup="dialog" data-tip="flags-list"><span aria-hidden="true">⚑</span> <span id="flags-count">0</span></button>
         <button id="snap" class="chip" type="button" hidden data-tip="snap">Snap: off</button>
         <div id="speed" class="seg speed-seg" role="group" aria-label="Practice speed" data-tip="speed">
           <button type="button" data-rate="0.5" aria-pressed="false" data-tip="speed">½×</button>
@@ -206,6 +208,7 @@
     </div>
     <div class="np-keys tb-row transport" role="group" aria-label="Transport">
       <button id="to-start" class="icon-btn np-start" type="button" aria-label="Back to In" data-tip="take-to-start"><svg width="18" height="16" viewBox="0 0 24 22" aria-hidden="true"><rect x="4" y="3" width="3" height="16" rx="1" fill="currentColor"/><path d="M20 4.2v13.6a1 1 0 0 1-1.55.84L9 12.84a1 1 0 0 1 0-1.68l9.45-6.8A1 1 0 0 1 20 4.2z" fill="currentColor"/></svg></button>
+      <button id="back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5"><span aria-hidden="true">↺</span> 5 s</button>
       <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="play">▶</button>
       <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="loop">⟲ Loop</button>
     </div>
@@ -221,6 +224,19 @@
     <span class="np-out np-here"><span class="pill-out" aria-hidden="true">OUT</span><span>This device</span></span>
   </div>
 </section>
+
+<!-- The take's flags, in time order (lib/shelf.js flagChips): a tap plays
+     from one. -->
+<dialog class="sheet" id="flags-sheet" aria-labelledby="flags-title">
+  <div class="sheet-inner">
+    <h3 id="flags-title">Flags</h3>
+    <ul id="flags-items" class="flags-items"></ul>
+    <p id="flags-none" class="flags-none" hidden>No flags yet. ⚑, or F, drops one at the playhead.</p>
+    <div class="sheet-actions">
+      <button id="flags-done" class="icon-btn" type="button">Done</button>
+    </div>
+  </div>
+</dialog>
 
 <div id="flag-sheet" class="sheet" hidden>
   <input id="flag-label" type="text" maxlength="120" placeholder="name this moment" aria-label="Flag name">
