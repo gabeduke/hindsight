@@ -35,6 +35,7 @@ import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { listFrom, fold, familyOf } from '../shelf.js';
 import { cutLabel } from './cut-label.js';
+import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../bar/reel-window.js';
 import { takeCounter, takeMarquee } from '../bar/lcd.js';
@@ -934,6 +935,7 @@ async function main() {
     writePref('wave.snap', state.snap);
     snapChosen = true;
     renderSnap();
+    renderSendHint();
   });
 
   // --- header ---------------------------------------------------------------
@@ -1120,9 +1122,11 @@ async function main() {
   });
 
   // --- Send to tape -------------------------------------------------------------
-  // The selection (or the whole take) onto track 1 of the loaded tape, at its
-  // playhead -- or, on an empty tape, as its first loop. Offered only when
-  // the Pi runs the tape.
+  // The selection (or the whole take) onto track 1 of the loaded tape. The Pi
+  // places it from the take's tempo and downbeat: on the tape's bar lines,
+  // linear, and on an empty tape it gives the tape its tempo. A take with no
+  // tempo goes at the playhead, or is the first loop of an empty tape. Offered
+  // only when the Pi runs the tape.
   const tapeAPI = async (path, opts = {}) => {
     const res = await fetch(path, { cache: 'no-store', ...opts });
     const b = await res.json().catch(() => ({}));
@@ -1130,8 +1134,14 @@ async function main() {
     return b;
   };
   fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
-    if (r.ok) { $('send-to-tape').hidden = false; $('copy-take').hidden = false; }
+    if (r.ok) { $('send-to-tape').hidden = false; $('copy-take').hidden = false; renderSendHint(); }
   }).catch(() => {});
+  // What a tap on Send to tape will do, under the verbs.
+  function renderSendHint() {
+    const el = $('send-hint');
+    el.hidden = $('send-to-tape').hidden;
+    if (!el.hidden) el.textContent = sendHint({ bpm: take.bpm, region: state.region, total, sr });
+  }
   // Copy: the selection (or the whole take) onto the clipboard, for Drop on
   // a tape.
   const copyTake = async () => {
@@ -1151,11 +1161,12 @@ async function main() {
       toast(`Could not copy: ${e.message}`, 'bad');
     }
   });
-  // Send to tape: copy, then drop at the loaded tape's playhead, on track 1
-  // -- or, on an empty tape, as its first loop.
   $('send-to-tape').addEventListener('click', async () => {
     try {
-      const n = await copyTake();
+      // The tempo, downbeat and selection the Pi reads must be the ones on screen.
+      await whenSaved();
+      const from = state.region ? state.region.start : null;
+      const to = state.region ? state.region.end : null;
       // Whichever tape is loaded now: another device may have changed it.
       let id = (await tapeAPI('/api/tapes')).loaded;
       if (!id) {
@@ -1163,13 +1174,15 @@ async function main() {
         await tapeAPI(`/api/tapes/load?id=${encodeURIComponent(t.id)}`, { method: 'POST' });
         id = t.id;
       }
-      await tapeAPI(`/api/tapes/drop?id=${encodeURIComponent(id)}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track: 1 }),
+      const body = { take: file, track: 1 };
+      if (state.region) { body.from = from; body.to = to; }
+      const res = await tapeAPI(`/api/tapes/send?id=${encodeURIComponent(id)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      toast(`Sent ${fmtClock(n, sr)} to tape, track 1`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+      const { msg, kind } = sentMessage(res, fmtClock(state.region ? to - from : total, sr));
+      toast(msg, kind, { ms: kind === 'warn' ? 10000 : undefined, action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
     } catch (e) {
-      toast(`Could not send to tape: ${e.message}`, 'bad');
+      toast(`Could not send to tape: ${e.message}`, 'bad', 8000);
     }
   });
 

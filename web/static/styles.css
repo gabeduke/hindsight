@@ -1414,6 +1414,8 @@ dialog.sheet::backdrop { background: var(--scrim); }
    the line like the rest, not two-thirds of it. */
 .tb-row.verbs { flex-wrap: wrap; }
 .tb-row.verbs .icon-btn { min-width: max-content; }
+/* What Send to tape will do, a line under the verbs. */
+.send-hint { margin: 0; line-height: 1.35; }
 /* Save as take's name, in the verbs' place: the field takes the width. */
 .tb-row.save-name { display: flex; align-items: center; gap: 8px; }
 .save-name input { flex: 1 1 auto; min-width: 0; min-height: 42px; box-sizing: border-box; padding: 0 12px; font: inherit; }

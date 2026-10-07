@@ -545,3 +545,110 @@ func TestAnEmptyTapeSuggestsTheTempoYouWerePlaying(t *testing.T) {
 		t.Fatalf("suggest_bpm %v, want the newer take's 110", got)
 	}
 }
+
+// Send to tape places a take by what its sidecar says: its tempo and its
+// downbeat. The tape takes the tempo, nothing loops, and a count-in goes in
+// the bar before the downbeat.
+func TestSendingATempoTakeToTheTapeLaysItDownOnTheGrid(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	name := "jam_2026-10-07_10-00-00.wav"
+	writeRealTake(t, dir, name, 20*48000) // ten bars at 120
+	bpm, down := 120.0, int64(24000)      // half a bar of count-in
+	if err := audio.WriteMeta(filepath.Join(dir, name), audio.Meta{BPM: &bpm, DownbeatFrame: &down}); err != nil {
+		t.Fatal(err)
+	}
+	id := makeLoadedTape(t, r)
+	type loopBody struct {
+		Tape struct {
+			Loop struct {
+				In  int64 `json:"in"`
+				Out int64 `json:"out"`
+				On  bool  `json:"on"`
+			} `json:"loop"`
+			Tracks []struct {
+				Clips []struct {
+					At     int64 `json:"at"`
+					Frames int64 `json:"frames"`
+				} `json:"clips"`
+			} `json:"tracks"`
+		} `json:"tape"`
+		BPM float64 `json:"bpm"`
+	}
+
+	w := send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"`+name+`"}`)
+	want(t, w, http.StatusOK, "send the whole take")
+	var sent struct {
+		Mode     string  `json:"mode"`
+		BPM      float64 `json:"bpm"`
+		TempoSet bool    `json:"tempo_set"`
+		Bar      int64   `json:"bar"`
+		End      int64   `json:"end"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &sent)
+	if sent.Mode != "grid" || !sent.TempoSet || sent.Bar != 2 || sent.BPM < 119.99 || sent.BPM > 120.01 {
+		t.Fatalf("sent = %+v", sent)
+	}
+	var s loopBody
+	json.Unmarshal(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "").Body.Bytes(), &s)
+	c := s.Tape.Tracks[0].Clips
+	if len(c) != 1 || c[0].At != 96000-24000 || c[0].Frames != 20*48000 || s.Tape.Loop.On {
+		t.Fatalf("after the send: clips %+v loop %+v", c, s.Tape.Loop)
+	}
+	if sent.End != c[0].At+c[0].Frames {
+		t.Fatalf("end %d", sent.End)
+	}
+
+	// A selection keeps its place in the take's bar: 100,000 is 76,000 frames
+	// after the downbeat, 76,000 into the take's first bar, so it goes 76,000
+	// after a tape bar line -- on bar 1, the playhead being at the first clip.
+	w = send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"`+name+`","from":100000,"to":150000,"track":2}`)
+	want(t, w, http.StatusOK, "send a selection")
+	json.Unmarshal(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "").Body.Bytes(), &s)
+	if c := s.Tape.Tracks[1].Clips; len(c) != 1 || c[0].Frames != 50000 || c[0].At%96000 != 76000 {
+		t.Fatalf("selection clips %+v: want 76,000 frames after a bar line", c)
+	}
+
+	want(t, send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"`+name+`","from":100}`), http.StatusBadRequest, "from without to")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"`+name+`","from":100,"to":99}`), http.StatusBadRequest, "backwards")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"`+name+`","from":0,"to":9999999}`), http.StatusBadRequest, "past the take")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"../etc/passwd"}`), http.StatusBadRequest, "bad name")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"jam_nope.wav"}`), http.StatusNotFound, "no take")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/send?id=other", `{"take":"`+name+`"}`), http.StatusConflict, "not the loaded tape")
+}
+
+func TestSendingATakeLongerThanATrackNamesTheLimitAndTheSetting(t *testing.T) {
+	r, dir := newTapeAPI(t) // tracks are 60 s here
+	name := "jam_2026-10-07_11-00-00.wav"
+	writeRealTake(t, dir, name, 70*48000)
+	id := makeLoadedTape(t, r)
+	w := send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"`+name+`"}`)
+	want(t, w, http.StatusBadRequest, "too long")
+	for _, s := range []string{"1:10", "1 minute", "TAPE_LENGTH_S"} {
+		if !strings.Contains(w.Body.String(), s) {
+			t.Errorf("%s should say %q", w.Body.String(), s)
+		}
+	}
+	// The clipboard's copy says the same.
+	w = send(t, r, http.MethodPost, "/api/clipboard", `{"take":"`+name+`","from":0,"to":3360000}`)
+	want(t, w, http.StatusBadRequest, "copy too long")
+	if !strings.Contains(w.Body.String(), "TAPE_LENGTH_S") {
+		t.Errorf("copy: %s", w.Body.String())
+	}
+}
+
+func TestSendingATakeWithNoTempoKeepsTheFirstLoop(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	name := "jam_2026-10-07_12-00-00.wav"
+	writeRealTake(t, dir, name, 4*48000)
+	id := makeLoadedTape(t, r)
+	w := send(t, r, http.MethodPost, "/api/tapes/send?id="+id, `{"take":"`+name+`"}`)
+	want(t, w, http.StatusOK, "send")
+	var sent struct {
+		Mode string `json:"mode"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &sent)
+	s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, ""))
+	if sent.Mode != "first-loop" || s.Tape.Grid == nil || s.Tape.Grid.Frames != 4*48000 {
+		t.Fatalf("mode %q grid %+v: want the first loop", sent.Mode, s.Tape.Grid)
+	}
+}

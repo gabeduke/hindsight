@@ -224,9 +224,19 @@ running without one; neither can stop the dashcam recording.
 | `TAPE` | `false` | Turn the tape on |
 | `TAPE_DIR` | `~/hindsight/tapes` | Where tapes and their audio live. Put it on the same disk as `OUTPUT_DIR`; `MIN_FREE_GB` guards it as it guards takes |
 | `TAPE_TRACKS` | `4` | Tracks a new tape has (1–16) |
-| `TAPE_LENGTH_S` | `360` | How long a track is, in seconds: the OP-1's six minutes |
+| `TAPE_LENGTH_S` | `1200` | How long a track can be, in seconds: 20 minutes. A limit, not a reservation: nothing is allocated for it. A tape made under a shorter setting takes the new length when it's loaded. See below for what long clips cost in RAM |
 | `TAPE_SOURCES` | `main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8` | The inputs a catch can take from: space-separated `name=L,R[:buses]`, with 1-indexed capture channels and the tape buses heard in each |
 | `TAPE_MIXDOWN_TAIL_S` | `2` | How long a mixdown runs on past Out, so the strips' reverb and delay ring out instead of being cut (0 to 30). With the tail and a 5-second margin, a mixdown must fit in `RING_SECONDS` |
+
+**Tape length and RAM.** A tape's audio is files on `TAPE_DIR`'s disk, and
+`TAPE_LENGTH_S` only says how long a track may be. But a clip on the loaded
+tape is read into RAM whole, as 32-bit float stereo: 23 MB a minute, so a
+7-minute take is about 160 MB and a full 20-minute track about 460 MB. The
+tape also holds what one undo or redo would play. Four full 20-minute tracks
+is about 1.8 GB, on top of the ring ([above](#ring_seconds-and-ram)); that fits
+an 8 GB Pi 5 with the default ring, and a smaller Pi wants a shorter
+`TAPE_LENGTH_S` or `RING_SECONDS`. Sending a long take also writes a copy of it
+into `TAPE_DIR` (23 MB a minute), so `MIN_FREE_GB` applies.
 
 `TAPE_SOURCES` is the Sidekick's map. MAIN carries both of the tape's buses,
 channel 1's tap carries bus A, channel 2's tap carries bus B, and aux carries

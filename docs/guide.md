@@ -50,7 +50,7 @@ just move references around.
 | **Flag** | A marked moment in a take or the ring, with an optional label |
 | **Selection** | A span between **In** and **Out**. On a take it's what you save or share; on a tape it's what you edit |
 | **Loop** | A toggle. On: playback repeats the selection. Off: playback runs straight through |
-| **Tape** | Four tracks, six minutes each, holding clips |
+| **Tape** | Four tracks, 20 minutes each by default, holding clips |
 | **Track** | One of the tape's four lanes |
 | **Clip** | A piece of audio sitting on a track |
 | **Catch** | Put a span of the ring onto a track, after you've played it |
@@ -341,7 +341,8 @@ and the editor bar takes the place of the toolbar.
 - **Share** sends it from your phone as an MP3 (the whole take, with no
   selection).
 - **Copy** puts it on the clipboard, to drop onto a tape (step 6d).
-- **Send to tape** copies it and drops it on the loaded tape (step 6).
+- **Send to tape** puts it on the loaded tape, by its tempo and downbeat if it
+  has them (step 6). The line under the buttons says what it will do.
 - **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
   delete.
 - **Undo** in the header steps back through anything you changed (step 4).
@@ -634,7 +635,7 @@ From the top:
     to the top of the tape), then **▶ / ■**, **⟲ Loop**, **● Rec** and the
     click **♩**.
   - **Catch**, orange, at the right end.
-  - **Under them, the overview:** the whole tape, six minutes, with what's
+  - **Under them, the overview:** the whole tape, 20 minutes by default, with what's
     on each track and the loop in amber. It's a scrubber too. The box is what
     the lanes show: drag it to move along the tape. Tap anywhere to move the
     playhead there (to the nearest bar), and double-tap to go back to the
@@ -724,18 +725,35 @@ where it comes round.
    the tempo pill and choose the other. Nothing is stretched,
    only relabelled.
 
-**From a take.** On a take page, select the loop, with In and Out on the
-downbeats, and choose **Send to tape**. If no tape is loaded, a new one
-is made.
+**From a take.** On a take page, choose **Send to tape**; with a selection
+it sends that, without one the whole take. If no tape is loaded, a new one is
+made. The line under the buttons says what will happen. It depends on whether
+the take has a tempo (the *bpm* by its name, from the MIDI clock or typed in):
 
-- On an empty tape, the selection becomes the first loop, on track 1. Its
-  length sets the tempo: with the take's tempo, it's that many whole bars
-  (1 to 64), if the selection is within about 1% of whole bars at that tempo;
-  otherwise, or without one, Hindsight picks the number of bars that puts it
-  nearest your last tape's tempo (or 90 BPM). The loop turns on. A
-  selection too short or too long to be 20–400 BPM is refused.
-- On a tape that already has a tempo, it lands at the playhead on track 1,
-  replacing what's there.
+- **A take with a tempo** goes on whole, as one clip on track 1 with the loop
+  off, and its bar 1 (the take's downbeat) on a bar line of the tape. Whatever
+  comes before the downbeat, a count-in say, goes in the bar before it, so
+  nothing is cut off. A selection goes on the same bar grid: it sits as far
+  past a bar line as it does in the take.
+  - On an empty tape, the tape takes the take's tempo. There's no loop; set
+    one on the ruler when you want it.
+  - On a tape with the same tempo (within 0.1%), the take's bar 1 goes on the
+    first bar line at or after the playhead, replacing what's under it on
+    track 1.
+  - On a tape with another tempo, it goes at the playhead as it is. Nothing
+    is stretched, so it won't keep to the bar lines; the toast says so.
+  The playhead moves to the start of what was sent, unless the tape is
+  playing.
+- **A take with no tempo** (a phone recording, a free jam): on an empty tape,
+  a selection of up to a minute becomes the first loop, on track 1. Its length
+  sets the tempo, the number of bars that puts it nearest your last tape's
+  tempo (or 90 BPM). The loop turns on. A selection too short to be 20–400
+  BPM is refused. Anything longer than a minute is laid down as one clip with
+  the loop off, and the tape gets no tempo. On a tape that already has audio,
+  it lands at the playhead on track 1, replacing what's there.
+
+A track holds `TAPE_LENGTH_S` seconds, 20 minutes by default. A send that
+doesn't fit is refused, saying the limit and the setting.
 
 **From a tempo.** On an empty tape, type a BPM and a number of bars and tap
 **Set**. The loop is that long and empty, ready to catch into, and the
@@ -753,6 +771,13 @@ The tempo is fixed once the tape has audio, because nothing is ever stretched.
   is on.
 - [demo] Press ▶ → the playhead goes round the loop, the position counts
   bars, and the passes row fills, one button a pass.
+- [demo] Give a take a BPM, and the line under its buttons reads *Sends the
+  whole take at … BPM, bar 1 on a tape bar line*. Send it to an empty tape →
+  the tape's tempo is the take's, Loop is off, and one clip runs the take's
+  length. Send it again to track 2 → it lands on a bar line, and a take at
+  another tempo goes at the playhead with a warning.
+- [rig] Send last night's long take to a new tape and press ▶ → the whole
+  take plays through, and its bars sit on the tape's bar lines.
 - [demo] Make a new tape, set 90 BPM and 4 bars → it reads *90.0 BPM · 4
   bars*, and the lanes show four empty bars. Press ▶ → a click on every
   beat, higher on the bar. After the first catch, the click goes off and the
@@ -1323,7 +1348,7 @@ has no tip.
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
 | Notes | Watch the take's MIDI rise out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
-| Send to tape | Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape |
+| Send to tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop |
 | Tape name | Your tapes: load one, or make a new one |
 | ⋯ (tape) | This tape: rename it, clone it, mix it down, export its stems, or delete a tape |
 | A tape in the list | Load this tape: the transport plays the loaded one |
@@ -1409,7 +1434,7 @@ has no tip.
 | A source chip shows ○ | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
 | A new clip is a flat line, and the toast said *it's silent: nothing came in* | It was recorded from a source with nothing in it, usually aux with nothing plugged in. ● Rec records from the lit chip under **Record from** | Undo, tap the chip whose meter moves when you play, and record again |
 | "Too long for the ring" on Mixdown | The selection is longer than the last 15 minutes can hold | Mix down in parts, or raise `RING_SECONDS` |
-| "Not enough room on the tape" | The track would run past six minutes | Lift something, or raise `TAPE_LENGTH_S` |
+| "…a tape track holds 20 minutes" | What you sent is longer than a track, or would run past its end from where it lands | Send a shorter part, lift something, or raise `TAPE_LENGTH_S` |
 | *Phone* says the microphone needs a secure page | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |
 | The recorder says *Reconnecting…* | The phone lost the Pi for a moment; the audio is kept on the phone meanwhile | Nothing: it resends when the Pi is back. Keep the page open |
 | "The recording paused while the page was hidden" | The phone locked or you switched apps, and the browser stopped the mic | The take skips that stretch. Keep Hindsight in front while recording |

@@ -40,6 +40,7 @@ import (
 //	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape;
 //	                                   {..., at, loop, replace, source}: at that tape frame;
 //	                                   {track, merge}: the clipboard, at the playhead
+//	POST   /api/tapes/send?id=         {take, from?, to?, track}: a take onto the tape by its tempo and downbeat
 //	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse, track, all, clip, pos, at}
 //	GET    /api/tapes/clip?id=&clip=   one clip as a 16-bit WAV, to share
 //	GET    /api/tapes/listen?id=       the loop as a 16-bit WAV, to overdub on a phone
@@ -650,6 +651,64 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"clip": clip})
+}
+
+// handleTapeSend is the take page's Send to tape: a take, or a span of it,
+// onto a track of the loaded tape, placed by what the take knows -- its
+// tempo and downbeat, read from its sidecar here so the page can't send a
+// stale one. See internal/tape/send.go for where it lands.
+func (a *API) handleTapeSend(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		Take  string `json:"take"`
+		From  *int64 `json:"from"` // the selection; both or neither
+		To    *int64 `json:"to"`
+		Track int    `json:"track"`
+	}
+	if !decodeBody(w, r, &b) {
+		return
+	}
+	name, err := a.safeTakeName(b.Take)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	path := filepath.Join(a.cfg.OutputDir, name)
+	info, err := audio.ReadWAVInfo(path)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "no such take")
+		return
+	}
+	req := tape.SendRequest{Take: path, From: 0, To: info.Frames(), Track: b.Track, Pick: a.takePair(info.Channels)}
+	if req.Track == 0 {
+		req.Track = 1
+	}
+	if (b.From == nil) != (b.To == nil) {
+		writeErr(w, http.StatusBadRequest, "send the whole take, or a selection with both from and to")
+		return
+	}
+	if b.From != nil {
+		req.From, req.To = *b.From, *b.To
+	}
+	if req.From < 0 || req.To <= req.From || req.To > info.Frames() {
+		writeErr(w, http.StatusBadRequest, "that span isn't in the take")
+		return
+	}
+	meta := audio.ReadMeta(path)
+	if meta.BPM != nil {
+		req.BPM = *meta.BPM
+	}
+	if meta.DownbeatFrame != nil && *meta.DownbeatFrame >= 0 && *meta.DownbeatFrame < info.Frames() {
+		req.Downbeat = *meta.DownbeatFrame
+	}
+	sent, err := a.tape.SendTake(r.URL.Query().Get("id"), req)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, sent)
 }
 
 // handleTapeListen serves the loaded tape's mix -- the loop, or the whole

@@ -95,7 +95,7 @@ export const TIPS = [
   { control: 'Notes', ids: ['notes-open'], tip: "Watch the take's MIDI rise out of a keyboard as it plays" },
   { control: 'Lane', ids: ['lane'], tip: "Tap for this lane's menu: collapse, show as drums or notes, or hide" },
   // Later steps
-  { control: 'Send to tape', ids: ['send-to-tape'], tip: 'Put the selection on the loaded tape at its playhead, or make it the first loop of an empty tape' },
+  { control: 'Send to tape', ids: ['send-to-tape'], tip: 'Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape\'s first loop' },
   // The tape page
   { control: 'Tape name', ids: ['tape-menu'], tip: 'Your tapes: load one, or make a new one' },
   { control: '⋯ (tape)', ids: ['tape-more'], tip: 'This tape: rename it, clone it, mix it down, export its stems, or delete a tape' },

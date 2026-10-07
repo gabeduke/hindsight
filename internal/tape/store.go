@@ -193,6 +193,12 @@ func (s *Store) Load(id string) (*Tape, error) {
 		return nil, fmt.Errorf("tape %s was written by a newer version", id)
 	}
 	t.ID = id
+	// A tape made when tracks were shorter is as long as they are now: the
+	// length is a limit, and raising it moves nothing. A longer one keeps its
+	// own.
+	if t.Length < s.length {
+		t.Length = s.length
+	}
 	for i := range t.Tracks {
 		if t.Tracks[i].Clips == nil {
 			t.Tracks[i].Clips = []Clip{}

@@ -43,7 +43,7 @@ type Config struct {
 	Tape        bool
 	TapeDir     string
 	TapeTracks  int
-	TapeLengthS int    // a track's length, the OP-1's six minutes
+	TapeLengthS int    // a track's length: 20 minutes by default
 	TapeSources string // name=L,R[:buses] ..., parsed by the tape package
 	// TapeMixdownTailS is how long a mixdown runs on past Out, so the
 	// strips' reverb and delay ring out.
@@ -96,7 +96,7 @@ func Load() (*Config, error) {
 		Tape:             envBool("TAPE", false),
 		TapeDir:          env("TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
 		TapeTracks:       envInt("TAPE_TRACKS", 4),
-		TapeLengthS:      envInt("TAPE_LENGTH_S", 360),
+		TapeLengthS:      envInt("TAPE_LENGTH_S", 1200),
 		TapeSources:      env("TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
 		TapeMixdownTailS: envFloat("TAPE_MIXDOWN_TAIL_S", 2),
 		TapeClock:        strings.ToLower(strings.TrimSpace(env("TAPE_CLOCK", "free"))),
