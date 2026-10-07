@@ -29,7 +29,7 @@ import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec
 import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
-import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX } from './clipgestures.js';
+import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, SLOP_PX, targetTrack } from './clipgestures.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
@@ -58,7 +58,7 @@ const state = {
   sel: null,        // a ruler drag in progress: {from, to} tape frames
   scope: readPref('tape.scope', 'one'), // lift and copy: the selected track, or all
   snap: readPref('tape.snap', 'bar'),   // what a slid clip snaps to
-  slide: null,      // a clip being slid: {n, clip, at}
+  slide: null,      // a clip being slid: {n, clip, at, to}: from track n to track to
   trim: null,       // a grip being dragged: {n, clip, edge, edge0, at, bounds, limited}
   zoom: null,       // the lanes' view once pinched, panned or paged: {from, to}; null shows the loop
   touchedView: 0,   // when a pinch or pan last moved the view: following waits a moment after
@@ -783,10 +783,27 @@ async function multiply() {
   if (e) toast(`The loop is ${spanText()} now`, 'ok', { action: undoAction });
 }
 
-async function slide(clip, at) {
-  const e = await edit('slide', { clip: clip.id, at });
+async function slide(clip, at, from, to) {
+  const e = await edit('slide', { clip: clip.id, at, to });
   const t = state.tape;
-  if (e) toast(`Slid to ${t.grid ? `bar ${barBeat(at, t.grid)}` : fmtSecs(at, t.sample_rate)}`, 'ok', { action: undoAction });
+  if (!e) return;
+  if (to !== from) { state.track = to; render(); }
+  const where = t.grid ? `bar ${barBeat(at, t.grid)}` : fmtSecs(at, t.sample_rate);
+  toast(`Slid to ${to !== from ? `track ${to}, ` : ''}${where}`, 'ok', { action: undoAction });
+}
+
+// lanePitch is how far a slide moves to cross a lane: the lanes' tops'
+// spacing, averaged over them all, so one row grown a little taller (a wrapped
+// label) doesn't skew it.
+function lanePitch() {
+  if (lanes.length < 2) return 0;
+  const top = (l) => l.canvas.getBoundingClientRect().top;
+  return (top(lanes[lanes.length - 1]) - top(lanes[0])) / (lanes.length - 1);
+}
+
+// markTarget lights the lane a slide would land on, when it's another track.
+function markTarget(sl) {
+  for (const l of lanes) l.row.classList.toggle('drop-target', !!sl && sl.to !== sl.n && l.n === sl.to);
 }
 
 // The grips a clip offers on its block (lib/tape/clipgestures.js): the
@@ -854,24 +871,32 @@ function wireLane(lane) {
       cv.classList.remove('trimming');
       drawLanes();
       if (fx.commit && tr && tr.at !== tr.edge0) trimClip(tr.clip, tr.edge, tr.at);
-    } else if (fx.type === 'slideStart') {
+    } else if (fx.type === 'slideStart' && !state.slide) {
+      // (A second finger's hold on another lane, while one slide runs, slides nothing.)
       try { cv.setPointerCapture(fx.id); } catch { /* the pointer's gone */ }
-      state.slide = { n: lane.n, clip: fx.clip, at: fx.clip.at };
+      state.slide = { n: lane.n, clip: fx.clip, at: fx.clip.at, to: lane.n };
       cv.classList.add('sliding');
       if (navigator.vibrate) navigator.vibrate(10);
       drawLanes();
-    } else if (fx.type === 'slide' && state.slide) {
+    } else if (fx.type === 'slide' && state.slide && state.slide.n === lane.n) {
       const view = laneView();
-      const df = (fx.dx / cv.getBoundingClientRect().width) * (view.to - view.from);
+      // A drag up or down with the finger wandering a little sideways keeps
+      // its place, with the snap off too.
+      const dx = Math.abs(fx.dx) <= SLOP_PX ? 0 : fx.dx;
+      const df = (dx / cv.getBoundingClientRect().width) * (view.to - view.from);
       state.slide.at = slideTo(state.tape.grid, fx.clip.at, df, state.snap);
+      // Up or down a lane once it's half a lane over: onto that track.
+      state.slide.to = targetTrack(lane.n, fx.dy, lanePitch(), lanes.length);
+      markTarget(state.slide);
       drawLanes();
-    } else if (fx.type === 'slideEnd') {
+    } else if (fx.type === 'slideEnd' && state.slide && state.slide.n === lane.n) {
       const sl = state.slide;
       state.slide = null;
       cv.classList.remove('sliding');
+      markTarget(null);
       drawLanes();
       // Only a drag commits: a held tap that wobbled a pixel moves nothing.
-      if (fx.commit && sl && sl.at !== sl.clip.at) slide(sl.clip, sl.at);
+      if (fx.commit && sl && (sl.at !== sl.clip.at || sl.to !== sl.n)) slide(sl.clip, sl.at, sl.n, sl.to);
     }
   };
   // A gesture that ended takes its hold with it; another finger's lift doesn't.
@@ -1874,9 +1899,9 @@ function drawLanes() {
       }
     }
     if (state.rec && state.rec.track === lane.n) drawPunch(ctx, view, W, H, col);
-    // A clip being slid: where it would land.
+    // A clip being slid: where it would land, on the lane it's over.
     const sl = state.slide;
-    if (sl && sl.n === lane.n) {
+    if (sl && sl.to === lane.n) {
       const from = sl.at + nudgeFrames(sl.clip, t.sample_rate); // where it'll sound, as the clip itself is drawn
       const x0 = xOf(from, view, W), x1 = xOf(from + sl.clip.frames, view, W);
       const warn = col('--warn', '#b58900');

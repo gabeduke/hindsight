@@ -388,6 +388,20 @@ func TestTheTapesEditsLiftSplitAndMultiply(t *testing.T) {
 		t.Fatalf("split into %d", n)
 	}
 	edit(`{"op":"join","clip":"`+s.Tape.Tracks[0].Clips[0].ID+`"}`, http.StatusOK, "join")
+	// Slid onto track 2 and back: "to" is the track it goes to, "track" the
+	// selected one, which a slide leaves alone.
+	joined := s.Tape.Tracks[0].Clips[0].ID
+	edit(`{"op":"slide","track":1,"clip":"`+joined+`","at":0,"to":2}`, http.StatusOK, "slide to track 2")
+	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); len(s.Tape.Tracks[0].Clips) != 0 || len(s.Tape.Tracks[1].Clips) != 1 {
+		t.Fatalf("after sliding to track 2: %+v", s.Tape.Tracks)
+	}
+	edit(`{"op":"slide","track":3,"clip":"`+joined+`","at":0,"to":1}`, http.StatusOK, "slide back")
+	// With no "to", a slide stays on the clip's own track, whatever track
+	// is selected.
+	edit(`{"op":"slide","track":2,"clip":"`+joined+`","at":0}`, http.StatusOK, "slide with track 2 selected")
+	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); len(s.Tape.Tracks[0].Clips) != 1 || len(s.Tape.Tracks[1].Clips) != 0 {
+		t.Fatalf("a slide with no to left track 1: %+v", s.Tape.Tracks)
+	}
 	// Double the loop, then lift all four tracks: the tape is left empty.
 	out := edit(`{"op":"multiply"}`, http.StatusOK, "multiply")
 	if e, _ := out["edit"].(map[string]any); e["frames"] != float64(192000) {
@@ -406,6 +420,7 @@ func TestTheTapesEditsLiftSplitAndMultiply(t *testing.T) {
 	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"track":3}`), http.StatusBadRequest, "four tracks from 3")
 	edit(`{"op":"lift","track":2}`, http.StatusBadRequest, "nothing to lift")
 	edit(`{"op":"slide","clip":"x"}`, http.StatusBadRequest, "slide with no at")
+	edit(`{"op":"slide","clip":"`+stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")).Tape.Tracks[2].Clips[0].ID+`","at":0,"to":9}`, http.StatusBadRequest, "slide onto no such track")
 	edit(`{"op":"nope"}`, http.StatusBadRequest, "no such edit")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id=other", `{"op":"multiply"}`), http.StatusConflict, "another tape")
 }

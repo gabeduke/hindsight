@@ -309,6 +309,22 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('a clip: ↶ puts the trimmed bar back', (await first()).frames === c1.frames);
+  // Held and dragged a lane down, it goes onto track 2, outlined on the way;
+  // ↶ puts it back on track 1.
+  const pitch = await p.evaluate(() => { const l = [...document.querySelectorAll('.tt-lane')]; return l[1].getBoundingClientRect().top - l[0].getBoundingClientRect().top; });
+  await p.mouse.move(s.x, s.y);
+  await p.mouse.down();
+  await p.waitForTimeout(450);
+  await p.mouse.move(s.x, s.y + pitch, { steps: 8 });
+  const lit = await p.evaluate(() => [...document.querySelectorAll('.tape-track')].map((r) => r.classList.contains('drop-target')));
+  await p.mouse.up();
+  await p.waitForTimeout(1000);
+  const onTwo = await loadedState();
+  check('a clip: dragged a lane down, track 2 is outlined', lit[1] && !lit[0], JSON.stringify(lit));
+  check('a clip: and it lands on track 2, where it was', onTwo.tape.tracks[1].clips.some((x) => x.id === c0.id && x.at === c0.at) && !onTwo.tape.tracks[0].clips.some((x) => x.id === c0.id));
+  await p.click('#tape-undo');
+  await p.waitForTimeout(1000);
+  check('a clip: ↶ puts it back on track 1', (await loadedState()).tape.tracks[0].clips.some((x) => x.id === c0.id));
   check('a clip: no page errors', errors.length === 0, errors.join('; '));
   await p.context().close();
 }

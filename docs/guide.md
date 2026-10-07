@@ -970,7 +970,7 @@ loop's bars on the selected track, or on all four, kept apart.
 | **Merge** | Beside Drop when the clipboard has more than one track: drops them all onto the selected track, layered, each clip at its own level. The tracks' level, pan and mutes are the mixer's, so they don't come with it |
 | **Split** | Cuts the clips on the selected track in two at the playhead, where they're heard (a nudged clip is cut where it sounds) |
 | **Join** | In a clip's sheet: joins it and the half split from it back into one |
-| **Slide** | Hold a clip, then drag it along its track. A clip on the grid lands on the nearest bar, beat or eighth (**Slide snaps to**); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
+| **Slide** | Hold a clip, then drag it along its track, or up or down onto another: once your finger is half a lane over, that lane is outlined and the clip goes there, and that track is selected. A clip on the grid lands on the nearest bar, beat or eighth (**Slide snaps to**); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
 | **Trim** | Tap a clip, then close its sheet: it stays picked, with a grip inside each edge. Drag a grip to move that edge, on the **Slide snaps to** grid (hold ⌥ to move it freely). Trimming the start keeps the audio where it was played. While you drag, the audio the edge can reach shows faintly past it; the grip turns amber where it can go no further. A clip too short for grips has **Start here** and **End here** in its sheet, which trim it to the playhead. Escape, or a tap on an empty part of a lane, lets go of it |
 | **×2** | Doubles the loop, copying what's in it over what follows |
 | **Reverse** | In a clip's sheet: plays it backwards. Tap again (*Play forwards*) to turn it back |
@@ -1012,6 +1012,12 @@ try something. It costs no disk space.
   ended, and the grip turns amber.
 - [demo] Split a clip, then drag the first half's right grip into the
   second → it stops where the second starts.
+- [demo] Hold a clip on track 1 and drag it down onto track 2 → track 2's
+  lane is outlined; let go → the clip is on track 2 at the bar it was dragged
+  to, and track 2 is selected; ↶ → it's back on track 1.
+- [demo] Slide a clip sideways with your finger wandering a little up or
+  down → it stays on its track.
+- [demo] Mute track 3 and slide a clip onto it → it lands there, silent.
 - [demo] Zoom out until a clip is narrow → no grips; its sheet's **Start
   here** and **End here** trim it to the playhead.
 - [demo] Split a clip, tap either half, **Join the split** → one clip.
@@ -1400,7 +1406,7 @@ has no tip.
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
 | Tape overview | The whole tape, in the bar: what’s on each track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop. With it focused, ← → move a bar |
-| A lane | Tap a clip for its sheet; it stays picked, and dragging a picked clip's edges trims it. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
+| A lane | Tap a clip for its sheet; it stays picked, and dragging a picked clip's edges trims it. Hold a clip, then drag, to slide it along its track or onto another. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |

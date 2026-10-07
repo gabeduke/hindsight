@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  zonesOf, hitClip, ClipGesture, HOLD_MS, SLOP_PX, HANDLE_PX, MIN_GRIPS_PX, CLICK_GRACE_MS,
+  zonesOf, hitClip, ClipGesture, HOLD_MS, SLOP_PX, HANDLE_PX, MIN_GRIPS_PX, CLICK_GRACE_MS, laneShift, targetTrack,
 } from './clipgestures.js';
 import { xOf } from './geometry.js';
 
@@ -124,10 +124,10 @@ test('hold, then drag, slides; the click after it is not a tap', () => {
   assert.equal(g.held, true);
   assert.equal(g.dragging, true);
   assert.equal(g.move(P(104)), null, 'inside the slop nothing moves yet');
-  assert.deepEqual(g.move(P(100 + SLOP_PX + 2)), { type: 'slide', clip: bodyHit.clip, dx: SLOP_PX + 2 });
-  // Once moved, it follows back inside the slop too.
-  assert.deepEqual(g.move(P(102)), { type: 'slide', clip: bodyHit.clip, dx: 2 });
-  assert.deepEqual(g.move(P(160)), { type: 'slide', clip: bodyHit.clip, dx: 60 });
+  assert.deepEqual(g.move(P(100 + SLOP_PX + 2)), { type: 'slide', clip: bodyHit.clip, dx: SLOP_PX + 2, dy: 0 });
+  // Once moved, it follows back inside the slop too, and up and down.
+  assert.deepEqual(g.move(P(102)), { type: 'slide', clip: bodyHit.clip, dx: 2, dy: 0 });
+  assert.deepEqual(g.move(P(160, 130)), { type: 'slide', clip: bodyHit.clip, dx: 60, dy: 80 });
   assert.deepEqual(g.up(P(160)), { type: 'slideEnd', clip: bodyHit.clip, dx: 60, commit: true });
   assert.equal(g.dragging, false);
   assert.equal(g.clickIsTap(), false, 'the click that ends a slide');
@@ -174,7 +174,7 @@ test('one pointer at a time, followed by its id', () => {
   assert.equal(g.move(P(400, 50, 2)), null);
   assert.equal(g.up(P(400, 50, 2)), null);
   assert.equal(g.dragging, true, 'the first is still sliding');
-  assert.deepEqual(g.move(P(130, 50, 1)), { type: 'slide', clip: bodyHit.clip, dx: 30 });
+  assert.deepEqual(g.move(P(130, 50, 1)), { type: 'slide', clip: bodyHit.clip, dx: 30, dy: 0 });
 });
 
 test('nothing under the press: not the clip’s', () => {
@@ -221,4 +221,23 @@ test('a lost capture ends a pressed grip, which was captured as it was pressed',
   g.down(P(100), { clip: { id: 'a' }, zone: 'in' });
   assert.deepEqual(g.lost(P(100)), { type: 'release' });
   assert.equal(g.down(P(100), bodyHit).type, 'press', 'free for the next press');
+});
+
+test('laneShift: no lane until half of one, then the nearest', () => {
+  assert.equal(laneShift(0, 100), 0);
+  assert.equal(laneShift(49, 100), 0);
+  assert.equal(laneShift(-49, 100), 0);
+  assert.equal(laneShift(50, 100), 1);
+  assert.equal(laneShift(-50, 100), -1);
+  assert.equal(laneShift(149, 100), 1);
+  assert.equal(laneShift(151, 100), 2);
+  assert.equal(laneShift(80, 0), 0, 'one lane: nowhere to go');
+  assert.ok(Object.is(laneShift(-10, 100), 0), 'never -0');
+});
+
+test('targetTrack stays on the tape’s tracks', () => {
+  assert.equal(targetTrack(2, 0, 100, 4), 2);
+  assert.equal(targetTrack(2, 120, 100, 4), 3);
+  assert.equal(targetTrack(2, -400, 100, 4), 1);
+  assert.equal(targetTrack(3, 900, 100, 4), 4);
 });

@@ -41,7 +41,7 @@ import (
 //	                                   {..., at, loop, replace, source}: at that tape frame;
 //	                                   {track, merge}: the clipboard, at the playhead
 //	POST   /api/tapes/send?id=         {take, from?, to?, track}: a take onto the tape by its tempo and downbeat
-//	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse, track, all, clip, pos, at}
+//	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse|trim, track, all, clip, pos, at, edge, to}
 //	GET    /api/tapes/clip?id=&clip=   one clip as a 16-bit WAV, to share
 //	GET    /api/tapes/listen?id=       the loop as a 16-bit WAV, to overdub on a phone
 //	POST   /api/tapes/mixdown?id=      {all}: play In to Out (all: the whole tape) once, save it as a take
