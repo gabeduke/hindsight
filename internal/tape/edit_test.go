@@ -303,3 +303,55 @@ func TestASlideFarPastTheEndIsRefused(t *testing.T) {
 		t.Fatalf("a clip at MaxInt64 = %v", err)
 	}
 }
+
+func TestSlideOntoAnotherTrack(t *testing.T) {
+	e, _, tp, orig := firstLoop(t)
+	// Track 3 is muted: a clip still goes there, on its base layer.
+	if err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error { s.Tracks[2].Mute = true; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	at := int64(48000)
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "slide", Track: 1, Clip: orig.ID, At: &at, To: 3}); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(track(e, 1)); n != 0 {
+		t.Fatalf("track 1 still has %d clips", n)
+	}
+	moved := track(e, 3)
+	if len(moved) != 1 || moved[0].ID != orig.ID || moved[0].At != 48000 || moved[0].Layer != 0 || moved[0].File != orig.File || moved[0].Src != orig.Src {
+		t.Fatalf("on track 3: %+v", moved)
+	}
+	// Onto a track with audio under it: the lowest free layer there.
+	at = 0
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "slide", Clip: orig.ID, At: &at, To: 3}); err != nil {
+		t.Fatal(err)
+	}
+	other := Clip{File: orig.File, Src: orig.Src, Frames: 1000, At: 2000}
+	if err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error { _, err := s.Place(2, other, false); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "slide", Clip: orig.ID, At: &at, To: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if c := findClip(t, e, orig.ID); c.Layer != 1 || len(track(e, 2)) != 2 {
+		t.Fatalf("onto track 2's audio: %+v", c)
+	}
+	// Each move is one undo: back to track 3, then track 3 at 48000.
+	e.Undo(tp.ID, false) // the clip placed under it
+	e.Undo(tp.ID, false)
+	if c := track(e, 3); len(c) != 1 || c[0].At != 0 {
+		t.Fatalf("one undo: track 3 = %+v", c)
+	}
+	e.Undo(tp.ID, false)
+	e.Undo(tp.ID, false)
+	if c := track(e, 1); len(c) != 1 || c[0] != orig {
+		t.Fatalf("back where it began: %+v", c)
+	}
+	// No such track: refused, nothing moved.
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "slide", Clip: orig.ID, At: &at, To: 5}); !errors.Is(err, ErrNoSuchTrack) {
+		t.Fatalf("to track 5 = %v", err)
+	}
+	if c := track(e, 1); len(c) != 1 {
+		t.Fatalf("a refused slide moved it: %+v", c)
+	}
+}

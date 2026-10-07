@@ -25,6 +25,9 @@ type EditRequest struct {
 	Pos   *int64 `json:"pos"`   // split: where (default: the playhead)
 	At    *int64 `json:"at"`    // slide: where its start goes; trim: where the edge goes
 	Edge  string `json:"edge"`  // trim: "in" (its start) or "out" (its end)
+	// To is the track a slide moves the clip onto (0: its own). Not Track,
+	// which every edit sends as the selected track.
+	To int `json:"to"`
 }
 
 // EditResult says what an edit did, for the page's toast.
@@ -69,7 +72,7 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		if req.At == nil {
 			return EditResult{}, fmt.Errorf("%w: slide needs at", ErrBadParameter)
 		}
-		err := e.Edit(id, "", func(tp *Tape, s *State) error { return s.slide(req.Clip, *req.At, tp.Length) })
+		err := e.Edit(id, "", func(tp *Tape, s *State) error { return s.slide(req.Clip, *req.At, req.To, tp.Length) })
 		return EditResult{Op: "slide", Clips: 1}, err
 	case "reverse":
 		return e.reverseClip(t, req.Clip)
@@ -270,14 +273,17 @@ func nudgeFrames(c Clip, sampleRate int) int64 {
 	return int64(math.Round(c.NudgeMS / 1000 * float64(sampleRate)))
 }
 
-// slide moves a clip along its track to start at at, on the lowest layer
-// free there.
-func (s *State) slide(id string, at, length int64) error {
+// slide moves a clip to start at at, on its own track or, with to, on track
+// to, on the lowest layer free there.
+func (s *State) slide(id string, at int64, to int, length int64) error {
 	if at < 0 {
 		return fmt.Errorf("%w: before the tape's start", ErrBadParameter)
 	}
 	if at >= length {
 		return ErrPastTheEnd
+	}
+	if to < 0 || to > len(s.Tracks) {
+		return ErrNoSuchTrack
 	}
 	for ti := range s.Tracks {
 		tr := &s.Tracks[ti]
@@ -287,7 +293,10 @@ func (s *State) slide(id string, at, length int64) error {
 			}
 			tr.Clips = append(tr.Clips[:i], tr.Clips[i+1:]...)
 			c.At = at
-			_, err := s.Place(ti+1, c, false)
+			if to == 0 {
+				to = ti + 1
+			}
+			_, err := s.Place(to, c, false)
 			return err
 		}
 	}

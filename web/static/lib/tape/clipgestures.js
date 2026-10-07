@@ -72,14 +72,14 @@ export function hitClip(blocks, x, y, kindsFor = () => []) {
  *   hold()        {type: 'slideStart', clip, id}: the press is a slide now;
  *                 capture pointer `id`
  *   move(p)       {type: 'swipe'}: not the clip's; the lanes pan it
- *                 {type: 'slide', clip, dx}: the slide follows the finger
+ *                 {type: 'slide', clip, dx, dy}: the slide follows the finger
  *                 {type: 'gripMove', zone, clip, dx, dy}
  *   up(p)         {type: 'slideEnd' | 'gripEnd', clip, zone?, dx, commit}, or
  *                 {type: 'release'} for a press that was neither
  *   cancel(p), lost(p)  the same, with commit false (a lost capture leaves a
  *                 press on the body alone: it never captured the pointer)
  *
- * `dx` is the travel from the press, in pixels. Only a drag commits: a held
+ * `dx` and `dy` are the travel from the press, in pixels. Only a drag commits: a held
  * press that never moved SLOP_PX moves nothing, and its click opens the sheet.
  */
 export class ClipGesture {
@@ -126,7 +126,7 @@ export class ClipGesture {
     }
     if (g.phase === 'held') {
       if (far) g.moved = true;
-      return g.moved ? { type: 'slide', clip: g.clip, dx } : null;
+      return g.moved ? { type: 'slide', clip: g.clip, dx, dy: p.y - g.y } : null;
     }
     if (g.phase === 'grip-press') {
       if (!far) return null;
@@ -170,4 +170,19 @@ export class ClipGesture {
     }
     return true;
   }
+}
+
+/**
+ * laneShift is how many lanes a slide has crossed, down positive: none until
+ * the finger is half a lane (`pitch`, lane top to lane top) up or down, so a
+ * sideways slide doesn't change track by accident.
+ */
+export function laneShift(dy, pitch) {
+  if (!(pitch > 0)) return 0;
+  return Math.sign(dy) * Math.floor(Math.abs(dy) / pitch + 0.5) || 0;
+}
+
+/** targetTrack is the track a slide from track `from` is over, 1..count. */
+export function targetTrack(from, dy, pitch, count) {
+  return Math.min(count, Math.max(1, from + laneShift(dy, pitch)));
 }
