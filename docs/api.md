@@ -922,7 +922,7 @@ All of it is one change: if any field is refused, none is made.
 | `bars` | Relabel the loop's bar count (1–64) without changing its length |
 | `loop: {in?, out?, on?}` | The loop, in tape frames |
 | `track: {n, name?, bus?, gain_db?, pan?, mute?, solo?}` | A track's mix: bus `A` or `B`, gain −60..12 dB, pan −1..1 |
-| `clip: {id, gain_db?, nudge_ms?, remove?, tile?}` | A clip's level (−60..12 dB), its nudge (±500 ms), take it off, or `tile`: copies end to end to the loop's end wherever its layer is free (400 if there's no room) |
+| `clip: {id, gain_db?, nudge_ms?, fade_in?, fade_out?, remove?, tile?}` | A clip's level (−60..12 dB), its nudge (±500 ms), its fades in frames (0 to its length; 0 is none), take it off, or `tile`: copies end to end to the loop's end wherever its layer is free (400 if there's no room) |
 
 Each PATCH is one undo step. Changes to the same track's level or pan, or the
 same clip's level or nudge, within 2 s of each other are one step, so a

@@ -339,3 +339,41 @@ export function groupMove(clips, dt, dtrack, { tracks, length }) {
     dtrack: Math.min(Math.max(dtrack, 1 - top), tracks - bottom),
   };
 }
+
+/**
+ * fadeOptions are the clip sheet's fade lengths: off, 10 ms, and with a
+ * tempo an eighth of a beat, a quarter, a beat and a bar. Each is {id,
+ * label, frames}; frames is null for one the tape can't have (no tempo).
+ */
+export function fadeOptions(grid, sampleRate) {
+  const bar = grid && grid.frames > 0 && grid.bars > 0 ? grid.frames / grid.bars : 0;
+  const beat = bar / 4;
+  const of = (f) => (bar ? Math.round(f) : null);
+  return [
+    { id: 'off', label: 'off', frames: 0 },
+    { id: '10ms', label: '10 ms', frames: Math.round(0.01 * sampleRate) },
+    { id: 'b8', label: '⅛ beat', frames: of(beat / 8) },
+    { id: 'b4', label: '¼ beat', frames: of(beat / 4) },
+    { id: 'beat', label: '1 beat', frames: of(beat) },
+    { id: 'bar', label: '1 bar', frames: of(bar) },
+  ];
+}
+
+/** fadeOption is the option a fade of `frames` is, or null for another length. */
+export function fadeOption(frames, grid, sampleRate) {
+  return fadeOptions(grid, sampleRate).find((o) => o.frames !== null && Math.abs(o.frames - (frames || 0)) <= 1) || null;
+}
+
+/**
+ * clipFades are a clip's fades as they play (internal/tape Clip.fades): no
+ * longer than the clip between them, the two shortened alike when they'd
+ * overlap. Answers {fadeIn, fadeOut} in frames.
+ */
+export function clipFades(c) {
+  let fin = Math.max(0, c.fade_in || 0), fout = Math.max(0, c.fade_out || 0);
+  if (fin + fout > c.frames && fin + fout > 0) {
+    fin = Math.floor((c.frames * fin) / (fin + fout));
+    fout = c.frames - fin;
+  }
+  return { fadeIn: fin, fadeOut: fout };
+}

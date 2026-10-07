@@ -159,6 +159,13 @@ func window(clips []Clip, from, to int64) []Clip {
 		part.Src = c.Src + (lo - c.At)
 		part.Frames = hi - lo
 		part.At = lo - from
+		// An edge the window cuts through has no fade.
+		if lo > c.At {
+			part.FadeIn = 0
+		}
+		if hi < c.End() {
+			part.FadeOut = 0
+		}
 		out = append(out, part)
 	}
 	return out
@@ -253,8 +260,10 @@ func (s *State) split(track int, pos int64, sampleRate int) (int, error) {
 		if c.At < at && at < c.End() {
 			head, tail := c, c
 			head.Frames = at - c.At
+			head.FadeOut = 0 // each half keeps its outer fade
 			tail.ID = NewClipID()
 			tail.At, tail.Src, tail.Frames = at, c.Src+(at-c.At), c.End()-at
+			tail.FadeIn = 0
 			out = append(out, head, tail)
 			n++
 			continue
@@ -305,6 +314,7 @@ func (s *State) join(id string) error {
 				return fmt.Errorf("%w: the two halves have a different level or nudge; set them the same first", ErrBadParameter)
 			}
 			tr.Clips[first].Frames += b.Frames
+			tr.Clips[first].FadeOut = b.FadeOut // the outer fades: a's in, b's out
 			tr.Clips = append(tr.Clips[:second], tr.Clips[second+1:]...)
 			return nil
 		}
@@ -567,6 +577,7 @@ func (e *Engine) reverseClips(t *Tape, ids []string) (EditResult, error) {
 				return fmt.Errorf("%w: the clip changed meanwhile; try again", ErrBadParameter)
 			}
 			c.File, c.Src, c.Reversed = tn.file, tn.src, tn.rev
+			c.FadeIn, c.FadeOut = c.FadeOut, c.FadeIn // backwards, its end is its start
 		}
 		return nil
 	})

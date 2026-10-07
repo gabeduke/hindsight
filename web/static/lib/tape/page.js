@@ -22,7 +22,7 @@ import { roundRectPath } from '../cassette-geom.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
-  trimBounds, trimTo, trimmed, repeatRoom, repeatCount, groupMove,
+  trimBounds, trimTo, trimmed, repeatRoom, repeatCount, groupMove, fadeOptions, fadeOption, clipFades,
 } from './geometry.js';
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
@@ -2261,6 +2261,7 @@ function drawLanes() {
         }
         ctx.restore();
       }
+      drawFades(ctx, c, view, W, x0, x1, top, h, ink, withAlpha(col('--well', '#000'), 0.6));
       if (labelFits(bw)) {
         const label = clipLabel(stored, tr);
         ctx.save();
@@ -2351,6 +2352,39 @@ function drawLanes() {
   }
 }
 
+
+// drawFades draws a clip's fades on its block, as a DAW does: the faded
+// corner shaded, under an equal-power curve from silence to full.
+function drawFades(ctx, c, view, W, x0, x1, top, h, ink, shade) {
+  const { fadeIn, fadeOut } = clipFades(c);
+  if (!fadeIn && !fadeOut) return;
+  const px = (frames) => (frames / (view.to - view.from)) * W;
+  const ramp = (from, w, rising) => {
+    if (w < 2) return;
+    ctx.beginPath();
+    const y = (k) => top + h - h * Math.sin((rising ? k : 1 - k) * Math.PI / 2);
+    ctx.moveTo(from, top);
+    for (let i = 0; i <= 16; i++) ctx.lineTo(from + (w * i) / 16, y(i / 16));
+    ctx.lineTo(from + w, top);
+    ctx.closePath();
+    ctx.fillStyle = shade;
+    ctx.fill();
+    ctx.beginPath();
+    for (let i = 0; i <= 16; i++) ctx[i ? 'lineTo' : 'moveTo'](from + (w * i) / 16, y(i / 16));
+    ctx.strokeStyle = withAlpha(ink, 0.75);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  };
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, top, x1 - x0, h);
+  ctx.clip();
+  ramp(x0, Math.min(x1 - x0, px(fadeIn)), true);
+  const wo = Math.min(x1 - x0, px(fadeOut));
+  ramp(x1 - wo, wo, false);
+  ctx.restore();
+}
 
 // drawTrimReach draws, faintly, the audio a trimmed edge can reach: the
 // clip's file from as far back, or on, as the edge can go, outside the block
@@ -2694,9 +2728,40 @@ function openClip(c) {
   const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
   $('clip-join').disabled = !home || !joinPartner(home, c);
   $('clip-reverse').textContent = c.reversed ? 'Play forwards' : 'Reverse';
+  renderFades(c);
   const sh = $('clip-sheet');
   if (typeof sh.showModal === 'function') sh.showModal();
   drawLanes();
+}
+
+// renderFades lays out the clip sheet's two rows of fade lengths, the
+// clip's own lit: off, 10 ms, and with a tempo parts of a beat, a beat and a
+// bar (geometry.js fadeOptions). A length set another way lights none.
+function renderFades(c) {
+  const t = state.tape;
+  for (const [edge, key] of [['in', 'fade_in'], ['out', 'fade_out']]) {
+    const box = $(`clip-fade-${edge}`);
+    const on = fadeOption(c[key] || 0, t.grid, t.sample_rate);
+    box.replaceChildren(...fadeOptions(t.grid, t.sample_rate).map((o) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.tip = 'clip-fade';
+      b.textContent = o.label;
+      b.disabled = o.frames === null || o.frames > c.frames;
+      if (o.frames === null) b.title = 'The tape has no tempo yet';
+      b.setAttribute('aria-pressed', String(!!on && on.id === o.id));
+      b.addEventListener('click', () => setFade(c, key, o.frames));
+      return b;
+    }));
+  }
+}
+
+// setFade sets one of the sheet's clip's fades, and keeps the sheet on it.
+async function setFade(c, key, frames) {
+  const ok = await patch({ clip: { id: c.id, [key]: frames } });
+  if (!ok || !state.clip || state.clip.id !== c.id) return;
+  const now = state.tape.tracks.flatMap((tr) => tr.clips).find((x) => x.id === c.id);
+  if (now) { state.clip = now; renderFades(now); }
 }
 
 async function newTape() {

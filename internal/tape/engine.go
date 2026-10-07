@@ -1089,8 +1089,10 @@ func placeWrapped(s *State, track int, c Clip, replace bool) ([]Clip, error) {
 		headLen := l.Out - c.At
 		head := c
 		head.Frames = headLen
+		head.FadeOut = 0
 		tail := c
 		tail.At, tail.Src, tail.Frames = l.In, c.Src+headLen, c.Frames-headLen
+		tail.FadeIn = 0
 		return s.PlaceTogether(track, []Clip{head, tail}, replace)
 	}
 	p, err := s.Place(track, c, replace)

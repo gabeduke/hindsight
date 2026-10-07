@@ -984,6 +984,7 @@ loop's bars on the selected track, or on all four, kept apart.
 | **Slide** | Hold a clip, then drag it along its track, or up or down onto another: once your finger is half a lane over, that lane is outlined and the clip goes there, and that track is selected. A clip on the grid lands on the nearest bar, beat or eighth (**Slide snaps to**); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
 | **Trim** | Tap a clip, then close its sheet: it stays picked, with a grip inside each edge. Drag a grip to move that edge, on the **Slide snaps to** grid (hold ⌥ to move it freely). Trimming the start keeps the audio where it was played. While you drag, the audio the edge can reach shows faintly past it; the grip turns amber where it can go no further. A clip too short for grips has **Start here** and **End here** in its sheet, which trim it to the playhead. Escape, or a tap on an empty part of a lane, lets go of it |
 | **Repeat** | Drag a picked clip's ⟳ corner (top right) to the right: a ghost of each copy follows, and the count shows (×4 is the clip and three copies). Let go to lay them end to end, on top of anything already there; drag back to have fewer. Held near the lane's end, the view scrolls on, so you can lay more than fit on screen; trim grips do the same. The copies aren't linked: change one and the others stay as they were. One undo takes them all back. **Repeat to the loop's end**, in the sheet, still fills the loop |
+| **Fade in, Fade out** | In a clip's sheet: fade it in from silence, or out to it, over 10 ms, an eighth or a quarter of a beat, a beat or a bar (the beat ones need a tempo). Drawn on the block as a shaded corner under a curve. Equal-power, so a fade over a beat sounds even; the 3 ms declick, or a crossfade where it meets audio, still works under it. A split keeps each fade on its half; reversing swaps them; a lift or copy drops a fade it cuts through |
 | **×2** | Doubles the loop, copying what's in it over what follows |
 | **Reverse** | In a clip's sheet: plays it backwards. Tap again (*Play forwards*) to turn it back |
 | **Share as WAV** | In a clip's sheet: sends just that clip, at its level, to another app; a clip over a minute downloads instead |
@@ -1058,6 +1059,12 @@ try something. It costs no disk space.
   loop) → its copies are on its layer, with no dips where they meet.
 - [demo] Repeat a clip, then change one copy's level → the others keep
   theirs.
+- [demo] Tap a clip, **Fade in → 1 beat** → its first beat is shaded under
+  a curve, and it swells in from silence; **off** → back to a hard start.
+- [demo] Fade a clip out over a bar, then **Split** it in the middle → only
+  the second half fades; ↶ → one clip, fading over its last bar again.
+- [demo] Fade a clip in, then **Reverse** it → it fades out instead.
+- [demo] On a tape with no tempo, the beat and bar fades are greyed out.
 - [demo] Tap a clip, **Select more**, then tap a clip on another track → the
   bar says *2 clips*. Hold one and drag both a bar later and a track down →
   they move together; ↶ → both back.
@@ -1544,6 +1551,7 @@ has no tip.
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
 | Clip level | This clip's level within its track |
 | Nudge | Move the clip a few milliseconds, for a part a little early or late |
+| Fade in, Fade out (clip) | Fade the clip in from silence, or out to it: 10 ms, a part of a beat, a beat or a bar. Off leaves just the 3 ms declick |
 | Reverse (clip) | Play this clip backwards, or forwards again. Undo puts it back |
 | Share as WAV (clip) | Send just this clip, at its level, to another app; a long one downloads |
 | Keep (clip) | Keep this clip on the crate, for another day or another tape: the same audio, nothing copied |

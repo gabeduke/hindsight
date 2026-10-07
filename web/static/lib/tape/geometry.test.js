@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove, fadeOptions, fadeOption, clipFades } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -272,4 +272,22 @@ test('groupMove holds several clips inside the tape and on its tracks', () => {
   assert.deepEqual(groupMove(clips, 0, 3, tape), { dt: 0, dtrack: 1 }, 'the lowest stops on track 4');
   assert.deepEqual(groupMove(clips, 0, -3, tape), { dt: 0, dtrack: -1 }, 'the highest stops on track 1');
   assert.deepEqual(groupMove([], 50, 1, tape), { dt: 0, dtrack: 0 });
+});
+
+test('fadeOptions: off and 10 ms always; parts of a beat, a beat and a bar with a tempo', () => {
+  const grid = { frames: 480000, bars: 4 }; // 96 BPM at 48 kHz: a bar is 120000, a beat 30000
+  const o = fadeOptions(grid, 48000);
+  assert.deepEqual(o.map((x) => x.frames), [0, 480, 3750, 7500, 30000, 120000]);
+  assert.deepEqual(fadeOptions(null, 48000).map((x) => x.frames), [0, 480, null, null, null, null]);
+  assert.equal(fadeOption(30000, grid, 48000).id, 'beat');
+  assert.equal(fadeOption(30001, grid, 48000).id, 'beat');
+  assert.equal(fadeOption(0, grid, 48000).id, 'off');
+  assert.equal(fadeOption(12345, grid, 48000), null);
+});
+
+test('clipFades: none longer than the clip, the two sharing it when they overlap', () => {
+  assert.deepEqual(clipFades({ frames: 1000, fade_in: 100, fade_out: 200 }), { fadeIn: 100, fadeOut: 200 });
+  assert.deepEqual(clipFades({ frames: 1000, fade_in: 900, fade_out: 900 }), { fadeIn: 500, fadeOut: 500 });
+  assert.deepEqual(clipFades({ frames: 1000, fade_in: 2000 }), { fadeIn: 1000, fadeOut: 0 });
+  assert.deepEqual(clipFades({ frames: 1000 }), { fadeIn: 0, fadeOut: 0 });
 });

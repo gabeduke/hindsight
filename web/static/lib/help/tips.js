@@ -151,6 +151,7 @@ export const TIPS = [
   { control: '1 bar, 2, 4', ids: ['catch-bars'], tip: 'Catch the last bars you played, ending on the last bar line, where they were played' },
   { control: 'Clip level', ids: ['clip-gain'], tip: 'This clip\'s level within its track' },
   { control: 'Nudge', ids: ['clip-nudge'], tip: 'Move the clip a few milliseconds, for a part a little early or late' },
+  { control: 'Fade in, Fade out (clip)', ids: ['clip-fade'], tip: 'Fade the clip in from silence, or out to it: 10 ms, a part of a beat, a beat or a bar. Off leaves just the 3 ms declick' },
   { control: 'Reverse (clip)', ids: ['clip-reverse'], tip: 'Play this clip backwards, or forwards again. Undo puts it back' },
   { control: 'Share as WAV (clip)', ids: ['clip-share'], tip: 'Send just this clip, at its level, to another app; a long one downloads' },
   { control: 'Keep (clip)', ids: ['clip-keep'], tip: 'Keep this clip on the crate, for another day or another tape: the same audio, nothing copied' },
