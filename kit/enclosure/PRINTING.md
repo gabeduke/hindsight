@@ -4,8 +4,9 @@ The Pi rides on top of the Solo in a small case, held on with 3M Dual Lock for n
 later. Its lid looks like the top panel of a cassette 4-track. It all goes together with M2 screws and nuts, and
 needs no heat-set inserts or soldering iron.
 
-Everything in `out/` is exported **already in print orientation**, sitting on the bed at z = 0. Import it into the
-slicer and don't rotate it. No part needs supports. [REPORT.md](REPORT.md) has the check: the longest bridge is a
+`out/` isn't in git: `make setup` once, then `make`, builds it. Everything in it is exported **already in print
+orientation**, sitting on the bed at z = 0. Import it into the slicer and don't rotate it (in Bambu Studio, skip
+*Auto orient*). No part needs supports. [REPORT.md](REPORT.md) has the check: the longest bridge is a
 magnet pocket's 8 mm roof, and nothing overhangs past 45°.
 
 ## What to print, and when
