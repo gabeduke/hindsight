@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/config"
@@ -52,7 +53,20 @@ type demoSource struct {
 	// plays through the demo sink comes back in the capture, as the real
 	// strips bring it back (see demoLoop).
 	loop demoLoop
+
+	// overflows counts the overflows Overflow has made the demo report, as
+	// an interface reports the frames it lost: the demo has none of its own,
+	// and a take's dropouts (step C4) are checked with these.
+	overflows atomic.Uint64
 }
+
+// Overflows is the overflows the demo has been told to report.
+func (d *demoSource) Overflows() uint64 { return d.overflows.Load() }
+
+// Overflow makes the demo report one overflow, as an interface does when
+// the Pi falls behind it: the capture marks a dropout there. On a rig the
+// way to see one is to make the Pi fall behind; in the demo, SIGUSR1.
+func (d *demoSource) Overflow() { d.overflows.Add(1) }
 
 // demoLoop carries the demo sink's output into the demo source's input, the
 // way the Sidekick does: bus A (playback 1/2) into strip 1 -- the CH1 tap,

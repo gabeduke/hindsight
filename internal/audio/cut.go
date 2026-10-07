@@ -102,6 +102,12 @@ func Cut(dir string, req CutRequest, now time.Time) (string, error) {
 			flags = append(flags, Flag{Frame: f.Frame - req.StartFrame, Label: f.Label})
 		}
 	}
+	// Where the source lost audio, inside the cut, comes along too.
+	for _, d := range srcMeta.Dropouts {
+		if d > req.StartFrame && d < req.EndFrame {
+			m.Dropouts = append(m.Dropouts, d-req.StartFrame)
+		}
+	}
 	created := now
 	m.Created = &created
 	if err := WriteMeta(outPath, m); err != nil {

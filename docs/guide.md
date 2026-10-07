@@ -369,6 +369,15 @@ and the editor bar takes the place of the toolbar.
 - **⚑ N**, beside them, says how many flags the take has and opens them as
   a list, in time order, with their names and times, as the takes page's
   pane shows them. Tap one to play from it.
+- **⚠ Dropouts.** Where the capture lost audio while the take was recorded
+  (the interface overran because the Pi fell behind, or the ring's writer
+  did), the take has a ⚠ in the ruler and a dashed line through the
+  waveform. The header says *⚠ 2 dropouts*. They aren't flags: they can't
+  be moved, named or deleted, and they don't count against the 512 a take
+  can carry. ⚑ N's list has them, in time, and a tap plays from a second
+  before one, to hear what was lost. A cut of the take keeps the ones
+  inside it. On the takes page the cassette wears a *⚠ 2 dropouts*
+  sticker, and the pane's line says so too.
 
 **Doing things with the selection:**
 
@@ -423,6 +432,14 @@ and the editor bar takes the place of the toolbar.
   and the take plays from it.
 - [demo] Play a take for ten seconds and press **J** (or **↺ 5 s**) → it
   goes back five seconds and plays on. On the takes page's bar, the same.
+- [demo] With the demo running, `kill -USR1 <its pid>` (the demo reports an
+  overflow, as an interface does), wait a few seconds and capture 30 s → the
+  take says *⚠ 1 dropout*, with a ⚠ in the ruler where the signal was
+  sent; on the takes page its cassette wears the sticker. Cut a part with
+  the ⚠ in it → the cut has it too; cut a part without → it doesn't.
+- [rig] While the Pi records, `sudo kill -STOP $(pgrep hindsight); sleep 1;
+  sudo kill -CONT $(pgrep hindsight)`, then capture → *⚠ 1 dropout* where it
+  stopped: the interface overran while the Pi wasn't reading it.
 - [demo] On a take with a BPM, choose *Snap: beat* and drag a grip → it jumps
   beat by beat. A nudge moves one beat; with Snap off, a nudge moves 10 ms.
 - [demo] On a take with a BPM, tap **Set to playhead** in the *Bar 1* row
@@ -1761,3 +1778,4 @@ has no tip.
 | "The recording paused while the page was hidden" | The phone locked or you switched apps, and the browser stopped the mic | The take skips that stretch. Keep Hindsight in front while recording |
 | A take is labelled *Phone (partial)* | The recording never got its Stop: the page closed, or the Pi restarted mid-recording | It holds everything that reached the Pi |
 | A capture or catch is refused for disk space | Free space is under `MIN_FREE_GB` | Empty the trash, or delete old takes |
+| A take says *⚠ 2 dropouts* | The capture lost audio twice while it was recorded: the interface overran because the Pi fell behind, or the ring's writer did. The take has a short gap at each ⚠ | Listen at each (⚑ N lists them). If it keeps happening, look for what else is running on the Pi, or raise `FRAMES_PER_BUFFER` |

@@ -3,6 +3,7 @@ package audio
 import (
 	"errors"
 	"log"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,10 +51,24 @@ type Capture struct {
 
 	lastCallback atomic.Int64 // unix nanos
 	xruns        atomic.Uint64
-	healthy      atomic.Bool
-	deviceName   atomic.Value // string
-	lastErr      atomic.Value // string
-	waiting      atomic.Bool  // the last open failed with ErrNoDevice
+
+	// dropouts is where the capture lost audio, newest last: each the ring
+	// frame after a gap (a block dropped, or an overflow the device
+	// reported), plus one so that 0 is an empty slot. A small fixed ring,
+	// written only on the delivery goroutine without a lock or an
+	// allocation; a save turns those inside its take into the take's
+	// Dropouts (step C4). lastDrop and overflows are the delivery
+	// goroutine's own: the last frame marked (+1), so a burst of drops at
+	// one frame is one dropout, and the device's overflow count last seen
+	// (-1: not seen yet).
+	dropouts   [maxDropouts]atomic.Uint64
+	dropN      atomic.Uint64
+	lastDrop   uint64
+	overflows  int64
+	healthy    atomic.Bool
+	deviceName atomic.Value // string
+	lastErr    atomic.Value // string
+	waiting    atomic.Bool  // the last open failed with ErrNoDevice
 
 	stop     chan struct{}
 	stopOnce sync.Once
@@ -70,6 +85,8 @@ func NewCapture(cfg *config.Config, src Source) *Capture {
 		free:   make(chan []int32, blockPoolSize),
 		filled: make(chan []int32, blockPoolSize),
 		stop:   make(chan struct{}),
+
+		overflows: -1,
 	}
 	blockLen := cfg.FramesPerBuf * cfg.Channels
 	for i := 0; i < blockPoolSize; i++ {
@@ -129,6 +146,41 @@ func (c *Capture) Healthy() bool {
 }
 
 func (c *Capture) XRuns() uint64 { return c.xruns.Load() }
+
+// maxDropouts is how many dropouts the capture remembers: far more than a
+// healthy rig ever has in a ring's length, and a rig that has more has
+// bigger problems than which of them its takes are told about.
+const maxDropouts = 64
+
+// markDropout notes a gap in the ring at frame, on the delivery goroutine.
+func (c *Capture) markDropout(frame uint64) {
+	if frame+1 == c.lastDrop {
+		return
+	}
+	c.lastDrop = frame + 1
+	i := c.dropN.Add(1) - 1
+	c.dropouts[i%maxDropouts].Store(frame + 1)
+}
+
+// Dropouts answers the gaps strictly inside the ring frames [start, end), in
+// frames from start, earliest first: where a take of that span lost audio. A
+// gap at start itself is before the take's first frame, so isn't in it.
+func (c *Capture) Dropouts(start, end uint64) []int64 {
+	n := c.dropN.Load()
+	k := min(n, maxDropouts)
+	var out []int64
+	for i := n - k; i < n; i++ {
+		v := c.dropouts[i%maxDropouts].Load()
+		if v == 0 {
+			continue
+		}
+		if f := v - 1; f > start && f < end {
+			out = append(out, int64(f-start))
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
+}
 
 // InputOverflows counts the overflows the device reported: frames lost
 // before they reached the capture at all. Only a real device knows.
@@ -284,6 +336,13 @@ func (c *Capture) supervise() {
 func (c *Capture) processAudio(in []int32) {
 	c.lastCallback.Store(time.Now().UnixNano())
 	c.levels.Accumulate(in)
+	// The device lost frames before this block: a gap just before it.
+	if ov := int64(c.InputOverflows()); ov != c.overflows {
+		if c.overflows >= 0 && ov > c.overflows {
+			c.markDropout(c.handed)
+		}
+		c.overflows = ov
+	}
 
 	select {
 	case block := <-c.free:
@@ -298,6 +357,7 @@ func (c *Capture) processAudio(in []int32) {
 			c.bridge.Record(mono.Now(), c.handed)
 		default:
 			c.xruns.Add(1)
+			c.markDropout(c.handed)
 			select {
 			case c.free <- block:
 			default:
@@ -306,6 +366,7 @@ func (c *Capture) processAudio(in []int32) {
 	default:
 		// Ring writer is behind; drop this block rather than stall the device.
 		c.xruns.Add(1)
+		c.markDropout(c.handed)
 	}
 }
 

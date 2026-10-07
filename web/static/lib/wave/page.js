@@ -34,7 +34,7 @@ import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toa
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { listFrom, fold, familyOf, flagChips } from '../shelf.js';
+import { listFrom, fold, familyOf, flagChips, dropoutsText } from '../shelf.js';
 import { cutLabel } from './cut-label.js';
 import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
@@ -160,6 +160,7 @@ async function main() {
     region: take.trim ? { start: take.trim.start_frame, end: take.trim.end_frame } : null,
     pending: null, // a lone In or Out waiting for its other half
     flags: asFlags(take.flags),
+    dropouts: take.dropouts || [], // where the capture lost audio: set at save, never edited
     grid: { bpm: take.bpm || null, sampleRate: sr, downbeat: take.downbeat_frame || 0 },
     snap: initialSnap(readPref('wave.snap', null), !!take.bpm),
     cursor: 0,
@@ -192,7 +193,8 @@ async function main() {
   }
   function redraw() {
     setText($('flags-count'), String(state.flags.length));
-    setAttr($('flags-list'), 'aria-label', `${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}: show the list`);
+    const nd = state.dropouts.length;
+    setAttr($('flags-list'), 'aria-label', `${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}${nd ? ` and ${nd} dropout${nd === 1 ? '' : 's'}` : ''}: show the list`);
     view.draw();
     if (overview) overview.draw();
     if (lanes) lanes.draw();
@@ -677,23 +679,31 @@ async function main() {
   // The flags as a list, in time order, as the takes page's pane has them: a
   // tap plays from one.
   function openFlags() {
-    const items = flagChips({ flags: state.flags, sample_rate: sr }).map((f) => {
+    // Dropouts too, ⚠, among them in time: a tap plays from a second before
+    // one, to hear what was lost.
+    const drops = flagChips({ flags: state.dropouts.map((d) => ({ frame: d, label: 'dropout' })), sample_rate: sr }).map((f) => ({ ...f, dropout: true }));
+    const all = [...flagChips({ flags: state.flags, sample_rate: sr }), ...drops].sort((a, b) => a.frame - b.frame);
+    const items = all.map((f) => {
       f.at = fmtTenths(f.frame, sr); // to the tenth, as the LCD: two flags a moment apart differ
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'detail-flag flags-item';
       b.setAttribute('aria-label', `Play from ${f.label} at ${f.at}`);
-      b.innerHTML = '<span aria-hidden="true">⚑</span><span class="flag-name"></span><span class="flag-at"></span>';
+      b.innerHTML = '<span aria-hidden="true"></span><span class="flag-name"></span><span class="flag-at"></span>';
+      b.firstChild.textContent = f.dropout ? '⚠' : '⚑';
+      b.classList.toggle('dropout', !!f.dropout);
       b.querySelector('.flag-name').textContent = f.label;
       b.querySelector('.flag-at').textContent = f.at;
+      if (f.dropout) b.setAttribute('aria-label', `Play from a second before the dropout at ${f.at}`);
+      const from = f.dropout ? Math.max(0, f.frame - sr) : f.frame;
       b.addEventListener('click', async () => {
         $('flags-sheet').close();
         // A flag outside a looping selection: Loop goes off, or ▶ would
         // start at In, not here.
-        if (state.loop && state.region && (f.frame < state.region.start || f.frame >= state.region.end)) setLoop(false);
-        seekTo(f.frame);
-        view.follow(f.frame);
+        if (state.loop && state.region && (from < state.region.start || from >= state.region.end)) setLoop(false);
+        seekTo(from);
+        view.follow(from);
         if (!clock.playing) await togglePlay();
         $('play').focus(); // so Space pauses, not opens the list again
       });
@@ -1122,6 +1132,9 @@ async function main() {
     $('take-star').classList.toggle('on', !!take.starred);
     $('take-bpm').textContent = tempoLabel(take.bpm, take.tempo_from);
     $('take-bpm').classList.toggle('unset', !take.bpm);
+    const drops = dropoutsText(take);
+    $('take-drops').hidden = !drops;
+    $('take-drops').textContent = drops;
     renderSendHint(); // the hint follows the tempo and the selection
     $('take-len').textContent = state.region
       ? `${fmtClock(state.region.end - state.region.start, sr)} of ${fmtClock(total, sr)}`

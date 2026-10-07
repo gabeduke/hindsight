@@ -271,6 +271,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		s.cap.Flags().Active(endFrame, uint64(s.cap.cfg.RingFrames())),
 		winStart, endFrame,
 	)
+	drops := s.cap.Dropouts(winStart, endFrame)
 
 	s.beginSave()
 	defer s.endSave()
@@ -305,6 +306,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	}
 	stampCreated(wavPath, savedAt)
 	stampFlagsAt(wavPath, tmpPath, takeFlags)
+	stampDropouts(wavPath, drops)
 
 	stampTempo(wavPath, s.tempoSource(), capturedAt,
 		time.Duration(float64(gotFrames)/float64(cfg.SampleRate)*float64(time.Second)))
@@ -580,6 +582,19 @@ func stampFlagsAt(metaWav, cueWav string, flags []Flag) {
 	log.Printf("[*] %s — %d flag(s)", filepath.Base(metaWav), len(m.Flags))
 }
 
+// stampDropouts writes where a take lost audio into its sidecar, saying so in
+// the log: a take with a gap in it is worth knowing about.
+func stampDropouts(wav string, drops []int64) {
+	if len(drops) == 0 {
+		return
+	}
+	if _, err := UpdateMeta(wav, func(m *Meta) error { m.Dropouts = drops; return nil }); err != nil {
+		log.Printf("[!] dropouts for %s: %v", filepath.Base(wav), err)
+		return
+	}
+	log.Printf("[!] %s — %d dropout(s): the capture lost audio there", filepath.Base(wav), len(drops))
+}
+
 func (s *Saver) makePreview(wavPath string, outCh int) { MakePreview(s.cap.cfg, wavPath, outCh) }
 
 // MakePreview renders the mp3 proxy. The channel mapping is explicit: a bare
@@ -736,6 +751,7 @@ type Take struct {
 	BPM           *float64          `json:"bpm,omitempty"`
 	TempoFrom     string            `json:"tempo_from,omitempty"`
 	Flags         []Flag            `json:"flags,omitempty"`
+	Dropouts      []int64           `json:"dropouts,omitempty"`
 	DownbeatFrame *int64            `json:"downbeat_frame,omitempty"`
 	Source        *CutSource        `json:"source,omitempty"`
 	Origin        string            `json:"origin,omitempty"`
@@ -822,6 +838,7 @@ func takeFromFile(dir, name string, info os.FileInfo) Take {
 	t.BPM = m.BPM
 	t.TempoFrom = m.TempoFrom
 	t.Flags = EnsureFlagIDs(m.Flags)
+	t.Dropouts = m.Dropouts
 	t.DownbeatFrame = m.DownbeatFrame
 	t.Source = m.Source
 	t.Origin = m.Origin

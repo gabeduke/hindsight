@@ -507,6 +507,24 @@ export class WaveView extends GestureSurface {
       }
     }
 
+    // Dropouts: where the capture lost audio. A dashed line through the body
+    // and ⚠ in the ruler; not a flag, so nothing to tap or drag.
+    if ((st.dropouts || []).length) {
+      const c = col('--warn', '#b58900');
+      ctx.font = `700 11px ${col('--font', 'system-ui')}`;
+      ctx.textBaseline = 'alphabetic';
+      for (const d of st.dropouts) {
+        const x = frameToX(d, view);
+        if (x < -20 || x > W + 20) continue;
+        ctx.fillStyle = c;
+        ctx.fillText('⚠', Math.round(x) - 6, PIN_H - 2);
+        ctx.strokeStyle = c;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, PIN_H); ctx.lineTo(Math.round(x) + 0.5, bottom); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
     // Grips and the move handle.
     if (sel) {
       ctx.fillStyle = col('--sel', '#268bd2');

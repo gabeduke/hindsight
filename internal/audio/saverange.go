@@ -93,6 +93,7 @@ func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, erro
 	endAt := s.wallAt(out.To)
 	startAt := s.wallAt(out.From)
 	takeFlags := flagsForWindow(s.cap.Flags().Active(total, uint64(cfg.RingFrames())), out.From, out.To)
+	drops := s.cap.Dropouts(out.From, out.To)
 	ring := s.cap.Ring()
 
 	started := time.Now()
@@ -126,6 +127,7 @@ func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, erro
 	}
 	stampCreated(wavPath, endAt)
 	stampFlagsAt(wavPath, tmpPath, takeFlags)
+	stampDropouts(wavPath, drops)
 	stampTempo(wavPath, s.tempoSource(), endAt, endAt.Sub(startAt))
 	exportMIDI(s.midiExporter(), MIDIExportRequest{
 		WavPath:    wavPath,

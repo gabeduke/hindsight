@@ -82,6 +82,7 @@ func main() {
 			exporter = bundle.New(dd, cfg.MIDILatencyMS, midi.DemoDeviceName)
 		}
 		log.Printf("[*] demo mode — synthetic audio, no hardware")
+		overflowOnSignal(src)
 	} else {
 		src = audio.NewDeviceSource(cfg)
 	}

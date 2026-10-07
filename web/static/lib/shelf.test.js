@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -381,4 +381,11 @@ test('a delete\'s toast says the cuts are back on the shelf', () => {
   assert.equal(cutsBack(1), ' · its cut is back on the shelf');
   assert.equal(cutsBack(3), ' · its 3 cuts are back on the shelf');
   assert.equal(cutsBack(2, true), ' · their 2 cuts are back on the shelf');
+});
+
+test('a take that lost audio says how many times', () => {
+  assert.equal(dropoutsText({}), '');
+  assert.equal(dropoutsText({ dropouts: [] }), '');
+  assert.equal(dropoutsText({ dropouts: [480] }), '⚠ 1 dropout');
+  assert.equal(dropoutsText({ dropouts: [480, 96000] }), '⚠ 2 dropouts');
 });

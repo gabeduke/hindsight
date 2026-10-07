@@ -13,6 +13,7 @@
 import { levelsFor, takeGain, smooth, drawBars } from './wave/draw.js';
 import { token, withAlpha } from './theme.js';
 import { tagStore } from './tags.js';
+import { dropoutsText } from './shelf.js';
 import { stripeFor, STRIPES, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 // A reel hub: a ring, a disc, a dark core and six teeth.
@@ -52,13 +53,15 @@ export class CassetteFace {
           <div class="cas-glare"></div>
         </div>
       </div>
-      <div class="cas-foot" aria-hidden="true"><span></span><span></span><span></span><span></span></div>`;
+      <div class="cas-foot" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <span class="cas-drops" hidden></span>`;
     container.prepend(this.el);
     const q = (s) => this.el.querySelector(s);
     this.parts = {
       screws: q('.cas-screws'), label: q('.cas-label'), band: q('.cas-band'), under: q('.cas-under'),
       side: q('.cas-side'), brand: q('.cas-brand'), stamp: q('.cas-stamp'), rule: q('.cas-rule'), name: q('.cas-name'),
       win: q('.cas-window'), canvas: q('.cas-canvas'), hubs: [...this.el.querySelectorAll('.cas-hub')], foot: q('.cas-foot'),
+      drops: q('.cas-drops'),
     };
     this.ctx = this.parts.canvas.getContext('2d');
     this.setTake(take);
@@ -131,6 +134,10 @@ export class CassetteFace {
     this.el.classList.add(`stripe-${stripeFor(take, tagStore.list)}`);
     this.parts.stamp.textContent = stampOf(take);
     this.parts.name.textContent = take.label || take.name.replace(/^jam_|\.wav$/g, '');
+    // A sticker where the capture lost audio in it.
+    const drops = dropoutsText(take);
+    this.parts.drops.hidden = !drops;
+    this.parts.drops.textContent = drops;
   }
 
   /** setSelection draws the take's selection; frames out of totalFrames. */
