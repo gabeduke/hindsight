@@ -1607,15 +1607,15 @@ async function main() {
   view.fitAll();
   loadLanes();
   neighbours();
+  // A bar 1 nudge still in its pause saves before the page goes away.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushDownbeat();
+  });
   // Two hooks, because neither alone covers a phone: pagehide fires on
   // navigation, visibilitychange when the app is switched or the screen locks.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { bar.commit(); flushRegion(); }
     else refetchTake();
-  });
-  // A bar 1 nudge still in its pause saves before the page goes away.
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushDownbeat();
   });
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
