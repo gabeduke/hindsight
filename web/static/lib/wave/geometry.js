@@ -167,13 +167,21 @@ export function placeDownbeat(frame, total) {
 
 /**
  * nudgeDownbeat is where one nudge in direction sign (+1 or -1) takes bar 1:
- * a beat with Snap on (any setting but off), else 10 ms, kept inside the take.
- * It moves by the step rather than to a line: the grid is counted from bar 1,
- * so there is no line for it to land on.
+ * one snap step (a bar, a beat or an eighth, as In and Out nudges), else
+ * 10 ms with Snap off, kept inside the take. It moves by the step rather than
+ * to a line: the grid is counted from bar 1, so there is no line to land on.
  */
 export function nudgeDownbeat(frame, sign, grid, snap, total) {
-  const step = snap && snap !== 'off' && grid.bpm ? framesPerBeat(grid) : grid.sampleRate * 0.01;
-  return placeDownbeat(frame + sign * step, total);
+  return placeDownbeat(frame + sign * nudgeStep(grid, snap), total);
+}
+
+/**
+ * adoptDownbeat is the downbeat to show after the Pi's copy of the take
+ * arrives: the Pi's, unless a nudge of ours is still waiting to be saved, which
+ * is newer than anything the Pi has.
+ */
+export function adoptDownbeat(served, local, pending) {
+  return pending ? local : (served || 0);
 }
 
 /**

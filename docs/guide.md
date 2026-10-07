@@ -289,8 +289,8 @@ point at the gestures that matter; **Got it** puts them away for good.
 **Bar 1:**
 
 Once the take has a BPM, a *Bar 1* row stays in the toolbar. **Set to
-playhead** puts bar 1 where the playhead is; **◂ ▸** move it 10 ms, or a beat
-with *Snap* on; the time between them opens the editor on it. The ruler's "1"
+playhead** puts bar 1 where the playhead is; **◂ ▸** move it 10 ms, or by one
+*Snap* step (a bar, beat or ⅛) with *Snap* on, as In and Out do; the time between them opens the editor on it. The ruler's "1"
 still drags, and **B** on a keyboard is Set to playhead. The grid follows as
 it moves, and ↶ takes a run of nudges back as one step.
 
@@ -1314,7 +1314,7 @@ has no tip.
 | ◂⚑ ⚑▸ | Jump to the previous or next flag |
 | Delete flag | Remove this flag |
 | ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
-| Bar 1 ◂ ▸ | Move bar 1 by 10 ms, or a beat with Snap on. It stays here once the take has a tempo |
+| Bar 1 ◂ ▸ | Move bar 1 by 10 ms, or by the Snap step with Snap on. It stays here once the take has a tempo |
 | Bar 1 time | Tap to place bar 1 exactly, in the editor |
 | Set to playhead | Put bar 1 where the playhead is |
 | Clear | Forget the selection. The take itself is untouched |

@@ -15,7 +15,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag,
 } from './geometry.js';
 import {
   viewAbout, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
@@ -339,7 +339,7 @@ async function main() {
     take.starred = fresh.starred;
     if (fresh.has_preview) previewLanded();
     state.grid.bpm = fresh.bpm || null;
-    state.grid.downbeat = fresh.downbeat_frame || 0;
+    state.grid.downbeat = adoptDownbeat(fresh.downbeat_frame, state.grid.downbeat, downbeatPending);
     if (!pendingTrim) {
       const r = fresh.trim ? { start: fresh.trim.start_frame, end: fresh.trim.end_frame } : null;
       const same = (r && state.region && r.start === state.region.start && r.end === state.region.end) || (!r && !state.region);

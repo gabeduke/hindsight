@@ -74,7 +74,7 @@ export const TIPS = [
   { control: '◂⚑ ⚑▸', ids: ['flag-prev', 'flag-next'], tip: 'Jump to the previous or next flag' },
   { control: 'Delete flag', ids: ['flag-delete'], tip: 'Remove this flag' },
   { control: '◂ ▸ beside In and Out', ids: ['nudge'], tip: 'Move that end of the selection to the next snap line, or by 10 ms' },
-  { control: 'Bar 1 ◂ ▸', ids: ['db-nudge'], tip: 'Move bar 1 by 10 ms, or a beat with Snap on. It stays here once the take has a tempo' },
+  { control: 'Bar 1 ◂ ▸', ids: ['db-nudge'], tip: 'Move bar 1 by 10 ms, or by the Snap step with Snap on. It stays here once the take has a tempo' },
   { control: 'Bar 1 time', ids: ['db-open'], tip: 'Tap to place bar 1 exactly, in the editor' },
   { control: 'Set to playhead', ids: ['db-set'], tip: 'Put bar 1 where the playhead is' },
   { control: 'Clear', ids: ['clear'], tip: 'Forget the selection. The take itself is untouched' },

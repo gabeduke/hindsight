@@ -101,7 +101,7 @@ test('edge scroll step ramps inside the margins and is zero elsewhere', () => {
   assert.equal(edgeScrollStep(-50, 390), -EDGE_MAX_STEP_PX); // clamped past the edge
 });
 
-import { snapFrame, snapStep, nudgeStep, nudgeFrame, placeDownbeat, nudgeDownbeat, setPoint, prevFlag, nextFlag, fmtPoint, rulerTicks } from './geometry.js';
+import { snapFrame, snapStep, nudgeStep, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, setPoint, prevFlag, nextFlag, fmtPoint, rulerTicks } from './geometry.js';
 
 const grid120 = { bpm: 120, sampleRate: 48000, downbeat: 1000 }; // a beat is 24000 frames
 
@@ -222,16 +222,24 @@ test('placeDownbeat keeps bar 1 on a whole frame inside the take', () => {
   assert.equal(placeDownbeat(500, 0), 0);
 });
 
-test('nudgeDownbeat moves bar 1 by 10 ms, or a beat with Snap on', () => {
+test('nudgeDownbeat moves bar 1 by the snap step, as In and Out do, or 10 ms with Snap off', () => {
   const g = { bpm: 120, sampleRate: 48000, downbeat: 1000 }; // a beat is 24000 frames
   assert.equal(nudgeDownbeat(1000, 1, g, 'off', 200000), 1480);
   assert.equal(nudgeDownbeat(1000, -1, g, 'off', 200000), 520);
-  assert.equal(nudgeDownbeat(1000, 1, g, 'bar', 200000), 25000);
+  assert.equal(nudgeDownbeat(1000, 1, g, 'bar', 200000), 97000);
+  assert.equal(nudgeDownbeat(100000, -1, g, 'bar', 200000), 4000);
   assert.equal(nudgeDownbeat(30000, -1, g, 'beat', 200000), 6000);
-  assert.equal(nudgeDownbeat(1000, 1, g, 'eighth', 200000), 25000);
+  assert.equal(nudgeDownbeat(1000, 1, g, 'eighth', 200000), 13000);
   // Without a snap setting (or a tempo) it is the fine step.
   assert.equal(nudgeDownbeat(1000, 1, g, undefined, 200000), 1480);
   assert.equal(nudgeDownbeat(1000, 1, { ...g, bpm: null }, 'beat', 200000), 1480);
+});
+
+test('a nudge waiting to be saved outranks the Pi\'s copy of the downbeat', () => {
+  assert.equal(adoptDownbeat(500, 900, true), 900);
+  assert.equal(adoptDownbeat(500, 900, false), 500);
+  assert.equal(adoptDownbeat(null, 900, false), 0); // reset on the Pi
+  assert.equal(adoptDownbeat(undefined, 900, true), 900);
 });
 
 test('nudgeDownbeat stops at the take\'s ends', () => {
