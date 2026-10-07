@@ -1,7 +1,7 @@
 // web/static/lib/tape/timeedit.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { insertPreview, deletePreview, spanWords, barOf } from './timeedit.js';
+import { insertPreview, deletePreview, spanWords, barOf, insertRefusal } from './timeedit.js';
 
 // As internal/tape timeedit_test.go's arranged(): a bar is 96000.
 const tape = () => ({
@@ -49,4 +49,29 @@ test('spanWords and barOf: bars with a tempo, else seconds', () => {
   assert.equal(spanWords(48000, null, 48000), '1.0 s');
   assert.equal(barOf(0, grid), 1);
   assert.equal(barOf(8 * 96000, grid), 9);
+  // A bar that isn't a whole number of frames: bar 4's line rounds down to
+  // 411428, a hair under 3 × 137142.75, and is still bar 4 there.
+  const odd = { frames: 548571, bars: 4 };
+  assert.equal(barOf(411428, odd), 4);
+  assert.equal(barOf(411427, odd), 3);
+  assert.equal(barOf(137143, odd), 2);
+  assert.equal(barOf(137142, odd), 1);
+});
+
+test('insertPreview stacks a board’s overlapping clips as the Pi does', () => {
+  const tape = { length: 10 * 96000, loop: { in: 0, out: 0 }, sections: [], tracks: [{ clips: [{ id: 'a', at: 0, frames: 96000, src: 0, layer: 0 }] }] };
+  const board = { frames: 96000, tracks: [[{ at: 0, frames: 96000, src: 0, layer: 0 }, { at: 48000, frames: 48000, src: 0, layer: 1 }]] };
+  const g = insertPreview(tape, 96000, board, 1).tracks[0].clips.filter((c) => c.ghost);
+  assert.deepEqual(g.map((c) => [c.at, c.layer]), [[96000, 0], [144000, 1]]);
+});
+
+test('insertRefusal: tracks that do not fit, or a push past the end', () => {
+  const four = { clips: [] };
+  const tape = { length: 4 * 96000, loop: { in: 0, out: 96000 }, sections: [], tracks: [{ clips: [{ id: 'a', at: 0, frames: 2 * 96000, src: 0, layer: 0 }] }, four, four, four] };
+  const one = { frames: 96000, tracks: [[{ at: 0, frames: 96000, src: 0, layer: 0 }]] };
+  assert.equal(insertRefusal(tape, 0, one, 1), '');
+  assert.equal(insertRefusal(tape, 0, one, 5), 'tracks');
+  assert.equal(insertRefusal(tape, 0, { ...one, tracks: [[], [], []] }, 3), 'tracks');
+  assert.equal(insertRefusal(tape, 0, { ...one, frames: 3 * 96000 }, 1), 'length'); // 2 bars on it, 3 more
+  assert.equal(insertRefusal(tape, 3.5 * 96000, one, 1), 'length'); // the point itself near the end
 });

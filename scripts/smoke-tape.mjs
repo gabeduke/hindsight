@@ -459,6 +459,16 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     await p.click('#tape-undo');
     await p.waitForTimeout(800);
     check('insert: ↶ puts it as it was', (await loadedState()).tape.tracks[0].clips.length === n1);
+    // At the tape's start: 0 is a place, and the toast says bar 1.
+    await postJSON(`/api/tapes/transport?${tq}`, { action: 'locate', pos: 0 });
+    await p.waitForTimeout(700);
+    await p.click('#insert');
+    await p.waitForTimeout(1000);
+    const said0 = await p.locator('#toasts .toast').last().textContent();
+    const at0 = (await loadedState()).tape.tracks[0].clips.map((x) => x.at).sort((a, b) => a - b);
+    check('insert: at the start, where it showed, and the toast says bar 1', /at bar 1 ·/.test(said0) && at0[0] === 0 && at0[1] === Math.round(c0.bar), `${said0} ${JSON.stringify(at0)}`);
+    await p.click('#tape-undo');
+    await p.waitForTimeout(800);
     // Delete time on bar 2.
     await patchTape({ loop: { in: Math.round(c0.bar), out: Math.round(2 * c0.bar), on: true } });
     await p.waitForTimeout(600);
@@ -469,9 +479,17 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     check('delete time: a bar comes out and the gap closes', Math.abs(len - len2 - c0.bar) <= 1 && Math.max(...(await loadedState()).tape.tracks[0].clips.map((x) => x.at + x.frames)) <= 3 * c0.bar + 1, `${len} → ${len2}`);
     await p.click('#tape-undo');
     await p.waitForTimeout(800);
-    // Duplicate section: a Verse on bar 1, its sheet, Duplicate.
+    // Duplicate section: a Verse on bar 1, its sheet (the strip from the
+    // keys: Enter selects it, Enter again opens it), Duplicate.
     const v = (await postJSON(`/api/tapes/edit?${tq}`, { op: 'section-add', name: 'Verse', at: 0, end: Math.round(c0.bar) })).edit.section;
-    await postJSON(`/api/tapes/edit?${tq}`, { op: 'duplicate-section', section: v.id });
+    await p.waitForTimeout(600);
+    await p.focus('#tape-sections');
+    await p.keyboard.press('Enter');
+    await p.waitForTimeout(500);
+    await p.keyboard.press('Enter');
+    await p.waitForTimeout(400);
+    await p.click('#section-dup');
+    await p.waitForTimeout(1000);
     const secs = (await loadedState()).tape.sections || [];
     check('duplicate section: the Verse twice in a row', secs.length === 2 && secs[1].name === 'Verse' && secs[1].at === v.end, JSON.stringify(secs));
     await p.click('#tape-undo');

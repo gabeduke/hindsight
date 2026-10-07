@@ -891,6 +891,19 @@ func TestInsertAndDeleteTimeOverTheAPI(t *testing.T) {
 	if out.Edit.Frames != 96000 || out.Edit.Clips != 1 {
 		t.Fatalf("insert = %+v", out.Edit)
 	}
+	// At the tape's start, where the page previewed it: the answer still
+	// says where, 0 being a place.
+	w = send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"insert","track":1,"pos":0}`)
+	want(t, w, http.StatusOK, "insert at 0")
+	var raw struct {
+		Edit map[string]any `json:"edit"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &raw)
+	if at, ok := raw.Edit["at"]; !ok || at != float64(0) {
+		t.Fatalf("insert at 0 answers at = %v (%v)", at, ok)
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"insert","track":5}`), http.StatusBadRequest, "insert off the tracks")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"insert","track":1,"pos":-1}`), http.StatusBadRequest, "insert before the start")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"delete-time"}`), http.StatusOK, "delete time")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-add","name":"Verse","at":0,"end":96000}`), http.StatusOK, "a section")
 	var st struct {

@@ -1798,8 +1798,9 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 /* A first tap on a phone shows what Insert or Delete time will do; the key
    asks for a second. */
 .icon-btn.confirming { border-color: var(--warn); box-shadow: 0 0 0 2px var(--warn-glow); }
-/* Asking first is for a touch screen, which has no hover to preview on. */
-@media (hover: hover) { .np-drawer .tb-row.ask-first-row { display: none; } }
+/* Asking first is for a touch screen, which has no hover to preview on: any
+   device with one, a laptop's too, can turn it off. */
+@media not all and (any-pointer: coarse) { .np-drawer .tb-row.ask-first-row { display: none; } }
 .tape-sections { width: 100%; height: 22px; display: block; background: var(--well); border-radius: 6px; outline: 1px solid var(--well-line); outline-offset: -1px; touch-action: pan-y; cursor: pointer; }
 .tape-sections:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .tape-sections-gap { font: 600 10px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); }

@@ -28,7 +28,7 @@ phone, and a toast with Undo.
 Three new ops on `POST /api/tapes/edit`. Each is one undo step, and each acts
 on every track, the sections and the loop together, so the parts stay in time.
 
-- **`insert {track, crate?}`**
+- **`insert {track, pos?, crate?}`**
   - Pushes everything from the playhead on later by the clipboard's length.
   - Lays the clipboard in the gap, from `track` down, as Drop would.
   - Before the push, `cutAt` splits a clip that runs across the playhead.
@@ -37,6 +37,8 @@ on every track, the sections and the loop together, so the parts stay in time.
     across the playhead stretches at its end.
   - With `crate`, a kept clip goes in instead of the clipboard (B1's crate
     gets its *Insert*).
+  - `pos` is where (the page sends the point it previewed). By default it's
+    the playhead, or what's heard while the tape plays.
   - When stopped, the playhead moves to the end of what went in, so a second
     Insert goes after the first.
   - Refused:
@@ -62,7 +64,8 @@ on every track, the sections and the loop together, so the parts stay in time.
   - A section with the same name and colour goes over the copy.
   - Refused past the tape's end, and for a section that doesn't exist.
 - **The answer:** `edit.at` and `edit.frames` give where and how much, for
-  the toast. Duplicate's `edit.section` is the copy.
+  the toast. `edit.at` is there even when it's 0. Duplicate's
+  `edit.section` is the copy.
 
 ### On the page
 
@@ -77,17 +80,30 @@ on every track, the sections and the loop together, so the parts stay in time.
   - `insertPreview` and `deletePreview` work out the tape as it would be.
     The lanes draw that (`shownTape`).
   - Insert's gap is shaded and outlined, with the clipboard drawn in it as
-    ghosts. Delete time shades what goes, in red. Both draw everything after
-    already moved, and the ruler says *+4 bars* or *−4 bars* at the point.
+    ghosts, stacked as the Pi will stack them. Delete time draws a red seam
+    where the selection began, where what followed now meets what came
+    before. Both draw everything after already moved, and the ruler says
+    *+4 bars* or *−4 bars* at the point.
+  - A shown preview is worked out again on every poll (`refreshPreview`),
+    so it follows the playhead while the tape plays, a Drop that moved the
+    playhead on, an undo, and another device's edit. An Insert the Pi would
+    refuse (`insertRefusal`: its tracks don't fit, or the push runs past
+    the end) isn't previewed or asked about, so its tap gets the Pi's reason
+    at once.
+  - Insert sends the point it previewed as `pos`, so the edit is the one
+    seen. If a point is off the view, the view moves to show it while the
+    preview is up.
   - Drop outlines what it will cover on the tracks it lands on.
   - On the crate, a clip's *Insert* previews that clip.
 - **A phone has no hover, so it asks first.**
   - A first tap on Insert or Delete time shows the preview, rings the key,
-    and toasts *Tap again to …*. The second tap carries it out.
-  - A tap anywhere else, or Escape, lets the preview go.
+    and toasts *Tap again to …*. The second tap carries it out, at the
+    point the first one showed.
+  - A tap anywhere else, or Escape, lets the preview go. Escape lets a
+    preview go before it closes the drawer.
   - *Ask before Insert and Delete time* (the `tape.ask` preference, on by
-    default) is a chip in the edit drawer that turns this off. Only a touch
-    screen shows it.
+    default) is a chip in the edit drawer that turns this off. Any device
+    with a touch screen shows it, a laptop's too.
 - **A toast with Undo after each edit:**
   - *Inserted 4 bars at bar 9 · every track after it moved later*;
   - *Deleted bars 9–12 · everything after moved up*;
@@ -122,7 +138,10 @@ on every track, the sections and the loop together, so the parts stay in time.
 - **Node** (`timeedit.test.js`):
   - both previews;
   - a section stretching;
-  - the span in words, and the bar a frame is in.
+  - a stacked board's layers;
+  - the refusals;
+  - the span in words, and the bar a frame is in, including on bar lines
+    that round down.
 - **Smoke** (`smoke-tape.mjs`):
   1. Hovering Insert changes the lanes.
   2. Insert puts the clipboard at the playhead and moves the rest on; ↶

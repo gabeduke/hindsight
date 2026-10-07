@@ -81,7 +81,8 @@ func (s *State) lastFrame() int64 {
 // tape's end.
 func (s *State) roomToPush(pos, n, length int64, sampleRate int) error {
 	if end := max(s.lastFrame(), pos); end+n > length {
-		return fmt.Errorf("pushed %s later, the tape runs past its end: %w", clockText(n, sampleRate), roomErr(length-end, length, sampleRate))
+		return fmt.Errorf("%w: pushing it all %s later needs %s more than the %s left after the last thing on it (a track holds %s, TAPE_LENGTH_S)",
+			ErrPastTheEnd, clockText(n, sampleRate), clockText(end+n-length, sampleRate), clockText(max(length-end, 0), sampleRate), minutesText(length, sampleRate))
 	}
 	return nil
 }
@@ -231,9 +232,12 @@ func (e *Engine) timeEdit(t *Tape, req EditRequest) (EditResult, error) {
 		}
 		st := e.tr.Status()
 		moving := st.Playing || st.CountIn > 0
-		at := st.Pos
-		if st.Playing {
-			at = e.Live().Heard
+		at := e.playhead()
+		if req.Pos != nil { // where the page previewed it
+			at = *req.Pos
+		}
+		if at < 0 {
+			return EditResult{}, fmt.Errorf("%w: pos before the tape's start", ErrBadParameter)
 		}
 		if t.Grid == nil && t.Empty() {
 			return EditResult{}, fmt.Errorf("%w: on an empty tape, Drop it: there's nothing to push along", ErrBadParameter)

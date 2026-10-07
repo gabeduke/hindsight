@@ -31,7 +31,7 @@ import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
 import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, SLOP_PX, EDGE_PX, targetTrack } from './clipgestures.js';
 import { SECTION_NAMES, SECTION_COLORS, colorOf, sectionHit, newName, isLooped, barsText as sectionBars, makeSpan, edgeTo } from './sections.js';
-import { insertPreview, deletePreview, spanWords, barOf as barNumber } from './timeedit.js';
+import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNumber } from './timeedit.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
@@ -279,6 +279,7 @@ function apply(s) {
   state.undo = s.undo || 0;
   state.redo = s.redo || 0;
   if (state.track > state.tape.tracks.length) state.track = 1;
+  if (state.preview) refreshPreview();
   if (changed) { buildLanes(); loadPeaks(); dropTiles(state.tape); }
   syncAlign();
   followPlayhead();
@@ -339,7 +340,14 @@ function feedReels() {
 // laneView is the span of tape the lanes and the ruler show: where a pinch,
 // a pan or the playhead took it, else the loop and a bar either side.
 function laneView() {
-  return state.zoom || viewRange(state.tape);
+  const v = state.zoom || viewRange(state.tape);
+  // A previewed edit whose point is off the view brings the view to it while
+  // it shows: an Insert after the last one, at the playhead it left.
+  const pv = state.preview;
+  if (!pv || (pv.from >= v.from && pv.from <= v.to)) return v;
+  const w = v.to - v.from;
+  const from = Math.max(0, pv.from - Math.round(w / 4));
+  return { ...v, from, to: from + w };
 }
 
 // followPlayhead pages the view after a playhead that has run out of it --
@@ -932,7 +940,11 @@ function markPlaying() {
 
 // The rows' Drop keys need a tape to drop on.
 function renderCrateDrops() {
-  for (const b of document.querySelectorAll('#crate-list .crate-drop, #crate-list .crate-insert')) b.disabled = !state.tape;
+  const t = state.tape;
+  for (const b of document.querySelectorAll('#crate-list .crate-drop')) b.disabled = !t;
+  // As #insert: an empty tape with no tempo has nothing to push along.
+  const pushes = !!t && (!!t.grid || t.tracks.some((x) => x.clips.length));
+  for (const b of document.querySelectorAll('#crate-list .crate-insert')) b.disabled = !pushes;
 }
 
 // drawCrateWave draws a kept clip's bars, small, from its file's peaks.
@@ -1079,8 +1091,8 @@ const playhead = () => (state.live ? (state.live.heardEngine ?? state.live.heard
 // boardOf is the clipboard, or a kept clip, as Insert lays it.
 const boardOf = (k) => (k ? { frames: k.frames, tracks: [[{ ...k, at: 0, layer: 0 }]] } : state.clipboard);
 
-// previewOf works out what a key would do, now.
-function previewOf(kind, k) {
+// previewOf works out what a key would do at frame at (the playhead).
+function previewOf(kind, k, at = playhead()) {
   const t = state.tape;
   if (!t) return null;
   if (kind === 'delete') {
@@ -1090,9 +1102,22 @@ function previewOf(kind, k) {
   }
   const b = boardOf(k);
   if (!b || !(b.frames > 0)) return null;
-  const at = playhead();
   if (kind === 'drop') return { kind, from: at, to: at + b.frames, track: state.track, tracks: b.tracks.length, label: spanWords(b.frames, t.grid, t.sample_rate) };
-  return { kind, tape: insertPreview(t, at, b, state.track), from: at, to: at + b.frames, label: `+${spanWords(b.frames, t.grid, t.sample_rate)}`, crate: k && k.id };
+  // Only what will happen: an Insert the Pi would refuse isn't shown (or
+  // asked about), so its tap gets the Pi's reason at once.
+  if (insertRefusal(t, at, b, state.track)) return null;
+  return { kind, k, tape: insertPreview(t, at, b, state.track), from: at, to: at + b.frames, label: `+${spanWords(b.frames, t.grid, t.sample_rate)}`, crate: k && k.id };
+}
+
+// refreshPreview works a shown preview out again from the tape and the
+// playhead as this poll has them: another device's edit, an undo, a Drop
+// that moved the playhead on, or the tape playing. An armed one keeps its
+// point, so the second tap inserts where the first showed.
+function refreshPreview() {
+  const pv = state.preview;
+  if (!pv) return;
+  const next = previewOf(pv.kind, pv.k, pv.armed ? pv.from : playhead());
+  showPreview(next ? { ...next, armed: pv.armed } : null);
 }
 
 function showPreview(pv) {
@@ -1129,21 +1154,26 @@ function confirmFirst(e, b, kind, k = null) {
 }
 
 async function insertHere(k = null) {
+  // Where the preview showed it, so the edit is the one seen; without one,
+  // the Pi's playhead.
+  const pv = state.preview;
+  const shown = pv && pv.kind === 'insert' && (pv.crate || null) === (k ? k.id : null);
   showPreview(null);
-  const e = await edit('insert', k ? { crate: k.id } : {});
+  const e = await edit('insert', { ...(k ? { crate: k.id } : {}), ...(shown ? { pos: pv.from } : {}) });
   if (!e) return;
   const t = state.tape;
-  const where = t.grid ? `bar ${barNumber(e.at, t.grid)}` : fmtSecs(e.at, t.sample_rate);
+  const at = e.at ?? 0;
+  const where = t.grid ? `bar ${barNumber(at, t.grid)}` : fmtSecs(at, t.sample_rate);
   toast(`Inserted ${spanWords(e.frames, t.grid, t.sample_rate)} at ${where} · every track after it moved later`, 'ok', { action: undoAction });
 }
 
 async function deleteTime() {
   showPreview(null);
-  const t = state.tape;
-  const l = t.loop;
   const e = await edit('delete-time');
   if (!e) return;
-  const what = t.grid ? sectionBars({ at: l.in, end: l.out }, t.grid, t.sample_rate) : spanWords(l.out - l.in, t.grid, t.sample_rate);
+  const t = state.tape;
+  const at = e.at ?? 0;
+  const what = t.grid ? sectionBars({ at, end: at + e.frames }, t.grid, t.sample_rate) : spanWords(e.frames, t.grid, t.sample_rate);
   toast(`Deleted ${what} · everything after moved up`, 'ok', { action: undoAction });
 }
 
@@ -1153,11 +1183,15 @@ function wireTimeEdits() {
   wirePreview($('ed-delete'), 'delete');
   $('insert').addEventListener('click', (e) => { if (!confirmFirst(e, $('insert'), 'insert')) insertHere(); });
   $('ed-delete').addEventListener('click', (e) => { if (!confirmFirst(e, $('ed-delete'), 'delete')) deleteTime(); });
-  // A tap anywhere else, or Escape, lets an armed preview go.
+  // A tap anywhere else lets an armed preview go (Escape too: see the keys).
+  // The lanes are drawn again at once, so the press that let it go hits the
+  // clips as they are, not as the preview drew them.
   document.addEventListener('pointerdown', (e) => {
-    if (state.preview && state.preview.armed && !e.target.closest?.('.confirming')) showPreview(null);
+    if (state.preview && state.preview.armed && !e.target.closest?.('.confirming')) {
+      showPreview(null);
+      drawLanes();
+    }
   }, true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.preview) showPreview(null); });
   $('ask-first').addEventListener('click', () => {
     writePref('tape.ask', askFirst() ? 'off' : 'on');
     renderAskFirst();
@@ -1844,7 +1878,8 @@ function drawRuler() {
   const pv = state.preview;
   if (pv) {
     const c = pv.kind === 'delete' ? token('--rec', '#dc322f') : warn;
-    span(pv.from, pv.to, withAlpha(c, 0.3));
+    if (pv.kind === 'delete') { ctx.fillStyle = c; ctx.fillRect(Math.round(xOf(pv.from, view, W)) - 1, 0, 2, H); } // the seam
+    else span(pv.from, pv.to, withAlpha(c, 0.3));
     ctx.font = `600 11px ${token('--mono', 'ui-monospace, monospace')}`;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = ink;
@@ -2726,14 +2761,24 @@ function drawGhost(ctx, x0, bw, top, h, tc) {
 }
 
 // drawPreview marks on one lane what a previewed edit does: the gap an
-// Insert opens (every track), the span Delete time closes over (every
-// track), or what Drop covers (the clipboard's tracks).
+// Insert opens (every track), the seam where Delete time closes the gap
+// (every track), or what Drop covers (the clipboard's tracks).
 function drawPreview(ctx, pv, n, view, W, H, col) {
   if (pv.kind === 'drop' && !(n >= pv.track && n < pv.track + pv.tracks)) return;
   const x0 = xOf(pv.from, view, W), x1 = xOf(pv.to, view, W);
-  const c = pv.kind === 'delete' ? col('--rec', '#dc322f') : col('--warn', '#b58900');
-  if (pv.kind !== 'drop') {
-    ctx.fillStyle = withAlpha(c, pv.kind === 'delete' ? 0.14 : 0.1);
+  if (pv.kind === 'delete') {
+    // The lanes are drawn as they'll be: what followed the selection now
+    // meets what came before it, at a red seam.
+    const c = col('--rec', '#dc322f');
+    ctx.fillStyle = withAlpha(c, 0.16);
+    ctx.fillRect(x0 - 4, 0, 8, H);
+    ctx.fillStyle = c;
+    ctx.fillRect(Math.round(x0) - 1, 0, 2, H);
+    return;
+  }
+  const c = col('--warn', '#b58900');
+  if (pv.kind === 'insert') {
+    ctx.fillStyle = withAlpha(c, 0.1);
     ctx.fillRect(x0, 0, Math.max(1, x1 - x0), H);
   }
   ctx.setLineDash([5, 4]);
@@ -3367,6 +3412,12 @@ function wire() {
         return;
       }
       if (e.key === 'Escape' && !menuWasOpen) { e.preventDefault(); closeAlign(); return; }
+    }
+    // Escape lets a previewed Insert, Delete time or Drop go, first.
+    if (e.key === 'Escape' && !menuWasOpen && state.preview) {
+      e.preventDefault();
+      showPreview(null);
+      return;
     }
     // Escape closes an open drawer, once nothing nearer was open.
     if (e.key === 'Escape' && !menuWasOpen && state.drawer) {

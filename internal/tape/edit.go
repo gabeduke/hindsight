@@ -22,7 +22,7 @@ type EditRequest struct {
 	Track int    `json:"track"` // the selected track
 	All   bool   `json:"all"`   // lift and copy: all four tracks, kept apart
 	Clip  string `json:"clip"`  // join, slide, reverse, trim, repeat: the clip
-	Pos   *int64 `json:"pos"`   // split: where (default: the playhead)
+	Pos   *int64 `json:"pos"`   // split, insert: where (default: the playhead)
 	At    *int64 `json:"at"`    // slide: where its start goes; trim: where the edge goes
 	Edge  string `json:"edge"`  // trim: "in" (its start) or "out" (its end)
 	// To is the track a slide moves the clip onto (0: its own). Not Track,
@@ -55,7 +55,7 @@ type EditResult struct {
 	Clip    *Clip      `json:"clip,omitempty"`    // trim: the clip as it is now
 	Section *Section   `json:"section,omitempty"` // a section edit: the section as it is now
 	IDs     []string   `json:"ids,omitempty"`     // duplicate: the copies' ids
-	At      int64      `json:"at,omitempty"`      // insert, delete time, duplicate section: where
+	At      int64      `json:"at"`                // insert, delete time, duplicate section: where (0 is a place)
 }
 
 // EditOp carries out an edit on the loaded tape.

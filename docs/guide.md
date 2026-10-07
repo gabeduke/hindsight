@@ -1017,10 +1017,13 @@ beside **⇥ Insert**, **✂ Lift** beside **⇤ Delete time**.
   Tab to it) and the lanes show what it will do: Drop outlines what it will
   cover; Insert draws everything after the playhead moved on, the gap shaded
   and the clipboard dashed in it, and the ruler says *+4 bars*; Delete time
-  shades the selection, draws what follows moved up into it, and says
-  *−4 bars*. On a touch screen, which has no pointing, the first tap on
-  Insert or Delete time shows it and asks for a second; turn **Ask before
-  Insert and Delete time** off (in the Edit drawer) to skip that.
+  draws what follows moved up to meet what came before, at a red seam where
+  the selection began, and says *−4 bars*. The preview follows the playhead
+  while the tape plays, and shows only what the Pi will do: an Insert that
+  won't fit shows nothing, and its tap says why. On a touch screen the first
+  tap on Insert or Delete time shows it and asks for a second, and the
+  second does it where the first showed; turn **Ask before Insert and
+  Delete time** off (in the Edit drawer) to skip that.
 - After each, a toast says what happened (*Inserted 4 bars at bar 9*,
   *Deleted bars 9–12*) with Undo: each is one undo step.
 
