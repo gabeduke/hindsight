@@ -204,7 +204,8 @@ Every take, from **All takes** on the main page.
   left pack to the right.
 - [demo] Open a take from a filtered list and press ▸ → the next take is the
   next one the list showed.
-- [demo] Delete a take on its page → back here, with an Undo.
+- [demo] Delete the only take a filter shows, on its page → back here, with
+  an Undo.
 - [demo] **Edit tags** → add "Ideas" with a color, Save. Pick a take and press
   *Ideas* → its spine and cassette turn that color; press it again → the
   take goes back to the color its name gave it.

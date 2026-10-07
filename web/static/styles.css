@@ -1358,6 +1358,7 @@ dialog.sheet::backdrop { background: var(--scrim); }
   /* ‹ alone, and the keys closer, so ◂ ▸ 🗑 ↶ ⋯ ? keep one row; its label
      still says where it goes. */
   .take-top .back-text { display: none; }
+  .take-top .back { min-width: 32px; justify-content: center; }
   .take-top .appbar-page { column-gap: 4px; }
 }
 /* Phones: the buttons keep the top row and the name gets a row of its own,

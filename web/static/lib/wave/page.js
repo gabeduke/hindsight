@@ -71,8 +71,19 @@ const stampOf = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 // Back from any take in a run of ◂/▸ (or of deletes) still goes straight to
 // the list (see the back button in main).
 function hopTo(name) {
-  try { sessionStorage.setItem('hindsight.hop', '1'); } catch {}
-  location.replace(`/wave.html?file=${encodeURIComponent(name)}`);
+  offNotes(() => {
+    try { sessionStorage.setItem('hindsight.hop', '1'); } catch {}
+    location.replace(`/wave.html?file=${encodeURIComponent(name)}`);
+  });
+}
+
+// offNotes runs then once the page is off the phone's notes pane's history
+// entry, if it's on it: a replace there would leave this take's own entry
+// under the next, and Back would land on it.
+function offNotes(then) {
+  if (!(history.state && history.state.notes)) { then(); return; }
+  addEventListener('popstate', () => then(), { once: true });
+  history.back();
 }
 
 // untrash is a trashed take's Undo, on the take after it: back from the
@@ -113,7 +124,8 @@ async function main() {
   const queued = takeNextToast();
   if (queued) toast(queued.msg, queued.kind || 'ok', queued.restore ? { action: { label: 'Undo', run: () => untrash(queued) } } : {});
   const [takeRes, peaksRes] = await Promise.all([
-    fetch(`/api/take?file=${encodeURIComponent(file)}`, { headers: withClient() }),
+    // Not from the cache: Back onto a take deleted since must say it's gone.
+    fetch(`/api/take?file=${encodeURIComponent(file)}`, { headers: withClient(), cache: 'no-store' }),
     fetch(`/api/peaks?file=${encodeURIComponent(file)}`),
   ]);
   if (takeRes.status === 404) return fail('That take is gone.');
@@ -1125,7 +1137,8 @@ async function main() {
   async function neighbours() {
     let order = null;
     try { order = JSON.parse(sessionStorage.getItem('hindsight.order') || 'null'); } catch {}
-    if (!Array.isArray(order) || !order.includes(file)) {
+    orderListed = Array.isArray(order) && order.includes(file);
+    if (!orderListed) {
       try {
         const res = await fetch('/api/jams');
         if (res.ok) order = (await res.json()).map((t) => t.name);
@@ -1143,6 +1156,7 @@ async function main() {
     return order;
   }
   let orderReady = Promise.resolve(null);
+  let orderListed = false; // the order is the list's, not every take's
 
   // Back returns to the list as it was -- the main page or the takes page --
   // with the browser's own Back, which keeps its scroll, where a fresh load
@@ -1213,28 +1227,36 @@ async function main() {
     try {
       await whenSaved();
       const res = await fetch(`/api/delete?file=${encodeURIComponent(file)}`, { method: 'DELETE', headers: withClient() });
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `status ${res.status}`);
     } catch (e) {
       trashing = false;
       $('take-trash').disabled = false;
       toast(`Could not delete: ${e.message}`, 'bad');
       return;
     }
-    pendingTrim = null; // nothing left to save it to
+    // Nothing left to save to: a selection changed while it went is dropped.
+    pendingTrim = null;
+    clearTimeout(regionTimer);
     clock.pause();
     const msg = `Deleted ${take.label || stampOf(file)}`;
-    const step = stepPast(await orderReady, file);
+    // On through the list's own order only: a take it doesn't have (a cut
+    // opened from its toast, say) goes back to the list, as before.
+    const order = await orderReady;
+    const step = orderListed ? stepPast(order, file) : { next: null };
     if (step.next) {
       try { sessionStorage.setItem('hindsight.order', JSON.stringify(step.order)); } catch {}
       toastNext({ msg, restore: file, at: step.at });
       hopTo(step.next);
     } else {
       toastNext({ msg, restore: file });
-      if (fromList && history.length > 1) history.back();
-      else location.href = list || '/takes.html';
+      offNotes(() => {
+        if (fromList && history.length > 1) history.back();
+        else location.href = list || '/takes.html';
+      });
     }
   }
   $('take-trash').addEventListener('click', trashTake);
+  $('take-trash').disabled = false; // off until now: a tap before this did nothing
   $('delete-take').addEventListener('click', trashTake);
 
   // --- Send to tape -------------------------------------------------------------

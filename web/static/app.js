@@ -158,6 +158,10 @@ function buildChannelStrip(channels, saveChannels) {
   chanMeters = new Meters(el.chanGrid, { labels, selected });
 }
 
+// The saves taken back on this page with their toast's Undo, so the status
+// doesn't name one as the last saved.
+const tookBack = new Set();
+
 function applyStatus(s) {
   const first = status === null;
   const shapeChanged =
@@ -238,7 +242,8 @@ function applyStatus(s) {
     ? devs.map((d) => d.clock ? `${d.name} (clock)` : d.name).join(', ')
     : 'none';
 
-  el.lastSaved.textContent = s.last_saved || 'none';
+  // A save taken back with its toast's Undo isn't the last one kept.
+  el.lastSaved.textContent = (s.last_saved && !tookBack.has(s.last_saved) && s.last_saved) || 'none';
 
   el.captureBtn.disabled = !healthy || s.saving;
   // The word changes with the state; what it catches only matters when it can.
@@ -319,11 +324,12 @@ function savedToast(msg, name) {
 async function undoSave(name) {
   try {
     await takes.trash([name]);
+    tookBack.add(name);
   } catch (e) {
     toast(`Could not undo the save: ${e.message}`, 'bad');
     return;
   }
-  toast(`Took back ${name}: it’s in Recently deleted`, 'ok', { action: { label: 'Restore', run: () => takes.restore([name]) } });
+  toast(`Took back ${name}: it’s in Recently deleted`, 'ok', { action: { label: 'Restore', run: () => { tookBack.delete(name); takes.restore([name]); } } });
   pollTakes(true);
   pollStatus();
 }
