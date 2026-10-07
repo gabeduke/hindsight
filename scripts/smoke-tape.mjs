@@ -356,12 +356,12 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.keyboard.press('ControlOrMeta+KeyD');
   await p.waitForTimeout(1000);
   const dup = (await loadedState()).tape.tracks[0].clips.find((x) => x.at === c0.at + c0.frames);
-  check('several clips: ⌘D lays a copy right after it', !!dup);
+  check('several clips: ⌘D lays a copy right after it, and picks the copy', !!dup && (await p.textContent('#multi-count')) === '1 clip');
   await p.keyboard.down('Shift');
-  await p.mouse.click(lane.x + lane.w * 0.9, s.y);
+  await p.mouse.click(s.x, s.y);
   await p.keyboard.up('Shift');
   await p.waitForTimeout(300);
-  check('several clips: Shift-click adds the copy', (await p.textContent('#multi-count')) === '2 clips');
+  check('several clips: Shift-click adds the first again', (await p.textContent('#multi-count')) === '2 clips');
   await p.mouse.move(s.x, s.y);
   await p.mouse.down();
   await p.waitForTimeout(450);

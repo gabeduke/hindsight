@@ -35,7 +35,7 @@ func (s *State) pick(ids []string, take bool) ([]picked, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("%w: no clips picked", ErrBadParameter)
 	}
-	want := make(map[string]bool, len(ids))
+	want := make(map[string]bool, len(ids)) // a clip named twice is one clip
 	for _, id := range ids {
 		want[id] = true
 	}
@@ -90,6 +90,9 @@ func span(ps []picked) (from, to int64) {
 // take any of them off the tracks or either end of the tape is refused
 // whole: the page holds a drag inside the tape before it sends it.
 func (s *State) moveClips(ids []string, dt int64, dtrack int, length int64) (int, error) {
+	if dt == 0 && dtrack == 0 {
+		return 0, fmt.Errorf("%w: that moves nothing", ErrBadParameter)
+	}
 	ps, err := s.pick(ids, true)
 	if err != nil {
 		return 0, err
@@ -116,32 +119,36 @@ func (s *State) moveClips(ids []string, dt int64, dtrack int, length int64) (int
 	return len(ps), nil
 }
 
-// removeClips takes clips off the tape.
-func (s *State) removeClips(ids []string) error {
-	_, err := s.pick(ids, true)
-	return err
+// removeClips takes clips off the tape, and answers how many.
+func (s *State) removeClips(ids []string) (int, error) {
+	ps, err := s.pick(ids, true)
+	return len(ps), err
 }
 
 // duplicateClips lays a copy of the clips right after them -- the earliest
 // copy where the last of them ends -- each on its own track, on the lowest
-// layer free there. It answers how many it made.
-func (s *State) duplicateClips(ids []string, length int64) (int, error) {
+// layer free there. It answers the copies' ids, so the page can pick them
+// and a second duplicate carries the run on.
+func (s *State) duplicateClips(ids []string, length int64) ([]string, error) {
 	ps, err := s.pick(ids, false)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	from, to := span(ps)
 	if to+(to-from) > length {
-		return 0, fmt.Errorf("%w: a copy after them would run past the end of the tape", ErrPastTheEnd)
+		return nil, fmt.Errorf("%w: a copy after them would run past the end of the tape", ErrPastTheEnd)
 	}
+	var made []string
 	for _, p := range ps {
 		c := p.c
 		c.ID, c.At = "", c.At+(to-from)
-		if _, err := s.Place(p.track, c, false); err != nil {
-			return 0, err
+		placed, err := s.Place(p.track, c, false)
+		if err != nil {
+			return nil, err
 		}
+		made = append(made, placed.ID)
 	}
-	return len(ps), nil
+	return made, nil
 }
 
 // copyClips puts clips on the clipboard as they lie: a track of the
@@ -159,7 +166,7 @@ func (e *Engine) copyClips(t *Tape, ids []string) (EditResult, error) {
 	for _, p := range ps {
 		top, bottom = min(top, p.track), max(bottom, p.track)
 	}
-	c := &Clipboard{Frames: to - from, Created: time.Now(),
+	c := &Clipboard{Frames: to - from, Created: time.Now(), Clips: true,
 		From: fmt.Sprintf("%s, %d clip%s", t.Name, len(ps), plural(len(ps)))}
 	for n := top; n <= bottom; n++ {
 		lane := []Clip{}

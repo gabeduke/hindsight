@@ -842,8 +842,10 @@ function endMulti() {
 }
 
 // toggleMulti adds a clip to the picked ones, or takes it off; the first
-// Shift-click starts from the clip picked already, if any.
+// Shift-click starts from the clip picked already, if any. Align stays one
+// clip's.
 function toggleMulti(c) {
+  if (state.align) return;
   if (!state.multi) state.multi = new Set(state.picked && state.picked !== c.id ? [state.picked] : []);
   if (state.multi.has(c.id)) state.multi.delete(c.id);
   else state.multi.add(c.id);
@@ -884,7 +886,11 @@ async function copyClips(ids) {
 
 async function duplicateClips(ids) {
   const e = await edit('duplicate', { clips: ids });
-  if (e) toast(`Copied ${clipsText(e.clips)} after ${ids.length === 1 ? 'itself' : 'themselves'}`, 'ok', { action: undoAction });
+  if (!e) return;
+  // The copies are picked now, so another ⌘D carries the run on.
+  if (state.multi) { state.multi = new Set(e.ids || []); renderMulti(); } else if (e.ids && e.ids.length) state.picked = e.ids[0];
+  drawLanes();
+  toast(`Copied ${clipsText(e.clips)} after ${ids.length === 1 ? 'itself' : 'themselves'}`, 'ok', { action: undoAction });
 }
 
 async function reverseClips(ids) {
@@ -898,9 +904,12 @@ function moveHere() {
   const ps = picks();
   const live = state.live;
   if (!ps.length || !live) return;
-  const first = Math.min(...ps.map((c) => c.at));
-  const m = groupMove(ps, (live.heardEngine ?? live.heard) - first, 0, { tracks: lanes.length, length: state.tape.length });
-  if (!m.dt) { toast('They start at the playhead already', 'warn'); return; }
+  // The first sounds at the playhead: where it's heard, its nudge taken off.
+  const first = ps.reduce((a, b) => (b.at < a.at ? b : a));
+  const want = (live.heardEngine ?? live.heard) - nudgeFrames(first, state.tape.sample_rate) - first.at;
+  const m = groupMove(ps, want, 0, { tracks: lanes.length, length: state.tape.length });
+  if (!m.dt) { toast(want ? 'They can’t go any further that way' : 'They start at the playhead already', 'warn'); return; }
+  if (m.dt !== want) toast('They go as far as the tape does', 'warn');
   moveClips(ps.map((c) => c.id), m.dt, 0);
 }
 
@@ -2651,7 +2660,7 @@ function wire() {
     // ⌘C or Ctrl+C copies the picked clips (or the one picked clip) as they
     // lie, unless there's text selected to copy; ⌘D or Ctrl+D lays a copy
     // of them right after them.
-    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && !typing && !document.querySelector('dialog[open]')) {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && !typing && !e.repeat && !state.align && !document.querySelector('dialog[open]')) {
       const ids = keyed();
       if (e.code === 'KeyC' && ids.length && !String(window.getSelection?.() || '')) { e.preventDefault(); copyClips(ids); return; }
       if (e.code === 'KeyD' && ids.length) { e.preventDefault(); duplicateClips(ids); return; }
@@ -2705,9 +2714,10 @@ function wire() {
       case 'KeyR': press('rec'); break;
       case 'KeyL': press('loop'); break;
       case 'KeyK': press('click'); break;
-      case 'KeyS': press('ed-split'); break;
+      case 'KeyS': if (!state.align) press('ed-split'); break;
       case 'Delete': case 'Backspace': {
-        const ids = keyed();
+        // Not while a clip is aligned: the editor's clip is the picked one.
+        const ids = state.align || e.repeat ? [] : keyed();
         if (ids.length) { e.preventDefault(); removeClips(ids); }
         break;
       }

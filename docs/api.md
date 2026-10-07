@@ -1086,7 +1086,10 @@ added.
 across `pos`; a join with nothing to join; a slide off either end of the tape, or onto a
 track that doesn't exist;
 a multiply that would run past the end; a trim with no `at`, no such `edge`,
-or no room at all; a reverse or trim of a clip that changed meanwhile, or a
+or no room at all; a move, remove, duplicate, reverse or copy of `clips` with
+none, or one that isn't there; a move of nowhere, or one that would take a
+clip off the tracks or either end of the tape; a duplicate or repeat that
+would run past the end; a reverse or trim of a clip that changed meanwhile, or a
 reverse of one whose audio is shorter than it; or an unknown `op`. 409 for a
 tape that isn't the loaded one; 507 when a reverse would need disk the tapes'
 volume doesn't have; 500 when the audio a reversed clip turns back to can't

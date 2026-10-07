@@ -60,12 +60,16 @@ changes.
   its tracks.
 - **`remove {clips}`**.
 - **`duplicate {clips}`** lays a copy of them right after them: the
-  selection's span later, on the same tracks, layered.
+  selection's span later, on the same tracks, layered. It answers the
+  copies' ids (`edit.ids`), and the page picks them, so ⌘D again carries
+  the run on instead of stacking copies on one spot.
 - **`copy {clips}`** builds a clipboard as they lie: one clipboard track for
   each tape track from the highest of them to the lowest (empty in
   between), each clip at its distance from the first. It's the multi-track
   clipboard that Lift and Copy of All already make, so **Drop** lays them out
-  from the selected track.
+  from the selected track. It's marked `clips: true`: a drop of it replaces
+  only what's under each clip, not the whole span on every track, so a clip
+  between them that wasn't picked stays.
 - **`reverse {clips}`** turns each round. The reversed files are all written
   before the one edit. If it fails, the files are removed. (`reverseClip`
   is now `reverseClips` and `reversal`.)
@@ -78,7 +82,9 @@ These work with several picked, or with the one clip picked:
 - **⌘D / Ctrl-D** duplicates them.
 
 **S** splits at the playhead (the Split key). None of them fire while you're
-typing or a sheet is open.
+typing, a sheet is open or a clip is being aligned, nor on a held key's
+repeats. A clip named twice in an edit is one clip, and a move of nowhere is
+refused.
 
 Align stays one clip's. This lifts the tape-align spec's "no multi-clip moves"
 for moving only.
@@ -100,8 +106,8 @@ for moving only.
   end, nothing picked).
 - **Smoke:**
   1. Select more shows the bar;
-  2. ⌘D lays a copy after the clip;
-  3. Shift-click adds it: *2 clips*;
+  2. ⌘D lays a copy after the clip and picks the copy;
+  3. Shift-click on the first adds it again: *2 clips*;
   4. dragging one moves both a lane down;
   5. ↶ puts both back;
   6. Delete removes both and hides the bar;

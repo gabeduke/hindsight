@@ -45,6 +45,7 @@ type EditResult struct {
 	Frames int64      `json:"frames,omitempty"` // how long, for lift, copy, multiply
 	Board  *Clipboard `json:"clipboard,omitempty"`
 	Clip   *Clip      `json:"clip,omitempty"` // trim: the clip as it is now
+	IDs    []string   `json:"ids,omitempty"`  // duplicate: the copies' ids
 }
 
 // EditOp carries out an edit on the loaded tape.
@@ -73,16 +74,21 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		})
 		return EditResult{Op: "move", Clips: n}, err
 	case "remove":
-		err := e.Edit(id, "", func(_ *Tape, s *State) error { return s.removeClips(req.Clips) })
-		return EditResult{Op: "remove", Clips: len(req.Clips)}, err
-	case "duplicate":
 		var n int
-		err := e.Edit(id, "", func(tp *Tape, s *State) error {
+		err := e.Edit(id, "", func(_ *Tape, s *State) error {
 			var err error
-			n, err = s.duplicateClips(req.Clips, tp.Length)
+			n, err = s.removeClips(req.Clips)
 			return err
 		})
-		return EditResult{Op: "duplicate", Clips: n}, err
+		return EditResult{Op: "remove", Clips: n}, err
+	case "duplicate":
+		var made []string
+		err := e.Edit(id, "", func(tp *Tape, s *State) error {
+			var err error
+			made, err = s.duplicateClips(req.Clips, tp.Length)
+			return err
+		})
+		return EditResult{Op: "duplicate", Clips: len(made), IDs: made}, err
 	case "split":
 		var pos int64
 		if req.Pos != nil {
@@ -523,6 +529,7 @@ type turn struct {
 func (e *Engine) reverseClips(t *Tape, ids []string) (EditResult, error) {
 	var turns []turn
 	var made []string // reversed files written for this, to remove if they aren't used
+	seen := map[string]bool{}
 	forget := func() {
 		// Nothing plays them: don't leave them for a clean-up to find.
 		for _, m := range made {
@@ -531,6 +538,10 @@ func (e *Engine) reverseClips(t *Tape, ids []string) (EditResult, error) {
 		}
 	}
 	for _, id := range ids {
+		if seen[id] { // a clip named twice is turned once
+			continue
+		}
+		seen[id] = true
 		_, c, err := t.Clip(id)
 		if err != nil {
 			forget()

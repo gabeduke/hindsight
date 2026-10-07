@@ -716,7 +716,8 @@ From the top:
   ⟲ Loop, **K** the click, **1–4** or **↑ ↓** choose the track, **S**
   splits at the playhead, and **⌘Z / Ctrl-Z** undoes (with **⇧** to redo).
   With a clip picked, or several: **Delete** removes them, **⌘C / Ctrl-C**
-  copies them as they lie, and **⌘D / Ctrl-D** lays a copy right after them.
+  copies them as they lie, and **⌘D / Ctrl-D** lays a copy right after them
+  and picks the copy, so pressing it again carries the run on.
   **Shift** with a click picks several. Holding a key doesn't repeat it, and
   none of them fire while you're typing or a sheet is open.
 - **After a sleep.** Lock a tablet and wake it, and the page asks the Pi
@@ -989,7 +990,7 @@ all at once, each one undo:
 |---|---|
 | **Drag any of them** (hold, then drag) | Moves them all by the same time and the same number of tracks, as far as the tape and its tracks go |
 | **Move here** | Moves them so the first starts at the playhead, keeping their spacing and tracks |
-| **Copy** | Copies them to the clipboard as they lie, on their tracks and as far apart: **Drop** lays them out again from the selected track |
+| **Copy** | Copies them to the clipboard as they lie, on their tracks and as far apart: **Drop** lays them out again from the selected track, replacing only what's under each |
 | **Reverse** | Turns each round |
 | **Remove** | Takes them off the tape |
 | **Done** | Lets go of them. So does Escape |

@@ -48,7 +48,7 @@ func TestMoveClipsTogether(t *testing.T) {
 	if n, c := where(t, e, a.ID); n != 2 || c.At != 48000 {
 		t.Fatalf("a went to track %d at %d", n, c.At)
 	}
-	// b lands on track 3 over the clip there: a layer above it.
+	// b lands on track 3 clear of the clip there (48000–96000): the base.
 	if n, c := where(t, e, b.ID); n != 3 || c.At != 144000 || c.Layer != 0 {
 		t.Fatalf("b went to track %d at %d layer %d", n, c.At, c.Layer)
 	}
@@ -74,6 +74,7 @@ func TestAMoveThatWouldLoseAClipIsRefusedWhole(t *testing.T) {
 		{Op: "move", Clips: ids, DT: -1},                // a before the start
 		{Op: "move", Clips: ids, DT: e.Loaded().Length}, // past the end
 		{Op: "move", Clips: []string{cl[0].ID, "nope"}, DT: 1},
+		{Op: "move", Clips: ids}, // nowhere
 		{Op: "move"},
 	} {
 		if _, err := e.EditOp(tp.ID, req); err == nil {
@@ -118,6 +119,11 @@ func TestRemoveClipsTogether(t *testing.T) {
 	if len(track(e, 1)) != 1 || len(track(e, 3)) != 1 {
 		t.Fatal("one undo should bring both back")
 	}
+	// A clip named twice is one clip.
+	if res, err := e.EditOp(tp.ID, EditRequest{Op: "remove", Clips: []string{cl[1].ID, cl[1].ID}}); err != nil || res.Clips != 1 {
+		t.Fatalf("remove a clip named twice = %+v %v", res, err)
+	}
+	e.Undo(tp.ID, false)
 	if _, err := e.EditOp(tp.ID, EditRequest{Op: "remove", Clips: []string{cl[0].ID, "nope"}}); !errors.Is(err, ErrNoSuchClip) {
 		t.Fatalf("remove with a missing clip = %v", err)
 	}
@@ -130,8 +136,14 @@ func TestDuplicateClipsLaysThemAfterTheLast(t *testing.T) {
 	e, tp, cl := threeClips(t)
 	a, b := cl[0], cl[1] // [0, 96000) on 1, [96000, 192000) on 2
 	res, err := e.EditOp(tp.ID, EditRequest{Op: "duplicate", Clips: []string{a.ID, b.ID}})
-	if err != nil || res.Clips != 2 {
+	if err != nil || res.Clips != 2 || len(res.IDs) != 2 {
 		t.Fatalf("duplicate = %+v %v", res, err)
+	}
+	// The copies' ids, so a second duplicate can carry the run on.
+	for _, id := range res.IDs {
+		if n, c := where(t, e, id); c.At < 192000 || (n != 1 && n != 2) {
+			t.Fatalf("copy %s on track %d at %d", id, n, c.At)
+		}
 	}
 	if c := track(e, 1); len(c) != 2 || c[1].At != 192000 || c[1].File != a.File || c[1].ID == a.ID {
 		t.Fatalf("track 1 = %+v", c)
@@ -192,5 +204,80 @@ func TestReverseClipsTogether(t *testing.T) {
 	}
 	if after := poolCount(t, e); after != before {
 		t.Fatalf("%d pool files before, %d after", before, after)
+	}
+}
+
+func TestDuplicateOverAudioLayersAndPastTheEndIsRefused(t *testing.T) {
+	e, tp, cl := threeClips(t)
+	// The copy of c (track 3, 48000–96000) lands on 96000–144000; put a clip
+	// there first: the copy goes a layer above it.
+	under := Clip{File: cl[0].File, Src: cl[0].Src, Frames: 1000, At: 100000}
+	e.Edit(tp.ID, "", func(_ *Tape, s *State) error { _, err := s.Place(3, under, false); return err })
+	res, err := e.EditOp(tp.ID, EditRequest{Op: "duplicate", Clips: []string{cl[2].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, c := where(t, e, res.IDs[0]); c.At != 96000 || c.Layer != 1 {
+		t.Fatalf("the copy over audio = %+v", c)
+	}
+	// One at the very end can't be copied after itself.
+	at := e.Loaded().Length - cl[2].Frames
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "slide", Clip: cl[2].ID, At: &at}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "duplicate", Clips: []string{cl[2].ID}}); !errors.Is(err, ErrPastTheEnd) {
+		t.Fatalf("a copy past the end = %v", err)
+	}
+}
+
+// Clips copied as they lie drop back where they lay, replacing only what's
+// under each: a clip between them on another track, and the gaps, stay.
+func TestADroppedSelectionLeavesWhatWasntPicked(t *testing.T) {
+	e, sink, tp := newEngine(t)
+	take := takeWAV(t, 400000, func(i int) float64 { return 0.25 })
+	if _, err := e.DropTake(tp.ID, take, 0, 96000, 1, 1, []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	a := track(e, 1)[0]
+	c := Clip{File: a.File, Src: a.Src, Frames: 48000, At: 48000}
+	mid := Clip{File: a.File, Src: a.Src, Frames: 10000, At: 20000}
+	e.Edit(tp.ID, "", func(_ *Tape, s *State) error {
+		var err error
+		if c, err = s.Place(3, c, false); err != nil {
+			return err
+		}
+		mid, err = s.Place(2, mid, false)
+		return err
+	})
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "copy", Clips: []string{a.ID, c.ID}}); err != nil {
+		t.Fatal(err)
+	}
+	e.Start()
+	e.Do(Action{Kind: "locate", Pos: 0})
+	waitFor(t, func() bool { sink.play(t, 512); return e.tr.Status().Pos == 0 })
+	if _, err := e.DropClipboard(tp.ID, 1, false); err != nil {
+		t.Fatal(err)
+	}
+	if cl := track(e, 2); len(cl) != 1 || cl[0].ID != mid.ID {
+		t.Fatalf("track 2 after the drop = %+v: the clip between them went", cl)
+	}
+	if n1, n3 := len(track(e, 1)), len(track(e, 3)); n1 != 1 || n3 != 1 {
+		t.Fatalf("tracks 1 and 3 have %d and %d clips: each copy should replace its original", n1, n3)
+	}
+}
+
+func TestReversingAMixTurnsEachItsOwnWay(t *testing.T) {
+	e, tp, cl := threeClips(t)
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "reverse", Clip: cl[0].ID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "reverse", Clips: []string{cl[0].ID, cl[1].ID, cl[1].ID}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, a := where(t, e, cl[0].ID); a.Reversed != nil || a.File != cl[0].File {
+		t.Fatalf("the reversed one should play forwards again: %+v", a)
+	}
+	if _, b := where(t, e, cl[1].ID); b.Reversed == nil {
+		t.Fatalf("the forwards one should be reversed: %+v", b)
 	}
 }
