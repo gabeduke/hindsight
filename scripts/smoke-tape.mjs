@@ -13,6 +13,47 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures.push(name);
 };
 const browser = await chromium.launch();
+const getJSON = async (path) => (await fetch(`${BASE}${path}`)).json();
+const postJSON = async (path, body = {}) => (await fetch(`${BASE}${path}`, {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+})).json();
+const loadedState = async () => getJSON(`/api/tapes/state?id=${encodeURIComponent((await getJSON('/api/tapes')).loaded)}`);
+
+// The checks want a loaded tape with a tempo and a clip on track 1 at the
+// loop's start. A fresh demo has neither: make a 4-bar tape at 96 BPM and put
+// the first 4 bars of a take there (capturing a take first if none is long
+// enough). This changes the tape it finds, so it runs only against an
+// address it's given.
+if (!process.env.HINDSIGHT_URL) {
+  console.log('Set HINDSIGHT_URL to a demo instance: this script changes the tape it finds.');
+  process.exit(2);
+}
+{
+  const list = await getJSON('/api/tapes');
+  let st = list.loaded ? await loadedState() : null;
+  if (!st || !st.tape.grid) {
+    const t = await postJSON('/api/tapes', { name: 'Smoke', bpm: 96, bars: 4 });
+    await postJSON(`/api/tapes/load?id=${encodeURIComponent(t.id)}`);
+    st = await loadedState();
+  }
+  const l = st.tape.loop;
+  if (!st.tape.tracks[0].clips.some((c) => c.at <= l.in && l.in < c.at + c.frames)) {
+    const bar = st.tape.grid.frames / st.tape.grid.bars;
+    const need = Math.round(4 * bar);
+    const long = async () => {
+      const j = await getJSON('/api/jams');
+      return (j.jams || j.takes || j).find((t) => t.duration_seconds * (t.sample_rate || 48000) >= need);
+    };
+    let take = await long();
+    if (!take) {
+      await fetch(`${BASE}/api/trigger?seconds=30`, { method: 'POST' });
+      take = await long();
+    }
+    if (!take) throw new Error('no take of 4 bars or more to put on the tape: is the demo older than 10 s?');
+    const d = await postJSON(`/api/tapes/drop?id=${encodeURIComponent(st.tape.id)}`, { take: take.name, from: 0, to: need, track: 1, at: l.in });
+    if (!d.clip) throw new Error(`could not put a take on the tape: ${JSON.stringify(d)}`);
+  }
+}
 
 // On a phone, upright or sideways, the bar is a mini player above the tabs:
 // its window, ▶ and Catch. A tap on the window pulls the player up, with
@@ -186,6 +227,69 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     return false;
   });
   check('a lane draws', drawn);
+  await p.context().close();
+}
+
+// A clip's gestures (lib/tape/clipgestures.js): a tap opens its sheet, a
+// quick drag pans the lanes and leaves the clip be, and a hold then a drag
+// slides it a bar, which ↶ takes back.
+{
+  await postJSON(`/api/tapes/transport?id=${encodeURIComponent((await getJSON('/api/tapes')).loaded)}`, { action: 'stop' });
+  const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  // The clip on track 1 at the loop's start, the top one if they're layered;
+  // after a slide, the same clip wherever it went.
+  let followId = null;
+  const first = async () => {
+    const st = await loadedState();
+    const t = st.tape;
+    const bar = t.grid.frames / t.grid.bars;
+    const cl = t.tracks[0].clips;
+    const c = followId ? cl.find((x) => x.id === followId)
+      : cl.filter((x) => x.at <= t.loop.in && t.loop.in < x.at + x.frames).reduce((a, b) => (b.layer > a.layer ? b : a));
+    return { id: c.id, at: c.at, frames: c.frames, bar, loop: t.loop };
+  };
+  // Where the clip's middle is on screen: the lanes show the loop and a bar
+  // either side (geometry.js editView) until something zooms or pans them.
+  const spot = async (c) => {
+    const r = await p.evaluate(() => { const b = document.querySelector('.tt-lane').getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; });
+    const from = Math.max(0, c.loop.in - c.bar), to = c.loop.out + c.bar;
+    const mid = c.at + Math.min(c.frames, c.bar) / 2;
+    return { x: r.x + ((mid - from) / (to - from)) * r.w, y: r.y + r.h / 2, perBar: (c.bar / (to - from)) * r.w };
+  };
+  await p.goto(`${BASE}/tape.html`);
+  await p.waitForTimeout(2000);
+  const c0 = await first();
+  followId = c0.id;
+  let s = await spot(c0);
+  await p.mouse.click(s.x, s.y);
+  await p.waitForTimeout(400);
+  check('a clip: a tap opens its sheet', await p.evaluate(() => document.getElementById('clip-sheet').open));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  await p.mouse.move(s.x, s.y);
+  await p.mouse.down();
+  await p.mouse.move(s.x + s.perBar, s.y, { steps: 4 });
+  await p.mouse.up();
+  await p.waitForTimeout(800);
+  check('a clip: a quick drag pans the lanes and leaves it where it is',
+    (await first()).at === c0.at && await p.isVisible('#view-fit'));
+  await p.reload();
+  await p.waitForTimeout(2000);
+  s = await spot(c0);
+  await p.mouse.move(s.x, s.y);
+  await p.mouse.down();
+  await p.waitForTimeout(450);
+  await p.mouse.move(s.x + s.perBar, s.y, { steps: 8 });
+  await p.mouse.up();
+  await p.waitForTimeout(1000);
+  const slid = await first();
+  check('a clip: hold, then drag a bar, slides it a bar', slid.at === c0.at + Math.round(c0.bar) || Math.abs(slid.at - (c0.at + c0.bar)) <= 1, `${c0.at} → ${slid.at}, a bar is ${c0.bar}`);
+  await p.click('#tape-undo');
+  await p.waitForTimeout(1000);
+  check('a clip: ↶ puts it back', (await first()).at === c0.at);
+  check('a clip: no page errors', errors.length === 0, errors.join('; '));
   await p.context().close();
 }
 
