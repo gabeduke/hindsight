@@ -336,14 +336,22 @@ func TestSlideOntoAnotherTrack(t *testing.T) {
 	if c := findClip(t, e, orig.ID); c.Layer != 1 || len(track(e, 2)) != 2 {
 		t.Fatalf("onto track 2's audio: %+v", c)
 	}
-	// Each move is one undo: back to track 3, then track 3 at 48000.
-	e.Undo(tp.ID, false) // the clip placed under it
-	e.Undo(tp.ID, false)
-	if c := track(e, 3); len(c) != 1 || c[0].At != 0 {
-		t.Fatalf("one undo: track 3 = %+v", c)
+	// Each move is one undo: the slide onto track 2, then the clip placed
+	// there, leave it on track 3 at 0; then the slide to 0 and the slide
+	// onto track 3 put it back.
+	for i := 0; i < 2; i++ {
+		if err := e.Undo(tp.ID, false); err != nil {
+			t.Fatal(err)
+		}
 	}
-	e.Undo(tp.ID, false)
-	e.Undo(tp.ID, false)
+	if c := track(e, 3); len(c) != 1 || c[0].At != 0 {
+		t.Fatalf("two undos: track 3 = %+v", c)
+	}
+	for i := 0; i < 2; i++ {
+		if err := e.Undo(tp.ID, false); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if c := track(e, 1); len(c) != 1 || c[0] != orig {
 		t.Fatalf("back where it began: %+v", c)
 	}

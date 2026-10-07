@@ -29,7 +29,7 @@ import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec
 import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
-import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, targetTrack } from './clipgestures.js';
+import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, SLOP_PX, targetTrack } from './clipgestures.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../bar/reel-window.js';
@@ -792,11 +792,13 @@ async function slide(clip, at, from, to) {
   toast(`Slid to ${to !== from ? `track ${to}, ` : ''}${where}`, 'ok', { action: undoAction });
 }
 
-// lanePitch is the distance from one lane's top to the next's: how far a
-// slide moves to cross a lane.
+// lanePitch is how far a slide moves to cross a lane: the lanes' tops'
+// spacing, averaged over them all, so one row grown a little taller (a wrapped
+// label) doesn't skew it.
 function lanePitch() {
   if (lanes.length < 2) return 0;
-  return lanes[1].canvas.getBoundingClientRect().top - lanes[0].canvas.getBoundingClientRect().top;
+  const top = (l) => l.canvas.getBoundingClientRect().top;
+  return (top(lanes[lanes.length - 1]) - top(lanes[0])) / (lanes.length - 1);
 }
 
 // markTarget lights the lane a slide would land on, when it's another track.
@@ -869,21 +871,25 @@ function wireLane(lane) {
       cv.classList.remove('trimming');
       drawLanes();
       if (fx.commit && tr && tr.at !== tr.edge0) trimClip(tr.clip, tr.edge, tr.at);
-    } else if (fx.type === 'slideStart') {
+    } else if (fx.type === 'slideStart' && !state.slide) {
+      // (A second finger's hold on another lane, while one slide runs, slides nothing.)
       try { cv.setPointerCapture(fx.id); } catch { /* the pointer's gone */ }
       state.slide = { n: lane.n, clip: fx.clip, at: fx.clip.at, to: lane.n };
       cv.classList.add('sliding');
       if (navigator.vibrate) navigator.vibrate(10);
       drawLanes();
-    } else if (fx.type === 'slide' && state.slide) {
+    } else if (fx.type === 'slide' && state.slide && state.slide.n === lane.n) {
       const view = laneView();
-      const df = (fx.dx / cv.getBoundingClientRect().width) * (view.to - view.from);
+      // A drag up or down with the finger wandering a little sideways keeps
+      // its place, with the snap off too.
+      const dx = Math.abs(fx.dx) <= SLOP_PX ? 0 : fx.dx;
+      const df = (dx / cv.getBoundingClientRect().width) * (view.to - view.from);
       state.slide.at = slideTo(state.tape.grid, fx.clip.at, df, state.snap);
       // Up or down a lane once it's half a lane over: onto that track.
       state.slide.to = targetTrack(lane.n, fx.dy, lanePitch(), lanes.length);
       markTarget(state.slide);
       drawLanes();
-    } else if (fx.type === 'slideEnd') {
+    } else if (fx.type === 'slideEnd' && state.slide && state.slide.n === lane.n) {
       const sl = state.slide;
       state.slide = null;
       cv.classList.remove('sliding');
