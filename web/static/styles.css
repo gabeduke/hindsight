@@ -2470,6 +2470,17 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
   box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 0 0 1px rgba(0,0,0,.6), 0 22px 40px -24px rgba(0,0,0,.7);
 }
 .cas-screws { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Where the capture lost audio in the take: a warning sticker by the foot. */
+.cas-drops {
+  position: absolute; left: 9%; bottom: 4%; z-index: 3; padding: 2px 8px; border-radius: 4px;
+  background: var(--warn); color: var(--on-flag); font: 700 11.5px var(--label-font); letter-spacing: .04em;
+  transform: rotate(-3deg); box-shadow: 0 2px 6px rgba(0,0,0,.35); pointer-events: none;
+}
+/* A phone's cassette: the foot is wider for its size, so the sticker sits in
+   the corner beside it. */
+@media (max-width: 599.98px) { .cas-drops { left: 3%; bottom: 3%; font-size: 10.5px; padding: 1px 6px; } }
+/* The take's length keeps its place: the dropouts shrink first. */
+.take-sub-drops { color: var(--warn-ink); font-weight: 600; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cas-screws circle { fill: var(--cas-screw); stroke: var(--cas-slot); }
 .cas-screws path { stroke: var(--cas-slot); stroke-width: 1.4; }
 .cas-label {

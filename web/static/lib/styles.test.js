@@ -57,7 +57,9 @@ test('both schemes define the depth tokens', () => {
 const PAIRS = [
   ['--ink', '--bg'], ['--ink-dim', '--bg'], ['--ink-faint', '--bg'], ['--ink', '--panel'], ['--ink-dim', '--panel'],
   ['--ink', '--field'], ['--on-accent', '--accent'], ['--on-accent', '--accent-lo'], ['--lcd-ink', '--lcd'],
-  ['--well-ink', '--well'], ['--well-dim', '--well'], ['--danger-ink', '--bg'], ['--link', '--bg']
+  ['--well-ink', '--well'], ['--well-dim', '--well'], ['--danger-ink', '--bg'], ['--link', '--bg'],
+  // A take's dropouts: the header's line, and the cassette's sticker.
+  ['--warn-ink', '--bg'], ['--on-flag', '--warn'],
 ];
 for (const [scheme, t] of [['light', light], ['dark', dark]]) {
   test(`${scheme}: text is readable on what it sits on`, () => {

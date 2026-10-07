@@ -270,6 +270,15 @@ export function listFrom(referrer, origin) {
   }
 }
 
+/**
+ * dropoutsText says a take lost audio where it was recorded -- "⚠ 2
+ * dropouts" -- or '' when it didn't (step C4).
+ */
+export function dropoutsText(take) {
+  const n = (take.dropouts || []).length;
+  return n ? `⚠\u00a0${n} dropout${n === 1 ? '' : 's'}` : ''; // the ⚠ stays with its count
+}
+
 /** flagChips is a take's flags in time order: each one's label, m:ss into the take, and frame. */
 export function flagChips(take) {
   const sr = take.sample_rate || 48000;

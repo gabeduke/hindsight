@@ -367,6 +367,7 @@ its cue chunk.
   "tag": "t3f9a01",
   "bpm": 96,
   "flags": [{ "id": "f100", "frame": 100 }, { "id": "r9c41e0a2", "frame": 900, "label": "drop" }],
+  "dropouts": [211905],
   "downbeat_frame": null,
   "lane_kinds": { "bento ch1": "notes" },
   "source": { "name": "jam_src.wav", "start_frame": 1000, "end_frame": 9000 }
@@ -375,6 +376,13 @@ its cue chunk.
 
 `source` is present only on a take that was cut from another (see
 `POST /api/cut` below); it is absent for a take saved from the ring.
+
+`dropouts` are where the capture lost audio inside the take, in frames from its
+first frame, each the first frame after the gap: the interface overran (an
+input overflow it reported), or the ring's writer fell behind and a block was
+dropped. The save writes them and nothing changes them; they aren't flags, so
+the flags endpoints neither list nor edit them, and they don't count against
+the 512. A cut keeps the ones inside it. Absent when there were none.
 
 `origin` is `"phone"` on a phone recording and `"tape"` on a tape mixdown, and
 absent on a take saved from the ring. A mixdown also has `tape_id`, the id of

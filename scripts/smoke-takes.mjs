@@ -606,6 +606,42 @@ const settle = (p, ms = 1200) => p.waitForTimeout(ms);
   await ctx.close();
 }
 
+// Dropouts: the demo reports an overflow on SIGUSR1, as an interface does
+// when the Pi falls behind it; a capture over it says ⚠ 1 dropout on its
+// page, in its flags list, and on its cassette. Needs the demo's pid:
+// HINDSIGHT_PID=… (skipped without it).
+// Only a demo listens for SIGUSR1: to any other server it's a kill.
+const isDemo = process.env.HINDSIGHT_PID
+  && /demo/i.test((await (await fetch(`${BASE}/api/status`)).json()).device || '');
+if (process.env.HINDSIGHT_PID && !isDemo) console.log('skip dropouts: HINDSIGHT_PID is not a --demo server');
+if (isDemo) {
+  process.kill(Number(process.env.HINDSIGHT_PID), 'SIGUSR1');
+  await new Promise((r) => setTimeout(r, 3000));
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(BASE);
+  const name = await p.evaluate(() => fetch('/api/trigger?seconds=10', { method: 'POST' }).then((r) => r.json()).then((b) => b.name));
+  await p.waitForTimeout(3000);
+  const tk = await p.evaluate((n) => fetch(`/api/take?file=${encodeURIComponent(n)}`).then((r) => r.json()), name);
+  check('dropouts: a capture over an overflow has one', (tk.dropouts || []).length === 1, JSON.stringify(tk.dropouts));
+  await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(name)}`);
+  await settle(p, 1500);
+  check('dropouts: the take page says ⚠ 1 dropout', (await p.textContent('#take-drops')) === '⚠\u00a01 dropout' && await p.isVisible('#take-drops'));
+  await p.click('#flags-list');
+  await settle(p, 300);
+  const rows = await p.locator('#flags-items .flags-item.dropout').count();
+  check('dropouts: ⚑ N lists it, and doesn’t count it', rows === 1 && (await p.textContent('#flags-count')) === '0');
+  await p.keyboard.press('Escape');
+  await p.goto(`${BASE}/takes.html`);
+  await settle(p, 1800);
+  await p.locator(`.take[data-name="${name}"]`).click();
+  await settle(p, 1500);
+  check('dropouts: the cassette wears the sticker', (await p.locator('#take-detail .cas-drops').textContent()) === '⚠\u00a01 dropout' && await p.locator('#take-detail .cas-drops').isVisible());
+  await ctx.close();
+} else {
+  console.log('skip dropouts: set HINDSIGHT_PID to the demo\'s pid');
+}
+
 await browser.close();
 if (failures.length) {
   console.log(`\n${failures.length} failed`);

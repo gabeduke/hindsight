@@ -232,6 +232,14 @@ type Meta struct {
 	// Optional and additive, like BPM, so it needs no MetaVersion bump.
 	Flags []Flag `json:"flags,omitempty"`
 
+	// Dropouts are where the capture lost audio inside the take (the
+	// interface overran, or the ring's writer fell behind), in frames from
+	// the take's first frame, each the first frame after the gap. The save
+	// writes them and nothing edits them: they're kept apart from Flags,
+	// which an edit replaces wholesale, and aren't counted against
+	// MaxTakeFlags. Optional and additive, like Flags.
+	Dropouts []int64 `json:"dropouts,omitempty"`
+
 	// Created is when the take was saved or cut. The takes list
 	// sorts and prunes by it. It used to be the WAV's modification time, but
 	// editing a flag rewrites the WAV's cue chunk, which moved an old take to

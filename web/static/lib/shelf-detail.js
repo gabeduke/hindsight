@@ -10,7 +10,7 @@
 // a ‹ key back to the spine.
 
 import { CassetteFace } from '/lib/cassette.js';
-import { flagChips, parseBpm, tagOf, tapeName } from '/lib/shelf.js';
+import { flagChips, parseBpm, tagOf, tapeName, dropoutsText } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 
@@ -182,7 +182,7 @@ export class TakeDetail {
     const bpm = this.el('.detail-bpm');
     bpm.textContent = t.bpm == null ? '+ bpm' : `${t.bpm.toFixed(1)} bpm`;
     bpm.classList.toggle('unset', t.bpm == null);
-    this.el('.detail-meta-rest').textContent = ' · ' + [len, `${(t.size_mb || 0).toFixed(1)} MB`, t.has_midi ? 'MIDI' : null].filter(Boolean).join(' · ');
+    this.el('.detail-meta-rest').textContent = ' · ' + [len, `${(t.size_mb || 0).toFixed(1)} MB`, t.has_midi ? 'MIDI' : null, dropoutsText(t) || null].filter(Boolean).join(' · ');
     this.renderTags();
     this.el('.detail-sel').textContent = t.trim ? `selection ${fmtTime(t.trim.start_frame / sr)} – ${fmtTime(t.trim.end_frame / sr)}` : '';
     this.el('.detail-open').href = `/wave.html?file=${encodeURIComponent(t.name)}`;
