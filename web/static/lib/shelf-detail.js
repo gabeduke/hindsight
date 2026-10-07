@@ -76,7 +76,8 @@ export class TakeDetail {
       </section>
       <section class="detail-family detail-mixes" data-tip="detail-mixes" aria-label="Earlier mixes" hidden>
         <h3 class="detail-family-h">Earlier mixes</h3><ol class="detail-family-list"></ol>
-      </section>`;
+      </section>
+      <a class="detail-crate" href="/tape.html" data-tip="detail-crate" hidden></a>`;
     this.el = (sel) => root.querySelector(sel);
     this.el('.sheet-back').addEventListener('click', () => onBack?.());
     // A family's line, a cut's original, or ‹ picks that take. The button
@@ -238,8 +239,9 @@ export class TakeDetail {
     const spine = family?.spine || t;
     const cuts = family?.cuts || [], mixes = family?.mixes || [];
     const src = t.source ? this.takes.all.find((x) => x.name === t.source.name) : null;
+    const kept = this.crate?.get(t.name) || 0;
     const sig = JSON.stringify([t.name, t.source?.name, !!src, src?.label, this.isShown(t.source?.name || ''), spine.name, spine.label,
-      [...cuts, ...mixes].map((m) => [m.name, m.label, m.duration_seconds])]);
+      [...cuts, ...mixes].map((m) => [m.name, m.label, m.duration_seconds]), kept]);
     if (sig === this.familySig) return; // a poll must not rebuild what's under a finger
     this.familySig = sig;
 
@@ -310,6 +312,11 @@ export class TakeDetail {
       const span = s ? `${fmtTime(s.start_frame / sr(c))}–${fmtTime(s.end_frame / sr(c))}` : '';
       return line(c, '✂', c.label || stamp(c), span);
     }));
+    // The clips kept from it on the crate: a link to them on the tape page.
+    const crate = this.el('.detail-crate');
+    crate.hidden = !kept;
+    crate.textContent = `◫ ${kept} clip${kept === 1 ? '' : 's'} kept`;
+    crate.href = `/tape.html?crate=${encodeURIComponent(t.name)}`;
     const mixBox = this.el('.detail-mixes');
     mixBox.hidden = !onSpine || !mixes.length;
     mixBox.querySelector('.detail-family-list').replaceChildren(...(onSpine ? mixes : []).map((m, i) => {
@@ -318,6 +325,13 @@ export class TakeDetail {
       const own = m.label && m.label !== tape;
       return line(m, '◎', own ? `mix ${k} · ${m.label}` : `mix ${k}`, clockOf(m.created));
     }));
+  }
+
+  /** setCrate takes how many clips have been kept from each take (a Map of
+   *  take name → count), for the pane's ◫ line. */
+  setCrate(counts) {
+    this.crate = counts;
+    this.familySig = null;
   }
 
   /** renderTags draws the tag chips: one per tag, the take's lit; a press

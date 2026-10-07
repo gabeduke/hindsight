@@ -382,6 +382,36 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('several clips: ↶ ↶ → the clip alone, as it was', (await loadedState()).tape.tracks[0].clips.length === n0);
+  // The crate: Keep the clip from its sheet, open Crate ▴, Drop it on track
+  // 3; ↶. And a take's span kept, shown on its own with ?crate=.
+  const crateBefore = (await getJSON('/api/crate')).clips.length;
+  await p.mouse.click(s.x, s.y);
+  await p.waitForTimeout(400);
+  await p.click('#clip-keep');
+  await p.waitForTimeout(800);
+  const kept = (await getJSON('/api/crate')).clips;
+  check('the crate: Keep puts the clip on it, by reference', kept.length === crateBefore + 1 && kept[0].source.kind === 'tape', JSON.stringify(kept[0]));
+  await p.keyboard.press('3');
+  await p.click('#np-drawer-crate');
+  await p.waitForTimeout(800);
+  check('the crate: Crate ▴ lists it', (await p.locator('#crate-list .crate-row').count()) === kept.length);
+  await p.locator('#crate-list .crate-drop').first().click();
+  await p.waitForTimeout(1000);
+  const t3 = (await loadedState()).tape.tracks[2].clips;
+  check('the crate: Drop puts it on the selected track', t3.length === 1 && t3[0].file === kept[0].file, JSON.stringify(t3));
+  await p.click('#tape-undo');
+  await p.waitForTimeout(800);
+  check('the crate: ↶ takes the drop back', (await loadedState()).tape.tracks[2].clips.length === 0);
+  const jams = await getJSON('/api/jams');
+  const take = (jams.jams || jams.takes || jams)[0];
+  if (take) {
+    const k = await postJSON('/api/crate', { take: take.name, from: 0, to: 48000 });
+    await p.goto(`${BASE}/tape.html?crate=${encodeURIComponent(take.name)}`);
+    await p.waitForTimeout(1500);
+    const rows = await p.locator('#crate-list .crate-name').allTextContents();
+    check('the crate: ?crate= opens it on that take’s clips', await p.isVisible('#crate-from') && rows.some((r) => r.includes(k.clip.name)) && rows.length === (await getJSON(`/api/crate?take=${encodeURIComponent(take.name)}`)).clips.length, JSON.stringify(rows));
+    await p.click('#np-drawer-crate');
+  }
   check('a clip: no page errors', errors.length === 0, errors.join('; '));
   await p.context().close();
 }

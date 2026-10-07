@@ -149,8 +149,25 @@ func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipb
 // that has left the ring moves to the oldest audio, a second in, as a save
 // from the ribbon does; it answers whether it moved.
 func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, error) {
+	cl, src, clamped, err := e.ringClip(from, to, source, "copy")
+	if err != nil {
+		return nil, false, err
+	}
+	c := &Clipboard{
+		Tracks:  [][]Clip{{cl}},
+		Frames:  cl.Frames,
+		From:    "the ribbon (" + src + ")",
+		Created: time.Now(),
+	}
+	return c, clamped, e.store.SaveClipboard(c)
+}
+
+// ringClip writes ring frames [from, to) of a source into a new pool file
+// named kind, with handles, as CopyRing describes, and answers the clip that
+// plays it, the source's name, and whether the start moved.
+func (e *Engine) ringClip(from, to int64, source, kind string) (Clip, string, bool, error) {
 	if e.capture == nil {
-		return nil, false, ErrNoCapture
+		return Clip{}, "", false, ErrNoCapture
 	}
 	if source == "" {
 		source = "main"
@@ -160,7 +177,7 @@ func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, erro
 	}
 	src, ok := e.source(source)
 	if !ok {
-		return nil, false, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
+		return Clip{}, "", false, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
 	}
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
@@ -174,35 +191,29 @@ func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, erro
 		from, clamped = margin, true
 	}
 	if to <= from {
-		return nil, false, fmt.Errorf("%w: that span has left the buffer", ErrGone)
+		return Clip{}, "", false, fmt.Errorf("%w: that span has left the buffer", ErrGone)
 	}
 	if to > int64(total) {
-		return nil, false, ErrNotYet
+		return Clip{}, "", false, ErrNotYet
 	}
 	if err := e.tooLong(to - from); err != nil {
-		return nil, false, err
+		return Clip{}, "", false, err
 	}
 	if err := e.diskOK(); err != nil {
-		return nil, false, err
+		return Clip{}, "", false, err
 	}
 	lo, hi := max64(int64(oldest), from-over), min64(int64(total), to+over)
 	mLo, mHi := lo, hi // the clip and its overhang: what the peak is of
 	lo, hi = ringHandles(r, sr, lo, hi, e.handle(sr)-over)
-	rel, path, err := e.store.NewPoolFile("copy", time.Now())
+	rel, path, err := e.store.NewPoolFile(kind, time.Now())
 	if err != nil {
-		return nil, false, err
+		return Clip{}, "", false, err
 	}
 	peak, err := audio.WriteSpanMeasured(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr), mLo-lo, mHi-lo)
 	if err != nil {
-		return nil, false, err
+		return Clip{}, "", false, err
 	}
-	c := &Clipboard{
-		Tracks:  [][]Clip{{{File: rel, Src: from - lo, Frames: to - from, Source: src.Name, PeakDB: peakDB(peak)}}},
-		Frames:  to - from,
-		From:    "the ribbon (" + src.Name + ")",
-		Created: time.Now(),
-	}
-	return c, clamped, e.store.SaveClipboard(c)
+	return Clip{File: rel, Src: from - lo, Frames: to - from, Source: src.Name, PeakDB: peakDB(peak)}, src.Name, clamped, nil
 }
 
 func (e *Engine) diskOK() error {
@@ -236,6 +247,12 @@ func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error
 	if c.Empty() {
 		return Dropped{}, ErrEmptyClipboard
 	}
+	return e.dropBoard(c, id, track, merge)
+}
+
+// dropBoard drops c as DropClipboard drops the clipboard: the crate's drop
+// is a one-clip board.
+func (e *Engine) dropBoard(c *Clipboard, id string, track int, merge bool) (Dropped, error) {
 	t := e.Loaded()
 	if t == nil {
 		return Dropped{}, ErrNoTape
@@ -261,7 +278,7 @@ func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error
 	sr := e.store.SampleRate()
 	near := e.lastBPM(id) // before the edit: it reads every tape
 	var out Dropped
-	err = e.Edit(id, "", func(tp *Tape, s *State) error {
+	err := e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() && s.Grid == nil && c.Frames > firstLoopMaxSeconds*int64(sr) {
 			// Too long to be a loop: laid down as it is, loop off. With the
 			// take's tempo the tape has it; without, it has none.

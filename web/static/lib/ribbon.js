@@ -191,13 +191,34 @@ export class Ribbon {
     bar.querySelector('.rb-sel-clear').addEventListener('click', () => this.setSel(null));
     bar.querySelector('.rb-sel-save').addEventListener('click', () => this.saveSel());
     bar.querySelector('.rb-sel-copy')?.addEventListener('click', () => this.copySel());
+    bar.querySelector('.rb-sel-keep')?.addEventListener('click', () => this.keepSel());
   }
 
-  // offerCopy shows Copy on the selection bar: the tape is on, so there's
-  // somewhere to drop it.
+  // offerCopy shows Copy and Keep as clip on the selection bar: the tape is
+  // on, so there's somewhere to drop it, and a crate to keep it in.
   offerCopy(on) {
-    const b = this.selBar?.querySelector('.rb-sel-copy');
-    if (b) b.hidden = !on;
+    for (const cls of ['.rb-sel-copy', '.rb-sel-keep']) {
+      const b = this.selBar?.querySelector(cls);
+      if (b) b.hidden = !on;
+    }
+  }
+
+  // keepSel keeps the span on the crate, its audio copied into the tape's
+  // pool: no take is made.
+  async keepSel() {
+    const sel = this.sel;
+    if (!sel) return;
+    const body = { ring_from: sel.from }; // MAIN, what the ribbon draws
+    if (sel.to != null) body.ring_to = sel.to;
+    try {
+      const res = await fetch('/api/crate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
+      const note = b.clamped ? ' (its start had already left the buffer)' : '';
+      this.onToast?.(`Kept it in the crate${note}: drop it from there on the tape`, 'ok');
+    } catch (e) {
+      this.onToast?.(`Could not keep it: ${e.message}`, 'bad');
+    }
   }
 
   async copySel() {
@@ -266,8 +287,10 @@ export class Ribbon {
       : `${fmtAge(len)} · ${when}${gone ? ' · starts before the oldest audio' : ''}`;
     bar.classList.toggle('gone', gone);
     bar.querySelector('.rb-sel-save').disabled = allGone;
-    const copy = bar.querySelector('.rb-sel-copy');
-    if (copy) copy.disabled = allGone;
+    for (const cls of ['.rb-sel-copy', '.rb-sel-keep']) {
+      const b = bar.querySelector(cls);
+      if (b) b.disabled = allGone;
+    }
   }
 
   // --- a flag's sheet ---------------------------------------------------------

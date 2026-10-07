@@ -42,6 +42,11 @@ func (e *Engine) ShareClip(id, clipID string) (*ClipWAV, error) {
 	if err != nil {
 		return nil, err
 	}
+	return e.clipWAV(*c, fmt.Sprintf("%s track %d", t.Name, tr.N), c.GainDB)
+}
+
+// clipWAV prepares a clip's audio, at gainDB, as a WAV named for name.
+func (e *Engine) clipWAV(c Clip, name string, gainDB float64) (*ClipWAV, error) {
 	path := e.store.AudioPath(c.File)
 	info, err := audio.ReadWAVInfo(path)
 	if err != nil {
@@ -53,12 +58,12 @@ func (e *Engine) ShareClip(id, clipID string) (*ClipWAV, error) {
 	if c.Src < 0 || c.Src+c.Frames > info.Frames() {
 		return nil, fmt.Errorf("%w: the clip runs past its audio", ErrBadParameter)
 	}
-	name := fmt.Sprintf("%s track %d", safeName(t.Name), tr.N)
+	name = safeName(name)
 	if c.Reversed != nil {
 		name += " reversed"
 	}
 	return &ClipWAV{Name: name + ".wav", Frames: c.Frames, path: path, src: c.Src,
-		gain: math.Pow(10, c.GainDB/20), sr: info.SampleRate, ch: info.Channels}, nil
+		gain: math.Pow(10, gainDB/20), sr: info.SampleRate, ch: info.Channels}, nil
 }
 
 // WriteTo writes the WAV, and answers how much of it was written.

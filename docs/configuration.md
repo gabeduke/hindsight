@@ -256,6 +256,7 @@ On disk, `TAPE_DIR` holds:
   no tape's undo history, still uses.
 - `loaded`, naming the tape that was loaded, so a restart loads it again.
 - `clipboard.json`, what was last copied, so it survives a restart too.
+- `crate.json`, the clips kept on the crate (their audio is in `audio/`).
 
 On the Pi the tape plays through the Sidekick's USB playback, on the same
 card the capture uses (see [architecture](architecture.md#the-tape)):

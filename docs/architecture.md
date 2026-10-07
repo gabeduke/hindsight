@@ -599,6 +599,13 @@ the pool and becomes the grid, the loop and the first clip; then a "phase"
 action starts the transport as if the loop had been going round since the
 second tap, using Δ to turn that ring frame into an output frame.
 
+**The crate** (`crate.go`) is `TAPE_DIR/crate.json`: kept clips, each a
+window onto a pool file with a name and where it came from. Keeping a span of
+a take or the ring writes the pool first (`copyTake`, `ringClip`); keeping a
+tape clip or the clipboard keeps a reference. It's a clean-up root, its
+deleted clips too for a week, and an unreadable one stops the clean-up. A
+drop from it is a drop of a one-clip clipboard (`dropBoard`).
+
 **The clipboard** (`clipboard.go`) is `TAPE_DIR/clipboard.json`: clips in
 the pool, laid out from frame 0, one track's worth or more. Copying from a
 take or the ring writes the pool first; the clean-up treats the clipboard as
