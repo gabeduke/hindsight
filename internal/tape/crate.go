@@ -198,18 +198,58 @@ func (e *Engine) KeepTake(take, file, name string, from, to int64, pick []int) (
 	if err := e.tooLong(to - from); err != nil {
 		return CrateClip{}, err
 	}
+	k, err := e.takeClip(take, file, fmt.Sprintf("%s · %s", name, clock(from, e.store.SampleRate())), name, from, to, pick)
+	if err != nil {
+		return CrateClip{}, err
+	}
+	return e.addToCrate(k)
+}
+
+// takeClip copies a take's span into the pool as a crate clip, not yet kept.
+func (e *Engine) takeClip(take, file, clipName, takeName string, from, to int64, pick []int) (CrateClip, error) {
 	c, err := e.copyTake(take, from, to, pick, "keep")
 	if err != nil {
 		return CrateClip{}, err
 	}
 	sr := e.store.SampleRate()
-	k := CrateClip{File: c.File, Src: c.Src, Frames: c.Frames,
-		Name:   fmt.Sprintf("%s · %s", name, clock(from, sr)),
-		Source: CrateSource{Kind: "take", Take: file, From: from, To: to, What: fmt.Sprintf("%s, %s–%s", name, clock(from, sr), clock(to, sr))}}
+	k := CrateClip{File: c.File, Src: c.Src, Frames: c.Frames, Name: clipName,
+		Source: CrateSource{Kind: "take", Take: file, From: from, To: to, What: fmt.Sprintf("%s, %s–%s", takeName, clock(from, sr), clock(to, sr))}}
 	if m := audio.ReadMeta(take); m.BPM != nil {
 		k.BPM = *m.BPM
 	}
-	return e.addToCrate(k)
+	return k, nil
+}
+
+// SplitTake keeps a take as two clips, before frame at and from it on, named
+// "take · A" and "take · B": the take's Split here. The take isn't changed:
+// its audio never is. Each half must be at least 10 ms.
+func (e *Engine) SplitTake(take, file, name string, at int64, pick []int) ([2]CrateClip, error) {
+	info, err := audio.ReadWAVInfo(take)
+	if err != nil {
+		return [2]CrateClip{}, err
+	}
+	min := int64(OverhangSeconds * float64(info.SampleRate))
+	if at < min || at > info.Frames()-min {
+		return [2]CrateClip{}, fmt.Errorf("%w: put the playhead inside the take to split it there", ErrBadParameter)
+	}
+	a, err := e.takeClip(take, file, name+" · A", name, 0, at, pick)
+	if err != nil {
+		return [2]CrateClip{}, err
+	}
+	b, err := e.takeClip(take, file, name+" · B", name, at, info.Frames(), pick)
+	if err != nil {
+		return [2]CrateClip{}, err // a's file is left for a clean-up
+	}
+	now := time.Now()
+	for _, k := range []*CrateClip{&a, &b} {
+		k.ID, k.Created = "k"+NewClipID()[1:], now
+	}
+	a.Created = now.Add(time.Millisecond) // newest first: A, then B
+	err = e.changeCrate(func(c *Crate) error {
+		c.Clips = append(c.Clips, a, b)
+		return nil
+	})
+	return [2]CrateClip{a, b}, err
 }
 
 // KeepRing keeps ring frames [from, to) of a source (to < 0: up to now), as

@@ -354,6 +354,9 @@ and the editor bar takes the place of the toolbar.
 - **Keep as clip** keeps it on the crate (§8.11), without making a take. The
   **◫** chip in the header says how many clips you've kept from this take,
   and opens them on the tape page.
+- **More → Split here** keeps two clips on the crate, the take before the
+  playhead and from it on, named *take · A* and *take · B*. The take itself
+  isn't changed: a take's audio never is.
 - **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
   delete.
 - **Undo** in the header steps back through anything you changed (step 4).
@@ -1375,6 +1378,11 @@ kept*), open the crate on that take's clips: **from … ×** shows them all agai
   name; no new audio file is written.
 - [demo] Open a take you've kept clips from → the header shows **◫ 2**; tap it
   → the tape page's crate shows just those two.
+- [demo] Put a take's playhead at 0:20, **More → Split here** → two clips on
+  the crate, *take · A* (0:20 long) and *take · B* (the rest); the take is
+  still whole, the same length.
+- [demo] **Split here** with the playhead at the very start → it says to put
+  the playhead inside the take.
 
 ## 9. Tips in the app
 
@@ -1559,6 +1567,7 @@ has no tip.
 | Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |
 | Lift | Cut the loop’s bars into the clipboard, leaving silence |
 | Copy | Put the selection on the clipboard, to drop onto a tape |
+| Split here | Keep the take as two clips on the crate, before the playhead and after it. The take isn't changed |
 | Drop | The clipboard onto the selected track at the playhead, replacing what’s there. Drop again to lay another copy after it |
 | Merge drop | Drop every track on the clipboard onto the selected one, layered, each clip at its own level |
 | Split | Cut the clips on the selected track in two at the playhead. Key: S |

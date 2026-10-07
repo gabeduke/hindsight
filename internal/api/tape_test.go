@@ -810,4 +810,15 @@ func TestTheCrateOverTheAPI(t *testing.T) {
 	want(t, send(t, r, http.MethodPatch, "/api/crate?id=nope", `{"name":"x"}`), http.StatusNotFound, "rename no clip")
 	want(t, send(t, r, http.MethodPatch, "/api/crate?id="+k.ID, `{}`), http.StatusBadRequest, "patch nothing")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"crate":"nope"}`), http.StatusNotFound, "drop no clip")
+
+	// Split here: two clips, the take untouched.
+	w = send(t, r, http.MethodPost, "/api/crate/split", `{"take":"jam_2026-10-04_11-00-00.wav","at":96000}`)
+	want(t, w, http.StatusOK, "split here")
+	var sp struct{ Clips []kept }
+	json.Unmarshal(w.Body.Bytes(), &sp)
+	if len(sp.Clips) != 2 || sp.Clips[0].Frames != 96000 || sp.Clips[1].Frames != 96000 || !strings.HasSuffix(sp.Clips[0].Name, " · A") || !strings.HasSuffix(sp.Clips[1].Name, " · B") {
+		t.Fatalf("split = %+v", sp.Clips)
+	}
+	want(t, send(t, r, http.MethodPost, "/api/crate/split", `{"take":"jam_2026-10-04_11-00-00.wav","at":0}`), http.StatusBadRequest, "split at the start")
+	want(t, send(t, r, http.MethodPost, "/api/crate/split", `{"take":"jam_nope.wav","at":10}`), http.StatusNotFound, "split no take")
 }

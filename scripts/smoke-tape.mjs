@@ -411,6 +411,23 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     const rows = await p.locator('#crate-list .crate-name').allTextContents();
     check('the crate: ?crate= opens it on that take’s clips', await p.isVisible('#crate-from') && rows.some((r) => r.includes(k.clip.name)) && rows.length === (await getJSON(`/api/crate?take=${encodeURIComponent(take.name)}`)).clips.length, JSON.stringify(rows));
     await p.click('#np-drawer-crate');
+    // Split here on the take page: two clips on the crate, A and B, and the
+    // take as it was.
+    const before = (await getJSON(`/api/crate?take=${encodeURIComponent(take.name)}`)).clips.length;
+    const len = take.duration_seconds;
+    await p.goto(`${BASE}/wave.html?file=${encodeURIComponent(take.name)}`);
+    await p.waitForTimeout(2000);
+    await p.focus('#overview-canvas');
+    for (let i = 0; i < 3; i++) await p.keyboard.press('ArrowRight'); // the playhead to 0:03
+    await p.click('#more-btn');
+    await p.click('#split-here');
+    await p.waitForTimeout(1200);
+    const split = (await getJSON(`/api/crate?take=${encodeURIComponent(take.name)}`)).clips;
+    const [a, b] = split;
+    check('split here: two clips on the crate, A then B', split.length === before + 2 && a.name.endsWith(' · A') && b.name.endsWith(' · B') && a.frames === 3 * 48000, JSON.stringify(split.slice(0, 2).map((x) => [x.name, x.frames])));
+    const again = ((await getJSON('/api/jams')).jams || (await getJSON('/api/jams'))).find((x) => x.name === take.name);
+    check('split here: the take is as it was', again && Math.abs(again.duration_seconds - len) < 1e-6);
+    check('split here: the take page’s ◫ chip counts them', (await p.textContent('#crate-chip')) === `◫ ${split.length}`);
   }
   check('a clip: no page errors', errors.length === 0, errors.join('; '));
   await p.context().close();

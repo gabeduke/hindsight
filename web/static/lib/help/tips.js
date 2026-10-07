@@ -176,6 +176,7 @@ export const TIPS = [
   { control: 'Track / All (edit)', ids: ['edit-scope'], tip: 'What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart' },
   { control: 'Lift', ids: ['lift'], tip: 'Cut the loop’s bars into the clipboard, leaving silence' },
   { control: 'Copy', ids: ['copy'], tip: 'Put the selection on the clipboard, to drop onto a tape' },
+  { control: 'Split here', ids: ['split-here'], tip: 'Keep the take as two clips on the crate, before the playhead and after it. The take isn\'t changed' },
   { control: 'Drop', ids: ['drop'], tip: 'The clipboard onto the selected track at the playhead, replacing what’s there. Drop again to lay another copy after it' },
   { control: 'Merge drop', ids: ['merge-drop'], tip: 'Drop every track on the clipboard onto the selected one, layered, each clip at its own level' },
   { control: 'Split', ids: ['split'], tip: 'Cut the clips on the selected track in two at the playhead. Key: S' },

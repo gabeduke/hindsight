@@ -1199,7 +1199,11 @@ async function main() {
     return b;
   };
   fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
-    if (r.ok) { $('send-to-tape').hidden = false; $('copy-take').hidden = false; $('keep-clip').hidden = false; renderSendHint(); renderCrateChip(); }
+    if (r.ok) {
+      for (const id of ['send-to-tape', 'copy-take', 'keep-clip', 'split-here']) $(id).hidden = false;
+      renderSendHint();
+      renderCrateChip();
+    }
   }).catch(() => {});
   // The crate chip: how many clips have been kept from this take, a link to
   // them on the tape page's crate.
@@ -1213,6 +1217,21 @@ async function main() {
       $('crate-chip').setAttribute('aria-label', `${n} clip${n === 1 ? '' : 's'} kept from this take`);
     } catch { /* the chip stays as it was */ }
   }
+  // Split here: two clips on the crate, the take before the playhead and
+  // from it on. The take isn't changed: its audio never is.
+  $('split-here').addEventListener('click', async () => {
+    try {
+      const b = await tapeAPI('/api/crate/split', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ take: file, at: Math.round(state.cursor) }),
+      });
+      const [a, z] = b.clips;
+      toast(`Split at ${fmtClock(state.cursor, sr)} into two clips on the crate: “${a.name}” and “${z.name}”`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
+      renderCrateChip();
+    } catch (e) {
+      toast(`Could not split it: ${e.message}`, 'bad');
+    }
+  });
   // Keep as clip: the selection (or the whole take) onto the crate, its audio
   // copied into the tape's pool; the takes list doesn't change.
   $('keep-clip').addEventListener('click', async () => {

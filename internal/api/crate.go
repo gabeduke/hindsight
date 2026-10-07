@@ -22,6 +22,7 @@ import (
 //	PATCH  /api/crate?id=        {name} | {restore: true}
 //	DELETE /api/crate?id=        to the trash, for CrateTrashDays
 //	GET    /api/crate/audio?id=  one as a 16-bit WAV, to play or share
+//	POST   /api/crate/split      {take, at}: Split here, two clips either side of at
 //
 // A clip is dropped onto a tape with POST /api/tapes/drop {crate, track}.
 
@@ -106,6 +107,38 @@ func (a *API) handleCrateKeep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"clip": k, "clamped": clamped})
+}
+
+// handleCrateSplit is a take's Split here: two kept clips, the take before
+// frame at and from it on. The take isn't changed.
+func (a *API) handleCrateSplit(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		Take string `json:"take"`
+		At   int64  `json:"at"`
+	}
+	if !decodeBody(w, r, &b) {
+		return
+	}
+	name, err := a.safeTakeName(b.Take)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	path := filepath.Join(a.cfg.OutputDir, name)
+	info, err := audio.ReadWAVInfo(path)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "no such take")
+		return
+	}
+	ks, err := a.tape.SplitTake(path, name, takeTitle(name, path), b.At, a.takePair(info.Channels))
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"clips": ks})
 }
 
 func (a *API) handleCratePatch(w http.ResponseWriter, r *http.Request) {
