@@ -81,15 +81,33 @@ export function onResume(fn, env = {}) {
  * announced. onResume(reason) is called when the page comes back; the caller
  * refetches its state there.
  */
-export function createLink({ onChange = () => {}, onResume: resume = () => {}, delay = NOTE_DELAY_MS, env = {} } = {}) {
+export function createLink({ onChange = () => {}, onResume: resume = () => {}, delay = NOTE_DELAY_MS, retryMs = 0, env = {} } = {}) {
   const wait = env.setTimeout ?? setTimeout;
   const unwait = env.clearTimeout ?? clearTimeout;
   const bad = new Set();
   let timer = null;
   let shown = false;
+  let retry = null;
+
+  // A page that only refetches when it comes back (the take page) would keep
+  // the note up for good after one failed refetch: with retryMs, it is asked
+  // again, as onResume('retry'), every retryMs while the link is down and the
+  // page is in view.
+  const stopRetry = () => { if (retry) { unwait(retry); retry = null; } };
+  const armRetry = () => {
+    if (!retryMs || retry) return;
+    retry = wait(() => {
+      retry = null;
+      if (!bad.size) return;
+      const doc = env.doc ?? globalThis.document;
+      if (!doc?.hidden) resume('retry');
+      armRetry();
+    }, retryMs);
+  };
 
   const update = () => {
     if (bad.size) {
+      armRetry();
       if (!timer && !shown) {
         timer = wait(() => {
           timer = null;
@@ -97,6 +115,7 @@ export function createLink({ onChange = () => {}, onResume: resume = () => {}, d
         }, delay);
       }
     } else {
+      stopRetry();
       if (timer) { unwait(timer); timer = null; }
       if (shown) { shown = false; onChange(false); }
     }
@@ -111,6 +130,7 @@ export function createLink({ onChange = () => {}, onResume: resume = () => {}, d
     get shown() { return shown; },
     stop() {
       stopResume();
+      stopRetry();
       if (timer) unwait(timer);
       timer = null;
     },
@@ -135,7 +155,7 @@ export function reconnectNote(doc = document) {
  * watchLink is createLink with the note on the page. onResume(reason) is where
  * the page fetches its state again.
  */
-export function watchLink(onResumeFn) {
+export function watchLink(onResumeFn, opts = {}) {
   const show = reconnectNote();
-  return createLink({ onChange: show, onResume: onResumeFn });
+  return createLink({ ...opts, onChange: show, onResume: onResumeFn });
 }

@@ -313,7 +313,7 @@ async function main() {
     let fresh;
     try {
       const res = await timedFetch(`/api/take?file=${encodeURIComponent(file)}`, { cache: 'no-store', headers: withClient() });
-      if (!res.ok) return;
+      if (!res.ok) { link.ok('take'); return; } // the Pi answered
       fresh = await res.json();
     } catch { link.fail('take'); return; }
     link.ok('take');
@@ -1557,7 +1557,7 @@ async function main() {
   });
   // Back in view, back online, or back from a sleep that stopped the clock:
   // the take as the Pi has it now, with a "Reconnecting…" note until it answers.
-  link = watchLink(() => refetchTake());
+  link = watchLink(() => refetchTake(), { retryMs: 3000 });
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
     bar.commit();

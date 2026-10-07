@@ -206,3 +206,36 @@ test('the note says Reconnecting… and is hidden until shown', () => {
   show(false);
   assert.equal(el.hidden, true);
 });
+
+test('retryMs asks again while the link is down, and stops when it is back', () => {
+  const clock = fakeClock();
+  const env = fakeEnv(clock);
+  const got = [];
+  const link = createLink({ onResume: (why) => got.push(why), retryMs: 3000, env });
+  link.fail('take');
+  clock.advance(3000);
+  assert.deepEqual(got, ['retry']);
+  clock.advance(3000);
+  assert.deepEqual(got, ['retry', 'retry']);
+  env.doc.hidden = true;
+  clock.advance(3000);
+  assert.equal(got.length, 2, 'not while the page is hidden');
+  env.doc.hidden = false;
+  link.ok('take');
+  clock.advance(10000);
+  assert.equal(got.length, 2);
+  assert.equal(clock.pending > 0, true); // only the wake tick is left
+  link.fail('take');
+  link.stop();
+  clock.advance(10000);
+  assert.equal(got.length, 2);
+});
+
+test('without retryMs a failure schedules no retries', () => {
+  const clock = fakeClock();
+  const got = [];
+  const link = createLink({ onResume: (why) => got.push(why), env: fakeEnv(clock) });
+  link.fail('take');
+  clock.advance(20000);
+  assert.deepEqual(got, []);
+});
