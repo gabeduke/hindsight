@@ -1438,7 +1438,7 @@ has no tip.
 | ▶ Listen (overdub) | Play it here, without recording |
 | ● Record (overdub) | Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too |
 | Clock → (tape) | Who follows the tape's MIDI clock (TAPE_CLOCK=lead); ● while they're running |
-| Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet |
+| Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: playing but not lined up yet. Grey: stopped, or playing on a phone |
 | OUT (tape) | Where the tape plays: the jam room, this phone, or both. Switching keeps it rolling from the same spot |
 | Jam room / This phone / Both | The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both |
 | Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |
