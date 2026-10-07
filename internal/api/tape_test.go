@@ -402,6 +402,15 @@ func TestTheTapesEditsLiftSplitAndMultiply(t *testing.T) {
 	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); len(s.Tape.Tracks[0].Clips) != 1 || len(s.Tape.Tracks[1].Clips) != 0 {
 		t.Fatalf("a slide with no to left track 1: %+v", s.Tape.Tracks)
 	}
+	// Repeated twice, end to end, then undone in one step.
+	if out := edit(`{"op":"repeat","clip":"`+joined+`","count":2}`, http.StatusOK, "repeat"); out["edit"].(map[string]any)["clips"] != float64(2) {
+		t.Fatalf("repeat = %v", out["edit"])
+	}
+	if n := len(stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")).Tape.Tracks[0].Clips); n != 3 {
+		t.Fatalf("repeated into %d clips, want 3", n)
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, ""), http.StatusOK, "undo the repeat")
+	edit(`{"op":"repeat","clip":"`+joined+`","count":0}`, http.StatusBadRequest, "repeat no times")
 	// Double the loop, then lift all four tracks: the tape is left empty.
 	out := edit(`{"op":"multiply"}`, http.StatusOK, "multiply")
 	if e, _ := out["edit"].(map[string]any); e["frames"] != float64(192000) {

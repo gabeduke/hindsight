@@ -301,3 +301,21 @@ export function trimmed(clip, edge, at) {
   }
   return { ...clip, frames: at - clip.at };
 }
+
+// The most copies one drag of a clip's ⟳ corner lays (internal/tape MaxRepeat).
+export const MAX_REPEAT = 64;
+
+/** repeatRoom is how many copies of a clip fit end to end before the tape's end. */
+export function repeatRoom(clip, length) {
+  return Math.max(0, Math.min(MAX_REPEAT, Math.floor((length - clip.at - clip.frames) / clip.frames)));
+}
+
+/**
+ * repeatCount is how many copies a drag of df frames on the ⟳ corner lays:
+ * one more each time the drag passes half a copy, none dragged back, and no
+ * more than max.
+ */
+export function repeatCount(df, frames, max) {
+  if (!(frames > 0)) return 0;
+  return Math.max(0, Math.min(max, Math.round(df / frames)));
+}

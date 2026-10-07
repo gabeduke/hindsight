@@ -18,16 +18,18 @@ import (
 
 // EditRequest is one edit. The selection is the loop's In and Out.
 type EditRequest struct {
-	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse, trim
+	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse, trim, repeat
 	Track int    `json:"track"` // the selected track
 	All   bool   `json:"all"`   // lift and copy: all four tracks, kept apart
-	Clip  string `json:"clip"`  // join, slide, reverse, trim: the clip
+	Clip  string `json:"clip"`  // join, slide, reverse, trim, repeat: the clip
 	Pos   *int64 `json:"pos"`   // split: where (default: the playhead)
 	At    *int64 `json:"at"`    // slide: where its start goes; trim: where the edge goes
 	Edge  string `json:"edge"`  // trim: "in" (its start) or "out" (its end)
 	// To is the track a slide moves the clip onto (0: its own). Not Track,
 	// which every edit sends as the selected track.
 	To int `json:"to"`
+	// Count is how many copies a repeat lays after the clip.
+	Count int `json:"count"`
 }
 
 // EditResult says what an edit did, for the page's toast.
@@ -78,6 +80,9 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		return e.reverseClip(t, req.Clip)
 	case "trim":
 		return e.trimClip(t, req)
+	case "repeat":
+		err := e.Edit(id, "", func(tp *Tape, s *State) error { return s.repeat(req.Clip, req.Count, tp.Length) })
+		return EditResult{Op: "repeat", Clips: req.Count}, err
 	case "multiply":
 		var n int
 		var frames int64
@@ -389,6 +394,39 @@ func (s *State) trim(id, edge string, at int64, file string, fileFrames, length 
 		}
 	}
 	return Clip{}, ErrNoSuchClip
+}
+
+// MaxRepeat is the most copies one repeat lays.
+const MaxRepeat = 64
+
+// repeat lays count copies of a clip end to end after it, on its track, each
+// on the lowest layer free where it lands (the tape's always-overdub rule).
+// A copy is a new clip of the same audio, not linked to the first: editing
+// one leaves the others. The PATCH's tile, Repeat to the loop's end, is the
+// older form: it fills the loop's free room on the clip's own layer.
+func (s *State) repeat(id string, count int, length int64) error {
+	if count < 1 || count > MaxRepeat {
+		return fmt.Errorf("%w: repeat 1 to %d times", ErrBadParameter, MaxRepeat)
+	}
+	for ti := range s.Tracks {
+		for _, c := range s.Tracks[ti].Clips {
+			if c.ID != id {
+				continue
+			}
+			if c.End()+int64(count)*c.Frames > length {
+				return fmt.Errorf("%w: %d copies would run past the end of the tape", ErrPastTheEnd, count)
+			}
+			for k := int64(1); k <= int64(count); k++ {
+				cp := c
+				cp.ID, cp.At = "", c.At+k*c.Frames
+				if _, err := s.Place(ti+1, cp, false); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	return ErrNoSuchClip
 }
 
 // multiply doubles the loop, copying everything inside it into the new
