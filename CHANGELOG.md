@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.07.4 — 2026-10-07
+
+- Clip gestures: fixes from review (a3cadd3)
+- Tape: clip gestures in a module of their own (A0) (12493c9)
+- Record v2026.10.07.3 in the changelog [skip ci] (ed39ae9)
+- Record v2026.10.07.2 in the changelog [skip ci] (0cb61a1)
+
+
 ## v2026.10.07.3 — 2026-10-07
 
 - Phone shell: cache v36, the same bump as #43 and #42, so they merge in any order (3f5639d)
