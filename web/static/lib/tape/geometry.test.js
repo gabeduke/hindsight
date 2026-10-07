@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -191,4 +191,58 @@ test('silence, a mute, a solo elsewhere or peaks not loaded read as the stop', (
   assert.equal(levelAt({ gain_db: 0, clips: [clip] }, 0, () => undefined, 48000), -Infinity);
   assert.equal(levelAt({ gain_db: 0, clips: [clip] }, 0, () => Promise.resolve(), 48000), -Infinity);
   assert.equal(levelAt({ gain_db: 0, clips: [clip] }, 0, () => pool(() => 0), 48000), -Infinity);
+});
+
+// --- trimming ----------------------------------------------------------------
+
+test('trimBounds: either edge goes out as far as its file still has the overhang', () => {
+  // A clip at 192000 playing 96000 frames from 48000 of a 192000-frame file.
+  const c = { id: 'c', at: 192000, src: 48000, frames: 96000, layer: 0 };
+  const opts = { fileFrames: 192000, length: 48000 * 1200, sampleRate: 48000 };
+  assert.deepEqual(trimBounds(c, 'in', { clips: [c] }, opts), { lo: 144480, hi: 288000 - 480 });
+  // A clip that already starts in its overhang isn't made to give it back.
+  const early = { ...c, src: 100 };
+  assert.equal(trimBounds(early, 'in', { clips: [early] }, opts).lo, 192000);
+  assert.deepEqual(trimBounds(c, 'out', { clips: [c] }, opts), { lo: 192480, hi: 192000 + 191520 - 48000 });
+});
+
+test('trimBounds: the clips beside it on its layer stop it; another layer’s don’t', () => {
+  const c = { id: 'c', at: 192000, src: 48000, frames: 96000, layer: 0 };
+  const before = { id: 'b', at: 100000, frames: 60000, layer: 0 };
+  const after = { id: 'a', at: 300000, frames: 1000, layer: 0 };
+  const above = { id: 'x', at: 150000, frames: 300000, layer: 1 };
+  const tr = { clips: [before, c, after, above] };
+  const opts = { fileFrames: 192000, length: 48000 * 1200, sampleRate: 48000 };
+  assert.equal(trimBounds(c, 'in', tr, opts).lo, 160000);
+  assert.equal(trimBounds(c, 'out', tr, opts).hi, 300000);
+});
+
+test('trimBounds: with the file unknown, only the neighbours and the tape', () => {
+  const c = { id: 'c', at: 192000, src: 48000, frames: 96000, layer: 0 };
+  const opts = { fileFrames: 0, length: 1000000, sampleRate: 48000 };
+  assert.deepEqual(trimBounds(c, 'in', { clips: [c] }, opts), { lo: 0, hi: 288000 - 480 });
+  assert.deepEqual(trimBounds(c, 'out', { clips: [c] }, opts), { lo: 192480, hi: 1000000 });
+});
+
+test('trimBounds: a clip with no room is null', () => {
+  const c = { id: 'c', at: 1000, src: 0, frames: 100, layer: 0 };
+  assert.equal(trimBounds(c, 'in', { clips: [c] }, { fileFrames: 100, length: 1e6, sampleRate: 48000 }), null);
+});
+
+test('trimTo snaps to the grid, or not when free, and holds inside the bounds', () => {
+  const grid = { frames: 192000, bars: 4 }; // a bar is 48000
+  const b = { lo: 100000, hi: 300000 };
+  assert.deepEqual(trimTo(192000, 30000, b, grid, 'bar', false), { at: 240000, limited: false });
+  assert.deepEqual(trimTo(192000, 30000, b, grid, 'bar', true), { at: 222000, limited: false });
+  assert.deepEqual(trimTo(192000, 20000, b, grid, 'beat', false), { at: 216000, limited: false });
+  assert.deepEqual(trimTo(192000, 500000, b, grid, 'bar', false), { at: 300000, limited: true });
+  assert.deepEqual(trimTo(192000, -500000, b, grid, 'off', false), { at: 100000, limited: true });
+  assert.deepEqual(trimTo(192000, 1, b, null, 'bar', false), { at: 192001, limited: false });
+});
+
+test('trimmed moves the In edge with the audio, the Out edge alone', () => {
+  const c = { id: 'c', at: 192000, src: 48000, frames: 96000 };
+  assert.deepEqual(trimmed(c, 'in', 200000), { id: 'c', at: 200000, src: 56000, frames: 88000 });
+  assert.deepEqual(trimmed(c, 'in', 150000), { id: 'c', at: 150000, src: 6000, frames: 138000 });
+  assert.deepEqual(trimmed(c, 'out', 250000), { id: 'c', at: 192000, src: 48000, frames: 58000 });
 });

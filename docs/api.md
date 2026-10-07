@@ -865,7 +865,9 @@ loop, otherwise its first loop sets the tempo.
   the tempo is derived from it (`bpm`), because a bar at most tempos isn't a
   whole number of frames.
 - **A clip** plays `frames` of its pool `file` from `src`, at tape frame
-  `at`. The file carries 10 ms either side, for crossfades. `layer` 0 is the
+  `at`. The file carries handles either side, where the source had them:
+  `TAPE_HANDLE_S` (2 s by default), and never less than the 10 ms the
+  crossfades read, so a trimmed edge can be dragged back out. `layer` 0 is the
   base; a catch onto audio goes on a layer above it, summed. `source` is
   where it came from, and `clean` is set when no tape bus was in that source.
   A caught clip has `peak_db`, its loudest sample when caught (−120 for
@@ -949,8 +951,10 @@ the last 4 bars up to the last bar line the ring has heard. `replace: true`
 clears what's under it instead of adding a layer.
 
 The span is the range of the ring that heard what the tape played then, by
-`delta`, written once into the pool with 10 ms either side and placed where
-it was played. A catch across the loop's end is split into two clips. It
+`delta`, written once into the pool with handles either side (as much of
+`TAPE_HANDLE_S` as the ring has: before it, as far back as the ring holds
+short of its oldest second; after it, what had arrived by the catch, at
+least 10 ms) and placed where it was played. A catch across the loop's end is split into two clips. It
 waits up to two seconds for the newest audio to reach the ring. Answers
 `{"clip": …}` (the part played first, when split).
 
@@ -1071,12 +1075,14 @@ added.
 | `join` | `clip` | Joins a clip to the next on its layer, if that one carries straight on in the same recording at the same level and nudge: what a split made |
 | `slide` | `clip`, `at` | Moves a clip along its track to start at `at`, on the lowest layer free there. The page snaps `at` to the grid; the server takes it as given |
 | `multiply` | | Doubles the loop: everything in it is copied into the span after it, replacing what was there, and Out moves on by the loop's length. `edit.frames` is the new length |
-| `reverse` | `clip` | Plays the clip backwards: its audio, with the overhang either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
+| `trim` | `clip`, `edge` (`in` or `out`), `at` | Moves the clip's start (`in`) or end (`out`) to tape frame `at`. Trimming the start moves `at` and `src` together, so the audio stays where it was played. Clamped: either edge no further out than where its pool file still has the 10 ms overhang beyond it (or where the clip already starts or ends, if further), neither past the clip beside it on its layer or the tape's ends, and at least 10 ms left. `edit.clip` is the clip as trimmed |
+| `reverse` | `clip` | Plays the clip backwards: its audio, with its handles either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
 
 400 for a lift or copy with no loop, or nothing in it; a split with no clip
 across `pos`; a join with nothing to join; a slide off either end of the tape;
-a multiply that would run past the end; a reverse of a clip that changed
-meanwhile, or whose audio is shorter than it; or an unknown `op`. 409 for a
+a multiply that would run past the end; a trim with no `at`, no such `edge`,
+or no room at all; a reverse or trim of a clip that changed meanwhile, or a
+reverse of one whose audio is shorter than it; or an unknown `op`. 409 for a
 tape that isn't the loaded one; 507 when a reverse would need disk the tapes'
 volume doesn't have; 500 when the audio a reversed clip turns back to can't
 be read.
@@ -1163,7 +1169,8 @@ restart; 404 when the tape is off.
   Its clips are laid out from frame 0.
 - `POST {"take": "jam_….wav", "from": F, "to": T}` copies a take's span: the
   take's pair (`SAVE_CHANNELS`' for a multichannel take, both sides of a mono
-  one) is written into the pool with 10 ms either side. A take's own WAV is
+  one) is written into the pool with handles either side (`TAPE_HANDLE_S`,
+  where the take has them). A take's own WAV is
   never referenced, since flag edits rewrite it.
 - `POST {"ring_from": F, "ring_to": T, "source": "main"}` copies a span of
   the ring, in absolute frames (`ring_to` left out: up to now), from a

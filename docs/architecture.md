@@ -451,8 +451,9 @@ failed save changes nothing, in memory or on disk.
 
 **The store.** `TAPE_DIR/tapes/<id>/tape.json` is rewritten after every
 edit through a synced temporary file and a rename. `TAPE_DIR/audio/` is the
-pool: every catch and drop is written there once, with 10 ms either side
-for crossfades, and its peaks beside it, and never changed. Clones copy only
+pool: every catch and drop is written there once, with handles either side
+(`TAPE_HANDLE_S`, at least the 10 ms the crossfades read, so a trimmed clip
+can grow back out), and its peaks beside it, and never changed. Clones copy only
 `tape.json`. Clean-up deletes pool files that no tape's state or history
 uses, and spares any less than a minute old, which may belong to a catch
 still being placed.
@@ -614,9 +615,10 @@ lowest layer free.
 immutable pool file, so lift and copy are windows trimmed to the loop's In
 and Out (a lift also clears the span with the same cut a replace uses);
 split is two windows; join merges two that carry straight on in one file;
-slide re-places a clip at a new start; multiply copies the loop's windows
-into the span after it. Reverse is the one edit that writes audio: the
-clip's window and its overhang, backwards, to a new pool file
+slide re-places a clip at a new start; trim moves one edge of a window
+within its file's handles; multiply copies the loop's windows into the span
+after it. Reverse is the one edit that writes audio: the clip's window and
+its handles, backwards, to a new pool file
 (`audio.ReverseWAVSpan`, a block at a time from the end), so every other
 edit still reads every clip forwards; turning it back is arithmetic on the
 original's frames. Each goes through `Engine.Edit`, so each is one undo

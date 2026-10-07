@@ -225,6 +225,7 @@ running without one; neither can stop the dashcam recording.
 | `TAPE_DIR` | `~/hindsight/tapes` | Where tapes and their audio live. Put it on the same disk as `OUTPUT_DIR`; `MIN_FREE_GB` guards it as it guards takes |
 | `TAPE_TRACKS` | `4` | Tracks a new tape has (1–16) |
 | `TAPE_LENGTH_S` | `1200` | How long a track can be, in seconds: 20 minutes. A limit, not a reservation: nothing is allocated for it. A tape made under a shorter setting takes the new length when it's loaded. See below for what long clips cost in RAM |
+| `TAPE_HANDLE_S` | `2` | Seconds of the source a new tape clip's audio keeps either side of it, where the source has them (0 to 10): the room a trimmed edge has to be dragged back out. A clip made before there were handles can only trim inward, and so can an edge at its recording's very start or end. At the default that is about 1.5 MB more per clip, on disk and in RAM |
 | `TAPE_SOURCES` | `main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8` | The inputs a catch can take from: space-separated `name=L,R[:buses]`, with 1-indexed capture channels and the tape buses heard in each |
 | `TAPE_MIXDOWN_TAIL_S` | `2` | How long a mixdown runs on past Out, so the strips' reverb and delay ring out instead of being cut (0 to 30). With the tail and a 5-second margin, a mixdown must fit in `RING_SECONDS` |
 

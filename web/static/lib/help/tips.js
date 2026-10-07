@@ -109,7 +109,7 @@ export const TIPS = [
   { control: 'BPM, Bars (empty tape)', ids: ['tape-bpm'], tip: 'Start from a tempo instead of a first loop' },
   { control: '↶ ↷ (tape)', ids: ['tape-undo', 'tape-redo'], tip: 'Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo' },
   { control: 'Tape overview', ids: ['tape-overview'], tip: 'The whole tape, in the bar: what’s on each track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop. With it focused, ← → move a bar' },
-  { control: 'A lane', ids: ['tape-lane'], tip: 'Tap a clip for its sheet. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records' },
+  { control: 'A lane', ids: ['tape-lane'], tip: 'Tap a clip for its sheet; it stays picked, and dragging a picked clip\'s edges trims it. Hold a clip, then drag, to slide it. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records' },
   { control: 'A track header', ids: ['track'], tip: 'Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓' },
   { control: 'M, S', ids: ['track-mute', 'track-solo'], tip: 'Mute this track, or solo it: only soloed tracks play' },
   { control: 'Track level', ids: ['track-gain'], tip: 'The track\'s level into its bus, -30 to +6 dB. Tracks start at -6' },
@@ -138,6 +138,7 @@ export const TIPS = [
   { control: 'Reverse (clip)', ids: ['clip-reverse'], tip: 'Play this clip backwards, or forwards again. Undo puts it back' },
   { control: 'Share as WAV (clip)', ids: ['clip-share'], tip: 'Send just this clip, at its level, to another app; a long one downloads' },
   { control: 'Remove (clip)', ids: ['clip-remove'], tip: 'Take this clip off the tape. Undo brings it back' },
+  { control: 'Start here, End here (clip)', ids: ['clip-trim'], tip: 'Trim the clip\'s start or end to the playhead, for a clip too short to drag. What\'s trimmed is kept: drag or trim back out' },
   // The clip editor (Align)
   { control: 'Align', ids: ['clip-align', 'ce-open'], tip: 'Line the clip up to the sample: the editor bar opens on its first hit' },
   { control: 'Done', ids: ['ce-done'], tip: 'Close the editor. Esc does too' },

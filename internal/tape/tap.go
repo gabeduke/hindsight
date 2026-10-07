@@ -160,7 +160,8 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 	if err != nil {
 		return TapResult{}, err
 	}
-	peak, err := audio.WriteSpan(r, uint64(start-over), uint64(end+over), src.Pair[:], path, int(sr))
+	lo, hi := ringHandles(r, sr, start-over, end+over, e.handle(sr)-over)
+	peak, err := audio.WriteSpanMeasured(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr), start-over-lo, end+over-lo)
 	if err != nil {
 		return TapResult{}, err
 	}
@@ -172,7 +173,7 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 			}
 		}
 	}
-	clip := Clip{File: rel, Src: over, Frames: frames, Source: src.Name, Clean: clean, PeakDB: peakDB(peak)}
+	clip := Clip{File: rel, Src: start - lo, Frames: frames, Source: src.Name, Clean: clean, PeakDB: peakDB(peak)}
 	var placed Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if s.Grid != nil || !tp.Empty() {
