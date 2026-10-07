@@ -1005,6 +1005,17 @@ all at once, each one undo:
 
 Align still works on one clip at a time.
 
+**Sections.** The strip over the ruler names spans of the tape: an intro, a
+verse, a chorus. **Hold and drag** on it to make one over the bars you drag
+across; it's named the first of *Intro, Verse, Chorus, Drop, Bridge, Outro*
+not yet used, and its sheet opens to call it something else or give it a
+colour. **Tap a section** to select its bars: they become the loop's In and
+Out, so **Lift**, **Copy** and **×2** act on it. **Tap it again** for its
+sheet: rename, colour, remove. **Drag an edge** to resize it. On a tape with
+a tempo, sections sit on bar lines; they don't overlap; each change is one
+undo. Removing one leaves the audio under it as it is. The stems' `.mid`
+marks each one, so a DAW shows the arrangement.
+
 Nothing is cut out of the audio. A clip is a window onto a recording, so an
 edit only moves windows, and each one is a single undo. A clip dropped or
 copied from a take keeps 2 seconds of it either side (`TAPE_HANDLE_S`), so
@@ -1075,6 +1086,15 @@ try something. It costs no disk space.
 - [demo] On a computer, click a clip, Shift-click another, **⌘D** → a copy
   of both right after them; **Delete** → the two picked are gone; ↶ → back.
 - [demo] Put the playhead in a clip and press **S** → it's split there.
+- [demo] Hold on the sections strip and drag across bars 1–4 → a section,
+  *Intro*, over them, and its sheet; call it **Verse**.
+- [demo] Tap the Verse → bars 1–4 are the loop; **Copy**, move the playhead
+  to bar 9, **Drop** → the verse again at bar 9.
+- [demo] Tap the Verse again → its sheet; make it red → the strip shows it
+  red. Drag its right edge to bar 6 → it's bars 1–6; ↶ → back to 1–4.
+- [demo] Drag a section's edge into the next → it stops where the next
+  begins.
+- [demo] Export stems → the `.mid` has a marker named for each section.
 - [demo] Zoom out until a clip is narrow → no grips; its sheet's **Start
   here** and **End here** trim it to the playhead.
 - [demo] Split a clip, tap either half, **Join the split** → one clip.
@@ -1182,7 +1202,8 @@ Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
     up when dropped at the start of a DAW project. Each has its track's
     level and pan, but not its mute or solo, and no FX: the FX happen in the
     Sidekick.
-  - a `.mid` with the tempo, 4/4, and the loop's In and Out as markers.
+  - a `.mid` with the tempo, 4/4, the loop's In and Out, and each section
+    (by its name, where it starts) as markers.
 
 **Checks — step 7b:**
 
@@ -1513,6 +1534,11 @@ has no tip.
 | BPM, Bars (empty tape) | Start from a tempo instead of a first loop |
 | ↶ ↷ (tape) | Undo or redo the last change to the tape: up to 100 steps. Keys: ⌘Z or Ctrl-Z, with ⇧ to redo |
 | Tape overview | The whole tape, in the bar: what’s on each track, the loop in amber. Drag the box to move what the lanes show; tap to move the playhead there; double-tap to go back to the loop. With it focused, ← → move a bar |
+| Sections (tape) | Named spans of the tape. Hold and drag to make one; tap one to select its bars, again to rename it; drag its edges to resize it |
+| Intro, Verse, Chorus… (section) | Call the section this |
+| Name (section) | Call the section anything else |
+| Colour (section) | The section's colour on the strip |
+| Remove (section) | Take the section away. The audio under it stays |
 | A lane | Tap a clip for its sheet; it stays picked: drag its edges to trim it, or its ⟳ corner to repeat it. Shift with a click, or Select more, picks several. Hold a clip, then drag, to slide it along its track or onto another. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
 | M, S | Mute this track, or solo it: only soloed tracks play |

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -135,7 +136,8 @@ func (e *Engine) prepareExport(t *Tape) (*Export, error) {
 	return x, nil
 }
 
-// tempoMap is a .mid with the tape's tempo, 4/4, and its loop as markers.
+// tempoMap is a .mid with the tape's tempo, 4/4, and its loop and sections
+// as markers.
 func tempoMap(t *Tape, frames int64) []byte {
 	bpm := t.Grid.BPM(t.SampleRate)
 	tick := func(f int64) uint64 {
@@ -149,7 +151,20 @@ func tempoMap(t *Tape, frames int64) []byte {
 	if l := t.Loop; l.Out > l.In {
 		tr.Events = append(tr.Events, smf.Marker(tick(l.In), "In"), smf.Marker(tick(l.Out), "Out"))
 	}
-	tr.Events = append(tr.Events, smf.EndOfTrack(tick(frames)))
+	// Each section as a marker where it starts, and one where it ends unless
+	// the next starts there: a DAW shows the arrangement.
+	for i, sc := range t.Sections {
+		tr.Events = append(tr.Events, smf.Marker(tick(sc.At), sc.Name))
+		if i+1 == len(t.Sections) || t.Sections[i+1].At != sc.End {
+			tr.Events = append(tr.Events, smf.Marker(tick(sc.End), "End of "+sc.Name))
+		}
+	}
+	sort.SliceStable(tr.Events, func(a, b int) bool { return tr.Events[a].Tick < tr.Events[b].Tick })
+	end := tick(frames) // past every marker: a section can end after the audio
+	for _, ev := range tr.Events {
+		end = max(end, ev.Tick)
+	}
+	tr.Events = append(tr.Events, smf.EndOfTrack(end))
 	f := &smf.File{PPQ: exportPPQ, Tracks: []smf.Track{tr}}
 	return f.Encode()
 }

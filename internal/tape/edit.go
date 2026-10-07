@@ -36,16 +36,23 @@ type EditRequest struct {
 	Clips  []string `json:"clips"`
 	DT     int64    `json:"dt"`
 	DTrack int      `json:"dtrack"`
+	// A section: section-add takes Name, Color, At and End; section-set
+	// takes Section and any of them; section-remove takes Section.
+	Section string  `json:"section"`
+	Name    *string `json:"name"`
+	Color   *string `json:"color"`
+	End     *int64  `json:"end"`
 }
 
 // EditResult says what an edit did, for the page's toast.
 type EditResult struct {
-	Op     string     `json:"op"`
-	Clips  int        `json:"clips"`            // clips lifted, copied, made or moved
-	Frames int64      `json:"frames,omitempty"` // how long, for lift, copy, multiply
-	Board  *Clipboard `json:"clipboard,omitempty"`
-	Clip   *Clip      `json:"clip,omitempty"` // trim: the clip as it is now
-	IDs    []string   `json:"ids,omitempty"`  // duplicate: the copies' ids
+	Op      string     `json:"op"`
+	Clips   int        `json:"clips"`            // clips lifted, copied, made or moved
+	Frames  int64      `json:"frames,omitempty"` // how long, for lift, copy, multiply
+	Board   *Clipboard `json:"clipboard,omitempty"`
+	Clip    *Clip      `json:"clip,omitempty"`    // trim: the clip as it is now
+	Section *Section   `json:"section,omitempty"` // a section edit: the section as it is now
+	IDs     []string   `json:"ids,omitempty"`     // duplicate: the copies' ids
 }
 
 // EditOp carries out an edit on the loaded tape.
@@ -119,6 +126,8 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 		return e.reverseClips(t, []string{req.Clip})
 	case "trim":
 		return e.trimClip(t, req)
+	case "section-add", "section-set", "section-remove":
+		return e.sectionEdit(id, req)
 	case "repeat":
 		err := e.Edit(id, "", func(tp *Tape, s *State) error { return s.repeat(req.Clip, req.Count, tp.Length) })
 		return EditResult{Op: "repeat", Clips: req.Count}, err

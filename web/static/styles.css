@@ -1789,6 +1789,13 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-ruler-row { display: grid; grid-template-columns: 112px 1fr; gap: 6px; }
 .tape-ruler-gap { display: flex; align-items: center; justify-content: flex-end; }
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
+.tape-sections { width: 100%; height: 22px; display: block; background: var(--well); border-radius: 6px; outline: 1px solid var(--well-line); outline-offset: -1px; touch-action: pan-y; cursor: pointer; }
+.tape-sections-gap { font: 600 10px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); }
+.section-names { flex-wrap: wrap; }
+.section-colors { display: flex; gap: 10px; flex-wrap: wrap; }
+.section-colors button { appearance: none; width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: var(--c); cursor: pointer; }
+.section-colors button[aria-pressed="true"] { border-color: var(--ink); }
+.section-colors button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .tape-ruler { width: 100%; height: 26px; display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; touch-action: pan-y; cursor: pointer; }
 .np-drawer .tb-row.clipboard .clip-chip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; }
 .np-drawer .tb-row.clipboard .clip-chip.playing { color: var(--go); }

@@ -46,13 +46,14 @@ const (
 const DefaultTrackGainDB = -6
 
 var (
-	ErrNoGrid       = errors.New("the tape has no tempo yet")
-	ErrPastTheEnd   = errors.New("that runs past the end of the tape")
-	ErrNoSuchTrack  = errors.New("no such track")
-	ErrNoSuchClip   = errors.New("no such clip")
-	ErrNothingToDo  = errors.New("nothing to undo")
-	ErrBadLoop      = errors.New("the loop's out must be after its in")
-	ErrBadParameter = errors.New("bad parameter")
+	ErrNoGrid        = errors.New("the tape has no tempo yet")
+	ErrPastTheEnd    = errors.New("that runs past the end of the tape")
+	ErrNoSuchTrack   = errors.New("no such track")
+	ErrNoSuchClip    = errors.New("no such clip")
+	ErrNothingToDo   = errors.New("nothing to undo")
+	ErrBadLoop       = errors.New("the loop's out must be after its in")
+	ErrBadParameter  = errors.New("bad parameter")
+	ErrNoSuchSection = errors.New("no such section")
 )
 
 // Grid is the first loop that fixed the tempo: its length in frames is the
@@ -228,11 +229,13 @@ type State struct {
 	Grid   *Grid   `json:"grid"`
 	Loop   Loop    `json:"loop"`
 	Tracks []Track `json:"tracks"`
+	// Sections name spans of the tape for arranging (sections.go), in order.
+	Sections []Section `json:"sections,omitempty"`
 }
 
 // clone is a deep copy, for undo.
 func (s State) clone() State {
-	out := State{Loop: s.Loop, Tracks: make([]Track, len(s.Tracks))}
+	out := State{Loop: s.Loop, Tracks: make([]Track, len(s.Tracks)), Sections: slices.Clone(s.Sections)}
 	if s.Grid != nil {
 		g := *s.Grid
 		out.Grid = &g
@@ -401,6 +404,9 @@ func (s *State) validate(length int64) error {
 		if s.Loop.Out > length {
 			return ErrPastTheEnd
 		}
+	}
+	if err := s.validSections(length); err != nil {
+		return err
 	}
 	for i := range s.Tracks {
 		tr := &s.Tracks[i]

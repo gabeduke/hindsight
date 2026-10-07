@@ -842,3 +842,31 @@ func TestTheCrateOverTheAPI(t *testing.T) {
 	want(t, send(t, r, http.MethodPost, "/api/crate/split", `{"take":"jam_2026-10-04_11-00-00.wav","at":0}`), http.StatusBadRequest, "split at the start")
 	want(t, send(t, r, http.MethodPost, "/api/crate/split", `{"take":"jam_nope.wav","at":10}`), http.StatusNotFound, "split no take")
 }
+
+func TestSectionsOverTheAPI(t *testing.T) {
+	r, _ := newTapeAPI(t)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":120,"bars":4}}`), http.StatusOK, "tempo")
+	w := send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-add","name":"Verse","color":"red","at":10,"end":100000}`)
+	want(t, w, http.StatusOK, "add")
+	var out struct {
+		Edit struct {
+			Section struct {
+				ID, Name, Color string
+				At, End         int64
+			}
+		}
+		Tape struct {
+			Sections []struct{ ID string } `json:"sections"`
+		}
+	}
+	json.Unmarshal(w.Body.Bytes(), &out)
+	if s := out.Edit.Section; s.Name != "Verse" || s.Color != "red" || s.At != 0 || s.End != 96000 || len(out.Tape.Sections) != 1 {
+		t.Fatalf("added = %+v, %d in the state", s, len(out.Tape.Sections))
+	}
+	sid := out.Edit.Section.ID
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-set","section":"`+sid+`","name":"Chorus"}`), http.StatusOK, "rename")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-add","name":"Over","at":0,"end":96000}`), http.StatusBadRequest, "overlap")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-remove","section":"`+sid+`"}`), http.StatusOK, "remove")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"section-remove","section":"`+sid+`"}`), http.StatusBadRequest, "remove twice")
+}

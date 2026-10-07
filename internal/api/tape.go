@@ -42,7 +42,7 @@ import (
 //	                                   {..., at, loop, replace, source}: at that tape frame;
 //	                                   {track, merge}: the clipboard, at the playhead
 //	POST   /api/tapes/send?id=         {take, from?, to?, track}: a take onto the tape by its tempo and downbeat
-//	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse|trim|repeat|move|remove|duplicate, track, all, clip, clips, pos, at, edge, to, count, dt, dtrack}
+//	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse|trim|repeat|move|remove|duplicate|section-add|section-set|section-remove, track, all, clip, clips, pos, at, edge, to, count, dt, dtrack, section, name, color, end}
 //	GET    /api/tapes/clip?id=&clip=   one clip as a 16-bit WAV, to share
 //	GET    /api/tapes/listen?id=       the loop as a 16-bit WAV, to overdub on a phone
 //	POST   /api/tapes/mixdown?id=      {all}: play In to Out (all: the whole tape) once, save it as a take
@@ -82,7 +82,8 @@ func tapeErr(w http.ResponseWriter, err error) {
 		errors.Is(err, tape.ErrNeedsJamRoom), errors.Is(err, tape.ErrNoStream):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
-		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid):
+		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid),
+		errors.Is(err, tape.ErrNoSuchSection):
 		writeErr(w, http.StatusBadRequest, err.Error())
 	default:
 		writeErr(w, http.StatusInternalServerError, err.Error())
