@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.08.6 — 2026-10-08
+
+- Ranges: fixes from review (1fa7358)
+- Tape: ranges and one action bar (8d125aa)
+- Record v2026.10.08.5 in the changelog [skip ci] (332b26c)
+
+
 ## v2026.10.08.5 — 2026-10-08
 
 - Arm and the input menu: fixes from review (b1a5173)
