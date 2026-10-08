@@ -1816,6 +1816,10 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .loop-lock .lock-shackle { transform: translate(2.2px, 0); transition: transform .12s; }
 .loop-lock[aria-pressed="true"] { color: var(--warn); border-color: var(--warn); }
 .loop-lock[aria-pressed="true"] .lock-shackle { transform: none; }
+/* With Fit there too, the three share the track heads' width: the snap
+   keeps its word and loses its icon, and the keys their slack. */
+.ruler-keys:has(.view-fit:not([hidden])) .snap-ico { display: none; }
+.ruler-keys:has(.view-fit:not([hidden])) .ruler-chip { padding: 0 6px; }
 /* Insert and Delete time say they act on every track: a second line under
    the word. */
 .icon-btn.key-two { flex-direction: column; justify-content: center; gap: 0; line-height: 1.1; }
@@ -1924,7 +1928,7 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
    lane, out of the row's height: without it the two feed each other. */
 .tt-lane { width: 100%; height: auto; min-height: 64px; contain: size; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .tt-lane.sliding { cursor: grabbing; }
-.tt-lane.trimming, .tt-lane.repeating, .tt-lane.fading, .tt-lane.on-grip { cursor: ew-resize; }
+.tt-lane.trimming, .tt-lane.repeating, .tt-lane.fading, .tt-lane.on-grip, .tt-lane.ranging { cursor: ew-resize; }
 /* A clip's fade lengths: six keys, which wrap on a phone. */
 .fade-seg { flex-wrap: wrap; }
 /* A fade's curve, under its lengths: four, each drawn as it plays. */

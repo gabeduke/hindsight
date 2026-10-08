@@ -13,7 +13,8 @@ import (
 
 // Sections (step A6, docs/superpowers/specs/2026-10-07-sections-design.md):
 // named spans of the tape -- an intro, a verse, a chorus -- above the ruler.
-// Tapping one on the page selects its bars, so Lift, Copy and ×2 act on it;
+// Tapping one on the page selects its bars on every track, a range that Cut,
+// Copy and ×2 act on;
 // a stem export writes them as MIDI markers. They're part of the tape's state,
 // so every change is one undo step, and on a tape with a tempo they sit on
 // bar lines. They don't overlap.

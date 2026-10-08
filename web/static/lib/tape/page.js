@@ -53,34 +53,34 @@ const state = {
   sources: [],
   undo: 0,
   redo: 0,
-  track: 1,         // the selected track: what Drop, Lift, Copy and Split act on (this device's own)
+  track: 1,         // the selected track: where Paste and Split go without a range (this device's own)
   recTrack: 1,      // the record track: catches, punches, a tap and an overdub go there (the Pi's rec_track); 0 is none armed
   source: readPref('tape.source', 'aux'),
   mode: readPref('tape.mode', 'layer'), // a catch onto audio: layer or replace
   clip: null,       // the clip whose sheet is open
   picked: null,     // the one clip selected: its grips show, to trim it (selection.js)
   clipboard: null,  // what /api/clipboard says
-  sel: null,        // a ruler drag in progress: {from, to} tape frames
+  sel: null,        // a range being drawn, as the ruler shows it: {from, to} tape frames (the view doesn't pan)
   snap: readPref('tape.snap', 'bar'),   // what a slid clip, a trim, a fade or a range snaps to
   range: null,      // bars across tracks, drawn on the lanes: {from, to, t0, t1} (range.js)
   loopLock: readPref('tape.loopLock', 'off') === 'on', // a range leaves the loop where it is
-  rangeDrag: null,  // one being drawn: {n0, f0, r}
+  rangeDrag: null,  // one being drawn or resized: {r, id, n}, the pointer and lane drawing it
   slide: null,      // a clip being slid: {n, clip, at, to}: from track n to track to
   trim: null,       // a grip being dragged: {n, clip, edge, edge0, at, bounds, limited}
   repeat: null,     // the ⟳ corner being dragged: {n, clip, count, max}
   fade: null,       // a fade handle being dragged: {n, clip, edge, key, len0, len}
   multi: null,      // several clips selected: a Set of their ids, or null
   adding: false,    // Select more: a tap adds a clip or takes it off
-  // What Drop, Insert or Delete time would do, shown on the lanes before it's
-  // done: {kind, tape?, from, to, track?, tracks?, label, armed?}. tape is the
-  // tape as it would be (lib/tape/timeedit.js).
+  // What Paste, Insert or Delete time would do, shown on the lanes before it's
+  // done: {kind, where, tape?, from, to, track?, tracks?, label, armed?}. tape
+  // is the tape as it would be (lib/tape/timeedit.js); where is hereOf's.
   preview: null,
   zoom: null,       // the lanes' view once pinched, panned or paged: {from, to}; null shows the loop
   touchedView: 0,   // when a pinch or pan last moved the view: following waits a moment after
   noClickUntil: 0,  // a lane's click before this ends a pan, not a tap
   pinch: false,     // two fingers are on the lanes or the ruler
   rec: null,        // a punch being recorded: {key, track, start, trace, wrapped}
-  // The bar's open drawer: 'edit' (Clipboard · Edit), 'crate', or ''.
+  // The bar's open drawer: 'crate' (the clipboard and the kept clips), or ''.
   drawer: readPref('tape.drawer', '') === 'crate' ? 'crate' : '', // the Edit drawer went in step 5
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
@@ -283,8 +283,16 @@ function apply(s) {
     state.fade = state.trim = state.repeat = null;
     recWant = null; // the new tape's record track is the Pi's
     state.range = null; // its bars were the other tape's
-    state.rangeDrag = null;
+    if (state.rangeDrag) { state.rangeDrag = null; state.sel = null; }
   }
+  // A range that was the loop stays the loop when the loop moves: ×2, an
+  // Insert at its start, an undo, another device. One made off the loop (it's
+  // locked, or the loop is catching up with it) stays where it was drawn.
+  const prevLoop = state.tape && s.tape && state.tape.id === s.tape.id ? state.tape.loop : null;
+  if (state.range && !state.rangeDrag && prevLoop && isLoop(state.range, prevLoop) && s.tape.loop.out > s.tape.loop.in && !isLoop(state.range, s.tape.loop)) {
+    state.range = { ...state.range, from: s.tape.loop.in, to: s.tape.loop.out };
+  }
+  if (state.range && s.tape && state.range.t1 > s.tape.tracks.length) state.range = null; // tracks it was on are gone
   state.tape = s.tape;
   // The empty-tape form starts at the tempo you were playing, until you type.
   if (s.suggest_bpm && !$('new-bpm').dataset.touched) $('new-bpm').value = String(s.suggest_bpm);
@@ -794,7 +802,8 @@ function renderRulerKeys() {
   const s = SNAPS.find((x) => x.id === (t.grid ? state.snap : 'off')) || SNAPS[0];
   setText($('snap-name'), s.label);
   $('snap-btn').disabled = !t.grid;
-  setIf($('snap-btn'), 'aria-label', t.grid ? `Snap to ${s.label === '⅛' ? 'eighths' : s.label.toLowerCase()}: tap for the next` : 'Snap: off, with no tempo');
+  const said = { bar: 'bars', beat: 'beats', '8th': 'eighths' }[s.id];
+  setIf($('snap-btn'), 'aria-label', !t.grid ? 'Snap: off, with no tempo' : said ? `Snap to ${said}: tap for the next` : 'Snap off: tap for bars');
   setIf($('loop-lock'), 'aria-pressed', String(state.loopLock));
   setIf($('loop-lock'), 'aria-label', state.loopLock ? 'The loop is locked: a range leaves it where it is' : 'Lock the loop where it is');
 }
@@ -816,6 +825,7 @@ function toggleLoopLock() {
 
 // What each edit is called in a toast that says it couldn't be done.
 const OP_WORDS = {
+  lift: 'cut it', copy: 'copy it', insert: 'insert it',
   multiply: 'double the loop', 'section-add': 'make the section', 'section-set': 'change the section',
   'section-remove': 'remove the section', 'delete-time': 'delete the time', 'duplicate-section': 'duplicate the section',
   move: 'move them', duplicate: 'copy them after themselves',
@@ -977,7 +987,7 @@ function markPlaying() {
   }
 }
 
-// The rows' Drop keys need a tape to drop on.
+// The rows' Paste keys need a tape to paste on.
 function renderCrateDrops() {
   const t = state.tape;
   for (const b of document.querySelectorAll('#crate-list .crate-drop')) b.disabled = !t;
@@ -1115,8 +1125,8 @@ function wireCrate() {
   fetchCrate();
 }
 
-// --- Drop, Insert, Delete time: what each does, shown first ----------------------
-// Drop puts the clipboard over what's there; Insert pushes everything after
+// --- Paste, Insert, Delete time: what each does, shown first ---------------------
+// Paste puts the clipboard over what's there; Insert pushes everything after
 // the playhead later and puts it in the gap; Delete time cuts the selection
 // out and closes the gap (internal/tape/timeedit.go). Hovered or focused, a
 // key shows on the lanes what it will do. On a touch screen, with no hover,
@@ -1267,7 +1277,7 @@ function renderAskFirst() {
 
 // --- selecting clips ------------------------------------------------------------
 // As in a DAW (docs/superpowers/specs/2026-10-07-click-to-select-design.md):
-// a click selects a clip, and the clip bar (#multi-bar) over the transport
+// a click selects a clip, and the action bar (#multi-bar) over the transport
 // acts on what's selected; its Details… opens the clip's sheet, as a
 // double-click or Enter does. Shift, ⌘ or Ctrl with a click adds a clip or
 // takes it off (on a touch screen, the bar's Select more); dragging any of
@@ -1275,13 +1285,13 @@ function renderAskFirst() {
 // 2026-10-07-select-clips-design.md). Escape, Done or a click on an empty
 // part of a lane lets go.
 
-// When the clip bar last came up (a click on it just then isn't taken), and
+// When the action bar last came up (a click on it just then isn't taken), and
 // until when a click that selects keeps it down (waitForBar).
 let barShownAt = 0;
 let barWaitUntil = 0;
 let revealTimer = 0;
 
-// waitForBar: a click that selects brings the clip bar up after a
+// waitForBar: a click that selects brings the action bar up after a
 // double-click's second click would have come. The bar takes height from
 // the lanes, so that click would otherwise land a lane away, or on a key.
 function waitForBar() {
@@ -1303,7 +1313,7 @@ function setSel(s) {
   revealPicked();
 }
 
-// On a phone the clip bar floats over the foot of the page: a selected
+// On a phone the action bar floats over the foot of the page: a selected
 // clip's lane it would cover scrolls up into view, so a tapped clip isn't
 // hidden by its own bar. Not at once: a double-tap's second tap lands where
 // its first did.
@@ -1316,7 +1326,7 @@ function revealPicked() {
     const c = picks()[0];
     const lane = c && lanes.find((l) => l.n === c.track);
     if (!lane) return;
-    // Under the inspector's sheet, when it's open; else under the clip bar.
+    // Under the inspector's sheet, when it's open; else under the action bar.
     const cover = inspecting() ? $(inspecting()) : bar;
     const over = lane.canvas.getBoundingClientRect().bottom + 8 - cover.getBoundingClientRect().top;
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1408,7 +1418,9 @@ function setRange(r) {
   if (keyed().length) setSel(sel.none());
   state.range = r;
   showPreview(null);
-  if (!state.loopLock && !isLoop(r, t.loop)) patch({ loop: { in: r.from, out: r.to, on: true } });
+  // The loop follows, turned on; not while it's locked, nor on a tape with
+  // no tempo, whose loop is set by its first (the ruler needs bars too).
+  if (!state.loopLock && t.grid && !(isLoop(r, t.loop) && t.loop.on)) patch({ loop: { in: r.from, out: r.to, on: true } });
   renderClipBar();
   redrawView();
 }
@@ -1416,7 +1428,7 @@ function setRange(r) {
 function letGoRange() {
   if (!state.range && !state.rangeDrag) return;
   state.range = null;
-  state.rangeDrag = null;
+  if (state.rangeDrag) { state.rangeDrag = null; state.sel = null; } // a drag under way ends too
   if (state.preview && state.preview.where && state.preview.where.onRange) showPreview(null);
   renderClipBar();
   redrawView();
@@ -1438,7 +1450,8 @@ function renderRangeKeys(r) {
   const why = !c ? 'The clipboard is empty: Cut or Copy something first' : !fits ? `${c.tracks.length} tracks don't fit from track ${r.t0}` : '';
   setIf($('range-paste'), 'title', why);
   setIf($('range-insert'), 'title', why);
-  $('range-x2').hidden = !isLoop(r, t.loop);
+  // ×2 doubles the loop on every track: there for a range that's both.
+  $('range-x2').hidden = !isLoop(r, t.loop) || r.t0 !== 1 || r.t1 !== t.tracks.length;
   $('range-x2').disabled = !fitsDoubled(t);
 }
 
@@ -1457,8 +1470,17 @@ async function cutCopy(cut) {
 
 // The range a drag on a lane makes, snapped as the snap says.
 const snapPer = () => (SNAPS.find((s) => s.id === state.snap) || SNAPS[0]).per;
-// How near a range's edge a press takes the edge (a finger's half-width).
-const RANGE_EDGE_PX = 14;
+// How near a range's edge tab a press takes the edge (a finger's half-width).
+const RANGE_EDGE_PX = 12;
+// rangeTab is where a range's edge tabs sit on a lane H tall.
+function rangeTab(H) {
+  const th = Math.min(22, H * 0.4);
+  return { ty: (H - th) / 2, th };
+}
+// The pointers down on the page: a range is one finger's.
+const downs = new Set();
+for (const ev of ['pointerdown']) window.addEventListener(ev, (e) => downs.add(e.pointerId), true);
+for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, (e) => downs.delete(e.pointerId), true);
 
 // barsOfClips makes the bars the selected clips cover, on their tracks, the
 // range: snapped out to the snap, so a part of a clip can then be had by
@@ -1736,32 +1758,62 @@ function wireLane(lane) {
     }
   };
   // An empty part held, then dragged: a range over the bars and lanes it's
-  // dragged across, snapped as the snap says (a drag before the hold pans).
-  // A range's edge, on a lane it covers, drags at once to resize it.
-  let rd = null; // {id, x, y, f, timer, held, edge?}
+  // dragged across, snapped as the snap says (a drag before the hold pans; a
+  // hold let go without a drag is a tap). A range's edge tab, dragged
+  // sideways, resizes it; pressed and let go, or dragged up or down, it's
+  // whatever is under it. One finger at a time: a second lets the first's go.
+  let rd = null; // the range this lane's pointer draws: {id, x, y, f, timer, held, moved, edge?}
+  let eg = null; // a press on an edge tab, not yet dragged: {id, x, y, edge}
+  const mine = () => !!rd && !!state.rangeDrag && state.rangeDrag.id === rd.id && state.rangeDrag.n === lane.n;
   const rangeEdgeAt = (e) => {
     const r = state.range;
     if (!r || !covers(r, lane.n) || state.align || state.rangeDrag) return null;
     const b = cv.getBoundingClientRect(), v = laneView();
-    const x = e.clientX - b.left;
+    const x = e.clientX - b.left, y = e.clientY - b.top;
     const d0 = Math.abs(x - xOf(r.from, v, b.width)), d1 = Math.abs(x - xOf(r.to, v, b.width));
     if (Math.min(d0, d1) > RANGE_EDGE_PX) return null;
+    // Only by its tab (drawRange), a finger's height round it.
+    const { ty, th } = rangeTab(b.height);
+    if (y < ty - RANGE_EDGE_PX || y > ty + th + RANGE_EDGE_PX) return null;
     return d0 <= d1 ? 'from' : 'to';
   };
   const rangeAt = (e) => rangeOf(state.tape.grid, snapPer(), rd.f, frameUnder(e.clientX), lane.n,
     targetTrack(lane.n, e.clientY - rd.y, lanePitch(), lanes.length), state.tape.length);
+  const startDrag = (r) => {
+    try { cv.setPointerCapture(rd.id); } catch { /* the pointer's gone */ }
+    rd.held = true;
+    state.rangeDrag = { r, id: rd.id, n: lane.n };
+    state.sel = { from: r.from, to: r.to }; // the ruler shows it; the view doesn't pan
+    cv.classList.add('ranging');
+    redrawView();
+  };
+  const dropDrag = () => {
+    if (mine()) { state.rangeDrag = null; state.sel = null; }
+    cv.classList.remove('ranging');
+    redrawView();
+  };
   const rangeDown = (e) => {
-    rd = { id: e.pointerId, x: e.clientX, y: e.clientY, f: frameUnder(e.clientX), held: false };
+    rd = { id: e.pointerId, x: e.clientX, y: e.clientY, f: frameUnder(e.clientX), held: false, moved: false };
     rd.timer = setTimeout(() => {
-      if (!rd || state.pinch || state.align || state.slide || gripHeld()) { rd = null; return; }
-      rd.held = true;
-      try { cv.setPointerCapture(rd.id); } catch { /* the pointer's gone */ }
-      state.rangeDrag = { r: rangeAt({ clientX: rd.x, clientY: rd.y }) };
-      state.sel = { from: state.rangeDrag.r.from, to: state.rangeDrag.r.to }; // the ruler shows it; the view doesn't pan
-      cv.classList.add('ranging');
+      if (!rd || downs.size > 1 || state.pinch || state.align || state.slide || gripHeld() || state.rangeDrag || state.sel) { rd = null; return; }
+      startDrag(rangeAt({ clientX: rd.x, clientY: rd.y }));
       if (navigator.vibrate) navigator.vibrate(10);
-      redrawView();
     }, HOLD_MS);
+  };
+  // An edge tab's press becomes the edge's drag once it goes sideways; the
+  // clip's press under it, and a hold's timer, let go.
+  const claimEdge = (e) => {
+    if (!eg || e.pointerId !== eg.id) return;
+    const dx = e.clientX - eg.x, dy = e.clientY - eg.y;
+    if (Math.abs(dy) > SLOP_PX && Math.abs(dy) >= Math.abs(dx)) { eg = null; return; }
+    if (Math.abs(dx) <= SLOP_PX || downs.size > 1 || !state.range || state.rangeDrag) return;
+    const { edge } = eg;
+    eg = null;
+    clearTimeout(timer);
+    gest.cancel(pt(e));
+    if (rd) clearTimeout(rd.timer);
+    rd = { id: e.pointerId, x: e.clientX, y: e.clientY, edge, held: false, moved: true };
+    startDrag({ ...state.range });
   };
   const rangeMove = (e) => {
     if (!rd || e.pointerId !== rd.id) return false;
@@ -1769,6 +1821,9 @@ function wireLane(lane) {
       if (Math.hypot(e.clientX - rd.x, e.clientY - rd.y) > SLOP_PX) { clearTimeout(rd.timer); rd = null; }
       return false;
     }
+    // Let go of elsewhere meanwhile (Escape, a tap, another tape): done.
+    if (!mine()) { rd = null; cv.classList.remove('ranging'); return true; }
+    if (Math.hypot(e.clientX - rd.x, e.clientY - rd.y) > SLOP_PX) rd.moved = true;
     state.rangeDrag.r = rd.edge
       ? resize(state.range, rd.edge, frameUnder(e.clientX), state.tape.grid, snapPer(), state.tape.length)
       : rangeAt(e);
@@ -1777,18 +1832,17 @@ function wireLane(lane) {
     return true;
   };
   const rangeUp = (e, ok) => {
+    if (eg && e.pointerId === eg.id) eg = null;
     if (!rd || e.pointerId !== rd.id) return;
     clearTimeout(rd.timer);
-    const held = rd.held;
+    const { held, moved } = rd;
+    const was = mine() ? state.rangeDrag : null;
+    if (held) dropDrag(); // while rd still says the drag is this lane's
     rd = null;
-    if (!held) return;
-    const dr = state.rangeDrag;
-    state.rangeDrag = null;
-    state.sel = null;
-    cv.classList.remove('ranging');
+    // A hold let go where it was is the tap it looked like: its click goes on.
+    if (!held || !moved) return;
     state.noClickUntil = performance.now() + 400; // its click isn't a tap
-    if (ok && dr) setRange(dr.r);
-    else redrawView();
+    if (ok && was && was.r.to > was.r.from) setRange(was.r);
   };
   // A gesture that ended takes its hold with it; another finger's lift doesn't.
   const end = (fx) => { if (fx) clearTimeout(timer); run(fx); };
@@ -1811,18 +1865,11 @@ function wireLane(lane) {
   });
   cv.addEventListener('pointerdown', (e) => {
     if (!state.tape || e.button > 0) return;
-    const edge = !rd ? rangeEdgeAt(e) : null;
-    if (edge) {
-      // The range's edge, over whatever clip is under it.
-      try { cv.setPointerCapture(e.pointerId); } catch { /* the pointer's gone */ }
-      rd = { id: e.pointerId, x: e.clientX, y: e.clientY, edge, held: true };
-      state.rangeDrag = { r: { ...state.range } };
-      state.sel = { from: state.range.from, to: state.range.to };
-      cv.classList.add('ranging');
-      redrawView();
-      return;
-    }
     const hit = laneHit(lane, e);
+    // A range's edge tab, unless a clip's grip is there (the grip wins): it's
+    // the edge's once it's dragged sideways.
+    const edge = !rd && downs.size <= 1 && (!hit || hit.zone === 'body') ? rangeEdgeAt(e) : null;
+    eg = edge ? { id: e.pointerId, x: e.clientX, y: e.clientY, edge } : null;
     if (!hit && !rd && !state.align && !state.adding) rangeDown(e);
     const fx = gest.down(pt(e), hit);
     if (fx && fx.type === 'press') {
@@ -1836,6 +1883,7 @@ function wireLane(lane) {
       const h = laneHit(lane, e);
       cv.classList.toggle('on-grip', (!!h && h.zone !== 'body') || !!rangeEdgeAt(e));
     }
+    claimEdge(e);
     if (rangeMove(e)) return;
     const fx = gest.move(pt(e));
     if (fx && fx.type === 'swipe') clearTimeout(timer); // the browser's, and the lanes' pan
@@ -2051,7 +2099,7 @@ function renderAlign() {
   el.hidden = !a;
   el.parentElement.classList.toggle('editing', !!a);
   renderDrawers(); // the drawers wait under the editor, their keys unlit
-  renderClipBar(); // and the clip bar goes: the editor has the clip
+  renderClipBar(); // and the action bar goes: the editor has the clip
   if (!a) return;
   const t = state.tape;
   const sr = t.sample_rate;
@@ -2317,8 +2365,8 @@ function wireRuler() {
 
 // --- sections -------------------------------------------------------------------
 // Named spans over the ruler (internal/tape/sections.go): hold and drag on the
-// strip to make one, tap one to select its bars (the loop's In and Out, so
-// Lift, Copy and ×2 act on it), tap it again for its sheet, drag an edge to
+// strip to make one, tap one to select its bars on every track (a range,
+// which the loop follows), tap it again for its sheet, drag an edge to
 // resize it. On bar lines, with a tempo. See
 // docs/superpowers/specs/2026-10-07-sections-design.md.
 
@@ -2349,7 +2397,8 @@ function drawSections() {
     const x0 = xOf(sc.at, view, W), x1 = xOf(sc.end, view, W);
     if (x1 < 0 || x0 > W) continue;
     const c = token(colorOf(sc).token, colorOf(sc).fallback);
-    const looped = isLooped(sc, t.loop);
+    // Lit as chosen: the range's bars, or with none, the loop's.
+    const looped = state.range ? state.range.from === sc.at && state.range.to === sc.end : isLooped(sc, t.loop);
     ctx.fillStyle = withAlpha(c, looped ? 0.5 : 0.28);
     ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
     ctx.fillStyle = c;
@@ -2438,7 +2487,7 @@ function wireSections() {
   const say = () => {
     const sc = sectionsOf()[sec.focus];
     cv.setAttribute('aria-label', sc
-      ? `Section ${sc.name}, ${sectionBars(sc, state.tape.grid, state.tape.sample_rate)}${isLooped(sc, state.tape.loop) ? ', selected' : ''}. Left and right to move, Enter to select`
+      ? `Section ${sc.name}, ${sectionBars(sc, state.tape.grid, state.tape.sample_rate)}${(state.range ? state.range.from === sc.at && state.range.to === sc.end : isLooped(sc, state.tape.loop)) ? ', selected' : ''}. Left and right to move, Enter to select`
       : 'Sections: none yet. Hold and drag on the strip to make one');
   };
   cv.addEventListener('focus', () => { if (sec.focus < 0 && sectionsOf().length) sec.focus = 0; say(); drawSections(); });
@@ -2497,14 +2546,12 @@ async function setSection(id, fields) {
   if (e && e.section && sec.open === id) openSection(e.section);
 }
 
-// tapSection selects a section's bars; tapped again, it opens its sheet.
 // tapSection selects a section's bars on every track, a range, which the
 // loop follows (unless it's locked); tapped again, its inspector.
 function tapSection(sc, { focus = false } = {}) {
   const t = state.tape;
   const r = state.range;
-  const chosen = r ? r.from === sc.at && r.to === sc.end && r.t0 === 1 && r.t1 === t.tracks.length : isLooped(sc, t.loop);
-  if (chosen) { openSection(sc, { focus }); return; }
+  if (r && r.from === sc.at && r.to === sc.end && r.t0 === 1 && r.t1 === t.tracks.length) { openSection(sc, { focus }); return; }
   // The inspector open on another section: it follows this one.
   if ($('section-sheet').open && sec.open !== sc.id) openSection(sc);
   setRange({ from: sc.at, to: sc.end, t0: 1, t1: t.tracks.length });
@@ -3067,7 +3114,7 @@ function drawRange(ctx, r, view, W, H, c, drawing) {
   ctx.fillRect(Math.round(x0), 0, 2, H);
   ctx.fillRect(Math.round(x1) - 2, 0, 2, H);
   // A tab on each edge, mid-lane: it can be dragged.
-  const th = Math.min(22, H * 0.4), ty = (H - th) / 2;
+  const { ty, th } = rangeTab(H);
   for (const x of [x0, x1]) {
     ctx.beginPath();
     roundRectPath(ctx, Math.round(x) - 4, ty, 8, th, 3);
@@ -3335,7 +3382,7 @@ function drawGhost(ctx, x0, bw, top, h, tc) {
 
 // drawPreview marks on one lane what a previewed edit does: the gap an
 // Insert opens (every track), the seam where Delete time closes the gap
-// (every track), or what Drop covers (the clipboard's tracks).
+// (every track), or what Paste covers (the clipboard's tracks).
 function drawPreview(ctx, pv, n, view, W, H, col) {
   if (pv.kind === 'drop' && !(n >= pv.track && n < pv.track + pv.tracks)) return;
   const x0 = xOf(pv.from, view, W), x1 = xOf(pv.to, view, W);
@@ -3875,7 +3922,7 @@ let pressedOutside = 0;
 // the three. Everywhere: a slider is held while a pointer is on it, so a
 // refill doesn't move it under the finger; focus that a refill takes away
 // (a rebuilt or disabled button) stays in the inspector, so the page's keys
-// don't land on the selected clip; and closing it holds off the clip bar a
+// don't land on the selected clip; and closing it holds off the action bar a
 // moment, as its coming up does, so a double-tap's second tap isn't taken.
 function wireInspector() {
   for (const id of ['clip-gain', 'track-gain', 'track-pan']) {
@@ -4412,7 +4459,7 @@ function wire() {
       }
       if (e.key === 'Escape' && !menuWasOpen) { e.preventDefault(); closeAlign(); return; }
     }
-    // Escape lets a previewed Insert, Delete time or Drop go, first.
+    // Escape lets a previewed Insert, Delete time or Paste go, first.
     if (e.key === 'Escape' && !menuWasOpen && state.preview) {
       e.preventDefault();
       showPreview(null);
@@ -4566,7 +4613,7 @@ function wire() {
   $('clip-keep-board').addEventListener('click', () => keep({ clipboard: true }));
   wireCrate();
   wireTimeEdits();
-  // The clip bar.
+  // The action bar, on clips.
   $('multi-split').addEventListener('click', () => {
     const c = picks()[0];
     if (!c) return;

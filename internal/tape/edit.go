@@ -231,8 +231,9 @@ func window(clips []Clip, from, to int64) []Clip {
 	return out
 }
 
-// liftCopy puts the selection -- the loop's In to Out, on the selected track
-// or all of them -- on the clipboard; lift also leaves silence there.
+// liftCopy puts the selection -- a range's span and tracks, or the loop's
+// In to Out on the selected track or all of them -- on the clipboard; lift
+// also leaves silence there.
 func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 	tracks, err := req.tracksOf(t)
 	if err != nil {

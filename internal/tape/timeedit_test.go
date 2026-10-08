@@ -229,3 +229,29 @@ func TestDeleteTimeOnARangeCutsItsSpan(t *testing.T) {
 		t.Fatalf("after = %+v", cl)
 	}
 }
+
+// A range cut away from a locked loop moves the loop with the music, so it
+// plays what it played; one cut over the loop takes it.
+func TestDeleteTimeElsewhereMovesTheLoopWithTheMusic(t *testing.T) {
+	cases := []struct {
+		name         string
+		loop         Loop
+		from, to     int64
+		wantIn, wOut int64
+	}{
+		{"after it", Loop{In: 192000, Out: 288000, On: true}, 0, 48000, 144000, 240000},
+		{"before it", Loop{In: 0, Out: 48000, On: true}, 96000, 144000, 0, 48000},
+		{"across its start", Loop{In: 48000, Out: 144000, On: true}, 0, 96000, 0, 48000},
+		{"the loop itself stays", Loop{In: 48000, Out: 96000, On: true}, 48000, 96000, 48000, 96000},
+		{"inside it", Loop{In: 48000, Out: 96000, On: true}, 0, 192000, 0, 0},
+	}
+	for _, c := range cases {
+		s := State{Tracks: []Track{{N: 1}}, Loop: c.loop}
+		if err := s.deleteTime(c.from, c.to); err != nil {
+			t.Fatal(err)
+		}
+		if s.Loop.In != c.wantIn || s.Loop.Out != c.wOut {
+			t.Fatalf("%s: loop %d–%d, want %d–%d", c.name, s.Loop.In, s.Loop.Out, c.wantIn, c.wOut)
+		}
+	}
+}

@@ -55,7 +55,7 @@ internet.
 | `DELETE /api/tapes/tap?id=` | Forget a first tap |
 | `POST /api/tapes/drop?id=` | Put the clipboard, or a span of a take, onto the tape |
 | `POST /api/tapes/send?id=` | Send a take, or a selection, onto the tape by its tempo and downbeat |
-| `POST /api/tapes/edit?id=` | Lift, copy, split, join, slide, multiply or reverse |
+| `POST /api/tapes/edit?id=` | Lift (Cut), copy, split, join, slide, multiply, reverse, insert, delete time and the rest, on clips or a range |
 | `POST /api/tapes/mixdown?id=` | Play the loop or the whole tape once and save what the mixer put out as a take |
 | `GET /api/tapes/export?id=` | The loaded tape as a zip of stems and a tempo map |
 | `GET /api/tapes/clip?id=&clip=` | One clip as a 16-bit WAV, to share |
@@ -1048,7 +1048,8 @@ it's laid down with the loop off, and the tape has the clipboard's tempo, if
 it has one, else none. A drop during a count-in lands where the tape will start, and doesn't
 move it. `{"track": 3, "merge": true}` is a merge drop: every clipboard track
 onto that one track, layered, and `tracks` is 1. With `"at": F` the clipboard lands at tape frame F
-(the tape page's Paste, at a range's start) and the playhead stays where it is.
+(the tape page's Paste, at a range's start) and the playhead stays where it is;
+on an empty tape with no tempo it's the first loop, at 0, as without.
 
 `{"take": "jam_….wav", "from": F, "to": T, "track": 1, "bars": 0}` copies
 frames `[from, to)` of a take into the pool (its `SAVE_CHANNELS` pair, for a
@@ -1124,7 +1125,7 @@ added.
 | `duplicate` | `clips` | Lays a copy of the clips right after them, the earliest copy where the last of them ends, each on its own track on the lowest layer free there |
 | `reverse` | `clip`, or `clips` | Plays the clip backwards (or each of `clips`, as one undo step): its audio, with its handles either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
 | `insert` | `track`; `pos`?, `crate`? | Pushes everything from `pos` (left out: the playhead) on later by the clipboard's length, on every track, with the sections and the loop (one across the playhead stretches), and lays the clipboard in the gap from `track` down. A clip across the point is cut there first. With `crate` (a kept clip's id), that clip instead of the clipboard. Stopped, the playhead moves to the end of what went in. `edit.at` is where it went in (there when it's 0 too), `edit.frames` its length |
-| `delete-time` | `span` | Cuts the loop's In to Out (or `span: {from, to}`) out of every track and closes the gap: everything after moves earlier by its length. A section inside goes; one across an edge loses the part inside. The loop stays where it is, so it now holds what followed. `edit.at` and `edit.frames` are what went |
+| `delete-time` | `span` | Cuts the loop's In to Out (or `span: {from, to}`) out of every track and closes the gap: everything after moves earlier by its length. A section inside goes; one across an edge loses the part inside. A loop that is the span stays where it is, so it now holds what followed; any other loop moves with the music, as a section does, and one inside the span goes. `edit.at` and `edit.frames` are what went |
 | `duplicate-section` | `section` | Lays the section's span, every track, again right after it, pushing everything after it later, and adds a section of the same name and colour over the copy (`edit.section`) |
 
 400 for a lift or copy with no loop, or nothing in it; a `span` that isn't

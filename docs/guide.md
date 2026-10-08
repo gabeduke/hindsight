@@ -787,8 +787,8 @@ From the top:
   **Esc** closes it. Each device remembers whether it was open.
   - While a clip is being aligned, its editor opens there instead.
 - **Beside the ruler:** **⌗ Bar** is what a drag snaps to -- a slid clip, a
-  trim, a fade or a range: tap it for a beat, an eighth, nothing, and a bar
-  again. The **padlock** locks the loop where it is, so a range you draw
+  trim, a fade, or a range drawn on the lanes: tap it for a beat, an eighth,
+  nothing, and a bar again. The **padlock** locks the loop where it is, so a range you draw
   doesn't move it.
 - **Recording onto a track** is in the track's inspector: tap its name
   twice. It's the record track's (the inspector follows it while one is
@@ -1106,8 +1106,9 @@ the lanes: clips you've selected, or a **range** -- bars across one or more
 tracks. **Hold an empty part of a lane, then drag** across bars and lanes;
 **hold on the ruler and drag** for every track; **tap a section** for its
 bars; or select clips and tap **Bars** for the bars they cover. A range is
-shaded in teal on its lanes, snapped as **⌗** says, and its edges have tabs:
-drag one to move it. The loop follows the range to its bars, as on the OP-1,
+shaded in teal on its lanes. One drawn on the lanes, or from **Bars**, snaps
+as **⌗** says (the ruler's are whole bars). Its edges have tabs: drag one
+sideways to resize it. The loop follows the range to its bars, as on the OP-1,
 unless the **padlock** by the ruler is locked: then you can edit elsewhere
 while the loop plays on. The **action bar** names it (*Tracks 2–3 · bars
 5–8*) and acts on it; **Done**, **Esc** or a tap on an empty part of a lane
@@ -1143,8 +1144,9 @@ beside **⇥ Insert**, **✂ Cut** beside **⇤ Delete time**.
 
 - **Insert** and **Delete time** act on **all four tracks and the
   sections** (the keys say *all tracks*): moving one track alone would knock
-  the parts out of time with each other. Paste, Cut and Copy act on the
-  range's tracks.
+  the parts out of time with each other. Cut and Copy take the range's
+  tracks; Paste fills from its first track down, as many as the clipboard
+  has.
 - **Insert** is beside Paste and needs a clipboard: on the action bar it
   goes in at the range's start, in the crate at the playhead. **Delete
   time** is beside Cut and takes the range's bars. A clip across the point is
@@ -1825,7 +1827,7 @@ has no tip.
 | Delete (kept clip) | Take it off the crate. Undo brings it back, for a week |
 | Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: those bars on every track, a range, which the loop follows unless it's locked. Drag sideways to pan, pinch to zoom |
 | Fit | Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along |
-| Snap | What a drag snaps to: a slid clip, a trim, a fade or a range. A bar, a beat, an eighth, or nothing: tap for the next |
+| Snap | What a drag snaps to: a slid clip, a trim, a fade, or a range drawn on the lanes. A bar, a beat, an eighth, or nothing: tap for the next |
 | Lock (ruler) | Lock the loop where it is: a range you draw leaves it alone, so you can edit elsewhere while it plays on. Unlocked, the loop follows the range |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
 | Clipboard | The crate's first slot: what you cut or copied last, from the tape, a take or the ribbon. Tap to hear it |
@@ -1853,7 +1855,7 @@ has no tip.
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Start here, End here (clip) | Trim the clip's start or end to the playhead, for a clip too short to drag. What's trimmed is kept: drag or trim back out |
 | Cut (action bar) | Copy the selected clips as they lie, then take them off the tape: Paste lays them out again, and one Undo puts them back. Key: ⌘X or Ctrl-X |
-| Bars (action bar) | The bars the selected clips cover, on their tracks, as a range: drag its edges in for part of a clip, then Cut, Copy, Paste or Delete time |
+| Bars (action bar) | What the selected clips cover, on their tracks, out to the snap, as a range: drag its edges in for part of a clip, then Cut, Copy, Paste or Delete time |
 | Split (action bar) | Cut the selected clip in two at the playhead, lit while the playhead is inside it. A clip layered with it there is cut too. Key: S |
 | Copy (action bar) | Copy the selected clips as they lie, on their tracks: Paste lays them out again. Key: ⌘C or Ctrl-C |
 | Duplicate (action bar) | Lay a copy of the selected clips right after them, and select the copy. Key: ⌘D or Ctrl-D |
