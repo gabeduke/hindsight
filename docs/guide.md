@@ -1739,7 +1739,7 @@ has no tip.
 | Copy (ribbon) | Put the span you selected on the clipboard, to drop onto a tape |
 | Keep as clip (ribbon) | Keep the span you selected as a clip on the crate, not as a take |
 | ● Rec (tape) | Records from the source it names (chosen under Record from). Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it. Key: R |
-| RECORDING | Lit while a punch is recording onto the tape |
+| RECORDING | Shows only while a punch is recording onto the tape |
 | ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty. Key: K |
 | Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
 | Tempo (tape) | Call the loop more bars or fewer: the same length, so nothing is stretched |
@@ -1799,7 +1799,7 @@ has no tip.
 | ▶ Listen (overdub) | Play it here, without recording |
 | ● Record (overdub) | Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too |
 | Clock → (tape) | Who follows the tape's MIDI clock (TAPE_CLOCK=lead); ● while they're running |
-| Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: not yet |
+| Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: playing but not lined up yet. Grey: stopped, or playing on a phone |
 | OUT (tape) | Where the tape plays: the jam room, this phone, or both. Switching keeps it rolling from the same spot |
 | Jam room / This phone / Both | The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both |
 | Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |

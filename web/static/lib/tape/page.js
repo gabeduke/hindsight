@@ -443,10 +443,14 @@ function render() {
   // The sign over the door: lit only while a punch is going onto tape.
   const onAir = !!(live && live.playing && live.record && live.record.state === 'on' && live.record.tape === t.id);
   $('rec-sign').classList.toggle('on', onAir);
-  // Playing on a phone, there is nothing to line up: grey, not red.
+  // Playing on a phone, there is nothing to line up: grey, not red. Nor is
+  // there while the tape is stopped: red only when it plays and still isn't
+  // lined up, so a quiet room doesn't show an alarm beside the RECORDING sign.
   const phoneOut = !!(live && live.output_mode === 'phone');
-  $('lock-dot').className = `dot lock ${phoneOut ? 'off' : lock === 'exact' || lock === 'locked' ? 'ok' : lock === 'estimated' ? 'wait' : 'bad'}`;
-  $('lock-dot').title = phoneOut ? 'no lock: the tape is playing on a phone' : lock === 'none' ? 'not lined up yet: catches wait'
+  const idle = lock === 'none' && !(live && (live.playing || live.count_in > 0));
+  $('lock-dot').className = `dot lock ${phoneOut || idle ? 'off' : lock === 'exact' || lock === 'locked' ? 'ok' : lock === 'estimated' ? 'wait' : 'bad'}`;
+  $('lock-dot').title = phoneOut ? 'no lock: the tape is playing on a phone' : idle ? 'stopped: nothing to line up yet'
+    : lock === 'none' ? 'not lined up yet: catches wait'
     : lock === 'estimated' ? 'lined up by the clocks: nudge a catch if it’s off' : `lined up to the sample (${lock})`;
 
   const md = live && live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
