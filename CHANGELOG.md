@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.08.4 — 2026-10-08
+
+- Record on the track: fixes from review (b4fdd7e)
+- Tape: record on the track (0361e1e)
+- Record v2026.10.08.3 in the changelog [skip ci] (4c084ff)
+
+
 ## v2026.10.08.3 — 2026-10-08
 
 - Fade handles: fixes from review (5bf69f0)
