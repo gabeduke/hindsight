@@ -828,7 +828,6 @@ main {
 .away-rt { font-size: 13px; color: var(--ink-dim); }
 .away-rt span { flex: 1 1 100%; }
 .away-rt .chip { min-height: 32px; }
-.np-drawer .tb-row.away .away-btn { flex: 1; }
 .away-kept { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); font-size: 13.5px; }
 .away-kept span { flex: 1; }
 
@@ -1856,7 +1855,10 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .tape-overview { width: 100%; height: 40px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .tape-lanes { display: flex; flex-direction: column; gap: 6px; }
 .tape-track { display: grid; grid-template-columns: 112px 1fr; gap: 6px; align-items: stretch; }
-.tape-track.selected .tt-head { border-color: var(--rec); box-shadow: 0 0 0 1px var(--rec), 0 0 14px color-mix(in srgb, var(--rec) 35%, transparent); }
+/* The record track, edged red (red is recording); the selected track, the
+   one the edits act on, edged faintly when it's another. */
+.tape-track.rec .tt-head { border-color: var(--rec); box-shadow: 0 0 0 1px var(--rec), 0 0 14px color-mix(in srgb, var(--rec) 35%, transparent); }
+.tape-track.selected:not(.rec) .tt-head { border-color: var(--ink-dim); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink-dim) 55%, transparent); }
 .tt-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
   padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
@@ -1919,16 +1921,16 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 :is(.np-drawer, .rec-section) .tb-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 :is(.np-drawer, .rec-section) .seg button[aria-pressed="true"] { color: var(--ink); }
 /* A source chip: its name, with a meter along the bottom. */
-:is(.np-drawer, .rec-section) .seg button.source { position: relative; padding-bottom: 6px; }
-:is(.np-drawer, .rec-section) .seg button.source .meter {
+.rec-section .seg button.source { position: relative; padding-bottom: 6px; }
+.rec-section .seg button.source .meter {
   position: absolute; left: 8px; right: 8px; bottom: 5px; height: 3px;
   border-radius: 2px; background: var(--line); overflow: hidden;
 }
-:is(.np-drawer, .rec-section) .seg button.source .meter i {
+.rec-section .seg button.source .meter i {
   display: block; height: 100%; width: 0; background: var(--go);
   transition: width 120ms linear;
 }
-:is(.np-drawer, .rec-section) .seg button.source .meter i.hot { background: var(--danger); }
+.rec-section .seg button.source .meter i.hot { background: var(--danger); }
 
 /* The track inspector's recording, in red as recording is (it was the bar's
    Record drawer): the input, Layer or Replace, Catch the last bars, the
@@ -2827,7 +2829,6 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
 /* ---------- the tape's drawers ---------- */
 /* Catch the last bars and Layer/Replace share a row. The passes scroll
    sideways rather than wrap; the clipboard says all it has. */
-.np-drawer .tb-row.catch { flex-wrap: wrap; }
 /* Catch is the page's one main action: the orange key in the bar, lit from
    above -- unless the tape is on a phone, when it says it needs the jam room. */
 .np #catch-pass:not(:disabled):not(.jam-only) {
@@ -2835,12 +2836,6 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
   border-color: var(--accent-edge); text-shadow: 0 1px 0 rgba(0,0,0,.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
 }
-.np-drawer .tb-row.catch .seg { flex: 1 1 auto; }
-.np-drawer .tb-row.catch > .tb-label, .np-drawer .tb-row.sources > .tb-label { flex: 1 1 100%; }
-.np-drawer .tb-row.catch .seg button { white-space: nowrap; }
-.np-drawer .tb-row.away { order: 10; }
-.np-drawer .tb-row.passes { flex-wrap: nowrap; }
-.np-drawer .passes-row { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 3px; }
 .np-drawer .tb-row.clipboard .clip-chip { white-space: normal; text-overflow: clip; text-align: left; line-height: 1.25; padding: 4px 10px; }
 /* A short screen -- the bench tablet docked at 1024x600: the header is one
    row (the page switch at its left, as on a phone on its side), and the
@@ -3077,7 +3072,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 
 /* ---------- keys: what you press while playing ---------- */
 .seg button, .mark-btn, .icon-btn.play,
-.tb-row.transport .icon-btn, .np-own .icon-btn, .np-drawer .tb-row.catch .icon-btn, .np-drawer .tb-row.edit .icon-btn {
+.tb-row.transport .icon-btn, .np-own .icon-btn, .np-drawer .tb-row.edit .icon-btn {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   border: 1px solid var(--edge);
   border-radius: 11px;
@@ -3087,7 +3082,7 @@ a.chip, a.icon-btn { text-decoration: none; }
   letter-spacing: 0; text-transform: none;
 }
 .seg button:active, .mark-btn:active, .icon-btn.play:active,
-.tb-row.transport .icon-btn:active, .np-own .icon-btn:active, .np-drawer .tb-row.catch .icon-btn:active, .np-drawer .tb-row.edit .icon-btn:active,
+.tb-row.transport .icon-btn:active, .np-own .icon-btn:active, .np-drawer .tb-row.edit .icon-btn:active,
 .tb-row.transport .icon-btn[aria-pressed="true"], .tb-row.transport .tb-play.playing {
   background: linear-gradient(180deg, var(--key-down), var(--key-lo));
   border-color: var(--edge-strong);
@@ -3096,7 +3091,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 /* A key that can't be pressed stays up. */
 .mark-btn[disabled], .tb-row.transport .icon-btn:disabled,
-.np-own .icon-btn:disabled, .np-drawer .tb-row.catch .icon-btn:disabled, .np-drawer .tb-row.edit .icon-btn:disabled {
+.np-own .icon-btn:disabled, .np-drawer .tb-row.edit .icon-btn:disabled {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
   transform: none;

@@ -328,22 +328,6 @@ func NewClipID() string {
 	return "c" + hex.EncodeToString(b[:])
 }
 
-// Armed is the record track's number: RecTrack, or 1.
-func (t *Tape) Armed() int {
-	if t.RecTrack >= 1 && t.RecTrack <= len(t.Tracks) {
-		return t.RecTrack
-	}
-	return 1
-}
-
-// InputOf is track n's input, or "" for none chosen.
-func (t *Tape) InputOf(n int) string {
-	if n >= 1 && n <= len(t.Inputs) {
-		return t.Inputs[n-1]
-	}
-	return ""
-}
-
 // SetInput sets track n's input.
 func (t *Tape) SetInput(n int, source string) error {
 	if n < 1 || n > len(t.Tracks) {

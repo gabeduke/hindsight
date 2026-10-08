@@ -754,7 +754,9 @@ From the top:
     header is edged red. Tapping the track's name does it too, and **1–4**
     or **↑ ↓** on a keyboard. It's kept on the Pi, so every device records
     onto the same track: arm track 3 on the tablet and Catch on your phone
-    goes there.
+    goes there. Selecting a clip or tapping a lane doesn't change it: those
+    pick the **selected track**, this device's own, which Drop, Lift, Copy
+    and Split act on, edged faintly when it isn't the record track.
   - **The input** (*aux*, *ch1*…) is what the track records from: each track
     has its own, so the guitar on aux can go to track 2 and the Bento on ch2
     to track 3 without changing anything between catches. Its lamp is green
@@ -850,7 +852,7 @@ where it comes round.
    attack in that source from a quarter of a second before it to a
    twentieth after. Tapping a little late, or Wi-Fi being slow, doesn't
    matter.
-2. The span becomes the first loop on the selected track, and starts playing
+2. The span becomes the first loop on the record track, and starts playing
    at once, in time with you, as if it had been playing all along.
 3. Its length sets the tempo: the number of bars that puts it nearest your
    last tape's tempo (or 90 BPM). If it guessed 168 and you meant 84, tap
@@ -1048,7 +1050,7 @@ page shows how long it is and where it came from:
   clone → it plays fully.
 - [demo] Restart Hindsight → the tape that was loaded is loaded again, with
   its undo.
-- [demo] With a 1-bar loop playing, select track 2, tap ●, wait three passes,
+- [demo] With a 1-bar loop playing, tap track 2's ●, tap ● Rec, wait three passes,
   tap ● → *Kept 1 bar from aux on track 2*: the last full pass.
 - [demo] Stop. Select track 3, tap ● (*● Armed 3*, with *aux* under it), press ▶ → the position
   reads *count-in 1 of 4…4 of 4* over a bar of click, then the tape plays;
@@ -1515,7 +1517,7 @@ needs the HTTPS address, as the Phone button does; listening works anywhere.
 
 **Checks — overdubbing:**
 
-- [demo] With a 1-bar loop, select track 2 and open **🎧 Overdub on this
+- [demo] With a 1-bar loop, tap track 2's ● and open **🎧 Overdub on this
   device** → it says it plays *the loop (1 bar)*, onto track 2. **● Record**
   for five seconds, then **■ Stop and keep** → *Kept 1 bar from this device on
   track 2*, at bar 1, labelled *phone*.

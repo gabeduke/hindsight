@@ -138,6 +138,12 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   check('the record track: track 3’s ● makes it the record track, on the Pi', armed.rec === 3, JSON.stringify(armed));
   check('the record track: its ● is lit, and only its', await p.evaluate(() => [...document.querySelectorAll('.tt-arm')].map((b) => b.getAttribute('aria-pressed')).join() === 'false,false,true,false'));
   check('the record track: Catch names it', (await p.textContent('#catch-pass .np-catch-sub')).includes('track 3'));
+  // A tap on another lane selects that track here, for the edits; the record
+  // track, everyone's, stays.
+  const lane1 = await p.evaluate(() => { const b = document.querySelectorAll('.tt-lane')[0].getBoundingClientRect(); return { x: b.right - 6, y: b.top + b.height / 2 }; });
+  await p.mouse.click(lane1.x, lane1.y);
+  await p.waitForTimeout(800);
+  check('the record track: a tap on another lane leaves it where it is', (await meta()).rec === 3 && await p.evaluate(() => document.querySelectorAll('.tape-track')[0].classList.contains('selected')));
   await p.locator('.tt-in').nth(2).click();
   await p.waitForTimeout(500);
   check('the record track: its input opens its inspector at the recording', await p.evaluate(() => document.getElementById('track-sheet').open && document.getElementById('track-title').textContent.startsWith('Track 3')));

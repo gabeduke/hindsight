@@ -52,7 +52,8 @@ const state = {
   sources: [],
   undo: 0,
   redo: 0,
-  track: 1,         // the record track: catches, punches, a tap and an overdub go there (the Pi's rec_track)
+  track: 1,         // the selected track: what Drop, Lift, Copy and Split act on (this device's own)
+  recTrack: 1,      // the record track: catches, punches, a tap and an overdub go there (the Pi's rec_track)
   source: readPref('tape.source', 'aux'),
   mode: readPref('tape.mode', 'layer'), // a catch onto audio: layer or replace
   clip: null,       // the clip whose sheet is open
@@ -143,6 +144,8 @@ const q = () => `id=${encodeURIComponent(state.id)}`;
 
 // --- loading ------------------------------------------------------------------
 
+let awayTrack = null; // the record track while Overdub on this device is open
+
 async function boot() {
   initHelp({ page: 'tape', toast });
   initNav();
@@ -151,7 +154,8 @@ async function boot() {
     sheet: $('away-sheet'),
     toast,
     api,
-    getTape: () => state.tape && { id: state.id, tape: state.tape, track: state.track, replace: state.mode === 'replace' },
+    // The record track as the sheet opened: what it says it records onto.
+    getTape: () => state.tape && { id: state.id, tape: state.tape, track: awayTrack ?? state.recTrack, replace: state.mode === 'replace' },
     onPlaced: (d, k) => {
       const t = state.tape;
       const bars = t && t.grid ? (k.to - k.from) / (t.grid.frames / t.grid.bars) : 0;
@@ -274,7 +278,7 @@ function apply(s) {
     state.multi = null;
     state.adding = false;
     state.fade = state.trim = state.repeat = null;
-    trackSent = null; // the new tape's record track is the Pi's
+    recWant = null; // the new tape's record track is the Pi's
   }
   state.tape = s.tape;
   // The empty-tape form starts at the tempo you were playing, until you type.
@@ -293,6 +297,7 @@ function apply(s) {
   state.redo = s.redo || 0;
   syncTrack(s.tape);
   if (state.track > state.tape.tracks.length) state.track = 1;
+  if (state.recTrack > state.tape.tracks.length) state.recTrack = 1;
   if (state.preview) refreshPreview();
   if (changed) { buildLanes(); loadPeaks(); dropTiles(state.tape); }
   syncAlign();
@@ -503,7 +508,7 @@ function render() {
       Object.assign(document.createElement('span'), { className: 'rec-src' }));
   }
   const recWhat = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
-  const recSrc = rec ? rec.source : inputOf(state.track);
+  const recSrc = rec ? rec.source : inputOf(state.recTrack);
   rb.firstElementChild.textContent = recWhat;
   rb.lastElementChild.textContent = recSrc;
   setIf(rb, 'aria-label', `${recWhat.slice(2)} from ${recSrc}`);
@@ -524,13 +529,12 @@ function render() {
   rb.setAttribute('aria-disabled', String(phoneOut));
   rb.classList.toggle('dim', phoneOut);
   $('catch-pass').classList.toggle('jam-only', phoneOut);
-  setText($('catch-pass').querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : `last pass → track ${state.track}`);
-  setIf($('catch-pass'), 'aria-label', phoneOut ? 'Catch: needs the jam room' : `Catch the last pass onto track ${state.track}`);
+  setText($('catch-pass').querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : `last pass → track ${state.recTrack}`);
+  setIf($('catch-pass'), 'aria-label', phoneOut ? 'Catch: needs the jam room' : `Catch the last pass onto track ${state.recTrack}`);
   $('jam-only-note').hidden = !phoneOut;
   // What needs the jam room goes, rows and all: the track inspector keeps the
   // note and Overdub on this device.
   for (const row of ['sources', 'catch', 'passes']) document.querySelector(`#track-rec .tb-row.${row}`).hidden = phoneOut;
-  if (state.track !== trackSent && trackSent !== null) sendTrack();
   renderMode();
   renderDrawers();
   renderClipboard();
@@ -2564,20 +2568,20 @@ function renderSources() {
       b.append(label, meter);
       b.addEventListener('click', () => {
         const r = state.live && state.live.record;
-        if (r && r.source !== s.name) {
+        if (r && r.track === state.recTrack && r.source !== s.name) {
           // An armed or running punch keeps the source it began with.
           toast(`● Rec is ${r.state === 'armed' ? 'armed' : 'recording'} from ${r.source}: end it to record from ${s.name}`, 'warn');
           return;
         }
         // The record track's input, on the Pi.
-        setInput(state.track, s.name);
+        setInput(state.recTrack, s.name);
       });
       return b;
     }));
   }
   // While a punch is armed or running, the lit chip is the one it records.
   const r = state.live && state.live.record;
-  const lit = r ? r.source : inputOf(state.track);
+  const lit = r && r.track === state.recTrack ? r.source : inputOf(state.recTrack);
   for (const b of box.children) {
     const s = state.sources.find((x) => x.name === b.dataset.name);
     if (!s) continue;
@@ -2620,7 +2624,7 @@ function renderPasses() {
     b.className = 'pass';
     b.dataset.tip = 'passes';
     b.textContent = `−${k}`;
-    b.title = `Catch pass −${k} onto track ${state.track}`;
+    b.title = `Catch pass −${k} onto track ${state.recTrack}`;
     // By the pass's own start, so it's the one on screen even if another
     // has finished since.
     b.addEventListener('click', () => doCatch({ out: c.out }));
@@ -2673,15 +2677,19 @@ function buildLanes() {
         gain: row.querySelector('.tt-gain'),
         canvas: row.querySelector('.tt-lane'),
       };
-      // Tap a track to select it; tap it again for its sheet.
-      // From the keyboard (a click with no detail) the inspector takes the keys.
-      lane.name.addEventListener('click', (e) => { if (state.track === n) openTrack(n, { focus: e.detail === 0 }); else { state.track = n; render(); } });
+      // Tap a track's name to select it and make it the record track; tap it
+      // again for its inspector. From the keyboard (a click with no detail)
+      // the inspector takes the keys.
+      lane.name.addEventListener('click', (e) => {
+        if (state.track === n && state.recTrack === n) { openTrack(n, { focus: e.detail === 0 }); return; }
+        state.track = n;
+        armTrack(n);
+      });
       // ● makes it the record track; its input opens its inspector at the
       // recording, as the record track.
-      lane.arm.addEventListener('click', () => { if (state.track !== n) { state.track = n; render(); } });
+      lane.arm.addEventListener('click', () => armTrack(n));
       lane.input.addEventListener('click', (e) => {
-        if (state.track !== n) { state.track = n; render(); }
-        openTrack(n, { focus: e.detail === 0, record: true });
+        if (armTrack(n)) openTrack(n, { focus: e.detail === 0, record: true });
       });
       lane.mute.addEventListener('click', () => { askHeard(n); patch({ track: { n, mute: !track(n).mute } }); });
       lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
@@ -2702,27 +2710,57 @@ function track(n) { return state.tape.tracks[n - 1]; }
 // tablet, a phone and anything else agree on where a catch goes and what it
 // hears. A change here shows at once and goes to the Pi; one made on another
 // device is taken up at the next poll, unless one of ours is on its way.
-let trackSent = null; // the record track the Pi has, as far as this page knows
-let trackSending = false;
+// The record track is changed by ●, a track's name, its input, and 1–4 or
+// ↑ ↓; selecting a clip or tapping a lane changes only the selected track
+// (state.track), this device's own, which the edits act on.
+let recWant = null; // a record track chosen here that the Pi hasn't shown back yet
+let recSending = false;
 
+// syncTrack takes the Pi's record track, unless one chosen here is on its way:
+// an answer from before it arrived would put the old one back.
 function syncTrack(t) {
   const theirs = (t && t.rec_track) || 1;
-  if (trackSent === null || state.track === trackSent) state.track = theirs;
-  if (!trackSending) trackSent = theirs;
+  if (recWant === null) state.recTrack = theirs;
+  else if (theirs === recWant && !recSending) recWant = null;
+}
+
+// armTrack makes track n the record track, here at once and on the Pi. Not
+// while a punch is armed or recording on another: it keeps its track.
+function armTrack(n) {
+  const r = state.live && state.live.record;
+  if (r && r.track !== n) {
+    toast(`● Rec is ${r.state === 'armed' ? 'armed' : 'recording'} on track ${r.track}: end it to record onto track ${n}`, 'warn');
+    return false;
+  }
+  if (state.recTrack !== n) {
+    state.recTrack = n;
+    recWant = n;
+    sendTrack();
+  }
+  render();
+  return true;
 }
 
 async function sendTrack() {
-  if (trackSending || !state.tape) return;
-  trackSending = true;
-  const n = state.track, id = state.tape.id;
+  if (recSending || recWant === null || !state.tape) return;
+  recSending = true;
+  const n = recWant, id = state.tape.id;
+  let ok = false;
   try {
-    await api(`/api/tapes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: { rec_track: n } });
-  } catch { /* the page keeps its own; it isn't sent again */ }
-  trackSending = false;
-  if (state.tape && state.tape.id === id) trackSent = n;
+    // Through change(): a poll already on its way is dropped.
+    await change(() => api(`/api/tapes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: { rec_track: n } }));
+    ok = true;
+  } catch (e) {
+    toast(`Could not make track ${n} the record track: ${e.message}`, 'bad');
+  }
+  recSending = false;
+  if (!state.tape || state.tape.id !== id) { recWant = null; return; }
+  if (recWant !== n) { sendTrack(); return; } // chosen again meanwhile
+  if (!ok) recWant = null; // the Pi's comes back at the next poll
 }
 
-// inputOf is what track n records from: its own input, or the one chosen last.
+// inputOf is what track n records from: its own input, or the one chosen
+// last on this device, for a tape where none has been chosen yet.
 function inputOf(n) {
   const ins = (state.tape && state.tape.inputs) || [];
   return ins[n - 1] || state.source;
@@ -2742,11 +2780,14 @@ function setInput(n, name) {
   for (const k of pin) ins[k - 1] = was;
   ins[n - 1] = name;
   t.inputs = ins;
-  state.source = name;
-  writePref('tape.source', name);
   render();
-  // One change: the page never shows the tracks part way there.
-  patch({ inputs: [...pin.map((k) => ({ n: k, source: was })), { n, source: name }] });
+  // One change: the page never shows the tracks part way there. The
+  // device's last choice moves only once the Pi has it.
+  patch({ inputs: [...pin.map((k) => ({ n: k, source: was })), { n, source: name }] }).then((ok) => {
+    if (!ok) return;
+    state.source = name;
+    writePref('tape.source', name);
+  });
 }
 
 // shownTape is the tape the lanes draw: as it is, or as a previewed Insert or
@@ -2765,6 +2806,7 @@ function drawLanes() {
     const tr = t.tracks[lane.n - 1];
     if (!tr) continue;
     lane.row.classList.toggle('selected', lane.n === state.track);
+    lane.row.classList.toggle('rec', lane.n === state.recTrack);
     // The number is in its ring; the masking tape carries the name, blank until
     // there is one, as a strip waiting to be written on.
     lane.name.textContent = tr.name || '';
@@ -2772,7 +2814,7 @@ function drawLanes() {
     lane.name.title = tr.name ? `${tr.n} ${tr.name}` : `Track ${tr.n}`;
     // ● lit on the record track; the input it records from, with a lamp
     // while there's signal on it.
-    const armed = lane.n === state.track;
+    const armed = lane.n === state.recTrack;
     setIf(lane.arm, 'aria-pressed', String(armed));
     setIf(lane.arm, 'aria-label', armed ? `Track ${tr.n} is the record track` : `Record onto track ${tr.n}`);
     const inName = inputOf(tr.n);
@@ -2954,7 +2996,7 @@ function drawLanes() {
       }
     }
     if (state.rec && state.rec.track === lane.n) drawPunch(ctx, view, W, H, col);
-    else if (lane.n === state.track) drawLanding(ctx, view, W, H, col);
+    else if (lane.n === state.recTrack) drawLanding(ctx, view, W, H, col);
     // A clip being slid: where it would land, on the lane it's over; or each
     // of a group, on the lane it goes to.
     const sl = state.slide;
@@ -3186,12 +3228,11 @@ function drawGrips(ctx, x0, x1, top, h, ink, warn, tm, mono, { fi = 0, fo = 0, f
   }
 }
 
-// drawPunch draws a punch recording onto its lane: the span this pass has
-// covered, and the source's level along it; or, before the tape reaches it,
-// a line where it will start.
 // drawLanding marks, on the record track's lane, where recording would
 // land: pointing at Catch, the pass it would take, outlined over the loop;
-// playing, the next bar line, where ● would start a punch.
+// playing, the bar line where ● would start a punch (internal/tape
+// record.go: the next, or the one just passed under a quarter second ago;
+// from the loop's last bar, its In, after the wrap).
 function drawLanding(ctx, view, W, H, col) {
   const t = state.tape, live = state.live;
   if (!t || !live) return;
@@ -3209,10 +3250,13 @@ function drawLanding(ctx, view, W, H, col) {
     ctx.setLineDash([5, 4]);
     ctx.lineWidth = 1.5;
     ctx.strokeRect(x0 + 0.75, 1, Math.max(1, x1 - x0) - 1.5, H - 2);
-    ctx.fillText(`the last pass, from ${inputOf(state.track)}`, Math.max(2, x0 + 6), H - 16);
+    ctx.fillText(`the last pass, from ${inputOf(state.recTrack)}`, Math.max(2, x0 + 6), H - 16);
   } else if (live.playing && t.grid && !live.record) {
     const bar = t.grid.frames / t.grid.bars;
-    const next = (Math.floor(live.heard / bar) + 1) * bar;
+    const heard = live.heardEngine ?? live.heard;
+    const passed = Math.floor(heard / bar) * bar;
+    let next = heard - passed < 0.25 * t.sample_rate ? passed : passed + bar;
+    if (t.loop.on && t.loop.out > t.loop.in && heard < t.loop.out && next >= t.loop.out) next = t.loop.in;
     const x = Math.round(xOf(next, view, W)) + 0.5;
     if (x > 0 && x < W) {
       ctx.globalAlpha = 0.7;
@@ -3224,6 +3268,9 @@ function drawLanding(ctx, view, W, H, col) {
   ctx.restore();
 }
 
+// drawPunch draws a punch recording onto its lane: the span this pass has
+// covered, and the source's level along it; or, before the tape reaches it,
+// a line where it will start.
 function drawPunch(ctx, view, W, H, col) {
   const rec = state.rec, live = state.live, t = state.tape;
   if (rec.start === null || !live) return;
@@ -3326,7 +3373,7 @@ async function rec() {
   if (!r && jamOnly()) return; // keeping a take already running stays possible
   try {
     if (!r) {
-      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.track, source: inputOf(state.track), replace: state.mode === 'replace' } }));
+      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.recTrack, source: inputOf(state.recTrack), replace: state.mode === 'replace' } }));
       const armed = b.record.state === 'armed';
       const { track, source } = b.record;
       toast(armed ? `Track ${track} armed to record ${source}: press ▶ to count in` : `Recording ${source} onto track ${track} from the next bar — tap ● again to keep it`, 'ok', {
@@ -3348,7 +3395,7 @@ async function rec() {
 async function tap() {
   if (jamOnly()) return;
   try {
-    const b = await change(() => api(`/api/tapes/tap?${q()}`, { method: 'POST', body: { track: state.track, source: inputOf(state.track) } }));
+    const b = await change(() => api(`/api/tapes/tap?${q()}`, { method: 'POST', body: { track: state.recTrack, source: inputOf(state.recTrack) } }));
     if (b.stage === 'first') {
       toast('Now tap where it comes round', 'ok', { action: { label: 'Start over', run: () => api(`/api/tapes/tap?${q()}`, { method: 'DELETE' }).then(poll, () => {}) } });
     } else {
@@ -3411,7 +3458,7 @@ function laneTap(lane, e) {
 
 async function doCatch(what) {
   if (jamOnly()) return;
-  const body = { track: state.track, source: inputOf(state.track), replace: state.mode === 'replace', ...what };
+  const body = { track: state.recTrack, source: inputOf(state.recTrack), replace: state.mode === 'replace', ...what };
   try {
     const b = await change(() => api(`/api/tapes/catch?${q()}`, { method: 'POST', body }));
     const s = (b.clip.frames / state.tape.sample_rate).toFixed(1);
@@ -3463,6 +3510,7 @@ function closeSheets() {
 // right, and the lanes make room; on a phone, a sheet over the foot of the
 // page, its grip pulling it up or down (styles.css, "the inspector").
 const INSPECTORS = ['clip-sheet', 'track-sheet', 'section-sheet'];
+const INSPECTOR_PASSES = new Set(['KeyR', 'KeyL', 'KeyK', 'KeyJ', 'Digit1', 'Digit2', 'Digit3', 'Digit4']);
 const inspecting = () => INSPECTORS.find((id) => $(id).open) || null;
 // A dialog in the way of the page's keys: any open one but the inspector.
 const modalOpen = () => [...document.querySelectorAll('dialog[open]')].some((d) => !d.classList.contains('inspector'));
@@ -3516,7 +3564,9 @@ function refreshInspector() {
     if (clipSig(c) !== inspectorSig) fillClip(c);
     else { state.clip = c; fillTrims(c); }
   } else if (id === 'track-sheet') {
-    if (state.sheetTrack !== state.track) { const tr = track(state.track); if (tr) fillTrack(tr); return; }
+    // It follows the record track, but not out from under a held slider.
+    const held = $('track-gain').dataset.held || $('track-pan').dataset.held;
+    if (state.sheetTrack !== state.recTrack && !held) { const tr = track(state.recTrack); if (tr) fillTrack(tr); return; }
     const tr = track(state.sheetTrack);
     if (tr && trackSig(tr) !== inspectorSig) fillTrack(tr);
   } else {
@@ -3860,9 +3910,12 @@ function wire() {
   });
   $('track-name').addEventListener('change', () => patch({ track: { n: state.sheetTrack, name: $('track-name').value } }));
   $('track-gain').addEventListener('input', () => { $('track-gain-val').textContent = `${$('track-gain').value} dB`; });
-  $('track-gain').addEventListener('change', () => patch({ track: { n: state.sheetTrack, gain_db: Number($('track-gain').value) } }));
+  // A level or pan dragged goes to the track it was dragged for.
+  const sliderTrack = (el) => Number(el.dataset.forTrack) || state.sheetTrack;
+  for (const id of ['track-gain', 'track-pan']) $(id).addEventListener('pointerdown', () => { $(id).dataset.forTrack = String(state.sheetTrack); });
+  $('track-gain').addEventListener('change', () => patch({ track: { n: sliderTrack($('track-gain')), gain_db: Number($('track-gain').value) } }));
   $('track-pan').addEventListener('input', () => { $('track-pan-val').textContent = panText(Number($('track-pan').value)); });
-  $('track-pan').addEventListener('change', () => patch({ track: { n: state.sheetTrack, pan: Number($('track-pan').value) } }));
+  $('track-pan').addEventListener('change', () => patch({ track: { n: sliderTrack($('track-pan')), pan: Number($('track-pan').value) } }));
   wireInspector();
   $('track-done').addEventListener('click', () => $('track-sheet').close());
   for (const b of $('track-bus').children) b.addEventListener('click', () => { if (track(state.sheetTrack).bus !== b.dataset.bus) patch({ track: { n: state.sheetTrack, bus: b.dataset.bus } }); });
@@ -3875,10 +3928,13 @@ function wire() {
   $('catch-pass').addEventListener('click', () => doCatch({ pass: 1 }));
   // Pointing at Catch outlines, on the record track's lane, the pass it takes.
   const hoverCatch = (on) => { if (state.catchHover !== on) { state.catchHover = on; drawLanes(); } };
-  $('catch-pass').addEventListener('pointerenter', () => hoverCatch(true));
+  $('catch-pass').addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hoverCatch(true); });
   $('catch-pass').addEventListener('pointerleave', () => hoverCatch(false));
-  $('catch-pass').addEventListener('focus', () => hoverCatch(true));
+  $('catch-pass').addEventListener('focus', () => { if ($('catch-pass').matches(':focus-visible')) hoverCatch(true); });
   $('catch-pass').addEventListener('blur', () => hoverCatch(false));
+  // Overdub on this device keeps the record track it opened with.
+  $('away').addEventListener('click', () => { awayTrack = state.recTrack; }, true);
+  $('away-sheet').addEventListener('close', () => { awayTrack = null; });
   for (const b of $('catch-bars').querySelectorAll('button')) b.addEventListener('click', () => doCatch({ bars: Number(b.dataset.bars) }));
   $('tape-name').addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
   $('tape-more').addEventListener('click', (e) => { e.stopPropagation(); openActions(); });
@@ -3915,9 +3971,10 @@ function wire() {
     }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (modalOpen()) return; // a sheet's keys are its own
-    // So are the inspector's, but for Escape, which closes it: a level
-    // slider there takes the arrows, and Backspace mustn't remove its clip.
-    if (e.target.closest?.('dialog.inspector') && e.key !== 'Escape') return;
+    // So are the inspector's, but for Escape, which closes it, and the
+    // transport's and the tracks' (R, L, K, J, 1–4): a level slider there
+    // takes the arrows, and Backspace mustn't remove its clip.
+    if (e.target.closest?.('dialog.inspector') && e.key !== 'Escape' && !INSPECTOR_PASSES.has(e.code)) return;
     // With the keys in the inspector, Escape is its, before the clip editor's.
     if (e.key === 'Escape' && !menuWasOpen && inspecting() && e.target.closest?.('dialog.inspector')) {
       e.preventDefault();
@@ -3990,10 +4047,11 @@ function wire() {
     // By physical key, so they work on any keyboard layout.
     if (!state.tape || menusOpen()) return;
     const press = (id) => { if (!e.repeat && !$(id).disabled) $(id).click(); };
+    // 1–4 and ↑ ↓: the record track, and the selected one with it.
     const pick = (n) => {
-      if (n < 1 || n > state.tape.tracks.length || n === state.track) return false;
+      if (n < 1 || n > state.tape.tracks.length || (n === state.track && n === state.recTrack)) return false;
       state.track = n;
-      render();
+      armTrack(n);
       return true;
     };
     switch (e.code) {
@@ -4014,8 +4072,8 @@ function wire() {
       }
       case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': pick(Number(e.code.slice(5))); break;
       // Only when it changes the track: otherwise the arrows scroll.
-      case 'ArrowUp': if (pick(state.track - 1)) e.preventDefault(); break;
-      case 'ArrowDown': if (pick(state.track + 1)) e.preventDefault(); break;
+      case 'ArrowUp': if (pick(state.recTrack - 1)) e.preventDefault(); break;
+      case 'ArrowDown': if (pick(state.recTrack + 1)) e.preventDefault(); break;
       default:
     }
   });
