@@ -71,12 +71,13 @@ export function outSheet(doc = document) {
 /**
  * wireOutput hooks the page's output buttons to its Output sheet: a button
  * opens it, a choice calls choose(mode). name() is the loaded tape's name,
- * for the sheet's first line.
+ * for the sheet's first line; onOpen() runs as it opens.
  */
-export function wireOutput({ choose, name }) {
+export function wireOutput({ choose, name, onOpen = () => {} }) {
   const sheet = outSheet();
   const open = () => {
     document.getElementById('out-tape-name').textContent = name() || 'this tape';
+    onOpen();
     sheet.showModal();
   };
   for (const b of document.querySelectorAll('.tape-out')) b.addEventListener('click', open);

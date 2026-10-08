@@ -1332,10 +1332,12 @@ async function main() {
       e.stopPropagation();
       const open = menu.hidden;
       document.querySelectorAll('.menu').forEach((m) => { m.hidden = true; });
+      document.querySelectorAll('[aria-haspopup="menu"][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
       menu.hidden = !open;
       button.setAttribute('aria-expanded', String(open));
     });
-    menu.addEventListener('click', () => close());
+    // A choice closes it, and the keyboard is back on its button.
+    menu.addEventListener('click', () => { close(); button.focus({ preventScroll: true }); });
     document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== button) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   }

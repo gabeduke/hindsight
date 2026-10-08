@@ -3394,7 +3394,7 @@ function wire() {
   }
   // From 1200 px the three drawer keys sit beside Catch; narrower (the
   // 1024 px bench too), the top row has no room for them, and they sit under
-  // it, beside OUT. Moved, not reordered in CSS, so the tab order stays the
+  // it, after the overview. Moved, not reordered in CSS, so the tab order stays the
   // order on screen.
   const wide = matchMedia('(min-width: 1200px)');
   const placeKeys = () => {

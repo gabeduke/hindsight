@@ -164,7 +164,7 @@ export class NowPlaying {
     setText($('np-out'), s.out());
     // Where the tape plays is the header's output button; a take plays
     // here, and the bar says so.
-    $('np-out').parentElement.hidden = s.kind === 'tape';
+    $('np-out').parentElement.classList.toggle('np-out-tape', s.kind === 'tape');
     // The strip, and what a screen reader hears of it.
     const r = this.scrub.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -210,11 +210,14 @@ export function pageBar({ tapes, onToast }) {
     else bar.load(tape);
     eject();
     // The header's output button: where the tape plays, chosen from here as
-    // on the tape page. Choosing to hear it here puts the tape back in the bar.
+    // on the tape page. Choosing to hear it here puts the tape back in the
+    // bar, as ⏏ does: it stays there until a take is picked by hand. The
+    // sheet asks the Pi as it opens, so it's never a few seconds behind.
     wireOutput({
       name: () => tape.title,
+      onOpen: () => tape.refresh(),
       choose: (mode) => {
-        if (mode !== 'jam') backToTape();
+        if (mode !== 'jam') backToTape({ byHand: true });
         return switchOutput(mode, { player: stream, poll: tape.refresh, toast: (m, k) => onToast?.(m, k) });
       },
     });
