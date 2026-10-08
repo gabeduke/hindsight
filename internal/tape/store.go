@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -374,6 +375,7 @@ func (s *Store) Clone(id, name string, now time.Time) (*Tape, error) {
 	}
 	t.State = src.State.clone()
 	t.Click = src.Click
+	t.RecTrack, t.Inputs = src.RecTrack, slices.Clone(src.Inputs)
 	if err := s.Save(t); err != nil {
 		return nil, err
 	}

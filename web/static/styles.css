@@ -1866,8 +1866,15 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .tt-head .chip { min-height: 30px; min-width: 26px; padding: 0 4px; border-radius: 8px; font: 700 14px var(--label-font); letter-spacing: .04em; }
 .tt-head .tt-mute[aria-pressed="true"] { color: var(--mute-ink); background: linear-gradient(180deg, var(--mute-hi), var(--mute-lo)); border-color: var(--mute-lo); }
 .tt-head .tt-solo[aria-pressed="true"] { color: var(--solo-ink); background: linear-gradient(180deg, var(--solo-hi), var(--solo-lo)); border-color: var(--solo-lo); }
-.tt-head .tt-bus { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1; }
-.tt-head .tt-bus-k { font: 600 8.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.tt-head .tt-arm { color: var(--ink-faint); font-size: 13px; }
+.tt-head .tt-arm[aria-pressed="true"] {
+  color: var(--on-danger); border-color: var(--rec);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rec) 80%, white), var(--rec));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--rec) 45%, transparent);
+}
+.tt-head .tt-in { display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; font: 600 10.5px var(--mono); letter-spacing: 0; text-transform: none; }
+.tt-in-led { width: 6px; height: 6px; border-radius: 50%; background: var(--led-off); flex: none; }
+.tt-head .tt-in.signal .tt-in-led { background: var(--go); box-shadow: 0 0 5px var(--go-glow); }
 /* The track's number: printed on the masking tape where the head is narrow
    (most screens), in a ring of the track's colour where it's wide, with
    room for full-size keys beside it. The head's own width decides. */
@@ -1883,10 +1890,10 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
    like a scribble strip. Beside the keys it was left a few pixels, and even
    "Drums" was cut short. The lane grows to the taller head (.tt-lane). */
 @container tthead (max-width: 199.98px) {
-  .tt-head .tt-name { flex: 1 0 100%; min-height: 24px; }
+  .tt-head .tt-name { flex: 1 1 calc(100% - 40px); min-height: 24px; }
   /* The level shares the keys' row while it has room for a usable slider
      (the bench and tablets), so the head stays two rows; narrower, it wraps. */
-  .tt-head .tt-gain { flex: 1 1 48px; width: auto; min-width: 48px; }
+  .tt-head .tt-gain { flex: 1 1 44px; width: auto; min-width: 44px; }
 }
 .tt-num {
   flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; box-sizing: border-box;
@@ -1908,20 +1915,37 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .shape-seg button svg { flex: none; }
 /* The lane a clip slid across from another track would land on. */
 .tape-track.drop-target .tt-lane { outline: 2px dashed var(--warn); outline-offset: -2px; }
-.np-drawer .tb-row, .np-dock > .clip-editor .tb-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.np-drawer .tb-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
-.np-drawer .seg button[aria-pressed="true"] { color: var(--ink); }
+.np-drawer .tb-row, .np-dock > .clip-editor .tb-row, .rec-section .tb-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+:is(.np-drawer, .rec-section) .tb-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+:is(.np-drawer, .rec-section) .seg button[aria-pressed="true"] { color: var(--ink); }
 /* A source chip: its name, with a meter along the bottom. */
-.np-drawer .seg button.source { position: relative; padding-bottom: 6px; }
-.np-drawer .seg button.source .meter {
+:is(.np-drawer, .rec-section) .seg button.source { position: relative; padding-bottom: 6px; }
+:is(.np-drawer, .rec-section) .seg button.source .meter {
   position: absolute; left: 8px; right: 8px; bottom: 5px; height: 3px;
   border-radius: 2px; background: var(--line); overflow: hidden;
 }
-.np-drawer .seg button.source .meter i {
+:is(.np-drawer, .rec-section) .seg button.source .meter i {
   display: block; height: 100%; width: 0; background: var(--go);
   transition: width 120ms linear;
 }
-.np-drawer .seg button.source .meter i.hot { background: var(--danger); }
+:is(.np-drawer, .rec-section) .seg button.source .meter i.hot { background: var(--danger); }
+
+/* The track inspector's recording, in red as recording is (it was the bar's
+   Record drawer): the input, Layer or Replace, Catch the last bars, the
+   passes and Overdub on this device, for the record track. */
+.rec-section {
+  display: grid; gap: 10px; margin: 6px 0 14px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--rec) 45%, var(--line));
+  background: color-mix(in srgb, var(--rec) 5%, transparent);
+}
+.rec-title { margin: 10px 0 0; font: 700 12px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rec-section .rec-title { margin: 0; color: var(--rec); }
+.rec-section .tb-row > .tb-label { flex: 1 1 100%; }
+.rec-section .tb-row .seg { flex: 1 1 auto; }
+.rec-section .tb-row .seg button { white-space: nowrap; }
+.rec-section .passes-row { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 3px; }
+.rec-section .tb-row.away .away-btn { flex: 1; }
+.rec-section .tb-row[hidden] { display: none; }
 .passes-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .passes-row .pass { min-height: var(--tap); min-width: 48px; border-radius: 10px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); font: 600 14px var(--mono); }
 .passes-row .muted { font-size: 12px; color: var(--ink-faint); }
@@ -1970,7 +1994,7 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
      up past the height they were last drawn at. */
   .tape-track { flex: 1 1 0; position: relative; }
   .tt-lane { position: absolute; grid-column: 2; grid-row: 1; inset: 0; width: 100%; height: 100%; min-height: 0; }
-  .tape-track, .tape-ruler-row { grid-template-columns: 150px 1fr; }
+  .tape-track, .tape-ruler-row { grid-template-columns: 160px 1fr; }
   .tt-head { align-content: center; }
 }
 @media (min-width: 1400px) {
@@ -2773,13 +2797,6 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
   transform: rotate(-1deg);
 }
 .tape-track:nth-child(even) .tt-name { transform: rotate(.8deg); }
-/* The record target: a red dot on its tape. */
-.tape-track.selected .tt-name::after {
-  content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 6px;
-  border-radius: 50%; background: var(--rec); vertical-align: middle;
-  animation: recblink 2.4s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) { .tape-track.selected .tt-name::after { animation: none; } }
 
 /* The sign over the door: there only while a punch goes onto tape. Off, it
    keeps its place in the bar, so nothing shifts when it lights. */
@@ -2795,7 +2812,6 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
 @media (max-width: 480px) {
   /* A narrow head: the number before the chips, on a narrower strip. */
   .tt-head .tt-name { padding: 1px 4px; font-size: 14px; }
-  .tape-track.selected .tt-name::after { margin-left: 3px; }
   .rec-long { display: none; }
   .rec-short { display: inline; }
   /* No room to hold its place on a phone. */

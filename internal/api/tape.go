@@ -209,6 +209,12 @@ func (a *API) suggestBPM(id string) float64 {
 	return 90
 }
 
+// trackIn is a track's input, as PATCH /api/tapes sets it.
+type trackIn struct {
+	N      int    `json:"n"`
+	Source string `json:"source"`
+}
+
 func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
@@ -217,8 +223,14 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		Name  *string `json:"name"`
 		Click *bool   `json:"click"`
-		Bars  *int    `json:"bars"`
-		Tempo *struct {
+		// RecTrack arms a track, the one catches and punches go onto; Input
+		// sets a track's input, and Inputs several at once. Neither is a
+		// step of undo.
+		RecTrack *int      `json:"rec_track"`
+		Input    *trackIn  `json:"input"`
+		Inputs   []trackIn `json:"inputs"`
+		Bars     *int      `json:"bars"`
+		Tempo    *struct {
 			BPM  float64 `json:"bpm"`
 			Bars int     `json:"bars"`
 		} `json:"tempo"`
@@ -270,7 +282,16 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	case b.Clip != nil && b.Clip.NudgeMS != nil && !b.Clip.Remove:
 		kind = "clip-nudge:" + b.Clip.ID
 	}
-	meta := func(t *tape.Tape) {
+	// The inputs there are, read before the tape is locked to change it.
+	var inputs []tape.SourceState
+	set := b.Inputs
+	if b.Input != nil {
+		set = append(set, *b.Input)
+	}
+	if len(set) > 0 {
+		inputs = a.tape.Sources()
+	}
+	meta := func(t *tape.Tape) error {
 		if b.Name != nil {
 			if n := sanitizeLabel(*b.Name); n != "" {
 				t.Name = n
@@ -279,12 +300,33 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		if b.Click != nil {
 			t.Click = *b.Click
 		}
+		if b.RecTrack != nil {
+			if *b.RecTrack < 1 || *b.RecTrack > len(t.Tracks) {
+				return tape.ErrNoSuchTrack
+			}
+			t.RecTrack = *b.RecTrack
+		}
+		for _, in := range set {
+			known := false
+			for _, s := range inputs {
+				known = known || s.Name == in.Source
+			}
+			if !known {
+				return fmt.Errorf("%w: no input called %q", tape.ErrBadParameter, in.Source)
+			}
+			if err := t.SetInput(in.N, in.Source); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil
 	if undoable {
 		sr := a.tape.Store().SampleRate()
 		err := a.tape.Edit(id, kind, func(t *tape.Tape, s *tape.State) error {
-			meta(t) // the name and click ride along, outside undo
+			if err := meta(t); err != nil { // the name and click ride along, outside undo
+				return err
+			}
 			if tm := b.Tempo; tm != nil {
 				// Only while the tape is empty: once it has audio its tempo is
 				// fixed, since nothing is ever stretched. Bars relabel it instead.
@@ -359,8 +401,8 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			tapeErr(w, err)
 			return
 		}
-	} else if b.Name != nil || b.Click != nil {
-		err := a.tape.SetMeta(id, func(t *tape.Tape) error { meta(t); return nil })
+	} else if b.Name != nil || b.Click != nil || b.RecTrack != nil || len(set) > 0 {
+		err := a.tape.SetMeta(id, meta)
 		if err != nil {
 			tapeErr(w, err)
 			return

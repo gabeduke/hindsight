@@ -122,6 +122,57 @@ func TestARenamedTapeKeepsItsNameAndStaysOutOfUndo(t *testing.T) {
 	}
 }
 
+// The record track and the tracks' inputs: set from any device, kept with
+// the tape and its clones, never a step of undo, and only real tracks and
+// inputs.
+func TestTheRecordTrackAndInputsStickAndStayOutOfUndo(t *testing.T) {
+	r, _ := newTapeAPI(t)
+	id := makeLoadedTape(t, r)
+	type meta struct {
+		Tape struct {
+			RecTrack int      `json:"rec_track"`
+			Inputs   []string `json:"inputs"`
+		} `json:"tape"`
+	}
+	read := func() meta {
+		var m meta
+		json.Unmarshal(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "").Body.Bytes(), &m)
+		return m
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_track":3}`), http.StatusOK, "arm track 3")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":3,"source":"ch1"}}`), http.StatusOK, "track 3 from ch1")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":1,"source":"aux"}}`), http.StatusOK, "track 1 from aux")
+	if m := read(); m.Tape.RecTrack != 3 || len(m.Tape.Inputs) != 3 || m.Tape.Inputs[0] != "aux" || m.Tape.Inputs[1] != "" || m.Tape.Inputs[2] != "ch1" {
+		t.Fatalf("after setting: %+v", m.Tape)
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_track":9}`), http.StatusBadRequest, "a track there isn't")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":2,"source":"guitar"}}`), http.StatusBadRequest, "an input there isn't")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":7,"source":"aux"}}`), http.StatusBadRequest, "a track there isn't, for an input")
+	// Several at once, all or none.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"inputs":[{"n":2,"source":"ch2"},{"n":4,"source":"main"}]}`), http.StatusOK, "two at once")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"inputs":[{"n":2,"source":"aux"},{"n":4,"source":"guitar"}]}`), http.StatusBadRequest, "one there isn't")
+	if m := read(); len(m.Tape.Inputs) != 4 || m.Tape.Inputs[1] != "ch2" || m.Tape.Inputs[3] != "main" {
+		t.Fatalf("several at once: %+v", m.Tape.Inputs)
+	}
+	// An undoable change, then undo: the record track and inputs stay.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"track":{"n":2,"mute":true}}`), http.StatusOK, "mute")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, ""), http.StatusOK, "undo")
+	if m := read(); m.Tape.RecTrack != 3 || m.Tape.Inputs[2] != "ch1" {
+		t.Fatalf("undo took them back: %+v", m.Tape)
+	}
+	// A clone keeps them.
+	w := send(t, r, http.MethodPost, "/api/tapes/clone?id="+id, "")
+	want(t, w, http.StatusOK, "clone")
+	var c struct {
+		RecTrack int      `json:"rec_track"`
+		Inputs   []string `json:"inputs"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &c)
+	if c.RecTrack != 3 || len(c.Inputs) != 4 || c.Inputs[2] != "ch1" {
+		t.Fatalf("the clone: %s", w.Body.String())
+	}
+}
+
 func TestTapeRoutesAnswer404WhenTheTapeIsOff(t *testing.T) {
 	r, _ := newTestAPI(t)
 	want(t, send(t, r, http.MethodGet, "/api/tapes", ""), http.StatusNotFound, "list")
