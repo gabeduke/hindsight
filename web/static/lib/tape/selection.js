@@ -48,3 +48,14 @@ export function keep(sel, present) {
   }
   return sel.picked && !has(sel.picked) ? none() : sel;
 }
+
+/**
+ * settle is the selection with the last of several clips left on its own,
+ * once Select more isn't collecting: Split, Keep and Details… are one
+ * clip's, and a selection of one is that clip.
+ */
+export function settle(sel) {
+  if (!sel.multi) return sel;
+  if (!sel.multi.size) return none();
+  return sel.multi.size === 1 ? only([...sel.multi][0]) : sel;
+}

@@ -237,11 +237,10 @@
       </div>
     </div>
   </div>
-  <!-- Several clips picked (lib/tape/page.js, "several clips"): what they
-       do together. Drag any of them to move them all. -->
   <!-- The clip bar: what's selected on the tape, and what to do to it
-       (lib/tape/selection.js). A click selects a clip; Details… is its sheet. -->
-  <div id="multi-bar" class="multi-bar" role="toolbar" aria-label="Selected clips" hidden>
+       (lib/tape/page.js, "selecting clips"). A click selects a clip;
+       Details… is its sheet. Drag any of several to move them all. -->
+  <div id="multi-bar" class="multi-bar" role="group" aria-label="Selected clips" hidden>
     <span id="multi-count" class="mono multi-count" aria-live="polite">0 clips</span>
     <span class="multi-keys">
       <button id="multi-split" class="icon-btn" type="button" aria-keyshortcuts="S" data-tip="multi-split">Split</button>

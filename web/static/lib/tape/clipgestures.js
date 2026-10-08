@@ -4,7 +4,7 @@
 // sends the edits; it hands each pointer event here and does what comes back.
 //
 // The parts of a block (zones):
-//   body      the block: tap it for its sheet, hold it and drag to slide it
+//   body      the block: tap it to select it, hold it and drag to slide it
 //   in, out   its left and right edges: grips, for the steps that add them
 //   repeat    its top-right corner: a grip, for the step that adds it
 // Zones are in CSS pixels, so a grip is HANDLE_PX wide at any zoom. A block

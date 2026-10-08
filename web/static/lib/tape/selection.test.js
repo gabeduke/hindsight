@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { none, only, all, toggle, ids, keep } from './selection.js';
+import { none, only, all, toggle, ids, keep, settle } from './selection.js';
 
 test('a click selects one clip in place of the rest', () => {
   assert.deepEqual(only('a'), { picked: 'a', multi: null });
@@ -42,4 +42,15 @@ test('select all, and clips that leave the tape leave the selection', () => {
   assert.deepEqual(keep(only('a'), new Set(['b'])), none());
   const o = only('a');
   assert.equal(keep(o, new Set(['a'])), o);
+});
+
+test('the last of several left is a clip on its own', () => {
+  const s = all(['a', 'b']);
+  assert.equal(settle(s), s);
+  assert.deepEqual(settle(keep(s, new Set(['b']))), only('b'));
+  assert.deepEqual(settle({ picked: null, multi: new Set() }), none());
+  const o = only('a');
+  assert.equal(settle(o), o);
+  assert.deepEqual(settle(toggle(only('a'), 'a', true)), none());
+  assert.deepEqual(settle({ picked: null, multi: new Set(['a']) }), only('a'));
 });

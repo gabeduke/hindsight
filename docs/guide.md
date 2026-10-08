@@ -1111,9 +1111,11 @@ beside **⇥ Insert**, **✂ Lift** beside **⇤ Delete time**.
 
 **Selecting clips.** As in a DAW, a tap (or click) on a clip selects it, and
 nothing pops up. The **clip bar** over the transport says what's selected
-(*Track 2 · 10.0 s · take*, or *3 clips*) and acts on it, each one undo. On
-a phone it floats just above the player, its keys scrolling sideways, and a
-lane it would cover scrolls up into view. **Shift**,
+(*Track 2 · 10.0 s · take*, or *3 clips*) and acts on it, each one undo.
+It comes up half a second after the click, so a double-click's second
+click lands where its first did; its keys scroll sideways when the window
+is too narrow for them all. On a phone it floats just above the player,
+and a lane it would cover scrolls up into view. **Shift**,
 **⌘** or **Ctrl** with a click adds a clip or takes it off; on a touch
 screen, **Select more** in the bar makes taps do that. ⌘A or Ctrl+A selects
 every clip on the tape. A tap on an empty part of a lane, **Done** or
@@ -1121,7 +1123,7 @@ Escape lets go.
 
 | Do | Key | Gets you |
 |---|---|---|
-| **Split** | S | Cuts the one selected clip in two at the playhead (lit when the playhead is inside it) |
+| **Split** | S | Cuts the one selected clip in two at the playhead (lit when the playhead is inside it). A clip layered with it there is cut too. With nothing selected, S splits the selected track, as Edit's **Split** does |
 | **Copy** | ⌘C / Ctrl+C | Copies them to the clipboard as they lie, on their tracks and as far apart: **Drop** lays them out again from the selected track, replacing only what's under each |
 | **Duplicate** | ⌘D / Ctrl+D | Lays a copy right after them and selects the copy, so pressing it again carries the run on |
 | **Reverse** | | Turns each round |
@@ -1129,7 +1131,7 @@ Escape lets go.
 | **Move here** | | Moves them so the first starts at the playhead, keeping their spacing and tracks |
 | **Details…** | Enter, or double-click | The one clip's sheet: level, nudge, fades, Align, Share as WAV, Start here and End here |
 | **Remove** | Delete | Takes them off the tape |
-| **Drag any of them** (hold, then drag) | ← → (Shift: a bar) | Moves them all by the same time (and, dragging, the same number of tracks), as far as the tape and its tracks go. The keys move them a step of **Slide snaps to**: a bar, a beat or an eighth |
+| **Drag any of them** (hold, then drag) | ← → (Shift: a bar) | Moves them all by the same time (and, dragging, the same number of tracks), as far as the tape and its tracks go. The keys move them a step of **Slide snaps to**: a bar, a beat or an eighth (a tenth of a second with Off, or without a tempo), stopping at the tape's ends |
 | **Done** | Escape | Lets go of them |
 
 Align still works on one clip at a time.
@@ -1751,7 +1753,7 @@ has no tip.
 | Keep (clip) | Keep this clip on the crate, for another day or another tape: the same audio, nothing copied |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Start here, End here (clip) | Trim the clip's start or end to the playhead, for a clip too short to drag. What's trimmed is kept: drag or trim back out |
-| Split (clip bar) | Cut the selected clip in two at the playhead. Key: S |
+| Split (clip bar) | Cut the selected clip in two at the playhead, lit while the playhead is inside it. A clip layered with it there is cut too. Key: S |
 | Copy (clip bar) | Copy the selected clips as they lie, on their tracks: Drop lays them out again. Key: ⌘C or Ctrl-C |
 | Duplicate (clip bar) | Lay a copy of the selected clips right after them, and select the copy. Key: ⌘D or Ctrl-D |
 | Reverse (clip bar) | Turn each selected clip round. One undo turns them all back |

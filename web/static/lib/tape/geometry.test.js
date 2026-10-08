@@ -299,6 +299,7 @@ test('← and → move the selection a snap step, Shift a bar', () => {
   assert.equal(keyStep(grid, '8th', 48000), 15000);
   assert.equal(keyStep(grid, 'beat', 48000, true), 120000);
   assert.equal(keyStep(grid, 'off', 48000), 4800);
+  assert.equal(keyStep(grid, 'off', 48000, true), 120000, 'Shift is a bar, snap or no snap');
   assert.equal(keyStep(null, 'bar', 48000), 4800);
   assert.equal(keyStep(null, 'bar', 48000, true), 48000);
 });

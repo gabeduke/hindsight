@@ -169,7 +169,7 @@ export const TIPS = [
   { control: 'Keep (clip)', ids: ['clip-keep'], tip: 'Keep this clip on the crate, for another day or another tape: the same audio, nothing copied' },
   { control: 'Remove (clip)', ids: ['clip-remove'], tip: 'Take this clip off the tape. Undo brings it back' },
   { control: 'Start here, End here (clip)', ids: ['clip-trim'], tip: 'Trim the clip\'s start or end to the playhead, for a clip too short to drag. What\'s trimmed is kept: drag or trim back out' },
-  { control: 'Split (clip bar)', ids: ['multi-split'], tip: 'Cut the selected clip in two at the playhead. Key: S' },
+  { control: 'Split (clip bar)', ids: ['multi-split'], tip: 'Cut the selected clip in two at the playhead, lit while the playhead is inside it. A clip layered with it there is cut too. Key: S' },
   { control: 'Copy (clip bar)', ids: ['multi-copy'], tip: 'Copy the selected clips as they lie, on their tracks: Drop lays them out again. Key: ⌘C or Ctrl-C' },
   { control: 'Duplicate (clip bar)', ids: ['multi-dup'], tip: 'Lay a copy of the selected clips right after them, and select the copy. Key: ⌘D or Ctrl-D' },
   { control: 'Reverse (clip bar)', ids: ['multi-reverse'], tip: 'Turn each selected clip round. One undo turns them all back' },

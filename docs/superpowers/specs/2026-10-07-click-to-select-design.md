@@ -28,20 +28,40 @@ behaviour instead: click to select, then act from a bar or with keys.
 ### The clip bar
 
 What was the several-clips bar (`#multi-bar`) is now the bar for any
-selection. It sits over the transport and is a `toolbar`.
+selection. It sits over the transport, a labelled group of keys.
+
+- **It comes up half a second after a click that selects**
+  (`waitForBar`), the selection itself showing at once. From 700 px the
+  bar takes its height from the lanes, so coming up between a
+  double-click's two clicks would move the second a lane away, or onto one
+  of its keys (*Move here*, *Remove*). A bar always there would avoid that
+  too, but costs the lanes their height for good: 1024×768 would lose its
+  four lanes of 100 px.
+- **For 300 ms after it comes up, a click on it isn't taken**: a slow
+  double-click's second click, or a tap as it slides under the finger.
+- **Its keys are a fixed set**, so it's as tall for one clip as for
+  several: Split, Keep and Details… are unlit for several clips, not
+  hidden. It's one row, its keys scrolling sideways when they don't fit.
+- **A click on a key doesn't take the focus**, so Enter, the arrows and
+  the rest stay the page's.
+- **While a clip is aligned** the bar goes: the editor has the clip, and a
+  click on another clip doesn't change it.
 
 - **It says what's selected:** *Track 2 · 10.0 s · take* for one clip,
   *3 clips* for more.
 - **Its keys:** Split, Copy, Duplicate, Reverse, Keep, Move here, Details…,
   Select more, Remove, Done. Each is one undo.
   - Split, Keep and Details… are one clip's, and hidden for several.
-  - Split is lit only while the playhead is inside the clip. It cuts on the
-    clip's own track, whichever track is selected.
+  - Split is lit only while the playhead is inside the clip, where it's
+    heard (its nudge counted). It cuts on the clip's own track, whichever
+    track is selected, and so cuts a clip layered with it there too.
   - Each key names its key in `aria-keyshortcuts` and its tip.
-- **On a phone** it floats just above the mini player, not down the page
-  under the drawers. Its keys scroll sideways in one row. A lane the bar
-  would cover scrolls up into view when the clip is picked. On its side, a
-  short phone gets a one-row bar, so the lanes keep some height.
+- **On a phone** it comes up only while a clip is selected, floating just
+  above the mini player, not down the page under the drawers, and not in
+  the open player. Its keys scroll sideways in one row.
+  - A lane the bar would cover scrolls up into view once it's up.
+  - On its side, a short phone gets a one-row bar, so the lanes keep some
+    height.
 
 ### Keys
 
@@ -51,21 +71,29 @@ selection. It sits over the transport and is a `toolbar`.
 | ⌘C / Ctrl+C | Copies it |
 | ⌘D / Ctrl+D | Duplicates it, and selects the copy |
 | ⌘A / Ctrl+A | Selects every clip on the tape |
-| S | Splits at the playhead (as before) |
+| S | Splits the one selected clip at the playhead, as the bar's Split does; with nothing selected (or several), the selected track, as before |
 | Enter | Opens the one clip's sheet |
 | ← → | Move the selection a step of **Slide snaps to** (a bar, beat or eighth; 0.1 s without a grid or with Off) |
-| Shift + ← → | A bar (1 s without a grid) |
+| Shift + ← → | A bar, snap or no snap (1 s without a grid) |
 | Escape | Lets go, once nothing nearer (a menu, a preview, a drawer) is open |
 
-The arrows only move clips from the page: not from a focused key, field or
-slider, not while a clip is aligned, and not on a held key's repeats (one
-edit per press). Without a selection they're the page's as before.
+The arrows only move clips from the page: not from a focused key, field,
+slider or the sections strip, not while a clip is aligned, and not on a
+held key's repeats (one edit per press). They stop at the tape's ends, as
+a drag does. Without a selection they're the page's as before.
+
+A double-click opens the sheet only when its second click was a tap (not
+the end of a slide or a pan), and not while Select more collects. A
+Shift-, ⌘- or Ctrl-click on an empty part of a lane keeps the selection.
+Another tape (a clone too, whose clips have the same ids) starts with
+nothing selected.
 
 ## How
 
 - `lib/tape/selection.js` is the selection as data: `none`, `only`, `all`,
   `toggle` (with `adding`, so Select more keeps a selection of one as a
-  multi), `ids` and `keep` (drops clips no longer on the tape).
+  multi), `ids`, `keep` (drops clips no longer on the tape) and `settle`
+  (the last of several left is that clip alone, once Select more is off).
 - `page.js` keeps `state.picked` and `state.multi` as before, set through
   `setSel`. `renderClipBar` replaces `renderMulti`.
 - `geometry.js` `keyStep(grid, snap, sampleRate, big)` is the arrows' step.
