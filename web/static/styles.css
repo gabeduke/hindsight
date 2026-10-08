@@ -1956,7 +1956,36 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .rec-section .passes-row { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 3px; }
 .rec-section .tb-row.away .away-btn { flex: 1; }
 .rec-section .tb-row[hidden] { display: none; }
+/* A track that isn't armed: no red, its input and a way to arm it. */
+.rec-section.unarmed { border-color: var(--line); background: none; }
+.rec-section.unarmed .rec-title { color: var(--ink-dim); }
+.unarmed-note { margin: 0; font: 13px/1.4 var(--font); color: var(--ink-dim); }
+.unarmed-note[hidden] { display: none; }
+.unarmed-note .chip { margin-left: 4px; vertical-align: middle; }
 .passes-row { display: flex; gap: 6px; flex-wrap: wrap; }
+/* A track's input menu, by its chip (page.js placeInputMenu): each input
+   with a tick on the one chosen, a note when the tape is in it, and its
+   meter. */
+.menu.input-menu { position: fixed; right: auto; z-index: 60; min-width: 220px; max-width: calc(100vw - 16px); }
+.input-menu .menu-head { margin: 4px 12px 6px; font: 700 11px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
+.input-menu > button { display: grid; grid-template-columns: 16px auto 1fr 64px; align-items: center; gap: 8px; }
+.input-menu .im-tick { visibility: hidden; color: var(--go); font-weight: 700; }
+.input-menu > button[aria-checked="true"] .im-tick { visibility: visible; }
+.input-menu > button[aria-checked="true"] .im-name { font-weight: 700; }
+.input-menu .im-name { font-family: var(--mono); }
+.input-menu .im-note { font-size: 11.5px; color: var(--ink-faint); }
+.input-menu .meter { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.input-menu .meter i { display: block; height: 100%; width: 0; background: var(--go); transition: width 120ms linear; }
+.input-menu .meter i.hot { background: var(--danger); }
+.input-menu .menu-sub { margin: 4px 12px 8px; }
+/* The input chip opens a menu: a small corner notch says so, taking no
+   room from the keys beside it. */
+.tt-head .tt-in { position: relative; }
+.tt-head .tt-in::after {
+  content: ""; position: absolute; right: 2px; bottom: 2px;
+  border: 3px solid transparent; border-right-color: var(--ink-faint); border-bottom-color: var(--ink-faint);
+  border-bottom-right-radius: 2px;
+}
 .passes-row .pass { min-height: var(--tap); min-width: 48px; border-radius: 10px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); font: 600 14px var(--mono); }
 .passes-row .muted { font-size: 12px; color: var(--ink-faint); }
 .tape-list { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); margin-bottom: 4px; }

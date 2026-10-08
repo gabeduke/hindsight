@@ -749,19 +749,23 @@ From the top:
     room, otherwise printed on the tape), its name on masking tape, **●**,
     its **input**, **M** (mute, yellow when on), **S** (solo, blue when on)
     and its level.
-  - **●** makes it the **record track**: where Catch, ● Rec, a free loop's
-    tap and Overdub on this device go. One at a time; it's lit red, and its
-    header is edged red. Tapping the track's name does it too, and **1–4**
-    or **↑ ↓** on a keyboard. It's kept on the Pi, so every device records
-    onto the same track: arm track 3 on the tablet and Catch on your phone
-    goes there. Selecting a clip or tapping a lane doesn't change it: those
-    pick the **selected track**, this device's own, which Drop, Lift, Copy
-    and Split act on, edged faintly when it isn't the record track.
+  - **●** arms it, making it the **record track**: where Catch, ● Rec, a
+    free loop's tap and Overdub on this device go. One at a time; its ● is
+    lit red, and its header is edged red. Tap the lit ● again to disarm it,
+    leaving none armed: Catch and ● Rec then say *arm a track*, and offer
+    to arm the selected one. **1–4** or **↑ ↓** on a keyboard arm a track
+    too, and while one is armed, tapping another track's name moves it
+    there. It's kept on the Pi, so every device records onto the same
+    track: arm track 3 on the tablet and Catch on your phone goes there.
+    Selecting a clip or tapping a lane doesn't change it: those pick the
+    **selected track**, this device's own, which Drop, Lift, Copy and Split
+    act on, edged faintly when it isn't the record track.
   - **The input** (*aux*, *ch1*…) is what the track records from: each track
     has its own, so the guitar on aux can go to track 2 and the Bento on ch2
     to track 3 without changing anything between catches. Its lamp is green
-    while there's signal on it. Tap it for the track's recording in its
-    inspector (below).
+    while there's signal on it. Tap it for a menu of the inputs, each with
+    its meter, and choose one: it doesn't arm the track or open anything
+    else.
   - In the lane: the bar lines, the clips and the playhead. Each clip is a
     block in the track's colour with its sound drawn as bars, lit where it
     has played, and labelled with where it came from (*aux*, *main*, a
@@ -780,10 +784,11 @@ From the top:
   - **Clipboard · Edit** holds the clipboard, Lift, Copy, Split and ×2 on
     the loop's bars, and what a slid clip snaps to.
   - While a clip is being aligned, its editor opens there instead.
-- **Recording onto a track** is in the track's inspector: tap its input (or
-  its name twice). It's the record track's (the inspector follows it), in
-  red at the top: **Input**, **Layer / Replace**, **Catch the last 1, 2 or
-  4 bars**, the **passes**, and **Overdub on this device**. Its name,
+- **Recording onto a track** is in the track's inspector: tap its name
+  twice. It's the record track's (the inspector follows it while one is
+  armed), in red at the top: **Input**, **Layer / Replace**, **Catch the
+  last 1, 2 or 4 bars**, the **passes**, and **Overdub on this device**.
+  With none armed it shows the track's input and **Arm it**. Its name,
   level, pan and the bus it plays through (*bus A*, the Sidekick's channel
   1, or *bus B*, channel 2) are under it.
 - **Input** chooses what the record track records from: main, ch1, ch2 or
@@ -974,7 +979,7 @@ Deleting frees whatever audio no other tape uses, including what's only in
 other tapes' undo.
 
 **Rec (6c).** Tap a track's **●** to make it the record track, and give it
-its input (tap the input on its header), then:
+its input (tap the input on its header and choose one), then:
 
 - **While playing,** tap **● Rec** and recording starts at the next bar line
   (or the one you just passed, if it was less than a quarter second ago).
@@ -1767,9 +1772,9 @@ has no tip.
 | Remove (section) | Take the section away. The audio under it stays |
 | Duplicate section | Play this section twice in a row: a copy right after it, and the rest moves later |
 | A lane | Tap a clip to select it: the clip bar acts on it, and a double-click opens the inspector beside the lanes. Drag its edges to trim it, the squares on its top edge to fade it in or out, or its ⟳ corner (bottom right) to repeat it. Shift, ⌘ or Ctrl with a click, or Select more, selects several. Hold a clip, then drag, to slide it along its track or onto another. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
-| A track header | Its number and name: tap to make it the record track, again for its inspector. Keys: 1–4, or ↑ ↓ |
-| ● (track) | Make this the record track: Catch, ● Rec, a free loop's tap and Overdub on this device go onto it, on every device. Lit red on the one that is |
-| Input (track) | What this track records from, lit green while there's signal on it. Tap for its recording, in its inspector: the input, Layer or Replace, Catch the last bars, the passes |
+| A track header | Its number and name: tap to select it (and make it the record track, if one is armed), again for its inspector. Keys 1–4, or ↑ ↓, arm it |
+| ● (track) | Arm it, making it the record track: Catch, ● Rec, a free loop's tap and Overdub on this device go onto it, on every device. Lit red on the one that is; tap it again to disarm |
+| Input (track) | What this track records from, lit green while there's signal on it. Tap to choose another from a menu, with each one's meter; it doesn't arm the track. Its inspector has the same choice |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape. Key: Space |
@@ -1872,7 +1877,7 @@ has no tip.
 | The dot by ↶ is amber | Playback and recording are lined up only by the clocks, to a few milliseconds; it locks once the tape plays something with a clear attack on bus A or B | Play the tape for a few seconds, with drums or another percussive part on it. Catches still work meanwhile; nudge one if it's off |
 | The dot by ↶ is red | Nothing is lined up yet: the tape hasn't played since Hindsight started, or there's no output | Press ▶. If ▶ reads *no output*, check the Sidekick is on and plugged in |
 | A source chip shows ○ | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
-| A new clip is a flat line, and the toast said *it's silent: nothing came in* | It was recorded from a source with nothing in it, usually aux with nothing plugged in. ● Rec records from the record track's input, the lit chip under **Input** in its inspector | Undo, tap the track's input, choose the chip whose meter moves when you play, and record again |
+| A new clip is a flat line, and the toast said *it's silent: nothing came in* | It was recorded from a source with nothing in it, usually aux with nothing plugged in. ● Rec records from the record track's input, named on its header | Undo, tap the track's input, choose the one whose meter moves when you play, and record again |
 | "Too long for the ring" on Mixdown | The selection is longer than the last 15 minutes can hold | Mix down in parts, or raise `RING_SECONDS` |
 | "…a tape track holds 20 minutes" | What you sent is longer than a track, or would run past its end from where it lands | Send a shorter part, lift something, or raise `TAPE_LENGTH_S` |
 | *Phone* says the microphone needs a secure page | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |

@@ -223,7 +223,8 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		Name  *string `json:"name"`
 		Click *bool   `json:"click"`
-		// RecTrack arms a track, the one catches and punches go onto; Input
+		// RecTrack arms a track, the one catches and punches go onto, or with
+		// tape.NoRecTrack none; Input
 		// sets a track's input, and Inputs several at once. Neither is a
 		// step of undo.
 		RecTrack *int      `json:"rec_track"`
@@ -301,7 +302,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			t.Click = *b.Click
 		}
 		if b.RecTrack != nil {
-			if *b.RecTrack < 1 || *b.RecTrack > len(t.Tracks) {
+			if *b.RecTrack != tape.NoRecTrack && (*b.RecTrack < 1 || *b.RecTrack > len(t.Tracks)) {
 				return tape.ErrNoSuchTrack
 			}
 			t.RecTrack = *b.RecTrack
