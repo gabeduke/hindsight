@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.08.5 — 2026-10-08
+
+- Arm and the input menu: fixes from review (b1a5173)
+- Tape: an input menu on each track, and ● disarms (3bf558b)
+- Tape: the track's arm key is a record button (e602a7b)
+- Record v2026.10.08.4 in the changelog [skip ci] (b1f7a17)
+
+
 ## v2026.10.08.4 — 2026-10-08
 
 - Record on the track: fixes from review (b4fdd7e)
