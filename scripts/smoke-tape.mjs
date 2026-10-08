@@ -201,6 +201,27 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.context().close();
 }
 
+// On a phone, a tapped clip's bar floats just above the player, on screen,
+// and on its side the tapped lane stays in view above it.
+for (const [w, h] of [[390, 844], [667, 375]]) {
+  const p = await (await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true })).newPage();
+  await p.goto(`${BASE}/tape.html`);
+  await p.waitForTimeout(2000);
+  const t = (await loadedState()).tape;
+  const c = t.tracks[0].clips.find((x) => x.at <= t.loop.in && t.loop.in < x.at + x.frames);
+  const r = await p.evaluate(() => { const b = document.querySelector('.tt-lane').getBoundingClientRect(); return { x: b.left + b.width * 0.3, y: b.top + b.height / 2 }; });
+  await p.touchscreen.tap(r.x, r.y);
+  await p.waitForTimeout(900);
+  const g = await p.evaluate(() => {
+    const bar = document.getElementById('multi-bar').getBoundingClientRect(), np = document.getElementById('np').getBoundingClientRect();
+    const lane = document.querySelector('.tt-lane').getBoundingClientRect();
+    return { bar: [bar.top, bar.bottom], np: np.top, lane: lane.bottom, vh: innerHeight, shown: !document.getElementById('multi-bar').hidden };
+  });
+  check(`${w}x${h}: a tapped clip's bar sits just above the player`, !!c && g.shown && g.bar[0] >= 0 && Math.abs(g.bar[1] - g.np) <= 2, JSON.stringify(g));
+  check(`${w}x${h}: and the tapped lane isn't under it`, g.lane <= g.bar[0] + 1, JSON.stringify(g));
+  await p.context().close();
+}
+
 // Catch is the page's one main action: orange.
 {
   const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
@@ -230,9 +251,10 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.context().close();
 }
 
-// A clip's gestures (lib/tape/clipgestures.js): a tap opens its sheet, a
-// quick drag pans the lanes and leaves the clip be, and a hold then a drag
-// slides it a bar, which ↶ takes back.
+// A clip's gestures (lib/tape/clipgestures.js): a tap selects it (the clip
+// bar names it; nothing pops up), a double-click or Enter opens its sheet, →
+// moves it a bar and Escape lets go; a quick drag pans the lanes and leaves
+// the clip be, and a hold then a drag slides it a bar, which ↶ takes back.
 {
   await postJSON(`/api/tapes/transport?id=${encodeURIComponent((await getJSON('/api/tapes')).loaded)}`, { action: 'stop' });
   const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
@@ -265,9 +287,29 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   let s = await spot(c0);
   await p.mouse.click(s.x, s.y);
   await p.waitForTimeout(400);
-  check('a clip: a tap opens its sheet', await p.evaluate(() => document.getElementById('clip-sheet').open));
+  const sheetOpen = () => p.evaluate(() => document.getElementById('clip-sheet').open);
+  check('a clip: a tap selects it, and nothing pops up', !(await sheetOpen()) && await p.isVisible('#multi-bar')
+    && (await p.textContent('#multi-count')).startsWith('Track 1 ·'), await p.textContent('#multi-count'));
+  s = await spot(c0); // the clip bar took some of the lanes' height
+  await p.mouse.dblclick(s.x, s.y);
+  await p.waitForTimeout(400);
+  check('a clip: a double-click opens its sheet', await sheetOpen());
   await p.keyboard.press('Escape');
   await p.waitForTimeout(300);
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(400);
+  check('a clip: Enter opens it too', await sheetOpen());
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  await p.keyboard.press('ArrowRight');
+  await p.waitForTimeout(900);
+  check('a clip: → moves it a bar', Math.abs((await first()).at - (c0.at + c0.bar)) <= 1, `${c0.at} → ${(await first()).at}`);
+  await p.click('#tape-undo');
+  await p.waitForTimeout(900);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  check('a clip: Escape lets go of it', !(await p.isVisible('#multi-bar')) && (await first()).at === c0.at);
+  s = await spot(c0);
   await p.mouse.move(s.x, s.y);
   await p.mouse.down();
   await p.mouse.move(s.x + s.perBar, s.y, { steps: 4 });
@@ -289,13 +331,12 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('a clip: ↶ puts it back', (await first()).at === c0.at);
-  // Tapped, it stays picked once its sheet closes, with grips on its edges:
-  // drag the right one a bar left to trim a bar off its end, then ↶.
+  // Tapped, it's selected, with grips on its edges: drag the right one a bar
+  // left to trim a bar off its end, then ↶.
   await p.mouse.click(s.x, s.y);
   await p.waitForTimeout(400);
-  await p.keyboard.press('Escape');
-  await p.waitForTimeout(300);
   const c1 = await first();
+  s = await spot(c1); // the clip bar took some of the lanes' height
   const lane = await p.evaluate(() => { const b = document.querySelector('.tt-lane').getBoundingClientRect(); return { x: b.left, w: b.width }; });
   const from = Math.max(0, c1.loop.in - c1.bar), to = c1.loop.out + c1.bar;
   const gx = lane.x + ((c1.at + c1.frames - from) / (to - from)) * lane.w - 12;
@@ -343,20 +384,22 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('a clip: ↶ takes the copies back', (await loadedState()).tape.tracks[0].clips.length === n0);
-  // Several clips: Select more, ⌘D or Ctrl-D for a copy after it, Shift-click
-  // the copy, then drag the pair a lane down together; ↶; Delete; ↶; Done.
+  // Several clips: a tap selects one, ⌘D or Ctrl-D lays a copy after it and
+  // selects the copy, Shift-click adds the first again, then drag the pair a
+  // lane down together; ↶; Delete; ↶.
   // (Reloaded: the corner's drag scrolled the view.)
   await p.reload();
   await p.waitForTimeout(2000);
+  s = await spot(c0);
   await p.mouse.click(s.x, s.y);
   await p.waitForTimeout(400);
-  await p.click('#clip-select');
-  await p.waitForTimeout(300);
-  check('several clips: Select more shows the bar', await p.isVisible('#multi-bar') && (await p.textContent('#multi-count')) === '1 clip');
+  check('several clips: a tap shows the clip bar, naming the clip', await p.isVisible('#multi-bar') && (await p.textContent('#multi-count')).startsWith('Track 1 ·'));
   await p.keyboard.press('ControlOrMeta+KeyD');
   await p.waitForTimeout(1000);
   const dup = (await loadedState()).tape.tracks[0].clips.find((x) => x.at === c0.at + c0.frames);
-  check('several clips: ⌘D lays a copy right after it, and picks the copy', !!dup && (await p.textContent('#multi-count')) === '1 clip');
+  check('several clips: ⌘D lays a copy right after it, and selects the copy', !!dup && (await p.textContent('#multi-count')).startsWith('Track 1 ·'));
+  s = await spot(c0);
+  const pitch2 = await p.evaluate(() => { const l = [...document.querySelectorAll('.tt-lane')]; return l[1].getBoundingClientRect().top - l[0].getBoundingClientRect().top; });
   await p.keyboard.down('Shift');
   await p.mouse.click(s.x, s.y);
   await p.keyboard.up('Shift');
@@ -365,7 +408,7 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.mouse.move(s.x, s.y);
   await p.mouse.down();
   await p.waitForTimeout(450);
-  await p.mouse.move(s.x, s.y + pitch, { steps: 8 });
+  await p.mouse.move(s.x, s.y + pitch2, { steps: 8 });
   await p.mouse.up();
   await p.waitForTimeout(1000);
   const moved = (await loadedState()).tape.tracks[1].clips.map((x) => x.id);
@@ -382,6 +425,15 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   await p.click('#tape-undo');
   await p.waitForTimeout(1000);
   check('several clips: ↶ ↶ → the clip alone, as it was', (await loadedState()).tape.tracks[0].clips.length === n0);
+  // ⌘A or Ctrl+A selects every clip on the tape; Escape lets go.
+  await p.keyboard.press('ControlOrMeta+KeyA');
+  await p.waitForTimeout(400);
+  const everyClip = (await loadedState()).tape.tracks.reduce((n, tr) => n + tr.clips.length, 0);
+  const allText = await p.textContent('#multi-count');
+  check('several clips: ⌘A selects every clip', everyClip < 2 ? allText.startsWith('Track') : allText === `${everyClip} clips`, `${allText}, ${everyClip} on the tape`);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  check('several clips: Escape lets go of them all', !(await p.isVisible('#multi-bar')));
   // Sections: hold and drag on the strip over bars 1–2 → a section and its
   // sheet; call it Verse; tap it → its bars are the loop; remove it; ↶.
   {
@@ -510,8 +562,9 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
     await patchTape({ loop: loop0 });
     await p.waitForTimeout(500);
   }
-  // Fades: in the clip's sheet, Fade in → 1 beat, then off.
-  await p.mouse.click(s.x, s.y);
+  // Fades: in the clip's sheet (a double-click), Fade in → 1 beat, then off.
+  s = await spot(c0);
+  await p.mouse.dblclick(s.x, s.y);
   await p.waitForTimeout(400);
   const beat = c0.bar / 4;
   await p.locator('#clip-fade-in button', { hasText: '1 beat' }).click();
@@ -524,13 +577,16 @@ for (const [w, h] of [[390, 844], [600, 960], [1024, 600], [1024, 768], [1280, 8
   check('fades: off takes it off', !((await loadedState()).tape.tracks[0].clips.find((x) => x.id === c0.id).fade_in));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(300);
-  // The crate: Keep the clip from its sheet, open Crate ▴, Drop it on track
-  // 3; ↶. And a take's span kept, shown on its own with ?crate=.
+  // The crate: Keep the clip from the clip bar, open Crate ▴, Drop it on
+  // track 3; ↶. And a take's span kept, shown on its own with ?crate=.
   const crateBefore = (await getJSON('/api/crate')).clips.length;
+  s = await spot(c0);
   await p.mouse.click(s.x, s.y);
   await p.waitForTimeout(400);
-  await p.click('#clip-keep');
+  await p.click('#multi-keep');
   await p.waitForTimeout(800);
+  await p.keyboard.press('Escape'); // let go: the clip bar off the dock
+  await p.waitForTimeout(300);
   const kept = (await getJSON('/api/crate')).clips;
   check('the crate: Keep puts the clip on it, by reference', kept.length === crateBefore + 1 && kept[0].source.kind === 'tape', JSON.stringify(kept[0]));
   await p.keyboard.press('3');
