@@ -184,14 +184,13 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   await p.locator('.tt-arm').nth(2).click();
   await p.waitForTimeout(800);
   check('disarm: ● arms it again', (await meta()).rec === 3 && (await lit()) === 'false,false,true,false');
-  // Put them back.
-  await p.evaluate(async ({ rec, input, input4 }) => {
+  // Put them back: every track's input, "" for one that had none.
+  await p.evaluate(async ({ rec, inputs, tracks }) => {
     const id = (await (await fetch('/api/tapes')).json()).loaded;
     const send = (body) => fetch('/api/tapes?id=' + id, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     await send({ rec_track: rec });
-    if (input) await send({ input: { n: 3, source: input } });
-    if (input4) await send({ input: { n: 4, source: input4 } });
-  }, { rec: was.rec, input: was.inputs[2] || '', input4: was.inputs[3] || '' });
+    await send({ inputs: Array.from({ length: tracks }, (_, i) => ({ n: i + 1, source: inputs[i] || '' })) });
+  }, { rec: was.rec, inputs: was.inputs, tracks: await p.evaluate(() => document.querySelectorAll('.tape-track').length) });
   await p.context().close();
 }
 
@@ -808,6 +807,10 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
 {
   const put = (mode) => fetch(`${BASE}/api/tapes/output`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) });
   const p = await (await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })).newPage();
+  // A track armed, for its inspector below: track 1 if none is.
+  const t0 = (await loadedState()).tape;
+  const armIt = (rec) => fetch(`${BASE}/api/tapes?id=${encodeURIComponent(t0.id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rec_track: rec }) });
+  if (t0.rec_track === -1) await armIt(1);
   try {
     await put('phone');
     await p.goto(`${BASE}/tape.html`);
@@ -831,6 +834,7 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
     check('jam mode: the banner hides again', !(await p.locator('#out-banner').isVisible()));
   } finally {
     await put('jam');
+    if (t0.rec_track === -1) await armIt(-1);
     await p.context().close();
   }
 }

@@ -223,10 +223,9 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		Name  *string `json:"name"`
 		Click *bool   `json:"click"`
-		// RecTrack arms a track, the one catches and punches go onto, or with
-		// tape.NoRecTrack none; Input
-		// sets a track's input, and Inputs several at once. Neither is a
-		// step of undo.
+		// RecTrack arms a track, the one catches and punches go onto, or
+		// with tape.NoRecTrack none. Input sets a track's input ("" for none
+		// of its own), and Inputs several at once. Neither is a step of undo.
 		RecTrack *int      `json:"rec_track"`
 		Input    *trackIn  `json:"input"`
 		Inputs   []trackIn `json:"inputs"`
@@ -308,7 +307,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			t.RecTrack = *b.RecTrack
 		}
 		for _, in := range set {
-			known := false
+			known := in.Source == "" // none of its own: the device's last choice
 			for _, s := range inputs {
 				known = known || s.Name == in.Source
 			}

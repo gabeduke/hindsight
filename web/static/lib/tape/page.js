@@ -507,7 +507,7 @@ function render() {
     rb.replaceChildren(Object.assign(document.createElement('span'), { className: 'rec-what' }),
       Object.assign(document.createElement('span'), { className: 'rec-src' }));
   }
-  const recWhat = !rec ? '● Rec' : rec.state === 'armed' ? `● Armed ${rec.track}` : `● Rec ${rec.track}`;
+  const recWhat = !rec ? '● Rec' : rec.state === 'armed' ? `● Ready ${rec.track}` : `● Rec ${rec.track}`;
   const recSrc = rec ? rec.source : state.recTrack ? inputOf(state.recTrack) : 'arm a track';
   rb.firstElementChild.textContent = recWhat;
   rb.lastElementChild.textContent = recSrc;
@@ -521,7 +521,6 @@ function render() {
 
   noteMixdown(live && live.mixdown);
   renderClock(live && live.clock, t);
-  renderSources();
   renderPasses();
   const canCatch = live && live.aligned !== 'none';
   $('catch-pass').disabled = !phoneOut && (!canCatch || !(live.cycles || []).length);
@@ -543,7 +542,9 @@ function render() {
   renderFit();
   if (output) output.render(state.live);
   refreshInspector();
-  renderTrackRec(phoneOut);
+  // After the inspector has followed the record track: they show its.
+  renderTrackRec();
+  renderSources();
   renderInputMenu();
 }
 
@@ -551,7 +552,8 @@ function render() {
 // armed track; on another (none is armed), its input and a way to arm it.
 // What needs the jam room goes, rows and all, keeping the note and Overdub
 // on this device.
-function renderTrackRec(phoneOut) {
+function renderTrackRec() {
+  const phoneOut = !!(state.live && state.live.output_mode === 'phone');
   const armed = !!state.recTrack && state.sheetTrack === state.recTrack;
   $('track-rec').classList.toggle('unarmed', !armed);
   setText($('track-rec-title'), armed ? 'Recording onto it' : 'Not armed');
@@ -2526,6 +2528,9 @@ function openTrack(n, { focus = false } = {}) {
   const tr = track(n);
   if (!tr) return;
   fillTrack(tr);
+  // Its recording as it is, before it shows: not the last track's.
+  renderTrackRec();
+  renderSources();
   showInspector('track-sheet', { focus });
 }
 
@@ -2616,7 +2621,7 @@ function paintMeter(el, s) {
 function pickInput(n, name) {
   const r = state.live && state.live.record;
   if (r && r.track === n && r.source !== name) {
-    toast(`● Rec is ${r.state === 'armed' ? 'armed' : 'recording'} from ${r.source}: end it to record from ${name}`, 'warn');
+    toast(`● Rec is ${r.state === 'armed' ? 'ready to record' : 'recording'} ${r.source}: end it to record from ${name}`, 'warn');
     return;
   }
   if (!n || (state.tape.inputs || [])[n - 1] === name) return;
@@ -2680,7 +2685,7 @@ function buildLanes() {
           <span class="tt-num" aria-hidden="true"></span>
           <button class="tt-name" type="button"></button>
           <button class="chip tt-arm" type="button" aria-pressed="false" data-tip="track-arm"><span class="tt-arm-dot" aria-hidden="true"></span></button>
-          <button class="chip tt-in" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="track-input"><span class="tt-in-led" aria-hidden="true"></span><span class="tt-in-v"></span></button>
+          <button class="chip tt-in" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="input-menu" data-tip="track-input"><span class="tt-in-led" aria-hidden="true"></span><span class="tt-in-v"></span></button>
           <button class="chip tt-mute" type="button" aria-pressed="false" data-tip="track-mute">M</button>
           <button class="chip tt-solo" type="button" aria-pressed="false" data-tip="track-solo">S</button>
           <span class="tt-pend" hidden></span>
@@ -2718,6 +2723,14 @@ function buildLanes() {
       lane.input.addEventListener('click', (e) => {
         e.stopPropagation(); // the page's click closes menus
         openInputMenu(n, lane.input, e.detail === 0);
+      });
+      // ↓ on the chip goes into its menu, opening it if it's shut.
+      lane.input.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowDown') return;
+        e.preventDefault();
+        e.stopPropagation(); // not the page's ↓, which arms the next track
+        if (!(inputMenu && inputMenu.n === n)) openInputMenu(n, lane.input, true);
+        else focusInputItem();
       });
       lane.mute.addEventListener('click', () => { askHeard(n); patch({ track: { n, mute: !track(n).mute } }); });
       lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
@@ -2759,7 +2772,7 @@ function syncTrack(t) {
 function armTrack(n) {
   const r = state.live && state.live.record;
   if (r && r.track !== n) {
-    toast(`● Rec is ${r.state === 'armed' ? 'armed' : 'recording'} on track ${r.track}: end it to record onto track ${n}`, 'warn');
+    toast(`● Rec is ${r.state === 'armed' ? 'ready' : 'recording'} on track ${r.track}: end it to record onto track ${n}`, 'warn');
     return false;
   }
   setRecTrack(n);
@@ -2771,7 +2784,7 @@ function armTrack(n) {
 function disarm() {
   const r = state.live && state.live.record;
   if (r) {
-    toast(`● Rec is ${r.state === 'armed' ? 'armed' : 'recording'} on track ${r.track}: end it first`, 'warn');
+    toast(`● Rec is ${r.state === 'armed' ? 'ready' : 'recording'} on track ${r.track}: end it first`, 'warn');
     return false;
   }
   setRecTrack(0);
@@ -2811,7 +2824,10 @@ async function sendTrack() {
   recSending = false;
   if (!state.tape || state.tape.id !== id) { recWant = null; return; }
   if (recWant !== n) { sendTrack(); return; } // chosen again meanwhile
-  if (!ok) recWant = null; // the Pi's comes back at the next poll
+  // The Pi has it, or refused it: from now on its polls say which. (A poll
+  // already on its way when it was sent was dropped by change().)
+  recWant = null;
+  if (!ok) poll();
 }
 
 // inputOf is what track n records from: its own input, or the one chosen
@@ -3431,13 +3447,13 @@ async function rec() {
       const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.recTrack, source: inputOf(state.recTrack), replace: state.mode === 'replace' } }));
       const armed = b.record.state === 'armed';
       const { track, source } = b.record;
-      toast(armed ? `Track ${track} armed to record ${source}: press ▶ to count in` : `Recording ${source} onto track ${track} from the next bar — tap ● again to keep it`, 'ok', {
+      toast(armed ? `● Rec is ready on track ${track}: press ▶ to count in, then it records ${source}` : `Recording ${source} onto track ${track} from the next bar — tap ● again to keep it`, 'ok', {
         ms: 8000, action: { label: 'Cancel', run: () => api(`/api/tapes/record?${q()}&cancel=1`, { method: 'DELETE' }).then(poll, () => {}) },
       });
     } else {
       const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'DELETE' }));
       if (b.kept) keptToast(b.kept);
-      else toast(r.state === 'armed' ? `Track ${r.track} disarmed` : 'Nothing to keep yet: the tape hadn’t reached a bar line');
+      else toast(r.state === 'armed' ? `● Rec cancelled on track ${r.track}` : 'Nothing to keep yet: the tape hadn’t reached a bar line');
     }
     poll();
   } catch (e) {
@@ -3587,7 +3603,8 @@ function showInspector(id, { focus = false } = {}) {
     sh.dataset.height = 'half';
     sh.show();
   }
-  if (focus) sh.querySelector('input, button:not(:disabled):not(.insp-grip)')?.focus({ preventScroll: true });
+  // The first field or key that's shown: a hidden one wouldn't take it.
+  if (focus) [...sh.querySelectorAll('input, button:not(:disabled):not(.insp-grip)')].find((el) => el.getClientRects().length)?.focus({ preventScroll: true });
   else if (sh.contains(document.activeElement) && !sh.contains(was)) {
     if (was && was !== document.body && document.contains(was)) was.focus({ preventScroll: true });
     else document.activeElement.blur();
@@ -3860,11 +3877,18 @@ function openInputMenu(n, chip, byKey) {
   inputMenu = { n, chip };
   chip.setAttribute('aria-expanded', 'true');
   const menu = $('input-menu');
+  menu.setAttribute('aria-label', `Track ${n}'s input`);
   delete menu.dataset.names; // built afresh for this track
   renderInputMenu();
   menu.hidden = false;
   placeInputMenu();
-  if (byKey) (menu.querySelector('[aria-checked="true"]') || menu.querySelector('button'))?.focus();
+  if (byKey) focusInputItem();
+}
+
+// focusInputItem moves into the open menu: to the chosen input, or the first.
+function focusInputItem() {
+  const menu = $('input-menu');
+  (menu.querySelector('[aria-checked="true"]') || menu.querySelector('button'))?.focus();
 }
 
 function closeInputMenu() {
@@ -3879,15 +3903,23 @@ function closeInputMenu() {
   if (had) chip.focus();
 }
 
+// placeInputMenu puts the menu under its chip, or over it where there isn't
+// room above the bar at the foot of the page, which it mustn't cover.
 function placeInputMenu() {
   const menu = $('input-menu');
   const r = inputMenu.chip.getBoundingClientRect();
+  const np = $('np').getBoundingClientRect();
+  const floor = (np.height ? Math.min(np.top, window.innerHeight) : window.innerHeight) - 8;
+  menu.style.maxHeight = '';
   const m = menu.getBoundingClientRect();
   const vw = document.documentElement.clientWidth;
   const left = Math.max(8, Math.min(r.left, vw - m.width - 8));
-  const below = r.bottom + 6 + m.height <= window.innerHeight - 8;
+  const below = r.bottom + 6 + m.height <= floor;
+  const top = below ? r.bottom + 6 : Math.max(8, r.top - 6 - m.height);
   menu.style.left = `${left}px`;
-  menu.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - 6 - m.height)}px`;
+  menu.style.top = `${top}px`;
+  // Too tall either way: it scrolls.
+  if (!below && r.top - 6 - m.height < 8) menu.style.maxHeight = `${Math.max(120, r.top - 14)}px`;
 }
 
 // renderInputMenu builds the open menu's items once, then on every poll
@@ -3898,15 +3930,21 @@ function renderInputMenu() {
   const { n } = inputMenu;
   const names = state.sources.map((s) => s.name).join(' ');
   if (menu.dataset.names !== names) {
+    const built = menu.dataset.names !== undefined;
+    const had = menu.contains(document.activeElement) ? document.activeElement.dataset.name : null;
     menu.dataset.names = names;
+    // The heading is for the eye: the menu's label says it to a reader.
     const head = document.createElement('p');
     head.className = 'menu-head';
+    head.setAttribute('aria-hidden', 'true');
     head.textContent = `Track ${n} records from`;
     const items = state.sources.map((s) => {
       const b = document.createElement('button');
       b.type = 'button';
+      b.tabIndex = -1; // ↑ ↓ move along them; Tab leaves
       b.setAttribute('role', 'menuitemradio');
       b.dataset.name = s.name;
+      b.dataset.tip = 'track-input';
       b.innerHTML = '<span class="im-tick" aria-hidden="true">✓</span><span class="im-name"></span><span class="im-note"></span><span class="meter" aria-hidden="true"><i></i></span>';
       b.querySelector('.im-name').textContent = s.name;
       b.addEventListener('click', () => {
@@ -3920,8 +3958,14 @@ function renderInputMenu() {
     if (!items.length) {
       const p = document.createElement('p');
       p.className = 'menu-sub';
+      p.setAttribute('role', 'none');
       p.textContent = 'The Pi hasn’t said what its inputs are yet';
       menu.appendChild(p);
+    }
+    // Rebuilt while open: where it is, and focus where it was.
+    if (built) {
+      placeInputMenu();
+      if (had) (items.find((b) => b.dataset.name === had) || items[0])?.focus();
     }
   }
   const lit = litInput(n);
@@ -4091,14 +4135,14 @@ function wire() {
   // The input menu sits by its chip: when the page moves under it, it goes.
   window.addEventListener('scroll', (e) => { if (inputMenu && !$('input-menu').contains(e.target)) closeInputMenu(); }, { capture: true, passive: true });
   window.addEventListener('resize', closeInputMenu);
-  // ↑ ↓ move along its items.
+  // ↑ ↓ Home End move along its items; Tab leaves it, closed, from its chip.
   $('input-menu').addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    if (e.key === 'Tab') { closeInputMenu(); return; }
     const items = [...$('input-menu').querySelectorAll('button')];
-    if (!items.length) return;
-    e.preventDefault();
     const i = items.indexOf(document.activeElement);
-    const k = e.key === 'ArrowDown' ? (i + 1) % items.length : (i <= 0 ? items.length - 1 : i - 1);
+    const k = { ArrowDown: (i + 1) % items.length, ArrowUp: i <= 0 ? items.length - 1 : i - 1, Home: 0, End: items.length - 1 }[e.key];
+    if (k === undefined || !items.length) return;
+    e.preventDefault();
     items[k].focus();
   });
   document.addEventListener('keydown', (e) => {
@@ -4232,8 +4276,9 @@ function wire() {
       }
       case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': pick(Number(e.code.slice(5))); break;
       // Only when it changes the track: otherwise the arrows scroll.
-      case 'ArrowUp': if (pick((state.recTrack || state.track) - 1)) e.preventDefault(); break;
-      case 'ArrowDown': if (pick((state.recTrack || state.track) + 1)) e.preventDefault(); break;
+      // With none armed, either arms the selected track first.
+      case 'ArrowUp': if (pick(state.recTrack ? state.recTrack - 1 : state.track)) e.preventDefault(); break;
+      case 'ArrowDown': if (pick(state.recTrack ? state.recTrack + 1 : state.track)) e.preventDefault(); break;
       default:
     }
   });
