@@ -363,9 +363,12 @@
   </div>
 </dialog>
 
-<!-- A clip's sheet. -->
-<dialog class="sheet" id="clip-sheet">
+<!-- The inspector (lib/tape/page.js, "the inspector"): a clip's, a track's
+     or a section's settings, one at a time, shown beside the lanes (from
+     700 px) or over the foot of the page (a phone) without a backdrop. -->
+<dialog class="sheet inspector" id="clip-sheet" aria-labelledby="clip-title" tabindex="-1" autofocus>
   <div class="sheet-inner">
+    <button class="insp-grip" type="button" aria-label="Pull it up or down" data-tip="insp-grip"></button>
     <h3 id="clip-title">Clip</h3>
     <label class="clip-field">Level <span id="clip-gain-val" class="mono"></span>
       <input id="clip-gain" type="range" min="-30" max="6" step="0.5" data-tip="clip-gain">
@@ -398,7 +401,7 @@
     <div class="sheet-actions">
       <button id="clip-align" class="icon-btn" type="button" data-tip="clip-align">Align</button>
     </div>
-    <p class="sheet-hint muted">The clip bar under the lanes splits, copies, duplicates and removes it, with keys too. To slide it, hold it in its lane, then drag. To trim it, drag its edges, or move the playhead and Start here or End here. To line it up to the sample, Align.</p>
+    <p class="sheet-hint muted">The clip bar under the lanes splits, copies, duplicates and removes it, with keys too. To slide it, hold it in its lane, then drag. To trim it, drag its edges, or move the playhead and Start here or End here. To line it up to the sample, Align. Select another clip and this shows it; Escape or Done closes it.</p>
     <div class="sheet-actions">
       <button id="clip-remove" class="icon-btn danger" type="button" data-tip="clip-remove">Remove</button>
       <button id="clip-done" class="icon-btn" type="button">Done</button>
@@ -425,9 +428,10 @@
   </div>
 </dialog>
 
-<!-- A section's sheet. -->
-<dialog class="sheet" id="section-sheet">
+<!-- A section's inspector. -->
+<dialog class="sheet inspector" id="section-sheet" aria-labelledby="section-title" tabindex="-1" autofocus>
   <div class="sheet-inner">
+    <button class="insp-grip" type="button" aria-label="Pull it up or down" data-tip="insp-grip"></button>
     <h3 id="section-title">Section</h3>
     <div class="seg section-names" id="section-names" role="group" aria-label="Call it"></div>
     <label class="clip-field">Name
@@ -444,9 +448,10 @@
   </div>
 </dialog>
 
-<!-- A track's sheet. -->
-<dialog class="sheet" id="track-sheet">
+<!-- A track's inspector. -->
+<dialog class="sheet inspector" id="track-sheet" aria-labelledby="track-title" tabindex="-1" autofocus>
   <div class="sheet-inner">
+    <button class="insp-grip" type="button" aria-label="Pull it up or down" data-tip="insp-grip"></button>
     <h3 id="track-title">Track</h3>
     <label class="clip-field">Name
       <input id="track-name" type="text" maxlength="40" placeholder="chords, bass…" data-tip="track-name">

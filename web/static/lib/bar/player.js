@@ -65,7 +65,10 @@ export function initPlayer() {
   addEventListener('popstate', () => close(true));
   // Escape puts the player away first, before a drawer or anything under it.
   addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || !isOpen() || document.querySelector('dialog[open]')) return;
+    // A sheet open takes Escape first; the tape's inspector, hidden under the
+    // player, doesn't.
+    const sheet = [...document.querySelectorAll('dialog[open]')].some((d) => !d.classList.contains('inspector'));
+    if (e.key !== 'Escape' || !isOpen() || sheet) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     close();
