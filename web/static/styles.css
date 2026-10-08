@@ -1868,11 +1868,19 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .tt-head .chip { min-height: 30px; min-width: 26px; padding: 0 4px; border-radius: 8px; font: 700 14px var(--label-font); letter-spacing: .04em; }
 .tt-head .tt-mute[aria-pressed="true"] { color: var(--mute-ink); background: linear-gradient(180deg, var(--mute-hi), var(--mute-lo)); border-color: var(--mute-lo); }
 .tt-head .tt-solo[aria-pressed="true"] { color: var(--solo-ink); background: linear-gradient(180deg, var(--solo-hi), var(--solo-lo)); border-color: var(--solo-lo); }
-.tt-head .tt-arm { color: var(--ink-faint); font-size: 13px; }
-.tt-head .tt-arm[aria-pressed="true"] {
-  color: var(--on-danger); border-color: var(--rec);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--rec) 80%, white), var(--rec));
-  box-shadow: 0 0 10px color-mix(in srgb, var(--rec) 45%, transparent);
+/* The arm key is a record button: a red dot in the middle of a plain key,
+   dull until it's the record track, then lit like a lamp. The dot is drawn,
+   not a ● character, which sat off centre in the label font. */
+.tt-head .tt-arm { justify-content: center; }
+.tt-arm-dot {
+  width: 12px; height: 12px; border-radius: 50%; flex: none;
+  background: color-mix(in srgb, var(--rec) 40%, var(--panel-2));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .35);
+}
+.tt-head .tt-arm[aria-pressed="true"] { background: var(--panel-2); border-color: var(--rec); box-shadow: 0 0 0 1px color-mix(in srgb, var(--rec) 45%, transparent); }
+.tt-head .tt-arm[aria-pressed="true"] .tt-arm-dot {
+  background: radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--rec) 45%, white), var(--rec) 62%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--rec) 85%, transparent), 0 0 2px var(--rec);
 }
 .tt-head .tt-in { display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; font: 600 10.5px var(--mono); letter-spacing: 0; text-transform: none; }
 .tt-in-led { width: 6px; height: 6px; border-radius: 50%; background: var(--led-off); flex: none; }

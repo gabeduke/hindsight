@@ -2653,7 +2653,7 @@ function buildLanes() {
         <div class="tt-head" data-tip="track">
           <span class="tt-num" aria-hidden="true"></span>
           <button class="tt-name" type="button"></button>
-          <button class="chip tt-arm" type="button" aria-pressed="false" data-tip="track-arm"><span aria-hidden="true">●</span></button>
+          <button class="chip tt-arm" type="button" aria-pressed="false" data-tip="track-arm"><span class="tt-arm-dot" aria-hidden="true"></span></button>
           <button class="chip tt-in" type="button" data-tip="track-input"><span class="tt-in-led" aria-hidden="true"></span><span class="tt-in-v"></span></button>
           <button class="chip tt-mute" type="button" aria-pressed="false" data-tip="track-mute">M</button>
           <button class="chip tt-solo" type="button" aria-pressed="false" data-tip="track-solo">S</button>
