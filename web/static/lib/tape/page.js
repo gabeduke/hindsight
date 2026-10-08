@@ -29,7 +29,7 @@ import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec
 import { initAway } from './away-sheet.js';
 import { initOutput } from './output-ui.js';
 import { Pending } from './pending.js';
-import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, FADE_PX, SLOP_PX, EDGE_PX, targetTrack } from './clipgestures.js';
+import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, gripBands, SLOP_PX, EDGE_PX, targetTrack } from './clipgestures.js';
 import { SECTION_NAMES, SECTION_COLORS, colorOf, sectionHit, newName, isLooped, barsText as sectionBars, makeSpan, edgeTo } from './sections.js';
 import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNumber } from './timeedit.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
@@ -268,10 +268,12 @@ function apply(s) {
   if (state.tape && s.tape && s.tape.id !== state.tape.id) {
     state.zoom = null;
     delete $('new-bpm').dataset.touched;
-    // Another tape's clips aren't selected, though a clone's have the same ids.
+    // Another tape's clips aren't selected, though a clone's have the same ids;
+    // nor is a grip or handle held on one.
     state.picked = null;
     state.multi = null;
     state.adding = false;
+    state.fade = state.trim = state.repeat = null;
   }
   state.tape = s.tape;
   // The empty-tape form starts at the tempo you were playing, until you type.
@@ -1461,8 +1463,13 @@ function wireLane(lane) {
     if (!g) return;
     const df = frameUnder(g.x) - g.f0;
     if (g === state.repeat) g.count = repeatCount(df, g.clip.frames, g.max);
-    // A fade handle: on the snap grid as a trim is, ⌥ (Alt) free.
-    else if (g === state.fade) g.len = fadeTo(g.clip, g.edge, g.len0, df, state.tape.grid, state.snap, g.free, leastFade());
+    // A fade handle: any length, sticking to a snap line within 8 px of it
+    // (⌥, Alt, not at all), and stopping where the other fade begins.
+    else if (g === state.fade) {
+      const v = laneView();
+      const magnet = ((v.to - v.from) / Math.max(1, cv.getBoundingClientRect().width)) * 8;
+      g.len = fadeTo(g.clip, g.edge, g.len0, df, { grid: state.tape.grid, snap: state.snap, free: g.free, least: leastFade(), other: g.other, magnet });
+    }
     // ⌥ (Alt) moves a trim freely, off the snap.
     else Object.assign(g, trimTo(g.edge0, df, g.bounds, state.tape.grid, state.snap, g.free));
     drawLanes();
@@ -1491,8 +1498,12 @@ function wireLane(lane) {
       try { cv.setPointerCapture(e.pointerId); } catch { /* the pointer's gone */ }
       const c = fx.clip;
       const edge = fx.zone === 'fadein' ? 'in' : 'out';
-      const len0 = clipFades(c)[edge === 'in' ? 'fadeIn' : 'fadeOut'];
-      state.fade = { n: lane.n, clip: c, edge, key: edge === 'in' ? 'fade_in' : 'fade_out', len0, len: len0, x: e.clientX, f0: frameUnder(e.clientX), free: false };
+      // The fades as they play: stored ones that overlap (a trim never
+      // shortens a fade) are shared out, and the drag starts from that.
+      const played = clipFades(c);
+      const len0 = edge === 'in' ? played.fadeIn : played.fadeOut;
+      const other = edge === 'in' ? played.fadeOut : played.fadeIn;
+      state.fade = { n: lane.n, clip: c, edge, key: edge === 'in' ? 'fade_in' : 'fade_out', otherKey: edge === 'in' ? 'fade_out' : 'fade_in', len0, len: len0, other, x: e.clientX, f0: frameUnder(e.clientX), free: false };
       cv.classList.add('fading');
     } else if (state.fade && state.fade.n === lane.n && (fx.type === 'gripEnd' || fx.type === 'release')) {
       const fd = state.fade;
@@ -1500,8 +1511,12 @@ function wireLane(lane) {
       letGo();
       cv.classList.remove('fading');
       drawLanes();
+      // What's dragged, and the other fade as it played, when it was stored
+      // longer: one step, nothing shrunk behind the user's back.
       if (fx.commit && fd.len !== fd.len0) {
-        setFade(fd.clip, { [fd.key]: fd.len }).then((ok) => ok && toast(`${fd.edge === 'in' ? 'Fade in' : 'Fade out'}: ${fadeWords(fd.len)}`, 'ok', { action: undoAction }));
+        const fields = { [fd.key]: fd.len };
+        if ((fd.clip[fd.otherKey] || 0) !== fd.other) fields[fd.otherKey] = fd.other;
+        setFade(fd.clip, fields).then((ok) => ok && toast(`${fd.edge === 'in' ? 'Fade in' : 'Fade out'}: ${fadeWords(fd.len)}`, 'ok', { action: undoAction }));
       }
     } else if (fx.type === 'grip' && fx.zone === 'repeat') {
       try { cv.setPointerCapture(e.pointerId); } catch { /* the pointer's gone */ }
@@ -2816,7 +2831,7 @@ function drawLanes() {
       }
       // A fade being dragged is drawn where its handle has it.
       const fd = state.fade && state.fade.clip.id === stored.id ? state.fade : null;
-      const fc = fd ? { ...c, [fd.key]: fd.len } : c;
+      const fc = fd ? { ...c, [fd.key]: fd.len, [fd.otherKey]: fd.other } : c;
       drawFades(ctx, fc, view, W, x0, x1, top, h, ink, withAlpha(col('--well', '#000'), 0.6));
       const fades = clipFades(fc);
       const fi = (fades.fadeIn / (view.to - view.from)) * W, fo = (fades.fadeOut / (view.to - view.from)) * W;
@@ -3057,11 +3072,16 @@ function drawRepeats(ctx, c, rp, view, W, top, h, tc, ink, mono) {
 // each edge between them; a grip pushed against how far it can go turns
 // amber, with a line at the stop. A fade being dragged says how long it is.
 function drawGrips(ctx, x0, x1, top, h, ink, warn, tm, mono, { fi = 0, fo = 0, fd = null } = {}) {
-  const strip = Math.min(FADE_PX, h / 3);
-  const corner = Math.min(HANDLE_PX, h / 2);
+  const { strip, corner } = gripBands(h);
+  // Two handles that meet are drawn side by side, as their zones share it.
+  let xin = Math.min(Math.max(x0 + fi, x0 + 6), x1 - 6), xout = Math.min(Math.max(x1 - fo, x0 + 6), x1 - 6);
+  if (xout - xin < 12) {
+    const mid = Math.min(Math.max((xin + xout) / 2, x0 + 12), x1 - 12);
+    xin = mid - 6;
+    xout = mid + 6;
+  }
   ctx.save();
-  for (const [edge, hx] of [['in', x0 + fi], ['out', x1 - fo]]) {
-    const x = Math.min(Math.max(hx, x0 + 6), x1 - 6);
+  for (const [edge, x] of [['in', xin], ['out', xout]]) {
     const on = fd && fd.edge === edge;
     ctx.fillStyle = withAlpha(ink, on ? 1 : 0.9);
     ctx.beginPath();
@@ -3556,7 +3576,8 @@ function renderFades(c) {
         return `${(2 + k * 24).toFixed(1)},${(15 - 13 * fadeCurve(sh.id, edge === 'in' ? k : 1 - k)).toFixed(1)}`;
       }).join(' ');
       b.innerHTML = `<svg width="28" height="17" viewBox="0 0 28 17" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg><span>${sh.label}</span>`;
-      b.addEventListener('click', () => setFade(c, { [`${key}_shape`]: sh.id }));
+      // The curve already lit does nothing: not an undo step that changes nothing.
+      b.addEventListener('click', () => { if (sh.id !== shape) setFade(c, { [`${key}_shape`]: sh.id }); });
       return b;
     }));
     if (hadCurve >= 0 && curves.children[hadCurve]) curves.children[hadCurve].focus({ preventScroll: true });

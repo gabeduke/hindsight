@@ -407,16 +407,21 @@ export function fadeCurve(shape, x) {
 /**
  * fadeTo is a fade's length as its handle is dragged df frames: `edge` 'in'
  * (the handle at the fade in's end) or 'out' (at the fade out's start), from
- * a length of len0. The handle lands on the snap grid, as a trimmed edge
- * does, unless `free`; the fade stays inside the clip; and one shorter than
- * minFrames (the 3 ms declick) is none.
+ * a length of len0. Any length: the handle sticks to a line of the snap grid
+ * only within `magnet` frames of it, and not at all when `free`. It stops
+ * where the `other` fade begins, so neither shrinks the other, and one
+ * shorter than `least` (the 3 ms declick) is none.
  */
-export function fadeTo(clip, edge, len0, df, grid, snap, free, minFrames) {
+export function fadeTo(clip, edge, len0, df, { grid = null, snap = 'off', free = false, least = 0, other = 0, magnet = 0 } = {}) {
   const end = clip.at + clip.frames;
   const raw = edge === 'in' ? clip.at + len0 + df : end - len0 + df; // the handle, on the tape
-  const pos = free ? Math.round(raw) : snapFrame(grid, raw, snap);
-  const len = Math.max(0, Math.min(clip.frames, Math.round(edge === 'in' ? pos - clip.at : end - pos)));
-  return len < minFrames ? 0 : len;
+  let pos = Math.round(raw);
+  if (!free && magnet > 0) {
+    const line = snapFrame(grid, raw, snap);
+    if (Math.abs(line - raw) <= magnet) pos = line;
+  }
+  const len = Math.max(0, Math.min(Math.max(0, clip.frames - other), edge === 'in' ? pos - clip.at : end - pos));
+  return len < least ? 0 : len;
 }
 
 /**

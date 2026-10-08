@@ -29,6 +29,15 @@ export const CLICK_GRACE_MS = 600; // a click this soon after a drag ends it, no
 export const EDGE_PX = 32;         // a grip held this near a lane's end scrolls the view
 
 /**
+ * gripBands is how tall a block's fade-handle strip (along its top) and ⟳
+ * corner (bottom right) are: FADE_PX and HANDLE_PX, but on a short lane a
+ * quarter and a third of it, so the trim grips keep the middle.
+ */
+export function gripBands(h) {
+  return { strip: Math.min(FADE_PX, h / 4), corner: Math.min(HANDLE_PX, h / 3) };
+}
+
+/**
  * zonesOf is the zones of one block, the grips first: a block is {x0, x1,
  * top, h, fi, fo} in CSS pixels on its lane (fi and fo its fades' widths),
  * and `kinds` the grips it offers ('fadein', 'fadeout', 'repeat', 'in',
@@ -43,14 +52,22 @@ export function zonesOf(block, kinds = []) {
   const zones = [];
   // A fade handle is HANDLE_PX wide, centred on where its fade meets the
   // rest of the clip and kept inside the block, in the strip along its top.
-  const strip = Math.min(FADE_PX, h / 3);
+  // Where the two meet they share the space, the fade in's on the left.
+  const { strip, corner } = gripBands(h);
   const handle = (zone, x) => {
     const a = Math.min(Math.max(x - HANDLE_PX / 2, x0), x1 - HANDLE_PX);
-    zones.push({ zone, x0: a, x1: a + HANDLE_PX, y0: top, y1: top + strip });
+    return { zone, x0: a, x1: a + HANDLE_PX, y0: top, y1: top + strip };
   };
-  if (kinds.includes('fadein')) handle('fadein', x0 + fi);
-  if (kinds.includes('fadeout')) handle('fadeout', x1 - fo);
-  if (kinds.includes('repeat')) zones.push({ zone: 'repeat', x0: x1 - HANDLE_PX, x1, y0: top + h - Math.min(HANDLE_PX, h / 2), y1: top + h });
+  const fin = kinds.includes('fadein') ? handle('fadein', x0 + fi) : null;
+  const fout = kinds.includes('fadeout') ? handle('fadeout', x1 - fo) : null;
+  if (fin && fout && fin.x1 > fout.x0) {
+    const mid = (fin.x0 + fin.x1 + fout.x0 + fout.x1) / 4;
+    fin.x1 = Math.max(fin.x0, Math.min(fin.x1, mid));
+    fout.x0 = Math.min(fout.x1, Math.max(fout.x0, mid));
+  }
+  if (fin) zones.push(fin);
+  if (fout) zones.push(fout);
+  if (kinds.includes('repeat')) zones.push({ zone: 'repeat', x0: x1 - HANDLE_PX, x1, y0: top + h - corner, y1: top + h });
   if (kinds.includes('in')) zones.push({ zone: 'in', x0, x1: x0 + HANDLE_PX });
   if (kinds.includes('out')) zones.push({ zone: 'out', x0: x1 - HANDLE_PX, x1 });
   zones.push(body);

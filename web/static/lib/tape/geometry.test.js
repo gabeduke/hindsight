@@ -317,19 +317,24 @@ test('fadeCurve matches the Pi: silent to full on every curve, each where it sho
   assert.equal(fadeCurve('nonsense', 0.5), fadeCurve('', 0.5));
 });
 
-test('fadeTo: a handle drag sets the fade on the snap grid, inside the clip, none under the declick', async () => {
+test('fadeTo: any length, sticking to a grid line near it, stopping at the other fade, none under the declick', async () => {
   const { fadeTo } = await import('./geometry.js');
   const grid = { frames: 4 * 48000, bars: 4 }; // a bar a second at 240 BPM: a beat 12000 frames
   const clip = { at: 48000, frames: 96000 };
-  // The fade in's handle dragged 13000 frames right lands on the beat.
-  assert.equal(fadeTo(clip, 'in', 0, 13000, grid, 'beat', false, 144), 12000);
-  // Free: where it's dragged.
-  assert.equal(fadeTo(clip, 'in', 0, 13000, grid, 'beat', true, 144), 13000);
+  const o = { grid, snap: 'bar', least: 144, magnet: 1500 };
+  // A beat in, with the bar snap: no line near, so a beat it is.
+  assert.equal(fadeTo(clip, 'in', 0, 12000, o), 12000);
+  // Near a bar line, it sticks to it.
+  assert.equal(fadeTo(clip, 'in', 0, 47000, o), 48000);
+  // ⌥, or no magnet: where it's dragged.
+  assert.equal(fadeTo(clip, 'in', 0, 47000, { ...o, free: true }), 47000);
+  assert.equal(fadeTo(clip, 'in', 0, 47000, { ...o, magnet: 0 }), 47000);
   // The fade out's handle dragged left lengthens it.
-  assert.equal(fadeTo(clip, 'out', 12000, -12000, grid, 'beat', false, 144), 24000);
-  // Never past the clip, never below 0.
-  assert.equal(fadeTo(clip, 'in', 0, 999999, grid, 'off', false, 144), 96000);
-  assert.equal(fadeTo(clip, 'out', 6000, 50000, grid, 'off', false, 144), 0);
+  assert.equal(fadeTo(clip, 'out', 12000, -12000, o), 24000);
+  // It stops where the other fade begins, and never goes below 0.
+  assert.equal(fadeTo(clip, 'in', 0, 999999, { ...o, other: 30000 }), 66000);
+  assert.equal(fadeTo(clip, 'in', 0, 999999, o), 96000);
+  assert.equal(fadeTo(clip, 'out', 6000, 50000, o), 0);
   // Shorter than the declick is none.
-  assert.equal(fadeTo(clip, 'in', 0, 100, null, 'off', true, 144), 0);
+  assert.equal(fadeTo(clip, 'in', 0, 100, { least: 144 }), 0);
 });

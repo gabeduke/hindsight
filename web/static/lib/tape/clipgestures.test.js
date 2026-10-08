@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  zonesOf, hitClip, ClipGesture, HOLD_MS, SLOP_PX, HANDLE_PX, FADE_PX, MIN_GRIPS_PX, CLICK_GRACE_MS, laneShift, targetTrack,
+  zonesOf, gripBands, hitClip, ClipGesture, HOLD_MS, SLOP_PX, HANDLE_PX, FADE_PX, MIN_GRIPS_PX, CLICK_GRACE_MS, laneShift, targetTrack,
 } from './clipgestures.js';
 import { xOf } from './geometry.js';
 
@@ -47,7 +47,7 @@ test('zonesOf: a block too narrow for its grips gets none, at any zoom out', () 
 test('zonesOf: the corner is the bottom of the right edge, no more than half the block', () => {
   const zs = zonesOf({ x0: 0, x1: 300, top: 2, h: 30 }, ['repeat']);
   const r = zone(zs, 'repeat');
-  assert.deepEqual([r.x0, r.x1, r.y0, r.y1], [276, 300, 17, 32]);
+  assert.deepEqual([r.x0, r.x1, r.y0, r.y1], [276, 300, 22, 32]); // a third of a short lane
   const tall = zone(zonesOf({ x0: 0, x1: 300, top: 2, h: 96 }, ['repeat']), 'repeat');
   assert.deepEqual([tall.y0, tall.y1], [98 - HANDLE_PX, 98]);
 });
@@ -63,9 +63,17 @@ test('zonesOf: the fade handles sit on the top edge, at their fades, inside the 
   zs = zonesOf({ ...b, fi: 60, fo: 90 }, ['fadein', 'fadeout']);
   assert.deepEqual([zone(zs, 'fadein').x0, zone(zs, 'fadein').x1], [160 - HANDLE_PX / 2, 160 + HANDLE_PX / 2]);
   assert.deepEqual([zone(zs, 'fadeout').x0, zone(zs, 'fadeout').x1], [310 - HANDLE_PX / 2, 310 + HANDLE_PX / 2]);
-  // A short lane: the strip is a third of it at most.
-  const low = zone(zonesOf({ ...b, h: 30 }, ['fadein']), 'fadein');
-  assert.equal(low.y1 - low.y0, 10);
+  // A short lane: the strip is a quarter of it at most, and the edge's trim
+  // grip keeps the middle.
+  const low = zone(zonesOf({ ...b, h: 60 }, ['fadein']), 'fadein');
+  assert.equal(low.y1 - low.y0, 15);
+  assert.deepEqual(gripBands(60), { strip: 15, corner: 20 });
+  assert.equal(hitClip([{ ...b, h: 60, clip: { id: 'a' } }], 395, 30, () => ['fadein', 'fadeout', 'in', 'out', 'repeat']).zone, 'out');
+  // Where the fades meet, their handles share the space: both can be held.
+  const met = zonesOf({ ...b, fi: 150, fo: 150 }, ['fadein', 'fadeout']);
+  assert.ok(zone(met, 'fadein').x1 <= zone(met, 'fadeout').x0);
+  assert.equal(hitClip([{ ...b, fi: 150, fo: 150, clip: { id: 'a' } }], 245, 8, () => ['fadein', 'fadeout']).zone, 'fadein');
+  assert.equal(hitClip([{ ...b, fi: 150, fo: 150, clip: { id: 'a' } }], 255, 8, () => ['fadein', 'fadeout']).zone, 'fadeout');
 });
 
 test('hitClip: nothing on an empty stretch', () => {
