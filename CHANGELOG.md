@@ -5,6 +5,18 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.08.3 — 2026-10-08
+
+- Fade handles: fixes from review (5bf69f0)
+- Tape: fade handles, and four fade curves (46b021b)
+- The inspector: fixes from review (862a245)
+- Tape: the inspector, beside the lanes (1570e16)
+- Output button and Send to: fixes from review (d297c4e)
+- Output button in the header; Downbeat; Send to; bus A (b539b70)
+- Docs: the interaction model, with Gabe's picks (25d09d4)
+- Record v2026.10.08.2 in the changelog [skip ci] (57ce897)
+
+
 ## v2026.10.08.2 — 2026-10-08
 
 - Record v2026.10.08.1 in the changelog [skip ci] (d6976f5)
