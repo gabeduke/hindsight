@@ -121,8 +121,9 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
 }
 
 // Recording on the track: a track's ● makes it the record track, on the Pi,
-// and Catch says so; its input chip opens its inspector at the recording,
-// where an input chosen is that track's. Both are put back after.
+// and Catch says so, and again disarms it; an input chip opens a menu of the
+// inputs, and an input chosen there or in the inspector is that track's.
+// They're put back after.
 {
   const p = await (await browser.newContext({ viewport: { width: 1024, height: 768 } })).newPage();
   await p.goto(`${BASE}/tape.html`);
@@ -131,12 +132,22 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
     const st = await (await fetch('/api/tapes/state?id=' + (await (await fetch('/api/tapes')).json()).loaded)).json();
     return { rec: st.tape.rec_track || 1, inputs: st.tape.inputs || [], sources: (st.sources || []).map((x) => x.name) };
   });
+  const lit = () => p.evaluate(() => [...document.querySelectorAll('.tt-arm')].map((b) => b.getAttribute('aria-pressed')).join());
   const was = await meta();
+  // From track 1 armed: ● on the armed track would disarm it.
+  if (was.rec !== 1) {
+    await p.evaluate(async () => {
+      const id = (await (await fetch('/api/tapes')).json()).loaded;
+      await fetch('/api/tapes?id=' + id, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rec_track: 1 }) });
+    });
+    await p.reload();
+    await p.waitForTimeout(1500);
+  }
   await p.locator('.tt-arm').nth(2).click();
   await p.waitForTimeout(800);
   const armed = await meta();
   check('the record track: track 3’s ● makes it the record track, on the Pi', armed.rec === 3, JSON.stringify(armed));
-  check('the record track: its ● is lit, and only its', await p.evaluate(() => [...document.querySelectorAll('.tt-arm')].map((b) => b.getAttribute('aria-pressed')).join() === 'false,false,true,false'));
+  check('the record track: its ● is lit, and only its', (await lit()) === 'false,false,true,false');
   check('the record track: Catch names it', (await p.textContent('#catch-pass .np-catch-sub')).includes('track 3'));
   // A tap on another lane selects that track here, for the edits; the record
   // track, everyone's, stays.
@@ -144,22 +155,42 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   await p.mouse.click(lane1.x, lane1.y);
   await p.waitForTimeout(800);
   check('the record track: a tap on another lane leaves it where it is', (await meta()).rec === 3 && await p.evaluate(() => document.querySelectorAll('.tape-track')[0].classList.contains('selected')));
-  await p.locator('.tt-in').nth(2).click();
+  // Another track's input: a menu of the inputs, nothing armed or opened.
+  await p.locator('.tt-in').nth(3).click();
+  await p.waitForTimeout(400);
+  check('the input menu: a track’s input opens it, and not the inspector', await p.evaluate(() => !document.getElementById('input-menu').hidden && !document.getElementById('track-sheet').open
+    && document.querySelector('#input-menu .menu-head').textContent.includes('Track 4')));
+  const pick4 = armed.sources.find((x) => x !== (armed.inputs[3] || '')) || armed.sources[0];
+  await p.locator(`#input-menu button[data-name="${pick4}"]`).click();
+  await p.waitForTimeout(800);
+  const menuGiven = await meta();
+  check('the input menu: the input chosen is that track’s, on the Pi, and it stays unarmed', menuGiven.inputs[3] === pick4 && menuGiven.rec === 3
+    && (await p.textContent('.tape-track:nth-child(4) .tt-in-v')) === pick4 && await p.evaluate(() => document.getElementById('input-menu').hidden), JSON.stringify(menuGiven));
+  // The inspector's Input row: the record track's name, twice.
+  await p.locator('.tt-name').nth(2).click();
+  await p.locator('.tt-name').nth(2).click();
   await p.waitForTimeout(500);
-  check('the record track: its input opens its inspector at the recording', await p.evaluate(() => document.getElementById('track-sheet').open && document.getElementById('track-title').textContent.startsWith('Track 3')));
   const pickSrc = armed.sources.find((x) => x !== (armed.inputs[2] || '')) || armed.sources[0];
   await p.locator(`#sources button[data-name="${pickSrc}"]`).click();
   await p.waitForTimeout(800);
   const given = await meta();
-  check('the record track: an input chosen is that track’s, on the Pi', given.inputs[2] === pickSrc && (await p.textContent('.tape-track:nth-child(3) .tt-in-v')) === pickSrc, JSON.stringify(given.inputs));
+  check('the record track: an input chosen in its inspector is that track’s, on the Pi', given.inputs[2] === pickSrc && (await p.textContent('.tape-track:nth-child(3) .tt-in-v')) === pickSrc, JSON.stringify(given.inputs));
   await p.keyboard.press('Escape');
-  // Put them back.
-  await p.evaluate(async ({ rec, input }) => {
+  // ● again disarms it, on the Pi, and Catch asks for a track; once more arms it.
+  await p.locator('.tt-arm').nth(2).click();
+  await p.waitForTimeout(800);
+  check('disarm: the armed ● again leaves none armed, on the Pi', (await meta()).rec === -1 && (await lit()) === 'false,false,false,false'
+    && (await p.textContent('#catch-pass .np-catch-sub')) === 'arm a track');
+  await p.locator('.tt-arm').nth(2).click();
+  await p.waitForTimeout(800);
+  check('disarm: ● arms it again', (await meta()).rec === 3 && (await lit()) === 'false,false,true,false');
+  // Put them back: every track's input, "" for one that had none.
+  await p.evaluate(async ({ rec, inputs, tracks }) => {
     const id = (await (await fetch('/api/tapes')).json()).loaded;
     const send = (body) => fetch('/api/tapes?id=' + id, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     await send({ rec_track: rec });
-    if (input) await send({ input: { n: 3, source: input } });
-  }, { rec: was.rec, input: was.inputs[2] || '' });
+    await send({ inputs: Array.from({ length: tracks }, (_, i) => ({ n: i + 1, source: inputs[i] || '' })) });
+  }, { rec: was.rec, inputs: was.inputs, tracks: await p.evaluate(() => document.querySelectorAll('.tape-track').length) });
   await p.context().close();
 }
 
@@ -776,6 +807,10 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
 {
   const put = (mode) => fetch(`${BASE}/api/tapes/output`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) });
   const p = await (await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })).newPage();
+  // A track armed, for its inspector below: track 1 if none is.
+  const t0 = (await loadedState()).tape;
+  const armIt = (rec) => fetch(`${BASE}/api/tapes?id=${encodeURIComponent(t0.id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rec_track: rec }) });
+  if (t0.rec_track === -1) await armIt(1);
   try {
     await put('phone');
     await p.goto(`${BASE}/tape.html`);
@@ -786,8 +821,9 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
     check('phone mode: Rec opens the jam-room sheet', await p.evaluate(() => document.getElementById('jam-only').open));
     await p.locator('#jam-only-close').click();
     await p.click('#np-expand');
-    // The recording is in a track's inspector, from its input.
-    await p.locator('.tt-in').first().click();
+    // The recording is in the record track's inspector: its name, twice.
+    await p.locator('.tape-track.rec .tt-name').click();
+    await p.locator('.tape-track.rec .tt-name').click();
     await p.waitForTimeout(500);
     check('phone mode: the track inspector says Rec and Catch wait', await p.locator('#jam-only-note').isVisible());
     check('phone mode: its Input, Catch the last and the passes wait too',
@@ -798,6 +834,7 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
     check('jam mode: the banner hides again', !(await p.locator('#out-banner').isVisible()));
   } finally {
     await put('jam');
+    if (t0.rec_track === -1) await armIt(-1);
     await p.context().close();
   }
 }

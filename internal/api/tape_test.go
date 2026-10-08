@@ -146,6 +146,13 @@ func TestTheRecordTrackAndInputsStickAndStayOutOfUndo(t *testing.T) {
 		t.Fatalf("after setting: %+v", m.Tape)
 	}
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_track":9}`), http.StatusBadRequest, "a track there isn't")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_track":0}`), http.StatusBadRequest, "track 0")
+	// -1 disarms them all, and a track arms again.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_track":-1}`), http.StatusOK, "disarm")
+	if m := read(); m.Tape.RecTrack != -1 {
+		t.Fatalf("disarmed: %+v", m.Tape)
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_track":3}`), http.StatusOK, "arm track 3 again")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":2,"source":"guitar"}}`), http.StatusBadRequest, "an input there isn't")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":7,"source":"aux"}}`), http.StatusBadRequest, "a track there isn't, for an input")
 	// Several at once, all or none.
@@ -154,6 +161,12 @@ func TestTheRecordTrackAndInputsStickAndStayOutOfUndo(t *testing.T) {
 	if m := read(); len(m.Tape.Inputs) != 4 || m.Tape.Inputs[1] != "ch2" || m.Tape.Inputs[3] != "main" {
 		t.Fatalf("several at once: %+v", m.Tape.Inputs)
 	}
+	// "" leaves a track with none of its own.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":4,"source":""}}`), http.StatusOK, "clear track 4's")
+	if m := read(); m.Tape.Inputs[3] != "" {
+		t.Fatalf("cleared: %+v", m.Tape.Inputs)
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":4,"source":"main"}}`), http.StatusOK, "track 4 from main again")
 	// An undoable change, then undo: the record track and inputs stay.
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"track":{"n":2,"mute":true}}`), http.StatusOK, "mute")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, ""), http.StatusOK, "undo")

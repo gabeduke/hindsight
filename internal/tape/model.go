@@ -296,10 +296,11 @@ type Tape struct {
 	Created    time.Time `json:"created"`
 	Click      bool      `json:"click,omitempty"`
 	// RecTrack is the record track: where a catch, a punch, a free loop's tap
-	// and an overdub go, chosen on any device (0 is track 1). Inputs are the
-	// tracks' inputs, the sources they record from (Inputs[0] is track 1's);
-	// "" records from whichever was chosen last. Neither is a step of undo:
-	// they're where you are, not what's on the tape.
+	// and an overdub go, chosen on any device (0 is track 1; NoRecTrack is
+	// none, its ● pressed again). Inputs are the tracks' inputs, the sources
+	// they record from (Inputs[0] is track 1's); "" records from whichever
+	// was chosen last. Neither is a step of undo: they're where you are, not
+	// what's on the tape.
 	RecTrack int      `json:"rec_track,omitempty"`
 	Inputs   []string `json:"inputs,omitempty"`
 	State
@@ -309,6 +310,9 @@ type Tape struct {
 	lastKind string    // the last change's kind, for coalescing
 	lastAt   time.Time // and when it was
 }
+
+// NoRecTrack is a tape's RecTrack with no track armed.
+const NoRecTrack = -1
 
 // NewTape makes an empty tape of n tracks, every one on bus A at -6 dB.
 func NewTape(id, name string, sampleRate int, length int64, tracks int, now time.Time) *Tape {

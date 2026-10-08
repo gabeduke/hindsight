@@ -948,8 +948,8 @@ All of it is one change: if any field is refused, none is made.
 |---|---|
 | `name` | Rename (not undoable) |
 | `click` | The metronome on bus A while playing, on or off (not undoable). A new tape has it on; the first catch or drop turns it off |
-| `rec_track` | The record track, 1 to the tape's tracks: where the tape page's Catch, ● Rec, a free loop's tap and an overdub go, on every device (not undoable; 400 for a track there isn't). The state's `tape.rec_track`, absent until one is chosen (track 1) |
-| `input: {n, source}`, `inputs: [{n, source}, …]` | Track `n`'s input, or several tracks' at once (all or none), each a source of `TAPE_SOURCES` (not undoable; 400 for another). The state's `tape.inputs`, by track from 1; `""` for a track with none |
+| `rec_track` | The record track, 1 to the tape's tracks: where the tape page's Catch, ● Rec, a free loop's tap and an overdub go, on every device; `-1` disarms, leaving none (not undoable; 400 for a track there isn't). The state's `tape.rec_track`: absent until one is chosen (track 1), `-1` with none armed |
+| `input: {n, source}`, `inputs: [{n, source}, …]` | Track `n`'s input, or several tracks' at once (all or none), each a source of `TAPE_SOURCES`, or `""` for none of its own (not undoable; 400 for another). The state's `tape.inputs`, by track from 1; `""` for a track with none |
 | `tempo: {bpm, bars}` | Set the tempo of an empty tape: 20–400 BPM, 1–64 bars. Refused once the tape has audio |
 | `bars` | Relabel the loop's bar count (1–64) without changing its length |
 | `loop: {in?, out?, on?}` | The loop, in tape frames |
