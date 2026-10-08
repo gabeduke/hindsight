@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.08.1 — 2026-10-08
+
+- Tape: the clip bar waits for a double-click; review fixes (19b7908)
+- Tape: a click selects a clip; the clip bar and keys act on it (ac12dfe)
+- Record v2026.10.07.5 in the changelog [skip ci] (ef0d674)
+
+
 ## v2026.10.07.5 — 2026-10-07
 
 - Record v2026.10.07.4 in the changelog [skip ci] (c5f3939)
