@@ -381,6 +381,24 @@ func TestTheClipboardCopiesATakeAndDropsItOnATape(t *testing.T) {
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in":-1}}`), http.StatusBadRequest, "a fade below 0")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in":1}}`), http.StatusBadRequest, "a fade shorter than the declick")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_out":99999999}}`), http.StatusBadRequest, "a fade past the clip")
+	// Their curves, by name.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in_shape":"linear","fade_out_shape":"exp"}}`), http.StatusOK, "curves")
+	var curved struct {
+		Tape struct {
+			Tracks []struct {
+				Clips []struct {
+					FadeInShape  string `json:"fade_in_shape"`
+					FadeOutShape string `json:"fade_out_shape"`
+				} `json:"clips"`
+			} `json:"tracks"`
+		} `json:"tape"`
+	}
+	json.Unmarshal(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "").Body.Bytes(), &curved)
+	if c := curved.Tape.Tracks[1].Clips[0]; c.FadeInShape != "linear" || c.FadeOutShape != "exp" {
+		t.Fatalf("curves = %+v", c)
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_in_shape":"log"}}`), http.StatusBadRequest, "a curve there isn't")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_out_shape":""}}`), http.StatusOK, "back to equal power")
 
 	want(t, send(t, r, http.MethodDelete, "/api/clipboard", ""), http.StatusOK, "clear")
 	want(t, send(t, r, http.MethodGet, "/api/clipboard/audio", ""), http.StatusNotFound, "audition nothing")

@@ -379,6 +379,52 @@ export function fadeOption(frames, grid, sampleRate) {
 }
 
 /**
+ * FADE_SHAPES are the curves a fade can take, by the name a clip keeps
+ * (internal/tape fadeCurve): '' is equal power, every fade's curve before
+ * there was a choice.
+ */
+export const FADE_SHAPES = [
+  { id: '', label: 'Equal power' },
+  { id: 'linear', label: 'Linear' },
+  { id: 's', label: 'S-curve' },
+  { id: 'exp', label: 'Exponential' },
+];
+
+/**
+ * fadeCurve is a fade's gain x of the way up from silence, 0 to 1, on the
+ * curve `shape` names; a fall is the same read backwards. The same sums as
+ * internal/tape fadeCurve, so what's drawn is what plays.
+ */
+export function fadeCurve(shape, x) {
+  switch (shape) {
+    case 'linear': return x;
+    case 's': return (1 - Math.cos(x * Math.PI)) / 2;
+    case 'exp': return (1000 ** x - 1) / 999; // 60 dB, straight in decibels
+    default: return Math.sin((x * Math.PI) / 2);
+  }
+}
+
+/**
+ * fadeTo is a fade's length as its handle is dragged df frames: `edge` 'in'
+ * (the handle at the fade in's end) or 'out' (at the fade out's start), from
+ * a length of len0. Any length: the handle sticks to a line of the snap grid
+ * only within `magnet` frames of it, and not at all when `free`. It stops
+ * where the `other` fade begins, so neither shrinks the other, and one
+ * shorter than `least` (the 3 ms declick) is none.
+ */
+export function fadeTo(clip, edge, len0, df, { grid = null, snap = 'off', free = false, least = 0, other = 0, magnet = 0 } = {}) {
+  const end = clip.at + clip.frames;
+  const raw = edge === 'in' ? clip.at + len0 + df : end - len0 + df; // the handle, on the tape
+  let pos = Math.round(raw);
+  if (!free && magnet > 0) {
+    const line = snapFrame(grid, raw, snap);
+    if (Math.abs(line - raw) <= magnet) pos = line;
+  }
+  const len = Math.max(0, Math.min(Math.max(0, clip.frames - other), edge === 'in' ? pos - clip.at : end - pos));
+  return len < least ? 0 : len;
+}
+
+/**
  * clipFades are a clip's fades as they play (internal/tape Clip.fades): no
  * longer than the clip between them, the two shortened alike when they'd
  * overlap. Answers {fadeIn, fadeOut} in frames.

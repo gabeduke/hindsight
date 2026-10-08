@@ -60,6 +60,61 @@ func TestAFadeRisesAndFallsOnAnEqualPowerCurve(t *testing.T) {
 	}
 }
 
+// Every curve starts silent and ends at full, never dips on the way, and
+// is where it should be halfway.
+func TestFadeCurvesRunFromSilenceToFull(t *testing.T) {
+	half := map[string]float64{
+		FadeEqualPower: math.Sin(math.Pi / 4),
+		FadeLinear:     0.5,
+		FadeS:          0.5,
+		FadeExp:        (math.Sqrt(1000) - 1) / 999,
+	}
+	for shape, mid := range half {
+		if !ValidFadeShape(shape) {
+			t.Fatalf("%q isn't a fade shape", shape)
+		}
+		if a, b := fadeCurve(shape, 0), fadeCurve(shape, 1); math.Abs(a) > 1e-12 || math.Abs(b-1) > 1e-12 {
+			t.Fatalf("%q runs %.4f to %.4f", shape, a, b)
+		}
+		if v := fadeCurve(shape, 0.5); math.Abs(v-mid) > 1e-9 {
+			t.Fatalf("%q halfway is %.4f, want %.4f", shape, v, mid)
+		}
+		prev := 0.0
+		for i := 1; i <= 100; i++ {
+			v := fadeCurve(shape, float64(i)/100)
+			if v < prev {
+				t.Fatalf("%q dips at %d%%", shape, i)
+			}
+			prev = v
+		}
+	}
+	if ValidFadeShape("log") {
+		t.Fatal("log isn't one of them")
+	}
+}
+
+// A clip's curves are what play: a linear fade out is halfway down halfway
+// through, an exponential one far quieter, and the fade in is its own.
+func TestAFadePlaysOnItsCurve(t *testing.T) {
+	e, _, _ := steadyLoop(t)
+	if err := e.Edit(e.LoadedID(), "", func(_ *Tape, s *State) error {
+		cl := &s.Tracks[0].Clips[0]
+		cl.FadeIn, cl.FadeOut, cl.FadeInShape, cl.FadeOutShape = 4800, 9600, FadeLinear, FadeExp
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	near := func(f int64, want float64) {
+		t.Helper()
+		if v := at(t, e, f); math.Abs(v-want) > 0.01 {
+			t.Fatalf("frame %d plays %.4f, want %.4f", f, v, want)
+		}
+	}
+	near(2400, 0.25)                                      // linear, halfway in
+	near(96000-4800, 0.5*(math.Sqrt(1000)-1)/999)         // exponential, halfway out
+	near(96000-9600+960, 0.5*(math.Pow(1000, 0.9)-1)/999) // a tenth of the way out
+}
+
 func TestFadesLongerThanTheClipShareIt(t *testing.T) {
 	c := Clip{Frames: 1000, FadeIn: 900, FadeOut: 900}
 	in, out := c.fades()
@@ -74,6 +129,12 @@ func TestFadesLongerThanTheClipShareIt(t *testing.T) {
 func TestFadesSurviveSplitJoinReverseAndLift(t *testing.T) {
 	e, tp, c := steadyLoop(t)
 	fade(t, e, c.ID, 4800, 9600)
+	if err := e.Edit(e.LoadedID(), "", func(_ *Tape, s *State) error {
+		s.Tracks[0].Clips[0].FadeInShape, s.Tracks[0].Clips[0].FadeOutShape = FadeS, FadeExp
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	pos := int64(48000)
 	if _, err := e.EditOp(tp.ID, EditRequest{Op: "split", Track: 1, Pos: &pos}); err != nil {
 		t.Fatal(err)
@@ -85,14 +146,14 @@ func TestFadesSurviveSplitJoinReverseAndLift(t *testing.T) {
 	if _, err := e.EditOp(tp.ID, EditRequest{Op: "join", Clip: head.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if j := track(e, 1)[0]; j.FadeIn != 4800 || j.FadeOut != 9600 {
-		t.Fatalf("joined: %d/%d", j.FadeIn, j.FadeOut)
+	if j := track(e, 1)[0]; j.FadeIn != 4800 || j.FadeOut != 9600 || j.FadeInShape != FadeS || j.FadeOutShape != FadeExp {
+		t.Fatalf("joined: %d/%d, %q/%q", j.FadeIn, j.FadeOut, j.FadeInShape, j.FadeOutShape)
 	}
 	if _, err := e.EditOp(tp.ID, EditRequest{Op: "reverse", Clip: c.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if r := track(e, 1)[0]; r.FadeIn != 9600 || r.FadeOut != 4800 {
-		t.Fatalf("reversed: %d/%d: its end is its start now", r.FadeIn, r.FadeOut)
+	if r := track(e, 1)[0]; r.FadeIn != 9600 || r.FadeOut != 4800 || r.FadeInShape != FadeExp || r.FadeOutShape != FadeS {
+		t.Fatalf("reversed: %d/%d, %q/%q: its end is its start now, curve and all", r.FadeIn, r.FadeOut, r.FadeInShape, r.FadeOutShape)
 	}
 	e.Undo(tp.ID, false)
 	// A lift of the middle: the clipboard's part has no fades, the ends
@@ -158,16 +219,16 @@ func TestAFadeAtASplitDoesntClick(t *testing.T) {
 }
 
 func TestPastItsEndAFadedClipIsSilent(t *testing.T) {
-	if g := fadeGain(1000, 1000, 0, 100); g != 0 {
+	if g := fadeGain(1000, 1000, 0, 100, "", ""); g != 0 {
 		t.Fatalf("just past the end: %f", g)
 	}
-	if g := fadeGain(1100, 1000, 0, 100); g != 0 {
+	if g := fadeGain(1100, 1000, 0, 100, "", ""); g != 0 {
 		t.Fatalf("well past the end: %f", g)
 	}
-	if g := fadeGain(-1, 1000, 100, 0); g != 0 {
+	if g := fadeGain(-1, 1000, 100, 0, "", ""); g != 0 {
 		t.Fatalf("before the start: %f", g)
 	}
-	if g := fadeGain(1100, 1000, 0, 0); g != 1 {
+	if g := fadeGain(1100, 1000, 0, 0, "", ""); g != 1 {
 		t.Fatalf("no fade, past the end: %f (the declick's business, not the fade's)", g)
 	}
 }

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  zonesOf, hitClip, ClipGesture, HOLD_MS, SLOP_PX, HANDLE_PX, MIN_GRIPS_PX, CLICK_GRACE_MS, laneShift, targetTrack,
+  zonesOf, gripBands, hitClip, ClipGesture, HOLD_MS, SLOP_PX, HANDLE_PX, FADE_PX, MIN_GRIPS_PX, CLICK_GRACE_MS, laneShift, targetTrack,
 } from './clipgestures.js';
 import { xOf } from './geometry.js';
 
@@ -44,12 +44,36 @@ test('zonesOf: a block too narrow for its grips gets none, at any zoom out', () 
   assert.deepEqual(zonesOf(w, ALL).map((z) => z.zone), ['repeat', 'in', 'out', 'body']);
 });
 
-test('zonesOf: the corner is the top of the right edge, no more than half the block', () => {
+test('zonesOf: the corner is the bottom of the right edge, no more than half the block', () => {
   const zs = zonesOf({ x0: 0, x1: 300, top: 2, h: 30 }, ['repeat']);
   const r = zone(zs, 'repeat');
-  assert.deepEqual([r.x0, r.x1, r.y0, r.y1], [276, 300, 2, 17]);
+  assert.deepEqual([r.x0, r.x1, r.y0, r.y1], [276, 300, 22, 32]); // a third of a short lane
   const tall = zone(zonesOf({ x0: 0, x1: 300, top: 2, h: 96 }, ['repeat']), 'repeat');
-  assert.equal(tall.y1 - tall.y0, HANDLE_PX);
+  assert.deepEqual([tall.y0, tall.y1], [98 - HANDLE_PX, 98]);
+});
+
+test('zonesOf: the fade handles sit on the top edge, at their fades, inside the block', () => {
+  const b = { x0: 100, x1: 400, top: 2, h: 96 };
+  // No fades: at the two top corners.
+  let zs = zonesOf(b, ['fadein', 'fadeout']);
+  assert.deepEqual([zone(zs, 'fadein').x0, zone(zs, 'fadein').x1], [100, 100 + HANDLE_PX]);
+  assert.deepEqual([zone(zs, 'fadeout').x0, zone(zs, 'fadeout').x1], [400 - HANDLE_PX, 400]);
+  assert.deepEqual([zone(zs, 'fadein').y0, zone(zs, 'fadein').y1], [2, 2 + FADE_PX]);
+  // With fades: centred where each meets the rest of the clip.
+  zs = zonesOf({ ...b, fi: 60, fo: 90 }, ['fadein', 'fadeout']);
+  assert.deepEqual([zone(zs, 'fadein').x0, zone(zs, 'fadein').x1], [160 - HANDLE_PX / 2, 160 + HANDLE_PX / 2]);
+  assert.deepEqual([zone(zs, 'fadeout').x0, zone(zs, 'fadeout').x1], [310 - HANDLE_PX / 2, 310 + HANDLE_PX / 2]);
+  // A short lane: the strip is a quarter of it at most, and the edge's trim
+  // grip keeps the middle.
+  const low = zone(zonesOf({ ...b, h: 60 }, ['fadein']), 'fadein');
+  assert.equal(low.y1 - low.y0, 15);
+  assert.deepEqual(gripBands(60), { strip: 15, corner: 20 });
+  assert.equal(hitClip([{ ...b, h: 60, clip: { id: 'a' } }], 395, 30, () => ['fadein', 'fadeout', 'in', 'out', 'repeat']).zone, 'out');
+  // Where the fades meet, their handles share the space: both can be held.
+  const met = zonesOf({ ...b, fi: 150, fo: 150 }, ['fadein', 'fadeout']);
+  assert.ok(zone(met, 'fadein').x1 <= zone(met, 'fadeout').x0);
+  assert.equal(hitClip([{ ...b, fi: 150, fo: 150, clip: { id: 'a' } }], 245, 8, () => ['fadein', 'fadeout']).zone, 'fadein');
+  assert.equal(hitClip([{ ...b, fi: 150, fo: 150, clip: { id: 'a' } }], 255, 8, () => ['fadein', 'fadeout']).zone, 'fadeout');
 });
 
 test('hitClip: nothing on an empty stretch', () => {
@@ -85,9 +109,16 @@ test('hitClip: the grips a clip offers, and only those', () => {
   assert.equal(hitClip([b], 105, 50, edges).zone, 'in');
   assert.equal(hitClip([b], 395, 50, edges).zone, 'out');
   assert.equal(hitClip([b], 250, 50, edges).zone, 'body');
-  // The corner is above the out grip; below it, the edge.
-  assert.equal(hitClip([b], 395, 10, all).zone, 'repeat');
-  assert.equal(hitClip([b], 395, 60, all).zone, 'out');
+  // The corner is below the out grip; above it, the edge.
+  assert.equal(hitClip([b], 395, 90, all).zone, 'repeat');
+  assert.equal(hitClip([b], 395, 40, all).zone, 'out');
+  // Along the top, the fade handles, over the edges' grips.
+  const fades = () => ['fadein', 'fadeout', ...ALL];
+  assert.equal(hitClip([b], 105, 8, fades).zone, 'fadein');
+  assert.equal(hitClip([b], 395, 8, fades).zone, 'fadeout');
+  assert.equal(hitClip([b], 105, 40, fades).zone, 'in');
+  assert.equal(hitClip([{ ...b, fi: 100 }], 200, 8, fades).zone, 'fadein');
+  assert.equal(hitClip([{ ...b, fi: 100 }], 105, 8, fades).zone, 'in');
 });
 
 // --- the gestures -------------------------------------------------------------
