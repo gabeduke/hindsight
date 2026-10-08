@@ -5,7 +5,7 @@
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v52';
+const CACHE = 'hindsight-shell-v53';
 const SHELL = [
   '/',
   '/index.html',
@@ -81,6 +81,7 @@ const SHELL = [
   '/lib/tape/align.js',
   '/lib/tape/rec.js',
   '/lib/tape/output-ui.js',
+  '/lib/tape/out-switch.js',
   '/lib/tape/pending.js',
   '/lib/tape/overview.js',
   '/lib/bar/lcd.js',

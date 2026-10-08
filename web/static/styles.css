@@ -1438,20 +1438,30 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .tb-row.downbeat .nudge { min-width: 44px; min-height: 44px; font-size: 14px; }
 .tb-row.downbeat .icon-btn { min-height: 44px; margin-left: auto; padding: 0 12px; white-space: nowrap; }
 .tb-row.downbeat .sel-time { cursor: pointer; }
+/* "Downbeat" is longer than "Bar 1" was: on a 390 px phone the row keeps
+   to one line with a smaller word and narrower nudges. */
+@media (max-width: 419.98px) {
+  .tb-row.downbeat .sel-label { font-size: 13px; min-width: 0; }
+  .tb-row.downbeat .nudge { min-width: 38px; width: 38px; }
+}
 /* Clear forgets the selection, nothing more: not styled as dangerous. */
 .sel-clear { color: var(--ink-dim); font-size: 13px; padding: 8px 4px; }
 /* display: block, so the label truncates with an ellipsis rather than
    spilling: a centred flex label never truncates. */
 .tb-row.verbs .icon-btn { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; display: block; line-height: 42px; text-align: center; }
-/* With Send to tape showing there are four verbs, and at phone width they
+/* With Send to showing there are four verbs, and at phone width they
    can't share one line without clipping. Each keeps at least its own text,
    and the row wraps rather than shrinking it; with three they still split
    the line evenly. More is one of them: wrapped on a line of its own it fills
    the line like the rest, not two-thirds of it. */
 .tb-row.verbs { flex-wrap: wrap; }
 .tb-row.verbs .icon-btn { min-width: max-content; }
-/* What Send to tape will do, a line under the verbs. */
-.send-hint { margin: 0; line-height: 1.35; }
+/* Send to (the take page): its menu opens from the row's left, each place
+   with a line under it saying what it will do. */
+.send-menu { left: 8px; right: auto; min-width: 260px; max-width: min(360px, calc(100vw - 32px)); }
+.send-menu > button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.send-menu > button b { font-weight: 600; }
+.menu-sub { font-size: 12.5px; line-height: 1.35; color: var(--ink-dim); white-space: normal; }
 /* Save as take's name, in the verbs' place: the field takes the width. */
 .tb-row.save-name { display: flex; align-items: center; gap: 8px; }
 .save-name input { flex: 1 1 auto; min-width: 0; min-height: 42px; box-sizing: border-box; padding: 0 12px; font: inherit; }
@@ -1856,6 +1866,8 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .tt-head .chip { min-height: 30px; min-width: 26px; padding: 0 4px; border-radius: 8px; font: 700 14px var(--label-font); letter-spacing: .04em; }
 .tt-head .tt-mute[aria-pressed="true"] { color: var(--mute-ink); background: linear-gradient(180deg, var(--mute-hi), var(--mute-lo)); border-color: var(--mute-lo); }
 .tt-head .tt-solo[aria-pressed="true"] { color: var(--solo-ink); background: linear-gradient(180deg, var(--solo-hi), var(--solo-lo)); border-color: var(--solo-lo); }
+.tt-head .tt-bus { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1; }
+.tt-head .tt-bus-k { font: 600 8.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
 /* The track's number: printed on the masking tape where the head is narrow
    (most screens), in a ring of the track's colour where it's wide, with
    room for full-size keys beside it. The head's own width decides. */
@@ -2735,9 +2747,12 @@ body.selecting > .np { display: none; }
 body.wave-page { min-height: 100svh; display: flex; flex-direction: column; }
 body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; }
 .np-out .tape-out { min-height: 40px; }
+/* The tape's OUT pill in its bar: the header's output button has that job,
+   so only the phone's open player, which covers the header, shows it. On
+   Takes and Capture the bar says where a take plays (bar.js hides it for
+   the tape). */
+.tape-page .np .np-out, .np .np-out.np-out-tape { display: none; }
 .np-mini { display: none; }
-/* From 700 px the bar has OUT; the header's pill is the phone's. */
-.tape-top .out-anchor { display: none; }
 @media (max-width: 899.98px) { .np-levels { display: none; } }
 @media (prefers-reduced-motion: reduce) {
   .np-marquee { text-overflow: ellipsis; }
@@ -2823,6 +2838,53 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
   .tt-head { gap: 3px; padding: 3px 4px; }
   .tt-head .chip { min-height: 28px; }
   .tt-head .tt-name { min-height: 22px; font-size: 15px; padding-block: 0; }
+}
+
+/* ---------- the output button ---------- */
+/* Where the tape plays (lib/tape/out-switch.js), in the header of every page
+   that can play the tape, beside help: a speaker for the jam room,
+   headphones for a phone, both for both. From 1000 px it says the place. */
+.appbar > .out-btn {
+  grid-area: out; justify-self: end;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: 44px; height: 44px; min-height: 44px; padding: 0 10px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
+  color: var(--ink); font: 600 14px var(--font); white-space: nowrap; cursor: pointer;
+}
+@media (hover: hover) { .appbar > .out-btn:hover { border-color: var(--rule); } }
+.appbar > .out-btn .out-ico-slot { display: inline-flex; }
+.appbar > .out-btn :is(.tape-out-text, .pill-chev) { display: none; }
+.appbar > .out-btn .pill-chev { color: var(--ink-dim); font-size: 11px; }
+@media (min-width: 1000px) {
+  .appbar > .out-btn { padding: 0 14px 0 12px; }
+  .appbar > .out-btn :is(.tape-out-text, .pill-chev) { display: inline; }
+}
+.appbar:has(> .out-btn:not([hidden])) {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "brand nav status out help" "page page page page page";
+}
+@media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) {
+  .appbar:has(.appbar-page):has(> .out-btn:not([hidden])) {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "nav page out help";
+  }
+}
+@media (max-width: 699.98px) {
+  .appbar:has(> .out-btn:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-areas: "page status out help";
+  }
+  .main-page .appbar:has(> .out-btn:not([hidden])) { grid-template-areas: "brand status out help"; }
+  .appbar > .out-btn { align-self: start; margin-top: 6px; }
+}
+@media (min-width: 1000px) and (max-height: 640px) {
+  .tape-page .appbar:has(.appbar-page):has(> .out-btn:not([hidden])) {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "nav page out help";
+  }
+  /* The bench's one-row header needs the room for the tape's name. */
+  .tape-page .appbar > .out-btn { padding: 0 10px; }
+  .tape-page .appbar > .out-btn :is(.tape-out-text, .pill-chev) { display: none; }
 }
 
 /* ---------- the deck ---------- */
@@ -3088,7 +3150,7 @@ input, select, textarea { color-scheme: inherit; }
    :focus-visible, and the ring must win over every one of them. */
 .icon-btn:focus-visible, .chip:focus-visible, .seg button:focus-visible, .appnav a:focus-visible,
 .capture-btn:focus-visible, .nudge:focus-visible, .phone-btn:focus-visible, .mark-btn:focus-visible,
-.passes-row .pass:focus-visible, .menu > button:focus-visible, .menu > a:focus-visible {
+.passes-row .pass:focus-visible, .menu > button:focus-visible, .menu > a:focus-visible, .out-btn:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
@@ -3289,6 +3351,7 @@ a.crate-chip { text-decoration: none; }
   body.player-open .np .np-scrub { flex: 1 1 100%; height: 52px; }
   body.player-open .np .np-row-2 .np-drawer-key { flex: 1 1 0; height: 48px; min-height: 48px; }
   body.player-open .np-out { display: inline-flex; }
+  body.tape-page.player-open .np .np-out, body.player-open .np .np-out.np-out-tape { display: inline-flex; }
   /* ▾ puts it away: at the top of the sheet. */
   body.player-open .np-expand {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -3330,7 +3393,6 @@ a.crate-chip { text-decoration: none; }
   .np-drawer-strip { display: none; }
   .np-drawer-body { display: flex; flex-direction: column; gap: 8px; padding: 0 0 8px; }
   .np-col { gap: 8px; }
-  .tape-top .out-anchor { display: inline-flex; }
 }
 /* On its side, the clip bar is one row, so the lanes keep some height. */
 @media (orientation: landscape) and (max-height: 440px) {

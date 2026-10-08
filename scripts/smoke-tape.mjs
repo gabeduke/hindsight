@@ -757,7 +757,7 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
   try {
     await p.goto(`${BASE}/tape.html`);
     await p.waitForTimeout(1500);
-    await p.click('#tape-out');
+    await p.click('#out-btn');
     await p.click('.out-choice[data-mode="phone"]');
     await p.waitForTimeout(1500);
     await p.click('#out-close');

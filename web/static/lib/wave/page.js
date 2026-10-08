@@ -1007,7 +1007,7 @@ async function main() {
     const edge = editEdge();
     const f = editFrame();
     const off = fmtOffset(beatOffset(f, state.grid));
-    $('boundary-readout').textContent = `${edge === 'start' ? 'In' : edge === 'end' ? 'Out' : 'Bar 1'} ${fmtSample(f, sr)}${off ? ` · ${off}` : ''}`;
+    $('boundary-readout').textContent = `${edge === 'start' ? 'In' : edge === 'end' ? 'Out' : 'Downbeat'} ${fmtSample(f, sr)}${off ? ` · ${off}` : ''}`;
     bar.renderStep();
     // Bar 1 is what the grid is counted from: snapping it to the grid does nothing.
     $('be-grid').hidden = !state.grid.bpm || edge === 'downbeat';
@@ -1332,15 +1332,18 @@ async function main() {
       e.stopPropagation();
       const open = menu.hidden;
       document.querySelectorAll('.menu').forEach((m) => { m.hidden = true; });
+      document.querySelectorAll('[aria-haspopup="menu"][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
       menu.hidden = !open;
       button.setAttribute('aria-expanded', String(open));
     });
-    menu.addEventListener('click', () => close());
+    // A choice closes it, and the keyboard is back on its button.
+    menu.addEventListener('click', () => { close(); button.focus({ preventScroll: true }); });
     document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== button) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   }
   wireMenu($('menu-btn'), $('take-menu'));
   wireMenu($('more-btn'), $('more-menu'));
+  wireMenu($('send-btn'), $('send-menu'));
 
   $('downbeat-reset').addEventListener('click', () => {
     state.grid.downbeat = 0;
@@ -1414,7 +1417,7 @@ async function main() {
   };
   fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
     if (r.ok) {
-      for (const id of ['send-to-tape', 'copy-take', 'keep-clip', 'split-here']) $(id).hidden = false;
+      for (const id of ['send-btn', 'split-here']) $(id).hidden = false;
       renderSendHint();
       renderCrateChip();
     }
@@ -1471,11 +1474,10 @@ async function main() {
       toast(`Could not keep it: ${e.message}`, 'bad');
     }
   });
-  // What a tap on Send to tape will do, under the verbs.
+  // What Send to → Tape will do, under its name in the menu.
   function renderSendHint() {
-    const el = $('send-hint');
-    el.hidden = $('send-to-tape').hidden;
-    if (!el.hidden) el.textContent = sendHint({ bpm: take.bpm, region: state.region, total, sr });
+    if ($('send-btn').hidden) return;
+    $('send-hint').textContent = sendHint({ bpm: take.bpm, region: state.region, total, sr });
   }
   // Copy: the selection (or the whole take) onto the clipboard, for Drop on
   // a tape.

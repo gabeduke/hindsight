@@ -268,7 +268,7 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **The grips,** under the waveform at the selection's ends, with the move
   handle between them.
 - **The toolbar:** with a selection, its In and Out times with their
-  nudges, its length and *Clear*; with a BPM, the *Bar 1* row (below); then *Save as take* · *Send to tape* (when
+  nudges, its length and *Clear*; with a BPM, the *Downbeat* row (below); then *Save as take* · *Send to ▾* (when
   the Pi runs the tape) · *Share* · *More*; then ◂⚑ ⚑▸, **⚑ N** (the
   flags as a list), *Snap* and *Practice speed*.
 - **The bar,** along the foot of the page, as on the tape page: the take's
@@ -290,8 +290,8 @@ point at the gestures that matter; **Got it** puts them away for good.
 - **Pinch** (or the mouse wheel) zooms.
 - **Tap** moves the playhead; **tap twice** drops a flag there.
 - **Drag the playhead's handle** ▾ in the ruler to move it silently; the take
-  carries on from where you let go. **Drag bar 1** — the yellow "1" just
-  right of its line — to say where the music starts.
+  carries on from where you let go. **Drag the downbeat** — the yellow "1"
+  just right of its line — to say where bar 1 starts.
 - **Back** returns to the list where you left it, even after ◂ ▸.
 
 **Selecting:**
@@ -308,19 +308,19 @@ point at the gestures that matter; **Got it** puts them away for good.
   that sits between lines goes to the next line.
 - **Clear** forgets the selection; the take is untouched.
 
-**Bar 1:**
+**The downbeat:**
 
-Once the take has a BPM, a *Bar 1* row stays in the toolbar. **Set to
-playhead** puts bar 1 where the playhead is; **◂ ▸** move it 10 ms, or by one
+Once the take has a BPM, a *Downbeat* row stays in the toolbar. The downbeat
+is where bar 1 starts. **Set to playhead** puts it where the playhead is; **◂ ▸** move it 10 ms, or by one
 *Snap* step (a bar, beat or ⅛) with *Snap* on, as In and Out do; the time between them opens the editor on it. The ruler's "1"
 still drags, and **B** on a keyboard is Set to playhead. The grid follows as
 it moves, and ↶ takes a run of nudges back as one step.
 
 **Placing a boundary exactly:**
 
-Dragging gets you near. To put In, Out or bar 1 on the very sample, open it in
-the editor. Tap **In**'s or **Out**'s time in the selection row (they look like
-small keys), or tap bar 1's "1" on the ruler. The view centres on the point,
+Dragging gets you near. To put In, Out or the downbeat on the very sample, open
+it in the editor. Tap **In**'s or **Out**'s time in the selection row (they look
+like small keys), or tap the downbeat's "1" on the ruler. The view centres on the point,
 and the editor bar takes the place of the toolbar.
 
 - **ZOOM and POSITION** are two knobs you turn by dragging sideways. Zoom out,
@@ -333,7 +333,7 @@ and the editor bar takes the place of the toolbar.
 - **Zero** puts it on the nearest zero crossing, within 5 ms, so a cut doesn't
   click.
 - **Grid** puts it on the nearest line of the *Snap* setting, or the nearest
-  beat with Snap off. It's hidden for bar 1.
+  beat with Snap off. It's hidden for the downbeat.
 - **◂ ▸** step 1 ms, or one sample when you're zoomed right in.
 - **▶** plays from the point (from a second before Out), and pauses.
 - **Seam** (with a selection) turns the loop on and shows the end of the loop
@@ -398,18 +398,20 @@ and the editor bar takes the place of the toolbar.
   with this take (§3.1).
 - **Share** sends it from your phone as an MP3 (the whole take, with no
   selection), levelled when **Level** is on.
-- **Copy** puts it on the clipboard, to drop onto a tape (step 6d).
-- **Send to tape** puts it on the loaded tape, by its tempo and downbeat if it
-  has them (step 6). The line under the buttons says what it will do.
-- **Keep as clip** keeps it on the crate (§8.11), without making a take. The
-  **◫** chip in the header says how many clips you've kept from this take,
-  and opens them on the tape page.
+- **Send to ▾** (when the Pi runs the tape) sends it to one of three places:
+  - **Tape** puts it on the loaded tape, by its tempo and downbeat if it has
+    them (step 6). The line under it says what it will do.
+  - **Clipboard** puts it on the clipboard, to Drop or Insert on a tape
+    (step 6d).
+  - **Crate** keeps it as a clip (§8.11), without making a take. The **◫**
+    chip in the header says how many clips you've kept from this take, and
+    opens them on the tape page.
 - **More → Split here** keeps two clips on the crate, the take before the
   playhead and from it on, named *take · A* and *take · B*. It splits the
   whole take, whatever's selected. The take itself isn't changed: a take's
   audio never is.
-- **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, Copy,
-  Split here, and delete.
+- **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, Split
+  here, and delete.
 - **Undo** in the header steps back through anything you changed (step 4).
 
 **Checks — step 1:**
@@ -459,8 +461,8 @@ and the editor bar takes the place of the toolbar.
   the stream, and that's a dropout too.
 - [demo] On a take with a BPM, choose *Snap: beat* and drag a grip → it jumps
   beat by beat. A nudge moves one beat; with Snap off, a nudge moves 10 ms.
-- [demo] On a take with a BPM, tap **Set to playhead** in the *Bar 1* row
-  → bar 1 and the grid jump to the playhead. **◂ ▸** nudge it; ↶ undoes the
+- [demo] On a take with a BPM, tap **Set to playhead** in the *Downbeat* row
+  → the downbeat and the grid jump to the playhead. **◂ ▸** nudge it; ↶ undoes the
   run in one step.
 - [demo] Set the BPM from the take page's header → the ruler shows bars
   immediately, without going back to the list.
@@ -706,6 +708,11 @@ From the top:
   (BPM · bars); the full words are in its label for a screen reader, and show on hover on a computer.
 - **⋯** holds what you do with this tape: clone it, mix it down, export its
   stems, delete a tape, or open this guide.
+- **The output button,** beside **?** in the header's top row, chooses where
+  the tape plays (8.10). Its picture says where it is now: a speaker for the
+  jam room, headphones for a phone, both for both. From 1000 px it says the
+  place too: *Jam room*, *Phone* or *Both*. It's in the same place on Takes
+  and Capture.
 - **The dot** says how well the tape's playback and the recording are lined
   up:
   - **Green:** to the sample. On the Pi, Hindsight listens for the tape in
@@ -737,12 +744,11 @@ From the top:
     the lanes show: drag it to move along the tape. Tap anywhere to move the
     playhead there (to the nearest bar), and double-tap to go back to the
     loop. With it focused, ← and → move a bar.
-  - **OUT**, at the end of the overview, chooses where the tape plays (8.10).
 - **Four lanes**, one per track:
   - Each header has the track's number (in a ring of its colour where there's
     room, otherwise printed on the tape), its name on masking tape (tap it
-    to select the track), its bus (A or B; tap to
-    swap), **M** (mute, yellow when on), **S** (solo, blue when on) and its
+    to select the track), its bus (*bus A* or *bus B*: the Sidekick channel
+    it plays through, not a record arm; tap to swap), **M** (mute, yellow when on), **S** (solo, blue when on) and its
     level. The track being recorded to is edged red.
   - In the lane: the bar lines, the clips and the playhead. Each clip is a
     block in the track's colour with its sound drawn as bars, lit where it
@@ -786,7 +792,7 @@ From the top:
   above the tabs: the reel window with where the tape is, **▶** and
   **Catch**, and a line along its top as far as the tape has got. A catch
   never waits for a scroll. Playing on this phone, its strip (and *Tap to
-  play here*) sits on top. OUT is in the top bar.
+  play here*) sits on top. The output button is in the top bar.
 - **Tap the mini player's window** to pull up **the player** over the page:
   the whole bar, large (**|◂ ▶ ⟲ Loop ● Rec**, the click, **Catch** and the
   overview), and under it **Record ▴** and **Edit ▴**, which show their
@@ -798,7 +804,7 @@ From the top:
 - **On a tablet or a computer** the tracks take the whole width and share
   the height of the window between the header and the bar; a drawer opening
   makes them shorter, and they scroll once they're as short as their heads.
-  Narrower than 1000 px, **Record ▴** and **Edit ▴** sit beside OUT. On the
+  Narrower than 1200 px, **Record ▴**, **Edit ▴** and **Crate ▴** sit beside the overview. On the
   1024 × 600 bench the header is one row, the page switch at its left.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
   ⟲ Loop, **K** the click, **J** goes back five seconds, **1–4** or **↑ ↓** choose the track, **S**
@@ -832,19 +838,19 @@ where it comes round.
    the tempo pill and choose the other. Nothing is stretched,
    only relabelled.
 
-**From a take.** On a take page, choose **Send to tape**; with a selection
-it sends that, without one the whole take. If no tape is loaded, a new one is
-made. The line under the buttons says what will happen. It depends on whether
+**From a take.** On a take page, choose **Send to ▾ → Tape**; with a
+selection it sends that, without one the whole take. If no tape is loaded, a
+new one is made. The line under *Tape* in the menu says what will happen. It depends on whether
 the take has a tempo (the *bpm* by its name, from the MIDI clock or typed in):
 
 - **A take with a tempo** goes on whole, as one clip on track 1 with the loop
-  off, and its bar 1 (the take's downbeat) on a bar line of the tape. Whatever
+  off, and its downbeat (its bar 1) on a bar line of the tape. Whatever
   comes before the downbeat, a count-in say, goes in the bar before it, so
   nothing is cut off. A selection goes on the same bar grid: it sits as far
   past a bar line as it does in the take.
   - On an empty tape, the tape takes the take's tempo. There's no loop; set
     one on the ruler when you want it.
-  - On a tape with the same tempo (within 0.1%), the take's bar 1 goes on the
+  - On a tape with the same tempo (within 0.1%), the take's downbeat goes on the
     first bar line at or after the playhead, replacing what's under it on
     track 1.
   - On a tape with another tempo, it goes at the playhead as it is. Nothing
@@ -873,13 +879,13 @@ The tempo is fixed once the tape has audio, because nothing is ever stretched.
 **Checks — steps 6a and 6c:**
 
 - [demo] With no other tapes, on a take page select 2 seconds and choose
-  **Send to tape** → a toast says it was sent. On the tape page,
+  **Send to ▾ → Tape** → a toast says it was sent. On the tape page,
   track 1 holds the clip, the tempo reads *120.0 BPM · 1 bar*, and ⟲ Loop
   is on.
 - [demo] Press ▶ → the playhead goes round the loop, the position counts
   bars, and the passes row fills, one button a pass.
-- [demo] Give a take a BPM, and the line under its buttons reads *Sends the
-  whole take at … BPM, bar 1 on a tape bar line*. Send it to an empty tape →
+- [demo] Give a take a BPM, and the line under *Tape* in its Send to menu
+  reads *Sends the whole take at … BPM, its downbeat on a tape bar line*. Send it to an empty tape →
   the tape's tempo is the take's, Loop is off, and one clip runs the take's
   length. Send it again to track 2 → it lands on a bar line, and a take at
   another tempo goes at the playhead with a warning.
@@ -1498,7 +1504,8 @@ machine.
 ### 8.10 Taking the tape upstairs
 
 The tape can play on your phone as a backing track, anywhere in the house.
-Tap **OUT** in the tape's header and choose **This phone**: the jam room goes
+Tap the **output button** in the header (a speaker while the tape is in the
+jam room) and choose **This phone**: the jam room goes
 silent, and the tape plays here about 0.8 s behind. Everything on the tape
 works as usual — play, locate, the loop, mute, solo, levels — and the
 playhead and meters are moved back to match what you hear, so a mute shows
@@ -1509,7 +1516,9 @@ would land off the beat. For an idea, use **Overdub on this device** (8.8);
 in This phone mode its Listen and Record stop the tape here, so you don't
 hear it twice (in Both they leave the jam room playing).
 When you're back downstairs, tap **Play in the jam room** on the laptop or the
-bench, or choose **Jam room** under OUT: the tape plays on from the same spot.
+bench, or choose **Jam room** under the output button: the tape plays on from
+the same spot. The button is on Takes and Capture too, so you can move the
+tape without opening it.
 
 **Both** plays the jam room as usual and sends the phone a copy, for when
 someone is listening elsewhere while you record.
@@ -1539,7 +1548,7 @@ touches the crate. A clip outlives the take it came from.
 
 | Keep a clip from | Do | What's kept |
 |---|---|---|
-| A take | **Keep as clip** (beside Send to tape): the selection, or the whole take | Its own copy of the audio, with 2 s either side to trim back out |
+| A take | **Send to ▾ → Crate**: the selection, or the whole take | Its own copy of the audio, with 2 s either side to trim back out |
 | The ribbon | Select a span, **Keep as clip** | The same, from the buffer |
 | A clip on the tape | Its sheet's **Keep** | The clip's audio itself: nothing is copied. Its level and nudge stay on the tape |
 | The clipboard | **Keep** beside it, when it holds one clip | The same: nothing is copied |
@@ -1558,7 +1567,7 @@ kept*), open the crate on that take's clips: **from … ×** shows them all agai
 
 **Checks — the crate:**
 
-- [demo] Select 4 bars of a take, **Keep as clip** → it's on the crate as
+- [demo] Select 4 bars of a take, **Send to ▾ → Crate** → it's on the crate as
   *take · 0:..*, 4 bars long. The takes list is unchanged.
 - [demo] On a tape, open **Crate ▴** and **Drop** a clip three times → three
   copies end to end, with no clicks; ↶ three times → as it was.
@@ -1645,7 +1654,7 @@ has no tip.
 | ↶ | Undo your last change to this take: a flag, the selection, the name, tempo, downbeat or lanes |
 | ? | Help mode: tap anything to read what it does, instead of doing it |
 | ⋯ | Reset the downbeat, or open this guide |
-| Reset the downbeat | Put bar 1 back at the start of the take |
+| Reset the downbeat | Put the downbeat back at the start of the take |
 | The guide | How Hindsight works, in plain words |
 | Overview | The whole take, in the bar. Tap to move the playhead there; drag the window to move along it; double-tap to see it all. With it focused, ← → move a second |
 | Waveform | Drag to move along, pinch to zoom. Hold, then drag, to select. Tap to move the playhead; tap twice to flag |
@@ -1665,11 +1674,11 @@ has no tip.
 | ↺ 5 s | Back five seconds, playing or not. Key: J |
 | Delete flag | Remove this flag |
 | ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
-| Bar 1 ◂ ▸ | Move bar 1 by 10 ms, or by the Snap step with Snap on. It stays here once the take has a tempo |
-| Bar 1 time | Tap to place bar 1 exactly, in the editor |
-| Set to playhead | Put bar 1 where the playhead is |
+| Downbeat ◂ ▸ | Move the downbeat by 10 ms, or by the Snap step with Snap on. It stays here once the take has a tempo |
+| Downbeat time | Tap to place the downbeat exactly, in the editor |
+| Set to playhead | Put the downbeat where the playhead is |
 | Clear | Forget the selection. The take itself is untouched |
-| In / Out time | Tap to place it exactly: the view centres on it and the editor opens. Tap bar 1 on the ruler to place the downbeat |
+| In / Out time | Tap to place it exactly: the view centres on it and the editor opens. Tap the ruler's "1" to place the downbeat |
 | Done | Close the editor. Esc does too |
 | ZOOM | Drag sideways to zoom about the point: right is closer |
 | POSITION | Drag sideways to move the point: zoomed out it travels bars, zoomed in it moves samples |
@@ -1685,12 +1694,14 @@ has no tip.
 | Save as take | Make a new take of just the selection |
 | Name (Save as take) | Name the new take, then Save. On the takes page it folds in with this take. Cancel saves nothing |
 | Share | Send the selection from your phone as an MP3 |
-| More | The DAW bundle, the WAV and MIDI downloads, Copy, Split here, and delete |
+| More | The DAW bundle, the WAV and MIDI downloads, Split here, and delete |
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
 | Notes | Watch the take's MIDI rise out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
-| Send to tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop |
-| Keep as clip | Keep the selection, or the whole take, as a clip on the crate: its own copy, so the takes list doesn't grow |
+| Send to | Send the selection, or the whole take without one, to the tape, the clipboard or the crate |
+| Send to → Tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop. The line under it says which |
+| Send to → Clipboard | Put the take, or the selection, on the clipboard, to Drop or Insert on a tape |
+| Send to → Crate | Keep the selection, or the whole take, as a clip on the crate: its own copy, so the takes list doesn't grow |
 | ◫ (take) | How many clips you've kept from this take: tap to see them on the tape page's crate |
 | Split here | Keep the take as two clips on the crate, before the playhead and after it. The take isn't changed |
 | Tape name | Your tapes: load one, or make a new one |
@@ -1800,7 +1811,7 @@ has no tip.
 | ● Record (overdub) | Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too |
 | Clock → (tape) | Who follows the tape's MIDI clock (TAPE_CLOCK=lead); ● while they're running |
 | Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: playing but not lined up yet. Grey: stopped, or playing on a phone |
-| OUT (tape) | Where the tape plays: the jam room, this phone, or both. Switching keeps it rolling from the same spot |
+| Output | Where the tape plays: the jam room (a speaker), this phone (headphones), or both. It's in the header of Tape, Takes and Capture. Switching keeps it rolling from the same spot |
 | Jam room / This phone / Both | The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both |
 | Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |
 

@@ -90,18 +90,19 @@
         <button id="sel-clear" class="linkish sel-clear" type="button" data-tip="clear">Clear</button>
       </div>
 
-      <!-- Bar 1, once the take has a tempo: always here, not behind the ruler's
-           "1". Set to the playhead, nudge, or tap the time to place it exactly. -->
+      <!-- The downbeat (bar 1), once the take has a tempo: always here, not
+           behind the ruler's "1". Set to the playhead, nudge, or tap the time
+           to place it exactly. -->
       <div id="db-row" class="tb-row downbeat" hidden>
-        <span class="sel-label">Bar 1</span>
-        <button id="db-dec" class="nudge" type="button" aria-label="Bar 1 earlier" data-tip="db-nudge">◂</button>
+        <span class="sel-label">Downbeat</span>
+        <button id="db-dec" class="nudge" type="button" aria-label="Downbeat earlier" data-tip="db-nudge">◂</button>
         <span id="db-time" class="mono sel-time" role="button" tabindex="0" data-tip="db-open"></span>
-        <button id="db-inc" class="nudge" type="button" aria-label="Bar 1 later" data-tip="db-nudge">▸</button>
+        <button id="db-inc" class="nudge" type="button" aria-label="Downbeat later" data-tip="db-nudge">▸</button>
         <button id="db-set" class="icon-btn" type="button" data-tip="db-set">Set to playhead</button>
       </div>
 
       <!-- The boundary editor (lib/wave/page.js, "the boundary editor"): while
-           In, Out or bar 1 is being edited this takes the place of the rows
+           In, Out or the downbeat is being edited this takes the place of the rows
            around it. Two encoder pads, the snaps and the steps. -->
       <div id="boundary-editor" class="boundary-editor" hidden>
         <div class="be-head">
@@ -128,20 +129,25 @@
 
       <div class="tb-row verbs">
         <button id="save-take" class="icon-btn" type="button" disabled data-tip="save-take">Save as take</button>
-        <button id="send-to-tape" class="icon-btn" type="button" hidden data-tip="send-to-tape">Send to tape</button>
-        <button id="keep-clip" class="icon-btn" type="button" hidden data-tip="keep-clip">Keep as clip</button>
+        <!-- Send to: the selection, or the whole take, onto the tape, the
+             clipboard or the crate. One menu, as everywhere a selection can
+             go (docs/superpowers/specs/2026-10-08-interaction-model-design.md). -->
+        <button id="send-btn" class="icon-btn" type="button" hidden aria-haspopup="menu" aria-expanded="false" data-tip="send-to">Send to<span aria-hidden="true"> ▾</span></button>
+        <div id="send-menu" class="menu menu-up send-menu" role="menu" hidden>
+          <button id="send-to-tape" type="button" role="menuitem" data-tip="send-to-tape"><b>Tape</b><span id="send-hint" class="menu-sub"></span></button>
+          <button id="copy-take" type="button" role="menuitem" data-tip="send-clipboard"><b>Clipboard</b><span class="menu-sub">To Drop or Insert on a tape</span></button>
+          <button id="keep-clip" type="button" role="menuitem" data-tip="keep-clip"><b>Crate</b><span class="menu-sub">Kept as a clip, without making a take</span></button>
+        </div>
         <button id="share" class="icon-btn primary" type="button" data-tip="share">Share</button>
         <button id="more-btn" class="icon-btn" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="more">More</button>
         <div id="more-menu" class="menu menu-up" role="menu" hidden>
           <button id="bundle" type="button" role="menuitem" data-tip="bundle">DAW bundle</button>
           <a id="dl-wav" role="menuitem" download data-tip="dl-wav">Download WAV</a>
           <a id="dl-midi" role="menuitem" download hidden data-tip="dl-midi">Download MIDI</a>
-          <button id="copy-take" type="button" role="menuitem" hidden data-tip="copy">Copy</button>
           <button id="split-here" type="button" role="menuitem" hidden data-tip="split-here">Split here</button>
           <button id="delete-take" class="danger" type="button" role="menuitem" data-tip="delete">Delete take</button>
         </div>
       </div>
-      <p id="send-hint" class="hint send-hint" hidden></p>
       <!-- Save as take asks for the new take's name first, in the verbs' place. -->
       <form id="save-name" class="tb-row save-name" hidden>
         <input id="save-name-input" type="text" maxlength="120" autocomplete="off" enterkeyhint="done" aria-label="Name the new take" data-tip="save-name">

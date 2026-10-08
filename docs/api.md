@@ -1067,7 +1067,7 @@ on one layer. `"source": "phone"` labels it. Answers
 
 ### `POST /api/tapes/send?id=`
 
-The take page's **Send to tape**. `{"take": "jam_….wav", "track": 1}` sends
+The take page's **Send to → Tape**. `{"take": "jam_….wav", "track": 1}` sends
 the whole take; with `"from": F, "to": T` (both, in take frames) just that
 span. The Pi reads the take's `bpm` and `downbeat_frame` from its sidecar, so
 what it uses is what's saved, and places it by what it finds:

@@ -14,6 +14,7 @@ const POLL_MS = 500;
 const AHEAD_S = 0.5; // the furthest the playhead is run on past a poll
 const STALE_MS = 2000; // no answer for this long: shown stopped, not run on forever
 const HOLD_MS = 1000; // a locate is shown where it was asked, over polls already on their way
+const AWAY_EVERY = 10; // out of the bar, every 10th tick (5 s): the header's output button stays true
 const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 
 /**
@@ -23,7 +24,7 @@ const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
  */
 export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
   let id = loadedId;
-  let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true, holdUntil = 0;
+  let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true, holdUntil = 0, ticks = 0;
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
 
@@ -50,8 +51,10 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
   }
   const tick = () => {
     if (stopped) return;
-    // Only while it's in the bar and the page is in view.
-    if (active && !document.hidden) poll();
+    // While it's in the bar and the page is in view; out of the bar, now
+    // and then, for where it plays.
+    ticks++;
+    if (!document.hidden && (active || ticks % AWAY_EVERY === 0)) poll();
     timer = setTimeout(tick, POLL_MS);
   };
   const onVisible = () => { if (active && !document.hidden) poll(); };
@@ -159,6 +162,13 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     marquee: () => (t ? tapeMarquee(t, live) : 'THE TAPE'),
     levels: null,
     out: () => OUT_NAMES[(live && live.output_mode) || 'jam'],
+    // Where it plays, for the header's output button: null before the Pi
+    // says, or from one that doesn't.
+    mode: () => (live && live.output_mode) || null,
+    // How late a phone hears it, as the Pi measured it.
+    streamDelayMs: () => (live && live.stream && live.stream.delay_ms) || 0,
+    /** refresh asks the Pi now, after a change made elsewhere. */
+    refresh: () => poll(),
     paint(ctx, W, H, col) {
       if (!t) { ctx.clearRect(0, 0, W, H); return; }
       paintTapeOverview(ctx, W, H, t, live ? pos() : null, { col });

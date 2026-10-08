@@ -4,14 +4,14 @@ import { sendHint, sentMessage, fmtBpm, FIRST_LOOP_MAX_S } from './send.js';
 
 const sr = 48000;
 
-test('a take with a tempo says where bar 1 goes, whole or selected', () => {
+test('a take with a tempo says where the downbeat goes, whole or selected', () => {
   assert.equal(
     sendHint({ bpm: 120, region: null, total: 420 * sr, sr }),
-    'Sends the whole take at 120 BPM, bar 1 on a tape bar line',
+    'Sends the whole take at 120 BPM, its downbeat on a tape bar line',
   );
   assert.equal(
     sendHint({ bpm: 125.25, region: { start: 10, end: 100 }, total: 420 * sr, sr }),
-    'Sends the selection at 125.25 BPM, bar 1 on a tape bar line',
+    'Sends the selection at 125.25 BPM, its downbeat on a tape bar line',
   );
 });
 
@@ -44,9 +44,9 @@ test('tempos read as the take page reads them', () => {
 
 test('what a send did is said in the words of what it did', () => {
   assert.deepEqual(sentMessage({ mode: 'grid', bar: 2, bpm: 120, tempo_set: true }, '7:02'), {
-    msg: 'Sent 7:02 to tape, track 1: bar 1 on tape bar 2, the tape is now 120 BPM', kind: 'ok',
+    msg: 'Sent 7:02 to tape, track 1: the downbeat on tape bar 2, the tape is now 120 BPM', kind: 'ok',
   });
-  assert.equal(sentMessage({ mode: 'grid', bar: 5, bpm: 120 }, '1:00').msg, 'Sent 1:00 to tape, track 1: bar 1 on tape bar 5');
+  assert.equal(sentMessage({ mode: 'grid', bar: 5, bpm: 120 }, '1:00').msg, 'Sent 1:00 to tape, track 1: the downbeat on tape bar 5');
   assert.match(sentMessage({ mode: 'first-loop', bpm: 92 }, '0:08').msg, /a loop at 92 BPM/);
   assert.match(sentMessage({ mode: 'linear' }, '3:00').msg, /one clip, no loop, no tempo/);
 });

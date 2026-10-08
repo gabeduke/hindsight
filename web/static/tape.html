@@ -27,6 +27,9 @@
     <a href="/takes.html" data-tab="takes" data-tip="nav-takes"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
     <a href="/tape.html" data-tab="tape" data-tip="nav-tape" aria-current="page"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
   </nav>
+  <!-- Where the tape plays (lib/tape/out-switch.js): a speaker, headphones or
+       both, and the place's name on a wide screen. Hidden until the Pi says. -->
+  <button id="out-btn" class="out-btn tape-out" type="button" aria-haspopup="dialog" aria-label="Output" data-tip="tape-out" hidden><span class="out-ico-slot" aria-hidden="true"></span><span class="tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   <div class="appbar-page">
     <!-- Two pills, each a menu: the tape's name switches tapes; its tempo
@@ -44,9 +47,6 @@
         <div id="tempo-menu" class="menu from-left" role="menu" hidden></div>
       </span>
     </div>
-    <span class="menu-anchor out-anchor">
-      <button id="tape-out-top" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
-    </span>
     <span class="appbar-spacer"></span>
     <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
     <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
@@ -82,7 +82,7 @@
       <p><b>This tape is empty.</b> Its first loop sets the tempo.</p>
       <p>Play until a part sounds right, then tap where it starts and again where it comes round:</p>
       <button id="tap" class="icon-btn primary tape-tap" type="button" data-tip="tape-tap">Tap where the loop starts</button>
-      <p>Or open a take, select the part, and choose <b>Send to tape</b>. Or start from a tempo:</p>
+      <p>Or open a take, select the part, and choose <b>Send to → Tape</b>. Or start from a tempo:</p>
       <div class="tape-tempo-row">
         <label>BPM <input id="new-bpm" type="number" min="20" max="400" step="0.01" value="90" inputmode="decimal" data-tip="tape-bpm"></label>
         <label>Bars <input id="new-bars" type="number" min="1" max="64" value="4" inputmode="numeric" data-tip="tape-bpm"></label>
@@ -209,7 +209,7 @@
         <button id="crate-from" class="chip" type="button" hidden data-tip="crate-from"></button>
       </div>
       <ul id="crate-list" class="crate-list" aria-label="Kept clips"></ul>
-      <p id="crate-empty" class="muted crate-empty" hidden>Nothing kept yet. <b>Keep as clip</b> on a take or the ribbon, or <b>Keep</b> in a clip's sheet or by the clipboard, puts it here.</p>
+      <p id="crate-empty" class="muted crate-empty" hidden>Nothing kept yet. <b>Send to → Crate</b> on a take, <b>Keep as clip</b> on the ribbon, or <b>Keep</b> in a clip's sheet or by the clipboard, puts it here.</p>
       <audio id="crate-audio" preload="none"></audio>
     </div>
   </section>
@@ -315,21 +315,6 @@
       <button class="icon-btn" id="jam-only-close" type="button">Not now</button>
       <button class="icon-btn primary" id="jam-only-switch" type="button" data-tip="out-jam">Switch to the jam room</button>
     </div>
-  </div>
-</dialog>
-
-<dialog class="sheet" id="out-sheet" aria-labelledby="out-title">
-  <div class="sheet-inner out-inner">
-    <h3 id="out-title">Output</h3>
-    <p class="sheet-hint">Where <span id="out-tape-name">this tape</span> plays. Switching keeps the tape rolling from the same spot.</p>
-    <div class="out-choices" role="group" aria-label="Output">
-      <button type="button" class="icon-btn out-choice" data-mode="jam" aria-pressed="true" data-tip="out-choice"><b>Jam room</b><span>Through the Sidekick downstairs. Rec, Catch and mixdown work.</span><span class="out-led"></span></button>
-      <button type="button" class="icon-btn out-choice" data-mode="phone" aria-pressed="false" data-tip="out-choice"><b>This phone</b><span>A backing track here, about 0.8 s behind. The jam room stays silent.</span><span class="out-led"></span></button>
-      <button type="button" class="icon-btn out-choice" data-mode="both" aria-pressed="false" data-tip="out-choice"><b>Both</b><span>The jam room plays and records as usual; this phone hears it 0.8 s late.</span><span class="out-led"></span></button>
-    </div>
-    <p id="out-measured" class="out-measured" hidden><span id="out-delay" class="lcd mono">0.8 s</span> late, measured. The playhead and meters here move back by this much, so what you see is what you hear.</p>
-    <p class="sheet-hint">One phone at a time: choosing This phone on another device moves the tape there.</p>
-    <div class="sheet-actions"><button class="icon-btn" id="out-close" type="button">Done</button></div>
   </div>
 </dialog>
 
