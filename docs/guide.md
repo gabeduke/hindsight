@@ -746,10 +746,22 @@ From the top:
     loop. With it focused, ← and → move a bar.
 - **Four lanes**, one per track:
   - Each header has the track's number (in a ring of its colour where there's
-    room, otherwise printed on the tape), its name on masking tape (tap it
-    to select the track), its bus (*bus A* or *bus B*: the Sidekick channel
-    it plays through, not a record arm; tap to swap), **M** (mute, yellow when on), **S** (solo, blue when on) and its
-    level. The track being recorded to is edged red.
+    room, otherwise printed on the tape), its name on masking tape, **●**,
+    its **input**, **M** (mute, yellow when on), **S** (solo, blue when on)
+    and its level.
+  - **●** makes it the **record track**: where Catch, ● Rec, a free loop's
+    tap and Overdub on this device go. One at a time; it's lit red, and its
+    header is edged red. Tapping the track's name does it too, and **1–4**
+    or **↑ ↓** on a keyboard. It's kept on the Pi, so every device records
+    onto the same track: arm track 3 on the tablet and Catch on your phone
+    goes there. Selecting a clip or tapping a lane doesn't change it: those
+    pick the **selected track**, this device's own, which Drop, Lift, Copy
+    and Split act on, edged faintly when it isn't the record track.
+  - **The input** (*aux*, *ch1*…) is what the track records from: each track
+    has its own, so the guitar on aux can go to track 2 and the Bento on ch2
+    to track 3 without changing anything between catches. Its lamp is green
+    while there's signal on it. Tap it for the track's recording in its
+    inspector (below).
   - In the lane: the bar lines, the clips and the playhead. Each clip is a
     block in the track's colour with its sound drawn as bars, lit where it
     has played, and labelled with where it came from (*aux*, *main*, a
@@ -761,20 +773,25 @@ From the top:
     move the playhead there, letting go of the selection.
 - **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
   tape plays on to the end of what's recorded.
-- **The drawers.** The bar's **Record ▴** and **Edit ▴** open a drawer
+- **The drawers.** The bar's **Edit ▴** and **Crate ▴** open a drawer
   above it, one at a time; the key's light is on while its drawer is open.
   The drawer pushes the lanes up rather than covering one, and its key, its
   **✕** or **Esc** closes it. Each device remembers which was open.
-  - **Record · Catch** holds Record from, Catch the last 1, 2 or 4 bars,
-    Layer or Replace, the passes, and Overdub on this device.
   - **Clipboard · Edit** holds the clipboard, Lift, Copy, Split and ×2 on
     the loop's bars, and what a slid clip snaps to.
   - While a clip is being aligned, its editor opens there instead.
-- **Record from** chooses the input ● Rec, a catch and a free loop take
-  from: main, ch1, ch2 or aux. ● Rec names it too, under its label, so you
-  can see what it will record without looking down. While a track is armed
-  or recording, the lit chip is the source it's recording, and changing it
-  waits until that punch ends.
+- **Recording onto a track** is in the track's inspector: tap its input (or
+  its name twice). It's the record track's (the inspector follows it), in
+  red at the top: **Input**, **Layer / Replace**, **Catch the last 1, 2 or
+  4 bars**, the **passes**, and **Overdub on this device**. Its name,
+  level, pan and the bus it plays through (*bus A*, the Sidekick's channel
+  1, or *bus B*, channel 2) are under it.
+- **Input** chooses what the record track records from: main, ch1, ch2 or
+  aux. ● Rec names it too, under its label, so you can see what it will
+  record without looking down. Choosing one for a track changes only that
+  track; a new tape's tracks start on the input chosen last on this device.
+  While a track is armed or recording, the lit chip is
+  the source it's recording, and changing it waits until that punch ends.
   - Each chip has a **meter**: the loudest moment of the last third of a
     second. The source with your instrument in it is the one that moves.
     Aux with nothing plugged in is exact silence, and reads empty.
@@ -786,7 +803,11 @@ From the top:
   very quiet (peak −62 dB)*, with Undo. The clip's inspector says it too, and so
   does dropping or copying a silent stretch from the ribbon.
 - **Catch** (in the bar) catches the last pass, and **Catch the last: 1 bar /
-  2 / 4** catch the last bars, onto the selected track.
+  2 / 4** catch the last bars, onto the record track, from its input. Catch
+  says which track (*last pass → track 2*), and pointing at it outlines, on
+  that track's lane, the pass it would take. While the tape plays, a small
+  red ▾ on the record track's lane marks the next bar line: where ● Rec
+  would start.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
 - **On a phone,** upright or on its side, the bar is a **mini player**
   above the tabs: the reel window with where the tape is, **▶** and
@@ -795,19 +816,19 @@ From the top:
   play here*) sits on top. The output button is in the top bar.
 - **Tap the mini player's window** to pull up **the player** over the page:
   the whole bar, large (**|◂ ▶ ⟲ Loop ● Rec**, the click, **Catch** and the
-  overview), and under it **Record ▴** and **Edit ▴**, which show their
+  overview), and under it **Edit ▴** and **Crate ▴**, which show their
   drawer below them. **Down**, Back or **Esc** puts it away. Takes, Capture
   and a take's page have the same mini player and player.
-- **On a phone,** with the player down, Record from, Catch the last, the
-  passes, the clipboard and the edits are rows under the tracks, as they
-  always were.
+- **On a phone,** with the player down, the clipboard and the edits are
+  rows under the tracks. The recording is in the track's inspector: tap its
+  input.
 - **On a tablet or a computer** the tracks take the whole width and share
   the height of the window between the header and the bar; a drawer opening
   makes them shorter, and they scroll once they're as short as their heads.
-  Narrower than 1200 px, **Record ▴**, **Edit ▴** and **Crate ▴** sit beside the overview. On the
+  Narrower than 1200 px, **Edit ▴** and **Crate ▴** sit beside the overview. On the
   1024 × 600 bench the header is one row, the page switch at its left.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
-  ⟲ Loop, **K** the click, **J** goes back five seconds, **1–4** or **↑ ↓** choose the track, **S**
+  ⟲ Loop, **K** the click, **J** goes back five seconds, **1–4** or **↑ ↓** choose the record track, **S**
   splits at the playhead, and **⌘Z / Ctrl-Z** undoes (with **⇧** to redo).
   With a clip picked, or several: **Delete** removes them, **⌘C / Ctrl-C**
   copies them as they lie, and **⌘D / Ctrl-D** lays a copy right after them
@@ -831,7 +852,7 @@ where it comes round.
    attack in that source from a quarter of a second before it to a
    twentieth after. Tapping a little late, or Wi-Fi being slow, doesn't
    matter.
-2. The span becomes the first loop on the selected track, and starts playing
+2. The span becomes the first loop on the record track, and starts playing
    at once, in time with you, as if it had been playing all along.
 3. Its length sets the tempo: the number of bars that puts it nearest your
    last tape's tempo (or 90 BPM). If it guessed 168 and you meant 84, tap
@@ -895,7 +916,7 @@ The tempo is fixed once the tape has audio, because nothing is ever stretched.
   bars*, and the lanes show four empty bars. Press ▶ → a click on every
   beat, higher on the bar. After the first catch, the click goes off and the
   tempo can't be changed.
-- [demo] Make a new tape, choose *aux*, tap on a kick, then tap about 2.5 s
+- [demo] Make a new tape, give track 1 the input *aux*, tap on a kick, then tap about 2.5 s
   later on another → a 2.50 s loop, *1 bar at 96 BPM*, playing on track 1.
 - [demo] Tap the tempo pill, choose 2 bars → it reads *192 BPM ·
   2 bars*; the loop sounds the same.
@@ -934,8 +955,8 @@ OP-1 overdubs. Its toast has **Undo**.
 double-click) opens its sheet: its level, a ±5 ms nudge for timing, and
 **Remove**.
 
-**Mix.** Each track has a level, mute, solo and a bus. Every track starts on
-bus A, 6 dB down.
+**Mix.** Each track has a level, mute, solo and a bus (in its inspector).
+Every track starts on bus A, 6 dB down.
 
 - Bus A plays out of the Sidekick's channel 1, and bus B out of channel 2.
 - So the Sidekick's channel knobs (EQ, FX, fader) act on a whole bus.
@@ -952,7 +973,8 @@ for the tape's name. The loaded tape can't be deleted; open another one first.
 Deleting frees whatever audio no other tape uses, including what's only in
 other tapes' undo.
 
-**Rec (6c).** Choose a source and select a track, then:
+**Rec (6c).** Tap a track's **●** to make it the record track, and give it
+its input (tap the input on its header), then:
 
 - **While playing,** tap **● Rec** and recording starts at the next bar line
   (or the one you just passed, if it was less than a quarter second ago).
@@ -1000,9 +1022,14 @@ page shows how long it is and where it came from:
 
 **Checks — steps 6a and 6c:**
 
-- [demo] Send 2 s to an empty tape and press ▶. Choose *aux*, select track 2,
-  wait four passes, then tap **−3** → a 2.0 s clip lands on track 2 at bar 1,
-  and the toast says *Caught 2.0 s from aux onto track 2*.
+- [demo] Send 2 s to an empty tape and press ▶. Tap track 2's **●**, then
+  its input and choose *aux*; wait four passes, then tap **−3** under
+  Passes → a 2.0 s clip lands on track 2 at bar 1, and the toast says
+  *Caught 2.0 s from aux onto track 2*.
+- [demo] Give track 3 the input *ch2*, tap its **●**, and point at Catch →
+  Catch says *last pass → track 3*, and track 3's lane outlines the loop;
+  catch → it's from ch2. On a second device the same tape shows track 3's
+  ● lit.
 - [demo] Catch from *ch1* → the toast warns that the tape was in that source
   too.
 - [demo] With the tape playing, the meters on *main* and *ch1* move and
@@ -1023,7 +1050,7 @@ page shows how long it is and where it came from:
   clone → it plays fully.
 - [demo] Restart Hindsight → the tape that was loaded is loaded again, with
   its undo.
-- [demo] With a 1-bar loop playing, select track 2, tap ●, wait three passes,
+- [demo] With a 1-bar loop playing, tap track 2's ●, tap ● Rec, wait three passes,
   tap ● → *Kept 1 bar from aux on track 2*: the last full pass.
 - [demo] Stop. Select track 3, tap ● (*● Armed 3*, with *aux* under it), press ▶ → the position
   reads *count-in 1 of 4…4 of 4* over a bar of click, then the tape plays;
@@ -1490,7 +1517,7 @@ needs the HTTPS address, as the Phone button does; listening works anywhere.
 
 **Checks — overdubbing:**
 
-- [demo] With a 1-bar loop, select track 2 and open **🎧 Overdub on this
+- [demo] With a 1-bar loop, tap track 2's ● and open **🎧 Overdub on this
   device** → it says it plays *the loop (1 bar)*, onto track 2. **● Record**
   for five seconds, then **■ Stop and keep** → *Kept 1 bar from this device on
   track 2*, at bar 1, labelled *phone*.
@@ -1740,12 +1767,13 @@ has no tip.
 | Remove (section) | Take the section away. The audio under it stays |
 | Duplicate section | Play this section twice in a row: a copy right after it, and the rest moves later |
 | A lane | Tap a clip to select it: the clip bar acts on it, and a double-click opens the inspector beside the lanes. Drag its edges to trim it, the squares on its top edge to fade it in or out, or its ⟳ corner (bottom right) to repeat it. Shift, ⌘ or Ctrl with a click, or Select more, selects several. Hold a clip, then drag, to slide it along its track or onto another. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
-| A track header | Tap the number to pick the track catches go onto. Keys: 1–4, or ↑ ↓ |
+| A track header | Its number and name: tap to make it the record track, again for its inspector. Keys: 1–4, or ↑ ↓ |
+| ● (track) | Make this the record track: Catch, ● Rec, a free loop's tap and Overdub on this device go onto it, on every device. Lit red on the one that is |
+| Input (track) | What this track records from, lit green while there's signal on it. Tap for its recording, in its inspector: the input, Layer or Replace, Catch the last bars, the passes |
 | M, S | Mute this track, or solo it: only soloed tracks play |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape. Key: Space |
 | To the loop’s start (tape) | Back to the loop’s start; with Loop off, to the top of the tape |
-| Record ▴ (tape) | Record from, Catch the last 1, 2 or 4 bars, Layer or Replace, the passes, and Overdub on this device. Esc closes it |
 | Edit ▴ (tape) | The clipboard and Drop, Lift, Copy, Split and ×2 on the loop’s bars, and what a slid clip snaps to. Esc closes it |
 | Crate ▴ (tape) | The clips you've kept, newest first: play one, drop it at the playhead, or open it. Esc closes it |
 | Find a clip (crate) | Show only the kept clips whose name has this in it |
@@ -1769,7 +1797,7 @@ has no tip.
 | Pan | Where this track sits between left and right |
 | Copy (ribbon) | Put the span you selected on the clipboard, to drop onto a tape |
 | Keep as clip (ribbon) | Keep the span you selected as a clip on the crate, not as a take |
-| ● Rec (tape) | Records from the source it names (chosen under Record from). Stopped: arm the selected track, then ▶ counts in a bar. Playing: record from the next bar. Tap again to keep it. Key: R |
+| ● Rec (tape) | Records the record track (its ● lit) from its input, named here. Stopped: arms it, then ▶ counts in a bar. Playing: records from the next bar, marked on its lane. Tap again to keep it. Key: R |
 | RECORDING | Shows only while a punch is recording onto the tape |
 | ♩ Click | A click on every beat, on bus A. On by itself only while the tape is empty. Key: K |
 | Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
@@ -1805,8 +1833,8 @@ has no tip.
 | Hit → Grid | Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off |
 | Track picker | Choose the track to line this clip up against |
 | Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
-| Catch | Catch the last time round the loop onto the selected track. The last 1, 2 or 4 bars are under Record |
-| Passes | Every time round the loop, kept. Tap one to put it on the selected track |
+| Catch | Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. The last 1, 2 or 4 bars are in the track's inspector |
+| Passes | Every time round the loop, kept. Tap one to put it on the record track |
 | Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |
 | Lift | Cut the selection out into the clipboard, leaving a gap: silence where it was |
 | Delete time | Cut the selection out of every track and close the gap: everything after it moves earlier |
@@ -1823,8 +1851,8 @@ has no tip.
 | Mix down | Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included |
 | Export stems | Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
-| Source chip | Which input ● Rec and a catch take from; its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too |
-| 🎧 Overdub on this device | Play the tape here, not in the jam room, and record a part over it that goes onto the selected track where you played it |
+| Source chip | The record track's input: what ● Rec and a catch take from it. Choosing one changes only that track. Its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too |
+| 🎧 Overdub on this device | Play the tape here, not in the jam room, and record a part over it that goes onto the record track where you played it |
 | The loop / The whole tape (overdub) | Play the loop round and round, or the whole tape once |
 | ♩ Click (overdub) | A click on every beat, in what plays here |
 | Round trip (overdub) | How late what you play reaches the recording, from hearing the tape: a part lands that much earlier. −5 and +5 move it by hand, e.g. for Bluetooth headphones |
@@ -1844,7 +1872,7 @@ has no tip.
 | The dot by ↶ is amber | Playback and recording are lined up only by the clocks, to a few milliseconds; it locks once the tape plays something with a clear attack on bus A or B | Play the tape for a few seconds, with drums or another percussive part on it. Catches still work meanwhile; nudge one if it's off |
 | The dot by ↶ is red | Nothing is lined up yet: the tape hasn't played since Hindsight started, or there's no output | Press ▶. If ▶ reads *no output*, check the Sidekick is on and plugged in |
 | A source chip shows ○ | The tape is playing through that channel, so catching from it also records the tape | Catch from aux, or move the track to the other bus |
-| A new clip is a flat line, and the toast said *it's silent: nothing came in* | It was recorded from a source with nothing in it, usually aux with nothing plugged in. ● Rec records from the lit chip under **Record from** | Undo, tap the chip whose meter moves when you play, and record again |
+| A new clip is a flat line, and the toast said *it's silent: nothing came in* | It was recorded from a source with nothing in it, usually aux with nothing plugged in. ● Rec records from the record track's input, the lit chip under **Input** in its inspector | Undo, tap the track's input, choose the chip whose meter moves when you play, and record again |
 | "Too long for the ring" on Mixdown | The selection is longer than the last 15 minutes can hold | Mix down in parts, or raise `RING_SECONDS` |
 | "…a tape track holds 20 minutes" | What you sent is longer than a track, or would run past its end from where it lands | Send a shorter part, lift something, or raise `TAPE_LENGTH_S` |
 | *Phone* says the microphone needs a secure page | You're on the plain `http://` address | Use the HTTPS address from `tailscale serve` |

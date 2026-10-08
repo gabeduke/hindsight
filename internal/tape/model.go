@@ -295,6 +295,13 @@ type Tape struct {
 	Length     int64     `json:"length"` // frames a track can hold
 	Created    time.Time `json:"created"`
 	Click      bool      `json:"click,omitempty"`
+	// RecTrack is the record track: where a catch, a punch, a free loop's tap
+	// and an overdub go, chosen on any device (0 is track 1). Inputs are the
+	// tracks' inputs, the sources they record from (Inputs[0] is track 1's);
+	// "" records from whichever was chosen last. Neither is a step of undo:
+	// they're where you are, not what's on the tape.
+	RecTrack int      `json:"rec_track,omitempty"`
+	Inputs   []string `json:"inputs,omitempty"`
 	State
 	History []State `json:"history,omitempty"` // earlier versions, oldest first
 	Future  []State `json:"future,omitempty"`  // undone versions, for redo
@@ -319,6 +326,18 @@ func NewClipID() string {
 		return fmt.Sprintf("c%08x", uint32(time.Now().UnixNano()))
 	}
 	return "c" + hex.EncodeToString(b[:])
+}
+
+// SetInput sets track n's input.
+func (t *Tape) SetInput(n int, source string) error {
+	if n < 1 || n > len(t.Tracks) {
+		return ErrNoSuchTrack
+	}
+	for len(t.Inputs) < n {
+		t.Inputs = append(t.Inputs, "")
+	}
+	t.Inputs[n-1] = source
+	return nil
 }
 
 // Track returns track n (from 1).
@@ -394,6 +413,7 @@ func (t *Tape) Change(kind string, now time.Time, fn func(s *State) error) error
 // changed in place, so only the lists of them are copied.
 func (t *Tape) draft() *Tape {
 	c := *t
+	c.Inputs = slices.Clone(t.Inputs)
 	c.History = slices.Clone(t.History)
 	c.Future = slices.Clone(t.Future)
 	return &c

@@ -120,6 +120,49 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   await p.context().close();
 }
 
+// Recording on the track: a track's ● makes it the record track, on the Pi,
+// and Catch says so; its input chip opens its inspector at the recording,
+// where an input chosen is that track's. Both are put back after.
+{
+  const p = await (await browser.newContext({ viewport: { width: 1024, height: 768 } })).newPage();
+  await p.goto(`${BASE}/tape.html`);
+  await p.waitForTimeout(1500);
+  const meta = () => p.evaluate(async () => {
+    const st = await (await fetch('/api/tapes/state?id=' + (await (await fetch('/api/tapes')).json()).loaded)).json();
+    return { rec: st.tape.rec_track || 1, inputs: st.tape.inputs || [], sources: (st.sources || []).map((x) => x.name) };
+  });
+  const was = await meta();
+  await p.locator('.tt-arm').nth(2).click();
+  await p.waitForTimeout(800);
+  const armed = await meta();
+  check('the record track: track 3’s ● makes it the record track, on the Pi', armed.rec === 3, JSON.stringify(armed));
+  check('the record track: its ● is lit, and only its', await p.evaluate(() => [...document.querySelectorAll('.tt-arm')].map((b) => b.getAttribute('aria-pressed')).join() === 'false,false,true,false'));
+  check('the record track: Catch names it', (await p.textContent('#catch-pass .np-catch-sub')).includes('track 3'));
+  // A tap on another lane selects that track here, for the edits; the record
+  // track, everyone's, stays.
+  const lane1 = await p.evaluate(() => { const b = document.querySelectorAll('.tt-lane')[0].getBoundingClientRect(); return { x: b.right - 6, y: b.top + b.height / 2 }; });
+  await p.mouse.click(lane1.x, lane1.y);
+  await p.waitForTimeout(800);
+  check('the record track: a tap on another lane leaves it where it is', (await meta()).rec === 3 && await p.evaluate(() => document.querySelectorAll('.tape-track')[0].classList.contains('selected')));
+  await p.locator('.tt-in').nth(2).click();
+  await p.waitForTimeout(500);
+  check('the record track: its input opens its inspector at the recording', await p.evaluate(() => document.getElementById('track-sheet').open && document.getElementById('track-title').textContent.startsWith('Track 3')));
+  const pickSrc = armed.sources.find((x) => x !== (armed.inputs[2] || '')) || armed.sources[0];
+  await p.locator(`#sources button[data-name="${pickSrc}"]`).click();
+  await p.waitForTimeout(800);
+  const given = await meta();
+  check('the record track: an input chosen is that track’s, on the Pi', given.inputs[2] === pickSrc && (await p.textContent('.tape-track:nth-child(3) .tt-in-v')) === pickSrc, JSON.stringify(given.inputs));
+  await p.keyboard.press('Escape');
+  // Put them back.
+  await p.evaluate(async ({ rec, input }) => {
+    const id = (await (await fetch('/api/tapes')).json()).loaded;
+    const send = (body) => fetch('/api/tapes?id=' + id, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    await send({ rec_track: rec });
+    if (input) await send({ input: { n: 3, source: input } });
+  }, { rec: was.rec, input: was.inputs[2] || '' });
+  await p.context().close();
+}
+
 // The drawers: from 700 px the lanes take the full width with both closed;
 // a drawer opens above the bar and pushes the lanes up without hiding the
 // bar, its key says so, and Escape closes it. On the bench every lane keeps
@@ -743,9 +786,13 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
     check('phone mode: Rec opens the jam-room sheet', await p.evaluate(() => document.getElementById('jam-only').open));
     await p.locator('#jam-only-close').click();
     await p.click('#np-expand');
-    check('phone mode: the panel says Rec and Catch wait', await p.locator('#jam-only-note').isVisible());
-    check('phone mode: Record from, Catch the last and the passes wait too',
+    // The recording is in a track's inspector, from its input.
+    await p.locator('.tt-in').first().click();
+    await p.waitForTimeout(500);
+    check('phone mode: the track inspector says Rec and Catch wait', await p.locator('#jam-only-note').isVisible());
+    check('phone mode: its Input, Catch the last and the passes wait too',
       !(await p.locator('.tb-row.sources').isVisible()) && !(await p.locator('.tb-row.catch').isVisible()) && !(await p.locator('.tb-row.passes').isVisible()));
+    await p.keyboard.press('Escape');
     await put('jam');
     await p.waitForTimeout(4000);
     check('jam mode: the banner hides again', !(await p.locator('#out-banner').isVisible()));

@@ -104,52 +104,12 @@
   </div>
 </main>
 
-<!-- The dock at the foot of the page: the tape's two drawers (Record ·
-     Catch and Clipboard · Edit, opened from the bar's keys), the clip editor
+<!-- The dock at the foot of the page: the tape's drawers (Clipboard · Edit
+     and the crate, opened from the bar's keys), the clip editor
      while a clip is aligned, then the now-playing bar. From 700 px a drawer
      opens above the bar and pushes the lanes up; on a phone the drawers are
      rows in the page and the bar is docked above the tabs. -->
 <div id="np-dock" class="np-dock" hidden>
-  <section id="drawer-rec" class="np-drawer" aria-label="Record and Catch">
-    <div class="np-drawer-strip">
-      <span class="np-grip" aria-hidden="true"></span>
-      <h2 class="np-drawer-title">Record · Catch</h2>
-      <span class="np-grip np-grip-fill" aria-hidden="true"></span>
-      <button class="np-drawer-close" type="button" data-drawer="rec" aria-label="Close Record and Catch">✕</button>
-    </div>
-    <div class="np-drawer-body">
-      <div class="np-col">
-        <p id="jam-only-note" class="jam-only-note" hidden>Rec, Catch and the passes wait for the jam room: this phone hears the tape late, so a pass would land off the beat. <a href="#" id="jam-only-change">Change the output</a></p>
-        <div class="tb-row sources" role="group" aria-label="Record from">
-          <span class="tb-label">Record from</span>
-          <div id="sources" class="seg"></div>
-        </div>
-      </div>
-      <div class="np-col">
-        <div class="tb-row catch">
-          <span class="tb-label">Catch the last</span>
-          <div class="seg" id="catch-bars" role="group" aria-label="Catch the last bars">
-            <button type="button" data-bars="1" data-tip="catch-bars">1 bar</button>
-            <button type="button" data-bars="2" data-tip="catch-bars">2</button>
-            <button type="button" data-bars="4" data-tip="catch-bars">4</button>
-          </div>
-          <div class="seg" id="catch-mode" role="group" aria-label="Onto audio already there">
-            <button type="button" data-mode="layer" data-tip="catch-mode">Layer</button>
-            <button type="button" data-mode="replace" data-tip="catch-mode">Replace</button>
-          </div>
-        </div>
-      </div>
-      <div class="np-col">
-        <div class="tb-row passes">
-          <span class="tb-label">Passes</span>
-          <div id="passes" class="passes-row" data-tip="passes"></div>
-        </div>
-        <div class="tb-row away">
-          <button id="away" class="icon-btn away-btn" type="button" data-tip="away">🎧 Overdub on this device</button>
-        </div>
-      </div>
-    </div>
-  </section>
   <section id="drawer-edit" class="np-drawer" aria-label="Clipboard and Edit">
     <div class="np-drawer-strip">
       <span class="np-grip" aria-hidden="true"></span>
@@ -291,7 +251,6 @@
         <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
       </div>
       <div class="np-own">
-        <button id="np-drawer-rec" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-rec" data-tip="drawer-rec">Record<span class="np-chev" aria-hidden="true">▴</span></button>
         <button id="np-drawer-edit" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-edit" data-tip="drawer-edit">Edit<span class="np-chev" aria-hidden="true">▴</span></button>
         <button id="np-drawer-crate" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-crate" data-tip="drawer-crate">Crate<span class="np-chev" aria-hidden="true">▴</span></button>
         <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
@@ -450,11 +409,44 @@
   </div>
 </dialog>
 
-<!-- A track's inspector. -->
+<!-- A track's inspector: recording onto it first (it's the record track,
+     the one with its ● lit: the inspector follows it), then its name, level,
+     pan and bus. The recording part was the bar's Record drawer. -->
 <dialog class="sheet inspector" id="track-sheet" aria-labelledby="track-title" tabindex="-1" autofocus>
   <div class="sheet-inner">
     <button class="insp-grip" type="button" aria-label="Pull it up or down" data-tip="insp-grip"></button>
     <h3 id="track-title">Track</h3>
+    <section id="track-rec" class="rec-section" aria-labelledby="track-rec-title">
+      <h4 id="track-rec-title" class="rec-title">Recording onto it</h4>
+      <p id="jam-only-note" class="jam-only-note" hidden>Rec, Catch and the passes wait for the jam room: this phone hears the tape late, so a pass would land off the beat. <a href="#" id="jam-only-change">Change the output</a></p>
+      <div class="tb-row sources" role="group" aria-label="Input">
+        <span class="tb-label">Input</span>
+        <div id="sources" class="seg"></div>
+      </div>
+      <div class="tb-row mode">
+        <span class="tb-label">Onto what's there</span>
+        <div class="seg" id="catch-mode" role="group" aria-label="Onto audio already there">
+          <button type="button" data-mode="layer" data-tip="catch-mode">Layer</button>
+          <button type="button" data-mode="replace" data-tip="catch-mode">Replace</button>
+        </div>
+      </div>
+      <div class="tb-row catch">
+        <span class="tb-label">Catch the last</span>
+        <div class="seg" id="catch-bars" role="group" aria-label="Catch the last bars">
+          <button type="button" data-bars="1" data-tip="catch-bars">1 bar</button>
+          <button type="button" data-bars="2" data-tip="catch-bars">2 bars</button>
+          <button type="button" data-bars="4" data-tip="catch-bars">4 bars</button>
+        </div>
+      </div>
+      <div class="tb-row passes">
+        <span class="tb-label">Passes</span>
+        <div id="passes" class="passes-row" data-tip="passes"></div>
+      </div>
+      <div class="tb-row away">
+        <button id="away" class="icon-btn away-btn" type="button" data-tip="away">🎧 Overdub on this device</button>
+      </div>
+    </section>
+    <h4 class="rec-title">The track</h4>
     <label class="clip-field">Name
       <input id="track-name" type="text" maxlength="40" placeholder="chords, bass…" data-tip="track-name">
     </label>
@@ -464,6 +456,12 @@
     <label class="clip-field">Pan <span id="track-pan-val" class="mono"></span>
       <input id="track-pan" type="range" min="-1" max="1" step="0.05" data-tip="track-pan">
     </label>
+    <div class="clip-field">Plays through
+      <div class="seg" id="track-bus" role="group" aria-label="Plays through">
+        <button type="button" data-bus="A" data-tip="bus">Bus A · ch 1</button>
+        <button type="button" data-bus="B" data-tip="bus">Bus B · ch 2</button>
+      </div>
+    </div>
     <div class="sheet-actions">
       <button id="track-done" class="icon-btn" type="button">Done</button>
     </div>
