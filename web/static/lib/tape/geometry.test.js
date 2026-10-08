@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove, fadeOptions, fadeOption, clipFades } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove, fadeOptions, fadeOption, clipFades, keyStep } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -290,4 +290,16 @@ test('clipFades: none longer than the clip, the two sharing it when they overlap
   assert.deepEqual(clipFades({ frames: 1000, fade_in: 900, fade_out: 900 }), { fadeIn: 500, fadeOut: 500 });
   assert.deepEqual(clipFades({ frames: 1000, fade_in: 2000 }), { fadeIn: 1000, fadeOut: 0 });
   assert.deepEqual(clipFades({ frames: 1000 }), { fadeIn: 0, fadeOut: 0 });
+});
+
+test('← and → move the selection a snap step, Shift a bar', () => {
+  const grid = { frames: 480000, bars: 4 }; // a bar is 120000
+  assert.equal(keyStep(grid, 'bar', 48000), 120000);
+  assert.equal(keyStep(grid, 'beat', 48000), 30000);
+  assert.equal(keyStep(grid, '8th', 48000), 15000);
+  assert.equal(keyStep(grid, 'beat', 48000, true), 120000);
+  assert.equal(keyStep(grid, 'off', 48000), 4800);
+  assert.equal(keyStep(grid, 'off', 48000, true), 120000, 'Shift is a bar, snap or no snap');
+  assert.equal(keyStep(null, 'bar', 48000), 4800);
+  assert.equal(keyStep(null, 'bar', 48000, true), 48000);
 });

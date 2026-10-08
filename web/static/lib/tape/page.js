@@ -22,7 +22,7 @@ import { roundRectPath } from '../cassette-geom.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
-  trimBounds, trimTo, trimmed, repeatRoom, repeatCount, groupMove, fadeOptions, fadeOption, clipFades,
+  trimBounds, trimTo, trimmed, repeatRoom, repeatCount, groupMove, fadeOptions, fadeOption, clipFades, keyStep,
 } from './geometry.js';
 import { meterFill, quietNote, levelText, isSilent, QUIET } from './levels.js';
 import { punchStart, traceAdd, recRegion, wrappedSince, fullPasses } from './rec.js';
@@ -40,6 +40,7 @@ import { initPlayer } from '../bar/player.js';
 import { initNav } from '../nav.js';
 import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
+import * as sel from './selection.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -55,7 +56,7 @@ const state = {
   source: readPref('tape.source', 'aux'),
   mode: readPref('tape.mode', 'layer'), // a catch onto audio: layer or replace
   clip: null,       // the clip whose sheet is open
-  picked: null,     // the id of the clip last tapped: its grips show, to trim it
+  picked: null,     // the one clip selected: its grips show, to trim it (selection.js)
   clipboard: null,  // what /api/clipboard says
   sel: null,        // a ruler drag in progress: {from, to} tape frames
   scope: readPref('tape.scope', 'one'), // lift and copy: the selected track, or all
@@ -63,7 +64,8 @@ const state = {
   slide: null,      // a clip being slid: {n, clip, at, to}: from track n to track to
   trim: null,       // a grip being dragged: {n, clip, edge, edge0, at, bounds, limited}
   repeat: null,     // the ⟳ corner being dragged: {n, clip, count, max}
-  multi: null,      // several clips picked: a Set of their ids, or null
+  multi: null,      // several clips selected: a Set of their ids, or null
+  adding: false,    // Select more: a tap adds a clip or takes it off
   // What Drop, Insert or Delete time would do, shown on the lanes before it's
   // done: {kind, tape?, from, to, track?, tracks?, label, armed?}. tape is the
   // tape as it would be (lib/tape/timeedit.js).
@@ -262,7 +264,14 @@ async function change(send) {
 
 function apply(s) {
   const changed = JSON.stringify(s.tape) !== JSON.stringify(state.tape);
-  if (state.tape && s.tape && s.tape.id !== state.tape.id) { state.zoom = null; delete $('new-bpm').dataset.touched; }
+  if (state.tape && s.tape && s.tape.id !== state.tape.id) {
+    state.zoom = null;
+    delete $('new-bpm').dataset.touched;
+    // Another tape's clips aren't selected, though a clone's have the same ids.
+    state.picked = null;
+    state.multi = null;
+    state.adding = false;
+  }
   state.tape = s.tape;
   // The empty-tape form starts at the tempo you were playing, until you type.
   if (s.suggest_bpm && !$('new-bpm').dataset.touched) $('new-bpm').value = String(s.suggest_bpm);
@@ -404,7 +413,7 @@ function render() {
   const t = state.tape;
   const live = state.live;
   const sr = t.sample_rate;
-  renderMulti();
+  renderClipBar();
   renderCrateDrops();
   $('tape-name-text').textContent = t.name;
   $('tape-name').title = `${t.name}: switch tape`;
@@ -1203,58 +1212,124 @@ function renderAskFirst() {
   $('ask-first').setAttribute('aria-pressed', String(askFirst()));
 }
 
-// --- several clips -------------------------------------------------------------
-// Select more in a clip's sheet, or Shift with a click, picks several clips;
-// then a tap adds or takes one off, the bar (#multi-bar) acts on them all,
-// and dragging any of them moves them all, by the same time and tracks (one
-// move edit). See docs/superpowers/specs/2026-10-07-select-clips-design.md.
+// --- selecting clips ------------------------------------------------------------
+// As in a DAW (docs/superpowers/specs/2026-10-07-click-to-select-design.md):
+// a click selects a clip, and the clip bar (#multi-bar) over the transport
+// acts on what's selected; its Details… opens the clip's sheet, as a
+// double-click or Enter does. Shift, ⌘ or Ctrl with a click adds a clip or
+// takes it off (on a touch screen, the bar's Select more); dragging any of
+// several moves them all, by the same time and tracks (one move edit, see
+// 2026-10-07-select-clips-design.md). Escape, Done or a click on an empty
+// part of a lane lets go.
 
-// picks is the picked clips as they are on the tape now, each with its
+// When the clip bar last came up (a click on it just then isn't taken), and
+// until when a click that selects keeps it down (waitForBar).
+let barShownAt = 0;
+let barWaitUntil = 0;
+let revealTimer = 0;
+
+// waitForBar: a click that selects brings the clip bar up after a
+// double-click's second click would have come. The bar takes height from
+// the lanes, so that click would otherwise land a lane away, or on a key.
+function waitForBar() {
+  if (!$('multi-bar').hidden) return;
+  barWaitUntil = performance.now() + 500;
+  setTimeout(renderClipBar, 520);
+}
+
+// setSel makes s (lib/tape/selection.js) the selection, and shows it.
+function setSel(s) {
+  state.picked = s.picked;
+  state.multi = s.multi;
+  if (!s.picked && !s.multi) state.adding = false;
+  renderClipBar();
+  drawLanes();
+  revealPicked();
+}
+
+// On a phone the clip bar floats over the foot of the page: a selected
+// clip's lane it would cover scrolls up into view, so a tapped clip isn't
+// hidden by its own bar. Not at once: a double-tap's second tap lands where
+// its first did.
+function revealPicked() {
+  clearTimeout(revealTimer);
+  revealTimer = setTimeout(() => {
+    const bar = $('multi-bar');
+    if (bar.hidden || getComputedStyle(bar).position !== 'fixed') return;
+    if (document.querySelector('dialog[open]')) return;
+    const c = picks()[0];
+    const lane = c && lanes.find((l) => l.n === c.track);
+    if (!lane) return;
+    const over = lane.canvas.getBoundingClientRect().bottom + 8 - bar.getBoundingClientRect().top;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (over > 0) window.scrollBy({ top: over, behavior: still ? 'auto' : 'smooth' });
+  }, 550);
+}
+const selNow = () => ({ picked: state.picked, multi: state.multi });
+
+// picks is the selected clips as they are on the tape now, each with its
 // track; ids no longer on the tape are let go of.
 function picks() {
-  if (!state.multi || !state.tape) return [];
+  if (!state.tape) return [];
+  const present = new Set(state.tape.tracks.flatMap((tr) => tr.clips.map((c) => c.id)));
+  const kept = sel.keep(selNow(), present);
+  const s = state.adding ? kept : sel.settle(kept);
+  if (s.picked !== state.picked || s.multi !== state.multi) { state.picked = s.picked; state.multi = s.multi; }
+  const want = new Set(sel.ids(s));
   const out = [];
-  for (const tr of state.tape.tracks) for (const c of tr.clips) if (state.multi.has(c.id)) out.push({ ...c, track: tr.n });
-  if (out.length !== state.multi.size) state.multi = new Set(out.map((c) => c.id));
+  for (const tr of state.tape.tracks) for (const c of tr.clips) if (want.has(c.id)) out.push({ ...c, track: tr.n });
   return out;
 }
 
-function startMulti(ids) {
-  state.multi = new Set(ids);
-  renderMulti();
-  drawLanes();
-}
+// letGo lets go of every selected clip.
+function letGo() { setSel(sel.none()); }
 
-function endMulti() {
-  state.multi = null;
-  renderMulti();
-  drawLanes();
-}
-
-// toggleMulti adds a clip to the picked ones, or takes it off; the first
-// Shift-click starts from the clip picked already, if any. Align stays one
+// toggleClip adds a clip to the selection, or takes it off. Align stays one
 // clip's.
-function toggleMulti(c) {
+function toggleClip(c) {
   if (state.align) return;
-  if (!state.multi) state.multi = new Set(state.picked && state.picked !== c.id ? [state.picked] : []);
-  if (state.multi.has(c.id)) state.multi.delete(c.id);
-  else state.multi.add(c.id);
-  if (!state.multi.size) { endMulti(); return; }
-  renderMulti();
-  drawLanes();
+  setSel(sel.toggle(selNow(), c.id, state.adding));
 }
 
-function renderMulti() {
-  const n = picks().length;
-  if (state.multi && !n) state.multi = null;
-  $('multi-bar').hidden = !state.multi;
-  setText($('multi-count'), `${n} clip${n === 1 ? '' : 's'}`);
+// selectAll selects every clip on the tape (⌘A or Ctrl+A).
+function selectAll() {
+  if (!state.tape || state.align) return;
+  setSel(sel.all(state.tape.tracks.flatMap((tr) => tr.clips.map((c) => c.id))));
+}
+
+// renderClipBar shows the clip bar while anything is selected: what's
+// selected, and what can be done to it. After a selecting click it waits
+// (waitForBar). Its keys are always the same ones, so it's as tall for one
+// clip as for several: Split, Keep and Details… are one clip's, unlit for
+// several. Align has the clip to itself.
+function renderClipBar() {
+  const ps = state.tape ? picks() : [];
+  const n = ps.length;
+  if (!n) state.adding = false;
+  const bar = $('multi-bar');
+  const was = !bar.hidden;
+  bar.hidden = !n || !!state.align || (!was && performance.now() < barWaitUntil);
+  if (!was && !bar.hidden) barShownAt = performance.now();
+  if (bar.hidden) return;
+  const one = n === 1 && !state.multi ? ps[0] : null;
+  setText($('multi-count'), one
+    ? `Track ${one.track} · ${(one.frames / state.tape.sample_rate).toFixed(1)} s${one.source ? ` · ${one.source}` : ''}`
+    : clipsText(n));
+  for (const b of bar.querySelectorAll('.multi-keys button')) b.disabled = false;
+  for (const id of ['multi-split', 'multi-keep', 'multi-more']) if (!one) $(id).disabled = true;
+  if (one) {
+    // Lit while the playhead is inside it, where it's heard (splitAt).
+    const live = state.live;
+    const here = live ? (live.heardEngine ?? live.heard) - nudgeFrames(one, state.tape.sample_rate) : null;
+    $('multi-split').disabled = here == null || here <= one.at || here >= one.at + one.frames;
+  }
+  $('multi-add').setAttribute('aria-pressed', String(!!state.adding));
 }
 
 const clipsText = (n) => `${n} clip${n === 1 ? '' : 's'}`;
 
-// The clips keys and the bar act on: the ones picked, or else the one clip.
-const keyed = () => (state.multi ? [...state.multi] : state.picked ? [state.picked] : []);
+// The clips keys and the bar act on: the selected ones.
+const keyed = () => sel.ids(selNow());
 
 async function moveClips(ids, dt, dtrack) {
   const e = await edit('move', { clips: ids, dt, dtrack });
@@ -1264,8 +1339,7 @@ async function moveClips(ids, dt, dtrack) {
 async function removeClips(ids) {
   const e = await edit('remove', { clips: ids });
   if (!e) return;
-  if (state.multi) endMulti();
-  if (ids.includes(state.picked)) state.picked = null;
+  letGo();
   toast(`Removed ${clipsText(ids.length)}`, 'ok', { action: undoAction });
 }
 
@@ -1277,9 +1351,8 @@ async function copyClips(ids) {
 async function duplicateClips(ids) {
   const e = await edit('duplicate', { clips: ids });
   if (!e) return;
-  // The copies are picked now, so another ⌘D carries the run on.
-  if (state.multi) { state.multi = new Set(e.ids || []); renderMulti(); } else if (e.ids && e.ids.length) state.picked = e.ids[0];
-  drawLanes();
+  // The copies are selected now, so another ⌘D carries the run on.
+  if (e.ids && e.ids.length) setSel(state.multi ? { picked: null, multi: new Set(e.ids) } : sel.only(e.ids[0]));
   toast(`Copied ${clipsText(e.clips)} after ${ids.length === 1 ? 'itself' : 'themselves'}`, 'ok', { action: undoAction });
 }
 
@@ -1345,9 +1418,10 @@ function laneHit(lane, e) {
   return hitClip(lane.hits, e.clientX - r.left, e.clientY - r.top, gripsOf);
 }
 
-// wireLane: tap a clip for its sheet, or an empty part of the lane to move
-// the playhead (a click, so the sheet opens after the tap is done with);
-// hold a clip, then drag, to slide it along its track, snapping as chosen.
+// wireLane: tap a clip to select it (a double-click for its sheet), or an
+// empty part of the lane to move the playhead (a click, so it comes after
+// the tap is done with); hold a clip, then drag, to slide it along its
+// track, snapping as chosen.
 // Which press is which is lib/tape/clipgestures.js's; this does what it says.
 function wireLane(lane) {
   const cv = lane.canvas;
@@ -1462,10 +1536,21 @@ function wireLane(lane) {
   // A gesture that ended takes its hold with it; another finger's lift doesn't.
   const end = (fx) => { if (fx) clearTimeout(timer); run(fx); };
   cv.addEventListener('contextmenu', (e) => e.preventDefault());
+  let tappedAt = 0;
   cv.addEventListener('click', (e) => {
     if (!gest.clickIsTap()) return; // the end of a slide
     if (performance.now() < state.noClickUntil) return; // the end of a pan or pinch
     laneTap(lane, e);
+    tappedAt = performance.now();
+  });
+  // A double-click on a clip opens its sheet (as Details… and Enter do):
+  // when its second click was a tap, not the end of a slide or a pan, and
+  // not while Select more collects, whose taps add and take off.
+  cv.addEventListener('dblclick', (e) => {
+    if (!state.tape || state.align || state.adding || e.shiftKey || e.metaKey || e.ctrlKey) return;
+    if (performance.now() - tappedAt > 100) return;
+    const hit = laneHit(lane, e);
+    if (hit) { setSel(sel.only(hit.clip.id)); openClip(hit.clip); }
   });
   cv.addEventListener('pointerdown', (e) => {
     if (!state.tape || e.button > 0) return;
@@ -1695,6 +1780,7 @@ function renderAlign() {
   el.hidden = !a;
   el.parentElement.classList.toggle('editing', !!a);
   renderDrawers(); // the drawers wait under the editor, their keys unlit
+  renderClipBar(); // and the clip bar goes: the editor has the clip
   if (!a) return;
   const t = state.tape;
   const sr = t.sample_rate;
@@ -2672,7 +2758,7 @@ function drawLanes() {
         }
         ctx.restore();
       }
-      const picked = (state.clip && state.clip.id === c.id) || aligning || (state.multi && state.multi.has(c.id));
+      const picked = (state.clip && state.clip.id === c.id) || aligning || state.picked === c.id || (state.multi && state.multi.has(c.id));
       ctx.lineWidth = picked ? 2 : 1.5;
       ctx.strokeStyle = picked ? ink : tc;
       block();
@@ -3087,12 +3173,17 @@ function laneTap(lane, e) {
   const r = lane.canvas.getBoundingClientRect();
   const x = e.clientX - r.left;
   const hit = laneHit(lane, e);
-  // With several picked, or with Shift, a tap adds the clip or takes it off.
-  if (hit && (state.multi || e.shiftKey)) { toggleMulti(hit.clip); return; }
-  if (hit) { openClip(hit.clip); return; }
-  // An empty part of a lane moves the playhead there, and lets go of the
-  // picked clip (several picked stay picked).
-  state.picked = null;
+  const mod = e.shiftKey || e.metaKey || e.ctrlKey;
+  // Shift, ⌘ or Ctrl (or Select more) adds the clip or takes it off; a
+  // plain click selects it alone. Its sheet waits for Details…, a
+  // double-click or Enter. While a clip is aligned, it stays the one.
+  if (hit && state.align) return;
+  if (hit) waitForBar();
+  if (hit && (mod || state.adding)) { toggleClip(hit.clip); return; }
+  if (hit) { setSel(sel.only(hit.clip.id)); return; }
+  // An empty part of a lane moves the playhead there, and lets go of what's
+  // selected (not while Select more collects, nor a Shift-click that missed).
+  if (!state.adding && !mod) letGo();
   transport('locate', { pos: frameAt(x, laneView(), r.width) });
   render();
 }
@@ -3143,8 +3234,11 @@ function closeSheets() {
 }
 
 function openClip(c) {
+  setSel(sel.only(c.id));
+  // The sheet's track is the clip's, as a tap on it makes it.
+  const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
+  if (home && home.n !== state.track) { state.track = home.n; render(); }
   state.clip = c;
-  state.picked = c.id;
   // Start here and End here trim to the playhead, where the clip would be
   // placed to sound there (its nudge taken off).
   const live = state.live;
@@ -3162,7 +3256,6 @@ function openClip(c) {
   $('clip-nudge-val').textContent = `${c.nudge_ms || 0} ms`;
   const lp = state.tape.loop;
   $('clip-tile').disabled = !(lp.on && c.at + 2 * c.frames <= lp.out);
-  const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
   $('clip-join').disabled = !home || !joinPartner(home, c);
   $('clip-reverse').textContent = c.reversed ? 'Play forwards' : 'Reverse';
   renderFades(c);
@@ -3392,13 +3485,14 @@ function wire() {
       undoRedo(e.shiftKey);
       return;
     }
-    // ⌘C or Ctrl+C copies the picked clips (or the one picked clip) as they
-    // lie, unless there's text selected to copy; ⌘D or Ctrl+D lays a copy
-    // of them right after them.
+    // ⌘C or Ctrl+C copies the selected clips as they lie, unless there's
+    // text selected to copy; ⌘D or Ctrl+D lays a copy of them right after
+    // them; ⌘A or Ctrl+A selects every clip.
     if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && !typing && !e.repeat && !state.align && !document.querySelector('dialog[open]')) {
       const ids = keyed();
       if (e.code === 'KeyC' && ids.length && !String(window.getSelection?.() || '')) { e.preventDefault(); copyClips(ids); return; }
       if (e.code === 'KeyD' && ids.length) { e.preventDefault(); duplicateClips(ids); return; }
+      if (e.code === 'KeyA' && state.tape) { e.preventDefault(); selectAll(); return; }
     }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (document.querySelector('dialog[open]')) return; // a sheet's keys are its own
@@ -3428,15 +3522,29 @@ function wire() {
       if (inside) $(`np-drawer-${key}`).focus(); // not lost to the page
       return;
     }
-    // Escape lets go of several picked clips, then of the picked clip.
-    if (e.key === 'Escape' && !menuWasOpen && state.multi) {
-      endMulti();
+    // Escape lets go of the selected clips.
+    if (e.key === 'Escape' && !menuWasOpen && keyed().length) {
+      letGo();
       return;
     }
-    if (e.key === 'Escape' && !menuWasOpen && state.picked) {
-      state.picked = null;
-      drawLanes();
-      return;
+    // On the selection, from the page (not a focused key or field): Enter
+    // opens the one clip's sheet, ← and → move them a snap step (Shift a
+    // bar).
+    const onPage = !e.target.closest?.('button, a, input, select, textarea, [role="slider"], [tabindex]');
+    if (onPage && !e.repeat && !state.align && !menusOpen() && keyed().length) {
+      if (e.key === 'Enter' && state.picked && !state.multi) {
+        const c = picks()[0];
+        if (c) { e.preventDefault(); openClip(c); return; }
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const step = keyStep(state.tape.grid, state.snap, state.tape.sample_rate, e.shiftKey);
+        // As far as the tape goes, as a drag does.
+        const ps = picks();
+        const { dt } = groupMove(ps, e.key === 'ArrowLeft' ? -step : step, 0, { tracks: state.tape.tracks.length, length: state.tape.length });
+        if (dt) moveClips(ps.map((c) => c.id), dt, 0);
+        return;
+      }
     }
     if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('play').click(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
@@ -3458,7 +3566,9 @@ function wire() {
       // Back five seconds, as ↺ 5 s does on a take.
       // From what this device hears: on a phone playing here, behind the Pi.
       case 'KeyJ': if (!e.repeat) transport('locate', { pos: Math.max(0, (state.live ? state.live.heard : 0) - 5 * state.tape.sample_rate) }); break;
-      case 'KeyS': if (!state.align) press('ed-split'); break;
+      // S splits the one selected clip, as the clip bar's Split does; with
+      // none, the selected track.
+      case 'KeyS': if (!state.align) press(state.picked && !state.multi ? 'multi-split' : 'ed-split'); break;
       case 'Delete': case 'Backspace': {
         // Not while a clip is aligned: the editor's clip is the picked one.
         const ids = state.align || e.repeat ? [] : keyed();
@@ -3531,16 +3641,44 @@ function wire() {
   $('clip-keep-board').addEventListener('click', () => keep({ clipboard: true }));
   wireCrate();
   wireTimeEdits();
-  $('clip-select').addEventListener('click', () => {
-    const c = state.clip;
-    $('clip-sheet').close();
-    if (c) startMulti([c.id]);
+  // The clip bar.
+  $('multi-split').addEventListener('click', () => {
+    const c = picks()[0];
+    if (!c) return;
+    state.track = c.track; // a split cuts the selected track at the playhead
+    split();
   });
   $('multi-move').addEventListener('click', moveHere);
   $('multi-copy').addEventListener('click', () => copyClips(keyed()));
+  $('multi-dup').addEventListener('click', () => duplicateClips(keyed()));
   $('multi-reverse').addEventListener('click', () => reverseClips(keyed()));
+  $('multi-keep').addEventListener('click', () => { if (state.picked) keep({ tape: state.id, clip: state.picked }); });
+  $('multi-more').addEventListener('click', () => { const c = picks()[0]; if (c) openClip(c); });
+  $('multi-add').addEventListener('click', () => {
+    state.adding = !state.adding;
+    // Collecting from one clip: it stays selected as the first of several.
+    if (state.adding && state.picked) setSel({ picked: null, multi: new Set([state.picked]) });
+    else if (!state.adding) setSel(sel.settle(selNow()));
+    else renderClipBar();
+  });
+  // The bar comes up where the pointer may be (on a phone over the page,
+  // on a desk taking the lanes' height): a click just then, a slow
+  // double-click's second, isn't a press of whichever key is there.
+  $('multi-bar').addEventListener('click', (e) => {
+    if (performance.now() - barShownAt < 300) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+  // A click doesn't take the page's keys to the bar's key (Enter would
+  // press it again; the arrows would stop moving the clips).
+  $('multi-bar').addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
+  // On a phone the page leaves room under it for the bar, as tall as it is.
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(() => {
+      const h = $('multi-bar').offsetHeight;
+      if (h) document.body.style.setProperty('--clipbar-h', `${h}px`);
+    }).observe($('multi-bar'));
+  }
   $('multi-remove').addEventListener('click', () => removeClips(keyed()));
-  $('multi-done').addEventListener('click', endMulti);
+  $('multi-done').addEventListener('click', letGo);
   for (const edge of ['in', 'out']) {
     $(`clip-trim-${edge}`).addEventListener('click', () => {
       const c = state.clip;

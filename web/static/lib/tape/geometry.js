@@ -177,6 +177,20 @@ export function slideTo(grid, at, df, snap) {
   return to;
 }
 
+/**
+ * keyStep is how far ← or → moves the selected clips: one step of the snap
+ * (a bar, a beat or an eighth), or with Shift a bar. With the snap off, a
+ * tenth of a second (Shift: still a bar); without a tempo, a tenth of a
+ * second (Shift: a second).
+ */
+export function keyStep(grid, snap, sampleRate, big = false) {
+  const bar = grid && grid.frames > 0 && grid.bars > 0 ? grid.frames / grid.bars : 0;
+  if (bar && big) return Math.round(bar);
+  const s = SNAPS.find((x) => x.id === snap);
+  if (!bar || !s || !s.per) return Math.round((big ? 1 : 0.1) * sampleRate);
+  return Math.round(bar / s.per);
+}
+
 /** nudgeFrames is how far from its `at` a clip sounds, as the Pi rounds it. */
 export function nudgeFrames(clip, sampleRate) {
   return Math.round(((clip.nudge_ms || 0) / 1000) * sampleRate);

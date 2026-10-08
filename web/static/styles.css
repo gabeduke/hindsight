@@ -3159,9 +3159,14 @@ input, select, textarea { color-scheme: inherit; }
 .crate-empty { margin: 0; }
 a.crate-chip { text-decoration: none; }
 .detail-crate { align-self: flex-start; color: var(--ink-dim); font: 13px var(--font); }
-/* Several clips picked: their count and what they do together, in a row. */
-.np-dock > .multi-bar:not([hidden]) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; }
-.multi-count { margin-right: auto; color: var(--ink-dim); }
+/* The clip bar: what's selected and what to do to it, in one row, as tall
+   for one clip as for several. Its keys scroll sideways when the row is
+   too narrow for them all. */
+.np-dock > .multi-bar:not([hidden]) { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; padding: 8px 12px; }
+.multi-count { flex: 0 1 auto; min-width: 0; max-width: 32%; color: var(--ink-dim); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.multi-keys { flex: 1 1 0; display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.multi-keys > :first-child { margin-left: auto; }
+.multi-keys .icon-btn { flex: none; padding: 0 10px; white-space: nowrap; }
 .np-dock.editing > .np-drawer { display: none; }
 .np-drawer-strip { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 6px 0 14px; border-bottom: 1px solid var(--edge-soft); }
 .np-grip { flex: none; width: 40px; height: 7px; border-top: 1px solid var(--edge-strong); border-bottom: 1px solid var(--edge-strong); opacity: .7; }
@@ -3303,12 +3308,34 @@ a.crate-chip { text-decoration: none; }
   .tt-lane { position: static; min-height: 64px; height: auto; }
   .np-dock { padding: 0 12px 12px; }
   .np-drawer, .np-drawer.open, .np-dock > .clip-editor:not([hidden]), .np-dock > .multi-bar:not([hidden]) { display: block; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
-  .np-dock > .multi-bar:not([hidden]) { display: flex; padding: 0 0 8px; }
+  .np-dock > .multi-bar:not([hidden]) { display: flex; flex-wrap: wrap; padding: 0 0 8px; }
   .np-dock > .clip-editor:not([hidden]) { display: grid; padding: 0 0 8px; }
+  /* A picked clip's bar floats just over the mini player, where the thumb
+     is, not down the page under the drawers, and not in the player, which
+     hides the lanes. Upright, what's picked is a row over its keys. */
+  body.player-open .np-dock > .multi-bar:not([hidden]) { display: none; }
+  .multi-count { flex: 1 1 100%; max-width: none; }
+  .multi-keys > :first-child { margin-left: 0; }
+  body.tape-page { --clipbar-h: 88px; }
+  body.tape-page:not(.player-open) .np-dock > .multi-bar:not([hidden]) {
+    position: fixed; left: 0; right: 0; bottom: calc(var(--dock-b, 0px) + var(--np-h)); z-index: 1;
+    row-gap: 6px; padding: 8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));
+    background: linear-gradient(180deg, var(--face-hi), var(--face-lo)); border-top: 1px solid var(--edge);
+    box-shadow: 0 -6px 14px -10px var(--sh-strong);
+  }
+  body.tape-page:not(.player-open):has(#multi-bar:not([hidden])) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h) + var(--clipbar-h)); }
+  body.tape-page:not(.player-open):has(#multi-bar:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--dock-b, 0px) + var(--np-h) + var(--clipbar-h) + 12px); }
   .np-drawer-strip { display: none; }
   .np-drawer-body { display: flex; flex-direction: column; gap: 8px; padding: 0 0 8px; }
   .np-col { gap: 8px; }
   .tape-top .out-anchor { display: inline-flex; }
+}
+/* On its side, the clip bar is one row, so the lanes keep some height. */
+@media (orientation: landscape) and (max-height: 440px) {
+  body.tape-page { --clipbar-h: 60px; }
+  body.tape-page:not(.player-open) .np-dock > .multi-bar:not([hidden]) { flex-wrap: nowrap; }
+  body.tape-page:not(.player-open) .multi-bar .multi-count { flex: 0 1 auto; max-width: 30%; }
+  body.tape-page:not(.player-open) .multi-bar .multi-keys { flex: 1 1 0; }
 }
 @media (max-width: 479.98px) {
   /* The player's LCD keeps its room for where it is. */
