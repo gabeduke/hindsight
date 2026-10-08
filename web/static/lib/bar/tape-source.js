@@ -159,6 +159,13 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     marquee: () => (t ? tapeMarquee(t, live) : 'THE TAPE'),
     levels: null,
     out: () => OUT_NAMES[(live && live.output_mode) || 'jam'],
+    // Where it plays, for the header's output button: null before the Pi
+    // says, or from one that doesn't.
+    mode: () => (live && live.output_mode) || null,
+    // How late a phone hears it, as the Pi measured it.
+    streamDelayMs: () => (live && live.stream && live.stream.delay_ms) || 0,
+    /** refresh asks the Pi now, after a change made elsewhere. */
+    refresh: () => poll(),
     paint(ctx, W, H, col) {
       if (!t) { ctx.clearRect(0, 0, W, H); return; }
       paintTapeOverview(ctx, W, H, t, live ? pos() : null, { col });

@@ -46,6 +46,9 @@
     <span class="dot" id="health-dot"></span>
     <span id="health-text">connecting</span>
   </div>
+  <!-- Where the tape plays (lib/tape/out-switch.js): a speaker, headphones or
+       both, and the place's name on a wide screen. Hidden until the Pi says. -->
+  <button id="out-btn" class="out-btn tape-out" type="button" aria-haspopup="dialog" aria-label="Output" data-tip="tape-out" hidden><span class="out-ico-slot" aria-hidden="true"></span><span class="tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
 </header>
 

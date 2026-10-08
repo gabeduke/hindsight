@@ -1,15 +1,15 @@
-// Where the tape plays: the OUT pill, the Output sheet, the status strip
+// Where the tape plays, on the tape page: the output button and the Output
+// sheet (out-switch.js, shared with Takes and Capture), the status strip
 // across the top of the bar, and the banner other devices show while a phone has it.
 import { StreamPlayer } from './stream-player.js';
-import { rejoin, rememberListener } from './listener.js';
+import { rejoin } from './listener.js';
 import { barBeat } from './geometry.js';
+import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from './out-switch.js';
 
-const NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 const REPLAY_MS = 30000; // play on after a loss shorter than this
 const $ = (id) => document.getElementById(id);
 
-export function initOutput({ api, toast, poll, transport, getTape, getGhost = () => null }) {
-  const sheet = $('out-sheet');
+export function initOutput({ toast, poll, transport, getTape, getGhost = () => null }) {
   let live = null;
   let wasPlaying = false; // the tape was playing here when the stream was last fine
   const player = new StreamPlayer({
@@ -36,43 +36,10 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
     if (live && (live.playing || live.count_in > 0)) e.stopImmediatePropagation();
   }, true);
 
-  async function setMode(mode) {
-    // Already listening, with the sound held back: this tap wakes it.
-    if (mode !== 'jam' && player.active) player.resume();
-    // The audio starts inside the tap that chose it, before any await: a
-    // phone's browser only lets a tap start sound.
-    const starting = mode !== 'jam' && !player.active ? player.start() : null;
-    // If the PUT fails first, a later start failure must not go unhandled.
-    if (starting) starting.catch(() => {});
-    let put = false;
-    try {
-      await api('/api/tapes/output', { method: 'PUT', body: { mode } });
-      put = true;
-      await starting;
-      if (mode === 'jam') player.stop();
-      // The next page joins the stream again (listener.js).
-      rememberListener(mode !== 'jam' && player.active);
-      setTimeout(poll, 100);
-    } catch (e) {
-      if (starting) player.stop();
-      // The phone never started: don't leave the jam room silent.
-      if (put && mode !== 'jam') {
-        try { await api('/api/tapes/output', { method: 'PUT', body: { mode: 'jam' } }); } catch { /* best effort */ }
-        poll();
-      }
-      toast(e.message, 'bad');
-    }
-  }
-
-  // Two OUT pills, one control: the bar's, and the header's on a phone.
-  const openSheet = () => {
-    const t = getTape();
-    $('out-tape-name').textContent = (t && t.name) || 'this tape';
-    sheet.showModal();
-  };
-  for (const b of document.querySelectorAll('.tape-out')) b.addEventListener('click', openSheet);
-  $('out-close').addEventListener('click', () => sheet.close());
-  for (const b of sheet.querySelectorAll('.out-choice')) b.addEventListener('click', () => setMode(b.dataset.mode));
+  const setMode = (mode) => switchOutput(mode, { player, poll, toast });
+  // Two output buttons, one control: the header's, and the OUT pill in the
+  // phone's open player.
+  wireOutput({ choose: setMode, name: () => getTape() && getTape().name });
   $('out-jam').addEventListener('click', () => setMode('jam'));
 
   const ghostNow = () => { const g = getGhost(); return g && performance.now() < g.until && getTape() && getTape().grid ? g : null; };
@@ -83,15 +50,9 @@ export function initOutput({ api, toast, poll, transport, getTape, getGhost = ()
     const mode = (l && l.output_mode) || 'jam';
     const st = (l && l.stream) || {};
     const here = player.active;
-    const delay = `${((here ? player.delayMs() : st.delay_ms) / 1000 || 0.8).toFixed(1)} s`;
-    for (const b of document.querySelectorAll('.tape-out')) {
-      b.hidden = !(l && l.output_mode);
-      const txt = b.querySelector('.tape-out-text');
-      if (txt.textContent !== NAMES[mode]) txt.textContent = NAMES[mode];
-    }
-    for (const b of sheet.querySelectorAll('.out-choice')) b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
-    $('out-measured').hidden = mode === 'jam';
-    $('out-delay').textContent = delay;
+    const delay = outDelay(here ? player.delayMs() : st.delay_ms);
+    paintOutButtons(l && l.output_mode);
+    paintOutSheet(mode, delay);
     // Another device has the tape: say so, and offer it back.
     const elsewhere = mode === 'phone' && !here;
     $('out-banner').hidden = !elsewhere;

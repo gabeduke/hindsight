@@ -170,7 +170,7 @@ async function boot() {
       if (output && output.streamingHere() && state.live && state.live.output_mode === 'phone') transport('stop');
     },
   });
-  output = initOutput({ api, toast, poll, transport, getTape: () => state.tape, getGhost: () => ghost });
+  output = initOutput({ toast, poll, transport, getTape: () => state.tape, getGhost: () => ghost });
   let list;
   try {
     list = await api('/api/tapes');
@@ -2569,7 +2569,7 @@ function buildLanes() {
         <div class="tt-head" data-tip="track">
           <span class="tt-num" aria-hidden="true"></span>
           <button class="tt-name" type="button"></button>
-          <button class="chip tt-bus" type="button" data-tip="bus"></button>
+          <button class="chip tt-bus" type="button" data-tip="bus"><span class="tt-bus-k" aria-hidden="true">bus</span><span class="tt-bus-v"></span></button>
           <button class="chip tt-mute" type="button" aria-pressed="false" data-tip="track-mute">M</button>
           <button class="chip tt-solo" type="button" aria-pressed="false" data-tip="track-solo">S</button>
           <span class="tt-pend" hidden></span>
@@ -2628,7 +2628,13 @@ function drawLanes() {
     lane.name.textContent = tr.name || '';
     lane.name.setAttribute('aria-label', `Track ${tr.n}${tr.name ? `, ${tr.name}` : ''}`);
     lane.name.title = tr.name ? `${tr.n} ${tr.name}` : `Track ${tr.n}`;
-    lane.bus.textContent = tr.bus;
+    // "bus A", small over the letter: it's the Sidekick channel the track
+    // plays through, not a record arm.
+    if (lane.bus.dataset.bus !== tr.bus) {
+      lane.bus.dataset.bus = tr.bus;
+      lane.bus.querySelector('.tt-bus-v').textContent = tr.bus;
+      lane.bus.setAttribute('aria-label', `Bus ${tr.bus}`);
+    }
     lane.mute.setAttribute('aria-pressed', String(!!tr.mute));
     lane.solo.setAttribute('aria-pressed', String(!!tr.solo));
     // The keys show the ask; the lane dims with the sound, until it is heard.
@@ -3376,8 +3382,8 @@ async function openMenu() {
 
 function wire() {
   $('jam-only-close').addEventListener('click', () => $('jam-only').close());
-  $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('tape-out').click(); });
-  $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('tape-out').click(); });
+  $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('out-btn').click(); });
+  $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('out-btn').click(); });
   $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
   // The bar's drawer keys open one drawer, or close it; its ✕ closes it.
   $('np-drawer-rec').addEventListener('click', () => setDrawer(state.drawer === 'rec' ? '' : 'rec'));

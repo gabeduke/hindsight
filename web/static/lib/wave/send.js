@@ -1,6 +1,6 @@
 // web/static/lib/wave/send.js
-// Send to tape, in words: what it will do with this take before the tap, and
-// what it did after. Where it lands is the Pi's to decide (internal/tape/
+// Send to → Tape, in words: what it will do with this take before the tap,
+// and what it did after. Where it lands is the Pi's to decide (internal/tape/
 // send.go); this only says it, so the hint below can be a little behind the
 // server and never wrong about a take that has a tempo.
 
@@ -16,7 +16,7 @@ export function fmtBpm(bpm) {
 const hasTempo = (bpm) => Number.isFinite(bpm) && bpm >= 20 && bpm <= 400;
 
 /**
- * sendHint is what a tap on Send to tape will do, in one short line.
+ * sendHint is what Send to → Tape will do, in one short line.
  * bpm is the take's tempo (null for none); region is the selection or null;
  * total is the take's frames; sr its sample rate.
  */
@@ -24,7 +24,7 @@ export function sendHint({ bpm, region, total, sr }) {
   const what = region ? 'the selection' : 'the whole take';
   const frames = region ? region.end - region.start : total;
   if (hasTempo(bpm)) {
-    return `Sends ${what} at ${fmtBpm(bpm)} BPM, bar 1 on a tape bar line`;
+    return `Sends ${what} at ${fmtBpm(bpm)} BPM, its downbeat on a tape bar line`;
   }
   if (frames > FIRST_LOOP_MAX_S * sr) {
     return `Sends ${what} at the tape's playhead as one clip, no loop; an empty tape gets no tempo`;
@@ -43,7 +43,7 @@ export function sentMessage(res, len, track = 1) {
     case 'grid': {
       const tempo = res.tempo_set ? `, the tape is now ${fmtBpm(res.bpm)} BPM` : '';
       // No bar when the selection left the downbeat out: it still sits on the lines.
-      const where = res.bar ? `bar 1 on tape bar ${res.bar}` : "on the tape's bar lines";
+      const where = res.bar ? `the downbeat on tape bar ${res.bar}` : "on the tape's bar lines";
       return { msg: `${head}: ${where}${tempo}`, kind: 'ok' };
     }
     case 'first-loop':

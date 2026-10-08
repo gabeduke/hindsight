@@ -12,6 +12,7 @@ import { takeSource } from './take-source.js';
 import { initPlayer } from './player.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
+import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -161,6 +162,9 @@ export class NowPlaying {
     setAttr(open, 'href', s.href);
     setText(open, s.kind === 'tape' ? `Open ${s.title} ›` : 'Open the take ›');
     setText($('np-out'), s.out());
+    // Where the tape plays is the header's output button; a take plays
+    // here, and the bar says so.
+    $('np-out').parentElement.hidden = s.kind === 'tape';
     // The strip, and what a screen reader hears of it.
     const r = this.scrub.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -205,6 +209,21 @@ export function pageBar({ tapes, onToast }) {
     if (take) stream.setQuiet(true); // picked before the tape's state was in
     else bar.load(tape);
     eject();
+    // The header's output button: where the tape plays, chosen from here as
+    // on the tape page. Choosing to hear it here puts the tape back in the bar.
+    wireOutput({
+      name: () => tape.title,
+      choose: (mode) => {
+        if (mode !== 'jam') backToTape();
+        return switchOutput(mode, { player: stream, poll: tape.refresh, toast: (m, k) => onToast?.(m, k) });
+      },
+    });
+    const paintOut = () => {
+      const mode = tape.mode();
+      paintOutButtons(mode);
+      paintOutSheet(mode || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
+    };
+    tape.on(paintOut);
     return new Promise((done) => { tape.on(done); setTimeout(done, 1500); });
   });
   function backToTape({ byHand = false } = {}) {
@@ -257,8 +276,8 @@ export function pageBar({ tapes, onToast }) {
 }
 
 /**
- * tapeStream is the tape's stream player on Takes and Capture: started only
- * by joining again (OUT is chosen on the tape page), and heard once ▶ is
+ * tapeStream is the tape's stream player on Takes and Capture: started by
+ * joining again, or by the header's output button, and heard once ▶ is
  * tapped if the browser held its sound back. As on the tape page, a loss
  * that stopped the tape (6 s) plays on when the stream is back soon.
  */
