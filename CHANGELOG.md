@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.08.2 — 2026-10-08
+
+- Record v2026.10.08.1 in the changelog [skip ci] (d6976f5)
+- Tape: the lock dot is grey while the tape is stopped (10b6dee)
+- Tape: the RECORDING sign shows only while recording (d11bf00)
+
+
 ## v2026.10.08.1 — 2026-10-08
 
 - Tape: the clip bar waits for a double-click; review fixes (19b7908)
