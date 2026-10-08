@@ -404,7 +404,7 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
   // back.
   const n0 = (await loadedState()).tape.tracks[0].clips.length;
   const rx = lane.x + ((c0.at + c0.frames - from) / (to - from)) * lane.w - 12;
-  const ry = await p.evaluate(() => document.querySelector('.tt-lane').getBoundingClientRect().top + 12);
+  const ry = await p.evaluate(() => { const b = document.querySelector('.tt-lane').getBoundingClientRect(); return b.top + b.height - 12; }); // bottom right
   await p.mouse.move(rx, ry);
   await p.mouse.down();
   await p.mouse.move(lane.x + lane.w - 8, ry, { steps: 8 });
@@ -423,6 +423,23 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
   // (Reloaded: the corner's drag scrolled the view.)
   await p.reload();
   await p.waitForTimeout(2000);
+  // Its fade handle, the square at its top right, dragged in a bar: a fade
+  // out a bar long, on the bar snap; ↶ takes it off.
+  s = await spot(c0);
+  await p.mouse.click(s.x, s.y);
+  await p.waitForTimeout(800);
+  const fy = await p.evaluate(() => document.querySelector('.tt-lane').getBoundingClientRect().top + 10);
+  const fx = lane.x + ((c0.at + c0.frames - from) / (to - from)) * lane.w - 8;
+  await p.mouse.move(fx, fy);
+  await p.mouse.down();
+  await p.mouse.move(fx - s.perBar, fy, { steps: 8 });
+  await p.mouse.up();
+  await p.waitForTimeout(1000);
+  const faded = (await loadedState()).tape.tracks[0].clips.find((x) => x.id === c0.id);
+  check('a clip: its fade handle dragged in a bar fades it out over a bar', !!faded && Math.abs((faded.fade_out || 0) - c1.bar) <= 1, JSON.stringify(faded && faded.fade_out));
+  await p.click('#tape-undo');
+  await p.waitForTimeout(1000);
+  check('a clip: ↶ takes the fade off', !((await loadedState()).tape.tracks[0].clips.find((x) => x.id === c0.id) || {}).fade_out);
   s = await spot(c0);
   await p.mouse.click(s.x, s.y);
   await p.waitForTimeout(800);

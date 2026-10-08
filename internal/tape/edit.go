@@ -328,7 +328,7 @@ func (s *State) join(id string) error {
 				return fmt.Errorf("%w: the two halves have a different level or nudge; set them the same first", ErrBadParameter)
 			}
 			tr.Clips[first].Frames += b.Frames
-			tr.Clips[first].FadeOut = b.FadeOut // the outer fades: a's in, b's out
+			tr.Clips[first].FadeOut, tr.Clips[first].FadeOutShape = b.FadeOut, b.FadeOutShape // the outer fades: a's in, b's out
 			tr.Clips = append(tr.Clips[:second], tr.Clips[second+1:]...)
 			return nil
 		}
@@ -592,6 +592,7 @@ func (e *Engine) reverseClips(t *Tape, ids []string) (EditResult, error) {
 			}
 			c.File, c.Src, c.Reversed = tn.file, tn.src, tn.rev
 			c.FadeIn, c.FadeOut = c.FadeOut, c.FadeIn // backwards, its end is its start
+			c.FadeInShape, c.FadeOutShape = c.FadeOutShape, c.FadeInShape
 		}
 		return nil
 	})

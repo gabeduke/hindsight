@@ -153,13 +153,52 @@ type Clip struct {
 	// copy of the one it came from, which this names. Never changed in
 	// place, so a copy of a clip can share it.
 	Reversed *Reversal `json:"reversed,omitempty"`
-	// FadeIn and FadeOut shape the clip's ends, in frames: an equal-power
-	// rise from silence over its first FadeIn frames, and a fall over its
-	// last FadeOut. 0 is none; the 3 ms declick, or a crossfade where it
-	// meets audio, applies under either way. A clip cut in two keeps each
-	// fade on the piece with that end.
+	// FadeIn and FadeOut shape the clip's ends, in frames: a rise from
+	// silence over its first FadeIn frames, and a fall over its last
+	// FadeOut. 0 is none; the 3 ms declick, or a crossfade where it meets
+	// audio, applies under either way. A clip cut in two keeps each fade on
+	// the piece with that end.
 	FadeIn  int64 `json:"fade_in,omitempty"`
 	FadeOut int64 `json:"fade_out,omitempty"`
+	// FadeInShape and FadeOutShape are the fades' curves (FadeLinear and the
+	// rest); "" is equal power, as every fade was before there was a choice.
+	// Kept with no fade too, for the next one drawn.
+	FadeInShape  string `json:"fade_in_shape,omitempty"`
+	FadeOutShape string `json:"fade_out_shape,omitempty"`
+}
+
+// The curves a fade can take, by the name a clip keeps.
+const (
+	FadeEqualPower = ""       // a quarter sine: even over a beat, the default
+	FadeLinear     = "linear" // a straight line in level
+	FadeS          = "s"      // slow off both ends, quick through the middle
+	FadeExp        = "exp"    // even in decibels: a fall that drops early and tails off
+)
+
+// ValidFadeShape says whether s names a fade curve.
+func ValidFadeShape(s string) bool {
+	switch s {
+	case FadeEqualPower, FadeLinear, FadeS, FadeExp:
+		return true
+	}
+	return false
+}
+
+// fadeCurve is a fade's gain x of the way up from silence (0 to 1) on the
+// curve shape names; a fall is the same read backwards. Every curve runs
+// from 0 to 1, so a fade of any shape starts silent and ends at full.
+func fadeCurve(shape string, x float64) float64 {
+	switch shape {
+	case FadeLinear:
+		return x
+	case FadeS:
+		return (1 - math.Cos(x*math.Pi)) / 2
+	case FadeExp:
+		// 60 dB, straight in decibels down to its foot, then to silence.
+		return (math.Pow(1000, x) - 1) / 999
+	default:
+		return math.Sin(x * math.Pi / 2)
+	}
 }
 
 // fades are a clip's fades as they play: no longer than the clip between
@@ -173,10 +212,10 @@ func (c Clip) fades() (in, out int64) {
 	return in, out
 }
 
-// fadeGain is an equal-power fade's gain local frames into a clip of frames
-// frames, with in and out frames of fade (Clip.fades): sin of a quarter
-// turn as it rises, the same as it falls.
-func fadeGain(local, frames, in, out int64) float64 {
+// fadeGain is a clip's fades' gain local frames into it: frames long, with
+// in and out frames of fade (Clip.fades) on the curves inShape and
+// outShape name (fadeCurve), the fall the rise read backwards.
+func fadeGain(local, frames, in, out int64, inShape, outShape string) float64 {
 	// Outside the clip a faded edge has faded: the loop's wrap reads a little
 	// past a clip's end, where the sine would turn negative.
 	if left := frames - local; (in > 0 && local < 0) || (out > 0 && left <= 0) {
@@ -184,10 +223,10 @@ func fadeGain(local, frames, in, out int64) float64 {
 	}
 	g := 1.0
 	if in > 0 && local < in {
-		g *= math.Sin((float64(local) + 0.5) / float64(in) * math.Pi / 2)
+		g *= fadeCurve(inShape, (float64(local)+0.5)/float64(in))
 	}
 	if left := frames - local; out > 0 && left <= out {
-		g *= math.Sin((float64(left) - 0.5) / float64(out) * math.Pi / 2)
+		g *= fadeCurve(outShape, (float64(left)-0.5)/float64(out))
 	}
 	return g
 }

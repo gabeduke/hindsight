@@ -407,7 +407,7 @@ func (e *Engine) ClipboardAudio() ([]float32, error) {
 					if k >= 0 && k < n {
 						fg := g
 						if fin > 0 || fout > 0 { // its fades, as a drop plays them
-							fg *= float32(fadeGain(k-cl.At, cl.Frames, fin, fout))
+							fg *= float32(fadeGain(k-cl.At, cl.Frames, fin, fout, cl.FadeInShape, cl.FadeOutShape))
 						}
 						out[2*k] += l * fg
 						out[2*k+1] += r * fg

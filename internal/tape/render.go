@@ -198,6 +198,9 @@ type mixClip struct {
 	// and enters it at In mid-way. At the wrap, what it would have played
 	// after Out fades out as what's at In fades in.
 	crossOut, crossIn bool
+
+	// The curves of its fades (fadeCurve).
+	fadeInShape, fadeOutShape string
 }
 
 func dbToGain(db float64) float32 { return float32(math.Pow(10, db/20)) }
@@ -239,6 +242,7 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 			nudge := int64(math.Round(c.NudgeMS / 1000 * float64(sampleRate)))
 			mc := &mixClip{at: c.At + nudge, end: c.End() + nudge, src: c.Src, gain: dbToGain(c.GainDB), audio: a}
 			mc.fadeIn, mc.fadeOut = c.fades()
+			mc.fadeInShape, mc.fadeOutShape = c.FadeInShape, c.FadeOutShape
 			if m.loop.On {
 				mc.crossOut = mc.at < m.loop.Out && mc.end > m.loop.Out
 				mc.crossIn = mc.at < m.loop.In && mc.end > m.loop.In
@@ -432,7 +436,7 @@ func (c *mixClip) fade(local int64) float32 {
 	if c.fadeIn == 0 && c.fadeOut == 0 {
 		return 1
 	}
-	return float32(fadeGain(local, c.end-c.at, c.fadeIn, c.fadeOut))
+	return float32(fadeGain(local, c.end-c.at, c.fadeIn, c.fadeOut, c.fadeInShape, c.fadeOutShape))
 }
 
 // sample is clip c's contribution at tape frame f, edges applied.

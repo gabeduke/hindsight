@@ -6,7 +6,9 @@
 // The parts of a block (zones):
 //   body      the block: tap it to select it, hold it and drag to slide it
 //   in, out   its left and right edges: grips, for the steps that add them
-//   repeat    its top-right corner: a grip, for the step that adds it
+//   fadein,   along its top edge, at the end of its fade in and the start of
+//   fadeout   its fade out (at the corners, with none): drag to set them
+//   repeat    its bottom-right corner: a grip, for the step that adds it
 // Zones are in CSS pixels, so a grip is HANDLE_PX wide at any zoom. A block
 // too narrow to hold its grips and still leave a body gets none; its sheet
 // does what they would.
@@ -21,23 +23,34 @@
 export const HOLD_MS = 300;        // the tape's hold (the take page's is 350)
 export const SLOP_PX = 8;          // a finger this still is a press, not a drag
 export const HANDLE_PX = 24;       // a grip's width (and the corner's height)
+export const FADE_PX = 24;         // the fade handles' strip along the top edge (a finger's)
 export const MIN_GRIPS_PX = 3 * HANDLE_PX; // two grips and a body between
 export const CLICK_GRACE_MS = 600; // a click this soon after a drag ends it, not a tap
 export const EDGE_PX = 32;         // a grip held this near a lane's end scrolls the view
 
 /**
  * zonesOf is the zones of one block, the grips first: a block is {x0, x1,
- * top, h} in CSS pixels on its lane, and `kinds` the grips it offers ('in',
- * 'out', 'repeat'). A zone is {zone, x0, x1} and, for the corner, y0 and y1;
- * the others take the lane's whole height. With no kinds, or too narrow a
- * block, it's the body alone.
+ * top, h, fi, fo} in CSS pixels on its lane (fi and fo its fades' widths),
+ * and `kinds` the grips it offers ('fadein', 'fadeout', 'repeat', 'in',
+ * 'out'). A zone is {zone, x0, x1} and, for a handle or the corner, y0 and
+ * y1; the edges take the lane's whole height below the fade handles. With
+ * no kinds, or too narrow a block, it's the body alone.
  */
 export function zonesOf(block, kinds = []) {
-  const { x0, x1, top = 0, h = 0 } = block;
+  const { x0, x1, top = 0, h = 0, fi = 0, fo = 0 } = block;
   const body = { zone: 'body', x0, x1 };
   if (!kinds.length || x1 - x0 < MIN_GRIPS_PX) return [body];
   const zones = [];
-  if (kinds.includes('repeat')) zones.push({ zone: 'repeat', x0: x1 - HANDLE_PX, x1, y0: top, y1: top + Math.min(HANDLE_PX, h / 2) });
+  // A fade handle is HANDLE_PX wide, centred on where its fade meets the
+  // rest of the clip and kept inside the block, in the strip along its top.
+  const strip = Math.min(FADE_PX, h / 3);
+  const handle = (zone, x) => {
+    const a = Math.min(Math.max(x - HANDLE_PX / 2, x0), x1 - HANDLE_PX);
+    zones.push({ zone, x0: a, x1: a + HANDLE_PX, y0: top, y1: top + strip });
+  };
+  if (kinds.includes('fadein')) handle('fadein', x0 + fi);
+  if (kinds.includes('fadeout')) handle('fadeout', x1 - fo);
+  if (kinds.includes('repeat')) zones.push({ zone: 'repeat', x0: x1 - HANDLE_PX, x1, y0: top + h - Math.min(HANDLE_PX, h / 2), y1: top + h });
   if (kinds.includes('in')) zones.push({ zone: 'in', x0, x1: x0 + HANDLE_PX });
   if (kinds.includes('out')) zones.push({ zone: 'out', x0: x1 - HANDLE_PX, x1 });
   zones.push(body);

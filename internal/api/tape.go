@@ -242,9 +242,13 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			NudgeMS *float64 `json:"nudge_ms"`
 			Remove  bool     `json:"remove"`
 			Tile    bool     `json:"tile"`
-			// FadeIn and FadeOut set its fades, in frames (0: none).
-			FadeIn  *int64 `json:"fade_in"`
-			FadeOut *int64 `json:"fade_out"`
+			// FadeIn and FadeOut set its fades, in frames (0: none), and
+			// FadeInShape and FadeOutShape their curves ("", "linear", "s",
+			// "exp").
+			FadeIn       *int64  `json:"fade_in"`
+			FadeOut      *int64  `json:"fade_out"`
+			FadeInShape  *string `json:"fade_in_shape"`
+			FadeOutShape *string `json:"fade_out_shape"`
 		} `json:"clip"`
 	}
 	if !decodeBody(w, r, &b) {
@@ -259,7 +263,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		kind = fmt.Sprintf("gain:%d", b.Track.N)
 	case b.Track != nil && b.Track.Pan != nil:
 		kind = fmt.Sprintf("pan:%d", b.Track.N)
-	case b.Clip != nil && (b.Clip.FadeIn != nil || b.Clip.FadeOut != nil):
+	case b.Clip != nil && (b.Clip.FadeIn != nil || b.Clip.FadeOut != nil || b.Clip.FadeInShape != nil || b.Clip.FadeOutShape != nil):
 		// A fade is a step of its own, never merged into a level change.
 	case b.Clip != nil && b.Clip.GainDB != nil && !b.Clip.Remove:
 		kind = "clip-gain:" + b.Clip.ID
@@ -344,7 +348,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if c := b.Clip; c != nil {
-				if err := patchFades(s, c.ID, c.FadeIn, c.FadeOut, t.SampleRate); err != nil {
+				if err := patchFades(s, c.ID, c.FadeIn, c.FadeOut, c.FadeInShape, c.FadeOutShape, t.SampleRate); err != nil {
 					return err
 				}
 				return patchClip(s, c.ID, c.GainDB, c.NudgeMS, c.Remove, c.Tile)
@@ -367,11 +371,16 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 
 // patchFades sets a clip's fades: whole frames, none longer than the clip,
 // and none shorter than the 3 ms declick, which one only a few frames long
-// would end in a click.
-func patchFades(s *tape.State, id string, in, out *int64, sampleRate int) error {
+// would end in a click; and their curves, by name.
+func patchFades(s *tape.State, id string, in, out *int64, inShape, outShape *string, sampleRate int) error {
 	least := int64(math.Round(0.003 * float64(sampleRate)))
-	if in == nil && out == nil {
+	if in == nil && out == nil && inShape == nil && outShape == nil {
 		return nil
+	}
+	for _, sh := range []*string{inShape, outShape} {
+		if sh != nil && !tape.ValidFadeShape(*sh) {
+			return fmt.Errorf("%w: a fade's curve is \"\" (equal power), \"linear\", \"s\" or \"exp\"", tape.ErrBadParameter)
+		}
 	}
 	for ti := range s.Tracks {
 		for ci := range s.Tracks[ti].Clips {
@@ -389,6 +398,12 @@ func patchFades(s *tape.State, id string, in, out *int64, sampleRate int) error 
 			}
 			if out != nil {
 				cl.FadeOut = *out
+			}
+			if inShape != nil {
+				cl.FadeInShape = *inShape
+			}
+			if outShape != nil {
+				cl.FadeOutShape = *outShape
 			}
 			return nil
 		}

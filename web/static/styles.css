@@ -1898,9 +1898,14 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
    lane, out of the row's height: without it the two feed each other. */
 .tt-lane { width: 100%; height: auto; min-height: 64px; contain: size; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .tt-lane.sliding { cursor: grabbing; }
-.tt-lane.trimming, .tt-lane.repeating, .tt-lane.on-grip { cursor: ew-resize; }
+.tt-lane.trimming, .tt-lane.repeating, .tt-lane.fading, .tt-lane.on-grip { cursor: ew-resize; }
 /* A clip's fade lengths: six keys, which wrap on a phone. */
 .fade-seg { flex-wrap: wrap; }
+/* A fade's curve, under its lengths: four, each drawn as it plays. */
+.shape-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 6px; }
+.shape-seg button { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px; min-height: 48px; }
+.shape-seg button span { font-size: 10.5px; line-height: 1.1; white-space: nowrap; }
+.shape-seg button svg { flex: none; }
 /* The lane a clip slid across from another track would land on. */
 .tape-track.drop-target .tt-lane { outline: 2px dashed var(--warn); outline-offset: -2px; }
 .np-drawer .tb-row, .np-dock > .clip-editor .tb-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -303,3 +303,33 @@ test('← and → move the selection a snap step, Shift a bar', () => {
   assert.equal(keyStep(null, 'bar', 48000), 4800);
   assert.equal(keyStep(null, 'bar', 48000, true), 48000);
 });
+
+// --- fade curves and handles ----------------------------------------------------
+
+test('fadeCurve matches the Pi: silent to full on every curve, each where it should be halfway', async () => {
+  const { fadeCurve, FADE_SHAPES } = await import('./geometry.js');
+  const half = { '': Math.sin(Math.PI / 4), linear: 0.5, s: 0.5, exp: (Math.sqrt(1000) - 1) / 999 };
+  assert.deepEqual(FADE_SHAPES.map((s) => s.id), ['', 'linear', 's', 'exp']);
+  for (const { id } of FADE_SHAPES) {
+    assert.ok(Math.abs(fadeCurve(id, 0)) < 1e-12 && Math.abs(fadeCurve(id, 1) - 1) < 1e-12, id);
+    assert.ok(Math.abs(fadeCurve(id, 0.5) - half[id]) < 1e-9, id);
+  }
+  assert.equal(fadeCurve('nonsense', 0.5), fadeCurve('', 0.5));
+});
+
+test('fadeTo: a handle drag sets the fade on the snap grid, inside the clip, none under the declick', async () => {
+  const { fadeTo } = await import('./geometry.js');
+  const grid = { frames: 4 * 48000, bars: 4 }; // a bar a second at 240 BPM: a beat 12000 frames
+  const clip = { at: 48000, frames: 96000 };
+  // The fade in's handle dragged 13000 frames right lands on the beat.
+  assert.equal(fadeTo(clip, 'in', 0, 13000, grid, 'beat', false, 144), 12000);
+  // Free: where it's dragged.
+  assert.equal(fadeTo(clip, 'in', 0, 13000, grid, 'beat', true, 144), 13000);
+  // The fade out's handle dragged left lengthens it.
+  assert.equal(fadeTo(clip, 'out', 12000, -12000, grid, 'beat', false, 144), 24000);
+  // Never past the clip, never below 0.
+  assert.equal(fadeTo(clip, 'in', 0, 999999, grid, 'off', false, 144), 96000);
+  assert.equal(fadeTo(clip, 'out', 6000, 50000, grid, 'off', false, 144), 0);
+  // Shorter than the declick is none.
+  assert.equal(fadeTo(clip, 'in', 0, 100, null, 'off', true, 144), 0);
+});

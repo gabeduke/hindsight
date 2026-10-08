@@ -22,8 +22,9 @@ type ClipWAV struct {
 	gain   float64
 	sr     int
 	ch     int
-	// The clip's fades (Clip.fades), over the declick.
-	fadeIn, fadeOut int64
+	// The clip's fades (Clip.fades), over the declick, and their curves.
+	fadeIn, fadeOut           int64
+	fadeInShape, fadeOutShape string
 }
 
 // Bytes is the file's length.
@@ -66,7 +67,8 @@ func (e *Engine) clipWAV(c Clip, name string, gainDB float64) (*ClipWAV, error) 
 	}
 	in, out := c.fades()
 	return &ClipWAV{Name: name + ".wav", Frames: c.Frames, path: path, src: c.Src,
-		gain: math.Pow(10, gainDB/20), sr: info.SampleRate, ch: info.Channels, fadeIn: in, fadeOut: out}, nil
+		gain: math.Pow(10, gainDB/20), sr: info.SampleRate, ch: info.Channels, fadeIn: in, fadeOut: out,
+		fadeInShape: c.FadeInShape, fadeOutShape: c.FadeOutShape}, nil
 }
 
 // WriteTo writes the WAV, and answers how much of it was written.
@@ -92,7 +94,7 @@ func (w *ClipWAV) WriteTo(dst io.Writer) (int64, error) {
 				g *= (float64(left) - 0.5) / float64(fade)
 			}
 			if w.fadeIn > 0 || w.fadeOut > 0 {
-				g *= fadeGain(k, w.Frames, w.fadeIn, w.fadeOut)
+				g *= fadeGain(k, w.Frames, w.fadeIn, w.fadeOut, w.fadeInShape, w.fadeOutShape)
 			}
 			l := float64(b[i*w.ch]) / 2147483648.0
 			r := l

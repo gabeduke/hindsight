@@ -79,9 +79,12 @@ generators in `~/programming/hindsight-design`.
 1. **Quick wins** — below.
 2. **The inspector** — the clip, track and section dialogs become one
    non-modal panel or sheet that follows the selection.
-3. **Fade handles** — fades on a clip's top corners, free lengths, a curve
-   dot, and Linear, Equal power, S-curve and Fast; the repeat handle moves to
-   the bottom-right corner.
+3. **Fade handles** — fades on a clip's top corners, free lengths, and
+   Equal power, Linear, S-curve and Exponential curves (the sketch's *Fast*:
+   "exponential" is the name a DAW gives it), chosen in the inspector; the
+   repeat handle moves to the bottom-right corner. The sketch's curve dot,
+   to bend a fade on the clip, was left out when it was built: a fourth
+   target on a small clip, for what the inspector's four curves already do.
 4. **Record on the track** — input and arm on each header, the landing bar on
    the armed lane, Catch names its track and previews the pass; the Record
    drawer goes.
