@@ -379,7 +379,7 @@ func (e *Engine) DropCrate(id, crateID string, track int) (Dropped, error) {
 		return Dropped{}, ErrNoSuchCrateClip
 	}
 	b := &Clipboard{Tracks: [][]Clip{{k.clip()}}, Frames: k.Frames, BPM: k.BPM, From: k.Name}
-	return e.dropBoard(b, id, track, false)
+	return e.dropBoard(b, id, track, false, nil)
 }
 
 // CrateWAV is a kept clip as a 16-bit WAV, to play or share.

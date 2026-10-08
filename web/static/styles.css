@@ -1807,6 +1807,15 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-ruler-row { display: grid; grid-template-columns: 112px 1fr; gap: 6px; }
 .tape-ruler-gap { display: flex; align-items: center; justify-content: flex-end; }
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
+/* Beside the ruler: the snap (tap for the next), the loop's lock and Fit,
+   small keys sharing the track heads' width. */
+.ruler-keys { gap: 4px; flex-wrap: nowrap; min-width: 0; }
+.ruler-chip { min-height: 26px; padding: 0 8px; gap: 4px; font: 600 11px var(--font); }
+.snap-btn .snap-ico { color: var(--ink-faint); font-size: 12px; }
+.loop-lock { color: var(--ink-faint); padding: 0 7px; }
+.loop-lock .lock-shackle { transform: translate(2.2px, 0); transition: transform .12s; }
+.loop-lock[aria-pressed="true"] { color: var(--warn); border-color: var(--warn); }
+.loop-lock[aria-pressed="true"] .lock-shackle { transform: none; }
 /* Insert and Delete time say they act on every track: a second line under
    the word. */
 .icon-btn.key-two { flex-direction: column; justify-content: center; gap: 0; line-height: 1.1; }
@@ -1815,8 +1824,10 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
    asks for a second. */
 .icon-btn.confirming { border-color: var(--warn); box-shadow: 0 0 0 2px var(--warn-glow); }
 /* Asking first is for a touch screen, which has no hover to preview on: any
-   device with one, a laptop's too, can turn it off. */
-@media not all and (any-pointer: coarse) { .np-drawer .tb-row.ask-first-row { display: none; } }
+   device with one, a laptop's too, can turn it off, under ⋯. */
+@media not all and (any-pointer: coarse) { #ask-first { display: none; } }
+.menu .menu-check { display: inline-block; width: 1.3em; color: var(--go); }
+.menu [aria-checked="false"] .menu-check { visibility: hidden; }
 .tape-sections { width: 100%; height: 22px; display: block; background: var(--well); border-radius: 6px; outline: 1px solid var(--well-line); outline-offset: -1px; touch-action: pan-y; cursor: pointer; }
 .tape-sections:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .tape-sections-gap { font: 600 10px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); }
@@ -1826,14 +1837,12 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .section-colors button[aria-pressed="true"] { border-color: var(--ink); }
 .section-colors button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .tape-ruler { width: 100%; height: 26px; display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; touch-action: pan-y; cursor: pointer; }
-/* The clipboard's chip has the line by its label to itself, and Drop, Insert,
-   Keep and × the line under it. */
+/* The clipboard, the crate's first slot: its chip has the line by its label
+   to itself, and Paste, Insert, Keep and × the line under it. */
 .np-drawer .tb-row.clipboard .clip-chip { flex: 1 1 calc(100% - 110px); min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; }
 .np-drawer .tb-row.clipboard .clip-chip.playing { color: var(--go); }
 .np-drawer .tb-row.clipboard .icon-btn { padding: 0 10px; }
-.np-drawer .tb-row.edit .icon-btn { flex: 1 0 auto; min-width: 44px; padding: 0 8px; white-space: nowrap; }
-.np-drawer .tb-row.edit .seg { flex: none; }
-.np-drawer .tb-row.edit .seg button { white-space: nowrap; }
+.crate-board { flex-wrap: wrap; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .sheet-hint { margin: 8px 0 0; font-size: 12px; color: var(--ink-faint); }
 .tape-tap { width: 100%; min-height: 56px; font-size: 16px; margin: 4px 0 10px; }
 .tape-tap.second { animation: breathe 1.2s ease-in-out infinite; }
@@ -3109,7 +3118,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 
 /* ---------- keys: what you press while playing ---------- */
 .seg button, .mark-btn, .icon-btn.play,
-.tb-row.transport .icon-btn, .np-own .icon-btn, .np-drawer .tb-row.edit .icon-btn {
+.tb-row.transport .icon-btn, .np-own .icon-btn {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   border: 1px solid var(--edge);
   border-radius: 11px;
@@ -3119,7 +3128,7 @@ a.chip, a.icon-btn { text-decoration: none; }
   letter-spacing: 0; text-transform: none;
 }
 .seg button:active, .mark-btn:active, .icon-btn.play:active,
-.tb-row.transport .icon-btn:active, .np-own .icon-btn:active, .np-drawer .tb-row.edit .icon-btn:active,
+.tb-row.transport .icon-btn:active, .np-own .icon-btn:active,
 .tb-row.transport .icon-btn[aria-pressed="true"], .tb-row.transport .tb-play.playing {
   background: linear-gradient(180deg, var(--key-down), var(--key-lo));
   border-color: var(--edge-strong);
@@ -3128,7 +3137,7 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 /* A key that can't be pressed stays up. */
 .mark-btn[disabled], .tb-row.transport .icon-btn:disabled,
-.np-own .icon-btn:disabled, .np-drawer .tb-row.edit .icon-btn:disabled {
+.np-own .icon-btn:disabled {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
   transform: none;
@@ -3338,6 +3347,7 @@ a.crate-chip { text-decoration: none; }
 .np-dock > .multi-bar:not([hidden]) { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; padding: 8px 12px; }
 .multi-count { flex: 0 1 auto; min-width: 0; max-width: 32%; color: var(--ink-dim); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .multi-keys { flex: 1 1 0; display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.multi-keys[hidden] { display: none; }
 .multi-keys > :first-child { margin-left: auto; }
 .multi-keys .icon-btn { flex: none; padding: 0 10px; white-space: nowrap; }
 .np-dock.editing > .np-drawer { display: none; }
@@ -3352,11 +3362,6 @@ a.crate-chip { text-decoration: none; }
 .np-drawer-close:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .np-drawer-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 10px 22px; padding: 12px 16px 14px; align-items: start; }
 .np-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-/* From 1000 px the edit row (Track N/All, Lift, Copy, Split, ×2) needs more
-   than a third, the snaps less: one row each. */
-@media (min-width: 1000px) {
-  #drawer-edit .np-drawer-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, .8fr); }
-}
 /* The keys that open them: an amber LED, lit while the drawer is open, and
    a chevron that turns over. */
 .np .np-drawer-key { height: 52px; min-height: 52px; padding: 0 14px; gap: 8px; }

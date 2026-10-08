@@ -236,7 +236,7 @@ export class Ribbon {
       if (clip && isSilent(clip.peak_db)) {
         this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}, but it’s silent: nothing was coming in then`, 'warn');
       } else {
-        this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}: Drop it on a tape`, 'ok');
+        this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}: Paste it on a tape`, 'ok');
       }
     } catch (e) {
       this.onToast?.(`Could not copy: ${e.message}`, 'bad');

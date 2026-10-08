@@ -512,3 +512,40 @@ func TestRepeatStopsAtTheTapesEnd(t *testing.T) {
 		t.Fatalf("two copies to the end = %v", err)
 	}
 }
+
+// A range: lift takes the tracks named over its span, not the loop's, and
+// Paste (a drop at a frame) lands there without moving the playhead.
+func TestARangeLiftsItsTracksOverItsSpan(t *testing.T) {
+	e, _, tp, _ := firstLoop(t)
+	zero := int64(0)
+	before := e.tr.Status().Pos
+	if d, err := e.DropClipboardAt(tp.ID, 2, false, &zero); err != nil || d.Clip.At != 0 {
+		t.Fatalf("drop at 0 on track 2 = %+v %v", d, err)
+	}
+	if e.tr.Status().Pos != before {
+		t.Fatalf("a drop at a frame moved the playhead from %d to %d", before, e.tr.Status().Pos)
+	}
+	setLoop(t, e, 0, 96000) // the loop is elsewhere: the span is what counts
+	res, err := e.EditOp(tp.ID, EditRequest{Op: "lift", Tracks: []int{2, 1, 2}, Span: &Span{From: 24000, To: 48000}})
+	if err != nil || res.Clips != 2 || res.Frames != 24000 {
+		t.Fatalf("range lift = %+v %v", res, err)
+	}
+	c, _ := e.Clipboard()
+	if len(c.Tracks) != 2 || len(c.Tracks[0]) != 1 || len(c.Tracks[1]) != 1 || c.Frames != 24000 {
+		t.Fatalf("clipboard = %+v: one track each for 1 and 2, in order", c)
+	}
+	for n := 1; n <= 2; n++ {
+		if cl := track(e, n); len(cl) != 2 || cl[0].End() != 24000 || cl[1].At != 48000 {
+			t.Fatalf("track %d after the range lift = %+v", n, cl)
+		}
+	}
+	// A span off the tape, or backwards, is refused; so is a track there isn't.
+	for _, sp := range []Span{{From: -1, To: 10}, {From: 10, To: 10}, {From: 0, To: tp.Length + 1}} {
+		if _, err := e.EditOp(tp.ID, EditRequest{Op: "copy", Tracks: []int{1}, Span: &sp}); !errors.Is(err, ErrBadParameter) {
+			t.Fatalf("span %+v = %v", sp, err)
+		}
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "copy", Tracks: []int{1, 9}, Span: &Span{From: 0, To: 96000}}); !errors.Is(err, ErrNoSuchTrack) {
+		t.Fatalf("track 9 = %v", err)
+	}
+}

@@ -1493,7 +1493,7 @@ async function main() {
   $('copy-take').addEventListener('click', async () => {
     try {
       const n = await copyTake();
-      toast(`Copied ${fmtClock(n, sr)}: Drop it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+      toast(`Copied ${fmtClock(n, sr)}: Paste it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
     } catch (e) {
       toast(`Could not copy: ${e.message}`, 'bad');
     }

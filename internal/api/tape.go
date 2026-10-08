@@ -711,8 +711,8 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if b.Take == "" {
-		// The clipboard, at the playhead.
-		d, err := a.tape.DropClipboard(r.URL.Query().Get("id"), b.Track, b.Merge)
+		// The clipboard, at the playhead, or at At (Paste on a range).
+		d, err := a.tape.DropClipboardAt(r.URL.Query().Get("id"), b.Track, b.Merge, b.At)
 		if err != nil {
 			tapeErr(w, err)
 			return

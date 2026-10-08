@@ -252,6 +252,13 @@ type Dropped struct {
 // end. merge drops every clipboard track onto the one track instead,
 // layered, each clip at its own level: the OP-1's merge drop.
 func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error) {
+	return e.DropClipboardAt(id, track, merge, nil)
+}
+
+// DropClipboardAt drops the clipboard as DropClipboard does, but at tape
+// frame *at when at isn't nil -- a range's start, Paste -- leaving the
+// playhead where it is.
+func (e *Engine) DropClipboardAt(id string, track int, merge bool, at *int64) (Dropped, error) {
 	c, err := e.Clipboard()
 	if err != nil {
 		return Dropped{}, err
@@ -259,12 +266,12 @@ func (e *Engine) DropClipboard(id string, track int, merge bool) (Dropped, error
 	if c.Empty() {
 		return Dropped{}, ErrEmptyClipboard
 	}
-	return e.dropBoard(c, id, track, merge)
+	return e.dropBoard(c, id, track, merge, at)
 }
 
 // dropBoard drops c as DropClipboard drops the clipboard: the crate's drop
-// is a one-clip board.
-func (e *Engine) dropBoard(c *Clipboard, id string, track int, merge bool) (Dropped, error) {
+// is a one-clip board. pos, if not nil, is where, instead of the playhead.
+func (e *Engine) dropBoard(c *Clipboard, id string, track int, merge bool, pos *int64) (Dropped, error) {
 	t := e.Loaded()
 	if t == nil {
 		return Dropped{}, ErrNoTape
@@ -286,6 +293,12 @@ func (e *Engine) dropBoard(c *Clipboard, id string, track int, merge bool) (Drop
 	at := st.Pos
 	if st.Playing {
 		at = e.Live().Heard
+	}
+	if pos != nil {
+		if *pos < 0 {
+			return Dropped{}, fmt.Errorf("%w: at before the tape's start", ErrBadParameter)
+		}
+		at = *pos
 	}
 	sr := e.store.SampleRate()
 	near := e.lastBPM(id) // before the edit: it reads every tape
@@ -351,7 +364,7 @@ func (e *Engine) dropBoard(c *Clipboard, id string, track int, merge bool) (Drop
 		return Dropped{}, err
 	}
 	out.Tracks, out.End = spans, at+c.Frames
-	if !moving {
+	if !moving && pos == nil {
 		// Before answering, so a second drop right after lands after it.
 		e.doWait(Action{Kind: "locate", Pos: out.End})
 	}

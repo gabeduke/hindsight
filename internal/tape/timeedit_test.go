@@ -216,3 +216,16 @@ func TestInsertFromTheCrate(t *testing.T) {
 		t.Fatalf("track 1 = %+v: the kept clip, then the loop pushed after it", cl)
 	}
 }
+
+// Delete time on a range cuts its span, wherever the loop is.
+func TestDeleteTimeOnARangeCutsItsSpan(t *testing.T) {
+	e, _, tp, _ := firstLoop(t)
+	setLoop(t, e, 0, 96000)
+	res, err := e.EditOp(tp.ID, EditRequest{Op: "delete-time", Span: &Span{From: 24000, To: 48000}})
+	if err != nil || res.At != 24000 || res.Frames != 24000 {
+		t.Fatalf("delete-time on a span = %+v %v", res, err)
+	}
+	if cl := track(e, 1); len(cl) != 2 || cl[0].End() != 24000 || cl[1].At != 24000 || cl[1].End() != 72000 {
+		t.Fatalf("after = %+v", cl)
+	}
+}

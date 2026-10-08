@@ -256,9 +256,16 @@ func (e *Engine) timeEdit(t *Tape, req EditRequest) (EditResult, error) {
 		}
 		return EditResult{Op: "insert", Clips: n, Frames: c.Frames, At: at}, nil
 	case "delete-time":
-		l := t.Loop
-		err := e.Edit(t.ID, "", func(_ *Tape, s *State) error { return s.deleteTime(s.Loop.In, s.Loop.Out) })
-		return EditResult{Op: "delete-time", Frames: l.Out - l.In, At: l.In}, err
+		// The range's span, or the loop's.
+		var from, to int64
+		err := e.Edit(t.ID, "", func(tp *Tape, s *State) error {
+			var err error
+			if from, to, err = req.spanOf(s, tp.Length); err != nil {
+				return err
+			}
+			return s.deleteTime(from, to)
+		})
+		return EditResult{Op: "delete-time", Frames: to - from, At: from}, err
 	default: // duplicate-section
 		var cp Section
 		err := e.Edit(t.ID, "", func(tp *Tape, s *State) error {

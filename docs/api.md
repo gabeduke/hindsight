@@ -1047,7 +1047,8 @@ BPM. A clipboard longer than 60 s dropped on an empty tape isn't a first loop:
 it's laid down with the loop off, and the tape has the clipboard's tempo, if
 it has one, else none. A drop during a count-in lands where the tape will start, and doesn't
 move it. `{"track": 3, "merge": true}` is a merge drop: every clipboard track
-onto that one track, layered, and `tracks` is 1.
+onto that one track, layered, and `tracks` is 1. With `"at": F` the clipboard lands at tape frame F
+(the tape page's Paste, at a range's start) and the playhead stays where it is.
 
 `{"take": "jam_….wav", "from": F, "to": T, "track": 1, "bars": 0}` copies
 frames `[from, to)` of a take into the pool (its `SAVE_CHANNELS` pair, for a
@@ -1107,8 +1108,8 @@ added.
 
 | `op` | Takes | Does |
 |---|---|---|
-| `lift` | `track`, or `"all": true` | The loop's In to Out, on that track or every track (kept apart, so the clipboard has four), onto the clipboard, leaving silence. The answer's `edit.clipboard` is the new clipboard |
-| `copy` | `track`, or `"all": true`; or `clips` | The same, leaving the tape as it is. With `clips` (ids), those clips instead, as they lie: a clipboard track for each track from the highest of them to the lowest, each clip as far from the first as it is on the tape |
+| `lift` | `track`, or `"all": true`, or `tracks`; `span` | The loop's In to Out (or `span: {from, to}`), on that track, every track or the `tracks` listed (kept apart, so the clipboard has one track for each), onto the clipboard, leaving silence. The tape page's Cut, on a range. The answer's `edit.clipboard` is the new clipboard |
+| `copy` | `track`, or `"all": true`, or `tracks`; `span`; or `clips` | The same, leaving the tape as it is. With `clips` (ids), those clips instead, as they lie: a clipboard track for each track from the highest of them to the lowest, each clip as far from the first as it is on the tape |
 | `split` | `track`, `pos` (left out: the playhead) | Cuts every clip on the track that runs across `pos` in two there, on every layer |
 | `join` | `clip` | Joins a clip to the next on its layer, if that one carries straight on in the same recording at the same level and nudge: what a split made |
 | `slide` | `clip`, `at`, `to` | Moves a clip to start at `at`, on track `to` (left out or 0: its own track; not `track`, which every edit sends as the selected one), on the lowest layer free there. The page snaps `at` to the grid; the server takes it as given |
@@ -1123,10 +1124,11 @@ added.
 | `duplicate` | `clips` | Lays a copy of the clips right after them, the earliest copy where the last of them ends, each on its own track on the lowest layer free there |
 | `reverse` | `clip`, or `clips` | Plays the clip backwards (or each of `clips`, as one undo step): its audio, with its handles either side, is written reversed to a new pool file, and the clip plays that, with `reversed: {"file", "end"}` naming where it came from (frame i of the new file is frame end−1−i of `file`). On a reversed clip, plays it forwards again from the original file, with no new file |
 | `insert` | `track`; `pos`?, `crate`? | Pushes everything from `pos` (left out: the playhead) on later by the clipboard's length, on every track, with the sections and the loop (one across the playhead stretches), and lays the clipboard in the gap from `track` down. A clip across the point is cut there first. With `crate` (a kept clip's id), that clip instead of the clipboard. Stopped, the playhead moves to the end of what went in. `edit.at` is where it went in (there when it's 0 too), `edit.frames` its length |
-| `delete-time` | | Cuts the loop's In to Out out of every track and closes the gap: everything after moves earlier by its length. A section inside goes; one across an edge loses the part inside. The loop stays where it is, so it now holds what followed. `edit.at` and `edit.frames` are what went |
+| `delete-time` | `span` | Cuts the loop's In to Out (or `span: {from, to}`) out of every track and closes the gap: everything after moves earlier by its length. A section inside goes; one across an edge loses the part inside. The loop stays where it is, so it now holds what followed. `edit.at` and `edit.frames` are what went |
 | `duplicate-section` | `section` | Lays the section's span, every track, again right after it, pushing everything after it later, and adds a section of the same name and colour over the copy (`edit.section`) |
 
-400 for a lift or copy with no loop, or nothing in it; a split with no clip
+400 for a lift or copy with no loop, or nothing in it; a `span` that isn't
+on the tape, or one with `to` at or before `from`; a split with no clip
 across `pos`; a join with nothing to join; a slide off either end of the tape, or onto a
 track that doesn't exist;
 a multiply that would run past the end; a trim with no `at`, no such `edge`,
