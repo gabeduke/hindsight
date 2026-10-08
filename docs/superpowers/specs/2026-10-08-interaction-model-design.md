@@ -139,3 +139,50 @@ The Capture ribbon's Keep as clip waits for step 5.
 A track's **A**/**B** key shows *bus* in small letters over the letter, and
 its label says *Bus A*: it's the Sidekick channel the track plays through,
 and with an arm key coming in step 4 it mustn't read as one.
+
+## Step 5: selection and the action bar
+
+What was built (branch `ui/5-selection`, stacked on the step 4 fixes):
+
+- **A range** is bars across one or more tracks, `{from, to, t0, t1}`
+  (`lib/tape/range.js`). There are four ways to make one:
+  - Hold an empty part of a lane, then drag across bars and lanes.
+  - Hold the ruler and drag, for every track.
+  - Tap a section, for its bars on every track.
+  - Select clips and tap **Bars**, for the bars they cover. This is the way
+    into a lane full of clips, where a hold slides a clip instead.
+
+  A range snaps to **⌗** (bar, beat, eighth or off). It's shaded on its lanes,
+  with a tab on each edge that drags at once to resize it. A range and
+  selected clips are never both: making either lets go of the other. Esc,
+  Done, or a tap on an empty part of a lane lets go of it.
+- **The loop follows the range** (decision 1): a range moves the loop to its
+  bars, turned on. The **padlock** beside the ruler (a per-device pref)
+  locks the loop; while it's locked, the ruler shows the range apart from
+  the loop.
+- **One action bar** (`#multi-bar`):
+  - For clips: Cut, Copy, Bars, Split, Duplicate, Reverse, Keep, Move here,
+    Details…, Select more, Remove, Done.
+  - For a range: Cut, Copy, Paste, Insert, Delete time, ×2 (only while the
+    range is the loop) and Done. The range's name ("Tracks 2–3 · bars 5–8")
+    stands in for the clip count.
+  - Insert and Delete time keep their previews and asking first.
+  - Keys: ⌘X cuts, ⌘C copies, ⌘V pastes (on the range, else at the playhead).
+- **Server:**
+  - EditRequest gains `tracks` and `span: {from, to}`, so lift, copy and
+    delete-time take a range instead of the loop and Track N / All.
+  - A clipboard drop takes `at`. That's Paste on a range, and it leaves the
+    playhead where it is.
+- **What went:**
+  - The Edit drawer and its key went, and with them Track N / All.
+  - The clipboard row moved to the top of the crate's drawer (decision 2).
+  - *Slide snaps to* became the ⌗ key beside the ruler.
+  - *Ask before Insert and Delete time* moved under ⋯.
+  - Drop and Lift are called **Paste** and **Cut** (decision 5). The guide's
+    glossary still gives the OP-1's names.
+
+Left for later:
+- The one **Send to** menu on the tape's selections.
+- Split and Duplicate on a range. Split at the playhead is still S.
+- Moving a range's tracks by dragging. For now, draw it again.
+- The Capture ribbon's *Keep as clip* still waits to fold into Send to.

@@ -59,6 +59,7 @@
         <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
         <button id="tape-mixdown" type="button" role="menuitem" data-tip="mixdown">Mix down the loop</button>
         <button id="tape-mixdown-all" type="button" role="menuitem" data-tip="mixdown">Mix down the whole tape</button>
+        <button id="ask-first" type="button" role="menuitemcheckbox" aria-checked="true" data-tip="ask-first"><span class="menu-check" aria-hidden="true">✓</span>Ask before Insert and Delete time</button>
         <a id="tape-export" href="#" role="menuitem" data-tip="export-stems">Export stems</a>
         <button id="tape-delete" class="danger" type="button" role="menuitem" data-tip="tape-delete">Delete a tape…</button>
         <a href="/guide.html#8-tape" role="menuitem" data-tip="guide">The guide</a>
@@ -96,8 +97,14 @@
       <canvas id="tape-sections" class="tape-sections" tabindex="0" role="group" aria-roledescription="sections" aria-label="Sections: hold and drag to make one, tap one to select its bars" data-tip="tape-sections"></canvas>
     </div>
     <div class="tape-ruler-row">
-      <span class="tape-ruler-gap"><button id="view-fit" class="chip view-fit" type="button" hidden data-tip="view-fit">Fit</button></span>
-      <canvas id="tape-ruler" class="tape-ruler" aria-label="Bars: tap to move the playhead, hold and drag to set the loop" data-tip="tape-ruler"></canvas>
+      <!-- What a drag snaps to, and the loop's lock: drawn ranges move the
+           loop to their bars unless it's locked. -->
+      <span class="tape-ruler-gap ruler-keys">
+        <button id="snap-btn" class="chip ruler-chip snap-btn" type="button" data-tip="tape-snap"><span class="snap-ico" aria-hidden="true">⌗</span><span id="snap-name">Bar</span></button>
+        <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path class="lock-shackle" d="M3.2 6V4.2a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+        <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
+      </span>
+      <canvas id="tape-ruler" class="tape-ruler" aria-label="Bars: tap to move the playhead, hold and drag to select those bars on every track" data-tip="tape-ruler"></canvas>
     </div>
     <div id="lanes" class="tape-lanes"></div>
 
@@ -108,58 +115,16 @@
      page.js (openInputMenu) with the inputs and their meters. -->
 <div id="input-menu" class="menu input-menu" role="menu" aria-label="Input" hidden></div>
 
-<!-- The dock at the foot of the page: the tape's drawers (Clipboard · Edit
-     and the crate, opened from the bar's keys), the clip editor
-     while a clip is aligned, then the now-playing bar. From 700 px a drawer
-     opens above the bar and pushes the lanes up; on a phone the drawers are
-     rows in the page and the bar is docked above the tabs. -->
+<!-- The dock at the foot of the page: the crate's drawer (the clipboard
+     and the kept clips, opened from the bar's Crate key), the clip editor
+     while a clip is aligned, the action bar while something is selected,
+     then the now-playing bar. From 700 px the drawer opens above the bar and
+     pushes the lanes up; on a phone it's rows in the page and the bar is
+     docked above the tabs. -->
 <div id="np-dock" class="np-dock" hidden>
-  <section id="drawer-edit" class="np-drawer" aria-label="Clipboard and Edit">
-    <div class="np-drawer-strip">
-      <span class="np-grip" aria-hidden="true"></span>
-      <h2 class="np-drawer-title">Clipboard · Edit</h2>
-      <span class="np-grip np-grip-fill" aria-hidden="true"></span>
-      <button class="np-drawer-close" type="button" data-drawer="edit" aria-label="Close Clipboard and Edit">✕</button>
-    </div>
-    <div class="np-drawer-body">
-      <div class="np-col">
-        <div class="tb-row clipboard">
-          <span class="tb-label">Clipboard</span>
-          <button id="clip-play" class="chip clip-chip" type="button" disabled data-tip="clipboard">empty</button>
-          <button id="drop" class="icon-btn" type="button" disabled data-tip="drop"><span aria-hidden="true">⤓ </span>Drop</button>
-          <button id="insert" class="icon-btn key-two" type="button" disabled data-tip="insert"><span class="key-word"><span aria-hidden="true">⇥ </span>Insert</span><span class="key-scope">all tracks</span></button>
-          <button id="merge" class="icon-btn" type="button" hidden data-tip="merge-drop">Merge</button>
-          <button id="clip-keep-board" class="icon-btn" type="button" hidden data-tip="clipboard-keep">Keep</button>
-          <button id="clip-clear" class="icon-btn" type="button" disabled aria-label="Clear the clipboard" data-tip="clipboard-clear">×</button>
-          <audio id="clip-audio" preload="none"></audio>
-        </div>
-      </div>
-      <div class="np-col">
-        <div class="tb-row edit" role="group" aria-label="Edit the loop’s bars">
-          <div class="seg" id="edit-scope">
-            <button type="button" data-scope="one" data-tip="edit-scope">Track 1</button>
-            <button type="button" data-scope="all" data-tip="edit-scope">All</button>
-          </div>
-          <button id="ed-lift" class="icon-btn" type="button" data-tip="lift"><span aria-hidden="true">✂ </span>Lift</button>
-          <button id="ed-delete" class="icon-btn key-two" type="button" data-tip="delete-time"><span class="key-word"><span aria-hidden="true">⇤ </span>Delete time</span><span class="key-scope">all tracks</span></button>
-          <button id="ed-copy" class="icon-btn" type="button" data-tip="copy">Copy</button>
-          <button id="ed-split" class="icon-btn" type="button" data-tip="split">Split</button>
-          <button id="ed-x2" class="icon-btn" type="button" aria-label="Double the loop" data-tip="multiply">×2</button>
-        </div>
-      </div>
-      <div class="np-col">
-        <div class="tb-row snap">
-          <span class="tb-label">Slide snaps to</span>
-          <div class="seg" id="snap" role="group" aria-label="What a slid clip snaps to"></div>
-        </div>
-        <div class="tb-row ask-first-row">
-          <button id="ask-first" class="chip" type="button" aria-pressed="true" data-tip="ask-first">Ask before Insert and Delete time</button>
-        </div>
-      </div>
-    </div>
-  </section>
-  <!-- The crate (lib/tape/page.js, "the crate"): the clips kept from takes,
-       the ribbon and the tape, newest first, to play and drop. -->
+  <!-- The crate (lib/tape/page.js, "the crate"): the clipboard first, then
+       the clips kept from takes, the ribbon and the tape, newest first, to
+       play and paste. -->
   <section id="drawer-crate" class="np-drawer" aria-label="The crate">
     <div class="np-drawer-strip">
       <span class="np-grip" aria-hidden="true"></span>
@@ -168,6 +133,18 @@
       <button class="np-drawer-close" type="button" data-drawer="crate" aria-label="Close the crate">✕</button>
     </div>
     <div class="np-drawer-body crate-body">
+      <!-- The clipboard, the crate's first slot: what Cut or Copy put there
+           last, to play, paste at the playhead, insert, merge or keep. -->
+      <div class="tb-row clipboard crate-board" role="group" aria-label="The clipboard">
+        <span class="tb-label">Clipboard</span>
+        <button id="clip-play" class="chip clip-chip" type="button" disabled data-tip="clipboard">empty</button>
+        <button id="drop" class="icon-btn" type="button" disabled aria-keyshortcuts="Meta+V Control+V" data-tip="drop"><span aria-hidden="true">⤓ </span>Paste</button>
+        <button id="insert" class="icon-btn key-two" type="button" disabled data-tip="insert"><span class="key-word"><span aria-hidden="true">⇥ </span>Insert</span><span class="key-scope">all tracks</span></button>
+        <button id="merge" class="icon-btn" type="button" hidden data-tip="merge-drop">Merge</button>
+        <button id="clip-keep-board" class="icon-btn" type="button" hidden data-tip="clipboard-keep">Keep</button>
+        <button id="clip-clear" class="icon-btn" type="button" disabled aria-label="Clear the clipboard" data-tip="clipboard-clear">×</button>
+        <audio id="clip-audio" preload="none"></audio>
+      </div>
       <div class="tb-row crate-find">
         <label class="shelf-search crate-search"><input id="crate-q" type="search" placeholder="Find a clip" aria-label="Find a kept clip by name" autocomplete="off" data-tip="crate-search"></label>
         <button id="crate-from" class="chip" type="button" hidden data-tip="crate-from"></button>
@@ -201,14 +178,18 @@
       </div>
     </div>
   </div>
-  <!-- The clip bar: what's selected on the tape, and what to do to it
-       (lib/tape/page.js, "selecting clips"). A click selects a clip;
-       Details… is its sheet. Drag any of several to move them all. -->
-  <div id="multi-bar" class="multi-bar" role="group" aria-label="Selected clips" hidden>
+  <!-- The action bar: what's selected on the tape -- clips, or a range of
+       bars across tracks -- and what to do to it (lib/tape/page.js,
+       "selecting clips" and "ranges"). A click selects a clip; Details… is
+       its inspector. Drag any of several to move them all. Hold an empty
+       part of a lane and drag for a range. -->
+  <div id="multi-bar" class="multi-bar" role="group" aria-label="Selected" hidden>
     <span id="multi-count" class="mono multi-count" aria-live="polite">0 clips</span>
-    <span class="multi-keys">
-      <button id="multi-split" class="icon-btn" type="button" aria-keyshortcuts="S" data-tip="multi-split">Split</button>
+    <span class="multi-keys clip-keys">
+      <button id="multi-cut" class="icon-btn" type="button" aria-keyshortcuts="Meta+X Control+X" data-tip="multi-cut">Cut</button>
       <button id="multi-copy" class="icon-btn" type="button" aria-keyshortcuts="Meta+C Control+C" data-tip="multi-copy">Copy</button>
+      <button id="multi-bars" class="icon-btn" type="button" data-tip="multi-bars">Bars</button>
+      <button id="multi-split" class="icon-btn" type="button" aria-keyshortcuts="S" data-tip="multi-split">Split</button>
       <button id="multi-dup" class="icon-btn" type="button" aria-keyshortcuts="Meta+D Control+D" data-tip="multi-dup">Duplicate</button>
       <button id="multi-reverse" class="icon-btn" type="button" data-tip="multi-reverse">Reverse</button>
       <button id="multi-keep" class="icon-btn" type="button" data-tip="multi-keep">Keep</button>
@@ -217,6 +198,15 @@
       <button id="multi-add" class="icon-btn" type="button" aria-pressed="false" data-tip="multi-add">Select more</button>
       <button id="multi-remove" class="icon-btn danger" type="button" aria-keyshortcuts="Delete" data-tip="multi-remove">Remove</button>
       <button id="multi-done" class="icon-btn" type="button" aria-keyshortcuts="Escape" data-tip="multi-done">Done</button>
+    </span>
+    <span class="multi-keys range-keys" hidden>
+      <button id="range-cut" class="icon-btn" type="button" aria-keyshortcuts="Meta+X Control+X" data-tip="range-cut"><span aria-hidden="true">✂ </span>Cut</button>
+      <button id="range-copy" class="icon-btn" type="button" aria-keyshortcuts="Meta+C Control+C" data-tip="range-copy">Copy</button>
+      <button id="range-paste" class="icon-btn" type="button" aria-keyshortcuts="Meta+V Control+V" data-tip="range-paste"><span aria-hidden="true">⤓ </span>Paste</button>
+      <button id="range-insert" class="icon-btn key-two" type="button" data-tip="range-insert"><span class="key-word"><span aria-hidden="true">⇥ </span>Insert</span><span class="key-scope">all tracks</span></button>
+      <button id="range-delete" class="icon-btn key-two" type="button" data-tip="range-delete"><span class="key-word"><span aria-hidden="true">⇤ </span>Delete time</span><span class="key-scope">all tracks</span></button>
+      <button id="range-x2" class="icon-btn" type="button" aria-label="Double the loop" data-tip="multiply">×2</button>
+      <button id="range-done" class="icon-btn" type="button" aria-keyshortcuts="Escape" data-tip="range-done">Done</button>
     </span>
   </div>
 <!-- The now-playing bar (docs/superpowers/specs/2026-10-05-transport-bar-design.md):
@@ -255,7 +245,6 @@
         <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
       </div>
       <div class="np-own">
-        <button id="np-drawer-edit" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-edit" data-tip="drawer-edit">Edit<span class="np-chev" aria-hidden="true">▴</span></button>
         <button id="np-drawer-crate" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-crate" data-tip="drawer-crate">Crate<span class="np-chev" aria-hidden="true">▴</span></button>
         <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
       </div>
@@ -366,7 +355,7 @@
     <div class="sheet-actions">
       <button id="clip-align" class="icon-btn" type="button" data-tip="clip-align">Align</button>
     </div>
-    <p class="sheet-hint muted">The clip bar under the lanes splits, copies, duplicates and removes it, with keys too. To slide it, hold it in its lane, then drag. To trim it, drag its edges, or move the playhead and Start here or End here. To fade it, drag the squares on its top edge in. To line it up to the sample, Align. Select another clip and this shows it; Escape or Done closes it.</p>
+    <p class="sheet-hint muted">The action bar under the lanes cuts, copies, splits, duplicates and removes it, with keys too. To slide it, hold it in its lane, then drag. To trim it, drag its edges, or move the playhead and Start here or End here. To fade it, drag the squares on its top edge in. To line it up to the sample, Align. Select another clip and this shows it; Escape or Done closes it.</p>
     <div class="sheet-actions">
       <button id="clip-remove" class="icon-btn danger" type="button" data-tip="clip-remove">Remove</button>
       <button id="clip-done" class="icon-btn" type="button">Done</button>

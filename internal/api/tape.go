@@ -281,6 +281,10 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		kind = "clip-gain:" + b.Clip.ID
 	case b.Clip != nil && b.Clip.NudgeMS != nil && !b.Clip.Remove:
 		kind = "clip-nudge:" + b.Clip.ID
+	case b.Loop != nil && b.Track == nil && b.Clip == nil && b.Tempo == nil && b.Bars == nil:
+		// A loop moved and moved again (a range drawn, then its edges
+		// dragged) is one step.
+		kind = "loop"
 	}
 	// The inputs there are, read before the tape is locked to change it.
 	var inputs []tape.SourceState
@@ -711,8 +715,8 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if b.Take == "" {
-		// The clipboard, at the playhead.
-		d, err := a.tape.DropClipboard(r.URL.Query().Get("id"), b.Track, b.Merge)
+		// The clipboard, at the playhead, or at At (Paste on a range).
+		d, err := a.tape.DropClipboardAt(r.URL.Query().Get("id"), b.Track, b.Merge, b.At)
 		if err != nil {
 			tapeErr(w, err)
 			return

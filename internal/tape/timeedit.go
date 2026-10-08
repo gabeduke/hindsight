@@ -118,8 +118,11 @@ func (s *State) insertTime(c *Clipboard, track int, at, length int64, sampleRate
 
 // deleteTime cuts [from, to) out of every track and closes the gap:
 // everything after moves earlier by its length. A section inside it goes; one
-// across an edge loses the part inside. The loop is left where it is, so it
-// now holds what followed: Delete time again takes the next as much.
+// across an edge loses the part inside. A loop that is the span is left where
+// it is, so it now holds what followed: Delete time again takes the next as
+// much. Any other loop moves with the music, as a section does -- a range cut
+// elsewhere while a locked loop plays on doesn't change what it plays -- and
+// one inside the span goes.
 func (s *State) deleteTime(from, to int64) error {
 	n := to - from
 	if n <= 0 {
@@ -153,6 +156,23 @@ func (s *State) deleteTime(from, to int64) error {
 		kept = append(kept, sc)
 	}
 	s.Sections = kept
+	if l := s.Loop; l.Out > l.In && (l.In != from || l.Out != to) {
+		switch {
+		case l.Out <= from:
+		case l.In >= to:
+			s.Loop.In, s.Loop.Out = l.In-n, l.Out-n
+		default:
+			a, b := min(l.In, from), from
+			if l.Out > to {
+				b = l.Out - n
+			}
+			if b <= a {
+				s.Loop = Loop{} // all of it was cut
+			} else {
+				s.Loop.In, s.Loop.Out = a, b
+			}
+		}
+	}
 	return nil
 }
 
@@ -240,7 +260,7 @@ func (e *Engine) timeEdit(t *Tape, req EditRequest) (EditResult, error) {
 			return EditResult{}, fmt.Errorf("%w: pos before the tape's start", ErrBadParameter)
 		}
 		if t.Grid == nil && t.Empty() {
-			return EditResult{}, fmt.Errorf("%w: on an empty tape, Drop it: there's nothing to push along", ErrBadParameter)
+			return EditResult{}, fmt.Errorf("%w: on an empty tape, Paste it: there's nothing to push along", ErrBadParameter)
 		}
 		var n int
 		err := e.Edit(t.ID, "", func(tp *Tape, s *State) error {
@@ -256,9 +276,16 @@ func (e *Engine) timeEdit(t *Tape, req EditRequest) (EditResult, error) {
 		}
 		return EditResult{Op: "insert", Clips: n, Frames: c.Frames, At: at}, nil
 	case "delete-time":
-		l := t.Loop
-		err := e.Edit(t.ID, "", func(_ *Tape, s *State) error { return s.deleteTime(s.Loop.In, s.Loop.Out) })
-		return EditResult{Op: "delete-time", Frames: l.Out - l.In, At: l.In}, err
+		// The range's span, or the loop's.
+		var from, to int64
+		err := e.Edit(t.ID, "", func(tp *Tape, s *State) error {
+			var err error
+			if from, to, err = req.spanOf(s, tp.Length); err != nil {
+				return err
+			}
+			return s.deleteTime(from, to)
+		})
+		return EditResult{Op: "delete-time", Frames: to - from, At: from}, err
 	default: // duplicate-section
 		var cp Section
 		err := e.Edit(t.ID, "", func(tp *Tape, s *State) error {

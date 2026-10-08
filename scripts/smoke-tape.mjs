@@ -194,10 +194,10 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   await p.context().close();
 }
 
-// The drawers: from 700 px the lanes take the full width with both closed;
-// a drawer opens above the bar and pushes the lanes up without hiding the
+// The crate's drawer: from 700 px the lanes take the full width with it
+// closed; it opens above the bar and pushes the lanes up without hiding the
 // bar, its key says so, and Escape closes it. On the bench every lane keeps
-// 48 px with Edit open.
+// 48 px with it open.
 for (const [w, h] of [[1024, 768], [1024, 600], [768, 1024], [1470, 900]]) {
   const p = await (await browser.newContext({ viewport: { width: w, height: h } })).newPage();
   await p.goto(`${BASE}/tape.html`);
@@ -212,24 +212,24 @@ for (const [w, h] of [[1024, 768], [1024, 600], [768, 1024], [1470, 900]]) {
   const closed = await measure();
   check(`${w}x${h}: with the drawers closed the lanes take the width`, closed.right >= w - 40, `right ${closed.right}`);
   if (w === 1024 && h === 768) check('1024x768: four lanes of 100 px or more', closed.h.every((x) => x >= 100), JSON.stringify(closed.h));
-  await p.click('#np-drawer-edit');
+  await p.click('#np-drawer-crate');
   await p.waitForTimeout(400);
   const open = await measure();
-  const exp = await p.getAttribute('#np-drawer-edit', 'aria-expanded');
-  check(`${w}x${h}: Edit opens its drawer above the bar`, open.drawer.length === 1 && open.drawer[0][1] <= open.npTop + 1 && exp === 'true', JSON.stringify(open.drawer));
+  const exp = await p.getAttribute('#np-drawer-crate', 'aria-expanded');
+  check(`${w}x${h}: Crate opens its drawer above the bar`, open.drawer.length === 1 && open.drawer[0][1] <= open.npTop + 1 && exp === 'true', JSON.stringify(open.drawer));
   check(`${w}x${h}: the bar stays on screen`, open.npBottom <= h + 1, `bar bottom ${open.npBottom}`);
   const room = await p.evaluate(() => ({
-    keys: ['ed-lift', 'ed-copy', 'ed-split', 'ed-x2'].map((id) => Math.round(document.getElementById(id).getBoundingClientRect().width)),
+    keys: ['drop', 'insert', 'clip-clear'].map((id) => Math.round(document.getElementById(id).getBoundingClientRect().width)),
     toasts: parseFloat(getComputedStyle(document.getElementById('toasts')).bottom),
     dock: document.getElementById('np-dock').getBoundingClientRect().height,
   }));
-  check(`${w}x${h}: the edit keys keep their words`, room.keys.every((x) => x >= 40), JSON.stringify(room.keys));
+  check(`${w}x${h}: the clipboard's keys keep their words`, room.keys.every((x) => x >= 40), JSON.stringify(room.keys));
   check(`${w}x${h}: toasts rise over the open drawer`, room.toasts >= room.dock, `toasts ${room.toasts}, dock ${Math.round(room.dock)}`);
   // Shorter, unless they were already as short as their heads.
   check(`${w}x${h}: the lanes are pushed up, 48 px or more`, open.h.every((x) => x >= 48) && (open.h[0] < closed.h[0] || closed.h[0] <= 72), `${JSON.stringify(closed.h)} → ${JSON.stringify(open.h)}`);
   await p.keyboard.press('Escape');
   await p.waitForTimeout(300);
-  check(`${w}x${h}: Escape closes it`, (await p.getAttribute('#np-drawer-edit', 'aria-expanded')) === 'false');
+  check(`${w}x${h}: Escape closes it`, (await p.getAttribute('#np-drawer-crate', 'aria-expanded')) === 'false');
   await p.context().close();
 }
 
@@ -640,7 +640,7 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
     await postJSON(`/api/tapes/transport?${tq}`, { action: 'locate', pos: Math.round(c0.bar) });
     await p.reload();
     await p.waitForTimeout(2000);
-    if ((await p.getAttribute('#np-drawer-edit', 'aria-expanded')) !== 'true') await p.click('#np-drawer-edit');
+    if ((await p.getAttribute('#np-drawer-crate', 'aria-expanded')) !== 'true') await p.click('#np-drawer-crate');
     await p.waitForTimeout(400);
     const lanePic = () => p.evaluate(() => document.querySelector('.tt-lane').toDataURL());
     const before = await lanePic();
@@ -665,16 +665,35 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
     check('insert: at the start, where it showed, and the toast says bar 1', /at bar 1 ·/.test(said0) && at0[0] === 0 && at0[1] === Math.round(c0.bar), `${said0} ${JSON.stringify(at0)}`);
     await p.click('#tape-undo');
     await p.waitForTimeout(800);
-    // Delete time on bar 2.
+    // A range: the loop on bar 2 shows bars 1–3, so the ruler held in its
+    // middle and let go is bar 2 on every track; the action bar names it,
+    // and its Copy takes four tracks. Then its Delete time.
     await patchTape({ loop: { in: Math.round(c0.bar), out: Math.round(2 * c0.bar), on: true } });
+    await p.reload();
+    await p.waitForTimeout(2000);
+    const rb = await p.locator('#tape-ruler').boundingBox();
+    await p.mouse.move(rb.x + rb.width / 2, rb.y + rb.height / 2);
+    await p.mouse.down();
+    await p.waitForTimeout(450);
+    await p.mouse.up();
     await p.waitForTimeout(600);
+    check('a range: held on the ruler, bar 2 on every track, named on the action bar', !(await p.isHidden('#range-cut')) && (await p.textContent('#multi-count')) === 'All tracks · bar 2', await p.textContent('#multi-count'));
+    await p.click('#range-copy');
+    await p.waitForTimeout(800);
+    const cb = (await getJSON('/api/clipboard')).clipboard;
+    check('a range: its Copy takes its bar, a clipboard track for each track', cb && cb.tracks.length === 4 && Math.abs(cb.frames - c0.bar) <= 1, JSON.stringify(cb && [cb.tracks.length, cb.frames]));
     const len = (await loadedState()).tape.tracks[0].clips.reduce((a, x) => a + x.frames, 0);
-    await p.click('#ed-delete');
+    await p.click('#range-delete');
     await p.waitForTimeout(1000);
     const len2 = (await loadedState()).tape.tracks[0].clips.reduce((a, x) => a + x.frames, 0);
     check('delete time: a bar comes out and the gap closes', Math.abs(len - len2 - c0.bar) <= 1 && Math.max(...(await loadedState()).tape.tracks[0].clips.map((x) => x.at + x.frames)) <= 3 * c0.bar + 1, `${len} → ${len2}`);
     await p.click('#tape-undo');
     await p.waitForTimeout(800);
+    // The crate's drawer is open: Escape closes it first, then lets the range go.
+    await p.keyboard.press('Escape');
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(300);
+    check('a range: Escape lets it go', await p.isHidden('#multi-bar'));
     // Duplicate section: a Verse on bar 1, its sheet (the strip from the
     // keys: Enter selects it, Enter again opens it), Duplicate.
     const v = (await postJSON(`/api/tapes/edit?${tq}`, { op: 'section-add', name: 'Verse', at: 0, end: Math.round(c0.bar) })).edit.section;
@@ -721,7 +740,7 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
   check('fades: off takes it off', !((await loadedState()).tape.tracks[0].clips.find((x) => x.id === c0.id).fade_in));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(300);
-  // The crate: Keep the clip from the clip bar, open Crate ▴, Drop it on
+  // The crate: Keep the clip from the action bar, open Crate ▴, Paste it on
   // track 3; ↶. And a take's span kept, shown on its own with ?crate=.
   const crateBefore = (await getJSON('/api/crate')).clips.length;
   s = await spot(c0);
@@ -740,7 +759,7 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
   await p.locator('#crate-list .crate-drop').first().click();
   await p.waitForTimeout(1000);
   const t3 = (await loadedState()).tape.tracks[2].clips;
-  check('the crate: Drop puts it on the selected track', t3.length === 1 && t3[0].file === kept[0].file, JSON.stringify(t3));
+  check('the crate: Paste puts it on the selected track', t3.length === 1 && t3[0].file === kept[0].file, JSON.stringify(t3));
   await p.click('#tape-undo');
   await p.waitForTimeout(800);
   check('the crate: ↶ takes the drop back', (await loadedState()).tape.tracks[2].clips.length === 0);

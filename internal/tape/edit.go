@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,7 +17,8 @@ import (
 // undo step. Where an edit leaves audio meeting audio the renderer
 // crossfades it; next to silence, it declicks.
 
-// EditRequest is one edit. The selection is the loop's In and Out.
+// EditRequest is one edit. The selection is the loop's In and Out, or a
+// range: Span and Tracks.
 type EditRequest struct {
 	Op    string `json:"op"`    // lift, copy, split, join, slide, multiply, reverse, trim, repeat, move, remove, duplicate, section-add, section-set, section-remove
 	Track int    `json:"track"` // the selected track
@@ -44,6 +46,50 @@ type EditRequest struct {
 	End     *int64  `json:"end"`
 	// Crate is a kept clip to insert, instead of the clipboard.
 	Crate string `json:"crate"`
+	// Span and Tracks are a range drawn on the lanes: lift and copy take
+	// those tracks over the span, and delete-time cuts the span, in place
+	// of the loop's bars on the selected track (or All).
+	Span   *Span `json:"span"`
+	Tracks []int `json:"tracks"`
+}
+
+// Span is a stretch of the tape, From up to To, in frames.
+type Span struct {
+	From int64 `json:"from"`
+	To   int64 `json:"to"`
+}
+
+// spanOf is the stretch an edit acts on: the request's span, or the loop.
+func (req EditRequest) spanOf(s *State, length int64) (from, to int64, err error) {
+	if req.Span == nil {
+		return s.Loop.In, s.Loop.Out, nil
+	}
+	if sp := *req.Span; sp.From < 0 || sp.To > length || sp.To <= sp.From {
+		return 0, 0, fmt.Errorf("%w: a span of %d to %d isn't on the tape", ErrBadParameter, sp.From, sp.To)
+	}
+	return req.Span.From, req.Span.To, nil
+}
+
+// tracksOf is the tracks an edit acts on, in order: the request's, every
+// one with All, or the selected track.
+func (req EditRequest) tracksOf(t *Tape) ([]int, error) {
+	var tracks []int
+	switch {
+	case len(req.Tracks) > 0:
+		tracks = slices.Compact(slices.Sorted(slices.Values(req.Tracks)))
+	case req.All:
+		for i := range t.Tracks {
+			tracks = append(tracks, i+1)
+		}
+	default:
+		tracks = []int{req.Track}
+	}
+	for _, n := range tracks {
+		if _, err := t.Track(n); err != nil {
+			return nil, err
+		}
+	}
+	return tracks, nil
 }
 
 // EditResult says what an edit did, for the page's toast.
@@ -185,30 +231,30 @@ func window(clips []Clip, from, to int64) []Clip {
 	return out
 }
 
-// liftCopy puts the selection -- the loop's In to Out, on the selected track
-// or all of them -- on the clipboard; lift also leaves silence there.
+// liftCopy puts the selection -- a range's span and tracks, or the loop's
+// In to Out on the selected track or all of them -- on the clipboard; lift
+// also leaves silence there.
 func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
-	tracks := []int{req.Track}
-	if req.All {
-		tracks = tracks[:0]
-		for i := range t.Tracks {
-			tracks = append(tracks, i+1)
-		}
-	} else if _, err := t.Track(req.Track); err != nil {
+	tracks, err := req.tracksOf(t)
+	if err != nil {
 		return EditResult{}, err
 	}
 	// take reads the selection from a state -- for a lift, the one being
 	// edited, so what's lifted is exactly what's taken out.
 	var c *Clipboard
+	var from, to int64
 	n := 0
 	take := func(tp *Tape, s *State) error {
-		l := s.Loop
-		if l.Out <= l.In {
+		var err error
+		if from, to, err = req.spanOf(s, tp.Length); err != nil {
+			return err
+		}
+		if to <= from {
 			return fmt.Errorf("%w: select some bars first: hold and drag on the ruler", ErrBadParameter)
 		}
-		c = &Clipboard{Frames: l.Len(), Created: time.Now(), From: tp.Name + ", " + barsText(s.Grid, tp.SampleRate, l.In, l.Out)}
+		c = &Clipboard{Frames: to - from, Created: time.Now(), From: tp.Name + ", " + barsText(s.Grid, tp.SampleRate, from, to)}
 		for _, tn := range tracks {
-			w := window(s.Tracks[tn-1].Clips, l.In, l.Out)
+			w := window(s.Tracks[tn-1].Clips, from, to)
 			n += len(w)
 			c.Tracks = append(c.Tracks, w)
 		}
@@ -229,7 +275,7 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 	// The clipboard is written inside the edit, before the tape is saved: if
 	// it can't be, nothing is lifted; if the tape then can't be saved, the
 	// clipboard holds a copy, which loses nothing.
-	err := e.Edit(t.ID, "", func(tp *Tape, s *State) error {
+	err = e.Edit(t.ID, "", func(tp *Tape, s *State) error {
 		if err := take(tp, s); err != nil {
 			return err
 		}
@@ -237,7 +283,7 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 			return err
 		}
 		for _, tn := range tracks {
-			s.Tracks[tn-1].Clips = clearRange(s.Tracks[tn-1].Clips, s.Loop.In, s.Loop.Out)
+			s.Tracks[tn-1].Clips = clearRange(s.Tracks[tn-1].Clips, from, to)
 		}
 		return nil
 	})

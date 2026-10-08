@@ -216,3 +216,42 @@ func TestInsertFromTheCrate(t *testing.T) {
 		t.Fatalf("track 1 = %+v: the kept clip, then the loop pushed after it", cl)
 	}
 }
+
+// Delete time on a range cuts its span, wherever the loop is.
+func TestDeleteTimeOnARangeCutsItsSpan(t *testing.T) {
+	e, _, tp, _ := firstLoop(t)
+	setLoop(t, e, 0, 96000)
+	res, err := e.EditOp(tp.ID, EditRequest{Op: "delete-time", Span: &Span{From: 24000, To: 48000}})
+	if err != nil || res.At != 24000 || res.Frames != 24000 {
+		t.Fatalf("delete-time on a span = %+v %v", res, err)
+	}
+	if cl := track(e, 1); len(cl) != 2 || cl[0].End() != 24000 || cl[1].At != 24000 || cl[1].End() != 72000 {
+		t.Fatalf("after = %+v", cl)
+	}
+}
+
+// A range cut away from a locked loop moves the loop with the music, so it
+// plays what it played; one cut over the loop takes it.
+func TestDeleteTimeElsewhereMovesTheLoopWithTheMusic(t *testing.T) {
+	cases := []struct {
+		name         string
+		loop         Loop
+		from, to     int64
+		wantIn, wOut int64
+	}{
+		{"after it", Loop{In: 192000, Out: 288000, On: true}, 0, 48000, 144000, 240000},
+		{"before it", Loop{In: 0, Out: 48000, On: true}, 96000, 144000, 0, 48000},
+		{"across its start", Loop{In: 48000, Out: 144000, On: true}, 0, 96000, 0, 48000},
+		{"the loop itself stays", Loop{In: 48000, Out: 96000, On: true}, 48000, 96000, 48000, 96000},
+		{"inside it", Loop{In: 48000, Out: 96000, On: true}, 0, 192000, 0, 0},
+	}
+	for _, c := range cases {
+		s := State{Tracks: []Track{{N: 1}}, Loop: c.loop}
+		if err := s.deleteTime(c.from, c.to); err != nil {
+			t.Fatal(err)
+		}
+		if s.Loop.In != c.wantIn || s.Loop.Out != c.wOut {
+			t.Fatalf("%s: loop %d–%d, want %d–%d", c.name, s.Loop.In, s.Loop.Out, c.wantIn, c.wOut)
+		}
+	}
+}

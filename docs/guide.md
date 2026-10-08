@@ -56,9 +56,10 @@ just move references around.
 | **Catch** | Put a span of the ring onto a track, after you've played it |
 | **Pass** | One time round the loop. Every pass you play is kept, and you choose which to catch |
 | **Layer** | A second catch on top of a track's existing audio, summed with it |
-| **Clipboard** | Holds what you last *copied* or *lifted*, until you *drop* it |
-| **Lift** | Cut the selection out of the tape into the clipboard |
-| **Drop** | Paste the clipboard at the playhead. The playhead jumps to the end of what you dropped |
+| **Range** | Bars across one or more tracks, drawn on the lanes: what Cut, Copy, Paste, Insert and Delete time act on |
+| **Clipboard** | Holds what you last *copied* or *cut*, until you *paste* it. It's the first slot of the crate |
+| **Cut** | Take a range out of the tape into the clipboard, leaving silence (the OP-1's *lift*) |
+| **Paste** | Put the clipboard on a range's start, or at the playhead (the OP-1's *drop*). At the playhead, it jumps to the end of what you pasted |
 | **Bus A, bus B** | The tape's two outputs into the Sidekick: bus A into channel 1, bus B into channel 2. Each has the Sidekick's EQ, FX and fader |
 | **Mixdown** | Play the tape once and save what came out of the mixer as a take |
 | **Lead, follow** | Whether the tape sets the tempo for the Bento (lead) or follows it (follow) |
@@ -401,7 +402,7 @@ and the editor bar takes the place of the toolbar.
 - **Send to ▾** (when the Pi runs the tape) sends it to one of three places:
   - **Tape** puts it on the loaded tape, by its tempo and downbeat if it has
     them (step 6). The line under it says what it will do.
-  - **Clipboard** puts it on the clipboard, to Drop or Insert on a tape
+  - **Clipboard** puts it on the clipboard, to Paste or Insert on a tape
     (step 6d).
   - **Crate** keeps it as a clip (§8.11), without making a take. The **◫**
     chip in the header says how many clips you've kept from this take, and
@@ -608,7 +609,7 @@ clipboard, to drop onto a tape.
 - [demo] Select a span near the old end and wait until its start passes the
   oldest audio → the bar turns amber and says so; saving still works, from
   the oldest audio.
-- [demo] With the tape on, select a span and tap **Copy** → *Copied …: Drop
+- [demo] With the tape on, select a span and tap **Copy** → *Copied …: Paste
   it on a tape*; the tape page's clipboard shows it. *(Step 6d.)*
 
 ## 7. Recording from your phone
@@ -758,8 +759,8 @@ From the top:
     there. It's kept on the Pi, so every device records onto the same
     track: arm track 3 on the tablet and Catch on your phone goes there.
     Selecting a clip or tapping a lane doesn't change it: those pick the
-    **selected track**, this device's own, which Drop, Lift, Copy and Split
-    act on, edged faintly when it isn't the record track.
+    **selected track**, this device's own, which Paste and Split act on
+    without a range, edged faintly when it isn't the record track.
   - **The input** (*aux*, *ch1*…) is what the track records from: each track
     has its own, so the guitar on aux can go to track 2 and the Bento on ch2
     to track 3 without changing anything between catches. Its lamp is green
@@ -771,19 +772,24 @@ From the top:
     has played, and labelled with where it came from (*aux*, *main*, a
     *take*), *repeat* when it plays the same audio as one before it, or
     *reversed*. A layer on top of another clip is fainter.
-  - Tap a clip to select it, as in a DAW: the clip bar under the lanes acts
-    on it, and **Details…** (or a double-click, or Enter) opens its sheet.
-    Hold a clip, then drag, to slide it (7a). Tap an empty part of a lane to
-    move the playhead there, letting go of the selection.
+  - Tap a clip to select it, as in a DAW: the action bar under the lanes
+    acts on it, and **Details…** (or a double-click, or Enter) opens its
+    inspector. Hold a clip, then drag, to slide it (7a). Hold an empty part
+    of a lane, then drag across bars and lanes, for a **range** (8.5). Tap an
+    empty part of a lane to move the playhead there, letting go of the
+    selection.
 - **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
   tape plays on to the end of what's recorded.
-- **The drawers.** The bar's **Edit ▴** and **Crate ▴** open a drawer
-  above it, one at a time; the key's light is on while its drawer is open.
-  The drawer pushes the lanes up rather than covering one, and its key, its
-  **✕** or **Esc** closes it. Each device remembers which was open.
-  - **Clipboard · Edit** holds the clipboard, Lift, Copy, Split and ×2 on
-    the loop's bars, and what a slid clip snaps to.
+- **The crate's drawer.** The bar's **Crate ▴** opens it above the bar,
+  with the **clipboard** as its first row (Paste, Insert, Merge, Keep, ×)
+  and the kept clips under it; the key's light is on while it's open. It
+  pushes the lanes up rather than covering one, and its key, its **✕** or
+  **Esc** closes it. Each device remembers whether it was open.
   - While a clip is being aligned, its editor opens there instead.
+- **Beside the ruler:** **⌗ Bar** is what a drag snaps to -- a slid clip, a
+  trim, a fade, or a range drawn on the lanes: tap it for a beat, an eighth,
+  nothing, and a bar again. The **padlock** locks the loop where it is, so a range you draw
+  doesn't move it.
 - **Recording onto a track** is in the track's inspector: tap its name
   twice. It's the record track's (the inspector follows it while one is
   armed), in red at the top: **Input**, **Layer / Replace**, **Catch the
@@ -823,23 +829,24 @@ From the top:
   play here*) sits on top. The output button is in the top bar.
 - **Tap the mini player's window** to pull up **the player** over the page:
   the whole bar, large (**|◂ ▶ ⟲ Loop ● Rec**, the click, **Catch** and the
-  overview), and under it **Edit ▴** and **Crate ▴**, which show their
-  drawer below them. **Down**, Back or **Esc** puts it away. Takes, Capture
+  overview), and under it **Crate ▴**, which shows its drawer below it. **Down**, Back or **Esc** puts it away. Takes, Capture
   and a take's page have the same mini player and player.
-- **On a phone,** with the player down, the clipboard and the edits are
-  rows under the tracks. The recording is in the track's inspector: tap its
-  input.
+- **On a phone,** with the player down, the clipboard and the crate are
+  rows under the tracks, and the action bar floats above the player. The
+  recording is in the track's inspector: tap its name twice.
 - **On a tablet or a computer** the tracks take the whole width and share
   the height of the window between the header and the bar; a drawer opening
   makes them shorter, and they scroll once they're as short as their heads.
-  Narrower than 1200 px, **Edit ▴** and **Crate ▴** sit beside the overview. On the
+  Narrower than 1200 px, **Crate ▴** sits beside the overview. On the
   1024 × 600 bench the header is one row, the page switch at its left.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
   ⟲ Loop, **K** the click, **J** goes back five seconds, **1–4** or **↑ ↓** choose the record track, **S**
   splits at the playhead, and **⌘Z / Ctrl-Z** undoes (with **⇧** to redo).
   With a clip picked, or several: **Delete** removes them, **⌘C / Ctrl-C**
-  copies them as they lie, and **⌘D / Ctrl-D** lays a copy right after them
-  and picks the copy, so pressing it again carries the run on.
+  copies them as they lie, **⌘X / Ctrl-X** cuts them, and **⌘D / Ctrl-D**
+  lays a copy right after them and picks the copy, so pressing it again
+  carries the run on. With a range: **⌘C** copies it and **⌘X** cuts it.
+  **⌘V / Ctrl-V** pastes, on the range or at the playhead. **Esc** lets go.
   **Shift** with a click picks several. Holding a key doesn't repeat it, and
   none of them fire while you're typing or a sheet is open.
 - **After a sleep.** Lock a tablet and wake it, and the page asks the Pi
@@ -958,7 +965,7 @@ anyway. Choose a source and select a track, then:
 A catch goes on top of what's already on the track, as a layer, the way an
 OP-1 overdubs. Its toast has **Undo**.
 
-**Clips.** Tap a clip to select it; **Details…** in the clip bar (or a
+**Clips.** Tap a clip to select it; **Details…** in the action bar (or a
 double-click) opens its sheet: its level, a ±5 ms nudge for timing, and
 **Remove**.
 
@@ -999,15 +1006,16 @@ its input (tap the input on its header and choose one), then:
   the clip.
 - The toast has **Cancel** while it records, and **Undo** once kept.
 
-**The clipboard (6d)** holds what you last copied or lifted -- from a take,
+**The clipboard (6d)** holds what you last copied or cut -- from a take,
 the ribbon or a tape (7a, [below](#85-editing-like-an-op-1)) -- and keeps it
-through a restart. A copy can be as long as a track. Its row on the tape
-page shows how long it is and where it came from:
+through a restart. A copy can be as long as a track. It's the crate's first
+row (**Crate ▴**), with how long it is and where it came from:
 
 - **Tap it** to hear it (its first minute).
-- **Drop** puts it on the selected track at the playhead, replacing what's
-  there. Stopped, the playhead moves to the drop's end, so **Drop, Drop,
-  Drop** lays copies end to end. On an empty tape, a drop is the first loop.
+- **Paste** puts it on the selected track at the playhead, replacing what's
+  there. Stopped, the playhead moves to the paste's end, so **Paste, Paste,
+  Paste** lays copies end to end. On an empty tape, a paste is the first
+  loop. On a range, the action bar's **Paste** puts it at the range's start.
 - **×** empties it.
 
 **More (6d):**
@@ -1015,9 +1023,10 @@ page shows how long it is and where it came from:
 - **Layer / Replace** chooses what a catch or a punch does to audio already
   on the track: sits on top of it, or clears it first.
 - **The ruler** over the lanes shows the bars, with the loop shaded. Tap it
-  to move the playhead to a bar line; hold, then drag across it to loop
-  those bars. The lanes show the loop and a bar either side, so you can drag
-  it a bar wider at a time.
+  to move the playhead to a bar line; hold, then drag across it to select
+  those bars on every track: a range, which the loop follows (unless the
+  padlock beside the ruler is locked). The lanes show the loop and a bar
+  either side, so you can drag it a bar wider at a time.
 - **Zoom and pan** the lanes and the ruler: pinch with two fingers, drag
   sideways with one (a vertical drag still scrolls the page), or on a
   computer scroll sideways and hold ⌘ or Ctrl to zoom. A playhead that runs
@@ -1046,7 +1055,7 @@ page shows how long it is and where it came from:
   empty until the instrument on aux plays.
 - [demo] On a 4-bar loop, play for a pass, then tap **1 bar** → a one-bar
   clip lands on the bar that just finished.
-- [demo] Tap a clip, then **Remove** in the clip bar (or Delete), then
+- [demo] Tap a clip, then **Remove** in the action bar (or Delete), then
   **Undo** in the toast → the clip is back. ↶ and ↷ step through the same history.
 - [demo] Open the tape page on two devices and mute a track on one → the
   other shows it within a second.
@@ -1066,15 +1075,16 @@ page shows how long it is and where it came from:
   and nothing complains.
 - [rig] Arm track 3 with the guitar in aux, tap ● Rec, press ▶, play over the count-in
   and two passes, press ■ → the guitar is on track 3, in time.
-- [demo] On a take page select about 2 seconds and choose **More → Copy**,
-  then on an empty tape tap **Drop** three times → the first is the loop,
+- [demo] On a take page select about 2 seconds and choose **Send to → Clipboard**,
+  then on an empty tape open **Crate ▴** and tap **Paste** three times → the first is the loop,
   and the next two lie end to end after it. Undo takes them back one at a
   time.
 - [demo] Tap the clipboard → you hear it; tap again → it stops.
 - [demo] Choose **Replace**, catch a pass onto a track that has audio →
   the old audio under it is gone, not layered.
-- [demo] Hold on the ruler, drag across two bars → *Looping 2 bars*; the tape
-  loops those.
+- [demo] Hold on the ruler, drag across two bars → the action bar says
+  *All tracks · bars 1–2*, and the tape loops those. Lock the padlock and
+  drag across bar 4 → the range moves, the loop stays.
 - [demo] Tap a 1-bar clip at the start of a 4-bar loop, *Repeat to the
   loop's end* → three copies after it, four clips in all.
 - [demo] Tap the selected track's number, set its pan to the left → it sits
@@ -1091,53 +1101,64 @@ page shows how long it is and where it came from:
 
 ### 8.5 Editing like an OP-1
 
-*Step 7a.* The selection is the loop: hold and drag on the ruler to set it.
-Under the clipboard, **Track N / All** says what Lift and Copy take: the
-loop's bars on the selected track, or on all four, kept apart.
+*Step 7a, and step 5 of the interaction model.* What you edit is drawn on
+the lanes: clips you've selected, or a **range** -- bars across one or more
+tracks. **Hold an empty part of a lane, then drag** across bars and lanes;
+**hold on the ruler and drag** for every track; **tap a section** for its
+bars; or select clips and tap **Bars** for the bars they cover. A range is
+shaded in teal on its lanes. One drawn on the lanes, or from **Bars**, snaps
+as **⌗** says (the ruler's are whole bars). Its edges have tabs: drag one
+sideways to resize it. The loop follows the range to its bars, as on the OP-1,
+unless the **padlock** by the ruler is locked: then you can edit elsewhere
+while the loop plays on. The **action bar** names it (*Tracks 2–3 · bars
+5–8*) and acts on it; **Done**, **Esc** or a tap on an empty part of a lane
+lets it go, and selecting a clip does too.
 
 | Do | Gets you |
 |---|---|
-| **Lift** | Cuts the selection into the clipboard, leaving silence. Undo puts it back |
-| **Copy** | Copies it to the clipboard, leaving the tape alone |
-| **Drop** | Pastes the clipboard at the playhead, from the selected track down, replacing what's there, and moves the playhead to its end. A four-track clipboard lands on all four, silence and all. **Drop, drop, drop** lays copies end to end — the quickest way to turn four bars into sixteen |
-| **Merge** | Beside Drop when the clipboard has more than one track: drops them all onto the selected track, layered, each clip at its own level. The tracks' level, pan and mutes are the mixer's, so they don't come with it |
-| **Split** | Cuts the clips on the selected track in two at the playhead, where they're heard (a nudged clip is cut where it sounds) |
+| **Cut** (✂, ⌘X) | Takes the range's bars on its tracks into the clipboard, a clipboard track for each, leaving silence: the OP-1's *lift*. Undo puts it back |
+| **Copy** (⌘C) | Copies them to the clipboard, leaving the tape alone |
+| **Paste** (⌘V) | Puts the clipboard at the range's start, from its first track down, replacing what's there: the OP-1's *drop*. Without a range, **Paste** (in the crate, or ⌘V) puts it at the playhead on the selected track and moves the playhead to its end, so **Paste, Paste, Paste** lays copies end to end — the quickest way to turn four bars into sixteen. A four-track clipboard lands on all four, silence and all |
+| **Merge** | In the crate, beside Paste, when the clipboard has more than one track: pastes them all onto the selected track, layered, each clip at its own level. The tracks' level, pan and mutes are the mixer's, so they don't come with it |
+| **Split** | S, with no clip selected: cuts the clips on the selected track in two at the playhead, where they're heard (a nudged clip is cut where it sounds) |
 | **Join** | In a clip's inspector: joins it and the half split from it back into one |
-| **Slide** | Hold a clip, then drag it along its track, or up or down onto another: once your finger is half a lane over, that lane is outlined and the clip goes there, and that track is selected. A clip on the grid lands on the nearest bar, beat or eighth (**Slide snaps to**); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
-| **Trim** | Tap a clip: it's selected, with a grip inside each edge. Drag a grip to move that edge, on the **Slide snaps to** grid (hold ⌥ to move it freely). Trimming the start keeps the audio where it was played. While you drag, the audio the edge can reach shows faintly past it; the grip turns amber where it can go no further. A clip too short for grips has **Start here** and **End here** in its inspector, which trim it to the playhead. Escape, or a tap on an empty part of a lane, lets go of it |
+| **Slide** | Hold a clip, then drag it along its track, or up or down onto another: once your finger is half a lane over, that lane is outlined and the clip goes there, and that track is selected. A clip on the grid lands on the nearest bar, beat or eighth (**⌗**, by the ruler); one off it moves by whole steps, keeping its offset. It goes on top of anything already there |
+| **Trim** | Tap a clip: it's selected, with a grip inside each edge. Drag a grip to move that edge, on the **⌗** grid (hold ⌥ to move it freely). Trimming the start keeps the audio where it was played. While you drag, the audio the edge can reach shows faintly past it; the grip turns amber where it can go no further. A clip too short for grips has **Start here** and **End here** in its inspector, which trim it to the playhead. Escape, or a tap on an empty part of a lane, lets go of it |
 | **Repeat** | Drag a picked clip's ⟳ corner (bottom right) to the right: a ghost of each copy follows, and the count shows (×4 is the clip and three copies). Let go to lay them end to end, on top of anything already there; drag back to have fewer. Held near the lane's end, the view scrolls on, so you can lay more than fit on screen; trim grips do the same. The copies aren't linked: change one and the others stay as they were. One undo takes them all back. **Repeat to the loop's end**, in the inspector, still fills the loop |
-| **Fade in, Fade out** | Pick a clip and drag the small square at either end of its top edge inwards: the fade follows, any length, sticking to a **Slide snaps to** line as it passes close by (hold ⌥ to keep it off them), and says how long it is as you drag. It stops where the other fade begins; drag it back to the corner for none. Or, in its inspector, choose 10 ms, an eighth or a quarter of a beat, a beat or a bar (the beat ones need a tempo). Under the lengths, its **curve**: *Equal power* (the default, even over a beat), *Linear*, *S-curve* (slow off both ends) or *Exponential* (drops early and tails off, the way a note dies away). Drawn on the block as a shaded corner under that curve, and played on it, in a mixdown and a shared WAV too. The 3 ms declick, or a crossfade where it meets audio, still works under it. A split keeps each fade on its half; reversing swaps them, curves and all; a lift or copy drops a fade it cuts through |
-| **×2** | Doubles the loop, copying what's in it over what follows |
-| **Reverse** | In the clip bar, or a clip's inspector: plays it backwards. In the inspector, *Play forwards* turns it back |
+| **Fade in, Fade out** | Pick a clip and drag the small square at either end of its top edge inwards: the fade follows, any length, sticking to a **⌗** line as it passes close by (hold ⌥ to keep it off them), and says how long it is as you drag. It stops where the other fade begins; drag it back to the corner for none. Or, in its inspector, choose 10 ms, an eighth or a quarter of a beat, a beat or a bar (the beat ones need a tempo). Under the lengths, its **curve**: *Equal power* (the default, even over a beat), *Linear*, *S-curve* (slow off both ends) or *Exponential* (drops early and tails off, the way a note dies away). Drawn on the block as a shaded corner under that curve, and played on it, in a mixdown and a shared WAV too. The 3 ms declick, or a crossfade where it meets audio, still works under it. A split keeps each fade on its half; reversing swaps them, curves and all; a lift or copy drops a fade it cuts through |
+| **×2** | On the action bar while the range is the loop: doubles the loop, copying what's in it over what follows |
+| **Reverse** | In the action bar, or a clip's inspector: plays it backwards. In the inspector, *Play forwards* turns it back |
 | **Share as WAV** | In a clip's inspector: sends just that clip, at its level, to another app; a clip over a minute downloads instead |
 
 **Replace, insert or close the gap.** Three edits change what's already on
-the tape in three different ways, and the keys pair up to say so: **⤓ Drop**
-beside **⇥ Insert**, **✂ Lift** beside **⇤ Delete time**.
+the tape in three different ways, and the keys pair up to say so: **⤓ Paste**
+beside **⇥ Insert**, **✂ Cut** beside **⇤ Delete time**.
 
 ```
                before            after
-⤓ Drop         A A │ B B │ C C   A A │ x x │ C C         over what's there: the same length
+⤓ Paste        A A │ B B │ C C   A A │ x x │ C C         over what's there: the same length
 ⇥ Insert       A A │ B B │ C C   A A │ x x │ B B │ C C   everything after moves later
-✂ Lift         A A │ B B │ C C   A A │ · · │ C C         a gap is left
+✂ Cut          A A │ B B │ C C   A A │ · · │ C C         a gap is left
 ⇤ Delete time  A A │ B B │ C C   A A │ C C               the gap closes up
 ```
 
 - **Insert** and **Delete time** act on **all four tracks and the
   sections** (the keys say *all tracks*): moving one track alone would knock
-  the parts out of time with each other. Drop, Lift and Copy keep the
-  **Track N / All** choice.
-- **Insert** is beside Drop and needs a clipboard; **Delete time** is beside
-  Lift and takes the selection (the loop's bars). A clip across the point is
+  the parts out of time with each other. Cut and Copy take the range's
+  tracks; Paste fills from its first track down, as many as the clipboard
+  has.
+- **Insert** is beside Paste and needs a clipboard: on the action bar it
+  goes in at the range's start, in the crate at the playhead. **Delete
+  time** is beside Cut and takes the range's bars. A clip across the point is
   split there; a section across it grows (Insert) or loses the part cut out
   (Delete time). Insert won't push anything past the end of a track
   (`TAPE_LENGTH_S`).
 - **Duplicate section**, in a section's inspector, plays it twice in a row: a
   copy right after it, named the same, and everything after moved on. *The
   chorus again* is one tap.
-- **See it first.** Point at **Drop**, **Insert** or **Delete time** (or
-  Tab to it) and the lanes show what it will do: Drop outlines what it will
-  cover; Insert draws everything after the playhead moved on, the gap shaded
+- **See it first.** Point at **Paste**, **Insert** or **Delete time** (or
+  Tab to it) and the lanes show what it will do: Paste outlines what it will
+  cover; Insert draws everything after the point moved on, the gap shaded
   and the clipboard dashed in it, and the ruler says *+4 bars*; Delete time
   draws what follows moved up to meet what came before, at a red seam where
   the selection began, and says *−4 bars*. The preview follows the playhead
@@ -1145,12 +1166,12 @@ beside **⇥ Insert**, **✂ Lift** beside **⇤ Delete time**.
   won't fit shows nothing, and its tap says why. On a touch screen the first
   tap on Insert or Delete time shows it and asks for a second, and the
   second does it where the first showed; turn **Ask before Insert and
-  Delete time** off (in the Edit drawer) to skip that.
+  Delete time** off (under ⋯) to skip that.
 - After each, a toast says what happened (*Inserted 4 bars at bar 9*,
   *Deleted bars 9–12*) with Undo: each is one undo step.
 
 **Selecting clips.** As in a DAW, a tap (or click) on a clip selects it, and
-nothing pops up. The **clip bar** over the transport says what's selected
+nothing pops up. The **action bar** over the transport says what's selected
 (*Track 2 · 10.0 s · take*, or *3 clips*) and acts on it, each one undo.
 It comes up half a second after the click, so a double-click's second
 click lands where its first did; its keys scroll sideways when the window
@@ -1163,15 +1184,17 @@ Escape lets go.
 
 | Do | Key | Gets you |
 |---|---|---|
-| **Split** | S | Cuts the one selected clip in two at the playhead (lit when the playhead is inside it). A clip layered with it there is cut too. With nothing selected, S splits the selected track, as Edit's **Split** does |
-| **Copy** | ⌘C / Ctrl+C | Copies them to the clipboard as they lie, on their tracks and as far apart: **Drop** lays them out again from the selected track, replacing only what's under each |
+| **Cut** | ⌘X / Ctrl+X | Copies them as they lie, then takes them off the tape: **Paste** lays them out again. One undo puts them back |
+| **Copy** | ⌘C / Ctrl+C | Copies them to the clipboard as they lie, on their tracks and as far apart: **Paste** lays them out again from the selected track, replacing only what's under each |
+| **Bars** | | The bars they cover, on their tracks, as a range: drag its edges in for part of a clip |
+| **Split** | S | Cuts the one selected clip in two at the playhead (lit when the playhead is inside it). A clip layered with it there is cut too. With nothing selected, S splits the selected track at the playhead |
 | **Duplicate** | ⌘D / Ctrl+D | Lays a copy right after them and selects the copy, so pressing it again carries the run on |
 | **Reverse** | | Turns each round |
 | **Keep** | | Keeps the one selected clip on the crate (§8.11) |
 | **Move here** | | Moves them so the first starts at the playhead, keeping their spacing and tracks |
 | **Details…** | Enter, or double-click | The one clip in the inspector: level, nudge, fades, Align, Share as WAV, Start here and End here |
 | **Remove** | Delete | Takes them off the tape |
-| **Drag any of them** (hold, then drag) | ← → (Shift: a bar) | Moves them all by the same time (and, dragging, the same number of tracks), as far as the tape and its tracks go. The keys move them a step of **Slide snaps to**: a bar, a beat or an eighth (a tenth of a second with Off, or without a tempo), stopping at the tape's ends |
+| **Drag any of them** (hold, then drag) | ← → (Shift: a bar) | Moves them all by the same time (and, dragging, the same number of tracks), as far as the tape and its tracks go. The keys move them a step of **⌗**: a bar, a beat or an eighth (a tenth of a second with Off, or without a tempo), stopping at the tape's ends |
 | **Done** | Escape | Lets go of them |
 
 Align still works on one clip at a time.
@@ -1196,8 +1219,8 @@ across; it's named the first of *Intro, Verse, Chorus, Drop, Bridge, Outro*
 not yet used, and its inspector opens to call it something else or give it
 a colour. With a keyboard, Tab to the strip: **← →** move between sections,
 **Enter** selects one and, again, opens its inspector. **Tap a section** to
-select its bars: they become the loop's In and
-Out, so **Lift**, **Copy** and **×2** act on it. **Tap it again** for its
+select its bars on every track, a range, which the loop follows, so **Cut**,
+**Copy** and **×2** act on it. **Tap it again** for its
 inspector: rename, colour, remove. **Drag an edge** to resize it. On a tape with
 a tempo, sections sit on bar lines; they don't overlap; each change is one
 undo. Removing one leaves the audio under it as it is. The stems' `.mid`
@@ -1219,25 +1242,33 @@ try something. It costs no disk space.
 
 **Checks — step 7a:**
 
-- [demo] Loop 4 bars, choose **All**, **Lift**, tap bar 1 on the ruler, then
-  **Drop** three times → twelve bars of the same four, with no clicks where
-  the copies meet.
+- [demo] Hold on the ruler and drag across 4 bars, **Cut**, tap bar 1 on the
+  ruler, then open **Crate ▴** and **Paste** three times → twelve bars of the
+  same four, with no clicks where the copies meet.
+- [demo] Hold an empty part of track 4 and drag up across track 3 and two
+  bars → the range is shaded on both lanes, and the action bar says *Tracks
+  3–4 · bars …*; the loop moved to it. Drag its right edge's tab a bar in →
+  one bar; **Copy**, Esc, draw a range on track 1 and **Paste** → the pair
+  of tracks again, from track 1.
+- [demo] Tap a clip that fills its lane, **Bars** → a range over its bars;
+  drag the left tab two bars in, **Cut** → the clip's end is gone, its start
+  stays.
 - [demo] Put the playhead inside a clip, **Split**, hold the second half and
   slide it a bar later, then ↶ twice → the clip is whole again.
-- [demo] Tap a clip → it's selected, with its grips, and the clip bar names
+- [demo] Tap a clip → it's selected, with its grips, and the action bar names
   it; nothing pops up. Double-click it (or press Enter) → its sheet opens.
   Drag quickly across a clip → the lanes pan and the clip stays where it
   was.
-- [demo] Select a clip and press → → it moves a bar later (with **Slide snaps
-  to** on Bar); ↶ → back. Press **S** with the playhead inside it → it splits.
+- [demo] Select a clip and press → → it moves a bar later (with **⌗** on
+  Bar); ↶ → back. Press **S** with the playhead inside it → it splits.
   ⌘A → every clip is selected; Escape → none.
 - [demo] Hold a clip until a dashed outline shows where it would land, drag
   it a bar later and let go → it's a bar later; ↶ → it's back. Hold one and
   let go without moving → nothing moves.
-- [demo] Drop 4 bars from the middle of a take, tap the clip, close its
+- [demo] Paste 4 bars from the middle of a take, tap the clip, close its
   sheet → a grip shows inside each edge. Drag the right grip a bar left →
   the clip ends a bar sooner, and the toast says where; ↶ → it's back.
-- [demo] With **Slide snaps to** on *Beat*, drag the left grip two beats
+- [demo] With **⌗** on *Beat*, drag the left grip two beats
   left → the audio from before it shows faintly as you drag, and the clip
   starts two beats sooner, what it already played still where it was.
 - [demo] Drag a grip far out → it stops 2 s past where the clip began or
@@ -1275,19 +1306,19 @@ try something. It costs no disk space.
 - [demo] Fade a clip in, then **Reverse** it → it fades out instead.
 - [demo] On a tape with no tempo, the beat and bar fades are greyed out.
 - [demo] Tap a clip, then Shift-click a clip on another track (on a phone,
-  **Select more**, then tap it) → the clip bar says *2 clips*. Hold one and drag both a bar later and a track down →
+  **Select more**, then tap it) → the action bar says *2 clips*. Hold one and drag both a bar later and a track down →
   they move together; ↶ → both back.
 - [demo] Drag a picked pair up past track 1 → they stop with the higher one
   on track 1.
-- [demo] With two picked, **Copy**, then select track 3 and **Drop** → the
+- [demo] With two picked, **Copy**, then select track 3 and **Paste** → the
   pair again from track 3, as far apart as they were.
 - [demo] On a computer, click a clip, Shift-click another, **⌘D** → a copy
   of both right after them; **Delete** → the two picked are gone; ↶ → back.
 - [demo] Put the playhead in a clip and press **S** → it's split there.
 - [demo] Hold on the sections strip and drag across bars 1–4 → a section,
   *Intro*, over them, and its sheet; call it **Verse**.
-- [demo] Tap the Verse → bars 1–4 are the loop; **Copy**, move the playhead
-  to bar 9, **Drop** → the verse again at bar 9.
+- [demo] Tap the Verse → bars 1–4 on every track are the range, and the
+  loop; **Copy**, draw a range at bar 9, **Paste** → the verse again at bar 9.
 - [demo] Tap the Verse again → its sheet; make it red → the strip shows it
   red. Drag its right edge a bar to the right → it's bars 1–5; ↶ → back to
   1–4.
@@ -1302,11 +1333,11 @@ try something. It costs no disk space.
   the lanes show everything from bar 5 on moved 4 bars later, the gap shaded
   with the clipboard dashed in it, and the ruler says *+4 bars*. Click →
   that's what happens, on every track; ↶ → as it was.
-- [demo] Select bars 9–12 and point at **⇤ Delete time** → bars 9–12 shaded
+- [demo] Hold the ruler across bars 9–12 and point at **⇤ Delete time** → bars 9–12 shaded
   and what followed drawn moved up, *−4 bars*. Click → *Deleted bars 9–12*;
   the sections after it moved up too.
-- [demo] Point at **⤓ Drop** → an outline where it will land on the selected
-  track; nothing else moves.
+- [demo] Point at **⤓ Paste** → an outline where it will land; nothing else
+  moves.
 - [demo] On a phone, tap **Insert** → the preview and *Tap again*; tap
   elsewhere → nothing happens. Tap Insert twice → it's done. Turn **Ask
   before Insert and Delete time** off → one tap does it.
@@ -1320,17 +1351,18 @@ try something. It costs no disk space.
 - [demo] Zoom out until a clip is narrow → no grips; its inspector's **Start
   here** and **End here** trim it to the playhead.
 - [demo] Split a clip, tap either half, **Join the split** → one clip.
-- [demo] **×2** on a 2-bar loop → a 4-bar loop whose second half is a copy of
-  the first.
-- [demo] Tap a clip, **Reverse** in the clip bar → its waveform turns round
+- [demo] Hold the ruler across a 2-bar loop, **×2** → a 4-bar loop whose
+  second half is a copy of the first.
+- [demo] Tap a clip, **Reverse** in the action bar → its waveform turns round
   and it plays backwards; ↶ turns it back.
 - [demo] Double-click a clip, **Share as WAV** → the share sheet (or a download)
   offers *<tape> track 1.wav*.
-- [demo] Copy **All** with audio on two tracks, select track 3, **Merge** →
+- [demo] Copy a range over all four tracks with audio on two, select track
+  3, **Merge** (in the crate) →
   both parts on track 3, one above the other.
 - [demo] Clone a tape, delete the original, then play the clone → it plays
   fully; no audio was lost.
-- [demo] Copy a selection on a take page, then Drop it on a tape → it's
+- [demo] Copy a selection on a take page, then Paste it on a tape → it's
   there.
 
 **Lining clips up exactly:**
@@ -1607,12 +1639,12 @@ touches the crate. A clip outlives the take it came from.
 | A clip on the tape | Its inspector's **Keep** | The clip's audio itself: nothing is copied. Its level and nudge stay on the tape |
 | The clipboard | **Keep** beside it, when it holds one clip | The same: nothing is copied |
 
-**Crate ▴**, beside Record and Edit, opens it: the clips, newest first, with
-a box to find one by name.
+**Crate ▴**, beside Catch, opens it: the clipboard first, then the clips,
+newest first, with a box to find one by name.
 - **Tap a clip** to play it here, and again to stop.
-- **Drop** puts it at the playhead on the selected track, over what's there,
-  and moves the playhead to its end, so Drop, Drop, Drop lays copies end to
-  end. On an empty tape it's the first loop, as a clipboard drop is.
+- **Paste** puts it at the playhead on the selected track, over what's there,
+  and moves the playhead to its end, so Paste, Paste, Paste lays copies end
+  to end. On an empty tape it's the first loop, as the clipboard's is.
 - **⋯** renames it, shares it as a WAV, opens the take it came from, or
   deletes it. A deleted clip comes back with Undo, or within a week.
 
@@ -1623,13 +1655,13 @@ kept*), open the crate on that take's clips: **from … ×** shows them all agai
 
 - [demo] Select 4 bars of a take, **Send to ▾ → Crate** → it's on the crate as
   *take · 0:..*, 4 bars long. The takes list is unchanged.
-- [demo] On a tape, open **Crate ▴** and **Drop** a clip three times → three
+- [demo] On a tape, open **Crate ▴** and **Paste** a clip three times → three
   copies end to end, with no clicks; ↶ three times → as it was.
 - [demo] Delete the take a clip came from → the clip still plays, and still
   drops.
 - [demo] Delete a clip, then **Undo** → it's back.
 - [demo] Capture until `MAX_SAVES` prunes → the crate is untouched.
-- [demo] Tap a clip on the tape, **Keep** in the clip bar → it's on the crate with the tape's
+- [demo] Tap a clip on the tape, **Keep** in the action bar → it's on the crate with the tape's
   name; no new audio file is written.
 - [demo] Open a take you've kept clips from → the header shows **◫ 2**; tap it
   → the tape page's crate shows just those two.
@@ -1773,7 +1805,7 @@ has no tip.
 | Colour (section) | The section's colour on the strip |
 | Remove (section) | Take the section away. The audio under it stays |
 | Duplicate section | Play this section twice in a row: a copy right after it, and the rest moves later |
-| A lane | Tap a clip to select it: the clip bar acts on it, and a double-click opens the inspector beside the lanes. Drag its edges to trim it, the squares on its top edge to fade it in or out, or its ⟳ corner (bottom right) to repeat it. Shift, ⌘ or Ctrl with a click, or Select more, selects several. Hold a clip, then drag, to slide it along its track or onto another. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
+| A lane | Tap a clip to select it: the action bar acts on it, and a double-click opens the inspector beside the lanes. Drag its edges to trim it, the squares on its top edge to fade it in or out, or its ⟳ corner (bottom right) to repeat it. Shift, ⌘ or Ctrl with a click, or Select more, selects several. Hold a clip, then drag, to slide it along its track or onto another. Hold an empty part, then drag across bars and lanes: a range, for the action bar's Cut, Copy, Paste, Insert and Delete time; the loop follows it unless it's locked. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Its number and name: tap to select it (and make it the record track, if one is armed), again for its inspector. Keys 1–4, or ↑ ↓, arm it |
 | ● (track) | Arm it, making it the record track: Catch, ● Rec, a free loop's tap and Overdub on this device go onto it, on every device. Lit red on the one that is; tap it again to disarm |
 | Arm it | In the inspector of a track, while none is armed: arm this one, making it the record track |
@@ -1782,28 +1814,29 @@ has no tip.
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape. Key: Space |
 | To the loop’s start (tape) | Back to the loop’s start; with Loop off, to the top of the tape |
-| Edit ▴ (tape) | The clipboard and Drop, Lift, Copy, Split and ×2 on the loop’s bars, and what a slid clip snaps to. Esc closes it |
-| Crate ▴ (tape) | The clips you've kept, newest first: play one, drop it at the playhead, or open it. Esc closes it |
+| Crate ▴ (tape) | The clipboard first, then the clips you've kept, newest first: play one, paste it at the playhead, or open it. Esc closes it |
 | Find a clip (crate) | Show only the kept clips whose name has this in it |
 | from … × (crate) | Showing the clips kept from one take: press to see them all |
 | A kept clip | Play it here, or stop it |
-| Drop (crate) | Put this clip at the playhead on the selected track, over what's there. Drop again to lay another after it |
+| Paste (crate) | Put this clip at the playhead on the selected track, over what's there. Paste again to lay another after it |
 | Insert (crate) | Put this clip at the playhead and push everything after it later, on every track |
 | ⋯ (kept clip) | Rename it, share it, open the take it came from, or delete it |
 | Name (kept clip) | The clip's name in the crate |
 | Share as WAV (kept clip) | Send the clip to another app, or download it |
 | Open its take | The take this clip was kept from, on its own page |
 | Delete (kept clip) | Take it off the crate. Undo brings it back, for a week |
-| Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: loop those bars. Drag sideways to pan, pinch to zoom |
+| Ruler (tape) | Tap: the playhead to that bar. Hold, then drag: those bars on every track, a range, which the loop follows unless it's locked. Drag sideways to pan, pinch to zoom |
 | Fit | Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along |
+| Snap | What a drag snaps to: a slid clip, a trim, a fade, or a range drawn on the lanes. A bar, a beat, an eighth, or nothing: tap for the next |
+| Lock (ruler) | Lock the loop where it is: a range you draw leaves it alone, so you can edit elsewhere while it plays on. Unlocked, the loop follows the range |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
-| Clipboard | What you copied last, from a take or the ribbon. Tap to hear it |
+| Clipboard | The crate's first slot: what you cut or copied last, from the tape, a take or the ribbon. Tap to hear it |
 | × (clipboard) | Empty the clipboard |
 | Keep (clipboard) | Keep what's on the clipboard as a clip on the crate: the same audio, nothing copied |
 | Repeat to the loop’s end | Copies of this clip end to end, to the end of the loop: one bar through four |
 | Track name | What’s on this track, for you: chords, bass… |
 | Pan | Where this track sits between left and right |
-| Copy (ribbon) | Put the span you selected on the clipboard, to drop onto a tape |
+| Copy (ribbon) | Put the span you selected on the clipboard, to paste onto a tape |
 | Keep as clip (ribbon) | Keep the span you selected as a clip on the crate, not as a take |
 | ● Rec (tape) | Records the record track (its ● lit) from its input, named here. Stopped: it's ready (● Ready), then ▶ counts in a bar. Playing: records from the next bar, marked on its lane. Tap again to keep it. Key: R |
 | RECORDING | Shows only while a punch is recording onto the tape |
@@ -1821,17 +1854,25 @@ has no tip.
 | Keep (clip) | Keep this clip on the crate, for another day or another tape: the same audio, nothing copied |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Start here, End here (clip) | Trim the clip's start or end to the playhead, for a clip too short to drag. What's trimmed is kept: drag or trim back out |
-| Split (clip bar) | Cut the selected clip in two at the playhead, lit while the playhead is inside it. A clip layered with it there is cut too. Key: S |
-| Copy (clip bar) | Copy the selected clips as they lie, on their tracks: Drop lays them out again. Key: ⌘C or Ctrl-C |
-| Duplicate (clip bar) | Lay a copy of the selected clips right after them, and select the copy. Key: ⌘D or Ctrl-D |
-| Reverse (clip bar) | Turn each selected clip round. One undo turns them all back |
-| Keep (clip bar) | Keep the selected clip on the crate, for another day or another tape |
-| Move here (clip bar) | Move the selected clips so the first starts at the playhead, keeping their spacing and tracks |
-| Details… (clip bar) | The clip in the inspector, beside the lanes: its level, nudge, fades, Align and Share. Key: Enter, or double-click the clip |
+| Cut (action bar) | Copy the selected clips as they lie, then take them off the tape: Paste lays them out again, and one Undo puts them back. Key: ⌘X or Ctrl-X |
+| Bars (action bar) | What the selected clips cover, on their tracks, out to the snap, as a range: drag its edges in for part of a clip, then Cut, Copy, Paste or Delete time |
+| Split (action bar) | Cut the selected clip in two at the playhead, lit while the playhead is inside it. A clip layered with it there is cut too. Key: S |
+| Copy (action bar) | Copy the selected clips as they lie, on their tracks: Paste lays them out again. Key: ⌘C or Ctrl-C |
+| Duplicate (action bar) | Lay a copy of the selected clips right after them, and select the copy. Key: ⌘D or Ctrl-D |
+| Reverse (action bar) | Turn each selected clip round. One undo turns them all back |
+| Keep (action bar) | Keep the selected clip on the crate, for another day or another tape |
+| Move here (action bar) | Move the selected clips so the first starts at the playhead, keeping their spacing and tracks |
+| Details… (action bar) | The clip in the inspector, beside the lanes: its level, nudge, fades, Align and Share. Key: Enter, or double-click the clip |
 | Inspector grip | On a phone: tap to pull the inspector up to most of the screen, or back to half; drag it down to its title |
-| Select more (clip bar) | Tap clips to add them to the selection, or take them off. On a keyboard, Shift, ⌘ or Ctrl with a click does the same |
-| Remove (clip bar) | Take the selected clips off the tape. Key: Delete |
-| Done (clip bar) | Let go of the selected clips. Esc does too |
+| Select more (action bar) | Tap clips to add them to the selection, or take them off. On a keyboard, Shift, ⌘ or Ctrl with a click does the same |
+| Remove (action bar) | Take the selected clips off the tape. Key: Delete |
+| Done (action bar) | Let go of the selected clips. Esc does too |
+| Cut (range) | Take the range's bars on its tracks to the clipboard, leaving silence there: the OP-1's lift. Key: ⌘X or Ctrl-X |
+| Copy (range) | Put the range's bars on its tracks on the clipboard, a clipboard track for each. Key: ⌘C or Ctrl-C |
+| Paste (range) | Put the clipboard at the range's start, from its first track down, over what's there: the OP-1's drop. Key: ⌘V or Ctrl-V |
+| Insert (range) | Put the clipboard at the range's start and push everything after it later, on every track |
+| Delete time (range) | Cut the range's bars out of every track and close the gap: everything after moves earlier |
+| Done (range) | Let go of the range. Esc does too |
 | Align | Line the clip up to the sample: the editor bar opens on its first hit |
 | Done | Close the editor. Esc does too |
 | ZOOM on the tape | Drag sideways to zoom about the clip’s first hit: right is closer |
@@ -1843,18 +1884,12 @@ has no tip.
 | Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
 | Catch | Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. The last 1, 2 or 4 bars are in the track's inspector |
 | Passes | Every time round the loop, kept. Tap one to put it on the record track |
-| Track / All (edit) | What Lift and Copy take: the loop’s bars on the selected track, or on all four, kept apart |
-| Lift | Cut the selection out into the clipboard, leaving a gap: silence where it was |
-| Delete time | Cut the selection out of every track and close the gap: everything after it moves earlier |
-| Copy | Put the selection on the clipboard, to drop onto a tape |
-| Drop | Put the clipboard here, over what’s there: it replaces it, and the tape’s length doesn’t change. Drop again to lay another copy after it |
-| Insert | Put the clipboard here and push everything after it later: every track, and the sections, move on by its length |
-| Merge drop | Drop every track on the clipboard onto the selected one, layered, each clip at its own level |
-| Split | Cut the clips on the selected track in two at the playhead. Key: S |
+| Paste | Put the clipboard at the playhead on the selected track, over what's there: it replaces it, and the tape's length doesn't change. Paste again to lay another copy after it. Key: ⌘V or Ctrl-V |
+| Insert | Put the clipboard at the playhead and push everything after it later: every track, and the sections, move on by its length |
+| Merge | Paste every track on the clipboard onto the selected one, layered, each clip at its own level |
 | Join | Join this clip and the half that was split from it back into one |
-| Multiply | Double the loop, copying what's in it over what follows |
-| Slide snaps to | Where a clip you slide can land: on a bar, a beat, an eighth, or anywhere |
-| Ask before Insert and Delete time | On a touch screen, the first tap on Insert or Delete time shows what it will do, and the second does it. Turn it off to do it on the first |
+| ×2 | Double the loop, copying what's in it over what follows. On the action bar while the range is the loop |
+| Ask before Insert and Delete time | Under ⋯, on a touch screen: the first tap on Insert or Delete time shows what it will do, and the second does it. Turn it off to do it on the first |
 | Clone | Copy this whole tape. Costs no disk space |
 | Mix down | Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included |
 | Export stems | Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW |
