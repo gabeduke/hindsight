@@ -2858,7 +2858,10 @@ dialog.inspector .sheet-inner { height: 100%; box-sizing: border-box; overflow-y
 dialog.inspector .seg.fade-seg { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 dialog.inspector .sheet-inner p.sheet-hint { font-family: var(--font); word-break: normal; line-height: 1.4; }
 .insp-grip { display: none; }
-@media (min-width: 700px) {
+/* Focus kept on the panel itself (after a refill) needs no ring round it. */
+dialog.inspector:focus-visible { outline: none; }
+/* A phone on its side is a phone here too: its player floats, as upright. */
+@media (min-width: 700px) and (min-height: 441px) {
   dialog.inspector[open] {
     top: calc(var(--topbar-h) + 10px); right: 16px; bottom: calc(var(--dock-h, 140px) + 10px);
     width: var(--insp-w); height: auto; /* a dialog is fit-content: let top and bottom size it */
@@ -2866,7 +2869,7 @@ dialog.inspector .sheet-inner p.sheet-hint { font-family: var(--font); word-brea
   body.tape-page:has(dialog.inspector[open]) > main.tape-main { padding-right: calc(var(--insp-w) + 28px); }
 }
 @media (min-width: 1400px) { body.tape-page { --insp-w: 360px; } }
-@media (max-width: 699.98px) {
+@media (orientation: landscape) and (max-height: 440px), (max-width: 699.98px) {
   dialog.inspector[open] {
     left: 0; right: 0; bottom: calc(var(--dock-b, 0px) + var(--np-h)); width: auto;
     height: 46svh; transition: height .18s ease;

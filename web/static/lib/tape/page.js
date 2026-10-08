@@ -1261,12 +1261,14 @@ function revealPicked() {
   clearTimeout(revealTimer);
   revealTimer = setTimeout(() => {
     const bar = $('multi-bar');
-    if (bar.hidden || getComputedStyle(bar).position !== 'fixed') return;
-    if (document.querySelector('dialog[open]')) return;
+    if (bar.hidden || getComputedStyle(bar).position !== 'fixed') return; // a phone's: it floats
+    if (modalOpen()) return;
     const c = picks()[0];
     const lane = c && lanes.find((l) => l.n === c.track);
     if (!lane) return;
-    const over = lane.canvas.getBoundingClientRect().bottom + 8 - bar.getBoundingClientRect().top;
+    // Under the inspector's sheet, when it's open; else under the clip bar.
+    const cover = inspecting() ? $(inspecting()) : bar;
+    const over = lane.canvas.getBoundingClientRect().bottom + 8 - cover.getBoundingClientRect().top;
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (over > 0) window.scrollBy({ top: over, behavior: still ? 'auto' : 'smooth' });
   }, 550);
@@ -2193,7 +2195,7 @@ function wireSections() {
       e.preventDefault();
       e.stopPropagation();
       const sc = sectionsOf()[Math.max(0, sec.focus)];
-      if (sc) tapSection(sc);
+      if (sc) tapSection(sc, { focus: true });
     } else return;
     say();
     drawSections();
@@ -2237,8 +2239,8 @@ async function setSection(id, fields) {
 }
 
 // tapSection selects a section's bars; tapped again, it opens its sheet.
-async function tapSection(sc) {
-  if (isLooped(sc, state.tape.loop)) { openSection(sc); return; }
+async function tapSection(sc, { focus = false } = {}) {
+  if (isLooped(sc, state.tape.loop)) { openSection(sc, { focus }); return; }
   // The inspector open on another section: it follows this one.
   if ($('section-sheet').open && sec.open !== sc.id) openSection(sc);
   if (await patch({ loop: { in: sc.at, out: sc.end } })) {
@@ -2253,6 +2255,7 @@ function openSection(sc, { focus = false } = {}) {
 
 // fillSection puts section sc's name and colour in the inspector.
 function fillSection(sc) {
+  if (sec.open !== sc.id && document.activeElement === $('section-name')) $('section-name').blur();
   sec.open = sc.id;
   sec.focus = sectionsOf().findIndex((x) => x.id === sc.id);
   inspectorSig = sectionSig(sc);
@@ -2460,15 +2463,18 @@ function openTrack(n, { focus = false } = {}) {
 // fillTrack puts track tr's name, level and pan in the inspector, leaving
 // alone a field or slider that's being used.
 function fillTrack(tr) {
+  // Moving to another track: a name being typed is the old one's, and goes
+  // to it first (blurring commits it).
+  if (state.sheetTrack !== tr.n && document.activeElement === $('track-name')) $('track-name').blur();
   state.sheetTrack = tr.n;
   inspectorSig = trackSig(tr);
   $('track-title').textContent = `Track ${tr.n}`;
   if (document.activeElement !== $('track-name')) $('track-name').value = tr.name || '';
-  if (!$('track-gain').dataset.busy) {
+  if (!$('track-gain').dataset.held) {
     $('track-gain').value = String(tr.gain_db);
     $('track-gain-val').textContent = `${tr.gain_db} dB`;
   }
-  if (!$('track-pan').dataset.busy) {
+  if (!$('track-pan').dataset.held) {
     $('track-pan').value = String(tr.pan || 0);
     $('track-pan-val').textContent = panText(tr.pan || 0);
   }
@@ -2611,7 +2617,8 @@ function buildLanes() {
         canvas: row.querySelector('.tt-lane'),
       };
       // Tap a track to select it; tap it again for its sheet.
-      lane.name.addEventListener('click', () => { if (state.track === n) openTrack(n); else { state.track = n; render(); } });
+      // From the keyboard (a click with no detail) the inspector takes the keys.
+      lane.name.addEventListener('click', (e) => { if (state.track === n) openTrack(n, { focus: e.detail === 0 }); else { state.track = n; render(); } });
       lane.bus.addEventListener('click', () => patch({ track: { n, bus: track(n).bus === 'A' ? 'B' : 'A' } }));
       lane.mute.addEventListener('click', () => { askHeard(n); patch({ track: { n, mute: !track(n).mute } }); });
       lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
@@ -3334,15 +3341,42 @@ function refreshInspector() {
   }
 }
 
-// On a phone the inspector is a sheet at half height; its grip pulls it up
-// to most of the screen, or down to its title. A tap goes half, full, half
-// (from its title, half); a drag lands on the nearest of the three.
-function wireInspectorGrips() {
+// A nudge tapped ahead of the Pi's reply: the value it's going to.
+let nudgeAhead = null;
+const nudgedNow = (c) => (nudgeAhead && nudgeAhead.id === c.id && performance.now() < nudgeAhead.until ? nudgeAhead.v : c.nudge_ms || 0);
+// A press on the page, outside the inspector: the keys go with it.
+let pressedOutside = 0;
+
+// wireInspector: on a phone the inspector is a sheet at half height; its
+// grip pulls it up to most of the screen, or down to its title. A tap goes
+// half, full, half (from its title, half); a drag lands on the nearest of
+// the three. Everywhere: a slider is held while a pointer is on it, so a
+// refill doesn't move it under the finger; focus that a refill takes away
+// (a rebuilt or disabled button) stays in the inspector, so the page's keys
+// don't land on the selected clip; and closing it holds off the clip bar a
+// moment, as its coming up does, so a double-tap's second tap isn't taken.
+function wireInspector() {
+  for (const id of ['clip-gain', 'track-gain', 'track-pan']) {
+    const el = $(id);
+    el.addEventListener('pointerdown', () => { el.dataset.held = '1'; });
+    const let_ = () => { delete el.dataset.held; };
+    addEventListener('pointerup', let_);
+    addEventListener('pointercancel', let_);
+  }
+  document.addEventListener('pointerdown', (e) => { if (!e.target.closest?.('dialog.inspector')) pressedOutside = performance.now(); }, true);
   for (const id of INSPECTORS) {
     const sh = $(id);
+    sh.addEventListener('focusout', (e) => {
+      if (e.relatedTarget || performance.now() - pressedOutside < 400) return;
+      setTimeout(() => {
+        if (sh.open && (document.activeElement === document.body || !document.activeElement)) sh.focus({ preventScroll: true });
+      });
+    });
+    sh.addEventListener('close', () => { if (!$('multi-bar').hidden) barShownAt = performance.now(); });
     const grip = sh.querySelector('.insp-grip');
     let drag = null, dragged = false;
     grip.addEventListener('pointerdown', (e) => {
+      dragged = false; // a touch drag ends with no click to reset it
       drag = { y: e.clientY, h: sh.getBoundingClientRect().height, moved: false };
       try { grip.setPointerCapture(e.pointerId); } catch { /* a pointer that's already gone */ }
     });
@@ -3385,17 +3419,23 @@ function openClip(c, { focus = false } = {}) {
 // fillClip puts clip c's settings in the inspector; a level being dragged is
 // left alone.
 function fillClip(c) {
+  // Another clip: an Align still waiting for the last one's audio is let go of.
+  if (state.clip && state.clip.id !== c.id) {
+    alignTicket++;
+    $('clip-align').classList.remove('waiting');
+    $('clip-align').removeAttribute('aria-busy');
+  }
   state.clip = c;
   inspectorSig = clipSig(c);
   const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
   const lvl = typeof c.peak_db === 'number' && c.peak_db < QUIET ? ` · ${levelText(c.peak_db)} when caught` : '';
   $('clip-title').textContent = `Clip on track ${home ? home.n : state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}${lvl}`
     + (c.aligned === 'estimated' ? ' · caught before the lock: nudge it if it’s early or late' : '');
-  if (!$('clip-gain').dataset.busy) {
+  if (!$('clip-gain').dataset.held) {
     $('clip-gain').value = String(c.gain_db || 0);
     $('clip-gain-val').textContent = `${c.gain_db || 0} dB`;
   }
-  $('clip-nudge-val').textContent = `${c.nudge_ms || 0} ms`;
+  $('clip-nudge-val').textContent = `${nudgedNow(c)} ms`;
   const lp = state.tape.loop;
   $('clip-tile').disabled = !(lp.on && c.at + 2 * c.frames <= lp.out);
   $('clip-join').disabled = !home || !joinPartner(home, c);
@@ -3414,7 +3454,7 @@ function fillTrims(c) {
     const b = trimRange(c, edge);
     const now = edge === 'in' ? c.at : c.at + c.frames;
     const off = here == null || !b || here < b.lo || here > b.hi || here === now;
-    if ($(`clip-trim-${edge}`).disabled !== off) $(`clip-trim-${edge}`).disabled = off;
+    if ($(`clip-trim-${edge}`).disabled !== off) $(`clip-trim-${edge}`).disabled = off;  // focusout keeps the keys inside
   }
 }
 
@@ -3427,6 +3467,7 @@ function renderFades(c) {
   for (const [edge, key] of [['in', 'fade_in'], ['out', 'fade_out']]) {
     const box = $(`clip-fade-${edge}`);
     const on = fadeOption(edge === 'in' ? plays.fadeIn : plays.fadeOut, t.grid, t.sample_rate);
+    const had = box.contains(document.activeElement) ? [...box.children].indexOf(document.activeElement) : -1;
     box.replaceChildren(...fadeOptions(t.grid, t.sample_rate).map((o) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -3438,6 +3479,8 @@ function renderFades(c) {
       b.addEventListener('click', () => setFade(c, key, o.frames));
       return b;
     }));
+    // Rebuilt under the keys: the same length keeps them.
+    if (had >= 0 && box.children[had] && !box.children[had].disabled) box.children[had].focus({ preventScroll: true });
   }
 }
 
@@ -3608,11 +3651,11 @@ function wire() {
     if (c) patch({ clip: { id: c.id, tile: true } }).then((ok) => ok && toast('Repeated to the loop’s end', 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } }));
   });
   $('track-name').addEventListener('change', () => patch({ track: { n: state.sheetTrack, name: $('track-name').value } }));
-  $('track-gain').addEventListener('input', () => { $('track-gain').dataset.busy = '1'; $('track-gain-val').textContent = `${$('track-gain').value} dB`; });
-  $('track-gain').addEventListener('change', () => { delete $('track-gain').dataset.busy; patch({ track: { n: state.sheetTrack, gain_db: Number($('track-gain').value) } }); });
-  $('track-pan').addEventListener('input', () => { $('track-pan').dataset.busy = '1'; $('track-pan-val').textContent = panText(Number($('track-pan').value)); });
-  $('track-pan').addEventListener('change', () => { delete $('track-pan').dataset.busy; patch({ track: { n: state.sheetTrack, pan: Number($('track-pan').value) } }); });
-  wireInspectorGrips();
+  $('track-gain').addEventListener('input', () => { $('track-gain-val').textContent = `${$('track-gain').value} dB`; });
+  $('track-gain').addEventListener('change', () => patch({ track: { n: state.sheetTrack, gain_db: Number($('track-gain').value) } }));
+  $('track-pan').addEventListener('input', () => { $('track-pan-val').textContent = panText(Number($('track-pan').value)); });
+  $('track-pan').addEventListener('change', () => patch({ track: { n: state.sheetTrack, pan: Number($('track-pan').value) } }));
+  wireInspector();
   $('track-done').addEventListener('click', () => $('track-sheet').close());
   wireRuler();
   wireSections();
@@ -3649,11 +3692,24 @@ function wire() {
       if (e.code === 'KeyD' && ids.length) { e.preventDefault(); duplicateClips(ids); return; }
       if (e.code === 'KeyA' && state.tape) { e.preventDefault(); selectAll(); return; }
     }
+    // Escape in the inspector's name field: the name is kept, and it closes.
+    if (e.key === 'Escape' && typing && !modalOpen() && e.target.closest?.('dialog.inspector')) {
+      e.target.blur();
+      closeInspector();
+      return;
+    }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (modalOpen()) return; // a sheet's keys are its own
     // So are the inspector's, but for Escape, which closes it: a level
     // slider there takes the arrows, and Backspace mustn't remove its clip.
     if (e.target.closest?.('dialog.inspector') && e.key !== 'Escape') return;
+    // With the keys in the inspector, Escape is its, before the clip editor's.
+    if (e.key === 'Escape' && !menuWasOpen && inspecting() && e.target.closest?.('dialog.inspector')) {
+      e.preventDefault();
+      closeInspector();
+      document.activeElement?.blur();
+      return;
+    }
     // While a clip is being aligned the arrows step it, Shift by ten (not on
     // a level slider or in a menu, whose arrows are their own), and Escape
     // closes the editor.
@@ -3782,15 +3838,14 @@ function wire() {
   $('new-bpm').addEventListener('input', () => { $('new-bpm').dataset.touched = '1'; });
   $('set-tempo').addEventListener('click', () => patch({ tempo: { bpm: Number($('new-bpm').value), bars: Number($('new-bars').value) } }));
   // The clip sheet.
-  $('clip-gain').addEventListener('input', () => { $('clip-gain').dataset.busy = '1'; $('clip-gain-val').textContent = `${$('clip-gain').value} dB`; });
-  $('clip-gain').addEventListener('change', () => {
-    delete $('clip-gain').dataset.busy;
-    if (state.clip) patch({ clip: { id: state.clip.id, gain_db: Number($('clip-gain').value) } });
-  });
+  $('clip-gain').addEventListener('input', () => { $('clip-gain-val').textContent = `${$('clip-gain').value} dB`; });
+  $('clip-gain').addEventListener('change', () => state.clip && patch({ clip: { id: state.clip.id, gain_db: Number($('clip-gain').value) } }));
+  // Quick taps count from the last tap's value, not from a reply to an
+  // earlier one that refilled the inspector meanwhile.
   const nudge = (d) => {
     if (!state.clip) return;
-    const v = Math.round(((state.clip.nudge_ms || 0) + d) * 10) / 10;
-    state.clip = { ...state.clip, nudge_ms: v };
+    const v = Math.round((nudgedNow(state.clip) + d) * 10) / 10;
+    nudgeAhead = { id: state.clip.id, v, until: performance.now() + 1500 };
     $('clip-nudge-val').textContent = `${v} ms`;
     patch({ clip: { id: state.clip.id, nudge_ms: v } });
   };
