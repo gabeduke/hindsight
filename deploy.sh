@@ -105,8 +105,15 @@ fi
 echo "[*] syncing to $HOST:~/$DEST"
 rsync -az --delete -e "${SSH[*]}" "${EXCLUDES[@]}" ./ "$HOST:~/$DEST/"
 
-echo "[*] building on the Pi"
-"${SSH[@]}" "$HOST" "cd ~/$DEST && go build -o bin/hindsight ./cmd/hindsight"
+# Stamp the build with where it came from, as release.yml stamps a release:
+# v2026.10.09.3-4-gabc1234 is that release plus four commits, so the page
+# shows what's running and the Update button only offers a newer release.
+# Without tags (a shallow clone) it's the bare hash; without git, "dev".
+VERSION="$(git describe --tags --dirty --always 2>/dev/null || echo dev)"
+[[ "$VERSION" =~ ^[0-9A-Za-z._+-]+$ ]] || VERSION=dev
+
+echo "[*] building $VERSION on the Pi"
+"${SSH[@]}" "$HOST" "cd ~/$DEST && go build -ldflags '-X main.version=$VERSION' -o bin/hindsight ./cmd/hindsight"
 
 # The updater behind the Update button, as install.sh puts it, so a rig
 # deployed from source can update itself to a release too.

@@ -108,7 +108,8 @@ EOF
 python3 "$T/server.py" "$T" "$WWW" & SERVER_PID=$!
 for _ in $(seq 50); do [ -s "$T/port" ] && break; sleep 0.1; done
 PORT="$(cat "$T/port")"
-export PORT UPDATE_GITHUB="http://127.0.0.1:$PORT" UPDATE_GITHUB_API="http://127.0.0.1:$PORT" UPDATE_WAIT_TRIES=2
+# The fake releases start below the real floor; the floor has a case of its own.
+export PORT UPDATE_GITHUB="http://127.0.0.1:$PORT" UPDATE_GITHUB_API="http://127.0.0.1:$PORT" UPDATE_WAIT_TRIES=2 UPDATE_FLOOR=v2026.10.09.1
 
 field() { grep -o "\"$1\":\"[^\"]*\"" "$ROOT/update.json" | sed "s/^\"$1\":\"//; s/\"$//"; }
 run() { "$UPDATER" "$@" >> "$T/updater.log" 2>&1; }
@@ -168,6 +169,16 @@ check "a named release installs" v2026.10.09.5 "$(cat "$T/running")"
 # shellcheck disable=SC2012
 check "keeps two releases" 2 "$(ls -1d "$ROOT"/releases/v* | wc -l | tr -d ' ')"
 
+# 8b. Nothing older than the floor, which would take the updater away; and
+#     the floor compares versions, not text (.10 is above .9).
+UPDATE_FLOOR=v2026.10.09.6 run v2026.10.09.5 && rc=0 || rc=$?
+check "below the floor fails" failed "$(field state)"
+check "below the floor says why" "v2026.10.09.5 is older than the updater (v2026.10.09.6); installing it would take the Update button away" "$(field message)"
+check "below the floor installs nothing" v2026.10.09.5 "$(cat "$T/running")"
+release v2026.10.09.10 ok
+UPDATE_FLOOR=v2026.10.09.9 run v2026.10.09.10 && rc=0 || rc=$?
+check ".10 is above a .9 floor" v2026.10.09.10 "$(cat "$T/running")"
+
 # 9. A step that fails outside the script's own checks (here the copy kept
 #    for a rollback, as on a full card) still ends in a final state, never a
 #    working one the page would follow for ten minutes.
@@ -183,7 +194,7 @@ chmod +x "$T/stub2/cp"
 PATH="$T/stub2:$PATH" run v2026.10.09.6 && rc=0 || rc=$?
 check "an unexpected failure exits non-zero" yes "$([ "$rc" != 0 ] && echo yes || echo no)"
 check "an unexpected failure ends failed" failed "$(field state)"
-check "an unexpected failure installs nothing" v2026.10.09.5 "$(cat "$T/running")"
+check "an unexpected failure installs nothing" v2026.10.09.10 "$(cat "$T/running")"
 
 if [ "$fail" != 0 ]; then
   echo "--- updater log"; cat "$T/updater.log"

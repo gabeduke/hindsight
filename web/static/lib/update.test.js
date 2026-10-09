@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buttonLabel, phase } from './update.js';
+import { buttonLabel, phase, plan, cmpVersion, versionParts } from './update.js';
 
 const T = 'v2026.10.09.2';
 const since = Date.parse('2026-10-09T15:00:00Z');
@@ -49,4 +49,61 @@ test('last time’s failure, or another tag’s, is not this one’s', () => {
   assert.equal(phase(T, since, old, { version: 'v2026.10.09.1' }).done, false);
   const other = { update: { state: 'rolled_back', tag: 'v2026.10.08.1', message: 'other', at: at(5) } };
   assert.equal(phase(T, since, other, { version: 'v2026.10.09.1' }).done, false);
+});
+
+// --- the releases sheet ------------------------------------------------------
+
+
+const RELEASES = [
+  { tag: 'v2026.10.09.10', changes: ['Ten'] },
+  { tag: 'v2026.10.09.9', changes: ['Nine'] },
+  { tag: 'v2026.10.09.5', changes: ['Five a', 'Five b'] },
+  { tag: 'v2026.10.09.4', changes: ['Four'] },
+  { tag: 'v2026.10.09.3', changes: ['Three'] },
+];
+
+test('versions compare by number, and a deploy.sh stamp as its release', () => {
+  assert.equal(cmpVersion('v2026.10.09.10', 'v2026.10.09.9'), 1);
+  assert.equal(cmpVersion('v2026.10.09.3-4-gabc1234', 'v2026.10.09.3'), 0);
+  assert.equal(cmpVersion('dev', 'v2026.10.09.3'), null);
+  assert.deepEqual(versionParts('v2026.10.09.3+dirty'), [2026, 10, 9, 3]);
+});
+
+test('a stamped deploy.sh build is updated, not installed over', () => {
+  assert.equal(buttonLabel({ running: 'v2026.10.09.3-4-gabc1234', latest: T, available: true }), `Update to ${T}`);
+});
+
+test('going forward brings in every release after the running one', () => {
+  const p = plan(RELEASES, 'v2026.10.09.4', 'v2026.10.09.10');
+  assert.equal(p.action, 'Update to v2026.10.09.10');
+  assert.equal(p.way, 'forward');
+  assert.deepEqual(p.groups.map((g) => g.tag), ['v2026.10.09.10', 'v2026.10.09.9', 'v2026.10.09.5']);
+});
+
+test('going back takes out every release after the pick', () => {
+  const p = plan(RELEASES, 'v2026.10.09.9', 'v2026.10.09.4');
+  assert.equal(p.action, 'Go back to v2026.10.09.4');
+  assert.equal(p.way, 'back');
+  assert.deepEqual(p.groups.map((g) => g.tag), ['v2026.10.09.9', 'v2026.10.09.5']);
+  assert.deepEqual(p.groups[1].changes, ['Five a', 'Five b']);
+});
+
+test('the running release has nothing to do', () => {
+  const p = plan(RELEASES, 'v2026.10.09.5', 'v2026.10.09.5');
+  assert.equal(p.action, '');
+  assert.equal(p.way, 'same');
+});
+
+test('a deploy.sh build can go back to the release it was built on', () => {
+  const p = plan(RELEASES, 'v2026.10.09.5-2-gabc1234', 'v2026.10.09.5');
+  assert.equal(p.way, 'back');
+  assert.match(p.action, /^Go back to/);
+  assert.equal(p.groups.length, 0);
+  assert.match(p.note, /commits/);
+});
+
+test('over a dev build it shows what the release itself changed', () => {
+  const p = plan(RELEASES, 'dev', 'v2026.10.09.4');
+  assert.equal(p.action, 'Install v2026.10.09.4');
+  assert.deepEqual(p.groups, [{ tag: 'v2026.10.09.4', changes: ['Four'] }]);
 });

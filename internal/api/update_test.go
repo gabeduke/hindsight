@@ -30,7 +30,7 @@ type updateRig struct {
 
 func newUpdateRig(t *testing.T, running string) *updateRig {
 	t.Helper()
-	rig := &updateRig{latest: "v2026.10.09.2"}
+	rig := &updateRig{latest: "v2026.10.20.2"}
 	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rig.asked.Add(1)
 		if rig.latest == "" {
@@ -73,16 +73,16 @@ func (rig *updateRig) post(t *testing.T, body string) (int, string) {
 }
 
 func TestUpdateOffersANewerRelease(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
+	rig := newUpdateRig(t, "v2026.10.20.1")
 	code, resp := rig.get(t, "/api/update")
-	if code != http.StatusOK || resp.Running != "v2026.10.09.1" || resp.Latest != "v2026.10.09.2" || !resp.Available ||
-		resp.Notes != "https://github.com/gabeduke/hindsight/releases/tag/v2026.10.09.2" {
+	if code != http.StatusOK || resp.Running != "v2026.10.20.1" || resp.Latest != "v2026.10.20.2" || !resp.Available ||
+		resp.Notes != "https://github.com/gabeduke/hindsight/releases/tag/v2026.10.20.2" {
 		t.Fatalf("GET = %d %+v", code, resp)
 	}
 }
 
 func TestUpdateIsNotOfferedWhenCurrentOrAhead(t *testing.T) {
-	for _, running := range []string{"v2026.10.09.2", "v2026.10.09.3", "v2026.10.10.1"} {
+	for _, running := range []string{"v2026.10.20.2", "v2026.10.20.3", "v2026.10.21.1"} {
 		rig := newUpdateRig(t, running)
 		if _, resp := rig.get(t, "/api/update"); resp.Available {
 			t.Errorf("running %s, latest %s: offered an update", running, resp.Latest)
@@ -102,11 +102,11 @@ func TestNewerReleaseComparesNumbersNotText(t *testing.T) {
 		latest, running string
 		want            bool
 	}{
-		{"v2026.10.09.10", "v2026.10.09.9", true}, // text order says false
-		{"v2026.10.09.9", "v2026.10.09.10", false},
+		{"v2026.10.20.10", "v2026.10.20.9", true}, // text order says false
+		{"v2026.10.20.9", "v2026.10.20.10", false},
 		{"v2026.11.01.1", "v2026.10.31.4", true},
-		{"v2026.10.09.1", "v2026.10.09.1", false},
-		{"", "v2026.10.09.1", false},
+		{"v2026.10.20.1", "v2026.10.20.1", false},
+		{"", "v2026.10.20.1", false},
 		{"nonsense", "dev", false},
 	}
 	for _, c := range cases {
@@ -117,7 +117,7 @@ func TestNewerReleaseComparesNumbersNotText(t *testing.T) {
 }
 
 func TestUpdateCachesGitHubsAnswer(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
+	rig := newUpdateRig(t, "v2026.10.20.1")
 	rig.get(t, "/api/update")
 	rig.get(t, "/api/update")
 	if n := rig.asked.Load(); n != 1 {
@@ -130,7 +130,7 @@ func TestUpdateCachesGitHubsAnswer(t *testing.T) {
 }
 
 func TestUpdateSaysWhenGitHubIsOutOfReach(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
+	rig := newUpdateRig(t, "v2026.10.20.1")
 	rig.latest = ""
 	code, resp := rig.get(t, "/api/update")
 	if code != http.StatusOK || resp.Error == "" || resp.Available {
@@ -139,18 +139,18 @@ func TestUpdateSaysWhenGitHubIsOutOfReach(t *testing.T) {
 }
 
 func TestUpdateGetPassesOnTheScriptsProgress(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
-	os.WriteFile(rig.u.StateFile, []byte(`{"state":"rolled_back","tag":"v2026.10.09.2","from":"v2026.10.09.1","message":"didn't come up; still on v2026.10.09.1","at":"2026-10-09T14:00:00Z"}`+"\n"), 0o644)
+	rig := newUpdateRig(t, "v2026.10.20.1")
+	os.WriteFile(rig.u.StateFile, []byte(`{"state":"rolled_back","tag":"v2026.10.20.2","from":"v2026.10.20.1","message":"didn't come up; still on v2026.10.20.1","at":"2026-10-09T14:00:00Z"}`+"\n"), 0o644)
 	_, resp := rig.get(t, "/api/update")
-	if resp.Update == nil || resp.Update.State != "rolled_back" || resp.Update.Tag != "v2026.10.09.2" {
+	if resp.Update == nil || resp.Update.State != "rolled_back" || resp.Update.Tag != "v2026.10.20.2" {
 		t.Fatalf("update state = %+v", resp.Update)
 	}
 }
 
 func TestUpdatePostStartsTheLatest(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
+	rig := newUpdateRig(t, "v2026.10.20.1")
 	code, body := rig.post(t, "")
-	if code != http.StatusAccepted || len(rig.started) != 1 || rig.started[0] != "v2026.10.09.2" {
+	if code != http.StatusAccepted || len(rig.started) != 1 || rig.started[0] != "v2026.10.20.2" {
 		t.Fatalf("POST = %d %s, started %v", code, body, rig.started)
 	}
 	// It answers with the Pi's clock and leaves a queued state stamped with
@@ -158,13 +158,13 @@ func TestUpdatePostStartsTheLatest(t *testing.T) {
 	var ans struct{ Tag, Since string }
 	json.Unmarshal([]byte(body), &ans)
 	s := rig.u.state()
-	if s == nil || s.State != "queued" || s.Tag != "v2026.10.09.2" || s.At != ans.Since || ans.Since == "" {
+	if s == nil || s.State != "queued" || s.Tag != "v2026.10.20.2" || s.At != ans.Since || ans.Since == "" {
 		t.Fatalf("after POST: answer %+v, state %+v", ans, s)
 	}
 }
 
 func TestUpdatePostTakesAChunkedEmptyBody(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
+	rig := newUpdateRig(t, "v2026.10.20.1")
 	req := httptest.NewRequest(http.MethodPost, "/api/update", strings.NewReader(""))
 	req.ContentLength = -1
 	w := httptest.NewRecorder()
@@ -175,29 +175,30 @@ func TestUpdatePostTakesAChunkedEmptyBody(t *testing.T) {
 }
 
 func TestUpdateRemembersAFailureOnlyBriefly(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
+	rig := newUpdateRig(t, "v2026.10.20.1")
 	rig.u.CacheFor = 10 * time.Minute
 	rig.latest = ""
 	rig.get(t, "/api/update")
-	rig.latest = "v2026.10.09.2"
+	rig.latest = "v2026.10.20.2"
 	rig.u.checked = time.Now().Add(-2 * time.Minute) // past a failure's minute
 	if _, resp := rig.get(t, "/api/update"); !resp.Available {
 		t.Fatalf("still remembering GitHub being down: %+v", resp)
 	}
 	// A success is kept the full time.
 	rig.u.checked = time.Now().Add(-2 * time.Minute)
-	rig.latest = "v2026.10.09.3"
-	if _, resp := rig.get(t, "/api/update"); resp.Latest != "v2026.10.09.2" {
+	rig.latest = "v2026.10.20.3"
+	if _, resp := rig.get(t, "/api/update"); resp.Latest != "v2026.10.20.2" {
 		t.Fatalf("a good answer wasn't kept: %+v", resp)
 	}
 }
 
 func TestUpdatePostTakesANamedTagButOnlyAReleaseTag(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
-	if code, _ := rig.post(t, `{"tag":"v2026.10.08.6"}`); code != http.StatusAccepted || rig.started[0] != "v2026.10.08.6" {
+	rig := newUpdateRig(t, "v2026.10.20.1")
+	if code, _ := rig.post(t, `{"tag":"v2026.10.09.3"}`); code != http.StatusAccepted || rig.started[0] != "v2026.10.09.3" {
 		t.Fatalf("named tag: %d, %v", code, rig.started)
 	}
-	for _, bad := range []string{`{"tag":"../../etc"}`, `{"tag":"v1;rm -rf ~"}`, `{"tag":"latest"}`} {
+	// Older than the updater: installing it would take the button away.
+	for _, bad := range []string{`{"tag":"../../etc"}`, `{"tag":"v1;rm -rf ~"}`, `{"tag":"latest"}`, `{"tag":"v2026.10.08.6"}`, `{"tag":"v2026.10.09.2"}`} {
 		if code, _ := rig.post(t, bad); code != http.StatusBadRequest {
 			t.Errorf("%s: %d, want 400", bad, code)
 		}
@@ -208,7 +209,7 @@ func TestUpdatePostTakesANamedTagButOnlyAReleaseTag(t *testing.T) {
 }
 
 func TestUpdatePostRefusesWhileBusy(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
+	rig := newUpdateRig(t, "v2026.10.20.1")
 	rig.busy = "a take is saving"
 	code, body := rig.post(t, "")
 	if code != http.StatusConflict || !strings.Contains(body, "a take is saving") || len(rig.started) != 0 {
@@ -217,14 +218,14 @@ func TestUpdatePostRefusesWhileBusy(t *testing.T) {
 }
 
 func TestUpdatePostRefusesWhileAnUpdateRuns(t *testing.T) {
-	rig := newUpdateRig(t, "v2026.10.09.1")
+	rig := newUpdateRig(t, "v2026.10.20.1")
 	now := time.Now().UTC().Format(time.RFC3339)
-	os.WriteFile(rig.u.StateFile, []byte(`{"state":"installing","tag":"v2026.10.09.2","at":"`+now+`"}`), 0o644)
+	os.WriteFile(rig.u.StateFile, []byte(`{"state":"installing","tag":"v2026.10.20.2","at":"`+now+`"}`), 0o644)
 	if code, _ := rig.post(t, ""); code != http.StatusConflict || len(rig.started) != 0 {
 		t.Fatalf("second POST = %d, started %v", code, rig.started)
 	}
 	// One left behind by a run that died long ago doesn't block forever.
-	os.WriteFile(rig.u.StateFile, []byte(`{"state":"installing","tag":"v2026.10.09.2","at":"2026-01-01T00:00:00Z"}`), 0o644)
+	os.WriteFile(rig.u.StateFile, []byte(`{"state":"installing","tag":"v2026.10.20.2","at":"2026-01-01T00:00:00Z"}`), 0o644)
 	if code, _ := rig.post(t, ""); code != http.StatusAccepted {
 		t.Fatalf("POST after a stale state = %d", code)
 	}

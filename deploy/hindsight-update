@@ -121,6 +121,14 @@ fi
 # A tag names a directory and a URL below: nothing but what release.yml makes.
 [[ "$TAG" =~ ^v[0-9A-Za-z._-]+$ ]] || { TAG=""; fail "not a release tag: ${1:-}"; }
 
+# Nothing older than this updater's first release: it would take the updater
+# (and the Update button) away with it. UPDATE_FORCE=1 from a shell if you
+# really mean it. Kept in step with UpdateFloor in internal/api/releases.go.
+FLOOR="${UPDATE_FLOOR:-v2026.10.09.3}"
+if [ -z "${UPDATE_FORCE:-}" ] && [ "$(printf '%s\n%s\n' "$FLOOR" "$TAG" | sort -V | head -1)" != "$FLOOR" ]; then
+  fail "$TAG is older than the updater ($FLOOR); installing it would take the Update button away"
+fi
+
 if [ "$TAG" = "$FROM" ] && [ -z "${UPDATE_FORCE:-}" ]; then
   state "done" "already on $TAG"
   exit 0
