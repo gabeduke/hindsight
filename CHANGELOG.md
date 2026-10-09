@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.09.5 — 2026-10-09
+
+- Give the icons new addresses so phones fetch the new one (b67bc90)
+
+
 ## v2026.10.09.4 — 2026-10-09
 
 - Pick any release to install, and see what it changes (7964817)
