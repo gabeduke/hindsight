@@ -13,6 +13,9 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<!-- Cross-fade between pages (styles.css, "motion between pages"). Inline,
+     so the new page has opted in by the time it first paints. -->
+<style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="tape-page">

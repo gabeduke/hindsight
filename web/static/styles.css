@@ -3278,7 +3278,7 @@ input, select, textarea { color-scheme: inherit; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .icon-btn, .chip, .nudge, .phone-btn, .passes-row .pass, .seg button, .capture-btn, .mark-btn { transition: none; }
+  .icon-btn, .chip, .nudge, .phone-btn, .passes-row .pass, .seg button, .capture-btn, .mark-btn, .appnav a { transition: none; }
 }
 
 /* A phone held sideways: the deck above sits after the landscape tiers, so it
@@ -3534,3 +3534,42 @@ a.crate-chip { text-decoration: none; }
 #catch-pass.jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
 .jam-only-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; color: var(--ink-dim); }
 .jam-only-note a { color: var(--accent); }
+
+/* ---------- motion between pages, and sheets settling in ----------
+   Capture, Takes and Tape are separate pages, so a tab used to be a hard cut:
+   white flash, everything redrawn. With a cross-document view transition the
+   page underneath crossfades while the lit tab slides to its new place, and
+   the tabs themselves stay put. A browser without it navigates as before.
+   The opt-in itself, @view-transition, is inline in each page's <head>: in
+   this sheet, Chromium often hadn't seen it by the new page's first paint,
+   and skipped the transition. */
+.appnav { view-transition-name: tabs; }
+.appnav a[aria-current="page"] { view-transition-name: tab-lit; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .16s; }
+::view-transition-group(tab-lit) { animation-duration: .28s; animation-timing-function: cubic-bezier(.3, .7, .2, 1); }
+/* The tab's words cross over as it slides: no ghosting of two labels. */
+::view-transition-old(tab-lit) { animation: vt-out .12s ease both; }
+::view-transition-new(tab-lit) { animation: vt-in .2s ease .08s both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+/* A tab key gives a little under the thumb. */
+.appnav a { transition: transform .12s ease; }
+.appnav a:active { transform: scale(.96); }
+
+/* Sheets (confirms, rename, the phone recorder…) rise a little as they open
+   and the room dims behind them, rather than appearing whole. The inspector
+   slides in from where it lives: the right on a wide screen, the foot of the
+   page on a phone. Opening only -- a closed sheet goes at once, so a tap on
+   what's behind it is never waiting on an animation. */
+@media (prefers-reduced-motion: no-preference) {
+  dialog.sheet:not(.inspector)[open] { animation: sheet-in .22s cubic-bezier(.2, .8, .3, 1); }
+  dialog.sheet[open]::backdrop { animation: scrim-in .22s ease; }
+  body:not(.player-open) dialog.inspector[open] { animation: insp-in-side .22s cubic-bezier(.2, .8, .3, 1); }
+  @media (orientation: landscape) and (max-height: 440px), (max-width: 699.98px) {
+    body:not(.player-open) dialog.inspector[open] { animation-name: insp-in-up; }
+  }
+}
+@keyframes sheet-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+@keyframes scrim-in { from { opacity: 0; } }
+@keyframes insp-in-side { from { opacity: 0; transform: translateX(24px); } }
+@keyframes insp-in-up { from { transform: translateY(40%); opacity: .4; } }

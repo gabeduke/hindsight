@@ -336,6 +336,10 @@ async function undoSave(name) {
 
 async function capture() {
   const btn = el.captureBtn;
+  // A tick under the thumb as it goes, and two when it's on the shelf: the
+  // phone is often in a pocket or on a stand, and the toast is easy to miss.
+  // Android only; iOS has no vibrate, and that must not matter.
+  try { navigator.vibrate?.(10); } catch { /* no haptics here */ }
   btn.disabled = true;
   el.capWord.textContent = 'Saving…';
   let saved = false;
@@ -353,6 +357,7 @@ async function capture() {
     takes.markFresh(body.name);
     savedToast(`Saved ${body.name}`, body.name);
     saved = true;
+    try { navigator.vibrate?.([12, 70, 12]); } catch { /* no haptics here */ }
     await pollTakes(true);
     await pollStatus();
   } catch (e) {
