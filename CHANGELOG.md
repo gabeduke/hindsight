@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.09.2 — 2026-10-09
+
+- Slide the lit tab between pages; sheets rise as they open (75622b2)
+
+
 ## v2026.10.09.1 — 2026-10-09
 
 - Draw the icon as a cassette from the shelf (dfc871e)
