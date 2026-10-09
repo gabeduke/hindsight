@@ -68,6 +68,11 @@ type API struct {
 	// tape is the tape engine, or nil with TAPE off.
 	tape *tape.Engine
 
+	// updater is the Update button's (update.go); nil hides it.
+	updater *Updater
+	// busyHook stands in for busy() in tests.
+	busyHook func() string
+
 	// tagsMu serialises writes to tags.json (see tags.go).
 	tagsMu sync.Mutex
 
@@ -124,6 +129,8 @@ func (a *API) midiState() (bool, *float64) {
 
 func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/status", a.handleStatus).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/update", a.handleUpdateGet).Methods(http.MethodGet)
+	r.HandleFunc("/api/update", a.handleUpdatePost).Methods(http.MethodPost)
 	r.HandleFunc("/api/jams", a.handleJams).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/trigger", a.handleTrigger).Methods(http.MethodPost)
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)

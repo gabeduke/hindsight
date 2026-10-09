@@ -128,6 +128,11 @@ func main() {
 			defer eng.Stop()
 		}
 	}
+	// The Update button, where deploy/hindsight-update is installed beside
+	// the binary (install.sh, deploy.sh); nil, and no button, elsewhere.
+	if u := api.NewUpdater(cfg.UpdateRepo); u != nil {
+		srvAPI.SetUpdater(u)
+	}
 	srvAPI.SetupRoutes(r)
 	r.PathPrefix("/").Handler(noCacheShell(http.FileServer(http.Dir(staticDir()))))
 

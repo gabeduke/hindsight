@@ -34,6 +34,7 @@ because the defaults are almost always right.
 | Variable | Default | What it does |
 |---|---|---|
 | `PORT` | `5000` | HTTP listen port |
+| `UPDATE_REPO` | `gabeduke/hindsight` | GitHub repo whose releases the Update button offers and `hindsight-update` installs (`docs/api.md`, `/api/update`) |
 | `OUTPUT_DIR` | `~/hindsight/jam_saves` | Where takes are written |
 | `STATIC_DIR` | *(auto)* | UI directory. Resolved relative to the binary, then the working directory; set it only if you have moved `web/static` somewhere unusual |
 | `FRAMES_PER_BUFFER` | `2048` | Frames per PortAudio callback |

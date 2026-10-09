@@ -13,6 +13,12 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # place and run from another.
 ROOT="$HOME/hindsight"
 UNIT_DIR="$HOME/.config/systemd/user"
+# Where to look for it once it's restarted: PORT from the environment (the
+# updater's unit loads hindsight.env), else from hindsight.env, else 5000.
+if [ -z "${PORT:-}" ] && [ -f "$ROOT/hindsight.env" ]; then
+  PORT="$(sed -n 's/^[[:space:]]*PORT=["'"'"']\{0,1\}\([0-9]*\).*/\1/p' "$ROOT/hindsight.env" | tail -1)"
+fi
+PORT="${PORT:-5000}"
 
 die() { echo "error: $*" >&2; exit 1; }
 say() { echo "[*] $*"; }
@@ -34,11 +40,18 @@ systemctl --user show-environment >/dev/null 2>&1 \
 # --- runtime dependencies ---------------------------------------------------
 # The binary is prebuilt, so only the runtime libraries are needed -- not
 # portaudio19-dev. ffmpeg builds the mp3 previews the UI streams.
-say "installing runtime dependencies"
-sudo apt-get update -qq \
-  || die "apt-get update failed; check network/apt sources and re-run"
-sudo apt-get install -y libportaudio2 libasound2 ffmpeg \
-  || die "apt-get install failed; install libportaudio2 libasound2 ffmpeg manually and re-run"
+# Already there on an upgrade, so skip apt then: it needs sudo and the
+# network, and the Update button runs this unattended.
+if dpkg -s libportaudio2 ffmpeg >/dev/null 2>&1 \
+   && { dpkg -s libasound2 >/dev/null 2>&1 || dpkg -s libasound2t64 >/dev/null 2>&1; }; then
+  say "runtime dependencies already installed"
+else
+  say "installing runtime dependencies"
+  sudo apt-get update -qq \
+    || die "apt-get update failed; check network/apt sources and re-run"
+  sudo apt-get install -y libportaudio2 libasound2 ffmpeg \
+    || die "apt-get install failed; install libportaudio2 libasound2 ffmpeg manually and re-run"
+fi
 
 # --- can this binary actually run here? -------------------------------------
 # The whole reason release.yml builds inside debian:bookworm is that Raspberry
@@ -113,6 +126,12 @@ fi
 say "installing the user service"
 mkdir -p "$UNIT_DIR"
 install -m 644 "$SRC/deploy/hindsight.service" "$UNIT_DIR/hindsight.service"
+# The updater behind the Update button (deploy/hindsight-update). Optional so
+# an older release's archive, which has neither, still installs.
+if [ -f "$SRC/deploy/hindsight-update" ] && [ -f "$SRC/deploy/hindsight-update@.service" ]; then
+  install -m 755 "$SRC/deploy/hindsight-update" "$ROOT/bin/hindsight-update"
+  install -m 644 "$SRC/deploy/hindsight-update@.service" "$UNIT_DIR/hindsight-update@.service"
+fi
 systemctl --user daemon-reload
 systemctl --user enable hindsight.service
 # `enable --now` is a no-op start on a unit that's already running -- on a
@@ -130,14 +149,14 @@ sudo loginctl enable-linger "$(id -un)" \
   || say "warning: could not enable lingering — the service will stop at logout. Run: sudo loginctl enable-linger $(id -un)"
 
 say "waiting for it to come up"
-# Poll for ~15s instead of one shot after a fixed sleep: Type=simple means
+# Poll for ~30s instead of one shot after a fixed sleep: Type=simple means
 # systemd considers the unit started the instant the process forks, well
 # before it's actually listening, and a slow Pi needs more than 3s for that.
 body=""
 tries=0
-until body="$(curl -fsS http://127.0.0.1:5000/api/status 2>/dev/null)"; do
+until body="$(curl -fsS "http://127.0.0.1:$PORT/api/status" 2>/dev/null)"; do
   tries=$((tries + 1))
-  if [ "$tries" -ge 8 ]; then
+  if [ "$tries" -ge 15 ]; then
     body=""
     break
   fi
@@ -171,7 +190,7 @@ fi
 # missing field costs the reason, printed as "(none reported)", not the
 # message.
 if printf '%s' "$body" | grep -q '"capture_healthy":true'; then
-  say "running: http://$(hostname).local:5000"
+  say "running: http://$(hostname).local:$PORT"
   say "next: set SAVE_CHANNELS in $ROOT/hindsight.env — the default assumes an EP-136"
 else
   # The trailing sed undoes Go's HTML escaping. encoding/json escapes the three
@@ -184,7 +203,7 @@ else
     | grep -o '"last_error":"[^"]*"' \
     | sed -e 's/^"last_error":"//' -e 's/"$//' \
           -e 's/\\u003c/</g' -e 's/\\u003e/>/g' -e 's/\\u0026/\&/g' || true)"
-  say "running: http://$(hostname).local:5000 — but not recording"
+  say "running: http://$(hostname).local:$PORT — but not recording"
   say "capture error: ${last_error:-(none reported)}"
   say "hindsight will keep retrying on its own; plug the interface in (or fix the error above) — check with: systemctl --user status hindsight.service"
 fi
