@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.09.4 — 2026-10-09
+
+- Pick any release to install, and see what it changes (7964817)
+
+
 ## v2026.10.09.3 — 2026-10-09
 
 - Add an Update button that installs the latest release on the Pi (a237e8f)
