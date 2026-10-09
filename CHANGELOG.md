@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.09.1 — 2026-10-09
+
+- Draw the icon as a cassette from the shelf (dfc871e)
+- Record v2026.10.08.6 in the changelog [skip ci] (20b2ab6)
+
+
 ## v2026.10.08.6 — 2026-10-08
 
 - Ranges: fixes from review (1fa7358)
