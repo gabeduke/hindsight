@@ -137,6 +137,53 @@ The poll everything else hangs off. The UI reads it every two seconds.
   interface* rather than reporting an error.
 - `version` is stamped at build time; a development build reports `dev`.
 
+## `GET /api/update`, `POST /api/update`
+
+The Update button. Present only where `deploy/hindsight-update` is installed
+beside the binary — `install.sh` and `deploy.sh` both put it there — and a
+`404` everywhere else (the demo, a Mac), which is how the page knows to hide
+the button.
+
+`GET` says what's running, the newest release, and how the last update went:
+
+```json
+{
+  "running": "v2026.10.09.1",
+  "latest": "v2026.10.09.2",
+  "available": true,
+  "error": "",
+  "update": { "state": "done", "tag": "v2026.10.09.1", "from": "dev",
+              "message": "updated to v2026.10.09.1", "at": "2026-10-09T15:02:11Z" }
+}
+```
+
+- `latest` is GitHub's latest release of `UPDATE_REPO`, asked at most every ten
+  minutes; `?refresh=1` asks now. When GitHub can't be reached `latest` is
+  empty and `error` says why.
+- `available` is true when `latest` is a newer release than `running`, compared
+  number by number. A `dev` build (from `deploy.sh`) is offered any release.
+- `update` is `~/hindsight/update.json`, which the script rewrites at every
+  step, or `null` if it has never run. `state` is `checking`, `downloading`,
+  `installing`, `rolling_back`, `done`, `rolled_back` or `failed`.
+
+`POST` (body optional, `{"tag": "v…"}` to name a release; the latest
+otherwise) starts `hindsight-update@<tag>.service` with
+`systemctl --user start --no-block` and answers `202 {"tag": …}`. The unit runs
+outside Hindsight because the release's `install.sh` restarts it. It answers:
+
+- `400` for anything that isn't a release tag;
+- `409` while a take is saving, a phone is recording, or the tape is playing
+  or recording (`"not now: a take is saving"`), or while another update is
+  under way;
+- `502` when no tag was named and GitHub can't be reached.
+
+The script downloads the release, checks it against `SHA256SUMS`, keeps a copy
+of what's installed, runs `install.sh`, and checks `/api/status` reports the
+new `version`. If the install fails or the new version doesn't come up it puts
+the copy back and restarts: `update.state` is then `rolled_back`. Updating
+restarts Hindsight, so the ring starts empty. From a shell,
+`~/hindsight/bin/hindsight-update [tag]` does the same.
+
 ## `GET /api/live`
 
 WebSocket. The server pushes a frame whenever level bins have accumulated —

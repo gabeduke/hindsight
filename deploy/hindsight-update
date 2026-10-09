@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+# Install a Hindsight release on this Pi, and roll back if it doesn't come up.
+#
+#   hindsight-update                the latest release
+#   hindsight-update v2026.10.09.1  that release
+#   hindsight-update latest         the same as no argument
+#
+# The Update button runs it as the user unit hindsight-update@<tag>.service
+# (POST /api/update), so the update runs outside Hindsight: install.sh
+# restarts Hindsight, and the updater has to outlive that. Run by hand over
+# SSH it does the same thing.
+#
+# Each run:
+#   1. takes the lock, so a second run (a double tap, the shell and the button)
+#      waits its turn rather than racing;
+#   2. resolves the tag (GitHub's latest release, unless one was named);
+#   3. stops if that's what's running, or if Hindsight is saving a take;
+#   4. downloads the release into ~/hindsight/releases/<tag>/ and checks it
+#      against SHA256SUMS;
+#   5. keeps a copy of what's installed now -- the binary, the UI and the
+#      unit, whether they came from a release or from deploy.sh;
+#   6. runs the release's install.sh, then checks /api/status reports the new
+#      version;
+#   7. if anything in 6 fails, puts the copy back and restarts, so the rig is
+#      left running what it ran before.
+#
+# Every step goes to the journal (stdout) and to ~/hindsight/update.json,
+# which the page reads to show progress.
+set -euo pipefail
+
+# install.sh replaces this file while it runs, and bash reads a script as it
+# goes: run from a private copy, so the replacement can't land mid-read.
+if [ -z "${HINDSIGHT_UPDATE_COPY:-}" ]; then
+  copy="$(mktemp "${TMPDIR:-/tmp}/hindsight-update.XXXXXX")"
+  cp "$0" "$copy"
+  HINDSIGHT_UPDATE_COPY="$copy" exec bash "$copy" "$@"
+fi
+
+ROOT="${HINDSIGHT_ROOT:-$HOME/hindsight}"
+REPO="${UPDATE_REPO:-gabeduke/hindsight}"
+GITHUB="${UPDATE_GITHUB:-https://github.com}"
+GITHUB_API="${UPDATE_GITHUB_API:-https://api.github.com}"
+STATUS_URL="http://127.0.0.1:${PORT:-5000}/api/status"
+STATE="$ROOT/update.json"
+RELEASES="$ROOT/releases"
+PREV="$RELEASES/.previous"
+UNIT_DIR="$HOME/.config/systemd/user"
+# How long to wait for Hindsight to answer after a rollback.
+WAIT_TRIES="${UPDATE_WAIT_TRIES:-15}"
+
+say() { echo "[*] $*"; }
+
+# The state the page shows. One line of JSON, written whole and renamed into
+# place so a reader never sees half of it. Messages are ours, so stripping
+# quotes and backslashes is all the escaping they need.
+FROM="" TAG="" LAST=""
+state() {
+  local s="$1" msg="${2:-}"
+  LAST="$s"
+  msg="${msg//\\/}"; msg="${msg//\"/}"
+  mkdir -p "$ROOT"
+  printf '{"state":"%s","tag":"%s","from":"%s","message":"%s","at":"%s"}\n' \
+    "$s" "$TAG" "$FROM" "$msg" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE.tmp"
+  mv "$STATE.tmp" "$STATE"
+  say "$s${msg:+: $msg}"
+}
+fail() { state failed "$1"; exit 1; }
+
+# Whatever ends this run -- a step set -e stops on (a full SD card), a
+# signal, the unit's timeout -- it never leaves a working state behind: the
+# page would follow it for ten minutes and the button would refuse for
+# fifteen.
+finish() {
+  local rc=$?
+  case "$LAST" in
+    "done"|failed|rolled_back) ;;
+    "") [ "$rc" = 0 ] || state failed "stopped before it started (exit $rc)" || true ;;
+    *) state failed "stopped while ${LAST//_/ } (exit $rc): see journalctl _SYSTEMD_USER_UNIT=hindsight-update@${TAG:-latest}.service" || true ;;
+  esac
+  rm -f "$HINDSIGHT_UPDATE_COPY"
+}
+trap finish EXIT
+trap 'exit 143' TERM INT
+
+# The running version, or "" if Hindsight isn't answering.
+running() {
+  curl -fsS --max-time 5 "$STATUS_URL" 2>/dev/null \
+    | grep -o '"version":"[^"]*"' | head -1 | sed 's/^"version":"//; s/"$//' || true
+}
+
+# Wait for Hindsight to answer; prints the version it reports.
+wait_up() {
+  local i v
+  for ((i = 0; i < WAIT_TRIES; i++)); do
+    v="$(running)"
+    if [ -n "$v" ]; then echo "$v"; return 0; fi
+    sleep 2
+  done
+  return 1
+}
+
+mkdir -p "$ROOT" "$RELEASES"
+exec 9>"$ROOT/.update.lock"
+if ! flock -n 9; then
+  say "another update is running; waiting for it"
+  flock 9
+fi
+
+FROM="$(running)"
+
+# --- which release ------------------------------------------------------------
+TAG="${1:-latest}"
+if [ "$TAG" = "latest" ]; then
+  TAG=""
+  state checking "asking GitHub for the latest release"
+  TAG="$(curl -fsS --max-time 20 -H 'Accept: application/vnd.github+json' \
+      "$GITHUB_API/repos/$REPO/releases/latest" 2>/dev/null \
+    | grep -o '"tag_name": *"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/' || true)"
+  [ -n "$TAG" ] || fail "couldn't reach GitHub to find the latest release"
+fi
+# A tag names a directory and a URL below: nothing but what release.yml makes.
+[[ "$TAG" =~ ^v[0-9A-Za-z._-]+$ ]] || { TAG=""; fail "not a release tag: ${1:-}"; }
+
+if [ "$TAG" = "$FROM" ] && [ -z "${UPDATE_FORCE:-}" ]; then
+  state "done" "already on $TAG"
+  exit 0
+fi
+
+# The button refuses while saving; this is for a run from the shell.
+status="$(curl -fsS --max-time 5 "$STATUS_URL" 2>/dev/null || true)"
+if grep -q '"saving":true' <<<"$status"; then
+  fail "Hindsight is saving a take; try again in a moment"
+fi
+
+# --- download and check -------------------------------------------------------
+name="hindsight_${TAG}_linux_arm64"
+dir="$RELEASES/$TAG"
+state downloading "downloading $TAG"
+rm -rf "$dir"
+mkdir -p "$dir"
+base="$GITHUB/$REPO/releases/download/$TAG"
+curl -fsSL --max-time 300 -o "$dir/$name.tar.gz" "$base/$name.tar.gz" \
+  || fail "couldn't download $TAG"
+curl -fsSL --max-time 60 -o "$dir/SHA256SUMS" "$base/SHA256SUMS" \
+  || fail "couldn't download $TAG's checksums"
+(cd "$dir" && sha256sum -c --status SHA256SUMS) \
+  || fail "$TAG's download doesn't match its checksum"
+tar -C "$dir" -xzf "$dir/$name.tar.gz" || fail "couldn't unpack $TAG"
+[ -x "$dir/$name/install.sh" ] || fail "$TAG has no install.sh"
+
+# --- keep what's there now ----------------------------------------------------
+# Whatever put it there, a release or deploy.sh's build, this is what a
+# rollback restores.
+rm -rf "$PREV"
+mkdir -p "$PREV/web"
+have_prev=""
+if [ -x "$ROOT/bin/hindsight" ] && [ -d "$ROOT/web/static" ]; then
+  cp -a "$ROOT/bin/hindsight" "$PREV/hindsight"
+  cp -a "$ROOT/web/static" "$PREV/web/static"
+  [ -f "$UNIT_DIR/hindsight.service" ] && cp -a "$UNIT_DIR/hindsight.service" "$PREV/hindsight.service"
+  printf '%s\n' "${FROM:-unknown}" > "$PREV/version"
+  have_prev=1
+fi
+
+rollback() {
+  local why="$1" v
+  if [ -z "$have_prev" ]; then
+    fail "$why, and there was nothing to roll back to"
+  fi
+  # install.sh stopped before it swapped anything (apt, say): what's running
+  # is what was running, so don't restart it and lose the ring for nothing.
+  if cmp -s "$PREV/hindsight" "$ROOT/bin/hindsight" && v="$(running)" && [ -n "$v" ] && [ "$v" = "$FROM" ]; then
+    state rolled_back "$why; nothing was changed, still on $v"
+    exit 1
+  fi
+  state rolling_back "$why; putting ${FROM:-the previous version} back"
+  install -m 755 "$PREV/hindsight" "$ROOT/bin/hindsight"
+  rm -rf "$ROOT/web/static.rollback"
+  cp -a "$PREV/web/static" "$ROOT/web/static.rollback"
+  rm -rf "$ROOT/web/static"
+  mv "$ROOT/web/static.rollback" "$ROOT/web/static"
+  if [ -f "$PREV/hindsight.service" ]; then
+    install -m 644 "$PREV/hindsight.service" "$UNIT_DIR/hindsight.service"
+    systemctl --user daemon-reload || true
+  fi
+  systemctl --user restart hindsight.service || true
+  if v="$(wait_up)"; then
+    state rolled_back "$why; still on $v"
+  else
+    state failed "$why, and the rollback didn't come up either: check journalctl _SYSTEMD_USER_UNIT=hindsight.service"
+  fi
+  exit 1
+}
+
+# --- install --------------------------------------------------------------------
+state installing "installing $TAG; Hindsight restarts"
+log="$dir/install.log"
+if ! (cd "$dir/$name" && ./install.sh </dev/null) 2>&1 | tee "$log"; then
+  # The page gets install.sh's last word on why.
+  why="$(grep -v '^\[\*\]' "$log" | grep -v '^[[:space:]]*$' | tail -1 | cut -c1-160 || true)"
+  rollback "$TAG's install failed${why:+: $why}"
+fi
+now="$(wait_up || true)"
+if [ "$now" != "$TAG" ]; then
+  rollback "$TAG didn't come up (it reports ${now:-nothing})"
+fi
+
+# --- tidy -----------------------------------------------------------------------
+# Keep this release and the one before it; a rollback needs only .previous,
+# but a release on disk is a quick reinstall by hand.
+# shellcheck disable=SC2012  # tags are [v0-9A-Za-z._-] only (checked above)
+ls -1dt "$RELEASES"/v* 2>/dev/null | tail -n +3 | xargs -r rm -rf
+rm -f "$dir/$name.tar.gz"
+
+state "done" "updated to $TAG"

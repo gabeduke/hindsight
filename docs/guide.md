@@ -239,6 +239,42 @@ Every take, from **All takes** on the main page.
   and they're spines of their own; Undo → they fold in again.
 - [demo] Star one of the cuts and turn on *Starred* → the cut shows alone.
 
+### 3.2 Updating Hindsight
+
+Every change merged on GitHub becomes a release. When there's a newer one
+than the Pi is running, the line at the foot of Capture says so:
+*Hindsight v2026.10.09.1 · **Update to v2026.10.09.2** · the guide*. A Pi
+deployed from source with `deploy.sh` runs a `dev` build, and the line offers
+**Install v…** instead.
+
+- **Tap it** and a sheet asks first. Updating restarts Hindsight, so the
+  ring starts empty: capture anything you want to keep before you say yes.
+  *What's new* opens the release's notes on GitHub.
+- **Update** installs it. The sheet follows along: downloading, installing,
+  *Restarting…*, and then the page reloads on the new version. You can close
+  the sheet; the update carries on.
+- **It won't start** while a take is saving, a phone is recording, or the
+  tape is playing or recording. It says which.
+- **If the new release fails** to install or doesn't come up, the Pi puts
+  back what it was running and says *still on v…*. Nothing else changes.
+- **From a shell** on the Pi, `~/hindsight/bin/hindsight-update` does the
+  same, and `hindsight-update v2026.10.08.6` installs a particular release,
+  older ones included.
+
+The button only appears where the updater is installed: `install.sh` and
+`deploy.sh` both install it. The Pi needs to reach GitHub; without it, the
+line stays as it is.
+
+**Checks — updating:**
+
+- [rig] With a newer release out, the foot of Capture offers it. Update →
+  the sheet goes through downloading and installing, says *Restarting…*, and
+  the page comes back on the new version.
+- [rig] Start a phone recording, then tap Update → *Not now: a phone is
+  recording*, and nothing installs.
+- [rig] `ssh` in and run `~/hindsight/bin/hindsight-update` with the latest
+  already installed → *already on v…*.
+
 ## 4. The take page
 
 *Step 3.* Open any take from the list. The first time you do, three hints
@@ -1706,6 +1742,7 @@ has no tip.
 | Save from here to now | Save a take that starts at this flag and runs to now |
 | Delete flag (ribbon) | Remove this flag. Takes saved later won't carry it |
 | Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
+| Update to … | Install the newest release on the Pi. Hindsight restarts, so the ring starts empty; a release that fails is rolled back |
 | All takes | Every take, on a page of its own, to search, filter and sort |
 | Search | Find a take by its name, its time or its tempo |
 | Filters | Show only starred takes, takes with MIDI, takes from a phone, or tape mixdowns |

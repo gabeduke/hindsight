@@ -56,4 +56,7 @@ check "empty range falls back to No changes recorded" \
 - No changes recorded." \
   "$(printf '' | "$HERE/changelog-entry.sh" v2026.09.09.1 2026-09-09)"
 
+# The updater behind the Update button, against a fake GitHub and Pi.
+"$HERE/test-updater.sh" || fail=1
+
 exit "$fail"

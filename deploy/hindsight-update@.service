@@ -1,0 +1,12 @@
+[Unit]
+Description=Hindsight — install release %i
+Documentation=https://github.com/gabeduke/hindsight
+
+# Started by the Update button (POST /api/update) as
+# hindsight-update@<tag>.service, or @latest. A unit of its own, not a child
+# of Hindsight: install.sh restarts Hindsight, and this has to outlive that.
+[Service]
+Type=oneshot
+EnvironmentFile=-%h/hindsight/hindsight.env
+ExecStart=%h/hindsight/bin/hindsight-update %i
+TimeoutStartSec=20min

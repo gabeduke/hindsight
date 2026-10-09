@@ -84,6 +84,12 @@ EXCLUDES=(
   --exclude '.superpowers'
   --exclude '.claude'
   --exclude '.playwright-mcp'
+  # The tape (TAPE_DIR's default) and the updater's own files live in the
+  # same folder as the checkout; --delete must never touch them.
+  --exclude '/tapes'
+  --exclude '/releases'
+  --exclude '/update.json'
+  --exclude '/.update.lock'
 )
 
 if [ "${1:-}" = "--dry-run" ]; then
@@ -101,6 +107,14 @@ rsync -az --delete -e "${SSH[*]}" "${EXCLUDES[@]}" ./ "$HOST:~/$DEST/"
 
 echo "[*] building on the Pi"
 "${SSH[@]}" "$HOST" "cd ~/$DEST && go build -o bin/hindsight ./cmd/hindsight"
+
+# The updater behind the Update button, as install.sh puts it, so a rig
+# deployed from source can update itself to a release too.
+echo "[*] installing the updater"
+"${SSH[@]}" "$HOST" "cd ~/$DEST && install -m 755 deploy/hindsight-update bin/hindsight-update && \
+  mkdir -p ~/.config/systemd/user && \
+  install -m 644 deploy/hindsight-update@.service ~/.config/systemd/user/ && \
+  systemctl --user daemon-reload"
 
 echo "[*] restarting"
 "${SSH[@]}" "$HOST" "systemctl --user restart hindsight.service"

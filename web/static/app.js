@@ -13,6 +13,7 @@ import { toast, takeNextToast } from '/lib/toast.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
 import { pageBar } from '/lib/bar/bar.js';
+import { initUpdate } from '/lib/update.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -377,6 +378,7 @@ async function capture() {
 el.captureBtn.addEventListener('click', capture);
 
 initHelp({ page: 'main' });
+initUpdate();
 np = pageBar({ tapes: initNav(), onToast: toast });
 
 initPhone({

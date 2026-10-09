@@ -22,6 +22,7 @@ export const TIPS = [
   { control: 'Save from here to now', ids: ['flag-save-from'], tip: 'Save a take that starts at this flag and runs to now' },
   { control: 'Delete flag (ribbon)', ids: ['flag-remove'], tip: 'Remove this flag. Takes saved later won\'t carry it' },
   { control: 'Phone', ids: ['phone'], tip: "Record from this phone's mic or a plugged-in input, straight into Hindsight" },
+  { control: 'Update to …', ids: ['update'], tip: 'Install the newest release on the Pi. Hindsight restarts, so the ring starts empty; a release that fails is rolled back' },
   // The takes page
   { control: 'All takes', ids: ['all-takes'], tip: 'Every take, on a page of its own, to search, filter and sort' },
   { control: 'Search', ids: ['search'], tip: 'Find a take by its name, its time or its tempo' },

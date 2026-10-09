@@ -72,6 +72,10 @@ type Config struct {
 	// Server
 	Port string
 
+	// UpdateRepo is the GitHub owner/repo whose releases the Update button
+	// offers (and deploy/hindsight-update installs).
+	UpdateRepo string
+
 	// Version is stamped by the build (-ldflags -X main.version) and reported
 	// on /api/status, so an installed Pi can say which release it is running.
 	Version string
@@ -110,6 +114,7 @@ func Load() (*Config, error) {
 		TapeLatencyMS:    envFloat("TAPE_LATENCY_MS", 0),
 		TapeDemoAlign:    envBool("TAPE_DEMO_ALIGN", false),
 		Port:             env("PORT", "5000"),
+		UpdateRepo:       env("UPDATE_REPO", "gabeduke/hindsight"),
 		Version:          "dev",
 	}
 	// The clock device defaults to the audio interface, so a rig where the
