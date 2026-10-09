@@ -7,9 +7,15 @@
 //   node scripts/icons/icon.mjs      writes web/static/icons/*.svg
 //   node scripts/icons/render.mjs    renders the PNGs from them
 //
+// After changing the icon, bump the ?v= on every /icons/ URL (the five
+// pages, manifest.json and sw.js). A phone keeps an installed app's icon by
+// its URL: the same URL with new pixels is never fetched again, so a new
+// icon needs a new address. iOS never refreshes a home-screen icon at all;
+// remove the app and add it again.
+//
 // One drawing, three cuts:
-//   icon.svg        rounded square, transparent corners: the brand mark in
-//                   the bar and the manifest's "any" icon
+//   icon.svg        rounded square, transparent corners: the source of the
+//                   manifest's PNG icons (192, 512)
 //   icon-full.svg   full bleed, the cassette shrunk into the maskable safe
 //                   zone (a circle 80% of the side), for "maskable" and the
 //                   apple-touch icon, which the OS rounds itself
