@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs>
+  <radialGradient id="shell" cx=".3" cy="0" r="1.15">
+    <stop offset="0" stop-color="#3a3b40"/><stop offset=".55" stop-color="#1d1e21"/><stop offset="1" stop-color="#121315"/>
+  </radialGradient>
+  <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f8f1de"/><stop offset="1" stop-color="#eadfc2"/>
+  </linearGradient>
+  <linearGradient id="win" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#0a0a0b"/><stop offset="1" stop-color="#232427"/>
+  </linearGradient>
+  <radialGradient id="pack" cx=".4" cy=".35" r=".75">
+    <stop offset="0" stop-color="#6a4426"/><stop offset=".72" stop-color="#4a2e18"/><stop offset="1" stop-color="#2a180b"/>
+  </radialGradient>
+  <linearGradient id="foot" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#1d1e21"/><stop offset="1" stop-color="#121315"/>
+  </linearGradient>
+  <linearGradient id="wave" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#7fe6dc"/><stop offset=".5" stop-color="#4ebeb4"/><stop offset="1" stop-color="#7fe6dc"/>
+  </linearGradient>
+</defs><clipPath id="sq"><rect width="512" height="512" rx="88"/></clipPath><g clip-path="url(#sq)"><rect width="512" height="512" fill="url(#shell)"/>
+  
+  <path d="M66 512L106 396Q110 390 118 390L394 390Q402 390 406 396L446 512Z" fill="url(#foot)" stroke="#000" stroke-opacity=".5" stroke-width="2"/>
+    <path d="M118 392L394 392" stroke="#fff" stroke-opacity=".1" stroke-width="2"/>
+  <rect x="34" y="48" width="444" height="330" rx="22" fill="#000" opacity=".35"/>
+  <clipPath id="lab"><rect x="34" y="44" width="444" height="330" rx="22"/></clipPath>
+  <g clip-path="url(#lab)">
+    <rect x="34" y="44" width="444" height="330" fill="url(#paper)"/>
+    <rect x="34" y="44" width="444" height="66" fill="#e0662a"/>
+    
+    
+  </g>
+  <rect x="56" y="146" width="400" height="150" rx="75" fill="url(#win)" stroke="#000" stroke-opacity=".55" stroke-width="2"/>
+  <clipPath id="w"><rect x="59" y="149" width="394" height="144" rx="72"/></clipPath>
+  <g clip-path="url(#w)">
+    <circle cx="135" cy="221" r="64" fill="url(#pack)"/>
+    <circle cx="377" cy="221" r="44" fill="url(#pack)"/>
+    
+    
+  </g>
+  <circle cx="135" cy="221" r="26" fill="#efe9d8"/><circle cx="135" cy="221" r="13" fill="#1a1b1d"/>
+  <circle cx="377" cy="221" r="26" fill="#efe9d8"/><circle cx="377" cy="221" r="13" fill="#1a1b1d"/>
+  <rect x="131" y="152" width="250" height="6" rx="2" fill="#fff" opacity=".07"/></g><rect x="2" y="2" width="508" height="508" rx="86" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="4"/></svg>
