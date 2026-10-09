@@ -184,6 +184,35 @@ the copy back and restarts: `update.state` is then `rolled_back`. Updating
 restarts Hindsight, so the ring starts empty. From a shell,
 `~/hindsight/bin/hindsight-update [tag]` does the same.
 
+## `GET /api/update/releases`
+
+Every release the Update button can install, newest first by version, from
+`v2026.10.09.3` (the first with the updater; `floor`) up. A `404` where the
+updater isn't installed.
+
+```json
+{
+  "running": "v2026.10.09.4",
+  "floor": "v2026.10.09.3",
+  "releases": [
+    { "tag": "v2026.10.09.5", "date": "2026-10-09T15:40:00Z",
+      "url": "https://github.com/gabeduke/hindsight/releases/tag/v2026.10.09.5",
+      "changes": ["Add a releases picker and a changelog to the Update sheet"] }
+  ],
+  "error": ""
+}
+```
+
+`changes` is the release's notes, one line per commit, without the
+changelog's own `[skip ci]` commits or the hashes. Cached like `latest` (ten
+minutes, a failure for one); `?refresh=1` asks GitHub now. `POST /api/update`
+refuses (`400`) any tag below `floor`, and so does `hindsight-update` unless
+run with `UPDATE_FORCE=1`.
+
+`running` may be a `deploy.sh` build stamped by `git describe`
+(`v2026.10.09.4-2-gabc1234`). It compares as the release it's built on, so
+only a later release is `available`.
+
 ## `GET /api/live`
 
 WebSocket. The server pushes a frame whenever level bins have accumulated —

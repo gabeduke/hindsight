@@ -241,39 +241,51 @@ Every take, from **All takes** on the main page.
 
 ### 3.2 Updating Hindsight
 
-Every change merged on GitHub becomes a release. When there's a newer one
-than the Pi is running, the line at the foot of Capture says so:
-*Hindsight v2026.10.09.1 · **Update to v2026.10.09.2** · the guide*. A Pi
-deployed from source with `deploy.sh` runs a `dev` build, and the line offers
-**Install v…** instead.
+Every change merged on GitHub becomes a release, and the foot of Capture is
+where you move between them: *Hindsight v2026.10.09.4 · **Releases** · the
+guide*. When there's a newer release than the Pi is running, a line under it
+says so: **● Update to v2026.10.09.5**. The page asks when it loads, every
+hour while it stays open, and when you come back to it.
 
-- **Tap it** and a sheet asks first. Updating restarts Hindsight, so the
-  ring starts empty: capture anything you want to keep before you say yes.
-  *What's new* opens the release's notes on GitHub.
-- **Update** installs it. The sheet follows along: downloading, installing,
-  *Restarting…*, and then the page reloads on the new version. You can close
-  the sheet; the update carries on.
+- **Releases** lists every release the button can install, newest first,
+  marked *running* and *latest*. Pick one and the sheet says what moving to it
+  changes:
+  - **newer:** *This brings in*, each release's notes between what's running
+    and the pick;
+  - **older:** *This takes out*, the notes you'd be leaving behind. The key
+    says **Go back to v…**.
+- **Update to v…** opens the same sheet with the latest picked.
+- **The key installs it.** Hindsight restarts, so the ring starts empty:
+  capture anything you want to keep first. The sheet follows along
+  (downloading, installing, *Restarting…*), and the page reloads on the new
+  version. You can close the sheet; the install carries on.
 - **It won't start** while a take is saving, a phone is recording, or the
   tape is playing or recording. It says which.
 - **If the new release fails** to install or doesn't come up, the Pi puts
   back what it was running and says *still on v…*. Nothing else changes.
-- **From a shell** on the Pi, `~/hindsight/bin/hindsight-update` does the
-  same, and `hindsight-update v2026.10.08.6` installs a particular release,
-  older ones included.
+- **The list stops at v2026.10.09.3,** the first release with this button.
+  Anything older would take the button away with it.
+- **A build deployed from source** with `deploy.sh` shows where it came from,
+  for example *v2026.10.09.4-2-gabc1234*: two commits past that release.
+  Only a later release counts as an update.
+- **From a shell** on the Pi, `~/hindsight/bin/hindsight-update` installs
+  the latest, and `hindsight-update v2026.10.09.4` installs that one.
 
 The button only appears where the updater is installed: `install.sh` and
 `deploy.sh` both install it. The Pi needs to reach GitHub; without it, the
-line stays as it is.
+sheet says so.
 
 **Checks — updating:**
 
 - [rig] With a newer release out, the foot of Capture offers it. Update →
-  the sheet goes through downloading and installing, says *Restarting…*, and
-  the page comes back on the new version.
-- [rig] Start a phone recording, then tap Update → *Not now: a phone is
+  the sheet lists what it brings in; install → downloading, installing,
+  *Restarting…*, and the page comes back on the new version.
+- [rig] Releases → pick the one before → *This takes out* lists the newer
+  release's notes, and **Go back to v…** installs it.
+- [rig] Start a phone recording, then install → *Not now: a phone is
   recording*, and nothing installs.
-- [rig] `ssh` in and run `~/hindsight/bin/hindsight-update` with the latest
-  already installed → *already on v…*.
+- [rig] `make deploy` → the foot of Capture shows the release it's built on
+  plus its commits, not `dev`.
 
 ## 4. The take page
 
@@ -1742,7 +1754,8 @@ has no tip.
 | Save from here to now | Save a take that starts at this flag and runs to now |
 | Delete flag (ribbon) | Remove this flag. Takes saved later won't carry it |
 | Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
-| Update to … | Install the newest release on the Pi. Hindsight restarts, so the ring starts empty; a release that fails is rolled back |
+| Update to … | A newer release is out: see what it brings in and install it on the Pi |
+| Releases | Every release you can install, newer or older, and what moving to one changes. Hindsight restarts, so the ring starts empty |
 | All takes | Every take, on a page of its own, to search, filter and sort |
 | Search | Find a take by its name, its time or its tempo |
 | Filters | Show only starred takes, takes with MIDI, takes from a phone, or tape mixdowns |

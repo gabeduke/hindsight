@@ -33,6 +33,8 @@ import (
 type Updater struct {
 	// LatestURL answers GitHub's "latest release" JSON ({"tag_name": ...}).
 	LatestURL string
+	// ReleasesURL answers GitHub's list of releases (releases.go).
+	ReleasesURL string
 	// StateFile is where deploy/hindsight-update writes its progress.
 	StateFile string
 	// Start begins installing tag outside this process.
@@ -51,6 +53,11 @@ type Updater struct {
 	tag     string
 	err     error
 	checked time.Time
+
+	relMu      sync.Mutex
+	rel        []Release
+	relErr     error
+	relChecked time.Time
 }
 
 // NewUpdater is the updater on a Pi set up by install.sh or deploy.sh: the
@@ -76,8 +83,9 @@ func NewUpdater(repo string) *Updater {
 		api = strings.TrimRight(v, "/")
 	}
 	return &Updater{
-		LatestURL: api + "/repos/" + repo + "/releases/latest",
-		StateFile: filepath.Join(filepath.Dir(bin), "update.json"),
+		LatestURL:   api + "/repos/" + repo + "/releases/latest",
+		ReleasesURL: api + "/repos/" + repo + "/releases?per_page=50",
+		StateFile:   filepath.Join(filepath.Dir(bin), "update.json"),
 		Start: func(tag string) error {
 			// --no-block: the unit takes minutes and restarts us; the
 			// request only needs to know it was queued.
@@ -102,36 +110,32 @@ func (a *API) SetUpdater(u *Updater) { a.updater = u }
 var releaseTag = regexp.MustCompile(`^v[0-9A-Za-z._-]+$`)
 
 // newerRelease reports whether latest is a newer release than running. A
-// build that isn't a release (deploy.sh's "dev") can't be compared, so any
-// release counts as newer: installing it is how you get onto releases.
+// build that isn't a release (an unstamped "dev") can't be compared, so any
+// release counts as newer: installing it is how you get onto releases. A
+// build stamped from git (v2026.10.09.3-4-gabc123) is that release plus
+// commits, so only a later release is newer.
 func newerRelease(latest, running string) bool {
 	if latest == "" || latest == running {
 		return false
 	}
-	l, okL := releaseParts(latest)
-	r, okR := releaseParts(running)
-	if !okL {
+	if _, ok := releaseParts(latest); !ok {
 		return false
 	}
-	if !okR {
-		return true
-	}
-	for i := range l {
-		if i >= len(r) {
-			return true
-		}
-		if l[i] != r[i] {
-			return l[i] > r[i]
-		}
-	}
-	return false
+	c, ok := compareRelease(latest, running)
+	return !ok || c > 0
 }
 
+// releaseParts is a version's numbers: v2026.10.09.3 is [2026 10 9 3]. What
+// follows a "-" or "+" (git describe's commits and hash) is set aside.
 func releaseParts(tag string) ([]int, bool) {
 	if !strings.HasPrefix(tag, "v") {
 		return nil, false
 	}
-	fields := strings.Split(tag[1:], ".")
+	base := tag[1:]
+	if i := strings.IndexAny(base, "-+"); i >= 0 {
+		base = base[:i]
+	}
+	fields := strings.Split(base, ".")
 	out := make([]int, len(fields))
 	for i, f := range fields {
 		n, err := strconv.Atoi(f)
@@ -321,6 +325,10 @@ func (a *API) handleUpdatePost(w http.ResponseWriter, r *http.Request) {
 	}
 	if !releaseTag.MatchString(tag) {
 		writeErr(w, http.StatusBadRequest, "not a release tag")
+		return
+	}
+	if !atOrAboveFloor(tag) {
+		writeErr(w, http.StatusBadRequest, tag+" is older than the Update button ("+UpdateFloor+"): installing it would take the button away")
 		return
 	}
 	if s := u.state(); s.inFlight(time.Now()) {

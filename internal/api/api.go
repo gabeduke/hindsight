@@ -131,6 +131,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/status", a.handleStatus).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/update", a.handleUpdateGet).Methods(http.MethodGet)
 	r.HandleFunc("/api/update", a.handleUpdatePost).Methods(http.MethodPost)
+	r.HandleFunc("/api/update/releases", a.handleReleases).Methods(http.MethodGet)
 	r.HandleFunc("/api/jams", a.handleJams).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/trigger", a.handleTrigger).Methods(http.MethodPost)
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)

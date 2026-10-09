@@ -101,7 +101,10 @@ jobs:
         run: |
           prev="$(git tag -l 'v*' --sort=-creatordate | head -1)"
           range="${prev:+$prev..}HEAD"
-          git log --no-merges --pretty='- %s (%h)' "$range" \
+          # The changelog's own commits say nothing about the release; leave
+          # them out of its notes. Anchored to the end of the subject, so a
+          # commit that only mentions the marker in its body stays in.
+          git log --no-merges --invert-grep --grep='\[skip ci\]$' --pretty='- %s (%h)' "$range" \
             | ./scripts/changelog-entry.sh "$TAG" "$DATE" > /tmp/entry.md
           cat /tmp/entry.md
 

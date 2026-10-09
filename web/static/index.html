@@ -145,7 +145,7 @@
       <p class="empty" id="takes-empty">No takes yet — hit Capture.</p>
       <a class="icon-btn all-takes" id="all-takes" href="/takes.html" data-tip="all-takes"><span>All takes <span class="all-count" id="all-count"></span></span><span aria-hidden="true">›</span></a>
     </section>
-    <p class="about">Hindsight <span id="version" class="mono">–</span> · <a href="/guide.html" data-tip="guide">the guide</a><button id="update-btn" class="update-btn" type="button" data-tip="update" hidden></button></p>
+    <p class="about">Hindsight <span id="version" class="mono">–</span> · <button id="releases-btn" class="releases-btn" type="button" data-tip="releases" hidden>Releases</button><span class="releases-sep" aria-hidden="true"> · </span><a href="/guide.html" data-tip="guide">the guide</a><button id="update-btn" class="update-btn" type="button" data-tip="update" hidden></button></p>
 
   </div>
 
@@ -206,16 +206,19 @@
   </div>
 </dialog>
 
-<!-- Update (lib/update.js): asks first, then follows the install across
+<!-- Releases (lib/update.js): every release the button can install, what
+     moving to one brings in or takes out, then the install, followed across
      Hindsight's restart. -->
 <dialog class="sheet" id="update-sheet" aria-labelledby="update-title">
   <div class="sheet-inner update-inner">
-    <h3 id="update-title" class="update-title">Update?</h3>
-    <p class="update-text">Hindsight restarts to install it, so the ring starts empty: what it's holding now is gone. Capture anything you want to keep first. <a class="update-notes" href="#" target="_blank" rel="noopener">What's new</a></p>
+    <h3 id="update-title" class="update-title">Releases</h3>
+    <div class="release-list" role="radiogroup" aria-labelledby="update-title"></div>
+    <div class="release-changes" aria-live="polite"></div>
+    <p class="update-text" hidden>Hindsight restarts to install it, so the ring starts empty: what it's holding now is gone. Capture anything you want to keep first.</p>
     <p class="update-progress" role="status" hidden></p>
     <div class="sheet-actions">
       <button class="icon-btn update-cancel" type="button">Cancel</button>
-      <button class="icon-btn primary update-go" type="button">Update</button>
+      <button class="icon-btn primary update-go" type="button" hidden>Update</button>
     </div>
   </div>
 </dialog>
