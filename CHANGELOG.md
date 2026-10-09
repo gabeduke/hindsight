@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.09.3 — 2026-10-09
+
+- Add an Update button that installs the latest release on the Pi (a237e8f)
+- Record v2026.10.09.2 in the changelog [skip ci] (f968c7f)
+- Record v2026.10.09.1 in the changelog [skip ci] (f2f8bfc)
+
+
 ## v2026.10.09.2 — 2026-10-09
 
 - Slide the lit tab between pages; sheets rise as they open (75622b2)
