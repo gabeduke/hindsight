@@ -35,3 +35,21 @@ icon were the only things that didn't look like Hindsight.
 - `theme_color` and `background_color`, or the splash. The splash is still the
   light deck. A manifest can't follow the colour scheme, so a phone in dark
   mode flashes light for a moment on launch, as it did before.
+
+## Follow-up: phones kept the old icon (2026-10-09)
+
+The installed app on Gabe's phone kept the green bars after the new icon
+shipped. Phones keep an installed PWA's icon by its URL, and the URLs hadn't
+changed:
+- iOS captures the apple-touch icon once, at *Add to Home Screen*.
+- Chrome on Android re-reads the manifest at most about daily, and a known
+  icon URL can come from its cache.
+
+The fix:
+- Every `/icons/` URL gets `?v=2`: in the pages, `manifest.json` and the
+  service worker's shell.
+- The manifest lists PNGs only. Android's home-screen icon is built from a
+  raster image, so the SVG entry added nothing there.
+- The cache goes to v63.
+
+When the icon changes again, bump `?v=`.

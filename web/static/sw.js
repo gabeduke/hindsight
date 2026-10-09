@@ -5,7 +5,7 @@
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v62';
+const CACHE = 'hindsight-shell-v63';
 const SHELL = [
   '/',
   '/index.html',
@@ -102,9 +102,9 @@ const SHELL = [
   '/fonts/ibm-plex-mono-600.woff2',
   '/fonts/permanent-marker-400.woff2',
   '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-small.svg',
-  '/icons/favicon-32.png',
+  '/icons/icon-192.png?v=2',
+  '/icons/icon-small.svg?v=2',
+  '/icons/favicon-32.png?v=2',
 ];
 
 self.addEventListener('install', (e) => {
