@@ -1,7 +1,7 @@
 # Configuration
 
-Hindsight is configured entirely through environment variables. Nothing needs a
-rebuild. On a Pi they live in `~/hindsight/hindsight.env`, which the systemd
+Hindsight is configured through environment variables, most of which the app
+can also change (below). Nothing needs a rebuild. On a Pi they live in `~/hindsight/hindsight.env`, which the systemd
 unit reads with `EnvironmentFile=-%h/hindsight/hindsight.env` — the leading `-`
 means a missing file is not an error, because every value has a default.
 
