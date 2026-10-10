@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.10.5 — 2026-10-10
+
+- Installer steps around nginx and tailscale serve; the Pi says when its HTTPS address doesn't answer (337f71a)
+
+
 ## v2026.10.10.4 — 2026-10-10
 
 - Hub client: ask again after a minute while no certificate is held (de3632a)
