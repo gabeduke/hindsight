@@ -191,7 +191,7 @@ fi
 # message.
 if printf '%s' "$body" | grep -q '"capture_healthy":true'; then
   say "running: http://$(hostname).local:$PORT"
-  say "next: set SAVE_CHANNELS in $ROOT/hindsight.env — the default assumes an EP-136"
+  say "next: open Settings at the foot of the page to check the interface and what a take keeps"
 else
   # The trailing sed undoes Go's HTML escaping. encoding/json escapes the three
   # characters < > & into their \uXXXX forms unless SetEscapeHTML(false) is
