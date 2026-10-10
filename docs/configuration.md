@@ -12,8 +12,8 @@ means a missing file is not an error, because every value has a default.
 | Variable | Default | What it does |
 |---|---|---|
 | `RING_SECONDS` | `900` | Length of the memory ring, and therefore the longest possible capture |
-| `DEVICE_MATCH` | `EP-136` | Substring matched against PortAudio device names to pick the input |
-| `CHANNELS` | `8` | How many channels to open on that device |
+| `DEVICE_MATCH` | `auto` | Substring matched against PortAudio device names to pick the input; `auto` picks the interface itself (below) |
+| `CHANNELS` | `auto` | How many channels to open on that device; `auto` opens every input it has (below) |
 | `SAMPLE_RATE` | `48000` | Capture sample rate, in Hz |
 | `SAVE_CHANNELS` | `1,2` | 1-indexed channel pair written to a take |
 | `SAVE_ALL_CHANNELS` | `false` | Write every channel instead of the pair above |
@@ -21,10 +21,38 @@ means a missing file is not an error, because every value has a default.
 | `MAX_SAVES` | `0` | Keep at most this many takes, moving the oldest to the trash. `0` disables pruning |
 | `INPUT_LATENCY_MS` | `100` | Input latency requested from PortAudio. Do not lower it |
 | `MIDI_CAPTURE` | `true` | Record MIDI from every connected device and write a `.mid` beside each take |
-| `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`)* | Substring naming the device whose MIDI clock is the tempo source |
+| `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`, or the interface's card name under `auto`)* | Substring naming the device whose MIDI clock is the tempo source |
 | `MIDI_IGNORE` | *(empty)* | Comma-separated substrings; matching MIDI devices are never opened |
 | `MIDI_LATENCY_MS` | `0` | Milliseconds added to every MIDI event before it is placed against the audio |
 | `MIDI_SNAP_BARS` | `true` | Start a take on the last downbeat before the window, so the `.mid` begins on bar 1 |
+
+## `DEVICE_MATCH=auto` and `CHANNELS=auto`
+
+Both default to `auto`, so a new install records from whatever interface is
+plugged in.
+
+- **`DEVICE_MATCH=auto`** takes the hardware input with the most input
+  channels, the first listed on a tie. On the Pi that is among ALSA's direct
+  devices, the ones named `... (hw:2,0)`; `default`, `sysdefault`, `pulse`,
+  `dmix`, `dsnoop` and the other plugs are never picked, and nor is the
+  headphone jack, which has no inputs. With an EP-136 (8 inputs) and a
+  Scarlett Solo both connected, it takes the EP-136; name one to choose.
+- **`CHANNELS=auto`** opens every input that interface has. The ring is sized
+  from it at startup, so Hindsight looks once before it allocates; with
+  nothing plugged in yet it sizes for two.
+- When the interface that turns up later has a different number of inputs
+  (booted with nothing connected, then the EP-136; or one interface swapped
+  for another), **Hindsight restarts itself** to fit it, and the ring starts
+  empty. If something is busy — a take saving, a phone or the tape recording,
+  the tape playing — it waits until that's done, recording the first channels
+  meanwhile if the interface has enough.
+
+`/api/settings` lists the inputs connected for the settings sheet. It reads
+PortAudio's device list as of the capture's last rescan, so an interface
+plugged in while another is recording shows up once the capture next rescans.
+
+An install whose `hindsight.env` names `DEVICE_MATCH` and `CHANNELS` keeps
+exactly the behaviour it had.
 
 ## The rest
 
@@ -165,7 +193,10 @@ what a name refers to.
 
 **`MIDI_CLOCK_DEVICE` defaults to `DEVICE_MATCH`** — the EP-136 — because
 that is the only clock this rig has sent so far, and a rig where nothing
-changes should need no new configuration. When the sequencer that actually
+changes should need no new configuration. Under `DEVICE_MATCH=auto` it
+defaults to the card name of the interface found at startup, the part of its
+PortAudio name before the colon (`EP-136 K.O. Sidekick`), which is what its
+MIDI port is called too. When the sequencer that actually
 sets the tempo is on the Pi's USB, point it there: `MIDI_CLOCK_DEVICE=Bento`.
 If two devices both match and both send clock, the tempo reads double; make
 the substring specific.

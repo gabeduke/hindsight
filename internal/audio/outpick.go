@@ -15,9 +15,15 @@ type outDev struct {
 // the card DEVICE_MATCH names -- the capture's own device if it's one,
 // otherwise the most direct match. Never a plug, a mixer or a sound server
 // ("default", "pulse"), and never another card: the tape out of HDMI, on
-// another clock, would be worse than no tape. So no match, or no
-// DEVICE_MATCH, is an error.
+// another clock, would be worse than no tape. So no match is an error.
+//
+// Under DEVICE_MATCH=auto (match "") the card is the capture's own: its name
+// up to the colon. With no capture open yet there is none, and that is an
+// error too, which the tape retries.
 func pickOutput(devs []outDev, captureName, match string, channels int) (int, error) {
+	if match == "" {
+		match = CardName(captureName)
+	}
 	best, bestScore := -1, -1
 	for i, d := range devs {
 		if d.MaxOut < channels || match == "" || !strings.Contains(d.Name, match) {

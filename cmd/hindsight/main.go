@@ -114,6 +114,20 @@ func main() {
 	defer stopAll()
 
 	cap := audio.NewCapture(cfg, src)
+	// Under CHANNELS=auto the ring fits the interface found at startup. One
+	// with a different number of inputs turning up later (booted with
+	// nothing plugged in, then the EP-136) is handed to fitInterface below,
+	// which restarts to fit it; the startup probe then sizes it right, so
+	// this fires at most once per interface change.
+	misfit := make(chan string, 1)
+	if cfg.ChannelsAuto && !*demo {
+		cap.SetOnMismatch(func(name string, inputs int) {
+			select {
+			case misfit <- fmt.Sprintf("%q has %d inputs, the ring %d", name, inputs, cfg.Channels):
+			default:
+			}
+		})
+	}
 	if err := cap.Start(); err != nil {
 		log.Fatalf("capture: %v", err)
 	}
@@ -169,6 +183,7 @@ func main() {
 		}
 	}
 	srvAPI.SetRestart(requestRestart)
+	go fitInterface(misfit, srvAPI.Busy, requestRestart, 5*time.Second)
 	srvAPI.SetupRoutes(r)
 	r.PathPrefix("/").Handler(noCacheShell(http.FileServer(http.Dir(staticDir()))))
 
@@ -218,6 +233,28 @@ func main() {
 // startTape opens the tape store and starts the engine, loading the tape
 // that was loaded last. The tape can never cost a recording: any failure here
 // is logged and the dashcam runs on without it.
+// fitInterface waits for the capture to report an interface that doesn't fit
+// the ring, then restarts Hindsight -- once nothing is busy: a take saving, a
+// phone or the tape recording is never cut short for it. Meanwhile the
+// capture records the interface's first channels if it has enough, or waits.
+func fitInterface(misfit <-chan string, busy func() string, restart func(), every time.Duration) {
+	why := <-misfit
+	said := ""
+	for {
+		b := busy()
+		if b == "" {
+			log.Printf("[*] interface changed: %s; restarting to fit it", why)
+			restart()
+			return
+		}
+		if b != said {
+			log.Printf("[!] interface changed: %s; restarting to fit it once nothing is busy (now: %s)", why, b)
+			said = b
+		}
+		time.Sleep(every)
+	}
+}
+
 func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src audio.Source, demo bool) *tape.Engine {
 	store, err := tape.OpenStore(cfg.TapeDir, cfg.SampleRate, cfg.TapeTracks, cfg.TapeLengthS)
 	if err != nil {
