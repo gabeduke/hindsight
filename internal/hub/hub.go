@@ -12,6 +12,8 @@ package hub
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,6 +60,11 @@ type Options struct {
 	// LocalIP finds the address this machine reaches the hub from; nil
 	// uses the route to the hub's host (sourceIP).
 	LocalIP func() (string, error)
+	// ProbeHTTPS checks that this box answers https://name on ip:443 with a
+	// certificate the system trusts; nil means probeHTTPS. A rig whose
+	// installer never set Caddy up, or whose port 443 belongs to something
+	// else, would otherwise show a secure address that doesn't load.
+	ProbeHTTPS func(ctx context.Context, ip, name string) error
 }
 
 // Status is what /api/status and /api/settings report as "hub".
@@ -78,6 +85,7 @@ type Client struct {
 	name     string // the hub's name for this device
 	lastBeat time.Time
 	lastErr  string
+	httpsErr string // checkHTTPS's last finding, "" when it answered
 
 	ln     net.Listener
 	srv    *http.Server
@@ -123,6 +131,9 @@ func New(o Options) (*Client, error) {
 	}
 	if o.HTTP == nil {
 		o.HTTP = &http.Client{Timeout: 30 * time.Second}
+	}
+	if o.ProbeHTTPS == nil {
+		o.ProbeHTTPS = probeHTTPS
 	}
 	if o.LocalIP == nil {
 		host, port := u.Hostname(), u.Port()
@@ -293,6 +304,7 @@ func (c *Client) run(ctx context.Context) {
 				}
 			} else {
 				backoff, said, sent = 0, "", ip
+				c.checkHTTPS(ctx, ip)
 				every := c.o.Every
 				if c.store.Name() == "" {
 					every = min(every, c.o.Pending)
@@ -476,4 +488,50 @@ func (c *Client) TLSHandler() http.Handler {
 		_, _ = w.Write(pem)
 	})
 	return mux
+}
+
+// checkHTTPS reports, as the hub's error, when the secure address this box
+// holds a certificate for doesn't answer on it. Only once a certificate is
+// held: before that there is nothing to serve.
+func (c *Client) checkHTTPS(ctx context.Context, ip string) {
+	name := c.store.Name()
+	if name == "" {
+		return
+	}
+	pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	err := c.o.ProbeHTTPS(pctx, ip, name)
+	c.mu.Lock()
+	was := c.httpsErr
+	c.httpsErr = ""
+	if err != nil {
+		c.httpsErr = fmt.Sprintf("https://%s doesn't answer on %s:443 (%v); re-run the installer, see docs/hub.md", name, ip, err)
+	}
+	now := c.httpsErr
+	if now != "" {
+		c.lastErr = now
+	}
+	c.mu.Unlock()
+	switch {
+	case now != "" && now != was:
+		log.Printf("[!] hub: %s", now)
+	case now == "" && was != "":
+		log.Printf("[*] hub: https://%s answers now", name)
+	}
+}
+
+// probeHTTPS completes a TLS handshake with ip:443 as name, verified against
+// the system's roots: what a phone on the LAN would do.
+func probeHTTPS(ctx context.Context, ip, name string) error {
+	return probeTLS(ctx, net.JoinHostPort(ip, "443"), name, nil)
+}
+
+// probeTLS is probeHTTPS at any address; roots nil means the system's.
+func probeTLS(ctx context.Context, addr, name string, roots *x509.CertPool) error {
+	d := tls.Dialer{NetDialer: &net.Dialer{}, Config: &tls.Config{ServerName: name, RootCAs: roots}}
+	conn, err := d.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	return conn.Close()
 }

@@ -135,6 +135,15 @@ Its RBAC is its own namespace only: `get` on Secrets (by name; no list or
 watch), and `get/list/create/patch` on `certificates.cert-manager.io` and
 `dnsendpoints.externaldns.k8s.io`.
 
+## A box that already serves 80 or 443
+
+The Pi side is `deploy/Caddyfile`, installed by `install.sh` when `HUB_URL`
+is set. On a box where nginx holds port 80 or `tailscale serve` holds 443 (the
+main rig has both), the installer writes a variant: HTTPS only, Caddy's HTTP
+listener off 80, and bound to the LAN address. See "HTTPS with a hub" in
+[install-raspberry-pi.md](install-raspberry-pi.md). The Pi checks its own
+address after each heartbeat and reports in Settings when it doesn't answer.
+
 ## Limits
 
 - **DNS rebinding protection.** Some routers — OpenWrt/dnsmasq with

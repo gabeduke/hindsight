@@ -2,6 +2,7 @@ package hub
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -10,6 +11,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -145,6 +147,10 @@ func newClient(t *testing.T, srv *httptest.Server, o Options) *Client {
 	}
 	if o.LocalIP == nil {
 		o.LocalIP = newIP("192.168.1.55").get
+	}
+	if o.ProbeHTTPS == nil {
+		// Never the real network: 192.168.1.55 may well be a Pi.
+		o.ProbeHTTPS = func(context.Context, string, string) error { return nil }
 	}
 	c, err := New(o)
 	if err != nil {
@@ -501,5 +507,54 @@ func TestHeartbeatsSoonerUntilACertificateIsHeld(t *testing.T) {
 	case <-h.beatCh:
 		t.Fatal("heartbeat after Pending although a certificate is held")
 	case <-time.After(150 * time.Millisecond):
+	}
+}
+
+// A box holding a certificate that nothing serves says so, and stops saying
+// so once it answers.
+func TestSaysWhenTheSecureAddressDoesntAnswer(t *testing.T) {
+	h, srv := newFakeHub(t)
+	h.ready, h.bundle, h.etag = true, bundle(t, testName), `"e3"`
+	var down atomic.Bool
+	down.Store(true)
+	probed := make(chan [2]string, 10)
+	c := newClient(t, srv, Options{Every: 20 * time.Millisecond, Check: 5 * time.Millisecond,
+		ProbeHTTPS: func(_ context.Context, ip, name string) error {
+			probed <- [2]string{ip, name}
+			if down.Load() {
+				return errors.New("connection refused")
+			}
+			return nil
+		}})
+	c.Start()
+	defer c.Stop()
+	eventually(t, "the warning", func() bool { return strings.Contains(c.Status().Error, "doesn't answer on 192.168.1.55:443") })
+	if p := <-probed; p != [2]string{"192.168.1.55", testName} {
+		t.Fatalf("probed %v", p)
+	}
+	if s := c.Status(); s.CertNotAfter == nil || s.URL == "" {
+		t.Fatalf("the address should still show beside the warning: %+v", s)
+	}
+	down.Store(false)
+	eventually(t, "the warning to clear", func() bool { return c.Status().Error == "" })
+}
+
+// The probe verifies the certificate as a phone would: a self-signed one
+// fails, the same one trusted passes, and a wrong name fails.
+func TestProbeVerifiesTheCertificate(t *testing.T) {
+	srv := httptest.NewTLSServer(http.NotFoundHandler())
+	defer srv.Close()
+	addr := srv.Listener.Addr().String()
+	ctx := context.Background()
+	if err := probeTLS(ctx, addr, "example.com", nil); err == nil {
+		t.Error("an untrusted certificate passed")
+	}
+	pool := x509.NewCertPool()
+	pool.AddCert(srv.Certificate())
+	if err := probeTLS(ctx, addr, "example.com", pool); err != nil {
+		t.Errorf("trusted, right name: %v", err)
+	}
+	if err := probeTLS(ctx, addr, "studio.hindsight.leetserve.com", pool); err == nil {
+		t.Error("a certificate for another name passed")
 	}
 }
