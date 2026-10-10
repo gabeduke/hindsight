@@ -475,3 +475,31 @@ func TestNewNeedsURLAndToken(t *testing.T) {
 		t.Error("a URL with no scheme accepted")
 	}
 }
+
+// Until a certificate is held the client asks again after Pending, not
+// Every: a new device's certificate is issued a minute or two after its first
+// heartbeat, and the sheet shouldn't wait ten minutes to show the address.
+// Once it holds one, it's back to Every.
+func TestHeartbeatsSoonerUntilACertificateIsHeld(t *testing.T) {
+	h, srv := newFakeHub(t)
+	c := newClient(t, srv, Options{Every: time.Hour, Pending: 20 * time.Millisecond, Check: 5 * time.Millisecond})
+	c.Start()
+	defer c.Stop()
+	h.wait(t)
+	h.wait(t) // not ready: asked again after Pending, well before Every
+
+	h.mu.Lock()
+	h.ready, h.bundle, h.etag = true, bundle(t, testName), `"e2"`
+	h.mu.Unlock()
+	eventually(t, "the certificate", func() bool { return c.Status().CertNotAfter != nil })
+
+	select {
+	case <-h.beatCh: // the beat that fetched it may still be queued
+	default:
+	}
+	select {
+	case <-h.beatCh:
+		t.Fatal("heartbeat after Pending although a certificate is held")
+	case <-time.After(150 * time.Millisecond):
+	}
+}
