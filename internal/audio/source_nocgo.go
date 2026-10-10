@@ -22,3 +22,9 @@ func (s *deviceSource) Open(func([]int32)) (string, error) {
 func (s *deviceSource) Close()          {}
 func (s *deviceSource) Reset() error    { return nil }
 func (s *deviceSource) Shutdown() error { return nil }
+
+// ProbeInput finds nothing without PortAudio.
+func ProbeInput(*config.Config) (name string, channels int) { return "", 0 }
+
+// ListInputs lists nothing without PortAudio.
+func ListInputs() []Input { return nil }

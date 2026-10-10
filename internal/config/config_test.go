@@ -19,6 +19,8 @@ func clearEnv(t *testing.T) {
 	} {
 		t.Setenv(k, "")
 	}
+	// Never the developer's own ~/hindsight/settings.json.
+	t.Setenv("SETTINGS_FILE", filepath.Join(t.TempDir(), "settings.json"))
 }
 
 // The EP-136 presents four stereo record pairs. Measured 2026-09-08: USB 1/2
@@ -82,15 +84,17 @@ func TestLoadDefaultVersionIsDev(t *testing.T) {
 	}
 }
 
-// The clock device follows DEVICE_MATCH unless set, so a rig where the EP is
-// the only clock keeps its tempo stamp with no new configuration.
+// The clock device follows the interface unless set, so a rig where the EP is
+// the only clock keeps its tempo stamp with no new configuration. Under the
+// default DEVICE_MATCH=auto there is no name yet: main fills it in from the
+// card it finds (MIDIClockAuto).
 func TestMIDIDefaults(t *testing.T) {
 	clearEnv(t)
 	c, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	if !c.MIDICapture || !c.MIDISnapBars || c.MIDIClockDevice != "EP-136" || c.MIDIRingEvents != 1_000_000 || c.MIDILatencyMS != 0 {
+	if !c.MIDICapture || !c.MIDISnapBars || c.MIDIClockDevice != "" || !c.MIDIClockAuto || c.MIDIRingEvents != 1_000_000 || c.MIDILatencyMS != 0 {
 		t.Errorf("defaults: capture=%t clock=%q ring=%d latency=%v", c.MIDICapture, c.MIDIClockDevice, c.MIDIRingEvents, c.MIDILatencyMS)
 	}
 	if c.MIDIDevices != nil || c.MIDIIgnore != nil {

@@ -14,8 +14,8 @@ import (
 
 type Config struct {
 	// Capture
-	DeviceMatch    string // substring used to pick the PortAudio input device
-	Channels       int    // channels to capture from the device
+	DeviceMatch    string // substring used to pick the PortAudio input device; "" picks one itself (DEVICE_MATCH=auto)
+	Channels       int    // channels to capture from the device; 0 until auto is resolved (CHANNELS=auto)
 	SampleRate     int
 	FramesPerBuf   int
 	InputLatencyMS int // explicit latency; low values make PortAudio busy-poll
@@ -27,17 +27,24 @@ type Config struct {
 	OutputDir       string
 	SaveChannels    []int // zero-based indices of the pair written to a take
 	SaveAllChannels bool
-	MinFreeGB       float64
-	MaxSaves        int // 0 = unlimited
+	// SaveMix is how SaveChannels become the take: "stereo" writes them as
+	// they are, "mono" averages them onto both sides.
+	SaveMix   string
+	MinFreeGB float64
+	MaxSaves  int // 0 = unlimited
 
 	// MIDI
 	MIDICapture     bool     // store events from every MIDI device, not just the clock
 	MIDIDevices     []string // allowlist substrings; empty means every device
 	MIDIIgnore      []string // denylist substrings
 	MIDIClockDevice string   // whose clock drives the tempo map and the BPM stamp
-	MIDIRingEvents  int      // event ring capacity
-	MIDILatencyMS   float64  // added to every MIDI timestamp before alignment
-	MIDISnapBars    bool     // start a take on the last downbeat before the window
+	// MIDIClockAuto says MIDI_CLOCK_DEVICE was not set, so the clock follows
+	// the audio interface; under DEVICE_MATCH=auto, main fills it in once the
+	// interface is known.
+	MIDIClockAuto  bool
+	MIDIRingEvents int     // event ring capacity
+	MIDILatencyMS  float64 // added to every MIDI timestamp before alignment
+	MIDISnapBars   bool    // start a take on the last downbeat before the window
 
 	// Tape (docs/superpowers/specs/2026-10-03-tape-design.md). Off by
 	// default, so a rig that only wants the dashcam never opens playback.
@@ -76,52 +83,84 @@ type Config struct {
 	// offers (and deploy/hindsight-update installs).
 	UpdateRepo string
 
+	// SettingsFile is the app's settings.json (SETTINGS_FILE), and
+	// SettingsErr why it was not used, when it wasn't: Load then fell back to
+	// the environment alone. See settings.go.
+	SettingsFile string
+	SettingsErr  string
+	// Running is every setting's value as this process started, so the
+	// sheet can tell a saved change from one in effect.
+	Running map[string]string
+
 	// Version is stamped by the build (-ldflags -X main.version) and reported
 	// on /api/status, so an installed Pi can say which release it is running.
 	Version string
 }
 
-func Load() (*Config, error) {
+// LoadFrom builds the configuration from get, which answers "" for a value
+// that is not set. Load layers settings.json over the environment through it;
+// the settings API validates a proposed change the same way.
+func LoadFrom(get func(string) string) (*Config, error) {
 	home, _ := os.UserHomeDir()
 
 	c := &Config{
-		DeviceMatch:      env("DEVICE_MATCH", "EP-136"),
-		Channels:         envInt("CHANNELS", 8),
-		SampleRate:       envInt("SAMPLE_RATE", 48000),
-		FramesPerBuf:     envInt("FRAMES_PER_BUFFER", 2048),
-		InputLatencyMS:   envInt("INPUT_LATENCY_MS", 100),
-		RingSeconds:      envInt("RING_SECONDS", 900),
-		OutputDir:        env("OUTPUT_DIR", filepath.Join(home, "hindsight", "jam_saves")),
-		SaveAllChannels:  envBool("SAVE_ALL_CHANNELS", false),
-		MinFreeGB:        envFloat("MIN_FREE_GB", 1.0),
-		MaxSaves:         envInt("MAX_SAVES", 0),
-		MIDICapture:      envBool("MIDI_CAPTURE", true),
-		MIDIDevices:      splitList(env("MIDI_DEVICES", "")),
-		MIDIIgnore:       splitList(env("MIDI_IGNORE", "")),
-		MIDIRingEvents:   envInt("MIDI_RING_EVENTS", 1_000_000),
-		MIDILatencyMS:    envFloat("MIDI_LATENCY_MS", 0),
-		MIDISnapBars:     envBool("MIDI_SNAP_BARS", true),
-		Tape:             envBool("TAPE", false),
-		TapeDir:          env("TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
-		TapeTracks:       envInt("TAPE_TRACKS", 4),
-		TapeLengthS:      envInt("TAPE_LENGTH_S", 1200),
-		TapeSources:      env("TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
-		TapeMixdownTailS: envFloat("TAPE_MIXDOWN_TAIL_S", 2),
-		TapeHandleS:      envFloat("TAPE_HANDLE_S", 2),
-		TapeClock:        strings.ToLower(strings.TrimSpace(env("TAPE_CLOCK", "free"))),
-		TapeClockOut:     env("TAPE_CLOCK_OUT", ""),
-		OutputLatencyMS:  envInt("OUTPUT_LATENCY_MS", 100),
-		TapeLatencyMS:    envFloat("TAPE_LATENCY_MS", 0),
-		TapeDemoAlign:    envBool("TAPE_DEMO_ALIGN", false),
-		Port:             env("PORT", "5000"),
-		UpdateRepo:       env("UPDATE_REPO", "gabeduke/hindsight"),
+		DeviceMatch:      autoBlank(env(get, "DEVICE_MATCH", "auto")),
+		SampleRate:       envInt(get, "SAMPLE_RATE", 48000),
+		FramesPerBuf:     envInt(get, "FRAMES_PER_BUFFER", 2048),
+		InputLatencyMS:   envInt(get, "INPUT_LATENCY_MS", 100),
+		RingSeconds:      envInt(get, "RING_SECONDS", 900),
+		OutputDir:        env(get, "OUTPUT_DIR", filepath.Join(home, "hindsight", "jam_saves")),
+		SaveAllChannels:  envBool(get, "SAVE_ALL_CHANNELS", false),
+		SaveMix:          strings.ToLower(strings.TrimSpace(env(get, "SAVE_MIX", "stereo"))),
+		MinFreeGB:        envFloat(get, "MIN_FREE_GB", 1.0),
+		MaxSaves:         envInt(get, "MAX_SAVES", 0),
+		MIDICapture:      envBool(get, "MIDI_CAPTURE", true),
+		MIDIDevices:      splitList(env(get, "MIDI_DEVICES", "")),
+		MIDIIgnore:       splitList(env(get, "MIDI_IGNORE", "")),
+		MIDIRingEvents:   envInt(get, "MIDI_RING_EVENTS", 1_000_000),
+		MIDILatencyMS:    envFloat(get, "MIDI_LATENCY_MS", 0),
+		MIDISnapBars:     envBool(get, "MIDI_SNAP_BARS", true),
+		Tape:             envBool(get, "TAPE", false),
+		TapeDir:          env(get, "TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
+		TapeTracks:       envInt(get, "TAPE_TRACKS", 4),
+		TapeLengthS:      envInt(get, "TAPE_LENGTH_S", 1200),
+		TapeSources:      env(get, "TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
+		TapeMixdownTailS: envFloat(get, "TAPE_MIXDOWN_TAIL_S", 2),
+		TapeHandleS:      envFloat(get, "TAPE_HANDLE_S", 2),
+		TapeClock:        strings.ToLower(strings.TrimSpace(env(get, "TAPE_CLOCK", "free"))),
+		TapeClockOut:     env(get, "TAPE_CLOCK_OUT", ""),
+		OutputLatencyMS:  envInt(get, "OUTPUT_LATENCY_MS", 100),
+		TapeLatencyMS:    envFloat(get, "TAPE_LATENCY_MS", 0),
+		TapeDemoAlign:    envBool(get, "TAPE_DEMO_ALIGN", false),
+		Port:             env(get, "PORT", "5000"),
+		UpdateRepo:       env(get, "UPDATE_REPO", "gabeduke/hindsight"),
 		Version:          "dev",
 	}
 	// The clock device defaults to the audio interface, so a rig where the
 	// EP-136 is the only thing sending clock keeps its tempo stamp with no
 	// new configuration. Set it to "Bento" (or whatever the sequencer's
 	// product string is) once that is the clock that matters.
-	c.MIDIClockDevice = env("MIDI_CLOCK_DEVICE", c.DeviceMatch)
+	//
+	// Under DEVICE_MATCH=auto there is no name to default to until the
+	// interface is found; main sets it then (MIDIClockAuto).
+	c.MIDIClockDevice = env(get, "MIDI_CLOCK_DEVICE", c.DeviceMatch)
+	c.MIDIClockAuto = get("MIDI_CLOCK_DEVICE") == ""
+
+	// CHANNELS=auto (the default) opens every input the interface has; 0
+	// until main resolves it, before anything is sized from it.
+	switch v := strings.TrimSpace(get("CHANNELS")); {
+	case v == "" || strings.EqualFold(v, "auto"):
+		c.Channels = 0
+	default:
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("CHANNELS must be a number or auto, got %q", v)
+		}
+		if n < 1 {
+			return nil, fmt.Errorf("CHANNELS must be >= 1, got %d", n)
+		}
+		c.Channels = n
+	}
 
 	// SAVE_CHANNELS is 1-indexed in the environment because that is how the
 	// hardware labels them; store zero-based.
@@ -135,17 +174,31 @@ func Load() (*Config, error) {
 	// -- and everything plugged into the other inputs -- missing.
 	//
 	// scripts/channel-probe.py re-runs the measurement if this is ever in doubt.
-	ch, err := parseChannels(env("SAVE_CHANNELS", "1,2"), c.Channels)
+	//
+	// Under CHANNELS=auto the range is checked again by SetChannels.
+	max := c.Channels
+	if max == 0 {
+		max = MaxChannels
+	}
+	ch, err := parseChannels(env(get, "SAVE_CHANNELS", "1,2"), max)
 	if err != nil {
 		return nil, err
 	}
 	c.SaveChannels = ch
+	switch c.SaveMix {
+	case "stereo", "mono":
+	default:
+		return nil, fmt.Errorf("SAVE_MIX must be stereo or mono, got %q", c.SaveMix)
+	}
 
 	if c.RingSeconds < 1 {
 		return nil, fmt.Errorf("RING_SECONDS must be >= 1, got %d", c.RingSeconds)
 	}
-	if c.Channels < 1 {
-		return nil, fmt.Errorf("CHANNELS must be >= 1, got %d", c.Channels)
+	if c.Channels > MaxChannels {
+		return nil, fmt.Errorf("CHANNELS must be at most %d, got %d", MaxChannels, c.Channels)
+	}
+	if c.SampleRate < 8000 || c.SampleRate > 192000 {
+		return nil, fmt.Errorf("SAMPLE_RATE must be 8000 to 192000, got %d", c.SampleRate)
 	}
 	if c.MIDIRingEvents < 1 {
 		return nil, fmt.Errorf("MIDI_RING_EVENTS must be >= 1, got %d", c.MIDIRingEvents)
@@ -159,6 +212,53 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("TAPE_CLOCK must be free, lead or follow, got %q", c.TapeClock)
 	}
 	return c, nil
+}
+
+// MaxChannels bounds CHANNELS, and what CHANNELS=auto will open.
+const MaxChannels = 32
+
+// AutoChannels is what CHANNELS=auto sizes for when no interface is there to
+// ask: a stereo pair.
+const AutoChannels = 2
+
+// SetChannels resolves CHANNELS=auto to n, the inputs the interface has
+// (capped at MaxChannels). A SAVE_CHANNELS that n can't satisfy falls back to
+// the first pair (or the one channel), reported in the returned note so the
+// log says why the take isn't what was asked for.
+func (c *Config) SetChannels(n int) (note string) {
+	if n < 1 {
+		n = AutoChannels
+	}
+	if n > MaxChannels {
+		n = MaxChannels
+	}
+	c.Channels = n
+	for _, s := range c.SaveChannels {
+		if s >= n {
+			old := c.SaveChannels
+			c.SaveChannels = []int{0, min(1, n-1)}
+			return fmt.Sprintf("SAVE_CHANNELS %v is past the %d channel(s) this interface has; saving %v",
+				oneBased(old), n, oneBased(c.SaveChannels))
+		}
+	}
+	return ""
+}
+
+func oneBased(ch []int) []int {
+	out := make([]int, len(ch))
+	for i, v := range ch {
+		out[i] = v + 1
+	}
+	return out
+}
+
+// autoBlank maps DEVICE_MATCH=auto to "", which is how the device source
+// knows to pick for itself.
+func autoBlank(v string) string {
+	if strings.EqualFold(strings.TrimSpace(v), "auto") {
+		return ""
+	}
+	return v
 }
 
 // RingFrames is the ring capacity in frames (one frame = one sample per channel).
@@ -177,17 +277,18 @@ func (c *Config) OutChannels() []int {
 }
 
 func (c *Config) String() string {
-	disp := make([]int, len(c.SaveChannels))
-	for i, v := range c.SaveChannels {
-		disp[i] = v + 1
+	disp := oneBased(c.SaveChannels)
+	dev := c.DeviceMatch
+	if dev == "" {
+		dev = "auto"
 	}
 	return fmt.Sprintf(
 		"device=%q channels=%d rate=%d frames/buf=%d latency=%dms ring=%ds (%d frames, %s) "+
-			"save_channels=%v save_all=%t min_free=%.1fGB max_saves=%d out=%s "+
+			"save_channels=%v save_mix=%s save_all=%t min_free=%.1fGB max_saves=%d out=%s "+
 			"midi_capture=%t midi_clock=%q midi_latency=%.1fms",
-		c.DeviceMatch, c.Channels, c.SampleRate, c.FramesPerBuf, c.InputLatencyMS,
+		dev, c.Channels, c.SampleRate, c.FramesPerBuf, c.InputLatencyMS,
 		c.RingSeconds, c.RingFrames(), humanBytes(int64(c.RingFrames())*int64(c.Channels)*4),
-		disp, c.SaveAllChannels, c.MinFreeGB, c.MaxSaves, c.OutputDir,
+		disp, c.SaveMix, c.SaveAllChannels, c.MinFreeGB, c.MaxSaves, c.OutputDir,
 		c.MIDICapture, c.MIDIClockDevice, c.MIDILatencyMS,
 	)
 }
@@ -239,15 +340,15 @@ func humanBytes(n int64) string {
 	return fmt.Sprintf("%.1f%cB", float64(n)/float64(div), "KMGT"[exp])
 }
 
-func env(k, def string) string {
-	if v := os.Getenv(k); v != "" {
+func env(get func(string) string, k, def string) string {
+	if v := get(k); v != "" {
 		return v
 	}
 	return def
 }
 
-func envInt(k string, def int) int {
-	if v := os.Getenv(k); v != "" {
+func envInt(get func(string) string, k string, def int) int {
+	if v := get(k); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
 		}
@@ -255,8 +356,8 @@ func envInt(k string, def int) int {
 	return def
 }
 
-func envFloat(k string, def float64) float64 {
-	if v := os.Getenv(k); v != "" {
+func envFloat(get func(string) string, k string, def float64) float64 {
+	if v := get(k); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			return f
 		}
@@ -264,8 +365,8 @@ func envFloat(k string, def float64) float64 {
 	return def
 }
 
-func envBool(k string, def bool) bool {
-	if v := os.Getenv(k); v != "" {
+func envBool(get func(string) string, k string, def bool) bool {
+	if v := get(k); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			return b
 		}

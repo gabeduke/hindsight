@@ -163,3 +163,10 @@ func (s *deviceSource) pickDevice() (*portaudio.DeviceInfo, error) {
 	}
 	return nil, fmt.Errorf("%w: none with >=%d channels (is it off, unplugged, or in use by another process?)", ErrNoDevice, s.cfg.Channels)
 }
+
+// ProbeInput reports the input DEVICE_MATCH would open now and how many
+// inputs it has, or "", 0 when there is none. TODO(auto): real selection.
+func ProbeInput(cfg *config.Config) (name string, channels int) { return "", 0 }
+
+// ListInputs lists the hardware inputs connected now. TODO(auto).
+func ListInputs() []Input { return nil }

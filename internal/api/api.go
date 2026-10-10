@@ -73,6 +73,11 @@ type API struct {
 	// busyHook stands in for busy() in tests.
 	busyHook func() string
 
+	// restart is POST /api/restart's (settings.go); settingsMu serialises
+	// writes to settings.json.
+	restart    func()
+	settingsMu sync.Mutex
+
 	// tagsMu serialises writes to tags.json (see tags.go).
 	tagsMu sync.Mutex
 
@@ -132,6 +137,9 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/update", a.handleUpdateGet).Methods(http.MethodGet)
 	r.HandleFunc("/api/update", a.handleUpdatePost).Methods(http.MethodPost)
 	r.HandleFunc("/api/update/releases", a.handleReleases).Methods(http.MethodGet)
+	r.HandleFunc("/api/settings", a.handleSettingsGet).Methods(http.MethodGet)
+	r.HandleFunc("/api/settings", a.handleSettingsPut).Methods(http.MethodPut)
+	r.HandleFunc("/api/restart", a.handleRestart).Methods(http.MethodPost)
 	r.HandleFunc("/api/jams", a.handleJams).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/trigger", a.handleTrigger).Methods(http.MethodPost)
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)
