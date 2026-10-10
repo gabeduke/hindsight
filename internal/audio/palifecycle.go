@@ -144,3 +144,14 @@ func (p *paLifecycle) Do(f func() error) error {
 	}
 	return f()
 }
+
+// IfUp runs f with no rescan able to run meanwhile, only if PortAudio is
+// already up: for looking at the device list without bringing the library
+// up where nothing else has.
+func (p *paLifecycle) IfUp(f func()) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.up {
+		f()
+	}
+}

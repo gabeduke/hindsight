@@ -191,3 +191,24 @@ func TestOutMix(t *testing.T) {
 		}
 	}
 }
+
+// CHANNELS=auto (and unset) is remembered as auto once main resolves it, so
+// the capture knows a different interface means a restart; a number is not.
+func TestChannelsAuto(t *testing.T) {
+	for _, tc := range []struct {
+		env  string
+		auto bool
+	}{{"", true}, {"auto", true}, {"AUTO", true}, {"8", false}} {
+		clearEnv(t)
+		if tc.env != "" {
+			t.Setenv("CHANNELS", tc.env)
+		}
+		c, err := Load()
+		if err != nil {
+			t.Fatalf("CHANNELS=%q: %v", tc.env, err)
+		}
+		if c.ChannelsAuto != tc.auto {
+			t.Errorf("CHANNELS=%q: ChannelsAuto = %t, want %t", tc.env, c.ChannelsAuto, tc.auto)
+		}
+	}
+}

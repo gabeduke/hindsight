@@ -5,7 +5,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 )
 
 // existsIn returns a predicate reporting true for exactly the given paths,
@@ -94,5 +96,31 @@ func TestStaticServesWoff2AsFont(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/fonts/x.woff2", nil))
 	if got := rec.Header().Get("Content-Type"); got != "font/woff2" {
 		t.Fatalf("Content-Type = %q, want font/woff2", got)
+	}
+}
+
+// An interface that doesn't fit restarts Hindsight at once when nothing is
+// busy, and waits for whatever is busy to finish otherwise.
+func TestFitInterface(t *testing.T) {
+	misfit := make(chan string, 1)
+	var mu sync.Mutex
+	busy := "a take is saving"
+	restarted := make(chan struct{})
+	go fitInterface(misfit, func() string { mu.Lock(); defer mu.Unlock(); return busy },
+		func() { close(restarted) }, time.Millisecond)
+
+	misfit <- `"EP-136" has 8 inputs, the ring 2`
+	select {
+	case <-restarted:
+		t.Fatal("restarted while a take was saving")
+	case <-time.After(20 * time.Millisecond):
+	}
+	mu.Lock()
+	busy = ""
+	mu.Unlock()
+	select {
+	case <-restarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("never restarted once idle")
 	}
 }

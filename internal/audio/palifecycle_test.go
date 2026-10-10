@@ -203,7 +203,11 @@ func TestTheTapeOutputGoesToTheCapturesCardOrNowhere(t *testing.T) {
 		t.Fatal("the capture on default with no EP-136 should give no output")
 	}
 	if _, err := pickOutput(devs, "", "", 4); err == nil {
-		t.Fatal("no DEVICE_MATCH should give no output")
+		t.Fatal("DEVICE_MATCH=auto with no capture open should give no output")
+	}
+	// DEVICE_MATCH=auto plays out of the capture's own card.
+	if i, err := pickOutput(devs, "EP-136: USB Audio (hw:2,0)", "", 4); err != nil || i != 2 {
+		t.Fatalf("auto = %d, %v; want the capture's card", i, err)
 	}
 	// A plug device on the right card isn't direct enough.
 	if _, err := pickOutput([]outDev{{Name: "EP-136: USB Audio (plughw:2,0)", MaxOut: 4}}, "", "EP-136", 4); err == nil {
@@ -212,5 +216,22 @@ func TestTheTapeOutputGoesToTheCapturesCardOrNowhere(t *testing.T) {
 	// Too few channels doesn't count.
 	if _, err := pickOutput([]outDev{{Name: "EP-136: USB Audio (hw:2,0)", MaxOut: 2}}, "", "EP-136", 4); err == nil {
 		t.Fatal("a 2-channel output can't play two buses")
+	}
+}
+
+// IfUp looks only at a library something else brought up: listing inputs
+// must never initialise PortAudio by itself.
+func TestIfUpNeverInits(t *testing.T) {
+	r := &recorder{}
+	p := newPALifecycle(r.init, r.term)
+	ran := false
+	p.IfUp(func() { ran = true })
+	if ran || len(r.calls) != 0 {
+		t.Fatalf("down: ran=%t calls=%v", ran, r.calls)
+	}
+	_ = p.Init()
+	p.IfUp(func() { ran = true })
+	if !ran || len(r.calls) != 1 {
+		t.Fatalf("up: ran=%t calls=%v", ran, r.calls)
 	}
 }

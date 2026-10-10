@@ -14,8 +14,11 @@ import (
 
 type Config struct {
 	// Capture
-	DeviceMatch    string // substring used to pick the PortAudio input device; "" picks one itself (DEVICE_MATCH=auto)
-	Channels       int    // channels to capture from the device; 0 until auto is resolved (CHANNELS=auto)
+	DeviceMatch string // substring used to pick the PortAudio input device; "" picks one itself (DEVICE_MATCH=auto)
+	Channels    int    // channels to capture from the device; 0 until auto is resolved (CHANNELS=auto)
+	// ChannelsAuto says CHANNELS was auto: Channels is what the interface had
+	// at startup, and a different interface turning up restarts Hindsight to fit.
+	ChannelsAuto   bool
 	SampleRate     int
 	FramesPerBuf   int
 	InputLatencyMS int // explicit latency; low values make PortAudio busy-poll
@@ -151,6 +154,7 @@ func LoadFrom(get func(string) string) (*Config, error) {
 	switch v := strings.TrimSpace(get("CHANNELS")); {
 	case v == "" || strings.EqualFold(v, "auto"):
 		c.Channels = 0
+		c.ChannelsAuto = true
 	default:
 		n, err := strconv.Atoi(v)
 		if err != nil {
