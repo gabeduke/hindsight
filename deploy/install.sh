@@ -170,13 +170,51 @@ if [ "$HTTPS" = 1 ]; then
         || say "warning: could not install caddy — install it (sudo apt-get install caddy) and re-run for HTTPS"
     fi
     if command -v caddy >/dev/null; then
-      if cmp -s "$SRC/deploy/Caddyfile" /etc/caddy/Caddyfile; then
+      # deploy/Caddyfile assumes Caddy can have ports 80 and 443 to itself.
+      # A rig that already runs nginx on 80, or `tailscale serve` (which
+      # holds 443 on the tailnet address, so Caddy's usual listen-on-every-
+      # address fails), gets a Caddyfile that steps around them: Caddy's
+      # own HTTP moves off 80 and plain HTTP stays with what was there, and
+      # HTTPS binds to the LAN address alone. Re-running the installer
+      # refreshes that address, so reserve it on the router.
+      caddyfile="$(mktemp)"
+      cp "$SRC/deploy/Caddyfile" "$caddyfile"
+      port_held() { # port -> what else listens there ("" if nothing, or only Caddy)
+        sudo ss -ltnpH "( sport = :$1 )" 2>/dev/null \
+          | grep -v '"caddy"' | sed -n 's/.*users:(("\([^"]*\)".*/\1/p' | sort -u | tr '\n' ' '
+      }
+      held80="$(port_held 80)"
+      held443="$(port_held 443)"
+      if [ -n "$held80" ]; then
+        http_port=8079
+        while sudo ss -ltnH "( sport = :$http_port )" 2>/dev/null | grep -q .; do http_port=$((http_port + 1)); done
+        say "port 80 is ${held80% }'s: HTTPS only, Caddy's own HTTP on $http_port"
+        awk -v hp="$http_port" '
+          !g && /^\{$/ { g = 1; print; print "\thttp_port " hp; next }
+          /^http:\/\/ \{$/ { skip = 1; next }
+          skip && /^\}$/ { skip = 0; next }
+          !skip { print }
+        ' "$caddyfile" > "$caddyfile.new" && mv "$caddyfile.new" "$caddyfile"
+      fi
+      if [ -n "$held443" ]; then
+        lan_ip="$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')"
+        if [ -n "$lan_ip" ]; then
+          say "port 443 is also ${held443% }'s: HTTPS on $lan_ip only (reserve that address on the router)"
+          awk -v ip="$lan_ip" '{ print } /^https:\/\/ \{$/ { print "\tbind " ip }' \
+            "$caddyfile" > "$caddyfile.new" && mv "$caddyfile.new" "$caddyfile"
+        else
+          say "warning: port 443 is ${held443% }'s and there's no LAN address to bind instead — HTTPS won't start"
+        fi
+      fi
+      if ! caddy adapt --config "$caddyfile" --adapter caddyfile >/dev/null 2>&1; then
+        say "warning: the Caddyfile for this machine doesn't validate — HTTPS left as it was"
+      elif cmp -s "$caddyfile" /etc/caddy/Caddyfile; then
         say "Caddyfile already current"
       else
         say "installing the Caddyfile"
         if { [ ! -f /etc/caddy/Caddyfile ] \
                || sudo cp -p /etc/caddy/Caddyfile "/etc/caddy/Caddyfile.bak-$(date +%Y%m%d-%H%M%S)"; } \
-           && sudo install -D -m 644 "$SRC/deploy/Caddyfile" /etc/caddy/Caddyfile; then
+           && sudo install -D -m 644 "$caddyfile" /etc/caddy/Caddyfile; then
           sudo systemctl enable caddy >/dev/null 2>&1 || true
           # reload, or start if it isn't running yet.
           sudo systemctl reload-or-restart caddy \
@@ -185,6 +223,7 @@ if [ "$HTTPS" = 1 ]; then
           say "warning: could not install /etc/caddy/Caddyfile (sudo?) — HTTPS left as it was"
         fi
       fi
+      rm -f "$caddyfile"
     fi
   fi
 fi

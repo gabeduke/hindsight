@@ -290,9 +290,25 @@ from the hub). Hindsight keeps the certificate in `~/hindsight/tls/`, so it
 keeps serving after a restart with no internet; Caddy asks for it on a
 loopback-only port (`127.0.0.1:5001`), never through `:5000`.
 
-Caddy takes ports 80 and 443, so it replaces the nginx setup above; remove
-that site first if you followed it. `http://<pi-host>.local:5000` and
-`http://<pi-host>.local` keep working.
+**Sharing the box with nginx or `tailscale serve`.** `deploy/Caddyfile` wants
+ports 80 and 443 to itself. The installer looks first and steps around what's
+there, saying what it did:
+
+- **Port 80 taken** (the nginx site above): Caddy serves HTTPS only and moves
+  its own HTTP listener to 8079 or the next free port; plain HTTP stays with
+  nginx, so `tailscale serve` and anything else pointed at port 80 carry on.
+- **Port 443 taken** (`tailscale serve` holds it on the tailnet address, which
+  stops Caddy listening on every address): Caddy listens on the LAN address
+  alone. It's written into `/etc/caddy/Caddyfile`, so reserve that address on
+  the router; re-running the installer (or Update) picks up a new one.
+
+`http://<pi-host>.local:5000` keeps working either way.
+
+**If the secure address doesn't load,** Settings says so next to it:
+*https://… doesn't answer on 192.168.1.79:443*. Hindsight tries its own
+address after each heartbeat, as a phone would. Usually Caddy was never set
+up (the `HUB_` lines were added without re-running the installer) or
+something else holds 443 on the LAN address.
 
 **DNS rebinding protection.** Some routers (OpenWrt/dnsmasq with
 `rebind-protection`, Pi-hole's option, some ISP boxes) refuse public names
