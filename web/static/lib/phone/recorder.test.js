@@ -26,3 +26,8 @@ test('plain http explains itself instead of failing', () => {
   assert.match(canRecordHere({ isSecureContext: true, navigator: {} }), /browser/);
   assert.equal(canRecordHere({ isSecureContext: true, navigator: { mediaDevices: { getUserMedia() {} } }, AudioWorkletNode: class {} }), '');
 });
+
+test('plain http points at the hub\'s secure address when there is one', () => {
+  assert.match(canRecordHere({ isSecureContext: false }, 'https://mike.hindsight.leetserve.com'), /secure address to record/);
+  assert.doesNotMatch(canRecordHere({ isSecureContext: false }, 'https://mike.hindsight.leetserve.com'), /tailscale/);
+});

@@ -14,7 +14,8 @@ file; the env file stays the default for anything not changed in the app.
 Changes apply on restart, which the sheet offers. What the app can change is
 the registry in `internal/config/settings.go`; the rest stay env-only because
 they say where things live (`PORT`, `OUTPUT_DIR`, `TAPE_DIR`, `STATIC_DIR`,
-`UPDATE_REPO`, `SETTINGS_FILE`) or are development knobs
+`UPDATE_REPO`, `SETTINGS_FILE`, `HUB_URL`, `HUB_TLS_ADDR`), are secrets
+(`HUB_TOKEN`), or are development knobs
 (`FRAMES_PER_BUFFER`, `MIDI_RING_EVENTS`, `TAPE_DEMO_ALIGN`).
 
 A `settings.json` that can't be read, or that makes a configuration Hindsight
@@ -83,6 +84,9 @@ because the defaults are almost always right.
 | `FRAMES_PER_BUFFER` | `2048` | Frames per PortAudio callback |
 | `MIDI_DEVICES` | *(empty)* | Comma-separated substrings; if set, only matching MIDI devices are opened (the clock device is always opened) |
 | `MIDI_RING_EVENTS` | `1000000` | How many MIDI events to keep in memory, 16 bytes each. Oldest are dropped first |
+| `HUB_URL` | *(empty)* | The hub that gives this Pi an HTTPS name, e.g. `https://hub.hindsight.leetserve.com`. Off unless `HUB_TOKEN` is set too (`docs/install-raspberry-pi.md`, *HTTPS with a hub*) |
+| `HUB_TOKEN` | *(empty)* | This Pi's token from `scripts/hub-enroll.sh`. A secret: env file only |
+| `HUB_TLS_ADDR` | `127.0.0.1:5001` | Where Caddy asks Hindsight for the certificate (`/tls`). Must be loopback; it hands out the private key |
 
 `PORT` is the one you will actually reach for, because **macOS occupies 5000
 with ControlCenter's AirPlay Receiver**, so running the demo on a Mac needs

@@ -39,9 +39,14 @@ export function fmtClock(seconds) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** canRecordHere says whether this page can open the mic, and if not, why. */
-export function canRecordHere(win = globalThis) {
+/**
+ * canRecordHere says whether this page can open the mic, and if not, why.
+ * secure is the hub's HTTPS address for this Hindsight (status.hub.url), if
+ * it has one; the sheet links it under the message.
+ */
+export function canRecordHere(win = globalThis, secure = '') {
   if (!win.isSecureContext) {
+    if (secure) return 'The microphone only works on a secure page. Open Hindsight at its secure address to record from this phone:';
     return 'The microphone only works on a secure page. Open Hindsight at its HTTPS address — the tailscale one from the install guide — to record from this phone.';
   }
   if (!win.navigator?.mediaDevices?.getUserMedia || typeof win.AudioWorkletNode === 'undefined') {
@@ -50,7 +55,7 @@ export function canRecordHere(win = globalThis) {
   return '';
 }
 
-export function initPhone({ button, sheet, toast, onSaved }) {
+export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' }) {
   const q = (id) => document.getElementById(id);
   const ui = {
     insecure: q('phone-insecure'),
@@ -132,9 +137,16 @@ export function initPhone({ button, sheet, toast, onSaved }) {
   async function open() {
     if (mode === 'recording' || mode === 'saving') { showSheet(); return; }
     showSheet();
-    const why = canRecordHere(window);
+    const secure = window.isSecureContext ? '' : secureURL();
+    const why = canRecordHere(window, secure);
     ui.insecure.hidden = !why;
     ui.insecure.textContent = why;
+    if (why && secure) {
+      const a = document.createElement('a');
+      a.href = secure;
+      a.textContent = secure;
+      ui.insecure.append(' ', a);
+    }
     ui.controls.hidden = !!why;
     ui.rec.hidden = !!why;
     if (why) return;

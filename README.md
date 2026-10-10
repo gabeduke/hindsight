@@ -155,6 +155,7 @@ which is also what lets the Phone button record.
 | [docs/api.md](docs/api.md) | The HTTP API |
 | [docs/architecture.md](docs/architecture.md) | How the capture path is put together, and the traps it avoids |
 | [docs/development.md](docs/development.md) | Building, testing, deploying, and the hardware probes |
+| [docs/hub.md](docs/hub.md) | The hub: a real HTTPS name and certificate for a Hindsight on any network |
 
 Release history is in [CHANGELOG.md](CHANGELOG.md).
 

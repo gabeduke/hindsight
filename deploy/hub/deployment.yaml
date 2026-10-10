@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hindsight-hub
+spec:
+  replicas: 1
+  # The rate limit and the devices cache are in memory; one replica keeps
+  # them honest.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hindsight-hub
+  template:
+    metadata:
+      labels:
+        app: hindsight-hub
+    spec:
+      serviceAccountName: hindsight-hub
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: hub
+          image: ghcr.io/gabeduke/hindsight-hub
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HUB_DOMAIN
+              value: hindsight.leetserve.com
+            - name: HUB_ISSUER
+              value: letsencrypt-aws-prod
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10

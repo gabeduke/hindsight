@@ -3,8 +3,20 @@
 #
 #   tar xzf hindsight_<version>_linux_arm64.tar.gz
 #   cd hindsight_<version>_linux_arm64
-#   ./install.sh
+#   ./install.sh            # or ./install.sh --https to set up Caddy regardless
+#
+# With HUB_URL in ~/hindsight/hindsight.env (or --https), it also installs
+# Caddy and deploy/Caddyfile, which serves the hub's HTTPS name with the
+# certificate Hindsight keeps (docs/install-raspberry-pi.md).
 set -euo pipefail
+
+HTTPS=0
+for arg in "$@"; do
+  case "$arg" in
+    --https) HTTPS=1 ;;
+    *) echo "error: unknown option $arg (only --https)" >&2; exit 2 ;;
+  esac
+done
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Hardcoded, not overridable: the unit file hardcodes %h/hindsight and the
@@ -139,6 +151,43 @@ systemctl --user enable hindsight.service
 # web/static we just swapped in above. `restart` always picks up the binary
 # that was just installed.
 systemctl --user restart hindsight.service
+
+# --- HTTPS through the hub ----------------------------------------------------
+# Only with HUB_URL set (or --https): a plain install never touches Caddy.
+# Caddy is a system service, so this needs sudo; on an unattended update
+# without it, warn and leave Caddy as it was rather than fail the update.
+if [ "$HTTPS" = 0 ] && [ -f "$ROOT/hindsight.env" ] \
+   && grep -Eq '^[[:space:]]*HUB_URL=["'"'"']?[^"'"'"'[:space:]]' "$ROOT/hindsight.env"; then
+  HTTPS=1
+fi
+if [ "$HTTPS" = 1 ]; then
+  if [ ! -f "$SRC/deploy/Caddyfile" ]; then
+    say "warning: no deploy/Caddyfile in this release; skipping Caddy"
+  else
+    if ! command -v caddy >/dev/null; then
+      say "installing caddy for HTTPS"
+      { sudo apt-get update -qq && sudo apt-get install -y caddy; } \
+        || say "warning: could not install caddy — install it (sudo apt-get install caddy) and re-run for HTTPS"
+    fi
+    if command -v caddy >/dev/null; then
+      if cmp -s "$SRC/deploy/Caddyfile" /etc/caddy/Caddyfile; then
+        say "Caddyfile already current"
+      else
+        say "installing the Caddyfile"
+        if { [ ! -f /etc/caddy/Caddyfile ] \
+               || sudo cp -p /etc/caddy/Caddyfile "/etc/caddy/Caddyfile.bak-$(date +%Y%m%d-%H%M%S)"; } \
+           && sudo install -D -m 644 "$SRC/deploy/Caddyfile" /etc/caddy/Caddyfile; then
+          sudo systemctl enable caddy >/dev/null 2>&1 || true
+          # reload, or start if it isn't running yet.
+          sudo systemctl reload-or-restart caddy \
+            || say "warning: caddy did not take the new Caddyfile — check: sudo journalctl -u caddy -n 30"
+        else
+          say "warning: could not install /etc/caddy/Caddyfile (sudo?) — HTTPS left as it was"
+        fi
+      fi
+    fi
+  fi
+fi
 
 # Without lingering the service dies at logout, which for a headless Pi means
 # it dies as soon as you close the SSH session that started it. A stale sudo

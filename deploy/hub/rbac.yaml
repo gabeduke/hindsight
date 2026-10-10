@@ -1,0 +1,32 @@
+# Everything in the hub's own namespace, nothing cluster-wide.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hindsight-hub
+rules:
+  # The devices Secret and each device's <name>-tls. The tls names are only
+  # known at enrolment, so this cannot be narrowed with resourceNames; it is
+  # get only (no list or watch), so the hub reads a Secret only by name.
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get]
+  # Server-side apply is a PATCH; the first one for a device creates the
+  # object, which is authorised as create.
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    verbs: [get, list, create, patch]
+  - apiGroups: [externaldns.k8s.io]
+    resources: [dnsendpoints]
+    verbs: [get, list, create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hindsight-hub
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hindsight-hub
+subjects:
+  - kind: ServiceAccount
+    name: hindsight-hub
