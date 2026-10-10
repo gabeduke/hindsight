@@ -832,7 +832,7 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 	}
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
-	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels())) })
+	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutMix())) })
 	// A cut is a new take, so MAX_SAVES applies to it as it does to a save --
 	// but never to the cut itself, or to the take it was cut from: the owner
 	// is on that take's page, and may be about to cut from it again.

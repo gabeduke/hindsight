@@ -276,6 +276,24 @@ func (c *Config) OutChannels() []int {
 	return c.SaveChannels
 }
 
+// OutMix is how a take is built from the ring: output channel i is the
+// average of the input channels OutMix()[i]. Its length is the take's
+// channel count. Stereo (and SAVE_ALL_CHANNELS, which ignores SAVE_MIX) is
+// OutChannels one to one; mono is every SaveChannels input averaged onto
+// both sides of a stereo take, so one saved channel lands on both sides too.
+func (c *Config) OutMix() [][]int {
+	if c.SaveAllChannels || c.SaveMix != "mono" {
+		pick := c.OutChannels()
+		mix := make([][]int, len(pick))
+		for i, ch := range pick {
+			mix[i] = []int{ch}
+		}
+		return mix
+	}
+	both := append([]int(nil), c.SaveChannels...)
+	return [][]int{both, both}
+}
+
 func (c *Config) String() string {
 	disp := oneBased(c.SaveChannels)
 	dev := c.DeviceMatch
