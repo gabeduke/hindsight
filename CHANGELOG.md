@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.10.4 — 2026-10-10
+
+- Hub client: ask again after a minute while no certificate is held (de3632a)
+
+
 ## v2026.10.10.3 — 2026-10-10
 
 - Give the Pi an HTTPS name from the hub (2099ad2)
