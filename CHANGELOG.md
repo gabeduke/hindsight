@@ -5,6 +5,15 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.10.3 — 2026-10-10
+
+- Give the Pi an HTTPS name from the hub (2099ad2)
+- Hub: manifests, an image from the release workflow, and docs (c979911)
+- Hub: turn a Hindsight's heartbeat into a DNS record and a certificate (f599f6d)
+- Spec: deliver the hub with Argo CD and a GHCR image from the release workflow (db4bb3c)
+- Spec: a real HTTPS name for every Hindsight, from a hub on the homelab (21fd26f)
+
+
 ## v2026.10.10.2 — 2026-10-10
 
 - Installer: point at Settings, not at SAVE_CHANNELS for an EP-136 (d00a61c)
