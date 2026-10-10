@@ -86,6 +86,13 @@ type Config struct {
 	// offers (and deploy/hindsight-update installs).
 	UpdateRepo string
 
+	// The hub (docs/superpowers/specs/2026-10-09-hub-certificates-design.md):
+	// off unless HubURL and HubToken are both set. Env file only -- a
+	// location and a secret, so not in the settings registry.
+	HubURL     string
+	HubToken   string
+	HubTLSAddr string // the loopback listener Caddy asks for the certificate
+
 	// SettingsFile is the app's settings.json (SETTINGS_FILE), and
 	// SettingsErr why it was not used, when it wasn't: Load then fell back to
 	// the environment alone. See settings.go.
@@ -137,6 +144,9 @@ func LoadFrom(get func(string) string) (*Config, error) {
 		TapeDemoAlign:    envBool(get, "TAPE_DEMO_ALIGN", false),
 		Port:             env(get, "PORT", "5000"),
 		UpdateRepo:       env(get, "UPDATE_REPO", "gabeduke/hindsight"),
+		HubURL:           strings.TrimRight(strings.TrimSpace(get("HUB_URL")), "/"),
+		HubToken:         strings.TrimSpace(get("HUB_TOKEN")),
+		HubTLSAddr:       env(get, "HUB_TLS_ADDR", "127.0.0.1:5001"),
 		Version:          "dev",
 	}
 	// The clock device defaults to the audio interface, so a rig where the
@@ -217,6 +227,9 @@ func LoadFrom(get func(string) string) (*Config, error) {
 	}
 	return c, nil
 }
+
+// HubOn says the hub client should run: both HUB_URL and HUB_TOKEN set.
+func (c *Config) HubOn() bool { return c.HubURL != "" && c.HubToken != "" }
 
 // MaxChannels bounds CHANNELS, and what CHANNELS=auto will open.
 const MaxChannels = 32

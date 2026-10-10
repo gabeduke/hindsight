@@ -74,6 +74,19 @@ export function changes(settings, edits) {
   return out;
 }
 
+/**
+ * hubLine is what the sheet says about the hub (GET /api/settings "hub"):
+ * the secure address to link once there is a certificate for it, and the
+ * hub's error, if any. null when the hub is off.
+ */
+export function hubLine(hub) {
+  if (!hub) return null;
+  const href = hub.url && hub.cert_not_after ? hub.url : '';
+  let error = hub.error || '';
+  if (!href && !error) error = 'waiting for the hub';
+  return { href, error };
+}
+
 const FROM = { app: 'set here', env: 'from the env file', default: 'default' };
 
 export function initSettings() {
@@ -214,6 +227,19 @@ export function initSettings() {
     body.replaceChildren();
     if (data.device) body.append(el('p', 'set-device', `Recording from ${data.device.replace(/:.*$/, '')}, ${data.channels} channel${data.channels === 1 ? '' : 's'}`));
     else body.append(el('p', 'set-device', 'No interface found yet'));
+    const hub = hubLine(data.hub);
+    if (hub) {
+      const p = el('p', 'set-device set-hub');
+      if (hub.href) {
+        const a = el('a', null, hub.href);
+        a.href = hub.href;
+        p.append('Secure address: ', a);
+        if (hub.error) p.append(el('span', 'set-hub-error', ` (${hub.error})`));
+      } else {
+        p.append('No secure address yet: ', el('span', 'set-hub-error', hub.error));
+      }
+      body.append(p);
+    }
     const groups = [];
     for (const s of data.settings) {
       let g = groups.find((x) => x.name === s.group);

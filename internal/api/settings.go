@@ -9,6 +9,7 @@ import (
 
 	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gabeduke/hindsight/internal/hub"
 )
 
 // The settings sheet (docs/superpowers/specs/2026-10-09-settings-design.md):
@@ -34,6 +35,8 @@ type settingsResponse struct {
 	// Started is when this process started: the sheet waits for it to
 	// change to know a restart has happened.
 	Started string `json:"started"`
+	// Hub is /api/status's hub: the secure address, or why there isn't one.
+	Hub *hub.Status `json:"hub"`
 }
 
 // started is this process's start, for settingsResponse.Started.
@@ -81,6 +84,7 @@ func (a *API) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	if a.cap != nil {
 		resp.Device = a.cap.DeviceName()
 	}
+	resp.Hub = a.hubStatus()
 	resp.Inputs = listInputs()
 	if resp.Inputs == nil {
 		resp.Inputs = []audio.Input{}

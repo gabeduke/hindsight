@@ -86,6 +86,7 @@ jobs:
           cp deploy/hindsight.env.example    "dist/$name/deploy/"
           cp deploy/hindsight-update         "dist/$name/deploy/"
           cp deploy/hindsight-update@.service "dist/$name/deploy/"
+          cp deploy/Caddyfile                "dist/$name/deploy/"
           chmod 755 "dist/$name/deploy/hindsight-update"
           cp deploy/install.sh               "dist/$name/install.sh"
           chmod 755 "dist/$name/install.sh"

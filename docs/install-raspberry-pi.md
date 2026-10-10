@@ -260,6 +260,47 @@ write hundreds of megabytes for anyone who can reach it.
 HTTPS also switches on the screen wake lock, which keeps a docked, charging
 tablet lit while the app is visible.
 
+## HTTPS with a hub
+
+A Pi on someone else's network can get a real HTTPS address, like
+`https://mike.hindsight.leetserve.com`, that resolves to its LAN address and
+has a public certificate: the phone's mic, the installable app and the wake
+lock all work, with nothing to install on the phone. The hub on the homelab
+keeps the DNS record and the certificate
+(`docs/superpowers/specs/2026-10-09-hub-certificates-design.md`); the audio
+never leaves the house.
+
+1. On the homelab side, enrol the Pi under a short name:
+   `scripts/hub-enroll.sh mike`. It prints a token once.
+2. On the Pi, add the two lines to `~/hindsight/hindsight.env`:
+
+   ```bash
+   HUB_URL=https://hub.hindsight.leetserve.com
+   HUB_TOKEN=<the token>
+   ```
+
+3. Re-run `./install.sh` from the release (or press Update in the app). With
+   `HUB_URL` set it installs Caddy and `deploy/Caddyfile` (backing up an
+   existing `/etc/caddy/Caddyfile` first) and reloads it; `./install.sh
+   --https` does the same without the check.
+
+Within a minute or two Settings shows *Secure address:* with the link. Until
+then it says why not (the hub is still getting the certificate, or the error
+from the hub). Hindsight keeps the certificate in `~/hindsight/tls/`, so it
+keeps serving after a restart with no internet; Caddy asks for it on a
+loopback-only port (`127.0.0.1:5001`), never through `:5000`.
+
+Caddy takes ports 80 and 443, so it replaces the nginx setup above; remove
+that site first if you followed it. `http://<pi-host>.local:5000` and
+`http://<pi-host>.local` keep working.
+
+**DNS rebinding protection.** Some routers (OpenWrt/dnsmasq with
+`rebind-protection`, Pi-hole's option, some ISP boxes) refuse public names
+that answer with private addresses, so the name doesn't resolve on that
+network. The fix is an exception for `hindsight.leetserve.com` on the router
+(dnsmasq: `rebind-domain-ok=/hindsight.leetserve.com/`). The plain HTTP
+address works regardless.
+
 ## Migrating from `audio-dashcam`
 
 If the installer finds an `audio-dashcam.service` user unit it offers to take

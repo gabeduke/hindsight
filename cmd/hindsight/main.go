@@ -18,6 +18,7 @@ import (
 	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/bundle"
 	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gabeduke/hindsight/internal/hub"
 	"github.com/gabeduke/hindsight/internal/midi"
 	"github.com/gabeduke/hindsight/internal/tape"
 	"github.com/gorilla/mux"
@@ -160,12 +161,27 @@ func main() {
 	saver.SetTempoSource(tempo)
 	saver.SetMIDIExporter(exporter)
 
-	r := mux.NewRouter()
 	srvAPI := api.New(cfg, cap, saver, cap.Envelope(), clock)
 	if cfg.Tape {
 		if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
 			srvAPI.SetTape(eng)
 			stops = append(stops, eng.Stop)
+		}
+	}
+	// The hub: a public HTTPS name for this Pi's LAN address, and Caddy's
+	// certificate for it on a loopback listener of its own -- never a route
+	// on :5000, which Caddy proxies to the whole LAN. Off without
+	// HUB_URL/HUB_TOKEN, and never in the way of capture.
+	if cfg.HubOn() {
+		home, _ := os.UserHomeDir()
+		hc, err := hub.New(hub.Options{URL: cfg.HubURL, Token: cfg.HubToken, Version: version,
+			Dir: filepath.Join(home, "hindsight", "tls"), TLSAddr: cfg.HubTLSAddr})
+		if err != nil {
+			log.Printf("[!] hub off: %v", err)
+		} else {
+			hc.Start()
+			stops = append(stops, hc.Stop)
+			srvAPI.SetHub(hc)
 		}
 	}
 	// The Update button, where deploy/hindsight-update is installed beside
@@ -184,8 +200,7 @@ func main() {
 	}
 	srvAPI.SetRestart(requestRestart)
 	go fitInterface(misfit, srvAPI.Busy, requestRestart, 5*time.Second)
-	srvAPI.SetupRoutes(r)
-	r.PathPrefix("/").Handler(noCacheShell(http.FileServer(http.Dir(staticDir()))))
+	r := newRouter(srvAPI, staticDir())
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -228,6 +243,15 @@ func main() {
 		}
 		log.Fatalf("restart: %v", syscall.Exec(exe, os.Args, os.Environ()))
 	}
+}
+
+// newRouter is everything :5000 serves: the API and the UI. The hub's /tls
+// is deliberately not here (see internal/hub).
+func newRouter(a *api.API, static string) *mux.Router {
+	r := mux.NewRouter()
+	a.SetupRoutes(r)
+	r.PathPrefix("/").Handler(noCacheShell(http.FileServer(http.Dir(static))))
+	return r
 }
 
 // startTape opens the tape store and starts the engine, loading the tape
