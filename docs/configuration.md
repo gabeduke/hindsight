@@ -7,6 +7,20 @@ means a missing file is not an error, because every value has a default.
 
 `deploy/hindsight.env.example` is the annotated copy the installer writes.
 
+**Most of these can also be changed in the app**, from *Settings* at the foot
+of Capture ([guide §3.3](guide.md#33-settings)). The app writes them to
+`~/hindsight/settings.json` (`SETTINGS_FILE` moves it), which wins over the env
+file; the env file stays the default for anything not changed in the app.
+Changes apply on restart, which the sheet offers. What the app can change is
+the registry in `internal/config/settings.go`; the rest stay env-only because
+they say where things live (`PORT`, `OUTPUT_DIR`, `TAPE_DIR`, `STATIC_DIR`,
+`UPDATE_REPO`, `SETTINGS_FILE`) or are development knobs
+(`FRAMES_PER_BUFFER`, `MIDI_RING_EVENTS`, `TAPE_DEMO_ALIGN`).
+
+A `settings.json` that can't be read, or that makes a configuration Hindsight
+refuses, never stops it: it logs why, starts on the env file alone, and the
+sheet shows the reason.
+
 ## The variables in the example file
 
 | Variable | Default | What it does |
