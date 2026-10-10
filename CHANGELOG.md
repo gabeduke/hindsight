@@ -5,6 +5,17 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.10.1 — 2026-10-10
+
+- DEVICE_MATCH=auto and CHANNELS=auto pick the interface and fit the ring to it (9532112)
+- Configuration: not only environment variables now (a820b16)
+- Document /api/settings, /api/restart and settings.json (6ff5345)
+- Settings sheet at the foot of Capture, and the guide's section on it (54fed57)
+- Make SAVE_MIX=mono average the save channels onto both sides (d12d748)
+- Settings: tests for the registry, layering, the API and restart (c2fd8a2)
+- Settings: registry, settings.json over the env file, /api/settings and /api/restart (4d9ccbd)
+
+
 ## v2026.10.09.5 — 2026-10-09
 
 - Give the icons new addresses so phones fetch the new one (b67bc90)
