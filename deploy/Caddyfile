@@ -1,0 +1,22 @@
+# Caddy on the Pi, for the hub's HTTPS name
+# (docs/superpowers/specs/2026-10-09-hub-certificates-design.md).
+#
+# install.sh puts this at /etc/caddy/Caddyfile when HUB_URL is set in
+# hindsight.env (or with --https). The certificate comes from Hindsight
+# itself, on its loopback-only listener, at each handshake: 200 with the
+# chain and key for its name, 204 for any other name. Plain http:// keeps
+# working, for hindsight.local and for a router that blocks the name.
+{
+	auto_https disable_redirects
+}
+
+https:// {
+	tls {
+		get_certificate http http://127.0.0.1:5001/tls
+	}
+	reverse_proxy 127.0.0.1:5000
+}
+
+http:// {
+	reverse_proxy 127.0.0.1:5000
+}

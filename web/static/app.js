@@ -387,6 +387,8 @@ initPhone({
   button: $('phone-btn'),
   sheet: $('phone-sheet'),
   toast,
+  // The hub's HTTPS address, when there is a certificate for it.
+  secureURL: () => (status?.hub?.cert_not_after && status.hub.url) || '',
   onSaved: (name) => {
     takes.markFresh(name);
     pollTakes(true);

@@ -5,9 +5,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/gabeduke/hindsight/internal/api"
+	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gorilla/mux"
 )
 
 // existsIn returns a predicate reporting true for exactly the given paths,
@@ -122,5 +127,25 @@ func TestFitInterface(t *testing.T) {
 	case <-restarted:
 	case <-time.After(2 * time.Second):
 		t.Fatal("never restarted once idle")
+	}
+}
+
+// The hub's /tls answers a private key, so it lives on its own loopback
+// listener; :5000 -- which Caddy proxies to the whole LAN -- must not have it.
+func TestMainRouterHasNoTLSRoute(t *testing.T) {
+	cfg := &config.Config{OutputDir: t.TempDir(), HubURL: "https://hub.example", HubToken: "t"}
+	r := newRouter(api.New(cfg, nil, nil, nil, nil), t.TempDir())
+	_ = r.Walk(func(route *mux.Route, _ *mux.Router, _ []*mux.Route) error {
+		if p, err := route.GetPathTemplate(); err == nil && strings.HasPrefix(p, "/tls") {
+			t.Errorf("main router has %s", p)
+		}
+		return nil
+	})
+	for _, path := range []string{"/tls", "/tls?server_name=mike.hindsight.leetserve.com"} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+		if w.Code != http.StatusNotFound || strings.Contains(w.Body.String(), "PRIVATE KEY") {
+			t.Errorf("GET %s on :5000: %d %q", path, w.Code, w.Body)
+		}
 	}
 }

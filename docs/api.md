@@ -112,7 +112,14 @@ The poll everything else hangs off. The UI reads it every two seconds.
   "midi_devices": [
     { "id": 1, "name": "EP-136", "node": "/dev/snd/midiC2D0", "clock": true, "connected": true, "events": 0, "bytes": 3373 },
     { "id": 2, "name": "Orchid", "node": "/dev/snd/midiC3D0", "clock": false, "connected": true, "events": 1204, "bytes": 3612 }
-  ]
+  ],
+  "hub": {
+    "name": "mike.hindsight.leetserve.com",
+    "url": "https://mike.hindsight.leetserve.com",
+    "last_heartbeat": "2026-10-09T21:14:03Z",
+    "error": "",
+    "cert_not_after": "2027-01-07T20:10:44Z"
+  }
 }
 ```
 
@@ -136,6 +143,16 @@ The poll everything else hangs off. The UI reads it every two seconds.
   unplugged). Capture keeps retrying; the main page says *waiting for the
   interface* rather than reporting an error.
 - `version` is stamped at build time; a development build reports `dev`.
+- `hub` is `null` unless `HUB_URL` and `HUB_TOKEN` are set
+  (`docs/install-raspberry-pi.md`, *HTTPS with a hub*). `name` is this Pi's
+  name from the hub (or from the certificate on disk, before the first
+  heartbeat), `url` is `https://<name>`, `last_heartbeat` the last good one
+  (`null` before any), `error` the last failure (`""` when fine; also says
+  when the hub is still getting the certificate), and `cert_not_after` the
+  held certificate's expiry (`null` without one). The certificate itself is
+  never on this port: Caddy fetches it from a loopback-only listener
+  (`HUB_TLS_ADDR`, `GET /tls?server_name=…`: 200 with the chain and key for
+  that name, else 204).
 
 ## `GET /api/update`, `POST /api/update`
 
@@ -234,7 +251,8 @@ win over the environment, which wins over the defaults.
   "channels": 2,
   "inputs": [{ "name": "Scarlett Solo 4th Gen: USB Audio (hw:3,0)", "channels": 2 }],
   "memory_bytes": 4025266176,
-  "started": "2026-10-10T00:22:06.74643Z"
+  "started": "2026-10-10T00:22:06.74643Z",
+  "hub": null
 }
 ```
 
@@ -248,6 +266,8 @@ win over the environment, which wins over the defaults.
   config `Load` refused); Hindsight then runs on the environment alone.
 - **`inputs`** are the hardware inputs PortAudio lists now; **`started`**
   changes with every start, which is how the sheet sees a restart land.
+- **`hub`** is `/api/status`'s `hub`, for the secure-address line under the
+  device.
 
 `PUT` takes `{"KEY": "value", "OTHER": null}`: set, or remove from the file
 (back to the environment or the default). Only registry keys are accepted;

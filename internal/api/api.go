@@ -25,6 +25,7 @@ import (
 	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/bundle"
 	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gabeduke/hindsight/internal/hub"
 	"github.com/gabeduke/hindsight/internal/midi"
 	"github.com/gabeduke/hindsight/internal/tape"
 	"github.com/gorilla/mux"
@@ -67,6 +68,9 @@ type API struct {
 
 	// tape is the tape engine, or nil with TAPE off.
 	tape *tape.Engine
+
+	// hub reports the secure address (internal/hub); nil when the hub is off.
+	hub HubStatus
 
 	// updater is the Update button's (update.go); nil hides it.
 	updater *Updater
@@ -244,6 +248,24 @@ type statusResponse struct {
 	// the Orchid actually came up as a MIDI device rather than a power sink.
 	// Always an array, never null, so the UI can iterate it blindly.
 	MIDIDevices []midi.DeviceInfo `json:"midi_devices"`
+	// Hub is the secure address and how the hub is doing; null when the hub
+	// is off (no HUB_URL/HUB_TOKEN).
+	Hub *hub.Status `json:"hub"`
+}
+
+// HubStatus is the hub client, as the status and settings answers see it.
+type HubStatus interface{ Status() *hub.Status }
+
+// SetHub reports h's state on /api/status and /api/settings. nil leaves
+// "hub" null.
+func (a *API) SetHub(h HubStatus) { a.hub = h }
+
+// hubStatus is the hub's state, or nil when it is off.
+func (a *API) hubStatus() *hub.Status {
+	if a.hub == nil {
+		return nil
+	}
+	return a.hub.Status()
 }
 
 func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -279,6 +301,7 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		MIDIConnected:   midiConnected,
 		MIDIBPM:         midiBPM,
 		MIDIDevices:     a.midiDevices(),
+		Hub:             a.hubStatus(),
 	})
 }
 

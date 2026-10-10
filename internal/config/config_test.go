@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -209,6 +210,26 @@ func TestChannelsAuto(t *testing.T) {
 		}
 		if c.ChannelsAuto != tc.auto {
 			t.Errorf("CHANNELS=%q: ChannelsAuto = %t, want %t", tc.env, c.ChannelsAuto, tc.auto)
+		}
+	}
+}
+
+func TestHubIsEnvOnlyAndNeedsBoth(t *testing.T) {
+	get := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
+	c, err := LoadFrom(get(map[string]string{"HUB_URL": "https://hub.hindsight.leetserve.com/"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.HubOn() || c.HubURL != "https://hub.hindsight.leetserve.com" || c.HubTLSAddr != "127.0.0.1:5001" {
+		t.Fatalf("URL alone: on=%t %+v", c.HubOn(), c)
+	}
+	c, _ = LoadFrom(get(map[string]string{"HUB_URL": "https://hub.example", "HUB_TOKEN": " tok ", "HUB_TLS_ADDR": "127.0.0.1:6001"}))
+	if !c.HubOn() || c.HubToken != "tok" || c.HubTLSAddr != "127.0.0.1:6001" {
+		t.Fatalf("both: on=%t %+v", c.HubOn(), c)
+	}
+	for _, s := range Settings {
+		if strings.HasPrefix(s.Key, "HUB_") {
+			t.Errorf("%s is in the settings registry; the hub is env file only", s.Key)
 		}
 	}
 }

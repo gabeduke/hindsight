@@ -774,6 +774,7 @@ main {
   margin: 0 0 14px;
 }
 .sheet-inner.phone-inner .phone-insecure { color: var(--warn); }
+.sheet-inner.phone-inner .phone-insecure a { color: var(--ink); overflow-wrap: anywhere; text-underline-offset: 2px; }
 .phone-field {
   display: flex;
   flex-direction: column;
@@ -1180,6 +1181,9 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .sheet-inner.settings-inner p { font-family: var(--font); word-break: normal; }
 .sheet-inner.settings-inner p.settings-error { color: var(--danger-ink); font-size: 13px; margin: 0 0 10px; flex: none; }
 .sheet-inner.settings-inner p.set-device { color: var(--ink-dim); font-size: 13px; margin: 0 0 10px; }
+.sheet-inner.settings-inner p.set-hub { margin-top: -6px; overflow-wrap: anywhere; }
+.set-hub a { color: var(--ink); text-underline-offset: 2px; }
+.set-hub-error { color: var(--danger-ink); }
 .set-group { border-top: 1px solid var(--line); padding: 4px 0; }
 .set-group > summary {
   cursor: pointer; min-height: 40px; display: flex; align-items: center;
