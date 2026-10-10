@@ -23,7 +23,7 @@ func pyramidTake(t *testing.T, dir string, frames int) (string, []int32) {
 		// Vary the level across the take so buckets differ.
 		data[i] = int32(x) >> uint((i/2/5000)%8)
 	}
-	_, pyr, err := writeWAV(p, data, 2, []int{0, 1}, 48000)
+	_, pyr, err := writeWAV(p, data, 2, pickMix([]int{0, 1}), 48000)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -79,7 +79,7 @@ func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, erro
 	}
 	out.Name = name
 	tmpPath := PartPath(wavPath)
-	pick := cfg.OutChannels()
+	mix := cfg.OutMix()
 
 	// Again, now: emptying the trash and naming can take a while on a busy
 	// SD card, and the ring hasn't stopped recording meanwhile.
@@ -97,12 +97,13 @@ func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, erro
 	ring := s.cap.Ring()
 
 	started := time.Now()
-	ww, err := createWAV(tmpPath, int(frames), len(pick), cfg.SampleRate)
+	ww, err := createWAV(tmpPath, int(frames), len(mix), cfg.SampleRate)
 	if err != nil {
 		os.Remove(tmpPath)
 		return out, fmt.Errorf("write wav: %w", err)
 	}
-	err = ring.Range(out.From, out.To, pick, ww.write)
+	read, emit := mixEmit(mix, ww.write)
+	err = ring.Range(out.From, out.To, read, emit)
 	peaks, pyr, cerr := ww.close()
 	if err == nil {
 		err = cerr
@@ -116,7 +117,7 @@ func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, erro
 	}
 	out.Seconds = float64(frames) / float64(cfg.SampleRate)
 	log.Printf("[*] saved %s from the ring — %.1fs ending %s ago, %d ch, %s in %s",
-		name, out.Seconds, time.Since(endAt).Round(time.Second), len(pick),
+		name, out.Seconds, time.Since(endAt).Round(time.Second), len(mix),
 		sizeOf(tmpPath), time.Since(started).Round(time.Millisecond))
 
 	if err := WritePeaks(peaksPath(wavPath), peaks); err != nil {
@@ -147,7 +148,7 @@ func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, erro
 	s.lastSaved = name
 	s.mu.Unlock()
 
-	s.afterSave(wavPath, len(pick), !o.noMeasure, name)
+	s.afterSave(wavPath, len(mix), !o.noMeasure, name)
 	return out, nil
 }
 
@@ -187,6 +188,40 @@ func (s *Saver) wallAt(frame uint64) time.Time {
 	}
 	back := float64(total-frame) / float64(s.cap.cfg.SampleRate)
 	return now.Add(-time.Duration(back * float64(time.Second)))
+}
+
+// mixEmit adapts a mix (config.OutMix) to Ring.Range, which copies channels
+// out one to one: it answers the ring channels to read — every output's
+// inputs, one run after another, so a mono mix of 1+2 reads 1,2,1,2 — and an
+// emit that averages each run into its output before passing the chunk to
+// write. A mix with one input per output is the pick itself and write is
+// handed the ring's chunk untouched.
+func mixEmit(mix [][]int, write func([]int32) error) ([]int, func([]int32) error) {
+	var read []int
+	local := make([][]int, len(mix))
+	plain := true
+	for i, ins := range mix {
+		for _, c := range ins {
+			local[i] = append(local[i], len(read))
+			read = append(read, c)
+		}
+		plain = plain && len(ins) == 1
+	}
+	if plain {
+		return read, write
+	}
+	var buf []int32
+	return read, func(chunk []int32) error {
+		frames := len(chunk) / len(read)
+		buf = buf[:0]
+		for f := 0; f < frames; f++ {
+			frame := chunk[f*len(read) : (f+1)*len(read)]
+			for _, ins := range local {
+				buf = append(buf, mixSample(frame, ins))
+			}
+		}
+		return write(buf)
+	}
 }
 
 // wavWriter writes a 32-bit WAV whose length is known up front, chunk by

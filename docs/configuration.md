@@ -16,7 +16,8 @@ means a missing file is not an error, because every value has a default.
 | `CHANNELS` | `8` | How many channels to open on that device |
 | `SAMPLE_RATE` | `48000` | Capture sample rate, in Hz |
 | `SAVE_CHANNELS` | `1,2` | 1-indexed channel pair written to a take |
-| `SAVE_ALL_CHANNELS` | `false` | Write every channel instead of the pair above |
+| `SAVE_MIX` | `stereo` | `mono` averages the `SAVE_CHANNELS` inputs onto both sides of the take |
+| `SAVE_ALL_CHANNELS` | `false` | Write every channel instead of the pair above; ignores `SAVE_MIX` |
 | `MIN_FREE_GB` | `1.0` | Refuse to save below this much free disk, after emptying the trash |
 | `MAX_SAVES` | `0` | Keep at most this many takes, moving the oldest to the trash. `0` disables pruning |
 | `INPUT_LATENCY_MS` | `100` | Input latency requested from PortAudio. Do not lower it |
@@ -105,6 +106,13 @@ doubt; "Finding the right `SAVE_CHANNELS`" in
 The value is 1-indexed because that is how hardware labels its inputs.
 Internally it is stored zero-based, and `/api/status` reports it 1-indexed
 again so the UI and the env file agree.
+
+A 2-input interface like the Scarlett Solo is the opposite case: input 1 is
+the mic and input 2 the instrument, so `1,2` in stereo puts the voice hard
+left and the guitar hard right. `SAVE_MIX=mono` writes the `SAVE_CHANNELS`
+inputs averaged (each at −6 dB for a pair, so the sum can't clip) onto both
+channels of a still-stereo take: everything in the middle. The meters and the
+ribbon still show the inputs, which is what you set levels by.
 
 `SAVE_ALL_CHANNELS=true` writes every channel instead, which is useful for
 stems and costs four times the disk. The mp3 preview still folds down to the

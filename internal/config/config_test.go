@@ -13,7 +13,7 @@ func clearEnv(t *testing.T) {
 	for _, k := range []string{
 		"DEVICE_MATCH", "CHANNELS", "SAMPLE_RATE", "FRAMES_PER_BUFFER",
 		"INPUT_LATENCY_MS", "RING_SECONDS", "OUTPUT_DIR", "SAVE_CHANNELS",
-		"SAVE_ALL_CHANNELS", "MIN_FREE_GB", "MAX_SAVES", "PORT",
+		"SAVE_ALL_CHANNELS", "SAVE_MIX", "MIN_FREE_GB", "MAX_SAVES", "PORT",
 		"MIDI_CAPTURE", "MIDI_DEVICES", "MIDI_IGNORE", "MIDI_CLOCK_DEVICE",
 		"MIDI_RING_EVENTS", "MIDI_LATENCY_MS", "MIDI_SNAP_BARS",
 	} {
@@ -152,6 +152,39 @@ func TestTapeHandle(t *testing.T) {
 		t.Setenv("TAPE_HANDLE_S", v)
 		if _, err := Load(); err == nil {
 			t.Errorf("TAPE_HANDLE_S=%s must be refused", v)
+		}
+	}
+}
+
+// OutMix is the take's shape: stereo copies the pair, mono averages it onto
+// both sides, and SAVE_ALL_CHANNELS ignores SAVE_MIX.
+func TestOutMix(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		c    Config
+		want [][]int
+	}{
+		{"stereo", Config{Channels: 2, SaveChannels: []int{0, 1}, SaveMix: "stereo"}, [][]int{{0}, {1}}},
+		{"unset is stereo", Config{Channels: 2, SaveChannels: []int{0, 1}}, [][]int{{0}, {1}}},
+		{"mono", Config{Channels: 2, SaveChannels: []int{0, 1}, SaveMix: "mono"}, [][]int{{0, 1}, {0, 1}}},
+		{"mono of one", Config{Channels: 2, SaveChannels: []int{1}, SaveMix: "mono"}, [][]int{{1}, {1}}},
+		{"all ignores mono", Config{Channels: 3, SaveChannels: []int{0, 1}, SaveMix: "mono", SaveAllChannels: true}, [][]int{{0}, {1}, {2}}},
+	} {
+		got := tc.c.OutMix()
+		if len(got) != len(tc.want) {
+			t.Errorf("%s: OutMix = %v, want %v", tc.name, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if len(got[i]) != len(tc.want[i]) {
+				t.Errorf("%s: OutMix = %v, want %v", tc.name, got, tc.want)
+				break
+			}
+			for j := range got[i] {
+				if got[i][j] != tc.want[i][j] {
+					t.Errorf("%s: OutMix = %v, want %v", tc.name, got, tc.want)
+				}
+			}
 		}
 	}
 }
