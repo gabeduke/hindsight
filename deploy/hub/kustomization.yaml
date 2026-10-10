@@ -5,18 +5,17 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: hindsight
 resources:
-  - serviceaccount.yaml
-  - rbac.yaml
-  - deployment.yaml
-  - service.yaml
-  - ingress.yaml
+- serviceaccount.yaml
+- rbac.yaml
+- deployment.yaml
+- service.yaml
+- ingress.yaml
 labels:
-  - pairs:
-      app.kubernetes.io/name: hindsight-hub
-      app.kubernetes.io/part-of: hindsight
-    includeSelectors: false
+- pairs:
+    app.kubernetes.io/name: hindsight-hub
+    app.kubernetes.io/part-of: hindsight
 # The release workflow's hub-image job bumps newTag on main after each
 # release; the tag in git is what runs.
 images:
-  - name: ghcr.io/gabeduke/hindsight-hub
-    newTag: latest
+- name: ghcr.io/gabeduke/hindsight-hub
+  newTag: v2026.10.10.3
