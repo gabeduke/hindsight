@@ -29,6 +29,7 @@ import (
 // Defaults for Options left zero.
 const (
 	DefaultEvery      = 10 * time.Minute
+	DefaultPending    = time.Minute
 	DefaultCheck      = 30 * time.Second
 	DefaultMinBackoff = 30 * time.Second
 	DefaultMaxBackoff = 10 * time.Minute
@@ -44,7 +45,11 @@ type Options struct {
 	// "" means no listener (tests that use TLSHandler directly).
 	TLSAddr string
 
-	Every      time.Duration // between heartbeats when nothing changes
+	Every time.Duration // between heartbeats when nothing changes
+	// Pending is between heartbeats while no certificate is held: a new
+	// device's is usually issued a minute or two after its first heartbeat,
+	// and waiting a whole Every for it leaves the sheet without an address.
+	Pending    time.Duration
 	Check      time.Duration // how often the LAN address is looked at
 	MinBackoff time.Duration // first wait after a failure
 	MaxBackoff time.Duration // longest wait after repeated failures
@@ -103,6 +108,9 @@ func New(o Options) (*Client, error) {
 	}
 	if o.Every <= 0 {
 		o.Every = DefaultEvery
+	}
+	if o.Pending <= 0 {
+		o.Pending = DefaultPending
 	}
 	if o.Check <= 0 {
 		o.Check = DefaultCheck
@@ -285,7 +293,11 @@ func (c *Client) run(ctx context.Context) {
 				}
 			} else {
 				backoff, said, sent = 0, "", ip
-				due = time.Now().Add(c.o.Every)
+				every := c.o.Every
+				if c.store.Name() == "" {
+					every = min(every, c.o.Pending)
+				}
+				due = time.Now().Add(every)
 			}
 		}
 		wait := min(time.Until(due), c.o.Check)
