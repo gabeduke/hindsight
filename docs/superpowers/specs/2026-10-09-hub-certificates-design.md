@@ -44,7 +44,7 @@ forward-auth) is untouched; names under it are separate records.
 ### The hub (`cmd/hindsight-hub`, in this repo)
 
 A small Go service in the `hindsight` namespace, one replica, image
-`ghcr.io/gabeduke/hindsight-hub` (arm64, built by a workflow on tags/main).
+`ghcr.io/gabeduke/hindsight-hub` (arm64).
 
 **Enrollment** is a Secret, `hindsight-devices`: one key per device name, the
 value the SHA-256 of its token. `scripts/hub-enroll.sh mike` makes a token,
@@ -115,6 +115,26 @@ http:// {
 `install.sh` installs Caddy and this file when `HUB_URL` is set (or with
 `--https`), so a plain install is unchanged. The local-CA setup page on the
 gift Pi goes away.
+
+### Delivery (Gabe, 2026-10-09: Argo CD, images like his other repos)
+
+- **Manifests live here**, in `deploy/hub/` (kustomize: Deployment, Service,
+  Ingress for `hub.hindsight.leetserve.com`, ServiceAccount + Role +
+  RoleBinding, the devices Secret is created by the enroll script, not
+  committed). The homelab adds one Argo CD `Application` pointing at
+  `https://github.com/gabeduke/hindsight`, `path: deploy/hub`,
+  `targetRevision: main`, automated sync, into the existing `hindsight`
+  namespace.
+- **The image is built by the release workflow**: a `hub-image` job after
+  `release`, on the native arm64 runner (no QEMU), pushes
+  `ghcr.io/gabeduke/hindsight-hub:<release tag>` and `:latest` with the
+  workflow's `GITHUB_TOKEN` (`packages: write`), then commits
+  `kustomize edit set image` to `deploy/hub/kustomization.yaml` on main with
+  `[skip ci]`, best effort, the way the changelog commit is. Argo rolls it
+  out. As in cash-for-kids, the tag in git is what runs.
+- The Dockerfile (`deploy/hub/Dockerfile`) is a static `CGO_ENABLED=0`
+  build on distroless. A Hindsight image itself (cgo, PortAudio) can follow
+  the same job later.
 
 ## Limits
 
