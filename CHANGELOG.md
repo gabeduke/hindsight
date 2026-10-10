@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.10.2 — 2026-10-10
+
+- Installer: point at Settings, not at SAVE_CHANNELS for an EP-136 (d00a61c)
+
+
 ## v2026.10.10.1 — 2026-10-10
 
 - DEVICE_MATCH=auto and CHANNELS=auto pick the interface and fit the ring to it (9532112)
