@@ -23,6 +23,7 @@ export const TIPS = [
   { control: 'Delete flag (ribbon)', ids: ['flag-remove'], tip: 'Remove this flag. Takes saved later won\'t carry it' },
   { control: 'Phone', ids: ['phone'], tip: "Record from this phone's mic or a plugged-in input, straight into Hindsight" },
   { control: 'Update to …', ids: ['update'], tip: 'A newer release is out: see what it brings in and install it on the Pi' },
+  { control: 'Settings', ids: ['settings'], tip: 'The interface, the buffer, MIDI and the tape. Changes apply when Hindsight restarts, which empties the ring' },
   { control: 'Releases', ids: ['releases'], tip: 'Every release you can install, newer or older, and what moving to one changes. Hindsight restarts, so the ring starts empty' },
   // The takes page
   { control: 'All takes', ids: ['all-takes'], tip: 'Every take, on a page of its own, to search, filter and sort' },

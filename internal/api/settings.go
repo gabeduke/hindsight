@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/config"
@@ -30,7 +31,13 @@ type settingsResponse struct {
 	Channels      int           `json:"channels"` // what the ring was sized for
 	Inputs        []audio.Input `json:"inputs"`
 	MemoryBytes   uint64        `json:"memory_bytes,omitempty"`
+	// Started is when this process started: the sheet waits for it to
+	// change to know a restart has happened.
+	Started string `json:"started"`
 }
+
+// started is this process's start, for settingsResponse.Started.
+var started = time.Now().UTC().Format(time.RFC3339Nano)
 
 // SetRestart is what POST /api/restart calls once it has said yes; nil
 // leaves the endpoint answering 501.
@@ -52,7 +59,7 @@ func (a *API) settingsFile() string {
 
 func (a *API) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	vals, _, err := config.ReadSettings(a.settingsFile())
-	resp := settingsResponse{File: a.settingsFile(), Channels: a.cfg.Channels, MemoryBytes: totalMemory()}
+	resp := settingsResponse{File: a.settingsFile(), Channels: a.cfg.Channels, MemoryBytes: totalMemory(), Started: started}
 	if err != nil {
 		resp.Error = err.Error()
 		vals = nil

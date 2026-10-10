@@ -242,8 +242,8 @@ Every take, from **All takes** on the main page.
 ### 3.2 Updating Hindsight
 
 Every change merged on GitHub becomes a release, and the foot of Capture is
-where you move between them: *Hindsight v2026.10.09.4 · **Releases** · the
-guide*. When there's a newer release than the Pi is running, a line under it
+where you move between them: *Hindsight v2026.10.09.4 · **Releases** ·
+Settings · the guide*. When there's a newer release than the Pi is running, a line under it
 says so: **● Update to v2026.10.09.5**. The page asks when it loads, every
 hour while it stays open, and when you come back to it.
 
@@ -286,6 +286,43 @@ sheet says so.
   recording*, and nothing installs.
 - [rig] `make deploy` → the foot of Capture shows the release it's built on
   plus its commits, not `dev`.
+
+### 3.3 Settings
+
+**Settings**, at the foot of Capture, changes how Hindsight records without
+touching the Pi's files. It opens on what's recording now (*Recording from
+Scarlett Solo 4th Gen, 2 channels*) and the settings grouped under it: Input,
+Buffer and Saving open, MIDI and Tape folded.
+
+- **Interface** is *Automatic*, or one of the interfaces plugged in now.
+  Automatic records from the one with the most inputs. **Channels** at
+  *auto* opens all of its inputs.
+- **Inputs to keep** and **Mix** say what a take is made from. On a
+  two-input interface like the Scarlett Solo, input 1 is the mic and input 2
+  the instrument: **stereo** keeps them left and right, **mono** puts both in
+  the middle (each 6 dB down, so together they can't clip).
+- **Buffer length** says what it costs in memory, and warns when saving the
+  whole buffer would need more than the Pi can spare.
+- **Each field says where its value comes from:** *set here*, *from the env
+  file* or *default*. **Reset** hands one set here back.
+- **Save** keeps the changes; they apply when Hindsight restarts. The sheet
+  then offers **Restart**, which empties the ring, so capture anything you
+  want to keep first. It won't restart while a take is saving, a phone is
+  recording, or the tape is playing or recording.
+
+Settings live on the Pi in `~/hindsight/settings.json`, which wins over
+`hindsight.env`. If that file is ever unusable, Hindsight starts without it
+and the sheet says why.
+
+**Checks — settings:**
+
+- [demo] Settings → Mix → Mono → Save → Restart → the page comes back, and
+  Settings shows Mix *set here*, with no restart owed.
+- [demo] Reset Mix → *default*; Restart.
+- [demo] Channels 2, Inputs to keep 3,4 → Save is refused, naming
+  SAVE_CHANNELS.
+- [rig] Scarlett Solo on Automatic → *Recording from Scarlett Solo 4th Gen,
+  2 channels*; Mono, restart, sing and play → the take is centred.
 
 ## 4. The take page
 
@@ -1755,6 +1792,7 @@ has no tip.
 | Delete flag (ribbon) | Remove this flag. Takes saved later won't carry it |
 | Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
 | Update to … | A newer release is out: see what it brings in and install it on the Pi |
+| Settings | The interface, the buffer, MIDI and the tape. Changes apply when Hindsight restarts, which empties the ring |
 | Releases | Every release you can install, newer or older, and what moving to one changes. Hindsight restarts, so the ring starts empty |
 | All takes | Every take, on a page of its own, to search, filter and sort |
 | Search | Find a take by its name, its time or its tempo |

@@ -145,7 +145,7 @@
       <p class="empty" id="takes-empty">No takes yet — hit Capture.</p>
       <a class="icon-btn all-takes" id="all-takes" href="/takes.html" data-tip="all-takes"><span>All takes <span class="all-count" id="all-count"></span></span><span aria-hidden="true">›</span></a>
     </section>
-    <p class="about">Hindsight <span id="version" class="mono">–</span> · <button id="releases-btn" class="releases-btn" type="button" data-tip="releases" hidden>Releases</button><span class="releases-sep" aria-hidden="true"> · </span><a href="/guide.html" data-tip="guide">the guide</a><button id="update-btn" class="update-btn" type="button" data-tip="update" hidden></button></p>
+    <p class="about">Hindsight <span id="version" class="mono">–</span> · <button id="releases-btn" class="releases-btn" type="button" data-tip="releases" hidden>Releases</button><span class="releases-sep" aria-hidden="true"> · </span><button id="settings-btn" class="releases-btn" type="button" data-tip="settings">Settings</button> · <a href="/guide.html" data-tip="guide">the guide</a><button id="update-btn" class="update-btn" type="button" data-tip="update" hidden></button></p>
 
   </div>
 
@@ -219,6 +219,25 @@
     <div class="sheet-actions">
       <button class="icon-btn update-cancel" type="button">Cancel</button>
       <button class="icon-btn primary update-go" type="button" hidden>Update</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Settings (lib/settings.js): the app's settings.json over the env file.
+     Saved changes apply on restart. -->
+<dialog class="sheet" id="settings-sheet" aria-labelledby="settings-title">
+  <div class="sheet-inner settings-inner">
+    <h3 id="settings-title">Settings</h3>
+    <p class="settings-error" role="alert" hidden></p>
+    <div class="settings-body"></div>
+    <div class="settings-restart" hidden>
+      <p>Saved. Hindsight restarts to use it, so the ring starts empty: capture anything you want to keep first.</p>
+      <button class="icon-btn primary settings-restart-go" type="button">Restart</button>
+    </div>
+    <p class="settings-progress" role="status" hidden></p>
+    <div class="sheet-actions">
+      <button class="icon-btn settings-close" type="button">Close</button>
+      <button class="icon-btn primary settings-save" type="button" disabled>Save</button>
     </div>
   </div>
 </dialog>
