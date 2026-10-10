@@ -1,30 +1,73 @@
 # Configuration
 
-Hindsight is configured entirely through environment variables. Nothing needs a
-rebuild. On a Pi they live in `~/hindsight/hindsight.env`, which the systemd
+Hindsight is configured through environment variables, most of which the app
+can also change (below). Nothing needs a rebuild. On a Pi they live in `~/hindsight/hindsight.env`, which the systemd
 unit reads with `EnvironmentFile=-%h/hindsight/hindsight.env` — the leading `-`
 means a missing file is not an error, because every value has a default.
 
 `deploy/hindsight.env.example` is the annotated copy the installer writes.
+
+**Most of these can also be changed in the app**, from *Settings* at the foot
+of Capture ([guide §3.3](guide.md#33-settings)). The app writes them to
+`~/hindsight/settings.json` (`SETTINGS_FILE` moves it), which wins over the env
+file; the env file stays the default for anything not changed in the app.
+Changes apply on restart, which the sheet offers. What the app can change is
+the registry in `internal/config/settings.go`; the rest stay env-only because
+they say where things live (`PORT`, `OUTPUT_DIR`, `TAPE_DIR`, `STATIC_DIR`,
+`UPDATE_REPO`, `SETTINGS_FILE`) or are development knobs
+(`FRAMES_PER_BUFFER`, `MIDI_RING_EVENTS`, `TAPE_DEMO_ALIGN`).
+
+A `settings.json` that can't be read, or that makes a configuration Hindsight
+refuses, never stops it: it logs why, starts on the env file alone, and the
+sheet shows the reason.
 
 ## The variables in the example file
 
 | Variable | Default | What it does |
 |---|---|---|
 | `RING_SECONDS` | `900` | Length of the memory ring, and therefore the longest possible capture |
-| `DEVICE_MATCH` | `EP-136` | Substring matched against PortAudio device names to pick the input |
-| `CHANNELS` | `8` | How many channels to open on that device |
+| `DEVICE_MATCH` | `auto` | Substring matched against PortAudio device names to pick the input; `auto` picks the interface itself (below) |
+| `CHANNELS` | `auto` | How many channels to open on that device; `auto` opens every input it has (below) |
 | `SAMPLE_RATE` | `48000` | Capture sample rate, in Hz |
 | `SAVE_CHANNELS` | `1,2` | 1-indexed channel pair written to a take |
-| `SAVE_ALL_CHANNELS` | `false` | Write every channel instead of the pair above |
+| `SAVE_MIX` | `stereo` | `mono` averages the `SAVE_CHANNELS` inputs onto both sides of the take |
+| `SAVE_ALL_CHANNELS` | `false` | Write every channel instead of the pair above; ignores `SAVE_MIX` |
 | `MIN_FREE_GB` | `1.0` | Refuse to save below this much free disk, after emptying the trash |
 | `MAX_SAVES` | `0` | Keep at most this many takes, moving the oldest to the trash. `0` disables pruning |
 | `INPUT_LATENCY_MS` | `100` | Input latency requested from PortAudio. Do not lower it |
 | `MIDI_CAPTURE` | `true` | Record MIDI from every connected device and write a `.mid` beside each take |
-| `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`)* | Substring naming the device whose MIDI clock is the tempo source |
+| `MIDI_CLOCK_DEVICE` | *(`DEVICE_MATCH`, or the interface's card name under `auto`)* | Substring naming the device whose MIDI clock is the tempo source |
 | `MIDI_IGNORE` | *(empty)* | Comma-separated substrings; matching MIDI devices are never opened |
 | `MIDI_LATENCY_MS` | `0` | Milliseconds added to every MIDI event before it is placed against the audio |
 | `MIDI_SNAP_BARS` | `true` | Start a take on the last downbeat before the window, so the `.mid` begins on bar 1 |
+
+## `DEVICE_MATCH=auto` and `CHANNELS=auto`
+
+Both default to `auto`, so a new install records from whatever interface is
+plugged in.
+
+- **`DEVICE_MATCH=auto`** takes the hardware input with the most input
+  channels, the first listed on a tie. On the Pi that is among ALSA's direct
+  devices, the ones named `... (hw:2,0)`; `default`, `sysdefault`, `pulse`,
+  `dmix`, `dsnoop` and the other plugs are never picked, and nor is the
+  headphone jack, which has no inputs. With an EP-136 (8 inputs) and a
+  Scarlett Solo both connected, it takes the EP-136; name one to choose.
+- **`CHANNELS=auto`** opens every input that interface has. The ring is sized
+  from it at startup, so Hindsight looks once before it allocates; with
+  nothing plugged in yet it sizes for two.
+- When the interface that turns up later has a different number of inputs
+  (booted with nothing connected, then the EP-136; or one interface swapped
+  for another), **Hindsight restarts itself** to fit it, and the ring starts
+  empty. If something is busy — a take saving, a phone or the tape recording,
+  the tape playing — it waits until that's done, recording the first channels
+  meanwhile if the interface has enough.
+
+`/api/settings` lists the inputs connected for the settings sheet. It reads
+PortAudio's device list as of the capture's last rescan, so an interface
+plugged in while another is recording shows up once the capture next rescans.
+
+An install whose `hindsight.env` names `DEVICE_MATCH` and `CHANNELS` keeps
+exactly the behaviour it had.
 
 ## The rest
 
@@ -106,6 +149,13 @@ The value is 1-indexed because that is how hardware labels its inputs.
 Internally it is stored zero-based, and `/api/status` reports it 1-indexed
 again so the UI and the env file agree.
 
+A 2-input interface like the Scarlett Solo is the opposite case: input 1 is
+the mic and input 2 the instrument, so `1,2` in stereo puts the voice hard
+left and the guitar hard right. `SAVE_MIX=mono` writes the `SAVE_CHANNELS`
+inputs averaged (each at −6 dB for a pair, so the sum can't clip) onto both
+channels of a still-stereo take: everything in the middle. The meters and the
+ribbon still show the inputs, which is what you set levels by.
+
 `SAVE_ALL_CHANNELS=true` writes every channel instead, which is useful for
 stems and costs four times the disk. The mp3 preview still folds down to the
 `SAVE_CHANNELS` pair.
@@ -165,7 +215,10 @@ what a name refers to.
 
 **`MIDI_CLOCK_DEVICE` defaults to `DEVICE_MATCH`** — the EP-136 — because
 that is the only clock this rig has sent so far, and a rig where nothing
-changes should need no new configuration. When the sequencer that actually
+changes should need no new configuration. Under `DEVICE_MATCH=auto` it
+defaults to the card name of the interface found at startup, the part of its
+PortAudio name before the colon (`EP-136 K.O. Sidekick`), which is what its
+MIDI port is called too. When the sequencer that actually
 sets the tempo is on the Pi's USB, point it there: `MIDI_CLOCK_DEVICE=Bento`.
 If two devices both match and both send clock, the tempo reads double; make
 the substring specific.

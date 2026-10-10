@@ -109,6 +109,8 @@ cat /proc/asound/cards   # the same entry Hindsight's MIDI discovery scans
 Hindsight itself does not need it. `sudo apt install alsa-utils` if the command
 is missing. (`lsusb` is from `usbutils`, likewise.)
 
+By default (`DEVICE_MATCH=auto`) Hindsight opens the connected interface with
+the most inputs, so there is nothing to set. When you do name one,
 `DEVICE_MATCH` is a substring match against the **PortAudio** device name, and
 `/proc/asound/cards` is what MIDI discovery searches. The two usually agree on
 the model string; the bracketed short id in `/proc/asound/cards` is truncated

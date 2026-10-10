@@ -213,6 +213,56 @@ run with `UPDATE_FORCE=1`.
 (`v2026.10.09.4-2-gabc1234`). It compares as the release it's built on, so
 only a later release is `available`.
 
+## `GET /api/settings`, `PUT /api/settings`
+
+The settings sheet's (`web/static/lib/settings.js`; spec
+`docs/superpowers/specs/2026-10-09-settings-design.md`). The app's values live
+in `settings.json` (`SETTINGS_FILE`, default `~/hindsight/settings.json`) and
+win over the environment, which wins over the defaults.
+
+```json
+{
+  "settings": [
+    { "key": "SAVE_MIX", "group": "Input", "label": "Mix", "help": "…",
+      "kind": "choice", "choices": ["stereo", "mono"], "default": "stereo",
+      "value": "mono", "running": "stereo", "from": "app" }
+  ],
+  "restart_needed": true,
+  "error": "",
+  "file": "/home/pi/hindsight/settings.json",
+  "device": "Scarlett Solo 4th Gen: USB Audio (hw:3,0)",
+  "channels": 2,
+  "inputs": [{ "name": "Scarlett Solo 4th Gen: USB Audio (hw:3,0)", "channels": 2 }],
+  "memory_bytes": 4025266176,
+  "started": "2026-10-10T00:22:06.74643Z"
+}
+```
+
+- **`value`** is what the next start will use, **`running`** what this one
+  did, and **`from`** where `value` comes from: `app`, `env` or `default`.
+  `restart_needed` is any `value` ≠ `running`.
+- **`kind`** is `int`, `float`, `bool`, `text` or `choice`; ints and floats
+  carry `min`/`max` and maybe `unit`, and `auto` marks an int that also takes
+  `auto`.
+- **`error`** says why `settings.json` wasn't used at start (unreadable, or a
+  config `Load` refused); Hindsight then runs on the environment alone.
+- **`inputs`** are the hardware inputs PortAudio lists now; **`started`**
+  changes with every start, which is how the sheet sees a restart land.
+
+`PUT` takes `{"KEY": "value", "OTHER": null}`: set, or remove from the file
+(back to the environment or the default). Only registry keys are accepted;
+`PORT`, `OUTPUT_DIR` and the other env-only values answer `400`. The result
+must load as a whole, so `{"CHANNELS": "2", "SAVE_CHANNELS": "3,4"}` is a
+`400` naming `SAVE_CHANNELS`, and nothing is written on any error. A good
+`PUT` answers as `GET` does. The file is replaced atomically.
+
+## `POST /api/restart`
+
+Restarts Hindsight to apply the settings: `202`, then the server shuts down as
+on `SIGTERM` and the process execs itself (same PID, so systemd sees one
+service). The ring starts empty. `409` while a take is saving, a phone is
+recording, or the tape is recording or playing, as for `POST /api/update`.
+
 ## `GET /api/live`
 
 WebSocket. The server pushes a frame whenever level bins have accumulated —

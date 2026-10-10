@@ -13,12 +13,17 @@ func clearEnv(t *testing.T) {
 	for _, k := range []string{
 		"DEVICE_MATCH", "CHANNELS", "SAMPLE_RATE", "FRAMES_PER_BUFFER",
 		"INPUT_LATENCY_MS", "RING_SECONDS", "OUTPUT_DIR", "SAVE_CHANNELS",
-		"SAVE_ALL_CHANNELS", "MIN_FREE_GB", "MAX_SAVES", "PORT",
+		"SAVE_ALL_CHANNELS", "SAVE_MIX", "MIN_FREE_GB", "MAX_SAVES", "PORT",
 		"MIDI_CAPTURE", "MIDI_DEVICES", "MIDI_IGNORE", "MIDI_CLOCK_DEVICE",
 		"MIDI_RING_EVENTS", "MIDI_LATENCY_MS", "MIDI_SNAP_BARS",
 	} {
 		t.Setenv(k, "")
 	}
+	for _, s := range Settings {
+		t.Setenv(s.Key, "")
+	}
+	// Never the developer's own ~/hindsight/settings.json.
+	t.Setenv("SETTINGS_FILE", filepath.Join(t.TempDir(), "settings.json"))
 }
 
 // The EP-136 presents four stereo record pairs. Measured 2026-09-08: USB 1/2
@@ -82,15 +87,17 @@ func TestLoadDefaultVersionIsDev(t *testing.T) {
 	}
 }
 
-// The clock device follows DEVICE_MATCH unless set, so a rig where the EP is
-// the only clock keeps its tempo stamp with no new configuration.
+// The clock device follows the interface unless set, so a rig where the EP is
+// the only clock keeps its tempo stamp with no new configuration. Under the
+// default DEVICE_MATCH=auto there is no name yet: main fills it in from the
+// card it finds (MIDIClockAuto).
 func TestMIDIDefaults(t *testing.T) {
 	clearEnv(t)
 	c, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	if !c.MIDICapture || !c.MIDISnapBars || c.MIDIClockDevice != "EP-136" || c.MIDIRingEvents != 1_000_000 || c.MIDILatencyMS != 0 {
+	if !c.MIDICapture || !c.MIDISnapBars || c.MIDIClockDevice != "" || !c.MIDIClockAuto || c.MIDIRingEvents != 1_000_000 || c.MIDILatencyMS != 0 {
 		t.Errorf("defaults: capture=%t clock=%q ring=%d latency=%v", c.MIDICapture, c.MIDIClockDevice, c.MIDIRingEvents, c.MIDILatencyMS)
 	}
 	if c.MIDIDevices != nil || c.MIDIIgnore != nil {
@@ -148,6 +155,60 @@ func TestTapeHandle(t *testing.T) {
 		t.Setenv("TAPE_HANDLE_S", v)
 		if _, err := Load(); err == nil {
 			t.Errorf("TAPE_HANDLE_S=%s must be refused", v)
+		}
+	}
+}
+
+// OutMix is the take's shape: stereo copies the pair, mono averages it onto
+// both sides, and SAVE_ALL_CHANNELS ignores SAVE_MIX.
+func TestOutMix(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		c    Config
+		want [][]int
+	}{
+		{"stereo", Config{Channels: 2, SaveChannels: []int{0, 1}, SaveMix: "stereo"}, [][]int{{0}, {1}}},
+		{"unset is stereo", Config{Channels: 2, SaveChannels: []int{0, 1}}, [][]int{{0}, {1}}},
+		{"mono", Config{Channels: 2, SaveChannels: []int{0, 1}, SaveMix: "mono"}, [][]int{{0, 1}, {0, 1}}},
+		{"mono of one", Config{Channels: 2, SaveChannels: []int{1}, SaveMix: "mono"}, [][]int{{1}, {1}}},
+		{"all ignores mono", Config{Channels: 3, SaveChannels: []int{0, 1}, SaveMix: "mono", SaveAllChannels: true}, [][]int{{0}, {1}, {2}}},
+	} {
+		got := tc.c.OutMix()
+		if len(got) != len(tc.want) {
+			t.Errorf("%s: OutMix = %v, want %v", tc.name, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if len(got[i]) != len(tc.want[i]) {
+				t.Errorf("%s: OutMix = %v, want %v", tc.name, got, tc.want)
+				break
+			}
+			for j := range got[i] {
+				if got[i][j] != tc.want[i][j] {
+					t.Errorf("%s: OutMix = %v, want %v", tc.name, got, tc.want)
+				}
+			}
+		}
+	}
+}
+
+// CHANNELS=auto (and unset) is remembered as auto once main resolves it, so
+// the capture knows a different interface means a restart; a number is not.
+func TestChannelsAuto(t *testing.T) {
+	for _, tc := range []struct {
+		env  string
+		auto bool
+	}{{"", true}, {"auto", true}, {"AUTO", true}, {"8", false}} {
+		clearEnv(t)
+		if tc.env != "" {
+			t.Setenv("CHANNELS", tc.env)
+		}
+		c, err := Load()
+		if err != nil {
+			t.Fatalf("CHANNELS=%q: %v", tc.env, err)
+		}
+		if c.ChannelsAuto != tc.auto {
+			t.Errorf("CHANNELS=%q: ChannelsAuto = %t, want %t", tc.env, c.ChannelsAuto, tc.auto)
 		}
 	}
 }

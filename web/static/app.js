@@ -14,6 +14,7 @@ import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
 import { pageBar } from '/lib/bar/bar.js';
 import { initUpdate } from '/lib/update.js';
+import { initSettings } from '/lib/settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -379,6 +380,7 @@ el.captureBtn.addEventListener('click', capture);
 
 initHelp({ page: 'main' });
 initUpdate();
+initSettings();
 np = pageBar({ tapes: initNav(), onToast: toast });
 
 initPhone({

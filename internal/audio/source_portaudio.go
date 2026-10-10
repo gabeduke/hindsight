@@ -5,7 +5,6 @@ package audio
 import (
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,6 +27,9 @@ type deviceSource struct {
 	handle int // the stream's registration with pa
 
 	overflows atomic.Uint64 // input overflows ALSA reported: frames lost before the ring
+
+	picked   string // the device the last Open chose, under mu
+	pickedIn int    // and its inputs
 }
 
 func NewDeviceSource(cfg *config.Config) Source {
@@ -128,38 +130,102 @@ func (s *deviceSource) Shutdown() error { return s.pa.Term() }
 // pickDevice selects the input deterministically. ALSA exposes the same card
 // under several PortAudio names (hw, plughw, default, sysdefault, front,
 // dsnoop); the plug-based ones can silently add format conversion, so prefer a
-// direct one. The old code kept the *last* match, which was arbitrary.
+// direct one. The old code kept the *last* match, which was arbitrary. Under
+// DEVICE_MATCH=auto it is the hardware input with the most inputs (pickInput).
+//
+// Under CHANNELS=auto the device is chosen whatever its input count, and the
+// count is kept for Picked: a device with more inputs than the ring opens its
+// first channels, one with fewer can't be opened at all and is reported as
+// not there -- either way the capture sees the difference and restarts
+// Hindsight to fit.
 func (s *deviceSource) pickDevice() (*portaudio.DeviceInfo, error) {
+	// Nothing picked until something is: a stale pick would read as an
+	// interface that isn't there any more.
+	s.mu.Lock()
+	s.picked, s.pickedIn = "", 0
+	s.mu.Unlock()
+
 	devices, err := portaudio.Devices()
 	if err != nil {
 		return nil, fmt.Errorf("enumerate devices: %w", err)
 	}
-
-	var match, fallback *portaudio.DeviceInfo
-	bestScore := -1
-
-	for _, d := range devices {
-		if d.MaxInputChannels < s.cfg.Channels {
-			continue
-		}
-		if fallback == nil {
-			fallback = d
-		}
-		if s.cfg.DeviceMatch == "" || !strings.Contains(d.Name, s.cfg.DeviceMatch) {
-			continue
-		}
-		if s := deviceScore(d.Name); s > bestScore {
-			bestScore, match = s, d
-		}
+	need := s.cfg.Channels
+	if s.cfg.ChannelsAuto {
+		need = 0
 	}
-
-	if match != nil {
-		return match, nil
+	i, fellBack, err := pickInput(inDevs(devices), s.cfg.DeviceMatch, need)
+	if err != nil {
+		return nil, err
 	}
-	if fallback != nil {
+	dev := devices[i]
+	if fellBack {
 		log.Printf("[!] no input matching %q with >=%d channels; falling back to %q",
-			s.cfg.DeviceMatch, s.cfg.Channels, fallback.Name)
-		return fallback, nil
+			s.cfg.DeviceMatch, max(need, 1), dev.Name)
 	}
-	return nil, fmt.Errorf("%w: none with >=%d channels (is it off, unplugged, or in use by another process?)", ErrNoDevice, s.cfg.Channels)
+
+	s.mu.Lock()
+	s.picked, s.pickedIn = dev.Name, dev.MaxInputChannels
+	s.mu.Unlock()
+
+	if dev.MaxInputChannels < s.cfg.Channels {
+		return nil, fmt.Errorf("%w: %q has %d inputs, the ring %d", ErrNoDevice, dev.Name, dev.MaxInputChannels, s.cfg.Channels)
+	}
+	return dev, nil
+}
+
+// Picked reports the device the last Open chose and its input count.
+func (s *deviceSource) Picked() (string, int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.picked, s.pickedIn
+}
+
+func inDevs(devices []*portaudio.DeviceInfo) []inDev {
+	out := make([]inDev, len(devices))
+	for i, d := range devices {
+		out[i] = inDev{Name: d.Name, MaxIn: d.MaxInputChannels}
+	}
+	return out
+}
+
+// ProbeInput reports the input pickDevice would open now and how many inputs
+// it has, or "", 0 when there is none. main calls it once, before the ring is
+// sized; it leaves PortAudio up, which the capture's first Open takes as it
+// finds it.
+func ProbeInput(cfg *config.Config) (name string, channels int) {
+	_ = sharedPA.Do(func() error {
+		devices, err := portaudio.Devices()
+		if err != nil {
+			return err
+		}
+		need := cfg.Channels
+		if cfg.ChannelsAuto {
+			need = 0
+		}
+		i, _, err := pickInput(inDevs(devices), cfg.DeviceMatch, need)
+		if err != nil {
+			return err
+		}
+		name, channels = devices[i].Name, devices[i].MaxInputChannels
+		return nil
+	})
+	return name, channels
+}
+
+// ListInputs lists the hardware inputs connected, for the settings sheet.
+// It is called while the capture runs, so it reads the device list PortAudio
+// already holds rather than rescanning, which would close the live stream:
+// an interface plugged in since appears once the capture next rescans (when
+// its own interface stalls or is missing). With PortAudio not up -- the demo,
+// or shutting down -- it lists nothing rather than bringing it up.
+func ListInputs() []Input {
+	var out []Input
+	sharedPA.IfUp(func() {
+		devices, err := portaudio.Devices()
+		if err != nil {
+			return
+		}
+		out = listHardware(inDevs(devices))
+	})
+	return out
 }

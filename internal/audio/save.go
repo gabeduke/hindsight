@@ -287,15 +287,15 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	// to be listed, and openable, while still half on disk.
 	tmpPath := PartPath(wavPath)
 
-	pick := cfg.OutChannels()
+	mix := cfg.OutMix()
 	start := time.Now()
-	peaks, pyr, err := writeWAV(tmpPath, data, cfg.Channels, pick, cfg.SampleRate)
+	peaks, pyr, err := writeWAV(tmpPath, data, cfg.Channels, mix, cfg.SampleRate)
 	if err != nil {
 		os.Remove(tmpPath)
 		return "", fmt.Errorf("write wav: %w", err)
 	}
 	log.Printf("[*] saved %s — %.1fs, %d ch, %s in %s",
-		name, float64(gotFrames)/float64(cfg.SampleRate), len(pick),
+		name, float64(gotFrames)/float64(cfg.SampleRate), len(mix),
 		sizeOf(tmpPath), time.Since(start).Round(time.Millisecond))
 
 	if err := WritePeaks(peaksPath(wavPath), peaks); err != nil {
@@ -330,7 +330,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	s.lastSaved = name
 	s.mu.Unlock()
 
-	s.afterSave(wavPath, len(pick), true)
+	s.afterSave(wavPath, len(mix), true)
 
 	return name, nil
 }

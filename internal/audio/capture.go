@@ -74,6 +74,11 @@ type Capture struct {
 	lastErr    atomic.Value // string
 	waiting    atomic.Bool  // the last open failed with ErrNoDevice
 
+	// onMismatch is called when an open finds an interface whose input count
+	// isn't the ring's (SetOnMismatch). Set before Start, read only by
+	// supervise.
+	onMismatch func(name string, inputs int)
+
 	stop     chan struct{}
 	stopOnce sync.Once
 	wg       sync.WaitGroup
@@ -215,6 +220,31 @@ func (c *Capture) BufferedSeconds() float64 {
 	return float64(c.ring.BufferedFrames()) / float64(c.cfg.SampleRate)
 }
 
+// SetOnMismatch asks to be told, after each open of the stream, when the
+// interface chosen has a different number of inputs from the ring's channels:
+// under CHANNELS=auto that means another interface than the one Hindsight was
+// sized for at startup, and main restarts to fit it. Only a source that
+// reports what it picked (Fitted) can tell. Call it before Start.
+func (c *Capture) SetOnMismatch(f func(name string, inputs int)) { c.onMismatch = f }
+
+// checkFit calls onMismatch if the source's last pick doesn't fit the ring.
+// It runs after every open, failed or not: a device with fewer inputs than
+// the ring fails to open, and is exactly the case that must not just wait.
+func (c *Capture) checkFit() {
+	if c.onMismatch == nil {
+		return
+	}
+	f, ok := c.src.(Fitted)
+	if !ok {
+		return
+	}
+	// CHANNELS=auto never sizes past MaxChannels, so a bigger interface
+	// fits once it gets those: comparing the raw count would restart forever.
+	if name, n := f.Picked(); n > 0 && min(n, config.MaxChannels) != c.cfg.Channels {
+		c.onMismatch(name, n)
+	}
+}
+
 // Start brings up the ring writer, the level broadcaster and the supervised
 // audio stream. It returns immediately; use Healthy to observe state.
 //
@@ -283,6 +313,7 @@ func (c *Capture) supervise() {
 			c.reopened.Store(true)
 		}
 		name, err := c.src.Open(c.processAudio)
+		c.checkFit()
 		if err != nil {
 			c.lastErr.Store(err.Error())
 			c.waiting.Store(errors.Is(err, ErrNoDevice))

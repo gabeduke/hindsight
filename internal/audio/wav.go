@@ -57,13 +57,39 @@ const peakBuckets = 1024
 // through reflection and is dramatically slower than encoding into a buffered
 // writer directly.
 func WriteWAV(path string, data []int32, srcChannels int, pick []int, sampleRate int) (*PeakData, error) {
-	pd, _, err := writeWAV(path, data, srcChannels, pick, sampleRate)
+	pd, _, err := writeWAV(path, data, srcChannels, pickMix(pick), sampleRate)
 	return pd, err
 }
 
+// pickMix is the mix that copies pick one to one: output i is input pick[i].
+func pickMix(pick []int) [][]int {
+	mix := make([][]int, len(pick))
+	for i, c := range pick {
+		mix[i] = []int{c}
+	}
+	return mix
+}
+
+// mixSample is one output sample of a mix (see config.OutMix): the average
+// of frame's channels ins. Summed in int64 so full-scale inputs can't
+// overflow, then divided by the count, so the result can't clip either. A
+// single input is copied as it is, which keeps a stereo take byte-identical
+// to what it always was.
+func mixSample(frame []int32, ins []int) int32 {
+	if len(ins) == 1 {
+		return frame[ins[0]]
+	}
+	var sum int64
+	for _, c := range ins {
+		sum += int64(frame[c])
+	}
+	return int32(sum / int64(len(ins)))
+}
+
 // writeWAV is WriteWAV that also returns the take's peaks pyramid, built in
-// the same pass; the saver writes it beside the finished take.
-func writeWAV(path string, data []int32, srcChannels int, pick []int, sampleRate int) (*PeakData, *pyramidAcc, error) {
+// the same pass; the saver writes it beside the finished take. Output
+// channel i is the average of the input channels mix[i] (config.OutMix).
+func writeWAV(path string, data []int32, srcChannels int, mix [][]int, sampleRate int) (*PeakData, *pyramidAcc, error) {
 	if srcChannels <= 0 {
 		return nil, nil, fmt.Errorf("srcChannels must be positive")
 	}
@@ -71,13 +97,18 @@ func writeWAV(path string, data []int32, srcChannels int, pick []int, sampleRate
 	if frames == 0 {
 		return nil, nil, fmt.Errorf("no audio frames to write")
 	}
-	outCh := len(pick)
+	outCh := len(mix)
 	if outCh == 0 {
 		return nil, nil, fmt.Errorf("no output channels selected")
 	}
-	for _, c := range pick {
-		if c < 0 || c >= srcChannels {
-			return nil, nil, fmt.Errorf("channel %d out of range for %d-channel source", c+1, srcChannels)
+	for _, ins := range mix {
+		if len(ins) == 0 {
+			return nil, nil, fmt.Errorf("an output channel with no inputs")
+		}
+		for _, c := range ins {
+			if c < 0 || c >= srcChannels {
+				return nil, nil, fmt.Errorf("channel %d out of range for %d-channel source", c+1, srcChannels)
+			}
 		}
 	}
 
@@ -99,9 +130,9 @@ func writeWAV(path string, data []int32, srcChannels int, pick []int, sampleRate
 	var scratch [4]byte
 
 	for i := 0; i < frames; i++ {
-		base := i * srcChannels
-		for oc, c := range pick {
-			s := data[base+c]
+		frame := data[i*srcChannels : (i+1)*srcChannels]
+		for oc, ins := range mix {
+			s := mixSample(frame, ins)
 			binary.LittleEndian.PutUint32(scratch[:], uint32(s))
 			if _, err := w.Write(scratch[:]); err != nil {
 				return nil, nil, err

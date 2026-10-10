@@ -2,6 +2,7 @@ package audio
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"math"
 	"math/rand"
@@ -294,5 +295,89 @@ func TestOverlappingSavesKeepSavingTrue(t *testing.T) {
 	s.endSave()
 	if s.Saving() {
 		t.Fatal("Saving() true with nothing running")
+	}
+}
+
+// fillRingWith writes frames whose channels carry vals, frame after frame.
+func fillRingWith(c *Capture, frames int, vals ...int32) {
+	b := make([]int32, 0, frames*len(vals))
+	for f := 0; f < frames; f++ {
+		b = append(b, vals...)
+	}
+	c.Ring().WriteFrames(b)
+}
+
+// SAVE_MIX=mono: both ways a take leaves the ring write the pair averaged,
+// the same on both sides — at full scale too, where a plain sum would wrap.
+func TestMonoMixAveragesThePairOntoBothSides(t *testing.T) {
+	for _, tc := range []struct{ l, r, want int32 }{
+		{1000, 3000, 2000},
+		{math.MaxInt32, math.MaxInt32, math.MaxInt32},
+		{math.MinInt32, math.MinInt32, math.MinInt32},
+		{math.MaxInt32, math.MinInt32, 0}, // -0.5 truncates toward zero
+	} {
+		cfg, cap, s := newSaveFixture(t)
+		cfg.SaveMix = "mono"
+		fillRingWith(cap, 4800, tc.l, tc.r)
+		name, err := s.Save(0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.SaveRange(0, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, n := range []string{name, got.Name} {
+			wav := filepath.Join(cfg.OutputDir, n)
+			info, samples := readTake(t, wav)
+			if info.Channels != 2 || info.Frames() != 4800 {
+				t.Fatalf("%s is %d frames, %d ch", n, info.Frames(), info.Channels)
+			}
+			for i := 0; i < len(samples); i += 2 {
+				if samples[i] != tc.want || samples[i+1] != tc.want {
+					t.Fatalf("%d,%d: %s frame %d = %d,%d, want %d both sides",
+						tc.l, tc.r, n, i/2, samples[i], samples[i+1], tc.want)
+				}
+			}
+		}
+		// The peaks describe what was written, not the inputs.
+		raw, err := os.ReadFile(peaksPath(filepath.Join(cfg.OutputDir, name)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var pd PeakData
+		if err := json.Unmarshal(raw, &pd); err != nil {
+			t.Fatal(err)
+		}
+		want := float32(float64(tc.want) / 2147483648.0)
+		if pd.Channels != 2 || pd.Data[0][1] != want || pd.Data[1][1] != want {
+			t.Fatalf("peaks = %d ch, max %v/%v, want %v", pd.Channels, pd.Data[0][1], pd.Data[1][1], want)
+		}
+	}
+}
+
+// Stereo writes the pair as it is, and SAVE_ALL_CHANNELS ignores mono.
+func TestMonoMixLeavesStereoAndAllChannelsAlone(t *testing.T) {
+	for _, tc := range []struct {
+		mix string
+		all bool
+	}{{"stereo", false}, {"mono", true}} {
+		cfg, cap, s := newSaveFixture(t)
+		cfg.SaveMix, cfg.SaveAllChannels = tc.mix, tc.all
+		fillRingWith(cap, 4800, 1000, 3000)
+		name, err := s.Save(0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.SaveRange(0, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, n := range []string{name, got.Name} {
+			_, samples := readTake(t, filepath.Join(cfg.OutputDir, n))
+			if samples[0] != 1000 || samples[1] != 3000 || samples[len(samples)-1] != 3000 {
+				t.Fatalf("%s/all=%v: %s starts %d,%d, want 1000,3000", tc.mix, tc.all, n, samples[0], samples[1])
+			}
+		}
 	}
 }

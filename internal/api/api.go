@@ -73,6 +73,11 @@ type API struct {
 	// busyHook stands in for busy() in tests.
 	busyHook func() string
 
+	// restart is POST /api/restart's (settings.go); settingsMu serialises
+	// writes to settings.json.
+	restart    func()
+	settingsMu sync.Mutex
+
 	// tagsMu serialises writes to tags.json (see tags.go).
 	tagsMu sync.Mutex
 
@@ -132,6 +137,9 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/update", a.handleUpdateGet).Methods(http.MethodGet)
 	r.HandleFunc("/api/update", a.handleUpdatePost).Methods(http.MethodPost)
 	r.HandleFunc("/api/update/releases", a.handleReleases).Methods(http.MethodGet)
+	r.HandleFunc("/api/settings", a.handleSettingsGet).Methods(http.MethodGet)
+	r.HandleFunc("/api/settings", a.handleSettingsPut).Methods(http.MethodPut)
+	r.HandleFunc("/api/restart", a.handleRestart).Methods(http.MethodPost)
 	r.HandleFunc("/api/jams", a.handleJams).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/trigger", a.handleTrigger).Methods(http.MethodPost)
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)
@@ -824,7 +832,7 @@ func (a *API) handleCut(w http.ResponseWriter, r *http.Request) {
 	}
 	// The preview needs ffmpeg and the channel config; never block the
 	// response on it, and never fail the cut because of it -- same as Save.
-	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutChannels())) })
+	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, out), len(a.cfg.OutMix())) })
 	// A cut is a new take, so MAX_SAVES applies to it as it does to a save --
 	// but never to the cut itself, or to the take it was cut from: the owner
 	// is on that take's page, and may be about to cut from it again.

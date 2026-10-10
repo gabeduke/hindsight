@@ -43,6 +43,21 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 	cfg.Version = version
+	// DEVICE_MATCH=auto and CHANNELS=auto are settled here, once, before the
+	// ring and the meters are sized from them: look at what is plugged in
+	// now. The demo's synthetic interface has eight inputs, like the EP-136.
+	probed, probedChannels := "", 8
+	if !*demo {
+		probed, probedChannels = audio.ProbeInput(cfg)
+	}
+	if cfg.Channels == 0 {
+		if note := cfg.SetChannels(probedChannels); note != "" {
+			log.Printf("[!] %s", note)
+		}
+	}
+	if cfg.MIDIClockAuto && cfg.DeviceMatch == "" && probed != "" {
+		cfg.MIDIClockDevice = audio.CardName(probed)
+	}
 	if err := os.MkdirAll(cfg.OutputDir, 0o755); err != nil {
 		log.Fatalf("output dir: %v", err)
 	}
@@ -87,11 +102,36 @@ func main() {
 		src = audio.NewDeviceSource(cfg)
 	}
 
+	// What a defer would stop, kept so a restart can stop it too before exec,
+	// which runs no defers. Last started, first stopped.
+	var stops []func()
+	stopAll := func() {
+		for i := len(stops) - 1; i >= 0; i-- {
+			stops[i]()
+		}
+		stops = nil
+	}
+	defer stopAll()
+
 	cap := audio.NewCapture(cfg, src)
+	// Under CHANNELS=auto the ring fits the interface found at startup. One
+	// with a different number of inputs turning up later (booted with
+	// nothing plugged in, then the EP-136) is handed to fitInterface below,
+	// which restarts to fit it; the startup probe then sizes it right, so
+	// this fires at most once per interface change.
+	misfit := make(chan string, 1)
+	if cfg.ChannelsAuto && !*demo {
+		cap.SetOnMismatch(func(name string, inputs int) {
+			select {
+			case misfit <- fmt.Sprintf("%q has %d inputs, the ring %d", name, inputs, cfg.Channels):
+			default:
+			}
+		})
+	}
 	if err := cap.Start(); err != nil {
 		log.Fatalf("capture: %v", err)
 	}
-	defer cap.Stop()
+	stops = append(stops, cap.Stop)
 
 	saver := audio.NewSaver(cap)
 
@@ -111,7 +151,7 @@ func main() {
 			ClockDevice: cfg.MIDIClockDevice,
 		}, mc, events)
 		watcher.Start()
-		defer watcher.Stop()
+		stops = append(stops, watcher.Stop)
 		clock, tempo = watcher, watcher
 		if cfg.MIDICapture {
 			exporter = bundle.New(watcher, cfg.MIDILatencyMS, cfg.MIDIClockDevice)
@@ -125,7 +165,7 @@ func main() {
 	if cfg.Tape {
 		if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
 			srvAPI.SetTape(eng)
-			defer eng.Stop()
+			stops = append(stops, eng.Stop)
 		}
 	}
 	// The Update button, where deploy/hindsight-update is installed beside
@@ -133,6 +173,17 @@ func main() {
 	if u := api.NewUpdater(cfg.UpdateRepo); u != nil {
 		srvAPI.SetUpdater(u)
 	}
+	// POST /api/restart, and the capture finding an interface that doesn't
+	// fit the ring, both end here: shut down as on SIGTERM, then exec.
+	restart := make(chan struct{}, 1)
+	requestRestart := func() {
+		select {
+		case restart <- struct{}{}:
+		default:
+		}
+	}
+	srvAPI.SetRestart(requestRestart)
+	go fitInterface(misfit, srvAPI.Busy, requestRestart, 5*time.Second)
 	srvAPI.SetupRoutes(r)
 	r.PathPrefix("/").Handler(noCacheShell(http.FileServer(http.Dir(staticDir()))))
 
@@ -152,17 +203,58 @@ func main() {
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-	<-sig
-	log.Printf("[*] shutting down")
+	again := false
+	select {
+	case <-sig:
+		log.Printf("[*] shutting down")
+	case <-restart:
+		log.Printf("[*] restarting to apply settings")
+		again = true
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
+	if again {
+		// The tape, the MIDI watcher and the capture release the interface
+		// first, or the new process would find it busy; exec runs no defers.
+		// Then this process is replaced by a fresh one: same PID, so systemd
+		// sees one service.
+		cancel()
+		stopAll()
+		exe, err := os.Executable()
+		if err != nil {
+			log.Fatalf("restart: %v", err)
+		}
+		log.Fatalf("restart: %v", syscall.Exec(exe, os.Args, os.Environ()))
+	}
 }
 
 // startTape opens the tape store and starts the engine, loading the tape
 // that was loaded last. The tape can never cost a recording: any failure here
 // is logged and the dashcam runs on without it.
+// fitInterface waits for the capture to report an interface that doesn't fit
+// the ring, then restarts Hindsight -- once nothing is busy: a take saving, a
+// phone or the tape recording is never cut short for it. Meanwhile the
+// capture records the interface's first channels if it has enough, or waits.
+func fitInterface(misfit <-chan string, busy func() string, restart func(), every time.Duration) {
+	why := <-misfit
+	said := ""
+	for {
+		b := busy()
+		if b == "" {
+			log.Printf("[*] interface changed: %s; restarting to fit it", why)
+			restart()
+			return
+		}
+		if b != said {
+			log.Printf("[!] interface changed: %s; restarting to fit it once nothing is busy (now: %s)", why, b)
+			said = b
+		}
+		time.Sleep(every)
+	}
+}
+
 func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src audio.Source, demo bool) *tape.Engine {
 	store, err := tape.OpenStore(cfg.TapeDir, cfg.SampleRate, cfg.TapeTracks, cfg.TapeLengthS)
 	if err != nil {

@@ -1172,6 +1172,51 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
 .update-inner .update-progress.bad { color: var(--danger-ink); font-family: var(--font); }
 
+/* The settings sheet (lib/settings.js): a scrolling list of fields grouped as
+   the registry says, Input first; then Save, and Restart once one is owed. */
+.settings-inner { display: flex; flex-direction: column; max-height: min(86svh, 760px); box-sizing: border-box; }
+.settings-inner h3 { flex: none; }
+.settings-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px 12px; padding: 0 4px; }
+.sheet-inner.settings-inner p { font-family: var(--font); word-break: normal; }
+.sheet-inner.settings-inner p.settings-error { color: var(--danger-ink); font-size: 13px; margin: 0 0 10px; flex: none; }
+.sheet-inner.settings-inner p.set-device { color: var(--ink-dim); font-size: 13px; margin: 0 0 10px; }
+.set-group { border-top: 1px solid var(--line); padding: 4px 0; }
+.set-group > summary {
+  cursor: pointer; min-height: 40px; display: flex; align-items: center;
+  font: 700 11px var(--label-font, var(--font)); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim);
+}
+.set-group > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.set-field { padding: 6px 0 12px; }
+.set-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.set-label { font-size: 14px; font-weight: 600; color: var(--ink); }
+.set-unit { color: var(--ink-faint); font-size: 12px; }
+.set-field.bool .set-head { margin-bottom: 2px; }
+.set-field.bool input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.set-field select, .set-field input[type="text"] {
+  box-sizing: border-box; width: 100%; min-height: 40px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--field, var(--panel-2)); color: var(--ink);
+  font: 14px var(--font); padding: 0 10px;
+}
+.set-field input[type="text"] { font-family: var(--mono); }
+.set-field select:focus-visible, .set-field input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.sheet-inner.settings-inner p.set-help { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--ink-dim); }
+.sheet-inner.settings-inner p.set-note { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--ink); }
+.sheet-inner.settings-inner p.set-note:empty { display: none; }
+.sheet-inner.settings-inner p.set-note.warn { color: var(--danger-ink); }
+.set-meta { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-size: 11.5px; color: var(--ink-faint); }
+.set-pending { color: var(--accent); }
+.set-reset {
+  appearance: none; border: 0; background: none; padding: 6px 2px; margin: -6px 0 -6px auto;
+  font: inherit; color: var(--ink-dim); cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.set-reset:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.settings-restart { flex: none; margin: 0 0 12px; padding: 12px; border-radius: 10px; background: var(--panel-hi); border: 1px solid var(--accent); }
+.settings-restart[hidden] { display: none; }
+.sheet-inner.settings-inner .settings-restart p { margin: 0 0 10px; font-size: 13px; line-height: 1.45; color: var(--ink); }
+.settings-restart button { width: 100%; min-height: var(--tap); }
+.sheet-inner.settings-inner .settings-progress { flex: none; margin: 0 0 12px; font: 600 14px var(--mono); color: var(--ink); }
+.sheet-inner.settings-inner .settings-progress.bad { color: var(--danger-ink); font-family: var(--font); }
+
 /* ---------- toasts ---------- */
 
 #toasts {
