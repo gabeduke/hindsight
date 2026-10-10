@@ -1,0 +1,22 @@
+# The hub: deployed by Argo CD from this directory on main (see docs/hub.md).
+# The hindsight namespace already exists; the devices Secret is made by
+# scripts/hub-enroll.sh, not committed.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: hindsight
+resources:
+  - serviceaccount.yaml
+  - rbac.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/name: hindsight-hub
+      app.kubernetes.io/part-of: hindsight
+    includeSelectors: false
+# The release workflow's hub-image job bumps newTag on main after each
+# release; the tag in git is what runs.
+images:
+  - name: ghcr.io/gabeduke/hindsight-hub
+    newTag: latest

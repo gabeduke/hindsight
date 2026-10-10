@@ -33,6 +33,9 @@ jobs:
     # binary built on the bare runner will not start on the Pi, so build
     # against the target distribution instead.
     container: debian:bookworm
+    # The hub image is tagged with the release.
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - name: Install build dependencies
         run: |
@@ -175,3 +178,78 @@ jobs:
           files: |
             dist/hindsight_${{ steps.version.outputs.tag }}_linux_arm64.tar.gz
             dist/SHA256SUMS
+
+  # The hub (cmd/hindsight-hub, docs/hub.md) as an image, after the release
+  # it is named for. Argo CD deploys deploy/hub from main, so the last step
+  # points its kustomization at this image: the tag in git is what runs.
+  hub-image:
+    needs: release
+    runs-on: ubuntu-24.04-arm # native arm64: no QEMU
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      # The release's own commit, so the image is what the tag says --
+      # the same promise "Tag the release" makes for the tarball. Main has
+      # moved on by at least the changelog commit; the last step deals with
+      # that.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/hub/Dockerfile
+          platforms: linux/arm64
+          push: true
+          build-args: VERSION=${{ needs.release.outputs.tag }}
+          tags: |
+            ghcr.io/gabeduke/hindsight-hub:${{ needs.release.outputs.tag }}
+            ghcr.io/gabeduke/hindsight-hub:latest
+          cache-from: type=gha,scope=hindsight-hub
+          cache-to: type=gha,scope=hindsight-hub,mode=max
+
+      # Best effort, the way "Update the changelog" is, and for the same
+      # reasons: this checkout is at the release's commit, not main's tip,
+      # which by now carries at least the changelog commit and perhaps a
+      # later merge. So the bump is applied to whatever main is *now*. If
+      # the push still loses to a merge landing inside this step, warn and
+      # move on: the image is pushed and the release stands; Argo keeps
+      # running the previous tag until the next release bumps it.
+      - name: Point the hub at the image
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin main
+          git checkout -B hub-image-tmp FETCH_HEAD
+
+          if command -v kustomize >/dev/null; then
+            (cd deploy/hub && kustomize edit set image "ghcr.io/gabeduke/hindsight-hub:$TAG")
+          else
+            # One image in the file, so its one newTag is this one.
+            sed -i -E "s|^([[:space:]]*newTag:).*|\1 $TAG|" deploy/hub/kustomization.yaml
+          fi
+
+          if git diff --quiet -- deploy/hub/kustomization.yaml; then
+            echo "::warning::deploy/hub/kustomization.yaml unchanged; the hub image $TAG is pushed but not deployed"
+            exit 0
+          fi
+
+          # [skip ci], as for the changelog: the `test` job's `if` reads
+          # head_commit.message, and `release` needs test.
+          git commit -m "Point the hub at $TAG [skip ci]" -- deploy/hub/kustomization.yaml
+          git push origin HEAD:main \
+            || echo "::warning::hub image push to main failed; ghcr.io/gabeduke/hindsight-hub:$TAG is pushed, deploy/hub not updated"
