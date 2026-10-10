@@ -19,6 +19,9 @@ func clearEnv(t *testing.T) {
 	} {
 		t.Setenv(k, "")
 	}
+	for _, s := range Settings {
+		t.Setenv(s.Key, "")
+	}
 	// Never the developer's own ~/hindsight/settings.json.
 	t.Setenv("SETTINGS_FILE", filepath.Join(t.TempDir(), "settings.json"))
 }
