@@ -1,11 +1,11 @@
-// web/static/lib/bar/reel-window.js
+// web/static/lib/objects/reel-window.js
 // The bar's reel window: two reels either side of the LCD, turning with the
-// playhead (lib/tape/reels.js), their packs filling and emptying over the
+// playhead (lib/objects/reels.js), their packs filling and emptying over the
 // tape, and the LCD's level bars, one per track. A picture of the
 // transport, like the deck it replaces: hidden from assistive tech, sized by
 // CSS.
 
-import { ReelMotion } from '../tape/reels.js';
+import { ReelMotion } from './reels.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const C = 80, FLANGE = 74;

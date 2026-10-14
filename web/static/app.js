@@ -3,7 +3,7 @@
 import { connectLive } from '/lib/live.js';
 import { watchLink, timedFetch } from '/lib/link.js';
 import { Meters, FLOOR_DB, fmtDur, tierPhrase } from '/lib/meter.js';
-import { VUMeters } from '/lib/vu.js';
+import { VUMeters } from '/lib/objects/vu.js';
 import { Ribbon } from '/lib/ribbon.js';
 import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';

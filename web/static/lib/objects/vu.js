@@ -1,4 +1,4 @@
-// web/static/lib/vu.js
+// web/static/lib/objects/vu.js
 // VU meters for the main page: a needle per saved channel, on the scale an
 // analog VU meter draws -- −20 to +3 VU, 0 VU two thirds of the way over.
 //

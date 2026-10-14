@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Object bench · Hindsight</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+  /* Bench-only. These styles are not shipped UI and deliberately stay out of
+     styles.css: the bench is scaffolding for looking at objects, and the day
+     it starts sharing a stylesheet with the app is the day a change here can
+     move something on the tape page. */
+  .bench-wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .bench-head { margin: 8px 0 4px; }
+  .bench-note { color: var(--ink-dim); font-size: 13px; margin: 0 0 12px; max-width: 62ch; }
+  .bench-speed { display: flex; align-items: center; gap: 10px; margin: 12px 0 20px; }
+  .bench-section { margin: 0 0 32px; }
+  .bench-section h2 { font: 700 15px var(--label-font); letter-spacing: 2px; text-transform: uppercase; margin: 0 0 2px; }
+  .bench-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .bench-cell { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 12px 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .bench-body { display: flex; justify-content: center; width: 100%; }
+  .bench-label { font: 12px var(--mono); color: var(--ink-dim); text-align: center; }
+  .bench-reels { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; }
+  .bench-reel { width: 56px; height: 56px; }
+  /* The size slider the design calls for lands with the materials cut; until
+     then the cells are a fixed, honest size rather than a fake control. */
+</style>
+</head>
+<body>
+<div class="bench-wrap">
+  <h1 class="bench-head">Object bench</h1>
+  <p class="bench-note">
+    Every physical object Hindsight draws, on its own, in each of its states.
+    It is here so a change to one of them can be seen and judged without
+    loading a rig and getting a take into the right shape. Not linked from the
+    app, and not shipped UI — if the bench and a page disagree, the page is right.
+  </p>
+  <main id="bench"></main>
+</div>
+<script type="module">
+  import { mount } from '/lib/objects/bench.js';
+  mount(document.getElementById('bench'));
+</script>
+</body>
+</html>

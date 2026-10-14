@@ -6,7 +6,7 @@
 // there; a drag scrubs it; with the strip focused, ← → step and Space plays.
 // The page decides what the bar holds; ⏏ asks it for the tape back.
 
-import { ReelWindow } from './reel-window.js';
+import { ReelWindow } from '../objects/reel-window.js';
 import { tapeSource } from './tape-source.js';
 import { takeSource } from './take-source.js';
 import { initPlayer } from './player.js';

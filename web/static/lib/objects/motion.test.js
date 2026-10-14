@@ -1,0 +1,208 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { ballistic, lag, settled, spin, Ticker, VU_WN, VU_ZETA } from './motion.js';
+
+// A fake clock, so motion is tested as maths rather than as a race with a
+// real requestAnimationFrame.
+function fakeClock() {
+  let t = 0;
+  const queue = [];
+  return {
+    now: () => t,
+    raf: (fn) => queue.push(fn),
+    cancel: () => queue.length = 0,
+    pending: () => queue.length,
+    /** advance runs one frame `ms` later, as rAF would. */
+    advance(ms) {
+      t += ms;
+      const due = queue.splice(0, queue.length);
+      for (const fn of due) fn(t);
+    },
+  };
+}
+
+/** step runs a ballistic movement from rest to 1 at `hz`, for `ms`. */
+function toRest(hz, ms, target = 1) {
+  let value = 0, velocity = 0;
+  const dt = 1000 / hz;
+  for (let i = 0; i < Math.round((ms / 1000) * hz); i++) {
+    ({ value, velocity } = ballistic(value, velocity, target, dt));
+  }
+  return { value, velocity };
+}
+
+test('ballistic meets the VU standard: 99% at 300ms', () => {
+  let value = 0, velocity = 0, t99 = null;
+  for (let t = 1; t <= 600; t++) {
+    ({ value, velocity } = ballistic(value, velocity, 1, 1));
+    if (t99 === null && value >= 0.99) t99 = t;
+  }
+  // The standard says 300 ms to 99% of a step. This is the number the
+  // constants are chosen for, so it is worth failing loudly on.
+  assert.equal(t99, 300);
+});
+
+test('ballistic overshoots by about 1%, as a real movement does', () => {
+  let value = 0, velocity = 0, peak = 0;
+  for (let t = 0; t < 1200; t++) {
+    ({ value, velocity } = ballistic(value, velocity, 1, 1));
+    peak = Math.max(peak, value);
+  }
+  const overshoot = (peak - 1) * 100;
+  assert.ok(overshoot > 0.8 && overshoot < 1.5, `overshoot ${overshoot.toFixed(2)}% outside 0.8-1.5%`);
+  // And it is the analytic value for this damping ratio, not a coincidence.
+  const analytic = Math.exp(-Math.PI * VU_ZETA / Math.sqrt(1 - VU_ZETA * VU_ZETA)) * 100;
+  assert.ok(Math.abs(overshoot - analytic) < 0.05);
+});
+
+test('ballistic is frame-rate independent, not merely close', () => {
+  // The whole reason for the closed form. A phone dropping from 120 Hz to
+  // 20 Hz mid-swing must not change where the needle is.
+  const at = [240, 120, 60, 30, 20, 10].map((hz) => toRest(hz, 500).value);
+  for (const v of at) assert.ok(Math.abs(v - at[0]) < 1e-9, `${v} != ${at[0]}`);
+});
+
+test('ballistic settles rather than exploding on a long frame', () => {
+  // A backgrounded tab comes back with one enormous dt. A stiff explicit
+  // integrator would fly off; arriving is the right answer.
+  assert.deepEqual(ballistic(0, 0, 1, 60_000), { value: 1, velocity: 0 });
+  assert.deepEqual(ballistic(0.3, 2, 1, Infinity), { value: 1, velocity: 0 });
+});
+
+test('ballistic leaves things alone at dt 0', () => {
+  assert.deepEqual(ballistic(0.3, 2, 1, 0), { value: 0.3, velocity: 2 });
+});
+
+test('ballistic carries velocity through a target change', () => {
+  // Mid-swing the level changes. The needle must keep its momentum rather
+  // than restart, which is what makes a meter read as a physical thing.
+  let { value, velocity } = toRest(60, 120);
+  assert.ok(velocity > 0);
+  const next = ballistic(value, velocity, 0, 1000 / 60);
+  assert.ok(next.velocity < velocity);
+});
+
+test('lag covers 63% in one time constant, at any frame rate', () => {
+  for (const hz of [120, 60, 30]) {
+    let v = 0;
+    for (let i = 0; i < hz / 10; i++) v = lag(v, 1, 100, 1000 / hz); // 100ms
+    assert.ok(Math.abs(v - (1 - Math.exp(-1))) < 1e-9, `${hz}Hz gave ${v}`);
+  }
+});
+
+test('lag arrives on a degenerate tau or an infinite step', () => {
+  assert.equal(lag(0, 1, 0, 16), 1);
+  assert.equal(lag(0, 1, 100, Infinity), 1);
+});
+
+test('settled is true only once it has arrived and stopped', () => {
+  assert.ok(settled(1, 0, 1));
+  assert.ok(!settled(0.5, 0, 1));
+  assert.ok(!settled(1, 5, 1)); // there but still moving: it will overshoot
+});
+
+test('a heavy reel spins up more slowly than a light one', () => {
+  // The supply reel is heavy when full and light when nearly empty, which
+  // is the whole point of passing the pack radius as inertia.
+  let heavy = { angle: 0, rate: 0 }, light = { angle: 0, rate: 0 };
+  for (let i = 0; i < 30; i++) {
+    heavy = spin(heavy.angle, heavy.rate, 1, 64, 1000 / 60);
+    light = spin(light.angle, light.rate, 1, 20, 1000 / 60);
+  }
+  assert.ok(light.rate > heavy.rate, `light ${light.rate} should lead heavy ${heavy.rate}`);
+  assert.ok(heavy.rate > 0 && light.rate < 1);
+});
+
+test('spin coasts down rather than stopping dead', () => {
+  let s = { angle: 0, rate: 1 };
+  const first = spin(s.angle, s.rate, 0, 40, 1000 / 60);
+  assert.ok(first.rate > 0 && first.rate < 1);
+  assert.ok(first.angle > 0, 'it keeps moving while it slows');
+});
+
+test('spin wraps its angle and never winds on through a long frame', () => {
+  const { angle } = spin(350, 100, 100, 40, 1000 / 60);
+  assert.ok(angle >= 0 && angle < 360);
+  // A tab gone for four seconds must not unwind four seconds of tape.
+  const long = spin(0, 10, 10, 40, 4000);
+  const capped = spin(0, 10, 10, 40, 64);
+  assert.equal(long.angle.toFixed(6), capped.angle.toFixed(6));
+});
+
+test('the ticker parks when nothing is moving and wakes when something is', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  let wants = true;
+  const remove = ticker.add(() => wants);
+  assert.ok(ticker.running);
+
+  c.advance(16);
+  assert.ok(ticker.running, 'still wanted, so still scheduled');
+
+  wants = false;
+  c.advance(16);
+  assert.ok(!ticker.running, 'nothing wants frames, so it parks');
+
+  remove();
+  const again = ticker.add(() => true);
+  assert.ok(ticker.running, 'a new object starts it again');
+  again();
+});
+
+test('the ticker steps everything once per frame with the elapsed time', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  const seen = [];
+  ticker.add((dt) => { seen.push(dt); return true; });
+  c.advance(16);
+  c.advance(32);
+  assert.deepEqual(seen, [16, 32]);
+});
+
+test('one object throwing does not stop the others', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  let ran = 0;
+  ticker.add(() => { throw new Error('bad object'); });
+  ticker.add(() => { ran++; return true; });
+  c.advance(16);
+  c.advance(16);
+  assert.equal(ran, 2);
+});
+
+test('reduced motion lands on the target in one frame', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: true });
+  let got = null;
+  ticker.add((dt) => { got = dt; return false; });
+  c.advance(16);
+  assert.equal(got, Infinity);
+  // Which is what makes every object arrive at once, with no per-object code.
+  assert.deepEqual(ballistic(0, 0, 1, got), { value: 1, velocity: 0 });
+});
+
+test('removing the last object stops the loop', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  const remove = ticker.add(() => true);
+  assert.ok(ticker.running);
+  remove();
+  assert.ok(!ticker.running);
+});
+
+test('the chosen natural frequency is the one that puts 99% at 300ms', () => {
+  // Guards the constant against a well-meaning round number: solving it
+  // again here is cheap, and it documents where 13.9923 came from.
+  const t99 = (wn) => {
+    let value = 0, velocity = 0;
+    for (let t = 1; t <= 2000; t++) {
+      ({ value, velocity } = ballistic(value, velocity, 1, 1, { wn, zeta: VU_ZETA }));
+      if (value >= 0.99) return t;
+    }
+    return Infinity;
+  };
+  assert.equal(t99(VU_WN), 300);
+  assert.ok(t99(VU_WN * 1.2) < 300, 'a faster movement reaches 99% sooner');
+  assert.ok(t99(VU_WN * 0.8) > 300, 'a slower one takes longer');
+});

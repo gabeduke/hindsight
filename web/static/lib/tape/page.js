@@ -35,7 +35,7 @@ import { SECTION_NAMES, SECTION_COLORS, colorOf, sectionHit, newName, isLooped, 
 import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNumber } from './timeedit.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { ReelWindow } from '../bar/reel-window.js';
+import { ReelWindow } from '../objects/reel-window.js';
 import { tapeCounter, tapeMarquee } from '../bar/lcd.js';
 import { initPlayer } from '../bar/player.js';
 import { initNav } from '../nav.js';

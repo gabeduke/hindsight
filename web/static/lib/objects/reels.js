@@ -1,4 +1,4 @@
-// web/static/lib/tape/reels.js
+// web/static/lib/objects/reels.js
 // How the tape machine's reels move, apart from any drawing: where the
 // tape is between the page's polls, how much tape is on each reel, and how
 // far each reel has turned.
