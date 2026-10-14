@@ -4,7 +4,7 @@
 // on a touch screen, and every control shows focus.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 // The materials -- tape, cassettes, reels, the VU faces -- live next door in
@@ -365,4 +365,44 @@ test('nothing hides the about line, which carries the only way into Settings', (
   }
   assert.deepEqual(offenders, [],
     'these hide the about line, and with it the only entry to Settings');
+});
+
+test('Play mode’s rules reach only Play mode', () => {
+  // Play mode is behind a per-device flag, but its CSS is not: styles.css is
+  // on every page of every kit. Its overlay rule was once a bare `.play` --
+  // the class the Takes page already gave its Play buttons -- so on a phone,
+  // opening a take turned that button into a blank sheet over the whole
+  // screen, with Play mode switched off.
+  const start = css.indexOf('/* ---------- Play mode (lib/play) ---------- */');
+  assert.ok(start >= 0, 'the Play mode block');
+  const end = css.indexOf('/* ----------', start + 1);
+  const body = css.slice(start, end < 0 ? undefined : end).replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // Every selector hangs off one of Play mode's own `play-` classes.
+  const loose = [];
+  const mine = new Set();
+  for (const m of body.matchAll(/([^{}]+)\{/g)) {
+    for (const sel of m[1].split(',').map((s) => s.trim())) {
+      if (!sel || sel.startsWith('@')) continue;
+      const own = [...sel.matchAll(/\.(play-[a-z0-9-]+)/g)].map((c) => c[1]);
+      if (!own.length) loose.push(sel);
+      for (const c of own) mine.add(c);
+    }
+  }
+  assert.deepEqual(loose, [], 'these Play mode selectors could match something that is not Play mode');
+
+  // And nothing outside lib/play wears one of those classes.
+  const root = new URL('../', import.meta.url);
+  const files = readdirSync(root, { recursive: true }).filter((f) =>
+    (f.endsWith('.html') || f.endsWith('.js')) && !f.endsWith('.test.js') && !f.includes('lib/play/'));
+  const borrowed = [];
+  for (const f of files) {
+    // An id is not a class: tape.html's empty `#play-mode` is the overlay's
+    // own mount point.
+    const text = readFileSync(new URL(f, root), 'utf8').replace(/\sid="[^"]*"/g, '');
+    for (const c of mine) {
+      if (new RegExp(`(^|[^\\w-])${c}(?![\\w-])`).test(text)) borrowed.push(`${f}: ${c}`);
+    }
+  }
+  assert.deepEqual(borrowed, [], 'these files use a class that Play mode styles');
 });

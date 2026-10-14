@@ -3635,8 +3635,12 @@ a.crate-chip { text-decoration: none; }
 /* A surface rather than a page: one screen, momentary controls, and the only
    non-musical gesture on it is the one that leaves. Behind the per-device
    hindsight.play flag, so a kit that has not asked for it never draws any of
-   this. */
-.play {
+   this.
+
+   Every selector here hangs off a `play-` class (styles.test.js checks):
+   a bare `.play` is the Takes page's Play buttons, and an overlay rule on it
+   once filled a phone's screen with one of them. */
+.play-mode {
   position: fixed; inset: 0; z-index: 60;
   display: flex; flex-direction: column; gap: 10px;
   padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
