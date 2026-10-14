@@ -12,6 +12,7 @@
 // has a bug.
 
 import { VUMeters, vuScale, vuAngle, VU_SWING } from './vu.js';
+import { CassetteFace } from './cassette.js';
 import { ReelWindow } from './reel-window.js';
 import { ballistic, spin, settled, Ticker } from './motion.js';
 
@@ -99,6 +100,7 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildMotion(root, ticker);
   buildVu(root);
   buildReels(root, ticker, clock);
+  buildCassettes(root);
   return ticker;
 }
 
@@ -214,4 +216,60 @@ function buildReels(root, ticker, clock) {
     rw.draw(clock());
     return true;
   });
+}
+
+
+/**
+ * The cassette, across the tape and in each of the states its label can be
+ * in. This is the cell that makes "make the tapes more realistic" a job
+ * someone can pick up: the shell, the paper, the printed stripes, the hubs
+ * and the packs, all on one screen and none of it needing a take, a server
+ * or a playback path.
+ */
+function buildCassettes(root) {
+  const grid = section(root, 'Cassette',
+    'Drawn with no audio, so each is a still. The stripe comes from the name, the stamp from the date in it, and the packs from how far through it is.');
+
+  // Peaks shaped like /api/peaks: min/max pairs per bucket, per channel.
+  const peaks = (n = 96) => {
+    const data = [new Float32Array(n * 2), new Float32Array(n * 2)];
+    for (let c = 0; c < 2; c++) {
+      for (let i = 0; i < n; i++) {
+        // A shape with a quiet intro and a loud middle, so the bars say
+        // something rather than being a flat block.
+        const t = i / n;
+        const a = (0.18 + 0.75 * Math.sin(Math.PI * t) ** 1.5) * (c ? 0.86 : 1);
+        data[c][2 * i] = -a;
+        data[c][2 * i + 1] = a;
+      }
+    }
+    return { buckets: n, channels: 2, data };
+  };
+
+  // The names are chosen so the stripes spread across the printed palette --
+  // a name hashes to one of five (lib/objects/cassette-geom.js) -- because
+  // showing the palette is most of the point of this cell.
+  // The hash covers the whole name, date and all, so these are the exact
+  // strings that give one of each of the five printed stripes. Showing the
+  // palette is most of the point of this cell, so they are picked, not
+  // invented -- change one and the stripe changes.
+  const states = [
+    ['stripe 1 · start', '2026-10-04_2015_drop', 0],
+    ['stripe 2 · a third through', '2026-10-04_2015_jam', 1 / 3],
+    ['stripe 3 · halfway', '2026-10-04_2015_chords', 0.5],
+    ['stripe 4 · nearly done', '2026-10-04_2015_groove', 0.92],
+    ['stripe 5 · almost at the end', '2026-10-04_2015_sketch', 0.99],
+    ['no date in the name, so no stamp', 'untitled sketch', 0.4],
+  ];
+
+  for (const [label, name, frac] of states) {
+    const face = new CassetteFace({
+      container: cell(grid, label),
+      peaks: peaks(),
+      duration: 212,
+      audio: null,                 // a picture, not a player
+      take: { name, duration: 212, stars: 0, tag: null },
+    });
+    face.setFraction(frac);
+  }
 }
