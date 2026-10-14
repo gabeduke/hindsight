@@ -18,7 +18,7 @@ import {
   fileView, soundingAt, toTape, gridMove, alignLand, alignEdge, alignView, clipNumber, alignReadout,
   padStart, hitIn, placeAt, refClipsNear, refHitNear, REACH_MS,
 } from './align.js';
-import { roundRectPath } from '../cassette-geom.js';
+import { roundRectPath } from '../objects/cassette-geom.js';
 import {
   editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,

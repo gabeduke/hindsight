@@ -14,7 +14,7 @@ import { undoSkipped } from '/lib/toast.js';
 import { withClient } from '/lib/client.js';
 import { timedFetch } from '/lib/link.js';
 import { onSchemeChange } from '/lib/theme.js';
-import { stripeFor, STRIPES } from '/lib/cassette-geom.js';
+import { stripeFor, STRIPES } from '/lib/objects/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
 import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
 
@@ -776,7 +776,7 @@ export class TakesList {
 
     // A row draws on the dB scale the meters use (draw.js drawColumns); a
     // spine prints bars from the take's own levels, as its cassette does
-    // (RowWave look 'spine', lib/cassette.js).
+    // (RowWave look 'spine', lib/objects/cassette.js).
     const ws = new RowWave({ container: row.waveEl, peaks, duration: peaks.duration || t.duration_seconds, audio, look: this.spines ? 'spine' : 'row' });
     row.peaks = peaks;
     ws.setSelection(t.trim, (t.duration_seconds || 0) * (t.sample_rate || 48000));

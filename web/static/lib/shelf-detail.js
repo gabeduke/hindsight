@@ -1,6 +1,6 @@
 // web/static/lib/shelf-detail.js
 // The takes page's detail pane, on a screen wide enough for it: the take
-// picked in the rack as a cassette (lib/cassette.js) -- its name and star,
+// picked in the rack as a cassette (lib/objects/cassette.js) -- its name and star,
 // its bars with its selection, Play, the way into the take page, its downloads, Delete, and
 // its flags. It plays through the list row's own player (TakesList.player),
 // so the pane and the row never play over each other.
@@ -9,7 +9,7 @@
 // its cuts, and its tape's earlier mixdowns. Pressing one shows it here, with
 // a ‹ key back to the spine.
 
-import { CassetteFace } from '/lib/cassette.js';
+import { CassetteFace } from '/lib/objects/cassette.js';
 import { flagChips, parseBpm, tagOf, tapeName, dropoutsText } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';

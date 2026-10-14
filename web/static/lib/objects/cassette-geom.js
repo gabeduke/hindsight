@@ -1,10 +1,10 @@
-// web/static/lib/cassette-geom.js
+// web/static/lib/objects/cassette-geom.js
 // A take as a cassette, in numbers: the stripe printed on its J-card, the date
 // stamped on its label, how much tape sits on each reel, and where every part
 // of the face sits. Pure, so the spine, the face and their tests share one
 // source; the numbers are the design canvas's (cassette.py, takes2.py).
 
-import { greaseStroke } from './wave/grease.js';
+import { greaseStroke } from '../wave/grease.js';
 
 /** stripeOf gives a take one of the five printed stripes, by its name. */
 export function stripeOf(name) {
