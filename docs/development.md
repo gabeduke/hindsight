@@ -161,6 +161,37 @@ throwaway ssh config. `HINDSIGHT_SSH_KEY` picks the key.
 The older `DASHCAM_*` spellings of these variables still work, so an existing
 `deploy.local.env` keeps working after the rename.
 
+## Play mode
+
+`web/static/lib/play/` is the performance surface — momentary pads rather
+than edits, quantised to the tape's grid. It is behind a per-device flag:
+
+```js
+localStorage.setItem('hindsight.play', '1')   // on, this device only
+localStorage.removeItem('hindsight.play')     // off
+```
+
+With the flag off nothing is built: no button, no listeners, no markup. That
+is what lets it ship in every release while the kits are being used.
+
+- `surface.js` — the event bus. `press`/`release` in, `arm`/`fire`/`end`/`idle`
+  out, on the grid. Pure logic; no DOM, no network.
+- `keymap.js` — the PC keyboard and touch adapters. Keys are read by physical
+  `code`, so the layout stays under the same fingers on any keyboard. Web MIDI
+  will be a third adapter over the same bus, which is the point of the split.
+- `screen.js` — the surface itself.
+- `mount.js` — the flag, and the entry button it creates.
+
+The only coupling to the tape page is one `hindsight:tape-state` event that
+`lib/tape/page.js` dispatches after each poll; Play mode imports nothing from
+it.
+
+**The audio engine is not wired yet.** The pads arm, fire and light on the
+grid, but nothing is audible: break, reverse, chop, stop and varispeed need a
+path through `internal/tape` that does *not* go through undo, since a
+momentary gesture must not leave fifty entries behind it after a jam. That is
+the next step, and it is Go work.
+
 ## The object library
 
 `web/static/lib/objects/` holds the physical things the app draws — the VU
