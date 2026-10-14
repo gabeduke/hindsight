@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.8 — 2026-10-14
+
+- Draw the cassette on the bench, without needing playback (51d308f)
+
+
 ## v2026.10.14.7 — 2026-10-14
 
 - Turn Play mode on from Settings, not from the console (94a1102)
