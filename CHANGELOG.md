@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.2 — 2026-10-14
+
+- Object library: motion physics, the first three objects, and a bench (0470e65)
+- Don't cut a release for specs, design boards or workflow edits (4048bb1)
+- Spec: Play mode, and an object library for the physical things (472867a)
+
+
 ## v2026.10.14.1 — 2026-10-14
 
 - Add scripts/get.sh: install the latest release with one curl | bash (9b926b2)
