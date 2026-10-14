@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.5 — 2026-10-14
+
+- Play mode: the surface, the keyboard, and the screen (3600120)
+
+
 ## v2026.10.14.4 — 2026-10-14
 
 - Give the VU needles the real movement (be0b362)
