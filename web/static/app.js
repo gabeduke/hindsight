@@ -182,6 +182,9 @@ function applyStatus(s) {
     const labels = sel.length > 1 ? ['L', 'R'] : ['M'];
     mainMeters = new Meters(el.meters, { labels, selected: [] });
     el.vu.replaceChildren();
+    // Off the ticker before its nodes go, or the old needles keep being
+    // stepped in a DOM nobody can see.
+    vuMeters?.destroy();
     vuMeters = new VUMeters(el.vu, { labels });
 
     el.chanSaving.textContent = s.save_channels.join(' & ');

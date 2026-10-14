@@ -2121,7 +2121,9 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .vu-num { font: 600 10px var(--label-font); fill: var(--vu-ink); text-anchor: middle; dominant-baseline: middle; }
 .vu-num.red { fill: var(--vu-red); }
 .vu-word { font: 700 13px var(--label-font); letter-spacing: 2px; fill: var(--vu-ink); text-anchor: middle; }
-.vu-needle { transform-box: view-box; transform-origin: 80px 112px; transition: transform 140ms cubic-bezier(.25, .8, .35, 1); }
+/* No transition: the needle is stepped frame by frame by lib/objects/motion.js
+   with the real VU ballistics. A CSS transition here would fight it. */
+.vu-needle { transform-box: view-box; transform-origin: 80px 112px; }
 .vu-needle line { stroke: var(--vu-needle); stroke-width: 1.6; stroke-linecap: round; }
 .vu-base { fill: var(--vu-base); }
 .vu-peak {
@@ -2132,7 +2134,9 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .vu-peak.on::before { background: var(--rec); box-shadow: 0 0 6px var(--rec); }
 .vu-foot { display: flex; align-items: baseline; gap: 8px; font: 12px var(--mono); color: var(--ink-dim); }
 .vu-foot b { font: 700 14px var(--label-font); letter-spacing: .12em; color: var(--ink); }
-@media (prefers-reduced-motion: reduce) { .vu-needle { transition: none; } }
+/* Reduced motion is handled where the movement is: the shared ticker hands
+   each object an infinite step, so the needle lands on its target in one
+   frame (lib/objects/motion.js). */
 
 /* ---------- the main page on a short wide screen ---------- */
 /* A docked tablet (1024x600) or a small laptop: not enough height for the
