@@ -127,12 +127,31 @@ and caught by hand.
   because that mistake is invisible until someone opens the app at night.
 - `styles.css` holds layout, type and chrome.
 - **Scope a new rule to the thing you are adding.** A bare `.set-note` rule
-  added for one sheet reached every existing settings note. If a class is
+  added for one sheet reached every existing settings note. Then Play mode's
+  overlay rule, a bare `.play`, reached the Takes page's Play buttons and
+  turned one into a blank sheet over a phone's whole screen. If a class is
   already in use, say so in a comment and reuse its styling.
+- **A per-device flag hides markup, not CSS.** `styles.css` is on every page
+  of every kit, so a flagged feature's rules ship to everyone the day it
+  merges. The `.play` sheet above reached every kit with Play mode switched
+  off.
 - **Never hide the only route to something.** The about line on Capture was
   `display: none` in one window shape; it carries the only Settings button
   anywhere in the app, so that shape had no way in at all. `styles.test.js`
   now fails if any rule hides it.
+
+## Look at it before it merges
+
+**A UI change is looked at in a browser, against the demo, before it
+merges**: at phone and desktop size, in both schemes, with its flag on and
+off. Play mode merged having never been rendered, because the sandbox it was
+built in couldn't run the server. The first look found that it couldn't open
+at all (its overlay shared the ▶ key's id), that its keys moved the record
+track on the Pi, and the full-screen sheet above. The node tests passed
+throughout. They test logic; none of them can see a page.
+
+`docs/development.md` has the demo command. `scripts/smoke-*.mjs` are the
+Playwright checks that already exist.
 
 ## Where things live in the UI
 
