@@ -67,4 +67,51 @@ esac
 # The updater behind the Update button, against a fake GitHub and Pi.
 "$HERE/test-updater.sh" || fail=1
 
+# release.yml's paths-ignore: which merges cut a release. Like next-tag.sh,
+# this would otherwise only ever be exercised by a real release -- and its
+# failure mode is the quiet one, a feature that silently stops shipping.
+#
+# The patterns are read from the workflow rather than repeated here, so
+# editing that list is what this tests. They use ** only, and inside [[ ]] a
+# bash * already crosses /, so ** -> * is an exact translation.
+WF="$HERE/../.github/workflows/release.yml"
+mapfile -t ignore < <(awk '
+  /^    paths-ignore:/ { on = 1; next }
+  on && /^      - / { gsub(/^      - .|.$/, ""); print; next }
+  on { exit }
+' "$WF")
+
+if [ "${#ignore[@]}" -eq 0 ]; then
+  echo "FAIL - release filter: no paths-ignore found in release.yml"; fail=1
+fi
+
+# Skipped only when every changed file is ignored, which is what makes a
+# mixed spec-and-code PR still release.
+skips_release() {
+  local f pat hit
+  for f in "$@"; do
+    hit=0
+    for pat in "${ignore[@]}"; do
+      # shellcheck disable=SC2053
+      [[ $f == ${pat//\*\*/\*} ]] && { hit=1; break; }
+    done
+    [ "$hit" = 1 ] || { echo no; return; }
+  done
+  echo yes
+}
+
+check "a spec on its own cuts no release" \
+  "yes" "$(skips_release docs/superpowers/specs/2026-10-14-play-mode-design.md)"
+check "a design board cuts no release" \
+  "yes" "$(skips_release design/Main.dc.html)"
+check "a workflow edit cuts no release" \
+  "yes" "$(skips_release .github/workflows/release.yml)"
+check "a spec plus its code still releases" \
+  "no" "$(skips_release docs/superpowers/specs/x-design.md web/static/lib/objects/vu.js)"
+# docs/guide.md is embedded by docs/embed.go, so it ships inside the binary.
+check "the embedded guide still releases" \
+  "no" "$(skips_release docs/guide.md)"
+check "a normal change still releases" \
+  "no" "$(skips_release internal/tape/crate.go)"
+
 exit "$fail"

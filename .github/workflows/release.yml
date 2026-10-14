@@ -3,6 +3,29 @@ name: Release
 on:
   push:
     branches: [main]
+    # Merging a design spec shouldn't put a version on three people's Pis and
+    # a "what's new" that says nothing. Nothing listed here can reach the
+    # release: the tarball carries bin/, web/static, deploy/, README.md,
+    # CHANGELOG.md and LICENSE, and the binary embeds exactly one document --
+    # docs/guide.md, via docs/embed.go -- so the rest of docs/ and all of
+    # design/ are repo-only.
+    #
+    # This skips the run only when *every* changed file matches, so a PR that
+    # touches a spec and the code it describes still releases. Releasing is
+    # the safe default: anything not listed here keeps its release, including
+    # docs/guide.md and any file added later.
+    #
+    # `!` re-inclusion is documented for `paths` and not for `paths-ignore`,
+    # and the two can't be combined for one event, so this stays a plain list
+    # rather than `docs/**` with docs/guide.md carved back out.
+    #
+    # A change to a workflow can't change the artifact either; the trade is
+    # that an edit to this file isn't exercised until the next real release.
+    paths-ignore:
+      - 'docs/superpowers/**'
+      - 'docs/images/**'
+      - 'design/**'
+      - '.github/**'
 
 permissions:
   contents: write
