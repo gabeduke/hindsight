@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.3 — 2026-10-14
+
+- Split the materials into objects.css (f384f81)
+
+
 ## v2026.10.14.2 — 2026-10-14
 
 - Object library: motion physics, the first three objects, and a bench (0470e65)
