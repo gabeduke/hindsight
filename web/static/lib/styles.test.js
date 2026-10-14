@@ -7,14 +7,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+// The materials -- tape, cassettes, reels, the VU faces -- live next door in
+// objects.css. Same :root, no dark block of its own, because every token in
+// it is the same in both schemes. These checks run over the two files
+// together, because that is what a page loads.
+const materials = readFileSync(new URL('../objects.css', import.meta.url), 'utf8');
 
 // The body of the first block opening at `start` (brace-matched).
-function block(start) {
-  const open = css.indexOf('{', start);
+function block(start, text = css) {
+  const open = text.indexOf('{', start);
   let depth = 0;
-  for (let i = open; i < css.length; i++) {
-    if (css[i] === '{') depth++;
-    else if (css[i] === '}' && --depth === 0) return css.slice(open + 1, i);
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}' && --depth === 0) return text.slice(open + 1, i);
   }
   throw new Error('unbalanced');
 }
@@ -23,7 +28,10 @@ function tokens(body) {
   for (const m of body.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) out[m[1]] = m[2].trim();
   return out;
 }
-const light = tokens(block(css.indexOf(':root')));
+const light = {
+  ...tokens(block(materials.indexOf(':root'), materials)),
+  ...tokens(block(css.indexOf(':root'))),
+};
 const darkAt = css.indexOf('@media (prefers-color-scheme: dark)');
 const dark = { ...light, ...tokens(block(darkAt)) };
 

@@ -1,0 +1,93 @@
+/* Hindsight — the materials.
+   What the objects are made of: metal reels, lit keys, tape oxide, cassette
+   paper and plastic, and the VU meters' backlit faces. Split out of
+   styles.css so that changing what an object is made of is a diff to this
+   file, and changing a page's layout cannot touch it.
+
+   Every token here is the same in both schemes, which is why there is no
+   dark block below: an object is an object, and brown tape is brown in a
+   dark room. The tokens that do follow the scheme -- the deck's brushed
+   metal, the panels, the inks -- stay in styles.css with the rest of the
+   chrome.
+
+   Loaded before styles.css by every page. The two files declare disjoint
+   sets of custom properties, so the order is for reading, not for cascade. */
+
+:root {
+  /* Metal reels and lit keys: the same in both schemes. (The deck's brushed
+     metal follows the scheme and stays in styles.css.) */
+  --reel-metal:    #c4c7cb;
+  --reel-edge:     #868a90;
+  --reel-hub:      #17181a;
+  --reel-hub-edge: #3a3b3f;
+  --mute-hi:       #f0c04a;
+  --mute-lo:       #d9a114;
+  --mute-ink:      #2a1f00;
+  --solo-hi:       #5cb3f0;
+  --solo-lo:       #3a93df;
+  --solo-ink:      #0b1a2a;
+
+  /* tape: oxide and trace, the same in both schemes -- tape is an object */
+  --oxide-edge:  #23150b;
+  --oxide-lo:    #4a2e19;
+  --oxide:       #5b3a20;
+  --oxide-sheen: rgba(255,236,210,.12);
+  --oxide-shade: rgba(0,0,0,.18);
+  --oxide-grain: rgba(0,0,0,.05);
+  --trace:       #f6e7c4;
+  --trace-hot:   #fff8e8;
+  --trace-glow:  rgba(255,226,170,.75);
+  --oxide-ruler: #1d1209;
+  --oxide-tick:  rgba(255,236,210,.35);
+  --oxide-label: #cdb894;
+
+  /* cassettes: paper, printed stripes and plastic, the same in both schemes.
+     Stripe legends are dark: the design's light legends on orange, teal and
+     blue read under 4.5:1, and blue and magenta are a shade lighter so a
+     dark legend reads on them. --stripe-N-under is the thin second stripe. */
+  --paper-hi:      #f8f1de;
+  --paper-lo:      #eadfc2;
+  --paper-ink:     #1c2430;
+  --paper-dim:     #5a5547;
+  --paper-bars:    rgba(40,52,60,.62);
+  --paper-bars-on: #1f6f68;
+  --paper-rule:    rgba(28,36,48,.16);
+  --stripe-1: #e0662a; --stripe-1-ink: #1c2430; --stripe-1-under: #1c2430;
+  --stripe-2: #2aa198; --stripe-2-ink: #1c2430; --stripe-2-under: #e0662a;
+  --stripe-3: #d9a114; --stripe-3-ink: #1c2430; --stripe-3-under: #2aa198;
+  --stripe-4: #2e93db; --stripe-4-ink: #1c2430; --stripe-4-under: #d9a114;
+  --stripe-5: #e85aa0; --stripe-5-ink: #1c2430; --stripe-5-under: #2e93db;
+  /* 6-8 are only worn by tags (a name hashes to 1-5): violet, green, slate. */
+  --stripe-6: #b48cf0; --stripe-6-ink: #1c2430; --stripe-6-under: #e85aa0;
+  --stripe-7: #5fb85a; --stripe-7-ink: #1c2430; --stripe-7-under: #d9a114;
+  --stripe-8: #aab4bd; --stripe-8-ink: #1c2430; --stripe-8-under: #1c2430;
+  --cas-hi:    #3a3b40;
+  --cas-mid:   #1d1e21;
+  --cas-lo:    #121315;
+  --cas-screw: #3a3b40;
+  --cas-slot:  #0c0c0d;
+  --glass-hi:  #2a2a2c;
+  --glass-lo:  #121214;
+  --hub:       #efe9d8;
+  --hub-core:  #1a1b1d;
+  --hub-tooth: #d9d4c6;
+  --pack:      #3b2516;
+  --pack-edge: rgba(255,220,180,.16);
+
+  /* A VU meter's face is paper in both schemes; its printing is ink. */
+  /* VU meters: backlit amber faces in dark bezels, the same in both schemes */
+  --vu-face:      #f6d98f;
+  --vu-base:      #d49a3c;
+  --vu-ink:       #2a1d08;
+  --vu-needle:    #1a1206;
+  --vu-bezel-hi:  #2b2c30;
+  --vu-bezel-lo:  #0d0e10;
+  --vu-face-hi:   #fff3cf;
+  --vu-face-mid:  #f6d98f;
+  --vu-face-lo:   #e0ad50;
+  --vu-glow:      rgba(255,190,90,.35);
+  --vu-red:       #8a140d;
+  /* The tape's reels, in the bar: brown tape on silver reels. */
+  --tape-pack:    #4a2e18;
+  --tape-sheen:   #8a5a32;
+}
