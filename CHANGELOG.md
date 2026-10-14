@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.13 — 2026-10-14
+
+- AGENTS.md: look at a UI change before it merges (d60edc3)
+- Play mode: keep its keys to itself, follow the tape, readable by day (88047c0)
+- Contributor notes checked on a real machine (no change to the app) (dd37401)
+
+
 ## v2026.10.14.12 — 2026-10-14
 
 - Fix a take's Play button filling the whole screen on a phone (1f4fe10)
