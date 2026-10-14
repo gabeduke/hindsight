@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.11 — 2026-10-14
+
+- AGENTS.md: the rules that have already caught something out (5564ab5)
+
+
 ## v2026.10.14.10 — 2026-10-14
 
 - Stop hiding the only way into Settings (d4a71ad)
