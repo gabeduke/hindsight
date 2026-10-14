@@ -15,6 +15,7 @@ import { bindKeyboard } from './keymap.js';
 import { mountPlay } from './screen.js';
 import { ticker } from '../objects/motion.js';
 import { on, setOn } from './flag.js';
+import { gridFrom, ringAt } from './clock.js';
 
 // Re-exported so lib/play has one front door, while the flag itself stays in
 // a module with no side effects (the Settings sheet reads it without starting
@@ -32,6 +33,8 @@ export function start({ root = document.getElementById('play-mode'), doc = docum
 
   const surface = new Surface({ bpm: 120, originMs: 0, division: '16th' });
   let ui = null;
+  let tape = null;   // the last tape state the page sent
+  let grid = null;   // the grid taken from it (clock.js)
   let unbindKeys = null;
   let unstep = null;
 
@@ -43,7 +46,14 @@ export function start({ root = document.getElementById('play-mode'), doc = docum
     unbindKeys = bindKeyboard(surface, { onCommand: command });
     // The surface needs ticking for pads to land on their grid lines; the
     // shared ticker already runs a frame loop, so it does not need a second.
-    unstep = ticker.add(() => { surface.tick(performance.now()); return !!ui; });
+    // The ring is drawn here too, carried forward from the last poll, so it
+    // sweeps every frame rather than in five steps a second.
+    unstep = ticker.add(() => {
+      const now = performance.now();
+      surface.tick(now);
+      ui?.setLoop(ringAt(tape, now));
+      return !!ui;
+    });
     ticker.start();
   };
 
@@ -65,14 +75,13 @@ export function start({ root = document.getElementById('play-mode'), doc = docum
     }
   }
 
-  // What the tape is doing. `bpm` and `origin_ms` set the grid the pads land
-  // on, so they land on the tape's bars rather than on a grid of their own.
+  // What the tape is doing: the frame being heard and when the page heard
+  // about it. clock.js turns that into the grid the pads land on -- the
+  // tape's own bars, not a grid of Play mode's invention -- and the ring.
   const onState = (e) => {
-    const s = e.detail || {};
-    if (s.bpm || s.origin_ms != null) {
-      surface.setGrid({ bpm: s.bpm || undefined, originMs: s.origin_ms ?? undefined });
-    }
-    ui?.setLoop({ frac: s.loop_frac || 0, bar: s.bar ?? null, bars: s.loop_bars ?? null });
+    tape = e.detail || null;
+    const g = gridFrom(tape, grid);
+    if (g) { grid = g; surface.setGrid(g); }
   };
   doc.addEventListener('hindsight:tape-state', onState);
 

@@ -65,9 +65,16 @@ export function bindKeyboard(surface, {
   now = () => performance.now(),
   onCommand = () => {},
 } = {}) {
+  // While Play mode is open it owns the keyboard. The tape page under it has
+  // keys of its own -- R is ● Rec, 1-4 arm a track, Space is ▶ -- and they
+  // must not fire under a jam: Stop would arm a punch, and a track key would
+  // move the record track on the Pi. So these listen in the capture phase,
+  // ahead of every page listener, and stop each key there, played or not.
+  // stopPropagation leaves the browser's own shortcuts alone.
   const down = (e) => {
-    if (e.repeat) return;              // autorepeat is not a new press
     if (typingInto(e.target)) return;
+    e.stopPropagation();
+    if (e.repeat) return;              // autorepeat is not a new press
     const cmd = commandForKey(e.code);
     if (cmd) { e.preventDefault(); onCommand(cmd); return; }
     const pad = padForKey(e.code);
@@ -77,6 +84,7 @@ export function bindKeyboard(surface, {
   };
   const up = (e) => {
     if (typingInto(e.target)) return;
+    e.stopPropagation();
     const pad = padForKey(e.code);
     if (!pad) return;
     e.preventDefault();
@@ -85,14 +93,14 @@ export function bindKeyboard(surface, {
   const letGo = () => surface.releaseAll(now());
   const onHide = () => { if (target.hidden) letGo(); };
 
-  target.addEventListener('keydown', down);
-  target.addEventListener('keyup', up);
+  target.addEventListener('keydown', down, true);
+  target.addEventListener('keyup', up, true);
   target.addEventListener('visibilitychange', onHide);
   win?.addEventListener('blur', letGo);
 
   return () => {
-    target.removeEventListener('keydown', down);
-    target.removeEventListener('keyup', up);
+    target.removeEventListener('keydown', down, true);
+    target.removeEventListener('keyup', up, true);
     target.removeEventListener('visibilitychange', onHide);
     win?.removeEventListener('blur', letGo);
     letGo();

@@ -90,4 +90,17 @@
   /* The tape's reels, in the bar: brown tape on silver reels. */
   --tape-pack:    #4a2e18;
   --tape-sheen:   #8a5a32;
+
+  /* Play mode's pad controller: a dark box with rubber pads, dark in any
+     room, as an instrument on a stand is. A lit pad is the cassette's orange
+     under dark ink; a lit track key takes its track's colour. */
+  --pad-chassis:    #0b0c0d;
+  --pad-face:       #1d1e21;
+  --pad-face-armed: #26272b;
+  --pad-edge:       rgba(255,255,255,.18);
+  --pad-rule:       rgba(255,255,255,.08);
+  --pad-legend:     #ecebe6;
+  --pad-legend-dim: #8f8e88;
+  --pad-lit:        #e0662a;
+  --pad-lit-ink:    #1c2430;
 }

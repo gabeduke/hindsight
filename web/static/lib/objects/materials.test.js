@@ -65,7 +65,7 @@ test('objects.css carries the materials it claims to', () => {
   // the header names should have brought its tokens with it.
   const tokens = new Set(declarations(objects).map(([t]) => t));
   for (const t of ['--reel-metal', '--oxide', '--trace', '--paper-hi', '--stripe-1',
-    '--cas-mid', '--hub', '--pack', '--vu-face', '--vu-needle', '--tape-pack']) {
+    '--cas-mid', '--hub', '--pack', '--vu-face', '--vu-needle', '--tape-pack', '--pad-face', '--pad-lit']) {
     assert.ok(tokens.has(t), `${t} should be in objects.css`);
   }
 });

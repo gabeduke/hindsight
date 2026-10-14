@@ -7,13 +7,18 @@ import { Surface } from './surface.js';
 /** A target that behaves enough like the document for the adapter. */
 function fakeTarget() {
   const listeners = new Map();
+  const capture = new Map();
   return {
     hidden: false,
-    addEventListener: (n, fn) => { (listeners.get(n) || listeners.set(n, new Set()).get(n)).add(fn); },
+    addEventListener: (n, fn, opts) => {
+      (listeners.get(n) || listeners.set(n, new Set()).get(n)).add(fn);
+      capture.set(n, opts === true || !!opts?.capture);
+    },
     removeEventListener: (n, fn) => listeners.get(n)?.delete(fn),
     send(n, ev = {}) {
-      for (const fn of listeners.get(n) || []) fn({ preventDefault() {}, ...ev });
+      for (const fn of listeners.get(n) || []) fn({ preventDefault() {}, stopPropagation() {}, ...ev });
     },
+    captures: (n) => !!capture.get(n),
     count: (n) => (listeners.get(n) || new Set()).size,
   };
 }
@@ -153,4 +158,28 @@ test('unbinding removes every listener and lets go', () => {
   assert.equal(t.count('keydown'), 0);
   assert.equal(t.count('keyup'), 0);
   assert.equal(t.count('visibilitychange'), 0);
+});
+
+test('while bound, Play mode owns the keyboard: no key reaches the page', () => {
+  // The tape page's own keys live on the same document: R is ● Rec and 1-4
+  // arm a track. Under a jam, Stop would arm a punch. So the adapter listens
+  // in the capture phase, ahead of the page, and stops every key -- the ones
+  // it plays, and the ones it doesn't.
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  bindKeyboard(s, { target: t, win: null, now: () => 0 });
+  assert.ok(t.captures('keydown') && t.captures('keyup'), 'listens ahead of the page');
+  const stopped = [];
+  for (const [n, code, extra] of [['keydown', 'KeyR'], ['keydown', 'Digit1'], ['keydown', 'KeyR', { repeat: true }],
+    ['keydown', 'KeyK'], ['keydown', 'Space'], ['keyup', 'KeyR'], ['keyup', 'KeyK']]) {
+    let stop = false;
+    t.send(n, { code, target: { tagName: 'BODY' }, stopPropagation: () => { stop = true; }, ...extra });
+    stopped.push(stop);
+  }
+  assert.deepEqual(stopped, [true, true, true, true, true, true, true]);
+
+  // A field keeps its keys, and so does whatever is listening to it.
+  let stop = false;
+  t.send('keydown', { code: 'KeyR', target: { tagName: 'INPUT' }, stopPropagation: () => { stop = true; } });
+  assert.equal(stop, false);
 });
