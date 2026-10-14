@@ -13,6 +13,8 @@
 
 import { VUMeters, vuScale, vuAngle, VU_SWING } from './vu.js';
 import { CassetteFace } from './cassette.js';
+import { ribbonColors, drawRibbon } from './ribbon-draw.js';
+import { token } from '../theme.js';
 import { ReelWindow } from './reel-window.js';
 import { ballistic, spin, settled, Ticker } from './motion.js';
 
@@ -101,6 +103,7 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildVu(root);
   buildReels(root, ticker, clock);
   buildCassettes(root);
+  buildRibbon(root);
   return ticker;
 }
 
@@ -271,5 +274,66 @@ function buildCassettes(root) {
       take: { name, duration: 212, stars: 0, tag: null },
     });
     face.setFraction(frac);
+  }
+}
+
+
+/**
+ * The ribbon: the ring as a glowing trace on brown oxide. The most tape-like
+ * thing the app draws, and the one most worth looking at closely -- the
+ * oxide's grain and sheen, the dark centre line, and the lit part where the
+ * chosen length is.
+ *
+ * Drawn here from made-up levels rather than from a ring, so the states that
+ * are awkward to get a real Pi into -- a ring that has not filled yet, a
+ * silent one -- are a cell rather than an expedition.
+ */
+function buildRibbon(root) {
+  const grid = section(root, 'Ribbon',
+    'The ring as a meter: levels on the meters\' dB scale, not a waveform. The lit part is the chosen capture length; the unrecorded end gets no trace, because a flat line there would read as silence.');
+
+  const W = 320, H = 64;
+
+  /** A plausible envelope: a quiet room, a jam, and a silent ring. */
+  const envelopes = {
+    jam: (n) => Float32Array.from({ length: n }, (_, i) => {
+      const t = i / n;
+      // A couple of loud passages with quieter joins, so the trace has shape.
+      const body = 0.45 + 0.4 * Math.sin(t * Math.PI * 3) ** 2;
+      const swell = 0.25 * Math.sin(t * Math.PI * 11);
+      return Math.max(0.04, Math.min(1, body + swell));
+    }),
+    quiet: (n) => Float32Array.from({ length: n }, (_, i) => 0.10 + 0.04 * Math.sin(i / 3)),
+    silent: (n) => new Float32Array(n),
+  };
+
+  const states = [
+    ['the whole ring lit', 'jam', [0, W], 0],
+    ['a 30 s length lit at the head', 'jam', [W - 70, W], 0],
+    ['a span held mid-ribbon', 'jam', [110, 190], 0],
+    ['the ring has not filled yet', 'jam', [W - 70, W], W * 0.42],
+    ['a quiet room', 'quiet', [0, W], 0],
+    ['nothing on the ring', 'silent', [0, W], 0],
+  ];
+
+  for (const [label, env, lit, recordedFrom] of states) {
+    const body = cell(grid, label);
+    const canvas = el('canvas', 'bench-ribbon');
+    const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = '100%';
+    canvas.style.height = `${H}px`;
+    body.append(canvas);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) continue; // no 2d context (a test runner): the cell stays blank
+    ctx.scale(dpr, dpr);
+    drawRibbon(ctx, {
+      W, H,
+      levels: envelopes[env](160),
+      lit,
+      recordedFrom,
+      colors: ribbonColors(token),
+    });
   }
 }

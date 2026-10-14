@@ -1,7 +1,7 @@
 // Level meters, plus the shared dB and duration formatting helpers.
 //
 // The scrolling canvas visualiser that used to live here was replaced by the
-// buffer ribbon (lib/ribbon.js): it could only ever show the ~9s that arrived
+// buffer ribbon (lib/objects/ribbon.js): it could only ever show the ~9s that arrived
 // while the page was open, and a dashcam is something you open after the
 // moment.
 

@@ -1,4 +1,4 @@
-// web/static/lib/ribbon-draw.js
+// web/static/lib/objects/ribbon-draw.js
 // The ribbon on tape: the last stretch of the ring as a glowing trace on
 // brown oxide, the chosen length lit, passing the record head at "now". The
 // envelope is mono and dB-coded (0..255 on the meters' scale), and it is
@@ -6,9 +6,9 @@
 // beside the VU meters, not a picture of a take. Pure apart from the canvas
 // context drawRibbon is handed.
 
-import { fmtDur } from './meter.js';
-import { paintOxide, drawTrace, oxideColors } from './wave/tape-strip.js';
-import { withAlpha } from './theme.js';
+import { fmtDur } from '../meter.js';
+import { paintOxide, drawTrace, oxideColors } from '../wave/tape-strip.js';
+import { withAlpha } from '../theme.js';
 
 /** ribbonLevels reads the envelope's bytes as levels, 0 to 1. */
 export function ribbonLevels(bytes) {
