@@ -26,11 +26,13 @@ function hubSVG() {
 }
 
 export class CassetteFace {
-  constructor({ container, peaks, duration, audio, take }) {
+  /** audio is optional: without one this is a picture that plays nothing. */
+  constructor({ container, peaks, duration, audio = null, take }) {
     this.container = container;
     this.peaks = peaks;
     this.duration = duration;
     this.audio = audio;
+    this.at = 0; // the played fraction when no <audio> owns it
     this.handlers = {};
     this.selection = null; // {start, end} as fractions of the take
     this.raf = 0;
@@ -68,7 +70,11 @@ export class CassetteFace {
 
     this.ac = new AbortController();
     const sig = { signal: this.ac.signal };
-    for (const ev of ['play', 'pause', 'ended', 'error']) {
+    // Without an <audio> element the cassette is a picture: it draws every
+    // state and plays nothing. That is what lets the object bench show one
+    // (lib/objects/bench.js), and what makes "is this cassette right?"
+    // answerable without a take, a server and a playback path.
+    for (const ev of audio ? ['play', 'pause', 'ended', 'error'] : []) {
       audio.addEventListener(ev, () => {
         this.el.classList.toggle('playing', this.isPlaying());
         if (ev === 'play') this.loop();
@@ -76,7 +82,7 @@ export class CassetteFace {
         this.draw();
       }, sig);
     }
-    audio.addEventListener('seeked', () => this.draw(), sig);
+    audio?.addEventListener('seeked', () => this.draw(), sig);
     this.el.classList.toggle('playing', this.isPlaying());
 
     // Seeking, as a row's wave: a tap, or a horizontal drag.
@@ -86,6 +92,7 @@ export class CassetteFace {
     const seekTo = (e) => {
       const r = cv.getBoundingClientRect();
       const f = Math.min(fracAt(e.clientX - r.left, this.layout), 0.999);
+      if (!this.audio) return;
       const d = this.audio.duration || this.duration;
       if (d) { this.audio.currentTime = f * d; this.draw(); }
     };
@@ -120,12 +127,24 @@ export class CassetteFace {
 
   on(ev, fn) { (this.handlers[ev] ||= []).push(fn); }
   fire(ev) { for (const fn of this.handlers[ev] || []) fn(); }
-  isPlaying() { return !this.audio.paused && !this.audio.ended; }
+  isPlaying() { return !!this.audio && !this.audio.paused && !this.audio.ended; }
   async playPause() {
+    if (!this.audio) return;
     if (this.isPlaying()) { this.audio.pause(); return; }
     await this.audio.play();
   }
-  pause() { this.audio.pause(); }
+  pause() { this.audio?.pause(); }
+
+  /**
+   * setFraction places the tape by hand, for a cassette with no audio: the
+   * packs and the played bars draw at `f` through the take. Ignored while an
+   * <audio> element owns the position.
+   */
+  setFraction(f) {
+    if (this.audio) return;
+    this.at = Math.min(1, Math.max(0, Number(f) || 0));
+    this.draw();
+  }
 
   /** setTake writes the take on the label: its stripe, stamp and name. */
   setTake(take) {
@@ -206,6 +225,7 @@ export class CassetteFace {
   }
 
   fraction() {
+    if (!this.audio) return this.at || 0;
     const d = this.audio.duration || this.duration;
     return d ? this.audio.currentTime / d : 0;
   }
@@ -326,6 +346,7 @@ export class CassetteFace {
 
   destroy() {
     this.detach();
+    if (!this.audio) return;
     this.audio.pause();
     this.audio.removeAttribute('src');
     this.audio.load();
