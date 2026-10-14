@@ -132,11 +132,11 @@ function buildSpeed(root, onPick) {
  */
 function buildMotion(root, ticker) {
   const grid = section(root, 'Motion',
-    'The same step, driven two ways. Slow it to ⅒× to see the overshoot. Nothing shipped uses the ballistic path yet.');
+    'The same step, driven two ways: the 140 ms CSS transition the meters used to have, and the ballistic movement they have now. Slow it to ⅒× to watch the overshoot.');
 
-  const cssNeedle = needleFace(cell(grid, 'CSS transition, 140 ms (shipped today)'));
+  const cssNeedle = needleFace(cell(grid, 'CSS transition, 140 ms — what it was'));
   cssNeedle.style.transition = 'transform 140ms cubic-bezier(.25, .8, .35, 1)';
-  const ballNeedle = needleFace(cell(grid, 'ballistic: 300 ms to 99 %, 1 % overshoot'));
+  const ballNeedle = needleFace(cell(grid, 'ballistic: 300 ms to 99 %, 1 % overshoot — shipped'));
 
   let value = -VU_SWING, velocity = 0, target = -VU_SWING;
   cssNeedle.style.transform = `rotate(${value}deg)`;
@@ -166,6 +166,10 @@ function buildVu(root) {
   // Chosen to land on the marks actually printed on the face, so a change to
   // the scale shows up as a needle that no longer points at its number.
   // 0 VU is the −18 dBFS line-up, so VU = dBFS + 18.
+  // These cells are reference states, not an animation, so they are stepped
+  // once with an infinite dt and land on their mark immediately. The live
+  // needles are in the Motion section above.
+  const immediate = { add: (step) => { step(Infinity); return () => {}; }, start: () => {} };
   const states = [
     ['silence (−∞)', -Infinity, false],
     ['−38 → −20 VU', -38, false],
@@ -175,8 +179,9 @@ function buildVu(root) {
     ['−15 → +3 VU, peak lit', -15, true],
   ];
   for (const [name, db, peak] of states) {
-    const meters = new VUMeters(cell(grid, name), { labels: ['L'] });
+    const meters = new VUMeters(cell(grid, name), { labels: ['L'], ticker: immediate });
     meters.update([db], [peak ? 0 : -60], [peak]);
+    meters.step(Infinity); // update() set the target; land on it now
   }
 }
 

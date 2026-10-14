@@ -2,10 +2,16 @@
 // VU meters for the main page: a needle per saved channel, on the scale an
 // analog VU meter draws -- −20 to +3 VU, 0 VU two thirds of the way over.
 //
+// The needle is driven by motion.js's `ballistic`, the real VU movement --
+// 300 ms to 99 % of a step with about 1 % of overshoot -- rather than by a CSS
+// transition, which arrives and stops dead.
+//
 // The needle shows the level the meters already get (RMS, in dBFS) with
 // 0 VU at REF_DBFS, the usual line-up for digital audio. The dBFS number
 // stays under each meter, so nothing the bars told you is lost; the PEAK
 // lamp lights for a clip or a peak within 1 dB of full scale.
+
+import { ballistic, settled, ticker } from './motion.js';
 
 /** The needle's swing either side of upright, in degrees. */
 export const VU_SWING = 48;
@@ -67,8 +73,17 @@ const el = (tag, attrs) => {
  * −18 dBFS; a feed of peaks wants a higher one, or it reads hot.
  */
 export class VUMeters {
-  constructor(container, { labels, ref = REF_DBFS }) {
+  /**
+   * ticker: the shared clock the needles are stepped by. The bench passes its
+   * own so it can run them slowly; pages take the default.
+   */
+  constructor(container, { labels, ref = REF_DBFS, ticker: clock = ticker }) {
     this.ref = ref;
+    this.clock = clock;
+    // Where each needle is, and how fast. A needle carries its momentum
+    // through a change of level, which is what a moving coil does and why it
+    // reads as a needle rather than as a bar that happens to rotate.
+    this.swing = labels.map(() => ({ angle: -VU_SWING, velocity: 0, target: -VU_SWING }));
     const scale = vuScale();
     this.peakUntil = labels.map(() => 0);
     this.meters = labels.map((label) => {
@@ -108,6 +123,40 @@ export class VUMeters {
       needle.style.transform = `rotate(${-VU_SWING}deg)`;
       return { box, needle, peak, val };
     });
+
+    // One step for all of this page's needles, on the shared ticker. It asks
+    // for frames only while something is still moving, so a silent room costs
+    // nothing.
+    //
+    // Keep the remover: the main page builds a new set of meters whenever the
+    // saved channels change, and without this the old set would stay on the
+    // ticker forever, stepping needles in detached DOM. On a page that is
+    // meant to be left running in a jam space, that accumulates.
+    this.remove = this.clock.add((dt) => this.step(dt));
+  }
+
+  /** destroy takes these needles off the ticker. Call it before replacing them. */
+  destroy() {
+    this.remove?.();
+    this.remove = null;
+  }
+
+  /** step advances every needle by `dt` ms; it says whether any still moves. */
+  step(dt) {
+    let moving = false;
+    this.swing.forEach((s, i) => {
+      if (settled(s.angle, s.velocity, s.target)) {
+        // Park it exactly on target rather than a thousandth away, so the
+        // transform stops changing and the browser stops repainting.
+        s.angle = s.target;
+        s.velocity = 0;
+        return;
+      }
+      ({ value: s.angle, velocity: s.velocity } = ballistic(s.angle, s.velocity, s.target, dt));
+      this.meters[i].needle.style.transform = `rotate(${s.angle.toFixed(2)}deg)`;
+      moving = true;
+    });
+    return moving;
   }
 
   /** update moves each needle to rms (dBFS); peak and clip light the lamp. */
@@ -115,11 +164,13 @@ export class VUMeters {
     const now = performance.now();
     this.meters.forEach((m, i) => {
       const db = rms?.[i];
-      m.needle.style.transform = `rotate(${vuAngle(db, this.ref).toFixed(1)}deg)`;
+      this.swing[i].target = vuAngle(db, this.ref);
       m.val.textContent = !Number.isFinite(db) || db <= -60 ? '−∞' : db.toFixed(1);
       // Held a moment, so a single loud hit is still seen.
       if (clip?.[i] || (peak?.[i] ?? -Infinity) >= -1) this.peakUntil[i] = now + 700;
       m.peak.classList.toggle('on', now < this.peakUntil[i]);
     });
+    // The ticker parks when every needle has arrived; a new level wakes it.
+    this.clock.start();
   }
 }
