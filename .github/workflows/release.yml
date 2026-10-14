@@ -21,11 +21,16 @@ on:
     #
     # A change to a workflow can't change the artifact either; the trade is
     # that an edit to this file isn't exercised until the next real release.
+    #
+    # AGENTS.md and CLAUDE.md are notes for whoever is changing the code, and
+    # neither goes in the tarball. README.md does, so it still releases.
     paths-ignore:
       - 'docs/superpowers/**'
       - 'docs/images/**'
       - 'design/**'
       - '.github/**'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
 
 permissions:
   contents: write
