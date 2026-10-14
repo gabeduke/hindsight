@@ -345,3 +345,24 @@ test('the takes search is a field, not a window', () => {
   assert.ok(at >= 0);
   assert.match(block(at), /background:\s*var\(--field\)/);
 });
+
+test('nothing hides the about line, which carries the only way into Settings', () => {
+  // The Settings button lives in `.about` on the Capture page, and nowhere
+  // else in the app. A layout rule that hides that line leaves the window
+  // shape it matches with no route to the per-device switches or the guide --
+  // which is exactly what happened to a laptop browser that was not full
+  // height, and was noticed only because someone went looking for Settings
+  // and could not find it.
+  const offenders = [];
+  for (const m of css.matchAll(/([^{}]*\.about[^{}]*)\{([^}]*)\}/g)) {
+    const selector = m[1].trim();
+    const body = m[2];
+    if (!/display\s*:\s*none/.test(body)) continue;
+    // `[hidden]` is the element asking to be hidden, which is not a layout
+    // deciding for it.
+    if (selector.includes('[hidden]')) continue;
+    offenders.push(`${selector} { ${body.trim()} }`);
+  }
+  assert.deepEqual(offenders, [],
+    'these hide the about line, and with it the only entry to Settings');
+});
