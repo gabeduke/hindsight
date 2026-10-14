@@ -67,58 +67,85 @@ esac
 # The updater behind the Update button, against a fake GitHub and Pi.
 "$HERE/test-updater.sh" || fail=1
 
-# release.yml's paths-ignore: which merges cut a release. Like next-tag.sh,
-# this would otherwise only ever be exercised by a real release -- and its
-# failure mode is the quiet one, a feature that silently stops shipping.
+# release.yml's paths: which merges cut a release. Like next-tag.sh, this
+# would otherwise only ever be exercised by a real release -- and its failure
+# mode is the quiet one, a change to what ships that silently stops shipping.
 #
 # The patterns are read from the workflow rather than repeated here, so
 # editing that list is what this tests. They use ** only, and inside [[ ]] a
 # bash * already crosses /, so ** -> * is an exact translation.
 WF="$HERE/../.github/workflows/release.yml"
-mapfile -t ignore < <(awk '
-  /^    paths-ignore:/ { on = 1; next }
+mapfile -t patterns < <(awk '
+  /^    paths:/ { on = 1; next }
   on && /^      - / { gsub(/^      - .|.$/, ""); print; next }
   on { exit }
 ' "$WF")
+for i in "${!patterns[@]}"; do patterns[i]="${patterns[i]//\*\*/\*}"; done
 
-if [ "${#ignore[@]}" -eq 0 ]; then
-  echo "FAIL - release filter: no paths-ignore found in release.yml"; fail=1
+if [ "${#patterns[@]}" -eq 0 ]; then
+  echo "FAIL - release filter: no paths found in release.yml"; fail=1
 fi
 
-# Skipped only when every changed file is ignored, which is what makes a
-# mixed spec-and-code PR still release.
-skips_release() {
-  local f pat hit
-  for f in "$@"; do
-    hit=0
-    for pat in "${ignore[@]}"; do
+# GitHub's rule: a file counts if the last pattern it matches is a positive
+# one, so a later '!x' carves out and a later 'x' carves back in. A push
+# releases when any of its files counts.
+counts() {
+  local f="$1" pat hit=no
+  for pat in "${patterns[@]}"; do
+    if [[ $pat == '!'* ]]; then
       # shellcheck disable=SC2053
-      [[ $f == ${pat//\*\*/\*} ]] && { hit=1; break; }
-    done
-    [ "$hit" = 1 ] || { echo no; return; }
+      [[ $f == ${pat:1} ]] && hit=no
+    else
+      # shellcheck disable=SC2053
+      [[ $f == $pat ]] && hit=yes
+    fi
   done
-  echo yes
+  echo "$hit"
 }
-
-check "a spec on its own cuts no release" \
-  "yes" "$(skips_release docs/superpowers/specs/2026-10-14-play-mode-design.md)"
-check "a design board cuts no release" \
-  "yes" "$(skips_release design/Main.dc.html)"
-check "a workflow edit cuts no release" \
-  "yes" "$(skips_release .github/workflows/release.yml)"
-check "the agent notes cut no release" \
-  "yes" "$(skips_release AGENTS.md CLAUDE.md)"
-# README.md goes into the tarball, so a root file is not ignored as such.
-check "the README still releases" \
-  "no" "$(skips_release README.md)"
-check "an agent note plus code still releases" \
-  "no" "$(skips_release AGENTS.md web/static/sw.js)"
-check "a spec plus its code still releases" \
-  "no" "$(skips_release docs/superpowers/specs/x-design.md web/static/lib/objects/vu.js)"
+releases() {
+  local f
+  for f in "$@"; do
+    [ "$(counts "$f")" = yes ] && { echo yes; return; }
+  done
+  echo no
+}
+check "a code change releases" \
+  "yes" "$(releases internal/tape/crate.go)"
+check "a UI change releases" \
+  "yes" "$(releases web/static/lib/play/clock.js)"
+check "a dependency bump releases" \
+  "yes" "$(releases go.sum)"
 # docs/guide.md is embedded by docs/embed.go, so it ships inside the binary.
-check "the embedded guide still releases" \
-  "no" "$(skips_release docs/guide.md)"
-check "a normal change still releases" \
-  "no" "$(skips_release internal/tape/crate.go)"
+check "the embedded guide releases" \
+  "yes" "$(releases docs/guide.md)"
+check "the installer and updater release" \
+  "yes" "$(releases deploy/install.sh)"
+check "the hub's Dockerfile releases" \
+  "yes" "$(releases deploy/hub/Dockerfile)"
+check "a spec cuts no release" \
+  "no" "$(releases docs/superpowers/specs/2026-10-14-play-mode-design.md)"
+check "the agent notes cut no release" \
+  "no" "$(releases AGENTS.md CLAUDE.md)"
+check "a developer doc cuts no release" \
+  "no" "$(releases docs/development.md README.md)"
+check "dev scripts and the Makefile cut no release" \
+  "no" "$(releases scripts/test-release-scripts.sh Makefile deploy.sh)"
+check "a workflow edit cuts no release" \
+  "no" "$(releases .github/workflows/release.yml)"
+check "the hub's manifests cut no release" \
+  "no" "$(releases deploy/hub/kustomization.yaml)"
+check "a spec plus its code still releases" \
+  "yes" "$(releases docs/superpowers/specs/x-design.md web/static/lib/objects/vu.js)"
+
+# Everything the archive packs, bar the three documents that ride along,
+# must be on the list -- or a change to it would build and never ship.
+# Read from the "Assemble the archive" step's cp lines, so adding a file
+# there without adding it here fails.
+missing=""
+while read -r src; do
+  case "$src" in dist/*|README.md|CHANGELOG.md|LICENSE) continue ;; esac
+  [ "$(counts "$src/x")" = yes ] || [ "$(counts "$src")" = yes ] || missing="$missing $src"
+done < <(awk '/name: Assemble the archive/ { on = 1 } on && /^ *cp / { for (i = 2; i < NF; i++) if ($i !~ /^-/) print $i } on && /^ *tar / { exit }' "$WF")
+check "everything the archive packs releases" "" "${missing# }"
 
 exit "$fail"

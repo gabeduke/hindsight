@@ -65,31 +65,30 @@ machine with a working toolchain, then merge.
 
 ## Releases
 
-Every merge to `main` runs `release.yml`, and the release it cuts ships twice
-over: the hub on the cluster is redeployed at once (the *Point the hub at …*
-commits move `deploy/hub` to the new image), and every kit's Update button
-offers the new tarball. So a merge is a deployment, even though no Pi
-installs anything until someone asks it to.
+**Only a change to what a kit runs cuts a release.** `paths` in
+`release.yml` is an allow-list of what ships: `cmd/`, `internal/`, `go.mod`,
+`go.sum`, `web/`, `deploy/` (but not the hub's manifests in `deploy/hub`, apart
+from its Dockerfile), and `docs/guide.md`, which the binary embeds. A merge
+that touches none of those — a spec, a doc, this file, a dev script, the
+Makefile — cuts nothing, and its commits ride along in the next code
+release's notes. A merge that touches any of them releases, so a spec landed
+with its code still ships.
+
+A release ships twice over: the hub on the cluster is redeployed at once (the
+*Point the hub at …* commits move `deploy/hub` to the new image), and every
+kit's Update button offers the new tarball. So a merge of code is a
+deployment, even though no Pi installs anything until someone asks it to.
 
 **Commit subjects are the release notes.** The `CHANGELOG.md` entry is every
 non-merge commit subject since the last tag, and the release picker on each
 kit shows those lines to whoever is deciding whether to update. Write them
 for that person.
 
-`paths-ignore` in `release.yml` holds what does *not* deserve a release:
-`docs/superpowers/**`, `docs/images/**`, `design/**`, `.github/**`, and the
-two agent notes, `AGENTS.md` and `CLAUDE.md`. It skips only when **every**
-changed file matches, so a PR carrying a spec and the code it describes still
-releases.
-
-Anything not on that list releases. `docs/guide.md` is embedded in the binary
-by `docs/embed.go`, and `README.md` goes into the tarball, so both genuinely
-ship. To skip a release for something unlisted, end the commit subject with
-`[skip ci]`.
-
-`scripts/test-release-scripts.sh` asserts that filter by reading the
-patterns out of the workflow, because the failure mode is the quiet one: a
-feature that silently stops shipping.
+**A new file that ships goes on the list.** `scripts/test-release-scripts.sh`
+reads the patterns out of the workflow, checks what should and shouldn't
+release, and fails if the "Assemble the archive" step packs anything the list
+doesn't cover. The failure mode is the quiet one: a change that builds and
+never ships.
 
 ## The repo is public
 

@@ -241,20 +241,21 @@ tests are invisible until it is listed.
 
 ## Releases
 
-Merging to `main` runs the test suite, then builds and publishes — unless the
-merge changed nothing a release can carry, in which case no release is cut at
-all. `paths-ignore` in `release.yml` holds that list: `docs/superpowers/**`,
-`docs/images/**`, `design/**`, `.github/**`, `AGENTS.md` and `CLAUDE.md`. A
-spec or a plan on its own no longer puts a version on everyone's Pi with an
-empty changelog.
+Merging to `main` builds and publishes a release, but only when the merge
+changed something a kit runs. `paths` in `release.yml` is that allow-list:
+the binary's sources (`cmd/`, `internal/`, `go.mod`, `go.sum`, and
+`docs/guide.md`, embedded by `docs/embed.go`), the UI (`web/`), and what
+`install.sh` and the updater put on a Pi (`deploy/`, less the hub's cluster
+manifests, which Argo reads from `main` directly). A spec, a doc, `AGENTS.md`,
+a dev script or the Makefile cuts no release; its commits ride along in the
+next one's notes. A merge that touches anything on the list releases, so a
+spec landed with its code still ships.
 
-It skips only when *every* changed file is on that list, so a PR carrying both
-a spec and the code it describes still releases. Releasing stays the default
-for anything unlisted, `docs/guide.md` included — that one is embedded in the
-binary by `docs/embed.go`, so it genuinely ships and genuinely needs a release.
+`scripts/test-release-scripts.sh` reads the list from the workflow, and fails
+if the archive step packs a path the list doesn't cover.
 
-To skip a release for something not on that list, put `[skip ci]` at the end of
-the commit subject, as the changelog and hub-image commits do.
+To skip a release for a change that is on the list, put `[skip ci]` at the
+end of the commit subject, as the changelog and hub-image commits do.
 
 What a release publishes:
 
