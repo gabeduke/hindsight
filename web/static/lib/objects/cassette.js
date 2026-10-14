@@ -1,4 +1,4 @@
-// web/static/lib/cassette.js
+// web/static/lib/objects/cassette.js
 // The picked take as a cassette: a label with the take's stripe, HINDSIGHT,
 // the date stamp and its name in marker; a window where the take's bars sit
 // between two reels that turn while it plays, the tape packs trading tape as
@@ -10,10 +10,10 @@
 // over the row's own player, plus setTake() for the label. Geometry is
 // cassette-geom.js; colours are the cassette tokens in styles.css.
 
-import { levelsFor, takeGain, smooth, drawBars } from './wave/draw.js';
-import { token, withAlpha } from './theme.js';
-import { tagStore } from './tags.js';
-import { dropoutsText } from './shelf.js';
+import { levelsFor, takeGain, smooth, drawBars } from '../wave/draw.js';
+import { token, withAlpha } from '../theme.js';
+import { tagStore } from '../tags.js';
+import { dropoutsText } from '../shelf.js';
 import { stripeFor, STRIPES, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 // A reel hub: a ring, a disc, a dark core and six teeth.
