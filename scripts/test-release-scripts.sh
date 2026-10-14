@@ -106,6 +106,13 @@ check "a design board cuts no release" \
   "yes" "$(skips_release design/Main.dc.html)"
 check "a workflow edit cuts no release" \
   "yes" "$(skips_release .github/workflows/release.yml)"
+check "the agent notes cut no release" \
+  "yes" "$(skips_release AGENTS.md CLAUDE.md)"
+# README.md goes into the tarball, so a root file is not ignored as such.
+check "the README still releases" \
+  "no" "$(skips_release README.md)"
+check "an agent note plus code still releases" \
+  "no" "$(skips_release AGENTS.md web/static/sw.js)"
 check "a spec plus its code still releases" \
   "no" "$(skips_release docs/superpowers/specs/x-design.md web/static/lib/objects/vu.js)"
 # docs/guide.md is embedded by docs/embed.go, so it ships inside the binary.

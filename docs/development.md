@@ -72,12 +72,13 @@ go test -race ./...
 
 `test-release-scripts.sh` covers `next-tag.sh` and `changelog-entry.sh` — the
 two shell scripts the release workflow depends on, which otherwise would only
-ever be exercised by a real release.
+ever be exercised by a real release — plus the updater behind the Update
+button and `release.yml`'s release filter. It needs Linux (bash 4 and
+`flock`); `AGENTS.md` has the container command for running it on a Mac.
 
-The waveform page's pure geometry has JavaScript tests under node's built-in
-runner — no package.json, no dependencies:
-
-    node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' 'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' 'web/static/lib/tape/*.test.js' 'web/static/lib/edit/*.test.js' 'web/static/lib/bar/*.test.js'
+The JavaScript under `web/static/lib/` has tests under node's built-in
+runner — no package.json, no dependencies. The globs name each directory, so
+the full command is in `AGENTS.md`, kept in step with `ci.yml`.
 
 ### Checking the waveform page by hand
 
@@ -195,7 +196,8 @@ the next step, and it is Go work.
 ## The object library
 
 `web/static/lib/objects/` holds the physical things the app draws — the VU
-meters, the reels and the reel window so far — one module each, with their
+meters, the reels, the reel window, the cassette and the buffer ribbon so far
+— one module each, with their
 tests beside them. `motion.js` holds the shared physics: `ballistic` for a
 needle (the VU standard, 300 ms to 99 % with 1 % overshoot), `lag` for a
 first-order approach, `spin` for a reel with inertia, and one `Ticker` that
@@ -233,8 +235,9 @@ tests are invisible until it is listed.
 Merging to `main` runs the test suite, then builds and publishes — unless the
 merge changed nothing a release can carry, in which case no release is cut at
 all. `paths-ignore` in `release.yml` holds that list: `docs/superpowers/**`,
-`docs/images/**`, `design/**` and `.github/**`. A spec or a plan on its own no
-longer puts a version on everyone's Pi with an empty changelog.
+`docs/images/**`, `design/**`, `.github/**`, `AGENTS.md` and `CLAUDE.md`. A
+spec or a plan on its own no longer puts a version on everyone's Pi with an
+empty changelog.
 
 It skips only when *every* changed file is on that list, so a PR carrying both
 a spec and the code it describes still releases. Releasing stays the default
