@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.1 — 2026-10-14
+
+- Add scripts/get.sh: install the latest release with one curl | bash (9b926b2)
+
+
 ## v2026.10.10.5 — 2026-10-10
 
 - Installer steps around nginx and tailscale serve; the Pi says when its HTTPS address doesn't answer (337f71a)
