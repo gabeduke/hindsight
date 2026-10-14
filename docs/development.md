@@ -161,6 +161,31 @@ throwaway ssh config. `HINDSIGHT_SSH_KEY` picks the key.
 The older `DASHCAM_*` spellings of these variables still work, so an existing
 `deploy.local.env` keeps working after the rename.
 
+## The object library
+
+`web/static/lib/objects/` holds the physical things the app draws — the VU
+meters, the reels and the reel window so far — one module each, with their
+tests beside them. `motion.js` holds the shared physics: `ballistic` for a
+needle (the VU standard, 300 ms to 99 % with 1 % overshoot), `lag` for a
+first-order approach, `spin` for a reel with inertia, and one `Ticker` that
+every animated object shares so there is one `requestAnimationFrame` loop
+rather than one per object.
+
+Everything in `motion.js` is frame-rate independent, and `ballistic` is the
+exact step response rather than an integrator — so the motion is identical at
+120 Hz and at 20 Hz, which is the range a phone pointed at a Pi actually
+covers.
+
+**The bench** is at `/objects.html`: every object, on its own, in each of its
+states, with a speed control for watching motion at ⅒×. It is not linked from
+the app and is not shipped UI — if the bench and a page disagree, the page is
+right. It is the place to judge a change to an object without loading a rig
+and getting a take into the right shape.
+
+Adding a directory under `lib/` means adding it to the `node --test` globs in
+`.github/workflows/ci.yml`; they are named one by one, so a new directory's
+tests are invisible until it is listed.
+
 ## Releases
 
 Merging to `main` runs the test suite, then builds and publishes — unless the

@@ -38,7 +38,7 @@ import { listFrom, fold, familyOf, flagChips, dropoutsText } from '../shelf.js';
 import { cutLabel } from './cut-label.js';
 import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
-import { ReelWindow, peakDbAt } from '../bar/reel-window.js';
+import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter, takeMarquee } from '../bar/lcd.js';
 import { initPlayer } from '../bar/player.js';
 import { timedFetch, watchLink } from '../link.js';

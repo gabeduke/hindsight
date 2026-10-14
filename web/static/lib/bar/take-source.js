@@ -6,7 +6,7 @@
 // the whole take without one.
 
 import { takeCounter, takeMarquee } from './lcd.js';
-import { peakDbAt } from './reel-window.js';
+import { peakDbAt } from '../objects/reel-window.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
 import { drawTrace, paintOxide, oxideColors } from '../wave/tape-strip.js';
 import { barBeat } from '../wave/geometry.js';

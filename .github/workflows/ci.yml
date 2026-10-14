@@ -64,7 +64,9 @@ jobs:
       # The waveform page's geometry is pure JS with node's built-in runner;
       # no package.json, no dependencies.
       - name: JS unit tests
-        run: node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' 'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' 'web/static/lib/tape/*.test.js' 'web/static/lib/edit/*.test.js' 'web/static/lib/bar/*.test.js'
+        # Each directory is named, so a new one under lib/ is invisible here
+        # until it is added. lib/objects/ is the object library.
+        run: node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' 'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' 'web/static/lib/tape/*.test.js' 'web/static/lib/edit/*.test.js' 'web/static/lib/bar/*.test.js' 'web/static/lib/objects/*.test.js'
 
       - name: Release script tests
         run: ./scripts/test-release-scripts.sh
