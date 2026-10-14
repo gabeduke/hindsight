@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.10 — 2026-10-14
+
+- Stop hiding the only way into Settings (d4a71ad)
+
+
 ## v2026.10.14.9 — 2026-10-14
 
 - Move the ribbon into the object library, and draw it on the bench (71db8de)
