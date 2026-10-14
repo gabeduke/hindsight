@@ -232,6 +232,13 @@ async function poll(force = false) {
     if (g !== gen || !gate.current(mine)) return;
     if (!s.loaded) { await follow(); return; }
     apply(s);
+    // Play mode (lib/play) listens for this and takes its grid from it. One
+    // event is the whole coupling: it imports nothing from here, and this
+    // page knows nothing about it.
+    document.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
+      bpm: s.bpm || 0,
+      playing: !!s.live?.playing,
+    } }));
   } catch (e) {
     // An answer of any kind (a 404) was the Pi; none at all is the link.
     if (e.status === undefined) link.fail('tape');
