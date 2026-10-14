@@ -163,7 +163,21 @@ The older `DASHCAM_*` spellings of these variables still work, so an existing
 
 ## Releases
 
-Merging to `main` runs the test suite, then builds and publishes:
+Merging to `main` runs the test suite, then builds and publishes — unless the
+merge changed nothing a release can carry, in which case no release is cut at
+all. `paths-ignore` in `release.yml` holds that list: `docs/superpowers/**`,
+`docs/images/**`, `design/**` and `.github/**`. A spec or a plan on its own no
+longer puts a version on everyone's Pi with an empty changelog.
+
+It skips only when *every* changed file is on that list, so a PR carrying both
+a spec and the code it describes still releases. Releasing stays the default
+for anything unlisted, `docs/guide.md` included — that one is embedded in the
+binary by `docs/embed.go`, so it genuinely ships and genuinely needs a release.
+
+To skip a release for something not on that list, put `[skip ci]` at the end of
+the commit subject, as the changelog and hub-image commits do.
+
+What a release publishes:
 
 - a tag `vYYYY.MM.DD.N`, where `N` increments per release that UTC day. It is
   the highest existing suffix plus one, not a count — a deleted tag leaves a
