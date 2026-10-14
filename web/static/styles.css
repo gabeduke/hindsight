@@ -1131,6 +1131,12 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   font: 14px var(--font); padding: 0 10px;
 }
 .set-field input[type="text"] { font-family: var(--mono); }
+/* A switch for this device only (lib/device-prefs.js): it saves as it is
+   clicked, so it has no Save and no restart. */
+.set-check { display: flex; align-items: center; gap: 10px; padding-bottom: 4px; cursor: pointer; }
+.set-check input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); flex: none; }
+/* No .set-note rule here: the sheet already styles its notes, and a bare one
+   would have reached the Pi's settings too and widened them. */
 .set-field select:focus-visible, .set-field input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .sheet-inner.settings-inner p.set-help { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--ink-dim); }
 .sheet-inner.settings-inner p.set-note { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--ink); }

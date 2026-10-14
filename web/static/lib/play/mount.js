@@ -14,21 +14,12 @@ import { Surface } from './surface.js';
 import { bindKeyboard } from './keymap.js';
 import { mountPlay } from './screen.js';
 import { ticker } from '../objects/motion.js';
+import { on, setOn } from './flag.js';
 
-const FLAG = 'hindsight.play';
-
-/** on says whether this device has Play mode turned on. */
-export function on() {
-  try { return localStorage.getItem(FLAG) === '1'; } catch { return false; }
-}
-
-/** setOn turns it on or off for this device. */
-export function setOn(v) {
-  try {
-    if (v) localStorage.setItem(FLAG, '1');
-    else localStorage.removeItem(FLAG);
-  } catch { /* private mode: this session only, which is fine */ }
-}
+// Re-exported so lib/play has one front door, while the flag itself stays in
+// a module with no side effects (the Settings sheet reads it without starting
+// Play mode).
+export { on, setOn };
 
 /**
  * start builds Play mode and returns a handle, or null when the flag is off.

@@ -10,6 +10,8 @@
 // offers Restart, which POSTs /api/restart and reloads when Hindsight is back
 // with nothing owed.
 
+import { DEVICE_PREFS, read as readDevicePrefs, write as writeDevicePref } from './device-prefs.js';
+
 const POLL_MS = 1000;
 const GIVE_UP_MS = 90 * 1000;
 // The groups that start open; the rest are folded.
@@ -253,8 +255,40 @@ export function initSettings() {
       for (const s of g.items) d.append(field(s));
       body.append(d);
     }
+    body.append(deviceGroup());
     drawNotes();
     refreshButtons();
+  }
+
+  /**
+   * The one group that is not the Pi's: switches for this device only, kept
+   * in localStorage. They save as they are clicked -- there is nothing to
+   * send and nothing to restart, so Save and Reset do not apply to them.
+   */
+  function deviceGroup() {
+    const d = el('details', 'set-group');
+    d.open = false;
+    d.append(el('summary', null, 'This device'));
+    const now = readDevicePrefs();
+    for (const p of DEVICE_PREFS) {
+      const row = el('label', 'set-field set-check');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = !!now[p.id];
+      box.addEventListener('change', () => {
+        const r = writeDevicePref(p.id, box.checked);
+        if (!r.ok) {
+          box.checked = !box.checked; // storage refused; do not claim it saved
+          note.textContent = 'This device cannot store settings (private browsing?).';
+          return;
+        }
+        note.textContent = r.reload ? 'Reload the page for this to take effect.' : p.note;
+      });
+      row.append(box, el('span', 'set-label', p.label));
+      const note = el('p', 'set-note', p.note);
+      d.append(row, note);
+    }
+    return d;
   }
 
   async function load() {
