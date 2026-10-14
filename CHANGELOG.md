@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.12 — 2026-10-14
+
+- Fix a take's Play button filling the whole screen on a phone (1f4fe10)
+- Handoff note, so a fresh window has the state as well as the rules (5f84745)
+
+
 ## v2026.10.14.11 — 2026-10-14
 
 - AGENTS.md: the rules that have already caught something out (5564ab5)
