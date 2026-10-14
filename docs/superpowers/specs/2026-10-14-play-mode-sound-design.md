@@ -162,6 +162,64 @@ pad's dim armed state.
 This is the first object born in the library rather than moved into it. The
 object-library spec named the reels and the ring for exactly this.
 
+## What ports from the OP-1, and what doesn't
+
+Gabe, 2026-10-14: *"Some of the op-1 features work well because it is using
+tightly integrated hardware. Midi and web browser interface introduces a lot
+of delay which could make some features not quite as portable."* Right, and
+the numbers decide which ones.
+
+**From a hand to the speaker:**
+
+| Path | Delay | Made of |
+|---|---|---|
+| OP-1 Field | a few ms | one box |
+| Phone or laptop → Pi → jam-room speakers | **~230–260 ms**, jittery | Wi-Fi (5–50 ms, worse on a busy network), the render running 107 ms ahead, `OUTPUT_LATENCY_MS` (100) and one device buffer (21 ms) |
+| A MIDI controller plugged into the Pi | **~230 ms**, steady | no Wi-Fi; the same render and output path |
+| Either, with the immediate re-render (build step 5) | **~120–130 ms** | the 107 ms ahead mostly gone |
+| Playing to a phone listener | **+~0.8 s** | the stream's buffer |
+| The screen itself | **one frame** | drawn in the browser, no Pi involved |
+
+What people can bear depends on what kind of gesture it is:
+- **Sound that has to follow the hand**, like a note, a drum hit, scratching
+  or a pitch bend: noticeable past about 20 ms, broken by 100.
+- **A discrete action that lands on a grid line:** any delay can be hidden,
+  if the press arrives before the line minus the delay and the player can
+  see how far ahead to play. That is what quantise and the drawn lead are
+  for.
+- **Scene-level actions on the bar:** don't care.
+
+| OP-1 feature | Kind | Here |
+|---|---|---|
+| Tape tricks held on the grid (break, stop, reverse, chop, varispeed pads) | Discrete, quantised | **Ports.** This spec. The lead is drawn so the player leads the beat |
+| Track mutes held | Discrete, quantised | **Ports.** The track keys |
+| Loop in/out, loop on/off, punch on the bar | Discrete, quantised | **Already ported** |
+| Launching clips (the crate as pads), on the bar or beat | Discrete, quantised | **Ports.** Play mode phase 2 |
+| Mix memos, recalled on the beat | Discrete, quantised | **Ports.** Phase 2 |
+| Recording what just happened | Retroactive | **Better than ported.** The ring catches it with zero latency by construction, and no OP-1 does |
+| Slow sweeps: a filter, a tape-style amount, a level ride | Continuous, slow | **Ports with care.** A quarter second behind a slow hand reads as smoothing; behind a fast one it reads as lag |
+| Varispeed or scratching by dragging the reels | Continuous, fast | **Doesn't port.** The OP-1 study already skipped audible scrub for this reason. Dragging the reels stays a silent scrub |
+| Playing notes or drums *through* Hindsight (a sampler or synth voice on the screen or keybed) | Sound must follow the hand | **Doesn't port, and shouldn't.** The FM-1, MPC, Bento and AKS make their sound locally, in a few ms. Hindsight records them |
+
+**The rule this gives:** Hindsight is the tape, not the voice. Anything whose
+sound must follow a hand within about 20 ms belongs to the instruments in the
+room. Hindsight takes on what can land on the grid or what happens after the
+fact. That is the same line the play-mode spec drew for the FM-1 firmware:
+it is a sound source, Hindsight is the tape.
+
+**And the picture is always immediate.** It's drawn where the hand is, so
+every touch is answered in one frame: the pad dims, and the reels start to
+move toward a trick. The sound arrives on its grid line, and the bright state
+and the reels' full motion arrive with it. The animation has no latency
+problem at all, which is why it carries so much of the feel.
+
+**For the SMK-37:** plugged into the Pi, not into the browser. The Pi already
+reads MIDI (`internal/midi`), so keys reach the trick queue without Wi-Fi,
+and the lead is steady, which matters more than small. The page mirrors what
+the Pi says is held. Web MIDI in a browser stays possible for a laptop away
+from the Pi, through the surface's event bus as designed. It is the second
+choice, because it adds the Wi-Fi hop back.
+
 ## Decisions (recommended picks)
 
 1. **A read head over an unchanged transport.** It is the reason this is
@@ -188,6 +246,13 @@ object-library spec named the reels and the ring for exactly this.
 8. **Hermite interpolation, and 2×'s aliasing accepted as tape.** Cheap on
    the Pi. A proper resampler (`internal/audio/resample.go` has one) is a
    tape-style upgrade, not a v1 need.
+9. **Hindsight is the tape, not the voice** (the section above). Features
+   whose sound must follow the hand within about 20 ms are not built here,
+   however good they are on the OP-1. Those that land on a grid line, or
+   happen after the fact, are.
+10. **The SMK-37 plugs into the Pi**, and its keys go to the trick queue
+    there. Web MIDI in the browser is the fallback for a laptop away from
+    the Pi.
 
 ## Build order
 
