@@ -228,16 +228,26 @@ async function poll(force = false) {
     // then is one asked for.
     const bare = state.tape && !state.tape.grid && state.tape.tracks.every((tr) => tr.clips.length === 0);
     const s = await api(`/api/tapes/state?${q()}${bare ? '&suggest=1' : ''}`, { timeout: POLL_TIMEOUT_MS });
+    const at = performance.now();
     link.ok('tape');
     if (g !== gen || !gate.current(mine)) return;
     if (!s.loaded) { await follow(); return; }
     apply(s);
-    // Play mode (lib/play) listens for this and takes its grid from it. One
-    // event is the whole coupling: it imports nothing from here, and this
-    // page knows nothing about it.
+    // Play mode (lib/play) listens for this and takes its grid and its ring
+    // from it. This event out and `hindsight:play-transport` in are the whole
+    // coupling: it imports nothing from here, and this page knows nothing
+    // about it. `heard` is after apply(), so on this phone it is what this
+    // phone hears; `at` is when the answer arrived.
+    const t = state.tape;
     document.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
       bpm: s.bpm || 0,
-      playing: !!s.live?.playing,
+      playing: !!state.live?.playing,
+      heard: state.live ? state.live.heard : 0,
+      at,
+      rate: t.sample_rate,
+      bar_frames: t.grid ? t.grid.frames / t.grid.bars : 0,
+      bars: t.grid ? t.grid.bars : 0,
+      loop: t.loop,
     } }));
   } catch (e) {
     // An answer of any kind (a 404) was the Pi; none at all is the link.
@@ -4289,6 +4299,8 @@ function wire() {
   $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('out-btn').click(); });
   $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('out-btn').click(); });
   $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
+  // Play mode's Space (lib/play): exactly ▶, disabled when ▶ is.
+  document.addEventListener('hindsight:play-transport', () => $('play').click());
   // The bar's Crate key opens its drawer, or closes it; its ✕ closes it.
   $('np-drawer-crate').addEventListener('click', () => setDrawer(state.drawer === 'crate' ? '' : 'crate'));
   for (const b of document.querySelectorAll('.np-drawer-close')) {

@@ -66,7 +66,7 @@ export function mountPlay(root, surface, { onCommand = () => {} } = {}) {
   const top = el('div', 'play-top');
   const quant = el('div', 'play-quant');
   quant.append(el('span', 'play-quant-label', 'QUANTISE'));
-  const seg = el('div', 'seg');
+  const seg = el('div', 'play-seg');
   seg.setAttribute('role', 'group');
   seg.setAttribute('aria-label', 'Quantise');
   for (const d of DIVISION_KEYS) {

@@ -3639,23 +3639,45 @@ a.crate-chip { text-decoration: none; }
 
    Every selector here hangs off a `play-` class (styles.test.js checks):
    a bare `.play` is the Takes page's Play buttons, and an overlay rule on it
-   once filled a phone's screen with one of them. */
+   once filled a phone's screen with one of them.
+
+   The surface is an object, so it is drawn in its own materials (the --pad-
+   tokens in objects.css) and looks the same in both schemes. It used the
+   page's panels once, and in the light scheme its legends were ivory on pale
+   grey. styles.test.js keeps it off the scheme's tokens. */
 .play-mode {
   position: fixed; inset: 0; z-index: 60;
   display: flex; flex-direction: column; gap: 10px;
   padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
-  background: var(--ebony); color: var(--ivory);
+  background: var(--pad-chassis); color: var(--pad-legend);
+  color-scheme: dark;
 }
 body.play-open { overflow: hidden; }
 
 .play-top { display: flex; align-items: center; gap: 12px; flex: none; }
 .play-quant { display: flex; align-items: center; gap: 8px; }
-.play-quant-label { font: 700 11px var(--label-font); letter-spacing: 2px; color: var(--ink-faint); }
+.play-quant-label { font: 700 11px var(--label-font); letter-spacing: 2px; color: var(--pad-legend-dim); }
+/* Quantise: its own small switch, not the app's .seg, which is drawn in the
+   scheme's colours. */
+.play-seg {
+  display: inline-flex; gap: 2px; padding: 3px;
+  border: 1px solid var(--pad-rule); border-radius: 10px;
+}
+.play-seg button {
+  min-height: 36px; min-width: 40px; padding: 0 10px;
+  border: 0; border-radius: 7px;
+  background: transparent; color: var(--pad-legend-dim);
+  font: 600 13px var(--label-font);
+}
+.play-seg button[aria-pressed="true"] { background: var(--pad-face-armed); color: var(--pad-legend); }
 .play-exit {
   margin-left: auto; min-height: 44px; padding: 0 18px;
-  border: 1px solid var(--edge-strong); border-radius: 10px;
-  background: var(--panel); color: var(--ivory);
+  border: 1px solid var(--pad-edge); border-radius: 10px;
+  background: var(--pad-face); color: var(--pad-legend);
   font: 700 13px var(--label-font); letter-spacing: 2px; text-transform: uppercase;
+}
+.play-seg button:focus-visible, .play-exit:focus-visible, .play-pad:focus-visible {
+  outline: 2px solid var(--pad-lit); outline-offset: 2px;
 }
 
 .play-stage { flex: 1; display: flex; gap: 10px; min-height: 0; }
@@ -3668,18 +3690,19 @@ body.play-open { overflow: hidden; }
   position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   min-height: 56px; padding: 8px 4px;
-  border: 1px solid var(--edge-strong); border-radius: 12px;
-  background: var(--panel); color: var(--ivory);
+  border: 1px solid var(--pad-edge); border-radius: 12px;
+  background: var(--pad-face); color: var(--pad-legend);
   font: 700 13px var(--label-font); letter-spacing: 2px;
   touch-action: none;            /* a held pad must not scroll the surface */
   user-select: none; -webkit-user-select: none;
 }
 .play-face { pointer-events: none; }
 .play-key {
-  font: 600 10px var(--mono); color: var(--ink-faint);
-  border: 1px solid var(--edge); border-radius: 4px; padding: 0 4px;
+  font: 600 10px var(--mono); color: var(--pad-legend-dim);
+  border: 1px solid var(--pad-rule); border-radius: 4px; padding: 0 4px;
   pointer-events: none;
 }
+.play-pad.on .play-key { color: inherit; border-color: currentColor; }
 .play-track { font-size: 20px; }
 .play-track.t1 { border-color: var(--t1); }
 .play-track.t2 { border-color: var(--t2); }
@@ -3688,10 +3711,10 @@ body.play-open { overflow: hidden; }
 
 /* Armed: touched, waiting for its grid line. Dim on purpose -- the gap
    between this and `on` is what lets you play ahead of the beat. */
-.play-pad.armed { background: var(--panel-hi); border-color: var(--accent-edge); opacity: .72; }
+.play-pad.armed { background: var(--pad-face-armed); border-color: var(--pad-lit); opacity: .72; }
 .play-pad.on {
-  background: var(--accent-edge); border-color: var(--accent-edge);
-  color: var(--ebony); opacity: 1;
+  background: var(--pad-lit); border-color: var(--pad-lit);
+  color: var(--pad-lit-ink); opacity: 1;
 }
 .play-track.t1.on { background: var(--t1); border-color: var(--t1); }
 .play-track.t2.on { background: var(--t2); border-color: var(--t2); }
@@ -3706,10 +3729,10 @@ body.play-open { overflow: hidden; }
    follow from across the room with your hands on an instrument. */
 .play-ring { flex: none; width: clamp(96px, 26vw, 150px); display: flex; align-items: center; }
 .play-ring svg { width: 100%; height: auto; }
-.play-ring-track { fill: none; stroke: var(--edge-strong); stroke-width: 6; }
-.play-ring-sweep { fill: none; stroke: var(--accent-edge); stroke-width: 6; stroke-linecap: round; }
-.play-ring-ticks line { stroke: var(--ink-faint); stroke-width: 1.5; }
-.play-ring-bar { fill: var(--ivory); font: 700 26px var(--label-font); }
+.play-ring-track { fill: none; stroke: var(--pad-edge); stroke-width: 6; }
+.play-ring-sweep { fill: none; stroke: var(--pad-lit); stroke-width: 6; stroke-linecap: round; }
+.play-ring-ticks line { stroke: var(--pad-legend-dim); stroke-width: 1.5; }
+.play-ring-bar { fill: var(--pad-legend); font: 700 26px var(--label-font); }
 
 /* On a phone in portrait the four tracks are still four columns, but the ring
    moves under them so the pads keep their height. */

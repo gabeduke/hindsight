@@ -406,3 +406,24 @@ test('Play mode’s rules reach only Play mode', () => {
   }
   assert.deepEqual(borrowed, [], 'these files use a class that Play mode styles');
 });
+
+test('Play mode is drawn in its own materials, the same in both schemes', () => {
+  // It used the page's panels once, and in the light scheme its legends were
+  // ivory on pale grey: unreadable, and nobody saw it, because the only look
+  // anyone had was at night. Inside the overlay, nothing may use a token the
+  // dark scheme redefines. Its way in, .play-enter, sits on the page, so it
+  // dresses like the page.
+  const start = css.indexOf('/* ---------- Play mode (lib/play) ---------- */');
+  const end = css.indexOf('/* ----------', start + 1);
+  const body = css.slice(start, end < 0 ? undefined : end).replace(/\/\*[\s\S]*?\*\//g, '');
+  const scheme = new Set(Object.keys(tokens(block(darkAt))));
+  const offenders = [];
+  for (const m of body.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim();
+    if (sel.includes('play-enter')) continue;
+    for (const v of m[2].matchAll(/var\((--[a-z0-9-]+)/g)) {
+      if (scheme.has(v[1])) offenders.push(`${sel}: ${v[1]}`);
+    }
+  }
+  assert.deepEqual(offenders, [], 'these follow the scheme; use a --pad- material from objects.css');
+});

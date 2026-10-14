@@ -177,15 +177,24 @@ is what lets it ship in every release while the kits are being used.
 
 - `surface.js` — the event bus. `press`/`release` in, `arm`/`fire`/`end`/`idle`
   out, on the grid. Pure logic; no DOM, no network.
+- `clock.js` — the tape's time in the surface's: the grid the pads land on and
+  the ring's sweep, from the frame the poll says is being heard. Pure.
 - `keymap.js` — the PC keyboard and touch adapters. Keys are read by physical
   `code`, so the layout stays under the same fingers on any keyboard. Web MIDI
   will be a third adapter over the same bus, which is the point of the split.
 - `screen.js` — the surface itself.
 - `mount.js` — the flag, and the entry button it creates.
 
-The only coupling to the tape page is one `hindsight:tape-state` event that
-`lib/tape/page.js` dispatches after each poll; Play mode imports nothing from
-it.
+The coupling to the tape page is two events: `hindsight:tape-state`, which
+`lib/tape/page.js` dispatches after each poll, and `hindsight:play-transport`,
+Play mode's Space, which the page answers exactly as it would ▶. Play mode
+imports nothing from the page. While it is open it owns the keyboard: it
+listens in the capture phase and stops every key, because the page's own keys
+(R is ● Rec, 1–4 arm a track) would otherwise fire underneath a jam.
+
+The surface is drawn in its own materials (`--pad-*` in `objects.css`), so it
+is the same dark instrument in both schemes; `styles.test.js` keeps its rules
+off the scheme's tokens and its classes off everything else.
 
 **The audio engine is not wired yet.** The pads arm, fire and light on the
 grid, but nothing is audible: break, reverse, chop, stop and varispeed need a
