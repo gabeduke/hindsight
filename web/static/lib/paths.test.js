@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join, normalize, dirname } from 'node:path';
+import { join, normalize, dirname, relative, sep } from 'node:path';
 
 // Every module path in the app, resolved against the disk.
 //
@@ -77,4 +77,24 @@ test('every file the service worker precaches exists', () => {
     .filter((p) => /\.(js|css|html|woff2|png|svg)$/.test(p))
     .filter((p) => { try { statSync(join(ROOT, p.slice(1))); return false; } catch { return true; } });
   assert.deepEqual(missing, []);
+});
+
+test('CI runs the tests in every directory that has any', () => {
+  // The globs in ci.yml name each directory one by one, so a new directory
+  // under lib/ is invisible to CI until it is added -- a whole suite can sit
+  // in the repo, passing locally, never once run on a PR. That happened.
+  const ci = readFileSync(fileURLToPath(new URL('../../../.github/workflows/ci.yml', import.meta.url)), 'utf8');
+  const line = /run:\s*node --test (.+)/.exec(ci);
+  assert.ok(line, 'ci.yml should still run node --test');
+  const globs = [...line[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+
+  // Every directory holding a *.test.js, relative to web/static.
+  const dirs = new Set();
+  for (const p of files.filter((f) => f.endsWith('.test.js'))) {
+    dirs.add(relative(ROOT, dirname(p)).split(sep).join('/'));
+  }
+
+  const missing = [...dirs].filter((d) => !globs.includes(`web/static/${d}/*.test.js`));
+  assert.deepEqual(missing.sort(), [],
+    'these directories have tests that CI never runs; add them to the node --test globs in ci.yml');
 });
