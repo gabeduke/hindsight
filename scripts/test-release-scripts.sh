@@ -56,6 +56,14 @@ check "empty range falls back to No changes recorded" \
 - No changes recorded." \
   "$(printf '' | "$HERE/changelog-entry.sh" v2026.09.09.1 2026-09-09)"
 
+# get.sh, the curl-pipe-bash bootstrap: it parses, and refuses bad options
+# before it touches anything.
+bash -n "$HERE/get.sh" && echo "ok   - get.sh parses" || { echo "FAIL - get.sh syntax"; fail=1; }
+case "$("$HERE/get.sh" --bogus 2>&1 || true)" in
+  *"unknown option --bogus"*) echo "ok   - get.sh rejects unknown options" ;;
+  *) echo "FAIL - get.sh accepted --bogus"; fail=1 ;;
+esac
+
 # The updater behind the Update button, against a fake GitHub and Pi.
 "$HERE/test-updater.sh" || fail=1
 

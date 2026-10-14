@@ -25,6 +25,25 @@
 - `sudo` available for two things only: installing packages, and enabling
   lingering.
 
+## The one-liner
+
+On the Pi, logged in as your normal user (not root):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gabeduke/hindsight/main/scripts/get.sh | bash
+```
+
+It checks the Pi (64-bit Debian-based OS, systemd user session, glibc, network,
+sudo), offers to install Tailscale and sign in if it isn't there, downloads
+the latest release and verifies its checksum, and runs the release's
+`install.sh`. On a Pi with less than 8 GB it starts a fresh install with a
+shorter buffer. Afterwards it offers `tailscale serve` so the page has HTTPS
+on your tailnet (a phone only gives a page the microphone over HTTPS).
+
+Options go after `bash -s --`: `--check` (look, change nothing), `--yes`
+(answer yes to everything), `--no-tailscale`. `HINDSIGHT_VERSION=v2026.10.10.5`
+pins a release. The steps below are the same thing by hand.
+
 ## Install from a release
 
 Every merge to `main` publishes `hindsight_<version>_linux_arm64.tar.gz` and
