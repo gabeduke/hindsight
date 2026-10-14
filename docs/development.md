@@ -171,6 +171,17 @@ first-order approach, `spin` for a reel with inertia, and one `Ticker` that
 every animated object shares so there is one `requestAnimationFrame` loop
 rather than one per object.
 
+`web/static/objects.css` holds what those objects are made of — metal reels,
+lit keys, tape oxide, cassette paper and plastic, the VU meters' backlit
+faces. Every token in it is the same in both schemes, which is why it has no
+dark block: an object is an object, and brown tape is brown in a dark room.
+A token that *does* follow the scheme belongs in `styles.css`, next to its
+dark value; `lib/objects/materials.test.js` fails if one ends up in the wrong
+file, because that mistake is invisible until someone opens the app at night.
+
+Every page loads `objects.css` before `styles.css`. The two declare disjoint
+tokens, so the order is for reading rather than for the cascade.
+
 Everything in `motion.js` is frame-rate independent, and `ballistic` is the
 exact step response rather than an integrator — so the motion is identical at
 120 Hz and at 20 Hz, which is the range a phone pointed at a Pi actually
