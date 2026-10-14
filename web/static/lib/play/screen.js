@@ -44,7 +44,7 @@ const DIVISION_KEYS = ['off', '16th', '8th', 'beat', 'bar'];
  * whatever the tape is doing.
  */
 export function mountPlay(root, surface, { onCommand = () => {} } = {}) {
-  root.classList.add('play');
+  root.classList.add('play-mode');
   const unbinds = [];
   const pads = new Map();
 
@@ -156,7 +156,7 @@ export function mountPlay(root, surface, { onCommand = () => {} } = {}) {
     destroy() {
       for (const off of unbinds) off();
       root.replaceChildren();
-      root.classList.remove('play');
+      root.classList.remove('play-mode');
     },
   };
 }

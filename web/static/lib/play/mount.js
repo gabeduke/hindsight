@@ -27,7 +27,7 @@ export { on, setOn };
  * has not asked for it pays nothing -- which is what lets this ship in every
  * release while two other people are testing the kit.
  */
-export function start({ root = document.getElementById('play'), doc = document } = {}) {
+export function start({ root = document.getElementById('play-mode'), doc = document } = {}) {
   if (!on() || !root) return null;
 
   const surface = new Surface({ bpm: 120, originMs: 0, division: '16th' });
@@ -106,7 +106,7 @@ export function enterButton(onOpen, doc = document) {
 
 // Auto-start on the tape page. Everything above stays importable and
 // testable; this is the only part that runs on load.
-if (typeof document !== 'undefined' && document.getElementById('play')) {
+if (typeof document !== 'undefined' && document.getElementById('play-mode')) {
   const play = start();
   if (play) enterButton(() => play.open());
 }
