@@ -23,9 +23,9 @@
 // now, or delete it.
 
 import { fmtDur } from '/lib/meter.js';
-import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from '/lib/ribbonmath.js';
+import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from '/lib/objects/ribbonmath.js';
 import { isSilent } from '/lib/tape/levels.js';
-import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from '/lib/ribbon-draw.js';
+import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from '/lib/objects/ribbon-draw.js';
 import { token } from '/lib/theme.js';
 
 const HOLD_MS = 350;

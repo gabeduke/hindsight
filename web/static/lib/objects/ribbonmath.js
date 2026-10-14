@@ -1,4 +1,4 @@
-// web/static/lib/ribbonmath.js
+// web/static/lib/objects/ribbonmath.js
 // The ribbon's axis, as plain functions so they can be tested: age in
 // seconds against position in percent, on the logarithmic scale the ribbon
 // draws (see lib/ribbon.js), and ages against the ring's absolute frames,
