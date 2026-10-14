@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.14.6 — 2026-10-14
+
+- Move the cassette into the object library, and guard the paths (58140ae)
+
+
 ## v2026.10.14.5 — 2026-10-14
 
 - Play mode: the surface, the keyboard, and the screen (3600120)
