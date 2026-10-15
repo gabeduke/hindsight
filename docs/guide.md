@@ -1785,6 +1785,22 @@ has no tip.
 | Tape (tab) | The tape: layer loops caught from what you just played |
 | Studio (tab) | The two rooms' preview: the feed, Keep and the tape on one page. The lamp is the ring: green while it records |
 | Listening Room (tab) | The two rooms' preview: every take, to search, filter, sort and open |
+| Search the shelves | The rack's filter, over the shelves: names, tags and stars |
+| The deck (place) | What's on the deck. Press it to sit down with it |
+| The turntable (place) | Records play here. Press it to sit down with the one on it |
+| Sketchbook (place) | The notes on what's on the deck. Press it to sit down and write |
+| SIT DOWN | Into the chair with what's on the deck: the deck close up, and the sketchbook |
+| PUT IT ON | Plays it: a take here, on this device; a tape on the Pi, loaded first |
+| TO THE STUDIO | Into the Studio's buffer, and the Studio opens: a take's selection, or all of it |
+| Cut a record | Makes it a record, on the Records shelf: a take, or its selection; a tape, mixed down |
+| Stand up | Out of the chair, back to the shelves |
+| The take on tape | The whole take, its notes in grease pencil. Tap to play from there |
+| ▸▸ | On five seconds |
+| ⏏ (the chair) | Out of the deck, and back to the shelves |
+| NOTE HERE | A note at what you hear now, with the cursor in its words |
+| Sticker | The take's one tag, as a sticker |
+| TOOLS | Everything else the take page does: the waveform, In and Out, the tempo, the MIDI lanes, Send to, More |
+| to the studio (a note) | This note, to the next note or eight bars, into the Studio's buffer |
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
 | Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |

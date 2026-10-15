@@ -42,6 +42,7 @@ import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
 import { timedFetch, watchLink } from '../link.js';
+import { start as startRoom, roomOn } from '../room/mount.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -113,7 +114,18 @@ function writePref(key, value) {
 async function main() {
   // The page's link to the Pi; the real one is made once the page is up.
   let link = { ok() {}, fail() {} };
-  if (!file) return fail('No take given.');
+  // What the Listening Room's chair hears of each redraw (lib/room/chair.js).
+  const chairHooks = new Set();
+  if (!file) {
+    // With the rooms on, a tape sits in the chair too: ?tape=ID.
+    const tape = new URLSearchParams(location.search).get('tape');
+    if (tape && roomOn()) {
+      initHelp({ page: 'take', toast });
+      initNav();
+      return startRoom('chair', { tape, toast });
+    }
+    return fail('No take given.');
+  }
   // A reload while the notes pane was open leaves a stale {notes:1} entry
   // that would otherwise pop straight into the (unbuilt) pane on Back.
   if (history.state && history.state.notes) history.replaceState(null, '');
@@ -205,6 +217,7 @@ async function main() {
     if (lanes) lanes.draw();
     if (notes && !notes.running && notesVisible()) notes.draw();
     drawStrip();
+    for (const f of chairHooks) f();
   }
   // Canvases don't restyle themselves when the device turns dark or light.
   // The overview caches its waveform, so that cache goes too.
@@ -1924,6 +1937,45 @@ async function main() {
   // Back in view, back online, or back from a sleep that stopped the clock:
   // the take as the Pi has it now, with a "Reconnecting…" note until it answers.
   link = watchLink(() => refetchTake(), { retryMs: 3000 });
+
+  // With the rooms on, this page is the Listening Room's chair: the room
+  // draws the deck, the take on tape and the sketchbook around the page,
+  // and folds the page's own tools under TOOLS (lib/room/chair.js). It
+  // works the take through this handle. With the rooms off, start() reads
+  // the flag and stops.
+  startRoom('chair', {
+    file, take, sampleRate: sr, total, peaks: filePeaks, toast,
+    state: () => state,
+    playing: () => clock.playing,
+    togglePlay,
+    seek: (frame) => { seekTo(frame); if (!state.edit) view.follow(Math.max(0, Math.min(total - 1, frame))); },
+    // A note is a flag with words. NOTE HERE puts one where the playhead
+    // is -- or answers the one already there.
+    addNote(frame) {
+      const at = Math.max(0, Math.min(total - 1, Math.round(frame)));
+      if (!state.flags.some((f) => f.frame === at)) addFlagAt(at);
+      return state.flags.find((f) => f.frame === at)?.id || null;
+    },
+    editNote(id, label) {
+      const f = state.flags.find((x) => x.id === id);
+      if (!f || f.label === label) return;
+      f.label = label;
+      flagOp('edit', { id, label });
+      redraw();
+    },
+    removeNote(id) {
+      const f = state.flags.find((x) => x.id === id);
+      if (!f) return;
+      state.flags = state.flags.filter((x) => x !== f);
+      if (state.selectedFlag === f) { state.selectedFlag = null; sheet.hidden = true; }
+      flagOp('remove', { id }, (b) => {
+        if (b.undo?.op) toast(f.label ? `Note "${f.label}" taken out` : 'Note taken out', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
+      });
+      redraw();
+    },
+    patch: (body) => patch(body),
+    onRedraw: (fn) => chairHooks.add(fn),
+  })?.catch((e) => console.error('The chair could not start:', e));
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
     bar.commit();

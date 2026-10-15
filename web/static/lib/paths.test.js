@@ -81,6 +81,20 @@ test('every file the service worker precaches exists', () => {
   assert.deepEqual(missing, []);
 });
 
+test('every font a stylesheet loads is in the shell', () => {
+  // A font left out of SHELL is a page that draws in the system face
+  // offline: the sketchbook's Caveat, say, which nothing else would miss.
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+  const block = /SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1];
+  const fonts = new Set();
+  for (const css of ['styles.css', 'objects.css']) {
+    for (const m of readFileSync(join(ROOT, css), 'utf8').matchAll(/url\(['"]?(\/fonts\/[^'")]+)['"]?\)/g)) fonts.add(m[1]);
+  }
+  assert.ok(fonts.has('/fonts/caveat-500.woff2'), 'the sketchbook’s hand is loaded');
+  const missing = [...fonts].filter((f) => !block.includes(`'${f}'`));
+  assert.deepEqual(missing, []);
+});
+
 test('CI runs the tests in every directory that has any', () => {
   // The globs in ci.yml name each directory one by one, so a new directory
   // under lib/ is invisible to CI until it is added -- a whole suite can sit

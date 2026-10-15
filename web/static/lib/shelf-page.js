@@ -15,8 +15,20 @@ import { pageBar } from '/lib/bar/bar.js';
 import { watchLink, timedFetch } from '/lib/link.js';
 import { spanOf, firstOf, nextOf, doneAt } from '/lib/playall.js';
 import { holdScreen } from '/lib/wakelock.js';
+import { start as startRoom, roomOn } from '/lib/room/mount.js';
 
 const $ = (id) => document.getElementById(id);
+
+// With the two rooms on, this page is the Listening Room seen from the
+// doorway (lib/room/doorway.js): the rack is still here, under the room,
+// doing what it does, and the room asks it through the handle at the foot.
+const roomMode = roomOn();
+// What the room hears of: the list, the sheet, Play all; and the take the
+// sheet shows. Empty with the room off.
+const roomHooks = { change: new Set(), show: new Set(), closed: new Set() };
+const roomChanged = () => { for (const f of roomHooks.change) f(); };
+// The room's month box, opened to the rack: only that month's families.
+let roomFilter = null;
 
 // What the shelf shows, remembered per device. Never the search: a search
 // left in from last week would hide takes without saying why.
@@ -74,7 +86,8 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
   // Select mode, however it starts (Select, a hold) or ends (Done, Escape):
   // Play all stops, and its key is off while it lasts.
   onSelectChange: () => { stopPlayAll({ pause: true }); renderPlayAll(); },
-  shape: (all) => {
+  shape: (every) => {
+    const all = roomFilter ? every.filter(roomFilter) : every;
     const opts = { ...view, tags: tagStore.list, tag: shownTag() };
     // The same fold the shelf is drawn from, for the pane's families.
     fam = fold(all.filter((t) => matches(t, opts)));
@@ -129,7 +142,7 @@ function renderTagFilters() {
 }
 // After the list's own subscription has reshaped the shelf: a tag deleted, or
 // the tags loading under a saved tag filter, can fold the picked take.
-tagStore.subscribe(() => { renderTagFilters(); syncPick(); });
+tagStore.subscribe(() => { renderTagFilters(); syncPick(); roomChanged(); });
 
 function renderControls() {
   for (const b of $('shelf-filters').querySelectorAll('button')) {
@@ -152,7 +165,12 @@ function reshape() {
 
 // Every take is a spine, for picking; the picked take is a cassette, with the
 // controls. Wide enough, the cassette sits beside the rack.
-const wide = matchMedia('(min-width: 1100px)');
+const wideMQ = matchMedia('(min-width: 1100px)');
+// In the Listening Room a spine always opens its sheet, at any width: the
+// room stands where the pane would.
+const wide = roomMode
+  ? { get matches() { return false; }, addEventListener: (type, fn) => wideMQ.addEventListener(type, fn) }
+  : wideMQ;
 const detail = new TakeDetail($('take-detail'), {
   takes, onToast: toast, onBack: () => closeSheet(), onPick: (name) => pick(name, true), isShown: (name) => present(name),
 });
@@ -176,7 +194,7 @@ if (reopen) history.replaceState(null, '');
 // its shelf) picks that take, and opens its sheet on a phone.
 const asked = new URLSearchParams(location.search).get('take');
 if (asked) { reopen = asked; history.replaceState(null, '', location.pathname); }
-const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about'), $('np')].filter(Boolean);
+const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about'), $('np'), document.querySelector('.room')].filter(Boolean);
 
 function setSheet(on, from) {
   document.body.classList.toggle('cassette-open', on);
@@ -192,7 +210,9 @@ function setSheet(on, from) {
     if (!wide.matches) detail.show(null);
     // Back to the spine it came from, or the first one if that take has gone.
     (takes.rows.get(from)?.el || $('takes').querySelector('.take.spine'))?.focus();
+    for (const f of roomHooks.closed) f(from);
   }
+  roomChanged();
 }
 
 function openSheet(name) {
@@ -232,6 +252,7 @@ const present = (name) => !!name && takes.rows.has(name) && (fam.under.has(name)
 function showDetail(name) {
   const t = (name && takes.all.find((x) => x.name === name)) || null;
   detail.show(t, t ? familyOf(fam, t.name) : null);
+  for (const f of roomHooks.show) f(t);
 }
 
 // The crate's clips, counted by the take they were kept from, for the pane's
@@ -266,7 +287,8 @@ function pick(name, hand = false) {
 // plays, it keeps the tape until a take is picked by hand.
 let np = null;
 async function offerBar(name, hand) {
-  if (!np || !name) return;
+  // The room puts a take on the deck itself, with PUT IT ON.
+  if (!np || !name || roomMode) return;
   // The tape -- playing as the page opened, or put back with ⏏ -- stays
   // until a take is picked by hand.
   const keepTape = () => !hand && (np.ejected || (np.tapePlaying() && !np.takeName));
@@ -297,6 +319,7 @@ function renderPlayAll() {
   b.textContent = playAll ? '■ Stop' : '▶ Play all';
   b.disabled = !playAll && (takes.selecting || !shownNames().length);
   for (const [n, row] of takes.rows) row.el.classList.toggle('play-all', !!playAll && n === playAll.name);
+  roomChanged();
 }
 
 function stopPlayAll({ pause = false } = {}) {
@@ -560,8 +583,33 @@ const link = watchLink(() => { poll(); pollStatus(); });
 renderControls();
 showNextToast();
 initHelp({ page: 'takes' });
-np = pageBar({ tapes: initNav(), onToast: toast });
+const navTapes = initNav();
+np = pageBar({ tapes: navTapes, onToast: toast });
 poll(true);
 pollStatus();
 setInterval(() => poll(), 5000);
 setInterval(pollStatus, 15000);
+
+// --- the Listening Room ----------------------------------------------------
+// With the rooms flag on, the room mounts over the rack and works it through
+// this handle (lib/room/doorway.js). With it off, start() reads the flag and
+// stops: nothing below is touched.
+startRoom('doorway', {
+  takes, detail, toast, tapes: navTapes,
+  get np() { return np; },
+  opts: () => ({ ...view, tags: tagStore.list, tag: shownTag() }),
+  pick: (name) => pick(name, true),
+  openSheet, closeSheet,
+  sheetOpen: () => sheet.open,
+  setFilter: (fn) => { roomFilter = fn; reshape(); },
+  onChange: (fn) => roomHooks.change.add(fn),
+  onShow: (fn) => roomHooks.show.add(fn),
+  onClosed: (fn) => roomHooks.closed.add(fn),
+  playAll: {
+    running: () => !!playAll,
+    // From take `name`, as ▶ Play all is from the picked spine.
+    from: (name) => { stopPlayAll({ pause: true }); pick(name, true); $('play-all').click(); },
+    stop: () => stopPlayAll({ pause: true }),
+  },
+  poll: () => poll(true),
+})?.catch((e) => console.error('The Listening Room could not start:', e));
