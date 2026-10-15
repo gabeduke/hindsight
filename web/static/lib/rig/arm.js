@@ -4,9 +4,10 @@
 // input over one span, as one undo. The Pi keeps rec_tracks; rec_track,
 // the first of them, is still there for pages from before.
 //
-// With the two rooms on, ● on a track's header adds it to what's armed or
-// takes it off; 1–4, ↑ and ↓ still arm just that one. With them off, ● arms
-// just the one, as it always did. Pure: no page, no Pi.
+// With the two rooms on, a tap on a track's ● arms just that track, as 1–4,
+// ↑ and ↓ do, and a hold (or ⇧-click) arms it as well -- or takes it off
+// (rig/armpress.js). With them off, ● arms just the one and a lit one comes
+// off, as it always did. Pure: no page, no Pi.
 
 /** armedOf reads a tape's armed tracks: rec_tracks, or rec_track from a Pi before them. */
 export function armedOf(t) {
@@ -63,21 +64,39 @@ export function catchSays(what, tracks) {
 }
 
 /**
+ * tapArm is what a tap on track n's ● arms with the rooms on: just n, as
+ * 1–4 do. A tap moves the arm; it does not take it off, so a tap on the only
+ * armed track leaves it armed (a hold is the way to none).
+ */
+export function tapArm(armed, n) {
+  return [n];
+}
+
+/** holdArm is what a hold (or ⇧-click) arms: n added to what is armed, or taken off if it is. */
+export function holdArm(armed, n) {
+  return toggled(armed, n);
+}
+
+/**
  * armClick is what ● on track n does, and what its label says it does. With
- * the rooms on it adds the track to what is armed, or takes it off, and the
- * label says what Catch and Rec then do -- they record onto every armed
- * track -- so what it says and what it makes are the same set.
+ * the rooms on a tap arms just n and a hold arms it as well (or takes it off),
+ * and the label names both and what Catch and Rec then use -- they record
+ * onto every armed track -- so what it says and what it makes are the same
+ * set. `next` is the tap's.
  */
 export function armClick(armed, n, rooms) {
   const on = armed.includes(n);
   if (rooms) {
-    const next = toggled(armed, n);
-    const then = next.length ? `Catch and Rec then use ${onWords(next)}` : 'Nothing is then armed';
-    return on
-      ? { next, label: `Track ${n} is armed: take it off. ${then}` }
-      : { next, label: `Arm track ${n}${armed.length ? ' as well' : ''}: ${then}` };
+    const next = tapArm(armed, n);
+    if (on && armed.length === 1) return { next, label: `Track ${n} is armed. Hold to take it off, leaving none armed` };
+    if (on) {
+      const rest = armed.filter((x) => x !== n);
+      return { next, label: `Track ${n} is armed: tap to arm only ${onWords(next)}, hold to take it off (leaving ${onWords(rest)})` };
+    }
+    if (!armed.length) return { next, label: `Arm track ${n}: Catch and Rec then use ${onWords(next)}` };
+    return { next, label: `Arm only track ${n}: Catch and Rec then use ${onWords(next)}. Hold to arm it as well (${onWords(holdArm(armed, n))})` };
   }
-  // The rooms off: ● arms just that track, as it always did -- but a lit one,
+  // The rooms off: ● arms just the one, as it always did -- but a lit one,
   // which another device may have armed beside others, comes off on its own,
   // so it never says "disarm" and arms instead.
   if (!on) return { next: [n], label: `Record onto track ${n}` };
@@ -86,18 +105,16 @@ export function armClick(armed, n, rooms) {
 }
 
 /**
- * armedNote is what a ● that added a track to others already armed says,
+ * armedNote is what a hold that added a track to others already armed says,
  * once: that Catch and Rec now record onto all of them (DROP onto the first),
- * and the one way back to just this track -- on a phone, taking the others
- * off is a row of small ●s under folded lanes. null for anything else: the
- * first arm, or a track coming off.
+ * and the way back to one -- a tap on any ●, which is what "Only track N"
+ * used to be a button for. null for anything else: the first arm, or a track
+ * coming off.
  */
 export function armedNote(armed, n, next) {
   if (!armed.length || armed.includes(n) || !next.includes(n)) return null;
   return {
-    text: `${cap(onWords(next))} are armed: Catch and Rec record onto all of them, DROP onto the first`,
-    action: `Only track ${n}`,
-    only: [n],
+    text: `${cap(onWords(next))} are armed: Catch and Rec record onto all of them, DROP onto the first. Tap a ● to arm just that track.`,
   };
 }
 
