@@ -127,6 +127,7 @@ type Engine struct {
 	perf     perf
 	trickLog trickLog
 	moveLog  trickLog      // amounts moving, apart from the presses and releases
+	owners   previewOwners // who previews each tape mod
 	heldPads atomic.Uint32 // perf's held pads, a bit each, for Live
 
 	// player

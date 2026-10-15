@@ -56,6 +56,22 @@ func (f *fakeTricks) Set(pad string, v float64) error {
 	return nil
 }
 
+func (f *fakeTricks) PreviewMod(mod string, v float64, owner string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, fmt.Sprintf("preview %s %v by %s", mod, v, owner))
+	return nil
+}
+
+// EndPreview is asked of the engine, which lets the preview go only if
+// owner set it last (tape's TestAModsPreviewIsLetGoOnlyByWhoeverSetItLast).
+func (f *fakeTricks) EndPreview(mod, owner string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, fmt.Sprintf("end %s by %s", mod, owner))
+	return nil
+}
+
 func (f *fakeTricks) Release(pad string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -294,9 +310,9 @@ func TestAModPreviewGoesBackWhenItsLetGoOrThePlayerGoes(t *testing.T) {
 	sendPlay(t, a, map[string]any{"t": "set", "pad": "mod.wow", "v": 0.5})
 	sendPlay(t, a, map[string]any{"t": "set", "pad": "mod.age", "v": 0.2})
 	sendPlay(t, a, map[string]any{"t": "release", "pad": "mod.wow"})
-	f.waitFor(t, "set mod.wow 0.5", "set mod.age 0.2", "release mod.wow")
+	f.waitFor(t, "preview mod.wow 0.5 by page:1", "preview mod.age 0.2 by page:1", "end mod.wow by page:1")
 	a.Close() // the page goes mid-drag: its other preview goes with it
-	f.waitFor(t, "set mod.wow 0.5", "set mod.age 0.2", "release mod.wow", "release mod.age")
+	f.waitFor(t, "preview mod.wow 0.5 by page:1", "preview mod.age 0.2 by page:1", "end mod.wow by page:1", "end mod.age by page:1")
 }
 
 func TestPlaySaysWhyASetWasRefused(t *testing.T) {
@@ -345,23 +361,21 @@ func TestAFloodOfSetsDoesntStopThePlayer(t *testing.T) {
 	}
 }
 
-func TestAPlayerWhoGoesLetsGoOnlyOfPreviewsStillTheirs(t *testing.T) {
-	// The engine has one preview a mod. A page that previewed WOW (and
-	// perhaps committed it since) and then went must not clear the preview
-	// another page is dragging now.
+func TestEachPlayerPreviewsAndLetsGoAsItself(t *testing.T) {
+	// The engine has one preview a mod and lets it go only for whoever set
+	// it last; each page asks as itself, so a page that goes can't clear the
+	// preview another page, or a controller, is moving now.
 	f, url := newPlayAPI(t)
 	a, _ := dialPlay(t, url)
 	b, _ := dialPlay(t, url)
 	sendPlay(t, a, map[string]any{"t": "set", "pad": "mod.wow", "v": 0.3})
-	f.waitFor(t, "set mod.wow 0.3")
+	f.waitFor(t, "preview mod.wow 0.3 by page:1")
 	sendPlay(t, b, map[string]any{"t": "set", "pad": "mod.wow", "v": 0.7})
-	f.waitFor(t, "set mod.wow 0.3", "set mod.wow 0.7")
-	sendPlay(t, a, map[string]any{"t": "release", "pad": "mod.wow"}) // not a's any more
+	f.waitFor(t, "preview mod.wow 0.3 by page:1", "preview mod.wow 0.7 by page:2")
 	a.Close()
-	time.Sleep(100 * time.Millisecond)
-	f.waitFor(t, "set mod.wow 0.3", "set mod.wow 0.7")
-	b.Close() // b's is b's to let go of
-	f.waitFor(t, "set mod.wow 0.3", "set mod.wow 0.7", "release mod.wow")
+	f.waitFor(t, "preview mod.wow 0.3 by page:1", "preview mod.wow 0.7 by page:2", "end mod.wow by page:1")
+	b.Close()
+	f.waitFor(t, "preview mod.wow 0.3 by page:1", "preview mod.wow 0.7 by page:2", "end mod.wow by page:1", "end mod.wow by page:2")
 }
 
 func TestPlaySendsMovesAndReleasesInTheOrderTheyHappened(t *testing.T) {

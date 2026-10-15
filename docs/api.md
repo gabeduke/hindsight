@@ -1114,9 +1114,14 @@ finger lifts.
 The mods are heard on the tape's own sound, and printed in a mixdown: WOW
 (a 0.8 Hz wobble of the read head, ±0.5 % in pitch at full) and FLUTTER (about
 8 Hz, ±0.1 %, wandering), DRIVE (soft saturation, `tanh`, made up so a tape at
-−18 dBFS RMS comes out as loud as it went in: quieter is lifted up to 4 dB at
-full drive, louder squeezed) and AGE (the top end falling from 20 kHz to about
-4 kHz).
+−18 dBFS RMS comes out as loud as it went in) and AGE (the top end falling
+from 20 kHz to about 4 kHz).
+
+DRIVE changes a tape's level by how loud the tape is. At full drive, quieter
+than the reference is lifted up to 4 dB, and **a loud loop comes out
+noticeably quieter: about 10 dB down at −6 dBFS RMS** (2 dB down at WORN's
+0.4). That is saturation squeezing it; whether it's right is for the ear on
+the rig, and the reference level can move.
 At 0 each is the tape untouched, sample for sample.
 
 ### `DELETE /api/tapes?id=`, `POST /api/tapes/load?id=`, `POST /api/tapes/clone?id=`
@@ -1170,7 +1175,9 @@ Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
   `hello`'s `mods` lists them) previews a tape mod: heard at once, saved
   nowhere. Commit it with `PATCH /api/tapes {style}`; a `release` of the mod,
   `release_all`, or the connection going puts the tape's own value back, and
-  a change of the tape's own value ends the preview.
+  a change of the tape's own value ends the preview. The Pi keeps one preview
+  a mod, belonging to whoever set it last (a page, or the Pi's controller): a
+  page lets go only of a preview still its own.
 - **`at` with `move`** is an amount that moved, from any hand, no more than 30
   times a second a pad. It has no `on`: light a pad only from an `at` without
   `move`. A press's and release's `at` carries its `v` too. The Pi keeps the

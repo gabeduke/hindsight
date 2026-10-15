@@ -75,3 +75,27 @@ func TestAKnobTurnedAsItsCommitFiresCommitsOnlyItsNewest(t *testing.T) {
 		t.Fatalf("wow saved as %v, want the last turn's .8", s.Wow)
 	}
 }
+
+func TestAModsPreviewIsLetGoOnlyByWhoeverSetItLast(t *testing.T) {
+	// A page previewed WOW; a controller's knob turned it since. The page
+	// going must leave the knob's preview playing.
+	r := newRig(t, Loop{})
+	r.playFrom(10000)
+	_ = r.e.PreviewMod("mod.wow", 0.3, "page:1")
+	r.run(1)
+	k := NewModKnobs(r.e)
+	k.quiet = time.Hour // no commit in this test
+	t.Cleanup(k.Stop)
+	_ = k.Turn("", "mod.wow", 0.7)
+	r.run(1)
+	_ = r.e.EndPreview("mod.wow", "page:1") // the page goes
+	r.run(1)
+	if p := r.e.perf.preview[modWow]; !p.on || p.v != 0.7 {
+		t.Fatalf("after the page went, the knob's preview is %+v, want .7 still on", p)
+	}
+	_ = r.e.EndPreview("mod.wow", k.Owner)
+	r.run(1)
+	if p := r.e.perf.preview[modWow]; p.on {
+		t.Fatalf("the knob let go, and its preview is still on: %+v", p)
+	}
+}

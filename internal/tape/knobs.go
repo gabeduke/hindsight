@@ -19,6 +19,10 @@ const knobQuiet = time.Second
 type ModKnobs struct {
 	e     *Engine
 	quiet time.Duration
+	// Owner is who the knobs preview as (Engine.PreviewMod): a page that
+	// previewed a mod before them can't clear theirs. "controller" unless
+	// set before the first turn.
+	Owner string
 
 	mu     sync.Mutex
 	timers map[string]*time.Timer
@@ -27,7 +31,7 @@ type ModKnobs struct {
 
 // NewModKnobs makes the knobs for an engine.
 func NewModKnobs(e *Engine) *ModKnobs {
-	return &ModKnobs{e: e, quiet: knobQuiet, timers: map[string]*time.Timer{}, gen: map[string]uint64{}}
+	return &ModKnobs{e: e, quiet: knobQuiet, Owner: "controller", timers: map[string]*time.Timer{}, gen: map[string]uint64{}}
 }
 
 // Turn moves mod (mod.wow and the rest) to v on the tape id, and commits it
@@ -36,7 +40,7 @@ func (k *ModKnobs) Turn(id, mod string, v float64) error {
 	if modIndex(mod) < 0 {
 		return ErrNoSuchPad
 	}
-	if err := k.e.Set(mod, v); err != nil {
+	if err := k.e.PreviewMod(mod, v, k.Owner); err != nil {
 		return err
 	}
 	v = math.Max(0, math.Min(1, v))
@@ -76,7 +80,7 @@ func (k *ModKnobs) fire(id, mod string, v float64, g uint64) {
 	}
 	if err := k.e.SetStyle(id, c); err != nil {
 		// Nothing to commit it to: the preview goes, back to the tape.
-		_ = k.e.Release(mod)
+		_ = k.e.EndPreview(mod, k.Owner)
 	}
 }
 

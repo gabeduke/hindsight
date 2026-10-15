@@ -244,12 +244,56 @@ func (e *Engine) Set(pad string, v float64) error {
 	case math.IsNaN(v) || math.IsInf(v, 0):
 		return fmt.Errorf("%w: an amount is a number", ErrBadParameter)
 	}
-	if i < numPads {
-		v = clampAmount(i, v)
-	} else {
-		v = math.Max(0, math.Min(1, v))
+	if i >= numPads {
+		return e.PreviewMod(pad, v, "")
 	}
-	e.postAmount(trickMsg{pad: i, set: true, v: v})
+	e.postAmount(trickMsg{pad: i, set: true, v: clampAmount(i, v)})
+	return nil
+}
+
+// previewOwners is who is previewing each tape mod: whoever set it last --
+// a page's connection, a controller's knob. The Pi has one preview a mod,
+// so only that owner lets it go: a page that goes never clears the preview
+// another hand is moving now. Set and let go under the lock, so the render
+// goroutine sees them in the order the owners changed.
+type previewOwners struct {
+	mu    sync.Mutex
+	owner [numMods]string
+	on    [numMods]bool
+}
+
+// PreviewMod previews a tape mod (mod.wow and the rest) at v, 0 to 1, for
+// owner, from the next block rendered: heard at once, saved nowhere. The
+// tape's own value comes back when owner lets it go (EndPreview), or when
+// the tape's own value changes -- saved, or replaced.
+func (e *Engine) PreviewMod(mod string, v float64, owner string) error {
+	i := modIndex(mod)
+	if i < 0 {
+		return ErrNoSuchPad
+	}
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return fmt.Errorf("%w: an amount is a number", ErrBadParameter)
+	}
+	e.owners.mu.Lock()
+	defer e.owners.mu.Unlock()
+	e.owners.owner[i], e.owners.on[i] = owner, true
+	e.postAmount(trickMsg{pad: numPads + i, set: true, v: math.Max(0, math.Min(1, v))})
+	return nil
+}
+
+// EndPreview lets owner's preview of a tape mod go, if it is still owner's.
+func (e *Engine) EndPreview(mod, owner string) error {
+	i := modIndex(mod)
+	if i < 0 {
+		return ErrNoSuchPad
+	}
+	e.owners.mu.Lock()
+	defer e.owners.mu.Unlock()
+	if !e.owners.on[i] || e.owners.owner[i] != owner {
+		return nil
+	}
+	e.owners.on[i] = false
+	e.postAmount(trickMsg{pad: numPads + i, clear: true})
 	return nil
 }
 
@@ -284,9 +328,8 @@ func (e *Engine) postAmount(m trickMsg) {
 func (e *Engine) Release(pad string) error {
 	i := padIndex(pad)
 	if i < 0 {
-		if m := modIndex(pad); m >= 0 {
-			e.postAmount(trickMsg{pad: numPads + m, clear: true})
-			return nil
+		if modIndex(pad) >= 0 {
+			return e.EndPreview(pad, "")
 		}
 		return ErrNoSuchPad
 	}
