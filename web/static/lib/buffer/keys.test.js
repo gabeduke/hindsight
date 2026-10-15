@@ -58,16 +58,19 @@ function fakeDoc({ dialogs = [] } = {}) {
 }
 // A stand-in element: `closest` answers for the selectors it's inside, as
 // the page's own element would (▶ is #play, which no exemption names).
-const el = (tag, { type = '', inside = '', id = '' } = {}) => ({
-  tagName: tag.toUpperCase(), type, id, isContentEditable: false,
-  closest: (sel) => {
-    const parts = sel.split(', ');
-    if (inside && parts.includes(inside)) return {};
-    if (parts.includes(tag)) return {};
-    if (tag === 'button' && !id && parts.includes('button:not(#play)')) return {};
-    return null;
-  },
-});
+const el = (tag, { type = '', inside = '', id = '' } = {}) => {
+  const self = {
+    tagName: tag.toUpperCase(), type, id, isContentEditable: false,
+    closest: (sel) => {
+      const parts = sel.split(', ');
+      if (inside && parts.includes(inside)) return self;
+      if (parts.includes(tag)) return self;
+      if (tag === 'button' && !id && parts.includes('button:not(#play)')) return self;
+      return null;
+    },
+  };
+  return self;
+};
 
 test('never while typing in a field, or under a sheet', () => {
   assert.equal(typingInto(el('input', { type: 'text' })), true);
@@ -119,4 +122,42 @@ test('bound, a key it takes stops there, ahead of the tape page’s, and one it 
   assert.equal(typed.stopped, true);
   unbind();
   assert.equal(doc.listeners.length, 0);
+});
+
+test('a clicked button gives ↵ to DROP; one reached by Tab keeps it', () => {
+  // Chrome focuses a button that's clicked: arm track 2 with its ●, press ↵
+  // for DROP ON TRACK 2, and the ↵ went to the ● -- the track disarmed and
+  // nothing dropped. Only a button the keyboard brought the focus to keeps
+  // its own ↵ (a toast's Undo, reached by Tab, undoes).
+  const doc = fakeDoc();
+  const ran = [];
+  bindBufferKeys(doc, { state: () => ({ open: true, held: true }), run: (a) => ran.push(a) });
+  const on = (type) => doc.listeners.filter((x) => x.type === type);
+  const fire = (type, e) => { for (const l of on(type)) l.fn(e); return e; };
+  const press = (code, target) => {
+    const e = { ...key(code), target, stopped: false };
+    e.stopPropagation = () => { e.stopped = true; };
+    e.preventDefault = () => {};
+    return fire('keydown', e);
+  };
+  const arm = el('button', { inside: 'button:not(#play)' });
+  fire('pointerdown', { target: arm });
+  fire('focusin', { target: arm });
+  const clicked = press('Enter', arm);
+  assert.deepEqual(ran, ['drop'], 'the clicked ● gives ↵ to DROP');
+  assert.equal(clicked.stopped, true);
+
+  const undo = el('button', { inside: 'button:not(#play)' });
+  press('Tab', arm);
+  fire('focusin', { target: undo });
+  const tabbed = press('Enter', undo);
+  assert.deepEqual(ran, ['drop'], 'the Undo reached by Tab undoes');
+  assert.equal(tabbed.stopped, false);
+
+  // A link, a menu's item, a sheet: ↵ is theirs however they got the focus.
+  const link = el('a', { inside: 'a[href]' });
+  fire('pointerdown', { target: link });
+  fire('focusin', { target: link });
+  press('Enter', link);
+  assert.deepEqual(ran, ['drop']);
 });
