@@ -27,7 +27,7 @@ import { initPhone } from '../phone/recorder.js';
 import { keepTake, takeBack, flagNow } from './keep.js';
 import { mountBuffer } from '../buffer/buffer.js';
 import { bindStudioKeys } from './keys.js';
-import { keepLabel, feedKeepLength, selectionKeepLength } from './keeplabel.js';
+import { keepLabel, keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
 
 const STATUS_MS = 2000;
 
@@ -185,7 +185,7 @@ export function mountStudio(doc = document) {
     // words has no room on a phone, the length beside the word does.
     const len = status && healthy && !busy ? feedKeepLength(seconds, status.ring_seconds) : '';
     el.len.textContent = len;
-    if (len) el.keep.setAttribute('aria-label', `Keep the last ${len}`);
+    if (len) el.keep.setAttribute('aria-label', keepAria(len));
     else el.keep.removeAttribute('aria-label');
     // And the instrument's pad: what K keeps (lib/play/strip.js listens).
     doc.dispatchEvent(new CustomEvent('hindsight:keeps', { detail: { feed: len } }));

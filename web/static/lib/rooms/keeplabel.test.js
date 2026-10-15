@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { lengthWords, keepLabel, feedKeepLength, bufferKeepLength, selectionKeepLength, keptByK } from './keeplabel.js';
+import { lengthWords, keepLabel, feedKeepLength, bufferKeepLength, selectionKeepLength, keptByK, keepAria } from './keeplabel.js';
 
 test('a length reads short: seconds, then minutes', () => {
   assert.equal(lengthWords(30), '30s');
@@ -19,6 +19,31 @@ test('a length reads short: seconds, then minutes', () => {
   assert.equal(lengthWords(12.4), '12s');
   assert.equal(lengthWords(0), '');
   assert.equal(lengthWords(NaN), '');
+});
+
+test('a sliver reads "<1s", never "0.0s"', () => {
+  assert.equal(lengthWords(0.04), '<1s');
+  assert.equal(lengthWords(0.5), '<1s');
+  assert.equal(lengthWords(0.99), '<1s');
+  assert.equal(lengthWords(1), '1.0s');
+  assert.equal(keepLabel(selectionKeepLength(0.04)), 'KEEP <1s');
+});
+
+test('round first, then format: 9.96 and 10 both read "10s", and so on up', () => {
+  assert.equal(lengthWords(9.96), '10s');
+  assert.equal(lengthWords(10), '10s');
+  assert.equal(lengthWords(9.94), '9.9s');
+  assert.equal(lengthWords(59.6), '1m', '59.6 s is a minute');
+  assert.equal(lengthWords(119.6), '2m');
+  assert.equal(lengthWords(60), '1m');
+});
+
+test('an hour or more reads in hours: 3600 is "1h", not "60m"', () => {
+  assert.equal(lengthWords(3600), '1h');
+  assert.equal(lengthWords(3599.6), '1h');
+  assert.equal(lengthWords(3660), '1h1m');
+  assert.equal(lengthWords(5400), '1h30m');
+  assert.equal(lengthWords(3590), '59m50s');
 });
 
 test('the key is KEEP and what it keeps', () => {
@@ -60,4 +85,12 @@ test('K keeps the open buffer, else the feed: the pad names the one it will', ()
   assert.equal(keptByK({ feed: '2m', buffer: null }), '2m');
   assert.equal(keptByK({ feed: '', buffer: '' }), '');
   assert.equal(keptByK({}), '');
+});
+
+test('the feed key’s accessible name contains what is written on it', () => {
+  // WCAG label in name: the visible words are KEEP and the length.
+  assert.equal(keepAria('30s'), 'KEEP 30s — keep the last 30s');
+  assert.equal(keepAria('2m'), 'KEEP 2m — keep the last 2m');
+  assert.ok(keepAria('30s').toLowerCase().includes(keepLabel('30s').toLowerCase()));
+  assert.equal(keepAria(''), 'KEEP', 'no length: the bare word');
 });
