@@ -183,15 +183,18 @@ func main() {
 	}
 
 	srvAPI := api.New(cfg, cap, saver, cap.Envelope(), clock)
-	if controllers != nil {
-		controllers.SetControlSink(srvAPI)
-		srvAPI.SetControllers(controllers)
-	}
 	if cfg.Tape {
 		if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
 			srvAPI.SetTape(eng)
 			stops = append(stops, eng.Stop)
 		}
+	}
+	// Only now does the API hear the controllers: their messages arrive on
+	// the MIDI readers' goroutines and read the tape engine SetTape just
+	// set, which isn't guarded. Until then the watcher drops them.
+	if controllers != nil {
+		srvAPI.SetControllers(controllers)
+		controllers.SetControlSink(srvAPI)
 	}
 	// The hub: a public HTTPS name for this Pi's LAN address, and Caddy's
 	// certificate for it on a loopback listener of its own -- never a route
