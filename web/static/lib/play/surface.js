@@ -67,6 +67,10 @@ export class Surface {
     this.lead = lead;
     this.pads = new Map();
     this.handlers = new Map();
+    // The latch (⇧, or a sustain pedal): while it's down a release waits in
+    // `latched`, and the pad stays held until the latch lifts.
+    this.latching = false;
+    this.latched = new Set();
   }
 
   on(name, fn) {
@@ -116,6 +120,9 @@ export class Surface {
   /** A pad being pressed. Idempotent: holding a key that repeats is one press. */
   press(pad, at) {
     const cur = this.pads.get(pad);
+    // Pressed again while the latch keeps it: the hand holds it now, so the
+    // latch lifting must not let it go.
+    this.latched.delete(pad);
     if (cur && cur.state !== IDLE) return;
     const fireAt = this.nextGrid(at + this.lead);
     this.pads.set(pad, { state: ARMED, fireAt, endAt: null });
@@ -138,6 +145,7 @@ export class Surface {
   release(pad, at) {
     const p = this.pads.get(pad);
     if (!p || p.state === RELEASING || p.state === IDLE) return;
+    if (this.latching) { this.latched.add(pad); return; }
     const g = this.gridMs();
     let endAt = this.nextGrid(at + this.lead);
     const startedAt = p.state === ON ? p.firedAt : p.fireAt;
@@ -201,11 +209,27 @@ export class Surface {
   }
 
   /**
+   * latch puts the latch down (`on`) or lifts it. While it's down, letting go
+   * of a pad keeps it held; lifting it lets go of every pad that waited, on
+   * the grid like any release. What a hand still holds stays held.
+   */
+  latch(on, at) {
+    if (on) { this.latching = true; return; }
+    this.latching = false;
+    const waiting = [...this.latched];
+    this.latched.clear();
+    for (const pad of waiting) this.release(pad, at);
+  }
+
+  /**
    * releaseAll ends everything, for leaving Play mode or losing focus. Each
    * pad not already let go says so (`let`), so the Pi lets go too: a window
-   * that lost focus with BREAK held must not leave the tape broken.
+   * that lost focus with BREAK held must not leave the tape broken. It lifts
+   * the latch too: Esc means everything.
    */
   releaseAll(at) {
+    this.latching = false;
+    this.latched.clear();
     for (const [pad, p] of [...this.pads]) {
       if (p.state !== RELEASING) this.emit('let', { pad, at, endAt: at });
       if (p.firedAt != null) this.stop(pad, at);

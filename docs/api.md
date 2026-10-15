@@ -51,6 +51,7 @@ internet.
 | `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
 | `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
 | `GET /api/tapes/play` | WebSocket: Play mode's pads, pressed and let go, quantised on the Pi |
+| `GET /api/tapes/controls`, `PUT /api/tapes/controls` | The controllers in the Pi (`TAPE_CONTROLLER`) and what their notes play |
 | `POST /api/tapes/catch?id=` | Put the last pass, or the last N bars, from an input onto a track |
 | `POST /api/tapes/record?id=` | Arm a track (stopped) or punch in at the next bar (playing) |
 | `DELETE /api/tapes/record?id=` | End the punch and keep what it covered (`?cancel=1`: keep nothing); disarm |
@@ -1230,6 +1231,72 @@ Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
 None of this is the tape's state: nothing is undone, saved or sent to other
 pages, except `live.tricks` in `GET /api/tapes/state`, which lists what's held
 now.
+
+Every page hears every pad: an `at` goes to each connection, whoever pressed,
+so a pad played on a phone, a laptop or the controller in the Pi lights on
+every screen. `hello` also lists the pads held as the page arrives (`held`).
+
+**MIDI LEARN** for a controller in the Pi (`/api/tapes/controls`) travels on
+the same socket:
+
+| Direction | Message |
+|---|---|
+| page → Pi | `{"t":"learn","action":"stop","port":"SMK-37"}` (`port` `""`: any controller) · `{"t":"learn_cancel"}` |
+| Pi → page | `{"t":"learned","action":"stop","port":"SMK-37","midi":{"note":72,"ch":10}}` · `{"t":"refused","learn":"stop","why":"no controller moved in 10 s"}` |
+
+The next note-on or CC from that controller, and from nothing else, is bound
+to the action, written to `controls.json`, and not played. One learn waits at
+a time; a second replaces the first, which is refused.
+
+### `GET /api/tapes/controls`, `PUT /api/tapes/controls`
+
+The controllers plugged into the Pi that play the tape (`TAPE_CONTROLLER`,
+`docs/configuration.md`), and their bindings: `TAPE_DIR/controls.json`, keyed
+by the controller's name, shared by everyone, like the Pi's settings. The
+actions and their default MIDI are `web/static/lib/play/controls.js`'s, and
+the Pi's copy is held to it by a test.
+
+```json
+{
+  "quantum": "16th",
+  "catch": "layer",
+  "setting": ["SMK"],
+  "controllers": [
+    {"name": "SMK-37", "connected": true, "profile": "SMK-37", "learned": false,
+     "bindings": {"track1": [{"note": 36, "ch": 10}], "latch": [{"cc": 64}], "…": []}}
+  ],
+  "defaults": {"track1": [{"note": 36}], "…": []}
+}
+```
+
+- **A binding** is one of `note`, `cc`, `bend`, `program` or `rt`
+  (`start`/`stop`); `ch` (1–16) narrows it to a channel; `as: "amount"`
+  marks a CC that moves an amount (P4's FX and mods) instead of pressing.
+- **Defaults.** A known controller starts on its profile (the SMK-37: the
+  defaults on channel 10, where drum pads send); anything else starts at
+  note 36 counting up, any channel: track keys 36–39, tricks 40–45, FX
+  46–49, CATCH GRAB DROP KEEP 50–53, CC1 FILTER's amount, CC 21–24 the mods,
+  CC64 the latch, pitch bend the bend, Start/Stop the transport, CC123 lets go
+  of everything.
+- **What a controller does.** A held pad is pressed and let go as a page's
+  is, quantised to `quantum`: the controller is one more holder,
+  `midi:<name>`, and its holds are let go when it's unplugged. A sustain
+  pedal latches what's let go until it lifts. The verbs run on the Pi, GRAB
+  and DROP one after the other, CATCH, KEEP and the transport without waiting
+  for a GRAB's bar: CATCH the last pass onto the armed track, GRAB the last 4
+  bars into the clipboard (8 s with no tempo; pages open the buffer on their
+  next poll), DROP the clipboard on the armed track at the next free span,
+  KEEP the last 30 s as a take. Amounts and mods do nothing until P4.
+
+`catch` is how a controller's CATCH lands on audio already there, `layer`
+(the default) or `replace`: the page's Layer / Replace switch is each
+device's, so the Pi keeps its own. Like the page's Catch, it's refused while
+the tape plays on a phone, and without an armed track.
+
+`PUT` takes `{"quantum": "…", "catch": "layer" | "replace", "controllers": {"name": {action: [binding]} | null}}`:
+the named controllers' maps are replaced (`null` puts one back to its
+profile), the others kept, and it answers as `GET` does. An unknown action, a
+note past 127 or a binding of two kinds is `400`.
 
 ### `POST /api/tapes/catch?id=`
 

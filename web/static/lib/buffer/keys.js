@@ -3,8 +3,9 @@
 // G grabs whenever the Studio is up; the rest mean something only while the
 // buffer is open -- [ ] move IN, ⇧[ ⇧] move OUT, K keeps it as a take, ⌫
 // tosses it -- and ↵ drops it while it's open, or again further on just
-// after a drop. P3's control bus (lib/play, controls.js) is to fold this
-// table into its own; until then bindBufferKeys listens for it.
+// after a drop. The table is the control bus's (lib/play/controls.js, the
+// one list of actions), and bindBufferKeys listens for it while the page
+// has the keyboard.
 //
 // By physical key (`code`), so they're where the fingers are on any layout,
 // as the tape page's and Play mode's are.
@@ -13,20 +14,11 @@
  * BUFFER_KEYS: `when` is 'studio' (always), 'open' (the buffer is open) or
  * 'held' (it's open, or was just dropped and the clipboard still has it).
  * `shift` must match: ⇧[ is OUT's, [ is IN's. `repeat` lets a held key
- * step on, as holding [ walks IN back bar by bar.
+ * step on, as holding [ walks IN back bar by bar. Derived from controls.js.
  */
-export const BUFFER_KEYS = [
-  { code: 'KeyG', shift: false, action: 'grab', when: 'studio', label: 'G', what: 'Grab the last bars into the buffer' },
-  { code: 'BracketLeft', shift: false, action: 'in-back', when: 'open', label: '[', what: 'IN back a step', repeat: true },
-  { code: 'BracketRight', shift: false, action: 'in-on', when: 'open', label: ']', what: 'IN on a step', repeat: true },
-  { code: 'BracketLeft', shift: true, action: 'out-back', when: 'open', label: '⇧[', what: 'OUT back a step', repeat: true },
-  { code: 'BracketRight', shift: true, action: 'out-on', when: 'open', label: '⇧]', what: 'OUT on a step', repeat: true },
-  { code: 'Enter', shift: false, action: 'drop', when: 'held', label: '↵', what: 'Drop it on the armed track, at the next free span' },
-  { code: 'NumpadEnter', shift: false, action: 'drop', when: 'held', label: '↵', what: 'Drop it on the armed track, at the next free span' },
-  { code: 'KeyK', shift: false, action: 'keep', when: 'open', label: 'K', what: 'Keep it as a take' },
-  { code: 'Backspace', shift: false, action: 'toss', when: 'open', label: '⌫', what: 'Toss it' },
-  { code: 'Delete', shift: false, action: 'toss', when: 'open', label: '⌦', what: 'Toss it' },
-];
+import { BUFFER_KEYS } from '../play/controls.js';
+
+export { BUFFER_KEYS };
 
 /** keyAction is the action a key press means now, or null. */
 export function keyAction(e, { open = false, held = false } = {}) {

@@ -803,6 +803,19 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     },
   });
 
+  // The Studio's verbs from the instrument strip (lib/play): its pads, its
+  // keys while it has the keyboard, and a controller plugged into this
+  // computer. GRAB and DROP are the buffer's; KEEP is too while it's open
+  // (claimed with preventDefault, so the Studio doesn't also keep the feed).
+  doc.addEventListener('hindsight:verb', (e) => {
+    switch (e.detail?.verb) {
+      case 'grab': grabBars(); e.preventDefault(); break;
+      case 'drop': if (grabOf()) { drop(); e.preventDefault(); } break;
+      case 'keep': if (st.open && grabOf() && !st.grabbing) { keepTake(); e.preventDefault(); } break;
+      default:
+    }
+  });
+
   // The tape, as the page polls it. A drop undone -- by the toast, or by
   // ⌘Z on the page -- puts the buffer back in hand.
   doc.addEventListener('hindsight:tape-state', (e) => {

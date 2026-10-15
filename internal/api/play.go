@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -30,6 +31,17 @@ import (
 // the break until both let go. A connection that goes -- a dropped Wi-Fi, a
 // locked phone, a closed tab -- lets go of what it held, so the tape never
 // stays broken with nobody holding anything.
+//
+// A controller plugged into the Pi is one more holder (controls.go), and
+// MIDI LEARN for it travels here (docs/superpowers/specs/2026-10-15-instrument-strip-design.md):
+//
+//	page → Pi  {"t":"learn","action":"stop","port":"SMK-37"}   port "" is any controller
+//	           {"t":"learn_cancel"}
+//	Pi → page  {"t":"learned","action":"stop","port":"SMK-37","midi":{"note":43,"ch":10}}
+//	           {"t":"refused","learn":"stop","why":"no controller moved in 10 s"}
+//
+// and hello lists the pads held as the page arrives ("held"), so a pad held
+// on the controller lights on a page opened mid-hold.
 
 // playPing is how often the Pi pings a player, and playReadWait how long it
 // waits to hear back before taking the player for gone. A held pad of a
@@ -71,6 +83,20 @@ func (h *playHolds) press(pad string, do func() error) error {
 	}
 	h.n[pad]++
 	return nil
+}
+
+// list is the pads held now, by anyone.
+func (h *playHolds) list() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := []string{}
+	for p, n := range h.n {
+		if n > 0 {
+			out = append(out, p)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // release lets go of pad for one connection; the last one releases it.
@@ -139,6 +165,20 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// MIDI LEARN this page started, still waiting: forgotten if it goes.
+	var learnMu sync.Mutex
+	var unlearn func()
+	stopLearning := func() {
+		learnMu.Lock()
+		f := unlearn
+		unlearn = nil
+		learnMu.Unlock()
+		if f != nil {
+			f()
+		}
+	}
+	defer stopLearning()
+
 	gone := make(chan struct{})
 	go func() {
 		defer close(gone)
@@ -155,6 +195,9 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				T   string `json:"t"`
 				Pad string `json:"pad"`
 				Q   string `json:"q"`
+				// MIDI LEARN: the action, and the controller ("" any).
+				Action string `json:"action"`
+				Port   string `json:"port"`
 			}
 			if json.Unmarshal(b, &m) != nil {
 				continue
@@ -174,6 +217,23 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				mineMu.Lock()
 				mine[m.Pad] = true
 				mineMu.Unlock()
+			case "learn":
+				stopLearning()
+				action := m.Action
+				cancel, err := a.startLearn(action, m.Port,
+					func(port string, b Binding) {
+						note(map[string]any{"t": "learned", "action": action, "port": port, "midi": b})
+					},
+					func(why string) { note(map[string]any{"t": "refused", "learn": action, "why": why}) })
+				if err != nil {
+					note(map[string]any{"t": "refused", "learn": action, "why": err.Error()})
+					continue
+				}
+				learnMu.Lock()
+				unlearn = cancel
+				learnMu.Unlock()
+			case "learn_cancel":
+				stopLearning()
 			case "release":
 				letGo(m.Pad)
 			case "release_all":
@@ -205,7 +265,7 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 	// Events from now on: what sounded before this page came is not news.
 	// Asking from past the end returns none, and where the log is.
 	_, seq := eng.TrickEventsSince(^uint64(0) >> 1)
-	if err := write(map[string]any{"t": "hello", "pads": tape.Pads(), "lead_ms": lead}); err != nil {
+	if err := write(map[string]any{"t": "hello", "pads": tape.Pads(), "lead_ms": lead, "held": a.playHolds.list()}); err != nil {
 		return
 	}
 

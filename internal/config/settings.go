@@ -74,6 +74,8 @@ var Settings = []Setting{
 		Help: "Move every MIDI event this much later, to land on its audio"},
 	{Key: "MIDI_SNAP_BARS", Group: "MIDI", Label: "Start on a bar", Kind: "bool", Default: "true",
 		Help: "Start a take on the last downbeat, so the .mid begins on bar 1"},
+	{Key: "TAPE_CONTROLLER", Group: "MIDI", Label: "Plays the tape", Kind: "text", Default: "",
+		Help: "Comma-separated names of controllers whose keys play Play mode's pads and verbs, from the Pi"},
 
 	{Key: "TAPE", Group: "Tape", Label: "Tape", Kind: "bool", Default: "false",
 		Help: "The four-track tape, played out through the interface"},

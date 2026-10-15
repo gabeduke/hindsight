@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { on, setOn } from './mount.js';
+import { on, setOn, start } from './mount.js';
 
 // mount.js reads the flag through localStorage and must survive not having
 // one -- private mode, and the first load on a fresh device.
@@ -56,4 +56,43 @@ test('no storage at all is off, not a crash', () => {
     assert.doesNotThrow(() => setOn(true));
     assert.doesNotThrow(() => setOn(false));
   });
+});
+
+test('with the flag off, the strip is never even fetched', async () => {
+  withStorage(memory(), () => {
+    let loaded = 0;
+    const got = start({ load: () => { loaded++; return Promise.resolve({ startStrip: () => ({}) }); } });
+    assert.equal(got, null);
+    assert.equal(loaded, 0);
+  });
+  const s = memory();
+  s.setItem('hindsight.play', '1');
+  await withStorage(s, async () => {
+    let opts = null;
+    const got = await start({ load: async () => ({ startStrip: (o) => { opts = o; return 'strip'; } }), x: 1 });
+    assert.equal(got, 'strip');
+    assert.deepEqual(opts, { x: 1 });
+  });
+});
+
+test('the KEYS rule: the strip has the keyboard only while unfolded and not given back', async () => {
+  const { keysOwner, fromOptions } = await import('./strip.js');
+  assert.equal(keysOwner({ open: false, given: false }), false);
+  assert.equal(keysOwner({ open: true, given: false }), true);
+  assert.equal(keysOwner({ open: true, given: true }), false, 'a tap on the lanes gives them back');
+  const opts = fromOptions({ pi: [{ name: 'SMK-37', connected: true }], web: [], canWeb: true });
+  assert.deepEqual(opts.map((o) => o.id), ['touch', 'keys', 'pi:SMK-37', 'web+']);
+  assert.equal(opts[2].live, true);
+  assert.deepEqual(fromOptions({ canWeb: false }).map((o) => o.id), ['touch', 'keys'], 'no Web MIDI here: no offer');
+});
+
+test('the ticker parks under an unfolded strip while the tape is stopped', async () => {
+  const { wantsFrames } = await import('./strip.js');
+  const idle = { open: true, playing: false, moving: false, pending: false, held: false };
+  assert.equal(wantsFrames(idle), false);
+  assert.equal(wantsFrames({ ...idle, playing: true }), true, 'the ring sweeps a playing tape');
+  assert.equal(wantsFrames({ ...idle, open: false, playing: true }), false, 'folded, there is no ring');
+  assert.equal(wantsFrames({ ...idle, moving: true }), true, 'the reel coasting down');
+  assert.equal(wantsFrames({ ...idle, pending: true }), true);
+  assert.equal(wantsFrames({ ...idle, open: false, held: true }), true, 'a pad waiting for its line');
 });

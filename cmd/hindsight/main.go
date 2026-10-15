@@ -136,6 +136,9 @@ func main() {
 
 	saver := audio.NewSaver(cap)
 
+	// The controllers that play the tape (TAPE_CONTROLLER) are heard by the
+	// watcher, which hands them to the API's control bus once it exists.
+	var controllers *midi.Watcher
 	if !*demo {
 		// The clock ring covers the same window as the audio ring, so a
 		// full-ring save can still ask about its oldest end. Sized in pulses
@@ -150,16 +153,34 @@ func main() {
 			Allow:       cfg.MIDIDevices,
 			Deny:        cfg.MIDIIgnore,
 			ClockDevice: cfg.MIDIClockDevice,
+			Controllers: cfg.TapeController,
 		}, mc, events)
 		watcher.Start()
 		stops = append(stops, watcher.Stop)
 		clock, tempo = watcher, watcher
+		controllers = watcher
 		if cfg.MIDICapture {
 			exporter = bundle.New(watcher, cfg.MIDILatencyMS, cfg.MIDIClockDevice)
 		}
 	}
 	saver.SetTempoSource(tempo)
 	saver.SetMIDIExporter(exporter)
+
+	if *demo && len(cfg.TapeController) > 0 {
+		// The demo has no MIDI watcher; with TAPE_CONTROLLER set it gets one
+		// for the controllers alone, which on a Mac finds nothing -- unless
+		// HINDSIGHT_DEMO_CARDS and HINDSIGHT_DEMO_SND_DIR point it at a cards
+		// file and FIFOs standing in for rawmidi nodes (docs/development.md).
+		controllers = midi.NewWatcher(midi.Policy{Controllers: cfg.TapeController}, midi.NewClock(1), nil)
+		if v := os.Getenv("HINDSIGHT_DEMO_CARDS"); v != "" {
+			controllers.CardsPath = v
+		}
+		if v := os.Getenv("HINDSIGHT_DEMO_SND_DIR"); v != "" {
+			controllers.SndDir = v
+		}
+		controllers.Start()
+		stops = append(stops, controllers.Stop)
+	}
 
 	srvAPI := api.New(cfg, cap, saver, cap.Envelope(), clock)
 	if *demo {
@@ -173,6 +194,13 @@ func main() {
 			srvAPI.SetTape(eng)
 			stops = append(stops, eng.Stop)
 		}
+	}
+	// Only now does the API hear the controllers: their messages arrive on
+	// the MIDI readers' goroutines and read the tape engine SetTape just
+	// set, which isn't guarded. Until then the watcher drops them.
+	if controllers != nil {
+		srvAPI.SetControllers(controllers)
+		controllers.SetControlSink(srvAPI)
 	}
 	// The hub: a public HTTPS name for this Pi's LAN address, and Caddy's
 	// certificate for it on a loopback listener of its own -- never a route

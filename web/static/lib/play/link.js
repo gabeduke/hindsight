@@ -13,6 +13,12 @@
 // press and release, when it will actually be heard, which moves the pad's
 // bright moment to the truth (Surface.confirm).
 //
+// Every page on the socket hears every pad (the Pi's trick log is shared):
+// an `at` for a pad this page isn't holding is another hand's -- a phone, a
+// laptop, the controller in the Pi -- and lights the pad here too, bright
+// only, because the dim state is the local touch's (onRemote). And MIDI
+// LEARN for the Pi's controllers travels on the same socket (learn()).
+//
 // Like the keyboard and touch adapters, this knows nothing of the DOM; the
 // socket is passed in, so it is tested against a fake one.
 
@@ -34,13 +40,19 @@ export function playURL(loc = globalThis.location) {
  * but saying so is quicker than its ping noticing.
  *
  * onNote(text) hears what the player should be told: a press refused, the
- * Pi out of reach.
+ * Pi out of reach. onRemote(pad, on, atMs) hears another hand's pad sound
+ * or stop, and when -- every stop, even of a pad this page holds too, so a
+ * mark never outlives the sound; onHeld(pads) hears exactly what's held as
+ * the socket (re)opens; onOpen() hears it open.
  */
 export function connect(surface, {
   url = playURL(),
   WebSocketImpl = globalThis.WebSocket,
   now = () => performance.now(),
   onNote = () => {},
+  onRemote = () => {},
+  onHeld = () => {},
+  onOpen = () => {},
   retryMs = 1000,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
@@ -48,6 +60,7 @@ export function connect(surface, {
   let ws = null;
   let closed = false;
   let retry = null;
+  let learning = null; // {action, resolve, reject}: one MIDI LEARN at a time
 
   const send = (m) => {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify(m));
@@ -61,14 +74,29 @@ export function connect(surface, {
       case 'hello':
         surface.setGrid({ lead: m.lead_ms ?? 0 });
         onNote('');
+        // What's held on the Pi as this page arrives: exactly that.
+        onHeld(m.held || []);
         break;
       case 'lead':
         surface.setGrid({ lead: m.ms ?? 0 });
         break;
-      case 'at':
-        if (Number.isFinite(m.in_ms)) surface.confirm(m.pad, !!m.on, now() + m.in_ms);
+      case 'at': {
+        const at = now() + (Number.isFinite(m.in_ms) ? m.in_ms : 0);
+        const mine = surface.state(m.pad) !== 'idle';
+        if (mine) surface.confirm(m.pad, !!m.on, at);
+        // A pad sounding that this page holds is this hand's to draw; one
+        // stopping is no one's any more.
+        if (!mine || !m.on) onRemote(m.pad, !!m.on, at);
+        break;
+      }
+      case 'learned':
+        if (learning && learning.action === m.action) { learning.resolve(m); learning = null; }
         break;
       case 'refused':
+        if (m.learn != null) {
+          if (learning) { learning.reject(new Error(m.why || 'nothing was played')); learning = null; }
+          break;
+        }
         onNote(`${m.pad}: ${m.why}`);
         break;
       default:
@@ -78,10 +106,12 @@ export function connect(surface, {
   function open() {
     if (closed || !WebSocketImpl) return;
     ws = new WebSocketImpl(url);
+    ws.onopen = () => onOpen();
     ws.onmessage = (e) => {
       try { handle(JSON.parse(e.data)); } catch { /* not ours */ }
     };
     ws.onclose = () => {
+      if (learning) { learning.reject(new Error('the Pi went out of reach')); learning = null; }
       if (closed) return;
       // Out of reach: the pads still light, and say they aren't sounding.
       // Anything held is let go on the Pi by its own timeout.
@@ -92,6 +122,25 @@ export function connect(surface, {
   open();
 
   return {
+    /**
+     * learn asks the Pi to bind the next note or CC from one of its
+     * controllers (`port`, or any) to `action`. It resolves with
+     * {action, port, midi} or rejects after the Pi's ten seconds.
+     */
+    learn(action, port = '') {
+      learning?.reject(new Error('another pad was picked'));
+      return new Promise((resolve, reject) => {
+        learning = { action, resolve, reject };
+        if (!ws || ws.readyState !== 1) { learning = null; reject(new Error('not connected to the Pi')); return; }
+        send({ t: 'learn', action, port });
+      });
+    },
+    cancelLearn() {
+      if (!learning) return;
+      learning.reject(new Error('cancelled'));
+      learning = null;
+      send({ t: 'learn_cancel' });
+    },
     close() {
       closed = true;
       clearTimer(retry);

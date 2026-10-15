@@ -684,12 +684,10 @@
   </section>
 </template>
 
-<!-- Play mode (lib/play). Empty and hidden until the per-device
-     hindsight.play flag is on; mount.js builds nothing while it is off. -->
-<div id="play-mode" hidden></div>
-
 <div id="toasts" aria-live="polite"></div>
 <script type="module" src="/lib/tape/page.js"></script>
+<!-- Play mode (lib/play): with the per-device hindsight.play flag on, the
+     instrument strip, built into #np-dock above the bar; with it off, nothing. -->
 <script type="module" src="/lib/play/mount.js"></script>
 <script type="module" src="/lib/rooms/mount.js"></script>
 </body>

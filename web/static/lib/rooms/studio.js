@@ -26,6 +26,7 @@ import { initWakeLock } from '../wakelock.js';
 import { initPhone } from '../phone/recorder.js';
 import { keepTake, takeBack, flagNow } from './keep.js';
 import { mountBuffer } from '../buffer/buffer.js';
+import { bindStudioKeys } from './keys.js';
 
 const STATUS_MS = 2000;
 
@@ -300,6 +301,25 @@ export function mountStudio(doc = document) {
   const buffer = mountBuffer(doc, {
     feed: main.querySelector('.studio-feed'), head: main.querySelector('.studio-feed-head'), keysRow: main.querySelector('.studio-keys'), ribbon, toast,
   });
+
+  // The Studio's verbs, after the buffer's (which claims KEEP while it's
+  // open): CATCH presses the bar's Catch, KEEP keeps the feed. They come as
+  // `hindsight:verb` from the instrument strip (lib/play), and from the
+  // keys below.
+  doc.addEventListener('hindsight:verb', (e) => {
+    if (e.defaultPrevented) return;
+    const v = e.detail?.verb;
+    if (v === 'catch') {
+      const c = $('catch-pass');
+      if (c && !c.disabled) c.click();
+    } else if (v === 'keep' && !el.keep.disabled) {
+      keep();
+    }
+  });
+  bindStudioKeys(doc);
+  // The keys' new names, where a screen reader reads them.
+  $('click')?.setAttribute('aria-keyshortcuts', 'M');
+  $('catch-pass')?.setAttribute('aria-keyshortcuts', 'C');
 
   return { ribbon, buffer };
 }

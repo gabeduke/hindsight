@@ -54,7 +54,7 @@ test('padForKey and commandForKey', () => {
   assert.equal(padForKey('Digit3'), 'track3');
   assert.equal(padForKey('KeyP'), null);
   assert.equal(commandForKey('Space'), 'transport');
-  assert.equal(commandForKey('Escape'), 'exit');
+  assert.equal(commandForKey('Escape'), 'panic');
   assert.equal(commandForKey('KeyQ'), null);
 });
 
@@ -107,7 +107,7 @@ test('commands are delivered and do not become pads', () => {
   bindKeyboard(s, { target: t, win: null, now: () => 0, onCommand: (c) => cmds.push(c) });
   t.send('keydown', { code: 'Space', target: { tagName: 'BODY' } });
   t.send('keydown', { code: 'Escape', target: { tagName: 'BODY' } });
-  assert.deepEqual(cmds, ['transport', 'exit']);
+  assert.deepEqual(cmds, ['transport', 'panic']);
   assert.deepEqual(s.held(), []);
 });
 
@@ -182,4 +182,135 @@ test('while bound, Play mode owns the keyboard: no key reaches the page', () => 
   let stop = false;
   t.send('keydown', { code: 'KeyR', target: { tagName: 'INPUT' }, stopPropagation: () => { stop = true; } });
   assert.equal(stop, false);
+});
+
+test('folded, the keys are the page’s: R records and 1 arms track 1; unfolded, R is STOP and 1 drops track 1 out', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  let unfolded = false;
+  bindKeyboard(s, { target: t, win: null, now: () => 0, owns: () => unfolded });
+  const send = (code) => {
+    let stopped = false;
+    t.send('keydown', { code, target: { tagName: 'BODY' }, stopPropagation: () => { stopped = true; } });
+    return stopped;
+  };
+  // Folded: nothing pressed, and nothing stopped, so the tape page's own
+  // listener -- ● Rec on R, arm on 1 -- hears the key.
+  assert.equal(send('KeyR'), false);
+  assert.equal(send('Digit1'), false);
+  assert.deepEqual(s.held(), []);
+  // Unfolded: the strip's.
+  unfolded = true;
+  assert.equal(send('KeyR'), true);
+  assert.equal(send('Digit1'), true);
+  assert.deepEqual(s.held().sort(), ['stop', 'track1']);
+});
+
+test('a key let up after the keys went back to the page still lets its pad go', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  let owned = true;
+  bindKeyboard(s, { target: t, win: null, now: () => 0, owns: () => owned });
+  t.send('keydown', { code: 'KeyQ', target: { tagName: 'BODY' } });
+  assert.deepEqual(s.held(), ['break']);
+  owned = false; // a tap on the lanes, with Q still down
+  t.send('keyup', { code: 'KeyQ', target: { tagName: 'BODY' } });
+  assert.deepEqual(s.held(), [], 'BREAK must not stick because the keys moved');
+});
+
+test('the Studio’s verbs are keys only with the two rooms on', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  let rooms = false;
+  const cmds = [];
+  bindKeyboard(s, { target: t, win: null, now: () => 0, onCommand: (c) => cmds.push(c), has: (n) => n === 'rooms' && rooms });
+  for (const code of ['KeyC', 'KeyG', 'KeyK', 'Enter']) t.send('keydown', { code, target: { tagName: 'BODY' } });
+  assert.deepEqual(cmds, []);
+  rooms = true;
+  for (const code of ['KeyC', 'KeyG', 'KeyK', 'Enter']) t.send('keydown', { code, target: { tagName: 'BODY' } });
+  assert.deepEqual(cmds, ['catch', 'grab', 'keep', 'drop']);
+  assert.deepEqual(s.held(), []);
+});
+
+test('⇧ is the latch: a pad let go under it stays held until ⇧ lifts', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  bindKeyboard(s, { target: t, win: null, now: () => 0 });
+  const k = (n, code) => t.send(n, { code, target: { tagName: 'BODY' } });
+  k('keydown', 'ShiftLeft');
+  k('keydown', 'KeyW');
+  k('keyup', 'KeyW');
+  assert.deepEqual(s.held(), ['reverse'], 'latched');
+  k('keyup', 'ShiftLeft');
+  assert.deepEqual(s.held(), []);
+});
+
+test('P4’s FX keys and the crate’s pads are taken, but play nothing yet', () => {
+  for (const code of ['KeyT', 'KeyY', 'KeyU', 'KeyI', 'Digit5', 'Digit0']) {
+    assert.equal(padForKey(code), null, code);
+    assert.equal(commandForKey(code), null, code);
+  }
+});
+
+test('⌘ with a key is the page’s, even while the strip has the keys', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  bindKeyboard(s, { target: t, win: null, now: () => 0 });
+  let stopped = false;
+  t.send('keydown', { code: 'KeyZ', metaKey: true, target: { tagName: 'BODY' }, stopPropagation: () => { stopped = true; } });
+  assert.equal(stopped, false, '⌘Z undoes on the page');
+  assert.deepEqual(s.held(), [], 'and is not ½×');
+});
+
+test('↵ is DROP, but a button Tab brought the focus to keeps it; a clicked one gives it up', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  const cmds = [];
+  bindKeyboard(s, { target: t, win: null, now: () => 0, onCommand: (c) => cmds.push(c), has: () => true });
+  const button = (id = '') => {
+    const b = { tagName: 'BUTTON', id };
+    b.closest = (sel) => (sel === 'button:not(#play)' && id !== 'play' ? b : null);
+    return b;
+  };
+  const loop = button();
+  // Tab to Loop, then ↵: Loop's.
+  t.send('keydown', { code: 'Tab', target: { tagName: 'BODY', closest: () => null } });
+  t.send('focusin', { target: loop });
+  t.send('keydown', { code: 'Enter', target: loop });
+  assert.deepEqual(cmds, []);
+  // Click a track's ●, then ↵: DROP.
+  const rec = button();
+  t.send('pointerdown', { target: rec });
+  t.send('focusin', { target: rec });
+  t.send('keydown', { code: 'Enter', target: rec });
+  assert.deepEqual(cmds, ['drop']);
+  // ▶, however it was focused, never keeps it.
+  const play = button('play');
+  t.send('keydown', { code: 'Tab', target: { tagName: 'BODY', closest: () => null } });
+  t.send('focusin', { target: play });
+  t.send('keydown', { code: 'Enter', target: play });
+  assert.deepEqual(cmds, ['drop', 'drop']);
+});
+
+test('a key let up with a field focused still lets its pad go; a level fader isn’t typing', () => {
+  // Hold W, click a track's gain fader, let W go: REV must not stick.
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  bindKeyboard(s, { target: t, win: null, now: () => 0 });
+  t.send('keydown', { code: 'KeyW', target: { tagName: 'BODY' } });
+  t.send('keyup', { code: 'KeyW', target: { tagName: 'INPUT', type: 'range' } });
+  assert.deepEqual(s.held(), []);
+  t.send('keydown', { code: 'KeyE', target: { tagName: 'BODY' } });
+  t.send('keyup', { code: 'KeyE', target: { tagName: 'INPUT', type: 'text' } });
+  assert.deepEqual(s.held(), [], 'even a text field: the key was the instrument’s when it went down');
+  // With a fader focused the keys still play, and Esc still lets go.
+  const cmds = [];
+  const t2 = fakeTarget();
+  const s2 = new Surface({ bpm: 120, division: 'off' });
+  bindKeyboard(s2, { target: t2, win: null, now: () => 0, onCommand: (c) => cmds.push(c) });
+  t2.send('keydown', { code: 'KeyQ', target: { tagName: 'INPUT', type: 'range' } });
+  t2.send('keydown', { code: 'Escape', target: { tagName: 'INPUT', type: 'range' } });
+  assert.deepEqual(s2.held(), ['break']);
+  assert.deepEqual(cmds, ['panic']);
+  assert.equal(typingInto({ tagName: 'INPUT', type: 'range' }), false);
 });
