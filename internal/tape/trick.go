@@ -5,6 +5,9 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
+
+	"github.com/gabeduke/hindsight/internal/mono"
 )
 
 // Play mode's tricks: what a held pad does to what the room hears.
@@ -56,6 +59,9 @@ const (
 // ErrNoSuchPad is a press or release of a pad Play mode doesn't have.
 var ErrNoSuchPad = errors.New("no such pad")
 
+// Pads is every pad, by name, track keys first.
+func Pads() []string { return append([]string(nil), pads[:]...) }
+
 func padIndex(name string) int {
 	for i, p := range pads {
 		if p == name {
@@ -102,6 +108,11 @@ func (e *Engine) Press(pad, quantum string) error {
 	q, err := trickQuantum(quantum)
 	if err != nil {
 		return err
+	}
+	// A mixdown's pass renders straight, so a trick wouldn't be heard in it;
+	// printing tricks into one is a later, deliberate feature.
+	if md := e.MixdownStatus(); md != nil && md.busy() {
+		return ErrMixingDown
 	}
 	e.tricks.mu.Lock()
 	n := 0
@@ -433,34 +444,34 @@ func (p *perf) top() int {
 }
 
 // apply carries out a press or release on output frame o, with the
-// transport at tape frame pos.
-func (p *perf) apply(msg trickMsg, o uint64, pos int64, playing bool, m *Mix) {
+// transport at tape frame pos, and says whether it changed what's held.
+func (p *perf) apply(msg trickMsg, o uint64, pos int64, playing bool, m *Mix) bool {
 	i := msg.pad
 	if i < 0 || i >= numPads {
-		return
+		return false
 	}
 	if msg.press {
 		if p.held[i] {
-			return
+			return false
 		}
 		p.held[i] = true
 		if i < trackPads {
 			p.setCut(i, 1, o, m)
-			return
+			return true
 		}
 		p.order = append(p.order, i)
 		if playing {
 			p.engage(i, pos, o, m)
 		}
-		return
+		return true
 	}
 	if !p.held[i] {
-		return
+		return false
 	}
 	p.held[i] = false
 	if i < trackPads {
 		p.setCut(i, 0, o, m)
-		return
+		return true
 	}
 	was := p.top()
 	for j, x := range p.order {
@@ -470,7 +481,7 @@ func (p *perf) apply(msg trickMsg, o uint64, pos int64, playing bool, m *Mix) {
 		}
 	}
 	if was != i || !p.head.on {
-		return // one held underneath let go: what's heard doesn't change
+		return true // one held underneath let go: what's heard doesn't change
 	}
 	if t := p.top(); t >= 0 {
 		p.engage(t, pos, o, m)
@@ -479,6 +490,19 @@ func (p *perf) apply(msg trickMsg, o uint64, pos int64, playing bool, m *Mix) {
 		off.on = false
 		p.setSource(off, o)
 	}
+	return true
+}
+
+// heldMask is what's held, a bit per pad, for readers off the render
+// goroutine.
+func (p *perf) heldMask() uint32 {
+	var m uint32
+	for i, h := range p.held {
+		if h {
+			m |= 1 << i
+		}
+	}
+	return m
 }
 
 // engage moves the head to pad from the transport's position, crossfading
@@ -810,4 +834,93 @@ func hermite(y0, y1, y2, y3, t float32) float32 {
 	c2 := y0 - 2.5*y1 + 2*y2 - 0.5*y3
 	c3 := 0.5*(y3-y0) + 1.5*(y1-y2)
 	return ((c3*t+c2)*t+c1)*t + y1
+}
+
+// ---------------------------------------------------------------------------
+// What the page is told.
+
+// TrickEvent is a press or release as it actually sounded: on output frame
+// Out, with the transport at tape frame Pos.
+type TrickEvent struct {
+	Seq uint64 `json:"-"`
+	Pad string `json:"pad"`
+	On  bool   `json:"on"`
+	Out uint64 `json:"out"`
+	Pos int64  `json:"pos"`
+}
+
+// trickLog keeps the last few events for the pages watching: the render
+// goroutine writes them, a page's socket reads what it hasn't seen.
+type trickLog struct {
+	mu   sync.Mutex
+	seq  uint64 // events ever logged
+	ring [64]TrickEvent
+}
+
+func (e *Engine) logTrick(pad int, on bool, out uint64, pos int64) {
+	e.trickLog.mu.Lock()
+	e.trickLog.seq++
+	e.trickLog.ring[e.trickLog.seq%uint64(len(e.trickLog.ring))] = TrickEvent{
+		Seq: e.trickLog.seq, Pad: pads[pad], On: on, Out: out, Pos: pos}
+	e.trickLog.mu.Unlock()
+	e.heldPads.Store(e.perf.heldMask())
+}
+
+// TrickEventsSince is every event after seq still kept, oldest first, and
+// the sequence to ask from next time. A reader that fell more than the
+// log's length behind gets what's left.
+func (e *Engine) TrickEventsSince(seq uint64) ([]TrickEvent, uint64) {
+	e.trickLog.mu.Lock()
+	defer e.trickLog.mu.Unlock()
+	last := e.trickLog.seq
+	if seq >= last {
+		return nil, last
+	}
+	from := seq + 1
+	if n := uint64(len(e.trickLog.ring)); last-seq > n {
+		from = last - n + 1
+	}
+	out := make([]TrickEvent, 0, last-from+1)
+	for s := from; s <= last; s++ {
+		out = append(out, e.trickLog.ring[s%uint64(len(e.trickLog.ring))])
+	}
+	return out, last
+}
+
+// resetTricks forgets everything held, and says so to Live.
+func (e *Engine) resetTricks() {
+	e.perf.reset()
+	e.heldPads.Store(0)
+}
+
+// HeldPads is what's held now, by name.
+func (e *Engine) HeldPads() []string {
+	m := e.heldPads.Load()
+	var out []string
+	for i, p := range pads {
+		if m&(1<<i) != 0 {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// HeardIn is how long from now output frame o will be heard; false with no
+// output to hear it on.
+func (e *Engine) HeardIn(o uint64) (time.Duration, bool) {
+	if e.sink == nil {
+		return 0, false
+	}
+	at, ok := e.heardAt(o)
+	if !ok {
+		return 0, false
+	}
+	return time.Duration(at - mono.Now()), true
+}
+
+// TrickLead is how long a press takes to be heard at best: the render head's
+// frame, from now -- the blocks rendered ahead and the device's own latency.
+// The page draws a pad's armed moment that much before its grid line.
+func (e *Engine) TrickLead() (time.Duration, bool) {
+	return e.HeardIn(e.tr.Status().Out)
 }

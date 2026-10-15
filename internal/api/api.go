@@ -68,6 +68,10 @@ type API struct {
 
 	// tape is the tape engine, or nil with TAPE off.
 	tape *tape.Engine
+	// playHolds counts who holds each of Play mode's pads (play.go), and
+	// playFake stands in for the engine there in tests.
+	playHolds playHolds
+	playFake  tricks
 
 	// hub reports the secure address (internal/hub); nil when the hub is off.
 	hub HubStatus
@@ -193,6 +197,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/clip", a.handleTapeClip).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/listen", a.handleTapeListen).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/stream", a.handleTapeStream).Methods(http.MethodGet)
+	r.HandleFunc("/api/tapes/play", a.handleTapePlay).Methods(http.MethodGet)
 	r.HandleFunc("/api/tapes/output", a.handleTapeOutput).Methods(http.MethodPut)
 	r.HandleFunc("/api/tapes/undo", a.handleTapeUndo(false)).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/redo", a.handleTapeUndo(true)).Methods(http.MethodPost)
