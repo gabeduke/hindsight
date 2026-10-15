@@ -1789,7 +1789,10 @@ can work on it.
   kept goes into the crate first.
 
 On a phone the buffer is a sheet: pull its grip up or down, or hold it and
-drag it up onto a lane to drop it there.
+drag it up onto a lane to drop it there. With Play mode on, the sheet stands
+above the mini player, and on a laptop's height the feed folds to its keys
+while the buffer is open, so a lane or two stay in sight. The buffer and the
+instrument strip take turns: see §8.13.
 
 ### 8.13 The instrument strip (a preview)
 
@@ -1810,8 +1813,17 @@ drawer above the bar on the tape page, not a screen over it.
   sound cuts. It remembers whether it was open, on this device.
 - **One drawer at a time:** opening the crate folds it, and unfolding it
   closes the crate.
-- **On a phone,** **EDIT | PLAY** sits on the mini player. **PLAY** makes
-  the bottom panel the instrument; **EDIT** gives the drawers back. PLAY's
+- **It takes turns with the buffer** (§8.12, with the two rooms on): there is
+  room for one in full. Unfolding the instrument folds the buffer to a single
+  line -- its name, its length, **AUDITION** and ✕ -- and a tap on that line,
+  or folding the instrument, opens it again. Bringing the buffer forward (a
+  **GRAB** in the feed, or its **Buffer ▴** key) folds the instrument. A
+  **GRAB** played on the instrument's own pad or key leaves it open, and the
+  buffer comes up as its line.
+- **On a phone,** **EDIT | PLAY** sits on the mini player, and the buffer's
+  sheet stands above it, so the toggle is never under the sheet. **PLAY**
+  makes the bottom panel the instrument, with the sheet dropped to its peek;
+  **EDIT** gives the drawers back, the sheet at the height you left it. PLAY's
   lamp lights while a pad sounds.
 
 **Whose keys are they?** The instrument's while it's unfolded, and the

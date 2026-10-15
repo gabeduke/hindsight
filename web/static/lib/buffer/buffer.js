@@ -141,6 +141,12 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   const grabOf = () => st.board?.grab || null;
   const snapPer = () => (SNAPS.find((s) => s.id === (st.detail?.snap || 'bar')) || SNAPS[0]).per;
   const hint = () => doc.dispatchEvent(new CustomEvent('hindsight:clipboard'));
+  // Bringing the buffer forward -- a grab of this page's own, or the Buffer ▴
+  // key -- asks the instrument strip (lib/play/strip.js), if there is one, to
+  // give way: the two take turns. Nothing listens with Play mode off. (The
+  // bench is the buffer's panel; the event is named for it so the strip need
+  // not use a buffer- class, which only this directory may: styles.test.js.)
+  const forward = () => doc.dispatchEvent(new CustomEvent('hindsight:bench-forward'));
 
   // --- the board -----------------------------------------------------------------
 
@@ -208,6 +214,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     st.grabbing = true;
     st.open = true;
     render();
+    forward();
     try {
       const b = await send(() => api.grab({ ...req, sources: sources() }), { mine: true });
       const notes = [];
@@ -745,7 +752,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   }
   el.grab.addEventListener('click', grabBars);
   el.grabSel?.addEventListener('click', grabSpan);
-  el.reopen.addEventListener('click', () => { st.open = true; st.dropped = ''; render(); });
+  el.reopen.addEventListener('click', () => { st.open = true; st.dropped = ''; render(); forward(); });
   for (const btn of el.picks.children) {
     btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); writePick(st.n); render(); });
   }

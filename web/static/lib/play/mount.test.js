@@ -96,3 +96,32 @@ test('the ticker parks under an unfolded strip while the tape is stopped', async
   assert.equal(wantsFrames({ ...idle, pending: true }), true);
   assert.equal(wantsFrames({ ...idle, open: false, held: true }), true, 'a pad waiting for its line');
 });
+
+test('the strip and the buffer take turns: never both in full', async () => {
+  // At 1440 x 790 the unfolded strip over the open bench cut the bench's
+  // bottom row off and left no lane, and on a phone the sheet sat over the
+  // EDIT | PLAY toggle. One is in full at a time: the one that moved last.
+  const { turns } = await import('./strip.js');
+  const was = (strip, buffer) => ({ strip, buffer });
+  assert.deepEqual(turns(was(true, false), 'strip'), { strip: true, bench: 'shut' }, 'no buffer: the strip is as it was');
+  assert.deepEqual(turns(was(false, false), 'buffer'), { strip: false, bench: 'shut' });
+  assert.deepEqual(turns(was(false, true), 'strip'), { strip: false, bench: 'full' }, 'the strip folded: the bench is back in full');
+  assert.deepEqual(turns(was(true, true), 'strip'), { strip: true, bench: 'peek' }, 'unfolding the strip folds the buffer to its peek');
+  assert.deepEqual(turns(was(true, true), 'buffer'), { strip: false, bench: 'full' }, 'bringing the buffer forward folds the strip');
+  assert.deepEqual(turns(was(true, true)), { strip: true, bench: 'peek' }, 'both found open (a page load): the instrument keeps the floor');
+});
+
+test('the buffer says when it is brought forward, and the strip answers', async () => {
+  // The two halves meet in one document event, and nothing else would fail
+  // if either were dropped: the layout only breaks in a browser.
+  const { readFileSync } = await import('node:fs');
+  const buffer = readFileSync(new URL('../buffer/buffer.js', import.meta.url), 'utf8');
+  const strip = readFileSync(new URL('./strip.js', import.meta.url), 'utf8');
+  assert.match(buffer, /const forward = \(\) => doc\.dispatchEvent\(new CustomEvent\('hindsight:bench-forward'\)\)/);
+  assert.match(buffer, /st\.grabbing = true;\s*st\.open = true;\s*render\(\);\s*forward\(\);/, 'a grab of this page brings it forward');
+  assert.match(buffer, /el\.reopen\.addEventListener\('click', \(\) => \{[^}]*forward\(\);/, 'so does its Buffer ▴ key');
+  assert.match(strip, /addEventListener\('hindsight:bench-forward', onForward\)/);
+  // A GRAB the strip plays itself is the strip moving: it stays.
+  assert.match(strip, /onForward = \(\) => yieldTo\(verbing \? 'strip' : 'buffer'\)/);
+  assert.match(strip, /verbing = true;\s*try \{ doc\.dispatchEvent\(new CustomEvent\('hindsight:verb'/);
+});
