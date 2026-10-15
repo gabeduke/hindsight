@@ -1,4 +1,4 @@
-// web/static/lib/bar/lcd.js
+// web/static/lib/objects/lcd.js
 // What the now-playing bar's LCD says, apart from any drawing: the position
 // (large), the line beside it (small), the status lamp, and the line that
 // scrolls under them naming what's loaded. Pure, so every state is tested.
@@ -9,6 +9,11 @@
 //
 // The tape's messages -- the count-in, a mixdown and its tail, saving, no
 // output -- are the ones #position used to show, word for word.
+//
+// The window itself is markup in each page that has the bar (.np-lcd),
+// laid out in styles.css. Its amber ink and its edge are the same in both
+// schemes and live in objects.css; its black and its dimmer second line are
+// a shade apart by scheme, so they stay in styles.css.
 
 import { barBeat, fmtSecs, bpm } from '../tape/geometry.js';
 

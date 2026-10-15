@@ -1,9 +1,15 @@
-// web/static/lib/wave/grease.js
+// web/static/lib/objects/grease.js
 // A grease-pencil mark: the line an editor drew on tape at an edit point.
-// The take page draws its selection's In and Out this way. Pure, so the
-// wobble is tested: the same seed (the edge's frame) gives the same stroke
-// every frame, so a mark stays put on the audio instead of shimmering as
-// the view pans and zooms.
+// The take page draws its selection's In and Out this way (drawGrease, from
+// lib/wave/view.js), and the cassette its window's (lib/objects/cassette.js,
+// with a hook at each end). The geometry is pure, so the wobble is tested:
+// the same seed (the edge's frame) gives the same stroke every frame, so a
+// mark stays put on the audio instead of shimmering as the view pans and
+// zooms.
+//
+// The pencil on black is --grease-mark, the same in both schemes, in
+// objects.css. --grease, the darker legend the take page writes In and Out
+// in on its panels, follows the scheme and stays in styles.css.
 
 const WANDER = 1.5; // px either side of the line, at most
 const STEP = 10;    // px between the stroke's points
@@ -70,4 +76,41 @@ export function labelPlaces(sx0, sx1, wIn, wOut, W) {
     in: sx0 >= 0 && sx0 <= W ? inAt : null,
     out: sx1 >= 0 && sx1 <= W ? outAt : null,
   };
+}
+
+/**
+ * drawGrease draws a selection's In and Out as grease-pencil marks on a
+ * canvas W wide, at sx0 and sx1, from markTop to markBottom -- each mark's
+ * wobble seeded by its frame (start, end) -- and writes IN and OUT beside
+ * them in marker from labelTop, with a halo of the window behind the words
+ * so they read over loud audio. A mark well off the canvas is not drawn.
+ * `ink` is the pencil, `halo` the window, `font` the face to fall back to
+ * while the marker loads.
+ */
+export function drawGrease(ctx, { sx0, sx1, start, end, W, markTop, markBottom, labelTop, ink, halo, font }) {
+  ctx.save();
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const [x, frame] of [[sx0, start], [sx1, end]]) {
+    if (x < -4 || x > W + 4) continue;
+    const pts = greaseStroke(x, markTop, markBottom, frame);
+    ctx.beginPath();
+    pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+    ctx.stroke();
+  }
+  ctx.font = `18px "Permanent Marker", ${font}`;
+  ctx.textBaseline = 'top';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = halo;
+  ctx.fillStyle = ink;
+  const wIn = ctx.measureText('IN').width, wOut = ctx.measureText('OUT').width;
+  const at = labelPlaces(sx0, sx1, wIn, wOut, W);
+  for (const [text, p] of [['IN', at.in], ['OUT', at.out]]) {
+    if (!p) continue;
+    ctx.strokeText(text, p.x, labelTop + p.y);
+    ctx.fillText(text, p.x, labelTop + p.y);
+  }
+  ctx.restore();
 }

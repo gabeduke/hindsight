@@ -204,19 +204,33 @@ the next step, and it is Go work.
 
 ## The object library
 
-`web/static/lib/objects/` holds the physical things the app draws — the VU
-meters, the reels, the reel window, the cassette and the buffer ribbon so far
-— one module each, with their
-tests beside them. `motion.js` holds the shared physics: `ballistic` for a
-needle (the VU standard, 300 ms to 99 % with 1 % overshoot), `lag` for a
-first-order approach, `spin` for a reel with inertia, and one `Ticker` that
-every animated object shares so there is one `requestAnimationFrame` loop
-rather than one per object.
+`web/static/lib/objects/` holds the physical things the app draws, one
+module each, with their tests beside them: the VU meters (`vu.js`), the reels
+and the reel window (`reels.js`, `reel-window.js`), the cassette
+(`cassette.js`, `cassette-geom.js`), the ribbon (`ribbon.js` and its draw and
+maths), the LCD's words (`lcd.js`), grease pencil (`grease.js`), a flag's
+pennant (`pennant.js`) and the output icons (`icons.js`). A page keeps its
+layout and behaviour and asks the module for the object.
+
+Two things are objects without a module. The masking tape that track names
+and a take's flags are written on is all CSS (`.tt-head .tt-name` and
+`.detail-flag` in `styles.css`), so only its marker ink moved, to
+`objects.css`. The transport keys are the app's buttons — every `.icon-btn`,
+in rules across `styles.css` — and every key colour follows the scheme, so
+they stay chrome; their lit materials (`--mute-*`, `--solo-*`) are in
+`objects.css`.
+
+`motion.js` holds the shared physics: `ballistic` for a needle (the VU
+standard, 300 ms to 99 % with 1 % overshoot), `lag` for a first-order
+approach, `spin` for a reel with inertia, and one `Ticker` that every animated
+object shares so there is one `requestAnimationFrame` loop rather than one per
+object.
 
 `web/static/objects.css` holds what those objects are made of — metal reels,
 lit keys, tape oxide, cassette paper and plastic, the VU meters' backlit
-faces. Every token in it is the same in both schemes, which is why it has no
-dark block: an object is an object, and brown tape is brown in a dark room.
+faces, the LCD's amber, grease pencil and marker. Every token in it is the
+same in both schemes, which is why it has no dark block: an object is an
+object, and brown tape is brown in a dark room.
 A token that *does* follow the scheme belongs in `styles.css`, next to its
 dark value; `lib/objects/materials.test.js` fails if one ends up in the wrong
 file, because that mistake is invisible until someone opens the app at night.
@@ -230,10 +244,15 @@ exact step response rather than an integrator — so the motion is identical at
 covers.
 
 **The bench** is at `/objects.html`: every object, on its own, in each of its
-states, with a speed control for watching motion at ⅒×. It is not linked from
-the app and is not shipped UI — if the bench and a page disagree, the page is
-right. It is the place to judge a change to an object without loading a rig
-and getting a take into the right shape.
+states, with a speed control for watching motion at ⅒×, a size slider that
+sets every object to one width (Phone, Tablet and Deck are the widths the
+cassette gets in Takes on a 390 px phone, an 820 px tablet and a 1280 px
+desktop), and *Save a still*, which downloads the bench as it is on screen as
+a PNG named for its scheme and width — so a change can be judged against the
+picture of what was there before. It is not linked from the app and is not
+shipped UI — if the bench and a page disagree, the page is right. It is the
+place to judge a change to an object without loading a rig and getting a take
+into the right shape.
 
 Adding a directory under `lib/` means adding it to the `node --test` globs in
 `.github/workflows/ci.yml`; they are named one by one, so a new directory's

@@ -4,7 +4,7 @@
 // of the face sits. Pure, so the spine, the face and their tests share one
 // source; the numbers are the design canvas's (cassette.py, takes2.py).
 
-import { greaseStroke } from '../wave/grease.js';
+import { greaseStroke } from './grease.js';
 
 /** stripeOf gives a take one of the five printed stripes, by its name. */
 export function stripeOf(name) {

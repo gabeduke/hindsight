@@ -7,7 +7,7 @@
 // bar joined again from the page before), the LCD says how that's going and
 // ▶ is the tap its sound waits for.
 
-import { tapeCounter, tapeMarquee } from './lcd.js';
+import { tapeCounter, tapeMarquee } from '../objects/lcd.js';
 import { paintTapeOverview } from '../tape/overview.js';
 
 const POLL_MS = 500;

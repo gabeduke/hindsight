@@ -5,7 +5,7 @@
 // follows the audio element's events. Loop repeats the take's selection, or
 // the whole take without one.
 
-import { takeCounter, takeMarquee } from './lcd.js';
+import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { peakDbAt } from '../objects/reel-window.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
 import { drawTrace, paintOxide, oxideColors } from '../wave/tape-strip.js';

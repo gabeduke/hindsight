@@ -3,7 +3,7 @@
 // sound inside the tap and never leaves the jam room silent.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { outIcon, outName, outDelay, paintOutButtons, switchOutput } from './out-switch.js';
+import { outName, outDelay, paintOutButtons, switchOutput } from './out-switch.js';
 
 let store, puts;
 beforeEach(() => {
@@ -36,16 +36,7 @@ function fakePlayer({ startFails = false, log = [] } = {}) {
   };
 }
 
-test('each place has its own picture: a speaker, headphones, or both', () => {
-  assert.match(outIcon('jam'), /M3 9\.5/);
-  assert.doesNotMatch(outIcon('jam'), /a8 8/);
-  assert.match(outIcon('phone'), /a8 8/);
-  assert.doesNotMatch(outIcon('phone'), /M3 9\.5/);
-  assert.match(outIcon('both'), /M3 9\.5/);
-  assert.match(outIcon('both'), /a8 8/);
-  assert.match(outIcon('both'), /width="38"/);
-  assert.equal(outIcon('anything'), outIcon('jam'));
-});
+// Each place's picture is tested with the pictures, in lib/objects/icons.test.js.
 
 test('names and delays read as the sheet says them', () => {
   assert.equal(outName('jam'), 'Jam room');

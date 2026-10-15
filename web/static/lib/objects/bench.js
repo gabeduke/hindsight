@@ -15,8 +15,15 @@ import { VUMeters, vuScale, vuAngle, VU_SWING } from './vu.js';
 import { CassetteFace } from './cassette.js';
 import { ribbonColors, drawRibbon } from './ribbon-draw.js';
 import { token } from '../theme.js';
-import { ReelWindow } from './reel-window.js';
+import { ReelWindow, levelFrac } from './reel-window.js';
 import { ballistic, spin, settled, Ticker } from './motion.js';
+import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
+import { drawGrease } from './grease.js';
+import { drawPennant, drawPennantName } from './pennant.js';
+import { outIcon, OUT_MODES } from './icons.js';
+import { still, download } from './bench-still.js';
+import { paintOxide, oxideColors } from '../wave/tape-strip.js';
+import { PIN_H, RULER_H } from '../wave/view.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const NEEDLE_CX = 80, NEEDLE_CY = 112, NEEDLE_R = 80;
@@ -51,6 +58,33 @@ function cell(grid, name) {
   c.append(body, el('span', 'bench-label', name));
   grid.append(c);
   return body;
+}
+
+/**
+ * canvasCell is a canvas as wide as its cell, drawn by draw(ctx, W, H) at
+ * the device's pixel ratio -- and drawn again when the cell's width changes
+ * or the marker font arrives, so a cell is never a stretched picture of
+ * another size.
+ */
+function canvasCell(body, H, draw) {
+  const canvas = el('canvas', 'bench-canvas');
+  canvas.style.height = `${H}px`;
+  body.append(canvas);
+  const paint = () => {
+    const W = Math.round(canvas.getBoundingClientRect().width);
+    if (!W) return;
+    const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return; // no 2d context (a test runner): the cell stays blank
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw(ctx, W, H);
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(paint).observe(canvas);
+  else paint();
+  globalThis.document?.fonts?.load?.('18px "Permanent Marker"').then(paint, () => {});
+  return canvas;
 }
 
 /** A VU face with one needle, for the motion comparison. */
@@ -98,12 +132,22 @@ export function mount(root, { raf, cancel, now } = {}) {
   // honour prefers-reduced-motion through the shared ticker.
   const ticker = new Ticker({ raf, cancel, now: clock, reduced: false });
 
-  buildSpeed(root, (s) => { clock(); scale = s; });
+  // The bench's own controls, in one row: left out of a still.
+  const tools = el('div', 'bench-tools');
+  root.append(tools);
+  buildSpeed(tools, (s) => { clock(); scale = s; });
+  buildSize(tools, root);
+  buildStill(tools, root);
   buildMotion(root, ticker);
   buildVu(root);
   buildReels(root, ticker, clock);
   buildCassettes(root);
   buildRibbon(root);
+  buildLcd(root);
+  buildGrease(root);
+  buildPennants(root);
+  buildMaskingTape(root);
+  buildIcons(root);
   return ticker;
 }
 
@@ -126,6 +170,97 @@ function buildSpeed(root, onPick) {
   });
   bar.append(group);
   root.append(bar);
+}
+
+/**
+ * The widths an object is checked at, named for where they come from: the
+ * width the cassette is drawn at in Takes on a 390 px phone, on an 820 px
+ * tablet held upright, and on the deck -- a 1280 px desktop, where the
+ * cassette shares the screen with the shelf and so is narrower than on the
+ * tablet.
+ */
+export const BENCH_SIZES = [['phone', 358], ['tablet', 788], ['deck', 654]];
+
+/**
+ * buildSize is the size slider: every cell's object at one width, so an
+ * object is judged at the size it will be seen at rather than at whatever
+ * the grid makes it. Objects that size to their container -- the cassette,
+ * the ribbon, the LCD, the canvases -- redraw at it; ones with a fixed
+ * size on the pages keep it here too, which is the honest answer.
+ */
+function buildSize(tools, root) {
+  const bar = el('div', 'bench-speed');
+  bar.append(el('span', 'bench-note', 'Size'));
+  const group = el('div', 'seg');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Size');
+  const range = el('input', 'bench-range');
+  range.type = 'range';
+  range.min = '160';
+  range.max = '1000';
+  range.step = '2';
+  range.value = String(BENCH_SIZES[0][1]);
+  range.setAttribute('aria-label', 'Width of each object, in CSS pixels');
+  const readout = el('span', 'bench-label');
+  readout.setAttribute('aria-live', 'polite');
+
+  const keys = [['Auto', 0], ...BENCH_SIZES.map(([n, w]) => [n[0].toUpperCase() + n.slice(1), w])].map(([label, w]) => {
+    const b = el('button', null, label);
+    b.type = 'button';
+    b.addEventListener('click', () => set(w));
+    group.append(b);
+    return [b, w];
+  });
+  function set(w) {
+    if (w) {
+      root.dataset.w = String(w);
+      root.style.setProperty('--bench-w', `${w}px`);
+      range.value = String(w);
+    } else {
+      delete root.dataset.w;
+      root.style.removeProperty('--bench-w');
+    }
+    const named = BENCH_SIZES.find(([, x]) => x === w);
+    readout.textContent = !w ? 'as wide as the grid makes each' : `${w} px${named ? `, ${named[0]}` : ''}`;
+    for (const [b, x] of keys) b.setAttribute('aria-pressed', String(x === w));
+  }
+  range.addEventListener('input', () => set(Number(range.value)));
+  bar.append(group, range, readout);
+  tools.append(bar);
+  set(0);
+}
+
+/**
+ * buildStill is the still button: the bench as it is on screen -- this
+ * scheme, this size, the needles where they are -- as a PNG to download,
+ * so two versions of an object can be put side by side after one of them
+ * has gone. Its file is named for the scheme and the width.
+ */
+function buildStill(tools, root) {
+  const bar = el('div', 'bench-speed');
+  const group = el('div', 'seg');
+  const button = el('button', null, 'Save a still');
+  button.type = 'button';
+  group.append(button);
+  const note = el('span', 'bench-label bench-still-note');
+  note.setAttribute('aria-live', 'polite');
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    note.textContent = 'drawing…';
+    try {
+      const { blob, name } = await still(root, { skip: '.bench-tools' });
+      download(blob, name);
+      note.textContent = name.endsWith('.svg')
+        ? `${name}: this browser would not hand the picture back as a PNG, so here it is as an SVG`
+        : name;
+    } catch (e) {
+      note.textContent = `no still: ${e.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+  bar.append(group, note);
+  tools.append(bar);
 }
 
 /**
@@ -292,7 +427,7 @@ function buildRibbon(root) {
   const grid = section(root, 'Ribbon',
     'The ring as a meter: levels on the meters\' dB scale, not a waveform. The lit part is the chosen capture length; the unrecorded end gets no trace, because a flat line there would read as silence.');
 
-  const W = 320, H = 64;
+  const H = 64;
 
   /** A plausible envelope: a quiet room, a jam, and a silent ring. */
   const envelopes = {
@@ -307,33 +442,287 @@ function buildRibbon(root) {
     silent: (n) => new Float32Array(n),
   };
 
+  // The lit span and where recording starts, for a ribbon W wide: drawn at
+  // the cell's own width, so the size slider shows a ribbon of that size
+  // rather than a 320 px one stretched.
   const states = [
-    ['the whole ring lit', 'jam', [0, W], 0],
-    ['a 30 s length lit at the head', 'jam', [W - 70, W], 0],
-    ['a span held mid-ribbon', 'jam', [110, 190], 0],
-    ['the ring has not filled yet', 'jam', [W - 70, W], W * 0.42],
-    ['a quiet room', 'quiet', [0, W], 0],
-    ['nothing on the ring', 'silent', [0, W], 0],
+    ['the whole ring lit', 'jam', (W) => [0, W], () => 0],
+    ['a 30 s length lit at the head', 'jam', (W) => [W - 70 / 320 * W, W], () => 0],
+    ['a span held mid-ribbon', 'jam', (W) => [110 / 320 * W, 190 / 320 * W], () => 0],
+    ['the ring has not filled yet', 'jam', (W) => [W - 70 / 320 * W, W], (W) => W * 0.42],
+    ['a quiet room', 'quiet', (W) => [0, W], () => 0],
+    ['nothing on the ring', 'silent', (W) => [0, W], () => 0],
   ];
 
   for (const [label, env, lit, recordedFrom] of states) {
-    const body = cell(grid, label);
-    const canvas = el('canvas', 'bench-ribbon');
-    const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = '100%';
-    canvas.style.height = `${H}px`;
-    body.append(canvas);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) continue; // no 2d context (a test runner): the cell stays blank
-    ctx.scale(dpr, dpr);
-    drawRibbon(ctx, {
-      W, H,
-      levels: envelopes[env](160),
-      lit,
-      recordedFrom,
-      colors: ribbonColors(token),
+    const levels = envelopes[env](160);
+    const canvas = canvasCell(cell(grid, label), H, (ctx, W) => drawRibbon(ctx, {
+      W, H, levels, lit: lit(W), recordedFrom: recordedFrom(W), colors: ribbonColors(token),
+    }));
+    canvas.classList.add('bench-ribbon');
+  }
+}
+
+
+/**
+ * The LCD: the counter in the reel window, amber behind glass in both
+ * schemes. Each cell is the markup the pages carry (.np-lcd), painted from
+ * the same functions they paint it from (lib/objects/lcd.js) -- so the words
+ * in a cell are the words a page would show in that state. The count-in, a
+ * mixdown and a punch are the ones worth having here: getting a rig into
+ * them takes a band.
+ */
+function buildLcd(root) {
+  const grid = section(root, 'LCD',
+    'Where it is, large, with the time beside it; the lamp; and the line that scrolls under them. A message takes the large place, and its details the line under it, still.');
+
+  // 96 BPM in 4/4, so a bar is 2.5 s: sixteen bars, the loop on bars 5-8,
+  // and the tape stopped 13.2 s in, which is bar 6, beat 2.
+  const SR = 48000, BAR = 2.5 * SR;
+  const tape = (over = {}) => ({
+    id: 't1', name: 'Tuesday jam', sample_rate: SR, length: 16 * BAR,
+    grid: { frames: 16 * BAR, bars: 16 }, loop: { in: 4 * BAR, out: 8 * BAR, on: true }, ...over,
+  });
+  const live = (over = {}) => ({
+    playing: false, heard: Math.round(13.2 * SR), out: 0, delivered: 0, count_in: 0,
+    output: 'jam room', output_mode: 'jam', ...over,
+  });
+  const playing = live({ playing: true });
+  const rec = live({ playing: true, record: { tape: 't1', track: 2, state: 'on' } });
+  const armed = live({ record: { tape: 't1', track: 2, state: 'armed' } });
+  // Two and a half beats of count-in left: "2 of 4".
+  const counting = live({ playing: true, count_in: Math.round(2.5 * BAR / 4) });
+  const mix = (state) => ({ state, from: 0, to: 8 * BAR });
+  const take = { name: '2026-10-04_2015_JAM', bpm: 96, region: { start: 2 * SR, end: 30 * SR }, sampleRate: SR };
+  const tracks = ['var(--t1)', 'var(--t2)'];
+  const ink = ['var(--lcd-ink)', 'var(--lcd-ink)'];
+
+  const states = [
+    ['tape, stopped', tapeCounter(tape(), live(), null), tapeMarquee(tape(), live()), tracks, []],
+    ['tape, playing', tapeCounter(tape(), playing, null), tapeMarquee(tape(), playing), tracks, [-12, -22]],
+    ['recording track 2', tapeCounter(tape(), rec, null), tapeMarquee(tape(), rec), tracks, [-12, -6]],
+    ['track 2 armed', tapeCounter(tape(), armed, null), tapeMarquee(tape(), armed), tracks, []],
+    ['count-in', tapeCounter(tape(), counting, null), tapeMarquee(tape(), counting), tracks, []],
+    ['mixing down', tapeCounter(tape(), playing, mix('playing')), '', tracks, [-12, -22]],
+    ['letting it ring out', tapeCounter(tape(), playing, mix('tail')), '', tracks, []],
+    ['saving the mixdown', tapeCounter(tape(), live(), mix('saving')), '', tracks, []],
+    ['no tempo yet, no output', tapeCounter(tape({ grid: null }), live({ output: '' }), null), tapeMarquee(tape({ grid: null }), live()), tracks, []],
+    ['a take, playing on its grid', takeCounter({ pos: 13.2 * SR, length: 212 * SR, sampleRate: SR, bar: '6.2', playing: true }), takeMarquee(take), ink, [-14, -16]],
+    ['a take, paused, no tempo', takeCounter({ pos: 75.4 * SR, length: 212 * SR, sampleRate: SR, bar: null, playing: false }), takeMarquee({ ...take, name: 'untitled sketch', bpm: null, region: null }), ink, []],
+  ];
+  for (const [label, lcd, marquee, colours, levels] of states) lcdFace(cell(grid, label), lcd, marquee, colours, levels);
+}
+
+/**
+ * lcdFace is one LCD, as the pages mark it up, painted as bar.js and the
+ * tape and take pages paint theirs: the lamp, the unit, the position, the
+ * time, a level bar per track, and the marquee -- still when it carries a
+ * message.
+ */
+function lcdFace(parent, lcd, marquee, colours, levels) {
+  const face = el('div', 'np-lcd');
+  const top = el('div', 'np-lcd-top');
+  const status = el('span', 'np-status');
+  status.dataset.state = lcd.status;
+  const bars = el('span', 'np-levels');
+  colours.forEach((c, i) => {
+    const b = el('i');
+    b.style.background = c;
+    b.style.color = c; // the glow is currentColor
+    b.style.transform = `scaleY(${Math.max(0.08, levelFrac(levels[i])).toFixed(3)})`;
+    bars.append(b);
+  });
+  top.append(status, el('span', 'np-unit', lcd.unit), el('span', 'np-pos', lcd.big), el('span', 'np-time', lcd.small), bars);
+  const line = el('div', 'np-marquee');
+  line.classList.toggle('still', !!lcd.note);
+  line.append(el('span', null, lcd.note || marquee));
+  face.append(top, line);
+  const box = el('div', 'bench-lcd');
+  box.append(face);
+  parent.append(box);
+}
+
+
+/**
+ * Grease pencil: a selection's In and Out, marked on the tape the way an
+ * editor marked an edit point, drawn by the function the take page draws
+ * them with. The cells are the places IN and OUT can be written -- inside a
+ * wide selection, outside a narrow one, stacked at either end of the take
+ * -- because those are the layouts that go wrong.
+ */
+function buildGrease(root) {
+  const grid = section(root, 'Grease pencil',
+    'In and Out on the tape, as the take page marks them: under the ruler, through the oxide, each mark\'s wobble its own and the same every frame. The words sit inside the selection when it holds them.');
+
+  // Each case: where In and Out are, as fractions of the width, or px from
+  // an end. Seeds are frames, as on the page.
+  const states = [
+    ['a wide selection: IN and OUT inside', (W) => [0.2 * W, 0.8 * W]],
+    ['a narrow one: either side of it', (W) => [0.44 * W, 0.52 * W]],
+    ['at the end of the take: both left, stacked', (W) => [W - 25, W - 16]],
+    ['at the start: both right, stacked', () => [1, 12]],
+    ['Out off the canvas: In alone', (W) => [0.3 * W, W + 50]],
+  ];
+  const H = 150, bottom = H - 30;
+  for (const [label, at] of states) {
+    canvasCell(cell(grid, label), H, (ctx, W) => {
+      const [sx0, sx1] = at(W);
+      ctx.fillStyle = token('--oxide-ruler', '#1d1209');
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(0, RULER_H);
+      paintOxide(ctx, W, bottom - RULER_H, oxideColors(token));
+      ctx.restore();
+      drawGrease(ctx, {
+        sx0, sx1, start: Math.round(sx0 * 4800), end: Math.round(sx1 * 4800), W,
+        markTop: PIN_H + 2, markBottom: bottom - 2, labelTop: RULER_H + 6,
+        ink: token('--grease-mark', '#f0c419'), halo: token('--well', '#0a0a0b'), font: token('--font', 'system-ui'),
+      });
     });
   }
+}
+
+
+/**
+ * Pennants: a flag stuck in the tape. The take page plants one in its ruler
+ * for every flag on the take, drawn by lib/objects/pennant.js; the ribbon
+ * on Capture plants its own as an element you can tap -- the same flag, but
+ * a swallowtail (.rb-flag in styles.css) where the take page's is pointed.
+ * Both are here, so a change to one can be held up against the other.
+ */
+function buildPennants(root) {
+  const grid = section(root, 'Pennant',
+    'A flag stuck in the tape: in the take page\'s ruler, with its line down through the audio and its name when there is room before the next; and on the ribbon, where it is a thing to tap.');
+
+  const H = 96;
+  const states = [
+    ['a flag', [{ at: 0.4 }]],
+    ['the flag selected', [{ at: 0.4, selected: true }]],
+    ['a named flag', [{ at: 0.3, label: 'the riff' }]],
+    ['two close together: the second name waits for room', [{ at: 0.25, label: 'verse' }, { at: 0.34, label: 'chorus' }]],
+  ];
+  for (const [label, flags] of states) {
+    canvasCell(cell(grid, label), H, (ctx, W) => {
+      ctx.fillStyle = token('--oxide-ruler', '#1d1209');
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(0, RULER_H);
+      paintOxide(ctx, W, H - RULER_H, oxideColors(token));
+      ctx.restore();
+      // As the take page writes them: 11 px, and a name only where it won't
+      // run into the one before.
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = `11px ${token('--font', 'system-ui')}`;
+      let lastRight = -Infinity;
+      for (const f of flags) {
+        const x = f.at * W;
+        drawPennant(ctx, x, { pinH: PIN_H, bottom: H, selected: !!f.selected, ink: token('--flag', '#b58900') });
+        if (f.label && x + 12 > lastRight) lastRight = drawPennantName(ctx, x, f.label, { pinH: PIN_H, ink: token('--well-ink', '#f2e6c8') });
+      }
+    });
+  }
+
+  // The ribbon's: the real .rb-flag element, over a ring drawn as the
+  // ribbon draws it.
+  const levels = Float32Array.from({ length: 160 }, (_, i) => 0.4 + 0.35 * Math.sin(i / 9) ** 2);
+  for (const [label, ats] of [['on the ribbon', [0.55]], ['on the ribbon, two flags', [0.3, 0.72]]]) {
+    const wrap = el('div', 'bench-rb');
+    cell(grid, label).append(wrap);
+    canvasCell(wrap, 64, (ctx, W, h) => drawRibbon(ctx, { W, H: h, levels, lit: [0, W], recordedFrom: 0, colors: ribbonColors(token) }));
+    const layer = el('div', 'rb-layer');
+    for (const a of ats) {
+      const flag = el('div', 'rb-flag');
+      flag.style.left = `${(a * 100).toFixed(2)}%`;
+      layer.append(flag);
+    }
+    wrap.append(layer);
+  }
+}
+
+
+/**
+ * Icons: the pictures drawn from code -- where the tape plays -- in the ink
+ * of a key, and the app's own icon, from its files, at the sizes it is
+ * asked for: the top bar's 24 px, and the home screen's.
+ */
+function buildIcons(root) {
+  const grid = section(root, 'Icons',
+    'Where the tape plays, as the output button shows it: a speaker, headphones, both. Then the app\'s icon, a take as the shelf draws one, at the size of the top bar and of a home screen.');
+
+  const names = { jam: 'Jam room: a speaker', phone: 'Phone: headphones', both: 'Both' };
+  for (const mode of OUT_MODES) {
+    const box = el('span', 'bench-ico');
+    box.innerHTML = outIcon(mode);
+    cell(grid, names[mode]).append(box);
+  }
+  // The same files, at the same addresses, the pages and the manifest ask for.
+  // The top bar rounds its corners (.brand img); the OS rounds the full
+  // bleed one itself, so it is shown square, as handed over.
+  const files = [
+    ['the top bar, 24 px (icon-small.svg)', '/icons/icon-small.svg?v=2', 24, '6px'],
+    ['the app icon (icon.svg)', '/icons/icon.svg', 96, ''],
+    ['full bleed, for the OS to round (icon-full.svg)', '/icons/icon-full.svg', 96, ''],
+  ];
+  for (const [label, src, size, radius] of files) {
+    const img = el('img', 'bench-app-ico');
+    img.src = src;
+    img.alt = '';
+    img.width = size;
+    img.height = size;
+    img.style.borderRadius = radius;
+    cell(grid, label).append(img);
+  }
+}
+
+
+/**
+ * Masking tape, written on in marker: a track's name on the tape page, and
+ * a take's flags on its card in Takes. It is all CSS -- the strip's torn
+ * ends, its lean, the tape and the marker -- so there is no module; these
+ * cells are the pages' own markup (lib/tape/page.js, lib/shelf-detail.js),
+ * with the classes styles.css styles them by.
+ */
+function buildMaskingTape(root) {
+  const grid = section(root, 'Masking tape',
+    'A track\'s name in marker on a strip of masking tape, as on a console\'s scribble strip, and a take\'s flags as tabs on its card. Styled in styles.css (.tt-head .tt-name, .detail-flag); the marker is a material, the tape a shade darker at night.');
+
+  /** A track's head, as the tape page builds it, with only its name. */
+  const track = (n, name) => {
+    const row = el('div', 'tape-track');
+    row.style.setProperty('--tc', `var(--t${((n - 1) % 4) + 1})`);
+    const head = el('div', 'tt-head');
+    const num = el('span', 'tt-num', String(n));
+    num.setAttribute('aria-hidden', 'true');
+    const label = el('button', 'tt-name', name);
+    label.type = 'button';
+    label.dataset.n = String(n);
+    head.append(num, label);
+    row.append(head);
+    return row;
+  };
+  const stack = (rows) => {
+    const box = el('div', 'bench-tracks');
+    box.append(...rows);
+    return box;
+  };
+
+  cell(grid, 'tracks 1 and 2: the strips lean opposite ways').append(stack([track(1, 'Drums'), track(2, 'Keys')]));
+  cell(grid, 'nothing written on it yet').append(stack([track(3, '')]));
+  // A head 200 px or wider prints the number in a ring of the track's
+  // colour instead of on the tape (the tthead container query).
+  const wide = track(1, 'Drums');
+  wide.classList.add('bench-wide');
+  cell(grid, 'a wide head: the number in its ring').append(stack([wide]));
+
+  // A take's flags, as Takes builds them for the take's card.
+  const flags = el('div', 'detail-flags');
+  for (const [name, at] of [['the riff', '0:10'], ['big ending', '2:48']]) {
+    const c = el('button', 'detail-flag');
+    c.type = 'button';
+    c.innerHTML = '<span aria-hidden="true">⚑</span><span class="flag-name"></span><span class="flag-at"></span>';
+    c.querySelector('.flag-name').textContent = name;
+    c.querySelector('.flag-at').textContent = at;
+    flags.append(c);
+  }
+  cell(grid, 'a take\'s flags, on its card').append(flags);
 }

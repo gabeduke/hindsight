@@ -62,3 +62,47 @@ test('an edge off the canvas has no label', () => {
   assert.equal(labelPlaces(-50, 100, 20, 36, 600).in, null);
   assert.equal(labelPlaces(100, 700, 20, 36, 600).out, null);
 });
+
+// drawGrease: the marks and their words, as the take page draws them.
+import { drawGrease } from './grease.js';
+
+/** A 2d context that writes down what it is asked to do; text is 10 px a letter. */
+function recorder() {
+  const calls = [];
+  return new Proxy({}, {
+    get(_, k) {
+      if (k === 'calls') return calls;
+      if (k === 'measureText') return (s) => ({ width: 10 * s.length });
+      return (...a) => calls.push([k, ...a]);
+    },
+    set(_, k, v) { calls.push([`${String(k)}=`, v]); return true; },
+  });
+}
+const opts = { W: 600, markTop: 18, markBottom: 198, labelTop: 42, ink: '#f0c419', halo: '#0a0a0b', font: 'system-ui' };
+
+test('drawGrease strokes both marks in pencil, then writes IN and OUT over a halo', () => {
+  const ctx = recorder();
+  drawGrease(ctx, { ...opts, sx0: 100, sx1: 300, start: 4800, end: 24000 });
+  const c = ctx.calls;
+  assert.deepEqual(c[0], ['save']);
+  assert.deepEqual(c.at(-1), ['restore']);
+  assert.equal(c.filter(([k]) => k === 'stroke').length, 2);
+  // Each mark is the stroke greaseStroke gives for its frame.
+  const moves = c.filter(([k]) => k === 'moveTo');
+  assert.deepEqual(moves[0].slice(1), greaseStroke(100, 18, 198, 4800)[0]);
+  assert.deepEqual(moves[1].slice(1), greaseStroke(300, 18, 198, 24000)[0]);
+  // The words: in marker, the window's colour behind them, the pencil's over.
+  assert.ok(c.some(([k, v]) => k === 'font=' && v === '18px "Permanent Marker", system-ui'));
+  assert.ok(c.some(([k, v]) => k === 'strokeStyle=' && v === '#0a0a0b'));
+  const words = c.filter(([k]) => k === 'fillText').map(([, t, x, y]) => [t, x, y]);
+  // A 200 px selection holds both, inside it (labelPlaces).
+  assert.deepEqual(words, [['IN', 107, 42], ['OUT', 300 - 7 - 30, 42]]);
+  assert.equal(c.filter(([k]) => k === 'strokeText').length, 2);
+});
+
+test('a mark off the canvas is neither drawn nor named', () => {
+  const ctx = recorder();
+  drawGrease(ctx, { ...opts, sx0: -50, sx1: 300, start: 0, end: 24000 });
+  assert.equal(ctx.calls.filter(([k]) => k === 'stroke').length, 1);
+  assert.deepEqual(ctx.calls.filter(([k]) => k === 'fillText').map(([, t]) => t), ['OUT']);
+});

@@ -23,7 +23,8 @@ import { levelsOfColumns, laneChannels, takeGain } from './draw.js';
 import { drawTrace, traceLines, sliceLines, paintOxide, oxideColors } from './tape-strip.js';
 import { GestureSurface } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
-import { greaseStroke, labelPlaces } from './grease.js';
+import { drawGrease } from '../objects/grease.js';
+import { drawPennant, drawPennantName } from '../objects/pennant.js';
 import { seamHalves } from './boundary.js';
 
 export { HOLD_MS } from '../edit/gestures.js';
@@ -399,34 +400,11 @@ export class WaveView extends GestureSurface {
     // the audio as the view moves. IN and OUT are written inside the
     // selection, or outside it when it's too narrow to hold them.
     if (sel) {
-      const grease = col('--grease-mark', '#f0c419');
-      ctx.save();
-      ctx.strokeStyle = grease;
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      for (const [x, frame] of [[sx0, sel.start], [sx1, sel.end]]) {
-        if (x < -4 || x > W + 4) continue;
-        const pts = greaseStroke(x, PIN_H + 2, bottom - 2, frame);
-        ctx.beginPath();
-        pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
-        ctx.stroke();
-      }
-      // The labels, with a halo of the well behind them so they read over
-      // loud audio.
-      ctx.font = `18px "Permanent Marker", ${col('--font', 'system-ui')}`;
-      ctx.textBaseline = 'top';
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = col('--well', '#e9e2cd');
-      ctx.fillStyle = grease;
-      const wIn = ctx.measureText('IN').width, wOut = ctx.measureText('OUT').width;
-      const at = labelPlaces(sx0, sx1, wIn, wOut, W);
-      for (const [text, p] of [['IN', at.in], ['OUT', at.out]]) {
-        if (!p) continue;
-        ctx.strokeText(text, p.x, top + 6 + p.y);
-        ctx.fillText(text, p.x, top + 6 + p.y);
-      }
-      ctx.restore();
+      drawGrease(ctx, {
+        sx0, sx1, start: sel.start, end: sel.end, W,
+        markTop: PIN_H + 2, markBottom: bottom - 2, labelTop: top + 6,
+        ink: col('--grease-mark', '#f0c419'), halo: col('--well', '#e9e2cd'), font: col('--font', 'system-ui'),
+      });
     }
 
     // The boundary being edited: a bright line through ruler and body, and
@@ -494,16 +472,9 @@ export class WaveView extends GestureSurface {
       const x = frameToX(f.frame, view);
       if (x < -200 || x > W + 200) continue;
       const selected = st.selectedFlag && st.selectedFlag.id === f.id;
-      ctx.fillStyle = col('--flag', '#b58900');
-      ctx.fillRect(Math.round(x) - (selected ? 1 : 0), PIN_H, selected ? 3 : 1, bottom - PIN_H);
-      // The pin: a small pennant on a stem.
-      ctx.fillRect(Math.round(x), 2, 2, PIN_H - 2);
-      ctx.beginPath(); ctx.moveTo(x + 2, 2); ctx.lineTo(x + 10, 6); ctx.lineTo(x + 2, 10); ctx.closePath(); ctx.fill();
+      drawPennant(ctx, x, { pinH: PIN_H, bottom, selected, ink: col('--flag', '#b58900') });
       if (f.label && x + 12 > lastRight) {
-        const w = Math.min(140, ctx.measureText(f.label).width);
-        ctx.fillStyle = col('--well-ink', '#f2e6c8');
-        ctx.fillText(f.label, x + 12, PIN_H - 4, 140);
-        lastRight = x + 12 + w + 6;
+        lastRight = drawPennantName(ctx, x, f.label, { pinH: PIN_H, ink: col('--well-ink', '#f2e6c8') });
       }
     }
 

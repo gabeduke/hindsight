@@ -1,8 +1,9 @@
 /* Hindsight — the materials.
    What the objects are made of: metal reels, lit keys, tape oxide, cassette
-   paper and plastic, and the VU meters' backlit faces. Split out of
-   styles.css so that changing what an object is made of is a diff to this
-   file, and changing a page's layout cannot touch it.
+   paper and plastic, the VU meters' backlit faces, the LCD's amber digits,
+   grease pencil and marker. Split out of styles.css so that changing what
+   an object is made of is a diff to this file, and changing a page's
+   layout cannot touch it.
 
    Every token here is the same in both schemes, which is why there is no
    dark block below: an object is an object, and brown tape is brown in a
@@ -90,6 +91,22 @@
   /* The tape's reels, in the bar: brown tape on silver reels. */
   --tape-pack:    #4a2e18;
   --tape-sheen:   #8a5a32;
+
+  /* The LCD (lib/objects/lcd.js): amber digits behind glass, and the
+     shadow of the bezel they sit under. Its black and its dimmer second
+     line are a shade apart by scheme, so they stay in styles.css. */
+  --lcd-ink:   #ffb547;
+  --lcd-edge:  rgba(0, 0, 0, .7);
+
+  /* Grease pencil (lib/objects/grease.js): the yellow an editor marked
+     an edit point with, on tape and on black windows. Its legend on a
+     panel, --grease, follows the scheme and stays in styles.css. */
+  --grease-mark:  #f0c419;
+
+  /* Masking tape (styles.css: .tt-head .tt-name, .detail-flag): the
+     marker a name is written in. The tape itself, --mask, is a shade
+     darker at night and stays in styles.css. */
+  --marker:       #14252b;
 
   /* Play mode's pad controller: a dark box with rubber pads, dark in any
      room, as an instrument on a stand is. A lit pad is the cassette's orange

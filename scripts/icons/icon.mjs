@@ -1,8 +1,8 @@
 // The app icon: a take, as the shelf draws one -- a cassette in black
 // plastic, its J-card label in cream with an orange stripe, the two reels
 // in the window and the take's waveform between them in the wave's teal.
-// The colours are the cassette's own (web/static/styles.css, :root: --cas-*,
-// --paper-*, --stripe-1, --hub*, --wave).
+// The colours are the cassette's own (web/static/objects.css: --cas-*,
+// --paper-*, --stripe-1, --hub*; and styles.css: --wave).
 //
 //   node scripts/icons/icon.mjs      writes web/static/icons/*.svg
 //   node scripts/icons/render.mjs    renders the PNGs from them
