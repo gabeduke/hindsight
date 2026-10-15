@@ -492,9 +492,11 @@ function drawInspector() {
     const keep = insp.contains(document.activeElement) ? document.activeElement.dataset.key : null;
     insp.replaceChildren(...(cable ? cableView(g, cable) : sel ? socketView(g, sel) : overview(g)));
     state.inspSig = sig;
-    insp.classList.toggle('open', !!(sel || cable));
     if (keep) insp.querySelector(`[data-key="${CSS.escape(keep)}"]`)?.focus({ preventScroll: true });
   }
+  // On a phone the inspector is a sheet over the desk's foot: it waits for
+  // a drag to end, rather than covering the rope in the hand.
+  insp.classList.toggle('open', !!(sel || cable) && !(state.drag && state.drag.moved));
   // The level, kept moving.
   const lv = insp.querySelector('.rig-level');
   if (lv && sel) {
@@ -806,7 +808,7 @@ function endDrag(e, cancelled) {
   state.drag = { suppress: true };
   setTimeout(() => { if (state.drag && state.drag.suppress) state.drag = null; }, 400);
   const g = state.g;
-  if (cancelled) { drawCables(); return; }
+  if (cancelled) { render(); return; }
   // Let go snapped into a socket: a new cable, carrying on from this rope.
   if (d.over && d.over !== d.from && writeFor(g, d.from, d.over)) {
     const rope = scene && scene.get(DRAG);
