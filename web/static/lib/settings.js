@@ -93,14 +93,27 @@ const FROM = { app: 'set here', env: 'from the env file', default: 'default' };
 
 /** RESTART_WARNING is what a restart costs, said wherever one is offered. */
 /**
- * revealOnOpen makes a settings group scroll into view when it is opened.
+ * revealOnOpen makes a settings group scroll into view when a person opens it.
  * The sheet's body scrolls, and the last group's rows open below its fold:
  * on a phone, tapping "This device" looked like nothing happened, because
  * the switches it had just shown were out of sight under Close and Save.
+ *
+ * Only a person's tap counts. A group that starts open fires the same
+ * `toggle` event when the sheet is built, and revealing each of those
+ * scrolled the sheet down to its last open group before anyone had touched
+ * it. A tap or key on the summary arrives as a click first, so the click
+ * arms the next toggle and an unarmed toggle is ignored.
  */
 export function revealOnOpen(d) {
+  let asked = false;
+  d.addEventListener('click', (e) => {
+    const t = e && e.target;
+    if (t && typeof t.closest === 'function' && t.closest('summary')) asked = true;
+  });
   d.addEventListener('toggle', () => {
-    if (d.open && typeof d.scrollIntoView === 'function') d.scrollIntoView({ block: 'nearest' });
+    const byHand = asked;
+    asked = false;
+    if (byHand && d.open && typeof d.scrollIntoView === 'function') d.scrollIntoView({ block: 'nearest' });
   });
   return d;
 }

@@ -19,8 +19,11 @@ const loopSeconds = (tape) => {
  * words to act on. {bars, barsWhy}: the last bars can be taken, or why not.
  * `phoneOut`: the tape is playing on this phone, heard late: the key stays
  * pressable and the jam-room sheet says what's wrong, as ● Rec does.
+ * `armed`: some track is armed. Catch lands on it, so with none the key's
+ * second line says "arm a track", as it did before it said why it waited:
+ * a person who disarmed everything is told that, not only to press ▶.
  */
-export function catchState({ live, tape, phoneOut = false }) {
+export function catchState({ live, tape, phoneOut = false, armed = true }) {
   if (phoneOut) return { ready: true, why: '', short: '', bars: false, barsWhy: 'Catch needs the jam room' };
   if (!live) {
     return { ready: false, why: 'The Pi has not answered yet.', short: 'waiting', bars: false, barsWhy: 'The Pi has not answered yet.' };
@@ -49,6 +52,10 @@ export function catchState({ live, tape, phoneOut = false }) {
   } else {
     short = 'waits for a pass';
     why = `Catch takes the last whole pass of the loop, so it waits for one to finish${length}.`;
+  }
+  if (!armed) {
+    short = 'arm a track';
+    why = `Arm a track first: Catch lands on the armed track. ${why}`;
   }
   return { ready: false, why, short, bars, barsWhy };
 }

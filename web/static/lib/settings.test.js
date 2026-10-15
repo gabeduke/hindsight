@@ -29,15 +29,45 @@ function fakeDetails() {
   return d;
 }
 
-test('opening a settings group scrolls it into view, so its rows are not left under the fold', () => {
+// What a browser does when a person taps a summary: a click on it, then the
+// group's toggle. A group opened by the code that builds the sheet gets the
+// toggle alone.
+const tapSummary = (d) => d.on.click({ target: { closest: (sel) => (sel === 'summary' ? {} : null) } });
+
+test('opening a settings group by hand scrolls it into view, so its rows are not left under the fold', () => {
   const d = revealOnOpen(fakeDetails());
+  tapSummary(d);
   d.open = true;
   d.on.toggle();
   assert.deepEqual(d.scrolled, [{ block: 'nearest' }]);
 });
 
+test('a group that starts open does not scroll the sheet when it is built', () => {
+  // The sheet opened scrolled partway down: every group that starts open fired
+  // a toggle, and the last one scrolled the body to itself.
+  const d = revealOnOpen(fakeDetails());
+  d.open = true;
+  d.on.toggle();
+  assert.deepEqual(d.scrolled, []);
+  // ...and that ignored toggle does not leave the next one armed.
+  d.open = false;
+  d.on.toggle();
+  d.open = true;
+  d.on.toggle();
+  assert.deepEqual(d.scrolled, []);
+});
+
+test('a tap that is not on the summary does not arm the reveal', () => {
+  const d = revealOnOpen(fakeDetails());
+  d.on.click({ target: { closest: () => null } });
+  d.open = true;
+  d.on.toggle();
+  assert.deepEqual(d.scrolled, []);
+});
+
 test('closing a group leaves the scroll where it is', () => {
   const d = revealOnOpen(fakeDetails());
+  tapSummary(d);
   d.on.toggle();
   assert.deepEqual(d.scrolled, []);
 });

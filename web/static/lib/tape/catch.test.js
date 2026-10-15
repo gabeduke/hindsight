@@ -66,6 +66,27 @@ test('on a phone playing the tape late, Catch is left to the jam-room sheet that
   assert.deepEqual([s.ready, s.why, s.bars], [true, '', false]);
 });
 
+// Before Catch said why it waited, a key with no armed track said "arm a
+// track". Waiting for ▶ or a pass now said only that, and a person who had
+// just disarmed everything was never told Catch had nowhere to land.
+test('waiting with no track armed: the key says to arm one, and the reason follows', () => {
+  for (const l of [live(), live({ playing: false }), live({ aligned: 'none', playing: false })]) {
+    const s = catchState({ live: l, tape: tape(), armed: false });
+    assert.equal(s.ready, false);
+    assert.equal(s.short, 'arm a track');
+    assert.match(s.why, /^Arm a track first/);
+    assert.match(s.why, /Press ▶|waits for one/, 'the reason it waits is still there');
+  }
+  // With a track armed, or when it does not say, the reason is the line.
+  assert.equal(catchState({ live: live({ playing: false }), tape: tape(), armed: true }).short, 'press ▶');
+  assert.equal(catchState({ live: live({ playing: false }), tape: tape() }).short, 'press ▶');
+});
+
+test('a pass has gone round and none is armed: Catch is ready, and the page says "arm a track" itself', () => {
+  const s = catchState({ live: live({ cycles: [{ out: 1, in: 0, len: 480000 }] }), tape: tape(), armed: false });
+  assert.equal(s.ready, true);
+});
+
 test('the bars on offer are the track sheet’s: 1, 2 and 4', () => {
   assert.deepEqual(CATCH_BARS, [1, 2, 4]);
 });

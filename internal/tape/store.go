@@ -190,11 +190,11 @@ func (s *Store) Load(id string) (*Tape, error) {
 	if err := json.Unmarshal(b, &t); err != nil {
 		return nil, fmt.Errorf("tape %s: %w", id, err)
 	}
-	// rec_tracks, or what rec_track said before there could be several.
-	var arm struct {
-		RecTracks *[]int `json:"rec_tracks"`
-	}
-	json.Unmarshal(b, &arm)
+	// rec_tracks, or what rec_track said before there could be several. A
+	// slice decoded from [] is empty but not nil, and from null or no key is
+	// nil: that is the difference normalizeArm is told, with no second decode
+	// of the whole file to learn it.
+	hadTracks := t.RecTracks != nil
 	if t.Version > Version {
 		return nil, fmt.Errorf("tape %s was written by a newer version", id)
 	}
@@ -210,7 +210,7 @@ func (s *Store) Load(id string) (*Tape, error) {
 			t.Tracks[i].Clips = []Clip{}
 		}
 	}
-	t.normalizeArm(arm.RecTracks != nil && *arm.RecTracks != nil)
+	t.normalizeArm(hadTracks)
 	return &t, nil
 }
 
