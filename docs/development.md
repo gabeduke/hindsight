@@ -396,8 +396,12 @@ chip, and the page only says where the switch is.
   great deal, a turn a little, and a lane an earlier cable took costs more, so
   cables between the same places run side by side. What it finds are
   waypoints (`via`) that `lib/scene/cable.js` pins the rope to; it hangs
-  between them. It runs again only when the desk's layout changes, not on a
-  poll. A cable in the hand, or being pulled, is free of it, and a jack you
+  between them. A long route is simplified (pulled taut over clear ground),
+  never dropped. `Leader` (in `route.js`) decides when to run: not for an
+  unchanged layout, at once for a new or removed cable, and once, 100 ms
+  later, for a burst of layout changes (a first paint lays the desk out three
+  times), because a busy phone desk is about a tenth of a second of work. A
+  name's box is its text, not its block. A cable in the hand, or being pulled, is free of it, and a jack you
   drew (declared) is still a straight line. `route.test.js` runs it against
   the demo desk as the browser laid it out (`lib/rig/testdata/desk-*.json`,
   measured at 1440 and 390 px).

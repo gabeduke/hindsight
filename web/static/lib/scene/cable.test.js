@@ -361,3 +361,19 @@ test('the links of a led rope are about LINK_PX, and sum to the length of its sp
   assert.ok(Math.abs(lay.seg.reduce((t, v) => t + v, 0) - chords.reduce((t, v) => t + v, 0)) < 3);
   for (const v of lay.seg) assert.ok(v <= LINK_PX * 1.6 && v >= 3, `link ${v.toFixed(1)}`);
 });
+
+test('a rope led through many waypoints, up to twenty-four, stays finite, keeps its ends, and parks', () => {
+  const r = rng(11);
+  for (let trial = 0; trial < 60; trial++) {
+    const a = { x: r() * 360, y: r() * 1000 }, b = { x: r() * 360, y: r() * 1000 };
+    const via = Array.from({ length: Math.floor(r() * 25) }, () => ({ x: r() * 360, y: r() * 1000 }));
+    const m = new CableModel();
+    m.step({ a, b, via }, 0);
+    let parked = false;
+    for (let i = 0; i < 400 && !parked; i++) parked = !m.step({ a, b, via }, 16);
+    const pts = m.view.points;
+    assert.ok(parked, `trial ${trial}: ${via.length} waypoints, still moving after 6 s`);
+    assert.ok(pts.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)), `trial ${trial}`);
+    assert.deepEqual([pts[0].x, pts[0].y, pts.at(-1).x, pts.at(-1).y], [a.x, a.y, b.x, b.y]);
+  }
+});
