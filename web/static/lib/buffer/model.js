@@ -29,8 +29,11 @@ export function nextBar(pos, bar) {
 const barOf = (grid) => (grid && grid.frames > 0 && grid.bars > 0 ? grid.frames / grid.bars : 0);
 
 /**
- * nextFreeSpan is where ↵ drops a buffer `frames` long on tracks first to
- * first + count - 1: the first span free on all of them, from the next bar
+ * nextFreeSpan is where ↵ dropped a buffer until F7 (it is dropPlace now, which
+ * lays over what is there). The Pi's own DROP, from a controller pad, still
+ * finds the next free span (internal/tape freespan.go mirrors this), so this
+ * stays as the rule it is tested against. It is where a buffer `frames` long
+ * goes on tracks first to first + count - 1: the first span free on all of them, from the next bar
  * line at or after the playhead (pos), on a bar line, as far as the loop's
  * Out -- then round from its In, as the loop plays -- or with the loop off
  * the tape's end, then round from its start. With no tempo, at the playhead
@@ -88,8 +91,8 @@ export function spanWords(grid, at, frames, sr) {
 /**
  * overwritten is what a buffer dropped at `at` would cover on tracks first to
  * first + count - 1: how many clips it touches and how many frames of them it
- * lies over. A drop at the next free span never covers any; one dragged onto
- * a lane can, and the Pi lays it over what's there, trimming it.
+ * lies over. DROP and a drag both can: the Pi lays the buffer over what's
+ * there, trimming it, as one undo step.
  */
 export function overwritten(tape, { first, count = 1, at, frames }) {
   let clips = 0, covered = 0;
@@ -111,52 +114,66 @@ export function landsWords(grid, { first, count = 1, at, frames }, tape) {
 const trackWords = (first, count) => (count > 1 ? `tracks ${first}–${first + count - 1}` : `track ${first}`);
 
 /**
- * dropKey is what the DROP key says and whether it can: DROP ON TRACK 2 and
- * where (bars 9–12); or why not. `armed` is the record track (0: none);
- * `armedAll` every armed track, when several are (multi-arm, lib/rig/arm.js).
- *
- * It tries the armed tracks in order, then every other, for a free span, so
- * a full armed track is no dead end: it drops on the next track with room
- * and says which were full. `track` is the one it chose. When nothing fits
- * anywhere it says why -- longer than the loop, or every track full -- and
- * points only where `way` -- a sentence, or a function that answers one --
- * says there is something on screen to do: "drag it onto a lane" is not
- * advice to give a phone that is showing the instrument.
+ * dropPlace is where DROP puts a buffer `frames` long: the next bar line at
+ * or after the playhead (pos) inside the loop -- or, with the loop off, the
+ * tape -- where the whole part fits before its Out; none left, the first bar
+ * line from its In (wrapping, as the loop plays), else its In itself. It
+ * never looks at what is there: DROP lays over it (docs/superpowers/specs/
+ * 2026-10-15-flow-design.md, decision 10). A part longer than the loop starts
+ * at its In and runs past it (`long`). With no tempo it is the playhead, and
+ * an empty tape with none takes it at 0, as its first loop. {at, long}.
  */
-export function dropKey({ tape, armed, armedAll = [], count = 1, frames, pos = 0, way = '' }) {
-  if (!tape) return { word: 'Drop', sub: 'the tape isn’t loaded', can: false };
-  const n = tape.tracks.length;
-  const tried = armedAll.length ? [...new Set(armedAll)] : armed ? [armed] : [];
-  const fits = (first) => first >= 1 && first + count - 1 <= n;
-  const order = [...new Set([...tried, ...Array.from({ length: n }, (_, i) => i + 1)])];
-  for (const first of order) {
-    if (!fits(first)) continue;
-    const span = nextFreeSpan(tape, { first, count, frames, pos });
-    if (!span) continue;
-    const where = spanWords(tape.grid, span.at, frames, tape.sample_rate);
-    let why = '';
-    if (!tried.length) why = 'no track is armed · ';
-    else if (first !== tried[0]) {
-      const fullOnes = tried.filter((t) => t !== first && fits(t));
-      const noFit = tried.filter((t) => !fits(t));
-      if (fullOnes.length) why = `${fullOnes.length === 1 ? `track ${fullOnes[0]} is` : `tracks ${fullOnes.join(', ')} are`} full · `;
-      else if (noFit.length) why = `${count} lanes don’t fit from track ${noFit[0]} · `;
-    } else if (armedAll.length > 1) why = 'the first armed track · ';
-    return { word: `Drop on ${trackWords(first, count)}`, sub: why + where, can: true, at: span.at, track: first };
-  }
-  if (!order.some(fits)) return { word: 'Too many lanes', sub: `${count} lanes don’t fit on a ${n}-track tape`, can: false };
+export function dropPlace(tape, { frames, pos = 0 }) {
   const loop = tape.loop || {};
   const looping = !!(loop.on && loop.out > loop.in);
-  const limit = looping ? loop.out - loop.in : tape.length;
-  if (frames > limit) {
-    const bar = barOf(tape.grid);
-    const long = bar ? barsText(frames, bar) : `${(frames / (tape.sample_rate || 48000)).toFixed(1)} s`;
-    return { word: looping ? 'Longer than the loop' : 'Longer than the tape', sub: `${long} won’t fit: trim it shorter with IN and OUT`, can: false };
-  }
-  const sub = looping ? 'the loop is full on every track' : 'every track is full';
-  const what = typeof way === 'function' ? way() : way; // asked only now: it looks at the page
-  return { word: 'No room on any track', sub: what ? `${sub} · ${what}` : sub, can: false };
+  const lo = looping ? loop.in : 0;
+  const hi = looping ? loop.out : tape.length;
+  const bar = barOf(tape.grid);
+  if (!bar && tape.tracks.every((tr) => !tr.clips.length)) return { at: 0, long: false };
+  if (looping && frames > hi - lo) return { at: lo, long: true };
+  const start = pos >= lo && pos < hi ? pos : lo;
+  if (!bar) return { at: start + frames <= hi ? start : lo, long: false };
+  const ahead = nextBar(start, bar);
+  if (ahead + frames <= hi) return { at: ahead, long: false };
+  const round = nextBar(lo, bar);
+  return { at: round + frames <= hi ? round : lo, long: false };
 }
+
+/**
+ * dropKey is what the DROP key says and whether it can: DROP ON TRACK 2,
+ * where (bars 1–4) and, exactly when it will lay over a clip on the lanes it
+ * lands on, "replaces". `armed` is the record track (0: none); `armedAll`
+ * every armed track, when several are (multi-arm, lib/rig/arm.js): it drops
+ * on the first.
+ *
+ * It is never refused for room -- a full loop is dropped over -- so it can't
+ * only with no armed track ("arm a track"), more lanes than the tape has, or
+ * a part longer than the tape itself. A buffer of several lanes whose first
+ * lane would hang off the last track starts where they all fit, and says so.
+ */
+export function dropKey({ tape, armed, armedAll = [], count = 1, frames, pos = 0 }) {
+  if (!tape) return { word: 'Drop', sub: 'the tape isn’t loaded', can: false };
+  const n = tape.tracks.length;
+  if (count > n) return { word: 'Too many lanes', sub: `${count} lanes don’t fit on a ${n}-track tape`, can: false };
+  const tried = armedAll.length ? armedAll : armed ? [armed] : [];
+  if (!tried.length) return { word: 'Drop', sub: 'arm a track', can: false };
+  const first = Math.min(tried[0], n - count + 1);
+  const { at, long } = dropPlace(tape, { frames, pos });
+  if (at + frames > tape.length) {
+    const bar = barOf(tape.grid);
+    const size = bar ? barsText(frames, bar) : `${(frames / (tape.sample_rate || 48000)).toFixed(1)} s`;
+    return { word: 'Longer than the tape', sub: `${size} won’t fit from there: trim it shorter with IN and OUT`, can: false };
+  }
+  const replaces = overwritten(tape, { first, count, at, frames }).clips > 0;
+  const parts = [];
+  if (first !== tried[0]) parts.push(`${count} lanes don’t fit from track ${tried[0]}`);
+  else if (armedAll.length > 1) parts.push('the first armed track');
+  parts.push(spanWords(tape.grid, at, frames, tape.sample_rate));
+  if (long) parts.push('runs past the loop');
+  if (replaces) parts.push('replaces');
+  return { word: `Drop on ${trackWords(first, count)}`, sub: parts.join(' · '), can: true, at, track: first, replaces, long };
+}
+
 
 /** grabSeconds is what GRAB takes with no tempo: N bars at 120 BPM, 2N seconds. */
 export const grabSeconds = (n) => 2 * n;
