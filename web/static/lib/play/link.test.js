@@ -109,3 +109,39 @@ test('the socket is on the page\'s own host, secure when the page is', () => {
   assert.equal(playURL({ protocol: 'http:', host: 'pi.local:5000' }), 'ws://pi.local:5000/api/tapes/play');
   assert.equal(playURL({ protocol: 'https:', host: 'dukemon.example' }), 'wss://dukemon.example/api/tapes/play');
 });
+
+test('another hand’s pad lights here too: an at for a pad this page isn’t holding', () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface();
+  const remote = [];
+  connect(s, { WebSocketImpl: FakeWS, url: 'x', now: () => 1000, onRemote: (pad, on, at) => remote.push([pad, on, at]) });
+  // The SMK-37 in the Pi, or a phone: held there as this page arrives, then
+  // a pad sounding and stopping.
+  made[0].hear({ t: 'hello', pads: [], lead_ms: 200, held: ['track2'] });
+  made[0].hear({ t: 'at', pad: 'break', on: true, in_ms: 180 });
+  made[0].hear({ t: 'at', pad: 'break', on: false, in_ms: 40 });
+  assert.deepEqual(remote, [['track2', true, 1000], ['break', true, 1180], ['break', false, 1040]]);
+  // This page's own press is confirmed on its surface instead.
+  s.press('stop', 1000);
+  made[0].hear({ t: 'at', pad: 'stop', on: true, in_ms: 100 });
+  assert.equal(remote.length, 3);
+});
+
+test('MIDI LEARN on the Pi: learn goes out, learned or refused comes back', async () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface();
+  const link = connect(s, { WebSocketImpl: FakeWS, url: 'x' });
+  const got = link.learn('stop', 'SMK-37');
+  assert.deepEqual(made[0].sent.at(-1), { t: 'learn', action: 'stop', port: 'SMK-37' });
+  made[0].hear({ t: 'learned', action: 'stop', port: 'SMK-37', midi: { note: 72 } });
+  assert.deepEqual((await got).midi, { note: 72 });
+
+  const late = link.learn('break');
+  made[0].hear({ t: 'refused', learn: 'break', why: 'no controller moved in 10 s' });
+  await assert.rejects(late, /10 s/);
+  // A refused learn is not a refused press: no note to the player.
+  let noted = '';
+  connect(s, { WebSocketImpl: FakeWS, url: 'x', onNote: (t) => { noted = t; } });
+  made[1].hear({ t: 'refused', learn: 'break', why: 'x' });
+  assert.equal(noted, '');
+});
