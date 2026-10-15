@@ -656,6 +656,15 @@ func (a *API) controllerAmount(port, id string, value int) {
 		}
 		return
 	}
+	// An FX's amount: only while this controller holds it (by a key, or
+	// under its latch), never one another hand is playing.
+	b := &a.controls
+	b.mu.Lock()
+	mine := b.held[port][id]
+	b.mu.Unlock()
+	if !mine {
+		return
+	}
 	if eng := a.playerOrNil(); eng != nil {
 		_ = eng.Set(id, v)
 	}

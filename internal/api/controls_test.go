@@ -538,6 +538,30 @@ func TestAnFXHeldByTwoKeysOrThePedalLetsGoOnlyByTheRightRelease(t *testing.T) {
 	}
 }
 
+// A controller's mod wheel and aftertouch move the FX that controller
+// holds, latched ones included -- never one another hand is playing.
+func TestAControllersAmountsMoveOnlyTheFXItHolds(t *testing.T) {
+	f, _, a, _ := controlsAPI(t, t.TempDir())
+	const port, other = "Keystation 49", "Other"
+	a.ControlMIDI(other, 0x90, 47, 127) // another controller holds FILTER
+	f.waitFor(t, "press filter 16th 1")
+	a.ControlMIDI(port, 0xB0, 1, 0)   // this one's mod wheel, holding nothing
+	a.ControlMIDI(port, 0xD0, 127, 0) // and its aftertouch: nothing
+	a.ControlMIDI(other, 0xB0, 1, 127) // the one holding it moves it
+	f.waitFor(t, "press filter 16th 1", "set filter 1")
+	a.ControlMIDI(other, 0x80, 47, 0)
+	f.waitFor(t, "press filter 16th 1", "set filter 1", "release filter")
+
+	a.ControlMIDI(port, 0xB0, 64, 127) // the pedal down
+	a.ControlMIDI(port, 0x90, 48, 127) // ECHO, let go under it
+	a.ControlMIDI(port, 0x80, 48, 0)
+	a.ControlMIDI(port, 0xB0, 1, 0) // the wheel is FILTER's, which this one doesn't hold
+	time.Sleep(30 * time.Millisecond)
+	a.ControlMIDI(port, 0xD0, 127, 0) // aftertouch moves the latched ECHO
+	f.waitFor(t, "press filter 16th 1", "set filter 1", "release filter", "press echo 16th 1", "set echo 1")
+	a.ControlMIDI(port, 0xB0, 64, 0)
+}
+
 // The tape mods from a controller: CC 21–24 preview as the knob turns and
 // save once it's still; a program change picks a formula.
 func TestAControllersKnobsAndProgramsSetTheTapesMods(t *testing.T) {

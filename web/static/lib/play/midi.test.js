@@ -99,6 +99,41 @@ test('an FX follows the key that pressed it through a rebind: its aftertouch, it
   assert.deepEqual(s.held(), []);
 });
 
+test('an FX two keys hold sounds until the last lets go, and the pedal keeps it; aftertouch moves it all the while', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const map = { filter: [{ note: 47 }, { note: 60 }], latch: [{ cc: 64 }] };
+  const got = [];
+  const h = handler(s, { now: () => 0, bindings: () => map, onAmount: (id, v) => got.push([id, v]) });
+  h.feed([0x90, 47, 127, 0x90, 60, 64]); // B2 and C4: FILTER twice
+  h.feed([0x80, 47, 0]);                 // B2 up: C4 still holds it
+  assert.deepEqual(s.held(), ['filter']);
+  h.feed([0xD0, 0]);                     // aftertouch: FILTER's
+  h.feed([0x80, 60, 0]);                 // C4 up: it lets go
+  assert.deepEqual(s.held(), []);
+  h.feed([0xD0, 127]);                   // nothing held: nothing moves
+  h.feed([0xB0, 64, 127, 0x90, 47, 127, 0x80, 47, 0]); // under the pedal
+  assert.deepEqual(s.held(), ['filter']);
+  h.feed([0xD0, 127]);                   // latched, it still moves
+  h.feed([0xB0, 64, 0]);                 // the pedal's own lift
+  assert.deepEqual(s.held(), []);
+  h.feed([0xD0, 0]);                     // and then it's no one's
+  assert.deepEqual(got, [['filter', 0], ['filter', 1]]);
+});
+
+test('the mod wheel moves FILTER only while this controller holds it, or its pedal keeps it', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const got = [];
+  const h = handler(s, { now: () => 0, onAmount: (id, v) => got.push([id, v]) });
+  s.press('filter', 0);              // a finger on the page holds FILTER
+  h.feed([0xB0, 1, 0]);              // this controller holds nothing: nothing
+  s.release('filter', 0);
+  h.feed([0x90, 47, 127, 0xB0, 1, 127]); // B2: FILTER, and the wheel moves it
+  h.feed([0xB0, 64, 127, 0x80, 47, 0]);  // let go under the pedal
+  h.feed([0xB0, 1, 64]);                 // still its own
+  h.feed([0xB0, 64, 0, 0xB0, 1, 0]);     // the pedal up: no longer
+  assert.deepEqual(got, [['filter', 1], ['filter', 64 / 127]]);
+});
+
 test('unplugged with the wheel off centre, the bend springs back', () => {
   const s = new Surface({ bpm: 120, division: 'off' });
   const bends = [];

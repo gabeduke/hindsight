@@ -106,13 +106,23 @@ export function handler(surface, {
   // the last lets go.
   const pressed = new Map();
   const holders = new Map();
+  // The pads let go under this controller's latch: still its own until the
+  // latch lifts, so its wheel and aftertouch still move them.
+  const waiting = new Set();
+  const mine = () => new Set([...holders.keys(), ...waiting]);
   let latched = false;
   let wheel = 0; // where the pitch wheel was last heard: off centre, it bends
-  const setLatch = (on) => { if (on !== latched) { latched = on; surface.latch(on, now()); } };
+  const setLatch = (on) => {
+    if (on === latched) return;
+    latched = on;
+    if (!on) waiting.clear();
+    surface.latch(on, now());
+  };
   const letGoOf = (id) => {
     const n = (holders.get(id) || 0) - 1;
     if (n > 0) { holders.set(id, n); return; }
     holders.delete(id);
+    if (latched) waiting.add(id);
     surface.release(id, now());
   };
   const keyOf = (m) => (m.type === 'on' || m.type === 'off' ? `n${m.ch}:${m.note}` : m.type === 'cc' ? `c${m.ch}:${m.cc}` : '');
@@ -141,16 +151,19 @@ export function handler(surface, {
       // pad that key pressed, whatever the bindings say by now.
       const one = m.type === 'polypressure' ? pressed.get(`n${m.ch}:${m.note}`) : null;
       if (m.type === 'polypressure' && !one) return;
-      for (const id of holders.keys()) if (FX.has(id) && (!one || id === one)) onAmount(id, m.value / 127);
+      for (const id of mine()) if (FX.has(id) && (!one || id === one)) onAmount(id, m.value / 127);
       return;
     }
     const hit = actionFor(map, m);
     if (!hit && m.type === 'cc') {
-      // A knob or the mod wheel bound as an amount.
+      // A knob bound as a tape mod, or the mod wheel as an FX's amount: an
+      // FX's moves only while this controller holds it, never one another
+      // hand is playing.
       const amt = actionFor(map, m, { amounts: true });
       const ac = amt && control(amt.id);
       if (!ac || !live(ac, has)) return;
-      if (ac.kind === LATCHED) onMod(ac.id, m.value / 127); else onAmount(ac.id, m.value / 127);
+      if (ac.kind === LATCHED) onMod(ac.id, m.value / 127);
+      else if (mine().has(ac.id)) onAmount(ac.id, m.value / 127);
       return;
     }
     const c = hit && control(hit.id);
@@ -168,6 +181,7 @@ export function handler(surface, {
         pressed.set(key, c.id);
         pressed.set(key, c.id);
         holders.set(c.id, (holders.get(c.id) || 0) + 1);
+        waiting.delete(c.id);
         // A punch-in FX's velocity is its amount.
         surface.press(c.id, now(), FX.has(c.id) && m.type === 'on' ? m.vel / 127 : undefined);
       }
@@ -183,6 +197,7 @@ export function handler(surface, {
       for (const id of holders.keys()) surface.release(id, t);
       pressed.clear();
       holders.clear();
+      waiting.clear();
       if (latched) { latched = false; surface.latch(false, t); }
       // A wheel off centre when the port goes springs back, as a key does.
       if (wheel) { wheel = 0; onBend(0); }

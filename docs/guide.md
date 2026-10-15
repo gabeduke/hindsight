@@ -1840,7 +1840,8 @@ nothing needs to be open.
 2. Its keys play the pads from note 36 (C2) up: the track keys, the tricks,
    then ROLL, FILTER, ECHO and CRUSH on 46–49 (how hard you strike one is
    its amount), then CATCH, GRAB, DROP and KEEP on 50–53. A sustain pedal
-   latches. The mod wheel and aftertouch move a held FX's amount, the pitch
+   latches. The mod wheel and aftertouch move the amount of an FX that
+   controller holds (or its pedal keeps), never another hand's; the pitch
    wheel bends, CC 21–24 turn WOW, FLUTTER, DRIVE and AGE (saved once a knob
    is still for a second), and program change 0–3 picks a formula. The
    SMK-37 starts with its pads on channel 10.
@@ -1875,7 +1876,7 @@ undo.
 Each pad shows its amount and a meter. A key on a controller sets it by how
 hard you strike it; on screen it starts where you left it, and sliding your
 finger up or down on the held pad moves it. The mod wheel (FILTER) and
-aftertouch move it on a controller. Every screen shows it moving, whoever
+aftertouch move it on the controller holding it. Every screen shows it moving, whoever
 moves it. **BEND**, under them, is a pitch wheel: drag it left or right to
 nudge the tape's speed (up to 8 %), and it springs back to the tape when you
 let go. The click stays dry under all of it. In a mixdown the FX wait: it
