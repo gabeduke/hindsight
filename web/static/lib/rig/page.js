@@ -24,6 +24,7 @@ import { initHelp } from '../help/help.js';
 import { restartHindsight, RESTART_WARNING } from '../settings.js';
 import { desk as deskOf, allSockets } from './desk.js';
 import { centreIn } from './cables.js';
+import { routeAll } from './route.js';
 import { legend } from './kinds.js';
 import { RopeRenderer, strokes } from './ropes.js';
 import { Scene } from '../scene/scene.js';
@@ -298,6 +299,8 @@ let scene = null;
 let ropes = null;
 const DRAG = 'cable:drag'; // the rope in the hand: a new cable drawn out of a socket
 let holes = new Map(); // socket id (or label:id) → its hole on the desk, as last measured
+let routes = new Map(); // cable id → the waypoints it is led through, from lib/rig/route.js
+let routeKey = ''; // what those routes were worked out from: the same layout, the same routes
 // A drop, and a pulled plug, are drawn as they were let go until the read
 // after their write draws what it did: {…, after}, the reads begun by then
 // (Infinity until the write is done).
@@ -317,9 +320,48 @@ function holeAt(id, deskBox) {
   return centreIn(b.getBoundingClientRect(), deskBox);
 }
 
+// obstacles is what a rope must not cross, where it is on the desk: every
+// jack's hole, and every name, title and lamp. Each socket's are its own
+// (its cables plug into it); route.js leads the others round.
+const TEXTS = '.rig-sock-label, .rig-sock-name, .rig-row-title, .rig-dev-name, .rig-dev-sub, .rig-dev-note, .rig-tag, .rig-arm-lamp';
+function obstacles(deskBox) {
+  const out = [];
+  const rect = (e, type, owner) => {
+    if (!e.getClientRects().length) return;
+    const r = e.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    out.push({ type, owner, x: Math.round((r.left - deskBox.left) * 10) / 10, y: Math.round((r.top - deskBox.top) * 10) / 10, w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10 });
+  };
+  for (const b of document.querySelectorAll('#rig-desk .rig-sock')) {
+    const hole = b.querySelector('.rig-hole');
+    if (hole) rect(hole, 'hole', b.dataset.sock);
+  }
+  for (const t of document.querySelectorAll(`#rig-desk :is(${TEXTS})`)) {
+    if (!t.textContent.trim() && !t.classList.contains('rig-arm-lamp')) continue;
+    rect(t, 'text', t.closest('.rig-sock')?.dataset.sock || '');
+  }
+  return out;
+}
+
 /**
- * measure finds every socket's hole, and every label's tag, on the desk, and
- * sizes the wires to it. It reads layout, so it runs when the desk is drawn
+ * lead works out where each cable runs: the waypoints it is pinned to, so
+ * its rope hangs through the gaps. It is worked out again only when the desk
+ * is laid out differently, not on every poll.
+ */
+function lead(box) {
+  const g = state.g;
+  const size = { w: box.width, h: box.height };
+  const cables = (g.cables || []).map((c) => ({ id: c.id, from: c.from, to: c.to, declared: c.kind === 'jack', a: holes.get(c.from), b: holes.get(c.to) }));
+  const obs = obstacles(box);
+  const key = JSON.stringify([Math.round(size.w), Math.round(size.h), obs, cables]);
+  if (key === routeKey) return;
+  routeKey = key;
+  routes = routeAll({ cables, obstacles: obs, size });
+}
+
+/**
+ * measure finds every socket's hole, and every label's tag, on the desk, leads
+ * the cables across it, and sizes the wires to it. It reads layout, so it runs when the desk is drawn
  * or resized, and at the start of a drag -- not while a finger moves.
  */
 function measure() {
@@ -336,19 +378,21 @@ function measure() {
   holes = new Map();
   for (const s of allSockets(deskOf(g))) holes.set(s.id, holeAt(s.id, box));
   for (const c of g.cables || []) for (const id of [c.from, c.to]) if (!holes.has(id)) holes.set(id, holeAt(id, box));
+  lead(box);
   return box;
 }
 
 // moved says an end has moved by half a pixel or more: less, and setting it
 // would wake the ticker for nothing on every poll.
 const moved = (p, q) => (!p || !q ? p !== q : Math.abs(p.x - q.x) >= 0.5 || Math.abs(p.y - q.y) >= 0.5);
+const ledMoved = (u = [], v = []) => u.length !== v.length || u.some((p, i) => moved(p, v[i]));
 
 /** setRope sets what changed in a rope's state, and nothing that didn't. */
 function setRope(obj, next) {
   const s = obj.state;
   const patch = {};
   for (const k of Object.keys(next)) {
-    if (k === 'a' || k === 'b' ? moved(s[k], next[k]) : s[k] !== next[k]) patch[k] = next[k];
+    if (k === 'via' ? ledMoved(s[k], next[k]) : k === 'a' || k === 'b' ? moved(s[k], next[k]) : s[k] !== next[k]) patch[k] = next[k];
   }
   if (Object.keys(patch).length) obj.set(patch);
 }
@@ -412,6 +456,8 @@ function drawCables() {
     const next = {
       from: c.from, to: c.to, kind: c.kind, pending: c.pending || '', declared: c.kind === 'jack',
       off: !!c.off, waiting: !!c.waiting, selected: state.cable === c.id, loose, a, b,
+      // A cable in the hand is free; the rest are led through the gaps.
+      via: held ? [] : routes.get(c.id) || [],
     };
     // A drop's cable carries on from the rope that made it. A seed only
     // applies to a rope being made, so a drop onto an occupied socket, which

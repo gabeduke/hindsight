@@ -388,6 +388,19 @@ chip, and the page only says where the switch is.
   drop's rope is made again so the new cable carries on from it. The names
   beside the jacks are lifted above the ropes, with a halo, so a rope reads
   as running behind a name (`lib/rig/layers.test.js` holds the stacking).
+- **Cables are led, not left to hang.** A rope with only its two ends knows
+  nothing of the desk, so it swung across other sockets and through names.
+  `route.js` measures the desk (`page.js` hands it every jack's hole and every
+  name, title and lamp as rectangles) and finds each cable the cheapest way
+  through the gaps: a search on a 4 px grid where crossing something costs a
+  great deal, a turn a little, and a lane an earlier cable took costs more, so
+  cables between the same places run side by side. What it finds are
+  waypoints (`via`) that `lib/scene/cable.js` pins the rope to; it hangs
+  between them. It runs again only when the desk's layout changes, not on a
+  poll. A cable in the hand, or being pulled, is free of it, and a jack you
+  drew (declared) is still a straight line. `route.test.js` runs it against
+  the demo desk as the browser laid it out (`lib/rig/testdata/desk-*.json`,
+  measured at 1440 and 390 px).
 - **Multi-arm** (`arm.js`): the tape keeps `rec_tracks`, and every recording
   sends `pairs`. With the rooms on, ● on a track's header toggles it; the keys
   still arm one. `warn.js` is the amber dot on a header whose input hears the
