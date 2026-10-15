@@ -85,6 +85,7 @@ const SHELL = [
   '/lib/play/fx.js',
   '/lib/play/mods.js',
   '/lib/play/held.js',
+  '/lib/play/fxwire.js',
   '/lib/rooms/flag.js',
   '/lib/rooms/mount.js',
   '/lib/rooms/studio.js',

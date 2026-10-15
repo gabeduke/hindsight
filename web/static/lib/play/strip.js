@@ -17,8 +17,9 @@
 //
 // P4 (docs/superpowers/specs/2026-10-15-punch-in-fx-design.md) draws into
 // the places P3 left: the punch-in FX and the bend (fx.js), and the tape
-// mods (mods.js), their amounts kept in one place (amounts.js). On a phone
-// the mods are a second page of the panel: swipe, or tap the pager.
+// mods (mods.js), their amounts kept in one place (amounts.js) and wired to
+// the Pi in fxwire.js. On a phone the mods are a second page of the panel:
+// swipe, or tap the pager.
 
 import { Surface, DIVISIONS } from './surface.js';
 import { bindKeyboard } from './keymap.js';
@@ -29,11 +30,10 @@ import { on as roomsOn } from '../rooms/flag.js';
 import { gridFrom, ringAt, beatAt } from './clock.js';
 import { connect } from './link.js';
 import { modeOf } from './reel.js';
-import { control, FX_PADS, FORMULAS, styleField } from './controls.js';
+import { control, FX_PADS, FORMULAS } from './controls.js';
 import { support, attach } from './midi.js';
 import { Amounts } from './amounts.js';
-import { mountFX } from './fx.js';
-import { mountMods } from './mods.js';
+import { wireFX } from './fxwire.js';
 import { reconcile, RECENT_MS } from './held.js';
 import { FarPads } from './far.js';
 
@@ -130,6 +130,7 @@ export function startStrip({
   // The amounts: each FX's, the bend's, a mod's while it's dragged. A move
   // here goes to the Pi as a set, no more than 30 a second.
   let link = null;
+  let wire = null; // the FX, the bend and the mods (fxwire.js)
   const amounts = new Amounts({ send: (id, v) => link?.set(id, v) });
   const ended = new Map(); // a pad this hand let go of, and when
 
@@ -150,7 +151,7 @@ export function startStrip({
   });
   const farChanged = (pad, isOn) => {
     ui.remote(pad, isOn);
-    if (pad === 'bend') fx?.setBend(isOn || bending);
+    wire?.farChanged(pad, isOn);
     if (surface.state(pad) === 'idle') sound(pad, isOn);
   };
 
@@ -165,53 +166,19 @@ export function startStrip({
     onOpen: () => fetchControls(),
     amountOf: (pad) => (FX.has(pad) ? amounts.get(pad) : undefined),
     onAmount: (pad, v) => {
-      if (pad.startsWith('mod.')) mods?.heardPreview(pad);
+      if (pad.startsWith('mod.')) wire?.mods?.heardPreview(pad);
       amounts.heard(pad, v);
     },
   });
 
   // --- the punch-in FX, the bend, and the tape mods ----------------------------
-  let bending = false;
-  const fx = mountFX(ui, surface, amounts, { doc, onBend: bendTo, onBendEnd: () => bendTo(0) });
-  // The bend from this page: held while it's off its centre, let go as it
-  // springs back, landing at once (the Pi takes it now, whatever ⌗ says).
-  function bendTo(v) {
-    if (Math.abs(v) <= 0.02) {
-      if (!bending) return;
-      bending = false;
-      link.release('bend');
-      amounts.note('bend', 0);
-      fx?.setBend(far.has('bend'));
-      return;
-    }
-    if (!bending) {
-      bending = true;
-      amounts.note('bend', v);
-      link.press('bend', v);
-      fx?.setBend(true);
-      return;
-    }
-    amounts.move('bend', v);
-  }
-  const mods = mountMods(ui.slot('mods'), amounts, {
-    doc,
-    // One step of undo when a gesture ends; then the preview goes, and the
-    // tape's own value -- the one just saved -- is what's heard.
-    onCommit: (mod, v) => patchStyle({ [styleField(mod)]: v }).finally(() => link.release(mod)),
-    onFormula: (name) => patchStyle({ formula: name }),
+  wire = wireFX({
+    ui, surface, link, amounts, far, doc, fetchImpl,
+    tapeId: () => tape?.tape?.id,
+    onNote: (t) => { linkNote = t; showNote(); },
   });
-  async function patchStyle(change) {
-    const id = tape?.tape?.id;
-    if (!id) return;
-    try {
-      const res = await fetchImpl(`/api/tapes?id=${encodeURIComponent(id)}`, {
-        method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ style: change }),
-      });
-      const b = await res.json().catch(() => ({}));
-      if (!res.ok) { linkNote = `Tape mods: ${b.error || res.status}`; showNote(); return; }
-      if (b.tape) mods?.setStyle(b.tape.style);
-    } catch { /* the Pi out of reach: the link says so */ }
-  }
+  const { bendTo, patchStyle } = wire;
+  const mods = wire.mods;
   // On a phone the mods are the panel's second page.
   const panel = root.querySelector('.play-panel');
   const pager = doc.createElement('button');
@@ -440,7 +407,7 @@ export function startStrip({
     const g = gridFrom(tape, grid);
     if (g) { grid = g; surface.setGrid(g); }
     mods?.setStyle(tape?.tape?.style);
-    fx?.setMixdown(tape?.mixdown === 'playing' || tape?.mixdown === 'tail');
+    wire.setMixdown(tape?.mixdown);
     heldRight(tape?.tricks);
     showNote();
     wake();
@@ -452,7 +419,7 @@ export function startStrip({
       tricks,
       lit: [...far.lit],
       waiting: far.pending.map((p) => p.pad),
-      mine: (pad) => surface.state(pad) !== 'idle' || (pad === 'bend' && bending) || t - (ended.get(pad) ?? -Infinity) < RECENT_MS,
+      mine: (pad) => surface.state(pad) !== 'idle' || (pad === 'bend' && wire.bending) || t - (ended.get(pad) ?? -Infinity) < RECENT_MS,
       drawn: (pad) => !!control(pad),
     });
     for (const pad of r.off) for (const p of far.put(pad, false)) farChanged(p, false);
@@ -483,10 +450,8 @@ export function startStrip({
     get ownsKeys() { return keysOwner({ open, given }); },
     destroy() {
       setOpen(false);
-      bendTo(0);
       surface.releaseAll(now());
-      fx?.destroy();
-      mods?.destroy();
+      wire.destroy();
       amounts.close();
       pager.remove();
       link.close();
