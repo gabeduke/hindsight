@@ -5325,6 +5325,15 @@ dialog.book-pick .book-sticker { transform: none; }
   border-color: var(--line); text-shadow: none; opacity: .7;
   box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
 }
+/* The key is as wide as its second line, and a waiting Catch says "loop is
+   off" or "press ▶" where it used to say "last pass → track 1": 112 px for
+   158, which moved the Crate button and everything to its right 46 px. It
+   keeps the width it had, so the bar stays where it was and does not jump as
+   Catch goes from waiting to ready. Only the wide bar: the phone's mini
+   player hides the second line and sets its own widths. */
+@media (min-width: 700px) and (min-height: 441px), (min-width: 700px) and (orientation: portrait) {
+  .np .np-own #catch-pass.waits:not(.jam-only) { min-width: 158px; }
+}
 body .np .np-catch:has(> .np-catch-more) { position: relative; padding-right: 34px; }
 .np-catch-more {
   position: absolute; top: 0; right: 0; bottom: 0; width: 28px;
