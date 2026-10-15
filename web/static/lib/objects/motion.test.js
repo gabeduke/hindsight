@@ -162,7 +162,7 @@ test('the ticker steps everything once per frame with the elapsed time', () => {
 
 test('one object throwing does not stop the others', () => {
   const c = fakeClock();
-  const ticker = new Ticker({ ...c, reduced: false });
+  const ticker = new Ticker({ ...c, reduced: false, onError: () => {} });
   let ran = 0;
   ticker.add(() => { throw new Error('bad object'); });
   ticker.add(() => { ran++; return true; });
@@ -273,7 +273,7 @@ test('a Loop leaves the ticker when it stops wanting frames', () => {
 
 test('a Loop that throws is taken off, and can be started again', () => {
   const c = fakeClock();
-  const ticker = new Ticker({ ...c, reduced: false });
+  const ticker = new Ticker({ ...c, reduced: false, onError: () => {} });
   let n = 0;
   const loop = new Loop(() => { n++; if (n === 1) throw new Error('bad frame'); return true; }, ticker);
   loop.start();
@@ -284,4 +284,61 @@ test('a Loop that throws is taken off, and can be started again', () => {
   assert.equal(n, 2);
   loop.stop();
   assert.ok(!ticker.running);
+});
+
+test('a step taken off by an earlier step in the same frame is not run', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  let calls = 0, offB = null;
+  ticker.add(() => { offB?.(); return true; });
+  offB = ticker.add(() => { calls++; return true; });
+  c.advance(16);
+  assert.equal(calls, 0, 'removed before its turn, so not stepped');
+});
+
+test('a Loop that restarts itself from inside its step keeps running', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  let n = 0;
+  const loop = new Loop(() => {
+    n++;
+    if (n === 1) { loop.stop(); loop.start(); return false; }
+    return true;
+  }, ticker);
+  loop.start();
+  c.advance(16);
+  assert.ok(loop.running, 'the new start is not undone by the old step saying false');
+  c.advance(16);
+  assert.equal(n, 2);
+});
+
+test('a step that throws is reported once, and the rest keep going', () => {
+  // A loop that broke used to surface as an uncaught error; on the shared
+  // ticker it must still be heard, once, not sixty times a second.
+  const c = fakeClock();
+  const errors = [];
+  const ticker = new Ticker({ ...c, reduced: false, onError: (e) => errors.push(e.message) });
+  let ok = 0, fail = true;
+  ticker.add(() => { if (fail) throw new Error('broken'); return true; });
+  ticker.add(() => { ok++; return true; });
+  for (let i = 0; i < 10; i++) c.advance(16);
+  assert.deepEqual(errors, ['broken']);
+  assert.equal(ok, 10);
+  fail = false;
+  c.advance(16);
+  fail = true;
+  c.advance(16);
+  assert.deepEqual(errors, ['broken', 'broken'], 'a fresh failure after it recovered is reported again');
+});
+
+test('a Loop that throws is reported and taken off', () => {
+  const c = fakeClock();
+  const errors = [];
+  const ticker = new Ticker({ ...c, reduced: false, onError: (e) => errors.push(e.message) });
+  const loop = new Loop(() => { throw new Error('paint broke'); }, ticker);
+  loop.start();
+  c.advance(16);
+  c.advance(16);
+  assert.deepEqual(errors, ['paint broke']);
+  assert.ok(!loop.running);
 });
