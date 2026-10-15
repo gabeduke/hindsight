@@ -414,14 +414,16 @@ func (e *Engine) logMoves(out uint64, m *Mix) {
 			continue
 		}
 		p.moved[i], p.movedEver[i], p.movedAt[i] = false, true, out
+		// No On: a move lights nothing. The page lights a pad from its press
+		// and its release alone.
 		ev := TrickEvent{Pad: slotName(i), Out: out, Pos: e.tr.pos, Move: true}
+		var v float64
 		if i < numPads {
-			v := p.amount[i]
-			ev.On, ev.V = p.held[i], &v
+			v = p.amount[i]
 		} else {
-			v := p.modTarget(i-numPads, m)
-			ev.On, ev.V = p.preview[i-numPads].on, &v
+			v = p.modTarget(i-numPads, m)
 		}
+		ev.V = &v
 		e.moveLog.add(ev)
 	}
 }

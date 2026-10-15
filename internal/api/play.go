@@ -28,7 +28,7 @@ import (
 //	Pi → page  {"t":"hello","pads":[…],"mods":[…],"lead_ms":212}
 //	           {"t":"lead","ms":212}
 //	           {"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}
-//	           {"t":"at","pad":"filter","on":true,"v":0.4,"move":true,…}
+//	           {"t":"at","pad":"filter","v":0.4,"move":true,…}
 //	           {"t":"refused","pad":"stop","why":"…"}
 //
 // A pad sounds while any connection holds it: two phones holding BREAK keep
@@ -403,8 +403,11 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 			var ev, mv []tape.TrickEvent
 			ev, seq = eng.TrickEventsSince(seq)
 			mv, moveSeq = eng.MovesSince(moveSeq)
-			for _, e := range append(ev, mv...) {
-				msg := map[string]any{"t": "at", "pad": e.Pad, "on": e.On, "pos": e.Pos}
+			for _, e := range byOut(ev, mv) {
+				msg := map[string]any{"t": "at", "pad": e.Pad, "pos": e.Pos}
+				if !e.Move {
+					msg["on"] = e.On // a move lights nothing: only a press or a release does
+				}
 				if d, ok := eng.HeardIn(e.Out); ok {
 					msg["in_ms"] = d.Milliseconds()
 				}
@@ -435,6 +438,25 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// byOut merges the presses and releases with the moves in the order they
+// were heard: a set and then a release in one block arrive in that order,
+// never a release and then a stale move. A move on the frame a press or
+// release lands was drained before it, so goes first.
+func byOut(ev, mv []tape.TrickEvent) []tape.TrickEvent {
+	if len(mv) == 0 {
+		return ev
+	}
+	out := make([]tape.TrickEvent, 0, len(ev)+len(mv))
+	for len(ev) > 0 || len(mv) > 0 {
+		if len(ev) == 0 || (len(mv) > 0 && mv[0].Out <= ev[0].Out) {
+			out, mv = append(out, mv[0]), mv[1:]
+		} else {
+			out, ev = append(out, ev[0]), ev[1:]
+		}
+	}
+	return out
 }
 
 // moved says whether a lead (ms, or nil for none) changed by more than tol.

@@ -363,3 +363,36 @@ func TestAPlayerWhoGoesLetsGoOnlyOfPreviewsStillTheirs(t *testing.T) {
 	b.Close() // b's is b's to let go of
 	f.waitFor(t, "set mod.wow 0.3", "set mod.wow 0.7", "release mod.wow")
 }
+
+func TestPlaySendsMovesAndReleasesInTheOrderTheyHappened(t *testing.T) {
+	// A set and a release in one block: the page hears the move, then the
+	// release -- never a release and then a stale move -- and a move says
+	// nothing of on: only a press's or release's at lights a pad.
+	f, url := newPlayAPI(t)
+	c, _ := dialPlay(t, url)
+	v := 0.6
+	f.mu.Lock()
+	f.seq++
+	f.events = append(f.events, tape.TrickEvent{Seq: f.seq, Pad: "filter", On: false, Out: 100})
+	f.moves = append(f.moves, tape.TrickEvent{Seq: uint64(len(f.moves) + 1), Pad: "filter", Out: 90, V: &v, Move: true})
+	f.mu.Unlock()
+	var got []map[string]any
+	for len(got) < 2 {
+		_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_, b, err := c.ReadMessage()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m map[string]any
+		_ = json.Unmarshal(b, &m)
+		if m["t"] == "at" {
+			got = append(got, m)
+		}
+	}
+	if got[0]["move"] != true || got[1]["move"] == true || got[1]["on"] != false {
+		t.Fatalf("got %v then %v: want the move, then the release", got[0], got[1])
+	}
+	if _, has := got[0]["on"]; has {
+		t.Fatalf("a move says on: %v", got[0])
+	}
+}

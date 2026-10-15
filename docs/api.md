@@ -1151,7 +1151,7 @@ Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
 | Direction | Message |
 |---|---|
 | page → Pi | `{"t":"press","pad":"stop","q":"16th"}` · `{"t":"press","pad":"filter","q":"16th","v":0.8}` · `{"t":"set","pad":"filter","v":0.4}` · `{"t":"release","pad":"stop"}` · `{"t":"release_all"}` |
-| Pi → page | `{"t":"hello","pads":[…],"mods":[…],"lead_ms":212}` · `{"t":"lead","ms":212}` · `{"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}` · `{"t":"at","pad":"filter","on":true,"v":0.4,"move":true,"in_ms":…,"pos":…}` · `{"t":"refused","pad":"stop","why":"…"}` |
+| Pi → page | `{"t":"hello","pads":[…],"mods":[…],"lead_ms":212}` · `{"t":"lead","ms":212}` · `{"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}` · `{"t":"at","pad":"filter","v":0.4,"move":true,"in_ms":…,"pos":…}` · `{"t":"refused","pad":"stop","why":"…"}` |
 
 - **Amounts.** A punch-in FX's press carries `v`, 0 to 1 (a velocity; 0.5
   without one), and a `set` moves it while held (aftertouch, the mod wheel),
@@ -1172,11 +1172,11 @@ Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
   `release_all`, or the connection going puts the tape's own value back, and
   a change of the tape's own value ends the preview.
 - **`at` with `move`** is an amount that moved, from any hand, no more than 30
-  times a second a pad; `on` says whether the pad is held (for a mod, whether
-  it is being previewed). A press's and release's `at` carries its `v` too.
-  The Pi keeps the moves apart from the presses and releases, so a knob
-  turning never pushes one of those out before a page has seen it; light a
-  pad only from an `at` without `move`.
+  times a second a pad. It has no `on`: light a pad only from an `at` without
+  `move`. A press's and release's `at` carries its `v` too. The Pi keeps the
+  moves apart from the presses and releases, so a knob turning never pushes
+  one of those out before a page has seen it, and sends the two in the order
+  they were heard.
 
 - **`lead_ms`** is how long a press takes to be heard at best: the blocks
   rendered ahead plus the device's latency. It is null with no output.

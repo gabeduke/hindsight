@@ -867,7 +867,7 @@ func TestTheLogCarriesAmountsAndThinsTheirMoves(t *testing.T) {
 	_ = r.e.Set("mod.wow", 0.4)
 	r.run(1)
 	ev, _ = r.e.MovesSince(mseq)
-	if len(ev) != 1 || ev[0].Pad != "mod.wow" || !ev[0].On || *ev[0].V != 0.4 {
+	if len(ev) != 1 || ev[0].Pad != "mod.wow" || ev[0].On || *ev[0].V != 0.4 {
 		t.Fatalf("a preview's event: %+v", ev)
 	}
 }
