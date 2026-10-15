@@ -589,7 +589,7 @@ function render() {
   // Catch waits for a whole pass of the loop, and says so: it stays pressable
   // (never `disabled`, which a phone's tap passes over) and a press says why;
   // its tip does too (lib/tape/catch.js).
-  const cs = state.catchSays = catchState({ live, tape: t, phoneOut });
+  const cs = state.catchSays = catchState({ live, tape: t, phoneOut, armed: !!state.recTrack });
   const cb = $('catch-pass');
   cb.disabled = false;
   cb.setAttribute('aria-disabled', String(!cs.ready));
