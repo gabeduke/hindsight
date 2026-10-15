@@ -159,6 +159,7 @@ func (a *API) handleTapeState(w http.ResponseWriter, r *http.Request) {
 // tape, and the page polls the state several times a second.
 func (a *API) writeTapeStateWith(w http.ResponseWriter, id string, edit *tape.EditResult, suggest bool) {
 	resp := tapeStateResponse{Sources: a.tape.Sources(), Edit: edit}
+	a.labelSources(resp.Sources)
 	if id != "" && id == a.tape.LoadedID() {
 		resp.Tape = a.tape.Loaded()
 		resp.Loaded = true

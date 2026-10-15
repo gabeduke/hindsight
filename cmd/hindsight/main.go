@@ -162,6 +162,12 @@ func main() {
 	saver.SetMIDIExporter(exporter)
 
 	srvAPI := api.New(cfg, cap, saver, cap.Envelope(), clock)
+	if *demo {
+		// The demo's synthetic interface is routed as the Sidekick is --
+		// MAIN, the two strips each hearing a bus, and AUX -- so the rig
+		// draws it from the Sidekick's profile, by the Sidekick's USB id.
+		srvAPI.SetRigUSB(func(string) string { return "2367:9420" })
+	}
 	if cfg.Tape {
 		if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
 			srvAPI.SetTape(eng)

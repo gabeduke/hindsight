@@ -1504,7 +1504,7 @@ func (e *Engine) Sources() []SourceState {
 	pk := e.sourcePeaks()
 	var out []SourceState
 	for _, s := range e.sources {
-		st := SourceState{Name: s.Name, Leaks: s.Leaks, Clean: true}
+		st := SourceState{Name: s.Name, Leaks: s.Leaks, Clean: true, Pair: []int{s.Pair[0] + 1, s.Pair[1] + 1}}
 		if st.Leaks == nil {
 			st.Leaks = []string{}
 		}
@@ -1534,6 +1534,11 @@ type SourceState struct {
 	// second, in dBFS (-120 for digital silence). Unset with no capture, or
 	// no audio arriving.
 	PeakDB *float64 `json:"peak_db,omitempty"`
+	// Pair is its capture channels, 1-indexed as TAPE_SOURCES writes them.
+	Pair []int `json:"pair,omitempty"`
+	// Label is what's drawn into its jack on the rig ("guitar"), if
+	// anything: a name, never a route.
+	Label string `json:"label,omitempty"`
 }
 
 // peakDB is a peak (a fraction of full scale) in dBFS to a tenth, with
