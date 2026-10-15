@@ -4308,6 +4308,7 @@ body.buffer-fold .tape-sections-row { display: none; }
   body:has(.play-strip):not(.play-unfolded).buffer-open .icon-btn.buffer-drop { min-height: 48px; padding: 6px 16px; }
   body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-acts-row > .icon-btn { min-height: 36px; }
   body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-window { height: 92px; }
+}
 
 /* ---------- Rooms P4: punch-in FX and tape mods (lib/play/fx.js, mods.js) ---------- */
 /* The FX and the mods in the places P3 left for them (screen.js, slot()).

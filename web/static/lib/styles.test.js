@@ -481,3 +481,60 @@ test('on a phone the Studio’s selection bar wraps instead of running off the s
   assert.match(phone, /\.studio-feed > \.rb-sel\s*\{[^}]*flex-wrap:\s*wrap/);
   assert.match(phone, /\.studio-feed > \.rb-sel \.rb-sel-text\s*\{[^}]*flex:\s*1 1 100%/);
 });
+
+// A block that is never closed swallows what follows it: a merge once lost
+// the `}` ending P3's last @media rule, and the Listening Room, the rig, the
+// FX and the mods -- everything after it -- were then inside a 700 px query:
+// a phone got none of it, and no test failed, because every test reads the
+// text. And in objects.css a lost `}` left P4's tokens in a :root inside
+// P6's, which matches nothing, so the selected tape formula was dark ink on
+// the dark strip (1.2 : 1). Both are checked by shape: nothing that starts
+// at the margin may open while another block is open, and the file ends shut.
+function blanked(text) {
+  const keep = (m) => m.replace(/[^\n]/g, ' ');
+  return text.replace(/\/\*[\s\S]*?\*\//g, keep).replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, keep);
+}
+/** misnested is every rule that opens at the margin while a block is open, and the depth the file ends at. */
+function misnested(text) {
+  let depth = 0;
+  const at = [];
+  blanked(text).split('\n').forEach((line, i) => {
+    if (depth > 0 && /^[^\s}]/.test(line) && /\{\s*$/.test(line)) at.push(`line ${i + 1} (inside ${depth} open): ${line.trim().slice(0, 60)}`);
+    for (const c of line) { if (c === '{') depth++; else if (c === '}') depth--; }
+  });
+  return { at, end: depth };
+}
+
+test('the checker finds a block a merge left open', () => {
+  assert.equal(misnested('a { x: 1; }\n@media (min-width: 1px) {\n  b { y: 2; }\n\n:root {\n  --z: 1;\n}\n').at.length, 1);
+  assert.deepEqual(misnested('a { x: 1; }\n@media (min-width: 1px) {\n  b { y: 2; }\n}\n:root {\n  --z: 1;\n}\n'), { at: [], end: 0 });
+});
+
+for (const [name, text] of [['styles.css', css], ['objects.css', materials]]) {
+  test(`${name} closes every block it opens`, () => {
+    const { at, end } = misnested(text);
+    assert.deepEqual(at, [], 'these rules are inside a block that was never closed');
+    assert.equal(end, 0, 'the file ends inside a block');
+  });
+}
+
+// The tape formulas (lib/play/mods.js): four labels, one of them selected.
+// WCAG's 4.5 : 1 for text, from the tokens the rules name.
+test('every tape formula label reads, selected or not', () => {
+  const all = tokens(materials);
+  const rule = (sel) => {
+    const m = new RegExp(`${sel.replace(/[.[\]="]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(css);
+    assert.ok(m, `the ${sel} rule`);
+    return m[1];
+  };
+  const token = (decl, prop) => {
+    const m = new RegExp(`(?:^|[;\\s])${prop}:\\s*var\\((--[a-z0-9-]+)\\)`).exec(decl);
+    assert.ok(m, `${prop} names a token`);
+    assert.ok(all[m[1]], `${m[1]} is defined in objects.css`);
+    return all[m[1]];
+  };
+  const plain = rule('.play-formula');
+  const chosen = rule('.play-formula[aria-checked="true"]');
+  assert.ok(contrast(token(plain, 'color'), token(plain, 'background')) >= 4.5, 'an unselected formula');
+  assert.ok(contrast(token(chosen, 'color'), token(chosen, 'background')) >= 4.5, 'the selected formula');
+});
