@@ -62,6 +62,15 @@ test('to the studio posts {take, from, to, grab} to the clipboard and goes to th
   assert.deepEqual(clipboardBody('x.wav', { from: 2, to: 3 }), { take: 'x.wav', from: 2, to: 3, grab: true, crate: false });
 });
 
+test('a GRAB says it is going to the Studio for the tape, so the bar\'s take does not go along; a refused one does not', async () => {
+  let said = 0;
+  const forTape = () => { said++; };
+  await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl: async () => ({ ok: true, json: async () => ({}) }), forTape });
+  assert.equal(said, 1);
+  await assert.rejects(sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl: async () => ({ ok: false, status: 409, json: async () => ({ error: 'the tape is off' }) }), forTape }));
+  assert.equal(said, 1, 'nothing navigates away from a note that didn\'t go');
+});
+
 test('a take’s GRAB over a buffer nobody used leaves the Studio a line to say, under the new buffer’s name', async () => {
   const store = new Map();
   const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };

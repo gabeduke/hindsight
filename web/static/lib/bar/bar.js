@@ -11,6 +11,8 @@ import { Loop } from '../objects/motion.js';
 import { tapeSource } from './tape-source.js';
 import { takeSource, playheadOf } from './take-source.js';
 import { initPlayer } from './player.js';
+import { pageCarry, mayCarry, isStudio } from './carry.js';
+import { on as roomsOn } from '../rooms/flag.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
 import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
@@ -196,19 +198,41 @@ const hooked = new WeakSet();
  * one (loadTake); and ⏏ back to the tape. `ready` settles once the tape's
  * first state is in -- or there is no tape -- so a page can ask whether the
  * tape was already playing when it opened.
+ *
+ * With the rooms on, the bar also carries its take across pages
+ * (lib/bar/carry.js): the record the last page left is read here, before
+ * anything draws, and the page calls arrived() once its list of takes is in
+ * -- `find(name)` answers {t, player} for a take it holds (takesFinder) -- to
+ * pick up where the last page left off. Off, none of it runs.
  */
-export function pageBar({ tapes, onToast }) {
+export function pageBar({ tapes, onToast, find = null }) {
   let tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
   let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
   const bar = new NowPlaying({ onEject: () => backToTape({ byHand: true }) });
   const eject = () => { $('np-eject').hidden = !(tape && take); };
+  const carry = pageCarry();
+  const carried = carry.read(); // before the bar draws anything
+  // The tape waits in the wings while the carried take is found, so the bar
+  // doesn't show the tape for a moment first. Let go the moment the page
+  // has looked, or after a few seconds.
+  let held = !!carried;
+  const release = () => {
+    if (!held) return;
+    held = false;
+    if (!take && tape) bar.load(tape);
+    eject();
+  };
+  if (held) setTimeout(release, 4000);
+  const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing() } : null);
+  carry.wire(window, document, heldState);
+  const listP = Promise.resolve(tapes).catch(() => null);
   const ready = Promise.resolve(tapes).then((list) => {
     if (!list || !list.loaded) return;
     tape = tapeSource(list.loaded, { onError: (m) => onToast?.(`The tape: ${m}`, 'bad'), stream: () => stream });
     stream = tapeStream(tape, onToast);
     if (take) stream.setQuiet(true); // picked before the tape's state was in
-    else bar.load(tape);
+    else if (!held) bar.load(tape);
     eject();
     // The header's output button: where the tape plays, chosen from here as
     // on the tape page. Choosing to hear it here puts the tape back in the
@@ -247,8 +271,53 @@ export function pageBar({ tapes, onToast }) {
   // or the phone plays both (as the tape page does). Only in This phone
   // mode: in Both the jam room is the clock and may be recording.
   const takePlays = () => { if (stream?.active && stream.mode === 'phone') tape.pause(); };
+  /**
+   * loadTake puts take `t` in the bar, played by its list row's `player`.
+   * The same take with a new player (its row rebuilt) replaces the old one.
+   */
+  function loadTake(t, player) {
+    ejected = false;
+    if (take && take.name === t.name && take.audio === player.audio) return;
+    const old = take;
+    const src = takeSource(t, player, { onGone: () => { if (take && take.src === src) backToTape(); } });
+    const audio = player.audio;
+    audio.addEventListener('play', takePlays);
+    take = { name: t.name, audio, src, off: () => audio.removeEventListener('play', takePlays) };
+    bar.load(take.src);
+    old?.off();
+    old?.src.destroy();
+    // The lock screen and a headset are the take's while it's in the bar.
+    stream?.setQuiet(true);
+    if (!audio.paused) takePlays();
+    eject();
+  }
   return {
     ready,
+    /**
+     * arrived is said once the page's list of takes is in: the take the last
+     * page left in the bar is put back at its spot (carry.js). A take picked
+     * by hand since, one the page doesn't hold, or the Studio's own tape, win.
+     */
+    async arrived() {
+      if (!carried || !held) return;
+      const list = await listP;
+      const studio = roomsOn() && isStudio(location.pathname);
+      if (!find || !mayCarry({ studio, tapeLoaded: !!(list && list.loaded) })) return release();
+      try {
+        await carry.arrive(carried, {
+          find: async (name) => (take ? null : find(name)),
+          load: ({ t, player }) => { loadTake(t, player); release(); return take.src; },
+        });
+      } catch (e) {
+        console.error('The bar could not pick up its take:', e);
+      } finally {
+        release();
+      }
+    },
+    /** frameNow: the take in the bar and its frame at this moment ({take, frame, sr, playing, at}), or null. ✎ takes it before the page changes. */
+    frameNow: () => carry.frameNow(heldState),
+    /** stashFrame keeps that frame for the next page (carry.takeStashedFrame reads it there), and answers it. */
+    stashFrame: () => carry.stashFrame(heldState()),
     get takeName() { return take ? take.name : null; },
     /** takeTime: where the take in the bar is, in seconds; null with none. */
     get takeTime() { return playheadOf(take); },
@@ -257,27 +326,21 @@ export function pageBar({ tapes, onToast }) {
     /** looping: a take in the bar is on Loop, so its end isn't the end. */
     get looping() { return !!(take && take.src.loop); },
     tapePlaying: () => !!(tape && tape.ready && tape.playing()),
-    /**
-     * loadTake puts take `t` in the bar, played by its list row's `player`.
-     * The same take with a new player (its row rebuilt) replaces the old one.
-     */
-    loadTake(t, player) {
-      ejected = false;
-      if (take && take.name === t.name && take.audio === player.audio) return;
-      const old = take;
-      const src = takeSource(t, player, { onGone: () => { if (take && take.src === src) backToTape(); } });
-      const audio = player.audio;
-      audio.addEventListener('play', takePlays);
-      take = { name: t.name, audio, src, off: () => audio.removeEventListener('play', takePlays) };
-      bar.load(take.src);
-      old?.off();
-      old?.src.destroy();
-      // The lock screen and a headset are the take's while it's in the bar.
-      stream?.setQuiet(true);
-      if (!audio.paused) takePlays();
-      eject();
-    },
+    loadTake,
     backToTape,
+  };
+}
+
+/**
+ * takesFinder is pageBar's `find` for a page that lists its takes in a
+ * TakesList: the take and its row's player, or null for a take the page
+ * doesn't hold (deleted, or not on this page's shelf) or can't play yet.
+ */
+export function takesFinder(takes) {
+  return async (name) => {
+    const t = takes.all.find((x) => x.name === name);
+    const player = t && await takes.player(name);
+    return player ? { t, player } : null;
   };
 }
 

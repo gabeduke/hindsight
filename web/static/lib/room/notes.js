@@ -6,6 +6,7 @@
 // the one request that sends a span to the Studio.
 
 import { replacedLine, remember, forget } from '../buffer/replaced.js';
+import { forTheTape } from '../bar/carry.js';
 
 /** SPAN_BARS is how far a note reaches at most, with a tempo; SPAN_SECONDS without one. */
 export const SPAN_BARS = 8;
@@ -91,7 +92,7 @@ export function clipboardBody(file, span) {
  * throws with the Pi's words when the copy is refused -- the tape off, a
  * span too long -- so nothing navigates away from a note that didn't go.
  */
-export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, storage = pageStorage() } = {}) {
+export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, storage = pageStorage(), forTape = forTheTape } = {}) {
   const res = await fetchImpl('/api/clipboard', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -104,6 +105,8 @@ export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, s
   // A GRAB over a buffer nobody dropped or kept says so, with Undo -- on the
   // page this opens, where the buffer is: it is left there to say.
   if (b.replaced && b.clipboard) remember(storage, { by: b.clipboard.created, line: replacedLine(b.replaced, b.replaced_seconds) });
+  // Going for the tape: the bar's take doesn't go along (lib/bar/carry.js).
+  forTape();
   return '/tape.html';
 }
 

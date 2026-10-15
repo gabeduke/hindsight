@@ -12,7 +12,7 @@ import { initHelp } from '/lib/help/help.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
-import { pageBar } from '/lib/bar/bar.js';
+import { pageBar, takesFinder } from '/lib/bar/bar.js';
 import { initUpdate } from '/lib/update.js';
 import { initSettings } from '/lib/settings.js';
 
@@ -349,7 +349,7 @@ el.captureBtn.addEventListener('click', capture);
 initHelp({ page: 'main' });
 initUpdate();
 initSettings();
-np = pageBar({ tapes: initNav(), onToast: toast });
+np = pageBar({ tapes: initNav(), onToast: toast, find: takesFinder(takes) });
 
 initPhone({
   button: $('phone-btn'),
@@ -421,7 +421,8 @@ connectLive({
 
 // ---------------------------------------------------------------- loops
 
-pollStatus().then(() => pollTakes(true));
+// The list in, the bar picks up the take the last page left in it (lib/bar/carry.js).
+pollStatus().then(() => pollTakes(true)).then(() => np.arrived());
 setInterval(pollStatus, 2000);
 setInterval(() => pollTakes(), 5000);
 

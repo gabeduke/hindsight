@@ -43,6 +43,7 @@ import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
+import { pageCarry } from '../bar/carry.js';
 import { trimTapePage } from '../rooms/nocrate.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
@@ -59,6 +60,10 @@ const POLL_MS = 200;
 // armed or takes it off (multi-arm, the rig spec), and a header that would
 // record the tape shows the rig's amber dot. Read once, at load.
 const ROOMS = roomsOn();
+// The Studio's bar is the tape's and cannot hold a take: the one the last
+// page's bar left is not for here, nor to be found waiting when the person
+// goes back (lib/bar/carry.js).
+if (ROOMS) pageCarry().drop();
 // And the crate is off the screen (F3): its drawer, the clipboard line, the
 // sheet of a kept clip, the bar's Crate key and a part's Keep. The buffer
 // (lib/buffer) is the only view of what GRAB, Cut and Copy hold; the Pi keeps

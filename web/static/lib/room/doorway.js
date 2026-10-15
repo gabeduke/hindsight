@@ -17,6 +17,7 @@
 
 import { roomShelves, inMonth, monthName, monthKey, at, filterWords, playOrder } from './shelves.js';
 import { putTapeOn, loadTape } from './swap.js';
+import { forTheTape } from '../bar/carry.js';
 import { sendToStudio, forgetNote, fmtAt } from './notes.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick, playheadFor } from '../rooms/grab.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
@@ -523,7 +524,7 @@ export function mount(h) {
     tapeCard.close();
     try {
       const r = await loadTape(s.id, { ask: askFirst });
-      if (r.loaded) location.href = '/tape.html';
+      if (r.loaded) { forTheTape(); location.href = '/tape.html'; }
     } catch (e) {
       toast(`Couldn’t load it in the Studio: ${e.message}`, 'bad');
     }
