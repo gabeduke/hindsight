@@ -22,6 +22,12 @@ A `settings.json` that can't be read, or that makes a configuration Hindsight
 refuses, never stops it: it logs why, starts on the env file alone, and the
 sheet shows the reason.
 
+Beside it, `rig.json` holds the rig's labels (`{"labels": {"ep-136.in1":
+"guitar"}}`): what's plugged into each jack, drawn on the rig with the two
+rooms on. Hindsight sees signal, not cables, so a label names and routes
+nothing; deleting the file loses only the names. The rig's other cables are
+the settings on this page and the tape's own (`docs/api.md`, `GET /api/rig`).
+
 ## The variables in the example file
 
 | Variable | Default | What it does |

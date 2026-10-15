@@ -270,6 +270,35 @@ the crate again after the ribbon's Keep as clip.
 - `studio.js` — mounts the templates and drives them with Capture's modules.
 - `keep.js` — KEEP's request and its Undo, and Flag now's.
 
+## The rig
+
+`rig.html` and `web/static/lib/rig/` are the rig
+(`docs/superpowers/specs/2026-10-15-rig-design.md`), reached from the device
+chip in both rooms' headers with the two rooms on. With them off there's no
+chip, and the page only says where the switch is.
+
+- **The server owns the picture.** `GET /api/rig` (`internal/rig`,
+  `internal/api/rig.go`) builds it from the settings, the tape and what's
+  plugged in on every read; the page draws it and never stores one.
+- **Profiles** are `internal/rig/profiles/*.json`, embedded: a USB interface
+  by its id from ALSA's `usbid`, a MIDI port by name. The Sidekick's taps are
+  `TAPE_SOURCES`' default. The demo says its interface is the Sidekick
+  (`SetRigUSB` in `cmd/hindsight`), since its routing is the Sidekick's.
+- **A cable is a request:** `patch.js` turns a drag, or a choice from the
+  keyboard (`picker.js`), into the write that route already takes. A restart
+  cable is pending (dashed amber) until `restart_needed` clears; RESTART is
+  the settings sheet's own (`restartHindsight` in `settings.js`).
+- `desk.js` is what's drawn, from the graph alone; `cables.js` where a cable
+  runs; `kinds.js` how each kind is drawn, by width and dash as well as
+  colour.
+- **Multi-arm** (`arm.js`): the tape keeps `rec_tracks`, and every recording
+  sends `pairs`. With the rooms on, ● on a track's header toggles it; the keys
+  still arm one. `warn.js` is the amber dot on a header whose input hears the
+  tape.
+
+Run the demo with `SETTINGS_FILE` set when you try the rig: its restart
+cables write settings, and the default file is `~/hindsight/settings.json`.
+
 ## The object library
 
 `web/static/lib/objects/` holds the physical things the app draws, one

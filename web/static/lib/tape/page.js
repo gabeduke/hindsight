@@ -3003,7 +3003,7 @@ function buildLanes() {
         warn.className = 'tt-warn';
         warn.setAttribute('role', 'img');
         warn.hidden = true;
-        lane.arm.after(warn);
+        lane.arm.before(warn);
       }
       lane.input.addEventListener('click', (e) => {
         e.stopPropagation(); // the page's click closes menus
@@ -3431,7 +3431,7 @@ function drawLanes() {
       }
     }
     if (state.rec && (state.rec.tracks || [state.rec.track]).includes(lane.n)) drawPunch(ctx, view, W, H, col);
-    else if (state.recTracks.includes(lane.n)) drawLanding(ctx, view, W, H, col);
+    else if (state.recTracks.includes(lane.n)) drawLanding(ctx, view, W, H, col, lane.n);
     // A clip being slid: where it would land, on the lane it's over; or each
     // of a group, on the lane it goes to.
     const sl = state.slide;
@@ -3668,7 +3668,7 @@ function drawGrips(ctx, x0, x1, top, h, ink, warn, tm, mono, { fi = 0, fo = 0, f
 // playing, the bar line where ● would start a punch (internal/tape
 // record.go: the next, or the one just passed under a quarter second ago;
 // from the loop's last bar, its In, after the wrap).
-function drawLanding(ctx, view, W, H, col) {
+function drawLanding(ctx, view, W, H, col, n = state.recTrack) {
   const t = state.tape, live = state.live;
   if (!t || !live) return;
   const red = col('--rec', '#dc322f');
@@ -3685,7 +3685,7 @@ function drawLanding(ctx, view, W, H, col) {
     ctx.setLineDash([5, 4]);
     ctx.lineWidth = 1.5;
     ctx.strokeRect(x0 + 0.75, 1, Math.max(1, x1 - x0) - 1.5, H - 2);
-    ctx.fillText(`the last pass, from ${inputOf(state.recTrack)}`, Math.max(2, x0 + 6), H - 16);
+    ctx.fillText(`the last pass, from ${inputOf(n)}`, Math.max(2, x0 + 6), H - 16);
   } else if (live.playing && t.grid && !live.record) {
     const bar = t.grid.frames / t.grid.bars;
     const heard = live.heardEngine ?? live.heard;

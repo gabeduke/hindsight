@@ -3945,7 +3945,7 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 .rig-dev-sub { font: 500 11px var(--mono); opacity: .8; }
 .rig-dev-note { margin: 0; max-width: 300px; font-size: 12px; line-height: 1.35; opacity: .85; }
 .rig-jacks, .rig-row-socks { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 6px; }
-.rig-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.rig-col { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 /* A label: masking tape, written on in marker -- a name, never a route. */
 .rig-tag {
   max-width: 96px; padding: 2px 7px; transform: rotate(-3deg); border-radius: 2px;
@@ -3957,13 +3957,15 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 /* A socket: a button with a jack in it. touch-action none, so a finger can
    draw a cable out of it. */
 .rig-sock {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px;
-  min-width: 52px; min-height: 52px; padding: 6px 4px 4px; border: 0; border-radius: 8px;
+  position: relative; display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; align-items: center; justify-items: start; column-gap: 7px;
+  min-width: 52px; min-height: 48px; padding: 6px 8px 6px 6px; border: 0; border-radius: 8px;
   background: transparent; color: inherit; font: 700 10.5px var(--label-font); letter-spacing: .1em; text-transform: uppercase;
   cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent;
 }
 .rig-sock:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-.rig-hole { width: 20px; height: 20px; border-radius: 50%; background: var(--jack-hole); box-shadow: 0 0 0 3px var(--jack-ring), inset 0 2px 3px rgba(0,0,0,.8); }
+/* The name beside the hole, never under it: cables leave a socket up or
+   down, and would cross a name below. */
+.rig-hole { grid-row: 1 / span 2; width: 20px; height: 20px; border-radius: 50%; background: var(--jack-hole); box-shadow: 0 0 0 3px var(--jack-ring), inset 0 2px 3px rgba(0,0,0,.8); }
 .rig-sock[data-kind="usb"] .rig-hole { width: 26px; height: 14px; border-radius: 3px; }
 .rig-sock[data-kind="midi"] .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring), inset 0 0 0 5px var(--gear-black-hi); }
 .rig-sock[data-kind="tap"] .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring), 0 0 0 5px var(--desk-felt-lo); }
@@ -3972,8 +3974,9 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 .rig-sock.target .rig-hole { box-shadow: 0 0 0 3px var(--cable-patch), 0 0 0 7px color-mix(in srgb, var(--cable-patch) 35%, transparent); }
 .rig-sock.drop .rig-hole { transform: scale(1.25); }
 .rig-sock.pending .rig-hole { outline: 2px dashed var(--cable-pending); outline-offset: 5px; }
-.rig-sock-label { line-height: 1; white-space: nowrap; }
-.rig-sock-name { max-width: 72px; font: 400 10px var(--font); letter-spacing: 0; text-transform: none; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rig-sock-label { line-height: 1; white-space: nowrap; align-self: end; }
+.rig-sock:not(:has(.rig-sock-name:not(:empty))) .rig-sock-label { grid-row: 1 / span 2; align-self: center; }
+.rig-sock-name { grid-column: 2; max-width: 72px; font: 400 10px var(--font); letter-spacing: 0; text-transform: none; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: start; }
 .rig-sock-name:empty { display: none; }
 .rig-lamp { position: absolute; top: 2px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--rig-lamp-off); }
 .rig-sock.armed .rig-lamp { background: var(--rig-lamp-rec); box-shadow: 0 0 8px var(--rig-lamp-rec); }
@@ -3984,13 +3987,14 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 
 /* The kit's patch bay. */
 .rig-bay {
-  display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 12px; border-radius: 12px;
+  display: flex; flex-direction: column; gap: 22px; padding: 14px 16px 16px; border-radius: 12px;
   background: linear-gradient(var(--gear-black-hi), var(--gear-black-lo));
   box-shadow: 0 8px 0 var(--gear-black-foot), 0 16px 26px rgba(0,0,0,.55);
 }
 .rig-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 8px 14px; }
+.rig-row-socks { gap: 8px 22px; }
 .rig-row-title { font: 700 10.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--desk-ink-dim); }
-.rig-row-tracks .rig-sock { min-width: 60px; }
+.rig-row-tracks .rig-sock { min-width: 64px; }
 
 /* The inspector: beside the desk; on a phone, a sheet over its foot when a
    socket or a cable is chosen. */
@@ -4098,5 +4102,8 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 
 /* The rig's warning on a Studio track header: an amber dot by ●, on an
    armed track whose input hears the tape (lib/rig/warn.js). */
-.tt-head .tt-warn { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 30%, transparent), 0 0 8px var(--warn-glow); }
+/* A badge on the head's corner, out of the flow, so the keys wrap as they
+   always did. */
+.tt-head:has(> .tt-warn) { position: relative; }
+.tt-head .tt-warn { position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--warn-glow); }
 .tt-head .tt-warn[hidden] { display: none; }

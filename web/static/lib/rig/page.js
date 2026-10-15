@@ -468,8 +468,7 @@ function cableRow(g, s, c) {
 function socketView(g, s) {
   const dev = G.deviceOf(g, s.id);
   const kicker = dev && dev.id !== 'kit' ? `Selected · ${dev.name}` : 'Selected · the kit';
-  const out = heading(kicker, G.title(g, s), s.about || '');
-  out.push(closeBtn());
+  const out = [closeBtn(), ...heading(kicker, G.title(g, s), s.about || '')];
   if (s.kind === 'tap' || s.tap) out.push(levelBox());
   // What it's patched to.
   const cables = G.cablesAt(g, s.id);
@@ -584,8 +583,7 @@ function labelBox(g, s) {
 function cableView(g, c) {
   const from = G.socketById(g, c.from), to = G.socketById(g, c.to);
   const fromName = c.from.startsWith('label:') ? `“${c.label}”` : G.title(g, from);
-  const out = heading(`A cable · ${c.kind}`, `${fromName} → ${G.title(g, to)}`, c.about || '');
-  out.push(closeBtn());
+  const out = [closeBtn(), ...heading(`A cable · ${c.kind}`, `${fromName} → ${G.title(g, to)}`, c.about || '')];
   out.push(el('p', 'rig-note', `It is ${c.writes}.${c.restart ? ' It takes effect when Hindsight restarts.' : ' It takes effect at once.'}${c.pending === 'plug' ? ' Saved, and waiting for the restart.' : ''}${c.pending === 'unplug' ? ' Unplugged, and still on until the restart.' : ''}`));
   const un = unplugFor(g, c), re = replugFor(g, c);
   if (un) out.push(button('icon-btn rig-unplug', 'Unplug', () => { state.cable = null; unplug(c); }, 'rig-unplug'));
