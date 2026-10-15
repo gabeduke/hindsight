@@ -91,6 +91,7 @@ const SHELL = [
   '/lib/rig/chip.js',
   '/lib/rig/page.js',
   '/lib/rig/ropes.js',
+  '/lib/rig/gesture.js',
   '/lib/tape/page.js',
   '/lib/tape/poll-gate.js',
   '/lib/tape/geometry.js',

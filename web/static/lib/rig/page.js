@@ -29,6 +29,7 @@ import { RopeRenderer, strokes } from './ropes.js';
 import { Scene } from '../scene/scene.js';
 import { SceneObject } from '../scene/object.js';
 import { snap, pull, lean, PULL_PX } from '../scene/plug.js';
+import { deskClick, release, dropSeed, remade } from './gesture.js';
 import { choose, letGo } from './picker.js';
 import * as G from './graph.js';
 import {
@@ -412,13 +413,18 @@ function drawCables() {
       from: c.from, to: c.to, kind: c.kind, pending: c.pending || '', declared: c.kind === 'jack',
       off: !!c.off, waiting: !!c.waiting, selected: state.cable === c.id, loose, a, b,
     };
-    const obj = scene.get(id);
-    if (obj) { setRope(obj, next); continue; }
-    // A drop's cable carries on from the rope that made it.
-    let seed;
-    if (settled(dropped) && dropped.points && ((c.from === dropped.from && c.to === dropped.to) || (c.from === dropped.to && c.to === dropped.from))) {
-      seed = c.from === dropped.from ? dropped.points : [...dropped.points].reverse();
+    // A drop's cable carries on from the rope that made it. A seed only
+    // applies to a rope being made, so a drop onto an occupied socket, which
+    // re-patches a cable that has an object already, takes that one off and
+    // makes it again.
+    const drop = settled(dropped) ? dropped : null;
+    let obj = scene.get(id);
+    if (obj && remade(obj.state, c, drop)) {
+      scene.remove(id);
+      obj = null;
     }
+    if (obj) { setRope(obj, next); continue; }
+    const seed = dropSeed(drop, c);
     scene.add(new SceneObject(id, 'cable', seed ? { ...next, seed } : next));
   }
   if (settled(pulled)) pulled = null;
@@ -737,6 +743,13 @@ function onChoose(id) {
   if (r.write) patch(r.from, r.to);
 }
 
+// socketUnder is the socket whose button is under a point, if any.
+function socketUnder(x, y) {
+  const n = document.elementFromPoint(x, y);
+  const b = n && n.closest ? n.closest('.rig-sock') : null;
+  return b ? b.dataset.sock : null;
+}
+
 function onPointerDown(e, id) {
   if (e.button !== 0 || !state.g) return;
   state.drag = { from: id, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, moved: false, pointer: e.pointerId };
@@ -809,8 +822,15 @@ function endDrag(e, cancelled) {
   setTimeout(() => { if (state.drag && state.drag.suppress) state.drag = null; }, 400);
   const g = state.g;
   if (cancelled) { render(); return; }
+  // What letting go does: gesture.js decides. Over any socket's button the
+  // plug isn't out, so a mis-drop onto one it can't go into changes nothing.
+  const onSocket = socketUnder(d.x, d.y) !== null;
+  const what = release({
+    over: d.over, from: d.from, canPatch: !!d.over && !!writeFor(g, d.from, d.over),
+    holding: d.holding, out: d.out, onSocket,
+  });
   // Let go snapped into a socket: a new cable, carrying on from this rope.
-  if (d.over && d.over !== d.from && writeFor(g, d.from, d.over)) {
+  if (what === 'patch') {
     const rope = scene && scene.get(DRAG);
     dropped = { from: d.from, to: d.over, points: rope && rope.view ? rope.view.points : null, after: Infinity };
     state.pick = { sel: d.from, targets: [] };
@@ -819,7 +839,7 @@ function endDrag(e, cancelled) {
     return;
   }
   // Let go of a plug pulled out: it's unplugged.
-  if (d.holding && d.out) {
+  if (what === 'unplug') {
     const c = (g.cables || []).find((x) => x.id === d.holding);
     if (c) {
       pulled = { id: c.id, end: d.end, at: deskPoint(d), loose: true, after: Infinity };
@@ -829,7 +849,7 @@ function endDrag(e, cancelled) {
     }
   }
   const from = holes.get(d.from);
-  if (d.several && from && Math.hypot(deskPoint(d).x - from.x, deskPoint(d).y - from.y) > PULL_PX) {
+  if (d.several && !onSocket && from && Math.hypot(deskPoint(d).x - from.x, deskPoint(d).y - from.y) > PULL_PX) {
     toast('More than one cable is in that socket: choose which to unplug', 'warn');
   }
   render();
@@ -899,7 +919,10 @@ export function start({ flagOn = roomsOn, doc = document, nav = initNav, help = 
   // anywhere that isn't a control -- the felt, or a card under the rope.
   const control = (e) => e.target.closest?.('button, a, input, label, summary, select, textarea, form');
   desk.addEventListener('click', (e) => {
-    if (control(e)) return;
+    // The click a drag leaves behind is spent, wherever it landed.
+    const kind = deskClick(state.drag, !!control(e));
+    if (kind === 'spent') { state.drag = null; return; }
+    if (kind === 'control') return;
     const id = ropes.hit(e.clientX, e.clientY);
     if (!id || id === DRAG) return;
     state.cable = id.slice('cable:'.length);

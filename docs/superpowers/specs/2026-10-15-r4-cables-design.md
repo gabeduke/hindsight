@@ -77,8 +77,9 @@ Pure rules, with their numbers in one place:
 
 - **What's in the hand, in a drag from socket S:**
   - If S holds exactly one cable that can be unplugged, the hand holds
-    **that cable's plug.** Let go while it's out, and it's unplugged. Let go
-    before the pull, and nothing happens.
+    **that cable's plug.** Let go while it's out, over no socket's button,
+    and it's unplugged. Let go before the pull, or over a socket it can't go
+    into, and nothing happens (review: a mis-drop is not a pull).
   - Otherwise, or once the plug comes near a socket S can go into, the hand
     holds **a new cable out of S.** It snaps in, and letting go there plugs
     it, as P6 did.

@@ -300,6 +300,13 @@ chip, and the page only says where the switch is.
   numbers: it snaps into a socket within 24 px of its hole (or over its
   button), and comes out once pulled 48 px. A drag from a socket with one
   cable in it holds that cable's plug; otherwise it draws a new one.
+  `gesture.js` holds the calls a drag and its drop make, so they have tests:
+  what letting go does (a pulled plug is unplugged only if it's let go over
+  no socket at all: onto one it can't go into, nothing changes), whether the
+  click a drag leaves behind is spent (it isn't a tap on a rope), and when a
+  drop's rope is made again so the new cable carries on from it. The names
+  beside the jacks are lifted above the ropes, with a halo, so a rope reads
+  as running behind a name (`lib/rig/layers.test.js` holds the stacking).
 - **Multi-arm** (`arm.js`): the tape keeps `rec_tracks`, and every recording
   sends `pairs`. With the rooms on, ● on a track's header toggles it; the keys
   still arm one. `warn.js` is the amber dot on a header whose input hears the
