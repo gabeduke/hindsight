@@ -40,25 +40,34 @@ export function typingInto(el) {
   return tag === 'input' && el.type !== 'range';
 }
 
-// Where ↵ belongs to what has the focus: any button -- a toast's Undo,
-// Loop, the buffer's own keys -- a link, a menu's item, anything in a sheet
-// or a menu. All but ▶: it keeps the focus after it's clicked, and ↵ there
-// would stop the tape mid-jam instead of dropping.
-const OWN_ENTER = 'button:not(#play), a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab';
+// Where ↵ belongs to what has the focus, however it got there: a link, a
+// menu's item, anything in a sheet or a menu, and the buffer's own keys.
+const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab';
+// And a button -- a toast's Undo, Loop -- but only one the keyboard brought
+// the focus to. Chrome focuses a button that's clicked: arm a track with its
+// ●, press ↵ for DROP, and the ↵ went to the ●, which disarmed it. ▶ never
+// keeps it: ↵ there would stop the tape mid-jam.
+const BUTTON = 'button:not(#play)';
 
 /**
  * blocked says the page isn't the buffer's to answer: a key typed into a
  * field; a sheet open over the page (Settings, a flag's, Releases); the
  * keys inside the inspector; or ↵ where the focus has a use for it.
+ * byKeyboard(el) says whether the keyboard brought the focus to el (a
+ * clicked button gives ↵ up); without it, every focused button keeps it.
  * (Play mode, which owns the keyboard while it's open, stops every key at
  * the document before it gets here: see bindBufferKeys.)
  */
-export function blocked(e, doc) {
+export function blocked(e, doc, byKeyboard = () => true) {
   const t = e.target;
   if (typingInto(t)) return true;
   if ([...doc.querySelectorAll('dialog[open]')].some((d) => !d.classList.contains('inspector'))) return true;
   if (t && t.closest && t.closest('dialog.inspector')) return true;
-  if ((e.code === 'Enter' || e.code === 'NumpadEnter') && t && t.closest && t.closest(OWN_ENTER)) return true;
+  if ((e.code === 'Enter' || e.code === 'NumpadEnter') && t && t.closest) {
+    if (t.closest(OWN_ENTER)) return true;
+    const b = t.closest(BUTTON);
+    if (b && byKeyboard(b)) return true;
+  }
   return false;
 }
 
@@ -70,17 +79,31 @@ export function blocked(e, doc) {
  * key bubbles back up: K is the click there and ⌫ removes clips, so while
  * the buffer is open they must be its, and stop here. `state()` says whether
  * it's open or held; `run(action)` does it. It returns the unbinder.
+ *
+ * It also notes how the focus moves -- by a press, or by a key -- so that a
+ * button clicked a moment ago doesn't keep ↵ from DROP (blocked).
  */
 export function bindBufferKeys(doc, { state, run }) {
   const root = doc.documentElement;
+  let byKey = false;            // the last input was a key, not a press
+  const keyed = new WeakSet();  // what the keyboard brought the focus to
+  const press = () => { byKey = false; };
+  const focus = (e) => { if (e.target && typeof e.target === 'object') { if (byKey) keyed.add(e.target); else keyed.delete(e.target); } };
   const down = (e) => {
-    if (blocked(e, doc)) return;
+    if (e.code !== 'Enter' && e.code !== 'NumpadEnter') byKey = true;
+    if (blocked(e, doc, (el) => keyed.has(el))) return;
     const a = keyAction(e, state());
     if (!a) return;
     e.preventDefault();
     e.stopPropagation();
     run(a, e);
   };
+  root.addEventListener('pointerdown', press, true);
+  root.addEventListener('focusin', focus, true);
   root.addEventListener('keydown', down, true);
-  return () => root.removeEventListener('keydown', down, true);
+  return () => {
+    root.removeEventListener('pointerdown', press, true);
+    root.removeEventListener('focusin', focus, true);
+    root.removeEventListener('keydown', down, true);
+  };
 }
