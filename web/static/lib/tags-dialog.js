@@ -16,11 +16,19 @@ export function nextColor(list) {
   return best;
 }
 
+/** createdTags is what a save made new: the tags of `after` whose ids `before` had not. */
+export function createdTags(before, after) {
+  const had = new Set(before.map((t) => t.id));
+  return after.filter((t) => !had.has(t.id));
+}
+
 /**
  * openTagManager shows the dialog; resolves true if the list was saved.
- * `onToast(msg, kind)` reports a save that failed.
+ * `onToast(msg, kind)` reports a save that failed. `onCreated(tag)` is called
+ * once a save has made a tag, with the newest: opened from a take, the take
+ * is given it, so "+ New tag" is not a trip that ends with the take bare.
  */
-export function openTagManager({ onToast } = {}) {
+export function openTagManager({ onToast, onCreated } = {}) {
   return new Promise((resolve) => {
     const draft = tagStore.list.map((t) => ({ ...t }));
     const dlg = document.createElement('dialog');
@@ -97,8 +105,11 @@ export function openTagManager({ onToast } = {}) {
         seen.add(k);
       }
       try {
-        await tagStore.save(clean);
+        const before = tagStore.list.map((t) => ({ ...t }));
+        const saved = await tagStore.save(clean);
         dlg.close('save');
+        const made = createdTags(before, saved);
+        if (made.length && onCreated) onCreated(made[made.length - 1]);
       } catch (ex) {
         err.textContent = `Could not save: ${ex.message}`;
         err.hidden = false;
