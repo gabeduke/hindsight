@@ -1157,6 +1157,12 @@ func (a *API) takePair(channels int) []int {
 //	POST   /api/clipboard/keep   KEEP AS TAKE: the clipboard as a take, its tracks summed
 //	DELETE /api/clipboard        clear it (?toss=1: keep it aside for /restore, a toss's Undo)
 //	POST   /api/clipboard/restore  bring the last tossed one back
+//	                             ?replaced=1[&by=<created>]: GRAB's Undo instead -- the buffer the
+//	                             last grab replaced (the Pi keeps one), if that grab is still the buffer
+//
+// A grab ({bars | seconds | ring_from…} or {take, from, to, grab: true}) that replaces a
+// buffer nobody dropped or kept answers it as `replaced` (and `replaced_seconds`), and with
+// `crate: false` puts it nowhere else; without, it goes to the crate as well.
 
 func (a *API) handleClipboard(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
@@ -1197,23 +1203,27 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 		// the span as the Studio's buffer. Without it, a take is copied as
 		// it always was.
 		Grab bool `json:"grab"`
+		// Crate: false (the rooms send it) holds the unused buffer a grab
+		// replaces as the one replaced grab and does not put it in the
+		// crate, which they no longer show. Left out, the crate is as it was.
+		Crate *bool `json:"crate"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
+	opts := tape.GrabOpts{NoCrate: b.Crate != nil && !*b.Crate}
 	var c *tape.Clipboard
 	var err error
 	clamped := false
 	if b.Take == "" && (b.Bars > 0 || b.Seconds > 0 || b.Again || b.Sources != nil) {
-		g, err := a.tape.Grab(tape.GrabRequest{Bars: b.Bars, Seconds: b.Seconds, RingFrom: b.RingFrom, RingTo: b.RingTo, Sources: b.Sources, Again: b.Again})
+		g, err := a.tape.Grab(tape.GrabRequest{Bars: b.Bars, Seconds: b.Seconds, RingFrom: b.RingFrom, RingTo: b.RingTo, Sources: b.Sources, Again: b.Again, NoCrate: opts.NoCrate})
 		if err != nil {
 			tapeErr(w, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"clipboard": g.Board, "seconds": float64(g.Board.Frames) / float64(a.tape.Store().SampleRate()),
-			"clamped": g.Board.Grab.Clamped, "wall": g.Board.Grab.Wall, "why": g.Board.Grab.Why, "crated": g.Crated,
-		})
+		writeJSON(w, http.StatusOK, a.grabAnswer(g, map[string]any{
+			"clamped": g.Board.Grab.Clamped, "wall": g.Board.Grab.Wall, "why": g.Board.Grab.Why,
+		}))
 		return
 	}
 	switch {
@@ -1229,15 +1239,12 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusNotFound, "no such take")
 			return
 		}
-		g, err := a.tape.GrabTake(path, name, takeTitle(name, path), b.From, b.To, a.takePair(info.Channels))
+		g, err := a.tape.GrabTakeOpt(path, name, takeTitle(name, path), b.From, b.To, a.takePair(info.Channels), opts)
 		if err != nil {
 			tapeErr(w, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"clipboard": g.Board, "seconds": float64(g.Board.Frames) / float64(a.tape.Store().SampleRate()),
-			"clamped": false, "wall": false, "why": "", "crated": g.Crated,
-		})
+		writeJSON(w, http.StatusOK, a.grabAnswer(g, map[string]any{"clamped": false, "wall": false, "why": ""}))
 		return
 	case b.Take != "":
 		name, nerr := a.safeTakeName(b.Take)
@@ -1269,6 +1276,22 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate()), "clamped": clamped})
 }
 
+// grabAnswer is a grab's answer: the buffer, its length, what went in the
+// crate, and -- only when the grab replaced a buffer nobody dropped or kept --
+// that buffer as `replaced`, for GRAB's Undo. extra adds the grab's notes.
+func (a *API) grabAnswer(g tape.Grabbed, extra map[string]any) map[string]any {
+	sr := float64(a.tape.Store().SampleRate())
+	out := map[string]any{"clipboard": g.Board, "seconds": float64(g.Board.Frames) / sr, "crated": g.Crated}
+	for k, v := range extra {
+		out[k] = v
+	}
+	if g.Replaced != nil {
+		out["replaced"] = g.Replaced
+		out["replaced_seconds"] = float64(g.Replaced.Frames) / sr
+	}
+	return out
+}
+
 func (a *API) handleClipboardClear(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
@@ -1288,6 +1311,25 @@ func (a *API) handleClipboardClear(w http.ResponseWriter, r *http.Request) {
 // the clipboard.
 func (a *API) handleClipboardRestore(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
+		return
+	}
+	// ?replaced=1[&by=<created of the grab>] is GRAB's Undo instead: the buffer
+	// the last grab replaced, back on the clipboard.
+	if r.URL.Query().Get("replaced") == "1" {
+		var by time.Time
+		if s := r.URL.Query().Get("by"); s != "" {
+			var perr error
+			if by, perr = time.Parse(time.RFC3339Nano, s); perr != nil {
+				writeErr(w, http.StatusBadRequest, "by is the time the grab was made, as the clipboard says it")
+				return
+			}
+		}
+		c, err := a.tape.RestoreReplaced(by)
+		if err != nil {
+			tapeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())})
 		return
 	}
 	c, kept, err := a.tape.RestoreClipboard()

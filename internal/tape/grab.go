@@ -100,14 +100,26 @@ type GrabRequest struct {
 	RingTo   *int64   `json:"ring_to"`
 	Sources  []string `json:"sources"`
 	Again    bool     `json:"again"`
+	// NoCrate: the buffer this replaces, if it was never dropped or kept, is
+	// held as the one replaced grab and not put in the crate (GrabOpts).
+	NoCrate bool `json:"-"`
 }
 
-// Grabbed is a grab, and what it put in the crate: the unused buffer it
-// replaced.
+// Grabbed is a grab, what it put in the crate (the unused buffer it replaced,
+// when the crate is kept), and Replaced: that same unused buffer, which the Pi
+// is now holding as its one replaced grab (replaced.go), for GRAB's Undo. Nil
+// when the grab replaced nothing, or only a buffer that was dropped or kept.
 type Grabbed struct {
-	Board  *Clipboard  `json:"clipboard"`
-	Crated []CrateClip `json:"crated"`
+	Board    *Clipboard  `json:"clipboard"`
+	Crated   []CrateClip `json:"crated"`
+	Replaced *Clipboard  `json:"replaced,omitempty"`
 }
+
+// GrabOpts changes what a grab does with the unused buffer it replaces.
+// NoCrate: it is kept as the one replaced grab and nowhere else. The rooms
+// send it, as the crate is no longer on their screens; without it a replaced
+// grab goes to the crate first, as it always has.
+type GrabOpts struct{ NoCrate bool }
 
 // maxGrabSeconds bounds a grab of the last N seconds.
 const maxGrabSeconds = 120
@@ -341,12 +353,12 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 			return Grabbed{Board: c, Crated: []CrateClip{}}, e.store.SaveClipboard(c)
 		}
 	}
-	crated, err := e.setBoardLocked(c)
+	crated, replaced, err := e.replaceBoardLocked(c, GrabOpts{NoCrate: req.NoCrate})
 	if err != nil {
 		forget()
 		return Grabbed{}, err
 	}
-	return Grabbed{Board: c, Crated: crated}, nil
+	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
 }
 
 // GrabTake copies frames [from, to) of a take onto the clipboard as the
@@ -357,6 +369,11 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 // grab from the feed is. title names the take in words (its label); file is
 // its name. Like any grab, it puts an unused buffer it replaces in the crate.
 func (e *Engine) GrabTake(take, file, title string, from, to int64, pick []int) (Grabbed, error) {
+	return e.GrabTakeOpt(take, file, title, from, to, pick, GrabOpts{})
+}
+
+// GrabTakeOpt is GrabTake with GrabOpts.
+func (e *Engine) GrabTakeOpt(take, file, title string, from, to int64, pick []int, opts GrabOpts) (Grabbed, error) {
 	info, err := audio.ReadWAVInfo(take)
 	if err != nil {
 		return Grabbed{}, err
@@ -407,12 +424,12 @@ func (e *Engine) GrabTake(take, file, title string, from, to int64, pick []int) 
 	}
 	e.boardMu.Lock()
 	defer e.boardMu.Unlock()
-	crated, err := e.setBoardLocked(c)
+	crated, replaced, err := e.replaceBoardLocked(c, opts)
 	if err != nil {
 		e.store.removePoolFile(rel)
 		return Grabbed{}, err
 	}
-	return Grabbed{Board: c, Crated: crated}, nil
+	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
 }
 
 // firstClip is a board's first clip, or nil.
@@ -559,16 +576,35 @@ func (e *Engine) setBoard(c *Clipboard) ([]CrateClip, error) {
 }
 
 func (e *Engine) setBoardLocked(c *Clipboard) ([]CrateClip, error) {
+	kept, _, err := e.replaceBoardLocked(c, GrabOpts{})
+	return kept, err
+}
+
+// replaceBoardLocked replaces the clipboard with c. A grab it replaces that
+// was never dropped or kept is held as the one replaced grab (replaced.go),
+// for GRAB's Undo, and -- unless opts says not -- put in the crate too, so
+// nothing grabbed is lost without a toss. It answers what it put in the crate
+// and the buffer it replaced, if it was one of those.
+func (e *Engine) replaceBoardLocked(c *Clipboard, opts GrabOpts) ([]CrateClip, *Clipboard, error) {
 	kept := []CrateClip{}
+	var replaced *Clipboard
 	if old, err := e.store.LoadClipboard(); err == nil && !old.Empty() && old.Grab != nil && !old.Grab.Used &&
 		(c == nil || !c.Created.Equal(old.Created)) {
-		ks, err := e.keepBoard(old)
-		if err != nil {
-			return nil, fmt.Errorf("the buffer it would replace couldn't be kept in the crate first: %w", err)
+		if c != nil {
+			if err := e.store.saveReplaced(old, c.Created); err != nil {
+				return nil, nil, fmt.Errorf("the buffer it would replace couldn't be held for Undo first: %w", err)
+			}
+			replaced = old
 		}
-		kept = ks
+		if !opts.NoCrate {
+			ks, err := e.keepBoard(old)
+			if err != nil {
+				return nil, nil, fmt.Errorf("the buffer it would replace couldn't be kept in the crate first: %w", err)
+			}
+			kept = ks
+		}
 	}
-	return kept, e.store.SaveClipboard(c)
+	return kept, replaced, e.store.SaveClipboard(c)
 }
 
 // markUsed notes that the buffer c was dropped or kept, if it's still the
