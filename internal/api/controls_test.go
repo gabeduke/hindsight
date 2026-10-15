@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -545,8 +546,8 @@ func TestAControllersAmountsMoveOnlyTheFXItHolds(t *testing.T) {
 	const port, other = "Keystation 49", "Other"
 	a.ControlMIDI(other, 0x90, 47, 127) // another controller holds FILTER
 	f.waitFor(t, "press filter 16th 1")
-	a.ControlMIDI(port, 0xB0, 1, 0)   // this one's mod wheel, holding nothing
-	a.ControlMIDI(port, 0xD0, 127, 0) // and its aftertouch: nothing
+	a.ControlMIDI(port, 0xB0, 1, 0)    // this one's mod wheel, holding nothing
+	a.ControlMIDI(port, 0xD0, 127, 0)  // and its aftertouch: nothing
 	a.ControlMIDI(other, 0xB0, 1, 127) // the one holding it moves it
 	f.waitFor(t, "press filter 16th 1", "set filter 1")
 	a.ControlMIDI(other, 0x80, 47, 0)
@@ -560,6 +561,58 @@ func TestAControllersAmountsMoveOnlyTheFXItHolds(t *testing.T) {
 	a.ControlMIDI(port, 0xD0, 127, 0) // aftertouch moves the latched ECHO
 	f.waitFor(t, "press filter 16th 1", "set filter 1", "release filter", "press echo 16th 1", "set echo 1")
 	a.ControlMIDI(port, 0xB0, 64, 0)
+}
+
+// logLines collects what the package logs, for counting.
+type logLines struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *logLines) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *logLines) count(sub string) int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return strings.Count(l.b.String(), sub)
+}
+
+// A pitch wheel in a mixdown: every message asks again, and is refused
+// again, but the log says so once -- not a hundred lines a second -- and
+// once more for the next refusal after one that went through.
+func TestARefusedBendIsLoggedOncePerRefusal(t *testing.T) {
+	f, _, a, _ := controlsAPI(t, t.TempDir())
+	var lines logLines
+	log.SetOutput(&lines)
+	defer log.SetOutput(os.Stderr)
+	f.mu.Lock()
+	f.refuse = map[string]error{"bend": tape.ErrMixingDown}
+	f.mu.Unlock()
+	const port = "Keystation 49"
+	for i := 0; i < 100; i++ {
+		a.ControlMIDI(port, 0xE0, 0, byte(70+i%50)) // the wheel moving, off centre
+	}
+	if n := lines.count("bend refused"); n != 1 {
+		t.Fatalf("logged %d times, want once:\n%s", n, lines.b.String())
+	}
+	f.mu.Lock()
+	f.refuse = nil
+	f.mu.Unlock()
+	a.ControlMIDI(port, 0xE0, 0, 100) // the mixdown over: it bends
+	a.ControlMIDI(port, 0xE0, 0, 64)  // and back
+	f.mu.Lock()
+	f.refuse = map[string]error{"bend": tape.ErrMixingDown}
+	f.mu.Unlock()
+	for i := 0; i < 10; i++ {
+		a.ControlMIDI(port, 0xE0, 0, 100)
+	}
+	if n := lines.count("bend refused"); n != 2 {
+		t.Fatalf("logged %d times, want twice:\n%s", n, lines.b.String())
+	}
 }
 
 // The tape mods from a controller: CC 21–24 preview as the knob turns and

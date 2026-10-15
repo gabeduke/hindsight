@@ -375,6 +375,10 @@ type controlBus struct {
 	file   controlsFile
 	held   map[string]map[string]bool // port → the pads it holds
 	keys   map[string]map[string]int  // port → how many of its keys hold each pad
+	// refused is the pads each port was refused and the log has said so:
+	// a pitch wheel in a mixdown asks again with every message, and the
+	// log says it once, until a press goes through.
+	refused map[string]map[string]bool
 	// pressed is what each key or pedal pressed, by port and message (a
 	// note or a CC on a channel): its release lets go of that pad, whatever
 	// the bindings say by then, as the keyboard keeps the code it pressed.
@@ -791,10 +795,23 @@ func (a *API) controllerPress(port, pad, q string, v float64) {
 		press = func() error { return eng.PressAmount(pad, q, v) }
 	}
 	if err := a.playHolds.press(pad, press); err != nil {
-		log.Printf("[!] %s: %s refused: %v", holder(port), pad, err)
+		b.mu.Lock()
+		said := b.refused[port][pad]
+		if b.refused == nil {
+			b.refused = map[string]map[string]bool{}
+		}
+		if b.refused[port] == nil {
+			b.refused[port] = map[string]bool{}
+		}
+		b.refused[port][pad] = true
+		b.mu.Unlock()
+		if !said {
+			log.Printf("[!] %s: %s refused: %v", holder(port), pad, err)
+		}
 		return
 	}
 	b.mu.Lock()
+	delete(b.refused[port], pad)
 	if b.held[port] == nil {
 		b.held[port] = map[string]bool{}
 	}
@@ -882,6 +899,7 @@ func (a *API) ControllerGone(port string) {
 	}
 	delete(b.held, port)
 	delete(b.keys, port)
+	delete(b.refused, port)
 	delete(b.wait, port)
 	delete(b.latch, port)
 	delete(b.pressed, port)
