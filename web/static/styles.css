@@ -5418,3 +5418,20 @@ body .np .np-catch:has(> .np-catch-more) { position: relative; padding-right: 34
   background: repeating-linear-gradient(135deg, rgba(255, 181, 71, .26) 0 6px, rgba(255, 181, 71, .08) 6px 12px);
 }
 .buffer-ghost.buffer-ghost-replace > span { color: var(--warn); }
+
+/* Folded lanes (the buffer open): a head is one row -- its name on the tape and
+   ● -- clipped to its strip, not four 92 px heads cut through on a 15 px
+   pitch. The row under a drag (.buffer-target) opens to its whole head, and the
+   unfolded instrument keeps the lanes as P3 laid them. On a phone the strip
+   is tall enough to press the ● on. */
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head {
+  flex-wrap: nowrap; overflow: hidden; align-items: stretch; gap: 4px; padding: 1px 4px;
+}
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head > :not(.tt-name):not(.tt-arm):not(.tt-warn) { display: none; }
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .tt-name { flex: 1 1 auto; min-height: 0; padding: 0 8px; font-size: 12px; line-height: 1; transform: none; }
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .tt-arm { flex: none; min-height: 0; min-width: 30px; padding: 0; }
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .tt-arm-dot { width: 8px; height: 8px; }
+@media (max-width: 699.98px) {
+  body.buffer-fold .tape-track:not(.buffer-target) { height: 22px; }
+  body.buffer-fold .tape-track:not(.buffer-target) .tt-lane { height: 20px; }
+}
