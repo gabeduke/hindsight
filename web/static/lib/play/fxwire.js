@@ -6,10 +6,24 @@
 
 import { mountFX } from './fx.js';
 import { mountMods } from './mods.js';
-import { styleField } from './controls.js';
+import { styleField, FX_PADS } from './controls.js';
+
+const FX = new Set(FX_PADS);
 
 /** BEND_DEAD is how near the centre the bend counts as let go. */
 export const BEND_DEAD = 0.02;
+
+/**
+ * linkOptions are what link.js needs of the amounts (strip.js passes them
+ * to connect): an FX pressed carries its amount, and a pad's or the bend's
+ * or a mod's release goes after its last move, never before it.
+ */
+export function linkOptions(amounts) {
+  return {
+    amountOf: (pad) => (FX.has(pad) ? amounts.get(pad) : undefined),
+    flush: (pad) => amounts.flush(pad),
+  };
+}
 
 /**
  * wireFX mounts the FX and the mods into the strip's slots (`ui`) and wires
@@ -51,7 +65,12 @@ export function wireFX({
     doc,
     // One step of undo when a gesture ends; then the preview goes, and the
     // tape's own value -- the one just saved -- is what's heard.
-    onCommit: (mod, v) => patchStyle({ [styleField(mod)]: v }).finally(() => link.release(mod)),
+    // The knob's last move goes first, if it's waiting its turn, then the
+    // save; the release (link.js flushes again) is the last word.
+    onCommit: (mod, v) => {
+      amounts.flush(mod);
+      return patchStyle({ [styleField(mod)]: v }).finally(() => link.release(mod));
+    },
     onFormula: (name) => patchStyle({ formula: name }),
     ...modsOptions,
   });

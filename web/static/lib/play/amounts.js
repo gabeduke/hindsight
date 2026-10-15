@@ -92,6 +92,19 @@ export class Amounts {
   }
 
   /**
+   * flush sends id's move that's waiting its turn now. A release must be
+   * the last word: a move after it would reopen a mod's preview that
+   * nothing ends, or land on a pad no one holds.
+   */
+  flush(id) {
+    if (!this.waiting.has(id)) return;
+    this.cancel(this.waiting.get(id));
+    this.waiting.delete(id);
+    this.sent.set(id, this.now());
+    this.send(id, this.get(id));
+  }
+
+  /**
    * note sets id without sending it: a velocity at the press (which the
    * press carries), or the tape's own value of a mod.
    */

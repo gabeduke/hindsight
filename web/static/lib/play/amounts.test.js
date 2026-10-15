@@ -85,3 +85,16 @@ test('the timers are called as a browser’s must be: not as this one’s method
   assert.deepEqual(sent, [0.2, 0.4]);
   assert.doesNotThrow(() => a.close());
 });
+
+test('flush sends a move waiting its turn now, and nothing is sent after it', () => {
+  const clock = fakeTime();
+  const sent = [];
+  const a = new Amounts({ send: (id, v) => sent.push([clock.now(), id, v]), ...clock });
+  a.move('filter', 0.2);   // sent at once
+  a.move('filter', 0.4);   // waits
+  a.flush('filter');
+  a.flush('filter');       // nothing waiting: nothing
+  a.flush('echo');
+  clock.advance(EVERY_MS * 2);
+  assert.deepEqual(sent, [[0, 'filter', 0.2], [0, 'filter', 0.4]]);
+});

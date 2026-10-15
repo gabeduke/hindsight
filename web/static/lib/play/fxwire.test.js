@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { wireFX } from './fxwire.js';
+import { wireFX, linkOptions } from './fxwire.js';
 import { Surface } from './surface.js';
 import { connect } from './link.js';
 import { bindTouch } from './keymap.js';
@@ -122,7 +122,7 @@ function strip({ fetchOk = true } = {}) {
   let link = null;
   const amounts = new Amounts({ send: (id, v) => link?.set(id, v), now: clock.now, setTimer: clock.setTimer, clearTimer: clock.clearTimer });
   const far = new FarPads();
-  link = connect(surface, { WebSocketImpl: FakeWS, url: 'x', now: clock.now, amountOf: (pad) => amounts.get(pad) });
+  link = connect(surface, { WebSocketImpl: FakeWS, url: 'x', now: clock.now, ...linkOptions(amounts) });
   const slots = { fx: doc.createElement('div'), mods: doc.createElement('div') };
   const pads = new Map();
   const ui = {
@@ -218,4 +218,58 @@ test('while a mixdown plays the FX wait, and say so', () => {
   assert.match(s.slots.fx.querySelector('.play-fx-note').textContent, /mixdown/);
   s.wire.setMixdown('');
   assert.equal(group.classList.contains('play-fx-waiting'), false);
+});
+
+// The last move of a fast gesture waits its turn (≤ 30 sends a second). It
+// must still go before the release: after it, a mod's set reopens a preview
+// nothing ends, and an FX's lands on a pad no one holds.
+test('a fast knob drag sends its last move before the save and the release, never after', async () => {
+  const s = strip();
+  const knob = s.slots.mods.querySelector('.play-knob');
+  knob.fire('pointerdown', { clientY: 200 });
+  knob.fire('pointermove', { clientY: 190 }); // sent at once
+  knob.fire('pointermove', { clientY: 180 }); // waits its turn
+  knob.fire('pointerup', { clientY: 180 });
+  await settle();
+  s.clock.advance(EVERY_MS);
+  const v = (dy) => dy / KNOB_PX;
+  assert.deepEqual(s.sock().sent, [
+    { t: 'set', pad: 'mod.wow', v: v(10) },
+    { t: 'set', pad: 'mod.wow', v: v(20) },
+    { PATCH: { style: { wow: v(20) } } },
+    { t: 'release', pad: 'mod.wow' },
+  ]);
+});
+
+test('a pad let go mid-slide sends where it was left, then the release', () => {
+  const s = strip();
+  const pad = s.pads.get('echo');
+  pad.fire('pointerdown', { clientY: 100 });
+  pad.fire('pointermove', { clientY: 100 - SLIDE_PX / 10 });
+  pad.fire('pointermove', { clientY: 100 - SLIDE_PX / 5 });
+  pad.fire('pointerup', { clientY: 100 - SLIDE_PX / 5 });
+  s.clock.advance(EVERY_MS);
+  assert.deepEqual(s.sock().sent, [
+    { t: 'press', pad: 'echo', q: 'now', v: 0.5 },
+    { t: 'set', pad: 'echo', v: 0.6 },
+    { t: 'set', pad: 'echo', v: 0.7 },
+    { t: 'release', pad: 'echo' },
+  ]);
+});
+
+test('the bend sprung back sends its last move, then the release', () => {
+  const s = strip();
+  const bend = s.slots.fx.querySelector('.play-bend');
+  bend.fire('pointerdown', { clientX: 300 });
+  bend.fire('pointermove', { clientX: 300 + BEND_PX / 4 }); // pressed
+  bend.fire('pointermove', { clientX: 300 + BEND_PX / 2 }); // sent at once
+  bend.fire('pointermove', { clientX: 300 + BEND_PX });     // waits its turn
+  bend.fire('pointerup', { clientX: 300 + BEND_PX });
+  s.clock.advance(EVERY_MS);
+  assert.deepEqual(s.sock().sent, [
+    { t: 'press', pad: 'bend', q: 'now', v: 0.25 },
+    { t: 'set', pad: 'bend', v: 0.5 },
+    { t: 'set', pad: 'bend', v: 1 },
+    { t: 'release', pad: 'bend' },
+  ]);
 });

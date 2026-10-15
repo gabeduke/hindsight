@@ -30,14 +30,12 @@ import { on as roomsOn } from '../rooms/flag.js';
 import { gridFrom, ringAt, beatAt } from './clock.js';
 import { connect } from './link.js';
 import { modeOf } from './reel.js';
-import { control, FX_PADS, FORMULAS } from './controls.js';
+import { control, FORMULAS } from './controls.js';
 import { support, attach } from './midi.js';
 import { Amounts } from './amounts.js';
-import { wireFX } from './fxwire.js';
+import { wireFX, linkOptions } from './fxwire.js';
 import { reconcile, RECENT_MS } from './held.js';
 import { FarPads } from './far.js';
-
-const FX = new Set(FX_PADS);
 
 /** The strip's per-device conveniences (not DEVICE_PREFS: they're where you left it). */
 export const FOLD_KEY = 'hindsight.play.strip';
@@ -164,7 +162,7 @@ export function startStrip({
       wake();
     },
     onOpen: () => fetchControls(),
-    amountOf: (pad) => (FX.has(pad) ? amounts.get(pad) : undefined),
+    ...linkOptions(amounts),
     onAmount: (pad, v) => {
       if (pad.startsWith('mod.')) wire?.mods?.heardPreview(pad);
       amounts.heard(pad, v);

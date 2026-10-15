@@ -75,6 +75,7 @@ export function connect(surface, {
   onOpen = () => {},
   amountOf = () => undefined,
   onAmount = () => {},
+  flush = () => {},
   retryMs = 1000,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
@@ -94,7 +95,8 @@ export function connect(surface, {
     if (Number.isFinite(x)) m.v = x;
     send(m);
   });
-  const offLet = surface.on('let', ({ pad }) => send({ t: 'release', pad }));
+  // A pad's last amount, if one is waiting its turn, goes before its release.
+  const offLet = surface.on('let', ({ pad }) => { flush(pad); send({ t: 'release', pad }); });
 
   function handle(m) {
     switch (m.t) {
@@ -155,8 +157,8 @@ export function connect(surface, {
     set(pad, v) { send({ t: 'set', pad, v }); },
     /** press holds a pad by hand, not through the surface: the bend, at once. */
     press(pad, v) { send({ t: 'press', pad, q: 'now', v }); },
-    /** release lets go of the bend, or a mod's preview. */
-    release(pad) { send({ t: 'release', pad }); },
+    /** release lets go of the bend, or a mod's preview: its last amount first. */
+    release(pad) { flush(pad); send({ t: 'release', pad }); },
     /**
      * learn asks the Pi to bind the next note or CC from one of its
      * controllers (`port`, or any) to `action`. It resolves with
