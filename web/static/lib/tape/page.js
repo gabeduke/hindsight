@@ -43,7 +43,7 @@ import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
-import { bounceMenu, lastBounce, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
+import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote } from '../rig/arm.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
@@ -762,19 +762,13 @@ function renderClock(c, t) {
 // `bouncing` is null and everything below says what it always did.
 const bouncing = (() => {
   const menu = bounceMenu(document, { rooms: ROOMS });
-  return menu ? { menu, player: takePlayer({ toast }) } : null;
+  if (!menu) return null;
+  // Last bounce is the loaded tape's: the keeper drops another tape's the
+  // moment the tape differs, and asks the Pi as the menu opens (a bounce may
+  // have been made from another device).
+  const tapeNow = () => (state.tape ? { id: state.id, name: state.tape.name } : null);
+  return { menu, player: takePlayer({ toast }), keeper: lastBounceKeeper({ menu, tapeNow }) };
 })();
-
-// refreshLastBounce asks which take is the loaded tape's newest bounce, when
-// the menu opens: it may have been made from another device. A Pi that does
-// not answer leaves what the menu knew.
-async function refreshLastBounce() {
-  try {
-    const res = await fetch('/api/jams', { cache: 'no-store' });
-    if (!res.ok || !state.tape) return;
-    bouncing.menu.setLast(lastBounce(await res.json(), { id: state.id, name: state.tape.name }));
-  } catch { /* the next time it opens */ }
-}
 
 // mixdown plays the loop (or, with all, the whole tape) once and saves what
 // the mixer put out as a take; live.mixdown follows it.
@@ -804,7 +798,7 @@ function noteMixdown(md) {
   if (!md || md.tape !== state.id) return;
   if (md.state === 'done') {
     if (bouncing) {
-      bouncing.menu.setLast({ name: md.take, label: state.tape.name });
+      bouncing.keeper.set({ name: md.take, label: state.tape.name }, state.id);
       bounceToast({ toast, name: md.take, message: 'Bounced as a take', player: bouncing.player });
     } else {
       toast('Mixed down as a take', 'ok', {
@@ -4535,7 +4529,7 @@ function openActions() {
   const playable = !!(t0 && live && live.output && t0.tracks.some((tr) => tr.clips.length));
   $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
   $('tape-mixdown-all').disabled = !playable;
-  if (bouncing) refreshLastBounce();
+  if (bouncing) { bouncing.keeper.changed(state.id); bouncing.keeper.refresh(); }
   showMenu('tape-actions');
 }
 
@@ -4856,7 +4850,7 @@ function wire() {
   $('tape-mixdown-all').addEventListener('click', () => { closeMenus(); mixdown(true); });
   bouncing?.menu.last.addEventListener('click', () => {
     closeMenus();
-    lastBounceToast({ toast, take: bouncing.menu.take, player: bouncing.player });
+    lastBounceToast({ toast, take: bouncing.keeper.take(), player: bouncing.player });
   });
   $('tape-export').addEventListener('click', exportStems);
   $('tape-rename').addEventListener('click', () => { closeMenus(); openRename(); });

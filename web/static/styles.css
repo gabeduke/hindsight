@@ -1436,6 +1436,10 @@ dialog.sheet::backdrop { background: var(--scrim); }
 }
 .menu > .danger { color: var(--danger); }
 .menu > button:disabled { opacity: .4; cursor: default; }
+/* Last bounce (rooms on), when there is none: it says why on its face, a
+   phone having no tooltip, so it is dimmed less than a dead key. */
+#tape-last-bounce:disabled { opacity: .65; }
+#tape-last-bounce .bounce-note { font-size: .85em; color: var(--ink-dim); }
 
 /* align-items is spelled out because the takes page's two-column rule at
    >=860px sets `main { display: grid; align-items: start }` unscoped. */
