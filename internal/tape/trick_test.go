@@ -480,15 +480,37 @@ func TestPressAndReleaseRefuseWhatPlayModeDoesntHave(t *testing.T) {
 }
 
 // BenchmarkRenderABlock is the cost of one 21 ms block with four tracks
-// playing, plain and under each trick: the number to watch on the Pi, where
-// a block that takes longer than it plays is a gap in the room.
+// playing, plain and under each trick, each punch-in FX, the tape mods, and
+// everything at once: the number to watch on the Pi, where a block that
+// takes longer than it plays is a gap in the room. The punch-in FX spec's
+// budget is a quarter of the block, about 5 ms, for "everything".
 func BenchmarkRenderABlock(b *testing.B) {
-	for _, pad := range []string{"", PadDouble, PadHalf, PadReverse, PadChop, PadStop, PadTrack2} {
-		name := pad
-		if name == "" {
-			name = "plain"
-		}
-		b.Run(name, func(b *testing.B) {
+	full := Style{Wow: 1, Flutter: 1, Drive: 1, Age: 1}
+	cases := []struct {
+		name string
+		pads []string
+		mods *Style
+	}{
+		{name: "plain"},
+		{name: PadDouble, pads: []string{PadDouble}},
+		{name: PadHalf, pads: []string{PadHalf}},
+		{name: PadReverse, pads: []string{PadReverse}},
+		{name: PadChop, pads: []string{PadChop}},
+		{name: PadStop, pads: []string{PadStop}},
+		{name: PadTrack2, pads: []string{PadTrack2}},
+		{name: PadRoll, pads: []string{PadRoll}},
+		{name: PadFilter, pads: []string{PadFilter}},
+		{name: PadEcho, pads: []string{PadEcho}},
+		{name: PadCrush, pads: []string{PadCrush}},
+		{name: PadBend, pads: []string{PadBend}},
+		{name: "fx-all-four", pads: []string{PadRoll, PadFilter, PadEcho, PadCrush}},
+		{name: "mods", mods: &full},
+		// Four FX, four mods, the bend and a trick: 2× is the dearest head,
+		// and over ROLL it's the one heard.
+		{name: "everything", pads: []string{PadRoll, PadFilter, PadEcho, PadCrush, PadBend, PadDouble}, mods: &full},
+	}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
 			s, err := OpenStore(b.TempDir(), 48000, 4, 60)
 			if err != nil {
 				b.Fatal(err)
@@ -505,7 +527,7 @@ func BenchmarkRenderABlock(b *testing.B) {
 			for n := 1; n <= 4; n++ {
 				tracks = append(tracks, Track{N: n, Bus: BusA, Clips: []Clip{{ID: "c", File: rel, Frames: rigFrames}}})
 			}
-			m := NewMix(State{Grid: &Grid{Frames: 4 * rigBar, Bars: 4}, Loop: Loop{In: 0, Out: 4 * rigBar, On: true}, Tracks: tracks}, pool, 48000)
+			m := NewMix(State{Grid: &Grid{Frames: 4 * rigBar, Bars: 4}, Loop: Loop{In: 0, Out: 4 * rigBar, On: true}, Tracks: tracks, Style: c.mods}, pool, 48000)
 			m.length = 2 * rigFrames
 			e := NewEngine(Options{Store: s})
 			e.mix.Store(m)
@@ -514,15 +536,21 @@ func BenchmarkRenderABlock(b *testing.B) {
 			var out uint64
 			e.advance(buf, out, BlockFrames)
 			out += BlockFrames
-			if pad != "" {
-				_ = e.Press(pad, QuantumNow)
+			for _, p := range c.pads {
+				_ = e.PressAmount(p, QuantumNow, 0.8)
+			}
+			// Into the steady state: the amounts arrived, the echo ringing.
+			for i := 0; i < 20; i++ {
+				clear(buf)
+				e.advance(buf, out, BlockFrames)
+				out += BlockFrames
 			}
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				clear(buf)
 				e.advance(buf, out, BlockFrames)
 				out += BlockFrames
-				if pad == PadStop && e.perf.head.on && float64(out-e.perf.head.start) > e.perf.head.beat {
+				if c.name == PadStop && e.perf.head.on && float64(out-e.perf.head.start) > e.perf.head.beat {
 					// Keep it winding: a stopped head renders nothing.
 					e.perf.head.start = out
 				}

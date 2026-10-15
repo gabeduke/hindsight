@@ -447,11 +447,16 @@ func (e *Engine) safely(f func()) {
 // advance moves the transport n output frames from out, rendering into dst
 // (nil: just count), applying queued actions on their frames and wrapping
 // at the loop's end.
+//
+// Each span is the tape (through the head while Play mode moves it), then
+// the tape's character and the punch-in FX (perf.post), then the click,
+// which stays dry.
 func (e *Engine) advance(dst []float32, out uint64, n int) {
 	tr := e.tr
 	m := e.mix.Load()
 	length := m.length
 	e.drain(out, m)
+	e.perf.targets(m)
 	off := 0
 	for n > 0 {
 		for len(tr.pend) > 0 && tr.pend[0].at <= out {
@@ -484,8 +489,11 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			// The count-in: a bar of click with the tape standing, then
 			// play from there.
 			span = min64(span, tr.countIn)
+			e.perf.step(int(span), out, dst != nil, m)
 			if dst != nil {
-				m.renderCountIn(dst[off*OutChannels:], tr.countLen-tr.countIn, int(span))
+				d := dst[off*OutChannels:]
+				e.perf.post(d, out, int(span), m, false) // an echo ringing on
+				m.renderCountIn(d, tr.countLen-tr.countIn, int(span))
 			}
 			tr.countIn -= span
 			if tr.countIn == 0 {
@@ -503,14 +511,22 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			// stands back where the pass began.
 			end := min64(tr.onceEnd, length)
 			span = min64(span, max64(0, end-tr.pos))
+			e.perf.step(int(span), out, dst != nil, m)
 			if dst != nil {
 				lm := m.straight
 				if lm == nil {
 					lm = m
 				}
 				d := dst[off*OutChannels:]
-				lm.renderTape(d, tr.pos, int(span), false)
+				// The mods are the tape's sound, so they're printed; the
+				// tricks and the FX aren't.
+				if e.perf.wobbles() {
+					e.perf.renderStraight(d, lm, out, int(span), tr.pos)
+				} else {
+					lm.renderTape(d, tr.pos, int(span), false)
+				}
 				lm.declickEdges(d, tr.pos, int(span), tr.onceFrom, end)
+				e.perf.post(d, out, int(span), m, true)
 			} else if span > 0 {
 				tr.lateOnce() // the device played silence here: a gap in the take
 			}
@@ -542,16 +558,20 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			if t := e.perf.top(); t >= 0 && !e.perf.head.on {
 				e.perf.head = e.perf.newHead(t, tr.pos, out, m)
 			}
+			e.perf.step(int(span), out, dst != nil, m)
 			if dst != nil {
 				d := dst[off*OutChannels:]
 				if e.perf.active(out, m) {
-					// Play mode: the head, or tracks dropped out. The click
-					// keeps the transport's time, so the band's doesn't stutter.
+					// Play mode: the head, tracks dropped out, or the tape's
+					// wow and flutter.
 					e.perf.render(d, m, out, int(span), tr.pos, tr.sinceWrap(out, m.loop))
-					m.renderClick(d, tr.pos, int(span))
 				} else {
-					m.render(d, tr.pos, int(span), tr.sinceWrap(out, m.loop))
+					m.renderTape(d, tr.pos, int(span), tr.sinceWrap(out, m.loop))
 				}
+				e.perf.post(d, out, int(span), m, false)
+				// The click keeps the transport's time, so the band's doesn't
+				// stutter, and stays dry.
+				m.renderClick(d, tr.pos, int(span))
 			}
 			tr.pos += span
 			if looping && tr.pos == m.loop.Out {
@@ -566,6 +586,13 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				tr.cycleStart, tr.cycleIn = int64(at), m.loop.In
 				tr.wrapped, tr.wrapOut, tr.wrapIn = true, at, m.loop.In
 				tr.recordWrap(at)
+			}
+		} else {
+			// Standing: nothing comes off the tape, but what the FX have
+			// ringing rings on.
+			e.perf.step(int(span), out, dst != nil, m)
+			if dst != nil {
+				e.perf.post(dst[off*OutChannels:], out, int(span), m, false)
 			}
 		}
 		out += uint64(span)
