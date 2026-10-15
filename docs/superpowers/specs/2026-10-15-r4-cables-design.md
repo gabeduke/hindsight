@@ -35,24 +35,32 @@ A model on the scene contract (R1), pure and tested with a fake `dt`.
   - verlet integration of 16 points, both ends pinned to `a` and `b`;
   - gravity, and a damping that settles a swing in about a second;
   - four constraint passes a step, alternating direction.
+
+  The numbers (`cable.js`): gravity 3600 px/s², a 120 ms damping, a
+  frame stepping at most 100 ms.
 - **Frame-rate independence:** the rope steps at a fixed 120 Hz and the view
   is interpolated between the last two steps, so the view at a given time is
   the same at any frame rate. The stated tolerance: 0.01 px, with the ends
   exactly where the page put them.
-- **How long a cable is:** as long as P6's drawn one hangs,
-  `√(d² + 16⁄3·s²)` for anchors `d` apart and P6's sag `s`. A taut chord
-  and a deep loop both come out of the same rule. A `declared` cable (a jack
+- **How long a cable is:** `√(d² + 16⁄3·s²)` for anchors `d` apart,
+  where `s` grows with how far the cable reaches *across*: P6's sag for two
+  sockets side by side, so the rope hangs as deep as P6's loop did. A cable
+  dropping from row to row reaches across little and falls nearly straight,
+  as P6's S did. (Built first with P6's sag of the whole distance, a drop
+  down a phone's desk looped out past its edge.) A `declared` cable (a jack
   you drew) is a label, not a rope: it's taut, a straight line from its tag.
 - **At rest at once:**
   - **A cable that appears is already hanging still,** so opening the rig
     moves nothing;
   - **`dt = Infinity`** (reduced motion, from the ticker) lands it on the
-    same rest shape the motion settles to, within 1 px;
+    same rest shape the motion settles to, within 0.2 px: a swing ends by
+    landing the last fraction of a pixel the same way;
   - **only a change moves a rope:** a drag, a drop, a pull, a socket that
     moved.
 - **Parking:** once every point has moved less than 0.02 px a step for six
-  steps, the rope stops and its `step` returns `false`. When every rope has
-  stopped the scene asks for no frames and the ticker parks.
+  steps, the rope stops and its `step` returns `false`, within about two
+  seconds of a move, even for a rope down the whole of a phone's desk. When
+  every rope has stopped the scene asks for no frames and the ticker parks.
 
 ### The plug (`lib/scene/plug.js`)
 
@@ -120,9 +128,10 @@ Pure rules, with their numbers in one place:
 
 - **Node, with a fake `dt`:**
   - the same view at 20, 30, 60 and 120 Hz, and on ragged frames, within
-    0.01 px;
+    0.01 px; at 144 Hz, faster than the rope steps, it still moves every
+    frame;
   - a rope settles, and twelve settle and park the ticker;
-  - `dt = Infinity` lands on the settled shape within 1 px;
+  - `dt = Infinity` lands on the settled shape within 0.2 px;
   - a declared cable is straight;
   - the snap radius (24 px in, 24.01 px out, the nearest wins, over a
     button counts);
