@@ -4015,6 +4015,11 @@ body.buffer-fold .tape-lanes { gap: 3px; }
   box-shadow: 0 10px 18px rgba(0, 0, 0, .55);
 }
 body.buffer-lifting, body.buffer-lifting * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+/* Nobody trims mid-drag: on a laptop the bench's foot gives the lanes its
+   room while the buffer is carried to one. */
+@media (min-width: 700px) and (min-height: 441px) {
+  body.buffer-lifting .buffer-foot { display: none; }
+}
 
 /* While it's open the feed gives the lanes room: a shorter ribbon, and no
    sections row (they're the tape's, and come back when it closes). */
@@ -4051,7 +4056,7 @@ body.buffer-fold .tape-sections-row { display: none; }
   .buffer-acts { order: 4; flex: 1 0 100%; display: flex; flex-direction: column; }
   .buffer-gain { order: 5; flex: 1 0 100%; }
   .buffer-gain input { flex: 1 1 auto; width: auto; }
-  .icon-btn.buffer-shape { order: 6; flex: 1 1 0; min-height: 38px; }
+  .icon-btn.buffer-shape { order: 6; flex: 1 1 auto; min-height: 38px; white-space: nowrap; }
   .icon-btn.buffer-drop { align-items: center; text-align: center; min-height: 64px; }
   body.tape-page.buffer-open { padding-bottom: calc(var(--dock-b, 0px) + 45svh); }
   body.buffer-open .studio-feed > .viz-wrap { height: 60px; }

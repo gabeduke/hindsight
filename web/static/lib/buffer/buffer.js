@@ -293,7 +293,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
         // The lanes unfold first; then the new block glows once, where it
         // is -- on a phone, where its lane is brought into sight.
         requestAnimationFrame(() => requestAnimationFrame(() => {
-          if (sheetMode()) doc.querySelectorAll('#lanes > .tape-track')[track - 1]?.scrollIntoView({ block: 'nearest' });
+          if (sheetMode()) doc.querySelectorAll('#lanes > .tape-track')[track - 1]?.scrollIntoView({ block: 'center' }); // clear of the docked bar
           overlay.glow(boxesFor(doc, { track, count, at, frames: b.frames, view: st.detail?.view || d.view }));
         }));
         const what = count > 1 ? `tracks ${track}–${track + count - 1}` : `track ${track}`;
