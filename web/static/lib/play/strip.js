@@ -83,7 +83,8 @@ export function startStrip({
   let piBindings = {};  // name → their bindings
   let midiIn = null;    // this browser's controllers (midi.js attach)
   let webPorts = [];
-  let from = read(FROM_KEY, '');
+  let chosen = read(FROM_KEY, ''); // picked by hand on this device, or '' to follow what's there
+  let from = chosen || 'keys';
   let learning = false;
   const sounding = [];  // pads sounding, in the order they fired: the reel follows the newest trick
   const pending = [];   // another hand's pads, waiting for when they're heard
@@ -218,7 +219,9 @@ export function startStrip({
   }
   function paintFrom() {
     const options = fromOptions({ pi, web: webPorts, canWeb: web.ok, webOn: !!midiIn });
-    if (!options.some((o) => o.id === from && o.id !== 'web+')) from = defaultFrom();
+    // A controller plugged in shows its keys on the pads, unless this device
+    // picked otherwise.
+    from = chosen && options.some((o) => o.id === chosen && o.id !== 'web+') ? chosen : defaultFrom();
     let line = '';
     if (from.startsWith('pi:')) line = 'All of them play at once; this picks which legends the pads show. The controller in the Pi needs no page open, and no Wi-Fi.';
     else if (from.startsWith('web:')) line = 'Plugged into this computer: its bindings are this browser’s. Into the Pi, it plays with no page open, and steadier.';
@@ -234,7 +237,7 @@ export function startStrip({
   }
   function pickFrom(id) {
     if (id === 'web+') { plugHere(true); return; }
-    from = id;
+    chosen = id;
     write(FROM_KEY, id);
     paintFrom();
   }
