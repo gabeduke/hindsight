@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -52,6 +53,24 @@ func controllerFixture(t *testing.T) (cards, snd, ep, smk string) {
 	return cards, snd, mkfifo(t, snd, "midiC2D0"), mkfifo(t, snd, "midiC3D0")
 }
 
+// openWriterSoon opens a FIFO's write end once the watcher has opened its
+// read end, or fails the test: a blocking open would hang it instead when
+// the watcher never opens the node.
+func openWriterSoon(t *testing.T, fifo string) *os.File {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		f, err := os.OpenFile(fifo, os.O_WRONLY|syscall.O_NONBLOCK, 0)
+		if err == nil {
+			return f
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the watcher never opened %s: %v", fifo, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func controllerOpen(w *Watcher) bool {
 	for _, d := range w.Devices() {
 		if d.Name == "SMK-37" && d.Controller && d.Connected {
@@ -79,7 +98,7 @@ func TestWatcherOpensAControllerWithCaptureOff(t *testing.T) {
 	w.Start()
 	defer w.Stop()
 
-	wr := openWriter(t, smk)
+	wr := openWriterSoon(t, smk)
 	defer wr.Close()
 	waitFor(t, "the controller to open", func() bool { return controllerOpen(w) })
 	time.Sleep(60 * time.Millisecond) // past the drain window
@@ -111,7 +130,7 @@ func TestAnIgnoredControllerStillPlays(t *testing.T) {
 	w.SetControlSink(s)
 	w.Start()
 	defer w.Stop()
-	wr := openWriter(t, smk)
+	wr := openWriterSoon(t, smk)
 	defer wr.Close()
 	waitFor(t, "the controller to open", func() bool { return controllerOpen(w) })
 	time.Sleep(60 * time.Millisecond)
@@ -130,7 +149,7 @@ func TestWatcherSaysWhenAControllerGoes(t *testing.T) {
 	w.SetControlSink(s)
 	w.Start()
 	defer w.Stop()
-	wr := openWriter(t, smk)
+	wr := openWriterSoon(t, smk)
 	waitFor(t, "the controller to open", func() bool { return controllerOpen(w) })
 	time.Sleep(60 * time.Millisecond)
 	wr.Write([]byte{0x90, 40, 100})
@@ -153,7 +172,7 @@ func TestOnlyControllersReachTheBus(t *testing.T) {
 	w.SetControlSink(s)
 	w.Start()
 	defer w.Stop()
-	wr := openWriter(t, ep)
+	wr := openWriterSoon(t, ep)
 	defer wr.Close()
 	waitFor(t, "the EP", w.Connected)
 	time.Sleep(60 * time.Millisecond)

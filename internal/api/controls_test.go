@@ -398,11 +398,22 @@ func TestAControllerThroughTheWatcher(t *testing.T) {
 	a.SetControllers(w)
 	w.Start()
 	defer w.Stop()
-	wr, err := os.OpenFile(node, os.O_WRONLY, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Opened without blocking, so a watcher that never opens the node fails
+	// the test instead of hanging it.
+	var wr *os.File
 	deadline := time.Now().Add(3 * time.Second)
+	for {
+		f, err := os.OpenFile(node, os.O_WRONLY|syscall.O_NONBLOCK, 0)
+		if err == nil {
+			wr = f
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the watcher never opened the controller: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	deadline = time.Now().Add(3 * time.Second)
 	for !strings.Contains(controlsBody(t, a), `"connected":true`) {
 		if time.Now().After(deadline) {
 			t.Fatal("the controller never showed as connected")
