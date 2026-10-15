@@ -8,7 +8,7 @@
 // so every renderer draws the same frame, and a renderer only ever reads.
 // While renderers draw, set() throws.
 
-import { ticker as shared } from '../objects/motion.js';
+import { ticker as shared, report } from '../objects/motion.js';
 import { MODELS } from './models.js';
 
 export class Scene {
@@ -16,31 +16,37 @@ export class Scene {
    * ticker: the clock the models are stepped by -- the pages' shared one by
    * default; the bench passes its own, to run slowly. models: kind → a
    * function making that kind's model. onError: where a model or renderer
-   * that throws is reported; the frame carries on without it.
+   * that throws is reported (by default as an uncaught error would be),
+   * once per failure; the frame carries on without it.
    */
-  constructor({ ticker = shared, models = MODELS, onError } = {}) {
+  constructor({ ticker = shared, models = MODELS, onError = report } = {}) {
     this.clock = ticker;
     this.models = models;
-    this.onError = onError || ((e) => console.error(e));
-    this.items = new Map(); // id → {obj, model, off}
+    this.onError = onError;
+    this.items = new Map(); // id → {obj, model, off, broken, reported}
     this.renderers = new Set();
+    this.failing = new WeakSet(); // renderers whose last frame threw, already reported
     this.off = null;
     this.drawing = false;
   }
 
-  /** add puts `obj` in the scene, with a model for its kind, and derives its first view. */
+  /**
+   * add puts `obj` in the scene, with a model for its kind, and derives its
+   * first view. All or nothing: if that first step throws, the object is
+   * left out and the error is the caller's.
+   */
   add(obj) {
     if (this.items.has(obj.id)) throw new Error(`${obj.id} is already in this scene`);
     if (obj.scene && obj.scene !== this) throw new Error(`${obj.id} is already in another scene`);
     const make = this.models[obj.kind];
     if (!make) throw new Error(`no model for a ${obj.kind}: add one to lib/scene/models.js`);
-    const item = { obj, model: make(), off: null };
-    obj.scene = this;
-    item.off = obj.on('change', () => this.wake());
-    this.items.set(obj.id, item);
+    const item = { obj, model: make(), off: null, broken: null, reported: false };
     // The first view now, at dt 0, so a renderer mounted next has something
     // to draw before the first frame.
     this.stepOne(item, 0, this.now());
+    obj.scene = this;
+    item.off = obj.on('change', () => this.wake());
+    this.items.set(obj.id, item);
     this.wake();
     return obj;
   }
@@ -94,7 +100,20 @@ export class Scene {
   step(dt, now = this.now()) {
     let more = false;
     for (const item of this.items.values()) {
-      try { if (this.stepOne(item, dt, now)) more = true; } catch (e) { this.onError(e); }
+      // A model that threw rests until the page gives it something new.
+      if (item.broken && item.broken === item.obj.state) continue;
+      try {
+        if (this.stepOne(item, dt, now)) more = true;
+        item.broken = null;
+      } catch (e) {
+        // Reported once per failure: a retry on new state that throws
+        // again is the same failure.
+        if (!item.reported) this.onError(e);
+        item.broken = item.obj.state;
+        item.reported = true;
+        continue;
+      }
+      item.reported = false;
     }
     this.draw(dt);
     return more;
@@ -110,7 +129,12 @@ export class Scene {
     this.drawing = true;
     try {
       for (const r of [...this.renderers]) {
-        try { r.frame(dt); } catch (e) { this.onError(e); }
+        try {
+          r.frame(dt);
+          this.failing.delete(r);
+        } catch (e) {
+          if (!this.failing.has(r)) { this.failing.add(r); this.onError(e); }
+        }
       }
     } finally {
       this.drawing = false;

@@ -107,16 +107,17 @@ test('one model throwing does not stop the others', () => {
   const ticker = fakeTicker();
   const q = quiet();
   const models = {
-    bad: () => ({ view: null, step() { throw new Error('bad model'); } }),
+    // Fine on its first step (add), broken after.
+    bad: () => ({ view: null, n: 0, step() { if (this.n++) throw new Error('bad model'); return true; } }),
     vu: () => ({ view: 1, step() { this.view++; return true; } }),
   };
   const scene = new Scene({ ticker, models, onError: q.onError });
-  q.errors.length = 0;
   scene.add(new SceneObject('ok', 'vu'));
-  assert.throws(() => scene.add(new SceneObject('x', 'bad')), /bad model/);
+  scene.add(new SceneObject('x', 'bad'));
   scene.start();
   ticker.advance(16);
   assert.equal(scene.get('ok').view, 3);
+  assert.equal(q.errors.length, 1);
 });
 
 test('reduced motion lands every model in one frame', () => {
@@ -169,4 +170,55 @@ test('two scenes on one ticker share its one loop', () => {
   ticker.advance(16);
   assert.equal(ticker.pending(), 1);
   assert.equal(x.view.angle, y.view.angle);
+});
+
+test('add is all or nothing: a model that throws on its first step leaves no trace', () => {
+  const ticker = fakeTicker();
+  const models = { bad: () => ({ view: null, step() { throw new Error('bad model'); } }) };
+  const scene = new Scene({ ticker, models, onError: () => {} });
+  scene.start();
+  const o = new SceneObject('x', 'bad');
+  assert.throws(() => scene.add(o), /bad model/);
+  assert.equal(scene.get('x'), null);
+  assert.equal(o.scene, null);
+  assert.equal(scene.objects().length, 0);
+  ticker.advance(16);
+  assert.ok(!ticker.running);
+  o.set({ a: 1 });
+  assert.ok(!ticker.running, 'and it no longer wakes the scene');
+});
+
+test('a model that keeps failing is reported once, and rests until its state changes', () => {
+  const ticker = fakeTicker();
+  const errors = [];
+  let badSteps = 0;
+  const models = {
+    bad: () => ({ view: null, n: 0, step() { badSteps++; if (this.n++) throw new Error('bad model'); return false; } }),
+    vu: () => ({ view: 0, step() { this.view++; return true; } }),
+  };
+  const scene = new Scene({ ticker, models, onError: (e) => errors.push(e.message) });
+  const bad = scene.add(new SceneObject('bad', 'bad'));
+  const ok = scene.add(new SceneObject('ok', 'vu'));
+  scene.start();
+  for (let i = 0; i < 60; i++) ticker.advance(16);
+  assert.deepEqual(errors, ['bad model'], 'once, not sixty times');
+  assert.equal(badSteps, 2, 'its first step, and the one that failed: then it rests');
+  assert.ok(ok.view > 60, 'the other kept moving');
+  bad.set({ again: true });
+  ticker.advance(16);
+  assert.equal(badSteps, 3, 'new state: it is tried again');
+  assert.equal(errors.length, 1, 'still the same failure, still reported once');
+});
+
+test('a renderer that keeps failing is reported once', () => {
+  const ticker = fakeTicker();
+  const errors = [];
+  const scene = new Scene({ ticker, onError: (e) => errors.push(e.message) });
+  scene.add(new SceneObject('vu:0', 'vu'));
+  scene.attach({ frame: () => { throw new Error('bad renderer'); } });
+  scene.attach({ frame: () => {} });
+  scene.start();
+  scene.get('vu:0').set({ level: -6 });
+  for (let i = 0; i < 30; i++) ticker.advance(16);
+  assert.deepEqual(errors, ['bad renderer']);
 });
