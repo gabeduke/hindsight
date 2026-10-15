@@ -43,6 +43,7 @@ import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
+import { trimTapePage } from '../rooms/nocrate.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote } from '../rig/arm.js';
 import { recordsTape } from '../rig/warn.js';
@@ -56,6 +57,11 @@ const POLL_MS = 200;
 // armed or takes it off (multi-arm, the rig spec), and a header that would
 // record the tape shows the rig's amber dot. Read once, at load.
 const ROOMS = roomsOn();
+// And the crate is off the screen (F3): its drawer, the clipboard line, the
+// sheet of a kept clip, the bar's Crate key and a part's Keep. The buffer
+// (lib/buffer) is the only view of what GRAB, Cut and Copy hold; the Pi keeps
+// the crate. Taken out before anything below looks for them.
+if (ROOMS) trimTapePage(document);
 
 const state = {
   id: '',           // the tape shown (the loaded one)
@@ -93,7 +99,8 @@ const state = {
   pinch: false,     // two fingers are on the lanes or the ruler
   rec: null,        // a punch being recorded: {key, track, start, trace, wrapped}
   // The bar's open drawer: 'crate' (the clipboard and the kept clips), or ''.
-  drawer: readPref('tape.drawer', '') === 'crate' ? 'crate' : '', // the Edit drawer went in step 5
+  // The Studio has none, whatever this device last left open.
+  drawer: ROOMS ? '' : readPref('tape.drawer', '') === 'crate' ? 'crate' : '', // the Edit drawer went in step 5
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
 // A pool file's gain for its bars (lib/wave/draw.js takeGain): one per file,
@@ -635,6 +642,7 @@ function renderTrackRec() {
 // 700 px a drawer docks above the bar and pushes the lanes up; on a phone
 // both are rows in the page (styles.css, "the dock").
 function renderDrawers() {
+  if (ROOMS) return; // no drawer in the Studio
   for (const [key, id] of [['crate', 'drawer-crate']]) {
     const open = state.drawer === key && !state.align;
     $(id).classList.toggle('open', open);
@@ -676,6 +684,9 @@ async function fetchClipboard() {
 function renderClipboard() {
   const c = state.clipboard;
   const t = state.tape;
+  // The Studio has no clipboard line: what Cut and Copy hold is used from the
+  // range's Paste and Insert, and the buffer shows what GRAB holds.
+  if (ROOMS) { if (state.range) renderClipBar(); return; }
   const chip = $('clip-play');
   if (state.clipboardError) {
     chip.textContent = 'can’t be read: × clears it';
@@ -1006,7 +1017,7 @@ function crateMeta(k) {
   return [len, bars ? `${bars} bar${bars === 1 ? '' : 's'}` : '', k.source && k.source.what].filter(Boolean).join(' · ');
 }
 
-const CRATE_EMPTY = $('crate-empty').innerHTML; // what it says with nothing kept
+const CRATE_EMPTY = ROOMS ? '' : $('crate-empty').innerHTML; // what it says with nothing kept
 
 // renderCrate rebuilds the rows, where they were scrolled to and the focus
 // kept: after a fetch, not for a play or a stop (markPlaying).
@@ -1198,10 +1209,6 @@ function wireCrate() {
   // is on the page, so the crate is always read.
   if (crate.take) { state.drawer = 'crate'; renderDrawers(); }
   fetchCrate();
-  // Something else on the page kept a clip -- the Studio's feed, with the
-  // rooms on (lib/rooms/studio.js): read the crate again, as after a Keep
-  // here. An event, so this page imports nothing of the Studio's.
-  document.addEventListener('hindsight:crate-changed', () => fetchCrate());
 }
 
 // --- Paste, Insert, Delete time: what each does, shown first ---------------------
@@ -1322,9 +1329,11 @@ async function deleteTime() {
 }
 
 function wireTimeEdits() {
-  wirePreview($('drop'), 'drop');
-  wirePreview($('insert'), 'insert');
-  $('insert').addEventListener('click', (e) => { if (!confirmFirst(e, $('insert'), 'insert')) insertHere(); });
+  if (!ROOMS) { // the clipboard line's own Paste and Insert
+    wirePreview($('drop'), 'drop');
+    wirePreview($('insert'), 'insert');
+    $('insert').addEventListener('click', (e) => { if (!confirmFirst(e, $('insert'), 'insert')) insertHere(); });
+  }
   // The action bar's, on the range.
   wirePreview($('range-paste'), 'drop', () => null, true);
   wirePreview($('range-insert'), 'insert', () => null, true);
@@ -1468,7 +1477,7 @@ function renderClipBar() {
     ? `Track ${one.track} · ${(one.frames / state.tape.sample_rate).toFixed(1)} s${one.source ? ` · ${one.source}` : ''}`
     : clipsText(n));
   for (const b of bar.querySelectorAll('.multi-keys button')) b.disabled = false;
-  for (const id of ['multi-split', 'multi-keep', 'multi-more']) if (!one) $(id).disabled = true;
+  for (const id of ['multi-split', 'multi-keep', 'multi-more']) if (!one && $(id)) $(id).disabled = true;
   if (one) {
     // Lit while the playhead is inside it, where it's heard (splitAt).
     const live = state.live;
@@ -4569,30 +4578,32 @@ function wire() {
   $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
   // Play mode's Space (lib/play): exactly ▶, disabled when ▶ is.
   document.addEventListener('hindsight:play-transport', () => $('play').click());
-  // The Studio's buffer (lib/buffer) changed the clipboard: the crate's
-  // first row shows it now, not at the next fetch. And it dropped onto the
+  // The Studio's buffer (lib/buffer) changed the clipboard: the range's Paste
+  // and Insert follow it now, not at the next fetch. And it dropped onto the
   // tape: show that now too.
   document.addEventListener('hindsight:clipboard', () => fetchClipboard());
   document.addEventListener('hindsight:tape-changed', () => poll(true));
-  // The bar's Crate key opens its drawer, or closes it; its ✕ closes it.
-  $('np-drawer-crate').addEventListener('click', () => setDrawer(state.drawer === 'crate' ? '' : 'crate'));
-  for (const b of document.querySelectorAll('.np-drawer-close')) {
-    b.addEventListener('click', () => { const key = b.dataset.drawer; setDrawer(''); $(`np-drawer-${key}`).focus(); });
+  if (!ROOMS) {
+    // The bar's Crate key opens its drawer, or closes it; its ✕ closes it.
+    $('np-drawer-crate').addEventListener('click', () => setDrawer(state.drawer === 'crate' ? '' : 'crate'));
+    for (const b of document.querySelectorAll('.np-drawer-close')) {
+      b.addEventListener('click', () => { const key = b.dataset.drawer; setDrawer(''); $(`np-drawer-${key}`).focus(); });
+    }
+    // From 1200 px the Crate key sits beside Catch; narrower (the 1024 px
+    // bench too), the top row has no room for it, and it sits under it, after
+    // the overview. Moved, not reordered in CSS, so the tab order stays the
+    // order on screen.
+    const wide = matchMedia('(min-width: 1200px)');
+    const placeKeys = () => {
+      const keys = [$('np-drawer-crate')];
+      const had = keys.find((k) => k === document.activeElement);
+      if (wide.matches) $('catch-pass').before(...keys);
+      else document.querySelector('.np-out').before(...keys);
+      if (had) had.focus({ preventScroll: true }); // a move would drop it
+    };
+    wide.addEventListener('change', placeKeys);
+    placeKeys();
   }
-  // From 1200 px the Crate key sits beside Catch; narrower (the 1024 px
-  // bench too), the top row has no room for it, and it sits under it, after
-  // the overview. Moved, not reordered in CSS, so the tab order stays the
-  // order on screen.
-  const wide = matchMedia('(min-width: 1200px)');
-  const placeKeys = () => {
-    const keys = [$('np-drawer-crate')];
-    const had = keys.find((k) => k === document.activeElement);
-    if (wide.matches) $('catch-pass').before(...keys);
-    else document.querySelector('.np-out').before(...keys);
-    if (had) had.focus({ preventScroll: true }); // a move would drop it
-  };
-  wide.addEventListener('change', placeKeys);
-  placeKeys();
   // Toasts and tips rise over the dock: its height, a drawer included.
   new ResizeObserver(() => {
     document.body.style.setProperty('--dock-h', `${Math.round($('np-dock').getBoundingClientRect().height)}px`);
@@ -4610,12 +4621,14 @@ function wire() {
   for (const b of $('catch-mode').querySelectorAll('button')) {
     b.addEventListener('click', () => { state.mode = b.dataset.mode; writePref('tape.mode', state.mode); renderMode(); });
   }
-  $('clip-play').addEventListener('click', auditionClipboard);
-  $('clip-audio').addEventListener('ended', renderClipboard);
-  $('clip-audio').addEventListener('pause', renderClipboard);
-  $('clip-audio').addEventListener('error', () => { $('clip-audio').pause(); renderClipboard(); });
-  $('drop').addEventListener('click', () => drop(false));
-  $('merge').addEventListener('click', () => drop(true));
+  if (!ROOMS) { // the clipboard line
+    $('clip-play').addEventListener('click', auditionClipboard);
+    $('clip-audio').addEventListener('ended', renderClipboard);
+    $('clip-audio').addEventListener('pause', renderClipboard);
+    $('clip-audio').addEventListener('error', () => { $('clip-audio').pause(); renderClipboard(); });
+    $('drop').addEventListener('click', () => drop(false));
+    $('merge').addEventListener('click', () => drop(true));
+  }
   // Beside the ruler: the snap, and the loop's lock.
   $('snap-btn').addEventListener('click', nextSnap);
   $('loop-lock').addEventListener('click', toggleLoopLock);
@@ -4636,7 +4649,7 @@ function wire() {
     $('clip-sheet').close();
     if (c && await edit('join', { clip: c.id })) toast('Joined', 'ok', { action: undoAction });
   });
-  $('clip-clear').addEventListener('click', async () => {
+  $('clip-clear')?.addEventListener('click', async () => {
     try { await api('/api/clipboard', { method: 'DELETE' }); } catch (e) { toast(e.message, 'bad'); }
     $('clip-audio').pause();
     fetchClipboard();
@@ -4902,13 +4915,13 @@ function wire() {
     if (c) patch({ clip: { id: c.id, remove: true } }).then((ok) => ok && toast('Clip removed', 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } }));
   });
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
-  $('clip-keep').addEventListener('click', () => {
+  $('clip-keep')?.addEventListener('click', () => {
     const c = state.clip;
     $('clip-sheet').close();
     if (c) keep({ tape: state.id, clip: c.id });
   });
-  $('clip-keep-board').addEventListener('click', () => keep({ clipboard: true }));
-  wireCrate();
+  $('clip-keep-board')?.addEventListener('click', () => keep({ clipboard: true }));
+  if (!ROOMS) wireCrate();
   wireTimeEdits();
   // The action bar, on clips.
   $('multi-split').addEventListener('click', () => {
@@ -4923,7 +4936,7 @@ function wire() {
   $('multi-copy').addEventListener('click', () => copyClips(keyed()));
   $('multi-dup').addEventListener('click', () => duplicateClips(keyed()));
   $('multi-reverse').addEventListener('click', () => reverseClips(keyed()));
-  $('multi-keep').addEventListener('click', () => { if (state.picked) keep({ tape: state.id, clip: state.picked }); });
+  $('multi-keep')?.addEventListener('click', () => { if (state.picked) keep({ tape: state.id, clip: state.picked }); });
   $('multi-more').addEventListener('click', () => { const c = picks()[0]; if (c) openClip(c, { focus: true }); });
   $('multi-add').addEventListener('click', () => {
     state.adding = !state.adding;

@@ -1651,6 +1651,18 @@ restart; 404 when the tape is off.
   Without `grab`, a take's span is copied as it always was. A grab, or any copy, that replaces a
   grab never dropped or kept puts that one in the crate first, a kept clip
   per track, and answers them as `"crated"`.
+- **GRAB's Undo** (the flow spec's F3): a grab that replaces a buffer never
+  dropped, kept or tossed also answers it as `"replaced"` (a clipboard, with
+  `"replaced_seconds"`), and the Pi holds exactly one such buffer, in
+  `TAPE_DIR/clipboard-replaced.json`: the next replacement overwrites it, so
+  it never grows, and a clean-up keeps its audio. `{"…", "crate": false}`
+  on a grab (`bars`, `seconds`, `ring_from`, `again`, or a take's `grab`)
+  keeps the replaced buffer there *only*, and puts nothing in the crate;
+  left out, the crate is as above, the slot written as well.
+  `POST /api/clipboard/restore?replaced=1[&by=<created>]` puts it back on
+  the clipboard (answering it) and empties the slot; `by` is the `created` of
+  the grab being undone, and a different one gets 409, as does a buffer that
+  was tossed, cleared or replaced since, or a slot that is empty.
 - Both answer the new clipboard; 400 for a copy longer than a track; 507 for
   low disk.
 - `PATCH` changes the buffer (a grab only; 400 for a copy, 409 when it's

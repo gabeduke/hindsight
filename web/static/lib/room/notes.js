@@ -2,7 +2,10 @@
 // The sketchbook's notes (docs/superpowers/specs/2026-10-15-listening-room-design.md,
 // "The chair: the sketchbook"). A note is a take flag with words: the model
 // and the per-flag endpoints exist (lib/flags.js), and a label travels in
-// the WAV's cue chunk, so a note made here shows up in a DAW. Pure.
+// the WAV's cue chunk, so a note made here shows up in a DAW. Pure, but for
+// the one request that sends a span to the Studio.
+
+import { replacedLine, remember } from '../buffer/replaced.js';
 
 /** SPAN_BARS is how far a note reaches at most, with a tempo; SPAN_SECONDS without one. */
 export const SPAN_BARS = 8;
@@ -77,7 +80,9 @@ export function fieldEnter({ current = null, words = '', cursor = 0, notes = [],
  * ignores `grab` and copies the span, as before.
  */
 export function clipboardBody(file, span) {
-  return { take: file, from: span.from, to: span.to, grab: true };
+  // crate: false -- the rooms show no crate: a buffer this replaces is held
+  // for GRAB's Undo only (lib/buffer/replaced.js).
+  return { take: file, from: span.from, to: span.to, grab: true, crate: false };
 }
 
 /**
@@ -86,14 +91,20 @@ export function clipboardBody(file, span) {
  * throws with the Pi's words when the copy is refused -- the tape off, a
  * span too long -- so nothing navigates away from a note that didn't go.
  */
-export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch } = {}) {
+export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, storage = pageStorage() } = {}) {
   const res = await fetchImpl('/api/clipboard', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(clipboardBody(file, span)),
   });
+  const b = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+    throw new Error(b.error || `HTTP ${res.status}`);
   }
+  // A GRAB over a buffer nobody dropped or kept says so, with Undo -- on the
+  // page this opens, where the buffer is: it is left there to say.
+  if (b.replaced && b.clipboard) remember(storage, { by: b.clipboard.created, line: replacedLine(b.replaced, b.replaced_seconds) });
   return '/tape.html';
 }
+
+const pageStorage = () => { try { return globalThis.sessionStorage || null; } catch { return null; } };

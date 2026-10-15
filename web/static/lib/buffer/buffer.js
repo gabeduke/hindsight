@@ -33,12 +33,16 @@ import { restoreTake } from '../trash.js';
 import { takeBack } from '../rooms/keep.js';
 import { followLoop, readPick, writePick } from '../rooms/grab.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
+import { replacedWords, replacedLine, recall } from './replaced.js';
 
 const POLL_MS = 2000;
 const HOLD_MS = 350;   // a held sheet grip lifts the buffer onto a lane
 const MOVE_PX = 6;
+const UNDO_MS = 10000; // a GRAB's Undo stays longer than a toast's usual eight seconds
 const EDGE_PX = 12;    // how near IN or OUT a press takes the mark
 const SOURCES = ['main', 'ch1', 'ch2', 'aux'];
+// A take's GRAB leaves its Undo's words here for the page it opens (replaced.js).
+const pageStorage = () => { try { return globalThis.sessionStorage || null; } catch { return null; } };
 
 /**
  * mountBuffer puts GRAB in the feed's keys (keysRow), the buffer after the
@@ -46,7 +50,7 @@ const SOURCES = ['main', 'ch1', 'ch2', 'aux'];
  * Studio hands it its feed and the feed's row of keys. It returns null
  * without them.
  */
-export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon = null, toast = defaultToast } = {}) {
+export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon = null, toast = defaultToast, storage = pageStorage() } = {}) {
   const tpl = (id) => doc.getElementById(id)?.content;
   if (!keysRow || !feed || !tpl('buffer-panel-tpl') || !tpl('buffer-grab-tpl')) return null;
   keysRow.prepend(tpl('buffer-grab-tpl').cloneNode(true));
@@ -155,12 +159,12 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
 
   /**
    * takeBoard takes a clipboard the Pi answered with. A new grab opens the
-   * buffer (one already dropped or kept, seen on a reload, waits in the
-   * crate's first slot instead); the same one keeps its state; anything
-   * else closes it.
+   * buffer (one already dropped or kept, seen on a reload, stays closed:
+   * Buffer ▴ opens it); the same one keeps its state; anything else closes it.
    */
   function takeBoard(b, { mine = false } = {}) {
     const prev = st.board;
+    const first = !st.seen;
     st.board = b && b.tracks && b.tracks.length ? b : null;
     const g = grabOf();
     if (!g) {
@@ -174,6 +178,20 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     if (!st.open) audition.stop();
     else if (audition.playing) audition.play(boardKey(st.board)).catch(() => audition.stop());
     render();
+    // A take's GRAB opened this page on the buffer it made: what it replaced
+    // is said here, once, as a feed's GRAB says it on the spot.
+    if (first && st.board) {
+      const line = recall(storage, st.board.created);
+      if (line) toast(line, 'ok', { ms: UNDO_MS, action: { label: 'Undo', run: () => undoReplaced(st.board.created) } });
+    }
+  }
+
+  // GRAB's Undo: the buffer the grab `by` replaced, back from the Pi's one
+  // slot. The grab undone goes; the buffer put back is open, as a grab opens it.
+  function undoReplaced(by) {
+    return send(() => api.restoreReplaced(by), { mine: true })
+      .then((b) => toast(`Put back ${replacedWords(b.clipboard, b.seconds)}`, 'ok'))
+      .catch((e) => toast(`Could not undo the grab: ${e.message}`, 'bad'));
   }
 
   async function fetchBoard() {
@@ -194,8 +212,6 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       st.gen++;
       if (b && 'clipboard' in b) takeBoard(b.clipboard, { mine });
       hint();
-      // An unused buffer it replaced went to the crate: the crate shows it.
-      if (b && b.crated && b.crated.length) doc.dispatchEvent(new CustomEvent('hindsight:crate-changed'));
       return b;
     });
     st.chain = p.catch(() => {});
@@ -220,11 +236,18 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     render();
     forward();
     try {
-      const b = await send(() => api.grab({ ...req, sources: sources() }), { mine: true });
-      const notes = [];
-      if (b.crated && b.crated.length) notes.push('the last buffer, never dropped, is in the crate');
+      // crate: false -- the Pi holds a buffer this replaces, if nobody
+      // dropped or kept it, as its one replaced grab, for the Undo below; the
+      // rooms no longer show a crate for it to fill.
+      const b = await send(() => api.grab({ ...req, sources: sources(), crate: false }), { mine: true });
       const note = bufferNote(b.clipboard);
-      toast(`Grabbed ${what}${note ? ` — ${note}` : ''}${notes.length ? `; ${notes[0]}` : ''}`, b.wall || b.clamped ? 'warn' : 'ok');
+      const said = `Grabbed ${what}${note ? ` — ${note}` : ''}`;
+      const kind = b.wall || b.clamped ? 'warn' : 'ok';
+      if (b.replaced) {
+        toast(`${said}. ${replacedLine(b.replaced, b.replaced_seconds)}`, kind, { ms: UNDO_MS, action: { label: 'Undo', run: () => undoReplaced(b.clipboard.created) } });
+      } else {
+        toast(said, kind);
+      }
     } catch (e) {
       st.open = wasOpen && !!grabOf();
       toast(`Could not grab: ${e.message}`, 'bad');
@@ -257,7 +280,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     if (!next.length) return; // a buffer has a lane at least
     st.chosen = next;
     if (!g) { render(); return; }
-    send(() => api.grab({ again: true, sources: next }))
+    send(() => api.grab({ again: true, sources: next, crate: false }))
       .catch((e) => toast(`Could not take ${name}: ${e.message}`, 'bad'));
   }
 

@@ -402,8 +402,8 @@ function mountTake(h) {
   loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); renderGrab(); });
 
   // The take page's Send to ▾: Tape and Clipboard are GRAB now -- one request,
-  // the Studio's buffer, which Drops where the clipboard Pasted. Crate waits
-  // for the crate to go.
+  // the Studio's buffer, which Drops where the clipboard Pasted. Crate is gone
+  // with the crate (lib/rooms/nocrate.js): GRAB is all of Send to.
   const sendMenu = $('send-menu');
   let sendGrab = null, sendGrabSub = null;
   if (sendMenu) {
