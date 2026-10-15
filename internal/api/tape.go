@@ -32,10 +32,10 @@ import (
 //	DELETE /api/tapes?id=              delete one (not the loaded one), and free its audio
 //	POST   /api/tapes/load?id=         make it the loaded tape
 //	POST   /api/tapes/transport?id=    {action: play|stop|locate, quantum, pos}
-//	POST   /api/tapes/catch?id=        {track, source, pass | out | bars, replace}
-//	POST   /api/tapes/record?id=       {track, source}: arm, or punch in
+//	POST   /api/tapes/catch?id=        {track, source | pairs, pass | out | bars, replace}
+//	POST   /api/tapes/record?id=       {track, source | pairs}: arm, or punch in
 //	DELETE /api/tapes/record?id=       end the punch and keep it (?cancel=1: don't)
-//	POST   /api/tapes/tap?id=          {track, source}: a free-loop tap
+//	POST   /api/tapes/tap?id=          {track, source | pairs}: a free-loop tap
 //	DELETE /api/tapes/tap?id=          forget a first tap
 //	POST   /api/tapes/drop?id=         {crate, track}: a kept clip, as the clipboard drops;
 //	                                   {take, from, to, track, bars}: a take's span onto the tape;
@@ -224,13 +224,22 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		Name  *string `json:"name"`
 		Click *bool   `json:"click"`
 		// RecTrack arms a track, the one catches and punches go onto, or
-		// with tape.NoRecTrack none. Input sets a track's input ("" for none
-		// of its own), and Inputs several at once. Neither is a step of undo.
-		RecTrack *int      `json:"rec_track"`
-		Input    *trackIn  `json:"input"`
-		Inputs   []trackIn `json:"inputs"`
-		Bars     *int      `json:"bars"`
-		Tempo    *struct {
+		// with tape.NoRecTrack none: just that one, as it always did.
+		// RecTracks arms exactly these (multi-arm; [] is none). Input sets a
+		// track's input ("" for none of its own), and Inputs several at
+		// once. None of these is a step of undo.
+		RecTrack  *int      `json:"rec_track"`
+		RecTracks *[]int    `json:"rec_tracks"`
+		Input     *trackIn  `json:"input"`
+		Inputs    []trackIn `json:"inputs"`
+		Bars      *int      `json:"bars"`
+		// Buses moves several tracks' buses at once, as one undo: the rig's
+		// fix for a tap that hears the tape.
+		Buses []struct {
+			N   int    `json:"n"`
+			Bus string `json:"bus"`
+		} `json:"buses"`
+		Tempo *struct {
 			BPM  float64 `json:"bpm"`
 			Bars int     `json:"bars"`
 		} `json:"tempo"`
@@ -308,7 +317,12 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			if *b.RecTrack != tape.NoRecTrack && (*b.RecTrack < 1 || *b.RecTrack > len(t.Tracks)) {
 				return tape.ErrNoSuchTrack
 			}
-			t.RecTrack = *b.RecTrack
+			t.SetRecTrack(*b.RecTrack)
+		}
+		if b.RecTracks != nil {
+			if err := t.SetArmed(*b.RecTracks); err != nil {
+				return err
+			}
 		}
 		for _, in := range set {
 			known := in.Source == "" // none of its own: the device's last choice
@@ -324,7 +338,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	}
-	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil
+	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil || len(b.Buses) > 0
 	if undoable {
 		sr := a.tape.Store().SampleRate()
 		err := a.tape.Edit(id, kind, func(t *tape.Tape, s *tape.State) error {
@@ -393,6 +407,12 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 					t.Solo = *tr.Solo
 				}
 			}
+			for _, m := range b.Buses {
+				if m.N < 1 || m.N > len(s.Tracks) {
+					return tape.ErrNoSuchTrack
+				}
+				s.Tracks[m.N-1].Bus = strings.ToUpper(m.Bus) // validated with the state
+			}
 			if c := b.Clip; c != nil {
 				if err := patchFades(s, c.ID, c.FadeIn, c.FadeOut, c.FadeInShape, c.FadeOutShape, t.SampleRate); err != nil {
 					return err
@@ -405,7 +425,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			tapeErr(w, err)
 			return
 		}
-	} else if b.Name != nil || b.Click != nil || b.RecTrack != nil || len(set) > 0 {
+	} else if b.Name != nil || b.Click != nil || b.RecTrack != nil || b.RecTracks != nil || len(set) > 0 {
 		err := a.tape.SetMeta(id, meta)
 		if err != nil {
 			tapeErr(w, err)
@@ -604,11 +624,17 @@ func (a *API) handleTapeRecord(w http.ResponseWriter, r *http.Request) {
 		Track   int    `json:"track"`
 		Source  string `json:"source"`
 		Replace bool   `json:"replace"`
+		// Pairs are every armed track and its input (multi-arm); without
+		// them, the one track and source.
+		Pairs []tape.Pair `json:"pairs"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
-	rec, err := a.tape.Record(r.URL.Query().Get("id"), b.Track, b.Source, b.Replace)
+	if len(b.Pairs) == 0 {
+		b.Pairs = []tape.Pair{{Track: b.Track, Source: b.Source}}
+	}
+	rec, err := a.tape.RecordPairs(r.URL.Query().Get("id"), b.Pairs, b.Replace)
 	if err != nil {
 		tapeErr(w, err)
 		return
@@ -638,13 +664,17 @@ func (a *API) handleTapeTap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var b struct {
-		Track  int    `json:"track"`
-		Source string `json:"source"`
+		Track  int         `json:"track"`
+		Source string      `json:"source"`
+		Pairs  []tape.Pair `json:"pairs"` // every armed track and its input
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
-	res, err := a.tape.Tap(r.URL.Query().Get("id"), b.Track, b.Source, at)
+	if len(b.Pairs) == 0 {
+		b.Pairs = []tape.Pair{{Track: b.Track, Source: b.Source}}
+	}
+	res, err := a.tape.TapPairs(r.URL.Query().Get("id"), b.Pairs, at)
 	if err != nil {
 		tapeErr(w, err)
 		return
@@ -668,12 +698,14 @@ func (a *API) handleTapeCatch(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	clip, err := a.tape.Catch(r.URL.Query().Get("id"), req)
+	res, err := a.tape.CatchPairs(r.URL.Query().Get("id"), req)
 	if err != nil {
 		tapeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"clip": clip})
+	// clip is the first, as before; clips and tracks are everything a
+	// catch onto several armed tracks did.
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
