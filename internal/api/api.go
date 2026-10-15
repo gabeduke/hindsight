@@ -1130,6 +1130,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Flags     json.RawMessage `json:"flags"`
 		Downbeat  json.RawMessage `json:"downbeat_frame"`
 		LaneKinds json.RawMessage `json:"lane_kinds"`
+		Record    json.RawMessage `json:"record"`
 	}
 	if err := dec.Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -1311,6 +1312,17 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// RawMessage like lane_kinds: absent, null and an object are three
+	// states. Null takes the record's mark off; an object replaces it.
+	if body.Record != nil {
+		rec, err := parseRecord(body.Record, time.Now())
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		m.Record = rec
+	}
+
 	if err := audio.WriteMeta(wav, m); err != nil {
 		writeMetaErr(w, name, err)
 		return
@@ -1346,9 +1358,45 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Flags     []audio.Flag      `json:"flags"`
 		Downbeat  *int64            `json:"downbeat_frame"`
 		LaneKinds map[string]string `json:"lane_kinds"`
+		Record    *audio.Record     `json:"record"`
 		CueError  string            `json:"cue_error,omitempty"`
 		Undo      audio.UndoInfo    `json:"undo"`
-	}{Label: m.Label, Starred: m.Starred, Tag: m.Tag, Trim: m.Trim, BPM: m.BPM, TempoFrom: m.TempoFrom, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr, Undo: undo})
+	}{Label: m.Label, Starred: m.Starred, Tag: m.Tag, Trim: m.Trim, BPM: m.BPM, TempoFrom: m.TempoFrom, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, Record: m.Record, CueError: cueErr, Undo: undo})
+}
+
+// parseRecord reads a PATCH's record: null clears it, an object sets it.
+// The side is A unless it says B, the cover a stripe slot (0 for a plain
+// sleeve), and the cut time now unless it gives one -- the room sends none,
+// so the Pi's clock dates every record the same way.
+func parseRecord(raw json.RawMessage, now time.Time) (*audio.Record, error) {
+	if string(raw) == "null" {
+		return nil, nil
+	}
+	var in struct {
+		Cut   *time.Time `json:"cut"`
+		Side  string     `json:"side"`
+		Cover int        `json:"cover"`
+	}
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return nil, errors.New("record must be {cut, side, cover} or null")
+	}
+	rec := &audio.Record{Side: in.Side, Cover: in.Cover, Cut: now.UTC().Truncate(time.Second)}
+	if in.Cut != nil {
+		if in.Cut.IsZero() {
+			return nil, errors.New("record cut must be a time")
+		}
+		rec.Cut = in.Cut.UTC()
+	}
+	if rec.Side == "" {
+		rec.Side = audio.RecordSideA
+	}
+	if rec.Side != audio.RecordSideA && rec.Side != audio.RecordSideB {
+		return nil, errors.New(`record side must be "A" or "B"`)
+	}
+	if rec.Cover < 0 || rec.Cover > audio.MaxRecordCover {
+		return nil, fmt.Errorf("record cover must be 0 to %d", audio.MaxRecordCover)
+	}
+	return rec, nil
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control

@@ -59,6 +59,14 @@ var mixdownIDs atomic.Uint64
 // all, the whole tape from its start to the end of its last clip. It
 // answers at once; Live's mixdown follows it.
 func (e *Engine) StartMixdown(id string, all bool) (Mixdown, error) {
+	return e.StartMixdownAs(id, all, nil)
+}
+
+// StartMixdownAs is StartMixdown, and with rec, the take it saves is marked
+// as that record (the Listening Room's Cut a record) when it is saved -- by
+// the engine, so the mark doesn't depend on the page that asked staying
+// open. A mixdown that fails saves no take, so it marks nothing.
+func (e *Engine) StartMixdownAs(id string, all bool, rec *audio.Record) (Mixdown, error) {
 	if err := e.jamOnly(); err != nil {
 		return Mixdown{}, err
 	}
@@ -136,7 +144,7 @@ func (e *Engine) StartMixdown(id string, all bool) (Mixdown, error) {
 	e.recMu.Unlock()
 
 	e.Do(Action{Kind: "once", Pos: from, End: to, job: m.ID})
-	go e.runMixdown(m.ID, t.ID, t.Name, t.Grid, from, to-from)
+	go e.runMixdown(m.ID, t.ID, t.Name, t.Grid, from, to-from, rec)
 	return snapshot, nil
 }
 
@@ -173,7 +181,7 @@ func (e *Engine) setMixdown(id uint64, fn func(m *Mixdown)) {
 }
 
 // runMixdown follows a mixdown's pass, then saves it.
-func (e *Engine) runMixdown(id uint64, tapeID, name string, grid *Grid, passFrom, frames int64) {
+func (e *Engine) runMixdown(id uint64, tapeID, name string, grid *Grid, passFrom, frames int64, rec *audio.Record) {
 	fail := func(err error) {
 		log.Printf("[!] tape: mixdown: %v", err)
 		e.setMixdown(id, func(m *Mixdown) { m.State, m.Error = "failed", err.Error() })
@@ -288,6 +296,10 @@ func (e *Engine) runMixdown(id uint64, tapeID, name string, grid *Grid, passFrom
 			m.Label = name
 			m.Origin = audio.OriginTape
 			m.TapeID = tapeID
+			if rec != nil {
+				r := *rec
+				m.Record = &r
+			}
 			if grid != nil {
 				bpm := math.Round(grid.BPM(int(sr))*100) / 100
 				m.BPM = &bpm

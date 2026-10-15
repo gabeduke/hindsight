@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestReadMetaMissingFileReturnsDefaults(t *testing.T) {
@@ -355,6 +356,31 @@ func TestMetaWithNoFlagsOmitsTheKey(t *testing.T) {
 	}
 	if strings.Contains(string(b), "flags") {
 		t.Errorf("sidecar mentions flags with none set:\n%s", b)
+	}
+}
+
+func TestRecordRoundTripsAndIsAbsentWithoutOne(t *testing.T) {
+	dir := t.TempDir()
+	wav := filepath.Join(dir, "jam_x.wav")
+	if err := WriteMeta(wav, Meta{Label: "x"}); err != nil {
+		t.Fatalf("WriteMeta: %v", err)
+	}
+	b, _ := os.ReadFile(strings.TrimSuffix(wav, ".wav") + ".meta.json")
+	if strings.Contains(string(b), "record") {
+		t.Errorf("sidecar mentions a record with none set:\n%s", b)
+	}
+	cut := time.Date(2026, 10, 15, 21, 4, 0, 0, time.UTC)
+	if err := WriteMeta(wav, Meta{Label: "x", Record: &Record{Cut: cut, Side: RecordSideA, Cover: 2}}); err != nil {
+		t.Fatalf("WriteMeta: %v", err)
+	}
+	got := ReadMeta(wav)
+	if got.Record == nil || !got.Record.Cut.Equal(cut) || got.Record.Side != "A" || got.Record.Cover != 2 {
+		t.Errorf("Record = %+v", got.Record)
+	}
+	// The takes list carries it.
+	os.WriteFile(wav, nil, 0o644)
+	if tk, err := ReadTake(dir, "jam_x.wav"); err != nil || tk.Record == nil || tk.Record.Cover != 2 {
+		t.Errorf("ReadTake record = %+v (%v)", tk.Record, err)
 	}
 }
 

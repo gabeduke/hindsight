@@ -270,6 +270,45 @@ the crate again after the ribbon's Keep as clip.
 - `studio.js` — mounts the templates and drives them with Capture's modules.
 - `keep.js` — KEEP's request and its Undo, and Flag now's.
 
+## The Listening Room
+
+`web/static/lib/room/` is the Listening Room
+(`docs/superpowers/specs/2026-10-15-listening-room-design.md`), on the same
+flag as the two rooms. With it on, the takes page is the room seen from the
+doorway and a take's page is the chair. With it off, neither page loads
+anything of it: `mount.js` reads the flag and stops.
+
+The room doesn't copy the pages it stands in. `shelf-page.js` and
+`wave/page.js` each hand `start()` a handle on what they already run — the
+rack's list, its sheet and Play all, and the bar; a take, its flags and its
+clock — and the room draws itself around them:
+
+- `doorway.js` — the shelves (tapes, this month's takes, the archive by
+  month, records), the deck, the turntable, the sketchbook and the dock. The
+  rack is still on the page under it: a spine opens the rack's own sheet,
+  with the room's card at its head (PUT IT ON, TO THE STUDIO, Play all from
+  here, Cut a record, MP3, DAW bundle), and a month's box opens the rack
+  filtered to that month.
+- `chair.js` — the take page rearranged: its reel window, LCD and keys are
+  the deck close up; its name and star are in the sketchbook; In, Out, the
+  tempo and the whole page fold under TOOLS. `wave.html?tape=ID` puts a tape
+  in the chair, played on the Pi, its sections as read-only notes.
+- `shelves.js`, `notes.js`, `record.js`, `swap.js` — what's on which shelf,
+  a note's span for the Studio's buffer, cutting a record, and asking before
+  taking the Studio's tape. Pure or fetch-injected, and tested without a
+  browser.
+
+A record is a take with a mark: `PATCH /api/take` `{"record": {cut, side,
+cover}}` (`audio.Record`). The room's colours are materials, in
+`objects.css` (`--room-*`), and the same in both schemes;
+`room/contrast.test.js` holds every label to 4.5:1. The sketchbook's hand is
+Caveat, from `@fontsource/caveat` 5.2.8 on the npm registry (latin 500 and
+700), in `fonts/` with its licence.
+
+To try it with something on every shelf, run the demo with `TAPE=true`,
+KEEP a few takes, mark one as a record with the PATCH above, and give a take
+an older `created` in its `.meta.json` to fill a month's box in the archive.
+
 ## The rig
 
 `rig.html` and `web/static/lib/rig/` are the rig

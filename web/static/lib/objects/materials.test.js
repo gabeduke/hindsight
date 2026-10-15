@@ -66,7 +66,10 @@ test('objects.css carries the materials it claims to', () => {
   const tokens = new Set(declarations(objects).map(([t]) => t));
   for (const t of ['--reel-metal', '--oxide', '--trace', '--paper-hi', '--stripe-1',
     '--cas-mid', '--hub', '--pack', '--vu-face', '--vu-needle', '--tape-pack', '--pad-face', '--pad-lit',
-    '--lcd-ink', '--grease-mark', '--marker']) {
+    '--lcd-ink', '--grease-mark', '--marker',
+    // The Listening Room's (Rooms P5): a room is a place, not chrome.
+    '--room-wall', '--room-ink', '--room-plate-hi', '--room-walnut', '--room-paper', '--room-paper-ink',
+    '--room-vinyl', '--room-cardboard-hi', '--room-silver', '--room-key-ink']) {
     assert.ok(tokens.has(t), `${t} should be in objects.css`);
   }
 });

@@ -10,6 +10,10 @@
 @font-face { font-family: 'IBM Plex Mono'; src: url('/fonts/ibm-plex-mono-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: 'IBM Plex Mono'; src: url('/fonts/ibm-plex-mono-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Permanent Marker'; src: url('/fonts/permanent-marker-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+/* The sketchbook's hand (the Listening Room's chair): latin 500 and 700 from
+   @fontsource/caveat 5.2.8 on the npm registry. Licence: fonts/OFL-caveat.txt. */
+@font-face { font-family: 'Caveat'; src: url('/fonts/caveat-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Caveat'; src: url('/fonts/caveat-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
 
 :root {
   /* Reel-to-reel: brushed aluminium by day. The dark block below is the same
@@ -3877,6 +3881,645 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
   .studio-keys { flex-direction: column; align-self: stretch; }
   .studio-keys > .seg button { min-height: 34px; }
   .studio-keys > .studio-keep { margin-left: 0; }
+}
+
+/* ---------- Rooms P5: the Listening Room (lib/room/) ----------
+   The doorway (takes.html as the room, body.room-on) and the chair
+   (wave.html, body.chair-on), behind the rooms flag. Every rule here is
+   scoped to those body classes or to a room-, chair- or book- class only the
+   room's modules make, so with the flag off none of it matches anything. The
+   room's colours are materials (objects.css, --room-*), the same in both
+   schemes; the header, the tabs, the sheets and TOOLS follow the scheme. */
+
+/* --- the doorway: the room over the rack --- */
+.room-on main.shelf-main { display: block; max-width: none; padding: 0; }
+.room-on:not(.room-rack) :is(#takes, #takes-empty) { display: none; }
+.room-on:not(.room-search) .shelf-tools { display: none; }
+.room-on.room-search .shelf-tools { padding: 12px 16px; }
+.room-on:not(.room-rack) #shelf-sort { display: none; }
+.room-on:not(.room-rack) :is(#play-all, #select-btn) { display: none; }
+.room-on .shelf-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.room-on .room-search-btn[aria-expanded="true"] { color: var(--ink); background: var(--key-down); }
+.room-on #np-open, .room-on .detail-play { display: none; }
+.room-on.room-rack .room { display: none; }
+.room-rack-head { display: none; }
+.room-on.room-rack .room-rack-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px 4px; }
+.room-on.room-rack .room-rack-title { margin: 0; font: 700 18px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); }
+.room-on.room-rack #takes { padding: 0 16px; }
+.room-on #trash, .room-on .about { margin-left: 16px; margin-right: 16px; }
+
+.room {
+  position: relative; isolation: isolate; overflow: hidden; box-sizing: border-box;
+  color: var(--room-ink); font-family: var(--font);
+  background:
+    radial-gradient(circle at 18% 30%, var(--room-glow), var(--room-glow-far) 22%, transparent 46%),
+    radial-gradient(ellipse at 44% 70%, var(--room-hearth), transparent 34%),
+    linear-gradient(var(--room-wall-hi), var(--room-wall) 70%, var(--room-wall-lo));
+}
+.room button { font-family: inherit; }
+.room :focus-visible { outline: 2px solid var(--room-plate-hi); outline-offset: 2px; }
+
+/* A place's words: cream on its own dark plate, never on the drawing. */
+.room-place {
+  appearance: none; display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+  min-height: 32px; padding: 0 12px; border-radius: 16px; cursor: pointer;
+  background: var(--room-tag); color: var(--room-ink); border: 1px solid var(--room-tag-edge);
+  font: 600 12.5px var(--font); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 6px 14px rgba(0,0,0,.35);
+}
+.room-led { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--room-walnut-hi); }
+.room-deck.playing .room-led { background: var(--room-led); box-shadow: 0 0 6px var(--room-led); }
+
+/* The shelves: a walnut unit, four shelves, a brass plate under each. */
+.room-shelves {
+  position: relative; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;
+  border: 12px solid var(--room-walnut-lo); border-top-width: 14px;
+  background: linear-gradient(90deg, var(--room-walnut-deep), var(--room-walnut-back) 30%, var(--room-walnut-deep));
+  box-shadow: 0 14px 30px rgba(0,0,0,.5);
+}
+.room-shelf { display: flex; flex-direction: column; min-width: 0; }
+.room-shelf[hidden] { display: none; }
+.room-row {
+  order: 1; list-style: none; margin: 0; padding: 12px 10px 0; min-height: 56px;
+  display: flex; align-items: flex-end; gap: 3px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+  border-bottom: 12px solid var(--room-walnut);
+  box-shadow: 0 6px 6px -4px rgba(0,0,0,.5);
+}
+.room-row > li { flex: none; display: flex; align-items: flex-end; }
+.room-shelf-foot { order: 2; display: flex; align-items: flex-start; gap: 8px; margin: -6px 0 6px 12px; }
+.room-list-btn {
+  appearance: none; min-height: 24px; padding: 0 9px; border-radius: 12px; cursor: pointer;
+  background: var(--room-tag); color: var(--room-ink); border: 1px solid var(--room-tag-edge); font: 600 11.5px var(--font);
+}
+.room-list-btn[hidden] { display: none; }
+.room-filtered {
+  margin: 8px 10px 4px; padding: 6px 10px; border-radius: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  background: var(--room-card); color: var(--room-paper-ink); font-size: 13px; line-height: 1.35;
+}
+.room-filtered[hidden] { display: none; }
+.room-filtered-clear {
+  appearance: none; min-height: 28px; padding: 0 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--room-paper-ink); background: transparent; color: var(--room-paper-ink); font: 600 12.5px var(--font);
+}
+.room-plate {
+  align-self: flex-start; margin: 0; padding: 2px 10px;
+  border-radius: 2px; background: linear-gradient(var(--room-plate-hi), var(--room-plate-lo));
+  color: var(--room-plate-ink); font: 700 12px/16px var(--label-font); letter-spacing: .16em;
+  box-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.room-empty, .room-next {
+  order: 1; margin: 8px 12px 0; color: var(--room-ink-dim); font-size: 12.5px; line-height: 1.4;
+}
+.room-next { margin-bottom: 4px; }
+.room-empty[hidden] { display: none; }
+
+/* Tapes: reel boxes, spine out, named on masking tape. */
+.room-reel {
+  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
+  width: 38px; height: 128px; background: var(--room-box);
+  box-shadow: inset -3px 0 0 rgba(0,0,0,.18), inset 0 2px 0 rgba(255,255,255,.12), 0 2px 4px rgba(0,0,0,.4);
+}
+.room-reel.box-1 { --room-box: var(--room-box-1); }
+.room-reel.box-2 { --room-box: var(--room-box-2); }
+.room-reel.box-3 { --room-box: var(--room-box-3); }
+.room-reel.box-4 { --room-box: var(--room-box-4); }
+.room-reel-label {
+  position: absolute; left: 8px; right: 8px; top: 14px; bottom: 16px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--room-mask);
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  font: 400 12px/1 'Permanent Marker', var(--font); color: var(--marker); white-space: nowrap; text-overflow: ellipsis;
+}
+.room-reel.loaded::after { content: ''; position: absolute; left: 50%; bottom: 5px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--room-led); box-shadow: 0 0 5px var(--room-led); }
+
+/* Takes: cassette spines, a stripe at the top, the name in marker. */
+.room-cassette {
+  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
+  width: 30px; height: 112px; color: var(--paper-ink);
+  background: linear-gradient(90deg, var(--paper-lo), var(--paper-hi) 50%, var(--paper-lo));
+  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 2px 3px rgba(0,0,0,.35);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.room-cassette-stripe { position: absolute; left: 0; right: 0; top: 8px; height: 14px; background: var(--stripe); }
+.room-cassette-name {
+  position: absolute; left: 0; right: 0; top: 26px; bottom: 6px; overflow: hidden;
+  display: flex; align-items: center; justify-content: flex-start;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  font: 400 11.5px/1 'Permanent Marker', var(--font); white-space: nowrap; text-overflow: ellipsis;
+}
+.room-cassette-when, .room-fam { display: none; }
+.room-cassette.starred::after { content: '★' / ''; position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; font-size: 11px; color: var(--room-note-lo); text-shadow: 0 0 1px var(--paper-ink); }
+.room-new {
+  position: absolute; left: -5px; top: -9px; z-index: 1; width: 25px; height: 25px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; transform: rotate(-12deg);
+  background: var(--grease-mark); color: var(--paper-ink); font: 400 8.5px 'Permanent Marker', var(--font);
+  box-shadow: 0 2px 4px rgba(0,0,0,.4);
+}
+/* Picked: it lifts, then slides out toward you. On the deck: its gap. */
+.room-cassette.pulled, .room-sleeve.pulled { transform: translateY(-10px) scale(1.08); box-shadow: 0 10px 16px rgba(0,0,0,.55); z-index: 2; }
+@media (prefers-reduced-motion: no-preference) {
+  .room-cassette.pulled, .room-sleeve.pulled { animation: room-pull 300ms ease both; }
+}
+@keyframes room-pull {
+  0% { transform: none; }
+  40% { transform: translateY(-8px); }
+  100% { transform: translateY(-10px) scale(1.08); }
+}
+.room-cassette.on-deck {
+  background: transparent; box-shadow: inset 0 0 0 1.5px rgba(243,231,211,.45);
+}
+.room-cassette.on-deck > :not(.room-new) { visibility: hidden; }
+@media (hover: hover) { .room-cassette:not(.pulled):hover, .room-reel:hover, .room-box:hover { transform: translateY(-3px); } }
+
+/* The archive: card boxes, a month on each. */
+.room-box {
+  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
+  width: 132px; height: 88px; color: var(--marker);
+  background: linear-gradient(var(--room-cardboard-hi), var(--room-cardboard-lo));
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.12), inset 0 -4px 0 rgba(0,0,0,.18), 0 2px 4px rgba(0,0,0,.4);
+  transition: transform 180ms ease;
+}
+.room-box-label {
+  position: absolute; left: 16px; right: 16px; top: 22px; padding: 6px 0; text-align: center;
+  background: var(--room-card); font: 400 15px/1.1 'Permanent Marker', var(--font); white-space: nowrap;
+}
+.room-box-hole { position: absolute; left: 50%; bottom: 14px; width: 26px; height: 8px; margin-left: -13px; border-radius: 4px; background: var(--room-cardboard-hole); }
+
+/* Records: LP sleeves in their covers. */
+.room-sleeve {
+  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0;
+  width: 88px; height: 88px; margin-right: 6px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cover) 55%, #000), var(--cover));
+  box-shadow: 0 2px 6px rgba(0,0,0,.5); transition: transform 180ms ease;
+}
+.room-sleeve { --cover: var(--room-sleeve-hi); }
+.room-sleeve.cover-1 { --cover: var(--stripe-1); } .room-sleeve.cover-2 { --cover: var(--stripe-2); }
+.room-sleeve.cover-3 { --cover: var(--stripe-3); } .room-sleeve.cover-4 { --cover: var(--stripe-4); }
+.room-sleeve.cover-5 { --cover: var(--stripe-5); } .room-sleeve.cover-6 { --cover: var(--stripe-6); }
+.room-sleeve.cover-7 { --cover: var(--stripe-7); } .room-sleeve.cover-8 { --cover: var(--stripe-8); }
+.room-sleeve-disc {
+  position: absolute; left: 18px; top: 8px; width: 52px; height: 52px; border-radius: 50%;
+  background: radial-gradient(circle, var(--room-card) 0 9%, var(--cover) 10% 40%, var(--room-vinyl) 41% 100%);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4);
+}
+.room-sleeve-name {
+  position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 2px 4px; background: var(--room-card);
+  color: var(--marker); font: 400 11px/1.2 'Permanent Marker', var(--font);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.room-sleeve.on-table .room-sleeve-disc { visibility: hidden; }
+
+/* The hi-fi. The deck: silver, two reels, the LCD, its keys. */
+.room-deck-art {
+  position: relative; display: block; align-self: stretch; aspect-ratio: 206 / 196; border-radius: 6px;
+  background: linear-gradient(var(--room-silver-hi), var(--room-silver-lo));
+  box-shadow: 0 8px 14px rgba(0,0,0,.45), inset 0 1px 0 #fff;
+}
+.room-deck-reel {
+  position: absolute; top: 6%; width: 41%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, var(--reel-hub) 0 11%, var(--reel-hub-edge) 11% 13%, var(--tape-pack) 13% 36%, var(--tape-sheen) 36% 37%, var(--reel-metal) 37% 48%, var(--reel-edge) 48% 50%, transparent 50%);
+}
+.room-deck-reel:first-child { left: 5%; }
+.room-deck-reel:nth-child(2) { right: 5%; }
+@media (prefers-reduced-motion: no-preference) {
+  .room-deck.playing .room-deck-reel { animation: room-spin 2.4s linear infinite; }
+}
+@keyframes room-spin { to { transform: rotate(360deg); } }
+.room-deck-lcd {
+  position: absolute; left: 22%; right: 22%; top: 55%; height: 16%; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: var(--lcd); color: var(--lcd-ink); font: 600 13px var(--mono); box-shadow: inset 0 0 0 3px #1d1e21;
+}
+.room-deck-keys {
+  position: absolute; left: 11%; right: 11%; bottom: 8%; height: 13%; border-radius: 3px;
+  background: repeating-linear-gradient(90deg, var(--room-key-hi) 0 22%, transparent 22% 25%);
+}
+.room-deck-play, .room-deck-sit, .room-deck-meta, .room-deck-progress { display: none; }
+
+/* The turntable: walnut, the platter, the tonearm, a start button. */
+.room-tt-art {
+  position: relative; display: block; height: 66px; border-radius: 5px;
+  background: linear-gradient(var(--room-walnut-hi), var(--room-walnut-lo));
+  box-shadow: 0 8px 12px rgba(0,0,0,.45), inset 0 3px 0 var(--room-walnut-hi);
+}
+.room-tt-vinyl {
+  position: absolute; left: 7%; top: 9%; width: 72%; height: 55%; border-radius: 50%;
+  background: radial-gradient(ellipse, var(--room-cover, var(--room-vinyl-label)) 0 9%, var(--room-vinyl) 10% 64%, var(--room-vinyl-groove) 65% 66%, var(--room-vinyl) 67%);
+  box-shadow: 0 2px 0 #0a0a0a;
+}
+.room-turntable.empty .room-tt-vinyl { background: radial-gradient(ellipse, var(--reel-metal) 0 4%, #2b2b2b 5% 70%, #333 71%); }
+@media (prefers-reduced-motion: no-preference) {
+  .room-turntable.playing .room-tt-vinyl { animation: room-spin 1.8s linear infinite; }
+}
+.room-tt-arm {
+  position: absolute; right: 9%; top: 14%; width: 24%; height: 3px; border-radius: 2px; background: var(--reel-metal);
+  transform-origin: right center; transform: rotate(calc(-30deg + var(--room-played, 0) * 22deg));
+}
+.room-turntable.empty .room-tt-arm { transform: rotate(-38deg); }
+.room-tt-start {
+  appearance: none; position: absolute; right: 6px; bottom: 6px; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--room-key-edge); background: linear-gradient(var(--room-key-hi), var(--room-key-lo));
+  color: var(--room-key-ink); font-size: 12px; cursor: pointer;
+}
+.room-cutting {
+  display: flex; flex-direction: column-reverse; align-items: stretch; gap: 6px; margin-top: 6px; padding: 6px 10px; border-radius: 8px;
+  background: var(--room-tag); border: 1px solid var(--room-tag-edge); color: var(--room-ink); font-size: 12.5px;
+}
+.room-cutting[hidden] { display: none; }
+.room-cut-bar { width: 100%; height: 8px; accent-color: var(--room-plate-hi); }
+.room-cut-words { line-height: 1.35; }
+
+/* The sketchbook, on the side table. */
+.room-book-place .room-book-latest { display: none; }
+.room-book-n {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; border-radius: 10px;
+  background: var(--grease-mark); color: var(--paper-ink); font: 700 12px var(--label-font);
+}
+
+/* The dock: the bar, in the room's materials, with SIT DOWN, in one row --
+   where the room is drawn. Narrower, it's the page's own bar (the phone's
+   mini player), seen in a month's box; the room's deck card stands in for
+   it on the shelves. */
+@media (min-width: 1000px) {
+  .room-on .np {
+    flex-direction: row; align-items: center; gap: 10px; padding: 8px 12px;
+    margin: 0 16px 12px; border-radius: 14px; color: var(--room-ink);
+    background: var(--room-tag); border: 1px solid var(--room-tag-edge);
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .room-on .np #np-play { border-radius: 50%; background: var(--room-ink); color: var(--room-plate-ink); border-color: var(--room-ink); }
+  .room-on .np .np-here { color: var(--room-ink-dim); }
+  .room-on .np .np-row { display: contents; }
+  .room-on .np .np-scrub { order: 5; flex: 1 1 0; min-width: 120px; height: 44px; }
+  .room-on .np .np-here { order: 6; }
+  .room-on .np .np-own { order: 7; margin-left: 0; }
+  .room-on .np .np-mini { display: none; }
+  body.room-on { --np-h: 72px; }
+}
+.room-sit {
+  height: 52px; min-height: 52px; padding: 0 16px; text-decoration: none; white-space: nowrap;
+  background: var(--room-ink); color: var(--room-plate-ink); border-color: var(--room-ink);
+  font: 700 15px var(--label-font); letter-spacing: .14em;
+}
+.room-sit[hidden] { display: none; }
+.room-grease { position: absolute; pointer-events: none; }
+.room-grease[hidden] { display: none; }
+.room-grease i { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1px; background: var(--grease-mark); border-radius: 1px; }
+.room-grease-in { left: calc(var(--in, 0) * 100%); }
+.room-grease-out { left: calc(var(--out, 1) * 100%); }
+
+/* A take's card, at the head of its sheet: the room's own materials. */
+.room-card { display: flex; flex-direction: column; gap: 10px; }
+.room-takecard { padding: 12px 14px; border-radius: 10px; background: var(--room-tag); border: 1px solid var(--room-tag-edge); color: var(--room-ink); }
+.room-card-keys { display: flex; gap: 8px; }
+.room-put, .room-studio {
+  appearance: none; flex: 1 1 0; min-height: 44px; padding: 0 12px; border-radius: 8px; cursor: pointer;
+  font: 700 14px var(--label-font); letter-spacing: .12em;
+}
+.room-put { border: 0; background: var(--room-ink); color: var(--room-plate-ink); }
+.room-studio { border: 1px solid var(--room-tag-edge); background: transparent; color: var(--room-ink); }
+.room-card-more { display: flex; flex-wrap: wrap; gap: 8px; }
+.room-card-more [hidden] { display: none; }
+.room-card-note { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--room-ink-dim); }
+.room-card-note[hidden] { display: none; }
+.room-takecard .icon-btn { min-height: 36px; }
+.room-on.cassette-open .take-detail .sheet-back { display: inline-flex; align-self: flex-start; min-height: 40px; }
+@media (min-width: 1100px) {
+  body.room-on.cassette-open .take-detail:not([hidden]) {
+    /* Over the hi-fi, beside the shelves: the spine it came from stays in
+       sight, pulled out. It stops above the dock (the rack's own max-height). */
+    position: fixed; top: var(--topbar-h); left: 0; right: auto; z-index: 60; box-sizing: border-box;
+    width: min(520px, 46vw); overflow-y: auto; overscroll-behavior: contain;
+    display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 28px;
+    border-radius: 0 0 12px 0; border: 0; border-right: 1px solid var(--edge-strong); background: var(--bg);
+    box-shadow: 18px 0 40px rgba(0,0,0,.35);
+  }
+}
+@media (min-width: 1100px) and (prefers-reduced-motion: no-preference) {
+  body.room-on.cassette-open .take-detail:not([hidden]) { animation: room-drawer .24s ease; }
+}
+@keyframes room-drawer { from { transform: translateX(-40px); opacity: 0; } }
+/* A tape's card: the same, in a dialog of its own. */
+dialog.room-tapecard .room-card { background: var(--room-tag); border-color: var(--room-tag-edge); color: var(--room-ink); }
+.room-card-head { display: flex; align-items: center; gap: 10px; }
+.room-card-reel { flex: none; width: 14px; height: 30px; border-radius: 2px; background: var(--room-box-1); box-shadow: inset 0 6px 0 var(--room-mask); }
+dialog.room-tapecard .room-card-name { margin: 0; font: 400 20px 'Permanent Marker', var(--font); color: var(--room-ink); }
+dialog.room-tapecard .room-card-meta { margin: 0; color: var(--room-ink-dim); font: 500 12.5px var(--mono); word-break: normal; }
+dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; }
+.room-ask-text { word-break: normal; font-family: var(--font); }
+
+/* The room drawn, wide enough for the scene. (Reduced data takes it back
+   to rows, below: a browser that doesn't know the query draws it.) */
+@media (min-width: 1000px) {
+  .room {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(440px, 40%); grid-template-areas: "stage shelves";
+    gap: 24px; padding: 20px 24px 28px; min-height: max(620px, calc(100svh - var(--topbar-h) - var(--np-h) - 24px));
+  }
+  .room-shelves { grid-area: shelves; align-self: start; }
+  .room-stage { grid-area: stage; position: relative; min-height: 560px; }
+  .room-scene { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+  .room-scene > span { position: absolute; display: block; }
+  .room-curtain { left: 3%; top: 4%; width: 4.5%; height: 52%; background: repeating-linear-gradient(90deg, var(--room-curtain) 0 7px, var(--room-curtain-lo) 7px 12px, var(--room-curtain-hi) 12px 18px); box-shadow: 4px 0 10px rgba(0,0,0,.35); }
+  .room-window {
+    left: 6.5%; top: 7%; width: 15%; height: 36%; box-sizing: border-box; overflow: hidden;
+    border: 10px solid var(--room-walnut-lo); background: linear-gradient(var(--room-sky-hi), var(--room-sky-lo));
+  }
+  .room-window::before, .room-window::after { content: ''; position: absolute; background: var(--room-walnut-lo); }
+  .room-window::before { left: 50%; top: 0; bottom: 0; width: 8px; margin-left: -4px; }
+  .room-window::after { left: 0; right: 0; top: 46%; height: 7px; }
+  .room-city {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 64%;
+    background:
+      radial-gradient(circle, var(--room-city-warm) 0 1.5px, transparent 2px) 3px 6px / 17px 15px,
+      radial-gradient(circle, var(--room-city-cool) 0 1.5px, transparent 2px) 11px 2px / 29px 23px,
+      linear-gradient(90deg, var(--room-city) 0 22%, transparent 22% 25%, var(--room-city) 25% 47%, transparent 47% 50%, var(--room-city) 50% 78%, transparent 78% 81%, var(--room-city) 81%);
+    -webkit-mask: linear-gradient(90deg, #000 0 22%, transparent 22% 25%, #000 25% 47%, transparent 47% 50%, #000 50% 78%, transparent 78% 81%, #000 81%);
+    clip-path: polygon(0 30%, 22% 30%, 22% 0, 47% 0, 47% 40%, 78% 40%, 78% 12%, 100% 12%, 100% 100%, 0 100%);
+  }
+  .room-lamp { left: 24%; top: 20%; width: 7%; height: 60%; }
+  .room-lamp-shade { position: absolute; left: 0; right: 0; top: 0; height: 12%; clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); background: linear-gradient(var(--room-shade-hi), var(--room-shade-lo)); box-shadow: 0 0 40px var(--room-shade-glow); }
+  .room-lamp-pole { position: absolute; left: 50%; top: 12%; bottom: 0; width: 4px; margin-left: -2px; background: var(--room-pole); }
+  .room-floor { left: -30px; right: -40%; top: 78%; bottom: -30px; background: repeating-linear-gradient(0deg, var(--room-board) 0 22px, var(--room-board-line) 22px 23px); border-top: 10px solid var(--room-skirting); }
+  .room-rug { left: 14%; top: 84%; width: 90%; height: 30%; border-radius: 50%; background: radial-gradient(ellipse, var(--room-rug) 0 38%, var(--room-rug-band) 39% 46%, var(--room-rug-mid) 47% 60%, var(--room-rug-edge) 61%); }
+  .room-armchair { left: 2%; top: 64%; width: 26%; height: 44%; border-radius: 80px 80px 18px 18px; background: repeating-linear-gradient(90deg, var(--room-cord-hi) 0 7px, var(--room-cord-lo) 7px 9px); box-shadow: inset 10px 18px 30px rgba(255,214,150,.22), inset -14px 0 24px rgba(0,0,0,.25), 0 -4px 20px rgba(0,0,0,.3); }
+  .room-armchair-arm, .room-armchair-back { position: absolute; width: 26%; height: 70%; bottom: -10%; border-radius: 30px 30px 0 0; background: repeating-linear-gradient(90deg, var(--room-cord-lo) 0 6px, var(--room-cord-hi) 6px 8px); }
+  .room-armchair-arm { left: -14%; } .room-armchair-back { right: -16%; box-shadow: inset -8px 0 18px rgba(0,0,0,.3); }
+  .room-speaker { left: 30%; top: 50%; width: 7%; height: 28%; border-radius: 4px; background: radial-gradient(circle at 50% 22%, #2a2a2a 0 8%, #151515 9% 22%, #3a3a3a 23% 25%, transparent 26%), radial-gradient(circle at 50% 58%, #2a2a2a 0 10%, #151515 11% 30%, #3a3a3a 31% 34%, transparent 35%), linear-gradient(90deg, var(--room-walnut-lo), var(--room-walnut) 40%, var(--room-walnut-lo)); box-shadow: 0 4px 10px rgba(0,0,0,.4); }
+  .room-console { left: 38%; top: 66%; width: 58%; height: 13%; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--room-walnut-lo) 0 9px, var(--room-walnut) 9px 13px), linear-gradient(var(--room-walnut), var(--room-walnut-lo)); box-shadow: 0 10px 18px rgba(0,0,0,.45), inset 0 6px 0 var(--room-walnut-hi); }
+  .room-sidetable { left: 40%; top: 88%; width: 15%; height: 3.4%; border-radius: 50%; background: linear-gradient(var(--room-walnut), var(--room-walnut-lo)); box-shadow: 0 4px 8px rgba(0,0,0,.5); }
+  .room-glass { position: absolute; left: 12%; bottom: 60%; width: 22%; height: 260%; border-radius: 3px 3px 5px 5px; background: linear-gradient(transparent 50%, var(--room-whisky) 50%), linear-gradient(var(--room-glass), rgba(255,255,255,.06)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+  .room-pencil { position: absolute; right: 8%; bottom: 70%; width: 50%; height: 100%; border-radius: 2px; background: var(--room-paper); transform: rotate(-7deg); box-shadow: 0 2px 3px rgba(0,0,0,.4), inset 0 3px 0 #2a2420; }
+  /* The places stand where the drawing puts them. */
+  .room-deck { position: absolute; left: 44%; bottom: 34%; width: min(24%, 220px); display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .room-deck-place { order: -1; }
+  .room-turntable { position: absolute; left: 71%; bottom: 34%; width: min(25%, 230px); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .room-turntable .room-tt-art { order: 1; align-self: stretch; }
+  .room-turntable .room-cutting { order: 2; align-self: stretch; }
+  .room-book { position: absolute; left: 44%; top: 80%; }
+}
+
+/* No room to draw it, or reduced data: the shelves as rows, the deck on top
+   (the canvas's phone board). */
+@media (max-width: 999.98px), (prefers-reduced-data: reduce) {
+  .room { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 16px; }
+  .room-scene { display: none; }
+  .room-stage { display: contents; }
+  .room-deck, .room-turntable, .room-book { position: static; width: auto; }
+  .room-deck { order: -2; }
+  .room-book { order: -1; }
+  .room-turntable { order: 1; }
+  .room-deck, .room-book, .room-turntable { margin-right: 16px; }
+  /* Not in a month's box, where the rack is and the deck card isn't: the
+     bar is all there is to pause with there. */
+  .room-on:not(.room-rack) .np { display: none; }
+  body.room-on:not(.room-rack) { --np-h: 0px; }
+  .room-shelves { border: 0; background: none; box-shadow: none; gap: 14px; }
+  .room-shelf { gap: 6px; }
+  .room-shelf-foot { order: 0; margin: 0; align-items: center; }
+  .room-filtered { margin: 0 16px 0 0; }
+  .room-row { border-bottom: 0; box-shadow: none; padding: 6px 16px 4px 0; gap: 8px; scroll-snap-type: x proximity; min-height: 0; }
+  .room-row > li { scroll-snap-align: start; }
+  .room-empty, .room-next { margin: 0 16px 0 0; }
+  .room-next { display: none; }
+  .room-reel { width: 74px; height: 74px; border-radius: 3px; }
+  .room-reel-label { left: 8px; right: 8px; top: 26px; bottom: auto; padding: 3px 2px; writing-mode: horizontal-tb; transform: none; font-size: 11px; display: block; text-align: center; text-overflow: ellipsis; }
+  .room-cassette {
+    width: 112px; height: 70px; border-radius: 5px; color: var(--paper-ink);
+    background: linear-gradient(var(--cas-hi), var(--cas-mid)); box-shadow: 0 4px 8px rgba(0,0,0,.45);
+  }
+  .room-cassette-stripe { left: 6px; right: 6px; top: 5px; height: 5px; border-radius: 2px 2px 0 0; }
+  .room-cassette-name {
+    left: 6px; right: 6px; top: 10px; bottom: auto; height: 30px; padding: 0 6px; border-radius: 0 0 2px 2px;
+    writing-mode: horizontal-tb; transform: none; display: block; line-height: 30px; text-align: left;
+    background: var(--paper-hi); font-size: 12px;
+  }
+  .room-cassette-when { display: block; position: absolute; left: 8px; right: 8px; bottom: 8px; color: var(--room-ink-dim); font: 500 10px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+  .room-cassette.starred::after { left: auto; right: 6px; bottom: 6px; width: auto; }
+  .room-new { left: auto; right: -6px; top: -8px; }
+  .room-cassette.on-deck { background: transparent; }
+  .room-box { width: 124px; height: 64px; }
+  .room-box-label { top: 50%; transform: translateY(-50%); left: 12px; right: 12px; padding: 3px 0; font-size: 13px; }
+  .room-box-hole { display: none; }
+  .room-sleeve { width: 72px; height: 72px; }
+  .room-sleeve-disc { left: 14px; top: 6px; width: 44px; height: 44px; }
+  .room-sleeve-name { left: 4px; right: 4px; bottom: 4px; font-size: 10px; }
+  /* The deck card: the deck, what's on it, ▶ and SIT DOWN. */
+  .room-deck {
+    display: grid; grid-template-columns: 132px minmax(0, 1fr); grid-template-areas: "art place" "art meta" "art keys" "bar bar";
+    column-gap: 14px; row-gap: 6px; align-items: center; padding: 12px; border-radius: 10px;
+    background: radial-gradient(ellipse at 30% 30%, var(--room-glow), transparent 70%), var(--room-tag);
+    border: 1px solid var(--room-tag-edge);
+  }
+  .room-deck-art { grid-area: art; aspect-ratio: 150 / 120; }
+  .room-deck-reel { top: 8%; width: 42%; }
+  .room-deck-lcd { left: 9%; right: 9%; top: auto; bottom: 10%; height: 20%; font-size: 12px; }
+  .room-deck-keys { display: none; }
+  .room-deck-place {
+    grid-area: place; min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; border-radius: 0;
+    font: 400 18px/1.15 'Permanent Marker', var(--font); white-space: normal;
+  }
+  .room-deck-place .room-led { display: none; }
+  .room-deck-meta { grid-area: meta; display: block; color: var(--room-ink-dim); font: 500 11px var(--mono); }
+  .room-deck-play, .room-deck-sit { display: inline-flex; align-items: center; justify-content: center; height: 44px; }
+  .room-deck-play[hidden], .room-deck-sit[hidden] { display: none; }
+  .room-deck > .room-deck-play { grid-area: keys; justify-self: start; width: 46px; border-radius: 22px; border: 0; background: var(--room-ink); color: var(--room-plate-ink); font-size: 15px; cursor: pointer; }
+  .room-deck > .room-deck-sit { grid-area: keys; justify-self: end; padding: 0 16px; border-radius: 8px; border: 1px solid var(--room-tag-edge); color: var(--room-ink); text-decoration: none; font: 700 14px var(--label-font); letter-spacing: .14em; }
+  .room-deck-progress { grid-area: bar; display: block; position: relative; height: 6px; border-radius: 3px; background: var(--oxide-lo); overflow: hidden; }
+  .room-deck-progress-fill { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--room-played, 0)); background: linear-gradient(90deg, var(--tape-sheen), var(--trace)); }
+  .room-deck.empty .room-deck-progress { display: none; }
+  /* The sketchbook strip. */
+  .room-book-place {
+    width: 100%; min-height: 52px; border-radius: 8px; padding: 0 12px; gap: 10px; box-shadow: none; border: 0;
+    background: repeating-linear-gradient(var(--room-paper) 0 17px, var(--room-paper-rule) 17px 18px), var(--room-paper);
+    color: var(--room-paper-ink);
+  }
+  .room-book-word { font: 700 22px 'Caveat', var(--font); }
+  .room-book-place .room-book-latest { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 18px 'Caveat', var(--font); color: var(--room-paper-dim); }
+  .room-turntable { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 12px; align-items: center; }
+  .room-turntable .room-tt-art { grid-row: span 2; height: 48px; }
+  .room-turntable .room-cutting { grid-column: 1 / -1; }
+}
+
+/* --- the chair: one take or tape on the deck, close up --- */
+.chair {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 18px 16px 24px; color: var(--room-ink);
+  background:
+    radial-gradient(ellipse at 50% 18%, var(--room-glow), transparent 55%),
+    linear-gradient(var(--room-wall-hi), var(--room-wall) 60%, var(--room-wall-lo));
+}
+.chair > * { width: 100%; max-width: 1100px; justify-self: center; box-sizing: border-box; }
+.chair-on .take-title { display: none; }
+/* The bar is the deck now: no room kept for it at the foot. */
+body.chair-on { --np-h: 0px; }
+.chair-on > .np { display: none; }
+body.chair-of-tape > main.wave-main { display: none; }
+body.chair-of-tape .appbar-page > :is(.step-group, .menu-anchor, #take-trash, #take-undo, #notes-open, #crate-chip) { display: none; }
+.chair-acts { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.chair-acts .chair-studio { min-height: 36px; }
+.chair-cut {
+  appearance: none; height: 38px; padding: 0 14px; border-radius: 8px; border: 0; cursor: pointer; white-space: nowrap;
+  background: var(--room-ink); color: var(--room-plate-ink); font: 700 14px var(--label-font); letter-spacing: .14em;
+  box-shadow: 0 1px 0 var(--room-key-edge);
+}
+.chair-cut[hidden] { display: none; }
+.chair-cut:disabled { opacity: .5; cursor: default; }
+
+/* The deck close up: silver, the label on masking tape, the reel window
+   and its LCD (the page's own), and its keys. */
+.chair-deck {
+  max-width: 780px; position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 16px clamp(12px, 4vw, 40px) 20px; border-radius: 10px;
+  background: linear-gradient(var(--room-silver-hi), var(--room-silver) 60%, var(--room-silver-lo));
+  box-shadow: 0 20px 40px rgba(0,0,0,.55), inset 0 1px 0 #fff;
+}
+.chair-label {
+  max-width: 80%; padding: 4px 18px; transform: rotate(-1.5deg); background: var(--room-mask); color: var(--marker);
+  font: 400 20px/1.2 'Permanent Marker', var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 2px 3px rgba(0,0,0,.25);
+}
+body.chair-on .chair-window { width: 100%; display: flex; justify-content: center; }
+body.chair-on .chair-window .np-window {
+  width: min(620px, 100%); height: 150px; padding: 0 10px; gap: 14px; border-color: rgba(0,0,0,.25);
+  background: linear-gradient(var(--room-silver-hi), var(--room-silver-lo));
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.25);
+}
+body.chair-on .chair-window .np-window::after { left: 70px; right: 70px; bottom: 8px; height: 3px; }
+body.chair-on .chair-window .np-reel { width: 128px; height: 128px; }
+body.chair-on .chair-window .np-lcd { margin: 34px 0; padding: 4px 14px; }
+body.chair-on .chair-window .np-lcd-top { height: 34px; }
+body.chair-on .chair-window .np-pos { font-size: 30px; line-height: 34px; }
+body.chair-on .chair-window .np-time, .chair-window .np-marquee { font-size: 12px; }
+body.chair-on .chair-window .np-marquee { height: 16px; line-height: 16px; }
+body.chair-on .chair-window .np-expand { display: none; }
+.chair-keys { width: 100%; max-width: 620px; display: flex; gap: 8px; }
+.chair-on .chair-key {
+  appearance: none; flex: 1 1 0; min-width: 0; height: 50px; min-height: 50px; padding: 0 4px; border-radius: 6px;
+  border: 1px solid var(--room-key-edge); background: linear-gradient(var(--room-key-hi), var(--room-key-lo));
+  box-shadow: 0 3px 0 var(--room-key-edge); color: var(--room-key-ink); font: 600 15px var(--mono); cursor: pointer;
+}
+.chair-on .chair-key svg { width: 18px; height: 16px; }
+.chair-on .chair-key.playing { background: linear-gradient(var(--room-key-lo), #2c2d31); box-shadow: inset 0 3px 4px rgba(0,0,0,.6), inset 0 -3px 0 var(--room-led); }
+.chair-on .chair-key:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--room-key-edge); }
+.chair-on .chair-key:disabled { opacity: .45; cursor: default; }
+.chair-on .chair-key.chair-note {
+  flex: 1.5 1 0; border: 0; background: linear-gradient(var(--grease-mark), var(--room-note-lo)); box-shadow: 0 3px 0 var(--room-note-edge);
+  color: var(--paper-ink); font: 700 15px var(--label-font); letter-spacing: .12em;
+}
+.chair-on .chair-key.chair-note[hidden] { display: none; }
+
+.chair-cutting { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--room-tag); border: 1px solid var(--room-tag-edge); }
+.chair-cutting[hidden] { display: none; }
+.chair-cut-bar { flex: 1; height: 8px; accent-color: var(--room-plate-hi); }
+
+/* The take on tape: its trace on oxide, the notes as numbered grease marks. */
+.chair-tape { position: relative; padding: 16px 0 18px; }
+.chair-strip { display: block; width: 100%; height: 64px; border-radius: 6px; cursor: pointer; box-shadow: 0 6px 14px rgba(0,0,0,.45), inset 0 1px 0 var(--oxide-sheen); }
+.chair-strip:focus-visible { outline: 2px solid var(--room-plate-hi); outline-offset: 2px; }
+.chair-pins { list-style: none; margin: 0; padding: 0; position: absolute; left: 0; right: 0; top: 2px; height: 0; }
+.chair-pin {
+  appearance: none; position: absolute; top: 0; transform: translateX(-50%); width: 26px; height: 26px; border-radius: 50%;
+  border: 0; padding: 0; cursor: pointer; background: var(--grease-mark); color: var(--paper-ink);
+  font: 700 13px var(--label-font); box-shadow: 0 2px 4px rgba(0,0,0,.45);
+}
+.chair-pin.below { top: 70px; }
+.chair-ends { display: flex; justify-content: space-between; margin-top: 4px; color: var(--room-ink-dim); font: 500 11px var(--mono); }
+
+/* The sketchbook: two ruled pages and their rings; the hand is Caveat. */
+.chair-book { display: flex; border-radius: 6px; filter: drop-shadow(0 -6px 22px rgba(0,0,0,.5)); color: var(--room-paper-ink); }
+.book-page { flex: 1 1 0; min-width: 0; box-sizing: border-box; padding: 18px 24px 22px; background: var(--room-paper); display: flex; flex-direction: column; gap: 6px; }
+.book-left { border-radius: 6px 0 0 6px; background: repeating-linear-gradient(var(--room-paper) 0 33px, var(--room-paper-rule) 33px 34px), var(--room-paper); }
+.book-right { border-radius: 0 6px 6px 0; gap: 16px; }
+.book-rings { flex: none; width: 22px; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; background: linear-gradient(90deg, var(--room-paper-spine), #efe6cf 40%, var(--room-paper-spine)); }
+.book-rings span { width: 14px; height: 6px; border-radius: 3px; background: var(--room-ring); }
+.book-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 40px; }
+.book-title { min-width: 0; flex: 1; display: flex; }
+.chair-on .book-title .take-title-name {
+  appearance: none; border: 0; background: none; padding: 0; margin: 0; max-width: 100%; cursor: text; text-align: left;
+  color: var(--room-paper-ink); font: 700 32px/1.1 'Caveat', var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chair-on .book-title .take-title-name.unlabelled { color: var(--room-paper-dim); }
+.chair-on .book-title .take-title-input { flex: 1; min-width: 0; font: 700 28px 'Caveat', var(--font); color: var(--room-paper-ink); background: transparent; border: 0; border-bottom: 2px solid var(--room-paper-ink); border-radius: 0; padding: 0 2px; }
+.book-title-ro { margin: 0; font: 700 32px/1.1 'Caveat', var(--font); color: var(--room-paper-ink); }
+.book-date { flex: none; font: 500 20px 'Caveat', var(--font); color: var(--room-paper-dim); }
+.book-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.book-notes li { display: flex; align-items: center; gap: 8px; min-height: 34px; }
+.book-at { appearance: none; flex: none; display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0; cursor: pointer; color: var(--room-paper-dim); }
+.book-n { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--grease-mark); color: var(--room-paper-ink); font: 700 12px var(--label-font); }
+.book-time { width: 42px; text-align: left; font: 500 13px var(--mono); color: var(--room-paper-dim); }
+.book-words {
+  flex: 1; min-width: 0; height: 32px; padding: 0 2px; border: 0; border-radius: 0; background: transparent; color: var(--room-paper-ink);
+  font: 500 23px/1 'Caveat', var(--font);
+}
+.book-words::placeholder { color: var(--room-paper-dim); opacity: .8; }
+.book-words:focus { outline: none; box-shadow: inset 0 -2px 0 var(--room-paper-ink); }
+.book-ro { display: flex; align-items: center; }
+.book-go, .book-out {
+  appearance: none; flex: none; height: 28px; padding: 0 8px; border-radius: 5px; cursor: pointer;
+  border: 1px solid rgba(28,36,48,.4); background: transparent; color: var(--room-paper-ink); font: 600 11.5px var(--font);
+}
+.book-out { width: 28px; padding: 0; font-size: 15px; }
+.book-go:disabled { opacity: .4; cursor: default; }
+.chair-book :focus-visible { outline: 2px solid var(--room-paper-ink); outline-offset: 2px; }
+.book-none { margin: 4px 0; font: 500 20px 'Caveat', var(--font); color: var(--room-paper-dim); }
+.book-none[hidden] { display: none; }
+.book-stickers { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.book-word, .book-field-label { font: 600 12px var(--label-font); letter-spacing: .16em; color: var(--room-paper-dim); }
+.book-sticker {
+  appearance: none; height: 30px; padding: 0 12px; border-radius: 15px; cursor: pointer; transform: rotate(-3deg);
+  border: 1.5px dashed rgba(28,36,48,.45); background: transparent; color: var(--room-paper-ink); font: 700 17px 'Caveat', var(--font);
+}
+.book-sticker.on { border: 0; background: var(--stripe); color: var(--stripe-ink); }
+.chair-on .book-stickers .book-star {
+  margin: 0; width: 34px; height: 34px; border-radius: 50%; transform: rotate(4deg); font-size: 18px;
+  border: 1.5px dashed rgba(28,36,48,.45); background: transparent; color: var(--room-paper-dim);
+}
+.chair-on .book-stickers .book-star.on { border: 0; background: var(--grease-mark); color: var(--room-paper-ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.book-new { display: flex; flex-direction: column; gap: 6px; }
+.book-field { height: 40px; padding: 0 4px; border: 0; border-bottom: 2px solid var(--room-paper-ink); border-radius: 0; background: transparent; color: var(--room-paper-ink); font: 500 23px 'Caveat', var(--font); }
+.book-field::placeholder { color: var(--room-paper-dim); }
+.book-field:focus { outline: none; border-bottom-width: 3px; }
+.book-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--room-paper-dim); }
+dialog.book-pick .book-pick-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
+dialog.book-pick .book-sticker { transform: none; }
+
+/* TOOLS: the take page as it is, folded; it follows the scheme. */
+.chair-tools { border-radius: 10px; background: var(--room-tag); border: 1px solid var(--room-tag-edge); overflow: hidden; }
+.chair-tools-head {
+  list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+  color: var(--room-ink); font: 700 15px var(--label-font); letter-spacing: .18em;
+}
+.chair-tools-head::-webkit-details-marker { display: none; }
+.chair-tools-head::before { content: '▸'; transition: transform 150ms; }
+.chair-tools[open] > .chair-tools-head::before { transform: rotate(90deg); }
+.chair-tools[open] { background: var(--bg); color: var(--ink); }
+.chair-tools[open] > .chair-tools-head { background: var(--room-tag); }
+.chair-tool-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px 4px; }
+.chair-tool-keys .take-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chair-overview { padding: 8px 16px; }
+.chair-overview canvas { display: block; width: 100%; height: 44px; border-radius: 8px; }
+.chair-tools > main.wave-main { padding-bottom: 12px; }
+
+@media (max-width: 699.98px) {
+  .chair { padding: 12px 10px 20px; gap: 12px; }
+  .chair-deck { padding: 12px 10px 14px; gap: 10px; }
+  .chair-label { font-size: 16px; }
+  body.chair-on .chair-window .np-window { height: 96px; gap: 6px; }
+  body.chair-on .chair-window .np-reel { width: 76px; height: 76px; }
+  body.chair-on .chair-window .np-lcd { margin: 18px 0; padding: 2px 8px; }
+  body.chair-on .chair-window .np-pos { font-size: 22px; }
+  body.chair-on .chair-window .np-window::after { left: 40px; right: 40px; }
+  .chair-keys { flex-wrap: wrap; gap: 6px; }
+  .chair-on .chair-key { height: 46px; min-height: 46px; flex: 1 1 15%; }
+  .chair-on .chair-key.chair-note { flex: 1 1 100%; }
+  .chair-book { flex-direction: column; }
+  .book-rings { display: none; }
+  .book-page { padding: 14px 14px 16px; }
+  .book-left, .book-right { border-radius: 0; }
+  .book-left { border-radius: 6px 6px 0 0; }
+  .book-right { border-radius: 0 0 6px 6px; border-top: 1px dashed var(--room-paper-rule); }
+  .book-go { padding: 0 6px; font-size: 11px; }
+  .chair-on .book-title .take-title-name { font-size: 28px; }
+  .chair-acts { gap: 4px; }
+  .chair-cut { height: 36px; padding: 0 10px; font-size: 13px; letter-spacing: .1em; }
 }
 
 /* ---------- Rooms P6: the rig (rig.html, lib/rig/) ---------- */

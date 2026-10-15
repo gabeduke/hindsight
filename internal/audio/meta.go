@@ -251,7 +251,35 @@ type Meta struct {
 	// keyed by SMF track name ("bento ch1"). Optional and additive, like
 	// BPM and Flags, so it needs no MetaVersion bump.
 	LaneKinds map[string]string `json:"lane_kinds,omitempty"`
+
+	// Record marks the take as a record, cut in the Listening Room
+	// (docs/superpowers/specs/2026-10-15-listening-room-design.md): it stands
+	// on the Records shelf in a sleeve. Nil for every other take. A record
+	// is still a take -- downloads, sharing and the trash are the same -- so
+	// this is a mark, not a store. Optional and additive, like LaneKinds, so
+	// it needs no MetaVersion bump.
+	Record *Record `json:"record,omitempty"`
 }
+
+// Record is what makes a take a record (Meta.Record).
+type Record struct {
+	// Cut is when it was cut.
+	Cut time.Time `json:"cut"`
+	// Side is the side it's on: RecordSideA or RecordSideB.
+	Side string `json:"side"`
+	// Cover is the sleeve's colour: a slot in the stripe palette, the one
+	// its source wore (its tag's, or the one its name hashes to), 1 to
+	// MaxRecordCover. 0 is a plain sleeve.
+	Cover int `json:"cover"`
+}
+
+// The sides a record can be cut on, and the highest cover slot: the stripe
+// palette's eight, as a tag's colour is.
+const (
+	RecordSideA    = "A"
+	RecordSideB    = "B"
+	MaxRecordCover = 8
+)
 
 // Where a take's tempo came from: Meta.TempoFrom.
 const (
