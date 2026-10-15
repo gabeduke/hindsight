@@ -47,13 +47,16 @@ test('nothing left after the mark, or no such note: no span', () => {
   assert.equal(noteSpan(notes, 'nope', { sampleRate: SR, total: 10 * SR }), null);
 });
 
-test('to the studio posts {take, from, to} to the clipboard and goes to the Studio', async () => {
+// grab: the Studio's buffer (P2) takes a take's span as a grab and opens on
+// it, where a plain copy would go to the crate. A server without the buffer
+// reads it as a plain copy: unknown fields are ignored.
+test('to the studio posts {take, from, to, grab} to the clipboard and goes to the Studio', async () => {
   const calls = [];
   const fetchImpl = async (url, init) => { calls.push([url, init.method, JSON.parse(init.body)]); return { ok: true, json: async () => ({}) }; };
   const to = await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl });
   assert.equal(to, '/tape.html');
-  assert.deepEqual(calls, [['/api/clipboard', 'POST', { take: 'jam_a.wav', from: 1, to: 9 }]]);
-  assert.deepEqual(clipboardBody('x.wav', { from: 2, to: 3 }), { take: 'x.wav', from: 2, to: 3 });
+  assert.deepEqual(calls, [['/api/clipboard', 'POST', { take: 'jam_a.wav', from: 1, to: 9, grab: true }]]);
+  assert.deepEqual(clipboardBody('x.wav', { from: 2, to: 3 }), { take: 'x.wav', from: 2, to: 3, grab: true });
 });
 
 test('a refused copy says why, and goes nowhere', async () => {

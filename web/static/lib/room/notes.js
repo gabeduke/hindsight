@@ -71,9 +71,13 @@ export function fieldEnter({ current = null, words = '', cursor = 0, notes = [],
   return frame == null ? { kind: 'none' } : { kind: 'new', frame, words: w };
 }
 
-/** clipboardBody is POST /api/clipboard's body for a span of a take. */
+/**
+ * clipboardBody is POST /api/clipboard's body for a span of a take: a grab,
+ * which the Studio's buffer opens on (P2). A server without the buffer
+ * ignores `grab` and copies the span, as before.
+ */
 export function clipboardBody(file, span) {
-  return { take: file, from: span.from, to: span.to };
+  return { take: file, from: span.from, to: span.to, grab: true };
 }
 
 /**
