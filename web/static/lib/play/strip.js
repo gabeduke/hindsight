@@ -46,6 +46,17 @@ const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-height: 
 export function keysOwner({ open, given }) { return !!open && !given; }
 
 /**
+ * wantsFrames says whether the strip needs the shared ticker's next frame:
+ * the ring sweeping a playing tape, the reel still coasting, another hand's
+ * pad on its way, a pad of this hand's waiting for its line. A stopped tape
+ * under an unfolded strip is drawn on each poll (hindsight:tape-state wakes
+ * it), not sixty times a second.
+ */
+export function wantsFrames({ open, playing, moving, pending, held }) {
+  return !!((open && playing) || moving || pending || held);
+}
+
+/**
  * fromOptions lists where the pads can be played from, for the strip's
  * Playing from: touch, the computer's keys, each controller in the Pi, each
  * one plugged into this browser, and the offer to plug one in here.
@@ -151,7 +162,7 @@ export function startStrip({
       const slice = (DIVISIONS[surface.division] || 0.25) * beatMs;
       moving = ui.stepReel(Number.isFinite(dt) ? dt : 1000, t, { playing: !!tape?.playing, mode: modeOf(sounding), beatMs, sliceMs: slice });
     }
-    return open || moving || far.pending.length > 0 || surface.pads.size > 0;
+    return wantsFrames({ open, playing: !!tape?.playing, moving, pending: far.pending.length > 0, held: surface.pads.size > 0 });
   };
   const unstep = ticker.add(step);
   function wake() { ticker.start(); }

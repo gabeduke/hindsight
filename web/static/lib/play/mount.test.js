@@ -85,3 +85,14 @@ test('the KEYS rule: the strip has the keyboard only while unfolded and not give
   assert.equal(opts[2].live, true);
   assert.deepEqual(fromOptions({ canWeb: false }).map((o) => o.id), ['touch', 'keys'], 'no Web MIDI here: no offer');
 });
+
+test('the ticker parks under an unfolded strip while the tape is stopped', async () => {
+  const { wantsFrames } = await import('./strip.js');
+  const idle = { open: true, playing: false, moving: false, pending: false, held: false };
+  assert.equal(wantsFrames(idle), false);
+  assert.equal(wantsFrames({ ...idle, playing: true }), true, 'the ring sweeps a playing tape');
+  assert.equal(wantsFrames({ ...idle, open: false, playing: true }), false, 'folded, there is no ring');
+  assert.equal(wantsFrames({ ...idle, moving: true }), true, 'the reel coasting down');
+  assert.equal(wantsFrames({ ...idle, pending: true }), true);
+  assert.equal(wantsFrames({ ...idle, open: false, held: true }), true, 'a pad waiting for its line');
+});
