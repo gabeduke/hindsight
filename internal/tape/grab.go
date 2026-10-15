@@ -61,6 +61,12 @@ type Grab struct {
 	Reversed bool `json:"reversed,omitempty"`
 	// Used: it was dropped, or kept, so replacing it loses nothing.
 	Used bool `json:"used,omitempty"`
+	// Ring is the ring it was grabbed from (audio.Ring.ID): RingFrom means
+	// something only in that one. Stale says, as it's read, that this isn't
+	// that ring -- Hindsight has restarted since -- so its span can't be
+	// copied again, nor shown on the feed. Never saved.
+	Ring  string `json:"ring,omitempty"`
+	Stale bool   `json:"stale,omitempty"`
 }
 
 // fileFrames is how long every lane's file is.
@@ -201,16 +207,16 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 		return Grabbed{}, fmt.Errorf("%w: grab some bars, some seconds, or a span of the ring", ErrBadParameter)
 	}
 
-	// A start that has left the ring moves to the oldest audio, a second in,
-	// as a copy from the ribbon does; the end may not be heard quite yet (a
-	// catch's latency), so it's waited for, as a catch waits.
-	if oldest, _ := r.Window(); oldest > 0 && from < int64(oldest)+sr {
-		if req.Again {
-			return Grabbed{}, fmt.Errorf("%w: the buffer's audio has started to leave the ring; grab it again from the feed", ErrGone)
-		}
-		from, g.Clamped = int64(oldest)+sr, true
+	// Again needs the very ring it was grabbed from: the ring's frames count
+	// from its start, and start over when Hindsight does.
+	if req.Again && g.Ring != r.ID() {
+		return Grabbed{}, fmt.Errorf("%w: the buffer was grabbed before Hindsight restarted, so the feed it came from is gone; grab it again from the feed", ErrGone)
 	}
+	g.Ring = r.ID()
 	if to <= from {
+		return Grabbed{}, fmt.Errorf("%w: that span is empty", ErrBadParameter)
+	}
+	if oldest, _ := r.Window(); oldest > 0 && to <= int64(oldest)+sr {
 		return Grabbed{}, fmt.Errorf("%w: that span has left the buffer", ErrGone)
 	}
 	if err := e.tooLong(to - from); err != nil {
@@ -219,19 +225,47 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 	if err := e.diskOK(); err != nil {
 		return Grabbed{}, err
 	}
+	// The end may not be heard quite yet (a catch's latency), so it's waited
+	// for, as a catch waits; then the handle after: what's played next is a
+	// bar away, so it's waited for too -- the panel opens meanwhile -- unless
+	// the ring stops coming.
 	if !e.waitForRing(to, 2*time.Second) {
 		return Grabbed{}, ErrNotYet
 	}
-	// The handle after: what's played next is a bar away, so it's waited for
-	// too -- the panel opens meanwhile -- unless the ring stops coming.
 	h := e.grabHandle(sr, g.BarFrames)
 	e.waitForRing(to+h, time.Duration(float64(h)/float64(sr)*float64(time.Second))+time.Second)
+
+	// Only now, the waiting done, where the ring starts: it went on recording
+	// meanwhile, and overwrote its oldest audio. A start that has left it
+	// moves to the oldest it has, a second in, as a copy from the ribbon
+	// does; before the ring has filled, a start before its first frame moves
+	// to that frame. Either way the panel says it was clamped.
+	oldest, total := r.Window()
+	floor := int64(oldest)
+	if oldest > 0 {
+		floor += sr // the capture may overwrite that second while it's copied
+	}
+	if from < floor {
+		if req.Again {
+			return Grabbed{}, fmt.Errorf("%w: the buffer's audio has started to leave the ring; grab it again from the feed", ErrGone)
+		}
+		if to <= floor && oldest == 0 {
+			return Grabbed{}, fmt.Errorf("%w: the ring has nothing there yet", ErrNotYet)
+		}
+		if to <= floor {
+			return Grabbed{}, fmt.Errorf("%w: that span has left the buffer", ErrGone)
+		}
+		if g.Downbeat != nil { // its first bar line, counted from the new start
+			db := firstLine(*g.Downbeat-(floor-from), g.BarFrames, 0)
+			g.Downbeat = &db
+		}
+		from, g.Clamped = floor, true
+	}
 
 	// The span, the crossfades' overhang either side (inside the ring's
 	// oldest second if need be, as a copy's is), then the handles, as far as
 	// the ring has them (ringHandles).
 	over := int64(OverhangSeconds * float64(sr))
-	oldest, total := r.Window()
 	lo, hi := max64(int64(oldest), from-over), min64(int64(total), to+over)
 	lo, hi = ringHandles(r, sr, lo, hi, h-over)
 	g.RingFrom, g.Frames, g.Before, g.After = from, to-from, from-lo, hi-to
@@ -556,7 +590,16 @@ func (e *Engine) TrimClipboard(in, out int64) (*Clipboard, error) {
 		}
 	}
 	c.Frames = out - in
-	return c, e.store.SaveClipboard(c)
+	return e.markStale(c), e.store.SaveClipboard(c)
+}
+
+// markStale says, on a board as it's read, whether its grab came from
+// another ring than the capture's now (Grab.Stale).
+func (e *Engine) markStale(c *Clipboard) *Clipboard {
+	if c != nil && c.Grab != nil {
+		c.Grab.Stale = e.capture == nil || c.Grab.Ring != e.capture.Ring().ID()
+	}
+	return c
 }
 
 // grabBoard is the clipboard, if it holds a grab.
@@ -640,31 +683,31 @@ func (e *Engine) ShapeClipboard(s BoardShape) (*Clipboard, error) {
 			return nil, err
 		}
 	}
-	return c, e.store.SaveClipboard(c)
+	return e.markStale(c), e.store.SaveClipboard(c)
 }
 
-// normalizeGain is the gain that brings the loudest lane's window to
-// audio.NormalizePeakDB: the lanes keep their balance.
+// normalizeGain is the gain that brings the buffer's lanes, summed as KEEP
+// AS TAKE and AUDITION sum them, to audio.NormalizePeakDB at their loudest,
+// at most audio.MaxNormalizeGainDB up: the lanes keep their balance, and the
+// sum never goes over the top. Silence gets none.
 func (e *Engine) normalizeGain(c *Clipboard) (float64, error) {
-	gain := audio.MaxNormalizeGainDB
-	any := false
-	for _, tr := range c.Tracks {
-		for _, cl := range tr {
-			lv, err := audio.LevelOf(e.store.AudioPath(cl.File), nil, cl.Src, cl.Src+cl.Frames)
-			if err != nil {
-				return 0, fmt.Errorf("the buffer's level can't be read: %w", err)
-			}
-			if lv.PeakDB <= -120 {
-				continue // a silent lane doesn't say how far the others can go
-			}
-			any = true
-			gain = math.Min(gain, lv.GainDB)
+	unity := *c
+	unity.Tracks = make([][]Clip, len(c.Tracks))
+	for i, tr := range c.Tracks {
+		unity.Tracks[i] = append([]Clip(nil), tr...)
+		for j := range unity.Tracks[i] {
+			unity.Tracks[i][j].GainDB = 0
 		}
 	}
-	if !any {
+	peak, err := e.boardPeak(&unity)
+	if err != nil {
+		return 0, fmt.Errorf("the buffer's level can't be read: %w", err)
+	}
+	if peak <= 0 {
 		return 0, nil
 	}
-	return gain, nil
+	gain := math.Min(audio.NormalizePeakDB-20*math.Log10(peak), audio.MaxNormalizeGainDB)
+	return math.Round(gain*10) / 10, nil
 }
 
 // turnBoard turns every lane of a grabbed board round: a lane playing
@@ -790,15 +833,16 @@ func boardLabel(c *Clipboard) string {
 	return "Clipboard · " + c.From
 }
 
-// renderBoard sums the clipboard's tracks to stereo, chunk by chunk, with
-// each clip's level and fades, and a 3 ms declick at either end, as 32-bit
-// frames.
-func (e *Engine) renderBoard(c *Clipboard, write func([]int32) error) error {
+// sumCeiling is as loud as a buffer's lanes summed may be (about −0.3
+// dBFS): a sum that would go over is brought down as a whole, never clipped.
+const sumCeiling = 0.966
+
+// mixBoard sums the clipboard's tracks to stereo, chunk by chunk, with each
+// clip's level and fades, and hands each chunk -- n frames, interleaved -- to
+// emit.
+func (e *Engine) mixBoard(c *Clipboard, emit func(buf []float64, b0, n int64) error) error {
 	const chunk = 1 << 15
-	sr := e.store.SampleRate()
-	declick := audio.FadeFrames(sr)
 	buf := make([]float64, 2*chunk)
-	out := make([]int32, 2*chunk)
 	for b0 := int64(0); b0 < c.Frames; b0 += chunk {
 		b1 := min64(c.Frames, b0+chunk)
 		n := b1 - b0
@@ -840,24 +884,61 @@ func (e *Engine) renderBoard(c *Clipboard, write func([]int32) error) error {
 				}
 			}
 		}
+		if err := emit(buf[:2*n], b0, n); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// boardPeak is the loudest sample of the clipboard's tracks summed.
+func (e *Engine) boardPeak(c *Clipboard) (float64, error) {
+	peak := 0.0
+	err := e.mixBoard(c, func(buf []float64, _, _ int64) error {
+		for _, v := range buf {
+			peak = math.Max(peak, math.Abs(v))
+		}
+		return nil
+	})
+	return peak, err
+}
+
+// sumScale is what a sum peaking at peak is multiplied by to stay under
+// sumCeiling: 1 when it already does.
+func sumScale(peak float64) float64 {
+	if peak > sumCeiling {
+		return sumCeiling / peak
+	}
+	return 1
+}
+
+// renderBoard sums the clipboard's tracks to stereo (mixBoard), brought
+// under full scale as a whole if the sum would go over, with a 3 ms declick
+// at either end, as 32-bit frames.
+func (e *Engine) renderBoard(c *Clipboard, write func([]int32) error) error {
+	peak, err := e.boardPeak(c)
+	if err != nil {
+		return err
+	}
+	scale := sumScale(peak)
+	declick := audio.FadeFrames(e.store.SampleRate())
+	out := make([]int32, 2*(1<<15))
+	return e.mixBoard(c, func(buf []float64, b0, n int64) error {
 		for i := int64(0); i < n; i++ {
 			k := b0 + i
-			d := 1.0
+			d := scale
 			if k < declick {
-				d = float64(k) / float64(declick)
+				d *= float64(k) / float64(declick)
 			} else if left := c.Frames - 1 - k; left < declick {
-				d = float64(left) / float64(declick)
+				d *= float64(left) / float64(declick)
 			}
 			for ch := int64(0); ch < 2; ch++ {
 				v := math.Round(buf[2*i+ch] * d * 2147483647)
 				out[2*i+ch] = int32(math.Max(-2147483648, math.Min(2147483647, v)))
 			}
 		}
-		if err := write(out[:2*n]); err != nil {
-			return err
-		}
-	}
-	return nil
+		return write(out[:2*n])
+	})
 }
 
 // --- TOSS, and its Undo -------------------------------------------------------------
@@ -920,5 +1001,5 @@ func (e *Engine) RestoreClipboard() (*Clipboard, []CrateClip, error) {
 	e.store.mu.Lock()
 	os.Remove(e.store.tossedPath())
 	e.store.mu.Unlock()
-	return c, kept, nil
+	return e.markStale(c), kept, nil
 }
