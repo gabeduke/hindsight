@@ -176,6 +176,9 @@ export function startStrip({
     write(FOLD_KEY, open ? 'open' : null);
     ui.setFold(open);
     toggle.set(open);
+    // The page gives the instrument room while it's unfolded (styles.css,
+    // "Rooms P3"): a shorter feed, no sections row.
+    doc.body.classList.toggle('play-unfolded', open);
     if (open) {
       // One drawer at a time: the crate folds away for the instrument.
       const crateKey = doc.getElementById('np-drawer-crate');

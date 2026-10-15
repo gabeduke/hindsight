@@ -351,6 +351,7 @@ export function mountStrip(root, surface, {
         fromSeg.append(b);
       }
       fromLine.textContent = line || '';
+      fromSeg.title = line || ''; // where the line itself has no room
       fromLine.hidden = !line;
       legends();
     },
