@@ -2,7 +2,8 @@
 
 **Date:** 2026-10-15 · **Status:** decisions A–C are Gabe's, made on
 2026-10-15 after [the walkthrough](../2026-10-15-walkthrough.md); the rest are
-recommended picks, with three questions for him · **Repo:** `hindsight` ·
+recommended picks, and his answers to its three questions are under
+*Answered by Gabe* · **Repo:** `hindsight` ·
 Changes [Two rooms and a rig](2026-10-15-rooms-design.md),
 [the Studio's buffer](2026-10-15-studio-buffer-design.md),
 [the Listening Room](2026-10-15-listening-room-design.md), and R2 and R7 of
@@ -163,7 +164,7 @@ Verbs:
 - **The honest limit.** A new page can't always start sound by itself. Chrome
   on a laptop generally plays on after a tap on the same site. Safari on an
   iPhone won't: there the bar arrives at the same spot with ▶ lit, one tap
-  from carrying on. Either way the gap is one page load. *Open question 1* is
+  from carrying on. Either way the gap is one page load. *Answer 1* settles
   whether that's good enough.
 
 ### Open: one page to dig in
@@ -196,7 +197,7 @@ changes, so the gap doesn't move it.
 |---|---|
 | A spine's sheet (`shelf-detail.js`, with the rooms on) | Goes. Playing is a tap; its controls are on Open, or in a selection |
 | The sheet's PUT IT ON, TO THE STUDIO, Play all from here, Cut a record | A tap; GRAB on Open; Play all in the list's header; BOUNCE in the Studio |
-| The doorway (`takes.html`) | Stays as the Listening Room: shelves of takes, the list, search. Loses the Records shelf, the turntable and the sketchbook as a place. Tapes: *open question 2* |
+| The doorway (`takes.html`) | Stays as the Listening Room: shelves of takes, the list, search. Loses the Records shelf, the turntable and the sketchbook as a place. Tapes: off the shelf (answer 2) |
 | The room's deck | A picture of the bar: what it holds and how far it has got. Its keys go; tapping it is Open. The phone's deck card goes |
 | The chair (`chair.js`), SIT DOWN, Stand up | Goes. Open is the take's one page |
 | TOOLS (the old take page, under the chair) | Goes. Its tools are Open's row and menus. Its second and third waveforms, *Three things worth knowing* (it becomes tips) and Send to go |
@@ -369,21 +370,18 @@ The table, against today's §2:
 13. **R2 starts the sound at the tap,** not at SEAT; the flight runs alongside
     it. **R7, the lathe, is dropped:** it animated a record.
 
-## Open questions for Gabe
+## Answered by Gabe (2026-10-15)
 
-1. **Open: its own page, or part of the Listening Room's?** An iPhone won't
-   start sound on a new page by itself. As its own page (M), Open arrives at
-   the same spot and an iPhone needs one ▶; a laptop plays on. As part of the
-   room's page it never stops anywhere, but that's the bigger build (L: the
-   take page's tools move into the room's page). *Recommended:* its own page
-   now, tried on your iPhone; the bigger build only if the tap grates. This
-   decides the shape of F6.
-2. **Tapes in the Listening Room: off the shelf, or a row that opens them in
-   the Studio?** *Recommended:* off. They're what you build on; their bounces
-   are on the shelf.
-3. **What's in your crate now: leave it on the Pi, out of sight, or turn each
-   clip into a take once, folded under the take it came from?**
-   *Recommended:* leave it. Nothing is lost, and there's nothing to manage.
+The three open questions, all answered with the recommended pick:
+
+1. **Open is its own page** (`wave.html`, size M). An iPhone needs one ▶
+   after the page change; the bigger build, Open inside the Listening Room's
+   page, waits until that tap is tried on his iPhone and grates. This fixes
+   the shape of F6.
+2. **Tapes live in the Studio only.** They come off the Listening Room's
+   shelf; their bounces stand on it as takes.
+3. **The crate's clips stay on the Pi, out of sight.** The crate stops being
+   shown; nothing is converted or deleted.
 
 ## Not in this
 
