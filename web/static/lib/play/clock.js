@@ -55,6 +55,20 @@ export function gridFrom(s, prev) {
 }
 
 /**
+ * beatAt is the beat of the bar the playhead is in at `now`, from 1, as the
+ * strip's hub shows it after the bar (3.2), or null with no tempo. The
+ * tape's grid is 4/4.
+ */
+export function beatAt(s, now) {
+  if (!s || !(s.rate > 0) || !Number.isFinite(s.heard) || !(s.bar_frames > 0)) return null;
+  const loop = s.loop && s.loop.out > s.loop.in ? s.loop : null;
+  let pos = s.heard + (s.playing && Number.isFinite(s.at) ? Math.max(0, (now - s.at) / 1000) * s.rate : 0);
+  if (loop && loop.on && s.playing && pos >= loop.out) pos = loop.in + mod(pos - loop.in, loop.out - loop.in);
+  const inBar = mod(pos, s.bar_frames);
+  return Math.min(4, Math.floor(inBar / (s.bar_frames / 4) + 1e-9) + 1);
+}
+
+/**
  * ringAt is what the ring shows at `now`: `frac` of the way round the loop,
  * the bar the playhead is in (counted from the tape's bar 1, as the LCD
  * counts), and how many bars the ring is divided into.

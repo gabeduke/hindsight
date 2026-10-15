@@ -42,6 +42,7 @@ import { initNav } from '../nav.js';
 import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
+import { on as roomsOn } from '../rooms/flag.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -3874,7 +3875,10 @@ function closeSheets() {
 // right, and the lanes make room; on a phone, a sheet over the foot of the
 // page, its grip pulling it up or down (styles.css, "the inspector").
 const INSPECTORS = ['clip-sheet', 'track-sheet', 'section-sheet'];
-const INSPECTOR_PASSES = new Set(['KeyR', 'KeyL', 'KeyK', 'KeyJ', 'Digit1', 'Digit2', 'Digit3', 'Digit4']);
+const INSPECTOR_PASSES = new Set(['KeyR', 'KeyL', 'KeyK', 'KeyM', 'KeyJ', 'Digit1', 'Digit2', 'Digit3', 'Digit4']);
+// clickKey is the click's key: K, or with the two rooms on M, because K is
+// KEEP there (lib/play/controls.js; lib/rooms/studio.js binds K and C).
+const CLICK_KEY = roomsOn() ? 'KeyM' : 'KeyK';
 const inspecting = () => INSPECTORS.find((id) => $(id).open) || null;
 // A dialog in the way of the page's keys: any open one but the inspector.
 const modalOpen = () => [...document.querySelectorAll('dialog[open]')].some((d) => !d.classList.contains('inspector'));
@@ -4566,7 +4570,7 @@ function wire() {
     switch (e.code) {
       case 'KeyR': press('rec'); break;
       case 'KeyL': press('loop'); break;
-      case 'KeyK': press('click'); break;
+      case CLICK_KEY: press('click'); break;
       // Back five seconds, as ↺ 5 s does on a take.
       // From what this device hears: on a phone playing here, behind the Pi.
       case 'KeyJ': if (!e.repeat) transport('locate', { pos: Math.max(0, (state.live ? state.live.heard : 0) - 5 * state.tape.sample_rate) }); break;

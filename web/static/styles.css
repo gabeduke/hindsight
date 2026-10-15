@@ -3633,29 +3633,19 @@ a.crate-chip { text-decoration: none; }
 @keyframes insp-in-up { from { transform: translateY(40%); opacity: .4; } }
 
 /* ---------- Play mode (lib/play) ---------- */
-/* A surface rather than a page: one screen, momentary controls, and the only
-   non-musical gesture on it is the one that leaves. Behind the per-device
-   hindsight.play flag, so a kit that has not asked for it never draws any of
-   this.
+/* The pads, shared by every place Play mode draws them: since the rooms'
+   P3 that is the instrument strip, a drawer above the bar (its layout is
+   the "Rooms P3" block at the end). Behind the per-device hindsight.play
+   flag, so a kit that has not asked for it never draws any of this.
 
    Every selector here hangs off a `play-` class (styles.test.js checks):
    a bare `.play` is the Takes page's Play buttons, and an overlay rule on it
    once filled a phone's screen with one of them.
 
-   The surface is an object, so it is drawn in its own materials (the --pad-
-   tokens in objects.css) and looks the same in both schemes. It used the
-   page's panels once, and in the light scheme its legends were ivory on pale
-   grey. styles.test.js keeps it off the scheme's tokens. */
-.play-mode {
-  position: fixed; inset: 0; z-index: 60;
-  display: flex; flex-direction: column; gap: 10px;
-  padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
-  background: var(--pad-chassis); color: var(--pad-legend);
-  color-scheme: dark;
-}
-body.play-open { overflow: hidden; }
-
-.play-top { display: flex; align-items: center; gap: 12px; flex: none; }
+   The pads are an object, so they are drawn in their own materials (the
+   --pad- tokens in objects.css) and look the same in both schemes. They
+   used the page's panels once, and in the light scheme their legends were
+   ivory on pale grey. styles.test.js keeps them off the scheme's tokens. */
 .play-quant { display: flex; align-items: center; gap: 8px; }
 .play-quant-label { font: 700 11px var(--label-font); letter-spacing: 2px; color: var(--pad-legend-dim); }
 /* Quantise: its own small switch, not the app's .seg, which is drawn in the
@@ -3665,7 +3655,7 @@ body.play-open { overflow: hidden; }
   border: 1px solid var(--pad-rule); border-radius: 10px;
 }
 .play-seg button {
-  min-height: 36px; min-width: 40px; padding: 0 10px;
+  min-height: 30px; min-width: 36px; padding: 0 8px;
   border: 0; border-radius: 7px;
   background: transparent; color: var(--pad-legend-dim);
   font: 600 13px var(--label-font);
@@ -3675,19 +3665,9 @@ body.play-open { overflow: hidden; }
   margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 600 12px var(--label-font); letter-spacing: 1px; color: var(--pad-legend-dim);
 }
-.play-exit {
-  margin-left: auto; min-height: 44px; padding: 0 18px;
-  border: 1px solid var(--pad-edge); border-radius: 10px;
-  background: var(--pad-face); color: var(--pad-legend);
-  font: 700 13px var(--label-font); letter-spacing: 2px; text-transform: uppercase;
-}
-.play-seg button:focus-visible, .play-exit:focus-visible, .play-pad:focus-visible {
+.play-seg button:focus-visible, .play-pad:focus-visible {
   outline: 2px solid var(--pad-lit); outline-offset: 2px;
 }
-
-.play-stage { flex: 1; display: flex; gap: 10px; min-height: 0; }
-.play-tracks { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; min-height: 0; }
-.play-tricks { flex: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
 
 /* A pad. Big enough to hit with a thumb while looking at an instrument
    instead of at the screen. */
@@ -3700,6 +3680,7 @@ body.play-open { overflow: hidden; }
   font: 700 13px var(--label-font); letter-spacing: 2px;
   touch-action: none;            /* a held pad must not scroll the surface */
   user-select: none; -webkit-user-select: none;
+  cursor: pointer;
 }
 .play-face { pointer-events: none; }
 .play-key {
@@ -3729,36 +3710,6 @@ body.play-open { overflow: hidden; }
 @media (prefers-reduced-motion: no-preference) {
   .play-pad { transition: background 70ms linear, opacity 70ms linear; }
 }
-
-/* The ring: the loop, and where the playhead is in it. A readout you can
-   follow from across the room with your hands on an instrument. */
-.play-ring { flex: none; width: clamp(96px, 26vw, 150px); display: flex; align-items: center; }
-.play-ring svg { width: 100%; height: auto; }
-.play-ring-track { fill: none; stroke: var(--pad-edge); stroke-width: 6; }
-.play-ring-sweep { fill: none; stroke: var(--pad-lit); stroke-width: 6; stroke-linecap: round; }
-.play-ring-ticks line { stroke: var(--pad-legend-dim); stroke-width: 1.5; }
-.play-ring-bar { fill: var(--pad-legend); font: 700 26px var(--label-font); }
-
-/* On a phone in portrait the four tracks are still four columns, but the ring
-   moves under them so the pads keep their height. */
-@media (max-width: 560px) and (orientation: portrait) {
-  .play-stage { flex-direction: column; }
-  .play-ring { width: 100%; justify-content: center; }
-  .play-ring svg { width: clamp(90px, 30vw, 130px); }
-}
-
-/* Play mode's own way in, made by lib/play/mount.js. It exists only when the
-   flag is on, which is why it is not in tape.html. */
-.play-enter {
-  position: fixed; z-index: 55;
-  right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
-  min-height: 44px; padding: 0 18px;
-  border: 1px solid var(--accent-edge); border-radius: 22px;
-  background: var(--panel); color: var(--ink);
-  font: 700 13px var(--label-font); letter-spacing: 2px; text-transform: uppercase;
-  box-shadow: 0 2px 10px var(--shadow);
-}
-body.play-open .play-enter { display: none; }
 
 /* ---------- Rooms P1: the Studio's feed and foot (lib/rooms/studio.js) ---------- */
 /* With the two rooms on (lib/rooms/flag.js, one device), the tape page is
@@ -4085,4 +4036,166 @@ body.buffer-fold .tape-sections-row { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .buffer-glow { animation: none; opacity: 0; transition: opacity 1.2s; }
   .buffer-panel { transition: none; }
+}
+
+/* ---------- Rooms P3: the instrument strip (lib/play) ---------- */
+/* Play mode as one more drawer above the bar (lib/play/screen.js): folded,
+   one live row of small pads; unfolded, the reel as the loop's ring, the
+   track keys, the tricks and the rest of the bus. Behind hindsight.play,
+   built by lib/play/mount.js, so a kit without it has none of this markup.
+   Every selector hangs off a `play-` class, and the strip is the pad
+   controller's materials (objects.css), dark in either scheme, as an
+   instrument on a stand is (lib/play/styles.test.js). */
+.play-strip {
+  flex: none; margin: 0 12px;
+  border: 1px solid var(--pad-edge); border-bottom: 0; border-radius: 12px 12px 0 0;
+  background: var(--pad-chassis); color: var(--pad-legend);
+  color-scheme: dark;
+}
+.play-row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; min-width: 0; }
+.play-fold, .play-keys, .play-learn, .play-verb {
+  appearance: none; flex: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px;
+  border: 1px solid var(--pad-edge); border-radius: 9px;
+  background: var(--pad-face); color: var(--pad-legend);
+  font: 700 12.5px var(--label-font); letter-spacing: .16em; text-transform: uppercase;
+  cursor: pointer;
+}
+.play-fold[aria-expanded="true"] { background: var(--pad-face-armed); }
+.play-chev { color: var(--pad-legend-dim); font-size: 11px; letter-spacing: 0; }
+.play-keys { padding: 0 10px; color: var(--pad-legend-dim); }
+.play-keys[aria-pressed="true"] { color: var(--pad-legend); border-color: var(--pad-lit); }
+/* A lamp: the KEYS rule, a controller connected, a pad sounding. */
+.play-lamp {
+  flex: none; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--pad-rule); box-shadow: inset 0 1px 1px rgba(0,0,0,.45);
+}
+.play-keys[aria-pressed="true"] .play-lamp, .play-lamp.play-lit { background: var(--pad-lit); box-shadow: 0 0 8px var(--pad-lit); }
+.play-fold:focus-visible, .play-keys:focus-visible, .play-learn:focus-visible, .play-verb:focus-visible,
+.play-from-opt:focus-visible, .play-toggle-opt:focus-visible { outline: 2px solid var(--pad-lit); outline-offset: 2px; }
+
+/* Folded: the track keys and the tricks, small, still live. */
+.play-mini { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.play-pad.play-small {
+  flex: none; flex-direction: row; gap: 6px;
+  min-height: 36px; height: 36px; min-width: 42px; padding: 0 9px;
+  border-radius: 8px; font-size: 11.5px; letter-spacing: 1px;
+}
+.play-track.play-small { font-size: 15px; }
+.play-strip > .play-row > .play-note { flex: 0 1 auto; }
+.play-head { display: none; }
+.play-strip[data-fold="open"] .play-mini { display: none; }
+.play-strip[data-fold="open"] .play-head { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+.play-from {
+  display: inline-flex; align-items: center; gap: 2px; padding: 3px; min-width: 0; flex-wrap: wrap;
+  border: 1px solid var(--pad-rule); border-radius: 10px;
+}
+.play-from-label { padding: 0 8px; font: 700 10.5px var(--label-font); letter-spacing: .18em; text-transform: uppercase; color: var(--pad-legend-dim); }
+.play-from-opt {
+  appearance: none; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 30px; padding: 0 10px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--pad-legend-dim);
+  font: 500 12.5px var(--font); cursor: pointer; white-space: nowrap;
+}
+.play-from-opt[aria-pressed="true"] { background: var(--pad-face-armed); color: var(--pad-legend); }
+.play-lead { font: 500 12px var(--mono); color: var(--pad-legend-dim); white-space: nowrap; }
+.play-learn { margin-left: auto; }
+.play-learn[aria-pressed="true"] { background: var(--pad-lit); border-color: var(--pad-lit); color: var(--pad-lit-ink); }
+.play-learn:disabled { opacity: .45; cursor: default; }
+
+/* Unfolded. */
+.play-panel { padding: 0 12px 10px; }
+.play-panel[hidden] { display: none; }
+.play-from-line { margin: 0 0 8px; font-size: 12px; color: var(--pad-legend-dim); }
+.play-from-line[hidden] { display: none; }
+.play-body {
+  display: grid; align-items: stretch; gap: 16px;
+  grid-template-columns: auto minmax(200px, 1.1fr) minmax(260px, 1fr);
+}
+.play-tracks-group, .play-side { display: flex; flex-direction: column; min-width: 0; }
+.play-tracks-group > .play-tracks { flex: 1 1 auto; }
+.play-body > .play-slot:not([hidden]) { display: block; } /* P4's FX and mods, when they land */
+.play-reel { width: clamp(132px, 11vw, 168px); align-self: center; }
+.play-reel svg { display: block; width: 100%; height: auto; }
+.play-ring-track { fill: none; stroke: var(--pad-face); stroke-width: 14; }
+.play-ring-ticks line { stroke: var(--pad-legend-dim); stroke-width: 2.5; }
+.play-ring-sweep { fill: none; stroke: var(--pad-lit); stroke-width: 7; stroke-linecap: round; }
+.play-ring-head { fill: var(--pad-lit); }
+.play-reel-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 2; }
+.play-reel-pack { fill: var(--pack); stroke: var(--pack-edge); stroke-width: 1.5; }
+.play-reel-spoke { stroke: var(--reel-metal); stroke-width: 9; stroke-linecap: round; }
+.play-reel-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 2; }
+.play-reel-lcd { fill: var(--lcd-ink); font: 600 27px var(--mono); }
+.play-reel-unit { fill: var(--lcd-ink); opacity: .75; font: 700 9px var(--label-font); letter-spacing: .14em; }
+.play-group-title { margin: 0 0 8px; font: 700 11px var(--label-font); letter-spacing: .2em; text-transform: uppercase; color: var(--pad-legend-dim); }
+.play-tracks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.play-tracks .play-track { min-height: 88px; font-size: 24px; }
+.play-tricks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.play-tricks .play-trick { min-height: 48px; }
+.play-bus {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 8px;
+}
+.play-bus .play-verb { height: 32px; padding: 0 9px; }
+.play-bus-title { font: 700 10.5px var(--label-font); letter-spacing: .2em; text-transform: uppercase; color: var(--pad-legend-dim); margin-right: 4px; }
+.play-verb .play-key { margin-left: 2px; }
+.play-bus-hint { margin-left: auto; font: 500 11px var(--mono); color: var(--pad-legend-dim); white-space: nowrap; }
+/* Lit by another hand: bright only, with a ring to say it isn't this one's. */
+.play-pad.play-far { box-shadow: inset 0 0 0 2px var(--pad-lit-ink); }
+/* MIDI LEARN: the legends are the bindings, and the pad waiting blinks. */
+.play-learning .play-pad, .play-learning .play-verb { border-style: dashed; }
+.play-pad.play-pick, .play-verb.play-pick { border: 2px solid var(--pad-lit); }
+@media (prefers-reduced-motion: no-preference) {
+  .play-pad.play-pick, .play-verb.play-pick { animation: play-blink .7s steps(2, jump-none) infinite; }
+}
+@keyframes play-blink { 50% { background: var(--pad-face-armed); border-color: transparent; } }
+
+/* Narrower than a laptop: the reel over the pads. */
+@media (max-width: 1099.98px) and (min-width: 700px) {
+  .play-body { grid-template-columns: auto 1fr; }
+  .play-side { grid-column: 2; }
+  .play-reel { grid-row: span 2; width: 132px; }
+  .play-tracks .play-track { min-height: 64px; }
+}
+
+/* The phone's EDIT | PLAY lives in the mini player, and only there. */
+.play-toggle { display: none; }
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  body.tape-page:not(.player-open):has(.play-toggle) { --np-h: 108px; }
+  body.tape-page:not(.player-open):has(.play-toggle):has(#out-strip:not([hidden])) { --np-h: 148px; }
+  body:not(.player-open) .np:has(> .play-toggle) { flex-wrap: wrap; align-content: center; row-gap: 6px; }
+  body:not(.player-open) .np > .play-toggle {
+    order: -2; flex: 1 1 100%;
+    display: flex; gap: 3px; padding: 3px; border-radius: 10px;
+    background: var(--pad-chassis); border: 1px solid var(--pad-edge);
+  }
+  .play-toggle-opt {
+    appearance: none; flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 32px; border: 0; border-radius: 7px; background: transparent; color: var(--pad-legend-dim);
+    font: 700 13px var(--label-font); letter-spacing: .2em; text-transform: uppercase; cursor: pointer;
+  }
+  .play-toggle-opt[aria-pressed="true"] { background: var(--pad-face-armed); color: var(--pad-legend); }
+  /* PLAY: the strip is the bottom panel, over the lanes, above the bar. */
+  .play-strip { margin: 0; border: 0; border-radius: 0; }
+  .play-strip[data-fold="folded"] { display: none; }
+  body:not(.player-open) .play-strip[data-fold="open"] {
+    position: fixed; left: 0; right: 0; z-index: 17;
+    bottom: calc(var(--dock-b, 0px) + var(--np-h));
+    max-height: calc(100svh - var(--dock-b, 0px) - var(--np-h) - 96px); overflow-y: auto; overscroll-behavior: contain;
+    border-top: 1px solid var(--pad-edge); box-shadow: 0 -12px 24px -14px rgba(0,0,0,.7);
+  }
+  body.player-open .play-strip { display: none; }
+  .play-fold, .play-keys, .play-mini { display: none; }
+  .play-row { padding: 8px 12px 6px; min-height: 0; }
+  .play-strip[data-fold="open"] .play-head { gap: 8px; }
+  .play-learn { margin-left: 0; height: 32px; }
+  .play-from { flex: 1 1 100%; }
+  .play-body { grid-template-columns: auto 1fr; gap: 10px; }
+  .play-reel { width: 116px; }
+  .play-tracks-group { grid-column: 2; }
+  .play-side { grid-column: 1 / -1; }
+  .play-tracks .play-track { min-height: 96px; }
+  .play-tricks .play-trick { min-height: 54px; }
+  .play-bus-hint { margin-left: 0; }
 }

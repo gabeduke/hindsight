@@ -166,7 +166,7 @@ export const TIPS = [
   { control: 'Keep as clip (ribbon)', ids: ['ribbon-keep'], tip: 'Keep the span you selected as a clip on the crate, not as a take' },
   { control: '● Rec (tape)', ids: ['tape-rec'], tip: 'Records the record track (its ● lit) from its input, named here. Stopped: it\'s ready (● Ready), then ▶ counts in a bar. Playing: records from the next bar, marked on its lane. Tap again to keep it. Key: R' },
   { control: 'RECORDING', ids: ['rec-sign'], tip: 'Shows only while a punch is recording onto the tape' },
-  { control: '♩ Click', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty. Key: K' },
+  { control: '♩ Click', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty. Key: K, or M with the two rooms on' },
   { control: 'Tap (empty tape)', ids: ['tape-tap'], tip: 'Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it' },
   { control: 'Tempo (tape)', ids: ['tape-tempo'], tip: 'Call the loop more bars or fewer: the same length, so nothing is stretched' },
   { control: '⟲ Loop (tape)', ids: ['tape-loop'], tip: 'Loop the bracket, or play on to the end of what’s recorded. Key: L' },
@@ -209,7 +209,7 @@ export const TIPS = [
   { control: 'Hit → Grid', ids: ['ce-grid'], tip: 'Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off' },
   { control: 'Track picker', ids: ['ce-ref'], tip: 'Choose the track to line this clip up against' },
   { control: 'Hit → Track', ids: ['ce-track'], tip: 'Move the clip so its hit lands on the nearest hit of the chosen track' },
-  { control: 'Catch', ids: ['catch'], tip: 'Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. The last 1, 2 or 4 bars are in the track\'s inspector' },
+  { control: 'Catch', ids: ['catch'], tip: 'Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. The last 1, 2 or 4 bars are in the track\'s inspector. With the two rooms on, C' },
   { control: 'Passes', ids: ['passes'], tip: 'Every time round the loop, kept. Tap one to put it on the record track' },
   { control: 'Paste', ids: ['drop'], tip: 'Put the clipboard at the playhead on the selected track, over what\'s there: it replaces it, and the tape\'s length doesn\'t change. Paste again to lay another copy after it. Key: ⌘V or Ctrl-V' },
   { control: 'Insert', ids: ['insert'], tip: 'Put the clipboard at the playhead and push everything after it later: every track, and the sections, move on by its length' },
@@ -254,6 +254,16 @@ export const TIPS = [
   { control: 'Normalize (buffer)', ids: ['buffer-normalize'], tip: 'Bring the loudest lane\'s loudest moment to just under full scale, the lanes kept in balance' },
   { control: 'Reverse (buffer)', ids: ['buffer-reverse'], tip: 'Play the buffer backwards, or forwards again' },
   { control: 'Fades (buffer)', ids: ['buffer-fades'], tip: 'The fades\' curve: equal power, linear, S-curve or exponential. Drag the corners for their length' },
+  // The instrument strip (lib/play), with Play mode on
+  { control: 'Instrument ▴', ids: ['play-fold'], tip: 'Play mode as a drawer. Folded: the track keys and the tricks as small pads, still live. Unfolded: the reel and every pad, and the computer\'s keys play it' },
+  { control: 'Keys (instrument)', ids: ['play-keys'], tip: 'Lit while the computer\'s keys play the instrument: R is STOP then, not ● Rec, and 1 drops track 1 out. A tap on the lanes, or on this, gives them back to editing' },
+  { control: 'A pad', ids: ['play-pad'], tip: 'Hold it: dim when touched, bright when it\'s heard, on the next grid line. Let go and it stops, in time. Bright with a ring: another hand is playing it' },
+  { control: 'Playing from', ids: ['play-from'], tip: 'Touch, the keys and every controller play at once; this picks which legends the pads show, and the controller MIDI learn binds' },
+  { control: '⌗ (instrument)', ids: ['play-quant'], tip: 'Where this device\'s presses land: at once, or the next 16th, 8th, beat or bar' },
+  { control: 'Lead', ids: ['play-lead'], tip: 'How long a press takes to be heard from the Pi: play that far ahead of the beat' },
+  { control: 'MIDI learn', ids: ['play-learn'], tip: 'Every pad shows its key on the controller (– for none). Tap a pad, then play a key or turn a knob on the controller. Esc cancels' },
+  { control: 'Catch, Grab, Drop, Keep (instrument)', ids: ['play-verb'], tip: 'The Studio\'s verbs from the instrument: the last pass onto the armed track, the last bars into the buffer, the buffer onto the armed track, and the feed (or the open buffer) as a take. C, G, ↵, K' },
+  { control: 'Edit / Play (phone)', ids: ['play-toggle'], tip: 'On a phone: Play makes the bottom panel the instrument; Edit gives the drawers back. Play\'s lamp lights while a pad sounds' },
 ];
 
 const byId = new Map();

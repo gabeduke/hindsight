@@ -84,3 +84,14 @@ test('no tape, no ring', () => {
   assert.deepEqual(ringAt(null, 0), { frac: 0, bar: null, bars: null });
   assert.deepEqual(ringAt({ heard: 0, rate: 0 }, 0), { frac: 0, bar: null, bars: null });
 });
+
+test('the hub’s beat: which beat of the bar the playhead is in', async () => {
+  const { beatAt } = await import('./clock.js');
+  const s = { heard: 0, rate: 48000, at: 1000, playing: true, bar_frames: 96000, bars: 4, loop: { in: 0, out: 384000, on: true } };
+  assert.equal(beatAt(s, 1000), 1);
+  assert.equal(beatAt(s, 1000 + 500), 2);  // a beat at 120 BPM
+  assert.equal(beatAt(s, 1000 + 1999), 4);
+  assert.equal(beatAt(s, 1000 + 2000), 1);  // the next bar
+  assert.equal(beatAt(s, 1000 + 8000 + 500), 2, 'round the loop');
+  assert.equal(beatAt({ ...s, bar_frames: 0 }, 1000), null);
+});
