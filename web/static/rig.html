@@ -53,11 +53,10 @@
   </div>
   <div id="rig-room" class="rig-room" hidden>
     <!-- The desk: device cards and the kit's patch bay, every socket a
-         button. The cables are drawn over the buttons and take no input
-         (.rig-wires); under them, a wider invisible stroke for each lets a
-         tap on a cable show it (.rig-hits). -->
+         button. The cables are ropes drawn over the buttons, taking no input
+         (.rig-wires, lib/rig/ropes.js); a tap on a rope's run, anywhere that
+         isn't a control, shows its cable (the renderer's hit()). -->
     <section id="rig-desk" class="rig-desk" aria-label="The desk">
-      <svg class="rig-hits" aria-hidden="true"></svg>
       <div id="rig-devices" class="rig-devices"></div>
       <div id="rig-bay" class="rig-bay" role="group" aria-label="Hindsight kit: the patch bay"></div>
       <svg class="rig-wires" aria-hidden="true"></svg>

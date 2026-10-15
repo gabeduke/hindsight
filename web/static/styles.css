@@ -3908,18 +3908,15 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
   .rig-legend { grid-area: legend; }
 }
 
-/* The desk. Cables run in an SVG over the gear and take no input; a wider
-   stroke under the gear lets a tap on a cable's run show it. */
+/* The desk. Cables run in an SVG over the gear and take no input; a tap on
+   a cable's run finds it by the ropes' hit() (Rooms R4). */
 .rig-desk {
   position: relative; display: flex; flex-direction: column; gap: 22px; min-width: 0;
   padding: 18px 16px 28px; border-radius: 14px; color: var(--desk-ink);
   background: radial-gradient(ellipse at 45% 35%, var(--desk-felt), var(--desk-felt-lo) 75%);
   box-shadow: inset 0 0 0 1px var(--desk-edge), inset 0 0 70px rgba(0,0,0,.45);
 }
-.rig-wires, .rig-hits { position: absolute; left: 0; top: 0; overflow: visible; }
-.rig-wires { z-index: 4; pointer-events: none; }
-.rig-hits { z-index: 0; }
-.rig-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.rig-wires { position: absolute; left: 0; top: 0; z-index: 4; overflow: visible; pointer-events: none; }
 .rig-devices, .rig-bay { position: relative; z-index: 1; }
 .rig-wire { fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
 .rig-wire.faded { opacity: .45; }
@@ -4115,3 +4112,13 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 .tt-head:has(> .tt-warn) { position: relative; }
 .tt-head .tt-warn { position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--warn-glow); }
 .tt-head .tt-warn[hidden] { display: none; }
+
+/* ---------- Rooms R4: the rig's cables as ropes (lib/scene/cable.js, lib/rig/ropes.js) ---------- */
+/* The ropes are drawn into P6's .rig-wires, which takes no input: the
+   sockets under them stay the controls. Every rule hangs off a rig- class,
+   and the markup exists only on rig.html with the two rooms on. */
+.rig-rope { pointer-events: none; }
+/* A pointer over a rope's run, away from any control: a click shows it. */
+.rig-desk.rig-over-rope { cursor: pointer; }
+/* A plug in the hand, out of any socket. */
+.rig-plug.loose { stroke: var(--jack-ring-hot); stroke-width: 2.5; }
