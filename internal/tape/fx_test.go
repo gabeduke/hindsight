@@ -990,3 +990,37 @@ func TestEchoDoesntAllocateOnTheRenderPath(t *testing.T) {
 		t.Fatalf("the block ECHO came in on allocated %d bytes (the press took %d)", got, base)
 	}
 }
+
+func TestWowOnAFirstPassFromInReadsWhatThePlainTapeDoes(t *testing.T) {
+	// Played from In without having come round, the plain tape starts there:
+	// no crossfade from what follows Out, and nothing of the loop's end.
+	// With WOW up, the head reads within its depth of that -- also once the
+	// loop has come round.
+	const in, out = 96000, 144000
+	depth := wowDepth * 48000 / (2 * math.Pi * wowHz)
+	for name, on := range map[string]func(r *rig){
+		"turned up as it plays": func(r *rig) { _ = r.e.Set("mod.wow", 1) },
+		"already up":            func(r *rig) { withMods(r, Style{Wow: 1}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newRig(t, Loop{In: in, Out: out, On: true})
+			on(r)
+			r.playFrom(in)
+			res := r.run(60) // past the wrap at 48000 frames, and on
+			// Not inside the crossfade after the wrap, where the plain tape
+			// itself blends two places on the ramp.
+			for _, k := range []int{0, 1, 10, 100, 239, 240, 1000, 47000, 48000, 48400, 50000} {
+				want := float64(in + k%(out-in))
+				got := readAt(res, k, 0)
+				d := got - want
+				if k >= out-in {
+					// Come round, a little behind In is the loop's end.
+					d = math.Mod(d+1.5*(out-in), out-in) - 0.5*(out-in)
+				}
+				if math.Abs(d) > depth+0.05 {
+					t.Fatalf("frame %d reads tape frame %.1f, %.1f from the transport's %.0f", k, got, d, want)
+				}
+			}
+		})
+	}
+}

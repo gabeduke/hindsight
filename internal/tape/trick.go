@@ -511,6 +511,7 @@ type perf struct {
 	wf, bendArr, off []float64
 	wfOn, bendFilled bool
 	planOff          []float64
+	round            []bool
 }
 
 // preview is a mod moved on a page or a controller and not yet saved.
@@ -625,6 +626,7 @@ func (p *perf) reslice(out uint64) {
 // and, if a jump landed on it within a crossfade, what it left.
 type run struct {
 	k, j   int
+	fresh  bool    // the transport's first pass from In: no crossfade from past Out
 	phase  int64   // frames since the jump; -1 for none
 	from   float64 // the position it left
 	step   float64 // and how fast it was moving
@@ -918,7 +920,7 @@ func (p *perf) lose() {
 // tape, or the transport reset.
 func (p *perf) reset() {
 	keep := perf{a: p.a, b: p.b, tb: p.tb, buf: p.buf, pos: p.pos, opos: p.opos, lvl: p.lvl, olvl: p.olvl, runs: p.runs,
-		wf: p.wf, bendArr: p.bendArr, off: p.off}
+		wf: p.wf, bendArr: p.bendArr, off: p.off, round: p.round}
 	keep.bus.echo.line = p.bus.echo.line[:0]
 	*p = keep
 }
@@ -955,6 +957,7 @@ func (p *perf) ensure(n int, m *Mix) {
 	p.wf = make([]float64, n)
 	p.bendArr = make([]float64, n)
 	p.off = make([]float64, n)
+	p.round = make([]bool, n)
 }
 
 // render adds what the room hears for output frames [o, o+n), with the
@@ -1007,7 +1010,7 @@ func (p *perf) render(dst []float32, m *Mix, o uint64, n int, pos int64, afterWr
 func (p *perf) source(dst []float32, m *Mix, h head, o uint64, n int, pos int64, afterWrap bool) {
 	read := h.on || p.modded(h)
 	if read {
-		p.plan(m, h, o, n, pos)
+		p.plan(m, h, o, n, pos, afterWrap)
 	}
 	for ti := range m.tracks {
 		if m.tracks[ti].silent {
@@ -1077,7 +1080,12 @@ func (p *perf) offsets(h head, n int) []float64 {
 // own frames into scratch and read out with a 4-point Hermite. Where the
 // head jumps -- CHOP's seam, a loop's wrap -- the run before carries on past
 // it, fading out under the run after, as the renderer crossfades every seam.
-func (p *perf) plan(m *Mix, h head, o uint64, n int, from int64) {
+//
+// A head that's off follows the transport through WOW, FLUTTER or the bend:
+// on a pass that began at In rather than coming round to it (afterWrap
+// false), it reads the tape before In as the tape, and In without the
+// crossfade from what follows Out -- as the plain tape plays it.
+func (p *perf) plan(m *Mix, h head, o uint64, n int, from int64, afterWrap bool) {
 	pos, lvl := p.pos[:n], p.lvl[:n]
 	k0 := int64(o - h.start)
 	anchor := from
@@ -1096,18 +1104,22 @@ func (p *perf) plan(m *Mix, h head, o uint64, n int, from int64) {
 		}
 	}
 	p.planOff = p.offsets(h, n)
+	round := p.round[:n] // read past Out: come round to In
+	clear(round)
 	if off := p.planOff; off != nil {
 		// Read a little ahead or behind; inside the loop, round it.
-		wrap := inLoop(m.loop, anchor)
+		l := m.loop
+		wrap := inLoop(l, anchor)
 		for k, d := range off {
 			if lvl[k] == 0 {
 				continue
 			}
-			if x := pos[k] + d; wrap {
-				pos[k] = wrapLoop(x, m.loop, anchor)
-			} else {
-				pos[k] = x
+			x := pos[k] + d
+			if wrap && (h.on || afterWrap || x >= float64(l.Out)) {
+				round[k] = x >= float64(l.Out)
+				x = wrapLoop(x, l, anchor)
 			}
+			pos[k] = x
 		}
 	}
 	xf := max64(1, m.xfade)
@@ -1121,7 +1133,7 @@ func (p *perf) plan(m *Mix, h head, o uint64, n int, from int64) {
 		for j < n && lvl[j] != 0 && math.Abs(pos[j]-pos[j-1]) <= maxStep {
 			j++
 		}
-		r := run{k: k, j: j, phase: -1}
+		r := run{k: k, j: j, phase: -1, fresh: !h.on && !afterWrap && !round[k]}
 		// The last jump into this run, if recent enough to be still
 		// crossfading. The transport never jumps but at the loop's seam.
 		if kk := k0 + int64(k); h.on {
@@ -1138,7 +1150,7 @@ func (p *perf) plan(m *Mix, h head, o uint64, n int, from int64) {
 func (p *perf) readHead(dst []float32, m *Mix, ti int) {
 	xf := max64(1, m.xfade)
 	for _, r := range p.runs {
-		p.readRun(dst, m, ti, p.pos[r.k:r.j], p.lvl[r.k:r.j], r.k, r.phase, false, xf)
+		p.readRun(dst, m, ti, p.pos[r.k:r.j], p.lvl[r.k:r.j], r.k, r.phase, false, r.fresh, xf)
 		if !r.jumped {
 			continue
 		}
@@ -1159,7 +1171,7 @@ func (p *perf) readHead(dst []float32, m *Mix, ti int) {
 			}
 			ol[q] = r.level
 		}
-		p.readRun(dst, m, ti, op, ol, r.k, r.phase, true, xf)
+		p.readRun(dst, m, ti, op, ol, r.k, r.phase, true, false, xf)
 	}
 }
 
@@ -1196,7 +1208,7 @@ func wraps(a, b float64, l Loop) bool {
 // readRun adds track ti read at positions xs (levels ls) into dst from frame
 // at on. With phase ≥ 0 the run is phase frames into a crossfade: rising on
 // a sine, or -- out -- falling on a cosine.
-func (p *perf) readRun(dst []float32, m *Mix, ti int, xs []float64, ls []float32, at int, phase int64, out bool, xf int64) {
+func (p *perf) readRun(dst []float32, m *Mix, ti int, xs []float64, ls []float32, at int, phase int64, out, fresh bool, xf int64) {
 	if len(xs) == 0 {
 		return
 	}
@@ -1216,7 +1228,7 @@ func (p *perf) readRun(dst []float32, m *Mix, ti int, xs []float64, ls []float32
 	// Inside a loop, reading near In is reading through its seam, so it's
 	// rendered as playback renders a wrap: what follows Out fading out as
 	// In fades in.
-	aw := looped && lo < float64(l.In+m.xfade)
+	aw := looped && lo < float64(l.In+m.xfade) && !fresh
 	m.renderTrack(buf, ti, first, width, aw)
 	if looped {
 		// The interpolation's neighbours past Out, or before In, are the
@@ -1269,7 +1281,7 @@ func (p *perf) readRun(dst []float32, m *Mix, ti int, xs []float64, ls []float32
 // at frame pos: read through WOW and FLUTTER, which are the tape's sound, and
 // nothing else -- no trick, no track key, no bend.
 func (p *perf) renderStraight(dst []float32, m *Mix, o uint64, n int, pos int64) {
-	p.plan(m, head{}, o, n, pos)
+	p.plan(m, head{}, o, n, pos, false)
 	for ti := range m.tracks {
 		if !m.tracks[ti].silent {
 			p.readHead(dst, m, ti)
