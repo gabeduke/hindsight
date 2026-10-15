@@ -20,6 +20,7 @@ import { ballistic, spin, settled, Ticker } from './motion.js';
 import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
 import { drawGrease } from './grease.js';
 import { drawPennant, drawPennantName } from './pennant.js';
+import { outIcon, OUT_MODES } from './icons.js';
 import { paintOxide, oxideColors } from '../wave/tape-strip.js';
 import { PIN_H, RULER_H } from '../wave/view.js';
 
@@ -139,6 +140,7 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildLcd(root);
   buildGrease(root);
   buildPennants(root);
+  buildIcons(root);
   return ticker;
 }
 
@@ -546,5 +548,40 @@ function buildPennants(root) {
       layer.append(flag);
     }
     wrap.append(layer);
+  }
+}
+
+
+/**
+ * Icons: the pictures drawn from code -- where the tape plays -- in the ink
+ * of a key, and the app's own icon, from its files, at the sizes it is
+ * asked for: the top bar's 24 px, and the home screen's.
+ */
+function buildIcons(root) {
+  const grid = section(root, 'Icons',
+    'Where the tape plays, as the output button shows it: a speaker, headphones, both. Then the app\'s icon, a take as the shelf draws one, at the size of the top bar and of a home screen.');
+
+  const names = { jam: 'Jam room: a speaker', phone: 'Phone: headphones', both: 'Both' };
+  for (const mode of OUT_MODES) {
+    const box = el('span', 'bench-ico');
+    box.innerHTML = outIcon(mode);
+    cell(grid, names[mode]).append(box);
+  }
+  // The same files, at the same addresses, the pages and the manifest ask for.
+  // The top bar rounds its corners (.brand img); the OS rounds the full
+  // bleed one itself, so it is shown square, as handed over.
+  const files = [
+    ['the top bar, 24 px (icon-small.svg)', '/icons/icon-small.svg?v=2', 24, '6px'],
+    ['the app icon (icon.svg)', '/icons/icon.svg', 96, ''],
+    ['full bleed, for the OS to round (icon-full.svg)', '/icons/icon-full.svg', 96, ''],
+  ];
+  for (const [label, src, size, radius] of files) {
+    const img = el('img', 'bench-app-ico');
+    img.src = src;
+    img.alt = '';
+    img.width = size;
+    img.height = size;
+    img.style.borderRadius = radius;
+    cell(grid, label).append(img);
   }
 }

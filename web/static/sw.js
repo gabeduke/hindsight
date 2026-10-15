@@ -56,6 +56,7 @@ const SHELL = [
   '/lib/wave/rowwave.js',
   '/lib/objects/grease.js',
   '/lib/objects/pennant.js',
+  '/lib/objects/icons.js',
   '/lib/wave/boundary.js',
   '/lib/wave/near.js',
   '/lib/wave/onset.js',
