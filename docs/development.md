@@ -196,21 +196,33 @@ The surface is drawn in its own materials (`--pad-*` in `objects.css`), so it
 is the same dark instrument in both schemes; `styles.test.js` keeps its rules
 off the scheme's tokens and its classes off everything else.
 
-**The engine's half is built; the page isn't wired to it yet.** The pads
-arm, fire and light, but nothing reaches the Pi, so nothing is audible.
-`internal/tape/trick.go` is the sound
-(`docs/superpowers/specs/2026-10-14-play-mode-sound-design.md`):
-- a trick is a **read head** that leaves the transport while a pad is held,
-  and the transport keeps counting underneath;
-- on release the tape is back in time, with nothing resynchronised;
-- `Engine.Press`, `Release` and `ReleaseAll` take a pad and a quantum
-  (`16th`, `8th`, `beat`, `bar` or now);
-- none of it touches the tape's State, so a jam leaves undo and `tape.json`
-  exactly as they were. `trick_test.go` checks that, along with each trick's
-  shape and the return in time to the sample.
+**The pads are audible.** The sound is in `internal/tape/trick.go`
+(`docs/superpowers/specs/2026-10-14-play-mode-sound-design.md`).
 
-Next is the socket the page sends presses on (`/api/tapes/play`), then the
-page itself.
+**How a trick works.** A trick is a **read head** that leaves the transport
+while a pad is held. The transport keeps counting underneath, so on release
+the tape is back in time with nothing resynchronised.
+
+**How a press reaches the Pi.** `lib/play/link.js` sends each press and
+release over `GET /api/tapes/play` the moment it happens, and the Pi
+quantises it on its own render head. Sending on the grid line instead would
+add the Wi-Fi trip on top, and the press would land late.
+
+**What comes back.** The Pi sends back two things:
+- **The lead:** how long a press takes to be heard. The surface draws it as
+  the gap between a pad going dim and going bright.
+- **When each press will be heard.** This moves the pad's bright moment to
+  match.
+
+**Undo.** None of it touches the tape's State, so a jam leaves undo and
+`tape.json` exactly as they were.
+
+**What's tested where:**
+- `trick_test.go` checks each trick's shape, and the return in time to the
+  sample.
+- `play_test.go` checks the socket. A pad sounds while any connection holds
+  it, and a connection that drops lets go of what it held.
+- `link.test.js` checks the page's side.
 
 `BenchmarkRenderABlock` is the number to watch on a Pi: one 21 ms block with
 four tracks, plain and under each trick.

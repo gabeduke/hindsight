@@ -3671,6 +3671,10 @@ body.play-open { overflow: hidden; }
   font: 600 13px var(--label-font);
 }
 .play-seg button[aria-pressed="true"] { background: var(--pad-face-armed); color: var(--pad-legend); }
+.play-note {
+  margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 12px var(--label-font); letter-spacing: 1px; color: var(--pad-legend-dim);
+}
 .play-exit {
   margin-left: auto; min-height: 44px; padding: 0 18px;
   border: 1px solid var(--pad-edge); border-radius: 10px;
