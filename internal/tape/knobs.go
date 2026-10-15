@@ -22,18 +22,18 @@ type ModKnobs struct {
 
 	mu     sync.Mutex
 	timers map[string]*time.Timer
+	gen    map[string]uint64 // each mod's turns, so a commit can tell it's the newest
 }
 
 // NewModKnobs makes the knobs for an engine.
 func NewModKnobs(e *Engine) *ModKnobs {
-	return &ModKnobs{e: e, quiet: knobQuiet, timers: map[string]*time.Timer{}}
+	return &ModKnobs{e: e, quiet: knobQuiet, timers: map[string]*time.Timer{}, gen: map[string]uint64{}}
 }
 
 // Turn moves mod (mod.wow and the rest) to v on the tape id, and commits it
 // once the knob has been still for a second.
 func (k *ModKnobs) Turn(id, mod string, v float64) error {
-	i := modIndex(mod)
-	if i < 0 {
+	if modIndex(mod) < 0 {
 		return ErrNoSuchPad
 	}
 	if err := k.e.Set(mod, v); err != nil {
@@ -45,28 +45,39 @@ func (k *ModKnobs) Turn(id, mod string, v float64) error {
 	if t := k.timers[mod]; t != nil {
 		t.Stop()
 	}
-	k.timers[mod] = time.AfterFunc(k.quiet, func() {
-		k.mu.Lock()
-		delete(k.timers, mod)
-		k.mu.Unlock()
-		var c StyleChange
-		f := v
-		switch i {
-		case modWow:
-			c.Wow = &f
-		case modFlutter:
-			c.Flutter = &f
-		case modDrive:
-			c.Drive = &f
-		case modAge:
-			c.Age = &f
-		}
-		if err := k.e.SetStyle(id, c); err != nil {
-			// Nothing to commit it to: the preview goes, back to the tape.
-			_ = k.e.Release(mod)
-		}
-	})
+	k.gen[mod]++
+	g := k.gen[mod]
+	k.timers[mod] = time.AfterFunc(k.quiet, func() { k.fire(id, mod, v, g) })
 	return nil
+}
+
+// fire commits turn g of mod, at v, if no turn has come since. A turn
+// landing as this fires has armed its own commit: that one is left alone,
+// and this one is dropped.
+func (k *ModKnobs) fire(id, mod string, v float64, g uint64) {
+	k.mu.Lock()
+	if k.gen[mod] != g {
+		k.mu.Unlock()
+		return
+	}
+	delete(k.timers, mod)
+	k.mu.Unlock()
+	f := v
+	var c StyleChange
+	switch modIndex(mod) {
+	case modWow:
+		c.Wow = &f
+	case modFlutter:
+		c.Flutter = &f
+	case modDrive:
+		c.Drive = &f
+	case modAge:
+		c.Age = &f
+	}
+	if err := k.e.SetStyle(id, c); err != nil {
+		// Nothing to commit it to: the preview goes, back to the tape.
+		_ = k.e.Release(mod)
+	}
 }
 
 // Stop drops the knobs' pending commits.
