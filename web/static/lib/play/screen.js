@@ -289,7 +289,6 @@ export function mountStrip(root, surface, {
       if (on) remote.add(id); else remote.delete(id);
       paint(id);
     },
-    remoteHeld: () => [...remote],
     setFold(open) {
       root.dataset.fold = open ? 'open' : 'folded';
       panel.hidden = !open;

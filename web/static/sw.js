@@ -77,6 +77,7 @@ const SHELL = [
   '/lib/play/controls.js',
   '/lib/play/midi.js',
   '/lib/play/reel.js',
+  '/lib/play/far.js',
   '/lib/play/screen.js',
   '/lib/play/mount.js',
   '/lib/play/strip.js',

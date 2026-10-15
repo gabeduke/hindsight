@@ -41,7 +41,9 @@ export function playURL(loc = globalThis.location) {
  *
  * onNote(text) hears what the player should be told: a press refused, the
  * Pi out of reach. onRemote(pad, on, atMs) hears another hand's pad sound
- * or stop, and when; onOpen() hears the socket (re)open.
+ * or stop, and when -- every stop, even of a pad this page holds too, so a
+ * mark never outlives the sound; onHeld(pads) hears exactly what's held as
+ * the socket (re)opens; onOpen() hears it open.
  */
 export function connect(surface, {
   url = playURL(),
@@ -49,6 +51,7 @@ export function connect(surface, {
   now = () => performance.now(),
   onNote = () => {},
   onRemote = () => {},
+  onHeld = () => {},
   onOpen = () => {},
   retryMs = 1000,
   setTimer = setTimeout,
@@ -71,16 +74,19 @@ export function connect(surface, {
       case 'hello':
         surface.setGrid({ lead: m.lead_ms ?? 0 });
         onNote('');
-        // What's held on the Pi as this page arrives: another hand's.
-        for (const pad of m.held || []) if (surface.state(pad) === 'idle') onRemote(pad, true, now());
+        // What's held on the Pi as this page arrives: exactly that.
+        onHeld(m.held || []);
         break;
       case 'lead':
         surface.setGrid({ lead: m.ms ?? 0 });
         break;
       case 'at': {
         const at = now() + (Number.isFinite(m.in_ms) ? m.in_ms : 0);
-        if (surface.state(m.pad) !== 'idle') surface.confirm(m.pad, !!m.on, at);
-        else onRemote(m.pad, !!m.on, at);
+        const mine = surface.state(m.pad) !== 'idle';
+        if (mine) surface.confirm(m.pad, !!m.on, at);
+        // A pad sounding that this page holds is this hand's to draw; one
+        // stopping is no one's any more.
+        if (!mine || !m.on) onRemote(m.pad, !!m.on, at);
         break;
       }
       case 'learned':

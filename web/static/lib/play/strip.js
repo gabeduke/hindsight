@@ -26,6 +26,7 @@ import { connect } from './link.js';
 import { modeOf } from './reel.js';
 import { control } from './controls.js';
 import { support, attach } from './midi.js';
+import { FarPads } from './far.js';
 
 /** The strip's per-device conveniences (not DEVICE_PREFS: they're where you left it). */
 export const FOLD_KEY = 'hindsight.play.strip';
@@ -87,7 +88,7 @@ export function startStrip({
   let from = chosen || 'keys';
   let learning = false;
   const sounding = [];  // pads sounding, in the order they fired: the reel follows the newest trick
-  const pending = [];   // another hand's pads, waiting for when they're heard
+  const far = new FarPads(); // another hand's pads (far.js)
   const phone = typeof matchMedia === 'function' ? matchMedia(PHONE) : { matches: false, addEventListener() {} };
 
   const root = doc.createElement('section');
@@ -112,11 +113,22 @@ export function startStrip({
     wake();
   };
   surface.on('fire', ({ pad }) => sound(pad, true));
-  surface.on('end', ({ pad }) => sound(pad, ui.remoteHeld().includes(pad)));
+  surface.on('end', ({ pad }) => sound(pad, far.has(pad)));
+  // A press here makes the pad this hand's: no other hand's mark on it.
+  surface.on('arm', ({ pad }) => { for (const p of far.pressed(pad)) ui.remote(p, false); });
+  const farChanged = (pad, isOn) => {
+    ui.remote(pad, isOn);
+    if (surface.state(pad) === 'idle') sound(pad, isOn);
+  };
 
   const link = connect(surface, {
     onNote: (t) => { linkNote = t; showNote(); },
-    onRemote: (pad, isOn, at) => { pending.push({ pad, on: isOn, at }); wake(); },
+    onRemote: (pad, isOn, at) => { far.at(pad, isOn, at); wake(); },
+    onHeld: (held) => {
+      const others = held.filter((p) => surface.state(p) === 'idle');
+      for (const p of far.hello(others)) farChanged(p, far.has(p));
+      wake();
+    },
     onOpen: () => fetchControls(),
   });
 
@@ -130,14 +142,7 @@ export function startStrip({
   const step = (dt) => {
     const t = now();
     surface.tick(t);
-    for (let i = pending.length - 1; i >= 0; i--) {
-      const p = pending[i];
-      if (t >= p.at) {
-        pending.splice(i, 1);
-        ui.remote(p.pad, p.on);
-        if (surface.state(p.pad) === 'idle') sound(p.pad, p.on);
-      }
-    }
+    for (const c of far.tick(t)) farChanged(c.pad, c.on);
     let moving = false;
     if (open) {
       const r = ringAt(tape, t);
@@ -146,7 +151,7 @@ export function startStrip({
       const slice = (DIVISIONS[surface.division] || 0.25) * beatMs;
       moving = ui.stepReel(Number.isFinite(dt) ? dt : 1000, t, { playing: !!tape?.playing, mode: modeOf(sounding), beatMs, sliceMs: slice });
     }
-    return open || moving || pending.length > 0 || surface.pads.size > 0;
+    return open || moving || far.pending.length > 0 || surface.pads.size > 0;
   };
   const unstep = ticker.add(step);
   function wake() { ticker.start(); }
