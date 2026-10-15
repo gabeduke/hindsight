@@ -68,6 +68,7 @@ const SHELL = [
   '/lib/help/tips.js',
   '/lib/help/markdown.js',
   '/lib/device-prefs.js',
+  '/lib/settings.js',
   '/lib/play/flag.js',
   '/lib/play/clock.js',
   '/lib/play/link.js',

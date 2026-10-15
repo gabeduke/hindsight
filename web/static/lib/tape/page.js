@@ -1141,6 +1141,10 @@ function wireCrate() {
   // is on the page, so the crate is always read.
   if (crate.take) { state.drawer = 'crate'; renderDrawers(); }
   fetchCrate();
+  // Something else on the page kept a clip -- the Studio's feed, with the
+  // rooms on (lib/rooms/studio.js): read the crate again, as after a Keep
+  // here. An event, so this page imports nothing of the Studio's.
+  document.addEventListener('hindsight:crate-changed', () => fetchCrate());
 }
 
 // --- Paste, Insert, Delete time: what each does, shown first ---------------------

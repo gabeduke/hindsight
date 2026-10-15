@@ -1,7 +1,8 @@
 // web/static/lib/rooms/keep.js
 // KEEP, the Studio's word for Capture's CAPTURE: the last N seconds of the
 // ring, saved as a take on the Listening Room's shelf. The same request
-// Capture makes (POST /api/trigger); only the words are the Studio's.
+// Capture makes (POST /api/trigger); only the words are the Studio's. And
+// Flag now, Capture's other key on the feed.
 
 /**
  * keepTake keeps the last `seconds` of the ring (0 is all of it) and answers
@@ -32,5 +33,22 @@ export async function takeBack(name, fetchImpl = globalThis.fetch) {
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) || {};
     throw new Error(b.error || `HTTP ${res.status}`);
+  }
+}
+
+/**
+ * flagNow marks this moment in the ring, as Capture's Flag now does: any take
+ * that includes it carries the flag. Throws an Error ready to show.
+ */
+export async function flagNow(fetchImpl = globalThis.fetch) {
+  let res;
+  try {
+    res = await fetchImpl('/api/flag', { method: 'POST' });
+  } catch {
+    throw new Error('could not flag');
+  }
+  if (!res.ok) {
+    const b = (await res.json().catch(() => null)) || {};
+    throw new Error(b.error || 'could not flag');
   }
 }
