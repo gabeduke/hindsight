@@ -168,6 +168,12 @@ type Engine struct {
 	bridgeless bool                         // the output keeps no bridge: pullBridge stands in
 
 	crateMu sync.Mutex // one change of crate.json at a time
+	// One change of the clipboard as the Studio's buffer at a time: a grab
+	// replacing it, a trim, a drop marking it used (grab.go). Taken after
+	// mu, never before it, and before crateMu.
+	boardMu sync.Mutex
+	// grabWait, when set (tests), is the longest a grab waits for the ring.
+	grabWait time.Duration
 
 	recMu sync.Mutex
 	rec   *Recording // a punch, or an armed track
@@ -1138,18 +1144,12 @@ func (e *Engine) catchSpan(t *Tape, pairs []tracked, outFrom uint64, frames, at 
 	}
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
-	// The Δ that held when the span played, and any latency set by hand. A
-	// span with a slip inside it has no one Δ.
-	if e.segAt(outFrom) != e.segAt(outFrom+uint64(frames)-1) {
-		return nil, ErrSlipped
+	heardFrom, aligned, err := e.ringSpan(outFrom, frames)
+	if err != nil {
+		return nil, err
 	}
-	delta, aligned := e.deltaAt(outFrom)
-	if aligned == "none" {
-		return nil, ErrNotLined
-	}
-	delta += int64(math.Round(e.latencyMS * float64(sr) / 1000))
-	ringFrom := int64(outFrom) + delta - over
-	ringTo := int64(outFrom) + frames + delta + over
+	ringFrom := heardFrom - over
+	ringTo := heardFrom + frames + over
 	ring := e.capture.Ring()
 	// The span is behind real time by the output and capture pipelines; wait
 	// for it to reach the ring.
@@ -1191,7 +1191,7 @@ func (e *Engine) catchSpan(t *Tape, pairs []tracked, outFrom uint64, frames, at 
 			Clean: cleanOf(t, p.src), Aligned: aligned, PeakDB: peakDB(peak)}
 	}
 	placed := make([][]Clip, len(pairs))
-	err := e.Edit(id, "", func(tp *Tape, s *State) error {
+	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() {
 			tp.Click = false // the click is for a tape with nothing on it
 		}
@@ -1222,6 +1222,24 @@ func cleanOf(t *Tape, src Source) bool {
 		}
 	}
 	return true
+}
+
+// ringSpan is the ring frame that heard output frame outFrom, for a span of
+// frames that played from it: the Δ that held when it played, and any
+// latency set by hand (TAPE_LATENCY_MS). A span with a slip inside it has no
+// one Δ. Catch and the Studio's GRAB both read the ring through it, so the
+// same press lands the same audio either way.
+func (e *Engine) ringSpan(outFrom uint64, frames int64) (int64, string, error) {
+	sr := int64(e.store.SampleRate())
+	if e.segAt(outFrom) != e.segAt(outFrom+uint64(frames)-1) {
+		return 0, "", ErrSlipped
+	}
+	delta, aligned := e.deltaAt(outFrom)
+	if aligned == "none" {
+		return 0, "", ErrNotLined
+	}
+	delta += int64(math.Round(e.latencyMS * float64(sr) / 1000))
+	return int64(outFrom) + delta, aligned, nil
 }
 
 // placeWrapped places a clip, splitting one that runs across the loop's seam

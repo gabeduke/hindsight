@@ -115,3 +115,18 @@ test('a tagged take wears its tag color, an untagged one its hash, and a dropped
   assert.equal(stripeFor({ name }), stripeOf(name));
   assert.equal(STRIPES, 8);
 });
+
+test('roundRectPath never hands the canvas a negative radius', () => {
+  // A lane folded to a strip (the Studio's buffer open) is shorter than a
+  // clip's insets, so the tape page asks for a radius below zero -- and a
+  // browser's roundRect throws a RangeError for one, which stopped the lanes
+  // drawing at all.
+  const strict = {
+    roundRect(x, y, w, h, r) { if (r < 0) throw new RangeError(`Radius value ${r} is negative.`); this.got = r; },
+  };
+  roundRectPath(strict, 0, 0, 10, -4, -2);
+  assert.equal(strict.got, 0);
+  const calls = [];
+  roundRectPath({ moveTo: (...a) => calls.push(a), arcTo: (...a) => calls.push(a), closePath() {} }, 0, 0, 10, 2, -2);
+  assert.ok(calls.every((c) => c.every((v) => v >= 0) && !Object.is(c[c.length - 1], -0)), 'the arcs too');
+});

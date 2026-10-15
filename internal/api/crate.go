@@ -18,7 +18,7 @@ import (
 // clips kept from takes, the ring and the tape.
 //
 //	GET    /api/crate?q=&take=   the kept clips, newest first: by name, or kept from a take
-//	POST   /api/crate            {take, from, to} | {ring_from, ring_to, source} | {tape, clip} | {clipboard: true}
+//	POST   /api/crate            {take, from, to} | {ring_from, ring_to, source} | {tape, clip} | {clipboard: true} (one clip per track)
 //	PATCH  /api/crate?id=        {name} | {restore: true}
 //	DELETE /api/crate?id=        to the trash, for CrateTrashDays
 //	GET    /api/crate/audio?id=  one as a 16-bit WAV, to play or share
@@ -72,6 +72,7 @@ func (a *API) handleCrateKeep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var k tape.CrateClip
+	var ks []tape.CrateClip // the clipboard's lanes, one kept clip each
 	var err error
 	clamped := false
 	switch {
@@ -97,7 +98,10 @@ func (a *API) handleCrateKeep(w http.ResponseWriter, r *http.Request) {
 	case b.Clip != "":
 		k, err = a.tape.KeepTapeClip(b.Tape, b.Clip)
 	case b.Clipboard:
-		k, err = a.tape.KeepClipboard()
+		ks, err = a.tape.KeepClipboardLanes()
+		if err == nil {
+			k = ks[0]
+		}
 	default:
 		writeErr(w, http.StatusBadRequest, "keep a take's {take, from, to}, the ring's {ring_from, ring_to, source}, a tape's {tape, clip} or {clipboard: true}")
 		return
@@ -106,7 +110,11 @@ func (a *API) handleCrateKeep(w http.ResponseWriter, r *http.Request) {
 		tapeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"clip": k, "clamped": clamped})
+	resp := map[string]any{"clip": k, "clamped": clamped}
+	if ks != nil {
+		resp["clips"] = ks
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // handleCrateSplit is a take's Split here: two kept clips, the take before

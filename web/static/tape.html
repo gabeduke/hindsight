@@ -612,6 +612,78 @@
   </dialog>
 </template>
 
+<!-- The Studio's buffer (lib/buffer): with the two rooms on, the clipboard
+     made visible -- GRAB on the feed, and the buffer between the feed and
+     the lanes (a sheet over them on a phone), to trim what was grabbed and
+     drop it on a lane, keep it as a take, or toss it. Templates, like the
+     Studio's own: with the flag off none of it is ever in the page. -->
+<template id="buffer-grab-tpl">
+  <div class="buffer-grab" role="group" aria-label="Grab">
+    <span class="buffer-grab-last" aria-hidden="true">Last</span>
+    <div class="seg buffer-bars" role="group" aria-label="How much to grab" data-tip="grab-bars">
+      <button type="button" data-n="1">1</button>
+      <button type="button" data-n="2">2</button>
+      <button type="button" data-n="4">4</button>
+      <button type="button" data-n="8">8</button>
+    </div>
+    <span class="buffer-grab-unit" aria-hidden="true">bars</span>
+    <button class="icon-btn buffer-grab-key" type="button" aria-keyshortcuts="G" data-tip="grab"><span class="buffer-grab-word">Grab</span><span class="buffer-grab-n" aria-hidden="true"></span><kbd class="buffer-kbd" aria-hidden="true">G</kbd></button>
+    <button class="icon-btn buffer-reopen" type="button" hidden data-tip="buffer-open">Buffer<span aria-hidden="true"> ▴</span></button>
+  </div>
+</template>
+<template id="buffer-sel-tpl">
+  <button class="icon-btn buffer-grab-sel" type="button" data-tip="grab-span">Grab</button>
+</template>
+<template id="buffer-panel-tpl">
+  <section class="panel buffer-panel" id="buffer" aria-label="The buffer" data-height="half" hidden>
+    <span class="buffer-notch" aria-hidden="true"></span>
+    <button class="buffer-sheet-grip" type="button" aria-label="Pull it up or down; hold it and drag onto a lane to drop it there" data-tip="buffer-grip"></button>
+    <div class="buffer-head">
+      <h2 class="buffer-title">Buffer</h2>
+      <span class="buffer-meta" id="buffer-meta"></span>
+      <div class="buffer-sources" id="buffer-sources" role="group" aria-label="Sources in the buffer" data-tip="buffer-sources"></div>
+      <span class="buffer-note" id="buffer-note" role="status"></span>
+      <span class="buffer-spacer" aria-hidden="true"></span>
+      <button class="icon-btn buffer-audition" id="buffer-audition" type="button" aria-pressed="false" data-tip="buffer-audition"><span class="buffer-led" aria-hidden="true"></span>Audition</button>
+      <button class="icon-btn buffer-snap" id="buffer-snap" type="button" data-tip="tape-snap"><span aria-hidden="true">⌗ </span><span id="buffer-snap-name">Bar</span></button>
+      <button class="icon-btn buffer-unfold" id="buffer-unfold" type="button" aria-pressed="false" data-tip="buffer-unfold">Unfold<span aria-hidden="true"> ▾</span></button>
+      <button class="icon-btn buffer-close" id="buffer-close" type="button" aria-label="Close the buffer; it waits in the crate’s first slot" data-tip="buffer-close">✕</button>
+    </div>
+    <div class="buffer-body">
+      <button class="buffer-grip" id="buffer-grip" type="button" aria-label="Drag the buffer onto a lane" data-tip="buffer-drag"><span class="buffer-grip-dots" aria-hidden="true"></span><span class="buffer-grip-word">Drag to a lane</span></button>
+      <div class="buffer-window" id="buffer-window" data-tip="buffer-window">
+        <canvas class="buffer-canvas" id="buffer-canvas" role="img" aria-label="The buffer’s audio, with IN and OUT"></canvas>
+      </div>
+      <div class="buffer-acts">
+        <button class="icon-btn buffer-drop" id="buffer-drop" type="button" aria-keyshortcuts="Enter" data-tip="buffer-drop"><span class="buffer-drop-word" id="buffer-drop-word">Drop</span><span class="buffer-drop-sub" id="buffer-drop-sub"></span></button>
+        <div class="buffer-acts-row">
+          <button class="icon-btn buffer-keep" id="buffer-keep" type="button" aria-keyshortcuts="K" data-tip="buffer-keep">Keep as take<kbd class="buffer-kbd" aria-hidden="true">K</kbd></button>
+          <button class="icon-btn buffer-toss" id="buffer-toss" type="button" aria-keyshortcuts="Backspace" data-tip="buffer-toss">Toss<kbd class="buffer-kbd" aria-hidden="true">⌫</kbd></button>
+        </div>
+      </div>
+    </div>
+    <div class="buffer-foot">
+      <span class="buffer-edge" role="group" aria-label="IN">
+        <span class="buffer-edge-name" aria-hidden="true">In</span>
+        <button class="icon-btn buffer-step" id="buffer-in-back" type="button" aria-label="IN back a step" aria-keyshortcuts="[" data-tip="buffer-edges">◂</button>
+        <button class="icon-btn buffer-step" id="buffer-in-on" type="button" aria-label="IN on a step" aria-keyshortcuts="]" data-tip="buffer-edges">▸</button>
+        <kbd class="buffer-kbd" aria-hidden="true">[ ]</kbd>
+      </span>
+      <span class="buffer-edge" role="group" aria-label="OUT">
+        <span class="buffer-edge-name" aria-hidden="true">Out</span>
+        <button class="icon-btn buffer-step" id="buffer-out-back" type="button" aria-label="OUT back a step" aria-keyshortcuts="Shift+[" data-tip="buffer-edges">◂</button>
+        <button class="icon-btn buffer-step" id="buffer-out-on" type="button" aria-label="OUT on a step" aria-keyshortcuts="Shift+]" data-tip="buffer-edges">▸</button>
+        <kbd class="buffer-kbd" aria-hidden="true">⇧[ ]</kbd>
+      </span>
+      <label class="buffer-gain" data-tip="buffer-gain">Gain <input id="buffer-gain" type="range" min="-30" max="12" step="0.5" aria-label="The buffer’s level"><span class="buffer-gain-val" id="buffer-gain-val">+0.0 dB</span></label>
+      <button class="icon-btn buffer-shape" id="buffer-normalize" type="button" data-tip="buffer-normalize">Normalize</button>
+      <button class="icon-btn buffer-shape" id="buffer-reverse" type="button" aria-pressed="false" data-tip="buffer-reverse">Reverse</button>
+      <button class="icon-btn buffer-shape" id="buffer-fades" type="button" data-tip="buffer-fades">Fades · <span id="buffer-fades-shape">equal power</span></button>
+      <span class="buffer-hint">Grab copied it off the ring, with room either side to widen it, so the ring can’t overwrite it while you trim.</span>
+    </div>
+  </section>
+</template>
+
 <!-- Play mode (lib/play). Empty and hidden until the per-device
      hindsight.play flag is on; mount.js builds nothing while it is off. -->
 <div id="play-mode" hidden></div>

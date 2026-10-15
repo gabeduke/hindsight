@@ -420,6 +420,10 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 	// copy, so every copy is kept until it's cleared.
 	c, cerr := s.LoadClipboard()
 	c.files(used)
+	// And the buffer last tossed, which a toss's Undo brings back.
+	if tc, err := s.loadTossed(); err == nil {
+		tc.files(used)
+	}
 	// So is the crate, its deleted clips too until they're let go of. One
 	// that can't be read might keep anything: nothing is cleaned up.
 	k, err := s.LoadCrate()
@@ -456,7 +460,7 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 		if e.IsDir() || !strings.HasSuffix(name, ".wav") || used["audio/"+name] {
 			continue
 		}
-		if cerr != nil && strings.HasPrefix(name, "copy_") {
+		if cerr != nil && (strings.HasPrefix(name, "copy_") || strings.HasPrefix(name, "grab_")) {
 			continue
 		}
 		p := filepath.Join(s.dir, "audio", name)
