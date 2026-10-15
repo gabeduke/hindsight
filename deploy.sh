@@ -85,7 +85,11 @@ EXCLUDES=(
   --exclude '.claude'
   --exclude '.playwright-mcp'
   # The tape (TAPE_DIR's default) and the updater's own files live in the
-  # same folder as the checkout; --delete must never touch them.
+  # same folder as the checkout; --delete must never touch them. Nor the
+  # hub's certificate, which the binary keeps in ~/hindsight/tls
+  # (cmd/hindsight/main.go): deleting it takes the kit's HTTPS name down
+  # until the hub issues another.
+  --exclude '/tls'
   --exclude '/tapes'
   --exclude '/releases'
   --exclude '/update.json'
