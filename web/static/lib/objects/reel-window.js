@@ -1,11 +1,17 @@
 // web/static/lib/objects/reel-window.js
 // The bar's reel window: two reels either side of the LCD, turning with the
-// playhead (lib/objects/reels.js), their packs filling and emptying over the
-// tape, and the LCD's level bars, one per track. A picture of the
-// transport, like the deck it replaces: hidden from assistive tech, sized by
-// CSS.
+// playhead, their packs filling and emptying over the tape, and the LCD's
+// level bars, one per track. A picture of the transport, like the deck it
+// replaces: hidden from assistive tech, sized by CSS.
+//
+// The reels are a scene object (lib/scene): the page's polls are its state,
+// the reels model (lib/scene/reels.js, by way of ReelMotion) turns them, and
+// reelsDrawer below draws what it derived.
 
-import { ReelMotion } from './reels.js';
+import { ticker } from './motion.js';
+import { Scene } from '../scene/scene.js';
+import { SceneObject } from '../scene/object.js';
+import { DomRenderer } from '../scene/dom.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const C = 80, FLANGE = 74;
@@ -59,63 +65,66 @@ function reel(svg) {
   return { pack, turn };
 }
 
+/**
+ * reelsDrawer draws a reels object into the two reel SVGs and the level bars
+ * between them: the packs, each reel's turn, the bar's hairline of how far
+ * along it is, and -- while it plays -- each track's level at the playhead.
+ */
+export function reelsDrawer({ left, right, levels }) {
+  const L = reel(left), R = reel(right);
+  // The bar, for the mini player's hairline of how far along it is.
+  const np = typeof left.closest === 'function' ? left.closest('.np') : null;
+  let bars = [];
+  let levelsAt = () => [];
+  return {
+    el: np,
+    /** setLevels makes one bar per colour; fn(frame) gives each one's dBFS. */
+    setLevels(colours, fn) {
+      levelsAt = fn;
+      if (bars.length !== colours.length) {
+        bars = colours.map(() => document.createElement('i'));
+        levels.replaceChildren(...bars);
+      }
+      // color too: the glow is currentColor.
+      colours.forEach((c, i) => { bars[i].style.background = c; bars[i].style.color = c; });
+    },
+    draw(m, state) {
+      if (!m) return; // no poll yet: the reels stay as drawn
+      L.pack.setAttribute('r', m.left.toFixed(1));
+      R.pack.setAttribute('r', m.right.toFixed(1));
+      L.turn.style.transform = `rotate(${m.angleL.toFixed(1)}deg)`;
+      R.turn.style.transform = `rotate(${m.angleR.toFixed(1)}deg)`;
+      if (np && state.length > 0) np.style.setProperty('--np-progress', String(clamp(m.pos / state.length, 0, 1)));
+      const lv = m.moving === 'play' ? levelsAt(m.pos) : [];
+      bars.forEach((b, i) => { b.style.transform = `scaleY(${Math.max(0.08, levelFrac(lv[i])).toFixed(3)})`; });
+    },
+  };
+}
+
+/**
+ * ReelWindow is the reel window as the pages use it: poll() with what the
+ * Pi said, setLevels() with the tracks, and the reels turn -- on the shared
+ * ticker, parked while the tape is still.
+ */
 export class ReelWindow {
-  constructor({ left, right, levels }) {
-    this.left = reel(left);
-    this.right = reel(right);
-    this.levelsEl = levels;
-    // The bar, for the mini player's hairline of how far along it is.
-    this.np = typeof left.closest === 'function' ? left.closest('.np') : null;
-    this.bars = [];
-    this.levels = () => [];
-    this.motion = null;
-    this.raf = 0;
-    this.reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.addEventListener('visibilitychange', () => (document.hidden ? this.stop() : this.start()));
+  constructor(parts, { ticker: clock = ticker } = {}) {
+    this.drawer = reelsDrawer(parts);
+    this.scene = new Scene({ ticker: clock });
+    this.reels = this.scene.add(new SceneObject('reels', 'reels'));
+    this.renderer = new DomRenderer();
+    this.renderer.mount(parts.left.parentNode, this.scene);
+    this.renderer.part('reels', this.drawer);
+    this.scene.start();
   }
 
   /** setLevels makes one bar per colour; fn(frame) gives each one's dBFS. */
   setLevels(colours, fn) {
-    this.levels = fn;
-    if (this.bars.length !== colours.length) {
-      this.bars = colours.map(() => document.createElement('i'));
-      this.levelsEl.replaceChildren(...this.bars);
-    }
-    // color too: the glow is currentColor.
-    colours.forEach((c, i) => { this.bars[i].style.background = c; this.bars[i].style.color = c; });
+    this.drawer.setLevels(colours, fn);
+    this.renderer.invalidate('reels');
   }
 
+  /** poll hands the reels what the Pi said: a poll, stamped with the scene's time. */
   poll({ heard, playing, length, sampleRate }) {
-    if (!this.motion || this.motion.sr !== sampleRate) this.motion = new ReelMotion({ sampleRate, length, reduced: this.reduced });
-    this.motion.setLength(length);
-    this.motion.poll(heard, playing, performance.now());
-    this.start();
-  }
-
-  start() {
-    if (this.raf || document.hidden || !this.motion) return;
-    const tick = (now) => {
-      this.raf = 0;
-      if (this.draw(now) && !document.hidden) this.raf = requestAnimationFrame(tick);
-    };
-    this.raf = requestAnimationFrame(tick);
-  }
-
-  stop() {
-    cancelAnimationFrame(this.raf);
-    this.raf = 0;
-  }
-
-  /** draw paints the reels and the levels at `now`; it says whether anything still moves. */
-  draw(now) {
-    const m = this.motion.frame(now);
-    this.left.pack.setAttribute('r', m.left.toFixed(1));
-    this.right.pack.setAttribute('r', m.right.toFixed(1));
-    this.left.turn.style.transform = `rotate(${m.angleL.toFixed(1)}deg)`;
-    this.right.turn.style.transform = `rotate(${m.angleR.toFixed(1)}deg)`;
-    if (this.np && this.motion.length > 0) this.np.style.setProperty('--np-progress', String(clamp(m.pos / this.motion.length, 0, 1)));
-    const lv = m.moving === 'play' ? this.levels(m.pos) : [];
-    this.bars.forEach((b, i) => { b.style.transform = `scaleY(${Math.max(0.08, levelFrac(lv[i])).toFixed(3)})`; });
-    return m.moving !== 'stop';
+    this.reels.set({ pos: heard, playing, length, sampleRate, at: this.scene.now() });
   }
 }
