@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gorilla/mux"
 )
@@ -239,6 +240,44 @@ func TestUpdateIsAbsentWithoutAnUpdater(t *testing.T) {
 		if w.Code != http.StatusNotFound {
 			t.Errorf("%s /api/update without an updater = %d", m, w.Code)
 		}
+	}
+}
+
+// A page that asks GET /api/update where there is no updater gets a 404 and
+// logs it, red, on every load. /api/status, which every page reads anyway,
+// says whether to ask: `updates`. Not set up (a Mac, the demo): false. Set
+// up: true. The 404 stays, for a page from before the field.
+func TestStatusSaysWhetherUpdatesAreSetUp(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setUp bool
+	}{{"no updater", false}, {"an updater", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{OutputDir: t.TempDir(), Channels: 2, SampleRate: 48000, FramesPerBuf: 256, RingSeconds: 10, SaveChannels: []int{0, 1}}
+			cap := audio.NewCapture(cfg, nil)
+			s := audio.NewSaver(cap)
+			t.Cleanup(s.WaitBackground)
+			a := New(cfg, cap, s, cap.Envelope(), nil)
+			t.Cleanup(a.WaitBackground)
+			if tc.setUp {
+				a.SetUpdater(&Updater{})
+			}
+			r := mux.NewRouter()
+			a.SetupRoutes(r)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+			var st map[string]any
+			if err := json.Unmarshal(w.Body.Bytes(), &st); err != nil || w.Code != http.StatusOK {
+				t.Fatalf("GET /api/status = %d %s (%v)", w.Code, w.Body.String(), err)
+			}
+			got, ok := st["updates"].(bool)
+			if !ok {
+				t.Fatalf("status has no boolean \"updates\": %v", st["updates"])
+			}
+			if got != tc.setUp {
+				t.Errorf("updates = %v, want %v", got, tc.setUp)
+			}
+		})
 	}
 }
 
