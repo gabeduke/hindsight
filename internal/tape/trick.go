@@ -743,7 +743,19 @@ func wrapLoop(p float64, l Loop, anchor int64) float64 {
 	if !inLoop(l, anchor) {
 		return p
 	}
-	in, n := float64(l.In), float64(l.Out-l.In)
+	in, out := float64(l.In), float64(l.Out)
+	n := out - in
+	// Nearly always inside, or less than a loop past either end: no Mod,
+	// which costs as much as reading the tape.
+	if p >= in && p < out {
+		return p
+	}
+	if r := p - n; p >= out && r >= in && r < out {
+		return r
+	}
+	if r := p + n; p < in && r >= in && r < out {
+		return r
+	}
 	return in + math.Mod(math.Mod(p-in, n)+n, n)
 }
 

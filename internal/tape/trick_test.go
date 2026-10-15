@@ -487,9 +487,10 @@ func TestPressAndReleaseRefuseWhatPlayModeDoesntHave(t *testing.T) {
 func BenchmarkRenderABlock(b *testing.B) {
 	full := Style{Wow: 1, Flutter: 1, Drive: 1, Age: 1}
 	cases := []struct {
-		name string
-		pads []string
-		mods *Style
+		name   string
+		pads   []string
+		mods   *Style
+		moving bool // every amount set somewhere new each block: always gliding
 	}{
 		{name: "plain"},
 		{name: PadDouble, pads: []string{PadDouble}},
@@ -508,6 +509,9 @@ func BenchmarkRenderABlock(b *testing.B) {
 		// Four FX, four mods, the bend and a trick: 2× is the dearest head,
 		// and over ROLL it's the one heard.
 		{name: "everything", pads: []string{PadRoll, PadFilter, PadEcho, PadCrush, PadBend, PadDouble}, mods: &full},
+		{name: "fx-all-four-moving", pads: []string{PadRoll, PadFilter, PadEcho, PadCrush}, moving: true},
+		{name: "mods-moving", mods: &full, moving: true},
+		{name: "everything-moving", pads: []string{PadRoll, PadFilter, PadEcho, PadCrush, PadBend, PadDouble}, mods: &full, moving: true},
 	}
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {
@@ -547,6 +551,21 @@ func BenchmarkRenderABlock(b *testing.B) {
 			}
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
+				if c.moving {
+					// What's engaged, somewhere new: a mod wheel and the
+					// knobs in a hand that won't stay still.
+					v := 0.2 + 0.6*float64(i%2)
+					for _, p := range c.pads {
+						if amountPad(padIndex(p)) {
+							_ = e.Set(p, v)
+						}
+					}
+					if c.mods != nil {
+						for _, md := range Mods() {
+							_ = e.Set(md, v)
+						}
+					}
+				}
 				clear(buf)
 				e.advance(buf, out, BlockFrames)
 				out += BlockFrames

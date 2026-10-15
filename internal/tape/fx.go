@@ -62,7 +62,17 @@ const (
 	// by up to 20 dB.
 	driveMaxGain = 10.0
 	driveRefDB   = -18.0
+
+	// ctrlEvery is how often a gliding amount's coefficients are worked out
+	// again, in frames, counted from the start of the output so it comes out
+	// the same however a block is split: a third of a millisecond, against
+	// glides of 10 ms. A pow or a tan a frame costs more than the filtering.
+	ctrlEvery = 16
 )
+
+// ctrl says whether output frame o is one an amount's coefficients are
+// worked out on.
+func ctrl(o uint64) bool { return o%ctrlEvery == 0 }
 
 // driveMakeup is DRIVE's make-up gain by amount, 0 to 1 in driveRows-1
 // steps: what brings a sine at the reference back to the reference. Built
@@ -123,7 +133,7 @@ func (g *gate) skip(n int, step float32) {
 // fxBus is the tape's character and the punch-in FX.
 type fxBus struct {
 	drive, age smooth
-	driveV     float64 // the drive the gains below are for
+	driveV     float64 // the drive the gains below are for; 0 for none yet
 	driveG     float64 // its curve's gain, 1 to 10
 	driveWet   float64 // and what the curve's output is scaled by: v, make-up, 1/tanh(g)
 	ageLive    bool
@@ -187,10 +197,12 @@ func (b *fxBus) process(d []float32, n int, o uint64, m *Mix, amount *[numPads]f
 	sr := m.rate()
 	a := smoothCoef(sr)
 	if !b.drive.idle() {
-		b.runDrive(d, n, a)
+		b.runDrive(d, n, o, a)
+	} else {
+		b.driveV = 0 // worked out afresh when it next comes in
 	}
 	if !b.age.idle() {
-		b.runAge(d, n, a, sr)
+		b.runAge(d, n, o, a, sr)
 	} else {
 		b.ageLive = false
 	}
@@ -203,7 +215,7 @@ func (b *fxBus) process(d []float32, n int, o uint64, m *Mix, amount *[numPads]f
 		b.filter.run(d, n, o, amount[iFilter], a, sr, step)
 	}
 	if b.crush.live {
-		b.crush.run(d, n, amount[iCrush], a, step)
+		b.crush.run(d, n, o, amount[iCrush], a, step)
 	}
 	if b.echo.live {
 		b.echo.run(d, n, amount[iEcho], a, step)
@@ -217,7 +229,7 @@ func (b *fxBus) skip(n int, o uint64, m *Mix) {
 	a := smoothCoef(m.rate())
 	b.drive.skip(n, a)
 	b.age.skip(n, a)
-	b.ageLive = false
+	b.ageLive, b.driveV = false, 0
 	b.skipFX(n, o, m)
 }
 
@@ -238,13 +250,13 @@ func (b *fxBus) skipFX(n int, o uint64, m *Mix) {
 // runDrive is DRIVE: soft saturation, mixed in by its amount so that 0 is
 // the tape untouched and a knob moving off 0 doesn't jump, made up to the
 // reference level. Never outside ±1.
-func (b *fxBus) runDrive(d []float32, n int, a float64) {
+func (b *fxBus) runDrive(d []float32, n int, o uint64, a float64) {
 	for k := 0; k < n; k++ {
 		v := b.drive.step(a)
 		if v == 0 {
 			continue
 		}
-		if v != b.driveV {
+		if v != b.driveV && (b.driveV == 0 || ctrl(o+uint64(k))) {
 			b.driveV, b.driveG = v, 1+(driveMaxGain-1)*v
 			b.driveWet = v * driveGain(v) / math.Tanh(b.driveG)
 		}
@@ -261,7 +273,7 @@ func (b *fxBus) runDrive(d []float32, n int, a float64) {
 
 // runAge is AGE: the top end falls, a one-pole low-pass from open down to
 // about 4 kHz.
-func (b *fxBus) runAge(d []float32, n int, a, sr float64) {
+func (b *fxBus) runAge(d []float32, n int, o uint64, a, sr float64) {
 	if !b.ageLive {
 		// From where the signal is, so it starts without a step.
 		b.ageLive, b.ageV = true, -1
@@ -269,7 +281,7 @@ func (b *fxBus) runAge(d []float32, n int, a, sr float64) {
 	}
 	for k := 0; k < n; k++ {
 		v := b.age.step(a)
-		if v != b.ageV {
+		if v != b.ageV && (b.ageV < 0 || ctrl(o+uint64(k))) {
 			fc := ageOpenHz * math.Pow(ageClosedHz/ageOpenHz, v)
 			b.ageA = float32(1 - math.Exp(-2*math.Pi*fc/sr))
 			b.ageW = float32(math.Min(1, v/ageFadeIn))
@@ -346,7 +358,7 @@ func (f *fxFilter) run(d []float32, n int, o uint64, target, a, sr float64, step
 		} else {
 			v = f.amt.step(a)
 		}
-		if v != f.cv {
+		if v != f.cv && (f.cv < 0 || ctrl(o+uint64(k))) {
 			f.coef(v, sr)
 		}
 		e := float64(f.gate.next(step))
@@ -427,13 +439,13 @@ func crush(x float32, q, lim float64) float32 {
 	return float32(k * q)
 }
 
-func (f *fxCrush) run(d []float32, n int, target, a float64, step float32) {
+func (f *fxCrush) run(d []float32, n int, o uint64, target, a float64, step float32) {
 	if f.held {
 		f.amt.to = target
 	}
 	for k := 0; k < n; k++ {
 		v := f.amt.step(a)
-		if v != f.cv {
+		if v != f.cv && (f.cv < 0 || ctrl(o+uint64(k))) {
 			f.cv, f.rate = v, math.Pow(crushRateClosed, v)
 			f.q, f.lim = crushStep(crushBits(v))
 		}
