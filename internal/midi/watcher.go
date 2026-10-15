@@ -23,6 +23,34 @@ type Policy struct {
 	// ClockDevice is the substring naming whose clock pulses drive the tempo
 	// path. Empty means no device's clock is used.
 	ClockDevice string
+	// Controllers (TAPE_CONTROLLER) name the devices whose keys play the
+	// tape: matched as Allow is. A controller is opened whatever Capture,
+	// Allow and Deny say -- they decide only whether its notes are also
+	// stored for takes -- and its notes, CC and Start/Stop go to the
+	// watcher's ControlSink.
+	Controllers []string
+}
+
+// controls says a port is a controller, whose keys play the tape.
+func (p Policy) controls(port Port) bool {
+	for _, c := range p.Controllers {
+		if port.Matches(c) {
+			return true
+		}
+	}
+	return false
+}
+
+// captures says a port's messages are stored for takes.
+func (p Policy) captures(port Port) bool { return p.Capture && p.allows(port) }
+
+// ControlSink hears a controller: every channel message and Start, Continue
+// and Stop, on the reader's goroutine, and its going. The port is the
+// device's name, as DeviceInfo has it. Play mode's bus on the Pi is one
+// (internal/api).
+type ControlSink interface {
+	ControlMIDI(port string, status, d1, d2 byte)
+	ControllerGone(port string)
 }
 
 // ParseList splits a comma-separated environment value into trimmed,
@@ -62,14 +90,16 @@ func (p Policy) allows(port Port) bool {
 
 // DeviceInfo is a connected device as reported to the API and the manifest.
 type DeviceInfo struct {
-	ID        uint16 `json:"id"`
-	Name      string `json:"name"`
-	Node      string `json:"node"`
-	Clock     bool   `json:"clock"`
-	Connected bool   `json:"connected"`
-	Events    uint64 `json:"events"`
-	Bytes     uint64 `json:"bytes"`
-	SysEx     uint64 `json:"sysex_dropped"`
+	ID    uint16 `json:"id"`
+	Name  string `json:"name"`
+	Node  string `json:"node"`
+	Clock bool   `json:"clock"`
+	// Controller says it plays the tape (TAPE_CONTROLLER).
+	Controller bool   `json:"controller,omitempty"`
+	Connected  bool   `json:"connected"`
+	Events     uint64 `json:"events"`
+	Bytes      uint64 `json:"bytes"`
+	SysEx      uint64 `json:"sysex_dropped"`
 }
 
 // Watcher keeps every rawmidi port on the system open and reading.
@@ -100,6 +130,9 @@ type Watcher struct {
 	policy Policy
 	clock  *Clock
 	events *EventRing
+	// sink is the ControlSink, set any time (SetControlSink), so main can
+	// make the watcher before the API that listens to it.
+	sink atomic.Value // sinkBox
 
 	mu      sync.Mutex
 	devices map[string]*portReader // by node path
@@ -139,6 +172,16 @@ func NewWatcher(policy Policy, clock *Clock, events *EventRing) *Watcher {
 		stop:        make(chan struct{}),
 		done:        make(chan struct{}),
 	}
+}
+
+type sinkBox struct{ s ControlSink }
+
+// SetControlSink says who hears the controllers. Safe at any time.
+func (w *Watcher) SetControlSink(s ControlSink) { w.sink.Store(sinkBox{s}) }
+
+func (w *Watcher) controlSink() ControlSink {
+	b, _ := w.sink.Load().(sinkBox)
+	return b.s
 }
 
 // Start launches the poll loop. It returns immediately; use Devices to
@@ -198,14 +241,15 @@ func (w *Watcher) Devices() []DeviceInfo {
 	out := make([]DeviceInfo, 0, len(w.devices))
 	for _, r := range w.devices {
 		out = append(out, DeviceInfo{
-			ID:        r.id,
-			Name:      r.port.Name,
-			Node:      r.port.Node,
-			Clock:     r.isClock,
-			Connected: r.connected.Load(),
-			Events:    r.events.Load(),
-			Bytes:     r.bytes.Load(),
-			SysEx:     r.sysex.Load(),
+			ID:         r.id,
+			Name:       r.port.Name,
+			Node:       r.port.Node,
+			Clock:      r.isClock,
+			Controller: r.control,
+			Connected:  r.connected.Load(),
+			Events:     r.events.Load(),
+			Bytes:      r.bytes.Load(),
+			SysEx:      r.sysex.Load(),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
@@ -294,7 +338,7 @@ func (w *Watcher) scan() {
 		if until, bad := w.failed[node]; bad && now.Before(until) {
 			continue
 		}
-		if !w.policy.allows(p) {
+		if !w.policy.allows(p) && !w.policy.controls(p) {
 			continue
 		}
 		w.open(p)
@@ -312,8 +356,9 @@ func (w *Watcher) scan() {
 // open starts a reader for a port. Called with mu held.
 func (w *Watcher) open(p Port) {
 	r := &portReader{
-		port:  p,
-		drain: w.DrainWindow,
+		port:    p,
+		drain:   w.DrainWindow,
+		control: w.policy.controls(p),
 	}
 	// One clock. MIDI_CLOCK_DEVICE is a substring, and a card with two
 	// rawmidi devices, or two devices sharing a product string, would
@@ -335,15 +380,39 @@ func (w *Watcher) open(p Port) {
 		}
 		return w.nextID
 	}
-	if w.policy.Capture {
+	// Stored for takes, played on the tape, or both. A controller that
+	// MIDI_IGNORE keeps out of takes still plays.
+	capture := w.policy.captures(p)
+	name := p.Name
+	switch {
+	case capture && r.control:
+		r.onEvent = func(ev Event) {
+			w.events.Push(ev)
+			w.control(name, ev.Status, ev.D1, ev.D2)
+		}
+	case capture:
 		r.onEvent = w.events.Push
+	case r.control:
+		r.onEvent = func(ev Event) { w.control(name, ev.Status, ev.D1, ev.D2) }
+	}
+	if r.control {
+		r.onGone = func() {
+			if s := w.controlSink(); s != nil {
+				s.ControllerGone(name)
+			}
+		}
+		log.Printf("[*] midi: %q on %s plays the tape (TAPE_CONTROLLER)", p.Name, p.Node)
 	}
 	r.onRealtime = func(ts time.Time, ns int64, b byte) {
 		if r.isClock {
 			w.clock.Feed(ts, b)
 		}
-		if w.policy.Capture && (b == StartByte || b == ContinueByte || b == StopByte) {
+		transport := b == StartByte || b == ContinueByte || b == StopByte
+		if capture && transport {
 			w.events.Push(Event{NS: ns, Device: r.id, Status: b})
+		}
+		if r.control && transport {
+			w.control(name, b, 0, 0)
 		}
 	}
 	w.devices[p.Node] = r
@@ -353,6 +422,13 @@ func (w *Watcher) open(p Port) {
 		w.clockID = ^uint16(0)
 	}
 	go r.run()
+}
+
+// control hands a controller's message to the sink, if there is one yet.
+func (w *Watcher) control(port string, status, d1, d2 byte) {
+	if s := w.controlSink(); s != nil {
+		s.ControlMIDI(port, status, d1, d2)
+	}
 }
 
 // remember keeps a departed device's identity so an event stored under its id

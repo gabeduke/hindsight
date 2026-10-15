@@ -72,6 +72,10 @@ type API struct {
 	// playFake stands in for the engine there in tests.
 	playHolds playHolds
 	playFake  tricks
+	// controls is the control bus on the Pi: controllers' bindings, what
+	// they hold, and MIDI LEARN (controls.go); controllers lists them.
+	controls    controlBus
+	controllers DeviceLister
 
 	// hub reports the secure address (internal/hub); nil when the hub is off.
 	hub HubStatus
@@ -198,6 +202,8 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/listen", a.handleTapeListen).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/stream", a.handleTapeStream).Methods(http.MethodGet)
 	r.HandleFunc("/api/tapes/play", a.handleTapePlay).Methods(http.MethodGet)
+	r.HandleFunc("/api/tapes/controls", a.handleControlsGet).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes/controls", a.handleControlsPut).Methods(http.MethodPut)
 	r.HandleFunc("/api/tapes/output", a.handleTapeOutput).Methods(http.MethodPut)
 	r.HandleFunc("/api/tapes/undo", a.handleTapeUndo(false)).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/redo", a.handleTapeUndo(true)).Methods(http.MethodPost)
