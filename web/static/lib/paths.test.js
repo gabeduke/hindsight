@@ -98,3 +98,34 @@ test('CI runs the tests in every directory that has any', () => {
   assert.deepEqual(missing.sort(), [],
     'these directories have tests that CI never runs; add them to the node --test globs in ci.yml');
 });
+
+test('every module a cached page imports is cached with it', () => {
+  // The offline shell is only whole if everything its pages import is in
+  // SHELL: a module left out loads from the cache's page and then fails to
+  // fetch offline, which is a blank page on a phone with no signal. A new
+  // directory of modules under lib/ (lib/scene) is the easy way to miss one.
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+  const shell = new Set([.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^'?]+)(?:\?[^']*)?'/g)].map((m) => m[1]));
+  const seen = new Set();
+  const missing = [];
+  const visit = (file, from) => {
+    const rel = '/' + relative(ROOT, file).split(sep).join('/');
+    if (seen.has(rel)) return;
+    seen.add(rel);
+    if (!shell.has(rel)) missing.push(`${rel} (imported by ${from})`);
+    for (const m of readFileSync(file, 'utf8').matchAll(/(?:from|import)\s+['"]([^'"]+)['"]/g)) {
+      const spec = m[1];
+      if (spec.startsWith('/')) visit(join(ROOT, spec.slice(1)), rel);
+      else if (spec.startsWith('.')) visit(normalize(join(dirname(file), spec)), rel);
+    }
+  };
+  for (const page of [...shell].filter((p) => p.endsWith('.html'))) {
+    const html = readFileSync(join(ROOT, page.slice(1)), 'utf8');
+    for (const m of html.matchAll(/<script[^>]+src=["'](\/[^"']+\.js)["']/g)) visit(join(ROOT, m[1].slice(1)), page);
+    for (const m of html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)) {
+      for (const i of m[1].matchAll(/(?:from|import)\s+['"](\/[^'"]+)['"]/g)) visit(join(ROOT, i[1].slice(1)), page);
+    }
+  }
+  assert.ok(seen.size > 60, `only ${seen.size} modules reached; the walk is probably wrong`);
+  assert.deepEqual(missing, []);
+});

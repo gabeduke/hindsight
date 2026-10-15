@@ -104,6 +104,7 @@ const SHELL = [
   '/lib/bar/tape-source.js',
   '/lib/bar/take-source.js',
   '/lib/bar/player.js',
+  '/lib/settings.js',
   '/lib/scene/object.js',
   '/lib/scene/scene.js',
   '/lib/scene/renderer.js',
