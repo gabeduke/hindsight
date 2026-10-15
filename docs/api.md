@@ -1436,7 +1436,14 @@ restart; 404 when the tape is off.
   the ring it came from, and `stale` says Hindsight has restarted since, so
   `ring_from` names other audio now. `{"again": true, "sources": […]}`
   copies the buffer's own span again from other sources, keeping its
-  window; 409 for a stale one. A grab, or any copy, that replaces a
+  window; 409 for a stale one.
+- `POST {"take": "jam_….wav", "from": F, "to": T, "grab": true}` makes a
+  take's span the buffer (the Listening Room's *to the studio*): handles
+  from the take's own audio, a bar at its tempo or `TAPE_HANDLE_S`,
+  whichever is longer, at most 10 s, as far as the take goes. Its `grab`
+  has `take` and `take_from` instead of a ring; its one source is the
+  take's name, which `again` can't change (400), and it's never stale.
+  Without `grab`, a take's span is copied as it always was. A grab, or any copy, that replaces a
   grab never dropped or kept puts that one in the crate first, a kept clip
   per track, and answers them as `"crated"`.
 - Both answer the new clipboard; 400 for a copy longer than a track; 507 for

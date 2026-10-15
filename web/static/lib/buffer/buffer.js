@@ -19,7 +19,7 @@ import { Audition } from './audition.js';
 import { drawWindow, levelsOf, frameOf, xOf, fadeHandles, RULER_H, FADE_BOX } from './draw.js';
 import {
   BAR_PICKS, grabKey, grabSeconds, dropKey, clampWindow, gridOf, snapNear, edgeStep,
-  bufferLines, bufferMeta, bufferNote, boardKey, spanWords,
+  bufferLines, bufferMeta, bufferNote, boardKey, spanWords, chipsFor,
 } from './model.js';
 import { bindBufferKeys } from './keys.js';
 import { keyState, windowFrames, takesPoll } from './state.js';
@@ -240,6 +240,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
 
   function toggleSource(name) {
     const g = grabOf();
+    if (g && (g.take || g.stale)) return; // its sources can't change
     const now = g ? g.sources : sources();
     const next = now.includes(name) ? now.filter((n) => n !== name) : [...now, name];
     if (!next.length) return; // a buffer has a lane at least
@@ -428,7 +429,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     }
     const cols = Math.max(16, Math.min(4096, Math.round(r.width)));
     const clips = st.board.tracks.map((tr) => tr[0]).filter(Boolean);
-    const lanes = clips.map((cl) => ({ levels: levelsFor(cl, g, cols), name: cl.source, gain: 10 ** ((cl.gain_db || 0) / 20) }));
+    const lanes = clips.map((cl) => ({ levels: levelsFor(cl, g, cols), name: g.take ? g.sources[0] : cl.source, gain: 10 ** ((cl.gain_db || 0) / 20) }));
     // Quiet audio drawn big enough to see, as the lanes draw it.
     let peak = 0;
     for (const l of lanes) if (l.levels) for (const v of l.levels) peak = Math.max(peak, v);
@@ -464,7 +465,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const g = grabOf();
     const ax = ribbon && ribbon.axis && ribbon.axis();
     // A buffer grabbed before a restart isn't anywhere on this feed.
-    if (!st.open || !g || g.stale || !ax || !viz) { mark.hidden = true; el.notch.hidden = true; return; }
+    // Nor is one grabbed from a take.
+    if (!st.open || !g || g.stale || g.take || !ax || !viz) { mark.hidden = true; el.notch.hidden = true; return; }
     const w = win();
     const buffered = ribbon.data?.buffered_seconds ?? ax.T;
     const fromAge = Math.min(ageOf(g.ring_from + w.in, ax.total, ax.sr), buffered);
@@ -519,25 +521,27 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     el.note.textContent = note;
     el.note.hidden = !note;
     // The sources: a chip each, lit with signal; the buffer's own pressed.
-    const names = d?.sources?.length ? d.sources : SOURCES.map((name) => ({ name }));
-    const on = g ? g.sources : sources();
-    if (el.sources.childElementCount !== names.length || [...el.sources.children].some((c, i) => c.dataset.name !== names[i].name)) {
-      el.sources.replaceChildren(...names.map((s) => {
+    // A grab of a take's span has the take alone, fixed (chipsFor).
+    const tapeSources = d?.sources?.length ? d.sources : SOURCES.map((name) => ({ name }));
+    const chips = chipsFor(g, tapeSources.map((x) => x.name), sources());
+    if (el.sources.childElementCount !== chips.length || [...el.sources.children].some((c, i) => c.dataset.name !== chips[i].name)) {
+      el.sources.replaceChildren(...chips.map((ch) => {
         const c = doc.createElement('button');
         c.type = 'button';
         c.className = 'chip buffer-source';
-        c.dataset.name = s.name;
+        c.dataset.name = ch.name;
         c.innerHTML = '<span class="buffer-source-led" aria-hidden="true"></span><span class="buffer-source-name"></span>';
-        c.lastChild.textContent = s.name;
-        c.addEventListener('click', () => toggleSource(s.name));
+        c.lastChild.textContent = ch.label;
+        if (!ch.name.startsWith('take:')) c.addEventListener('click', () => toggleSource(ch.name));
         return c;
       }));
     }
-    names.forEach((s, i) => {
+    chips.forEach((ch, i) => {
       const c = el.sources.children[i];
-      c.setAttribute('aria-pressed', String(on.includes(s.name)));
-      c.classList.toggle('signal', typeof s.peak_db === 'number' && s.peak_db > -50);
-      c.disabled = st.grabbing || !!g?.stale; // its span is in a ring that's gone
+      const s = tapeSources.find((x) => x.name === ch.name);
+      c.setAttribute('aria-pressed', String(ch.on));
+      c.classList.toggle('signal', !!s && typeof s.peak_db === 'number' && s.peak_db > -50);
+      c.disabled = st.grabbing || ch.fixed; // a take's own sound, or a span in a ring that's gone
     });
     // DROP: where ↵ would put it.
     const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, count: b.tracks.length, frames: windowFrames(st), pos: d.pos }) : { word: 'Drop', sub: '', can: false };

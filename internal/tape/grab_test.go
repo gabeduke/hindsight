@@ -701,3 +701,122 @@ func TestNormalizeAndKeepNeverClip(t *testing.T) {
 		t.Fatalf("the audition peaks at %.3f, want it brought under full scale", loud)
 	}
 }
+
+// --- a take's span, as the buffer (the Listening Room's "to the studio") ------------
+
+// tempoTake is a ramp take, frame i holding i×1000, at bpm.
+func tempoTake(t *testing.T, frames int, bpm float64) string {
+	t.Helper()
+	p := takeWAV(t, frames, func(i int) float64 { return float64(i) * 1000 / 2147483647 })
+	if bpm > 0 {
+		if err := audio.WriteMeta(p, audio.Meta{BPM: &bpm}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return p
+}
+
+func TestATakeGrabsHandlesAreABarOfTheTake(t *testing.T) {
+	e, _, _ := newEngine(t)
+	e.handleS = 0.5
+	take := tempoTake(t, 1200000, 120) // a bar is 96000
+	g, err := e.GrabTake(take, "jam_take.wav", "Tuesday jam", 300000, 492000, []int{0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gr, lane := g.Board.Grab, g.Board.Tracks[0][0]
+	data := readPool(t, e.store, lane.File)
+	if gr.Before != 96000 || gr.After != 96000 || lane.Src != 96000 || lane.Frames != 192000 || ringFrameOf(data[2*lane.Src]) != 300000 {
+		t.Fatalf("handles %d and %d, lane %+v starting at take frame %d", gr.Before, gr.After, lane, ringFrameOf(data[2*lane.Src]))
+	}
+	if gr.Take != "jam_take.wav" || gr.TakeFrom != 300000 || gr.Sources[0] != "Tuesday jam" || g.Board.From != "Tuesday jam, 0:06–0:10" || g.Board.BPM != 120 {
+		t.Fatalf("grab %+v from %q", gr, g.Board.From)
+	}
+	// TAPE_HANDLE_S, when it's longer than the bar.
+	e.handleS = 3
+	if g, err = e.GrabTake(take, "jam_take.wav", "Tuesday jam", 300000, 492000, []int{0, 1}); err != nil || g.Board.Grab.Before != 144000 {
+		t.Fatalf("handle %d, want TAPE_HANDLE_S's 144000 (%v)", g.Board.Grab.Before, err)
+	}
+	// At most 10 s, however slow the take.
+	slow := tempoTake(t, 2400000, 20) // a bar is 12 s
+	if g, err = e.GrabTake(slow, "jam_slow.wav", "Slow", 1000000, 1100000, []int{0, 1}); err != nil || g.Board.Grab.Before != 480000 || g.Board.Grab.After != 480000 {
+		t.Fatalf("handles %d and %d, want 10 s (%v)", g.Board.Grab.Before, g.Board.Grab.After, err)
+	}
+	// As far as the take goes: near its start, and its end.
+	e.handleS = 0.5
+	if g, err = e.GrabTake(take, "jam_take.wav", "Tuesday jam", 40000, 136000, []int{0, 1}); err != nil || g.Board.Grab.Before != 40000 || g.Board.Grab.After != 96000 {
+		t.Fatalf("near the start: %+v (%v)", g.Board.Grab, err)
+	}
+	if g, err = e.GrabTake(take, "jam_take.wav", "Tuesday jam", 1100000, 1180000, []int{0, 1}); err != nil || g.Board.Grab.After != 20000 {
+		t.Fatalf("near the end: %+v (%v)", g.Board.Grab, err)
+	}
+	// With no tempo, TAPE_HANDLE_S.
+	plain := tempoTake(t, 400000, 0)
+	if g, err = e.GrabTake(plain, "jam_plain.wav", "Plain", 100000, 200000, []int{0, 1}); err != nil || g.Board.Grab.Before != 24000 || g.Board.Grab.BarFrames != 0 {
+		t.Fatalf("no tempo: %+v (%v)", g.Board.Grab, err)
+	}
+	if _, err := e.GrabTake(take, "jam_take.wav", "x", 100, 99, []int{0, 1}); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("a span backwards: %v", err)
+	}
+}
+
+func TestATakeGrabTrimsInsideItsHandles(t *testing.T) {
+	e, _, _ := newEngine(t)
+	e.handleS = 0.5
+	take := tempoTake(t, 1200000, 120)
+	if _, err := e.GrabTake(take, "jam_take.wav", "Tuesday jam", 300000, 492000, []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	over := int64(OverhangSeconds * 48000)
+	c, err := e.TrimClipboard(-1e7, 1e7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lane := c.Tracks[0][0]
+	data := readPool(t, e.store, lane.File)
+	if c.Grab.In != -96000+over || c.Grab.Out != 192000+96000-over || ringFrameOf(data[2*lane.Src]) != 300000-96000+over {
+		t.Fatalf("window [%d, %d), lane %+v from take frame %d", c.Grab.In, c.Grab.Out, lane, ringFrameOf(data[2*lane.Src]))
+	}
+	// And keeps as a take from there, at the take's tempo.
+	k, err := e.KeepClipboardTake(t.TempDir(), time.Now())
+	if err != nil || k.Seconds != float64(c.Frames)/48000 {
+		t.Fatalf("kept %+v: %v", k, err)
+	}
+}
+
+func TestATakeGrabIsNeverStaleAndItsSourcesStay(t *testing.T) {
+	e, _, _ := newEngine(t)
+	take := tempoTake(t, 400000, 120)
+	if _, err := e.GrabTake(take, "jam_take.wav", "Tuesday jam", 100000, 200000, []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	// Read by an engine on another ring -- a restart -- it isn't stale: it
+	// was never in a ring.
+	sink2 := &loopSink{ring: audio.NewRing(48000*20, 8)}
+	e2 := NewEngine(Options{Store: e.store, Capture: sink2, Sink: sink2})
+	if c, err := e2.Clipboard(); err != nil || c.Grab.Stale {
+		t.Fatalf("a take's grab after a restart = %+v %v", c.Grab, err)
+	}
+	if _, err := e.Grab(GrabRequest{Again: true, Sources: []string{"aux"}}); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("other sources for a take's grab: %v", err)
+	}
+}
+
+func TestAPlainTakeCopyIsNotAGrab(t *testing.T) {
+	// The take page's Copy, as it was before the buffer: no grab, the
+	// handles TAPE_HANDLE_S's, and replacing it keeps nothing in the crate.
+	e, _, _ := newEngine(t)
+	e.handleS = 0.5
+	take := tempoTake(t, 400000, 120)
+	c, err := e.CopyTake(take, "jam_take.wav", 100000, 200000, []int{0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Grab != nil || c.Tracks[0][0].Src != 24000 || c.From != "jam_take.wav" {
+		t.Fatalf("a plain copy = %+v, grab %+v", c.Tracks[0][0], c.Grab)
+	}
+	g, err := e.GrabTake(take, "jam_take.wav", "Tuesday jam", 100000, 200000, []int{0, 1})
+	if err != nil || len(g.Crated) != 0 {
+		t.Fatalf("a copy replaced by a grab was kept: %+v %v", g.Crated, err)
+	}
+}

@@ -67,6 +67,12 @@ type Grab struct {
 	// copied again, nor shown on the feed. Never saved.
 	Ring  string `json:"ring,omitempty"`
 	Stale bool   `json:"stale,omitempty"`
+	// Take is set on a grab of a take's span (GrabTake: the Listening
+	// Room's "to the studio"), not the ring's: the take's file, and where in
+	// it the grab starts. Its one lane is the take's own sound, so its
+	// sources can't change; it was never in the ring, so it's never stale.
+	Take     string `json:"take,omitempty"`
+	TakeFrom int64  `json:"take_from,omitempty"`
 }
 
 // fileFrames is how long every lane's file is.
@@ -168,6 +174,9 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 		}
 		if old.Empty() || old.Grab == nil {
 			return Grabbed{}, fmt.Errorf("%w: there's no grab in the buffer to take again", ErrBadParameter)
+		}
+		if old.Grab.Take != "" {
+			return Grabbed{}, fmt.Errorf("%w: this buffer is a take's own sound, from %s; its sources can't change", ErrBadParameter, old.Grab.Take)
 		}
 		keep = old
 		g = *old.Grab
@@ -335,6 +344,72 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 	crated, err := e.setBoardLocked(c)
 	if err != nil {
 		forget()
+		return Grabbed{}, err
+	}
+	return Grabbed{Board: c, Crated: crated}, nil
+}
+
+// GrabTake copies frames [from, to) of a take onto the clipboard as the
+// Studio's buffer: the Listening Room's "to the studio", a note's span. The
+// take's pair is written into the pool with handles from the take's own
+// audio -- a bar at the take's tempo, or TAPE_HANDLE_S, whichever is longer,
+// at most 10 s, as far as the take goes -- so the window can be trimmed as a
+// grab from the feed is. title names the take in words (its label); file is
+// its name. Like any grab, it puts an unused buffer it replaces in the crate.
+func (e *Engine) GrabTake(take, file, title string, from, to int64, pick []int) (Grabbed, error) {
+	info, err := audio.ReadWAVInfo(take)
+	if err != nil {
+		return Grabbed{}, err
+	}
+	if info.SampleRate != e.store.SampleRate() {
+		return Grabbed{}, fmt.Errorf("%w: the take is at %d Hz, tapes at %d", ErrBadParameter, info.SampleRate, e.store.SampleRate())
+	}
+	if from < 0 || to <= from || to > info.Frames() {
+		return Grabbed{}, fmt.Errorf("%w: that span isn't in the take", ErrBadParameter)
+	}
+	if err := e.tooLong(to - from); err != nil {
+		return Grabbed{}, err
+	}
+	if err := e.diskOK(); err != nil {
+		return Grabbed{}, err
+	}
+	sr := int64(info.SampleRate)
+	m := audio.ReadMeta(take)
+	g := Grab{Take: file, TakeFrom: from, Sources: []string{title}, Frames: to - from}
+	if m.BPM != nil && validBPM(*m.BPM) {
+		g.BarFrames = float64(BeatsPerBar) * 60 * float64(sr) / *m.BPM
+		if m.DownbeatFrame != nil { // its first bar line, counted from the grab's start
+			db := firstLine(*m.DownbeatFrame-from, g.BarFrames, 0)
+			g.Downbeat = &db
+		}
+	}
+	h := e.grabHandle(sr, g.BarFrames)
+	fileFrom, fileTo := max64(0, from-h), min64(info.Frames(), to+h)
+	g.Before, g.After = from-fileFrom, fileTo-to
+	g.In, g.Out = 0, g.Frames
+	over := int64(OverhangSeconds * float64(sr))
+	rel, path, err := e.store.NewPoolFile("grab", time.Now())
+	if err != nil {
+		return Grabbed{}, err
+	}
+	peak, err := audio.CopyWAVSpanMeasured(take, fileFrom, fileTo, pick, path,
+		max64(0, from-over)-fileFrom, min64(info.Frames(), to+over)-fileFrom)
+	if err != nil {
+		e.store.removePoolFile(rel)
+		return Grabbed{}, err
+	}
+	cl := Clip{File: rel, Source: "take", PeakDB: peakDB(peak)}
+	g.window(&cl)
+	c := &Clipboard{Tracks: [][]Clip{{cl}}, Frames: g.Frames, Created: time.Now(), Grab: &g,
+		From: fmt.Sprintf("%s, %s–%s", title, clock(from, int(sr)), clock(to, int(sr)))}
+	if m.BPM != nil {
+		c.BPM = *m.BPM
+	}
+	e.boardMu.Lock()
+	defer e.boardMu.Unlock()
+	crated, err := e.setBoardLocked(c)
+	if err != nil {
+		e.store.removePoolFile(rel)
 		return Grabbed{}, err
 	}
 	return Grabbed{Board: c, Crated: crated}, nil
@@ -540,6 +615,8 @@ func (e *Engine) keepBoard(b *Clipboard) ([]CrateClip, error) {
 	for i, l := range lanes {
 		from := b.From
 		switch {
+		case b.Grab != nil && b.Grab.Take != "":
+			from = b.From
 		case b.Grab != nil:
 			from = "The feed (" + l.c.Source + ")"
 		case len(lanes) > 1:
@@ -597,7 +674,7 @@ func (e *Engine) TrimClipboard(in, out int64) (*Clipboard, error) {
 // another ring than the capture's now (Grab.Stale).
 func (e *Engine) markStale(c *Clipboard) *Clipboard {
 	if c != nil && c.Grab != nil {
-		c.Grab.Stale = e.capture == nil || c.Grab.Ring != e.capture.Ring().ID()
+		c.Grab.Stale = c.Grab.Take == "" && (e.capture == nil || c.Grab.Ring != e.capture.Ring().ID())
 	}
 	return c
 }

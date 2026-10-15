@@ -215,7 +215,23 @@ export function bufferNote(board) {
   if (g.wall) notes.push(`the last ${g.bars} bar${g.bars === 1 ? '' : 's'} of time at the tape’s tempo: ${g.why || 'the tape didn’t play them'}`);
   if (g.clamped) notes.push('clamped to what the ring still had');
   if (g.stale) notes.push('grabbed before Hindsight restarted: it keeps its audio, but its sources can’t change');
+  if (g.take) notes.push('from a take: its sound is the take’s own, so its sources can’t change');
   return notes.join(' · ');
+}
+
+/**
+ * chipsFor is the buffer's source chips: the tape's sources, the ones in the
+ * buffer (or picked for the next GRAB) pressed; or, for a grab of a take's
+ * span, the take alone, pressed and fixed -- its sound is the take's own.
+ * Each is {name, label, on, fixed}.
+ */
+export function chipsFor(grab, names, picked) {
+  if (grab && grab.take) {
+    const label = (grab.sources && grab.sources[0]) || grab.take;
+    return [{ name: `take:${grab.take}`, label, on: true, fixed: true }];
+  }
+  const on = grab ? grab.sources : picked;
+  return names.map((name) => ({ name, label: name, on: on.includes(name), fixed: !!(grab && grab.stale) }));
 }
 
 /** boardKey changes whenever what the buffer plays does: to know when to fetch its audio again. */
