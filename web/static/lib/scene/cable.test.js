@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Ticker } from '../objects/motion.js';
 import { Scene } from './scene.js';
 import { SceneObject } from './object.js';
-import { CableModel, ROPE_POINTS, STEP_MS, MAX_FRAME_MS, ropeLength, hang } from './cable.js';
+import { CableModel, ROPE_POINTS, STEP_MS, MAX_FRAME_MS, ropeLength, hang, layout, LINK_PX } from './cable.js';
 import { sag as p6sag } from '../rig/cables.js';
 
 // A fake ticker: frames run when the test says, `ms` apart.
@@ -250,4 +250,130 @@ test('with reduced motion, twelve moved ropes land in one frame', () => {
   assert.ok(ropes.every((o) => !o.view.moving));
   ticker.advance(16);
   assert.ok(!ticker.running);
+});
+
+// --- a cable led through waypoints (lib/rig/route.js) ----------------------------
+// From a socket across to another's, led round the sockets between: down to a
+// channel, along it, and down again. The rope is pinned to each waypoint and
+// hangs between them.
+const LA = { x: 480, y: 80 };
+const LB = { x: 215, y: 222 };
+const VIA = [{ x: 480, y: 194 }, { x: 215, y: 194 }];
+
+test('a led rope passes exactly through its waypoints, and has links enough in each span', () => {
+  const m = new CableModel();
+  m.step({ a: LA, b: LB, via: VIA }, 0);
+  const pts = m.view.points;
+  for (const w of VIA) assert.ok(pts.some((p) => p.x === w.x && p.y === w.y), `through ${w.x},${w.y}`);
+  assert.deepEqual([pts[0].x, pts[0].y, pts.at(-1).x, pts.at(-1).y], [LA.x, LA.y, LB.x, LB.y]);
+  // No span is left with fewer than three links: it bends as a rope.
+  const lay = layout(LA, LB, VIA, false);
+  const spans = [0, ...lay.pins, lay.n - 1];
+  for (let i = 0; i + 1 < spans.length; i++) assert.ok(spans[i + 1] - spans[i] >= 3, `span ${i}`);
+});
+
+test('a led rope hangs between its waypoints: nearly taut, and under the line it was led along, not through the gear', () => {
+  const m = new CableModel();
+  m.step({ a: LA, b: LB, via: VIA }, 0);
+  const pts = m.view.points;
+  // Down the first leg: it stays on it.
+  for (const p of pts.filter((q) => q.y < 180 && q.x > 400)) assert.ok(Math.abs(p.x - 480) < 3, `leg one is at x ${p.x}`);
+  // Along the channel: it hangs below the line, a little, and never above it.
+  const run = pts.filter((q) => q.x < 470 && q.x > 225);
+  assert.ok(run.length >= 4);
+  for (const p of run) assert.ok(p.y >= 194 - 0.5 && p.y <= 194 + 12, `the run is at y ${p.y.toFixed(1)}`);
+  assert.ok(Math.max(...run.map((p) => p.y)) > 194 + 1, 'and it does hang');
+  // Without waypoints it ran straight across to the end, through the middle of the row.
+  const free = new CableModel();
+  free.step({ a: LA, b: LB }, 0);
+  const mid = free.view.points.find((p) => p.x < 350);
+  assert.ok(mid.y > 194 + 12 || mid.y < 194 - 12 || mid.x > 230, 'as it was drawn, nothing held it to the channel');
+});
+
+test('a led rope is the same at 20, 60 and 120 Hz, and on ragged frames, after its waypoints move', () => {
+  const state = { a: LA, b: LB, via: VIA };
+  const moved = { a: LA, b: LB, via: [{ x: 480, y: 170 }, { x: 215, y: 170 }] };
+  const make = () => { const m = new CableModel(); m.step(state, 0); return m; };
+  const at = (hz, ms) => { const m = make(); m.step(moved, 0); const n = Math.round(ms * hz / 1000); for (let i = 0; i < n; i++) m.step(moved, 1000 / hz); return m.view.points; };
+  const ref = at(120, 600);
+  assert.ok(ref.some((p) => p.x === 480 && p.y === 170), 'the rope is pinned to the waypoint it was moved to');
+  assert.ok(apart(at(60, 600), ref) < 0.01, '60 Hz');
+  assert.ok(apart(at(20, 600), ref) < 0.01, '20 Hz');
+  const rag = make();
+  rag.step(moved, 0);
+  const r = rng(7);
+  let t = 0;
+  while (t < 600) { const dt = Math.min(600 - t, 5 + r() * 30); rag.step(moved, dt); t += dt; }
+  assert.ok(apart(rag.view.points, ref) < 0.5, 'ragged frames, at the same moment, to within a step');
+});
+
+test('a led rope settles, parks, and reduced motion lands it where the swing comes to rest', () => {
+  const swing = new CableModel();
+  swing.step({ a: LA, b: LB, via: VIA }, 0);
+  const to = { a: LA, b: LB, via: [{ x: 480, y: 170 }, { x: 215, y: 170 }] };
+  let parked = -1;
+  for (let i = 0; i < 400; i++) {
+    if (!swing.step(to, 16)) { parked = i; break; }
+  }
+  assert.ok(parked > 0 && parked * 16 < 3000, `parked after ${parked * 16} ms`);
+  const land = new CableModel();
+  land.step({ a: LA, b: LB, via: VIA }, 0);
+  assert.equal(land.step(to, Infinity), false);
+  assert.ok(apart(land.view.points, swing.view.points) < 0.2, 'within 0.2 px');
+});
+
+test('moving a waypoint moves the rope, from where it was; the same waypoints are left alone', () => {
+  const m = new CableModel();
+  m.step({ a: LA, b: LB, via: VIA }, 0);
+  const before = m.view.points;
+  assert.equal(m.step({ a: LA, b: LB, via: VIA.map((p) => ({ ...p })) }, 16), false, 'the same waypoints, still');
+  // Led through a longer way: a rope with more points, carrying on from the one it was.
+  const longer = [...VIA.slice(0, 1), { x: 350, y: 194 }, { x: 350, y: 160 }, { x: 215, y: 160 }];
+  assert.equal(m.step({ a: LA, b: LB, via: longer }, 16), true, 'moves');
+  assert.notEqual(m.view.points.length, before.length, 'cut into other points');
+  // Taken back to no waypoints it is the plain rope again.
+  m.step({ a: LA, b: LB }, Infinity);
+  assert.equal(m.view.points.length, ROPE_POINTS);
+});
+
+test('a dropped led cable starts from the rope that was in the hand, taken onto its own points', () => {
+  const seed = Array.from({ length: ROPE_POINTS }, (_, i) => ({ x: LA.x + (LB.x - LA.x) * (i / (ROPE_POINTS - 1)), y: LA.y + (LB.y - LA.y) * (i / (ROPE_POINTS - 1)) }));
+  const m = new CableModel();
+  assert.equal(m.step({ a: LA, b: LB, via: VIA, seed }, 0), true, 'moving on from it');
+  const pts = m.view.points;
+  assert.notEqual(pts.length, seed.length, 'a rope of its own points, not the seed’s');
+  // The first frame is the rope in the hand, not the settled shape.
+  assert.ok(Math.abs(pts[Math.floor(pts.length / 2)].y - (LA.y + LB.y) / 2) < 12);
+  for (let i = 0; i < 300 && m.step({ a: LA, b: LB, via: VIA, seed }, 16); i++);
+  assert.equal(m.step({ a: LA, b: LB, via: VIA, seed }, 16), false, 'and it comes to rest');
+});
+
+test('a declared cable is not led: it is taut from its tag whatever it is told', () => {
+  const m = new CableModel();
+  m.step({ a: LA, b: LB, declared: true, via: VIA }, 0);
+  assert.equal(m.view.points.length, ROPE_POINTS);
+  for (const p of m.view.points) assert.ok(Math.abs((p.x - LA.x) * (LB.y - LA.y) - (p.y - LA.y) * (LB.x - LA.x)) < 1e-6);
+});
+
+test('the links of a led rope are about LINK_PX, and sum to the length of its spans', () => {
+  const lay = layout(LA, LB, VIA, false);
+  const chords = [114, 265, 28];
+  assert.ok(Math.abs(lay.seg.reduce((t, v) => t + v, 0) - chords.reduce((t, v) => t + v, 0)) < 3);
+  for (const v of lay.seg) assert.ok(v <= LINK_PX * 1.6 && v >= 3, `link ${v.toFixed(1)}`);
+});
+
+test('a rope led through many waypoints, up to twenty-four, stays finite, keeps its ends, and parks', () => {
+  const r = rng(11);
+  for (let trial = 0; trial < 60; trial++) {
+    const a = { x: r() * 360, y: r() * 1000 }, b = { x: r() * 360, y: r() * 1000 };
+    const via = Array.from({ length: Math.floor(r() * 25) }, () => ({ x: r() * 360, y: r() * 1000 }));
+    const m = new CableModel();
+    m.step({ a, b, via }, 0);
+    let parked = false;
+    for (let i = 0; i < 400 && !parked; i++) parked = !m.step({ a, b, via }, 16);
+    const pts = m.view.points;
+    assert.ok(parked, `trial ${trial}: ${via.length} waypoints, still moving after 6 s`);
+    assert.ok(pts.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)), `trial ${trial}`);
+    assert.deepEqual([pts[0].x, pts[0].y, pts.at(-1).x, pts.at(-1).y], [a.x, a.y, b.x, b.y]);
+  }
 });
