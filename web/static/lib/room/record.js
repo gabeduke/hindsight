@@ -6,8 +6,9 @@
 // - From a take: the take itself, or its IN–OUT span as a cut (POST /api/cut),
 //   then the mark. A cut is quick.
 // - From a tape: a mixdown (POST /api/tapes/mixdown) -- the tape played once
-//   and saved as a take, which takes as long as the tape -- followed through
-//   live.mixdown, then the mark on the take it saved.
+//   and saved as a take, which takes as long as the tape -- asked to save
+//   its take marked, so the Pi marks it whether or not this page is still
+//   open when it's done; live.mixdown follows it here.
 //
 // A failure marks nothing, so nothing lands on the Records shelf, and the
 // error says why. The fetches are passed in, so the flows are tested here
@@ -99,13 +100,14 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * cutTapeRecord cuts a record from the loaded tape: the whole tape mixed
- * down, followed until its take is saved, and that take marked. onProgress
- * hears mixProgress at each look. It throws the mixdown's own words when it
- * fails or is cancelled, having marked nothing.
+ * down, its take saved marked as a record by the Pi itself, and followed
+ * here until it's saved. onProgress hears mixProgress at each look. It
+ * throws the mixdown's own words when it fails or is cancelled; a mixdown
+ * that fails saves no take, so nothing is marked.
  */
 export async function cutTapeRecord(tapeId, { fetchImpl = globalThis.fetch, sleep = pause, onProgress, everyMs = 500 } = {}) {
   const q = `id=${encodeURIComponent(tapeId)}`;
-  const { mixdown: started } = await send(fetchImpl, `/api/tapes/mixdown?${q}`, 'POST', { all: true });
+  const { mixdown: started } = await send(fetchImpl, `/api/tapes/mixdown?${q}`, 'POST', { all: true, ...markBody(tapeCover(tapeId)) });
   if (!started) throw new Error('the Pi didn’t start a mixdown');
   onProgress?.(mixProgress(started, started.from));
   // As long as the tape, and then some: the engine gives up on its own
@@ -129,9 +131,6 @@ export async function cutTapeRecord(tapeId, { fetchImpl = globalThis.fetch, slee
     const p = mixProgress(md, s.live.heard);
     onProgress?.(p);
     if (md.state === 'failed') throw new Error(md.error || 'the mixdown didn’t save');
-    if (md.state === 'done' && md.take) {
-      await send(fetchImpl, `/api/take?file=${encodeURIComponent(md.take)}`, 'PATCH', markBody(tapeCover(tapeId)));
-      return { name: md.take };
-    }
+    if (md.state === 'done' && md.take) return { name: md.take };
   }
 }

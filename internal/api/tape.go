@@ -883,11 +883,22 @@ func (a *API) handleTapeMixdown(w http.ResponseWriter, r *http.Request) {
 	}
 	var b struct {
 		All bool `json:"all"` // the whole tape, not the loop
+		// The Listening Room's Cut a record: the take is saved marked as
+		// this record ({side, cover}, as PATCH /api/take takes it).
+		Record json.RawMessage `json:"record"`
 	}
 	if r.ContentLength != 0 && !decodeBody(w, r, &b) {
 		return
 	}
-	m, err := a.tape.StartMixdown(r.URL.Query().Get("id"), b.All)
+	var rec *audio.Record
+	if b.Record != nil {
+		var err error
+		if rec, err = parseRecord(b.Record, time.Now()); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	m, err := a.tape.StartMixdownAs(r.URL.Query().Get("id"), b.All, rec)
 	if err != nil {
 		tapeErr(w, err)
 		return

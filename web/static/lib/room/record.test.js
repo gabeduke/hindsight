@@ -67,7 +67,7 @@ test('a mixdown’s progress, for the turntable', () => {
   assert.equal(mixProgress(null).state, 'none');
 });
 
-test('cutting a record from a tape follows the mixdown to its take, then marks it', async () => {
+test('cutting a record from a tape asks the Pi to mark the take it saves, and follows it there', async () => {
   const md = { id: 7, tape: 'tp', from: 0, to: 4 * SR, tail: SR };
   const pi = fakePi([
     ['/api/tapes/mixdown?id=tp', 200, { mixdown: { ...md, state: 'playing' } }],
@@ -76,15 +76,15 @@ test('cutting a record from a tape follows the mixdown to its take, then marks i
     ['/api/tapes/state?id=tp', 200, { loaded: true, live: { heard: 4 * SR, mixdown: { ...md, state: 'tail' } } }],
     ['/api/tapes/state?id=tp', 200, { loaded: true, live: { heard: 4 * SR, mixdown: { ...md, state: 'saving' } } }],
     ['/api/tapes/state?id=tp', 200, { loaded: true, live: { heard: 4 * SR, mixdown: { ...md, state: 'done', take: 'jam_mix.wav' } } }],
-    ['/api/take?file=jam_mix.wav', 200, {}],
   ]);
   const seen = [];
   const r = await cutTapeRecord('tp', { fetchImpl: pi.fetchImpl, sleep: async () => {}, onProgress: (p) => seen.push(p.state) });
   assert.deepEqual(r, { name: 'jam_mix.wav' });
   assert.deepEqual(seen, ['playing', 'playing', 'tail', 'saving', 'done']);
-  assert.deepEqual(pi.calls[0].body, { all: true });
-  const mark = pi.calls.at(-1);
-  assert.deepEqual([mark.method, mark.body], ['PATCH', { record: { side: 'A', cover: stripeOf('tp') } }]);
+  // The mark goes with the mixdown, so it doesn't wait on this page: a cut
+  // left halfway through, by SIT DOWN, still lands on the Records shelf.
+  assert.deepEqual(pi.calls[0].body, { all: true, record: { side: 'A', cover: stripeOf('tp') } });
+  assert.ok(!pi.calls.some((c) => c.method === 'PATCH'), 'the page marks nothing itself');
 });
 
 test('a failed mixdown marks nothing, and says why', async () => {

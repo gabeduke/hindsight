@@ -606,6 +606,9 @@ func TestATapeExportsAsStemsAndRefusesAMixdownWithNothingToPlayIt(t *testing.T) 
 	// This engine has no output and no recorder: a mixdown can't run.
 	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, `{}`), http.StatusConflict, "mixdown")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, ""), http.StatusConflict, "mixdown, no body")
+	// Cut a record: a record it couldn't mark is refused before anything plays.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, `{"all":true,"record":{"side":"C"}}`), http.StatusBadRequest, "mixdown, a bad record")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, `{"all":true,"record":{"cover":3}}`), http.StatusConflict, "mixdown, a good record")
 }
 
 // Away from the rig: the loop to listen to, and a phone's part placed back

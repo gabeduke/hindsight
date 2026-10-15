@@ -1341,6 +1341,12 @@ name as its label, the tape's id as its `tape_id`, the tape's tempo as its
 BPM, and as `downbeat_frame` the first bar line in it (0 when the span starts
 on one, as a loop does).
 
+`"record": {side?, cover?, cut?}` in the body (the Listening Room's *Cut a
+record*, read as `PATCH /api/take`'s `record` is) saves the take marked as
+that record, so the mark doesn't depend on the page that asked staying open;
+a bad record is a 400 before anything plays. A mixdown that fails saves no
+take, and so marks nothing.
+
 It answers at once with `{"mixdown": {"id", "tape", "state": "playing",
 "from", "to", "tail"}}` (tape frames, and the tail in frames). The tape's
 state then carries the same object as `live.mixdown`, its `state` moving to
