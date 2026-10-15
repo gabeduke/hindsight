@@ -286,6 +286,9 @@ type State struct {
 	Tracks []Track `json:"tracks"`
 	// Sections name spans of the tape for arranging (sections.go), in order.
 	Sections []Section `json:"sections,omitempty"`
+	// Style is the tape's mods (mods.go): wow, flutter, drive and age. Nil
+	// is clean.
+	Style *Style `json:"style,omitempty"`
 }
 
 // clone is a deep copy, for undo.
@@ -294,6 +297,10 @@ func (s State) clone() State {
 	if s.Grid != nil {
 		g := *s.Grid
 		out.Grid = &g
+	}
+	if s.Style != nil {
+		st := *s.Style
+		out.Style = &st
 	}
 	for i, t := range s.Tracks {
 		t.Clips = append(make([]Clip, 0, len(t.Clips)), t.Clips...) // never nil: [] in JSON
@@ -486,6 +493,11 @@ func (s *State) validate(length int64) error {
 	}
 	if err := s.validSections(length); err != nil {
 		return err
+	}
+	if s.Style != nil {
+		if err := s.Style.validate(); err != nil {
+			return err
+		}
 	}
 	for i := range s.Tracks {
 		tr := &s.Tracks[i]

@@ -175,6 +175,17 @@ type Mix struct {
 	// Out (a mixdown's); nil in a mix that is one.
 	straight *Mix
 	sr       float64
+	// style is the tape's mods, by mod index (mods.go).
+	style [numMods]float64
+}
+
+// rate is the mix's sample rate; 48 kHz for the empty mix nothing is loaded
+// into, so nothing divides by zero.
+func (m *Mix) rate() float64 {
+	if m.sr > 0 {
+		return m.sr
+	}
+	return 48000
 }
 
 type mixTrack struct {
@@ -216,6 +227,9 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 	if s.Grid != nil {
 		g := *s.Grid
 		m.grid = &g
+	}
+	if s.Style != nil {
+		m.style = s.Style.amounts()
 	}
 	solo := false
 	for _, t := range s.Tracks {
