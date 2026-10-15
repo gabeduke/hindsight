@@ -47,10 +47,26 @@ export function studioRedirect(pathname, tapeOn, rooms) {
   return null;
 }
 
-// roomTabs rewrites the page's three tabs as the two rooms: Capture's becomes
-// the Studio's and keeps its lamp (the Studio holds the feed), Takes' becomes
-// the Listening Room's and keeps its icon, and Tape's goes.
-function roomTabs(nav) {
+/**
+ * tapeAnswer reads the Pi's answer to /api/tapes: the tape is on (a 2xx),
+ * off (a 404), or nothing can be said (a 500, a proxy's error page), which
+ * leaves whatever was known before.
+ */
+export function tapeAnswer(res) {
+  if (res.ok) return true;
+  if (res.status === 404) return false;
+  return null;
+}
+
+/**
+ * roomTabs rewrites the page's three tabs as the two rooms: Capture's becomes
+ * the Studio's and keeps its lamp (the Studio holds the feed), Takes' becomes
+ * the Listening Room's and keeps its icon, and Tape's goes. The nav is then
+ * marked: until it is, a page with the rooms on keeps it out of sight (the
+ * early script in each page's head, and styles.css), so the three old tabs
+ * never show.
+ */
+export function roomTabs(nav) {
   const relabel = (a, id, label) => {
     // Its text, not its lamp or icon.
     for (const n of [...a.childNodes]) if (n.nodeType === 3) n.remove();
@@ -71,21 +87,26 @@ function roomTabs(nav) {
     room.title = tipFor('nav-room');
   }
   nav.querySelector('a[data-tab="tape"]')?.remove();
+  nav.classList.add('appnav-rooms');
 }
 
 /**
  * initNav brings the page's switch in line with navTabs and lights the lamp.
  * It answers with the Pi's tapes ({loaded, tapes}), or null with the tape
  * off, so a page's now-playing bar can find the loaded tape without asking
- * again.
+ * again. `env` stands in for the browser's globals in tests.
  */
-export function initNav(doc = document) {
+export function initNav(doc = document, env = {}) {
+  const loc = env.location ?? globalThis.location;
+  const get = env.fetch ?? ((...a) => globalThis.fetch(...a));
+  const store = () => env.localStorage ?? globalThis.localStorage;
+  const every = env.setInterval ?? globalThis.setInterval;
   const nav = doc.querySelector('.appnav');
   if (!nav) return Promise.resolve(null);
-  const rooms = roomsOn();
+  const rooms = env.rooms ?? roomsOn();
   if (rooms) roomTabs(nav);
   const apply = (tapeOn) => {
-    const tabs = navTabs(location.pathname, tapeOn, rooms);
+    const tabs = navTabs(loc.pathname, tapeOn, rooms);
     for (const a of nav.querySelectorAll('a[data-tab]')) {
       const t = tabs.find((x) => x.id === a.dataset.tab);
       a.hidden = !t;
@@ -98,14 +119,18 @@ export function initNav(doc = document) {
   // Last time's answer first, so a Pi without the tape doesn't flash a Tape
   // tab while it's asked again.
   let known = null;
-  try { known = localStorage.getItem('hindsight.tapeOn'); } catch { /* fine */ }
+  try { known = store().getItem('hindsight.tapeOn'); } catch { /* fine */ }
   apply(known !== 'false');
-  const tapes = fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
-    apply(r.ok);
-    try { localStorage.setItem('hindsight.tapeOn', String(r.ok)); } catch { /* fine */ }
-    // Only a clear answer moves the page: the tape is there, or it isn't.
-    const to = studioRedirect(location.pathname, r.ok ? true : r.status === 404 ? false : null, rooms);
-    if (to) location.replace(to);
+  const tapes = get('/api/tapes', { cache: 'no-store' }).then((r) => {
+    // Only a clear answer is drawn, kept for next time, or moves the page: a
+    // 500 says nothing about whether the tape is on.
+    const on = tapeAnswer(r);
+    if (on !== null) {
+      apply(on);
+      try { store().setItem('hindsight.tapeOn', String(on)); } catch { /* fine */ }
+      const to = studioRedirect(loc.pathname, on, rooms);
+      if (to) loc.replace(to);
+    }
     return r.ok ? r.json() : null;
   }).catch(() => null);
 
@@ -114,7 +139,7 @@ export function initNav(doc = document) {
   if (!lamp) return tapes;
   const poll = async () => {
     try {
-      const s = await (await fetch('/api/status', { cache: 'no-store' })).json();
+      const s = await (await get('/api/status', { cache: 'no-store' })).json();
       lamp.dataset.state = s.capture_healthy ? 'ok' : s.capture_waiting ? 'wait' : 'bad';
     } catch {
       lamp.dataset.state = 'bad';
@@ -124,6 +149,6 @@ export function initNav(doc = document) {
     lamp.closest('a')?.setAttribute('aria-label', `${rooms ? 'Studio' : 'Capture'}, ${words}`);
   };
   poll();
-  setInterval(() => { if (!doc.hidden) poll(); }, 10000);
+  every(() => { if (!doc.hidden) poll(); }, 10000);
   return tapes;
 }

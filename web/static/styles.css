@@ -3762,19 +3762,38 @@ body.play-open .play-enter { display: none; }
 
 /* ---------- Rooms P1: the Studio's feed and foot (lib/rooms/studio.js) ---------- */
 /* With the two rooms on (lib/rooms/flag.js, one device), the tape page is
-   the Studio: Capture's feed above the lanes, and the about line -- the only
-   way into Settings -- at its foot. tape.html keeps them in templates, so
-   with the flag off none of this markup exists; and every rule here hangs
-   off a studio- class or the about line inside the tape page's main, which
-   only the Studio puts there (styles.test.js). */
+   the Studio: Capture's feed above the lanes, and under them Capture's input
+   diagnostic and the about line -- the only way into Settings. tape.html
+   keeps them in templates, so with the flag off none of this markup exists;
+   and every rule here hangs off a studio- class, the about line in the tape
+   page's body (only the Studio puts one there), or :root[data-rooms], which
+   only the flag's early script sets (styles.test.js). */
 .studio-feed {
   flex: none;
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "title keys" "ribbon vu" "sel sel";
+  grid-template-areas: "head head" "ribbon vu" "keys keys" "sel sel";
   align-items: center; gap: 8px 14px;
   padding: 10px 14px;
 }
-.studio-feed > .studio-feed-title { grid-area: title; margin: 0; }
+/* A wide screen has the room for the keys beside the heading. */
+@media (min-width: 1100px) {
+  .studio-feed { grid-template-areas: "head keys" "ribbon vu" "sel sel"; }
+}
+.studio-feed-head { grid-area: head; display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* The heading keeps its word; its rule takes what room is left. */
+.studio-feed-head > .studio-feed-title { margin: 0; flex: 1 0 auto; }
+/* Capture's readouts, in a line: its trouble, then disk, drops and tempo. */
+.studio-stats {
+  margin: 0; flex: 0 1 auto; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 12px; color: var(--ink-dim);
+}
+.studio-stat + .studio-stat::before, .studio-health:not([hidden]) + .studio-stat::before { content: '· '; }
+.studio-stats .warn, .studio-health.wait { color: var(--warn-ink); }
+.studio-stats .bad, .studio-health.bad { color: var(--danger-ink); }
+.studio-health { font-weight: 600; }
+.studio-health[hidden] { display: none; }
+.studio-feed-head > .phone-btn { margin-left: 0; }
 .studio-feed > .viz-wrap { grid-area: ribbon; height: 112px; }
 .studio-feed > .vu-row { grid-area: vu; margin: 0; gap: 8px; }
 .studio-feed > .vu-row .vu { flex: none; width: 128px; }
@@ -3784,6 +3803,9 @@ body.play-open .play-enter { display: none; }
 .studio-keys { grid-area: keys; display: flex; align-items: stretch; gap: 8px; min-width: 0; }
 .studio-keys > .seg { flex: 0 1 auto; min-width: 0; }
 .studio-keys > .seg button { padding: 0 10px; }
+.studio-keys > .mark-btn { flex: none; }
+/* Keep goes to the end of the row, under the ribbon's "now". */
+.studio-keys > .studio-keep { margin-left: auto; }
 
 /* KEEP: the dashcam's save, a paper key -- the cassette's label -- so it
    doesn't compete with Catch's orange on the deck below. Paper is a material
@@ -3800,16 +3822,29 @@ body.play-open .play-enter { display: none; }
 .studio-keep-sub { font: 500 11.5px var(--font); color: var(--paper-dim); }
 .studio-keep-sub[hidden] { display: none; }
 
-/* The Studio's foot: the about line, between main and the dock. */
+/* With the rooms on, every page's switch waits -- out of sight, but in its
+   place -- for lib/nav.js to rewrite it as two tabs (.appnav-rooms), so the
+   three old tabs never paint. :root[data-rooms] is set by the early script
+   in each page's head, only with the flag on. If the script never comes,
+   the switch shows anyway after two seconds: the old names beat no way
+   between the pages at all. */
+:root[data-rooms] .appnav:not(.appnav-rooms) { visibility: hidden; animation: rooms-appnav-late 0s linear 2s forwards; }
+@keyframes rooms-appnav-late { to { visibility: visible; } }
+
+/* The Studio's foot, between main and the dock: Capture's input diagnostic,
+   then the about line. */
+body.tape-page > .studio-chan { flex: none; margin: 0; padding: 4px 16px 0; }
+body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
 body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 
 /* A phone: the ribbon the full width, the meters as two bars (needles cost
-   the lanes their height), and Keep under them, where the thumb is. Keep is
-   its word alone: the lengths beside it, and the ribbon, say how much. */
+   the lanes their height), and the keys under them, where the thumb is.
+   Keep is its word alone -- the lengths beside it, and the ribbon, say how
+   much -- and Flag now its pennant, as on Capture's bench. */
 @media (max-width: 699.98px) {
   .studio-feed {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "title" "ribbon" "meters" "keys" "sel";
+    grid-template-areas: "head" "ribbon" "meters" "keys" "sel";
     gap: 8px; padding: 10px 12px;
   }
   .studio-feed > .viz-wrap { height: 92px; }
@@ -3817,24 +3852,31 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
   .studio-feed > .meters { display: flex; gap: 4px; }
   .studio-keys > .seg { flex: 1 1 0; }
   .studio-keys > .seg button { padding: 0 4px; }
-  .icon-btn.studio-keep { flex: none; min-width: 96px; }
+  .studio-keys > .mark-btn { font-size: 0; min-width: 44px; padding: 0 12px; }
+  .studio-keys > .mark-btn::before { font-size: 16px; }
+  .icon-btn.studio-keep { min-width: 96px; margin-left: 0; }
   .studio-keep-sub { display: none; }
+  /* The selection bar's four keys don't fit beside its readout: the
+     readout takes a line of its own, and the keys wrap under it. */
+  .studio-feed > .rb-sel { flex-wrap: wrap; row-gap: 6px; }
+  .studio-feed > .rb-sel .rb-sel-text { flex: 1 1 100%; }
+  .studio-feed > .rb-sel .icon-btn { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
+  body.tape-page > .studio-chan { padding: 4px 12px 0; }
 }
 /* A phone held sideways: the lanes have 390 px, so the feed gives back what
-   it can -- a short ribbon with the bars under it and the keys beside them,
-   and its heading kept for a screen reader only, as Capture's is here. */
+   it can -- a short ribbon with the bars under it and the keys beside them. */
 @media (orientation: landscape) and (max-height: 440px) {
   .studio-feed {
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "ribbon keys" "meters keys" "sel sel";
+    grid-template-areas: "head head" "ribbon keys" "meters keys" "sel sel";
     gap: 6px 10px; padding: 8px 10px;
   }
-  .studio-feed > .studio-feed-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); }
   .studio-feed > .viz-wrap { height: 64px; }
   .studio-feed > .vu-row { display: none; }
   .studio-feed > .meters { display: flex; gap: 4px; }
   .studio-keys { flex-direction: column; align-self: stretch; }
   .studio-keys > .seg button { min-height: 34px; }
+  .studio-keys > .studio-keep { margin-left: 0; }
 }
 
 /* ---------- Rooms P2: the buffer (lib/buffer) ---------- */

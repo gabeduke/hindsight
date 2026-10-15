@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { keepTake, takeBack } from './keep.js';
+import { keepTake, takeBack, flagNow } from './keep.js';
 
 const answer = (status, body) => async (url, init) => {
   answer.last = { url, init };
@@ -35,4 +35,13 @@ test('Undo puts the take in the trash', async () => {
   assert.equal(answer.last.url, '/api/delete?file=jam%201.wav');
   assert.equal(answer.last.init.method, 'DELETE');
   await assert.rejects(takeBack('x', answer(404, { error: 'no such take' })), { message: 'no such take' });
+});
+
+test('Flag now marks this moment, as Capture’s key does', async () => {
+  await flagNow(answer(200, {}));
+  assert.equal(answer.last.url, '/api/flag');
+  assert.equal(answer.last.init.method, 'POST');
+  await assert.rejects(flagNow(answer(409, { error: 'nothing buffered' })), { message: 'nothing buffered' });
+  await assert.rejects(flagNow(answer(500, null)), { message: 'could not flag' });
+  await assert.rejects(flagNow(async () => { throw new Error('offline'); }), { message: 'could not flag' });
 });

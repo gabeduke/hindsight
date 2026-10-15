@@ -372,8 +372,9 @@ test('nothing hides the about line, which carries the only way into Settings', (
 test('the Studio’s rules reach only the Studio', () => {
   // The two rooms are behind a per-device flag, but styles.css is on every
   // page of every kit. So the Rooms P1 block may only style what the Studio's
-  // templates in tape.html put in the page: a studio- class, or the about
-  // line in the tape page's body, which only the Studio puts there.
+  // templates in tape.html put in the page: a studio- class, the about line
+  // in the tape page's body, which only the Studio puts there, or anything
+  // under :root[data-rooms], which only the flag's early script sets.
   const start = css.indexOf('/* ---------- Rooms P1:');
   assert.ok(start >= 0, 'the Rooms P1 block');
   // To the next section's header, however many dashes it has.
@@ -382,8 +383,8 @@ test('the Studio’s rules reach only the Studio', () => {
   const loose = [];
   for (const m of body.matchAll(/([^{}]+)\{/g)) {
     for (const sel of m[1].split(',').map((x) => x.trim())) {
-      if (!sel || sel.startsWith('@')) continue;
-      if (/\.studio-[a-z0-9-]+/.test(sel) || /^body\.tape-page > \.about\b/.test(sel)) continue;
+      if (!sel || sel.startsWith('@') || /^(from|to|\d+%)$/.test(sel)) continue; // a keyframe's steps
+      if (/\.studio-[a-z0-9-]+/.test(sel) || /^body\.tape-page > \.about\b/.test(sel) || /^:root\[data-rooms\] /.test(sel)) continue;
       loose.push(sel);
     }
   }
@@ -464,4 +465,16 @@ test('Play mode is drawn in its own materials, the same in both schemes', () => 
     }
   }
   assert.deepEqual(offenders, [], 'these follow the scheme; use a --pad- material from objects.css');
+});
+
+test('on a phone the Studio’s selection bar wraps instead of running off the screen', () => {
+  // Its readout and four keys are wider than a 390 px phone inside the
+  // feed's padding: unwrapped, Save as take ended past the screen's edge,
+  // the page scrolled sideways, and the readout shrank to nothing.
+  const start = css.indexOf('/* ---------- Rooms P1:');
+  const at = css.indexOf('@media (max-width: 699.98px)', start);
+  assert.ok(start >= 0 && at > start, 'the Studio has a phone block');
+  const phone = block(at);
+  assert.match(phone, /\.studio-feed > \.rb-sel\s*\{[^}]*flex-wrap:\s*wrap/);
+  assert.match(phone, /\.studio-feed > \.rb-sel \.rb-sel-text\s*\{[^}]*flex:\s*1 1 100%/);
 });

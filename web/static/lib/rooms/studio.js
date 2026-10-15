@@ -1,19 +1,21 @@
 // web/static/lib/rooms/studio.js
 // The Studio's own parts on the tape page (docs/superpowers/specs/2026-10-15-rooms-design.md,
 // step 1): the feed above the lanes -- the ring as the ribbon, the L/R
-// meters, and KEEP -- and the about line, with Settings, at the page's foot.
+// meters, KEEP, Flag now, Phone and Capture's readouts -- and under the
+// lanes the input diagnostic and the about line, with Settings.
 //
-// They are Capture's parts, moved: the markup is tape.html's templates, and
-// the modules that draw them are Capture's own (the ribbon, the VU meters,
-// the live socket, Settings, Releases). Only mount.js loads this, and only
-// with the flag on.
+// They are Capture's parts, moved, so that nothing Capture has is out of
+// reach while the rooms send `/` to the Studio: the markup is tape.html's
+// templates, and the modules that draw them are Capture's own (the ribbon,
+// the meters, the live socket, the phone recorder, Settings, Releases). Only
+// mount.js loads this, and only with the flag on.
 //
 // The tape page knows nothing about it, and it nothing about the tape page:
 // it adds itself around the lanes and asks the Pi for what Capture asks.
 
 import { connectLive } from '../live.js';
 import { onResume, timedFetch } from '../link.js';
-import { Meters, tierPhrase, captureTiers, frameLevels } from '../meter.js';
+import { Meters, tierPhrase, captureTiers, frameLevels, readouts, heldError } from '../meter.js';
 import { VUMeters } from '../objects/vu.js';
 import { Ribbon } from '../objects/ribbon.js';
 import { toast } from '../toast.js';
@@ -21,7 +23,8 @@ import { restoreTake } from '../trash.js';
 import { initSettings } from '../settings.js';
 import { initUpdate } from '../update.js';
 import { initWakeLock } from '../wakelock.js';
-import { keepTake, takeBack } from './keep.js';
+import { initPhone } from '../phone/recorder.js';
+import { keepTake, takeBack, flagNow } from './keep.js';
 import { mountBuffer } from '../buffer/buffer.js';
 
 const STATUS_MS = 2000;
@@ -54,6 +57,15 @@ export function mountStudio(doc = document) {
     vu: $('vu'),
     meters: $('meters'),
     version: $('version'),
+    health: $('studio-health'),
+    disk: $('stat-disk'),
+    xruns: $('stat-xruns'),
+    tempo: $('stat-tempo'),
+    mark: $('mark-btn'),
+    chanGrid: $('chan-grid'),
+    chanSaving: $('chan-saving'),
+    chanDevice: $('chan-device'),
+    midi: $('midi-devices'),
   };
 
   let status = null;     // the last /api/status
@@ -62,6 +74,8 @@ export function mountStudio(doc = document) {
   let keeping = false;   // a KEEP on its way
   let vu = null;
   let bars = null;
+  let chans = null;      // the input diagnostic's meters, one per channel
+  let captureErr = { text: '', since: 0, shown: false }; // heldError's
 
   // A take kept, from KEEP or from the ribbon: Name it on the Listening
   // Room's shelf, or Undo, which puts it in Recently deleted with a Restore.
@@ -92,6 +106,9 @@ export function mountStudio(doc = document) {
   const ribbon = new Ribbon(el.viz, {
     onToast: toast,
     onSavedToast: keptToast,
+    // Keep as clip: the crate is on this page, under the lanes or in the
+    // dock's drawer; lib/tape/page.js reads it again on this event.
+    onKept: () => doc.dispatchEvent(new CustomEvent('hindsight:crate-changed')),
     selBar: $('rb-sel'),
     flagSheet: $('rb-flag-sheet'),
   });
@@ -121,14 +138,41 @@ export function mountStudio(doc = document) {
     ribbon.setSelected(seconds);
   }
 
-  // The meters: needles from 700 px, two bars on a phone (CSS picks).
-  function buildMeters(saveChannels) {
-    const labels = saveChannels.length > 1 ? ['L', 'R'] : ['M'];
+  // The meters: needles from 700 px, two bars on a phone (CSS picks); and
+  // the diagnostic's, one per input, the saved ones lit.
+  function buildMeters(s) {
+    const labels = s.save_channels.length > 1 ? ['L', 'R'] : ['M'];
     vu?.destroy(); // off the ticker before its nodes go
     el.vu.replaceChildren();
     el.meters.replaceChildren();
     vu = new VUMeters(el.vu, { labels });
     bars = new Meters(el.meters, { labels, selected: [] });
+    el.chanGrid.replaceChildren();
+    chans = new Meters(el.chanGrid, {
+      labels: Array.from({ length: s.channels }, (_, i) => String(i + 1)),
+      selected: s.save_channels.map((c) => c - 1),
+    });
+    el.chanSaving.textContent = s.save_channels.join(' & ');
+    el.chanDevice.textContent = s.device || 'no device';
+  }
+
+  // Capture's readouts, in the feed's line (lib/meter.js readouts); the
+  // ring's trouble first, when there is some, and its full text in a toast
+  // once it has stood a while, as Capture does.
+  function paintReadouts(s) {
+    const r = readouts(s);
+    el.health.hidden = r.health.state === 'ok';
+    el.health.textContent = r.health.text;
+    el.health.title = r.health.detail;
+    el.health.className = `studio-health ${r.health.state}`;
+    for (const [node, v] of [[el.disk, r.disk], [el.xruns, r.xruns], [el.tempo, r.tempo]]) {
+      node.textContent = v.text;
+      node.className = v.level;
+    }
+    el.midi.textContent = r.midi;
+    const held = heldError(captureErr, r.health.error, Date.now());
+    captureErr = held.state;
+    if (held.show) toast(held.show, 'bad', 8000);
   }
 
   function paintKeep() {
@@ -141,15 +185,23 @@ export function mountStudio(doc = document) {
   }
 
   function applyStatus(s) {
-    const shape = !status || s.ring_seconds !== status.ring_seconds || String(s.save_channels) !== String(status.save_channels);
+    const shape = !status || s.ring_seconds !== status.ring_seconds || s.channels !== status.channels
+      || String(s.save_channels) !== String(status.save_channels);
     status = s;
     reached = true;
     if (shape) {
       buildTiers(s.ring_seconds);
-      buildMeters(s.save_channels);
+      buildMeters(s);
     }
     if (s.version) el.version.textContent = s.version;
     el.viz.classList.toggle('stale', !s.capture_healthy);
+    paintReadouts(s);
+    // Not `healthy`: an interface can be off with a full buffer still in
+    // memory, and marking a moment you can still keep is the point.
+    el.mark.disabled = !s.buffered_seconds;
+    // The diagnostic's levels from the status too, so it's live before the
+    // socket's first frame.
+    if (chans && s.channel_rms) chans.update(s.channel_rms, s.channel_rms, null);
     paintKeep();
   }
 
@@ -162,9 +214,24 @@ export function mountStudio(doc = document) {
       // The tape page says when the Pi can't be reached; KEEP just can't.
       reached = false;
       el.viz.classList.add('stale');
+      el.mark.disabled = true;
       paintKeep();
     }
   }
+
+  async function mark() {
+    el.mark.disabled = true;
+    try {
+      await flagNow();
+      ribbon.poll(); // the new flag on the ribbon, without waiting
+    } catch (e) {
+      toast(e.message, 'bad');
+    } finally {
+      // The next status poll puts it right; this guards a second press.
+      el.mark.disabled = !status?.buffered_seconds;
+    }
+  }
+  el.mark.addEventListener('click', mark);
 
   async function keep() {
     // A tick as it goes and two when it's kept, as Capture's key does.
@@ -197,7 +264,19 @@ export function mountStudio(doc = document) {
       const { rms, peak, clip } = frameLevels(f, status.save_channels.map((c) => c - 1));
       bars?.update(rms, peak, clip);
       vu?.update(rms, peak, clip);
+      const last = f.bins?.[f.bins.length - 1];
+      if (chans && last?.rms) chans.update(last.rms, f.peak, f.clip);
     },
+  });
+
+  // Recording from this phone, as on Capture: its take lands on the
+  // Listening Room's shelf.
+  initPhone({
+    button: $('phone-btn'),
+    sheet: $('phone-sheet'),
+    toast,
+    // The hub's HTTPS address, when there is a certificate for it.
+    secureURL: () => (status?.hub?.cert_not_after && status.hub.url) || '',
   });
 
   paintKeep();

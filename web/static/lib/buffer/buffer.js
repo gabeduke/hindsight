@@ -167,6 +167,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
       st.gen++;
       if (b && 'clipboard' in b) takeBoard(b.clipboard, { mine });
       hint();
+      // An unused buffer it replaced went to the crate: the crate shows it.
+      if (b && b.crated && b.crated.length) doc.dispatchEvent(new CustomEvent('hindsight:crate-changed'));
       return b;
     });
     st.chain = p.catch(() => {});
