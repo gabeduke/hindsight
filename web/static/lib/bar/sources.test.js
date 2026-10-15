@@ -3,7 +3,7 @@
 // fetch and a clock the tests move.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { takeSource } from './take-source.js';
+import { takeSource, playheadOf } from './take-source.js';
 import { tapeSource } from './tape-source.js';
 
 const SR = 48000;
@@ -177,4 +177,15 @@ test('the tape on this phone: held back, the LCD asks for ▶, and ▶ wakes it 
   player.state = 'playing';
   player.waitingTap = false;
   assert.equal(s.lcd().note, '');
+});
+
+test('the bar’s take says where it is, in seconds; with no take in the bar, null', () => {
+  const { audio, player, t } = aTake();
+  const held = { name: t.name, audio, src: takeSource(t, player) };
+  assert.equal(playheadOf(held), 0, 'a take held at its start');
+  audio.currentTime = 7.25;
+  assert.equal(playheadOf(held), 7.25, 'it follows the audio the spine and the bar share');
+  assert.equal(playheadOf(null), null, 'nothing in the bar');
+  audio.currentTime = NaN;
+  assert.equal(playheadOf(held), null, 'an audio element with no time yet');
 });

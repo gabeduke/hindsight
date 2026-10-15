@@ -27,6 +27,7 @@ import { initPhone } from '../phone/recorder.js';
 import { keepTake, takeBack, flagNow } from './keep.js';
 import { mountBuffer } from '../buffer/buffer.js';
 import { bindStudioKeys } from './keys.js';
+import { keepLabel, keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
 
 const STATUS_MS = 2000;
 
@@ -53,6 +54,7 @@ export function mountStudio(doc = document) {
     seg: $('dur-seg'),
     keep: $('studio-keep'),
     word: $('studio-keep-word'),
+    len: $('studio-keep-len'),
     sub: $('studio-keep-sub'),
     viz: $('viz-wrap'),
     vu: $('vu'),
@@ -107,14 +109,12 @@ export function mountStudio(doc = document) {
   const ribbon = new Ribbon(el.viz, {
     onToast: toast,
     onSavedToast: keptToast,
-    // Keep as clip: the crate is on this page, under the lanes or in the
-    // dock's drawer; lib/tape/page.js reads it again on this event.
-    onKept: () => doc.dispatchEvent(new CustomEvent('hindsight:crate-changed')),
     selBar: $('rb-sel'),
     flagSheet: $('rb-flag-sheet'),
+    // A selection of the feed has two verbs, GRAB (the buffer's) and KEEP,
+    // and KEEP says how much it keeps.
+    keepWords: (seconds) => keepLabel(selectionKeepLength(seconds)),
   });
-  // The Studio has a tape: a span can be copied onto it, or kept in its crate.
-  ribbon.offerCopy(true);
 
   // KEEP's lengths, as Capture's: 30 s, 2 m, 7 m that the ring holds, and all
   // of it. The ribbon shades the one chosen.
@@ -181,6 +181,14 @@ export function mountStudio(doc = document) {
     const busy = keeping || !!status?.saving;
     el.keep.disabled = !healthy || busy;
     el.word.textContent = busy ? 'Keeping…' : status && !healthy ? 'No input' : 'Keep';
+    // KEEP names what it keeps, on every screen: the sub-line that says it in
+    // words has no room on a phone, the length beside the word does.
+    const len = status && healthy && !busy ? feedKeepLength(seconds, status.ring_seconds) : '';
+    el.len.textContent = len;
+    if (len) el.keep.setAttribute('aria-label', keepAria(len));
+    else el.keep.removeAttribute('aria-label');
+    // And the instrument's pad: what K keeps (lib/play/strip.js listens).
+    doc.dispatchEvent(new CustomEvent('hindsight:keeps', { detail: { feed: len } }));
     el.sub.textContent = status ? tierPhrase(seconds, status.ring_seconds) : '';
     el.sub.hidden = !healthy || busy;
   }

@@ -9,7 +9,7 @@
 import { ReelWindow } from '../objects/reel-window.js';
 import { Loop } from '../objects/motion.js';
 import { tapeSource } from './tape-source.js';
-import { takeSource } from './take-source.js';
+import { takeSource, playheadOf } from './take-source.js';
 import { initPlayer } from './player.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
@@ -250,6 +250,8 @@ export function pageBar({ tapes, onToast }) {
   return {
     ready,
     get takeName() { return take ? take.name : null; },
+    /** takeTime: where the take in the bar is, in seconds; null with none. */
+    get takeTime() { return playheadOf(take); },
     /** ejected: ⏏ put the tape back; automatic picks leave it there. */
     get ejected() { return ejected; },
     /** looping: a take in the bar is on Loop, so its end isn't the end. */

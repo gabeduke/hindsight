@@ -36,6 +36,7 @@ import { Amounts } from './amounts.js';
 import { wireFX, linkOptions } from './fxwire.js';
 import { reconcile, RECENT_MS } from './held.js';
 import { FarPads } from './far.js';
+import { keptByK } from '../rooms/keeplabel.js';
 
 /** The strip's per-device conveniences (not DEVICE_PREFS: they're where you left it). */
 export const FOLD_KEY = 'hindsight.play.strip';
@@ -483,6 +484,15 @@ export function startStrip({
     ui.note(linkNote || (tape?.output === 'phone' ? 'Playing on a phone — the pads land about a second late' : ''));
   }
   doc.addEventListener('hindsight:tape-state', onState);
+  // KEEP names what it keeps (docs/superpowers/specs/2026-10-15-flow-design.md):
+  // the Studio says what the feed's K keeps and the buffer what its own does,
+  // while it is open; the pad shows the one K will.
+  const keeps = { feed: '', buffer: '' };
+  const onKeeps = (e) => {
+    Object.assign(keeps, e.detail || {});
+    ui.setVerbWords('keep', keptByK(keeps));
+  };
+  doc.addEventListener('hindsight:keeps', onKeeps);
   const onLead = () => ui.setLead(surface.lead);
   const leadTimer = setInterval(onLead, 1000);
 
@@ -516,6 +526,7 @@ export function startStrip({
       doc.removeEventListener('click', onPeekTap, true);
       doc.removeEventListener('keydown', onEsc, true);
       doc.removeEventListener('hindsight:tape-state', onState);
+      doc.removeEventListener('hindsight:keeps', onKeeps);
       ui.destroy();
       root.remove();
       toggle.destroy();

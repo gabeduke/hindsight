@@ -78,14 +78,15 @@ test('the tape page loads the Studio only through its flag', () => {
 });
 
 // The Studio and the tape page share a page but import nothing of each
-// other's; they speak in events, as Play mode does. Keep as clip on the
-// Studio's ribbon fills the tape page's crate, so the two must name the same
-// event, and the tape page must read the crate on it.
-test("the Studio's Keep as clip reaches the tape page's crate", () => {
-  const studio = readFileSync(new URL('./studio.js', import.meta.url), 'utf8');
+// other's; they speak in events, as Play mode does. A grab that replaces a
+// buffer nobody dropped puts it in the crate (the Studio's selection no
+// longer offers Keep as clip: F1), so the buffer and the tape page must name
+// the same event, and the tape page must read the crate on it.
+test("the buffer's crated grab reaches the tape page's crate", () => {
+  const buffer = readFileSync(new URL('../buffer/buffer.js', import.meta.url), 'utf8');
   const tapePage = readFileSync(new URL('../tape/page.js', import.meta.url), 'utf8');
-  const sent = /onKept:[^\n]*dispatchEvent\(new CustomEvent\('([^']+)'\)\)/.exec(studio);
-  assert.ok(sent, 'studio.js passes the ribbon an onKept that dispatches an event');
+  const sent = /b\.crated[^\n]*dispatchEvent\(new CustomEvent\('([^']+)'\)\)/.exec(buffer);
+  assert.ok(sent, 'buffer.js dispatches an event when a grab puts the old buffer in the crate');
   const heard = new RegExp(`addEventListener\\('${sent[1]}', \\(\\) => fetchCrate\\(\\)\\)`);
   assert.match(tapePage, heard, `lib/tape/page.js reads the crate again on ${sent[1]}`);
 });

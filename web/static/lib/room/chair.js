@@ -18,6 +18,8 @@
 // as read-only notes.
 
 import { notesOf, noteSpan, sendToStudio, fmtAt, fieldEnter } from './notes.js';
+import { keepLabel, selectionKeepLength } from '../rooms/keeplabel.js';
+import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick } from '../rooms/grab.js';
 import { cutTakeRecord, cutTapeRecord } from './record.js';
 import { loadTape, readyToCut } from './swap.js';
 import { tagStore } from '../tags.js';
@@ -69,8 +71,10 @@ function frame({ kind, title }) {
     if (words) words.textContent = 'Stand up';
   }
   // Short words on a phone, where the header is one row of keys.
-  const studio = el('button', 'icon-btn chair-studio', { type: 'button', 'data-tip': 'room-studio', 'aria-label': kind === 'tape' ? 'Load it in the Studio' : 'To the Studio' },
-    el('span', 'wide-only', { text: kind === 'tape' ? 'Load it in the Studio' : 'To the Studio' }), el('span', 'narrow-only', { text: 'Studio ›' }));
+  // A tape is loaded in the Studio; a take is GRABbed (its words are the
+  // take's own, set in mountTake once the loop's length is known).
+  const studio = el('button', 'icon-btn chair-studio', { type: 'button', 'data-tip': 'room-studio', 'aria-label': kind === 'tape' ? 'Load it in the Studio' : 'GRAB' },
+    el('span', 'wide-only', { text: kind === 'tape' ? 'Load it in the Studio' : 'GRAB' }), el('span', 'narrow-only', { text: kind === 'tape' ? 'Studio ›' : 'GRAB' }));
   const cutKey = el('button', 'chair-cut', { type: 'button', 'data-tip': 'room-cut' }, 'CUT A RECORD');
   const acts = el('span', 'chair-acts', {}, studio, cutKey);
   document.querySelector('.appbar-page')?.append(acts);
@@ -277,7 +281,7 @@ function mountTake(h) {
         if (e.key === 'Escape') { e.preventDefault(); words.value = n.label; words.blur(); }
       });
       const span = noteSpan(ns, n.id, spanOpts());
-      const go = el('button', 'book-go', { type: 'button', 'aria-label': `Send note ${n.n} to the Studio`, 'data-tip': 'room-to-studio', disabled: !span }, 'to the studio');
+      const go = el('button', 'book-go', { type: 'button', 'aria-label': `GRAB from note ${n.n} into the Studio’s buffer`, 'data-tip': 'room-to-studio', disabled: !span }, 'GRAB');
       go.addEventListener('click', () => noteToStudio(n.id));
       const out = el('button', 'book-out', { type: 'button', 'aria-label': `Take note ${n.n} out` }, '×');
       out.addEventListener('click', () => h.removeNote(n.id));
@@ -397,11 +401,55 @@ function mountTake(h) {
       renderCutKey();
     }
   });
-  f.studio.addEventListener('click', async () => {
+
+  // --- GRAB: the take's selection, else the N bars before the playhead -------------
+  // N starts at the tape's loop in bars, as the feed's GRAB does. The take's
+  // own tempo says how long a bar is; with none, N is twice as many seconds.
+  let grabN = takeStartN({ stored: readPick() });
+  const grabSpan = () => {
     const st = h.state();
-    const span = st.region ? { from: st.region.start, to: st.region.end } : { from: 0, to: h.total };
-    try { location.href = await sendToStudio(h.file, span); } catch (e) { h.toast(`Couldn’t take it to the Studio: ${e.message}`, 'bad'); }
-  });
+    return takeGrabSpan({ region: st.region, playhead: st.cursor, total: h.total, sampleRate: sr, bpm: st.grid.bpm, n: grabN });
+  };
+  async function grabNow() {
+    const span = grabSpan();
+    if (!span) return;
+    try { location.href = await sendToStudio(h.file, span); } catch (e) { h.toast(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad'); }
+  }
+  f.studio.addEventListener('click', grabNow);
+  let grabSig = '';
+  function renderGrab() {
+    const st = h.state();
+    // And the take's other verb, KEEP (the page's Save as take): it says how
+    // much of the take it makes a take of.
+    const keepKey = $('save-take');
+    if (keepKey) {
+      const k = keepLabel(st.region ? selectionKeepLength((st.region.end - st.region.start) / sr) : '');
+      if (keepKey.textContent !== k) keepKey.textContent = k;
+    }
+    const words = takeGrabLabel({ n: grabN, bpm: st.grid.bpm, selection: !!st.region });
+    if (words === grabSig) return;
+    grabSig = words;
+    for (const sp of f.studio.children) sp.textContent = words;
+    f.studio.setAttribute('aria-label', `${words}: ${st.region ? 'the selection' : st.grid.bpm > 0 ? `the ${grabN} bar${grabN === 1 ? '' : 's'} before the playhead` : `the ${2 * grabN} seconds before the playhead`}, into the Studio’s buffer`);
+    if (sendGrab) {
+      sendGrab.firstChild.textContent = words;
+      sendGrabSub.textContent = st.region ? 'The selection, into the Studio’s buffer' : 'Before the playhead, into the Studio’s buffer';
+    }
+  }
+  loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); renderGrab(); });
+
+  // The take page's Send to ▾: Tape and Clipboard are GRAB now -- one request,
+  // the Studio's buffer, which Drops where the clipboard Pasted. Crate waits
+  // for the crate to go.
+  const sendMenu = $('send-menu');
+  let sendGrab = null, sendGrabSub = null;
+  if (sendMenu) {
+    for (const id of ['send-to-tape', 'copy-take']) { const b = $(id); if (b) b.hidden = true; }
+    sendGrabSub = el('span', 'menu-sub');
+    sendGrab = el('button', '', { id: 'send-grab', type: 'button', role: 'menuitem', 'data-tip': 'send-grab' }, el('b'), sendGrabSub);
+    sendGrab.addEventListener('click', grabNow); // the menu closes itself on a choice
+    sendMenu.prepend(sendGrab);
+  }
 
   // --- each redraw ---------------------------------------------------------------
   let lastLabel = null;
@@ -413,6 +461,7 @@ function mountTake(h) {
     renderNotes();
     renderField();
     renderCutKey();
+    renderGrab();
     if (take.label !== lastLabel) { lastLabel = take.label; f.label.textContent = take.label || take.name.replace(/^jam_|\.wav$/g, ''); }
   }
   h.onRedraw(onRedraw);

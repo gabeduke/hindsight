@@ -20,6 +20,7 @@ import { roomShelves, inMonth, monthName, monthKey, isRecord, at, filterWords, p
 import { putTapeOn, loadTape, readyToCut } from './swap.js';
 import { cutTakeRecord, cutTapeRecord, takeCover, tapeCover } from './record.js';
 import { sendToStudio, fmtAt } from './notes.js';
+import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick, playheadFor } from '../rooms/grab.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
@@ -219,7 +220,9 @@ export function mount(h) {
   // The take's card, at the head of its sheet (the rack's TakeDetail).
   const det = h.detail;
   const put = el('button', 'room-put', { type: 'button', 'data-tip': 'room-put' }, 'PUT IT ON');
-  const toStudio = el('button', 'room-studio', { type: 'button', 'data-tip': 'room-studio' }, 'TO THE STUDIO');
+  // GRAB: the last N bars before the playhead, N the tape's loop in bars
+  // (lib/rooms/grab.js); a take's saved selection, if it has one, instead.
+  const toStudio = el('button', 'room-studio', { type: 'button', 'data-tip': 'room-studio' }, 'GRAB');
   const playAll = el('button', 'icon-btn room-playall', { type: 'button', 'data-tip': 'play-all' }, '▶ Play all from here');
   const cutBtn = el('button', 'icon-btn room-cut', { type: 'button', 'data-tip': 'room-cut' }, 'Cut a record');
   const mp3 = el('a', 'icon-btn room-mp3', { download: true, 'data-tip': 'share' }, 'MP3');
@@ -234,6 +237,13 @@ export function mount(h) {
   det.el('.sheet-back').setAttribute('aria-label', 'Back on the shelf');
   det.el('.detail-open').textContent = 'Sit down with it ›';
   let cardTake = null;
+  let grabN = takeStartN({ stored: readPick() }); // GRAB's N: the loop's bars, once the Pi has said
+  const paintGrab = () => {
+    if (!cardTake) return;
+    const words = takeGrabLabel({ n: grabN, bpm: cardTake.bpm, selection: !!cardTake.trim });
+    if (toStudio.textContent !== words) toStudio.textContent = words;
+    toStudio.setAttribute('aria-label', `${words} into the Studio’s buffer`);
+  };
 
   // --- state -------------------------------------------------------------------
   let tapeList = null; // GET /api/tapes: {loaded, tapes}, or null with the tape off
@@ -477,6 +487,8 @@ export function mount(h) {
   h.onShow((t) => {
     cardTake = t;
     if (!t) return;
+    paintGrab();
+    loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); paintGrab(); });
     const rec = isRecord(t);
     put.setAttribute('aria-label', rec ? 'Put it on the turntable' : 'Put it on the deck');
     const sr = t.sample_rate || 48000;
@@ -521,7 +533,14 @@ export function mount(h) {
 
   async function takeToStudio(t) {
     const sr = t.sample_rate || 48000;
-    const span = t.trim ? { from: t.trim.start_frame, to: t.trim.end_frame } : { from: 0, to: Math.floor((t.duration_seconds || 0) * sr) };
+    // The take's saved selection, else the N bars before the playhead -- the
+    // bar's, if it holds this take; else the take's start.
+    const span = takeGrabSpan({
+      region: t.trim ? { start: t.trim.start_frame, end: t.trim.end_frame } : null,
+      playhead: playheadFor(h.np, t.name, sr), total: Math.floor((t.duration_seconds || 0) * sr),
+      sampleRate: sr, bpm: t.bpm, n: grabN,
+    });
+    if (!span) return;
     try {
       location.href = await sendToStudio(t.name, span);
     } catch (e) {

@@ -64,13 +64,16 @@ export class Ribbon {
    * @param {HTMLElement} wrap the existing .viz-wrap
    * @param {{onToast?: (msg: string, kind?: string) => void}} [opts]
    */
-  constructor(wrap, { onToast, onSaved, onSavedToast, onKept, selBar, flagSheet } = {}) {
+  constructor(wrap, { onToast, onSaved, onSavedToast, onKept, selBar, flagSheet, keepWords } = {}) {
     this.wrap = wrap;
     this.onToast = onToast;
     this.onSaved = onSaved;
     this.onKept = onKept; // (answer): Keep as clip put a span in the crate
     this.onSavedToast = onSavedToast; // (msg, name): a save's toast, with its Undo
     this.selBar = selBar || null;
+    // (seconds) => the selection's KEEP key, naming what it keeps (the
+    // Studio's: "Keep 41s"). Capture leaves it out and keeps "Save as take".
+    this.keepWords = keepWords || null;
     this.flagSheet = flagSheet || null;
     this.sel = null;   // {from, to}: absolute ring frames; to null means "now"
     this.press = null; // the pointer gesture in progress
@@ -307,7 +310,12 @@ export class Ribbon {
       ? 'This span has left the buffer'
       : `${fmtAge(len)} · ${when}${gone ? ' · starts before the oldest audio' : ''}`;
     bar.classList.toggle('gone', gone);
-    bar.querySelector('.rb-sel-save').disabled = allGone;
+    const save = bar.querySelector('.rb-sel-save');
+    save.disabled = allGone;
+    if (this.keepWords && !allGone) {
+      const words = this.keepWords(len);
+      if (save.textContent !== words) save.textContent = words;
+    }
     for (const cls of ['.rb-sel-copy', '.rb-sel-keep']) {
       const b = bar.querySelector(cls);
       if (b) b.disabled = allGone;

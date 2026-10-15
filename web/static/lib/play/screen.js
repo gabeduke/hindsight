@@ -355,6 +355,23 @@ export function mountStrip(root, surface, {
       fromLine.hidden = !line;
       legends();
     },
+    /**
+     * setVerbWords names what a verb's pad will do: KEEP's, "30s" or "4 BARS",
+     * after its face. Nothing puts it back to the bare face.
+     */
+    setVerbWords(id, words) {
+      const b = verbs.get(id);
+      const c = control(id);
+      if (!b || !c) return;
+      const face = words ? `${c.face} ${words}` : c.face;
+      const f = b.querySelector('.play-face');
+      // The length keeps its own case: KEEP 30s, not 30S.
+      if (f.textContent !== face) {
+        f.textContent = c.face;
+        if (words) f.append(' ', Object.assign(doc.createElement('span'), { className: 'play-face-words', textContent: words }));
+      }
+      b.setAttribute('aria-label', `${face}: ${c.what}`);
+    },
     /** setBindings is the map the pads' legends show for a controller. */
     setBindings(map) { bindings = map; legends(); },
     setLearning(on, canWhy = '') {
