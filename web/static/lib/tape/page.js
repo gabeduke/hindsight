@@ -248,6 +248,7 @@ async function poll(force = false) {
       bar_frames: t.grid ? t.grid.frames / t.grid.bars : 0,
       bars: t.grid ? t.grid.bars : 0,
       loop: t.loop,
+      output: state.live?.output_mode || '',
     } }));
   } catch (e) {
     // An answer of any kind (a 404) was the Pi; none at all is the link.

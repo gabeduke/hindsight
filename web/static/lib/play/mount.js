@@ -16,6 +16,7 @@ import { mountPlay } from './screen.js';
 import { ticker } from '../objects/motion.js';
 import { on, setOn } from './flag.js';
 import { gridFrom, ringAt } from './clock.js';
+import { connect } from './link.js';
 
 // Re-exported so lib/play has one front door, while the flag itself stays in
 // a module with no side effects (the Settings sheet reads it without starting
@@ -37,12 +38,16 @@ export function start({ root = document.getElementById('play-mode'), doc = docum
   let grid = null;   // the grid taken from it (clock.js)
   let unbindKeys = null;
   let unstep = null;
+  let link = null;     // the line to the Pi (link.js): what makes the pads sound
+  let linkNote = '';   // what it last said the player should know
 
   const open = () => {
     if (ui) return;
     root.hidden = false;
     doc.body.classList.add('play-open');
     ui = mountPlay(root, surface, { onCommand: command });
+    link = connect(surface, { onNote: (t) => { linkNote = t; showNote(); } });
+    showNote();
     unbindKeys = bindKeyboard(surface, { onCommand: command });
     // The surface needs ticking for pads to land on their grid lines; the
     // shared ticker already runs a frame loop, so it does not need a second.
@@ -60,6 +65,7 @@ export function start({ root = document.getElementById('play-mode'), doc = docum
   const close = () => {
     if (!ui) return;
     surface.releaseAll(performance.now()); // never leave a pad held behind us
+    link?.close(); link = null; linkNote = '';
     unbindKeys?.(); unbindKeys = null;
     unstep?.(); unstep = null;
     ui.destroy(); ui = null;
@@ -82,7 +88,15 @@ export function start({ root = document.getElementById('play-mode'), doc = docum
     tape = e.detail || null;
     const g = gridFrom(tape, grid);
     if (g) { grid = g; surface.setGrid(g); }
+    showNote();
   };
+
+  // One line for what the player should know. The link's news comes first;
+  // otherwise, a tape playing on a phone: the stream buffers about a second,
+  // so the pads land on the grid but that long after the hand.
+  function showNote() {
+    ui?.note(linkNote || (tape?.output === 'phone' ? 'Playing on a phone — the pads land about a second late' : ''));
+  }
   doc.addEventListener('hindsight:tape-state', onState);
 
   return {

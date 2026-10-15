@@ -84,7 +84,10 @@ export function mountPlay(root, surface, { onCommand = () => {} } = {}) {
   const exit = el('button', 'play-exit', 'Done');
   exit.type = 'button';
   exit.addEventListener('click', () => onCommand('exit'));
-  top.append(quant, exit);
+  // One line for what the player should know (mount.js decides what).
+  const noteEl = el('p', 'play-note');
+  noteEl.hidden = true;
+  top.append(quant, noteEl, exit);
 
   // --- the ring: the loop, and where the playhead is in it --------------------
   // The one readout you can follow from across the room with your hands on an
@@ -153,6 +156,10 @@ export function mountPlay(root, surface, { onCommand = () => {} } = {}) {
   return {
     setLoop,
     setGrid: (g) => surface.setGrid(g),
+    note(text) {
+      if (noteEl.textContent !== text) noteEl.textContent = text || '';
+      noteEl.hidden = !text;
+    },
     destroy() {
       for (const off of unbinds) off();
       root.replaceChildren();

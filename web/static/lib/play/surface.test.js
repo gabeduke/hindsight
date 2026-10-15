@@ -186,3 +186,61 @@ test('a tick that jumps a long way still fires and ends in the right order', () 
   assert.deepEqual(events[1], ['fire', 'break', 125]);
   assert.deepEqual(events[2], ['end', 'break', 625]);
 });
+
+test('with a lead, a pad fires on the first line it can actually be heard by', () => {
+  // The Pi takes 200 ms to sound anything: a touch at 40 can't be heard
+  // before 240, so it lands on the line at 250, not the one at 125.
+  const s = at120({ lead: 200 });
+  const armed = [];
+  s.on('arm', (d) => armed.push(d.fireAt));
+  s.press('break', 40);
+  assert.deepEqual(armed, [250]);
+  s.tick(130);
+  assert.equal(s.state('break'), ARMED, 'still waiting: the sound is not there yet');
+  s.tick(260);
+  assert.equal(s.state('break'), ON);
+});
+
+test('letting go says so at once, with when it will end', () => {
+  const s = at120({ lead: 200 });
+  const lets = [];
+  s.on('let', (d) => lets.push([d.pad, d.at, d.endAt]));
+  s.press('stop', 0);
+  s.tick(300);
+  s.release('stop', 400);
+  assert.deepEqual(lets, [['stop', 400, 625]], 'heard by 600 at the earliest: the line at 625');
+  s.release('stop', 410);
+  assert.equal(lets.length, 1, 'a second let-go of the same pad says nothing');
+});
+
+test('the Pi\'s word moves the bright moment', () => {
+  const s = at120();
+  s.press('chop', 40); // the surface guesses 125
+  s.confirm('chop', true, 180); // the Pi says 180
+  s.tick(150);
+  assert.equal(s.state('chop'), ARMED);
+  s.tick(181);
+  assert.equal(s.state('chop'), ON);
+  s.release('chop', 200);
+  s.confirm('chop', false, 410);
+  s.tick(380);
+  assert.equal(s.state('chop'), RELEASING);
+  s.tick(411);
+  assert.equal(s.state('chop'), IDLE);
+  // A word about a pad nobody here is holding changes nothing.
+  s.confirm('break', true, 500);
+  assert.equal(s.state('break'), IDLE);
+});
+
+test('releaseAll tells the Pi about every pad still held', () => {
+  // Losing focus with BREAK held: the page lets go, and so must the Pi.
+  const s = at120();
+  const lets = [];
+  s.on('let', (d) => lets.push(d.pad));
+  s.press('break', 0);
+  s.press('track2', 0);
+  s.press('stop', 0);
+  s.release('stop', 10); // already let go: not said twice
+  s.releaseAll(20);
+  assert.deepEqual(lets.sort(), ['break', 'stop', 'track2']);
+});

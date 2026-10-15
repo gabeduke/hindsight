@@ -41,11 +41,14 @@ export const DIVISIONS = {
  * Surface holds the pads and the grid. It emits four events:
  *
  *   arm   {pad, at, fireAt}  -- touched; the UI should show it pending
+ *   let   {pad, at, endAt}   -- let go; it ends on endAt
  *   fire  {pad, at}          -- the gesture starts now, on the grid
  *   end   {pad, at}          -- the gesture stops now, on the grid
  *   idle  {pad, at}          -- back to rest; the UI can clear it
  *
- * `fire` and `end` are the musical ones; `arm` and `idle` are for drawing.
+ * `fire` and `end` are the musical ones; `arm` and `idle` are for drawing;
+ * `arm` and `let` are what the Pi is told (lib/play/link.js), the moment
+ * they happen, so it can quantise them itself.
  */
 export class Surface {
   /**
@@ -53,10 +56,15 @@ export class Surface {
    * passed, which the tape gives us, so the pads land on the tape's own bars
    * rather than on a grid of their own invention.
    */
-  constructor({ bpm = 120, originMs = 0, division = '16th' } = {}) {
+  constructor({ bpm = 120, originMs = 0, division = '16th', lead = 0 } = {}) {
     this.bpm = bpm;
     this.originMs = originMs;
     this.division = division;
+    // How long a press takes to be heard at best (the Pi's render-ahead and
+    // its device), in ms. A pad can't sound before then, so its line is the
+    // first one at least `lead` after the touch: the dim-to-bright gap the
+    // player sees is the delay they'll hear.
+    this.lead = lead;
     this.pads = new Map();
     this.handlers = new Map();
   }
@@ -75,10 +83,11 @@ export class Surface {
     }
   }
 
-  setGrid({ bpm, originMs, division }) {
+  setGrid({ bpm, originMs, division, lead }) {
     if (bpm != null) this.bpm = bpm;
     if (originMs != null) this.originMs = originMs;
     if (division != null) this.division = division;
+    if (lead != null && lead >= 0) this.lead = lead;
   }
 
   /** gridMs is one grid unit in ms, or 0 when quantise is off. */
@@ -108,7 +117,7 @@ export class Surface {
   press(pad, at) {
     const cur = this.pads.get(pad);
     if (cur && cur.state !== IDLE) return;
-    const fireAt = this.nextGrid(at);
+    const fireAt = this.nextGrid(at + this.lead);
     this.pads.set(pad, { state: ARMED, fireAt, endAt: null });
     this.emit('arm', { pad, at, fireAt });
     // With quantise off there is nothing to wait for, so it starts here and
@@ -130,17 +139,31 @@ export class Surface {
     const p = this.pads.get(pad);
     if (!p || p.state === RELEASING || p.state === IDLE) return;
     const g = this.gridMs();
-    let endAt = this.nextGrid(at);
+    let endAt = this.nextGrid(at + this.lead);
     const startedAt = p.state === ON ? p.firedAt : p.fireAt;
     if (g && endAt <= startedAt) endAt = startedAt + g;
     p.endAt = endAt;
     p.state = RELEASING;
+    this.emit('let', { pad, at, endAt });
     if (p.firedAt == null) {
       // Let go before it ever fired. It still fires: the press was real and
       // the player is already committed to hearing it.
       p.pendingFire = true;
     }
     if (endAt <= at && p.firedAt != null) this.stop(pad, at);
+  }
+
+  /**
+   * confirm takes the Pi's word for when a pad is heard: its press (`on`)
+   * or its release lands at `atMs`. The surface's own estimate drew the
+   * gap; this moves the bright moment to the truth, if they differ. A pad
+   * this surface isn't waiting on is left alone.
+   */
+  confirm(pad, on, atMs) {
+    const p = this.pads.get(pad);
+    if (!p || !Number.isFinite(atMs)) return;
+    if (on && p.firedAt == null) p.fireAt = atMs;
+    else if (!on && p.state === RELEASING) p.endAt = Math.max(atMs, p.firedAt ?? p.fireAt);
   }
 
   /** tick advances the pads to `now`. Call it once a frame. */
@@ -177,9 +200,14 @@ export class Surface {
     return [...this.pads].filter(([, p]) => p.firedAt != null && p.state !== IDLE).map(([pad]) => pad);
   }
 
-  /** releaseAll ends everything, for leaving Play mode or losing focus. */
+  /**
+   * releaseAll ends everything, for leaving Play mode or losing focus. Each
+   * pad not already let go says so (`let`), so the Pi lets go too: a window
+   * that lost focus with BREAK held must not leave the tape broken.
+   */
   releaseAll(at) {
     for (const [pad, p] of [...this.pads]) {
+      if (p.state !== RELEASING) this.emit('let', { pad, at, endAt: at });
       if (p.firedAt != null) this.stop(pad, at);
       else { this.pads.delete(pad); this.emit('idle', { pad, at }); }
     }
