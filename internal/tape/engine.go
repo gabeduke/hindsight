@@ -238,9 +238,14 @@ func NewEngine(o Options) *Engine {
 	}
 	e.tailSeconds = math.Max(0, math.Min(maxMixdownTail, o.MixdownTail))
 	e.handleS = math.Max(0, math.Min(MaxHandleSeconds, o.HandleSeconds))
+	sr := 48000
 	if o.Store != nil {
 		e.pullBridge = audio.NewClockBridge(256, o.Store.SampleRate())
+		sr = o.Store.SampleRate()
 	}
+	// ECHO's delay line, at its longest, made here so the render goroutine
+	// never waits on the allocator for it.
+	e.perf.bus.echo.line = make([]float32, 0, echoMaxFrames(float64(sr))*OutChannels)
 	e.mix.Store(&Mix{})
 	if b, ok := e.sink.(interface{ bind(*Engine) }); ok {
 		b.bind(e)

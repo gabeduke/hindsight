@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -963,5 +964,29 @@ func TestTheBendOnlyRunsWhileTheTapeDoes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestEchoDoesntAllocateOnTheRenderPath(t *testing.T) {
+	// The render goroutine must never wait on the allocator for a delay
+	// line (up to 1.5 MB at a slow tempo): it's made with the engine.
+	r := newRig(t, Loop{})
+	r.playFrom(10000)
+	r.run(4) // the scratch the render keeps, made
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_ = r.e.PressAmount(PadEcho, QuantumNow, 1)
+	r.e.advance(make([]float32, 0), r.out, 0) // drain only
+	buf := make([]float32, BlockFrames*OutChannels)
+	runtime.ReadMemStats(&after)
+	base := after.TotalAlloc - before.TotalAlloc // the press and the buffer
+	runtime.ReadMemStats(&before)
+	r.e.advance(buf, r.out, BlockFrames)
+	runtime.ReadMemStats(&after)
+	if !r.e.perf.bus.echo.live {
+		t.Fatal("ECHO never came in: the test proves nothing")
+	}
+	if got := after.TotalAlloc - before.TotalAlloc; got > 16<<10 {
+		t.Fatalf("the block ECHO came in on allocated %d bytes (the press took %d)", got, base)
 	}
 }

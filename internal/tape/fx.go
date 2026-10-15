@@ -491,14 +491,19 @@ func echoFrames(m *Mix) int {
 	if m.grid != nil {
 		bar = m.grid.BarFrames()
 	}
-	return int(max64(1, int64(math.Round(math.Min(3*bar/16, echoMaxSeconds*sr)))))
+	return int(max64(1, min64(int64(math.Round(3*bar/16)), int64(echoMaxFrames(sr)))))
 }
+
+// echoMaxFrames is ECHO's longest delay, at sample rate sr: the line the
+// engine makes for it.
+func echoMaxFrames(sr float64) int { return int(math.Round(echoMaxSeconds * sr)) }
 
 func (f *fxEcho) press(v float64, m *Mix) {
 	f.held, f.tail = true, -1
 	if !f.live {
 		f.live, f.dl, f.w = true, echoFrames(m), 0
 		if need := f.dl * OutChannels; cap(f.line) < need {
+			// Only a mix at another rate than the engine was made for.
 			f.line = make([]float32, need)
 		}
 		f.line = f.line[:f.dl*OutChannels]
