@@ -5404,3 +5404,9 @@ body .np .np-catch:has(> .np-catch-more) { position: relative; padding-right: 34
 .catch-menu > button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .catch-menu > button .menu-sub { white-space: normal; }
 .catch-menu > button[aria-disabled="true"] { opacity: .6; cursor: default; }
+
+/* A toast that must not stand between a person and their next tap: the one a
+   ● gives for arming a track as well has the next ● under it on a phone. Its
+   words let taps through; its action still takes them. */
+.toast.toast-passive { pointer-events: none; }
+.toast.toast-passive .toast-action { pointer-events: auto; }

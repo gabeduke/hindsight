@@ -3033,7 +3033,7 @@ function buildLanes() {
           // An "as well" says what it made, and offers just this track: the
           // arm adds, it never moves.
           const note = armedNote(before, n, next);
-          if (note) toast(note.text, 'ok', { ms: 6000, action: { label: note.action, run: () => armTrack(n) } });
+          if (note) toast(note.text, 'ok', { ms: 6000, action: { label: note.action, run: () => armTrack(n) } }).classList.add('toast-passive');
         }
       });
       // The rig's warning: an armed track whose input hears the tape. Only
@@ -3949,7 +3949,7 @@ function onCatchKey(e) {
     toast(cs.why, 'warn', {
       ms: 7000,
       actions: cs.bars ? [{ label: 'Last 4 bars', run: () => doCatch({ bars: 4 }) }] : [],
-    });
+    }).classList.add('toast-passive');
     return;
   }
   doCatch({ pass: 1 });
