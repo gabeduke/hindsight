@@ -242,21 +242,33 @@ or *Settings › This device › Two rooms*. It is read once, when a page loads.
 
 With it on, the three tabs are two: **Studio**, the tape page while the tape
 is on and Capture while it's off, and **Listening Room**, the takes and a
-take's page (`lib/nav.js`, `navTabs` and `studioRedirect`). `/` goes to the
-tape page before it draws, from an inline script in `index.html`'s head that
-reads the `hindsight.tapeOn` the nav cached last time.
+take's page (`lib/nav.js`, `navTabs` and `studioRedirect`). Two inline
+scripts in the pages' heads run before anything draws:
 
-The tape page as the Studio gains Capture's feed above the lanes — the
-ribbon, the L/R meters, and KEEP, which is `POST /api/trigger` — and the
-about line with Settings under them. Their markup is `<template>`s in
-`tape.html`, so with the flag off none of it is in the page;
-`lib/rooms/mount.js` is the only thing the page loads, and it fetches
-`studio.js` only with the flag on.
+- `studio-redirect`, in `index.html`: `/` goes to the tape page, on the
+  `hindsight.tapeOn` the nav cached last time (only a 2xx or a 404 from
+  `/api/tapes` is cached).
+- `rooms-early`, on every page with the switch: it marks the document, and
+  `styles.css` keeps the switch out of sight until `nav.js` has rewritten it,
+  so the three old tabs never paint (and shows it anyway after two seconds).
+
+With the tape on, `/` is the Studio, so Capture can't be reached: everything
+Capture has is in the Studio, or `pages.test.js` names where it went. The
+tape page as the Studio gains Capture's feed above the lanes — the ribbon,
+the L/R meters, KEEP (`POST /api/trigger`), Flag now, Phone and Capture's
+readouts — and under them the input diagnostic and the about line with
+Settings. Their markup is `<template>`s in `tape.html`, so with the flag off
+none of it is in the page; `lib/rooms/mount.js` is the only thing the page
+loads, and it fetches `studio.js` only with the flag on.
+
+The Studio and the tape page import nothing of each other's. They speak in
+events, as Play mode does: `hindsight:crate-changed` asks the page to read
+the crate again after the ribbon's Keep as clip.
 
 - `flag.js` — the flag. The other rooms steps import it; keep its API.
 - `mount.js` — the tape page's entry: the flag, then `studio.js`.
 - `studio.js` — mounts the templates and drives them with Capture's modules.
-- `keep.js` — KEEP's request and its Undo.
+- `keep.js` — KEEP's request and its Undo, and Flag now's.
 
 ## The object library
 
