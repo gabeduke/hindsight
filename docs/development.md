@@ -227,6 +227,78 @@ add the Wi-Fi trip on top, and the press would land late.
 `BenchmarkRenderABlock` is the number to watch on a Pi: one 21 ms block with
 four tracks, plain and under each trick.
 
+## The two rooms
+
+`web/static/lib/rooms/` is the Studio and the Listening Room
+(`docs/superpowers/specs/2026-10-15-rooms-design.md`), behind a per-device
+flag like Play mode's:
+
+```js
+localStorage.setItem('hindsight.rooms', '1')   // on, this device only
+localStorage.removeItem('hindsight.rooms')     // off
+```
+
+or *Settings › This device › Two rooms*. It is read once, when a page loads.
+
+With it on, the three tabs are two: **Studio**, the tape page while the tape
+is on and Capture while it's off, and **Listening Room**, the takes and a
+take's page (`lib/nav.js`, `navTabs` and `studioRedirect`). Two inline
+scripts in the pages' heads run before anything draws:
+
+- `studio-redirect`, in `index.html`: `/` goes to the tape page, on the
+  `hindsight.tapeOn` the nav cached last time (only a 2xx or a 404 from
+  `/api/tapes` is cached).
+- `rooms-early`, on every page with the switch: it marks the document, and
+  `styles.css` keeps the switch out of sight until `nav.js` has rewritten it,
+  so the three old tabs never paint (and shows it anyway after two seconds).
+
+With the tape on, `/` is the Studio, so Capture can't be reached: everything
+Capture has is in the Studio, or `pages.test.js` names where it went. The
+tape page as the Studio gains Capture's feed above the lanes — the ribbon,
+the L/R meters, KEEP (`POST /api/trigger`), Flag now, Phone and Capture's
+readouts — and under them the input diagnostic and the about line with
+Settings. Their markup is `<template>`s in `tape.html`, so with the flag off
+none of it is in the page; `lib/rooms/mount.js` is the only thing the page
+loads, and it fetches `studio.js` only with the flag on.
+
+The Studio and the tape page import nothing of each other's. They speak in
+events, as Play mode does: `hindsight:crate-changed` asks the page to read
+the crate again after the ribbon's Keep as clip.
+
+- `flag.js` — the flag. The other rooms steps import it; keep its API.
+- `mount.js` — the tape page's entry: the flag, then `studio.js`.
+- `studio.js` — mounts the templates and drives them with Capture's modules.
+- `keep.js` — KEEP's request and its Undo, and Flag now's.
+
+## The rig
+
+`rig.html` and `web/static/lib/rig/` are the rig
+(`docs/superpowers/specs/2026-10-15-rig-design.md`), reached from the device
+chip in both rooms' headers with the two rooms on. With them off there's no
+chip, and the page only says where the switch is.
+
+- **The server owns the picture.** `GET /api/rig` (`internal/rig`,
+  `internal/api/rig.go`) builds it from the settings, the tape and what's
+  plugged in on every read; the page draws it and never stores one.
+- **Profiles** are `internal/rig/profiles/*.json`, embedded: a USB interface
+  by its id from ALSA's `usbid`, a MIDI port by name. The Sidekick's taps are
+  `TAPE_SOURCES`' default. The demo says its interface is the Sidekick
+  (`SetRigUSB` in `cmd/hindsight`), since its routing is the Sidekick's.
+- **A cable is a request:** `patch.js` turns a drag, or a choice from the
+  keyboard (`picker.js`), into the write that route already takes. A restart
+  cable is pending (dashed amber) until `restart_needed` clears; RESTART is
+  the settings sheet's own (`restartHindsight` in `settings.js`).
+- `desk.js` is what's drawn, from the graph alone; `cables.js` where a cable
+  runs; `kinds.js` how each kind is drawn, by width and dash as well as
+  colour.
+- **Multi-arm** (`arm.js`): the tape keeps `rec_tracks`, and every recording
+  sends `pairs`. With the rooms on, ● on a track's header toggles it; the keys
+  still arm one. `warn.js` is the amber dot on a header whose input hears the
+  tape.
+
+Run the demo with `SETTINGS_FILE` set when you try the rig: its restart
+cables write settings, and the default file is `~/hindsight/settings.json`.
+
 ## The object library
 
 `web/static/lib/objects/` holds the physical things the app draws, one

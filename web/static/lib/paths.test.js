@@ -31,8 +31,10 @@ test('every relative and absolute module import resolves', () => {
   let checked = 0;
   for (const p of files) {
     const src = readFileSync(p, 'utf8');
-    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]/g)) {
-      const spec = m[1];
+    // Static imports, and import('…') -- the Studio's module is loaded that
+    // way, only with its flag on, so a static scan would never see it.
+    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const spec = m[1] ?? m[2];
       let target;
       if (spec.startsWith('/')) target = join(ROOT, spec.slice(1));
       else if (spec.startsWith('.')) target = normalize(join(dirname(p), spec));
@@ -104,6 +106,9 @@ test('every module a cached page imports is cached with it', () => {
   // SHELL: a module left out loads from the cache's page and then fails to
   // fetch offline, which is a blank page on a phone with no signal. A new
   // directory of modules under lib/ (lib/scene) is the easy way to miss one.
+  // The walk follows import() too: the Studio can be the installed app's
+  // first page (lib/rooms), and mount.js loads studio.js that way, only with
+  // its flag on. lib/settings.js was missed once.
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
   const shell = new Set([.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^'?]+)(?:\?[^']*)?'/g)].map((m) => m[1]));
   const seen = new Set();
@@ -113,8 +118,9 @@ test('every module a cached page imports is cached with it', () => {
     if (seen.has(rel)) return;
     seen.add(rel);
     if (!shell.has(rel)) missing.push(`${rel} (imported by ${from})`);
-    for (const m of readFileSync(file, 'utf8').matchAll(/(?:from|import)\s+['"]([^'"]+)['"]/g)) {
-      const spec = m[1];
+    const src = readFileSync(file, 'utf8');
+    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const spec = m[1] ?? m[2];
       if (spec.startsWith('/')) visit(join(ROOT, spec.slice(1)), rel);
       else if (spec.startsWith('.')) visit(normalize(join(dirname(file), spec)), rel);
     }
@@ -123,9 +129,12 @@ test('every module a cached page imports is cached with it', () => {
     const html = readFileSync(join(ROOT, page.slice(1)), 'utf8');
     for (const m of html.matchAll(/<script[^>]+src=["'](\/[^"']+\.js)["']/g)) visit(join(ROOT, m[1].slice(1)), page);
     for (const m of html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)) {
-      for (const i of m[1].matchAll(/(?:from|import)\s+['"](\/[^'"]+)['"]/g)) visit(join(ROOT, i[1].slice(1)), page);
+      for (const i of m[1].matchAll(/(?:from|import)\s+['"](\/[^'"]+)['"]|import\(\s*['"](\/[^'"]+)['"]\s*\)/g)) {
+        visit(join(ROOT, (i[1] ?? i[2]).slice(1)), page);
+      }
     }
   }
   assert.ok(seen.size > 60, `only ${seen.size} modules reached; the walk is probably wrong`);
+  assert.ok(seen.has('/lib/rooms/studio.js'), "the walk should reach the Studio through mount.js's import()");
   assert.deepEqual(missing, []);
 });

@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The two rooms (lib/rooms/flag.js, this device only): with them on,
+     lib/nav.js rewrites the header's three tabs as two, and until it has
+     the switch stays out of sight (styles.css, Rooms P1), so the old tabs
+     never paint. With the flag off this does nothing. -->
+<script id="rooms-early">try { if (localStorage.getItem('hindsight.rooms') === '1') document.documentElement.dataset.rooms = ''; } catch (e) { /* no storage: no rooms */ }</script>
 <title>Hindsight — tape</title>
 <meta name="theme-color" content="#e4e3dd" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#141516" media="(prefers-color-scheme: dark)">
@@ -480,6 +485,133 @@
   </form>
 </dialog>
 
+<!-- The two rooms (lib/rooms): with the per-device hindsight.rooms flag on,
+     this page is the Studio, and lib/rooms/studio.js puts these in it --
+     the feed above the lanes, the about line at its foot, and their sheets.
+     A template is inert: with the flag off none of it is ever in the page.
+     They are Capture's own parts (index.html), so their ids are Capture's:
+     the modules that drive them (ribbon.js, settings.js, update.js) find
+     them by those. -->
+<template id="studio-feed-tpl">
+  <!-- A .panel, as Capture's are, for its surface and its heading. -->
+  <section class="panel studio-feed" aria-label="The feed">
+    <div class="studio-feed-head">
+      <h2 class="studio-feed-title">Feed</h2>
+      <!-- Capture's readouts in a line: the ring's trouble when there is
+           some, disk free, dropped buffers, and the MIDI clock's tempo. -->
+      <p class="studio-stats mono">
+        <span class="studio-health" id="studio-health" hidden></span>
+        <span class="studio-stat" title="Disk free"><span id="stat-disk">–</span> free</span>
+        <span class="studio-stat" title="Dropped buffers"><span id="stat-xruns">0</span> dropped</span>
+        <span class="studio-stat" title="Tempo from the MIDI clock">♩ <span id="stat-tempo">–</span></span>
+      </p>
+      <!-- Records from this phone's mic, or an input plugged into it, as on
+           Capture (lib/phone/). Capture's class, for Capture's key. -->
+      <button class="phone-btn" id="phone-btn" type="button" data-tip="phone">&#9679; Phone</button>
+    </div>
+    <div class="studio-keys">
+      <!-- #dur-seg as on Capture: its lit LED is Capture's rule. -->
+      <div class="seg" id="dur-seg" role="group" aria-label="Keep length" data-tip="capture"></div>
+      <!-- Capture's Flag now, and its class. -->
+      <button class="mark-btn" id="mark-btn" type="button" data-tip="flag-now">Flag now</button>
+      <button class="icon-btn studio-keep" id="studio-keep" type="button" data-tip="capture"><span class="studio-keep-word" id="studio-keep-word">Keep</span><span class="studio-keep-sub" id="studio-keep-sub"></span></button>
+    </div>
+    <div class="viz-wrap" id="viz-wrap" data-tip="ribbon"></div>
+    <!-- VU needles; on a phone, the bars instead. -->
+    <div class="vu-row" id="vu"></div>
+    <div class="meters" id="meters"></div>
+    <!-- A span held and dragged on the ribbon, and what to do with it. -->
+    <div class="rb-sel" id="rb-sel" hidden>
+      <span class="rb-sel-text"></span>
+      <button class="icon-btn rb-sel-clear" type="button" aria-label="Clear the selection" data-tip="ribbon-clear">×</button>
+      <button class="icon-btn rb-sel-copy" type="button" hidden data-tip="ribbon-copy">Copy</button>
+      <button class="icon-btn rb-sel-keep" type="button" hidden data-tip="ribbon-keep">Keep as clip</button>
+      <button class="icon-btn primary rb-sel-save" type="button" data-tip="ribbon-save">Save as take</button>
+    </div>
+  </section>
+</template>
+<template id="studio-foot-tpl">
+  <!-- Capture's input diagnostic, under the lanes with the about line. -->
+  <details class="chan studio-chan" id="chan-diag">
+    <summary>Input channels</summary>
+    <div class="grid" id="chan-grid"></div>
+    <p class="hint">
+      Saving channels <b id="chan-saving">–</b> from <b id="chan-device">–</b>.
+      Change with <code>SAVE_CHANNELS</code>.
+    </p>
+    <p class="hint">
+      MIDI devices: <b id="midi-devices">none</b>.
+      Filter with <code>MIDI_DEVICES</code> / <code>MIDI_IGNORE</code>.
+    </p>
+  </details>
+  <p class="about">Hindsight <span id="version" class="mono">–</span> · <button id="releases-btn" class="releases-btn" type="button" data-tip="releases" hidden>Releases</button><span class="releases-sep" aria-hidden="true"> · </span><button id="settings-btn" class="releases-btn" type="button" data-tip="settings">Settings</button> · <a href="/guide.html" data-tip="guide">the guide</a><button id="update-btn" class="update-btn" type="button" data-tip="update" hidden></button></p>
+</template>
+<template id="studio-sheets-tpl">
+  <dialog class="sheet" id="rb-flag-sheet">
+    <div class="sheet-inner">
+      <h3 class="rb-flag-title">Flag</h3>
+      <div class="sheet-actions rb-flag-actions">
+        <button class="icon-btn primary rb-flag-save" type="button" data-tip="flag-save-from">Save from here to now</button>
+        <button class="icon-btn danger rb-flag-delete" type="button" data-tip="flag-remove">Delete flag</button>
+        <button class="icon-btn rb-flag-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog class="sheet" id="phone-sheet" aria-labelledby="phone-title">
+    <div class="sheet-inner phone-inner">
+      <h3 id="phone-title">Record from this phone</h3>
+      <p class="phone-insecure" id="phone-insecure" hidden></p>
+      <div id="phone-controls">
+        <label class="phone-field">Input
+          <select id="phone-input"></select>
+        </label>
+        <div class="phone-meter" aria-hidden="true">
+          <div class="phone-lane"><div class="phone-bar" id="phone-bar-l"></div></div>
+          <div class="phone-lane"><div class="phone-bar" id="phone-bar-r"></div></div>
+        </div>
+        <div class="phone-status">
+          <span class="phone-time" id="phone-time">0:00</span>
+          <span class="phone-state" id="phone-state"></span>
+        </div>
+        <p class="phone-note" id="phone-note"></p>
+      </div>
+      <div class="sheet-actions">
+        <button class="icon-btn" id="phone-close" type="button">Close</button>
+        <button class="icon-btn phone-rec" id="phone-rec" type="button">Record</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog class="sheet" id="update-sheet" aria-labelledby="update-title">
+    <div class="sheet-inner update-inner">
+      <h3 id="update-title" class="update-title">Releases</h3>
+      <div class="release-list" role="radiogroup" aria-labelledby="update-title"></div>
+      <div class="release-changes" aria-live="polite"></div>
+      <p class="update-text" hidden>Hindsight restarts to install it, so the ring starts empty: what it's holding now is gone. Keep anything you want from it first.</p>
+      <p class="update-progress" role="status" hidden></p>
+      <div class="sheet-actions">
+        <button class="icon-btn update-cancel" type="button">Cancel</button>
+        <button class="icon-btn primary update-go" type="button" hidden>Update</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog class="sheet" id="settings-sheet" aria-labelledby="settings-title">
+    <div class="sheet-inner settings-inner">
+      <h3 id="settings-title">Settings</h3>
+      <p class="settings-error" role="alert" hidden></p>
+      <div class="settings-body"></div>
+      <div class="settings-restart" hidden>
+        <p>Saved. Hindsight restarts to use it, so the ring starts empty: keep anything you want from it first.</p>
+        <button class="icon-btn primary settings-restart-go" type="button">Restart</button>
+      </div>
+      <p class="settings-progress" role="status" hidden></p>
+      <div class="sheet-actions">
+        <button class="icon-btn settings-close" type="button">Close</button>
+        <button class="icon-btn primary settings-save" type="button" disabled>Save</button>
+      </div>
+    </div>
+  </dialog>
+</template>
+
 <!-- Play mode (lib/play). Empty and hidden until the per-device
      hindsight.play flag is on; mount.js builds nothing while it is off. -->
 <div id="play-mode" hidden></div>
@@ -487,5 +619,6 @@
 <div id="toasts" aria-live="polite"></div>
 <script type="module" src="/lib/tape/page.js"></script>
 <script type="module" src="/lib/play/mount.js"></script>
+<script type="module" src="/lib/rooms/mount.js"></script>
 </body>
 </html>

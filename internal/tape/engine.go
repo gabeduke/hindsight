@@ -958,6 +958,63 @@ type CatchRequest struct {
 	Out     *uint64 `json:"out,omitempty"`
 	Bars    int     `json:"bars"`    // or: the last this many bars
 	Replace bool    `json:"replace"` // clear what's under it instead of layering
+	Pairs   []Pair  `json:"pairs,omitempty"`
+}
+
+// Pair is an armed track and the input it records from. A recording made
+// with several armed (multi-arm, the rig spec) takes every pair over one
+// span, as one undo.
+type Pair struct {
+	Track  int    `json:"track"`
+	Source string `json:"source"`
+}
+
+// CatchResult is what a catch put on the tape: the first clip of the first
+// track (as Catch answers), every clip, and the tracks, in order.
+type CatchResult struct {
+	Clip   Clip   `json:"clip"`
+	Clips  []Clip `json:"clips"`
+	Tracks []int  `json:"tracks"`
+}
+
+// pairs is what a catch records: its pairs, or the one track and source an
+// older page names.
+func (r CatchRequest) pairs() []Pair {
+	if len(r.Pairs) > 0 {
+		return r.Pairs
+	}
+	return []Pair{{Track: r.Track, Source: r.Source}}
+}
+
+// tracked is a pair with its source looked up.
+type tracked struct {
+	track int
+	src   Source
+}
+
+// resolve checks pairs against the tape and the sources: each track there
+// and armed once, each source known. Two tracks may share a source.
+func (e *Engine) resolve(t *Tape, pairs []Pair) ([]tracked, error) {
+	if len(pairs) == 0 {
+		return nil, fmt.Errorf("%w: no track to record onto", ErrBadParameter)
+	}
+	out := make([]tracked, 0, len(pairs))
+	seen := map[int]bool{}
+	for _, p := range pairs {
+		if _, err := t.Track(p.Track); err != nil {
+			return nil, err
+		}
+		if seen[p.Track] {
+			return nil, fmt.Errorf("%w: track %d is named twice", ErrBadParameter, p.Track)
+		}
+		seen[p.Track] = true
+		src, ok := e.source(p.Source)
+		if !ok {
+			return nil, fmt.Errorf("%w: no source %q", ErrBadParameter, p.Source)
+		}
+		out = append(out, tracked{track: p.Track, src: src})
+	}
+	return out, nil
 }
 
 func (e *Engine) source(name string) (Source, bool) {
@@ -971,31 +1028,37 @@ func (e *Engine) source(name string) (Source, bool) {
 
 // Catch puts a span the tape just played over -- a pass of the loop, or the
 // last N bars -- from a capture source onto a track: the range of the ring
-// that heard it, written once to the pool, placed where it was played.
+// that heard it, written once to the pool, placed where it was played. It
+// answers the first clip; CatchPairs says everything it did.
 func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
+	res, err := e.CatchPairs(id, req)
+	return res.Clip, err
+}
+
+// CatchPairs is Catch onto every pair at once -- each track from its own
+// input, over the one span, as one undo -- or, with no pairs, onto the one
+// track and source the request names.
+func (e *Engine) CatchPairs(id string, req CatchRequest) (CatchResult, error) {
 	if err := e.jamOnly(); err != nil {
-		return Clip{}, err
+		return CatchResult{}, err
 	}
 	if e.capture == nil {
-		return Clip{}, ErrNoCapture
-	}
-	src, ok := e.source(req.Source)
-	if !ok {
-		return Clip{}, fmt.Errorf("%w: no source %q", ErrBadParameter, req.Source)
+		return CatchResult{}, ErrNoCapture
 	}
 	t := e.Loaded()
 	if t == nil {
-		return Clip{}, ErrNoTape
+		return CatchResult{}, ErrNoTape
 	}
 	if t.ID != id {
-		return Clip{}, ErrWrongTape
+		return CatchResult{}, ErrWrongTape
 	}
-	if _, err := t.Track(req.Track); err != nil {
-		return Clip{}, err
+	pairs, err := e.resolve(t, req.pairs())
+	if err != nil {
+		return CatchResult{}, err
 	}
 	delta, aligned := e.delta()
 	if aligned == "none" {
-		return Clip{}, ErrNotLined
+		return CatchResult{}, ErrNotLined
 	}
 
 	// Which output frames, and where on the tape.
@@ -1010,26 +1073,26 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 			}
 		}
 		if !found {
-			return Clip{}, fmt.Errorf("%w: that pass is no longer kept", ErrNoPass)
+			return CatchResult{}, fmt.Errorf("%w: that pass is no longer kept", ErrNoPass)
 		}
 	case req.Pass > 0:
 		cyc := e.tr.Cycles()
 		if req.Pass > len(cyc) {
-			return Clip{}, ErrNoPass
+			return CatchResult{}, ErrNoPass
 		}
 		c := cyc[len(cyc)-req.Pass]
 		outFrom, frames, at = c.Out, c.Len, c.In
 	case req.Bars > 0:
 		if t.Grid == nil {
-			return Clip{}, ErrNoGrid
+			return CatchResult{}, ErrNoGrid
 		}
 		var err error
 		outFrom, frames, at, err = e.lastBars(t, req.Bars, delta)
 		if err != nil {
-			return Clip{}, err
+			return CatchResult{}, err
 		}
 	default:
-		return Clip{}, fmt.Errorf("%w: catch a pass or some bars", ErrBadParameter)
+		return CatchResult{}, fmt.Errorf("%w: catch a pass or some bars", ErrBadParameter)
 	}
 	// Split at the seam only if it played across it: a span that ran on
 	// straight through Out (a mixdown's pass) is laid down straight.
@@ -1039,24 +1102,36 @@ func (e *Engine) Catch(id string, req CatchRequest) (Clip, error) {
 			wrapped = true
 		}
 	}
-	placed, err := e.catchSpan(t, src, outFrom, frames, at, func(s *State, c Clip) ([]Clip, error) {
+	placed, err := e.catchSpan(t, pairs, outFrom, frames, at, func(s *State, track int, c Clip) ([]Clip, error) {
 		if !wrapped {
-			p, err := s.Place(req.Track, c, req.Replace)
+			p, err := s.Place(track, c, req.Replace)
 			return []Clip{p}, err
 		}
-		return placeWrapped(s, req.Track, c, req.Replace)
+		return placeWrapped(s, track, c, req.Replace)
 	})
 	if err != nil {
-		return Clip{}, err
+		return CatchResult{}, err
 	}
-	return placed[0], nil
+	return caught(pairs, placed), nil
 }
 
-// catchSpan copies what a source heard while the tape played output frames
-// [outFrom, outFrom+frames) into the pool, as one clip that starts at tape
-// frame at, and has place put it on the tape -- split where it was played,
-// if it wrapped.
-func (e *Engine) catchSpan(t *Tape, src Source, outFrom uint64, frames, at int64, place func(*State, Clip) ([]Clip, error)) ([]Clip, error) {
+// caught is a CatchResult from what each pair placed, in pair order.
+func caught(pairs []tracked, placed [][]Clip) CatchResult {
+	res := CatchResult{Clip: placed[0][0], Clips: []Clip{}, Tracks: []int{}}
+	for i, p := range pairs {
+		res.Tracks = append(res.Tracks, p.track)
+		res.Clips = append(res.Clips, placed[i]...)
+	}
+	return res
+}
+
+// catchSpan copies what each pair's source heard while the tape played
+// output frames [outFrom, outFrom+frames) into the pool -- once per source,
+// however many tracks take it -- as a clip that starts at tape frame at,
+// and has place put it on each pair's track: split where it was played, if
+// it wrapped. Every track is placed in one edit, so one undo takes them all
+// back. It answers what each pair placed, in order.
+func (e *Engine) catchSpan(t *Tape, pairs []tracked, outFrom uint64, frames, at int64, place func(s *State, track int, c Clip) ([]Clip, error)) ([][]Clip, error) {
 	id := t.ID
 	if frames <= 0 {
 		return nil, fmt.Errorf("%w: nothing to keep", ErrNotPlayed)
@@ -1097,38 +1172,56 @@ func (e *Engine) catchSpan(t *Tape, src Source, outFrom uint64, frames, at int64
 			return nil, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
 		}
 	}
-	rel, path, err := e.store.NewPoolFile("catch", time.Now())
-	if err != nil {
-		return nil, err
-	}
 	// The handles, past the overhang: what the ring has of them now.
 	lo, hi := ringHandles(ring, sr, ringFrom, ringTo, e.handle(sr)-over)
-	peak, err := audio.WriteSpanMeasured(ring, uint64(lo), uint64(hi), src.Pair[:], path, int(sr), ringFrom-lo, ringTo-lo)
-	if err != nil {
-		return nil, err
-	}
-	clean := true
-	for _, b := range src.Leaks {
-		for _, tr := range t.Tracks {
-			if tr.Bus == b && len(tr.Clips) > 0 && !tr.Mute {
-				clean = false
-			}
+	clips := map[string]Clip{} // by source: two tracks on one tap share its file
+	for _, p := range pairs {
+		if _, ok := clips[p.src.Name]; ok {
+			continue
 		}
+		rel, path, err := e.store.NewPoolFile("catch", time.Now())
+		if err != nil {
+			return nil, err
+		}
+		peak, err := audio.WriteSpanMeasured(ring, uint64(lo), uint64(hi), p.src.Pair[:], path, int(sr), ringFrom-lo, ringTo-lo)
+		if err != nil {
+			return nil, err
+		}
+		clips[p.src.Name] = Clip{File: rel, Src: ringFrom + over - lo, Frames: frames, At: at, Source: p.src.Name,
+			Clean: cleanOf(t, p.src), Aligned: aligned, PeakDB: peakDB(peak)}
 	}
-	clip := Clip{File: rel, Src: ringFrom + over - lo, Frames: frames, At: at, Source: src.Name, Clean: clean, Aligned: aligned, PeakDB: peakDB(peak)}
-	var placed []Clip
-	err = e.Edit(id, "", func(tp *Tape, s *State) error {
+	placed := make([][]Clip, len(pairs))
+	err := e.Edit(id, "", func(tp *Tape, s *State) error {
 		if tp.Empty() {
 			tp.Click = false // the click is for a tape with nothing on it
 		}
-		var err error
-		placed, err = place(s, clip)
-		return err
+		for i, p := range pairs {
+			got, err := place(s, p.track, clips[p.src.Name])
+			if err != nil {
+				return err
+			}
+			placed[i] = got
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return placed, nil
+}
+
+// cleanOf says whether nothing on the tape plays into a source: no unmuted
+// track with clips on a bus it hears. What Clip.Clean records, and the rig's
+// warning is worked out from.
+func cleanOf(t *Tape, src Source) bool {
+	for _, b := range src.Leaks {
+		for _, tr := range t.Tracks {
+			if tr.Bus == b && len(tr.Clips) > 0 && !tr.Mute {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // placeWrapped places a clip, splitting one that runs across the loop's seam
@@ -1411,7 +1504,7 @@ func (e *Engine) Sources() []SourceState {
 	pk := e.sourcePeaks()
 	var out []SourceState
 	for _, s := range e.sources {
-		st := SourceState{Name: s.Name, Leaks: s.Leaks, Clean: true}
+		st := SourceState{Name: s.Name, Leaks: s.Leaks, Clean: true, Pair: []int{s.Pair[0] + 1, s.Pair[1] + 1}}
 		if st.Leaks == nil {
 			st.Leaks = []string{}
 		}
@@ -1441,6 +1534,11 @@ type SourceState struct {
 	// second, in dBFS (-120 for digital silence). Unset with no capture, or
 	// no audio arriving.
 	PeakDB *float64 `json:"peak_db,omitempty"`
+	// Pair is its capture channels, 1-indexed as TAPE_SOURCES writes them.
+	Pair []int `json:"pair,omitempty"`
+	// Label is what's drawn into its jack on the rig ("guitar"), if
+	// anything: a name, never a route.
+	Label string `json:"label,omitempty"`
 }
 
 // peakDB is a peak (a fraction of full scale) in dBFS to a tenth, with

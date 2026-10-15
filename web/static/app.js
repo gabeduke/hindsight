@@ -2,7 +2,7 @@
 
 import { connectLive } from '/lib/live.js';
 import { watchLink, timedFetch } from '/lib/link.js';
-import { Meters, FLOOR_DB, fmtDur, tierPhrase } from '/lib/meter.js';
+import { Meters, fmtDur, tierPhrase, captureTiers, frameLevels, readouts, heldError } from '/lib/meter.js';
 import { VUMeters } from '/lib/objects/vu.js';
 import { Ribbon } from '/lib/objects/ribbon.js';
 import { TakesList } from '/lib/takes.js';
@@ -57,11 +57,9 @@ let mainMeters = null;
 let vuMeters = null;
 let chanMeters = null;
 let selSeconds = 30;
-// The capture error on screen, since when, and whether it has been toasted:
-// once per failure, so a 2-second poll does not re-toast it forever; cleared
-// on recovery, so a repeat failure toasts again.
+// The capture error on screen, since when, and whether it has been toasted
+// (lib/meter.js heldError).
 let captureErr = { text: '', since: 0, shown: false };
-const CAPTURE_ERR_HOLD_MS = 3500;
 
 // On the shelf: the newest takes as cassette spines -- a press plays one --
 // as many as the screen holds; the takes page (takes.html) has the rest. Cuts
@@ -121,11 +119,7 @@ window.addEventListener('pageshow', (e) => {
 // ---------------------------------------------------------------- status
 
 function buildDurations(ringSeconds) {
-  const opts = [];
-  if (ringSeconds >= 30) opts.push({ s: 30, label: '30s' });
-  if (ringSeconds >= 120) opts.push({ s: 120, label: '2m' });
-  if (ringSeconds >= 420) opts.push({ s: 420, label: '7m' });
-  opts.push({ s: 0, label: `Full ${fmtDur(ringSeconds)}` });
+  const opts = captureTiers(ringSeconds);
 
   // Prefer 30s; otherwise the shortest available.
   if (!opts.some((o) => o.s === selSeconds)) selSeconds = opts[0].s;
@@ -191,30 +185,18 @@ function applyStatus(s) {
     el.chanDevice.textContent = s.device || 'no device';
   }
 
+  const r = readouts(s);
   const healthy = s.capture_healthy;
-  // An interface that's switched off, or still booting, isn't an error: the
-  // Pi keeps trying and picks it up the moment it appears.
-  const waiting = !healthy && s.capture_waiting;
-  el.healthDot.className = `dot ${healthy ? 'ok' : waiting ? 'wait' : 'bad'}`;
+  el.healthDot.className = `dot ${r.health.state}`;
 
-  // The bar is narrow and device errors are long ("Illegal combination of I/O
-  // devices" and friends), so it carries a short status only. The full text
-  // goes to a toast, which has the width for it, and to the title for a hover.
-  const detail = healthy ? '' : (s.last_error || '');
-  el.healthText.textContent = healthy ? 'recording'
-    : waiting ? 'waiting for the interface'
-      : (detail ? 'capture error' : 'no capture');
-  el.healthText.title = detail;
+  // The bar is narrow, so it carries the short status only; the full text
+  // goes to a toast (heldError) and to the title for a hover.
+  el.healthText.textContent = r.health.text;
+  el.healthText.title = r.health.detail;
 
-  // Only once it has stood for a few seconds: switching the interface off
-  // first reads as a stalled stream, then as waiting, and the stall on the
-  // way there is not worth a red toast.
-  const errNow = detail && !waiting ? detail : '';
-  if (errNow !== captureErr.text) captureErr = { text: errNow, since: Date.now(), shown: false };
-  else if (errNow && !captureErr.shown && Date.now() - captureErr.since >= CAPTURE_ERR_HOLD_MS) {
-    captureErr.shown = true;
-    toast(errNow, 'bad', 8000);
-  }
+  const held = heldError(captureErr, r.health.error, Date.now());
+  captureErr = held.state;
+  if (held.show) toast(held.show, 'bad', 8000);
   if (s.version) $('version').textContent = s.version;
 
   el.vizWrap.classList.toggle('stale', !healthy);
@@ -222,30 +204,13 @@ function applyStatus(s) {
   el.statBuffered.textContent = fmtDur(Math.round(s.buffered_seconds));
   el.statBuffered.className = s.buffered_seconds < 5 ? 'v warn' : 'v';
 
-  const free = s.disk_free_gb;
-  // No decimal past 100 GB: the tile is 78px at 390px wide and "128.4 GB"
-  // clips there, while a tenth of a gigabyte means nothing on a "do I have
-  // room" readout. Only reachable on a bigger card than this Pi has.
-  el.statDisk.textContent = `${free >= 100 ? free.toFixed(0) : free.toFixed(1)} GB`;
-  el.statDisk.className = free < s.min_free_gb ? 'v bad' : free < s.min_free_gb * 3 ? 'v warn' : 'v';
+  // The readings, and how worried to be about each (lib/meter.js readouts).
+  for (const [node, v] of [[el.statDisk, r.disk], [el.statXruns, r.xruns], [el.statTempo, r.tempo]]) {
+    node.textContent = v.text;
+    node.className = v.level ? `v ${v.level}` : 'v';
+  }
 
-  el.statXruns.textContent = String(s.xruns);
-  el.statXruns.className = s.xruns > 0 ? 'v warn' : 'v';
-
-  // A dash means "no defensible reading", which covers three real states: the
-  // EP unplugged, the EP present with clock-send switched off (it ships off,
-  // and that looks exactly like firmware that cannot send clock), and a room
-  // that has been quiet too briefly to fill two quarter notes.
-  el.statTempo.textContent = s.midi_bpm == null ? '\u2013' : s.midi_bpm.toFixed(1);
-  el.statTempo.className = s.midi_connected ? 'v' : 'v warn';
-
-  // Which MIDI devices are open right now. The Orchid can enumerate as a
-  // power sink rather than a MIDI device if it is connected before it has
-  // booted; this line is how you tell, from the couch, that it did not.
-  const devs = (s.midi_devices || []).filter((d) => d.connected);
-  el.midiDevices.textContent = devs.length
-    ? devs.map((d) => d.clock ? `${d.name} (clock)` : d.name).join(', ')
-    : 'none';
+  el.midiDevices.textContent = r.midi;
 
   // A save taken back with its toast's Undo isn't the last one kept.
   el.lastSaved.textContent = (s.last_saved && !tookBack.has(s.last_saved) && s.last_saved) || 'none';
@@ -446,13 +411,10 @@ connectLive({
   onClose: () => link.fail('live'),
   onFrame: (f) => {
     if (!mainMeters || !status) return;
-    const sel = status.save_channels.map((c) => c - 1);
-    const last = f.bins?.[f.bins.length - 1];
-    const rms = sel.map((c) => last?.rms?.[c] ?? FLOOR_DB);
-    const peak = sel.map((c) => f.peak?.[c] ?? FLOOR_DB);
-    const clip = sel.map((c) => f.clip?.[c] ?? false);
+    const { rms, peak, clip } = frameLevels(f, status.save_channels.map((c) => c - 1));
     mainMeters.update(rms, peak, clip);
     vuMeters?.update(rms, peak, clip);
+    const last = f.bins?.[f.bins.length - 1];
     if (chanMeters && last?.rms) chanMeters.update(last.rms, f.peak, f.clip);
   },
 });

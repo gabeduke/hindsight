@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The two rooms (lib/rooms/flag.js, this device only): with them on,
+     lib/nav.js rewrites the header's three tabs as two, and until it has
+     the switch stays out of sight (styles.css, Rooms P1), so the old tabs
+     never paint. With the flag off this does nothing. -->
+<script id="rooms-early">try { if (localStorage.getItem('hindsight.rooms') === '1') document.documentElement.dataset.rooms = ''; } catch (e) { /* no storage: no rooms */ }</script>
+<title>Hindsight — the rig</title>
+<meta name="theme-color" content="#e4e3dd" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141516" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-small.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png?v=2" sizes="32x32">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2">
+<!-- Cross-fade between pages (styles.css, "motion between pages"). Inline,
+     so the new page has opted in by the time it first paints. -->
+<style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
+<link rel="stylesheet" href="/objects.css">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="rig-page">
+
+<!-- The rig (docs/superpowers/specs/2026-10-15-rig-design.md): the kit drawn
+     as devices and cables, each cable a setting. Reached from the device chip
+     in the rooms' headers, with the two rooms on (lib/rooms/flag.js). The Pi
+     builds the picture (GET /api/rig); lib/rig/page.js draws it and sends
+     what a cable writes. -->
+<header class="appbar">
+  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=2" alt=""><b>Hindsight</b></a>
+  <!-- The switch between the pages; on a phone, tabs along the bottom
+       (lib/nav.js keeps it true, and makes it the two rooms). -->
+  <nav class="appnav" aria-label="Pages">
+    <a href="/" data-tab="capture" data-tip="nav-capture"><span class="appnav-lamp" aria-hidden="true"></span>Capture</a>
+    <a href="/takes.html" data-tab="takes" data-tip="nav-takes"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
+    <a href="/tape.html" data-tab="tape" data-tip="nav-tape"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
+  </nav>
+  <div class="appbar-page">
+    <a id="rig-back" class="back" href="/tape.html" data-tip="rig-back"><span aria-hidden="true">‹</span><span class="back-text">Studio</span></a>
+    <h1 class="rig-title">The rig</h1>
+    <span id="rig-found" class="rig-found"></span>
+  </div>
+</header>
+<main class="rig-main">
+  <!-- With the two rooms off, this is all there is: no requests, nothing drawn. -->
+  <p id="rig-off" class="rig-off" hidden>The rig is part of the two rooms preview. Turn it on in <b>Settings › This device › Two rooms</b>, at the foot of Capture.</p>
+  <div id="rig-restart" class="rig-restart" role="status" hidden>
+    <span class="rig-restart-text"></span>
+    <button id="rig-restart-go" class="icon-btn primary" type="button" data-tip="rig-restart">Restart</button>
+  </div>
+  <div id="rig-room" class="rig-room" hidden>
+    <!-- The desk: device cards and the kit's patch bay, every socket a
+         button. The cables are drawn over the buttons and take no input
+         (.rig-wires); under them, a wider invisible stroke for each lets a
+         tap on a cable show it (.rig-hits). -->
+    <section id="rig-desk" class="rig-desk" aria-label="The desk">
+      <svg class="rig-hits" aria-hidden="true"></svg>
+      <div id="rig-devices" class="rig-devices"></div>
+      <div id="rig-bay" class="rig-bay" role="group" aria-label="Hindsight kit: the patch bay"></div>
+      <svg class="rig-wires" aria-hidden="true"></svg>
+    </section>
+    <!-- The inspector: beside the desk; on a phone, a sheet over its foot. -->
+    <aside id="rig-insp" class="rig-insp" aria-label="Inspector" aria-live="polite"></aside>
+    <section class="rig-legend" aria-label="Kinds of cable">
+      <h2 class="rig-legend-title">Cables</h2>
+      <ul id="rig-legend" class="rig-legend-list"></ul>
+    </section>
+  </div>
+</main>
+<div id="toasts" aria-live="polite"></div>
+<script type="module" src="/lib/rig/page.js"></script>
+</body>
+</html>

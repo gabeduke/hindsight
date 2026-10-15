@@ -3759,3 +3759,359 @@ body.play-open { overflow: hidden; }
   box-shadow: 0 2px 10px var(--shadow);
 }
 body.play-open .play-enter { display: none; }
+
+/* ---------- Rooms P1: the Studio's feed and foot (lib/rooms/studio.js) ---------- */
+/* With the two rooms on (lib/rooms/flag.js, one device), the tape page is
+   the Studio: Capture's feed above the lanes, and under them Capture's input
+   diagnostic and the about line -- the only way into Settings. tape.html
+   keeps them in templates, so with the flag off none of this markup exists;
+   and every rule here hangs off a studio- class, the about line in the tape
+   page's body (only the Studio puts one there), or :root[data-rooms], which
+   only the flag's early script sets (styles.test.js). */
+.studio-feed {
+  flex: none;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "head head" "ribbon vu" "keys keys" "sel sel";
+  align-items: center; gap: 8px 14px;
+  padding: 10px 14px;
+}
+/* A wide screen has the room for the keys beside the heading. */
+@media (min-width: 1100px) {
+  .studio-feed { grid-template-areas: "head keys" "ribbon vu" "sel sel"; }
+}
+.studio-feed-head { grid-area: head; display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* The heading keeps its word; its rule takes what room is left. */
+.studio-feed-head > .studio-feed-title { margin: 0; flex: 1 0 auto; }
+/* Capture's readouts, in a line: its trouble, then disk, drops and tempo. */
+.studio-stats {
+  margin: 0; flex: 0 1 auto; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 12px; color: var(--ink-dim);
+}
+.studio-stat + .studio-stat::before, .studio-health:not([hidden]) + .studio-stat::before { content: '· '; }
+.studio-stats .warn, .studio-health.wait { color: var(--warn-ink); }
+.studio-stats .bad, .studio-health.bad { color: var(--danger-ink); }
+.studio-health { font-weight: 600; }
+.studio-health[hidden] { display: none; }
+.studio-feed-head > .phone-btn { margin-left: 0; }
+.studio-feed > .viz-wrap { grid-area: ribbon; height: 112px; }
+.studio-feed > .vu-row { grid-area: vu; margin: 0; gap: 8px; }
+.studio-feed > .vu-row .vu { flex: none; width: 128px; }
+.studio-feed > .vu-row .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
+.studio-feed > .meters { grid-area: meters; margin: 0; }
+.studio-feed > .rb-sel { grid-area: sel; margin: 0; }
+.studio-keys { grid-area: keys; display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.studio-keys > .seg { flex: 0 1 auto; min-width: 0; }
+.studio-keys > .seg button { padding: 0 10px; }
+.studio-keys > .mark-btn { flex: none; }
+/* Keep goes to the end of the row, under the ribbon's "now". */
+.studio-keys > .studio-keep { margin-left: auto; }
+
+/* KEEP: the dashcam's save, a paper key -- the cassette's label -- so it
+   doesn't compete with Catch's orange on the deck below. Paper is a material
+   (objects.css), the same in both schemes. */
+.icon-btn.studio-keep {
+  flex: none; min-height: 44px; padding: 4px 16px;
+  flex-direction: column; gap: 0; line-height: 1.15;
+  background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
+  color: var(--paper-ink); border-color: var(--paper-rule);
+}
+.icon-btn.studio-keep:active { background: linear-gradient(180deg, var(--paper-lo), var(--paper-hi)); }
+.icon-btn.studio-keep.saved { box-shadow: 0 0 0 4px color-mix(in srgb, var(--paper-hi) 35%, transparent), 0 0 24px var(--accent-glow); }
+.studio-keep-word { font: 700 16px var(--label-font); letter-spacing: .16em; text-transform: uppercase; }
+.studio-keep-sub { font: 500 11.5px var(--font); color: var(--paper-dim); }
+.studio-keep-sub[hidden] { display: none; }
+
+/* With the rooms on, every page's switch waits -- out of sight, but in its
+   place -- for lib/nav.js to rewrite it as two tabs (.appnav-rooms), so the
+   three old tabs never paint. :root[data-rooms] is set by the early script
+   in each page's head, only with the flag on. If the script never comes,
+   the switch shows anyway after two seconds: the old names beat no way
+   between the pages at all. */
+:root[data-rooms] .appnav:not(.appnav-rooms) { visibility: hidden; animation: rooms-appnav-late 0s linear 2s forwards; }
+@keyframes rooms-appnav-late { to { visibility: visible; } }
+
+/* The Studio's foot, between main and the dock: Capture's input diagnostic,
+   then the about line. */
+body.tape-page > .studio-chan { flex: none; margin: 0; padding: 4px 16px 0; }
+body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
+body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
+
+/* A phone: the ribbon the full width, the meters as two bars (needles cost
+   the lanes their height), and the keys under them, where the thumb is.
+   Keep is its word alone -- the lengths beside it, and the ribbon, say how
+   much -- and Flag now its pennant, as on Capture's bench. */
+@media (max-width: 699.98px) {
+  .studio-feed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "ribbon" "meters" "keys" "sel";
+    gap: 8px; padding: 10px 12px;
+  }
+  .studio-feed > .viz-wrap { height: 92px; }
+  .studio-feed > .vu-row { display: none; }
+  .studio-feed > .meters { display: flex; gap: 4px; }
+  .studio-keys > .seg { flex: 1 1 0; }
+  .studio-keys > .seg button { padding: 0 4px; }
+  .studio-keys > .mark-btn { font-size: 0; min-width: 44px; padding: 0 12px; }
+  .studio-keys > .mark-btn::before { font-size: 16px; }
+  .icon-btn.studio-keep { min-width: 96px; margin-left: 0; }
+  .studio-keep-sub { display: none; }
+  /* The selection bar's four keys don't fit beside its readout: the
+     readout takes a line of its own, and the keys wrap under it. */
+  .studio-feed > .rb-sel { flex-wrap: wrap; row-gap: 6px; }
+  .studio-feed > .rb-sel .rb-sel-text { flex: 1 1 100%; }
+  .studio-feed > .rb-sel .icon-btn { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
+  body.tape-page > .studio-chan { padding: 4px 12px 0; }
+}
+/* A phone held sideways: the lanes have 390 px, so the feed gives back what
+   it can -- a short ribbon with the bars under it and the keys beside them. */
+@media (orientation: landscape) and (max-height: 440px) {
+  .studio-feed {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "head head" "ribbon keys" "meters keys" "sel sel";
+    gap: 6px 10px; padding: 8px 10px;
+  }
+  .studio-feed > .viz-wrap { height: 64px; }
+  .studio-feed > .vu-row { display: none; }
+  .studio-feed > .meters { display: flex; gap: 4px; }
+  .studio-keys { flex-direction: column; align-self: stretch; }
+  .studio-keys > .seg button { min-height: 34px; }
+  .studio-keys > .studio-keep { margin-left: 0; }
+}
+
+/* ---------- Rooms P6: the rig (rig.html, lib/rig/) ---------- */
+/* The kit drawn as gear on a desk, with the cables that are its settings.
+   Every rule here hangs off a rig- class (or the Studio's .tt-warn, the
+   rig's warning on a track's header), and the markup they style exists
+   only with the two rooms on: rig.html shows nothing else with them off,
+   the chip is put in the header by lib/nav.js only then, and .tt-warn only
+   by the tape page only then. The desk is a material, the same in both
+   schemes (objects.css); the inspector and the bars around it follow the
+   scheme. */
+.rig-page .rig-title { margin: 0; font: 700 18px var(--label-font); letter-spacing: .14em; text-transform: uppercase; }
+.rig-page .rig-found { min-width: 0; color: var(--ink-dim); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rig-main { max-width: none; padding: 12px 16px 24px; }
+.rig-off { max-width: 560px; margin: 32px auto; color: var(--ink-dim); }
+.rig-restart {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; padding: 10px 14px;
+  border: 1px solid var(--warn); border-radius: 10px; background: color-mix(in srgb, var(--warn) 14%, var(--bg));
+  color: var(--ink); font-size: 14px;
+}
+.rig-restart[hidden] { display: none; }
+.rig-restart-text { flex: 1 1 280px; }
+.rig-room { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.rig-room[hidden] { display: none; }
+@media (min-width: 1000px) {
+  .rig-room { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "desk insp" "legend insp"; align-items: start; }
+  .rig-desk { grid-area: desk; }
+  .rig-insp { grid-area: insp; position: sticky; top: calc(var(--topbar-h, 107px) + 12px); max-height: calc(100svh - var(--topbar-h, 107px) - 36px); overflow-y: auto; }
+  .rig-legend { grid-area: legend; }
+}
+
+/* The desk. Cables run in an SVG over the gear and take no input; a wider
+   stroke under the gear lets a tap on a cable's run show it. */
+.rig-desk {
+  position: relative; display: flex; flex-direction: column; gap: 22px; min-width: 0;
+  padding: 18px 16px 28px; border-radius: 14px; color: var(--desk-ink);
+  background: radial-gradient(ellipse at 45% 35%, var(--desk-felt), var(--desk-felt-lo) 75%);
+  box-shadow: inset 0 0 0 1px var(--desk-edge), inset 0 0 70px rgba(0,0,0,.45);
+}
+.rig-wires, .rig-hits { position: absolute; left: 0; top: 0; overflow: visible; }
+.rig-wires { z-index: 4; pointer-events: none; }
+.rig-hits { z-index: 0; }
+.rig-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.rig-devices, .rig-bay { position: relative; z-index: 1; }
+.rig-wire { fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+.rig-wire.faded { opacity: .45; }
+.rig-wire.sel { filter: drop-shadow(0 0 4px var(--rig-amber)); }
+.rig-wire.pending { animation: rig-march 1.2s linear infinite; }
+.rig-wire-drawing { stroke: var(--cable-patch); stroke-dasharray: 2 6; opacity: .9; }
+@keyframes rig-march { to { stroke-dashoffset: -24; } }
+@media (prefers-reduced-motion: reduce) { .rig-wire.pending { animation: none; } }
+.rig-plug { fill: var(--cable-plug); stroke: var(--desk-ink-dim); stroke-width: 2; }
+.rig-plug.pending { fill: var(--desk-felt-lo); stroke: var(--cable-pending); stroke-width: 2.5; }
+.rig-wire-core { filter: none; }
+
+/* The gear. */
+.rig-devices { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px; }
+.rig-dev {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%;
+  padding: 12px 14px 10px; border-radius: 12px;
+  background: linear-gradient(var(--gear-black-hi), var(--gear-black-lo));
+  box-shadow: 0 6px 0 var(--gear-black-foot), 0 14px 24px rgba(0,0,0,.5);
+}
+.rig-dev.rig-dev-interface { background: linear-gradient(var(--gear-grey-hi), var(--gear-grey-lo)); box-shadow: 0 8px 0 var(--gear-grey-foot), 0 16px 28px rgba(0,0,0,.55); color: var(--gear-grey-ink); }
+.rig-dev-head, .rig-bay-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.rig-dev-name { font: 700 15px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+.rig-dev-sub { font: 500 11px var(--mono); opacity: .8; }
+.rig-dev-note { margin: 0; max-width: 300px; font-size: 12px; line-height: 1.35; opacity: .85; }
+.rig-jacks, .rig-row-socks { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 6px; }
+.rig-col { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+/* A label: masking tape, written on in marker -- a name, never a route. */
+.rig-tag {
+  max-width: 96px; padding: 2px 7px; transform: rotate(-3deg); border-radius: 2px;
+  background: var(--paper-hi); color: var(--marker); font: 400 12px 'Permanent Marker', var(--font);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+.rig-tag[hidden] { display: none; }
+
+/* A socket: a button with a jack in it. touch-action none, so a finger can
+   draw a cable out of it. */
+.rig-sock {
+  position: relative; display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; align-items: center; justify-items: start; column-gap: 7px;
+  min-width: 52px; min-height: 48px; padding: 6px 8px 6px 6px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: 700 10.5px var(--label-font); letter-spacing: .1em; text-transform: uppercase;
+  cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.rig-sock:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* The name beside the hole, never under it: cables leave a socket up or
+   down, and would cross a name below. */
+.rig-hole { grid-row: 1 / span 2; width: 20px; height: 20px; border-radius: 50%; background: var(--jack-hole); box-shadow: 0 0 0 3px var(--jack-ring), inset 0 2px 3px rgba(0,0,0,.8); }
+.rig-sock[data-kind="usb"] .rig-hole { width: 26px; height: 14px; border-radius: 3px; }
+.rig-sock[data-kind="midi"] .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring), inset 0 0 0 5px var(--gear-black-hi); }
+.rig-sock[data-kind="tap"] .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring), 0 0 0 5px var(--desk-felt-lo); }
+.rig-sock.signal[data-kind="tap"] .rig-hole { box-shadow: 0 0 0 3px var(--cable-patch), 0 0 8px var(--cable-patch); }
+.rig-sock.sel .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring-hot), 0 0 12px var(--jack-ring-hot); }
+.rig-sock.target .rig-hole { box-shadow: 0 0 0 3px var(--cable-patch), 0 0 0 7px color-mix(in srgb, var(--cable-patch) 35%, transparent); }
+.rig-sock.drop .rig-hole { transform: scale(1.25); }
+.rig-sock.pending .rig-hole { outline: 2px dashed var(--cable-pending); outline-offset: 5px; }
+.rig-sock-label { line-height: 1; white-space: nowrap; align-self: end; }
+.rig-sock:not(:has(.rig-sock-name:not(:empty))) .rig-sock-label { grid-row: 1 / span 2; align-self: center; }
+.rig-sock-name { grid-column: 2; max-width: 72px; font: 400 10px var(--font); letter-spacing: 0; text-transform: none; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: start; }
+.rig-sock-name:empty { display: none; }
+/* A track's lamp: its own button, which arms it. */
+.rig-row-tracks .rig-col { position: relative; }
+.rig-arm-lamp {
+  position: absolute; top: -6px; right: -10px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%;
+  background: radial-gradient(circle, var(--rig-lamp-off) 0 5px, transparent 6px); cursor: pointer;
+}
+.rig-arm-lamp[aria-pressed="true"] { background: radial-gradient(circle, var(--rig-lamp-rec) 0 5px, color-mix(in srgb, var(--rig-lamp-rec) 35%, transparent) 6px, transparent 11px); }
+.rig-arm-lamp[aria-disabled="true"] { cursor: not-allowed; }
+.rig-arm-lamp:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.rig-warn-dot { display: none; position: absolute; top: 2px; left: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--rig-amber); box-shadow: 0 0 8px var(--rig-amber); }
+.rig-sock.warn .rig-warn-dot { display: block; }
+.rig-desk.picking .rig-sock:not(.target):not(.sel) { opacity: .55; }
+.rig-desk.dragging { cursor: grabbing; }
+
+/* The kit's patch bay. */
+.rig-bay {
+  display: flex; flex-direction: column; gap: 22px; padding: 14px 16px 16px; border-radius: 12px;
+  background: linear-gradient(var(--gear-black-hi), var(--gear-black-lo));
+  box-shadow: 0 8px 0 var(--gear-black-foot), 0 16px 26px rgba(0,0,0,.55);
+}
+.rig-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 8px 14px; }
+.rig-row-socks { gap: 8px 22px; }
+.rig-row-title { font: 700 10.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--desk-ink-dim); }
+.rig-row-tracks .rig-sock { min-width: 64px; }
+
+/* The inspector: beside the desk; on a phone, a sheet over its foot when a
+   socket or a cable is chosen. */
+.rig-insp {
+  min-width: 0; padding: 16px; border-radius: 12px; border: 1px solid var(--line);
+  background: linear-gradient(var(--card-hi), var(--card-lo)); color: var(--ink);
+}
+.rig-kicker, .rig-k { margin: 12px 0 4px; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-kicker { margin-top: 0; }
+.rig-insp-title { margin: 0 0 6px; font: 700 22px var(--label-font); letter-spacing: .04em; }
+.rig-insp-about, .rig-note { margin: 4px 0 8px; font-size: 13.5px; line-height: 1.45; color: var(--ink-dim); }
+.rig-insp .icon-btn { min-height: 40px; }
+.rig-insp-close { float: right; margin: -6px -4px 4px 8px; }
+.rig-level { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 8px 0; font: 500 12px var(--mono); color: var(--ink-dim); }
+.rig-level-bar { position: relative; height: 8px; border-radius: 4px; background: var(--well); overflow: hidden; }
+.rig-level-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--go), var(--warn)); }
+.rig-patched-list, .rig-targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rig-patched { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 10px; border-radius: 8px; background: var(--panel); }
+.rig-patched.pending { outline: 2px dashed var(--warn); outline-offset: -2px; }
+.rig-patched-what { flex: 1 1 auto; font-weight: 600; }
+.rig-patched-note { flex: 1 1 100%; order: 3; font-size: 12.5px; color: var(--ink-dim); }
+.rig-kind { flex: none; width: 22px; height: 0; border-top: 4px solid var(--cable-patch); }
+.rig-kind-usb { border-top: 7px solid var(--cable-usb); }
+.rig-kind-return { border-top: 5px dotted var(--cable-return); }
+.rig-kind-clock { border-top: 3px dashed var(--cable-midi); }
+.rig-kind-midi { border-top: 3px dotted var(--cable-midi); }
+.rig-kind-keep { border-top: 2px dashed var(--ink-dim); }
+.rig-kind-network { border-top: 2px dotted var(--cable-net); }
+.rig-kind-jack { border-top: 4px dashed var(--cable-jack); }
+.rig-target-btn {
+  width: 100%; min-height: 40px; padding: 0 12px; text-align: left; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 14px var(--font);
+}
+.rig-target-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) { .rig-target-btn:hover { border-color: var(--rule); } }
+.rig-arm.on { border-color: var(--rec); color: var(--danger-ink); }
+.rig-warn { margin: 12px 0; padding: 12px; border-radius: 10px; border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 14%, var(--card-hi)); }
+.rig-warn-title { margin: 0 0 4px; font: 700 14px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--warn-ink); }
+.rig-warn-text { margin: 0 0 10px; font-size: 13.5px; line-height: 1.45; }
+.rig-fix { background: var(--warn); color: var(--on-flag); border-color: var(--warn); font-weight: 700; }
+.rig-offer { margin: 12px 0; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
+.rig-offer-text { margin: 0 0 8px; font-size: 13.5px; }
+.rig-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.rig-seg button {
+  min-height: 40px; min-width: 52px; padding: 0 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 700 13px var(--label-font); letter-spacing: .1em;
+}
+.rig-seg button.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.rig-seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rig-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rig-label > .rig-k { flex: 1 1 100%; }
+.rig-label-input { flex: 1 1 160px; min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: 15px var(--font); }
+.rig-label-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.rig-label > .rig-note { flex: 1 1 100%; }
+.rig-settings { margin-top: 14px; }
+.rig-settings > summary { cursor: pointer; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-settings > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rig-settings-list { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 8px 0 0; font: 12px var(--mono); }
+.rig-settings-list dt { color: var(--ink-dim); }
+.rig-settings-list dd { margin: 0; overflow-wrap: anywhere; }
+.rig-settings-list dd.pending { color: var(--warn-ink); }
+
+/* The legend: width and dash say the kind, not colour alone. */
+.rig-legend { padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+.rig-legend-title { margin: 0 0 8px; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-legend-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; font-size: 13px; }
+.rig-legend-item { display: flex; align-items: center; gap: 10px; }
+.rig-legend-item .rig-swatch { flex: none; display: block; border-radius: 4px; background: var(--desk-felt-lo); }
+
+@media (max-width: 999.98px) {
+  .rig-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  /* A phone: chosen, the inspector is a sheet over the desk's foot, above
+     the tabs; nothing chosen, it sits under the desk. */
+  .rig-insp.open {
+    position: fixed; left: 0; right: 0; bottom: calc(61px + env(safe-area-inset-bottom)); z-index: 25;
+    max-height: 52svh; overflow-y: auto; border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px var(--sh-strong);
+  }
+  body.rig-page:has(.rig-insp.open) { padding-bottom: calc(61px + 52svh); }
+  .rig-desk { padding: 14px 10px 22px; }
+  .rig-devices { gap: 14px; }
+  .rig-dev { flex: 1 1 100%; }
+}
+@media (min-width: 700px) and (max-width: 999.98px) {
+  .rig-insp.open { bottom: 0; }
+  body.rig-page:has(.rig-insp.open) { padding-bottom: 52svh; }
+}
+
+/* The device chip, in both rooms' headers: the way to the rig. */
+.rig-chip {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--ink); text-decoration: none; font: 600 13px var(--font); white-space: nowrap;
+}
+.rig-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) { .rig-chip:hover { border-color: var(--rule); } }
+.rig-chip-sub { color: var(--ink-dim); font-weight: 500; }
+.rig-chip-sub:empty { display: none; }
+.rig-chip-lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); }
+.rig-chip[data-state="ok"] .rig-chip-lamp { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
+.rig-chip[data-state="warn"] .rig-chip-lamp { background: var(--warn); box-shadow: 0 0 6px var(--warn-glow); }
+@media (max-width: 699.98px) {
+  .rig-chip { padding: 0 9px; }
+  .rig-chip-sub, .rig-chip-ico { display: none; }
+}
+
+/* The rig's warning on a Studio track header: an amber dot by ●, on an
+   armed track whose input hears the tape (lib/rig/warn.js). */
+/* A badge on the head's corner, out of the flow, so the keys wrap as they
+   always did. */
+.tt-head:has(> .tt-warn) { position: relative; }
+.tt-head .tt-warn { position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--warn-glow); }
+.tt-head .tt-warn[hidden] { display: none; }

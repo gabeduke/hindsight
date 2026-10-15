@@ -5,7 +5,7 @@
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v77';
+const CACHE = 'hindsight-shell-v90';
 const SHELL = [
   '/',
   '/index.html',
@@ -68,6 +68,7 @@ const SHELL = [
   '/lib/help/tips.js',
   '/lib/help/markdown.js',
   '/lib/device-prefs.js',
+  '/lib/settings.js',
   '/lib/play/flag.js',
   '/lib/play/clock.js',
   '/lib/play/link.js',
@@ -75,6 +76,20 @@ const SHELL = [
   '/lib/play/keymap.js',
   '/lib/play/screen.js',
   '/lib/play/mount.js',
+  '/lib/rooms/flag.js',
+  '/lib/rooms/mount.js',
+  '/lib/rooms/studio.js',
+  '/lib/rooms/keep.js',
+  '/lib/rig/kinds.js',
+  '/lib/rig/graph.js',
+  '/lib/rig/patch.js',
+  '/lib/rig/picker.js',
+  '/lib/rig/desk.js',
+  '/lib/rig/cables.js',
+  '/lib/rig/arm.js',
+  '/lib/rig/warn.js',
+  '/lib/rig/chip.js',
+  '/lib/rig/page.js',
   '/lib/tape/page.js',
   '/lib/tape/poll-gate.js',
   '/lib/tape/geometry.js',
@@ -104,7 +119,6 @@ const SHELL = [
   '/lib/bar/tape-source.js',
   '/lib/bar/take-source.js',
   '/lib/bar/player.js',
-  '/lib/settings.js',
   '/lib/scene/object.js',
   '/lib/scene/scene.js',
   '/lib/scene/renderer.js',
@@ -116,6 +130,7 @@ const SHELL = [
   '/lib/scene/ribbon.js',
   '/guide.html',
   '/tape.html',
+  '/rig.html',
   '/fonts/barlow-condensed-600.woff2',
   '/fonts/barlow-condensed-700.woff2',
   '/fonts/ibm-plex-sans-400.woff2',

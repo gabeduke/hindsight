@@ -91,6 +91,38 @@ export function hubLine(hub) {
 
 const FROM = { app: 'set here', env: 'from the env file', default: 'default' };
 
+/** RESTART_WARNING is what a restart costs, said wherever one is offered. */
+export const RESTART_WARNING = 'Hindsight restarts to use it, so the ring starts empty: capture anything you want to keep first.';
+
+/**
+ * restartHindsight asks Hindsight to restart, and waits for it to come back
+ * as a new process: the sheet's Restart, and the rig's. `before` is the
+ * `started` of the process asking; `load` reads /api/settings; `accepted`
+ * is called once the Pi has said yes. It answers {ok, data} once it's back,
+ * or {ok: false, error}, with `gone` when it never came back.
+ */
+export async function restartHindsight({ before, load, accepted = () => {}, fetchFn = fetch, wait = (ms) => new Promise((res) => setTimeout(res, ms)) }) {
+  let r;
+  try {
+    r = await fetchFn('/api/restart', { method: 'POST' });
+  } catch {
+    r = null;
+  }
+  if (!r || r.status !== 202) {
+    const resp = r ? await r.json().catch(() => ({})) : {};
+    return { ok: false, error: resp.error || 'Couldn’t reach Hindsight' };
+  }
+  accepted();
+  const started = Date.now();
+  while (Date.now() - started < GIVE_UP_MS) {
+    await wait(POLL_MS);
+    const d = await load();
+    // Back as a new process.
+    if (d && d.started !== before) return { ok: true, data: d };
+  }
+  return { ok: false, gone: true, error: 'It hasn’t come back. Check the Pi: journalctl _SYSTEMD_USER_UNIT=hindsight.service' };
+}
+
 export function initSettings() {
   const btn = document.getElementById('settings-btn');
   const sheet = document.getElementById('settings-sheet');
@@ -344,44 +376,37 @@ export function initSettings() {
 
   restartBtn.addEventListener('click', async () => {
     restartBtn.disabled = true;
-    let r;
-    try {
-      r = await fetch('/api/restart', { method: 'POST' });
-    } catch {
-      r = null;
+    const res = await restartHindsight({
+      before: data.started,
+      load,
+      accepted: () => {
+        restarting = true;
+        restartEl.hidden = true;
+        save.hidden = true;
+        progress.hidden = false;
+        progress.textContent = 'Restarting…';
+      },
+    });
+    if (res.ok) {
+      const d = res.data;
+      progress.textContent = d.error ? 'Back, but your saved settings weren’t used' : 'Back';
+      if (d.error) {
+        restarting = false;
+        save.hidden = false;
+        setError(`Your saved settings weren’t used at start: ${d.error}`);
+        draw();
+        return;
+      }
+      setTimeout(() => location.reload(), 600);
+      return;
     }
-    if (!r || r.status !== 202) {
-      const resp = r ? await r.json().catch(() => ({})) : {};
-      setError(resp.error || 'Couldn’t reach Hindsight');
+    if (!res.gone) {
+      setError(res.error);
       restartBtn.disabled = false;
       return;
     }
-    const before = data.started;
-    restarting = true;
-    restartEl.hidden = true;
-    save.hidden = true;
-    progress.hidden = false;
-    progress.textContent = 'Restarting…';
-    const started = Date.now();
-    while (Date.now() - started < GIVE_UP_MS) {
-      await new Promise((res) => setTimeout(res, POLL_MS));
-      const d = await load();
-      // Back as a new process.
-      if (d && d.started !== before) {
-        progress.textContent = d.error ? 'Back, but your saved settings weren’t used' : 'Back';
-        if (d.error) {
-          restarting = false;
-          save.hidden = false;
-          setError(`Your saved settings weren’t used at start: ${d.error}`);
-          draw();
-          return;
-        }
-        setTimeout(() => location.reload(), 600);
-        return;
-      }
-    }
     restarting = false;
-    progress.textContent = 'It hasn’t come back. Check the Pi: journalctl _SYSTEMD_USER_UNIT=hindsight.service';
+    progress.textContent = res.error;
     progress.classList.add('bad');
   });
 }

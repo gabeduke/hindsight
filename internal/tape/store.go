@@ -190,6 +190,11 @@ func (s *Store) Load(id string) (*Tape, error) {
 	if err := json.Unmarshal(b, &t); err != nil {
 		return nil, fmt.Errorf("tape %s: %w", id, err)
 	}
+	// rec_tracks, or what rec_track said before there could be several.
+	var arm struct {
+		RecTracks *[]int `json:"rec_tracks"`
+	}
+	json.Unmarshal(b, &arm)
 	if t.Version > Version {
 		return nil, fmt.Errorf("tape %s was written by a newer version", id)
 	}
@@ -205,6 +210,7 @@ func (s *Store) Load(id string) (*Tape, error) {
 			t.Tracks[i].Clips = []Clip{}
 		}
 	}
+	t.normalizeArm(arm.RecTracks != nil && *arm.RecTracks != nil)
 	return &t, nil
 }
 
@@ -375,7 +381,7 @@ func (s *Store) Clone(id, name string, now time.Time) (*Tape, error) {
 	}
 	t.State = src.State.clone()
 	t.Click = src.Click
-	t.RecTrack, t.Inputs = src.RecTrack, slices.Clone(src.Inputs)
+	t.RecTrack, t.RecTracks, t.Inputs = src.RecTrack, slices.Clone(src.RecTracks), slices.Clone(src.Inputs)
 	if err := s.Save(t); err != nil {
 		return nil, err
 	}

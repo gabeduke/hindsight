@@ -26,14 +26,14 @@
 // sets the ribbon's state, the ribbon model (lib/scene/ribbon.js) works out
 // what is lit and where recording starts, and the drawer here paints it.
 
-import { fmtDur } from '/lib/meter.js';
-import { Scene } from '/lib/scene/scene.js';
-import { SceneObject } from '/lib/scene/object.js';
-import { DomRenderer } from '/lib/scene/dom.js';
-import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from '/lib/objects/ribbonmath.js';
-import { isSilent } from '/lib/tape/levels.js';
-import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from '/lib/objects/ribbon-draw.js';
-import { token } from '/lib/theme.js';
+import { fmtDur } from '../meter.js';
+import { Scene } from '../scene/scene.js';
+import { SceneObject } from '../scene/object.js';
+import { DomRenderer } from '../scene/dom.js';
+import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from './ribbonmath.js';
+import { isSilent } from '../tape/levels.js';
+import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from './ribbon-draw.js';
+import { token } from '../theme.js';
 
 const HOLD_MS = 350;
 const MOVE_PX = 8;
@@ -64,10 +64,11 @@ export class Ribbon {
    * @param {HTMLElement} wrap the existing .viz-wrap
    * @param {{onToast?: (msg: string, kind?: string) => void}} [opts]
    */
-  constructor(wrap, { onToast, onSaved, onSavedToast, selBar, flagSheet } = {}) {
+  constructor(wrap, { onToast, onSaved, onSavedToast, onKept, selBar, flagSheet } = {}) {
     this.wrap = wrap;
     this.onToast = onToast;
     this.onSaved = onSaved;
+    this.onKept = onKept; // (answer): Keep as clip put a span in the crate
     this.onSavedToast = onSavedToast; // (msg, name): a save's toast, with its Undo
     this.selBar = selBar || null;
     this.flagSheet = flagSheet || null;
@@ -230,6 +231,8 @@ export class Ribbon {
       if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
       const note = b.clamped ? ' (its start had already left the buffer)' : '';
       this.onToast?.(`Kept it in the crate${note}: drop it from there on the tape`, 'ok');
+      // A page with the crate on it (the Studio) shows it there at once.
+      this.onKept?.(b);
     } catch (e) {
       this.onToast?.(`Could not keep it: ${e.message}`, 'bad');
     }

@@ -89,6 +89,11 @@ type API struct {
 	// tagsMu serialises writes to tags.json (see tags.go).
 	tagsMu sync.Mutex
 
+	// rig is the rig's (rig.go): its hooks and rig.json's labels.
+	rig rigState
+	// recordingHook stands in for the tape's recording in tests.
+	recordingHook func() *tape.Recording
+
 	// bg counts work a request leaves running -- a preview encode, a prune --
 	// so a test can wait for it before its takes folder goes.
 	bg sync.WaitGroup
@@ -148,6 +153,8 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/settings", a.handleSettingsGet).Methods(http.MethodGet)
 	r.HandleFunc("/api/settings", a.handleSettingsPut).Methods(http.MethodPut)
 	r.HandleFunc("/api/restart", a.handleRestart).Methods(http.MethodPost)
+	r.HandleFunc("/api/rig", a.handleRig).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/rig/labels", a.handleRigLabels).Methods(http.MethodPut)
 	r.HandleFunc("/api/jams", a.handleJams).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/trigger", a.handleTrigger).Methods(http.MethodPost)
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)
