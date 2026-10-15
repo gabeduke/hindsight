@@ -4407,10 +4407,9 @@ body.buffer-fold .tape-sections-row { display: none; }
   color: var(--room-plate-ink); font: 700 12px/16px var(--label-font); letter-spacing: .16em;
   box-shadow: 0 1px 2px rgba(0,0,0,.5);
 }
-.room-empty, .room-next {
+.room-empty {
   order: 1; margin: 8px 12px 0; color: var(--room-ink-dim); font-size: 12.5px; line-height: 1.4;
 }
-.room-next { margin-bottom: 4px; }
 .room-empty[hidden] { display: none; }
 
 /* Tapes: reel boxes, spine out, named on masking tape. */
@@ -4455,9 +4454,9 @@ body.buffer-fold .tape-sections-row { display: none; }
   box-shadow: 0 2px 4px rgba(0,0,0,.4);
 }
 /* Picked: it lifts, then slides out toward you. On the deck: its gap. */
-.room-cassette.pulled, .room-sleeve.pulled { transform: translateY(-10px) scale(1.08); box-shadow: 0 10px 16px rgba(0,0,0,.55); z-index: 2; }
+.room-cassette.pulled { transform: translateY(-10px) scale(1.08); box-shadow: 0 10px 16px rgba(0,0,0,.55); z-index: 2; }
 @media (prefers-reduced-motion: no-preference) {
-  .room-cassette.pulled, .room-sleeve.pulled { animation: room-pull 300ms ease both; }
+  .room-cassette.pulled { animation: room-pull 300ms ease both; }
 }
 @keyframes room-pull {
   0% { transform: none; }
@@ -4483,30 +4482,6 @@ body.buffer-fold .tape-sections-row { display: none; }
   background: var(--room-card); font: 400 15px/1.1 'Permanent Marker', var(--font); white-space: nowrap;
 }
 .room-box-hole { position: absolute; left: 50%; bottom: 14px; width: 26px; height: 8px; margin-left: -13px; border-radius: 4px; background: var(--room-cardboard-hole); }
-
-/* Records: LP sleeves in their covers. */
-.room-sleeve {
-  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0;
-  width: 88px; height: 88px; margin-right: 6px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--cover) 55%, #000), var(--cover));
-  box-shadow: 0 2px 6px rgba(0,0,0,.5); transition: transform 180ms ease;
-}
-.room-sleeve { --cover: var(--room-sleeve-hi); }
-.room-sleeve.cover-1 { --cover: var(--stripe-1); } .room-sleeve.cover-2 { --cover: var(--stripe-2); }
-.room-sleeve.cover-3 { --cover: var(--stripe-3); } .room-sleeve.cover-4 { --cover: var(--stripe-4); }
-.room-sleeve.cover-5 { --cover: var(--stripe-5); } .room-sleeve.cover-6 { --cover: var(--stripe-6); }
-.room-sleeve.cover-7 { --cover: var(--stripe-7); } .room-sleeve.cover-8 { --cover: var(--stripe-8); }
-.room-sleeve-disc {
-  position: absolute; left: 18px; top: 8px; width: 52px; height: 52px; border-radius: 50%;
-  background: radial-gradient(circle, var(--room-card) 0 9%, var(--cover) 10% 40%, var(--room-vinyl) 41% 100%);
-  box-shadow: 0 0 0 1px rgba(0,0,0,.4);
-}
-.room-sleeve-name {
-  position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 2px 4px; background: var(--room-card);
-  color: var(--marker); font: 400 11px/1.2 'Permanent Marker', var(--font);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.room-sleeve.on-table .room-sleeve-disc { visibility: hidden; }
 
 /* The hi-fi. The deck: silver, two reels, the LCD, its keys. */
 .room-deck-art {
@@ -4534,39 +4509,6 @@ body.buffer-fold .tape-sections-row { display: none; }
   background: repeating-linear-gradient(90deg, var(--room-key-hi) 0 22%, transparent 22% 25%);
 }
 .room-deck-play, .room-deck-sit, .room-deck-meta, .room-deck-progress { display: none; }
-
-/* The turntable: walnut, the platter, the tonearm, a start button. */
-.room-tt-art {
-  position: relative; display: block; height: 66px; border-radius: 5px;
-  background: linear-gradient(var(--room-walnut-hi), var(--room-walnut-lo));
-  box-shadow: 0 8px 12px rgba(0,0,0,.45), inset 0 3px 0 var(--room-walnut-hi);
-}
-.room-tt-vinyl {
-  position: absolute; left: 7%; top: 9%; width: 72%; height: 55%; border-radius: 50%;
-  background: radial-gradient(ellipse, var(--room-cover, var(--room-vinyl-label)) 0 9%, var(--room-vinyl) 10% 64%, var(--room-vinyl-groove) 65% 66%, var(--room-vinyl) 67%);
-  box-shadow: 0 2px 0 #0a0a0a;
-}
-.room-turntable.empty .room-tt-vinyl { background: radial-gradient(ellipse, var(--reel-metal) 0 4%, #2b2b2b 5% 70%, #333 71%); }
-@media (prefers-reduced-motion: no-preference) {
-  .room-turntable.playing .room-tt-vinyl { animation: room-spin 1.8s linear infinite; }
-}
-.room-tt-arm {
-  position: absolute; right: 9%; top: 14%; width: 24%; height: 3px; border-radius: 2px; background: var(--reel-metal);
-  transform-origin: right center; transform: rotate(calc(-30deg + var(--room-played, 0) * 22deg));
-}
-.room-turntable.empty .room-tt-arm { transform: rotate(-38deg); }
-.room-tt-start {
-  appearance: none; position: absolute; right: 6px; bottom: 6px; width: 30px; height: 30px; border-radius: 50%;
-  border: 1px solid var(--room-key-edge); background: linear-gradient(var(--room-key-hi), var(--room-key-lo));
-  color: var(--room-key-ink); font-size: 12px; cursor: pointer;
-}
-.room-cutting {
-  display: flex; flex-direction: column-reverse; align-items: stretch; gap: 6px; margin-top: 6px; padding: 6px 10px; border-radius: 8px;
-  background: var(--room-tag); border: 1px solid var(--room-tag-edge); color: var(--room-ink); font-size: 12.5px;
-}
-.room-cutting[hidden] { display: none; }
-.room-cut-bar { width: 100%; height: 8px; accent-color: var(--room-plate-hi); }
-.room-cut-words { line-height: 1.35; }
 
 /* The sketchbook, on the side table. */
 .room-book-place .room-book-latest { display: none; }
@@ -4691,9 +4633,6 @@ dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; 
   /* The places stand where the drawing puts them. */
   .room-deck { position: absolute; left: 44%; bottom: 34%; width: min(24%, 220px); display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
   .room-deck-place { order: -1; }
-  .room-turntable { position: absolute; left: 71%; bottom: 34%; width: min(25%, 230px); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-  .room-turntable .room-tt-art { order: 1; align-self: stretch; }
-  .room-turntable .room-cutting { order: 2; align-self: stretch; }
   .room-book { position: absolute; left: 44%; top: 80%; }
 }
 
@@ -4703,11 +4642,10 @@ dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; 
   .room { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 16px; }
   .room-scene { display: none; }
   .room-stage { display: contents; }
-  .room-deck, .room-turntable, .room-book { position: static; width: auto; }
+  .room-deck, .room-book { position: static; width: auto; }
   .room-deck { order: -2; }
   .room-book { order: -1; }
-  .room-turntable { order: 1; }
-  .room-deck, .room-book, .room-turntable { margin-right: 16px; }
+  .room-deck, .room-book { margin-right: 16px; }
   /* Not in a month's box, where the rack is and the deck card isn't: the
      bar is all there is to pause with there. */
   .room-on:not(.room-rack) .np { display: none; }
@@ -4718,8 +4656,7 @@ dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; 
   .room-filtered { margin: 0 16px 0 0; }
   .room-row { border-bottom: 0; box-shadow: none; padding: 6px 16px 4px 0; gap: 8px; scroll-snap-type: x proximity; min-height: 0; }
   .room-row > li { scroll-snap-align: start; }
-  .room-empty, .room-next { margin: 0 16px 0 0; }
-  .room-next { display: none; }
+  .room-empty { margin: 0 16px 0 0; }
   .room-reel { width: 74px; height: 74px; border-radius: 3px; }
   .room-reel-label { left: 8px; right: 8px; top: 26px; bottom: auto; padding: 3px 2px; writing-mode: horizontal-tb; transform: none; font-size: 11px; display: block; text-align: center; text-overflow: ellipsis; }
   .room-cassette {
@@ -4739,9 +4676,6 @@ dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; 
   .room-box { width: 124px; height: 64px; }
   .room-box-label { top: 50%; transform: translateY(-50%); left: 12px; right: 12px; padding: 3px 0; font-size: 13px; }
   .room-box-hole { display: none; }
-  .room-sleeve { width: 72px; height: 72px; }
-  .room-sleeve-disc { left: 14px; top: 6px; width: 44px; height: 44px; }
-  .room-sleeve-name { left: 4px; right: 4px; bottom: 4px; font-size: 10px; }
   /* The deck card: the deck, what's on it, ▶ and SIT DOWN. */
   .room-deck {
     display: grid; grid-template-columns: 132px minmax(0, 1fr); grid-template-areas: "art place" "art meta" "art keys" "bar bar";
@@ -4774,9 +4708,6 @@ dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; 
   }
   .room-book-word { font: 700 22px 'Caveat', var(--font); }
   .room-book-place .room-book-latest { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 18px 'Caveat', var(--font); color: var(--room-paper-dim); }
-  .room-turntable { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 12px; align-items: center; }
-  .room-turntable .room-tt-art { grid-row: span 2; height: 48px; }
-  .room-turntable .room-cutting { grid-column: 1 / -1; }
 }
 
 /* --- the chair: one take or tape on the deck, close up --- */
@@ -4795,13 +4726,6 @@ body.chair-of-tape > main.wave-main { display: none; }
 body.chair-of-tape .appbar-page > :is(.step-group, .menu-anchor, #take-trash, #take-undo, #notes-open, #crate-chip) { display: none; }
 .chair-acts { display: inline-flex; align-items: center; gap: 8px; flex: none; }
 .chair-acts .chair-studio { min-height: 36px; }
-.chair-cut {
-  appearance: none; height: 38px; padding: 0 14px; border-radius: 8px; border: 0; cursor: pointer; white-space: nowrap;
-  background: var(--room-ink); color: var(--room-plate-ink); font: 700 14px var(--label-font); letter-spacing: .14em;
-  box-shadow: 0 1px 0 var(--room-key-edge);
-}
-.chair-cut[hidden] { display: none; }
-.chair-cut:disabled { opacity: .5; cursor: default; }
 
 /* The deck close up: silver, the label on masking tape, the reel window
    and its LCD (the page's own), and its keys. */
@@ -4845,10 +4769,6 @@ body.chair-on .chair-window .np-expand { display: none; }
   color: var(--paper-ink); font: 700 15px var(--label-font); letter-spacing: .12em;
 }
 .chair-on .chair-key.chair-note[hidden] { display: none; }
-
-.chair-cutting { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--room-tag); border: 1px solid var(--room-tag-edge); }
-.chair-cutting[hidden] { display: none; }
-.chair-cut-bar { flex: 1; height: 8px; accent-color: var(--room-plate-hi); }
 
 /* The take on tape: its trace on oxide, the notes as numbered grease marks. */
 .chair-tape { position: relative; padding: 16px 0 18px; }
@@ -4959,7 +4879,6 @@ dialog.book-pick .book-sticker { transform: none; }
   .book-go { padding: 0 6px; font-size: 11px; }
   .chair-on .book-title .take-title-name { font-size: 28px; }
   .chair-acts { gap: 4px; }
-  .chair-cut { height: 36px; padding: 0 10px; font-size: 13px; letter-spacing: .1em; }
 }
 
 /* ---------- Rooms P6: the rig (rig.html, lib/rig/) ---------- */

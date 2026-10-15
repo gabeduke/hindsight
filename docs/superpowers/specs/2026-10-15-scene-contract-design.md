@@ -83,7 +83,6 @@ export class Scene {
 | `reels` | `rate`, `pos`, `length` | `angle` for each reel, the pack radii (`ReelMotion`) | DOM: `ReelWindow` |
 | `deck` | `loaded`, `playing`, `door` | the door's angle, and the reels within | DOM |
 | `cassette` | `take`, `label`, `stripe`, `played`, `out` (off the shelf) | the hubs' angle, the packs, the lift | DOM: `CassetteFace` |
-| `record` | `take`, `label`, `cover`, `spinning` | the platter's angle | DOM |
 | `vu` | `level` | the needle and its velocity (`ballistic`) | DOM: `VUMeters` |
 | `shelf` | `items` (ids in order), `gap` | each item's slot | DOM |
 | `device` | `profile`, and each port's `lit` and `level` | — | DOM, then three.js (R6) |
@@ -144,7 +143,7 @@ up. Every one assumes R1, and keeps every rule above.
 | R4 | Cables | M | R1, P6 |
 | R5 | Device models | L | P6's profiles |
 | R6 | The rig in 3D | L | R4, R5 |
-| R7 | Cut a record | M | R3 |
+| R7 | ~~Cut a record~~ (dropped by the flow spec, F2: there are no records) | — | — |
 
 ### R2 · Shelf to deck
 
@@ -252,7 +251,11 @@ board:
   - four devices and twelve cables hold 60 fps on a phone;
   - the rig still opens offline after a first visit.
 
-### R7 · Cut a record
+### R7 · Cut a record (dropped)
+
+*Dropped by the flow spec (F2): records are not written any more, so there is
+no `record` kind and no lathe. A bounce is a take on its tape's spine. Kept
+here as the record of what was designed.*
 
 - **Goal:** the lathe. The canvas's *Choreography* board, part B:
 

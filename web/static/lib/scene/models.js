@@ -9,7 +9,7 @@
 // identity that it has nothing to draw. Reduced motion arrives as
 // dt = Infinity, and a model given it lands on its target.
 //
-// The kinds still to come (deck, record, shelf, device) arrive with the
+// The kinds still to come (deck, shelf, device) arrive with the
 // steps that draw them. The cable is R4's: the rig's ropes.
 
 import { VuModel } from './vu.js';

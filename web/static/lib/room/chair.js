@@ -20,8 +20,7 @@
 import { notesOf, noteSpan, sendToStudio, fmtAt, fieldEnter } from './notes.js';
 import { keepLabel, selectionKeepLength } from '../rooms/keeplabel.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick } from '../rooms/grab.js';
-import { cutTakeRecord, cutTapeRecord } from './record.js';
-import { loadTape, readyToCut } from './swap.js';
+import { loadTape } from './swap.js';
 import { tagStore } from '../tags.js';
 import { openTagManager } from '../tags-dialog.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
@@ -75,8 +74,7 @@ function frame({ kind, title }) {
   // take's own, set in mountTake once the loop's length is known).
   const studio = el('button', 'icon-btn chair-studio', { type: 'button', 'data-tip': 'room-studio', 'aria-label': kind === 'tape' ? 'Load it in the Studio' : 'GRAB' },
     el('span', 'wide-only', { text: kind === 'tape' ? 'Load it in the Studio' : 'GRAB' }), el('span', 'narrow-only', { text: kind === 'tape' ? 'Studio ›' : 'GRAB' }));
-  const cutKey = el('button', 'chair-cut', { type: 'button', 'data-tip': 'room-cut' }, 'CUT A RECORD');
-  const acts = el('span', 'chair-acts', {}, studio, cutKey);
+  const acts = el('span', 'chair-acts', {}, studio);
   document.querySelector('.appbar-page')?.append(acts);
 
   const label = el('span', 'chair-label', { 'aria-hidden': 'true', text: title });
@@ -89,25 +87,14 @@ function frame({ kind, title }) {
   const ends = el('div', 'chair-ends', { 'aria-hidden': 'true' }, el('span', 'chair-end-0', { text: '0:00' }), el('span', 'chair-end-1'));
   const tape = el('section', 'chair-tape', { 'aria-label': `The ${kind} on tape` }, strip, pins, ends);
 
-  const cutBar = el('progress', 'chair-cut-bar', { max: '1' });
-  const cutWords = el('span', 'chair-cut-words', { role: 'status' });
-  const cutting = el('div', 'chair-cutting', { hidden: true }, cutBar, cutWords);
-
   const left = el('div', 'book-page book-left');
   const right = el('div', 'book-page book-right');
   const book = el('section', 'chair-book', { 'aria-label': 'The sketchbook' }, left,
     el('div', 'book-rings', { 'aria-hidden': 'true' }, ...Array.from({ length: 6 }, () => el('span'))), right);
 
-  const chair = el('section', 'chair', { 'aria-label': 'In the chair' }, deck, cutting, tape, book);
+  const chair = el('section', 'chair', { 'aria-label': 'In the chair' }, deck, tape, book);
   document.querySelector('header.appbar')?.after(chair);
-  const setCut = (c) => {
-    cutting.hidden = !c;
-    cutKey.disabled = !!c;
-    if (!c) return;
-    if (c.frac == null) cutBar.removeAttribute('value'); else cutBar.value = c.frac;
-    cutWords.textContent = `${c.what}: ${c.words}`;
-  };
-  return { chair, deck, windowSlot, keys, strip, pins, ends, tape, book, left, right, studio, cutKey, setCut, label };
+  return { chair, deck, windowSlot, keys, strip, pins, ends, tape, book, left, right, studio, label };
 }
 
 function key(cls, label, text, tip) {
@@ -378,30 +365,6 @@ function mountTake(h) {
   tagStore.subscribe(renderSticker);
   tagStore.load();
 
-  // --- CUT A RECORD, and To the Studio for the whole take or its selection ----
-  const renderCutKey = () => {
-    f.cutKey.hidden = !!take.record;
-    // The selection, when there is one: what's cut is said, not shown.
-    const words = h.state().region ? 'Cut a record of the selection' : 'Cut a record';
-    if (f.cutKey.getAttribute('aria-label') !== words) f.cutKey.setAttribute('aria-label', words);
-  };
-  f.cutKey.addEventListener('click', async () => {
-    const st = h.state();
-    const t = { ...take, trim: st.region ? { start_frame: st.region.start, end_frame: st.region.end } : null };
-    const what = take.label || 'the take';
-    f.setCut({ what, frac: null, words: 'cutting' });
-    try {
-      const r = await cutTakeRecord(t, { tags: tagStore.list });
-      if (!r.cut) take.record = { side: 'A' };
-      h.toast(`${what} is on the Records shelf`, 'ok', { action: { label: 'Stand up', run: () => { location.href = '/takes.html'; } } });
-    } catch (e) {
-      h.toast(`The record wasn’t cut: ${e.message}`, 'bad');
-    } finally {
-      f.setCut(null);
-      renderCutKey();
-    }
-  });
-
   // --- GRAB: the take's selection, else the N bars before the playhead -------------
   // N starts at the tape's loop in bars, as the feed's GRAB does. The take's
   // own tempo says how long a bar is; with none, N is twice as many seconds.
@@ -460,7 +423,6 @@ function mountTake(h) {
     f.strip.setAttribute('aria-valuetext', fmtAt(st.cursor, sr));
     renderNotes();
     renderField();
-    renderCutKey();
     renderGrab();
     if (take.label !== lastLabel) { lastLabel = take.label; f.label.textContent = take.label || take.name.replace(/^jam_|\.wav$/g, ''); }
   }
@@ -506,7 +468,7 @@ async function mountTape(h) {
   const none = el('p', 'book-none', { text: 'No sections on this tape. They’re made in the Studio.' });
   f.left.append(el('div', 'book-head', {}, el('h2', 'book-title-ro', { text: t0.name }), el('span', 'book-date', { text: dateOf(t0.created) })), list, none);
   f.right.append(
-    el('p', 'book-hint', { text: 'A tape’s sections read as notes here. Notes of your own go on takes: cut a record of it, and write on that.' }));
+    el('p', 'book-hint', { text: 'A tape’s sections read as notes here. Notes of your own go on takes: bounce the tape in the Studio, and write on the take.' }));
 
   let src = null;
   let cache = '';
@@ -598,11 +560,11 @@ async function mountTape(h) {
       el('h3', '', { id: 'chair-ask-h', text: 'The Studio’s tape' }), askText,
       el('div', 'sheet-actions', {}, askNo, askYes)));
   document.body.append(ask);
-  function askFirst(q, kind = 'swap') {
+  function askFirst(q) {
     return new Promise((resolve) => {
       askText.textContent = q;
-      askNo.textContent = kind === 'cut' ? 'Not now' : 'Leave it';
-      askYes.textContent = kind === 'cut' ? 'Cut it' : 'Swap it';
+      askNo.textContent = 'Leave it';
+      askYes.textContent = 'Swap it';
       ask.returnValue = 'no';
       ask.addEventListener('close', () => resolve(ask.returnValue === 'yes'), { once: true });
       ask.showModal();
@@ -615,24 +577,6 @@ async function mountTape(h) {
       if (r.loaded) location.href = '/tape.html';
     } catch (e) { h.toast(`Couldn’t load it in the Studio: ${e.message}`, 'bad'); }
   });
-  f.cutKey.disabled = !(t0.tracks || []).some((tr) => (tr.clips || []).length);
-  f.cutKey.addEventListener('click', async () => {
-    try {
-      if (!(await readyToCut(id, { ask: askFirst }))) return;
-      if (!src) start();
-    } catch (e) { h.toast(`The record wasn’t cut: ${e.message}`, 'bad'); return; }
-    const what = t0.name;
-    f.setCut({ what, frac: 0, words: 'starting' });
-    try {
-      await cutTapeRecord(id, { onProgress: (p) => f.setCut({ what, frac: p.state === 'playing' ? p.frac : null, words: p.words }) });
-      h.toast(`${what} is on the Records shelf`, 'ok', { action: { label: 'Stand up', run: () => { location.href = '/takes.html'; } } });
-    } catch (e) {
-      h.toast(`The record wasn’t cut: ${e.message}`, 'bad');
-    } finally {
-      f.setCut(null);
-    }
-  });
-
   if (s.loaded) start();
   else render();
   new ResizeObserver(() => { cache = ''; render(); }).observe(f.strip);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { studioBusy, recording, swapQuestion, cutQuestion, loadTape, putTapeOn, readyToCut } from './swap.js';
+import { studioBusy, recording, swapQuestion, loadTape, putTapeOn } from './swap.js';
 
 function fakePi(script) {
   const calls = [];
@@ -99,34 +99,4 @@ test('a refused load says why', async () => {
     ['/api/tapes/load?id=b', 409, { error: 'a mixdown is playing; wait for it' }],
   ]);
   await assert.rejects(loadTape('b', { fetchImpl: pi.fetchImpl }), /a mixdown is playing/);
-});
-
-test('cutting a record of the Studio’s own tape while it plays asks first, and no cuts nothing', async () => {
-  const pi = fakePi([
-    ['/api/tapes', 200, { loaded: 'a', tapes: [] }],
-    ['/api/tapes/state?id=a', 200, { tape: { name: 'Tuesday groove' }, live: { playing: true } }],
-  ]);
-  const asked = [];
-  assert.equal(await readyToCut('a', { fetchImpl: pi.fetchImpl, ask: async (q) => { asked.push(q); return false; } }), false);
-  assert.deepEqual(asked, [cutQuestion('Tuesday groove')]);
-  assert.equal(pi.calls.length, 2, 'nothing loaded, nothing mixed down');
-});
-
-test('cutting a record of the Studio’s tape at rest goes ahead without asking', async () => {
-  const pi = fakePi([
-    ['/api/tapes', 200, { loaded: 'a', tapes: [] }],
-    ['/api/tapes/state?id=a', 200, { tape: { name: 'X' }, live: { playing: false } }],
-  ]);
-  assert.equal(await readyToCut('a', { fetchImpl: pi.fetchImpl, ask: async () => assert.fail('nothing to ask') }), true);
-});
-
-test('cutting a record of another tape while the Studio’s is busy asks to swap it', async () => {
-  const pi = fakePi([
-    ['/api/tapes', 200, { loaded: 'a', tapes: [] }],
-    ['/api/tapes/state?id=a', 200, { tape: { name: 'X' }, live: { record: { state: 'armed' } } }],
-    ['/api/tapes/load?id=b', 200, {}],
-  ]);
-  const asked = [];
-  assert.equal(await readyToCut('b', { fetchImpl: pi.fetchImpl, ask: async (q) => { asked.push(q); return true; } }), true);
-  assert.deepEqual(asked, [swapQuestion('X')]);
 });

@@ -126,7 +126,7 @@
    What the room is made of (docs/superpowers/specs/2026-10-15-listening-
    room-design.md, "Look and materials"): the wall at dusk and the lamp's
    glow, walnut, the floorboards and the rug, the armchair's corduroy,
-   cardboard, masking tape and paper, vinyl, the brass plates, and the deck's
+   cardboard, masking tape and paper, the brass plates, and the deck's
    silver. A room is a place, not chrome: the same in both schemes, as the
    pad controller is. Its words are cream on the dark wall and dark ink on
    paper, each on its own plate or card; every pair here passes 4.5:1. */
@@ -150,7 +150,7 @@
   --room-plate-hi:   #e2c27a;
   --room-plate-lo:   #b48f45;
   --room-plate-ink:  #2a1d08;
-  /* Walnut: the shelves, the console, the turntable's plinth. */
+  /* Walnut: the shelves and the console. */
   --room-walnut-hi:  #6b4a30;
   --room-walnut:     #563823;
   --room-walnut-lo:  #3d2716;
@@ -185,12 +185,6 @@
   --room-cardboard-hi: #b38a55;
   --room-cardboard-lo: #9a7444;
   --room-cardboard-hole: #5e4426;
-  /* Vinyl and its sleeves. */
-  --room-vinyl:      #141414;
-  --room-vinyl-groove: #262626;
-  --room-vinyl-label: #e0662a;
-  --room-sleeve-hi:  #2f3b4a;
-  --room-sleeve-lo:  #1f2a36;
   /* The deck, close up: silver, black keys with cream legends, the lamp
      that says it plays, and NOTE HERE in grease-pencil yellow. */
   --room-silver-hi:  #dfe2e6;
