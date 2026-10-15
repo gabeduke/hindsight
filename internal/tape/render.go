@@ -302,39 +302,46 @@ func (m *Mix) render(dst []float32, pos int64, n int, afterWrap bool) {
 
 // renderTape is render without the click: the tracks alone.
 func (m *Mix) renderTape(dst []float32, pos int64, n int, afterWrap bool) {
+	for ti := range m.tracks {
+		if m.tracks[ti].silent {
+			continue
+		}
+		m.renderTrack(dst, ti, pos, n, afterWrap)
+	}
+}
+
+// renderTrack adds one track's share of renderTape, silent or not: Play
+// mode's track keys (trick.go) render each track on its own, to ramp it out
+// and back in.
+func (m *Mix) renderTrack(dst []float32, ti int, pos int64, n int, afterWrap bool) {
 	end := pos + int64(n)
 	wrapFrom, wrapTo := int64(0), int64(0) // the crossfade's tape frames, if in this span
 	if afterWrap {
 		wrapFrom, wrapTo = max64(pos, m.loop.In), min64(end, m.loop.In+m.xfade)
 	}
-	for ti := range m.tracks {
-		t := &m.tracks[ti]
-		if t.silent {
-			continue
-		}
-		ch := t.bus * 2
-		for _, layer := range t.layers {
-			for _, c := range layer {
-				from, to := max64(pos, c.at), min64(end, c.end)
-				// The crossfade into c reads its predecessor's overhang
-				// even where c itself has already started.
-				for f := from; f < to; f++ {
-					l, r := m.sample(c, f, afterWrap)
+	t := &m.tracks[ti]
+	ch := t.bus * 2
+	for _, layer := range t.layers {
+		for _, c := range layer {
+			from, to := max64(pos, c.at), min64(end, c.end)
+			// The crossfade into c reads its predecessor's overhang
+			// even where c itself has already started.
+			for f := from; f < to; f++ {
+				l, r := m.sample(c, f, afterWrap)
+				i := int(f-pos) * OutChannels
+				dst[i+ch] += l * t.gainL
+				dst[i+ch+1] += r * t.gainR
+			}
+			if c.crossOut {
+				// Past Out it carries on, fading out, under what's at In.
+				for f := wrapFrom; f < wrapTo; f++ {
+					k := f - m.loop.In
+					x := (float64(k) + 0.5) / float64(m.xfade)
+					g := c.gain * c.fade(m.loop.Out+k-c.at) * float32(math.Cos(x*math.Pi/2))
+					l, r := c.audio.at(c.src + (m.loop.Out + k - c.at))
 					i := int(f-pos) * OutChannels
-					dst[i+ch] += l * t.gainL
-					dst[i+ch+1] += r * t.gainR
-				}
-				if c.crossOut {
-					// Past Out it carries on, fading out, under what's at In.
-					for f := wrapFrom; f < wrapTo; f++ {
-						k := f - m.loop.In
-						x := (float64(k) + 0.5) / float64(m.xfade)
-						g := c.gain * c.fade(m.loop.Out+k-c.at) * float32(math.Cos(x*math.Pi/2))
-						l, r := c.audio.at(c.src + (m.loop.Out + k - c.at))
-						i := int(f-pos) * OutChannels
-						dst[i+ch] += l * g * t.gainL
-						dst[i+ch+1] += r * g * t.gainR
-					}
+					dst[i+ch] += l * g * t.gainL
+					dst[i+ch+1] += r * g * t.gainR
 				}
 			}
 		}

@@ -112,6 +112,22 @@ func (g Grid) NextBeat(pos int64) int64 {
 	return g.BeatStart(n)
 }
 
+// DivisionStart is where line n (from 0) of a bar divided `per` ways
+// begins: per 4 is beats, 16 is sixteenths. Rounded as BarStart is, so a
+// sixteenth that is also a beat or a bar line lands on the same frame.
+func (g Grid) DivisionStart(n int64, per int) int64 {
+	return int64(math.Round(float64(n) * g.BarFrames() / float64(per)))
+}
+
+// NextDivision is the first line of a bar divided `per` ways at or after pos.
+func (g Grid) NextDivision(pos int64, per int) int64 {
+	n := int64(math.Floor(float64(pos) / (g.BarFrames() / float64(per))))
+	for g.DivisionStart(n, per) < pos {
+		n++
+	}
+	return g.DivisionStart(n, per)
+}
+
 // GridFor makes the grid a tempo implies: bars of 4/4 at bpm.
 func GridFor(bpm float64, bars, sampleRate int) Grid {
 	frames := int64(math.Round(float64(bars*BeatsPerBar) * 60 * float64(sampleRate) / bpm))
