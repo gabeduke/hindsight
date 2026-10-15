@@ -31,11 +31,22 @@ const flush = async () => { for (let i = 0; i < 8; i++) await new Promise((r) =>
  */
 async function withPi(init, fn, { storage = null } = {}) {
   const saved = { fetch: globalThis.fetch, localStorage: globalThis.localStorage };
-  const pi = { board: init.board || null, next: init.next || null, replaced: init.replaced || null, log: [], failUndo: init.failUndo || '' };
+  const pi = { board: init.board || null, next: init.next || null, replaced: init.replaced || null, log: [], failUndo: init.failUndo || '', tossReplaces: !!init.tossReplaces };
   globalThis.fetch = async (url, o = {}) => {
     const method = o.method || 'GET';
     pi.log.push({ url, method, body: o.body ? JSON.parse(o.body) : null });
     const ok = (b) => ({ ok: true, status: 200, json: async () => b });
+    if (url.startsWith('/api/clipboard?toss=1')) {
+      pi.tossed = pi.board;
+      pi.board = null;
+      return ok({ clipboard: null });
+    }
+    if (url.startsWith('/api/clipboard/restore') && !url.includes('replaced=1')) {
+      // A toss's Undo: the tossed buffer comes back, and says what it replaced.
+      const had = pi.board;
+      pi.board = pi.tossed;
+      return ok({ clipboard: pi.board, seconds: 8, crated: [], ...(had && pi.tossReplaces ? { replaced: had, replaced_seconds: 8 } : {}) });
+    }
     if (url.startsWith('/api/clipboard/restore')) {
       if (pi.failUndo) return { ok: false, status: 409, json: async () => ({ error: pi.failUndo }) };
       pi.board = pi.replaced;
@@ -61,7 +72,11 @@ async function withPi(init, fn, { storage = null } = {}) {
     const viz = doc.createElement('div'); viz.id = 'viz-wrap';
     doc.body.append(feed, keysRow, sel, viz);
     const toasts = [];
-    const buffer = mountBuffer(doc, { feed, keysRow, ribbon: null, storage, toast: (msg, kind, opts) => toasts.push({ msg, kind, opts }) });
+    const buffer = mountBuffer(doc, { feed, keysRow, ribbon: null, storage, toast: (msg, kind, opts) => {
+      const t = { msg, kind, opts, dismissed: false, dismiss() { this.dismissed = true; } };
+      toasts.push(t);
+      return t; // as the page's toast hands back its element
+    } });
     assert.ok(buffer, 'the buffer was built');
     doc.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
       tape: {
@@ -112,13 +127,47 @@ test('Undo puts the old buffer back, naming the grab it undoes', async () => {
 
 test('an Undo the Pi refuses says why, and leaves the buffer as it was', async () => {
   const old = board(4, 'old'), next = board(2, 'new');
-  await withPi({ board: old, next, replaced: old, failUndo: 'the buffer has moved on since that grab' }, async ({ toasts, buffer, grab }) => {
+  await withPi({ board: old, next, replaced: old, failUndo: 'Already dropped or kept — undo the drop instead' }, async ({ toasts, buffer, grab }) => {
     await grab();
     await toasts.at(-1).opts.action.run();
     await flush();
-    assert.equal(toasts.at(-1).kind, 'bad');
-    assert.match(toasts.at(-1).msg, /moved on/);
+    assert.equal(toasts.at(-1).kind, 'warn');
+    assert.equal(toasts.at(-1).msg, 'Already dropped or kept — undo the drop instead', 'the Pi’s plain words, as they are');
     assert.equal(buffer.state.board.created, 'new');
+  });
+});
+
+test('Undo of a toss asks for the crate to be left alone, and says what it replaced, with Undo', async () => {
+  const tossed = board(4, 'tossed'), later = board(2, 'later');
+  await withPi({ board: tossed, next: later, tossReplaces: true, replaced: tossed }, async ({ doc, pi, toasts, buffer }) => {
+    const click = (id) => doc.getElementById(id).dispatchEvent(new CustomEvent('click'));
+    click('buffer-toss');
+    await flush();
+    assert.equal(pi.board, null);
+    pi.board = later; // another grab, made after the toss
+    buffer.render();
+    await toasts.find((t) => t.msg === 'Tossed the buffer').opts.action.run();
+    await flush();
+    const restore = pi.log.find((r) => r.url.startsWith('/api/clipboard/restore'));
+    assert.equal(restore.url, '/api/clipboard/restore?crate=0', 'nothing goes to the crate');
+    const said = toasts.find((t) => /^Replaced the buffer/.test(t.msg));
+    assert.ok(said, 'it says what the restored buffer replaced');
+    assert.deepEqual(actionsOf(said), ['Undo']);
+  });
+});
+
+test('a newer GRAB takes the older GRAB’s Undo off the screen', async () => {
+  const a = board(4, 'a'), b = board(2, 'b'), c = board(1, 'c');
+  await withPi({ board: a, next: b, replaced: a }, async ({ pi, toasts, grab }) => {
+    await grab();
+    const first = toasts.at(-1);
+    assert.match(first.msg, /Replaced the buffer’s 4 BARS/);
+    pi.next = c; pi.replaced = b;
+    await grab();
+    const second = toasts.at(-1);
+    assert.match(second.msg, /Replaced the buffer’s 2 BARS/);
+    assert.equal(first.dismissed, true, 'the older Undo is gone: tapping it could only fail');
+    assert.equal(second.dismissed, false);
   });
 });
 

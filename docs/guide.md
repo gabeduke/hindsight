@@ -1829,11 +1829,16 @@ can work on it.
 - **KEEP** (**K**) saves it on the Listening Room's shelf, at the
   tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
 - **A grab can be undone.** GRAB over a buffer you never dropped, kept or
-  tossed says so — *Replaced the buffer’s 4 BARS from the feed, never
+  tossed -- a grab, or a range's Cut or Copy -- says so — *Replaced the buffer’s 4 BARS from the feed, never
   dropped or kept* — with **Undo**, which puts the old buffer back (and
   drops the grab it undoes). The Pi keeps exactly one replaced grab for it,
   not a growing pile: the next grab over an unused buffer lets go of the one
-  before. A buffer you dropped or kept is not kept again, and says nothing.
+  before. A buffer you dropped or kept is not kept again, and says nothing; once
+  the buffer has been dropped or kept, the Undo says *Already dropped or kept —
+  undo the drop instead*. A range's Cut or Copy over an unused buffer says the
+  same, with its own Undo (beside the Cut's, which takes the cut off the tape),
+  and so does bringing back a tossed buffer over one. Only the newest Undo stays
+  on screen, and a toss ends the Undo of the grab it tossed.
   The Studio has no crate drawer and no clipboard line; the buffer is the
   only view of what GRAB holds (§8.11).
 

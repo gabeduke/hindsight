@@ -17,7 +17,7 @@
 
 import { roomShelves, inMonth, monthName, monthKey, at, filterWords, playOrder } from './shelves.js';
 import { putTapeOn, loadTape } from './swap.js';
-import { sendToStudio, fmtAt } from './notes.js';
+import { sendToStudio, forgetNote, fmtAt } from './notes.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick, playheadFor } from '../rooms/grab.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
 import { tagStore } from '../tags.js';
@@ -77,6 +77,7 @@ function crossFade(update) {
 }
 
 export function mount(h) {
+  forgetNote(); // a take's GRAB left a note for the Studio: this page is not it
   const $ = (id) => document.getElementById(id);
   const body = document.body;
   const main = document.querySelector('.shelf-main');

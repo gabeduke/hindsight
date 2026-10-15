@@ -44,7 +44,7 @@ export const keep = (o) => call('/api/clipboard/keep', { ...o, method: 'POST' })
 export const toss = (o) => call('/api/clipboard?toss=1', { ...o, method: 'DELETE' });
 
 /** restore is a toss's Undo. */
-export const restore = (o) => call('/api/clipboard/restore', { ...o, method: 'POST' });
+export const restore = (o) => call('/api/clipboard/restore?crate=0', { ...o, method: 'POST' });
 
 /**
  * restoreReplaced is GRAB's Undo: the buffer the grab made at `by` (its

@@ -119,6 +119,20 @@ test('the take page trims itself only for the rooms, and does not unhide what is
   assert.match(src, /\$\('keep-clip'\)\?\.addEventListener/);
 });
 
+test('a range’s Cut and Copy say what they replaced, with Undo, and ask the Pi to leave the crate alone', () => {
+  const src = read('../tape/page.js');
+  assert.match(src, /body: \{ op, \.\.\.editBody\(op, \{ track: state\.track, \.\.\.extra \}, ROOMS\) \}/, 'every edit’s body goes through editBody, and still names its op');
+  assert.match(src, /if \(ROOMS && e\.replaced\) offerUndo\(e\)/, 'a Cut or Copy over an unused buffer offers Undo');
+  assert.match(src, /raiseUndo\(toast, replacedLine\(e\.replaced, e\.replaced\.frames \/ state\.tape\.sample_rate\)/);
+  assert.match(src, /restoreReplaced\(e\.clipboard\.created\)/, 'the Undo names the buffer it undoes');
+});
+
+test('a page that is not the Studio lets a take’s GRAB note go', () => {
+  for (const f of ['../room/chair.js', '../room/doorway.js']) {
+    assert.match(read(f), /forget\(\)|forget\(sessionStorage|forgetNote\(\)/, `${f} lets the note go`);
+  }
+});
+
 test('the Takes page does not count the crate’s clips with the rooms on', () => {
   const src = read('../shelf-page.js');
   assert.match(src, /if \(!roomOn\(\)\) \{\s*\n\s*fetch\('\/api\/crate'/, 'the ◫ line has nothing to count');

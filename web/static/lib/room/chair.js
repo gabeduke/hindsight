@@ -17,7 +17,7 @@
 // tape on the deck itself, played on the Pi through OUT, with its sections
 // as read-only notes.
 
-import { notesOf, noteSpan, sendToStudio, fmtAt, fieldEnter } from './notes.js';
+import { notesOf, noteSpan, sendToStudio, forgetNote, fmtAt, fieldEnter } from './notes.js';
 import { keepLabel, selectionKeepLength } from '../rooms/keeplabel.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick } from '../rooms/grab.js';
 import { loadTape } from './swap.js';
@@ -52,6 +52,7 @@ const readPref = (k) => { try { return localStorage.getItem(k); } catch { return
 const writePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
 export function mount(h) {
+  forgetNote(); // a take's GRAB left a note for the Studio: this page is not it
   return h.tape ? mountTape(h) : mountTake(h);
 }
 

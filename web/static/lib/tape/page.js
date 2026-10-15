@@ -44,6 +44,8 @@ import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
 import { trimTapePage } from '../rooms/nocrate.js';
+import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
+import { restoreReplaced } from '../buffer/api.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote } from '../rig/arm.js';
 import { recordsTape } from '../rig/warn.js';
@@ -921,14 +923,30 @@ const OP_WORDS = {
 // edit did -- or null, having said why not.
 async function edit(op, extra = {}, { keepalive = false } = {}) {
   try {
-    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, track: state.track, ...extra }, keepalive }));
+    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, ...editBody(op, { track: state.track, ...extra }, ROOMS) }, keepalive }));
     const e = (s && s.edit) || {};
     if (e.clipboard) { cbGen++; state.clipboard = e.clipboard; state.clipboardError = ''; renderClipboard(); }
+    if (ROOMS && e.replaced) offerUndo(e);
     return e;
   } catch (err) {
     toast(`Could not ${OP_WORDS[op] || op}: ${err.message}`, 'bad');
     return null;
   }
+}
+
+// A Cut or Copy over a buffer nobody dropped or kept says so, with an Undo that
+// puts that buffer back (the Pi holds the one; the crate is not shown, F3).
+// Its own toast, beside the Cut's: that one's Undo takes the cut off the tape.
+function offerUndo(e) {
+  raiseUndo(toast, replacedLine(e.replaced, e.replaced.frames / state.tape.sample_rate), 'ok', async () => {
+    try {
+      const b = await restoreReplaced(e.clipboard.created);
+      cbGen++; state.clipboard = b.clipboard; state.clipboardError = ''; renderClipboard();
+      toast(`Put back ${replacedWords(b.clipboard, b.seconds)}`, 'ok');
+    } catch (err) {
+      toast(undoWords(err), err.status === 409 ? 'warn' : 'bad');
+    }
+  });
 }
 
 const undoAction = { label: 'Undo', run: () => undoRedo(false) };

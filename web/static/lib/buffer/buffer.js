@@ -33,12 +33,11 @@ import { restoreTake } from '../trash.js';
 import { takeBack } from '../rooms/keep.js';
 import { followLoop, readPick, writePick } from '../rooms/grab.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
-import { replacedWords, replacedLine, recall } from './replaced.js';
+import { replacedWords, replacedLine, recall, raiseUndo, undoWords } from './replaced.js';
 
 const POLL_MS = 2000;
 const HOLD_MS = 350;   // a held sheet grip lifts the buffer onto a lane
 const MOVE_PX = 6;
-const UNDO_MS = 10000; // a GRAB's Undo stays longer than a toast's usual eight seconds
 const EDGE_PX = 12;    // how near IN or OUT a press takes the mark
 const SOURCES = ['main', 'ch1', 'ch2', 'aux'];
 // A take's GRAB leaves its Undo's words here for the page it opens (replaced.js).
@@ -182,7 +181,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     // is said here, once, as a feed's GRAB says it on the spot.
     if (first && st.board) {
       const line = recall(storage, st.board.created);
-      if (line) toast(line, 'ok', { ms: UNDO_MS, action: { label: 'Undo', run: () => undoReplaced(st.board.created) } });
+      if (line) raiseUndo(toast, line, 'ok', () => undoReplaced(st.board.created));
     }
   }
 
@@ -191,7 +190,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   function undoReplaced(by) {
     return send(() => api.restoreReplaced(by), { mine: true })
       .then((b) => toast(`Put back ${replacedWords(b.clipboard, b.seconds)}`, 'ok'))
-      .catch((e) => toast(`Could not undo the grab: ${e.message}`, 'bad'));
+      .catch((e) => toast(undoWords(e), e.status === 409 ? 'warn' : 'bad'));
   }
 
   async function fetchBoard() {
@@ -244,7 +243,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       const kind = b.wall || b.clamped ? 'warn' : 'ok';
       if (b.replaced) {
         // Short, for the Undo to be seen: the buffer's own note line says the rest.
-        toast(`Grabbed ${what}. ${replacedLine(b.replaced, b.replaced_seconds)}`, kind, { ms: UNDO_MS, action: { label: 'Undo', run: () => undoReplaced(b.clipboard.created) } });
+        raiseUndo(toast, `Grabbed ${what}. ${replacedLine(b.replaced, b.replaced_seconds)}`, kind, () => undoReplaced(b.clipboard.created));
       } else {
         toast(`Grabbed ${what}${note ? ` — ${note}` : ''}`, kind);
       }
@@ -429,7 +428,13 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       .then(() => toast('Tossed the buffer', 'ok', {
         action: {
           label: 'Undo',
-          run: () => send(() => api.restore(), { mine: true }).catch((e) => toast(`Could not bring it back: ${e.message}`, 'bad')),
+          // The crate is left alone (crate=0): what it replaces, if nobody used
+          // it, is held for an Undo of its own, and said.
+          run: () => send(() => api.restore(), { mine: true })
+            .then((b) => {
+              if (b.replaced) raiseUndo(toast, replacedLine(b.replaced, b.replaced_seconds), 'ok', () => undoReplaced(b.clipboard.created));
+            })
+            .catch((e) => toast(`Could not bring it back: ${e.message}`, 'bad')),
         },
       }))
       .catch((e) => toast(`Could not toss it: ${e.message}`, 'bad'));

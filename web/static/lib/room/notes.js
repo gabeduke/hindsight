@@ -5,7 +5,7 @@
 // the WAV's cue chunk, so a note made here shows up in a DAW. Pure, but for
 // the one request that sends a span to the Studio.
 
-import { replacedLine, remember } from '../buffer/replaced.js';
+import { replacedLine, remember, forget } from '../buffer/replaced.js';
 
 /** SPAN_BARS is how far a note reaches at most, with a tempo; SPAN_SECONDS without one. */
 export const SPAN_BARS = 8;
@@ -106,5 +106,11 @@ export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, s
   if (b.replaced && b.clipboard) remember(storage, { by: b.clipboard.created, line: replacedLine(b.replaced, b.replaced_seconds) });
   return '/tape.html';
 }
+
+/**
+ * forgetNote lets a take's GRAB note go: a page that is not the Studio opened,
+ * so nothing will say it (lib/buffer/replaced.js).
+ */
+export function forgetNote({ storage = pageStorage() } = {}) { forget(storage); }
 
 const pageStorage = () => { try { return globalThis.sessionStorage || null; } catch { return null; } };

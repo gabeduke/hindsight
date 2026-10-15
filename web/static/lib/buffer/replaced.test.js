@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { replacedWords, replacedLine, remember, recall, KEY } from './replaced.js';
+import { replacedWords, replacedLine, remember, recall, forget, raiseUndo, editBody, undoWords, KEY } from './replaced.js';
 
 const BAR = 96000;
 const ring = (bars = 4) => ({ created: 'c1', frames: bars * BAR, grab: { bar_frames: BAR, sources: ['main'] } });
@@ -45,6 +45,55 @@ test('a note for another buffer is not said, and is let go', () => {
   remember(s, { by: 'older', line: 'x' });
   assert.equal(recall(s, 'newer'), '');
   assert.ok(!s.m.has(KEY));
+});
+
+test('a copy or a cut that was replaced is named by where it was taken from', () => {
+  const cp = { created: 'c4', frames: 8 * BAR / 4, from: 'Song one, bars 1–4', tracks: [[{}]] };
+  assert.equal(replacedWords(cp, 4), 'the buffer’s 4.0s from Song one, bars 1–4');
+  assert.equal(replacedWords({ created: 'c5', frames: 96000, tracks: [[{}]] }, 2), 'the buffer’s 2.0s from a copy');
+});
+
+test('a take’s note is only good for a minute, and is let go when read late', () => {
+  const s = store();
+  remember(s, { by: 'new', line: 'x' }, 1000);
+  assert.equal(recall(s, 'new', 1000 + 30_000), 'x', 'read in time');
+  remember(s, { by: 'new', line: 'x' }, 1000);
+  assert.equal(recall(s, 'new', 1000 + 61_000), '', 'a day-old note is not a toast');
+  assert.ok(!s.m.has(KEY), 'and it is gone');
+});
+
+test('a page that is not the Studio lets the note go', () => {
+  const s = store();
+  remember(s, { by: 'new', line: 'x' });
+  forget(s);
+  assert.ok(!s.m.has(KEY));
+  assert.doesNotThrow(() => forget(null));
+});
+
+test('only the newest Undo is on screen: raising one dismisses the one before', () => {
+  const gone = [];
+  const mk = (n) => () => ({ dismiss: () => gone.push(n) });
+  const t1 = mk(1), t2 = mk(2);
+  raiseUndo(t1, 'first', 'ok', () => {});
+  assert.deepEqual(gone, []);
+  raiseUndo(t2, 'second', 'ok', () => {});
+  assert.deepEqual(gone, [1], 'the older toast’s Undo went');
+  raiseUndo(() => undefined, 'a toast stand-in that hands nothing back', 'ok', () => {});
+  assert.deepEqual(gone, [1, 2]);
+  assert.doesNotThrow(() => raiseUndo(() => undefined, 'again', 'ok', () => {}));
+});
+
+test('the rooms’ Cut and Copy ask the Pi to leave the crate alone, and only they do', () => {
+  assert.deepEqual(editBody('copy', { clips: ['a'] }, true), { clips: ['a'], no_crate: true });
+  assert.deepEqual(editBody('lift', {}, true), { no_crate: true });
+  assert.deepEqual(editBody('split', {}, true), {}, 'an edit that fills no clipboard is as it was');
+  assert.deepEqual(editBody('copy', { clips: ['a'] }, false), { clips: ['a'] }, 'the rooms off send what they always sent');
+  assert.deepEqual(editBody('lift', {}, false), {});
+});
+
+test('an Undo refused says the Pi’s words, not a prefix of ours', () => {
+  assert.equal(undoWords({ status: 409, message: 'Already dropped or kept — undo the drop instead' }), 'Already dropped or kept — undo the drop instead');
+  assert.equal(undoWords({ status: 500, message: 'boom' }), 'Could not undo the grab: boom');
 });
 
 test('no storage, or a broken one, say nothing and throw nothing', () => {
