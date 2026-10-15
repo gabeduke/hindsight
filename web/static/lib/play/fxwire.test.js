@@ -312,3 +312,16 @@ test('a bend the Pi refuses goes dark, and isn’t pressed again until it’s ba
     { t: 'press', pad: 'bend', q: 'now', v: -0.25 },
   ]);
 });
+
+test('the FX wait for as long as the Pi refuses them: a mixdown playing, ringing out, or saving', () => {
+  const s = strip();
+  const group = s.slots.fx.querySelector('.play-fx-group');
+  for (const state of ['playing', 'tail', 'saving']) {
+    s.wire.setMixdown(state);
+    assert.equal(group.classList.contains('play-fx-waiting'), true, state);
+  }
+  for (const state of ['done', 'cancelled', 'failed', '']) {
+    s.wire.setMixdown(state);
+    assert.equal(group.classList.contains('play-fx-waiting'), false, state);
+  }
+});

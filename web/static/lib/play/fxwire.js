@@ -117,8 +117,11 @@ export function wireFX({
       amounts.note('bend', 0);
       fx?.setBend(far.has('bend'));
     },
-    /** setMixdown is the mixdown's state: the FX wait while the Pi refuses them. */
-    setMixdown(state) { fx?.setMixdown(state === 'playing' || state === 'tail'); },
+    /**
+     * setMixdown is the mixdown's state: the FX wait for as long as the Pi
+     * refuses them -- its pass, its tail, and its save (tape.Mixdown.busy).
+     */
+    setMixdown(state) { fx?.setMixdown(state === 'playing' || state === 'tail' || state === 'saving'); },
     destroy() {
       this.letGo();
       fx?.destroy();
