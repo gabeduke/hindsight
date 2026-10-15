@@ -189,7 +189,11 @@ type controlsFile struct {
 	Version int `json:"version"`
 	// Quantum is when a controller's press lands, as a page's quantise
 	// switch says for its own: 16th unless set.
-	Quantum     string              `json:"quantum,omitempty"`
+	Quantum string `json:"quantum,omitempty"`
+	// Catch is how a controller's CATCH lands on audio already there:
+	// "layer" (the default) or "replace". The page's Layer / Replace switch
+	// is each device's own, so the Pi keeps one of its own.
+	Catch       string              `json:"catch,omitempty"`
 	Controllers map[string]Bindings `json:"controllers"`
 }
 
@@ -781,14 +785,17 @@ func (v piVerbs) Verb(id, rt string) (string, error) {
 		}
 		return kind, nil
 	case "catch":
-		if !armed {
-			return "", errors.New("arm a track first")
-		}
-		c, err := a.tape.Catch(t.ID, tape.CatchRequest{Track: track, Source: src, Pass: 1})
+		req, err := a.catchRequest(t)
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("caught %.1f s from %s onto track %d", float64(c.Frames)/float64(t.SampleRate), src, track), nil
+		// Engine.Catch is the page's path: it refuses while the tape plays
+		// on a phone (jamOnly), as the page's Catch does.
+		c, err := a.tape.Catch(t.ID, req)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("caught %.1f s from %s onto track %d", float64(c.Frames)/float64(t.SampleRate), req.Source, req.Track), nil
 	case "grab":
 		req := tape.GrabRequest{Sources: []string{src}}
 		if t.Grid != nil && t.Grid.Bars > 0 {
@@ -827,6 +834,20 @@ func (v piVerbs) Verb(id, rt string) (string, error) {
 		return fmt.Sprintf("dropped the buffer on track %d", track), nil
 	}
 	return "", fmt.Errorf("%s isn't a verb the Pi runs", id)
+}
+
+// catchRequest is the controller's CATCH, as the page's Catch asks it: the
+// last pass, onto the armed track, from its input, layered or replacing as
+// controls.json says.
+func (a *API) catchRequest(t *tape.Tape) (tape.CatchRequest, error) {
+	track, src, armed := a.armedOf(t)
+	if !armed {
+		return tape.CatchRequest{}, errors.New("arm a track first")
+	}
+	a.controls.mu.Lock()
+	replace := a.controlsLocked().Catch == "replace"
+	a.controls.mu.Unlock()
+	return tape.CatchRequest{Track: track, Source: src, Pass: 1, Replace: replace}, nil
 }
 
 // armedOf is the record track (0 in tape.json is track 1) and its input,
@@ -898,7 +919,11 @@ func (a *API) controlsView() map[string]any {
 	if setting == nil {
 		setting = []string{}
 	}
-	return map[string]any{"quantum": a.quantumLocked(), "controllers": list, "setting": setting, "defaults": defaultBindings()}
+	catch := f.Catch
+	if catch == "" {
+		catch = "layer"
+	}
+	return map[string]any{"quantum": a.quantumLocked(), "catch": catch, "controllers": list, "setting": setting, "defaults": defaultBindings()}
 }
 
 func (a *API) handleControlsGet(w http.ResponseWriter, r *http.Request) {
@@ -916,6 +941,7 @@ func (a *API) handleControlsPut(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Quantum     *string              `json:"quantum"`
+		Catch       *string              `json:"catch"`
 		Controllers map[string]*Bindings `json:"controllers"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<10)).Decode(&body); err != nil {
@@ -929,6 +955,10 @@ func (a *API) handleControlsPut(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "quantum is now, 16th, 8th, beat or bar")
 			return
 		}
+	}
+	if body.Catch != nil && *body.Catch != "layer" && *body.Catch != "replace" {
+		writeErr(w, http.StatusBadRequest, "catch is layer or replace")
+		return
 	}
 	for name, bs := range body.Controllers {
 		if strings.TrimSpace(name) == "" {
@@ -946,6 +976,9 @@ func (a *API) handleControlsPut(w http.ResponseWriter, r *http.Request) {
 	f := a.controlsLocked()
 	if body.Quantum != nil {
 		f.Quantum = *body.Quantum
+	}
+	if body.Catch != nil {
+		f.Catch = *body.Catch
 	}
 	for name, bs := range body.Controllers {
 		if bs == nil {

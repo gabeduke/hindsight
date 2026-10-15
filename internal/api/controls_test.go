@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -463,4 +464,49 @@ func TestANoteOffLetsGoOfWhatItsNoteOnPressed(t *testing.T) {
 	holders(t, a, "stop", 1)
 	a.ControlMIDI(p, 0x80, 43, 0) // G2 up: now STOP lets go
 	holders(t, a, "stop", 0)
+}
+
+// The controller's CATCH keeps the page's guards: the jam room only (the
+// engine's own jamOnly), an armed track, and the catch mode -- the Pi's own,
+// in controls.json, since the page's Layer / Replace is each device's.
+func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
+	srv, eng, _ := newStreamServer(t)
+	res, err := http.Post(srv.URL+"/api/tapes", "application/json", strings.NewReader(`{"name":"c"}`))
+	if err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("new tape: %v %v", err, res.StatusCode)
+	}
+	var made struct{ ID string }
+	json.NewDecoder(res.Body).Decode(&made)
+	res.Body.Close()
+	if res, err := http.Post(srv.URL+"/api/tapes/load?id="+made.ID, "application/json", nil); err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("load: %v", err)
+	}
+	a := New(&config.Config{OutputDir: t.TempDir(), TapeDir: t.TempDir(), SampleRate: 48000, SaveChannels: []int{0, 1}}, nil, nil, nil, nil)
+	a.SetTape(eng)
+	tp := eng.Loaded()
+	if tp == nil {
+		t.Fatal("no tape loaded")
+	}
+
+	req, err := a.catchRequest(tp)
+	if err != nil || req.Replace || req.Track != 1 || req.Pass != 1 {
+		t.Fatalf("layer by default: %+v %v", req, err)
+	}
+	rec := httptest.NewRecorder()
+	r := mux.NewRouter()
+	a.SetupRoutes(r)
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/tapes/controls", strings.NewReader(`{"catch":"replace"}`)))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"catch":"replace"`) {
+		t.Fatalf("PUT catch: %d %s", rec.Code, rec.Body)
+	}
+	if req, _ := a.catchRequest(tp); !req.Replace {
+		t.Fatalf("replace mode not honoured: %+v", req)
+	}
+
+	if code := putOutput(t, srv, "phone"); code != http.StatusOK {
+		t.Fatalf("output phone: %d", code)
+	}
+	if _, err := (piVerbs{a}).Verb("catch", ""); !errors.Is(err, tape.ErrNeedsJamRoom) {
+		t.Fatalf("a catch while the tape plays on a phone: %v, want %v", err, tape.ErrNeedsJamRoom)
+	}
 }

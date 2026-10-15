@@ -1183,6 +1183,7 @@ the Pi's copy is held to it by a test.
 ```json
 {
   "quantum": "16th",
+  "catch": "layer",
   "setting": ["SMK"],
   "controllers": [
     {"name": "SMK-37", "connected": true, "profile": "SMK-37", "learned": false,
@@ -1210,7 +1211,12 @@ the Pi's copy is held to it by a test.
   next poll), DROP the clipboard on the armed track at the next free span,
   KEEP the last 30 s as a take. Amounts and mods do nothing until P4.
 
-`PUT` takes `{"quantum": "…", "controllers": {"name": {action: [binding]} | null}}`:
+`catch` is how a controller's CATCH lands on audio already there, `layer`
+(the default) or `replace`: the page's Layer / Replace switch is each
+device's, so the Pi keeps its own. Like the page's Catch, it's refused while
+the tape plays on a phone, and without an armed track.
+
+`PUT` takes `{"quantum": "…", "catch": "layer" | "replace", "controllers": {"name": {action: [binding]} | null}}`:
 the named controllers' maps are replaced (`null` puts one back to its
 profile), the others kept, and it answers as `GET` does. An unknown action, a
 note past 127 or a binding of two kinds is `400`.
