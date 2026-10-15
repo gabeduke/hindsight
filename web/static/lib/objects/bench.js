@@ -21,6 +21,7 @@ import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
 import { drawGrease } from './grease.js';
 import { drawPennant, drawPennantName } from './pennant.js';
 import { outIcon, OUT_MODES } from './icons.js';
+import { still, download } from './bench-still.js';
 import { paintOxide, oxideColors } from '../wave/tape-strip.js';
 import { PIN_H, RULER_H } from '../wave/view.js';
 
@@ -136,6 +137,7 @@ export function mount(root, { raf, cancel, now } = {}) {
   root.append(tools);
   buildSpeed(tools, (s) => { clock(); scale = s; });
   buildSize(tools, root);
+  buildStill(tools, root);
   buildMotion(root, ticker);
   buildVu(root);
   buildReels(root, ticker, clock);
@@ -226,6 +228,39 @@ function buildSize(tools, root) {
   bar.append(group, range, readout);
   tools.append(bar);
   set(0);
+}
+
+/**
+ * buildStill is the still button: the bench as it is on screen -- this
+ * scheme, this size, the needles where they are -- as a PNG to download,
+ * so two versions of an object can be put side by side after one of them
+ * has gone. Its file is named for the scheme and the width.
+ */
+function buildStill(tools, root) {
+  const bar = el('div', 'bench-speed');
+  const group = el('div', 'seg');
+  const button = el('button', null, 'Save a still');
+  button.type = 'button';
+  group.append(button);
+  const note = el('span', 'bench-label bench-still-note');
+  note.setAttribute('aria-live', 'polite');
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    note.textContent = 'drawing…';
+    try {
+      const { blob, name } = await still(root, { skip: '.bench-tools' });
+      download(blob, name);
+      note.textContent = name.endsWith('.svg')
+        ? `${name}: this browser would not hand the picture back as a PNG, so here it is as an SVG`
+        : name;
+    } catch (e) {
+      note.textContent = `no still: ${e.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+  bar.append(group, note);
+  tools.append(bar);
 }
 
 /**
