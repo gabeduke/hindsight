@@ -34,6 +34,9 @@ type Clipboard struct {
 	// span: a drop replaces only what's under each of them, and leaves the
 	// rest of the span -- the tracks between them, the gaps -- alone.
 	Clips bool `json:"clips,omitempty"`
+	// Grab is set on a clipboard the Studio's GRAB made: the buffer
+	// (grab.go). Its window is what the tracks' clips play.
+	Grab *Grab `json:"grab,omitempty"`
 }
 
 var ErrEmptyClipboard = errors.New("the clipboard is empty: copy something first")
@@ -141,7 +144,8 @@ func (e *Engine) CopyTake(take, name string, from, to int64, pick []int) (*Clipb
 	if m := audio.ReadMeta(take); m.BPM != nil {
 		c.BPM = *m.BPM
 	}
-	return c, e.store.SaveClipboard(c)
+	_, err = e.setBoard(c)
+	return c, err
 }
 
 // CopyRing puts ring frames [from, to) of a source onto the clipboard (to
@@ -159,7 +163,8 @@ func (e *Engine) CopyRing(from, to int64, source string) (*Clipboard, bool, erro
 		From:    "the ribbon (" + src + ")",
 		Created: time.Now(),
 	}
-	return c, clamped, e.store.SaveClipboard(c)
+	_, err = e.setBoard(c)
+	return c, clamped, err
 }
 
 // ringClip writes ring frames [from, to) of a source into a new pool file
@@ -266,7 +271,11 @@ func (e *Engine) DropClipboardAt(id string, track int, merge bool, at *int64) (D
 	if c.Empty() {
 		return Dropped{}, ErrEmptyClipboard
 	}
-	return e.dropBoard(c, id, track, merge, at)
+	d, err := e.dropBoard(c, id, track, merge, at)
+	if err == nil {
+		e.markUsed(c) // a buffer dropped is a buffer used
+	}
+	return d, err
 }
 
 // dropBoard drops c as DropClipboard drops the clipboard: the crate's drop

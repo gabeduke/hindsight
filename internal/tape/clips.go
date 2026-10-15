@@ -179,7 +179,7 @@ func (e *Engine) copyClips(t *Tape, ids []string) (EditResult, error) {
 		}
 		c.Tracks = append(c.Tracks, lane)
 	}
-	if err := e.store.SaveClipboard(c); err != nil {
+	if _, err := e.setBoard(c); err != nil {
 		return EditResult{}, err
 	}
 	return EditResult{Op: "copy", Clips: len(ps), Frames: c.Frames, Board: c}, nil

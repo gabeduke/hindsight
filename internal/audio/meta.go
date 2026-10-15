@@ -167,6 +167,9 @@ func NormalizeFlags(in []Flag) []Flag {
 const (
 	OriginPhone = "phone" // recorded from a phone's mic (phone.go)
 	OriginTape  = "tape"  // a tape mixdown (internal/tape)
+	// OriginBuffer is a take kept from the Studio's buffer (internal/tape,
+	// KeepClipboardTake): the clipboard's own audio, its lanes summed.
+	OriginBuffer = "buffer"
 )
 
 // CutSource is a cut's lineage: the take it was cut from and the frame range,

@@ -267,7 +267,7 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 		if err := take(t, &t.State); err != nil {
 			return EditResult{}, err
 		}
-		if err := e.store.SaveClipboard(c); err != nil {
+		if _, err := e.setBoard(c); err != nil {
 			return EditResult{}, err
 		}
 		return EditResult{Op: req.Op, Clips: n, Frames: c.Frames, Board: c}, nil
@@ -279,7 +279,7 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 		if err := take(tp, s); err != nil {
 			return err
 		}
-		if err := e.store.SaveClipboard(c); err != nil {
+		if _, err := e.setBoard(c); err != nil {
 			return err
 		}
 		for _, tn := range tracks {
