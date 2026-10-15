@@ -92,6 +92,19 @@ export function hubLine(hub) {
 const FROM = { app: 'set here', env: 'from the env file', default: 'default' };
 
 /** RESTART_WARNING is what a restart costs, said wherever one is offered. */
+/**
+ * revealOnOpen makes a settings group scroll into view when it is opened.
+ * The sheet's body scrolls, and the last group's rows open below its fold:
+ * on a phone, tapping "This device" looked like nothing happened, because
+ * the switches it had just shown were out of sight under Close and Save.
+ */
+export function revealOnOpen(d) {
+  d.addEventListener('toggle', () => {
+    if (d.open && typeof d.scrollIntoView === 'function') d.scrollIntoView({ block: 'nearest' });
+  });
+  return d;
+}
+
 export const RESTART_WARNING = 'Hindsight restarts to use it, so the ring starts empty: capture anything you want to keep first.';
 
 /**
@@ -281,7 +294,7 @@ export function initSettings() {
       g.items.push(s);
     }
     for (const g of groups) {
-      const d = el('details', 'set-group');
+      const d = revealOnOpen(el('details', 'set-group'));
       d.open = OPEN.has(g.name);
       d.append(el('summary', null, g.name));
       for (const s of g.items) d.append(field(s));
@@ -298,7 +311,7 @@ export function initSettings() {
    * send and nothing to restart, so Save and Reset do not apply to them.
    */
   function deviceGroup() {
-    const d = el('details', 'set-group');
+    const d = revealOnOpen(el('details', 'set-group'));
     d.open = false;
     d.append(el('summary', null, 'This device'));
     const now = readDevicePrefs();
