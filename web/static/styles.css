@@ -4129,8 +4129,7 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
    on, so a rope reads as running behind a name rather than striking
    through it. Colour, width and dash still say what a cable is. P6 held the
    gear at z-index 1, as a layer under the ropes' 4: it isn't one any more,
-   or the names could not reach above them. (Dimmed while a socket is
-   chosen, a socket is its own layer and its names are under the ropes.) */
+   or the names could not reach above them. */
 .rig-devices, .rig-bay { z-index: auto; }
 .rig-dev, .rig-bay { --rig-plate: color-mix(in srgb, var(--gear-black-hi) 50%, var(--gear-black-lo)); }
 .rig-dev.rig-dev-interface { --rig-plate: color-mix(in srgb, var(--gear-grey-hi) 50%, var(--gear-grey-lo)); }
@@ -4138,3 +4137,10 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 .rig-sock-label, .rig-sock-name, .rig-row-title, .rig-dev-name, .rig-dev-sub, .rig-dev-note {
   text-shadow: 0 0 2px var(--rig-plate), 0 0 3px var(--rig-plate), 0 0 5px var(--rig-plate), 0 0 5px var(--rig-plate);
 }
+/* While a socket is chosen or a plug is in the hand, the sockets it can't go
+   into are dimmed. P6 dimmed the whole button, which makes it a layer of its
+   own under the ropes, names and all; dim its jack and names instead. */
+.rig-desk.picking .rig-sock:not(.target):not(.sel) { opacity: 1; }
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-hole,
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-sock-label,
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-sock-name { opacity: .55; }

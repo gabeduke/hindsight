@@ -53,3 +53,14 @@ test('each name has a halo of the plate it is printed on', () => {
   const plates = rules().filter((r) => decl(r.body, '--rig-plate'));
   assert.ok(plates.length >= 2, 'the interface and the black cards each set --rig-plate');
 });
+
+test('dimming the sockets that are not targets does not put their names under the ropes', () => {
+  // opacity below 1 on the button makes it a layer of its own, painted
+  // below the ropes, names and all. The dimming is on its parts instead.
+  const dim = '.rig-desk.picking .rig-sock:not(.target):not(.sel)';
+  let opacity = null;
+  for (const r of rules()) if (r.sel.includes(dim)) opacity = decl(r.body, 'opacity') ?? opacity;
+  assert.equal(opacity, '1', `the button itself is at opacity ${opacity}`);
+  const parts = rules().filter((r) => r.sel.some((s) => s.startsWith(`${dim} `)) && decl(r.body, 'opacity'));
+  assert.ok(parts.length > 0, 'its jack and its names are dimmed instead');
+});
