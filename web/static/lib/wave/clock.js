@@ -8,6 +8,8 @@
 //              AudioBufferSourceNode, so the loop point is sample-exact
 //              and what plays is exactly what a cut will be.
 
+import { Loop } from '../objects/motion.js';
+
 export const SLICE_CAP_SECONDS = 60;
 
 // How far past the element's last reported time the preview position may be
@@ -48,7 +50,17 @@ export class Clock {
     this.src = null;          // AudioBufferSourceNode while playing a slice
     this.sliceStartedAt = 0;  // ctx.currentTime when src started
     this.sliceOffset = 0;     // frame offset into the slice at start
-    this.raf = 0;
+    // onTick every frame while playing, on the shared ticker. (this.loop is
+    // the region being looped, not this.)
+    this.frames = new Loop(() => {
+      if (!this.playing) return false;
+      if (this.engine === 'preview' && this.loop) {
+        const p = this.position();
+        if (p >= this.loop.end || p < this.loop.start) this.audio.currentTime = this.loop.start / this.sr;
+      }
+      this.onTick?.(this.position());
+      return true;
+    });
     this.pendingFetch = 0;
     // Playback speed of the preview engine. The slice engine ignores it: a
     // loop is for hearing the cut exactly, and pitch-preserved 0.5× through
@@ -61,7 +73,7 @@ export class Clock {
     // at the end, then tell the page so its Play button stops lying.
     this.audio.addEventListener('ended', () => {
       this.playing = false;
-      cancelAnimationFrame(this.raf);
+      this.frames.stop();
       this.onTick?.(this.position());
       this.onEnded?.();
     });
@@ -139,7 +151,7 @@ export class Clock {
       this.audio.pause();
     }
     this.playing = false;
-    cancelAnimationFrame(this.raf);
+    this.frames.stop();
   }
 
   /** 0.5, 1 or 2: the preview plays at this speed; any loop stays at 1×. */
@@ -266,18 +278,9 @@ export class Clock {
     if (this.src) { try { this.src.stop(); } catch {} this.src.disconnect(); this.src = null; }
   }
 
+  /** tick runs onTick every frame from the next, for as long as it plays. */
   tick() {
-    cancelAnimationFrame(this.raf);
-    const step = () => {
-      if (!this.playing) return;
-      if (this.engine === 'preview' && this.loop) {
-        const p = this.position();
-        if (p >= this.loop.end || p < this.loop.start) this.audio.currentTime = this.loop.start / this.sr;
-      }
-      this.onTick?.(this.position());
-      this.raf = requestAnimationFrame(step);
-    };
-    this.raf = requestAnimationFrame(step);
+    this.frames.start();
   }
 
   destroy() {

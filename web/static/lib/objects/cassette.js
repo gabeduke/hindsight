@@ -9,8 +9,17 @@
 // setSelection(), detach(), destroy() -- so the takes page's pane draws it
 // over the row's own player, plus setTake() for the label. Geometry is
 // cassette-geom.js; colours are the cassette tokens in styles.css.
+//
+// How far the tape has played is a scene object (lib/scene): this face
+// reads its <audio> and sets the cassette's state, the cassette model
+// (lib/scene/cassette.js) derives the view, and the face's drawer paints
+// it. Without a scene of its own to join it makes one, on the shared ticker.
 
 import { levelsFor, takeGain, smooth, drawBars } from '../wave/draw.js';
+import { ticker } from './motion.js';
+import { Scene } from '../scene/scene.js';
+import { SceneObject } from '../scene/object.js';
+import { DomRenderer } from '../scene/dom.js';
 import { token, withAlpha } from '../theme.js';
 import { tagStore } from '../tags.js';
 import { dropoutsText } from '../shelf.js';
@@ -26,16 +35,19 @@ function hubSVG() {
 }
 
 export class CassetteFace {
-  /** audio is optional: without one this is a picture that plays nothing. */
-  constructor({ container, peaks, duration, audio = null, take }) {
+  /**
+   * audio is optional: without one this is a picture that plays nothing.
+   * scene, renderer and id are for a page that holds its own scene (the
+   * bench): the face draws the cassette object `id` there, adding it if it
+   * isn't. Without them the face keeps a scene of its own.
+   */
+  constructor({ container, peaks, duration, audio = null, take, scene = null, renderer = null, id = 'cassette', ticker: clock = ticker }) {
     this.container = container;
     this.peaks = peaks;
     this.duration = duration;
     this.audio = audio;
-    this.at = 0; // the played fraction when no <audio> owns it
     this.handlers = {};
     this.selection = null; // {start, end} as fractions of the take
-    this.raf = 0;
     this.gain = takeGain(peaks);
     this.el = document.createElement('div');
     this.el.className = 'cassette';
@@ -68,6 +80,24 @@ export class CassetteFace {
     this.ctx = this.parts.canvas.getContext('2d');
     this.setTake(take);
 
+    // The scene: the cassette object, and this face as its drawer.
+    this.own = !scene;
+    this.scene = scene || new Scene({ ticker: clock });
+    this.renderer = renderer || new DomRenderer();
+    this.id = id;
+    this.obj = this.scene.get(id) || this.scene.add(new SceneObject(id, 'cassette'));
+    this.dirty = true;    // paint on the next draw, whatever the view
+    this.painted = null;  // the playhead's device pixel, and the hubs, as last painted
+    // Its twin is the window, where a tap or a drag seeks.
+    this.drawer = { el: this.el, twin: () => this.parts.canvas, draw: (view) => this.drawView(view) };
+    // The page side, ahead of the scene on the ticker so each frame paints
+    // the position read in it: while the <audio> plays, set the cassette to
+    // where it is. A step that says false once it stops costs nothing.
+    if (audio) this.offFollow = this.scene.clock.add(() => { if (!this.isPlaying()) return false; this.sync(); return true; });
+    if (this.own) this.renderer.mount(container, this.scene);
+    this.renderer.part(id, this.drawer);
+    if (this.own) this.scene.start();
+
     this.ac = new AbortController();
     const sig = { signal: this.ac.signal };
     // Without an <audio> element the cassette is a picture: it draws every
@@ -76,14 +106,12 @@ export class CassetteFace {
     // answerable without a take, a server and a playback path.
     for (const ev of audio ? ['play', 'pause', 'ended', 'error'] : []) {
       audio.addEventListener(ev, () => {
-        this.el.classList.toggle('playing', this.isPlaying());
-        if (ev === 'play') this.loop();
+        this.sync();
         this.fire(ev === 'ended' ? 'finish' : ev);
-        this.draw();
       }, sig);
     }
-    audio?.addEventListener('seeked', () => this.draw(), sig);
-    this.el.classList.toggle('playing', this.isPlaying());
+    audio?.addEventListener('seeked', () => this.sync(), sig);
+    this.sync();
 
     // Seeking, as a row's wave: a tap, or a horizontal drag.
     const cv = this.parts.canvas;
@@ -94,7 +122,7 @@ export class CassetteFace {
       const f = Math.min(fracAt(e.clientX - r.left, this.layout), 0.999);
       if (!this.audio) return;
       const d = this.audio.duration || this.duration;
-      if (d) { this.audio.currentTime = f * d; this.draw(); }
+      if (d) { this.audio.currentTime = f * d; this.sync(); }
     };
     cv.addEventListener('pointerdown', (e) => { dragging = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId }; }, sig);
     cv.addEventListener('pointermove', (e) => {
@@ -120,9 +148,11 @@ export class CassetteFace {
     // The colours are read once per layout, not every frame; a flip between
     // light and dark reads them again.
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { this.colors = null; this.draw(); }, sig);
-    // Built over a player that's already going (the take was playing when
-    // its cassette was opened): keep up with it.
-    if (this.isPlaying()) this.loop();
+  }
+
+  /** sync is the page side: the cassette's state, from the <audio> that owns it. */
+  sync() {
+    if (this.audio) this.obj.set({ played: this.fraction(), playing: this.isPlaying() });
   }
 
   on(ev, fn) { (this.handlers[ev] ||= []).push(fn); }
@@ -142,8 +172,7 @@ export class CassetteFace {
    */
   setFraction(f) {
     if (this.audio) return;
-    this.at = Math.min(1, Math.max(0, Number(f) || 0));
-    this.draw();
+    this.obj.set({ played: Math.min(1, Math.max(0, Number(f) || 0)) });
   }
 
   /** setTake writes the take on the label: its stripe, stamp and name. */
@@ -210,22 +239,25 @@ export class CassetteFace {
     this.draw();
   }
 
-  loop() {
-    cancelAnimationFrame(this.raf);
-    let last = null;
-    const step = () => {
-      this.raf = 0;
-      // Repaint only when the playhead has moved a device pixel: the lit
-      // bars' glow is the costly part of a frame.
-      const at = this.layout ? Math.round(playedX(this.fraction(), this.layout) * (this.dpr || 1)) : null;
-      if (at !== last) { this.paint(); last = at; }
-      if (this.isPlaying()) this.raf = requestAnimationFrame(step);
-    };
-    this.raf = requestAnimationFrame(step);
+  /**
+   * drawView is the drawer: the DOM renderer calls it with the cassette's
+   * view when it changed or was invalidated. It repaints only when the
+   * playhead has moved a device pixel, the hubs started or stopped, or
+   * something else asked (draw()): the lit bars' glow is the costly part of
+   * a frame.
+   */
+  drawView(view) {
+    this.el.classList.toggle('playing', view.spinning);
+    const at = this.layout ? Math.round(playedX(view.played, this.layout) * (this.dpr || 1)) : null;
+    const key = `${at}|${view.spinning}`;
+    if (!this.dirty && key === this.painted) return;
+    this.dirty = false;
+    this.painted = key;
+    this.paint(view);
   }
 
   fraction() {
-    if (!this.audio) return this.at || 0;
+    if (!this.audio) return this.obj.state.played || 0;
     const d = this.audio.duration || this.duration;
     return d ? this.audio.currentTime / d : 0;
   }
@@ -241,12 +273,13 @@ export class CassetteFace {
     return this.colors;
   }
 
+  /** draw asks for a repaint on the next frame, whatever the view: a resize, a font, the scheme. */
   draw() {
-    if (this.raf) return;
-    this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); });
+    this.dirty = true;
+    this.renderer.invalidate(this.id);
   }
 
-  paint() {
+  paint(view = this.obj.view) {
     const L = this.layout;
     if (!L || !this.levels) return;
     const { win } = L;
@@ -256,7 +289,7 @@ export class CassetteFace {
     const C = this.palette();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, win.w, win.h);
-    const frac = this.fraction();
+    const frac = view.played;
     const px = playedX(frac, L);
 
     // The tape packs: the left reel gives tape to the right one.
@@ -326,7 +359,7 @@ export class CassetteFace {
     }
 
     // The playhead, once there's somewhere to show it.
-    if (this.isPlaying() || frac > 0) {
+    if (view.spinning || frac > 0) {
       ctx.save();
       ctx.fillStyle = C.accent;
       ctx.shadowColor = C.accentGlow;
@@ -338,7 +371,14 @@ export class CassetteFace {
 
   /** detach stops drawing and listening and leaves the audio alone. */
   detach() {
-    cancelAnimationFrame(this.raf);
+    this.offFollow?.();
+    this.offFollow = null;
+    if (this.own) {
+      this.scene.stop();
+      this.renderer.destroy();
+    } else {
+      this.renderer.unpart(this.id);
+    }
     this.ac.abort();
     this.ro.disconnect();
     this.el.remove();

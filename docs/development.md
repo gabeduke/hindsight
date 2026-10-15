@@ -361,6 +361,38 @@ shipped UI — if the bench and a page disagree, the page is right. It is the
 place to judge a change to an object without loading a rig and getting a take
 into the right shape.
 
+## The scene
+
+`web/static/lib/scene/` is the shape every drawn thing has, so a new way of
+drawing one (a 3D deck, cables as ropes) can be built without learning the
+app. Three parts, three owners
+([the scene contract](superpowers/specs/2026-10-15-scene-contract-design.md)):
+
+- **State** is plain data the page writes, with `obj.set(patch)` on a
+  `SceneObject` (`object.js`): a level, a poll of the tape, how far a take
+  has played. It is frozen; `set` makes a new snapshot only when something
+  changed.
+- **A model** (`vu.js`, `reels.js`, `cassette.js`, `ribbon.js`, listed in
+  `models.js`) steps each object on the shared ticker and derives its
+  **view**: the needle's angle, the reels' turn. Models are pure and tested
+  with a fake ticker.
+- **A renderer** draws views and never writes state; `Scene` (`scene.js`)
+  throws if one calls `set` while drawing. `renderer.js` documents the duck
+  type (`mount`, `frame`, `hit`, `twin`, `destroy`); `dom.js` is the DOM
+  renderer, which calls each object's drawer from `lib/objects` only when
+  its view or state changed.
+
+A `Scene` steps its models and then its renderers once a frame, and parks
+with the ticker once every model has settled. `VUMeters`, `ReelWindow`,
+`CassetteFace` and `Ribbon` each keep one, so the pages use them as before;
+the bench builds one scene for everything on it.
+
+Everything that animates is on `motion.js`'s one `ticker`. A loop that only
+runs while something plays (the bar, the take page's clock, rising notes, a
+row's playhead, Play all) is a `Loop`, which leaves the ticker when it stops
+wanting frames. Reduced motion is the ticker's: it hands every step
+`dt = Infinity`, and a model given that lands at once.
+
 Adding a directory under `lib/` means adding it to the `node --test` globs in
 `.github/workflows/ci.yml`; they are named one by one, so a new directory's
 tests are invisible until it is listed.
