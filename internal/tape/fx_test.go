@@ -365,19 +365,55 @@ func TestDriveStaysWithinFullScaleAndAddsOddHarmonics(t *testing.T) {
 	}
 }
 
-func TestDriveKeepsTheTapesLevel(t *testing.T) {
-	// Quiet or loud, a driven tape is as loud as it was, from its first
-	// block: the level match starts where it settles.
-	for _, amp := range []float64{0.02, 0.2, 0.9} {
-		r := toneRig(t, sine(220, amp))
+func TestDriveKeepsTheLevelAtItsReference(t *testing.T) {
+	// A sine at the reference, -18 dBFS RMS, comes out as loud as it went in
+	// at any drive; quieter is lifted a little, louder squeezed: the curve
+	// is the same whatever played before.
+	ref := math.Pow(10, driveRefDB/20) * math.Sqrt2
+	for _, c := range []struct {
+		amp, v, lo, hi float64
+	}{
+		{ref, 0.3, -0.3, 0.3}, {ref, 0.6, -0.3, 0.3}, {ref, 1, -0.3, 0.3},
+		{0.01 * math.Sqrt2, 1, 0, 4.5}, {0.01 * math.Sqrt2, 0.4, 0, 0.8},
+		{0.5 * math.Sqrt2, 1, -11, 0},
+	} {
+		r := toneRig(t, sine(220, c.amp))
 		r.playFrom(0)
-		r.run(4)
-		_ = r.e.Set("mod.drive", 1)
-		out := r.run(40)
-		dry := amp / math.Sqrt2
-		for b := 0; b < 40; b++ {
-			if l := db(rms(out, b*BlockFrames, (b+1)*BlockFrames) / dry); l > 1.5 || (b >= 20 && l < -1.5) {
-				t.Fatalf("amplitude %v: block %d is %.1f dB from the tape's level", amp, b, l)
+		_ = r.e.Set("mod.drive", c.v)
+		out := r.run(30)
+		if l := db(rms(out, 20*BlockFrames, 20*BlockFrames+9600) / (c.amp / math.Sqrt2)); l < c.lo || l > c.hi {
+			t.Fatalf("drive %v on a sine of %.1f dBFS RMS: %.2f dB, want %v to %v", c.v, db(c.amp/math.Sqrt2), l, c.lo, c.hi)
+		}
+	}
+}
+
+func TestDriveDoesntDuckAnAttack(t *testing.T) {
+	// The tape's level after a silence, or a burst's first moments, comes
+	// out as loud as what follows it: no follower lagging behind the music.
+	for _, v := range []float64{0.4, 1} {
+		r := withMods(toneRig(t, sine(220, 0.5)), Style{Drive: v})
+		r.e.Do(Action{Kind: "locate", Pos: 10000})
+		r.run(50) // standing, the drive on over silence
+		r.e.Do(Action{Kind: "play"})
+		out := r.run(30)
+		steady := rms(out, 19200, 24000)
+		if l := db(rms(out, 0, 480) / steady); math.Abs(l) > 1 {
+			t.Fatalf("drive %v: the first 10 ms after play are %.1f dB from the steady level", v, l)
+		}
+	}
+	burst := func(i int) float64 { // 60 ms of 200 Hz at 0.5, every 500 ms
+		if i%24000 < 2880 {
+			return 0.5 * math.Sin(2*math.Pi*200*float64(i%24000)/48000)
+		}
+		return 0
+	}
+	for _, v := range []float64{0.4, 1} {
+		r := withMods(toneRig(t, burst), Style{Drive: v})
+		r.playFrom(0)
+		out := r.run(150)
+		for _, b := range []int{120000, 144000} {
+			if l := db(rms(out, b, b+240) / rms(out, b+1920, b+2880)); math.Abs(l) > 1 {
+				t.Fatalf("drive %v: the burst at %d starts %.1f dB from its end", v, b, l)
 			}
 		}
 	}
@@ -648,16 +684,22 @@ func TestAMixdownRefusesFXAndPrintsTheMods(t *testing.T) {
 	for i, v := range saver.main {
 		take[i*OutChannels] = float32(float64(v) / 2147483647)
 	}
-	// The drive is printed: a third harmonic, at the level that went in.
-	// An echo printed too would cancel the kilohertz: its repeat lands
-	// 187.5 periods on, upside down.
+	// The drive is printed: a third harmonic, at the level the curve gives
+	// a sine of 0.125. An echo printed too would cancel the kilohertz: its
+	// repeat lands 187.5 periods on, upside down.
 	from := 24000
 	h1, h3 := bin(take, from, from+48000, 1000), bin(take, from, from+48000, 3000)
 	if h3/h1 < 0.01 {
 		t.Fatalf("harmonics %.4f, %.4f: the drive isn't in the take", h1, h3)
 	}
-	if l := db(rms(take, from, from+48000) / (0.125 / math.Sqrt2)); math.Abs(l) > 1.5 {
-		t.Fatalf("the take is %.1f dB from the tape's level", l)
+	var want float64
+	for q := 0; q < 48; q++ {
+		x := 0.125 * math.Sin(2*math.Pi*(float64(q)+0.5)/48)
+		y := driveGain(1) * math.Tanh(10*x) / math.Tanh(10)
+		want += y * y / 48
+	}
+	if l := db(rms(take, from, from+48000) / math.Sqrt(want)); math.Abs(l) > 0.5 {
+		t.Fatalf("the take is %.1f dB from the driven tape's level", l)
 	}
 }
 
