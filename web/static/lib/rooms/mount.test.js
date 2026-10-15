@@ -26,6 +26,26 @@ test('with the flag on the Studio is loaded and mounted on the page', async () =
   assert.equal(got, doc);
 });
 
+// The default reader is the real flag: the tests above pass their own.
+test('by default it asks the flag in this device’s storage', async () => {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'localStorage');
+  const prev = globalThis.localStorage;
+  const m = new Map();
+  globalThis.localStorage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
+  try {
+    let loaded = 0;
+    const load = async () => { loaded++; return { mountStudio: () => 'mounted' }; };
+    assert.equal(start({ load, doc: untouchable() }), null, 'no flag: off');
+    m.set('hindsight.rooms', '1');
+    assert.equal(await start({ load, doc: {} }), 'mounted');
+    assert.equal(loaded, 1);
+    m.set('hindsight.rooms', 'true');
+    assert.equal(start({ load, doc: untouchable() }), null, 'only the exact value counts');
+  } finally {
+    if (had) globalThis.localStorage = prev; else delete globalThis.localStorage;
+  }
+});
+
 // The page itself: the feed and its foot are templates, so the tape page as
 // served -- the flag off -- has none of Capture's parts in it.
 const tape = readFileSync(new URL('../../tape.html', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
@@ -55,4 +75,17 @@ test("the Studio's templates carry the feed, KEEP, the about line and its sheets
 test('the tape page loads the Studio only through its flag', () => {
   assert.ok(live.includes('<script type="module" src="/lib/rooms/mount.js"></script>'));
   assert.ok(!live.includes('/lib/rooms/studio.js'), 'studio.js is loaded by mount.js, with the flag on, never by the page');
+});
+
+// The Studio and the tape page share a page but import nothing of each
+// other's; they speak in events, as Play mode does. Keep as clip on the
+// Studio's ribbon fills the tape page's crate, so the two must name the same
+// event, and the tape page must read the crate on it.
+test("the Studio's Keep as clip reaches the tape page's crate", () => {
+  const studio = readFileSync(new URL('./studio.js', import.meta.url), 'utf8');
+  const tapePage = readFileSync(new URL('../tape/page.js', import.meta.url), 'utf8');
+  const sent = /onKept:[^\n]*dispatchEvent\(new CustomEvent\('([^']+)'\)\)/.exec(studio);
+  assert.ok(sent, 'studio.js passes the ribbon an onKept that dispatches an event');
+  const heard = new RegExp(`addEventListener\\('${sent[1]}', \\(\\) => fetchCrate\\(\\)\\)`);
+  assert.match(tapePage, heard, `lib/tape/page.js reads the crate again on ${sent[1]}`);
 });
