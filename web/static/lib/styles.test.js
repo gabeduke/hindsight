@@ -452,6 +452,21 @@ test('the Listening Room’s rules reach only the room', () => {
   assert.deepEqual(borrowed, [], 'these files use a class the room styles');
 });
 
+test('the room never hides the bar in a month’s box', () => {
+  // On a phone the room hides the bar: its deck card is the player. A
+  // month's box (body.room-rack) shows the rack, not the deck card, so a rule
+  // that hid the bar there too left nothing to pause with.
+  const start = css.indexOf('/* ---------- Rooms P5:');
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const hiding = [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    // The doorway's (the chair's deck is its bar, and has no month's box).
+    .filter(([, sel, decl]) => /\.room-on/.test(sel) && /(^|[\s>])\.np(?![\w-])/.test(sel) && /display:\s*none/.test(decl) && !/\.np \./.test(sel))
+    .map(([, sel]) => sel.trim());
+  assert.ok(hiding.length > 0, 'the room hides the bar somewhere (on a phone)');
+  for (const sel of hiding) assert.match(sel, /:not\(\.room-rack\)/, `${sel} hides the bar in a month's box too`);
+});
+
 test('Play mode’s rules reach only Play mode', () => {
   // Play mode is behind a per-device flag, but its CSS is not: styles.css is
   // on every page of every kit. Its overlay rule was once a bare `.play` --

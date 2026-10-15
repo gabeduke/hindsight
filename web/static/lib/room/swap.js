@@ -30,6 +30,11 @@ export function swapQuestion(name) {
   return `Studio is using “${name || 'its tape'}”. Swap it?`;
 }
 
+/** cutQuestion is what it asks before cutting a record of the Studio's tape while it's in use. */
+export function cutQuestion(name) {
+  return `Studio is using “${name || 'its tape'}”. Cutting a record plays it from the top. Go ahead?`;
+}
+
 async function getJSON(fetchImpl, url) {
   const res = await fetchImpl(url, { cache: 'no-store' });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
@@ -37,8 +42,8 @@ async function getJSON(fetchImpl, url) {
 }
 
 /**
- * loadTape puts tape `id` on the Pi's deck, asking first (`ask(question)`,
- * which answers true to go ahead) when another tape is loaded and busy.
+ * loadTape puts tape `id` on the Pi's deck, asking first (`ask(question,
+ * kind)`, kind 'swap' or 'cut', which answers true to go ahead) when another tape is loaded and busy.
  * Answers {loaded, already, live}: loaded false when the answer was no;
  * already when it was the loaded tape before; live, that tape's state,
  * when it was. It throws the Pi's words when the load is refused.
@@ -47,12 +52,25 @@ export async function loadTape(id, { fetchImpl = globalThis.fetch, ask } = {}) {
   const list = await getJSON(fetchImpl, '/api/tapes');
   if (list.loaded) {
     const s = await getJSON(fetchImpl, `/api/tapes/state?id=${encodeURIComponent(list.loaded)}`);
-    if (list.loaded === id) return { loaded: true, already: true, live: s.live || null };
-    if (studioBusy(s.live) && !(await ask?.(swapQuestion(s.tape && s.tape.name)))) return { loaded: false, already: false };
+    if (list.loaded === id) return { loaded: true, already: true, live: s.live || null, name: s.tape && s.tape.name };
+    if (studioBusy(s.live) && !(await ask?.(swapQuestion(s.tape && s.tape.name), 'swap'))) return { loaded: false, already: false };
   }
   const res = await fetchImpl(`/api/tapes/load?id=${encodeURIComponent(id)}`, { method: 'POST' });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
   return { loaded: true, already: false, live: null };
+}
+
+/**
+ * readyToCut gets tape `id` on the deck for a mixdown, asking first whenever
+ * the Studio's tape is busy: another tape is swapped (loadTape), and this
+ * one -- already on the deck, playing, armed or recording -- would be taken
+ * over by the mixdown and played from the top. Answers true to go ahead.
+ */
+export async function readyToCut(id, { fetchImpl = globalThis.fetch, ask } = {}) {
+  const r = await loadTape(id, { fetchImpl, ask });
+  if (!r.loaded) return false;
+  if (r.already && studioBusy(r.live)) return !!(await ask?.(cutQuestion(r.name), 'cut'));
+  return true;
 }
 
 /**

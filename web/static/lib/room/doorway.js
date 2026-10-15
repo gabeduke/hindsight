@@ -16,8 +16,8 @@
 // room to draw them (a phone, or reduced data asked for), the shelves are
 // rows.
 
-import { roomShelves, inMonth, monthName, isRecord, at } from './shelves.js';
-import { putTapeOn, loadTape } from './swap.js';
+import { roomShelves, inMonth, monthName, monthKey, isRecord, at, filterWords, playOrder } from './shelves.js';
+import { putTapeOn, loadTape, readyToCut } from './swap.js';
 import { cutTakeRecord, cutTapeRecord, takeCover, tapeCover } from './record.js';
 import { sendToStudio, fmtAt } from './notes.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
@@ -113,24 +113,34 @@ export function mount(h) {
     el('span', 'room-speaker'),
     el('span', 'room-sidetable', {}, el('span', 'room-glass'), el('span', 'room-pencil')));
 
-  const shelf = (key, label) => {
+  // A shelf: its plate, the list on it, and -- for takes and records -- a
+  // key that opens it as today's rack, where Select and Play all are.
+  const shelf = (key, label, asList = null) => {
     const h3 = el('h3', 'room-plate', { id: `room-${key}-h` });
     // The section is named by its plate; the list in it needs no second name.
     const list = el('ul', 'room-row', { role: 'list' });
-    const sec = el('section', `room-shelf room-shelf-${key}`, { 'aria-labelledby': `room-${key}-h` }, h3, list);
+    const listBtn = asList ? el('button', 'room-list-btn', { type: 'button', 'data-key': `list:${key}`, 'aria-label': asList, 'data-tip': 'room-list' }, '☰ List') : null;
+    const foot = el('div', 'room-shelf-foot', {}, h3, listBtn);
+    const sec = el('section', `room-shelf room-shelf-${key}`, { 'aria-labelledby': `room-${key}-h` }, foot, list);
     h3.textContent = label;
-    return { sec, h3, list };
+    return { sec, h3, list, listBtn };
   };
   const tapesShelf = shelf('tapes', 'TAPES');
-  const takesShelf = shelf('takes', 'TAKES');
+  const takesShelf = shelf('takes', 'TAKES', 'This month’s takes as a list, to select or play');
   const takesEmpty = el('p', 'room-empty', { text: 'Nothing kept this month yet. KEEP in the Studio puts a take on this shelf.' });
   takesShelf.sec.append(takesEmpty);
   const archiveShelf = shelf('archive', 'ARCHIVE');
-  const recordsShelf = shelf('records', 'RECORDS');
+  const recordsShelf = shelf('records', 'RECORDS', 'The records as a list, to select or play');
   const nextOne = el('p', 'room-next', { text: 'room for the next one you cut' });
   recordsShelf.sec.append(nextOne);
+  // A filter left on (the rack's, remembered on this device) says so here:
+  // otherwise the shelves just look empty.
+  const filterText = el('span', 'room-filtered-text');
+  const filterClear = el('button', 'room-filtered-clear', { type: 'button', 'data-tip': 'room-filter-clear' }, 'Show everything');
+  const filterBar = el('p', 'room-filtered', { hidden: true }, filterText, filterClear);
+  filterClear.addEventListener('click', () => { h.clearFilter(); takesShelf.list.querySelector('button')?.focus(); });
   const shelves = el('div', 'room-shelves', { role: 'group', 'aria-label': 'The shelves' },
-    tapesShelf.sec, takesShelf.sec, archiveShelf.sec, recordsShelf.sec);
+    filterBar, tapesShelf.sec, takesShelf.sec, archiveShelf.sec, recordsShelf.sec);
 
   // The deck: what's in the bar (a take, or the tape loaded on the Pi).
   const deckLcd = el('span', 'room-deck-lcd', { 'aria-hidden': 'true' });
@@ -170,16 +180,18 @@ export function mount(h) {
 
   // Asks before taking the Studio's tape: a dialog of our own, Swap or Leave.
   const askText = el('p', 'room-ask-text');
+  const askNo = el('button', 'icon-btn', { value: 'no' });
+  const askYes = el('button', 'icon-btn primary', { value: 'yes' });
   const ask = el('dialog', 'sheet room-ask', { 'aria-labelledby': 'room-ask-h' },
     el('form', 'sheet-inner', { method: 'dialog' },
       el('h3', '', { id: 'room-ask-h', text: 'The Studio’s tape' }),
       askText,
-      el('div', 'sheet-actions', {},
-        el('button', 'icon-btn', { value: 'no', text: 'Leave it' }),
-        el('button', 'icon-btn primary', { value: 'yes', text: 'Swap it' }))));
+      el('div', 'sheet-actions', {}, askNo, askYes)));
   body.append(ask);
-  const askFirst = (question) => new Promise((resolve) => {
+  const askFirst = (question, kind = 'swap') => new Promise((resolve) => {
     askText.textContent = question;
+    askNo.textContent = kind === 'cut' ? 'Not now' : 'Leave it';
+    askYes.textContent = kind === 'cut' ? 'Cut it' : 'Swap it';
     ask.returnValue = 'no';
     ask.addEventListener('close', () => resolve(ask.returnValue === 'yes'), { once: true });
     ask.showModal();
@@ -319,6 +331,7 @@ export function mount(h) {
       s.month.spines.map((x) => [x.take.name, x.take.label, x.take.starred, x.take.tag, x.isNew, x.members.length, x.take.duration_seconds]),
       s.archive.map((b) => b.plate), s.records.map((t) => [t.name, t.label, t.record.cover]),
       h.sheetOpen(), onDeck, onTable, tagStore.list.map((g) => `${g.id}:${g.color}`), monthName(now),
+      filterWords(h.opts(), tagStore.list),
     ]);
     renderPlaces(bar);
     if (sig === lastSig) return;
@@ -332,7 +345,15 @@ export function mount(h) {
     }
     takesShelf.h3.textContent = `TAKES · ${monthName(now)} · ${s.month.spines.length}`;
     takesShelf.list.replaceChildren(...s.month.spines.map((x) => spineButton(x.take, { isNew: x.isNew, members: x.members, onDeck: x.take.name === onDeck })));
+    const filtered = filterWords(h.opts(), tagStore.list);
+    filterBar.hidden = !filtered.length;
+    filterText.textContent = `Showing only takes ${filtered.join(', ')}. `;
     takesEmpty.hidden = s.month.spines.length > 0;
+    takesEmpty.textContent = filtered.length
+      ? 'No takes this month match. Show everything to see them all.'
+      : 'Nothing kept this month yet. KEEP in the Studio puts a take on this shelf.';
+    if (takesShelf.listBtn) takesShelf.listBtn.hidden = !s.month.spines.length;
+    if (recordsShelf.listBtn) recordsShelf.listBtn.hidden = !s.records.length;
     const archived = s.archive.reduce((n, b) => n + b.count, 0);
     archiveShelf.sec.hidden = !s.archive.length;
     archiveShelf.h3.textContent = `ARCHIVE · ${archived}`;
@@ -483,7 +504,9 @@ export function mount(h) {
     if (!cardTake) return;
     const name = cardTake.name;
     if (h.sheetOpen()) h.closeSheet();
-    h.playAll.from(name);
+    // The shelf it stands on, in the shelf's order: not the rack's, which
+    // would go on into the records and older months.
+    h.playAll.from(name, playOrder(roomShelves(h.takes.all, tapeList, h.opts()), name));
   });
   cutBtn.addEventListener('click', () => { if (cardTake) cutFromTake(cardTake); });
 
@@ -570,8 +593,7 @@ export function mount(h) {
   async function cutFromTape(s) {
     if (cut) return;
     try {
-      const r = await loadTape(s.id, { ask: askFirst });
-      if (!r.loaded) return;
+      if (!(await readyToCut(s.id, { ask: askFirst }))) return;
     } catch (e) {
       toast(`The record wasn’t cut: ${e.message}`, 'bad');
       return;
@@ -592,15 +614,20 @@ export function mount(h) {
   }
 
   // --- the archive: a month's box, opened to the rack ----------------------------------
+  // `month` is what's open: {title, names(), back} -- a month's box, or a
+  // shelf opened as a list.
   let monthSig = '';
   function syncMonth() {
-    const names = inMonth(h.takes.all, month.key, h.opts());
+    const names = month.names();
     const sig = [...names].sort().join('|');
     if (sig === monthSig) return;
     monthSig = sig;
     h.setFilter((t) => names.has(t.name));
   }
   function openMonth(m) {
+    openList({ title: m.title, back: `month:${m.key}`, names: () => inMonth(h.takes.all, m.key, h.opts()) });
+  }
+  function openList(m) {
     month = m;
     monthSig = '';
     crossFade(() => {
@@ -610,13 +637,23 @@ export function mount(h) {
     }).then(() => rackBack.focus());
   }
   rackBack.addEventListener('click', () => {
-    const key = month?.key;
+    const back = month?.back || '';
     month = null;
     monthSig = '';
     crossFade(() => {
       body.classList.remove('room-rack');
       h.setFilter(null);
-    }).then(() => room.querySelector(`[data-key="month:${CSS.escape(key || '')}"]`)?.focus());
+    }).then(() => room.querySelector(`[data-key="${CSS.escape(back)}"]`)?.focus());
+  });
+  // This month's takes, and the records, as today's rack: Select is there.
+  takesShelf.listBtn.addEventListener('click', () => {
+    const key = monthKey(Date.now());
+    const n = roomShelves(h.takes.all, tapeList, h.opts()).month.spines.length;
+    openList({ title: `${monthName()}: ${n} take${n === 1 ? '' : 's'}`, back: 'list:takes', names: () => inMonth(h.takes.all, key, h.opts()) });
+  });
+  recordsShelf.listBtn.addEventListener('click', () => {
+    const records = () => new Set(roomShelves(h.takes.all, tapeList, h.opts()).records.map((t) => t.name));
+    openList({ title: `Records: ${records().size}`, back: 'list:records', names: records });
   });
 
   render();

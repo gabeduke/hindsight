@@ -123,3 +123,35 @@ export function inMonth(takes, key, opts = {}) {
   }
   return names;
 }
+
+/**
+ * filterWords is the rack's filter in force, as the room says it: one phrase
+ * per thing it's narrowed by, or none. The rack's filter is remembered on
+ * the device, and the room keeps the rack's tools out of sight, so a filter
+ * left on must say so where the shelves are, or they just look empty.
+ */
+export function filterWords(opts = {}, tags = []) {
+  const out = [];
+  const q = (opts.query || '').trim();
+  if (q) out.push(`“${q}”`);
+  if (opts.starred) out.push('starred');
+  if (opts.tag === 'none') out.push('untagged');
+  else if (opts.tag) out.push(`tagged ${(tags.find((g) => g.id === opts.tag) || {}).name || 'with a tag'}`);
+  if (opts.midi) out.push('with MIDI');
+  if (opts.phone) out.push('from a phone');
+  if (opts.tape) out.push('mixdowns');
+  return out;
+}
+
+/**
+ * playOrder is the order Play all from here walks in the room: the shelf
+ * `name` stands on -- this month's takes, newest first, or the records --
+ * and nothing past it. Just `name` if it stands on neither.
+ */
+export function playOrder(shelves, name) {
+  const month = shelves.month.spines.map((x) => x.take.name);
+  if (month.includes(name)) return month;
+  const records = shelves.records.map((t) => t.name);
+  if (records.includes(name)) return records;
+  return [name];
+}

@@ -32,6 +32,8 @@ export const TIPS = [
   { control: 'Sticker', ids: ['room-sticker'], tip: "The take's one tag, as a sticker" },
   { control: 'TOOLS', ids: ['room-tools'], tip: 'Everything else the take page does: the waveform, In and Out, the tempo, the MIDI lanes, Send to, More' },
   { control: 'to the studio (a note)', ids: ['room-to-studio'], tip: "This note, to the next note or eight bars, into the Studio's buffer" },
+  { control: '☰ List (a shelf)', ids: ['room-list'], tip: 'The shelf as a list, as the rack shows it: Select and Play all are there' },
+  { control: 'Show everything', ids: ['room-filter-clear'], tip: "Turns off the filter that's narrowing the shelves" },
   // The main page
   { control: 'Capture', ids: ['capture'], tip: 'Save the last 30 s, 2 m, 7 m or all of what you just played as a take' },
   { control: 'Flag now', ids: ['flag-now'], tip: 'Mark this moment. Any take that includes it gets a flag here' },

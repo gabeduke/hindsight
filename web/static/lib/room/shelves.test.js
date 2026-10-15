@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roomShelves, inMonth, monthKey, monthWords, monthName, NEW_MS, isRecord } from './shelves.js';
+import { roomShelves, inMonth, monthKey, monthWords, monthName, NEW_MS, isRecord, filterWords, playOrder } from './shelves.js';
 
 // Mid-October, local time, so a month boundary is never a timezone away.
 const NOW = new Date(2026, 9, 15, 12, 0, 0).getTime();
@@ -108,4 +108,24 @@ test('the words on the plates', () => {
   assert.equal(monthKey(-Infinity), '');
   assert.equal(monthName(NOW), 'OCTOBER');
   assert.deepEqual(monthWords('2026-09', 22, NOW), { plate: 'SEP · 22', title: 'September: 22 takes' });
+});
+
+test('a filter left on says so, in words', () => {
+  assert.deepEqual(filterWords({}), []);
+  assert.deepEqual(filterWords({ starred: true }), ['starred']);
+  assert.deepEqual(filterWords({ query: ' bento ', tag: 't1', midi: true }, [{ id: 't1', name: 'keeper' }]), ['“bento”', 'tagged keeper', 'with MIDI']);
+  assert.deepEqual(filterWords({ tag: 'none', phone: true, tape: true }), ['untagged', 'from a phone', 'mixdowns']);
+});
+
+test('Play all from here walks the shelf it starts on, and nothing past it', () => {
+  const takes = [
+    take('jam_a.wav', iso(2026, 10, 2)),
+    take('jam_b.wav', iso(2026, 10, 9)),
+    take('jam_old.wav', iso(2026, 9, 9)),
+    take('jam_r.wav', iso(2026, 10, 5), { record: { cut: '2026-10-06T00:00:00Z', side: 'A', cover: 0 } }),
+  ];
+  const s = roomShelves(takes, null, {}, NOW);
+  assert.deepEqual(playOrder(s, 'jam_b.wav'), ['jam_b.wav', 'jam_a.wav'], 'no record, no older month');
+  assert.deepEqual(playOrder(s, 'jam_r.wav'), ['jam_r.wav']);
+  assert.deepEqual(playOrder(s, 'jam_old.wav'), ['jam_old.wav']);
 });

@@ -1801,6 +1801,8 @@ has no tip.
 | Sticker | The take's one tag, as a sticker |
 | TOOLS | Everything else the take page does: the waveform, In and Out, the tempo, the MIDI lanes, Send to, More |
 | to the studio (a note) | This note, to the next note or eight bars, into the Studio's buffer |
+| ☰ List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
+| Show everything | Turns off the filter that's narrowing the shelves |
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
 | Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |

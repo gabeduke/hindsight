@@ -111,3 +111,20 @@ does is lost.
   1440×900, both schemes, flag on and off, against the demo. A take's whole
   trip: shelf → deck → NOTE HERE → *to the studio* → the clipboard holds its
   span and the Studio opens. Cut a record from a take and from a tape.
+
+## Review (PR #106)
+
+- [x] Picking a spine no longer stops what's on the deck (`stopsOnPick`).
+- [x] A filter left on says so over the shelves, with *Show everything*; an
+  empty shelf says nothing matches, not that nothing was kept.
+- [x] Enter in the note field always makes a new note (`fieldEnter`,
+  `freeFrame`); it never writes over one at the playhead.
+- [x] Cutting a record of the Studio's own tape while it's in use asks first
+  (`readyToCut`, `cutQuestion`).
+- [x] The Pi marks a tape's record itself (`record` on the mixdown request,
+  `StartMixdownAs`), so leaving the page mid-cut still lands it.
+- [x] A month's box on a phone keeps the bar, and the take on the deck plays
+  on while the box is open.
+- [x] Play all from here walks the shelf (`playOrder`); *☰ List* opens this
+  month's takes, or the records, as the rack, where Select is.
+

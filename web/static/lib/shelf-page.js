@@ -6,7 +6,7 @@ import { TakesList } from '/lib/takes.js';
 import { TrashList } from '/lib/trash.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { initHelp } from '/lib/help/help.js';
-import { shelve, sheetState, tagCounts, fold, familyOf, matches } from '/lib/shelf.js';
+import { shelve, sheetState, tagCounts, fold, familyOf, matches, stopsOnPick } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 import { initNav } from '/lib/nav.js';
@@ -87,7 +87,9 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
   // Play all stops, and its key is off while it lasts.
   onSelectChange: () => { stopPlayAll({ pause: true }); renderPlayAll(); },
   shape: (every) => {
-    const all = roomFilter ? every.filter(roomFilter) : every;
+    // The take on the deck stays in a month's box while the box is open: its
+    // row is its player, and a row the rack drops stops playing.
+    const all = roomFilter ? every.filter((t) => roomFilter(t) || (np && t.name === np.takeName)) : every;
     const opts = { ...view, tags: tagStore.list, tag: shownTag() };
     // The same fold the shelf is drawn from, for the pane's families.
     fam = fold(all.filter((t) => matches(t, opts)));
@@ -270,7 +272,9 @@ fetch('/api/crate', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null))
 function pick(name, hand = false) {
   // A take left playing would lose its Pause with its controls in the pane:
   // picking another stops it.
-  if (name !== picked && takes.playing && takes.playing !== name) takes.stopOthers(name);
+  // In the Listening Room it doesn't: browsing the shelves never stops
+  // what's on the deck.
+  if (stopsOnPick({ room: roomMode, picked, name, playing: takes.playing })) takes.stopOthers(name);
   picked = name;
   pickedSpine = spineOf(name);
   for (const [n, row] of takes.rows) {
@@ -313,6 +317,9 @@ async function offerBar(name, hand) {
 // precision while the page is in view. The screen is held on meanwhile, as
 // the take page holds it while a take plays.
 let playAll = null; // { name, audio, span, prev, raf, moving, off, lock }
+// The order Play all walks: the rack's, or one the room gives (its shelf's).
+let playOrder = null;
+const playNames = () => playOrder || shownNames();
 
 function renderPlayAll() {
   const b = $('play-all');
@@ -326,6 +333,7 @@ function stopPlayAll({ pause = false } = {}) {
   const r = playAll;
   if (!r) return;
   playAll = null;
+  playOrder = null;
   cancelAnimationFrame(r.raf);
   r.off?.abort();
   r.lock?.release();
@@ -340,7 +348,7 @@ function moveOn(r) {
   r.off?.abort();
   cancelAnimationFrame(r.raf);
   if (r.audio && !r.audio.paused) r.audio.pause();
-  const next = nextOf(shownNames(), r.name);
+  const next = nextOf(playNames(), r.name);
   if (next) playAllFrom(next); else stopPlayAll();
 }
 
@@ -355,7 +363,7 @@ async function playAllFrom(name) {
     if (picked !== was.picked || np.takeName !== was.bar || np.ejected !== was.ejected) return stopPlayAll();
     // Still encoding, or gone: on to the next.
     if (!p) {
-      const next = nextOf(shownNames(), name);
+      const next = nextOf(playNames(), name);
       return next ? playAllFrom(next) : stopPlayAll();
     }
     r.name = name;
@@ -418,7 +426,7 @@ async function playAllFrom(name) {
 
 $('play-all').addEventListener('click', () => {
   if (playAll) { stopPlayAll({ pause: true }); return; }
-  const first = firstOf(shownNames(), pickedSpine);
+  const first = firstOf(playNames(), pickedSpine);
   if (!first) return;
   playAll = { name: first, moving: true, lock: holdScreen() };
   renderPlayAll();
@@ -602,13 +610,24 @@ startRoom('doorway', {
   openSheet, closeSheet,
   sheetOpen: () => sheet.open,
   setFilter: (fn) => { roomFilter = fn; reshape(); },
+  // The rack's filter, all of it off: the room shows when one is on.
+  clearFilter: () => {
+    view.query = '';
+    $('shelf-q').value = '';
+    for (const k of ['starred', 'midi', 'phone', 'tape']) view[k] = false;
+    view.tag = '';
+    saveView();
+    renderControls();
+    reshape();
+  },
   onChange: (fn) => roomHooks.change.add(fn),
   onShow: (fn) => roomHooks.show.add(fn),
   onClosed: (fn) => roomHooks.closed.add(fn),
   playAll: {
     running: () => !!playAll,
-    // From take `name`, as ▶ Play all is from the picked spine.
-    from: (name) => { stopPlayAll({ pause: true }); pick(name, true); $('play-all').click(); },
+    // From take `name`, as ▶ Play all is from the picked spine, through
+    // `order` (the shelf's) instead of the rack's.
+    from: (name, order = null) => { stopPlayAll({ pause: true }); pick(name, true); playOrder = order; $('play-all').click(); },
     stop: () => stopPlayAll({ pause: true }),
   },
   poll: () => poll(true),

@@ -17,9 +17,9 @@
 // tape on the deck itself, played on the Pi through OUT, with its sections
 // as read-only notes.
 
-import { notesOf, noteSpan, sendToStudio, fmtAt } from './notes.js';
+import { notesOf, noteSpan, sendToStudio, fmtAt, fieldEnter } from './notes.js';
 import { cutTakeRecord, cutTapeRecord } from './record.js';
-import { loadTape } from './swap.js';
+import { loadTape, readyToCut } from './swap.js';
 import { tagStore } from '../tags.js';
 import { openTagManager } from '../tags-dialog.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
@@ -323,13 +323,12 @@ function mountTake(h) {
     if (e.key === 'Escape') { e.preventDefault(); current = null; field.value = ''; field.blur(); renderField(); return; }
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    const words = field.value.trim();
-    if (!current) {
-      if (!words) return;
-      const id = h.addNote(h.state().cursor);
-      if (id) h.editNote(id, words);
-    } else {
-      h.editNote(current.id, words);
+    const act = fieldEnter({ current, words: field.value, cursor: h.state().cursor, notes: notes(), total: h.total });
+    if (act.kind === 'none' && !current) return;
+    if (act.kind === 'edit') h.editNote(act.id, act.words);
+    if (act.kind === 'new') {
+      const id = h.addNote(act.frame);
+      if (id) h.editNote(id, act.words);
     }
     current = null;
     field.value = '';
@@ -543,14 +542,18 @@ async function mountTape(h) {
 
   // Asks before taking the Studio's tape.
   const askText = el('p', 'room-ask-text');
+  const askNo = el('button', 'icon-btn', { value: 'no' });
+  const askYes = el('button', 'icon-btn primary', { value: 'yes' });
   const ask = el('dialog', 'sheet room-ask', { 'aria-labelledby': 'chair-ask-h' },
     el('form', 'sheet-inner', { method: 'dialog' },
       el('h3', '', { id: 'chair-ask-h', text: 'The Studio’s tape' }), askText,
-      el('div', 'sheet-actions', {}, el('button', 'icon-btn', { value: 'no', text: 'Leave it' }), el('button', 'icon-btn primary', { value: 'yes', text: 'Swap it' }))));
+      el('div', 'sheet-actions', {}, askNo, askYes)));
   document.body.append(ask);
-  function askFirst(q) {
+  function askFirst(q, kind = 'swap') {
     return new Promise((resolve) => {
       askText.textContent = q;
+      askNo.textContent = kind === 'cut' ? 'Not now' : 'Leave it';
+      askYes.textContent = kind === 'cut' ? 'Cut it' : 'Swap it';
       ask.returnValue = 'no';
       ask.addEventListener('close', () => resolve(ask.returnValue === 'yes'), { once: true });
       ask.showModal();
@@ -566,8 +569,7 @@ async function mountTape(h) {
   f.cutKey.disabled = !(t0.tracks || []).some((tr) => (tr.clips || []).length);
   f.cutKey.addEventListener('click', async () => {
     try {
-      const r = await loadTape(id, { ask: askFirst });
-      if (!r.loaded) return;
+      if (!(await readyToCut(id, { ask: askFirst }))) return;
       if (!src) start();
     } catch (e) { h.toast(`The record wasn’t cut: ${e.message}`, 'bad'); return; }
     const what = t0.name;

@@ -42,6 +42,35 @@ export function noteSpan(notes, id, { sampleRate = 48000, bpm = null, total = In
   return to > from ? { from, to } : null;
 }
 
+/**
+ * freeFrame is the frame nearest `at` that no note is on: `at` itself, or
+ * the first free one after it, or before it at the take's end. A take has
+ * at most one flag on a frame for the page's NOTE HERE to answer, so a new
+ * note must never land on one that's there. Null when none is free.
+ */
+export function freeFrame(notes, at, total = Infinity) {
+  const taken = new Set(notes.map((n) => n.frame));
+  const last = Number.isFinite(total) ? total - 1 : Infinity;
+  let f = Math.max(0, Math.min(last, Math.round(at)));
+  for (let g = f; g <= last; g++) if (!taken.has(g)) return g;
+  for (let g = f - 1; g >= 0; g--) if (!taken.has(g)) return g;
+  return null;
+}
+
+/**
+ * fieldEnter is what Enter in the sketchbook's note field does. Writing the
+ * words of a note NOTE HERE made (`current`) edits that note. With none, the
+ * words make a new note at the playhead -- a new one, a frame on if a note
+ * is already there: Enter never writes over another note's words.
+ */
+export function fieldEnter({ current = null, words = '', cursor = 0, notes = [], total = Infinity }) {
+  const w = words.trim();
+  if (current) return { kind: 'edit', id: current.id, words: w };
+  if (!w) return { kind: 'none' };
+  const frame = freeFrame(notes, cursor, total);
+  return frame == null ? { kind: 'none' } : { kind: 'new', frame, words: w };
+}
+
 /** clipboardBody is POST /api/clipboard's body for a span of a take. */
 export function clipboardBody(file, span) {
   return { take: file, from: span.from, to: span.to };

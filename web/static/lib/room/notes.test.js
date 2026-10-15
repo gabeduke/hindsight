@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { notesOf, noteSpan, clipboardBody, sendToStudio, fmtAt, SPAN_SECONDS } from './notes.js';
+import { notesOf, noteSpan, clipboardBody, sendToStudio, fmtAt, SPAN_SECONDS, freeFrame, fieldEnter } from './notes.js';
 
 const SR = 48000;
 
@@ -64,4 +64,27 @@ test('a refused copy says why, and goes nowhere', async () => {
 test('fmtAt', () => {
   assert.equal(fmtAt(0), '0:00');
   assert.equal(fmtAt(725 * SR, SR), '12:05');
+});
+
+test('Enter in the note field never writes over a note already at the playhead', () => {
+  const notes = notesOf([{ id: 'r1', frame: 42 * SR, label: 'the bridge. keep this' }], SR);
+  const act = fieldEnter({ words: 'new words', cursor: 42 * SR, notes, total: 60 * SR });
+  assert.equal(act.kind, 'new');
+  assert.notEqual(act.frame, 42 * SR);
+  assert.equal(act.frame, 42 * SR + 1);
+  assert.equal(act.words, 'new words');
+});
+
+test('Enter writes the words of the note NOTE HERE made, and nothing for no words', () => {
+  const notes = notesOf([{ id: 'r1', frame: 5, label: '' }], SR);
+  assert.deepEqual(fieldEnter({ current: { id: 'r1', frame: 5 }, words: ' a fill ', cursor: 99, notes }), { kind: 'edit', id: 'r1', words: 'a fill' });
+  assert.deepEqual(fieldEnter({ words: '   ', cursor: 99, notes }), { kind: 'none' });
+  assert.deepEqual(fieldEnter({ words: 'x', cursor: 99, notes, total: 200 }), { kind: 'new', frame: 99, words: 'x' });
+});
+
+test('a free frame: on, then back at the end, then none', () => {
+  const at = (frames) => frames.map((frame) => ({ frame }));
+  assert.equal(freeFrame(at([10, 11]), 10, 100), 12);
+  assert.equal(freeFrame(at([98, 99]), 99, 100), 97);
+  assert.equal(freeFrame(at([0, 1]), 0, 2), null);
 });
