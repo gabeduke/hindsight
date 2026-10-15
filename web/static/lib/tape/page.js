@@ -46,6 +46,8 @@ import { on as roomsOn } from '../rooms/flag.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick } from '../rig/arm.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
+import { catchState, CATCH_BARS } from './catch.js';
+import { tipFor } from '../help/tips.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -580,13 +582,21 @@ function render() {
   renderClock(live && live.clock, t);
   renderPasses();
   const canCatch = live && live.aligned !== 'none';
-  $('catch-pass').disabled = !phoneOut && (!canCatch || !(live.cycles || []).length);
   for (const b of $('catch-bars').querySelectorAll('button')) b.disabled = !canCatch || !t.grid;
   rb.setAttribute('aria-disabled', String(phoneOut));
   rb.classList.toggle('dim', phoneOut);
-  $('catch-pass').classList.toggle('jam-only', phoneOut);
-  setText($('catch-pass').querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : state.recTrack ? `last pass → ${state.recTracks.length > 1 ? tracksWords(state.recTracks) : `track ${state.recTrack}`}` : 'arm a track');
-  setIf($('catch-pass'), 'aria-label', phoneOut ? 'Catch: needs the jam room' : state.recTrack ? `Catch the last pass onto ${onWords(state.recTracks)}` : 'Catch: arm a track first');
+  // Catch waits for a whole pass of the loop, and says so: it stays pressable
+  // (never `disabled`, which a phone's tap passes over) and a press says why;
+  // its tip does too (lib/tape/catch.js).
+  const cs = state.catchSays = catchState({ live, tape: t, phoneOut });
+  const cb = $('catch-pass');
+  cb.disabled = false;
+  cb.setAttribute('aria-disabled', String(!cs.ready));
+  cb.classList.toggle('waits', !cs.ready);
+  cb.classList.toggle('jam-only', phoneOut);
+  setIf(cb, 'title', cs.ready ? tipFor('catch') : cs.why);
+  setText(cb.querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : !cs.ready ? cs.short : state.recTrack ? `last pass → ${state.recTracks.length > 1 ? tracksWords(state.recTracks) : `track ${state.recTrack}`}` : 'arm a track');
+  setIf(cb, 'aria-label', phoneOut ? 'Catch: needs the jam room' : !cs.ready ? `Catch: ${cs.why}` : state.recTrack ? `Catch the last pass onto ${onWords(state.recTracks)}` : 'Catch: arm a track first');
   renderMode();
   renderDrawers();
   renderClipboard();
@@ -3917,6 +3927,108 @@ function laneTap(lane, e) {
   render();
 }
 
+// The Catch key. Waiting for a pass it says why instead of doing nothing --
+// with the last 4 bars on offer when those don't wait -- and with the rooms
+// on its ▾ opens the menu of what to catch (mountCatchMenu).
+function onCatchKey(e) {
+  const cs = state.catchSays;
+  if (ROOMS && e.target.closest && e.target.closest('.np-catch-more')) {
+    e.stopPropagation(); // the page's click closes menus
+    if ($('catch-menu').hidden) { renderCatchMenu(); showMenu('catch-menu'); } else closeMenus();
+    return;
+  }
+  if (cs && !cs.ready) {
+    toast(cs.why, 'warn', {
+      ms: 7000,
+      actions: cs.bars ? [{ label: 'Last 4 bars', run: () => doCatch({ bars: 4 }) }] : [],
+    });
+    return;
+  }
+  doCatch({ pass: 1 });
+}
+
+// mountCatchMenu gives Catch a ▾ and the menu it opens, with the rooms on:
+// the last pass, or the last 1, 2 or 4 bars -- a track's sheet had them, and
+// nothing on the Studio said so. A part of the key, not a button of its own,
+// so it keeps the dock's three layouts; ↑ on the key opens it from a keyboard.
+function mountCatchMenu() {
+  const key = $('catch-pass');
+  const more = document.createElement('span');
+  more.className = 'np-catch-more';
+  more.setAttribute('aria-hidden', 'true');
+  more.textContent = '▾';
+  key.append(more);
+  key.setAttribute('aria-haspopup', 'menu');
+  key.setAttribute('aria-expanded', 'false');
+  const menu = document.createElement('div');
+  menu.id = 'catch-menu';
+  menu.className = 'menu catch-menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', 'What to catch');
+  menu.hidden = true;
+  document.body.append(menu);
+  MENUS.push(['catch-menu', 'catch-pass']);
+  key.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    e.stopPropagation();
+    renderCatchMenu();
+    showMenu('catch-menu');
+    menu.querySelector('button')?.focus();
+  });
+  menu.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') { closeMenus(); return; }
+    const items = [...menu.querySelectorAll('button')];
+    const i = items.indexOf(document.activeElement);
+    const k = { ArrowDown: (i + 1) % items.length, ArrowUp: i <= 0 ? items.length - 1 : i - 1, Home: 0, End: items.length - 1 }[e.key];
+    if (k === undefined || !items.length) return;
+    e.preventDefault();
+    items[k].focus();
+  });
+}
+
+// placeCatchMenu opens the menu over its key, at the screen's edge: the dock
+// is at the foot of the page, so it goes up.
+function placeCatchMenu(menu) {
+  const r = $('catch-pass').getBoundingClientRect();
+  Object.assign(menu.style, { left: 'auto', top: 'auto', right: `${Math.max(8, window.innerWidth - r.right)}px`, bottom: `${Math.max(8, window.innerHeight - r.top + 6)}px` });
+}
+
+// renderCatchMenu lists what Catch can take now: each item says what it is
+// and, when it can't go, why -- a tap on one that can't says it again.
+function renderCatchMenu() {
+  const cs = state.catchSays || catchState({ live: state.live, tape: state.tape });
+  const menu = $('catch-menu');
+  const head = document.createElement('div');
+  head.className = 'menu-sub catch-menu-head';
+  head.textContent = state.recTrack ? `Catch onto ${onWords(state.recTracks)}` : 'Catch: no track is armed';
+  const item = (word, ok, why, run) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'menuitem');
+    b.setAttribute('aria-disabled', String(!ok));
+    const w = document.createElement('span');
+    w.className = 'cm-word';
+    w.textContent = word;
+    b.append(w);
+    if (!ok && why) {
+      const sub = document.createElement('span');
+      sub.className = 'menu-sub';
+      sub.textContent = why;
+      b.append(sub);
+    }
+    b.addEventListener('click', () => {
+      if (!ok) { toast(why, 'warn', 6000); return; }
+      closeMenus();
+      run();
+    });
+    return b;
+  };
+  menu.replaceChildren(head,
+    item('The last pass', cs.ready, cs.why, () => doCatch({ pass: 1 })),
+    ...CATCH_BARS.map((n) => item(`The last ${n} bar${n === 1 ? '' : 's'}`, cs.bars, cs.barsWhy, () => doCatch({ bars: n }))));
+}
+
 async function doCatch(what) {
   if (jamOnly() || noArm()) return;
   const body = recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace', ...what });
@@ -4260,6 +4372,7 @@ function showMenu(id) {
   // Placed by CSS from its button, which on a phone is at the screen's left
   // edge: moved back in if it runs off (menu-fit.js).
   const menu = $(id);
+  if (id === 'catch-menu') placeCatchMenu(menu);
   menu.style.translate = '';
   const dx = menuShift(menu.getBoundingClientRect(), document.documentElement.clientWidth);
   if (dx) menu.style.translate = `${dx}px 0`;
@@ -4521,7 +4634,8 @@ function wire() {
   $('loop').addEventListener('click', () => patch({ loop: { on: !state.tape.loop.on } }));
   $('tape-undo').addEventListener('click', () => undoRedo(false));
   $('tape-redo').addEventListener('click', () => undoRedo(true));
-  $('catch-pass').addEventListener('click', () => doCatch({ pass: 1 }));
+  $('catch-pass').addEventListener('click', onCatchKey);
+  if (ROOMS) mountCatchMenu();
   // Pointing at Catch outlines, on the record track's lane, the pass it takes.
   const hoverCatch = (on) => { if (state.catchHover !== on) { state.catchHover = on; drawLanes(); } };
   $('catch-pass').addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hoverCatch(true); });

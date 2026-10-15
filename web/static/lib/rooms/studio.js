@@ -310,8 +310,8 @@ export function mountStudio(doc = document) {
     if (e.defaultPrevented) return;
     const v = e.detail?.verb;
     if (v === 'catch') {
-      const c = $('catch-pass');
-      if (c && !c.disabled) c.click();
+      // Pressed while it waits for a pass, it says why (lib/tape/page.js).
+      $('catch-pass')?.click();
     } else if (v === 'keep' && !el.keep.disabled) {
       keep();
     }

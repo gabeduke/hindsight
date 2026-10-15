@@ -229,7 +229,7 @@ export const TIPS = [
   { control: 'Hit → Grid', ids: ['ce-grid'], tip: 'Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off' },
   { control: 'Track picker', ids: ['ce-ref'], tip: 'Choose the track to line this clip up against' },
   { control: 'Hit → Track', ids: ['ce-track'], tip: 'Move the clip so its hit lands on the nearest hit of the chosen track' },
-  { control: 'Catch', ids: ['catch'], tip: 'Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. The last 1, 2 or 4 bars are in the track\'s inspector. With the two rooms on, C' },
+  { control: 'Catch', ids: ['catch'], tip: 'Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. It lights after one whole pass of the loop: until then a press says why. The last 1, 2 or 4 bars are in the track\'s inspector and, with the two rooms on, under its ▾. With the two rooms on, C' },
   { control: 'Passes', ids: ['passes'], tip: 'Every time round the loop, kept. Tap one to put it on the record track' },
   { control: 'Paste', ids: ['drop'], tip: 'Put the clipboard at the playhead on the selected track, over what\'s there: it replaces it, and the tape\'s length doesn\'t change. Paste again to lay another copy after it. Key: ⌘V or Ctrl-V' },
   { control: 'Insert', ids: ['insert'], tip: 'Put the clipboard at the playhead and push everything after it later: every track, and the sections, move on by its length' },
