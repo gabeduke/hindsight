@@ -115,6 +115,31 @@ export function spin(angle, rate, targetRate, inertia, dt, { drag = 1.8 } = {}) 
   return { angle: (angle + turns * 360) % 360, rate: next };
 }
 
+// Loose tape between the reels is a light spring: tension pulls it taut,
+// and with little to damp it, it goes a touch past taut and back. A third of
+// critical damping and 30 rad/s take a stop's slack up in about a third of a
+// second, with one small bounce -- quick enough to read as the tape, slow
+// enough to be seen.
+export const SLACK_ZETA = 0.35;
+export const SLACK_WN = 30; // rad/s
+
+/**
+ * slack steps the loose tape between the reels over `dt` ms, returning the
+ * new {sag, velocity}: `sag` is how far the tape hangs below taut (in the
+ * caller's units, px for a drawing), `velocity` its rate per second.
+ *
+ * Nothing makes slack here: a stop does. The caller kicks `velocity` as the
+ * reels coast -- the supply reel runs on a little after the take-up reel
+ * stops pulling -- and this takes it up again, the way tension does, with a
+ * small bounce past taut. That bounce is what sells a stop. It is
+ * `ballistic`'s exact step, so it is the same at any frame rate and lands on
+ * taut at dt = Infinity.
+ */
+export function slack(sag, velocity, dt, { zeta = SLACK_ZETA, wn = SLACK_WN } = {}) {
+  const r = ballistic(sag, velocity, 0, dt, { zeta, wn });
+  return { sag: r.value, velocity: r.velocity };
+}
+
 /**
  * Ticker is the one requestAnimationFrame loop. Objects add themselves and
  * are stepped with the ms since the last frame; it parks itself when nothing

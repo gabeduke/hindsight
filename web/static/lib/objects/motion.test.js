@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ballistic, lag, settled, spin, Loop, Ticker, VU_WN, VU_ZETA } from './motion.js';
+import { ballistic, lag, settled, spin, slack, Loop, Ticker, VU_WN, VU_ZETA } from './motion.js';
 
 // A fake clock, so motion is tested as maths rather than as a race with a
 // real requestAnimationFrame.
@@ -341,4 +341,34 @@ test('a Loop that throws is reported and taken off', () => {
   c.advance(16);
   assert.deepEqual(errors, ['paint broke']);
   assert.ok(!loop.running);
+});
+
+/** kicked runs a stop's slack from taut, kicked at `v` per second, at `hz` for `ms`; returns every sag. */
+function kicked(v, hz, ms) {
+  let sag = 0, velocity = v;
+  const dt = 1000 / hz, out = [];
+  for (let i = 0; i < Math.round((ms / 1000) * hz); i++) {
+    ({ sag, velocity } = slack(sag, velocity, dt));
+    out.push(sag);
+  }
+  return { sag, velocity, out };
+}
+
+test('slack: a stop’s loose tape hangs, then is taken up with one small bounce', () => {
+  const { out } = kicked(150, 1000, 600);
+  const peak = Math.max(...out);
+  const dip = Math.min(...out);
+  assert.ok(peak > 2 && peak < 6, `it hangs a few px (${peak.toFixed(2)})`);
+  assert.ok(dip < 0, 'it goes a touch past taut');
+  assert.ok(-dip < peak * 0.4, `the bounce is small (${dip.toFixed(2)} after ${peak.toFixed(2)})`);
+  // Taken up in about a third of a second.
+  const loose = out.findLastIndex((s) => Math.abs(s) > 0.1 * peak);
+  assert.ok(loose < 400, `still loose at ${loose} ms`);
+});
+
+test('slack is the same at 20 Hz and 120 Hz, and lands taut at an infinite step', () => {
+  const a = kicked(150, 20, 300), b = kicked(150, 120, 300);
+  assert.ok(Math.abs(a.sag - b.sag) < 1e-9, `${a.sag} vs ${b.sag}`);
+  assert.deepEqual(slack(4, 50, Infinity), { sag: 0, velocity: 0 });
+  assert.deepEqual(slack(0, 0, 16), { sag: 0, velocity: 0 });
 });
