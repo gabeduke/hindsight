@@ -1,0 +1,13 @@
+{
+  "id": "bento",
+  "name": "1010music Bento",
+  "short": "Bento",
+  "maker": "1010music",
+  "match": { "midi": "Bento" },
+  "placeholder": true,
+  "note": "Audio ports from its manual: until it's read, the rig draws only its MIDI and guesses no port.",
+  "ports": [
+    { "id": "midi-in", "label": "MIDI IN", "kind": "midi", "dir": "in", "about": "MIDI into the Bento: clock, Start and Stop when the tape leads." },
+    { "id": "midi-out", "label": "MIDI OUT", "kind": "midi", "dir": "out", "about": "MIDI from the Bento: its notes, and its clock when it sets the tempo." }
+  ]
+}
