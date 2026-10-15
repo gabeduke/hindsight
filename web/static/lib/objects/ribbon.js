@@ -94,9 +94,11 @@ export class Ribbon {
     this.tape = this.scene.add(new SceneObject('ribbon', 'ribbon'));
     this.renderer = new DomRenderer();
     this.renderer.mount(wrap, this.scene);
-    this.renderer.part('ribbon', { el: this.canvas, draw: (view, state) => this.paint(view, state) });
+    this.renderer.part('ribbon', { el: wrap, twin: () => wrap, draw: (view, state) => this.paint(view, state) });
     this.scene.start();
-    this.ro = new ResizeObserver(() => this.renderer.invalidate('ribbon'));
+    // Drawn inside the observer, not on the next frame: the frame that shows
+    // the new size (a phone turned on its side) has the tape at that size.
+    this.ro = new ResizeObserver(() => this.renderer.drawNow('ribbon'));
     this.ro.observe(wrap);
 
     this.markLayer = add(wrap, 'div', 'rb-layer');

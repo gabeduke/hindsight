@@ -77,7 +77,8 @@ export function reelsDrawer({ left, right, levels }) {
   let bars = [];
   let levelsAt = () => [];
   return {
-    el: np,
+    // The reels themselves, for hit(); a picture, so no twin.
+    els: [left, right],
     /** setLevels makes one bar per colour; fn(frame) gives each one's dBFS. */
     setLevels(colours, fn) {
       levelsAt = fn;

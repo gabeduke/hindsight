@@ -5,9 +5,13 @@
 // cassette, the ribbon's tape) -- which is anything with
 //
 //   draw(view, state, dt)   draw this object; never writes state
-//   el                      (optional) its element, for hit()
-//   twin()                  (optional) its button, for twin()
+//   el, or els              (optional) its element, or elements, for hit()
+//   twin()                  (optional) its interactive element, for twin()
 //   destroy()               (optional) take it down
+//
+// A DOM object is its own markup, so it is its own twin: twin() is the
+// element that takes its input (the cassette's window, the ribbon), and
+// null for a picture that takes none (a VU face, the reels).
 //
 // A drawer is called only when its object's view or state has changed since
 // it last drew, or when it was invalidated (a resize, a font, the scheme):
@@ -57,6 +61,27 @@ export class DomRenderer {
     this.scene?.wake();
   }
 
+  /**
+   * drawNow draws `id` at once, with the view it has, rather than on the
+   * next frame: for a resize, from inside the ResizeObserver, so the frame
+   * that shows the new size has the new drawing in it. The rule still holds
+   * -- a drawer that writes state here throws.
+   */
+  drawNow(id) {
+    const drawer = this.parts.get(id);
+    const obj = this.scene?.get(id);
+    if (!drawer || !obj) return;
+    this.dirty.delete(id);
+    this.drawn.set(id, { view: obj.view, state: obj.state });
+    const was = this.scene.drawing;
+    this.scene.drawing = true;
+    try {
+      drawer.draw(obj.view, obj.state, 0);
+    } finally {
+      this.scene.drawing = was;
+    }
+  }
+
   frame(dt) {
     if (!this.scene) return;
     for (const [id, drawer] of this.parts) {
@@ -70,17 +95,19 @@ export class DomRenderer {
     }
   }
 
-  /** hit is the object whose element is under viewport point (x, y): the last drawn on top. */
+  /** hit is the object with an element under viewport point (x, y): the last drawn on top. */
   hit(x, y) {
     let found = null;
     for (const [id, drawer] of this.parts) {
-      const r = drawer.el?.getBoundingClientRect?.();
-      if (r && x >= r.left && x < r.right && y >= r.top && y < r.bottom) found = id;
+      for (const el of drawer.els ?? (drawer.el ? [drawer.el] : [])) {
+        const r = el?.getBoundingClientRect?.();
+        if (r && x >= r.left && x < r.right && y >= r.top && y < r.bottom) { found = id; break; }
+      }
     }
     return found;
   }
 
-  /** twin is the object's own control; null where the object's markup is the control. */
+  /** twin is the element that takes the object's input; null for a picture that takes none. */
   twin(id) { return this.parts.get(id)?.twin?.() ?? null; }
 
   destroy() {
