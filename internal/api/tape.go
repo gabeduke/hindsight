@@ -262,6 +262,11 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			FadeInShape  *string `json:"fade_in_shape"`
 			FadeOutShape *string `json:"fade_out_shape"`
 		} `json:"clip"`
+		// Style is the tape's mods: a formula and any of wow, flutter,
+		// drive and age, 0 to 1. One PATCH is one step of undo; a page sends
+		// it when the finger lifts, having previewed the drag over the play
+		// socket.
+		Style *tape.StyleChange `json:"style"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
@@ -281,10 +286,12 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		kind = "clip-gain:" + b.Clip.ID
 	case b.Clip != nil && b.Clip.NudgeMS != nil && !b.Clip.Remove:
 		kind = "clip-nudge:" + b.Clip.ID
-	case b.Loop != nil && b.Track == nil && b.Clip == nil && b.Tempo == nil && b.Bars == nil:
+	case b.Loop != nil && b.Track == nil && b.Clip == nil && b.Tempo == nil && b.Bars == nil && b.Style == nil:
 		// A loop moved and moved again (a range drawn, then its edges
 		// dragged) is one step.
 		kind = "loop"
+	case b.Style != nil && b.Loop == nil && b.Track == nil && b.Clip == nil && b.Tempo == nil && b.Bars == nil:
+		kind = b.Style.Kind()
 	}
 	// The inputs there are, read before the tape is locked to change it.
 	var inputs []tape.SourceState
@@ -324,7 +331,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	}
-	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil
+	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil || b.Style != nil
 	if undoable {
 		sr := a.tape.Store().SampleRate()
 		err := a.tape.Edit(id, kind, func(t *tape.Tape, s *tape.State) error {
@@ -391,6 +398,11 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 				}
 				if tr.Solo != nil {
 					t.Solo = *tr.Solo
+				}
+			}
+			if b.Style != nil {
+				if err := b.Style.ApplyTo(s); err != nil {
+					return err
 				}
 			}
 			if c := b.Clip; c != nil {

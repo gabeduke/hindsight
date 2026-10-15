@@ -1002,3 +1002,42 @@ func TestInsertAndDeleteTimeOverTheAPI(t *testing.T) {
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"duplicate-section","section":"nope"}`), http.StatusBadRequest, "duplicate no section")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"insert","crate":"nope"}`), http.StatusNotFound, "insert no kept clip")
 }
+
+// The tape's mods: a PATCH of its style is one step of undo, saved with it,
+// and refused when out of range.
+func TestATapesModsSaveWithItAndUndo(t *testing.T) {
+	r, _ := newTapeAPI(t)
+	id := makeLoadedTape(t, r)
+	type styled struct {
+		Tape struct {
+			Style *tape.Style `json:"style"`
+		} `json:"tape"`
+		Undo int `json:"undo"`
+	}
+	read := func(w *httptest.ResponseRecorder) styled {
+		t.Helper()
+		var s styled
+		if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	w := send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"style":{"formula":"worn"}}`)
+	want(t, w, http.StatusOK, "a formula")
+	if s := read(w); s.Undo != 1 || s.Tape.Style == nil || *s.Tape.Style != (tape.Style{Formula: "worn", Wow: .5, Flutter: .4, Drive: .4, Age: .6}) {
+		t.Fatalf("after worn: %+v", s)
+	}
+	w = send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"style":{"age":0.1}}`)
+	want(t, w, http.StatusOK, "a knob")
+	if s := read(w); s.Undo != 2 || s.Tape.Style.Formula != "custom" || s.Tape.Style.Age != 0.1 || s.Tape.Style.Wow != .5 {
+		t.Fatalf("after a knob: %+v", s)
+	}
+	for _, bad := range []string{`{"style":{"drive":2}}`, `{"style":{"formula":"vhs"}}`, `{"style":{"wow":-1}}`} {
+		want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, bad), http.StatusBadRequest, bad)
+	}
+	w = send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, "")
+	want(t, w, http.StatusOK, "undo")
+	if s := read(w); s.Tape.Style == nil || s.Tape.Style.Formula != "worn" {
+		t.Fatalf("after undo: %+v", s.Tape.Style)
+	}
+}
