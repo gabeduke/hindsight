@@ -45,6 +45,7 @@ import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick } from '../rig/arm.js';
 import { recordsTape } from '../rig/warn.js';
+import { menuShift } from './menu-fit.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -4256,6 +4257,12 @@ function showMenu(id) {
     $(m).hidden = m !== id;
     $(b).setAttribute('aria-expanded', String(m === id));
   }
+  // Placed by CSS from its button, which on a phone is at the screen's left
+  // edge: moved back in if it runs off (menu-fit.js).
+  const menu = $(id);
+  menu.style.translate = '';
+  const dx = menuShift(menu.getBoundingClientRect(), document.documentElement.clientWidth);
+  if (dx) menu.style.translate = `${dx}px 0`;
 }
 const menusOpen = () => MENUS.some(([m]) => !$(m).hidden) || !!inputMenu;
 
