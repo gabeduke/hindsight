@@ -37,6 +37,12 @@ func (f *fakeSaver) SaveRange(from, to uint64, _ ...audio.SaveOption) (audio.Sav
 // (bus A), a saver, and a short tail.
 func mixdownEngine(t *testing.T) (*Engine, *loopSink, *Tape, *fakeSaver, string) {
 	t.Helper()
+	return mixdownEngineOf(t, func(int) float64 { return 0.25 })
+}
+
+// mixdownEngineOf is mixdownEngine with the loop reading val.
+func mixdownEngineOf(t *testing.T, val func(int) float64) (*Engine, *loopSink, *Tape, *fakeSaver, string) {
+	t.Helper()
 	s := newTestStore(t)
 	sink := &loopSink{ring: audio.NewRing(48000*30, 8)}
 	saver := &fakeSaver{ring: sink.ring}
@@ -51,7 +57,7 @@ func mixdownEngine(t *testing.T) (*Engine, *loopSink, *Tape, *fakeSaver, string)
 	}
 	testEngine = e
 	t.Cleanup(func() { e.Stop(); testEngine = nil })
-	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
+	take := takeWAV(t, 200000, val)
 	if _, err := e.CopyTake(take, "jam_take.wav", 0, 96000, []int{0, 1}); err != nil {
 		t.Fatal(err)
 	}

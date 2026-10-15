@@ -365,6 +365,24 @@ func TestDriveStaysWithinFullScaleAndAddsOddHarmonics(t *testing.T) {
 	}
 }
 
+func TestDriveKeepsTheTapesLevel(t *testing.T) {
+	// Quiet or loud, a driven tape is as loud as it was, from its first
+	// block: the level match starts where it settles.
+	for _, amp := range []float64{0.02, 0.2, 0.9} {
+		r := toneRig(t, sine(220, amp))
+		r.playFrom(0)
+		r.run(4)
+		_ = r.e.Set("mod.drive", 1)
+		out := r.run(40)
+		dry := amp / math.Sqrt2
+		for b := 0; b < 40; b++ {
+			if l := db(rms(out, b*BlockFrames, (b+1)*BlockFrames) / dry); l > 1.5 || (b >= 20 && l < -1.5) {
+				t.Fatalf("amplitude %v: block %d is %.1f dB from the tape's level", amp, b, l)
+			}
+		}
+	}
+}
+
 func TestAgeTakesTheTopEndOff(t *testing.T) {
 	level := func(hz float64) float64 {
 		r := toneRig(t, sine(hz, 0.5))
@@ -604,7 +622,8 @@ func TestAMixdownsPassPrintsTheModsAndNotTheFX(t *testing.T) {
 }
 
 func TestAMixdownRefusesFXAndPrintsTheMods(t *testing.T) {
-	e, sink, tp, saver, _ := mixdownEngine(t)
+	// A kilohertz at 0.25, -6 dB on its track: 0.125 in the take.
+	e, sink, tp, saver, _ := mixdownEngineOf(t, sine(1000, 0.25))
 	if err := e.SetStyle(tp.ID, StyleChange{Drive: ptr(1.0)}); err != nil {
 		t.Fatal(err)
 	}
@@ -625,12 +644,20 @@ func TestAMixdownRefusesFXAndPrintsTheMods(t *testing.T) {
 	if got.State != "done" {
 		t.Fatalf("mixdown = %+v", got)
 	}
-	// 0.25 at the track's −6 dB is 0.125; driven fully, tanh(1.25)/tanh(10).
-	want := math.Tanh(10*0.125) / math.Tanh(10)
-	for _, i := range []int{20000, 48000, 90000} {
-		if l := float64(saver.main[i]) / 2147483647; math.Abs(l-want) > 1e-3 {
-			t.Fatalf("frame %d of the take is %.4f, want the drive printed, %.4f, and no echo", i, l, want)
-		}
+	take := make([]float32, len(saver.main)*OutChannels)
+	for i, v := range saver.main {
+		take[i*OutChannels] = float32(float64(v) / 2147483647)
+	}
+	// The drive is printed: a third harmonic, at the level that went in.
+	// An echo printed too would cancel the kilohertz: its repeat lands
+	// 187.5 periods on, upside down.
+	from := 24000
+	h1, h3 := bin(take, from, from+48000, 1000), bin(take, from, from+48000, 3000)
+	if h3/h1 < 0.01 {
+		t.Fatalf("harmonics %.4f, %.4f: the drive isn't in the take", h1, h3)
+	}
+	if l := db(rms(take, from, from+48000) / (0.125 / math.Sqrt2)); math.Abs(l) > 1.5 {
+		t.Fatalf("the take is %.1f dB from the tape's level", l)
 	}
 }
 

@@ -19,6 +19,10 @@ import "math"
 // 10 ms (smooth), and an FX comes in and goes out over the renderer's 5 ms
 // seam (gate), dry crossfading to wet.
 //
+// DRIVE is level-matched: the room hears its saturation, not a louder tape.
+// The spec's curve alone, tanh(g·x)/tanh(g), keeps full scale at full scale
+// but lifts a quiet tape by up to 20 dB (measured on the demo: 27 dB).
+//
 // Only the render goroutine touches it, through perf.
 
 const (
@@ -47,9 +51,56 @@ const (
 	ageClosedHz = 4000.0
 	ageFadeIn   = 0.1
 
-	// DRIVE: tanh(g·x)/tanh(g), g from 1 to 10, mixed in by its amount.
-	driveMaxGain = 10.0
+	// DRIVE: tanh(g·x)/tanh(g), g from 1 to 10, mixed in by its amount, and
+	// brought back to the level that went in, each bus measured over about
+	// 100 ms: saturation the room hears as colour, not as a louder tape. On
+	// its own the curve lifts anything quieter than full scale, by up to 20
+	// dB.
+	driveMaxGain      = 10.0
+	driveMatchSeconds = 0.1
+	driveSilentPower  = 1e-20
 )
+
+// driveTable is DRIVE's level match: for a drive (by row) and the level of a
+// sine going in (by column, -80 to 0 dBFS, 2 dB apart), the gain that brings
+// the curve's output back to that level. Built once, so the render does a
+// lookup, not an integral.
+const (
+	driveRows   = 17
+	driveCols   = 41
+	driveFloor  = -80.0
+	driveColsDB = 2.0
+)
+
+var driveTable = func() (t [driveRows][driveCols]float64) {
+	for i := range t {
+		g := 1 + (driveMaxGain-1)*float64(i)/(driveRows-1)
+		tg := math.Tanh(g)
+		for j := range t[i] {
+			a := math.Pow(10, (driveFloor+driveColsDB*float64(j))/20)
+			var p float64
+			for q := 0; q < 64; q++ {
+				y := math.Tanh(g*a*math.Sin(2*math.Pi*(float64(q)+0.5)/64)) / tg
+				p += y * y
+			}
+			t[i][j] = math.Min(1, a/math.Sqrt2/math.Sqrt(p/64))
+		}
+	}
+	return t
+}()
+
+// driveMatch is the level match's gain at drive v for a signal of power p.
+func driveMatch(v, p float64) float64 {
+	db := driveFloor
+	if p > driveSilentPower {
+		db = math.Max(driveFloor, math.Min(0, 10*math.Log10(2*p))) // a sine's peak
+	}
+	x, y := v*(driveRows-1), (db-driveFloor)/driveColsDB
+	i, j := min(int(x), driveRows-2), min(int(y), driveCols-2)
+	fx, fy := x-float64(i), y-float64(j)
+	t := &driveTable
+	return (t[i][j]*(1-fy)+t[i][j+1]*fy)*(1-fx) + (t[i+1][j]*(1-fy)+t[i+1][j+1]*fy)*fx
+}
 
 // gate crossfades a stage from dry (0) to wet (1) and back, a step a frame.
 type gate struct {
@@ -82,6 +133,11 @@ type fxBus struct {
 	drive, age smooth
 	driveV     float64 // the drive the gain below is for
 	driveTanh  float64
+	driveLive  bool
+	// Each bus's power going in, and coming out of the curve, over about
+	// 100 ms: what DRIVE's level match compares.
+	drivePin   [2]float64 // each bus's power going in, over about 100 ms
+	driveN     int        // frames measured since it came in, to 100 ms
 	ageLive    bool
 	ageY       [OutChannels]float32
 	ageV       float64 // the age the coefficients below are for
@@ -143,7 +199,9 @@ func (b *fxBus) process(d []float32, n int, o uint64, m *Mix, amount *[numPads]f
 	sr := m.rate()
 	a := smoothCoef(sr)
 	if !b.drive.idle() {
-		b.runDrive(d, n, a)
+		b.runDrive(d, n, a, sr)
+	} else {
+		b.driveLive = false
 	}
 	if !b.age.idle() {
 		b.runAge(d, n, a, sr)
@@ -173,7 +231,7 @@ func (b *fxBus) skip(n int, o uint64, m *Mix) {
 	a := smoothCoef(m.rate())
 	b.drive.skip(n, a)
 	b.age.skip(n, a)
-	b.ageLive = false
+	b.ageLive, b.driveLive = false, false
 	b.skipFX(n, o, m)
 }
 
@@ -191,26 +249,41 @@ func (b *fxBus) skipFX(n int, o uint64, m *Mix) {
 	}
 }
 
-// runDrive is DRIVE: soft saturation, level-matched so full scale stays
-// full scale, mixed in by its amount so that 0 is the tape untouched and a
-// knob moving off 0 doesn't jump. Never outside ±1.
-func (b *fxBus) runDrive(d []float32, n int, a float64) {
+// runDrive is DRIVE: soft saturation, mixed in by its amount so that 0 is
+// the tape untouched and a knob moving off 0 doesn't jump, and level-matched
+// so the tape comes out as loud as it went in. Never outside ±1.
+func (b *fxBus) runDrive(d []float32, n int, a, sr float64) {
+	am := 1 - math.Exp(-1/(driveMatchSeconds*sr))
+	if !b.driveLive {
+		b.driveLive, b.driveN, b.drivePin = true, 0, [2]float64{}
+	}
 	for k := 0; k < n; k++ {
 		v := b.drive.step(a)
-		if v == 0 {
-			continue
-		}
-		g := 1 + (driveMaxGain-1)*v
-		if v != b.driveV {
-			b.driveV, b.driveTanh = v, math.Tanh(g)
+		// The level so far: a plain mean at first, so it's right from the
+		// first frames, then a 100 ms glide. Frame by frame, so it comes out
+		// the same however advance splits a block.
+		w := am
+		if b.driveN++; float64(b.driveN)*am < 1 {
+			w = 1 / float64(b.driveN)
 		}
 		i := k * OutChannels
-		for c := 0; c < OutChannels; c++ {
-			if d[i+c] == 0 {
+		for bus := 0; bus < 2; bus++ {
+			c := i + 2*bus
+			xl := math.Max(-1, math.Min(1, float64(d[c])))
+			xr := math.Max(-1, math.Min(1, float64(d[c+1])))
+			b.drivePin[bus] += w * ((xl*xl+xr*xr)/2 - b.drivePin[bus])
+			if v == 0 || (xl == 0 && xr == 0) {
 				continue // a bus with nothing on it stays silent, and costs no tanh
 			}
-			x := math.Max(-1, math.Min(1, float64(d[i+c])))
-			d[i+c] = float32((1-v)*x + v*math.Tanh(g*x)/b.driveTanh)
+			g := 1 + (driveMaxGain-1)*v
+			if v != b.driveV {
+				b.driveV, b.driveTanh = v, math.Tanh(g)
+			}
+			// The curve only ever lifts (|tanh(g·x)/tanh(g)| ≥ |x| on ±1), so
+			// the match only ever brings it down: never past ±1.
+			m := v * driveMatch(v, b.drivePin[bus]) / b.driveTanh
+			d[c] = float32((1-v)*xl + m*math.Tanh(g*xl))
+			d[c+1] = float32((1-v)*xr + m*math.Tanh(g*xr))
 		}
 	}
 }
