@@ -3,34 +3,40 @@ name: Release
 on:
   push:
     branches: [main]
-    # Merging a design spec shouldn't put a version on three people's Pis and
-    # a "what's new" that says nothing. Nothing listed here can reach the
-    # release: the tarball carries bin/, web/static, deploy/, README.md,
-    # CHANGELOG.md and LICENSE, and the binary embeds exactly one document --
-    # docs/guide.md, via docs/embed.go -- so the rest of docs/ and all of
-    # design/ are repo-only.
+    # A release is for a change to what a kit runs, and only that. A spec, a
+    # doc, a note for agents, a dev script or the Makefile puts no version on
+    # anyone's Pi and no empty "what's new" in their Update button; it rides
+    # along with the next code release, whose notes list it.
     #
-    # This skips the run only when *every* changed file matches, so a PR that
-    # touches a spec and the code it describes still releases. Releasing is
-    # the safe default: anything not listed here keeps its release, including
-    # docs/guide.md and any file added later.
+    # So this is an allow-list of what ships:
+    #   - the binary: cmd/, internal/, go.mod, go.sum, and docs/guide.md, the
+    #     one document it embeds (via docs/embed.go);
+    #   - the UI, web/;
+    #   - what install.sh and the updater put on a Pi, deploy/ -- but not the
+    #     hub's cluster manifests in deploy/hub, which Argo reads from main
+    #     directly. The hub's Dockerfile does build an image, so it releases.
+    # README.md, CHANGELOG.md and LICENSE are in the tarball too, but a
+    # README-only edit is not worth a version: the next release carries it.
     #
-    # `!` re-inclusion is documented for `paths` and not for `paths-ignore`,
-    # and the two can't be combined for one event, so this stays a plain list
-    # rather than `docs/**` with docs/guide.md carved back out.
+    # Later patterns win, which is how deploy/hub/** is carved out and its
+    # Dockerfile carved back in. A workflow edit can't change the artifact, so
+    # it doesn't release either; the trade is that it isn't exercised until
+    # the next real one.
     #
-    # A change to a workflow can't change the artifact either; the trade is
-    # that an edit to this file isn't exercised until the next real release.
-    #
-    # AGENTS.md and CLAUDE.md are notes for whoever is changing the code, and
-    # neither goes in the tarball. README.md does, so it still releases.
-    paths-ignore:
-      - 'docs/superpowers/**'
-      - 'docs/images/**'
-      - 'design/**'
-      - '.github/**'
-      - 'AGENTS.md'
-      - 'CLAUDE.md'
+    # The failure mode is the quiet one -- a shipped file that stops
+    # releasing -- so scripts/test-release-scripts.sh reads this list and
+    # checks every path the "Assemble the archive" step packs against it.
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'docs/guide.md'
+      - 'docs/embed.go'
+      - 'web/**'
+      - 'deploy/**'
+      - '!deploy/hub/**'
+      - 'deploy/hub/Dockerfile'
 
 permissions:
   contents: write
