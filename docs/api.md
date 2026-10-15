@@ -532,6 +532,9 @@ dropped. The save writes them and nothing changes them; they aren't flags, so
 the flags endpoints neither list nor edit them, and they don't count against
 the 512. A cut keeps the ones inside it. Absent when there were none.
 
+`record` is present only on a take marked as a record in the Listening Room
+(`PATCH /api/take`, below): `{"cut": "<RFC 3339>", "side": "A", "cover": 3}`.
+
 `origin` is `"phone"` on a phone recording and `"tape"` on a tape mixdown, and
 absent on a take saved from the ring. A mixdown also has `tape_id`, the id of
 the tape it was mixed from, so the shelf can fold one tape's mixdowns together;
@@ -600,12 +603,13 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 | `flags` | `[{id?, frame, label}]` or `null` | A full replacement of the take's flags. An `id` that isn't one the server could have made is dropped, and the flag gets a legacy one. Capped at 512; `frame` must be `>= 0` and less than the take's frame count; `null` clears. `label` is sanitized like the take label (control characters stripped, trimmed, 120 runes). Kept for scripts: the UI uses the per-flag endpoints below, because a full replacement from a page that has been open a while silently undoes a flag another device added |
 | `downbeat_frame` | integer or `null` | Where bar 1 falls, for the waveform page's grid. `>= 0` and less than the take's frame count; `null` clears |
 | `lane_kinds` | `{"<track name>": "drums"\|"notes"}` or `null` | A full replacement of the take's per-lane overrides for `GET /api/midi`'s drum guess. At most 64 entries; keys sanitized like labels; `null` clears |
+| `record` | `{cut?, side?, cover?}` or `null` | Marks the take as a record, for the Listening Room's Records shelf. `side` is `"A"` (the default) or `"B"`; `cover` is the sleeve's colour, a stripe slot `1`–`8` as a tag's `color` is, or `0` (the default) for a plain sleeve; `cut` is an RFC 3339 time, and the Pi's clock when absent. `null` takes the mark off. Not undoable |
 
 The response is the merged result, with the take's `undo` state; `undo.op`
 is the id of the change this request recorded, for a toast's *Undo*:
 
 ```json
-{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {},
+{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {}, "record": null,
   "undo": { "count": 2, "next": "tempo", "op": "r1f0c9a3e" } }
 ```
 

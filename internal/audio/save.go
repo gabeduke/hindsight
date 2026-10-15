@@ -757,6 +757,7 @@ type Take struct {
 	Origin        string            `json:"origin,omitempty"`
 	TapeID        string            `json:"tape_id,omitempty"`
 	LaneKinds     map[string]string `json:"lane_kinds,omitempty"`
+	Record        *Record           `json:"record,omitempty"`
 }
 
 // ListTakes returns starred takes first, then the rest newest first. Duration
@@ -844,6 +845,7 @@ func takeFromFile(dir, name string, info os.FileInfo) Take {
 	t.Origin = m.Origin
 	t.TapeID = m.TapeID
 	t.LaneKinds = m.LaneKinds
+	t.Record = m.Record
 	return t
 }
 
