@@ -9,6 +9,16 @@
 // at a Raspberry Pi, and "it was smooth on my laptop" is how motion bugs get
 // shipped to three people's kits.
 
+/**
+ * report hands an error to the browser as if it had been thrown and not
+ * caught -- the console, a page's error handlers, a test's pageerror --
+ * without unwinding the frame that caught it.
+ */
+export function report(e) {
+  if (typeof reportError === 'function') reportError(e);
+  else console.error(e);
+}
+
 /** The longest step `spin` accumulates angle over, in ms. A tab in the
  *  background comes back with one enormous dt, and only the reels care:
  *  settling toward a target is the right answer at any dt, but winding on
@@ -120,22 +130,31 @@ export class Ticker {
    * infinite dt and each object lands on its target in one frame. Checked
    * here rather than in each object, so there is one place to get it right
    * and no object can quietly forget.
+   *
+   * onError: where a step that throws is reported (by default as an
+   * uncaught error would be). Once per failure: a step that throws every
+   * frame is heard once, not sixty times a second, and heard again only if
+   * it recovers and breaks anew.
    */
-  constructor({ raf, cancel, now, reduced } = {}) {
+  constructor({ raf, cancel, now, reduced, onError = report } = {}) {
     this.raf = raf || ((fn) => requestAnimationFrame(fn));
     this.cancel = cancel || ((h) => cancelAnimationFrame(h));
     this.now = now || (() => performance.now());
     this.reduced = reduced !== undefined
       ? reduced
       : typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.onError = onError;
     this.steps = new Set();
+    this.failing = new WeakSet(); // steps whose last call threw, already reported
     this.handle = 0;
     this.last = 0;
+    this.ticking = false; // inside a frame, stepping
+    this.woken = false;   // something asked for the next frame from inside this one
   }
 
   /**
-   * add registers a step function, called with (dtMs) and returning whether
-   * it still wants frames. Returns a function that removes it again.
+   * add registers a step function, called with (dtMs, nowMs) and returning
+   * whether it still wants frames. Returns a function that removes it again.
    */
   add(step) {
     this.steps.add(step);
@@ -146,27 +165,54 @@ export class Ticker {
     };
   }
 
+  /**
+   * start wakes a parked ticker. From inside a step it only asks for the
+   * next frame: a step that sets another object's state wakes the ticker
+   * mid-frame, and scheduling a frame then as well as at the end of this one
+   * would run two loops, stepping everything twice a frame.
+   */
   start() {
+    if (this.ticking) { this.woken = true; return; }
     if (this.handle || !this.steps.size) return;
     this.last = this.now();
-    const tick = () => {
-      this.handle = 0;
-      const t = this.now();
-      const dt = this.reduced ? Infinity : Math.max(0, t - this.last);
-      this.last = t;
-      let wants = false;
+    this.handle = this.raf(this.tick ||= () => this.frame());
+  }
+
+  frame() {
+    this.handle = 0;
+    const t = this.now();
+    const dt = this.reduced ? Infinity : Math.max(0, t - this.last);
+    this.last = t;
+    let wants = false;
+    this.ticking = true;
+    this.woken = false;
+    try {
       for (const step of [...this.steps]) {
-        // One object throwing must not take the other fourteen down with it.
-        try { if (step(dt) !== false) wants = true; } catch { /* keep the loop */ }
+        // Taken off by a step earlier in this frame: it has gone.
+        if (!this.steps.has(step)) continue;
+        // One object throwing must not take the other fourteen down with
+        // it, nor go unheard.
+        try {
+          if (step(dt, t) !== false) wants = true;
+          this.failing.delete(step);
+        } catch (e) {
+          if (!this.failing.has(step)) {
+            this.failing.add(step);
+            try { this.onError(e); } catch { /* the reporter can't stop the frame */ }
+          }
+        }
       }
-      if (wants) this.handle = this.raf(tick);
-    };
-    this.handle = this.raf(tick);
+    } finally {
+      this.ticking = false;
+    }
+    if ((wants || this.woken) && this.steps.size) this.handle = this.raf(this.tick);
+    this.woken = false;
   }
 
   stop() {
     if (this.handle) this.cancel(this.handle);
     this.handle = 0;
+    this.woken = false;
   }
 
   /** running is whether a frame is currently scheduled. For tests and the bench. */
@@ -175,3 +221,39 @@ export class Ticker {
 
 /** The ticker the pages share. The bench makes its own, to run at ⅒ speed. */
 export const ticker = new Ticker();
+
+/**
+ * Loop is one object's frame loop on a ticker -- a player's playhead, a
+ * clock's position -- for things that only move while something plays.
+ * start() steps `fn(dt, now)` every frame until it returns false (or throws),
+ * then takes it off the ticker, so a paused player costs nothing even while
+ * the meters keep the ticker going. start() while running does nothing.
+ */
+export class Loop {
+  constructor(fn, clock = ticker) {
+    this.fn = fn;
+    this.clock = clock;
+    this.off = null;
+    this.step = (dt, now) => {
+      const mine = this.off; // the start() this frame is running under
+      let more = false;
+      try {
+        more = this.fn(dt, now) !== false;
+      } finally {
+        // Stop only that start: fn may have stopped and started it again.
+        if (!more && this.off === mine) this.stop();
+      }
+      return more;
+    };
+  }
+
+  start() { if (!this.off) this.off = this.clock.add(this.step); }
+
+  stop() {
+    const off = this.off;
+    this.off = null;
+    off?.();
+  }
+
+  get running() { return this.off !== null; }
+}

@@ -10,13 +10,23 @@
 // Nothing here is shipped UI. It imports the real objects at their real
 // paths; if the bench and a page disagree, the page is right and the bench
 // has a bug.
+//
+// It runs on a scene (lib/scene), the way R2 onward will draw everything:
+// each object that moves -- a needle, a pair of reels, a cassette -- is a
+// scene object whose state the bench sets, stepped by its model on the
+// bench's ticker and drawn by the DOM renderer with the object's own
+// drawer. The reference states are landed at once with one hand-step at
+// dt = Infinity, as reduced motion would land them.
 
-import { VUMeters, vuScale, vuAngle, VU_SWING } from './vu.js';
+import { vuFace, vuScale, vuAngle, VU_SWING } from './vu.js';
 import { CassetteFace } from './cassette.js';
 import { ribbonColors, drawRibbon } from './ribbon-draw.js';
 import { token } from '../theme.js';
-import { ReelWindow, levelFrac } from './reel-window.js';
-import { ballistic, spin, settled, Ticker } from './motion.js';
+import { reelsDrawer, levelFrac } from './reel-window.js';
+import { Ticker } from './motion.js';
+import { Scene } from '../scene/scene.js';
+import { SceneObject } from '../scene/object.js';
+import { DomRenderer } from '../scene/dom.js';
 import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
 import { drawGrease } from './grease.js';
 import { drawPennant, drawPennantName } from './pennant.js';
@@ -115,7 +125,7 @@ function reelPair(parent) {
   return { left, right, levels };
 }
 
-export function mount(root, { raf, cancel, now } = {}) {
+export function mount(root, { raf, cancel, now, reduced } = {}) {
   // The bench drives its own clock so the speed control can slow everything
   // at once. Real time still passes; the objects are handed less of it.
   let scale = 1;
@@ -127,10 +137,20 @@ export function mount(root, { raf, cancel, now } = {}) {
     wall = t;
     return virtual;
   };
-  // reduced: false deliberately. The bench's whole job is to show motion, and
-  // the speed control is the accessible way to look at it. The shipped pages
-  // honour prefers-reduced-motion through the shared ticker.
+  // Two clocks at the bench's speed. The Motion section's ignores reduced
+  // motion deliberately: it is the comparison of two movements, and the
+  // speed control is the accessible way to look at it. Everything else is
+  // on one that honours the device, as the pages are -- so with reduced
+  // motion the reels jump rather than turn, as they always did here.
   const ticker = new Ticker({ raf, cancel, now: clock, reduced: false });
+  const device = new Ticker({ raf, cancel, now: clock, reduced });
+  const motion = new Scene({ ticker });
+  const motionRenderer = new DomRenderer();
+  motionRenderer.mount(root, motion);
+  const scene = new Scene({ ticker: device });
+  const renderer = new DomRenderer();
+  renderer.mount(root, scene);
+  const bench = { scene, renderer, ticker, clock };
 
   // The bench's own controls, in one row: left out of a still.
   const tools = el('div', 'bench-tools');
@@ -138,10 +158,19 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildSpeed(tools, (s) => { clock(); scale = s; });
   buildSize(tools, root);
   buildStill(tools, root);
-  buildMotion(root, ticker);
-  buildVu(root);
-  buildReels(root, ticker, clock);
-  buildCassettes(root);
+  buildMotion(root, { scene: motion, renderer: motionRenderer, ticker });
+  buildVu(root, bench);
+  buildReels(root, bench);
+  buildCassettes(root, bench);
+  // Land every reference state now, and draw it, before the first frame;
+  // then the scenes run on the bench's clocks. The bench's own steps (the
+  // motion section's level, the running reel's polls) are on the motion
+  // clock, added first, so each frame the models see what the bench set in
+  // it.
+  motion.step(Infinity, clock());
+  scene.step(Infinity, clock());
+  motion.start();
+  scene.start();
   buildRibbon(root);
   buildLcd(root);
   buildGrease(root);
@@ -270,7 +299,7 @@ function buildStill(tools, root) {
  * rotating. The ballistic one overshoots a percent and settles, which is what
  * a moving-coil movement does and why it reads as a needle.
  */
-function buildMotion(root, ticker) {
+function buildMotion(root, { scene, renderer, ticker }) {
   const grid = section(root, 'Motion',
     'The same step, driven two ways: the 140 ms CSS transition the meters used to have, and the ballistic movement they have now. Slow it to ⅒× to watch the overshoot.');
 
@@ -278,38 +307,44 @@ function buildMotion(root, ticker) {
   cssNeedle.style.transition = 'transform 140ms cubic-bezier(.25, .8, .35, 1)';
   const ballNeedle = needleFace(cell(grid, 'ballistic: 300 ms to 99 %, 1 % overshoot — shipped'));
 
-  let value = -VU_SWING, velocity = 0, target = -VU_SWING;
-  cssNeedle.style.transform = `rotate(${value}deg)`;
-  ballNeedle.style.transform = `rotate(${value}deg)`;
+  cssNeedle.style.transform = `rotate(${-VU_SWING}deg)`;
+  ballNeedle.style.transform = `rotate(${-VU_SWING}deg)`;
+
+  // The shipped needle is a vu object, moved by the vu model; the CSS one is
+  // the bench's own markup, as it was.
+  const needle = scene.add(new SceneObject('motion:needle', 'vu'));
+  renderer.part(needle.id, {
+    draw: (view) => { ballNeedle.style.transform = `rotate(${view.angle.toFixed(2)}deg)`; },
+  });
 
   // A step every two seconds, between the ends of the scale, forever: the
-  // bench is for watching, so it doesn't need a play button.
-  let next = 0;
+  // bench is for watching, so it doesn't need a play button. The bench is
+  // the page here: it sets the level, and the model swings the needle.
+  let next = 0, high = false;
   ticker.add((dt) => {
     next -= dt;
     if (next <= 0) {
       next = 2000;
-      target = target > 0 ? vuAngle(-30) : vuAngle(-6);
-      cssNeedle.style.transform = `rotate(${target.toFixed(1)}deg)`;
+      high = !high;
+      const level = high ? -6 : -30;
+      cssNeedle.style.transform = `rotate(${vuAngle(level).toFixed(1)}deg)`;
+      needle.set({ level });
     }
-    ({ value, velocity } = ballistic(value, velocity, target, dt));
-    ballNeedle.style.transform = `rotate(${value.toFixed(2)}deg)`;
     return true; // it is a loop; it always wants the next frame
   });
 }
 
 /** Every VU state, still, so a change to the face can be read off one screen. */
-function buildVu(root) {
+function buildVu(root, { scene, renderer }) {
   const grid = section(root, 'VU meter',
     'Levels in dBFS, 0 VU at −18. The peak lamp is held for 700 ms after a clip, shown here as its lit state.');
 
   // Chosen to land on the marks actually printed on the face, so a change to
   // the scale shows up as a needle that no longer points at its number.
   // 0 VU is the −18 dBFS line-up, so VU = dBFS + 18.
-  // These cells are reference states, not an animation, so they are stepped
-  // once with an infinite dt and land on their mark immediately. The live
-  // needles are in the Motion section above.
-  const immediate = { add: (step) => { step(Infinity); return () => {}; }, start: () => {} };
+  // These cells are reference states, not an animation: mount() lands them
+  // with one step at an infinite dt. The live needle is in the Motion
+  // section above.
   const states = [
     ['silence (−∞)', -Infinity, false],
     ['−38 → −20 VU', -38, false],
@@ -319,39 +354,34 @@ function buildVu(root) {
     ['−15 → +3 VU, peak lit', -15, true],
   ];
   for (const [name, db, peak] of states) {
-    const meters = new VUMeters(cell(grid, name), { labels: ['L'], ticker: immediate });
-    meters.update([db], [peak ? 0 : -60], [peak]);
-    meters.step(Infinity); // update() set the target; land on it now
+    const meter = scene.add(new SceneObject(`vu:${name}`, 'vu', { level: db, peak }));
+    renderer.part(meter.id, vuFace(cell(grid, name), 'L'));
   }
 }
 
 /** The reels at rest across the tape, plus one running. */
-function buildReels(root, ticker, clock) {
+function buildReels(root, { scene, renderer, ticker, clock }) {
   const grid = section(root, 'Reels',
     'Pack radii across the length of a tape — area is conserved, so the packs fill and empty as real ones do.');
 
   const SR = 48000, LEN = 360 * SR;
   const stills = [['start', 0], ['quarter', 0.25], ['half', 0.5], ['three quarters', 0.75], ['end', 1]];
   for (const [name, frac] of stills) {
-    const { left, right, levels } = reelPair(cell(grid, name));
-    const rw = new ReelWindow({ left, right, levels });
-    rw.poll({ heard: frac * LEN, playing: false, length: LEN, sampleRate: SR });
-    rw.stop();
-    rw.draw(clock());
+    const reels = scene.add(new SceneObject(`reels:${name}`, 'reels', { pos: frac * LEN, playing: false, length: LEN, sampleRate: SR, at: clock() }));
+    renderer.part(reels.id, reelsDrawer(reelPair(cell(grid, name))));
   }
 
-  // One running, driven by the bench clock so the speed control reaches it.
-  const { left, right, levels } = reelPair(cell(grid, 'playing'));
-  const rw = new ReelWindow({ left, right, levels });
-  rw.poll({ heard: 0, playing: true, length: LEN, sampleRate: SR });
-  rw.stop();
+  // One running, polled on the bench clock so the speed control reaches it
+  // -- the motion clock, so a poll comes every 200 ms even when the device
+  // asks for less motion and the reels' own clock hands out dt = Infinity.
+  const reels = scene.add(new SceneObject('reels:playing', 'reels', { pos: 0, playing: true, length: LEN, sampleRate: SR, at: clock() }));
+  renderer.part(reels.id, reelsDrawer(reelPair(cell(grid, 'playing'))));
   let at = 0;
   ticker.add((dt) => {
     at += dt;
     // Re-poll as the page would, so it exercises the same path and never
     // runs away past AHEAD_S.
-    if (at > 200) { at = 0; rw.motion.poll(rw.motion.pos + 0.2 * SR, true, clock()); }
-    rw.draw(clock());
+    if (at > 200) { at = 0; reels.set({ pos: reels.view.pos + 0.2 * SR, at: clock() }); }
     return true;
   });
 }
@@ -364,7 +394,7 @@ function buildReels(root, ticker, clock) {
  * and the packs, all on one screen and none of it needing a take, a server
  * or a playback path.
  */
-function buildCassettes(root) {
+function buildCassettes(root, { scene, renderer }) {
   const grid = section(root, 'Cassette',
     'Drawn with no audio, so each is a still. The stripe comes from the name, the stamp from the date in it, and the packs from how far through it is.');
 
@@ -401,14 +431,16 @@ function buildCassettes(root) {
   ];
 
   for (const [label, name, frac] of states) {
-    const face = new CassetteFace({
+    const id = `cassette:${name}`;
+    scene.add(new SceneObject(id, 'cassette', { played: frac }));
+    new CassetteFace({
       container: cell(grid, label),
       peaks: peaks(),
       duration: 212,
       audio: null,                 // a picture, not a player
       take: { name, duration: 212, stars: 0, tag: null },
+      scene, renderer, id,
     });
-    face.setFraction(frac);
   }
 }
 

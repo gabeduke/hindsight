@@ -19,7 +19,8 @@ node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' \
   'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' \
   'web/static/lib/tape/*.test.js' 'web/static/lib/edit/*.test.js' \
   'web/static/lib/bar/*.test.js' 'web/static/lib/objects/*.test.js' \
-  'web/static/lib/play/*.test.js' 'web/static/lib/rooms/*.test.js' 'web/static/lib/rig/*.test.js'
+  'web/static/lib/play/*.test.js' 'web/static/lib/scene/*.test.js' \
+  'web/static/lib/rooms/*.test.js' 'web/static/lib/rig/*.test.js'
 ./scripts/test-release-scripts.sh
 gofmt -l . && go vet ./... && go test -race ./...
 ```

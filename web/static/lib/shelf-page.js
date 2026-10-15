@@ -15,6 +15,7 @@ import { pageBar } from '/lib/bar/bar.js';
 import { watchLink, timedFetch } from '/lib/link.js';
 import { spanOf, firstOf, nextOf, doneAt } from '/lib/playall.js';
 import { holdScreen } from '/lib/wakelock.js';
+import { Loop } from '/lib/objects/motion.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -303,7 +304,7 @@ function stopPlayAll({ pause = false } = {}) {
   const r = playAll;
   if (!r) return;
   playAll = null;
-  cancelAnimationFrame(r.raf);
+  r.watch?.stop();
   r.off?.abort();
   r.lock?.release();
   if (pause && r.audio && !r.audio.paused) r.audio.pause();
@@ -315,7 +316,7 @@ function stopPlayAll({ pause = false } = {}) {
 function moveOn(r) {
   r.moving = true;
   r.off?.abort();
-  cancelAnimationFrame(r.raf);
+  r.watch?.stop();
   if (r.audio && !r.audio.paused) r.audio.pause();
   const next = nextOf(shownNames(), r.name);
   if (next) playAllFrom(next); else stopPlayAll();
@@ -379,11 +380,11 @@ async function playAllFrom(name) {
     for (const ev of ['timeupdate', 'pause', 'ended', 'error']) a.addEventListener(ev, check, sig);
     // A seek is a jump, not playing across Out: count from where it lands.
     a.addEventListener('seeked', () => { r.prev = a.currentTime; }, sig);
-    const tick = () => {
-      check();
-      if (playAll === r && !r.moving) r.raf = requestAnimationFrame(tick);
-    };
-    r.raf = requestAnimationFrame(tick);
+    // And every frame, on the shared ticker: timeupdate comes a few times a
+    // second, which is late for an Out.
+    r.watch?.stop();
+    r.watch = new Loop(() => { check(); return playAll === r && !r.moving; });
+    r.watch.start();
   } catch (e) {
     // Nothing may leave Play all on, holding the polls off, with nothing playing.
     if (playAll === r) {

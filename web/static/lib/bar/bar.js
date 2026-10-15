@@ -7,6 +7,7 @@
 // The page decides what the bar holds; ⏏ asks it for the tape back.
 
 import { ReelWindow } from '../objects/reel-window.js';
+import { Loop } from '../objects/motion.js';
 import { tapeSource } from './tape-source.js';
 import { takeSource } from './take-source.js';
 import { initPlayer } from './player.js';
@@ -20,8 +21,16 @@ export class NowPlaying {
   constructor({ onEject } = {}) {
     this.root = $('np');
     this.src = null;
-    this.raf = 0;
     this.marqueeKey = null;
+    // Drawn every frame while the source plays, on the shared ticker; off it
+    // the moment it stops.
+    this.loop = new Loop(() => {
+      const s = this.src;
+      if (!s) return false;
+      s.tick();
+      this.render();
+      return s.playing() && !document.hidden;
+    });
     this.reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
     this.scrub = $('np-scrub');
     initPlayer();
@@ -114,18 +123,10 @@ export class NowPlaying {
     this.kick();
   }
 
-  // kick draws now, and every frame while the source plays.
+  // kick draws on the next frame, and every frame while the source plays.
   kick() {
-    if (this.raf || document.hidden) return;
-    const frame = () => {
-      this.raf = 0;
-      const s = this.src;
-      if (!s) return;
-      s.tick();
-      this.render();
-      if (s.playing() && !document.hidden) this.raf = requestAnimationFrame(frame);
-    };
-    this.raf = requestAnimationFrame(frame);
+    if (document.hidden) return;
+    this.loop.start();
   }
 
   render() {

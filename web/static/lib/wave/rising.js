@@ -5,6 +5,7 @@
 // what reviewing your own take is for. Geometry up top is pure and tested
 // under `node --test`; the RisingNotes class at the bottom owns the canvas.
 import { alphaFor, laneColors } from './lanes.js';
+import { Loop } from '../objects/motion.js';
 
 export const PX_PER_BEAT = 44;
 export const KEY_H = 88;
@@ -240,7 +241,13 @@ export class RisingNotes {
     this.storageKey = storageKey;
     try { this.muted = new Set(JSON.parse(localStorage.getItem(storageKey) || '[]')); } catch { this.muted = new Set(); }
     this.running = false;
-    this.raf = 0;
+    this.raf = 0; // a single frame asked for by draw()
+    // While running, a frame painted every tick of the shared ticker.
+    this.frames = new Loop(() => {
+      if (!this.running) return false;
+      this.paint();
+      return true;
+    });
     this.layoutKey = '';
     this.layout = null;
     this.cursors = new Map();
@@ -307,16 +314,13 @@ export class RisingNotes {
     if (this.running) return;
     this.running = true;
     cancelAnimationFrame(this.raf);
-    const step = () => {
-      if (!this.running) return;
-      this.paint();
-      this.raf = requestAnimationFrame(step);
-    };
-    this.raf = requestAnimationFrame(step);
+    this.raf = 0;
+    this.frames.start();
   }
 
   stop() {
     this.running = false;
+    this.frames.stop();
     cancelAnimationFrame(this.raf);
     this.raf = 0;
   }

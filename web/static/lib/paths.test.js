@@ -101,25 +101,40 @@ test('CI runs the tests in every directory that has any', () => {
     'these directories have tests that CI never runs; add them to the node --test globs in ci.yml');
 });
 
-test('everything the Studio loads is in the offline shell', () => {
-  // The Studio can be the installed app's first page (lib/rooms), so the
-  // modules it loads -- through mount.js, and the import() of studio.js --
-  // are precached, as Capture's are. lib/settings.js was missed once.
+test('every module a cached page imports is cached with it', () => {
+  // The offline shell is only whole if everything its pages import is in
+  // SHELL: a module left out loads from the cache's page and then fails to
+  // fetch offline, which is a blank page on a phone with no signal. A new
+  // directory of modules under lib/ (lib/scene) is the easy way to miss one.
+  // The walk follows import() too: the Studio can be the installed app's
+  // first page (lib/rooms), and mount.js loads studio.js that way, only with
+  // its flag on. lib/settings.js was missed once.
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
-  const shell = new Set([.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  const shell = new Set([.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^'?]+)(?:\?[^']*)?'/g)].map((m) => m[1]));
   const seen = new Set();
-  const walkFrom = (abs) => {
-    if (seen.has(abs)) return;
-    seen.add(abs);
-    const src = readFileSync(join(ROOT, abs.slice(1)), 'utf8');
-    const re = /^\s*(?:import|export)\b[^;]*?\bfrom\s+['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/gm;
-    for (const m of src.matchAll(re)) {
-      const spec = m[1] ?? m[2] ?? m[3];
-      const target = spec.startsWith('/') ? spec : '/' + relative(ROOT, normalize(join(ROOT, dirname(abs.slice(1)), spec))).split(sep).join('/');
-      walkFrom(target);
+  const missing = [];
+  const visit = (file, from) => {
+    const rel = '/' + relative(ROOT, file).split(sep).join('/');
+    if (seen.has(rel)) return;
+    seen.add(rel);
+    if (!shell.has(rel)) missing.push(`${rel} (imported by ${from})`);
+    const src = readFileSync(file, 'utf8');
+    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const spec = m[1] ?? m[2];
+      if (spec.startsWith('/')) visit(join(ROOT, spec.slice(1)), rel);
+      else if (spec.startsWith('.')) visit(normalize(join(dirname(file), spec)), rel);
     }
   };
-  walkFrom('/lib/rooms/mount.js');
-  assert.ok(seen.has('/lib/rooms/studio.js') && seen.size > 15, `walked only ${seen.size} modules`);
-  assert.deepEqual([...seen].filter((p) => !shell.has(p)).sort(), []);
+  for (const page of [...shell].filter((p) => p.endsWith('.html'))) {
+    const html = readFileSync(join(ROOT, page.slice(1)), 'utf8');
+    for (const m of html.matchAll(/<script[^>]+src=["'](\/[^"']+\.js)["']/g)) visit(join(ROOT, m[1].slice(1)), page);
+    for (const m of html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)) {
+      for (const i of m[1].matchAll(/(?:from|import)\s+['"](\/[^'"]+)['"]|import\(\s*['"](\/[^'"]+)['"]\s*\)/g)) {
+        visit(join(ROOT, (i[1] ?? i[2]).slice(1)), page);
+      }
+    }
+  }
+  assert.ok(seen.size > 60, `only ${seen.size} modules reached; the walk is probably wrong`);
+  assert.ok(seen.has('/lib/rooms/studio.js'), "the walk should reach the Studio through mount.js's import()");
+  assert.deepEqual(missing, []);
 });

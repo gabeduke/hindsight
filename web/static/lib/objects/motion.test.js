@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ballistic, lag, settled, spin, Ticker, VU_WN, VU_ZETA } from './motion.js';
+import { ballistic, lag, settled, spin, Loop, Ticker, VU_WN, VU_ZETA } from './motion.js';
 
 // A fake clock, so motion is tested as maths rather than as a race with a
 // real requestAnimationFrame.
@@ -162,7 +162,7 @@ test('the ticker steps everything once per frame with the elapsed time', () => {
 
 test('one object throwing does not stop the others', () => {
   const c = fakeClock();
-  const ticker = new Ticker({ ...c, reduced: false });
+  const ticker = new Ticker({ ...c, reduced: false, onError: () => {} });
   let ran = 0;
   ticker.add(() => { throw new Error('bad object'); });
   ticker.add(() => { ran++; return true; });
@@ -205,4 +205,140 @@ test('the chosen natural frequency is the one that puts 99% at 300ms', () => {
   assert.equal(t99(VU_WN), 300);
   assert.ok(t99(VU_WN * 1.2) < 300, 'a faster movement reaches 99% sooner');
   assert.ok(t99(VU_WN * 0.8) > 300, 'a slower one takes longer');
+});
+
+test('waking the ticker from inside a step does not start a second loop', () => {
+  // A step that sets another object's state wakes the ticker mid-frame (the
+  // bar's frame polls the reels, whose scene wakes the ticker). Two loops
+  // would step everything twice a frame, and only ever on someone's phone.
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  let calls = 0;
+  ticker.add(() => { calls++; ticker.start(); return true; });
+  c.advance(16);
+  assert.equal(c.pending(), 1, 'one frame scheduled, not two');
+  c.advance(16);
+  assert.equal(calls, 2, 'stepped once a frame');
+});
+
+test('a step added from inside a step runs from the next frame, on the same loop', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  let late = 0;
+  let once = true;
+  ticker.add(() => {
+    if (once) { once = false; ticker.add(() => { late++; return false; }); }
+    return false;
+  });
+  c.advance(16);
+  assert.equal(c.pending(), 1, 'the new step asks for a frame, once');
+  c.advance(16);
+  assert.equal(late, 1);
+  assert.ok(!ticker.running, 'and nothing wants another, so it parks');
+});
+
+test('each step is told the time as well as the elapsed time', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  const seen = [];
+  ticker.add((dt, now) => { seen.push([dt, now]); return seen.length < 2; });
+  c.advance(16);
+  c.advance(20);
+  assert.deepEqual(seen, [[16, 16], [20, 36]]);
+});
+
+test('a Loop leaves the ticker when it stops wanting frames', () => {
+  // A parked player must cost nothing while the meters keep the ticker going.
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  ticker.add(() => true); // something else, always moving
+  let frames = 0, playing = true;
+  const loop = new Loop(() => { frames++; return playing; }, ticker);
+  loop.start();
+  loop.start(); // twice is once
+  c.advance(16);
+  c.advance(16);
+  assert.equal(frames, 2);
+  playing = false;
+  c.advance(16);
+  assert.ok(!loop.running);
+  c.advance(16);
+  c.advance(16);
+  assert.equal(frames, 3, 'not stepped once it said it was done');
+  playing = true;
+  loop.start();
+  c.advance(16);
+  assert.equal(frames, 4, 'and started again on demand');
+});
+
+test('a Loop that throws is taken off, and can be started again', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false, onError: () => {} });
+  let n = 0;
+  const loop = new Loop(() => { n++; if (n === 1) throw new Error('bad frame'); return true; }, ticker);
+  loop.start();
+  c.advance(16);
+  assert.ok(!loop.running, 'a throw ends it, as a rAF loop that threw would end');
+  loop.start();
+  c.advance(16);
+  assert.equal(n, 2);
+  loop.stop();
+  assert.ok(!ticker.running);
+});
+
+test('a step taken off by an earlier step in the same frame is not run', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  let calls = 0, offB = null;
+  ticker.add(() => { offB?.(); return true; });
+  offB = ticker.add(() => { calls++; return true; });
+  c.advance(16);
+  assert.equal(calls, 0, 'removed before its turn, so not stepped');
+});
+
+test('a Loop that restarts itself from inside its step keeps running', () => {
+  const c = fakeClock();
+  const ticker = new Ticker({ ...c, reduced: false });
+  let n = 0;
+  const loop = new Loop(() => {
+    n++;
+    if (n === 1) { loop.stop(); loop.start(); return false; }
+    return true;
+  }, ticker);
+  loop.start();
+  c.advance(16);
+  assert.ok(loop.running, 'the new start is not undone by the old step saying false');
+  c.advance(16);
+  assert.equal(n, 2);
+});
+
+test('a step that throws is reported once, and the rest keep going', () => {
+  // A loop that broke used to surface as an uncaught error; on the shared
+  // ticker it must still be heard, once, not sixty times a second.
+  const c = fakeClock();
+  const errors = [];
+  const ticker = new Ticker({ ...c, reduced: false, onError: (e) => errors.push(e.message) });
+  let ok = 0, fail = true;
+  ticker.add(() => { if (fail) throw new Error('broken'); return true; });
+  ticker.add(() => { ok++; return true; });
+  for (let i = 0; i < 10; i++) c.advance(16);
+  assert.deepEqual(errors, ['broken']);
+  assert.equal(ok, 10);
+  fail = false;
+  c.advance(16);
+  fail = true;
+  c.advance(16);
+  assert.deepEqual(errors, ['broken', 'broken'], 'a fresh failure after it recovered is reported again');
+});
+
+test('a Loop that throws is reported and taken off', () => {
+  const c = fakeClock();
+  const errors = [];
+  const ticker = new Ticker({ ...c, reduced: false, onError: (e) => errors.push(e.message) });
+  const loop = new Loop(() => { throw new Error('paint broke'); }, ticker);
+  loop.start();
+  c.advance(16);
+  c.advance(16);
+  assert.deepEqual(errors, ['paint broke']);
+  assert.ok(!loop.running);
 });
