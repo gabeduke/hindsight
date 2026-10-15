@@ -375,11 +375,15 @@ type controlBus struct {
 	verbs   verbs // nil: the Pi's own (piVerbs)
 	// learnWait is how long learn waits; 0 is ten seconds. Tests shorten it.
 	learnWait time.Duration
-	// verbQ runs a controller's commands one after another, off the
-	// reader's goroutine: GRAB then DROP must happen in that order, and a
-	// GRAB waits about a bar for the bar after it.
+	// The verbs run off the reader's goroutine, on two queues. GRAB and
+	// DROP take turns on the slow one: DROP must find what GRAB put there,
+	// and a GRAB waits about a bar for the bar after it. CATCH, KEEP and the
+	// transport go on the quick one, so none of them waits behind that bar:
+	// KEEP would keep a later 30 s, Stop would stop late, CATCH would take a
+	// later pass.
 	verbOnce sync.Once
-	verbQ    chan verbJob
+	slowQ    chan verbJob
+	quickQ   chan verbJob
 }
 
 type verbJob struct{ port, id, rt string }
@@ -708,20 +712,26 @@ func (a *API) startLearn(action, port string, done func(port string, b Binding),
 	}, nil
 }
 
-// queueVerb hands a command to the verbs' own goroutine. A full queue drops
-// it: sixteen commands waiting is a stuck verb, not a player.
+// queueVerb hands a command to its queue's goroutine. A full queue drops it:
+// sixteen commands waiting is a stuck verb, not a player.
 func (a *API) queueVerb(port, id, rt string) {
 	b := &a.controls
 	b.verbOnce.Do(func() {
-		b.verbQ = make(chan verbJob, 16)
-		go func() {
-			for j := range b.verbQ {
-				a.runVerb(j.port, j.id, j.rt)
-			}
-		}()
+		b.slowQ, b.quickQ = make(chan verbJob, 16), make(chan verbJob, 16)
+		for _, q := range []chan verbJob{b.slowQ, b.quickQ} {
+			go func(q chan verbJob) {
+				for j := range q {
+					a.runVerb(j.port, j.id, j.rt)
+				}
+			}(q)
+		}
 	})
+	q := b.quickQ
+	if id == "grab" || id == "drop" {
+		q = b.slowQ
+	}
 	select {
-	case b.verbQ <- verbJob{port, id, rt}:
+	case q <- verbJob{port, id, rt}:
 	default:
 		log.Printf("[!] %s: %s dropped: the verbs before it haven't finished", holder(port), id)
 	}

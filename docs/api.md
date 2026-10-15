@@ -1205,8 +1205,9 @@ the Pi's copy is held to it by a test.
 - **What a controller does.** A held pad is pressed and let go as a page's
   is, quantised to `quantum`: the controller is one more holder,
   `midi:<name>`, and its holds are let go when it's unplugged. A sustain
-  pedal latches what's let go until it lifts. The verbs run on the Pi, one
-  after another: CATCH the last pass onto the armed track, GRAB the last 4
+  pedal latches what's let go until it lifts. The verbs run on the Pi, GRAB
+  and DROP one after the other, CATCH, KEEP and the transport without waiting
+  for a GRAB's bar: CATCH the last pass onto the armed track, GRAB the last 4
   bars into the clipboard (8 s with no tempo; pages open the buffer on their
   next poll), DROP the clipboard on the armed track at the next free span,
   KEEP the last 30 s as a take. Amounts and mods do nothing until P4.

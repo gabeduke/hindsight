@@ -169,7 +169,24 @@ func TestAControllersVerbsRunOnThePi(t *testing.T) {
 		a.ControlMIDI(p, 0x80, n, 0)
 	}
 	a.ControlMIDI(p, 0xFA, 0, 0) // Start
-	v.wait(t, "catch", "grab", "drop", "keep", "transport start")
+	// Two queues (TestKeepAndTheTransportDontWaitForAGrab): each in its order.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		v.mu.Lock()
+		got := slices.Clone(v.ran)
+		v.mu.Unlock()
+		if len(got) == 5 {
+			at := func(s string) int { return slices.Index(got, s) }
+			if at("grab") > at("drop") || at("catch") > at("keep") || at("keep") > at("transport start") || slices.Contains(got, "") {
+				t.Fatalf("ran %q, out of order", got)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("ran %q", got)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 // The SMK-37 starts on its own profile: its pads on channel 10, so its keys
@@ -509,4 +526,34 @@ func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
 	if _, err := (piVerbs{a}).Verb("catch", ""); !errors.Is(err, tape.ErrNeedsJamRoom) {
 		t.Fatalf("a catch while the tape plays on a phone: %v, want %v", err, tape.ErrNeedsJamRoom)
 	}
+}
+
+// slowGrab holds GRAB for as long as the test says: the bar after it.
+type slowGrab struct {
+	fakeVerbs
+	gate chan struct{}
+}
+
+func (v *slowGrab) Verb(id, rt string) (string, error) {
+	if id == "grab" {
+		<-v.gate
+	}
+	return v.fakeVerbs.Verb(id, rt)
+}
+
+// KEEP and the transport don't wait behind a GRAB's bar: KEEP would keep a
+// later 30 s, and Stop would stop late. DROP still waits for the GRAB
+// before it.
+func TestKeepAndTheTransportDontWaitForAGrab(t *testing.T) {
+	_, _, a, _ := controlsAPI(t, t.TempDir())
+	v := &slowGrab{gate: make(chan struct{})}
+	a.controls.verbs = v
+	p := "Keystation 49"
+	a.ControlMIDI(p, 0x90, 51, 100) // GRAB, waiting for its bar
+	a.ControlMIDI(p, 0x90, 52, 100) // DROP: after it
+	a.ControlMIDI(p, 0x90, 53, 100) // KEEP: now
+	a.ControlMIDI(p, 0xFC, 0, 0)    // Stop: now
+	v.wait(t, "keep", "transport stop")
+	close(v.gate)
+	v.wait(t, "keep", "transport stop", "grab", "drop")
 }
