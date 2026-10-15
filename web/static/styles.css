@@ -4312,6 +4312,7 @@ body.buffer-fold .tape-sections-row { display: none; }
   body:has(.play-strip):not(.play-unfolded).buffer-open .icon-btn.buffer-drop { min-height: 48px; padding: 6px 16px; }
   body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-acts-row > .icon-btn { min-height: 36px; }
   body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-window { height: 92px; }
+}
 
 /* ---------- Rooms P5: the Listening Room (lib/room/) ----------
    The doorway (takes.html as the room, body.room-on) and the chair
