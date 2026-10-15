@@ -1984,8 +1984,15 @@ async function main() {
     onRedraw: (fn) => chairHooks.add(fn),
   })?.catch((e) => console.error('The chair could not start:', e));
   // Leaving, the take and where the playhead is go to the next page's bar
-  // (lib/bar/carry.js), so Room -> Open -> back carries the frame left here.
-  pageCarry().wire(window, document, () => ({ take: file, frame: state.cursor, sr, playing: clock.playing }));
+  // (lib/bar/carry.js), so Room -> Open -> back carries what was done here.
+  // Opened and left alone (not played, the playhead where it began), the page
+  // is transparent: the bar's take, as the Room left it, stands.
+  const carryFrom = state.cursor;
+  let carryTouched = false;
+  pageCarry().wire(window, document, () => {
+    carryTouched ||= clock.playing || state.cursor !== carryFrom;
+    return carryTouched ? { take: file, frame: state.cursor, sr, playing: clock.playing } : undefined;
+  });
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
     bar.commit();

@@ -239,6 +239,16 @@ test('it writes on pagehide, and on the page going hidden (iOS does not always p
   assert.ok(storage.getItem(CARRY_KEY), 'pagehide');
 });
 
+test('a page that has not touched its take (state: undefined) leaves the last record as it was', () => {
+  const { carry, clock } = aCarry();
+  const win = aWindow();
+  carry.leave(left({ frame: 12 * SR }));
+  carry.wire(win.target, win.doc, () => undefined);
+  win.target.fire('pagehide');
+  clock.t += 3_000;
+  assert.equal(carry.read().frame, 12 * SR);
+});
+
 test('a page restored from the back-forward cache lets its record go', () => {
   const { carry, storage } = aCarry();
   const win = aWindow();

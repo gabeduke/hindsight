@@ -127,11 +127,14 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
      * pagehide isn't reliable when the app is switched away or swiped off,
      * but visibilitychange is -- and lets the record go when the page is
      * restored from the back-forward cache, alive again. `state` returns the
-     * bar's {take, frame, sr, playing}, or null.
+     * bar's {take, frame, sr, playing}, null for none, or undefined to leave
+     * the record as it is.
      */
     wire(target, doc, state) {
       if (!ok()) return;
-      const write = () => self.leave(state());
+      // undefined: nothing was done here to the take (the take page opened
+      // and left alone); what the page before left stands.
+      const write = () => { const s = state(); if (s !== undefined) self.leave(s); };
       target.addEventListener('pagehide', write);
       doc.addEventListener('visibilitychange', () => { if (doc.visibilityState === 'hidden') write(); });
       target.addEventListener('pageshow', (e) => { if (e && e.persisted) self.drop(); });
