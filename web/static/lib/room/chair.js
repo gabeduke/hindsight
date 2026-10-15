@@ -26,6 +26,8 @@ import { levelsFor, takeGain } from '../wave/draw.js';
 import { drawTrace, paintOxide, oxideColors } from '../wave/tape-strip.js';
 import { ReelWindow } from '../objects/reel-window.js';
 import { tapeSource } from '../bar/tape-source.js';
+import { remember } from './carry.js';
+import { vtName } from './hifi.js';
 
 const TOOLS_KEY = 'hindsight.chair.tools';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -208,7 +210,15 @@ function mountTake(h) {
   for (const k of [toStart, back5, play]) k.classList.add('chair-key');
   f.keys.append(toStart, back5, play, fwd, eject, noteHere);
   fwd.addEventListener('click', () => h.seek(Math.min(h.total - 1, h.state().cursor + 5 * sr)));
-  eject.addEventListener('click', () => { if (h.playing()) h.togglePlay(); location.href = '/takes.html'; });
+  // ⏏: the sound stops, and it goes home -- from where this deck is, once
+  // the shelves are drawn (R2, lib/room/carry.js).
+  const carryKey = `take:${take.name}`;
+  f.windowSlot.style.viewTransitionName = vtName(carryKey);
+  eject.addEventListener('click', () => {
+    if (h.playing()) h.togglePlay();
+    remember(carryKey, f.windowSlot.getBoundingClientRect());
+    location.href = '/takes.html';
+  });
 
   // The take on tape.
   f.ends.lastChild.textContent = fmtAt(h.total, sr);
@@ -450,7 +460,11 @@ async function mountTape(h) {
   const eject = key('chair-eject', 'Eject: back on the shelf', '⏏', 'room-eject');
   const putOn = el('button', 'chair-key chair-note', { type: 'button', hidden: true, 'data-tip': 'room-put' }, 'PUT IT ON');
   f.keys.append(toStart, rew, play, fwd, eject, putOn);
-  eject.addEventListener('click', () => { location.href = '/takes.html'; });
+  f.windowSlot.style.viewTransitionName = vtName(`tape:${id}`);
+  eject.addEventListener('click', () => {
+    remember(`tape:${id}`, f.windowSlot.getBoundingClientRect());
+    location.href = '/takes.html';
+  });
 
   // The sketchbook: the name, and the sections as read-only notes.
   const list = el('ol', 'book-notes book-sections', { 'aria-label': 'Sections' });

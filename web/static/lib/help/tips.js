@@ -28,6 +28,7 @@ export const TIPS = [
   { control: 'The take on tape', ids: ['room-strip'], tip: 'The whole take, its notes in grease pencil. Tap to play from there' },
   { control: '▸▸', ids: ['room-fwd'], tip: 'On five seconds' },
   { control: '⏏ (the chair)', ids: ['room-eject'], tip: 'Out of the deck, and back to the shelves' },
+  { control: '⏏ (the deck)', ids: ['room-deck-eject'], tip: 'Stops it, and puts it back in its place on the shelf' },
   { control: 'NOTE HERE', ids: ['room-note-here'], tip: 'A note at what you hear now, with the cursor in its words' },
   { control: 'Sticker', ids: ['room-sticker'], tip: "The take's one tag, as a sticker" },
   { control: 'TOOLS', ids: ['room-tools'], tip: 'Everything else the take page does: the waveform, In and Out, the tempo, the MIDI lanes, Send to, More' },

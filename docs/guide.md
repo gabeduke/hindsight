@@ -1797,6 +1797,7 @@ has no tip.
 | The take on tape | The whole take, its notes in grease pencil. Tap to play from there |
 | ▸▸ | On five seconds |
 | ⏏ (the chair) | Out of the deck, and back to the shelves |
+| ⏏ (the deck) | Stops it, and puts it back in its place on the shelf |
 | NOTE HERE | A note at what you hear now, with the cursor in its words |
 | Sticker | The take's one tag, as a sticker |
 | TOOLS | Everything else the take page does: the waveform, In and Out, the tempo, the MIDI lanes, Send to, More |

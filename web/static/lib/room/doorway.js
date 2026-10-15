@@ -17,12 +17,18 @@
 // rows.
 
 import { roomShelves, inMonth, monthName, monthKey, isRecord, at, filterWords, playOrder } from './shelves.js';
-import { putTapeOn, loadTape, readyToCut } from './swap.js';
+import { loadTape, playTape, readyToCut } from './swap.js';
 import { cutTakeRecord, cutTapeRecord, takeCover, tapeCover } from './record.js';
 import { sendToStudio, fmtAt } from './notes.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
+import { ticker } from '../objects/motion.js';
+import { Scene } from '../scene/scene.js';
+import { SceneObject } from '../scene/object.js';
+import { DomRenderer } from '../scene/dom.js';
+import { Carry, recall } from './carry.js';
+import { DeckDrawer, FlightDrawer, tapeStrand, vtName, HIFI_MODELS } from './hifi.js';
 
 // audio.MaxRenderSeconds: the Pi renders an MP3 or a DAW bundle of at most
 // this much. A longer take is shared from the chair, a part at a time.
@@ -143,15 +149,23 @@ export function mount(h) {
     filterBar, tapesShelf.sec, takesShelf.sec, archiveShelf.sec, recordsShelf.sec);
 
   // The deck: what's in the bar (a take, or the tape loaded on the Pi).
+  // Over its reels, a window with a smoked door, where a take sits as a
+  // cassette (R2: the scene draws the door, the reels and the tape).
   const deckLcd = el('span', 'room-deck-lcd', { 'aria-hidden': 'true' });
+  const deckReels = [el('span', 'room-deck-reel'), el('span', 'room-deck-reel')];
+  const deckTape = tapeStrand('room-deck-tape');
+  const deckLoad = el('span', 'room-deck-load');
+  const deckDoor = el('span', 'room-deck-door');
+  const deckWindow = el('span', 'room-deck-window', {}, deckLoad, deckDoor);
   const deckArt = el('span', 'room-deck-art', { 'aria-hidden': 'true' },
-    el('span', 'room-deck-reel'), el('span', 'room-deck-reel'), deckLcd, el('span', 'room-deck-keys'));
+    ...deckReels, deckLcd, el('span', 'room-deck-keys'), deckTape, deckWindow);
   const deckPlace = el('button', 'room-place room-deck-place', { type: 'button', 'data-tip': 'room-deck' });
   const deckPlay = el('button', 'room-deck-play', { type: 'button', 'aria-label': 'Play' }, '▶');
+  const deckEject = el('button', 'room-deck-eject', { type: 'button', 'aria-label': 'Eject: back on the shelf', 'data-tip': 'room-deck-eject', hidden: true }, '⏏');
   const deckMeta = el('span', 'room-deck-meta');
   const deckSit = el('a', 'room-deck-sit', { href: '/wave.html', 'data-tip': 'room-sit' }, 'SIT DOWN');
   const deckBar = el('span', 'room-deck-progress', { 'aria-hidden': 'true' }, el('span', 'room-deck-progress-fill'));
-  const deck = el('section', 'room-deck', { 'aria-label': 'The deck' }, deckArt, deckPlace, deckMeta, deckPlay, deckSit, deckBar);
+  const deck = el('section', 'room-deck', { 'aria-label': 'The deck' }, deckArt, deckPlace, deckMeta, deckPlay, deckEject, deckSit, deckBar);
 
   // The turntable: a record in the bar, and the cutting of one.
   const ttArm = el('span', 'room-tt-arm');
@@ -242,9 +256,179 @@ export function mount(h) {
   let cut = null; // a record being cut: {what, frac, words}
   let lastSig = '';
 
+  // --- shelf to deck (R2) ------------------------------------------------------
+  // The deck and anything in flight are scene objects on the shared ticker
+  // (lib/scene): this page writes their state, their models move them, and
+  // the drawers in hifi.js only draw. When the sound starts, and what's in
+  // the deck, are carry.js's, on a clock: never on a frame.
+  const hifi = new Scene({ models: HIFI_MODELS });
+  const renderer = new DomRenderer();
+  renderer.mount(room, hifi);
+  hifi.start();
+  // Added once the tape list is in, so the deck is first drawn as it is
+  // rather than shutting its door on whatever was loaded.
+  const deckObj = new SceneObject('deck', 'deck', { door: 'open', travel: 0, playing: false, loaded: null });
+  let deckReady = false;
+  const deckDrawer = new DeckDrawer({ deck, window: deckWindow, load: deckLoad, door: deckDoor, reels: deckReels, tape: deckTape });
+  let cardPut = null; // the key whose card closed because PUT IT ON was pressed: not put back
+
+  const rectOf = (n) => {
+    const r = n?.getBoundingClientRect?.();
+    return r && r.width > 0 && r.height > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;
+  };
+  const slotOf = (key) => room.querySelector(`.room-shelves [data-key="${CSS.escape(key)}"]`);
+  const windowRect = () => rectOf(deckWindow);
+  // A spine stands on its end and turns to show its face; a face already
+  // out (a phone's shelf) cross-fades instead.
+  const turnOf = (n) => !!n && n.offsetHeight > n.offsetWidth;
+
+  // What a thing shows in the deck, as the deck's state: the same object for
+  // the same picture, so the deck draws it again only when it changes.
+  const faces = new Map();
+  function faceOf(thing) {
+    if (!thing) return null;
+    const take = thing.kind === 'take' ? thing.take : null;
+    const key = take ? `take:${take.name}` : `tape:${thing.tape.id}`;
+    const name = take ? spineTitle(take) : (thing.tape.name || 'untitled');
+    const stripe = take ? stripeFor(take, tagStore.list) : tapeCover(thing.tape.id) % 4 + 1;
+    const sig = `${name}|${stripe}`;
+    let f = faces.get(key);
+    if (!f || f.sig !== sig) faces.set(key, (f = Object.freeze({ kind: thing.kind, key, name, stripe, sig })));
+    return f;
+  }
+  const faceOfKey = (key) => {
+    if (key.startsWith('take:')) { const t = takeByName(key.slice(5)); return t ? faceOf({ kind: 'take', take: t }) : null; }
+    const s = (tapeList?.tapes || []).find((x) => x.id === key.slice(5));
+    return s ? faceOf({ kind: 'tape', tape: s }) : null;
+  };
+  // The tape still on the deck under a take (the Pi's loaded tape), as a face.
+  const tapeUnder = () => {
+    const id = tapeList?.loaded;
+    return id ? faceOf({ kind: 'tape', tape: (tapeList.tapes || []).find((x) => x.id === id) || { id, name: 'the tape' } }) : null;
+  };
+
+  // Reduced motion, and a move with nowhere to fly: a 150 ms cross-fade. A
+  // View Transition where there is one; the Web Animations API where not.
+  let fading = 0; // cross-fades whose change hasn't been made yet: the deck is theirs
+  function fade(update) {
+    fading++;
+    const run = () => { fading--; update(); hifi.step(Infinity); };
+    if (!document.startViewTransition) {
+      run();
+      for (const n of [deckWindow, ...room.querySelectorAll('.room-out')]) n.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: 'ease-out' });
+      return;
+    }
+    const root = document.documentElement;
+    root.classList.add('room-xfade');
+    const vt = document.startViewTransition(run);
+    vt.finished.catch(() => {}).finally(() => root.classList.remove('room-xfade'));
+  }
+
+  const carry = new Carry({
+    scene: hifi,
+    deck: deckObj,
+    fade,
+    // A phone's buzz at SEAT; a laptop has nothing to buzz.
+    vibrate: (ms) => { if (matchMedia('(pointer: coarse)').matches) navigator.vibrate?.(ms); },
+    // A flight is drawn by a ghost over the room: a copy of its spine, and
+    // its face. The shelf's button stays as the gap, and is the control.
+    attach: (c) => {
+      const id = c.obj.id;
+      renderer.part(id, new FlightDrawer({ host: room, source: slotOf(c.key), face: c.face, name: vtName(c.key) }));
+      return () => renderer.unpart(id);
+    },
+    onSettle: () => render(),
+  });
+
+  // The deck follows the bar while nothing is moving: a take that left it
+  // some other way (the dock's ⏏, Play all going on) flies home all the same.
+  function syncDeck(bar) {
+    if (!deckReady || fading) return;
+    if (carry.current && carry.current.goal !== 'out') return; // a move has the deck
+    const face = faceOf(bar.deck);
+    const was = deckObj.state.loaded;
+    if (face === was) return;
+    if (was?.kind === 'take' && !carry.current) {
+      const slot = slotOf(was.key);
+      if (slot && windowRect()) {
+        const c = carry.eject(was.key, { from: rectOf(slot), to: windowRect(), turn: turnOf(slot), face: was, under: face });
+        if (c) c.toWindow = true;
+        return;
+      }
+    }
+    deckObj.set({ loaded: face, door: face ? 'shut' : 'open' });
+  }
+  // What's on the deck sounds when the bar plays it. Heard at once, from ▶'s
+  // own class, so a stop coasts the reels as it happens.
+  function syncPlaying(bar = inBar()) {
+    const playing = !!$('np-play')?.classList.contains('playing') && !!bar.deck && bar.barKind === bar.deck.kind;
+    deckObj.set({ playing });
+  }
+  const npPlay = $('np-play');
+  if (npPlay) new MutationObserver(() => syncPlaying()).observe(npPlay, { attributes: true, attributeFilter: ['class'] });
+  // The door drops the window's height.
+  new ResizeObserver(() => { deckObj.set({ travel: deckWindow.clientHeight }); remeasure(); }).observe(deckWindow);
+
+  // A flight follows its slot and the deck as the page scrolls or a shelf
+  // row is swiped.
+  function remeasure() {
+    const c = carry.current;
+    if (!c) return;
+    const patch = {};
+    const from = rectOf(slotOf(c.key));
+    if (from) patch.from = from;
+    if (c.toWindow) { const to = windowRect(); if (to) patch.to = to; }
+    c.obj.set(patch);
+  }
+  addEventListener('scroll', remeasure, { capture: true, passive: true });
+  addEventListener('resize', remeasure);
+
+  // Off the shelf: PICK and PULL, held while its card is open.
+  function pickUp(key, face) {
+    const slot = slotOf(key);
+    const from = rectOf(slot);
+    if (!from || !face) return;
+    carry.pick(key, { from, turn: turnOf(slot), face });
+  }
+  // On a phone the deck may be scrolled away: bring it into view for the flight.
+  function showDeck() {
+    const r = deckWindow.getBoundingClientRect();
+    const top = document.querySelector('header.appbar')?.getBoundingClientRect().bottom || 0;
+    if (r.height && (r.top < top || r.bottom > innerHeight)) deck.scrollIntoView({ block: 'nearest', behavior: ticker.reduced ? 'auto' : 'smooth' });
+  }
+
+  // The chair's ⏏, a page ago: it flies home from where the chair's deck
+  // was, once its slot is on a shelf.
+  let arrival = recall();
+  const arrivalUntil = Date.now() + 3000;
+  function tryArrive() {
+    if (!arrival || arrival.waiting) return;
+    if (Date.now() > arrivalUntil) { arrival = null; return; }
+    if (!rectOf(slotOf(arrival.key)) || !faceOfKey(arrival.key)) return;
+    // A page that has just opened is busy drawing its rack: fly once it has
+    // a moment, or the first half of the flight is lost to one long frame.
+    arrival.waiting = true;
+    const go = () => {
+      const a = arrival;
+      arrival = null;
+      const slot = slotOf(a.key), face = faceOfKey(a.key);
+      if (!rectOf(slot) || !face) return;
+      carry.arrive(a.key, { from: rectOf(slot), to: a.rect, turn: turnOf(slot), vanish: face.kind === 'tape', face });
+      render();
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 500 }); else setTimeout(go, 150);
+  }
+
   Promise.resolve(h.tapes).then((list) => {
     tapeList = list;
     hadTape = !!(list && list.loaded);
+    const d = inBar().deck;
+    const face = faceOf(d);
+    deckObj.set({ loaded: face, door: face ? 'shut' : 'open', travel: deckWindow.clientHeight });
+    hifi.add(deckObj);
+    renderer.part('deck', deckDrawer);
+    deckReady = true;
+    syncPlaying();
     render();
   });
   async function refreshTapes() {
@@ -279,9 +463,11 @@ export function mount(h) {
     const name = spineTitle(t);
     const fam = familySticker(familyCounts(members));
     const pulled = h.sheetOpen() === t.name;
+    // Off the shelf, in the air or held out (R2): its gap stays open.
+    const out = carry.holds(`take:${t.name}`);
     const words = [name, whenOf(t), fmtLen(t.duration_seconds), t.starred ? 'starred' : '', isNew ? 'new' : '',
       fam ? fam.replace('✂', 'cuts ').replace('MIX ×', 'mixes ') : '', onDeck ? 'on the deck' : ''].filter(Boolean).join(', ');
-    const b = el('button', `room-cassette stripe-${stripeFor(t, tagStore.list)}${isNew ? ' is-new' : ''}${pulled ? ' pulled' : ''}${onDeck ? ' on-deck' : ''}${t.starred ? ' starred' : ''}`, {
+    const b = el('button', `room-cassette stripe-${stripeFor(t, tagStore.list)}${isNew ? ' is-new' : ''}${pulled ? ' pulled' : ''}${onDeck ? ' on-deck' : ''}${out ? ' room-out' : ''}${t.starred ? ' starred' : ''}`, {
       type: 'button', 'data-key': `take:${t.name}`, 'aria-label': words, 'aria-haspopup': 'dialog', 'aria-expanded': String(pulled),
     },
     el('span', 'room-cassette-stripe', { 'aria-hidden': 'true' }),
@@ -294,7 +480,8 @@ export function mount(h) {
   }
   function tapeButton(s) {
     const len = fmtLen(s.seconds);
-    const b = el('button', `room-reel box-${tapeCover(s.id) % 4 + 1}${s.loaded ? ' loaded' : ''}`, {
+    const out = carry.holds(`tape:${s.id}`);
+    const b = el('button', `room-reel box-${tapeCover(s.id) % 4 + 1}${s.loaded ? ' loaded' : ''}${out ? ' room-out' : ''}`, {
       type: 'button', 'data-key': `tape:${s.id}`, 'aria-haspopup': 'dialog',
       'aria-label': `${s.name || 'untitled'}, a tape, ${len}${s.bpm ? `, ${Math.round(s.bpm)} BPM` : ''}${s.loaded ? ', on the Studio’s deck' : ''}`,
     }, el('span', 'room-reel-label', { 'aria-hidden': 'true', text: s.name || 'untitled' }));
@@ -331,10 +518,10 @@ export function mount(h) {
       s.month.spines.map((x) => [x.take.name, x.take.label, x.take.starred, x.take.tag, x.isNew, x.members.length, x.take.duration_seconds]),
       s.archive.map((b) => b.plate), s.records.map((t) => [t.name, t.label, t.record.cover]),
       h.sheetOpen(), onDeck, onTable, tagStore.list.map((g) => `${g.id}:${g.color}`), monthName(now),
-      filterWords(h.opts(), tagStore.list),
+      filterWords(h.opts(), tagStore.list), carry.current?.key,
     ]);
     renderPlaces(bar);
-    if (sig === lastSig) return;
+    if (sig === lastSig) { tryArrive(); return; }
     lastSig = sig;
     const focused = document.activeElement?.closest?.('.room-shelves [data-key]')?.dataset.key;
 
@@ -362,12 +549,16 @@ export function mount(h) {
     recordsShelf.list.replaceChildren(...s.records.map((t) => sleeveButton(t, t.name === onTable)));
     if (focused) room.querySelector(`[data-key="${CSS.escape(focused)}"]`)?.focus();
     if (month) syncMonth();
+    tryArrive();
   }
 
   // The hi-fi and the dock follow the bar, which has no events of its own:
   // a look twice a second, drawing only what changed.
   let placesSig = '';
   function renderPlaces(bar = inBar()) {
+    syncDeck(bar);
+    syncPlaying(bar);
+    deckEject.hidden = bar.deck?.kind !== 'take';
     const playBtn = $('np-play');
     const playing = !!playBtn?.classList.contains('playing');
     const scrub = $('np-scrub');
@@ -470,6 +661,10 @@ export function mount(h) {
   // Pulled out: its sheet, with the card at its head. Its player is fetched
   // now, so PUT IT ON plays inside the press that asked.
   function pickTake(name) {
+    // Off the shelf (R2): it lifts and slides out while its card is open. A
+    // record keeps P5's pull, and one already on the deck is where it is.
+    const t = takeByName(name);
+    if (t && !isRecord(t) && inBar().deck?.take?.name !== name) pickUp(`take:${name}`, faceOf({ kind: 'take', take: t }));
     h.pick(name);
     h.openSheet(name);
     h.takes.player(name).catch(() => {});
@@ -493,7 +688,12 @@ export function mount(h) {
     cutBtn.disabled = !!cut;
     playAll.textContent = h.playAll.running() ? '■ Stop Play all' : '▶ Play all from here';
   });
-  h.onClosed((from) => room.querySelector(`[data-key="take:${CSS.escape(from)}"], [data-key="record:${CSS.escape(from)}"]`)?.focus());
+  h.onClosed((from) => {
+    // Closed without PUT IT ON: back in its slot.
+    const key = `take:${from}`;
+    if (cardPut !== key) carry.putBack(key);
+    room.querySelector(`[data-key="take:${CSS.escape(from)}"], [data-key="record:${CSS.escape(from)}"]`)?.focus();
+  });
   h.onChange(() => { render(); if (cardTake) playAll.textContent = h.playAll.running() ? '■ Stop Play all' : '▶ Play all from here'; });
   tagStore.subscribe(() => render());
 
@@ -514,10 +714,49 @@ export function mount(h) {
     const t = takeByName(name);
     const p = t && await h.takes.player(name);
     if (!p) { toast('Still encoding — a moment', 'warn'); return; }
-    if (h.sheetOpen()) h.closeSheet();
-    crossFade(() => { h.np.loadTake(t, p); render(); });
-    if (p.audio.paused) await p.toggle();
+    const key = `take:${name}`;
+    cardPut = key;
+    try { if (h.sheetOpen()) h.closeSheet(); } finally { cardPut = null; }
+    if (isRecord(t)) {
+      // A record goes on the turntable, as P5 put it there (R7 moves it).
+      crossFade(() => { h.np.loadTake(t, p); render(); });
+      if (p.audio.paused) await p.toggle();
+      return;
+    }
+    // The deck takes one thing: another take on it goes home now, and its
+    // sound stops with it.
+    const was = inBar().deck;
+    if (was?.kind === 'take' && was.take.name !== name) {
+      h.np.backToTape();
+      deckObj.set({ loaded: tapeUnder(), door: 'open' });
+    }
+    showDeck();
+    const slot = slotOf(key);
+    const c = carry.put(key, {
+      from: rectOf(slot), to: windowRect(), turn: turnOf(slot), face: faceOf({ kind: 'take', take: t }),
+      // SEAT, on the clock: the take goes in the bar and plays.
+      onSeat: () => { h.np.loadTake(t, p); if (p.audio.paused) p.toggle(); },
+    });
+    if (c) c.toWindow = true;
+    render();
   }
+
+  // ⏏ on the deck: the sound stops at once, then it goes home.
+  function ejectTake() {
+    const d = inBar().deck;
+    if (d?.kind !== 'take') return;
+    const key = `take:${d.take.name}`;
+    const slot = slotOf(key);
+    const c = carry.eject(key, {
+      from: rectOf(slot), to: windowRect(), turn: turnOf(slot), face: faceOf(d), under: tapeUnder(),
+      onStop: () => h.np.backToTape({ byHand: true }),
+    });
+    if (c) c.toWindow = true;
+    render();
+  }
+  deckEject.addEventListener('click', () => { ejectTake(); deckPlace.focus(); });
+  // The dock's ⏏ has put the tape back by the time this hears it.
+  $('np-eject')?.addEventListener('click', () => renderPlaces());
 
   async function takeToStudio(t) {
     const sr = t.sample_rate || 48000;
@@ -532,6 +771,8 @@ export function mount(h) {
   // --- a tape off the shelf --------------------------------------------------------
   function openTape(s) {
     cardTape = s;
+    pickUp(`tape:${s.id}`, faceOf({ kind: 'tape', tape: s }));
+    render();
     tapeName.textContent = s.name || 'untitled';
     tapeMeta.textContent = [fmtLen(s.seconds), s.bpm ? `${Math.round(s.bpm)} BPM` : '', `${s.clips || 0} clip${s.clips === 1 ? '' : 's'}`, s.loaded ? 'on the Studio’s deck' : ''].filter(Boolean).join(' · ');
     tapeSit.href = `/wave.html?tape=${encodeURIComponent(s.id)}`;
@@ -540,22 +781,46 @@ export function mount(h) {
     tapePut.focus();
   }
   tapeCard.addEventListener('close', () => {
-    if (cardTape) room.querySelector(`[data-key="tape:${CSS.escape(cardTape.id)}"]`)?.focus();
+    if (!cardTape) return;
+    const key = `tape:${cardTape.id}`;
+    if (cardPut === key) cardPut = null; else carry.putBack(key);
+    room.querySelector(`[data-key="${CSS.escape(key)}"]`)?.focus();
   });
   tapePut.addEventListener('click', async () => {
     const s = cardTape;
     if (!s) return;
+    const key = `tape:${s.id}`;
+    cardPut = key;
     tapeCard.close();
     try {
-      const r = await putTapeOn(s.id, { ask: askFirst });
-      if (!r.loaded) return;
-      if (r.already && !r.played) toast(`${s.name} is on the Studio’s deck already, and in use there`, 'warn');
-      await refreshTapes();
-      // The bar follows a tape loaded since, once it has one; a page that
-      // opened with none has no tape in its bar, and opens again with it.
-      if (!hadTape) { location.replace('/takes.html'); return; }
-      crossFade(() => { h.np.backToTape({ byHand: true }); render(); });
+      // Loaded first, asking if the Studio's is busy; the reel box waits,
+      // pulled out. ▶ goes to the Pi at SEAT, as the box goes in.
+      const r = await loadTape(s.id, { ask: askFirst });
+      if (!r.loaded) { carry.putBack(key); return; }
+      showDeck();
+      const slot = slotOf(key);
+      const c = carry.put(key, {
+        from: rectOf(slot), to: windowRect(), turn: turnOf(slot), vanish: true, face: faceOf({ kind: 'tape', tape: s }),
+        onSeat: () => {
+          // On the deck from now, as far as this page is concerned.
+          if (tapeList) tapeList = { ...tapeList, loaded: s.id };
+          playTape(s.id, r).then((played) => {
+            if (r.already && !played) toast(`${s.name} is on the Studio’s deck already, and in use there`, 'warn');
+          }, (e) => toast(`Couldn’t put it on: ${e.message}`, 'bad'));
+          // The bar follows a tape loaded since, once it has one.
+          if (hadTape) h.np.backToTape({ byHand: true });
+        },
+        onLand: async () => {
+          await refreshTapes();
+          // A page that opened with no tape has none in its bar: it opens
+          // again with it.
+          if (!hadTape) location.replace('/takes.html');
+        },
+      });
+      if (c) c.toWindow = true;
+      render();
     } catch (e) {
+      carry.putBack(key);
       toast(`Couldn’t put it on: ${e.message}`, 'bad');
     }
   });
