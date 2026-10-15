@@ -514,7 +514,7 @@
       <div class="seg" id="dur-seg" role="group" aria-label="Keep length" data-tip="capture"></div>
       <!-- Capture's Flag now, and its class. -->
       <button class="mark-btn" id="mark-btn" type="button" data-tip="flag-now">Flag now</button>
-      <button class="icon-btn studio-keep" id="studio-keep" type="button" data-tip="capture"><span class="studio-keep-word" id="studio-keep-word">Keep</span><span class="studio-keep-sub" id="studio-keep-sub"></span></button>
+      <button class="icon-btn studio-keep" id="studio-keep" type="button" data-tip="capture"><span class="studio-keep-line"><span class="studio-keep-word" id="studio-keep-word">Keep</span><span class="studio-keep-len" id="studio-keep-len"></span></span><span class="studio-keep-sub" id="studio-keep-sub"></span></button>
     </div>
     <div class="viz-wrap" id="viz-wrap" data-tip="ribbon"></div>
     <!-- VU needles; on a phone, the bars instead. -->
@@ -524,9 +524,10 @@
     <div class="rb-sel" id="rb-sel" hidden>
       <span class="rb-sel-text"></span>
       <button class="icon-btn rb-sel-clear" type="button" aria-label="Clear the selection" data-tip="ribbon-clear">×</button>
-      <button class="icon-btn rb-sel-copy" type="button" hidden data-tip="ribbon-copy">Copy</button>
-      <button class="icon-btn rb-sel-keep" type="button" hidden data-tip="ribbon-keep">Keep as clip</button>
-      <button class="icon-btn primary rb-sel-save" type="button" data-tip="ribbon-save">Save as take</button>
+      <!-- GRAB (the buffer puts it in, before this) and KEEP: one selection,
+           two verbs. KEEP says its length; Copy and Keep as clip are not
+           offered here (docs/superpowers/specs/2026-10-15-flow-design.md). -->
+      <button class="icon-btn primary rb-sel-save" type="button" data-tip="selection-keep">Keep</button>
     </div>
   </section>
 </template>
@@ -632,7 +633,7 @@
   </div>
 </template>
 <template id="buffer-sel-tpl">
-  <button class="icon-btn buffer-grab-sel" type="button" data-tip="grab-span">Grab</button>
+  <button class="icon-btn buffer-grab-sel" type="button" data-tip="grab-span">GRAB</button>
 </template>
 <template id="buffer-panel-tpl">
   <section class="panel buffer-panel" id="buffer" aria-label="The buffer" data-height="half" hidden>
@@ -657,7 +658,7 @@
       <div class="buffer-acts">
         <button class="icon-btn buffer-drop" id="buffer-drop" type="button" aria-keyshortcuts="Enter" data-tip="buffer-drop"><span class="buffer-drop-word" id="buffer-drop-word">Drop</span><span class="buffer-drop-sub" id="buffer-drop-sub"></span></button>
         <div class="buffer-acts-row">
-          <button class="icon-btn buffer-keep" id="buffer-keep" type="button" aria-keyshortcuts="K" data-tip="buffer-keep">Keep as take<kbd class="buffer-kbd" aria-hidden="true">K</kbd></button>
+          <button class="icon-btn buffer-keep" id="buffer-keep" type="button" aria-keyshortcuts="K" data-tip="buffer-keep"><span id="buffer-keep-word">Keep</span><span class="buffer-keep-len" id="buffer-keep-len"></span><kbd class="buffer-kbd" aria-hidden="true">K</kbd></button>
           <button class="icon-btn buffer-toss" id="buffer-toss" type="button" aria-keyshortcuts="Backspace" data-tip="buffer-toss">Toss<kbd class="buffer-kbd" aria-hidden="true">⌫</kbd></button>
         </div>
       </div>

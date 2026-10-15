@@ -1775,7 +1775,19 @@ can work on it.
 - **GRAB** (or **G**), beside Keep on the feed, copies the last 1, 2, 4 or 8
   bars you played into it -- with no tempo yet, twice as many seconds -- or,
   on the ribbon's selection bar, exactly the span you held. It's a copy, with
-  a bar either side, so the ring can't overwrite it while you work.
+  a bar either side, so the ring can't overwrite it while you work. The
+  picker starts at the tape's loop in bars (a 3-bar loop starts it at 2, a
+  16-bar one at 8), so a grab fits the loop it's for; pick another and it
+  stays until the loop changes.
+- A selection on the ribbon has two verbs: **GRAB** (into the buffer) and
+  **KEEP** (a take, on the shelf). Every KEEP says what it keeps: *KEEP 2m*
+  on the feed's key, *KEEP 41s* on a selection, *KEEP 4 BARS* on the
+  buffer's, and *KEEP 30s* on the instrument's pad.
+- On a take, **GRAB** is the same key: the selection, or the last N bars
+  before the playhead (at the take's tempo; twice N seconds without one),
+  with N starting at the loop's length. It stands where the take page's
+  *Send to → Tape* and *Clipboard* were, and *TO THE STUDIO* in the
+  Listening Room.
 - The buffer opens, and the lanes fold to strips to make room (**Unfold**
   gives them their height back). Pick the inputs it holds -- two make two
   lanes, dropped on neighbouring tracks -- and drag **IN** and **OUT**, or
@@ -1786,7 +1798,7 @@ can work on it.
   grip onto any lane. With several tracks armed it takes the first, and the
   key says so. One undo puts it back in the buffer; **↵** again drops
   another copy further on.
-- **KEEP AS TAKE** (**K**) saves it on the Listening Room's shelf, at the
+- **KEEP** (**K**) saves it on the Listening Room's shelf, at the
   tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
 - Nothing grabbed is lost by grabbing again: a buffer you never dropped or
   kept goes into the crate first.
@@ -1967,7 +1979,7 @@ has no tip.
 | Sketchbook (place) | The notes on what's on the deck. Press it to sit down and write |
 | SIT DOWN | Into the chair with what's on the deck: the deck close up, and the sketchbook |
 | PUT IT ON | Plays it: a take here, on this device; a tape on the Pi, loaded first |
-| TO THE STUDIO | Into the Studio's buffer, and the Studio opens: a take's selection, or all of it |
+| GRAB (a take) | Into the Studio's buffer, and the Studio opens: a take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
 | Cut a record | Makes it a record, on the Records shelf: a take, or its selection; a tape, mixed down |
 | Stand up | Out of the chair, back to the shelves |
 | The take on tape | The whole take, its notes in grease pencil. Tap to play from there |
@@ -1976,7 +1988,7 @@ has no tip.
 | NOTE HERE | A note at what you hear now, with the cursor in its words |
 | Sticker | The take's one tag, as a sticker |
 | TOOLS | Everything else the take page does: the waveform, In and Out, the tempo, the MIDI lanes, Send to, More |
-| to the studio (a note) | This note, to the next note or eight bars, into the Studio's buffer |
+| GRAB (a note) | This note, to the next note or eight bars, into the Studio's buffer |
 | ☰ List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
 | Show everything | Turns off the filter that's narrowing the shelves |
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
@@ -2071,6 +2083,7 @@ has no tip.
 | Send to | Send the selection, or the whole take without one, to the tape, the clipboard or the crate |
 | Send to → Tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop. The line under it says which |
 | Send to → Clipboard | Put the take, or the selection, on the clipboard, to Drop or Insert on a tape |
+| Send to → Grab | With the two rooms on, Tape and Clipboard are Grab: the selection, else the last bars before the playhead, into the Studio's buffer, and the Studio opens |
 | Send to → Crate | Keep the selection, or the whole take, as a clip on the crate: its own copy, so the takes list doesn't grow |
 | ◫ (take) | How many clips you've kept from this take: tap to see them on the tape page's crate |
 | Split here | Keep the take as two clips on the crate, before the playhead and after it. The take isn't changed |
@@ -2192,8 +2205,9 @@ has no tip.
 | Jam room / This phone / Both | The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both |
 | Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |
 | Grab | Copy the last bars of the feed (with no tempo yet, the last seconds) into the buffer, from its sources, to trim and drop. G |
-| Last 1 2 4 8 (grab) | How many bars Grab takes; with no tempo, twice as many seconds |
-| Grab (ribbon) | Copy exactly the span you selected on the ribbon into the buffer |
+| Last 1 2 4 8 (grab) | How many bars Grab takes. It starts at the tape's loop length, so a grab fits the loop it is for; with no tempo, twice as many seconds |
+| Grab (ribbon) | Put exactly the span you selected on the ribbon into the buffer |
+| KEEP (ribbon) | Keep exactly the span you selected on the ribbon as a take; the key says how long it is |
 | Buffer ▴ | Open the buffer again: what you grabbed last waits there, and in the crate's first slot |
 | Buffer grip | Pull the buffer up or down. Hold it, then drag onto a lane, to drop it there |
 | Sources (buffer) | Which inputs the buffer holds, a lane each, all over the same span; they drop on neighbouring tracks |
@@ -2203,7 +2217,7 @@ has no tip.
 | Drag to a lane | Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
 | The buffer's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
 | Drop on track | Lay the buffer on the armed track (with several armed, the first) at the next free span after the next bar line. One undo. ↵ |
-| Keep as take | Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo. K |
+| KEEP (buffer) | Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo; the key says how long it is. K |
 | Toss | Throw the buffer away; Undo brings it back. ⌫ |
 | In ◂ ▸ / Out ◂ ▸ | Move IN or OUT a step of the snap (⌗): [ and ] for IN, ⇧[ and ⇧] for OUT |
 | Gain (buffer) | The buffer's level, on every lane |

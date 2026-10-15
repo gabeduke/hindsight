@@ -18,7 +18,7 @@ import * as api from './api.js';
 import { Audition } from './audition.js';
 import { drawWindow, levelsOf, frameOf, xOf, fadeHandles, RULER_H, FADE_BOX } from './draw.js';
 import {
-  BAR_PICKS, grabKey, grabSeconds, dropKey, clampWindow, gridOf, snapNear, edgeStep,
+  grabKey, grabSeconds, dropKey, clampWindow, gridOf, snapNear, edgeStep,
   bufferLines, bufferMeta, bufferNote, boardKey, spanWords, chipsFor, overwritten,
 } from './model.js';
 import { bindBufferKeys } from './keys.js';
@@ -31,18 +31,14 @@ import { token } from '../theme.js';
 import { toast as defaultToast } from '../toast.js';
 import { restoreTake } from '../trash.js';
 import { takeBack } from '../rooms/keep.js';
+import { followLoop, readPick, writePick } from '../rooms/grab.js';
+import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
 
 const POLL_MS = 2000;
 const HOLD_MS = 350;   // a held sheet grip lifts the buffer onto a lane
 const MOVE_PX = 6;
 const EDGE_PX = 12;    // how near IN or OUT a press takes the mark
 const SOURCES = ['main', 'ch1', 'ch2', 'aux'];
-const PICK_KEY = 'buffer.bars';
-
-function readPick() {
-  try { const n = Number(localStorage.getItem(PICK_KEY)); return BAR_PICKS.includes(n) ? n : 4; } catch { return 4; }
-}
-function writePick(n) { try { localStorage.setItem(PICK_KEY, String(n)); } catch { /* this session only */ } }
 
 /**
  * mountBuffer puts GRAB in the feed's keys (keysRow), the buffer after the
@@ -55,7 +51,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   if (!keysRow || !feed || !tpl('buffer-panel-tpl') || !tpl('buffer-grab-tpl')) return null;
   keysRow.prepend(tpl('buffer-grab-tpl').cloneNode(true));
   feed.after(tpl('buffer-panel-tpl').cloneNode(true));
-  doc.getElementById('rb-sel')?.querySelector('.rb-sel-copy')?.before(tpl('buffer-sel-tpl').cloneNode(true));
+  // GRAB, then KEEP: the selection's two verbs.
+  doc.getElementById('rb-sel')?.querySelector('.rb-sel-save')?.before(tpl('buffer-sel-tpl').cloneNode(true));
 
   const $ = (id) => doc.getElementById(id);
   const body = doc.body;
@@ -91,6 +88,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     dropWord: $('buffer-drop-word'),
     dropSub: $('buffer-drop-sub'),
     keep: $('buffer-keep'),
+    keepLen: $('buffer-keep-len'),
     toss: $('buffer-toss'),
     gain: $('buffer-gain'),
     gainVal: $('buffer-gain-val'),
@@ -128,7 +126,10 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     dropped: '',      // a buffer just dropped (its created): ↵ drops it again further on, for a moment
     droppedAt: 0,     // when
     unfolded: false,  // UNFOLD: the lanes have their height back, the buffer stays
-    n: readPick(),    // the feed's 1 / 2 / 4 / 8
+    n: readPick() ?? 4,    // the feed's 1 / 2 / 4 / 8: it starts at the tape's loop in bars (rooms/grab.js)
+    picked: false,    // N was picked by hand since the loop last changed
+    loopBars: null,   // the loop N last followed
+    keeps: '',        // what K keeps from here, as the instrument's pad last heard it
     chosen: null,     // the sources picked by hand; null follows the armed track's input
     grabbing: false,
     local: null,      // the window or the fades while a mark is held: {in, out, fadeIn, fadeOut}
@@ -147,6 +148,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   // bench is the buffer's panel; the event is named for it so the strip need
   // not use a buffer- class, which only this directory may: styles.test.js.)
   const forward = () => doc.dispatchEvent(new CustomEvent('hindsight:bench-forward'));
+  // What K keeps from here, for the instrument's KEEP pad (lib/play/strip.js).
+  // Said when it changes, and again on each poll for a strip that mounted later.
+  const announceKeeps = () => doc.dispatchEvent(new CustomEvent('hindsight:keeps', { detail: { buffer: st.keeps } }));
 
   // --- the board -----------------------------------------------------------------
 
@@ -179,6 +183,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       const b = await api.board();
       if (!takesPoll(st, g)) return; // a change went out meanwhile, a mark is held, or a grab is on its way
       takeBoard(b.clipboard || null);
+      announceKeeps();
     } catch { /* the tape page says when the Pi can't be reached */ }
   }
 
@@ -540,6 +545,14 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     el.unit.hidden = !k.unit;
     el.reopen.hidden = open || !g;
     if (el.grabSel) el.grabSel.disabled = st.grabbing;
+    // KEEP names what it keeps: the window, in bars when there is a tempo.
+    // K keeps it while the buffer is open, so the instrument's pad says so.
+    const keepLen = g ? bufferKeepLength({ frames: windowFrames(st), barFrames: g.bar_frames, sampleRate: sr() }) : '';
+    const keeps = open && g && !st.grabbing ? keepLen : '';
+    if (keeps !== st.keeps) {
+      st.keeps = keeps;
+      announceKeeps();
+    }
     if (!open) { placeMark(); return; }
 
     const rate = sr();
@@ -580,6 +593,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     el.dropSub.textContent = dk.can ? `${dk.sub}, the next free span · ↵` : dk.sub;
     el.drop.disabled = !dk.can || st.grabbing;
     el.keep.disabled = !g || st.grabbing;
+    el.keepLen.textContent = keepLen;
+    el.keep.setAttribute('aria-label', keepLabel(keepLen));
     el.toss.disabled = !g || st.grabbing;
     for (const id of ['in-back', 'in-on', 'out-back', 'out-on']) $(`buffer-${id}`).disabled = !g || st.grabbing;
     const c = g ? firstClip() : {};
@@ -777,7 +792,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   el.grabSel?.addEventListener('click', grabSpan);
   el.reopen.addEventListener('click', () => { st.open = true; st.dropped = ''; render(); forward(); });
   for (const btn of el.picks.children) {
-    btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); writePick(st.n); render(); });
+    btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); st.picked = true; writePick(st.n); render(); });
   }
   el.close.addEventListener('click', close);
   el.unfold.addEventListener('click', () => { st.unfolded = !st.unfolded; render(); });
@@ -850,6 +865,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   // ⌘Z on the page -- puts the buffer back in hand.
   doc.addEventListener('hindsight:tape-state', (e) => {
     st.detail = e.detail || null;
+    // GRAB starts at the loop's length, and follows it.
+    Object.assign(st, followLoop(st, st.detail?.tape));
     const t = st.lastDrop, tape = st.detail?.tape;
     if (t && tape && tape.id === t.tape && t.clip) {
       const there = tape.tracks.some((tr) => tr.clips.some((c) => c.id === t.clip));

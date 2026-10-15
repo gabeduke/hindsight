@@ -250,6 +250,8 @@ export function pageBar({ tapes, onToast }) {
   return {
     ready,
     get takeName() { return take ? take.name : null; },
+    /** takeTime: where the take in the bar is, in seconds; null with none. */
+    get takeTime() { return take ? take.audio.currentTime : null; },
     /** ejected: ⏏ put the tape back; automatic picks leave it there. */
     get ejected() { return ejected; },
     /** looping: a take in the bar is on Loop, so its end isn't the end. */
