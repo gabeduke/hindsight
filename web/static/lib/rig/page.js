@@ -722,6 +722,8 @@ export function start({ flagOn = roomsOn, doc = document, nav = initNav, help = 
   doc.getElementById('rig-back').href = tapeOn === 'false' ? '/' : '/tape.html';
   if (!flagOn()) {
     doc.getElementById('rig-off').hidden = false;
+    const back = doc.getElementById('rig-back').querySelector?.('.back-text');
+    if (back) back.textContent = 'Back'; // there's no Studio with the rooms off
     return false;
   }
   doc.getElementById('rig-room').hidden = false;
