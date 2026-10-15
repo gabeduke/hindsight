@@ -76,6 +76,9 @@ type API struct {
 	// they hold, and MIDI LEARN (controls.go); controllers lists them.
 	controls    controlBus
 	controllers DeviceLister
+	// playPreviews says which connection is previewing each tape mod: the
+	// engine has one preview a mod, and only its owner lets it go.
+	playPreviews playPreviews
 
 	// hub reports the secure address (internal/hub); nil when the hub is off.
 	hub HubStatus

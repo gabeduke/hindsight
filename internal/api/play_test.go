@@ -332,3 +332,22 @@ func TestAFloodOfSetsDoesntStopThePlayer(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 }
+
+func TestAPlayerWhoGoesLetsGoOnlyOfPreviewsStillTheirs(t *testing.T) {
+	// The engine has one preview a mod. A page that previewed WOW (and
+	// perhaps committed it since) and then went must not clear the preview
+	// another page is dragging now.
+	f, url := newPlayAPI(t)
+	a, _ := dialPlay(t, url)
+	b, _ := dialPlay(t, url)
+	sendPlay(t, a, map[string]any{"t": "set", "pad": "mod.wow", "v": 0.3})
+	f.waitFor(t, "set mod.wow 0.3")
+	sendPlay(t, b, map[string]any{"t": "set", "pad": "mod.wow", "v": 0.7})
+	f.waitFor(t, "set mod.wow 0.3", "set mod.wow 0.7")
+	sendPlay(t, a, map[string]any{"t": "release", "pad": "mod.wow"}) // not a's any more
+	a.Close()
+	time.Sleep(100 * time.Millisecond)
+	f.waitFor(t, "set mod.wow 0.3", "set mod.wow 0.7")
+	b.Close() // b's is b's to let go of
+	f.waitFor(t, "set mod.wow 0.3", "set mod.wow 0.7", "release mod.wow")
+}

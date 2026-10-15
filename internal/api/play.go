@@ -127,6 +127,49 @@ func (h *playHolds) release(pad string, do func()) {
 	}
 }
 
+// playPreviews is who previews each tape mod: the connection that set it
+// last. The engine has one preview a mod, so a connection that goes, or
+// lets go, clears it only while it is still its own -- not one another page
+// is dragging now. Both the engine's set and its release happen under the
+// lock, so the engine sees them in the order the owners change.
+type playPreviews struct {
+	mu    sync.Mutex
+	owner map[string]uint64
+	conns uint64
+}
+
+// conn is a new connection's name.
+func (p *playPreviews) conn() uint64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.conns++
+	return p.conns
+}
+
+// set has me preview mod, if do does.
+func (p *playPreviews) set(mod string, me uint64, do func() error) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := do(); err != nil {
+		return err
+	}
+	if p.owner == nil {
+		p.owner = map[string]uint64{}
+	}
+	p.owner[mod] = me
+	return nil
+}
+
+// release lets mod's preview go, with do, if it is still me's.
+func (p *playPreviews) release(mod string, me uint64, do func()) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.owner[mod] == me {
+		delete(p.owner, mod)
+		do()
+	}
+}
+
 // player is the engine Play mode talks to.
 func (a *API) player() tricks {
 	if a.playFake != nil {
@@ -148,17 +191,19 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	// What this connection holds, so that its going lets go of exactly that;
-	// and the mods it is previewing, which go back to the tape's as it goes.
+	// and the mods it has previewed, which go back to the tape's as it goes
+	// -- those still its own.
 	var mineMu sync.Mutex
 	mine := map[string]bool{}
 	previews := map[string]bool{}
+	me := a.playPreviews.conn()
 	unpreview := func(pad string) {
 		mineMu.Lock()
 		was := previews[pad]
 		delete(previews, pad)
 		mineMu.Unlock()
 		if was {
-			_ = eng.Release(pad)
+			a.playPreviews.release(pad, me, func() { _ = eng.Release(pad) })
 		}
 	}
 	unpreviewAll := func() {
@@ -282,13 +327,21 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				if m.V == nil {
 					continue
 				}
-				if err := eng.Set(m.Pad, *m.V); err != nil {
-					note(map[string]string{"t": "refused", "pad": m.Pad, "why": err.Error()})
+				pad, v := m.Pad, *m.V
+				set := func() error { return eng.Set(pad, v) }
+				var err error
+				if strings.HasPrefix(pad, "mod.") {
+					err = a.playPreviews.set(pad, me, set)
+				} else {
+					err = set()
+				}
+				if err != nil {
+					note(map[string]string{"t": "refused", "pad": pad, "why": err.Error()})
 					continue
 				}
-				if strings.HasPrefix(m.Pad, "mod.") {
+				if strings.HasPrefix(pad, "mod.") {
 					mineMu.Lock()
-					previews[m.Pad] = true
+					previews[pad] = true
 					mineMu.Unlock()
 				}
 			case "release":
