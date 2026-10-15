@@ -86,22 +86,32 @@ export function handler(surface, {
   bindings = () => defaultBindings(), onCommand = () => {}, has = () => true,
   now = () => performance.now(), learning = () => null,
 } = {}) {
-  const held = new Set();
+  // What each key or pedal pressed, by the message: its note-off lets go of
+  // that pad, whatever the bindings say by then (a rebind, a learn), as the
+  // keyboard keeps the code it pressed.
+  const pressed = new Map();
   let latched = false;
+  const keyOf = (m) => (m.type === 'on' || m.type === 'off' ? `n${m.ch}:${m.note}` : m.type === 'cc' ? `c${m.ch}:${m.cc}` : '');
   const handle = (m) => {
     if (!m) return;
+    // A key, a pedal (CC at or past 64 is down), or a channel-mode CC (120
+    // and up, sent with 0) as a press.
+    const down = m.type === 'on' || (m.type === 'cc' && (m.value >= 64 || m.cc >= 120)) || m.type === 'rt';
+    const key = keyOf(m);
+    if (!down && key) {
+      const id = pressed.get(key);
+      if (id) { pressed.delete(key); surface.release(id, now()); return; }
+      if (m.type === 'off') return; // a note that pressed nothing here: the one that taught MIDI LEARN
+    }
     const learn = learning();
     if (learn && (m.type === 'on' || m.type === 'cc')) { learn(learned(m), m); return; }
     const hit = actionFor(bindings(), m);
     const c = hit && control(hit.id);
     if (!c || !live(c, has)) return;
-    // A key, a pedal (CC at or past 64 is down), or a channel-mode CC (120
-    // and up, sent with 0) as a press.
-    const down = m.type === 'on' || (m.type === 'cc' && (m.value >= 64 || m.cc >= 120)) || m.type === 'rt';
     if (c.kind === MODIFIER) {
       if (down !== latched) { latched = down; surface.latch(down, now()); }
     } else if (c.kind === HELD) {
-      if (down) { held.add(c.id); surface.press(c.id, now()); } else if (held.delete(c.id)) surface.release(c.id, now());
+      if (down && key && !pressed.has(key)) { pressed.set(key, c.id); surface.press(c.id, now()); }
     } else if (c.kind === COMMAND && down) {
       onCommand(c.id, m.type === 'rt' ? { rt: m.rt } : {});
     }
@@ -111,8 +121,8 @@ export function handler(surface, {
     feed: (bytes) => parser.feed(bytes),
     letGo() {
       const t = now();
-      for (const id of held) surface.release(id, t);
-      held.clear();
+      for (const id of pressed.values()) surface.release(id, t);
+      pressed.clear();
       if (latched) { latched = false; surface.latch(false, t); }
     },
   };

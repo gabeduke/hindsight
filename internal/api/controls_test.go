@@ -434,3 +434,33 @@ func controlsBody(t *testing.T, a *API) string {
 	b, _ := json.Marshal(a.controlsView())
 	return string(b)
 }
+
+// A note-off lets go of the pad its note-on pressed, whatever the bindings
+// say by then: a PUT that moves BREAK, or a learn whose teaching note-off
+// would otherwise let the old pad go early.
+func TestANoteOffLetsGoOfWhatItsNoteOnPressed(t *testing.T) {
+	f, url, a, r := controlsAPI(t, t.TempDir())
+	p := "Keystation 49"
+	a.ControlMIDI(p, 0x90, 40, 100) // E2: BREAK
+	f.waitFor(t, "press break 16th")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/tapes/controls",
+		strings.NewReader(`{"controllers":{"Keystation 49":{"break":[{"note":47}],"stop":[{"note":43}]}}}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT: %d %s", rec.Code, rec.Body)
+	}
+	a.ControlMIDI(p, 0x80, 40, 0) // E2 up: BREAK lets go
+	f.waitFor(t, "press break 16th", "release break")
+
+	a.ControlMIDI(p, 0x90, 43, 100) // G2 holds STOP
+	f.waitFor(t, "press break 16th", "release break", "press stop 16th")
+	c, _ := dialPlay(t, url)
+	sendPlay(t, c, map[string]string{"t": "learn", "action": "stop", "port": p})
+	waitLearning(t, a)
+	a.ControlMIDI(p, 0x90, 72, 100) // C5 teaches STOP
+	a.ControlMIDI(p, 0x80, 72, 0)   // its note-off: nothing
+	time.Sleep(30 * time.Millisecond)
+	holders(t, a, "stop", 1)
+	a.ControlMIDI(p, 0x80, 43, 0) // G2 up: now STOP lets go
+	holders(t, a, "stop", 0)
+}

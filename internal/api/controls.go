@@ -361,10 +361,14 @@ type controlBus struct {
 	loaded bool
 	file   controlsFile
 	held   map[string]map[string]bool // port → the pads it holds
-	latch  map[string]bool            // port → its latch is down
-	wait   map[string]map[string]bool // port → pads let go under the latch
-	learn  *learnReq
-	verbs  verbs // nil: the Pi's own (piVerbs)
+	// pressed is what each key or pedal pressed, by port and message (a
+	// note or a CC on a channel): its release lets go of that pad, whatever
+	// the bindings say by then, as the keyboard keeps the code it pressed.
+	pressed map[string]map[string]string
+	latch   map[string]bool            // port → its latch is down
+	wait    map[string]map[string]bool // port → pads let go under the latch
+	learn   *learnReq
+	verbs   verbs // nil: the Pi's own (piVerbs)
 	// learnWait is how long learn waits; 0 is ten seconds. Tests shorten it.
 	learnWait time.Duration
 	// verbQ runs a controller's commands one after another, off the
@@ -448,6 +452,17 @@ func (a *API) quantumLocked() string {
 	return "16th"
 }
 
+// msgKey names a note or a CC on its channel, for what it pressed.
+func msgKey(m midiMsg) string {
+	switch m.typ {
+	case "on", "off":
+		return fmt.Sprintf("n%d:%d", m.ch, m.note)
+	case "cc":
+		return fmt.Sprintf("c%d:%d", m.ch, m.cc)
+	}
+	return ""
+}
+
 // holder is a controller's name in playHolds' terms.
 func holder(port string) string { return "midi:" + port }
 
@@ -458,7 +473,21 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 		return
 	}
 	b := &a.controls
+	down := m.typ == "on" || m.typ == "rt" || (m.typ == "cc" && (m.value >= 64 || m.cc >= 120))
+	key := msgKey(m)
 	b.mu.Lock()
+	if !down && key != "" {
+		if pad, ok := b.pressed[port][key]; ok {
+			delete(b.pressed[port], key)
+			b.mu.Unlock()
+			a.controllerRelease(port, pad)
+			return
+		}
+		if m.typ == "off" {
+			b.mu.Unlock()
+			return // a note that pressed nothing: the one that taught MIDI LEARN
+		}
+	}
 	if l := b.learn; l != nil && (l.port == "" || l.port == port) && (m.typ == "on" || m.typ == "cc") {
 		nb := Binding{Ch: m.ch}
 		if m.typ == "on" {
@@ -487,15 +516,26 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 		return
 	}
 	act, _ := actionByID(id)
-	down := m.typ == "on" || m.typ == "rt" || (m.typ == "cc" && (m.value >= 64 || m.cc >= 120))
 	switch act.Kind {
 	case kindModifier:
 		a.controllerLatch(port, down)
 	case kindHeld:
-		if down {
-			a.controllerPress(port, id, q)
-		} else {
-			a.controllerRelease(port, id)
+		if down && key != "" {
+			b.mu.Lock()
+			if b.pressed == nil {
+				b.pressed = map[string]map[string]string{}
+			}
+			if b.pressed[port] == nil {
+				b.pressed[port] = map[string]string{}
+			}
+			_, again := b.pressed[port][key]
+			if !again {
+				b.pressed[port][key] = id
+			}
+			b.mu.Unlock()
+			if !again {
+				a.controllerPress(port, id, q)
+			}
 		}
 	case kindCommand:
 		if !down {
@@ -595,6 +635,7 @@ func (a *API) ControllerGone(port string) {
 	delete(b.held, port)
 	delete(b.wait, port)
 	delete(b.latch, port)
+	delete(b.pressed, port)
 	b.mu.Unlock()
 	eng := a.playerOrNil()
 	if eng == nil {
