@@ -48,11 +48,11 @@ export function typingInto(el) {
   return tag === 'input' && el.type !== 'range';
 }
 
-// Where ↵ belongs to what has the focus: a link, a menu's item, anything in
-// a sheet or a menu, and the buffer's own keys (↵ on TOSS tosses). Not the
-// tape page's other keys: ▶ keeps the focus after it's clicked, and ↵ there
+// Where ↵ belongs to what has the focus: any button -- a toast's Undo,
+// Loop, the buffer's own keys -- a link, a menu's item, anything in a sheet
+// or a menu. All but ▶: it keeps the focus after it's clicked, and ↵ there
 // would stop the tape mid-jam instead of dropping.
-const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab';
+const OWN_ENTER = 'button:not(#play), a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab';
 
 /**
  * blocked says the page isn't the buffer's to answer: a key typed into a

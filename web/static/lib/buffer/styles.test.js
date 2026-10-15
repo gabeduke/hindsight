@@ -45,3 +45,13 @@ test('nothing but the buffer wears a buffer- class', () => {
   }
   assert.deepEqual(borrowed, [], 'these files use a class the buffer styles');
 });
+
+test('nothing hides the buffer’s close key', () => {
+  // On a phone it once was, leaving a pull of the sheet's grip as the only
+  // way to close it (AGENTS.md: never hide the only route to something).
+  const offenders = [];
+  for (const m of p2Block().matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (/\.buffer-close\b/.test(m[1]) && /display:\s*none|visibility:\s*hidden/.test(m[2])) offenders.push(m[1].trim());
+  }
+  assert.deepEqual(offenders, []);
+});

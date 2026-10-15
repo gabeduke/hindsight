@@ -56,9 +56,17 @@ function fakeDoc({ dialogs = [] } = {}) {
     listeners,
   };
 }
-const el = (tag, { type = '', inside = '' } = {}) => ({
-  tagName: tag.toUpperCase(), type, isContentEditable: false,
-  closest: (sel) => (inside && sel.includes(inside) ? {} : sel.split(', ').some((s) => s === tag) ? {} : null),
+// A stand-in element: `closest` answers for the selectors it's inside, as
+// the page's own element would (▶ is #play, which no exemption names).
+const el = (tag, { type = '', inside = '', id = '' } = {}) => ({
+  tagName: tag.toUpperCase(), type, id, isContentEditable: false,
+  closest: (sel) => {
+    const parts = sel.split(', ');
+    if (inside && parts.includes(inside)) return {};
+    if (parts.includes(tag)) return {};
+    if (tag === 'button' && !id && parts.includes('button:not(#play)')) return {};
+    return null;
+  },
 });
 
 test('never while typing in a field, or under a sheet', () => {
@@ -74,12 +82,14 @@ test('never while typing in a field, or under a sheet', () => {
   assert.equal(blocked({ code: 'KeyG', target: el('div') }, fakeDoc({ dialogs: [sheet] })), true);
   assert.equal(blocked({ code: 'KeyG', target: el('div') }, fakeDoc({ dialogs: [inspector] })), false);
   assert.equal(blocked({ code: 'KeyG', target: el('div', { inside: 'dialog.inspector' }) }, doc), true);
-  // ↵ on a link, a menu item or the buffer's own keys is theirs; on the page,
-  // or on ▶ still focused from a click, it's the buffer's DROP.
+  // ↵ on a focused button is the button's -- a toast's Undo, Loop -- and a
+  // link's, a menu item's; on the page, or on ▶ still focused from a click
+  // (where it would stop the tape mid-jam), it's the buffer's DROP.
   assert.equal(blocked({ code: 'Enter', target: el('a', { inside: 'a[href]' }) }, doc), true);
   assert.equal(blocked({ code: 'Enter', target: el('button', { inside: '.buffer-panel' }) }, doc), true);
   assert.equal(blocked({ code: 'Enter', target: el('button', { inside: '[role="menuitem"]' }) }, doc), true);
-  assert.equal(blocked({ code: 'Enter', target: el('button') }, doc), false);
+  assert.equal(blocked({ code: 'Enter', target: el('button', { inside: 'button:not(#play)' }) }, doc), true, 'the toast’s Undo, Loop');
+  assert.equal(blocked({ code: 'Enter', target: el('button', { id: 'play' }) }, doc), false, '▶');
   assert.equal(blocked({ code: 'Enter', target: el('body') }, doc), false);
 });
 

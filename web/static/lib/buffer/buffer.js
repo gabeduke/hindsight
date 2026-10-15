@@ -22,6 +22,7 @@ import {
   bufferLines, bufferMeta, bufferNote, boardKey, spanWords,
 } from './model.js';
 import { bindBufferKeys } from './keys.js';
+import { keyState, windowFrames, takesPoll } from './state.js';
 import { setOpen, setFold } from './fold.js';
 import { Overlay, Lift, boxesFor } from './lanes.js';
 import { SNAPS, FADE_SHAPES } from '../tape/geometry.js';
@@ -74,6 +75,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     notch: $('buffer').querySelector('.buffer-notch'),
     sheetGrip: $('buffer').querySelector('.buffer-sheet-grip'),
     meta: $('buffer-meta'),
+    metaFull: doc.createElement('span'),
+    metaShort: doc.createElement('span'),
     note: $('buffer-note'),
     sources: $('buffer-sources'),
     audition: $('buffer-audition'),
@@ -103,6 +106,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     reopen: grabRow.querySelector('.buffer-reopen'),
     grabSel: doc.querySelector('.buffer-grab-sel'),
   };
+  el.metaFull.className = 'buffer-meta-full';
+  el.metaShort.className = 'buffer-meta-short';
+  el.meta.append(el.metaFull, el.metaShort);
   // The buffer's span, marked on the feed's ribbon.
   const viz = $('viz-wrap');
   const mark = doc.createElement('div');
@@ -119,7 +125,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     detail: null,     // the tape page's last hindsight:tape-state
     seen: false,      // the first board has come
     open: false,      // the buffer is showing
-    dropped: '',      // a buffer just dropped (its created): ↵ drops it again further on
+    dropped: '',      // a buffer just dropped (its created): ↵ drops it again further on, for a moment
+    droppedAt: 0,     // when
     unfolded: false,  // UNFOLD: the lanes have their height back, the buffer stays
     n: readPick(),    // the feed's 1 / 2 / 4 / 8
     chosen: null,     // the sources picked by hand; null follows the armed track's input
@@ -132,7 +139,6 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
 
   const sr = () => st.detail?.tape?.sample_rate || 48000;
   const grabOf = () => st.board?.grab || null;
-  const held = () => !!(grabOf() && st.dropped && st.dropped === st.board.created);
   const snapPer = () => (SNAPS.find((s) => s.id === (st.detail?.snap || 'bar')) || SNAPS[0]).per;
   const hint = () => doc.dispatchEvent(new CustomEvent('hindsight:clipboard'));
 
@@ -165,7 +171,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const g = st.gen;
     try {
       const b = await api.board();
-      if (g !== st.gen || st.local) return; // a change went out meanwhile, or a mark is held
+      if (!takesPoll(st, g)) return; // a change went out meanwhile, a mark is held, or a grab is on its way
       takeBoard(b.clipboard || null);
     } catch { /* the tape page says when the Pi can't be reached */ }
   }
@@ -197,6 +203,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
 
   async function grab(req, what) {
     if (st.grabbing) return;
+    st.dropped = '';
     const wasOpen = st.open;
     st.grabbing = true;
     st.open = true;
@@ -281,10 +288,12 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     if (!b || !d || !d.tape) return;
     const tape = d.tape;
     const count = b.tracks.length;
-    const where = spanWords(tape.grid, at, b.frames, tape.sample_rate);
+    const frames = windowFrames(st);
+    const where = spanWords(tape.grid, at, frames, tape.sample_rate);
     send(() => api.drop(tape.id, track, at))
       .then((r) => {
         st.dropped = b.created;
+        st.droppedAt = performance.now();
         st.open = false;
         st.lastDrop = { tape: tape.id, clip: r.clip && r.clip.id, created: b.created, seen: false };
         audition.stop();
@@ -294,7 +303,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
         // is -- on a phone, where its lane is brought into sight.
         requestAnimationFrame(() => requestAnimationFrame(() => {
           if (sheetMode()) doc.querySelectorAll('#lanes > .tape-track')[track - 1]?.scrollIntoView({ block: 'center' }); // clear of the docked bar
-          overlay.glow(boxesFor(doc, { track, count, at, frames: b.frames, view: st.detail?.view || d.view }));
+          overlay.glow(boxesFor(doc, { track, count, at, frames, view: st.detail?.view || d.view }));
         }));
         const what = count > 1 ? `tracks ${track}–${track + count - 1}` : `track ${track}`;
         toast(`Dropped on ${what} · ${where}`, 'ok', { action: { label: 'Undo', run: undoDrop } });
@@ -305,8 +314,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   // drop is ↵ and the DROP key: the armed track, the next free span.
   function drop() {
     const b = st.board, d = st.detail;
-    if (!b || !d || !d.tape) return;
-    const k = dropKey({ tape: d.tape, armed: d.rec_track, count: b.tracks.length, frames: b.frames, pos: d.pos });
+    // Nothing while a grab is on its way: the span would be the old one's.
+    if (!b || !d || !d.tape || st.grabbing) return;
+    const k = dropKey({ tape: d.tape, armed: d.rec_track, count: b.tracks.length, frames: windowFrames(st), pos: d.pos });
     if (!k.can) { toast(`${k.word}: ${k.sub}`, 'warn'); return; }
     dropAt(d.rec_track, k.at);
   }
@@ -453,7 +463,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   function placeMark() {
     const g = grabOf();
     const ax = ribbon && ribbon.axis && ribbon.axis();
-    if (!st.open || !g || !ax || !viz) { mark.hidden = true; el.notch.hidden = true; return; }
+    // A buffer grabbed before a restart isn't anywhere on this feed.
+    if (!st.open || !g || g.stale || !ax || !viz) { mark.hidden = true; el.notch.hidden = true; return; }
     const w = win();
     const buffered = ribbon.data?.buffered_seconds ?? ax.T;
     const fromAge = Math.min(ageOf(g.ring_from + w.in, ax.total, ax.sr), buffered);
@@ -499,7 +510,11 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     if (!open) { placeMark(); return; }
 
     const rate = sr();
-    el.meta.textContent = st.grabbing && !g ? `grabbing the last ${hasGrid ? `${st.n} bar${st.n === 1 ? '' : 's'}` : `${grabSeconds(st.n)} s`}…` : g ? bufferMeta({ ...b, frames: win().out - win().in }, rate) : '';
+    const winBoard = b && { ...b, frames: windowFrames(st) };
+    const meta = st.grabbing && !g ? `grabbing the last ${hasGrid ? `${st.n} bar${st.n === 1 ? '' : 's'}` : `${grabSeconds(st.n)} s`}…` : g ? bufferMeta(winBoard, rate) : '';
+    // A phone's line is shorter: no tempo, so the close key fits beside it.
+    el.metaFull.textContent = meta;
+    el.metaShort.textContent = g && !st.grabbing ? meta.split(' · ').slice(0, 2).join(' · ') : meta;
     const note = st.grabbing ? 'copying it off the ring: the bar after it is still being played' : bufferNote(b);
     el.note.textContent = note;
     el.note.hidden = !note;
@@ -522,10 +537,10 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       const c = el.sources.children[i];
       c.setAttribute('aria-pressed', String(on.includes(s.name)));
       c.classList.toggle('signal', typeof s.peak_db === 'number' && s.peak_db > -50);
-      c.disabled = st.grabbing;
+      c.disabled = st.grabbing || !!g?.stale; // its span is in a ring that's gone
     });
     // DROP: where ↵ would put it.
-    const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, count: b.tracks.length, frames: win().out - win().in, pos: d.pos }) : { word: 'Drop', sub: '', can: false };
+    const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, count: b.tracks.length, frames: windowFrames(st), pos: d.pos }) : { word: 'Drop', sub: '', can: false };
     el.dropWord.textContent = dk.word;
     el.dropSub.textContent = dk.can ? `${dk.sub}, the next free span · ↵` : dk.sub;
     el.drop.disabled = !dk.can || st.grabbing;
@@ -631,7 +646,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   // --- dragging it onto a lane --------------------------------------------------------------
 
   let lift = null;
-  const liftGet = () => ({ tape: st.detail?.tape, view: st.detail?.view, snap: st.detail?.snap || 'bar', board: st.board });
+  const liftGet = () => ({ tape: st.detail?.tape, view: st.detail?.view, snap: st.detail?.snap || 'bar', board: st.board && { ...st.board, frames: windowFrames(st) } });
   function startLift(x, y) {
     if (!grabOf() || st.grabbing || lift) return;
     const phone = sheetMode();
@@ -761,9 +776,13 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   wireGrip();
   wireSheet();
   doc.addEventListener('keydown', (e) => { if (e.key === 'Escape' && lift) { e.preventDefault(); e.stopPropagation(); lift.end(false); } }, true);
+  // ↵ drops it again only straight after a drop: any other key, or a press
+  // anywhere, lets that go (state.js, HELD_MS, lets it go after a moment too).
+  doc.addEventListener('keydown', (e) => { if (e.code !== 'Enter' && e.code !== 'NumpadEnter') st.dropped = ''; }, true);
+  doc.addEventListener('pointerdown', () => { st.dropped = ''; }, true);
 
   bindBufferKeys(doc, {
-    state: () => ({ open: st.open && !!grabOf() && !st.grabbing, held: held() && !doc.querySelector('#multi-bar:not([hidden])') }),
+    state: () => keyState(st, performance.now(), !!doc.querySelector('#multi-bar:not([hidden])')),
     run: (a) => {
       switch (a) {
         case 'grab': grabBars(); break;
