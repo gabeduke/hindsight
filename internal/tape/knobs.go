@@ -18,7 +18,7 @@ const knobQuiet = time.Second
 // a page commits on the finger's lift instead.
 type ModKnobs struct {
 	e     *Engine
-	quiet time.Duration
+	Quiet time.Duration // how long a knob is still before it commits: a second
 	// Owner is who the knobs preview as (Engine.PreviewMod): a page that
 	// previewed a mod before them can't clear theirs. "controller" unless
 	// set before the first turn.
@@ -31,7 +31,7 @@ type ModKnobs struct {
 
 // NewModKnobs makes the knobs for an engine.
 func NewModKnobs(e *Engine) *ModKnobs {
-	return &ModKnobs{e: e, quiet: knobQuiet, Owner: "controller", timers: map[string]*time.Timer{}, gen: map[string]uint64{}}
+	return &ModKnobs{e: e, Quiet: knobQuiet, Owner: "controller", timers: map[string]*time.Timer{}, gen: map[string]uint64{}}
 }
 
 // Turn moves mod (mod.wow and the rest) to v on the tape id, and commits it
@@ -51,7 +51,7 @@ func (k *ModKnobs) Turn(id, mod string, v float64) error {
 	}
 	k.gen[mod]++
 	g := k.gen[mod]
-	k.timers[mod] = time.AfterFunc(k.quiet, func() { k.fire(id, mod, v, g) })
+	k.timers[mod] = time.AfterFunc(k.Quiet, func() { k.fire(id, mod, v, g) })
 	return nil
 }
 

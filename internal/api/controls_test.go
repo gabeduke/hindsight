@@ -434,3 +434,59 @@ func controlsBody(t *testing.T, a *API) string {
 	b, _ := json.Marshal(a.controlsView())
 	return string(b)
 }
+
+// The punch-in FX from a controller: velocity is the amount at the press,
+// the mod wheel and aftertouch move it while held, and the pitch wheel is
+// the bend -- pressed as it leaves the centre, let go as it comes back.
+func TestAControllerPlaysTheFXWithItsAmounts(t *testing.T) {
+	f, _, a, _ := controlsAPI(t, t.TempDir())
+	const port = "Keystation 49"
+	a.ControlMIDI(port, 0xD0, 127, 0)   // aftertouch with nothing held: nothing
+	a.ControlMIDI(port, 0x90, 47, 127)  // FILTER at full velocity
+	a.ControlMIDI(port, 0xB0, 1, 0)     // the mod wheel opens it
+	a.ControlMIDI(port, 0xD0, 127, 0)   // channel aftertouch: what it holds
+	a.ControlMIDI(port, 0xA0, 47, 0)    // poly aftertouch on FILTER's key
+	a.ControlMIDI(port, 0xA0, 48, 127)  // and on a key it isn't holding: nothing
+	a.ControlMIDI(port, 0x80, 47, 0)    // let go
+	a.ControlMIDI(port, 0xE0, 127, 127) // the wheel up
+	a.ControlMIDI(port, 0xE0, 0, 0)     // down
+	a.ControlMIDI(port, 0xE0, 0, 64)    // back to the centre
+	f.waitFor(t, "press filter 16th 1", "set filter 0", "set filter 1", "set filter 0",
+		"release filter", "press bend now 1", "set bend -1", "release bend")
+	if held := a.heldBy(port); len(held) != 0 {
+		t.Fatalf("still held: %v", held)
+	}
+}
+
+// The tape mods from a controller: CC 21–24 preview as the knob turns and
+// save once it's still; a program change picks a formula.
+func TestAControllersKnobsAndProgramsSetTheTapesMods(t *testing.T) {
+	_, _, a, _ := controlsAPI(t, t.TempDir())
+	tp, err := a.tape.Store().Create("knobs", 0, 0, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.tape.Load(tp.ID); err != nil {
+		t.Fatal(err)
+	}
+	a.controls.knobQuiet = 30 * time.Millisecond
+	const port = "Keystation 49"
+	for _, v := range []byte{20, 60, 127} {
+		a.ControlMIDI(port, 0xB0, 23, v) // DRIVE
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for s := a.tape.Loaded().Style; s == nil || s.Drive != 1; s = a.tape.Loaded().Style {
+		if time.Now().After(deadline) {
+			t.Fatalf("the knob was never saved: %+v", s)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	a.ControlMIDI(port, 0xC0, 2, 0) // program 2: FERRIC
+	if s := a.tape.Loaded().Style; s.Formula != tape.FormulaFerric || s.Drive != 0.3 {
+		t.Fatalf("after program 2: %+v", s)
+	}
+	a.ControlMIDI(port, 0xC0, 9, 0) // no formula of that number: nothing
+	if s := a.tape.Loaded().Style; s.Formula != tape.FormulaFerric {
+		t.Fatalf("after program 9: %+v", s)
+	}
+}

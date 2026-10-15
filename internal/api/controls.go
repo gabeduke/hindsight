@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,8 +36,12 @@ import (
 //   - a command runs here: CATCH, the transport, GRAB into the clipboard
 //     (pages see it on their next poll, so the buffer opens), DROP on the
 //     armed track at the next free span, KEEP of the feed;
-//   - an amount (CC1, the mod wheel, CC 21–24) is stored and does nothing
-//     until P4.
+//   - an amount moves (docs/superpowers/specs/2026-10-15-punch-in-fx-design.md):
+//     a punch-in FX takes its velocity at the press, and the mod wheel (CC1)
+//     or aftertouch moves it while held; the pitch wheel is the bend, held
+//     while it's off its centre; CC 21–24 turn the tape mods, previewed as
+//     they turn and saved once still for a second (tape.ModKnobs), and a
+//     program change 0–3 picks a formula.
 //
 // MIDI LEARN travels over the play socket (play.go): the next note or CC
 // from that controller, and nothing else, is bound to the action.
@@ -223,6 +228,10 @@ func decodeMIDI(status, d1, d2 byte) (midiMsg, bool) {
 		return midiMsg{typ: "cc", ch: ch, cc: int(d1), value: int(d2)}, true
 	case 0xC0:
 		return midiMsg{typ: "program", ch: ch, value: int(d1)}, true
+	case 0xD0:
+		return midiMsg{typ: "pressure", ch: ch, value: int(d1)}, true
+	case 0xA0:
+		return midiMsg{typ: "polypressure", ch: ch, note: int(d1), value: int(d2)}, true
 	case 0xE0:
 		return midiMsg{typ: "bend", ch: ch, value: int(d2)<<7 | int(d1)}, true
 	}
@@ -372,6 +381,10 @@ type controlBus struct {
 	// GRAB waits about a bar for the bar after it.
 	verbOnce sync.Once
 	verbQ    chan verbJob
+	// knobs are each controller's mod knobs, previewing as their own owner;
+	// knobQuiet, when set, is how long one is still before it saves (tests).
+	knobs     map[string]*tape.ModKnobs
+	knobQuiet time.Duration
 }
 
 type verbJob struct{ port, id, rt string }
@@ -481,9 +494,26 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	}
 	bs, _, _ := a.bindingsLocked(port)
 	id, found := bs.actionFor(m)
+	amountID, isAmount := bs.amountFor(m)
+	if m.typ == "polypressure" {
+		// Aftertouch on one key: the pad that key plays.
+		id, found = bs.actionFor(midiMsg{typ: "on", ch: m.ch, note: m.note})
+	}
 	q := a.quantumLocked()
 	b.mu.Unlock()
-	if !found {
+	switch {
+	case m.typ == "pressure":
+		a.controllerPressure(port, "", m.value)
+		return
+	case m.typ == "polypressure":
+		if found {
+			a.controllerPressure(port, id, m.value)
+		}
+		return
+	case !found && isAmount:
+		a.controllerAmount(port, amountID, m.value)
+		return
+	case !found:
 		return
 	}
 	act, _ := actionByID(id)
@@ -493,9 +523,21 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 		a.controllerLatch(port, down)
 	case kindHeld:
 		if down {
-			a.controllerPress(port, id, q)
+			v := math.NaN()
+			if m.typ == "on" && fxPads[id] {
+				v = float64(m.value) / 127 // its velocity is its amount
+			}
+			a.controllerPress(port, id, q, v)
 		} else {
 			a.controllerRelease(port, id)
+		}
+	case kindAmount:
+		if id == "bend" && m.typ == "bend" {
+			a.controllerBend(port, m.value)
+		}
+	case kindLatched:
+		if id == "mod.formula" && m.typ == "program" {
+			a.controllerFormula(m.value)
 		}
 	case kindCommand:
 		if !down {
@@ -507,10 +549,147 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 		}
 		a.queueVerb(port, id, m.rt)
 	}
-	// Amounts and latched mods are P4's: bound and stored, played by nothing yet.
 }
 
-func (a *API) controllerPress(port, pad, q string) {
+// fxPads are the punch-in FX: held, each with an amount that velocity sets
+// and aftertouch moves.
+var fxPads = map[string]bool{"roll": true, "filter": true, "echo": true, "crush": true}
+
+// bendDead is how near its centre the pitch wheel counts as let go.
+const bendDead = 0.02
+
+// amountFor is the action whose amount a message moves: a CC bound as an
+// amount (the mod wheel on FILTER, CC 21–24 on the mods).
+func (bs Bindings) amountFor(m midiMsg) (string, bool) {
+	if m.typ != "cc" {
+		return "", false
+	}
+	ids := make([]string, 0, len(bs))
+	for id := range bs {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		for _, b := range bs[id] {
+			if b.As == "amount" && b.matches(m) {
+				return id, true
+			}
+		}
+	}
+	return "", false
+}
+
+// controllerAmount moves an amount from a knob or the mod wheel: a punch-in
+// FX's, from the next block; a tape mod's, previewed, and saved once the
+// knob has been still for a second.
+func (a *API) controllerAmount(port, id string, value int) {
+	v := float64(value) / 127
+	if strings.HasPrefix(id, "mod.") {
+		if k := a.knobsFor(port); k != nil {
+			if err := k.Turn(a.tape.LoadedID(), id, v); err != nil {
+				log.Printf("[!] %s: %s: %v", holder(port), id, err)
+			}
+		}
+		return
+	}
+	if eng := a.playerOrNil(); eng != nil {
+		_ = eng.Set(id, v)
+	}
+}
+
+// controllerPressure is aftertouch: it moves the amount of the punch-in FX
+// the controller holds -- pad's alone for a key's own (poly) aftertouch.
+func (a *API) controllerPressure(port, pad string, value int) {
+	b := &a.controls
+	b.mu.Lock()
+	var moved []string
+	for p := range b.held[port] {
+		if fxPads[p] && (pad == "" || p == pad) {
+			moved = append(moved, p)
+		}
+	}
+	b.mu.Unlock()
+	sort.Strings(moved)
+	eng := a.playerOrNil()
+	if eng == nil {
+		return
+	}
+	for _, p := range moved {
+		_ = eng.Set(p, float64(value)/127)
+	}
+}
+
+// controllerBend is the pitch wheel: the bend is pressed as it leaves its
+// centre, moved while it's off, and let go as it springs back -- whatever
+// the latch says, as a wheel is never held by a pedal.
+func (a *API) controllerBend(port string, raw int) {
+	v := float64(raw-8192) / 8192
+	if raw > 8192 {
+		v = float64(raw-8192) / 8191
+	}
+	b := &a.controls
+	b.mu.Lock()
+	bending := b.held[port]["bend"]
+	b.mu.Unlock()
+	eng := a.playerOrNil()
+	switch {
+	case eng == nil:
+	case math.Abs(v) <= bendDead && bending:
+		b.mu.Lock()
+		delete(b.held[port], "bend")
+		delete(b.wait[port], "bend")
+		b.mu.Unlock()
+		a.playHolds.release("bend", func() { _ = eng.Release("bend") })
+	case math.Abs(v) > bendDead && !bending:
+		a.controllerPress(port, "bend", tape.QuantumNow, v)
+	case bending:
+		_ = eng.Set("bend", v)
+	}
+}
+
+// controllerFormula is a program change: 0–3 pick CLEAN, CHROME, FERRIC or
+// WORN for the loaded tape, one step of undo.
+func (a *API) controllerFormula(n int) {
+	names := tape.Formulas()
+	if a.tape == nil || n < 0 || n >= len(names) {
+		return
+	}
+	id := a.tape.LoadedID()
+	if id == "" {
+		return
+	}
+	if err := a.tape.SetStyle(id, tape.StyleChange{Formula: &names[n]}); err != nil {
+		log.Printf("[!] controls: formula %s: %v", names[n], err)
+	}
+}
+
+// knobsFor is a controller's mod knobs: they preview as midi:<port>, so a
+// page that previewed a mod before them can't clear theirs.
+func (a *API) knobsFor(port string) *tape.ModKnobs {
+	if a.tape == nil {
+		return nil
+	}
+	b := &a.controls
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.knobs == nil {
+		b.knobs = map[string]*tape.ModKnobs{}
+	}
+	k := b.knobs[port]
+	if k == nil {
+		k = tape.NewModKnobs(a.tape)
+		k.Owner = holder(port)
+		if b.knobQuiet > 0 {
+			k.Quiet = b.knobQuiet
+		}
+		b.knobs[port] = k
+	}
+	return k
+}
+
+// controllerPress presses pad for a controller, quantised to q; v is a
+// punch-in FX's amount (NaN for none).
+func (a *API) controllerPress(port, pad, q string, v float64) {
 	if !slices.Contains(tape.Pads(), pad) {
 		return // a pad this Pi doesn't play yet (P4's, the crate's)
 	}
@@ -529,7 +708,11 @@ func (a *API) controllerPress(port, pad, q string) {
 		return
 	}
 	b.mu.Unlock()
-	if err := a.playHolds.press(pad, func() error { return eng.Press(pad, q) }); err != nil {
+	press := func() error { return eng.Press(pad, q) }
+	if !math.IsNaN(v) {
+		press = func() error { return eng.PressAmount(pad, q, v) }
+	}
+	if err := a.playHolds.press(pad, press); err != nil {
 		log.Printf("[!] %s: %s refused: %v", holder(port), pad, err)
 		return
 	}

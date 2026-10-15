@@ -10,7 +10,7 @@ func TestAKnobOnAControllerCommitsOnceItIsStill(t *testing.T) {
 	e, _, tp := newEngine(t)
 	undo0, _ := e.UndoDepth()
 	k := NewModKnobs(e)
-	k.quiet = 30 * time.Millisecond
+	k.Quiet = 30 * time.Millisecond
 	t.Cleanup(k.Stop)
 	for i := 0; i <= 10; i++ {
 		// Still turning: nothing is saved yet. (Each turn is 5 ms after the
@@ -51,7 +51,7 @@ func TestAKnobTurnedAsItsCommitFiresCommitsOnlyItsNewest(t *testing.T) {
 	// the live preview.
 	e, _, tp := newEngine(t)
 	k := NewModKnobs(e)
-	k.quiet = 40 * time.Millisecond
+	k.Quiet = 40 * time.Millisecond
 	t.Cleanup(k.Stop)
 	_ = k.Turn(tp.ID, "mod.wow", 0.2)
 	k.mu.Lock()
@@ -70,7 +70,7 @@ func TestAKnobTurnedAsItsCommitFiresCommitsOnlyItsNewest(t *testing.T) {
 		}
 		time.Sleep(2 * time.Millisecond)
 	}
-	time.Sleep(4 * k.quiet)
+	time.Sleep(4 * k.Quiet)
 	if s := e.Loaded().Style; s.Wow != 0.8 {
 		t.Fatalf("wow saved as %v, want the last turn's .8", s.Wow)
 	}
@@ -84,7 +84,7 @@ func TestAModsPreviewIsLetGoOnlyByWhoeverSetItLast(t *testing.T) {
 	_ = r.e.PreviewMod("mod.wow", 0.3, "page:1")
 	r.run(1)
 	k := NewModKnobs(r.e)
-	k.quiet = time.Hour // no commit in this test
+	k.Quiet = time.Hour // no commit in this test
 	t.Cleanup(k.Stop)
 	_ = k.Turn("", "mod.wow", 0.7)
 	r.run(1)
