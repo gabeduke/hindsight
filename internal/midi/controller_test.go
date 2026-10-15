@@ -121,12 +121,34 @@ func TestWatcherOpensAControllerWithCaptureOff(t *testing.T) {
 	}
 }
 
-// MIDI_IGNORE keeps a controller's notes out of takes; it still plays.
-func TestAnIgnoredControllerStillPlays(t *testing.T) {
+// MIDI_IGNORE wins over everything, TAPE_CONTROLLER too: an ignored device
+// is never opened, so a broad controller name can't make it play the tape.
+func TestAnIgnoredControllerIsNeverOpened(t *testing.T) {
+	cards, snd, _, smk := controllerFixture(t)
+	s := &sink{}
+	w := controllerWatcher(cards, snd, Policy{Capture: true, Deny: []string{"SMK"}, Controllers: []string{"SMK-37"}}, NewEventRing(100))
+	w.SetControlSink(s)
+	w.Start()
+	defer w.Stop()
+	time.Sleep(100 * time.Millisecond) // a few scans
+	// No reader: a non-blocking open of the write end fails. That is the
+	// proof it was never opened.
+	if f, err := os.OpenFile(smk, os.O_WRONLY|syscall.O_NONBLOCK, 0); err == nil {
+		f.Close()
+		t.Fatal("an ignored controller was opened")
+	}
+	if controllerOpen(w) {
+		t.Error("an ignored controller is listed as open")
+	}
+}
+
+// MIDI_DEVICES keeps a controller out of takes: left off the list, it
+// still plays the tape, and nothing it plays is stored.
+func TestAControllerLeftOffMIDIDevicesPlaysButIsntKept(t *testing.T) {
 	cards, snd, _, smk := controllerFixture(t)
 	ring := NewEventRing(100)
 	s := &sink{}
-	w := controllerWatcher(cards, snd, Policy{Capture: true, Deny: []string{"SMK"}, Controllers: []string{"SMK-37"}}, ring)
+	w := controllerWatcher(cards, snd, Policy{Capture: true, Allow: []string{"EP-136"}, Controllers: []string{"SMK-37"}}, ring)
 	w.SetControlSink(s)
 	w.Start()
 	defer w.Stop()
@@ -137,7 +159,7 @@ func TestAnIgnoredControllerStillPlays(t *testing.T) {
 	wr.Write([]byte{0x90, 36, 90})
 	waitFor(t, "the note on the bus", func() bool { n, _ := s.count(); return n == 1 })
 	if ring.Len() != 0 {
-		t.Errorf("an ignored device's note was stored: %d", ring.Len())
+		t.Errorf("a controller left off MIDI_DEVICES was stored: %d", ring.Len())
 	}
 }
 
