@@ -1773,7 +1773,8 @@ can work on it.
   **Audition** loops it here, never through the Pi.
 - **DROP ON TRACK N** (or **↵**) lays it on the armed track at the next free
   span after the next bar line, wrapping round the loop; or drag it by its
-  grip onto any lane. One undo puts it back in the buffer; **↵** again drops
+  grip onto any lane. With several tracks armed it takes the first, and the
+  key says so. One undo puts it back in the buffer; **↵** again drops
   another copy further on.
 - **KEEP AS TAKE** (**K**) saves it on the Listening Room's shelf, at the
   tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
@@ -2054,7 +2055,7 @@ has no tip.
 | ✕ (buffer) | Close the buffer. It stays on the clipboard, the crate's first slot, for Buffer ▴ or another drop |
 | Drag to a lane | Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
 | The buffer's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
-| Drop on track | Lay the buffer on the armed track at the next free span after the next bar line. One undo. ↵ |
+| Drop on track | Lay the buffer on the armed track (with several armed, the first) at the next free span after the next bar line. One undo. ↵ |
 | Keep as take | Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo. K |
 | Toss | Throw the buffer away; Undo brings it back. ⌫ |
 | In ◂ ▸ / Out ◂ ▸ | Move IN or OUT a step of the snap (⌗): [ and ] for IN, ⇧[ and ⇧] for OUT |

@@ -262,6 +262,7 @@ async function poll(force = false) {
       // what the lanes show, and the playhead as it lands on the tape.
       tape: t,
       rec_track: state.recTrack,
+      rec_tracks: state.recTracks, // several, with multi-arm: DROP takes the first
       rec_input: state.recTrack ? inputOf(state.recTrack) : '',
       sources: state.sources,
       snap: t.grid ? state.snap : 'off',

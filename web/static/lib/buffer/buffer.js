@@ -311,12 +311,13 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       .catch((e) => toast(`Could not drop it: ${e.message}`, 'bad'));
   }
 
-  // drop is ↵ and the DROP key: the armed track, the next free span.
+  // drop is ↵ and the DROP key: the armed track (with several armed, the
+  // first), the next free span.
   function drop() {
     const b = st.board, d = st.detail;
     // Nothing while a grab is on its way: the span would be the old one's.
     if (!b || !d || !d.tape || st.grabbing) return;
-    const k = dropKey({ tape: d.tape, armed: d.rec_track, count: b.tracks.length, frames: windowFrames(st), pos: d.pos });
+    const k = dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos });
     if (!k.can) { toast(`${k.word}: ${k.sub}`, 'warn'); return; }
     dropAt(d.rec_track, k.at);
   }
@@ -540,7 +541,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       c.disabled = st.grabbing || !!g?.stale; // its span is in a ring that's gone
     });
     // DROP: where ↵ would put it.
-    const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, count: b.tracks.length, frames: windowFrames(st), pos: d.pos }) : { word: 'Drop', sub: '', can: false };
+    const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos }) : { word: 'Drop', sub: '', can: false };
     el.dropWord.textContent = dk.word;
     el.dropSub.textContent = dk.can ? `${dk.sub}, the next free span · ↵` : dk.sub;
     el.drop.disabled = !dk.can || st.grabbing;

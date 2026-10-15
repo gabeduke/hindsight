@@ -88,9 +88,11 @@ export function spanWords(grid, at, frames, sr) {
 /**
  * dropKey is what the DROP key says and whether it can: DROP ON TRACK 2 and
  * where (bars 9–12); or why not -- no track armed, no room on it, more lanes
- * than tracks below it. `armed` is the record track (0: none).
+ * than tracks below it. `armed` is the record track (0: none); `armedAll`
+ * every armed track, when several are (multi-arm, lib/rig/arm.js): it still
+ * drops on the first, and says so.
  */
-export function dropKey({ tape, armed, count = 1, frames, pos = 0 }) {
+export function dropKey({ tape, armed, armedAll = [], count = 1, frames, pos = 0 }) {
   if (!tape) return { word: 'Drop', sub: 'the tape isn’t loaded', can: false };
   if (!armed) return { word: 'Arm a track', sub: 'or drag it to a lane', can: false };
   const last = armed + count - 1;
@@ -98,7 +100,8 @@ export function dropKey({ tape, armed, count = 1, frames, pos = 0 }) {
   const span = nextFreeSpan(tape, { first: armed, count, frames, pos });
   const what = count > 1 ? `tracks ${armed}–${last}` : `track ${armed}`;
   if (!span) return { word: `No room on ${what}`, sub: 'drag it to a lane', can: false };
-  return { word: `Drop on ${what}`, sub: spanWords(tape.grid, span.at, frames, tape.sample_rate), can: true, at: span.at };
+  const first = armedAll.length > 1 ? 'the first armed track · ' : '';
+  return { word: `Drop on ${what}`, sub: first + spanWords(tape.grid, span.at, frames, tape.sample_rate), can: true, at: span.at };
 }
 
 /** grabSeconds is what GRAB takes with no tempo: N bars at 120 BPM, 2N seconds. */

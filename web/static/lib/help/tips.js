@@ -266,7 +266,7 @@ export const TIPS = [
   { control: '✕ (buffer)', ids: ['buffer-close'], tip: 'Close the buffer. It stays on the clipboard, the crate\'s first slot, for Buffer ▴ or another drop' },
   { control: 'Drag to a lane', ids: ['buffer-drag'], tip: 'Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid' },
   { control: 'The buffer\'s window', ids: ['buffer-window'], tip: 'What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades' },
-  { control: 'Drop on track', ids: ['buffer-drop'], tip: 'Lay the buffer on the armed track at the next free span after the next bar line. One undo. ↵' },
+  { control: 'Drop on track', ids: ['buffer-drop'], tip: 'Lay the buffer on the armed track (with several armed, the first) at the next free span after the next bar line. One undo. ↵' },
   { control: 'Keep as take', ids: ['buffer-keep'], tip: 'Save the buffer as a take on the Listening Room\'s shelf, its lanes summed, at the tape\'s tempo. K' },
   { control: 'Toss', ids: ['buffer-toss'], tip: 'Throw the buffer away; Undo brings it back. ⌫' },
   { control: 'In ◂ ▸ / Out ◂ ▸', ids: ['buffer-edges'], tip: 'Move IN or OUT a step of the snap (⌗): [ and ] for IN, ⇧[ and ⇧] for OUT' },

@@ -94,6 +94,18 @@ test('the DROP key names the track and the bars, or why it can’t', () => {
   assert.equal(spanWords(null, 12 * SR, BAR, SR), 'at 0:12');
 });
 
+test('with several tracks armed, DROP goes on the first of them, and says so', () => {
+  // Multi-arm (lib/rig/arm.js) arms several tracks; the buffer still drops
+  // on one, the first, and the key says which it chose.
+  const t = tape({ clips: [[], [], [], []] });
+  const k = dropKey({ tape: t, armed: 2, armedAll: [2, 4], frames: BAR, pos: 0 });
+  assert.equal(k.word, 'Drop on track 2');
+  assert.equal(k.sub, 'the first armed track · bar 1');
+  assert.equal(k.can, true);
+  // One armed, as before: no word about it.
+  assert.equal(dropKey({ tape: t, armed: 2, armedAll: [2], frames: BAR, pos: 0 }).sub, 'bar 1');
+});
+
 test('GRAB takes bars with a tempo and twice as many seconds without', () => {
   assert.equal(grabSeconds(4), 8);
   assert.equal(grabKey(4, true).word, 'Grab');
