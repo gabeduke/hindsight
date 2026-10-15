@@ -100,3 +100,26 @@ test('CI runs the tests in every directory that has any', () => {
   assert.deepEqual(missing.sort(), [],
     'these directories have tests that CI never runs; add them to the node --test globs in ci.yml');
 });
+
+test('everything the Studio loads is in the offline shell', () => {
+  // The Studio can be the installed app's first page (lib/rooms), so the
+  // modules it loads -- through mount.js, and the import() of studio.js --
+  // are precached, as Capture's are. lib/settings.js was missed once.
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+  const shell = new Set([.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  const seen = new Set();
+  const walkFrom = (abs) => {
+    if (seen.has(abs)) return;
+    seen.add(abs);
+    const src = readFileSync(join(ROOT, abs.slice(1)), 'utf8');
+    const re = /^\s*(?:import|export)\b[^;]*?\bfrom\s+['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/gm;
+    for (const m of src.matchAll(re)) {
+      const spec = m[1] ?? m[2] ?? m[3];
+      const target = spec.startsWith('/') ? spec : '/' + relative(ROOT, normalize(join(ROOT, dirname(abs.slice(1)), spec))).split(sep).join('/');
+      walkFrom(target);
+    }
+  };
+  walkFrom('/lib/rooms/mount.js');
+  assert.ok(seen.has('/lib/rooms/studio.js') && seen.size > 15, `walked only ${seen.size} modules`);
+  assert.deepEqual([...seen].filter((p) => !shell.has(p)).sort(), []);
+});

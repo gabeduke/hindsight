@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The two rooms (lib/rooms/flag.js, this device only): with them on,
+     lib/nav.js rewrites the header's three tabs as two, and until it has
+     the switch stays out of sight (styles.css, Rooms P1), so the old tabs
+     never paint. With the flag off this does nothing. -->
+<script id="rooms-early">try { if (localStorage.getItem('hindsight.rooms') === '1') document.documentElement.dataset.rooms = ''; } catch (e) { /* no storage: no rooms */ }</script>
 <title>Hindsight — the rig</title>
 <meta name="theme-color" content="#e4e3dd" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#141516" media="(prefers-color-scheme: dark)">
