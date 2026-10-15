@@ -131,11 +131,13 @@ export class Ticker {
     this.steps = new Set();
     this.handle = 0;
     this.last = 0;
+    this.ticking = false; // inside a frame, stepping
+    this.woken = false;   // something asked for the next frame from inside this one
   }
 
   /**
-   * add registers a step function, called with (dtMs) and returning whether
-   * it still wants frames. Returns a function that removes it again.
+   * add registers a step function, called with (dtMs, nowMs) and returning
+   * whether it still wants frames. Returns a function that removes it again.
    */
   add(step) {
     this.steps.add(step);
@@ -146,27 +148,43 @@ export class Ticker {
     };
   }
 
+  /**
+   * start wakes a parked ticker. From inside a step it only asks for the
+   * next frame: a step that sets another object's state wakes the ticker
+   * mid-frame, and scheduling a frame then as well as at the end of this one
+   * would run two loops, stepping everything twice a frame.
+   */
   start() {
+    if (this.ticking) { this.woken = true; return; }
     if (this.handle || !this.steps.size) return;
     this.last = this.now();
-    const tick = () => {
-      this.handle = 0;
-      const t = this.now();
-      const dt = this.reduced ? Infinity : Math.max(0, t - this.last);
-      this.last = t;
-      let wants = false;
+    this.handle = this.raf(this.tick ||= () => this.frame());
+  }
+
+  frame() {
+    this.handle = 0;
+    const t = this.now();
+    const dt = this.reduced ? Infinity : Math.max(0, t - this.last);
+    this.last = t;
+    let wants = false;
+    this.ticking = true;
+    this.woken = false;
+    try {
       for (const step of [...this.steps]) {
         // One object throwing must not take the other fourteen down with it.
-        try { if (step(dt) !== false) wants = true; } catch { /* keep the loop */ }
+        try { if (step(dt, t) !== false) wants = true; } catch { /* keep the loop */ }
       }
-      if (wants) this.handle = this.raf(tick);
-    };
-    this.handle = this.raf(tick);
+    } finally {
+      this.ticking = false;
+    }
+    if ((wants || this.woken) && this.steps.size) this.handle = this.raf(this.tick);
+    this.woken = false;
   }
 
   stop() {
     if (this.handle) this.cancel(this.handle);
     this.handle = 0;
+    this.woken = false;
   }
 
   /** running is whether a frame is currently scheduled. For tests and the bench. */
@@ -175,3 +193,37 @@ export class Ticker {
 
 /** The ticker the pages share. The bench makes its own, to run at ⅒ speed. */
 export const ticker = new Ticker();
+
+/**
+ * Loop is one object's frame loop on a ticker -- a player's playhead, a
+ * clock's position -- for things that only move while something plays.
+ * start() steps `fn(dt, now)` every frame until it returns false (or throws),
+ * then takes it off the ticker, so a paused player costs nothing even while
+ * the meters keep the ticker going. start() while running does nothing.
+ */
+export class Loop {
+  constructor(fn, clock = ticker) {
+    this.fn = fn;
+    this.clock = clock;
+    this.off = null;
+    this.step = (dt, now) => {
+      let more = false;
+      try {
+        more = this.fn(dt, now) !== false;
+      } finally {
+        if (!more) this.stop();
+      }
+      return more;
+    };
+  }
+
+  start() { if (!this.off) this.off = this.clock.add(this.step); }
+
+  stop() {
+    const off = this.off;
+    this.off = null;
+    off?.();
+  }
+
+  get running() { return this.off !== null; }
+}
