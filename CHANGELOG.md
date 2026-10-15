@@ -5,6 +5,21 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.15.1 — 2026-10-15
+
+- Describe the finished object library in the contributor notes (8e4b44d)
+- Add a still button to the object bench (33deb93)
+- Add a size slider to the object bench (c99f6a9)
+- Put the masking tape on the object bench, with its marker in objects.css (b0c20a7)
+- Move the output icons into the object library (4ecba12)
+- Move the flag's pennant into the object library (d7fa4b5)
+- Move the grease pencil into the object library (8f3c3b9)
+- Move the LCD into the object library (287acb6)
+- Release only for changes to what a kit runs (0231ae0)
+- Spec: what ports from the OP-1, and what doesn't (53f0f8a)
+- Spec: Play mode, audible -- a read head over a tape that keeps counting (3f94dcc)
+
+
 ## v2026.10.14.13 — 2026-10-14
 
 - AGENTS.md: look at a UI change before it merges (d60edc3)
