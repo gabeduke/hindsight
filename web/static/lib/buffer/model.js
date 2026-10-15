@@ -86,22 +86,76 @@ export function spanWords(grid, at, frames, sr) {
 }
 
 /**
- * dropKey is what the DROP key says and whether it can: DROP ON TRACK 2 and
- * where (bars 9–12); or why not -- no track armed, no room on it, more lanes
- * than tracks below it. `armed` is the record track (0: none); `armedAll`
- * every armed track, when several are (multi-arm, lib/rig/arm.js): it still
- * drops on the first, and says so.
+ * overwritten is what a buffer dropped at `at` would cover on tracks first to
+ * first + count - 1: how many clips it touches and how many frames of them it
+ * lies over. A drop at the next free span never covers any; one dragged onto
+ * a lane can, and the Pi lays it over what's there, trimming it.
  */
-export function dropKey({ tape, armed, armedAll = [], count = 1, frames, pos = 0 }) {
+export function overwritten(tape, { first, count = 1, at, frames }) {
+  let clips = 0, covered = 0;
+  for (const tr of tape.tracks.slice(first - 1, first - 1 + count)) {
+    for (const c of tr.clips) {
+      const lo = Math.max(c.at, at), hi = Math.min(c.at + c.frames, at + frames);
+      if (hi > lo) { clips++; covered += hi - lo; }
+    }
+  }
+  return { clips, frames: covered };
+}
+
+/** landsWords says where a drop lands, and when it lands over a clip, that it replaces what's under it. */
+export function landsWords(grid, { first, count = 1, at, frames }, tape) {
+  const where = spanWords(grid, at, frames, tape.sample_rate);
+  return overwritten(tape, { first, count, at, frames }).clips ? `${where} · replaces what’s under it` : where;
+}
+
+const trackWords = (first, count) => (count > 1 ? `tracks ${first}–${first + count - 1}` : `track ${first}`);
+
+/**
+ * dropKey is what the DROP key says and whether it can: DROP ON TRACK 2 and
+ * where (bars 9–12); or why not. `armed` is the record track (0: none);
+ * `armedAll` every armed track, when several are (multi-arm, lib/rig/arm.js).
+ *
+ * It tries the armed tracks in order, then every other, for a free span, so
+ * a full armed track is no dead end: it drops on the next track with room
+ * and says which were full. `track` is the one it chose. When nothing fits
+ * anywhere it says why -- longer than the loop, or every track full -- and
+ * points only where `way` -- a sentence, or a function that answers one --
+ * says there is something on screen to do: "drag it onto a lane" is not
+ * advice to give a phone that is showing the instrument.
+ */
+export function dropKey({ tape, armed, armedAll = [], count = 1, frames, pos = 0, way = '' }) {
   if (!tape) return { word: 'Drop', sub: 'the tape isn’t loaded', can: false };
-  if (!armed) return { word: 'Arm a track', sub: 'or drag it to a lane', can: false };
-  const last = armed + count - 1;
-  if (last > tape.tracks.length) return { word: `Drop on track ${armed}`, sub: `${count} lanes don’t fit from it: drag it higher`, can: false };
-  const span = nextFreeSpan(tape, { first: armed, count, frames, pos });
-  const what = count > 1 ? `tracks ${armed}–${last}` : `track ${armed}`;
-  if (!span) return { word: `No room on ${what}`, sub: 'drag it to a lane', can: false };
-  const first = armedAll.length > 1 ? 'the first armed track · ' : '';
-  return { word: `Drop on ${what}`, sub: first + spanWords(tape.grid, span.at, frames, tape.sample_rate), can: true, at: span.at };
+  const n = tape.tracks.length;
+  const tried = armedAll.length ? [...new Set(armedAll)] : armed ? [armed] : [];
+  const fits = (first) => first >= 1 && first + count - 1 <= n;
+  const order = [...new Set([...tried, ...Array.from({ length: n }, (_, i) => i + 1)])];
+  for (const first of order) {
+    if (!fits(first)) continue;
+    const span = nextFreeSpan(tape, { first, count, frames, pos });
+    if (!span) continue;
+    const where = spanWords(tape.grid, span.at, frames, tape.sample_rate);
+    let why = '';
+    if (!tried.length) why = 'no track is armed · ';
+    else if (first !== tried[0]) {
+      const fullOnes = tried.filter((t) => t !== first && fits(t));
+      const noFit = tried.filter((t) => !fits(t));
+      if (fullOnes.length) why = `${fullOnes.length === 1 ? `track ${fullOnes[0]} is` : `tracks ${fullOnes.join(', ')} are`} full · `;
+      else if (noFit.length) why = `${count} lanes don’t fit from track ${noFit[0]} · `;
+    } else if (armedAll.length > 1) why = 'the first armed track · ';
+    return { word: `Drop on ${trackWords(first, count)}`, sub: why + where, can: true, at: span.at, track: first };
+  }
+  if (!order.some(fits)) return { word: 'Too many lanes', sub: `${count} lanes don’t fit on a ${n}-track tape`, can: false };
+  const loop = tape.loop || {};
+  const looping = !!(loop.on && loop.out > loop.in);
+  const limit = looping ? loop.out - loop.in : tape.length;
+  if (frames > limit) {
+    const bar = barOf(tape.grid);
+    const long = bar ? barsText(frames, bar) : `${(frames / (tape.sample_rate || 48000)).toFixed(1)} s`;
+    return { word: looping ? 'Longer than the loop' : 'Longer than the tape', sub: `${long} won’t fit: trim it shorter with IN and OUT`, can: false };
+  }
+  const sub = looping ? 'the loop is full on every track' : 'every track is full';
+  const what = typeof way === 'function' ? way() : way; // asked only now: it looks at the page
+  return { word: 'No room on any track', sub: what ? `${sub} · ${what}` : sub, can: false };
 }
 
 /** grabSeconds is what GRAB takes with no tempo: N bars at 120 BPM, 2N seconds. */

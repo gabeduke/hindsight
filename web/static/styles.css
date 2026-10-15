@@ -5410,3 +5410,11 @@ body .np .np-catch:has(> .np-catch-more) { position: relative; padding-right: 34
    words let taps through; its action still takes them. */
 .toast.toast-passive { pointer-events: none; }
 .toast.toast-passive .toast-action { pointer-events: auto; }
+
+/* Dragging the buffer over a clip: the ghost is hatched in the warning colour, so
+   that it reads as laying over what is there even where the chip hides its words. */
+.buffer-ghost.buffer-ghost-replace {
+  border-color: var(--warn);
+  background: repeating-linear-gradient(135deg, rgba(255, 181, 71, .26) 0 6px, rgba(255, 181, 71, .08) 6px 12px);
+}
+.buffer-ghost.buffer-ghost-replace > span { color: var(--warn); }

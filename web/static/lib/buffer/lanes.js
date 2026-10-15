@@ -7,7 +7,7 @@
 
 import { snapFrame } from '../tape/geometry.js';
 import { setTarget } from './fold.js';
-import { spanWords } from './model.js';
+import { landsWords, overwritten } from './model.js';
 
 /** rows are the tape's lanes, a row per track, in order. */
 export const rows = (doc) => [...doc.querySelectorAll('#lanes > .tape-track')];
@@ -62,9 +62,9 @@ export class Overlay {
   }
 
   /** ghosts shows where a drop lands, a box on each of its lanes. */
-  ghosts(boxes, label) {
+  ghosts(boxes, label, replace = false) {
     for (const g of this.el.querySelectorAll('.buffer-ghost')) g.remove();
-    boxes.forEach((b, i) => this.box('buffer-ghost', b, i === 0 ? label : ''));
+    boxes.forEach((b, i) => this.box(`buffer-ghost${replace ? ' buffer-ghost-replace' : ''}`, b, i === 0 ? label : ''));
   }
 
   /** glow lights a block just dropped, once. */
@@ -149,7 +149,9 @@ export class Lift {
     const rect = row.querySelector('.tt-lane').getBoundingClientRect();
     this.at = landing({ row, rowIndex: i, x, rect, view, tape, snap, frames: board.frames });
     const boxes = boxesFor(this.doc, { track: this.at.track, count, at: this.at.at, frames: board.frames, view });
-    this.overlay.ghosts(boxes, `Lands · ${spanWords(tape.grid, this.at.at, board.frames, tape.sample_rate)}`);
+    // Over a clip the drop lays the buffer on it: the ghost says so before it happens.
+    const lands = { first: this.at.track, count, at: this.at.at, frames: board.frames };
+    this.overlay.ghosts(boxes, `Lands · ${landsWords(tape.grid, lands, tape)}`, overwritten(tape, lands).clips > 0);
   }
 
   end(drop) {
