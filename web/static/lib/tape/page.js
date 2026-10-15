@@ -42,9 +42,16 @@ import { initNav } from '../nav.js';
 import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
+import { on as roomsOn } from '../rooms/flag.js';
+import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords } from '../rig/arm.js';
+import { recordsTape } from '../rig/warn.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
+// The two rooms (lib/rooms/flag.js): with them on, ● adds a track to what's
+// armed or takes it off (multi-arm, the rig spec), and a header that would
+// record the tape shows the rig's amber dot. Read once, at load.
+const ROOMS = roomsOn();
 
 const state = {
   id: '',           // the tape shown (the loaded one)
@@ -55,6 +62,7 @@ const state = {
   redo: 0,
   track: 1,         // the selected track: where Paste and Split go without a range (this device's own)
   recTrack: 1,      // the record track: catches, punches, a tap and an overdub go there (the Pi's rec_track); 0 is none armed
+  recTracks: [1],   // every armed track (the Pi's rec_tracks): recTrack is the first; a recording takes them all
   source: readPref('tape.source', 'aux'),
   mode: readPref('tape.mode', 'layer'), // a catch onto audio: layer or replace
   clip: null,       // the clip whose sheet is open
@@ -329,6 +337,7 @@ function apply(s) {
   syncTrack(s.tape);
   if (state.track > state.tape.tracks.length) state.track = 1;
   if (state.recTrack > state.tape.tracks.length) state.recTrack = 1;
+  state.recTracks = state.recTracks.filter((n) => n <= state.tape.tracks.length);
   if (state.preview) refreshPreview();
   if (changed) { buildLanes(); loadPeaks(); dropTiles(state.tape); }
   syncAlign();
@@ -421,7 +430,7 @@ function tracePunch() {
   const r = live && live.record;
   if (!r || r.state !== 'on' || !t.grid || r.tape !== t.id) { state.rec = null; return; }
   const key = `${r.from}:${r.track}`;
-  if (!state.rec || state.rec.key !== key) state.rec = { key, track: r.track, start: null, trace: null, wrapped: false };
+  if (!state.rec || state.rec.key !== key) state.rec = { key, track: r.track, tracks: recTracksOf(r), start: null, trace: null, wrapped: false };
   const counting = live.count_in > 0;
   if (state.rec.start === null && (counting || live.playing)) {
     const obs = { counting, pos: live.pos, heard: live.heardEngine ?? live.heard, delivered: live.delivered, from: r.from };
@@ -538,8 +547,8 @@ function render() {
     rb.replaceChildren(Object.assign(document.createElement('span'), { className: 'rec-what' }),
       Object.assign(document.createElement('span'), { className: 'rec-src' }));
   }
-  const recWhat = !rec ? '● Rec' : rec.state === 'armed' ? `● Ready ${rec.track}` : `● Rec ${rec.track}`;
-  const recSrc = rec ? rec.source : state.recTrack ? inputOf(state.recTrack) : 'arm a track';
+  const recWhat = !rec ? '● Rec' : rec.state === 'armed' ? `● Ready ${tracksWords(recTracksOf(rec))}` : `● Rec ${tracksWords(recTracksOf(rec))}`;
+  const recSrc = rec ? recSources(rec) : state.recTrack ? state.recTracks.map(inputOf).join(' + ') : 'arm a track';
   rb.firstElementChild.textContent = recWhat;
   rb.lastElementChild.textContent = recSrc;
   setIf(rb, 'aria-label', rec || state.recTrack ? `${recWhat.slice(2)} from ${recSrc}` : 'Rec: arm a track first');
@@ -559,8 +568,8 @@ function render() {
   rb.setAttribute('aria-disabled', String(phoneOut));
   rb.classList.toggle('dim', phoneOut);
   $('catch-pass').classList.toggle('jam-only', phoneOut);
-  setText($('catch-pass').querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : state.recTrack ? `last pass → track ${state.recTrack}` : 'arm a track');
-  setIf($('catch-pass'), 'aria-label', phoneOut ? 'Catch: needs the jam room' : state.recTrack ? `Catch the last pass onto track ${state.recTrack}` : 'Catch: arm a track first');
+  setText($('catch-pass').querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : state.recTrack ? `last pass → ${state.recTracks.length > 1 ? tracksWords(state.recTracks) : `track ${state.recTrack}`}` : 'arm a track');
+  setIf($('catch-pass'), 'aria-label', phoneOut ? 'Catch: needs the jam room' : state.recTrack ? `Catch the last pass onto ${onWords(state.recTracks)}` : 'Catch: arm a track first');
   renderMode();
   renderDrawers();
   renderClipboard();
@@ -2856,8 +2865,8 @@ function renderSources() {
 // litInput is the input track n shows as chosen: while a punch is armed or
 // running on it, the one it records.
 function litInput(n) {
-  const r = state.live && state.live.record;
-  return r && r.track === n ? r.source : inputOf(n);
+  const p = recPair(state.live && state.live.record, n);
+  return p ? p.source : inputOf(n);
 }
 
 // paintMeter moves source s's meter in el (its last child's bar) and says
@@ -2876,8 +2885,9 @@ function paintMeter(el, s) {
 // armed or running on it from another: it keeps the source it began with.
 function pickInput(n, name) {
   const r = state.live && state.live.record;
-  if (r && r.track === n && r.source !== name) {
-    toast(`● Rec is ${r.state === 'armed' ? 'ready to record' : 'recording'} ${r.source}: end it to record from ${name}`, 'warn');
+  const rp = recPair(r, n);
+  if (rp && rp.source !== name) {
+    toast(`● Rec is ${r.state === 'armed' ? 'ready to record' : 'recording'} ${rp.source}: end it to record from ${name}`, 'warn');
     return;
   }
   if (!n || (state.tape.inputs || [])[n - 1] === name) return;
@@ -2910,7 +2920,7 @@ function renderPasses() {
     b.className = 'pass';
     b.dataset.tip = 'passes';
     b.textContent = `−${k}`;
-    b.title = `Catch pass −${k} onto track ${state.recTrack}`;
+    b.title = `Catch pass −${k} onto ${onWords(state.recTracks)}`;
     // By the pass's own start, so it's the one on screen even if another
     // has finished since.
     b.addEventListener('click', () => doCatch({ out: c.out }));
@@ -2963,19 +2973,34 @@ function buildLanes() {
         pend: row.querySelector('.tt-pend'),
         gain: row.querySelector('.tt-gain'),
         canvas: row.querySelector('.tt-lane'),
+        warn: null,
       };
       // Tap a track's name to select it, and make it the record track if one
       // is armed; tap it again for its inspector. From the keyboard (a click
       // with no detail) the inspector takes the keys.
       lane.name.addEventListener('click', (e) => {
-        if (state.track === n && (state.recTrack === n || !state.recTrack)) { openTrack(n, { focus: e.detail === 0 }); return; }
+        if (state.track === n && (state.recTrack === n || state.recTracks.length !== 1)) { openTrack(n, { focus: e.detail === 0 }); return; }
         state.track = n;
-        if (state.recTrack) armTrack(n);
+        // One armed moves to it, as it always did; several armed stay as
+        // they are, and it's only selected.
+        if (state.recTracks.length === 1) armTrack(n);
         else render();
       });
       // ● arms it, or disarms it if it's armed; its input opens a menu of
       // the inputs, to choose what it records from.
-      lane.arm.addEventListener('click', () => (state.recTrack === n ? disarm() : armTrack(n)));
+      // With the two rooms on, it adds this track to what's armed or takes
+      // it off; 1–4, ↑ and ↓ still arm just one.
+      lane.arm.addEventListener('click', () => (ROOMS ? toggleArm(n) : state.recTrack === n ? disarm() : armTrack(n)));
+      // The rig's warning: an armed track whose input hears the tape. Only
+      // with the rooms on: with them off there's no markup for it at all.
+      let warn = null;
+      if (ROOMS) {
+        warn = document.createElement('span');
+        warn.className = 'tt-warn';
+        warn.setAttribute('role', 'img');
+        warn.hidden = true;
+        lane.arm.after(warn);
+      }
       lane.input.addEventListener('click', (e) => {
         e.stopPropagation(); // the page's click closes menus
         openInputMenu(n, lane.input, e.detail === 0);
@@ -2992,6 +3017,7 @@ function buildLanes() {
       lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
       lane.gain.addEventListener('input', () => { lane.gain.dataset.busy = '1'; });
       lane.gain.addEventListener('change', () => { delete lane.gain.dataset.busy; patch({ track: { n, gain_db: Number(lane.gain.value) } }); });
+      lane.warn = warn;
       wireLane(lane);
       box.appendChild(row);
       lanes.push(lane);
@@ -3011,24 +3037,61 @@ function track(n) { return state.tape.tracks[n - 1]; }
 // 1–4 or ↑ ↓; ● on the armed track disarms it, leaving none (0), and Catch
 // and ● Rec ask for one. Selecting a clip or tapping a lane changes only the
 // selected track (state.track), this device's own, which the edits act on.
-let recWant = null; // a record track chosen here (0: none) that the Pi hasn't shown back yet
+let recWant = null; // the armed tracks chosen here ([]: none) that the Pi hasn't shown back yet
 let recSending = false;
+const sameSet = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-// syncTrack takes the Pi's record track (-1 there is none, absent track 1),
-// unless one chosen here is on its way: an answer from before it arrived
-// would put the old one back.
+// syncTrack takes the Pi's armed tracks (rec_tracks; from a Pi before
+// them, rec_track: -1 there is none, absent track 1), unless a choice made
+// here is on its way: an answer from before it arrived would put the old
+// ones back.
 function syncTrack(t) {
-  const theirs = t && t.rec_track === -1 ? 0 : (t && t.rec_track) || 1;
-  if (recWant === null) state.recTrack = theirs;
-  else if (theirs === recWant && !recSending) recWant = null;
+  const theirs = armedOf(t);
+  if (recWant === null) setArmedHere(theirs);
+  else if (sameSet(theirs, recWant) && !recSending) recWant = null;
+}
+
+// setArmedHere is what's armed, as this page shows it.
+function setArmedHere(ns) {
+  state.recTracks = ns;
+  state.recTrack = ns.length ? ns[0] : 0;
+}
+
+// recTracksOf is a recording's tracks: its pairs', or its one.
+function recTracksOf(r) {
+  return r.pairs && r.pairs.length ? r.pairs.map((p) => p.track) : [r.track];
+}
+
+// recSources is what a recording records from, in a word or two.
+function recSources(r) {
+  return r.pairs && r.pairs.length > 1 ? r.pairs.map((p) => p.source).join(' + ') : r.source;
+}
+
+// recPair is the pair a recording has for track n, or null.
+function recPair(r, n) {
+  if (!r) return null;
+  if (r.pairs && r.pairs.length) return r.pairs.find((p) => p.track === n) || null;
+  return r.track === n ? { track: r.track, source: r.source } : null;
+}
+
+// toggleArm adds track n to what's armed, or takes it off (the rooms' ●).
+// Not while a punch is armed or recording: it keeps its tracks.
+function toggleArm(n) {
+  const r = state.live && state.live.record;
+  if (r) {
+    toast(`● Rec is ${r.state === 'armed' ? 'ready' : 'recording'} on ${onWords(recTracksOf(r))}: end it first`, 'warn');
+    return false;
+  }
+  setArmed(toggled(state.recTracks, n));
+  return true;
 }
 
 // armTrack makes track n the record track, here at once and on the Pi. Not
 // while a punch is armed or recording on another: it keeps its track.
 function armTrack(n) {
   const r = state.live && state.live.record;
-  if (r && r.track !== n) {
-    toast(`● Rec is ${r.state === 'armed' ? 'ready' : 'recording'} on track ${r.track}: end it to record onto track ${n}`, 'warn');
+  if (r && !sameSet(recTracksOf(r), [n])) {
+    toast(`● Rec is ${r.state === 'armed' ? 'ready' : 'recording'} on ${onWords(recTracksOf(r))}: end it to record onto track ${n}`, 'warn');
     return false;
   }
   setRecTrack(n);
@@ -3040,17 +3103,23 @@ function armTrack(n) {
 function disarm() {
   const r = state.live && state.live.record;
   if (r) {
-    toast(`● Rec is ${r.state === 'armed' ? 'ready' : 'recording'} on track ${r.track}: end it first`, 'warn');
+    toast(`● Rec is ${r.state === 'armed' ? 'ready' : 'recording'} on ${onWords(recTracksOf(r))}: end it first`, 'warn');
     return false;
   }
   setRecTrack(0);
   return true;
 }
 
+// setRecTrack arms just track n (0: none), as 1–4, ↑ and ↓ do.
 function setRecTrack(n) {
-  if (state.recTrack !== n) {
-    state.recTrack = n;
-    recWant = n;
+  setArmed(n ? [n] : []);
+}
+
+// setArmed arms exactly ns, here at once and on the Pi.
+function setArmed(ns) {
+  if (!sameSet(state.recTracks, ns)) {
+    setArmedHere(ns);
+    recWant = ns;
     sendTrack();
   }
   render();
@@ -3068,18 +3137,20 @@ function noArm() {
 async function sendTrack() {
   if (recSending || recWant === null || !state.tape) return;
   recSending = true;
-  const n = recWant, id = state.tape.id;
+  const ns = recWant, id = state.tape.id;
   let ok = false;
   try {
-    // Through change(): a poll already on its way is dropped.
-    await change(() => api(`/api/tapes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: { rec_track: n || -1 } }));
+    // Through change(): a poll already on its way is dropped. One track or
+    // none as rec_track, which every Pi knows; several as rec_tracks.
+    const body = ns.length > 1 ? { rec_tracks: ns } : { rec_track: ns[0] || -1 };
+    await change(() => api(`/api/tapes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body }));
     ok = true;
   } catch (e) {
-    toast(n ? `Could not make track ${n} the record track: ${e.message}` : `Could not disarm the track: ${e.message}`, 'bad');
+    toast(ns.length ? `Could not arm ${onWords(ns)}: ${e.message}` : `Could not disarm the track: ${e.message}`, 'bad');
   }
   recSending = false;
   if (!state.tape || state.tape.id !== id) { recWant = null; return; }
-  if (recWant !== n) { sendTrack(); return; } // chosen again meanwhile
+  if (recWant !== ns) { sendTrack(); return; } // chosen again meanwhile
   // The Pi has it, or refused it: from now on its polls say which. (A poll
   // already on its way when it was sent was dropped by change().)
   recWant = null;
@@ -3152,7 +3223,7 @@ function drawLanes() {
     const tr = t.tracks[lane.n - 1];
     if (!tr) continue;
     lane.row.classList.toggle('selected', lane.n === state.track);
-    lane.row.classList.toggle('rec', lane.n === state.recTrack);
+    lane.row.classList.toggle('rec', state.recTracks.includes(lane.n));
     // The number is in its ring; the masking tape carries the name, blank until
     // there is one, as a strip waiting to be written on.
     lane.name.textContent = tr.name || '';
@@ -3160,14 +3231,25 @@ function drawLanes() {
     lane.name.title = tr.name ? `${tr.n} ${tr.name}` : `Track ${tr.n}`;
     // ● lit on the record track; the input it records from, with a lamp
     // while there's signal on it.
-    const armed = lane.n === state.recTrack;
+    const armed = state.recTracks.includes(lane.n);
     setIf(lane.arm, 'aria-pressed', String(armed));
-    setIf(lane.arm, 'aria-label', armed ? `Track ${tr.n} is the record track: disarm it` : `Record onto track ${tr.n}`);
+    if (ROOMS) setIf(lane.arm, 'aria-label', armed ? `Track ${tr.n} is armed: take it off what's armed` : `Arm track ${tr.n}${state.recTracks.length ? ' as well' : ''}`);
+    else setIf(lane.arm, 'aria-label', armed ? `Track ${tr.n} is the record track: disarm it` : `Record onto track ${tr.n}`);
     const inName = litInput(tr.n);
     const src = state.sources.find((x) => x.name === inName);
-    setText(lane.input.querySelector('.tt-in-v'), inName || '–');
+    // With the rooms on, what's drawn into its jack on the rig: "guitar".
+    const named = ROOMS && src && src.label ? src.label : '';
+    setText(lane.input.querySelector('.tt-in-v'), named || inName || '–');
     lane.input.classList.toggle('signal', !!src && typeof src.peak_db === 'number' && src.peak_db > -50);
-    setIf(lane.input, 'aria-label', `Track ${tr.n} records from ${inName || 'nothing yet'}: choose its input`);
+    setIf(lane.input, 'aria-label', `Track ${tr.n} records from ${inName || 'nothing yet'}${named ? ` (${named})` : ''}: choose its input`);
+    if (lane.warn) {
+      const why = recordsTape(tr.n, state.recTracks, state.sources, inputOf);
+      lane.warn.hidden = !why;
+      if (why && lane.warn.title !== why) {
+        lane.warn.title = why;
+        lane.warn.setAttribute('aria-label', why);
+      }
+    }
     lane.mute.setAttribute('aria-pressed', String(!!tr.mute));
     lane.solo.setAttribute('aria-pressed', String(!!tr.solo));
     // The keys show the ask; the lane dims with the sound, until it is heard.
@@ -3344,8 +3426,8 @@ function drawLanes() {
         ctx.setLineDash([]);
       }
     }
-    if (state.rec && state.rec.track === lane.n) drawPunch(ctx, view, W, H, col);
-    else if (lane.n === state.recTrack) drawLanding(ctx, view, W, H, col);
+    if (state.rec && (state.rec.tracks || [state.rec.track]).includes(lane.n)) drawPunch(ctx, view, W, H, col);
+    else if (state.recTracks.includes(lane.n)) drawLanding(ctx, view, W, H, col);
     // A clip being slid: where it would land, on the lane it's over; or each
     // of a group, on the lane it goes to.
     const sl = state.slide;
@@ -3713,7 +3795,8 @@ function keptToast(k) {
   const bars = state.tape && state.tape.grid ? k.frames / (state.tape.grid.frames / state.tape.grid.bars) : 0;
   const n = Math.round(bars);
   const what = Math.abs(bars - n) < 0.01 && n > 0 ? `${n} bar${n === 1 ? '' : 's'}` : `${(k.frames / state.tape.sample_rate).toFixed(1)} s`;
-  caughtToast(`Kept ${what} from ${k.clip.source} on track ${k.track}`, k.clip, { action: { label: 'Undo', run: () => undoRedo(false) } });
+  const on = k.tracks && k.tracks.length > 1 ? onWords(k.tracks) : `track ${k.track}`;
+  caughtToast(`Kept ${what} from ${k.tracks && k.tracks.length > 1 ? (k.clips || []).map((c) => c.source).filter((x, i, a) => a.indexOf(x) === i).join(' + ') : k.clip.source} on ${on}`, k.clip, { action: { label: 'Undo', run: () => undoRedo(false) } });
 }
 
 // rec arms the selected track, punches in, or ends the punch and keeps it.
@@ -3722,16 +3805,16 @@ async function rec() {
   if (!r && (jamOnly() || noArm())) return; // keeping a take already running stays possible
   try {
     if (!r) {
-      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: { track: state.recTrack, source: inputOf(state.recTrack), replace: state.mode === 'replace' } }));
+      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace' }) }));
       const armed = b.record.state === 'armed';
-      const { track, source } = b.record;
-      toast(armed ? `● Rec is ready on track ${track}: press ▶ to count in, then it records ${source}` : `Recording ${source} onto track ${track} from the next bar — tap ● again to keep it`, 'ok', {
+      const on = onWords(recTracksOf(b.record)), source = recSources(b.record);
+      toast(armed ? `● Rec is ready on ${on}: press ▶ to count in, then it records ${source}` : `Recording ${source} onto ${on} from the next bar — tap ● again to keep it`, 'ok', {
         ms: 8000, action: { label: 'Cancel', run: () => api(`/api/tapes/record?${q()}&cancel=1`, { method: 'DELETE' }).then(poll, () => {}) },
       });
     } else {
       const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'DELETE' }));
       if (b.kept) keptToast(b.kept);
-      else toast(r.state === 'armed' ? `● Rec cancelled on track ${r.track}` : 'Nothing to keep yet: the tape hadn’t reached a bar line');
+      else toast(r.state === 'armed' ? `● Rec cancelled on ${onWords(recTracksOf(r))}` : 'Nothing to keep yet: the tape hadn’t reached a bar line');
     }
     poll();
   } catch (e) {
@@ -3744,11 +3827,11 @@ async function rec() {
 async function tap() {
   if (jamOnly() || noArm()) return;
   try {
-    const b = await change(() => api(`/api/tapes/tap?${q()}`, { method: 'POST', body: { track: state.recTrack, source: inputOf(state.recTrack) } }));
+    const b = await change(() => api(`/api/tapes/tap?${q()}`, { method: 'POST', body: recordBody(state.recTracks, inputOf) }));
     if (b.stage === 'first') {
       toast('Now tap where it comes round', 'ok', { action: { label: 'Start over', run: () => api(`/api/tapes/tap?${q()}`, { method: 'DELETE' }).then(poll, () => {}) } });
     } else {
-      caughtToast(`A ${(b.clip.frames / state.tape.sample_rate).toFixed(2)} s loop: ${b.bars} bar${b.bars === 1 ? '' : 's'} at ${b.bpm} BPM`, b.clip, {
+      caughtToast(`A ${(b.clip.frames / state.tape.sample_rate).toFixed(2)} s loop: ${b.bars} bar${b.bars === 1 ? '' : 's'} at ${b.bpm} BPM${b.tracks && b.tracks.length > 1 ? ` → ${tracksWords(b.tracks)}` : ''}`, b.clip, {
         ms: 8000, action: { label: 'Undo', run: () => undoRedo(false) },
       });
     }
@@ -3808,11 +3891,15 @@ function laneTap(lane, e) {
 
 async function doCatch(what) {
   if (jamOnly() || noArm()) return;
-  const body = { track: state.recTrack, source: inputOf(state.recTrack), replace: state.mode === 'replace', ...what };
+  const body = recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace', ...what });
   try {
     const b = await change(() => api(`/api/tapes/catch?${q()}`, { method: 'POST', body }));
     const s = (b.clip.frames / state.tape.sample_rate).toFixed(1);
-    caughtToast(`Caught ${s} s from ${b.clip.source} onto track ${body.track}${b.clip.clean ? '' : ' — the tape was in that source too'}`, b.clip, {
+    // CATCH says what it did: "last 4 bars → 2, 3".
+    const tracks = b.tracks || [body.track];
+    const dirty = (b.clips || [b.clip]).some((c) => !c.clean);
+    const said = tracks.length > 1 || ROOMS ? `Caught ${catchSays(what, tracks)}` : `Caught ${s} s from ${b.clip.source} onto track ${body.track}`;
+    caughtToast(`${said}${dirty ? ' — the tape was in that source too' : ''}`, b.clip, {
       action: { label: 'Undo', run: () => undoRedo(false) },
     });
     poll();
@@ -4539,7 +4626,7 @@ function wire() {
     const press = (id) => { if (!e.repeat && !$(id).disabled) $(id).click(); };
     // 1–4 and ↑ ↓: the record track, and the selected one with it.
     const pick = (n) => {
-      if (n < 1 || n > state.tape.tracks.length || (n === state.track && n === state.recTrack)) return false;
+      if (n < 1 || n > state.tape.tracks.length || (n === state.track && sameSet(state.recTracks, [n]))) return false;
       state.track = n;
       armTrack(n);
       return true;
