@@ -62,17 +62,54 @@ const (
 	// by up to 20 dB.
 	driveMaxGain = 10.0
 	driveRefDB   = -18.0
-
-	// ctrlEvery is how often a gliding amount's coefficients are worked out
-	// again, in frames, counted from the start of the output so it comes out
-	// the same however a block is split: a third of a millisecond, against
-	// glides of 10 ms. A pow or a tan a frame costs more than the filtering.
-	ctrlEvery = 16
 )
+
+// ctrlEvery is how often a gliding amount's coefficients are worked out
+// again, in frames, counted from the start of the output so it comes out the
+// same however a block is split: a third of a millisecond, against glides
+// of 10 ms. A pow or a tan a frame costs more than the filtering. (A
+// variable only so a test can hear it against every frame.)
+var ctrlEvery uint64 = 16
 
 // ctrl says whether output frame o is one an amount's coefficients are
 // worked out on.
 func ctrl(o uint64) bool { return o%ctrlEvery == 0 }
+
+// glide carries up to three coefficients from where they are to where they
+// were last worked out, in a straight line across the ctrlEvery frames
+// until they're worked out again: a gliding amount moves them every frame,
+// not in steps that zipper.
+type glide struct {
+	cur, to, step [3]float64
+	left          int
+}
+
+// aim sets where they go: across the next ctrlEvery frames, or at once.
+func (g *glide) aim(to [3]float64, now bool) {
+	g.to = to
+	if now {
+		g.cur, g.left = to, 0
+		return
+	}
+	for i := range to {
+		g.step[i] = (to[i] - g.cur[i]) / float64(ctrlEvery)
+	}
+	g.left = int(ctrlEvery)
+}
+
+// next moves them a frame on.
+func (g *glide) next() {
+	if g.left == 0 {
+		return
+	}
+	if g.left--; g.left == 0 {
+		g.cur = g.to
+		return
+	}
+	for i := range g.cur {
+		g.cur[i] += g.step[i]
+	}
+}
 
 // driveMakeup is DRIVE's make-up gain by amount, 0 to 1 in driveRows-1
 // steps: what brings a sine at the reference back to the reference. Built
@@ -139,7 +176,7 @@ type fxBus struct {
 	ageLive    bool
 	ageY       [OutChannels]float32
 	ageV       float64 // the age the coefficients below are for
-	ageA, ageW float32
+	ageCoef    glide   // the one-pole's coefficient, and how much of it is heard
 
 	filter fxFilter
 	crush  fxCrush
@@ -256,7 +293,10 @@ func (b *fxBus) runDrive(d []float32, n int, o uint64, a float64) {
 		if v == 0 {
 			continue
 		}
-		if v != b.driveV && (b.driveV == 0 || ctrl(o+uint64(k))) {
+		// Every frame it moves: a tanh, and the make-up's lookup. Worked out
+		// in steps, the wet gain moved in steps under a dry weight that
+		// didn't.
+		if v != b.driveV {
 			b.driveV, b.driveG = v, 1+(driveMaxGain-1)*v
 			b.driveWet = v * driveGain(v) / math.Tanh(b.driveG)
 		}
@@ -283,16 +323,17 @@ func (b *fxBus) runAge(d []float32, n int, o uint64, a, sr float64) {
 		v := b.age.step(a)
 		if v != b.ageV && (b.ageV < 0 || ctrl(o+uint64(k))) {
 			fc := ageOpenHz * math.Pow(ageClosedHz/ageOpenHz, v)
-			b.ageA = float32(1 - math.Exp(-2*math.Pi*fc/sr))
-			b.ageW = float32(math.Min(1, v/ageFadeIn))
+			b.ageCoef.aim([3]float64{1 - math.Exp(-2*math.Pi*fc/sr), math.Min(1, v/ageFadeIn)}, b.ageV < 0)
 			b.ageV = v
 		}
+		b.ageCoef.next()
+		ca, w := float32(b.ageCoef.cur[0]), float32(b.ageCoef.cur[1])
 		i := k * OutChannels
 		for c := 0; c < OutChannels; c++ {
 			x := d[i+c]
-			y := b.ageA*x + (1-b.ageA)*b.ageY[c]
+			y := ca*x + (1-ca)*b.ageY[c]
 			b.ageY[c] = y
-			d[i+c] = x*(1-b.ageW) + y*b.ageW
+			d[i+c] = x*(1-w) + y*w
 		}
 	}
 }
@@ -311,7 +352,7 @@ type fxFilter struct {
 	warm       bool    // its state takes the next frame as where it is
 	ic1, ic2   [OutChannels]float64
 	cv         float64 // the amount the coefficients are for
-	a1, a2, a3 float64
+	coef       glide   // a1, a2, a3
 }
 
 func (f *fxFilter) press(v float64) {
@@ -333,11 +374,12 @@ func filterCutoff(v, sr float64) float64 {
 	return math.Min(filterOpenHz*math.Pow(filterClosedHz/filterOpenHz, v), 0.45*sr)
 }
 
-func (f *fxFilter) coef(v, sr float64) {
+// aim works out the coefficients for amount v, and glides to them: at once
+// if it's the first time.
+func (f *fxFilter) aim(v, sr float64) {
 	g := math.Tan(math.Pi * filterCutoff(v, sr) / sr)
-	f.a1 = 1 / (1 + g*(g+filterK))
-	f.a2 = g * f.a1
-	f.a3 = g * f.a2
+	a1 := 1 / (1 + g*(g+filterK))
+	f.coef.aim([3]float64{a1, g * a1, g * g * a1}, f.cv < 0)
 	f.cv = v
 }
 
@@ -359,8 +401,10 @@ func (f *fxFilter) run(d []float32, n int, o uint64, target, a, sr float64, step
 			v = f.amt.step(a)
 		}
 		if v != f.cv && (f.cv < 0 || ctrl(o+uint64(k))) {
-			f.coef(v, sr)
+			f.aim(v, sr)
 		}
+		f.coef.next()
+		a1, a2, a3 := f.coef.cur[0], f.coef.cur[1], f.coef.cur[2]
 		e := float64(f.gate.next(step))
 		i := k * OutChannels
 		for c := 0; c < OutChannels; c++ {
@@ -369,8 +413,8 @@ func (f *fxFilter) run(d []float32, n int, o uint64, target, a, sr float64, step
 				f.ic1[c], f.ic2[c] = 0, x
 			}
 			v3 := x - f.ic2[c]
-			v1 := f.a1*f.ic1[c] + f.a2*v3
-			v2 := f.ic2[c] + f.a2*f.ic1[c] + f.a3*v3
+			v1 := a1*f.ic1[c] + a2*v3
+			v2 := f.ic2[c] + a2*f.ic1[c] + a3*v3
 			f.ic1[c] = 2*v1 - f.ic1[c]
 			f.ic2[c] = 2*v2 - f.ic2[c]
 			d[i+c] = float32(x*(1-e) + v2*e)

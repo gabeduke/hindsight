@@ -1053,3 +1053,54 @@ func TestAmountsMovingDontCrowdOutPressesAndReleases(t *testing.T) {
 		t.Fatalf("the moves: %d, the last %+v", len(moves), moves)
 	}
 }
+
+// curvature is the biggest second difference on bus A left over frames
+// [from, to) of a run that began at output frame start, on the lines where
+// coefficients are worked out (every ctrlEvery frames), or on every frame.
+func curvature(out []float32, start uint64, from, to int, lines bool) float64 {
+	best := 0.0
+	for k := max(1, from); k < to-1; k++ {
+		if lines && (start+uint64(k))%16 != 0 {
+			continue
+		}
+		d := float64(out[(k+1)*OutChannels]) - 2*float64(out[k*OutChannels]) + float64(out[(k-1)*OutChannels])
+		best = math.Max(best, math.Abs(d))
+	}
+	return best
+}
+
+func TestGlidingAmountsDontZipper(t *testing.T) {
+	// Worked out every 16 frames, a gliding amount's coefficients mustn't
+	// step there: on a sine, the curvature on those lines is no more than
+	// the same glide worked out every frame has.
+	cases := map[string]func(r *rig){
+		"drive": func(r *rig) { _ = r.e.Set("mod.drive", 1) },
+		"age":   func(r *rig) { _ = r.e.Set("mod.age", 1) },
+		"filter": func(r *rig) {
+			_ = r.e.PressAmount(PadFilter, QuantumNow, 0)
+			r.run(4)
+			_ = r.e.Set(PadFilter, 1)
+		},
+	}
+	glide := func(every uint64, move func(r *rig)) ([]float32, uint64) {
+		was := ctrlEvery
+		ctrlEvery = every
+		defer func() { ctrlEvery = was }()
+		r := toneRig(t, sine(220, 0.5))
+		r.playFrom(0)
+		r.run(4)
+		move(r)
+		start := r.out
+		return r.run(12), start
+	}
+	for name, move := range cases {
+		t.Run(name, func(t *testing.T) {
+			ref, rs := glide(1, move)
+			got, gs := glide(16, move)
+			want := curvature(ref, rs, 0, 4800, true)
+			if c := curvature(got, gs, 0, 4800, true); c > 1.05*want+1e-6 {
+				t.Fatalf("curvature %.5f on the 16-frame lines, against %.5f worked out every frame", c, want)
+			}
+		})
+	}
+}
