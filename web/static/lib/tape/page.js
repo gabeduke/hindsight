@@ -249,6 +249,16 @@ async function poll(force = false) {
       bars: t.grid ? t.grid.bars : 0,
       loop: t.loop,
       output: state.live?.output_mode || '',
+      // The Studio's buffer (lib/buffer) reads these: the tape as the Pi has
+      // it, the armed track and its input, the sources, the ruler's snap,
+      // what the lanes show, and the playhead as it lands on the tape.
+      tape: t,
+      rec_track: state.recTrack,
+      rec_input: state.recTrack ? inputOf(state.recTrack) : '',
+      sources: state.sources,
+      snap: t.grid ? state.snap : 'off',
+      view: laneView(),
+      pos: playhead(),
     } }));
   } catch (e) {
     // An answer of any kind (a 404) was the Pi; none at all is the link.
@@ -4302,6 +4312,11 @@ function wire() {
   $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
   // Play mode's Space (lib/play): exactly ▶, disabled when ▶ is.
   document.addEventListener('hindsight:play-transport', () => $('play').click());
+  // The Studio's buffer (lib/buffer) changed the clipboard: the crate's
+  // first row shows it now, not at the next fetch. And it dropped onto the
+  // tape: show that now too.
+  document.addEventListener('hindsight:clipboard', () => fetchClipboard());
+  document.addEventListener('hindsight:tape-changed', () => poll(true));
   // The bar's Crate key opens its drawer, or closes it; its ✕ closes it.
   $('np-drawer-crate').addEventListener('click', () => setDrawer(state.drawer === 'crate' ? '' : 'crate'));
   for (const b of document.querySelectorAll('.np-drawer-close')) {

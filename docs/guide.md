@@ -1997,6 +1997,25 @@ has no tip.
 | Output | Where the tape plays: the jam room (a speaker), this phone (headphones), or both. It's in the header of Tape, Takes and Capture. Switching keeps it rolling from the same spot |
 | Jam room / This phone / Both | The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both |
 | Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |
+| Grab | Copy the last bars of the feed (with no tempo yet, the last seconds) into the buffer, from its sources, to trim and drop. G |
+| Last 1 2 4 8 (grab) | How many bars Grab takes; with no tempo, twice as many seconds |
+| Grab (ribbon) | Copy exactly the span you selected on the ribbon into the buffer |
+| Buffer ▴ | Open the buffer again: what you grabbed last waits there, and in the crate's first slot |
+| Buffer grip | Pull the buffer up or down. Hold it, then drag onto a lane, to drop it there |
+| Sources (buffer) | Which inputs the buffer holds, a lane each, all over the same span; they drop on neighbouring tracks |
+| Audition | Loop the buffer on this device, never through the Pi, so the jam goes on |
+| Unfold | Give the lanes their height back, and leave the buffer open |
+| ✕ (buffer) | Close the buffer. It stays on the clipboard, the crate's first slot, for Buffer ▴ or another drop |
+| Drag to a lane | Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
+| The buffer's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
+| Drop on track | Lay the buffer on the armed track at the next free span after the next bar line. One undo. ↵ |
+| Keep as take | Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo. K |
+| Toss | Throw the buffer away; Undo brings it back. ⌫ |
+| In ◂ ▸ / Out ◂ ▸ | Move IN or OUT a step of the snap (⌗): [ and ] for IN, ⇧[ and ⇧] for OUT |
+| Gain (buffer) | The buffer's level, on every lane |
+| Normalize (buffer) | Bring the loudest lane's loudest moment to just under full scale, the lanes kept in balance |
+| Reverse (buffer) | Play the buffer backwards, or forwards again |
+| Fades (buffer) | The fades' curve: equal power, linear, S-curve or exponential. Drag the corners for their length |
 
 ## 10. When something's off
 

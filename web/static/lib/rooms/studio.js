@@ -22,6 +22,7 @@ import { initSettings } from '../settings.js';
 import { initUpdate } from '../update.js';
 import { initWakeLock } from '../wakelock.js';
 import { keepTake, takeBack } from './keep.js';
+import { mountBuffer } from '../buffer/buffer.js';
 
 const STATUS_MS = 2000;
 
@@ -215,5 +216,9 @@ export function mountStudio(doc = document) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  return { ribbon };
+  // The buffer (lib/buffer, step P2): GRAB beside KEEP, and what it grabs
+  // between the feed and the lanes.
+  const buffer = mountBuffer(doc, { feed: main.querySelector('.studio-feed'), keysRow: main.querySelector('.studio-keys'), ribbon, toast });
+
+  return { ribbon, buffer };
 }

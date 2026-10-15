@@ -1,0 +1,149 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  barStart, barAt, nextBar, nextFreeSpan, spanWords, dropKey, grabKey, grabSeconds,
+  clampWindow, windowLimits, gridOf, snapNear, edgeStep, bufferLines, bufferMeta, bufferNote, barsText, boardKey,
+} from './model.js';
+
+const SR = 48000;
+// A tape at 120 BPM: a bar is 96000 frames; 32 bars long.
+const BAR = 96000;
+function tape({ clips = [[], [], [], []], loop = { in: 0, out: 8 * BAR, on: true }, grid = { frames: 8 * BAR, bars: 8 }, length = 32 * BAR } = {}) {
+  return {
+    sample_rate: SR, length, grid, loop,
+    tracks: clips.map((cs, i) => ({ n: i + 1, clips: cs.map(([a, b]) => ({ at: a * BAR, frames: (b - a) * BAR })) })),
+  };
+}
+
+test('bar lines fall where the Pi puts them, at an awkward tempo too', () => {
+  const bar = 137142.857; // 84 BPM
+  assert.equal(barStart(3, bar), 411429);
+  assert.equal(barAt(411428, bar), 2);
+  assert.equal(barAt(411429, bar), 3);
+  assert.equal(nextBar(411429, bar), 411429);
+  assert.equal(nextBar(411430, bar), barStart(4, bar));
+  assert.equal(Object.is(barStart(0, bar), -0), false);
+});
+
+test('the next free span is the first gap long enough after the next bar line', () => {
+  // Track 2 has bars 1–2 and 5–6 taken; a 2-bar buffer, the playhead in bar 1.
+  const t = tape({ clips: [[], [[0, 2], [4, 6]], [], []] });
+  assert.deepEqual(nextFreeSpan(t, { first: 2, frames: 2 * BAR, pos: BAR / 2 }), { at: 2 * BAR });
+  // A 3-bar one doesn't fit in bars 3–4, nor in the loop's bars 7–8: with
+  // the loop off, it goes after bar 6.
+  assert.equal(nextFreeSpan(t, { first: 2, frames: 3 * BAR, pos: BAR / 2 }), null);
+  const off = { ...t, loop: { ...t.loop, on: false } };
+  assert.deepEqual(nextFreeSpan(off, { first: 2, frames: 3 * BAR, pos: BAR / 2 }), { at: 6 * BAR });
+});
+
+test('it starts at the next bar line after the playhead, not under it', () => {
+  const t = tape();
+  // Mid-bar 3: bar 4's line. On a bar line: that line.
+  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: BAR, pos: 2 * BAR + 1000 }), { at: 3 * BAR });
+  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: BAR, pos: 3 * BAR }), { at: 3 * BAR });
+});
+
+test('it wraps round the loop: a span free only before the playhead is found', () => {
+  // The 8-bar loop; track 1 full from bar 3 to the loop's end. The playhead
+  // in bar 6: nothing after it fits, so it comes round to bar 1.
+  const t = tape({ clips: [[[2, 8]], [], [], []] });
+  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: 2 * BAR, pos: 5 * BAR + 10 }), { at: 0 });
+  // It never runs past the loop's Out, even with tape after it.
+  assert.equal(nextFreeSpan(tape({ clips: [[[0, 7]], [], [], []] }), { first: 1, frames: 2 * BAR, pos: 0 }), null);
+  // A buffer longer than the loop has nowhere to go.
+  assert.equal(nextFreeSpan(t, { first: 2, frames: 9 * BAR, pos: 0 }), null);
+});
+
+test('with the loop off it runs to the tape’s end, then round from its start', () => {
+  const t = tape({ clips: [[[0, 1], [10, 32]], [], [], []], loop: { in: 0, out: 8 * BAR, on: false } });
+  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: 4 * BAR, pos: 9 * BAR }), { at: 1 * BAR });
+  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: 2 * BAR, pos: 3 * BAR }), { at: 3 * BAR });
+});
+
+test('several lanes need the span free on each of their tracks', () => {
+  // Track 2 free in bars 1–4, track 3 busy in bars 2–3: two lanes from track
+  // 2 go to bar 4.
+  const t = tape({ clips: [[], [], [[1, 3]], []] });
+  assert.deepEqual(nextFreeSpan(t, { first: 2, count: 2, frames: BAR, pos: 0 }), { at: 0 });
+  assert.deepEqual(nextFreeSpan(t, { first: 2, count: 2, frames: 2 * BAR, pos: 0 }), { at: 3 * BAR });
+  // Lanes past the last track don't fit.
+  assert.equal(nextFreeSpan(t, { first: 4, count: 2, frames: BAR, pos: 0 }), null);
+});
+
+test('with no tempo it lands at the playhead or after a clip; an empty tape takes it at 0', () => {
+  const none = tape({ grid: null, loop: { in: 0, out: 0, on: false }, clips: [[[1, 2]], [], [], []] });
+  assert.deepEqual(nextFreeSpan(none, { first: 1, frames: BAR / 2, pos: BAR / 4 }), { at: BAR / 4 });
+  assert.deepEqual(nextFreeSpan(none, { first: 1, frames: BAR, pos: BAR / 2 }), { at: 2 * BAR });
+  const empty = tape({ grid: null, loop: { in: 0, out: 0, on: false } });
+  assert.deepEqual(nextFreeSpan(empty, { first: 3, frames: 5 * BAR, pos: 7 * BAR }), { at: 0 });
+});
+
+test('the DROP key names the track and the bars, or why it can’t', () => {
+  const t = tape({ clips: [[], [[0, 8]], [], []] });
+  const k = dropKey({ tape: t, armed: 1, frames: 4 * BAR, pos: 8 * BAR - 5 });
+  assert.equal(k.word, 'Drop on track 1');
+  assert.equal(k.sub, 'bars 1–4'); // round the loop from its In
+  assert.equal(k.at, 0);
+  assert.equal(k.can, true);
+  assert.equal(dropKey({ tape: t, armed: 0, frames: BAR }).can, false);
+  assert.match(dropKey({ tape: t, armed: 0, frames: BAR }).word, /Arm a track/);
+  assert.match(dropKey({ tape: t, armed: 2, frames: BAR }).word, /No room on track 2/);
+  assert.match(dropKey({ tape: t, armed: 4, count: 2, frames: BAR }).sub, /don’t fit/);
+  assert.equal(dropKey({ tape: t, armed: 3, count: 2, frames: BAR, pos: 0 }).word, 'Drop on tracks 3–4');
+  assert.equal(spanWords(t.grid, 8 * BAR, BAR, SR), 'bar 9');
+  assert.equal(spanWords(null, 12 * SR, BAR, SR), 'at 0:12');
+});
+
+test('GRAB takes bars with a tempo and twice as many seconds without', () => {
+  assert.equal(grabSeconds(4), 8);
+  assert.equal(grabKey(4, true).word, 'Grab');
+  assert.equal(grabKey(4, true).pick(8), '8');
+  assert.equal(grabKey(4, false).word, 'Grab 8 s');
+  assert.equal(grabKey(4, false).pick(1), '2 s');
+});
+
+// A grab of 4 bars at 120 BPM with a bar of handle either side.
+const grab = { in: 0, out: 4 * BAR, frames: 4 * BAR, before: BAR, after: BAR, bar_frames: BAR, downbeat: 0 };
+
+test('the window keeps inside its handles, less the overhang, and never shrinks to nothing', () => {
+  const over = 480;
+  assert.deepEqual(windowLimits(grab, SR), { lo: -BAR + over, hi: 5 * BAR - over, min: over });
+  assert.deepEqual(clampWindow(grab, -10 * BAR, 10 * BAR, SR), { in: -BAR + over, out: 5 * BAR - over });
+  assert.deepEqual(clampWindow(grab, 2 * BAR, BAR, SR), { in: 2 * BAR, out: 2 * BAR + over });
+});
+
+test('IN and OUT step on the snap, from the grab’s first bar line', () => {
+  const g = gridOf(grab, 1); // bars
+  assert.equal(edgeStep(g, 0, 1, SR), BAR);
+  assert.equal(edgeStep(g, 0, -1, SR), -BAR);
+  assert.equal(edgeStep(g, 1000, -1, SR), 0); // off the grid: to the line behind it
+  assert.equal(edgeStep(gridOf(grab, 4), 0, 1, SR), BAR / 4); // beats
+  // Where the grab didn't start on a bar line, the lines are the tape's.
+  const off = gridOf({ ...grab, downbeat: 30000 }, 1);
+  assert.equal(edgeStep(off, 0, 1, SR), 30000);
+  assert.equal(snapNear(off, 50000), 30000);
+  // The snap off, or no tempo: a tenth of a second.
+  assert.equal(gridOf(grab, 0), null);
+  assert.equal(edgeStep(null, 1000, 1, SR), 1000 + 4800);
+  assert.equal(snapNear(null, 1234.4), 1234);
+});
+
+test('the window’s ruler numbers the grab’s bars and leaves the handles blank', () => {
+  const lines = bufferLines(grab);
+  assert.deepEqual(lines.map((l) => l.frame), [-BAR, 0, BAR, 2 * BAR, 3 * BAR, 4 * BAR, 5 * BAR]);
+  assert.deepEqual(lines.map((l) => l.label), ['', '1', '2', '3', '4', '', '']);
+  assert.deepEqual(bufferLines({ ...grab, bar_frames: 0 }), []);
+});
+
+test('the buffer’s line and its notes', () => {
+  const board = { frames: 4 * BAR, created: 'x', tracks: [[{}]], grab };
+  assert.equal(bufferMeta(board, SR), '4 bars · 8.00 s · 120 BPM');
+  assert.equal(barsText(3.5 * BAR, BAR), '3.5 bars');
+  assert.equal(barsText(BAR, BAR), '1 bar');
+  assert.equal(bufferMeta({ ...board, grab: { ...grab, bar_frames: 0 } }, SR), '8.00 s');
+  assert.equal(bufferNote(board), '');
+  assert.match(bufferNote({ grab: { ...grab, wall: true, bars: 4, why: 'the tape isn’t playing' } }), /last 4 bars of time.*isn’t playing/);
+  assert.match(bufferNote({ grab: { ...grab, clamped: true } }), /clamped to what the ring still had/);
+  assert.notEqual(boardKey(board), boardKey({ ...board, grab: { ...grab, in: 5 } }));
+  assert.equal(boardKey(null), '');
+});
