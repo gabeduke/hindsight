@@ -152,6 +152,10 @@ export function mountStrip(root, surface, {
   panel.hidden = true;
   fold.setAttribute('aria-controls', panel.id);
   const fromLine = el('p', 'play-from-line');
+  // The lines under the head, unfolded: where it's played from, and the
+  // note (which sits at the row's end while folded).
+  const lines = el('div', 'play-lines');
+  lines.append(fromLine);
 
   // The reel, and the loop as its ring.
   const reelWrap = el('div', 'play-reel');
@@ -234,7 +238,7 @@ export function mountStrip(root, surface, {
   side.append(tricksG, bus);
   const body = el('div', 'play-body');
   body.append(reelWrap, tracksG, side, slots.fx, slots.mods);
-  panel.append(fromLine, body);
+  panel.append(lines, body);
 
   // The small pads of the folded row: the same pads, smaller.
   TRACK_PADS.forEach((id, i) => pad(mini, id, `play-track play-small t${i + 1}`));
@@ -264,10 +268,11 @@ export function mountStrip(root, surface, {
     const all = [...pads.entries(), ...[...verbs.entries()].map(([id, b]) => [id, [b]])];
     for (const [id, bs] of all) {
       const text = legendFor(id, shown === 'touch' || shown === 'keys' ? shown : 'midi', { bindings, has });
+      const face = control(id)?.face;
       for (const b of bs) {
         const k = b.querySelector('.play-key');
         if (k.textContent !== text) k.textContent = text;
-        k.hidden = !text;
+        k.hidden = !text || text === face; // track 1's key is 1: once is enough
       }
     }
   }
@@ -288,6 +293,7 @@ export function mountStrip(root, surface, {
     setFold(open) {
       root.dataset.fold = open ? 'open' : 'folded';
       panel.hidden = !open;
+      if (open) lines.append(noteEl); else row.append(noteEl);
       fold.setAttribute('aria-expanded', String(open));
       fold.setAttribute('aria-label', open ? 'The instrument: fold it' : 'The instrument: unfold it');
       fold.querySelector('.play-chev').textContent = open ? '▾' : '▴';
