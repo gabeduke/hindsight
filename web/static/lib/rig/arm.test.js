@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { armedOf, toggled, pairsFor, recordBody, catchSays, onWords, spanWords, armClick } from './arm.js';
+import { armedOf, toggled, pairsFor, recordBody, catchSays, onWords, spanWords, armClick, armedNote } from './arm.js';
 
 test('what is armed: rec_tracks, or rec_track from a Pi before multi-arm', () => {
   assert.deepEqual(armedOf({ rec_tracks: [3, 2], rec_track: 2 }), [2, 3]);
@@ -42,8 +42,39 @@ test('● with the rooms off: an armed track comes off, an unarmed one is armed 
   assert.deepEqual(armClick([], 1, false), { next: [1], label: 'Record onto track 1' });
 });
 
-test('● with the rooms on adds the track to what is armed, or takes it off', () => {
-  assert.deepEqual(armClick([2], 3, true), { next: [2, 3], label: 'Arm track 3 as well' });
-  assert.deepEqual(armClick([2, 3], 3, true), { next: [2], label: 'Track 3 is armed: take it off what’s armed' });
-  assert.deepEqual(armClick([], 1, true), { next: [1], label: 'Arm track 1' });
+// "Arm track 2 as well" is what ● does with the rooms on -- it adds, it never
+// moves the arm -- and Catch and Rec then record onto every armed track. The
+// label said the first half; a person who tapped it read "arm track 2" and was
+// surprised when Catch also went onto track 1. So the label now says both.
+test('● with the rooms on adds the track to what is armed, or takes it off, and says what Catch and Rec then do', () => {
+  assert.deepEqual(armClick([2], 3, true), { next: [2, 3], label: 'Arm track 3 as well: Catch and Rec then use tracks 2, 3' });
+  assert.deepEqual(armClick([2, 3], 3, true), { next: [2], label: 'Track 3 is armed: take it off. Catch and Rec then use track 2' });
+  assert.deepEqual(armClick([2], 2, true), { next: [], label: 'Track 2 is armed: take it off. Nothing is then armed' });
+  assert.deepEqual(armClick([], 1, true), { next: [1], label: 'Arm track 1: Catch and Rec then use track 1' });
+});
+
+test('the label and the result agree: what the label says Catch will use is the set the click makes', () => {
+  for (const armed of [[], [1], [2], [1, 2], [1, 2, 3]]) {
+    for (const n of [1, 2, 3, 4]) {
+      const { next, label } = armClick(armed, n, true);
+      const said = /then use (tracks? [\d, ]+)$/.exec(label);
+      if (next.length) assert.equal(said && said[1], onWords(next), `${JSON.stringify(armed)} + ${n}: ${label}`);
+      else assert.match(label, /Nothing is then armed/);
+    }
+  }
+});
+
+test('arming a track as well says so once, and offers just that one', () => {
+  assert.deepEqual(armedNote([1], 2, [1, 2]), {
+    text: 'Tracks 1, 2 are armed: Catch and Rec record onto all of them, DROP onto the first',
+    action: 'Only track 2',
+    only: [2],
+  });
+  assert.equal(armedNote([1, 2], 3, [1, 2, 3]).text, 'Tracks 1, 2, 3 are armed: Catch and Rec record onto all of them, DROP onto the first');
+});
+
+test('nothing to say when the arm just starts, or a track comes off', () => {
+  assert.equal(armedNote([], 1, [1]), null, 'the first arm');
+  assert.equal(armedNote([1, 2], 2, [1]), null, 'taking one off');
+  assert.equal(armedNote([1], 1, []), null, 'taking the last off');
 });

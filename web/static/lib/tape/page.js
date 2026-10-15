@@ -43,7 +43,7 @@ import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
-import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick } from '../rig/arm.js';
+import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote } from '../rig/arm.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
 import { catchState, CATCH_BARS } from './catch.js';
@@ -3025,10 +3025,16 @@ function buildLanes() {
         // What the click does is what its label says (armClick). With the
         // rooms off that's one track, as ever -- or, on a lit ● another
         // device armed beside others, just this one off.
-        const { next } = armClick(state.recTracks, n, ROOMS);
+        const before = state.recTracks;
+        const { next } = armClick(before, n, ROOMS);
         if (!next.length) disarm();
         else if (next.length === 1 && next[0] === n) armTrack(n);
-        else toggleArm(n);
+        else if (toggleArm(n) && ROOMS) {
+          // An "as well" says what it made, and offers just this track: the
+          // arm adds, it never moves.
+          const note = armedNote(before, n, next);
+          if (note) toast(note.text, 'ok', { ms: 6000, action: { label: note.action, run: () => armTrack(n) } });
+        }
       });
       // The rig's warning: an armed track whose input hears the tape. Only
       // with the rooms on: with them off there's no markup for it at all.
@@ -3272,7 +3278,9 @@ function drawLanes() {
     // while there's signal on it.
     const armed = state.recTracks.includes(lane.n);
     setIf(lane.arm, 'aria-pressed', String(armed));
-    setIf(lane.arm, 'aria-label', armClick(state.recTracks, tr.n, ROOMS).label);
+    const armSays = armClick(state.recTracks, tr.n, ROOMS).label;
+    setIf(lane.arm, 'aria-label', armSays);
+    if (ROOMS) setIf(lane.arm, 'title', armSays); // what a pointer is shown, as what a screen reader is told
     const inName = litInput(tr.n);
     const src = state.sources.find((x) => x.name === inName);
     // With the rooms on, what's drawn into its jack on the rig: "guitar".
