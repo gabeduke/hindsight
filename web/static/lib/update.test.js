@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buttonLabel, phase, plan, cmpVersion, versionParts } from './update.js';
+import { buttonLabel, phase, plan, cmpVersion, versionParts, askAboutUpdates, initUpdate } from './update.js';
 
 const T = 'v2026.10.09.2';
 const since = Date.parse('2026-10-09T15:00:00Z');
@@ -106,4 +106,37 @@ test('over a dev build it shows what the release itself changed', () => {
   const p = plan(RELEASES, 'dev', 'v2026.10.09.4');
   assert.equal(p.action, 'Install v2026.10.09.4');
   assert.deepEqual(p.groups, [{ tag: 'v2026.10.09.4', changes: ['Four'] }]);
+});
+
+// Where there is no updater GET /api/update is a 404, and the browser logs a
+// failed request in red on every page load whatever the page does with it.
+// /api/status says first: `updates`. Only that saying false stops the ask --
+// a Pi from before the field, or a status that did not come, is asked as it
+// always was, so a real failure still shows.
+test('the page asks about updates unless the Pi says there is no updater', () => {
+  assert.equal(askAboutUpdates({ updates: false }), false);
+  assert.equal(askAboutUpdates({ updates: true }), true);
+  assert.equal(askAboutUpdates({ version: 'v2026.10.09.1' }), true, 'a Pi from before the field');
+  assert.equal(askAboutUpdates(null), true, 'no status came');
+  assert.equal(askAboutUpdates(undefined), true);
+});
+
+test('initUpdate makes no request to /api/update where status says there is no updater', async () => {
+  const asked = [];
+  const el = () => ({ hidden: true, classList: { add() {}, toggle() {} }, addEventListener() {}, querySelector: () => el() });
+  const doc = { querySelector: () => el(), getElementById: () => el(), addEventListener() {} };
+  const saved = { fetch: globalThis.fetch, document: globalThis.document };
+  globalThis.document = doc;
+  globalThis.fetch = async (url) => {
+    asked.push(String(url));
+    if (String(url).startsWith('/api/status')) return { ok: true, json: async () => ({ updates: false }) };
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  try {
+    await initUpdate();
+  } finally {
+    globalThis.fetch = saved.fetch;
+    globalThis.document = saved.document;
+  }
+  assert.ok(!asked.some((u) => u.startsWith('/api/update')), `asked ${asked.join(', ')}`);
 });

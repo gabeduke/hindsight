@@ -19,10 +19,10 @@ import { Audition } from './audition.js';
 import { drawWindow, levelsOf, frameOf, xOf, fadeHandles, RULER_H, FADE_BOX } from './draw.js';
 import {
   BAR_PICKS, grabKey, grabSeconds, dropKey, clampWindow, gridOf, snapNear, edgeStep,
-  bufferLines, bufferMeta, bufferNote, boardKey, spanWords, chipsFor,
+  bufferLines, bufferMeta, bufferNote, boardKey, spanWords, chipsFor, overwritten,
 } from './model.js';
 import { bindBufferKeys } from './keys.js';
-import { keyState, windowFrames, takesPoll } from './state.js';
+import { keyState, windowFrames, takesPoll, pulledTo } from './state.js';
 import { setOpen, setFold } from './fold.js';
 import { Overlay, Lift, boxesFor } from './lanes.js';
 import { SNAPS, FADE_SHAPES } from '../tape/geometry.js';
@@ -297,7 +297,10 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const tape = d.tape;
     const count = b.tracks.length;
     const frames = windowFrames(st);
-    const where = spanWords(tape.grid, at, frames, tape.sample_rate);
+    // A drag can land over a clip, and the Pi lays the buffer over it: the
+    // toast says so, with its Undo, rather than leaving a trimmed clip to be found.
+    const over = overwritten(tape, { first: track, count, at, frames }).clips;
+    const where = `${spanWords(tape.grid, at, frames, tape.sample_rate)}${over ? ' · replaced what was under it' : ''}`;
     send(() => api.drop(tape.id, track, at))
       .then((r) => {
         st.dropped = b.created;
@@ -325,9 +328,29 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const b = st.board, d = st.detail;
     // Nothing while a grab is on its way: the span would be the old one's.
     if (!b || !d || !d.tape || st.grabbing) return;
-    const k = dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos });
-    if (!k.can) { toast(`${k.word}: ${k.sub}`, 'warn'); return; }
-    dropAt(d.rec_track, k.at);
+    const k = dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos, way: dropWay });
+    if (!k.can) { toast(`${k.word}: ${k.sub}`, 'warn', 7000); return; }
+    dropAt(k.track, k.at);
+  }
+
+  // dropWay is what a person can do about a tape with no room, from where they
+  // are. A phone showing the instrument has EDIT under the thumb, and the
+  // lanes come back with it; a phone's sheet is lifted onto a lane by its
+  // grip, held; a laptop drags it onto a lane if one is on screen. Where
+  // none of those is true nothing is pointed at (model.js, dropKey). Asked
+  // only when there is no room anywhere: it reads the page.
+  function dropWay() {
+    const seen = (el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 8 || r.height < 6 || r.bottom <= 0 || r.top >= window.innerHeight) return false;
+      const hit = doc.elementFromPoint(r.left + r.width / 2, Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1));
+      return !!hit && (el === hit || el.contains(hit));
+    };
+    const how = sheetMode() ? 'hold its grip and drag it onto a lane to replace what’s under it' : 'drag it onto a lane to replace what’s under it';
+    const edit = doc.querySelector('.play-toggle-opt[data-play="0"]');
+    if (edit && edit.getAttribute('aria-pressed') === 'false' && seen(edit)) return `switch to EDIT, then ${how}`;
+    if (sheetMode()) return how;
+    return [...doc.querySelectorAll('#lanes > .tape-track')].some(seen) ? how : '';
   }
 
   // Undo of a drop: the tape steps back, and the buffer is back in hand.
@@ -552,7 +575,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       c.disabled = st.grabbing || ch.fixed; // a take's own sound, or a span in a ring that's gone
     });
     // DROP: where ↵ would put it.
-    const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos }) : { word: 'Drop', sub: '', can: false };
+    const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos, way: dropWay }) : { word: 'Drop', sub: '', can: false };
     el.dropWord.textContent = dk.word;
     el.dropSub.textContent = dk.can ? `${dk.sub}, the next free span · ↵` : dk.sub;
     el.drop.disabled = !dk.can || st.grabbing;
@@ -725,9 +748,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       dragged = true;
       const f = el.panel.getBoundingClientRect().height / innerHeight;
       el.panel.style.height = '';
-      // Pulled right down, it closes: the buffer waits in the crate's first slot.
-      if (f < 0.12) { close(); return; }
-      el.panel.dataset.height = f < 0.25 ? 'peek' : f < 0.62 ? 'half' : 'full';
+      // Pulled right down it is a peek still: it never closes (✕ does), so a
+      // pull to see the lanes doesn't lose the buffer.
+      el.panel.dataset.height = pulledTo(f);
       requestAnimationFrame(draw);
     });
     grip.addEventListener('pointercancel', () => {

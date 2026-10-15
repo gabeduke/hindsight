@@ -247,6 +247,8 @@
   --rig-lamp-off:   #3a3b3f;
   --rig-lamp-rec:   #e8423d;
   --rig-amber:      #ffb547;
+}
+
 /* ---------- Rooms P4: punch-in FX and tape mods (lib/play/fx.js, mods.js) ---------- */
 :root {
   /* The pad controller's FX: a teal rim and meter, as on the K.O.'s punch-in

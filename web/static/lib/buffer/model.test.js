@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  barStart, barAt, nextBar, nextFreeSpan, spanWords, dropKey, grabKey, grabSeconds,
+  barStart, barAt, nextBar, nextFreeSpan, spanWords, dropKey, grabKey, grabSeconds, overwritten, landsWords,
   clampWindow, windowLimits, gridOf, snapNear, edgeStep, bufferLines, bufferMeta, bufferNote, barsText, boardKey, chipsFor,
 } from './model.js';
 
@@ -85,10 +85,6 @@ test('the DROP key names the track and the bars, or why it can’t', () => {
   assert.equal(k.sub, 'bars 1–4'); // round the loop from its In
   assert.equal(k.at, 0);
   assert.equal(k.can, true);
-  assert.equal(dropKey({ tape: t, armed: 0, frames: BAR }).can, false);
-  assert.match(dropKey({ tape: t, armed: 0, frames: BAR }).word, /Arm a track/);
-  assert.match(dropKey({ tape: t, armed: 2, frames: BAR }).word, /No room on track 2/);
-  assert.match(dropKey({ tape: t, armed: 4, count: 2, frames: BAR }).sub, /don’t fit/);
   assert.equal(dropKey({ tape: t, armed: 3, count: 2, frames: BAR, pos: 0 }).word, 'Drop on tracks 3–4');
   assert.equal(spanWords(t.grid, 8 * BAR, BAR, SR), 'bar 9');
   assert.equal(spanWords(null, 12 * SR, BAR, SR), 'at 0:12');
@@ -104,6 +100,85 @@ test('with several tracks armed, DROP goes on the first of them, and says so', (
   assert.equal(k.can, true);
   // One armed, as before: no word about it.
   assert.equal(dropKey({ tape: t, armed: 2, armedAll: [2], frames: BAR, pos: 0 }).sub, 'bar 1');
+});
+
+// "NO ROOM ON TRACK 2 · drag it to a lane" was the whole answer when the first
+// armed track was full -- and a phone in PLAY mode, or a laptop with the
+// strip unfolded, has no lane on screen to drag to. DROP now goes where there
+// is room (another armed track, then any other), says it did, and when there
+// is none anywhere it says why in terms of what is on screen.
+test('the first armed track is full: DROP takes the next armed track with room, and says why', () => {
+  const t = tape({ clips: [[], [[0, 8]], [], []] });
+  const k = dropKey({ tape: t, armed: 2, armedAll: [2, 4], frames: BAR, pos: 0 });
+  assert.equal(k.can, true);
+  assert.equal(k.track, 4);
+  assert.equal(k.word, 'Drop on track 4');
+  assert.match(k.sub, /^track 2 is full · bar 1$/);
+});
+
+test('every armed track is full: the first track with room, named, and the full one too', () => {
+  const t = tape({ clips: [[], [[0, 8]], [], []] });
+  const k = dropKey({ tape: t, armed: 2, armedAll: [2], frames: 4 * BAR, pos: 0 });
+  assert.deepEqual([k.can, k.track, k.word, k.sub, k.at], [true, 1, 'Drop on track 1', 'track 2 is full · bars 1–4', 0]);
+  const two = tape({ clips: [[[0, 8]], [[0, 8]], [], []] });
+  assert.match(dropKey({ tape: two, armed: 1, armedAll: [1, 2], frames: BAR, pos: 0 }).sub, /^tracks 1, 2 are full · /);
+});
+
+test('no track armed: DROP takes the first track with room, and says none is armed', () => {
+  const t = tape({ clips: [[[0, 8]], [], [], []] });
+  const k = dropKey({ tape: t, armed: 0, frames: BAR, pos: 0 });
+  assert.deepEqual([k.can, k.track, k.word], [true, 2, 'Drop on track 2']);
+  assert.match(k.sub, /no track is armed/);
+});
+
+test('the first armed track with room is still the one it drops on', () => {
+  const t = tape();
+  assert.equal(dropKey({ tape: t, armed: 3, armedAll: [3, 1], frames: BAR, pos: 0 }).track, 3);
+});
+
+test('a buffer of two lanes starts where two fit, when the armed track is the last', () => {
+  const t = tape();
+  const k = dropKey({ tape: t, armed: 4, count: 2, frames: BAR, pos: 0 });
+  assert.deepEqual([k.can, k.track, k.word], [true, 1, 'Drop on tracks 1–2']);
+  assert.match(k.sub, /2 lanes don’t fit from track 4/);
+});
+
+test('every track is full: it says so, and points only at what the caller says is on screen', () => {
+  const t = tape({ clips: [[[0, 8]], [[0, 8]], [[0, 8]], [[0, 8]]] });
+  const blind = dropKey({ tape: t, armed: 2, frames: BAR, pos: 0 });
+  assert.equal(blind.can, false);
+  assert.equal(blind.word, 'No room on any track');
+  assert.ok(!/lane|drag/i.test(blind.sub), `points at a lane it can't see: ${blind.sub}`);
+  assert.match(blind.sub, /loop/);
+  const sees = dropKey({ tape: t, armed: 2, frames: BAR, pos: 0, way: 'drag it onto a lane to replace what’s under it' });
+  assert.match(sees.sub, /drag it onto a lane to replace what’s under it$/);
+  // A function is asked only when it is needed: it looks at the page.
+  let asked = 0;
+  dropKey({ tape: tape(), armed: 2, frames: BAR, pos: 0, way: () => { asked++; return 'x'; } });
+  assert.equal(asked, 0, 'asked although a track had room');
+  assert.match(dropKey({ tape: t, armed: 2, frames: BAR, pos: 0, way: () => 'switch to EDIT' }).sub, /switch to EDIT$/);
+});
+
+test('longer than the loop: it says how long, and to trim it with the marks that are on the buffer', () => {
+  const t = tape();
+  const k = dropKey({ tape: t, armed: 1, frames: 9 * BAR, pos: 0 });
+  assert.equal(k.can, false);
+  assert.match(k.word, /Longer than the loop/);
+  assert.match(k.sub, /IN and OUT/);
+  assert.ok(!/lane|drag/i.test(k.sub), k.sub);
+  // With the loop off the tape's own length is the limit, and it fits.
+  assert.equal(dropKey({ tape: tape({ loop: { in: 0, out: 8 * BAR, on: false } }), armed: 1, frames: 9 * BAR, pos: 0 }).can, true);
+});
+
+test('a drag over a clip says what it will do: it replaces what is under it', () => {
+  const t = tape({ clips: [[], [[0, 4]], [], []] });
+  assert.deepEqual(overwritten(t, { first: 2, at: 3 * BAR, frames: 2 * BAR }), { clips: 1, frames: BAR });
+  assert.deepEqual(overwritten(t, { first: 2, at: 4 * BAR, frames: 2 * BAR }), { clips: 0, frames: 0 }, 'next to it');
+  assert.deepEqual(overwritten(t, { first: 1, at: 0, frames: 4 * BAR }), { clips: 0, frames: 0 }, 'another track');
+  const two = tape({ clips: [[[0, 2]], [[1, 3]], [], []] });
+  assert.deepEqual(overwritten(two, { first: 1, count: 2, at: BAR, frames: BAR }), { clips: 2, frames: 2 * BAR });
+  assert.equal(landsWords(t.grid, { first: 2, at: 3 * BAR, frames: 2 * BAR }, t), 'bars 4–5 · replaces what’s under it');
+  assert.equal(landsWords(t.grid, { first: 2, at: 4 * BAR, frames: 2 * BAR }, t), 'bars 5–6');
 });
 
 test('GRAB takes bars with a tempo and twice as many seconds without', () => {

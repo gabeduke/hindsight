@@ -276,6 +276,11 @@ type statusResponse struct {
 	// Hub is the secure address and how the hub is doing; null when the hub
 	// is off (no HUB_URL/HUB_TOKEN).
 	Hub *hub.Status `json:"hub"`
+	// Updates says GET /api/update will answer: the updater is installed.
+	// Without it that route is a 404, which a page logs, red, on every load;
+	// so a page reads this first and asks only where there is something to
+	// ask.
+	Updates bool `json:"updates"`
 }
 
 // HubStatus is the hub client, as the status and settings answers see it.
@@ -327,6 +332,7 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		MIDIBPM:         midiBPM,
 		MIDIDevices:     a.midiDevices(),
 		Hub:             a.hubStatus(),
+		Updates:         a.updater != nil,
 	})
 }
 

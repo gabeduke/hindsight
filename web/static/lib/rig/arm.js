@@ -62,13 +62,20 @@ export function catchSays(what, tracks) {
   return `${spanWords(what)} → ${tracksWords(tracks)}`;
 }
 
-/** armClick is what ● on track n does, and what its label says it does. */
+/**
+ * armClick is what ● on track n does, and what its label says it does. With
+ * the rooms on it adds the track to what is armed, or takes it off, and the
+ * label says what Catch and Rec then do -- they record onto every armed
+ * track -- so what it says and what it makes are the same set.
+ */
 export function armClick(armed, n, rooms) {
   const on = armed.includes(n);
   if (rooms) {
+    const next = toggled(armed, n);
+    const then = next.length ? `Catch and Rec then use ${onWords(next)}` : 'Nothing is then armed';
     return on
-      ? { next: toggled(armed, n), label: `Track ${n} is armed: take it off what’s armed` }
-      : { next: toggled(armed, n), label: `Arm track ${n}${armed.length ? ' as well' : ''}` };
+      ? { next, label: `Track ${n} is armed: take it off. ${then}` }
+      : { next, label: `Arm track ${n}${armed.length ? ' as well' : ''}: ${then}` };
   }
   // The rooms off: ● arms just that track, as it always did -- but a lit one,
   // which another device may have armed beside others, comes off on its own,
@@ -77,3 +84,21 @@ export function armClick(armed, n, rooms) {
   if (armed.length === 1) return { next: [], label: `Track ${n} is the record track: disarm it` };
   return { next: armed.filter((x) => x !== n), label: `Track ${n} is armed: disarm it` };
 }
+
+/**
+ * armedNote is what a ● that added a track to others already armed says,
+ * once: that Catch and Rec now record onto all of them (DROP onto the first),
+ * and the one way back to just this track -- on a phone, taking the others
+ * off is a row of small ●s under folded lanes. null for anything else: the
+ * first arm, or a track coming off.
+ */
+export function armedNote(armed, n, next) {
+  if (!armed.length || armed.includes(n) || !next.includes(n)) return null;
+  return {
+    text: `${cap(onWords(next))} are armed: Catch and Rec record onto all of them, DROP onto the first`,
+    action: `Only track ${n}`,
+    only: [n],
+  };
+}
+
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);

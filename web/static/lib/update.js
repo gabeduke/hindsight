@@ -4,7 +4,9 @@
 //
 // GET /api/update says whether a newer release is out (and is a 404 where
 // updates aren't set up, so none of this shows). It's asked when the page
-// loads, every hour while it stays open, and on coming back to the tab.
+// loads, every hour while it stays open, and on coming back to the tab --
+// but not where /api/status says there is no updater (`updates: false`): a
+// 404 is logged in red on every load whatever a page does with it.
 //
 // Releases, or the Update line, opens a sheet listing every release the
 // button can install (GET /api/update/releases, from the first with the
@@ -114,6 +116,15 @@ function shortDate(iso) {
   return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+/**
+ * askAboutUpdates says whether to ask GET /api/update, from /api/status:
+ * not where the Pi says it has no updater. A Pi from before the field, or a
+ * status that did not come, is asked as ever, so a real failure still shows.
+ */
+export function askAboutUpdates(status) {
+  return !(status && status.updates === false);
+}
+
 async function getJSON(url) {
   try {
     const r = await fetch(url, { cache: 'no-store' });
@@ -141,8 +152,9 @@ export async function initUpdate() {
   const sheet = document.getElementById('update-sheet');
   if (!about || !btn || !relBtn || !sheet) return;
 
+  if (!askAboutUpdates(await getJSON('/api/status'))) return;
   let info = await getJSON('/api/update');
-  if (!info) return; // 404: no updater here, or the Pi isn't answering
+  if (!info) return; // 404: an older Pi with no updater, or the Pi isn't answering
   relBtn.hidden = false;
   about.classList.add('can-update');
 

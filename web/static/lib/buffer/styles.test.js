@@ -55,3 +55,26 @@ test('nothing hides the buffer’s close key', () => {
   }
   assert.deepEqual(offenders, []);
 });
+
+// Folded to strips the lanes' heads were cut through: on a phone four heads
+// of 92 px on a 15 px pitch, a name's tape and half a ● each, the ● too small
+// to arm with. A folded lane's head is one row -- its name on the tape, and
+// ● -- clipped to its strip, and tall enough to press.
+function fixesBlock() {
+  const start = css.indexOf('/* ---------- Rooms fixes:');
+  assert.ok(start >= 0, 'the Rooms fixes block');
+  return css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+test('a folded lane’s head is one row, clipped, with only its name and ●', () => {
+  const fixes = fixesBlock();
+  assert.match(fixes, /body\.buffer-fold[^{}]*\.tt-head\s*\{[^}]*flex-wrap:\s*nowrap[^}]*overflow:\s*hidden/);
+  assert.match(fixes, /body\.buffer-fold[^{}]*\.tt-head\s*>\s*:not\(\.tt-name\):not\(\.tt-arm\)[^{}]*\{[^}]*display:\s*none/);
+});
+
+test('on a phone a folded strip is tall enough to press the ● on', () => {
+  const fixes = fixesBlock();
+  const m = /@media \(max-width: 699\.98px\)\s*\{[^@]*?body\.buffer-fold[^{}]*\.tape-track[^{}]*\{[^}]*height:\s*(\d+)px/.exec(fixes);
+  assert.ok(m, 'a phone rule for the folded strip’s height');
+  assert.ok(Number(m[1]) >= 22, `${m[1]} px`);
+});

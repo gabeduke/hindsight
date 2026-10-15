@@ -123,7 +123,8 @@ The poll everything else hangs off. The UI reads it every two seconds.
     "last_heartbeat": "2026-10-09T21:14:03Z",
     "error": "",
     "cert_not_after": "2027-01-07T20:10:44Z"
-  }
+  },
+  "updates": true
 }
 ```
 
@@ -163,7 +164,10 @@ The poll everything else hangs off. The UI reads it every two seconds.
 The Update button. Present only where `deploy/hindsight-update` is installed
 beside the binary — `install.sh` and `deploy.sh` both put it there — and a
 `404` everywhere else (the demo, a Mac), which is how the page knows to hide
-the button.
+the button. `GET /api/status` says which: `updates` is `true` where it is
+there. A page reads it first, so it doesn't ask — and so doesn't log a failed
+request in red on every load — where there is no updater; a Pi from before
+the field is asked as it always was.
 
 `GET` says what's running, the newest release, and how the last update went:
 

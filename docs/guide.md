@@ -903,7 +903,10 @@ From the top:
 - **Catch** (in the bar) catches the last pass, and **Catch the last: 1 bar /
   2 / 4** catch the last bars, onto the record track, from its input. Catch
   says which track (*last pass → track 2*), and pointing at it outlines, on
-  that track's lane, the pass it would take. While the tape plays, a small
+  that track's lane, the pass it would take. It lights after one whole pass of
+  the loop; until then it is dimmed, and pressing it says why (and offers the
+  last 4 bars, which don't wait). With the two rooms on, the **▾** on its right
+  edge opens the same choice: the last pass, or the last 1, 2 or 4 bars. While the tape plays, a small
   red ▾ on the record track's lane marks the next bar line: where ● Rec
   would start.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
@@ -2163,7 +2166,7 @@ has no tip.
 | Hit → Grid | Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off |
 | Track picker | Choose the track to line this clip up against |
 | Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
-| Catch | Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. The last 1, 2 or 4 bars are in the track's inspector. With the two rooms on, C |
+| Catch | Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. It lights after one whole pass of the loop: until then a press says why. The last 1, 2 or 4 bars are in the track's inspector and, with the two rooms on, under its ▾. With the two rooms on, C |
 | Passes | Every time round the loop, kept. Tap one to put it on the record track |
 | Paste | Put the clipboard at the playhead on the selected track, over what's there: it replaces it, and the tape's length doesn't change. Paste again to lay another copy after it. Key: ⌘V or Ctrl-V |
 | Insert | Put the clipboard at the playhead and push everything after it later: every track, and the sections, move on by its length |

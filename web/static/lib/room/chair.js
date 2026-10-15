@@ -360,7 +360,7 @@ function mountTake(h) {
         }),
         own ? btn('No sticker', 'icon-btn', () => setTag('')) : null),
       el('div', 'sheet-actions', {},
-        btn(tagStore.list.length ? 'Edit stickers' : 'Make a sticker', 'icon-btn', () => openTagManager({ onToast: h.toast })),
+        btn(tagStore.list.length ? 'Edit stickers' : 'Make a sticker', 'icon-btn', () => openTagManager({ onToast: h.toast, onCreated: (g) => setTag(g.id) })),
         btn('Done', 'icon-btn', () => {}))));
     pickDlg.showModal();
   });

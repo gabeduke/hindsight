@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { keyState, windowFrames, takesPoll, HELD_MS } from './state.js';
+import { keyState, windowFrames, takesPoll, HELD_MS, pulledTo } from './state.js';
 
 const grab = { in: 0, out: 4, frames: 4 };
 const board = (o = {}) => ({ created: 'b1', frames: 4, tracks: [[{}]], grab: { ...grab, ...o } });
@@ -37,4 +37,21 @@ test('a fetch begun while a grab is on its way is dropped', () => {
   assert.equal(takesPoll({ gen: 3, local: null, grabbing: false }, 3), true);
   assert.equal(takesPoll({ gen: 4, local: null, grabbing: false }, 3), false);
   assert.equal(takesPoll({ gen: 3, local: { in: 0, out: 1 }, grabbing: false }, 3), false);
+});
+
+// Pulling the phone's sheet down closed the buffer (below 12% of the screen):
+// a person who pulled it down to see the lanes lost the buffer instead, and
+// only "Buffer ▴" brought it back. A pull settles at the nearest of peek,
+// half and full, and never closes: the ✕ closes it.
+test('a sheet pulled right down settles at its peek, it does not close', () => {
+  assert.equal(pulledTo(0.02), 'peek');
+  assert.equal(pulledTo(0.11), 'peek', 'where it used to close');
+  assert.equal(pulledTo(0.24), 'peek');
+});
+
+test('a sheet let go higher settles at half or full', () => {
+  assert.equal(pulledTo(0.25), 'half');
+  assert.equal(pulledTo(0.61), 'half');
+  assert.equal(pulledTo(0.62), 'full');
+  assert.equal(pulledTo(0.95), 'full');
 });
