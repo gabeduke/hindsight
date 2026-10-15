@@ -9,17 +9,19 @@
 // identity that it has nothing to draw. Reduced motion arrives as
 // dt = Infinity, and a model given it lands on its target.
 //
-// The kinds still to come (deck, record, shelf, device, cable) arrive with
-// the steps that draw them: R2 onward.
+// The kinds still to come (deck, record, shelf, device) arrive with the
+// steps that draw them. The cable is R4's: the rig's ropes.
 
 import { VuModel } from './vu.js';
 import { ReelsModel } from './reels.js';
 import { CassetteModel } from './cassette.js';
 import { RibbonModel } from './ribbon.js';
+import { CableModel } from './cable.js';
 
 export const MODELS = Object.freeze({
   vu: () => new VuModel(),
   reels: () => new ReelsModel(),
   cassette: () => new CassetteModel(),
   ribbon: () => new RibbonModel(),
+  cable: () => new CableModel(),
 });
