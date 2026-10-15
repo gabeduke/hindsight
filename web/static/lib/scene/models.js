@@ -9,8 +9,11 @@
 // identity that it has nothing to draw. Reduced motion arrives as
 // dt = Infinity, and a model given it lands on its target.
 //
-// The kinds still to come (deck, record, shelf, device, cable) arrive with
-// the steps that draw them: R2 onward.
+// The kinds still to come (record, shelf, device, cable) arrive with the
+// steps that draw them: R2 onward. A kind only one flagged page uses is
+// registered by that page's scene instead (Scene's `models`), so the pages
+// without the flag never fetch it: the Listening Room's `deck` and
+// `flight` (lib/room/hifi.js's HIFI_MODELS).
 
 import { VuModel } from './vu.js';
 import { ReelsModel } from './reels.js';

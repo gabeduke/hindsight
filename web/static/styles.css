@@ -4521,3 +4521,181 @@ dialog.book-pick .book-sticker { transform: none; }
   .chair-acts { gap: 4px; }
   .chair-cut { height: 36px; padding: 0 10px; font-size: 13px; letter-spacing: .1em; }
 }
+
+/* ---------- Rooms R2: shelf to deck (lib/room/carry.js, hifi.js; lib/scene/flight.js, deck.js) ----------
+   A cassette or a reel box off its shelf and into the deck, and back. The
+   motion is the scene's: the flight and deck models step on the shared
+   ticker, and the drawers write transforms. These rules give the parts
+   their shapes; none of them animates anything. Every selector is under a
+   room- class, so with the rooms flag off none of it matches anything. */
+
+/* The motion tokens: the same in both schemes (no dark value) and no
+   material (not objects.css). lib/scene/choreo.js uses the same numbers,
+   and choreo.test.js keeps the two in step. */
+:root {
+  --t-touch: 120ms;
+  --t-move: 200ms;
+  --t-flight: 420ms;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --ease-flight: cubic-bezier(.3,0,.2,1);
+  --ease-seat: cubic-bezier(.34,1.56,.64,1);
+}
+
+/* A spine or reel box off its shelf leaves its gap open, P5's on-deck gap,
+   while its ghost is in the air or held out. It stays the button. */
+.room-cassette.room-out, .room-reel.room-out {
+  transform: none; animation: none; transition: none;
+  background: transparent; box-shadow: inset 0 0 0 1.5px rgba(243,231,211,.45);
+}
+.room-cassette.room-out > *, .room-reel.room-out > * { visibility: hidden; }
+.room-reel.room-out::after { display: none; }
+.room-deck { scroll-margin-top: calc(var(--topbar-h) + 12px); }
+
+/* The deck's window, over its reels: a smoked door drops shut on it. */
+.room-deck-window {
+  position: absolute; left: 3%; right: 3%; top: 3%; height: 50%; overflow: hidden; border-radius: 4px;
+}
+.room-deck-load { position: absolute; inset: 0; }
+.room-deck-door {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 4px; border-radius: 3px; transform: translate3d(0, -110%, 0);
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.2) 0 16%, transparent 16% 28%, rgba(255,255,255,.08) 28% 32%, transparent 32%),
+    linear-gradient(rgba(22,24,28,.42), rgba(22,24,28,.24));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 0 -3px 0 rgba(0,0,0,.28);
+  will-change: transform;
+}
+.room-deck-door::after {
+  content: ''; position: absolute; left: 40%; right: 40%; bottom: 3px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.35);
+}
+/* The reels turn from the deck model now, not P5's spin, and have slots in
+   their flanges so a turn can be seen. A cassette in the window hides them:
+   its hubs are the reels within. */
+.room-deck .room-deck-reel { animation: none; will-change: transform; }
+.room-deck .room-deck-reel::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(rgba(16,17,19,.6) 0 24deg, transparent 24deg 120deg, rgba(16,17,19,.6) 120deg 144deg, transparent 144deg 240deg, rgba(16,17,19,.6) 240deg 264deg, transparent 264deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 38%, #000 38.5% 46.5%, transparent 47%);
+  mask: radial-gradient(circle, transparent 0 38%, #000 38.5% 46.5%, transparent 47%);
+}
+.room-deck.room-has-cassette .room-deck-reel { visibility: hidden; }
+/* The tape between the reels, where its slack shows. */
+.room-deck-tape {
+  position: absolute; left: 25.5%; right: 25.5%; top: 41%; height: 14px; overflow: visible; display: none;
+}
+.room-deck.room-has-tape .room-deck-tape { display: block; }
+.room-deck-tape path, .room-face-tape path { fill: none; stroke: var(--tape-pack); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+
+/* ⏏ on the deck, when a take is on it: at its corner where the room is
+   drawn, beside ▶ on a phone's deck card. */
+.room-deck-eject {
+  appearance: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  width: 36px; height: 36px; border-radius: 18px; padding: 0;
+  border: 1px solid var(--room-key-edge); background: linear-gradient(var(--room-key-hi), var(--room-key-lo));
+  color: var(--room-key-ink); font-size: 15px;
+}
+.room-deck-eject[hidden] { display: none; }
+
+/* What a thing shows in the deck's window, and on its ghost's face: a take
+   as a cassette -- its label in its stripe, its name in marker, its hubs. */
+.room-face { position: absolute; display: block; will-change: transform; }
+.room-face-cassette {
+  left: 50%; top: 4%; height: 92%; aspect-ratio: 1.59; translate: -50% 0; box-sizing: border-box;
+  border-radius: 7% / 11%; background: linear-gradient(var(--cas-hi), var(--cas-mid));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 0 rgba(0,0,0,.4), 0 2px 5px rgba(0,0,0,.45);
+}
+.room-face-label {
+  position: absolute; left: 6%; right: 6%; top: 8%; height: 52%; overflow: hidden; border-radius: 3px;
+  background: var(--paper-hi);
+}
+.room-face-band { position: absolute; left: 0; right: 0; top: 0; height: 24%; background: var(--stripe); }
+.room-face-name {
+  position: absolute; left: 6%; right: 6%; top: 30%; bottom: 4%; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--marker);
+  font: 400 clamp(7px, 13cqh, 18px)/1 'Permanent Marker', var(--font);
+}
+.room-face-cassette { container-type: size; }
+.room-face-window {
+  position: absolute; left: 20%; right: 20%; top: 64%; height: 26%; border-radius: 999px;
+  background: var(--cas-slot); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+}
+.room-face-hub {
+  position: absolute; top: 50%; height: 84%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--cas-slot) 0 30%, transparent 31%),
+    conic-gradient(var(--paper-hi) 0 20deg, transparent 20deg 60deg, var(--paper-hi) 60deg 80deg, transparent 80deg 120deg, var(--paper-hi) 120deg 140deg, transparent 140deg 180deg, var(--paper-hi) 180deg 200deg, transparent 200deg 240deg, var(--paper-hi) 240deg 260deg, transparent 260deg 300deg, var(--paper-hi) 300deg 320deg, transparent 320deg),
+    radial-gradient(circle, var(--reel-metal) 0 60%, transparent 61%);
+  will-change: transform;
+}
+.room-face-hub:nth-of-type(1) { left: 22%; }
+.room-face-hub:nth-of-type(2) { left: 78%; }
+.room-face-tape { position: absolute; left: 22%; right: 22%; top: 72%; height: 8px; overflow: visible; }
+/* A tape's ghost: the front of its reel box, a reel in its round hole. */
+.room-face-box {
+  inset: 2% 18%; border-radius: 3px; background: var(--room-box);
+  box-shadow: inset -3px 0 0 rgba(0,0,0,.18), inset 0 2px 0 rgba(255,255,255,.12), 0 2px 5px rgba(0,0,0,.45);
+}
+.room-face-box.box-1 { --room-box: var(--room-box-1); }
+.room-face-box.box-2 { --room-box: var(--room-box-2); }
+.room-face-box.box-3 { --room-box: var(--room-box-3); }
+.room-face-box.box-4 { --room-box: var(--room-box-4); }
+.room-face-box-hole {
+  position: absolute; left: 50%; top: 10%; height: 60%; aspect-ratio: 1; translate: -50% 0; border-radius: 50%;
+  background: rgba(0,0,0,.35); box-shadow: inset 0 2px 4px rgba(0,0,0,.5);
+}
+.room-face-box-reel {
+  position: absolute; inset: 6%; border-radius: 50%;
+  background: radial-gradient(circle, var(--reel-hub) 0 11%, var(--reel-hub-edge) 11% 13%, var(--tape-pack) 13% 36%, var(--tape-sheen) 36% 37%, var(--reel-metal) 37% 48%, var(--reel-edge) 48% 50%, transparent 50%);
+}
+.room-face-box-label {
+  position: absolute; left: 10%; right: 10%; bottom: 8%; padding: 2px 4px; text-align: center; background: var(--room-mask);
+  color: var(--marker); font: 400 12px/1.2 'Permanent Marker', var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* The ghost of a thing in flight: fixed over the room, taking no input. Its
+   two planes (the spine as the shelf drew it, the face as the deck will)
+   are centred on its origin; the drawer moves the ghost and turns the
+   planes. */
+.room-carry {
+  position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 30; pointer-events: none;
+  perspective: 700px; will-change: transform;
+}
+.room-carry[hidden] { display: none; }
+.room-carry-plane { position: absolute; left: 0; top: 0; display: block; backface-visibility: hidden; will-change: transform, opacity; }
+.room-carry-plane > :is(.room-cassette, .room-reel) { position: absolute; inset: 0; width: auto; height: auto; margin: 0; transform: none; animation: none; transition: none; }
+.room-carry-shade {
+  position: absolute; inset: 0; border-radius: 6px; opacity: 0;
+  background: rgba(0,0,0,.42); box-shadow: 0 0 14px 5px rgba(0,0,0,.42); will-change: transform, opacity;
+}
+.room-carry-face > .room-carry-shade-take { inset: auto; left: 50%; top: 4%; height: 92%; aspect-ratio: 1.59; translate: -50% 0; }
+.room-carry-face > .room-carry-shade-tape { inset: 2% 18%; }
+
+/* Reduced motion's cross-fade, and a move with nowhere to fly: 150 ms, and
+   nothing named, so nothing moves in it. */
+.room-xfade::view-transition-old(root), .room-xfade::view-transition-new(root) { animation-duration: 150ms; }
+.room-xfade .room :is(.room-deck-window, .room-carry) { view-transition-name: none !important; }
+
+/* Where the room is drawn, ⏏ is on the deck itself; as rows, it's on the deck card. */
+@media (min-width: 1000px) {
+  /* ⏏ is the deck's own fourth key, where the room is drawn: its strip of keys
+     runs 11 % to 89 % across, 8 % up, 13 % of the deck's height (the art's
+     206:196). Margins and widths in % are of the deck's width, so this
+     stays on the key at any size. */
+  .room-deck > .room-deck-eject {
+    position: absolute; right: 13.3%; bottom: 0; margin-bottom: 7.6%; width: 17.2%; height: auto; aspect-ratio: 1.39;
+    border-radius: 3px; font-size: 13px; border-color: var(--room-key-edge);
+  }
+}
+/* A phone's deck card: a shorter window over its smaller reels. */
+@media (max-width: 999.98px), (prefers-reduced-data: reduce) {
+  .room-deck-window { height: 60%; }
+  .room-deck-tape { top: 52%; }
+  /* At the end of the line that says what it is (the keys' row is full),
+     its room kept when there's nothing to eject, so the card never changes
+     height under a flight. The deck's art keeps its own shape rather than
+     stretching to the rows beside it. */
+  .room-deck > .room-deck-eject {
+    position: static; grid-area: meta; justify-self: end; margin: 0; width: 34px; height: 34px; aspect-ratio: auto; border-radius: 17px; font-size: 13px;
+  }
+  .room-deck > .room-deck-eject[hidden] { display: inline-flex; visibility: hidden; }
+  .room-deck > .room-deck-art { align-self: center; }
+}
