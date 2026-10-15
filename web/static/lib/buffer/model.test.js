@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   barStart, barAt, nextBar, nextFreeSpan, spanWords, dropKey, grabKey, grabSeconds,
-  clampWindow, windowLimits, gridOf, snapNear, edgeStep, bufferLines, bufferMeta, bufferNote, barsText, boardKey,
+  clampWindow, windowLimits, gridOf, snapNear, edgeStep, bufferLines, bufferMeta, bufferNote, barsText, boardKey, chipsFor,
 } from './model.js';
 
 const SR = 48000;
@@ -159,4 +159,20 @@ test('the buffer’s line and its notes', () => {
   assert.match(bufferNote({ grab: { ...grab, stale: true } }), /before Hindsight restarted/);
   assert.notEqual(boardKey(board), boardKey({ ...board, grab: { ...grab, in: 5 } }));
   assert.equal(boardKey(null), '');
+});
+
+test('a grab of a take’s span shows the take as its one source, fixed', () => {
+  // The Listening Room's "to the studio": the buffer is the take's own
+  // sound, so there are no inputs to pick, and it says so.
+  const take = { ...grab, take: 'jam_2026-10-15_090000.wav', sources: ['Tuesday jam'] };
+  assert.deepEqual(chipsFor(take, ['main', 'ch1', 'ch2', 'aux'], ['aux']),
+    [{ name: 'take:jam_2026-10-15_090000.wav', label: 'Tuesday jam', on: true, fixed: true }]);
+  assert.match(bufferNote({ grab: take }), /from a take.*sources can’t change/);
+  // From the feed: the tape's sources, the buffer's pressed.
+  const feed = chipsFor({ ...grab, sources: ['ch1'] }, ['main', 'ch1'], ['aux']);
+  assert.deepEqual(feed.map((c) => [c.name, c.on, c.fixed]), [['main', false, false], ['ch1', true, false]]);
+  // Nothing grabbed yet: the ones picked for the next GRAB.
+  assert.deepEqual(chipsFor(null, ['main', 'aux'], ['aux']).map((c) => c.on), [false, true]);
+  // A stale grab's can't change either.
+  assert.equal(chipsFor({ ...grab, sources: ['aux'], stale: true }, ['aux'], []).every((c) => c.fixed), true);
 });

@@ -208,3 +208,65 @@ func TestTheBufferNeedsACapture(t *testing.T) {
 	want(t, send(t, r, http.MethodPatch, "/api/clipboard", `{"gain_db":1}`), http.StatusConflict, "nothing in the buffer")
 	want(t, send(t, r, http.MethodPost, "/api/clipboard/keep", ""), http.StatusConflict, "nothing to keep")
 }
+
+// The Listening Room's "to the studio": a note's span of a take, copied as
+// the Studio's buffer with grab: true -- and without it, a copy as ever.
+func TestATakesSpanCopiedAsAGrab(t *testing.T) {
+	r, dir := newBufferAPI(t)
+	makeLoadedTape(t, r)
+	take := writeRealTake(t, dir, "jam_2026-10-15_09-00-00.wav", 48000*20)
+	bpm := 120.0 // a bar is 2 s
+	if err := audio.WriteMeta(take, audio.Meta{Label: "Tuesday jam", BPM: &bpm}); err != nil {
+		t.Fatal(err)
+	}
+
+	// A plain copy from the take page, as it always was: no grab.
+	w := send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-15_09-00-00.wav","from":192000,"to":384000}`)
+	want(t, w, http.StatusOK, "copy")
+	if b := boardOf(t, w.Body); b.Clipboard.Grab != nil || strings.Contains(w.Body.String(), `"grab"`) || b.Clipboard.From != "jam_2026-10-15_09-00-00.wav" {
+		t.Fatalf("a plain take copy = %s", w.Body.String())
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/clipboard", `{"in":0,"out":1000}`), http.StatusBadRequest, "trim a plain copy")
+
+	// With grab: true, it's the buffer: handles of a bar at the take's tempo.
+	w = send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-15_09-00-00.wav","from":192000,"to":384000,"grab":true}`)
+	want(t, w, http.StatusOK, "grab a take's span")
+	var got struct {
+		Clipboard struct {
+			Frames int64  `json:"frames"`
+			From   string `json:"from"`
+			Grab   *struct {
+				Take    string   `json:"take"`
+				Sources []string `json:"sources"`
+				Before  int64    `json:"before"`
+				After   int64    `json:"after"`
+				Stale   bool     `json:"stale"`
+				Used    bool     `json:"used"`
+			} `json:"grab"`
+		} `json:"clipboard"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &got)
+	g := got.Clipboard.Grab
+	if g == nil || g.Take != "jam_2026-10-15_09-00-00.wav" || g.Before != 96000 || g.After != 96000 || g.Stale || g.Used ||
+		len(g.Sources) != 1 || g.Sources[0] != "Tuesday jam" || got.Clipboard.Frames != 192000 {
+		t.Fatalf("a take's grab = %s", w.Body.String())
+	}
+	// It trims inside those handles.
+	w = send(t, r, http.MethodPatch, "/api/clipboard", `{"in":-96000,"out":288000}`)
+	want(t, w, http.StatusOK, "trim a take's grab")
+	if c := boardOf(t, w.Body).Clipboard; c.Grab.In != -96000+480 || c.Frames != 288000+96000-480*2 {
+		t.Fatalf("trimmed = %s", w.Body.String())
+	}
+	// Its sources are the take's own: they can't change.
+	w = send(t, r, http.MethodPost, "/api/clipboard", `{"again":true,"sources":["ch1"]}`)
+	want(t, w, http.StatusBadRequest, "other sources for a take's grab")
+	if !strings.Contains(w.Body.String(), "take") {
+		t.Fatalf("says %s", w.Body.String())
+	}
+	// Never dropped or kept, the next grab puts it in the crate.
+	w = send(t, r, http.MethodPost, "/api/clipboard", `{"seconds":2,"sources":["aux"]}`)
+	want(t, w, http.StatusOK, "replace it")
+	if b := boardOf(t, w.Body); len(b.Crated) != 1 {
+		t.Fatalf("crated = %s", w.Body.String())
+	}
+}

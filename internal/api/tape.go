@@ -1137,6 +1137,7 @@ func (a *API) takePair(channels int) []int {
 //	GET    /api/clipboard        what's on it
 //	GET    /api/clipboard/audio  its tracks summed, as a WAV, to audition
 //	POST   /api/clipboard        copy {take, from, to} or {ring_from, ring_to, source};
+//	                             {take, from, to, grab: true}: a take's span as the buffer;
 //	                             or the Studio's GRAB: {bars | seconds | ring_from, ring_to,
 //	                             sources: [...]}, or {again, sources} (internal/tape grab.go)
 //	PATCH  /api/clipboard        the buffer: {in, out} its window; {gain_db}, {fade_in,
@@ -1180,6 +1181,10 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 		Seconds float64  `json:"seconds"`
 		Sources []string `json:"sources"`
 		Again   bool     `json:"again"`
+		// Grab with a take's span: the Listening Room's "to the studio",
+		// the span as the Studio's buffer. Without it, a take is copied as
+		// it always was.
+		Grab bool `json:"grab"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
@@ -1200,6 +1205,28 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case b.Take != "" && b.Grab:
+		name, nerr := a.safeTakeName(b.Take)
+		if nerr != nil {
+			writeErr(w, http.StatusBadRequest, nerr.Error())
+			return
+		}
+		path := filepath.Join(a.cfg.OutputDir, name)
+		info, serr := audio.ReadWAVInfo(path)
+		if serr != nil {
+			writeErr(w, http.StatusNotFound, "no such take")
+			return
+		}
+		g, err := a.tape.GrabTake(path, name, takeTitle(name, path), b.From, b.To, a.takePair(info.Channels))
+		if err != nil {
+			tapeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"clipboard": g.Board, "seconds": float64(g.Board.Frames) / float64(a.tape.Store().SampleRate()),
+			"clamped": false, "wall": false, "why": "", "crated": g.Crated,
+		})
+		return
 	case b.Take != "":
 		name, nerr := a.safeTakeName(b.Take)
 		if nerr != nil {
