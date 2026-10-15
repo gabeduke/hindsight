@@ -440,7 +440,7 @@ func TestKeepingTheClipboardKeepsEachLane(t *testing.T) {
 	}
 }
 
-func TestNormalizeBringsTheLoudestLaneUp(t *testing.T) {
+func TestNormalizeBringsTheLanesSumUp(t *testing.T) {
 	e, sink, _ := barLoop(t)
 	from, to := int64(100000), int64(148000)
 	if _, err := e.Grab(GrabRequest{RingFrom: &from, RingTo: &to, Sources: []string{"ch1", "aux"}}); err != nil {
@@ -450,15 +450,13 @@ func TestNormalizeBringsTheLoudestLaneUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The loudest of the two lanes sets the gain, so they keep their balance:
-	// CH1, the tape's 0.5 through a track at -6 dB, over AUX's ramp.
+	// The lanes as a take sums them, CH1 (the tape's 0.5 through a track at
+	// -6 dB) over AUX's ramp: their sum's loudest moment sets one gain for
+	// both, so they keep their balance.
 	loudest := 0.0
-	for ch := 2; ch < 8; ch++ {
-		if ch == 4 || ch == 5 {
-			continue // CH2 isn't a lane
-		}
-		for f := from; f < to; f += 7 {
-			loudest = math.Max(loudest, math.Abs(float64(ringAt(t, sink, ch, f))))
+	for f := from; f < to; f += 7 {
+		for ch := 0; ch < 2; ch++ {
+			loudest = math.Max(loudest, math.Abs(float64(ringAt(t, sink, 2+ch, f))+float64(ringAt(t, sink, 6+ch, f))))
 		}
 	}
 	want := math.Round((audio.NormalizePeakDB-20*math.Log10(loudest/2147483648.0))*10) / 10
@@ -476,5 +474,230 @@ func TestNormalizeBringsTheLoudestLaneUp(t *testing.T) {
 	}
 	if _, err := e.ShapeClipboard(BoardShape{FadeInShape: ptr("wobbly")}); !errors.Is(err, ErrBadParameter) {
 		t.Fatalf("a curve that doesn't exist: %v", err)
+	}
+}
+
+// --- what the review found ---------------------------------------------------------
+
+func TestAGrabBeforeTheRingHasFilledStartsAtItsFirstFrame(t *testing.T) {
+	// 8 s, or 4 wall-clock bars of 2 s, with 3 s in a 20 s ring: the start
+	// is before the ring's first frame. It moves there, and says so; nothing
+	// downstream gets a negative frame.
+	for _, req := range []GrabRequest{{Seconds: 8, Sources: []string{"aux"}}, {Bars: 4, Sources: []string{"aux"}}} {
+		e, sink, tp := newEngine(t)
+		e.grabWait = 20 * time.Millisecond
+		if err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error {
+			g := GridFor(120, 4, 48000) // a bar is 96000: 4 bars are 8 s
+			s.Grid = &g
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		e.Start()
+		sink.play(t, 48000*3)
+		g, err := e.Grab(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gr, lane := g.Board.Grab, g.Board.Tracks[0][0]
+		_, total := sink.ring.Window()
+		if !gr.Clamped || gr.RingFrom != 0 || gr.Before != 0 || lane.Src != 0 || gr.Frames != int64(total) {
+			t.Fatalf("%+v: ring_from %d, before %d, src %d, %d frames of %d, clamped %v", req, gr.RingFrom, gr.Before, lane.Src, gr.Frames, total, gr.Clamped)
+		}
+		if ringFrameOf(readPool(t, e.store, lane.File)[0]) != 0 {
+			t.Fatal("the lane doesn't start at the ring's first frame")
+		}
+		// And it all works from there: a take, a drop, the crate.
+		if _, err := e.KeepClipboardTake(t.TempDir(), time.Now()); err != nil {
+			t.Fatalf("keep as take: %v", err)
+		}
+		if _, err := e.ClipboardAudio(); err != nil {
+			t.Fatalf("audition: %v", err)
+		}
+		if _, err := e.DropClipboard(tp.ID, 2, false); err != nil {
+			t.Fatalf("drop: %v", err)
+		}
+	}
+}
+
+func TestAGrabClampsWhereTheRingStartsOnceItsDoneWaiting(t *testing.T) {
+	// The ring has wrapped. The grab reaches right back to its oldest
+	// second, then waits a bar -- 2 s, longer than that second -- for the
+	// handle after, and the ring, recording on, overwrites that start
+	// meanwhile. The clamp is the ring's as it is after the wait.
+	e, sink, tp := newEngine(t)
+	e.grabWait = 0
+	if err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error {
+		g := GridFor(120, 4, 48000) // a bar is 96000: a handle of 2 s
+		s.Grid = &g
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	e.Start()
+	sink.play(t, 48000*25) // a 20 s ring, 5 s overwritten
+	from := int64(0)
+	done := make(chan Grabbed, 1)
+	errs := make(chan error, 1)
+	go func() {
+		g, err := e.Grab(GrabRequest{RingFrom: &from, Sources: []string{"aux"}})
+		if err != nil {
+			errs <- err
+			return
+		}
+		done <- g
+	}()
+	time.Sleep(30 * time.Millisecond)
+	sink.play(t, 48000*3) // the ring moves on while the grab waits
+	select {
+	case err := <-errs:
+		t.Fatal(err)
+	case g := <-done:
+		gr, lane := g.Board.Grab, g.Board.Tracks[0][0]
+		data := readPool(t, e.store, lane.File)
+		if !gr.Clamped || gr.Before < 0 || lane.Src < 0 || gr.RingFrom < 48000*(25+2-20) {
+			t.Fatalf("ring_from %d, before %d, src %d: the ring had moved past %d", gr.RingFrom, gr.Before, lane.Src, 48000*(25+2-20))
+		}
+		if ringFrameOf(data[2*lane.Src]) != gr.RingFrom {
+			t.Fatalf("the window starts at ring frame %d, the grab says %d", ringFrameOf(data[2*lane.Src]), gr.RingFrom)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the grab never came back")
+	}
+	// A span that has left the ring altogether is refused.
+	to := int64(48000)
+	if _, err := e.Grab(GrabRequest{RingFrom: &from, RingTo: &to, Sources: []string{"aux"}}); !errors.Is(err, ErrGone) {
+		t.Fatalf("a span long gone: %v", err)
+	}
+}
+
+func TestAfterARestartTheBufferCantBeTakenAgain(t *testing.T) {
+	// The ring's frames start over when Hindsight does; clipboard.json keeps
+	// the old numbers. Taking the span again from other sources would copy
+	// other audio, so it's refused, and the buffer says it's stale.
+	s := newTestStore(t)
+	sink1 := &loopSink{ring: audio.NewRing(48000*20, 8)}
+	e1 := NewEngine(Options{Store: s, Capture: sink1, Sink: sink1})
+	tp, err := s.Create("test", 0, 0, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e1.Load(tp.ID); err != nil {
+		t.Fatal(err)
+	}
+	testEngine = e1
+	e1.Start()
+	sink1.play(t, 48000*6)
+	from, to := int64(48000*2), int64(48000*3)
+	if _, err := e1.Grab(GrabRequest{RingFrom: &from, RingTo: &to, Sources: []string{"aux"}}); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := e1.Clipboard(); c.Grab.Stale {
+		t.Fatal("stale in the ring it came from")
+	}
+	e1.Stop()
+
+	sink2 := &loopSink{ring: audio.NewRing(48000*20, 8)}
+	e2 := NewEngine(Options{Store: s, Capture: sink2, Sink: sink2})
+	if _, err := e2.Load(tp.ID); err != nil {
+		t.Fatal(err)
+	}
+	testEngine = e2
+	t.Cleanup(func() { e2.Stop(); testEngine = nil })
+	e2.Start()
+	sink2.play(t, 48000*6)
+	if _, err := e2.Grab(GrabRequest{Again: true, Sources: []string{"ch1", "aux"}}); !errors.Is(err, ErrGone) {
+		t.Fatalf("again after a restart: %v, want it refused", err)
+	}
+	c, err := e2.Clipboard()
+	if err != nil || !c.Grab.Stale {
+		t.Fatalf("after a restart the buffer = %+v %v, want stale", c, err)
+	}
+	// Stale is worked out as it's read, never saved.
+	if raw, _ := s.LoadClipboard(); raw.Grab.Stale {
+		t.Fatal("stale was saved")
+	}
+	// It still drops and keeps: its audio is in the pool.
+	if _, err := e2.KeepClipboardTake(t.TempDir(), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAnInsertedBufferIsUsed(t *testing.T) {
+	e, _, tp := barLoop(t)
+	from, to := int64(100000), int64(148000)
+	if _, err := e.Grab(GrabRequest{RingFrom: &from, RingTo: &to, Sources: []string{"aux"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "insert", Track: 2}); err != nil {
+		t.Fatal(err)
+	}
+	g, err := e.Grab(GrabRequest{RingFrom: &from, RingTo: &to, Sources: []string{"aux"}})
+	if err != nil || len(g.Crated) != 0 {
+		t.Fatalf("an inserted buffer was kept again when replaced: %+v %v", g.Crated, err)
+	}
+}
+
+// fullScale counts the samples of a take at full scale, either way.
+func fullScale(t *testing.T, path string) (n int, peak float64) {
+	t.Helper()
+	info, err := audio.ReadWAVInfo(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	audio.ReadFrames(path, 0, info.Frames(), 1<<14, func(b []int32, _ int64) error {
+		for _, v := range b {
+			if v >= 2147483647 || v <= -2147483647 {
+				n++
+			}
+			peak = math.Max(peak, math.Abs(float64(v))/2147483648)
+		}
+		return nil
+	})
+	return n, peak
+}
+
+func TestNormalizeAndKeepNeverClip(t *testing.T) {
+	// Four lanes normalized, then summed into a take: Normalize sets the
+	// level for their sum, so the take peaks at −1.5 dBFS, not over the top.
+	e, _, _ := barLoop(t)
+	from, to := int64(100000), int64(148000)
+	if _, err := e.Grab(GrabRequest{RingFrom: &from, RingTo: &to, Sources: []string{"main", "ch1", "ch2", "aux"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.ShapeClipboard(BoardShape{Normalize: true}); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	k, err := e.KeepClipboardTake(dir, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, peak := fullScale(t, filepath.Join(dir, k.Name))
+	if db := 20 * math.Log10(peak); n > 0 || math.Abs(db-audio.NormalizePeakDB) > 0.3 {
+		t.Fatalf("normalized and kept: %d samples at full scale, peak %.2f dBFS, want %.1f", n, db, audio.NormalizePeakDB)
+	}
+	// Turned up past full scale by hand, the sum is brought down under it
+	// as a whole -- for the take and the audition alike -- never clipped.
+	if _, err := e.ShapeClipboard(BoardShape{GainDB: ptr(12.0)}); err != nil {
+		t.Fatal(err)
+	}
+	k, err = e.KeepClipboardTake(dir, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, peak := fullScale(t, filepath.Join(dir, k.Name)); n > 0 || peak > 0.99 || peak < 0.9 {
+		t.Fatalf("12 dB over and kept: %d samples at full scale, peak %.3f", n, peak)
+	}
+	pcm, err := e.ClipboardAudio()
+	if err != nil {
+		t.Fatal(err)
+	}
+	loud := 0.0
+	for _, v := range pcm {
+		loud = math.Max(loud, math.Abs(float64(v)))
+	}
+	if loud > 0.99 || loud < 0.9 {
+		t.Fatalf("the audition peaks at %.3f, want it brought under full scale", loud)
 	}
 }

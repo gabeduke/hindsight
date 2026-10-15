@@ -1,6 +1,8 @@
 package audio
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"sync"
 )
@@ -19,15 +21,26 @@ type Ring struct {
 
 	writePos    int    // sample index of the next write
 	totalFrames uint64 // frames ever written; saturates the ring once >= capFrames
+
+	id string // this ring's own name: its frame numbers mean nothing in another
 }
 
 func NewRing(capFrames, channels int) *Ring {
+	var b [8]byte
+	rand.Read(b[:])
 	return &Ring{
 		buf:       make([]int32, capFrames*channels),
 		channels:  channels,
 		capFrames: capFrames,
+		id:        hex.EncodeToString(b[:]),
 	}
 }
+
+// ID names this ring, one per run of the capture. Its absolute frame
+// numbers count from its start, so a frame number kept across a restart
+// (the Studio's buffer keeps the span it was grabbed from) names other
+// audio in the next ring: ID says which ring it was.
+func (r *Ring) ID() string { return r.id }
 
 // WriteFrames appends a block and accounts for it in frames rather than samples.
 func (r *Ring) WriteFrames(block []int32) {

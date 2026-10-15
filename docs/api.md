@@ -1425,12 +1425,18 @@ restart; 404 when the tape is off.
   the last bars is still being played, so the answer waits for it (about a
   bar). When the tape didn't play the bars (stopped, moved, on a phone, not
   lined up) it takes that many bars of wall-clock time to now, and says
-  `"wall": true` with `"why"`. The clipboard gains `grab`: `{sources, bars?,
-  seconds?, wall?, why?, clamped?, ring_from, frames, before, after, in, out,
-  bar_frames?, downbeat?, tape?, reversed?, used?}` -- frames from the grab's
-  start, the window `[in, out)` inside the handles `before` and `after`.
-  `{"again": true, "sources": […]}` copies the buffer's own span again from
-  other sources, keeping its window. A grab, or any copy, that replaces a
+  `"wall": true` with `"why"`. Where the ring starts is read once the
+  waiting is done: a start that has left it moves to its oldest audio, a
+  second in (before the ring has filled, to its first frame), and the
+  answer has `"clamped": true`; 409 if none of the span is left. The
+  clipboard gains `grab`: `{sources, bars?, seconds?, wall?, why?, clamped?,
+  ring_from, frames, before, after, in, out, bar_frames?, downbeat?, tape?,
+  reversed?, used?, ring, stale?}` -- frames from the grab's start, the
+  window `[in, out)` inside the handles `before` and `after`; `ring` names
+  the ring it came from, and `stale` says Hindsight has restarted since, so
+  `ring_from` names other audio now. `{"again": true, "sources": […]}`
+  copies the buffer's own span again from other sources, keeping its
+  window; 409 for a stale one. A grab, or any copy, that replaces a
   grab never dropped or kept puts that one in the crate first, a kept clip
   per track, and answers them as `"crated"`.
 - Both answer the new clipboard; 400 for a copy longer than a track; 507 for
@@ -1439,10 +1445,13 @@ restart; 404 when the tape is off.
   empty), outside undo: `{"in": I, "out": O}` moves its window, kept inside
   its handles less the crossfades' overhang; `{"gain_db"}`, `{"fade_in",
   "fade_out", "fade_in_shape", "fade_out_shape"}`, `{"normalize": true}` (the
-  loudest track's peak to −1.5 dBFS, at most +24 dB) and `{"reverse": true}`
+  tracks' sum to −1.5 dBFS at its loudest, one gain for all, at most +24 dB)
+  and `{"reverse": true}`
   apply to every track. It answers the clipboard.
 - `POST /api/clipboard/keep` is KEEP AS TAKE: the clipboard as a take, its
-  tracks summed to stereo with their levels and fades, from its own audio.
+  tracks summed to stereo with their levels and fades, from its own audio;
+  a sum that would go over full scale is brought down as a whole, never
+  clipped (the buffer's audition too).
   Its label names its sources (*Buffer · ch1 + ch2*), its `origin` is
   `buffer`, and a grab's tempo and downbeat are the tape's. It answers
   `{"name", "label", "seconds"}`; the buffer is then marked used.

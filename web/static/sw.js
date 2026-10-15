@@ -92,6 +92,7 @@ const SHELL = [
   '/lib/buffer/keys.js',
   '/lib/buffer/lanes.js',
   '/lib/buffer/model.js',
+  '/lib/buffer/state.js',
   '/lib/tape/page.js',
   '/lib/tape/poll-gate.js',
   '/lib/tape/geometry.js',

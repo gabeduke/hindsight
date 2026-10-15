@@ -84,6 +84,12 @@ func (s *Store) SaveClipboard(c *Clipboard) error {
 		}
 		return err
 	}
+	if c.Grab != nil && c.Grab.Stale { // worked out as it's read, never kept
+		cp, g := *c, *c.Grab
+		g.Stale = false
+		cp.Grab = &g
+		c = &cp
+	}
 	b, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
@@ -93,7 +99,10 @@ func (s *Store) SaveClipboard(c *Clipboard) error {
 
 // Clipboard is what's on the clipboard, or nil -- and an error if the file
 // can't be read, which only clearing it mends.
-func (e *Engine) Clipboard() (*Clipboard, error) { return e.store.LoadClipboard() }
+func (e *Engine) Clipboard() (*Clipboard, error) {
+	c, err := e.store.LoadClipboard()
+	return e.markStale(c), err
+}
 
 // tooLong refuses a copy longer than a track: it could never be dropped.
 func (e *Engine) tooLong(frames int64) error {
@@ -439,6 +448,19 @@ func (e *Engine) ClipboardAudio() ([]float32, error) {
 			})
 			if err != nil {
 				return nil, err
+			}
+		}
+	}
+	// The Studio's buffer is heard as KEEP AS TAKE keeps it: a sum that
+	// would go over full scale brought down as a whole, not clipped.
+	if c.Grab != nil {
+		peak := 0.0
+		for _, v := range out {
+			peak = math.Max(peak, math.Abs(float64(v)))
+		}
+		if s := float32(sumScale(peak)); s < 1 {
+			for i := range out {
+				out[i] *= s
 			}
 		}
 	}

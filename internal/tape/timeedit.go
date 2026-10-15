@@ -274,6 +274,9 @@ func (e *Engine) timeEdit(t *Tape, req EditRequest) (EditResult, error) {
 		if !moving {
 			e.doWait(Action{Kind: "locate", Pos: at + c.Frames})
 		}
+		if req.Crate == "" {
+			e.markUsed(c) // a buffer inserted is a buffer used, as a dropped one is
+		}
 		return EditResult{Op: "insert", Clips: n, Frames: c.Frames, At: at}, nil
 	case "delete-time":
 		// The range's span, or the loop's.
