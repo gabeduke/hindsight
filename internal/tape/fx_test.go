@@ -195,8 +195,8 @@ func TestModsBackAtZeroRenderAsBefore(t *testing.T) {
 
 func TestFXDontClick(t *testing.T) {
 	// Engaged, moved twice while held, and let go: no step on the ramp rig
-	// is a click. CRUSH stays above 10 bits here, where its own steps are
-	// smaller than one; below that, steps are what it's for.
+	// is a click. The ramp hears where the head reads (ROLL, the bend) and
+	// ECHO's send; FILTER and CRUSH need a tone (TestFilterAndCrushDontClick).
 	amounts := map[string][3]float64{
 		PadFilter: {0.6, 0.95, 0.2},
 		PadEcho:   {0.6, 1, 0.3},
@@ -223,6 +223,43 @@ func TestFXDontClick(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestFilterAndCrushDontClick(t *testing.T) {
+	// The ramp rig can't hear these: a ramp passes a 200 Hz low-pass and
+	// 10-bit rounding unchanged. A 2 kHz sine (whose own steps are 0.065)
+	// hears FILTER's cutoff jump: 0.17 switched hard, 0.105 gliding.
+	r := toneRig(t, sine(2000, 0.25))
+	r.playFrom(10000)
+	r.run(3)
+	_ = r.e.PressAmount(PadFilter, QuantumSixteenth, 1)
+	out := r.run(6)
+	for _, v := range []float64{0, 1, 0.6, 0.95, 0.2} {
+		_ = r.e.Set(PadFilter, v)
+		out = append(out, r.run(6)...)
+	}
+	_ = r.e.Release(PadFilter)
+	out = append(out, r.run(8)...)
+	if j, at := maxJump(out, 1, len(out)/OutChannels, 0); j > 0.13 {
+		t.Fatalf("FILTER: a step of %.4f at frame %d, against the sine's own 0.065", j, at)
+	}
+	// CRUSH's own steps are its sound, and a rounding whose step moves jumps
+	// however smoothly it moves. What mustn't jump is coming in and going
+	// out: over a steady 0.3, rounded to 0.25 at 4 bits, it glides there
+	// and back across 5 ms.
+	r = toneRig(t, func(int) float64 { return 0.3 })
+	r.playFrom(10000)
+	r.run(3)
+	_ = r.e.PressAmount(PadCrush, QuantumSixteenth, 1)
+	out = r.run(8)
+	_ = r.e.Release(PadCrush)
+	out = append(out, r.run(8)...)
+	if j, at := maxJump(out, 1, len(out)/OutChannels, 0); j > 0.001 {
+		t.Fatalf("CRUSH: a step of %.4f at frame %d over a steady signal", j, at)
+	}
+	if lo := out[(15000-10000-3*BlockFrames+xf+10)*OutChannels]; math.Abs(float64(lo)-0.25) > 1e-6 {
+		t.Fatalf("CRUSH at 4 bits holds 0.3 at %v, want 0.25: the test proves nothing", lo)
 	}
 }
 
