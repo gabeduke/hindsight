@@ -227,6 +227,37 @@ add the Wi-Fi trip on top, and the press would land late.
 `BenchmarkRenderABlock` is the number to watch on a Pi: one 21 ms block with
 four tracks, plain and under each trick.
 
+## The two rooms
+
+`web/static/lib/rooms/` is the Studio and the Listening Room
+(`docs/superpowers/specs/2026-10-15-rooms-design.md`), behind a per-device
+flag like Play mode's:
+
+```js
+localStorage.setItem('hindsight.rooms', '1')   // on, this device only
+localStorage.removeItem('hindsight.rooms')     // off
+```
+
+or *Settings › This device › Two rooms*. It is read once, when a page loads.
+
+With it on, the three tabs are two: **Studio**, the tape page while the tape
+is on and Capture while it's off, and **Listening Room**, the takes and a
+take's page (`lib/nav.js`, `navTabs` and `studioRedirect`). `/` goes to the
+tape page before it draws, from an inline script in `index.html`'s head that
+reads the `hindsight.tapeOn` the nav cached last time.
+
+The tape page as the Studio gains Capture's feed above the lanes — the
+ribbon, the L/R meters, and KEEP, which is `POST /api/trigger` — and the
+about line with Settings under them. Their markup is `<template>`s in
+`tape.html`, so with the flag off none of it is in the page;
+`lib/rooms/mount.js` is the only thing the page loads, and it fetches
+`studio.js` only with the flag on.
+
+- `flag.js` — the flag. The other rooms steps import it; keep its API.
+- `mount.js` — the tape page's entry: the flag, then `studio.js`.
+- `studio.js` — mounts the templates and drives them with Capture's modules.
+- `keep.js` — KEEP's request and its Undo.
+
 ## The object library
 
 `web/static/lib/objects/` holds the physical things the app draws, one
