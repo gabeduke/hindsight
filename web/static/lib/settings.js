@@ -105,6 +105,60 @@ export function revealOnOpen(d) {
   return d;
 }
 
+/**
+ * deviceNote is what the sheet says under a device switch once it is flipped
+ * and saved. One the page reads only at load needs a reload, and says the
+ * reload is this page's alone: the Pi's Restart is another thing, and
+ * empties the ring.
+ */
+export function deviceNote(result, pref) {
+  if (result.reload) return { text: 'Reload this page for this to take effect. Only this page reloads: Hindsight keeps running.', reload: true };
+  return { text: pref.note, reload: false };
+}
+
+/**
+ * The one group that is not the Pi's: switches for this device only, kept
+ * in localStorage. They save as they are clicked -- there is nothing to send
+ * and nothing to restart, so Save and Reset do not apply to them. A switch
+ * that is read only when the page loads offers a Reload beside its note: an
+ * installed phone app has no reload of its own.
+ */
+export function deviceGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, write = writeDevicePref, reload = () => location.reload() } = {}) {
+  const d = revealOnOpen(el('details', 'set-group'));
+  d.open = false;
+  d.append(el('summary', null, 'This device'));
+  const now = read();
+  for (const p of prefs) {
+    const row = el('label', 'set-field set-check');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = !!now[p.id];
+    const text = el('span', null, p.note);
+    const again = el('button', 'icon-btn set-reload', 'Reload this page');
+    again.type = 'button';
+    again.hidden = true;
+    again.addEventListener('click', () => reload());
+    box.addEventListener('change', () => {
+      const r = write(p.id, box.checked);
+      if (!r.ok) {
+        box.checked = !box.checked; // storage refused; do not claim it saved
+        text.textContent = 'This device cannot store settings (private browsing?).';
+        again.hidden = true;
+        return;
+      }
+      const n = deviceNote(r, p);
+      text.textContent = n.text;
+      again.hidden = !n.reload;
+    });
+    row.append(box, el('span', 'set-label', p.label));
+    // Beside its note, not in it: the note's words change as it is flipped.
+    const note = el('p', 'set-note');
+    note.append(text, ' ', again);
+    d.append(row, note);
+  }
+  return d;
+}
+
 export const RESTART_WARNING = 'Hindsight restarts to use it, so the ring starts empty: capture anything you want to keep first.';
 
 /**
@@ -303,37 +357,6 @@ export function initSettings() {
     body.append(deviceGroup());
     drawNotes();
     refreshButtons();
-  }
-
-  /**
-   * The one group that is not the Pi's: switches for this device only, kept
-   * in localStorage. They save as they are clicked -- there is nothing to
-   * send and nothing to restart, so Save and Reset do not apply to them.
-   */
-  function deviceGroup() {
-    const d = revealOnOpen(el('details', 'set-group'));
-    d.open = false;
-    d.append(el('summary', null, 'This device'));
-    const now = readDevicePrefs();
-    for (const p of DEVICE_PREFS) {
-      const row = el('label', 'set-field set-check');
-      const box = document.createElement('input');
-      box.type = 'checkbox';
-      box.checked = !!now[p.id];
-      box.addEventListener('change', () => {
-        const r = writeDevicePref(p.id, box.checked);
-        if (!r.ok) {
-          box.checked = !box.checked; // storage refused; do not claim it saved
-          note.textContent = 'This device cannot store settings (private browsing?).';
-          return;
-        }
-        note.textContent = r.reload ? 'Reload the page for this to take effect.' : p.note;
-      });
-      row.append(box, el('span', 'set-label', p.label));
-      const note = el('p', 'set-note', p.note);
-      d.append(row, note);
-    }
-    return d;
   }
 
   async function load() {
