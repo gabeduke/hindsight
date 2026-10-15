@@ -1113,8 +1113,10 @@ finger lifts.
 
 The mods are heard on the tape's own sound, and printed in a mixdown: WOW
 (a 0.8 Hz wobble of the read head, ±0.5 % in pitch at full) and FLUTTER (about
-8 Hz, ±0.1 %, wandering), DRIVE (soft saturation, `tanh`, brought back to the
-level that went in) and AGE (the top end falling from 20 kHz to about 4 kHz).
+8 Hz, ±0.1 %, wandering), DRIVE (soft saturation, `tanh`, made up so a tape at
+−18 dBFS RMS comes out as loud as it went in: quieter is lifted up to 4 dB at
+full drive, louder squeezed) and AGE (the top end falling from 20 kHz to about
+4 kHz).
 At 0 each is the tape untouched, sample for sample.
 
 ### `DELETE /api/tapes?id=`, `POST /api/tapes/load?id=`, `POST /api/tapes/clone?id=`
