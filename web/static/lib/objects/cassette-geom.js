@@ -121,8 +121,11 @@ export function greaseMark(x, dir, seed, L) {
  * the browser has it, arcs where it doesn't (iOS before 16).
  */
 export function roundRectPath(ctx, x, y, w, h, r) {
-  if (typeof ctx.roundRect === 'function') { ctx.roundRect(x, y, w, h, r); return; }
-  const k = Math.min(r, w / 2, h / 2);
+  // Never below zero: a strip too short for its insets (a lane folded while
+  // the Studio's buffer is open) asks for less than nothing, and roundRect
+  // throws on that. A radius too big for the box, roundRect scales itself.
+  if (typeof ctx.roundRect === 'function') { ctx.roundRect(x, y, w, h, Math.max(0, r)); return; }
+  const k = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.moveTo(x + k, y);
   ctx.arcTo(x + w, y, x + w, y + h, k);
   ctx.arcTo(x + w, y + h, x, y + h, k);
