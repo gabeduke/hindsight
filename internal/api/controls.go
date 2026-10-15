@@ -194,7 +194,11 @@ type controlsFile struct {
 	Version int `json:"version"`
 	// Quantum is when a controller's press lands, as a page's quantise
 	// switch says for its own: 16th unless set.
-	Quantum     string              `json:"quantum,omitempty"`
+	Quantum string `json:"quantum,omitempty"`
+	// Catch is how a controller's CATCH lands on audio already there:
+	// "layer" (the default) or "replace". The page's Layer / Replace switch
+	// is each device's own, so the Pi keeps one of its own.
+	Catch       string              `json:"catch,omitempty"`
 	Controllers map[string]Bindings `json:"controllers"`
 }
 
@@ -370,17 +374,25 @@ type controlBus struct {
 	loaded bool
 	file   controlsFile
 	held   map[string]map[string]bool // port → the pads it holds
-	latch  map[string]bool            // port → its latch is down
-	wait   map[string]map[string]bool // port → pads let go under the latch
-	learn  *learnReq
-	verbs  verbs // nil: the Pi's own (piVerbs)
+	// pressed is what each key or pedal pressed, by port and message (a
+	// note or a CC on a channel): its release lets go of that pad, whatever
+	// the bindings say by then, as the keyboard keeps the code it pressed.
+	pressed map[string]map[string]string
+	latch   map[string]bool            // port → its latch is down
+	wait    map[string]map[string]bool // port → pads let go under the latch
+	learn   *learnReq
+	verbs   verbs // nil: the Pi's own (piVerbs)
 	// learnWait is how long learn waits; 0 is ten seconds. Tests shorten it.
 	learnWait time.Duration
-	// verbQ runs a controller's commands one after another, off the
-	// reader's goroutine: GRAB then DROP must happen in that order, and a
-	// GRAB waits about a bar for the bar after it.
+	// The verbs run off the reader's goroutine, on two queues. GRAB and
+	// DROP take turns on the slow one: DROP must find what GRAB put there,
+	// and a GRAB waits about a bar for the bar after it. CATCH, KEEP and the
+	// transport go on the quick one, so none of them waits behind that bar:
+	// KEEP would keep a later 30 s, Stop would stop late, CATCH would take a
+	// later pass.
 	verbOnce sync.Once
-	verbQ    chan verbJob
+	slowQ    chan verbJob
+	quickQ   chan verbJob
 	// knobs are each controller's mod knobs, previewing as their own owner;
 	// knobQuiet, when set, is how long one is still before it saves (tests).
 	knobs     map[string]*tape.ModKnobs
@@ -461,6 +473,17 @@ func (a *API) quantumLocked() string {
 	return "16th"
 }
 
+// msgKey names a note or a CC on its channel, for what it pressed.
+func msgKey(m midiMsg) string {
+	switch m.typ {
+	case "on", "off":
+		return fmt.Sprintf("n%d:%d", m.ch, m.note)
+	case "cc":
+		return fmt.Sprintf("c%d:%d", m.ch, m.cc)
+	}
+	return ""
+}
+
 // holder is a controller's name in playHolds' terms.
 func holder(port string) string { return "midi:" + port }
 
@@ -471,7 +494,21 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 		return
 	}
 	b := &a.controls
+	down := m.typ == "on" || m.typ == "rt" || (m.typ == "cc" && (m.value >= 64 || m.cc >= 120))
+	key := msgKey(m)
 	b.mu.Lock()
+	if !down && key != "" {
+		if pad, ok := b.pressed[port][key]; ok {
+			delete(b.pressed[port], key)
+			b.mu.Unlock()
+			a.controllerRelease(port, pad)
+			return
+		}
+		if m.typ == "off" {
+			b.mu.Unlock()
+			return // a note that pressed nothing: the one that taught MIDI LEARN
+		}
+	}
 	if l := b.learn; l != nil && (l.port == "" || l.port == port) && (m.typ == "on" || m.typ == "cc") {
 		nb := Binding{Ch: m.ch}
 		if m.typ == "on" {
@@ -496,8 +533,9 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	id, found := bs.actionFor(m)
 	amountID, isAmount := bs.amountFor(m)
 	if m.typ == "polypressure" {
-		// Aftertouch on one key: the pad that key plays.
-		id, found = bs.actionFor(midiMsg{typ: "on", ch: m.ch, note: m.note})
+		// Aftertouch on one key: the pad that key pressed, whatever the
+		// bindings say by now.
+		id, found = b.pressed[port][msgKey(midiMsg{typ: "on", ch: m.ch, note: m.note})]
 	}
 	q := a.quantumLocked()
 	b.mu.Unlock()
@@ -517,19 +555,30 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 		return
 	}
 	act, _ := actionByID(id)
-	down := m.typ == "on" || m.typ == "rt" || (m.typ == "cc" && (m.value >= 64 || m.cc >= 120))
 	switch act.Kind {
 	case kindModifier:
 		a.controllerLatch(port, down)
 	case kindHeld:
-		if down {
-			v := math.NaN()
-			if m.typ == "on" && fxPads[id] {
-				v = float64(m.value) / 127 // its velocity is its amount
+		if down && key != "" {
+			b.mu.Lock()
+			if b.pressed == nil {
+				b.pressed = map[string]map[string]string{}
 			}
-			a.controllerPress(port, id, q, v)
-		} else {
-			a.controllerRelease(port, id)
+			if b.pressed[port] == nil {
+				b.pressed[port] = map[string]string{}
+			}
+			_, again := b.pressed[port][key]
+			if !again {
+				b.pressed[port][key] = id
+			}
+			b.mu.Unlock()
+			if !again {
+				v := math.NaN()
+				if m.typ == "on" && fxPads[id] {
+					v = float64(m.value) / 127 // its velocity is its amount
+				}
+				a.controllerPress(port, id, q, v)
+			}
 		}
 	case kindAmount:
 		if id == "bend" && m.typ == "bend" {
@@ -778,6 +827,7 @@ func (a *API) ControllerGone(port string) {
 	delete(b.held, port)
 	delete(b.wait, port)
 	delete(b.latch, port)
+	delete(b.pressed, port)
 	b.mu.Unlock()
 	eng := a.playerOrNil()
 	if eng == nil {
@@ -846,20 +896,26 @@ func (a *API) startLearn(action, port string, done func(port string, b Binding),
 	}, nil
 }
 
-// queueVerb hands a command to the verbs' own goroutine. A full queue drops
-// it: sixteen commands waiting is a stuck verb, not a player.
+// queueVerb hands a command to its queue's goroutine. A full queue drops it:
+// sixteen commands waiting is a stuck verb, not a player.
 func (a *API) queueVerb(port, id, rt string) {
 	b := &a.controls
 	b.verbOnce.Do(func() {
-		b.verbQ = make(chan verbJob, 16)
-		go func() {
-			for j := range b.verbQ {
-				a.runVerb(j.port, j.id, j.rt)
-			}
-		}()
+		b.slowQ, b.quickQ = make(chan verbJob, 16), make(chan verbJob, 16)
+		for _, q := range []chan verbJob{b.slowQ, b.quickQ} {
+			go func(q chan verbJob) {
+				for j := range q {
+					a.runVerb(j.port, j.id, j.rt)
+				}
+			}(q)
+		}
 	})
+	q := b.quickQ
+	if id == "grab" || id == "drop" {
+		q = b.slowQ
+	}
 	select {
-	case b.verbQ <- verbJob{port, id, rt}:
+	case q <- verbJob{port, id, rt}:
 	default:
 		log.Printf("[!] %s: %s dropped: the verbs before it haven't finished", holder(port), id)
 	}
@@ -923,14 +979,17 @@ func (v piVerbs) Verb(id, rt string) (string, error) {
 		}
 		return kind, nil
 	case "catch":
-		if !armed {
-			return "", errors.New("arm a track first")
-		}
-		c, err := a.tape.Catch(t.ID, tape.CatchRequest{Track: track, Source: src, Pass: 1})
+		req, err := a.catchRequest(t)
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("caught %.1f s from %s onto track %d", float64(c.Frames)/float64(t.SampleRate), src, track), nil
+		// Engine.Catch is the page's path: it refuses while the tape plays
+		// on a phone (jamOnly), as the page's Catch does.
+		c, err := a.tape.Catch(t.ID, req)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("caught %.1f s from %s onto track %d", float64(c.Frames)/float64(t.SampleRate), req.Source, req.Track), nil
 	case "grab":
 		req := tape.GrabRequest{Sources: []string{src}}
 		if t.Grid != nil && t.Grid.Bars > 0 {
@@ -969,6 +1028,20 @@ func (v piVerbs) Verb(id, rt string) (string, error) {
 		return fmt.Sprintf("dropped the buffer on track %d", track), nil
 	}
 	return "", fmt.Errorf("%s isn't a verb the Pi runs", id)
+}
+
+// catchRequest is the controller's CATCH, as the page's Catch asks it: the
+// last pass, onto the armed track, from its input, layered or replacing as
+// controls.json says.
+func (a *API) catchRequest(t *tape.Tape) (tape.CatchRequest, error) {
+	track, src, armed := a.armedOf(t)
+	if !armed {
+		return tape.CatchRequest{}, errors.New("arm a track first")
+	}
+	a.controls.mu.Lock()
+	replace := a.controlsLocked().Catch == "replace"
+	a.controls.mu.Unlock()
+	return tape.CatchRequest{Track: track, Source: src, Pass: 1, Replace: replace}, nil
 }
 
 // armedOf is the record track (0 in tape.json is track 1) and its input,
@@ -1040,7 +1113,11 @@ func (a *API) controlsView() map[string]any {
 	if setting == nil {
 		setting = []string{}
 	}
-	return map[string]any{"quantum": a.quantumLocked(), "controllers": list, "setting": setting, "defaults": defaultBindings()}
+	catch := f.Catch
+	if catch == "" {
+		catch = "layer"
+	}
+	return map[string]any{"quantum": a.quantumLocked(), "catch": catch, "controllers": list, "setting": setting, "defaults": defaultBindings()}
 }
 
 func (a *API) handleControlsGet(w http.ResponseWriter, r *http.Request) {
@@ -1058,6 +1135,7 @@ func (a *API) handleControlsPut(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Quantum     *string              `json:"quantum"`
+		Catch       *string              `json:"catch"`
 		Controllers map[string]*Bindings `json:"controllers"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<10)).Decode(&body); err != nil {
@@ -1071,6 +1149,10 @@ func (a *API) handleControlsPut(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "quantum is now, 16th, 8th, beat or bar")
 			return
 		}
+	}
+	if body.Catch != nil && *body.Catch != "layer" && *body.Catch != "replace" {
+		writeErr(w, http.StatusBadRequest, "catch is layer or replace")
+		return
 	}
 	for name, bs := range body.Controllers {
 		if strings.TrimSpace(name) == "" {
@@ -1088,6 +1170,9 @@ func (a *API) handleControlsPut(w http.ResponseWriter, r *http.Request) {
 	f := a.controlsLocked()
 	if body.Quantum != nil {
 		f.Quantum = *body.Quantum
+	}
+	if body.Catch != nil {
+		f.Catch = *body.Catch
 	}
 	for name, bs := range body.Controllers {
 		if bs == nil {

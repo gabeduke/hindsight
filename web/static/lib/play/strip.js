@@ -35,6 +35,7 @@ import { Amounts } from './amounts.js';
 import { mountFX } from './fx.js';
 import { mountMods } from './mods.js';
 import { reconcile, RECENT_MS } from './held.js';
+import { FarPads } from './far.js';
 
 const FX = new Set(FX_PADS);
 
@@ -54,6 +55,17 @@ const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-height: 
  * while it's unfolded and nothing has given the keys back.
  */
 export function keysOwner({ open, given }) { return !!open && !given; }
+
+/**
+ * wantsFrames says whether the strip needs the shared ticker's next frame:
+ * the ring sweeping a playing tape, the reel still coasting, another hand's
+ * pad on its way, a pad of this hand's waiting for its line. A stopped tape
+ * under an unfolded strip is drawn on each poll (hindsight:tape-state wakes
+ * it), not sixty times a second.
+ */
+export function wantsFrames({ open, playing, moving, pending, held }) {
+  return !!((open && playing) || moving || pending || held);
+}
 
 /**
  * fromOptions lists where the pads can be played from, for the strip's
@@ -98,7 +110,7 @@ export function startStrip({
   let from = chosen || 'keys';
   let learning = false;
   const sounding = [];  // pads sounding, in the order they fired: the reel follows the newest trick
-  const pending = [];   // another hand's pads, waiting for when they're heard
+  const far = new FarPads(); // another hand's pads (far.js)
   const phone = typeof matchMedia === 'function' ? matchMedia(PHONE) : { matches: false, addEventListener() {} };
 
   const root = doc.createElement('section');
@@ -129,13 +141,27 @@ export function startStrip({
     wake();
   };
   surface.on('fire', ({ pad }) => sound(pad, true));
-  surface.on('end', ({ pad }) => { ended.set(pad, now()); sound(pad, ui.remoteHeld().includes(pad)); });
-  // A velocity is the FX's amount from the press: drawn here, carried by it.
-  surface.on('arm', ({ pad, v }) => { if (Number.isFinite(v)) amounts.note(pad, v); });
+  surface.on('end', ({ pad }) => { ended.set(pad, now()); sound(pad, far.has(pad)); });
+  // A press here makes the pad this hand's: no other hand's mark on it. A
+  // velocity is the FX's amount from the press: drawn here, carried by it.
+  surface.on('arm', ({ pad, v }) => {
+    for (const p of far.pressed(pad)) ui.remote(p, false);
+    if (Number.isFinite(v)) amounts.note(pad, v);
+  });
+  const farChanged = (pad, isOn) => {
+    ui.remote(pad, isOn);
+    if (pad === 'bend') fx?.setBend(isOn || bending);
+    if (surface.state(pad) === 'idle') sound(pad, isOn);
+  };
 
   link = connect(surface, {
     onNote: (t) => { linkNote = t; showNote(); },
-    onRemote: (pad, isOn, at) => { pending.push({ pad, on: isOn, at }); wake(); },
+    onRemote: (pad, isOn, at) => { far.at(pad, isOn, at); wake(); },
+    onHeld: (held) => {
+      const others = held.filter((p) => surface.state(p) === 'idle');
+      for (const p of far.hello(others)) farChanged(p, far.has(p));
+      wake();
+    },
     onOpen: () => fetchControls(),
     amountOf: (pad) => (FX.has(pad) ? amounts.get(pad) : undefined),
     onAmount: (pad, v) => {
@@ -155,7 +181,7 @@ export function startStrip({
       bending = false;
       link.release('bend');
       amounts.note('bend', 0);
-      fx?.setBend(ui.remoteHeld().includes('bend'));
+      fx?.setBend(far.has('bend'));
       return;
     }
     if (!bending) {
@@ -235,15 +261,7 @@ export function startStrip({
   const step = (dt) => {
     const t = now();
     surface.tick(t);
-    for (let i = pending.length - 1; i >= 0; i--) {
-      const p = pending[i];
-      if (t >= p.at) {
-        pending.splice(i, 1);
-        ui.remote(p.pad, p.on);
-        if (p.pad === 'bend') fx?.setBend(p.on || bending);
-        if (surface.state(p.pad) === 'idle') sound(p.pad, p.on);
-      }
-    }
+    for (const c of far.tick(t)) farChanged(c.pad, c.on);
     let moving = false;
     if (open) {
       const r = ringAt(tape, t);
@@ -252,7 +270,7 @@ export function startStrip({
       const slice = (DIVISIONS[surface.division] || 0.25) * beatMs;
       moving = ui.stepReel(Number.isFinite(dt) ? dt : 1000, t, { playing: !!tape?.playing, mode: modeOf(sounding), beatMs, sliceMs: slice });
     }
-    return open || moving || pending.length > 0 || surface.pads.size > 0;
+    return wantsFrames({ open, playing: !!tape?.playing, moving, pending: far.pending.length > 0, held: surface.pads.size > 0 });
   };
   const unstep = ticker.add(step);
   function wake() { ticker.start(); }
@@ -266,6 +284,9 @@ export function startStrip({
     write(FOLD_KEY, open ? 'open' : null);
     ui.setFold(open);
     toggle.set(open);
+    // The page gives the instrument room while it's unfolded (styles.css,
+    // "Rooms P3"): a shorter feed, no sections row.
+    doc.body.classList.toggle('play-unfolded', open);
     if (open) {
       // One drawer at a time: the crate folds away for the instrument.
       const crateKey = doc.getElementById('np-drawer-crate');
@@ -429,14 +450,13 @@ export function startStrip({
     const t = now();
     const r = reconcile({
       tricks,
-      lit: ui.remoteHeld(),
-      waiting: pending.map((p) => p.pad),
+      lit: [...far.lit],
+      waiting: far.pending.map((p) => p.pad),
       mine: (pad) => surface.state(pad) !== 'idle' || (pad === 'bend' && bending) || t - (ended.get(pad) ?? -Infinity) < RECENT_MS,
       drawn: (pad) => !!control(pad),
     });
-    for (const pad of r.off) { ui.remote(pad, false); if (surface.state(pad) === 'idle') sound(pad, false); }
-    for (const pad of r.on) { ui.remote(pad, true); if (surface.state(pad) === 'idle') sound(pad, true); }
-    if (r.on.includes('bend') || r.off.includes('bend')) fx?.setBend(bending || r.on.includes('bend'));
+    for (const pad of r.off) for (const p of far.put(pad, false)) farChanged(p, false);
+    for (const pad of r.on) for (const p of far.put(pad, true)) farChanged(p, true);
   }
   // One line for what the player should know. The link's news comes first;
   // otherwise, a tape playing on a phone: the stream buffers about a second,

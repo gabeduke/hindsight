@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -168,7 +169,24 @@ func TestAControllersVerbsRunOnThePi(t *testing.T) {
 		a.ControlMIDI(p, 0x80, n, 0)
 	}
 	a.ControlMIDI(p, 0xFA, 0, 0) // Start
-	v.wait(t, "catch", "grab", "drop", "keep", "transport start")
+	// Two queues (TestKeepAndTheTransportDontWaitForAGrab): each in its order.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		v.mu.Lock()
+		got := slices.Clone(v.ran)
+		v.mu.Unlock()
+		if len(got) == 5 {
+			at := func(s string) int { return slices.Index(got, s) }
+			if at("grab") > at("drop") || at("catch") > at("keep") || at("keep") > at("transport start") || slices.Contains(got, "") {
+				t.Fatalf("ran %q, out of order", got)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("ran %q", got)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 // The SMK-37 starts on its own profile: its pads on channel 10, so its keys
@@ -458,6 +476,28 @@ func TestAControllerPlaysTheFXWithItsAmounts(t *testing.T) {
 	}
 }
 
+// An FX keeps the note that pressed it through a rebind: that key's
+// aftertouch still moves FILTER, and its note-off lets FILTER go, though the
+// bindings give the key to ECHO by then.
+func TestAnFXFollowsTheNoteThatPressedItThroughARebind(t *testing.T) {
+	f, _, a, r := controlsAPI(t, t.TempDir())
+	const port = "Keystation 49"
+	a.ControlMIDI(port, 0x90, 47, 127) // FILTER at full velocity
+	f.waitFor(t, "press filter 16th 1")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/tapes/controls",
+		strings.NewReader(`{"controllers":{"Keystation 49":{"echo":[{"note":47}],"filter":[{"note":60}]}}}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT: %d %s", rec.Code, rec.Body)
+	}
+	a.ControlMIDI(port, 0xA0, 47, 0) // aftertouch on that key: still FILTER's
+	a.ControlMIDI(port, 0x80, 47, 0) // and its note-off lets FILTER go
+	f.waitFor(t, "press filter 16th 1", "set filter 0", "release filter")
+	if held := a.heldBy(port); len(held) != 0 {
+		t.Fatalf("still held: %v", held)
+	}
+}
+
 // The tape mods from a controller: CC 21–24 preview as the knob turns and
 // save once it's still; a program change picks a formula.
 func TestAControllersKnobsAndProgramsSetTheTapesMods(t *testing.T) {
@@ -489,4 +529,109 @@ func TestAControllersKnobsAndProgramsSetTheTapesMods(t *testing.T) {
 	if s := a.tape.Loaded().Style; s.Formula != tape.FormulaFerric {
 		t.Fatalf("after program 9: %+v", s)
 	}
+}
+
+// A note-off lets go of the pad its note-on pressed, whatever the bindings
+// say by then: a PUT that moves BREAK, or a learn whose teaching note-off
+// would otherwise let the old pad go early.
+func TestANoteOffLetsGoOfWhatItsNoteOnPressed(t *testing.T) {
+	f, url, a, r := controlsAPI(t, t.TempDir())
+	p := "Keystation 49"
+	a.ControlMIDI(p, 0x90, 40, 100) // E2: BREAK
+	f.waitFor(t, "press break 16th")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/tapes/controls",
+		strings.NewReader(`{"controllers":{"Keystation 49":{"break":[{"note":47}],"stop":[{"note":43}]}}}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT: %d %s", rec.Code, rec.Body)
+	}
+	a.ControlMIDI(p, 0x80, 40, 0) // E2 up: BREAK lets go
+	f.waitFor(t, "press break 16th", "release break")
+
+	a.ControlMIDI(p, 0x90, 43, 100) // G2 holds STOP
+	f.waitFor(t, "press break 16th", "release break", "press stop 16th")
+	c, _ := dialPlay(t, url)
+	sendPlay(t, c, map[string]any{"t": "learn", "action": "stop", "port": p})
+	waitLearning(t, a)
+	a.ControlMIDI(p, 0x90, 72, 100) // C5 teaches STOP
+	a.ControlMIDI(p, 0x80, 72, 0)   // its note-off: nothing
+	time.Sleep(30 * time.Millisecond)
+	holders(t, a, "stop", 1)
+	a.ControlMIDI(p, 0x80, 43, 0) // G2 up: now STOP lets go
+	holders(t, a, "stop", 0)
+}
+
+// The controller's CATCH keeps the page's guards: the jam room only (the
+// engine's own jamOnly), an armed track, and the catch mode -- the Pi's own,
+// in controls.json, since the page's Layer / Replace is each device's.
+func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
+	srv, eng, _ := newStreamServer(t)
+	res, err := http.Post(srv.URL+"/api/tapes", "application/json", strings.NewReader(`{"name":"c"}`))
+	if err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("new tape: %v %v", err, res.StatusCode)
+	}
+	var made struct{ ID string }
+	json.NewDecoder(res.Body).Decode(&made)
+	res.Body.Close()
+	if res, err := http.Post(srv.URL+"/api/tapes/load?id="+made.ID, "application/json", nil); err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("load: %v", err)
+	}
+	a := New(&config.Config{OutputDir: t.TempDir(), TapeDir: t.TempDir(), SampleRate: 48000, SaveChannels: []int{0, 1}}, nil, nil, nil, nil)
+	a.SetTape(eng)
+	tp := eng.Loaded()
+	if tp == nil {
+		t.Fatal("no tape loaded")
+	}
+
+	req, err := a.catchRequest(tp)
+	if err != nil || req.Replace || req.Track != 1 || req.Pass != 1 {
+		t.Fatalf("layer by default: %+v %v", req, err)
+	}
+	rec := httptest.NewRecorder()
+	r := mux.NewRouter()
+	a.SetupRoutes(r)
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/tapes/controls", strings.NewReader(`{"catch":"replace"}`)))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"catch":"replace"`) {
+		t.Fatalf("PUT catch: %d %s", rec.Code, rec.Body)
+	}
+	if req, _ := a.catchRequest(tp); !req.Replace {
+		t.Fatalf("replace mode not honoured: %+v", req)
+	}
+
+	if code := putOutput(t, srv, "phone"); code != http.StatusOK {
+		t.Fatalf("output phone: %d", code)
+	}
+	if _, err := (piVerbs{a}).Verb("catch", ""); !errors.Is(err, tape.ErrNeedsJamRoom) {
+		t.Fatalf("a catch while the tape plays on a phone: %v, want %v", err, tape.ErrNeedsJamRoom)
+	}
+}
+
+// slowGrab holds GRAB for as long as the test says: the bar after it.
+type slowGrab struct {
+	fakeVerbs
+	gate chan struct{}
+}
+
+func (v *slowGrab) Verb(id, rt string) (string, error) {
+	if id == "grab" {
+		<-v.gate
+	}
+	return v.fakeVerbs.Verb(id, rt)
+}
+
+// KEEP and the transport don't wait behind a GRAB's bar: KEEP would keep a
+// later 30 s, and Stop would stop late. DROP still waits for the GRAB
+// before it.
+func TestKeepAndTheTransportDontWaitForAGrab(t *testing.T) {
+	_, _, a, _ := controlsAPI(t, t.TempDir())
+	v := &slowGrab{gate: make(chan struct{})}
+	a.controls.verbs = v
+	p := "Keystation 49"
+	a.ControlMIDI(p, 0x90, 51, 100) // GRAB, waiting for its bar
+	a.ControlMIDI(p, 0x90, 52, 100) // DROP: after it
+	a.ControlMIDI(p, 0x90, 53, 100) // KEEP: now
+	a.ControlMIDI(p, 0xFC, 0, 0)    // Stop: now
+	v.wait(t, "keep", "transport stop")
+	close(v.gate)
+	v.wait(t, "keep", "transport stop", "grab", "drop")
 }

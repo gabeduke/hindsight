@@ -289,7 +289,6 @@ export function mountStrip(root, surface, {
       if (on) remote.add(id); else remote.delete(id);
       paint(id);
     },
-    remoteHeld: () => [...remote],
     setFold(open) {
       root.dataset.fold = open ? 'open' : 'folded';
       panel.hidden = !open;
@@ -352,6 +351,7 @@ export function mountStrip(root, surface, {
         fromSeg.append(b);
       }
       fromLine.textContent = line || '';
+      fromSeg.title = line || ''; // where the line itself has no room
       fromLine.hidden = !line;
       legends();
     },

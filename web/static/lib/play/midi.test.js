@@ -86,6 +86,19 @@ test('the FX: velocity at the press, the mod wheel and aftertouch while held, th
   ]);
 });
 
+test('an FX follows the key that pressed it through a rebind: its aftertouch, its note-off', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  let map = { filter: [{ note: 47 }] };
+  const got = [];
+  const h = handler(s, { now: () => 0, bindings: () => map, onAmount: (id, v) => got.push([id, v]) });
+  h.feed([0x90, 47, 127]);                         // B2: FILTER
+  map = { echo: [{ note: 47 }], filter: [{ note: 60 }] }; // B2 is ECHO's now
+  h.feed([0xA0, 47, 0]);                           // aftertouch on B2: still FILTER's
+  assert.deepEqual(got, [['filter', 0]]);
+  h.feed([0x80, 47, 0]);                           // and B2 up lets FILTER go
+  assert.deepEqual(s.held(), []);
+});
+
 test('unplugged with a pad down, it lets go', () => {
   const s = new Surface({ bpm: 120, division: 'off' });
   const h = handler(s, { now: () => 0 });
@@ -146,4 +159,23 @@ test('learn binds the next note from that controller, saved per port on this dev
   f.send('in0', [0x80, 72, 0, 0x90, 72, 100]);
   assert.ok(s.held().includes('stop'));
   assert.equal(m.bindings('Other').stop[0].note, 43, 'the other controller keeps its own');
+});
+
+test('a note-off lets go of the pad its note-on pressed, whatever the bindings say now', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  let map = { break: [{ note: 40 }], stop: [{ note: 43 }] };
+  let learner = null;
+  const h = handler(s, { now: () => 0, bindings: () => map, learning: () => learner });
+  h.feed([0x90, 40, 100]);                    // E2: BREAK
+  map = { break: [{ note: 47 }], stop: [{ note: 43 }] }; // BREAK moved to B2 meanwhile
+  h.feed([0x80, 40, 0]);                      // E2 up
+  assert.deepEqual(s.held(), [], 'BREAK must not stick');
+  // Learn: the note that teaches is taken, and so is its note-off.
+  h.feed([0x90, 43, 100]);                    // G2 holds STOP
+  learner = () => { learner = null; map = { break: [{ note: 47 }], stop: [{ note: 72 }] }; };
+  h.feed([0x90, 72, 100]);                    // C5 teaches STOP
+  h.feed([0x80, 72, 0]);                      // its note-off
+  assert.deepEqual(s.held(), ['stop'], 'G2 still holds STOP');
+  h.feed([0x80, 43, 0]);
+  assert.deepEqual(s.held(), []);
 });

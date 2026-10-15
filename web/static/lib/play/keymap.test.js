@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { KEYMAP, COMMANDS, TRACK_PADS, TRICK_PADS, padForKey, commandForKey, typingInto, bindKeyboard } from './keymap.js';
+import { KEYMAP, COMMANDS, TRACK_PADS, TRICK_PADS, padForKey, commandForKey, typingInto, knobKeeps, bindKeyboard } from './keymap.js';
 import { FX_PADS } from './controls.js';
 import { Surface } from './surface.js';
 
@@ -294,8 +294,45 @@ test('↵ is DROP, but a button Tab brought the focus to keeps it; a clicked one
   assert.deepEqual(cmds, ['drop', 'drop']);
 });
 
-test('a focused knob keeps its keys: its arrows turn it, and T doesn’t play', () => {
+test('a focused knob keeps the keys that turn it; every other key still plays', () => {
   const slider = { tagName: 'DIV', getAttribute: (n) => (n === 'role' ? 'slider' : null) };
-  assert.equal(typingInto(slider), true);
-  assert.equal(typingInto({ tagName: 'BUTTON', getAttribute: () => null }), false);
+  assert.equal(typingInto(slider), false, 'a knob is not a field');
+  assert.equal(knobKeeps(slider, 'ArrowUp'), true);
+  assert.equal(knobKeeps(slider, 'End'), true);
+  assert.equal(knobKeeps(slider, 'KeyT'), false);
+  assert.equal(knobKeeps({ tagName: 'BUTTON', getAttribute: () => null }, 'ArrowUp'), false);
+  // Through the keyboard: the arrow reaches the knob, W still plays REV.
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  bindKeyboard(s, { target: t, win: null, now: () => 0 });
+  let stopped = 0;
+  t.send('keydown', { code: 'ArrowUp', target: slider, stopPropagation: () => { stopped++; } });
+  assert.equal(stopped, 0, 'the knob hears its arrow');
+  t.send('keydown', { code: 'KeyW', target: slider });
+  assert.deepEqual(s.held(), ['reverse']);
+  t.send('keyup', { code: 'KeyW', target: slider });
+  assert.deepEqual(s.held(), []);
+});
+
+test('a key let up with a field focused still lets its pad go; a level fader isn’t typing', () => {
+  // Hold W, click a track's gain fader, let W go: REV must not stick.
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  bindKeyboard(s, { target: t, win: null, now: () => 0 });
+  t.send('keydown', { code: 'KeyW', target: { tagName: 'BODY' } });
+  t.send('keyup', { code: 'KeyW', target: { tagName: 'INPUT', type: 'range' } });
+  assert.deepEqual(s.held(), []);
+  t.send('keydown', { code: 'KeyE', target: { tagName: 'BODY' } });
+  t.send('keyup', { code: 'KeyE', target: { tagName: 'INPUT', type: 'text' } });
+  assert.deepEqual(s.held(), [], 'even a text field: the key was the instrument’s when it went down');
+  // With a fader focused the keys still play, and Esc still lets go.
+  const cmds = [];
+  const t2 = fakeTarget();
+  const s2 = new Surface({ bpm: 120, division: 'off' });
+  bindKeyboard(s2, { target: t2, win: null, now: () => 0, onCommand: (c) => cmds.push(c) });
+  t2.send('keydown', { code: 'KeyQ', target: { tagName: 'INPUT', type: 'range' } });
+  t2.send('keydown', { code: 'Escape', target: { tagName: 'INPUT', type: 'range' } });
+  assert.deepEqual(s2.held(), ['break']);
+  assert.deepEqual(cmds, ['panic']);
+  assert.equal(typingInto({ tagName: 'INPUT', type: 'range' }), false);
 });

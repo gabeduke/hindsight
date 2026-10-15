@@ -4159,16 +4159,43 @@ body.buffer-fold .tape-sections-row { display: none; }
 @keyframes play-blink { 50% { background: var(--pad-face-armed); border-color: transparent; } }
 
 /* Narrower than a laptop: the reel over the pads. */
-/* Narrower than a laptop (the bench tablet): the reel beside the pads, the
-   six tricks in one row, and no titles, so the lanes keep some height. */
-@media (max-width: 1099.98px) and (min-width: 700px) {
-  .play-body { grid-template-columns: auto 1fr; gap: 8px 14px; }
+/* While it's unfolded the page gives it room, so the lanes it plays stay in
+   sight: a shorter ribbon, no meters beside it, no sections row (they're
+   for arranging, and come back when it folds). */
+@media (min-width: 700px) and (min-height: 441px) {
+  body.play-unfolded .studio-feed > .viz-wrap { height: 56px; }
+  body.play-unfolded .studio-feed > .vu-row { display: none; }
+  body.play-unfolded .tape-sections-row { display: none; }
+}
+
+/* Narrower than a laptop (the bench tablet), or a laptop's own height: the
+   reel beside the pads, the six tricks in one row, and no titles, so the
+   lanes keep some height. */
+@media (max-width: 1099.98px) and (min-width: 700px), (min-width: 700px) and (min-height: 441px) and (max-height: 1000px) {
+  .play-body { grid-template-columns: auto 1fr; gap: 6px 14px; }
   .play-side { grid-column: 2; }
-  .play-reel { grid-row: span 2; width: 124px; }
+  .play-reel { grid-row: span 2; width: 112px; }
   .play-group-title { display: none; }
-  .play-tracks .play-track { min-height: 56px; }
+  .play-panel { padding-bottom: 6px; }
+  .play-tracks .play-track { min-height: 44px; font-size: 20px; }
   .play-tricks { grid-template-columns: repeat(6, 1fr); }
-  .play-tricks .play-trick { min-height: 44px; }
+  .play-tricks .play-trick { min-height: 38px; padding: 2px; gap: 2px; }
+  .play-row { min-height: 42px; padding: 4px 10px; }
+  .play-fold, .play-keys, .play-learn { height: 32px; }
+  /* The where-from line goes to the segment's tip; the notes stay. */
+  .play-from-line { display: none; }
+  .play-lines { justify-content: flex-end; }
+  .play-lines:not(:has(> .play-note:not([hidden]))) { display: none; }
+  /* The feed folds to its keys: GRAB and KEEP stay, the ribbon comes back
+     with the strip folded. */
+  body.play-unfolded .studio-feed > .viz-wrap { display: none; }
+}
+/* A laptop has the width for the bus beside the tricks. */
+@media (min-width: 1100px) and (min-height: 441px) and (max-height: 1000px) {
+  .play-side { flex-direction: row; align-items: stretch; gap: 14px; }
+  .play-side > .play-tricks-group { flex: 1 1 auto; min-width: 0; }
+  .play-side > .play-bus { flex: none; margin-top: 0; flex-wrap: nowrap; }
+  .play-bus .play-bus-title, .play-bus .play-bus-hint { display: none; }
 }
 
 /* The phone's EDIT | PLAY lives in the mini player, and only there. */

@@ -1229,6 +1229,7 @@ the Pi's copy is held to it by a test.
 ```json
 {
   "quantum": "16th",
+  "catch": "layer",
   "setting": ["SMK"],
   "controllers": [
     {"name": "SMK-37", "connected": true, "profile": "SMK-37", "learned": false,
@@ -1250,13 +1251,19 @@ the Pi's copy is held to it by a test.
 - **What a controller does.** A held pad is pressed and let go as a page's
   is, quantised to `quantum`: the controller is one more holder,
   `midi:<name>`, and its holds are let go when it's unplugged. A sustain
-  pedal latches what's let go until it lifts. The verbs run on the Pi, one
-  after another: CATCH the last pass onto the armed track, GRAB the last 4
+  pedal latches what's let go until it lifts. The verbs run on the Pi, GRAB
+  and DROP one after the other, CATCH, KEEP and the transport without waiting
+  for a GRAB's bar: CATCH the last pass onto the armed track, GRAB the last 4
   bars into the clipboard (8 s with no tempo; pages open the buffer on their
   next poll), DROP the clipboard on the armed track at the next free span,
   KEEP the last 30 s as a take. Amounts and mods do nothing until P4.
 
-`PUT` takes `{"quantum": "…", "controllers": {"name": {action: [binding]} | null}}`:
+`catch` is how a controller's CATCH lands on audio already there, `layer`
+(the default) or `replace`: the page's Layer / Replace switch is each
+device's, so the Pi keeps its own. Like the page's Catch, it's refused while
+the tape plays on a phone, and without an armed track.
+
+`PUT` takes `{"quantum": "…", "catch": "layer" | "replace", "controllers": {"name": {action: [binding]} | null}}`:
 the named controllers' maps are replaced (`null` puts one back to its
 profile), the others kept, and it answers as `GET` does. An unknown action, a
 note past 127 or a binding of two kinds is `400`.
@@ -1542,7 +1549,14 @@ restart; 404 when the tape is off.
   the ring it came from, and `stale` says Hindsight has restarted since, so
   `ring_from` names other audio now. `{"again": true, "sources": […]}`
   copies the buffer's own span again from other sources, keeping its
-  window; 409 for a stale one. A grab, or any copy, that replaces a
+  window; 409 for a stale one.
+- `POST {"take": "jam_….wav", "from": F, "to": T, "grab": true}` makes a
+  take's span the buffer (the Listening Room's *to the studio*): handles
+  from the take's own audio, a bar at its tempo or `TAPE_HANDLE_S`,
+  whichever is longer, at most 10 s, as far as the take goes. Its `grab`
+  has `take` and `take_from` instead of a ring; its one source is the
+  take's name, which `again` can't change (400), and it's never stale.
+  Without `grab`, a take's span is copied as it always was. A grab, or any copy, that replaces a
   grab never dropped or kept puts that one in the crate first, a kept clip
   per track, and answers them as `"crated"`.
 - Both answer the new clipboard; 400 for a copy longer than a track; 507 for

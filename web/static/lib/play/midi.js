@@ -99,17 +99,32 @@ export function handler(surface, {
   now = () => performance.now(), learning = () => null,
   onAmount = () => {}, onBend = () => {}, onMod = () => {}, onFormula = () => {},
 } = {}) {
-  const held = new Set();
+  // What each key or pedal pressed, by the message: its note-off lets go of
+  // that pad, whatever the bindings say by then (a rebind, a learn), as the
+  // keyboard keeps the code it pressed.
+  const pressed = new Map();
   let latched = false;
+  const keyOf = (m) => (m.type === 'on' || m.type === 'off' ? `n${m.ch}:${m.note}` : m.type === 'cc' ? `c${m.ch}:${m.cc}` : '');
   const handle = (m) => {
     if (!m) return;
+    // A key, a pedal (CC at or past 64 is down), or a channel-mode CC (120
+    // and up, sent with 0) as a press.
+    const down = m.type === 'on' || (m.type === 'cc' && (m.value >= 64 || m.cc >= 120)) || m.type === 'rt';
+    const key = keyOf(m);
+    if (!down && key) {
+      const id = pressed.get(key);
+      if (id) { pressed.delete(key); surface.release(id, now()); return; }
+      if (m.type === 'off') return; // a note that pressed nothing here: the one that taught MIDI LEARN
+    }
     const learn = learning();
     if (learn && (m.type === 'on' || m.type === 'cc')) { learn(learned(m), m); return; }
     const map = bindings();
     if (m.type === 'pressure' || m.type === 'polypressure') {
-      // Aftertouch: the FX this controller holds -- on one key, that key's.
-      const key = m.type === 'polypressure' ? actionFor(map, { type: 'on', ch: m.ch, note: m.note })?.id : null;
-      for (const id of held) if (FX.has(id) && (!key || id === key)) onAmount(id, m.value / 127);
+      // Aftertouch: the FX this controller's keys hold -- on one key, the
+      // pad that key pressed, whatever the bindings say by now.
+      const one = m.type === 'polypressure' ? pressed.get(`n${m.ch}:${m.note}`) : null;
+      if (m.type === 'polypressure' && !one) return;
+      for (const id of new Set(pressed.values())) if (FX.has(id) && (!one || id === one)) onAmount(id, m.value / 127);
       return;
     }
     const hit = actionFor(map, m);
@@ -128,16 +143,14 @@ export function handler(surface, {
       return;
     }
     if (c.kind === LATCHED && m.type === 'program') { onFormula(m.value); return; }
-    // A key, a pedal (CC at or past 64 is down), or a channel-mode CC (120
-    // and up, sent with 0) as a press.
-    const down = m.type === 'on' || (m.type === 'cc' && (m.value >= 64 || m.cc >= 120)) || m.type === 'rt';
     if (c.kind === MODIFIER) {
       if (down !== latched) { latched = down; surface.latch(down, now()); }
     } else if (c.kind === HELD) {
-      if (down) {
-        held.add(c.id);
+      if (down && key && !pressed.has(key)) {
+        pressed.set(key, c.id);
+        // A punch-in FX's velocity is its amount.
         surface.press(c.id, now(), FX.has(c.id) && m.type === 'on' ? m.vel / 127 : undefined);
-      } else if (held.delete(c.id)) surface.release(c.id, now());
+      }
     } else if (c.kind === COMMAND && down) {
       onCommand(c.id, m.type === 'rt' ? { rt: m.rt } : {});
     }
@@ -147,8 +160,8 @@ export function handler(surface, {
     feed: (bytes) => parser.feed(bytes),
     letGo() {
       const t = now();
-      for (const id of held) surface.release(id, t);
-      held.clear();
+      for (const id of pressed.values()) surface.release(id, t);
+      pressed.clear();
       if (latched) { latched = false; surface.latch(false, t); }
     },
   };

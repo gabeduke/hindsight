@@ -24,15 +24,45 @@ type Policy struct {
 	// path. Empty means no device's clock is used.
 	ClockDevice string
 	// Controllers (TAPE_CONTROLLER) name the devices whose keys play the
-	// tape: matched as Allow is. A controller is opened whatever Capture,
-	// Allow and Deny say -- they decide only whether its notes are also
-	// stored for takes -- and its notes, CC and Start/Stop go to the
-	// watcher's ControlSink.
+	// tape: matched as Allow is. A controller is opened whatever Capture
+	// and Allow say -- they decide only whether its notes are also stored
+	// for takes, so MIDI_DEVICES is how one is kept out of them -- and its
+	// notes, CC and Start/Stop go to the watcher's ControlSink. Deny still
+	// wins over everything: an ignored device is never opened, so a broad
+	// controller name can't make the EP-136's notes play the tape.
 	Controllers []string
 }
 
-// controls says a port is a controller, whose keys play the tape.
+// denies says a port is on the ignore list (MIDI_IGNORE).
+func (p Policy) denies(port Port) bool {
+	for _, d := range p.Deny {
+		if port.Matches(d) {
+			return true
+		}
+	}
+	return false
+}
+
+// controls says a port is a controller, whose keys play the tape. An
+// ignored one isn't.
 func (p Policy) controls(port Port) bool {
+	if p.denies(port) {
+		return false
+	}
+	for _, c := range p.Controllers {
+		if port.Matches(c) {
+			return true
+		}
+	}
+	return false
+}
+
+// controlsButIgnored says a port matches TAPE_CONTROLLER but MIDI_IGNORE
+// too, which wins: for saying so in the log.
+func (p Policy) controlsButIgnored(port Port) bool {
+	if !p.denies(port) {
+		return false
+	}
 	for _, c := range p.Controllers {
 		if port.Matches(c) {
 			return true
@@ -138,8 +168,10 @@ type Watcher struct {
 	devices map[string]*portReader // by node path
 	gone    map[uint16]DeviceInfo  // departed devices, by id, for naming their events
 	failed  map[string]time.Time   // nodes that could not be read, and when to try again
-	nextID  uint16
-	clockID uint16 // the device whose pulses feed the clock, 0 for none yet
+	// saidIgnored is the controllers MIDI_IGNORE kept closed, logged once each.
+	saidIgnored map[string]bool
+	nextID      uint16
+	clockID     uint16 // the device whose pulses feed the clock, 0 for none yet
 
 	started  atomic.Bool
 	stop     chan struct{}
@@ -339,6 +371,13 @@ func (w *Watcher) scan() {
 			continue
 		}
 		if !w.policy.allows(p) && !w.policy.controls(p) {
+			if w.policy.controlsButIgnored(p) && !w.saidIgnored[node] {
+				if w.saidIgnored == nil {
+					w.saidIgnored = map[string]bool{}
+				}
+				w.saidIgnored[node] = true
+				log.Printf("[*] midi: %q on %s matches TAPE_CONTROLLER but MIDI_IGNORE too, which wins: it isn't opened", p.Name, p.Node)
+			}
 			continue
 		}
 		w.open(p)
