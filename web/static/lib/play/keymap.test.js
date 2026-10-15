@@ -291,3 +291,26 @@ test('↵ is DROP, but a button Tab brought the focus to keeps it; a clicked one
   t.send('keydown', { code: 'Enter', target: play });
   assert.deepEqual(cmds, ['drop', 'drop']);
 });
+
+test('a key let up with a field focused still lets its pad go; a level fader isn’t typing', () => {
+  // Hold W, click a track's gain fader, let W go: REV must not stick.
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  bindKeyboard(s, { target: t, win: null, now: () => 0 });
+  t.send('keydown', { code: 'KeyW', target: { tagName: 'BODY' } });
+  t.send('keyup', { code: 'KeyW', target: { tagName: 'INPUT', type: 'range' } });
+  assert.deepEqual(s.held(), []);
+  t.send('keydown', { code: 'KeyE', target: { tagName: 'BODY' } });
+  t.send('keyup', { code: 'KeyE', target: { tagName: 'INPUT', type: 'text' } });
+  assert.deepEqual(s.held(), [], 'even a text field: the key was the instrument’s when it went down');
+  // With a fader focused the keys still play, and Esc still lets go.
+  const cmds = [];
+  const t2 = fakeTarget();
+  const s2 = new Surface({ bpm: 120, division: 'off' });
+  bindKeyboard(s2, { target: t2, win: null, now: () => 0, onCommand: (c) => cmds.push(c) });
+  t2.send('keydown', { code: 'KeyQ', target: { tagName: 'INPUT', type: 'range' } });
+  t2.send('keydown', { code: 'Escape', target: { tagName: 'INPUT', type: 'range' } });
+  assert.deepEqual(s2.held(), ['break']);
+  assert.deepEqual(cmds, ['panic']);
+  assert.equal(typingInto({ tagName: 'INPUT', type: 'range' }), false);
+});

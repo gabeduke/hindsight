@@ -37,13 +37,16 @@ export function commandForKey(code, has = () => true) {
 
 /**
  * typingInto says the key belongs to a field rather than to the instrument.
- * Without this, naming a take would play the tape.
+ * Without this, naming a take would play the tape. A level fader isn't a
+ * field -- its focus mustn't swallow the keys, as on the page
+ * (lib/tape/page.js) and in the buffer's keys.
  */
 export function typingInto(el) {
   if (!el) return false;
   if (el.isContentEditable) return true;
   const tag = (el.tagName || '').toLowerCase();
-  return tag === 'input' || tag === 'textarea' || tag === 'select';
+  if (tag === 'textarea' || tag === 'select') return true;
+  return tag === 'input' && el.type !== 'range';
 }
 
 // Where ↵ belongs to what has the focus, as the buffer's keys decide it
@@ -118,19 +121,22 @@ export function bindKeyboard(surface, {
     surface.press(pad, now());
   };
   const up = (e) => {
-    if (typingInto(e.target)) return;
+    // A pad this keyboard holds is let go whatever has the focus now: a key
+    // pressed on the page and let up in a field must not stick.
     const pad = held.get(e.code);
-    const mine = owns();
-    if (mine) e.stopPropagation();
+    if (pad) {
+      held.delete(e.code);
+      surface.release(pad, now());
+      if (owns() && !typingInto(e.target)) { e.preventDefault(); e.stopPropagation(); }
+      return;
+    }
+    // So is the latch.
     if (latched && (e.code === 'ShiftLeft' || e.code === 'ShiftRight')) {
       latched = false;
       surface.latch(false, now());
-      return;
     }
-    if (!pad) return;
-    held.delete(e.code);
-    e.preventDefault();
-    surface.release(pad, now());
+    if (typingInto(e.target)) return;
+    if (owns()) e.stopPropagation();
   };
   const letGo = () => { held.clear(); latched = false; surface.releaseAll(now()); };
   const onHide = () => { if (target.hidden) letGo(); };
