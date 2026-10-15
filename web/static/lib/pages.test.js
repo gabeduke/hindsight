@@ -22,3 +22,23 @@ test('no page uses an id twice', () => {
     assert.deepEqual(twice, [], `${page} uses these ids more than once`);
   }
 });
+
+// Settings has one way in: the about line, at the Studio's foot. With the
+// two rooms off that is Capture's (index.html); with them on, the Studio is
+// the tape page while the tape is on, and its about line is in tape.html's
+// foot template, mounted only then. Nowhere else may carry one -- and every
+// copy must be in an about line, which styles.test.js keeps from being hidden.
+test('Settings is reached from the Studio’s foot and nowhere else', () => {
+  const carriers = [];
+  for (const page of pages) {
+    const html = readFileSync(new URL(page, dir), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+    if (!html.includes('id="settings-btn"')) continue;
+    carriers.push(page);
+    const about = /<p class="about">[\s\S]*?<\/p>/.exec(html);
+    assert.ok(about && about[0].includes('id="settings-btn"'), `${page}: Settings is outside the about line`);
+  }
+  assert.deepEqual(carriers.sort(), ['index.html', 'tape.html']);
+  const tape = readFileSync(new URL('tape.html', dir), 'utf8');
+  const foot = /<template id="studio-foot-tpl">([\s\S]*?)<\/template>/.exec(tape);
+  assert.ok(foot && foot[1].includes('id="settings-btn"'), "the tape page's Settings is the Studio's, in its foot template");
+});

@@ -31,8 +31,10 @@ test('every relative and absolute module import resolves', () => {
   let checked = 0;
   for (const p of files) {
     const src = readFileSync(p, 'utf8');
-    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]/g)) {
-      const spec = m[1];
+    // Static imports, and import('…') -- the Studio's module is loaded that
+    // way, only with its flag on, so a static scan would never see it.
+    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const spec = m[1] ?? m[2];
       let target;
       if (spec.startsWith('/')) target = join(ROOT, spec.slice(1));
       else if (spec.startsWith('.')) target = normalize(join(dirname(p), spec));

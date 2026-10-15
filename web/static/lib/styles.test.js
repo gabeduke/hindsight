@@ -347,12 +347,14 @@ test('the takes search is a field, not a window', () => {
 });
 
 test('nothing hides the about line, which carries the only way into Settings', () => {
-  // The Settings button lives in `.about` on the Capture page, and nowhere
-  // else in the app. A layout rule that hides that line leaves the window
-  // shape it matches with no route to the per-device switches or the guide --
-  // which is exactly what happened to a laptop browser that was not full
-  // height, and was noticed only because someone went looking for Settings
-  // and could not find it.
+  // The Settings button lives in `.about` at the Studio's foot, and nowhere
+  // else in the app: on Capture, and with the two rooms on (lib/rooms) at the
+  // foot of the tape page, which is the Studio while the tape is on
+  // (pages.test.js keeps it there). A layout rule that hides that line leaves
+  // the window shape it matches with no route to the per-device switches or
+  // the guide -- which is exactly what happened to a laptop browser that was
+  // not full height, and was noticed only because someone went looking for
+  // Settings and could not find it.
   const offenders = [];
   for (const m of css.matchAll(/([^{}]*\.about[^{}]*)\{([^}]*)\}/g)) {
     const selector = m[1].trim();
@@ -364,7 +366,43 @@ test('nothing hides the about line, which carries the only way into Settings', (
     offenders.push(`${selector} { ${body.trim()} }`);
   }
   assert.deepEqual(offenders, [],
-    'these hide the about line, and with it the only entry to Settings');
+    "these hide the Studio's about line, and with it the only entry to Settings");
+});
+
+test('the Studio’s rules reach only the Studio', () => {
+  // The two rooms are behind a per-device flag, but styles.css is on every
+  // page of every kit. So the Rooms P1 block may only style what the Studio's
+  // templates in tape.html put in the page: a studio- class, or the about
+  // line in the tape page's body, which only the Studio puts there.
+  const start = css.indexOf('/* ---------- Rooms P1:');
+  assert.ok(start >= 0, 'the Rooms P1 block');
+  // To the next section's header, however many dashes it has.
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const loose = [];
+  for (const m of body.matchAll(/([^{}]+)\{/g)) {
+    for (const sel of m[1].split(',').map((x) => x.trim())) {
+      if (!sel || sel.startsWith('@')) continue;
+      if (/\.studio-[a-z0-9-]+/.test(sel) || /^body\.tape-page > \.about\b/.test(sel)) continue;
+      loose.push(sel);
+    }
+  }
+  assert.deepEqual(loose, [], 'these Studio selectors could match something that is not the Studio');
+
+  // And no page wears a studio- class outside those templates, nor any
+  // script but the Studio's.
+  const root = new URL('../', import.meta.url);
+  const files = readdirSync(root, { recursive: true }).filter((f) =>
+    (f.endsWith('.html') || f.endsWith('.js')) && !f.endsWith('.test.js') && !f.includes('lib/rooms/'));
+  const borrowed = [];
+  for (const f of files) {
+    const text = readFileSync(new URL(f, root), 'utf8')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<template id="studio-[a-z-]+">[\s\S]*?<\/template>/g, '')
+      .replace(/\sid="[^"]*"/g, '');
+    for (const m of text.matchAll(/(?:^|[^\w-])(studio-[a-z0-9-]+)/g)) borrowed.push(`${f}: ${m[1]}`);
+  }
+  assert.deepEqual(borrowed, [], 'these files use a class the Studio styles');
 });
 
 test('Play mode’s rules reach only Play mode', () => {

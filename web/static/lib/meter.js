@@ -87,4 +87,32 @@ export function tierPhrase(seconds, ringSeconds) {
   return `the last ${Number.isInteger(m) ? m : m.toFixed(1)} minutes`;
 }
 
+/**
+ * captureTiers is what the Capture key (and the Studio's Keep) offers for a
+ * ring this long: 30 s, 2 m and 7 m where the ring holds them, then the whole
+ * ring, as {s, label}. 0 is the whole ring.
+ */
+export function captureTiers(ringSeconds) {
+  const opts = [];
+  if (ringSeconds >= 30) opts.push({ s: 30, label: '30s' });
+  if (ringSeconds >= 120) opts.push({ s: 120, label: '2m' });
+  if (ringSeconds >= 420) opts.push({ s: 420, label: '7m' });
+  opts.push({ s: 0, label: `Full ${fmtDur(ringSeconds)}` });
+  return opts;
+}
+
+/**
+ * frameLevels picks a live frame's (lib/live.js) levels for the saved
+ * channels (0-based): the latest bin's RMS, the peak and the clip flag, each
+ * an array in the channels' order, at the floor where the frame says nothing.
+ */
+export function frameLevels(f, channels) {
+  const last = f.bins?.[f.bins.length - 1];
+  return {
+    rms: channels.map((c) => last?.rms?.[c] ?? FLOOR_DB),
+    peak: channels.map((c) => f.peak?.[c] ?? FLOOR_DB),
+    clip: channels.map((c) => f.clip?.[c] ?? false),
+  };
+}
+
 export { FLOOR_DB, dbToFrac, ampToFrac };

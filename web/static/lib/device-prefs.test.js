@@ -61,3 +61,10 @@ test('Play mode is in the list, and reading it needs no localStorage', () => {
   assert.ok(play.reload, 'the flag is read once at page load, so say so');
   assert.equal(play.get(), false, 'no storage in node: off, not a throw');
 });
+
+test('the two rooms are in the list, and reading them needs no localStorage', () => {
+  const rooms = DEVICE_PREFS.find((p) => p.id === 'rooms');
+  assert.ok(rooms, 'the two rooms should be switchable from Settings');
+  assert.ok(rooms.reload, 'the flag is read once at page load, so say so');
+  assert.equal(rooms.get(), false, 'no storage in node: off, not a throw');
+});

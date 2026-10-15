@@ -2,7 +2,7 @@
 
 import { connectLive } from '/lib/live.js';
 import { watchLink, timedFetch } from '/lib/link.js';
-import { Meters, FLOOR_DB, fmtDur, tierPhrase } from '/lib/meter.js';
+import { Meters, fmtDur, tierPhrase, captureTiers, frameLevels } from '/lib/meter.js';
 import { VUMeters } from '/lib/objects/vu.js';
 import { Ribbon } from '/lib/objects/ribbon.js';
 import { TakesList } from '/lib/takes.js';
@@ -121,11 +121,7 @@ window.addEventListener('pageshow', (e) => {
 // ---------------------------------------------------------------- status
 
 function buildDurations(ringSeconds) {
-  const opts = [];
-  if (ringSeconds >= 30) opts.push({ s: 30, label: '30s' });
-  if (ringSeconds >= 120) opts.push({ s: 120, label: '2m' });
-  if (ringSeconds >= 420) opts.push({ s: 420, label: '7m' });
-  opts.push({ s: 0, label: `Full ${fmtDur(ringSeconds)}` });
+  const opts = captureTiers(ringSeconds);
 
   // Prefer 30s; otherwise the shortest available.
   if (!opts.some((o) => o.s === selSeconds)) selSeconds = opts[0].s;
@@ -446,13 +442,10 @@ connectLive({
   onClose: () => link.fail('live'),
   onFrame: (f) => {
     if (!mainMeters || !status) return;
-    const sel = status.save_channels.map((c) => c - 1);
-    const last = f.bins?.[f.bins.length - 1];
-    const rms = sel.map((c) => last?.rms?.[c] ?? FLOOR_DB);
-    const peak = sel.map((c) => f.peak?.[c] ?? FLOOR_DB);
-    const clip = sel.map((c) => f.clip?.[c] ?? false);
+    const { rms, peak, clip } = frameLevels(f, status.save_channels.map((c) => c - 1));
     mainMeters.update(rms, peak, clip);
     vuMeters?.update(rms, peak, clip);
+    const last = f.bins?.[f.bins.length - 1];
     if (chanMeters && last?.rms) chanMeters.update(last.rms, f.peak, f.clip);
   },
 });

@@ -3759,3 +3759,80 @@ body.play-open { overflow: hidden; }
   box-shadow: 0 2px 10px var(--shadow);
 }
 body.play-open .play-enter { display: none; }
+
+/* ---------- Rooms P1: the Studio's feed and foot (lib/rooms/studio.js) ---------- */
+/* With the two rooms on (lib/rooms/flag.js, one device), the tape page is
+   the Studio: Capture's feed above the lanes, and the about line -- the only
+   way into Settings -- at its foot. tape.html keeps them in templates, so
+   with the flag off none of this markup exists; and every rule here hangs
+   off a studio- class or the about line inside the tape page's main, which
+   only the Studio puts there (styles.test.js). */
+.studio-feed {
+  flex: none;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "title keys" "ribbon vu" "sel sel";
+  align-items: center; gap: 8px 14px;
+  padding: 10px 14px;
+}
+.studio-feed > .studio-feed-title { grid-area: title; margin: 0; }
+.studio-feed > .viz-wrap { grid-area: ribbon; height: 112px; }
+.studio-feed > .vu-row { grid-area: vu; margin: 0; gap: 8px; }
+.studio-feed > .vu-row .vu { flex: none; width: 128px; }
+.studio-feed > .vu-row .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
+.studio-feed > .meters { grid-area: meters; margin: 0; }
+.studio-feed > .rb-sel { grid-area: sel; margin: 0; }
+.studio-keys { grid-area: keys; display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.studio-keys > .seg { flex: 0 1 auto; min-width: 0; }
+.studio-keys > .seg button { padding: 0 10px; }
+
+/* KEEP: the dashcam's save, a paper key -- the cassette's label -- so it
+   doesn't compete with Catch's orange on the deck below. Paper is a material
+   (objects.css), the same in both schemes. */
+.icon-btn.studio-keep {
+  flex: none; min-height: 44px; padding: 4px 16px;
+  flex-direction: column; gap: 0; line-height: 1.15;
+  background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
+  color: var(--paper-ink); border-color: var(--paper-rule);
+}
+.icon-btn.studio-keep:active { background: linear-gradient(180deg, var(--paper-lo), var(--paper-hi)); }
+.icon-btn.studio-keep.saved { box-shadow: 0 0 0 4px color-mix(in srgb, var(--paper-hi) 35%, transparent), 0 0 24px var(--accent-glow); }
+.studio-keep-word { font: 700 16px var(--label-font); letter-spacing: .16em; text-transform: uppercase; }
+.studio-keep-sub { font: 500 11.5px var(--font); color: var(--paper-dim); }
+.studio-keep-sub[hidden] { display: none; }
+
+/* The Studio's foot: the about line, between main and the dock. */
+body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
+
+/* A phone: the ribbon the full width, the meters as two bars (needles cost
+   the lanes their height), and Keep under them, where the thumb is. Keep is
+   its word alone: the lengths beside it, and the ribbon, say how much. */
+@media (max-width: 699.98px) {
+  .studio-feed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "title" "ribbon" "meters" "keys" "sel";
+    gap: 8px; padding: 10px 12px;
+  }
+  .studio-feed > .viz-wrap { height: 92px; }
+  .studio-feed > .vu-row { display: none; }
+  .studio-feed > .meters { display: flex; gap: 4px; }
+  .studio-keys > .seg { flex: 1 1 0; }
+  .studio-keys > .seg button { padding: 0 4px; }
+  .icon-btn.studio-keep { flex: none; min-width: 96px; }
+  .studio-keep-sub { display: none; }
+}
+/* A phone held sideways: the lanes have 390 px, so the feed gives back what
+   it can -- a short ribbon with the bars under it and the keys beside them,
+   and its heading kept for a screen reader only, as Capture's is here. */
+@media (orientation: landscape) and (max-height: 440px) {
+  .studio-feed {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "ribbon keys" "meters keys" "sel sel";
+    gap: 6px 10px; padding: 8px 10px;
+  }
+  .studio-feed > .studio-feed-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+  .studio-feed > .viz-wrap { height: 64px; }
+  .studio-feed > .vu-row { display: none; }
+  .studio-feed > .meters { display: flex; gap: 4px; }
+  .studio-keys { flex-direction: column; align-self: stretch; }
+  .studio-keys > .seg button { min-height: 34px; }
+}

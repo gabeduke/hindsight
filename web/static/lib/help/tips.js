@@ -13,6 +13,8 @@ export const TIPS = [
   { control: 'Capture (tab)', ids: ['nav-capture'], tip: 'The ribbon, the meters and Capture. The lamp is the ring: green while it records' },
   { control: 'Takes (tab)', ids: ['nav-takes'], tip: 'Every take, to search, filter, sort and open' },
   { control: 'Tape (tab)', ids: ['nav-tape'], tip: 'The tape: layer loops caught from what you just played' },
+  { control: 'Studio (tab)', ids: ['nav-studio'], tip: "The two rooms' preview: the feed, Keep and the tape on one page. The lamp is the ring: green while it records" },
+  { control: 'Listening Room (tab)', ids: ['nav-room'], tip: "The two rooms' preview: every take, to search, filter, sort and open" },
   // The main page
   { control: 'Capture', ids: ['capture'], tip: 'Save the last 30 s, 2 m, 7 m or all of what you just played as a take' },
   { control: 'Flag now', ids: ['flag-now'], tip: 'Mark this moment. Any take that includes it gets a flag here' },

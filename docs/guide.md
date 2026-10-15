@@ -1783,6 +1783,8 @@ has no tip.
 | Capture (tab) | The ribbon, the meters and Capture. The lamp is the ring: green while it records |
 | Takes (tab) | Every take, to search, filter, sort and open |
 | Tape (tab) | The tape: layer loops caught from what you just played |
+| Studio (tab) | The two rooms' preview: the feed, Keep and the tape on one page. The lamp is the ring: green while it records |
+| Listening Room (tab) | The two rooms' preview: every take, to search, filter, sort and open |
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
 | Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |
