@@ -67,7 +67,7 @@ func TestAControllersNoteBecomesAQuantisedPress(t *testing.T) {
 func TestAControllerIsOneMoreHolder(t *testing.T) {
 	f, url, a, _ := controlsAPI(t, t.TempDir())
 	page, _ := dialPlay(t, url)
-	sendPlay(t, page, map[string]string{"t": "press", "pad": "break", "q": "16th"})
+	sendPlay(t, page, map[string]any{"t": "press", "pad": "break", "q": "16th"})
 	f.waitFor(t, "press break 16th")
 	a.ControlMIDI("Keystation 49", 0x90, 40, 100)
 	a.ControlMIDI("Keystation 49", 0x90, 38, 100) // track 3, its alone
@@ -79,7 +79,7 @@ func TestAControllerIsOneMoreHolder(t *testing.T) {
 	a.ControllerGone("Keystation 49") // unplugged
 	holders(t, a, "break", 1)
 	f.waitFor(t, "press break 16th", "press track3 16th", "release track3")
-	sendPlay(t, page, map[string]string{"t": "release", "pad": "break"})
+	sendPlay(t, page, map[string]any{"t": "release", "pad": "break"})
 	f.waitFor(t, "press break 16th", "press track3 16th", "release track3", "release break")
 }
 
@@ -188,7 +188,7 @@ func TestLearnBindsOnlyFromThatController(t *testing.T) {
 	dir := t.TempDir()
 	f, url, a, _ := controlsAPI(t, dir)
 	c, _ := dialPlay(t, url)
-	sendPlay(t, c, map[string]string{"t": "learn", "action": "stop", "port": "SMK-37"})
+	sendPlay(t, c, map[string]any{"t": "learn", "action": "stop", "port": "SMK-37"})
 	waitLearning(t, a)
 	a.ControlMIDI("Keystation 49", 0x90, 72, 100) // another controller: plays, teaches nothing
 	f.waitFor(t)
@@ -244,7 +244,7 @@ func TestLearnIsRefusedWhenNothingMoves(t *testing.T) {
 	f, url, a, _ := controlsAPI(t, t.TempDir())
 	a.controls.learnWait = 50 * time.Millisecond
 	c, _ := dialPlay(t, url)
-	sendPlay(t, c, map[string]string{"t": "learn", "action": "stop"})
+	sendPlay(t, c, map[string]any{"t": "learn", "action": "stop"})
 	var m struct{ T, Learn, Why string }
 	_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if err := c.ReadJSON(&m); err != nil {

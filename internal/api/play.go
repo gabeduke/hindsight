@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,11 +21,14 @@ import (
 // will actually be heard, so the page lights the pad then.
 //
 //	page → Pi  {"t":"press","pad":"stop","q":"16th"}
+//	           {"t":"press","pad":"filter","q":"16th","v":0.8}
+//	           {"t":"set","pad":"filter","v":0.4}
 //	           {"t":"release","pad":"stop"}
 //	           {"t":"release_all"}
-//	Pi → page  {"t":"hello","pads":[…],"lead_ms":212}
+//	Pi → page  {"t":"hello","pads":[…],"mods":[…],"lead_ms":212}
 //	           {"t":"lead","ms":212}
 //	           {"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}
+//	           {"t":"at","pad":"filter","on":true,"v":0.4,"move":true,…}
 //	           {"t":"refused","pad":"stop","why":"…"}
 //
 // A pad sounds while any connection holds it: two phones holding BREAK keep
@@ -42,6 +46,15 @@ import (
 //
 // and hello lists the pads held as the page arrives ("held"), so a pad held
 // on the controller lights on a page opened mid-hold.
+//
+// The punch-in FX carry an amount, v: read at the press (a velocity), and
+// moved while held by a set (aftertouch, the mod wheel, the pitch wheel for
+// the bend). A set of a tape mod -- mod.wow, mod.flutter, mod.drive,
+// mod.age -- previews it: heard at once, saved nowhere. The page commits it
+// with PATCH /api/tapes {style} when the finger lifts; a release of the mod,
+// or the connection going, puts the tape's own value back. Every screen
+// hears of an amount moving through an at with move set, no more than 30
+// times a second a pad.
 
 // playPing is how often the Pi pings a player, and playReadWait how long it
 // waits to hear back before taking the player for gone. A held pad of a
@@ -57,6 +70,8 @@ const (
 // tricks is what Play mode needs of the tape engine; tests stand in for it.
 type tricks interface {
 	Press(pad, quantum string) error
+	PressAmount(pad, quantum string, v float64) error
+	Set(pad string, v float64) error
 	Release(pad string) error
 	TrickEventsSince(seq uint64) ([]tape.TrickEvent, uint64)
 	TrickLead() (time.Duration, bool)
@@ -132,9 +147,31 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// What this connection holds, so that its going lets go of exactly that.
+	// What this connection holds, so that its going lets go of exactly that;
+	// and the mods it is previewing, which go back to the tape's as it goes.
 	var mineMu sync.Mutex
 	mine := map[string]bool{}
+	previews := map[string]bool{}
+	unpreview := func(pad string) {
+		mineMu.Lock()
+		was := previews[pad]
+		delete(previews, pad)
+		mineMu.Unlock()
+		if was {
+			_ = eng.Release(pad)
+		}
+	}
+	unpreviewAll := func() {
+		mineMu.Lock()
+		var ps []string
+		for p := range previews {
+			ps = append(ps, p)
+		}
+		mineMu.Unlock()
+		for _, p := range ps {
+			unpreview(p)
+		}
+	}
 	letGo := func(pad string) {
 		mineMu.Lock()
 		held := mine[pad]
@@ -154,6 +191,7 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 		for _, p := range held {
 			letGo(p)
 		}
+		unpreviewAll()
 	}()
 
 	// Only the loop below writes; the reader hands it what to say.
@@ -192,9 +230,10 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 			}
 			_ = conn.SetReadDeadline(time.Now().Add(playReadWait))
 			var m struct {
-				T   string `json:"t"`
-				Pad string `json:"pad"`
-				Q   string `json:"q"`
+				T   string   `json:"t"`
+				Pad string   `json:"pad"`
+				Q   string   `json:"q"`
+				V   *float64 `json:"v"`
 				// MIDI LEARN: the action, and the controller ("" any).
 				Action string `json:"action"`
 				Port   string `json:"port"`
@@ -210,7 +249,12 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				if already {
 					continue
 				}
-				if err := a.playHolds.press(m.Pad, func() error { return eng.Press(m.Pad, m.Q) }); err != nil {
+				press := func() error { return eng.Press(m.Pad, m.Q) }
+				if m.V != nil {
+					v := *m.V
+					press = func() error { return eng.PressAmount(m.Pad, m.Q, v) }
+				}
+				if err := a.playHolds.press(m.Pad, press); err != nil {
 					note(map[string]string{"t": "refused", "pad": m.Pad, "why": err.Error()})
 					continue
 				}
@@ -234,8 +278,22 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				learnMu.Unlock()
 			case "learn_cancel":
 				stopLearning()
+			case "set":
+				if m.V == nil {
+					continue
+				}
+				if err := eng.Set(m.Pad, *m.V); err != nil {
+					note(map[string]string{"t": "refused", "pad": m.Pad, "why": err.Error()})
+					continue
+				}
+				if strings.HasPrefix(m.Pad, "mod.") {
+					mineMu.Lock()
+					previews[m.Pad] = true
+					mineMu.Unlock()
+				}
 			case "release":
 				letGo(m.Pad)
+				unpreview(m.Pad)
 			case "release_all":
 				mineMu.Lock()
 				var held []string
@@ -246,6 +304,7 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				for _, p := range held {
 					letGo(p)
 				}
+				unpreviewAll()
 			}
 		}
 	}()
@@ -265,7 +324,7 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 	// Events from now on: what sounded before this page came is not news.
 	// Asking from past the end returns none, and where the log is.
 	_, seq := eng.TrickEventsSince(^uint64(0) >> 1)
-	if err := write(map[string]any{"t": "hello", "pads": tape.Pads(), "lead_ms": lead, "held": a.playHolds.list()}); err != nil {
+	if err := write(map[string]any{"t": "hello", "pads": tape.Pads(), "mods": tape.Mods(), "lead_ms": lead, "held": a.playHolds.list()}); err != nil {
 		return
 	}
 
@@ -292,6 +351,12 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				msg := map[string]any{"t": "at", "pad": e.Pad, "on": e.On, "pos": e.Pos}
 				if d, ok := eng.HeardIn(e.Out); ok {
 					msg["in_ms"] = d.Milliseconds()
+				}
+				if e.V != nil {
+					msg["v"] = *e.V
+				}
+				if e.Move {
+					msg["move"] = true
 				}
 				if write(msg) != nil {
 					return
