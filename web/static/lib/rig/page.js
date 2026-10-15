@@ -10,6 +10,12 @@
 // unplugs it. Or choose a socket -- every socket is a button -- and then
 // where it goes (picker.js); Unplug is in its inspector. The cables are
 // drawn over the buttons and are not the controls.
+//
+// The cables are ropes (R4, docs/superpowers/specs/2026-10-15-r4-cables-design.md):
+// each is a `cable` object in a scene on the shared ticker. This page says
+// where each one's ends are; the model (lib/scene/cable.js) hangs and swings
+// the rope, and the renderer (ropes.js) only draws it. A plug in the hand
+// snaps into a socket and comes out with a pull (lib/scene/plug.js).
 
 import { on as roomsOn } from '../rooms/flag.js';
 import { initNav } from '../nav.js';
@@ -17,8 +23,13 @@ import { toast } from '../toast.js';
 import { initHelp } from '../help/help.js';
 import { restartHindsight, RESTART_WARNING } from '../settings.js';
 import { desk as deskOf, allSockets } from './desk.js';
-import { cablePath, centreIn } from './cables.js';
-import { styleOf, legend } from './kinds.js';
+import { centreIn } from './cables.js';
+import { legend } from './kinds.js';
+import { RopeRenderer, strokes } from './ropes.js';
+import { Scene } from '../scene/scene.js';
+import { SceneObject } from '../scene/object.js';
+import { snap, pull, lean, PULL_PX } from '../scene/plug.js';
+import { deskClick, release, dropSeed, remade } from './gesture.js';
 import { choose, letGo } from './picker.js';
 import * as G from './graph.js';
 import {
@@ -33,7 +44,8 @@ const state = {
   g: null,
   pick: letGo(), // the socket chosen, and where it can go
   cable: null, // a cable tapped, shown in the inspector
-  drag: null, // a cable being drawn from a socket: {from, x, y, moved, id}
+  drag: null, // a drag from a socket: {from, x, y, moved, pointer}, and once moved what's in the hand
+  gRead: 0, // the read the graph came from
   deskSig: '',
   inspSig: '',
   sending: false,
@@ -71,13 +83,20 @@ async function read() {
 }
 
 let polling = 0;
+let reads = 0; // reads of /api/rig begun
 async function refresh() {
+  const n = ++reads;
+  let g;
   try {
-    state.g = await read();
+    g = await read();
   } catch (e) {
     if (!state.g) $('rig-found').textContent = `Couldn’t reach Hindsight: ${e.message}`;
     return;
   }
+  // A read that began before the one already drawn is older: drop it.
+  if (n < state.gRead) return;
+  state.g = g;
+  state.gRead = n;
   render();
 }
 
@@ -99,6 +118,9 @@ async function send(w, said, { undo = false } = {}) {
     return false;
   } finally {
     state.sending = false;
+    // A drop's rope, or a pulled plug, waits for the first read begun after
+    // this write: that read is the one that draws what the write did.
+    for (const h of [dropped, pulled]) if (h && h.after === Infinity) h.after = reads;
     await refresh();
   }
 }
@@ -121,15 +143,17 @@ function said(g, a, b) {
 function patch(a, b) {
   const g = state.g;
   const w = writeFor(g, a, b);
-  if (!w) return;
+  if (!w) return false;
   const both = [role(G.socketById(g, a)), role(G.socketById(g, b))];
   send(w, said(g, a, b), { undo: both.includes('bus') });
+  return true;
 }
 
 function unplug(c) {
   const w = unplugFor(state.g, c);
-  if (!w) return;
+  if (!w) return false;
   send(w, `Unplugged ${G.title(state.g, G.socketById(state.g, c.from)) || c.label} → ${G.title(state.g, G.socketById(state.g, c.to))}`);
+  return true;
 }
 
 // --- drawing ------------------------------------------------------------------------
@@ -265,6 +289,21 @@ function updateSockets(d) {
   $('rig-desk').classList.toggle('picking', !!state.pick.sel && state.pick.targets.length > 0);
 }
 
+// --- the cables: ropes ------------------------------------------------------------
+
+// Every cable is a `cable` object in this scene, on the shared ticker. The
+// page says where each one's ends are; the model hangs and swings the rope;
+// the renderer draws it in .rig-wires, over the sockets, taking no input.
+let scene = null;
+let ropes = null;
+const DRAG = 'cable:drag'; // the rope in the hand: a new cable drawn out of a socket
+let holes = new Map(); // socket id (or label:id) → its hole on the desk, as last measured
+// A drop, and a pulled plug, are drawn as they were let go until the read
+// after their write draws what it did: {…, after}, the reads begun by then
+// (Infinity until the write is done).
+let dropped = null; // {from, to, points, after}
+let pulled = null; // {id, end, at, after}
+
 // holeAt is a socket's centre on the desk; a label's end is its tag.
 function holeAt(id, deskBox) {
   if (id.startsWith('label:')) {
@@ -278,77 +317,131 @@ function holeAt(id, deskBox) {
   return centreIn(b.getBoundingClientRect(), deskBox);
 }
 
-function drawCables() {
+/**
+ * measure finds every socket's hole, and every label's tag, on the desk, and
+ * sizes the wires to it. It reads layout, so it runs when the desk is drawn
+ * or resized, and at the start of a drag -- not while a finger moves.
+ */
+function measure() {
   const g = state.g;
   const deskEl = $('rig-desk');
   const box = deskEl.getBoundingClientRect();
   const wires = deskEl.querySelector('.rig-wires');
-  const hits = deskEl.querySelector('.rig-hits');
-  for (const svg of [wires, hits]) {
-    svg.setAttribute('viewBox', `0 0 ${Math.round(box.width)} ${Math.round(box.height)}`);
-    svg.setAttribute('width', String(Math.round(box.width)));
-    svg.setAttribute('height', String(Math.round(box.height)));
+  const w = String(Math.round(box.width)), h = String(Math.round(box.height));
+  if (wires.getAttribute('width') !== w || wires.getAttribute('height') !== h) {
+    wires.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    wires.setAttribute('width', w);
+    wires.setAttribute('height', h);
   }
-  const paths = [], hitPaths = [];
-  for (const c of g.cables || []) {
-    const a = holeAt(c.from, box), b = holeAt(c.to, box);
-    if (!a || !b) continue;
-    const d = c.kind === 'jack' ? `M${a.x} ${a.y} L${b.x} ${b.y}` : cablePath(a, b);
-    paths.push(...wire(d, styleOf(c), `rig-wire rig-wire-${c.kind}${c.pending ? ' pending' : ''}${state.cable === c.id ? ' sel' : ''}`));
-    const h = document.createElementNS(SVGNS, 'path');
-    h.setAttribute('d', d);
-    h.setAttribute('class', 'rig-hit');
-    h.dataset.cable = c.id;
-    h.addEventListener('click', () => { state.cable = c.id; state.pick = letGo(); render(); });
-    hitPaths.push(h);
-  }
-  // The socket ends: a plug on each, over the hole.
-  for (const c of g.cables || []) {
-    if (c.kind === 'jack') continue;
-    for (const id of [c.from, c.to]) {
-      const at = holeAt(id, box);
-      if (!at) continue;
-      // A plug waiting for a restart is an open square; a live one, round.
-      const plug = document.createElementNS(SVGNS, c.pending ? 'rect' : 'circle');
-      if (c.pending) {
-        for (const [k, v] of [['x', at.x - 6], ['y', at.y - 6], ['width', 12], ['height', 12]]) plug.setAttribute(k, String(v));
-      } else {
-        plug.setAttribute('cx', String(at.x));
-        plug.setAttribute('cy', String(at.y));
-        plug.setAttribute('r', '5');
-      }
-      plug.setAttribute('class', `rig-plug${c.pending ? ' pending' : ''}`);
-      paths.push(plug);
-    }
-  }
-  if (state.drag && state.drag.moved) {
-    const a = holeAt(state.drag.from, box);
-    if (a) {
-      const p = document.createElementNS(SVGNS, 'path');
-      p.setAttribute('d', cablePath(a, { x: state.drag.x - box.left, y: state.drag.y - box.top }));
-      p.setAttribute('class', 'rig-wire rig-wire-drawing');
-      p.setAttribute('stroke-width', '5');
-      paths.push(p);
-    }
-  }
-  wires.replaceChildren(...paths);
-  hits.replaceChildren(...hitPaths);
+  holes = new Map();
+  for (const s of allSockets(deskOf(g))) holes.set(s.id, holeAt(s.id, box));
+  for (const c of g.cables || []) for (const id of [c.from, c.to]) if (!holes.has(id)) holes.set(id, holeAt(id, box));
+  return box;
 }
 
-// wire is a cable's stroke: one path, or two for a hollow one (a restart
-// cable before the restart) -- its ink, and the desk showing down the middle.
-function wire(d, st, cls) {
-  const one = (width, stroke, extra) => {
-    const p = document.createElementNS(SVGNS, 'path');
-    p.setAttribute('d', d);
-    p.setAttribute('class', `${cls}${st.faded ? ' faded' : ''}${extra}`);
-    p.setAttribute('stroke-width', String(width));
-    if (st.dash) p.setAttribute('stroke-dasharray', st.dash);
-    p.style.stroke = stroke;
-    return p;
-  };
-  if (!st.hollow) return [one(st.width, st.ink, '')];
-  return [one(st.width, st.ink, ''), one(Math.max(1.5, st.width - 3.5), 'var(--desk-felt-lo)', ' rig-wire-core')];
+// moved says an end has moved by half a pixel or more: less, and setting it
+// would wake the ticker for nothing on every poll.
+const moved = (p, q) => (!p || !q ? p !== q : Math.abs(p.x - q.x) >= 0.5 || Math.abs(p.y - q.y) >= 0.5);
+
+/** setRope sets what changed in a rope's state, and nothing that didn't. */
+function setRope(obj, next) {
+  const s = obj.state;
+  const patch = {};
+  for (const k of Object.keys(next)) {
+    if (k === 'a' || k === 'b' ? moved(s[k], next[k]) : s[k] !== next[k]) patch[k] = next[k];
+  }
+  if (Object.keys(patch).length) obj.set(patch);
+}
+
+/** deskPoint is where the finger is on the desk, from where the desk was at the drag's start and how far the page has scrolled since. */
+function deskPoint(d) {
+  return { x: d.x + scrollX - d.ox, y: d.y + scrollY - d.oy };
+}
+
+/**
+ * hand is what's in the hand during a drag from socket S, and where:
+ *   - near a socket S can go into: a new cable out of S, snapped into it;
+ *   - holding S's one cable: its plug, in until it's pulled 48 px, then out
+ *     at the finger -- let go there and it's unplugged;
+ *   - otherwise a new cable out of S, its plug at the finger.
+ * So the rope in the hand always shows what letting go will do.
+ */
+function hand(d) {
+  const from = holes.get(d.from);
+  if (!from) return null;
+  const p = deskPoint(d);
+  const over = snap(p, d.targets);
+  d.over = over ? over.id : null;
+  if (over) {
+    d.out = false;
+    return { rope: { a: from, b: { x: over.x, y: over.y }, to: over.id, loose: '' } };
+  }
+  if (d.holding) {
+    d.out = pull(d.out, from, p);
+    return { held: d.holding, end: d.end, at: d.out ? p : lean(from, p), loose: d.out };
+  }
+  return { rope: { a: from, b: p, to: '', loose: 'b' } };
+}
+
+/**
+ * drawCables brings every rope's state up to date: one per cable in the
+ * graph, with its ends where its sockets are (or in the hand), and the rope
+ * being drawn out of a socket. The scene's ticker does the rest.
+ */
+function drawCables() {
+  if (!scene || !state.g) return;
+  const g = state.g;
+  const d = state.drag && state.drag.moved ? state.drag : null;
+  if (!d) measure();
+  const h = d ? hand(d) : null;
+  // The first read begun after a drop's or a pull's write draws what it did.
+  const settled = (x) => x && state.gRead > x.after;
+  const seen = new Set();
+  for (const c of g.cables || []) {
+    let a = holes.get(c.from), b = holes.get(c.to);
+    if (!a || !b) continue;
+    let loose = '';
+    const held = h && h.held === c.id ? h : pulled && pulled.id === c.id && !settled(pulled) ? pulled : null;
+    if (held) {
+      if (held.end === 'a') a = held.at;
+      else b = held.at;
+      if (held.loose) loose = held.end;
+    }
+    const id = `cable:${c.id}`;
+    seen.add(id);
+    const next = {
+      from: c.from, to: c.to, kind: c.kind, pending: c.pending || '', declared: c.kind === 'jack',
+      off: !!c.off, waiting: !!c.waiting, selected: state.cable === c.id, loose, a, b,
+    };
+    // A drop's cable carries on from the rope that made it. A seed only
+    // applies to a rope being made, so a drop onto an occupied socket, which
+    // re-patches a cable that has an object already, takes that one off and
+    // makes it again.
+    const drop = settled(dropped) ? dropped : null;
+    let obj = scene.get(id);
+    if (obj && remade(obj.state, c, drop)) {
+      scene.remove(id);
+      obj = null;
+    }
+    if (obj) { setRope(obj, next); continue; }
+    const seed = dropSeed(drop, c);
+    scene.add(new SceneObject(id, 'cable', seed ? { ...next, seed } : next));
+  }
+  if (settled(pulled)) pulled = null;
+  if (settled(dropped)) dropped = null;
+  // The rope in the hand; or, let go into a socket, as it was until its read.
+  const rope = h && h.rope;
+  if (rope) {
+    const next = { from: d.from, to: rope.to, kind: 'patch', drawing: true, loose: rope.loose, a: rope.a, b: rope.b };
+    const obj = scene.get(DRAG);
+    if (obj) setRope(obj, next);
+    else scene.add(new SceneObject(DRAG, 'cable', next));
+    seen.add(DRAG);
+  } else if (dropped) seen.add(DRAG);
+  for (const o of scene.objects()) if (!seen.has(o.id)) scene.remove(o.id);
+  // Where a plug in the hand would go in, lit.
+  for (const b of document.querySelectorAll('.rig-sock.drop')) if (!d || b.dataset.sock !== d.over) b.classList.remove('drop');
+  if (d && d.over) document.querySelector(`.rig-sock[data-sock="${CSS.escape(d.over)}"]`)?.classList.add('drop');
 }
 
 function drawRestart() {
@@ -405,9 +498,11 @@ function drawInspector() {
     const keep = insp.contains(document.activeElement) ? document.activeElement.dataset.key : null;
     insp.replaceChildren(...(cable ? cableView(g, cable) : sel ? socketView(g, sel) : overview(g)));
     state.inspSig = sig;
-    insp.classList.toggle('open', !!(sel || cable));
     if (keep) insp.querySelector(`[data-key="${CSS.escape(keep)}"]`)?.focus({ preventScroll: true });
   }
+  // On a phone the inspector is a sheet over the desk's foot: it waits for
+  // a drag to end, rather than covering the rope in the hand.
+  insp.classList.toggle('open', !!(sel || cable) && !(state.drag && state.drag.moved));
   // The level, kept moving.
   const lv = insp.querySelector('.rig-level');
   if (lv && sel) {
@@ -648,6 +743,7 @@ function onChoose(id) {
   if (r.write) patch(r.from, r.to);
 }
 
+// socketUnder is the socket whose button is under a point, if any.
 function socketUnder(x, y) {
   const n = document.elementFromPoint(x, y);
   const b = n && n.closest ? n.closest('.rig-sock') : null;
@@ -673,24 +769,44 @@ function autoscroll() {
   }
 }
 
+// grab starts a drag that has moved: it measures the desk once, finds where
+// the plug can go, and what's in the hand -- S's one cable that can be
+// unplugged, if it has exactly one.
+function grab(d) {
+  const g = state.g;
+  const box = measure();
+  d.ox = box.left + scrollX;
+  d.oy = box.top + scrollY;
+  state.cable = null;
+  state.pick = { sel: d.from, targets: allSockets(deskOf(g)).filter((s) => writeFor(g, d.from, s.id)).map((s) => s.id) };
+  d.targets = state.pick.targets.map((id) => {
+    const at = holes.get(id);
+    const b = document.querySelector(`.rig-sock[data-sock="${CSS.escape(id)}"]`);
+    if (!at || !b) return null;
+    const r = b.getBoundingClientRect();
+    return { id, x: at.x, y: at.y, box: { left: r.left - box.left, top: r.top - box.top, right: r.right - box.left, bottom: r.bottom - box.top } };
+  }).filter(Boolean);
+  const can = G.cablesAt(g, d.from).filter((c) => unplugFor(g, c));
+  d.holding = can.length === 1 ? can[0].id : null;
+  d.end = can.length === 1 && can[0].from === d.from ? 'a' : 'b';
+  d.several = can.length > 1;
+  d.out = false;
+  d.over = null;
+}
+
 function onPointerMove(e) {
   const d = state.drag;
   if (!d || e.pointerId !== d.pointer) return;
   d.x = e.clientX;
   d.y = e.clientY;
   if (!d.moved && Math.hypot(d.x - d.x0, d.y - d.y0) > 8) {
+    grab(d);
     d.moved = true;
-    const g = state.g;
-    state.cable = null;
-    state.pick = { sel: d.from, targets: allSockets(deskOf(g)).filter((s) => writeFor(g, d.from, s.id)).map((s) => s.id) };
     $('rig-desk').classList.add('dragging');
     render();
   }
   if (d.moved) {
     e.preventDefault();
-    const over = socketUnder(d.x, d.y);
-    for (const b of document.querySelectorAll('.rig-sock.drop')) b.classList.remove('drop');
-    if (over && state.pick.targets.includes(over)) document.querySelector(`.rig-sock[data-sock="${CSS.escape(over)}"]`)?.classList.add('drop');
     drawCables();
     if (!scrollRaf) scrollRaf = requestAnimationFrame(autoscroll);
   }
@@ -700,27 +816,45 @@ function endDrag(e, cancelled) {
   const d = state.drag;
   if (!d || (e && e.pointerId !== d.pointer)) return;
   $('rig-desk').classList.remove('dragging');
-  for (const b of document.querySelectorAll('.rig-sock.drop')) b.classList.remove('drop');
   if (!d.moved) { state.drag = null; return; }
   // The click that follows a drag isn't a choice.
   state.drag = { suppress: true };
   setTimeout(() => { if (state.drag && state.drag.suppress) state.drag = null; }, 400);
   const g = state.g;
-  if (cancelled) { drawCables(); return; }
-  const over = socketUnder(d.x, d.y);
-  if (over && over !== d.from && writeFor(g, d.from, over)) {
+  if (cancelled) { render(); return; }
+  // What letting go does: gesture.js decides. Over any socket's button the
+  // plug isn't out, so a mis-drop onto one it can't go into changes nothing.
+  const onSocket = socketUnder(d.x, d.y) !== null;
+  const what = release({
+    over: d.over, from: d.from, canPatch: !!d.over && !!writeFor(g, d.from, d.over),
+    holding: d.holding, out: d.out, onSocket,
+  });
+  // Let go snapped into a socket: a new cable, carrying on from this rope.
+  if (what === 'patch') {
+    const rope = scene && scene.get(DRAG);
+    dropped = { from: d.from, to: d.over, points: rope && rope.view ? rope.view.points : null, after: Infinity };
     state.pick = { sel: d.from, targets: [] };
-    patch(d.from, over);
+    if (!patch(d.from, d.over)) dropped = null;
+    drawCables();
     return;
   }
-  if (!over) {
-    // A pull on a plug unplugs it: the one cable that can be.
-    const can = G.cablesAt(g, d.from).filter((c) => unplugFor(g, c));
-    if (can.length === 1) { unplug(can[0]); return; }
-    if (can.length > 1) toast('More than one cable is in that socket: choose which to unplug', 'warn');
+  // Let go of a plug pulled out: it's unplugged.
+  if (what === 'unplug') {
+    const c = (g.cables || []).find((x) => x.id === d.holding);
+    if (c) {
+      pulled = { id: c.id, end: d.end, at: deskPoint(d), loose: true, after: Infinity };
+      if (!unplug(c)) pulled = null;
+      render();
+      return;
+    }
+  }
+  const from = holes.get(d.from);
+  if (d.several && !onSocket && from && Math.hypot(deskPoint(d).x - from.x, deskPoint(d).y - from.y) > PULL_PX) {
+    toast('More than one cable is in that socket: choose which to unplug', 'warn');
   }
   render();
 }
+
 function onKey(e) {
   if (e.key === 'Escape' && (state.pick.sel || state.cable)) {
     state.pick = letGo();
@@ -742,7 +876,7 @@ function drawLegend() {
     svg.setAttribute('viewBox', '0 0 52 20');
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('class', 'rig-swatch');
-    svg.append(...wire('M7 10 H45', { width: Math.min(k.width, 9), dash: k.dash, ink: k.ink, hollow: !!k.hollow, faded: false }, `rig-wire rig-wire-${k.kind}`));
+    svg.append(...strokes(document, 'M7 10 H45', { width: Math.min(k.width, 9), dash: k.dash, ink: k.ink, hollow: !!k.hollow, faded: false }, `rig-wire rig-wire-${k.kind}`));
     li.append(svg, el('span', '', k.legend));
     return li;
   }));
@@ -770,7 +904,35 @@ export function start({ flagOn = roomsOn, doc = document, nav = initNav, help = 
   doc.getElementById('rig-room').hidden = false;
   drawLegend();
   doc.getElementById('rig-restart-go').addEventListener('click', doRestart);
-  win.addEventListener('resize', () => { if (state.g) drawCables(); });
+  // The ropes: a scene on the shared ticker, drawn over the sockets.
+  const desk = doc.getElementById('rig-desk');
+  scene = new Scene();
+  ropes = new RopeRenderer({ doc });
+  ropes.mount(desk.querySelector('.rig-wires'), scene);
+  scene.start();
+  // The sockets move when the desk is laid out again, or the fonts arrive.
+  const again = () => { if (state.g && !(state.drag && state.drag.moved)) drawCables(); };
+  if (win.ResizeObserver) new win.ResizeObserver(again).observe(desk);
+  else win.addEventListener('resize', again);
+  doc.fonts?.ready.then(again);
+  // A tap on a rope's run shows its cable: through the renderer's hit(),
+  // anywhere that isn't a control -- the felt, or a card under the rope.
+  const control = (e) => e.target.closest?.('button, a, input, label, summary, select, textarea, form');
+  desk.addEventListener('click', (e) => {
+    // The click a drag leaves behind is spent, wherever it landed.
+    const kind = deskClick(state.drag, !!control(e));
+    if (kind === 'spent') { state.drag = null; return; }
+    if (kind === 'control') return;
+    const id = ropes.hit(e.clientX, e.clientY);
+    if (!id || id === DRAG) return;
+    state.cable = id.slice('cable:'.length);
+    state.pick = letGo();
+    render();
+  });
+  desk.addEventListener('pointermove', (e) => {
+    if (state.drag || e.pointerType !== 'mouse') return;
+    desk.classList.toggle('rig-over-rope', !control(e) && !!ropes.hit(e.clientX, e.clientY));
+  });
   win.addEventListener('pointermove', onPointerMove, { passive: false });
   win.addEventListener('pointerup', (e) => endDrag(e, false));
   win.addEventListener('pointercancel', (e) => endDrag(e, true));

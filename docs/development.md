@@ -372,6 +372,22 @@ chip, and the page only says where the switch is.
 - `desk.js` is what's drawn, from the graph alone; `cables.js` where a cable
   runs; `kinds.js` how each kind is drawn, by width and dash as well as
   colour.
+- **The cables are ropes** (R4,
+  `docs/superpowers/specs/2026-10-15-r4-cables-design.md`). Each is a
+  `cable` object in a scene on the shared ticker: `page.js` measures the
+  sockets' holes and sets each rope's ends, `lib/scene/cable.js` hangs and
+  swings it, and `ropes.js` (an SVG renderer) only draws it, in
+  `.rig-wires`, which takes no input. `lib/scene/plug.js` has the plug's
+  numbers: it snaps into a socket within 24 px of its hole (or over its
+  button), and comes out once pulled 48 px. A drag from a socket with one
+  cable in it holds that cable's plug; otherwise it draws a new one.
+  `gesture.js` holds the calls a drag and its drop make, so they have tests:
+  what letting go does (a pulled plug is unplugged only if it's let go over
+  no socket at all: onto one it can't go into, nothing changes), whether the
+  click a drag leaves behind is spent (it isn't a tap on a rope), and when a
+  drop's rope is made again so the new cable carries on from it. The names
+  beside the jacks are lifted above the ropes, with a halo, so a rope reads
+  as running behind a name (`lib/rig/layers.test.js` holds the stacking).
 - **Multi-arm** (`arm.js`): the tape keeps `rec_tracks`, and every recording
   sends `pairs`. With the rooms on, ● on a track's header toggles it; the keys
   still arm one. `warn.js` is the amber dot on a header whose input hears the
@@ -443,10 +459,12 @@ app. Three parts, three owners
   `SceneObject` (`object.js`): a level, a poll of the tape, how far a take
   has played. It is frozen; `set` makes a new snapshot only when something
   changed.
-- **A model** (`vu.js`, `reels.js`, `cassette.js`, `ribbon.js`, listed in
-  `models.js`) steps each object on the shared ticker and derives its
-  **view**: the needle's angle, the reels' turn. Models are pure and tested
-  with a fake ticker.
+- **A model** (`vu.js`, `reels.js`, `cassette.js`, `ribbon.js`, `cable.js`,
+  listed in `models.js`) steps each object on the shared ticker and derives
+  its **view**: the needle's angle, the reels' turn, a rope's points. Models
+  are pure and tested with a fake ticker. The rope steps at a fixed 120 Hz
+  and interpolates, which is how a verlet rope stays the same at any frame
+  rate.
 - **A renderer** draws views and never writes state; `Scene` (`scene.js`)
   throws if one calls `set` while drawing. `renderer.js` documents the duck
   type (`mount`, `frame`, `hit`, `twin`, `destroy`); `dom.js` is the DOM

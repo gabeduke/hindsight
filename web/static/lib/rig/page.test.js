@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { start } from './page.js';
+import { ticker } from '../objects/motion.js';
 
 // With the two rooms off, the rig page says where the switch is and stops:
 // nothing asked of the Pi, nothing listened for, nothing drawn.
@@ -22,6 +23,9 @@ test('with the rooms off the rig page draws nothing and asks the Pi nothing', ()
   assert.equal(els['rig-off'].hidden, false);
   assert.equal(els['rig-room'].hidden, true);
   assert.equal(els['rig-back'].href, '/tape.html');
+  // No ropes either: nothing on the ticker, no frames asked for.
+  assert.equal(ticker.steps.size, 0);
+  assert.equal(ticker.running, false);
 });
 
 test('the rig page has no Settings: its one way in stays the Studio’s foot', () => {

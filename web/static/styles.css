@@ -4911,18 +4911,15 @@ dialog.book-pick .book-sticker { transform: none; }
   .rig-legend { grid-area: legend; }
 }
 
-/* The desk. Cables run in an SVG over the gear and take no input; a wider
-   stroke under the gear lets a tap on a cable's run show it. */
+/* The desk. Cables run in an SVG over the gear and take no input; a tap on
+   a cable's run finds it by the ropes' hit() (Rooms R4). */
 .rig-desk {
   position: relative; display: flex; flex-direction: column; gap: 22px; min-width: 0;
   padding: 18px 16px 28px; border-radius: 14px; color: var(--desk-ink);
   background: radial-gradient(ellipse at 45% 35%, var(--desk-felt), var(--desk-felt-lo) 75%);
   box-shadow: inset 0 0 0 1px var(--desk-edge), inset 0 0 70px rgba(0,0,0,.45);
 }
-.rig-wires, .rig-hits { position: absolute; left: 0; top: 0; overflow: visible; }
-.rig-wires { z-index: 4; pointer-events: none; }
-.rig-hits { z-index: 0; }
-.rig-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.rig-wires { position: absolute; left: 0; top: 0; z-index: 4; overflow: visible; pointer-events: none; }
 .rig-devices, .rig-bay { position: relative; z-index: 1; }
 .rig-wire { fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
 .rig-wire.faded { opacity: .45; }
@@ -5276,3 +5273,35 @@ dialog.book-pick .book-sticker { transform: none; }
   .play-knob-ptr { left: 23px; top: 5px; height: 15px; transform-origin: 1px 19px; }
   .play-formula { height: 40px; }
 }
+
+/* ---------- Rooms R4: the rig's cables as ropes (lib/scene/cable.js, lib/rig/ropes.js) ---------- */
+/* The ropes are drawn into P6's .rig-wires, which takes no input: the
+   sockets under them stay the controls. Every rule hangs off a rig- class,
+   and the markup exists only on rig.html with the two rooms on. */
+.rig-rope { pointer-events: none; }
+/* A pointer over a rope's run, away from any control: a click shows it. */
+.rig-desk.rig-over-rope { cursor: pointer; }
+/* A plug in the hand, out of any socket. */
+.rig-plug.loose { stroke: var(--jack-ring-hot); stroke-width: 2.5; }
+
+/* The names the ropes cross. The ropes run over the jacks, so a plug is
+   seen going in; a socket's label and name, a row's title and a device's
+   name are lifted above them, each with a halo of the plate it is printed
+   on, so a rope reads as running behind a name rather than striking
+   through it. Colour, width and dash still say what a cable is. P6 held the
+   gear at z-index 1, as a layer under the ropes' 4: it isn't one any more,
+   or the names could not reach above them. */
+.rig-devices, .rig-bay { z-index: auto; }
+.rig-dev, .rig-bay { --rig-plate: color-mix(in srgb, var(--gear-black-hi) 50%, var(--gear-black-lo)); }
+.rig-dev.rig-dev-interface { --rig-plate: color-mix(in srgb, var(--gear-grey-hi) 50%, var(--gear-grey-lo)); }
+.rig-sock-label, .rig-sock-name, .rig-row-title, .rig-dev-name, .rig-dev-sub, .rig-dev-note, .rig-tag { position: relative; z-index: 5; }
+.rig-sock-label, .rig-sock-name, .rig-row-title, .rig-dev-name, .rig-dev-sub, .rig-dev-note {
+  text-shadow: 0 0 2px var(--rig-plate), 0 0 3px var(--rig-plate), 0 0 5px var(--rig-plate), 0 0 5px var(--rig-plate);
+}
+/* While a socket is chosen or a plug is in the hand, the sockets it can't go
+   into are dimmed. P6 dimmed the whole button, which makes it a layer of its
+   own under the ropes, names and all; dim its jack and names instead. */
+.rig-desk.picking .rig-sock:not(.target):not(.sel) { opacity: 1; }
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-hole,
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-sock-label,
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-sock-name { opacity: .55; }
