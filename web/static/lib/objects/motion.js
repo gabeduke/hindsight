@@ -9,6 +9,16 @@
 // at a Raspberry Pi, and "it was smooth on my laptop" is how motion bugs get
 // shipped to three people's kits.
 
+/**
+ * report hands an error to the browser as if it had been thrown and not
+ * caught -- the console, a page's error handlers, a test's pageerror --
+ * without unwinding the frame that caught it.
+ */
+export function report(e) {
+  if (typeof reportError === 'function') reportError(e);
+  else console.error(e);
+}
+
 /** The longest step `spin` accumulates angle over, in ms. A tab in the
  *  background comes back with one enormous dt, and only the reels care:
  *  settling toward a target is the right answer at any dt, but winding on
@@ -120,15 +130,22 @@ export class Ticker {
    * infinite dt and each object lands on its target in one frame. Checked
    * here rather than in each object, so there is one place to get it right
    * and no object can quietly forget.
+   *
+   * onError: where a step that throws is reported (by default as an
+   * uncaught error would be). Once per failure: a step that throws every
+   * frame is heard once, not sixty times a second, and heard again only if
+   * it recovers and breaks anew.
    */
-  constructor({ raf, cancel, now, reduced } = {}) {
+  constructor({ raf, cancel, now, reduced, onError = report } = {}) {
     this.raf = raf || ((fn) => requestAnimationFrame(fn));
     this.cancel = cancel || ((h) => cancelAnimationFrame(h));
     this.now = now || (() => performance.now());
     this.reduced = reduced !== undefined
       ? reduced
       : typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.onError = onError;
     this.steps = new Set();
+    this.failing = new WeakSet(); // steps whose last call threw, already reported
     this.handle = 0;
     this.last = 0;
     this.ticking = false; // inside a frame, stepping
@@ -171,8 +188,19 @@ export class Ticker {
     this.woken = false;
     try {
       for (const step of [...this.steps]) {
-        // One object throwing must not take the other fourteen down with it.
-        try { if (step(dt, t) !== false) wants = true; } catch { /* keep the loop */ }
+        // Taken off by a step earlier in this frame: it has gone.
+        if (!this.steps.has(step)) continue;
+        // One object throwing must not take the other fourteen down with
+        // it, nor go unheard.
+        try {
+          if (step(dt, t) !== false) wants = true;
+          this.failing.delete(step);
+        } catch (e) {
+          if (!this.failing.has(step)) {
+            this.failing.add(step);
+            try { this.onError(e); } catch { /* the reporter can't stop the frame */ }
+          }
+        }
       }
     } finally {
       this.ticking = false;
@@ -207,11 +235,13 @@ export class Loop {
     this.clock = clock;
     this.off = null;
     this.step = (dt, now) => {
+      const mine = this.off; // the start() this frame is running under
       let more = false;
       try {
         more = this.fn(dt, now) !== false;
       } finally {
-        if (!more) this.stop();
+        // Stop only that start: fn may have stopped and started it again.
+        if (!more && this.off === mine) this.stop();
       }
       return more;
     };

@@ -88,7 +88,8 @@ export class CassetteFace {
     this.obj = this.scene.get(id) || this.scene.add(new SceneObject(id, 'cassette'));
     this.dirty = true;    // paint on the next draw, whatever the view
     this.painted = null;  // the playhead's device pixel, and the hubs, as last painted
-    this.drawer = { el: this.el, draw: (view) => this.drawView(view) };
+    // Its twin is the window, where a tap or a drag seeks.
+    this.drawer = { el: this.el, twin: () => this.parts.canvas, draw: (view) => this.drawView(view) };
     // The page side, ahead of the scene on the ticker so each frame paints
     // the position read in it: while the <audio> plays, set the cassette to
     // where it is. A step that says false once it stops costs nothing.

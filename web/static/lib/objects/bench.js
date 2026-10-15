@@ -125,7 +125,7 @@ function reelPair(parent) {
   return { left, right, levels };
 }
 
-export function mount(root, { raf, cancel, now } = {}) {
+export function mount(root, { raf, cancel, now, reduced } = {}) {
   // The bench drives its own clock so the speed control can slow everything
   // at once. Real time still passes; the objects are handed less of it.
   let scale = 1;
@@ -137,11 +137,17 @@ export function mount(root, { raf, cancel, now } = {}) {
     wall = t;
     return virtual;
   };
-  // reduced: false deliberately. The bench's whole job is to show motion, and
-  // the speed control is the accessible way to look at it. The shipped pages
-  // honour prefers-reduced-motion through the shared ticker.
+  // Two clocks at the bench's speed. The Motion section's ignores reduced
+  // motion deliberately: it is the comparison of two movements, and the
+  // speed control is the accessible way to look at it. Everything else is
+  // on one that honours the device, as the pages are -- so with reduced
+  // motion the reels jump rather than turn, as they always did here.
   const ticker = new Ticker({ raf, cancel, now: clock, reduced: false });
-  const scene = new Scene({ ticker });
+  const device = new Ticker({ raf, cancel, now: clock, reduced });
+  const motion = new Scene({ ticker });
+  const motionRenderer = new DomRenderer();
+  motionRenderer.mount(root, motion);
+  const scene = new Scene({ ticker: device });
   const renderer = new DomRenderer();
   renderer.mount(root, scene);
   const bench = { scene, renderer, ticker, clock };
@@ -152,15 +158,18 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildSpeed(tools, (s) => { clock(); scale = s; });
   buildSize(tools, root);
   buildStill(tools, root);
-  buildMotion(root, bench);
+  buildMotion(root, { scene: motion, renderer: motionRenderer, ticker });
   buildVu(root, bench);
   buildReels(root, bench);
   buildCassettes(root, bench);
   // Land every reference state now, and draw it, before the first frame;
-  // then the scene runs on the bench's clock. The bench's own steps (the
-  // motion section's level, the running reel's polls) were added to the
-  // ticker first, so each frame the models see what the bench set in it.
+  // then the scenes run on the bench's clocks. The bench's own steps (the
+  // motion section's level, the running reel's polls) are on the motion
+  // clock, added first, so each frame the models see what the bench set in
+  // it.
+  motion.step(Infinity, clock());
   scene.step(Infinity, clock());
+  motion.start();
   scene.start();
   buildRibbon(root);
   buildLcd(root);
@@ -362,7 +371,9 @@ function buildReels(root, { scene, renderer, ticker, clock }) {
     renderer.part(reels.id, reelsDrawer(reelPair(cell(grid, name))));
   }
 
-  // One running, polled on the bench clock so the speed control reaches it.
+  // One running, polled on the bench clock so the speed control reaches it
+  // -- the motion clock, so a poll comes every 200 ms even when the device
+  // asks for less motion and the reels' own clock hands out dt = Infinity.
   const reels = scene.add(new SceneObject('reels:playing', 'reels', { pos: 0, playing: true, length: LEN, sampleRate: SR, at: clock() }));
   renderer.part(reels.id, reelsDrawer(reelPair(cell(grid, 'playing'))));
   let at = 0;

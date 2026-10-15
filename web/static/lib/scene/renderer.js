@@ -13,8 +13,10 @@
 //   hit(x, y)         The id of the object under viewport point (x, y), or
 //                     null: how a pointer finds an object.
 //   twin(id)          The real <button> laid over that object, for focus,
-//                     keys and screen readers; null where the object is
-//                     its own markup, as everything the DOM renderer draws is.
+//                     keys and screen readers. A DOM object is its own
+//                     markup, so the DOM renderer returns the element that
+//                     takes its input (the cassette's window, the ribbon),
+//                     and null for a picture that takes none.
 //   destroy()         Leave the scene and take down what mount() built.
 //
 // The rules every renderer keeps (docs/superpowers/specs/

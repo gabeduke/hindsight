@@ -142,3 +142,36 @@ test('destroy leaves the scene and takes every part down', () => {
   assert.equal(d.draws.length, 1, 'not drawn after destroy');
   assert.equal(scene.renderers.size, 0);
 });
+
+test('drawNow draws a part at once: for a resize, inside the observer, before the frame paints', () => {
+  const { ticker, scene, r } = setup();
+  const o = scene.add(new SceneObject('c', 'cassette', { played: 0.3 }));
+  const d = drawer();
+  r.part('c', d);
+  ticker.advance();
+  r.drawNow('c');
+  assert.equal(d.draws.length, 2, 'drawn now, not on the next frame');
+  assert.equal(d.draws[1].view, o.view);
+  ticker.advance();
+  assert.equal(d.draws.length, 2, 'and not again on the next frame for nothing');
+  r.drawNow('nobody'); // no such part: nothing happens
+});
+
+test('drawNow keeps the rule: a drawer that writes state is refused', () => {
+  const { scene, r } = setup();
+  const o = scene.add(new SceneObject('c', 'cassette', { played: 0.1 }));
+  r.part('c', { draw: () => o.set({ played: 1 }) });
+  assert.throws(() => r.drawNow('c'), /renderers read state/);
+  assert.equal(o.state.played, 0.1);
+  assert.equal(scene.drawing, false);
+});
+
+test('hit can look at several elements: the reels, not the gap between them', () => {
+  const { scene, r } = setup();
+  scene.add(new SceneObject('reels', 'reels'));
+  const box = (left, right) => ({ getBoundingClientRect: () => ({ left, right, top: 0, bottom: 40 }) });
+  r.part('reels', { draw() {}, els: [box(0, 40), box(100, 140)] });
+  assert.equal(r.hit(20, 20), 'reels');
+  assert.equal(r.hit(120, 20), 'reels');
+  assert.equal(r.hit(70, 20), null, 'the LCD between them is not the reels');
+});
