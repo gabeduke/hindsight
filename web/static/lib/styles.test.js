@@ -452,6 +452,46 @@ test('the Listening Room’s rules reach only the room', () => {
   assert.deepEqual(borrowed, [], 'these files use a class the room styles');
 });
 
+test('Rooms R2’s rules reach only the room, and its tokens are the only thing on :root', () => {
+  // Shelf to deck adds a block of its own after P5's. The same promise: the
+  // stylesheet is on every page of every kit, so everything in it hangs off a
+  // room- class -- the ghost, the deck's window and door, the cassette face --
+  // except the motion tokens, which are bare custom properties on :root that
+  // nothing reads until the room does. (P5's test above already fails any
+  // file outside lib/room that wears one of these classes.)
+  const start = css.indexOf('/* ---------- Rooms R2:');
+  assert.ok(start >= 0, 'the Rooms R2 block');
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next)
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const split = (list) => {
+    const out = [];
+    let depth = 0, from = 0;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] === '(') depth++;
+      else if (list[i] === ')') depth--;
+      else if (list[i] === ',' && depth === 0) { out.push(list.slice(from, i)); from = i + 1; }
+    }
+    return [...out, list.slice(from)].map((x) => x.trim());
+  };
+  const loose = [];
+  const roots = [];
+  for (const m of body.matchAll(/([^{}]+)\{([^{}]*)\}?/g)) {
+    const sel = m[1].trim();
+    if (sel.startsWith('@')) continue; // a media query, not a selector
+    if (sel === ':root') { roots.push(m[2]); continue; }
+    for (const one of split(sel)) {
+      if (one && !/\.room(?:-[a-z0-9-]+)?(?![\w-])/.test(one)) loose.push(one);
+    }
+  }
+  assert.deepEqual(loose, [], 'these R2 selectors could match something that is not the room');
+  assert.equal(roots.length, 1, 'one :root rule, the motion tokens');
+  assert.deepEqual(Object.keys(tokens(roots[0])), ['--t-touch', '--t-move', '--t-flight', '--ease-out', '--ease-flight', '--ease-seat']);
+  // It stands P5's CSS animations down (`animation: none`) and sets the
+  // cross-fade's length; it starts none of its own.
+  assert.ok(!/@keyframes|(?:^|[\s;{])(?:animation|transition)\s*:(?!\s*none)/.test(body), 'the motion is the scene’s, not a CSS animation');
+});
+
 test('the room never hides the bar in a month’s box', () => {
   // On a phone the room hides the bar: its deck card is the player. A
   // month's box (body.room-rack) shows the rack, not the deck card, so a rule

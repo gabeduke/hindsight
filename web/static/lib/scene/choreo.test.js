@@ -23,6 +23,10 @@ test('the frames are the Choreography board’s', () => {
   assert.equal(SEAT_AT, 920);
   assert.equal(SEATED, 1080);
   assert.ok(near(SEATED / BACK_RATE, EJECT_MS), 'the way back takes 700 ms');
+  // The board's own numbers, said out loud rather than read back from the module.
+  assert.equal(LIFT_PX, 6, 'PICK lifts it 6 px');
+  assert.equal(PULL_SCALE, 1.12, 'PULL: 1 → 1.12');
+  assert.equal(EJECT_MS, 700);
   assert.equal(phaseAt(0), 'shelf');
   assert.equal(phaseAt(60), 'pick');
   assert.equal(phaseAt(300), 'turn');

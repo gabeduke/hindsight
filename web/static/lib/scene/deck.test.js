@@ -28,14 +28,15 @@ test('SEAT: the door shuts in 160 ms, 2 px past shut and back', () => {
   const views = run(m, { door: 'shut', travel: TRAVEL }, SHUT_MS + 20);
   const doors = views.map((v) => v.door);
   const most = Math.max(...doors);
-  assert.ok(Math.abs(most - OVERSHOOT_PX) < 0.05, `it goes ${most.toFixed(3)} px past`);
+  assert.equal(OVERSHOOT_PX, 2, 'the board says 2 px');
+  assert.ok(Math.abs(most - 2) < 0.05, `it goes ${most.toFixed(3)} px past`);
   assert.equal(doors[SHUT_MS - 1], 0, 'and is shut at 160 ms');
   assert.equal(doors.at(-1), 0);
   // The overshoot is 2 px whatever the door's height.
   const tall = new DeckModel();
   tall.step({ door: 'open', travel: 300 }, 0);
   const t = run(tall, { door: 'shut', travel: 300 }, SHUT_MS).map((v) => v.door);
-  assert.ok(Math.abs(Math.max(...t) - OVERSHOOT_PX) < 0.05);
+  assert.ok(Math.abs(Math.max(...t) - 2) < 0.05);
   // And what's in the window settles in from where the flight left it.
   assert.ok(Math.abs(views[0].seat - SEAT_FROM) < 0.01);
   assert.equal(views.at(-1).seat, 1);

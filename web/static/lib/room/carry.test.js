@@ -62,6 +62,18 @@ function rig({ reduced = false } = {}) {
   };
 }
 
+test('the sound starts before the picture changes: the deck is still open when it does', () => {
+  const r = rig();
+  const seen = [];
+  r.carry.put(TAKE.key, {
+    from, to, face: TAKE,
+    onSeat: () => seen.push([r.deck.state.door, r.deck.state.loaded, r.log.includes(`buzz ${BUZZ_MS}`)]),
+  });
+  r.wait(SEAT_AT);
+  assert.deepEqual(seen, [['open', null, false]], 'the sound, then the door, the face and the buzz');
+  assert.equal(r.deck.state.door, 'shut');
+});
+
 test('the sound starts at SEAT with no frame drawn at all', () => {
   const r = rig();
   const sounds = [];
@@ -184,6 +196,17 @@ test('reduced motion: no flight and no buzz; the sound now; the change in one cr
   assert.equal(r.flight(), null);
   assert.equal(r.fades.length, 2);
   assert.equal(r.deck.state.loaded, null);
+});
+
+test('reduced motion switched on in mid-flight: the sound still starts at SEAT, with no buzz', () => {
+  const r = rig();
+  const sounds = [];
+  r.carry.put(TAKE.key, { from, to, face: TAKE, onSeat: () => sounds.push(r.now) });
+  r.wait(300);
+  r.ticker.reduced = true;
+  r.wait(SEAT_AT);
+  assert.deepEqual(sounds, [SEAT_AT]);
+  assert.ok(!r.log.some((l) => l.startsWith('buzz')));
 });
 
 test('reduced motion: a held pick is put in the deck by the same cross-fade', () => {
