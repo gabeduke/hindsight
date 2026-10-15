@@ -4122,3 +4122,19 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
 .rig-desk.rig-over-rope { cursor: pointer; }
 /* A plug in the hand, out of any socket. */
 .rig-plug.loose { stroke: var(--jack-ring-hot); stroke-width: 2.5; }
+
+/* The names the ropes cross. The ropes run over the jacks, so a plug is
+   seen going in; a socket's label and name, a row's title and a device's
+   name are lifted above them, each with a halo of the plate it is printed
+   on, so a rope reads as running behind a name rather than striking
+   through it. Colour, width and dash still say what a cable is. P6 held the
+   gear at z-index 1, as a layer under the ropes' 4: it isn't one any more,
+   or the names could not reach above them. (Dimmed while a socket is
+   chosen, a socket is its own layer and its names are under the ropes.) */
+.rig-devices, .rig-bay { z-index: auto; }
+.rig-dev, .rig-bay { --rig-plate: color-mix(in srgb, var(--gear-black-hi) 50%, var(--gear-black-lo)); }
+.rig-dev.rig-dev-interface { --rig-plate: color-mix(in srgb, var(--gear-grey-hi) 50%, var(--gear-grey-lo)); }
+.rig-sock-label, .rig-sock-name, .rig-row-title, .rig-dev-name, .rig-dev-sub, .rig-dev-note, .rig-tag { position: relative; z-index: 5; }
+.rig-sock-label, .rig-sock-name, .rig-row-title, .rig-dev-name, .rig-dev-sub, .rig-dev-note {
+  text-shadow: 0 0 2px var(--rig-plate), 0 0 3px var(--rig-plate), 0 0 5px var(--rig-plate), 0 0 5px var(--rig-plate);
+}
