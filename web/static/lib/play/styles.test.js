@@ -75,3 +75,26 @@ test('a laptop’s height keeps two lanes in sight while the strip is unfolded',
   assert.match(rules, /\.play-tracks \.play-track \{ min-height: (\d+)px/);
   assert.ok(Number(/\.play-tracks \.play-track \{ min-height: (\d+)px/.exec(rules)[1]) <= 48, 'short track keys');
 });
+
+test('at a laptop’s height the FX and the mods go up beside the tracks, not beside the tricks', () => {
+  // P4's one-row grid (min-width: 1100px) once overrode P3's compact one:
+  // at 1280–1440 wide and under 1000 tall the tricks and the bus were
+  // crushed into one column, ½× and 2× 24 px wide and KEEP under the FX.
+  // So inside P4's laptop-height block the tricks' row spans every column
+  // after the reel, and the FX and the mods sit in the first row. The
+  // browser check measures the pads (the P4 plan, Look).
+  const p4 = block('P4');
+  const at = p4.search(/@media \(min-width: 1100px\) and \(min-height: 441px\) and \(max-height: 1000px\)/);
+  assert.ok(at >= 0, 'P4 has a block for a laptop’s height');
+  let depth = 0, end = p4.indexOf('{', at);
+  for (; end < p4.length; end++) {
+    if (p4[end] === '{') depth++;
+    else if (p4[end] === '}' && --depth === 0) break;
+  }
+  const rules = p4.slice(at, end);
+  assert.match(rules, /\.play-body:has\(> \.play-slot-fx:not\(\[hidden\]\)\) > \.play-side \{ grid-column: 2 \/ -1; grid-row: 2; \}/);
+  assert.match(rules, /\.play-slot-fx:not\(\[hidden\]\) \{ grid-column: 3; grid-row: 1; \}/);
+  assert.match(rules, /\.play-slot-mods:not\(\[hidden\]\) \{ grid-column: 4; grid-row: 1; \}/);
+  // And it comes after the one-row grid, so it wins where both apply.
+  assert.ok(at > p4.search(/@media \(min-width: 1100px\) \{/), 'after the one-row grid');
+});
