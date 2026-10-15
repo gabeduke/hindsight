@@ -74,6 +74,7 @@ type tricks interface {
 	Set(pad string, v float64) error
 	Release(pad string) error
 	TrickEventsSince(seq uint64) ([]tape.TrickEvent, uint64)
+	MovesSince(seq uint64) ([]tape.TrickEvent, uint64)
 	TrickLead() (time.Duration, bool)
 	HeardIn(out uint64) (time.Duration, bool)
 }
@@ -377,6 +378,7 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 	// Events from now on: what sounded before this page came is not news.
 	// Asking from past the end returns none, and where the log is.
 	_, seq := eng.TrickEventsSince(^uint64(0) >> 1)
+	_, moveSeq := eng.MovesSince(^uint64(0) >> 1)
 	if err := write(map[string]any{"t": "hello", "pads": tape.Pads(), "mods": tape.Mods(), "lead_ms": lead, "held": a.playHolds.list()}); err != nil {
 		return
 	}
@@ -398,9 +400,10 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case <-poll.C:
-			var ev []tape.TrickEvent
+			var ev, mv []tape.TrickEvent
 			ev, seq = eng.TrickEventsSince(seq)
-			for _, e := range ev {
+			mv, moveSeq = eng.MovesSince(moveSeq)
+			for _, e := range append(ev, mv...) {
 				msg := map[string]any{"t": "at", "pad": e.Pad, "on": e.On, "pos": e.Pos}
 				if d, ok := eng.HeardIn(e.Out); ok {
 					msg["in_ms"] = d.Milliseconds()

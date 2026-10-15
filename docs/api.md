@@ -1172,6 +1172,9 @@ Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
 - **`at` with `move`** is an amount that moved, from any hand, no more than 30
   times a second a pad; `on` says whether the pad is held (for a mod, whether
   it is being previewed). A press's and release's `at` carries its `v` too.
+  The Pi keeps the moves apart from the presses and releases, so a knob
+  turning never pushes one of those out before a page has seen it; light a
+  pad only from an `at` without `move`.
 
 - **`lead_ms`** is how long a press takes to be heard at best: the blocks
   rendered ahead plus the device's latency. It is null with no output.

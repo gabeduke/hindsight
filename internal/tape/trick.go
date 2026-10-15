@@ -422,7 +422,7 @@ func (e *Engine) logMoves(out uint64, m *Mix) {
 			v := p.modTarget(i-numPads, m)
 			ev.On, ev.V = p.preview[i-numPads].on, &v
 		}
-		e.logEvent(ev)
+		e.moveLog.add(ev)
 	}
 }
 
@@ -1333,34 +1333,47 @@ func (e *Engine) logTrick(pad int, on bool, out uint64, pos int64) {
 }
 
 func (e *Engine) logEvent(ev TrickEvent) {
-	e.trickLog.mu.Lock()
-	e.trickLog.seq++
-	ev.Seq = e.trickLog.seq
-	e.trickLog.ring[e.trickLog.seq%uint64(len(e.trickLog.ring))] = ev
-	e.trickLog.mu.Unlock()
+	e.trickLog.add(ev)
 	e.heldPads.Store(e.perf.heldMask())
 }
 
-// TrickEventsSince is every event after seq still kept, oldest first, and
-// the sequence to ask from next time. A reader that fell more than the
-// log's length behind gets what's left.
-func (e *Engine) TrickEventsSince(seq uint64) ([]TrickEvent, uint64) {
-	e.trickLog.mu.Lock()
-	defer e.trickLog.mu.Unlock()
-	last := e.trickLog.seq
+func (l *trickLog) add(ev TrickEvent) {
+	l.mu.Lock()
+	l.seq++
+	ev.Seq = l.seq
+	l.ring[l.seq%uint64(len(l.ring))] = ev
+	l.mu.Unlock()
+}
+
+// since is every event after seq still kept, oldest first, and the
+// sequence to ask from next time.
+func (l *trickLog) since(seq uint64) ([]TrickEvent, uint64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	last := l.seq
 	if seq >= last {
 		return nil, last
 	}
 	from := seq + 1
-	if n := uint64(len(e.trickLog.ring)); last-seq > n {
+	if n := uint64(len(l.ring)); last-seq > n {
 		from = last - n + 1
 	}
 	out := make([]TrickEvent, 0, last-from+1)
 	for s := from; s <= last; s++ {
-		out = append(out, e.trickLog.ring[s%uint64(len(e.trickLog.ring))])
+		out = append(out, l.ring[s%uint64(len(l.ring))])
 	}
 	return out, last
 }
+
+// TrickEventsSince is every press and release after seq still kept, oldest
+// first, and the sequence to ask from next time. A reader that fell more
+// than the log's length behind gets what's left.
+func (e *Engine) TrickEventsSince(seq uint64) ([]TrickEvent, uint64) { return e.trickLog.since(seq) }
+
+// MovesSince is every amount moved after seq still kept (its own sequence),
+// oldest first: kept apart from the presses and releases, so a knob turning
+// can't push one out before a page has seen it.
+func (e *Engine) MovesSince(seq uint64) ([]TrickEvent, uint64) { return e.moveLog.since(seq) }
 
 // resetTricks forgets everything held, and says so to Live.
 func (e *Engine) resetTricks() {

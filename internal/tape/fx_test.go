@@ -854,7 +854,10 @@ func TestTheLogCarriesAmountsAndThinsTheirMoves(t *testing.T) {
 		}
 	}
 	r.run(4)
-	ev, _ = r.e.TrickEventsSince(seq)
+	if ev, _ := r.e.TrickEventsSince(seq); len(ev) != 0 {
+		t.Fatalf("moves in the presses' and releases' log: %+v", ev)
+	}
+	ev, mseq := r.e.MovesSince(0)
 	if len(ev) != 2 || !ev[0].Move || *ev[0].V != 0.5 || *ev[1].V != 1 || ev[1].Out-ev[0].Out < 1600 {
 		for _, e := range ev {
 			t.Logf("%+v v=%v", e, *e.V)
@@ -863,7 +866,7 @@ func TestTheLogCarriesAmountsAndThinsTheirMoves(t *testing.T) {
 	}
 	_ = r.e.Set("mod.wow", 0.4)
 	r.run(1)
-	ev, _ = r.e.TrickEventsSince(seq + 2)
+	ev, _ = r.e.MovesSince(mseq)
 	if len(ev) != 1 || ev[0].Pad != "mod.wow" || !ev[0].On || *ev[0].V != 0.4 {
 		t.Fatalf("a preview's event: %+v", ev)
 	}
@@ -1022,5 +1025,31 @@ func TestWowOnAFirstPassFromInReadsWhatThePlainTapeDoes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestAmountsMovingDontCrowdOutPressesAndReleases(t *testing.T) {
+	// A page a moment behind still learns of every press and release: a
+	// knob turning for a few seconds is told of on its own, so it can't
+	// push them out of what's kept.
+	r := newRig(t, Loop{})
+	r.playFrom(10000)
+	r.run(1)
+	_, seq := r.e.TrickEventsSince(0)
+	_ = r.e.PressAmount(PadFilter, QuantumNow, 0.5)
+	r.run(1)
+	for i := 0; i < 100; i++ {
+		_ = r.e.Set(PadFilter, float64(i)/100)
+		r.run(2) // a move logged each time: two blocks is more than a thirtieth of a second
+	}
+	_ = r.e.Release(PadFilter)
+	r.run(1)
+	ev, _ := r.e.TrickEventsSince(seq)
+	if len(ev) != 2 || ev[0].Pad != PadFilter || !ev[0].On || ev[1].On {
+		t.Fatalf("after a hundred moves, the press and release log holds %d events: %+v", len(ev), ev)
+	}
+	moves, _ := r.e.MovesSince(0)
+	if len(moves) == 0 || !moves[len(moves)-1].Move || *moves[len(moves)-1].V != 0.99 {
+		t.Fatalf("the moves: %d, the last %+v", len(moves), moves)
 	}
 }

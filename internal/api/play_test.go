@@ -21,6 +21,7 @@ type fakeTricks struct {
 	mu     sync.Mutex
 	calls  []string
 	events []tape.TrickEvent
+	moves  []tape.TrickEvent
 	seq    uint64
 	refuse map[string]error
 }
@@ -72,6 +73,18 @@ func (f *fakeTricks) TrickEventsSince(seq uint64) ([]tape.TrickEvent, uint64) {
 		}
 	}
 	return out, f.seq
+}
+
+func (f *fakeTricks) MovesSince(seq uint64) ([]tape.TrickEvent, uint64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []tape.TrickEvent
+	for _, e := range f.moves {
+		if e.Seq > seq {
+			out = append(out, e)
+		}
+	}
+	return out, uint64(len(f.moves))
 }
 
 func (f *fakeTricks) TrickLead() (time.Duration, bool) { return 212 * time.Millisecond, true }
@@ -301,8 +314,7 @@ func TestPlayTellsThePageAnAmount(t *testing.T) {
 	c, _ := dialPlay(t, url)
 	f.mu.Lock()
 	v := 0.4
-	f.seq++
-	f.events = append(f.events, tape.TrickEvent{Seq: f.seq, Pad: "filter", On: true, Out: 90, V: &v, Move: true})
+	f.moves = append(f.moves, tape.TrickEvent{Seq: uint64(len(f.moves) + 1), Pad: "filter", On: true, Out: 90, V: &v, Move: true})
 	f.mu.Unlock()
 	m := readPlay(t, c)
 	if m.T != "at" || m.Pad != "filter" || m.V == nil || *m.V != 0.4 || !m.Move || m.InMS == nil || *m.InMS != 90 {
