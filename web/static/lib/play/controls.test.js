@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   CONTROLS, HELD, AMOUNT, LATCHED, COMMAND, MODIFIER, control, live, keyTables, keyLabel,
   BUFFER_KEYS, STUDIO_KEYS, TRACK_PADS, TRICK_PADS, VERBS, noteName, bindingLabel, defaultBindings,
-  matches, actionFor, learned, bind, legendFor,
+  matches, actionFor, learned, bind, legendFor, FX_PADS, MODS, FORMULAS, amountText, styleField,
 } from './controls.js';
 import { KEYMAP, COMMANDS } from './keymap.js';
 import { BUFFER_KEYS as BUFFER_TABLE } from '../buffer/keys.js';
@@ -78,11 +78,13 @@ test('the defaults start at note 36 and count up: tracks, tricks, FX, then the v
   assert.equal(control('track1').midi[0].note, 36, 'a copy, not the list itself');
 });
 
-test('the verbs and the click’s M are the rooms’; P4 and the crate pads aren’t live yet', () => {
+test('the verbs and the click’s M are the rooms’; the FX and mods play, the crate pads aren’t live yet', () => {
   assert.equal(live(control('catch'), () => false), false);
   assert.equal(live(control('catch'), rooms), true);
   assert.equal(live(control('break'), () => false), true);
-  for (const id of ['roll', 'filter', 'echo', 'crush', 'bend', 'mod.wow', 'crate.1']) assert.equal(live(control(id), () => true), false, id);
+  for (const id of ['roll', 'filter', 'echo', 'crush', 'bend', 'mod.wow', 'mod.formula']) assert.equal(live(control(id), () => false), true, id);
+  assert.equal(live(control('crate.1'), () => true), false);
+  assert.deepEqual(['KeyT', 'KeyY', 'KeyU', 'KeyI'].map((k) => keyTables(() => false).pads[k]), ['roll', 'filter', 'echo', 'crush']);
   assert.equal(keyTables(() => false).commands.KeyK, undefined, 'K stays the page’s click with the rooms off');
   assert.equal(keyTables(rooms).commands.KeyK, 'keep');
 });
@@ -135,4 +137,28 @@ test('a pad’s legend follows where it’s played from', () => {
   assert.equal(legendFor('track1', 'midi', { bindings: b }), 'C2');
   assert.equal(legendFor('track2', 'midi', { bindings: b }), 'C3');
   assert.equal(legendFor('echo', 'midi', { bindings: b }), '–', 'C3 moved to track 2');
+});
+
+test('the FX pads and the mods are the Pi’s, and the formulas in its order', () => {
+  const go = readFileSync(new URL('../../../../internal/tape/trick.go', import.meta.url), 'utf8');
+  const names = [...go.matchAll(/^\s*Pad\w+\s*=\s*"([^"]+)"/gm)].map((m) => m[1]);
+  for (const id of [...FX_PADS, 'bend']) assert.ok(names.includes(id), `${id} is not a pad on the Pi`);
+  assert.deepEqual(FX_PADS, ['roll', 'filter', 'echo', 'crush']);
+  const style = readFileSync(new URL('../../../../internal/tape/style.go', import.meta.url), 'utf8');
+  assert.deepEqual(MODS, [...style.matchAll(/"(mod\.\w+)"/g)].map((m) => m[1]).slice(0, 4));
+  const order = style.match(/return \[\]string\{(Formula\w+(?:, Formula\w+)*)\}/)[1].split(', ').map((x) => x.replace('Formula', '').toLowerCase());
+  assert.deepEqual(FORMULAS, order, 'program change 0–3 picks these, in this order');
+});
+
+test('an amount reads as what it does', () => {
+  assert.equal(amountText('roll', 0.1), '1/4');
+  assert.equal(amountText('roll', 0.9), '1/32');
+  assert.equal(amountText('filter', 0), '20 kHz');
+  assert.equal(amountText('filter', 1), '200 Hz');
+  assert.equal(amountText('filter', 0.5), '2.0 kHz');
+  assert.equal(amountText('echo', 0.55), 'send 55%');
+  assert.equal(amountText('crush', 1), '4 bits');
+  assert.equal(amountText('bend', -1), '−8.0%');
+  assert.equal(amountText('mod.drive', 0.3), '30');
+  assert.equal(styleField('mod.flutter'), 'flutter');
 });

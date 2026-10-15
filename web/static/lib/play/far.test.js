@@ -34,3 +34,13 @@ test('a (re)connect sets the marks to exactly what’s held', () => {
   assert.deepEqual(f.hello(['stop']), ['stop']);
   assert.equal(f.has('stop'), true);
 });
+
+test('the Pi’s own list puts a mark right: what it says is held lights, what it doesn’t goes dark', () => {
+  const f = new FarPads();
+  assert.deepEqual(f.put('filter', true), ['filter']);
+  assert.deepEqual(f.put('filter', true), [], 'already lit: nothing to change');
+  assert.equal(f.has('filter'), true);
+  assert.deepEqual(f.put('filter', false), ['filter']);
+  assert.deepEqual(f.put('filter', false), []);
+  assert.equal(f.has('filter'), false);
+});

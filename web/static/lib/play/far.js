@@ -33,6 +33,16 @@ export class FarPads {
     return changed;
   }
 
+  /**
+   * put: the Pi's own list (held.js, against live.tricks) says pad is (on)
+   * or isn't held by another hand. Returns the pads changed.
+   */
+  put(pad, on) {
+    if (!!on === this.lit.has(pad)) return [];
+    if (on) this.lit.add(pad); else this.lit.delete(pad);
+    return [pad];
+  }
+
   /** tick applies what's due by `now`; returns [{pad, on}] for what changed. */
   tick(now) {
     const out = [];

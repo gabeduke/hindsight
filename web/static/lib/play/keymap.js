@@ -39,7 +39,8 @@ export function commandForKey(code, has = () => true) {
  * typingInto says the key belongs to a field rather than to the instrument.
  * Without this, naming a take would play the tape. A level fader isn't a
  * field -- its focus mustn't swallow the keys, as on the page
- * (lib/tape/page.js) and in the buffer's keys.
+ * (lib/tape/page.js) and in the buffer's keys. Nor is a knob, but it
+ * keeps the keys that turn it: see knobKeeps.
  */
 export function typingInto(el) {
   if (!el) return false;
@@ -47,6 +48,20 @@ export function typingInto(el) {
   const tag = (el.tagName || '').toLowerCase();
   if (tag === 'textarea' || tag === 'select') return true;
   return tag === 'input' && el.type !== 'range';
+}
+
+// The keys a focused knob turns with (mods.js, knobStep). None of them is a
+// play key.
+const KNOB_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End']);
+
+/**
+ * knobKeeps says a key belongs to a focused knob -- a tape mod's, or the
+ * bend: its arrows turn it, so they must reach it. Every other key is still
+ * the instrument's, as with a level fader: a knob turned mid-jam mustn't
+ * leave the pads deaf until something else is clicked.
+ */
+export function knobKeeps(el, code) {
+  return !!el && typeof el.getAttribute === 'function' && el.getAttribute('role') === 'slider' && KNOB_KEYS.has(code);
 }
 
 // Where ↵ belongs to what has the focus, as the buffer's keys decide it
@@ -85,6 +100,7 @@ export function bindKeyboard(surface, {
   onCommand = () => {},
   owns = () => true,
   has = () => true,
+  onLetGo = () => {},
 } = {}) {
   const held = new Map(); // code → pad, for what this keyboard is holding
   let latched = false;    // the latch is down from a ⇧ here
@@ -104,7 +120,7 @@ export function bindKeyboard(surface, {
   const down = (e) => {
     const enter = e.code === 'Enter' || e.code === 'NumpadEnter';
     if (!enter) byKey = true;
-    if (typingInto(e.target)) return;
+    if (typingInto(e.target) || knobKeeps(e.target, e.code)) return;
     if (!owns()) return;
     if (enter && keepsEnter(e.target, (el) => keyed.has(el))) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return; // ⌘Z is still the page's undo
@@ -135,10 +151,12 @@ export function bindKeyboard(surface, {
       latched = false;
       surface.latch(false, now());
     }
-    if (typingInto(e.target)) return;
+    if (typingInto(e.target) || knobKeeps(e.target, e.code)) return;
     if (owns()) e.stopPropagation();
   };
-  const letGo = () => { held.clear(); latched = false; surface.releaseAll(now()); };
+  // onLetGo: the same cue for what the strip holds outside the surface
+  // (the bend).
+  const letGo = () => { held.clear(); latched = false; surface.releaseAll(now()); onLetGo(); };
   const onHide = () => { if (target.hidden) letGo(); };
 
   target.addEventListener('keydown', down, true);

@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -76,6 +77,9 @@ type API struct {
 	// they hold, and MIDI LEARN (controls.go); controllers lists them.
 	controls    controlBus
 	controllers DeviceLister
+	// playConns names Play mode's connections, as the owners of the tape
+	// mods they preview.
+	playConns atomic.Uint64
 
 	// hub reports the secure address (internal/hub); nil when the hub is off.
 	hub HubStatus

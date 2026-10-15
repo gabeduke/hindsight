@@ -297,6 +297,11 @@ export const TIPS = [
   { control: 'Label it', ids: ['rig-label'], tip: "Name what's plugged into this jack: it shows on the tap and the track's input. A label routes nothing" },
   { control: 'Restart (rig)', ids: ['rig-restart'], tip: 'Restart Hindsight so the dashed amber cables take effect. The ring starts empty, so capture anything you want to keep first' },
   { control: 'Done (rig)', ids: ['rig-done'], tip: 'Close the inspector and let go of the chosen socket' },
+  { control: 'Punch-in FX', ids: ['play-fx'], tip: 'ROLL, FILTER, ECHO, CRUSH: hold, like a trick. Slide your finger up or down on one to move its amount, which every screen shows; a controller\'s velocity, mod wheel and aftertouch move it too. T Y U I' },
+  { control: 'Bend', ids: ['play-bend'], tip: 'Drag left or right to nudge the tape\'s speed, up to 8 % either way; let go and it springs back to the tape. A controller\'s pitch wheel does the same' },
+  { control: 'Formula (tape mods)', ids: ['play-formula'], tip: 'A starting point for the tape\'s sound: each sets WOW, FLUTTER, DRIVE and AGE. Saved with the tape, and ↶ undoes it. Program change 0–3 on a controller' },
+  { control: 'A tape mod\'s knob', ids: ['play-knob'], tip: 'Drag up or down, or use the arrow keys: heard as it moves, saved with the tape when you let go, one step of undo. CC 21–24 on a controller' },
+  { control: 'Tape mods (phone)', ids: ['play-pager'], tip: 'On a phone the tape mods are the instrument\'s second page: swipe across the panel, or tap here' },
 ];
 
 const byId = new Map();

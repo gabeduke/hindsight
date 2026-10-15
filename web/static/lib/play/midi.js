@@ -14,7 +14,11 @@
 // - Web MIDI needs a secure page: the hub's HTTPS address, or localhost;
 // - Safari has none, so on an iPhone or iPad the controller goes into the Pi.
 
-import { actionFor, defaultBindings, control, live, HELD, COMMAND, MODIFIER, learned, bind as bindAll } from './controls.js';
+import {
+  actionFor, defaultBindings, control, live, HELD, AMOUNT, LATCHED, COMMAND, MODIFIER, learned, bind as bindAll, FX_PADS,
+} from './controls.js';
+
+const FX = new Set(FX_PADS);
 
 export const BINDINGS_KEY = 'hindsight.play.midi';
 
@@ -57,9 +61,9 @@ export class Parser {
 
 /**
  * decode reads one message as controls.js matches them:
- * {type: 'on'|'off'|'cc'|'bend'|'program'|'rt', ch (1–16), note, vel, cc,
- * value, rt}, or null for what nothing here plays. A note-on with velocity
- * 0 is a note-off, as MIDI says.
+ * {type: 'on'|'off'|'cc'|'bend'|'program'|'pressure'|'polypressure'|'rt',
+ * ch (1–16), note, vel, cc, value, rt}, or null for what nothing here plays.
+ * A note-on with velocity 0 is a note-off, as MIDI says.
  */
 export function decode([s, d1 = 0, d2 = 0]) {
   if (s === 0xFA || s === 0xFB) return { type: 'rt', rt: 'start' };
@@ -70,6 +74,8 @@ export function decode([s, d1 = 0, d2 = 0]) {
     case 0x80: return { type: 'off', ch, note: d1, vel: d2 };
     case 0xB0: return { type: 'cc', ch, cc: d1, value: d2 };
     case 0xC0: return { type: 'program', ch, value: d1 };
+    case 0xD0: return { type: 'pressure', ch, value: d1 };
+    case 0xA0: return { type: 'polypressure', ch, note: d1, value: d2 };
     case 0xE0: return { type: 'bend', ch, value: (d2 << 7) | d1 };
     default: return null;
   }
@@ -81,10 +87,17 @@ export function decode([s, d1 = 0, d2 = 0]) {
  * function that takes the next note or CC (and nothing else plays it).
  * `onCommand(id, detail)` runs a command. It returns {feed, letGo}: letGo
  * releases what this controller holds, for when it's unplugged.
+ *
+ * The amounts (docs/superpowers/specs/2026-10-15-punch-in-fx-design.md): a
+ * punch-in FX is pressed at its velocity; the mod wheel (an amount CC) and
+ * aftertouch move what it holds (`onAmount(id, v)`); the pitch wheel is the
+ * bend, -1 to 1 (`onBend(v)`); a mod's knob turns it (`onMod(id, v)`), and a
+ * program change picks a formula (`onFormula(n)`).
  */
 export function handler(surface, {
   bindings = () => defaultBindings(), onCommand = () => {}, has = () => true,
   now = () => performance.now(), learning = () => null,
+  onAmount = () => {}, onBend = () => {}, onMod = () => {}, onFormula = () => {},
 } = {}) {
   // What each key or pedal pressed -- a pad, or the latch -- by the message:
   // its own lift lets go of that, whatever the bindings say by then (a
@@ -93,12 +106,23 @@ export function handler(surface, {
   // the last lets go.
   const pressed = new Map();
   const holders = new Map();
+  // The pads let go under this controller's latch: still its own until the
+  // latch lifts, so its wheel and aftertouch still move them.
+  const waiting = new Set();
+  const mine = () => new Set([...holders.keys(), ...waiting]);
   let latched = false;
-  const setLatch = (on) => { if (on !== latched) { latched = on; surface.latch(on, now()); } };
+  let wheel = 0; // where the pitch wheel was last heard: off centre, it bends
+  const setLatch = (on) => {
+    if (on === latched) return;
+    latched = on;
+    if (!on) waiting.clear();
+    surface.latch(on, now());
+  };
   const letGoOf = (id) => {
     const n = (holders.get(id) || 0) - 1;
     if (n > 0) { holders.set(id, n); return; }
     holders.delete(id);
+    if (latched) waiting.add(id);
     surface.release(id, now());
   };
   const keyOf = (m) => (m.type === 'on' || m.type === 'off' ? `n${m.ch}:${m.note}` : m.type === 'cc' ? `c${m.ch}:${m.cc}` : '');
@@ -121,16 +145,45 @@ export function handler(surface, {
     // never a lift: a pedal let up mid-learn must still lift its latch.
     const learn = learning();
     if (learn && (m.type === 'on' || (m.type === 'cc' && m.value >= 64))) { learn(learned(m), m); return; }
-    const hit = actionFor(bindings(), m);
+    const map = bindings();
+    if (m.type === 'pressure' || m.type === 'polypressure') {
+      // Aftertouch: the FX this controller's keys hold -- on one key, the
+      // pad that key pressed, whatever the bindings say by now.
+      const one = m.type === 'polypressure' ? pressed.get(`n${m.ch}:${m.note}`) : null;
+      if (m.type === 'polypressure' && !one) return;
+      for (const id of mine()) if (FX.has(id) && (!one || id === one)) onAmount(id, m.value / 127);
+      return;
+    }
+    const hit = actionFor(map, m);
+    if (!hit && m.type === 'cc') {
+      // A knob bound as a tape mod, or the mod wheel as an FX's amount: an
+      // FX's moves only while this controller holds it, never one another
+      // hand is playing.
+      const amt = actionFor(map, m, { amounts: true });
+      const ac = amt && control(amt.id);
+      if (!ac || !live(ac, has)) return;
+      if (ac.kind === LATCHED) onMod(ac.id, m.value / 127);
+      else if (mine().has(ac.id)) onAmount(ac.id, m.value / 127);
+      return;
+    }
     const c = hit && control(hit.id);
     if (!c || !live(c, has)) return;
+    if (c.kind === AMOUNT && m.type === 'bend') {
+      wheel = m.value > 8192 ? (m.value - 8192) / 8191 : (m.value - 8192) / 8192;
+      onBend(wheel);
+      return;
+    }
+    if (c.kind === LATCHED && m.type === 'program') { onFormula(m.value); return; }
     if (c.kind === MODIFIER) {
       if (down && key) { if (!pressed.has(key)) { pressed.set(key, 'latch'); setLatch(true); } } else setLatch(down);
     } else if (c.kind === HELD) {
       if (down && key && !pressed.has(key)) {
         pressed.set(key, c.id);
+        pressed.set(key, c.id);
         holders.set(c.id, (holders.get(c.id) || 0) + 1);
-        surface.press(c.id, now());
+        waiting.delete(c.id);
+        // A punch-in FX's velocity is its amount.
+        surface.press(c.id, now(), FX.has(c.id) && m.type === 'on' ? m.vel / 127 : undefined);
       }
     } else if (c.kind === COMMAND && down) {
       onCommand(c.id, m.type === 'rt' ? { rt: m.rt } : {});
@@ -144,7 +197,10 @@ export function handler(surface, {
       for (const id of holders.keys()) surface.release(id, t);
       pressed.clear();
       holders.clear();
+      waiting.clear();
       if (latched) { latched = false; surface.latch(false, t); }
+      // A wheel off centre when the port goes springs back, as a key does.
+      if (wheel) { wheel = 0; onBend(0); }
     },
   };
 }
@@ -175,7 +231,9 @@ export function writeBindings(all, store = globalThis.localStorage) {
  * controllers coming and going. `onPorts(names)` hears the inputs there
  * now. Returns {ports, bindings(name), learn(name, fn), close}.
  */
-export function attach(access, surface, { onCommand, has, now, onPorts = () => {}, store = globalThis.localStorage } = {}) {
+export function attach(access, surface, {
+  onCommand, has, now, onPorts = () => {}, store = globalThis.localStorage, onAmount, onBend, onMod, onFormula,
+} = {}) {
   const ports = new Map(); // id → {name, input, h}
   let learner = null;      // {name, fn}
   const bindings = (name) => readBindings(store)[name] || defaultBindings();
@@ -183,7 +241,7 @@ export function attach(access, surface, { onCommand, has, now, onPorts = () => {
     if (ports.has(input.id) || input.state === 'disconnected') return;
     const name = input.name || input.id;
     const h = handler(surface, {
-      bindings: () => bindings(name), onCommand, has, now,
+      bindings: () => bindings(name), onCommand, has, now, onAmount, onBend, onMod, onFormula,
       learning: () => (learner && learner.name === name ? learner.fn : null),
     });
     input.onmidimessage = (e) => h.feed(e.data);

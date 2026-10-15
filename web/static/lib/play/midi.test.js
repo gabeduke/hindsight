@@ -54,11 +54,96 @@ test('the sustain pedal latches, commands run on the press, the rooms’ verbs n
   assert.deepEqual(cmds, [['catch', {}], ['transport', { rt: 'stop' }], ['panic', {}]]);
 });
 
-test('a note for P4’s FX plays nothing yet', () => {
+test('the FX: velocity at the press, the mod wheel and aftertouch while held, the wheel bends', () => {
   const s = new Surface({ bpm: 120, division: 'off' });
-  const h = handler(s, { now: () => 0 });
-  h.feed([0x90, 47, 100]); // B2: FILTER
+  const arms = [];
+  s.on('arm', (d) => arms.push([d.pad, d.v]));
+  const got = [];
+  const h = handler(s, {
+    now: () => 0,
+    onAmount: (id, v) => got.push(['amount', id, v]),
+    onBend: (v) => got.push(['bend', v]),
+    onMod: (id, v) => got.push(['mod', id, v]),
+    onFormula: (n) => got.push(['formula', n]),
+  });
+  h.feed([0xD0, 127]);          // aftertouch with nothing held: nothing
+  h.feed([0x90, 47, 127]);      // B2: FILTER, struck hard
+  h.feed([0x90, 41, 64]);       // F2: REV -- a trick has no amount
+  assert.deepEqual(s.held(), ['filter', 'reverse']);
+  assert.deepEqual(arms, [['filter', 1], ['reverse', undefined]]);
+  h.feed([0xB0, 1, 0]);         // the mod wheel: FILTER's amount
+  h.feed([0xD0, 127]);          // channel aftertouch: the FX it holds
+  h.feed([0xA0, 47, 0]);        // poly aftertouch on FILTER's key
+  h.feed([0xA0, 41, 127]);      // on REV's: no amount to move
+  h.feed([0xE0, 127, 127]);     // the wheel up, then down, then home
+  h.feed([0xE0, 0, 0, 0xE0, 0, 64]);
+  h.feed([0xB0, 23, 127]);      // DRIVE's knob
+  h.feed([0xC0, 3]);            // program 3: WORN
+  assert.deepEqual(got, [
+    ['amount', 'filter', 0], ['amount', 'filter', 1], ['amount', 'filter', 0],
+    ['bend', 1], ['bend', -1], ['bend', 0],
+    ['mod', 'mod.drive', 1], ['formula', 3],
+  ]);
+});
+
+test('an FX follows the key that pressed it through a rebind: its aftertouch, its note-off', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  let map = { filter: [{ note: 47 }] };
+  const got = [];
+  const h = handler(s, { now: () => 0, bindings: () => map, onAmount: (id, v) => got.push([id, v]) });
+  h.feed([0x90, 47, 127]);                         // B2: FILTER
+  map = { echo: [{ note: 47 }], filter: [{ note: 60 }] }; // B2 is ECHO's now
+  h.feed([0xA0, 47, 0]);                           // aftertouch on B2: still FILTER's
+  assert.deepEqual(got, [['filter', 0]]);
+  h.feed([0x80, 47, 0]);                           // and B2 up lets FILTER go
   assert.deepEqual(s.held(), []);
+});
+
+test('an FX two keys hold sounds until the last lets go, and the pedal keeps it; aftertouch moves it all the while', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const map = { filter: [{ note: 47 }, { note: 60 }], latch: [{ cc: 64 }] };
+  const got = [];
+  const h = handler(s, { now: () => 0, bindings: () => map, onAmount: (id, v) => got.push([id, v]) });
+  h.feed([0x90, 47, 127, 0x90, 60, 64]); // B2 and C4: FILTER twice
+  h.feed([0x80, 47, 0]);                 // B2 up: C4 still holds it
+  assert.deepEqual(s.held(), ['filter']);
+  h.feed([0xD0, 0]);                     // aftertouch: FILTER's
+  h.feed([0x80, 60, 0]);                 // C4 up: it lets go
+  assert.deepEqual(s.held(), []);
+  h.feed([0xD0, 127]);                   // nothing held: nothing moves
+  h.feed([0xB0, 64, 127, 0x90, 47, 127, 0x80, 47, 0]); // under the pedal
+  assert.deepEqual(s.held(), ['filter']);
+  h.feed([0xD0, 127]);                   // latched, it still moves
+  h.feed([0xB0, 64, 0]);                 // the pedal's own lift
+  assert.deepEqual(s.held(), []);
+  h.feed([0xD0, 0]);                     // and then it's no one's
+  assert.deepEqual(got, [['filter', 0], ['filter', 1]]);
+});
+
+test('the mod wheel moves FILTER only while this controller holds it, or its pedal keeps it', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const got = [];
+  const h = handler(s, { now: () => 0, onAmount: (id, v) => got.push([id, v]) });
+  s.press('filter', 0);              // a finger on the page holds FILTER
+  h.feed([0xB0, 1, 0]);              // this controller holds nothing: nothing
+  s.release('filter', 0);
+  h.feed([0x90, 47, 127, 0xB0, 1, 127]); // B2: FILTER, and the wheel moves it
+  h.feed([0xB0, 64, 127, 0x80, 47, 0]);  // let go under the pedal
+  h.feed([0xB0, 1, 64]);                 // still its own
+  h.feed([0xB0, 64, 0, 0xB0, 1, 0]);     // the pedal up: no longer
+  assert.deepEqual(got, [['filter', 1], ['filter', 64 / 127]]);
+});
+
+test('unplugged with the wheel off centre, the bend springs back', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const bends = [];
+  const h = handler(s, { now: () => 0, onBend: (v) => bends.push(v) });
+  h.feed([0xE0, 127, 127]); // the wheel up
+  h.letGo();
+  assert.deepEqual(bends, [1, 0]);
+  h.feed([0xE0, 0, 64]);    // home
+  h.letGo();                // nothing to spring back
+  assert.deepEqual(bends, [1, 0, 0]);
 });
 
 test('unplugged with a pad down, it lets go', () => {

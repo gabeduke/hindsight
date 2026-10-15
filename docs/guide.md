@@ -1803,8 +1803,8 @@ drawer above the bar on the tape page, not a screen over it.
   touched but not yet heard, is only ever your own.
 - **Unfolded** (**INSTRUMENT ▴** again): the reel, with the loop as a ring
   round it -- bar ticks, the playhead sweeping in orange, bar.beat in its
-  hub -- the four track keys, the six tricks, and with the two rooms on,
-  CATCH, GRAB, DROP and KEEP. The reel answers the sound, not the touch:
+  hub -- the four track keys, the six tricks, the punch-in FX and the bend,
+  the tape mods, and with the two rooms on, CATCH, GRAB, DROP and KEEP. The reel answers the sound, not the touch:
   REV turns it backwards, STOP winds it down over the beat, ½× and 2×
   change its speed, CHOP rocks it, and BREAK leaves it turning while the
   sound cuts. It remembers whether it was open, on this device.
@@ -1823,7 +1823,7 @@ to editing; a tap on the strip takes them again. MIDI and touch always play.
 | 1 2 3 4 | arm a track | that track drops out, held |
 | Q W E R | — · — · — · ● Rec | BREAK, REV, CHOP, STOP, held |
 | Z X | — | ½×, 2×, held |
-| T Y U I | — | ROLL, FILTER, ECHO, CRUSH (coming) |
+| T Y U I | — | ROLL, FILTER, ECHO, CRUSH, held |
 | C G K ↵ | with the two rooms: CATCH, GRAB, KEEP, DROP | the same |
 | ⇧ held | — | latch: what you let go stays held until ⇧ lifts |
 | Space | play/stop | play/stop |
@@ -1839,9 +1839,13 @@ nothing needs to be open.
 1. Plug it into the Pi and put part of its name in **Settings › MIDI ›
    Plays the tape** (`TAPE_CONTROLLER`), then restart.
 2. Its keys play the pads from note 36 (C2) up: the track keys, the tricks,
-   then CATCH, GRAB, DROP and KEEP on 50–53. A sustain pedal latches; the
-   mod wheel, pitch wheel and CC 21–24 are kept for the FX and tape mods.
-   The SMK-37 starts with its pads on channel 10.
+   then ROLL, FILTER, ECHO and CRUSH on 46–49 (how hard you strike one is
+   its amount), then CATCH, GRAB, DROP and KEEP on 50–53. A sustain pedal
+   latches. The mod wheel and aftertouch move the amount of an FX that
+   controller holds (or its pedal keeps), never another hand's; the pitch
+   wheel bends, CC 21–24 turn WOW, FLUTTER, DRIVE and AGE (saved once a knob
+   is still for a second), and program change 0–3 picks a formula. The
+   SMK-37 starts with its pads on channel 10.
 3. CATCH, GRAB, DROP and KEEP run on the Pi itself: the last pass onto the
    armed track, the last 4 bars into the buffer (open on every Studio within
    a couple of seconds), the buffer onto the armed track's next free span,
@@ -1859,6 +1863,43 @@ it blinks -- then play a key or turn a knob on the controller: that's its
 key now, taken off any other pad. Esc cancels. A controller in the Pi keeps
 what it learned on the Pi, for everyone.
 
+**Punch-in FX and the bend.** Like the K.O.'s punch-in row: held like a
+trick, on the grid, and gone when you let go -- nothing saved, nothing to
+undo.
+
+| FX | Sound | Its amount |
+|---|---|---|
+| ROLL | the slice from where it lands, again and again | the slice: 1/4, 1/8, 1/16 or 1/32 |
+| FILTER | a resonant low-pass; let go, it sweeps back open over a sixteenth | the cutoff, 20 kHz down to 200 Hz |
+| ECHO | a dotted-eighth throw that rings on after you let go | how much goes in |
+| CRUSH | fewer bits and a lower rate | 12 bits down to 4 |
+
+Each pad shows its amount and a meter. A key on a controller sets it by how
+hard you strike it; on screen it starts where you left it, and sliding your
+finger up or down on the held pad moves it. The mod wheel (FILTER) and
+aftertouch move it on the controller holding it. Every screen shows it moving, whoever
+moves it. **BEND**, under them, is a pitch wheel: drag it left or right to
+nudge the tape's speed (up to 8 %), and it springs back to the tape when you
+let go. The click stays dry under all of it. In a mixdown the FX wait: it
+prints the tape and its mods, never what's held, and the strip says so.
+
+**Tape mods.** The tape's own sound, not a gesture: saved with it, undone
+with ↶ like any edit, and printed in a mixdown.
+
+- **A formula** -- CLEAN, CHROME, FERRIC, WORN -- sets all four at once.
+  Move a knob after and it reads *custom*.
+- **WOW** is a slow wobble in pitch, **FLUTTER** a fast one, **DRIVE** tape
+  saturation, **AGE** the top end going dull.
+- **Drag a knob** (or focus it and use the arrows): you hear it as it
+  moves, and it's saved when you let go -- one step of undo, not a hundred.
+- **On a phone** the mods are the instrument's second page: swipe across the
+  panel, or tap *swipe for tape mods*.
+
+DRIVE keeps a tape near −18 dBFS RMS at the level it was, lifts a quieter
+one a little (up to 4 dB at full drive) and squeezes a loud one: at full
+drive, a loop at −6 dBFS RMS comes out about 10 dB quieter. That's
+saturation; turn it down if it's too much. The formulas are a first guess.
+
 **Checks — the strip:**
 
 - [demo] Hold W with the strip unfolded → REV lights dim, then bright, and the
@@ -1867,6 +1908,13 @@ what it learned on the Pi, for everyone.
 - [demo] Tap the lanes → the KEYS lamp goes out, and 2 arms track 2.
 - [rig] Plug the SMK-37 into the Pi, set *Plays the tape*, restart; hit a pad
   → it lights on the laptop and the phone, and the tape does what it says.
+- [demo] Hold Y and slide a finger up FILTER → the top end closes, the meter
+  climbs on every screen; let go → it sweeps open over a sixteenth.
+- [demo] Hold U through a bar and let go → the echo rings on, then dies.
+- [demo] Drag DRIVE up and let go → ↶ undoes it in one step.
+- [rig] With the SMK-37: strike a pad softly and hard (FILTER), sweep the mod
+  wheel, push the pitch wheel, turn CC 21–24, send program change 2 → each
+  does what it says, and the strip shows it.
 
 ## 9. Tips in the app
 
@@ -2168,6 +2216,11 @@ has no tip.
 | Label it | Name what's plugged into this jack: it shows on the tap and the track's input. A label routes nothing |
 | Restart (rig) | Restart Hindsight so the dashed amber cables take effect. The ring starts empty, so capture anything you want to keep first |
 | Done (rig) | Close the inspector and let go of the chosen socket |
+| Punch-in FX | ROLL, FILTER, ECHO, CRUSH: hold, like a trick. Slide your finger up or down on one to move its amount, which every screen shows; a controller's velocity, mod wheel and aftertouch move it too. T Y U I |
+| Bend | Drag left or right to nudge the tape's speed, up to 8 % either way; let go and it springs back to the tape. A controller's pitch wheel does the same |
+| Formula (tape mods) | A starting point for the tape's sound: each sets WOW, FLUTTER, DRIVE and AGE. Saved with the tape, and ↶ undoes it. Program change 0–3 on a controller |
+| A tape mod's knob | Drag up or down, or use the arrow keys: heard as it moves, saved with the tape when you let go, one step of undo. CC 21–24 on a controller |
+| Tape mods (phone) | On a phone the tape mods are the instrument's second page: swipe across the panel, or tap here |
 
 ## 10. When something's off
 

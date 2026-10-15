@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -68,7 +69,7 @@ func TestAControllersNoteBecomesAQuantisedPress(t *testing.T) {
 func TestAControllerIsOneMoreHolder(t *testing.T) {
 	f, url, a, _ := controlsAPI(t, t.TempDir())
 	page, _ := dialPlay(t, url)
-	sendPlay(t, page, map[string]string{"t": "press", "pad": "break", "q": "16th"})
+	sendPlay(t, page, map[string]any{"t": "press", "pad": "break", "q": "16th"})
 	f.waitFor(t, "press break 16th")
 	a.ControlMIDI("Keystation 49", 0x90, 40, 100)
 	a.ControlMIDI("Keystation 49", 0x90, 38, 100) // track 3, its alone
@@ -80,7 +81,7 @@ func TestAControllerIsOneMoreHolder(t *testing.T) {
 	a.ControllerGone("Keystation 49") // unplugged
 	holders(t, a, "break", 1)
 	f.waitFor(t, "press break 16th", "press track3 16th", "release track3")
-	sendPlay(t, page, map[string]string{"t": "release", "pad": "break"})
+	sendPlay(t, page, map[string]any{"t": "release", "pad": "break"})
 	f.waitFor(t, "press break 16th", "press track3 16th", "release track3", "release break")
 }
 
@@ -206,7 +207,7 @@ func TestLearnBindsOnlyFromThatController(t *testing.T) {
 	dir := t.TempDir()
 	f, url, a, _ := controlsAPI(t, dir)
 	c, _ := dialPlay(t, url)
-	sendPlay(t, c, map[string]string{"t": "learn", "action": "stop", "port": "SMK-37"})
+	sendPlay(t, c, map[string]any{"t": "learn", "action": "stop", "port": "SMK-37"})
 	waitLearning(t, a)
 	a.ControlMIDI("Keystation 49", 0x90, 72, 100) // another controller: plays, teaches nothing
 	f.waitFor(t)
@@ -262,7 +263,7 @@ func TestLearnIsRefusedWhenNothingMoves(t *testing.T) {
 	f, url, a, _ := controlsAPI(t, t.TempDir())
 	a.controls.learnWait = 50 * time.Millisecond
 	c, _ := dialPlay(t, url)
-	sendPlay(t, c, map[string]string{"t": "learn", "action": "stop"})
+	sendPlay(t, c, map[string]any{"t": "learn", "action": "stop"})
 	var m struct{ T, Learn, Why string }
 	_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if err := c.ReadJSON(&m); err != nil {
@@ -453,6 +454,200 @@ func controlsBody(t *testing.T, a *API) string {
 	return string(b)
 }
 
+// The punch-in FX from a controller: velocity is the amount at the press,
+// the mod wheel and aftertouch move it while held, and the pitch wheel is
+// the bend -- pressed as it leaves the centre, let go as it comes back.
+func TestAControllerPlaysTheFXWithItsAmounts(t *testing.T) {
+	f, _, a, _ := controlsAPI(t, t.TempDir())
+	const port = "Keystation 49"
+	a.ControlMIDI(port, 0xD0, 127, 0)   // aftertouch with nothing held: nothing
+	a.ControlMIDI(port, 0x90, 47, 127)  // FILTER at full velocity
+	a.ControlMIDI(port, 0xB0, 1, 0)     // the mod wheel opens it
+	a.ControlMIDI(port, 0xD0, 127, 0)   // channel aftertouch: what it holds
+	a.ControlMIDI(port, 0xA0, 47, 0)    // poly aftertouch on FILTER's key
+	a.ControlMIDI(port, 0xA0, 48, 127)  // and on a key it isn't holding: nothing
+	a.ControlMIDI(port, 0x80, 47, 0)    // let go
+	a.ControlMIDI(port, 0xE0, 127, 127) // the wheel up
+	a.ControlMIDI(port, 0xE0, 0, 0)     // down
+	a.ControlMIDI(port, 0xE0, 0, 64)    // back to the centre
+	f.waitFor(t, "press filter 16th 1", "set filter 0", "set filter 1", "set filter 0",
+		"release filter", "press bend now 1", "set bend -1", "release bend")
+	if held := a.heldBy(port); len(held) != 0 {
+		t.Fatalf("still held: %v", held)
+	}
+}
+
+// An FX keeps the note that pressed it through a rebind: that key's
+// aftertouch still moves FILTER, and its note-off lets FILTER go, though the
+// bindings give the key to ECHO by then.
+func TestAnFXFollowsTheNoteThatPressedItThroughARebind(t *testing.T) {
+	f, _, a, r := controlsAPI(t, t.TempDir())
+	const port = "Keystation 49"
+	a.ControlMIDI(port, 0x90, 47, 127) // FILTER at full velocity
+	f.waitFor(t, "press filter 16th 1")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/tapes/controls",
+		strings.NewReader(`{"controllers":{"Keystation 49":{"echo":[{"note":47}],"filter":[{"note":60}]}}}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT: %d %s", rec.Code, rec.Body)
+	}
+	a.ControlMIDI(port, 0xA0, 47, 0) // aftertouch on that key: still FILTER's
+	a.ControlMIDI(port, 0x80, 47, 0) // and its note-off lets FILTER go
+	f.waitFor(t, "press filter 16th 1", "set filter 0", "release filter")
+	if held := a.heldBy(port); len(held) != 0 {
+		t.Fatalf("still held: %v", held)
+	}
+}
+
+// An FX keeps P3's per-key bookkeeping: bound to two keys it sounds until
+// the last lets go, its velocity from the key that pressed it first, and
+// aftertouch moves it all the while; under the pedal it waits for the
+// pedal's own lift. The wheel's bend, let go and bent again, presses again.
+func TestAnFXHeldByTwoKeysOrThePedalLetsGoOnlyByTheRightRelease(t *testing.T) {
+	f, _, a, r := controlsAPI(t, t.TempDir())
+	const port = "Keystation 49"
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/tapes/controls",
+		strings.NewReader(`{"controllers":{"Keystation 49":{"filter":[{"note":47},{"note":60}],"latch":[{"cc":64}],"bend":[{"bend":true}]}}}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT: %d %s", rec.Code, rec.Body)
+	}
+	a.ControlMIDI(port, 0x90, 47, 127) // B2: FILTER
+	a.ControlMIDI(port, 0x90, 60, 64)  // C4: FILTER too
+	a.ControlMIDI(port, 0x80, 47, 0)   // B2 up: C4 still holds it
+	a.ControlMIDI(port, 0xD0, 0, 0)    // aftertouch: still FILTER's
+	a.ControlMIDI(port, 0x80, 60, 0)   // C4 up: now it lets go
+	f.waitFor(t, "press filter 16th 1", "set filter 0", "release filter")
+
+	a.ControlMIDI(port, 0xB0, 64, 127) // the pedal down
+	a.ControlMIDI(port, 0x90, 47, 127) // FILTER
+	a.ControlMIDI(port, 0x80, 47, 0)   // up, under the pedal: it waits
+	a.ControlMIDI(port, 0xD0, 127, 0)  // and aftertouch still moves it
+	time.Sleep(30 * time.Millisecond)
+	f.waitFor(t, "press filter 16th 1", "set filter 0", "release filter", "press filter 16th 1", "set filter 1")
+	a.ControlMIDI(port, 0xB0, 64, 0) // the pedal's own lift lets it go
+	f.waitFor(t, "press filter 16th 1", "set filter 0", "release filter", "press filter 16th 1", "set filter 1", "release filter")
+
+	a.ControlMIDI(port, 0xE0, 127, 127) // the wheel up
+	a.ControlMIDI(port, 0xE0, 0, 64)    // home
+	a.ControlMIDI(port, 0xE0, 127, 127) // and up again: a new press
+	a.ControlMIDI(port, 0xE0, 0, 64)
+	f.waitFor(t, "press filter 16th 1", "set filter 0", "release filter", "press filter 16th 1", "set filter 1", "release filter",
+		"press bend now 1", "release bend", "press bend now 1", "release bend")
+	if held := a.heldBy(port); len(held) != 0 {
+		t.Fatalf("still held: %v", held)
+	}
+}
+
+// A controller's mod wheel and aftertouch move the FX that controller
+// holds, latched ones included -- never one another hand is playing.
+func TestAControllersAmountsMoveOnlyTheFXItHolds(t *testing.T) {
+	f, _, a, _ := controlsAPI(t, t.TempDir())
+	const port, other = "Keystation 49", "Other"
+	a.ControlMIDI(other, 0x90, 47, 127) // another controller holds FILTER
+	f.waitFor(t, "press filter 16th 1")
+	a.ControlMIDI(port, 0xB0, 1, 0)    // this one's mod wheel, holding nothing
+	a.ControlMIDI(port, 0xD0, 127, 0)  // and its aftertouch: nothing
+	a.ControlMIDI(other, 0xB0, 1, 127) // the one holding it moves it
+	f.waitFor(t, "press filter 16th 1", "set filter 1")
+	a.ControlMIDI(other, 0x80, 47, 0)
+	f.waitFor(t, "press filter 16th 1", "set filter 1", "release filter")
+
+	a.ControlMIDI(port, 0xB0, 64, 127) // the pedal down
+	a.ControlMIDI(port, 0x90, 48, 127) // ECHO, let go under it
+	a.ControlMIDI(port, 0x80, 48, 0)
+	a.ControlMIDI(port, 0xB0, 1, 0) // the wheel is FILTER's, which this one doesn't hold
+	time.Sleep(30 * time.Millisecond)
+	a.ControlMIDI(port, 0xD0, 127, 0) // aftertouch moves the latched ECHO
+	f.waitFor(t, "press filter 16th 1", "set filter 1", "release filter", "press echo 16th 1", "set echo 1")
+	a.ControlMIDI(port, 0xB0, 64, 0)
+}
+
+// logLines collects what the package logs, for counting.
+type logLines struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *logLines) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *logLines) count(sub string) int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return strings.Count(l.b.String(), sub)
+}
+
+// A pitch wheel in a mixdown: every message asks again, and is refused
+// again, but the log says so once -- not a hundred lines a second -- and
+// once more for the next refusal after one that went through.
+func TestARefusedBendIsLoggedOncePerRefusal(t *testing.T) {
+	f, _, a, _ := controlsAPI(t, t.TempDir())
+	var lines logLines
+	log.SetOutput(&lines)
+	defer log.SetOutput(os.Stderr)
+	f.mu.Lock()
+	f.refuse = map[string]error{"bend": tape.ErrMixingDown}
+	f.mu.Unlock()
+	const port = "Keystation 49"
+	for i := 0; i < 100; i++ {
+		a.ControlMIDI(port, 0xE0, 0, byte(70+i%50)) // the wheel moving, off centre
+	}
+	if n := lines.count("bend refused"); n != 1 {
+		t.Fatalf("logged %d times, want once:\n%s", n, lines.b.String())
+	}
+	f.mu.Lock()
+	f.refuse = nil
+	f.mu.Unlock()
+	a.ControlMIDI(port, 0xE0, 0, 100) // the mixdown over: it bends
+	a.ControlMIDI(port, 0xE0, 0, 64)  // and back
+	f.mu.Lock()
+	f.refuse = map[string]error{"bend": tape.ErrMixingDown}
+	f.mu.Unlock()
+	for i := 0; i < 10; i++ {
+		a.ControlMIDI(port, 0xE0, 0, 100)
+	}
+	if n := lines.count("bend refused"); n != 2 {
+		t.Fatalf("logged %d times, want twice:\n%s", n, lines.b.String())
+	}
+}
+
+// The tape mods from a controller: CC 21–24 preview as the knob turns and
+// save once it's still; a program change picks a formula.
+func TestAControllersKnobsAndProgramsSetTheTapesMods(t *testing.T) {
+	_, _, a, _ := controlsAPI(t, t.TempDir())
+	tp, err := a.tape.Store().Create("knobs", 0, 0, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.tape.Load(tp.ID); err != nil {
+		t.Fatal(err)
+	}
+	a.controls.knobQuiet = 30 * time.Millisecond
+	const port = "Keystation 49"
+	for _, v := range []byte{20, 60, 127} {
+		a.ControlMIDI(port, 0xB0, 23, v) // DRIVE
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for s := a.tape.Loaded().Style; s == nil || s.Drive != 1; s = a.tape.Loaded().Style {
+		if time.Now().After(deadline) {
+			t.Fatalf("the knob was never saved: %+v", s)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	a.ControlMIDI(port, 0xC0, 2, 0) // program 2: FERRIC
+	if s := a.tape.Loaded().Style; s.Formula != tape.FormulaFerric || s.Drive != 0.3 {
+		t.Fatalf("after program 2: %+v", s)
+	}
+	a.ControlMIDI(port, 0xC0, 9, 0) // no formula of that number: nothing
+	if s := a.tape.Loaded().Style; s.Formula != tape.FormulaFerric {
+		t.Fatalf("after program 9: %+v", s)
+	}
+}
+
 // A note-off lets go of the pad its note-on pressed, whatever the bindings
 // say by then: a PUT that moves BREAK, or a learn whose teaching note-off
 // would otherwise let the old pad go early.
@@ -473,7 +668,7 @@ func TestANoteOffLetsGoOfWhatItsNoteOnPressed(t *testing.T) {
 	a.ControlMIDI(p, 0x90, 43, 100) // G2 holds STOP
 	f.waitFor(t, "press break 16th", "release break", "press stop 16th")
 	c, _ := dialPlay(t, url)
-	sendPlay(t, c, map[string]string{"t": "learn", "action": "stop", "port": p})
+	sendPlay(t, c, map[string]any{"t": "learn", "action": "stop", "port": p})
 	waitLearning(t, a)
 	a.ControlMIDI(p, 0x90, 72, 100) // C5 teaches STOP
 	a.ControlMIDI(p, 0x80, 72, 0)   // its note-off: nothing
@@ -568,7 +763,7 @@ func TestAPedalLiftedWhileLearningLiftsTheLatch(t *testing.T) {
 	a.ControlMIDI(p, 0x80, 41, 0)
 	f.waitFor(t, "press reverse 16th")
 	c, _ := dialPlay(t, url)
-	sendPlay(t, c, map[string]string{"t": "learn", "action": "stop", "port": p})
+	sendPlay(t, c, map[string]any{"t": "learn", "action": "stop", "port": p})
 	waitLearning(t, a)
 	a.ControlMIDI(p, 0xB0, 64, 0) // the pedal up: the latch lifts, nothing learned
 	f.waitFor(t, "press reverse 16th", "release reverse")

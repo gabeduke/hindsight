@@ -10,14 +10,17 @@ import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
 
-function p3Block() {
-  const start = css.indexOf('/* ---------- Rooms P3:');
-  assert.ok(start >= 0, 'the Rooms P3 block');
+function block(name) {
+  const start = css.indexOf(`/* ---------- Rooms ${name}:`);
+  assert.ok(start >= 0, `the Rooms ${name} block`);
   const next = css.slice(start + 1).search(/\/\* -{4,} /);
   return css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
 }
+// P3's strip, and P4's FX and mods drawn into it.
+const blocks = () => block('P3') + block('P4');
+const p3Block = blocks;
 
-test('every rule in the strip’s block hangs off a play- class', () => {
+test('every rule in the strip’s blocks (P3, P4) hangs off a play- class', () => {
   const loose = [];
   for (const m of p3Block().matchAll(/([^{}]+)\{/g)) {
     if (m[1].trim().startsWith('@')) continue;
@@ -71,4 +74,27 @@ test('a laptop’s height keeps two lanes in sight while the strip is unfolded',
   assert.match(rules, /body\.play-unfolded \.studio-feed > \.viz-wrap \{ display: none; \}/);
   assert.match(rules, /\.play-tracks \.play-track \{ min-height: (\d+)px/);
   assert.ok(Number(/\.play-tracks \.play-track \{ min-height: (\d+)px/.exec(rules)[1]) <= 48, 'short track keys');
+});
+
+test('at a laptop’s height the FX and the mods go up beside the tracks, not beside the tricks', () => {
+  // P4's one-row grid (min-width: 1100px) once overrode P3's compact one:
+  // at 1280–1440 wide and under 1000 tall the tricks and the bus were
+  // crushed into one column, ½× and 2× 24 px wide and KEEP under the FX.
+  // So inside P4's laptop-height block the tricks' row spans every column
+  // after the reel, and the FX and the mods sit in the first row. The
+  // browser check measures the pads (the P4 plan, Look).
+  const p4 = block('P4');
+  const at = p4.search(/@media \(min-width: 1100px\) and \(min-height: 441px\) and \(max-height: 1000px\)/);
+  assert.ok(at >= 0, 'P4 has a block for a laptop’s height');
+  let depth = 0, end = p4.indexOf('{', at);
+  for (; end < p4.length; end++) {
+    if (p4[end] === '{') depth++;
+    else if (p4[end] === '}' && --depth === 0) break;
+  }
+  const rules = p4.slice(at, end);
+  assert.match(rules, /\.play-body:has\(> \.play-slot-fx:not\(\[hidden\]\)\) > \.play-side \{ grid-column: 2 \/ -1; grid-row: 2; \}/);
+  assert.match(rules, /\.play-slot-fx:not\(\[hidden\]\) \{ grid-column: 3; grid-row: 1; \}/);
+  assert.match(rules, /\.play-slot-mods:not\(\[hidden\]\) \{ grid-column: 4; grid-row: 1; \}/);
+  // And it comes after the one-row grid, so it wins where both apply.
+  assert.ok(at > p4.search(/@media \(min-width: 1100px\) \{/), 'after the one-row grid');
 });

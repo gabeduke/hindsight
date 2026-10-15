@@ -383,6 +383,17 @@ export function mountStrip(root, surface, {
     },
     /** slot is the place P4's FX ('fx') or tape mods ('mods') draw into. */
     slot(name) { return slots[name] || null; },
+    /**
+     * addPad draws one more pad into `parent`, wired as the strip's own are:
+     * played by touch, lit by the surface and by other hands, its legend
+     * drawn, picked by MIDI LEARN. P4's FX are drawn with it.
+     */
+    addPad(parent, id, cls) {
+      const b = pad(parent, id, cls);
+      legends();
+      paint(id);
+      return b;
+    },
     destroy() {
       for (const off of unbinds) off();
       root.replaceChildren();

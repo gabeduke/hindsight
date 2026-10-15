@@ -23,9 +23,9 @@
 // `needs: 'rooms'` is an action that belongs to the two rooms (their verbs
 // and the click's new key): without hindsight.rooms on this device it has
 // no key and no pad, so a kit with only Play mode on keeps today's keys.
-// `soon` is an action whose sound or data isn't built yet (P4's FX and mods,
-// the crate's pads): listed so the table is whole and the keys are taken,
-// but nothing plays it until it lands.
+// `soon` is an action whose sound or data isn't built yet (the crate's
+// pads): listed so the table is whole and the keys are taken, but nothing
+// plays it until it lands.
 //
 // MIDI defaults put middle C (60) at C4. Note 36 counting up is also what an
 // unknown controller starts with on the Pi.
@@ -53,18 +53,19 @@ export const CONTROLS = [
   { id: 'stop', kind: HELD, group: 'tricks', face: 'STOP', play: ['KeyR'], midi: [note(43)], what: 'Winds down over a beat' },
   { id: 'half', kind: HELD, group: 'tricks', face: '½×', play: ['KeyZ'], midi: [note(44)], what: 'Half speed' },
   { id: 'double', kind: HELD, group: 'tricks', face: '2×', play: ['KeyX'], midi: [note(45)], what: 'Double speed' },
-  // The punch-in FX (P4): held, an amount read at the press.
-  { id: 'roll', kind: HELD, group: 'fx', face: 'ROLL', play: ['KeyT'], midi: [note(46)], soon: 'P4', what: 'Beat repeat' },
-  { id: 'filter', kind: HELD, group: 'fx', face: 'FILTER', play: ['KeyY'], midi: [note(47), cc(1, 'amount')], soon: 'P4', what: 'Low-pass; the mod wheel sweeps it' },
-  { id: 'echo', kind: HELD, group: 'fx', face: 'ECHO', play: ['KeyU'], midi: [note(48)], soon: 'P4', what: 'A delay throw that rings out' },
-  { id: 'crush', kind: HELD, group: 'fx', face: 'CRUSH', play: ['KeyI'], midi: [note(49)], soon: 'P4', what: 'Fewer bits' },
-  { id: 'bend', kind: AMOUNT, group: 'fx', face: 'BEND', play: [], midi: [{ bend: true }], soon: 'P4', what: 'A varispeed nudge that springs back' },
-  // The tape mods (P4): latched, saved with the tape, through undo.
-  { id: 'mod.wow', kind: LATCHED, group: 'mods', face: 'WOW', play: [], midi: [cc(21, 'amount')], soon: 'P4', what: 'Slow pitch drift' },
-  { id: 'mod.flutter', kind: LATCHED, group: 'mods', face: 'FLUTTER', play: [], midi: [cc(22, 'amount')], soon: 'P4', what: 'Fast pitch wobble' },
-  { id: 'mod.drive', kind: LATCHED, group: 'mods', face: 'DRIVE', play: [], midi: [cc(23, 'amount')], soon: 'P4', what: 'Tape saturation' },
-  { id: 'mod.age', kind: LATCHED, group: 'mods', face: 'AGE', play: [], midi: [cc(24, 'amount')], soon: 'P4', what: 'Worn highs' },
-  { id: 'mod.formula', kind: LATCHED, group: 'mods', face: 'FORMULA', play: [], midi: [{ program: true }], soon: 'P4', what: 'Which tape it is' },
+  // The punch-in FX: held, an amount read at the press (a velocity) and
+  // moved while held (the mod wheel, aftertouch, a finger sliding on it).
+  { id: 'roll', kind: HELD, group: 'fx', face: 'ROLL', play: ['KeyT'], midi: [note(46)], what: 'Beat repeat' },
+  { id: 'filter', kind: HELD, group: 'fx', face: 'FILTER', play: ['KeyY'], midi: [note(47), cc(1, 'amount')], what: 'Low-pass; the mod wheel sweeps it' },
+  { id: 'echo', kind: HELD, group: 'fx', face: 'ECHO', play: ['KeyU'], midi: [note(48)], what: 'A delay throw that rings out' },
+  { id: 'crush', kind: HELD, group: 'fx', face: 'CRUSH', play: ['KeyI'], midi: [note(49)], what: 'Fewer bits' },
+  { id: 'bend', kind: AMOUNT, group: 'fx', face: 'BEND', play: [], midi: [{ bend: true }], what: 'A varispeed nudge that springs back' },
+  // The tape mods: latched, saved with the tape, through undo.
+  { id: 'mod.wow', kind: LATCHED, group: 'mods', face: 'WOW', play: [], midi: [cc(21, 'amount')], what: 'Slow pitch drift' },
+  { id: 'mod.flutter', kind: LATCHED, group: 'mods', face: 'FLUTTER', play: [], midi: [cc(22, 'amount')], what: 'Fast pitch wobble' },
+  { id: 'mod.drive', kind: LATCHED, group: 'mods', face: 'DRIVE', play: [], midi: [cc(23, 'amount')], what: 'Tape saturation' },
+  { id: 'mod.age', kind: LATCHED, group: 'mods', face: 'AGE', play: [], midi: [cc(24, 'amount')], what: 'Worn highs' },
+  { id: 'mod.formula', kind: LATCHED, group: 'mods', face: 'FORMULA', play: [], midi: [{ program: true }], what: 'Which tape it is' },
   // The bus's own.
   { id: 'latch', kind: MODIFIER, group: 'bus', face: 'LATCH', play: ['ShiftLeft', 'ShiftRight'], midi: [cc(64)], what: 'What is held stays held until it lifts' },
   { id: 'transport', kind: COMMAND, group: 'bus', face: '▶', play: ['Space'], midi: [{ rt: 'start' }, { rt: 'stop' }], what: 'Play or stop the tape' },
@@ -100,10 +101,42 @@ const BY_ID = new Map(CONTROLS.map((c) => [c.id, c]));
 /** control is the action with this id, or undefined. */
 export const control = (id) => BY_ID.get(id);
 
-/** The ids of the pads the strip draws today, in order. */
+/** The ids of the pads the strip draws, in order. */
 export const TRACK_PADS = CONTROLS.filter((c) => c.group === 'tracks').map((c) => c.id);
 export const TRICK_PADS = CONTROLS.filter((c) => c.group === 'tricks').map((c) => c.id);
+export const FX_PADS = CONTROLS.filter((c) => c.group === 'fx' && c.kind === HELD).map((c) => c.id);
 export const VERBS = CONTROLS.filter((c) => c.group === 'verbs').map((c) => c.id);
+/** MODS are the tape mods' knobs, as the Pi previews them (mod.wow …). */
+export const MODS = CONTROLS.filter((c) => c.group === 'mods' && c.id !== 'mod.formula').map((c) => c.id);
+
+/**
+ * FORMULAS are the tape's starting points, by name and in program-change
+ * order (0–3): choosing one sets the four mods (internal/tape/style.go).
+ */
+export const FORMULAS = ['clean', 'chrome', 'ferric', 'worn'];
+
+/** styleField is a mod's field in the tape's style: mod.wow is wow. */
+export const styleField = (mod) => mod.replace(/^mod\./, '');
+
+/**
+ * amountText is how an amount reads on its pad or knob: ROLL's slice,
+ * FILTER's cutoff, ECHO's send, CRUSH's bits, the bend's speed, a mod's
+ * percent. The mappings are the Pi's (internal/tape/fx.go, trick.go).
+ */
+export function amountText(id, v) {
+  if (!Number.isFinite(v)) return '';
+  switch (id) {
+    case 'roll': return v < 0.25 ? '1/4' : v < 0.5 ? '1/8' : v < 0.75 ? '1/16' : '1/32';
+    case 'filter': {
+      const hz = 20000 * 0.01 ** v;
+      return hz >= 1000 ? `${(hz / 1000).toFixed(hz >= 9950 ? 0 : 1)} kHz` : `${Math.round(hz / 10) * 10} Hz`;
+    }
+    case 'echo': return `send ${Math.round(v * 100)}%`;
+    case 'crush': return `${Math.round(12 - 8 * v)} bits`;
+    case 'bend': return v === 0 ? '±0%' : `${v > 0 ? '+' : '−'}${(Math.abs(v) * 8).toFixed(1)}%`;
+    default: return `${Math.round(v * 100)}`;
+  }
+}
 
 /**
  * live says an action can be played on this device now: built (not `soon`),

@@ -40,7 +40,9 @@ export const DIVISIONS = {
 /**
  * Surface holds the pads and the grid. It emits four events:
  *
- *   arm   {pad, at, fireAt}  -- touched; the UI should show it pending
+ *   arm   {pad, at, fireAt, v} -- touched; the UI should show it pending
+ *                              (v: a punch-in FX's amount at the press, if
+ *                              the hand gave one -- a velocity)
  *   let   {pad, at, endAt}   -- let go; it ends on endAt
  *   fire  {pad, at}          -- the gesture starts now, on the grid
  *   end   {pad, at}          -- the gesture stops now, on the grid
@@ -117,8 +119,11 @@ export class Surface {
 
   state(pad) { return this.pads.get(pad)?.state ?? IDLE; }
 
-  /** A pad being pressed. Idempotent: holding a key that repeats is one press. */
-  press(pad, at) {
+  /**
+   * A pad being pressed, with an amount `v` if the hand has one (a key's
+   * velocity). Idempotent: holding a key that repeats is one press.
+   */
+  press(pad, at, v) {
     const cur = this.pads.get(pad);
     // Pressed again while the latch keeps it: the hand holds it now, so the
     // latch lifting must not let it go.
@@ -126,7 +131,7 @@ export class Surface {
     if (cur && cur.state !== IDLE) return;
     const fireAt = this.nextGrid(at + this.lead);
     this.pads.set(pad, { state: ARMED, fireAt, endAt: null });
-    this.emit('arm', { pad, at, fireAt });
+    this.emit('arm', Number.isFinite(v) ? { pad, at, fireAt, v } : { pad, at, fireAt });
     // With quantise off there is nothing to wait for, so it starts here and
     // the caller gets `fire` without having to tick first.
     if (fireAt <= at) this.start(pad, at);

@@ -46,7 +46,7 @@ internet.
 | `GET /api/tapes` | The tapes, newest change first, and which is loaded |
 | `POST /api/tapes` | A new, empty tape |
 | `GET /api/tapes/state?id=` | One tape, with the transport and catch state when it's the loaded one |
-| `PATCH /api/tapes?id=` | Name, tempo, bars, loop, a track's mix, a clip's level or nudge, or remove a clip |
+| `PATCH /api/tapes?id=` | Name, tempo, bars, loop, a track's mix, a clip's level or nudge, remove a clip, or the tape's mods |
 | `DELETE /api/tapes?id=` | Delete a tape that isn't loaded, and free the audio only it used |
 | `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
 | `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
@@ -1179,10 +1179,26 @@ All of it is one change: if any field is refused, none is made.
 | `loop: {in?, out?, on?}` | The loop, in tape frames |
 | `track: {n, name?, bus?, gain_db?, pan?, mute?, solo?}` | A track's mix: bus `A` or `B`, gain −60..12 dB, pan −1..1 |
 | `clip: {id, gain_db?, nudge_ms?, fade_in?, fade_out?, fade_in_shape?, fade_out_shape?, remove?, tile?}` | A clip's level (−60..12 dB), its nudge (±500 ms), its fades in frames (0 for none, or 3 ms to its length) and their curves (`""` equal power, `"linear"`, `"s"`, `"exp"`; 400 for another), take it off, or `tile`: copies end to end to the loop's end wherever its layer is free (400 if there's no room) |
+| `style: {formula?, wow?, flutter?, drive?, age?}` | The tape's mods, each 0 to 1 (400 outside). A `formula` (`clean`, `chrome`, `ferric`, `worn`) sets all four first; an amount moved off its formula's makes it `custom`. The state's `tape.style`, absent on a tape that never had one (clean) |
 
 Each PATCH is one undo step. Changes to the same track's level or pan, or the
-same clip's level or nudge, within 2 s of each other are one step, so a
-dragged slider undoes in one go.
+same clip's level or nudge, or the same tape mod, within 2 s of each other are
+one step, so a dragged slider undoes in one go. A page dragging a mod
+previews it over the play socket (`set`, below) and sends one PATCH when the
+finger lifts.
+
+The mods are heard on the tape's own sound, and printed in a mixdown: WOW
+(a 0.8 Hz wobble of the read head, ±0.5 % in pitch at full) and FLUTTER (about
+8 Hz, ±0.1 %, wandering), DRIVE (soft saturation, `tanh`, made up so a tape at
+−18 dBFS RMS comes out as loud as it went in) and AGE (the top end falling
+from 20 kHz to about 4 kHz).
+
+DRIVE changes a tape's level by how loud the tape is. At full drive, quieter
+than the reference is lifted up to 4 dB, and **a loud loop comes out
+noticeably quieter: about 10 dB down at −6 dBFS RMS** (2 dB down at WORN's
+0.4). That is saturation squeezing it; whether it's right is for the ear on
+the rig, and the reference level can move.
+At 0 each is the tape untouched, sample for sample.
 
 ### `DELETE /api/tapes?id=`, `POST /api/tapes/load?id=`, `POST /api/tapes/clone?id=`
 
@@ -1210,12 +1226,40 @@ a release the moment it's let go. The Pi quantises both on its render head, so
 a phone's Wi-Fi delay lands on the grid rather than late.
 
 Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
-`chop`, `half`, `double`. Quanta: `16th`, `8th`, `beat`, `bar`, or `now`/`off`.
+`chop`, `half`, `double`, and the punch-in FX `roll`, `filter`, `echo`,
+`crush` and `bend`. Quanta: `16th`, `8th`, `beat`, `bar`, or `now`/`off`.
 
 | Direction | Message |
 |---|---|
-| page → Pi | `{"t":"press","pad":"stop","q":"16th"}` · `{"t":"release","pad":"stop"}` · `{"t":"release_all"}` |
-| Pi → page | `{"t":"hello","pads":[…],"lead_ms":212}` · `{"t":"lead","ms":212}` · `{"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}` · `{"t":"refused","pad":"stop","why":"…"}` |
+| page → Pi | `{"t":"press","pad":"stop","q":"16th"}` · `{"t":"press","pad":"filter","q":"16th","v":0.8}` · `{"t":"set","pad":"filter","v":0.4}` · `{"t":"release","pad":"stop"}` · `{"t":"release_all"}` |
+| Pi → page | `{"t":"hello","pads":[…],"mods":[…],"lead_ms":212}` · `{"t":"lead","ms":212}` · `{"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}` · `{"t":"at","pad":"filter","v":0.4,"move":true,"in_ms":…,"pos":…}` · `{"t":"refused","pad":"stop","why":"…"}` |
+
+- **Amounts.** A punch-in FX's press carries `v`, 0 to 1 (a velocity; 0.5
+  without one), and a `set` moves it while held (aftertouch, the mod wheel),
+  from the next block rendered, unquantised and smoothed over about 10 ms.
+  What the amount does:
+
+  | Pad | Sound | `v` is |
+  |---|---|---|
+  | `roll` | Beat repeat: the slice from the grid line it lands on, again and again | The slice: under .25 a quarter note, under .5 an eighth, under .75 a sixteenth, otherwise a thirty-second. A `set` changes it from the next repeat |
+  | `filter` | Resonant low-pass; let go, it sweeps back open over a sixteenth | The cutoff, 20 kHz down to 200 Hz |
+  | `echo` | A throw at 3/16 of a bar, 0.55 feedback; what plays while held is sent, and it rings out to −60 dB when let go | The send |
+  | `crush` | Fewer bits and a lower rate | 12 bits down to 4, and the rate to an eighth |
+  | `bend` | Varispeed, ±8 % at full; let go, it rejoins the tape through a 5 ms crossfade | −1 to 1. It lands at once, whatever `q` says |
+
+- **Mods.** `set` with `mod.wow`, `mod.flutter`, `mod.drive` or `mod.age` (as
+  `hello`'s `mods` lists them) previews a tape mod: heard at once, saved
+  nowhere. Commit it with `PATCH /api/tapes {style}`; a `release` of the mod,
+  `release_all`, or the connection going puts the tape's own value back, and
+  a change of the tape's own value ends the preview. The Pi keeps one preview
+  a mod, belonging to whoever set it last (a page, or the Pi's controller): a
+  page lets go only of a preview still its own.
+- **`at` with `move`** is an amount that moved, from any hand, no more than 30
+  times a second a pad. It has no `on`: light a pad only from an `at` without
+  `move`. A press's and release's `at` carries its `v` too. The Pi keeps the
+  moves apart from the presses and releases, so a knob turning never pushes
+  one of those out before a page has seen it, and sends the two in the order
+  they were heard.
 
 - **`lead_ms`** is how long a press takes to be heard at best: the blocks
   rendered ahead plus the device's latency. It is null with no output.
@@ -1226,7 +1270,9 @@ Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
 - **Shared pads.** A pad sounds while any connection holds it.
 - **Disconnects.** A connection that goes lets go of what it held. The Pi
   pings every second and takes a player that hasn't answered in 3 s as gone.
-- **Refused presses.** A press is refused while a mixdown plays.
+- **Refused presses.** A press is refused while a mixdown plays, the FX as
+  the tricks are; a mixdown prints the tape's mods, never the FX. A `set` of a
+  pad with no amount is refused.
 
 None of this is the tape's state: nothing is undone, saved or sent to other
 pages, except `live.tricks` in `GET /api/tapes/state`, which lists what's held

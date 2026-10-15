@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { KEYMAP, COMMANDS, TRACK_PADS, TRICK_PADS, padForKey, commandForKey, typingInto, bindKeyboard } from './keymap.js';
+import { KEYMAP, COMMANDS, TRACK_PADS, TRICK_PADS, padForKey, commandForKey, typingInto, knobKeeps, bindKeyboard } from './keymap.js';
+import { FX_PADS } from './controls.js';
 import { Surface } from './surface.js';
 
 /** A target that behaves enough like the document for the adapter. */
@@ -25,11 +26,11 @@ function fakeTarget() {
 
 test('every pad on the screen has a key, and every key a pad', () => {
   const mapped = new Set(Object.values(KEYMAP));
-  for (const pad of [...TRACK_PADS, ...TRICK_PADS]) {
+  for (const pad of [...TRACK_PADS, ...TRICK_PADS, ...FX_PADS]) {
     assert.ok(mapped.has(pad), `${pad} has no key`);
   }
   // And nothing is mapped that the screen does not draw.
-  const drawn = new Set([...TRACK_PADS, ...TRICK_PADS]);
+  const drawn = new Set([...TRACK_PADS, ...TRICK_PADS, ...FX_PADS]);
   for (const pad of mapped) assert.ok(drawn.has(pad), `${pad} is mapped but not drawn`);
 });
 
@@ -245,8 +246,9 @@ test('⇧ is the latch: a pad let go under it stays held until ⇧ lifts', () =>
   assert.deepEqual(s.held(), []);
 });
 
-test('P4’s FX keys and the crate’s pads are taken, but play nothing yet', () => {
-  for (const code of ['KeyT', 'KeyY', 'KeyU', 'KeyI', 'Digit5', 'Digit0']) {
+test('T Y U I play the punch-in FX; the crate’s pads are taken, but play nothing yet', () => {
+  assert.deepEqual(['KeyT', 'KeyY', 'KeyU', 'KeyI'].map((c) => padForKey(c)), ['roll', 'filter', 'echo', 'crush']);
+  for (const code of ['Digit5', 'Digit0']) {
     assert.equal(padForKey(code), null, code);
     assert.equal(commandForKey(code), null, code);
   }
@@ -292,6 +294,26 @@ test('↵ is DROP, but a button Tab brought the focus to keeps it; a clicked one
   assert.deepEqual(cmds, ['drop', 'drop']);
 });
 
+test('a focused knob keeps the keys that turn it; every other key still plays', () => {
+  const slider = { tagName: 'DIV', getAttribute: (n) => (n === 'role' ? 'slider' : null) };
+  assert.equal(typingInto(slider), false, 'a knob is not a field');
+  assert.equal(knobKeeps(slider, 'ArrowUp'), true);
+  assert.equal(knobKeeps(slider, 'End'), true);
+  assert.equal(knobKeeps(slider, 'KeyT'), false);
+  assert.equal(knobKeeps({ tagName: 'BUTTON', getAttribute: () => null }, 'ArrowUp'), false);
+  // Through the keyboard: the arrow reaches the knob, W still plays REV.
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  bindKeyboard(s, { target: t, win: null, now: () => 0 });
+  let stopped = 0;
+  t.send('keydown', { code: 'ArrowUp', target: slider, stopPropagation: () => { stopped++; } });
+  assert.equal(stopped, 0, 'the knob hears its arrow');
+  t.send('keydown', { code: 'KeyW', target: slider });
+  assert.deepEqual(s.held(), ['reverse']);
+  t.send('keyup', { code: 'KeyW', target: slider });
+  assert.deepEqual(s.held(), []);
+});
+
 test('a key let up with a field focused still lets its pad go; a level fader isn’t typing', () => {
   // Hold W, click a track's gain fader, let W go: REV must not stick.
   const s = new Surface({ bpm: 120, division: 'off' });
@@ -313,4 +335,18 @@ test('a key let up with a field focused still lets its pad go; a level fader isn
   assert.deepEqual(s2.held(), ['break']);
   assert.deepEqual(cmds, ['panic']);
   assert.equal(typingInto({ tagName: 'INPUT', type: 'range' }), false);
+});
+
+test('the keyboard letting go -- the window losing focus, a hidden tab -- says so, for what it doesn’t hold', () => {
+  // The bend is held by the strip, not the surface: onLetGo is its cue.
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  const win = fakeTarget();
+  let let_ = 0;
+  bindKeyboard(s, { target: t, win, now: () => 0, onLetGo: () => { let_++; } });
+  win.send('blur');
+  assert.equal(let_, 1);
+  t.hidden = true;
+  t.send('visibilitychange');
+  assert.equal(let_, 2);
 });
