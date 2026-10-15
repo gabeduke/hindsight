@@ -54,11 +54,36 @@ test('the sustain pedal latches, commands run on the press, the rooms’ verbs n
   assert.deepEqual(cmds, [['catch', {}], ['transport', { rt: 'stop' }], ['panic', {}]]);
 });
 
-test('a note for P4’s FX plays nothing yet', () => {
+test('the FX: velocity at the press, the mod wheel and aftertouch while held, the wheel bends', () => {
   const s = new Surface({ bpm: 120, division: 'off' });
-  const h = handler(s, { now: () => 0 });
-  h.feed([0x90, 47, 100]); // B2: FILTER
-  assert.deepEqual(s.held(), []);
+  const arms = [];
+  s.on('arm', (d) => arms.push([d.pad, d.v]));
+  const got = [];
+  const h = handler(s, {
+    now: () => 0,
+    onAmount: (id, v) => got.push(['amount', id, v]),
+    onBend: (v) => got.push(['bend', v]),
+    onMod: (id, v) => got.push(['mod', id, v]),
+    onFormula: (n) => got.push(['formula', n]),
+  });
+  h.feed([0xD0, 127]);          // aftertouch with nothing held: nothing
+  h.feed([0x90, 47, 127]);      // B2: FILTER, struck hard
+  h.feed([0x90, 41, 64]);       // F2: REV -- a trick has no amount
+  assert.deepEqual(s.held(), ['filter', 'reverse']);
+  assert.deepEqual(arms, [['filter', 1], ['reverse', undefined]]);
+  h.feed([0xB0, 1, 0]);         // the mod wheel: FILTER's amount
+  h.feed([0xD0, 127]);          // channel aftertouch: the FX it holds
+  h.feed([0xA0, 47, 0]);        // poly aftertouch on FILTER's key
+  h.feed([0xA0, 41, 127]);      // on REV's: no amount to move
+  h.feed([0xE0, 127, 127]);     // the wheel up, then down, then home
+  h.feed([0xE0, 0, 0, 0xE0, 0, 64]);
+  h.feed([0xB0, 23, 127]);      // DRIVE's knob
+  h.feed([0xC0, 3]);            // program 3: WORN
+  assert.deepEqual(got, [
+    ['amount', 'filter', 0], ['amount', 'filter', 1], ['amount', 'filter', 0],
+    ['bend', 1], ['bend', -1], ['bend', 0],
+    ['mod', 'mod.drive', 1], ['formula', 3],
+  ]);
 });
 
 test('unplugged with a pad down, it lets go', () => {

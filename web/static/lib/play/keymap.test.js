@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { KEYMAP, COMMANDS, TRACK_PADS, TRICK_PADS, padForKey, commandForKey, typingInto, bindKeyboard } from './keymap.js';
+import { FX_PADS } from './controls.js';
 import { Surface } from './surface.js';
 
 /** A target that behaves enough like the document for the adapter. */
@@ -25,11 +26,11 @@ function fakeTarget() {
 
 test('every pad on the screen has a key, and every key a pad', () => {
   const mapped = new Set(Object.values(KEYMAP));
-  for (const pad of [...TRACK_PADS, ...TRICK_PADS]) {
+  for (const pad of [...TRACK_PADS, ...TRICK_PADS, ...FX_PADS]) {
     assert.ok(mapped.has(pad), `${pad} has no key`);
   }
   // And nothing is mapped that the screen does not draw.
-  const drawn = new Set([...TRACK_PADS, ...TRICK_PADS]);
+  const drawn = new Set([...TRACK_PADS, ...TRICK_PADS, ...FX_PADS]);
   for (const pad of mapped) assert.ok(drawn.has(pad), `${pad} is mapped but not drawn`);
 });
 
@@ -245,8 +246,9 @@ test('⇧ is the latch: a pad let go under it stays held until ⇧ lifts', () =>
   assert.deepEqual(s.held(), []);
 });
 
-test('P4’s FX keys and the crate’s pads are taken, but play nothing yet', () => {
-  for (const code of ['KeyT', 'KeyY', 'KeyU', 'KeyI', 'Digit5', 'Digit0']) {
+test('T Y U I play the punch-in FX; the crate’s pads are taken, but play nothing yet', () => {
+  assert.deepEqual(['KeyT', 'KeyY', 'KeyU', 'KeyI'].map((c) => padForKey(c)), ['roll', 'filter', 'echo', 'crush']);
+  for (const code of ['Digit5', 'Digit0']) {
     assert.equal(padForKey(code), null, code);
     assert.equal(commandForKey(code), null, code);
   }
@@ -290,4 +292,10 @@ test('↵ is DROP, but a button Tab brought the focus to keeps it; a clicked one
   t.send('focusin', { target: play });
   t.send('keydown', { code: 'Enter', target: play });
   assert.deepEqual(cmds, ['drop', 'drop']);
+});
+
+test('a focused knob keeps its keys: its arrows turn it, and T doesn’t play', () => {
+  const slider = { tagName: 'DIV', getAttribute: (n) => (n === 'role' ? 'slider' : null) };
+  assert.equal(typingInto(slider), true);
+  assert.equal(typingInto({ tagName: 'BUTTON', getAttribute: () => null }), false);
 });

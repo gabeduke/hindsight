@@ -19,14 +19,34 @@
 // only, because the dim state is the local touch's (onRemote). And MIDI
 // LEARN for the Pi's controllers travels on the same socket (learn()).
 //
+// The punch-in FX carry an amount (docs/superpowers/specs/2026-10-15-punch-in-fx-design.md):
+// a press says where it starts -- a velocity, or where the pad was left --
+// and a `set` moves it while held. The bend and the tape mods' previews go
+// by their own press, set and release. Every amount that moves, from any
+// hand, comes back as an `at` with `move`: it moves the amount drawn
+// (onAmount), and lights nothing -- only a press's or a release's `at` does.
+//
 // Like the keyboard and touch adapters, this knows nothing of the DOM; the
 // socket is passed in, so it is tested against a fake one.
+
+import { control } from './controls.js';
 
 /** The Pi's name for each quantise setting. */
 const QUANTA = { off: 'now', '16th': '16th', '8th': '8th', beat: 'beat', bar: 'bar' };
 
 export function quantum(division) {
   return QUANTA[division] ?? '16th';
+}
+
+/**
+ * refusal is a refused press in words for the player. In a mixdown it says
+ * what's going on: the mixdown prints the tape and its mods, never what's
+ * held, so a pad waits until it's done.
+ */
+export function refusal(pad, why = '') {
+  const face = control(pad)?.face || pad;
+  if (/mixdown/.test(why)) return `${face} waits: a mixdown is playing, and it prints the tape and its mods, never the FX or tricks`;
+  return `${face}: ${why}`;
 }
 
 /** playURL is the socket's address on the page's own host. */
@@ -50,6 +70,8 @@ export function connect(surface, {
   onNote = () => {},
   onRemote = () => {},
   onOpen = () => {},
+  amountOf = () => undefined,
+  onAmount = () => {},
   retryMs = 1000,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
@@ -63,7 +85,12 @@ export function connect(surface, {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify(m));
   };
 
-  const offArm = surface.on('arm', ({ pad }) => send({ t: 'press', pad, q: quantum(surface.division) }));
+  const offArm = surface.on('arm', ({ pad, v }) => {
+    const m = { t: 'press', pad, q: quantum(surface.division) };
+    const x = Number.isFinite(v) ? v : amountOf(pad);
+    if (Number.isFinite(x)) m.v = x;
+    send(m);
+  });
   const offLet = surface.on('let', ({ pad }) => send({ t: 'release', pad }));
 
   function handle(m) {
@@ -78,6 +105,8 @@ export function connect(surface, {
         surface.setGrid({ lead: m.ms ?? 0 });
         break;
       case 'at': {
+        if (Number.isFinite(m.v)) onAmount(m.pad, m.v);
+        if (m.move) break; // an amount moving: nothing pressed or let go
         const at = now() + (Number.isFinite(m.in_ms) ? m.in_ms : 0);
         if (surface.state(m.pad) !== 'idle') surface.confirm(m.pad, !!m.on, at);
         else onRemote(m.pad, !!m.on, at);
@@ -91,7 +120,7 @@ export function connect(surface, {
           if (learning) { learning.reject(new Error(m.why || 'nothing was played')); learning = null; }
           break;
         }
-        onNote(`${m.pad}: ${m.why}`);
+        onNote(refusal(m.pad, m.why));
         break;
       default:
     }
@@ -116,6 +145,12 @@ export function connect(surface, {
   open();
 
   return {
+    /** set moves an amount: a held FX's, the bend's, or a mod's preview. */
+    set(pad, v) { send({ t: 'set', pad, v }); },
+    /** press holds a pad by hand, not through the surface: the bend, at once. */
+    press(pad, v) { send({ t: 'press', pad, q: 'now', v }); },
+    /** release lets go of the bend, or a mod's preview. */
+    release(pad) { send({ t: 'release', pad }); },
     /**
      * learn asks the Pi to bind the next note or CC from one of its
      * controllers (`port`, or any) to `action`. It resolves with

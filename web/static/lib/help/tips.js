@@ -264,6 +264,11 @@ export const TIPS = [
   { control: 'MIDI learn', ids: ['play-learn'], tip: 'Every pad shows its key on the controller (– for none). Tap a pad, then play a key or turn a knob on the controller. Esc cancels' },
   { control: 'Catch, Grab, Drop, Keep (instrument)', ids: ['play-verb'], tip: 'The Studio\'s verbs from the instrument: the last pass onto the armed track, the last bars into the buffer, the buffer onto the armed track, and the feed (or the open buffer) as a take. C, G, ↵, K' },
   { control: 'Edit / Play (phone)', ids: ['play-toggle'], tip: 'On a phone: Play makes the bottom panel the instrument; Edit gives the drawers back. Play\'s lamp lights while a pad sounds' },
+  { control: 'Punch-in FX', ids: ['play-fx'], tip: 'ROLL, FILTER, ECHO, CRUSH: hold, like a trick. Slide your finger up or down on one to move its amount, which every screen shows; a controller\'s velocity, mod wheel and aftertouch move it too. T Y U I' },
+  { control: 'Bend', ids: ['play-bend'], tip: 'Drag left or right to nudge the tape\'s speed, up to 8 % either way; let go and it springs back to the tape. A controller\'s pitch wheel does the same' },
+  { control: 'Formula (tape mods)', ids: ['play-formula'], tip: 'A starting point for the tape\'s sound: each sets WOW, FLUTTER, DRIVE and AGE. Saved with the tape, and ↶ undoes it. Program change 0–3 on a controller' },
+  { control: 'A tape mod\'s knob', ids: ['play-knob'], tip: 'Drag up or down, or use the arrow keys: heard as it moves, saved with the tape when you let go, one step of undo. CC 21–24 on a controller' },
+  { control: 'Tape mods (phone)', ids: ['play-pager'], tip: 'On a phone the tape mods are the instrument\'s second page: swipe across the panel, or tap here' },
 ];
 
 const byId = new Map();

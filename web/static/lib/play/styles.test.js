@@ -10,14 +10,17 @@ import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
 
-function p3Block() {
-  const start = css.indexOf('/* ---------- Rooms P3:');
-  assert.ok(start >= 0, 'the Rooms P3 block');
+function block(name) {
+  const start = css.indexOf(`/* ---------- Rooms ${name}:`);
+  assert.ok(start >= 0, `the Rooms ${name} block`);
   const next = css.slice(start + 1).search(/\/\* -{4,} /);
   return css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
 }
+// P3's strip, and P4's FX and mods drawn into it.
+const blocks = () => block('P3') + block('P4');
+const p3Block = blocks;
 
-test('every rule in the strip’s block hangs off a play- class', () => {
+test('every rule in the strip’s blocks (P3, P4) hangs off a play- class', () => {
   const loose = [];
   for (const m of p3Block().matchAll(/([^{}]+)\{/g)) {
     if (m[1].trim().startsWith('@')) continue;

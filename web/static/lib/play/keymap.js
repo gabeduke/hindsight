@@ -37,11 +37,13 @@ export function commandForKey(code, has = () => true) {
 
 /**
  * typingInto says the key belongs to a field rather than to the instrument.
- * Without this, naming a take would play the tape.
+ * Without this, naming a take would play the tape. A focused slider -- a
+ * tape mod's knob -- is one too: its arrows turn it.
  */
 export function typingInto(el) {
   if (!el) return false;
   if (el.isContentEditable) return true;
+  if (typeof el.getAttribute === 'function' && el.getAttribute('role') === 'slider') return true;
   const tag = (el.tagName || '').toLowerCase();
   return tag === 'input' || tag === 'textarea' || tag === 'select';
 }

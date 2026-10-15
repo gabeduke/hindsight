@@ -250,6 +250,11 @@ async function poll(force = false) {
       bars: t.grid ? t.grid.bars : 0,
       loop: t.loop,
       output: state.live?.output_mode || '',
+      // Play mode's pads the Pi holds now, whoever holds them, and a
+      // mixdown's state: the strip puts its pads right against the one, and
+      // says the FX wait during the other (lib/play/held.js, fx.js).
+      tricks: state.live?.tricks || [],
+      mixdown: state.live?.mixdown?.state || '',
       // The Studio's buffer (lib/buffer) reads these: the tape as the Pi has
       // it, the armed track and its input, the sources, the ruler's snap,
       // what the lanes show, and the playhead as it lands on the tape.

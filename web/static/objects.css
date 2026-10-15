@@ -121,3 +121,16 @@
   --pad-lit:        #e0662a;
   --pad-lit-ink:    #1c2430;
 }
+
+/* ---------- Rooms P4: punch-in FX and tape mods (lib/play/fx.js, mods.js) ---------- */
+:root {
+  /* The pad controller's FX: a teal rim and meter, as on the K.O.'s punch-in
+     row, and the knobs' black wells, grey caps and amber pointers. A chosen
+     formula is a paper label under marker. */
+  --pad-fx:         #2fb3a7;
+  --pad-fx-rim:     rgba(47,179,167,.45);
+  --knob-well:      #141516;
+  --knob-hi:        #4a4b50;
+  --knob-pointer:   #ffb547;
+  --formula-paper:  #e6d8b0;
+}

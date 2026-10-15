@@ -14,6 +14,11 @@
 // Whose keys are they? The strip's while it's unfolded -- the KEYS lamp says
 // so -- and the page's otherwise: folding it, or a tap on the lanes, gives
 // them back to editing. MIDI and touch always play.
+//
+// P4 (docs/superpowers/specs/2026-10-15-punch-in-fx-design.md) draws into
+// the places P3 left: the punch-in FX and the bend (fx.js), and the tape
+// mods (mods.js), their amounts kept in one place (amounts.js). On a phone
+// the mods are a second page of the panel: swipe, or tap the pager.
 
 import { Surface, DIVISIONS } from './surface.js';
 import { bindKeyboard } from './keymap.js';
@@ -24,8 +29,14 @@ import { on as roomsOn } from '../rooms/flag.js';
 import { gridFrom, ringAt, beatAt } from './clock.js';
 import { connect } from './link.js';
 import { modeOf } from './reel.js';
-import { control } from './controls.js';
+import { control, FX_PADS, FORMULAS, styleField } from './controls.js';
 import { support, attach } from './midi.js';
+import { Amounts } from './amounts.js';
+import { mountFX } from './fx.js';
+import { mountMods } from './mods.js';
+import { reconcile, RECENT_MS } from './held.js';
+
+const FX = new Set(FX_PADS);
 
 /** The strip's per-device conveniences (not DEVICE_PREFS: they're where you left it). */
 export const FOLD_KEY = 'hindsight.play.strip';
@@ -104,6 +115,12 @@ export function startStrip({
   });
   const toggle = mountToggle(np, { doc, onPlay: (p) => setOpen(p) });
 
+  // The amounts: each FX's, the bend's, a mod's while it's dragged. A move
+  // here goes to the Pi as a set, no more than 30 a second.
+  let link = null;
+  const amounts = new Amounts({ send: (id, v) => link?.set(id, v) });
+  const ended = new Map(); // a pad this hand let go of, and when
+
   const sound = (pad, isOn) => {
     const i = sounding.indexOf(pad);
     if (i >= 0) sounding.splice(i, 1);
@@ -112,13 +129,101 @@ export function startStrip({
     wake();
   };
   surface.on('fire', ({ pad }) => sound(pad, true));
-  surface.on('end', ({ pad }) => sound(pad, ui.remoteHeld().includes(pad)));
+  surface.on('end', ({ pad }) => { ended.set(pad, now()); sound(pad, ui.remoteHeld().includes(pad)); });
+  // A velocity is the FX's amount from the press: drawn here, carried by it.
+  surface.on('arm', ({ pad, v }) => { if (Number.isFinite(v)) amounts.note(pad, v); });
 
-  const link = connect(surface, {
+  link = connect(surface, {
     onNote: (t) => { linkNote = t; showNote(); },
     onRemote: (pad, isOn, at) => { pending.push({ pad, on: isOn, at }); wake(); },
     onOpen: () => fetchControls(),
+    amountOf: (pad) => (FX.has(pad) ? amounts.get(pad) : undefined),
+    onAmount: (pad, v) => {
+      if (pad.startsWith('mod.')) mods?.heardPreview(pad);
+      amounts.heard(pad, v);
+    },
   });
+
+  // --- the punch-in FX, the bend, and the tape mods ----------------------------
+  let bending = false;
+  const fx = mountFX(ui, surface, amounts, { doc, onBend: bendTo, onBendEnd: () => bendTo(0) });
+  // The bend from this page: held while it's off its centre, let go as it
+  // springs back, landing at once (the Pi takes it now, whatever ⌗ says).
+  function bendTo(v) {
+    if (Math.abs(v) <= 0.02) {
+      if (!bending) return;
+      bending = false;
+      link.release('bend');
+      amounts.note('bend', 0);
+      fx?.setBend(ui.remoteHeld().includes('bend'));
+      return;
+    }
+    if (!bending) {
+      bending = true;
+      amounts.note('bend', v);
+      link.press('bend', v);
+      fx?.setBend(true);
+      return;
+    }
+    amounts.move('bend', v);
+  }
+  const mods = mountMods(ui.slot('mods'), amounts, {
+    doc,
+    // One step of undo when a gesture ends; then the preview goes, and the
+    // tape's own value -- the one just saved -- is what's heard.
+    onCommit: (mod, v) => patchStyle({ [styleField(mod)]: v }).finally(() => link.release(mod)),
+    onFormula: (name) => patchStyle({ formula: name }),
+  });
+  async function patchStyle(change) {
+    const id = tape?.tape?.id;
+    if (!id) return;
+    try {
+      const res = await fetchImpl(`/api/tapes?id=${encodeURIComponent(id)}`, {
+        method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ style: change }),
+      });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) { linkNote = `Tape mods: ${b.error || res.status}`; showNote(); return; }
+      if (b.tape) mods?.setStyle(b.tape.style);
+    } catch { /* the Pi out of reach: the link says so */ }
+  }
+  // On a phone the mods are the panel's second page.
+  const panel = root.querySelector('.play-panel');
+  const pager = doc.createElement('button');
+  pager.type = 'button';
+  pager.className = 'play-pager';
+  pager.dataset.tip = 'play-pager';
+  const dots = doc.createElement('span');
+  dots.className = 'play-pager-dots';
+  dots.append(doc.createElement('i'), doc.createElement('i'));
+  const pagerWord = doc.createElement('span');
+  pager.append(dots, pagerWord);
+  panel?.append(pager);
+  function setPage(page) {
+    root.dataset.page = page;
+    pagerWord.textContent = page === 'mods' ? 'swipe back for the pads' : 'swipe for tape mods';
+    pager.setAttribute('aria-label', page === 'mods' ? 'Show the pads' : 'Show the tape mods');
+  }
+  setPage('pads');
+  pager.addEventListener('click', () => setPage(root.dataset.page === 'mods' ? 'pads' : 'mods'));
+  // A swipe across the panel, away from a pad or a knob, turns the page.
+  let swipe = null;
+  const swipeDown = (e) => {
+    // Wherever the pager shows (a phone, a tablet), and not on a pad, a
+    // knob, the bend or a button.
+    if (getComputedStyle(pager).display === 'none' || e.target.closest?.('.play-pad, .play-knob, .play-bend, button')) return;
+    swipe = { x: e.clientX, y: e.clientY };
+  };
+  const swipeUp = (e) => {
+    if (!swipe) return;
+    const dx = e.clientX - swipe.x;
+    const dy = e.clientY - swipe.y;
+    swipe = null;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > 40) return;
+    setPage(dx < 0 ? 'mods' : 'pads');
+  };
+  panel?.addEventListener('pointerdown', swipeDown);
+  panel?.addEventListener('pointerup', swipeUp);
+  panel?.addEventListener('pointercancel', () => { swipe = null; });
 
   const unbindKeys = bindKeyboard(surface, {
     onCommand: command,
@@ -135,6 +240,7 @@ export function startStrip({
       if (t >= p.at) {
         pending.splice(i, 1);
         ui.remote(p.pad, p.on);
+        if (p.pad === 'bend') fx?.setBend(p.on || bending);
         if (surface.state(p.pad) === 'idle') sound(p.pad, p.on);
       }
     }
@@ -228,9 +334,11 @@ export function startStrip({
     else if (!web.ok && !pi.length) line = `A MIDI controller: set TAPE_CONTROLLER in Settings › MIDI and plug it into the Pi. ${web.why}.`;
     else if (!pi.length) line = 'A MIDI controller: plug it into the Pi (Settings › MIDI › Plays the tape), or into this computer (＋ MIDI here).';
     ui.setFrom(options, from, line);
-    if (from.startsWith('pi:')) ui.setBindings(piBindings[from.slice(3)] || null);
-    else if (from.startsWith('web:') && midiIn) ui.setBindings(midiIn.bindings(from.slice(4)));
-    else ui.setBindings(null);
+    let map = null;
+    if (from.startsWith('pi:')) map = piBindings[from.slice(3)] || null;
+    else if (from.startsWith('web:') && midiIn) map = midiIn.bindings(from.slice(4));
+    ui.setBindings(map);
+    mods?.setLegends(map);
     const midi = from.startsWith('pi:') || from.startsWith('web:');
     ui.canLearn(midi, 'Pick a controller under Playing from, then MIDI LEARN');
     if (!midi && learning) setLearning(false);
@@ -259,6 +367,12 @@ export function startStrip({
       const access = await nav.requestMIDIAccess();
       midiIn = attach(access, surface, {
         onCommand: command, has, now,
+        // The amounts from a controller here: the mod wheel and aftertouch
+        // on what's held, the pitch wheel, the mods' knobs, a program change.
+        onAmount: (id, v) => amounts.move(id, v),
+        onBend: bendTo,
+        onMod: (id, v) => mods?.turn(id, v),
+        onFormula: (n) => { if (FORMULAS[n]) patchStyle({ formula: FORMULAS[n] }); },
         onPorts: (names) => { webPorts = names; paintFrom(); },
       });
       write(WEBMIDI_KEY, '1');
@@ -304,9 +418,26 @@ export function startStrip({
     tape = e.detail || null;
     const g = gridFrom(tape, grid);
     if (g) { grid = g; surface.setGrid(g); }
+    mods?.setStyle(tape?.tape?.style);
+    fx?.setMixdown(tape?.mixdown === 'playing' || tape?.mixdown === 'tail');
+    heldRight(tape?.tricks);
     showNote();
     wake();
   };
+  // What another hand holds, put right against the Pi's own list (held.js).
+  function heldRight(tricks) {
+    const t = now();
+    const r = reconcile({
+      tricks,
+      lit: ui.remoteHeld(),
+      waiting: pending.map((p) => p.pad),
+      mine: (pad) => surface.state(pad) !== 'idle' || (pad === 'bend' && bending) || t - (ended.get(pad) ?? -Infinity) < RECENT_MS,
+      drawn: (pad) => !!control(pad),
+    });
+    for (const pad of r.off) { ui.remote(pad, false); if (surface.state(pad) === 'idle') sound(pad, false); }
+    for (const pad of r.on) { ui.remote(pad, true); if (surface.state(pad) === 'idle') sound(pad, true); }
+    if (r.on.includes('bend') || r.off.includes('bend')) fx?.setBend(bending || r.on.includes('bend'));
+  }
   // One line for what the player should know. The link's news comes first;
   // otherwise, a tape playing on a phone: the stream buffers about a second,
   // so the pads land on the grid but that long after the hand.
@@ -332,7 +463,12 @@ export function startStrip({
     get ownsKeys() { return keysOwner({ open, given }); },
     destroy() {
       setOpen(false);
+      bendTo(0);
       surface.releaseAll(now());
+      fx?.destroy();
+      mods?.destroy();
+      amounts.close();
+      pager.remove();
       link.close();
       unbindKeys();
       unstep();
