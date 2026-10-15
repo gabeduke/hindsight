@@ -120,6 +120,12 @@ type Engine struct {
 	tr      *transport
 	actions chan Action
 
+	// Play mode (trick.go): presses and releases on their way in, and what
+	// the render goroutine has held. Outside the tape's State, so outside
+	// undo.
+	tricks trickInbox
+	perf   perf
+
 	// player
 	blocks    chan *block
 	free      chan *block
@@ -439,7 +445,17 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 	for n > 0 {
 		for len(tr.pend) > 0 && tr.pend[0].at <= out {
 			a := tr.pend[0].action
-			tr.apply(a, out, m, length)
+			if a.trick != nil {
+				e.perf.apply(*a.trick, out, tr.pos, tr.playing, m)
+			} else {
+				tr.apply(a, out, m, length)
+				switch a.Kind {
+				case "stop", "locate", "phase", "once":
+					// The tape stopped or jumped under a held trick: the head
+					// picks up again from wherever it next plays.
+					e.perf.lose()
+				}
+			}
 			tr.pend = tr.pend[1:]
 			if a.done != nil {
 				close(a.done)
@@ -500,12 +516,26 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 					tr.playing = false
 					tr.cycleStart = -1
 					tr.record(out)
+					e.perf.lose()
 					continue
 				}
 				span = min64(span, end-tr.pos)
 			}
+			// A trick held while the tape stood (or ran into a stop) takes
+			// the head when it plays.
+			if t := e.perf.top(); t >= 0 && !e.perf.head.on {
+				e.perf.head = e.perf.newHead(t, tr.pos, out, m)
+			}
 			if dst != nil {
-				m.render(dst[off*OutChannels:], tr.pos, int(span), tr.sinceWrap(out, m.loop))
+				d := dst[off*OutChannels:]
+				if e.perf.active(out, m) {
+					// Play mode: the head, or tracks dropped out. The click
+					// keeps the transport's time, so the band's doesn't stutter.
+					e.perf.render(d, m, out, int(span), tr.pos, tr.sinceWrap(out, m.loop))
+					m.renderClick(d, tr.pos, int(span))
+				} else {
+					m.render(d, tr.pos, int(span), tr.sinceWrap(out, m.loop))
+				}
 			}
 			tr.pos += span
 			if looping && tr.pos == m.loop.Out {
@@ -540,6 +570,7 @@ func (e *Engine) drain(out uint64, m *Mix) {
 		case a := <-e.actions:
 			if a.Kind == "reset" {
 				tr.reset(out)
+				e.perf.reset() // the reset took the queued tricks with it
 				close(a.done)
 				continue
 			}
@@ -547,8 +578,9 @@ func (e *Engine) drain(out uint64, m *Mix) {
 			continue
 		default:
 		}
-		return
+		break
 	}
+	e.drainTricks(out, m)
 }
 
 // idle applies queued actions when nothing plays the tape: without an
@@ -562,6 +594,7 @@ func (e *Engine) idle(out uint64) {
 			switch a.Kind {
 			case "reset":
 				tr.reset(out)
+				e.perf.reset()
 				close(a.done)
 			case "play", "once": // nothing plays it
 			default:
@@ -575,6 +608,11 @@ func (e *Engine) idle(out uint64) {
 		}
 		break
 	}
+	// With no output nothing is heard, so nothing is held: the presses go.
+	e.tricks.mu.Lock()
+	e.tricks.msgs = nil
+	e.tricks.mu.Unlock()
+	e.perf.reset()
 	tr.mu.Lock()
 	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out}
 	tr.mu.Unlock()

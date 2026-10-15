@@ -21,6 +21,10 @@ const (
 	QuantumBeat = "beat"
 	QuantumBar  = "bar"
 	QuantumLoop = "loop"
+	// The finer lines are for Play mode's tricks (trick.go): a pad lands on
+	// the next sixteenth or eighth, so a late hand still plays in time.
+	QuantumSixteenth = "16th"
+	QuantumEighth    = "8th"
 )
 
 // Action is a transport command.
@@ -41,6 +45,9 @@ type Action struct {
 	End  int64         `json:"-"`
 	job  uint64        // the once's id, for its status
 	done chan struct{} // a reset's: closed once it's carried out
+	// A trick pad pressed or let go (trick.go). Queued here so it lands on
+	// its frame as a quantised ▶ does; the transport itself ignores it.
+	trick *trickMsg
 }
 
 // onceRun is how a "once" went, for the mixdown watching it.
@@ -376,14 +383,19 @@ func (t *transport) target(a Action, out uint64, m *Mix, grid *Grid) uint64 {
 			return out
 		}
 		next = loop.Out
-	case QuantumBar, QuantumBeat:
+	case QuantumBar, QuantumBeat, QuantumSixteenth, QuantumEighth:
 		if grid == nil {
 			return out
 		}
-		if a.Quantum == QuantumBar {
+		switch a.Quantum {
+		case QuantumBar:
 			next = grid.NextBar(t.pos)
-		} else {
+		case QuantumBeat:
 			next = grid.NextBeat(t.pos)
+		case QuantumSixteenth:
+			next = grid.NextDivision(t.pos, 16)
+		default:
+			next = grid.NextDivision(t.pos, 8)
 		}
 		// Past the loop's end, the next line is its start, after the wrap.
 		if loop.On && next > loop.Out {

@@ -196,11 +196,24 @@ The surface is drawn in its own materials (`--pad-*` in `objects.css`), so it
 is the same dark instrument in both schemes; `styles.test.js` keeps its rules
 off the scheme's tokens and its classes off everything else.
 
-**The audio engine is not wired yet.** The pads arm, fire and light on the
-grid, but nothing is audible: break, reverse, chop, stop and varispeed need a
-path through `internal/tape` that does *not* go through undo, since a
-momentary gesture must not leave fifty entries behind it after a jam. That is
-the next step, and it is Go work.
+**The engine's half is built; the page isn't wired to it yet.** The pads
+arm, fire and light, but nothing reaches the Pi, so nothing is audible.
+`internal/tape/trick.go` is the sound
+(`docs/superpowers/specs/2026-10-14-play-mode-sound-design.md`):
+- a trick is a **read head** that leaves the transport while a pad is held,
+  and the transport keeps counting underneath;
+- on release the tape is back in time, with nothing resynchronised;
+- `Engine.Press`, `Release` and `ReleaseAll` take a pad and a quantum
+  (`16th`, `8th`, `beat`, `bar` or now);
+- none of it touches the tape's State, so a jam leaves undo and `tape.json`
+  exactly as they were. `trick_test.go` checks that, along with each trick's
+  shape and the return in time to the sample.
+
+Next is the socket the page sends presses on (`/api/tapes/play`), then the
+page itself.
+
+`BenchmarkRenderABlock` is the number to watch on a Pi: one 21 ms block with
+four tracks, plain and under each trick.
 
 ## The object library
 
