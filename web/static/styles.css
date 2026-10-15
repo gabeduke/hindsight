@@ -98,14 +98,14 @@
   --field:     #eeede8;
   --field-sh:  rgba(20, 22, 24, .2);
   --led-off:   #b8b7b0;
+  /* The LCD's black. Its amber ink and its edge are the same in both
+     schemes and live in objects.css. */
   --lcd:       #0b0905;
-  --lcd-ink:   #ffb547;
   /* The LCD's second line: its ink at 74 %, flattened onto its black. */
   --lcd-dim:   #c08836;
   /* A readout that needs attention: warn inverts the window, bad turns the
      digits red -- amber digits alone would read as normal. */
   --warn-ink:  #8f3410;
-  --lcd-edge:  rgba(0, 0, 0, .7);
   --rec-edge:  #a5231f;
   /* A take's card. (The cassette's paper arrives with the cassettes.) */
   --label:     #f6f5f1;

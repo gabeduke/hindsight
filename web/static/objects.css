@@ -1,6 +1,7 @@
 /* Hindsight — the materials.
    What the objects are made of: metal reels, lit keys, tape oxide, cassette
-   paper and plastic, and the VU meters' backlit faces. Split out of
+   paper and plastic, the VU meters' backlit faces and the LCD's amber
+   digits. Split out of
    styles.css so that changing what an object is made of is a diff to this
    file, and changing a page's layout cannot touch it.
 
@@ -90,6 +91,12 @@
   /* The tape's reels, in the bar: brown tape on silver reels. */
   --tape-pack:    #4a2e18;
   --tape-sheen:   #8a5a32;
+
+  /* The LCD (lib/objects/lcd.js): amber digits behind glass, and the
+     shadow of the bezel they sit under. Its black and its dimmer second
+     line are a shade apart by scheme, so they stay in styles.css. */
+  --lcd-ink:   #ffb547;
+  --lcd-edge:  rgba(0, 0, 0, .7);
 
   /* Play mode's pad controller: a dark box with rubber pads, dark in any
      room, as an instrument on a stand is. A lit pad is the cassette's orange

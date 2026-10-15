@@ -15,8 +15,9 @@ import { VUMeters, vuScale, vuAngle, VU_SWING } from './vu.js';
 import { CassetteFace } from './cassette.js';
 import { ribbonColors, drawRibbon } from './ribbon-draw.js';
 import { token } from '../theme.js';
-import { ReelWindow } from './reel-window.js';
+import { ReelWindow, levelFrac } from './reel-window.js';
 import { ballistic, spin, settled, Ticker } from './motion.js';
+import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const NEEDLE_CX = 80, NEEDLE_CY = 112, NEEDLE_R = 80;
@@ -104,6 +105,7 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildReels(root, ticker, clock);
   buildCassettes(root);
   buildRibbon(root);
+  buildLcd(root);
   return ticker;
 }
 
@@ -336,4 +338,83 @@ function buildRibbon(root) {
       colors: ribbonColors(token),
     });
   }
+}
+
+
+/**
+ * The LCD: the counter in the reel window, amber behind glass in both
+ * schemes. Each cell is the markup the pages carry (.np-lcd), painted from
+ * the same functions they paint it from (lib/objects/lcd.js) -- so the words
+ * in a cell are the words a page would show in that state. The count-in, a
+ * mixdown and a punch are the ones worth having here: getting a rig into
+ * them takes a band.
+ */
+function buildLcd(root) {
+  const grid = section(root, 'LCD',
+    'Where it is, large, with the time beside it; the lamp; and the line that scrolls under them. A message takes the large place, and its details the line under it, still.');
+
+  // 96 BPM in 4/4, so a bar is 2.5 s: sixteen bars, the loop on bars 5-8,
+  // and the tape stopped 13.2 s in, which is bar 6, beat 2.
+  const SR = 48000, BAR = 2.5 * SR;
+  const tape = (over = {}) => ({
+    id: 't1', name: 'Tuesday jam', sample_rate: SR, length: 16 * BAR,
+    grid: { frames: 16 * BAR, bars: 16 }, loop: { in: 4 * BAR, out: 8 * BAR, on: true }, ...over,
+  });
+  const live = (over = {}) => ({
+    playing: false, heard: Math.round(13.2 * SR), out: 0, delivered: 0, count_in: 0,
+    output: 'jam room', output_mode: 'jam', ...over,
+  });
+  const playing = live({ playing: true });
+  const rec = live({ playing: true, record: { tape: 't1', track: 2, state: 'on' } });
+  const armed = live({ record: { tape: 't1', track: 2, state: 'armed' } });
+  // Two and a half beats of count-in left: "2 of 4".
+  const counting = live({ playing: true, count_in: Math.round(2.5 * BAR / 4) });
+  const mix = (state) => ({ state, from: 0, to: 8 * BAR });
+  const take = { name: '2026-10-04_2015_JAM', bpm: 96, region: { start: 2 * SR, end: 30 * SR }, sampleRate: SR };
+  const tracks = ['var(--t1)', 'var(--t2)'];
+  const ink = ['var(--lcd-ink)', 'var(--lcd-ink)'];
+
+  const states = [
+    ['tape, stopped', tapeCounter(tape(), live(), null), tapeMarquee(tape(), live()), tracks, []],
+    ['tape, playing', tapeCounter(tape(), playing, null), tapeMarquee(tape(), playing), tracks, [-12, -22]],
+    ['recording track 2', tapeCounter(tape(), rec, null), tapeMarquee(tape(), rec), tracks, [-12, -6]],
+    ['track 2 armed', tapeCounter(tape(), armed, null), tapeMarquee(tape(), armed), tracks, []],
+    ['count-in', tapeCounter(tape(), counting, null), tapeMarquee(tape(), counting), tracks, []],
+    ['mixing down', tapeCounter(tape(), playing, mix('playing')), '', tracks, [-12, -22]],
+    ['letting it ring out', tapeCounter(tape(), playing, mix('tail')), '', tracks, []],
+    ['saving the mixdown', tapeCounter(tape(), live(), mix('saving')), '', tracks, []],
+    ['no tempo yet, no output', tapeCounter(tape({ grid: null }), live({ output: '' }), null), tapeMarquee(tape({ grid: null }), live()), tracks, []],
+    ['a take, playing on its grid', takeCounter({ pos: 13.2 * SR, length: 212 * SR, sampleRate: SR, bar: '6.2', playing: true }), takeMarquee(take), ink, [-14, -16]],
+    ['a take, paused, no tempo', takeCounter({ pos: 75.4 * SR, length: 212 * SR, sampleRate: SR, bar: null, playing: false }), takeMarquee({ ...take, name: 'untitled sketch', bpm: null, region: null }), ink, []],
+  ];
+  for (const [label, lcd, marquee, colours, levels] of states) lcdFace(cell(grid, label), lcd, marquee, colours, levels);
+}
+
+/**
+ * lcdFace is one LCD, as the pages mark it up, painted as bar.js and the
+ * tape and take pages paint theirs: the lamp, the unit, the position, the
+ * time, a level bar per track, and the marquee -- still when it carries a
+ * message.
+ */
+function lcdFace(parent, lcd, marquee, colours, levels) {
+  const face = el('div', 'np-lcd');
+  const top = el('div', 'np-lcd-top');
+  const status = el('span', 'np-status');
+  status.dataset.state = lcd.status;
+  const bars = el('span', 'np-levels');
+  colours.forEach((c, i) => {
+    const b = el('i');
+    b.style.background = c;
+    b.style.color = c; // the glow is currentColor
+    b.style.transform = `scaleY(${Math.max(0.08, levelFrac(levels[i])).toFixed(3)})`;
+    bars.append(b);
+  });
+  top.append(status, el('span', 'np-unit', lcd.unit), el('span', 'np-pos', lcd.big), el('span', 'np-time', lcd.small), bars);
+  const line = el('div', 'np-marquee');
+  line.classList.toggle('still', !!lcd.note);
+  line.append(el('span', null, lcd.note || marquee));
+  face.append(top, line);
+  const box = el('div', 'bench-lcd');
+  box.append(face);
+  parent.append(box);
 }

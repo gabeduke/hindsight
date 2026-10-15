@@ -1,4 +1,4 @@
-// web/static/lib/bar/lcd.test.js
+// web/static/lib/objects/lcd.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
