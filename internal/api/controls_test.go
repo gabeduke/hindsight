@@ -557,3 +557,52 @@ func TestKeepAndTheTransportDontWaitForAGrab(t *testing.T) {
 	close(v.gate)
 	v.wait(t, "keep", "transport stop", "grab", "drop")
 }
+
+// A pedal lifted while MIDI LEARN waits lifts the latch it put down: learn
+// takes only presses, and the latch goes with the key that put it down.
+func TestAPedalLiftedWhileLearningLiftsTheLatch(t *testing.T) {
+	f, url, a, _ := controlsAPI(t, t.TempDir())
+	p := "Keystation 49"
+	a.ControlMIDI(p, 0xB0, 64, 127) // the pedal down
+	a.ControlMIDI(p, 0x90, 41, 100) // REV tapped: latched
+	a.ControlMIDI(p, 0x80, 41, 0)
+	f.waitFor(t, "press reverse 16th")
+	c, _ := dialPlay(t, url)
+	sendPlay(t, c, map[string]string{"t": "learn", "action": "stop", "port": p})
+	waitLearning(t, a)
+	a.ControlMIDI(p, 0xB0, 64, 0) // the pedal up: the latch lifts, nothing learned
+	f.waitFor(t, "press reverse 16th", "release reverse")
+	a.controls.mu.Lock()
+	still := a.controls.learn != nil
+	a.controls.mu.Unlock()
+	if !still {
+		t.Fatal("learn took the pedal's lift")
+	}
+	a.ControlMIDI(p, 0x90, 72, 100) // a press teaches it
+	var m struct{ T, Action string }
+	_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if err := c.ReadJSON(&m); err != nil || m.T != "learned" || m.Action != "stop" {
+		t.Fatalf("got %+v %v", m, err)
+	}
+}
+
+// Two keys bound to one pad: it sounds until the last of them lets go.
+func TestTwoKeysOnOnePadHoldItUntilBothLetGo(t *testing.T) {
+	f, _, a, r := controlsAPI(t, t.TempDir())
+	p := "Keystation 49"
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/tapes/controls",
+		strings.NewReader(`{"controllers":{"Keystation 49":{"stop":[{"note":43},{"note":72}]}}}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT: %d %s", rec.Code, rec.Body)
+	}
+	a.ControlMIDI(p, 0x90, 43, 100)
+	a.ControlMIDI(p, 0x90, 72, 100)
+	f.waitFor(t, "press stop 16th")
+	a.ControlMIDI(p, 0x80, 43, 0)
+	time.Sleep(30 * time.Millisecond)
+	holders(t, a, "stop", 1)
+	f.waitFor(t, "press stop 16th")
+	a.ControlMIDI(p, 0x80, 72, 0)
+	f.waitFor(t, "press stop 16th", "release stop")
+}

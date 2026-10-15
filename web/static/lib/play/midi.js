@@ -86,11 +86,21 @@ export function handler(surface, {
   bindings = () => defaultBindings(), onCommand = () => {}, has = () => true,
   now = () => performance.now(), learning = () => null,
 } = {}) {
-  // What each key or pedal pressed, by the message: its note-off lets go of
-  // that pad, whatever the bindings say by then (a rebind, a learn), as the
-  // keyboard keeps the code it pressed.
+  // What each key or pedal pressed -- a pad, or the latch -- by the message:
+  // its own lift lets go of that, whatever the bindings say by then (a
+  // rebind, a learn), as the keyboard keeps the code it pressed. And how
+  // many keys hold each pad: two can be bound to one, and it sounds until
+  // the last lets go.
   const pressed = new Map();
+  const holders = new Map();
   let latched = false;
+  const setLatch = (on) => { if (on !== latched) { latched = on; surface.latch(on, now()); } };
+  const letGoOf = (id) => {
+    const n = (holders.get(id) || 0) - 1;
+    if (n > 0) { holders.set(id, n); return; }
+    holders.delete(id);
+    surface.release(id, now());
+  };
   const keyOf = (m) => (m.type === 'on' || m.type === 'off' ? `n${m.ch}:${m.note}` : m.type === 'cc' ? `c${m.ch}:${m.cc}` : '');
   const handle = (m) => {
     if (!m) return;
@@ -100,18 +110,28 @@ export function handler(surface, {
     const key = keyOf(m);
     if (!down && key) {
       const id = pressed.get(key);
-      if (id) { pressed.delete(key); surface.release(id, now()); return; }
+      if (id) {
+        pressed.delete(key);
+        if (id === 'latch') setLatch(false); else letGoOf(id);
+        return;
+      }
       if (m.type === 'off') return; // a note that pressed nothing here: the one that taught MIDI LEARN
     }
+    // Learn takes a press -- a key down, a knob or pedal at 64 or past --
+    // never a lift: a pedal let up mid-learn must still lift its latch.
     const learn = learning();
-    if (learn && (m.type === 'on' || m.type === 'cc')) { learn(learned(m), m); return; }
+    if (learn && (m.type === 'on' || (m.type === 'cc' && m.value >= 64))) { learn(learned(m), m); return; }
     const hit = actionFor(bindings(), m);
     const c = hit && control(hit.id);
     if (!c || !live(c, has)) return;
     if (c.kind === MODIFIER) {
-      if (down !== latched) { latched = down; surface.latch(down, now()); }
+      if (down && key) { if (!pressed.has(key)) { pressed.set(key, 'latch'); setLatch(true); } } else setLatch(down);
     } else if (c.kind === HELD) {
-      if (down && key && !pressed.has(key)) { pressed.set(key, c.id); surface.press(c.id, now()); }
+      if (down && key && !pressed.has(key)) {
+        pressed.set(key, c.id);
+        holders.set(c.id, (holders.get(c.id) || 0) + 1);
+        surface.press(c.id, now());
+      }
     } else if (c.kind === COMMAND && down) {
       onCommand(c.id, m.type === 'rt' ? { rt: m.rt } : {});
     }
@@ -121,8 +141,9 @@ export function handler(surface, {
     feed: (bytes) => parser.feed(bytes),
     letGo() {
       const t = now();
-      for (const id of pressed.values()) surface.release(id, t);
+      for (const id of holders.keys()) surface.release(id, t);
       pressed.clear();
+      holders.clear();
       if (latched) { latched = false; surface.latch(false, t); }
     },
   };

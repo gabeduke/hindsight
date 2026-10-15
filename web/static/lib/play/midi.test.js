@@ -141,3 +141,30 @@ test('a note-off lets go of the pad its note-on pressed, whatever the bindings s
   h.feed([0x80, 43, 0]);
   assert.deepEqual(s.held(), []);
 });
+
+test('a pedal lifted while MIDI LEARN waits lifts its latch; learn takes only a press', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  let learner = null;
+  const taught = [];
+  const h = handler(s, { now: () => 0, learning: () => learner });
+  h.feed([0xB0, 64, 127, 0x90, 41, 100, 0x80, 41, 0]); // pedal down, REV tapped: latched
+  assert.deepEqual(s.held(), ['reverse']);
+  learner = (b) => { taught.push(b); learner = null; };
+  h.feed([0xB0, 64, 0]);                              // the pedal up, mid-learn
+  assert.deepEqual(s.held(), [], 'the latch lifted');
+  assert.deepEqual(taught, [], 'a lift teaches nothing');
+  h.feed([0xB0, 21, 0]);                              // a knob at 0: not a press either
+  assert.deepEqual(taught, []);
+  h.feed([0x90, 72, 100]);
+  assert.deepEqual(taught, [{ note: 72, ch: 1 }]);
+});
+
+test('two keys on one pad: it sounds until the last of them lets go', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const h = handler(s, { now: () => 0, bindings: () => ({ stop: [{ note: 43 }, { note: 72 }] }) });
+  h.feed([0x90, 43, 100, 0x90, 72, 100]);
+  h.feed([0x80, 43, 0]);
+  assert.deepEqual(s.held(), ['stop'], 'C5 still holds it');
+  h.feed([0x80, 72, 0]);
+  assert.deepEqual(s.held(), []);
+});
