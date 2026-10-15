@@ -113,13 +113,14 @@
   --case-hi:   #eef0f2;
   --case-lo:   #c6c9ce;
   --case-edge: rgba(20, 22, 24, .28);
-  /* Masking tape on the track heads, written on in marker. */
+  /* Masking tape on the track heads, written on in marker. The tape is a
+     shade darker at night; the marker, --marker, is the same in both
+     schemes and lives in objects.css. */
   --mask:         #efe2bb;
   /* Grease pencil: the take page's In and Out. --grease is its legend on a
      panel; the stroke on a black window, --grease-mark, is the same in both
      schemes and lives in objects.css. */
   --grease:       #7a5c00;
-  --marker:       #14252b;
   --link:      #24609e;
   --shadow:    rgba(20, 22, 24, .18);
   --scrim:     rgba(20, 22, 24, .45);

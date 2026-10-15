@@ -140,6 +140,7 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildLcd(root);
   buildGrease(root);
   buildPennants(root);
+  buildMaskingTape(root);
   buildIcons(root);
   return ticker;
 }
@@ -584,4 +585,57 @@ function buildIcons(root) {
     img.style.borderRadius = radius;
     cell(grid, label).append(img);
   }
+}
+
+
+/**
+ * Masking tape, written on in marker: a track's name on the tape page, and
+ * a take's flags on its card in Takes. It is all CSS -- the strip's torn
+ * ends, its lean, the tape and the marker -- so there is no module; these
+ * cells are the pages' own markup (lib/tape/page.js, lib/shelf-detail.js),
+ * with the classes styles.css styles them by.
+ */
+function buildMaskingTape(root) {
+  const grid = section(root, 'Masking tape',
+    'A track\'s name in marker on a strip of masking tape, as on a console\'s scribble strip, and a take\'s flags as tabs on its card. Styled in styles.css (.tt-head .tt-name, .detail-flag); the marker is a material, the tape a shade darker at night.');
+
+  /** A track's head, as the tape page builds it, with only its name. */
+  const track = (n, name) => {
+    const row = el('div', 'tape-track');
+    row.style.setProperty('--tc', `var(--t${((n - 1) % 4) + 1})`);
+    const head = el('div', 'tt-head');
+    const num = el('span', 'tt-num', String(n));
+    num.setAttribute('aria-hidden', 'true');
+    const label = el('button', 'tt-name', name);
+    label.type = 'button';
+    label.dataset.n = String(n);
+    head.append(num, label);
+    row.append(head);
+    return row;
+  };
+  const stack = (rows) => {
+    const box = el('div', 'bench-tracks');
+    box.append(...rows);
+    return box;
+  };
+
+  cell(grid, 'tracks 1 and 2: the strips lean opposite ways').append(stack([track(1, 'Drums'), track(2, 'Keys')]));
+  cell(grid, 'nothing written on it yet').append(stack([track(3, '')]));
+  // A head 200 px or wider prints the number in a ring of the track's
+  // colour instead of on the tape (the tthead container query).
+  const wide = track(1, 'Drums');
+  wide.classList.add('bench-wide');
+  cell(grid, 'a wide head: the number in its ring').append(stack([wide]));
+
+  // A take's flags, as Takes builds them for the take's card.
+  const flags = el('div', 'detail-flags');
+  for (const [name, at] of [['the riff', '0:10'], ['big ending', '2:48']]) {
+    const c = el('button', 'detail-flag');
+    c.type = 'button';
+    c.innerHTML = '<span aria-hidden="true">⚑</span><span class="flag-name"></span><span class="flag-at"></span>';
+    c.querySelector('.flag-name').textContent = name;
+    c.querySelector('.flag-at').textContent = at;
+    flags.append(c);
+  }
+  cell(grid, 'a take\'s flags, on its card').append(flags);
 }

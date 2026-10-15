@@ -29,6 +29,9 @@
   .bench-canvas { display: block; width: 100%; border-radius: 4px; }
   /* The ribbon's own flag layer (.rb-layer, .rb-flag) over a bench ring. */
   .bench-rb { position: relative; width: 100%; --rb-ruler: 0px; }
+  /* Track heads at the tape page's own width, stacked as its tracks are. */
+  .bench-tracks { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .bench-tracks .bench-wide { grid-template-columns: 220px; }
   /* An icon in the ink of the key it sits on. */
   .bench-ico { display: inline-flex; color: var(--ink); }
   .bench-app-ico { display: block; }
