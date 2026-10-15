@@ -37,3 +37,13 @@ export function windowFrames(st) {
 export function takesPoll(st, gen) {
   return gen === st.gen && !st.local && !st.grabbing;
 }
+
+/**
+ * pulledTo is the height a sheet settles at when its grip is let go with the
+ * sheet `f` of the screen's height: peek, half or full. Pulled right down it
+ * is a peek still -- it never closes (the ✕ closes it): a pull to see the
+ * lanes that lost the buffer was a surprise, and only Buffer ▴ brought it back.
+ */
+export function pulledTo(f) {
+  return f < 0.25 ? 'peek' : f < 0.62 ? 'half' : 'full';
+}

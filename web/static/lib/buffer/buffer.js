@@ -22,7 +22,7 @@ import {
   bufferLines, bufferMeta, bufferNote, boardKey, spanWords, chipsFor, overwritten,
 } from './model.js';
 import { bindBufferKeys } from './keys.js';
-import { keyState, windowFrames, takesPoll } from './state.js';
+import { keyState, windowFrames, takesPoll, pulledTo } from './state.js';
 import { setOpen, setFold } from './fold.js';
 import { Overlay, Lift, boxesFor } from './lanes.js';
 import { SNAPS, FADE_SHAPES } from '../tape/geometry.js';
@@ -748,9 +748,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       dragged = true;
       const f = el.panel.getBoundingClientRect().height / innerHeight;
       el.panel.style.height = '';
-      // Pulled right down, it closes: the buffer waits in the crate's first slot.
-      if (f < 0.12) { close(); return; }
-      el.panel.dataset.height = f < 0.25 ? 'peek' : f < 0.62 ? 'half' : 'full';
+      // Pulled right down it is a peek still: it never closes (✕ does), so a
+      // pull to see the lanes doesn't lose the buffer.
+      el.panel.dataset.height = pulledTo(f);
       requestAnimationFrame(draw);
     });
     grip.addEventListener('pointercancel', () => {
