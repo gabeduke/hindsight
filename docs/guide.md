@@ -57,7 +57,7 @@ just move references around.
 | **Pass** | One time round the loop. Every pass you play is kept, and you choose which to catch |
 | **Layer** | A second catch on top of a track's existing audio, summed with it |
 | **Range** | Bars across one or more tracks, drawn on the lanes: what Cut, Copy, Paste, Insert and Delete time act on |
-| **Clipboard** | Holds what you last *copied* or *cut*, until you *paste* it. It's the first slot of the crate |
+| **Clipboard** | Holds what you last *copied* or *cut*, until you *paste* it. It's the first slot of the crate. With the two rooms on it is the **buffer** (§8.12), and there is no crate on the screen |
 | **Cut** | Take a range out of the tape into the clipboard, leaving silence (the OP-1's *lift*) |
 | **Paste** | Put the clipboard on a range's start, or at the playhead (the OP-1's *drop*). At the playhead, it jumps to the end of what you pasted |
 | **Bus A, bus B** | The tape's two outputs into the Sidekick: bus A into channel 1, bus B into channel 2. Each has the Sidekick's EQ, FX and fader |
@@ -484,7 +484,9 @@ and the editor bar takes the place of the toolbar.
   with this take (§3.1).
 - **Share** sends it from your phone as an MP3 (the whole take, with no
   selection), levelled when **Level** is on.
-- **Send to ▾** (when the Pi runs the tape) sends it to one of three places:
+- **Send to ▾** (when the Pi runs the tape) sends it to one of three places.
+  *With the two rooms on it is **GRAB** and nothing else: no Crate, no Split
+  here, no ◫ chip (§8.11, §8.12).*
   - **Tape** puts it on the loaded tape, by its tempo and downbeat if it has
     them (step 6). The line under it says what it will do.
   - **Clipboard** puts it on the clipboard, to Paste or Insert on a tape
@@ -865,7 +867,10 @@ From the top:
     selection.
 - **▶ / ■** plays and stops. **⟲ Loop** turns the loop on and off; off, the
   tape plays on to the end of what's recorded.
-- **The crate's drawer.** The bar's **Crate ▴** opens it above the bar,
+- **The crate's drawer.** *(Not in the Studio, with the two rooms on: it has
+  no drawer, no Crate ▴ and no clipboard line, and §8.12's buffer is where
+  what you grabbed waits. Cut and Copy on a range still fill it, and the
+  range's Paste and Insert use it.)* The bar's **Crate ▴** opens it above the bar,
   with the **clipboard** as its first row (Paste, Insert, Merge, Keep, ×)
   and the kept clips under it; the key's light is on while it's open. It
   pushes the lanes up rather than covering one, and its key, its **✕** or
@@ -967,6 +972,9 @@ where it comes round.
    last tape's tempo (or 90 BPM). If it guessed 168 and you meant 84, tap
    the tempo pill and choose the other. Nothing is stretched,
    only relabelled.
+
+*With the two rooms on, an empty tape says* Or GRAB a bit of a take *instead:
+open a take, select the part and press **GRAB** (§8.12).*
 
 **From a take.** On a take page, choose **Send to ▾ → Tape**; with a
 selection it sends that, without one the whole take. If no tape is loaded, a
@@ -1104,7 +1112,9 @@ its input (tap the input on its header and choose one), then:
 **The clipboard (6d)** holds what you last copied or cut -- from a take,
 the ribbon or a tape (7a, [below](#85-editing-like-an-op-1)) -- and keeps it
 through a restart. A copy can be as long as a track. It's the crate's first
-row (**Crate ▴**), with how long it is and where it came from:
+row (**Crate ▴**), with how long it is and where it came from. *(With the two
+rooms on there is no such row: a grab is the buffer, §8.12, and a range's Cut
+and Copy are used from its Paste and Insert.)*
 
 - **Tap it** to hear it (its first minute).
 - **Paste** puts it on the selected track at the playhead, replacing what's
@@ -1736,6 +1746,14 @@ verse or a drop, doesn't need to be another take: keep it as a **clip** on
 the **crate**. The takes list only grows when you capture, and pruning never
 touches the crate. A clip outlives the take it came from.
 
+*With the two rooms on there is no crate on the screen: no Crate ▴, no clipboard
+line, no **Send to ▾ → Crate**, **Split here**, **Keep as clip** or **Keep** on a
+part, no ◫ chip or line, and no* Find a clip*. The crate is not emptied: the Pi
+keeps every clip and its routes, and the crate is all here again when the rooms
+are switched off. **GRAB** (§8.12) is how a bit of a take, or of the feed, is
+kept to work with, and its Undo is the safety net the crate was. What follows,
+and its checks, are for the rooms off.*
+
 | Keep a clip from | Do | What's kept |
 |---|---|---|
 | A take | **Send to ▾ → Crate**: the selection, or the whole take | Its own copy of the audio, with 2 s either side to trim back out |
@@ -1796,7 +1814,8 @@ can work on it.
   before the playhead (at the take's tempo; twice N seconds without one),
   with N starting at the loop's length. It stands where the take page's
   *Send to → Tape* and *Clipboard* were, and *TO THE STUDIO* in the
-  Listening Room.
+  Listening Room. *Send to → Crate*, *Split here* and the ◫ chip are not
+  offered (§8.11).
 - The buffer opens, and the lanes fold to strips to make room (**Unfold**
   gives them their height back). Pick the inputs it holds -- two make two
   lanes, dropped on neighbouring tracks -- and drag **IN** and **OUT**, or
@@ -1809,8 +1828,19 @@ can work on it.
   another copy further on.
 - **KEEP** (**K**) saves it on the Listening Room's shelf, at the
   tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
-- Nothing grabbed is lost by grabbing again: a buffer you never dropped or
-  kept goes into the crate first.
+- **A grab can be undone.** GRAB over a buffer you never dropped, kept or
+  tossed -- a grab, or a range's Cut or Copy -- says so — *Replaced the buffer’s 4 BARS from the feed, never
+  dropped or kept* — with **Undo**, which puts the old buffer back (and
+  drops the grab it undoes). The Pi keeps exactly one replaced grab for it,
+  not a growing pile: the next grab over an unused buffer lets go of the one
+  before. A buffer you dropped or kept is not kept again, and says nothing; once
+  the buffer has been dropped or kept, the Undo says *Already dropped or kept —
+  undo the drop instead*. A range's Cut or Copy over an unused buffer says the
+  same, with its own Undo (beside the Cut's, which takes the cut off the tape),
+  and so does bringing back a tossed buffer over one. Only the newest Undo stays
+  on screen, and a toss ends the Undo of the grab it tossed.
+  The Studio has no crate drawer and no clipboard line; the buffer is the
+  only view of what GRAB holds (§8.11).
 
 On a phone the buffer is a sheet: pull its grip up or down, or hold it and
 drag it up onto a lane to drop it there. With Play mode on, the sheet stands
@@ -2217,12 +2247,12 @@ has no tip.
 | Last 1 2 4 8 (grab) | How many bars Grab takes. It starts at the tape's loop length, so a grab fits the loop it is for; with no tempo, twice as many seconds |
 | Grab (ribbon) | Put exactly the span you selected on the ribbon into the buffer |
 | KEEP (ribbon) | Keep exactly the span you selected on the ribbon as a take; the key says how long it is |
-| Buffer ▴ | Open the buffer again: what you grabbed last waits there, and in the crate's first slot |
+| Buffer ▴ | Open the buffer again: what you grabbed last waits there |
 | Buffer grip | Pull the buffer up or down. Hold it, then drag onto a lane, to drop it there |
 | Sources (buffer) | Which inputs the buffer holds, a lane each, all over the same span; they drop on neighbouring tracks |
 | Audition | Loop the buffer on this device, never through the Pi, so the jam goes on |
 | Unfold | Give the lanes their height back, and leave the buffer open |
-| ✕ (buffer) | Close the buffer. It stays on the clipboard, the crate's first slot, for Buffer ▴ or another drop |
+| ✕ (buffer) | Close the buffer. What you grabbed stays in it, for Buffer ▴ or another drop |
 | Drag to a lane | Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
 | The buffer's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
 | Drop on track | Lay the buffer on the armed track (with several armed, the first) at the next free span after the next bar line. One undo. ↵ |

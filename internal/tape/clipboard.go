@@ -37,6 +37,15 @@ type Clipboard struct {
 	// Grab is set on a clipboard the Studio's GRAB made: the buffer
 	// (grab.go). Its window is what the tracks' clips play.
 	Grab *Grab `json:"grab,omitempty"`
+	// Used: a copy or a cut (no Grab) that was dropped, inserted or kept, so
+	// replacing it loses nothing. A grab's is Grab.Used.
+	Used bool `json:"used,omitempty"`
+}
+
+// used says whether the buffer was dropped, inserted or kept: what replaces
+// it then takes nothing from anybody.
+func (c *Clipboard) used() bool {
+	return c != nil && (c.Used || (c.Grab != nil && c.Grab.Used))
 }
 
 var ErrEmptyClipboard = errors.New("the clipboard is empty: copy something first")
@@ -112,8 +121,18 @@ func (e *Engine) tooLong(frames int64) error {
 	return nil
 }
 
-// ClearClipboard empties it.
-func (e *Engine) ClearClipboard() error { return e.store.SaveClipboard(nil) }
+// ClearClipboard empties it. The one replaced grab went with the buffer it
+// would have undone, so it goes too (replaced.go); under boardMu, so an Undo
+// can't interleave.
+func (e *Engine) ClearClipboard() error {
+	e.boardMu.Lock()
+	defer e.boardMu.Unlock()
+	if err := e.store.SaveClipboard(nil); err != nil {
+		return err
+	}
+	e.store.clearReplaced()
+	return nil
+}
 
 // CopyTake puts frames [from, to) of a take onto the clipboard: its pair
 // written into the pool, with handles either side where the take has them

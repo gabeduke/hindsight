@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { notesOf, noteSpan, clipboardBody, sendToStudio, fmtAt, SPAN_SECONDS, freeFrame, fieldEnter } from './notes.js';
+import { recall } from '../buffer/replaced.js';
 
 const SR = 48000;
 
@@ -49,14 +50,28 @@ test('nothing left after the mark, or no such note: no span', () => {
 
 // grab: the Studio's buffer (P2) takes a take's span as a grab and opens on
 // it, where a plain copy would go to the crate. A server without the buffer
-// reads it as a plain copy: unknown fields are ignored.
+// reads it as a plain copy: unknown fields are ignored. crate: false -- the
+// rooms show no crate, so a buffer this replaces is held for GRAB's Undo only
+// (F3).
 test('to the studio posts {take, from, to, grab} to the clipboard and goes to the Studio', async () => {
   const calls = [];
   const fetchImpl = async (url, init) => { calls.push([url, init.method, JSON.parse(init.body)]); return { ok: true, json: async () => ({}) }; };
   const to = await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl });
   assert.equal(to, '/tape.html');
-  assert.deepEqual(calls, [['/api/clipboard', 'POST', { take: 'jam_a.wav', from: 1, to: 9, grab: true }]]);
-  assert.deepEqual(clipboardBody('x.wav', { from: 2, to: 3 }), { take: 'x.wav', from: 2, to: 3, grab: true });
+  assert.deepEqual(calls, [['/api/clipboard', 'POST', { take: 'jam_a.wav', from: 1, to: 9, grab: true, crate: false }]]);
+  assert.deepEqual(clipboardBody('x.wav', { from: 2, to: 3 }), { take: 'x.wav', from: 2, to: 3, grab: true, crate: false });
+});
+
+test('a take’s GRAB over a buffer nobody used leaves the Studio a line to say, under the new buffer’s name', async () => {
+  const store = new Map();
+  const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  const old = { created: 'old', frames: 4 * 96000, grab: { bar_frames: 96000, sources: ['main'] } };
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ clipboard: { created: 'new' }, replaced: old, replaced_seconds: 8 }) });
+  await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl, storage });
+  assert.equal(recall(storage, 'new'), 'Replaced the buffer’s 4 BARS from the feed, never dropped or kept');
+  // Over nothing, it leaves nothing.
+  await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl: async () => ({ ok: true, json: async () => ({ clipboard: { created: 'n2' } }) }), storage });
+  assert.equal(store.size, 0);
 });
 
 test('a refused copy says why, and goes nowhere', async () => {

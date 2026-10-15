@@ -43,6 +43,11 @@ import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom, roomOn } from '../room/mount.js';
+import { trimTakePage } from '../rooms/nocrate.js';
+
+// With the rooms on the crate is off the screen (F3): no Send to → Crate, no
+// Split here, no ◫ chip. The Pi keeps the crate; the page only stops offering it.
+if (roomOn()) trimTakePage(document);
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -1430,7 +1435,7 @@ async function main() {
   };
   fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
     if (r.ok) {
-      for (const id of ['send-btn', 'split-here']) $(id).hidden = false;
+      for (const id of ['send-btn', 'split-here']) { if ($(id)) $(id).hidden = false; }
       renderSendHint();
       renderCrateChip();
     }
@@ -1439,6 +1444,7 @@ async function main() {
   // them on the tape page's crate.
   const crateHref = `/tape.html?crate=${encodeURIComponent(file)}`;
   async function renderCrateChip() {
+    if (!$('crate-chip')) return; // the rooms have no crate to point at
     try {
       const n = (await tapeAPI(`/api/crate?take=${encodeURIComponent(file)}`)).clips.length;
       $('crate-chip').hidden = !n;
@@ -1449,7 +1455,7 @@ async function main() {
   }
   // Split here: two clips on the crate, the take before the playhead and
   // from it on. The take isn't changed: its audio never is.
-  $('split-here').addEventListener('click', async () => {
+  $('split-here')?.addEventListener('click', async () => {
     const btn = $('split-here');
     if (btn.disabled) return;
     const at = Math.round(state.cursor); // where it splits, whatever plays on
@@ -1473,7 +1479,7 @@ async function main() {
   });
   // Keep as clip: the selection (or the whole take) onto the crate, its audio
   // copied into the tape's pool; the takes list doesn't change.
-  $('keep-clip').addEventListener('click', async () => {
+  $('keep-clip')?.addEventListener('click', async () => {
     const from = state.region ? state.region.start : 0;
     const to = state.region ? state.region.end : total;
     try {

@@ -424,6 +424,14 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 	if tc, err := s.loadTossed(); err == nil {
 		tc.files(used)
 	}
+	// And the one grab a grab replaced, which GRAB's Undo brings back. One
+	// that can't be read might hold any grab: every grab's audio is kept.
+	// Only while it can still be undone: the buffer that replaced it is still
+	// the clipboard and unused. A slot nothing can undo roots nothing.
+	rep, rerr := s.loadReplaced()
+	if rep.live(c) {
+		rep.Board.files(used)
+	}
 	// So is the crate, its deleted clips too until they're let go of. One
 	// that can't be read might keep anything: nothing is cleaned up.
 	k, err := s.LoadCrate()
@@ -460,7 +468,7 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 		if e.IsDir() || !strings.HasSuffix(name, ".wav") || used["audio/"+name] {
 			continue
 		}
-		if cerr != nil && (strings.HasPrefix(name, "copy_") || strings.HasPrefix(name, "grab_")) {
+		if (cerr != nil || rerr != nil) && (strings.HasPrefix(name, "copy_") || strings.HasPrefix(name, "grab_")) {
 			continue
 		}
 		p := filepath.Join(s.dir, "audio", name)

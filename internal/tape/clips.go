@@ -155,7 +155,7 @@ func (s *State) duplicateClips(ids []string, length int64) ([]string, error) {
 // clipboard for each track from the highest of them to the lowest, each clip
 // as far from the first as it is on the tape, so a drop lays them out again
 // the same.
-func (e *Engine) copyClips(t *Tape, ids []string) (EditResult, error) {
+func (e *Engine) copyClips(t *Tape, ids []string, opts GrabOpts) (EditResult, error) {
 	st := t.State.clone()
 	ps, err := st.pick(ids, false)
 	if err != nil {
@@ -179,8 +179,9 @@ func (e *Engine) copyClips(t *Tape, ids []string) (EditResult, error) {
 		}
 		c.Tracks = append(c.Tracks, lane)
 	}
-	if _, err := e.setBoard(c); err != nil {
+	replaced, err := e.setBoardOpt(c, opts)
+	if err != nil {
 		return EditResult{}, err
 	}
-	return EditResult{Op: "copy", Clips: len(ps), Frames: c.Frames, Board: c}, nil
+	return EditResult{Op: "copy", Clips: len(ps), Frames: c.Frames, Board: c, Replaced: replaced}, nil
 }

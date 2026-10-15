@@ -100,14 +100,26 @@ type GrabRequest struct {
 	RingTo   *int64   `json:"ring_to"`
 	Sources  []string `json:"sources"`
 	Again    bool     `json:"again"`
+	// NoCrate: the buffer this replaces, if it was never dropped or kept, is
+	// held as the one replaced grab and not put in the crate (GrabOpts).
+	NoCrate bool `json:"-"`
 }
 
-// Grabbed is a grab, and what it put in the crate: the unused buffer it
-// replaced.
+// Grabbed is a grab, what it put in the crate (the unused buffer it replaced,
+// when the crate is kept), and Replaced: that same unused buffer, which the Pi
+// is now holding as its one replaced grab (replaced.go), for GRAB's Undo. Nil
+// when the grab replaced nothing, or only a buffer that was dropped or kept.
 type Grabbed struct {
-	Board  *Clipboard  `json:"clipboard"`
-	Crated []CrateClip `json:"crated"`
+	Board    *Clipboard  `json:"clipboard"`
+	Crated   []CrateClip `json:"crated"`
+	Replaced *Clipboard  `json:"replaced,omitempty"`
 }
+
+// GrabOpts changes what a grab does with the unused buffer it replaces.
+// NoCrate: it is kept as the one replaced grab and nowhere else. The rooms
+// send it, as the crate is no longer on their screens; without it a replaced
+// grab goes to the crate first, as it always has.
+type GrabOpts struct{ NoCrate bool }
 
 // maxGrabSeconds bounds a grab of the last N seconds.
 const maxGrabSeconds = 120
@@ -341,12 +353,12 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 			return Grabbed{Board: c, Crated: []CrateClip{}}, e.store.SaveClipboard(c)
 		}
 	}
-	crated, err := e.setBoardLocked(c)
+	crated, replaced, err := e.replaceBoardLocked(c, GrabOpts{NoCrate: req.NoCrate})
 	if err != nil {
 		forget()
 		return Grabbed{}, err
 	}
-	return Grabbed{Board: c, Crated: crated}, nil
+	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
 }
 
 // GrabTake copies frames [from, to) of a take onto the clipboard as the
@@ -357,6 +369,11 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 // grab from the feed is. title names the take in words (its label); file is
 // its name. Like any grab, it puts an unused buffer it replaces in the crate.
 func (e *Engine) GrabTake(take, file, title string, from, to int64, pick []int) (Grabbed, error) {
+	return e.GrabTakeOpt(take, file, title, from, to, pick, GrabOpts{})
+}
+
+// GrabTakeOpt is GrabTake with GrabOpts.
+func (e *Engine) GrabTakeOpt(take, file, title string, from, to int64, pick []int, opts GrabOpts) (Grabbed, error) {
 	info, err := audio.ReadWAVInfo(take)
 	if err != nil {
 		return Grabbed{}, err
@@ -407,12 +424,12 @@ func (e *Engine) GrabTake(take, file, title string, from, to int64, pick []int) 
 	}
 	e.boardMu.Lock()
 	defer e.boardMu.Unlock()
-	crated, err := e.setBoardLocked(c)
+	crated, replaced, err := e.replaceBoardLocked(c, opts)
 	if err != nil {
 		e.store.removePoolFile(rel)
 		return Grabbed{}, err
 	}
-	return Grabbed{Board: c, Crated: crated}, nil
+	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
 }
 
 // firstClip is a board's first clip, or nil.
@@ -559,31 +576,77 @@ func (e *Engine) setBoard(c *Clipboard) ([]CrateClip, error) {
 }
 
 func (e *Engine) setBoardLocked(c *Clipboard) ([]CrateClip, error) {
-	kept := []CrateClip{}
-	if old, err := e.store.LoadClipboard(); err == nil && !old.Empty() && old.Grab != nil && !old.Grab.Used &&
-		(c == nil || !c.Created.Equal(old.Created)) {
-		ks, err := e.keepBoard(old)
-		if err != nil {
-			return nil, fmt.Errorf("the buffer it would replace couldn't be kept in the crate first: %w", err)
-		}
-		kept = ks
-	}
-	return kept, e.store.SaveClipboard(c)
+	kept, _, err := e.replaceBoardLocked(c, GrabOpts{})
+	return kept, err
 }
 
-// markUsed notes that the buffer c was dropped or kept, if it's still the
-// one on the clipboard.
+// setBoardOpt is setBoard with GrabOpts, answering the buffer it replaced
+// (held for Undo) as well: a range's Cut and Copy use it.
+func (e *Engine) setBoardOpt(c *Clipboard, opts GrabOpts) (*Clipboard, error) {
+	e.boardMu.Lock()
+	defer e.boardMu.Unlock()
+	_, replaced, err := e.replaceBoardLocked(c, opts)
+	return replaced, err
+}
+
+// replaceBoardLocked replaces the clipboard with c. A buffer it replaces that
+// was never dropped, inserted or kept -- a grab, or a cut or copy -- is held as
+// the one replaced grab (replaced.go), for Undo. A *grab* is also put in the
+// crate, so nothing grabbed is lost without a toss, unless opts says not. It
+// answers what it put in the crate and the buffer it replaced, if it was one
+// of those. If a write after the slot's fails, the slot is put back as it was,
+// so the Undo that was there is not lost to a replacement that did not happen.
+func (e *Engine) replaceBoardLocked(c *Clipboard, opts GrabOpts) ([]CrateClip, *Clipboard, error) {
+	kept := []CrateClip{}
+	var replaced *Clipboard
+	var rollback func()
+	if old, err := e.store.LoadClipboard(); err == nil && !old.Empty() && !old.used() &&
+		(c == nil || !c.Created.Equal(old.Created)) {
+		if c != nil {
+			prev, _ := e.store.loadReplaced()
+			if err := e.store.saveReplaced(old, c.Created); err != nil {
+				return nil, nil, fmt.Errorf("the buffer it would replace couldn't be held for Undo first: %w", err)
+			}
+			replaced = old
+			rollback = func() { e.store.putReplaced(prev) }
+		}
+		if old.Grab != nil && !opts.NoCrate {
+			ks, err := e.keepBoard(old)
+			if err != nil {
+				if rollback != nil {
+					rollback()
+				}
+				return nil, nil, fmt.Errorf("the buffer it would replace couldn't be kept in the crate first: %w", err)
+			}
+			kept = ks
+		}
+	}
+	if err := e.store.SaveClipboard(c); err != nil {
+		if rollback != nil {
+			rollback()
+		}
+		return nil, nil, err
+	}
+	return kept, replaced, nil
+}
+
+// markUsed notes that the buffer c was dropped, inserted or kept, if it's
+// still the one on the clipboard.
 func (e *Engine) markUsed(c *Clipboard) {
-	if c == nil || c.Grab == nil || c.Grab.Used {
+	if c == nil || c.used() {
 		return
 	}
 	e.boardMu.Lock()
 	defer e.boardMu.Unlock()
 	cur, err := e.store.LoadClipboard()
-	if err != nil || cur == nil || cur.Grab == nil || cur.Grab.Used || !cur.Created.Equal(c.Created) {
+	if err != nil || cur == nil || cur.used() || !cur.Created.Equal(c.Created) {
 		return
 	}
-	cur.Grab.Used = true
+	if cur.Grab != nil {
+		cur.Grab.Used = true
+	} else {
+		cur.Used = true
+	}
 	if err := e.store.SaveClipboard(cur); err != nil {
 		log.Printf("[!] tape: the buffer was used, but couldn't be marked so: %v", err)
 	}
@@ -1056,27 +1119,40 @@ func (e *Engine) TossClipboard() error {
 			return err
 		}
 	}
-	return e.store.SaveClipboard(nil)
+	if err := e.store.SaveClipboard(nil); err != nil {
+		return err
+	}
+	// What a grab replaced is not undoable once the buffer that replaced it
+	// is tossed: its Undo ends here, and the toss keeps that buffer instead.
+	e.store.clearReplaced()
+	return nil
 }
 
 // RestoreClipboard brings the last tossed buffer back onto the clipboard:
 // a toss's Undo. What it replaces is replaced as a grab replaces it.
 func (e *Engine) RestoreClipboard() (*Clipboard, []CrateClip, error) {
+	c, kept, _, err := e.RestoreClipboardOpt(GrabOpts{})
+	return c, kept, err
+}
+
+// RestoreClipboardOpt is RestoreClipboard with GrabOpts, answering the
+// buffer it replaced, if it was one nobody had used (held for Undo).
+func (e *Engine) RestoreClipboardOpt(opts GrabOpts) (*Clipboard, []CrateClip, *Clipboard, error) {
 	e.boardMu.Lock()
 	defer e.boardMu.Unlock()
 	c, err := e.store.loadTossed()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if c.Empty() {
-		return nil, nil, fmt.Errorf("%w: nothing was tossed to bring back", ErrNothingToDo)
+		return nil, nil, nil, fmt.Errorf("%w: nothing was tossed to bring back", ErrNothingToDo)
 	}
-	kept, err := e.setBoardLocked(c)
+	kept, replaced, err := e.replaceBoardLocked(c, opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	e.store.mu.Lock()
 	os.Remove(e.store.tossedPath())
 	e.store.mu.Unlock()
-	return e.markStale(c), kept, nil
+	return e.markStale(c), kept, replaced, nil
 }

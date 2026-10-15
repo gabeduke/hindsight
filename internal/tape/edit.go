@@ -51,6 +51,10 @@ type EditRequest struct {
 	// of the loop's bars on the selected track (or All).
 	Span   *Span `json:"span"`
 	Tracks []int `json:"tracks"`
+	// NoCrate (lift and copy; the rooms send it): the unused buffer this
+	// replaces is held as the one replaced grab (replaced.go) and not put in
+	// the crate. Not `crate`, which an insert already uses.
+	NoCrate bool `json:"no_crate"`
 }
 
 // Span is a stretch of the tape, From up to To, in frames.
@@ -102,6 +106,8 @@ type EditResult struct {
 	Section *Section   `json:"section,omitempty"` // a section edit: the section as it is now
 	IDs     []string   `json:"ids,omitempty"`     // duplicate: the copies' ids
 	At      int64      `json:"at"`                // insert, delete time, duplicate section: where (0 is a place)
+	// Replaced is the unused buffer a lift or copy replaced, held for Undo.
+	Replaced *Clipboard `json:"replaced,omitempty"`
 }
 
 // EditOp carries out an edit on the loaded tape.
@@ -116,7 +122,7 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 	switch req.Op {
 	case "copy":
 		if len(req.Clips) > 0 {
-			return e.copyClips(t, req.Clips)
+			return e.copyClips(t, req.Clips, GrabOpts{NoCrate: req.NoCrate})
 		}
 		return e.liftCopy(t, req)
 	case "lift":
@@ -242,6 +248,8 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 	// take reads the selection from a state -- for a lift, the one being
 	// edited, so what's lifted is exactly what's taken out.
 	var c *Clipboard
+	var replaced *Clipboard
+	opts := GrabOpts{NoCrate: req.NoCrate}
 	var from, to int64
 	n := 0
 	take := func(tp *Tape, s *State) error {
@@ -267,10 +275,11 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 		if err := take(t, &t.State); err != nil {
 			return EditResult{}, err
 		}
-		if _, err := e.setBoard(c); err != nil {
+		replaced, err := e.setBoardOpt(c, opts)
+		if err != nil {
 			return EditResult{}, err
 		}
-		return EditResult{Op: req.Op, Clips: n, Frames: c.Frames, Board: c}, nil
+		return EditResult{Op: req.Op, Clips: n, Frames: c.Frames, Board: c, Replaced: replaced}, nil
 	}
 	// The clipboard is written inside the edit, before the tape is saved: if
 	// it can't be, nothing is lifted; if the tape then can't be saved, the
@@ -279,7 +288,8 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 		if err := take(tp, s); err != nil {
 			return err
 		}
-		if _, err := e.setBoard(c); err != nil {
+		var err error
+		if replaced, err = e.setBoardOpt(c, opts); err != nil {
 			return err
 		}
 		for _, tn := range tracks {
@@ -290,7 +300,7 @@ func (e *Engine) liftCopy(t *Tape, req EditRequest) (EditResult, error) {
 	if err != nil {
 		return EditResult{}, err
 	}
-	return EditResult{Op: req.Op, Clips: n, Frames: c.Frames, Board: c}, nil
+	return EditResult{Op: req.Op, Clips: n, Frames: c.Frames, Board: c, Replaced: replaced}, nil
 }
 
 // barsText reads a span of a tape as bars: "bars 5–8".

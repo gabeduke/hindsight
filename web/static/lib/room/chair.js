@@ -17,7 +17,7 @@
 // tape on the deck itself, played on the Pi through OUT, with its sections
 // as read-only notes.
 
-import { notesOf, noteSpan, sendToStudio, fmtAt, fieldEnter } from './notes.js';
+import { notesOf, noteSpan, sendToStudio, forgetNote, fmtAt, fieldEnter } from './notes.js';
 import { keepLabel, selectionKeepLength } from '../rooms/keeplabel.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick } from '../rooms/grab.js';
 import { loadTape } from './swap.js';
@@ -52,6 +52,7 @@ const readPref = (k) => { try { return localStorage.getItem(k); } catch { return
 const writePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
 export function mount(h) {
+  forgetNote(); // a take's GRAB left a note for the Studio: this page is not it
   return h.tape ? mountTape(h) : mountTake(h);
 }
 
@@ -402,8 +403,8 @@ function mountTake(h) {
   loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); renderGrab(); });
 
   // The take page's Send to ▾: Tape and Clipboard are GRAB now -- one request,
-  // the Studio's buffer, which Drops where the clipboard Pasted. Crate waits
-  // for the crate to go.
+  // the Studio's buffer, which Drops where the clipboard Pasted. Crate is gone
+  // with the crate (lib/rooms/nocrate.js): GRAB is all of Send to.
   const sendMenu = $('send-menu');
   let sendGrab = null, sendGrabSub = null;
   if (sendMenu) {
