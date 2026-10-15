@@ -3,7 +3,9 @@
 // selection of the feed offers GRAB and KEEP and nothing else; every KEEP
 // names what it keeps; a take's TO THE STUDIO and Send to become GRAB. The
 // markup and the wiring, read from the source -- the pure parts are in
-// keeplabel.test.js and grab.test.js. The rooms off (Capture) are unchanged.
+// keeplabel.test.js and grab.test.js; the pad's and the buffer's behaviour is
+// run, on a stand-in document, in play/keeps.test.js and buffer/keeps.test.js.
+// The rooms off (Capture) are unchanged.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -50,6 +52,7 @@ test('the ribbon names the selection’s KEEP when it is told to, and only then'
   assert.match(ribbon, /keepWords/, 'the Studio hands it a way to word KEEP');
   const studio = read('./studio.js');
   assert.match(studio, /keepWords:/);
+  assert.match(studio, /setAttribute\('aria-label', keepAria\(len\)\)/, 'the feed key’s name comes from keepAria, which contains the label');
   assert.doesNotMatch(read('../../app.js'), /keepWords/, 'Capture does not');
 });
 
@@ -64,9 +67,4 @@ test('a take’s GRAB: the sheet, the chair, the notes, and the take page’s Se
   assert.doesNotMatch(chair, /'to the studio'/, 'a note’s key says GRAB');
   assert.match(chair, /send-to-tape|send-grab/, 'the take page’s Send to → Tape and → Clipboard are made over by the chair');
   assert.match(chair, /send-grab/);
-});
-
-test('the pad hears what K will keep', () => {
-  assert.match(read('../play/strip.js'), /hindsight:keeps/);
-  assert.match(read('../play/screen.js'), /setVerbWords/);
 });

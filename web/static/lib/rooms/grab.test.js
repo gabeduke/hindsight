@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { loopBars, pickFor, followLoop, takeStartN, takeGrabSpan, takeGrabLabel, loadedLoopBars } from './grab.js';
+import { loopBars, pickFor, followLoop, takeStartN, takeGrabSpan, takeGrabLabel, loadedLoopBars, playheadFor } from './grab.js';
 
 const SR = 48000;
 const BAR = 96000; // 120 BPM
@@ -47,19 +47,18 @@ test('the picker takes the largest of 1 2 4 8 that fits inside the loop', () => 
 
 test('the picker starts at the loop’s bars, and follows the loop until picked by hand', () => {
   const two = tape({ loop: { in: 0, out: 2 * BAR, on: true } });
-  let s = { n: 4, picked: false, loopBars: null };
+  let s = { n: 4, loopBars: null };
   s = followLoop(s, two);
-  assert.deepEqual(s, { n: 2, picked: false, loopBars: 2 }, 'the tape’s loop is 2 bars: GRAB starts at 2');
-  s = followLoop({ ...s, n: 8, picked: true }, two);
+  assert.deepEqual(s, { n: 2, loopBars: 2 }, 'the tape’s loop is 2 bars: GRAB starts at 2');
+  s = followLoop({ ...s, n: 8 }, two);
   assert.equal(s.n, 8, 'a hand-picked 8 stays while the loop is as it was');
-  assert.equal(s.picked, true);
   s = followLoop(s, tape());
-  assert.deepEqual(s, { n: 4, picked: false, loopBars: 4 }, 'the loop changed: it follows again');
+  assert.deepEqual(s, { n: 4, loopBars: 4 }, 'the loop changed: it follows again');
 });
 
 test('no loop to follow leaves the picker where it is', () => {
-  assert.deepEqual(followLoop({ n: 1, picked: true, loopBars: null }, tape({ grid: null })), { n: 1, picked: true, loopBars: null });
-  assert.deepEqual(followLoop({ n: 8, picked: false, loopBars: 8 }, null), { n: 8, picked: false, loopBars: 8 });
+  assert.deepEqual(followLoop({ n: 1, loopBars: null }, tape({ grid: null })), { n: 1, loopBars: null });
+  assert.deepEqual(followLoop({ n: 8, loopBars: 8 }, null), { n: 8, loopBars: 8 });
 });
 
 test('a take’s N starts at the loop’s bars; else the saved pick; else 4', () => {
@@ -133,4 +132,17 @@ test('no tape loaded, the tape off, or the Pi unreachable: no bars, no throw', a
   assert.equal(await loadedLoopBars(fetchOf({ '/api/tapes': { loaded: '', tapes: [] } })), null);
   assert.equal(await loadedLoopBars(fetchOf({})), null);
   assert.equal(await loadedLoopBars(async () => { throw new Error('offline'); }), null);
+});
+
+test('the sheet’s playhead is the bar’s, for the take the bar holds', () => {
+  const bar = { takeName: 'jam_a.wav', takeTime: 12.5 };
+  assert.equal(playheadFor(bar, 'jam_a.wav', SR), 12.5 * SR);
+});
+
+test('another take, an empty bar, or a take at 0 has the start', () => {
+  assert.equal(playheadFor({ takeName: 'jam_a.wav', takeTime: 12.5 }, 'jam_b.wav', SR), 0, 'the bar holds another take');
+  assert.equal(playheadFor({ takeName: null, takeTime: null }, 'jam_a.wav', SR), 0, 'nothing in the bar');
+  assert.equal(playheadFor({ takeName: 'jam_a.wav', takeTime: 0 }, 'jam_a.wav', SR), 0);
+  assert.equal(playheadFor({ takeName: 'jam_a.wav', takeTime: NaN }, 'jam_a.wav', SR), 0);
+  assert.equal(playheadFor(null, 'jam_a.wav', SR), 0, 'no bar yet');
 });

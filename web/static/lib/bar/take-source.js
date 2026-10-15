@@ -14,6 +14,13 @@ import { barBeat } from '../wave/geometry.js';
 const stamp = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 
 /**
+ * playheadOf is where the take held by the bar is, in seconds -- its list
+ * row's audio element -- or null with no take in the bar. The Listening
+ * Room's GRAB reads it to grab the bars before it.
+ */
+export const playheadOf = (take) => (take && take.audio && Number.isFinite(take.audio.currentTime) ? take.audio.currentTime : null);
+
+/**
  * takeSource is the bar's source for take `t`, played by `player` ({audio,
  * peaks, toggle}). onGone hears when its row lets the audio go (the take
  * deleted, or off the shelf): the bar mustn't keep a player that's empty.

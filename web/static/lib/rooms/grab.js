@@ -48,14 +48,13 @@ export function pickFor(bars) {
 /**
  * followLoop is the feed's picker, given the tape. It starts at the loop's
  * bars and follows the loop when its length changes; a value picked by hand
- * stays until then. `s` is {n, picked, loopBars}; the answer is the new one.
- * A tape with no loop to follow changes nothing.
+ * stays until then. `s` is {n, loopBars}; the answer is the new one. A tape
+ * with no loop to follow changes nothing.
  */
 export function followLoop(s, tape) {
   const bars = loopBars(tape);
-  if (bars == null) return s;
-  if (bars === s.loopBars) return s;
-  return { n: pickFor(bars), picked: false, loopBars: bars };
+  if (bars == null || bars === s.loopBars) return s;
+  return { n: pickFor(bars), loopBars: bars };
 }
 
 /**
@@ -82,6 +81,16 @@ export function takeGrabSpan({ region = null, playhead = 0, total, sampleRate = 
   const to = Math.max(0, Math.min(total, Math.round(playhead)));
   if (to <= 0) return { from: 0, to: Math.min(total, len) };
   return { from: Math.max(0, to - len), to };
+}
+
+/**
+ * playheadFor is where the bar is in take `name`, in frames: its own time
+ * when the bar holds that take (`np` is the page's bar: takeName, takeTime),
+ * else 0, the take's start -- a take the bar is not playing has no playhead.
+ */
+export function playheadFor(np, name, sampleRate = 48000) {
+  const t = np && np.takeName === name ? np.takeTime : null;
+  return Number.isFinite(t) && t > 0 ? Math.round(t * sampleRate) : 0;
 }
 
 /** takeGrabLabel is the take's GRAB key: GRAB 4 BARS, GRAB 8s without a tempo, GRAB SELECTION. */

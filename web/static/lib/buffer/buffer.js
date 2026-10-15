@@ -127,7 +127,6 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     droppedAt: 0,     // when
     unfolded: false,  // UNFOLD: the lanes have their height back, the buffer stays
     n: readPick() ?? 4,    // the feed's 1 / 2 / 4 / 8: it starts at the tape's loop in bars (rooms/grab.js)
-    picked: false,    // N was picked by hand since the loop last changed
     loopBars: null,   // the loop N last followed
     keeps: '',        // what K keeps from here, as the instrument's pad last heard it
     chosen: null,     // the sources picked by hand; null follows the armed track's input
@@ -792,7 +791,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   el.grabSel?.addEventListener('click', grabSpan);
   el.reopen.addEventListener('click', () => { st.open = true; st.dropped = ''; render(); forward(); });
   for (const btn of el.picks.children) {
-    btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); st.picked = true; writePick(st.n); render(); });
+    btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); writePick(st.n); render(); });
   }
   el.close.addEventListener('click', close);
   el.unfold.addEventListener('click', () => { st.unfolded = !st.unfolded; render(); });

@@ -20,7 +20,7 @@ import { roomShelves, inMonth, monthName, monthKey, isRecord, at, filterWords, p
 import { putTapeOn, loadTape, readyToCut } from './swap.js';
 import { cutTakeRecord, cutTapeRecord, takeCover, tapeCover } from './record.js';
 import { sendToStudio, fmtAt } from './notes.js';
-import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick } from '../rooms/grab.js';
+import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick, playheadFor } from '../rooms/grab.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
@@ -535,10 +535,9 @@ export function mount(h) {
     const sr = t.sample_rate || 48000;
     // The take's saved selection, else the N bars before the playhead -- the
     // bar's, if it holds this take; else the take's start.
-    const at = h.np.takeName === t.name ? h.np.takeTime : null;
     const span = takeGrabSpan({
       region: t.trim ? { start: t.trim.start_frame, end: t.trim.end_frame } : null,
-      playhead: Math.round((at || 0) * sr), total: Math.floor((t.duration_seconds || 0) * sr),
+      playhead: playheadFor(h.np, t.name, sr), total: Math.floor((t.duration_seconds || 0) * sr),
       sampleRate: sr, bpm: t.bpm, n: grabN,
     });
     if (!span) return;
