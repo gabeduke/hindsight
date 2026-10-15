@@ -80,11 +80,21 @@ export async function readyToCut(id, { fetchImpl = globalThis.fetch, ask } = {})
  */
 export async function putTapeOn(id, { fetchImpl = globalThis.fetch, ask } = {}) {
   const r = await loadTape(id, { fetchImpl, ask });
-  if (!r.loaded) return { ...r, played: false };
-  if (r.already && (recording(r.live) || (r.live && (r.live.playing || r.live.count_in > 0)))) return { ...r, played: false };
+  return { ...r, played: await playTape(id, r, { fetchImpl }) };
+}
+
+/**
+ * playTape is putTapeOn's second half: ▶ on tape `id`, once loadTape has
+ * put it on (`r`, its answer) -- unless it was already loaded and playing,
+ * or a press of ▶ would record on it. The room calls it at SEAT, so the
+ * tape's sound starts as the reel box goes in. Answers whether it pressed.
+ */
+export async function playTape(id, r, { fetchImpl = globalThis.fetch } = {}) {
+  if (!r || !r.loaded) return false;
+  if (r.already && (recording(r.live) || (r.live && (r.live.playing || r.live.count_in > 0)))) return false;
   const res = await fetchImpl(`/api/tapes/transport?id=${encodeURIComponent(id)}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'play' }),
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
-  return { ...r, played: true };
+  return true;
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { studioBusy, recording, swapQuestion, cutQuestion, loadTape, putTapeOn, readyToCut } from './swap.js';
+import { studioBusy, recording, swapQuestion, cutQuestion, loadTape, putTapeOn, playTape, readyToCut } from './swap.js';
 
 function fakePi(script) {
   const calls = [];
@@ -129,4 +129,18 @@ test('cutting a record of another tape while the Studio’s is busy asks to swap
   const asked = [];
   assert.equal(await readyToCut('b', { fetchImpl: pi.fetchImpl, ask: async (q) => { asked.push(q); return true; } }), true);
   assert.deepEqual(asked, [swapQuestion('X')]);
+});
+
+test('the room loads first and presses ▶ later: playTape is putTapeOn’s second half', async () => {
+  const pi = fakePi([['/api/tapes/transport?id=b', 200, {}]]);
+  assert.equal(await playTape('b', { loaded: true, already: false }, { fetchImpl: pi.fetchImpl }), true);
+  assert.deepEqual(pi.calls, ['POST /api/tapes/transport?id=b {"action":"play"}']);
+  // Not loaded (no to the question), or already playing, or armed: no press.
+  const none = fakePi([]);
+  assert.equal(await playTape('b', { loaded: false }, { fetchImpl: none.fetchImpl }), false);
+  assert.equal(await playTape('b', { loaded: true, already: true, live: { playing: true } }, { fetchImpl: none.fetchImpl }), false);
+  assert.equal(await playTape('b', { loaded: true, already: true, live: { record: { state: 'armed' } } }, { fetchImpl: none.fetchImpl }), false);
+  assert.deepEqual(none.calls, []);
+  const refused = fakePi([['/api/tapes/transport?id=b', 409, { error: 'a punch is recording' }]]);
+  await assert.rejects(playTape('b', { loaded: true }, { fetchImpl: refused.fetchImpl }), /a punch is recording/);
 });
