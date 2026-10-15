@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.15.3 — 2026-10-15
+
+- Play mode's pads make sound (9c6234b)
+- Play mode's socket: press and release pads over /api/tapes/play (e32c089)
+
+
 ## v2026.10.15.2 — 2026-10-15
 
 - Tricks: fix six things a review found, before anyone hears them (7074a64)
