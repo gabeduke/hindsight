@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.15.2 — 2026-10-15
+
+- Tricks: fix six things a review found, before anyone hears them (7074a64)
+- Teach the tape engine Play mode's tricks (the pads aren't wired to it yet) (dcefc86)
+
+
 ## v2026.10.15.1 — 2026-10-15
 
 - Describe the finished object library in the contributor notes (8e4b44d)
