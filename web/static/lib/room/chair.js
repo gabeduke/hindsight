@@ -57,7 +57,8 @@ export function mount(h) {
 // --- the frame both share: the header's keys, the deck, the tape, the book ----
 
 function frame({ kind, title }) {
-  document.body.classList.add('chair-on', `chair-${kind}`);
+  // The body's mark, apart from the .chair-tape strip's own class.
+  document.body.classList.add('chair-on', `chair-of-${kind}`);
   // STAND UP: back to the doorway, where the shelves are.
   const back = document.querySelector('.appbar .back');
   if (back) {
@@ -175,10 +176,15 @@ function stripSeek(strip, { length, seek, pos, sampleRate }) {
   });
 }
 
-// pinsFor lays numbered grease marks over the strip, one button each.
-function pinsFor(list, items, { onPick, label }) {
+// pinsFor lays numbered grease marks over the strip, one button each. Two
+// closer than a mark's width take turns above and below the tape.
+const PIN_PX = 28;
+function pinsFor(list, items, { onPick, label, width = 0 }) {
+  let prev = null, lane = 0;
   list.replaceChildren(...items.map((n) => {
-    const b = el('button', 'chair-pin', { type: 'button', style: `left: ${(n.frac * 100).toFixed(3)}%`, 'aria-label': label(n) }, String(n.n));
+    lane = prev && width > 0 && (n.frac - prev.frac) * width < PIN_PX ? 1 - lane : 0;
+    prev = n;
+    const b = el('button', `chair-pin${lane ? ' below' : ''}`, { type: 'button', style: `left: ${(n.frac * 100).toFixed(3)}%`, 'aria-label': label(n) }, String(n.n));
     b.addEventListener('click', () => onPick(n));
     return el('li', '', {}, b);
   }));
@@ -282,6 +288,7 @@ function mountTake(h) {
     pinsFor(f.pins, ns.map((n) => ({ ...n, frac: n.frame / h.total })), {
       onPick: (n) => { h.seek(n.frame); list.querySelector(`li[data-id="${CSS.escape(n.id)}"] .book-words`)?.focus(); },
       label: (n) => `Note ${n.n} at ${n.at}${n.label ? `: ${n.label}` : ''}`,
+      width: f.strip.getBoundingClientRect().width,
     });
   }
 
@@ -410,7 +417,9 @@ function mountTake(h) {
     if (take.label !== lastLabel) { lastLabel = take.label; f.label.textContent = take.label || take.name.replace(/^jam_|\.wav$/g, ''); }
   }
   h.onRedraw(onRedraw);
-  new ResizeObserver(() => { stripCache = null; onRedraw(); }).observe(f.strip);
+  // A rename redraws nothing on the page: the deck's label hears of it here.
+  new MutationObserver(() => onRedraw()).observe(name, { childList: true, characterData: true, subtree: true });
+  new ResizeObserver(() => { stripCache = null; notesSig = ''; onRedraw(); }).observe(f.strip);
   renderSticker();
   onRedraw();
   return { chair: f.chair };
@@ -467,7 +476,7 @@ async function mountTape(h) {
       return el('li', '', {}, at, el('span', 'book-words book-ro', { text: n.label || 'unnamed' }));
     }));
     none.hidden = secs.length > 0;
-    pinsFor(f.pins, secs, { onPick: (n) => src?.seek(n.frame), label: (n) => `Section ${n.n} at ${n.at}: ${n.label || 'unnamed'}` });
+    pinsFor(f.pins, secs, { onPick: (n) => src?.seek(n.frame), label: (n) => `Section ${n.n} at ${n.at}: ${n.label || 'unnamed'}`, width: f.strip.getBoundingClientRect().width });
     f.ends.lastChild.textContent = fmtAt(len(), sr());
     f.strip.setAttribute('aria-valuemax', String(len()));
   }
@@ -575,6 +584,6 @@ async function mountTape(h) {
 
   if (s.loaded) start();
   else render();
-  new ResizeObserver(() => render()).observe(f.strip);
+  new ResizeObserver(() => { cache = ''; render(); }).observe(f.strip);
   return { chair: f.chair };
 }

@@ -19,7 +19,7 @@
 import { roomShelves, inMonth, monthName, isRecord, at } from './shelves.js';
 import { putTapeOn, loadTape } from './swap.js';
 import { cutTakeRecord, cutTapeRecord, takeCover, tapeCover } from './record.js';
-import { sendToStudio } from './notes.js';
+import { sendToStudio, fmtAt } from './notes.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
@@ -70,10 +70,12 @@ function fromOf(t) {
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 // A View Transition cross-fade, where there is one and motion is welcome.
-// The shelf-to-deck flight is brief R2's; this is its stand-in.
+// The shelf-to-deck flight is brief R2's; this is its stand-in. It answers
+// once the page has changed (the transition runs the update a frame later),
+// so focus can move to what's there now.
 function crossFade(update) {
-  if (!document.startViewTransition || reduced()) { update(); return; }
-  document.startViewTransition(update);
+  if (!document.startViewTransition || reduced()) { update(); return Promise.resolve(); }
+  return document.startViewTransition(update).updateCallbackDone.catch(() => {});
 }
 
 export function mount(h) {
@@ -113,7 +115,8 @@ export function mount(h) {
 
   const shelf = (key, label) => {
     const h3 = el('h3', 'room-plate', { id: `room-${key}-h` });
-    const list = el('ul', 'room-row', { role: 'list', 'aria-labelledby': `room-${key}-h` });
+    // The section is named by its plate; the list in it needs no second name.
+    const list = el('ul', 'room-row', { role: 'list' });
     const sec = el('section', `room-shelf room-shelf-${key}`, { 'aria-labelledby': `room-${key}-h` }, h3, list);
     h3.textContent = label;
     return { sec, h3, list };
@@ -388,7 +391,7 @@ export function mount(h) {
     const latest = bt ? [...(bt.flags || [])].filter((f) => f.label).sort((a, b) => b.frame - a.frame)[0] : null;
     bookPlace.replaceChildren(
       el('span', 'room-book-word', { text: 'Sketchbook' }),
-      el('span', 'room-book-latest', { text: d && d.kind === 'tape' ? `${(d.tape.name || 'the tape')}` : latest ? latest.label : bt ? 'no notes yet' : 'nothing on the deck' }),
+      el('span', 'room-book-latest', { text: d && d.kind === 'tape' ? `${(d.tape.name || 'the tape')}` : latest ? `${fmtAt(latest.frame, bt.sample_rate || 48000)} · ${latest.label}` : bt ? 'no notes yet' : 'nothing on the deck' }),
       el('span', 'room-book-n', { 'aria-hidden': 'true', text: String(notes) }));
     bookPlace.setAttribute('aria-label', d || t
       ? `Sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${d ? dName : spineTitle(t)}. Sit down with it`
@@ -604,8 +607,7 @@ export function mount(h) {
       body.classList.add('room-rack');
       rackTitle.textContent = m.title;
       syncMonth();
-    });
-    rackBack.focus();
+    }).then(() => rackBack.focus());
   }
   rackBack.addEventListener('click', () => {
     const key = month?.key;
@@ -614,8 +616,7 @@ export function mount(h) {
     crossFade(() => {
       body.classList.remove('room-rack');
       h.setFilter(null);
-    });
-    room.querySelector(`[data-key="month:${CSS.escape(key || '')}"]`)?.focus();
+    }).then(() => room.querySelector(`[data-key="month:${CSS.escape(key || '')}"]`)?.focus());
   });
 
   render();

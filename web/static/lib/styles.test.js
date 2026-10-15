@@ -406,6 +406,52 @@ test('the Studio’s rules reach only the Studio', () => {
   assert.deepEqual(borrowed, [], 'these files use a class the Studio styles');
 });
 
+test('the Listening Room’s rules reach only the room', () => {
+  // The room is behind the rooms flag; its CSS is on every page of every
+  // kit. So the Rooms P5 block may only style what the room's modules make
+  // (a room-, chair- or book- class, or .room and .chair themselves) or the
+  // pages the room has marked (body.room-on, body.chair-on).
+  const start = css.indexOf('/* ---------- Rooms P5:');
+  assert.ok(start >= 0, 'the Rooms P5 block');
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    // A keyframes' steps are not selectors.
+    .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+  // Commas inside :is() and :not() don't separate selectors.
+  const split = (list) => {
+    const out = [];
+    let depth = 0, from = 0;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] === '(') depth++;
+      else if (list[i] === ')') depth--;
+      else if (list[i] === ',' && depth === 0) { out.push(list.slice(from, i)); from = i + 1; }
+    }
+    return [...out, list.slice(from)].map((x) => x.trim());
+  };
+  const loose = [];
+  for (const m of body.matchAll(/([^{}]+)\{/g)) {
+    if (m[1].trim().startsWith('@')) continue; // a media query, not a selector
+    for (const sel of split(m[1])) {
+      if (!sel) continue;
+      if (/\.(?:room|chair|book)(?:-[a-z0-9-]+)?(?![\w-])/.test(sel)) continue;
+      loose.push(sel);
+    }
+  }
+  assert.deepEqual(loose, [], 'these room selectors could match something that is not the room');
+
+  // And nothing outside the room's modules wears one of its classes.
+  const root = new URL('../', import.meta.url);
+  const files = readdirSync(root, { recursive: true }).filter((f) =>
+    (f.endsWith('.html') || f.endsWith('.js')) && !f.endsWith('.test.js') && !f.includes('lib/room/') && !f.endsWith('help/tips.js'));
+  const borrowed = [];
+  for (const f of files) {
+    const text = readFileSync(new URL(f, root), 'utf8').replace(/<!--[\s\S]*?-->/g, '').replace(/\/\/.*$/gm, '');
+    for (const m of text.matchAll(/(?:^|[^\w-])((?:room|chair|book)-[a-z0-9-]+)/g)) borrowed.push(`${f}: ${m[1]}`);
+  }
+  assert.deepEqual(borrowed, [], 'these files use a class the room styles');
+});
+
 test('Play mode’s rules reach only Play mode', () => {
   // Play mode is behind a per-device flag, but its CSS is not: styles.css is
   // on every page of every kit. Its overlay rule was once a bare `.play` --

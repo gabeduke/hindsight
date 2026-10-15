@@ -33,15 +33,15 @@ does is lost.
 
 ---
 
-- [ ] **Go: `Meta.Record`.** `audio.Record {cut, side, cover}` on the
+- [x] **Go: `Meta.Record`.** `audio.Record {cut, side, cover}` on the
   sidecar and on the takes list (`Take.Record`); `PATCH /api/take` sets it
   (`record`: an object, or `null` to clear), validated (side `A` or `B`,
   cover a stripe slot 0–8, cut a time, now when absent), and answers it.
   Tests in `api_test.go` and `meta_test.go`.
-- [ ] **Caveat:** `@fontsource/caveat@5.2.8` from the npm registry, latin
+- [x] **Caveat:** `@fontsource/caveat@5.2.8` from the npm registry, latin
   500 and 700 as `fonts/caveat-500.woff2`, `fonts/caveat-700.woff2`, with
   `fonts/OFL-caveat.txt`; `@font-face` beside the others; `SHELL`.
-- [ ] **`lib/room/` pure modules, with tests:**
+- [x] **`lib/room/` pure modules, with tests:**
   - `shelves.js`: the four shelves from the takes, the tapes and now —
     tapes; this month's takes folded into families (`fold`), newest first,
     NEW for one under a day old; the archive by month (`SEP · 22`); records,
@@ -58,7 +58,7 @@ does is lost.
     playing, counting in, recording, armed or mixing down), and the question.
   - `mount.js`: `start({page, flagOn, load})` — null with the flag off,
     without loading anything.
-- [ ] **The doorway** (`room/doorway.js`, from `shelf-page.js`'s handle):
+- [x] **The doorway** (`room/doorway.js`, from `shelf-page.js`'s handle):
   - the room (wall, lamp, window, rug, the chair) as decoration;
   - the shelves as lists of buttons: reel boxes, cassette spines (NEW
     sticker, the gap a pulled spine leaves), month boxes, LP sleeves;
@@ -73,10 +73,10 @@ does is lost.
     now-playing bar with SIT DOWN;
   - *Search the shelves* opens the rack's filter;
   - a View Transition cross-fade from shelf to deck.
-- [ ] **`shelf-page.js` handle:** with the flag on, `wide` never opens the
+- [x] **`shelf-page.js` handle:** with the flag on, `wide` never opens the
   side pane (a spine always opens its sheet), a room filter for the month,
   list changes heard, Play all from a take.
-- [ ] **The chair** (`room/chair.js`, from `wave/page.js`'s handle):
+- [x] **The chair** (`room/chair.js`, from `wave/page.js`'s handle):
   - STAND UP, CUT A RECORD in the header;
   - the deck close up: the bar's reels and LCD, the name on masking tape,
     |◂ ◂◂ ▶ ▸▸ ⏏ and NOTE HERE;
@@ -86,24 +86,28 @@ does is lost.
     star, and the note field;
   - TOOLS: the take page as it is (the waveform, IN, OUT and Cut, tempo and
     downbeat, the MIDI lanes, Send to, More).
-- [ ] **A tape in the chair** (`wave.html?tape=`): the deck plays it on the
+- [x] **A tape in the chair** (`wave.html?tape=`): the deck plays it on the
   Pi; its sections as read-only notes; CUT A RECORD; TO THE STUDIO.
-- [ ] **`wave/page.js` handle:** with the flag on, `?tape=` goes to the
+- [x] **`wave/page.js` handle:** with the flag on, `?tape=` goes to the
   chair instead of failing; the handle exposes the take, its flags, the
   playhead and seek, add/edit/remove a flag, and a redraw hook.
-- [ ] **Materials:** the room's tokens at the end of `objects.css` (walnut,
+- [x] **Materials:** the room's tokens at the end of `objects.css` (walnut,
   the wall's dusk, the lamp, paper, cardboard, vinyl, brass plates);
   `materials.test.js` lists them.
-- [ ] **CSS:** the *Rooms P5* block; a test that its selectors are scoped to
-  the room's classes.
-- [ ] **Flag off, nothing:** tests that the pages' room entry loads nothing
+- [x] **CSS:** the *Rooms P5* block; a test that its selectors are scoped to
+  the room's classes, and that no other file wears them.
+- [x] **Contrast:** `room/contrast.test.js` holds every label pair the room
+  draws to 4.5:1, from `objects.css`.
+- [x] **Tips:** every control the room makes has a row in `tips.js` and the
+  guide's §9; `room/mount.test.js` checks the ones built in script.
+- [x] **Flag off, nothing:** tests that the pages' room entry loads nothing
   with the flag off, and that `takes.html` and `wave.html` carry no room
   markup.
-- [ ] **Structure tests:** `paths.test.js` (Caveat in `SHELL`, every
+- [x] **Structure tests:** `paths.test.js` (Caveat in `SHELL`, every
   `lib/room/` file), `pages.test.js`, `styles.test.js`.
-- [ ] `sw.js` v82 and `SHELL`; `lib/room/` in the globs.
-- [ ] **Docs:** `development.md`, *The Listening Room*; `api.md`, `record`.
-- [ ] **Look:** doorway, chair (take and tape) and phone, 390×844 and
+- [x] `sw.js` v82 and `SHELL`; `lib/room/` in the globs.
+- [x] **Docs:** `development.md`, *The Listening Room*; `api.md`, `record`.
+- [x] **Look:** doorway, chair (take and tape) and phone, 390×844 and
   1440×900, both schemes, flag on and off, against the demo. A take's whole
   trip: shelf → deck → NOTE HERE → *to the studio* → the clipboard holds its
   span and the Studio opens. Cut a record from a take and from a tape.
