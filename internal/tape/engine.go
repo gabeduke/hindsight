@@ -123,8 +123,10 @@ type Engine struct {
 	// Play mode (trick.go): presses and releases on their way in, and what
 	// the render goroutine has held. Outside the tape's State, so outside
 	// undo.
-	tricks trickInbox
-	perf   perf
+	tricks   trickInbox
+	perf     perf
+	trickLog trickLog
+	heldPads atomic.Uint32 // perf's held pads, a bit each, for Live
 
 	// player
 	blocks    chan *block
@@ -163,6 +165,7 @@ type Engine struct {
 	// an output with no clock bridge of its own (the demo's).
 	pullBridge *audio.ClockBridge
 	heardFn    func(o uint64) (int64, bool) // tests: when output frame o is heard
+	bridgeless bool                         // the output keeps no bridge: pullBridge stands in
 
 	crateMu sync.Mutex // one change of crate.json at a time
 
@@ -251,6 +254,8 @@ func (e *Engine) Start() error {
 		if _, ok := e.sink.(outputSink); ok {
 			e.hist[0] = make([]atomic.Int32, histFrames)
 			e.hist[1] = make([]atomic.Int32, histFrames)
+		} else {
+			e.bridgeless = true
 		}
 		// The device may pull the moment it's open.
 		e.sinkBase.Store(int64(e.delivered.Load()))
@@ -351,11 +356,11 @@ func (e *Engine) pull(out []int32) {
 	}
 	e.keepHistory(start, out)
 	e.delivered.Store(d)
-	if e.pullBridge != nil && e.clockOut != nil {
-		// When the frames were handed over: the clock's only way to place
-		// them on an output that keeps no bridge of its own (the demo's).
-		// Recorded as the start of the block -- the first frame -- going out
-		// now.
+	if e.pullBridge != nil && e.bridgeless {
+		// When the frames were handed over: the only way to place them in
+		// time on an output that keeps no bridge of its own (the demo's) --
+		// for the clock, and for Play mode's lead. Recorded as the start of
+		// the block -- the first frame -- going out now.
 		e.pullBridge.Record(mono.Now(), start)
 	}
 	select {
@@ -448,7 +453,9 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			if a.trick != nil {
 				// A mixdown's pass renders straight: a press landing in it
 				// is held, and takes the head when the tape next plays.
-				e.perf.apply(*a.trick, out, tr.pos, tr.playing && tr.onceEnd == 0, m)
+				if e.perf.apply(*a.trick, out, tr.pos, tr.playing && tr.onceEnd == 0, m) {
+					e.logTrick(a.trick.pad, a.trick.press, out, tr.pos)
+				}
 			} else {
 				tr.apply(a, out, m, length)
 				switch a.Kind {
@@ -573,7 +580,7 @@ func (e *Engine) drain(out uint64, m *Mix) {
 		case a := <-e.actions:
 			if a.Kind == "reset" {
 				tr.reset(out)
-				e.perf.reset() // the reset took the queued tricks with it
+				e.resetTricks() // the reset took the queued tricks with it
 				close(a.done)
 				continue
 			}
@@ -597,7 +604,7 @@ func (e *Engine) idle(out uint64) {
 			switch a.Kind {
 			case "reset":
 				tr.reset(out)
-				e.perf.reset()
+				e.resetTricks()
 				close(a.done)
 			case "play", "once": // nothing plays it
 			default:
@@ -615,7 +622,7 @@ func (e *Engine) idle(out uint64) {
 	e.tricks.mu.Lock()
 	e.tricks.msgs = nil
 	e.tricks.mu.Unlock()
-	e.perf.reset()
+	e.resetTricks()
 	tr.mu.Lock()
 	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out}
 	tr.mu.Unlock()
@@ -898,11 +905,13 @@ type Live struct {
 	Clock      *ClockStatus  `json:"clock,omitempty"`       // the clock the tape leads
 	OutputMode string        `json:"output_mode,omitempty"` // jam, phone or both
 	Stream     *StreamStatus `json:"stream,omitempty"`      // the stream to a phone
+	Tricks     []string      `json:"tricks,omitempty"`      // Play mode's pads held now
 }
 
 func (e *Engine) Live() Live {
 	l := Live{Status: e.tr.Status(), Delivered: e.delivered.Load(), Late: e.late.Load(), Output: e.sinkName,
 		Failed: e.pool.Failed(), Problem: e.panicked.Load().(string)}
+	l.Tricks = e.HeldPads()
 	if n, ok := e.sink.(interface{ Name() string }); ok && e.sink != nil {
 		l.Output = n.Name() // "" while the device is away
 	}

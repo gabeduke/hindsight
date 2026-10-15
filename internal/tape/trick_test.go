@@ -888,3 +888,41 @@ func TestAfterAJamTheTapeIsUntouched(t *testing.T) {
 		}
 	}
 }
+
+func TestTheLogSaysWhenAPressAndReleaseSounded(t *testing.T) {
+	r := newRig(t, Loop{})
+	r.playFrom(10000)
+	r.run(3)
+	_ = r.e.Press(PadStop, QuantumSixteenth)
+	r.run(2)
+	ev, seq := r.e.TrickEventsSince(0)
+	if len(ev) != 1 || ev[0].Pad != PadStop || !ev[0].On || ev[0].Pos != 15000 || ev[0].Out != 5000 {
+		t.Fatalf("events %+v: want stop on, at output frame 5000, tape frame 15000", ev)
+	}
+	if h := r.e.HeldPads(); len(h) != 1 || h[0] != PadStop {
+		t.Fatalf("held %v", h)
+	}
+	_ = r.e.Release(PadStop)
+	r.run(4)
+	ev, _ = r.e.TrickEventsSince(seq)
+	if len(ev) != 1 || ev[0].On || ev[0].Pos%rigSixteenth != 0 {
+		t.Fatalf("after the release, events %+v: want one off, on a sixteenth", ev)
+	}
+	if h := r.e.HeldPads(); len(h) != 0 {
+		t.Fatalf("still held: %v", h)
+	}
+	if ev, _ := r.e.TrickEventsSince(seq + 1); len(ev) != 0 {
+		t.Fatalf("a reader that has seen everything gets %v", ev)
+	}
+}
+
+func TestTheLogKeepsItsNewest(t *testing.T) {
+	r := newRig(t, Loop{})
+	for i := 0; i < 100; i++ {
+		r.e.logTrick(padIndex(PadBreak), i%2 == 0, uint64(i), int64(i))
+	}
+	ev, seq := r.e.TrickEventsSince(0)
+	if seq != 100 || len(ev) != 64 || ev[0].Seq != 37 || ev[63].Seq != 100 {
+		t.Fatalf("seq %d, %d events from %d to %d: want the newest 64, 37 to 100", seq, len(ev), ev[0].Seq, ev[len(ev)-1].Seq)
+	}
+}

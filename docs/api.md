@@ -48,6 +48,7 @@ internet.
 | `DELETE /api/tapes?id=` | Delete a tape that isn't loaded, and free the audio only it used |
 | `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
 | `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
+| `GET /api/tapes/play` | WebSocket: Play mode's pads, pressed and let go, quantised on the Pi |
 | `POST /api/tapes/catch?id=` | Put the last pass, or the last N bars, from an input onto a track |
 | `POST /api/tapes/record?id=` | Arm a track (stopped) or punch in at the next bar (playing) |
 | `DELETE /api/tapes/record?id=` | End the punch and keep what it covered (`?cancel=1`: keep nothing); disarm |
@@ -1124,6 +1125,35 @@ with `kept` when a stop ended a punch (below).
 `play` is 409 when the tape has no output (a build without PortAudio);
 `locate` still moves it. Loading a tape stops the transport and forgets the
 passes played, so a pass of one tape is never caught onto another.
+
+### `GET /api/tapes/play` (WebSocket)
+
+Play mode's pads, held. The page sends a press the moment a pad is touched and
+a release the moment it's let go. The Pi quantises both on its render head, so
+a phone's Wi-Fi delay lands on the grid rather than late.
+
+Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
+`chop`, `half`, `double`. Quanta: `16th`, `8th`, `beat`, `bar`, or `now`/`off`.
+
+| Direction | Message |
+|---|---|
+| page → Pi | `{"t":"press","pad":"stop","q":"16th"}` · `{"t":"release","pad":"stop"}` · `{"t":"release_all"}` |
+| Pi → page | `{"t":"hello","pads":[…],"lead_ms":212}` · `{"t":"lead","ms":212}` · `{"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}` · `{"t":"refused","pad":"stop","why":"…"}` |
+
+- **`lead_ms`** is how long a press takes to be heard at best: the blocks
+  rendered ahead plus the device's latency. It is null with no output.
+- **`at`** says when a press or release will actually be heard, `in_ms`
+  from when it was sent, and the tape frame (`pos`) the transport was at.
+- **Release timing.** A release lands on its press's quantum, and never
+  before the press has sounded for one whole line.
+- **Shared pads.** A pad sounds while any connection holds it.
+- **Disconnects.** A connection that goes lets go of what it held. The Pi
+  pings every second and takes a player that hasn't answered in 3 s as gone.
+- **Refused presses.** A press is refused while a mixdown plays.
+
+None of this is the tape's state: nothing is undone, saved or sent to other
+pages, except `live.tricks` in `GET /api/tapes/state`, which lists what's held
+now.
 
 ### `POST /api/tapes/catch?id=`
 
