@@ -24,6 +24,7 @@ import { drawTrace, traceLines, sliceLines, paintOxide, oxideColors } from './ta
 import { GestureSurface } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
 import { drawGrease } from '../objects/grease.js';
+import { drawPennant, drawPennantName } from '../objects/pennant.js';
 import { seamHalves } from './boundary.js';
 
 export { HOLD_MS } from '../edit/gestures.js';
@@ -471,16 +472,9 @@ export class WaveView extends GestureSurface {
       const x = frameToX(f.frame, view);
       if (x < -200 || x > W + 200) continue;
       const selected = st.selectedFlag && st.selectedFlag.id === f.id;
-      ctx.fillStyle = col('--flag', '#b58900');
-      ctx.fillRect(Math.round(x) - (selected ? 1 : 0), PIN_H, selected ? 3 : 1, bottom - PIN_H);
-      // The pin: a small pennant on a stem.
-      ctx.fillRect(Math.round(x), 2, 2, PIN_H - 2);
-      ctx.beginPath(); ctx.moveTo(x + 2, 2); ctx.lineTo(x + 10, 6); ctx.lineTo(x + 2, 10); ctx.closePath(); ctx.fill();
+      drawPennant(ctx, x, { pinH: PIN_H, bottom, selected, ink: col('--flag', '#b58900') });
       if (f.label && x + 12 > lastRight) {
-        const w = Math.min(140, ctx.measureText(f.label).width);
-        ctx.fillStyle = col('--well-ink', '#f2e6c8');
-        ctx.fillText(f.label, x + 12, PIN_H - 4, 140);
-        lastRight = x + 12 + w + 6;
+        lastRight = drawPennantName(ctx, x, f.label, { pinH: PIN_H, ink: col('--well-ink', '#f2e6c8') });
       }
     }
 

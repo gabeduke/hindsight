@@ -27,6 +27,8 @@
   /* The LCD sits in the reel window, 52 px tall, between two reels. */
   .bench-lcd { display: flex; width: 100%; height: 52px; }
   .bench-canvas { display: block; width: 100%; border-radius: 4px; }
+  /* The ribbon's own flag layer (.rb-layer, .rb-flag) over a bench ring. */
+  .bench-rb { position: relative; width: 100%; --rb-ruler: 0px; }
   /* The size slider the design calls for lands with the materials cut; until
      then the cells are a fixed, honest size rather than a fake control. */
 </style>

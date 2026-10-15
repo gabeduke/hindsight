@@ -19,6 +19,7 @@ import { ReelWindow, levelFrac } from './reel-window.js';
 import { ballistic, spin, settled, Ticker } from './motion.js';
 import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
 import { drawGrease } from './grease.js';
+import { drawPennant, drawPennantName } from './pennant.js';
 import { paintOxide, oxideColors } from '../wave/tape-strip.js';
 import { PIN_H, RULER_H } from '../wave/view.js';
 
@@ -137,6 +138,7 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildRibbon(root);
   buildLcd(root);
   buildGrease(root);
+  buildPennants(root);
   return ticker;
 }
 
@@ -487,5 +489,62 @@ function buildGrease(root) {
         ink: token('--grease-mark', '#f0c419'), halo: token('--well', '#0a0a0b'), font: token('--font', 'system-ui'),
       });
     });
+  }
+}
+
+
+/**
+ * Pennants: a flag stuck in the tape. The take page plants one in its ruler
+ * for every flag on the take, drawn by lib/objects/pennant.js; the ribbon
+ * on Capture plants its own as an element you can tap -- the same flag, but
+ * a swallowtail (.rb-flag in styles.css) where the take page's is pointed.
+ * Both are here, so a change to one can be held up against the other.
+ */
+function buildPennants(root) {
+  const grid = section(root, 'Pennant',
+    'A flag stuck in the tape: in the take page\'s ruler, with its line down through the audio and its name when there is room before the next; and on the ribbon, where it is a thing to tap.');
+
+  const H = 96;
+  const states = [
+    ['a flag', [{ at: 0.4 }]],
+    ['the flag selected', [{ at: 0.4, selected: true }]],
+    ['a named flag', [{ at: 0.3, label: 'the riff' }]],
+    ['two close together: the second name waits for room', [{ at: 0.25, label: 'verse' }, { at: 0.34, label: 'chorus' }]],
+  ];
+  for (const [label, flags] of states) {
+    canvasCell(cell(grid, label), H, (ctx, W) => {
+      ctx.fillStyle = token('--oxide-ruler', '#1d1209');
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(0, RULER_H);
+      paintOxide(ctx, W, H - RULER_H, oxideColors(token));
+      ctx.restore();
+      // As the take page writes them: 11 px, and a name only where it won't
+      // run into the one before.
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = `11px ${token('--font', 'system-ui')}`;
+      let lastRight = -Infinity;
+      for (const f of flags) {
+        const x = f.at * W;
+        drawPennant(ctx, x, { pinH: PIN_H, bottom: H, selected: !!f.selected, ink: token('--flag', '#b58900') });
+        if (f.label && x + 12 > lastRight) lastRight = drawPennantName(ctx, x, f.label, { pinH: PIN_H, ink: token('--well-ink', '#f2e6c8') });
+      }
+    });
+  }
+
+  // The ribbon's: the real .rb-flag element, over a ring drawn as the
+  // ribbon draws it.
+  const levels = Float32Array.from({ length: 160 }, (_, i) => 0.4 + 0.35 * Math.sin(i / 9) ** 2);
+  for (const [label, ats] of [['on the ribbon', [0.55]], ['on the ribbon, two flags', [0.3, 0.72]]]) {
+    const wrap = el('div', 'bench-rb');
+    cell(grid, label).append(wrap);
+    canvasCell(wrap, 64, (ctx, W, h) => drawRibbon(ctx, { W, H: h, levels, lit: [0, W], recordedFrom: 0, colors: ribbonColors(token) }));
+    const layer = el('div', 'rb-layer');
+    for (const a of ats) {
+      const flag = el('div', 'rb-flag');
+      flag.style.left = `${(a * 100).toFixed(2)}%`;
+      layer.append(flag);
+    }
+    wrap.append(layer);
   }
 }
