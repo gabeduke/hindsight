@@ -46,6 +46,20 @@ export function typingInto(el) {
   return tag === 'input' || tag === 'textarea' || tag === 'select';
 }
 
+// Where ↵ belongs to what has the focus, as the buffer's keys decide it
+// (lib/buffer/keys.js): a link, a menu's item, anything in a sheet; and a
+// button the keyboard brought the focus to -- Tab to it and ↵ presses it. A
+// button that was clicked gives ↵ up to DROP, and ▶ never keeps it.
+const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog';
+
+/** keepsEnter says ↵ is the focused element's, not DROP's. `keyed(el)`: the keyboard focused el. */
+export function keepsEnter(t, keyed = () => true) {
+  if (!t || typeof t.closest !== 'function') return false;
+  if (t.closest(OWN_ENTER)) return true;
+  const b = t.closest('button:not(#play)');
+  return !!b && keyed(b);
+}
+
 /**
  * bindKeyboard wires a surface to a target (the document, normally) and
  * returns a function that unwires it.
@@ -71,6 +85,13 @@ export function bindKeyboard(surface, {
 } = {}) {
   const held = new Map(); // code → pad, for what this keyboard is holding
   let latched = false;    // the latch is down from a ⇧ here
+  let byKey = false;            // the last input was a key, not a press
+  const keyed = new WeakSet();  // what the keyboard brought the focus to
+  const pressed = () => { byKey = false; };
+  const focused = (e) => {
+    if (!e.target || typeof e.target !== 'object') return;
+    if (byKey) keyed.add(e.target); else keyed.delete(e.target);
+  };
   // While the strip has the keyboard the tape page under it must not hear
   // a key: R is ● Rec there and 1–4 arm a track, so Stop would arm a punch
   // and a track key would move the record track on the Pi. So these listen
@@ -78,8 +99,11 @@ export function bindKeyboard(surface, {
   // there, played or not. stopPropagation leaves the browser's own
   // shortcuts alone.
   const down = (e) => {
+    const enter = e.code === 'Enter' || e.code === 'NumpadEnter';
+    if (!enter) byKey = true;
     if (typingInto(e.target)) return;
     if (!owns()) return;
+    if (enter && keepsEnter(e.target, (el) => keyed.has(el))) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return; // ⌘Z is still the page's undo
     e.stopPropagation();
     if (e.repeat) return;              // autorepeat is not a new press
@@ -113,10 +137,14 @@ export function bindKeyboard(surface, {
 
   target.addEventListener('keydown', down, true);
   target.addEventListener('keyup', up, true);
+  target.addEventListener('pointerdown', pressed, true);
+  target.addEventListener('focusin', focused, true);
   target.addEventListener('visibilitychange', onHide);
   win?.addEventListener('blur', letGo);
 
   return () => {
+    target.removeEventListener('pointerdown', pressed, true);
+    target.removeEventListener('focusin', focused, true);
     target.removeEventListener('keydown', down, true);
     target.removeEventListener('keyup', up, true);
     target.removeEventListener('visibilitychange', onHide);

@@ -261,3 +261,33 @@ test('⌘ with a key is the page’s, even while the strip has the keys', () => 
   assert.equal(stopped, false, '⌘Z undoes on the page');
   assert.deepEqual(s.held(), [], 'and is not ½×');
 });
+
+test('↵ is DROP, but a button Tab brought the focus to keeps it; a clicked one gives it up', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  const cmds = [];
+  bindKeyboard(s, { target: t, win: null, now: () => 0, onCommand: (c) => cmds.push(c), has: () => true });
+  const button = (id = '') => {
+    const b = { tagName: 'BUTTON', id };
+    b.closest = (sel) => (sel === 'button:not(#play)' && id !== 'play' ? b : null);
+    return b;
+  };
+  const loop = button();
+  // Tab to Loop, then ↵: Loop's.
+  t.send('keydown', { code: 'Tab', target: { tagName: 'BODY', closest: () => null } });
+  t.send('focusin', { target: loop });
+  t.send('keydown', { code: 'Enter', target: loop });
+  assert.deepEqual(cmds, []);
+  // Click a track's ●, then ↵: DROP.
+  const rec = button();
+  t.send('pointerdown', { target: rec });
+  t.send('focusin', { target: rec });
+  t.send('keydown', { code: 'Enter', target: rec });
+  assert.deepEqual(cmds, ['drop']);
+  // ▶, however it was focused, never keeps it.
+  const play = button('play');
+  t.send('keydown', { code: 'Tab', target: { tagName: 'BODY', closest: () => null } });
+  t.send('focusin', { target: play });
+  t.send('keydown', { code: 'Enter', target: play });
+  assert.deepEqual(cmds, ['drop', 'drop']);
+});
