@@ -149,7 +149,17 @@ func (e *Engine) post(m trickMsg) {
 	e.tricks.mu.Lock()
 	for j := len(e.tricks.msgs) - 1; j >= 0; j-- {
 		w := e.tricks.msgs[j]
-		if w.all != m.all || (!m.all && w.pad != m.pad) {
+		if m.all {
+			if w.press {
+				break // pressed since the last release of everything: this one is needed
+			}
+			if w.all {
+				e.tricks.mu.Unlock()
+				return
+			}
+			continue
+		}
+		if w.all || w.pad != m.pad {
 			continue
 		}
 		if !w.press {
@@ -193,6 +203,12 @@ func (e *Engine) drainTricks(out uint64, m *Mix) {
 			if p.down[msg.pad] {
 				continue
 			}
+			if e.cancelRelease(msg.pad) {
+				// Let go and pressed again before the release landed: the
+				// finger is down, so the pad simply stays held.
+				p.down[msg.pad] = true
+				continue
+			}
 			at := e.tr.target(Action{Quantum: msg.quantum}, out, m, m.grid)
 			p.down[msg.pad], p.quantum[msg.pad], p.pressAt[msg.pad] = true, msg.quantum, at
 			e.tr.queue(pending{at: at, action: Action{Kind: "trick", trick: &trickMsg{pad: msg.pad, press: true}}})
@@ -215,6 +231,18 @@ func (e *Engine) queueRelease(i int, quantum string, out uint64, m *Mix) {
 	}
 	p.down[i] = false
 	e.tr.queue(pending{at: at, action: Action{Kind: "trick", trick: &trickMsg{pad: i}}})
+}
+
+// cancelRelease takes pad i's release off the queue if it hasn't landed,
+// and says whether there was one.
+func (e *Engine) cancelRelease(i int) bool {
+	for j, q := range e.tr.pend {
+		if t := q.action.trick; t != nil && !t.press && t.pad == i {
+			e.tr.pend = append(e.tr.pend[:j], e.tr.pend[j+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 // unitFrames is one line of a quantum, in frames; 0 for now, or a tape with
@@ -335,6 +363,12 @@ func (h *head) read(k int64, loop Loop) (float64, float32, bool) {
 		}
 		p, level = a+x-x*x/(2*h.beat), float32(1-x/h.beat)
 	case PadChop:
+		// The last slice heard: inside the loop that slice is the loop's own
+		// frames -- pressed on the downbeat, the loop's last sixteenth, not
+		// the tape before In, which nobody heard.
+		if inLoop(loop, h.anchor) {
+			return wrapLoop(float64(h.anchor-h.slice+k%h.slice), loop, h.anchor), 1, true
+		}
 		from := max64(0, h.anchor-h.slice)
 		return float64(from + k%h.slice), 1, true
 	case PadReverse:
@@ -356,11 +390,16 @@ func (h *head) read(k int64, loop Loop) (float64, float32, bool) {
 // wrapLoop keeps a head that left inside the loop inside it: past Out it
 // comes round to In, and back past In, to Out.
 func wrapLoop(p float64, l Loop, anchor int64) float64 {
-	if !l.On || l.Out <= l.In || anchor < l.In || anchor >= l.Out {
+	if !inLoop(l, anchor) {
 		return p
 	}
 	in, n := float64(l.In), float64(l.Out-l.In)
 	return in + math.Mod(math.Mod(p-in, n)+n, n)
+}
+
+// inLoop says whether a head that left at anchor plays inside l.
+func inLoop(l Loop, anchor int64) bool {
+	return l.On && l.Out > l.In && anchor >= l.In && anchor < l.Out
 }
 
 // newHead is pad's head, leaving the transport at tape frame pos on output
@@ -436,16 +475,29 @@ func (p *perf) apply(msg trickMsg, o uint64, pos int64, playing bool, m *Mix) {
 	if t := p.top(); t >= 0 {
 		p.engage(t, pos, o, m)
 	} else {
-		p.fade = sourceFade{on: true, start: o, prev: p.head}
-		p.head.on = false
+		off := p.head
+		off.on = false
+		p.setSource(off, o)
 	}
 }
 
 // engage moves the head to pad from the transport's position, crossfading
 // from whatever was heard.
 func (p *perf) engage(pad int, pos int64, o uint64, m *Mix) {
-	p.fade = sourceFade{on: true, start: o, prev: p.head}
-	p.head = p.newHead(pad, pos, o, m)
+	p.setSource(p.newHead(pad, pos, o, m), o)
+}
+
+// setSource makes h what's heard from output frame o, crossfading from what
+// was heard on the frame before. Two changes on one frame -- REV let go as
+// CHOP lands, two pads let go together -- fade from what was actually heard,
+// not from a head that never sounded; transport to transport is no change.
+func (p *perf) setSource(h head, o uint64) {
+	prev := p.head
+	if p.fade.on && p.fade.start == o {
+		prev = p.fade.prev
+	}
+	p.head = h
+	p.fade = sourceFade{on: prev.on || h.on, start: o, prev: prev}
 }
 
 // setCut moves track i's cut toward to from output frame o.
@@ -502,7 +554,7 @@ func (p *perf) ensure(n int, m *Mix) {
 // transport at tape frame pos: the transport or the head, each track at its
 // track key's level, crossfading where the source just changed.
 func (p *perf) render(dst []float32, m *Mix, o uint64, n int, pos int64, afterWrap bool) {
-	p.ensure(n, m)
+	p.ensure(max(n, BlockFrames), m)
 	xf := uint64(max64(1, m.xfade))
 	fading := 0
 	if p.fade.on {
@@ -657,7 +709,7 @@ func (h *head) lastJump(kk int64, loop Loop, xf int64) (int64, float64, float64,
 	for j := kk; j >= 1 && j > kk-xf; j-- {
 		b, _, bok := h.read(j, loop)
 		a, al, aok := h.read(j-1, loop)
-		if !aok || !bok || math.Abs(b-a) <= maxStep {
+		if !aok || !bok || math.Abs(b-a) <= maxStep || wraps(a, b, loop) {
 			continue
 		}
 		step := 1.0
@@ -667,6 +719,16 @@ func (h *head) lastJump(kk int64, loop Loop, xf int64) (int64, float64, float64,
 		return j, a, step, al, true
 	}
 	return 0, 0, 0, 0, false
+}
+
+// wraps says whether the head going from a to b is the loop coming round:
+// not a jump at all, but the tape carrying on through the loop's seam, which
+// the renderer crossfades itself (readRun).
+func wraps(a, b float64, l Loop) bool {
+	if !l.On || l.Out <= l.In {
+		return false
+	}
+	return math.Abs(math.Abs(b-a)-float64(l.Out-l.In)) <= maxStep
 }
 
 // readRun adds track ti read at positions xs (levels ls) into dst from frame
@@ -687,7 +749,30 @@ func (p *perf) readRun(dst []float32, m *Mix, ti int, xs []float64, ls []float32
 	}
 	buf := p.buf[:width*OutChannels]
 	clear(buf)
-	m.renderTrack(buf, ti, first, width, false)
+	l := m.loop
+	looped := l.On && l.Out > l.In && lo >= float64(l.In) && hi < float64(l.Out)
+	// Inside a loop, reading near In is reading through its seam, so it's
+	// rendered as playback renders a wrap: what follows Out fading out as
+	// In fades in.
+	aw := looped && lo < float64(l.In+m.xfade)
+	m.renderTrack(buf, ti, first, width, aw)
+	if looped {
+		// The interpolation's neighbours past Out, or before In, are the
+		// loop's other end, as they are when it plays round -- not the tape
+		// beyond it, which may be silence.
+		if end := first + int64(width); end > l.Out {
+			k := end - l.Out
+			tail := buf[(l.Out-first)*OutChannels:]
+			clear(tail)
+			m.renderTrack(tail, ti, l.In, int(k), true)
+		}
+		if first < l.In {
+			k := l.In - first
+			head := buf[:k*OutChannels]
+			clear(head)
+			m.renderTrack(head, ti, l.Out-k, int(k), false)
+		}
+	}
 	ch := m.tracks[ti].bus * 2
 	for q, x := range xs {
 		g := ls[q]

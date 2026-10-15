@@ -446,7 +446,9 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 		for len(tr.pend) > 0 && tr.pend[0].at <= out {
 			a := tr.pend[0].action
 			if a.trick != nil {
-				e.perf.apply(*a.trick, out, tr.pos, tr.playing, m)
+				// A mixdown's pass renders straight: a press landing in it
+				// is held, and takes the head when the tape next plays.
+				e.perf.apply(*a.trick, out, tr.pos, tr.playing && tr.onceEnd == 0, m)
 			} else {
 				tr.apply(a, out, m, length)
 				switch a.Kind {
@@ -505,6 +507,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				tr.playing, tr.pos = false, tr.onceFrom
 				tr.record(at)
 				tr.endOnce(at)
+				e.perf.lose()
 			}
 		} else if tr.playing {
 			looping := m.loop.On && tr.pos < m.loop.Out

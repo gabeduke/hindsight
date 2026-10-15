@@ -409,6 +409,12 @@ func TestAReverseInsideTheLoopStaysInIt(t *testing.T) {
 
 func TestTricksLeaveNoUndoAndWriteNothing(t *testing.T) {
 	e, _, tp := newEngine(t)
+	// A tape with something on it, so the jam really plays tricks: the first
+	// drop sets a one-bar loop (as TestADropBecomesTheFirstLoopAndPlaysLooped).
+	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
+	if _, err := e.DropTake(tp.ID, take, 96000, 192000, 1, 1, []int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(e.store.Dir(), "tapes", tp.ID, "tape.json")
 	if _, err := os.Stat(path); err != nil {
 		dir, derr := e.store.tapeDir(tp.ID)
@@ -428,6 +434,7 @@ func TestTricksLeaveNoUndoAndWriteNothing(t *testing.T) {
 	e.Do(Action{Kind: "play"})
 	var out uint64
 	buf := make([]float32, BlockFrames*OutChannels)
+	engaged := 0
 	for i := 0; i < 200; i++ {
 		p := pads[i%numPads]
 		if i%2 == 0 {
@@ -438,6 +445,12 @@ func TestTricksLeaveNoUndoAndWriteNothing(t *testing.T) {
 		clear(buf)
 		e.advance(buf, out, BlockFrames)
 		out += BlockFrames
+		if e.perf.head.on {
+			engaged++
+		}
+	}
+	if engaged == 0 {
+		t.Fatal("no trick ever engaged: the test proves nothing")
 	}
 	e.ReleaseAll(QuantumNow)
 	e.advance(buf, out, BlockFrames)
@@ -526,4 +539,352 @@ func writeRamp(path string, frames int) error {
 	}
 	_, err := audio.WriteWAV(path, data, 2, []int{0, 1}, 48000)
 	return err
+}
+
+// ---------------------------------------------------------------------------
+// From review: each of these failed before its fix.
+
+// maxJump is the largest frame-to-frame step on bus b's left channel over
+// output frames [from, to): on the ramp rig a clean change of source steps
+// about 0.0002, and a cut steps a hundred times that.
+func maxJump(out []float32, from, to, bus int) (float64, int) {
+	best, at := 0.0, -1
+	for k := max(1, from); k < to; k++ {
+		d := math.Abs(float64(out[k*OutChannels+bus*2] - out[(k-1)*OutChannels+bus*2]))
+		if d > best {
+			best, at = d, k
+		}
+	}
+	return best, at
+}
+
+const clickStep = 0.002
+
+func TestAReleaseOfEverythingAfterAPressStillLetsGo(t *testing.T) {
+	// Release everything, press, release everything -- all before one
+	// drain. The second release must not be taken for the first.
+	r := newRig(t, Loop{})
+	r.playFrom(10000)
+	r.run(1)
+	r.e.ReleaseAll(QuantumNow)
+	_ = r.e.Press(PadReverse, QuantumNow)
+	r.e.ReleaseAll(QuantumNow)
+	r.run(40)
+	i := padIndex(PadReverse)
+	if r.e.perf.held[i] || r.e.perf.down[i] || r.e.perf.head.on {
+		t.Fatalf("REV stuck: held=%v down=%v head=%v", r.e.perf.held[i], r.e.perf.down[i], r.e.perf.head.on)
+	}
+}
+
+func TestChangesOfSourceOnOneFrameDontClick(t *testing.T) {
+	cases := map[string]func(r *rig){
+		// REV let go as CHOP lands, on one sixteenth.
+		"switching tricks": func(r *rig) {
+			_ = r.e.Press(PadReverse, QuantumSixteenth)
+			r.run(8)
+			_ = r.e.Release(PadReverse)
+			_ = r.e.Press(PadChop, QuantumSixteenth)
+		},
+		// BREAK over REV, both let go together.
+		"letting go of a stack": func(r *rig) {
+			_ = r.e.Press(PadReverse, QuantumSixteenth)
+			r.run(4)
+			_ = r.e.Press(PadBreak, QuantumSixteenth)
+			r.run(8)
+			_ = r.e.Release(PadBreak)
+			_ = r.e.Release(PadReverse)
+		},
+		"releasing everything from a stack": func(r *rig) {
+			_ = r.e.Press(PadReverse, QuantumSixteenth)
+			r.run(4)
+			_ = r.e.Press(PadBreak, QuantumSixteenth)
+			r.run(8)
+			r.e.ReleaseAll(QuantumSixteenth)
+		},
+		"two pads pressed on one line": func(r *rig) {
+			_ = r.e.Press(PadBreak, QuantumSixteenth)
+			_ = r.e.Press(PadReverse, QuantumSixteenth)
+		},
+	}
+	for name, play := range cases {
+		t.Run(name, func(t *testing.T) {
+			r := newRig(t, Loop{})
+			r.playFrom(10000)
+			r.run(3)
+			play(r)
+			out := r.run(10)
+			if j, at := maxJump(out, 1, len(out)/OutChannels, 0); j > clickStep {
+				t.Fatalf("a step of %.4f at frame %d: a click", j, at)
+			}
+		})
+	}
+	t.Run("a quantise-off tap", func(t *testing.T) {
+		// Pressed and let go in one drain with quantise off: both land on one
+		// frame, and nothing should be heard to change at all.
+		r := newRig(t, Loop{})
+		r.playFrom(10000)
+		r.run(3)
+		_ = r.e.Press(PadBreak, QuantumNow)
+		_ = r.e.Release(PadBreak)
+		out := r.run(1)
+		for k := 0; k < len(out)/OutChannels; k++ {
+			want := float64(10000+3*BlockFrames+k) / 1e6 // the tape, untouched
+			if got := float64(out[k*OutChannels]); got < 0.9*want {
+				t.Fatalf("frame %d at %.6f, the tape there %.6f: a hole where nothing was held", k, got, want)
+			}
+		}
+	})
+}
+
+func TestAHeadPlaysThroughTheLoopsSeamWithoutADip(t *testing.T) {
+	// The usual loop: one clip filling it exactly, as a tap, drop or catch
+	// makes. A head going round it (or back round it) must sound as the
+	// tape does going round: no dip at the seam.
+	const in, out = 48000, 96000
+	s := newTestStore(t)
+	pool := NewPool(s)
+	rel := poolWAV(t, s, rigFrames, func(int) float64 { return 0.5 })
+	st := State{Grid: &Grid{Frames: 4 * rigBar, Bars: 4}, Loop: Loop{In: in, Out: out, On: true}, Tracks: []Track{
+		{N: 1, Bus: BusA, Clips: []Clip{{ID: "a", File: rel, Src: in, At: in, Frames: out - in}}},
+	}}
+	for _, pad := range []string{"", PadReverse, PadDouble, PadHalf, PadChop} {
+		t.Run(pad, func(t *testing.T) {
+			m := NewMix(st, pool, 48000)
+			m.length = 2 * rigFrames
+			e := NewEngine(Options{Store: s})
+			e.mix.Store(m)
+			r := &rig{e: e}
+			r.playFrom(in + 1000)
+			r.run(2)
+			if pad != "" {
+				_ = r.e.Press(pad, QuantumSixteenth)
+			}
+			res := r.run(110) // the transport goes round once, a head at least once
+			for k := 300; k < len(res)/OutChannels; k++ {
+				if v := res[k*OutChannels]; v < 0.45 || v > 0.75 {
+					t.Fatalf("frame %d at %.4f, against a steady 0.5", k, v)
+				}
+			}
+		})
+	}
+}
+
+func TestChopOnTheLoopsDownbeatRepeatsTheLoopsLastSlice(t *testing.T) {
+	// Pressed so it lands on Out, which is In after the wrap: the last
+	// sixteenth heard is the loop's own last one.
+	const in, out = 48000, 96000
+	r := newRig(t, Loop{In: in, Out: out, On: true})
+	r.playFrom(90000)
+	r.run(4) // to 94096: the next sixteenth is Out
+	_ = r.e.Press(PadChop, QuantumSixteenth)
+	res := r.run(8)
+	k0 := out - (90000 + 4*BlockFrames)
+	for _, k := range []int{k0 + 500, k0 + 1500, k0 + 2500, k0 + 3000 + 500} {
+		if got := readAt(res, k, 0); got < out-rigSixteenth || got >= out {
+			t.Fatalf("%d frames in it reads %.1f: outside the loop's last sixteenth [%d, %d)", k-k0, got, out-rigSixteenth, out)
+		}
+	}
+}
+
+func TestAPressDuringAMixdownTakesTheHeadOnTheNextPlay(t *testing.T) {
+	r := newRig(t, Loop{})
+	r.e.Do(Action{Kind: "locate", Pos: 30000})
+	r.run(1)
+	r.e.Do(Action{Kind: "once", Pos: 30000, End: 50000})
+	r.run(2)
+	_ = r.e.Press(PadReverse, QuantumNow) // lands during the pass
+	r.run(30)                             // the pass ends; the tape stands at 30000
+	r.e.Do(Action{Kind: "play"})
+	res := r.run(3)
+	if got := readAt(res, 500, 0); math.Abs(got-29500) > 0.05 {
+		t.Fatalf("REV held, played from 30000: reads %.1f at frame 500, want 29500", got)
+	}
+}
+
+func TestAQuickRePressStaysHeld(t *testing.T) {
+	// Pressed, let go and pressed again before the release landed: the
+	// finger is down, so the pad must be.
+	r := newRig(t, Loop{})
+	r.playFrom(10000)
+	r.run(1)
+	_ = r.e.Press(PadBreak, QuantumSixteenth)
+	r.e.advance(make([]float32, 10*OutChannels), r.out, 10)
+	r.out += 10
+	_ = r.e.Release(PadBreak)
+	r.e.advance(make([]float32, 10*OutChannels), r.out, 10)
+	r.out += 10
+	_ = r.e.Press(PadBreak, QuantumSixteenth)
+	r.run(20)
+	i := padIndex(PadBreak)
+	if !r.e.perf.held[i] || !r.e.perf.down[i] || !r.e.perf.head.on {
+		t.Fatalf("finger down, pad up: down=%v held=%v head=%v", r.e.perf.down[i], r.e.perf.held[i], r.e.perf.head.on)
+	}
+}
+
+// xorshift is the stress tests' repeatable randomness.
+func xorshift(seed uint64) func(int) int {
+	return func(n int) int {
+		seed ^= seed << 13
+		seed ^= seed >> 7
+		seed ^= seed << 17
+		return int(seed % uint64(n))
+	}
+}
+
+func TestARandomJamNeverPanicsOrSticks(t *testing.T) {
+	// Random presses, releases, transport actions and mixes -- loops of
+	// three frames among them -- at random span lengths and through late
+	// renders. advance is called bare, so a panic fails the test. After a
+	// release of everything, nothing is held.
+	s := newTestStore(t)
+	pool := NewPool(s)
+	rel := poolWAV(t, s, rigFrames, func(i int) float64 { return 0.5 * math.Sin(float64(i)/37) })
+	mk := func(loop Loop, grid *Grid, whole bool) *Mix {
+		clips := []Clip{{ID: "a", File: rel, At: 0, Frames: rigFrames / 2}, {ID: "b", File: rel, Src: 5000, At: rigFrames / 2, Frames: rigFrames / 3}}
+		if whole && loop.On {
+			clips = []Clip{{ID: "w", File: rel, Src: 1000, At: loop.In, Frames: loop.Out - loop.In}}
+		}
+		m := NewMix(State{Grid: grid, Loop: loop, Tracks: []Track{
+			{N: 1, Bus: BusA, Clips: clips}, {N: 2, Bus: BusB, Clips: clips}, {N: 3, Bus: BusA, Clips: clips},
+		}}, pool, 48000)
+		m.length = 2 * rigFrames
+		return m
+	}
+	loops := []Loop{{}, {In: 0, Out: 48000, On: true}, {In: 12000, Out: 24000, On: true}, {In: 100, Out: 400, On: true}, {In: 0, Out: 3, On: true}}
+	grids := []*Grid{nil, {Frames: 4 * rigBar, Bars: 4}, {Frames: 137143, Bars: 1}}
+	quanta := []string{QuantumNow, QuantumSixteenth, QuantumEighth, QuantumBeat, QuantumBar}
+	rnd := xorshift(12345)
+	trials := 80
+	if raceOn {
+		trials = 12
+	}
+	for trial := 0; trial < trials; trial++ {
+		e := NewEngine(Options{Store: s})
+		e.mix.Store(mk(loops[rnd(len(loops))], grids[rnd(len(grids))], rnd(2) == 0))
+		e.Do(Action{Kind: "locate", Pos: int64(rnd(rigFrames))})
+		e.Do(Action{Kind: "play"})
+		var out uint64
+		buf := make([]float32, 4*BlockFrames*OutChannels)
+		for step := 0; step < 200; step++ {
+			switch rnd(12) {
+			case 0, 1, 2:
+				_ = e.Press(pads[rnd(numPads)], quanta[rnd(len(quanta))])
+			case 3, 4, 5:
+				_ = e.Release(pads[rnd(numPads)])
+			case 6:
+				e.ReleaseAll(quanta[rnd(len(quanta))])
+			case 7:
+				e.Do(Action{Kind: []string{"play", "stop", "locate"}[rnd(3)], Pos: int64(rnd(rigFrames * 2))})
+			case 8:
+				e.mix.Store(mk(loops[rnd(len(loops))], grids[rnd(len(grids))], rnd(2) == 0))
+			}
+			n := 1 + rnd(4*BlockFrames)
+			if rnd(10) == 0 {
+				e.advance(nil, out, n)
+			} else {
+				d := buf[:n*OutChannels]
+				clear(d)
+				e.advance(d, out, n)
+				for i, v := range d {
+					if math.IsNaN(float64(v)) || math.Abs(float64(v)) > 4 {
+						t.Fatalf("trial %d step %d: sample %d is %v", trial, step, i, v)
+					}
+				}
+			}
+			out += uint64(n)
+		}
+		e.advance(nil, out, 1)
+		out++
+		e.ReleaseAll(QuantumNow)
+		e.Do(Action{Kind: "play"})
+		e.advance(nil, out, 300000) // past any release's line: a bar is under 140000 frames here
+		for i := range pads {
+			if e.perf.held[i] || e.perf.down[i] {
+				t.Fatalf("trial %d: %s still held=%v down=%v after a release of everything", trial, pads[i], e.perf.held[i], e.perf.down[i])
+			}
+		}
+		if e.perf.head.on || len(e.perf.order) > 0 {
+			t.Fatalf("trial %d: head on=%v order=%v after a release of everything", trial, e.perf.head.on, e.perf.order)
+		}
+	}
+}
+
+func TestAfterAJamTheTapeIsUntouched(t *testing.T) {
+	// Two engines given the same transport and the same mixes, one jammed
+	// on. Once everything is let go and settled, the jammed one plays
+	// exactly what the other does, sample for sample, click track and all.
+	s := newTestStore(t)
+	pool := NewPool(s)
+	rel := poolWAV(t, s, rigFrames, func(i int) float64 { return 0.5 * math.Sin(float64(i)/37) })
+	mk := func(loop Loop, grid *Grid) *Mix {
+		clips := []Clip{{ID: "a", File: rel, At: 0, Frames: rigFrames / 2}, {ID: "b", File: rel, Src: 5000, At: rigFrames / 2, Frames: rigFrames / 3}}
+		var tracks []Track
+		for n := 1; n <= 5; n++ {
+			bus := BusA
+			if n%2 == 0 {
+				bus = BusB
+			}
+			tracks = append(tracks, Track{N: n, Bus: bus, Clips: clips})
+		}
+		m := NewMix(State{Grid: grid, Loop: loop, Tracks: tracks}, pool, 48000)
+		m.length = 2 * rigFrames
+		m.click = true
+		return m
+	}
+	loops := []Loop{{}, {In: 0, Out: 48000, On: true}, {In: 12000, Out: 24000, On: true}}
+	grids := []*Grid{nil, {Frames: 4 * rigBar, Bars: 4}, {Frames: 137143, Bars: 1}}
+	quanta := []string{QuantumNow, QuantumSixteenth, QuantumEighth, QuantumBeat}
+	rnd := xorshift(987654321)
+	trials := 40
+	if raceOn {
+		trials = 10
+	}
+	for trial := 0; trial < trials; trial++ {
+		m0 := mk(loops[rnd(len(loops))], grids[rnd(len(grids))])
+		a, b := NewEngine(Options{Store: s}), NewEngine(Options{Store: s})
+		a.mix.Store(m0)
+		b.mix.Store(m0)
+		pos := int64(rnd(rigFrames))
+		for _, e := range []*Engine{a, b} {
+			e.Do(Action{Kind: "locate", Pos: pos})
+			e.Do(Action{Kind: "play"})
+		}
+		var out uint64
+		ba := make([]float32, BlockFrames*OutChannels)
+		bb := make([]float32, BlockFrames*OutChannels)
+		for step := 0; step < 150; step++ {
+			switch rnd(10) {
+			case 0, 1, 2:
+				_ = a.Press(pads[rnd(numPads)], quanta[rnd(len(quanta))])
+			case 3, 4, 5:
+				_ = a.Release(pads[rnd(numPads)])
+			case 6:
+				m := mk(loops[rnd(len(loops))], grids[rnd(len(grids))])
+				a.mix.Store(m)
+				b.mix.Store(m)
+			}
+			clear(ba)
+			clear(bb)
+			a.advance(ba, out, BlockFrames)
+			b.advance(bb, out, BlockFrames)
+			out += BlockFrames
+		}
+		a.advance(nil, out, 1)
+		b.advance(nil, out, 1)
+		out++
+		a.ReleaseAll(QuantumNow)
+		a.advance(nil, out, 600000)
+		b.advance(nil, out, 600000)
+		out += 600000
+		for k := 0; k < 8; k++ {
+			clear(ba)
+			clear(bb)
+			a.advance(ba, out, BlockFrames)
+			b.advance(bb, out, BlockFrames)
+			out += BlockFrames
+			if i := firstDiff(ba, bb); i >= 0 {
+				t.Fatalf("trial %d: after the jam, block %d frame %d differs", trial, k, i)
+			}
+		}
+	}
 }
