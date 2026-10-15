@@ -1314,10 +1314,16 @@ func (a *API) handleClipboardRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// ?replaced=1[&by=<created of the grab>] is GRAB's Undo instead: the buffer
-	// the last grab replaced, back on the clipboard.
-	if r.URL.Query().Get("replaced") == "1" {
+	// the last grab replaced, back on the clipboard. Strict: `replaced` with
+	// anything but 1 is refused, never read as the toss's restore.
+	q := r.URL.Query()
+	if _, has := q["replaced"]; has {
+		if q.Get("replaced") != "1" {
+			writeErr(w, http.StatusBadRequest, "replaced is 1: GRAB's Undo")
+			return
+		}
 		var by time.Time
-		if s := r.URL.Query().Get("by"); s != "" {
+		if s := q.Get("by"); s != "" {
 			var perr error
 			if by, perr = time.Parse(time.RFC3339Nano, s); perr != nil {
 				writeErr(w, http.StatusBadRequest, "by is the time the grab was made, as the clipboard says it")
@@ -1332,12 +1338,20 @@ func (a *API) handleClipboardRestore(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())})
 		return
 	}
-	c, kept, err := a.tape.RestoreClipboard()
+	// ?crate=0 (the rooms): what the restored buffer replaces, if nobody used
+	// it, is held for Undo and not put in the crate, as with a grab.
+	c, kept, replaced, err := a.tape.RestoreClipboardOpt(tape.GrabOpts{NoCrate: q.Get("crate") == "0"})
 	if err != nil {
 		tapeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate()), "crated": kept})
+	sr := float64(a.tape.Store().SampleRate())
+	out := map[string]any{"clipboard": c, "seconds": float64(c.Frames) / sr, "crated": kept}
+	if replaced != nil {
+		out["replaced"] = replaced
+		out["replaced_seconds"] = float64(replaced.Frames) / sr
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // handleClipboardPatch changes the Studio's buffer: its window ({in, out},

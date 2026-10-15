@@ -73,6 +73,39 @@ func (s *Store) clearReplaced() {
 	os.Remove(s.replacedPath())
 }
 
+// putReplaced puts the slot back as it was (nil: empty): a replacement that
+// failed after writing it must not leave the Undo that was there destroyed.
+func (s *Store) putReplaced(prev *Replaced) {
+	if prev == nil {
+		s.clearReplaced()
+		return
+	}
+	b, err := json.MarshalIndent(prev, "", "  ")
+	if err != nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	writeSynced(s.replacedPath(), b)
+}
+
+// live says whether the slot can still be undone: the buffer that replaced
+// what it holds is still the clipboard, and nobody has dropped, inserted or
+// kept it. A slot that is not live roots no audio, so the clean-up frees it:
+// "let go at the next" holds however the buffer left (cleared, tossed, dropped,
+// replaced behind its back). A toss ends a slot's life for good: bringing the
+// tossed buffer back does not bring the older one's Undo with it.
+func (r *Replaced) live(cur *Clipboard) bool {
+	return r != nil && !cur.Empty() && cur.Created.Equal(r.By) && !cur.used()
+}
+
+// undoRefused is a refused Undo, in the words the toast shows as they are. It
+// is an ErrNothingToDo, which the API answers 409.
+type undoRefused string
+
+func (u undoRefused) Error() string        { return string(u) }
+func (u undoRefused) Is(target error) bool { return target == ErrNothingToDo }
+
 // RestoreReplaced is GRAB's Undo: the buffer the last grab replaced goes back
 // on the clipboard, and the grab it undoes is dropped. It empties the slot, so
 // a second Undo has nothing to do; and it refuses (ErrNothingToDo) when the
@@ -89,14 +122,21 @@ func (e *Engine) RestoreReplaced(by time.Time) (*Clipboard, error) {
 		return nil, err
 	}
 	if r == nil {
-		return nil, fmt.Errorf("%w: no grab was replaced to bring back", ErrNothingToDo)
+		return nil, undoRefused("Nothing to put back: no grab was replaced")
 	}
 	cur, err := e.store.LoadClipboard()
 	if err != nil {
 		return nil, err
 	}
-	if cur.Empty() || !cur.Created.Equal(r.By) || (!by.IsZero() && !by.Equal(r.By)) {
-		return nil, fmt.Errorf("%w: the buffer has moved on since that grab", ErrNothingToDo)
+	switch {
+	case cur.Empty() || !cur.Created.Equal(r.By):
+		return nil, undoRefused("The buffer has moved on since that grab")
+	case !by.IsZero() && !by.Equal(r.By):
+		return nil, undoRefused("That grab was already replaced")
+	case cur.used():
+		// The buffer is on the tape or on the shelf: swapping it under that
+		// would leave the drop standing over a different buffer.
+		return nil, undoRefused("Already dropped or kept — undo the drop instead")
 	}
 	if err := e.store.SaveClipboard(r.Board); err != nil {
 		return nil, err

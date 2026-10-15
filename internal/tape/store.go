@@ -426,8 +426,10 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 	}
 	// And the one grab a grab replaced, which GRAB's Undo brings back. One
 	// that can't be read might hold any grab: every grab's audio is kept.
+	// Only while it can still be undone: the buffer that replaced it is still
+	// the clipboard and unused. A slot nothing can undo roots nothing.
 	rep, rerr := s.loadReplaced()
-	if rep != nil {
+	if rep.live(c) {
 		rep.Board.files(used)
 	}
 	// So is the crate, its deleted clips too until they're let go of. One

@@ -97,13 +97,15 @@ func TestOnlyAnUnusedGrabIsKept(t *testing.T) {
 	if err != nil || again.Replaced != nil {
 		t.Fatalf("again replaced %+v (%v)", again.Replaced, err)
 	}
-	// Nor is a copy, which is no grab.
-	if _, _, err := e.CopyRing(100000, 148000, "aux"); err != nil {
+	// A copy nobody used is held like a grab (it is the buffer too): the
+	// slot is for any unused buffer.
+	cp, _, err := e.CopyRing(100000, 148000, "aux")
+	if err != nil {
 		t.Fatal(err)
 	}
 	g = grabSpan(t, e, 110000, 158000, GrabRequest{NoCrate: true})
-	if g.Replaced != nil {
-		t.Fatalf("a copy was kept: %+v", g.Replaced)
+	if g.Replaced == nil || !g.Replaced.Created.Equal(cp.Created) {
+		t.Fatalf("an unused copy was not held: %+v", g.Replaced)
 	}
 }
 
