@@ -15,6 +15,7 @@ export const TIPS = [
   { control: 'Tape (tab)', ids: ['nav-tape'], tip: 'The tape: layer loops caught from what you just played' },
   { control: 'Studio (tab)', ids: ['nav-studio'], tip: "The two rooms' preview: the feed, Keep and the tape on one page. The lamp is the ring: green while it records" },
   { control: 'Listening Room (tab)', ids: ['nav-room'], tip: "The two rooms' preview: every take, to search, filter, sort and open" },
+  { control: 'Rig (chip)', ids: ['rig-chip'], tip: "The rig: your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from" },
   // The main page
   { control: 'Capture', ids: ['capture'], tip: 'Save the last 30 s, 2 m, 7 m or all of what you just played as a take' },
   { control: 'Flag now', ids: ['flag-now'], tip: 'Mark this moment. Any take that includes it gets a flag here' },
@@ -234,6 +235,19 @@ export const TIPS = [
   { control: 'Output', ids: ['tape-out'], tip: 'Where the tape plays: the jam room (a speaker), this phone (headphones), or both. It\'s in the header of Tape, Takes and Capture. Switching keeps it rolling from the same spot' },
   { control: 'Jam room / This phone / Both', ids: ['out-choice'], tip: 'The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both' },
   { control: 'Play in the jam room', ids: ['out-jam'], tip: 'Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back' },
+  // The rig (rig.html), with the two rooms on
+  { control: 'Studio (rig)', ids: ['rig-back'], tip: 'Back to the Studio' },
+  { control: 'Socket', ids: ['rig-socket'], tip: 'Drag from it to another socket to plug a cable in, or choose it and then where it goes. A pull on a plug unplugs it. Choose it to see what it carries' },
+  { control: 'Plug it into', ids: ['rig-target'], tip: 'Plug a cable from the chosen socket into this one: it writes the setting the cable is' },
+  { control: 'Unplug (rig)', ids: ['rig-unplug'], tip: "Take this cable out. A cable that's a setting applied on restart stays on, dashed, until Hindsight restarts" },
+  { control: 'Arm it (rig)', ids: ['rig-arm'], tip: 'Arm or disarm this track. Every armed track records at once, each from its own input, as one undo' },
+  { control: 'Move tracks to bus', ids: ['rig-fix'], tip: "Move the tracks playing into this tap to the bus it doesn't hear, as one undoable edit, so a recording from it is clean" },
+  { control: 'Use these taps', ids: ['rig-offer'], tip: "Make the inputs a catch can take from this interface's own taps (TAPE_SOURCES). Applies when Hindsight restarts" },
+  { control: 'What a KEEP writes', ids: ['rig-keep'], tip: 'One tap, or every input, written to each take. Applies when Hindsight restarts' },
+  { control: 'Where the tape plays (rig)', ids: ['rig-out'], tip: 'The room, a phone, or both: the same as the Output button' },
+  { control: 'Label it', ids: ['rig-label'], tip: "Name what's plugged into this jack: it shows on the tap and the track's input. A label routes nothing" },
+  { control: 'Restart (rig)', ids: ['rig-restart'], tip: 'Restart Hindsight so the dashed amber cables take effect. The ring starts empty, so capture anything you want to keep first' },
+  { control: 'Done (rig)', ids: ['rig-done'], tip: 'Close the inspector and let go of the chosen socket' },
 ];
 
 const byId = new Map();

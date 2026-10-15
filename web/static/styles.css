@@ -3836,3 +3836,225 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
   .studio-keys { flex-direction: column; align-self: stretch; }
   .studio-keys > .seg button { min-height: 34px; }
 }
+
+/* ---------- Rooms P6: the rig (rig.html, lib/rig/) ---------- */
+/* The kit drawn as gear on a desk, with the cables that are its settings.
+   Every rule here hangs off a rig- class (or the Studio's .tt-warn, the
+   rig's warning on a track's header), and the markup they style exists
+   only with the two rooms on: rig.html shows nothing else with them off,
+   the chip is put in the header by lib/nav.js only then, and .tt-warn only
+   by the tape page only then. The desk is a material, the same in both
+   schemes (objects.css); the inspector and the bars around it follow the
+   scheme. */
+.rig-page .rig-title { margin: 0; font: 700 18px var(--label-font); letter-spacing: .14em; text-transform: uppercase; }
+.rig-page .rig-found { min-width: 0; color: var(--ink-dim); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rig-main { max-width: none; padding: 12px 16px 24px; }
+.rig-off { max-width: 560px; margin: 32px auto; color: var(--ink-dim); }
+.rig-restart {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; padding: 10px 14px;
+  border: 1px solid var(--warn); border-radius: 10px; background: color-mix(in srgb, var(--warn) 14%, var(--bg));
+  color: var(--ink); font-size: 14px;
+}
+.rig-restart[hidden] { display: none; }
+.rig-restart-text { flex: 1 1 280px; }
+.rig-room { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.rig-room[hidden] { display: none; }
+@media (min-width: 1000px) {
+  .rig-room { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "desk insp" "legend insp"; align-items: start; }
+  .rig-desk { grid-area: desk; }
+  .rig-insp { grid-area: insp; position: sticky; top: calc(var(--topbar-h, 107px) + 12px); max-height: calc(100svh - var(--topbar-h, 107px) - 36px); overflow-y: auto; }
+  .rig-legend { grid-area: legend; }
+}
+
+/* The desk. Cables run in an SVG over the gear and take no input; a wider
+   stroke under the gear lets a tap on a cable's run show it. */
+.rig-desk {
+  position: relative; display: flex; flex-direction: column; gap: 22px; min-width: 0;
+  padding: 18px 16px 28px; border-radius: 14px; color: var(--desk-ink);
+  background: radial-gradient(ellipse at 45% 35%, var(--desk-felt), var(--desk-felt-lo) 75%);
+  box-shadow: inset 0 0 0 1px var(--desk-edge), inset 0 0 70px rgba(0,0,0,.45);
+}
+.rig-wires, .rig-hits { position: absolute; left: 0; top: 0; overflow: visible; }
+.rig-wires { z-index: 4; pointer-events: none; }
+.rig-hits { z-index: 0; }
+.rig-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.rig-devices, .rig-bay { position: relative; z-index: 1; }
+.rig-wire { fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+.rig-wire.faded { opacity: .45; }
+.rig-wire.sel { filter: drop-shadow(0 0 4px var(--rig-amber)); }
+.rig-wire.pending { animation: rig-march 1.2s linear infinite; }
+.rig-wire-drawing { stroke: var(--cable-patch); stroke-dasharray: 2 6; opacity: .9; }
+@keyframes rig-march { to { stroke-dashoffset: -24; } }
+@media (prefers-reduced-motion: reduce) { .rig-wire.pending { animation: none; } }
+.rig-plug { fill: var(--cable-plug); stroke: var(--desk-ink-dim); stroke-width: 2; }
+.rig-plug.pending { stroke: var(--cable-pending); stroke-dasharray: 3 2; }
+
+/* The gear. */
+.rig-devices { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px; }
+.rig-dev {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%;
+  padding: 12px 14px 10px; border-radius: 12px;
+  background: linear-gradient(var(--gear-black-hi), var(--gear-black-lo));
+  box-shadow: 0 6px 0 var(--gear-black-foot), 0 14px 24px rgba(0,0,0,.5);
+}
+.rig-dev.rig-dev-interface { background: linear-gradient(var(--gear-grey-hi), var(--gear-grey-lo)); box-shadow: 0 8px 0 var(--gear-grey-foot), 0 16px 28px rgba(0,0,0,.55); color: var(--gear-grey-ink); }
+.rig-dev-head, .rig-bay-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.rig-dev-name { font: 700 15px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+.rig-dev-sub { font: 500 11px var(--mono); opacity: .8; }
+.rig-dev-note { margin: 0; max-width: 300px; font-size: 12px; line-height: 1.35; opacity: .85; }
+.rig-jacks, .rig-row-socks { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 6px; }
+.rig-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+/* A label: masking tape, written on in marker -- a name, never a route. */
+.rig-tag {
+  max-width: 96px; padding: 2px 7px; transform: rotate(-3deg); border-radius: 2px;
+  background: var(--paper-hi); color: var(--marker); font: 400 12px 'Permanent Marker', var(--font);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+.rig-tag[hidden] { display: none; }
+
+/* A socket: a button with a jack in it. touch-action none, so a finger can
+   draw a cable out of it. */
+.rig-sock {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  min-width: 52px; min-height: 52px; padding: 6px 4px 4px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: 700 10.5px var(--label-font); letter-spacing: .1em; text-transform: uppercase;
+  cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.rig-sock:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.rig-hole { width: 20px; height: 20px; border-radius: 50%; background: var(--jack-hole); box-shadow: 0 0 0 3px var(--jack-ring), inset 0 2px 3px rgba(0,0,0,.8); }
+.rig-sock[data-kind="usb"] .rig-hole { width: 26px; height: 14px; border-radius: 3px; }
+.rig-sock[data-kind="midi"] .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring), inset 0 0 0 5px var(--gear-black-hi); }
+.rig-sock[data-kind="tap"] .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring), 0 0 0 5px var(--desk-felt-lo); }
+.rig-sock.signal[data-kind="tap"] .rig-hole { box-shadow: 0 0 0 3px var(--cable-patch), 0 0 8px var(--cable-patch); }
+.rig-sock.sel .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring-hot), 0 0 12px var(--jack-ring-hot); }
+.rig-sock.target .rig-hole { box-shadow: 0 0 0 3px var(--cable-patch), 0 0 0 7px color-mix(in srgb, var(--cable-patch) 35%, transparent); }
+.rig-sock.drop .rig-hole { transform: scale(1.25); }
+.rig-sock.pending .rig-hole { outline: 2px dashed var(--cable-pending); outline-offset: 5px; }
+.rig-sock-label { line-height: 1; white-space: nowrap; }
+.rig-sock-name { max-width: 72px; font: 400 10px var(--font); letter-spacing: 0; text-transform: none; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rig-sock-name:empty { display: none; }
+.rig-lamp { position: absolute; top: 2px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--rig-lamp-off); }
+.rig-sock.armed .rig-lamp { background: var(--rig-lamp-rec); box-shadow: 0 0 8px var(--rig-lamp-rec); }
+.rig-warn-dot { display: none; position: absolute; top: 2px; left: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--rig-amber); box-shadow: 0 0 8px var(--rig-amber); }
+.rig-sock.warn .rig-warn-dot { display: block; }
+.rig-desk.picking .rig-sock:not(.target):not(.sel) { opacity: .55; }
+.rig-desk.dragging { cursor: grabbing; }
+
+/* The kit's patch bay. */
+.rig-bay {
+  display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 12px; border-radius: 12px;
+  background: linear-gradient(var(--gear-black-hi), var(--gear-black-lo));
+  box-shadow: 0 8px 0 var(--gear-black-foot), 0 16px 26px rgba(0,0,0,.55);
+}
+.rig-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 8px 14px; }
+.rig-row-title { font: 700 10.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--desk-ink-dim); }
+.rig-row-tracks .rig-sock { min-width: 60px; }
+
+/* The inspector: beside the desk; on a phone, a sheet over its foot when a
+   socket or a cable is chosen. */
+.rig-insp {
+  min-width: 0; padding: 16px; border-radius: 12px; border: 1px solid var(--line);
+  background: linear-gradient(var(--card-hi), var(--card-lo)); color: var(--ink);
+}
+.rig-kicker, .rig-k { margin: 12px 0 4px; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-kicker { margin-top: 0; }
+.rig-insp-title { margin: 0 0 6px; font: 700 22px var(--label-font); letter-spacing: .04em; }
+.rig-insp-about, .rig-note { margin: 4px 0 8px; font-size: 13.5px; line-height: 1.45; color: var(--ink-dim); }
+.rig-insp .icon-btn { min-height: 40px; }
+.rig-insp-close { float: right; margin: -6px -4px 4px 8px; }
+.rig-level { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 8px 0; font: 500 12px var(--mono); color: var(--ink-dim); }
+.rig-level-bar { position: relative; height: 8px; border-radius: 4px; background: var(--well); overflow: hidden; }
+.rig-level-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--go), var(--warn)); }
+.rig-patched-list, .rig-targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rig-patched { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 10px; border-radius: 8px; background: var(--panel); }
+.rig-patched.pending { outline: 2px dashed var(--warn); outline-offset: -2px; }
+.rig-patched-what { flex: 1 1 auto; font-weight: 600; }
+.rig-patched-note { flex: 1 1 100%; order: 3; font-size: 12.5px; color: var(--ink-dim); }
+.rig-kind { flex: none; width: 22px; height: 0; border-top: 4px solid var(--cable-patch); }
+.rig-kind-usb { border-top: 7px solid var(--cable-usb); }
+.rig-kind-return { border-top: 3px dotted var(--cable-return); }
+.rig-kind-clock { border-top: 3px dashed var(--cable-midi); }
+.rig-kind-midi { border-top: 3px dotted var(--cable-midi); }
+.rig-kind-keep { border-top: 2px dashed var(--ink-dim); }
+.rig-kind-network { border-top: 2px dotted var(--cable-net); }
+.rig-kind-jack { border-top: 4px dashed var(--cable-jack); }
+.rig-target-btn {
+  width: 100%; min-height: 40px; padding: 0 12px; text-align: left; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 14px var(--font);
+}
+.rig-target-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) { .rig-target-btn:hover { border-color: var(--rule); } }
+.rig-arm.on { border-color: var(--rec); color: var(--danger-ink); }
+.rig-warn { margin: 12px 0; padding: 12px; border-radius: 10px; border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 14%, var(--card-hi)); }
+.rig-warn-title { margin: 0 0 4px; font: 700 14px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--warn-ink); }
+.rig-warn-text { margin: 0 0 10px; font-size: 13.5px; line-height: 1.45; }
+.rig-fix { background: var(--warn); color: var(--on-flag); border-color: var(--warn); font-weight: 700; }
+.rig-offer { margin: 12px 0; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
+.rig-offer-text { margin: 0 0 8px; font-size: 13.5px; }
+.rig-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.rig-seg button {
+  min-height: 40px; min-width: 52px; padding: 0 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 700 13px var(--label-font); letter-spacing: .1em;
+}
+.rig-seg button.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.rig-seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rig-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rig-label > .rig-k { flex: 1 1 100%; }
+.rig-label-input { flex: 1 1 160px; min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: 15px var(--font); }
+.rig-label-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.rig-label > .rig-note { flex: 1 1 100%; }
+.rig-settings { margin-top: 14px; }
+.rig-settings > summary { cursor: pointer; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-settings > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rig-settings-list { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 8px 0 0; font: 12px var(--mono); }
+.rig-settings-list dt { color: var(--ink-dim); }
+.rig-settings-list dd { margin: 0; overflow-wrap: anywhere; }
+.rig-settings-list dd.pending { color: var(--warn-ink); }
+
+/* The legend: width and dash say the kind, not colour alone. */
+.rig-legend { padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+.rig-legend-title { margin: 0 0 8px; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-legend-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; font-size: 13px; }
+.rig-legend-item { display: flex; align-items: center; gap: 10px; }
+.rig-legend-item svg { flex: none; padding: 4px; border-radius: 4px; background: var(--desk-felt-lo); overflow: visible; }
+
+@media (max-width: 999.98px) {
+  .rig-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  /* A phone: chosen, the inspector is a sheet over the desk's foot, above
+     the tabs; nothing chosen, it sits under the desk. */
+  .rig-insp.open {
+    position: fixed; left: 0; right: 0; bottom: calc(61px + env(safe-area-inset-bottom)); z-index: 25;
+    max-height: 52svh; overflow-y: auto; border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px var(--sh-strong);
+  }
+  body.rig-page:has(.rig-insp.open) { padding-bottom: calc(61px + 52svh); }
+  .rig-desk { padding: 14px 10px 22px; }
+  .rig-devices { gap: 14px; }
+  .rig-dev { flex: 1 1 100%; }
+}
+@media (min-width: 700px) and (max-width: 999.98px) {
+  .rig-insp.open { bottom: 0; }
+  body.rig-page:has(.rig-insp.open) { padding-bottom: 52svh; }
+}
+
+/* The device chip, in both rooms' headers: the way to the rig. */
+.rig-chip {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--ink); text-decoration: none; font: 600 13px var(--font); white-space: nowrap;
+}
+.rig-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) { .rig-chip:hover { border-color: var(--rule); } }
+.rig-chip-sub { color: var(--ink-dim); font-weight: 500; }
+.rig-chip-sub:empty { display: none; }
+.rig-chip-lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); }
+.rig-chip[data-state="ok"] .rig-chip-lamp { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
+.rig-chip[data-state="warn"] .rig-chip-lamp { background: var(--warn); box-shadow: 0 0 6px var(--warn-glow); }
+@media (max-width: 699.98px) {
+  .rig-chip { padding: 0 9px; }
+  .rig-chip-sub, .rig-chip-ico { display: none; }
+}
+
+/* The rig's warning on a Studio track header: an amber dot by ●, on an
+   armed track whose input hears the tape (lib/rig/warn.js). */
+.tt-head .tt-warn { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 30%, transparent), 0 0 8px var(--warn-glow); }
+.tt-head .tt-warn[hidden] { display: none; }

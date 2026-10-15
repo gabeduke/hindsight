@@ -121,3 +121,38 @@
   --pad-lit:        #e0662a;
   --pad-lit-ink:    #1c2430;
 }
+
+/* ---- Rooms P6: the rig's materials (lib/rig/, rig.html) ---- */
+/* The rig is a desk with the gear on it, the same in either room light: a
+   dark felt mat, the Sidekick's grey plastic, the kit's black box, jacks,
+   and cables whose kinds differ in width and dash as well as colour
+   (lib/rig/kinds.js). */
+:root {
+  --desk-felt:      #232b31;
+  --desk-felt-lo:   #161b1f;
+  --desk-edge:      rgba(255,255,255,.06);
+  --desk-ink:       #ecebe6;
+  --desk-ink-dim:   #b2b1aa;
+  --gear-grey-hi:   #cfd2d6;
+  --gear-grey-lo:   #a9adb3;
+  --gear-grey-foot: #6a6e74;
+  --gear-grey-ink:  #1b1d1f;
+  --gear-black-hi:  #34353a;
+  --gear-black-lo:  #222327;
+  --gear-black-foot:#0b0c0d;
+  --jack-hole:      #0b0c0d;
+  --jack-ring:      #868a90;
+  --jack-ring-hot:  #ffb547;
+  --cable-usb:      #8b8f95;
+  --cable-patch:    #2fb3a7;
+  --cable-return:   #e5a50a;
+  --cable-midi:     #d9a114;
+  --cable-keep:     #d7d6cf;
+  --cable-net:      #5b9be0;
+  --cable-jack:     #9a998f;
+  --cable-pending:  #ff9f1c;
+  --cable-plug:     #1b1c1e;
+  --rig-lamp-off:   #3a3b3f;
+  --rig-lamp-rec:   #e8423d;
+  --rig-amber:      #ffb547;
+}

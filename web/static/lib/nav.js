@@ -7,6 +7,7 @@
 // With the two rooms on (lib/rooms/flag.js, this device only) the three
 // become two: STUDIO, which is the tape page with the tape on and Capture
 // with it off, and LISTENING ROOM, which is the takes and a take's page.
+// Both rooms' headers then carry the device chip, the way to the rig.
 
 import { on as roomsOn } from './rooms/flag.js';
 import { tipFor } from './help/tips.js';
@@ -83,7 +84,12 @@ export function initNav(doc = document) {
   const nav = doc.querySelector('.appnav');
   if (!nav) return Promise.resolve(null);
   const rooms = roomsOn();
-  if (rooms) roomTabs(nav);
+  if (rooms) {
+    roomTabs(nav);
+    // The device chip, the way to the rig (lib/rig/chip.js): only with the
+    // rooms on, so with them off it isn't even fetched.
+    import('./rig/chip.js').then((m) => m.mountChip(doc)).catch(() => {});
+  }
   const apply = (tapeOn) => {
     const tabs = navTabs(location.pathname, tapeOn, rooms);
     for (const a of nav.querySelectorAll('a[data-tab]')) {

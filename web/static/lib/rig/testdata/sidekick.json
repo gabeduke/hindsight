@@ -1,0 +1,506 @@
+{
+ "found": "Sidekick on USB \u00b7 Demo sequencer on MIDI",
+ "devices": [
+  {
+   "id": "ep-136",
+   "role": "interface",
+   "name": "EP-136 K.O. Sidekick",
+   "short": "Sidekick",
+   "profile": "ep-136",
+   "usb": "2367:9420",
+   "match": "EP-136",
+   "in": 8,
+   "out": 4,
+   "sockets": [
+    {
+     "id": "ep-136.in1",
+     "label": "IN 1",
+     "kind": "audio",
+     "dir": "in",
+     "about": "Input jack 1, mixer channel 1's strip.",
+     "name": "guitar",
+     "tap": "ch1"
+    },
+    {
+     "id": "ep-136.in2",
+     "label": "IN 2",
+     "kind": "audio",
+     "dir": "in",
+     "about": "Input jack 2, mixer channel 2's strip.",
+     "tap": "ch2"
+    },
+    {
+     "id": "ep-136.aux",
+     "label": "AUX",
+     "kind": "audio",
+     "dir": "in",
+     "about": "The aux input. It joins MAIN at unity, past every fader.",
+     "name": "Bento out",
+     "tap": "aux"
+    },
+    {
+     "id": "ep-136.main",
+     "label": "MAIN",
+     "kind": "audio",
+     "dir": "out",
+     "about": "The main out: the mix."
+    },
+    {
+     "id": "ep-136.midi-in",
+     "label": "MIDI IN",
+     "kind": "midi",
+     "dir": "in",
+     "about": "MIDI into the Sidekick, over its USB."
+    },
+    {
+     "id": "ep-136.midi-out",
+     "label": "MIDI OUT",
+     "kind": "midi",
+     "dir": "out",
+     "about": "MIDI from the Sidekick, over its USB: its clock, and its knobs and FX pad as automation."
+    },
+    {
+     "id": "ep-136.usb",
+     "label": "USB-C",
+     "kind": "usb",
+     "dir": "both",
+     "about": "USB audio: 8 channels in (four stereo taps), 4 out (two stereo returns), 48 kHz, 32-bit only."
+    }
+   ]
+  },
+  {
+   "id": "midi-demo-sequencer",
+   "role": "midi",
+   "name": "Demo sequencer",
+   "short": "Demo sequencer",
+   "profile": "midi",
+   "generic": true,
+   "midi": [
+    "Demo sequencer"
+   ],
+   "match": "Demo sequencer",
+   "sockets": [
+    {
+     "id": "midi-demo-sequencer.midi-in",
+     "label": "MIDI IN",
+     "kind": "midi",
+     "dir": "in",
+     "about": "MIDI into Demo sequencer."
+    },
+    {
+     "id": "midi-demo-sequencer.midi-out",
+     "label": "MIDI OUT",
+     "kind": "midi",
+     "dir": "out",
+     "about": "MIDI from Demo sequencer."
+    }
+   ]
+  },
+  {
+   "id": "phones",
+   "role": "listener",
+   "name": "A phone",
+   "short": "Phone",
+   "profile": "listener",
+   "sockets": [
+    {
+     "id": "phones.in",
+     "label": "Wi-Fi",
+     "kind": "network",
+     "dir": "in",
+     "about": "A phone that plays the tape: the tape page's OUT."
+    }
+   ]
+  }
+ ],
+ "kit": {
+  "id": "kit",
+  "role": "kit",
+  "name": "Hindsight kit",
+  "short": "Kit",
+  "profile": "kit",
+  "note": "v-test",
+  "sockets": [
+   {
+    "id": "kit.usb",
+    "label": "USB",
+    "kind": "usb",
+    "dir": "in",
+    "about": "The interface's USB: every input it has, into the ring."
+   },
+   {
+    "id": "kit.tap.main",
+    "label": "MAIN",
+    "kind": "tap",
+    "dir": "out",
+    "about": "The main mix, after the faders: CH1 and CH2 as their faders set them, plus AUX at unity. It hears both of the tape's buses.",
+    "peak_db": -20.0,
+    "signal": true,
+    "pair": [
+     1,
+     2
+    ],
+    "hears": [
+     "A",
+     "B"
+    ]
+   },
+   {
+    "id": "kit.tap.ch1",
+    "label": "CH1",
+    "kind": "tap",
+    "dir": "out",
+    "about": "Input jack 1's strip, taken before its fader. It hears whatever the tape plays on bus A.",
+    "name": "guitar",
+    "peak_db": -70.0,
+    "signal": false,
+    "pair": [
+     3,
+     4
+    ],
+    "hears": [
+     "A"
+    ]
+   },
+   {
+    "id": "kit.tap.ch2",
+    "label": "CH2",
+    "kind": "tap",
+    "dir": "out",
+    "about": "Input jack 2's strip, taken before its fader. It hears whatever the tape plays on bus B.",
+    "peak_db": -70.0,
+    "pair": [
+     5,
+     6
+    ],
+    "hears": [
+     "B"
+    ],
+    "signal": false
+   },
+   {
+    "id": "kit.tap.aux",
+    "label": "AUX",
+    "kind": "tap",
+    "dir": "out",
+    "about": "The aux input: digital zero until a source plays. The tape never reaches it.",
+    "name": "Bento out",
+    "peak_db": -20.0,
+    "signal": true,
+    "pair": [
+     7,
+     8
+    ]
+   },
+   {
+    "id": "kit.track.1",
+    "label": "1",
+    "kind": "track",
+    "dir": "both",
+    "about": "Track 1's input: what a catch or \u25cf Rec puts on it.",
+    "track": 1,
+    "clips": 1,
+    "bus": "A"
+   },
+   {
+    "id": "kit.track.2",
+    "label": "2",
+    "kind": "track",
+    "dir": "both",
+    "about": "Track 2's input: what a catch or \u25cf Rec puts on it.",
+    "track": 2,
+    "armed": true,
+    "bus": "A",
+    "warn": true
+   },
+   {
+    "id": "kit.track.3",
+    "label": "3",
+    "kind": "track",
+    "dir": "both",
+    "about": "Track 3's input: what a catch or \u25cf Rec puts on it.",
+    "track": 3,
+    "armed": true,
+    "bus": "A"
+   },
+   {
+    "id": "kit.track.4",
+    "label": "4",
+    "kind": "track",
+    "dir": "both",
+    "about": "Track 4's input: what a catch or \u25cf Rec puts on it.",
+    "track": 4,
+    "clips": 1,
+    "bus": "A"
+   },
+   {
+    "id": "kit.bus.A",
+    "label": "BUS A",
+    "kind": "bus",
+    "dir": "both",
+    "about": "USB playback 1/2 returns into channel 1's strip, before the CH1 tap.",
+    "bus": "A"
+   },
+   {
+    "id": "kit.bus.B",
+    "label": "BUS B",
+    "kind": "bus",
+    "dir": "both",
+    "about": "USB playback 3/4 returns into channel 2's strip, before the CH2 tap.",
+    "bus": "B"
+   },
+   {
+    "id": "kit.out",
+    "label": "OUT",
+    "kind": "out",
+    "dir": "out",
+    "about": "The tape, streamed to a phone on the Wi-Fi."
+   },
+   {
+    "id": "kit.keep",
+    "label": "KEEP",
+    "kind": "keep",
+    "dir": "in",
+    "about": "What a KEEP writes to a take: one tap, or every input."
+   },
+   {
+    "id": "kit.clock-out",
+    "label": "CLOCK OUT",
+    "kind": "midi",
+    "dir": "out",
+    "about": "The tape's MIDI clock, Start and Stop, when it leads."
+   },
+   {
+    "id": "kit.clock-in",
+    "label": "CLOCK IN",
+    "kind": "midi",
+    "dir": "in",
+    "about": "The MIDI clock a take's tempo is read from."
+   },
+   {
+    "id": "kit.midi",
+    "label": "MIDI IN",
+    "kind": "midi",
+    "dir": "in",
+    "about": "MIDI recorded beside each take, as a .mid."
+   }
+  ]
+ },
+ "cables": [
+  {
+   "id": "usb:ep-136",
+   "from": "ep-136.usb",
+   "to": "kit.usb",
+   "kind": "usb",
+   "writes": "the interface the capture opened (DEVICE_MATCH)",
+   "fixed": true,
+   "about": "USB audio: 8 in, 4 out. The capture records every input."
+  },
+  {
+   "id": "midi:midi-demo-sequencer",
+   "from": "midi-demo-sequencer.midi-out",
+   "to": "kit.midi",
+   "kind": "midi",
+   "writes": "MIDI_IGNORE",
+   "restart": true,
+   "about": "Demo sequencer's MIDI, recorded beside each take. Unplugged, it's ignored (MIDI_IGNORE)."
+  },
+  {
+   "id": "clock-out:midi-demo-sequencer",
+   "from": "kit.clock-out",
+   "to": "midi-demo-sequencer.midi-in",
+   "kind": "clock",
+   "writes": "TAPE_CLOCK, TAPE_CLOCK_OUT",
+   "restart": true,
+   "pending": "plug",
+   "about": "The tape leads Demo sequencer: clock, Start, Stop and where it is (TAPE_CLOCK=lead)."
+  },
+  {
+   "id": "bus:1",
+   "from": "kit.track.1",
+   "to": "kit.bus.A",
+   "kind": "patch",
+   "writes": "track bus",
+   "about": "Track 1 plays on bus A."
+  },
+  {
+   "id": "input:2",
+   "from": "kit.tap.ch1",
+   "to": "kit.track.2",
+   "kind": "patch",
+   "writes": "tape input",
+   "about": "Track 2 records from CH1."
+  },
+  {
+   "id": "bus:2",
+   "from": "kit.track.2",
+   "to": "kit.bus.A",
+   "kind": "patch",
+   "writes": "track bus",
+   "off": true,
+   "about": "Track 2 plays on bus A."
+  },
+  {
+   "id": "input:3",
+   "from": "kit.tap.ch2",
+   "to": "kit.track.3",
+   "kind": "patch",
+   "writes": "tape input",
+   "about": "Track 3 records from CH2."
+  },
+  {
+   "id": "bus:3",
+   "from": "kit.track.3",
+   "to": "kit.bus.A",
+   "kind": "patch",
+   "writes": "track bus",
+   "off": true,
+   "about": "Track 3 plays on bus A."
+  },
+  {
+   "id": "bus:4",
+   "from": "kit.track.4",
+   "to": "kit.bus.A",
+   "kind": "patch",
+   "writes": "track bus",
+   "about": "Track 4 plays on bus A."
+  },
+  {
+   "id": "return:A",
+   "from": "kit.bus.A",
+   "to": "ep-136.in1",
+   "kind": "return",
+   "writes": "the interface's routing",
+   "fixed": true,
+   "about": "USB playback 1/2 returns into channel 1's strip, before the CH1 tap."
+  },
+  {
+   "id": "return:B",
+   "from": "kit.bus.B",
+   "to": "ep-136.in2",
+   "kind": "return",
+   "writes": "the interface's routing",
+   "fixed": true,
+   "about": "USB playback 3/4 returns into channel 2's strip, before the CH2 tap."
+  },
+  {
+   "id": "keep:main",
+   "from": "kit.tap.main",
+   "to": "kit.keep",
+   "kind": "keep",
+   "writes": "SAVE_CHANNELS",
+   "restart": true,
+   "about": "A KEEP writes MAIN (USB 1/2) to the take."
+  },
+  {
+   "id": "jack:ep-136.aux",
+   "from": "label:ep-136.aux",
+   "to": "ep-136.aux",
+   "kind": "jack",
+   "writes": "a label (rig.json)",
+   "label": "Bento out",
+   "about": "\"Bento out\", drawn into AUX. A label: it names what's there and routes nothing.",
+   "waiting": false
+  },
+  {
+   "id": "jack:ep-136.in1",
+   "from": "label:ep-136.in1",
+   "to": "ep-136.in1",
+   "kind": "jack",
+   "writes": "a label (rig.json)",
+   "label": "guitar",
+   "about": "\"guitar\", drawn into IN 1. A label: it names what's there and routes nothing."
+  }
+ ],
+ "warnings": [
+  {
+   "id": "tape-in-tap:ch1",
+   "tap": "ch1",
+   "socket": "kit.tap.ch1",
+   "buses": [
+    "A"
+   ],
+   "armed": [
+    2
+   ],
+   "tracks": [
+    1,
+    4
+   ],
+   "text": "Tracks 1 and 4 play on bus A, which CH1 hears. Recording track 2 from CH1 records them too. Mute them, or record from a tap that doesn't hear the tape."
+  }
+ ],
+ "labels": {
+  "ep-136.aux": "Bento out",
+  "ep-136.in1": "guitar"
+ },
+ "keep": {
+  "tap": "main",
+  "pair": [
+   1,
+   2
+  ],
+  "all": false,
+  "choices": [
+   "main",
+   "ch1",
+   "ch2",
+   "aux",
+   "all"
+  ]
+ },
+ "restart_needed": true,
+ "settings": [
+  {
+   "key": "TAPE_SOURCES",
+   "value": "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"
+  },
+  {
+   "key": "SAVE_CHANNELS",
+   "value": "1,2"
+  },
+  {
+   "key": "SAVE_ALL_CHANNELS",
+   "value": "false"
+  },
+  {
+   "key": "TAPE_CLOCK",
+   "value": "lead",
+   "running": "free",
+   "pending": true
+  },
+  {
+   "key": "TAPE_CLOCK_OUT",
+   "value": "Demo sequencer",
+   "pending": true
+  },
+  {
+   "key": "MIDI_CLOCK_DEVICE",
+   "value": ""
+  },
+  {
+   "key": "MIDI_IGNORE",
+   "value": ""
+  },
+  {
+   "key": "tape inputs",
+   "value": "[\"\",\"ch1\",\"ch2\",\"\"]"
+  },
+  {
+   "key": "rec tracks",
+   "value": "[2,3]"
+  },
+  {
+   "key": "tape output",
+   "value": "jam"
+  }
+ ],
+ "tape": {
+  "id": "2026-10-15_rig-demo",
+  "rec_tracks": [
+   2,
+   3
+  ],
+  "output": "jam"
+ }
+}

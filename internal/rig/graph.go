@@ -839,7 +839,7 @@ func (b *builder) offer() {
 
 // lines are the settings the picture is.
 func (b *builder) lines() {
-	keys := []string{keySources, keySave, keySaveAll, keyClock, keyClockOut, keyClockIn, keyIgnore}
+	keys := []string{keySources, keySave, keySaveAll, keyClock, keyClockOut, keyClockIn, keyIgnore, keyDevices}
 	if b.in.Controller {
 		keys = append(keys, keyControl)
 	}

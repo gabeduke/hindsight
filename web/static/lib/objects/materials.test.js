@@ -79,7 +79,7 @@ test('every page that loads styles.css loads objects.css first', () => {
   // added later is the one a list would miss. The six known ones must be
   // among them, so a wrong directory can't pass by finding none.
   const pages = readdirSync(fileURLToPath(new URL('../../', import.meta.url))).filter((f) => f.endsWith('.html'));
-  for (const page of ['index.html', 'takes.html', 'tape.html', 'wave.html', 'guide.html', 'objects.html']) {
+  for (const page of ['index.html', 'takes.html', 'tape.html', 'wave.html', 'guide.html', 'objects.html', 'rig.html']) {
     assert.ok(pages.includes(page), `${page} should be one of the pages`);
   }
   for (const page of pages) {
