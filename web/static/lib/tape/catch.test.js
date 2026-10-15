@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { catchState, CATCH_BARS } from './catch.js';
+import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 
 // CATCH was greyed with nothing to say why: it lights after one whole pass of
 // the loop (about 10 s at 96 BPM and 4 bars), and "the last 4 bars" is not on
@@ -89,4 +89,57 @@ test('a pass has gone round and none is armed: Catch is ready, and the page says
 
 test('the bars on offer are the track sheet’s: 1, 2 and 4', () => {
   assert.deepEqual(CATCH_BARS, [1, 2, 4]);
+});
+
+// F7 (flow spec): CATCH says what it catches, and why it waits. In the Studio
+// the key reads "last pass → 2" and, while it waits for a pass, "after one
+// pass"; the old pages keep "waits for a pass".
+test('with the rooms on a Catch that waits for a pass says "after one pass"', () => {
+  const s = catchState({ live: live(), tape: tape(), rooms: true });
+  assert.equal(s.ready, false);
+  assert.equal(s.short, 'after one pass');
+  assert.match(s.why, /whole pass/, 'the reason in full is still there');
+  assert.equal(catchState({ live: live(), tape: tape() }).short, 'waits for a pass', 'the rooms off: as before');
+});
+
+test('with the rooms on the other reasons keep their words', () => {
+  const t = tape();
+  assert.equal(catchState({ live: live({ playing: false }), tape: t, rooms: true }).short, 'press ▶');
+  assert.equal(catchState({ live: live({ aligned: 'none', playing: true }), tape: t, rooms: true }).short, 'lining up');
+  assert.equal(catchState({ live: live(), tape: tape({ loop: { on: false, in: 0, out: 480000 } }), rooms: true }).short, 'loop is off');
+  assert.equal(catchState({ live: live(), tape: t, rooms: true, armed: false }).short, 'arm a track');
+});
+
+test('the key’s second line says what it catches: the last pass, onto which tracks', () => {
+  const ready = catchState({ live: live({ cycles: [{ out: 1, in: 0, len: 480000 }] }), tape: tape(), rooms: true });
+  assert.equal(catchSub(ready, { armed: [2], rooms: true }), 'last pass → 2');
+  assert.equal(catchSub(ready, { armed: [2, 3], rooms: true }), 'last pass → 2, 3');
+  assert.equal(catchSub(ready, { armed: [], rooms: true }), 'arm a track');
+  // The old pages keep their words.
+  assert.equal(catchSub(ready, { armed: [2], rooms: false }), 'last pass → track 2');
+  assert.equal(catchSub(ready, { armed: [2, 3], rooms: false }), 'last pass → 2, 3');
+  assert.equal(catchSub(ready, { armed: [], rooms: false }), 'arm a track');
+});
+
+test('waiting, it says why in the same place; on a phone playing late, that it needs the jam room', () => {
+  const waits = catchState({ live: live(), tape: tape(), rooms: true });
+  assert.equal(catchSub(waits, { armed: [2], rooms: true }), 'after one pass');
+  const stopped = catchState({ live: live({ playing: false }), tape: tape(), rooms: true, armed: false });
+  assert.equal(catchSub(stopped, { armed: [], rooms: true }), 'arm a track');
+  const late = catchState({ live: live({ aligned: 'none' }), tape: tape(), phoneOut: true, rooms: true });
+  assert.equal(catchSub(late, { armed: [2], phoneOut: true, rooms: true }), 'jam room only');
+});
+
+test('on the phone’s mini bar the key’s second line is short enough to leave the transport its bar number', () => {
+  assert.equal(catchMini('last pass → 2'), '→ 2');
+  assert.equal(catchMini('last pass → 2, 3'), '→ 2, 3');
+  assert.equal(catchMini('after one pass'), 'in 1 pass');
+  assert.equal(catchMini('loop is off'), 'loop off');
+  assert.equal(catchMini('arm a track'), 'arm track');
+  assert.equal(catchMini('jam room only'), 'jam room');
+  for (const s of ['press ▶', 'lining up', 'waiting']) assert.equal(catchMini(s), s, s);
+  // Every word the key can say in the Studio, but "→ 1, 2, 3, 4" (all four armed), is nine characters or fewer.
+  const words = ['last pass → 1, 2, 3', 'after one pass', 'press ▶', 'loop is off', 'lining up', 'arm a track', 'jam room only', 'waiting'];
+  for (const s of words) assert.ok(catchMini(s).length <= 9, `${s} -> ${catchMini(s)}`);
+  assert.equal(catchMini('last pass → 1, 2, 3, 4'), '→ 1, 2, 3, 4');
 });

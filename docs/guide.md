@@ -848,6 +848,14 @@ From the top:
     Selecting a clip or tapping a lane doesn't change it: those pick the
     **selected track**, this device's own, which Paste and Split act on
     without a range, edged faintly when it isn't the record track.
+    *With the two rooms on, ● works as the keys do:* **a tap moves the arm
+    to that track** (track 4 lets go), and never takes it off, so tapping the
+    only armed track leaves it armed. **Hold ●** (a touch held about
+    a third of a second), or **Shift-click** it on a laptop, to arm that track
+    **as well**; holding an armed track takes just it off, and holding the
+    only one leaves none. Several armed is still how you record two inputs at
+    once: Catch and ● Rec go onto all of them and DROP onto the first, and a
+    toast says so once. A tap on any ● then goes back to one.
   - **The input** (*aux*, *ch1*…) is what the track records from: each track
     has its own, so the guitar on aux can go to track 2 and the Bento on ch2
     to track 3 without changing anything between catches. Its lamp is green
@@ -911,7 +919,9 @@ From the top:
   that track's lane, the pass it would take. It lights after one whole pass of
   the loop; until then it is dimmed, and pressing it says why (and offers the
   last 4 bars, which don't wait). With the two rooms on, the **▾** on its right
-  edge opens the same choice: the last pass, or the last 1, 2 or 4 bars. While the tape plays, a small
+  edge opens the same choice: the last pass, or the last 1, 2 or 4 bars, and the
+  key says what it catches (*last pass → 2*, or *→ 2, 3* with two armed) and,
+  while it waits for a pass, *after one pass*; on a phone's mini player too. While the tape plays, a small
   red ▾ on the record track's lane marks the next bar line: where ● Rec
   would start.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
@@ -1821,11 +1831,17 @@ can work on it.
   lanes, dropped on neighbouring tracks -- and drag **IN** and **OUT**, or
   move them with **[ ]** and **⇧[ ⇧]** a step of the snap (⌗) at a time.
   **Audition** loops it here, never through the Pi.
-- **DROP ON TRACK N** (or **↵**) lays it on the armed track at the next free
-  span after the next bar line, wrapping round the loop; or drag it by its
-  grip onto any lane. With several tracks armed it takes the first, and the
-  key says so. One undo puts it back in the buffer; **↵** again drops
-  another copy further on.
+- **DROP ON TRACK N** (or **↵**) lays it on the armed track at the next bar
+  line inside the loop, wrapping round to the loop's start when the buffer
+  wouldn't fit before its end, **over what is there**; or drag it by its
+  grip onto any lane, where it lands exactly where you let go. The key says
+  first where it will land: *DROP ON TRACK 2 · bars 1–4*, and *· replaces*
+  exactly when it will lay over a clip on that track. It is never refused for
+  room: a full loop is dropped over. A buffer longer than the loop starts at
+  the loop's start and runs past it, and the key and the toast say so. With
+  no track armed the key is off and says *arm a track*; with several armed it
+  takes the first, and says so. **One undo** takes it back, and what it
+  replaced comes back with it; **↵** again drops another copy at the next bar line.
 - **KEEP** (**K**) saves it on the Listening Room's shelf, at the
   tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
 - **A grab can be undone.** GRAB over a buffer you never dropped, kept or
@@ -2141,7 +2157,7 @@ has no tip.
 | Duplicate section | Play this section twice in a row: a copy right after it, and the rest moves later |
 | A lane | Tap a clip to select it: the action bar acts on it, and a double-click opens the inspector beside the lanes. Drag its edges to trim it, the squares on its top edge to fade it in or out, or its ⟳ corner (bottom right) to repeat it. Shift, ⌘ or Ctrl with a click, or Select more, selects several. Hold a clip, then drag, to slide it along its track or onto another. Hold an empty part, then drag across bars and lanes: a range, for the action bar's Cut, Copy, Paste, Insert and Delete time; the loop follows it unless it's locked. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
 | A track header | Its number and name: tap to select it (and make it the record track, if one is armed), again for its inspector. Keys 1–4, or ↑ ↓, arm it |
-| ● (track) | Arm it, making it the record track: Catch, ● Rec, a free loop's tap and Overdub on this device go onto it, on every device. Lit red on the one that is; tap it again to disarm |
+| ● (track) | Arm it, making it the record track: Catch, ● Rec, a free loop's tap and Overdub on this device go onto it, on every device. Lit red on the one that is; tap it again to disarm. With the two rooms on, a tap moves the arm to this track (it never takes it off), and holding it, or Shift-click, arms it as well, or takes it off |
 | Arm it | In the inspector of a track, while none is armed: arm this one, making it the record track |
 | Input (track) | What this track records from, lit green while there's signal on it. Tap to choose another from a menu, with each one's meter: it doesn't arm the track |
 | M, S | Mute this track, or solo it: only soloed tracks play |
@@ -2255,7 +2271,7 @@ has no tip.
 | ✕ (buffer) | Close the buffer. What you grabbed stays in it, for Buffer ▴ or another drop |
 | Drag to a lane | Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
 | The buffer's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
-| Drop on track | Lay the buffer on the armed track (with several armed, the first) at the next free span after the next bar line. One undo. ↵ |
+| Drop on track | Lay the buffer on the armed track (with several armed, the first) at the next bar line inside the loop, over what is there: the key says where, and "replaces" when it will. Never refused for room. One undo. ↵ |
 | KEEP (buffer) | Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo; the key says how long it is. K |
 | Toss | Throw the buffer away; Undo brings it back. ⌫ |
 | In ◂ ▸ / Out ◂ ▸ | Move IN or OUT a step of the snap (⌗): [ and ] for IN, ⇧[ and ⇧] for OUT |

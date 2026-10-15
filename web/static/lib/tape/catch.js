@@ -22,8 +22,11 @@ const loopSeconds = (tape) => {
  * `armed`: some track is armed. Catch lands on it, so with none the key's
  * second line says "arm a track", as it did before it said why it waited:
  * a person who disarmed everything is told that, not only to press ▶.
+ * `rooms`: the Studio's words -- "after one pass" for a Catch that waits for
+ * one (the flow spec's *CATCH · after one pass*); the old pages say "waits
+ * for a pass".
  */
-export function catchState({ live, tape, phoneOut = false, armed = true }) {
+export function catchState({ live, tape, phoneOut = false, armed = true, rooms = false }) {
   if (phoneOut) return { ready: true, why: '', short: '', bars: false, barsWhy: 'Catch needs the jam room' };
   if (!live) {
     return { ready: false, why: 'The Pi has not answered yet.', short: 'waiting', bars: false, barsWhy: 'The Pi has not answered yet.' };
@@ -50,7 +53,7 @@ export function catchState({ live, tape, phoneOut = false, armed = true }) {
     short = 'press ▶';
     why = `Press ▶: Catch takes the last whole pass of the loop${length}.`;
   } else {
-    short = 'waits for a pass';
+    short = rooms ? 'after one pass' : 'waits for a pass';
     why = `Catch takes the last whole pass of the loop, so it waits for one to finish${length}.`;
   }
   if (!armed) {
@@ -58,4 +61,35 @@ export function catchState({ live, tape, phoneOut = false, armed = true }) {
     why = `Arm a track first: Catch lands on the armed track. ${why}`;
   }
   return { ready: false, why, short, bars, barsWhy };
+}
+
+/**
+ * catchSub is the key's second line: what it catches and where it goes
+ * ("last pass → 2", "→ 2, 3" for several armed), or why it waits, or that
+ * no track is armed. `armed` are the armed tracks. The old pages say
+ * "last pass → track 2" for one; the Studio just "→ 2".
+ */
+export function catchSub(cs, { armed = [], phoneOut = false, rooms = false } = {}) {
+  if (phoneOut) return 'jam room only';
+  if (!cs.ready) return cs.short;
+  if (!armed.length) return 'arm a track';
+  const where = armed.length > 1 || rooms ? armed.join(', ') : `track ${armed[0]}`;
+  return `last pass → ${where}`;
+}
+
+/**
+ * catchMini is catchSub for the phone's mini bar, where the key may grow only
+ * a few pixels before the transport window beside it loses its bar number:
+ * nine characters or fewer. "last pass → 2" is "→ 2", "after one pass" is
+ * "in 1 pass", "loop is off" is "loop off", "arm a track" is "arm track".
+ * Anything else is as catchSub said it. (The full line is the expanded
+ * player's, and the key's tip and label say it in full.)
+ */
+export function catchMini(sub) {
+  return sub
+    .replace(/^last pass → /, '→ ')
+    .replace('after one pass', 'in 1 pass')
+    .replace('loop is off', 'loop off')
+    .replace('arm a track', 'arm track')
+    .replace('jam room only', 'jam room');
 }
