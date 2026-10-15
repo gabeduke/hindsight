@@ -23,7 +23,7 @@ import { levelsOfColumns, laneChannels, takeGain } from './draw.js';
 import { drawTrace, traceLines, sliceLines, paintOxide, oxideColors } from './tape-strip.js';
 import { GestureSurface } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
-import { greaseStroke, labelPlaces } from './grease.js';
+import { drawGrease } from '../objects/grease.js';
 import { seamHalves } from './boundary.js';
 
 export { HOLD_MS } from '../edit/gestures.js';
@@ -399,34 +399,11 @@ export class WaveView extends GestureSurface {
     // the audio as the view moves. IN and OUT are written inside the
     // selection, or outside it when it's too narrow to hold them.
     if (sel) {
-      const grease = col('--grease-mark', '#f0c419');
-      ctx.save();
-      ctx.strokeStyle = grease;
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      for (const [x, frame] of [[sx0, sel.start], [sx1, sel.end]]) {
-        if (x < -4 || x > W + 4) continue;
-        const pts = greaseStroke(x, PIN_H + 2, bottom - 2, frame);
-        ctx.beginPath();
-        pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
-        ctx.stroke();
-      }
-      // The labels, with a halo of the well behind them so they read over
-      // loud audio.
-      ctx.font = `18px "Permanent Marker", ${col('--font', 'system-ui')}`;
-      ctx.textBaseline = 'top';
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = col('--well', '#e9e2cd');
-      ctx.fillStyle = grease;
-      const wIn = ctx.measureText('IN').width, wOut = ctx.measureText('OUT').width;
-      const at = labelPlaces(sx0, sx1, wIn, wOut, W);
-      for (const [text, p] of [['IN', at.in], ['OUT', at.out]]) {
-        if (!p) continue;
-        ctx.strokeText(text, p.x, top + 6 + p.y);
-        ctx.fillText(text, p.x, top + 6 + p.y);
-      }
-      ctx.restore();
+      drawGrease(ctx, {
+        sx0, sx1, start: sel.start, end: sel.end, W,
+        markTop: PIN_H + 2, markBottom: bottom - 2, labelTop: top + 6,
+        ink: col('--grease-mark', '#f0c419'), halo: col('--well', '#e9e2cd'), font: col('--font', 'system-ui'),
+      });
     }
 
     // The boundary being edited: a bright line through ruler and body, and

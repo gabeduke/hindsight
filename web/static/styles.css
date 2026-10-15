@@ -116,9 +116,9 @@
   /* Masking tape on the track heads, written on in marker. */
   --mask:         #efe2bb;
   /* Grease pencil: the take page's In and Out. --grease is its legend on a
-     panel; --grease-mark is the stroke on a black window. */
+     panel; the stroke on a black window, --grease-mark, is the same in both
+     schemes and lives in objects.css. */
   --grease:       #7a5c00;
-  --grease-mark:  #f0c419;
   --marker:       #14252b;
   --link:      #24609e;
   --shadow:    rgba(20, 22, 24, .18);

@@ -54,7 +54,7 @@ const SHELL = [
   '/lib/wave/draw.js',
   '/lib/wave/tape-strip.js',
   '/lib/wave/rowwave.js',
-  '/lib/wave/grease.js',
+  '/lib/objects/grease.js',
   '/lib/wave/boundary.js',
   '/lib/wave/near.js',
   '/lib/wave/onset.js',

@@ -18,6 +18,9 @@ import { token } from '../theme.js';
 import { ReelWindow, levelFrac } from './reel-window.js';
 import { ballistic, spin, settled, Ticker } from './motion.js';
 import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
+import { drawGrease } from './grease.js';
+import { paintOxide, oxideColors } from '../wave/tape-strip.js';
+import { PIN_H, RULER_H } from '../wave/view.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const NEEDLE_CX = 80, NEEDLE_CY = 112, NEEDLE_R = 80;
@@ -52,6 +55,33 @@ function cell(grid, name) {
   c.append(body, el('span', 'bench-label', name));
   grid.append(c);
   return body;
+}
+
+/**
+ * canvasCell is a canvas as wide as its cell, drawn by draw(ctx, W, H) at
+ * the device's pixel ratio -- and drawn again when the cell's width changes
+ * or the marker font arrives, so a cell is never a stretched picture of
+ * another size.
+ */
+function canvasCell(body, H, draw) {
+  const canvas = el('canvas', 'bench-canvas');
+  canvas.style.height = `${H}px`;
+  body.append(canvas);
+  const paint = () => {
+    const W = Math.round(canvas.getBoundingClientRect().width);
+    if (!W) return;
+    const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return; // no 2d context (a test runner): the cell stays blank
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw(ctx, W, H);
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(paint).observe(canvas);
+  else paint();
+  globalThis.document?.fonts?.load?.('18px "Permanent Marker"').then(paint, () => {});
+  return canvas;
 }
 
 /** A VU face with one needle, for the motion comparison. */
@@ -106,6 +136,7 @@ export function mount(root, { raf, cancel, now } = {}) {
   buildCassettes(root);
   buildRibbon(root);
   buildLcd(root);
+  buildGrease(root);
   return ticker;
 }
 
@@ -417,4 +448,44 @@ function lcdFace(parent, lcd, marquee, colours, levels) {
   const box = el('div', 'bench-lcd');
   box.append(face);
   parent.append(box);
+}
+
+
+/**
+ * Grease pencil: a selection's In and Out, marked on the tape the way an
+ * editor marked an edit point, drawn by the function the take page draws
+ * them with. The cells are the places IN and OUT can be written -- inside a
+ * wide selection, outside a narrow one, stacked at either end of the take
+ * -- because those are the layouts that go wrong.
+ */
+function buildGrease(root) {
+  const grid = section(root, 'Grease pencil',
+    'In and Out on the tape, as the take page marks them: under the ruler, through the oxide, each mark\'s wobble its own and the same every frame. The words sit inside the selection when it holds them.');
+
+  // Each case: where In and Out are, as fractions of the width, or px from
+  // an end. Seeds are frames, as on the page.
+  const states = [
+    ['a wide selection: IN and OUT inside', (W) => [0.2 * W, 0.8 * W]],
+    ['a narrow one: either side of it', (W) => [0.44 * W, 0.52 * W]],
+    ['at the end of the take: both left, stacked', (W) => [W - 25, W - 16]],
+    ['at the start: both right, stacked', () => [1, 12]],
+    ['Out off the canvas: In alone', (W) => [0.3 * W, W + 50]],
+  ];
+  const H = 150, bottom = H - 30;
+  for (const [label, at] of states) {
+    canvasCell(cell(grid, label), H, (ctx, W) => {
+      const [sx0, sx1] = at(W);
+      ctx.fillStyle = token('--oxide-ruler', '#1d1209');
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(0, RULER_H);
+      paintOxide(ctx, W, bottom - RULER_H, oxideColors(token));
+      ctx.restore();
+      drawGrease(ctx, {
+        sx0, sx1, start: Math.round(sx0 * 4800), end: Math.round(sx1 * 4800), W,
+        markTop: PIN_H + 2, markBottom: bottom - 2, labelTop: RULER_H + 6,
+        ink: token('--grease-mark', '#f0c419'), halo: token('--well', '#0a0a0b'), font: token('--font', 'system-ui'),
+      });
+    });
+  }
 }
