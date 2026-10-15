@@ -47,6 +47,26 @@ type Kept struct {
 	Clips  []Clip `json:"clips"`
 }
 
+// Allows says whether, while this recording is armed or running, what's
+// armed can go from before to after, and these inputs can be set (by track):
+// no. A punch keeps the tracks and the inputs it began with, as the tape
+// page has always refused them for itself; held here, so the rig and every
+// other page are refused too. A nil recording allows anything.
+func (r *Recording) Allows(before, after []int, inputs map[int]string) error {
+	if r == nil {
+		return nil
+	}
+	if !slices.Equal(before, after) {
+		return fmt.Errorf("%w: what's armed waits until it ends", ErrRecording)
+	}
+	for _, p := range r.Pairs {
+		if src, ok := inputs[p.Track]; ok && src != p.Source {
+			return fmt.Errorf("%w: track %d records %s until it ends", ErrRecording, p.Track, p.Source)
+		}
+	}
+	return nil
+}
+
 // recLate is how long after a bar line a Rec still means that bar.
 const recLate = 0.25
 

@@ -12,8 +12,11 @@ const cable = (id) => g.cables.find((c) => c.id === id);
 const URL_ = '/api/tapes?id=2026-10-15_rig-demo';
 
 // The table in the spec's *Cables are settings*, row by row.
-test('tap → track sets the track’s input and arms it too, either way round', () => {
-  const want = { method: 'PATCH', url: URL_, body: { input: { n: 1, source: 'aux' }, rec_tracks: [1, 2, 3] } };
+// Review: a cable is the input, and only the input. Arming is the lamp's
+// (and ●'s): plugging CH1 into track 3 to set what it would hear must not
+// arm it beside track 1, or the next catch from any phone lands on it too.
+test('tap → track sets the track’s input, either way round, and arms nothing', () => {
+  const want = { method: 'PATCH', url: URL_, body: { input: { n: 1, source: 'aux' } } };
   assert.deepEqual(writeFor(g, 'kit.tap.aux', 'kit.track.1'), want);
   assert.deepEqual(writeFor(g, 'kit.track.1', 'kit.tap.aux'), want);
 });
@@ -54,7 +57,8 @@ test('things that don’t go together plug nothing', () => {
 });
 
 test('unplugging writes the setting back', () => {
-  assert.deepEqual(unplugFor(g, cable('input:2')).body, { input: { n: 2, source: '' }, rec_tracks: [3] });
+  // The input goes; what's armed stays as it was.
+  assert.deepEqual(unplugFor(g, cable('input:2')).body, { input: { n: 2, source: '' } });
   // The only clock out goes: the tape runs free.
   assert.deepEqual(unplugFor(g, cable('clock-out:midi-demo-sequencer')).body, { TAPE_CLOCK: 'free', TAPE_CLOCK_OUT: null });
   assert.deepEqual(unplugFor(g, cable('midi:midi-demo-sequencer')).body, { MIDI_IGNORE: 'Demo sequencer' });
@@ -97,4 +101,16 @@ test('roles: what each socket does in a patch', () => {
   assert.equal(r('ep-136.in1'), 'jack');
   assert.equal(r('ep-136.midi-out'), 'dev-midi-out');
   assert.equal(r('phones.in'), 'listener');
+});
+
+// Review: while ● Rec is armed or punching in, the rig offers nothing the
+// Pi would refuse: no arming, and no new input for a track it records.
+test('while ● Rec runs, its tracks’ inputs and what’s armed don’t move', () => {
+  const h = fixture();
+  h.tape.recording = [2];
+  assert.equal(writeFor(h, 'kit.tap.aux', 'kit.track.2'), null, 'track 2 is recording');
+  assert.ok(writeFor(h, 'kit.tap.aux', 'kit.track.1'), 'track 1 isn’t');
+  assert.equal(unplugFor(h, h.cables.find((c) => c.id === 'input:2')), null);
+  assert.equal(armWrite(h, 4, true), null);
+  assert.equal(armWrite(h, 2, false), null);
 });

@@ -210,6 +210,14 @@ func (a *API) suggestBPM(id string) float64 {
 	return 90
 }
 
+// recording is the tape's punch or armed ● Rec, if any.
+func (a *API) recording() *tape.Recording {
+	if a.recordingHook != nil {
+		return a.recordingHook()
+	}
+	return a.tape.Recording()
+}
+
 // trackIn is a track's input, as PATCH /api/tapes sets it.
 type trackIn struct {
 	N      int    `json:"n"`
@@ -305,7 +313,10 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	if len(set) > 0 {
 		inputs = a.tape.Sources()
 	}
+	// A punch, or ● Rec armed: what's armed and its inputs wait for it.
+	rec := a.recording()
 	meta := func(t *tape.Tape) error {
+		before := t.Armed()
 		if b.Name != nil {
 			if n := sanitizeLabel(*b.Name); n != "" {
 				t.Name = n
@@ -322,6 +333,15 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		}
 		if b.RecTracks != nil {
 			if err := t.SetArmed(*b.RecTracks); err != nil {
+				return err
+			}
+		}
+		if rec != nil && rec.Tape == t.ID {
+			ins := map[int]string{}
+			for _, in := range set {
+				ins[in.N] = in.Source
+			}
+			if err := rec.Allows(before, t.Armed(), ins); err != nil {
 				return err
 			}
 		}

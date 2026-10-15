@@ -91,6 +91,8 @@ type API struct {
 
 	// rig is the rig's (rig.go): its hooks and rig.json's labels.
 	rig rigState
+	// recordingHook stands in for the tape's recording in tests.
+	recordingHook func() *tape.Recording
 
 	// bg counts work a request leaves running -- a preview encode, a prune --
 	// so a test can wait for it before its takes folder goes.

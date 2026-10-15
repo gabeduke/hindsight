@@ -22,7 +22,7 @@ import { styleOf, legend } from './kinds.js';
 import { choose, letGo } from './picker.js';
 import * as G from './graph.js';
 import {
-  writeFor, unplugFor, replugFor, labelWrite, fixWrite, armWrite, keepWrite, outputWrite, offerWrite, role,
+  writeFor, unplugFor, replugFor, labelWrite, fixWrite, armWrite, keepWrite, outputWrite, offerWrite, role, recording,
 } from './patch.js';
 
 const $ = (id) => document.getElementById(id);
@@ -57,8 +57,15 @@ function button(cls, text, onClick, tip) {
 
 // --- the Pi ---------------------------------------------------------------------
 
+// lastSource is what a track with no input of its own records from on this
+// device: the tape page's last choice (lib/tape/page.js, 'tape.source'). The
+// Pi needs it to judge what such a track would record.
+function lastSource() {
+  try { return localStorage.getItem('tape.source') || 'aux'; } catch { return 'aux'; }
+}
+
 async function read() {
-  const r = await fetch('/api/rig', { cache: 'no-store' });
+  const r = await fetch(`/api/rig?source=${encodeURIComponent(lastSource())}`, { cache: 'no-store' });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
@@ -195,11 +202,6 @@ function socketCol(s) {
   const hole = el('span', 'rig-hole');
   hole.setAttribute('aria-hidden', 'true');
   b.append(hole, el('span', 'rig-sock-label', s.label));
-  if (s.kind === 'track') {
-    const lamp = el('span', 'rig-lamp');
-    lamp.setAttribute('aria-hidden', 'true');
-    b.append(lamp);
-  }
   if (s.kind === 'tap' || s.kind === 'track') b.append(el('span', 'rig-sock-name', s.name || ''));
   const warn = el('span', 'rig-warn-dot');
   warn.setAttribute('aria-hidden', 'true');
@@ -207,7 +209,27 @@ function socketCol(s) {
   b.addEventListener('click', () => onChoose(s.id));
   b.addEventListener('pointerdown', (e) => onPointerDown(e, s.id));
   col.append(tag, b);
+  // A track's red lamp is its own button: it arms the track, or disarms it.
+  // A cable only ever says what the track would record.
+  if (s.kind === 'track') {
+    const lamp = el('button', 'rig-arm-lamp');
+    lamp.type = 'button';
+    lamp.dataset.arm = String(s.track);
+    lamp.dataset.tip = 'rig-arm';
+    lamp.addEventListener('click', () => armLamp(s.track));
+    col.append(lamp);
+  }
   return col;
+}
+
+// armLamp arms or disarms track n from its lamp.
+function armLamp(n) {
+  const g = state.g;
+  const s = g && G.socketById(g, `kit.track.${n}`);
+  if (!s) return;
+  const w = armWrite(g, n, !s.armed);
+  if (!w) { toast('● Rec is armed or recording: what’s armed waits until it ends', 'warn'); return; }
+  send(w, s.armed ? `Track ${n} disarmed` : `Track ${n} armed`);
 }
 
 function updateSockets(d) {
@@ -233,6 +255,12 @@ function updateSockets(d) {
     b.setAttribute('aria-pressed', String(state.pick.sel === s.id));
     const name = b.querySelector('.rig-sock-name');
     if (name && name.textContent !== (s.name || '')) name.textContent = s.name || '';
+    const lamp = b.parentElement.querySelector('.rig-arm-lamp');
+    if (lamp) {
+      lamp.setAttribute('aria-pressed', String(!!s.armed));
+      lamp.setAttribute('aria-label', s.armed ? `Track ${s.track} is armed: disarm it` : `Arm track ${s.track}`);
+      lamp.setAttribute('aria-disabled', String(recording(g).length > 0));
+    }
   }
   $('rig-desk').classList.toggle('picking', !!state.pick.sel && state.pick.targets.length > 0);
 }
@@ -266,14 +294,7 @@ function drawCables() {
     const a = holeAt(c.from, box), b = holeAt(c.to, box);
     if (!a || !b) continue;
     const d = c.kind === 'jack' ? `M${a.x} ${a.y} L${b.x} ${b.y}` : cablePath(a, b);
-    const st = styleOf(c);
-    const p = document.createElementNS(SVGNS, 'path');
-    p.setAttribute('d', d);
-    p.setAttribute('class', `rig-wire rig-wire-${c.kind}${c.pending ? ' pending' : ''}${st.faded ? ' faded' : ''}${state.cable === c.id ? ' sel' : ''}`);
-    p.setAttribute('stroke-width', String(st.width));
-    if (st.dash) p.setAttribute('stroke-dasharray', st.dash);
-    p.style.stroke = st.ink;
-    paths.push(p);
+    paths.push(...wire(d, styleOf(c), `rig-wire rig-wire-${c.kind}${c.pending ? ' pending' : ''}${state.cable === c.id ? ' sel' : ''}`));
     const h = document.createElementNS(SVGNS, 'path');
     h.setAttribute('d', d);
     h.setAttribute('class', 'rig-hit');
@@ -287,10 +308,15 @@ function drawCables() {
     for (const id of [c.from, c.to]) {
       const at = holeAt(id, box);
       if (!at) continue;
-      const plug = document.createElementNS(SVGNS, 'circle');
-      plug.setAttribute('cx', String(at.x));
-      plug.setAttribute('cy', String(at.y));
-      plug.setAttribute('r', '5');
+      // A plug waiting for a restart is an open square; a live one, round.
+      const plug = document.createElementNS(SVGNS, c.pending ? 'rect' : 'circle');
+      if (c.pending) {
+        for (const [k, v] of [['x', at.x - 6], ['y', at.y - 6], ['width', 12], ['height', 12]]) plug.setAttribute(k, String(v));
+      } else {
+        plug.setAttribute('cx', String(at.x));
+        plug.setAttribute('cy', String(at.y));
+        plug.setAttribute('r', '5');
+      }
       plug.setAttribute('class', `rig-plug${c.pending ? ' pending' : ''}`);
       paths.push(plug);
     }
@@ -307,6 +333,22 @@ function drawCables() {
   }
   wires.replaceChildren(...paths);
   hits.replaceChildren(...hitPaths);
+}
+
+// wire is a cable's stroke: one path, or two for a hollow one (a restart
+// cable before the restart) -- its ink, and the desk showing down the middle.
+function wire(d, st, cls) {
+  const one = (width, stroke, extra) => {
+    const p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('class', `${cls}${st.faded ? ' faded' : ''}${extra}`);
+    p.setAttribute('stroke-width', String(width));
+    if (st.dash) p.setAttribute('stroke-dasharray', st.dash);
+    p.style.stroke = stroke;
+    return p;
+  };
+  if (!st.hollow) return [one(st.width, st.ink, '')];
+  return [one(st.width, st.ink, ''), one(Math.max(1.5, st.width - 3.5), 'var(--desk-felt-lo)', ' rig-wire-core')];
 }
 
 function drawRestart() {
@@ -482,10 +524,12 @@ function socketView(g, s) {
   }
   // A track: armed or not.
   if (s.kind === 'track' && g.tape) {
-    const b = button(`icon-btn rig-arm${s.armed ? ' on' : ''}`, s.armed ? '● Armed: disarm it' : '● Arm it', () => send(armWrite(g, s.track, !s.armed), s.armed ? `Track ${s.track} disarmed` : `Track ${s.track} armed`), 'rig-arm');
+    const b = button(`icon-btn rig-arm${s.armed ? ' on' : ''}`, s.armed ? '● Armed: disarm it' : '● Arm it', () => armLamp(s.track), 'rig-arm');
     b.setAttribute('aria-pressed', String(!!s.armed));
     b.dataset.key = 'arm';
+    b.disabled = recording(g).length > 0;
     out.push(b);
+    if (recording(g).length) out.push(el('p', 'rig-note', `● Rec is ${recording(g).includes(s.track) ? 'on this track' : 'running'}: what’s armed, and its inputs, wait until it ends.`));
     if ((G.armed(g)).length > 1 && s.armed) out.push(el('p', 'rig-note', `Tracks ${G.armed(g).join(', ')} are armed: one ● records them all, each from its own input.`));
   }
   // Warnings it's part of.
@@ -691,17 +735,14 @@ function drawLegend() {
   const ul = $('rig-legend');
   ul.replaceChildren(...legend().map((k) => {
     const li = el('li', 'rig-legend-item');
+    // A sample of the cable, centred in its own little window of desk.
     const svg = document.createElementNS(SVGNS, 'svg');
-    svg.setAttribute('width', '44');
-    svg.setAttribute('height', '12');
+    svg.setAttribute('width', '52');
+    svg.setAttribute('height', '20');
+    svg.setAttribute('viewBox', '0 0 52 20');
     svg.setAttribute('aria-hidden', 'true');
-    const p = document.createElementNS(SVGNS, 'path');
-    p.setAttribute('d', 'M2 6 H42');
-    p.setAttribute('class', `rig-wire rig-wire-${k.kind}`);
-    p.setAttribute('stroke-width', String(Math.min(k.width, 9)));
-    if (k.dash) p.setAttribute('stroke-dasharray', k.dash);
-    p.style.stroke = k.ink;
-    svg.append(p);
+    svg.setAttribute('class', 'rig-swatch');
+    svg.append(...wire('M7 10 H45', { width: Math.min(k.width, 9), dash: k.dash, ink: k.ink, hollow: !!k.hollow, faded: false }, `rig-wire rig-wire-${k.kind}`));
     li.append(svg, el('span', '', k.legend));
     return li;
   }));

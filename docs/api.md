@@ -323,7 +323,8 @@ loaded tape and what's plugged in, so the picture can't disagree with the Pi.
   one.
 - **The kit's taps are `TAPE_SOURCES`**, as the tape catches from them now.
 - **Each cable is written through the route that owns it:** a tap into a
-  track is `PATCH /api/tapes` `{input, rec_tracks}`; a track onto a bus,
+  track is `PATCH /api/tapes` `{input}` -- its input only; arming is the
+  track's lamp, `{rec_tracks}`, a write of its own; a track onto a bus,
   `{track: {n, bus}}`; OUT to a phone, `PUT /api/tapes/output`; the clock
   out (`TAPE_CLOCK`, `TAPE_CLOCK_OUT`), the clock in (`MIDI_CLOCK_DEVICE`),
   a device recorded or ignored (`MIDI_IGNORE`), a controller
@@ -337,7 +338,13 @@ loaded tape and what's plugged in, so the picture can't disagree with the Pi.
   those tracks to a bus no armed track's tap hears, when there is one, as one
   undoable `PATCH /api/tapes` `{buses}`.
 - **`jack` cables** are labels from `rig.json`, `waiting` until their tap has
-  signal. They route nothing.
+  signal (the kit's tap on the jack's channels, whatever `TAPE_SOURCES` calls
+  it). They route nothing.
+- **`?source=`** is what a track with no input of its own records from on
+  the asking device (the tape page's last choice). Without it, such an armed
+  track could be hearing anything, so no fix is offered.
+- **`tape.recording`** is the tracks ● Rec is armed on or punching in: what's
+  armed, and their inputs, wait until it ends.
 
 ## `PUT /api/rig/labels`
 
@@ -1159,7 +1166,7 @@ All of it is one change: if any field is refused, none is made.
 | `name` | Rename (not undoable) |
 | `click` | The metronome on bus A while playing, on or off (not undoable). A new tape has it on; the first catch or drop turns it off |
 | `rec_tracks` | The armed tracks (multi-arm): every one a catch, ● Rec, a punch or a free loop's tap records onto, each from its own input; `[]` is none (not undoable; 400 for a track there isn't). The state's `tape.rec_tracks` |
-| `rec_track` | Arms just that one track, as it always did; `-1` disarms, leaving none (not undoable; 400 for a track there isn't). The state's `tape.rec_track` is the first armed track, or `-1` with none. A `tape.json` with only `rec_track` loads armed on that track (none: track 1) |
+| `rec_track` | Arms just that one track, as it always did; `-1` disarms, leaving none (not undoable; 400 for a track there isn't). While ● Rec is armed or a punch runs, a change to what's armed, or to the input of a track it records, is `409`. The state's `tape.rec_track` is the first armed track, or `-1` with none. A `tape.json` with only `rec_track` loads armed on that track (none: track 1) |
 | `buses: [{n, bus}, …]` | Several tracks onto bus `A` or `B` at once, as one undo step: the rig's fix for a tap that hears the tape |
 | `input: {n, source}`, `inputs: [{n, source}, …]` | Track `n`'s input, or several tracks' at once (all or none), each a source of `TAPE_SOURCES`, or `""` for none of its own (not undoable; 400 for another). The state's `tape.inputs`, by track from 1; `""` for a track with none |
 | `tempo: {bpm, bars}` | Set the tempo of an empty tape: 20–400 BPM, 1–64 bars. Refused once the tape has audio |

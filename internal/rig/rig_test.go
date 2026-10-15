@@ -384,3 +384,67 @@ func TestLabelsRoundTripInRigJSON(t *testing.T) {
 		t.Fatalf("cleaned %q", v)
 	}
 }
+
+// Review: a jack's tap is the kit's tap on the same channels, whatever
+// TAPE_SOURCES calls it. Renamed (guitar=3,4:A), the label still turned
+// solid only for a tap called ch1, which there no longer was.
+func TestALabelFindsItsTapByItsChannelsNotItsName(t *testing.T) {
+	in := sidekick()
+	loud := -20.0
+	in.Sources[1] = SourceView{Name: "guitar", Pair: [2]int{3, 4}, Hears: []string{"A"}, PeakDB: &loud}
+	in.Labels = map[string]string{"ep-136.in1": "guitar"}
+	g := Build(in)
+	if c, ok := cable(g, "jack:ep-136.in1"); !ok || c.Waiting {
+		t.Fatalf("the label on IN 1 %+v, want it solid: its tap, USB 3/4, has signal", c)
+	}
+	for _, s := range g.Devices[0].Sockets {
+		if s.ID == "ep-136.in1" && s.Tap != "guitar" {
+			t.Fatalf("IN 1 lands on tap %q, want the kit's guitar", s.Tap)
+		}
+		if s.ID == "ep-136.in2" && s.Tap != "ch2" {
+			t.Fatalf("IN 2 lands on %q", s.Tap)
+		}
+	}
+	// A jack whose channels no tap takes lands on none.
+	in.Sources = in.Sources[:2]
+	for _, s := range Build(in).Devices[0].Sockets {
+		if s.ID == "ep-136.aux" && s.Tap != "" {
+			t.Fatalf("AUX lands on %q with no tap on 7/8", s.Tap)
+		}
+	}
+}
+
+// Review: an armed track with no input of its own records from whichever
+// input the recording device chose last. The rig's page says which; with
+// it, that track's tap counts, and with nothing known, no fix is offered
+// that could move the tape into it.
+func TestAnArmedTrackWithNoInputOfItsOwnCountsForTheFix(t *testing.T) {
+	in := sidekick()
+	in.Tape = tape4()
+	in.Tape.Armed = []int{2, 3}
+	in.Tape.Tracks[1].Input = "ch1"
+	in.Tape.Tracks[2].Input = "" // this device's choice
+	in.Tape.Tracks[0].Clips, in.Tape.Tracks[3].Clips = 1, 1
+	fixOf := func(def string) *Fix {
+		in.DefaultSource = def
+		g := Build(in)
+		if len(g.Warnings) == 0 {
+			t.Fatalf("default %q: no warning", def)
+		}
+		return g.Warnings[0].Fix
+	}
+	if f := fixOf("ch2"); f != nil {
+		t.Fatalf("track 3 records CH2 here, which hears bus B: the fix %+v would put the tape in it", f)
+	}
+	if f := fixOf(""); f != nil {
+		t.Fatalf("nothing known of track 3's input: the fix %+v can't be known safe", f)
+	}
+	if f := fixOf("aux"); f == nil || f.Label != "Move tracks 1, 4 to bus B" {
+		t.Fatalf("track 3 records AUX here, which hears nothing: fix %+v", f)
+	}
+	// And recorded from CH1 here, track 3 is warned about too.
+	in.DefaultSource = "ch1"
+	if w := Build(in).Warnings; len(w) != 1 || !slices.Equal(w[0].Armed, []int{2, 3}) {
+		t.Fatalf("both from CH1: %+v", w)
+	}
+}

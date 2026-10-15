@@ -43,7 +43,7 @@ import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
-import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords } from '../rig/arm.js';
+import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick } from '../rig/arm.js';
 import { recordsTape } from '../rig/warn.js';
 
 const $ = (id) => document.getElementById(id);
@@ -2994,7 +2994,15 @@ function buildLanes() {
       // the inputs, to choose what it records from.
       // With the two rooms on, it adds this track to what's armed or takes
       // it off; 1–4, ↑ and ↓ still arm just one.
-      lane.arm.addEventListener('click', () => (ROOMS ? toggleArm(n) : state.recTrack === n ? disarm() : armTrack(n)));
+      lane.arm.addEventListener('click', () => {
+        // What the click does is what its label says (armClick). With the
+        // rooms off that's one track, as ever -- or, on a lit ● another
+        // device armed beside others, just this one off.
+        const { next } = armClick(state.recTracks, n, ROOMS);
+        if (!next.length) disarm();
+        else if (next.length === 1 && next[0] === n) armTrack(n);
+        else toggleArm(n);
+      });
       // The rig's warning: an armed track whose input hears the tape. Only
       // with the rooms on: with them off there's no markup for it at all.
       let warn = null;
@@ -3237,8 +3245,7 @@ function drawLanes() {
     // while there's signal on it.
     const armed = state.recTracks.includes(lane.n);
     setIf(lane.arm, 'aria-pressed', String(armed));
-    if (ROOMS) setIf(lane.arm, 'aria-label', armed ? `Track ${tr.n} is armed: take it off what's armed` : `Arm track ${tr.n}${state.recTracks.length ? ' as well' : ''}`);
-    else setIf(lane.arm, 'aria-label', armed ? `Track ${tr.n} is the record track: disarm it` : `Record onto track ${tr.n}`);
+    setIf(lane.arm, 'aria-label', armClick(state.recTracks, tr.n, ROOMS).label);
     const inName = litInput(tr.n);
     const src = state.sources.find((x) => x.name === inName);
     // With the rooms on, what's drawn into its jack on the rig: "guitar".

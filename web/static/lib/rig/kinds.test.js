@@ -13,6 +13,34 @@ test('every kind of cable differs from every other in width or dash, not colour 
   }
 });
 
+// Review: two kinds of one width must differ in their dash's shape, not by
+// a pixel: MIDI (3 4) and a return (1 6) were both a 7 px beat in near
+// yellows. Solid against dashed, or beats at least 4 px apart.
+const period = (d) => (d ? d.split(/[ ,]+/).map(Number).reduce((a, b) => a + b, 0) : 0);
+test('kinds of one width are told apart by the dash itself', () => {
+  const ks = Object.entries(KINDS);
+  for (let i = 0; i < ks.length; i++) {
+    for (let j = i + 1; j < ks.length; j++) {
+      const [a, ka] = ks[i], [b, kb] = ks[j];
+      if (ka.width !== kb.width) continue;
+      assert.ok(!ka.dash !== !kb.dash || Math.abs(period(ka.dash) - period(kb.dash)) >= 4,
+        `${a} (${ka.dash}) and ${b} (${kb.dash}) are the same width with dashes too alike`);
+    }
+  }
+});
+
+// Review: pending was told from a live clock cable only by its colour and a
+// marching animation, which reduced motion turns off. It's drawn hollow --
+// a tube with nothing in it yet -- and its plugs are open squares.
+test('a cable waiting for a restart is hollow, whatever its kind: not just another colour', () => {
+  for (const kind of Object.keys(KINDS)) {
+    assert.equal(styleOf({ kind, pending: 'plug' }).hollow, true, kind);
+    assert.equal(styleOf({ kind, pending: 'unplug' }).hollow, true, kind);
+    assert.equal(styleOf({ kind }).hollow, false, `${kind} looks pending when it isn't`);
+  }
+  assert.equal(legend().find((k) => k.kind === 'pending').hollow, true, 'and so is its legend');
+});
+
 test('a restart cable is drawn dashed, in amber, whatever its kind, until the restart', () => {
   for (const kind of Object.keys(KINDS)) {
     const s = styleOf({ kind, pending: 'plug' });

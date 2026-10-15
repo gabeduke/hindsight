@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { armedOf, toggled, pairsFor, recordBody, catchSays, onWords, spanWords } from './arm.js';
+import { armedOf, toggled, pairsFor, recordBody, catchSays, onWords, spanWords, armClick } from './arm.js';
 
 test('what is armed: rec_tracks, or rec_track from a Pi before multi-arm', () => {
   assert.deepEqual(armedOf({ rec_tracks: [3, 2], rec_track: 2 }), [2, 3]);
@@ -31,4 +31,19 @@ test('CATCH says what it did', () => {
   assert.equal(spanWords({ out: 96000 }), 'that pass');
   assert.equal(onWords([2]), 'track 2');
   assert.equal(onWords([2, 3]), 'tracks 2, 3');
+});
+
+// Review: with the rooms off, a lit ● must do what it says. Another device
+// may have armed several; ● on one of them takes just it off.
+test('● with the rooms off: an armed track comes off, an unarmed one is armed alone', () => {
+  assert.deepEqual(armClick([2, 3], 3, false), { next: [2], label: 'Track 3 is armed: disarm it' });
+  assert.deepEqual(armClick([3], 3, false), { next: [], label: 'Track 3 is the record track: disarm it' });
+  assert.deepEqual(armClick([2, 3], 1, false), { next: [1], label: 'Record onto track 1' });
+  assert.deepEqual(armClick([], 1, false), { next: [1], label: 'Record onto track 1' });
+});
+
+test('● with the rooms on adds the track to what is armed, or takes it off', () => {
+  assert.deepEqual(armClick([2], 3, true), { next: [2, 3], label: 'Arm track 3 as well' });
+  assert.deepEqual(armClick([2, 3], 3, true), { next: [2], label: 'Track 3 is armed: take it off what’s armed' });
+  assert.deepEqual(armClick([], 1, true), { next: [1], label: 'Arm track 1' });
 });

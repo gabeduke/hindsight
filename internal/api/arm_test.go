@@ -5,7 +5,32 @@ import (
 	"net/http"
 	"slices"
 	"testing"
+
+	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gabeduke/hindsight/internal/tape"
+	"github.com/gorilla/mux"
 )
+
+// newTapeAPIWithAPI is newTapeAPI, with the API itself to reach into.
+func newTapeAPIWithAPI(t *testing.T) (*mux.Router, *API) {
+	t.Helper()
+	cfg := &config.Config{OutputDir: t.TempDir(), SampleRate: 48000, SaveChannels: []int{0, 1}}
+	store, err := tape.OpenStore(t.TempDir(), 48000, 4, 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng := tape.NewEngine(tape.Options{Store: store})
+	if err := eng.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(eng.Stop)
+	a := New(cfg, nil, nil, nil, nil)
+	a.SetTape(eng)
+	t.Cleanup(a.WaitBackground)
+	r := mux.NewRouter()
+	a.SetupRoutes(r)
+	return r, a
+}
 
 // Multi-arm (docs/superpowers/specs/2026-10-15-rig-design.md): rec_tracks
 // arms several; rec_track still reads as the first and, written, still arms
@@ -75,4 +100,34 @@ func TestMovingSeveralTracksToABusIsOneUndo(t *testing.T) {
 	}
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"buses":[{"n":1,"bus":"B"},{"n":7,"bus":"B"}]}`), http.StatusBadRequest, "a track there isn't")
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"buses":[{"n":1,"bus":"C"}]}`), http.StatusBadRequest, "a bus there isn't")
+}
+
+// Review: while ● Rec is armed or a punch runs, what's armed and the
+// punch's inputs stay as they began -- on the Pi, so the rig and every
+// page get the refusal the tape page has always made for itself.
+func TestArmingAndAPunchsInputsWaitWhileItRecords(t *testing.T) {
+	r, a := newTapeAPIWithAPI(t)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_tracks":[2,3],"inputs":[{"n":2,"source":"ch1"},{"n":3,"source":"ch2"}]}`), http.StatusOK, "arm 2 and 3")
+	a.recordingHook = func() *tape.Recording {
+		return &tape.Recording{Tape: id, Track: 2, Source: "ch1", State: "on", Pairs: []tape.Pair{{Track: 2, Source: "ch1"}, {Track: 3, Source: "ch2"}}}
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_tracks":[2,3,4]}`), http.StatusConflict, "arm another mid-punch")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_track":2}`), http.StatusConflict, "an older page's rec_track mid-punch")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":3,"source":"aux"}}`), http.StatusConflict, "move the punch's input")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"input":{"n":4,"source":"aux"}}`), http.StatusOK, "another track's input")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_tracks":[3,2]}`), http.StatusOK, "the same tracks again")
+	var m struct {
+		Tape struct {
+			RecTracks []int    `json:"rec_tracks"`
+			Inputs    []string `json:"inputs"`
+		} `json:"tape"`
+	}
+	json.Unmarshal(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "").Body.Bytes(), &m)
+	if !slices.Equal(m.Tape.RecTracks, []int{2, 3}) || m.Tape.Inputs[2] != "ch2" {
+		t.Fatalf("after the refusals: %+v", m.Tape)
+	}
+	// Once it's over, they move again.
+	a.recordingHook = func() *tape.Recording { return nil }
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"rec_tracks":[4]}`), http.StatusOK, "after the punch")
 }

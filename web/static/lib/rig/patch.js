@@ -13,6 +13,11 @@ import { socketById, deviceOf, armed, setting } from './graph.js';
 
 const tapesURL = (g) => `/api/tapes?id=${encodeURIComponent(g.tape ? g.tape.id : '')}`;
 
+/** recording is the tracks ● Rec is armed on or punching in: they wait. */
+export function recording(g) {
+  return (g.tape && g.tape.recording) || [];
+}
+
 /** role is what a socket does in a patch. */
 export function role(s) {
   if (!s) return '';
@@ -66,9 +71,12 @@ export function writeFor(g, aId, bId) {
   const pair = (r1, r2) => (role(a) === r1 && role(b) === r2 ? [a, b] : role(a) === r2 && role(b) === r1 ? [b, a] : null);
   let p;
   if ((p = pair('tap', 'track')) && g.tape) {
+    // The input only. Arming is the lamp's and ●'s, a write of its own (the
+    // spec's table): a cable plugged to say what a track would hear mustn't
+    // add it to what the next catch records onto.
     const [tap, tr] = p;
-    const set = [...new Set([...armed(g), tr.track])].sort((x, y) => x - y);
-    return { method: 'PATCH', url: tapesURL(g), body: { input: { n: tr.track, source: tap.id.slice('kit.tap.'.length) }, rec_tracks: set } };
+    if (recording(g).includes(tr.track)) return null; // the Pi keeps a punch's inputs
+    return { method: 'PATCH', url: tapesURL(g), body: { input: { n: tr.track, source: tap.id.slice('kit.tap.'.length) } } };
   }
   if ((p = pair('track', 'bus')) && g.tape) {
     const [tr, bus] = p;
@@ -110,10 +118,10 @@ export function unplugFor(g, c) {
   const [what, rest] = [c.id.slice(0, c.id.indexOf(':')), c.id.slice(c.id.indexOf(':') + 1)];
   const dev = (g.devices || []).find((d) => d.id === rest);
   switch (what) {
-    case 'input': {
-      const n = Number(rest);
-      return { method: 'PATCH', url: tapesURL(g), body: { input: { n, source: '' }, rec_tracks: armed(g).filter((x) => x !== n) } };
-    }
+    case 'input':
+      if (recording(g).includes(Number(rest))) return null;
+      // The input goes back to none of its own; what's armed stays.
+      return { method: 'PATCH', url: tapesURL(g), body: { input: { n: Number(rest), source: '' } } };
     case 'out': return { method: 'PUT', url: '/api/tapes/output', body: { mode: 'jam' } };
     case 'clock-out': {
       if (!dev) return null;
@@ -155,6 +163,7 @@ export function fixWrite(g, w) {
 
 /** armWrite arms or disarms one track, leaving the others as they are. */
 export function armWrite(g, n, on) {
+  if (recording(g).length) return null; // what's armed waits for ● Rec to end
   const set = new Set(armed(g));
   if (on) set.add(n);
   else set.delete(n);

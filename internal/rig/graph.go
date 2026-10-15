@@ -44,6 +44,9 @@ type TapeView struct {
 	Armed   []int
 	Output  string // jam, phone or both
 	Streams bool   // it can play on a phone
+	// Recording is the tracks ● Rec has armed or is punching in on: what's
+	// armed, and their inputs, wait until it ends.
+	Recording []int
 }
 
 // SourceView is a tap the tape catches from: a source of TAPE_SOURCES.
@@ -71,6 +74,9 @@ type Inputs struct {
 	// strip's), so a controller can be patched into the kit.
 	Controller    bool
 	RestartNeeded bool
+	// DefaultSource is what a track with no input of its own records from
+	// on the device asking: its last choice. "" when it didn't say.
+	DefaultSource string
 }
 
 // Socket is a place a cable plugs in.
@@ -194,9 +200,10 @@ type Line struct {
 
 // TapeInfo is the tape the patch bay's lower half is.
 type TapeInfo struct {
-	ID     string `json:"id"`
-	Armed  []int  `json:"rec_tracks"`
-	Output string `json:"output"`
+	ID        string `json:"id"`
+	Armed     []int  `json:"rec_tracks"`
+	Output    string `json:"output"`
+	Recording []int  `json:"recording"` // ● Rec's tracks while it's armed or running
 }
 
 // Graph is the rig: what /api/rig answers.
@@ -302,9 +309,16 @@ func (b *builder) interfaceDevice() {
 	}
 	for _, port := range p.Ports {
 		s := Socket{ID: d.ID + "." + port.ID, Label: port.Label, Kind: port.Kind, Dir: port.Dir, About: port.About}
+		// The kit's tap on the channels this jack lands on, by its channels:
+		// TAPE_SOURCES may call it anything.
 		for _, t := range p.Taps {
-			if t.From == port.ID {
-				s.Tap = t.ID
+			if t.From != port.ID {
+				continue
+			}
+			for _, src := range b.in.Sources {
+				if src.Pair == t.USB {
+					s.Tap = src.Name
+				}
 			}
 		}
 		d.Sockets = append(d.Sockets, s)
@@ -380,7 +394,7 @@ func (b *builder) kit() {
 	}
 	b.g.Kit = k
 	if t := b.in.Tape; t != nil {
-		b.g.Tape = &TapeInfo{ID: t.ID, Armed: nonNilInts(t.Armed), Output: t.Output}
+		b.g.Tape = &TapeInfo{ID: t.ID, Armed: nonNilInts(t.Armed), Output: t.Output, Recording: nonNilInts(t.Recording)}
 	}
 }
 
@@ -706,10 +720,17 @@ func (b *builder) warnings() {
 	armedBy := map[string][]int{}
 	var taps []string
 	heard := map[string]bool{} // buses some armed track's tap hears
+	unknown := false           // an armed track records from who knows what
 	for _, n := range t.Armed {
 		src := input[n]
+		if src == "" {
+			// None of its own: it records from the asking device's last
+			// choice, if it said.
+			src = b.in.DefaultSource
+		}
 		if _, ok := hears[src]; !ok {
-			continue // none of its own: this device's choice, unknown here
+			unknown = true
+			continue
 		}
 		if armedBy[src] == nil {
 			taps = append(taps, src)
@@ -719,9 +740,11 @@ func (b *builder) warnings() {
 			heard[h] = true
 		}
 	}
+	// A bus no armed track's tap hears -- and none, when one of them might
+	// hear anything: a fix that moved the tape into it would be no fix.
 	free := ""
 	for _, bus := range []string{"A", "B"} {
-		if !heard[bus] {
+		if !heard[bus] && !unknown {
 			free = bus
 			break
 		}

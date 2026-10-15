@@ -61,3 +61,19 @@ export function spanWords(what) {
 export function catchSays(what, tracks) {
   return `${spanWords(what)} → ${tracksWords(tracks)}`;
 }
+
+/** armClick is what ● on track n does, and what its label says it does. */
+export function armClick(armed, n, rooms) {
+  const on = armed.includes(n);
+  if (rooms) {
+    return on
+      ? { next: toggled(armed, n), label: `Track ${n} is armed: take it off what’s armed` }
+      : { next: toggled(armed, n), label: `Arm track ${n}${armed.length ? ' as well' : ''}` };
+  }
+  // The rooms off: ● arms just that track, as it always did -- but a lit one,
+  // which another device may have armed beside others, comes off on its own,
+  // so it never says "disarm" and arms instead.
+  if (!on) return { next: [n], label: `Record onto track ${n}` };
+  if (armed.length === 1) return { next: [], label: `Track ${n} is the record track: disarm it` };
+  return { next: armed.filter((x) => x !== n), label: `Track ${n} is armed: disarm it` };
+}

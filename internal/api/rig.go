@@ -18,6 +18,8 @@ import (
 //
 //	GET /api/rig          the graph, built from the settings, the tape and
 //	                      what's plugged in, every time it's asked
+//	                      (?source=: what a track with no input of its own
+//	                      records from on the asking device)
 //	PUT /api/rig/labels   {"ep-136.in1": "guitar", "ep-136.aux": ""}: the
 //	                      jacks you draw, kept in rig.json beside
 //	                      settings.json ("" removes one). They route nothing.
@@ -184,11 +186,11 @@ func (a *API) rigSettings() (map[string]rig.Setting, bool) {
 	return out, restart
 }
 
-func (a *API) rigInputs() rig.Inputs {
+func (a *API) rigInputs(defaultSource string) rig.Inputs {
 	device := a.rigDevice()
 	settings, restart := a.rigSettings()
 	in := rig.Inputs{Interface: device, Channels: a.cfg.Channels, MIDI: a.rigMIDI(), Settings: settings,
-		Labels: a.rigLabels(), Version: a.cfg.Version, RestartNeeded: restart}
+		Labels: a.rigLabels(), Version: a.cfg.Version, RestartNeeded: restart, DefaultSource: defaultSource}
 	if device != "" {
 		in.USBID = a.rigUSBID(device)
 	}
@@ -203,6 +205,11 @@ func (a *API) rigInputs() rig.Inputs {
 		}
 		if t := a.tape.Loaded(); t != nil {
 			tv := &rig.TapeView{ID: t.ID, Armed: t.Armed(), Output: string(a.tape.OutputMode()), Streams: a.tape.Stream() != nil}
+			if r := a.recording(); r != nil && r.Tape == t.ID {
+				for _, p := range r.Pairs {
+					tv.Recording = append(tv.Recording, p.Track)
+				}
+			}
 			for i, tr := range t.Tracks {
 				v := rig.TrackView{N: tr.N, Name: tr.Name, Bus: tr.Bus, Clips: len(tr.Clips), Mute: tr.Mute}
 				if i < len(t.Inputs) {
@@ -223,7 +230,7 @@ func (a *API) rigInputs() rig.Inputs {
 
 func (a *API) handleRig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, rig.Build(a.rigInputs()))
+	writeJSON(w, http.StatusOK, rig.Build(a.rigInputs(r.URL.Query().Get("source"))))
 }
 
 func (a *API) handleRigLabels(w http.ResponseWriter, r *http.Request) {
