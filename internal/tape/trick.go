@@ -555,12 +555,13 @@ func (p *perf) targets(m *Mix) {
 	p.bus.age.to = p.modTarget(modAge, m)
 }
 
-// step moves the modulation on over the next n frames, from output frame o:
-// rendering, it fills the span's offsets; not (a late render), it only
-// counts, and the FX bus drops what was ringing.
-func (p *perf) step(n int, o uint64, rendering bool, m *Mix) {
+// step moves the modulation on over the next n frames, from output frame o,
+// the tape moving under them or not: rendering, it fills the span's
+// offsets; not (a late render), it only counts, and the FX bus drops what
+// was ringing.
+func (p *perf) step(n int, o uint64, rendering, moving bool, m *Mix) {
 	if !rendering {
-		p.mod.skip(n, m.rate())
+		p.mod.skip(n, m.rate(), moving)
 		p.bus.skip(n, o, m)
 		p.wfOn, p.bendFilled = false, false
 		return
@@ -568,7 +569,7 @@ func (p *perf) step(n int, o uint64, rendering bool, m *Mix) {
 	p.ensure(max(n, BlockFrames), m)
 	p.wfOn = p.mod.wobbles()
 	p.bendFilled = p.mod.bendOn || p.mod.bendOff != 0
-	p.mod.run(p.wf[:n], p.bendArr[:n], n, m.rate())
+	p.mod.run(p.wf[:n], p.bendArr[:n], n, m.rate(), moving)
 }
 
 // post runs output frames [o, o+n) of d through the tape's character and the

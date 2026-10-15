@@ -826,3 +826,63 @@ func TestABendLetGoFromFarAheadDoesntClick(t *testing.T) {
 		t.Fatalf("after the release it reads %.1f, want the transport's %.1f", got, want)
 	}
 }
+
+func TestTheBendOnlyRunsWhileTheTapeDoes(t *testing.T) {
+	// The bend is how far ahead of the transport the room hears: held while
+	// the tape stands, through a count-in, or over a mixdown's pass (which it
+	// isn't heard in), it hasn't gone anywhere. When the tape plays, the room
+	// hears the transport, then the bend from there.
+	cases := map[string]func(r *rig){
+		"standing": func(r *rig) {
+			r.e.Do(Action{Kind: "stop"})
+			r.run(1)
+			_ = r.e.PressAmount(PadBend, QuantumNow, 1)
+			r.run(94) // two seconds, the wheel held
+			r.e.Do(Action{Kind: "play"})
+		},
+		"a count-in": func(r *rig) {
+			r.e.Do(Action{Kind: "stop"})
+			r.e.Do(Action{Kind: "locate", Pos: 60000}) // counts in from bar 2, 48000
+			r.run(1)
+			_ = r.e.PressAmount(PadBend, QuantumNow, 1)
+			r.e.Do(Action{Kind: "play", CountIn: true})
+			r.run(46) // the bar of click, 48000 frames, to its last frame
+			rest := 48000 - 46*BlockFrames
+			r.e.advance(make([]float32, rest*OutChannels), r.out, rest)
+			r.out += uint64(rest)
+		},
+		"a mixdown's pass": func(r *rig) {
+			r.e.Do(Action{Kind: "stop"})
+			r.run(1)
+			_ = r.e.PressAmount(PadBend, QuantumNow, 1)
+			r.e.Do(Action{Kind: "once", Pos: 30000, End: 60000})
+			r.run(32) // the pass, then standing back at 30000
+			r.e.Do(Action{Kind: "play"})
+		},
+		"a late render while standing": func(r *rig) {
+			r.e.Do(Action{Kind: "stop"})
+			r.run(1)
+			_ = r.e.PressAmount(PadBend, QuantumNow, 1)
+			r.run(1)
+			r.e.advance(nil, r.out, 96000)
+			r.out += 96000
+			r.e.Do(Action{Kind: "play"})
+		},
+	}
+	for name, before := range cases {
+		t.Run(name, func(t *testing.T) {
+			r := newRig(t, Loop{})
+			r.playFrom(10000)
+			r.run(2)
+			before(r)
+			out := r.run(2)
+			start := r.e.tr.pos - 2*BlockFrames // where the transport played from
+			for _, k := range []int{0, 10, 100} {
+				// Ahead by no more than the bend has run since: 8 % of k.
+				if d := readAt(out, k, 0) - float64(start+int64(k)); d < -0.05 || d > bendDepth*float64(k)+0.05 {
+					t.Fatalf("%d frames into playing, the room hears %.0f frames from the transport", k, d)
+				}
+			}
+		})
+	}
+}

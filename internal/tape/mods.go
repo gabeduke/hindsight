@@ -74,8 +74,12 @@ type modulation struct {
 func (md *modulation) wobbles() bool { return !md.wow.idle() || !md.flutter.idle() }
 
 // run fills wf with WOW and FLUTTER's offset, and bend with the bend's, for
-// the next n frames, and moves them on.
-func (md *modulation) run(wf, bend []float64, n int, sr float64) {
+// the next n frames, and moves them on. The bend only runs on where the tape
+// moves: it is how far ahead of the transport the room hears, and a tape
+// standing, counting in, or in a mixdown's pass (where the bend isn't
+// heard) hasn't moved under it. Let go, it stays where it got to, for
+// what fades out from there.
+func (md *modulation) run(wf, bend []float64, n int, sr float64, moving bool) {
 	a := smoothCoef(sr)
 	if md.wobbles() {
 		aw := wowDepth * sr / (2 * math.Pi * wowHz)
@@ -102,17 +106,21 @@ func (md *modulation) run(wf, bend []float64, n int, sr float64) {
 			}
 		}
 	}
-	if md.bendOn {
+	if md.bendOn || md.bendOff != 0 {
 		for k := 0; k < n; k++ {
 			bend[k] = md.bendOff
-			md.bendOff += bendDepth * md.bend.step(a)
+			if md.bendOn {
+				if v := md.bend.step(a); moving {
+					md.bendOff += bendDepth * v
+				}
+			}
 		}
 	}
 }
 
 // skip moves them n frames on without rendering: a late render, where the
-// tape counted on.
-func (md *modulation) skip(n int, sr float64) {
+// tape counted on if it was moving.
+func (md *modulation) skip(n int, sr float64, moving bool) {
 	a := smoothCoef(sr)
 	if md.wobbles() {
 		md.wow.skip(n, a)
@@ -120,7 +128,9 @@ func (md *modulation) skip(n int, sr float64) {
 		md.wowPhase = math.Mod(md.wowPhase+2*math.Pi*wowHz*float64(n)/sr, 2*math.Pi)
 		md.flPhase = math.Mod(md.flPhase+2*math.Pi*flutterHz*float64(n)/sr, 2*math.Pi)
 	}
-	if md.bendOn {
+	if md.bendOn && !moving {
+		md.bend.skip(n, a)
+	} else if md.bendOn {
 		// The sum of a one-pole's glide over n frames.
 		b := &md.bend
 		sum := float64(n)*b.to + (b.v-b.to)*(1-math.Pow(1-a, float64(n)))/a

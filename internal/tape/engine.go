@@ -489,7 +489,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			// The count-in: a bar of click with the tape standing, then
 			// play from there.
 			span = min64(span, tr.countIn)
-			e.perf.step(int(span), out, dst != nil, m)
+			e.perf.step(int(span), out, dst != nil, false, m)
 			if dst != nil {
 				d := dst[off*OutChannels:]
 				e.perf.post(d, out, int(span), m, false) // an echo ringing on
@@ -511,7 +511,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			// stands back where the pass began.
 			end := min64(tr.onceEnd, length)
 			span = min64(span, max64(0, end-tr.pos))
-			e.perf.step(int(span), out, dst != nil, m)
+			e.perf.step(int(span), out, dst != nil, false, m)
 			if dst != nil {
 				lm := m.straight
 				if lm == nil {
@@ -558,7 +558,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			if t := e.perf.top(); t >= 0 && !e.perf.head.on {
 				e.perf.head = e.perf.newHead(t, tr.pos, out, m)
 			}
-			e.perf.step(int(span), out, dst != nil, m)
+			e.perf.step(int(span), out, dst != nil, true, m)
 			if dst != nil {
 				d := dst[off*OutChannels:]
 				if e.perf.active(out, m) {
@@ -590,7 +590,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 		} else {
 			// Standing: nothing comes off the tape, but what the FX have
 			// ringing rings on.
-			e.perf.step(int(span), out, dst != nil, m)
+			e.perf.step(int(span), out, dst != nil, false, m)
 			if dst != nil {
 				e.perf.post(dst[off*OutChannels:], out, int(span), m, false)
 			}
