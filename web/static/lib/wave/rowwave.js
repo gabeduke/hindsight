@@ -16,6 +16,7 @@
 
 import { peakColumns, foldChannels, drawColumns, levelsFor, takeGain, smooth, drawBars } from './draw.js';
 import { token, withAlpha } from '../theme.js';
+import { Loop } from '../objects/motion.js';
 
 /** spineBarCount is how many printed bars fit a spine `w` px wide. */
 export function spineBarCount(w, pitch = 4) {
@@ -37,7 +38,12 @@ export class RowWave {
     this.audio = audio;
     this.handlers = {};
     this.selection = null; // {start, end} as fractions of the take
-    this.raf = 0;
+    this.raf = 0; // a single frame asked for by draw()
+    // While it plays, painted every tick of the shared ticker.
+    this.frames = new Loop(() => {
+      this.paint();
+      return this.isPlaying();
+    });
     this.cols = null;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'row-wave';
@@ -124,18 +130,13 @@ export class RowWave {
     // A spine's bars don't move with the playhead.
     if (this.look === 'spine') { this.draw(); return; }
     cancelAnimationFrame(this.raf);
-    const step = () => {
-      // Clear the id first: draw() treats a non-zero raf as "a frame is
-      // coming", and a stale one would freeze the row after one play.
-      this.raf = 0;
-      this.paint();
-      if (this.isPlaying()) this.raf = requestAnimationFrame(step);
-    };
-    this.raf = requestAnimationFrame(step);
+    this.raf = 0;
+    this.frames.start();
   }
 
   draw() {
-    if (this.raf) return;
+    // While it plays the next frame paints anyway.
+    if (this.raf || this.frames.running) return;
     this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); });
   }
 
@@ -191,6 +192,7 @@ export class RowWave {
   /** detach stops drawing and listening, and leaves the audio alone: for a
    *  second view of a player someone else owns (the takes page's detail). */
   detach() {
+    this.frames.stop();
     cancelAnimationFrame(this.raf);
     this.ac.abort();
     this.ro.disconnect();
