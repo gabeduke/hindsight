@@ -770,7 +770,13 @@ func (v piVerbs) Verb(id, rt string) (string, error) {
 		if c.Empty() {
 			return "", tape.ErrEmptyClipboard
 		}
-		at, ok := tape.NextFreeSpan(t.State, t.Length, track, len(c.Tracks), c.Frames, a.tape.Live().Heard)
+		// A buffer lays down its window, as the page's DROP measures it
+		// (lib/buffer/state.js, windowFrames).
+		frames := c.Frames
+		if g := c.Grab; g != nil && g.Out > g.In {
+			frames = g.Out - g.In
+		}
+		at, ok := tape.NextFreeSpan(t.State, t.Length, track, len(c.Tracks), frames, a.tape.Live().Heard)
 		if !ok {
 			return "", fmt.Errorf("no room on track %d", track)
 		}

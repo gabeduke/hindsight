@@ -436,9 +436,12 @@ test('Play mode’s rules reach only Play mode', () => {
     (f.endsWith('.html') || f.endsWith('.js')) && !f.endsWith('.test.js') && !f.includes('lib/play/'));
   const borrowed = [];
   for (const f of files) {
-    // An id is not a class: tape.html's empty `#play-mode` is the overlay's
-    // own mount point.
-    const text = readFileSync(new URL(f, root), 'utf8').replace(/\sid="[^"]*"/g, '');
+    // An id is not a class, nor is a tip's name (data-tip, and the tips'
+    // names in lib/help/tips.js).
+    const text = readFileSync(new URL(f, root), 'utf8')
+      .replace(/\sid="[^"]*"/g, '')
+      .replace(/\sdata-tip="[^"]*"/g, '')
+      .replace(/ids: \[[^\]]*\]/g, '');
     for (const c of mine) {
       if (new RegExp(`(^|[^\\w-])${c}(?![\\w-])`).test(text)) borrowed.push(`${f}: ${c}`);
     }
