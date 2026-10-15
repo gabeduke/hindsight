@@ -374,6 +374,7 @@ type controlBus struct {
 	loaded bool
 	file   controlsFile
 	held   map[string]map[string]bool // port → the pads it holds
+	keys   map[string]map[string]int  // port → how many of its keys hold each pad
 	// pressed is what each key or pedal pressed, by port and message (a
 	// note or a CC on a channel): its release lets go of that pad, whatever
 	// the bindings say by then, as the keyboard keeps the code it pressed.
@@ -501,7 +502,11 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 		if pad, ok := b.pressed[port][key]; ok {
 			delete(b.pressed[port], key)
 			b.mu.Unlock()
-			a.controllerRelease(port, pad)
+			if pad == "latch" {
+				a.controllerLatch(port, false) // the pedal that put it down, lifted
+			} else {
+				a.controllerRelease(port, pad)
+			}
 			return
 		}
 		if m.typ == "off" {
@@ -509,7 +514,9 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 			return // a note that pressed nothing: the one that taught MIDI LEARN
 		}
 	}
-	if l := b.learn; l != nil && (l.port == "" || l.port == port) && (m.typ == "on" || m.typ == "cc") {
+	// Learn takes a press -- a key down, a knob or pedal at 64 or past --
+	// never a lift: a pedal let up mid-learn must still lift its latch.
+	if l := b.learn; l != nil && (l.port == "" || l.port == port) && (m.typ == "on" || (m.typ == "cc" && m.value >= 64)) {
 		nb := Binding{Ch: m.ch}
 		if m.typ == "on" {
 			n := m.note
@@ -555,30 +562,38 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 		return
 	}
 	act, _ := actionByID(id)
+	// remember notes what a key pressed -- a pad, or the latch -- so that
+	// key's own lift lets it go, whatever the bindings say by then.
+	remember := func() (again bool) {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		if b.pressed == nil {
+			b.pressed = map[string]map[string]string{}
+		}
+		if b.pressed[port] == nil {
+			b.pressed[port] = map[string]string{}
+		}
+		if _, again = b.pressed[port][key]; !again {
+			b.pressed[port][key] = id
+		}
+		return again
+	}
 	switch act.Kind {
 	case kindModifier:
-		a.controllerLatch(port, down)
-	case kindHeld:
 		if down && key != "" {
-			b.mu.Lock()
-			if b.pressed == nil {
-				b.pressed = map[string]map[string]string{}
+			if !remember() {
+				a.controllerLatch(port, true)
 			}
-			if b.pressed[port] == nil {
-				b.pressed[port] = map[string]string{}
+		} else {
+			a.controllerLatch(port, down) // a lift from before this run, say
+		}
+	case kindHeld:
+		if down && key != "" && !remember() {
+			v := math.NaN()
+			if m.typ == "on" && fxPads[id] {
+				v = float64(m.value) / 127 // its velocity is its amount
 			}
-			_, again := b.pressed[port][key]
-			if !again {
-				b.pressed[port][key] = id
-			}
-			b.mu.Unlock()
-			if !again {
-				v := math.NaN()
-				if m.typ == "on" && fxPads[id] {
-					v = float64(m.value) / 127 // its velocity is its amount
-				}
-				a.controllerPress(port, id, q, v)
-			}
+			a.controllerPress(port, id, q, v)
 		}
 	case kindAmount:
 		if id == "bend" && m.typ == "bend" {
@@ -687,6 +702,7 @@ func (a *API) controllerBend(port string, raw int) {
 		b.mu.Lock()
 		delete(b.held[port], "bend")
 		delete(b.wait[port], "bend")
+		delete(b.keys[port], "bend")
 		b.mu.Unlock()
 		a.playHolds.release("bend", func() { _ = eng.Release("bend") })
 	case math.Abs(v) > bendDead && !bending:
@@ -749,10 +765,14 @@ func (a *API) controllerPress(port, pad, q string, v float64) {
 	b := &a.controls
 	b.mu.Lock()
 	if b.held == nil {
-		b.held, b.wait = map[string]map[string]bool{}, map[string]map[string]bool{}
+		b.held, b.wait, b.keys = map[string]map[string]bool{}, map[string]map[string]bool{}, map[string]map[string]int{}
+	}
+	if b.keys[port] == nil {
+		b.keys[port] = map[string]int{}
 	}
 	delete(b.wait[port], pad) // pressed again: the hand holds it, not the latch
 	if b.held[port][pad] {
+		b.keys[port][pad]++ // one more key on a pad already sounding
 		b.mu.Unlock()
 		return
 	}
@@ -770,16 +790,26 @@ func (a *API) controllerPress(port, pad, q string, v float64) {
 		b.held[port] = map[string]bool{}
 	}
 	b.held[port][pad] = true
+	b.keys[port][pad]++
 	b.mu.Unlock()
 }
 
+// controllerRelease is one key on pad let go. The pad lets go with the last
+// key holding it -- two keys can be bound to one pad -- unless the latch is
+// down, which keeps it until it lifts.
 func (a *API) controllerRelease(port, pad string) {
 	b := &a.controls
 	b.mu.Lock()
-	if !b.held[port][pad] {
+	if !b.held[port][pad] || b.wait[port][pad] {
 		b.mu.Unlock()
 		return
 	}
+	if b.keys[port][pad] > 1 {
+		b.keys[port][pad]--
+		b.mu.Unlock()
+		return
+	}
+	delete(b.keys[port], pad)
 	if b.latch[port] {
 		if b.wait[port] == nil {
 			b.wait[port] = map[string]bool{}
@@ -795,6 +825,8 @@ func (a *API) controllerRelease(port, pad string) {
 	}
 }
 
+// controllerLatch puts the latch down or lifts it; lifting it lets go of the
+// pads that waited for it.
 func (a *API) controllerLatch(port string, down bool) {
 	b := &a.controls
 	b.mu.Lock()
@@ -809,9 +841,24 @@ func (a *API) controllerLatch(port string, down bool) {
 		}
 		delete(b.wait, port)
 	}
-	b.mu.Unlock()
 	for _, p := range waiting {
-		a.controllerRelease(port, p)
+		if b.keys[port][p] > 0 {
+			continue // a key holds it again
+		}
+		delete(b.held[port], p)
+	}
+	b.mu.Unlock()
+	eng := a.playerOrNil()
+	if eng == nil {
+		return
+	}
+	for _, p := range waiting {
+		b.mu.Lock()
+		still := b.held[port][p]
+		b.mu.Unlock()
+		if !still {
+			a.playHolds.release(p, func() { _ = eng.Release(p) })
+		}
 	}
 }
 
@@ -825,6 +872,7 @@ func (a *API) ControllerGone(port string) {
 		held = append(held, p)
 	}
 	delete(b.held, port)
+	delete(b.keys, port)
 	delete(b.wait, port)
 	delete(b.latch, port)
 	delete(b.pressed, port)
