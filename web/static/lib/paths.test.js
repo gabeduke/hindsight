@@ -81,6 +81,15 @@ test('every file the service worker precaches exists', () => {
   assert.deepEqual(missing, []);
 });
 
+test('the service worker precaches each file once', () => {
+  // Cache.addAll rejects a list that names the same request twice, and that
+  // costs the whole offline shell. Two branches that each add the same
+  // module to SHELL merge into exactly that, without a conflict.
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+  const paths = [.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(paths.filter((p, i) => paths.indexOf(p) !== i), []);
+});
+
 test('CI runs the tests in every directory that has any', () => {
   // The globs in ci.yml name each directory one by one, so a new directory
   // under lib/ is invisible to CI until it is added -- a whole suite can sit
