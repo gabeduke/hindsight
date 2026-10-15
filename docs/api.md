@@ -1414,12 +1414,45 @@ restart; 404 when the tape is off.
   that has left the ring moves to the oldest audio, a second in, and the
   answer has `"clamped": true`; 409 if the span has left it altogether or
   isn't in it yet.
+- **The Studio's buffer** (GRAB, step P2): `POST {"bars": 4, "sources":
+  ["ch1", "ch2"]}` copies the last 4 bars the tape played, where the ring
+  heard them, as Catch finds them (Δ and `TAPE_LATENCY_MS` included);
+  `{"seconds": 8, "sources": […]}` the last 8 seconds (for a tape with no
+  tempo yet, which refuses `bars` with 400); `{"ring_from": F, "ring_to": T,
+  "sources": […]}` a span of the ring. Each source is a clipboard track over
+  the same span, in `TAPE_SOURCES`' order. The handles are a bar at the tape's
+  tempo or `TAPE_HANDLE_S`, whichever is longer, at most 10 s; the one after
+  the last bars is still being played, so the answer waits for it (about a
+  bar). When the tape didn't play the bars (stopped, moved, on a phone, not
+  lined up) it takes that many bars of wall-clock time to now, and says
+  `"wall": true` with `"why"`. The clipboard gains `grab`: `{sources, bars?,
+  seconds?, wall?, why?, clamped?, ring_from, frames, before, after, in, out,
+  bar_frames?, downbeat?, tape?, reversed?, used?}` -- frames from the grab's
+  start, the window `[in, out)` inside the handles `before` and `after`.
+  `{"again": true, "sources": […]}` copies the buffer's own span again from
+  other sources, keeping its window. A grab, or any copy, that replaces a
+  grab never dropped or kept puts that one in the crate first, a kept clip
+  per track, and answers them as `"crated"`.
 - Both answer the new clipboard; 400 for a copy longer than a track; 507 for
   low disk.
+- `PATCH` changes the buffer (a grab only; 400 for a copy, 409 when it's
+  empty), outside undo: `{"in": I, "out": O}` moves its window, kept inside
+  its handles less the crossfades' overhang; `{"gain_db"}`, `{"fade_in",
+  "fade_out", "fade_in_shape", "fade_out_shape"}`, `{"normalize": true}` (the
+  loudest track's peak to −1.5 dBFS, at most +24 dB) and `{"reverse": true}`
+  apply to every track. It answers the clipboard.
+- `POST /api/clipboard/keep` is KEEP AS TAKE: the clipboard as a take, its
+  tracks summed to stereo with their levels and fades, from its own audio.
+  Its label names its sources (*Buffer · ch1 + ch2*), its `origin` is
+  `buffer`, and a grab's tempo and downbeat are the tape's. It answers
+  `{"name", "label", "seconds"}`; the buffer is then marked used.
 - `GET /api/clipboard/audio` is its first minute, every track summed, as a
   16-bit stereo WAV, with `Range` and `HEAD`. 404 when it's empty.
 - `DELETE` empties it. Its audio stays until a clean-up finds nothing using
-  it; the clean-up keeps whatever the clipboard holds. A `clipboard.json`
+  it; the clean-up keeps whatever the clipboard holds. `DELETE ?toss=1` (the
+  buffer's TOSS) keeps what it held aside, a root for the clean-up until the
+  next toss, and `POST /api/clipboard/restore` brings it back (409 when
+  nothing was tossed). A `clipboard.json`
   that can't be read is reported by `GET` as `error`, and kept from the
   clean-up (every copy is) until `DELETE` clears it.
 
@@ -1442,8 +1475,9 @@ a pool file, as a tape clip is:
     ring, clamped as the clipboard's is.
   - `{"tape": id, "clip": id}` keeps a clip of the loaded tape, by reference:
     nothing is copied.
-  - `{"clipboard": true}` keeps the clipboard, by reference, when it holds one
-    clip (400 otherwise).
+  - `{"clipboard": true}` keeps the clipboard, by reference, a clip per
+    track when each holds one clip its whole length (400 otherwise); `clips`
+    lists them all.
 
   404 for no such take; 400 for a span not in it; 507 for low disk.
 - `PATCH ?id=` takes `{"name": "…"}` (1–120 characters) or

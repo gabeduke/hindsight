@@ -270,6 +270,31 @@ the crate again after the ribbon's Keep as clip.
 - `studio.js` — mounts the templates and drives them with Capture's modules.
 - `keep.js` — KEEP's request and its Undo, and Flag now's.
 
+### The buffer
+
+`web/static/lib/buffer/` is the Studio's buffer
+(`docs/superpowers/specs/2026-10-15-studio-buffer-design.md`): the clipboard,
+made visible. `studio.js` mounts it, so it exists only with the flag on; its
+markup is `tape.html`'s `buffer-` templates. On the Pi it is the clipboard
+with a `grab` on it (`internal/tape/grab.go`): GRAB copies a span of the
+ring there at once, by Catch's own arithmetic for the last N bars, with
+handles of a bar either side; the window is trimmed in place; a grab never
+dropped or kept goes to the crate before anything replaces it.
+
+It speaks to the tape page in events too: it reads `hindsight:tape-state`
+(which carries the tape, the armed track and its input, the sources, the
+snap and the lanes' view), and sends `hindsight:tape-changed` after a drop,
+`hindsight:clipboard` after any change to the clipboard, and
+`hindsight:crate-changed` when an unused buffer went to the crate. It draws
+over the lanes only in a layer of its own (`lanes.js`); folding them is a
+class on the body (`fold.js`), which changes heights and nothing else.
+
+- `buffer.js` — mounts it and drives it: GRAB, the bench or the sheet, DROP,
+  KEEP AS TAKE, TOSS.
+- `model.js` — the numbers, tested: the next free span, the window's steps.
+- `keys.js` — the buffer's keys, as a table for P3's control bus to fold in.
+- `draw.js`, `lanes.js`, `fold.js`, `audition.js`, `api.js`.
+
 ## The object library
 
 `web/static/lib/objects/` holds the physical things the app draws, one

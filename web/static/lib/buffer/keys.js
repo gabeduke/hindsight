@@ -48,13 +48,16 @@ export function typingInto(el) {
   return tag === 'input' && el.type !== 'range';
 }
 
-// A focused control's own Enter (or a slider's arrows) is the control's.
-const OWN_ENTER = 'button, a, input, select, textarea, [role="slider"], [role="menuitem"], [tabindex]';
+// Where ↵ belongs to what has the focus: a link, a menu's item, anything in
+// a sheet or a menu, and the buffer's own keys (↵ on TOSS tosses). Not the
+// tape page's other keys: ▶ keeps the focus after it's clicked, and ↵ there
+// would stop the tape mid-jam instead of dropping.
+const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab';
 
 /**
  * blocked says the page isn't the buffer's to answer: a key typed into a
  * field; a sheet open over the page (Settings, a flag's, Releases); the
- * keys inside the inspector; or ↵ on a focused control, which presses it.
+ * keys inside the inspector; or ↵ where the focus has a use for it.
  * (Play mode, which owns the keyboard while it's open, stops every key at
  * the document before it gets here: see bindBufferKeys.)
  */

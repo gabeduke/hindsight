@@ -49,7 +49,7 @@ function writePick(n) { try { localStorage.setItem(PICK_KEY, String(n)); } catch
  * Studio hands it its feed and the feed's row of keys. It returns null
  * without them.
  */
-export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toast = defaultToast } = {}) {
+export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon = null, toast = defaultToast } = {}) {
   const tpl = (id) => doc.getElementById(id)?.content;
   if (!keysRow || !feed || !tpl('buffer-panel-tpl') || !tpl('buffer-grab-tpl')) return null;
   keysRow.prepend(tpl('buffer-grab-tpl').cloneNode(true));
@@ -59,6 +59,16 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   const $ = (id) => doc.getElementById(id);
   const body = doc.body;
   const grabRow = keysRow.querySelector('.buffer-grab');
+  // From 1100 px the feed's keys sit beside its heading, over the meters:
+  // GRAB goes at the heading's end instead, so the ribbon keeps its width;
+  // narrower, the keys have a row of their own, and GRAB leads it. Moved,
+  // not reordered in CSS, so the tab order is the order on screen.
+  if (head && typeof matchMedia === 'function') {
+    const wide = matchMedia('(min-width: 1100px)');
+    const place = () => (wide.matches ? head.append(grabRow) : keysRow.prepend(grabRow));
+    wide.addEventListener('change', place);
+    place();
+  }
   const el = {
     panel: $('buffer'),
     notch: $('buffer').querySelector('.buffer-notch'),
@@ -89,6 +99,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     unit: grabRow.querySelector('.buffer-grab-unit'),
     grab: grabRow.querySelector('.buffer-grab-key'),
     grabWord: grabRow.querySelector('.buffer-grab-word'),
+    grabN: grabRow.querySelector('.buffer-grab-n'),
     reopen: grabRow.querySelector('.buffer-reopen'),
     grabSel: doc.querySelector('.buffer-grab-sel'),
   };
@@ -279,8 +290,10 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
         audition.stop();
         render();
         doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'));
-        // The lanes unfold first; then the new block glows once, where it is.
+        // The lanes unfold first; then the new block glows once, where it
+        // is -- on a phone, where its lane is brought into sight.
         requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (sheetMode()) doc.querySelectorAll('#lanes > .tape-track')[track - 1]?.scrollIntoView({ block: 'nearest' });
           overlay.glow(boxesFor(doc, { track, count, at, frames: b.frames, view: st.detail?.view || d.view }));
         }));
         const what = count > 1 ? `tracks ${track}–${track + count - 1}` : `track ${track}`;
@@ -470,6 +483,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     const hasGrid = !!d?.tape?.grid;
     const k = grabKey(st.n, hasGrid);
     el.grabWord.textContent = st.grabbing ? 'Grabbing…' : k.word;
+    // Where the picker is out of sight (a phone, the buffer open), the key says how much.
+    el.grabN.textContent = st.grabbing || !hasGrid ? '' : ` ${st.n} bar${st.n === 1 ? '' : 's'}`;
     el.grab.setAttribute('aria-label', st.grabbing ? 'Grabbing' : k.label);
     el.grab.disabled = st.grabbing;
     for (const btn of el.picks.children) {

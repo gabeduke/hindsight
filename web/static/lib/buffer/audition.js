@@ -9,7 +9,7 @@ export class Audition {
   /**
    * @param {{onChange?: () => void, fetchImpl?: typeof fetch, Ctx?: typeof AudioContext}} [o]
    */
-  constructor({ onChange = () => {}, fetchImpl = globalThis.fetch, Ctx = globalThis.AudioContext || globalThis.webkitAudioContext } = {}) {
+  constructor({ onChange = () => {}, fetchImpl = (...a) => globalThis.fetch(...a), Ctx = globalThis.AudioContext || globalThis.webkitAudioContext } = {}) {
     this.onChange = onChange;
     this.fetchImpl = fetchImpl;
     this.Ctx = Ctx;

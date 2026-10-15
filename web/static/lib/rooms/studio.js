@@ -297,7 +297,9 @@ export function mountStudio(doc = document) {
 
   // The buffer (lib/buffer, step P2): GRAB beside KEEP, and what it grabs
   // between the feed and the lanes.
-  const buffer = mountBuffer(doc, { feed: main.querySelector('.studio-feed'), keysRow: main.querySelector('.studio-keys'), ribbon, toast });
+  const buffer = mountBuffer(doc, {
+    feed: main.querySelector('.studio-feed'), head: main.querySelector('.studio-feed-head'), keysRow: main.querySelector('.studio-keys'), ribbon, toast,
+  });
 
   return { ribbon, buffer };
 }

@@ -1756,6 +1756,33 @@ kept*), open the crate on that take's clips: **from … ×** shows them all agai
 - [demo] **Split here** with the playhead at the very start → it says to put
   the playhead inside the take.
 
+### 8.12 The Studio's buffer (a preview)
+
+*With the two rooms on (Settings › This device › Two rooms).* The Studio
+puts a buffer between the feed and the tape: the clipboard, out where you
+can work on it.
+
+- **GRAB** (or **G**), beside Keep on the feed, copies the last 1, 2, 4 or 8
+  bars you played into it -- with no tempo yet, twice as many seconds -- or,
+  on the ribbon's selection bar, exactly the span you held. It's a copy, with
+  a bar either side, so the ring can't overwrite it while you work.
+- The buffer opens, and the lanes fold to strips to make room (**Unfold**
+  gives them their height back). Pick the inputs it holds -- two make two
+  lanes, dropped on neighbouring tracks -- and drag **IN** and **OUT**, or
+  move them with **[ ]** and **⇧[ ⇧]** a step of the snap (⌗) at a time.
+  **Audition** loops it here, never through the Pi.
+- **DROP ON TRACK N** (or **↵**) lays it on the armed track at the next free
+  span after the next bar line, wrapping round the loop; or drag it by its
+  grip onto any lane. One undo puts it back in the buffer; **↵** again drops
+  another copy further on.
+- **KEEP AS TAKE** (**K**) saves it on the Listening Room's shelf, at the
+  tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
+- Nothing grabbed is lost by grabbing again: a buffer you never dropped or
+  kept goes into the crate first.
+
+On a phone the buffer is a sheet: pull its grip up or down, or hold it and
+drag it up onto a lane to drop it there.
+
 ## 9. Tips in the app
 
 *Step 3 for takes, step 6 for tapes.*

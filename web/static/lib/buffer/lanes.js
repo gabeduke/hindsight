@@ -91,9 +91,22 @@ export function boxesFor(doc, { track, count, at, frames, view }) {
     const row = rs[track - 1 + k];
     const cv = row && row.querySelector('.tt-lane');
     if (!cv) break;
-    out.push(spanBox(cv.getBoundingClientRect(), view, at, frames));
+    const b = clip(spanBox(cv.getBoundingClientRect(), view, at, frames), row.closest('main'), doc.getElementById('np'));
+    if (b) out.push(b);
   }
   return out;
+}
+
+// clip keeps a box to what shows of its lane: inside the lanes' scroller,
+// and above the now-playing bar, which is docked over a phone's page -- a
+// lane scrolled out of sight has no ghost over the page's foot.
+function clip(b, scroller, bar) {
+  let lo = 0, hi = Infinity;
+  if (scroller) { const v = scroller.getBoundingClientRect(); lo = v.top; hi = v.bottom; }
+  if (bar && bar.getClientRects().length) hi = Math.min(hi, bar.getBoundingClientRect().top);
+  const top = Math.max(b.top, lo), bottom = Math.min(b.top + b.height, hi);
+  if (bottom - top < 2 || b.width <= 0) return null;
+  return { ...b, top, height: bottom - top };
 }
 
 /**

@@ -74,8 +74,12 @@ test('never while typing in a field, or under a sheet', () => {
   assert.equal(blocked({ code: 'KeyG', target: el('div') }, fakeDoc({ dialogs: [sheet] })), true);
   assert.equal(blocked({ code: 'KeyG', target: el('div') }, fakeDoc({ dialogs: [inspector] })), false);
   assert.equal(blocked({ code: 'KeyG', target: el('div', { inside: 'dialog.inspector' }) }, doc), true);
-  // ↵ on a focused button presses it; on the page, it's the buffer's.
-  assert.equal(blocked({ code: 'Enter', target: el('button') }, doc), true);
+  // ↵ on a link, a menu item or the buffer's own keys is theirs; on the page,
+  // or on ▶ still focused from a click, it's the buffer's DROP.
+  assert.equal(blocked({ code: 'Enter', target: el('a', { inside: 'a[href]' }) }, doc), true);
+  assert.equal(blocked({ code: 'Enter', target: el('button', { inside: '.buffer-panel' }) }, doc), true);
+  assert.equal(blocked({ code: 'Enter', target: el('button', { inside: '[role="menuitem"]' }) }, doc), true);
+  assert.equal(blocked({ code: 'Enter', target: el('button') }, doc), false);
   assert.equal(blocked({ code: 'Enter', target: el('body') }, doc), false);
 });
 
