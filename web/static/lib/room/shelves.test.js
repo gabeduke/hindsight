@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roomShelves, inMonth, monthKey, monthWords, monthName, NEW_MS, isRecord, filterWords, playOrder } from './shelves.js';
+import { roomShelves, inMonth, monthKey, monthWords, monthName, NEW_MS, filterWords, playOrder } from './shelves.js';
 
 // Mid-October, local time, so a month boundary is never a timezone away.
 const NOW = new Date(2026, 9, 15, 12, 0, 0).getTime();
@@ -53,23 +53,6 @@ test('a tape’s mixdowns fold into the newest of them, as the rack folds them',
   assert.deepEqual(s.month.spines[0].members.map((m) => m.name), ['jam_m1.wav']);
 });
 
-test('records stand only on the Records shelf, newest cut first', () => {
-  const takes = [
-    take('jam_a.wav', iso(2026, 10, 2)),
-    take('jam_r1.wav', iso(2026, 9, 2), { record: { cut: '2026-10-01T10:00:00Z', side: 'A', cover: 2 } }),
-    take('jam_r2.wav', iso(2026, 10, 5), { record: { cut: '2026-10-12T10:00:00Z', side: 'A', cover: 0 } }),
-    // A record cut from a take: the take still stands; the record isn't folded into it.
-    take('jam_r3.wav', iso(2026, 10, 6), { source: { name: 'jam_a.wav', start_frame: 0, end_frame: 9 }, record: { cut: '2026-10-06T10:00:00Z', side: 'A', cover: 1 } }),
-  ];
-  const s = roomShelves(takes, null, {}, NOW);
-  assert.deepEqual(s.records.map((t) => t.name), ['jam_r2.wav', 'jam_r3.wav', 'jam_r1.wav']);
-  assert.deepEqual(s.month.spines.map((x) => x.take.name), ['jam_a.wav']);
-  assert.deepEqual(s.month.spines[0].members, [], 'a record is not a cut on the takes shelf');
-  assert.deepEqual(s.archive, [], 'nor a box in the archive');
-  assert.ok(!inMonth(takes, '2026-09').has('jam_r1.wav'));
-  assert.ok(isRecord(takes[1]) && !isRecord(takes[0]));
-});
-
 test('NEW is a take under a day old', () => {
   const takes = [
     take('jam_fresh.wav', new Date(NOW - NEW_MS + 60000).toISOString()),
@@ -84,13 +67,11 @@ test('the search is the rack’s filter, on every shelf, and on tapes by name', 
     take('jam_a.wav', iso(2026, 10, 2), { label: 'bento loop', starred: true }),
     take('jam_b.wav', iso(2026, 10, 3), { label: 'guitar' }),
     take('jam_c.wav', iso(2026, 8, 3), { label: 'bento old' }),
-    take('jam_r.wav', iso(2026, 10, 4), { label: 'bento record', record: { cut: '2026-10-04T00:00:00Z', side: 'A', cover: 0 } }),
   ];
   const tapes = { loaded: 't2', tapes: [{ id: 't1', name: 'Bento jam' }, { id: 't2', name: 'Tuesday groove' }] };
   const s = roomShelves(takes, tapes, { query: 'bento' }, NOW);
   assert.deepEqual(s.month.spines.map((x) => x.take.name), ['jam_a.wav']);
   assert.deepEqual(s.archive.map((b) => b.key), ['2026-08']);
-  assert.deepEqual(s.records.map((t) => t.name), ['jam_r.wav']);
   assert.deepEqual(s.tapes.map((t) => [t.id, t.loaded]), [['t1', false]]);
   const starred = roomShelves(takes, tapes, { starred: true }, NOW);
   assert.deepEqual(starred.month.spines.map((x) => x.take.name), ['jam_a.wav']);
@@ -122,10 +103,21 @@ test('Play all from here walks the shelf it starts on, and nothing past it', () 
     take('jam_a.wav', iso(2026, 10, 2)),
     take('jam_b.wav', iso(2026, 10, 9)),
     take('jam_old.wav', iso(2026, 9, 9)),
-    take('jam_r.wav', iso(2026, 10, 5), { record: { cut: '2026-10-06T00:00:00Z', side: 'A', cover: 0 } }),
   ];
   const s = roomShelves(takes, null, {}, NOW);
-  assert.deepEqual(playOrder(s, 'jam_b.wav'), ['jam_b.wav', 'jam_a.wav'], 'no record, no older month');
-  assert.deepEqual(playOrder(s, 'jam_r.wav'), ['jam_r.wav']);
+  assert.deepEqual(playOrder(s, 'jam_b.wav'), ['jam_b.wav', 'jam_a.wav'], 'no older month');
   assert.deepEqual(playOrder(s, 'jam_old.wav'), ['jam_old.wav']);
+});
+
+test('a take once marked as a record (Meta.Record) is an ordinary take: a cut folds into its source, and nothing is split off', () => {
+  const marked = { cut: '2026-10-01T10:00:00Z', side: 'A', cover: 2 };
+  const takes = [
+    take('jam_a.wav', iso(2026, 10, 2)),
+    take('jam_r.wav', iso(2026, 10, 6), { source: { name: 'jam_a.wav', start_frame: 0, end_frame: 9 }, record: marked }),
+    take('jam_m.wav', iso(2026, 10, 5), { record: marked }),
+  ];
+  const s = roomShelves(takes, null, {}, NOW);
+  assert.deepEqual(s.month.spines.map((x) => x.take.name), ['jam_m.wav', 'jam_a.wav']);
+  assert.deepEqual(s.month.spines[1].members.map((m) => m.name), ['jam_r.wav'], 'the cut stands with its take');
+  assert.ok(inMonth(takes, '2026-10').has('jam_r.wav'));
 });

@@ -32,9 +32,9 @@ const PAIRS = [
   ['words on the wall, where it’s lightest', '--room-ink-dim', '--room-wall-hi'],
   ['a shelf’s brass plate, light end', '--room-plate-ink', '--room-plate-hi'],
   ['a shelf’s brass plate, dark end', '--room-plate-ink', '--room-plate-lo'],
-  ['PUT IT ON, SIT DOWN, CUT A RECORD', '--room-plate-ink', '--room-ink'],
+  ['PUT IT ON, SIT DOWN', '--room-plate-ink', '--room-ink'],
   ['a tape’s masking tape', '--marker', '--room-mask'],
-  ['a month box’s card, a sleeve’s name', '--marker', '--room-card'],
+  ['a month box’s card', '--marker', '--room-card'],
   ['a cassette’s name', '--paper-ink', '--paper-hi'],
   ['a cassette’s name, at its edge', '--paper-ink', '--paper-lo'],
   ['NEW, a note’s number, a grease mark', '--paper-ink', '--grease-mark'],
@@ -45,7 +45,7 @@ const PAIRS = [
   ['the sketchbook’s words, on a rule', '--room-paper-ink', '--room-paper-rule'],
   ['the sketchbook’s second hand', '--room-paper-dim', '--room-paper'],
   ['the deck’s name on masking tape', '--marker', '--room-mask'],
-  ['words inside the shelves (an empty shelf, room for the next)', '--room-ink-dim', '--room-walnut-deep'],
+  ['words inside the shelves (an empty shelf)', '--room-ink-dim', '--room-walnut-deep'],
   ['a cassette’s date, on a phone', '--room-ink-dim', '--cas-mid'],
 ];
 

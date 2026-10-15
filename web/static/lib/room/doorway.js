@@ -9,21 +9,19 @@
 // mount.js), so nothing the rack does is lost and nothing is done twice.
 //
 // What it draws, in reading order, as a screen reader meets it: the shelves
-// (tapes, this month's takes, the archive by month, records), each a list of
-// buttons; then the hi-fi -- the deck, the turntable -- and the sketchbook,
-// each a button; then the dock, which is the bar. The wall, the lamp, the
+// (tapes, this month's takes, the archive by month), each a list of
+// buttons; then the hi-fi -- the deck -- and the sketchbook, each a button; then the dock, which is the bar. The wall, the lamp, the
 // window, the rug and the chair are decoration, hidden from it. Without the
 // room to draw them (a phone, or reduced data asked for), the shelves are
 // rows.
 
-import { roomShelves, inMonth, monthName, monthKey, isRecord, at, filterWords, playOrder } from './shelves.js';
-import { putTapeOn, loadTape, readyToCut } from './swap.js';
-import { cutTakeRecord, cutTapeRecord, takeCover, tapeCover } from './record.js';
+import { roomShelves, inMonth, monthName, monthKey, at, filterWords, playOrder } from './shelves.js';
+import { putTapeOn, loadTape } from './swap.js';
 import { sendToStudio, fmtAt } from './notes.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick, playheadFor } from '../rooms/grab.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
 import { tagStore } from '../tags.js';
-import { stripeFor } from '../objects/cassette-geom.js';
+import { stripeFor, stripeOf } from '../objects/cassette-geom.js';
 
 // audio.MaxRenderSeconds: the Pi renders an MP3 or a DAW bundle of at most
 // this much. A longer take is shared from the chair, a part at a time.
@@ -62,7 +60,6 @@ function whenOf(t, now = Date.now()) {
 }
 /** fromOf is where a take came from, for its card. */
 function fromOf(t) {
-  if (t.record) return 'a record';
   if (t.origin === 'tape') return 'a mixdown';
   if (t.origin === 'phone') return 'from a phone';
   if (t.source) return 'a cut';
@@ -114,8 +111,8 @@ export function mount(h) {
     el('span', 'room-speaker'),
     el('span', 'room-sidetable', {}, el('span', 'room-glass'), el('span', 'room-pencil')));
 
-  // A shelf: its plate, the list on it, and -- for takes and records -- a
-  // key that opens it as today's rack, where Select and Play all are.
+  // A shelf: its plate, the list on it, and -- for takes -- a key that opens
+  // it as today's rack, where Select and Play all are.
   const shelf = (key, label, asList = null) => {
     const h3 = el('h3', 'room-plate', { id: `room-${key}-h` });
     // The section is named by its plate; the list in it needs no second name.
@@ -131,9 +128,6 @@ export function mount(h) {
   const takesEmpty = el('p', 'room-empty', { text: 'Nothing kept this month yet. KEEP in the Studio puts a take on this shelf.' });
   takesShelf.sec.append(takesEmpty);
   const archiveShelf = shelf('archive', 'ARCHIVE');
-  const recordsShelf = shelf('records', 'RECORDS', 'The records as a list, to select or play');
-  const nextOne = el('p', 'room-next', { text: 'room for the next one you cut' });
-  recordsShelf.sec.append(nextOne);
   // A filter left on (the rack's, remembered on this device) says so here:
   // otherwise the shelves just look empty.
   const filterText = el('span', 'room-filtered-text');
@@ -141,7 +135,7 @@ export function mount(h) {
   const filterBar = el('p', 'room-filtered', { hidden: true }, filterText, filterClear);
   filterClear.addEventListener('click', () => { h.clearFilter(); takesShelf.list.querySelector('button')?.focus(); });
   const shelves = el('div', 'room-shelves', { role: 'group', 'aria-label': 'The shelves' },
-    filterBar, tapesShelf.sec, takesShelf.sec, archiveShelf.sec, recordsShelf.sec);
+    filterBar, tapesShelf.sec, takesShelf.sec, archiveShelf.sec);
 
   // The deck: what's in the bar (a take, or the tape loaded on the Pi).
   const deckLcd = el('span', 'room-deck-lcd', { 'aria-hidden': 'true' });
@@ -154,22 +148,11 @@ export function mount(h) {
   const deckBar = el('span', 'room-deck-progress', { 'aria-hidden': 'true' }, el('span', 'room-deck-progress-fill'));
   const deck = el('section', 'room-deck', { 'aria-label': 'The deck' }, deckArt, deckPlace, deckMeta, deckPlay, deckSit, deckBar);
 
-  // The turntable: a record in the bar, and the cutting of one.
-  const ttArm = el('span', 'room-tt-arm');
-  const ttVinyl = el('span', 'room-tt-vinyl');
-  const ttArt = el('span', 'room-tt-art', { 'aria-hidden': 'true' }, ttVinyl, ttArm);
-  const ttPlace = el('button', 'room-place room-tt-place', { type: 'button', 'data-tip': 'room-turntable' });
-  const ttStart = el('button', 'room-tt-start', { type: 'button', 'aria-label': 'Start the record', hidden: true }, '▶');
-  const cutBar = el('progress', 'room-cut-bar', { max: '1' });
-  const cutWords = el('span', 'room-cut-words', { role: 'status' });
-  const cutting = el('div', 'room-cutting', { hidden: true }, cutBar, cutWords);
-  const turntable = el('section', 'room-turntable', { 'aria-label': 'The turntable' }, ttArt, ttPlace, ttStart, cutting);
-
   // The sketchbook, on the side table: the chair, for what's on the deck.
   const bookPlace = el('button', 'room-place room-book-place', { type: 'button', 'data-tip': 'room-book' });
   const book = el('section', 'room-book', { 'aria-label': 'The sketchbook' }, bookPlace);
 
-  const stage = el('div', 'room-stage', {}, deck, turntable, book);
+  const stage = el('div', 'room-stage', {}, deck, book);
   const room = el('section', 'room', { 'aria-label': 'The Listening Room' }, scene, shelves, stage);
   (tools || main.firstChild)?.after(room);
 
@@ -189,10 +172,10 @@ export function mount(h) {
       askText,
       el('div', 'sheet-actions', {}, askNo, askYes)));
   body.append(ask);
-  const askFirst = (question, kind = 'swap') => new Promise((resolve) => {
+  const askFirst = (question) => new Promise((resolve) => {
     askText.textContent = question;
-    askNo.textContent = kind === 'cut' ? 'Not now' : 'Leave it';
-    askYes.textContent = kind === 'cut' ? 'Cut it' : 'Swap it';
+    askNo.textContent = 'Leave it';
+    askYes.textContent = 'Swap it';
     ask.returnValue = 'no';
     ask.addEventListener('close', () => resolve(ask.returnValue === 'yes'), { once: true });
     ask.showModal();
@@ -203,7 +186,6 @@ export function mount(h) {
   const tapeMeta = el('p', 'room-card-meta');
   const tapePut = el('button', 'room-put', { type: 'button', value: 'put' }, 'PUT IT ON');
   const tapeStudio = el('button', 'room-studio', { type: 'button' }, 'TO THE STUDIO');
-  const tapeCut = el('button', 'icon-btn room-cut', { type: 'button', 'data-tip': 'room-cut' }, 'Cut a record');
   const tapeSit = el('a', 'icon-btn room-card-sit', { href: '/wave.html', 'data-tip': 'room-sit' }, 'Sit down with it ›');
   const tapeClose = el('button', 'icon-btn', { type: 'button', value: 'close' }, 'Close');
   const tapeCard = el('dialog', 'sheet room-tapecard', { 'aria-labelledby': 'room-tape-h' },
@@ -211,7 +193,7 @@ export function mount(h) {
       el('div', 'room-card-head', {}, el('span', 'room-card-reel', { 'aria-hidden': 'true' }), tapeName),
       tapeMeta,
       el('div', 'room-card-keys', {}, tapePut, tapeStudio),
-      el('div', 'room-card-more', {}, tapeCut, tapeSit),
+      el('div', 'room-card-more', {}, tapeSit),
       el('div', 'sheet-actions', {}, tapeClose)));
   body.append(tapeCard);
   tapeClose.addEventListener('click', () => tapeCard.close());
@@ -224,13 +206,12 @@ export function mount(h) {
   // (lib/rooms/grab.js); a take's saved selection, if it has one, instead.
   const toStudio = el('button', 'room-studio', { type: 'button', 'data-tip': 'room-studio' }, 'GRAB');
   const playAll = el('button', 'icon-btn room-playall', { type: 'button', 'data-tip': 'play-all' }, '▶ Play all from here');
-  const cutBtn = el('button', 'icon-btn room-cut', { type: 'button', 'data-tip': 'room-cut' }, 'Cut a record');
   const mp3 = el('a', 'icon-btn room-mp3', { download: true, 'data-tip': 'share' }, 'MP3');
   const bundle = el('a', 'icon-btn room-bundle', { download: true, 'data-tip': 'bundle' }, 'DAW bundle');
   const longNote = el('p', 'room-card-note', { hidden: true, text: 'Over ten minutes: sit down with it and pick a part to share as an MP3 or a bundle.' });
   const card = el('div', 'room-card room-takecard', { role: 'group', 'aria-label': 'Put it on' },
     el('div', 'room-card-keys', {}, put, toStudio),
-    el('div', 'room-card-more', {}, playAll, cutBtn, mp3, bundle),
+    el('div', 'room-card-more', {}, playAll, mp3, bundle),
     longNote);
   det.el('.detail-head').before(card);
   det.el('.sheet-back').textContent = '‹ Back on the shelf';
@@ -249,7 +230,6 @@ export function mount(h) {
   let tapeList = null; // GET /api/tapes: {loaded, tapes}, or null with the tape off
   let hadTape = false; // the bar had a tape when the page opened: it follows a new one
   let month = null; // the archive's month opened to the rack: {key, title}
-  let cut = null; // a record being cut: {what, frac, words}
   let lastSig = '';
 
   Promise.resolve(h.tapes).then((list) => {
@@ -268,16 +248,15 @@ export function mount(h) {
   setInterval(() => { if (!document.hidden && tapeList) refreshTapes(); }, TAPES_EVERY_MS);
 
   const takeByName = (name) => h.takes.all.find((t) => t.name === name) || null;
-  // What's in the bar: a take, a record (the turntable's), or the tape.
+  // What's in the bar: a take, or the tape.
   function inBar() {
     const name = h.np?.takeName;
     const t = name ? takeByName(name) : null;
     const loaded = tapeList && tapeList.loaded ? (tapeList.tapes || []).find((x) => x.id === tapeList.loaded) || { id: tapeList.loaded, name: 'the tape' } : null;
     return {
-      deck: t && !isRecord(t) ? { kind: 'take', take: t } : loaded ? { kind: 'tape', tape: loaded } : null,
-      table: t && isRecord(t) ? t : null,
+      deck: t ? { kind: 'take', take: t } : loaded ? { kind: 'tape', tape: loaded } : null,
       // The bar shows the tape when it holds no take.
-      barKind: t ? (isRecord(t) ? 'record' : 'take') : loaded ? 'tape' : null,
+      barKind: t ? 'take' : loaded ? 'tape' : null,
     };
   }
   const chairFor = (thing) => (thing.kind === 'tape'
@@ -304,7 +283,7 @@ export function mount(h) {
   }
   function tapeButton(s) {
     const len = fmtLen(s.seconds);
-    const b = el('button', `room-reel box-${tapeCover(s.id) % 4 + 1}${s.loaded ? ' loaded' : ''}`, {
+    const b = el('button', `room-reel box-${stripeOf(String(s.id || '')) % 4 + 1}${s.loaded ? ' loaded' : ''}`, {
       type: 'button', 'data-key': `tape:${s.id}`, 'aria-haspopup': 'dialog',
       'aria-label': `${s.name || 'untitled'}, a tape, ${len}${s.bpm ? `, ${Math.round(s.bpm)} BPM` : ''}${s.loaded ? ', on the Studio’s deck' : ''}`,
     }, el('span', 'room-reel-label', { 'aria-hidden': 'true', text: s.name || 'untitled' }));
@@ -317,30 +296,17 @@ export function mount(h) {
     b.addEventListener('click', () => openMonth(m));
     return el('li', '', {}, b);
   }
-  function sleeveButton(t, onTable) {
-    const name = spineTitle(t);
-    const cover = t.record && t.record.cover;
-    const pulled = h.sheetOpen() === t.name;
-    const b = el('button', `room-sleeve cover-${cover || 0}${pulled ? ' pulled' : ''}${onTable ? ' on-table' : ''}`, {
-      type: 'button', 'data-key': `record:${t.name}`, 'aria-haspopup': 'dialog', 'aria-expanded': String(pulled),
-      'aria-label': `${name}, a record, side ${t.record.side || 'A'}, ${fmtLen(t.duration_seconds)}${onTable ? ', on the turntable' : ''}`,
-    }, el('span', 'room-sleeve-disc', { 'aria-hidden': 'true' }), el('span', 'room-sleeve-name', { 'aria-hidden': 'true', text: name }));
-    b.addEventListener('click', () => pickTake(t.name));
-    return el('li', '', {}, b);
-  }
-
   function render() {
     const now = Date.now();
     const s = roomShelves(h.takes.all, tapeList, h.opts(), now);
     const bar = inBar();
     const onDeck = bar.deck?.kind === 'take' ? bar.deck.take.name : null;
-    const onTable = bar.table?.name || null;
     // A poll that changes nothing must not rebuild what's under a finger.
     const sig = JSON.stringify([
       s.tapes?.map((t) => [t.id, t.name, t.loaded, t.seconds]),
       s.month.spines.map((x) => [x.take.name, x.take.label, x.take.starred, x.take.tag, x.isNew, x.members.length, x.take.duration_seconds]),
-      s.archive.map((b) => b.plate), s.records.map((t) => [t.name, t.label, t.record.cover]),
-      h.sheetOpen(), onDeck, onTable, tagStore.list.map((g) => `${g.id}:${g.color}`), monthName(now),
+      s.archive.map((b) => b.plate),
+      h.sheetOpen(), onDeck, tagStore.list.map((g) => `${g.id}:${g.color}`), monthName(now),
       filterWords(h.opts(), tagStore.list),
     ]);
     renderPlaces(bar);
@@ -363,13 +329,10 @@ export function mount(h) {
       ? 'No takes this month match. Show everything to see them all.'
       : 'Nothing kept this month yet. KEEP in the Studio puts a take on this shelf.';
     if (takesShelf.listBtn) takesShelf.listBtn.hidden = !s.month.spines.length;
-    if (recordsShelf.listBtn) recordsShelf.listBtn.hidden = !s.records.length;
     const archived = s.archive.reduce((n, b) => n + b.count, 0);
     archiveShelf.sec.hidden = !s.archive.length;
     archiveShelf.h3.textContent = `ARCHIVE · ${archived}`;
     archiveShelf.list.replaceChildren(...s.archive.map(boxButton));
-    recordsShelf.h3.textContent = `RECORDS · ${s.records.length}`;
-    recordsShelf.list.replaceChildren(...s.records.map((t) => sleeveButton(t, t.name === onTable)));
     if (focused) room.querySelector(`[data-key="${CSS.escape(focused)}"]`)?.focus();
     if (month) syncMonth();
   }
@@ -386,13 +349,13 @@ export function mount(h) {
     const pos = $('position')?.textContent || '';
     room.style.setProperty('--room-played', frac.toFixed(4));
     deckLcd.textContent = bar.deck ? pos || '00:00' : '--:--';
-    const sig = JSON.stringify([bar.deck && (bar.deck.take?.name || bar.deck.tape?.id), bar.deck?.tape?.name, bar.deck?.take?.label, bar.table?.name, bar.barKind, playing, cut && [cut.words, Math.round((cut.frac ?? -1) * 100)]]);
+    const sig = JSON.stringify([bar.deck && (bar.deck.take?.name || bar.deck.tape?.id), bar.deck?.tape?.name, bar.deck?.take?.label, bar.barKind, playing]);
     if (sig === placesSig) return;
     placesSig = sig;
     const d = bar.deck;
     const dName = d ? (d.kind === 'take' ? spineTitle(d.take) : d.tape.name) : '';
     deck.classList.toggle('empty', !d);
-    deck.classList.toggle('playing', playing && bar.barKind !== 'record' && !!d);
+    deck.classList.toggle('playing', playing && !!d);
     deckPlace.replaceChildren(el('span', 'room-led', { 'aria-hidden': 'true' }), d ? `On the deck: ${dName}` : 'The deck · empty');
     deckPlace.setAttribute('aria-label', d ? `On the deck: ${dName}, a ${d.kind}. Sit down with it` : 'The deck is empty: pick something off the shelf');
     deckMeta.textContent = d ? `${d.kind}${bar.barKind === d.kind ? '' : ' · not playing'}` : 'pick something off the shelf';
@@ -402,30 +365,16 @@ export function mount(h) {
     deckPlay.hidden = !d || bar.barKind !== d.kind;
     deckPlay.textContent = playing ? '❚❚' : '▶';
     deckPlay.setAttribute('aria-label', playing ? 'Pause' : 'Play');
-    const t = bar.table;
-    turntable.classList.toggle('empty', !t);
-    turntable.classList.toggle('playing', playing && !!t && bar.barKind === 'record');
-    turntable.style.setProperty('--room-cover', t ? `var(--stripe-${t.record.cover || 8})` : 'var(--room-vinyl-label)');
-    ttPlace.replaceChildren(t ? `Turntable: ${spineTitle(t)}` : cut ? 'Turntable · cutting' : 'Turntable · empty');
-    ttPlace.setAttribute('aria-label', t ? `On the turntable: ${spineTitle(t)}. Sit down with it` : 'The turntable is empty: pick a record off the shelf');
-    ttStart.hidden = !t;
-    ttStart.textContent = playing && t ? '■' : '▶';
-    ttStart.setAttribute('aria-label', playing && t ? 'Stop the record' : 'Start the record');
-    cutting.hidden = !cut;
-    if (cut) {
-      if (cut.frac == null) cutBar.removeAttribute('value'); else cutBar.value = cut.frac;
-      cutWords.textContent = `${cut.what}: ${cut.words}`;
-    }
     // The sketchbook: the notes of the take on the deck.
-    const bt = d && d.kind === 'take' ? d.take : t;
+    const bt = d && d.kind === 'take' ? d.take : null;
     const notes = bt ? (bt.flags || []).length : 0;
     const latest = bt ? [...(bt.flags || [])].filter((f) => f.label).sort((a, b) => b.frame - a.frame)[0] : null;
     bookPlace.replaceChildren(
       el('span', 'room-book-word', { text: 'Sketchbook' }),
       el('span', 'room-book-latest', { text: d && d.kind === 'tape' ? `${(d.tape.name || 'the tape')}` : latest ? `${fmtAt(latest.frame, bt.sample_rate || 48000)} · ${latest.label}` : bt ? 'no notes yet' : 'nothing on the deck' }),
       el('span', 'room-book-n', { 'aria-hidden': 'true', text: String(notes) }));
-    bookPlace.setAttribute('aria-label', d || t
-      ? `Sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${d ? dName : spineTitle(t)}. Sit down with it`
+    bookPlace.setAttribute('aria-label', d
+      ? `Sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${dName}. Sit down with it`
       : 'Sketchbook: nothing on the deck to write about yet');
     renderDock(bar);
   }
@@ -437,7 +386,7 @@ export function mount(h) {
   const grease = el('span', 'room-grease', { 'aria-hidden': 'true' }, el('i', 'room-grease-in'), el('i', 'room-grease-out'));
   $('np-scrub')?.after(grease);
   function renderDock(bar) {
-    const thing = bar.barKind === 'tape' ? bar.deck : bar.barKind === 'take' ? bar.deck : bar.table ? { kind: 'take', take: bar.table } : null;
+    const thing = bar.barKind ? bar.deck : null;
     sit.hidden = !thing;
     if (thing) sit.href = chairFor(thing);
     const t = thing && thing.kind === 'take' ? thing.take : null;
@@ -463,15 +412,9 @@ export function mount(h) {
     else focusShelf('.room-shelf-takes');
   });
   deckPlay.addEventListener('click', () => $('np-play')?.click());
-  ttPlace.addEventListener('click', () => {
-    const t = inBar().table;
-    if (t) location.href = chairFor({ kind: 'take', take: t });
-    else focusShelf('.room-shelf-records');
-  });
-  ttStart.addEventListener('click', () => $('np-play')?.click());
   bookPlace.addEventListener('click', () => {
     const b = inBar();
-    const thing = b.deck || (b.table && { kind: 'take', take: b.table });
+    const thing = b.deck;
     if (thing) location.href = chairFor(thing);
     else focusShelf('.room-shelf-takes');
   });
@@ -489,8 +432,7 @@ export function mount(h) {
     if (!t) return;
     paintGrab();
     loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); paintGrab(); });
-    const rec = isRecord(t);
-    put.setAttribute('aria-label', rec ? 'Put it on the turntable' : 'Put it on the deck');
+    put.setAttribute('aria-label', 'Put it on the deck');
     const sr = t.sample_rate || 48000;
     const frames = Math.floor((t.duration_seconds || 0) * sr);
     const short = (t.duration_seconds || 0) <= MAX_RENDER_S;
@@ -501,11 +443,9 @@ export function mount(h) {
       mp3.href = `/api/render?${q}`;
       bundle.href = `/api/bundle?${q}`;
     }
-    cutBtn.hidden = rec;
-    cutBtn.disabled = !!cut;
     playAll.textContent = h.playAll.running() ? '■ Stop Play all' : '▶ Play all from here';
   });
-  h.onClosed((from) => room.querySelector(`[data-key="take:${CSS.escape(from)}"], [data-key="record:${CSS.escape(from)}"]`)?.focus());
+  h.onClosed((from) => room.querySelector(`[data-key="take:${CSS.escape(from)}"]`)?.focus());
   h.onChange(() => { render(); if (cardTake) playAll.textContent = h.playAll.running() ? '■ Stop Play all' : '▶ Play all from here'; });
   tagStore.subscribe(() => render());
 
@@ -517,10 +457,9 @@ export function mount(h) {
     const name = cardTake.name;
     if (h.sheetOpen()) h.closeSheet();
     // The shelf it stands on, in the shelf's order: not the rack's, which
-    // would go on into the records and older months.
+    // would go on into older months.
     h.playAll.from(name, playOrder(roomShelves(h.takes.all, tapeList, h.opts()), name));
   });
-  cutBtn.addEventListener('click', () => { if (cardTake) cutFromTake(cardTake); });
 
   async function putOnTake(name) {
     const t = takeByName(name);
@@ -554,7 +493,6 @@ export function mount(h) {
     tapeName.textContent = s.name || 'untitled';
     tapeMeta.textContent = [fmtLen(s.seconds), s.bpm ? `${Math.round(s.bpm)} BPM` : '', `${s.clips || 0} clip${s.clips === 1 ? '' : 's'}`, s.loaded ? 'on the Studio’s deck' : ''].filter(Boolean).join(' · ');
     tapeSit.href = `/wave.html?tape=${encodeURIComponent(s.id)}`;
-    tapeCut.disabled = !!cut || !s.clips;
     tapeCard.showModal();
     tapePut.focus();
   }
@@ -589,48 +527,6 @@ export function mount(h) {
       toast(`Couldn’t load it in the Studio: ${e.message}`, 'bad');
     }
   });
-  tapeCut.addEventListener('click', () => { const s = cardTape; tapeCard.close(); if (s) cutFromTape(s); });
-
-  // --- cutting a record --------------------------------------------------------------
-  function setCut(next) { cut = next; placesSig = ''; renderPlaces(); }
-  async function cutFromTake(t) {
-    if (cut) return;
-    if (h.sheetOpen()) h.closeSheet();
-    const what = spineTitle(t);
-    setCut({ what, frac: null, words: 'cutting' });
-    try {
-      const r = await cutTakeRecord(t, { tags: tagStore.list });
-      toast(`${what} is on the Records shelf${r.cut ? ' (its selection, as a cut)' : ''}`, 'ok');
-      await h.poll();
-    } catch (e) {
-      toast(`The record wasn’t cut: ${e.message}`, 'bad');
-    } finally {
-      setCut(null);
-      render();
-    }
-  }
-  async function cutFromTape(s) {
-    if (cut) return;
-    try {
-      if (!(await readyToCut(s.id, { ask: askFirst }))) return;
-    } catch (e) {
-      toast(`The record wasn’t cut: ${e.message}`, 'bad');
-      return;
-    }
-    const what = s.name || 'the tape';
-    setCut({ what, frac: 0, words: 'starting' });
-    toast(`Cutting ${what}: the tape plays once on the Pi, then it’s saved. ■ in the dock stops it.`, 'ok', { ms: 6000 });
-    try {
-      await cutTapeRecord(s.id, { onProgress: (p) => setCut({ what, frac: p.state === 'playing' ? p.frac : null, words: p.words }) });
-      toast(`${what} is on the Records shelf`, 'ok');
-      await h.poll();
-    } catch (e) {
-      toast(`The record wasn’t cut: ${e.message}`, 'bad');
-    } finally {
-      setCut(null);
-      refreshTapes();
-    }
-  }
 
   // --- the archive: a month's box, opened to the rack ----------------------------------
   // `month` is what's open: {title, names(), back} -- a month's box, or a
@@ -664,15 +560,11 @@ export function mount(h) {
       h.setFilter(null);
     }).then(() => room.querySelector(`[data-key="${CSS.escape(back)}"]`)?.focus());
   });
-  // This month's takes, and the records, as today's rack: Select is there.
+  // This month's takes, as today's rack: Select is there.
   takesShelf.listBtn.addEventListener('click', () => {
     const key = monthKey(Date.now());
     const n = roomShelves(h.takes.all, tapeList, h.opts()).month.spines.length;
     openList({ title: `${monthName()}: ${n} take${n === 1 ? '' : 's'}`, back: 'list:takes', names: () => inMonth(h.takes.all, key, h.opts()) });
-  });
-  recordsShelf.listBtn.addEventListener('click', () => {
-    const records = () => new Set(roomShelves(h.takes.all, tapeList, h.opts()).records.map((t) => t.name));
-    openList({ title: `Records: ${records().size}`, back: 'list:records', names: records });
   });
 
   render();

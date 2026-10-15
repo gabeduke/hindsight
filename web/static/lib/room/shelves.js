@@ -1,15 +1,16 @@
 // web/static/lib/room/shelves.js
 // What stands on the Listening Room's shelves
 // (docs/superpowers/specs/2026-10-15-listening-room-design.md, "The
-// shelves"): the tapes, this month's takes, the archive by month, and the
-// records. Pure, so it is tested without a browser.
+// shelves"): the tapes, this month's takes, and the archive by month. Pure,
+// so it is tested without a browser.
 //
 // Takes fold into families exactly as the rack folds them (lib/shelf.js
 // fold): a cut stands with the take it was cut from, a tape's mixdowns with
 // the newest of them. A family stands on the shelf of its spine's month, so
 // a cut made this month from last month's take is in last month's box, as
-// it is under last month's day in the rack. A record stands only on the
-// Records shelf: a thing is in one place.
+// it is under last month's day in the rack. (There is no Records shelf any
+// more: a take that was marked a record, Meta.Record, is an ordinary take
+// here, on the shelf of its date.)
 
 import { fold, membersOf, matches } from '../shelf.js';
 
@@ -31,14 +32,6 @@ export function monthKey(ms) {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
-
-/** isRecord says whether a take is marked as a record (Meta.Record). */
-export const isRecord = (t) => !!(t && t.record);
-
-const recordAt = (t) => {
-  const w = t.record && t.record.cut ? Date.parse(t.record.cut) : NaN;
-  return Number.isNaN(w) ? at(t) : w;
-};
 
 /**
  * monthWords names a month's box: its plate ("SEP · 22", with the year when
@@ -62,26 +55,24 @@ export function monthName(now = Date.now()) {
 }
 
 /**
- * roomShelves sorts the takes and tapes onto the four shelves.
+ * roomShelves sorts the takes and tapes onto the shelves.
  *
  * takes is the takes list (GET /api/jams); tapes is GET /api/tapes's answer
  * ({loaded, tapes}), or null with the tape off; opts is the rack's filter
  * (lib/shelf.js matches), which the search applies to every shelf, and to
  * tapes by name.
  *
- * It answers {tapes, month, archive, records}:
+ * It answers {tapes, month, archive}:
  * - tapes: [{...summary, loaded}], newest first as the Pi lists them, or
  *   null when there are none to have;
  * - month: {key, spines: [{take, members, isNew}]}, this month's spines,
  *   newest first, each with the takes folded into it;
  * - archive: [{key, count, plate, title}], one box per earlier month, newest
- *   first, counting the spines in it;
- * - records: the records, newest cut first.
+ *   first, counting the spines in it.
  */
 export function roomShelves(takes, tapes, opts = {}, now = Date.now()) {
   const shown = takes.filter((t) => matches(t, opts));
-  const records = shown.filter(isRecord).sort((a, b) => recordAt(b) - recordAt(a));
-  const f = fold(shown.filter((t) => !isRecord(t)));
+  const f = fold(shown);
   const thisMonth = monthKey(now);
   const mine = [];
   const boxes = new Map();
@@ -104,16 +95,16 @@ export function roomShelves(takes, tapes, opts = {}, now = Date.now()) {
   const tapeShelf = tapes && Array.isArray(tapes.tapes)
     ? tapes.tapes.filter((s) => !q || (s.name || '').toLowerCase().includes(q)).map((s) => ({ ...s, loaded: s.id === tapes.loaded }))
     : null;
-  return { tapes: tapeShelf, month: { key: thisMonth, spines }, archive, records };
+  return { tapes: tapeShelf, month: { key: thisMonth, spines }, archive };
 }
 
 /**
  * inMonth is the names of the takes a month's box opens to in the rack:
  * every take whose family stands in that month (a cut with the take it was
- * cut from), and no record. The rack folds what it's given again itself.
+ * cut from). The rack folds what it's given again itself.
  */
 export function inMonth(takes, key, opts = {}) {
-  const rest = takes.filter((t) => matches(t, opts) && !isRecord(t));
+  const rest = takes.filter((t) => matches(t, opts));
   const f = fold(rest);
   const byName = new Map(rest.map((t) => [t.name, t]));
   const names = new Set();
@@ -145,13 +136,10 @@ export function filterWords(opts = {}, tags = []) {
 
 /**
  * playOrder is the order Play all from here walks in the room: the shelf
- * `name` stands on -- this month's takes, newest first, or the records --
- * and nothing past it. Just `name` if it stands on neither.
+ * `name` stands on -- this month's takes, newest first -- and nothing past
+ * it. Just `name` if it isn't among them.
  */
 export function playOrder(shelves, name) {
   const month = shelves.month.spines.map((x) => x.take.name);
-  if (month.includes(name)) return month;
-  const records = shelves.records.map((t) => t.name);
-  if (records.includes(name)) return records;
-  return [name];
+  return month.includes(name) ? month : [name];
 }

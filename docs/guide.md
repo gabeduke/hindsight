@@ -1546,6 +1546,12 @@ Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
     amber or green). It also has to fit in the recording buffer:
     `RING_SECONDS` less the tail and five seconds.
   - To share a song, mix it down and share the take.
+  - **With the two rooms on,** the same two items are **Bounce the loop** and
+    **Bounce the whole tape**, and they do the same thing. The toast that says
+    it is done has **▶**, which plays the new take on this device, and
+    **Open**, its page. **Last bounce**, under them, brings that toast back
+    for this tape's newest bounce once it has gone. A bounce is a take on its
+    tape's spine in the Listening Room; there are no records to cut.
 - **Export stems** downloads a zip:
   - a 32-bit float WAV for each track with audio, each from bar 1 to the end of
     the last clip on any track. They're all the same length, so they line
@@ -1563,6 +1569,9 @@ Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
   name, at its tempo.
 - [demo] Start a mixdown and press ■ → *The mixdown didn't save*, and no
   take appears.
+- [demo] With the two rooms on, ⋯ · **Bounce the loop** on a 1-bar tape → the
+  toast reads *Bounced as a take* with **▶** and **Open**; ▶ plays it. Open
+  the menu again → **Last bounce** shows the same toast.
 - [demo] Mix the same tape down three times → the takes page shows one spine
   for it, wearing **MIX ×3**, and its cassette lists the two earlier mixes.
 - [rig] Mix down with an FX on channel 1 → the take has the FX.
@@ -1975,12 +1984,10 @@ has no tip.
 | Rig (chip) | The rig: your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
 | Search the shelves | The rack's filter, over the shelves: names, tags and stars |
 | The deck (place) | What's on the deck. Press it to sit down with it |
-| The turntable (place) | Records play here. Press it to sit down with the one on it |
 | Sketchbook (place) | The notes on what's on the deck. Press it to sit down and write |
 | SIT DOWN | Into the chair with what's on the deck: the deck close up, and the sketchbook |
 | PUT IT ON | Plays it: a take here, on this device; a tape on the Pi, loaded first |
 | GRAB (a take) | Into the Studio's buffer, and the Studio opens: a take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
-| Cut a record | Makes it a record, on the Records shelf: a take, or its selection; a tape, mixed down |
 | Stand up | Out of the chair, back to the shelves |
 | The take on tape | The whole take, its notes in grease pencil. Tap to play from there |
 | ▸▸ | On five seconds |
@@ -2189,6 +2196,8 @@ has no tip.
 | Ask before Insert and Delete time | Under ⋯, on a touch screen: the first tap on Insert or Delete time shows what it will do, and the second does it. Turn it off to do it on the first |
 | Clone | Copy this whole tape. Costs no disk space |
 | Mix down | Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included |
+| Bounce | Play the loop, or the whole tape, once and keep what came out of the mixer as a take: FX and live playing included. Its toast has ▶ to hear it and Open for its page |
+| Last bounce | The newest take bounced from this tape: ▶ to hear it, Open for its page. For when the bounce's toast has gone |
 | Export stems | Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
 | Source chip | The input of the track the inspector shows (the record track's, while one is armed): what ● Rec and a catch take from it. Choosing one changes only that track. Its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too |

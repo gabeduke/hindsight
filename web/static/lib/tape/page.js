@@ -43,6 +43,7 @@ import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
+import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote } from '../rig/arm.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
@@ -755,6 +756,20 @@ function renderClock(c, t) {
 
 // --- mixdown and export ------------------------------------------------------
 
+// BOUNCE (lib/rooms/bounce.js): with the rooms on, the two Mix down items are
+// Bounce the loop / Bounce the whole tape -- the same buttons, the same
+// request -- the toast has ▶ and Open, and Last bounce raises it again. Off,
+// `bouncing` is null and everything below says what it always did.
+const bouncing = (() => {
+  const menu = bounceMenu(document, { rooms: ROOMS });
+  if (!menu) return null;
+  // Last bounce is the loaded tape's: the keeper drops another tape's the
+  // moment the tape differs, and asks the Pi as the menu opens (a bounce may
+  // have been made from another device).
+  const tapeNow = () => (state.tape ? { id: state.id, name: state.tape.name } : null);
+  return { menu, player: takePlayer({ toast }), keeper: lastBounceKeeper({ menu, tapeNow }) };
+})();
+
 // mixdown plays the loop (or, with all, the whole tape) once and saves what
 // the mixer put out as a take; live.mixdown follows it.
 async function mixdown(all) {
@@ -763,12 +778,13 @@ async function mixdown(all) {
     const b = await change(() => api(`/api/tapes/mixdown?${q()}`, { method: 'POST', body: { all } }));
     const md = b.mixdown;
     state.mixKey = `${md.id}:${md.state}`;
-    toast(`Mixing down ${fmtSecs(md.to - md.from, state.tape.sample_rate)}: the tape plays it once, then it’s saved as a take`, 'ok', {
+    const span = fmtSecs(md.to - md.from, state.tape.sample_rate);
+    toast(bouncing ? bounceStartWords(span) : `Mixing down ${span}: the tape plays it once, then it’s saved as a take`, 'ok', {
       ms: 6000, action: { label: 'Cancel', run: () => transport('stop') },
     });
     poll();
   } catch (e) {
-    toast(`Could not mix down: ${e.message}`, 'bad');
+    toast(`Could not ${bouncing ? 'bounce' : 'mix down'}: ${e.message}`, 'bad');
   }
 }
 
@@ -781,11 +797,16 @@ function noteMixdown(md) {
   state.mixKey = key;
   if (!md || md.tape !== state.id) return;
   if (md.state === 'done') {
-    toast('Mixed down as a take', 'ok', {
-      ms: 10000, action: { label: 'Open it', run: () => { location.href = `/wave.html?file=${encodeURIComponent(md.take)}`; } },
-    });
+    if (bouncing) {
+      bouncing.keeper.set({ name: md.take, label: state.tape.name }, state.id);
+      bounceToast({ toast, name: md.take, message: 'Bounced as a take', player: bouncing.player });
+    } else {
+      toast('Mixed down as a take', 'ok', {
+        ms: 10000, action: { label: 'Open it', run: () => { location.href = `/wave.html?file=${encodeURIComponent(md.take)}`; } },
+      });
+    }
   } else if (md.state === 'failed') {
-    toast(`The mixdown didn’t save: ${md.error}`, 'bad');
+    toast(`The ${bouncing ? 'bounce' : 'mixdown'} didn’t save: ${md.error}`, 'bad');
   }
 }
 
@@ -4508,6 +4529,7 @@ function openActions() {
   const playable = !!(t0 && live && live.output && t0.tracks.some((tr) => tr.clips.length));
   $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
   $('tape-mixdown-all').disabled = !playable;
+  if (bouncing) { bouncing.keeper.changed(state.id); bouncing.keeper.refresh(); }
   showMenu('tape-actions');
 }
 
@@ -4826,6 +4848,10 @@ function wire() {
   $('tape-new').addEventListener('click', () => { closeMenus(); newTape(); });
   $('tape-mixdown').addEventListener('click', () => { closeMenus(); mixdown(false); });
   $('tape-mixdown-all').addEventListener('click', () => { closeMenus(); mixdown(true); });
+  bouncing?.menu.last.addEventListener('click', () => {
+    closeMenus();
+    lastBounceToast({ toast, take: bouncing.keeper.take(), player: bouncing.player });
+  });
   $('tape-export').addEventListener('click', exportStems);
   $('tape-rename').addEventListener('click', () => { closeMenus(); openRename(); });
   $('rename-cancel').addEventListener('click', () => $('rename-sheet').close());
