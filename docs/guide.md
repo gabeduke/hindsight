@@ -934,6 +934,13 @@ From the top:
   **⌘V / Ctrl-V** pastes, on the range or at the playhead. **Esc** lets go.
   **Shift** with a click picks several. Holding a key doesn't repeat it, and
   none of them fire while you're typing or a sheet is open.
+- **With the two rooms on** (a preview, §8.12): **K** keeps the feed as a
+  take (the buffer, while it's open), **C** catches, **G** grabs, **↵**
+  drops the buffer, and the click moves from K to **M**. With them off, K is
+  still the click.
+- **With the instrument unfolded** (§8.13) the keys are the instrument's:
+  **R** is STOP and **1–4** drop a track out. Fold it, or tap the lanes, to
+  give them back; its **KEYS** lamp says whose they are.
 - **After a sleep.** Lock a tablet and wake it, and the page asks the Pi
   again at once: no refresh. If the Pi doesn't answer, a small
   **Reconnecting…** note shows at the top (not for a blink) and goes when it
@@ -1782,6 +1789,83 @@ can work on it.
 
 On a phone the buffer is a sheet: pull its grip up or down, or hold it and
 drag it up onto a lane to drop it there.
+
+### 8.13 The instrument strip (a preview)
+
+*With Play mode on (Settings › This device › Play mode).* Play mode is a
+drawer above the bar on the tape page, not a screen over it.
+
+- **Folded,** it's one row: **INSTRUMENT ▴**, the **KEYS** lamp, and the
+  track keys and tricks as small pads. They still play, and whatever plays
+  them -- a finger, the keys, a controller, someone else's phone -- they
+  light. A pad lit by another hand is bright with a ring; the dim state,
+  touched but not yet heard, is only ever your own.
+- **Unfolded** (**INSTRUMENT ▴** again): the reel, with the loop as a ring
+  round it -- bar ticks, the playhead sweeping in orange, bar.beat in its
+  hub -- the four track keys, the six tricks, and with the two rooms on,
+  CATCH, GRAB, DROP and KEEP. The reel answers the sound, not the touch:
+  REV turns it backwards, STOP winds it down over the beat, ½× and 2×
+  change its speed, CHOP rocks it, and BREAK leaves it turning while the
+  sound cuts. It remembers whether it was open, on this device.
+- **One drawer at a time:** opening the crate folds it, and unfolding it
+  closes the crate.
+- **On a phone,** **EDIT | PLAY** sits on the mini player. **PLAY** makes
+  the bottom panel the instrument; **EDIT** gives the drawers back. PLAY's
+  lamp lights while a pad sounds.
+
+**Whose keys are they?** The instrument's while it's unfolded, and the
+**KEYS** lamp is lit then. Folding it, or a tap on the lanes, gives them back
+to editing; a tap on the strip takes them again. MIDI and touch always play.
+
+| Key | Folded: editing | Unfolded: the instrument |
+|---|---|---|
+| 1 2 3 4 | arm a track | that track drops out, held |
+| Q W E R | — · — · — · ● Rec | BREAK, REV, CHOP, STOP, held |
+| Z X | — | ½×, 2×, held |
+| T Y U I | — | ROLL, FILTER, ECHO, CRUSH (coming) |
+| C G K ↵ | with the two rooms: CATCH, GRAB, KEEP, DROP | the same |
+| ⇧ held | — | latch: what you let go stays held until ⇧ lifts |
+| Space | play/stop | play/stop |
+| Esc | closes things | lets go of everything |
+
+Keys are read by where they are, not what's printed on them; holding one
+doesn't repeat it; nothing plays while you're typing; and a lost window or a
+hidden tab lets go of everything.
+
+**A MIDI controller in the Pi** is the steady way: no Wi-Fi in the way, and
+nothing needs to be open.
+
+1. Plug it into the Pi and put part of its name in **Settings › MIDI ›
+   Plays the tape** (`TAPE_CONTROLLER`), then restart.
+2. Its keys play the pads from note 36 (C2) up: the track keys, the tricks,
+   then CATCH, GRAB, DROP and KEEP on 50–53. A sustain pedal latches; the
+   mod wheel, pitch wheel and CC 21–24 are kept for the FX and tape mods.
+   The SMK-37 starts with its pads on channel 10.
+3. CATCH, GRAB, DROP and KEEP run on the Pi itself: the last pass onto the
+   armed track, the last 4 bars into the buffer (open on every Studio within
+   a couple of seconds), the buffer onto the armed track's next free span,
+   and the last 30 seconds as a take.
+4. Unplug it with a pad held and the pad lets go.
+
+**A controller in a laptop** (**＋ MIDI here** under *Playing from*) plays
+too, through the browser: Chrome or Edge, over the hub's https:// address or
+on localhost. Safari has no Web MIDI, so with an iPhone or iPad the
+controller goes into the Pi. Its bindings are that browser's.
+
+**MIDI LEARN.** Pick the controller under *Playing from*, press **MIDI
+LEARN**: every pad shows its key on the controller (– for none). Tap a pad --
+it blinks -- then play a key or turn a knob on the controller: that's its
+key now, taken off any other pad. Esc cancels. A controller in the Pi keeps
+what it learned on the Pi, for everyone.
+
+**Checks — the strip:**
+
+- [demo] Hold W with the strip unfolded → REV lights dim, then bright, and the
+  reel turns backwards; let go → it turns forwards again.
+- [demo] Hold a pad on one browser → the same pad lights on another.
+- [demo] Tap the lanes → the KEYS lamp goes out, and 2 arms track 2.
+- [rig] Plug the SMK-37 into the Pi, set *Plays the tape*, restart; hit a pad
+  → it lights on the laptop and the phone, and the tape does what it says.
 
 ## 9. Tips in the app
 

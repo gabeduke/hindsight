@@ -44,6 +44,23 @@ RING_SECONDS=120 OUTPUT_DIR=/tmp/hindsight PORT=5173 \
   CGO_ENABLED=0 go run ./cmd/hindsight --demo
 ```
 
+**A controller in the demo.** The demo has no MIDI watcher, but with
+`TAPE_CONTROLLER` set it starts one for controllers alone, and
+`HINDSIGHT_DEMO_CARDS` and `HINDSIGHT_DEMO_SND_DIR` point it at a cards file
+and a directory of FIFOs standing in for rawmidi nodes, as the tests do. So a
+key "on the controller" is bytes written into the FIFO:
+
+```bash
+mkdir -p /tmp/hs/snd && mkfifo /tmp/hs/snd/midiC3D0
+printf ' 3 [SMK37          ]: USB-Audio - SMK-37\n                      M-VAVE SMK-37\n' > /tmp/hs/cards
+TAPE=true TAPE_CONTROLLER=smk HINDSIGHT_DEMO_CARDS=/tmp/hs/cards HINDSIGHT_DEMO_SND_DIR=/tmp/hs/snd \
+  RING_SECONDS=120 PORT=5173 CGO_ENABLED=0 go run ./cmd/hindsight --demo &
+exec 3>/tmp/hs/snd/midiC3D0        # the controller plugged in
+printf '\x99\x28\x64' >&3          # a pad on channel 10, E2: BREAK held
+printf '\x99\x28\x00' >&3          # let go
+exec 3>&-                          # unplugged
+```
+
 `--version` prints the build version and exits. It reads `dev` unless the
 binary was stamped by the release workflow.
 

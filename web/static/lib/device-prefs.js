@@ -23,7 +23,7 @@ export const DEVICE_PREFS = [
   {
     id: 'play',
     label: 'Play mode',
-    note: 'A performance surface for the tape: momentary pads, quantised to the grid. Preview — the pads do not make sound yet.',
+    note: 'Preview: the instrument strip, a drawer above the tape’s bar. Held pads on the grid, the reel as the loop’s ring, and a MIDI controller to play them.',
     reload: true, // lib/play/mount.js reads the flag once, when the page loads
     get: playOn,
     set: playSetOn,

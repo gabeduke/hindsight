@@ -4159,11 +4159,16 @@ body.buffer-fold .tape-sections-row { display: none; }
 @keyframes play-blink { 50% { background: var(--pad-face-armed); border-color: transparent; } }
 
 /* Narrower than a laptop: the reel over the pads. */
+/* Narrower than a laptop (the bench tablet): the reel beside the pads, the
+   six tricks in one row, and no titles, so the lanes keep some height. */
 @media (max-width: 1099.98px) and (min-width: 700px) {
-  .play-body { grid-template-columns: auto 1fr; }
+  .play-body { grid-template-columns: auto 1fr; gap: 8px 14px; }
   .play-side { grid-column: 2; }
-  .play-reel { grid-row: span 2; width: 132px; }
-  .play-tracks .play-track { min-height: 64px; }
+  .play-reel { grid-row: span 2; width: 124px; }
+  .play-group-title { display: none; }
+  .play-tracks .play-track { min-height: 56px; }
+  .play-tricks { grid-template-columns: repeat(6, 1fr); }
+  .play-tricks .play-trick { min-height: 44px; }
 }
 
 /* The phone's EDIT | PLAY lives in the mini player, and only there. */
