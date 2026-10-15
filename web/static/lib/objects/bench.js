@@ -131,7 +131,11 @@ export function mount(root, { raf, cancel, now } = {}) {
   // honour prefers-reduced-motion through the shared ticker.
   const ticker = new Ticker({ raf, cancel, now: clock, reduced: false });
 
-  buildSpeed(root, (s) => { clock(); scale = s; });
+  // The bench's own controls, in one row: left out of a still.
+  const tools = el('div', 'bench-tools');
+  root.append(tools);
+  buildSpeed(tools, (s) => { clock(); scale = s; });
+  buildSize(tools, root);
   buildMotion(root, ticker);
   buildVu(root);
   buildReels(root, ticker, clock);
@@ -164,6 +168,64 @@ function buildSpeed(root, onPick) {
   });
   bar.append(group);
   root.append(bar);
+}
+
+/**
+ * The widths an object is checked at, named for where they come from: the
+ * width the cassette is drawn at in Takes on a 390 px phone, on an 820 px
+ * tablet held upright, and on the deck -- a 1280 px desktop, where the
+ * cassette shares the screen with the shelf and so is narrower than on the
+ * tablet.
+ */
+export const BENCH_SIZES = [['phone', 358], ['tablet', 788], ['deck', 654]];
+
+/**
+ * buildSize is the size slider: every cell's object at one width, so an
+ * object is judged at the size it will be seen at rather than at whatever
+ * the grid makes it. Objects that size to their container -- the cassette,
+ * the ribbon, the LCD, the canvases -- redraw at it; ones with a fixed
+ * size on the pages keep it here too, which is the honest answer.
+ */
+function buildSize(tools, root) {
+  const bar = el('div', 'bench-speed');
+  bar.append(el('span', 'bench-note', 'Size'));
+  const group = el('div', 'seg');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Size');
+  const range = el('input', 'bench-range');
+  range.type = 'range';
+  range.min = '160';
+  range.max = '1000';
+  range.step = '2';
+  range.value = String(BENCH_SIZES[0][1]);
+  range.setAttribute('aria-label', 'Width of each object, in CSS pixels');
+  const readout = el('span', 'bench-label');
+  readout.setAttribute('aria-live', 'polite');
+
+  const keys = [['Auto', 0], ...BENCH_SIZES.map(([n, w]) => [n[0].toUpperCase() + n.slice(1), w])].map(([label, w]) => {
+    const b = el('button', null, label);
+    b.type = 'button';
+    b.addEventListener('click', () => set(w));
+    group.append(b);
+    return [b, w];
+  });
+  function set(w) {
+    if (w) {
+      root.dataset.w = String(w);
+      root.style.setProperty('--bench-w', `${w}px`);
+      range.value = String(w);
+    } else {
+      delete root.dataset.w;
+      root.style.removeProperty('--bench-w');
+    }
+    const named = BENCH_SIZES.find(([, x]) => x === w);
+    readout.textContent = !w ? 'as wide as the grid makes each' : `${w} px${named ? `, ${named[0]}` : ''}`;
+    for (const [b, x] of keys) b.setAttribute('aria-pressed', String(x === w));
+  }
+  range.addEventListener('input', () => set(Number(range.value)));
+  bar.append(group, range, readout);
+  tools.append(bar);
+  set(0);
 }
 
 /**
@@ -330,7 +392,7 @@ function buildRibbon(root) {
   const grid = section(root, 'Ribbon',
     'The ring as a meter: levels on the meters\' dB scale, not a waveform. The lit part is the chosen capture length; the unrecorded end gets no trace, because a flat line there would read as silence.');
 
-  const W = 320, H = 64;
+  const H = 64;
 
   /** A plausible envelope: a quiet room, a jam, and a silent ring. */
   const envelopes = {
@@ -345,34 +407,24 @@ function buildRibbon(root) {
     silent: (n) => new Float32Array(n),
   };
 
+  // The lit span and where recording starts, for a ribbon W wide: drawn at
+  // the cell's own width, so the size slider shows a ribbon of that size
+  // rather than a 320 px one stretched.
   const states = [
-    ['the whole ring lit', 'jam', [0, W], 0],
-    ['a 30 s length lit at the head', 'jam', [W - 70, W], 0],
-    ['a span held mid-ribbon', 'jam', [110, 190], 0],
-    ['the ring has not filled yet', 'jam', [W - 70, W], W * 0.42],
-    ['a quiet room', 'quiet', [0, W], 0],
-    ['nothing on the ring', 'silent', [0, W], 0],
+    ['the whole ring lit', 'jam', (W) => [0, W], () => 0],
+    ['a 30 s length lit at the head', 'jam', (W) => [W - 70 / 320 * W, W], () => 0],
+    ['a span held mid-ribbon', 'jam', (W) => [110 / 320 * W, 190 / 320 * W], () => 0],
+    ['the ring has not filled yet', 'jam', (W) => [W - 70 / 320 * W, W], (W) => W * 0.42],
+    ['a quiet room', 'quiet', (W) => [0, W], () => 0],
+    ['nothing on the ring', 'silent', (W) => [0, W], () => 0],
   ];
 
   for (const [label, env, lit, recordedFrom] of states) {
-    const body = cell(grid, label);
-    const canvas = el('canvas', 'bench-ribbon');
-    const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = '100%';
-    canvas.style.height = `${H}px`;
-    body.append(canvas);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) continue; // no 2d context (a test runner): the cell stays blank
-    ctx.scale(dpr, dpr);
-    drawRibbon(ctx, {
-      W, H,
-      levels: envelopes[env](160),
-      lit,
-      recordedFrom,
-      colors: ribbonColors(token),
-    });
+    const levels = envelopes[env](160);
+    const canvas = canvasCell(cell(grid, label), H, (ctx, W) => drawRibbon(ctx, {
+      W, H, levels, lit: lit(W), recordedFrom: recordedFrom(W), colors: ribbonColors(token),
+    }));
+    canvas.classList.add('bench-ribbon');
   }
 }
 

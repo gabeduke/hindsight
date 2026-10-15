@@ -14,10 +14,20 @@
   .bench-wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
   .bench-head { margin: 8px 0 4px; }
   .bench-note { color: var(--ink-dim); font-size: 13px; margin: 0 0 12px; max-width: 62ch; }
-  .bench-speed { display: flex; align-items: center; gap: 10px; margin: 12px 0 20px; }
+  .bench-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; margin: 12px 0 20px; }
+  .bench-speed { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .bench-range { width: 160px; accent-color: var(--accent); }
   .bench-section { margin: 0 0 32px; }
   .bench-section h2 { font: 700 15px var(--label-font); letter-spacing: 2px; text-transform: uppercase; margin: 0 0 2px; }
   .bench-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  /* The size slider: each object exactly --bench-w wide, and its cell no
+     wider; the bench gives up the page's 780 px column and its side
+     padding, so a phone's width fits on a phone and a tablet's on a
+     desktop. Wider than the screen (a tablet's width, on a phone), the grid
+     scrolls sideways, not the page. */
+  #bench[data-w] { max-width: none; padding-left: 0; padding-right: 0; }
+  #bench[data-w] .bench-grid { grid-template-columns: repeat(auto-fill, var(--bench-w)); overflow-x: auto; padding-bottom: 2px; }
+  #bench[data-w] .bench-cell { padding-left: 0; padding-right: 0; border-left-width: 0; border-right-width: 0; }
   .bench-cell { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 12px 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .bench-body { display: flex; justify-content: center; width: 100%; }
   .bench-label { font: 12px var(--mono); color: var(--ink-dim); text-align: center; }
@@ -35,8 +45,6 @@
   /* An icon in the ink of the key it sits on. */
   .bench-ico { display: inline-flex; color: var(--ink); }
   .bench-app-ico { display: block; }
-  /* The size slider the design calls for lands with the materials cut; until
-     then the cells are a fixed, honest size rather than a fake control. */
 </style>
 </head>
 <body>
