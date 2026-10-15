@@ -241,12 +241,12 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       // rooms no longer show a crate for it to fill.
       const b = await send(() => api.grab({ ...req, sources: sources(), crate: false }), { mine: true });
       const note = bufferNote(b.clipboard);
-      const said = `Grabbed ${what}${note ? ` — ${note}` : ''}`;
       const kind = b.wall || b.clamped ? 'warn' : 'ok';
       if (b.replaced) {
-        toast(`${said}. ${replacedLine(b.replaced, b.replaced_seconds)}`, kind, { ms: UNDO_MS, action: { label: 'Undo', run: () => undoReplaced(b.clipboard.created) } });
+        // Short, for the Undo to be seen: the buffer's own note line says the rest.
+        toast(`Grabbed ${what}. ${replacedLine(b.replaced, b.replaced_seconds)}`, kind, { ms: UNDO_MS, action: { label: 'Undo', run: () => undoReplaced(b.clipboard.created) } });
       } else {
-        toast(said, kind);
+        toast(`Grabbed ${what}${note ? ` — ${note}` : ''}`, kind);
       }
     } catch (e) {
       st.open = wasOpen && !!grabOf();

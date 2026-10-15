@@ -28,7 +28,7 @@ export function replacedWords(board, seconds) {
 
 /** replacedLine is the toast's sentence about it. */
 export function replacedLine(board, seconds) {
-  return `Replaced ${replacedWords(board, seconds)}, which was never dropped or kept`;
+  return `Replaced ${replacedWords(board, seconds)}, never dropped or kept`;
 }
 
 /**

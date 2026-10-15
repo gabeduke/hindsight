@@ -68,7 +68,7 @@ test('a take’s GRAB over a buffer nobody used leaves the Studio a line to say,
   const old = { created: 'old', frames: 4 * 96000, grab: { bar_frames: 96000, sources: ['main'] } };
   const fetchImpl = async () => ({ ok: true, json: async () => ({ clipboard: { created: 'new' }, replaced: old, replaced_seconds: 8 }) });
   await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl, storage });
-  assert.equal(recall(storage, 'new'), 'Replaced the buffer’s 4 BARS from the feed, which was never dropped or kept');
+  assert.equal(recall(storage, 'new'), 'Replaced the buffer’s 4 BARS from the feed, never dropped or kept');
   // Over nothing, it leaves nothing.
   await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl: async () => ({ ok: true, json: async () => ({ clipboard: { created: 'n2' } }) }), storage });
   assert.equal(store.size, 0);

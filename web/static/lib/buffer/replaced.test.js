@@ -28,7 +28,7 @@ test('with no tempo it is named in seconds', () => {
 });
 
 test('the toast line says what was replaced, and that nobody had dropped or kept it', () => {
-  assert.equal(replacedLine(ring(4), 8), 'Replaced the buffer’s 4 BARS from the feed, which was never dropped or kept');
+  assert.equal(replacedLine(ring(4), 8), 'Replaced the buffer’s 4 BARS from the feed, never dropped or kept');
 });
 
 test('a take’s GRAB leaves one note, for the buffer it made, and the Studio reads it once', () => {

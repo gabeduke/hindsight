@@ -87,7 +87,7 @@ test('a GRAB over a buffer nobody dropped or kept says so, with Undo', async () 
   await withPi({ board: old, next, replaced: old }, async ({ pi, toasts, grab }) => {
     await grab();
     const t = toasts.at(-1);
-    assert.match(t.msg, /Replaced the buffer’s 4 BARS from the feed, which was never dropped or kept/);
+    assert.match(t.msg, /Replaced the buffer’s 4 BARS from the feed, never dropped or kept/);
     assert.deepEqual(actionsOf(t), ['Undo']);
     const post = pi.log.find((r) => r.method === 'POST' && r.url === '/api/clipboard');
     assert.equal(post.body.crate, false, 'the rooms keep the replaced one in the Pi’s one slot, not in a crate nobody sees');
@@ -153,7 +153,7 @@ test('a take’s GRAB leaves its note for the Studio, which says it once, with U
   const old = board(4, 'old'), next = board(2, 'new');
   const mem = new Map();
   const storage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
-  remember(storage, { by: 'new', line: 'Replaced the buffer’s 4 BARS from the feed, which was never dropped or kept' });
+  remember(storage, { by: 'new', line: 'Replaced the buffer’s 4 BARS from the feed, never dropped or kept' });
   // The Studio opens with the new buffer already on the Pi.
   await withPi({ board: next, replaced: old }, async ({ pi, toasts, buffer }) => {
     assert.equal(buffer.state.board.created, 'new');

@@ -1829,8 +1829,8 @@ can work on it.
 - **KEEP** (**K**) saves it on the Listening Room's shelf, at the
   tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
 - **A grab can be undone.** GRAB over a buffer you never dropped, kept or
-  tossed says so — *Replaced the buffer’s 4 BARS from the feed, which was
-  never dropped or kept* — with **Undo**, which puts the old buffer back (and
+  tossed says so — *Replaced the buffer’s 4 BARS from the feed, never
+  dropped or kept* — with **Undo**, which puts the old buffer back (and
   drops the grab it undoes). The Pi keeps exactly one replaced grab for it,
   not a growing pile: the next grab over an unused buffer lets go of the one
   before. A buffer you dropped or kept is not kept again, and says nothing.
