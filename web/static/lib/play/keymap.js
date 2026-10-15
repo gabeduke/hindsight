@@ -100,6 +100,7 @@ export function bindKeyboard(surface, {
   onCommand = () => {},
   owns = () => true,
   has = () => true,
+  onLetGo = () => {},
 } = {}) {
   const held = new Map(); // code → pad, for what this keyboard is holding
   let latched = false;    // the latch is down from a ⇧ here
@@ -153,7 +154,9 @@ export function bindKeyboard(surface, {
     if (typingInto(e.target) || knobKeeps(e.target, e.code)) return;
     if (owns()) e.stopPropagation();
   };
-  const letGo = () => { held.clear(); latched = false; surface.releaseAll(now()); };
+  // onLetGo: the same cue for what the strip holds outside the surface
+  // (the bend).
+  const letGo = () => { held.clear(); latched = false; surface.releaseAll(now()); onLetGo(); };
   const onHide = () => { if (target.hidden) letGo(); };
 
   target.addEventListener('keydown', down, true);

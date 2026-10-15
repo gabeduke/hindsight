@@ -76,6 +76,7 @@ export function connect(surface, {
   amountOf = () => undefined,
   onAmount = () => {},
   flush = () => {},
+  onRefused = () => {},
   retryMs = 1000,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
@@ -129,6 +130,7 @@ export function connect(surface, {
           break;
         }
         onNote(refusal(m.pad, m.why));
+        onRefused(m.pad);
         break;
       default:
     }

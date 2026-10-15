@@ -107,6 +107,7 @@ export function handler(surface, {
   const pressed = new Map();
   const holders = new Map();
   let latched = false;
+  let wheel = 0; // where the pitch wheel was last heard: off centre, it bends
   const setLatch = (on) => { if (on !== latched) { latched = on; surface.latch(on, now()); } };
   const letGoOf = (id) => {
     const n = (holders.get(id) || 0) - 1;
@@ -155,7 +156,8 @@ export function handler(surface, {
     const c = hit && control(hit.id);
     if (!c || !live(c, has)) return;
     if (c.kind === AMOUNT && m.type === 'bend') {
-      onBend(m.value > 8192 ? (m.value - 8192) / 8191 : (m.value - 8192) / 8192);
+      wheel = m.value > 8192 ? (m.value - 8192) / 8191 : (m.value - 8192) / 8192;
+      onBend(wheel);
       return;
     }
     if (c.kind === LATCHED && m.type === 'program') { onFormula(m.value); return; }
@@ -182,6 +184,8 @@ export function handler(surface, {
       pressed.clear();
       holders.clear();
       if (latched) { latched = false; surface.latch(false, t); }
+      // A wheel off centre when the port goes springs back, as a key does.
+      if (wheel) { wheel = 0; onBend(0); }
     },
   };
 }

@@ -18,10 +18,11 @@ export const BEND_DEAD = 0.02;
  * to connect): an FX pressed carries its amount, and a pad's or the bend's
  * or a mod's release goes after its last move, never before it.
  */
-export function linkOptions(amounts) {
+export function linkOptions(amounts, wire = () => null) {
   return {
     amountOf: (pad) => (FX.has(pad) ? amounts.get(pad) : undefined),
     flush: (pad) => amounts.flush(pad),
+    onRefused: (pad) => wire()?.refused(pad),
   };
 }
 
@@ -38,12 +39,14 @@ export function wireFX({
   modsOptions = {},
 }) {
   let bending = false;
+  let refused = false; // the Pi said no to this bend: not asked again until it's back at the centre
   const fx = mountFX(ui, surface, amounts, { doc, onBend: bendTo, onBendEnd: () => bendTo(0) });
 
   // The bend from this page: held while it's off its centre, let go as it
   // springs back, landing at once (the Pi takes it now, whatever ⌗ says).
   function bendTo(v) {
     if (Math.abs(v) <= BEND_DEAD) {
+      refused = false;
       if (!bending) return;
       bending = false;
       link.release('bend');
@@ -51,6 +54,7 @@ export function wireFX({
       fx?.setBend(far.has('bend'));
       return;
     }
+    if (refused) return;
     if (!bending) {
       bending = true;
       amounts.note('bend', v);
@@ -97,10 +101,26 @@ export function wireFX({
     get bending() { return bending; },
     /** farChanged: another hand's pad lit or went dark; the bend stays lit while anyone bends. */
     farChanged(pad, on) { if (pad === 'bend') fx?.setBend(on || bending); },
+    /**
+     * letGo is the strip letting go of everything -- Esc, the window losing
+     * focus, a hidden tab: the bend springs back, and a drag on it is over.
+     */
+    letGo() {
+      fx?.cancelBend();
+      bendTo(0);
+    },
+    /** refused is the Pi saying no to a press of pad: a bend goes dark until it's back at the centre. */
+    refused(pad) {
+      if (pad !== 'bend' || !bending) return;
+      bending = false;
+      refused = true;
+      amounts.note('bend', 0);
+      fx?.setBend(far.has('bend'));
+    },
     /** setMixdown is the mixdown's state: the FX wait while the Pi refuses them. */
     setMixdown(state) { fx?.setMixdown(state === 'playing' || state === 'tail'); },
     destroy() {
-      bendTo(0);
+      this.letGo();
       fx?.destroy();
       mods?.destroy();
     },

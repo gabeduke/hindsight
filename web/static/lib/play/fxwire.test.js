@@ -122,7 +122,8 @@ function strip({ fetchOk = true } = {}) {
   let link = null;
   const amounts = new Amounts({ send: (id, v) => link?.set(id, v), now: clock.now, setTimer: clock.setTimer, clearTimer: clock.clearTimer });
   const far = new FarPads();
-  link = connect(surface, { WebSocketImpl: FakeWS, url: 'x', now: clock.now, ...linkOptions(amounts) });
+  let wire = null;
+  link = connect(surface, { WebSocketImpl: FakeWS, url: 'x', now: clock.now, ...linkOptions(amounts, () => wire) });
   const slots = { fx: doc.createElement('div'), mods: doc.createElement('div') };
   const pads = new Map();
   const ui = {
@@ -149,7 +150,7 @@ function strip({ fetchOk = true } = {}) {
     return { ok: fetchOk, status: fetchOk ? 200 : 500, json: async () => (fetchOk ? { tape: { style: {} } } : { error: 'no' }) };
   };
   const sock = () => made[0];
-  const wire = wireFX({
+  wire = wireFX({
     ui, surface, link, amounts, far, doc, fetchImpl,
     tapeId: () => 't1', onNote: (t) => notes.push(t),
     modsOptions: { now: clock.now, setTimer: clock.setTimer, clearTimer: clock.clearTimer },
@@ -271,5 +272,43 @@ test('the bend sprung back sends its last move, then the release', () => {
     { t: 'set', pad: 'bend', v: 0.5 },
     { t: 'set', pad: 'bend', v: 1 },
     { t: 'release', pad: 'bend' },
+  ]);
+});
+
+// The bend is held by link.press, not through the surface, so every way the
+// strip lets go of everything -- Esc, the window losing focus, a hidden tab
+// -- has to let go of it too (wire.letGo), and the drag is over.
+test('let go of everything mid-bend, and the bend springs back and stays back', () => {
+  const s = strip();
+  const bend = s.slots.fx.querySelector('.play-bend');
+  bend.fire('pointerdown', { clientX: 300 });
+  bend.fire('pointermove', { clientX: 300 + BEND_PX / 2 });
+  s.wire.letGo();
+  assert.equal(s.wire.bending, false);
+  assert.equal(bend.classList.contains('on'), false);
+  bend.fire('pointermove', { clientX: 300 + BEND_PX }); // the mouse still down
+  bend.fire('pointerup', { clientX: 300 + BEND_PX });
+  assert.deepEqual(s.sock().sent, [
+    { t: 'press', pad: 'bend', q: 'now', v: 0.5 },
+    { t: 'release', pad: 'bend' },
+  ]);
+});
+
+test('a bend the Pi refuses goes dark, and isn’t pressed again until it’s back at the centre', () => {
+  const s = strip();
+  const bend = s.slots.fx.querySelector('.play-bend');
+  bend.fire('pointerdown', { clientX: 300 });
+  bend.fire('pointermove', { clientX: 300 + BEND_PX / 2 });
+  s.sock().hear({ t: 'refused', pad: 'bend', why: 'a mixdown is playing; wait for it, or press ■ to cancel it' });
+  assert.equal(s.wire.bending, false);
+  assert.equal(bend.classList.contains('on'), false);
+  s.clock.advance(EVERY_MS);
+  bend.fire('pointermove', { clientX: 300 + BEND_PX });
+  bend.fire('pointerup', { clientX: 300 + BEND_PX });
+  bend.fire('pointerdown', { clientX: 300 });            // a new bend: asked again
+  bend.fire('pointermove', { clientX: 300 - BEND_PX / 4 });
+  assert.deepEqual(s.sock().sent, [
+    { t: 'press', pad: 'bend', q: 'now', v: 0.5 },
+    { t: 'press', pad: 'bend', q: 'now', v: -0.25 },
   ]);
 });

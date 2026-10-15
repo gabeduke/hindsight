@@ -162,7 +162,7 @@ export function startStrip({
       wake();
     },
     onOpen: () => fetchControls(),
-    ...linkOptions(amounts),
+    ...linkOptions(amounts, () => wire),
     onAmount: (pad, v) => {
       if (pad.startsWith('mod.')) wire?.mods?.heardPreview(pad);
       amounts.heard(pad, v);
@@ -220,6 +220,7 @@ export function startStrip({
     onCommand: command,
     owns: () => keysOwner({ open, given }),
     has,
+    onLetGo: () => wire?.letGo(),
   });
 
   // --- the reel and the pads, on the shared ticker -----------------------------
@@ -284,6 +285,7 @@ export function startStrip({
     if (name === 'panic') {
       if (learning) { setLearning(false); return; }
       surface.releaseAll(now());
+      wire.letGo(); // the bend, held outside the surface
       return;
     }
     if (name === 'transport') {

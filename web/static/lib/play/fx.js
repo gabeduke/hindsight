@@ -169,6 +169,8 @@ export function mountFX(ui, surface, amounts, {
     },
     /** setBend lights the bend while any hand holds it. */
     setBend(on) { bend.classList.toggle('on', !!on); },
+    /** cancelBend ends a drag on the bend: let go of everything, its moves play nothing. */
+    cancelBend() { drag = null; },
     destroy() {
       for (const off of offs) off();
       slot.replaceChildren();

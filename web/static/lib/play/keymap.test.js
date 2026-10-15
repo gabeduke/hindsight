@@ -336,3 +336,17 @@ test('a key let up with a field focused still lets its pad go; a level fader isn
   assert.deepEqual(cmds, ['panic']);
   assert.equal(typingInto({ tagName: 'INPUT', type: 'range' }), false);
 });
+
+test('the keyboard letting go -- the window losing focus, a hidden tab -- says so, for what it doesn’t hold', () => {
+  // The bend is held by the strip, not the surface: onLetGo is its cue.
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const t = fakeTarget();
+  const win = fakeTarget();
+  let let_ = 0;
+  bindKeyboard(s, { target: t, win, now: () => 0, onLetGo: () => { let_++; } });
+  win.send('blur');
+  assert.equal(let_, 1);
+  t.hidden = true;
+  t.send('visibilitychange');
+  assert.equal(let_, 2);
+});

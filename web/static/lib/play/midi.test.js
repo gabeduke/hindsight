@@ -99,6 +99,18 @@ test('an FX follows the key that pressed it through a rebind: its aftertouch, it
   assert.deepEqual(s.held(), []);
 });
 
+test('unplugged with the wheel off centre, the bend springs back', () => {
+  const s = new Surface({ bpm: 120, division: 'off' });
+  const bends = [];
+  const h = handler(s, { now: () => 0, onBend: (v) => bends.push(v) });
+  h.feed([0xE0, 127, 127]); // the wheel up
+  h.letGo();
+  assert.deepEqual(bends, [1, 0]);
+  h.feed([0xE0, 0, 64]);    // home
+  h.letGo();                // nothing to spring back
+  assert.deepEqual(bends, [1, 0, 0]);
+});
+
 test('unplugged with a pad down, it lets go', () => {
   const s = new Surface({ bpm: 120, division: 'off' });
   const h = handler(s, { now: () => 0 });
