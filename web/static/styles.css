@@ -4189,6 +4189,10 @@ body.buffer-fold .tape-sections-row { display: none; }
   /* The feed folds to its keys: GRAB and KEEP stay, the ribbon comes back
      with the strip folded. */
   body.play-unfolded .studio-feed > .viz-wrap { display: none; }
+  /* Its grid would keep the ribbon's empty row, and a row's gap with it. */
+  body.play-unfolded .studio-feed { display: flex; flex-wrap: wrap; row-gap: 8px; }
+  body.play-unfolded .studio-feed > .studio-feed-head { flex: 1 1 320px; }
+  body.play-unfolded .studio-feed > .studio-keys { flex: 0 1 auto; }
 }
 /* A laptop has the width for the bus beside the tricks. */
 @media (min-width: 1100px) and (min-height: 441px) and (max-height: 1000px) {
@@ -4238,6 +4242,72 @@ body.buffer-fold .tape-sections-row { display: none; }
   .play-tricks .play-trick { min-height: 54px; }
   .play-bus-hint { margin-left: 0; }
 }
+
+/* The strip and the Studio's buffer take turns (lib/play/strip.js, `turns`):
+   a laptop's height holds one of them in full, and a phone's screen holds
+   one over the mini player. Unfolding the strip folds the buffer to its
+   peek -- one line on a laptop, the sheet's peek detent on a phone -- and
+   bringing the buffer forward folds the strip, so each is always whole when
+   it's the one in use. The peek is derived from two classes the pages
+   already carry (play-unfolded, buffer-open), so there's nothing for the
+   two to disagree about. */
+
+/* A phone. P2's sheet is fixed at the dock and tucks the mini player under
+   it; with Play mode on, the mini player carries EDIT | PLAY, so the sheet
+   stands on the player instead. Its half detent keeps P2's height, so DROP
+   is still in it; the full detent gives up the player's height, so it still
+   stops under the top bar. The room the page leaves above the sheet, and
+   the toasts, follow it up. */
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  body:not(.player-open):has(.play-toggle) .buffer-panel { bottom: calc(var(--dock-b, 0px) + var(--np-h)); }
+  body:not(.player-open):has(.play-toggle) .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - var(--np-h) - 8px); }
+  body.tape-page.buffer-open:not(.player-open):has(.play-toggle) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h) + 45svh); }
+  body.tape-page.buffer-open:not(.player-open):has(.play-toggle) #toasts { bottom: calc(var(--dock-b, 0px) + var(--np-h) + 45svh + 12px); }
+  /* PLAY drops the sheet to its peek and the strip stands above it. EDIT
+     touches nothing, so the sheet comes back at the height it was left. */
+  body.play-unfolded:not(.player-open):has(.play-toggle) .buffer-panel[data-height] { height: 96px; }
+  body.buffer-open:not(.player-open) .play-strip[data-fold="open"] {
+    bottom: calc(var(--dock-b, 0px) + var(--np-h) + 96px);
+    max-height: calc(100svh - var(--dock-b, 0px) - var(--np-h) - 96px - 96px);
+  }
+}
+
+/* A laptop or a tablet: the buffer under an unfolded strip is one line --
+   its title, its length, AUDITION and ✕ -- and a tap on it (strip.js) folds
+   the strip and opens the bench. The lanes get their height back: it is
+   only a line, so they needn't make room for it. */
+@media (min-width: 700px) and (min-height: 441px) {
+  body.play-unfolded.buffer-open .buffer-panel { margin: 6px 0; padding: 6px 12px; gap: 0; cursor: pointer; }
+  body.play-unfolded.buffer-open .buffer-body,
+  body.play-unfolded.buffer-open .buffer-foot,
+  body.play-unfolded.buffer-open .buffer-notch,
+  body.play-unfolded.buffer-open .buffer-sources,
+  body.play-unfolded.buffer-open .buffer-snap,
+  body.play-unfolded.buffer-open .buffer-unfold { display: none; }
+  body.play-unfolded.buffer-open .buffer-spacer { display: flex; justify-content: flex-end; }
+  body.play-unfolded.buffer-open .buffer-spacer::after {
+    content: 'Open ▴'; font: 700 11.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; opacity: .6;
+  }
+  body.play-unfolded.buffer-fold .tape-lanes { gap: 8px; }
+  body.play-unfolded.buffer-fold .tape-track { flex: 1 1 0; min-height: auto; overflow: visible; }
+  body.play-unfolded.buffer-fold .tt-head { overflow: visible; align-content: center; }
+}
+/* With the buffer the one open, a laptop's height has room for the lanes
+   only if the feed folds to its keys, as it does under the unfolded strip.
+   The notch pointed at the ribbon, which is gone. */
+@media (min-width: 700px) and (min-height: 441px) and (max-height: 1000px) {
+  body:has(.play-strip).buffer-open .studio-feed > .viz-wrap,
+  body:has(.play-strip).buffer-open .studio-feed > .vu-row { display: none; }
+  body:has(.play-strip).buffer-open .buffer-notch { display: none; }
+  body:has(.play-strip).buffer-open .studio-feed { display: flex; flex-wrap: wrap; row-gap: 8px; }
+  body:has(.play-strip).buffer-open .studio-feed > .studio-feed-head { flex: 1 1 320px; }
+  body:has(.play-strip).buffer-open .studio-feed > .studio-keys { flex: 0 1 auto; }
+  /* And the bench itself is a little closer: DROP, KEEP and TOSS keep their
+     size to the thumb, and a second lane shows under it. */
+  body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-panel { margin: 8px 0 6px; padding: 8px 14px; gap: 6px; }
+  body:has(.play-strip):not(.play-unfolded).buffer-open .icon-btn.buffer-drop { min-height: 48px; padding: 6px 16px; }
+  body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-acts-row > .icon-btn { min-height: 36px; }
+  body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-window { height: 92px; }
 
 /* ---------- Rooms P4: punch-in FX and tape mods (lib/play/fx.js, mods.js) ---------- */
 /* The FX and the mods in the places P3 left for them (screen.js, slot()).

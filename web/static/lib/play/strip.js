@@ -55,6 +55,26 @@ const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-height: 
 export function keysOwner({ open, given }) { return !!open && !given; }
 
 /**
+ * turns is the rule for the strip and the Studio's buffer: they take turns,
+ * because a laptop's height holds one of them in full and a phone's screen
+ * holds one over the mini player (an unfolded strip over the open bench cut
+ * the bench's bottom row off and left no lane). `state` is what's open now:
+ * `strip` unfolded, `buffer` open. `moved` is who acted last: 'strip' (it
+ * unfolded, or played a verb of its own) or 'buffer' (it was brought forward).
+ *
+ * It answers whether the strip stays unfolded, and how the bench shows:
+ * 'shut', 'full', or 'peek' -- a line on a laptop, the sheet's peek detent on
+ * a phone. Only `strip` is acted on from here; the peek is drawn by CSS from
+ * the two classes the page already carries (styles.css, "Rooms P3"), which
+ * say the same thing: the strip unfolded, and the buffer open.
+ */
+export function turns({ strip, buffer }, moved) {
+  if (!buffer) return { strip: !!strip, bench: 'shut' };
+  if (!strip) return { strip: false, bench: 'full' };
+  return moved === 'buffer' ? { strip: false, bench: 'full' } : { strip: true, bench: 'peek' };
+}
+
+/**
  * wantsFrames says whether the strip needs the shared ticker's next frame:
  * the ring sweeping a playing tape, the reel still coasting, another hand's
  * pad on its way, a pad of this hand's waiting for its line. A stopped tape
@@ -107,6 +127,7 @@ export function startStrip({
   let chosen = read(FROM_KEY, ''); // picked by hand on this device, or '' to follow what's there
   let from = chosen || 'keys';
   let learning = false;
+  let verbing = false;  // a verb the strip itself is playing: the strip moved, not the buffer
   const sounding = [];  // pads sounding, in the order they fired: the reel follows the newest trick
   const far = new FarPads(); // another hand's pads (far.js)
   const phone = typeof matchMedia === 'function' ? matchMedia(PHONE) : { matches: false, addEventListener() {} };
@@ -280,6 +301,34 @@ export function startStrip({
     ? new MutationObserver(() => { if (open && crate.classList.contains('open')) setOpen(false); }) : null;
   crateWatch?.observe(crate, { attributes: true, attributeFilter: ['class'] });
 
+  // --- the strip and the buffer take turns ----------------------------------------
+  // The buffer asks for the floor when it's brought forward (a GRAB from the
+  // feed, its Buffer ▴ key), and so does a tap on its peek. A GRAB played from
+  // the strip's own pad or key is the strip moving: it stays, and the buffer
+  // comes up as its peek (`turns`).
+  const bufferOpen = () => { const b = doc.getElementById('buffer'); return !!b && !b.hidden; };
+  function yieldTo(moved) {
+    if (!open) return;
+    if (!turns({ strip: open, buffer: bufferOpen() }, moved).strip) setOpen(false);
+  }
+  const onForward = () => yieldTo(verbing ? 'strip' : 'buffer');
+  doc.addEventListener('hindsight:bench-forward', onForward);
+  // A tap on the peeked buffer -- not on one of its buttons -- brings it
+  // forward. The sheet's grip is a button, the one that's a direct child of
+  // the panel; a tap on it means the same here, so it's claimed before it can
+  // flip the sheet's detent.
+  const onPeekTap = (e) => {
+    if (!open || !bufferOpen() || doc.body.classList.contains('player-open')) return; // the full player has the sheet whole
+    const t = e.target, panel = doc.getElementById('buffer');
+    if (!t?.closest || !panel?.contains(t)) return;
+    const control = t.closest('button, input, label, select, a');
+    if (control && control.parentElement !== panel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    yieldTo('buffer');
+  };
+  doc.addEventListener('click', onPeekTap, true);
+
   // --- commands ---------------------------------------------------------------
   function command(name, detail = {}) {
     if (name === 'panic') {
@@ -299,7 +348,8 @@ export function startStrip({
     }
     if (control(name)?.needs === 'rooms') {
       if (!has('rooms')) return;
-      doc.dispatchEvent(new CustomEvent('hindsight:verb', { detail: { verb: name }, cancelable: true }));
+      verbing = true;
+      try { doc.dispatchEvent(new CustomEvent('hindsight:verb', { detail: { verb: name }, cancelable: true })); } finally { verbing = false; }
     }
   }
 
@@ -462,6 +512,8 @@ export function startStrip({
       clearInterval(leadTimer);
       crateWatch?.disconnect();
       doc.removeEventListener('pointerdown', onDown, true);
+      doc.removeEventListener('hindsight:bench-forward', onForward);
+      doc.removeEventListener('click', onPeekTap, true);
       doc.removeEventListener('keydown', onEsc, true);
       doc.removeEventListener('hindsight:tape-state', onState);
       ui.destroy();

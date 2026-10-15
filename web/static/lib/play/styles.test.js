@@ -98,3 +98,85 @@ test('at a laptop’s height the FX and the mods go up beside the tracks, not be
   // And it comes after the one-row grid, so it wins where both apply.
   assert.ok(at > p4.search(/@media \(min-width: 1100px\) \{/), 'after the one-row grid');
 });
+
+// The rules of the P3 block, each with the @media it sits in (one level of
+// nesting is all the block uses): [{ media, sel, decls }].
+function rulesOf(block) {
+  const out = [];
+  const walk = (text, media) => {
+    let i = 0;
+    while (i < text.length) {
+      const open = text.indexOf('{', i);
+      if (open < 0) break;
+      const head = text.slice(i, open).trim();
+      let depth = 1, j = open + 1;
+      for (; j < text.length && depth; j++) { if (text[j] === '{') depth++; else if (text[j] === '}') depth--; }
+      const inner = text.slice(open + 1, j - 1);
+      if (head.startsWith('@media')) walk(inner, head.replace(/^@media\s*/, ''));
+      else if (!head.startsWith('@')) {
+        const decls = Object.fromEntries(inner.split(';').map((d) => d.trim()).filter(Boolean).map((d) => {
+          const k = d.indexOf(':');
+          return [d.slice(0, k).trim(), d.slice(k + 1).trim()];
+        }));
+        for (const sel of head.split(',').map((s) => s.trim())) out.push({ media, sel, decls });
+      }
+      i = j;
+    }
+  };
+  walk(block, '');
+  return out;
+}
+const PHONE_MEDIA = '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)';
+const LAPTOP_MEDIA = '(min-width: 700px) and (min-height: 441px) and (max-height: 1000px)';
+const find = (rules, media, sel) => rules.find((r) => r.media === media && r.sel === sel);
+
+test('on a phone the buffer’s sheet sits above the mini player, so EDIT | PLAY is never under it', () => {
+  // P2's sheet is fixed at the dock and tucks the mini player under it. With
+  // Play mode on the mini player carries the EDIT | PLAY toggle, so the sheet
+  // stands on the player instead. Its half detent keeps the height it had,
+  // so DROP is still in it; the page's room above it follows the sheet.
+  const rules = rulesOf(p3Block());
+  const lifted = 'body:not(.player-open):has(.play-toggle) .buffer-panel';
+  const r = find(rules, PHONE_MEDIA, lifted);
+  assert.ok(r, 'a rule that lifts the sheet when the toggle is there');
+  assert.equal(r.decls.bottom, 'calc(var(--dock-b, 0px) + var(--np-h))');
+  assert.equal(r.decls.height, undefined, 'the half detent is still P2’s 45svh, which keeps DROP in view');
+  const full = find(rules, PHONE_MEDIA, `${lifted}[data-height="full"]`);
+  assert.ok(full, 'the full detent gives up the player’s height, so it stops under the top bar');
+  assert.match(full.decls.height, /var\(--np-h\)/);
+  assert.equal(find(rules, PHONE_MEDIA, `${lifted}[data-height="peek"]`), undefined, 'the peek detent is unchanged');
+  const lift = 'calc(var(--dock-b, 0px) + var(--np-h) + 45svh';
+  const pad = find(rules, PHONE_MEDIA, 'body.tape-page.buffer-open:not(.player-open):has(.play-toggle)');
+  assert.ok(pad?.decls['padding-bottom'].startsWith(lift), 'the page leaves room above the lifted sheet');
+  const toasts = find(rules, PHONE_MEDIA, 'body.tape-page.buffer-open:not(.player-open):has(.play-toggle) #toasts');
+  assert.ok(toasts?.decls.bottom.startsWith(lift), 'and so do the toasts');
+});
+
+test('PLAY drops the sheet to its peek and the strip stands above it', () => {
+  const rules = rulesOf(p3Block());
+  const peek = /\.buffer-panel\[data-height="peek"\] \{ height: (\d+)px/.exec(css)?.[1];
+  assert.ok(peek, 'P2’s peek detent');
+  const sheet = rules.find((r) => r.media === PHONE_MEDIA && /^body\.play-unfolded:not\(\.player-open\):has\(\.play-toggle\) \.buffer-panel/.test(r.sel));
+  assert.ok(sheet, 'PLAY (the strip unfolded) shrinks the sheet');
+  assert.equal(sheet.decls.height, `${peek}px`, 'to the peek detent’s height');
+  const strip = rules.find((r) => r.media === PHONE_MEDIA && /^body\.buffer-open:not\(\.player-open\) \.play-strip\[data-fold="open"\]$/.test(r.sel));
+  assert.ok(strip, 'the open strip clears the peeked sheet');
+  assert.match(strip.decls.bottom, new RegExp(`${peek}px`));
+  assert.match(strip.decls['max-height'], new RegExp(`${peek}px`));
+});
+
+test('a laptop: the unfolded strip folds the buffer to one line, and the buffer alone folds the feed', () => {
+  const rules = rulesOf(p3Block());
+  // The one-line bench: its body and foot go, nothing else of it does.
+  const hidden = rules.filter((r) => r.decls.display === 'none' && /^body\.play-unfolded\.buffer-open \.buffer-/.test(r.sel)).map((r) => r.sel.replace(/^.* /, ''));
+  for (const part of ['.buffer-body', '.buffer-foot', '.buffer-notch']) assert.ok(hidden.includes(part), `${part} hides in the one-line bench`);
+  for (const keep of ['.buffer-head', '.buffer-close', '.buffer-audition', '.buffer-drop', '.buffer-keep', '.buffer-toss']) {
+    assert.ok(!hidden.includes(keep), `${keep} is not what the peek hides (the close and audition stay in the head)`);
+  }
+  // With the buffer the one open, a laptop's height gives the lanes room
+  // by folding the feed to its keys, as the unfolded strip does.
+  for (const part of ['.viz-wrap', '.vu-row']) {
+    const r = find(rules, LAPTOP_MEDIA, `body:has(.play-strip).buffer-open .studio-feed > ${part}`);
+    assert.equal(r?.decls.display, 'none', `${part} folds away while the buffer is open and Play mode is on`);
+  }
+});
