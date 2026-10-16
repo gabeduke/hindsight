@@ -21,7 +21,7 @@ function rig() {
     for (const [id, t] of [...timers]) if (t.at <= now) { timers.delete(id); t.fn(); }
   };
   const swallowed = [];
-  const ev = (o = {}) => ({ button: 0, detail: 1, shiftKey: false, preventDefault() { swallowed.push(true); }, ...o });
+  const ev = (o = {}) => ({ button: 0, detail: 1, shiftKey: false, pointerType: 'touch', preventDefault() { swallowed.push(true); }, ...o });
   return { press, log, advance, ev, swallowed, timers };
 }
 
@@ -96,6 +96,42 @@ test('Enter or Space on the ● (a click with no pointer) is a tap; ⇧-Enter ad
   r.press.click(r.ev({ detail: 0 }));
   r.press.click(r.ev({ detail: 0, shiftKey: true }));
   assert.deepEqual(r.log, ['tap', 'add']);
+});
+
+// Spec: "hold it (or ⇧-click)". A hold is a finger's or a pen's; a mouse adds
+// with ⇧-click, and a slow click is only a tap (it used to arm or disarm
+// when it lasted past the hold time).
+test('a mouse press held past the hold time is still just a tap', () => {
+  const r = rig();
+  r.press.down(r.ev({ pointerType: 'mouse' }));
+  r.advance(HOLD_MS * 3);
+  assert.deepEqual(r.log, [], 'nothing fires while the button is down');
+  assert.equal(r.timers.size, 0, 'no hold timer ran for a mouse');
+  r.press.up(r.ev({ pointerType: 'mouse' }));
+  r.press.click(r.ev({ pointerType: 'mouse' }));
+  assert.deepEqual(r.log, ['tap']);
+});
+
+test('a mouse ⇧-click adds, as ever', () => {
+  const r = rig();
+  r.press.down(r.ev({ pointerType: 'mouse', shiftKey: true }));
+  r.press.up(r.ev({ pointerType: 'mouse', shiftKey: true }));
+  r.press.click(r.ev({ pointerType: 'mouse', shiftKey: true }));
+  assert.deepEqual(r.log, ['add']);
+});
+
+test('a pen held for the hold time adds, like a finger', () => {
+  const r = rig();
+  r.press.down(r.ev({ pointerType: 'pen' }));
+  r.advance(HOLD_MS);
+  assert.deepEqual(r.log, ['add']);
+});
+
+test('a press with no pointer type is not a hold either', () => {
+  const r = rig();
+  r.press.down({ button: 0, detail: 1, preventDefault() {} });
+  r.advance(HOLD_MS * 3);
+  assert.deepEqual(r.log, []);
 });
 
 test('a right or middle button press neither taps nor holds', () => {

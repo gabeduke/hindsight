@@ -88,13 +88,13 @@ export function armClick(armed, n, rooms) {
   const on = armed.includes(n);
   if (rooms) {
     const next = tapArm(armed, n);
-    if (on && armed.length === 1) return { next, label: `Track ${n} is armed. Hold to take it off, leaving none armed` };
+    if (on && armed.length === 1) return { next, label: `Track ${n} is armed. Hold (Shift-click, Shift+Enter) to take it off, leaving none armed` };
     if (on) {
       const rest = armed.filter((x) => x !== n);
-      return { next, label: `Track ${n} is armed: tap to arm only ${onWords(next)}, hold to take it off (leaving ${onWords(rest)})` };
+      return { next, label: `Track ${n} is armed: tap to arm only ${onWords(next)}, hold (Shift-click, Shift+Enter) to take it off (leaving ${onWords(rest)})` };
     }
     if (!armed.length) return { next, label: `Arm track ${n}: Catch and Rec then use ${onWords(next)}` };
-    return { next, label: `Arm only track ${n}: Catch and Rec then use ${onWords(next)}. Hold to arm it as well (${onWords(holdArm(armed, n))})` };
+    return { next, label: `Arm only track ${n}: Catch and Rec then use ${onWords(next)}. Hold (Shift-click, Shift+Enter) to arm it as well (${onWords(holdArm(armed, n))})` };
   }
   // The rooms off: ● arms just the one, as it always did -- but a lit one,
   // which another device may have armed beside others, comes off on its own,

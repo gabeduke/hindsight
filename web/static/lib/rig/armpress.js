@@ -10,7 +10,8 @@ import { HOLD_MS } from '../tape/clipgestures.js';
  * armPress answers {down, up, cancel, click}, the ● button's pointerdown,
  * pointerup, pointercancel/pointerleave and click. onAdd fires once, at the
  * hold (while the finger is still down, so it is felt), and the click that
- * follows the lift is swallowed; onTap fires on a plain click, a keyboard
+ * follows the lift is swallowed -- for a finger or a pen; a mouse has no hold,
+ * it adds with a ⇧-click. onTap fires on a plain click, a keyboard
  * one included.
  */
 export function armPress({ onTap, onAdd, hold = HOLD_MS, setTimer = setTimeout, clearTimer = clearTimeout }) {
@@ -26,6 +27,9 @@ export function armPress({ onTap, onAdd, hold = HOLD_MS, setTimer = setTimeout, 
       stop();
       held = false;
       down = true;
+      // A hold is a finger's or a pen's. A mouse adds with ⇧-click; a slow
+      // click is only a tap.
+      if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
       timer = setTimer(() => {
         timer = null;
         held = true;

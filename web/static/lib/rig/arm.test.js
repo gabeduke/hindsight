@@ -69,12 +69,12 @@ test('a hold on ● arms the track as well, or takes an armed one off', () => {
 test('the label names both gestures, and says what Catch and Rec then use', () => {
   assert.equal(armClick([], 1, true).label, 'Arm track 1: Catch and Rec then use track 1');
   assert.equal(armClick([2], 3, true).label,
-    'Arm only track 3: Catch and Rec then use track 3. Hold to arm it as well (tracks 2, 3)');
-  assert.equal(armClick([2], 2, true).label, 'Track 2 is armed. Hold to take it off, leaving none armed');
+    'Arm only track 3: Catch and Rec then use track 3. Hold (Shift-click, Shift+Enter) to arm it as well (tracks 2, 3)');
+  assert.equal(armClick([2], 2, true).label, 'Track 2 is armed. Hold (Shift-click, Shift+Enter) to take it off, leaving none armed');
   assert.equal(armClick([2, 3], 3, true).label,
-    'Track 3 is armed: tap to arm only track 3, hold to take it off (leaving track 2)');
+    'Track 3 is armed: tap to arm only track 3, hold (Shift-click, Shift+Enter) to take it off (leaving track 2)');
   assert.equal(armClick([2, 3], 1, true).label,
-    'Arm only track 1: Catch and Rec then use track 1. Hold to arm it as well (tracks 1, 2, 3)');
+    'Arm only track 1: Catch and Rec then use track 1. Hold (Shift-click, Shift+Enter) to arm it as well (tracks 1, 2, 3)');
 });
 
 test('the label and the result agree: what a tap or a hold makes is what the label says Catch will use', () => {
