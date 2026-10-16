@@ -70,6 +70,7 @@ export function createFlights({ doc, win, host, reduced = () => false, spine, ta
     c.timers = [];
     win.removeEventListener('pagehide', c.hide);
     doc.removeEventListener('visibilitychange', c.away);
+    for (const ev of ['pause', 'ended']) c.audio?.removeEventListener?.(ev, c.hide);
     try { c.renderer.destroy(); } catch (e) { onError(e); }
     c.scene.stop();
     if (cur === c) cur = null;
@@ -91,12 +92,15 @@ export function createFlights({ doc, win, host, reduced = () => false, spine, ta
 
   return {
     /**
-     * launch flies take `key` from its spine to the target. Answers what
+     * launch flies take `key` from its spine to the target. `audio` is the
+     * take's own audio element: the flight is a picture of that sound, so it
+     * ends with the sound -- a pause from the bar's ▶ as much as from a tap, or
+     * the take reaching its end -- and does not land. Answers what
      * happened: 'flew', or why not -- 'reduced', 'no spine', 'no target',
      * 'error'. It never throws: the sound that was asked for just before is
      * already playing.
      */
-    launch(key) {
+    launch(key, { audio = null } = {}) {
       let c = null;
       try {
         if (reduced()) return 'reduced';
@@ -109,7 +113,7 @@ export function createFlights({ doc, win, host, reduced = () => false, spine, ta
         const scene = new Scene({ ticker, models: FLIGHT_MODELS, onError });
         const renderer = new DomRenderer();
         const obj = new SceneObject('flight', 'flight', { goal: 'deck', from, to, turn: true, vanish: true, t0: 0 });
-        c = { key, scene, renderer, obj, timers: [], over: false, hide: null, away: null };
+        c = { key, scene, renderer, obj, audio, timers: [], over: false, hide: null, away: null };
         c.hide = () => end(c, false);
         c.away = () => { if (doc.visibilityState === 'hidden') end(c, false); };
         scene.add(obj);
@@ -118,6 +122,7 @@ export function createFlights({ doc, win, host, reduced = () => false, spine, ta
         cur = c;
         win.addEventListener('pagehide', c.hide);
         doc.addEventListener('visibilitychange', c.away);
+        for (const ev of ['pause', 'ended']) audio?.addEventListener?.(ev, c.hide);
         c.timers.push(timers.set(() => measure(c), REMEASURE_MS));
         c.timers.push(timers.set(() => end(c, true), LAND_MS));
         scene.start();

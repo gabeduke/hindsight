@@ -16,8 +16,8 @@ import { spineTitle } from '../shelf.js';
  *   toast  (message, kind, {action: {label, run}})
  *   pick   (name) -> the page's own pick, so Play all goes on from here
  *   go     (url) -> leave for that page (Open); later: setTimeout, for the retry
- *   onPlay (name, {placed}) -> a take was just set playing: `placed` when it was not
- *          in the bar already (the flight to the deck runs beside the sound, and
+ *   onPlay (name, {placed, audio}) -> a take was just set playing: `placed` when it was not
+ *          in the bar already; `audio` is its own element, for what lives as long as the sound (the flight to the deck runs beside the sound, and
  *          is only asked for once the sound has been)
  *   onStop (name) -> that take is not playing (paused, or the browser refused it)
  *
@@ -103,7 +103,7 @@ export function createTap({ takes, bar, toast, pick, go = (u) => { location.href
       // The sound is asked for first, inside the tap, and nothing below waits
       // for it or comes before it: the flight is only a picture of it.
       const sounding = p.toggle();
-      hear(was ? onPlay : onStop, name, { placed });
+      hear(was ? onPlay : onStop, name, { placed, audio: p.audio });
       await sounding;
       if (was && p.audio.paused) hear(onStop, name); // refused: no flight for a sound that is not coming
       return was ? 'played' : 'paused';

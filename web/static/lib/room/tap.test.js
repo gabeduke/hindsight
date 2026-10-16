@@ -459,3 +459,26 @@ test('a take that cannot play flies nothing', async () => {
   assert.equal(await s.tap.tap('jam_a.wav'), 'encoding');
   assert.ok(!s.log.some((l) => l.startsWith('fly')));
 });
+
+// --- the retry and the flight never meet --------------------------------------------------
+
+test('a take the retry loads is never flown: it is loaded paused, and no flight is asked for', async () => {
+  const s = stage({ encoding: ['a'], readyAfter: { a: 1 } });
+  assert.equal(await s.tap.tap('jam_a.wav'), 'encoding');
+  await s.tick();
+  assert.equal(s.np.takeName, 'jam_a.wav', 'it arrived in the bar');
+  assert.ok(!s.log.some((l) => l.startsWith('fly')), 'a retry is not a tap: nothing flies');
+  assert.ok(!s.log.includes('play jam_a.wav'), 'and nothing plays');
+});
+
+test('a retry that arrives while another take is flying leaves it alone: no swap, no second flight', async () => {
+  const s = stage({ encoding: ['a'], readyAfter: { a: 1 } });
+  await s.tap.tap('jam_a.wav'); // encoding: a look is waiting
+  await s.tap.tap('jam_b.wav'); // plays, and its cassette flies
+  s.np.playingNow = true;
+  s.log.length = 0;
+  await s.tick();
+  assert.equal(s.np.takeName, 'jam_b.wav', 'the flying take is still the bar’s');
+  assert.deepEqual(s.log.filter((l) => /^(bar|fly|stop)/.test(l)), [], 'nothing loaded, nothing flown, nothing stopped');
+  assert.match(s.live().join('|'), /is ready — tap it/, 'it only says so');
+});

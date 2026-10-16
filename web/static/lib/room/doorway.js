@@ -203,7 +203,7 @@ export function mount(h) {
   });
   const tap = createTap({
     takes: h.takes, bar: () => h.np, toast, pick: h.pick,
-    onPlay: (name, { placed }) => { renderPlaces(); if (placed) flights.launch(name); },
+    onPlay: (name, { placed, audio }) => { renderPlaces(); if (placed) flights.launch(name, { audio }); },
     onStop: () => flights.cancel(),
   });
   wireRack(h.rack, { takes: h.takes, tap });

@@ -140,6 +140,22 @@ test('a pause, a navigation or a tab put away takes it out of the air with no la
   }
 });
 
+test('a pause or an end of the flighted take\u2019s own sound takes it out of the air, with no landing and no listener left', () => {
+  for (const ev of ['pause', 'ended']) {
+    const s = stage();
+    const audio = { l: {}, addEventListener(t, f) { (this.l[t] ??= new Set()).add(f); }, removeEventListener(t, f) { this.l[t]?.delete(f); } };
+    s.flights.launch(key('a.wav'), { audio });
+    s.run(300);
+    for (const f of [...audio.l[ev]]) f({ type: ev });
+    assert.equal(s.ghosts().length, 0, ev);
+    assert.equal(s.flights.active(), null, ev);
+    assert.equal(s.clock.timers.length, 0, `${ev}: no timer left to land it`);
+    assert.equal((audio.l.pause?.size || 0) + (audio.l.ended?.size || 0), 0, `${ev}: no listener left on the audio`);
+    s.run(LAND_MS + 20);
+    assert.deepEqual(s.landed, [], `${ev}: it did not land`);
+  }
+});
+
 test('with reduced motion nothing flies: no ghost, no frame, no timer, no listener', () => {
   const s = stage({ reduced: true });
   assert.equal(s.flights.launch(key('a.wav')), 'reduced');
