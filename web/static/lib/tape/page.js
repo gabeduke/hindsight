@@ -48,10 +48,11 @@ import { trimTapePage } from '../rooms/nocrate.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
-import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote } from '../rig/arm.js';
+import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
+import { armPress } from '../rig/armpress.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
-import { catchState, CATCH_BARS } from './catch.js';
+import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
 
 const $ = (id) => document.getElementById(id);
@@ -603,14 +604,19 @@ function render() {
   // Catch waits for a whole pass of the loop, and says so: it stays pressable
   // (never `disabled`, which a phone's tap passes over) and a press says why;
   // its tip does too (lib/tape/catch.js).
-  const cs = state.catchSays = catchState({ live, tape: t, phoneOut, armed: !!state.recTrack });
+  const cs = state.catchSays = catchState({ live, tape: t, phoneOut, armed: !!state.recTrack, rooms: ROOMS });
   const cb = $('catch-pass');
   cb.disabled = false;
   cb.setAttribute('aria-disabled', String(!cs.ready));
   cb.classList.toggle('waits', !cs.ready);
   cb.classList.toggle('jam-only', phoneOut);
   setIf(cb, 'title', cs.ready ? tipFor('catch') : cs.why);
-  setText(cb.querySelector('.np-catch-sub'), phoneOut ? 'jam room only' : !cs.ready ? cs.short : state.recTrack ? `last pass → ${state.recTracks.length > 1 ? tracksWords(state.recTracks) : `track ${state.recTrack}`}` : 'arm a track');
+  const catchWords = catchSub(cs, { armed: state.recTracks, phoneOut, rooms: ROOMS });
+  setText(cb.querySelector('.np-catch-sub'), catchWords);
+  // The Studio's key has a shorter second line for the phone's mini bar,
+  // where the full one is hidden (styles.css, .np-catch-mini).
+  const mini = cb.querySelector('.np-catch-mini');
+  if (mini) setText(mini, catchMini(catchWords));
   setIf(cb, 'aria-label', phoneOut ? 'Catch: needs the jam room' : !cs.ready ? `Catch: ${cs.why}` : state.recTrack ? `Catch the last pass onto ${onWords(state.recTracks)}` : 'Catch: arm a track first');
   renderMode();
   renderDrawers();
@@ -3072,23 +3078,43 @@ function buildLanes() {
       });
       // ● arms it, or disarms it if it's armed; its input opens a menu of
       // the inputs, to choose what it records from.
-      // With the two rooms on, it adds this track to what's armed or takes
-      // it off; 1–4, ↑ and ↓ still arm just one.
-      lane.arm.addEventListener('click', () => {
-        // What the click does is what its label says (armClick). With the
-        // rooms off that's one track, as ever -- or, on a lit ● another
-        // device armed beside others, just this one off.
-        const before = state.recTracks;
-        const { next } = armClick(before, n, ROOMS);
-        if (!next.length) disarm();
-        else if (next.length === 1 && next[0] === n) armTrack(n);
-        else if (toggleArm(n) && ROOMS) {
-          // An "as well" says what it made, and offers just this track: the
-          // arm adds, it never moves.
-          const note = armedNote(before, n, next);
-          if (note) toast(note.text, 'ok', { ms: 6000, action: { label: note.action, run: () => armTrack(n) } }).classList.add('toast-passive');
-        }
-      });
+      // With the two rooms on, a tap moves the arm to this track, as 1–4,
+      // ↑ and ↓ do, and a hold (or ⇧-click) arms it as well, or takes it
+      // off (rig/armpress.js).
+      if (ROOMS) {
+        const press = armPress({
+          onTap: () => { armTrack(n); },
+          onAdd: () => {
+            const before = state.recTracks;
+            const next = holdArm(before, n);
+            if (!next.length) { disarm(); return; }
+            // An "as well" says what it made: the arm adds, it never moves.
+            if (toggleArm(n)) {
+              const note = armedNote(before, n, next);
+              if (note) toast(note.text, 'ok', { ms: 6000 }).classList.add('toast-passive');
+            }
+          },
+        });
+        const a = lane.arm;
+        a.addEventListener('pointerdown', press.down);
+        a.addEventListener('pointerup', press.up);
+        a.addEventListener('pointercancel', press.cancel);
+        a.addEventListener('pointerleave', press.cancel);
+        a.addEventListener('click', press.click);
+        a.addEventListener('contextmenu', (e) => e.preventDefault()); // a long press on a phone is a hold, not a menu
+        a.style.webkitTouchCallout = 'none';
+        a.style.userSelect = 'none';
+      } else {
+        lane.arm.addEventListener('click', () => {
+          // What the click does is what its label says (armClick): one track,
+          // as ever -- or, on a lit ● another device armed beside others, just
+          // this one off.
+          const { next } = armClick(state.recTracks, n, false);
+          if (!next.length) disarm();
+          else if (next.length === 1 && next[0] === n) armTrack(n);
+          else toggleArm(n);
+        });
+      }
       // The rig's warning: an armed track whose input hears the tape. Only
       // with the rooms on: with them off there's no markup for it at all.
       let warn = null;
@@ -4018,6 +4044,11 @@ function mountCatchMenu() {
   more.className = 'np-catch-more';
   more.setAttribute('aria-hidden', 'true');
   more.textContent = '▾';
+  // Markup for the rooms only: the second line the phone's mini bar shows.
+  const mini = document.createElement('span');
+  mini.className = 'np-catch-mini';
+  mini.setAttribute('aria-hidden', 'true');
+  key.querySelector('.np-catch-sub')?.after(mini);
   key.append(more);
   key.setAttribute('aria-haspopup', 'menu');
   key.setAttribute('aria-expanded', 'false');
