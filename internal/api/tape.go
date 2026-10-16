@@ -74,16 +74,18 @@ func tapeErr(w http.ResponseWriter, err error) {
 		writeErr(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, audio.ErrRangeGone):
 		writeErr(w, http.StatusConflict, tape.ErrGone.Error())
-	case errors.Is(err, tape.ErrRecording):
-		// A page tells this one from the other 409s by the reason, not by
-		// matching prose: it says "Waiting for rec to finish" for it.
+	case tape.IsWaitingForRecording(err):
+		// An EDIT refused until the recording ends. A page tells it from the
+		// other 409s by the reason, not by matching prose: it says "Waiting
+		// for rec to finish" for it. A mixdown or a second record, which
+		// share the sentinel, fall through to the plain 409 below.
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error(), "reason": ReasonRecording})
 	case errors.Is(err, audio.ErrLowDisk):
 		writeErr(w, http.StatusInsufficientStorage, err.Error())
 	case errors.Is(err, tape.ErrNoTape), errors.Is(err, tape.ErrWrongTape), errors.Is(err, tape.ErrNotYet),
 		errors.Is(err, tape.ErrGone), errors.Is(err, tape.ErrNoPass), errors.Is(err, tape.ErrNothingToDo),
 		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed),
-		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrNotRecording),
+		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
 		errors.Is(err, tape.ErrEmptyClipboard), errors.Is(err, tape.ErrNoOutput), errors.Is(err, tape.ErrMixingDown),
 		errors.Is(err, tape.ErrNoSaver), errors.Is(err, tape.ErrExporting), errors.Is(err, tape.ErrLoopMoved),
 		errors.Is(err, tape.ErrNeedsJamRoom), errors.Is(err, tape.ErrNoStream):

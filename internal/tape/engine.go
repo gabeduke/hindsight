@@ -714,7 +714,7 @@ func (e *Engine) SetOutputMode(m OutputMode) error {
 		e.recMu.Lock()
 		defer e.recMu.Unlock()
 		if e.rec != nil {
-			return ErrRecording
+			return WaitsForRecording(ErrRecording)
 		}
 		if e.mixdownBusy() {
 			return ErrMixingDown
