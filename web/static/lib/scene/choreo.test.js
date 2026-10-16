@@ -114,6 +114,17 @@ test('up a phone’s page the arc bows to the side, and never rises past the dec
   assert.ok(Math.max(...xs.map((x) => Math.abs(x - straight))) > 40, 'but out to the side');
 });
 
+test('the arc keeps the cassette on the page: on a narrow phone it does not bow off the left edge', () => {
+  const shelf = { x: 20, y: 470, w: 112, h: 70 }, win = { x: 34, y: 100, w: 124, h: 60 };
+  const left = (room) => {
+    let m = Infinity;
+    for (let t = 500; t <= SEAT_AT; t += 10) m = Math.min(m, frameAt(t, { from: shelf, to: win, turn: false, room }).x - win.w / 2);
+    return m;
+  };
+  assert.ok(left(0) < -10, `the unbounded arc runs off the page (${left(0).toFixed(1)})`);
+  assert.ok(left(390) >= -1e-9, `bounded, the face stays on the page (${left(390).toFixed(1)})`);
+});
+
 test('SEAT settles it into the window, and after it the face is exactly the window', () => {
   const s = at(SEAT_AT + 80);
   assert.ok(s.face.s < SEAT_FROM && s.face.s > 1);

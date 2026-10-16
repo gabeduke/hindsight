@@ -116,7 +116,8 @@ const centre = (r) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 /**
  * frameAt is the drawing at time `t` (ms on the timeline) of a thing that
  * stood in `from` (its slot: {x, y, w, h}, viewport px) going to `to` (the
- * deck's window, the same). `turn` says the thing stands spine out and turns
+ * deck's window, the same). `room`, when given, is the page's width, which
+ * the arc stays inside. `turn` says the thing stands spine out and turns
  * to show its face; without it (a face already out, as on a phone's shelf)
  * the spine cross-fades into the face instead.
  *
@@ -126,7 +127,7 @@ const centre = (r) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
  * its opacity (o); and the shadow under it: its opacity (o) and how far
  * below it falls (dy, px).
  */
-export function frameAt(t, { from, to, turn = true, vanish = false }) {
+export function frameAt(t, { from, to, turn = true, vanish = false, room = 0 }) {
   const f = centre(from);
   const w = to ? centre(to) : f;
   const toW = to ? to.w : Math.max(from.w, from.h);
@@ -156,6 +157,10 @@ export function frameAt(t, { from, to, turn = true, vanish = false }) {
     let nx = -dy0 / dist, ny = dx0 / dist; // a unit normal to the way
     if (ny > 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; }
     const c = { x: (p0.x + w.x) / 2 + nx * bow, y: (p0.y + w.y) / 2 + ny * bow };
+    // `room` is the page's width: a curve lies inside its control points, so
+    // keeping the control point half a face from either edge keeps the
+    // cassette on the page. (Up a phone's page the bow is sideways.)
+    if (room > 0) c.x = Math.min(Math.max(c.x, toW / 2), Math.max(toW / 2, room - toW / 2));
     const k = kFly;
     x = (1 - k) * (1 - k) * p0.x + 2 * (1 - k) * k * c.x + k * k * w.x;
     y = (1 - k) * (1 - k) * p0.y + 2 * (1 - k) * k * c.y + k * k * w.y;

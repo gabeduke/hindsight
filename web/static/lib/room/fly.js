@@ -112,7 +112,7 @@ export function createFlights({ doc, win, host, reduced = () => false, spine, ta
         if (!to || !(to.w > 0 && to.h > 0)) return 'no target';
         const scene = new Scene({ ticker, models: FLIGHT_MODELS, onError });
         const renderer = new DomRenderer();
-        const obj = new SceneObject('flight', 'flight', { goal: 'deck', from, to, turn: true, vanish: true, t0: 0 });
+        const obj = new SceneObject('flight', 'flight', { goal: 'deck', from, to, turn: true, vanish: true, t0: 0, room: win.innerWidth });
         c = { key, scene, renderer, obj, audio, timers: [], over: false, hide: null, away: null };
         c.hide = () => end(c, false);
         c.away = () => { if (doc.visibilityState === 'hidden') end(c, false); };
