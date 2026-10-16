@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.16.3 — 2026-10-16
+
+- Listening Room: from the doorway it looks like a room now, on laptops and tablets -- warm lamp light, a real reel-to-reel on the console, tapes on wooden shelves (0def1c9)
+- Listening Room: the room is described as a place -- its furniture, its lamp and window, and where you stand -- and drawn from that (c9047cc)
+- Scenes can hold furniture now: a prop is a thing that stands where it is put (4ed20d3)
+
+
 ## v2026.10.16.2 — 2026-10-16
 
 - The guide: a contents list that follows you, each part a panel, checks on cards of their own, and tables that fit a phone (dba239d)
