@@ -620,3 +620,22 @@ test('every tape formula label reads, selected or not', () => {
   assert.ok(contrast(token(plain, 'color'), token(plain, 'background')) >= 4.5, 'an unselected formula');
   assert.ok(contrast(token(chosen, 'color'), token(chosen, 'background')) >= 4.5, 'the selected formula');
 });
+
+// Settings is the only way into Settings anywhere in the app (the about line
+// on Capture, and the Studio's foot), so it is drawn as a button with a real
+// target, not as the line's 12px link: at least 40px tall, a size up from the
+// line, and its own rule so Releases and Update keep the link look.
+test('the Settings button is a button-sized target, not a link in the line', () => {
+  const m = /\.about #settings-btn\s*\{([^}]*)\}/.exec(css);
+  assert.ok(m, 'a rule for .about #settings-btn');
+  const body = m[1];
+  const px = (prop) => {
+    const d = new RegExp(`(?:^|[;\\s])${prop}:\\s*(\\d+)px`).exec(body);
+    assert.ok(d, `${prop} in px`);
+    return +d[1];
+  };
+  assert.ok(px('min-height') >= 40, 'at least 40px tall');
+  assert.ok(px('font-size') >= 14, 'a size up from the 12px line');
+  assert.match(body, /border:\s*1px solid var\(--line\)/, 'it has an edge, so it reads as a button');
+  assert.match(body, /text-decoration:\s*none/, 'and is not underlined like a link');
+});
