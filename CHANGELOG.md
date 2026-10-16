@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.16.2 — 2026-10-16
+
+- The guide: a contents list that follows you, each part a panel, checks on cards of their own, and tables that fit a phone (dba239d)
+- Releases: each release's date on a line of its own, and what a pick changes as a card of + and − per release (d69e23c)
+
+
 ## v2026.10.16.1 — 2026-10-16
 
 - With the preview flags off, the Tape page's Catch key is greyed until a pass has gone round, as it always was (parity) (9d36059)
