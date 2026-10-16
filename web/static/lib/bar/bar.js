@@ -4,12 +4,15 @@
 // take (take-source.js) -- in the reel window and its LCD, played from its
 // keys, and scrubbed on its strip. A tap on the strip moves the playhead
 // there; a drag scrubs it; with the strip focused, ← → step and Space plays.
-// The page decides what the bar holds; ⏏ asks it for the tape back.
+// The page decides what the bar holds; ⏏ asks it for the tape back. With the
+// rooms on, a take in it also shows its name (a link to its page) and ✎
+// (take-keys.js), and ⟲ is Repeat.
 
 import { ReelWindow } from '../objects/reel-window.js';
 import { Loop } from '../objects/motion.js';
 import { tapeSource } from './tape-source.js';
 import { takeSource, playheadOf } from './take-source.js';
+import { takeKeys, noteHere } from './take-keys.js';
 import { initPlayer } from './player.js';
 import { pageCarry, isStudio } from './carry.js';
 import { createHandoff, takesFinder } from './handoff.js';
@@ -21,7 +24,7 @@ import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } fr
 const $ = (id) => document.getElementById(id);
 
 export class NowPlaying {
-  constructor({ onEject, onTouch } = {}) {
+  constructor({ onEject, onTouch, onNote } = {}) {
     this.root = $('np');
     this.src = null;
     this.marqueeKey = null;
@@ -37,6 +40,9 @@ export class NowPlaying {
     this.reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
     this.scrub = $('np-scrub');
     initPlayer();
+    // With the rooms on, a take in the bar shows its name (which opens it) and
+    // ✎, and ⟲ is Repeat (take-keys.js). Off, the bar has none of it.
+    this.keys = roomsOn() ? takeKeys({ doc: document, root: this.root, onNote }) : null;
 
     $('np-play').addEventListener('click', () => {
       const s = this.src;
@@ -118,7 +124,7 @@ export class NowPlaying {
     this.src = src;
     this.marqueeKey = null;
     this.root.hidden = !src;
-    if (!src) return;
+    if (!src) { this.keys?.paint(null); return; }
     if (src.kind === 'tape') src.setActive?.(true);
     // Once per source: the tape comes back into the bar again and again.
     if (!hooked.has(src)) { hooked.add(src); src.on(() => { if (this.src === src) this.kick(); }); }
@@ -162,6 +168,7 @@ export class NowPlaying {
     setAttr(play, 'aria-label', waiting ? 'Play here' : shown ? (s.kind === 'tape' ? 'Stop' : 'Pause') : 'Play');
     play.classList.toggle('playing', shown);
     play.disabled = !playing && !waiting && !s.canPlay();
+    this.keys?.paint(s);
     setAttr($('np-loop'), 'aria-pressed', String(!!s.loop));
     $('np-loop').disabled = !s.canLoop();
     setAttr($('np-start'), 'aria-label', s.startLabel());
@@ -218,10 +225,17 @@ export function pageBar({ tapes, onToast, find = null }) {
   // How many times the person has used the bar's own keys, strip or ⏏: the Listening
   // Room's late arrivals (lib/room/tap.js) load nothing if it has changed.
   let touches = 0;
-  const bar = new NowPlaying({ onEject: () => backToTape({ byHand: true }), onTouch: () => { touches++; handoff.touch(); } });
+  const bar = new NowPlaying({
+    onEject: () => backToTape({ byHand: true }),
+    onTouch: () => { touches++; handoff.touch(); },
+    // ✎: the take and the frame now, kept for the next page, and the take opens.
+    onNote: () => noteHere({ frameNow, stash: stashFrame, go: (u) => { location.href = u; } }),
+  });
   const eject = () => { $('np-eject').hidden = !(tape && take); };
   const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing(), loop: take.src.loop } : null);
   const carry = pageCarry();
+  const frameNow = () => carry.frameNow(heldState);
+  const stashFrame = (f = heldState()) => carry.stashFrame(f);
   const listP = Promise.resolve(tapes).catch(() => null);
   // The take the last page left (carry.js, handoff.js): read now, before the
   // bar draws anything; put in the bar once the page's list has it, however
@@ -303,9 +317,9 @@ export function pageBar({ tapes, onToast, find = null }) {
   return {
     ready,
     /** frameNow: the take in the bar and its frame at this moment ({take, frame, sr, playing, at}), or null. ✎ takes it before the page changes. */
-    frameNow: () => carry.frameNow(heldState),
-    /** stashFrame keeps that frame for the next page (carry.takeStashedFrame reads it there), and answers it. */
-    stashFrame: () => carry.stashFrame(heldState()),
+    frameNow,
+    /** stashFrame keeps a frame -- frameNow's, else the take's now -- for the next page (carry.takeStashedFrame reads it there), and answers it. */
+    stashFrame,
     get takeName() { return take ? take.name : null; },
     /** touches: how many times the bar's keys, strip or ⏏ have been used on this page. */
     get touches() { return touches; },

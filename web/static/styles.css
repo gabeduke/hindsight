@@ -5322,3 +5322,112 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
   body.buffer-fold .tape-track:not(.buffer-target) { height: 22px; }
   body.buffer-fold .tape-track:not(.buffer-target) .tt-lane { height: 20px; }
 }
+
+/* ---------- Rooms F5b: the bar with a take in it (lib/bar/take-keys.js) ----------
+   With the rooms on, a take in the bar shows its name (a link to the take's
+   page) and ✎, and the phone's mini player holds the strip. The elements are
+   made by that script, and `.np-take` is a class only it puts on the bar, so
+   with the rooms off none of this matches anything. */
+.np .np-own .np-name {
+  display: inline-flex; align-items: center; flex: 0 1 auto; min-width: 0; max-width: 22ch; height: 52px; padding: 0 10px;
+  border-radius: 7px; color: inherit; text-decoration: none; font: 700 15px var(--label-font);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.np .np-own .np-name[hidden], .np .np-own .np-note[hidden] { display: none; }
+@media (hover: hover) { .np .np-own .np-name:hover { text-decoration: underline; } }
+.np .np-own .np-name::after { content: '›'; margin-left: 6px; opacity: .6; }
+.np .np-own .np-name:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.np .np-own .np-note { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; font-size: 20px; }
+/* The name is the way into the take: the bar's own "Open the take ›" is the same route twice. */
+.np.np-take #np-open { display: none; }
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  /* The mini player for a take: ▶, the name and ✎ in a row, the strip under
+     them. There is no player to open for a take, so no window or ▾ either. */
+  body:has(.np.np-take:not([hidden])) { --np-h: 114px; }
+  body:not(.player-open) .np.np-take { flex-wrap: wrap; align-content: center; row-gap: 6px; }
+  body:not(.player-open) .np.np-take .np-window { display: none; }
+  body:not(.player-open) .np.np-take .np-keys { order: 1; }
+  body:not(.player-open) .np.np-take .np-own { order: 2; flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 4px; }
+  /* ⏏ (the tape back, when both are in the bar) has no player to hide in either. */
+  body:not(.player-open) .np.np-take .np-own > :is(.np-name, .np-note, .np-eject:not([hidden])) { display: inline-flex !important; }
+  body:not(.player-open) .np.np-take .np-own > .np-name { flex: 1 1 0; max-width: none; }
+  body:not(.player-open) .np.np-take .np-own > :is(.np-note, .np-eject) { flex: none; width: 48px; min-width: 48px; height: 50px; min-height: 50px; }
+  /* Repeat has no key here, so while it is on (carried from another page) its
+     key shows, lit, to turn it off. */
+  body:not(.player-open) .np.np-take .np-keys > #np-loop[aria-pressed="true"] { display: inline-flex !important; }
+  body:not(.player-open) .np.np-take #np-scrub { display: block !important; order: 3; flex: 1 1 100%; min-width: 0; height: 44px; }
+}
+@media (orientation: landscape) and (max-height: 440px) {
+  /* On its side there is only room for one row: the strip beside the name. */
+  body:has(.np.np-take:not([hidden])) { --np-h: 64px; }
+  body:not(.player-open) .np.np-take { flex-wrap: nowrap; }
+  body:not(.player-open) .np.np-take .np-own { flex: 0 1 38%; }
+  body:not(.player-open) .np.np-take #np-scrub { flex: 1 1 0; height: 50px; }
+}
+
+/* ---------- Rooms F5b: a cassette flies from its shelf to the deck (lib/room/fly.js, ghost.js; lib/scene/flight.js) ----------
+   A tap puts a take on the deck and plays it at once; its cassette flies there
+   alongside the sound. The motion is the scene's: the flight model is stepped on
+   the shared ticker and the ghost writes transforms; these rules give the parts
+   their shapes and animate nothing but the deck's one settle. Every selector is
+   under a room- class, so with the rooms off none of it matches anything. */
+
+/* The motion tokens: the same in both schemes (no dark value) and no material
+   (not objects.css). lib/scene/choreo.js uses the same numbers, and
+   choreo.test.js keeps the two in step. */
+:root {
+  --t-touch: 120ms;
+  --t-move: 200ms;
+  --t-flight: 420ms;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --ease-flight: cubic-bezier(.3,0,.2,1);
+  --ease-seat: cubic-bezier(.34,1.56,.64,1);
+}
+
+/* The ghost of the take in the air: fixed over the page, taking no input. Its
+   two planes -- the spine as the shelf drew it, the cassette's face -- are
+   centred on its origin; the drawer moves the ghost and turns the planes. */
+.room-carry {
+  position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 30; pointer-events: none;
+  perspective: 700px; will-change: transform;
+}
+.room-carry[hidden] { display: none; }
+.room-carry-plane { position: absolute; left: 0; top: 0; display: block; backface-visibility: hidden; will-change: transform, opacity; }
+.room-carry-plane > .room-cassette { position: absolute; inset: 0; width: auto; height: auto; margin: 0; transform: none; animation: none; transition: none; }
+.room-carry-shade {
+  position: absolute; inset: 0; border-radius: 6px; opacity: 0;
+  background: rgba(0,0,0,.42); box-shadow: 0 0 14px 5px rgba(0,0,0,.42); will-change: transform, opacity;
+}
+.room-carry-face > .room-carry-shade-take { inset: auto; left: 50%; top: 4%; height: 92%; aspect-ratio: 1.59; translate: -50% 0; }
+
+/* The cassette's face: its label in its tag's stripe, its name in marker, its hubs. */
+.room-face { position: absolute; display: block; }
+.room-face-cassette {
+  left: 50%; top: 4%; height: 92%; aspect-ratio: 1.59; translate: -50% 0; box-sizing: border-box; container-type: size;
+  border-radius: 7% / 11%; background: linear-gradient(var(--cas-hi), var(--cas-mid));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 0 rgba(0,0,0,.4), 0 2px 5px rgba(0,0,0,.45);
+}
+.room-face-label { position: absolute; left: 6%; right: 6%; top: 8%; height: 52%; overflow: hidden; border-radius: 3px; background: var(--paper-hi); }
+.room-face-band { position: absolute; left: 0; right: 0; top: 0; height: 24%; background: var(--stripe); }
+.room-face-name {
+  position: absolute; left: 6%; right: 6%; top: 30%; bottom: 4%; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--marker);
+  font: 400 clamp(7px, 13cqh, 18px)/1 'Permanent Marker', var(--font);
+}
+.room-face-window { position: absolute; left: 20%; right: 20%; top: 64%; height: 26%; border-radius: 999px; background: var(--cas-slot); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.room-face-hub {
+  position: absolute; top: 50%; height: 84%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  background: radial-gradient(circle, var(--cas-slot) 0 30%, transparent 31%), radial-gradient(circle, var(--reel-metal) 0 60%, transparent 61%);
+}
+.room-face-hub:nth-of-type(1) { left: 22%; }
+.room-face-hub:nth-of-type(2) { left: 78%; }
+
+/* It lands, and what it lands in settles once: the deck's art where the room is
+   drawn, the bar where it is not (a phone has no deck). */
+.room-deck.room-seat .room-deck-art { animation: room-seat var(--t-move) var(--ease-seat); }
+.np.room-seat { animation: room-seat-bar var(--t-move) ease-out; }
+@keyframes room-seat { 40% { transform: scale(1.035); } }
+@keyframes room-seat-bar { 40% { outline: 2px solid var(--accent); outline-offset: -2px; } }
+@media (prefers-reduced-motion: reduce) {
+  .room-deck.room-seat .room-deck-art, .np.room-seat { animation: none; }
+}

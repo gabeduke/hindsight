@@ -6,6 +6,7 @@
 // and routes.test.js both stand on it.
 import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
+import { Ticker } from '../objects/motion.js';
 
 const takesHtml = readFileSync(new URL('../../takes.html', import.meta.url), 'utf8');
 
@@ -27,6 +28,15 @@ export function world(search = '') {
   globalThis.setInterval = (fn, ms) => { w.intervals.push({ fn, ms }); return w.intervals.length; };
   globalThis.sessionStorage = w.session;
   globalThis.localStorage = w.local;
+  // The window the flight listens on, and the screen it flies across.
+  w.winListeners = {};
+  globalThis.window = {
+    innerWidth: 1440, innerHeight: 900,
+    addEventListener: (t, f) => { (w.winListeners[t] ??= new Set()).add(f); },
+    removeEventListener: (t, f) => { w.winListeners[t]?.delete(f); },
+  };
+  w.reducedMotion = false;
+  globalThis.matchMedia = (q) => ({ matches: w.reducedMotion && /reduced-motion/.test(q), addEventListener() {} });
   globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
   const loc = {
     _href: '', search: w.search || '',
@@ -66,8 +76,20 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
   };
   const toasts = [];
   const sheet = { opened: 0 };
+  // The flight's clock and ticker are the test's: run(ms) moves time on, a frame per 16 ms, and fires the timers that fall due.
+  const clock = { now: 0, raf: [], timers: [] };
+  const ticker = new Ticker({ raf: (fn) => { clock.raf.push(fn); return clock.raf.length; }, cancel: () => {}, now: () => clock.now, reduced: false });
+  const flightTimers = { set: (fn, ms) => { const t = { fn, at: clock.now + ms }; clock.timers.push(t); return t; }, clear: (t) => { clock.timers = clock.timers.filter((x) => x !== t); } };
+  const run = (ms) => {
+    const end = clock.now + ms;
+    while (clock.now < end) {
+      clock.now = Math.min(end, clock.now + 16);
+      for (const f of clock.raf.splice(0)) f();
+      for (const t of [...clock.timers].sort((a, b) => a.at - b.at)) if (t.at <= clock.now) { clock.timers = clock.timers.filter((x) => x !== t); t.fn(); }
+    }
+  };
   const h = {
-    takes: list, toast: (m) => toasts.push(m), tapes: Promise.resolve(tapes),
+    takes: list, toast: (m) => toasts.push(m), tapes: Promise.resolve(tapes), ticker, flightTimers,
     get np() { return np; },
     opts: () => ({}),
     // The page's rack and its select bar, which the room wires.
@@ -93,7 +115,8 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
   const tick = () => { for (const i of w.intervals) i.fn(); };
   // The page's list changed (a poll that brought something, a tag renamed): what shelf-page tells the room.
   const changed = () => { for (const f of hooks.change) f(); };
-  return { w, doc, np, h, list, log, toasts, sheet, q, spine, touch, settle, tick, changed, players, mounted: true };
+  const ghosts = () => doc.body.querySelectorAll('.room-carry');
+  return { w, doc, np, h, list, log, toasts, sheet, q, spine, touch, settle, tick, changed, players, mounted: true, clock, run, ghosts };
 }
 // The dialogs the room made (the page's own #confirm is the trash's).
 export const roomDialogs = (r) => r.doc.querySelectorAll('dialog').filter((d) => d.id !== 'confirm').map((d) => d.className);
