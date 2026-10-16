@@ -258,7 +258,7 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
      * (and the stash stays), so a stale stash from another take can't apply.
      */
     takeStashedFrame(take) {
-      if (!ok() || typeof take !== 'string' || take === '') return null;
+      if (!ok()) return null;
       const raw = get(FRAME_KEY);
       if (raw == null) return null;
       const r = parse(raw);
@@ -270,7 +270,7 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
 
     /**
      * arrival is where Open (the take page with the rooms on) starts for take
-     * `file`, `length` frames long: {frame, play, note}. `frame` and `play`
+     * `file`, `length` frames long: {frame, left, play, note}. `left` is the frame the bar left it at; `frame` and `play`
      * are the bar's own spot, as resumeAt reads the record the page before
      * left -- its frame, plus the time away if it was playing -- so the page
      * opens where the bar was and the take plays on. `note` is the frame ✎
@@ -279,18 +279,33 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
      * the stash is used up. Anything else: the top, paused, no note.
      */
     arrival(file, length) {
-      const none = { frame: 0, play: false, note: null };
+      const none = { frame: 0, left: 0, play: false, note: null };
       if (!ok() || typeof file !== 'string' || !(length > 0)) return none;
       const inside = (f) => Math.max(0, Math.min(length - 1, Math.round(f)));
       const stash = self.takeStashedFrame(file);
       const note = stash ? inside(stash.frame) : null;
       const rec = self.peek();
       const at = rec && rec.take === file ? resumeAt(rec, now(), length) : null;
-      if (at) return { frame: at.play ? at.playFrame : at.frame, play: at.play, note };
-      return { frame: note ?? 0, play: false, note };
+      if (at) return { frame: at.play ? at.playFrame : at.frame, left: at.frame, play: at.play, note };
+      return { frame: note ?? 0, left: note ?? 0, play: false, note };
     },
   };
   return self;
+}
+
+/**
+ * startOpen puts Open where `arrival` says and tries to play on. A sound the
+ * browser refuses (nothing tapped on this page: Safari on an iPhone always)
+ * leaves the take waiting at the frame the bar left it, paused, unless the
+ * person moved the playhead meanwhile. 'playing' | 'ready' | 'paused'. Never throws.
+ */
+export async function startOpen(arrival, { seek, pos, play }) {
+  seek(arrival.frame);
+  if (!arrival.play) return 'paused';
+  try { await play(); return 'playing'; } catch {
+    if (pos() === arrival.frame) seek(arrival.left);
+    return 'ready';
+  }
 }
 
 /** forTheTape: this page is going to the Studio for the tape -- a GRAB, Open in the Studio -- so no take goes along. */

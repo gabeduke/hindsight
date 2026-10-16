@@ -2095,7 +2095,8 @@ has no tip.
 | GRAB (a take) | Into the Studio's buffer, and the Studio opens: the take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
 | GRAB (a note) | This note, to the next note or eight bars, into the Studio's buffer |
 | Tag (a take) | The take's one tag |
-| From this take | The takes made from this one: a tap opens one |
+| Made from | The take this one was cut from: a tap opens it |
+| From this take | What was cut from this take: a tap opens one |
 | Earlier bounces | Earlier bounces of this take's tape: a tap opens one |
 | ☰ List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
 | Show everything | Turns off the filter that's narrowing the shelves |

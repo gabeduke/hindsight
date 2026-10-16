@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  startOpen,
   CARRY_KEY, FRAME_KEY, CARRY_LIMIT_MS, FRAME_LIMIT_MS, createCarry, resumeAt, mayCarry, studioVisit, openTheTape, takePageState,
 } from './carry.js';
 import { takeSource } from './take-source.js';
@@ -625,18 +626,18 @@ const LEN = 600 * SR;
 
 test('Open with nothing left by the page before starts at the top, paused, with no note', () => {
   const { carry } = aCarry();
-  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, play: false, note: null });
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, left: 0, play: false, note: null });
 });
 
 test('Open picks up where the bar was: its frame, plus the time away if it was playing', () => {
   const { carry, clock } = aCarry();
   carry.leave(left({ frame: 30 * SR, playing: true }));
   clock.t += 8_000;
-  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 38 * SR, play: true, note: null });
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 38 * SR, left: 30 * SR, play: true, note: null });
   const paused = aCarry();
   paused.carry.leave(left({ frame: 30 * SR, playing: false }));
   paused.clock.t += 8_000;
-  assert.deepEqual(paused.carry.arrival('jam_a.wav', LEN), { frame: 30 * SR, play: false, note: null });
+  assert.deepEqual(paused.carry.arrival('jam_a.wav', LEN), { frame: 30 * SR, left: 30 * SR, play: false, note: null });
 });
 
 test('Open leaves the record standing and ignores another take\'s', () => {
@@ -661,7 +662,7 @@ test('✎ arrives with the note at the frame that was heard, however long the ga
 test('✎ on a bar that was paused: the page opens on the note\'s frame', () => {
   const { carry } = aCarry();
   carry.stashFrame(left({ frame: 44 * SR, playing: false }));
-  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 44 * SR, play: false, note: 44 * SR });
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 44 * SR, left: 44 * SR, play: false, note: 44 * SR });
 });
 
 test('another take\'s stash makes no note here, and a stash past the end is held inside the take', () => {
@@ -676,12 +677,41 @@ test('a take that played to its end while away opens at the top: the record is j
   const { carry, clock } = aCarry();
   carry.leave(left({ frame: 598 * SR, playing: true }));
   clock.t += 10_000;
-  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, play: false, note: null });
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, left: 0, play: false, note: null });
 });
 
 test('with the rooms off Open reads nothing and starts nowhere', () => {
   const store = new Store();
   const carry = createCarry({ storage: store, now: () => T0, enabled: () => false });
-  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, play: false, note: null });
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, left: 0, play: false, note: null });
   assert.equal(store.reads, 0);
+});
+
+test('a refused sound leaves Open waiting at the frame the bar left, not the advanced one', async () => {
+  const seeks = [];
+  let at = 0;
+  const seek = (f) => { seeks.push(f); at = f; };
+  const arrival = { frame: 38 * SR, left: 30 * SR, play: true, note: null };
+  const how = await startOpen(arrival, { seek, pos: () => at, play: async () => { throw Object.assign(new Error('x'), { name: 'NotAllowedError' }); } });
+  assert.equal(how, 'ready');
+  assert.deepEqual(seeks, [38 * SR, 30 * SR]);
+  // moved by the person meanwhile: theirs
+  const s2 = [];
+  let at2 = 0;
+  await startOpen(arrival, { seek: (f) => { s2.push(f); at2 = f; }, pos: () => 99, play: async () => { throw new Error('x'); } });
+  assert.deepEqual(s2, [38 * SR]);
+  // accepted: stays where it is
+  const s3 = [];
+  assert.equal(await startOpen(arrival, { seek: (f) => s3.push(f), pos: () => 0, play: async () => {} }), 'playing');
+  assert.deepEqual(s3, [38 * SR]);
+  void at2;
+});
+
+test('arrival carries the frame the bar left as well as the one it plays on from', () => {
+  const { carry, clock } = aCarry();
+  carry.leave(left({ frame: 30 * SR, playing: true }));
+  clock.t += 8_000;
+  const a = carry.arrival('jam_a.wav', LEN);
+  assert.equal(a.frame, 38 * SR);
+  assert.equal(a.left, 30 * SR);
 });

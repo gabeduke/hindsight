@@ -13,7 +13,7 @@ const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 
 const jam = (n, extra = {}) => ({ name: `jam_${n}.wav`, label: n, created: '2026-10-15T20:00:00Z', duration_seconds: 90, ...extra });
 
-async function open({ arrivalNote = null, jams = [], region = null, bpm = null } = {}) {
+async function open({ file = 'jam_a.wav', arrivalNote = null, jams = [], region = null, bpm = null } = {}) {
   const doc = fakeDoc();
   globalThis.document = doc;
   doc.body.append(...parseHTML(doc, waveHtml.slice(waveHtml.indexOf('<body'))).children);
@@ -27,7 +27,7 @@ async function open({ arrivalNote = null, jams = [], region = null, bpm = null }
   const state = { cursor: 7 * SR, region, grid: { bpm, sampleRate: SR, downbeat: 0 }, flags: [] };
   let hooks = [];
   const h = {
-    file: 'jam_a.wav', take: { name: 'jam_a.wav', label: 'a', created: '2026-10-15T20:00:00Z', tag: '' }, sampleRate: SR, total: 90 * SR, peaks: null,
+    file, take: { name: 'jam_a.wav', label: 'a', created: '2026-10-15T20:00:00Z', tag: '' }, sampleRate: SR, total: 90 * SR, peaks: null,
     toast: (m) => calls.push(`toast ${m}`),
     state: () => state, playing: () => false, togglePlay: async () => { calls.push('play'); }, seek: (f) => { calls.push(`seek ${f}`); state.cursor = f; },
     addNote: (f) => { calls.push(`add ${f}`); state.flags.push({ id: `f${state.flags.length + 1}`, frame: f, label: '' }); hooks.forEach((fn) => fn()); return `f${state.flags.length}`; },
@@ -132,15 +132,39 @@ test('familyLines: a take’s cuts and its tape’s earlier bounces, the take it
   const onBounce = familyLines([a, cut, m1, m2], 'jam_m2.wav');
   assert.deepEqual(onBounce.earlier.map((x) => x.name), ['jam_m1.wav'], 'the newest bounce lists the earlier ones');
   const onOld = familyLines([a, cut, m1, m2], 'jam_m1.wav');
-  assert.deepEqual(onOld.earlier, [], 'an earlier bounce lists the others of its tape, and not itself');
-  assert.deepEqual(familyLines('nonsense', 'jam_a.wav'), { from: [], earlier: [] });
+  assert.deepEqual(onOld.earlier.map((x) => x.name), ['jam_m2.wav'], 'an older bounce lists the newest, which stands as the spine');
+  assert.deepEqual(onBounce.earlier.map((x) => x.name), ['jam_m1.wav'], 'and the newest lists the older ones');
+  assert.deepEqual(familyLines('nonsense', 'jam_a.wav'), { from: [], madeFrom: null, earlier: [] });
+});
+
+test('From this take means made from this take; a cut says Made from its source instead', async () => {
+  const { familyLines } = await import('./open.js');
+  const a = jam('a', { name: 'jam_a.wav' });
+  const c = jam('c', { name: 'jam_c.wav', source: { name: 'jam_a.wav' } });
+  const d = jam('d', { name: 'jam_d.wav', source: { name: 'jam_a.wav' } });
+  const e = jam('e', { name: 'jam_e.wav', source: { name: 'jam_c.wav' } });
+  const onC = familyLines([a, c, d, e], 'jam_c.wav');
+  assert.deepEqual(onC.from.map((x) => x.name), ['jam_e.wav'], 'only what was cut from c: not its sibling d');
+  assert.equal(onC.madeFrom.name, 'jam_a.wav', 'c links back to a');
+  const onA = familyLines([a, c, d, e], 'jam_a.wav');
+  assert.deepEqual(onA.from.map((x) => x.name).sort(), ['jam_c.wav', 'jam_d.wav', 'jam_e.wav']);
+  assert.equal(onA.madeFrom, null);
+  assert.equal(familyLines([a, c], 'jam_c.wav').from.length, 0, 'a cut with no cuts of its own has no From this take');
+});
+
+test('Open draws a Made from heading for a cut', async () => {
+  const a = jam('a', { name: 'jam_a.wav' });
+  const c = jam('c', { name: 'jam_c.wav', source: { name: 'jam_a.wav' } });
+  const p = await open({ jams: [a, c], file: 'jam_c.wav' });
+  assert.deepEqual(p.all('.room-open-fam').map((x) => x.getAttribute('aria-label')), ['Made from']);
+  assert.equal(p.all('.room-open-fam-line')[0].getAttribute('href'), '/wave.html?file=jam_a.wav');
 });
 
 test('the take page reaches Open only through start(), consumes the bar’s arrival, and sends ?tape= to the Studio', () => {
   const page = read('../wave/page.js');
   assert.match(page, /startRoom\('open', \{[^}]*arrivalNote:/s);
   assert.match(page, /roomOn\(\) \? pageCarry\(\)\.arrival\(file, total\) : null/, 'only with the rooms on');
-  assert.match(page, /if \(arrival\.play\) togglePlay\(\)\.catch/, 'a refused sound leaves the take waiting, not an error');
+  assert.match(page, /startOpen\(arrival, \{[\s\S]*?pos: \(\) => state\.cursor/, 'a refused sound leaves the take at the frame the bar left (behaviour: carry.test.js)');
   assert.match(page, /get\('tape'\) && roomOn\(\)\) \{\s*location\.replace\('\/tape\.html'\)/, '?tape= goes to the Studio, with the rooms on');
   assert.doesNotMatch(page, /chair/i, 'the chair is gone');
 });

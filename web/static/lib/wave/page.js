@@ -41,7 +41,7 @@ import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
-import { openTheTape, pageCarry, takePageState } from '../bar/carry.js';
+import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom, roomOn } from '../room/mount.js';
 import { trimTakePage } from '../rooms/nocrate.js';
@@ -1952,12 +1952,14 @@ async function main() {
   // the flag and stops.
   const arrival = roomOn() ? pageCarry().arrival(file, total) : null;
   if (arrival && (arrival.frame > 0 || arrival.play)) {
-    seekTo(arrival.frame);
-    view.follow(Math.max(0, Math.min(total - 1, arrival.frame)));
     // The browser may refuse a sound nobody tapped for on this page (Safari
-    // on an iPhone always does): then the take waits at the spot, paused,
-    // with ▶ one tap away, and no toast for it.
-    if (arrival.play) togglePlay().catch(() => {});
+    // on an iPhone always does): then the take waits at the frame the bar
+    // left it, paused, with ▶ one tap away, and no toast for it.
+    startOpen(arrival, {
+      seek: (f) => { seekTo(f); view.follow(Math.max(0, Math.min(total - 1, f))); },
+      pos: () => state.cursor,
+      play: () => togglePlay(),
+    });
   }
   startRoom('open', {
     file, take, sampleRate: sr, total, peaks: filePeaks, toast,

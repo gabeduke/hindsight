@@ -34,17 +34,27 @@ function el(tag, cls, attrs = {}, ...kids) {
 const $ = (id) => document.getElementById(id);
 
 /**
- * familyLines is what Open lists under the take: the takes made from it
- * (`cuts`, "From this take") and the earlier bounces of its tape (`mixes`),
- * for the spine this take is on. A take that is itself a cut or an earlier
- * bounce lists its spine's family without itself. Each line: {name, title,
- * length, href}. Pure: `list` is /api/jams.
+ * familyLines is what Open lists under the take. {from, madeFrom, earlier}:
+ * `from` ("From this take") is what was cut from this take: for the spine,
+ * everything folded under it that is a cut; for a cut, only the cuts made
+ * from it. `madeFrom` is the take this one was cut from, or null. `earlier`
+ * ("Earlier bounces") is for the spine and for a bounce: the other bounces of
+ * the tape, the spine (the newest) included when this is an older one.
+ * Each line: {name, title, length, href}. Pure: `list` is /api/jams.
  */
 export function familyLines(list, name) {
-  const fam = familyOf(fold(Array.isArray(list) ? list : []), name);
+  const all = Array.isArray(list) ? list : [];
+  const fam = familyOf(fold(all), name);
   const line = (t) => ({ name: t.name, title: spineTitle(t), length: t.duration_seconds || 0, href: takeHref(t.name) });
-  const rest = (l) => l.filter((t) => t.name !== name).map(line);
-  return { from: rest(fam.cuts), earlier: rest(fam.mixes) };
+  const self = all.find((t) => t.name === name);
+  const isSpine = !!fam.spine && fam.spine.name === name;
+  const from = fam.cuts.filter((t) => t.name !== name && (isSpine || (t.source && t.source.name === name))).map(line);
+  const src = self && self.source ? all.find((t) => t.name === self.source.name) : null;
+  const bounced = isSpine || (self && self.origin === 'tape');
+  const earlier = bounced
+    ? [...(!isSpine && fam.spine ? [fam.spine] : []), ...fam.mixes.filter((t) => t.name !== name)].map(line)
+    : [];
+  return { from, madeFrom: src ? line(src) : null, earlier };
 }
 
 export function mount(h) {
@@ -215,12 +225,12 @@ export function mount(h) {
   async function drawFamily() {
     let jams = [];
     try { const res = await fetch('/api/jams', { cache: 'no-store' }); if (res.ok) jams = await res.json(); } catch { /* the lines just don't show */ }
-    const { from, earlier } = familyLines(jams, h.file);
+    const { from, madeFrom, earlier } = familyLines(jams, h.file);
     const group = (title, lines, tip) => lines.length && el('section', 'room-open-fam', { 'aria-label': title, 'data-tip': tip },
       el('h2', 'room-open-h', { text: title }),
       el('ol', 'room-open-fam-list', {}, ...lines.map((l) => el('li', '', {},
         el('a', 'room-open-fam-line', { href: l.href, 'aria-label': `Open ${l.title}` }, el('span', 'room-open-fam-name', { text: l.title }), el('span', 'room-open-at', { text: fmtAt(l.length * sr, sr) }))))));
-    family.replaceChildren(...[group('From this take', from, 'room-open-from'), group('Earlier bounces', earlier, 'room-open-earlier')].filter(Boolean));
+    family.replaceChildren(...[group('Made from', madeFrom ? [madeFrom] : [], 'room-open-made'), group('From this take', from, 'room-open-from'), group('Earlier bounces', earlier, 'room-open-earlier')].filter(Boolean));
   }
   drawFamily();
 
