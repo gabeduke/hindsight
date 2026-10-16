@@ -24,6 +24,13 @@ test('a recording sends every armed track with its own input, and the first as b
   });
 });
 
+test('one armed track sends the body the old pages always sent: no pairs', () => {
+  const inputOf = (n) => ({ 1: 'aux', 2: 'ch1' })[n];
+  assert.deepEqual(recordBody([1], inputOf, { replace: false }), { track: 1, source: 'aux', replace: false });
+  assert.deepEqual(recordBody([2], inputOf), { track: 2, source: 'ch1' });
+  assert.equal('pairs' in recordBody([1], inputOf), false);
+});
+
 test('CATCH says what it did', () => {
   assert.equal(catchSays({ bars: 4 }, [2, 3]), 'last 4 bars → 2, 3');
   assert.equal(catchSays({ bars: 1 }, [1]), 'last 1 bar → 1');
