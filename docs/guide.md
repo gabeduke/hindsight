@@ -213,8 +213,9 @@ Every take, from **All takes** on the main page.
     plays. **★**, **Tag**, **Export** and **Delete** act on what is picked.
     **Tag** gives all of them one tag, or takes off the tag they all wear.
   - **The deck** in the room is a picture of the bar: what it holds and how
-    far it has got. It has no keys of its own. Pressing it, or **Open** in the
-    bar, opens the take; for the tape in the bar it opens the Studio. On a
+    far it has got. It has no keys of its own. Pressing it opens what the bar
+    holds: the take on its page, or the Studio for the tape. With a take in
+    the bar, its **name** opens it too, and **Open** is for the tape. On a
     phone there is no deck: the bar, along the foot, is what plays.
   - **The bar, with a take in it,** shows **▶**, the take as a strip (tap it
     to jump there, drag it to scrub), the take's **name**, and **✎**. Tap
@@ -983,7 +984,9 @@ From the top:
 - **Tap the mini player's window** to pull up **the player** over the page:
   the whole bar, large (**|◂ ▶ ⟲ Loop ● Rec**, the click, **Catch** and the
   overview), and under it **Crate ▴**, which shows its drawer below it. **Down**, Back or **Esc** puts it away. Takes, Capture
-  and a take's page have the same mini player and player.
+  and a take's page have the same mini player and player (with the two rooms
+  on, a take in the bar has no player to pull up: see *The bar, with a take
+  in it*).
 - **On a phone,** with the player down, the clipboard and the crate are
   rows under the tracks, and the action bar floats above the player. The
   recording is in the track's inspector: tap its name twice.

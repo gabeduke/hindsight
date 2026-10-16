@@ -5352,6 +5352,9 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
   body:not(.player-open) .np.np-take .np-own > :is(.np-name, .np-note, .np-eject:not([hidden])) { display: inline-flex !important; }
   body:not(.player-open) .np.np-take .np-own > .np-name { flex: 1 1 0; max-width: none; }
   body:not(.player-open) .np.np-take .np-own > :is(.np-note, .np-eject) { flex: none; width: 48px; min-width: 48px; height: 50px; min-height: 50px; }
+  /* Repeat has no key here, so while it is on (carried from another page) its
+     key shows, lit, to turn it off. */
+  body:not(.player-open) .np.np-take .np-keys > #np-loop[aria-pressed="true"] { display: inline-flex !important; }
   body:not(.player-open) .np.np-take #np-scrub { display: block !important; order: 3; flex: 1 1 100%; min-width: 0; height: 44px; }
 }
 @media (orientation: landscape) and (max-height: 440px) {
