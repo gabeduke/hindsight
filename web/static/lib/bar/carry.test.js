@@ -618,3 +618,70 @@ test('frameNow carries the take\'s length so the stash can clamp', () => {
   const { carry } = aCarry();
   assert.equal(carry.frameNow(() => left({ frame: 5, length: 99 })).length, 99);
 });
+
+// --- F6: where Open starts ----------------------------------------------------------------
+
+const LEN = 600 * SR;
+
+test('Open with nothing left by the page before starts at the top, paused, with no note', () => {
+  const { carry } = aCarry();
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, play: false, note: null });
+});
+
+test('Open picks up where the bar was: its frame, plus the time away if it was playing', () => {
+  const { carry, clock } = aCarry();
+  carry.leave(left({ frame: 30 * SR, playing: true }));
+  clock.t += 8_000;
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 38 * SR, play: true, note: null });
+  const paused = aCarry();
+  paused.carry.leave(left({ frame: 30 * SR, playing: false }));
+  paused.clock.t += 8_000;
+  assert.deepEqual(paused.carry.arrival('jam_a.wav', LEN), { frame: 30 * SR, play: false, note: null });
+});
+
+test('Open leaves the record standing and ignores another take\'s', () => {
+  const { carry } = aCarry();
+  carry.leave(left());
+  assert.equal(carry.arrival('jam_b.wav', LEN).frame, 0, 'the bar held another take');
+  assert.ok(carry.read(), 'untouched: the page before\'s record is still there');
+});
+
+test('✎ arrives with the note at the frame that was heard, however long the gap and wherever play has got to', () => {
+  const { carry, clock } = aCarry();
+  carry.stashFrame(left({ frame: 44 * SR }));
+  carry.leave(left({ frame: 44 * SR, playing: true }));
+  clock.t += 20_000;
+  const a = carry.arrival('jam_a.wav', LEN);
+  assert.equal(a.note, 44 * SR, 'the note is at the tap');
+  assert.equal(a.frame, 64 * SR, 'and the bar plays on');
+  assert.equal(a.play, true);
+  assert.equal(carry.arrival('jam_a.wav', LEN).note, null, 'the note is made once');
+});
+
+test('✎ on a bar that was paused: the page opens on the note\'s frame', () => {
+  const { carry } = aCarry();
+  carry.stashFrame(left({ frame: 44 * SR, playing: false }));
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 44 * SR, play: false, note: 44 * SR });
+});
+
+test('another take\'s stash makes no note here, and a stash past the end is held inside the take', () => {
+  const { carry } = aCarry();
+  carry.stashFrame(left({ take: 'jam_b.wav', frame: 44 * SR }));
+  assert.equal(carry.arrival('jam_a.wav', LEN).note, null);
+  carry.stashFrame(left({ frame: 9 * LEN }));
+  assert.equal(carry.arrival('jam_a.wav', 100).note, 99);
+});
+
+test('a take that played to its end while away opens at the top: the record is judged, nothing resumes', () => {
+  const { carry, clock } = aCarry();
+  carry.leave(left({ frame: 598 * SR, playing: true }));
+  clock.t += 10_000;
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, play: false, note: null });
+});
+
+test('with the rooms off Open reads nothing and starts nowhere', () => {
+  const store = new Store();
+  const carry = createCarry({ storage: store, now: () => T0, enabled: () => false });
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, play: false, note: null });
+  assert.equal(store.reads, 0);
+});

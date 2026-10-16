@@ -267,6 +267,28 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
       if (!r || typeof r.take !== 'string' || !num(r.frame) || r.frame < 0 || !num(r.sr) || !alive(r, now(), FRAME_LIMIT_MS)) return null;
       return { take: r.take, frame: r.frame, sr: r.sr };
     },
+
+    /**
+     * arrival is where Open (the take page with the rooms on) starts for take
+     * `file`, `length` frames long: {frame, play, note}. `frame` and `play`
+     * are the bar's own spot, as resumeAt reads the record the page before
+     * left -- its frame, plus the time away if it was playing -- so the page
+     * opens where the bar was and the take plays on. `note` is the frame ✎
+     * took, held inside the take, or null: the page makes a note there. The
+     * record is left standing (the page's own say, takePageState, judges it);
+     * the stash is used up. Anything else: the top, paused, no note.
+     */
+    arrival(file, length) {
+      const none = { frame: 0, play: false, note: null };
+      if (!ok() || typeof file !== 'string' || !(length > 0)) return none;
+      const inside = (f) => Math.max(0, Math.min(length - 1, Math.round(f)));
+      const stash = self.takeStashedFrame(file);
+      const note = stash ? inside(stash.frame) : null;
+      const rec = self.peek();
+      const at = rec && rec.take === file ? resumeAt(rec, now(), length) : null;
+      if (at) return { frame: at.play ? at.playFrame : at.frame, play: at.play, note };
+      return { frame: note ?? 0, play: false, note };
+    },
   };
   return self;
 }
