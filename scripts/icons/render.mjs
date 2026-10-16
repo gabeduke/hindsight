@@ -16,7 +16,7 @@ const DIR = join(dirname(fileURLToPath(import.meta.url)), '../../web/static/icon
 const JOBS = [
   ['icon.svg', 'icon-192.png', 192, true],
   ['icon.svg', 'icon-512.png', 512, true],
-  ['icon-full.svg', 'icon-maskable-512.png', 512, false],
+  ['icon-maskable.svg', 'icon-maskable-512.png', 512, false],
   ['icon-full.svg', 'apple-touch-icon.png', 180, false],
   ['icon-small.svg', 'favicon-32.png', 32, true],
 ];
