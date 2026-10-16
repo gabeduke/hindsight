@@ -4,7 +4,9 @@
 // take (take-source.js) -- in the reel window and its LCD, played from its
 // keys, and scrubbed on its strip. A tap on the strip moves the playhead
 // there; a drag scrubs it; with the strip focused, ← → step and Space plays.
-// The page decides what the bar holds; ⏏ asks it for the tape back.
+// The page decides what the bar holds; ⏏ asks it for the tape back. With the
+// rooms on, a take in it also shows its name (a link to its page) and ✎
+// (take-keys.js), and ⟲ is Repeat.
 
 import { ReelWindow } from '../objects/reel-window.js';
 import { Loop } from '../objects/motion.js';

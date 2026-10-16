@@ -6,6 +6,7 @@ import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { barPage, aTake } from './bar-harness.js';
 import { FRAME_KEY, pageCarry } from './carry.js';
+import { tipFor } from '../help/tips.js';
 
 const SR = 48000;
 // The ids in the bar: what the markup has, and nothing the script adds.
@@ -139,4 +140,12 @@ test('flag off: the bar has no name, no ✎ and no class of its own, with a take
   assert.equal(p.$('np-note'), null);
   assert.equal(p.$('np').classList.contains('np-take'), false);
   assert.equal(p.w.session.getItem(FRAME_KEY), null, 'nothing is written');
+});
+
+test('everything the bar adds has a tip, and says its tip by the same name', async () => {
+  const p = await withTake();
+  for (const [id, tip] of [['np-name', 'np-name'], ['np-note', 'np-note'], ['np-loop', 'np-repeat']]) {
+    assert.equal(p.$(id).dataset.tip, tip);
+    assert.ok(tipFor(tip), `${tip} has a tip`);
+  }
 });

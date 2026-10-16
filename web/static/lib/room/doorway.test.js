@@ -343,3 +343,124 @@ test('?take=NAME (a toast’s Name it) goes to Open, where a take is named; the 
   assert.deepEqual(r.w.navigated, ['replace /wave.html?file=jam_a.wav']);
   assert.equal(r.q('.room'), null, 'nothing was drawn for a page that is leaving');
 });
+
+// --- the flight: the sound at the tap, the cassette alongside ---------------------------------
+
+const rect = (x, y, w, h) => () => ({ left: x, top: y, width: w, height: h, right: x + w, bottom: y + h });
+// A laptop's room: the spines on the shelf to the right, the deck's art to the left.
+function laid(r) {
+  for (const n of ['a', 'b', 'c']) r.spine(`jam_${n}.wav`).getBoundingClientRect = rect(1000 + 40 * 'abc'.indexOf(n), 330, 30, 112);
+  r.q('.room-deck-art').getBoundingClientRect = rect(300, 380, 200, 190);
+  return r;
+}
+
+test('a tap on a spine plays at once and a cassette flies from the shelf to the deck beside the sound', async () => {
+  const r = laid(await room());
+  const b = r.spine('jam_b.wav');
+  click(b);
+  await r.settle();
+  assert.ok(r.log.includes('play jam_b.wav'), 'it plays');
+  assert.equal(r.ghosts().length, 1, 'and its cassette is in the air');
+  assert.equal(r.spine('jam_b.wav').getAttribute('data-key'), 'take:jam_b.wav', 'the shelf’s own spine stays, ringed, as the control');
+  assert.ok(r.spine('jam_b.wav').classList.contains('on-deck'));
+  assert.equal(r.ghosts()[0].querySelector('.room-face-name').textContent, 'b', 'wearing the take’s name');
+  r.run(1100);
+  assert.equal(r.ghosts().length, 0, 'it lands, and nothing is left in the air');
+  r.run(600);
+  assert.equal(r.clock.timers.length, 0, 'and no timer, once the deck has settled');
+  assert.equal(r.clock.raf.length, 0, 'no frame asked for');
+});
+
+test('the deck settles once as it lands, and not before', async () => {
+  const r = laid(await room());
+  click(r.spine('jam_b.wav'));
+  await r.settle();
+  assert.equal(r.q('.room-deck').classList.contains('room-seat'), false);
+  r.run(1100);
+  assert.equal(r.q('.room-deck').classList.contains('room-seat'), true, 'seated');
+  r.run(500);
+  assert.equal(r.q('.room-deck').classList.contains('room-seat'), false, 'and settled: it does not stay lit');
+  assert.equal(r.clock.timers.length, 0);
+});
+
+test('a take already in the bar that plays again is not put on the deck again: no flight', async () => {
+  const r = laid(await room());
+  const b = r.spine('jam_b.wav');
+  click(b); await r.settle(); // plays, flies
+  r.run(1100);
+  click(b); await r.settle(); // pauses
+  click(b); await r.settle(); // resumes: it is on the deck already
+  assert.ok(r.log.filter((l) => l === 'play jam_b.wav').length === 2, 'it played again');
+  assert.equal(r.ghosts().length, 0, 'but nothing flew');
+});
+
+test('a tap that pauses takes the cassette out of the air', async () => {
+  const r = laid(await room());
+  const b = r.spine('jam_b.wav');
+  click(b); await r.settle();
+  r.run(300);
+  assert.equal(r.ghosts().length, 1);
+  click(b); await r.settle();
+  assert.equal(r.ghosts().length, 0);
+  r.run(1100);
+  assert.equal(r.q('.room-deck').classList.contains('room-seat'), false, 'it did not land');
+});
+
+test('a tap on another take mid-flight flies that one instead, from its own spine', async () => {
+  const r = laid(await room());
+  click(r.spine('jam_a.wav')); await r.settle();
+  r.run(300);
+  click(r.spine('jam_c.wav')); await r.settle();
+  assert.equal(r.ghosts().length, 1);
+  assert.equal(r.ghosts()[0].querySelector('.room-face-name').textContent, 'c');
+});
+
+test('with reduced motion nothing flies, and the sound plays all the same', async () => {
+  const r = laid(await room());
+  r.w.reducedMotion = true;
+  click(r.spine('jam_b.wav')); await r.settle();
+  assert.ok(r.log.includes('play jam_b.wav'));
+  assert.equal(r.ghosts().length, 0);
+  assert.equal(r.clock.timers.length, 0);
+});
+
+test('a row of the List has no spine to fly from (the room is behind it): it plays and nothing flies', async () => {
+  const r = laid(await room());
+  r.spine('jam_c.wav').getBoundingClientRect = rect(0, 0, 0, 0); // display: none, under the List
+  const row = r.doc.createElement('article');
+  row.className = 'take spine';
+  row.dataset.name = 'jam_c.wav';
+  r.h.rack.append(row);
+  r.h.rack.dispatchEvent({ type: 'click', target: row, detail: 1, clientX: 10, clientY: 10 });
+  await r.settle();
+  assert.ok(r.log.includes('play jam_c.wav'));
+  assert.equal(r.ghosts().length, 0);
+});
+
+test('on a phone, where there is no deck, the cassette flies to the bar', async () => {
+  const r = laid(await room());
+  r.q('.room-deck-art').getBoundingClientRect = rect(0, 0, 0, 0); // display: none
+  const np = r.doc.getElementById('np');
+  np.hidden = false;
+  np.getBoundingClientRect = rect(0, 738, 390, 106);
+  click(r.spine('jam_a.wav')); await r.settle();
+  assert.equal(r.ghosts().length, 1, 'it flies to the bar');
+  r.run(1100);
+  assert.equal(np.classList.contains('room-seat'), true, 'the bar is where it lands');
+  assert.equal(r.q('.room-deck').classList.contains('room-seat'), false);
+});
+
+test('a tap while no deck and no bar is on the screen plays and flies nothing', async () => {
+  const r = laid(await room());
+  r.q('.room-deck-art').getBoundingClientRect = rect(0, 0, 0, 0);
+  r.doc.getElementById('np').hidden = true;
+  click(r.spine('jam_a.wav')); await r.settle();
+  assert.ok(r.log.includes('play jam_a.wav'));
+  assert.equal(r.ghosts().length, 0);
+});
+
+test('the deck is drawn from the bar at the tap, not at the next look', async () => {
+  const r = laid(await room());
+  click(r.spine('jam_b.wav')); await r.settle();
+  assert.equal(r.q('.room-deck-place').textContent, 'In the bar: b', 'before any interval has run');
+});

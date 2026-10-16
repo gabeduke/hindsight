@@ -6,6 +6,8 @@
 // List (a month's box opens to it, a search narrows it, a family's takes
 // stand in it). The take list, its players and the bar are handed in.
 
+import { report } from '../objects/motion.js';
+
 /**
  * createTap answers {tap, warm}.
  *   takes  the page's TakesList: `all`, `player(name)`, `refresh()`
@@ -13,6 +15,10 @@
  *   toast  (message, kind, {action: {label, run}})
  *   pick   (name) -> the page's own pick, so Play all goes on from here
  *   go     (url) -> leave for that page (Open); later: setTimeout, for the retry
+ *   onPlay (name, {placed}) -> a take was just set playing: `placed` when it was not
+ *          in the bar already (the flight to the deck runs beside the sound, and
+ *          is only asked for once the sound has been)
+ *   onStop (name) -> that take is not playing (paused, or the browser refused it)
  *
  * A take that can't play yet (no preview: still encoding, or no waveform to
  * play from) says so with **Open** on the toast -- its page needs no preview, so
@@ -21,10 +27,12 @@
  * not inside the finger's tap, and a phone won't start sound from it.
  */
 export const RETRY_MS = 1500;
+// A hook the page gave (the flight) is not the tap's to fail on: it is heard, and the tap goes on.
+const hear = (fn, ...args) => { try { fn?.(...args); } catch (e) { report(e); } };
 export const RETRIES = 10;
 export const openHref = (name) => `/wave.html?file=${encodeURIComponent(name)}`;
 
-export function createTap({ takes, bar, toast, pick, go = (u) => { location.href = u; }, later = setTimeout }) {
+export function createTap({ takes, bar, toast, pick, go = (u) => { location.href = u; }, later = setTimeout, onPlay, onStop }) {
   let last = null; // the take tapped last: a late arrival must not displace a newer choice
   const looking = new Set();
   const cannot = (name) => {
@@ -69,9 +77,15 @@ export function createTap({ takes, bar, toast, pick, go = (u) => { location.href
       if (!p) { cannot(name); return 'encoding'; }
       pick?.(name);
       // The same take with the same player is left in the bar as it is.
+      const placed = np.takeName !== name;
       np.loadTake(t, p);
       const was = p.audio.paused;
-      await p.toggle();
+      // The sound is asked for first, inside the tap, and nothing below waits
+      // for it or comes before it: the flight is only a picture of it.
+      const sounding = p.toggle();
+      hear(was ? onPlay : onStop, name, { placed });
+      await sounding;
+      if (was && p.audio.paused) hear(onStop, name); // refused: no flight for a sound that is not coming
       return was ? 'played' : 'paused';
     },
     /**

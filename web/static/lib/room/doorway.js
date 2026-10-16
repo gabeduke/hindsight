@@ -27,6 +27,7 @@ import { forgetNote, fmtAt } from './notes.js';
 import { openTheTape, forTheTape } from '../bar/carry.js';
 import { pressMachine } from './press.js';
 import { createTap, wireRack, askedTake } from './tap.js';
+import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
 import { openTagManager } from '../tags-dialog.js';
 import { deckOf, deckWords, readBar, fmtLen } from './deck.js';
@@ -167,7 +168,44 @@ export function mount(h) {
   // One tap for every surface: a spine, and a row of the List (a month's box,
   // a search, a family's takes). The List's rows are the rack's own, wired
   // here; its select bar gets a Tag key.
-  const tap = createTap({ takes: h.takes, bar: () => h.np, toast, pick: h.pick });
+  // The flight: a tap that puts a take on the deck lets its cassette fly there
+  // from its spine while it plays (lib/room/fly.js). The sound is asked for
+  // first, inside the tap; the flight is only a picture of it. Where the deck
+  // is not drawn (a phone) it flies to the bar, the one transport there.
+  let flewTo = 'deck';
+  const flights = createFlights({
+    doc: document, win: window, host: body, reduced, ticker: h.ticker, timers: h.flightTimers,
+    spine: (name) => room.querySelector(`.room-cassette[data-key="take:${CSS.escape(name)}"]`),
+    target: () => {
+      const art = deckArt.getBoundingClientRect();
+      if (art.width > 0 && art.height > 0) {
+        flewTo = 'deck';
+        const w = art.width * 0.86;
+        return { x: art.left + art.width * 0.07, y: art.top + art.height * 0.04, w, h: w / 1.59 };
+      }
+      const np = $('np');
+      if (!np || np.hidden) return null;
+      flewTo = 'bar';
+      const r = rectOf(np);
+      return { x: r.x + 10, y: r.y + 8, w: 72, h: 46 };
+    },
+    face: (name) => {
+      const d = spineData.get(name);
+      return { name: d ? spineTitle(d.t) : name, stripe: d ? stripeFor(d.t, tagStore.list) : 1 };
+    },
+    onLand: () => {
+      renderPlaces();
+      // It lands in the deck, which settles once; on a phone, in the bar.
+      const seat = flewTo === 'deck' ? deck : $('np');
+      seat?.classList.add('room-seat');
+      (h.flightTimers || { set: (f, ms) => setTimeout(f, ms) }).set(() => seat?.classList.remove('room-seat'), 450);
+    },
+  });
+  const tap = createTap({
+    takes: h.takes, bar: () => h.np, toast, pick: h.pick,
+    onPlay: (name, { placed }) => { renderPlaces(); if (placed) flights.launch(name); },
+    onStop: () => flights.cancel(),
+  });
   wireRack(h.rack, { takes: h.takes, tap });
   const tagging = tagKey({ doc: document, bar: h.selectBar, takes: h.takes, tags: tagStore, manage: (o) => openTagManager({ onToast: toast, ...o }) });
 

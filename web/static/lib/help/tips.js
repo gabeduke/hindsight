@@ -94,7 +94,7 @@ export const TIPS = [
   { control: 'Open › (bar)', ids: ['np-open'], tip: 'Open what’s in the bar on its own page: the tape, or the take' },
   { control: 'The bar’s strip', ids: ['np-scrub'], tip: 'The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays. With the two rooms on, a phone’s mini player holds it for a take' },
   { control: 'The take’s name (bar)', ids: ['np-name'], tip: 'Opens the take in the bar on its own page. The two rooms only' },
-  { control: '✎ (bar)', ids: ['np-note'], tip: 'Opens the take where you are hearing it, with that spot kept for a note. The two rooms only' },
+  { control: '✎ (bar)', ids: ['np-note'], tip: 'Opens the take’s page and keeps the spot you are hearing, for a note. The two rooms only' },
   { control: '⟲ Repeat (bar)', ids: ['np-repeat'], tip: 'Repeat the take in the bar: its selection, or the whole take without one. The two rooms only' },
   { control: 'The mini player (phone)', ids: ['np-expand'], tip: 'On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away. With the two rooms on a take has none: its strip, name and ✎ are in the mini player' },
   { control: '⟲ Loop', ids: ['loop'], tip: 'Repeat the selection instead of playing straight through' },

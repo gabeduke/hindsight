@@ -68,8 +68,8 @@ export function takeKeys({ doc, root, onNote }) {
  * first -- before the page changes, and before anything else runs, so the gap
  * does not move it -- and kept for the next page; then the take opens. Null,
  * and nothing happens, when the bar holds no take. The take page does not
- * read the kept frame until F6, so until then ✎ opens the take where the
- * bar is.
+ * read the kept frame until F6 (nor does it pick up where the bar is), so
+ * until then ✎ simply opens the take.
  */
 export function noteHere({ frameNow, stash, go }) {
   const f = frameNow();

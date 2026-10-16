@@ -9,10 +9,11 @@ import { fakeDoc, FakeEl } from '../play/fake-dom.js';
 import { createTap, wireRack, askedTake } from './tap.js';
 
 // A take list with players that remember what was done to them.
-function stage({ encoding = [], noPlayer = [], readyAfter = {} } = {}) {
+function stage({ encoding = [], noPlayer = [], readyAfter = {}, slow = false, refuse = false, flyThrows = false } = {}) {
   const log = [];
   const all = ['a', 'b', 'c'].map((n) => ({ name: `jam_${n}.wav`, label: n, has_preview: !encoding.includes(n) }));
   const players = new Map();
+  const slowDone = [];
   const takes = {
     all,
     selecting: false,
@@ -22,7 +23,16 @@ function stage({ encoding = [], noPlayer = [], readyAfter = {} } = {}) {
       if (noPlayer.includes(name)) return null;
       if (!players.has(name)) {
         const audio = { paused: true };
-        players.set(name, { audio, toggle: async () => { audio.paused = !audio.paused; log.push(`${audio.paused ? 'pause' : 'play'} ${name}`); } });
+        // The sound is asked for the moment toggle is called; `slow` makes it answer later, as a phone does.
+        players.set(name, {
+          audio,
+          toggle: () => {
+            if (refuse && audio.paused) { log.push(`refused ${name}`); return Promise.resolve(); }
+            audio.paused = !audio.paused;
+            log.push(`${audio.paused ? 'pause' : 'play'} ${name}`);
+            return slow ? new Promise((r) => { slowDone.push(r); }) : Promise.resolve();
+          },
+        });
       }
       return players.get(name);
     },
@@ -50,14 +60,18 @@ function stage({ encoding = [], noPlayer = [], readyAfter = {} } = {}) {
   const timers = [];
   const later = (fn, ms) => { timers.push({ fn, ms }); };
   const tick = async () => { const t = timers.shift(); if (t) await t.fn(); return !!t; };
-  const tap = createTap({ takes, bar: () => np, toast: (m, k, o) => toasts.push([m, k, o]), pick: (n) => picks.push(n), go: (u) => went.push(u), later });
-  return { takes, np, tap, log, toasts, picks, players, went, timers, tick };
+  const tap = createTap({
+    takes, bar: () => np, toast: (m, k, o) => toasts.push([m, k, o]), pick: (n) => picks.push(n), go: (u) => went.push(u), later,
+    onPlay: (n, o) => { log.push(`fly ${n} ${o.placed ? 'placed' : 'resumed'}`); if (flyThrows) throw new Error('no flight'); },
+    onStop: (n) => log.push(`stop ${n}`),
+  });
+  return { takes, np, tap, log, toasts, picks, players, went, timers, tick, slowDone };
 }
 
 test('a tap puts the take in the bar and plays it', async () => {
   const s = stage();
   assert.equal(await s.tap.tap('jam_a.wav'), 'played');
-  assert.deepEqual(s.log, ['player jam_a.wav', 'bar jam_a.wav', 'play jam_a.wav']);
+  assert.deepEqual(s.log, ['player jam_a.wav', 'bar jam_a.wav', 'play jam_a.wav', 'fly jam_a.wav placed']);
   assert.equal(s.np.takeName, 'jam_a.wav');
   assert.deepEqual(s.picks, ['jam_a.wav'], 'picked, so Play all goes on from here');
 });
@@ -291,4 +305,59 @@ test('with the rooms on, ?take=NAME is Open (where a take is named); off, it is 
   assert.equal(askedTake({ rooms: true, search: '?take=a%20b%26c.wav' }), '/wave.html?file=a%20b%26c.wav');
   assert.equal(askedTake({ rooms: true, search: '' }), null);
   assert.equal(askedTake({ rooms: false, search: '?take=jam_a.wav' }), null);
+});
+
+// --- the flight: after the sound, never before it, never waited for -------------------------
+
+test('the flight is asked for after the sound is, and does not wait for the sound to be heard', async () => {
+  const s = stage({ slow: true });
+  const tapped = s.tap.tap('jam_a.wav');
+  await new Promise((r) => setImmediate(r));
+  // The sound is asked for, and the flight with it, while the player's answer is still to come.
+  assert.deepEqual(s.log, ['player jam_a.wav', 'bar jam_a.wav', 'play jam_a.wav', 'fly jam_a.wav placed']);
+  s.slowDone.shift()();
+  assert.equal(await tapped, 'played');
+});
+
+test('a take already in the bar that plays again is resumed, not put on the deck: it does not fly', async () => {
+  const s = stage();
+  await s.tap.tap('jam_a.wav');
+  await s.tap.tap('jam_a.wav'); // paused
+  s.log.length = 0;
+  await s.tap.tap('jam_a.wav'); // resumed
+  assert.deepEqual(s.log, ['player jam_a.wav', 'bar jam_a.wav', 'play jam_a.wav', 'fly jam_a.wav resumed']);
+});
+
+test('a take that was in the bar from another page flies when it is tapped, and one that replaces another does too', async () => {
+  const s = stage();
+  await s.tap.tap('jam_a.wav');
+  s.log.length = 0;
+  await s.tap.tap('jam_b.wav');
+  assert.ok(s.log.includes('fly jam_b.wav placed'));
+});
+
+test('a tap that pauses stops the flight', async () => {
+  const s = stage();
+  await s.tap.tap('jam_a.wav');
+  s.log.length = 0;
+  await s.tap.tap('jam_a.wav');
+  assert.deepEqual(s.log, ['player jam_a.wav', 'bar jam_a.wav', 'pause jam_a.wav', 'stop jam_a.wav']);
+});
+
+test('a play the browser refused stops the flight: there is no sound for it to run beside', async () => {
+  const s = stage({ refuse: true });
+  assert.equal(await s.tap.tap('jam_a.wav'), 'played');
+  assert.deepEqual(s.log.slice(-3), ['refused jam_a.wav', 'fly jam_a.wav placed', 'stop jam_a.wav']);
+});
+
+test('a flight that throws does not stop the tap: the take plays and the tap answers', async () => {
+  const s = stage({ flyThrows: true });
+  assert.equal(await s.tap.tap('jam_a.wav'), 'played');
+  assert.equal(s.players.get('jam_a.wav').audio.paused, false);
+});
+
+test('a take that cannot play flies nothing', async () => {
+  const s = stage({ encoding: ['a'] });
+  assert.equal(await s.tap.tap('jam_a.wav'), 'encoding');
+  assert.ok(!s.log.some((l) => l.startsWith('fly')));
 });

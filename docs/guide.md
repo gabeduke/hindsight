@@ -218,9 +218,9 @@ Every take, from **All takes** on the main page.
     phone there is no deck: the bar, along the foot, is what plays.
   - **The bar, with a take in it,** shows **▶**, the take as a strip (tap it
     to jump there, drag it to scrub), the take's **name**, and **✎**. Tap
-    the name to open the take on its page. **✎** opens it too, keeping the
-    spot you were hearing so a note can start there (the take's page does not
-    write the note yet). **⟲** is **Repeat** for a take: its selection, or
+    the name to open the take on its page. **✎** opens it too and keeps the
+    spot you were hearing, for a note (the take's page does not write the
+    note yet, so for now it simply opens the take). **⟲** is **Repeat** for a take: its selection, or
     the whole take without one; for the tape in the bar it stays **Loop**. On
     a phone the mini player holds the strip, the name and **✎**, and there is
     no player to pull up for a take: **|◂**, **↺ 5 s** and Repeat are on a
@@ -278,8 +278,8 @@ Every take, from **All takes** on the main page.
   and the deck says *In the bar: …*.
 - [demo] With a take playing, the bar shows its strip, its name and **✎**,
   and **⟲** says **Repeat**. Tap the strip half way → it jumps there; drag it
-  → it scrubs. Tap the name → the take opens on its page, still playing.
-  Go back, pause at 1:00 and press **✎** → the take opens at 1:00.
+  → it scrubs. Tap the name → the take opens on its page.
+  Go back, pause part way and press **✎** → the take's page opens.
 - [demo] On a phone with the rooms on, play a take → the mini player shows
   ▶, the name, **✎** and the strip, and there is no window to pull up.
 - [demo] Hold a spine on a phone → it is ticked and the select bar rises;
@@ -2135,7 +2135,7 @@ has no tip.
 | Open › (bar) | Open what’s in the bar on its own page: the tape, or the take |
 | The bar’s strip | The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays. With the two rooms on, a phone’s mini player holds it for a take |
 | The take’s name (bar) | Opens the take in the bar on its own page. The two rooms only |
-| ✎ (bar) | Opens the take where you are hearing it, with that spot kept for a note. The two rooms only |
+| ✎ (bar) | Opens the take’s page and keeps the spot you are hearing, for a note. The two rooms only |
 | ⟲ Repeat (bar) | Repeat the take in the bar: its selection, or the whole take without one. The two rooms only |
 | The mini player (phone) | On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away. With the two rooms on a take has none: its strip, name and ✎ are in the mini player |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
