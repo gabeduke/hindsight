@@ -691,7 +691,7 @@ function buildIcons(root) {
   // The top bar rounds its corners (.brand img); the OS rounds the full
   // bleed one itself, so it is shown square, as handed over.
   const files = [
-    ['the top bar, 24 px (icon-small.svg)', '/icons/icon-small.svg?v=2', 24, '6px'],
+    ['the top bar, 24 px (icon-small.svg)', '/icons/icon-small.svg?v=3', 24, '6px'],
     ['the app icon (icon.svg)', '/icons/icon.svg', 96, ''],
     ['full bleed, for the OS to round (icon-full.svg)', '/icons/icon-full.svg', 96, ''],
   ];
