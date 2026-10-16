@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.16.4 — 2026-10-16
+
+- The guide says where updating is with the two rooms on, and the Releases sheet no longer says Capture there (f076148)
+
+
 ## v2026.10.16.3 — 2026-10-16
 
 - Listening Room: from the doorway it looks like a room now, on laptops and tablets -- warm lamp light, a real reel-to-reel on the console, tapes on wooden shelves (0def1c9)
