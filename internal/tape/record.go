@@ -47,6 +47,24 @@ type Kept struct {
 	Clips  []Clip `json:"clips"`
 }
 
+// editWaits marks an ErrRecording that is a refused EDIT of the tape (what's
+// armed, a track's input, the output mode): one that waits until the
+// recording ends. The same sentinel also answers a mixdown and a second
+// record, which are not edits; only this wrapper makes the API say so.
+type editWaits struct{ err error }
+
+func (e editWaits) Error() string { return e.err.Error() }
+func (e editWaits) Unwrap() error { return e.err }
+
+// WaitsForRecording marks err as an edit refused until the recording ends.
+func WaitsForRecording(err error) error { return editWaits{err} }
+
+// IsWaitingForRecording says whether err is an edit that waits for a recording.
+func IsWaitingForRecording(err error) bool {
+	var w editWaits
+	return errors.As(err, &w)
+}
+
 // Allows says whether, while this recording is armed or running, what's
 // armed can go from before to after, and these inputs can be set (by track):
 // no. A punch keeps the tracks and the inputs it began with, as the tape
@@ -57,11 +75,11 @@ func (r *Recording) Allows(before, after []int, inputs map[int]string) error {
 		return nil
 	}
 	if !slices.Equal(before, after) {
-		return fmt.Errorf("%w: what's armed waits until it ends", ErrRecording)
+		return WaitsForRecording(fmt.Errorf("%w: what's armed waits until it ends", ErrRecording))
 	}
 	for _, p := range r.Pairs {
 		if src, ok := inputs[p.Track]; ok && src != p.Source {
-			return fmt.Errorf("%w: track %d records %s until it ends", ErrRecording, p.Track, p.Source)
+			return WaitsForRecording(fmt.Errorf("%w: track %d records %s until it ends", ErrRecording, p.Track, p.Source))
 		}
 	}
 	return nil

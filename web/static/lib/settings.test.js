@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE } from './settings.js';
+import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE, visibleSettings, changes } from './settings.js';
 
 const url = 'https://mike.hindsight.leetserve.com';
 
@@ -308,4 +308,38 @@ test('the bar is un-hidden before its words are set, so a screen reader announce
   Object.defineProperty(t, 'textContent', { get: () => tc, set: (v) => { tc = v; order.push('text'); } });
   f.flip(0);
   assert.deepEqual(order.slice(0, 2), ['hidden=false', 'text']);
+});
+
+// "Plays the tape" is the strip's controller: a setting of the rooms' kits only.
+const REG = [
+  { key: 'MIDI_IGNORE', group: 'MIDI', value: '' },
+  { key: 'TAPE_CONTROLLER', group: 'MIDI', value: 'SMK' },
+  { key: 'TAPE', group: 'Tape', value: 'true' },
+];
+
+// The row is for a kit with a preview switched on: the rooms or Play mode (the
+// strip points people to it). A switch flipped in the sheet shows it after the
+// Reload the sheet already asks for.
+const keys = (flags) => visibleSettings(REG, flags).map((s) => s.key);
+
+test('with neither the rooms nor Play mode on the sheet leaves out Plays the tape, and nothing else', () => {
+  assert.deepEqual(keys({ rooms: false, play: false }), ['MIDI_IGNORE', 'TAPE']);
+});
+
+test('Play mode alone shows it', () => {
+  assert.deepEqual(keys({ rooms: false, play: true }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
+});
+
+test('the rooms alone show it', () => {
+  assert.deepEqual(keys({ rooms: true, play: false }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
+});
+
+test('both on shows it', () => {
+  assert.deepEqual(keys({ rooms: true, play: true }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
+});
+
+test('a row that is not drawn is not in the saved body, and the others are as ever', () => {
+  const shown = visibleSettings(REG, { rooms: false, play: false });
+  assert.deepEqual(changes(REG, { MIDI_IGNORE: 'x', TAPE: 'false' }), { MIDI_IGNORE: 'x', TAPE: 'false' });
+  assert.deepEqual(changes(shown, { MIDI_IGNORE: 'x', TAPE: 'false' }), { MIDI_IGNORE: 'x', TAPE: 'false' });
 });

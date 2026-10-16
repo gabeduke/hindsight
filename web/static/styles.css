@@ -1207,6 +1207,8 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 /* A toast with an action: "Flag deleted · Undo". */
 .toast:has(.toast-action) { display: flex; align-items: center; gap: 12px; padding-right: 6px; }
 .toast-text { flex: 1; min-width: 0; }
+/* A toast's second line (opts.detail): under the message, smaller. */
+.toast-detail { display: block; margin-top: 2px; font-size: .88em; opacity: .8; }
 .toast-action {
   flex: none; min-height: 36px; padding: 0 12px; border-radius: 8px;
   background: none; border: 1px solid var(--key-edge); color: var(--link);

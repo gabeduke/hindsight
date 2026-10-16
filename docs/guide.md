@@ -2070,7 +2070,8 @@ hidden tab lets go of everything.
 nothing needs to be open.
 
 1. Plug it into the Pi and put part of its name in **Settings › MIDI ›
-   Plays the tape** (`TAPE_CONTROLLER`), then restart.
+   Plays the tape** (`TAPE_CONTROLLER`; the row shows once Play mode or
+   the two rooms is on), then restart.
 2. Its keys play the pads from note 36 (C2) up: the track keys, the tricks,
    then ROLL, FILTER, ECHO and CRUSH on 46–49 (how hard you strike one is
    its amount), then CATCH, GRAB, DROP and KEEP on 50–53. A sustain pedal

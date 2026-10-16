@@ -20,6 +20,7 @@
 import { on as roomsOn } from '../rooms/flag.js';
 import { initNav } from '../nav.js';
 import { toast } from '../toast.js';
+import { refusal, failToast, WAITING, WAITING_DETAIL } from '../tape/refusal.js';
 import { initHelp } from '../help/help.js';
 import { restartHindsight, RESTART_WARNING } from '../settings.js';
 import { desk as deskOf, allSockets } from './desk.js';
@@ -108,14 +109,17 @@ async function send(w, said, { undo = false } = {}) {
   try {
     const r = await fetch(w.url, { method: w.method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(w.body) });
     const b = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(b.error || `HTTP ${r.status}`);
+    if (!r.ok) {
+      const why = refusal(r.status, b);
+      throw Object.assign(new Error(why.message), { recording: why.recording });
+    }
     if (said) {
       const opts = undo && state.g && state.g.tape ? { action: { label: 'Undo', run: () => undoTape() } } : {};
       toast(w.restart ? `${said}. It takes effect when Hindsight restarts.` : said, 'ok', opts);
     }
     return true;
   } catch (e) {
-    toast(`Couldn’t do that: ${e.message}`, 'bad');
+    failToast(toast, 'Couldn’t do that', e);
     return false;
   } finally {
     state.sending = false;
@@ -253,7 +257,7 @@ function armLamp(n) {
   const s = g && G.socketById(g, `kit.track.${n}`);
   if (!s) return;
   const w = armWrite(g, n, !s.armed);
-  if (!w) { toast('● Rec is armed or recording: what’s armed waits until it ends', 'warn'); return; }
+  if (!w) { toast(WAITING, 'warn', { detail: WAITING_DETAIL }); return; }
   send(w, s.armed ? `Track ${n} disarmed` : `Track ${n} armed`);
 }
 

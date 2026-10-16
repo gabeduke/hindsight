@@ -64,6 +64,9 @@ func (a *API) tapeOff(w http.ResponseWriter) bool {
 	return false
 }
 
+// ReasonRecording is the "reason" of a 409 that waits for ● Rec to finish.
+const ReasonRecording = "recording"
+
 // tapeErr maps an engine error to a status.
 func tapeErr(w http.ResponseWriter, err error) {
 	switch {
@@ -71,6 +74,12 @@ func tapeErr(w http.ResponseWriter, err error) {
 		writeErr(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, audio.ErrRangeGone):
 		writeErr(w, http.StatusConflict, tape.ErrGone.Error())
+	case tape.IsWaitingForRecording(err):
+		// An EDIT refused until the recording ends. A page tells it from the
+		// other 409s by the reason, not by matching prose: it says "Waiting
+		// for rec to finish" for it. A mixdown or a second record, which
+		// share the sentinel, fall through to the plain 409 below.
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error(), "reason": ReasonRecording})
 	case errors.Is(err, audio.ErrLowDisk):
 		writeErr(w, http.StatusInsufficientStorage, err.Error())
 	case errors.Is(err, tape.ErrNoTape), errors.Is(err, tape.ErrWrongTape), errors.Is(err, tape.ErrNotYet),

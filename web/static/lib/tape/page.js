@@ -47,6 +47,7 @@ import { pageCarry, studioVisit } from '../bar/carry.js';
 import { trimTapePage } from '../rooms/nocrate.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
+import { readResponse, failToast, editTape } from './refusal.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
 import { armPress } from '../rig/armpress.js';
@@ -162,14 +163,9 @@ async function api(path, { method = 'GET', body, keepalive = false, timeout } = 
     body: body ? JSON.stringify(body) : undefined,
   };
   const pending = method === 'GET' ? timedFetch(path, init, timeout) : fetch(path, init);
-  const res = await pending;
-  const b = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const e = new Error(b.error || `HTTP ${res.status}`);
-    e.status = res.status;
-    throw e;
-  }
-  return b;
+  // The Pi's own text stays in e.message; e.recording marks an edit refused
+  // while Rec is armed, which only the edit paths (failToast) put into words.
+  return readResponse(await pending);
 }
 const q = () => `id=${encodeURIComponent(state.id)}`;
 
@@ -3271,7 +3267,7 @@ async function sendTrack() {
     await change(() => api(`/api/tapes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body }));
     ok = true;
   } catch (e) {
-    toast(ns.length ? `Could not arm ${onWords(ns)}: ${e.message}` : `Could not disarm the track: ${e.message}`, 'bad');
+    failToast(toast, ns.length ? `Could not arm ${onWords(ns)}` : 'Could not disarm the track', e);
   }
   recSending = false;
   if (!state.tape || state.tape.id !== id) { recWant = null; return; }
@@ -3891,13 +3887,9 @@ function drawOverview() {
 
 // patch changes the tape, and says whether it did.
 async function patch(body) {
-  try {
-    await change(() => api(`/api/tapes?${q()}`, { method: 'PATCH', body }));
-    return true;
-  } catch (e) {
-    toast(`Could not change the tape: ${e.message}`, 'bad');
-    return false;
-  }
+  // A refusal is said, and the page goes back to what the Pi has (a control
+  // moved ahead of the answer, an input just chosen, does not stay put).
+  return editTape(() => change(() => api(`/api/tapes?${q()}`, { method: 'PATCH', body })), { toast, resync: () => poll(true) });
 }
 
 async function transport(action, extra = {}) {

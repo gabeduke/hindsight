@@ -22,13 +22,20 @@ const host = () => document.getElementById('toasts');
 export function toast(msg, kind = 'ok', opts = {}) {
   if (typeof opts === 'number') opts = { ms: opts }; // the old signature
   const actions = opts.actions || (opts.action ? [opts.action] : []);
-  const ms = opts.ms ?? (actions.length ? 8000 : 4000);
+  const ms = opts.ms ?? (actions.length ? 8000 : opts.detail ? 6000 : 4000);
   const t = document.createElement('div');
   t.className = `toast ${kind}`;
   t.setAttribute('role', 'status');
   const text = document.createElement('span');
   text.className = 'toast-text';
   text.textContent = sayToast(msg, kind);
+  // opts.detail: a short second line under the message, in smaller type.
+  if (opts.detail) {
+    const d = document.createElement('span');
+    d.className = 'toast-detail';
+    d.textContent = sayToast(opts.detail, kind);
+    text.appendChild(d);
+  }
   t.appendChild(text);
   let timer = 0;
   const dismiss = () => {
