@@ -138,8 +138,17 @@ test('on the phone’s mini bar the key’s second line is short enough to leave
   assert.equal(catchMini('arm a track'), 'arm track');
   assert.equal(catchMini('jam room only'), 'jam room');
   for (const s of ['press ▶', 'lining up', 'waiting']) assert.equal(catchMini(s), s, s);
-  // Every word the key can say in the Studio, but "→ 1, 2, 3, 4" (all four armed), is nine characters or fewer.
-  const words = ['last pass → 1, 2, 3', 'after one pass', 'press ▶', 'loop is off', 'lining up', 'arm a track', 'jam room only', 'waiting'];
+  // Every word the key can say in the Studio is nine characters or fewer, for any armed set.
+  const words = ['after one pass', 'press ▶', 'loop is off', 'lining up', 'arm a track', 'jam room only', 'waiting'];
+  for (let mask = 1; mask < 64; mask++) {
+    const ns = [1, 2, 3, 4, 5, 6].filter((n) => mask & (1 << (n - 1)));
+    words.push(catchSub({ ready: true }, { armed: ns, rooms: true }));
+  }
   for (const s of words) assert.ok(catchMini(s).length <= 9, `${s} -> ${catchMini(s)}`);
-  assert.equal(catchMini('last pass → 1, 2, 3, 4'), '→ 1, 2, 3, 4');
+  // A run of tracks is a range; anything else that is long says how many.
+  assert.equal(catchMini('last pass → 1, 2, 3, 4'), '→ 1–4');
+  assert.equal(catchMini('last pass → 2, 3, 4'), '→ 2, 3, 4');
+  assert.equal(catchMini('last pass → 1, 2, 3, 4, 5'), '→ 1–5');
+  assert.equal(catchMini('last pass → 1, 2, 4, 5, 6'), '→ 5 trk');
+  assert.equal(catchMini('last pass → 1, 2, 3'), '→ 1, 2, 3', 'nine already: said in full');
 });

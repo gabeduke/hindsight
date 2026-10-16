@@ -80,14 +80,23 @@ export function catchSub(cs, { armed = [], phoneOut = false, rooms = false } = {
 /**
  * catchMini is catchSub for the phone's mini bar, where the key may grow only
  * a few pixels before the transport window beside it loses its bar number:
- * nine characters or fewer. "last pass → 2" is "→ 2", "after one pass" is
- * "in 1 pass", "loop is off" is "loop off", "arm a track" is "arm track".
- * Anything else is as catchSub said it. (The full line is the expanded
- * player's, and the key's tip and label say it in full.)
+ * nine characters or fewer, for any number of tracks armed. "last pass → 2"
+ * is "→ 2", "after one pass" is "in 1 pass", "loop is off" is "loop off",
+ * "arm a track" is "arm track"; tracks too many to list are a range ("→ 1–4")
+ * or, if they are not a run, a count ("→ 5 trk"). Anything else is as
+ * catchSub said it. (The full line is the expanded player's, and the key's
+ * tip and label say it in full.)
  */
 export function catchMini(sub) {
+  const m = /^last pass → (\d+(?:, \d+)*)$/.exec(sub);
+  if (m) {
+    const ns = m[1].split(', ').map(Number);
+    const list = `→ ${ns.join(', ')}`;
+    if (list.length <= 9) return list;
+    const run = ns.every((n, i) => i === 0 || n === ns[i - 1] + 1);
+    return run ? `→ ${ns[0]}–${ns[ns.length - 1]}` : `→ ${ns.length} trk`;
+  }
   return sub
-    .replace(/^last pass → /, '→ ')
     .replace('after one pass', 'in 1 pass')
     .replace('loop is off', 'loop off')
     .replace('arm a track', 'arm track')
