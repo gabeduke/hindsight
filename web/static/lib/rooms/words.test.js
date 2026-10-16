@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
-import { rename as say, tipForRooms } from './words.js';
+import { rename as say, renameToast, quoted, tipForRooms } from './words.js';
 import { TIPS } from '../help/tips.js';
 import { CRATE_PARTS, TAKE_PARTS } from './nocrate.js';
 
@@ -108,6 +108,7 @@ export function markupText(html, skipIds = new Set()) {
     const el = { tag, id: attrs.id || '' };
     if (!stack.some((s) => skipIds.has(s.id)) && !skipIds.has(el.id)) {
       for (const a of ATTRS) if (attrs[a]) out.push([`${stack.map((s) => s.id).filter(Boolean).join(' > ')} > ${el.id || tag}@${a}`, attrs[a]]);
+      if (attrs['data-tip']) out.push([el.id || tag, attrs['data-tip'], 'tip']);
     }
     if (!VOID.has(tag) && !m[3].trim().endsWith('/')) stack.push(el);
   }
@@ -116,17 +117,26 @@ export function markupText(html, skipIds = new Set()) {
 
 // What the rooms take out of a page whole (nocrate.js), so it is never read.
 const REMOVED = new Set([...CRATE_PARTS, ...TAKE_PARTS]);
-const PAGES = ['tape.html', 'takes.html', 'wave.html', 'rig.html', 'index.html'];
+const PAGES = ['tape.html', 'takes.html', 'wave.html', 'rig.html', 'index.html', 'guide.html'];
 
 test('no retired word in a rooms page’s markup, as the rooms’ pass leaves it', () => {
   const bad = [];
   for (const page of PAGES) {
-    for (const [where, text] of markupText(read(page).replace(/<head>[\s\S]*?<\/head>/, ''), REMOVED)) {
+    for (const [where, text, kind] of markupText(read(page).replace(/<head>[\s\S]*?<\/head>/, ''), REMOVED)) {
+      if (kind === 'tip') continue;
       const s = say(text);
       if (hits(s).length && !allowed(page, s)) bad.push(`${page} ${where}: ${s.slice(0, 120)}`);
     }
   }
   assert.deepEqual(bad, []);
+});
+
+// guide.html is read above like any page: it loads nav.js, which loads the
+// words layer, so its header is said. Its body is docs/guide.md, fetched and
+// drawn after that, and so is not renamed: F9 rewrites docs/guide.md.
+test('guide.html’s body is docs/guide.md, fetched later: not said in the rooms’ words until F9 rewrites it', () => {
+  assert.match(read('guide.html'), /fetch\('\/guide\.md'\)/);
+  assert.match(read('guide.html'), /nav\.js/, 'its header is said, because nav.js loads the words layer');
 });
 
 // ---- 2. tips --------------------------------------------------------------
@@ -225,6 +235,30 @@ test('no retired word in a string a rooms page’s modules build, or it is said 
   assert.deepEqual(bad, []);
 });
 
+
+// The crate's tips are allowed because their controls are not on a rooms page.
+// Say so from the markup: none of them is on a rooms page outside what the
+// rooms take out whole; the few that are there are hidden by code that is read.
+test('a tip allowed as “removed with the rooms” belongs to a control the rooms really remove', () => {
+  const onPage = new Set();
+  for (const page of ['tape.html', 'takes.html', 'wave.html', 'rig.html']) {
+    for (const [, id, kind] of markupText(read(page).replace(/<head>[\s\S]*?<\/head>/, ''), REMOVED)) if (kind === 'tip') onPage.add(id);
+  }
+  const allowedTips = ALLOW.filter(([f, , why]) => f === 'tips' && why === NO_CRATE).map(([, t]) => t.replace('|', ''));
+  const open = read('lib/room/open.js');
+  const found = [];
+  for (const id of allowedTips) {
+    if (!onPage.has(id)) continue;
+    // on the page, so something must hide it: Open hides Send to ▾ and its menu
+    if ((id === 'send-to' || id === 'send-clipboard') && /send-btn[\s\S]*display = 'none'/.test(open)) continue;
+    found.push(id);
+  }
+  assert.deepEqual(found, [], 'on a rooms page and nothing in the rooms hides it');
+  // the ones with no markup of their own: where they are made
+  assert.match(read('lib/shelf-detail.js'), /data-tip="detail-crate"/, 'detail-crate is the old Takes sheet’s');
+  assert.match(read('index.html'), /rb-sel-keep" type="button" hidden data-tip="ribbon-keep"/, 'ribbon-keep is hidden unless the tape is on, and the rooms redirect then');
+  assert.doesNotMatch(read('tape.html'), /data-tip="ribbon-keep"/, 'the Studio’s selection has no Keep as clip');
+});
 
 test('every allow-list entry still matches something', () => {
   const stale = ALLOW.filter((_, i) => !used.has(i)).map((a) => a.slice(0, 2).join(' '));

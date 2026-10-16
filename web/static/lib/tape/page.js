@@ -54,7 +54,7 @@ import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
-import { say } from '../rooms/words.js';
+import { say, quoted } from '../rooms/words.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -2638,14 +2638,14 @@ function wireSections() {
     const e = await edit('duplicate-section', { section: sc.id });
     if (e) {
       const t = state.tape;
-      toast(`${sc.name} twice in a row: ${sectionBars(e.section, t.grid, t.sample_rate)} is a copy, and what followed moved ${spanWords(e.frames, t.grid, t.sample_rate)} later`, 'ok', { action: undoAction });
+      toast(`${quoted(sc.name)} twice in a row: ${sectionBars(e.section, t.grid, t.sample_rate)} is a copy, and what followed moved ${spanWords(e.frames, t.grid, t.sample_rate)} later`, 'ok', { action: undoAction });
     }
   });
   $('section-remove').addEventListener('click', async () => {
     const id = sec.open;
     $('section-sheet').close();
     const sc = sectionsOf().find((x) => x.id === id);
-    if (sc && await edit('section-remove', { section: id })) toast(`Removed the section ${sc.name}; the audio under it stays`, 'ok', { action: undoAction });
+    if (sc && await edit('section-remove', { section: id })) toast(`Removed the section ${quoted(sc.name)}; the audio under it stays`, 'ok', { action: undoAction });
   });
   $('section-done').addEventListener('click', () => $('section-sheet').close());
   $('section-sheet').addEventListener('close', () => { sec.open = null; });
@@ -2655,7 +2655,7 @@ async function addSection(at, end) {
   const name = newName(sectionsOf());
   const e = await edit('section-add', { name, at, end });
   if (!e || !e.section) return;
-  toast(`Made ${name}, ${sectionBars(e.section, state.tape.grid, state.tape.sample_rate)}: tap it to select its bars`, 'ok', { action: undoAction });
+  toast(`Made ${quoted(name)}, ${sectionBars(e.section, state.tape.grid, state.tape.sample_rate)}: tap it to select its bars`, 'ok', { action: undoAction });
   openSection(e.section);
 }
 
@@ -2978,7 +2978,7 @@ function pickInput(n, name) {
   const r = state.live && state.live.record;
   const rp = recPair(r, n);
   if (rp && rp.source !== name) {
-    toast(`● Rec is ${r.state === 'armed' ? 'ready to record' : 'recording'} ${rp.source}: end it to record from ${name}`, 'warn');
+    toast(`● Rec is ${r.state === 'armed' ? 'ready to record' : 'recording'} ${quoted(rp.source)}: end it to record from ${quoted(name)}`, 'warn');
     return;
   }
   if (!n || (state.tape.inputs || [])[n - 1] === name) return;

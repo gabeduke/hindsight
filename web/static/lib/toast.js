@@ -9,7 +9,7 @@
 
 // With the two rooms on a toast says the rooms' words (rooms/words.js); “quoted”
 // names are left as they were typed.
-import { say } from './rooms/words.js';
+import { say, sayToast } from './rooms/words.js';
 
 const host = () => document.getElementById('toasts');
 
@@ -28,7 +28,7 @@ export function toast(msg, kind = 'ok', opts = {}) {
   t.setAttribute('role', 'status');
   const text = document.createElement('span');
   text.className = 'toast-text';
-  text.textContent = say(msg);
+  text.textContent = sayToast(msg, kind);
   t.appendChild(text);
   let timer = 0;
   const dismiss = () => {

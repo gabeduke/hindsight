@@ -22,6 +22,10 @@ import { on } from './flag.js';
 
 const keepCase = (word, to) => (word[0] !== word[0].toLowerCase() ? to[0].toUpperCase() + to.slice(1) : to);
 
+// A whole word, and not a piece of a hyphenated one ("Ring-a-ling"). No
+// lookbehind: an older iPhone would refuse the whole module for it.
+const word = (src, fn) => [new RegExp(`(^|[^\\w-])(${src})(?![\\w-])`, 'gi'), (_, pre, w) => pre + fn(w)];
+
 // Ordered: the specific phrases first, then the bare words.
 const RULES = [
   [/Flag now/g, () => 'Note'],
@@ -33,35 +37,65 @@ const RULES = [
   [/for a part a little early or late/g, () => 'for playing a little early or late'],
   [/Hold an empty part/g, () => 'Hold an empty spot'], // not the part a clip becomes
   [/A punch shows in red as it records/g, () => 'The Rec shows in red as it records'],
-  [/\ba punch is recording\b/g, () => '● Rec is recording'],
-  [/\bas a punch does\b/g, () => 'as ● Rec does'],
+  word('a punch is recording', () => '● Rec is recording'),
+  word('as a punch does', () => 'as ● Rec does'),
   [/The crate’s (\w+) clip/g, (_, n) => `The ${n} saved bit (not wired yet)`],
-  [/\bmixing down\b/g, () => 'bouncing'],
+  word('mixing down', () => 'bouncing'),
   [/Mix down the whole tape/g, () => 'Bounce the whole tape'],
   [/Mix down the loop/g, () => 'Bounce the loop'],
-  [/\bmix ?downs?\b/gi, (m) => keepCase(m, /s$/i.test(m) ? 'bounces' : 'bounce')],
+  word('mix ?downs?', (m) => keepCase(m, /s$/i.test(m) ? 'bounces' : 'bounce')),
   [/capture anything you want to keep first/g, () => 'keep anything you want from it first'],
   [/Buffer length/g, () => 'Feed length'],
   [/Inputs to keep/g, () => 'Inputs in TAKES'],
   [/Keep every input/g, () => 'Every input in TAKES'],
   [/Keep free/g, () => 'Leave free'],
-  [/\bclipboard\b/gi, (m) => keepCase(m, 'buffer')],
-  [/\bflags\b/gi, (m) => keepCase(m, 'notes')],
-  [/\bflag\b/gi, (m) => keepCase(m, 'note')],
-  [/\bclips\b/gi, (m) => keepCase(m, 'parts')],
-  [/\bclip\b/gi, (m) => keepCase(m, 'part')],
-  [/\bring\b/gi, (m) => keepCase(m, 'feed')],
+  word('clipboard', (m) => keepCase(m, 'buffer')),
+  word('flags', (m) => keepCase(m, 'notes')),
+  word('flag', (m) => keepCase(m, 'note')),
+  word('clips', (m) => keepCase(m, 'parts')),
+  word('clip', (m) => keepCase(m, 'part')),
+  word('ring', (m) => keepCase(m, 'feed')),
 ];
 
-/** rename gives the rooms' word for each old one in text, leaving “quoted” names alone. */
-export function rename(text) {
-  if (typeof text !== 'string' || !text) return text;
-  return text.split(/(“[^”]*”)/).map((part, i) => {
+// What a person typed is theirs: a name in quotes of any kind is left alone.
+const QUOTED = /(“[^”]*”|"[^"]*")/;
+
+function renameFree(text) {
+  return text.split(QUOTED).map((part, i) => {
     if (i % 2) return part;
     let s = part;
     for (const [re, to] of RULES) s = s.replace(re, to);
     return s;
   }).join('');
+}
+
+/** rename gives the rooms' word for each old one in text, leaving “quoted” names alone. */
+export function rename(text) {
+  if (typeof text !== 'string' || !text) return text;
+  return renameFree(text);
+}
+
+/**
+ * renameToast is rename for a toast, which may carry what the Pi said or what
+ * someone named a thing without quoting it. After "Could not …: " it is the
+ * Pi's, so it is left as it came; a failure with no colon is the Pi's whole.
+ */
+export function renameToast(msg, kind = 'ok') {
+  if (typeof msg !== 'string' || !msg) return msg;
+  const m = /^(Could not|Couldn’t|Couldn't)[^:]*: /.exec(msg);
+  if (m) return renameFree(m[0]) + msg.slice(m[0].length);
+  if (kind === 'bad') return msg;
+  return renameFree(msg);
+}
+
+/** sayToast is renameToast with the rooms on, and the message unchanged without them. */
+export function sayToast(msg, kind) {
+  return on() ? renameToast(msg, kind) : msg;
+}
+
+/** quoted puts a name a person typed in quotes, with the rooms on, so no word in it is renamed. */
+export function quoted(name) {
+  return on() ? `“${name}”` : name;
 }
 
 /** say is rename with the rooms on, and the text unchanged without them. */

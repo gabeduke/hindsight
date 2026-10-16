@@ -390,7 +390,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
         toast(`Kept “${k.label}” as a take: it’s on the Listening Room’s shelf`, 'ok', {
           actions: [
             { label: 'Name it', run: () => location.assign(`/takes.html?take=${encodeURIComponent(k.name)}`) },
-            { label: 'Undo', run: () => untake(k.name) },
+            { label: 'Undo', run: () => untake(k.name, k.label) },
           ],
         });
         fetchBoard(); // it's used now
@@ -398,9 +398,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       .catch((e) => toast(`Could not keep it: ${e.message}`, 'bad'));
   }
 
-  async function untake(name) {
+  async function untake(name, label) {
     try { await takeBack(name); } catch (e) { toast(`Could not undo it: ${e.message}`, 'bad'); return; }
-    toast(`Took back ${takeTitle(name)}: it’s in Recently deleted`, 'ok', {
+    toast(`Took back ${takeTitle(name, undefined, label)}: it’s in Recently deleted`, 'ok', {
       action: { label: 'Restore', run: () => restoreTake(name).then(() => toast('Restored, starred')).catch((e) => toast(`Could not restore: ${e.message}`, 'bad')) },
     });
   }

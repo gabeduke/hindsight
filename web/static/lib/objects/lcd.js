@@ -18,6 +18,10 @@
 import { barBeat, fmtSecs, bpm } from '../tape/geometry.js';
 import { say } from '../rooms/words.js';
 
+// Said once, not on every frame the LCD draws.
+const BOUNCING = say('mixing down');
+const BOUNCE_NOTE = say('the mixdown as a take…');
+
 const OUT_WORDS = { jam: 'IN THE JAM ROOM', phone: 'ON A PHONE', both: 'IN THE JAM ROOM AND ON A PHONE' };
 
 /**
@@ -41,10 +45,10 @@ export function tapeCounter(tape, live, md) {
     return { big: `count-in ${Math.min(4, Math.max(1, 4 - Math.floor((left - 1) / beat)))} of 4`, small: '', note: '', status, unit: '' };
   }
   if (md && md.state === 'playing') {
-    return { big: say('mixing down'), small: '', note: `${fmtSecs(Math.max(0, heard - md.from), sr)} of ${fmtSecs(md.to - md.from, sr)} · ■ cancels`, status, unit: '' };
+    return { big: BOUNCING, small: '', note: `${fmtSecs(Math.max(0, heard - md.from), sr)} of ${fmtSecs(md.to - md.from, sr)} · ■ cancels`, status, unit: '' };
   }
-  if (md && md.state === 'tail') return { big: say('mixing down'), small: '', note: 'letting it ring out · ■ cancels', status, unit: '' };
-  if (md && md.state === 'saving') return { big: 'saving', small: '', note: say('the mixdown as a take…'), status, unit: '' };
+  if (md && md.state === 'tail') return { big: BOUNCING, small: '', note: 'letting it ring out · ■ cancels', status, unit: '' };
+  if (md && md.state === 'saving') return { big: 'saving', small: '', note: BOUNCE_NOTE, status, unit: '' };
   // As #position read: the time beside bar.beat, and "no output" after it.
   const time = fmtSecs(heard, sr);
   const big = tape.grid ? barBeat(heard, tape.grid) : time;

@@ -11,6 +11,8 @@ import { initPhone } from '/lib/phone/recorder.js';
 import { initHelp } from '/lib/help/help.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { say } from '/lib/rooms/words.js';
+import { on as roomsOn } from '/lib/rooms/flag.js';
+import { takeTitle } from '/lib/rooms/takename.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
 import { pageBar, takesFinder } from '/lib/bar/bar.js';
@@ -283,6 +285,9 @@ async function pollTakes(force = false) {
 // Every save says so, with Name it and Undo: a capture you didn't mean goes
 // straight to the trash (Recently deleted, under the takes list), and the
 // toast that says so has Restore.
+// With the rooms on a take is named as its spine names it, not by its file.
+const nameOf = (name, seconds) => (roomsOn() ? takeTitle(name, seconds) : name);
+
 function savedToast(msg, name) {
   toast(msg, 'ok', {
     actions: [
@@ -300,7 +305,7 @@ async function undoSave(name) {
     toast(`Could not undo the save: ${e.message}`, 'bad');
     return;
   }
-  toast(`Took back ${name}: it’s in Recently deleted`, 'ok', { action: { label: 'Restore', run: () => { tookBack.delete(name); takes.restore([name]); } } });
+  toast(`Took back ${nameOf(name)}: it’s in Recently deleted`, 'ok', { action: { label: 'Restore', run: () => { tookBack.delete(name); takes.restore([name]); } } });
   pollTakes(true);
   pollStatus();
 }
@@ -326,7 +331,7 @@ async function capture() {
     }
 
     takes.markFresh(body.name);
-    savedToast(`Saved ${body.name}`, body.name);
+    savedToast(`Saved ${nameOf(body.name, body.seconds)}`, body.name);
     saved = true;
     try { navigator.vibrate?.([12, 70, 12]); } catch { /* no haptics here */ }
     await pollTakes(true);

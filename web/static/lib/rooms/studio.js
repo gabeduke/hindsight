@@ -83,21 +83,21 @@ export function mountStudio(doc = document) {
 
   // A take kept, from KEEP or from the ribbon: Name it on the Listening
   // Room's shelf, or Undo, which puts it in Recently deleted with a Restore.
-  const keptToast = (msg, name) => toast(msg, 'ok', {
+  const keptToast = (msg, name, title) => toast(msg, 'ok', {
     actions: [
       { label: 'Name it', run: () => location.assign(`/takes.html?take=${encodeURIComponent(name)}`) },
-      { label: 'Undo', run: () => undoKeep(name) },
+      { label: 'Undo', run: () => undoKeep(name, title) },
     ],
   });
 
-  async function undoKeep(name) {
+  async function undoKeep(name, title) {
     try {
       await takeBack(name);
     } catch (e) {
       toast(`Could not undo it: ${e.message}`, 'bad');
       return;
     }
-    toast(`Took back ${takeTitle(name)}: it’s in Recently deleted`, 'ok', {
+    toast(`Took back ${title || takeTitle(name)}: it’s in Recently deleted`, 'ok', {
       action: {
         label: 'Restore',
         run: async () => {
@@ -251,7 +251,8 @@ export function mountStudio(doc = document) {
     let kept = false;
     try {
       const body = await keepTake(seconds);
-      keptToast(`Kept ${takeTitle(body.name, body.seconds)}: it’s on the Listening Room’s shelf`, body.name);
+      const title = takeTitle(body.name, undefined, body.label);
+      keptToast(`Kept ${takeTitle(body.name, body.seconds, body.label)}: it’s on the Listening Room’s shelf`, body.name, title);
       kept = true;
       try { navigator.vibrate?.([12, 70, 12]); } catch { /* no haptics here */ }
     } catch (e) {
