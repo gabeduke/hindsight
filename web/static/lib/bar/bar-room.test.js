@@ -78,6 +78,14 @@ test('rooms on: ✎ takes the frame it is held at, keeps it for the next page, a
   assert.equal(kept.sr, SR);
 });
 
+test('rooms on: ✎ on a take that has ended keeps its last frame, not one past it', async () => {
+  const p = await withTake();
+  p.audio.currentTime = 100000; // past the end: the bar counts it at the take's length
+  p.click(p.$('np-note'));
+  const kept = JSON.parse(p.w.session.getItem(FRAME_KEY));
+  assert.equal(kept.frame, 120 * SR - 1, 'the last frame of a two-minute take');
+});
+
 test('rooms on: the frame ✎ kept is used once, and not after two minutes', async () => {
   const p = await withTake();
   p.audio.currentTime = 12;

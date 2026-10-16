@@ -400,7 +400,7 @@ test('storage that throws never reaches the page', () => {
   const { carry } = aCarry({ storage: bad });
   assert.doesNotThrow(() => { carry.leave(left()); carry.forTheTape(); carry.drop(); carry.stashFrame(left()); });
   assert.equal(carry.read(), null);
-  assert.equal(carry.takeStashedFrame(), null);
+  assert.equal(carry.takeStashedFrame('jam_a.wav'), null);
 });
 
 // --- the Studio keeps its tape -------------------------------------------------
@@ -517,7 +517,7 @@ test('rooms off: nothing written, nothing read, no listener', () => {
   carry.drop();
   assert.equal(carry.stashFrame(left()), null);
   assert.equal(carry.read(), null);
-  assert.equal(carry.takeStashedFrame(), null);
+  assert.equal(carry.takeStashedFrame('jam_a.wav'), null);
   assert.equal(win.target.count() + win.doc.count(), 0, 'nothing listens');
   assert.equal(storage.reads, 0, 'nothing read');
   assert.equal(storage.writes, 0, 'nothing written');
@@ -561,10 +561,10 @@ test('a stashed frame is the frame at the tap, whatever the gap between pages', 
   const { carry, clock } = aCarry();
   carry.stashFrame(left({ frame: 44 * SR }));
   clock.t += 20_000;
-  const f = carry.takeStashedFrame();
+  const f = carry.takeStashedFrame('jam_a.wav');
   assert.equal(f.take, 'jam_a.wav');
   assert.equal(f.frame, 44 * SR, 'the gap does not move it');
-  assert.equal(carry.takeStashedFrame(), null, 'used once');
+  assert.equal(carry.takeStashedFrame('jam_a.wav'), null, 'used once');
 });
 
 test('a stashed frame expires on its own, shorter, limit and is separate from the hand-off record', () => {
@@ -573,7 +573,7 @@ test('a stashed frame expires on its own, shorter, limit and is separate from th
   carry.stashFrame(left({ frame: 5 * SR }));
   assert.ok(FRAME_LIMIT_MS < CARRY_LIMIT_MS);
   clock.t += FRAME_LIMIT_MS + 1;
-  assert.equal(carry.takeStashedFrame(), null);
+  assert.equal(carry.takeStashedFrame('jam_a.wav'), null);
   assert.ok(carry.read(), 'the hand-off record is still good');
 });
 
@@ -592,4 +592,29 @@ test('a stashed frame can be asked for by take: another take\'s is not handed ov
   const { carry } = aCarry();
   carry.stashFrame(left({ frame: 5 * SR }));
   assert.equal(carry.takeStashedFrame('jam_b.wav'), null);
+});
+
+// --- F6: the stash's two nits ---------------------------------------------------------
+
+test('a stashed frame is handed over only to a page that names its take', () => {
+  const { carry } = aCarry();
+  carry.stashFrame(left({ frame: 5 * SR }));
+  assert.equal(carry.takeStashedFrame(), null, 'no take named: nobody\'s');
+  assert.equal(carry.takeStashedFrame(''), null);
+  assert.equal(carry.takeStashedFrame(null), null);
+  assert.equal(carry.takeStashedFrame('jam_a.wav').frame, 5 * SR, 'and it was not used up by the asking');
+});
+
+test('a take that has ended stashes its last frame, not one past it', () => {
+  const { carry } = aCarry();
+  const f = carry.stashFrame(left({ frame: 600 * SR, length: 600 * SR }));
+  assert.equal(f.frame, 600 * SR - 1);
+  assert.equal(carry.takeStashedFrame('jam_a.wav').frame, 600 * SR - 1);
+  assert.equal(carry.stashFrame(left({ frame: 10 * SR, length: 600 * SR })).frame, 10 * SR, 'mid-take frames are untouched');
+  assert.equal(carry.stashFrame(left({ frame: 10 * SR })).frame, 10 * SR, 'no length known: as given');
+});
+
+test('frameNow carries the take\'s length so the stash can clamp', () => {
+  const { carry } = aCarry();
+  assert.equal(carry.frameNow(() => left({ frame: 5, length: 99 })).length, 99);
 });

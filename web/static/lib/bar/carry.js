@@ -233,13 +233,19 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
     /** frameNow is the bar's take and frame at this moment, or null with none: ✎ takes it before the page changes. */
     frameNow(state) {
       const s = state();
-      return s ? { take: s.take, frame: Math.round(s.frame), sr: s.sr, playing: !!s.playing, at: now() } : null;
+      return s ? { take: s.take, frame: Math.round(s.frame), sr: s.sr, playing: !!s.playing, ...(num(s.length) ? { length: s.length } : {}), at: now() } : null;
     },
 
-    /** stashFrame keeps the frame for the next page (the note ✎ starts there). Null with no take. */
+    /**
+     * stashFrame keeps the frame for the next page (the note ✎ starts there).
+     * Null with no take. A take that has ended sits at its length, one frame
+     * past its last: with `s.length` known the frame is clamped to length - 1.
+     */
     stashFrame(s) {
       if (!ok() || !s) return null;
-      const f = { v: 1, take: s.take, frame: Math.round(s.frame), sr: s.sr, at: now() };
+      let frame = Math.round(s.frame);
+      if (num(s.length) && s.length > 0) frame = Math.min(frame, s.length - 1);
+      const f = { v: 1, take: s.take, frame, sr: s.sr, at: now() };
       set(FRAME_KEY, f);
       return f;
     },
@@ -247,14 +253,16 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
     /**
      * takeStashedFrame is the frame stashFrame kept, once -- {take, frame, sr},
      * the frame at the tap and not moved by the gap -- or null when there is
-     * none, it is stale, or `take` is given and it is another's.
+     * none, it is stale, or it is another take's. `take` is the page's own
+     * take and is required: a page that does not name it is handed nothing
+     * (and the stash stays), so a stale stash from another take can't apply.
      */
     takeStashedFrame(take) {
-      if (!ok()) return null;
+      if (!ok() || typeof take !== 'string' || take === '') return null;
       const raw = get(FRAME_KEY);
       if (raw == null) return null;
       const r = parse(raw);
-      if (r && take != null && r.take !== take) return null;
+      if (r && r.take !== take) return null;
       del(FRAME_KEY);
       if (!r || typeof r.take !== 'string' || !num(r.frame) || r.frame < 0 || !num(r.sr) || !alive(r, now(), FRAME_LIMIT_MS)) return null;
       return { take: r.take, frame: r.frame, sr: r.sr };
