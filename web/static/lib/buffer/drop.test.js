@@ -159,3 +159,14 @@ test('arming another track moves the key with it', async () => {
     assert.equal(sub(), 'bars 1–4');
   });
 });
+
+test('a loop near the tape’s end: the part is moved back to fit, the key and the toast say so, and it is not refused', async () => {
+  const t = tapeOf([[], [], [], []], { length: 10 * BAR, loop: { in: 8 * BAR, out: 10 * BAR, on: true } });
+  await withBuffer({ tape: t, bars: 4 }, async ({ press, drops, toasts, sub, key }) => {
+    assert.equal(key().disabled, false);
+    assert.equal(sub(), 'bars 7–10 · moved back to fit the tape');
+    await press();
+    assert.deepEqual(drops()[0].body, { track: 2, at: 6 * BAR });
+    assert.equal(toasts.at(-1).msg, 'Dropped on track 2 · bars 7–10 · moved back to fit the tape');
+  });
+});

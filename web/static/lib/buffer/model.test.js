@@ -168,8 +168,9 @@ test('only a part longer than the tape itself is refused, and it says to trim it
   assert.equal(k.can, false);
   assert.match(k.word, /Longer than the tape/);
   assert.match(k.sub, /IN and OUT/);
-  // Past the tape's end from the loop's In, too: nowhere to start it.
-  assert.equal(key({ tape: tape({ length: 8 * BAR, loop: { in: 2 * BAR, out: 6 * BAR, on: true } }), frames: 7 * BAR }).can, false);
+  // From the loop's In it would run past the tape's end, but the tape can hold it:
+  const nearly = key({ tape: tape({ length: 8 * BAR, loop: { in: 2 * BAR, out: 6 * BAR, on: true } }), frames: 7 * BAR });
+  assert.deepEqual([nearly.can, nearly.at, nearly.fitted], [true, BAR, true], 'it fits the tape, so it lands, moved back');
 });
 
 test('with the loop off it is the next bar line from the playhead, wrapping only at the tape’s end', () => {
@@ -211,6 +212,129 @@ test('a buffer of two lanes starts where two fit, when the armed track is the la
 
 test('there is no tape yet', () => {
   assert.equal(dropKey({ tape: null, armed: 1, frames: BAR }).can, false);
+});
+
+// F7 review: "replaces" must follow the Pi's own rule. A buffer copied from
+// several picked clips (board.clips) is laid down clearing only the span under
+// each copied clip (internal/tape clipboard.go, dropBoard), not the whole
+// window, so a clip in the gap between two of them is left alone.
+test('a buffer copied from several clips replaces only under each of them, not in the gaps between', () => {
+  // Track 3's two 1-bar clips, at 0 and 3.75 bars, were copied together; track 2 has a clip in the gap.
+  const board = { clips: true, frames: 4.75 * BAR, tracks: [[{ at: 0, frames: BAR }, { at: 3.75 * BAR, frames: BAR }]] };
+  const t = tape();
+  t.tracks[1].clips.push({ at: 1.875 * BAR, frames: 1.25 * BAR });
+  const k = dropKey({ tape: t, armed: 2, count: 1, frames: board.frames, pos: 0, board });
+  assert.equal(k.can, true);
+  assert.equal(k.at, 0);
+  assert.equal(k.replaces, false, 'the clip in the gap is not touched');
+  assert.equal(k.sub, 'bars 1–5');
+  // Under one of the copied clips it does replace.
+  t.tracks[1].clips.push({ at: 0.5 * BAR, frames: BAR });
+  assert.equal(dropKey({ tape: t, armed: 2, count: 1, frames: board.frames, pos: 0, board }).replaces, true);
+  // Without the Pi's `clips` mark it is a span, and the whole window is cleared.
+  assert.equal(dropKey({ tape: tape({ clips: [[], [[2, 3]], [], []] }), armed: 2, count: 1, frames: board.frames, pos: 0, board: { ...board, clips: false } }).replaces, true);
+});
+
+test('overwritten and landsWords follow the copied clips too, lane by lane', () => {
+  const board = { clips: true, frames: 3 * BAR, tracks: [[{ at: 0, frames: BAR }], [{ at: 2 * BAR, frames: BAR }]] };
+  const t = tape({ clips: [[[1, 2]], [[0, 2]], [], []] });
+  // Lane 1 of the copy lands on track 1 (clip at 0–1 bar: the tape's clip at 1–2 is clear of it);
+  // lane 2 lands on track 2 under bar 3 (the tape's clip at 0–2 is clear of that).
+  assert.deepEqual(overwritten(t, { first: 1, count: 2, at: 0, frames: 3 * BAR, board }), { clips: 0, frames: 0 });
+  assert.deepEqual(overwritten(t, { first: 1, count: 2, at: -BAR, frames: 3 * BAR, board }), { clips: 1, frames: BAR }, 'moved a bar back, lane 2 now lies over track 2’s clip');
+  assert.equal(landsWords(t.grid, { first: 1, count: 2, at: 0, frames: 3 * BAR, board }, t), 'bars 1–3');
+});
+
+// A property check against the rule written out the way the Pi's clearRange
+// reads, for boards of one span or of picked clips, any armed track and playhead.
+test('"replaces" agrees with what the Pi would clear, for spans and for picked clips, over many tapes', () => {
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+  let replacing = 0, clear = 0, picked = 0;
+  for (let i = 0; i < 400; i++) {
+    const clips = [0, 1, 2, 3].map(() => Array.from({ length: ri(0, 3) }, () => { const a = ri(0, 14); return [a, a + ri(1, 3)]; }));
+    const t = tape({ clips });
+    const lanes = ri(1, 2);
+    const multi = rnd() < 0.5;
+    const board = multi
+      ? { clips: true, tracks: Array.from({ length: lanes }, () => Array.from({ length: ri(1, 3) }, () => ({ at: ri(0, 8) * (BAR / 2) | 0, frames: ri(1, 3) * (BAR / 2) }))) }
+      : { tracks: Array.from({ length: lanes }, () => [{ at: 0, frames: 2 * BAR }]) };
+    if (multi) { board.frames = Math.max(...board.tracks.flat().map((c) => c.at + c.frames)); picked++; }
+    const frames = multi ? board.frames : ri(1, 6) * BAR;
+    const armed = ri(1, 4);
+    const k = dropKey({ tape: t, armed, count: lanes, frames, pos: ri(0, 12) * BAR, board });
+    if (!k.can) continue;
+    // The Pi: each lane's span(s) are cleared on tape track first + lane.
+    let want = false;
+    for (let l = 0; l < lanes; l++) {
+      const spans = multi ? board.tracks[l].map((c) => [k.at + c.at, k.at + c.at + c.frames]) : [[k.at, k.at + frames]];
+      for (const c of t.tracks[k.track - 1 + l].clips) if (spans.some(([a, b]) => c.at < b && c.at + c.frames > a)) want = true;
+    }
+    assert.equal(k.replaces, want, `case ${i}: ${JSON.stringify({ clips, board, armed, at: k.at, track: k.track })}`);
+    if (want) replacing++; else clear++;
+  }
+  assert.ok(replacing > 40 && clear > 40 && picked > 100, `the cases cover both answers and picked clips: ${replacing} ${clear} ${picked}`);
+});
+
+// A part that fits the tape but not from the loop's In to the tape's end is
+// never refused: it starts at the latest bar line that fits inside the tape,
+// and the key says it moved back. Only a part longer than the tape is refused.
+test('a loop near the tape’s end does not refuse a part the tape can hold: it starts back so it fits', () => {
+  const t = tape({ length: 10 * BAR, loop: { in: 8 * BAR, out: 10 * BAR, on: true } });
+  const k = key({ tape: t, frames: 4 * BAR, pos: 0 });
+  assert.equal(k.can, true);
+  assert.equal(k.at, 6 * BAR, 'the latest bar line from which 4 bars fit before the tape ends');
+  assert.equal(k.fitted, true);
+  assert.equal(k.sub, 'bars 7–10 · moved back to fit the tape');
+  // Not on a bar line: the latest bar line that still fits.
+  const odd = tape({ length: 10 * BAR + 500, loop: { in: 8 * BAR, out: 10 * BAR, on: true } });
+  assert.equal(key({ tape: odd, frames: 4 * BAR }).at, 6 * BAR);
+  // As long as the tape: its start. Longer: the one refusal.
+  assert.equal(key({ tape: t, frames: 10 * BAR }).at, 0);
+  assert.equal(key({ tape: t, frames: 10 * BAR }).can, true);
+  assert.equal(key({ tape: t, frames: 11 * BAR }).can, false);
+  // With no tempo, the tape's end less the part.
+  const none = tape({ grid: null, length: 10 * BAR, loop: { in: 8 * BAR, out: 10 * BAR, on: true }, clips: [[[0, 1]], [], [], []] });
+  assert.deepEqual([key({ tape: none, frames: 4 * BAR }).can, key({ tape: none, frames: 4 * BAR }).at], [true, 6 * BAR]);
+  // A part that fits where it starts is not "moved".
+  assert.equal(key({ frames: 2 * BAR }).fitted, false);
+});
+
+// dropPlace's own branches: where the playhead is, and a loop whose In is not on a bar line.
+test('the playhead outside the loop, or at its end, does not move where DROP lands from the loop’s In', () => {
+  const t = tape({ loop: { in: 2 * BAR, out: 6 * BAR, on: true } });
+  const at = (pos, frames = 2 * BAR) => key({ tape: t, frames, pos }).at;
+  assert.equal(at(0.5 * BAR), 2 * BAR, 'before the loop: its first bar line, not the bar line after the playhead');
+  assert.equal(at(1.5 * BAR, BAR), 2 * BAR);
+  assert.equal(at(6 * BAR), 2 * BAR, 'at its Out: round to its In');
+  assert.equal(at(7 * BAR), 2 * BAR, 'after its Out');
+  assert.equal(at(5 * BAR, BAR), 5 * BAR, 'inside it, where the playhead is');
+});
+
+test('7.5 bars into an 8-bar loop: the next bar line is the loop’s end, so it wraps', () => {
+  assert.equal(key({ frames: BAR, pos: 7.5 * BAR }).at, 0);
+  assert.equal(key({ frames: BAR / 2, pos: 7.5 * BAR }).at, 0);
+  assert.equal(key({ frames: BAR, pos: 6.5 * BAR }).at, 7 * BAR, 'one bar still fits before the end');
+});
+
+test('a loop whose In is not on a bar line wraps to the first bar line inside it, or to the In if no part fits from one', () => {
+  const t = tape({ loop: { in: 2 * BAR + 777, out: 6 * BAR + 777, on: true } });
+  assert.equal(key({ tape: t, frames: 2 * BAR, pos: 5.9 * BAR }).at, 3 * BAR, 'wraps to the first bar line after the In');
+  assert.equal(key({ tape: t, frames: 2 * BAR, pos: 0 }).at, 3 * BAR);
+  // A part as long as the loop fits from no bar line: it starts at the In.
+  assert.equal(key({ tape: t, frames: 4 * BAR, pos: 0 }).at, 2 * BAR + 777);
+  assert.equal(key({ tape: t, frames: 4 * BAR, pos: 5 * BAR }).at, 2 * BAR + 777);
+  assert.equal(key({ tape: t, frames: 4 * BAR, pos: 0 }).long, false);
+});
+
+test('with no tempo and the loop on, it is the playhead if the part fits before the loop’s Out, else the loop’s In', () => {
+  const none = tape({ grid: null, clips: [[[0, 1]], [], [], []] }); // loop 0 to 8 bars
+  assert.equal(key({ tape: none, frames: 2 * BAR, pos: 3 * BAR }).at, 3 * BAR);
+  assert.equal(key({ tape: none, frames: 2 * BAR, pos: 7 * BAR }).at, 0, 'it would run out of the loop');
+  assert.equal(key({ tape: none, frames: 2 * BAR, pos: 9 * BAR }).at, 0, 'a playhead past the loop');
+  assert.equal(key({ tape: none, frames: 10 * BAR, pos: 3 * BAR }).at, 0, 'longer than the loop: its In');
+  assert.equal(key({ tape: none, frames: 10 * BAR, pos: 3 * BAR }).long, true);
 });
 
 

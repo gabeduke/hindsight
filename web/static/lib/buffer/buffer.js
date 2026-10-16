@@ -318,8 +318,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   // --- DROP ----------------------------------------------------------------------
 
   // `long`: a part longer than the loop, which DROP started at the loop's In
-  // and which runs past its Out: the toast says so.
-  function dropAt(track, at, { long = false } = {}) {
+  // and which runs past its Out; `fitted`: DROP moved it back to fit the
+  // tape. The toast says so.
+  function dropAt(track, at, { long = false, fitted = false } = {}) {
     const b = st.board, d = st.detail;
     if (!b || !d || !d.tape) return;
     const tape = d.tape;
@@ -327,8 +328,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const frames = windowFrames(st);
     // A drag can land over a clip, and the Pi lays the buffer over it: the
     // toast says so, with its Undo, rather than leaving a trimmed clip to be found.
-    const over = overwritten(tape, { first: track, count, at, frames }).clips;
-    const where = `${spanWords(tape.grid, at, frames, tape.sample_rate)}${long ? ' · runs past the loop' : ''}${over ? ' · replaced what was under it' : ''}`;
+    const over = overwritten(tape, { first: track, count, at, frames, board: b }).clips;
+    const where = `${spanWords(tape.grid, at, frames, tape.sample_rate)}${long ? ' · runs past the loop' : ''}${fitted ? ' · moved back to fit the tape' : ''}${over ? ' · replaced what was under it' : ''}`;
     send(() => api.drop(tape.id, track, at))
       .then((r) => {
         st.dropped = b.created;
@@ -356,9 +357,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const b = st.board, d = st.detail;
     // Nothing while a grab is on its way: the span would be the old one's.
     if (!b || !d || !d.tape || st.grabbing) return;
-    const k = dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos });
+    const k = dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos, board: b });
     if (!k.can) { toast(`${k.word}: ${k.sub}`, 'warn', 7000); return; }
-    dropAt(k.track, k.at, { long: k.long });
+    dropAt(k.track, k.at, { long: k.long, fitted: k.fitted });
   }
 
   // Undo of a drop: the tape steps back, and the buffer is back in hand.
@@ -597,7 +598,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       c.disabled = st.grabbing || ch.fixed; // a take's own sound, or a span in a ring that's gone
     });
     // DROP: where ↵ would put it.
-    const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos }) : { word: 'Drop', sub: '', can: false };
+    const dk = g && d && d.tape ? dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos, board: b }) : { word: 'Drop', sub: '', can: false };
     el.dropWord.textContent = dk.word;
     el.dropSub.textContent = dk.sub;
     el.drop.disabled = !dk.can || st.grabbing;
