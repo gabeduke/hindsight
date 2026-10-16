@@ -158,9 +158,12 @@ export function frameAt(t, { from, to, turn = true, vanish = false, room = 0 }) 
     if (ny > 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; }
     const c = { x: (p0.x + w.x) / 2 + nx * bow, y: (p0.y + w.y) / 2 + ny * bow };
     // `room` is the page's width: a curve lies inside its control points, so
-    // keeping the control point half a face from either edge keeps the
+    // keeping the control point half a face (its larger size) from either edge keeps the
     // cassette on the page. (Up a phone's page the bow is sideways.)
-    if (room > 0) c.x = Math.min(Math.max(c.x, toW / 2), Math.max(toW / 2, room - toW / 2));
+    // The face is bigger than the window while it flies (it starts as big as
+    // the pulled spine is long), so the margin is the larger of the two.
+    const half = Math.max(toW, Math.max(from.w, from.h) * PULL_SCALE) / 2 + 4;
+    if (room > 0) c.x = Math.min(Math.max(c.x, half), Math.max(half, room - half));
     const k = kFly;
     x = (1 - k) * (1 - k) * p0.x + 2 * (1 - k) * k * c.x + k * k * w.x;
     y = (1 - k) * (1 - k) * p0.y + 2 * (1 - k) * k * c.y + k * k * w.y;
