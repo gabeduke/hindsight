@@ -144,7 +144,7 @@ const busyNow = () => typeof document !== 'undefined' && document.documentElemen
  * written on it, named by its label and described by its note. `onChange`
  * gets the new value and answers whether it was kept.
  */
-function prefRow(p, value, { onChange }) {
+function prefRow(p, value, { onChange, pendingNow = false }) {
   const row = el('div', 'set-pref');
   const text = el('div', 'set-pref-text');
   const label = el('span', 'set-label', p.label);
@@ -167,21 +167,29 @@ function prefRow(p, value, { onChange }) {
     word.textContent = on ? 'On' : 'Off';
   };
   draw(!!value);
+  const said = (on, pending) => {
+    status.textContent = pending ? `Will be ${on ? 'on' : 'off'} after a reload.` : '';
+    status.hidden = !pending;
+  };
+  said(!!value, pendingNow);
   sw.addEventListener('click', () => {
     const next = sw.getAttribute('aria-checked') !== 'true';
     const r = onChange(p, next);
     if (!r.ok) {
-      status.textContent = 'This device cannot store settings (private browsing?).';
+      status.textContent = 'This could not be saved on this device (private browsing?).';
       status.hidden = false;
       return; // the switch stays as it was: do not claim it saved
     }
     draw(next);
-    status.textContent = r.reload ? `Will be ${next ? 'on' : 'off'} after a reload.` : '';
-    status.hidden = !r.reload;
+    said(next, r.pending);
   });
   row.append(text, sw);
   return row;
 }
+
+const RELOAD_SAYS = 'Reload this page to apply. Only this page reloads: Hindsight keeps running.';
+// The previews as this page loaded them, and the ones flipped since that need a reload.
+const PAGE = { start: readDevicePrefs(), pending: new Set() };
 
 /**
  * The previews, as their own section at the top of the sheet: always open,
@@ -192,17 +200,18 @@ function prefRow(p, value, { onChange }) {
  * installed phone app has no reload of its own). Flip one back and the
  * Reload goes away. It will not run while this page holds a phone recording.
  */
-export function featuresGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, write = writeDevicePref, reload = () => location.reload(), busy = busyNow } = {}) {
+export function featuresGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, write = writeDevicePref, reload = () => location.reload(), busy = busyNow, session = PAGE } = {}) {
   const feats = prefs.filter((p) => p.feature);
   const sec = el('section', 'set-features');
   sec.append(el('h4', 'set-section', 'Preview features'));
   sec.append(el('p', 'set-intro', 'Try-outs for this device only. The Pi and the other kits are unaffected, and none needs a restart.'));
   const now = read();
-  const start = { ...now };
-  const pending = new Set();
+  // What the page loaded with, and what is owed since: kept across the sheet's
+  // redraws (every open, every Save), or a flipped switch would be forgotten.
+  const { start, pending } = session;
   const bar = el('div', 'set-reload-bar');
-  bar.hidden = true;
-  const barText = el('p', 'set-reload-text', 'Reload this page to apply. Only this page reloads: Hindsight keeps running.');
+  bar.hidden = pending.size === 0;
+  const barText = el('p', 'set-reload-text', pending.size ? RELOAD_SAYS : '');
   barText.setAttribute('role', 'status');
   const again = el('button', 'icon-btn primary set-reload', 'Reload to apply');
   again.type = 'button';
@@ -220,10 +229,10 @@ export function featuresGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, wr
     if (r.reload && value !== !!start[p.id]) pending.add(p.id);
     else pending.delete(p.id);
     bar.hidden = pending.size === 0;
-    if (pending.size) barText.textContent = 'Reload this page to apply. Only this page reloads: Hindsight keeps running.';
-    return r;
+    barText.textContent = pending.size ? RELOAD_SAYS : ''; // after un-hiding, so a screen reader announces it
+    return { ...r, pending: pending.has(p.id) };
   };
-  for (const p of feats) sec.append(prefRow(p, now[p.id], { onChange }));
+  for (const p of feats) sec.append(prefRow(p, now[p.id], { onChange, pendingNow: pending.has(p.id) }));
   sec.append(bar);
   return sec;
 }

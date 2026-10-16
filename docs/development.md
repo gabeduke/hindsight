@@ -255,7 +255,7 @@ localStorage.setItem('hindsight.rooms', '1')   // on, this device only
 localStorage.removeItem('hindsight.rooms')     // off
 ```
 
-or *Settings › This device › Two rooms*. It is read once, when a page loads.
+or *Settings › Preview features › Two rooms*. It is read once, when a page loads.
 
 With it on, the three tabs are two: **Studio**, the tape page while the tape
 is on and Capture while it's off, and **Listening Room**, the takes and a

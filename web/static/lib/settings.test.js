@@ -99,7 +99,9 @@ function features(over = {}) {
   let reloads = 0;
   const saved = globalThis.document;
   globalThis.document = fakeDocument();
-  const store = { play: false, quiet: false };
+  const store = over.store || { play: false, quiet: false };
+  const session = over.session || { start: { ...store }, pending: new Set() };
+  delete over.store; delete over.session;
   const prefs = [
     { id: 'play', feature: true, label: 'Play mode', note: 'The instrument strip.', reload: true },
     { id: 'quiet', feature: true, label: 'Quiet', note: 'Takes effect now.', reload: false },
@@ -110,6 +112,7 @@ function features(over = {}) {
     write: (id, v) => { store[id] = v; return { ok: true, reload: id === 'play' }; },
     reload: () => { reloads++; },
     busy: () => false,
+    session,
     ...over,
   });
   globalThis.document = saved;
@@ -118,7 +121,7 @@ function features(over = {}) {
   const reloadBtn = () => all().find((n) => n.tag === 'button' && n.className.includes('set-reload'));
   const bar = () => all().find((n) => n.className === 'set-reload-bar');
   const flip = (i) => switches()[i].on.click();
-  return { g, store, switches, reloadBtn, bar, flip, reloads: () => reloads, all };
+  return { g, store, session, switches, reloadBtn, bar, flip, reloads: () => reloads, all };
 }
 
 test('each feature is a real switch, off or on in its aria-checked', () => {
@@ -204,7 +207,7 @@ test('storage that refuses puts the switch back and says so', () => {
   const f = features({ write: () => ({ ok: false, reload: false }) });
   f.flip(0);
   assert.equal(f.switches()[0].attrs['aria-checked'], 'false');
-  assert.match(text(f.g), /cannot store/);
+  assert.match(text(f.g), /could not be saved on this device/);
   assert.equal(f.bar().hidden, true);
 });
 
@@ -239,4 +242,70 @@ test('the recorder is what says a phone recording is running, under the name the
   const sheet = readFileSync(new URL('./settings.js', import.meta.url), 'utf8');
   assert.match(rec, /dataset\.phoneBusy = mode === 'recording' \|\| mode === 'saving'/);
   assert.match(sheet, /dataset\.phoneBusy === '1'/);
+});
+
+// The sheet is redrawn on every open and every Save. What is owed is measured
+// from what the page LOADED with, not from what the sheet last saw.
+const again = (f, over = {}) => features({ store: f.store, session: f.session, ...over });
+const statusOf = (f, i) => f.all().filter((n) => n.attrs.role === 'status' && n.className.includes('set-pref-status'))[i];
+
+test('A: flip, close, reopen: the Reload is still owed', () => {
+  const f = features();
+  f.flip(0);
+  const g = again(f);
+  assert.equal(g.bar().hidden, false, 'the page is still in the old mode');
+  assert.equal(g.switches()[0].attrs['aria-checked'], 'true');
+  assert.match(statusOf(g, 0).textContent, /Will be on after a reload/);
+  assert.match(text(g.bar()), /Reload this page/);
+});
+
+test('B: a Save elsewhere in the sheet redraws it without forgetting a flipped switch', () => {
+  const f = features();
+  f.flip(0);
+  const g = again(f); // what draw() does after put()
+  const h = again(g);
+  assert.equal(h.bar().hidden, false);
+});
+
+test('C: flip on, reopen, flip back to what the page loaded with: nothing is owed', () => {
+  const f = features();
+  f.flip(0);
+  const g = again(f);
+  g.flip(0);
+  assert.equal(g.store.play, false);
+  assert.equal(g.bar().hidden, true);
+  assert.equal(statusOf(g, 0).hidden, true);
+  assert.equal(statusOf(g, 0).textContent, '');
+});
+
+test('flipping back clears the row’s own line, not only the bar', () => {
+  const f = features();
+  f.flip(0);
+  assert.match(statusOf(f, 0).textContent, /after a reload/);
+  f.flip(0);
+  assert.equal(statusOf(f, 0).textContent, '');
+});
+
+test('the bar’s words are put back after a refused reload, on the next flip', () => {
+  const f = features({ busy: () => true });
+  f.flip(0);
+  f.reloadBtn().on.click();
+  assert.match(text(f.bar()), /phone recording/);
+  f.flip(1); // an unrelated switch
+  f.flip(1);
+  assert.doesNotMatch(text(f.bar()), /phone recording/);
+  assert.match(text(f.bar()), /Reload this page to apply/);
+});
+
+test('the bar is un-hidden before its words are set, so a screen reader announces them', () => {
+  const f = features();
+  const bar = f.bar();
+  const order = [];
+  let hidden = bar.hidden;
+  Object.defineProperty(bar, 'hidden', { get: () => hidden, set: (v) => { hidden = v; order.push('hidden=' + v); } });
+  const t = f.all().find((n) => n.className === 'set-reload-text');
+  let tc = t.textContent;
+  Object.defineProperty(t, 'textContent', { get: () => tc, set: (v) => { tc = v; order.push('text'); } });
+  f.flip(0);
+  assert.deepEqual(order.slice(0, 2), ['hidden=false', 'text']);
 });

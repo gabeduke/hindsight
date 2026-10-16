@@ -60,7 +60,8 @@ export function write(id, value, prefs = DEVICE_PREFS) {
   const p = prefs.find((x) => x.id === id);
   if (!p) return { ok: false, reload: false };
   try {
-    p.set(value);
+    // A setter that answers false could not keep it (a flag's does); one that answers nothing is taken at its word.
+    if (p.set(value) === false) return { ok: false, reload: false };
     return { ok: true, reload: !!p.reload };
   } catch {
     return { ok: false, reload: false };

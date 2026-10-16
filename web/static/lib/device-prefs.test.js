@@ -73,3 +73,28 @@ test('every shipped toggle is a preview, drawn in the open Preview features sect
   assert.ok(DEVICE_PREFS.length > 0);
   for (const p of DEVICE_PREFS) assert.equal(p.feature, true, `${p.id} is drawn up front, not under a fold`);
 });
+
+test('a flag whose storage refuses reports failure, so the sheet does not claim it saved', async () => {
+  const keep = globalThis.localStorage;
+  const deaf = { getItem: () => null, setItem() {}, removeItem() {} }; // takes the write, keeps nothing
+  const throws = { getItem: () => { throw new Error('denied'); }, setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
+  try {
+    for (const mod of ['./play/flag.js', './rooms/flag.js']) {
+      const { setOn, on } = await import(mod);
+      for (const store of [deaf, throws]) {
+        globalThis.localStorage = store;
+        assert.equal(setOn(true), false, `${mod} ${store === deaf ? 'drops' : 'throws'}`);
+        assert.equal(on(), false);
+      }
+      const mem = {}; // a working one still says true
+      globalThis.localStorage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = v; }, removeItem: (k) => { delete mem[k]; } };
+      assert.equal(setOn(true), true);
+      assert.equal(on(), true);
+      assert.equal(setOn(false), true);
+    }
+  } finally {
+    if (keep === undefined) delete globalThis.localStorage; else globalThis.localStorage = keep;
+  }
+  const real = [{ id: 'a', label: 'A', note: 'n', get: () => false, set: () => false }];
+  assert.deepEqual(write('a', true, real), { ok: false, reload: false });
+});
