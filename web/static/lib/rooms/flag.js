@@ -14,10 +14,15 @@ export function on() {
   try { return localStorage.getItem(ROOMS_FLAG) === '1'; } catch { return false; }
 }
 
-/** setOn turns them on or off for this device. */
+/**
+ * setOn turns it on or off for this device and says whether it stuck: storage
+ * that refuses (private mode) answers false, so the sheet does not claim a
+ * switch it could not keep.
+ */
 export function setOn(v) {
   try {
     if (v) localStorage.setItem(ROOMS_FLAG, '1');
     else localStorage.removeItem(ROOMS_FLAG);
-  } catch { /* private mode: this session only, which is fine */ }
+    return on() === !!v;
+  } catch { return false; }
 }

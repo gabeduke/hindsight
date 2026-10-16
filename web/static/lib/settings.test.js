@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hubLine, revealOnOpen, deviceGroup } from './settings.js';
+import { readFileSync } from 'node:fs';
+import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE } from './settings.js';
 
 const url = 'https://mike.hindsight.leetserve.com';
 
@@ -72,16 +73,19 @@ test('closing a group leaves the scroll where it is', () => {
   assert.deepEqual(d.scrolled, []);
 });
 
-// A device switch that needs the page reloaded ended in a sentence -- "Reload
-// the page for this to take effect." -- with no button, and an installed
-// phone app has no reload of its own. The sheet's other pending thing is the
-// Pi's Restart, which empties the ring: the Reload is this page's alone, and
-// says so.
+// The device switches are previews, and they used to sit in a folded group
+// called "This device", last under MIDI and Tape: nobody found them. They are
+// now their own section, always open, at the top of the sheet, each a real
+// switch. A reload is one button for the section, not one per row, and it will
+// not throw away a phone recording that is running.
 function fakeDocument() {
+  const kid = (s) => ({ tag: '#text', textContent: s, children: [], on: {}, attrs: {}, dataset: {} });
   const mk = (tag) => {
     const n = {
-      tag, className: '', textContent: '', hidden: false, type: '', checked: false, open: false, children: [], on: {},
-      append(...kids) { for (const k of kids) this.children.push(typeof k === 'string' ? { tag: '#text', textContent: k, children: [], on: {} } : k); },
+      tag, className: '', textContent: '', hidden: false, type: '', open: false, id: '', children: [], on: {}, attrs: {}, dataset: {},
+      append(...kids) { for (const k of kids) this.children.push(typeof k === 'string' ? kid(k) : k); },
+      setAttribute(k, v) { this.attrs[k] = String(v); },
+      getAttribute(k) { return this.attrs[k] ?? null; },
       addEventListener(type, fn) { this.on[type] = fn; },
       *walk() { for (const c of this.children) { yield c; if (c.walk) yield* c.walk(); } },
     };
@@ -89,57 +93,219 @@ function fakeDocument() {
   };
   return { createElement: mk };
 }
-const find = (root, pred) => [...root.walk()].find(pred);
+const text = (n) => [n, ...n.walk()].map((x) => (x.children.length ? '' : x.textContent)).join(' ');
 
-function group(over = {}) {
+function features(over = {}) {
   let reloads = 0;
   const saved = globalThis.document;
   globalThis.document = fakeDocument();
+  const store = over.store || { play: false, quiet: false };
+  const session = over.session || { start: { ...store }, pending: new Set() };
+  delete over.store; delete over.session;
   const prefs = [
-    { id: 'play', label: 'Play mode', note: 'Preview: the instrument.', reload: true },
-    { id: 'quiet', label: 'Quiet', note: 'Takes effect now.', reload: false },
+    { id: 'play', feature: true, label: 'Play mode', note: 'The instrument strip.', reload: true },
+    { id: 'quiet', feature: true, label: 'Quiet', note: 'Takes effect now.', reload: false },
   ];
-  const d = deviceGroup({
+  const g = featuresGroup({
     prefs,
-    read: () => ({ play: false, quiet: false }),
-    write: (id) => ({ ok: true, reload: id === 'play' }),
+    read: () => ({ ...store }),
+    write: (id, v) => { store[id] = v; return { ok: true, reload: id === 'play' }; },
     reload: () => { reloads++; },
+    busy: () => false,
+    session,
     ...over,
   });
   globalThis.document = saved;
-  const box = (id) => [...d.walk()].filter((n) => n.tag === 'input')[id];
-  const buttons = () => [...d.walk()].filter((n) => n.tag === 'button');
-  return { d, box, reloads: () => reloads, buttons, button: () => buttons()[0] };
+  const all = () => [...g.walk()];
+  const switches = () => all().filter((n) => n.attrs.role === 'switch');
+  const reloadBtn = () => all().find((n) => n.tag === 'button' && n.className.includes('set-reload'));
+  const bar = () => all().find((n) => n.className === 'set-reload-bar');
+  const flip = (i) => switches()[i].on.click();
+  return { g, store, session, switches, reloadBtn, bar, flip, reloads: () => reloads, all };
 }
 
-test('a switch that needs a reload offers one, and the button reloads this page', () => {
-  const g = group();
-  assert.ok(g.button(), 'the group has a Reload button');
-  assert.equal(g.button().hidden, true, 'hidden until a switch needs it');
-  g.box(0).checked = true;
-  g.box(0).on.change();
-  assert.equal(g.button().hidden, false);
-  assert.match(g.button().textContent, /^Reload this page$/);
-  g.button().on.click();
-  assert.equal(g.reloads(), 1);
+test('each feature is a real switch, off or on in its aria-checked', () => {
+  const f = features({ read: () => ({ play: true, quiet: false }) });
+  const sw = f.switches();
+  assert.equal(sw.length, 2);
+  assert.deepEqual(sw.map((s) => s.tag), ['button', 'button']);
+  assert.deepEqual(sw.map((s) => s.attrs['aria-checked']), ['true', 'false']);
+  assert.ok(sw.every((s) => s.attrs['aria-labelledby']), 'named by its label');
+  assert.ok(sw.every((s) => s.attrs['aria-describedby']), 'described by its note');
 });
 
-test('the Reload says it is this page only, apart from the Pi’s Restart', () => {
-  const g = group();
-  g.box(0).checked = true;
-  g.box(0).on.change();
-  const said = [...g.d.walk()].map((n) => n.textContent).join(' ');
-  assert.match(said, /this page/i);
-  assert.match(said, /Hindsight keeps running/);
-  assert.ok(!/^Restart$/.test(g.button().textContent), 'its label is not the Pi’s Restart');
+test('the switch shows On or Off in words, not by colour alone', () => {
+  const f = features({ read: () => ({ play: true, quiet: false }) });
+  assert.match(text(f.switches()[0]), /\bOn\b/);
+  assert.match(text(f.switches()[1]), /\bOff\b/);
+  f.flip(1);
+  assert.match(text(f.switches()[1]), /\bOn\b/);
+  assert.equal(f.switches()[1].attrs['aria-checked'], 'true');
+});
+
+test('each feature says it is for this device only, the Pi and the other kits untouched', () => {
+  const f = features();
+  assert.match(text(f.g), /this device only/i);
+  assert.match(text(f.g), /other kits/i);
+});
+
+test('the section is open markup, not a folded details', () => {
+  const f = features();
+  assert.notEqual(f.g.tag, 'details');
+  assert.ok(!f.all().some((n) => n.tag === 'details' || n.tag === 'summary'), 'nothing inside folds');
+  assert.match(text(f.g), /Preview features/);
+});
+
+test('a switch saves as it is clicked, with no Save', () => {
+  const f = features();
+  f.flip(0);
+  assert.equal(f.store.play, true);
+  f.flip(0);
+  assert.equal(f.store.play, false);
+});
+
+test('one that needs a reload offers a single Reload, and its button reloads this page', () => {
+  const f = features();
+  assert.equal(f.bar().hidden, true, 'nothing to apply yet');
+  f.flip(0);
+  assert.equal(f.bar().hidden, false);
+  assert.match(f.reloadBtn().textContent, /^Reload to apply$/);
+  assert.equal(f.all().filter((n) => n.tag === 'button' && n.className.includes('set-reload')).length, 1);
+  f.reloadBtn().on.click();
+  assert.equal(f.reloads(), 1);
+});
+
+test('the Reload says it is this page alone, apart from the Pi’s Restart', () => {
+  const f = features();
+  f.flip(0);
+  assert.match(text(f.g), /Hindsight keeps running/);
+  assert.ok(!/^Restart$/.test(f.reloadBtn().textContent));
+});
+
+test('flipping it back before reloading leaves nothing to apply', () => {
+  const f = features();
+  f.flip(0);
+  f.flip(0);
+  assert.equal(f.bar().hidden, true);
 });
 
 test('a switch that takes effect at once offers no reload', () => {
-  const g = group();
-  g.box(1).checked = true;
-  g.box(1).on.change();
-  assert.deepEqual(g.buttons().map((b) => b.hidden), [true, true]);
-  g.box(0).checked = true;
-  g.box(0).on.change();
-  assert.deepEqual(g.buttons().map((b) => b.hidden), [false, true], 'only the row that needs it');
+  const f = features();
+  f.flip(1);
+  assert.equal(f.bar().hidden, true);
+});
+
+test('a phone recording that is running is not thrown away by the reload', () => {
+  const f = features({ busy: () => true });
+  f.flip(0);
+  f.reloadBtn().on.click();
+  assert.equal(f.reloads(), 0, 'did not reload');
+  assert.match(text(f.g), /phone recording/i);
+});
+
+test('storage that refuses puts the switch back and says so', () => {
+  const f = features({ write: () => ({ ok: false, reload: false }) });
+  f.flip(0);
+  assert.equal(f.switches()[0].attrs['aria-checked'], 'false');
+  assert.match(text(f.g), /could not be saved on this device/);
+  assert.equal(f.bar().hidden, true);
+});
+
+test('device prefs that are not features stay in a folded This device group; features are not in it', () => {
+  const saved = globalThis.document;
+  globalThis.document = fakeDocument();
+  const prefs = [
+    { id: 'play', feature: true, label: 'Play mode', note: 'n', reload: true },
+    { id: 'tz', label: 'Clock', note: 'n', reload: false },
+  ];
+  const d = deviceGroup({ prefs, read: () => ({}), write: () => ({ ok: true, reload: false }), reload() {}, busy: () => false });
+  const none = deviceGroup({ prefs: [prefs[0]], read: () => ({}), write() {}, reload() {}, busy: () => false });
+  globalThis.document = saved;
+  const labels = [...d.walk()].map((n) => n.textContent);
+  assert.ok(labels.includes('Clock'));
+  assert.ok(!labels.includes('Play mode'), 'a feature is not under the fold');
+  assert.equal(none, null, 'no group at all when nothing is left for it');
+});
+
+test('the Pi’s groups keep a fixed order, most used first, unknown ones last', () => {
+  assert.deepEqual(groupOrder(['Tape', 'MIDI', 'Saving', 'Buffer', 'Input']), ['Input', 'Buffer', 'Saving', 'MIDI', 'Tape']);
+  assert.deepEqual(groupOrder(['Zzz', 'Input']), ['Input', 'Zzz']);
+});
+
+test('one statement says the Pi’s settings apply on restart, and that a restart empties the feed', () => {
+  assert.match(RESTART_NOTE, /restart/i);
+  assert.match(RESTART_NOTE, /empt/i);
+});
+
+test('the recorder is what says a phone recording is running, under the name the sheet reads', () => {
+  const rec = readFileSync(new URL('./phone/recorder.js', import.meta.url), 'utf8');
+  const sheet = readFileSync(new URL('./settings.js', import.meta.url), 'utf8');
+  assert.match(rec, /dataset\.phoneBusy = mode === 'recording' \|\| mode === 'saving'/);
+  assert.match(sheet, /dataset\.phoneBusy === '1'/);
+});
+
+// The sheet is redrawn on every open and every Save. What is owed is measured
+// from what the page LOADED with, not from what the sheet last saw.
+const again = (f, over = {}) => features({ store: f.store, session: f.session, ...over });
+const statusOf = (f, i) => f.all().filter((n) => n.attrs.role === 'status' && n.className.includes('set-pref-status'))[i];
+
+test('A: flip, close, reopen: the Reload is still owed', () => {
+  const f = features();
+  f.flip(0);
+  const g = again(f);
+  assert.equal(g.bar().hidden, false, 'the page is still in the old mode');
+  assert.equal(g.switches()[0].attrs['aria-checked'], 'true');
+  assert.match(statusOf(g, 0).textContent, /Will be on after a reload/);
+  assert.match(text(g.bar()), /Reload this page/);
+});
+
+test('B: a Save elsewhere in the sheet redraws it without forgetting a flipped switch', () => {
+  const f = features();
+  f.flip(0);
+  const g = again(f); // what draw() does after put()
+  const h = again(g);
+  assert.equal(h.bar().hidden, false);
+});
+
+test('C: flip on, reopen, flip back to what the page loaded with: nothing is owed', () => {
+  const f = features();
+  f.flip(0);
+  const g = again(f);
+  g.flip(0);
+  assert.equal(g.store.play, false);
+  assert.equal(g.bar().hidden, true);
+  assert.equal(statusOf(g, 0).hidden, true);
+  assert.equal(statusOf(g, 0).textContent, '');
+});
+
+test('flipping back clears the row’s own line, not only the bar', () => {
+  const f = features();
+  f.flip(0);
+  assert.match(statusOf(f, 0).textContent, /after a reload/);
+  f.flip(0);
+  assert.equal(statusOf(f, 0).textContent, '');
+});
+
+test('the bar’s words are put back after a refused reload, on the next flip', () => {
+  const f = features({ busy: () => true });
+  f.flip(0);
+  f.reloadBtn().on.click();
+  assert.match(text(f.bar()), /phone recording/);
+  f.flip(1); // an unrelated switch
+  f.flip(1);
+  assert.doesNotMatch(text(f.bar()), /phone recording/);
+  assert.match(text(f.bar()), /Reload this page to apply/);
+});
+
+test('the bar is un-hidden before its words are set, so a screen reader announces them', () => {
+  const f = features();
+  const bar = f.bar();
+  const order = [];
+  let hidden = bar.hidden;
+  Object.defineProperty(bar, 'hidden', { get: () => hidden, set: (v) => { hidden = v; order.push('hidden=' + v); } });
+  const t = f.all().find((n) => n.className === 'set-reload-text');
+  let tc = t.textContent;
+  Object.defineProperty(t, 'textContent', { get: () => tc, set: (v) => { tc = v; order.push('text'); } });
+  f.flip(0);
+  assert.deepEqual(order.slice(0, 2), ['hidden=false', 'text']);
 });
