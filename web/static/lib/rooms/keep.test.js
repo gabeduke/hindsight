@@ -42,6 +42,6 @@ test('Flag now marks this moment, as Capture’s key does', async () => {
   assert.equal(answer.last.url, '/api/flag');
   assert.equal(answer.last.init.method, 'POST');
   await assert.rejects(flagNow(answer(409, { error: 'nothing buffered' })), { message: 'nothing buffered' });
-  await assert.rejects(flagNow(answer(500, null)), { message: 'could not flag' });
-  await assert.rejects(flagNow(async () => { throw new Error('offline'); }), { message: 'could not flag' });
+  await assert.rejects(flagNow(answer(500, null)), { message: 'could not add the note' });
+  await assert.rejects(flagNow(async () => { throw new Error('offline'); }), { message: 'could not add the note' });
 });

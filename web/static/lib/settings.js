@@ -11,6 +11,7 @@
 // with nothing owed.
 
 import { DEVICE_PREFS, read as readDevicePrefs, write as writeDevicePref } from './device-prefs.js';
+import { say, settingsGroup } from './rooms/words.js';
 
 const POLL_MS = 1000;
 const GIVE_UP_MS = 90 * 1000;
@@ -172,7 +173,7 @@ export function deviceGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, writ
   return d;
 }
 
-export const RESTART_WARNING = 'Hindsight restarts to use it, so the ring starts empty: capture anything you want to keep first.';
+export const RESTART_WARNING = say('Hindsight restarts to use it, so the ring starts empty: capture anything you want to keep first.');
 
 /**
  * restartHindsight asks Hindsight to restart, and waits for it to come back
@@ -309,7 +310,7 @@ export function initSettings() {
   function field(s) {
     const row = el('div', 'set-field' + (s.kind === 'bool' ? ' bool' : ''));
     row.dataset.key = s.key;
-    const label = el('label', 'set-label', s.label);
+    const label = el('label', 'set-label', say(s.label));
     label.htmlFor = `set-${s.key}`;
     const ctl = control(s);
     const head = el('div', 'set-head');
@@ -318,7 +319,7 @@ export function initSettings() {
     if (s.unit && s.kind !== 'choice') head.append(el('span', 'set-unit', s.unit));
     row.append(head);
     if (s.kind !== 'bool') row.append(ctl);
-    row.append(el('p', 'set-help', s.help));
+    row.append(el('p', 'set-help', say(s.help)));
     const meta = el('div', 'set-meta');
     meta.append(el('span', 'set-from', FROM[s.from] || s.from));
     if (s.value !== s.running) meta.append(el('span', 'set-pending', `running: ${s.running || '(empty)'}`));
@@ -363,7 +364,7 @@ export function initSettings() {
     for (const g of groups) {
       const d = revealOnOpen(el('details', 'set-group'));
       d.open = OPEN.has(g.name);
-      d.append(el('summary', null, g.name));
+      d.append(el('summary', null, settingsGroup(g.name)));
       for (const s of g.items) d.append(field(s));
       body.append(d);
     }

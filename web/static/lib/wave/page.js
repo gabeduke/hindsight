@@ -30,6 +30,7 @@ import { drawTrace } from './tape-strip.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
+import { say } from '../rooms/words.js';
 import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toast.js';
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
@@ -217,7 +218,7 @@ async function main() {
   function redraw() {
     setText($('flags-count'), String(state.flags.length));
     const nd = state.dropouts.length;
-    setAttr($('flags-list'), 'aria-label', `${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}${nd ? ` and ${nd} dropout${nd === 1 ? '' : 's'}` : ''}: show the list`);
+    setAttr($('flags-list'), 'aria-label', say(`${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}`) + `${nd ? ` and ${nd} dropout${nd === 1 ? '' : 's'}` : ''}: show the list`);
     view.draw();
     if (overview) overview.draw();
     if (lanes) lanes.draw();

@@ -18,6 +18,7 @@
 // it's moving (amounts.js).
 
 import { MODS, FORMULAS, control, bindingLabel, styleField, amountText } from './controls.js';
+import { say } from '../rooms/words.js';
 
 /** KNOB_PX: a drag this far up or down turns a knob end to end. */
 export const KNOB_PX = 150;
@@ -108,7 +109,7 @@ export function mountMods(slot, amounts, {
     k.dataset.mod = mod;
     k.dataset.tip = 'play-knob';
     k.setAttribute('role', 'slider');
-    k.setAttribute('aria-label', `${c.face}: ${c.what}`);
+    k.setAttribute('aria-label', say(`${c.face}: ${c.what}`));
     k.setAttribute('aria-valuemin', '0');
     k.setAttribute('aria-valuemax', '100');
     const cap = el('span', 'play-knob-cap');

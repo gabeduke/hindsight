@@ -29,6 +29,7 @@ import { bindTouch } from './keymap.js';
 import { ARMED, ON } from './surface.js';
 import { spin } from '../objects/motion.js';
 import { target } from './reel.js';
+import { say } from '../rooms/words.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 
@@ -189,7 +190,7 @@ export function mountStrip(root, surface, {
     const c = control(id);
     const b = button(`play-pad ${cls}`, null, 'play-pad');
     b.dataset.pad = id;
-    b.setAttribute('aria-label', `${c.face}: ${c.what}`);
+    b.setAttribute('aria-label', say(`${c.face}: ${c.what}`));
     b.append(el('span', 'play-face', c.face), el('kbd', 'play-key', ''));
     parent.append(b);
     if (!pads.has(id)) pads.set(id, []);
@@ -225,7 +226,7 @@ export function mountStrip(root, surface, {
       const c = control(id);
       const b = button('play-verb', null, 'play-verb');
       b.dataset.pad = id;
-      b.setAttribute('aria-label', `${c.face}: ${c.what}`);
+      b.setAttribute('aria-label', say(`${c.face}: ${c.what}`));
       b.append(el('span', 'play-face', c.face), el('kbd', 'play-key', ''));
       b.addEventListener('click', () => { if (learning) onPick(id); else onCommand(id); });
       verbs.set(id, b);
@@ -370,7 +371,7 @@ export function mountStrip(root, surface, {
         f.textContent = c.face;
         if (words) f.append(' ', Object.assign(doc.createElement('span'), { className: 'play-face-words', textContent: words }));
       }
-      b.setAttribute('aria-label', `${face}: ${c.what}`);
+      b.setAttribute('aria-label', say(`${face}: ${c.what}`));
     },
     /** setBindings is the map the pads' legends show for a controller. */
     setBindings(map) { bindings = map; legends(); },

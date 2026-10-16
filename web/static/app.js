@@ -10,6 +10,7 @@ import { initWakeLock } from '/lib/wakelock.js';
 import { initPhone } from '/lib/phone/recorder.js';
 import { initHelp } from '/lib/help/help.js';
 import { toast, takeNextToast } from '/lib/toast.js';
+import { say } from '/lib/rooms/words.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
 import { pageBar, takesFinder } from '/lib/bar/bar.js';
@@ -370,12 +371,12 @@ async function mark() {
     const res = await fetch('/api/flag', { method: 'POST' });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      toast(body.error || 'could not flag', 'bad');
+      toast(body.error || say('could not flag'), 'bad');
       return;
     }
     ribbon.poll(); // draw the new tick without waiting for the next poll
   } catch {
-    toast('could not flag', 'bad');
+    toast(say('could not flag'), 'bad');
   } finally {
     // The next status poll re-enables it if audio is still buffered; this
     // just guards against a second click landing mid-request.

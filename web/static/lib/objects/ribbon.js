@@ -27,6 +27,7 @@
 // what is lit and where recording starts, and the drawer here paints it.
 
 import { fmtDur } from '../meter.js';
+import { say } from '../rooms/words.js';
 import { Scene } from '../scene/scene.js';
 import { SceneObject } from '../scene/object.js';
 import { DomRenderer } from '../scene/dom.js';
@@ -345,7 +346,7 @@ export class Ribbon {
     const sh = this.flagSheet;
     if (!sh || typeof sh.showModal !== 'function') { this.removeFlag(f.frame); return; }
     this.sheetFlag = f;
-    sh.querySelector('.rb-flag-title').textContent = `Flag, ${fmtAge(f.age_seconds)} ago`;
+    sh.querySelector('.rb-flag-title').textContent = say(`Flag, ${fmtAge(f.age_seconds)} ago`);
     sh.showModal();
   }
 
@@ -422,12 +423,12 @@ export class Ribbon {
       const res = await fetch(`/api/flag?frame=${frame}`, { method: 'DELETE' });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        this.onToast?.(body.error || 'could not remove flag', 'bad');
+        this.onToast?.(body.error || say('could not remove flag'), 'bad');
         return;
       }
       this.poll(); // redraw the ribbon without waiting for the next tick
     } catch {
-      this.onToast?.('could not remove flag', 'bad');
+      this.onToast?.(say('could not remove flag'), 'bad');
     }
   }
 
@@ -493,7 +494,7 @@ export class Ribbon {
     for (const f of d.flags || []) {
       const flag = add(this.flagLayer, 'div', 'rb-flag');
       flag.style.left = `${leftPct(f.age_seconds).toFixed(2)}%`;
-      flag.title = `flag at ${fmtDur(f.age_seconds)} ago — tap for its options`;
+      flag.title = say(`flag at ${fmtDur(f.age_seconds)} ago — tap for its options`);
       flag.addEventListener('click', (e) => {
         e.stopPropagation();
         this.openFlag(f);

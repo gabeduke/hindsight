@@ -571,7 +571,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     // A phone's line is shorter: no tempo, so the close key fits beside it.
     el.metaFull.textContent = meta;
     el.metaShort.textContent = g && !st.grabbing ? meta.split(' · ').slice(0, 2).join(' · ') : meta;
-    const note = st.grabbing ? 'copying it off the ring: the bar after it is still being played' : bufferNote(b);
+    const note = st.grabbing ? 'copying it off the feed: the bar after it is still being played' : bufferNote(b);
     el.note.textContent = note;
     el.note.hidden = !note;
     // The sources: a chip each, lit with signal; the buffer's own pressed.

@@ -30,6 +30,7 @@
 // socket is passed in, so it is tested against a fake one.
 
 import { control } from './controls.js';
+import { say } from '../rooms/words.js';
 
 /** The Pi's name for each quantise setting. */
 const QUANTA = { off: 'now', '16th': '16th', '8th': '8th', beat: 'beat', bar: 'bar' };
@@ -45,7 +46,7 @@ export function quantum(division) {
  */
 export function refusal(pad, why = '') {
   const face = control(pad)?.face || pad;
-  if (/mixdown/.test(why)) return `${face} waits: a mixdown is playing, and it prints the tape and its mods, never the FX or tricks`;
+  if (/mixdown/.test(why)) return say(`${face} waits: a mixdown is playing, and it prints the tape and its mods, never the FX or tricks`);
   return `${face}: ${why}`;
 }
 

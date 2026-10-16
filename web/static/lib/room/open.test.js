@@ -94,11 +94,11 @@ test('a note is one line: number, time, words, â–¶ from here, GRAB from here, âœ
   assert.equal(p.all('.room-open-note-row').length, 0);
 });
 
-test('Send to offers GRAB in place of Tape and Clipboard; KEEP says what it keeps; GRAB sits beside it', async () => {
+test('Send to is gone, GRAB having taken Tape and Clipboard; KEEP says what it keeps; GRAB sits beside it', async () => {
   const p = await open({ region: { start: 0, end: 120 * SR } });
-  assert.equal(p.$('send-to-tape').hidden, true);
-  assert.equal(p.$('copy-take').hidden, true);
-  assert.equal(p.$('send-menu').children[0].id, 'send-grab');
+  assert.equal(p.$('send-btn').style.display, 'none');
+  assert.equal(p.$('send-menu').style.display, 'none');
+  assert.equal(p.$('send-menu').children.length, 3, 'the menu is not given a GRAB of its own');
   assert.equal(p.$('save-take').textContent, 'KEEP 2m');
   assert.match(p.all('.room-open-grab')[0].textContent, /^GRAB/);
 });

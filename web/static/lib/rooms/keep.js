@@ -45,10 +45,10 @@ export async function flagNow(fetchImpl = globalThis.fetch) {
   try {
     res = await fetchImpl('/api/flag', { method: 'POST' });
   } catch {
-    throw new Error('could not flag');
+    throw new Error('could not add the note');
   }
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) || {};
-    throw new Error(b.error || 'could not flag');
+    throw new Error(b.error || 'could not add the note');
   }
 }

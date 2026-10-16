@@ -54,6 +54,7 @@ import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
+import { say } from '../rooms/words.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -1499,7 +1500,7 @@ function renderClipBar() {
   if (bar.hidden) return;
   bar.querySelector('.clip-keys').hidden = !n;
   bar.querySelector('.range-keys').hidden = !r;
-  setIf(bar, 'aria-label', r ? 'Selected bars' : 'Selected clips');
+  setIf(bar, 'aria-label', r ? 'Selected bars' : say('Selected clips'));
   if (r) { renderRangeKeys(r); return; }
   const one = n === 1 && !state.multi ? ps[0] : null;
   setText($('multi-count'), one
@@ -1516,7 +1517,7 @@ function renderClipBar() {
   $('multi-add').setAttribute('aria-pressed', String(!!state.adding));
 }
 
-const clipsText = (n) => `${n} clip${n === 1 ? '' : 's'}`;
+const clipsText = (n) => say(`${n} clip${n === 1 ? '' : 's'}`);
 
 // --- ranges ---------------------------------------------------------------------
 // Bars across one or more tracks (lib/tape/range.js): an empty part of a
@@ -1564,7 +1565,7 @@ function renderRangeKeys(r) {
   const fits = !!c && pasteFits(r.t0, c.tracks.length, t.tracks.length);
   $('range-paste').disabled = !fits;
   $('range-insert').disabled = !fits || (!t.grid && !t.tracks.some((x) => x.clips.length));
-  const why = !c ? 'The clipboard is empty: Cut or Copy something first' : !fits ? `${c.tracks.length} tracks don't fit from track ${r.t0}` : '';
+  const why = !c ? say('The clipboard is empty: Cut or Copy something first') : !fits ? `${c.tracks.length} tracks don't fit from track ${r.t0}` : '';
   setIf($('range-paste'), 'title', why);
   setIf($('range-insert'), 'title', why);
   // ×2 doubles the loop on every track: there for a range that's both.
@@ -4338,7 +4339,7 @@ function fillClip(c) {
   inspectorSig = clipSig(c);
   const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
   const lvl = typeof c.peak_db === 'number' && c.peak_db < QUIET ? ` · ${levelText(c.peak_db)} when caught` : '';
-  $('clip-title').textContent = `Clip on track ${home ? home.n : state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}${lvl}`
+  $('clip-title').textContent = `${say('Clip')} on track ${home ? home.n : state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}${lvl}`
     + (c.aligned === 'estimated' ? ' · caught before the lock: nudge it if it’s early or late' : '');
   if (!$('clip-gain').dataset.held) {
     $('clip-gain').value = String(c.gain_db || 0);
@@ -4618,7 +4619,7 @@ async function openMenu() {
     b.setAttribute('role', 'menuitem');
     b.dataset.tip = 'tape-load';
     b.className = t.id === state.id ? 'on' : '';
-    b.textContent = `${t.name}${t.bpm ? ` · ${t.bpm} BPM` : ''} · ${t.clips} clip${t.clips === 1 ? '' : 's'}`;
+    b.textContent = `${t.name}${t.bpm ? ` · ${t.bpm} BPM` : ''} · ${say(`${t.clips} clip${t.clips === 1 ? '' : 's'}`)}`;
     b.addEventListener('click', () => { closeMenus(); if (t.id !== state.id) loadTape(t.id); });
     return b;
   }));

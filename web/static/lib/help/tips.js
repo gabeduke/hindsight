@@ -7,6 +7,9 @@
 // data-tip values that show this tip. Rows for the tape page are here too,
 // ahead of it, so the guide's table and this file stay one list.
 
+import { on as roomsOn } from '../rooms/flag.js';
+import { tipForRooms } from '../rooms/words.js';
+
 export const TIPS = [
   // Every page's header
   { control: 'Hindsight', ids: ['home'], tip: 'Back to Capture, from anywhere' },
@@ -312,7 +315,10 @@ for (const t of TIPS) for (const id of t.ids) byId.set(id, t);
 
 /** tipFor is the tip for a data-tip id, or '' when there is none. */
 export function tipFor(id) {
-  return byId.get(id)?.tip || '';
+  const tip = byId.get(id)?.tip || '';
+  // With the two rooms on, the tip says the rooms' words (rooms/words.js);
+  // with them off it is the row above, as it always was.
+  return tip && roomsOn() ? tipForRooms(id, tip) : tip;
 }
 
 /** controlFor is how the guide names the control with this id. */

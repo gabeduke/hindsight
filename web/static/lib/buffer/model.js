@@ -317,7 +317,7 @@ export function bufferNote(board) {
   if (!g) return '';
   const notes = [];
   if (g.wall) notes.push(`the last ${g.bars} bar${g.bars === 1 ? '' : 's'} of time at the tape’s tempo: ${g.why || 'the tape didn’t play them'}`);
-  if (g.clamped) notes.push('clamped to what the ring still had');
+  if (g.clamped) notes.push('clamped to what the feed still had');
   if (g.stale) notes.push('grabbed before Hindsight restarted: it keeps its audio, but its sources can’t change');
   if (g.take) notes.push('from a take: its sound is the take’s own, so its sources can’t change');
   return notes.join(' · ');
