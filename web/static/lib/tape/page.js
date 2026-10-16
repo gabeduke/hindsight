@@ -5110,10 +5110,26 @@ function wire() {
   $('view-fit').addEventListener('click', () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); });
   const foldBtn = $('tracks-fold-btn');
   if (foldBtn) {
-    foldBtn.addEventListener('click', () => {
-      const folded = document.body.classList.toggle('tracks-fold');
+    const FOLD_KEY = 'hindsight.tracksFold';
+    const applyTracksFold = (folded) => {
+      document.body.classList.toggle('tracks-fold', folded);
       foldBtn.setAttribute('aria-expanded', String(!folded));
       foldBtn.textContent = folded ? 'Tracks ▸' : 'Tracks ▾';
+      try {
+        if (folded) sessionStorage.setItem(FOLD_KEY, '1');
+        else sessionStorage.removeItem(FOLD_KEY);
+      } catch { /* private mode */ }
+      if (!folded) { drawLanes(); drawOverview(); drawRuler(); drawSections(); }
+    };
+    try {
+      if (sessionStorage.getItem(FOLD_KEY) === '1') applyTracksFold(true);
+    } catch { /* fine */ }
+    foldBtn.addEventListener('click', () => {
+      applyTracksFold(!document.body.classList.contains('tracks-fold'));
+    });
+    // Auto-unfold when a buffer DROP or edit modifies the tape so the landed part is visible.
+    document.addEventListener('hindsight:tape-changed', () => {
+      if (document.body.classList.contains('tracks-fold')) applyTracksFold(false);
     });
   }
 }

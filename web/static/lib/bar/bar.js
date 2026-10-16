@@ -26,7 +26,7 @@ import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } fr
 const $ = (id) => document.getElementById(id);
 
 export class NowPlaying {
-  constructor({ onEject, onTouch, onNote, onSelectSource } = {}) {
+  constructor({ onEject, onTouch, onNote, onSelectSource, onGrabFeed } = {}) {
     this.root = $('np');
     this.src = null;
     this.marqueeKey = null;
@@ -45,7 +45,7 @@ export class NowPlaying {
     initPlayer();
     // With the rooms on, a take in the bar shows its name (which opens it) and
     // ✎, and ⟲ is Repeat (take-keys.js). Off, the bar has none of it.
-    this.keys = roomsOn() ? takeKeys({ doc: document, root: this.root, onNote, onSelectSource }) : null;
+    this.keys = roomsOn() ? takeKeys({ doc: document, root: this.root, onNote, onSelectSource, onGrabFeed }) : null;
 
     $('np-play').addEventListener('click', () => {
       const s = this.src;
@@ -267,6 +267,14 @@ export function pageBar({ tapes, onToast, find = null, onNote = null }) {
       noteHere({ frameNow, stash: stashFrame, go: (u) => { location.href = u; } });
     },
     onSelectSource: (kind) => setSource(kind, { byHand: true }),
+    onGrabFeed: async () => {
+      if (!feed) return;
+      try {
+        location.href = await feed.grabToStudio();
+      } catch (e) {
+        onToast?.(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad');
+      }
+    },
   });
   const eject = () => { $('np-eject').hidden = !(tape && (take || (bar.src && bar.src.kind === 'feed'))); };
   const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing(), loop: take.src.loop, length: take.src.length } : null);

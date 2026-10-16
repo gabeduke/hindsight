@@ -467,8 +467,12 @@ export function mount(h) {
         el('div', 'sheet-inner room-book-inner', {},
           el('div', 'room-book-head', {},
             el('h3', '', { id: 'room-book-title', text: 'Sketchbook' }),
+            el('button', 'icon-btn room-book-star', { id: 'room-book-star', type: 'button', 'aria-label': 'Star take' }, '★'),
+            el('button', 'icon-btn room-book-tag', { id: 'room-book-tag', type: 'button', 'aria-label': 'Tag take' }, '+ tag'),
             el('a', 'icon-btn room-book-wave', { id: 'room-book-wave', text: 'Open waveform ›' }),
             el('button', 'icon-btn room-book-close', { id: 'room-book-close', type: 'button', text: 'Done' })),
+          el('div', 'room-book-meta-row', {},
+            el('input', 'room-book-name-input', { id: 'room-book-name-input', type: 'text', maxlength: '80', placeholder: 'Name this take…', 'aria-label': 'Take name' })),
           el('form', 'room-book-form', { id: 'room-book-form' },
             el('label', 'room-book-at', { id: 'room-book-at', for: 'room-book-input' }),
             el('div', 'room-book-row', {},
@@ -481,6 +485,7 @@ export function mount(h) {
     }
     const curTake = () => h.takes.all.find((x) => x.name === takeName) || t0;
     const sr = () => curTake().sample_rate || 48000;
+    const totalFrames = () => Math.max(1, Math.round((curTake().duration_seconds || 10) * sr()));
     const frameAt = () => {
       if (stashed && stashed.take === takeName && typeof stashed.frame === 'number') return stashed.frame;
       const now = h.np?.frameNow?.();
@@ -488,12 +493,60 @@ export function mount(h) {
       return 0;
     };
     let targetFrame = frameAt();
+    const patchTake = async (fields) => {
+      const res = await fetch(`/api/take?file=${encodeURIComponent(takeName)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
+      h.takes.etag = null;
+      await h.takes.refresh();
+      render();
+      renderPlaces();
+      renderBook();
+    };
+    $('room-book-star').onclick = async () => {
+      try {
+        await patchTake({ starred: !curTake().starred });
+      } catch (e) { toast?.(`Could not star take: ${e.message}`, 'bad'); }
+    };
+    $('room-book-tag').onclick = async () => {
+      const list = tagStore.list;
+      if (!list.length) {
+        openTagManager({ onToast: toast, onCreated: (g) => patchTake({ tag: g.id }).catch(() => {}) });
+        return;
+      }
+      const cur = curTake().tag || '';
+      const idx = list.findIndex((g) => g.id === cur);
+      const next = idx < 0 ? list[0].id : (idx + 1 < list.length ? list[idx + 1].id : '');
+      try {
+        await patchTake({ tag: next });
+      } catch (e) { toast?.(`Could not tag take: ${e.message}`, 'bad'); }
+    };
+    $('room-book-name-input').onchange = async (e) => {
+      const label = e.target.value.trim();
+      if (label === (curTake().label || '')) return;
+      try {
+        await patchTake({ label });
+      } catch (err) { toast?.(`Could not rename take: ${err.message}`, 'bad'); }
+    };
     const renderBook = () => {
       const t = curTake();
       const title = spineTitle(t);
       $('room-book-title').textContent = `Sketchbook · ${title}`;
       $('room-book-wave').setAttribute('href', `/wave.html?file=${encodeURIComponent(t.name)}`);
       $('room-book-at').textContent = `Note at ${fmtAt(targetFrame, sr())}`;
+      const starBtn = $('room-book-star');
+      starBtn.setAttribute('aria-pressed', String(!!t.starred));
+      starBtn.classList.toggle('on', !!t.starred);
+      const g = tagStore.list.find((x) => x.id === t.tag);
+      const tagBtn = $('room-book-tag');
+      tagBtn.className = `icon-btn room-book-tag${g ? ` stripe-${g.color} on` : ''}`;
+      tagBtn.textContent = g ? g.name : '+ tag';
+      const nameIn = $('room-book-name-input');
+      if (document.activeElement !== nameIn) nameIn.value = t.label || '';
       const list = $('room-book-list');
       const chips = flagChips(t);
       if (!chips.length) {

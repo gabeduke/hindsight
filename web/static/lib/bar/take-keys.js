@@ -24,7 +24,7 @@ export function clock(frames, sampleRate) {
  * paint(src), which says what they and ⟲ show for the bar's source (null for
  * none). `onNote` is what ✎ does; the page gives it.
  */
-export function takeKeys({ doc, root, onNote, onSelectSource }) {
+export function takeKeys({ doc, root, onNote, onSelectSource, onGrabFeed }) {
   const own = doc.getElementById('np-eject')?.parentElement;
   const loop = doc.getElementById('np-loop');
   const sw = doc.createElement('div');
@@ -58,17 +58,28 @@ export function takeKeys({ doc, root, onNote, onSelectSource }) {
   note.textContent = '✎';
   note.hidden = true;
   note.addEventListener('click', () => onNote?.());
+  const grabFeed = doc.createElement('button');
+  grabFeed.id = 'np-feed-grab';
+  grabFeed.className = 'np-feed-grab';
+  grabFeed.setAttribute('type', 'button');
+  grabFeed.setAttribute('aria-label', 'GRAB from the live feed into the Studio’s buffer');
+  grabFeed.textContent = 'GRAB';
+  grabFeed.hidden = true;
+  grabFeed.addEventListener('click', () => onGrabFeed?.());
+  sw.append(grabFeed);
   own?.before(sw);
   own?.append(name, note);
   return {
     paint(src) {
       const kind = src ? src.kind : null;
       const take = kind === 'take';
+      const feed = kind === 'feed';
       root.classList.toggle('np-take', take);
-      root.classList.toggle('np-feed', kind === 'feed');
+      root.classList.toggle('np-feed', feed);
       for (const b of srcBtns) setAttr(b, 'aria-pressed', String(b.dataset.source === kind));
       name.hidden = !take;
       note.hidden = !take;
+      grabFeed.hidden = !feed;
       if (take) {
         setText(name, src.title);
         setAttr(name, 'href', src.href);
