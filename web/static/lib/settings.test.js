@@ -317,16 +317,29 @@ const REG = [
   { key: 'TAPE', group: 'Tape', value: 'true' },
 ];
 
-test('with the rooms off the sheet leaves out Plays the tape, and nothing else', () => {
-  assert.deepEqual(visibleSettings(REG, false).map((s) => s.key), ['MIDI_IGNORE', 'TAPE']);
+// The row is for a kit with a preview switched on: the rooms or Play mode (the
+// strip points people to it). A switch flipped in the sheet shows it after the
+// Reload the sheet already asks for.
+const keys = (flags) => visibleSettings(REG, flags).map((s) => s.key);
+
+test('with neither the rooms nor Play mode on the sheet leaves out Plays the tape, and nothing else', () => {
+  assert.deepEqual(keys({ rooms: false, play: false }), ['MIDI_IGNORE', 'TAPE']);
 });
 
-test('with the rooms on every setting is drawn', () => {
-  assert.deepEqual(visibleSettings(REG, true).map((s) => s.key), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
+test('Play mode alone shows it', () => {
+  assert.deepEqual(keys({ rooms: false, play: true }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
+});
+
+test('the rooms alone show it', () => {
+  assert.deepEqual(keys({ rooms: true, play: false }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
+});
+
+test('both on shows it', () => {
+  assert.deepEqual(keys({ rooms: true, play: true }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
 });
 
 test('a row that is not drawn is not in the saved body, and the others are as ever', () => {
-  const shown = visibleSettings(REG, false);
+  const shown = visibleSettings(REG, { rooms: false, play: false });
   assert.deepEqual(changes(REG, { MIDI_IGNORE: 'x', TAPE: 'false' }), { MIDI_IGNORE: 'x', TAPE: 'false' });
   assert.deepEqual(changes(shown, { MIDI_IGNORE: 'x', TAPE: 'false' }), { MIDI_IGNORE: 'x', TAPE: 'false' });
 });

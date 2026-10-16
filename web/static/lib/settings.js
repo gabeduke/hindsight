@@ -13,6 +13,7 @@
 import { DEVICE_PREFS, read as readDevicePrefs, write as writeDevicePref } from './device-prefs.js';
 import { say, settingsGroup } from './rooms/words.js';
 import { on as roomsOn } from './rooms/flag.js';
+import { on as playOn } from './play/flag.js';
 
 const POLL_MS = 1000;
 const GIVE_UP_MS = 90 * 1000;
@@ -67,13 +68,13 @@ export function inputLabel(inp) {
   return `${name} · ${inp.channels} in`;
 }
 
-// Settings that belong to the two rooms: the sheet draws them only with the
-// rooms on, and leaves the Pi's value and default alone.
-const ROOMS_ONLY = new Set(['TAPE_CONTROLLER']);
+// Settings for a preview: the sheet draws them only with the rooms or Play
+// mode on, and leaves the Pi's value and default alone.
+const PREVIEW_ONLY = new Set(['TAPE_CONTROLLER']);
 
-/** visibleSettings is the registry as this device's sheet draws it: without the rooms, no rooms-only row (and so no label, help or empty group for it). */
-export function visibleSettings(settings, rooms) {
-  return rooms ? settings : settings.filter((s) => !ROOMS_ONLY.has(s.key));
+/** visibleSettings is the registry as this device's sheet draws it: with neither {rooms} nor {play} on, no preview-only row (and so no label, help or empty group for it). */
+export function visibleSettings(settings, { rooms = false, play = false } = {}) {
+  return rooms || play ? settings : settings.filter((s) => !PREVIEW_ONLY.has(s.key));
 }
 
 /** changes is {key: value} for every field whose value differs from the saved one. */
@@ -448,7 +449,7 @@ export function initSettings() {
     body.append(featuresGroup());
     body.append(el('h4', 'set-section', 'On the Pi'), el('p', 'set-intro set-restart-note', RESTART_NOTE));
     const groups = [];
-    for (const s of visibleSettings(data.settings, roomsOn())) {
+    for (const s of visibleSettings(data.settings, { rooms: roomsOn(), play: playOn() })) {
       let g = groups.find((x) => x.name === s.group);
       if (!g) groups.push((g = { name: s.group, items: [] }));
       g.items.push(s);
