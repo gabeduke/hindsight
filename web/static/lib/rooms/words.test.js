@@ -24,7 +24,7 @@ import { CRATE_PARTS, TAKE_PARTS } from './nocrate.js';
 // Buffer length -> Feed length, Keep free -> Leave free, Punch-in FX -> FX,
 // flag -> note, mixdown/Mix down -> BOUNCE).
 export const RETIRED = [
-  /keep as clip/i, /save as take/i, /cut a record/i, /mix ?down/i, /records shelf/i,
+  /keep as (a )?clips?/i, /save as take/i, /cut a record/i, /mix(ing)? ?downs?/i, /records shelf/i,
   /\bcrates?\b/i, /clipboard/i, /stickers?/i, /PUT IT ON/, /SIT DOWN|Sit down with it/, /stand up/i,
   /TO THE STUDIO/, /send to\b/i, /punch/i, /\bflags?\b/i, /\bclips?\b/i, /\bring\b/i,
   /buffer length/i, /keep free/i,
@@ -316,7 +316,9 @@ test('every allow-list entry still matches something', () => {
 //
 // The guide's tips table is not read here: help.test.js holds it to tips.js
 // row for row, and test 2 reads tips.js as the rooms say it.
-const GUIDE_RETIRED = [...RETIRED, /\bchair\b/i, /\bTOOLS\b/, /⚑/];
+// Capture is retired as a page and as a verb (the spec's words table: Capture -> KEEP, the Studio).
+// (Split here and "save as a take" are read here only: wave.html and lib/wave/page.js still carry them, which F8's scan of modules would flag.)
+const GUIDE_RETIRED = [...RETIRED, /\bchair\b/i, /\bTOOLS\b/, /⚑/, /\bCapture\b/, /split here/i, /save as (a )?take/i];
 const guideHits = (s) => GUIDE_RETIRED.filter((r) => r.test(s)).map(String);
 
 // Sections that are the rooms' from the first line (matched on the heading).
@@ -356,7 +358,11 @@ export function roomsText(src) {
   const out = [];
   const stack = []; // indents of the open bullets whose children are the rooms'
   for (const u of guideUnits(src)) {
-    if (u.heading) { stack.length = 0; continue; }
+    if (u.heading) {
+      stack.length = 0;
+      if (ROOMS_SECTIONS.some((r) => r.test(u.text))) out.push([u.n, u.text]); // a rooms section's own heading
+      continue;
+    }
     if (u.item) { while (stack.length && stack[stack.length - 1] >= u.indent) stack.pop(); } else stack.length = 0;
     if (ROOMS_SECTIONS.some((r) => r.test(u.head)) || stack.length) {
       // The words table's last column says what a word was called: the one place an old word belongs.
@@ -396,15 +402,16 @@ test('the guide’s rooms-on text is read: a mark, its children, a section; it s
     '### 8.14 Words', '', 'A flag is a note.',
   ].join('\n');
   const got = roomsText(sample).map(([, t]) => t);
-  assert.equal(got.length, 4, got.join(' | '));
+  assert.equal(got.length, 5, got.join(' | '));
   assert.match(got[0], /^With the two rooms on, Save as take is KEEP;/);
   assert.doesNotMatch(got[0], /crate/);
   assert.equal(got[2], 'a clip in the crate');
-  assert.equal(got[3], 'A flag is a note.');
+  assert.equal(got[3], '### 8.14 Words', 'a rooms section’s own heading is read');
+  assert.equal(got[4], 'A flag is a note.');
   assert.ok(roomsText(sample).every(([, t]) => !/as ever/.test(t)));
   // and a retired word in what it reads is seen
-  assert.ok(guideHits(got[2]).length && guideHits(got[3]).length);
-  assert.equal(guideHits(got[0]).length, 1, 'Save as take');
+  assert.ok(guideHits(got[2]).length && guideHits(got[3]).length === 0 && guideHits(got[4]).length);
+  assert.ok(guideHits(got[0]).length, 'Save as take');
   // the real guide gives it plenty to read
   assert.ok(roomsText(read('../../docs/guide.md')).length > 40, 'the parser lost the marks');
 });
@@ -416,6 +423,21 @@ test('no retired word in the guide’s rooms-on text, or it is a line that says 
     bad.push(`docs/guide.md:${n}: ${guideHits(text)} in: ${text.slice(0, 140)}`);
   }
   assert.deepEqual(bad, []);
+});
+
+test('the guide’s retired words are matched as they are really written', () => {
+  for (const t of ['Keep as a clip', 'Keep as clip', 'Mixing down', 'Mixed down? mixdown', 'Save as a take', 'Split here', 'Capture', 'the chair', '⚑', 'Cut a record']) {
+    assert.ok(guideHits(t).length, t);
+  }
+  assert.equal(guideHits('KEEP, GRAB and DROP').length, 0);
+});
+
+test('a paragraph’s rooms-off and rooms-on parts are separate units, so a mark reads only its own text', () => {
+  const guide = read('../../docs/guide.md');
+  const lines = guide.split('\n');
+  const at = lines.findIndex((l) => l.includes('Takes, Capture and a take'));
+  assert.ok(at > 0);
+  assert.ok(roomsText(guide).every(([, t]) => !t.includes('Takes, Capture and a take')), 'the old text there is not read as the rooms’');
 });
 
 test('the guide’s words table has three columns, the last of them the one that is not read', () => {

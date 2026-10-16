@@ -667,7 +667,8 @@ and the editor bar takes the place of the toolbar.
 *With the two rooms on (Settings › This device › Two rooms).* A tap in the
 Listening Room plays a take; **Open** is where you dig into it. It is the
 take page above: the waveform, the selection, the tempo, the MIDI lanes, ◂ ▸,
-↶ and ⋯, and the same bar along the foot. What is different:
+↶ and ⋯. Along the foot is the take's own bar (▶, ⟲ **Loop** for the
+selection, **IN** and **OUT**), not the Listening Room's. What is different:
 
 - **It opens where the bar was.** From the take's name in the bar (or the
   deck) it starts at the spot you were hearing, and plays on if it was
@@ -675,16 +676,19 @@ take page above: the waveform, the selection, the tempo, the MIDI lanes, ◂ ▸
   iPhone always) leaves it paused at that spot. From the bar's **✎** it also
   starts a note there (below).
 - **✎ Note** puts a note at the playhead, or opens the one already there, with
-  the cursor in its words: type, Enter. It is at the head of the *Notes* list
-  and, as **✎**, among the bar's keys; **◂✎** and **✎▸** step from note to
+  the cursor in its words: type, Enter. The **✎ Note** key at the head of the
+  *Notes* list is always there; the bar's own **✎** is folded away on a phone
+  until the player opens. **◂✎** and **✎▸** step from note to
   note, and **✎ 3** is the list.
 - **Notes,** one line each: its number, its time, its words (the only field;
   they save when you leave it), **▶** to play from it, **GRAB** and **✕**. A
   note's **GRAB** puts this note, up to the next note or eight bars (16
   seconds with no tempo), into the Studio's buffer, and opens the Studio.
 - **A tag** sits beside ★: *+ tag*, or the tag's name. It opens *One tag*:
-  choose one, press the lit one again (or *No tag*) to take it off, and
-  *Edit tags* makes or changes the list. A take has one tag.
+  choose one to give it, or press the lit one to take it off (the key then
+  reads *+ tag* again). *No tag* is a separate button, shown only while the
+  take has a tag. *Edit tags* changes the list, or *Make a tag* when there is
+  none; *Done* closes the sheet. A take has one tag.
 - **KEEP and GRAB** sit side by side. **KEEP** makes a take of the selection
   and says how long it is (*KEEP 41s*). **GRAB** puts the selection, or with
   none the last N bars before the playhead (twice N seconds without a tempo),
@@ -713,8 +717,8 @@ take page above: the waveform, the selection, the tempo, the MIDI lanes, ◂ ▸
 - [demo] Press a note's **GRAB** → the Studio opens with that stretch of the
   take in the buffer. With no note after it the buffer is eight bars, or 16
   seconds.
-- [demo] Press **+ tag**, choose a tag → its name sits beside ★; press it
-  again and the lit tag → *No tag*.
+- [demo] Press **+ tag**, choose a tag → its name sits beside ★; open it and
+  press the lit tag → the key reads *+ tag* again.
 - [demo] Bounce a tape twice, then Open the newer take → *Earlier bounces*
   lists the other; tap it → that take opens.
 - [demo] Open `/wave.html?tape=…` → the Studio.
@@ -1060,11 +1064,10 @@ From the top:
   play here*) sits on top. The output button is in the top bar.
 - **Tap the mini player's window** to pull up **the player** over the page:
   the whole bar, large (**|◂ ▶ ⟲ Loop ● Rec**, the click, **Catch** and the
-  overview), and under it **Crate ▴**, which shows its drawer below it (with the two rooms on that key
-  is not there). **Down**, Back or **Esc** puts it away. Takes, Capture
-  and a take's page have the same mini player and player (with the two rooms
-  on, a take in the bar has no player to pull up: see *The bar, with a take
-  in it*).
+  overview), and under it **Crate ▴**, which shows its drawer below it. **Down**, Back or **Esc** puts it
+  away. Takes, Capture and a take's page have the same mini player and player.
+- *With the two rooms on the player has no such key, and a take in the bar has
+  no player to pull up: see* The bar, with a take in it *(§3.1).*
 - **On a phone,** with the player down, the clipboard and the crate are
   rows under the tracks, and the action bar floats above the player. The
   recording is in the track's inspector: tap its name twice. *With the two
@@ -2147,7 +2150,7 @@ how the rest of this guide still names it.
 | **Listening Room** | Every take, on shelves: a tap plays one, holding selects | Takes |
 | **Rig** | Your devices and the cables between them, from the chip in the header | unchanged |
 | **Feed** | Everything coming in, always recording; the last 15 minutes are kept in memory. The Studio draws it at the top, and Settings sets its length | the ring, the ribbon, Buffer length |
-| **Take** | Anything you kept: a KEEP, a bounce, a phone recording or a selection of another take | jam, cassette |
+| **Take** | Anything you kept: a KEEP, a bounce, a phone recording or a selection of another take | jam |
 | **KEEP** | Makes a take, and nothing else. Its key says how much: *KEEP 30s*, *KEEP 4 BARS* | Capture, Save as take, cutting a take |
 | **GRAB** | Fills the buffer: the last bars of the feed or of a take, a selection, or a note's stretch | Copy on the feed, Send to → Tape, Send to → Clipboard, Keep as clip |
 | **Buffer** | The one slot GRAB, and a range's Cut and Copy, fill and DROP empties. The Studio shows it between the feed and the tracks | the clipboard |
@@ -2156,7 +2159,7 @@ how the rest of this guide still names it.
 | **Tape** | Four tracks of parts. Tapes live in the Studio: its title menu lists them | the Tape page |
 | **Part** | A piece of audio on a track | clip |
 | **Note** | A moment in a take, with words or without. **✎** makes one | flag, ⚑, Flag now |
-| **The bar** | Along the foot of every page: the only way to play. It holds a take or the tape | the deck, the player, the dock |
+| **The bar** | Along the foot of the Studio, the Listening Room and Open: the only way to play. It holds a take or the tape. The room's deck is a picture of it | the player, the dock |
 | **Open** | A take's page (§4.1), from its name in the bar; the tape opens in the Studio | the take page, SIT DOWN |
 | **Repeat** | The bar's ⟲ for a take: its selection, or the whole take. For the tape it is still **Loop** | Loop |
 | **Tag** | A take's one tag: a name and a colour | unchanged |
@@ -2169,7 +2172,7 @@ nobody dropped or kept says so, with **Undo**.
 
 **Checks — the words:**
 
-- [demo] With the rooms off, the Capture, Takes and Tape tabs and their old
+- [demo] With the rooms off, the tabs and their old
   words are all still there. Turn **Two rooms** on → the tabs are **Studio**
   and **Listening Room**, and the Studio's feed has **KEEP**, **GRAB** and
   **Note**.
@@ -2197,15 +2200,17 @@ or see, and each is checked (the [demo] ones) against the demo.
    playing on, with a note started and the cursor in its words. Type, Enter.
 4. **Reuse a bit.** Tap a take in the Listening Room → it plays. Let it play
    past the bit you want, then tap its **name** in the bar → Open. Press **GRAB
-   4 BARS** → the Studio opens with those four bars in the buffer. If no track is
+   4 BARS** → the Studio opens with up to four bars in the buffer (fewer if
+   less had played). If no track is
    armed, tap a track's **●**. Then press **DROP ON TRACK N**.
 5. **Finish it.** In the Studio press **⋯ › Bounce the whole tape** and wait as
    long as the tape is long. The toast says *Bounced as a take* with **▶** and
    **Open**. Press **Open**, then **Download** (**Share** on a phone) → an MP3.
 6. **Tidy up.** In the Listening Room hold a take (a finger or a pen for half
    a second; ⇧-click with a mouse) → it is picked and the select bar rises with
-   **★**, **Tag**, **Export**, **Delete** and **Done**. Tap another to pick it
-   too. **Tag** → **+ New tag**, or choose one, then **Close**. **Delete** → the
+   **Done**, **★**, **Tag**, **Export** and **Delete**. Tap another to pick it
+   too. **Tag** → choose a tag, which gives it and closes the sheet (with no tags
+   yet the sheet offers **+ New tag**, and **Close**). **Delete** → the
    toast says *Deleted 2 takes* with **Undo**. **Done** puts the bar away.
 
 **Checks — the walkthroughs:** each of the six runs from its first step to its
