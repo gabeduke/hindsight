@@ -33,11 +33,14 @@ export function pairsFor(armed, inputOf) {
 /**
  * recordBody is a catch's, a punch's or a tap's body: every armed track as a
  * pair, and the first track and source as before, so a Pi from before
- * multi-arm records the first as it always did.
+ * multi-arm records the first as it always did. `pairs` is sent only when
+ * more than one track is armed, where it is needed: one armed track is the
+ * body the old pages always sent ({track, source, replace}), so with the
+ * preview flags off a Pi sees nothing new.
  */
 export function recordBody(armed, inputOf, extra = {}) {
   const pairs = pairsFor(armed, inputOf);
-  return { track: armed[0], source: pairs.length ? pairs[0].source : '', pairs, ...extra };
+  return { track: armed[0], source: pairs.length ? pairs[0].source : '', ...(pairs.length > 1 ? { pairs } : {}), ...extra };
 }
 
 /** tracksWords is "2", "2, 3" -- the tracks, as CATCH says them. */

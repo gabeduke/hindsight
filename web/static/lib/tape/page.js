@@ -43,6 +43,7 @@ import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { on as roomsOn } from '../rooms/flag.js';
+import { on as playOn } from '../play/flag.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
 import { trimTapePage } from '../rooms/nocrate.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
@@ -53,7 +54,7 @@ import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick
 import { armPress } from '../rig/armpress.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
-import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
+import { catchState, catchSub, catchMini, oldCatchKey, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
 
@@ -63,6 +64,10 @@ const POLL_MS = 200;
 // armed or takes it off (multi-arm, the rig spec), and a header that would
 // record the tape shows the rig's amber dot. Read once, at load.
 const ROOMS = roomsOn();
+// The Catch key that stays pressable and says why it waits (lib/tape/catch.js)
+// is a preview feature: with both preview flags off the old page keeps its
+// disabled key and its "last pass → track N" line, exactly as main has it.
+const NEW_CATCH = ROOMS || playOn();
 // The Studio's bar is the tape's and never takes a take: this page neither
 // reads the hand-off nor writes it, so the Listening Room, back, finds its
 // take (lib/bar/carry.js).
@@ -598,23 +603,33 @@ function render() {
   for (const b of $('catch-bars').querySelectorAll('button')) b.disabled = !canCatch || !t.grid;
   rb.setAttribute('aria-disabled', String(phoneOut));
   rb.classList.toggle('dim', phoneOut);
-  // Catch waits for a whole pass of the loop, and says so: it stays pressable
-  // (never `disabled`, which a phone's tap passes over) and a press says why;
-  // its tip does too (lib/tape/catch.js).
-  const cs = state.catchSays = catchState({ live, tape: t, phoneOut, armed: !!state.recTrack, rooms: ROOMS });
-  const cb = $('catch-pass');
-  cb.disabled = false;
-  cb.setAttribute('aria-disabled', String(!cs.ready));
-  cb.classList.toggle('waits', !cs.ready);
-  cb.classList.toggle('jam-only', phoneOut);
-  setIf(cb, 'title', cs.ready ? tipFor('catch') : cs.why);
-  const catchWords = catchSub(cs, { armed: state.recTracks, phoneOut, rooms: ROOMS });
-  setText(cb.querySelector('.np-catch-sub'), catchWords);
-  // The Studio's key has a shorter second line for the phone's mini bar,
-  // where the full one is hidden (styles.css, .np-catch-mini).
-  const mini = cb.querySelector('.np-catch-mini');
-  if (mini) setText(mini, catchMini(catchWords));
-  setIf(cb, 'aria-label', phoneOut ? 'Catch: needs the jam room' : !cs.ready ? `Catch: ${cs.why}` : state.recTrack ? `Catch the last pass onto ${onWords(state.recTracks)}` : 'Catch: arm a track first');
+  if (NEW_CATCH) {
+    // Catch waits for a whole pass of the loop, and says so: it stays pressable
+    // (never `disabled`, which a phone's tap passes over) and a press says why;
+    // its tip does too (lib/tape/catch.js).
+    const cs = state.catchSays = catchState({ live, tape: t, phoneOut, armed: !!state.recTrack, rooms: ROOMS });
+    const cb = $('catch-pass');
+    cb.disabled = false;
+    cb.setAttribute('aria-disabled', String(!cs.ready));
+    cb.classList.toggle('waits', !cs.ready);
+    cb.classList.toggle('jam-only', phoneOut);
+    setIf(cb, 'title', cs.ready ? tipFor('catch') : cs.why);
+    const catchWords = catchSub(cs, { armed: state.recTracks, phoneOut, rooms: ROOMS });
+    setText(cb.querySelector('.np-catch-sub'), catchWords);
+    // The Studio's key has a shorter second line for the phone's mini bar,
+    // where the full one is hidden (styles.css, .np-catch-mini).
+    const mini = cb.querySelector('.np-catch-mini');
+    if (mini) setText(mini, catchMini(catchWords));
+    setIf(cb, 'aria-label', phoneOut ? 'Catch: needs the jam room' : !cs.ready ? `Catch: ${cs.why}` : state.recTrack ? `Catch the last pass onto ${onWords(state.recTracks)}` : 'Catch: arm a track first');
+  } else {
+    // The old key, as main has it: greyed (`disabled`) until a pass has gone round.
+    const cb = $('catch-pass');
+    const k = oldCatchKey({ live, phoneOut, recTrack: state.recTrack });
+    cb.disabled = k.disabled;
+    cb.classList.toggle('jam-only', phoneOut);
+    setText(cb.querySelector('.np-catch-sub'), k.sub);
+    setIf(cb, 'aria-label', k.label);
+  }
   renderMode();
   renderDrawers();
   renderClipboard();
