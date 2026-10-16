@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.16.5 — 2026-10-16
+
+- Two rooms: smooth 60fps tape and deck reels, zero-flash page switches, top-right Settings/Releases/Guide, a Feed/Tape/Shelf bar switcher, inline Sketchbook, and collapsible Studio tracks (56267dc)
+
+
 ## v2026.10.16.4 — 2026-10-16
 
 - The guide says where updating is with the two rooms on, and the Releases sheet no longer says Capture there (f076148)
