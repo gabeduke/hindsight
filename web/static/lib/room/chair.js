@@ -20,7 +20,7 @@
 import { notesOf, noteSpan, sendToStudio, forgetNote, fmtAt, fieldEnter } from './notes.js';
 import { keepLabel, selectionKeepLength } from '../rooms/keeplabel.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick } from '../rooms/grab.js';
-import { loadTape } from './swap.js';
+import { loadTape, wireOpenInStudio } from './swap.js';
 import { tagStore } from '../tags.js';
 import { openTagManager } from '../tags-dialog.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
@@ -572,12 +572,7 @@ async function mountTape(h) {
     });
   }
 
-  f.studio.addEventListener('click', async () => {
-    try {
-      const r = await loadTape(id, { ask: askFirst });
-      if (r.loaded) location.href = '/tape.html';
-    } catch (e) { h.toast(`Couldn’t load it in the Studio: ${e.message}`, 'bad'); }
-  });
+  wireOpenInStudio(f.studio, { id: () => id, ask: askFirst, toast: h.toast });
   if (s.loaded) start();
   else render();
   new ResizeObserver(() => { cache = ''; render(); }).observe(f.strip);

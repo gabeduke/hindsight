@@ -41,6 +41,7 @@ import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
+import { openTheTape, pageCarry, takePageState } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom, roomOn } from '../room/mount.js';
 import { trimTakePage } from '../rooms/nocrate.js';
@@ -1512,7 +1513,7 @@ async function main() {
   $('copy-take').addEventListener('click', async () => {
     try {
       const n = await copyTake();
-      toast(`Copied ${fmtClock(n, sr)}: Paste it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+      toast(`Copied ${fmtClock(n, sr)}: Paste it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => openTheTape() } });
     } catch (e) {
       toast(`Could not copy: ${e.message}`, 'bad');
     }
@@ -1536,7 +1537,7 @@ async function main() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       const { msg, kind } = sentMessage(res, fmtClock(state.region ? to - from : total, sr));
-      toast(msg, kind, { ms: kind === 'warn' ? 10000 : undefined, action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+      toast(msg, kind, { ms: kind === 'warn' ? 10000 : undefined, action: { label: 'Open the tape', run: () => openTheTape() } });
     } catch (e) {
       toast(`Could not send to tape: ${e.message}`, 'bad', 8000);
     }
@@ -1982,6 +1983,14 @@ async function main() {
     patch: (body) => patch(body),
     onRedraw: (fn) => chairHooks.add(fn),
   })?.catch((e) => console.error('The chair could not start:', e));
+  // Leaving, the take and where the playhead is go to the next page's bar
+  // (lib/bar/carry.js), so Room -> Open -> back carries what was done here.
+  // Opened and left alone (not played, the playhead where it began), the page
+  // is transparent: the bar's take, as the Room left it, stands.
+  // Repeat on the bar isn't this page's (its Loop is a selection's): the
+  // Room's flag for this take, as it left it, goes back with it.
+  const carry = pageCarry();
+  carry.wire(window, document, takePageState({ file, sr, from: state.cursor, loop: carry.loopOf(file), now: () => ({ frame: state.cursor, playing: clock.playing }) }));
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
     bar.commit();

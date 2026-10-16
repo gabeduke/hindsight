@@ -20,6 +20,12 @@ const stamp = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
  */
 export const playheadOf = (take) => (take && take.audio && Number.isFinite(take.audio.currentTime) ? take.audio.currentTime : null);
 
+/** takeLength is a take's length in frames, as the bar counts it. */
+export function takeLength(t, peaks) {
+  const sr = t.sample_rate || 48000;
+  return Math.max(1, Math.round((peaks.duration || t.duration_seconds || 0) * sr));
+}
+
 /**
  * takeSource is the bar's source for take `t`, played by `player` ({audio,
  * peaks, toggle}). onGone hears when its row lets the audio go (the take
@@ -28,7 +34,7 @@ export const playheadOf = (take) => (take && take.audio && Number.isFinite(take.
 export function takeSource(t, player, { onGone } = {}) {
   const sr = t.sample_rate || 48000;
   const { audio, peaks } = player;
-  const length = Math.max(1, Math.round((peaks.duration || t.duration_seconds || 0) * sr));
+  const length = takeLength(t, peaks);
   const gain = takeGain(peaks);
   const region = t.trim ? { start: t.trim.start_frame, end: t.trim.end_frame } : null;
   const grid = { bpm: t.bpm || null, sampleRate: sr, downbeat: t.downbeat_frame || 0 };

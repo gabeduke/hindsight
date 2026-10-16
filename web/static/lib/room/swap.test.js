@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { studioBusy, recording, swapQuestion, loadTape, putTapeOn } from './swap.js';
+import { studioBusy, recording, swapQuestion, loadTape, putTapeOn, wireOpenInStudio } from './swap.js';
 
 function fakePi(script) {
   const calls = [];
@@ -99,4 +99,47 @@ test('a refused load says why', async () => {
     ['/api/tapes/load?id=b', 409, { error: 'a mixdown is playing; wait for it' }],
   ]);
   await assert.rejects(loadTape('b', { fetchImpl: pi.fetchImpl }), /a mixdown is playing/);
+});
+
+// --- Open in the Studio: the real click handler, on a stand-in button ---------------
+
+function aButton() {
+  const l = [];
+  return { addEventListener: (ev, fn) => { if (ev === 'click') l.push(fn); }, click: () => Promise.all(l.map((f) => f())) };
+}
+
+test('Open in the Studio loads the tape, says it is going for the tape, then goes: in that order', async () => {
+  const log = [];
+  const b = aButton();
+  wireOpenInStudio(b, {
+    id: () => 't1', ask: () => true, toast: () => log.push('toast'), before: () => log.push('before'),
+    load: async (id) => { log.push(`load ${id}`); return { loaded: true }; },
+    forTape: () => log.push('forTape'), go: (u) => log.push(`go ${u}`),
+  });
+  await b.click();
+  assert.deepEqual(log, ['before', 'load t1', 'forTape', 'go /tape.html']);
+});
+
+test('Open in the Studio answered no (Swap it? no): nothing is said and nothing goes', async () => {
+  const log = [];
+  const b = aButton();
+  wireOpenInStudio(b, { id: () => 't1', toast: () => log.push('toast'), load: async () => ({ loaded: false }), forTape: () => log.push('forTape'), go: () => log.push('go') });
+  await b.click();
+  assert.deepEqual(log, []);
+});
+
+test('Open in the Studio refused by the Pi says why and does not go, nor mark the leave for the tape', async () => {
+  const log = [];
+  const b = aButton();
+  wireOpenInStudio(b, { id: () => 't1', toast: (m, k) => log.push(`${k}: ${m}`), load: async () => { throw new Error('no tape'); }, forTape: () => log.push('forTape'), go: () => log.push('go') });
+  await b.click();
+  assert.deepEqual(log, ['bad: Couldn’t load it in the Studio: no tape']);
+});
+
+test('Open in the Studio with no tape picked does nothing', async () => {
+  const log = [];
+  const b = aButton();
+  wireOpenInStudio(b, { id: () => null, toast: () => {}, load: async () => { log.push('load'); return { loaded: true }; }, forTape: () => log.push('forTape'), go: () => log.push('go') });
+  await b.click();
+  assert.deepEqual(log, []);
 });

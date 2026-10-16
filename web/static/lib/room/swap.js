@@ -7,6 +7,8 @@
 //
 // The fetches and the question are passed in, so the rule is tested here.
 
+import { forTheTape } from '../bar/carry.js';
+
 /**
  * studioBusy says whether the Studio's tape is in use, from its live state:
  * playing or counting in, a track recording or armed, or a mixdown that
@@ -53,6 +55,26 @@ export async function loadTape(id, { fetchImpl = globalThis.fetch, ask } = {}) {
   const res = await fetchImpl(`/api/tapes/load?id=${encodeURIComponent(id)}`, { method: 'POST' });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
   return { loaded: true, already: false, live: null };
+}
+
+/**
+ * wireOpenInStudio makes `button` Open in the Studio: load tape `id()` on the
+ * deck (asking first, as loadTape does) and go to the Studio for the tape --
+ * saying so first, so the bar's take does not go along (bar/carry.js). A
+ * refusal stays here, said with `toast`. `before` runs as it is pressed.
+ */
+export function wireOpenInStudio(button, { id, ask, toast, before, forTape = forTheTape, go = (u) => { location.href = u; }, load = loadTape }) {
+  button.addEventListener('click', async () => {
+    const tape = id();
+    if (!tape) return;
+    before?.();
+    try {
+      const r = await load(tape, { ask });
+      if (r.loaded) { forTape(); go('/tape.html'); }
+    } catch (e) {
+      toast(`Couldn’t load it in the Studio: ${e.message}`, 'bad');
+    }
+  });
 }
 
 /**

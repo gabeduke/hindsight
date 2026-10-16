@@ -58,6 +58,8 @@ export class TakesList {
    */
   constructor(container, emptyEl, { onToast, onListChange, onSelectChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded }) {
     // A take starting, and playing to its end: the page's now-playing bar hears of both.
+    // Settles with the first list the Pi answers (bar/handoff.js waits for it).
+    this.loaded = new Promise((resolve) => { this.markLoaded = resolve; });
     this.onPlay = onPlay;
     this.onSelectChange = onSelectChange; // select mode began or ended
     this.onEnded = onEnded;
@@ -182,7 +184,7 @@ export class TakesList {
     if (this.etag) headers['If-None-Match'] = this.etag;
 
     const res = await timedFetch('/api/jams', { headers, cache: 'no-store' });
-    if (res.status === 304) return;
+    if (res.status === 304) { this.markLoaded(); return; }
     if (!res.ok) throw new Error(`takes: HTTP ${res.status}`);
 
     this.etag = res.headers.get('ETag');
@@ -190,6 +192,7 @@ export class TakesList {
     this.all = Array.isArray(takes) ? takes : [];
     this.reshape();
     this.onListChange?.();
+    this.markLoaded();
   }
 
   /** reshape re-renders the last list through shape, without a fetch. */
