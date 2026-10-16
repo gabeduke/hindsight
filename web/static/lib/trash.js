@@ -19,6 +19,7 @@ export function ago(t, now = Date.now()) {
   return `${d} day${d === 1 ? '' : 's'} ago`;
 }
 
+import { named } from './rooms/words.js';
 /** stampOf is what an unnamed take is called: its timestamp. */
 const stampOf = (name) => name.replace(/^jam_|\.wav$/g, '');
 
@@ -120,7 +121,7 @@ export class TrashList {
     if (btn) btn.disabled = true;
     try {
       await restoreTake(t.name);
-      this.onToast?.(`Restored ${t.label || stampOf(t.name)}, starred`);
+      this.onToast?.(`Restored ${named(t.label || stampOf(t.name))}, starred`);
       await this.onRestored?.(t.name);
     } catch (e) {
       this.onToast?.(`Could not restore: ${e.message}`, 'bad');

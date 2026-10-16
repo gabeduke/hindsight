@@ -7,7 +7,12 @@
 // The message is set as text, never markup: names come from the Pi and from
 // whoever named a take.
 
+// With the two rooms on a toast says the rooms' words (rooms/words.js); “quoted”
+// names are left as they were typed.
+import { say, sayToast } from './rooms/words.js';
+
 const host = () => document.getElementById('toasts');
+
 
 /**
  * toast shows msg. kind is 'ok', 'bad' or 'warn'. opts.ms is how long it
@@ -23,7 +28,7 @@ export function toast(msg, kind = 'ok', opts = {}) {
   t.setAttribute('role', 'status');
   const text = document.createElement('span');
   text.className = 'toast-text';
-  text.textContent = msg;
+  text.textContent = sayToast(msg, kind);
   t.appendChild(text);
   let timer = 0;
   const dismiss = () => {
@@ -36,7 +41,7 @@ export function toast(msg, kind = 'ok', opts = {}) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'toast-action';
-    b.textContent = action.label;
+    b.textContent = say(action.label);
     b.addEventListener('click', () => {
       for (const x of t.querySelectorAll('.toast-action')) x.disabled = true;
       dismiss();

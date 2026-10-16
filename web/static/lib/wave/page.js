@@ -30,6 +30,7 @@ import { drawTrace } from './tape-strip.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
+import { say, named } from '../rooms/words.js';
 import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toast.js';
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
@@ -217,7 +218,7 @@ async function main() {
   function redraw() {
     setText($('flags-count'), String(state.flags.length));
     const nd = state.dropouts.length;
-    setAttr($('flags-list'), 'aria-label', `${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}${nd ? ` and ${nd} dropout${nd === 1 ? '' : 's'}` : ''}: show the list`);
+    setAttr($('flags-list'), 'aria-label', say(`${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}`) + `${nd ? ` and ${nd} dropout${nd === 1 ? '' : 's'}` : ''}: show the list`);
     view.draw();
     if (overview) overview.draw();
     if (lanes) lanes.draw();
@@ -695,7 +696,7 @@ async function main() {
     state.selectedFlag = null;
     sheet.hidden = true;
     flagOp('remove', { id: f.id }, (b) => {
-      if (b.undo?.op) toast(f.label ? `Flag "${f.label}" deleted` : 'Flag deleted', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
+      if (b.undo?.op) toast(f.label ? `Flag "${named(f.label)}" deleted` : 'Flag deleted', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
     });
     redraw();
   });
@@ -1401,7 +1402,7 @@ async function main() {
     pendingTrim = null;
     clearTimeout(regionTimer);
     clock.pause();
-    const msg = `Deleted ${take.label || stampOf(file)}`;
+    const msg = `Deleted ${named(take.label || stampOf(file))}`;
     // On through the list's own order only: a take it doesn't have (a cut
     // opened from its toast, say) goes back to the list, as before.
     const order = await orderReady;
@@ -1469,7 +1470,7 @@ async function main() {
         body: JSON.stringify({ take: file, at }),
       });
       const [a, z] = b.clips;
-      toast(`Split at ${fmtClock(at, sr)} into two clips on the crate: “${a.name}” and “${z.name}”`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
+      toast(`Split at ${fmtClock(at, sr)} into two clips on the crate: “${named(a.name)}” and “${named(z.name)}”`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
       renderCrateChip();
     } catch (e) {
       toast(`Could not split it: ${e.message}`, 'bad');
@@ -1488,7 +1489,7 @@ async function main() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ take: file, from, to }),
       });
-      toast(`Kept “${b.clip.name}” in the crate, ${fmtClock(to - from, sr)}`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
+      toast(`Kept “${named(b.clip.name)}” in the crate, ${fmtClock(to - from, sr)}`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
       renderCrateChip();
     } catch (e) {
       toast(`Could not keep it: ${e.message}`, 'bad');
@@ -1988,7 +1989,7 @@ async function main() {
       state.flags = state.flags.filter((x) => x !== f);
       if (state.selectedFlag === f) { state.selectedFlag = null; sheet.hidden = true; }
       flagOp('remove', { id }, (b) => {
-        if (b.undo?.op) toast(f.label ? `Note "${f.label}" taken out` : 'Note taken out', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
+        if (b.undo?.op) toast(f.label ? `Note "${named(f.label)}" taken out` : 'Note taken out', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
       });
       redraw();
     },

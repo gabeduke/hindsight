@@ -8,6 +8,7 @@
 
 import { report } from '../objects/motion.js';
 import { spineTitle } from '../shelf.js';
+import { named } from '../rooms/words.js';
 
 /**
  * createTap answers {tap, warm}.
@@ -65,7 +66,7 @@ export function createTap({ takes, bar, toast, pick, go = (u) => { location.href
       const now = stateOf();
       const untouched = last === name && now.take === began.take && now.touches === began.touches && !np?.playing?.();
       if (np && untouched) { np.loadTake(t, p); say(name, 'Ready — tap to play', 'ok'); }
-      else say(name, `${spineTitle(t)} is ready — tap it`, 'ok');
+      else say(name, `${named(spineTitle(t))} is ready — tap it`, 'ok');
     };
     const step = async () => {
       n++;

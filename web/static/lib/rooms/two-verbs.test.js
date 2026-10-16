@@ -64,6 +64,6 @@ test('a take’s GRAB: Open, the notes, and the take page’s Send to (the sheet
   // The shelf has no GRAB key of its own: a tap plays, and GRAB is on Open.
   assert.doesNotMatch(doorway, /'room-studio'|sendToStudio|takeGrabSpan/, 'the doorway no longer carries a take’s GRAB');
   assert.doesNotMatch(chair, /'to the studio'/, 'a note’s key says GRAB');
-  assert.match(chair, /send-to-tape|send-grab/, 'the take page’s Send to → Tape and → Clipboard are made over by Open');
-  assert.match(chair, /send-grab/);
+  assert.match(chair, /send-btn/, 'the take page’s Send to ▾ is taken out of sight by Open (F8): GRAB is its Tape and its Clipboard');
+  assert.doesNotMatch(chair, /send-grab/, 'and has no GRAB of its own');
 });

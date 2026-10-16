@@ -398,7 +398,7 @@ test('the buffer’s line and its notes', () => {
   assert.equal(bufferMeta({ ...board, grab: { ...grab, bar_frames: 0 } }, SR), '8.00 s');
   assert.equal(bufferNote(board), '');
   assert.match(bufferNote({ grab: { ...grab, wall: true, bars: 4, why: 'the tape isn’t playing' } }), /last 4 bars of time.*isn’t playing/);
-  assert.match(bufferNote({ grab: { ...grab, clamped: true } }), /clamped to what the ring still had/);
+  assert.match(bufferNote({ grab: { ...grab, clamped: true } }), /clamped to what the feed still had/);
   assert.match(bufferNote({ grab: { ...grab, stale: true } }), /before Hindsight restarted/);
   assert.notEqual(boardKey(board), boardKey({ ...board, grab: { ...grab, in: 5 } }));
   assert.equal(boardKey(null), '');

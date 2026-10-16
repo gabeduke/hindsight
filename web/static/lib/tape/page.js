@@ -54,6 +54,7 @@ import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
+import { say, named } from '../rooms/words.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -1143,7 +1144,7 @@ function auditionCrate(k) {
 async function dropCrate(k) {
   try {
     const d = await change(() => api(`/api/tapes/drop?${q()}`, { method: 'POST', body: { crate: k.id, track: state.track } }));
-    caughtToast(`Pasted “${k.name}” on track ${state.track}`, d.clip, { action: undoAction });
+    caughtToast(`Pasted “${named(k.name)}” on track ${state.track}`, d.clip, { action: undoAction });
     poll();
   } catch (e) {
     toast(`Could not paste it: ${e.message}`, 'bad');
@@ -1154,7 +1155,7 @@ async function dropCrate(k) {
 async function keep(body) {
   try {
     const b = await api('/api/crate', { method: 'POST', body });
-    toast(`Kept “${b.clip.name}” in the crate`, 'ok', { action: { label: 'Open', run: () => setDrawer('crate') } });
+    toast(`Kept “${named(b.clip.name)}” in the crate`, 'ok', { action: { label: 'Open', run: () => setDrawer('crate') } });
     fetchCrate(); // on a phone the crate is always on the page
   } catch (e) {
     toast(`Could not keep it: ${e.message}`, 'bad');
@@ -1223,7 +1224,7 @@ function wireCrate() {
     try {
       await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'DELETE' });
       fetchCrate();
-      toast(`Deleted “${k.name}”: it can come back for a week`, 'ok', {
+      toast(`Deleted “${named(k.name)}”: it can come back for a week`, 'ok', {
         action: { label: 'Undo', run: async () => {
           try { await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'PATCH', body: { restore: true } }); } catch (e) { toast(`Could not bring it back: ${e.message}`, 'bad'); }
           fetchCrate();
@@ -1499,7 +1500,7 @@ function renderClipBar() {
   if (bar.hidden) return;
   bar.querySelector('.clip-keys').hidden = !n;
   bar.querySelector('.range-keys').hidden = !r;
-  setIf(bar, 'aria-label', r ? 'Selected bars' : 'Selected clips');
+  setIf(bar, 'aria-label', r ? 'Selected bars' : say('Selected clips'));
   if (r) { renderRangeKeys(r); return; }
   const one = n === 1 && !state.multi ? ps[0] : null;
   setText($('multi-count'), one
@@ -1516,7 +1517,7 @@ function renderClipBar() {
   $('multi-add').setAttribute('aria-pressed', String(!!state.adding));
 }
 
-const clipsText = (n) => `${n} clip${n === 1 ? '' : 's'}`;
+const clipsText = (n) => say(`${n} clip${n === 1 ? '' : 's'}`);
 
 // --- ranges ---------------------------------------------------------------------
 // Bars across one or more tracks (lib/tape/range.js): an empty part of a
@@ -1564,7 +1565,7 @@ function renderRangeKeys(r) {
   const fits = !!c && pasteFits(r.t0, c.tracks.length, t.tracks.length);
   $('range-paste').disabled = !fits;
   $('range-insert').disabled = !fits || (!t.grid && !t.tracks.some((x) => x.clips.length));
-  const why = !c ? 'The clipboard is empty: Cut or Copy something first' : !fits ? `${c.tracks.length} tracks don't fit from track ${r.t0}` : '';
+  const why = !c ? say('The clipboard is empty: Cut or Copy something first') : !fits ? `${c.tracks.length} tracks don't fit from track ${r.t0}` : '';
   setIf($('range-paste'), 'title', why);
   setIf($('range-insert'), 'title', why);
   // ×2 doubles the loop on every track: there for a range that's both.
@@ -2637,14 +2638,14 @@ function wireSections() {
     const e = await edit('duplicate-section', { section: sc.id });
     if (e) {
       const t = state.tape;
-      toast(`${sc.name} twice in a row: ${sectionBars(e.section, t.grid, t.sample_rate)} is a copy, and what followed moved ${spanWords(e.frames, t.grid, t.sample_rate)} later`, 'ok', { action: undoAction });
+      toast(`${named(sc.name)} twice in a row: ${sectionBars(e.section, t.grid, t.sample_rate)} is a copy, and what followed moved ${spanWords(e.frames, t.grid, t.sample_rate)} later`, 'ok', { action: undoAction });
     }
   });
   $('section-remove').addEventListener('click', async () => {
     const id = sec.open;
     $('section-sheet').close();
     const sc = sectionsOf().find((x) => x.id === id);
-    if (sc && await edit('section-remove', { section: id })) toast(`Removed the section ${sc.name}; the audio under it stays`, 'ok', { action: undoAction });
+    if (sc && await edit('section-remove', { section: id })) toast(`Removed the section ${named(sc.name)}; the audio under it stays`, 'ok', { action: undoAction });
   });
   $('section-done').addEventListener('click', () => $('section-sheet').close());
   $('section-sheet').addEventListener('close', () => { sec.open = null; });
@@ -2654,7 +2655,7 @@ async function addSection(at, end) {
   const name = newName(sectionsOf());
   const e = await edit('section-add', { name, at, end });
   if (!e || !e.section) return;
-  toast(`Made ${name}, ${sectionBars(e.section, state.tape.grid, state.tape.sample_rate)}: tap it to select its bars`, 'ok', { action: undoAction });
+  toast(`Made ${named(name)}, ${sectionBars(e.section, state.tape.grid, state.tape.sample_rate)}: tap it to select its bars`, 'ok', { action: undoAction });
   openSection(e.section);
 }
 
@@ -2977,7 +2978,7 @@ function pickInput(n, name) {
   const r = state.live && state.live.record;
   const rp = recPair(r, n);
   if (rp && rp.source !== name) {
-    toast(`● Rec is ${r.state === 'armed' ? 'ready to record' : 'recording'} ${rp.source}: end it to record from ${name}`, 'warn');
+    toast(`● Rec is ${r.state === 'armed' ? 'ready to record' : 'recording'} ${named(rp.source)}: end it to record from ${named(name)}`, 'warn');
     return;
   }
   if (!n || (state.tape.inputs || [])[n - 1] === name) return;
@@ -3933,7 +3934,7 @@ async function rec() {
       const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace' }) }));
       const armed = b.record.state === 'armed';
       const on = onWords(recTracksOf(b.record)), source = recSources(b.record);
-      toast(armed ? `● Rec is ready on ${on}: press ▶ to count in, then it records ${source}` : `Recording ${source} onto ${on} from the next bar — tap ● again to keep it`, 'ok', {
+      toast(armed ? `● Rec is ready on ${on}: press ▶ to count in, then it records ${named(source)}` : `Recording ${named(source)} onto ${on} from the next bar — tap ● again to keep it`, 'ok', {
         ms: 8000, action: { label: 'Cancel', run: () => api(`/api/tapes/record?${q()}&cancel=1`, { method: 'DELETE' }).then(poll, () => {}) },
       });
     } else {
@@ -4338,7 +4339,7 @@ function fillClip(c) {
   inspectorSig = clipSig(c);
   const home = state.tape.tracks.find((tr) => tr.clips.some((x) => x.id === c.id));
   const lvl = typeof c.peak_db === 'number' && c.peak_db < QUIET ? ` · ${levelText(c.peak_db)} when caught` : '';
-  $('clip-title').textContent = `Clip on track ${home ? home.n : state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}${lvl}`
+  $('clip-title').textContent = `${say('Clip')} on track ${home ? home.n : state.track} · ${(c.frames / state.tape.sample_rate).toFixed(2)} s · ${c.source || ''}${lvl}`
     + (c.aligned === 'estimated' ? ' · caught before the lock: nudge it if it’s early or late' : '');
   if (!$('clip-gain').dataset.held) {
     $('clip-gain').value = String(c.gain_db || 0);
@@ -4618,7 +4619,7 @@ async function openMenu() {
     b.setAttribute('role', 'menuitem');
     b.dataset.tip = 'tape-load';
     b.className = t.id === state.id ? 'on' : '';
-    b.textContent = `${t.name}${t.bpm ? ` · ${t.bpm} BPM` : ''} · ${t.clips} clip${t.clips === 1 ? '' : 's'}`;
+    b.textContent = `${t.name}${t.bpm ? ` · ${t.bpm} BPM` : ''} · ${say(`${t.clips} clip${t.clips === 1 ? '' : 's'}`)}`;
     b.addEventListener('click', () => { closeMenus(); if (t.id !== state.id) loadTape(t.id); });
     return b;
   }));
@@ -4933,7 +4934,7 @@ function wire() {
     closeMenus();
     try {
       const t = await api(`/api/tapes/clone?${q()}`, { method: 'POST' });
-      toast(`Cloned as “${t.name}”`, 'ok', { action: { label: 'Open it', run: () => loadTape(t.id) } });
+      toast(`Cloned as “${named(t.name)}”`, 'ok', { action: { label: 'Open it', run: () => loadTape(t.id) } });
     } catch (e) { toast(e.message, 'bad'); }
   });
   $('tape-delete').addEventListener('click', async () => {
@@ -4945,7 +4946,7 @@ function wire() {
     const name = window.prompt(`Delete which tape? Type its name:\n${others.map((t) => t.name).join('\n')}`);
     const t = others.find((x) => x.name === (name || '').trim());
     if (!t) return;
-    try { await api(`/api/tapes?id=${encodeURIComponent(t.id)}`, { method: 'DELETE' }); toast(`Deleted “${t.name}”`); } catch (e) { toast(e.message, 'bad'); }
+    try { await api(`/api/tapes?id=${encodeURIComponent(t.id)}`, { method: 'DELETE' }); toast(`Deleted “${named(t.name)}”`); } catch (e) { toast(e.message, 'bad'); }
   });
   $('new-bpm').addEventListener('input', () => { $('new-bpm').dataset.touched = '1'; });
   $('set-tempo').addEventListener('click', () => patch({ tempo: { bpm: Number($('new-bpm').value), bars: Number($('new-bars').value) } }));

@@ -10,6 +10,7 @@ import { shelve, sheetState, tagCounts, fold, familyOf, matches, stopsOnPick } f
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 import { initNav } from '/lib/nav.js';
+import { named } from '/lib/rooms/words.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
 import { pageBar, takesFinder } from '/lib/bar/bar.js';
 import { watchLink, timedFetch } from '/lib/link.js';
@@ -398,7 +399,7 @@ async function playAllFrom(name) {
         toast('This browser wants a tap to play each take: ▶ Play all goes on from here', 'warn');
         return;
       }
-      toast(`Skipped ${t.label || name}: it wouldn't play`, 'warn');
+      toast(`Skipped ${named(t.label || name)}: it wouldn't play`, 'warn');
       moveOn(r);
       return;
     }

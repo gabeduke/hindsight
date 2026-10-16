@@ -201,25 +201,17 @@ export function mount(h) {
     grabKey.textContent = words;
     const what = st.region ? 'the selection' : st.grid.bpm > 0 ? `the ${grabN} bar${grabN === 1 ? '' : 's'} before the playhead` : `the ${2 * grabN} seconds before the playhead`;
     grabKey.setAttribute('aria-label', `${words}: ${what}, into the Studio’s buffer`);
-    if (sendGrab) {
-      sendGrab.firstChild.textContent = words;
-      sendGrabSub.textContent = st.region ? 'The selection, into the Studio’s buffer' : 'Before the playhead, into the Studio’s buffer';
-    }
   }
   loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); renderGrab(); });
 
-  // Send to ▾: Tape and Clipboard are GRAB now -- one request, the Studio's
-  // buffer, which DROP empties where the clipboard Pasted. Crate is gone with
-  // the crate (lib/rooms/nocrate.js).
+  // Send to ▾ goes: its Tape and Clipboard were GRAB, which has its own key
+  // beside KEEP, and its Crate is gone with the crate (lib/rooms/nocrate.js).
+  // wave/page.js shows the button once the Pi says it has a tape, so it is
+  // taken out of sight for good rather than hidden.
+  const sendBtn = $('send-btn');
+  if (sendBtn) sendBtn.style.display = 'none';
   const sendMenu = $('send-menu');
-  let sendGrab = null, sendGrabSub = null;
-  if (sendMenu) {
-    for (const id of ['send-to-tape', 'copy-take']) { const b = $(id); if (b) b.hidden = true; }
-    sendGrabSub = el('span', 'menu-sub');
-    sendGrab = el('button', '', { id: 'send-grab', type: 'button', role: 'menuitem', 'data-tip': 'send-grab' }, el('b'), sendGrabSub);
-    sendGrab.addEventListener('click', grabNow); // the menu closes itself on a choice
-    sendMenu.prepend(sendGrab);
-  }
+  if (sendMenu) sendMenu.style.display = 'none';
 
   // --- From this take, Earlier bounces ---------------------------------------------
   async function drawFamily() {

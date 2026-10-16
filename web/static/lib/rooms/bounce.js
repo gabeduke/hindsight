@@ -10,6 +10,7 @@
 // With the rooms off the tape page keeps Mix down; bounceMenu does nothing.
 
 import { spineTitle } from '../shelf.js';
+import { named } from './words.js';
 
 export const BOUNCE_WORDS = Object.freeze({
   loop: 'Bounce the loop',
@@ -169,7 +170,7 @@ export function bounceToast({ toast, name, message, player, go = (u) => location
 /** lastBounceToast is the same toast for the tape's newest bounce, from the menu, when the first has gone. */
 export function lastBounceToast({ toast, take, player, go }) {
   if (!take) return toast(`${NONE_YET}. Bounce the loop or the whole tape from this menu.`, 'ok');
-  return bounceToast({ toast, name: take.name, message: `${BOUNCE_WORDS.last}: ${spineTitle(take)}`, player, go, take });
+  return bounceToast({ toast, name: take.name, message: `${BOUNCE_WORDS.last}: ${named(spineTitle(take))}`, player, go, take });
 }
 
 const sleepFor = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -278,7 +279,7 @@ export function takePlayer({
     }
     return Promise.resolve(played).then(() => {
       if (audio !== a) return; // it ended, or was stopped, before play() answered
-      note = toast(`Playing ${spineTitle(t)}`, 'ok', {
+      note = toast(`Playing ${named(spineTitle(t))}`, 'ok', {
         ms: ((t.duration_seconds || 0) + 3) * 1000,
         actions: [{ label: '■', run: stop }, { label: 'Open', run: () => go(openHref(name)) }],
       });

@@ -16,6 +16,7 @@
 
 import { FX_PADS, amountText } from './controls.js';
 import { ARMED, ON } from './surface.js';
+import { say } from '../rooms/words.js';
 
 /** SLIDE_PX: a finger sliding this far on a held pad moves its amount end to end. */
 export const SLIDE_PX = 140;
@@ -51,7 +52,7 @@ export function mountFX(ui, surface, amounts, {
   };
   const offs = [];
   const group = el('section', 'play-group play-fx-group');
-  group.append(el('h3', 'play-group-title', 'Punch-in FX · held, with an amount'));
+  group.append(el('h3', 'play-group-title', say('Punch-in FX · held, with an amount')));
   const grid = el('div', 'play-fx');
   group.append(grid);
 
@@ -164,7 +165,7 @@ export function mountFX(ui, surface, amounts, {
     /** setMixdown says the FX wait while a mixdown plays. */
     setMixdown(on) {
       group.classList.toggle('play-fx-waiting', !!on);
-      note.textContent = on ? 'A mixdown is playing: the FX wait. It prints the tape and its mods, never what’s held.' : '';
+      note.textContent = on ? say('A mixdown is playing: the FX wait. It prints the tape and its mods, never what’s held.') : '';
       note.hidden = !on;
     },
     /** setBend lights the bend while any hand holds it. */

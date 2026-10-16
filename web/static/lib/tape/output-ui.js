@@ -4,6 +4,7 @@
 import { StreamPlayer } from './stream-player.js';
 import { rejoin } from './listener.js';
 import { barBeat } from './geometry.js';
+import { named } from '../rooms/words.js';
 import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from './out-switch.js';
 
 const REPLAY_MS = 30000; // play on after a loss shorter than this
@@ -14,7 +15,7 @@ export function initOutput({ toast, poll, transport, getTape, getGhost = () => n
   let wasPlaying = false; // the tape was playing here when the stream was last fine
   const player = new StreamPlayer({
     onState: (s) => {
-      if (s === 'moved') toast(`${(getTape() && getTape().name) || 'The tape'} moved to another device`, 'warn');
+      if (s === 'moved') toast(`${named((getTape() && getTape().name) || 'The tape')} moved to another device`, 'warn');
       render(live);
     },
     onTransport: (kind) => transport(kind),
