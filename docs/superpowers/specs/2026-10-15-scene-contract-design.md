@@ -87,6 +87,7 @@ export class Scene {
 | `shelf` | `items` (ids in order), `gap` | each item's slot | DOM |
 | `device` | `profile`, and each port's `lit` and `level` | — | DOM, then three.js (R6) |
 | `cable` | `from`, `to`, `kind`, `pending`, `declared` | the rope's points (R4) | SVG |
+| `prop` | its box in the room (`at`, `size`), `art`, `material`, `mount`, `twin` | itself: nothing moves it yet (`scene/prop.js`) | SVG: the Listening Room (`room/stage.js`) |
 
 ### Rules every renderer keeps
 
@@ -129,6 +130,33 @@ export class Scene {
   `motion.js`'s `ticker`.
 - The bench at `/objects.html` runs on the scene. That is how R1 is judged:
   **no visible change**, at every size, in both schemes.
+
+### The Listening Room as data (2026-10-16)
+
+The room is a list of props, not a painted backdrop. `lib/room/space.js`
+holds `ROOM`:
+
+- **`objects`**: each a box in centimetres -- `at` (its corner nearest the
+  floor, the wall and the left), `size` `{w, h, d}` -- with the `art` that
+  draws it, its `material` (tokens in `objects.css`), how it is `mount`ed
+  (`shell`, `wall`, `floor`, `on:<id>`), and, for the three that are
+  controls, its `twin` (the shelves, the deck, the sketchbook);
+- **`lights`**: the lamp's bulb (the key, a point) and the window (the fill,
+  an area), with a colour token, a power and a reach;
+- **`views`**: cameras at the doorway looking square at the wall -- an `eye`
+  and the `crop` of the wall plane the frame shows -- one wide, one tall.
+
+x runs along the wall, y up, z out toward the doorway. Shading (Lambert
+over an inverse-square falloff), floor shadows and shadows on the wall are
+derived from the lights (`diffuse`, `lit`, `floorShadow`, `wallShadow`),
+so moving the lamp moves every highlight and shadow.
+
+`room/stage.js` is a renderer on this contract: it draws each prop with its
+own art function (`room/art/`, one per object, `draw(o, ctx) → SVG`) once
+per view, and lays the twins over their projected boxes. A parallax (R3)
+or 3D renderer reads the same props, lights and twins: it needs a model per
+`art` (or extrudes the boxes), the materials as textures, the two lights,
+and to move the twins each frame to their projected boxes.
 
 ## The render briefs
 
