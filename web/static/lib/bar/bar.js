@@ -232,7 +232,7 @@ export function pageBar({ tapes, onToast, find = null }) {
     onNote: () => noteHere({ frameNow, stash: stashFrame, go: (u) => { location.href = u; } }),
   });
   const eject = () => { $('np-eject').hidden = !(tape && take); };
-  const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing(), loop: take.src.loop } : null);
+  const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing(), loop: take.src.loop, length: take.src.length } : null);
   const carry = pageCarry();
   const frameNow = () => carry.frameNow(heldState);
   const stashFrame = (f = heldState()) => carry.stashFrame(f);

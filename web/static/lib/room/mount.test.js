@@ -36,7 +36,7 @@ test('the takes and take pages reach the room only through start()', () => {
     assert.ok(!/from ['"][^'"]*room\/(?!mount\.js)/.test(src), `${name} imports a room module other than mount.js`);
   }
   assert.match(shelf, /startRoom\('doorway'/);
-  assert.match(wave, /startRoom\('chair'/);
+  assert.match(wave, /startRoom\('open'/);
   for (const page of ['../../takes.html', '../../wave.html']) {
     const html = read(page).replace(/<!--[\s\S]*?-->/g, '');
     assert.ok(!/class="[^"]*\b(room|chair|book)-/.test(html), `${page} carries room markup`);

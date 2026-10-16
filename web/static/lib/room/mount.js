@@ -1,8 +1,8 @@
 // web/static/lib/room/mount.js
 // The Listening Room's way in (docs/superpowers/specs/2026-10-15-listening-room-design.md).
 // With the rooms flag on (lib/rooms/flag.js), the takes page is the room
-// seen from the doorway (doorway.js) and a take's page is the chair
-// (chair.js). Each page hands start() a handle on what it already runs --
+// seen from the doorway (doorway.js) and a take's page is Open (open.js).
+// Each page hands start() a handle on what it already runs --
 // the rack, the sheet and the bar; the take, its flags and its clock -- so
 // the room adds a way of looking without a second copy of what it looks at.
 //
@@ -14,11 +14,11 @@ import { on } from '../rooms/flag.js';
 
 const LOADERS = {
   doorway: () => import('./doorway.js'),
-  chair: () => import('./chair.js'),
+  open: () => import('./open.js'),
 };
 
 /**
- * start mounts the room on `page` ('doorway' or 'chair') with the page's
+ * start mounts the room on `page` ('doorway' or 'open') with the page's
  * handle, or answers null with the flag off, touching nothing. `load`
  * fetches the room's module; tests pass their own.
  */

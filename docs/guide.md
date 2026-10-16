@@ -2091,16 +2091,13 @@ has no tip.
 | The deck (place) | A picture of the bar: what's in it and how far it has got. Press it to open it: a take on its page, the tape in the Studio |
 | Sketchbook (place) | The notes on what's in the bar. Press it to open it and write |
 | Open (the room’s bar) | Opens the tape in the bar, in the Studio. A take opens by its name in the bar |
-| PUT IT ON | Plays it: a take here, on this device; a tape on the Pi, loaded first |
-| GRAB (a take) | Into the Studio's buffer, and the Studio opens: a take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
-| Stand up | Out of the chair, back to the shelves |
-| The take on tape | The whole take, its notes in grease pencil. Tap to play from there |
-| ▸▸ | On five seconds |
-| ⏏ (the chair) | Out of the deck, and back to the shelves |
-| NOTE HERE | A note at what you hear now, with the cursor in its words |
-| Sticker | The take's one tag, as a sticker |
-| TOOLS | Everything else the take page does: the waveform, In and Out, the tempo, the MIDI lanes, Send to, More |
+| ✎ Note | A note at the playhead, with the cursor in its words |
+| GRAB (a take) | Into the Studio's buffer, and the Studio opens: the take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
 | GRAB (a note) | This note, to the next note or eight bars, into the Studio's buffer |
+| Tag (a take) | The take's one tag |
+| Made from | The take this one was cut from: a tap opens it |
+| From this take | What was cut from this take: a tap opens one |
+| Earlier bounces | Earlier bounces of this take's tape: a tap opens one |
 | ☰ List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
 | Show everything | Turns off the filter that's narrowing the shelves |
 | Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |

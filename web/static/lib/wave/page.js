@@ -41,7 +41,7 @@ import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
-import { openTheTape, pageCarry, takePageState } from '../bar/carry.js';
+import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom, roomOn } from '../room/mount.js';
 import { trimTakePage } from '../rooms/nocrate.js';
@@ -120,15 +120,15 @@ function writePref(key, value) {
 async function main() {
   // The page's link to the Pi; the real one is made once the page is up.
   let link = { ok() {}, fail() {} };
-  // What the Listening Room's chair hears of each redraw (lib/room/chair.js).
-  const chairHooks = new Set();
+  // What Open hears of each redraw (lib/room/open.js).
+  const openHooks = new Set();
   if (!file) {
-    // With the rooms on, a tape sits in the chair too: ?tape=ID.
-    const tape = new URLSearchParams(location.search).get('tape');
-    if (tape && roomOn()) {
-      initHelp({ page: 'take', toast });
-      initNav();
-      return startRoom('chair', { tape, toast });
+    // With the rooms on a tape opens in the Studio, where tapes live
+    // (?tape=ID). The Studio shows the tape it has
+    // loaded, and offers the rest from its own list.
+    if (new URLSearchParams(location.search).get('tape') && roomOn()) {
+      location.replace('/tape.html');
+      return;
     }
     return fail('No take given.');
   }
@@ -223,7 +223,7 @@ async function main() {
     if (lanes) lanes.draw();
     if (notes && !notes.running && notesVisible()) notes.draw();
     drawStrip();
-    for (const f of chairHooks) f();
+    for (const f of openHooks) f();
   }
   // Canvases don't restyle themselves when the device turns dark or light.
   // The overview caches its waveform, so that cache goes too.
@@ -1945,13 +1945,25 @@ async function main() {
   // the take as the Pi has it now, with a "Reconnecting…" note until it answers.
   link = watchLink(() => refetchTake(), { retryMs: 3000 });
 
-  // With the rooms on, this page is the Listening Room's chair: the room
-  // draws the deck, the take on tape and the sketchbook around the page,
-  // and folds the page's own tools under TOOLS (lib/room/chair.js). It
+  // With the rooms on, this page is Open (lib/room/open.js): it opens where
+  // the bar was (carry.arrival), and ✎ on the bar arrives with a note started
+  // at the frame that was heard. The room lays its words over the page and
   // works the take through this handle. With the rooms off, start() reads
   // the flag and stops.
-  startRoom('chair', {
+  const arrival = roomOn() ? pageCarry().arrival(file, total) : null;
+  if (arrival && (arrival.frame > 0 || arrival.play)) {
+    // The browser may refuse a sound nobody tapped for on this page (Safari
+    // on an iPhone always does): then the take waits at the frame the bar
+    // left it, paused, with ▶ one tap away, and no toast for it.
+    startOpen(arrival, {
+      seek: (f) => { seekTo(f); view.follow(Math.max(0, Math.min(total - 1, f))); },
+      pos: () => state.cursor,
+      play: () => togglePlay(),
+    });
+  }
+  startRoom('open', {
     file, take, sampleRate: sr, total, peaks: filePeaks, toast,
+    arrivalNote: arrival ? arrival.note : null,
     state: () => state,
     playing: () => clock.playing,
     togglePlay,
@@ -1981,8 +1993,8 @@ async function main() {
       redraw();
     },
     patch: (body) => patch(body),
-    onRedraw: (fn) => chairHooks.add(fn),
-  })?.catch((e) => console.error('The chair could not start:', e));
+    onRedraw: (fn) => openHooks.add(fn),
+  })?.catch((e) => console.error('Open could not start:', e));
   // Leaving, the take and where the playhead is go to the next page's bar
   // (lib/bar/carry.js), so Room -> Open -> back carries what was done here.
   // Opened and left alone (not played, the playhead where it began), the page

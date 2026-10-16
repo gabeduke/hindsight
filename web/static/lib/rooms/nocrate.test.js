@@ -128,7 +128,7 @@ test('a range’s Cut and Copy say what they replaced, with Undo, and ask the Pi
 });
 
 test('a page that is not the Studio lets a take’s GRAB note go', () => {
-  for (const f of ['../room/chair.js', '../room/doorway.js']) {
+  for (const f of ['../room/open.js', '../room/doorway.js']) {
     assert.match(read(f), /forget\(\)|forget\(sessionStorage|forgetNote\(\)/, `${f} lets the note go`);
   }
 });
