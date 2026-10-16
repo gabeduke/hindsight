@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.16.7 — 2026-10-16
+
+- Line the Studio's feed ribbon up with the tape lanes under it (37cb212)
+
+
 ## v2026.10.16.6 — 2026-10-16
 
 - Scrub and GRAB the live feed from the bar, curate takes in the Sketchbook, and remember folded tracks (3a38852)
