@@ -1063,6 +1063,19 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .update-btn[hidden], .releases-btn[hidden] { display: none; }
 .releases-sep { display: none; }
 .about.can-update .releases-sep { display: inline; }
+/* Settings is the only way into Settings anywhere in the app, so it is a
+   button, not a link's weight in the line: a pill with a 40px target, a size
+   up from the line's 12px. The negative margin gives back the height it takes
+   so the foot does not grow. (Releases and Update keep the link look above.) */
+.about #settings-btn {
+  font-size: 14px; font-weight: 600; line-height: 1.2; text-decoration: none;
+  min-height: 40px; padding: 0 18px; margin: -12px 4px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-hi); color: var(--ink);
+  display: inline-flex; align-items: center; vertical-align: middle;
+}
+@media (hover: hover) { .about #settings-btn:hover { border-color: var(--ink-faint); } }
+.about #settings-btn:active { transform: translateY(1px); }
 .update-btn:focus-visible, .releases-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 
 /* The releases sheet: the list to pick from, then what the pick changes. */
