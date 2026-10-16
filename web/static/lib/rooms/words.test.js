@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
-import { rename as say, renameToast, quoted, tipForRooms } from './words.js';
+import { rename as say, renameToast, tipForRooms } from './words.js';
 import { TIPS } from '../help/tips.js';
 import { CRATE_PARTS, TAKE_PARTS } from './nocrate.js';
 
@@ -212,7 +212,47 @@ const shown = (s) => (/^\s*</.test(s) ? markupText(s).map(([, t]) => t) : [s]);
 
 // A literal reaches the screen in the rooms' words when it is wrapped in say()
 // where it is made, or handed to toast(), which says its message.
-const SAYS = /\bsay\(|\btoast\(|\bcaughtToast\(/;
+const SAYS = /\bsay\(|\b\w*[tT]oast\(|onToast\??\.?\(/;
+
+// ---- names a person typed must not go through the words layer unmarked ------
+/** holes is the ${...} expressions of a template literal's text. */
+export function holes(raw) {
+  const out = [];
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] === '$' && raw[i + 1] === '{') {
+      let depth = 1;
+      let j = i + 2;
+      for (; j < raw.length && depth; j++) { if (raw[j] === '{') depth++; else if (raw[j] === '}') depth--; }
+      out.push(raw.slice(i + 2, j - 1));
+      i = j - 1;
+    }
+  }
+  return out;
+}
+const NAMEY = /\b(label|name|names|title|tag|section|sc|text|spineTitle|takeTitle|getTape)\b/;
+// [file, expression it holds, why it is not a name a person typed]
+const NOT_NAMES = [
+  ['lib/tape/page.js', 'next.label.slice(1)', 'the label of an action button the page itself drew (Insert 1 bar), not typed by anyone'],
+  ['lib/tape/page.js', 'sectionBars(e.section', 'a count of bars, not the section’s name'],
+  ['lib/tape/page.js', 't.name', 'a button’s text set directly: the name is not passed through say(), only its clip count is'],
+  ['lib/update.js', 'u.tag', 'a release tag the Pi names, not typed by anyone'],
+];
+test('a name a person typed goes into a toast or say() wrapped by named(), or is listed with its reason', () => {
+  const bad = [];
+  for (const f of MODULES) {
+    const src = read(f);
+    const lines = src.split('\n');
+    for (const [line, raw] of literals(src)) {
+      if (!SAYS.test(lines[line - 1])) continue;
+      for (const h of holes(raw)) {
+        if (!NAMEY.test(h) || h.includes('named(')) continue;
+        if (NOT_NAMES.some(([nf, nh]) => nf === f && h.includes(nh))) continue;
+        bad.push(`${f}:${line}: \${${h}} is not wrapped in named()`);
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
+});
 
 test('no retired word in a string a rooms page’s modules build, or it is said in the rooms’ words', () => {
   const bad = [];

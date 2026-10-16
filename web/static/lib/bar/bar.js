@@ -17,6 +17,7 @@ import { initPlayer } from './player.js';
 import { pageCarry, isStudio } from './carry.js';
 import { createHandoff, takesFinder } from './handoff.js';
 import { on as roomsOn } from '../rooms/flag.js';
+import { named } from '../rooms/words.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
 import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
@@ -347,7 +348,7 @@ function tapeStream(tape, onToast) {
   let wasPlaying = false;
   const player = new StreamPlayer({
     onState: (s) => {
-      if (s === 'moved') onToast?.(`${tape.title} moved to another device`, 'warn');
+      if (s === 'moved') onToast?.(`${named(tape.title)} moved to another device`, 'warn');
       tape.changed();
     },
     onTransport: (kind) => (kind === 'play' ? tape.play() : tape.pause()),

@@ -32,6 +32,7 @@ import { toast as defaultToast } from '../toast.js';
 import { restoreTake } from '../trash.js';
 import { takeBack } from '../rooms/keep.js';
 import { takeTitle } from '../rooms/takename.js';
+import { named } from '../rooms/words.js';
 import { followLoop, readPick, writePick } from '../rooms/grab.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
 import { replacedWords, replacedLine, recall, raiseUndo, undoWords } from './replaced.js';
@@ -281,7 +282,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     st.chosen = next;
     if (!g) { render(); return; }
     send(() => api.grab({ again: true, sources: next, crate: false }))
-      .catch((e) => toast(`Could not take ${name}: ${e.message}`, 'bad'));
+      .catch((e) => toast(`Could not take ${named(name)}: ${e.message}`, 'bad'));
   }
 
   // --- the window ----------------------------------------------------------------
@@ -387,7 +388,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     if (!st.board) return;
     send(() => api.keep())
       .then((k) => {
-        toast(`Kept “${k.label}” as a take: it’s on the Listening Room’s shelf`, 'ok', {
+        toast(`Kept “${named(k.label)}” as a take: it’s on the Listening Room’s shelf`, 'ok', {
           actions: [
             { label: 'Name it', run: () => location.assign(`/takes.html?take=${encodeURIComponent(k.name)}`) },
             { label: 'Undo', run: () => untake(k.name, k.label) },
@@ -400,7 +401,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
 
   async function untake(name, label) {
     try { await takeBack(name); } catch (e) { toast(`Could not undo it: ${e.message}`, 'bad'); return; }
-    toast(`Took back ${takeTitle(name, undefined, label)}: it’s in Recently deleted`, 'ok', {
+    toast(`Took back ${named(takeTitle(name, undefined, label))}: it’s in Recently deleted`, 'ok', {
       action: { label: 'Restore', run: () => restoreTake(name).then(() => toast('Restored, starred')).catch((e) => toast(`Could not restore: ${e.message}`, 'bad')) },
     });
   }

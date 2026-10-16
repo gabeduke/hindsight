@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDoc, FakeEl } from '../play/fake-dom.js';
 import { createTap, wireRack, askedTake } from './tap.js';
-
+import { unmark } from '../rooms/words.js'; // lib/toast.js takes the markers off a name; so does this
 // A take list with players that remember what was done to them.
 function stage({ encoding = [], noPlayer = [], readyAfter = {}, slow = false, refuse = false, flyThrows = false } = {}) {
   const log = [];
@@ -67,7 +67,7 @@ function stage({ encoding = [], noPlayer = [], readyAfter = {}, slow = false, re
   const tick = async () => { const t = timers.shift(); if (t) await t.fn(); return !!t; };
   // A toast that can be put away, as lib/toast.js's is.
   const shown = [];
-  const toast = (m, k, o) => { const t = { m, k, o, live: true, dismiss() { this.live = false; } }; toasts.push([m, k, o]); shown.push(t); return t; };
+  const toast = (m, k, o) => { m = unmark(m); const t = { m, k, o, live: true, dismiss() { this.live = false; } }; toasts.push([m, k, o]); shown.push(t); return t; };
   const tap = createTap({
     takes, bar: () => np, toast, pick: (n) => picks.push(n), go: (u) => went.push(u), later,
     onPlay: (n, o) => { log.push(`fly ${n} ${o.placed ? 'placed' : 'resumed'}`); if (flyThrows) throw new Error('no flight'); },
