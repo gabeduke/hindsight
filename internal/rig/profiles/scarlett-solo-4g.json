@@ -1,0 +1,151 @@
+{
+  "id": "scarlett-solo-4g",
+  "name": "Focusrite Scarlett Solo 4th Gen",
+  "short": "Scarlett Solo",
+  "maker": "Focusrite",
+  "match": {},
+  "placeholder": true,
+  "note": "Ports from Focusrite's specification page. Its USB id and which capture channel is which are not captured yet, so the rig matches it by nothing and draws no taps. Port labels are descriptions, not panel markings, until they are read off the unit.",
+  "source": "https://userguides.focusrite.com/hc/en-gb/articles/17505454908562-Solo-4th-Gen-Specifications",
+  "ports": [
+    {"id": "mic", "label": "MIC", "kind": "audio", "dir": "in", "about": "Rear XLR: mic preamp with phantom power, 57 dB gain range."},
+    {"id": "inst", "label": "INST/LINE", "kind": "audio", "dir": "in", "about": "Front 6.35 mm jack: instrument (Hi-Z) or line input."},
+    {"id": "out-l", "label": "OUT L", "kind": "audio", "dir": "out", "about": "Rear balanced 6.35 mm TRS, left."},
+    {"id": "out-r", "label": "OUT R", "kind": "audio", "dir": "out", "about": "Rear balanced 6.35 mm TRS, right."},
+    {"id": "phones", "label": "PHONES", "kind": "audio", "dir": "out", "about": "Front 6.35 mm stereo headphone output."},
+    {"id": "usb", "label": "USB-C", "kind": "usb", "dir": "both", "in": 4, "out": 2, "about": "USB 2.0 audio, 4 in (two inputs and two loopback channels) and 2 out, up to 192 kHz at 24-bit."}
+  ],
+  "hardware": {
+    "extending": "The self-contained kit's capture interface (a Pi 4B, this interface, a phone as the screen). To activate it: set match.usb to the captured \"1235:xxxx\" id, work out which capture channel is which, add taps, and drop 'placeholder'. Check whether the loopback channels should be left out of a KEEP. Everything under \"hardware\" is ignored by the Go loader: it is notes for people, and for a later registry (docs/superpowers/specs/2026-10-15-device-profiles-design.md). To fill this profile from a real unit, follow 'Capturing an unknown device' in docs/hardware/README.md, then flip statuses from 'unconfirmed' or 'to-capture' to 'owner'.",
+    "kinds": [
+      "audio-interface"
+    ],
+    "usb": [
+      {
+        "vid": "0x1235",
+        "pid": null,
+        "status": "hinted"
+      }
+    ],
+    "names": [
+      "Scarlett Solo",
+      "Focusrite"
+    ],
+    "connection": {
+      "to_pi": "planned",
+      "note": "Ordered (Oct 2026) for the first self-contained test kit: a spare Pi 4B, this interface on USB, a phone as the interface. Bus-powered, so check the Pi's USB power budget with it plugged in."
+    },
+    "audio": {
+      "status": "sourced",
+      "inputs": [
+        {
+          "id": "mic",
+          "connector": "rear XLR",
+          "notes": "Mic preamp with phantom power, 57 dB gain range."
+        },
+        {
+          "id": "inst-line",
+          "connector": "front 6.35 mm jack",
+          "notes": "Instrument (Hi-Z, 1 MOhm) or line (60 kOhm) input."
+        }
+      ],
+      "loopback": {
+        "channels": 2,
+        "as_inputs": [
+          3,
+          4
+        ],
+        "status": "sourced",
+        "$comment": "Loopback appears as extra input channels 3 and 4. A capture path that records every input channel would record the computer's own output too. How this shows up under ALSA on a Pi is an unknown below."
+      },
+      "outputs": [
+        {
+          "id": "line",
+          "connector": "two rear balanced 6.35 mm TRS"
+        },
+        {
+          "id": "headphones",
+          "connector": "front 6.35 mm stereo TRS"
+        }
+      ],
+      "simultaneous_io": "4 in x 2 out, counting the two loopback inputs",
+      "sample_rates_hz": [
+        44100,
+        48000,
+        88200,
+        96000,
+        176400,
+        192000
+      ],
+      "bit_depth": 24,
+      "features": [
+        "Air mode",
+        "Direct monitor (front LED)",
+        "Loopback"
+      ]
+    },
+    "midi": {
+      "status": "sourced",
+      "ports": 0,
+      "$comment": "Focusrite's specification page lists no MIDI ports. Treat as no MIDI until a unit shows otherwise."
+    },
+    "storage": {
+      "status": "sourced",
+      "present": false
+    },
+    "controls": {
+      "status": "unconfirmed",
+      "$comment": "Gain knobs, 48V and Air buttons, input selector, direct monitor and a monitor level knob are what the product page implies. Not read from a manual here; fill in from the user guide before drawing a diagram that labels them."
+    },
+    "quirks": [
+      {
+        "text": "USB 2.0 Type-C, bus-powered at up to 900 mA.",
+        "status": "sourced"
+      },
+      {
+        "text": "Focusrite's specification page does not say whether the unit is USB class compliant.",
+        "status": "sourced"
+      }
+    ],
+    "unknowns": [
+      {
+        "question": "USB product id",
+        "how": "Plug it into the Pi and run: lsusb | grep -i focusrite   (record the id after 1235:)"
+      },
+      {
+        "question": "Does it enumerate on the Pi without a vendor driver, with all 4 capture channels?",
+        "how": "arecord -l ; arecord -D hw:<card> --dump-hw-params   (look at CHANNELS)"
+      },
+      {
+        "question": "How do the loopback channels appear, and should capture skip them by default?",
+        "how": "arecord -D hw:<card> -c 4 -f S32_LE -r 48000 -d 5 /tmp/t.wav while playing audio elsewhere; check channels 3 and 4"
+      },
+      {
+        "question": "Does the Pi's USB power budget hold with it plugged in?",
+        "how": "dmesg | grep -iE 'under-voltage|usb' after a few minutes of capture"
+      }
+    ],
+    "hindsight": {
+      "behavior": "inform-only",
+      "role": "Capture interface of the self-contained kit; replaces the Sidekick as the audio path where the Sidekick is not packaged.",
+      "notes": [
+        "Hindsight records from the Sidekick on the main rig. This interface is the audio path on a kit that has no Sidekick."
+      ]
+    },
+    "images": [
+      "scarlett-solo-front",
+      "scarlett-solo-rear",
+      "scarlett-solo-front-elevated"
+    ],
+    "refs": {
+      "focusrite-specs": {
+        "title": "Solo 4th Gen Specifications (Focusrite user guides)",
+        "url": "https://userguides.focusrite.com/hc/en-gb/articles/17505454908562-Solo-4th-Gen-Specifications"
+      },
+      "focusrite-product": {
+        "title": "Scarlett Solo 4th Generation (Focusrite)",
+        "url": "https://us.focusrite.com/products/scarlett-solo"
+      }
+    }
+  }
+}
