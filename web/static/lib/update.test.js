@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buttonLabel, phase, plan, cmpVersion, versionParts, askAboutUpdates, initUpdate } from './update.js';
+import { buttonLabel, phase, plan, cmpVersion, versionParts, askAboutUpdates, initUpdate, shortDate } from './update.js';
 
 const T = 'v2026.10.09.2';
 const since = Date.parse('2026-10-09T15:00:00Z');
@@ -139,4 +139,13 @@ test('initUpdate makes no request to /api/update where status says there is no u
     globalThis.document = saved.document;
   }
   assert.ok(!asked.some((u) => u.startsWith('/api/update')), `asked ${asked.join(', ')}`);
+});
+
+// The list's date has its own line under the tag; it drops the year (the
+// tag has it) and keeps day and time apart, so it breaks rather than clips.
+test('a release date is short: day, then time, no year', () => {
+  assert.equal(shortDate('2026-10-16T15:20:00Z', { locale: 'en-GB', timeZone: 'UTC' }), 'Fri 16 Oct · 15:20');
+  assert.doesNotMatch(shortDate('2026-10-16T15:20:00Z', { locale: 'en-US', timeZone: 'UTC' }), /2026/);
+  assert.equal(shortDate(''), '');
+  assert.equal(shortDate('not a date'), '');
 });

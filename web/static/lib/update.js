@@ -109,11 +109,19 @@ export function phase(tag, since, info, status) {
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** shortDate is 'Fri 9 Oct, 10:55' in the viewer's time. */
-function shortDate(iso) {
+/**
+ * shortDate is when a release came out, 'Fri 9 Oct · 10:55' in the viewer's
+ * time and words: no year (the tag has it), and the day apart from the time,
+ * so a narrow row breaks between them rather than cutting the time off.
+ * `opts` ({locale, timeZone}) is for the tests.
+ */
+export function shortDate(iso, opts = {}) {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  if (!iso || Number.isNaN(d.getTime())) return '';
+  const tz = opts.timeZone ? { timeZone: opts.timeZone } : {};
+  const day = d.toLocaleDateString(opts.locale, { weekday: 'short', day: 'numeric', month: 'short', ...tz });
+  const time = d.toLocaleTimeString(opts.locale, { hour: '2-digit', minute: '2-digit', ...tz });
+  return `${day} · ${time}`;
 }
 
 /**
@@ -212,19 +220,33 @@ export async function initUpdate() {
       row.tabIndex = on ? 0 : -1;
     }
     const p = plan(releases, info.running, tag);
+    // The list marks the releases the move passes over, from the running
+    // one to the pick: green going forward, amber going back.
+    const span = new Set(p.groups.map((g) => g.tag));
+    listEl.dataset.way = p.way;
+    for (const row of listEl.querySelectorAll('.release-row')) row.classList.toggle('in-plan', span.has(row.dataset.tag));
     changesEl.replaceChildren();
     if (p.groups.length) {
       changesEl.append(el('h4', 'release-changes-head', p.way === 'back' ? 'This takes out' : 'This brings in'));
       for (const g of p.groups) {
+        // A card a release: its tag and date, then its notes, each marked
+        // + for what comes in or − for what goes.
         const sec = el('section', 'release-group' + (p.way === 'back' ? ' out' : ''));
-        sec.append(el('div', 'release-group-tag', g.tag));
+        const head = el('div', 'release-group-head');
+        head.append(el('span', 'release-group-tag', g.tag));
+        const when = shortDate(releases.find((r) => r.tag === g.tag)?.date);
+        if (when) head.append(el('span', 'release-group-date', when));
+        sec.append(head);
         const ul = el('ul');
-        for (const c of g.changes.length ? g.changes : ['No notes for this release']) ul.append(el('li', null, c));
+        if (g.changes.length) for (const c of g.changes) ul.append(el('li', null, c));
+        else ul.append(el('li', 'none', 'No notes for this release'));
         sec.append(ul);
         changesEl.append(sec);
       }
     }
     if (p.note) changesEl.append(el('p', 'release-note', p.note));
+    // A new pick reads from its head, not from where the last one was scrolled.
+    changesEl.scrollTop = 0;
     go.hidden = !p.action;
     go.textContent = p.action || 'Update';
     go.disabled = false;
@@ -244,7 +266,14 @@ export async function initUpdate() {
       row.type = 'button';
       row.setAttribute('role', 'radio');
       row.dataset.tag = r.tag;
-      row.append(el('span', 'release-tag', r.tag), el('span', 'release-date', shortDate(r.date)));
+      // A lamp for the pick, then the tag over its date, then a badge.
+      const led = el('span', 'release-led');
+      led.setAttribute('aria-hidden', 'true');
+      const what = el('span', 'release-what');
+      what.append(el('span', 'release-tag', r.tag));
+      const when = shortDate(r.date);
+      if (when) what.append(el('span', 'release-date', when));
+      row.append(led, what);
       // A deploy.sh build (v…-2-gabc1234) is running its release plus commits.
       if (cmpVersion(r.tag, info.running) === 0) row.append(el('span', 'release-badge running', r.tag === info.running ? 'running' : 'running +'));
       else if (r.tag === releases[0].tag) row.append(el('span', 'release-badge', 'latest'));

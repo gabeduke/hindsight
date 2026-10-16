@@ -639,3 +639,21 @@ test('the Settings button is a button-sized target, not a link in the line', () 
   assert.match(body, /border:\s*1px solid var\(--line\)/, 'it has an edge, so it reads as a button');
   assert.match(body, /text-decoration:\s*none/, 'and is not underlined like a link');
 });
+
+// A phone showed "Fri, Oct 16, 11:2…": the date sat on the tag's line and
+// was cut off. It has a line of its own now, and nothing may cut it.
+test('a release row never cuts its date off', () => {
+  const rows = RULES.filter((r) => r.sel.some((s) => /\.release-(date|tag|what)\b/.test(s)));
+  assert.ok(rows.length);
+  for (const r of rows) assert.doesNotMatch(r.body, /text-overflow:\s*ellipsis|white-space:\s*nowrap/, r.sel.join(', '));
+  assert.ok(RULES.some((r) => r.sel.some((s) => /\.release-what$/.test(s)) && /flex-direction:\s*column/.test(r.body)), 'the tag sits over its date');
+});
+
+// On a touch screen the foot's Releases and Update are a finger tall without
+// the line growing (they measured 29px), by a hit area past their words.
+test('Releases and Update reach a finger on a touch screen', () => {
+  const coarse = [...bare.matchAll(/@media \(pointer: coarse\)/g)].map((m) => block(m.index, bare)).join('\n');
+  for (const id of ['releases-btn', 'update-btn']) {
+    assert.match(coarse, new RegExp(`\\.about #${id}::after[^{]*\\{[^}]*inset:`), id);
+  }
+});
