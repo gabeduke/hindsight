@@ -1,0 +1,221 @@
+{
+  "id": "mpc-sample",
+  "name": "Akai MPC Sample",
+  "short": "MPC Sample",
+  "maker": "Akai Professional",
+  "match": {"midi": "MPC Sample"},
+  "placeholder": true,
+  "note": "Ports from Akai's guide. The MIDI name to match is a guess until `amidi -l` has been run with it plugged into the Pi; its USB id is not captured. Port labels are descriptions, not panel markings, until they are read off the unit.",
+  "source": "https://www.akaipro.com/guides/mpc-sample/features.htm",
+  "ports": [
+    {"id": "in-l", "label": "IN L", "kind": "audio", "dir": "in", "about": "6.35 mm TRS line-level input."},
+    {"id": "in-r", "label": "IN R", "kind": "audio", "dir": "in", "about": "6.35 mm TRS line-level input."},
+    {"id": "out-l", "label": "OUT L", "kind": "audio", "dir": "out", "about": "6.35 mm TRS line-level output."},
+    {"id": "out-r", "label": "OUT R", "kind": "audio", "dir": "out", "about": "6.35 mm TRS line-level output."},
+    {"id": "phones", "label": "PHONES", "kind": "audio", "dir": "out", "about": "Headphone output. Plugging in headphones switches the built-in speaker off."},
+    {"id": "midi-in", "label": "MIDI IN", "kind": "midi", "dir": "in", "about": "MIDI into the MPC: clock, Start and Stop, and notes that play its pads. A setting picks the two TRS jacks or USB."},
+    {"id": "midi-out", "label": "MIDI OUT", "kind": "midi", "dir": "out", "about": "MIDI from the MPC: pad notes, with Pad MIDI Out set to Always. A setting picks the two TRS jacks or USB."},
+    {"id": "sync-out", "label": "SYNC OUT", "kind": "sync", "dir": "out", "about": "3.5 mm TS: a 5 V clock pulse for modular gear."},
+    {"id": "usb", "label": "USB-C", "kind": "usb", "dir": "both", "in": 2, "about": "One port for power, MIDI, a 2-channel audio interface and SD card access. Whether its own output reaches the host is not confirmed."}
+  ],
+  "hardware": {
+    "extending": "Nothing here has been tried on a Pi; how the MPC behaves on Linux is the first thing to settle. To activate it: confirm the MIDI port name with `amidi -l` and fix match.midi, capture the pad note map with `aseqdump` and add it under hardware.midi.pad_note_map. A pad map is what lets a virtual 4x4 bank line up with the real pads. Everything under \"hardware\" is ignored by the Go loader: it is notes for people, and for a later registry (docs/superpowers/specs/2026-10-15-device-profiles-design.md). To fill this profile from a real unit, follow 'Capturing an unknown device' in docs/hardware/README.md, then flip statuses from 'unconfirmed' or 'to-capture' to 'owner'.",
+    "kinds": [
+      "sampler",
+      "midi-controller",
+      "audio-interface"
+    ],
+    "usb": [
+      {
+        "vid": "0x09e8",
+        "pid": null,
+        "mode": "midi/audio",
+        "status": "hinted"
+      },
+      {
+        "vid": null,
+        "pid": null,
+        "mode": "sd-card-access",
+        "status": "to-capture"
+      }
+    ],
+    "names": [
+      "MPC Sample",
+      "MPC"
+    ],
+    "connection": {
+      "to_pi": "none",
+      "note": "Plays through the Sidekick, usually channel 2. Plugging it into the Pi over USB is being considered; the single USB-C port is shared by power, MIDI, audio and the SD card."
+    },
+    "audio": {
+      "status": "sourced",
+      "usb_interface": "2-channel interface (can sample from the host)",
+      "usb_output_to_host": {
+        "status": "unconfirmed",
+        "$comment": "Whether the MPC's own output reaches the host over USB is not documented."
+      },
+      "jacks": {
+        "in": "two 6.35 mm TRS line-level",
+        "out": "two 6.35 mm TRS line-level",
+        "headphones": true,
+        "speaker": true
+      },
+      "recording": "24-bit, 44.1 kHz",
+      "import_formats": [
+        "WAV",
+        "AIFF",
+        "MP3",
+        "FLAC",
+        "OGG"
+      ]
+    },
+    "midi": {
+      "status": "sourced",
+      "ports": [
+        "USB",
+        "TRS Type A in",
+        "TRS Type A out"
+      ],
+      "one_active_port_at_a_time": "The MIDI port setting picks the two TRS jacks or USB.",
+      "settings": [
+        "in channel (all or 1-16)",
+        "out channel",
+        "Pad MIDI In",
+        "Pad MIDI Out (Never, Always, Empty)",
+        "Sync in/out (MIDI clock or MTC)",
+        "MIDI thru",
+        "Receive Program Change (selects sequences)"
+      ],
+      "sync_out_pulse": "3.5 mm TS, 5 V clock pulse for modular gear",
+      "pad_note_map": {
+        "status": "unconfirmed",
+        "$comment": "Not published. MPCs usually start at note 36. Capture it with aseqdump while hitting pads 1-16."
+      }
+    },
+    "storage": {
+      "status": "sourced",
+      "internal": "8 GB, 2 GB of it factory content",
+      "card": "microSD; Project > SD Card Access mounts it as a drive over USB",
+      "layout": {
+        "status": "unconfirmed",
+        "paths": [
+          "MPC-Sample/Projects/",
+          "MPC-Sample/Samples/User/"
+        ],
+        "$comment": "From owner reports on MPC-Forums, not a maker document."
+      },
+      "project_format": {
+        "status": "unconfirmed",
+        "note": ".xpj, reported as gzip-compressed JSON by a third-party converter; reverse-engineered, not documented by Akai."
+      },
+      "limits": "128 samples and 128 sequences per project"
+    },
+    "controls": {
+      "status": "sourced",
+      "pads": "16 velocity-sensitive with poly aftertouch",
+      "knobs": [
+        "REC GAIN",
+        "MAIN VOLUME",
+        "K1",
+        "K2",
+        "K3",
+        "encoder"
+      ],
+      "fader": "1; pad volume by default, assignable with SHIFT + PAD 9",
+      "mode_buttons": [
+        "SAMPLE",
+        "SEQ",
+        "PAD FX",
+        "KNOB FX"
+      ],
+      "pad_play_buttons": [
+        "CHOP",
+        "LOOP",
+        "MUTE",
+        "16 LEVELS",
+        "SAMPLE RECORD",
+        "SEQ RECORD",
+        "PLAY",
+        "STOP"
+      ]
+    },
+    "quirks": [
+      {
+        "text": "One USB-C port carries power, MIDI, audio and SD card access. SD Card Access is a mode picked on the device; MIDI over USB is probably unavailable while it is on.",
+        "status": "unconfirmed"
+      },
+      {
+        "text": "Akai lists Mac, Windows, iOS and Android as hosts, not Linux.",
+        "status": "sourced"
+      },
+      {
+        "text": "Battery powered; charging may only work with the unit off, depending on cable and source (5 V / 2 A recommended).",
+        "status": "sourced"
+      }
+    ],
+    "unknowns": [
+      {
+        "question": "Does it appear as a MIDI device on the Pi with the MIDI port set to USB?",
+        "how": "amidi -l ; aconnect -l"
+      },
+      {
+        "question": "Pad note map and channel",
+        "how": "aseqdump -p <port>  then hit pads 1-16"
+      },
+      {
+        "question": "Does it appear as an audio device, and with how many channels in and out?",
+        "how": "arecord -l ; aplay -l"
+      },
+      {
+        "question": "USB vendor and product ids, in each mode",
+        "how": "lsusb, once normally and once with Project > SD Card Access on"
+      },
+      {
+        "question": "Does the SD card mount on the Pi in SD Card Access mode?",
+        "how": "lsblk after switching the mode on; copy a WAV into MPC-Sample/Samples/User/ and check the MPC sees it"
+      },
+      {
+        "question": "Does a sequence follow MIDI clock from the Pi?",
+        "how": "Sync in = MIDI Clock on the MPC, then send clock from the Pi"
+      }
+    ],
+    "hindsight": {
+      "behavior": "inform-only",
+      "role": "One-shot and finger-drumming instrument. Notes are made on it; its audio is caught by Hindsight through the Sidekick.",
+      "notes": [
+        "Direction under discussion: assign clips to pads on a virtual MPC in Hindsight, and carry the bank to the real MPC as a kit on its card (the MPC then plays them itself).",
+        "Needs the pad note map above before a virtual bank can line up with the real pads."
+      ]
+    },
+    "images": [
+      "mpc-sample-ports",
+      "mpc-sample-top"
+    ],
+    "refs": {
+      "akai-features": {
+        "title": "MPC Sample guide: features (Akai)",
+        "url": "https://www.akaipro.com/guides/mpc-sample/features.htm"
+      },
+      "akai-midi": {
+        "title": "MPC Sample guide: MIDI configuration (Akai)",
+        "url": "https://www.akaipro.com/guides/mpc-sample/midi_configuration.htm"
+      },
+      "akai-project": {
+        "title": "MPC Sample guide: Project (Akai)",
+        "url": "https://www.akaipro.com/guides/mpc-sample/project.htm"
+      },
+      "akai-faq": {
+        "title": "MPC Sample FAQ (Akai)",
+        "url": "https://support.akaipro.com/en/support/solutions/articles/69000876967-mpc-sample-frequently-asked-questions"
+      },
+      "mpc-forums": {
+        "title": "MPC-Forums thread on the card layout",
+        "url": "https://www.mpc-forums.com/viewtopic.php?p=1902658"
+      },
+      "kit-converter": {
+        "title": "mpcsample-kit-converter (third party, MIT)",
+        "url": "https://github.com/ab1428x/mpcsample-kit-converter"
+      }
+    }
+  }
+}

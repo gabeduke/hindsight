@@ -1,0 +1,174 @@
+{
+  "id": "zoom-r20",
+  "name": "Zoom R20",
+  "short": "R20",
+  "maker": "Zoom",
+  "match": {},
+  "placeholder": true,
+  "note": "A reference recorder, not on the Pi. Ports from Zoom's manual. Its USB ids are not captured, so the rig matches it by nothing. Port labels are descriptions, not panel markings, until they are read off the unit.",
+  "source": "https://zoomcorp.com/manuals/r20-en/",
+  "ports": [
+    {"id": "in1", "label": "IN 1", "kind": "audio", "dir": "in", "about": "XLR or 6.35 mm combo jack. Hi-Z switch."},
+    {"id": "in2", "label": "IN 2", "kind": "audio", "dir": "in", "about": "XLR or 6.35 mm combo jack."},
+    {"id": "in3", "label": "IN 3", "kind": "audio", "dir": "in", "about": "XLR jack."},
+    {"id": "in4", "label": "IN 4", "kind": "audio", "dir": "in", "about": "XLR jack."},
+    {"id": "in5", "label": "IN 5", "kind": "audio", "dir": "in", "about": "XLR jack. Phantom power, switched in pairs."},
+    {"id": "in6", "label": "IN 6", "kind": "audio", "dir": "in", "about": "XLR jack. Phantom power, switched in pairs."},
+    {"id": "in7", "label": "IN 7", "kind": "audio", "dir": "in", "about": "XLR jack. Phantom power, switched in pairs."},
+    {"id": "in8", "label": "IN 8", "kind": "audio", "dir": "in", "about": "XLR jack. Phantom power, switched in pairs."},
+    {"id": "phones", "label": "PHONES", "kind": "audio", "dir": "out", "about": "Headphone output; its level knob is on the back."},
+    {"id": "usb", "label": "USB-C", "kind": "usb", "dir": "both", "in": 8, "out": 2, "about": "One side USB-C port: computer (audio interface, card reader), a USB MIDI keyboard, or a flash drive. Multitrack mode is 8 in; the manual's output count (4 or 2) disagrees with itself."}
+  ],
+  "hardware": {
+    "extending": "A REFERENCE recorder, not on the Pi: its region and clip handling set the bar for the tape's editing, and a tester records takes on one. If its USB audio is ever used as a capture path, capture ids for each USB mode and settle the Linux unknowns. The look of its screen and controls is the subject of docs/hardware/zoom-r20-theme-brief.md. Everything under \"hardware\" is ignored by the Go loader: it is notes for people, and for a later registry (docs/superpowers/specs/2026-10-15-device-profiles-design.md). To fill this profile from a real unit, follow 'Capturing an unknown device' in docs/hardware/README.md, then flip statuses from 'unconfirmed' or 'to-capture' to 'owner'.",
+    "kinds": [
+      "recorder",
+      "audio-interface",
+      "mixer"
+    ],
+    "usb": [
+      {
+        "vid": "0x1686",
+        "pid": null,
+        "mode": "audio interface (multitrack)",
+        "status": "hinted"
+      },
+      {
+        "vid": null,
+        "pid": null,
+        "mode": "audio interface (stereo)",
+        "status": "to-capture"
+      },
+      {
+        "vid": null,
+        "pid": null,
+        "mode": "card reader",
+        "status": "to-capture"
+      }
+    ],
+    "names": [
+      "R20",
+      "ZOOM R20",
+      "ZOOM"
+    ],
+    "connection": {
+      "to_pi": "none",
+      "note": "Not connected. It is the reference for tape editing and, for one tester, the place takes are recorded."
+    },
+    "audio": {
+      "status": "sourced",
+      "inputs": "8 mic/line inputs; the manual puts XLR/TRS combo jacks on inputs 1 and 2 and XLR on 3-8. Input 1 has a Hi-Z switch; phantom power on inputs 5-8 in pairs; gain about +6 to +50 dB.",
+      "tracks": "records up to 16 tracks, 8 at once; plays back 16 at once; 44.1 kHz, 16 or 24-bit WAV",
+      "usb_audio": {
+        "multitrack_mode": "8 in / 4 out at 44.1 kHz, 16/24-bit, USB 2.0 High Speed",
+        "stereo_mode": "2 in / 2 out, USB 2.0 Full Speed",
+        "status": "unconfirmed",
+        "$comment": "Zoom's own page conflicts with itself: its feature list gives multitrack output as 2 channels, its spec table as 4."
+      }
+    },
+    "midi": {
+      "status": "sourced",
+      "usb_host": "A USB MIDI keyboard plugs into the USB-C port (USB 1.1 Full Speed, 5 V / 500 mA supplied) to play the built-in synth.",
+      "synth": "8-voice, 18 sound types plus a PCM drum kit",
+      "smf": "imports and plays standard MIDI files",
+      "clock_out": {
+        "status": "unconfirmed",
+        "note": "Users report no MIDI clock for outside gear."
+      }
+    },
+    "storage": {
+      "status": "sourced",
+      "card": "SDHC 4-32 GB, SDXC 64 GB-1 TB",
+      "usb": "Mass storage over USB 2.0 High Speed; also host mode to copy projects to and from a USB flash drive"
+    },
+    "controls": {
+      "status": "sourced",
+      "top_panel": [
+        "8 inputs",
+        "Hi-Z switch (input 1)",
+        "gain knobs with PEAK indicators",
+        "track REC buttons",
+        "PHANTOM switches (inputs 5-8)",
+        "channel faders (-inf to +10 dB)",
+        "MASTER fader"
+      ],
+      "transport": [
+        "Click",
+        "Rew",
+        "FF",
+        "Stop",
+        "Play",
+        "Rec"
+      ],
+      "back_and_side": [
+        "POWER switch",
+        "PHONES volume knob",
+        "SD card slot (side)",
+        "USB-C (side)"
+      ],
+      "screen": "touchscreen track view of regions under a bars-and-beats ruler; size not given in the manual",
+      "$comment": "This list is the vocabulary a theme would borrow: faders, per-track REC buttons with peak LEDs, a transport row, and a touchscreen of regions."
+    },
+    "quirks": [
+      {
+        "text": "One USB-C port does everything: computer, USB MIDI keyboard, flash drive.",
+        "status": "sourced"
+      },
+      {
+        "text": "Per project: 50 audio and rhythm regions and 1350 bars. Splits count toward the cap and there is no join.",
+        "status": "unconfirmed"
+      },
+      {
+        "text": "No firmware since v2.0 (2022) has added editing features.",
+        "status": "sourced"
+      }
+    ],
+    "unknowns": [
+      {
+        "question": "Does it enumerate on a Pi without a vendor driver, and in which USB modes?",
+        "how": "Plug into the Pi in each USB mode; lsusb ; arecord -l ; aplay -l"
+      },
+      {
+        "question": "Can its trim be extended back out after trimming?",
+        "how": "Not settled by any source; try it on the unit"
+      },
+      {
+        "question": "Screen size and exact control layout for a faithful diagram",
+        "how": "Measure the unit, or take it from the numbered 'Tour' diagram in the manual"
+      }
+    ],
+    "hindsight": {
+      "behavior": "inform-only",
+      "role": "Reference for region and clip editing; a tester's recorder. Possible theme subject.",
+      "notes": [
+        "Hindsight's tape already answers most of the R20's owner complaints (no region cap, join exists, crossfaded edges, non-destructive trims)."
+      ]
+    },
+    "images": [
+      "r20-hero",
+      "r20-top",
+      "r20-rear",
+      "r20-side",
+      "r20-touchscreen",
+      "r20-tour-diagram"
+    ],
+    "refs": {
+      "zoom-product": {
+        "title": "R20 Multi Track Recorder (Zoom)",
+        "url": "https://zoomcorp.com/en/us/digital-mixer-multi-track-recorders/multi-track-recorders/r20/"
+      },
+      "zoom-manual": {
+        "title": "R20 Operation Manual (Zoom, HTML)",
+        "url": "https://zoomcorp.com/manuals/r20-en/"
+      },
+      "zoom-manual-pdf": {
+        "title": "R20 Operation Manual (Zoom, PDF)",
+        "url": "https://zoomcorp.com/media/documents/E_R20_v2.pdf"
+      },
+      "zoom-fw": {
+        "title": "R20 system software version history (Zoom)",
+        "url": "https://zoomcorp.com/documents/3365/R20_System_Software_Version_History_340_en.pdf"
+      }
+    }
+  }
+}
