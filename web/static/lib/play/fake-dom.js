@@ -57,7 +57,12 @@ export class FakeEl {
       set: (_t, k, v) => { this.attrs.set(kebab(k), String(v)); return true; },
       deleteProperty: (_t, k) => { this.attrs.delete(kebab(k)); return true; },
     });
-    this.style = {};
+    // Properties set as in a page (el.style.left = …) and custom properties (setProperty).
+    this.style = {
+      setProperty(k, v) { this[k] = String(v); },
+      getPropertyValue(k) { return this[k] ?? ''; },
+      removeProperty(k) { delete this[k]; },
+    };
     this.hidden = false;
     this.title = '';
     this.disabled = false;
@@ -69,6 +74,7 @@ export class FakeEl {
   get innerHTML() { return ''; }
   /** children are the elements; nodes also hold the text. */
   get children() { return this.nodes.filter((n) => n.nodeType === 1); }
+  get childNodes() { return this.nodes; }
   get textContent() { return this.nodes.map((c) => c.textContent).join(''); }
   set textContent(v) { for (const c of this.nodes) c.parent = null; this.nodes = []; if (v !== '' && v != null) this.append(String(v)); }
   get firstChild() { return this.nodes[0] || null; }
@@ -87,6 +93,12 @@ export class FakeEl {
   }
   append(...nodes) { for (const n of this._flat(nodes)) this.nodes.push(this._adopt(n)); }
   appendChild(n) { this.append(n); return n; }
+  insertBefore(n, ref) {
+    if (!ref) { this.append(n); return n; }
+    const node = this._adopt(n); // out of wherever it was first, so the index below is right
+    this.nodes.splice(this.nodes.indexOf(ref), 0, node);
+    return n;
+  }
   prepend(...nodes) { this.nodes.unshift(...this._flat(nodes).map((n) => this._adopt(n))); }
   replaceChildren(...nodes) { for (const c of this.nodes) c.parent = null; this.nodes = []; this.append(...nodes); }
   before(...nodes) {
@@ -116,6 +128,8 @@ export class FakeEl {
   }
   /** listenerCount says how many listeners hear `type`, for a test that one went. */
   listenerCount(type) { return this.listeners.get(type)?.size || 0; }
+  /** A failed assertion that shows an element prints this, not the whole document it hangs in. */
+  [Symbol.for('nodejs.util.inspect.custom')]() { return `<${this.tagName.toLowerCase()}${this.id ? `#${this.id}` : ''}${this.className ? `.${String(this.className).split(/\s+/).join('.')}` : ''}>`; }
 
   descendants() { return this.nodes.flatMap((c) => (c.nodeType === 1 ? [c, ...c.descendants()] : [])); }
   querySelectorAll(sel) {
@@ -134,7 +148,12 @@ export class FakeEl {
     return this.descendants().filter((e) => parts.some((p) => hit(e, p.split(/\s+/))));
   }
   querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }
-  closest(sel) { for (let e = this; e; e = e.parent) if (e.nodeType === 1 && matches(e, sel)) return e; return null; }
+  closest(sel) {
+    // "a, b" is either, as in a page.
+    const parts = sel.split(',').map((p) => p.trim());
+    for (let e = this; e; e = e.parent) if (e.nodeType === 1 && parts.some((p) => matches(e, p))) return e;
+    return null;
+  }
   contains(n) { for (let e = n; e; e = e.parent) if (e === this) return true; return false; }
   getBoundingClientRect() { return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }; }
   focus() {}

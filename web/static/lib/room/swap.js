@@ -1,9 +1,11 @@
 // web/static/lib/room/swap.js
-// Putting a tape on the deck (docs/superpowers/specs/2026-10-15-listening-room-design.md,
-// "The hi-fi"). A tape plays on the Pi through OUT, which means loading it:
-// the same tape the Studio has. So when the Studio's tape is busy -- playing,
-// counting in, recording, armed, or mixing down -- the room asks before it
-// takes it away: "Studio is using “Tuesday groove”. Swap it?"
+// Loading a tape in the Studio from the chair (wave.html?tape=, until F6 sends
+// that to the Studio). The Listening Room's shelf no longer has tapes (the
+// flow spec, answer 2: they live in the Studio only), so only the chair asks:
+// a tape plays on the Pi, which means loading it -- the same tape the Studio
+// has -- and when the Studio's tape is busy (playing, counting in, recording,
+// armed, or mixing down) it asks before taking it away: "Studio is using
+// “Tuesday groove”. Swap it?"
 //
 // The fetches and the question are passed in, so the rule is tested here.
 
@@ -20,11 +22,6 @@ export function studioBusy(live) {
   if (live.record && (live.record.state === 'on' || live.record.state === 'armed')) return true;
   const md = live.mixdown;
   return !!(md && (md.state === 'playing' || md.state === 'tail' || md.state === 'saving'));
-}
-
-/** recording says whether a press of ▶ would record: a track on, or armed. */
-export function recording(live) {
-  return !!(live && live.record && (live.record.state === 'on' || live.record.state === 'armed'));
 }
 
 /** swapQuestion is what the room asks. */
@@ -75,20 +72,4 @@ export function wireOpenInStudio(button, { id, ask, toast, before, forTape = for
       toast(`Couldn’t load it in the Studio: ${e.message}`, 'bad');
     }
   });
-}
-
-/**
- * putTapeOn loads tape `id` (asking first, as loadTape does) and plays it --
- * unless it was already loaded and playing, or a press of ▶ would record on
- * it. Answers what loadTape did, with `played`.
- */
-export async function putTapeOn(id, { fetchImpl = globalThis.fetch, ask } = {}) {
-  const r = await loadTape(id, { fetchImpl, ask });
-  if (!r.loaded) return { ...r, played: false };
-  if (r.already && (recording(r.live) || (r.live && (r.live.playing || r.live.count_in > 0)))) return { ...r, played: false };
-  const res = await fetchImpl(`/api/tapes/transport?id=${encodeURIComponent(id)}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'play' }),
-  });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
-  return { ...r, played: true };
 }

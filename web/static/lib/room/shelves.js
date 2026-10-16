@@ -1,8 +1,10 @@
 // web/static/lib/room/shelves.js
 // What stands on the Listening Room's shelves
 // (docs/superpowers/specs/2026-10-15-listening-room-design.md, "The
-// shelves"): the tapes, this month's takes, and the archive by month. Pure,
-// so it is tested without a browser.
+// shelves"): this month's takes, and the archive by month. Tapes are not on
+// them: they live in the Studio only (docs/superpowers/specs/2026-10-15-flow-
+// design.md, answer 2), and a tape's bounces stand here as takes. Pure, so it
+// is tested without a browser.
 //
 // Takes fold into families exactly as the rack folds them (lib/shelf.js
 // fold): a cut stands with the take it was cut from, a tape's mixdowns with
@@ -55,22 +57,18 @@ export function monthName(now = Date.now()) {
 }
 
 /**
- * roomShelves sorts the takes and tapes onto the shelves.
+ * roomShelves sorts the takes onto the shelves.
  *
- * takes is the takes list (GET /api/jams); tapes is GET /api/tapes's answer
- * ({loaded, tapes}), or null with the tape off; opts is the rack's filter
- * (lib/shelf.js matches), which the search applies to every shelf, and to
- * tapes by name.
+ * takes is the takes list (GET /api/jams); opts is the rack's filter
+ * (lib/shelf.js matches), which the search applies to every shelf.
  *
- * It answers {tapes, month, archive}:
- * - tapes: [{...summary, loaded}], newest first as the Pi lists them, or
- *   null when there are none to have;
+ * It answers {month, archive}:
  * - month: {key, spines: [{take, members, isNew}]}, this month's spines,
  *   newest first, each with the takes folded into it;
  * - archive: [{key, count, plate, title}], one box per earlier month, newest
  *   first, counting the spines in it.
  */
-export function roomShelves(takes, tapes, opts = {}, now = Date.now()) {
+export function roomShelves(takes, opts = {}, now = Date.now()) {
   const shown = takes.filter((t) => matches(t, opts));
   const f = fold(shown);
   const thisMonth = monthKey(now);
@@ -91,11 +89,7 @@ export function roomShelves(takes, tapes, opts = {}, now = Date.now()) {
   // Newest month first; the undated box last.
   const archive = [...boxes].sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : b.localeCompare(a)))
     .map(([key, count]) => ({ key, count, ...monthWords(key, count, now) }));
-  const q = (opts.query || '').trim().toLowerCase();
-  const tapeShelf = tapes && Array.isArray(tapes.tapes)
-    ? tapes.tapes.filter((s) => !q || (s.name || '').toLowerCase().includes(q)).map((s) => ({ ...s, loaded: s.id === tapes.loaded }))
-    : null;
-  return { tapes: tapeShelf, month: { key: thisMonth, spines }, archive };
+  return { month: { key: thisMonth, spines }, archive };
 }
 
 /**
@@ -132,14 +126,4 @@ export function filterWords(opts = {}, tags = []) {
   if (opts.phone) out.push('from a phone');
   if (opts.tape) out.push('mixdowns');
   return out;
-}
-
-/**
- * playOrder is the order Play all from here walks in the room: the shelf
- * `name` stands on -- this month's takes, newest first -- and nothing past
- * it. Just `name` if it isn't among them.
- */
-export function playOrder(shelves, name) {
-  const month = shelves.month.spines.map((x) => x.take.name);
-  return month.includes(name) ? month : [name];
 }

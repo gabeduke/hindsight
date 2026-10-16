@@ -4352,6 +4352,15 @@ body.buffer-fold .tape-sections-row { display: none; }
 .room-on.room-rack .room-rack-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px 4px; }
 .room-on.room-rack .room-rack-title { margin: 0; font: 700 18px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); }
 .room-on.room-rack #takes { padding: 0 16px; }
+/* A spine's folded takes (its cuts, its tape's earlier bounces) are lines of the
+   List, set in under it: the rooms show them (TakesList showFolded). */
+.room-on .take.spine.folded { margin-left: 22px; opacity: .92; }
+/* The select bar with Tag on it (lib/room/tagpick.js): one more key on a phone, so the
+   keys sit closer and the count ("2 selected") keeps its room. */
+@media (max-width: 520px) {
+  .room-on .select-bar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .room-on .select-bar .icon-btn { padding-left: 10px; padding-right: 10px; }
+}
 .room-on #trash, .room-on .about { margin-left: 16px; margin-right: 16px; }
 
 .room {
@@ -4418,24 +4427,6 @@ body.buffer-fold .tape-sections-row { display: none; }
 }
 .room-empty[hidden] { display: none; }
 
-/* Tapes: reel boxes, spine out, named on masking tape. */
-.room-reel {
-  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
-  width: 38px; height: 128px; background: var(--room-box);
-  box-shadow: inset -3px 0 0 rgba(0,0,0,.18), inset 0 2px 0 rgba(255,255,255,.12), 0 2px 4px rgba(0,0,0,.4);
-}
-.room-reel.box-1 { --room-box: var(--room-box-1); }
-.room-reel.box-2 { --room-box: var(--room-box-2); }
-.room-reel.box-3 { --room-box: var(--room-box-3); }
-.room-reel.box-4 { --room-box: var(--room-box-4); }
-.room-reel-label {
-  position: absolute; left: 8px; right: 8px; top: 14px; bottom: 16px; overflow: hidden;
-  display: flex; align-items: center; justify-content: center; background: var(--room-mask);
-  writing-mode: vertical-rl; transform: rotate(180deg);
-  font: 400 12px/1 'Permanent Marker', var(--font); color: var(--marker); white-space: nowrap; text-overflow: ellipsis;
-}
-.room-reel.loaded::after { content: ''; position: absolute; left: 50%; bottom: 5px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--room-led); box-shadow: 0 0 5px var(--room-led); }
-
 /* Takes: cassette spines, a stripe at the top, the name in marker. */
 .room-cassette {
   appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
@@ -4459,21 +4450,27 @@ body.buffer-fold .tape-sections-row { display: none; }
   background: var(--grease-mark); color: var(--paper-ink); font: 400 8.5px 'Permanent Marker', var(--font);
   box-shadow: 0 2px 4px rgba(0,0,0,.4);
 }
-/* Picked: it lifts, then slides out toward you. On the deck: its gap. */
-.room-cassette.pulled { transform: translateY(-10px) scale(1.08); box-shadow: 0 10px 16px rgba(0,0,0,.55); z-index: 2; }
-@media (prefers-reduced-motion: no-preference) {
-  .room-cassette.pulled { animation: room-pull 300ms ease both; }
-}
-@keyframes room-pull {
-  0% { transform: none; }
-  40% { transform: translateY(-8px); }
-  100% { transform: translateY(-10px) scale(1.08); }
-}
+/* In the bar: a pale ring, and still a spine you tap to play or pause. Playing: the
+   ring is the lamp's green and breathes. Selected (a hold, ⇧-click, or Select): it
+   is ringed in the accent and wears a tick. */
 .room-cassette.on-deck {
-  background: transparent; box-shadow: inset 0 0 0 1.5px rgba(243,231,211,.45);
+  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px rgba(243,231,211,.55), 0 2px 3px rgba(0,0,0,.35);
 }
-.room-cassette.on-deck > :not(.room-new) { visibility: hidden; }
-@media (hover: hover) { .room-cassette:not(.pulled):hover, .room-reel:hover, .room-box:hover { transform: translateY(-3px); } }
+.room-cassette.on-deck[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px var(--room-led), 0 2px 3px rgba(0,0,0,.35);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .room-cassette.on-deck[aria-pressed="true"] { animation: room-playing 1.4s ease-in-out infinite; }
+}
+@keyframes room-playing { 50% { box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px transparent, 0 2px 3px rgba(0,0,0,.35); } }
+.room-cassette.selected { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 2; }
+.room-cassette.selected::before {
+  content: '✓'; position: absolute; left: 2px; top: -6px; z-index: 3; width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); font: 700 12px var(--font);
+}
+/* A hold on a phone is not the browser's menu or a text selection. */
+.room-cassette { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+@media (hover: hover) { .room-cassette:not(.selected):hover, .room-box:hover { transform: translateY(-3px); } }
 
 /* The archive: card boxes, a month on each. */
 .room-box {
@@ -4510,11 +4507,7 @@ body.buffer-fold .tape-sections-row { display: none; }
   display: flex; align-items: center; justify-content: center; overflow: hidden;
   background: var(--lcd); color: var(--lcd-ink); font: 600 13px var(--mono); box-shadow: inset 0 0 0 3px #1d1e21;
 }
-.room-deck-keys {
-  position: absolute; left: 11%; right: 11%; bottom: 8%; height: 13%; border-radius: 3px;
-  background: repeating-linear-gradient(90deg, var(--room-key-hi) 0 22%, transparent 22% 25%);
-}
-.room-deck-play, .room-deck-sit, .room-deck-meta, .room-deck-progress { display: none; }
+.room-deck-meta, .room-deck-progress { display: none; }
 
 /* The sketchbook, on the side table. */
 .room-book-place .room-book-latest { display: none; }
@@ -4523,10 +4516,10 @@ body.buffer-fold .tape-sections-row { display: none; }
   background: var(--grease-mark); color: var(--paper-ink); font: 700 12px var(--label-font);
 }
 
-/* The dock: the bar, in the room's materials, with SIT DOWN, in one row --
-   where the room is drawn. Narrower, it's the page's own bar (the phone's
-   mini player), seen in a month's box; the room's deck card stands in for
-   it on the shelves. */
+/* The dock: the bar, in the room's materials, with Open, in one row -- where
+   the room is drawn. Narrower, it's the page's own bar (the phone's mini
+   player), on the shelves and in a month's box alike: the deck is only a
+   picture of it, and a phone has no room to draw one. */
 @media (min-width: 1000px) {
   .room-on .np {
     flex-direction: row; align-items: center; gap: 10px; padding: 8px 12px;
@@ -4555,44 +4548,7 @@ body.buffer-fold .tape-sections-row { display: none; }
 .room-grease-in { left: calc(var(--in, 0) * 100%); }
 .room-grease-out { left: calc(var(--out, 1) * 100%); }
 
-/* A take's card, at the head of its sheet: the room's own materials. */
-.room-card { display: flex; flex-direction: column; gap: 10px; }
-.room-takecard { padding: 12px 14px; border-radius: 10px; background: var(--room-tag); border: 1px solid var(--room-tag-edge); color: var(--room-ink); }
-.room-card-keys { display: flex; gap: 8px; }
-.room-put, .room-studio {
-  appearance: none; flex: 1 1 0; min-height: 44px; padding: 0 12px; border-radius: 8px; cursor: pointer;
-  font: 700 14px var(--label-font); letter-spacing: .12em;
-}
-.room-put { border: 0; background: var(--room-ink); color: var(--room-plate-ink); }
-.room-studio { border: 1px solid var(--room-tag-edge); background: transparent; color: var(--room-ink); }
-.room-card-more { display: flex; flex-wrap: wrap; gap: 8px; }
-.room-card-more [hidden] { display: none; }
-.room-card-note { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--room-ink-dim); }
-.room-card-note[hidden] { display: none; }
-.room-takecard .icon-btn { min-height: 36px; }
-.room-on.cassette-open .take-detail .sheet-back { display: inline-flex; align-self: flex-start; min-height: 40px; }
-@media (min-width: 1100px) {
-  body.room-on.cassette-open .take-detail:not([hidden]) {
-    /* Over the hi-fi, beside the shelves: the spine it came from stays in
-       sight, pulled out. It stops above the dock (the rack's own max-height). */
-    position: fixed; top: var(--topbar-h); left: 0; right: auto; z-index: 60; box-sizing: border-box;
-    width: min(520px, 46vw); overflow-y: auto; overscroll-behavior: contain;
-    display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 28px;
-    border-radius: 0 0 12px 0; border: 0; border-right: 1px solid var(--edge-strong); background: var(--bg);
-    box-shadow: 18px 0 40px rgba(0,0,0,.35);
-  }
-}
-@media (min-width: 1100px) and (prefers-reduced-motion: no-preference) {
-  body.room-on.cassette-open .take-detail:not([hidden]) { animation: room-drawer .24s ease; }
-}
-@keyframes room-drawer { from { transform: translateX(-40px); opacity: 0; } }
-/* A tape's card: the same, in a dialog of its own. */
-dialog.room-tapecard .room-card { background: var(--room-tag); border-color: var(--room-tag-edge); color: var(--room-ink); }
-.room-card-head { display: flex; align-items: center; gap: 10px; }
-.room-card-reel { flex: none; width: 14px; height: 30px; border-radius: 2px; background: var(--room-box-1); box-shadow: inset 0 6px 0 var(--room-mask); }
-dialog.room-tapecard .room-card-name { margin: 0; font: 400 20px 'Permanent Marker', var(--font); color: var(--room-ink); }
-dialog.room-tapecard .room-card-meta { margin: 0; color: var(--room-ink-dim); font: 500 12.5px var(--mono); word-break: normal; }
-dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; }
+/* The chair's own question (Swap it?, until F6): */
 .room-ask-text { word-break: normal; font-family: var(--font); }
 
 /* The room drawn, wide enough for the scene. (Reduced data takes it back
@@ -4642,20 +4598,16 @@ dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; 
   .room-book { position: absolute; left: 44%; top: 80%; }
 }
 
-/* No room to draw it, or reduced data: the shelves as rows, the deck on top
-   (the canvas's phone board). */
+/* No room to draw it, or reduced data: the shelves as rows; the deck is not
+   drawn (the bar, the page's mini player, is what plays). */
 @media (max-width: 999.98px), (prefers-reduced-data: reduce) {
   .room { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 16px; }
   .room-scene { display: none; }
   .room-stage { display: contents; }
   .room-deck, .room-book { position: static; width: auto; }
-  .room-deck { order: -2; }
+  .room-deck { display: none; }
   .room-book { order: -1; }
-  .room-deck, .room-book { margin-right: 16px; }
-  /* Not in a month's box, where the rack is and the deck card isn't: the
-     bar is all there is to pause with there. */
-  .room-on:not(.room-rack) .np { display: none; }
-  body.room-on:not(.room-rack) { --np-h: 0px; }
+  .room-book { margin-right: 16px; }
   .room-shelves { border: 0; background: none; box-shadow: none; gap: 14px; }
   .room-shelf { gap: 6px; }
   .room-shelf-foot { order: 0; margin: 0; align-items: center; }
@@ -4663,8 +4615,6 @@ dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; 
   .room-row { border-bottom: 0; box-shadow: none; padding: 6px 16px 4px 0; gap: 8px; scroll-snap-type: x proximity; min-height: 0; }
   .room-row > li { scroll-snap-align: start; }
   .room-empty { margin: 0 16px 0 0; }
-  .room-reel { width: 74px; height: 74px; border-radius: 3px; }
-  .room-reel-label { left: 8px; right: 8px; top: 26px; bottom: auto; padding: 3px 2px; writing-mode: horizontal-tb; transform: none; font-size: 11px; display: block; text-align: center; text-overflow: ellipsis; }
   .room-cassette {
     width: 112px; height: 70px; border-radius: 5px; color: var(--paper-ink);
     background: linear-gradient(var(--cas-hi), var(--cas-mid)); box-shadow: 0 4px 8px rgba(0,0,0,.45);
@@ -4678,34 +4628,9 @@ dialog.room-tapecard .sheet-actions { display: flex; justify-content: flex-end; 
   .room-cassette-when { display: block; position: absolute; left: 8px; right: 8px; bottom: 8px; color: var(--room-ink-dim); font: 500 10px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
   .room-cassette.starred::after { left: auto; right: 6px; bottom: 6px; width: auto; }
   .room-new { left: auto; right: -6px; top: -8px; }
-  .room-cassette.on-deck { background: transparent; }
   .room-box { width: 124px; height: 64px; }
   .room-box-label { top: 50%; transform: translateY(-50%); left: 12px; right: 12px; padding: 3px 0; font-size: 13px; }
   .room-box-hole { display: none; }
-  /* The deck card: the deck, what's on it, ▶ and SIT DOWN. */
-  .room-deck {
-    display: grid; grid-template-columns: 132px minmax(0, 1fr); grid-template-areas: "art place" "art meta" "art keys" "bar bar";
-    column-gap: 14px; row-gap: 6px; align-items: center; padding: 12px; border-radius: 10px;
-    background: radial-gradient(ellipse at 30% 30%, var(--room-glow), transparent 70%), var(--room-tag);
-    border: 1px solid var(--room-tag-edge);
-  }
-  .room-deck-art { grid-area: art; aspect-ratio: 150 / 120; }
-  .room-deck-reel { top: 8%; width: 42%; }
-  .room-deck-lcd { left: 9%; right: 9%; top: auto; bottom: 10%; height: 20%; font-size: 12px; }
-  .room-deck-keys { display: none; }
-  .room-deck-place {
-    grid-area: place; min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; border-radius: 0;
-    font: 400 18px/1.15 'Permanent Marker', var(--font); white-space: normal;
-  }
-  .room-deck-place .room-led { display: none; }
-  .room-deck-meta { grid-area: meta; display: block; color: var(--room-ink-dim); font: 500 11px var(--mono); }
-  .room-deck-play, .room-deck-sit { display: inline-flex; align-items: center; justify-content: center; height: 44px; }
-  .room-deck-play[hidden], .room-deck-sit[hidden] { display: none; }
-  .room-deck > .room-deck-play { grid-area: keys; justify-self: start; width: 46px; border-radius: 22px; border: 0; background: var(--room-ink); color: var(--room-plate-ink); font-size: 15px; cursor: pointer; }
-  .room-deck > .room-deck-sit { grid-area: keys; justify-self: end; padding: 0 16px; border-radius: 8px; border: 1px solid var(--room-tag-edge); color: var(--room-ink); text-decoration: none; font: 700 14px var(--label-font); letter-spacing: .14em; }
-  .room-deck-progress { grid-area: bar; display: block; position: relative; height: 6px; border-radius: 3px; background: var(--oxide-lo); overflow: hidden; }
-  .room-deck-progress-fill { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--room-played, 0)); background: linear-gradient(90deg, var(--tape-sheen), var(--trace)); }
-  .room-deck.empty .room-deck-progress { display: none; }
   /* The sketchbook strip. */
   .room-book-place {
     width: 100%; min-height: 52px; border-radius: 8px; padding: 0 12px; gap: 10px; box-shadow: none; border: 0;
