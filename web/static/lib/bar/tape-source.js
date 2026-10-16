@@ -9,6 +9,7 @@
 
 import { tapeCounter, tapeMarquee } from '../objects/lcd.js';
 import { paintTapeOverview } from '../tape/overview.js';
+import { refusal } from '../tape/refusal.js';
 
 const POLL_MS = 500;
 const AHEAD_S = 0.5; // the furthest the playhead is run on past a poll
@@ -67,8 +68,8 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
         method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
-        onError?.(msg);
+        const why = refusal(res.status, await res.json().catch(() => ({})));
+        onError?.(why.recording ? `${why.message}. ${why.detail}` : why.message);
       }
     } catch (e) {
       onError?.(e.message);

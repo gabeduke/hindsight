@@ -47,6 +47,7 @@ import { pageCarry, studioVisit } from '../bar/carry.js';
 import { trimTapePage } from '../rooms/nocrate.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
+import { refusal, failToast } from './refusal.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
 import { armPress } from '../rig/armpress.js';
@@ -165,8 +166,10 @@ async function api(path, { method = 'GET', body, keepalive = false, timeout } = 
   const res = await pending;
   const b = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const e = new Error(b.error || `HTTP ${res.status}`);
+    const why = refusal(res.status, b);
+    const e = new Error(why.message);
     e.status = res.status;
+    e.recording = why.recording; // 409: Rec is armed; failToast says so
     throw e;
   }
   return b;
@@ -3271,7 +3274,7 @@ async function sendTrack() {
     await change(() => api(`/api/tapes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body }));
     ok = true;
   } catch (e) {
-    toast(ns.length ? `Could not arm ${onWords(ns)}: ${e.message}` : `Could not disarm the track: ${e.message}`, 'bad');
+    failToast(toast, ns.length ? `Could not arm ${onWords(ns)}` : 'Could not disarm the track', e);
   }
   recSending = false;
   if (!state.tape || state.tape.id !== id) { recWant = null; return; }
@@ -3895,7 +3898,10 @@ async function patch(body) {
     await change(() => api(`/api/tapes?${q()}`, { method: 'PATCH', body }));
     return true;
   } catch (e) {
-    toast(`Could not change the tape: ${e.message}`, 'bad');
+    failToast(toast, 'Could not change the tape', e);
+    // Back to what the Pi has: a control moved ahead of the answer (an
+    // input just chosen) does not stay where the Pi refused it.
+    poll(true);
     return false;
   }
 }
