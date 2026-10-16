@@ -37,21 +37,33 @@
     <h1 class="guide-title">The guide</h1>
   </div>
 </header>
-<main>
-  <!-- docs/guide.md, served from the binary at /guide.md and rendered by
-       lib/help/markdown.js. -->
+<main class="guide-main">
+  <!-- The contents (lib/help/guide-page.js): a bar to open on a phone or a
+       tablet, a column beside the text on a wide screen. Hidden until the
+       guide has loaded; the text itself never depends on it. -->
+  <nav class="guide-toc" aria-label="Contents" hidden>
+    <details>
+      <summary><span class="toc-label">Contents</span><span class="toc-now"></span></summary>
+      <ol></ol>
+    </details>
+  </nav>
+  <!-- docs/guide.md, served from the binary at /guide.md, rendered by
+       lib/help/markdown.js and cut into parts by lib/help/guide-page.js. -->
   <article id="guide" class="guide">Loading…</article>
 </main>
 <script type="module">
   import { renderMarkdown } from '/lib/help/markdown.js';
+  import { sectionize, initGuidePage } from '/lib/help/guide-page.js';
   import { initNav } from '/lib/nav.js';
   initNav();
   const el = document.getElementById('guide');
   try {
     const res = await fetch('/guide.md');
     if (!res.ok) throw new Error(`status ${res.status}`);
-    el.innerHTML = renderMarkdown(await res.text());
-    if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    el.innerHTML = sectionize(renderMarkdown(await res.text()));
+    initGuidePage(el, document.querySelector('.guide-toc'));
+    // Straight there on arrival; only a jump within the page glides.
+    if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({ behavior: 'instant' });
   } catch (e) {
     el.textContent = `Could not load the guide: ${e.message}`;
   }

@@ -2,8 +2,13 @@
 // A small Markdown renderer for the guide page: headings (with ids for
 // links), paragraphs, nested lists, tables, fenced code, quotes, rules, and
 // inline code, bold, italics and links. Enough for docs/guide.md, with no
-// build step and no dependency. Everything is escaped before any markup is
-// added, so the guide can't inject HTML even by accident.
+// build step and no dependency. It knows three of the guide's own shapes too:
+// a "**Checks — …**" line and the list under it are one block, a check's
+// [demo], [rig] or [phone] is a tag, and the italic words that open a
+// section (*Today.*, *Step 4.*, *With the two rooms on …*) say when or where
+// its features are. Only the markup changes; the words are the guide's.
+// Everything is escaped before any markup is added, so the guide can't
+// inject HTML even by accident.
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -93,10 +98,14 @@ export function renderMarkdown(src) {
       i += 2;
       const rows = [];
       while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(splitRow(lines[i++]));
-      out.push('<div class="table-wrap"><table><thead><tr>'
+      // Each cell carries its column's name, so a narrow screen can stack a
+      // row into a card and still say which column each line came from. The
+      // wrap is focusable because it scrolls where there's room for a table.
+      const label = (k) => esc((head[k] || '').replace(/[`*_]/g, ''));
+      out.push(`<div class="table-wrap cols-${head.length}" tabindex="0"><table><thead><tr>`
         + head.map((c) => `<th>${inline(c)}</th>`).join('')
         + '</tr></thead><tbody>'
-        + rows.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')
+        + rows.map((r) => `<tr>${r.map((c, k) => `<td data-label="${label(k)}">${inline(c)}</td>`).join('')}</tr>`).join('')
         + '</tbody></table></div>');
       continue;
     }
@@ -125,7 +134,14 @@ export function renderMarkdown(src) {
           break;
         }
       }
-      out.push(renderList(items, 0, items.length));
+      const list = renderList(items, 0, items.length);
+      // "**Checks — …**" and the list under it are one block: the section's
+      // acceptance test, drawn apart from the prose around it.
+      if (out.length && out[out.length - 1].startsWith('<p class="checks-head">')) {
+        out.push(`<div class="checks">${out.pop()}${list}</div>`);
+      } else {
+        out.push(list);
+      }
       continue;
     }
     // Paragraph: until a blank line or the start of another block. Its first
@@ -135,9 +151,40 @@ export function renderMarkdown(src) {
     while (i < lines.length && !isBlank(lines[i]) && !/^(#{1,6}\s|\s*```|\s*\||\s*>)/.test(lines[i]) && !listItem.test(lines[i])) {
       para.push(lines[i++].trim());
     }
-    out.push(`<p>${inline(para.join(' '))}</p>`);
+    const text = para.join(' ');
+    const prev = out.length ? out[out.length - 1] : '';
+    if (/^\*\*Checks\b/.test(text)) {
+      out.push(`<p class="checks-head">${inline(text)}</p>`);
+    } else if (/^<h[1-6] /.test(prev) && WHEN.test(text)) {
+      out.push(`<p>${when(inline(text))}</p>`);
+    } else {
+      out.push(`<p>${inline(text)}</p>`);
+    }
   }
   return out.join('\n');
+}
+
+// The italic words that open a section, straight under its heading: when
+// its features arrive (*Today.* is on main now, *Step N.* still on the
+// roadmap), or what has to be on for them (*With the two rooms on …*).
+const WHEN = /^\*(Today|Steps?\s|With\s)[^*]*\*/;
+
+/** when marks the opening <em> of a rendered paragraph as a lamp of its kind. */
+function when(html) {
+  return html.replace(/^<em>([\s\S]*?)<\/em>/, (_, words) => {
+    const kind = /^Today\b/.test(words) ? 'today' : /^Steps?\b/.test(words) ? 'step' : 'preview';
+    return `<span class="when ${kind}"><em>${words}</em></span>`;
+  });
+}
+
+// A check names where it runs first: "[demo] Tap Capture → …", or in bold
+// where the guide explains them, "**[demo]** checks pass with …".
+const CHECK = /^(?:\*\*)?\[(demo|rig|phone)\](?:\*\*)?\s+(.*)$/;
+
+function item(text) {
+  const m = CHECK.exec(text);
+  if (!m) return `<li>${inline(text)}`;
+  return `<li class="check"><span class="check-tag ${m[1]}">${m[1]}</span> ${inline(m[2])}`;
 }
 
 function renderList(items, from, to) {
@@ -149,7 +196,7 @@ function renderList(items, from, to) {
     const it = items[k];
     let end = k + 1;
     while (end < to && items[end].indent > base) end++;
-    html += `<li>${inline(it.text)}`;
+    html += item(it.text);
     if (end > k + 1) html += renderList(items, k + 1, end);
     html += '</li>';
     k = end;

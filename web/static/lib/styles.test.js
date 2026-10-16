@@ -649,6 +649,28 @@ test('a release row never cuts its date off', () => {
   assert.ok(RULES.some((r) => r.sel.some((s) => /\.release-what$/.test(s)) && /flex-direction:\s*column/.test(r.body)), 'the tag sits over its date');
 });
 
+// The releases sheet and the guide are drawn by rules that start at their
+// own roots, so a class they share a name with elsewhere is never reached.
+// The guide's were bare (.guide h2, .guide table) until it was restyled.
+test('the releases sheet and the guide keep their rules to themselves', () => {
+  const offenders = [];
+  for (const r of RULES) for (const s of r.sel) {
+    if (/\.release-|\.update-(text|progress|title)\b/.test(s) && !s.startsWith('.update-inner')) offenders.push(s);
+    if (/\.guide(?![\w-])|\.guide-(toc|main)\b/.test(s) && !/^(\.guide-page|html:has\(body\.guide-page\))/.test(s)) offenders.push(s);
+  }
+  assert.deepEqual(offenders, []);
+});
+
+// main is a flex column: without min-width: 0 the guide's widest table set
+// the article's width, and a phone laid the whole page out 772px wide.
+test('the guide can be narrower than its widest table', () => {
+  assert.ok(RULES.some((r) => r.sel.includes('.guide-page .guide') && /min-width:\s*0/.test(r.body)));
+  // ...and a phone stacks a table's rows rather than scrolling them.
+  const phone = [...bare.matchAll(/@media \(max-width: 599\.98px\)/g)].map((m) => block(m.index, bare)).find((b) => b.includes('.guide-page'));
+  assert.ok(phone, 'a phone block for the guide');
+  assert.match(phone, /\.guide-page \.guide tr[^{]*\{[^}]*display:\s*block/);
+});
+
 // On a touch screen the foot's Releases and Update are a finger tall without
 // the line growing (they measured 29px), by a hit area past their words.
 test('Releases and Update reach a finger on a touch screen', () => {

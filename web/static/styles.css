@@ -1709,20 +1709,268 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .hints-actions a { color: var(--link); font-size: 13px; }
 
 /* ---------- the guide page ---------- */
+/* guide.html alone: docs/guide.md rendered by lib/help/markdown.js and cut
+   into parts by lib/help/guide-page.js. Every rule starts at .guide-page, so
+   none of it reaches the app's own pages. The cover is a cassette's paper
+   label, each numbered part a panel like the app's own with its number in
+   the counter's amber window, and each part's checks a card of their own. */
 .guide-page .topbar { display: flex; align-items: center; gap: 8px; }
 .guide-page .back { font-size: 28px; line-height: 1; padding: 0 8px; color: var(--ink); text-decoration: none; }
-.guide { max-width: 760px; margin: 0 auto; padding: 8px 16px 64px; line-height: 1.55; font-size: 15px; }
-.guide h1 { font-size: 24px; } .guide h2 { font-size: 19px; margin-top: 32px; } .guide h3 { font-size: 16px; }
-.guide h1, .guide h2, .guide h3 { scroll-margin-top: calc(var(--topbar-h) + 8px); }
-.guide a { color: var(--link); }
-.guide code { font-family: var(--mono); font-size: .9em; background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
-.guide pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto; }
-.guide pre code { background: none; padding: 0; }
-.guide .table-wrap { overflow-x: auto; }
-.guide table { border-collapse: collapse; font-size: 13.5px; }
-.guide th, .guide td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
-.guide th { background: var(--panel-2); }
-.guide blockquote { margin: 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--ink-dim); }
+.guide-page { --toc-h: 49px; }
+.guide-page main.guide-main {
+  max-width: 812px; gap: 0;
+  padding: 0 12px calc(96px + env(safe-area-inset-bottom));
+}
+/* min-width: main is a flex column, and without it the widest table set the
+   article's width -- and the page's: a phone laid the guide out 772px wide. */
+.guide-page .guide {
+  min-width: 0; width: 100%; max-width: 760px; margin: 0 auto; padding: 14px 0 0; box-sizing: border-box;
+  font-size: 16px; line-height: 1.6; overflow-wrap: break-word;
+}
+.guide-page .guide h1, .guide-page .guide h2, .guide-page .guide h3 {
+  scroll-margin-top: calc(var(--topbar-h) + var(--toc-h) + 14px);
+}
+.guide-page .guide p, .guide-page .guide ul, .guide-page .guide ol { margin: 0 0 14px; }
+.guide-page .guide ul, .guide-page .guide ol { padding-left: 22px; }
+.guide-page .guide li { margin: 4px 0; }
+.guide-page .guide li > ul, .guide-page .guide li > ol { margin: 4px 0 0; }
+.guide-page .guide strong { font-weight: 650; }
+.guide-page .guide a { color: var(--link); text-underline-offset: 2px; }
+.guide-page .guide a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.guide-page .guide code {
+  font-family: var(--mono); font-size: .86em; padding: 1px 5px; border-radius: 5px;
+  background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line);
+}
+.guide-page .guide pre {
+  margin: 0 0 14px; padding: 12px 14px; border-radius: 10px; overflow-x: auto;
+  background: var(--well); color: var(--well-ink); box-shadow: inset 0 2px 5px var(--sh);
+  font-size: 13.5px; line-height: 1.5;
+}
+.guide-page .guide pre code { background: none; box-shadow: none; padding: 0; color: inherit; font-size: inherit; }
+.guide-page .guide blockquote { margin: 0 0 14px; padding-left: 12px; border-left: 3px solid var(--line); color: var(--ink-dim); }
+
+/* The cover: a cassette label, four tracks' stripes across its top. Paper
+   is a material, the same at night, as the cassettes on the shelf are. */
+.guide-page .guide .cover {
+  padding: 26px 20px 8px; border-radius: 6px; color: var(--paper-ink);
+  background:
+    linear-gradient(90deg, var(--stripe-1) 0 25%, var(--stripe-2) 0 50%, var(--stripe-3) 0 75%, var(--stripe-4) 0) top / 100% 6px no-repeat,
+    linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
+  box-shadow: inset 0 0 0 1px var(--paper-rule), 0 14px 28px -18px var(--sh-strong);
+}
+.guide-page .guide .cover h1 {
+  margin: 0 0 12px; padding-bottom: 10px; border-bottom: 2px solid var(--paper-rule);
+  font: 700 34px/1.05 var(--label-font); letter-spacing: .04em; text-transform: uppercase;
+}
+.guide-page .guide .cover a { color: var(--paper-ink); }
+.guide-page .guide .cover code { background: var(--paper-rule); box-shadow: none; color: var(--paper-ink); }
+
+/* A numbered part: a panel, as Capture's and the Studio's are. */
+.guide-page .guide .part {
+  margin-top: 18px; padding: 4px 20px 8px;
+  background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+  border: 1px solid var(--edge); border-radius: 14px;
+  box-shadow: inset 0 1px 0 var(--hl), 0 16px 30px -24px var(--sh-strong);
+}
+.guide-page .guide h2 {
+  display: flex; align-items: center; gap: 12px; margin: 16px 0 12px;
+  font: 700 27px/1.1 var(--label-font); letter-spacing: .03em;
+}
+.guide-page .guide h3 {
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 26px -20px 12px; padding: 18px 20px 0; border-top: 1px solid var(--line);
+  font: 700 20px/1.2 var(--font);
+}
+.guide-page .guide h4 { margin: 18px 0 8px; font: 700 16px/1.3 var(--font); }
+/* The part's number, on the tape counter's amber window. */
+.guide-page .guide h2 .num {
+  flex: none; min-width: 2.1em; padding: 4px 8px; border-radius: 7px; box-sizing: border-box; text-align: center;
+  font: 600 17px/1 var(--mono); font-variant-numeric: tabular-nums;
+  background: var(--lcd); color: var(--lcd-ink);
+  box-shadow: inset 0 2px 5px var(--lcd-edge), inset 0 0 0 1px var(--lcd-edge), 0 1px 0 var(--hl);
+  text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
+}
+.guide-page .guide h3 .num { flex: none; font: 600 14px var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+/* The words that open a part, as a lamp: green on main now (Today), amber
+   still on the roadmap (Step N), orange for a preview a device turns on
+   (With the two rooms on, With Play mode on). On a line of its own. */
+.guide-page .guide .when {
+  display: flex; align-items: baseline; gap: 8px; width: fit-content; max-width: 100%; box-sizing: border-box;
+  margin: 0 0 10px; padding: 3px 12px 3px 10px; border-radius: 8px;
+  background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line);
+  font: 600 13.5px/1.5 var(--font); color: var(--ink);
+}
+.guide-page .guide p > .when:only-child { margin-bottom: 0; }
+.guide-page .guide .when em { font-style: normal; }
+.guide-page .guide .when::before {
+  content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; transform: translateY(-1px);
+  background: var(--warn); box-shadow: 0 0 8px var(--warn-glow);
+}
+.guide-page .guide .when.today::before { background: var(--go); box-shadow: 0 0 8px var(--go-glow); }
+.guide-page .guide .when.preview { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.guide-page .guide .when.preview::before { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+
+/* Where a check runs: on the demo, on the rig, or on a phone. Inks from the
+   cassette stripes, so they read the same in both schemes. */
+.guide-page .guide .check-tag {
+  display: inline-block; box-sizing: border-box; min-width: 50px; margin-right: 4px; padding: 0 6px;
+  border-radius: 4px; text-align: center; vertical-align: 1px;
+  font: 700 11.5px/19px var(--label-font); letter-spacing: .12em; text-transform: uppercase;
+  background: var(--stripe-2); color: var(--stripe-2-ink);
+}
+.guide-page .guide .check-tag.rig { background: var(--stripe-1); color: var(--stripe-1-ink); }
+.guide-page .guide .check-tag.phone { background: var(--stripe-4); color: var(--stripe-4-ink); }
+
+/* A part's checks: a label card with an accent stripe, one ruled line a
+   check, its tag hanging in the margin so the actions line up. A "Checks"
+   line with no list under it is the same card, on its own. */
+.guide-page .guide .checks, .guide-page .guide .part > p.checks-head {
+  margin: 20px 0 14px; padding: 13px 16px 4px; border-radius: 8px;
+  background: linear-gradient(var(--accent), var(--accent)) top / 100% 3px no-repeat, var(--label);
+  box-shadow: inset 0 0 0 1px var(--line), 0 8px 18px -14px var(--sh-strong);
+}
+.guide-page .guide .part > p.checks-head { padding-bottom: 12px; font-size: 15px; }
+.guide-page .guide .checks .checks-head { margin: 0 0 4px; font-size: 14px; color: var(--ink-dim); }
+.guide-page .guide .checks-head strong {
+  font: 700 14px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink);
+}
+.guide-page .guide .checks > ul { list-style: none; margin: 0; padding: 0; }
+.guide-page .guide .checks > ul > li { margin: 0; padding: 10px 0; border-top: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent); font-size: 15px; line-height: 1.55; }
+.guide-page .guide .checks > ul > li:first-child { border-top: 0; }
+.guide-page .guide .checks > ul > li.check { position: relative; padding-left: 62px; }
+.guide-page .guide .checks > ul > li.check > .check-tag { position: absolute; left: 0; top: 13px; }
+
+/* Tables: a card with a ruled body where there's room, scrolling inside
+   itself if it must; on a phone each row stacks into a card of its own. */
+.guide-page .guide .table-wrap {
+  margin: 0 0 16px; overflow-x: auto; overscroll-behavior-x: contain; border-radius: 10px;
+  background: var(--label); box-shadow: inset 0 0 0 1px var(--line);
+}
+.guide-page .guide .table-wrap:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.guide-page .guide table { width: 100%; border-collapse: collapse; font-size: 14.5px; line-height: 1.5; }
+.guide-page .guide th {
+  padding: 9px 12px; text-align: left; white-space: nowrap; background: var(--panel-2); border-bottom: 1px solid var(--line);
+  font: 700 12px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim);
+}
+.guide-page .guide td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
+.guide-page .guide tbody tr:first-child td { border-top: 0; }
+.guide-page .guide td:first-child { font-weight: 600; }
+.guide-page .guide .cols-2 td:first-child { width: 32%; }
+@media (max-width: 599.98px) {
+  .guide-page .guide .table-wrap { overflow: visible; background: none; box-shadow: none; border-radius: 0; }
+  .guide-page .guide table, .guide-page .guide tbody, .guide-page .guide tr, .guide-page .guide td { display: block; width: auto; }
+  /* The header row is read out, not shown: each card names its columns. */
+  .guide-page .guide thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .guide-page .guide tbody tr {
+    margin: 0 0 8px; padding: 10px 14px; border-radius: 10px;
+    background: var(--label); box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .guide-page .guide td, .guide-page .guide tbody tr:first-child td { padding: 0; border: 0; }
+  .guide-page .guide td:first-child { font-size: 15.5px; margin-bottom: 2px; }
+  .guide-page .guide .cols-2 td:first-child { width: auto; }
+  .guide-page .guide td:empty { display: none; }
+  .guide-page .guide .table-wrap:not(.cols-2) td:not(:first-child)::before {
+    content: attr(data-label); display: block; margin-top: 8px;
+    font: 700 11.5px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim);
+  }
+  .guide-page .guide .part { padding: 2px 16px 6px; }
+  .guide-page .guide h3 { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+  .guide-page .guide .cover { padding: 24px 16px 4px; }
+  .guide-page .guide .cover h1 { font-size: 30px; }
+  .guide-page .guide h2 { font-size: 24px; }
+  .guide-page .guide .checks, .guide-page .guide .part > p.checks-head { margin-left: -6px; margin-right: -6px; padding-left: 12px; padding-right: 12px; }
+}
+/* Under about 480 px the hanging tags would leave too narrow a column. */
+@media (max-width: 479.98px) {
+  .guide-page .guide .checks > ul > li.check { padding-left: 0; }
+  .guide-page .guide .checks > ul > li.check > .check-tag { position: static; }
+}
+
+/* The contents: a bar under the header that opens over the text. */
+.guide-page .guide-toc {
+  position: sticky; top: var(--topbar-h); z-index: 15;
+  margin: 0 -12px; padding: 0 12px;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.guide-page .guide-toc[hidden] { display: none; }
+.guide-page .guide-toc details { max-width: 760px; margin: 0 auto; }
+.guide-page .guide-toc summary {
+  display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; list-style: none;
+  border-radius: 8px;
+}
+.guide-page .guide-toc summary::-webkit-details-marker { display: none; }
+.guide-page .guide-toc summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.guide-page .guide-toc .toc-label {
+  flex: none; font: 700 13px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim);
+}
+.guide-page .guide-toc .toc-now {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 14.5px var(--font); color: var(--ink);
+}
+/* A chevron that turns as the list opens. */
+.guide-page .guide-toc summary::after {
+  content: ''; flex: none; width: 8px; height: 8px; margin: 0 6px 4px 0;
+  border-right: 2px solid var(--ink-dim); border-bottom: 2px solid var(--ink-dim); transform: rotate(45deg);
+}
+.guide-page .guide-toc details[open] summary::after { transform: rotate(-135deg); margin-bottom: -4px; }
+@media (prefers-reduced-motion: no-preference) {
+  .guide-page .guide-toc summary::after { transition: transform .16s ease; }
+  html:has(body.guide-page) { scroll-behavior: smooth; }
+}
+.guide-page .guide-toc ol { list-style: none; margin: 0; padding: 4px 0 10px; }
+.guide-page .guide-toc li { margin: 0; }
+.guide-page .guide-toc a {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink); text-decoration: none; font: 600 15px/1.25 var(--font);
+}
+.guide-page .guide-toc li.lv3 a { padding-left: 28px; font-weight: 500; font-size: 14px; color: var(--ink-dim); }
+.guide-page .guide-toc .toc-num { flex: none; min-width: 2.2em; font: 600 13px var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.guide-page .guide-toc a[aria-current] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--ink); }
+.guide-page .guide-toc a[aria-current] .toc-num { color: var(--accent); }
+.guide-page .guide-toc a:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+@media (hover: hover) {
+  .guide-page .guide-toc a:not([aria-current]):hover { background: var(--seg-hover); }
+}
+@media (max-width: 1099.98px) {
+  /* The bar runs the screen's width, past main's own edges. */
+  .guide-page .guide-toc { margin: 0 calc(50% - 50vw); padding: 0 calc(50vw - 50%); }
+  /* Open, the list hangs over the text instead of pushing it down. */
+  .guide-page .guide-toc details[open] > ol {
+    position: absolute; left: 0; right: 0; top: 100%;
+    max-height: min(64svh, 560px); overflow-y: auto; overscroll-behavior: contain;
+    padding: 6px max(12px, calc(50% - 380px)) 12px;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    box-shadow: 0 18px 30px -18px var(--sh-strong);
+  }
+}
+/* A wide screen: the contents are a column beside the text, always there. */
+@media (min-width: 1100px) {
+  .guide-page { --toc-h: 0px; }
+  .guide-page main.guide-main {
+    display: grid; grid-template-columns: 240px minmax(0, 760px); justify-content: center; align-items: start;
+    column-gap: 36px; max-width: none; padding: 0 24px calc(96px + env(safe-area-inset-bottom));
+  }
+  .guide-page .guide { padding-top: 22px; }
+  .guide-page .guide-toc {
+    top: calc(var(--topbar-h) + 22px); margin: 22px 0 0; padding: 4px 8px 4px;
+    border: 1px solid var(--edge); border-radius: 14px;
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    box-shadow: inset 0 1px 0 var(--hl), 0 16px 30px -24px var(--sh-strong);
+  }
+  .guide-page .guide-toc summary { min-height: 40px; padding: 0 10px; }
+  .guide-page .guide-toc .toc-now { visibility: hidden; }
+  .guide-page .guide-toc ol {
+    max-height: calc(100svh - var(--topbar-h) - 110px); overflow-y: auto; overscroll-behavior: contain;
+    padding: 0 0 6px;
+  }
+  .guide-page .guide-toc a { font-size: 14px; }
+  .guide-page .guide-toc li.lv3 a { font-size: 13px; }
+}
+/* With a mouse, the column can be tighter than a finger needs. */
+@media (min-width: 1100px) and (pointer: fine) {
+  .guide-page .guide-toc a { min-height: 34px; }
+}
 
 .linkish { appearance: none; background: none; border: none; color: var(--link); font: inherit; cursor: pointer; padding: 0; }
 .mono { font-family: var(--mono); }

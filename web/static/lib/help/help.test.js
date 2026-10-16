@@ -85,8 +85,55 @@ test('the renderer handles the guide: tables, nested lists, code, links', () => 
   ].join('\n'));
   assert.match(html, /<strong>Bold<\/strong> and <em>italic<\/em> and <code>code &lt;b&gt;<\/code>/);
   assert.match(html, /<ul><li>one<ul><li>nested<\/li><\/ul><\/li><li>two, wrapped onto a second line<\/li><\/ul>/);
-  assert.match(html, /<th>A<\/th><th>B<\/th>.*<td><code>x<\/code><\/td><td>y<\/td>/s);
+  assert.match(html, /<th>A<\/th><th>B<\/th>.*<td data-label="A"><code>x<\/code><\/td><td data-label="B">y<\/td>/s);
   assert.match(html, /<pre><code>a &lt; b<\/code><\/pre>/);
+});
+
+// A phone stacks a table's rows into cards, so each cell says its column.
+test('a table cell carries its column name, and the wrap its column count', () => {
+  const html = renderMarkdown('| You see | It **means** | Do |\n|---|---|---|\n| a | b | c |');
+  assert.match(html, /<div class="table-wrap cols-3" tabindex="0">/);
+  assert.match(html, /<td data-label="You see">a<\/td><td data-label="It means">b<\/td><td data-label="Do">c<\/td>/);
+  assert.match(renderMarkdown('| "x" | y |\n|---|---|\n| 1 | 2 |'), /data-label="&quot;x&quot;"/);
+});
+
+test('a part\'s checks are one block, each check tagged with where it runs', () => {
+  const html = renderMarkdown([
+    '**Checks — step 1** (data safety):',
+    '',
+    '- [demo] Tap *Capture* → a cassette',
+    '- [rig] Switch the interface off',
+    '- [phone] Calibrate',
+    '- Not tagged',
+  ].join('\n'));
+  assert.match(html, /^<div class="checks"><p class="checks-head"><strong>Checks — step 1<\/strong> \(data safety\):<\/p><ul>/);
+  assert.match(html, /<li class="check"><span class="check-tag demo">demo<\/span> Tap <em>Capture<\/em> → a cassette<\/li>/);
+  assert.match(html, /<span class="check-tag rig">rig<\/span>/);
+  assert.match(html, /<span class="check-tag phone">phone<\/span>/);
+  assert.match(html, /<li>Not tagged<\/li><\/ul><\/div>$/);
+  // The guide's own key to the tags gets the same chips.
+  assert.match(renderMarkdown('- **[demo]** checks pass'), /<li class="check"><span class="check-tag demo">demo<\/span> checks pass<\/li>/);
+  // A "Checks" line with no list under it stays a paragraph.
+  assert.equal(renderMarkdown('**Checks** are below.\n\nText.'), '<p class="checks-head"><strong>Checks</strong> are below.</p>\n<p>Text.</p>');
+});
+
+test('the words that open a section say when, or what must be on, and nothing else is marked', () => {
+  assert.equal(renderMarkdown('## 3. The main page\n\n*Today.*'), '<h2 id="3-the-main-page">3. The main page</h2>\n<p><span class="when today"><em>Today.</em></span></p>');
+  assert.match(renderMarkdown('## 5. Undo\n\n*Step 4.* Then more.'), /<p><span class="when step"><em>Step 4.<\/em><\/span> Then more.<\/p>/);
+  assert.match(renderMarkdown('### 8.12 B\n\n*With the two rooms on (Settings).* The'), /<span class="when preview"><em>With the two rooms on \(Settings\).<\/em><\/span> The/);
+  // Not under a heading, or not one of those words: left as it was.
+  assert.equal(renderMarkdown('Text.\n\n*Today.*'), '<p>Text.</p>\n<p><em>Today.</em></p>');
+  assert.equal(renderMarkdown('## A\n\n*Nice* words.'), '<h2 id="a">A</h2>\n<p><em>Nice</em> words.</p>');
+});
+
+test('the whole guide\'s checks render as checks blocks, and its opening words are marked', () => {
+  const html = renderMarkdown(guide);
+  const lists = [...guide.matchAll(/^\*\*Checks\b[^\n]*(?:\n[^\n]+)*\n\n- /gm)].length;
+  assert.ok(lists > 10);
+  assert.equal((html.match(/<div class="checks">/g) || []).length, lists);
+  // No check in the guide is left as a bare "[demo]".
+  assert.doesNotMatch(html, /<li>\[(demo|rig|phone)\]/);
+  assert.ok((html.match(/class="when /g) || []).length >= 15);
 });
 
 test('the renderer escapes HTML and refuses script links', () => {
