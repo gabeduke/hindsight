@@ -56,14 +56,13 @@ test('the ribbon names the selection’s KEEP when it is told to, and only then'
   assert.doesNotMatch(read('../../app.js'), /keepWords/, 'Capture does not');
 });
 
-test('a take’s GRAB: the sheet, the chair, the notes, and the take page’s Send to', () => {
+test('a take’s GRAB: the chair, the notes, and the take page’s Send to (the sheet that carried one is gone, F5a)', () => {
   const doorway = read('../room/doorway.js');
   const chair = read('../room/chair.js');
-  for (const [name, src] of [['doorway', doorway], ['chair', chair]]) {
-    assert.match(src, /rooms\/grab\.js/, `${name} gets its span and its N from lib/rooms/grab.js`);
-    assert.doesNotMatch(src, /'(TO THE STUDIO|To the Studio)'[^\n]*take|toStudio = el\([^\n]*'TO THE STUDIO'/, `${name}: a take’s TO THE STUDIO is GRAB`);
-  }
-  assert.match(doorway, /const toStudio = el\('button', 'room-studio'[^\n]*'GRAB/);
+  assert.match(chair, /rooms\/grab\.js/, 'the chair gets its span and its N from lib/rooms/grab.js');
+  assert.doesNotMatch(chair, /'(TO THE STUDIO|To the Studio)'[^\n]*take|toStudio = el\([^\n]*'TO THE STUDIO'/, 'the chair: a take’s TO THE STUDIO is GRAB');
+  // The shelf has no GRAB key of its own: a tap plays, and GRAB is on Open.
+  assert.doesNotMatch(doorway, /'room-studio'|sendToStudio|takeGrabSpan/, 'the doorway no longer carries a take’s GRAB');
   assert.doesNotMatch(chair, /'to the studio'/, 'a note’s key says GRAB');
   assert.match(chair, /send-to-tape|send-grab/, 'the take page’s Send to → Tape and → Clipboard are made over by the chair');
   assert.match(chair, /send-grab/);

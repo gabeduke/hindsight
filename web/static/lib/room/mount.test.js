@@ -68,7 +68,8 @@ test('every room module is in the service worker’s shell', async () => {
   const { readdirSync } = await import('node:fs');
   const sw = read('../../sw.js');
   const missing = readdirSync(new URL('./', import.meta.url))
-    .filter((x) => x.endsWith('.js') && !x.endsWith('.test.js'))
+    // abs-hook.js and harness.js are test support: nothing in the app imports them.
+    .filter((x) => x.endsWith('.js') && !x.endsWith('.test.js') && x !== 'abs-hook.js' && x !== 'harness.js')
     .filter((x) => !sw.includes(`'/lib/room/${x}'`));
   assert.deepEqual(missing, []);
 });

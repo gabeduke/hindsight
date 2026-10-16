@@ -452,19 +452,40 @@ test('the Listening Room’s rules reach only the room', () => {
   assert.deepEqual(borrowed, [], 'these files use a class the room styles');
 });
 
-test('the room never hides the bar in a month’s box', () => {
-  // On a phone the room hides the bar: its deck card is the player. A
-  // month's box (body.room-rack) shows the rack, not the deck card, so a rule
-  // that hid the bar there too left nothing to pause with.
+test('the room never hides the bar, on any shelf or in a month’s box', () => {
+  // The bar is the only transport (docs/superpowers/specs/2026-10-15-flow-
+  // design.md): the phone's deck card used to be the player, and the room hid
+  // the bar behind it. The card is gone, so a rule that hides the bar leaves
+  // nothing to pause with. (The chair's deck is its bar and is not the doorway.)
   const start = css.indexOf('/* ---------- Rooms P5:');
   const next = css.slice(start + 1).search(/\/\* -{4,} /);
   const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
   const hiding = [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-    // The doorway's (the chair's deck is its bar, and has no month's box).
     .filter(([, sel, decl]) => /\.room-on/.test(sel) && /(^|[\s>])\.np(?![\w-])/.test(sel) && /display:\s*none/.test(decl) && !/\.np \./.test(sel))
     .map(([, sel]) => sel.trim());
-  assert.ok(hiding.length > 0, 'the room hides the bar somewhere (on a phone)');
-  for (const sel of hiding) assert.match(sel, /:not\(\.room-rack\)/, `${sel} hides the bar in a month's box too`);
+  assert.deepEqual(hiding, []);
+});
+
+test('a phone’s shelf row leaves room for a selected spine’s ring, halo and tick to be whole', () => {
+  // The row scrolls (overflow clips both ways), the ring's halo is 2px and the tick sits 6px
+  // above the spine: it needs 8px above and 2px beside, and a snap must not eat the side.
+  const start = css.indexOf('/* ---------- Rooms P5:');
+  const body = css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+  const phone = body.slice(body.indexOf('@media (max-width: 999.98px), (prefers-reduced-data: reduce)'));
+  const m = /\.room-row\s*\{[^}]*padding:\s*(\d+)px\s+\d+px\s+\d+px\s+(\d+)px[^}]*\}/.exec(phone);
+  assert.ok(m, 'the phone’s .room-row has a four-value padding');
+  assert.ok(Number(m[1]) >= 8, `${m[1]}px above the spines is too little for the tick`);
+  assert.ok(Number(m[2]) >= 2, `${m[2]}px beside the first spine is too little for the halo`);
+  assert.match(m[0], /scroll-padding-left:\s*[2-9]px/, 'a snap to the first spine keeps that room');
+});
+
+test('the room draws no deck on a phone, and the deck has no keys', () => {
+  const start = css.indexOf('/* ---------- Rooms P5:');
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const phone = body.slice(body.indexOf('@media (max-width: 999.98px), (prefers-reduced-data: reduce)'));
+  assert.match(phone, /\.room-deck\s*\{\s*display:\s*none/, 'the deck card is gone on a phone');
+  assert.doesNotMatch(body, /room-deck-keys|room-deck-play|room-deck-sit|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/, 'no rule for what is gone');
 });
 
 test('Play mode’s rules reach only Play mode', () => {

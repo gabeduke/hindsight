@@ -200,6 +200,26 @@ Every take, from **All takes** on the main page.
   selecting. The take page's ◂ ▸ step through the takes in the order this
   page shows them, a spine's folded takes right after it, and its ‹ comes
   back here.
+- **With the two rooms on** (Settings › This device › Two rooms; this page
+  is then the Listening Room, a preview), a take is played, not picked:
+  - **A tap plays it** in the bar, where you are: a spine on the shelf, a row
+    of the List, a month's row, a search result, or a line under a spine. Tap
+    it again to pause it. Nothing opens, and there is no sheet: the take's
+    other controls are in the bar, in a selection, or on **Open**, its page
+    (its name, ★, tag, tempo, downloads, notes and GRAB).
+  - **Holding a take selects it,** as **Select** does: a finger or a pen for
+    half a second, ⇧-click with a mouse, ⇧-Enter on the keyboard. A tap on
+    another take then adds it to the selection or takes it out, and nothing
+    plays. **★**, **Tag**, **Export** and **Delete** act on what is picked.
+    **Tag** gives all of them one tag, or takes off the tag they all wear.
+  - **The deck** in the room is a picture of the bar: what it holds and how
+    far it has got. It has no keys of its own. Pressing it, or **Open** in the
+    bar, opens the take; for the tape in the bar it opens the Studio. On a
+    phone there is no deck: the bar, along the foot, is what plays.
+  - **A spine's folded takes** (its cuts, a tape's earlier bounces) are
+    lines under it in the **List**, each played by a tap.
+  - **Tapes are not on the shelf.** They live in the Studio: its title menu
+    lists them and opens one. A tape's bounces stand on the shelf as takes.
 
 **Checks — today:**
 
@@ -238,6 +258,15 @@ Every take, from **All takes** on the main page.
 - [demo] Delete that take → the toast says its 2 cuts are back on the shelf,
   and they're spines of their own; Undo → they fold in again.
 - [demo] Star one of the cuts and turn on *Starred* → the cut shows alone.
+- [demo] With the two rooms on, tap a spine → it plays in the bar and
+  nothing opens; tap it again → it pauses.
+- [demo] Still with them on, tap another spine → the bar holds that take,
+  and the deck says *In the bar: …*.
+- [demo] Hold a spine on a phone → it is ticked and the select bar rises;
+  tap another → both are ticked and neither plays. **Tag** → *Ideas* →
+  both spines wear its color. **Done** → the ticks go.
+- [demo] Open **☰ List** → a tape that has been bounced twice is one row
+  with *MIX ×2* and its earlier bounce under it; tap that line → it plays.
 
 ### 3.2 Updating Hindsight
 
@@ -1824,8 +1853,9 @@ can work on it.
 - On a take, **GRAB** is the same key: the selection, or the last N bars
   before the playhead (at the take's tempo; twice N seconds without one),
   with N starting at the loop's length. It stands where the take page's
-  *Send to → Tape* and *Clipboard* were, and *TO THE STUDIO* in the
-  Listening Room. *Send to → Crate*, *Split here* and the ◫ chip are not
+  *Send to → Tape* and *Clipboard* were; in the Listening Room it is on
+  **Open**, a take's page, since a tap plays and the shelf has no sheet.
+  *Send to → Crate*, *Split here* and the ◫ chip are not
   offered (§8.11).
 - The buffer opens, and the lanes fold to strips to make room (**Unfold**
   gives them their height back). Pick the inputs it holds -- two make two
@@ -2035,9 +2065,9 @@ has no tip.
 | Listening Room (tab) | The two rooms' preview: every take, to search, filter, sort and open |
 | Rig (chip) | The rig: your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
 | Search the shelves | The rack's filter, over the shelves: names, tags and stars |
-| The deck (place) | What's on the deck. Press it to sit down with it |
-| Sketchbook (place) | The notes on what's on the deck. Press it to sit down and write |
-| SIT DOWN | Into the chair with what's on the deck: the deck close up, and the sketchbook |
+| The deck (place) | A picture of the bar: what's in it and how far it has got. Press it to open it: a take on its page, the tape in the Studio |
+| Sketchbook (place) | The notes on what's in the bar. Press it to open it and write |
+| Open (the room’s bar) | Opens what's in the bar: a take on its page, the tape in the Studio |
 | PUT IT ON | Plays it: a take here, on this device; a tape on the Pi, loaded first |
 | GRAB (a take) | Into the Studio's buffer, and the Studio opens: a take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
 | Stand up | Out of the chair, back to the shelves |
@@ -2074,8 +2104,9 @@ has no tip.
 | ‹ (folded take) | Back to the take this one is folded into on the shelf |
 | Open | Open the take to select, loop, save or share part of it |
 | ▶ Play all | Play the takes shown, one after another, each from its In to its Out. Again to stop |
-| Select | Pick several takes to star, export or delete together. Holding a take does the same |
+| Select | Pick several takes to star, export or delete together, or to tag them with the two rooms on. Holding a take does the same: in the Listening Room a finger or a pen holds, and a mouse uses ⇧-click |
 | ★ Star (selecting) | Star the picked takes, or unstar them if they all are |
+| Tag (selecting) | Give the picked takes a tag, or take it off again: the tag they all wear is lit. The Listening Room only |
 | Export | One zip of the picked takes: each WAV, its name and flags, and its MIDI |
 | Delete (selecting) | Move the picked takes to the trash |
 | Done | Stop selecting |

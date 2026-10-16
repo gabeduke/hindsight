@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { studioBusy, recording, swapQuestion, loadTape, putTapeOn, wireOpenInStudio } from './swap.js';
+import { studioBusy, swapQuestion, loadTape, wireOpenInStudio } from './swap.js';
 
 function fakePi(script) {
   const calls = [];
@@ -24,23 +24,7 @@ test('the Studio’s tape is busy when it plays, counts in, records, is armed, o
   assert.equal(studioBusy({ record: { state: 'on' } }), true);
   assert.equal(studioBusy({ mixdown: { state: 'tail' } }), true);
   assert.equal(studioBusy({ mixdown: { state: 'done' } }), false);
-  assert.equal(recording({ record: { state: 'armed' } }), true);
-  assert.equal(recording({ playing: true }), false);
   assert.equal(swapQuestion('Tuesday groove'), 'Studio is using “Tuesday groove”. Swap it?');
-});
-
-test('a tape goes on without asking when the Studio’s is idle', async () => {
-  const pi = fakePi([
-    ['/api/tapes', 200, { loaded: 'a', tapes: [] }],
-    ['/api/tapes/state?id=a', 200, { tape: { name: 'Old' }, live: { playing: false } }],
-    ['/api/tapes/load?id=b', 200, {}],
-    ['/api/tapes/transport?id=b', 200, {}],
-  ]);
-  let asked = 0;
-  const r = await putTapeOn('b', { fetchImpl: pi.fetchImpl, ask: async () => { asked++; return true; } });
-  assert.deepEqual(r, { loaded: true, already: false, live: null, played: true });
-  assert.equal(asked, 0);
-  assert.equal(pi.calls.at(-1), 'POST /api/tapes/transport?id=b {"action":"play"}');
 });
 
 test('a tape on the deck while the Studio records on another asks first, and no leaves it', async () => {
@@ -49,10 +33,9 @@ test('a tape on the deck while the Studio records on another asks first, and no 
     ['/api/tapes/state?id=a', 200, { tape: { name: 'Tuesday groove' }, live: { playing: true, record: { state: 'on' } } }],
   ]);
   const questions = [];
-  const r = await putTapeOn('b', { fetchImpl: pi.fetchImpl, ask: async (q) => { questions.push(q); return false; } });
+  const r = await loadTape('b', { fetchImpl: pi.fetchImpl, ask: async (q) => { questions.push(q); return false; } });
   assert.deepEqual(questions, ['Studio is using “Tuesday groove”. Swap it?']);
   assert.equal(r.loaded, false);
-  assert.equal(r.played, false);
   assert.ok(!pi.calls.some((c) => c.includes('/load')), 'nothing was loaded');
 });
 
@@ -66,23 +49,14 @@ test('yes swaps it', async () => {
   assert.equal(r.loaded, true);
 });
 
-test('the tape already on the deck is not pressed again while it plays, or when ▶ would record', async () => {
-  for (const live of [{ playing: true }, { record: { state: 'armed' } }]) {
-    const pi = fakePi([
-      ['/api/tapes', 200, { loaded: 'a', tapes: [] }],
-      ['/api/tapes/state?id=a', 200, { tape: { name: 'X' }, live }],
-    ]);
-    const r = await putTapeOn('a', { fetchImpl: pi.fetchImpl, ask: async () => assert.fail('nothing to ask') });
-    assert.deepEqual([r.loaded, r.already, r.played], [true, true, false]);
-    assert.equal(pi.calls.length, 2);
-  }
-  // Stopped and nothing armed: it plays.
+test('the tape already loaded is not loaded again, and nothing is asked', async () => {
   const pi = fakePi([
     ['/api/tapes', 200, { loaded: 'a', tapes: [] }],
-    ['/api/tapes/state?id=a', 200, { tape: { name: 'X' }, live: { playing: false } }],
-    ['/api/tapes/transport?id=a', 200, {}],
+    ['/api/tapes/state?id=a', 200, { tape: { name: 'X' }, live: { playing: true } }],
   ]);
-  assert.equal((await putTapeOn('a', { fetchImpl: pi.fetchImpl })).played, true);
+  const r = await loadTape('a', { fetchImpl: pi.fetchImpl, ask: async () => assert.fail('nothing to ask') });
+  assert.deepEqual([r.loaded, r.already], [true, true]);
+  assert.equal(pi.calls.length, 2);
 });
 
 test('nothing loaded: it loads without asking', async () => {
