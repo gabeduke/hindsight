@@ -2,13 +2,21 @@
 // A page-breaking slip in code no unit test imports -- a redeclared `const` in
 // tape/page.js, an import of a name another file does not export -- blanks the
 // page in a browser and nothing in the node suite notices (the page modules
-// need a document). Two cheap checks on every script under web/static:
+// need a document). Cheap checks on every script under web/static and on the
+// inline <script> blocks of its pages:
 //
-//  1. it parses (`node --check`, as a module), so a SyntaxError -- a
-//     redeclared binding, a stray brace -- fails here;
-//  2. every named import of a relative or root-absolute (`/lib/x.js`) script names something that script exports.
+//  1. each parses as the kind it is loaded as: a module (the default; also
+//     the two audio worklets, since addModule() evaluates a module), or a
+//     classic script (sw.js, registered with no `type`; an inline block with
+//     no type or a JavaScript one). A function declared twice is legal in a
+//     classic script and an error in a module, so the kind matters. LOADED
+//     lists the exceptions with the reason, and a test fails if a `new Worker`,
+//     `importScripts`, `addModule` or `serviceWorker.register` turns up that
+//     it does not account for;
+//  2. every named import of a relative or root-absolute (`/lib/x.js`) script,
+//     in a script or an inline module block, names something that script exports.
 //
-// Limits of the second: a tokenizer, not a parser. It skips comments, strings,
+// Limits of the second check: a tokenizer, not a parser. It skips comments, strings,
 // template literals and regex literals before it looks, so nothing inside one
 // can pass for a statement, and it reads every static `import` and `export`
 // form (lists across lines, comments inside lists, `export const a = 1, b = 2`,
@@ -18,29 +26,43 @@
 // would be read as a division. A declaration list with no `;` is ended by a
 // line that starts a statement. It does not follow dynamic `import()` (it is
 // skipped, not checked), imports from full URLs or packages, or
-// `import * as ns` (nothing named to check). paths.test.js checks that each
-// specifier's file exists; this checks what is imported from it.
+// `import * as ns` (nothing named to check). A page's inline blocks are cut
+// out by regex, so a `</script>` inside a string would end one early; the
+// pages here have none. paths.test.js checks that each specifier's file
+// exists; this checks what is imported from it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { execFile } from 'node:child_process';
+import vm from 'node:vm';
 import { join, dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url)); // web/static/
 
-function scripts(dir = root, out = []) {
+function filesWith(ext, dir = root, out = []) {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules') continue;
     const p = join(dir, name);
-    if (statSync(p).isDirectory()) scripts(p, out);
-    else if (name.endsWith('.js')) out.push(p);
+    if (statSync(p).isDirectory()) filesWith(ext, p, out);
+    else if (name.endsWith(ext)) out.push(p);
   }
   return out.sort();
 }
+const scripts = () => filesWith('.js');
+const pages = () => filesWith('.html');
 
-/** syntaxError runs `node --check` on source, as a module; '' when it parses, else node's message. */
-function syntaxError(source) {
+/**
+ * syntaxError parses source as a `kind` of script and says what is wrong with
+ * it: '' when it parses, else the engine's message. A 'module' goes through
+ * `node --check`; a 'classic' script through vm.Script, which parses it the
+ * way a plain <script> or a classic worker would -- a function declared twice
+ * is legal there, a top-level `await` and an `import` are not.
+ */
+function syntaxError(source, kind = 'module') {
+  if (kind === 'classic') {
+    try { new vm.Script(source); return Promise.resolve(''); } catch (e) { return Promise.resolve(`${e.name}: ${e.message}`); }
+  }
   return new Promise((done) => {
     const child = execFile(process.execPath, ['--check', '--input-type=module'], { timeout: 20000 }, (err, _out, stderr) => {
       done(err ? (stderr.split('\n').find((l) => /Error/.test(l)) || String(err)).trim() : '');
@@ -288,20 +310,112 @@ export function badImports(files, base = root) {
   return bad;
 }
 
+// --- how each script is loaded -----------------------------------------------------
+
+/**
+ * Every script is parsed as a module (a <script type="module">, an import)
+ * unless it is listed here. These are the ones that are loaded some other way,
+ * or that only look like they are; the reason is beside each, and the test
+ * below fails if a load call turns up that is not accounted for.
+ *   - audioWorklet.addModule() always evaluates its file as a module, never
+ *     as a classic script, so the two worklets are modules like the rest;
+ *   - the service worker is registered with no `{ type: 'module' }`, so it is
+ *     a classic worker script (importScripts would work in it, import would not).
+ */
+const LOADED = {
+  'sw.js': { kind: 'classic', how: "navigator.serviceWorker.register('/sw.js') in app.js and lib/rooms/studio.js, with no options" },
+  'lib/phone/worklet.js': { kind: 'module', how: "audioWorklet.addModule('/lib/phone/worklet.js') in lib/phone/recorder.js and lib/tape/away-sheet.js; addModule evaluates a module" },
+  'lib/tape/stream-worklet.js': { kind: 'module', how: "audioWorklet.addModule('/lib/tape/stream-worklet.js') in lib/tape/stream-player.js; addModule evaluates a module" },
+};
+const kindOf = (path) => LOADED[relative(root, path)]?.kind ?? 'module';
+
+/**
+ * loadedScripts is the calls in source that load a script some way other than
+ * import or <script>: [{how, target, options}]. `target` is the literal path
+ * (null when it is not a literal); `options` is true when a second argument
+ * follows, which for register() and Worker() could change the kind.
+ */
+export function loadedScripts(source) {
+  const out = [];
+  const toks = tokens(source);
+  toks.forEach((tok, i) => {
+    if (tok.t !== 'word' || !isP(toks[i + 1], '(')) return;
+    const how = tok.v === 'addModule' || tok.v === 'importScripts' ? tok.v
+      : tok.v === 'register' && isP(toks[i - 1], '.') && isW(toks[i - 2], 'serviceWorker') ? 'register'
+        : tok.v === 'Worker' && isW(toks[i - 1], 'new') ? 'Worker' : null;
+    if (!how) return;
+    const arg = toks[i + 2];
+    const literal = arg?.t === 'str' && (isP(toks[i + 3], ',') || isP(toks[i + 3], ')'));
+    out.push({ how, target: literal ? arg.v : null, options: literal && isP(toks[i + 3], ',') });
+  });
+  return out;
+}
+
+/**
+ * inlineScripts is the <script> blocks in an HTML page that have code in
+ * them: [{kind, source, line, id}]. A block with a `src`, an empty one, one
+ * inside an HTML comment, and a data block (`application/json`,
+ * `text/template`, anything that is not JavaScript) are left out.
+ */
+export function inlineScripts(html) {
+  const out = [];
+  const bare = html.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, ' ')); // keeps the line numbers
+  for (const m of bare.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+    const attrs = m[1];
+    if (/\bsrc\s*=/i.test(attrs) || !m[2].trim()) continue;
+    const type = /\btype\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
+    const t = (type ? (type[1] ?? type[2] ?? type[3]) : '').trim().toLowerCase();
+    const kind = t === 'module' ? 'module' : /^(|(text|application)\/(javascript|ecmascript))$/.test(t) ? 'classic' : null;
+    if (!kind) continue;
+    out.push({ kind, source: m[2], line: bare.slice(0, m.index).split('\n').length, id: /\bid\s*=\s*["']([^"']+)/i.exec(attrs)?.[1] });
+  }
+  return out;
+}
+
 // --- the checks on the real tree ----------------------------------------------------
 
-test('every script under web/static parses (a redeclared const, a stray brace, would blank the page)', async () => {
+test('every script under web/static parses as the kind it is loaded as (a redeclared const, a stray brace, would blank the page)', async () => {
   const files = scripts().filter((p) => !p.endsWith('.test.js')); // the runner parses the tests itself
   assert.ok(files.length > 100, `found ${files.length} scripts`);
   const errors = (await inPool(files, 8, async (p) => {
-    const e = await syntaxError(readFileSync(p, 'utf8'));
-    return e ? `${relative(root, p)}: ${e}` : '';
+    const e = await syntaxError(readFileSync(p, 'utf8'), kindOf(p));
+    return e ? `${relative(root, p)} (${kindOf(p)}): ${e}` : '';
   })).filter(Boolean);
   assert.deepEqual(errors, []);
 });
 
+test('every inline <script> in a page parses as its type says', async () => {
+  const blocks = pages().flatMap((p) => inlineScripts(readFileSync(p, 'utf8')).map((b) => ({ ...b, page: relative(root, p) })));
+  assert.ok(blocks.length > 5 && blocks.some((b) => b.kind === 'module') && blocks.some((b) => b.kind === 'classic'), `found ${blocks.length} inline scripts`);
+  const errors = (await inPool(blocks, 8, async (b) => {
+    const e = await syntaxError(b.source, b.kind);
+    return e ? `${b.page}:${b.line}${b.id ? ` #${b.id}` : ''} (${b.kind}): ${e}` : '';
+  })).filter(Boolean);
+  assert.deepEqual(errors, []);
+});
+
+test('every script loaded by a worker, a worklet or the service worker registration is listed above', () => {
+  const found = new Map(); // target -> where it is loaded from
+  const problems = [];
+  for (const p of scripts().filter((f) => !f.endsWith('.test.js'))) {
+    for (const { how, target, options } of loadedScripts(readFileSync(p, 'utf8'))) {
+      const at = `${relative(root, p)}: ${how}(${target ?? '...'})`;
+      if (target === null) problems.push(`${at} is not a literal path, so its kind cannot be checked: list it by hand`);
+      else if (options) problems.push(`${at} passes options, which may make it a module worker: check the kind and list it`);
+      else if (!(target.slice(1) in LOADED)) problems.push(`${at} is not in LOADED`);
+      else found.set(target.slice(1), at);
+    }
+  }
+  for (const path of Object.keys(LOADED)) if (!found.has(path)) problems.push(`LOADED lists ${path}, but nothing loads it any more (or no longer the way it says)`);
+  assert.deepEqual(problems, []);
+});
+
 test('every named import from a script in web/static names something that script exports', () => {
   const files = new Map(scripts().map((p) => [p, readFileSync(p, 'utf8')]));
+  // an inline module block in a page imports too, and a slip there is as blank a page
+  for (const p of pages()) {
+    inlineScripts(readFileSync(p, 'utf8')).filter((b) => b.kind === 'module').forEach((b, n) => files.set(`${p}#inline${n}`, b.source));
+  }
   assert.deepEqual(badImports(files).map((b) => b.replace(root, '')), []);
 });
 
@@ -310,7 +424,7 @@ test('every named import from a script in web/static names something that script
 // The samples below are fake modules. paths.test.js reads every script's
 // `from` clause and checks the file exists, so the samples spell it FROM.
 const lit = (s) => s.replaceAll('FROM', 'from').replaceAll('IMPORT', 'import');
-const syntaxErrorS = (s) => syntaxError(lit(s));
+const syntaxErrorS = (s, kind) => syntaxError(lit(s), kind);
 const importsOfS = (s) => importsOf(lit(s));
 const exportsOfS = (s) => exportsOf(lit(s));
 
@@ -400,4 +514,44 @@ test('a root-absolute import is resolved against web/static, as the server does'
   const real = new Map(scripts().map((p) => [p, readFileSync(p, 'utf8')]));
   const fromApp = [...real].filter(([p]) => p === join(root, 'app.js')).flatMap(([, src]) => importsOf(src));
   assert.ok(fromApp.filter((i) => i.from.startsWith('/lib/')).length > 5, 'app.js imports from /lib/ should be seen');
+});
+
+test('a script is parsed as the kind it is loaded as: classic allows a repeated function, a module does not', async () => {
+  const twice = 'function f() { return 1; }\nfunction f() { return 2; }\n';
+  assert.equal(await syntaxError(twice, 'classic'), '');
+  assert.match(await syntaxError(twice, 'module'), /already been declared/);
+  const awaits = 'await Promise.resolve(1);\n';
+  assert.match(await syntaxError(awaits, 'classic'), /SyntaxError|await/i);
+  assert.equal(await syntaxError(awaits, 'module'), '');
+  assert.match(await syntaxError('const a = 1;\nconst a = 2;\n', 'classic'), /already been declared/);
+  assert.match(await syntaxErrorS('import { a } FROM "./x.js";\n', 'classic'), /import/i);
+  assert.equal(await syntaxError('', 'classic'), '');
+});
+
+test('inline script blocks are found, with the kind their type says, and data blocks are left alone', () => {
+  const html = [
+    '<script id="early">try { x(); } catch (e) {}</script>',
+    '<script type="module">\nimport { a } FROM "/lib/a.js";\n</script>',
+    '<script type="text/javascript">var c = 1;</script>',
+    '<script type="application/json" id="d">{"a": 1,}</script>',
+    '<script type="text/template"><div>${not js</div></script>',
+    '<script type="module" src="/lib/page.js"></script>',
+    '<script src="/old.js"></script>',
+    '<!-- <script>this is commented out(</script> -->',
+    '<script></script>',
+  ].join('\n');
+  const found = inlineScripts(lit(html));
+  assert.deepEqual(found.map((b) => [b.kind, b.id ?? '', b.line]), [['classic', 'early', 1], ['module', '', 2], ['classic', '', 5]]);
+  assert.match(found[1].source, /import \{ a \}/);
+});
+
+test('the places a script is loaded from are found, so a new worker or worklet has to be listed', () => {
+  const loads = (src) => loadedScripts(src);
+  assert.deepEqual(loads("await ctx.audioWorklet.addModule('/lib/a/w.js');"), [{ how: 'addModule', target: '/lib/a/w.js', options: false }]);
+  assert.deepEqual(loads("navigator.serviceWorker.register('/sw.js').catch(() => {});"), [{ how: 'register', target: '/sw.js', options: false }]);
+  assert.deepEqual(loads("navigator.serviceWorker.register('/sw.js', { type: 'module' });"), [{ how: 'register', target: '/sw.js', options: true }]);
+  assert.deepEqual(loads("const w = new Worker('/lib/w.js');\nimportScripts('/x.js');"), [{ how: 'Worker', target: '/lib/w.js', options: false }, { how: 'importScripts', target: '/x.js', options: false }]);
+  assert.deepEqual(loads('new Worker(url);'), [{ how: 'Worker', target: null, options: false }]);
+  // a comment, a string, and a bare register() (somebody's own function) are not loads
+  assert.deepEqual(loads("// addModule('/not.js')\nconst s = \"register('/nor.js')\";\nregister('/yes.js');"), []);
 });
