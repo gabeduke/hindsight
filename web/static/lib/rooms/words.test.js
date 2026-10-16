@@ -131,10 +131,10 @@ test('no retired word in a rooms page’s markup, as the rooms’ pass leaves it
   assert.deepEqual(bad, []);
 });
 
-// guide.html is read above like any page: it loads nav.js, which loads the
-// words layer, so its header is said. Its body is docs/guide.md, fetched and
-// drawn after that, and so is not renamed: F9 rewrites docs/guide.md.
-test('guide.html’s body is docs/guide.md, fetched later: not said in the rooms’ words until F9 rewrites it', () => {
+// guide.html is read above like any page: its header is said, because nav.js
+// loads the words layer. Its body is docs/guide.md, fetched and drawn after
+// that, so it is not renamed at run time: its rooms-on text is read here.
+test('guide.html draws docs/guide.md, which is read below instead of renamed', () => {
   assert.match(read('guide.html'), /fetch\('\/guide\.md'\)/);
   assert.match(read('guide.html'), /nav\.js/, 'its header is said, because nav.js loads the words layer');
 });
@@ -303,4 +303,132 @@ test('a tip allowed as “removed with the rooms” belongs to a control the roo
 test('every allow-list entry still matches something', () => {
   const stale = ALLOW.filter((_, i) => !used.has(i)).map((a) => a.slice(0, 2).join(' '));
   assert.deepEqual(stale, []);
+});
+
+// ---- 4. the guide ---------------------------------------------------------
+// docs/guide.md describes two apps. Text with no mark is the app with the
+// rooms off (it keeps Capture, clips and the crate, and says so in their
+// words). A passage that opens *With the two rooms on* is the rooms, up to a
+// *with the rooms off*; the children of a bullet that opens that way are the
+// rooms'; and a few sections are the rooms' from their first line. That text
+// must not hold a retired word, except in a line that says what a thing *was
+// called* (GUIDE_ALLOW, one narrow entry and its reason each).
+//
+// The guide's tips table is not read here: help.test.js holds it to tips.js
+// row for row, and test 2 reads tips.js as the rooms say it.
+const GUIDE_RETIRED = [...RETIRED, /\bchair\b/i, /\bTOOLS\b/, /⚑/];
+const guideHits = (s) => GUIDE_RETIRED.filter((r) => r.test(s)).map(String);
+
+// Sections that are the rooms' from the first line (matched on the heading).
+const ROOMS_SECTIONS = [/^### 4\.1 /, /^### 8\.12 /, /^### 8\.14 /, /^### 8\.15 /];
+
+// The words section: its table's last column, *It was called*, is not read.
+const WORDS_SECTION = /^### 8\.14 /;
+const ON = /(?:[Ww]ith|[Ss]till with|[Ii]n) (?:the |both )?(?:two )?rooms on|(?:[Ww]ith|[Ss]till with) them on|(?:[Tt]he )?two rooms only/;
+const OFF = /(?:[Ww]ith|[Ii]n) (?:the |both )?(?:two )?rooms off|[Ww]ith them off|rooms are off|(?:[Tt]he )?rooms off/;
+// a bullet that opens with the mark: its children are the rooms' too
+const LEAD = /^[\s*_]*(?:\[demo\]\s*)?[\s*_]*(?:[Oo]n a phone )?(?:[Ww]ith|[Ss]till with) (?:(?:the |both )?(?:two )?rooms|them) on/;
+
+/** guideUnits cuts the guide into paragraphs, list items and table rows, each with the heading it is under and its list depth. */
+export function guideUnits(src) {
+  const units = [];
+  let head = '';
+  let cur = null;
+  let inTips = false;
+  const flush = () => { if (cur) units.push(cur); cur = null; };
+  src.split('\n').forEach((raw, i) => {
+    if (/^\| Control \| Tip \|/.test(raw)) inTips = true;
+    if (/^\s*$/.test(raw)) { flush(); inTips = false; return; }
+    if (inTips) return;
+    if (/^#{1,6}\s/.test(raw)) { flush(); head = raw; units.push({ n: i + 1, head, indent: -1, text: raw, heading: true }); return; }
+    if (/^\s*\|/.test(raw)) { flush(); units.push({ n: i + 1, head, indent: 0, text: raw }); return; }
+    const li = /^(\s*)([-*]|\d+\.)\s+(.*)$/.exec(raw);
+    if (li) { flush(); cur = { n: i + 1, head, indent: li[1].length, text: li[3], item: true }; return; }
+    if (cur) { cur.text += ` ${raw.trim()}`; return; }
+    cur = { n: i + 1, head, indent: 0, text: raw.trim() };
+  });
+  flush();
+  return units;
+}
+
+/** roomsText is [line, text] for every stretch of the guide that is the rooms' to say. */
+export function roomsText(src) {
+  const out = [];
+  const stack = []; // indents of the open bullets whose children are the rooms'
+  for (const u of guideUnits(src)) {
+    if (u.heading) { stack.length = 0; continue; }
+    if (u.item) { while (stack.length && stack[stack.length - 1] >= u.indent) stack.pop(); } else stack.length = 0;
+    if (ROOMS_SECTIONS.some((r) => r.test(u.head)) || stack.length) {
+      // The words table's last column says what a word was called: the one place an old word belongs.
+      out.push([u.n, WORDS_SECTION.test(u.head) && /^\s*\|/.test(u.text) ? u.text.replace(/\|[^|]*\|\s*$/, '|') : u.text]);
+      continue;
+    }
+    // from each mark to the next "rooms off" (or the end)
+    let rest = u.text;
+    let any = false;
+    for (let m = ON.exec(rest); m; m = ON.exec(rest)) {
+      const from = rest.slice(m.index);
+      const off = OFF.exec(from.slice(m[0].length));
+      const to = off ? m[0].length + off.index : from.length;
+      out.push([u.n, from.slice(0, to)]);
+      any = true;
+      rest = from.slice(to);
+    }
+    if (u.item && any && LEAD.test(u.text)) stack.push(u.indent);
+  }
+  return out;
+}
+
+// [text the line holds, why]
+const GUIDE_ALLOW = [];
+const guideUsed = new Set();
+const guideAllowed = (s) => {
+  const i = GUIDE_ALLOW.findIndex(([t]) => s.includes(t));
+  if (i >= 0) guideUsed.add(i);
+  return i >= 0;
+};
+
+test('the guide’s rooms-on text is read: a mark, its children, a section; it stops at the rooms off', () => {
+  const sample = [
+    '## 1. A', '',
+    'Old text with the crate. With the two rooms on, Save as take is KEEP; with the rooms off, it is the crate.', '',
+    '- With the two rooms on:', '  - a clip in the crate', '- the crate, as ever', '',
+    '### 8.14 Words', '', 'A flag is a note.',
+  ].join('\n');
+  const got = roomsText(sample).map(([, t]) => t);
+  assert.equal(got.length, 4, got.join(' | '));
+  assert.match(got[0], /^With the two rooms on, Save as take is KEEP;/);
+  assert.doesNotMatch(got[0], /crate/);
+  assert.equal(got[2], 'a clip in the crate');
+  assert.equal(got[3], 'A flag is a note.');
+  assert.ok(roomsText(sample).every(([, t]) => !/as ever/.test(t)));
+  // and a retired word in what it reads is seen
+  assert.ok(guideHits(got[2]).length && guideHits(got[3]).length);
+  assert.equal(guideHits(got[0]).length, 1, 'Save as take');
+  // the real guide gives it plenty to read
+  assert.ok(roomsText(read('../../docs/guide.md')).length > 40, 'the parser lost the marks');
+});
+
+test('no retired word in the guide’s rooms-on text, or it is a line that says what a thing was called', () => {
+  const bad = [];
+  for (const [n, text] of roomsText(read('../../docs/guide.md'))) {
+    if (!guideHits(text).length || guideAllowed(text)) continue;
+    bad.push(`docs/guide.md:${n}: ${guideHits(text)} in: ${text.slice(0, 140)}`);
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('the guide’s words table has three columns, the last of them the one that is not read', () => {
+  const rows = guideUnits(read('../../docs/guide.md')).filter((u) => WORDS_SECTION.test(u.head) && /^\s*\|/.test(u.text));
+  assert.ok(rows.length > 15, 'the words table is there');
+  assert.match(rows[0].text, /\| Word \| Means \| It was called \|\s*$/);
+  for (const r of rows) assert.equal(r.text.trim().replace(/^\||\|$/g, '').split('|').length, 3, r.text);
+  // and its last column is what the reader drops: a retired word there is not a miss
+  const dropped = roomsText(read('../../docs/guide.md')).filter(([n]) => rows.some((r) => r.n === n));
+  assert.ok(dropped.every(([, t]) => !guideHits(t).length), 'the words table’s first two columns carry no retired word');
+  assert.ok(rows.some((r) => guideHits(r.text).length), 'and its last column does name them');
+});
+
+test('every guide allow-list entry still matches something', () => {
+  assert.deepEqual(GUIDE_ALLOW.filter((_, i) => !guideUsed.has(i)).map((a) => a[0]), []);
 });
