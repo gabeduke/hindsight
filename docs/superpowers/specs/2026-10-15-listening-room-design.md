@@ -124,6 +124,11 @@ the thing on the deck:
   - These tokens go in `objects.css`; `materials.test.js` already guards that
     file.
   - The header and tabs follow the scheme, as everywhere.
+- **The room is drawn from a description** (2026-10-16): the furniture,
+  the lights and the cameras as data in `lib/room/space.js`, each object
+  drawn by its own function in `lib/room/art/`, and lit from where the lamp
+  and the window are (the scene contract's *Listening Room as data*). Wide
+  enough (700 px and up) the room is drawn; a phone keeps the rows.
 - **Text on the room passes contrast** in its own right: cream on a dark
   wall, dark ink on paper. A label sits on its own plate or card, never on
   the drawing.

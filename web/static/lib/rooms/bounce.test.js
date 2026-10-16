@@ -464,7 +464,7 @@ test('a marked take stands in order with the others on the shelf', () => {
 
 test('the scene contract has no record kind, and the room has no record module', () => {
   assert.equal('record' in MODELS, false);
-  assert.deepEqual(Object.keys(MODELS).sort(), ['cable', 'cassette', 'reels', 'ribbon', 'vu']);
+  assert.deepEqual(Object.keys(MODELS).sort(), ['cable', 'cassette', 'prop', 'reels', 'ribbon', 'vu']);
   assert.throws(() => readFileSync(new URL('../room/record.js', import.meta.url)), /ENOENT/);
   const contract = readFileSync(new URL('../../../../docs/superpowers/specs/2026-10-15-scene-contract-design.md', import.meta.url), 'utf8');
   assert.doesNotMatch(contract, /^\| `record` \|/m, 'the contract’s table of kinds');

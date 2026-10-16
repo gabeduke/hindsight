@@ -5,7 +5,7 @@
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v117';
+const CACHE = 'hindsight-shell-v118';
 const SHELL = [
   '/',
   '/index.html',
@@ -119,6 +119,17 @@ const SHELL = [
   '/lib/room/deck.js',
   '/lib/room/fly.js',
   '/lib/room/ghost.js',
+  '/lib/room/space.js',
+  '/lib/room/stage.js',
+  '/lib/room/art/index.js',
+  '/lib/room/art/kit.js',
+  '/lib/room/art/shell.js',
+  '/lib/room/art/window.js',
+  '/lib/room/art/hifi.js',
+  '/lib/room/art/corner.js',
+  '/lib/room/art/floor.js',
+  '/lib/room/art/chair.js',
+  '/lib/room/art/shelf.js',
   '/lib/rig/kinds.js',
   '/lib/rig/graph.js',
   '/lib/rig/patch.js',
@@ -173,6 +184,7 @@ const SHELL = [
   '/lib/scene/renderer.js',
   '/lib/scene/dom.js',
   '/lib/scene/models.js',
+  '/lib/scene/prop.js',
   '/lib/scene/vu.js',
   '/lib/scene/reels.js',
   '/lib/scene/cassette.js',

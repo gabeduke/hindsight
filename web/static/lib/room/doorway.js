@@ -34,6 +34,8 @@ import { deckOf, deckWords, readBar, fmtLen } from './deck.js';
 import { spineTitle, familyCounts, familySticker } from '../shelf.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
+import { RoomRenderer, roomScene } from './stage.js';
+import { shelfTop, shelfBottom } from './art/shelf.js';
 
 const TAPES_EVERY_MS = 15000;
 const DECK_EVERY_MS = 500;
@@ -63,6 +65,51 @@ function whenOf(t, now = Date.now()) {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** toneOf is which of four J-card papers a take's spine is printed on: from its name, so it keeps it. */
+export function toneOf(name) {
+  let h = 0;
+  for (const c of String(name)) h = (h * 31 + c.codePointAt(0)) >>> 0;
+  return h % 4;
+}
+
+/**
+ * deckTape is the tape's run across the deck's face: off the left reel's
+ * pack, down round a guide, straight across the heads, and up onto the
+ * right reel -- straight lines, as tape under tension runs.
+ */
+function deckTape() {
+  const t = el('span', 'room-deck-tape', { 'aria-hidden': 'true' });
+  t.innerHTML = '<svg viewBox="0 0 100 40" preserveAspectRatio="none" focusable="false"><path d="M0,0 L5,36 L95,36 L100,0" fill="none" stroke="currentColor" stroke-width="2.2" vector-effect="non-scaling-stroke"/></svg>';
+  return t;
+}
+
+/**
+ * drawTheRoom draws the room's picture and lays the shelves, the deck and
+ * the sketchbook over it (lib/room/stage.js), choosing the wide view or the
+ * tall one by the room's shape, and again when that changes. Where a
+ * browser can't watch the room's size it draws nothing: the shelves and the
+ * places are the page's markup, and work without the picture.
+ */
+function drawTheRoom({ room, frame, scene, twins, deco }) {
+  if (typeof ResizeObserver !== 'function') return;
+  try {
+    const renderer = new RoomRenderer({ twins, box: frame, onError: (e) => console.error(e) });
+    renderer.mount(scene, roomScene());
+    deco[0].innerHTML = shelfTop();
+    deco[1].innerHTML = shelfBottom();
+    // Only where the room is drawn: on a phone (or with reduced data) the
+    // frame is no box at all and the shelves are rows, placed by the page.
+    const look = () => {
+      const r = room.getBoundingClientRect();
+      if (!r.width) return;
+      if (getComputedStyle(frame).display === 'contents') { renderer.unplace(); return; }
+      room.style.setProperty('--room-top', `${Math.max(0, r.top + scrollY)}px`);
+      renderer.setView(renderer.pick(r.width, r.height));
+    };
+    new ResizeObserver(look).observe(room);
+    look();
+  } catch (e) { console.error(e); }
+}
 // A View Transition cross-fade, where there is one and motion is welcome.
 // The shelf-to-deck flight is brief R2's; this is its stand-in. It answers
 // once the page has changed (the transition runs the update a frame later),
@@ -102,16 +149,10 @@ export function mount(h) {
 
 
   // --- the room ----------------------------------------------------------------
-  const scene = el('div', 'room-scene', { 'aria-hidden': 'true' },
-    el('span', 'room-curtain'),
-    el('span', 'room-window', {}, el('span', 'room-city')),
-    el('span', 'room-lamp', {}, el('span', 'room-lamp-shade'), el('span', 'room-lamp-pole')),
-    el('span', 'room-floor'),
-    el('span', 'room-rug'),
-    el('span', 'room-armchair', {}, el('span', 'room-armchair-arm'), el('span', 'room-armchair-back')),
-    el('span', 'room-console'),
-    el('span', 'room-speaker'),
-    el('span', 'room-sidetable', {}, el('span', 'room-glass'), el('span', 'room-pencil')));
+  // The picture of the room, drawn by lib/room/stage.js from ROOM (lib/room/
+  // space.js) where there is room to draw it; decoration, hidden from a
+  // screen reader.
+  const scene = el('div', 'room-scene', { 'aria-hidden': 'true' });
 
   // A shelf: its plate, the list on it, and -- for takes -- a key that opens
   // it as today's rack, where Select and Play all are.
@@ -137,14 +178,26 @@ export function mount(h) {
   const filterClear = el('button', 'room-filtered-clear', { type: 'button', 'data-tip': 'room-filter-clear' }, 'Show everything');
   const filterBar = el('p', 'room-filtered', { hidden: true }, filterText, filterClear);
   filterClear.addEventListener('click', () => { h.clearFilter(); takesShelf.list.querySelector('button')?.focus(); });
+  // The shelves' other cubbies -- books and a plant above, LPs below -- are
+  // pictures, filled in when the room is drawn.
+  const decoTop = el('div', 'room-shelf-deco room-shelf-deco-top', { 'aria-hidden': 'true' });
+  const decoFoot = el('div', 'room-shelf-deco room-shelf-deco-foot', { 'aria-hidden': 'true' });
   const shelves = el('div', 'room-shelves', { role: 'group', 'aria-label': 'The shelves' },
-    filterBar, takesShelf.sec, archiveShelf.sec);
+    decoTop, filterBar, takesShelf.sec, archiveShelf.sec, decoFoot);
 
   // The deck: a picture of the bar -- what it holds, how far it has got. It
   // has no keys of its own (the bar is the only transport); pressing it is Open.
   const deckLcd = el('span', 'room-deck-lcd', { 'aria-hidden': 'true' });
+  // Its face: two reels and the tape between them over the heads, then a
+  // panel of meters, the counter and the keys -- hardware, all of it a picture.
   const deckArt = el('span', 'room-deck-art', { 'aria-hidden': 'true' },
-    el('span', 'room-deck-reel'), el('span', 'room-deck-reel'), deckLcd);
+    el('span', 'room-deck-reel'), el('span', 'room-deck-reel'),
+    deckTape(), el('span', 'room-deck-head'),
+    el('span', 'room-deck-panel', {},
+      el('span', 'room-deck-vu'), el('span', 'room-deck-vu'),
+      el('span', 'room-deck-buttons', {}, el('i'), el('i'), el('i'), el('i'), el('i')),
+      el('span', 'room-deck-knob')),
+    deckLcd);
   const deckPlace = el('button', 'room-place room-deck-place', { type: 'button', 'data-tip': 'room-deck' });
   const deckMeta = el('span', 'room-deck-meta');
   const deckBar = el('span', 'room-deck-progress', { 'aria-hidden': 'true' }, el('span', 'room-deck-progress-fill'));
@@ -155,8 +208,12 @@ export function mount(h) {
   const book = el('section', 'room-book', { 'aria-label': 'The sketchbook' }, bookPlace);
 
   const stage = el('div', 'room-stage', {}, deck, book);
-  const room = el('section', 'room', { 'aria-label': 'The Listening Room' }, scene, shelves, stage);
+  // The frame: the picture and the places laid over it share its box, which
+  // is the view's crop of the room.
+  const frame = el('div', 'room-frame', {}, scene, shelves, stage);
+  const room = el('section', 'room', { 'aria-label': 'The Listening Room' }, frame);
   (tools || main.firstChild)?.after(room);
+  drawTheRoom({ room, frame, scene, twins: { shelves, deck, book }, deco: [decoTop, decoFoot] });
 
   // The archive's month, opened to the rack.
   const rackBack = el('button', 'icon-btn room-rack-back', { type: 'button' }, '‹ The room');
@@ -277,7 +334,7 @@ export function mount(h) {
     const name = spineTitle(t);
     const fam = familySticker(familyCounts(members));
     spineData.set(t.name, { t, isNew, members });
-    const b = el('button', `room-cassette stripe-${stripeFor(t, tagStore.list)}${isNew ? ' is-new' : ''}${t.starred ? ' starred' : ''}`, {
+    const b = el('button', `room-cassette stripe-${stripeFor(t, tagStore.list)} room-tone-${toneOf(t.name)}${isNew ? ' is-new' : ''}${t.starred ? ' starred' : ''}`, {
       type: 'button', 'data-key': `take:${t.name}`,
     },
     el('span', 'room-cassette-stripe', { 'aria-hidden': 'true' }),

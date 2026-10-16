@@ -471,7 +471,7 @@ test('a phone’s shelf row leaves room for a selected spine’s ring, halo and 
   // above the spine: it needs 8px above and 2px beside, and a snap must not eat the side.
   const start = css.indexOf('/* ---------- Rooms P5:');
   const body = css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
-  const phone = body.slice(body.indexOf('@media (max-width: 999.98px), (prefers-reduced-data: reduce)'));
+  const phone = body.slice(body.indexOf('@media (max-width: 699.98px), (prefers-reduced-data: reduce)'));
   const m = /\.room-row\s*\{[^}]*padding:\s*(\d+)px\s+\d+px\s+\d+px\s+(\d+)px[^}]*\}/.exec(phone);
   assert.ok(m, 'the phone’s .room-row has a four-value padding');
   assert.ok(Number(m[1]) >= 8, `${m[1]}px above the spines is too little for the tick`);
@@ -483,7 +483,7 @@ test('the room draws no deck on a phone, and the deck has no keys', () => {
   const start = css.indexOf('/* ---------- Rooms P5:');
   const next = css.slice(start + 1).search(/\/\* -{4,} /);
   const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
-  const phone = body.slice(body.indexOf('@media (max-width: 999.98px), (prefers-reduced-data: reduce)'));
+  const phone = body.slice(body.indexOf('@media (max-width: 699.98px), (prefers-reduced-data: reduce)'));
   assert.match(phone, /\.room-deck\s*\{\s*display:\s*none/, 'the deck card is gone on a phone');
   assert.doesNotMatch(body, /room-deck-keys|room-deck-play|room-deck-sit|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/, 'no rule for what is gone');
 });

@@ -4901,57 +4901,224 @@ body.buffer-fold .tape-sections-row { display: none; }
 .room-grease-in { left: calc(var(--in, 0) * 100%); }
 .room-grease-out { left: calc(var(--out, 1) * 100%); }
 
-/* The room drawn, wide enough for the scene. (Reduced data takes it back
-   to rows, below: a browser that doesn't know the query draws it.) */
-@media (min-width: 1000px) {
+/* The room drawn, wide enough for it: a laptop, or a tablet either way up.
+   The picture is lib/room/stage.js's SVG, drawn from the room's description
+   (lib/room/space.js); the shelves, the deck and the sketchbook are this
+   page's markup, laid over where those objects stand by the same code, in
+   fractions of the frame. --room-u is one centimetre of the room at the
+   wall, so a drawn edge or a shadow scales with the picture. (Reduced data
+   takes it back to rows, below: a browser that doesn't know the query
+   draws it.) */
+@media (min-width: 700px) {
   .room {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(440px, 40%); grid-template-areas: "stage shelves";
-    gap: 24px; padding: 20px 24px 28px; min-height: max(620px, calc(100svh - var(--topbar-h) - var(--np-h) - 24px));
+    display: block; container: room / size; padding: 0;
+    height: max(540px, calc(100svh - var(--room-top, 107px)));
+    background: var(--room-plaster-lo);
   }
-  .room-shelves { grid-area: shelves; align-self: start; }
-  .room-stage { grid-area: stage; position: relative; min-height: 560px; }
-  .room-scene { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
-  .room-scene > span { position: absolute; display: block; }
-  .room-curtain { left: 3%; top: 4%; width: 4.5%; height: 52%; background: repeating-linear-gradient(90deg, var(--room-curtain) 0 7px, var(--room-curtain-lo) 7px 12px, var(--room-curtain-hi) 12px 18px); box-shadow: 4px 0 10px rgba(0,0,0,.35); }
-  .room-window {
-    left: 6.5%; top: 7%; width: 15%; height: 36%; box-sizing: border-box; overflow: hidden;
-    border: 10px solid var(--room-walnut-lo); background: linear-gradient(var(--room-sky-hi), var(--room-sky-lo));
+  body.room-on:has(> .np:not([hidden])) .room { height: max(540px, calc(100svh - var(--room-top, 107px) - var(--np-h) - env(safe-area-inset-bottom))); }
+  .room-frame {
+    position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+    width: min(100cqw, 160cqh); aspect-ratio: 1.6;
+    --room-u: calc(min(100cqw, 160cqh) / 600);
   }
-  .room-window::before, .room-window::after { content: ''; position: absolute; background: var(--room-walnut-lo); }
-  .room-window::before { left: 50%; top: 0; bottom: 0; width: 8px; margin-left: -4px; }
-  .room-window::after { left: 0; right: 0; top: 46%; height: 7px; }
-  .room-city {
-    position: absolute; left: 0; right: 0; bottom: 0; height: 64%;
-    background:
-      radial-gradient(circle, var(--room-city-warm) 0 1.5px, transparent 2px) 3px 6px / 17px 15px,
-      radial-gradient(circle, var(--room-city-cool) 0 1.5px, transparent 2px) 11px 2px / 29px 23px,
-      linear-gradient(90deg, var(--room-city) 0 22%, transparent 22% 25%, var(--room-city) 25% 47%, transparent 47% 50%, var(--room-city) 50% 78%, transparent 78% 81%, var(--room-city) 81%);
-    -webkit-mask: linear-gradient(90deg, #000 0 22%, transparent 22% 25%, #000 25% 47%, transparent 47% 50%, #000 50% 78%, transparent 78% 81%, #000 81%);
-    clip-path: polygon(0 30%, 22% 30%, 22% 0, 47% 0, 47% 40%, 78% 40%, 78% 12%, 100% 12%, 100% 100%, 0 100%);
-  }
-  .room-lamp { left: 24%; top: 20%; width: 7%; height: 60%; }
-  .room-lamp-shade { position: absolute; left: 0; right: 0; top: 0; height: 12%; clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); background: linear-gradient(var(--room-shade-hi), var(--room-shade-lo)); box-shadow: 0 0 40px var(--room-shade-glow); }
-  .room-lamp-pole { position: absolute; left: 50%; top: 12%; bottom: 0; width: 4px; margin-left: -2px; background: var(--room-pole); }
-  .room-floor { left: -30px; right: -40%; top: 78%; bottom: -30px; background: repeating-linear-gradient(0deg, var(--room-board) 0 22px, var(--room-board-line) 22px 23px); border-top: 10px solid var(--room-skirting); }
-  .room-rug { left: 14%; top: 84%; width: 90%; height: 30%; border-radius: 50%; background: radial-gradient(ellipse, var(--room-rug) 0 38%, var(--room-rug-band) 39% 46%, var(--room-rug-mid) 47% 60%, var(--room-rug-edge) 61%); }
-  .room-armchair { left: 2%; top: 64%; width: 26%; height: 44%; border-radius: 80px 80px 18px 18px; background: repeating-linear-gradient(90deg, var(--room-cord-hi) 0 7px, var(--room-cord-lo) 7px 9px); box-shadow: inset 10px 18px 30px rgba(255,214,150,.22), inset -14px 0 24px rgba(0,0,0,.25), 0 -4px 20px rgba(0,0,0,.3); }
-  .room-armchair-arm, .room-armchair-back { position: absolute; width: 26%; height: 70%; bottom: -10%; border-radius: 30px 30px 0 0; background: repeating-linear-gradient(90deg, var(--room-cord-lo) 0 6px, var(--room-cord-hi) 6px 8px); }
-  .room-armchair-arm { left: -14%; } .room-armchair-back { right: -16%; box-shadow: inset -8px 0 18px rgba(0,0,0,.3); }
-  .room-speaker { left: 30%; top: 50%; width: 7%; height: 28%; border-radius: 4px; background: radial-gradient(circle at 50% 22%, #2a2a2a 0 8%, #151515 9% 22%, #3a3a3a 23% 25%, transparent 26%), radial-gradient(circle at 50% 58%, #2a2a2a 0 10%, #151515 11% 30%, #3a3a3a 31% 34%, transparent 35%), linear-gradient(90deg, var(--room-walnut-lo), var(--room-walnut) 40%, var(--room-walnut-lo)); box-shadow: 0 4px 10px rgba(0,0,0,.4); }
-  .room-console { left: 38%; top: 66%; width: 58%; height: 13%; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--room-walnut-lo) 0 9px, var(--room-walnut) 9px 13px), linear-gradient(var(--room-walnut), var(--room-walnut-lo)); box-shadow: 0 10px 18px rgba(0,0,0,.45), inset 0 6px 0 var(--room-walnut-hi); }
-  .room-sidetable { left: 40%; top: 88%; width: 15%; height: 3.4%; border-radius: 50%; background: linear-gradient(var(--room-walnut), var(--room-walnut-lo)); box-shadow: 0 4px 8px rgba(0,0,0,.5); }
-  .room-glass { position: absolute; left: 12%; bottom: 60%; width: 22%; height: 260%; border-radius: 3px 3px 5px 5px; background: linear-gradient(transparent 50%, var(--room-whisky) 50%), linear-gradient(var(--room-glass), rgba(255,255,255,.06)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
-  .room-pencil { position: absolute; right: 8%; bottom: 70%; width: 50%; height: 100%; border-radius: 2px; background: var(--room-paper); transform: rotate(-7deg); box-shadow: 0 2px 3px rgba(0,0,0,.4), inset 0 3px 0 #2a2420; }
-  /* The places stand where the drawing puts them. */
-  .room-deck { position: absolute; left: 44%; bottom: 34%; width: min(24%, 220px); display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
-  .room-deck-place { order: -1; }
-  .room-book { position: absolute; left: 44%; top: 80%; }
-}
+  .room-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; contain: layout style; }
+  .room-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+  .room-stage { display: contents; }
 
-/* No room to draw it, or reduced data: the shelves as rows; the deck is not
-   drawn (the bar, the page's mini player, is what plays). */
-@media (max-width: 999.98px), (prefers-reduced-data: reduce) {
-  .room { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 16px; }
+  /* The shelves: a walnut unit standing on the floor against the wall --
+     uprights, a top, a plinth, a back panel -- with its boards for rows.
+     The lamp's light falls across it from where the lamp is (--lamp-x,
+     --lamp-y, set by stage.js); its spines cast away from it (--cast-dir). */
+  .room-shelves {
+    position: absolute; left: 65.3%; width: 35.5%; bottom: 16.3%; min-height: 60.6%;
+    z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; gap: 0;
+    box-sizing: border-box; border: 0;
+    padding: calc(var(--room-u) * 4.5) calc(var(--room-u) * 4) calc(var(--room-u) * 9);
+    background:
+      radial-gradient(circle at var(--lamp-x, -60%) var(--lamp-y, 20%), rgba(255,183,102,calc(var(--key, .4) * .35)), transparent 75%),
+      linear-gradient(90deg, rgba(0,0,0,.5), transparent 6%, transparent 94%, rgba(0,0,0,.5)),
+      repeating-linear-gradient(90deg, transparent 0 calc(var(--room-u) * 18), rgba(0,0,0,.18) calc(var(--room-u) * 18) calc(var(--room-u) * 18.4)),
+      linear-gradient(var(--room-walnut-back), var(--room-walnut-deep));
+    box-shadow: calc(var(--cast-x, 1) * var(--room-u)) calc(var(--room-u) * 2) calc(var(--room-u) * 6) rgba(0,0,0,.55);
+  }
+  /* Its frame: the uprights, the top and the plinth, each with its lit edge. */
+  .room-shelves::before {
+    content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+    background:
+      linear-gradient(90deg, var(--room-walnut-hi), var(--room-walnut) 30%, var(--room-walnut-lo)) left top / calc(var(--room-u) * 4) 100% no-repeat,
+      linear-gradient(90deg, var(--room-walnut-lo), var(--room-walnut) 60%, var(--room-walnut-deep)) right top / calc(var(--room-u) * 4) 100% no-repeat,
+      linear-gradient(var(--room-walnut-hi), var(--room-walnut) 40%, var(--room-walnut-lo)) left top / 100% calc(var(--room-u) * 4.5) no-repeat,
+      linear-gradient(var(--room-walnut-lo), var(--room-walnut-deep) 30%, var(--room-walnut-deep) 80%, #000) left bottom / 100% calc(var(--room-u) * 9) no-repeat;
+  }
+  /* And the lamp on its face, over all of it: brighter on the side the lamp is. */
+  .room-shelves::after {
+    content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+    background: radial-gradient(circle at var(--lamp-x, -60%) var(--lamp-y, 20%), transparent 40%, rgba(0,0,0,.22) 110%);
+  }
+  .room-shelf { position: relative; z-index: 2; flex: none; }
+  .room-shelf-deco { position: relative; z-index: 1; flex: none; overflow: hidden; display: flex; align-items: flex-end; padding: 0 calc(var(--room-u) * 2); }
+  .room-shelf-deco-top { flex: 1 1 0; min-height: 0; }
+  .room-shelf-deco-foot { height: calc(var(--room-u) * 17); padding-top: calc(var(--room-u) * 2); }
+  .room-shelf-deco .room-art-deco { display: block; width: 100%; height: 100%; max-height: calc(var(--room-u) * 34); }
+  .room-shelf-deco-top .room-art-deco { height: auto; max-height: none; aspect-ratio: 200 / 84; flex: none; }
+
+  /* A row is a cubby: dark under the board above it, the spines standing
+     on a board whose front edge catches the lamp. */
+  .room-row {
+    position: relative; min-height: 0; gap: 2px; scrollbar-width: none;
+    padding: calc(var(--room-u) * 3) 6px 0;
+    border-bottom: calc(var(--room-u) * 4) solid var(--room-walnut);
+    background: linear-gradient(rgba(0,0,0,.55), transparent calc(var(--room-u) * 9));
+    box-shadow: 0 calc(var(--room-u) * 1.4) calc(var(--room-u) * 1.4) calc(var(--room-u) * -1) rgba(0,0,0,.6), inset 0 -1px 0 rgba(0,0,0,.4);
+  }
+  .room-row::-webkit-scrollbar { display: none; }
+  .room-shelf-foot { position: relative; z-index: 2; margin: calc(var(--room-u) * -4) 0 0 calc(var(--room-u) * 3); height: calc(var(--room-u) * 4); align-items: center; }
+  .room-shelf-foot .room-plate { align-self: center; padding: 0 7px; font-size: 10px; line-height: 13px; border-radius: 1px; box-shadow: 0 1px 1px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.35); }
+  .room-list-btn { min-height: 20px; padding: 0 8px; font-size: 11px; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .room-filtered { position: relative; z-index: 1; margin: 6px 8px; }
+  /* An empty shelf: a card propped in the cubby that says why. */
+  .room-empty {
+    align-self: flex-start; margin: calc(var(--room-u) * 3) 10px calc(var(--room-u) * 4); padding: 8px 12px; max-width: 30em;
+    background: var(--room-paper); color: var(--room-paper-ink); border-radius: 1px;
+    font: 500 17px/1.2 'Caveat', var(--font); transform: rotate(-1.5deg);
+    box-shadow: 2px 3px 6px rgba(0,0,0,.5);
+  }
+
+  /* Takes, spine out: a clear case, the J-card's spine inside it -- the
+     tag's colour as its band, the name in marker -- on one of four papers. */
+  .room-cassette {
+    width: 34px; height: 108px; border-radius: 1.5px;
+    background:
+      linear-gradient(rgba(20,24,28,.55), rgba(20,24,28,.15) 4px, transparent 5px, transparent calc(100% - 5px), rgba(20,24,28,.15) calc(100% - 4px), rgba(20,24,28,.55)),
+      linear-gradient(90deg, rgba(255,255,255,.45), transparent 3px, transparent calc(100% - 3px), rgba(0,0,0,.18)),
+      var(--room-jcard, var(--paper-hi));
+    box-shadow: calc(var(--cast-dir, 1) * 3px) 1px 4px -1px rgba(0,0,0,.55), 0 1px 0 rgba(0,0,0,.5);
+  }
+  .room-cassette.room-tone-0 { --room-jcard: var(--room-jcard-0); }
+  .room-cassette.room-tone-1 { --room-jcard: var(--room-jcard-1); }
+  .room-cassette.room-tone-2 { --room-jcard: var(--room-jcard-2); }
+  .room-cassette.room-tone-3 { --room-jcard: var(--room-jcard-3); }
+  .room-cassette-stripe { top: 9px; height: 16px; box-shadow: inset 0 -1px 0 rgba(0,0,0,.2); }
+  .room-cassette-name { top: 29px; bottom: 8px; font-size: 12px; }
+  /* The last on the row leans on the one before it, as tapes do. */
+  .room-row > li:last-child:not(:first-child) { margin-left: 5px; }
+  .room-row > li:last-child:not(:first-child) .room-cassette:not(.selected) { transform: rotate(-5deg); transform-origin: 0 100%; }
+  /* The tape in the bar is pulled out toward you, a little proud of the row. */
+  .room-cassette.on-deck { transform: translateY(-5px); }
+  @media (hover: hover) {
+    .room-row > li:last-child:not(:first-child) .room-cassette:not(.selected):hover { transform: rotate(-5deg) translateY(-3px); }
+  }
+  @media (pointer: coarse) { .room-cassette { width: 44px; } }
+  /* The focused spine stands a little proud, ringed in brass. */
+  .room-cassette:focus-visible { outline-width: 3px; transform: translateY(-4px); }
+
+  /* The archive: file boxes, a lid with its lip, a card in a brass holder, a hand-hole. */
+  .room-box {
+    width: 120px; height: 84px; border-radius: 1px;
+    background:
+      linear-gradient(rgba(0,0,0,.28), transparent 3px) 0 13px / 100% 6px no-repeat,
+      linear-gradient(var(--room-cardboard-hi), var(--room-cardboard-hi) 13px, var(--room-cardboard-lo) 13px, var(--room-cardboard-hi) 60%, var(--room-cardboard-lo));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 -3px 0 rgba(0,0,0,.2), calc(var(--cast-dir, 1) * 4px) 2px 6px -1px rgba(0,0,0,.55);
+  }
+  .room-box-label { top: 26px; left: 14px; right: 14px; padding: 5px 0; font-size: 14px; box-shadow: 0 0 0 2px var(--room-plate-lo), 0 1px 2px 2px rgba(0,0,0,.25); }
+  .room-box-hole { bottom: 11px; }
+
+  /* The hi-fi. The deck stands on the console: walnut cheeks, a brushed
+     plate, two reels with the tape run between them over the head block,
+     and a panel of meters, the counter and the keys -- not a face. */
+  .room-deck { position: absolute; left: 42.6%; top: 36%; width: 15.7%; height: 22.9%; z-index: 2; display: block; }
+  .room-deck-art {
+    position: absolute; inset: 0; aspect-ratio: auto; border-radius: 3px; overflow: hidden;
+    background:
+      linear-gradient(90deg, var(--room-walnut-hi), var(--room-walnut) 45%, var(--room-walnut-lo)) left / 5.5% 100% no-repeat,
+      linear-gradient(90deg, var(--room-walnut-lo), var(--room-walnut) 55%, var(--room-walnut-deep)) right / 5.5% 100% no-repeat,
+      repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, rgba(0,0,0,.035) 1px 3px),
+      linear-gradient(var(--room-silver-hi), var(--room-silver) 55%, var(--room-silver-lo));
+    box-shadow:
+      calc(var(--cast-x, -1) * var(--room-u)) calc(var(--room-u) * 1.5) calc(var(--room-u) * 4) rgba(0,0,0,.55),
+      inset 0 1px 0 rgba(255,255,255,.8), inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  /* The lamp on its brushed face. */
+  .room-deck-art::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle at var(--lamp-x, -50%) var(--lamp-y, 0%), rgba(255,183,102,calc(var(--key, .5) * .4)), transparent 70%),
+      linear-gradient(transparent 60%, rgba(0,0,0,.12));
+  }
+  .room-deck-reel {
+    top: 4%; width: 38%; border-radius: 50%;
+    background:
+      radial-gradient(circle, var(--reel-hub) 0 9%, var(--reel-hub-edge) 9% 11%, var(--room-silver-hi) 11% 15%, transparent 15%),
+      conic-gradient(from 0deg, var(--reel-metal) 0 70deg, transparent 70deg 120deg, var(--reel-metal) 120deg 190deg, transparent 190deg 240deg, var(--reel-metal) 240deg 310deg, transparent 310deg),
+      radial-gradient(circle, transparent 0 15%, var(--tape-pack) 15% 33%, var(--tape-sheen) 33% 34%, var(--room-walnut-deep) 34% 47%, var(--reel-edge) 47% 50%, transparent 50%);
+    -webkit-mask: radial-gradient(circle, #000 0 49.5%, transparent 50%);
+    mask: radial-gradient(circle, #000 0 49.5%, transparent 50%);
+  }
+  .room-deck-reel:first-child { left: 7.5%; }
+  .room-deck-reel:nth-child(2) { right: 7.5%; }
+  .room-deck.playing .room-deck-reel { will-change: transform; }
+  /* The tape: from under each reel, round the guides, across the heads. */
+  .room-deck-tape { position: absolute; left: 33%; right: 33%; top: 33%; height: 21%; color: var(--tape-pack); z-index: 1; }
+  .room-deck-tape svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  /* The head block: a squared cover over the heads, the tape across its face,
+     a guide post either side. */
+  .room-deck-head {
+    position: absolute; left: 35%; right: 35%; top: 41%; height: 16%; border-radius: 2px;
+    background: linear-gradient(var(--room-key-hi), var(--room-key-lo) 70%, var(--room-key-edge));
+    box-shadow: 0 1px 2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .room-deck-head::before, .room-deck-head::after { content: ''; position: absolute; top: 58%; width: 9%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 40% 35%, var(--room-silver-hi), var(--room-silver-lo)); box-shadow: 0 0 0 1px var(--room-key-lo); }
+  .room-deck-head::before { left: -16%; } .room-deck-head::after { right: -16%; }
+  .room-deck-panel {
+    position: absolute; left: 5.5%; right: 5.5%; bottom: 0; height: 34%;
+    background: linear-gradient(var(--room-key-lo), var(--room-key-edge));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 2px 3px rgba(0,0,0,.6);
+  }
+  .room-deck-vu {
+    position: absolute; top: 14%; width: 17%; height: 44%; border-radius: 1px;
+    background: linear-gradient(170deg, transparent 52%, var(--vu-needle) 53% 56%, transparent 57%), radial-gradient(ellipse at 50% 110%, var(--vu-face-hi, var(--vu-face)), var(--vu-face) 70%);
+    box-shadow: 0 0 0 1.5px var(--room-key-edge), inset 0 0 4px rgba(120,60,0,.4);
+  }
+  .room-deck-vu:first-child { left: 5%; } .room-deck-vu:nth-child(2) { left: 24%; }
+  .room-deck-buttons { position: absolute; right: 18%; bottom: 14%; width: 34%; height: 30%; display: flex; gap: 6%; }
+  .room-deck-buttons i { flex: 1; border-radius: 1px; background: linear-gradient(var(--room-key-hi), var(--room-key-lo)); box-shadow: 0 1px 0 var(--room-key-edge), inset 0 1px 0 rgba(255,255,255,.2); }
+  .room-deck-buttons i:nth-child(3) { background: linear-gradient(var(--room-silver-hi), var(--room-silver)); }
+  .room-deck-knob { position: absolute; right: 5%; top: 22%; width: 9%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 40% 35%, var(--room-silver-hi), var(--room-silver-lo) 70%); box-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .room-deck-lcd {
+    left: 44%; right: auto; width: 17%; top: auto; bottom: 18%; height: 11%; border-radius: 1px;
+    font: 600 max(8px, calc(var(--room-u) * 3.4)) var(--mono); box-shadow: inset 0 0 0 1px #1d1e21, inset 0 1px 3px rgba(0,0,0,.8);
+  }
+  .room-deck.playing .room-deck-vu { animation: none; }
+  /* Its name on a plate, hung above it; the sketchbook's, above the book. */
+  .room-deck-place { position: absolute; left: 50%; bottom: calc(100% + 8px); translate: -50% 0; max-width: 200%; }
+  .room-book { position: absolute; left: 33%; top: 64%; z-index: 2; translate: -50% calc(-100% - 16px); }
+  .room-place { min-height: 32px; box-shadow: 0 4px 12px rgba(0,0,0,.45); }
+  /* The lamp's glow in the air breathes, slowly, as a filament does: a layer
+     of its own over the picture (never the SVG, whose filters would be
+     painted again every frame), placed at the lamp by stage.js. Opacity only. */
+  .room-scene::after {
+    content: ''; position: absolute; left: var(--lamp-fx, 34%); top: var(--lamp-fy, 32%); z-index: 1;
+    width: calc(var(--room-u) * 120); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(255,183,102,.16), rgba(255,183,102,.05) 55%, transparent);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .room-scene::after { animation: room-lamp 7s ease-in-out infinite alternate; will-change: opacity; }
+  }
+  @keyframes room-lamp { to { opacity: .55; } }
+}
+/* A portrait frame: the tall view, closer in on the hi-fi and the shelves. */
+@container room (aspect-ratio < 1.1) {
+  .room-frame { width: min(100cqw, 80cqh); aspect-ratio: .8; --room-u: calc(min(100cqw, 80cqh) / 450); }
+}
+/* No room to draw it (a phone), or reduced data: the shelves as rows; the
+   deck is not drawn (the bar, the page's mini player, is what plays). */
+@media (max-width: 699.98px), (prefers-reduced-data: reduce) {
+  .room { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 16px; height: auto; container-type: normal; }
+  .room-frame { display: contents; }
+  .room-shelves::before, .room-shelves::after, .room-shelf-deco { display: none; }
+  .room-shelves { position: relative; min-height: 0; padding: 0; }
+  .room-shelf-foot { height: auto; }
+  .room-row { background: none; }
+  .room-row > li:last-child .room-cassette, .room-cassette.on-deck { transform: none; }
   .room-scene { display: none; }
   .room-stage { display: contents; }
   .room-deck, .room-book { position: static; width: auto; }

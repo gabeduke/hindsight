@@ -17,6 +17,7 @@ import { ReelsModel } from './reels.js';
 import { CassetteModel } from './cassette.js';
 import { RibbonModel } from './ribbon.js';
 import { CableModel } from './cable.js';
+import { PropModel } from './prop.js';
 
 export const MODELS = Object.freeze({
   vu: () => new VuModel(),
@@ -24,4 +25,6 @@ export const MODELS = Object.freeze({
   cassette: () => new CassetteModel(),
   ribbon: () => new RibbonModel(),
   cable: () => new CableModel(),
+  // What stands still: the Listening Room's furniture (lib/room/space.js).
+  prop: () => new PropModel(),
 });

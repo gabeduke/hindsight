@@ -125,7 +125,7 @@
 /* ---------- Rooms P5: the Listening Room (lib/room/) ----------
    What the room is made of (docs/superpowers/specs/2026-10-15-listening-
    room-design.md, "Look and materials"): the wall at dusk and the lamp's
-   glow, walnut, the floorboards and the rug, the armchair's corduroy,
+   glow, walnut, the floorboards and the rug, the chair's leather,
    cardboard, masking tape and paper, the brass plates, and the deck's
    silver. A room is a place, not chrome: the same in both schemes, as the
    pad controller is. Its words are cream on the dark wall and dark ink on
@@ -156,25 +156,31 @@
   --room-walnut-lo:  #3d2716;
   --room-walnut-deep: #22160e;
   --room-walnut-back: #2a1b12;
-  /* The floor, the rug, the armchair, the curtain. */
-  --room-board:      #2f1f13;
-  --room-board-line: #34231a;
-  --room-skirting:   #1c130c;
-  --room-rug:        #8e4a2b;
-  --room-rug-band:   #6e3420;
-  --room-rug-mid:    #7d3c24;
-  --room-rug-edge:   #5e2c1a;
-  --room-cord-hi:    #a07a2a;
-  --room-cord-lo:    #8e6b22;
-  --room-curtain-hi: #74352a;
-  --room-curtain:    #6b2f22;
-  --room-curtain-lo: #5a271c;
-  /* The window: the city at night. */
+  /* The floor, the rug, the curtain. */
+  --room-board:      #3a2416;
+  --room-board-hi:   #5c3b22;
+  --room-board-line: #1c120a;
+  --room-skirting:   #1d140d;
+  --room-rug:        #7a2c20;
+  --room-rug-band:   #26314a;
+  --room-rug-mid:    #b07a36;
+  --room-rug-edge:   #47190f;
+  --room-rug-ivory:  #e2d3b2;
+  --room-curtain-hi: #7c3a2c;
+  --room-curtain:    #63291d;
+  --room-curtain-lo: #3c170f;
+  /* The window: the city at night, and the moon over it. */
   --room-sky-hi:     #0f1622;
   --room-sky-lo:     #1b2534;
+  --room-sky-glow:   #4b3651;
+  --room-moon:       #f4ecd4;
   --room-city:       #0b1017;
+  --room-city-mid:   #121a2c;
+  --room-city-far:   #1d2640;
   --room-city-warm:  #ffcf7a;
   --room-city-cool:  #9ec3e6;
+  --room-sash:       #2b2420;
+  --room-sash-hi:    #45392f;
   /* Reel boxes, month boxes, masking tape and the paper of labels. */
   --room-box-1:      #b08a5a;
   --room-box-2:      #e7dfca;
@@ -206,6 +212,68 @@
   --room-ring:       #5a5b60;
   --room-glass:      rgba(255,255,255,.18);
   --room-whisky:     rgba(214,140,40,.85);
+  /* The room drawn (lib/room/space.js, lib/room/art/): its plaster, deep
+     green, so the walnut and the lamp stand off it; the light -- the lamp's
+     key, the window's fill -- and the dark where neither reaches. */
+  --room-plaster-hi: #141c19;
+  --room-plaster:    #1f2b26;
+  --room-plaster-lo: #25302a;
+  --room-ceiling:    #111613;
+  --room-cornice:    #2a3631;
+  --room-key-light:  #ffb766;
+  --room-fill-light: #7ea6d8;
+  --room-shadow:     #0a0806;
+  --room-glint:      #fff6e8;
+  /* The lamp's linen, lit from inside. */
+  --room-shade-hot:  #fff4dc;
+  --room-shade-edge: #a8854f;
+  /* The chair: cognac leather, and the throw over its arm. */
+  --room-leather-hi: #b9733f;
+  --room-leather:    #8a4a26;
+  --room-leather-lo: #55290f;
+  --room-leather-edge: #3b1b0a;
+  --room-leather-crease: #33170a;
+  --room-throw-hi:   #eee6d0;
+  --room-throw:      #d6c9ac;
+  --room-throw-lo:   #a29274;
+  /* The table: the sketchbook, its band, the pencil, the glass. */
+  --room-book-cover-hi: #4a5a41;
+  --room-book-cover: #2e3a29;
+  --room-book-band:  #8e3022;
+  --room-pencil:     #e2b13b;
+  --room-whisky-hi:  #f0a64a;
+  --room-whisky-lo:  rgba(150,80,20,.9);
+  /* The hi-fi: a speaker's cloth, a print over it, records and books. */
+  --room-grille:     #2b2622;
+  --room-poster:     #ece2ca;
+  --room-poster-ink: #1f2a33;
+  --room-poster-sun: #e5a03a;
+  --room-vinyl:      #121212;
+  --room-lp-1:       #c4472a;
+  --room-lp-2:       #2e5e7a;
+  --room-lp-3:       #e2b23d;
+  --room-lp-4:       #6a3d6e;
+  --room-lp-5:       #3e6b45;
+  --room-book-1:     #7a2a22;
+  --room-book-2:     #20384f;
+  --room-book-3:     #b98a3a;
+  --room-book-4:     #3d4f3a;
+  --room-book-5:     #5b3a5c;
+  --room-pot:        #a8552f;
+  --room-pot-hi:     #c46a3d;
+  --room-leaf-hi:    #5f8f4b;
+  --room-leaf:       #3f6b3a;
+  --room-leaf-lo:    #284627;
+  /* A tweed amp on the floor. */
+  --room-tweed:      #c9ab72;
+  --room-tweed-lo:   #8f7444;
+  --room-amp-grille: #4a2a20;
+  --room-amp-jewel:  #ff4a2a;
+  /* A cassette's J-card, on four papers. */
+  --room-jcard-0:    #f3ead2;
+  --room-jcard-1:    #fbf8ef;
+  --room-jcard-2:    #e6d3ad;
+  --room-jcard-3:    #dfe3e2;
 }
 
 /* ---- Rooms P6: the rig's materials (lib/rig/, rig.html) ---- */
