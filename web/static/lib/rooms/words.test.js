@@ -454,3 +454,8 @@ test('the guide’s words table has three columns, the last of them the one that
 test('every guide allow-list entry still matches something', () => {
   assert.deepEqual(GUIDE_ALLOW.filter((_, i) => !guideUsed.has(i)).map((a) => a[0]), []);
 });
+
+test('“Capture anything you want to keep first” is renamed at the start of a sentence too', () => {
+  assert.equal(say('what it’s holding now is gone. Capture anything you want to keep first.'), 'what it’s holding now is gone. Keep anything you want from it first.');
+  assert.equal(say('so capture anything you want to keep first.'), 'so keep anything you want from it first.');
+});

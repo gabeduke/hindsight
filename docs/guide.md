@@ -13,13 +13,17 @@ feature is done when its checks pass.
   - *Today* means it's on `main` now.
   - *Step N* is the roadmap step in the
     [editing model](superpowers/specs/2026-10-03-editing-model-design.md#roadmap).
+  - *With the two rooms on* and *With Play mode on* mean it's there only
+    when that preview is switched on for this device (Settings › Preview
+    features).
 - **Two apps, one guide.** Hindsight has a preview, **Two rooms**
   (Settings › Preview features), that swaps Capture, Takes and Tape for a Studio
   and a Listening Room, in new words. A device has it on or off, and this guide
   describes both:
   - Text with no mark is the app with the rooms **off**, in its old words.
   - A passage that opens *With the two rooms on* is the rooms. Sections
-    4.1, 8.12, 8.14 and 8.15 are the rooms' from their first line.
+    4.1, 8.12, 8.14 and 8.15 are the rooms' from their first line, and
+    8.13 is Play mode's.
   - [Section 8.14](#814-words-in-the-two-rooms) lists every word that changed.
 
 ## 1. The idea in one minute
@@ -311,6 +315,10 @@ Settings · the guide*. When there's a newer release than the Pi is running, a l
 says so: **● Update to v2026.10.09.5**. The page asks when it loads, every
 hour while it stays open, and when you come back to it.
 
+*With the two rooms on,* the same line is at the Studio's foot, and nothing
+else about it changes: Releases, the sheet, the key and the checks below work
+the same there. The sheet's warning says it is the feed that starts empty.
+
 - **Releases** lists every release the button can install, newest first,
   marked *running* and *latest*. Pick one and the sheet says what moving to it
   changes:
@@ -341,15 +349,16 @@ sheet says so.
 
 **Checks — updating:**
 
-- [rig] With a newer release out, the foot of Capture offers it. Update →
+- [rig] With a newer release out, the foot of Capture (the Studio's, with the
+  two rooms on) offers it. Update →
   the sheet lists what it brings in; install → downloading, installing,
   *Restarting…*, and the page comes back on the new version.
 - [rig] Releases → pick the one before → *This takes out* lists the newer
   release's notes, and **Go back to v…** installs it.
 - [rig] Start a phone recording, then install → *Not now: a phone is
   recording*, and nothing installs.
-- [rig] `make deploy` → the foot of Capture shows the release it's built on
-  plus its commits, not `dev`.
+- [rig] `make deploy` → the foot of Capture (the Studio's, with the two rooms
+  on) shows the release it's built on plus its commits, not `dev`.
 
 ### 3.3 Settings
 
