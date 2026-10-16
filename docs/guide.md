@@ -14,7 +14,7 @@ feature is done when its checks pass.
   - *Step N* is the roadmap step in the
     [editing model](superpowers/specs/2026-10-03-editing-model-design.md#roadmap).
 - **Two apps, one guide.** Hindsight has a preview, **Two rooms**
-  (Settings › This device), that swaps Capture, Takes and Tape for a Studio
+  (Settings › Preview features), that swaps Capture, Takes and Tape for a Studio
   and a Listening Room, in new words. A device has it on or off, and this guide
   describes both:
   - Text with no mark is the app with the rooms **off**, in its old words.
@@ -211,7 +211,7 @@ Every take, from **All takes** on the main page.
   selecting. The take page's ◂ ▸ step through the takes in the order this
   page shows them, a spine's folded takes right after it, and its ‹ comes
   back here.
-- **With the two rooms on** (Settings › This device › Two rooms; this page
+- **With the two rooms on** (Settings › Preview features › Two rooms; this page
   is then the Listening Room, a preview), a take is played, not picked:
   - **A tap plays it** in the bar, where you are: a spine on the shelf, a row
     of the List, a month's row, a search result, or a line under a spine. Tap
@@ -353,10 +353,24 @@ sheet says so.
 
 ### 3.3 Settings
 
-**Settings**, at the foot of Capture, changes how Hindsight records without
-touching the Pi's files. It opens on what's recording now (*Recording from
-Scarlett Solo 4th Gen, 2 channels*) and the settings grouped under it: Input,
-Buffer and Saving open, MIDI and Tape folded.
+**Settings**, at the foot of Capture (the Studio's foot with the two rooms
+on), changes how Hindsight records without touching the Pi's files. It opens
+on what's recording now (*Recording from Scarlett Solo 4th Gen, 2 channels*),
+then two parts.
+
+- **Preview features** come first, always open: **Play mode** and **Two
+  rooms**, each a switch that reads *On* or *Off*. They are for this device
+  only: the Pi and the other kits are unaffected, they save the moment you
+  flip them, and none needs a restart. A switch that has to be read when the
+  page loads says *Will be on after a reload* and brings up one **Reload to
+  apply** button. It reloads this page alone, and Hindsight keeps running.
+  It won't reload while this page holds a phone recording; finish that
+  first. Flip a switch back and the Reload goes away.
+- **On the Pi** says once what the rest does: these settings are shared by
+  every phone and laptop that opens the Pi, **Save** keeps them, and they
+  apply when Hindsight restarts, which empties the ring. Under it come the
+  groups, most used first: Input, Buffer and Saving open, MIDI and Tape
+  folded.
 
 - **Interface** is *Automatic*, or one of the interfaces plugged in now.
   Automatic records from the one with the most inputs. **Channels** at
@@ -664,7 +678,7 @@ and the editor bar takes the place of the toolbar.
 
 ### 4.1 Open
 
-*With the two rooms on (Settings › This device › Two rooms).* A tap in the
+*With the two rooms on (Settings › Preview features › Two rooms).* A tap in the
 Listening Room plays a take; **Open** is where you dig into it. It is the
 take page above: the waveform, the selection, the tempo, the MIDI lanes, ◂ ▸,
 ↶ and ⋯. Along the foot is the take's own bar (▶, ⟲ **Loop** for the
@@ -1939,7 +1953,7 @@ kept*), open the crate on that take's clips: **from … ×** shows them all agai
 
 ### 8.12 The Studio's buffer (a preview)
 
-*With the two rooms on (Settings › This device › Two rooms).* The Studio
+*With the two rooms on (Settings › Preview features › Two rooms).* The Studio
 puts a buffer between the feed and the tape: the one slot that GRAB, and a
 range's Cut and Copy, fill and DROP empties, out where you can work on it.
 
@@ -2002,7 +2016,7 @@ instrument strip take turns: see §8.13.
 
 ### 8.13 The instrument strip (a preview)
 
-*With Play mode on (Settings › This device › Play mode).* Play mode is a
+*With Play mode on (Settings › Preview features › Play mode).* Play mode is a
 drawer above the bar on the tape page, not a screen over it.
 
 - **Folded,** it's one row: **INSTRUMENT ▴**, the **KEYS** lamp, and the
@@ -2138,7 +2152,7 @@ saturation; turn it down if it's too much. The formulas are a first guess.
 
 ### 8.14 Words in the two rooms
 
-*With the two rooms on (Settings › This device › Two rooms).* Two things to
+*With the two rooms on (Settings › Preview features › Two rooms).* Two things to
 make, a **take** and a **tape**, and one way to listen: a tap plays, and the bar
 plays it. This is every word the rooms use, in the order you meet them. The
 last column says what each was called in the app with the rooms off, which is
@@ -2268,7 +2282,7 @@ has no tip.
 | Delete flag (ribbon) | Remove this flag. Takes saved later won't carry it |
 | Phone | Record from this phone's mic or a plugged-in input, straight into Hindsight |
 | Update to … | A newer release is out: see what it brings in and install it on the Pi |
-| Settings | The interface, the buffer, MIDI and the tape. Changes apply when Hindsight restarts, which empties the ring |
+| Settings | Preview features for this device, then the Pi’s interface, buffer, MIDI and tape. The Pi’s changes apply when Hindsight restarts, which empties the ring |
 | Releases | Every release you can install, newer or older, and what moving to one changes. Hindsight restarts, so the ring starts empty |
 | All takes | Every take, on a page of its own, to search, filter and sort |
 | Search | Find a take by its name, its time or its tempo |
