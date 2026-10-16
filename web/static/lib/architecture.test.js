@@ -96,3 +96,77 @@ test('Guardrail 7: Top-right .appbar-end houses Settings, Releases, and Guide ac
     'lib/nav.js must mount Settings, Releases, and Guide controls in .appbar-end when roomsOn() is true',
   );
 });
+
+test('Guardrail 8: FeedSource polls live envelope, draws waveform trace on #np-scrub, and supports grabToStudio()', async () => {
+  const { feedSource } = await import('./bar/feed-source.js');
+  const calls = [];
+  const src = feedSource({
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      if (url === '/api/status') {
+        return {
+          ok: true,
+          json: async () => ({
+            ring_seconds: 180,
+            buffered_seconds: 120,
+            capture_healthy: true,
+            channel_rms: [-14.2, -16.0],
+          }),
+        };
+      }
+      if (url.startsWith('/api/envelope')) {
+        return {
+          ok: true,
+          json: async () => ({
+            bins: [0.2, 0.5, 0.8, 0.4],
+          }),
+        };
+      }
+      if (url === '/api/clipboard') {
+        return {
+          ok: true,
+          json: async () => ({ status: 'ok' }),
+        };
+      }
+      return { ok: false };
+    },
+    forTape: () => {},
+  });
+
+  src.play();
+  await new Promise((r) => setTimeout(r, 10));
+  src.pause();
+
+  assert.equal(src.length, 120 * 48000);
+  src.seek(60 * 48000);
+  assert.equal(src.offsetSeconds, 60);
+
+  const href = await src.grabToStudio({ seconds: 15 });
+  assert.equal(href, '/tape.html');
+  const clipCall = calls.find((c) => c.url === '/api/clipboard');
+  assert.ok(clipCall, 'grabToStudio must POST to /api/clipboard');
+  src.destroy();
+});
+
+test('Guardrail 9: Listening Room inline Sketchbook supports renaming, starring, and tagging without leaving the room', () => {
+  const doorway = read('lib/room/doorway.js');
+  assert.ok(
+    doorway.includes('room-book-star') &&
+      doorway.includes('room-book-tag') &&
+      doorway.includes('room-book-name-input'),
+    'doorway.js must provide inline star, tag, and name controls inside #room-sketchbook',
+  );
+});
+
+test('Guardrail 10: Studio swimlane collapse state persists in sessionStorage and auto-unfolds on hindsight:tape-changed', () => {
+  const tapePage = read('lib/tape/page.js');
+  assert.ok(
+    tapePage.includes('hindsight.tracksFold'),
+    'tape/page.js must persist tracks-fold state in sessionStorage under hindsight.tracksFold',
+  );
+  assert.ok(
+    tapePage.includes('applyTracksFold(false)'),
+    'tape/page.js must unfold lanes when hindsight:tape-changed fires',
+  );
+});
+

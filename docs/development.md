@@ -273,18 +273,24 @@ With the tape on, `/` is the Studio, so Capture can't be reached: everything
 Capture has is in the Studio, or `pages.test.js` names where it went. The
 tape page as the Studio gains Capture's feed above the lanes — the ribbon,
 the L/R meters, KEEP (`POST /api/trigger`), Flag now, Phone and Capture's
-readouts — and under them the input diagnostic and the about line with
-Settings. Their markup is `<template>`s in `tape.html`, so with the flag off
-none of it is in the page; `lib/rooms/mount.js` is the only thing the page
-loads, and it fetches `studio.js` only with the flag on.
+readouts — and under them the input diagnostic. Settings, Releases/Version,
+and Guide sit in the top-right `.appbar-end` utility cluster on every page
+(`lib/nav.js`, `mountHeaderTools`), while `.about` is hidden at frame 0 under
+`:root[data-rooms]`. Their markup is `<template>`s in `tape.html`, so with the
+flag off none of it is in the page; `lib/rooms/mount.js` is the only thing the
+page loads, and it fetches `studio.js` only with the flag on.
 
 The Studio and the tape page import nothing of each other's. They speak in
 events, as Play mode does: `hindsight:crate-changed` asks the page to read
-the crate again after the ribbon's Keep as clip.
+the crate again after the ribbon's Keep as clip, and `hindsight:tape-changed`
+asks the page to reload its tape state (and unfold the lanes if folded via
+`#tracks-fold-btn`).
 
 - `flag.js` — the flag. The other rooms steps import it; keep its API.
 - `mount.js` — the tape page's entry: the flag, then `studio.js`.
-- `studio.js` — mounts the templates and drives them with Capture's modules.
+- `studio.js` — mounts the templates, drives them with Capture's modules, and
+  wires the unified Media Player (`#np`) 3-way source switcher (`Feed` ·
+  `Tape` · `Shelf`) plus seamless continuation of a carried Shelf take.
 - `keep.js` — KEEP's request and its Undo, and Flag now's.
 
 ### The buffer
@@ -315,25 +321,28 @@ class on the body (`fold.js`), which changes heights and nothing else.
 ## The Listening Room
 
 `web/static/lib/room/` is the Listening Room
-(`docs/superpowers/specs/2026-10-15-listening-room-design.md`), on the same
-flag as the two rooms. With it on, the takes page is the room seen from the
-doorway and a take's page is the chair. With it off, neither page loads
-anything of it: `mount.js` reads the flag and stops.
+(`docs/superpowers/specs/2026-10-15-listening-room-design.md`,
+`docs/superpowers/specs/2026-10-15-flow-design.md`, and
+`docs/superpowers/specs/2026-10-16-rooms-architecture-and-flow-design.md`),
+on the same flag as the two rooms. With it on, the takes page is the room seen
+from the doorway (`doorway.js`) and a take's page is Open (`open.js`). With it
+off, neither page loads anything of it: `mount.js` reads the flag and stops.
 
 The room doesn't copy the pages it stands in. `shelf-page.js` and
 `wave/page.js` each hand `start()` a handle on what they already run — the
-rack's list, its sheet and Play all, and the bar; a take, its flags and its
+rack's list, its selection and Play all, and the bar; a take, its flags and its
 clock — and the room draws itself around them:
 
-- `doorway.js` — the shelves (tapes, this month's takes, the archive by
-  month), the deck, the sketchbook and the dock. The rack is still on the
-  page under it: a spine opens the rack's own sheet, with the room's card at
-  its head (PUT IT ON, GRAB, Play all from here, MP3, DAW bundle), and a
-  month's box opens the rack filtered to that month.
-- `chair.js` — the take page rearranged: its reel window, LCD and keys are
-  the deck close up; its name and star are in the sketchbook; In, Out, the
-  tempo and the whole page fold under TOOLS. `wave.html?tape=ID` puts a tape
-  in the chair, played on the Pi, its sections as read-only notes.
+- `doorway.js` — the shelves (this month's takes, the archive by month), the
+  deck (`ReelWindow` driven at 60fps from `NowPlaying.onChange`), the inline
+  Sketchbook sheet (`#room-sketchbook` for adding/editing notes, renaming,
+  starring, tagging, and grabbing a note's span to the Studio buffer without
+  leaving the room or interrupting playback), and the dock (`#np` with its
+  3-way `Feed` · `Tape` · `Shelf` source switcher).
+- `open.js` — the take page (`wave.html`) with the rooms' words laid over it:
+  `✎ Note`, `GRAB` beside `KEEP`, the take's notes one line each with `▶` and
+  `GRAB`, its tag beside its star, and its family lines (`Made from`, `From
+  this take`, `Earlier bounces`).
 - `shelves.js`, `notes.js`, `swap.js` — what's on which shelf, a note's span
   for the Studio's buffer, and asking before taking the Studio's tape. Pure
   or fetch-injected, and tested without a browser.
