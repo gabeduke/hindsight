@@ -6,7 +6,7 @@
 //
 //  1. it parses (`node --check`, as a module), so a SyntaxError -- a
 //     redeclared binding, a stray brace -- fails here;
-//  2. every named import of a relative script names something that script exports.
+//  2. every named import of a relative or root-absolute (`/lib/x.js`) script names something that script exports.
 //
 // Limits of the second: a tokenizer, not a parser. It skips comments, strings,
 // template literals and regex literals before it looks, so nothing inside one
@@ -17,7 +17,7 @@
 // divides from the token before it; a regex right after `)` (`if (x) /a/.test(y)`)
 // would be read as a division. A declaration list with no `;` is ended by a
 // line that starts a statement. It does not follow dynamic `import()` (it is
-// skipped, not checked), imports from absolute URLs or packages, or
+// skipped, not checked), imports from full URLs or packages, or
 // `import * as ns` (nothing named to check). paths.test.js checks that each
 // specifier's file exists; this checks what is imported from it.
 import { test } from 'node:test';
@@ -255,10 +255,13 @@ export function exportsOf(source) {
 }
 
 /**
- * badImports is every relative named import in `files` (a Map of path
- * to source) whose y.js exists in it but does not export x.
+ * badImports is every relative or root-absolute named import in `files` (a
+ * Map of path to source) whose y.js exists in it but does not export x. A
+ * specifier that starts with / is resolved against `base`, which is web/static
+ * on the real tree: the way the server serves it, and paths.test.js reads it.
  */
-export function badImports(files) {
+export function badImports(files, base = root) {
+  const target = (path, spec) => (spec.startsWith('/') ? join(base, spec.slice(1)) : resolve(dirname(path), spec)).replace(/[?#].*$/, '');
   const exportsCache = new Map();
   const allExports = (path, seen = new Set()) => {
     if (exportsCache.has(path)) return exportsCache.get(path);
@@ -267,8 +270,8 @@ export function badImports(files) {
     const { names: own, stars } = exportsOf(files.get(path));
     const all = new Set(own);
     for (const s of stars) {
-      const target = resolve(dirname(path), s);
-      if (files.has(target)) for (const n of allExports(target, seen)) if (n !== 'default') all.add(n);
+      const to = target(path, s);
+      if (files.has(to)) for (const n of allExports(to, seen)) if (n !== 'default') all.add(n);
     }
     exportsCache.set(path, all);
     return all;
@@ -276,9 +279,9 @@ export function badImports(files) {
   const bad = [];
   for (const [path, source] of files) {
     for (const { from, names: wanted } of importsOf(source)) {
-      const target = resolve(dirname(path), from);
-      if (!files.has(target)) continue; // not a script here: paths.test.js's business
-      const have = allExports(target);
+      const to = target(path, from);
+      if (!files.has(to)) continue; // not a script here: paths.test.js's business
+      const have = allExports(to);
       for (const n of wanted) if (!have.has(n)) bad.push(`${path}: imports { ${n} } from ${from}, which exports ${[...have].sort().join(', ') || 'nothing'}`);
     }
   }
@@ -299,7 +302,7 @@ test('every script under web/static parses (a redeclared const, a stray brace, w
 
 test('every named import from a script in web/static names something that script exports', () => {
   const files = new Map(scripts().map((p) => [p, readFileSync(p, 'utf8')]));
-  assert.deepEqual(badImports(files).map((b) => b.split(sep).slice(-4).join(sep)), []);
+  assert.deepEqual(badImports(files).map((b) => b.replace(root, '')), []);
 });
 
 // --- the checks, checked --------------------------------------------------------------
@@ -378,4 +381,23 @@ test('the import check fails an import of a name the file no longer exports, and
   assert.match(bad[0], /imports \{ renamed \} from \.\/b\.js, which exports kept, nowCalledSomethingElse/);
   files.set(m('b.js'), 'export const kept = 1;\nexport const renamed = 2;');
   assert.deepEqual(badImports(files), []);
+});
+
+test('a root-absolute import is resolved against web/static, as the server does', () => {
+  const m = (s) => join(sep, 'w', s);
+  const files = new Map([
+    [m('app.js'), "import { connectLive, gone } FROM '/lib/live.js';\nimport { fine } FROM '/lib/deep/x.js?v=2';"],
+    [m('lib/live.js'), 'export function connectLive() {}'],
+    [m('lib/deep/x.js'), "export const fine = 1;"],
+    [m('lib/deep/y.js'), "import { connectLive } FROM '/lib/live.js';\nimport { connectLive as c2 } FROM '../live.js';"],
+  ].map(([path, source]) => [path, lit(source)]));
+  const bad = badImports(files, m(''));
+  assert.equal(bad.length, 1);
+  assert.match(bad[0], /app\.js: imports \{ gone \} from \/lib\/live\.js, which exports connectLive/);
+  files.set(m('lib/live.js'), 'export function connectLive() {}\nexport const gone = 1;');
+  assert.deepEqual(badImports(files, m('')), []);
+  // and the real tree: the entry page's own imports are checked
+  const real = new Map(scripts().map((p) => [p, readFileSync(p, 'utf8')]));
+  const fromApp = [...real].filter(([p]) => p === join(root, 'app.js')).flatMap(([, src]) => importsOf(src));
+  assert.ok(fromApp.filter((i) => i.from.startsWith('/lib/')).length > 5, 'app.js imports from /lib/ should be seen');
 });
