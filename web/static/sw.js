@@ -88,6 +88,7 @@ const SHELL = [
   '/lib/play/fxwire.js',
   '/lib/rooms/flag.js',
   '/lib/rooms/words.js',
+  '/lib/rooms/takename.js',
   '/lib/rooms/mount.js',
   '/lib/rooms/studio.js',
   '/lib/rooms/keep.js',

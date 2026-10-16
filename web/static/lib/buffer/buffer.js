@@ -31,6 +31,7 @@ import { token } from '../theme.js';
 import { toast as defaultToast } from '../toast.js';
 import { restoreTake } from '../trash.js';
 import { takeBack } from '../rooms/keep.js';
+import { takeTitle } from '../rooms/takename.js';
 import { followLoop, readPick, writePick } from '../rooms/grab.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
 import { replacedWords, replacedLine, recall, raiseUndo, undoWords } from './replaced.js';
@@ -399,7 +400,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
 
   async function untake(name) {
     try { await takeBack(name); } catch (e) { toast(`Could not undo it: ${e.message}`, 'bad'); return; }
-    toast(`Took back ${name}: it’s in Recently deleted`, 'ok', {
+    toast(`Took back ${takeTitle(name)}: it’s in Recently deleted`, 'ok', {
       action: { label: 'Restore', run: () => restoreTake(name).then(() => toast('Restored, starred')).catch((e) => toast(`Could not restore: ${e.message}`, 'bad')) },
     });
   }

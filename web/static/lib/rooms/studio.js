@@ -25,6 +25,7 @@ import { initUpdate } from '../update.js';
 import { initWakeLock } from '../wakelock.js';
 import { initPhone } from '../phone/recorder.js';
 import { keepTake, takeBack, flagNow } from './keep.js';
+import { takeTitle } from './takename.js';
 import { mountBuffer } from '../buffer/buffer.js';
 import { bindStudioKeys } from './keys.js';
 import { keepLabel, keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
@@ -96,7 +97,7 @@ export function mountStudio(doc = document) {
       toast(`Could not undo it: ${e.message}`, 'bad');
       return;
     }
-    toast(`Took back ${name}: it’s in Recently deleted`, 'ok', {
+    toast(`Took back ${takeTitle(name)}: it’s in Recently deleted`, 'ok', {
       action: {
         label: 'Restore',
         run: async () => {
@@ -250,7 +251,7 @@ export function mountStudio(doc = document) {
     let kept = false;
     try {
       const body = await keepTake(seconds);
-      keptToast(`Kept ${body.name}: it’s on the Listening Room’s shelf`, body.name);
+      keptToast(`Kept ${takeTitle(body.name, body.seconds)}: it’s on the Listening Room’s shelf`, body.name);
       kept = true;
       try { navigator.vibrate?.([12, 70, 12]); } catch { /* no haptics here */ }
     } catch (e) {

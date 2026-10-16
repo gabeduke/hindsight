@@ -24,11 +24,13 @@ const keepCase = (word, to) => (word[0] !== word[0].toLowerCase() ? to[0].toUppe
 
 // Ordered: the specific phrases first, then the bare words.
 const RULES = [
-  [/Flag now/g, () => '✎ Note'],
+  [/Flag now/g, () => 'Note'],
+  [/⚑/g, () => '✎'], // a note's mark is the pencil
   [/Punch-in FX/gi, () => 'FX'],
   [/Keep as clip/g, () => 'GRAB'], // the selection's other verb; the crate it filled is gone
   [/Save as take/g, () => 'KEEP'],
   [/Send to → Tape/g, () => 'GRAB'],
+  [/for a part a little early or late/g, () => 'for playing a little early or late'],
   [/Hold an empty part/g, () => 'Hold an empty spot'], // not the part a clip becomes
   [/A punch shows in red as it records/g, () => 'The Rec shows in red as it records'],
   [/\ba punch is recording\b/g, () => '● Rec is recording'],
