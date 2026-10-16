@@ -477,7 +477,7 @@ const lib = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 test('no rooms page offers Cut a record, the Records shelf or the turntable', () => {
-  for (const f of ['../room/doorway.js', '../room/chair.js', '../room/shelves.js', '../room/swap.js', '../help/tips.js']) {
+  for (const f of ['../room/doorway.js', '../room/open.js', '../room/shelves.js', '../help/tips.js']) {
     const src = strip(lib(f));
     assert.doesNotMatch(src, /Cut a record|CUT A RECORD|Records shelf|RECORDS|turntable|Turntable|sleeve|room-cut|chair-cut|\bisRecord\b|record\.js|cutTakeRecord|cutTapeRecord|readyToCut/, f);
   }
