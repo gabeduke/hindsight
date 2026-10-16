@@ -68,3 +68,8 @@ test('the two rooms are in the list, and reading them needs no localStorage', ()
   assert.ok(rooms.reload, 'the flag is read once at page load, so say so');
   assert.equal(rooms.get(), false, 'no storage in node: off, not a throw');
 });
+
+test('every shipped toggle is a preview, drawn in the open Preview features section', () => {
+  assert.ok(DEVICE_PREFS.length > 0);
+  for (const p of DEVICE_PREFS) assert.equal(p.feature, true, `${p.id} is drawn up front, not under a fold`);
+});

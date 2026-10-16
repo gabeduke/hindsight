@@ -120,56 +120,127 @@ export function revealOnOpen(d) {
 }
 
 /**
- * deviceNote is what the sheet says under a device switch once it is flipped
- * and saved. One the page reads only at load needs a reload, and says the
- * reload is this page's alone: the Pi's Restart is another thing, and
- * empties the ring.
+ * The Pi's groups in the order a person reaches for them: what is recording,
+ * how far back, where it is kept, then the machines around it. A group the
+ * registry adds later goes after these, in the order it came.
  */
-export function deviceNote(result, pref) {
-  if (result.reload) return { text: 'Reload this page for this to take effect. Only this page reloads: Hindsight keeps running.', reload: true };
-  return { text: pref.note, reload: false };
+const GROUP_ORDER = ['Input', 'Buffer', 'Saving', 'MIDI', 'Tape'];
+export function groupOrder(names) {
+  const rank = (n) => { const i = GROUP_ORDER.indexOf(n); return i < 0 ? GROUP_ORDER.length : i; };
+  return names.map((n, i) => [n, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map((x) => x[0]);
 }
 
 /**
- * The one group that is not the Pi's: switches for this device only, kept
- * in localStorage. They save as they are clicked -- there is nothing to send
- * and nothing to restart, so Save and Reset do not apply to them. A switch
- * that is read only when the page loads offers a Reload beside its note: an
- * installed phone app has no reload of its own.
+ * RESTART_NOTE is the one statement of what Save and Restart do, said once at
+ * the head of the Pi's settings. The wording is the rooms' where they are on.
  */
-export function deviceGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, write = writeDevicePref, reload = () => location.reload() } = {}) {
+export const RESTART_NOTE = say('These are the Pi’s, shared by every phone and laptop that opens it. Save keeps them; they apply when Hindsight restarts, and a restart empties the ring, so capture anything you want to keep first.');
+
+/** busyNow is true while this page holds a phone recording (lib/phone/recorder.js sets it): a reload would lose it. */
+const busyNow = () => typeof document !== 'undefined' && document.documentElement.dataset.phoneBusy === '1';
+
+/**
+ * One switch for one device preference: a button with role=switch, On or Off
+ * written on it, named by its label and described by its note. `onChange`
+ * gets the new value and answers whether it was kept.
+ */
+function prefRow(p, value, { onChange }) {
+  const row = el('div', 'set-pref');
+  const text = el('div', 'set-pref-text');
+  const label = el('span', 'set-label', p.label);
+  label.id = `pref-${p.id}-label`;
+  const note = el('p', 'set-note set-pref-note', `${p.note} This device only.`);
+  note.id = `pref-${p.id}-note`;
+  const status = el('p', 'set-pref-status');
+  status.setAttribute('role', 'status');
+  status.hidden = true;
+  text.append(label, note, status);
+  const sw = el('button', 'set-switch');
+  sw.type = 'button';
+  sw.setAttribute('role', 'switch');
+  sw.setAttribute('aria-labelledby', label.id);
+  sw.setAttribute('aria-describedby', note.id);
+  const word = el('span', 'set-switch-word');
+  sw.append(word, el('span', 'set-switch-knob'));
+  const draw = (on) => {
+    sw.setAttribute('aria-checked', on ? 'true' : 'false');
+    word.textContent = on ? 'On' : 'Off';
+  };
+  draw(!!value);
+  sw.addEventListener('click', () => {
+    const next = sw.getAttribute('aria-checked') !== 'true';
+    const r = onChange(p, next);
+    if (!r.ok) {
+      status.textContent = 'This device cannot store settings (private browsing?).';
+      status.hidden = false;
+      return; // the switch stays as it was: do not claim it saved
+    }
+    draw(next);
+    status.textContent = r.reload ? `Will be ${next ? 'on' : 'off'} after a reload.` : '';
+    status.hidden = !r.reload;
+  });
+  row.append(text, sw);
+  return row;
+}
+
+/**
+ * The previews, as their own section at the top of the sheet: always open,
+ * never folded, each a switch. They are this device's, kept in localStorage,
+ * and save as they are clicked: there is nothing to send and nothing to
+ * restart, so Save and Reset do not apply. One the page reads only at load
+ * needs a reload, and one Reload for the section applies them all (an
+ * installed phone app has no reload of its own). Flip one back and the
+ * Reload goes away. It will not run while this page holds a phone recording.
+ */
+export function featuresGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, write = writeDevicePref, reload = () => location.reload(), busy = busyNow } = {}) {
+  const feats = prefs.filter((p) => p.feature);
+  const sec = el('section', 'set-features');
+  sec.append(el('h4', 'set-section', 'Preview features'));
+  sec.append(el('p', 'set-intro', 'Try-outs for this device only. The Pi and the other kits are unaffected, and none needs a restart.'));
+  const now = read();
+  const start = { ...now };
+  const pending = new Set();
+  const bar = el('div', 'set-reload-bar');
+  bar.hidden = true;
+  const barText = el('p', 'set-reload-text', 'Reload this page to apply. Only this page reloads: Hindsight keeps running.');
+  barText.setAttribute('role', 'status');
+  const again = el('button', 'icon-btn primary set-reload', 'Reload to apply');
+  again.type = 'button';
+  again.addEventListener('click', () => {
+    if (busy()) {
+      barText.textContent = 'A phone recording is running on this page. Finish it first, then reload.';
+      return;
+    }
+    reload();
+  });
+  bar.append(barText, again);
+  const onChange = (p, value) => {
+    const r = write(p.id, value);
+    if (!r.ok) return r;
+    if (r.reload && value !== !!start[p.id]) pending.add(p.id);
+    else pending.delete(p.id);
+    bar.hidden = pending.size === 0;
+    if (pending.size) barText.textContent = 'Reload this page to apply. Only this page reloads: Hindsight keeps running.';
+    return r;
+  };
+  for (const p of feats) sec.append(prefRow(p, now[p.id], { onChange }));
+  sec.append(bar);
+  return sec;
+}
+
+/**
+ * Device preferences that are not previews, if any: a folded group of the
+ * same switches. A preview never goes here -- it would be out of sight. With
+ * none left there is no group at all.
+ */
+export function deviceGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, write = writeDevicePref } = {}) {
+  const rest = prefs.filter((p) => !p.feature);
+  if (!rest.length) return null;
   const d = revealOnOpen(el('details', 'set-group'));
   d.open = false;
   d.append(el('summary', null, 'This device'));
   const now = read();
-  for (const p of prefs) {
-    const row = el('label', 'set-field set-check');
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.checked = !!now[p.id];
-    const text = el('span', null, p.note);
-    const again = el('button', 'icon-btn set-reload', 'Reload this page');
-    again.type = 'button';
-    again.hidden = true;
-    again.addEventListener('click', () => reload());
-    box.addEventListener('change', () => {
-      const r = write(p.id, box.checked);
-      if (!r.ok) {
-        box.checked = !box.checked; // storage refused; do not claim it saved
-        text.textContent = 'This device cannot store settings (private browsing?).';
-        again.hidden = true;
-        return;
-      }
-      const n = deviceNote(r, p);
-      text.textContent = n.text;
-      again.hidden = !n.reload;
-    });
-    row.append(box, el('span', 'set-label', p.label));
-    // Beside its note, not in it: the note's words change as it is flipped.
-    const note = el('p', 'set-note');
-    note.append(text, ' ', again);
-    d.append(row, note);
-  }
+  for (const p of rest) d.append(prefRow(p, now[p.id], { onChange: (q, v) => write(q.id, v) }));
   return d;
 }
 
@@ -355,12 +426,16 @@ export function initSettings() {
       }
       body.append(p);
     }
+    body.append(featuresGroup());
+    body.append(el('h4', 'set-section', 'On the Pi'), el('p', 'set-intro set-restart-note', RESTART_NOTE));
     const groups = [];
     for (const s of data.settings) {
       let g = groups.find((x) => x.name === s.group);
       if (!g) groups.push((g = { name: s.group, items: [] }));
       g.items.push(s);
     }
+    const order = groupOrder(groups.map((g) => g.name));
+    groups.sort((x, y) => order.indexOf(x.name) - order.indexOf(y.name));
     for (const g of groups) {
       const d = revealOnOpen(el('details', 'set-group'));
       d.open = OPEN.has(g.name);
@@ -368,7 +443,8 @@ export function initSettings() {
       for (const s of g.items) d.append(field(s));
       body.append(d);
     }
-    body.append(deviceGroup());
+    const dev = deviceGroup();
+    if (dev) body.append(dev);
     drawNotes();
     refreshButtons();
   }

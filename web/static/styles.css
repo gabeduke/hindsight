@@ -1138,8 +1138,6 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .set-field input[type="text"] { font-family: var(--mono); }
 /* A switch for this device only (lib/device-prefs.js): it saves as it is
    clicked, so it has no Save and no restart. */
-.set-check { display: flex; align-items: center; gap: 10px; padding-bottom: 4px; cursor: pointer; }
-.set-check input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); flex: none; }
 /* No .set-note rule here: the sheet already styles its notes, and a bare one
    would have reached the Pi's settings too and widened them. */
 .set-field select:focus-visible, .set-field input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
@@ -5119,11 +5117,35 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
 
 /* ---------- Rooms fixes: the walkthrough's bugs (docs/superpowers/2026-10-15-walkthrough.md) ---------- */
 
-/* Settings, "This device": the Reload beside a switch's note. Set apart from
-   the Pi's Restart (the sheet's foot): it sits inline in the note, small,
-   and is hidden until a switch needs it. */
-.sheet-inner.settings-inner .set-reload { display: inline-flex; margin-left: 4px; min-height: 32px; padding: 4px 12px; font-size: 13px; }
-.sheet-inner.settings-inner .set-reload[hidden] { display: none; }
+/* Settings, Preview features (lib/settings.js featuresGroup): the device's
+   switches, an open section at the top of the sheet. Every rule is scoped to
+   .settings-inner and to the section's own classes. */
+.sheet-inner.settings-inner h4.set-section { margin: 14px 0 4px; font: 700 11px var(--label-font, var(--font)); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); }
+.sheet-inner.settings-inner p.set-intro { margin: 0 0 10px; font-size: 12.5px; line-height: 1.4; color: var(--ink-dim); }
+.sheet-inner.settings-inner p.set-restart-note { padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel-hi); border-radius: 0 6px 6px 0; color: var(--ink); }
+.set-features { margin: 0 0 6px; padding: 4px 12px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-hi); }
+.set-features h4.set-section { margin-top: 10px; }
+.set-pref { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; }
+.set-pref + .set-pref { border-top: 1px solid var(--line); }
+.set-pref-text { flex: 1 1 auto; min-width: 0; }
+.sheet-inner.settings-inner .set-pref-text p.set-note { margin: 2px 0 0; color: var(--ink-dim); }
+.sheet-inner.settings-inner p.set-pref-status { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.sheet-inner.settings-inner p.set-pref-status[hidden] { display: none; }
+.set-switch {
+  flex: none; display: inline-flex; align-items: center; justify-content: space-between; gap: 6px;
+  min-width: 76px; min-height: 44px; padding: 0 8px 0 12px; box-sizing: border-box; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 22px; background: var(--panel); color: var(--ink-dim);
+  font: 700 12px var(--label-font, var(--font)); letter-spacing: .08em; text-transform: uppercase;
+}
+.set-switch-knob { width: 22px; height: 22px; border-radius: 50%; background: var(--ink-faint); order: -1; flex: none; }
+.set-switch[aria-checked="true"] { background: var(--accent); border-color: transparent; color: var(--on-accent); justify-content: space-between; }
+.set-switch[aria-checked="true"] .set-switch-knob { order: 1; background: var(--on-accent); }
+.set-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* One Reload for the section: this page's alone, set apart from the Pi's Restart at the sheet's foot. */
+.set-reload-bar { margin-top: 8px; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: var(--panel); }
+.set-reload-bar[hidden] { display: none; }
+.sheet-inner.settings-inner p.set-reload-text { margin: 0 0 8px; font-size: 13px; line-height: 1.4; color: var(--ink); }
+.set-reload-bar .set-reload { width: 100%; min-height: var(--tap); }
 
 /* Catch (lib/tape/catch.js, page.js): pressable while it waits for a pass, and
    dimmed -- a key that is up -- so a tap can say why; and, with the rooms on,
