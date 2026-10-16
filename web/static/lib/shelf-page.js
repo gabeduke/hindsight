@@ -598,8 +598,7 @@ showNextToast();
 initHelp({ page: 'takes' });
 const navTapes = initNav();
 np = pageBar({ tapes: navTapes, onToast: toast, find: takesFinder(takes) });
-// The list in, the bar picks up the take the last page left in it (lib/bar/carry.js).
-poll(true).then(() => np.arrived());
+poll(true);
 pollStatus();
 setInterval(() => poll(), 5000);
 setInterval(pollStatus, 15000);

@@ -421,8 +421,7 @@ connectLive({
 
 // ---------------------------------------------------------------- loops
 
-// The list in, the bar picks up the take the last page left in it (lib/bar/carry.js).
-pollStatus().then(() => pollTakes(true)).then(() => np.arrived());
+pollStatus().then(() => pollTakes(true));
 setInterval(pollStatus, 2000);
 setInterval(() => pollTakes(), 5000);
 

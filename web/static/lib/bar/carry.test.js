@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CARRY_KEY, FRAME_KEY, CARRY_LIMIT_MS, FRAME_LIMIT_MS, createCarry, resumeAt, mayCarry,
+  CARRY_KEY, FRAME_KEY, CARRY_LIMIT_MS, FRAME_LIMIT_MS, createCarry, resumeAt, mayCarry, studioVisit, openTheTape, takePageState,
 } from './carry.js';
 import { takeSource } from './take-source.js';
 
@@ -87,15 +87,222 @@ test('a take that ended during the gap is not resumed', async () => {
   assert.equal(resumeAt({ ...left({ frame: 598 * SR }), at: T0 }, T0 + 1_000, 600 * SR).play, true, 'still playing a second later');
 });
 
-test('a record for a take the page does not hold is ignored, and gone', async () => {
+test('a take that no longer exists is not loaded, and its record is let go', async () => {
   const { carry, storage } = aCarry();
   carry.leave(left({ take: 'jam_gone.wav' }));
-  const rec = carry.read();
+  const rec = carry.peek();
   let loaded = 0;
-  const how = await carry.arrive(rec, { find: async (n) => (n === 'jam_a.wav' ? aSource() : null), load: () => { loaded++; } });
+  const how = await carry.arrive(rec, { find: async () => 'missing', load: () => { loaded++; } });
   assert.equal(how, 'gone');
   assert.equal(loaded, 0, 'nothing put in the bar');
   assert.equal(storage.getItem(CARRY_KEY), null);
+});
+
+test('a take this page cannot hold is left in its record for the next page', async () => {
+  const { carry, storage } = aCarry();
+  carry.leave(left({ take: 'jam_old.wav' }));
+  const rec = carry.peek();
+  let loaded = 0;
+  const how = await carry.arrive(rec, { find: async () => null, load: () => { loaded++; } });
+  assert.equal(how, 'later');
+  assert.equal(loaded, 0);
+  assert.equal(JSON.parse(storage.getItem(CARRY_KEY)).take, 'jam_old.wav', 'still there');
+  assert.equal(carry.peek().take, 'jam_old.wav', 'and good');
+});
+
+test('a record is used up when it is applied, not before', async () => {
+  const { carry, storage } = aCarry();
+  carry.leave(left());
+  const rec = carry.peek();
+  assert.ok(storage.getItem(CARRY_KEY), 'peeking does not use it');
+  const s = aSource();
+  await carry.arrive(rec, { find: async () => s, load: () => s.src });
+  assert.equal(storage.getItem(CARRY_KEY), null);
+});
+
+test('consume lets go only the record it was given, not a newer one', () => {
+  const { carry, clock } = aCarry();
+  carry.leave(left());
+  const old = carry.peek();
+  clock.t += 1000;
+  carry.leave(left({ frame: 5 * SR }));
+  carry.consume(old);
+  assert.equal(carry.peek().frame, 5 * SR);
+});
+
+test('a take that is no longer wanted (another was picked meanwhile) is not loaded, and the record stays', async () => {
+  const { carry, storage } = aCarry();
+  carry.leave(left());
+  const s = aSource();
+  let loaded = 0;
+  const how = await carry.arrive(carry.peek(), { find: async () => s, load: () => { loaded++; return s.src; }, stillWanted: () => false });
+  assert.equal(how, 'superseded');
+  assert.equal(loaded, 0);
+  assert.ok(storage.getItem(CARRY_KEY));
+});
+
+test('a record that goes stale while the page finds the take is let go, not applied', async () => {
+  const { carry, clock, storage } = aCarry();
+  carry.leave(left());
+  const rec = carry.peek();
+  const s = aSource();
+  let loaded = 0;
+  const how = await carry.arrive(rec, { find: async () => { clock.t += CARRY_LIMIT_MS + 1; return s; }, load: () => { loaded++; return s.src; } });
+  assert.equal(how, 'stale');
+  assert.equal(loaded, 0);
+  assert.equal(storage.getItem(CARRY_KEY), null);
+});
+
+// --- Repeat ---------------------------------------------------------------------
+
+test('Repeat is carried: the take lands on Repeat, and a long gap wraps round it, never ending', async () => {
+  const { carry, clock } = aCarry();
+  carry.leave(left({ frame: 590 * SR, loop: true }));
+  clock.t += 25_000; // past the end of a 600 s take
+  const { audio, src } = aSource({ seconds: 600 });
+  const how = await carry.resume(carry.read(), src);
+  assert.equal(how, 'playing');
+  assert.equal(src.loop, true);
+  assert.equal(audio.currentTime, 15, '590 + 25 wraps to 15');
+});
+
+test('a take not on Repeat that ended in the gap is dropped; the same on Repeat is not', () => {
+  const rec = { ...left({ frame: 590 * SR }), at: T0 };
+  assert.equal(resumeAt(rec, T0 + 25_000, 600 * SR), null);
+  assert.equal(resumeAt({ ...rec, loop: true }, T0 + 25_000, 600 * SR).playFrame, 15 * SR);
+});
+
+test('a paused take on Repeat comes back on Repeat, paused', async () => {
+  const { carry } = aCarry();
+  carry.leave(left({ playing: false, loop: true }));
+  const { audio, src } = aSource();
+  assert.equal(await carry.resume(carry.read(), src), 'paused');
+  assert.equal(src.loop, true);
+  assert.equal(audio.paused, true);
+});
+
+test('a record without a loop field (an older page wrote it) is a take not on Repeat', async () => {
+  const storage = new Store();
+  storage.setItem(CARRY_KEY, JSON.stringify({ v: 1, take: 'jam_a.wav', frame: SR, sr: SR, playing: false, at: T0 }));
+  const { carry } = aCarry({ storage });
+  const rec = carry.read();
+  assert.ok(rec);
+  const { src } = aSource();
+  await carry.resume(rec, src);
+  assert.equal(src.loop, false);
+});
+
+test('leave writes the loop flag', () => {
+  const { carry, storage } = aCarry();
+  carry.leave(left({ loop: true }));
+  assert.equal(JSON.parse(storage.getItem(CARRY_KEY)).loop, true);
+  carry.leave(left());
+  assert.equal(JSON.parse(storage.getItem(CARRY_KEY)).loop, false);
+});
+
+// --- the hidden page that comes back -----------------------------------------------
+
+test('a page that went hidden and came back visible lets the record it wrote go', () => {
+  const { carry, storage } = aCarry();
+  const win = aWindow();
+  carry.wire(win.target, win.doc, () => left());
+  win.doc.visibilityState = 'hidden';
+  win.doc.fire('visibilitychange');
+  assert.ok(storage.getItem(CARRY_KEY));
+  win.doc.visibilityState = 'visible';
+  win.doc.fire('visibilitychange');
+  assert.equal(storage.getItem(CARRY_KEY), null, 'a page killed instead would have left it; one that came back did not leave');
+});
+
+test('coming back visible does not let go a newer record', () => {
+  const { carry, clock, storage } = aCarry();
+  const win = aWindow();
+  carry.wire(win.target, win.doc, () => left());
+  win.doc.visibilityState = 'hidden';
+  win.doc.fire('visibilitychange');
+  clock.t += 500;
+  carry.leave(left({ frame: 9 * SR })); // another page of this tab
+  win.doc.visibilityState = 'visible';
+  win.doc.fire('visibilitychange');
+  assert.equal(JSON.parse(storage.getItem(CARRY_KEY)).frame, 9 * SR);
+});
+
+// --- the Studio, the take page, going for the tape ----------------------------------
+
+test('the Studio\'s own page is transparent: the Room\'s record stands, and nothing is wired', () => {
+  const { carry, clock } = aCarry();
+  const win = aWindow();
+  carry.leave(left());
+  const orig = carry.wire;
+  let wired = 0;
+  carry.wire = (...a) => { wired++; return orig(...a); };
+  assert.equal(studioVisit(carry), 'transparent');
+  assert.equal(wired, 0);
+  assert.equal(win.target.count() + win.doc.count(), 0);
+  clock.t += 20_000; // a while in the Studio
+  const rec = carry.read();
+  assert.equal(rec.take, 'jam_a.wav', 'back in the Room it is still there');
+  assert.equal(rec.playing, true);
+});
+
+test('Room -> Studio by its tab -> Room: the take is still there, and has played on', async () => {
+  const room = aCarry();
+  const win = aWindow();
+  room.carry.wire(win.target, win.doc, () => left({ frame: 10 * SR }));
+  win.target.fire('pagehide'); // leaving the Room by the Studio tab
+  studioVisit(room.carry);
+  room.clock.t += 30_000;
+  const s = aSource();
+  const how = await room.carry.arrive(room.carry.peek(), { find: async () => s, load: () => s.src });
+  assert.equal(how, 'playing');
+  assert.equal(s.audio.currentTime, 40);
+});
+
+test('Room -> GRAB / Open in the Studio -> Room: the old take is not brought back', () => {
+  const room = aCarry();
+  const win = aWindow();
+  room.carry.wire(win.target, win.doc, () => left());
+  room.carry.forTheTape();
+  win.target.fire('pagehide');
+  studioVisit(room.carry);
+  room.clock.t += 20_000;
+  assert.equal(room.carry.peek(), null, 'the Studio was for the tape');
+  assert.equal(room.storage.getItem(CARRY_KEY), null, 'and the mark is let go');
+});
+
+test('openTheTape (the take page\'s toasts) goes to the Studio for the tape: no take goes along', () => {
+  const { carry, storage } = aCarry();
+  const win = aWindow();
+  carry.wire(win.target, win.doc, () => left());
+  let went = null;
+  openTheTape({ carry, go: (u) => { went = u; } });
+  win.target.fire('pagehide');
+  assert.equal(went, '/tape.html');
+  assert.equal(JSON.parse(storage.getItem(CARRY_KEY)).for, 'tape');
+  assert.equal(carry.peek(), null);
+});
+
+test('the take page: opened and left alone it says nothing; played or moved it says where it is', () => {
+  let now = { frame: 0, playing: false };
+  const state = takePageState({ file: 'jam_a.wav', sr: SR, from: 0, now: () => now });
+  assert.equal(state(), undefined, 'untouched');
+  now = { frame: 3 * SR, playing: false };
+  assert.deepEqual(state(), { take: 'jam_a.wav', frame: 3 * SR, sr: SR, playing: false });
+  const b = takePageState({ file: 'jam_a.wav', sr: SR, from: 0, now: () => now });
+  now = { frame: 0, playing: true };
+  assert.equal(b().playing, true, 'played');
+  now = { frame: 0, playing: false };
+  assert.ok(b(), 'and paused again at the start: still touched');
+});
+
+test('the take page left alone leaves the Room\'s record standing through its own pagehide', () => {
+  const { carry, clock } = aCarry();
+  const win = aWindow();
+  carry.leave(left({ frame: 7 * SR }));
+  carry.wire(win.target, win.doc, takePageState({ file: 'jam_a.wav', sr: SR, from: 0, now: () => ({ frame: 0, playing: false }) }));
+  win.target.fire('pagehide');
+  clock.t += 2000;
+  assert.equal(carry.read().frame, 7 * SR);
 });
 
 test('a record is for the take it names: that one is loaded, and resumed at its frame', async () => {

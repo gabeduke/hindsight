@@ -42,22 +42,25 @@ function parse(raw) {
 
 /** validTake: a take's record -- name, a frame at or after 0, a sample rate, whether it played, when. */
 function validTake(r) {
-  return typeof r.take === 'string' && r.take !== '' && num(r.frame) && r.frame >= 0 && num(r.sr) && r.sr > 0 && typeof r.playing === 'boolean';
+  return typeof r.take === 'string' && r.take !== '' && num(r.frame) && r.frame >= 0 && num(r.sr) && r.sr > 0 && typeof r.playing === 'boolean'
+    && (r.loop === undefined || typeof r.loop === 'boolean'); // a record without loop: not repeating
 }
 
 /**
  * resumeAt says where a take left at `rec.frame` is now, for a take `length`
  * frames long: paused, at its frame; playing, at its frame plus the time
- * away. Null when it was playing and has played to its end meanwhile (the
- * bar has nothing to resume). {frame, playFrame, play}: the spot it was left
- * at, the spot to start from, and whether to start.
+ * away. A take on Repeat (`rec.loop`) never ends: the gap wraps round it.
+ * Null when it was playing and has played to its end meanwhile (the bar has
+ * nothing to resume). {frame, playFrame, play}: the spot it was left at, the
+ * spot to start from, and whether to start.
  */
 export function resumeAt(rec, now, length) {
   const frame = Math.max(0, Math.min(length - 1, Math.round(rec.frame)));
   if (!rec.playing) return { frame, playFrame: frame, play: false };
   const away = Math.max(0, now - rec.at);
-  const playFrame = Math.round(frame + (away * rec.sr) / 1000);
-  if (playFrame >= length) return null;
+  let playFrame = Math.round(frame + (away * rec.sr) / 1000);
+  if (rec.loop) playFrame %= length;
+  else if (playFrame >= length) return null;
   return { frame, playFrame, play: true };
 }
 
@@ -80,33 +83,50 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
 
   const self = {
     /**
-     * read is the record the last page left, once: reading removes it, so a
-     * reload can't play the same time away twice. Null when there is none, it
-     * is stale, or it was left for the tape. The caller still checks that the
-     * take is one it holds.
+     * peek is the record the last page left, or null: none, stale, dated in
+     * the future, garbage, or left for the tape -- those are let go. A good
+     * record stays where it is until it is applied or judged (consume): a
+     * page that cannot hold the take, or hears of it late, leaves it for the
+     * next page.
      */
-    read() {
+    peek() {
       if (!ok()) return null;
       const raw = get(CARRY_KEY);
       if (raw == null) return null;
-      del(CARRY_KEY);
       const r = parse(raw);
-      if (!r || r.for || !validTake(r) || !alive(r, now(), CARRY_LIMIT_MS)) return null;
+      if (!r || r.for || !validTake(r) || !alive(r, now(), CARRY_LIMIT_MS)) { del(CARRY_KEY); return null; }
+      return r;
+    },
+
+    /** consume lets `rec` go once it is used, unless a newer record has replaced it since. */
+    consume(rec) {
+      if (!ok() || !rec) return;
+      const held = parse(get(CARRY_KEY));
+      if (held && held.at === rec.at) del(CARRY_KEY);
+    },
+
+    /** read is peek and consume in one: the record, once. */
+    read() {
+      const r = self.peek();
+      self.consume(r);
       return r;
     },
 
     /**
      * leave writes the bar's state for the next page: `s` is {take, frame,
-     * sr, playing}, or null for a bar that holds no take, which lets an older
-     * record go so one never outlives the focus it describes. A page that said
-     * it is going to the Studio for the tape (forTheTape) keeps that.
+     * sr, playing, loop}, or null for a bar that holds no take, which lets an
+     * older record go so one never outlives the focus it describes. A page
+     * that said it is going to the Studio for the tape (forTheTape) keeps
+     * that. Answers the record it wrote, or null.
      */
     leave(s) {
-      if (!ok()) return;
+      if (!ok()) return null;
       const held = parse(get(CARRY_KEY));
-      if (held && held.for === 'tape' && alive(held, now(), BOUND_MS)) return;
-      if (!s) { del(CARRY_KEY); return; }
-      set(CARRY_KEY, { v: 1, take: s.take, frame: Math.round(s.frame), sr: s.sr, playing: !!s.playing, at: now() });
+      if (held && held.for === 'tape' && alive(held, now(), BOUND_MS)) return null;
+      if (!s) { del(CARRY_KEY); return null; }
+      const rec = { v: 1, take: s.take, frame: Math.round(s.frame), sr: s.sr, playing: !!s.playing, loop: !!s.loop, at: now() };
+      set(CARRY_KEY, rec);
+      return rec;
     },
 
     /**
@@ -134,9 +154,16 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
       if (!ok()) return;
       // undefined: nothing was done here to the take (the take page opened
       // and left alone); what the page before left stands.
-      const write = () => { const s = state(); if (s !== undefined) self.leave(s); };
-      target.addEventListener('pagehide', write);
-      doc.addEventListener('visibilitychange', () => { if (doc.visibilityState === 'hidden') write(); });
+      // The record a hidden page wrote: if the page comes back visible it was
+      // not leaving after all, and a page killed some other way (iOS does)
+      // must not leave a "playing" for a later page to apply.
+      let hidden = null;
+      const write = () => { const s = state(); return s === undefined ? null : self.leave(s); };
+      target.addEventListener('pagehide', () => { hidden = null; write(); });
+      doc.addEventListener('visibilitychange', () => {
+        if (doc.visibilityState === 'hidden') hidden = write();
+        else if (hidden) { self.consume(hidden); hidden = null; }
+      });
       target.addEventListener('pageshow', (e) => { if (e && e.persisted) self.drop(); });
     },
 
@@ -151,6 +178,7 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
     async resume(rec, src) {
       const at = resumeAt(rec, now(), src.length);
       if (!at) return 'gone';
+      if (rec.loop) src.setLoop?.(true); // Repeat was on: it still is
       if (!at.play) { src.seek(at.frame); return 'paused'; }
       src.seek(at.playFrame);
       try {
@@ -165,17 +193,28 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
     },
 
     /**
-     * arrive is the whole arrival: `find(name)` answers what the page holds
-     * for that take ({t, player}) or null, `load(entry)` puts it in the bar
-     * and answers its source. A take it doesn't hold, or that ended while
-     * away, is not loaded.
+     * arrive is the whole arrival. `find(name)` answers what the page holds
+     * for that take ({t, player}), 'missing' when the take no longer exists,
+     * or null when this page can't hold it (not on its shelf, still
+     * encoding); it may take as long as the page's list does. `load(entry)`
+     * puts it in the bar and answers its source; `stillWanted()` says the
+     * person hasn't picked something else meanwhile. The record is used up
+     * only when it is applied or judged -- a take that is gone, stale, or
+     * ended while away -- and left for the next page when this one can't hold
+     * the take. 'applied' results are resume's: 'playing' | 'ready' |
+     * 'paused'; the rest: 'none' | 'later' | 'superseded' | 'gone' | 'stale'.
      */
-    async arrive(rec, { find, load }) {
+    async arrive(rec, { find, load, stillWanted = () => true }) {
       if (!rec) return 'none';
       const entry = await find(rec.take);
-      if (!entry) return 'gone';
-      if (!resumeAt(rec, now(), takeLength(entry.t, entry.player.peaks))) return 'gone';
-      return self.resume(rec, load(entry));
+      if (entry === 'missing') { self.consume(rec); return 'gone'; }
+      if (!entry) return 'later';
+      if (!stillWanted()) return 'superseded';
+      if (!alive(rec, now(), CARRY_LIMIT_MS)) { self.consume(rec); return 'stale'; }
+      if (!resumeAt(rec, now(), takeLength(entry.t, entry.player.peaks))) { self.consume(rec); return 'gone'; }
+      const src = load(entry);
+      self.consume(rec);
+      return self.resume(rec, src);
     },
 
     /** frameNow is the bar's take and frame at this moment, or null with none: ✎ takes it before the page changes. */
@@ -219,4 +258,35 @@ export function pageCarry() {
   let storage = null;
   try { storage = globalThis.sessionStorage; } catch { /* blocked: nothing carries */ }
   return createCarry({ storage, enabled: roomsOn });
+}
+
+/**
+ * studioVisit is what the Studio's own page (tape.html) does with the hand-off:
+ * nothing. Its bar is the tape's and never reads the record, so a take can't
+ * displace the tape; and it writes none, so the Room's record stands while
+ * the person is there -- the Rig and the guide are the same -- and the
+ * Listening Room, back, finds the take (the record's own five minutes
+ * and its `at` cover the gap). It answers what it did, for the test.
+ */
+export function studioVisit(carry) { void carry; return 'transparent'; }
+
+/** openTheTape: go to the Studio for the tape from a page with its own deck (the take page's toasts): no take goes along. */
+export function openTheTape({ carry = pageCarry(), go = (u) => { location.href = u; } } = {}) {
+  carry.forTheTape();
+  go('/tape.html');
+}
+
+/**
+ * takePageState is the take page's say in the hand-off: its take, the cursor
+ * and whether it plays -- but only once something was done there (played, or
+ * the playhead moved from where it began). Opened and left alone it answers
+ * undefined, so the record the Room left stands. `now()` is {frame, playing}.
+ */
+export function takePageState({ file, sr, from, now }) {
+  let touched = false;
+  return () => {
+    const n = now();
+    touched = touched || n.playing || n.frame !== from;
+    return touched ? { take: file, frame: n.frame, sr, playing: n.playing } : undefined;
+  };
 }

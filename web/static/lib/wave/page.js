@@ -41,7 +41,7 @@ import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
-import { forTheTape, pageCarry } from '../bar/carry.js';
+import { openTheTape, pageCarry, takePageState } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom, roomOn } from '../room/mount.js';
 import { trimTakePage } from '../rooms/nocrate.js';
@@ -1513,7 +1513,7 @@ async function main() {
   $('copy-take').addEventListener('click', async () => {
     try {
       const n = await copyTake();
-      toast(`Copied ${fmtClock(n, sr)}: Paste it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => { forTheTape(); location.href = '/tape.html'; } } });
+      toast(`Copied ${fmtClock(n, sr)}: Paste it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => openTheTape() } });
     } catch (e) {
       toast(`Could not copy: ${e.message}`, 'bad');
     }
@@ -1537,7 +1537,7 @@ async function main() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       const { msg, kind } = sentMessage(res, fmtClock(state.region ? to - from : total, sr));
-      toast(msg, kind, { ms: kind === 'warn' ? 10000 : undefined, action: { label: 'Open the tape', run: () => { forTheTape(); location.href = '/tape.html'; } } });
+      toast(msg, kind, { ms: kind === 'warn' ? 10000 : undefined, action: { label: 'Open the tape', run: () => openTheTape() } });
     } catch (e) {
       toast(`Could not send to tape: ${e.message}`, 'bad', 8000);
     }
@@ -1987,12 +1987,7 @@ async function main() {
   // (lib/bar/carry.js), so Room -> Open -> back carries what was done here.
   // Opened and left alone (not played, the playhead where it began), the page
   // is transparent: the bar's take, as the Room left it, stands.
-  const carryFrom = state.cursor;
-  let carryTouched = false;
-  pageCarry().wire(window, document, () => {
-    carryTouched ||= clock.playing || state.cursor !== carryFrom;
-    return carryTouched ? { take: file, frame: state.cursor, sr, playing: clock.playing } : undefined;
-  });
+  pageCarry().wire(window, document, takePageState({ file, sr, from: state.cursor, now: () => ({ frame: state.cursor, playing: clock.playing }) }));
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
     bar.commit();
