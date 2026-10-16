@@ -4137,9 +4137,24 @@ a.crate-chip { text-decoration: none; }
    between the pages at all. */
 :root[data-rooms] .appnav:not(.appnav-rooms) { visibility: hidden; animation: rooms-appnav-late 0s linear 2s forwards; }
 @keyframes rooms-appnav-late { to { visibility: visible; } }
+:root[data-rooms] .about { display: none; }
+:root[data-rooms] body.tape-page:not(:has(.studio-feed)) main.tape-main { visibility: hidden; animation: rooms-appnav-late 0s linear 0.6s forwards; }
+:root[data-rooms] .appbar > .appbar-end {
+  grid-area: status; display: inline-flex; align-items: center; gap: 6px; justify-self: end;
+}
+:root[data-rooms] .appbar-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 36px; min-width: 0; padding: 0 10px; border-radius: 8px;
+  font: 600 12.5px var(--font); color: var(--ink); text-decoration: none; white-space: nowrap;
+}
+:root[data-rooms] .appbar-releases-btn { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+:root[data-rooms] .appbar-releases-btn.has-update { border-color: var(--go); color: var(--ink); }
+:root[data-rooms] .np-source-switch { flex: none; height: 36px; align-self: center; }
+:root[data-rooms] .np-source-switch button { min-height: 30px; padding: 0 10px; font-size: 12px; }
 
 /* The Studio's foot, between main and the dock: Capture's input diagnostic,
    then the about line. */
+:root[data-rooms] body.tracks-fold #lanes { display: none; }
 body.tape-page > .studio-chan { flex: none; margin: 0; padding: 4px 16px 0; }
 body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
 body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
@@ -4149,6 +4164,10 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
    Keep is its word alone -- the lengths beside it, and the ribbon, say how
    much -- and Flag now its pennant, as on Capture's bench. */
 @media (max-width: 699.98px) {
+  :root[data-rooms] .appbar-releases-btn,
+  :root[data-rooms] .appbar-guide-link,
+  :root[data-rooms] .np-source-switch { display: none; }
+  :root[data-rooms] .appbar-btn { padding: 0 8px; font-size: 12px; }
   .studio-feed {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "head" "ribbon" "meters" "keys" "sel";
@@ -4410,8 +4429,8 @@ body.buffer-fold .tape-sections-row { display: none; }
    controller's materials (objects.css), dark in either scheme, as an
    instrument on a stand is (lib/play/styles.test.js). */
 .play-strip {
-  flex: none; margin: 0 12px;
-  border: 1px solid var(--pad-edge); border-bottom: 0; border-radius: 12px 12px 0 0;
+  flex: none; margin: 0 0 4px;
+  border: 1px solid var(--pad-edge); border-radius: 10px;
   background: var(--pad-chassis); color: var(--pad-legend);
   color-scheme: dark;
 }
@@ -4679,12 +4698,18 @@ body.buffer-fold .tape-sections-row { display: none; }
    schemes; the header, the tabs, the sheets and Open follow the scheme. */
 
 /* --- the doorway: the room over the rack --- */
+:root[data-rooms] body:not(.room-rack) main.shelf-main,
 .room-on main.shelf-main { display: block; max-width: none; padding: 0; }
+:root[data-rooms] body:not(.room-rack) :is(#takes, #takes-empty),
 .room-on:not(.room-rack) :is(#takes, #takes-empty) { display: none; }
+:root[data-rooms] body:not(.room-search) .shelf-tools,
 .room-on:not(.room-search) .shelf-tools { display: none; }
 .room-on.room-search .shelf-tools { padding: 12px 16px; }
+:root[data-rooms] body:not(.room-rack) #shelf-sort,
 .room-on:not(.room-rack) #shelf-sort { display: none; }
+:root[data-rooms] body:not(.room-rack) :is(#play-all, #select-btn),
 .room-on:not(.room-rack) :is(#play-all, #select-btn) { display: none; }
+:root[data-rooms] body:not(.room-rack) .shelf-title,
 .room-on .shelf-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .room-on .room-search-btn[aria-expanded="true"] { color: var(--ink); background: var(--key-down); }
 .room-on #np-open, .room-on .detail-play { display: none; }
@@ -4845,16 +4870,12 @@ body.buffer-fold .tape-sections-row { display: none; }
   background: linear-gradient(var(--room-silver-hi), var(--room-silver-lo));
   box-shadow: 0 8px 14px rgba(0,0,0,.45), inset 0 1px 0 #fff;
 }
-.room-deck-reel {
-  position: absolute; top: 6%; width: 41%; aspect-ratio: 1; border-radius: 50%;
-  background: radial-gradient(circle, var(--reel-hub) 0 11%, var(--reel-hub-edge) 11% 13%, var(--tape-pack) 13% 36%, var(--tape-sheen) 36% 37%, var(--reel-metal) 37% 48%, var(--reel-edge) 48% 50%, transparent 50%);
+.room-deck-svg-reel {
+  position: absolute; top: 6%; width: 41%; aspect-ratio: 1; height: auto; display: block;
 }
-.room-deck-reel:first-child { left: 5%; }
-.room-deck-reel:nth-child(2) { right: 5%; }
-@media (prefers-reduced-motion: no-preference) {
-  .room-deck.playing .room-deck-reel { animation: room-spin 2.4s linear infinite; }
-}
-@keyframes room-spin { to { transform: rotate(360deg); } }
+.room-deck-svg-reel:first-of-type { left: 5%; }
+.room-deck-svg-reel:nth-of-type(2) { right: 5%; }
+.room-deck-levels { display: none; }
 .room-deck-lcd {
   position: absolute; left: 22%; right: 22%; top: 55%; height: 16%; border-radius: 3px;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -5044,18 +5065,12 @@ body.buffer-fold .tape-sections-row { display: none; }
     background: radial-gradient(circle at var(--lamp-x, -50%) var(--lamp-y, 0%), rgba(255,183,102,calc(var(--key, .5) * .4)), transparent 70%),
       linear-gradient(transparent 60%, rgba(0,0,0,.12));
   }
-  .room-deck-reel {
-    top: 4%; width: 38%; border-radius: 50%;
-    background:
-      radial-gradient(circle, var(--reel-hub) 0 9%, var(--reel-hub-edge) 9% 11%, var(--room-silver-hi) 11% 15%, transparent 15%),
-      conic-gradient(from 0deg, var(--reel-metal) 0 70deg, transparent 70deg 120deg, var(--reel-metal) 120deg 190deg, transparent 190deg 240deg, var(--reel-metal) 240deg 310deg, transparent 310deg),
-      radial-gradient(circle, transparent 0 15%, var(--tape-pack) 15% 33%, var(--tape-sheen) 33% 34%, var(--room-walnut-deep) 34% 47%, var(--reel-edge) 47% 50%, transparent 50%);
-    -webkit-mask: radial-gradient(circle, #000 0 49.5%, transparent 50%);
-    mask: radial-gradient(circle, #000 0 49.5%, transparent 50%);
+  .room-deck-svg-reel {
+    top: 4%; width: 38%; z-index: 2;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,.45));
   }
-  .room-deck-reel:first-child { left: 7.5%; }
-  .room-deck-reel:nth-child(2) { right: 7.5%; }
-  .room-deck.playing .room-deck-reel { will-change: transform; }
+  .room-deck-svg-reel:first-of-type { left: 7.5%; }
+  .room-deck-svg-reel:nth-of-type(2) { right: 7.5%; }
   /* The tape: from under each reel, round the guides, across the heads. */
   .room-deck-tape { position: absolute; left: 33%; right: 33%; top: 33%; height: 21%; color: var(--tape-pack); z-index: 1; }
   .room-deck-tape svg { display: block; width: 100%; height: 100%; overflow: visible; }
@@ -5191,6 +5206,15 @@ body.buffer-fold .tape-sections-row { display: none; }
 .room-open-note { color: var(--flag); font-size: 18px; }
 .room-open-note-btn { min-height: 40px; color: var(--ink); }
 dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
+.room-book-sheet .room-book-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.room-book-sheet .room-book-head h3 { margin: 0; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-book-sheet .room-book-form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.room-book-sheet .room-book-at { font: 600 12px var(--mono); color: var(--ink-dim); }
+.room-book-sheet .room-book-row { display: flex; gap: 8px; }
+.room-book-sheet .room-book-row input { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: 14px var(--font); }
+.room-book-sheet .room-book-list { display: flex; flex-direction: column; gap: 6px; max-height: 42svh; overflow-y: auto; }
+.room-book-sheet .room-book-item { display: flex; align-items: center; gap: 8px; }
+.room-book-sheet .room-book-edit { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: 13.5px var(--font); }
 @media (min-width: 860px) {
   .room-open-note-row .room-open-words { font-size: 14px; }
 }

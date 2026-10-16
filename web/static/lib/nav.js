@@ -92,6 +92,50 @@ export function roomTabs(nav) {
 }
 
 /**
+ * mountHeaderTools places the top-right utility cluster (.appbar-end) with
+ * Releases/Version, Guide, and Settings in the header on every page when the
+ * two rooms are on, and wires Settings and Releases sheets across pages.
+ */
+export function mountHeaderTools(doc = document) {
+  if (!doc || typeof doc.createElement !== 'function') return null;
+  const bar = doc.querySelector('.appbar');
+  if (!bar || doc.querySelector('.appbar-end')) return null;
+  const end = doc.createElement('div');
+  end.className = 'appbar-end';
+  for (const existing of [bar.querySelector(':scope > #out-btn'), bar.querySelector(':scope > .health')].filter(Boolean)) {
+    end.append(existing);
+  }
+  const rel = doc.createElement('button');
+  rel.type = 'button';
+  rel.id = 'appbar-releases-btn';
+  rel.className = 'icon-btn appbar-btn appbar-releases-btn';
+  rel.dataset.tip = 'releases';
+  rel.textContent = 'Releases';
+
+  const guide = doc.createElement('a');
+  guide.href = '/guide.html';
+  guide.className = 'icon-btn appbar-btn appbar-guide-link';
+  guide.dataset.tip = 'guide';
+  guide.textContent = 'Guide';
+
+  const set = doc.createElement('button');
+  set.type = 'button';
+  set.id = 'appbar-settings-btn';
+  set.className = 'icon-btn appbar-btn appbar-settings-btn';
+  set.dataset.tip = 'settings';
+  set.textContent = 'Settings';
+
+  end.append(rel, guide, set);
+  const help = bar.querySelector('#help');
+  if (help && help.parentElement === bar && typeof help.before === 'function') help.before(end);
+  else bar.append(end);
+
+  import('./settings.js').then((m) => m.initSettings()).catch(() => {});
+  import('./update.js').then((m) => m.initUpdate()).catch(() => {});
+  return end;
+}
+
+/**
  * initNav brings the page's switch in line with navTabs and lights the lamp.
  * It answers with the Pi's tapes ({loaded, tapes}), or null with the tape
  * off, so a page's now-playing bar can find the loaded tape without asking
@@ -107,6 +151,7 @@ export function initNav(doc = document, env = {}) {
   const rooms = env.rooms ?? roomsOn();
   if (rooms) {
     roomTabs(nav);
+    mountHeaderTools(doc);
     // The device chip, the way to the rig (lib/rig/chip.js): only with the
     // rooms on, so with them off it isn't even fetched.
     import('./rig/chip.js').then((m) => m.mountChip(doc, { pathname: loc.pathname, fetchFn: get })).catch(() => {});

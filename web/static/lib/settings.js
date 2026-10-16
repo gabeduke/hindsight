@@ -295,10 +295,46 @@ export async function restartHindsight({ before, load, accepted = () => {}, fetc
   return { ok: false, gone: true, error: 'It hasn’t come back. Check the Pi: journalctl _SYSTEMD_USER_UNIT=hindsight.service' };
 }
 
+const wiredSettings = new WeakSet();
+
+function ensureSettingsSheet(doc = document) {
+  let sheet = doc.getElementById('settings-sheet');
+  if (sheet || !doc.body || typeof doc.createElement !== 'function' || doc.body.classList?.contains('tape-page')) return sheet;
+  sheet = doc.createElement('dialog');
+  sheet.className = 'sheet';
+  sheet.id = 'settings-sheet';
+  sheet.setAttribute('aria-labelledby', 'settings-title');
+  sheet.innerHTML = `<div class="sheet-inner settings-inner">
+    <h3 id="settings-title">Settings</h3>
+    <p class="settings-error" role="alert" hidden></p>
+    <div class="settings-body"></div>
+    <div class="settings-restart" hidden>
+      <p>Saved. Hindsight restarts to use it, so the feed starts empty: keep anything you want from it first.</p>
+      <button class="icon-btn primary settings-restart-go" type="button">Restart</button>
+    </div>
+    <p class="settings-progress" role="status" hidden></p>
+    <div class="sheet-actions">
+      <button class="icon-btn settings-close" type="button">Close</button>
+      <button class="icon-btn primary settings-save" type="button" disabled>Save</button>
+    </div>
+  </div>`;
+  doc.body.append(sheet);
+  return sheet;
+}
+
 export function initSettings() {
   const btn = document.getElementById('settings-btn');
-  const sheet = document.getElementById('settings-sheet');
-  if (!btn || !sheet) return;
+  const appbarBtn = document.getElementById('appbar-settings-btn');
+  const sheet = document.getElementById('settings-sheet') || (roomsOn() ? ensureSettingsSheet(document) : null);
+  if ((!btn && !appbarBtn) || !sheet) return;
+  if (wiredSettings.has(sheet)) {
+    if (appbarBtn && !wiredSettings.has(appbarBtn)) {
+      wiredSettings.add(appbarBtn);
+      appbarBtn.addEventListener('click', () => (btn ? btn.click() : sheet.showModal()));
+    }
+    return;
+  }
+  wiredSettings.add(sheet);
   const $ = (sel) => sheet.querySelector(sel);
   const body = $('.settings-body');
   const errEl = $('.settings-error');
@@ -516,7 +552,8 @@ export function initSettings() {
     draw();
   }
 
-  btn.addEventListener('click', open);
+  if (btn) btn.addEventListener('click', open);
+  if (appbarBtn) { wiredSettings.add(appbarBtn); appbarBtn.addEventListener('click', open); }
   close.addEventListener('click', () => sheet.close());
   save.addEventListener('click', () => put(changes(data.settings, edits)));
 

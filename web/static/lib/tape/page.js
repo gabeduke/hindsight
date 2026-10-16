@@ -36,6 +36,7 @@ import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNum
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { ReelWindow } from '../objects/reel-window.js';
+import { Loop } from '../objects/motion.js';
 import { tapeCounter, tapeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
 import { initNav } from '../nav.js';
@@ -360,6 +361,7 @@ function apply(s) {
   // The empty-tape form starts at the tempo you were playing, until you type.
   if (s.suggest_bpm && !$('new-bpm').dataset.touched) $('new-bpm').value = String(s.suggest_bpm);
   state.live = s.live || null;
+  state.liveAt = performance.now();
   // On this phone, show what's heard: everything that draws the playhead
   // reads live.heard.
   if (state.live && output && output.streamingHere()) {
@@ -382,7 +384,46 @@ function apply(s) {
   tracePunch();
   render();
   feedReels();
+  if (state.live && state.live.playing && !(state.live.count_in > 0)) playheadLoop.start();
 }
+
+// heardNow interpolates the tape playhead at 60fps between 200ms network polls
+// on the shared ticker, wrapping round the active loop just as the engine does.
+function heardNow(now = performance.now()) {
+  const t = state.tape, live = state.live;
+  if (!live) return 0;
+  if (output && output.streamingHere()) {
+    const h = output.player.heard();
+    if (h) return h.pos;
+  }
+  let p = live.heard || 0;
+  if (live.playing && !(live.count_in > 0) && t && state.liveAt > 0) {
+    const dt = Math.max(0, Math.min(0.5, (now - state.liveAt) / 1000));
+    p += dt * (t.sample_rate || 48000);
+    const lp = t.loop;
+    if (lp && lp.on && lp.out > lp.in && live.heard < lp.out && p >= lp.out) {
+      p = lp.in + ((p - lp.in) % (lp.out - lp.in));
+    }
+  }
+  return t ? Math.min(Math.round(p), t.length) : Math.round(p);
+}
+
+const playheadLoop = new Loop((_dt, now) => {
+  const t = state.tape, live = state.live;
+  if (!t || !live || !live.playing || live.count_in > 0 || document.hidden) return false;
+  const h = heardNow(now);
+  const md = live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
+  const lcd = tapeCounter(t, { ...live, heard: h }, md);
+  setText($('position'), lcd.big);
+  setText($('np-mini'), lcd.big);
+  setText($('np-time'), lcd.small);
+  setText($('np-unit'), lcd.unit);
+  followPlayhead(h);
+  drawLanes(h);
+  drawOverview(h);
+  drawRuler(h);
+  return true;
+});
 
 // feedReels hands the bar's reel window what this poll said: where the tape
 // is, whether it plays, and how to read each track's level at a frame for
@@ -426,7 +467,7 @@ function feedReels() {
   reels.setLevels(tracks.map((tr) => trackColor(tr.n, col)),
     (frame) => tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)));
   reels.poll({
-    heard: live ? live.heard : 0,
+    heard: live ? heardNow() : 0,
     playing: !!(live && live.playing && !(live.count_in > 0)),
     length: t.length,
     sampleRate: t.sample_rate,
@@ -449,13 +490,13 @@ function laneView() {
 // followPlayhead pages the view after a playhead that has run out of it --
 // past the loop's Out with the loop off, say -- unless a finger moved the
 // view a moment ago.
-function followPlayhead() {
+function followPlayhead(heardFrame = state.live ? heardNow() : 0) {
   const live = state.live;
   // Not while a clip is being aligned: the view is the hit's then.
   if (!live || !live.playing || live.count_in > 0 || state.pinch || state.slide || gripHeld() || state.sel || state.align) return;
   if (performance.now() - state.touchedView < 2500) return;
   const v = laneView();
-  const f = followView(v, live.heard, state.tape.length);
+  const f = followView(v, heardFrame, state.tape.length);
   if (f !== v) state.zoom = f;
 }
 
@@ -2386,7 +2427,7 @@ const bar = new EditorBar({
 
 // --- the ruler -----------------------------------------------------------------
 
-function drawRuler() {
+function drawRuler(heardFrame = state.live ? heardNow() : null) {
   const t = state.tape;
   if (!t) return;
   const cv = $('tape-ruler');
@@ -2429,8 +2470,8 @@ function drawRuler() {
     ctx.fillStyle = ink;
     if (x + 3 < W - 8) ctx.fillText(String(b.n), x + 3, H * 0.3);
   }
-  if (state.live) {
-    const x = xOf(state.live.heard, view, W);
+  if (state.live && heardFrame != null) {
+    const x = xOf(heardFrame, view, W);
     if (x >= 0 && x <= W) { ctx.fillStyle = token('--accent', '#cb4b16'); ctx.fillRect(Math.round(x), 0, 2, H); }
   }
   // A locate seen but not yet heard: a hollow marker where the sound will be.
@@ -3347,7 +3388,7 @@ function drawRange(ctx, r, view, W, H, c, drawing) {
   }
 }
 
-function drawLanes() {
+function drawLanes(heardFrame = state.live ? heardNow() : null) {
   const t = shownTape();
   if (!t) return;
   const view = laneView();
@@ -3428,7 +3469,7 @@ function drawLanes() {
     const tc = trackColor(lane.n, col);
     const ink = col('--well-ink', '#f2e6c8');
     const mono = col('--mono', 'ui-monospace, monospace');
-    const heard = state.live ? xOf(state.live.heard, view, W) : null;
+    const heard = state.live && heardFrame != null ? xOf(heardFrame, view, W) : null;
     lane.hits = [];
     const labels = [];
     const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
@@ -3587,11 +3628,10 @@ function drawLanes() {
       ctx.fillText(t.grid ? barBeat(lat, t.grid) : fmtSecs(lat, t.sample_rate), Math.max(2, x0 + 4), 4);
     }
     // The playhead: what the device is playing now.
-    if (state.live) {
-      const x = xOf(state.live.heard, view, W);
-      if (x >= 0 && x <= W) {
+    if (state.live && heard != null) {
+      if (heard >= 0 && heard <= W) {
         ctx.fillStyle = col('--accent', '#cb4b16');
-        ctx.fillRect(Math.round(x), 0, 2, H);
+        ctx.fillRect(Math.round(heard), 0, 2, H);
       }
     }
     // A locate not yet heard: a dashed line where the sound will be.
@@ -3881,7 +3921,7 @@ function drawPunch(ctx, view, W, H, col) {
   ctx.restore();
 }
 
-function drawOverview() {
+function drawOverview(heardFrame = state.live ? heardNow() : null) {
   const t = state.tape;
   if (!t) return;
   const cv = $('tape-overview');
@@ -3894,7 +3934,7 @@ function drawOverview() {
   const col = (n, d) => css.getPropertyValue(n).trim() || d;
   // The window: what the lanes show. Dashed until a pinch, a pan or a drag
   // here has moved it off the loop.
-  paintTapeOverview(ctx, r.width, r.height, t, state.live ? state.live.heard : null,
+  paintTapeOverview(ctx, r.width, r.height, t, state.live ? heardFrame : null,
     { col, win: overviewWindow(laneView(), t.length, r.width), dashed: !state.zoom });
 }
 
@@ -5068,6 +5108,14 @@ function wire() {
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
   $('view-fit').addEventListener('click', () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); });
+  const foldBtn = $('tracks-fold-btn');
+  if (foldBtn) {
+    foldBtn.addEventListener('click', () => {
+      const folded = document.body.classList.toggle('tracks-fold');
+      foldBtn.setAttribute('aria-expanded', String(!folded));
+      foldBtn.textContent = folded ? 'Tracks ▸' : 'Tracks ▾';
+    });
+  }
 }
 
 boot();

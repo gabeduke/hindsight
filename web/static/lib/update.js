@@ -149,22 +149,96 @@ const el = (tag, cls, text) => {
   return n;
 };
 
+const wiredUpdates = new WeakSet();
+
+function ensureUpdateSheet(doc = document) {
+  let sheet = doc.getElementById('update-sheet');
+  if (sheet || !doc.body || typeof doc.createElement !== 'function' || doc.body.classList?.contains('tape-page')) return sheet;
+  sheet = doc.createElement('dialog');
+  sheet.className = 'sheet';
+  sheet.id = 'update-sheet';
+  sheet.setAttribute('aria-labelledby', 'update-title');
+  sheet.innerHTML = `<div class="sheet-inner update-inner">
+    <h3 id="update-title" class="update-title">Releases</h3>
+    <div class="release-list" role="radiogroup" aria-labelledby="update-title"></div>
+    <div class="release-changes" aria-live="polite"></div>
+    <p class="update-text" hidden>Hindsight restarts to install it, so the feed starts empty: what it's holding now is gone. Keep anything you want from it first.</p>
+    <p class="update-progress" role="status" hidden></p>
+    <div class="sheet-actions">
+      <button class="icon-btn update-cancel" type="button">Cancel</button>
+      <button class="icon-btn primary update-go" type="button" hidden>Update</button>
+    </div>
+  </div>`;
+  doc.body.append(sheet);
+  return sheet;
+}
+
 /**
- * initUpdate wires the footer and the sheet on the Capture page. On an
- * install without the updater it does nothing at all.
+ * initUpdate wires the footer and the sheet on the Capture page, and the
+ * top-right Releases button in the header when rooms are on.
  */
 export async function initUpdate() {
   const about = document.querySelector('.about');
   const btn = document.getElementById('update-btn');
   const relBtn = document.getElementById('releases-btn');
-  const sheet = document.getElementById('update-sheet');
-  if (!about || !btn || !relBtn || !sheet) return;
+  const appbarBtn = document.getElementById ? document.getElementById('appbar-releases-btn') : null;
+  const sheet = document.getElementById('update-sheet') || (appbarBtn ? ensureUpdateSheet(document) : null);
+  if (!sheet || ((!about || !btn || !relBtn) && !appbarBtn)) return;
+  if (wiredUpdates.has(sheet)) return;
+  wiredUpdates.add(sheet);
 
-  if (!askAboutUpdates(await getJSON('/api/status'))) return;
-  let info = await getJSON('/api/update');
-  if (!info) return; // 404: an older Pi with no updater, or the Pi isn't answering
-  relBtn.hidden = false;
-  about.classList.add('can-update');
+  const st = await getJSON('/api/status');
+  if (!askAboutUpdates(st)) {
+    if (appbarBtn && typeof sheet.querySelector === 'function') {
+      if (st?.version) appbarBtn.textContent = st.version;
+      const title = sheet.querySelector('.update-title');
+      const listEl = sheet.querySelector('.release-list');
+      const changesEl = sheet.querySelector('.release-changes');
+      const text = sheet.querySelector('.update-text');
+      const progress = sheet.querySelector('.update-progress');
+      const go = sheet.querySelector('.update-go');
+      const cancel = sheet.querySelector('.update-cancel');
+      cancel?.addEventListener('click', () => sheet.close());
+      appbarBtn.addEventListener('click', () => {
+        if (!sheet.open) sheet.showModal();
+        if (title) title.textContent = 'Releases';
+        if (listEl) {
+          listEl.hidden = false;
+          listEl.replaceChildren(el('p', 'release-note', `Running ${st?.version || 'local build'}. Updates are managed on kits with the updater service.`));
+        }
+        if (changesEl) changesEl.hidden = true;
+        if (go) go.hidden = true;
+        if (text) text.hidden = true;
+        if (progress) progress.hidden = true;
+        if (cancel) cancel.textContent = 'Close';
+      });
+    }
+    return;
+  }
+
+  const $ = (sel) => sheet.querySelector(sel);
+  const title = $('.update-title');
+  const listEl = $('.release-list');
+  const changesEl = $('.release-changes');
+  const text = $('.update-text');
+  const progress = $('.update-progress');
+  const go = $('.update-go');
+  const cancel = $('.update-cancel');
+  let releases = [];
+  let picked = '';
+  let info = { running: st?.version || '', latest: '', available: false };
+  let following = false;
+
+  if (st?.version && appbarBtn) appbarBtn.textContent = st.version;
+  cancel.addEventListener('click', () => sheet.close());
+  if (appbarBtn) {
+    appbarBtn.addEventListener('click', () => open(info.available && info.latest ? info.latest : info.running));
+  }
+  const fetched = await getJSON('/api/update');
+  if (!fetched) return; // 404: an older Pi with no updater, or the Pi isn't answering
+  info = fetched;
+  if (relBtn) relBtn.hidden = false;
+  if (about) about.classList.add('can-update');
 
   // A rolled-back or failed update from another device, or from before a
   // reload, is said once.
@@ -180,16 +254,21 @@ export async function initUpdate() {
 
   const showButton = () => {
     const label = buttonLabel(info);
-    btn.textContent = label;
-    btn.hidden = !label;
-    about.classList.toggle('has-update', !!label);
+    if (btn) {
+      btn.textContent = label;
+      btn.hidden = !label;
+    }
+    if (about) about.classList.toggle('has-update', !!label);
+    if (appbarBtn) {
+      appbarBtn.textContent = label || info.running || 'Releases';
+      appbarBtn.classList.toggle('has-update', !!label);
+    }
   };
   showButton();
 
   // Asked again every hour while the page stays open, and on coming back to
   // it, so a page left on the stand finds a release merged since.
   let checked = Date.now();
-  let following = false;
   const recheck = async () => {
     if (following) return;
     checked = Date.now();
@@ -200,17 +279,6 @@ export async function initUpdate() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && Date.now() - checked > RECHECK_ON_RETURN_MS) recheck();
   });
-
-  const $ = (sel) => sheet.querySelector(sel);
-  const title = $('.update-title');
-  const listEl = $('.release-list');
-  const changesEl = $('.release-changes');
-  const text = $('.update-text');
-  const progress = $('.update-progress');
-  const go = $('.update-go');
-  const cancel = $('.update-cancel');
-  let releases = [];
-  let picked = '';
 
   function choose(tag) {
     picked = tag;
@@ -323,9 +391,8 @@ export async function initUpdate() {
     if (first) choose(first.tag);
   }
 
-  btn.addEventListener('click', () => open(info.latest));
-  relBtn.addEventListener('click', () => open(info.running));
-  cancel.addEventListener('click', () => sheet.close());
+  if (btn) btn.addEventListener('click', () => open(info.latest));
+  if (relBtn) relBtn.addEventListener('click', () => open(info.running));
 
   go.addEventListener('click', async () => {
     go.disabled = true;

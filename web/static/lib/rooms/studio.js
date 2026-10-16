@@ -30,6 +30,8 @@ import { named } from './words.js';
 import { mountBuffer } from '../buffer/buffer.js';
 import { bindStudioKeys } from './keys.js';
 import { keepLabel, keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
+import { pageCarry, resumeAt } from '../bar/carry.js';
+import { feedSource } from '../bar/feed-source.js';
 
 const STATUS_MS = 2000;
 
@@ -331,6 +333,91 @@ export function mountStudio(doc = document) {
   // The keys' new names, where a screen reader reads them.
   $('click')?.setAttribute('aria-keyshortcuts', 'M');
   $('catch-pass')?.setAttribute('aria-keyshortcuts', 'C');
+
+  // Unified Media Player source switcher (Feed · Tape · Shelf) and seamless
+  // continuation of a playing Shelf take when entering the Studio.
+  const npEl = $('np');
+  const npOwn = npEl?.querySelector('.np-own');
+  if (npEl && npOwn && !npEl.querySelector('.np-source-switch')) {
+    const carry = pageCarry();
+    const carried = carry.peek();
+    const feedSrc = feedSource();
+    let shelfAudio = null;
+    let activeKind = 'tape';
+    const sw = doc.createElement('div');
+    sw.className = 'seg np-source-switch';
+    sw.setAttribute('role', 'group');
+    sw.setAttribute('aria-label', 'Audio source');
+    const btns = [
+      ['feed', 'Feed'],
+      ['tape', 'Tape'],
+      ['take', 'Shelf'],
+    ].map(([kind, label]) => {
+      const b = doc.createElement('button');
+      b.setAttribute('type', 'button');
+      b.dataset.source = kind;
+      b.textContent = label;
+      sw.append(b);
+      return b;
+    });
+    const syncSourceUI = () => {
+      for (const b of btns) b.setAttribute('aria-pressed', String(b.dataset.source === activeKind));
+      npEl.classList.toggle('np-feed', activeKind === 'feed');
+      npEl.classList.toggle('np-take', activeKind === 'take');
+    };
+    if (carried && carried.take && carried.playing && typeof Audio === 'function') {
+      try {
+        shelfAudio = new Audio(`/api/preview?file=${encodeURIComponent(carried.take)}`);
+        shelfAudio.loop = !!carried.loop;
+        const at = resumeAt(carried, Date.now(), Infinity);
+        const sr = carried.sr || 48000;
+        shelfAudio.currentTime = (at ? at.playFrame : carried.frame) / sr;
+        activeKind = 'take';
+        shelfAudio.play().catch(() => {});
+        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+          window.addEventListener('pagehide', () => {
+            if (shelfAudio && activeKind === 'take') {
+              carry.leave({
+                take: carried.take,
+                frame: Math.round((shelfAudio.currentTime || 0) * sr),
+                sr,
+                playing: !shelfAudio.paused && !shelfAudio.ended,
+                loop: shelfAudio.loop,
+              });
+            }
+          });
+        }
+      } catch { /* audio unavailable in test environment */ }
+    }
+    for (const b of btns) {
+      b.addEventListener('click', () => {
+        const kind = b.dataset.source;
+        if (kind === 'feed') {
+          if (shelfAudio && !shelfAudio.paused) shelfAudio.pause();
+          activeKind = 'feed';
+          feedSrc.toggle();
+          syncSourceUI();
+        } else if (kind === 'tape') {
+          feedSrc.release();
+          if (shelfAudio && !shelfAudio.paused) shelfAudio.pause();
+          carry.drop();
+          activeKind = 'tape';
+          syncSourceUI();
+        } else if (kind === 'take') {
+          feedSrc.release();
+          if (shelfAudio) {
+            activeKind = 'take';
+            shelfAudio.play().catch(() => {});
+            syncSourceUI();
+          } else if (typeof location !== 'undefined' && typeof location.assign === 'function') {
+            location.assign('/takes.html');
+          }
+        }
+      });
+    }
+    syncSourceUI();
+    npOwn.before(sw);
+  }
 
   return { ribbon, buffer };
 }

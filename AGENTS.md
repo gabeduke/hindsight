@@ -156,15 +156,41 @@ Playwright checks that already exist.
 
 ## Where things live in the UI
 
-- **Settings is only on the Capture page** (`index.html`), at the foot:
-  "Hindsight v… · Settings · the guide". Not on tape, takes, wave or guide.
-  Worth remembering before telling someone to go to Settings.
+- **Settings location depends on the Rooms flag:** With `hindsight.rooms` off,
+  Settings is at the foot of Capture (`index.html`) and Tape (`tape.html`) in
+  `.about`: "Hindsight v… · Settings · the guide". With `hindsight.rooms` on,
+  Settings, Releases/Version, and Guide live in the top-right `.appbar-end`
+  utility cluster on every page.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.
 - **The Pi's settings** come from `/api/settings`: shared by everyone who
   opens the app, applied on restart. A preview one person turns on for their
   own phone does not belong there.
+
+## UI architecture guardrails
+
+`web/static/lib/architecture.test.js` enforces four rules so POC shortcuts do
+not come back:
+
+- **Controller → Model → Renderer (no DOM scraping or synthetic clicks):**
+  Views under `lib/room/`, `lib/rooms/`, and `lib/play/` read structured state
+  from controllers/models and call explicit controller methods. They must never
+  scrape text out of legacy DOM nodes (`readBar`, `readRows`) or dispatch
+  `.click()` onto hidden legacy controls (`clickControl`).
+- **Visual objects come from `lib/objects/` and `lib/scene/`:** Do not define
+  bespoke reel/cassette/VU markup or CSS `@keyframes` spin animations outside
+  `lib/objects/`. Any surface showing reels, cassettes, or meters mounts
+  `ReelWindow`, `CassetteFace`, or `VUMeters` on the shared `ticker`.
+- **60fps shared `ticker` interpolation:** Network poll callbacks (`200 ms`)
+  only update target state (`heard`, `playing`, `at`, `sampleRate`). Every
+  playhead, reel, ruler cursor, overview cursor, and time counter steps on
+  `lib/objects/motion.js`'s shared `ticker` (`Loop`) and parks (`return false`)
+  when paused.
+- **Frame-zero flag gating (`:root[data-rooms]`):** Legacy containers replaced
+  by a Rooms view are hidden in `styles.css` under `:root[data-rooms]` (set in
+  `<head>` before first paint), never solely by a class added after an async
+  `import()` or network `fetch()`.
 
 ## Getting code onto a Pi
 
