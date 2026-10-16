@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE } from './settings.js';
+import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE, visibleSettings, changes } from './settings.js';
 
 const url = 'https://mike.hindsight.leetserve.com';
 
@@ -308,4 +308,25 @@ test('the bar is un-hidden before its words are set, so a screen reader announce
   Object.defineProperty(t, 'textContent', { get: () => tc, set: (v) => { tc = v; order.push('text'); } });
   f.flip(0);
   assert.deepEqual(order.slice(0, 2), ['hidden=false', 'text']);
+});
+
+// "Plays the tape" is the strip's controller: a setting of the rooms' kits only.
+const REG = [
+  { key: 'MIDI_IGNORE', group: 'MIDI', value: '' },
+  { key: 'TAPE_CONTROLLER', group: 'MIDI', value: 'SMK' },
+  { key: 'TAPE', group: 'Tape', value: 'true' },
+];
+
+test('with the rooms off the sheet leaves out Plays the tape, and nothing else', () => {
+  assert.deepEqual(visibleSettings(REG, false).map((s) => s.key), ['MIDI_IGNORE', 'TAPE']);
+});
+
+test('with the rooms on every setting is drawn', () => {
+  assert.deepEqual(visibleSettings(REG, true).map((s) => s.key), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
+});
+
+test('a row that is not drawn is not in the saved body, and the others are as ever', () => {
+  const shown = visibleSettings(REG, false);
+  assert.deepEqual(changes(REG, { MIDI_IGNORE: 'x', TAPE: 'false' }), { MIDI_IGNORE: 'x', TAPE: 'false' });
+  assert.deepEqual(changes(shown, { MIDI_IGNORE: 'x', TAPE: 'false' }), { MIDI_IGNORE: 'x', TAPE: 'false' });
 });
