@@ -132,6 +132,40 @@ test('a tap on another take while the list is found wins: the carried take is no
   assert.deepEqual(p.page.loads, []);
 });
 
+test('a late take does not override what the person did on the bar after the tape was shown: tape pressed, then the list', async () => {
+  const list = deferred();
+  const p = aPage({ find: () => list.p });
+  const started = p.h.start();
+  p.timers[0].fn(); // the cap: the tape is shown
+  p.h.touch(); // the person pressed the tape's ▶
+  list.resolve(p.entry);
+  assert.equal(await started, 'superseded');
+  assert.deepEqual(p.page.loads, []);
+  assert.equal(p.entry.audio.paused, true, 'and nothing autoplays over the tape');
+  assert.equal(p.storage.getItem(CARRY_KEY), null, 'the person moved on: the record is spent');
+  assert.equal(p.h.pending(), false);
+});
+
+test('a late take with the bar untouched is still applied', async () => {
+  const list = deferred();
+  const p = aPage({ find: () => list.p });
+  const started = p.h.start();
+  p.timers[0].fn();
+  list.resolve(p.entry);
+  assert.equal(await started, 'playing');
+});
+
+test('⏏ is a decision too: touch() after the tape is put back by hand stops a late take', async () => {
+  const list = deferred();
+  const p = aPage({ find: () => list.p });
+  const started = p.h.start();
+  p.timers[0].fn();
+  p.h.touch(); // ⏏ (the bar says so through the same call)
+  list.resolve(p.entry);
+  assert.equal(await started, 'superseded');
+  assert.deepEqual(p.page.loads, []);
+});
+
 test('a take this page does not hold (not on its shelf): the record is left for the next page, and this page\'s pagehide leaves it be', async () => {
   const p = aPage({ find: async () => null });
   assert.equal(await p.h.start(), 'later');

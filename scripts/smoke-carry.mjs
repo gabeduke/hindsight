@@ -174,6 +174,24 @@ for (const { tag, size, scheme } of SIZES) {
     await ctx.close();
   }
 
+  // 5b. Repeat on in the Room, the take played on its own page, back: Repeat is still on.
+  if (run('takepage')) {
+    const { ctx, p } = await context(size, scheme);
+    await putOn(p, TAPE);
+    await p.evaluate(() => document.getElementById('np-loop').click());
+    const href = await p.evaluate(() => document.getElementById('np-open').getAttribute('href'));
+    await p.goto(`${TAPE}${href}`);
+    await p.waitForTimeout(2500);
+    await p.evaluate(() => document.getElementById('play').click());
+    await p.waitForTimeout(1500);
+    await p.evaluate(() => document.getElementById('play').click()); // paused again
+    await tab(p, 'Listening Room');
+    await p.waitForTimeout(3500);
+    const b = await bar(p);
+    check(`${tag}: Room (Repeat on) -> the take page, played -> Room: Repeat is still on`, !b.hidden && b.loop === 'true', JSON.stringify(b));
+    await ctx.close();
+  }
+
   // 6. A slow list: the blank is capped at 4 s, the take still arrives.
   if (run('slow')) {
     const { ctx, p } = await context(size, scheme);
@@ -189,6 +207,21 @@ for (const { tag, size, scheme } of SIZES) {
     check(`${tag}: slow list: the bar is blank, not the tape, while the take is looked for`, early.hidden, JSON.stringify(early));
     check(`${tag}: slow list: past the 4 s cap the tape shows`, !capped.hidden && /SMOKE/i.test(capped.marquee), JSON.stringify(capped));
     check(`${tag}: slow list: the take arrives when the list does, over the tape`, !late.hidden && /\d{4}-\d\d-\d\d_\d+/.test(late.marquee), JSON.stringify(late));
+    await ctx.close();
+  }
+
+  // 6b. A slow list, and the person presses the tape's ▶ once the cap has shown it: the late take does not override that.
+  if (run('slow') && hasTape) {
+    const { ctx, p } = await context(size, scheme);
+    await putOn(p, TAPE);
+    await p.route('**/api/jams', async (route) => { await sleep(7000); await route.continue(); });
+    await p.reload();
+    await p.waitForTimeout(5200);
+    await p.evaluate(() => document.getElementById('np-play').click()); // the tape's ▶
+    await p.waitForTimeout(6000);
+    const b = await bar(p);
+    check(`${tag}: slow list, the tape pressed meanwhile: the late take does not replace the tape`, !b.hidden && /SMOKE/i.test(b.marquee), JSON.stringify(b));
+    await p.evaluate(() => document.getElementById('np-play').click()); // stop the tape again
     await ctx.close();
   }
 }

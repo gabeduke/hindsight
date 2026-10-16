@@ -25,6 +25,7 @@ export const HOLD_MS = 4000;
  *   takeInBar () -> a take is in the bar now
  *   loadTake  ({t, player}) -> the bar's source for it, now in the bar
  *   showTape  () -> the bar shows the tape (or nothing) after all
+ *   (the bar says touch() when the person uses it)
  *   state     () -> the bar's take as {take, frame, sr, playing, loop} or null
  *   win, doc  for pagehide and visibilitychange
  *   later     setTimeout
@@ -33,6 +34,7 @@ export function createHandoff({ carry, find, tapes, studio, takeInBar, loadTake,
   const rec = carry.peek();
   let holding = !!rec; // the tape waits in the wings
   let pending = !!rec; // the record is still to be applied or judged
+  let touched = false; // the person has used the bar (or ⏏) since it was blank
   const release = () => { if (!holding) return; holding = false; showTape(); };
   if (rec) later(release, HOLD_MS);
 
@@ -53,7 +55,7 @@ export function createHandoff({ carry, find, tapes, studio, takeInBar, loadTake,
       if (!find || !mayCarry({ studio: studio(), tapeLoaded: !!(list && list.loaded) })) { release(); return 'studio'; }
       how = await carry.arrive(rec, {
         find,
-        stillWanted: () => !takeInBar(),
+        stillWanted: () => !takeInBar() && !touched,
         load: (entry) => { const src = loadTake(entry); release(); return src; },
       });
     } catch (e) {
@@ -66,7 +68,11 @@ export function createHandoff({ carry, find, tapes, studio, takeInBar, loadTake,
     return how;
   }
 
-  return { start, holding: () => holding, pending: () => pending, record: rec };
+  // The bar's keys, its strip and ⏏ say so: a take that comes late must not
+  // override what the person has done with the tape shown meanwhile.
+  const touch = () => { touched = true; };
+
+  return { start, touch, holding: () => holding, pending: () => pending, record: rec };
 }
 
 /**

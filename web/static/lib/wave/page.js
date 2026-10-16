@@ -1987,7 +1987,10 @@ async function main() {
   // (lib/bar/carry.js), so Room -> Open -> back carries what was done here.
   // Opened and left alone (not played, the playhead where it began), the page
   // is transparent: the bar's take, as the Room left it, stands.
-  pageCarry().wire(window, document, takePageState({ file, sr, from: state.cursor, now: () => ({ frame: state.cursor, playing: clock.playing }) }));
+  // Repeat on the bar isn't this page's (its Loop is a selection's): the
+  // Room's flag for this take, as it left it, goes back with it.
+  const carry = pageCarry();
+  carry.wire(window, document, takePageState({ file, sr, from: state.cursor, loop: carry.loopOf(file), now: () => ({ frame: state.cursor, playing: clock.playing }) }));
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
     bar.commit();

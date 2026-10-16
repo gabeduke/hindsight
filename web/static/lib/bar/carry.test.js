@@ -130,7 +130,7 @@ test('consume lets go only the record it was given, not a newer one', () => {
   assert.equal(carry.peek().frame, 5 * SR);
 });
 
-test('a take that is no longer wanted (another was picked meanwhile) is not loaded, and the record stays', async () => {
+test('a take that is no longer wanted (the person moved on meanwhile) is not loaded, and the record is spent', async () => {
   const { carry, storage } = aCarry();
   carry.leave(left());
   const s = aSource();
@@ -138,7 +138,7 @@ test('a take that is no longer wanted (another was picked meanwhile) is not load
   const how = await carry.arrive(carry.peek(), { find: async () => s, load: () => { loaded++; return s.src; }, stillWanted: () => false });
   assert.equal(how, 'superseded');
   assert.equal(loaded, 0);
-  assert.ok(storage.getItem(CARRY_KEY));
+  assert.equal(storage.getItem(CARRY_KEY), null);
 });
 
 test('a record that goes stale while the page finds the take is let go, not applied', async () => {
@@ -293,6 +293,38 @@ test('the take page: opened and left alone it says nothing; played or moved it s
   assert.equal(b().playing, true, 'played');
   now = { frame: 0, playing: false };
   assert.ok(b(), 'and paused again at the start: still touched');
+});
+
+test('the take page carries the Repeat flag of the Room\'s record for the same take; a different take does not', () => {
+  const { carry } = aCarry();
+  carry.leave(left({ take: 'jam_x.wav', loop: true }));
+  assert.equal(carry.loopOf('jam_x.wav'), true);
+  assert.equal(carry.loopOf('jam_y.wav'), undefined);
+  const now = () => ({ frame: 5 * SR, playing: true });
+  assert.equal(takePageState({ file: 'jam_x.wav', sr: SR, from: 0, now, loop: carry.loopOf('jam_x.wav') })().loop, true);
+  assert.equal('loop' in takePageState({ file: 'jam_y.wav', sr: SR, from: 0, now, loop: carry.loopOf('jam_y.wav') })(), false);
+});
+
+test('Room (Repeat on) -> take page, played -> Room: Repeat is still on', async () => {
+  const room = aCarry();
+  room.carry.leave(left({ take: 'jam_a.wav', loop: true }));
+  const page = aWindow();
+  room.carry.wire(page.target, page.doc, takePageState({ file: 'jam_a.wav', sr: SR, from: 0, loop: room.carry.loopOf('jam_a.wav'), now: () => ({ frame: 4 * SR, playing: true }) }));
+  page.target.fire('pagehide');
+  room.clock.t += 1000;
+  assert.equal(room.carry.read().loop, true);
+});
+
+test('loopOf is read-only and ignores a stale record, one for the tape, and garbage', () => {
+  const { carry, clock, storage } = aCarry();
+  carry.leave(left({ loop: true }));
+  carry.loopOf('jam_a.wav');
+  assert.ok(storage.getItem(CARRY_KEY), 'looking does not use it up');
+  clock.t += CARRY_LIMIT_MS + 1;
+  assert.equal(carry.loopOf('jam_a.wav'), undefined);
+  assert.ok(storage.getItem(CARRY_KEY), 'nor let it go');
+  storage.setItem(CARRY_KEY, 'junk');
+  assert.equal(carry.loopOf('jam_a.wav'), undefined);
 });
 
 test('the take page left alone leaves the Room\'s record standing through its own pagehide', () => {

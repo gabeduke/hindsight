@@ -21,7 +21,7 @@ import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } fr
 const $ = (id) => document.getElementById(id);
 
 export class NowPlaying {
-  constructor({ onEject } = {}) {
+  constructor({ onEject, onTouch } = {}) {
     this.root = $('np');
     this.src = null;
     this.marqueeKey = null;
@@ -41,17 +41,19 @@ export class NowPlaying {
     $('np-play').addEventListener('click', () => {
       const s = this.src;
       if (!s) return;
+      onTouch?.();
       // The source's own say first: the tape's sound waiting for a tap.
       if (!s.press?.()) { if (s.playing()) s.pause(); else s.play(); }
       this.kick();
     });
-    $('np-loop').addEventListener('click', () => { if (this.src) this.src.setLoop(!this.src.loop); });
-    $('np-start').addEventListener('click', () => { if (this.src) this.src.seek(this.src.start()); });
+    $('np-loop').addEventListener('click', () => { onTouch?.(); if (this.src) this.src.setLoop(!this.src.loop); });
+    $('np-start').addEventListener('click', () => { onTouch?.(); if (this.src) this.src.seek(this.src.start()); });
     // ↺ 5 s, or J: back five seconds of what this device hears, playing or
     // not.
     const back5 = () => {
       const s = this.src;
       if (!s) return;
+      onTouch?.();
       s.seek(Math.max(0, (s.heardHere ? s.heardHere() : s.pos()) - 5 * s.sampleRate));
       this.kick();
     };
@@ -66,7 +68,7 @@ export class NowPlaying {
       back5();
     });
     // ⏏ hides itself: the focus goes to ▶, not to the page.
-    $('np-eject').addEventListener('click', () => { onEject?.(); $('np-play').focus(); });
+    $('np-eject').addEventListener('click', () => { onTouch?.(); onEject?.(); $('np-play').focus(); });
 
     // The strip: a tap or a drag moves the playhead. The tape's Pi hears a
     // drag at most every 150 ms, and where it ends.
@@ -85,6 +87,7 @@ export class NowPlaying {
     };
     sc.addEventListener('pointerdown', (e) => {
       if (down || e.button > 0) return;
+      onTouch?.();
       down = e.pointerId;
       sc.setPointerCapture?.(e.pointerId);
       seekTo(at(e), false);
@@ -96,6 +99,7 @@ export class NowPlaying {
     sc.addEventListener('keydown', (e) => {
       const s = this.src;
       if (!s || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === ' ' || e.key === 'Home' || e.key === 'End' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') onTouch?.();
       if (e.key === ' ') { e.preventDefault(); if (!e.repeat) $('np-play').click(); return; }
       if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); s.seek(e.key === 'Home' ? 0 : s.length - 1); this.kick(); return; }
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -211,7 +215,7 @@ export function pageBar({ tapes, onToast, find = null }) {
   let tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
   let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
-  const bar = new NowPlaying({ onEject: () => backToTape({ byHand: true }) });
+  const bar = new NowPlaying({ onEject: () => backToTape({ byHand: true }), onTouch: () => handoff.touch() });
   const eject = () => { $('np-eject').hidden = !(tape && take); };
   const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing(), loop: take.src.loop } : null);
   const carry = pageCarry();
@@ -256,7 +260,7 @@ export function pageBar({ tapes, onToast, find = null }) {
     return new Promise((done) => { tape.on(done); setTimeout(done, 1500); });
   });
   function backToTape({ byHand = false } = {}) {
-    if (byHand) ejected = true;
+    if (byHand) { ejected = true; handoff.touch(); } // the tape put back by hand is a decision
     if (take) {
       const old = take;
       take = null;

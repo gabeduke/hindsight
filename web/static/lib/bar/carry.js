@@ -98,6 +98,19 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
       return r;
     },
 
+    /**
+     * loopOf is whether Repeat was on in the record for `take`, without using
+     * the record up: undefined when there is none, it is for another take, or
+     * it is stale. The take page carries it on (its own Repeat is a
+     * selection's, not the bar's).
+     */
+    loopOf(take) {
+      if (!ok()) return undefined;
+      const r = parse(get(CARRY_KEY));
+      if (!r || r.for || !validTake(r) || r.take !== take || !alive(r, now(), CARRY_LIMIT_MS)) return undefined;
+      return !!r.loop;
+    },
+
     /** consume lets `rec` go once it is used, unless a newer record has replaced it since. */
     consume(rec) {
       if (!ok() || !rec) return;
@@ -209,7 +222,7 @@ export function createCarry({ storage, now = Date.now, enabled = () => true } = 
       const entry = await find(rec.take);
       if (entry === 'missing') { self.consume(rec); return 'gone'; }
       if (!entry) return 'later';
-      if (!stillWanted()) return 'superseded';
+      if (!stillWanted()) { self.consume(rec); return 'superseded'; } // the person moved on: spent
       if (!alive(rec, now(), CARRY_LIMIT_MS)) { self.consume(rec); return 'stale'; }
       if (!resumeAt(rec, now(), takeLength(entry.t, entry.player.peaks))) { self.consume(rec); return 'gone'; }
       const src = load(entry);
@@ -280,13 +293,18 @@ export function openTheTape({ carry = pageCarry(), go = (u) => { location.href =
  * takePageState is the take page's say in the hand-off: its take, the cursor
  * and whether it plays -- but only once something was done there (played, or
  * the playhead moved from where it began). Opened and left alone it answers
- * undefined, so the record the Room left stands. `now()` is {frame, playing}.
+ * undefined, so the record the Room left stands. `now()` is {frame, playing};
+ * `loop` is the Repeat flag the Room's record had for this take (carry.loopOf),
+ * so playing here doesn't lose it.
  */
-export function takePageState({ file, sr, from, now }) {
+export function takePageState({ file, sr, from, now, loop }) {
   let touched = false;
   return () => {
     const n = now();
     touched = touched || n.playing || n.frame !== from;
-    return touched ? { take: file, frame: n.frame, sr, playing: n.playing } : undefined;
+    if (!touched) return undefined;
+    const s = { take: file, frame: n.frame, sr, playing: n.playing };
+    if (loop !== undefined) s.loop = loop; // the Room's Repeat for this take, as it left it
+    return s;
   };
 }
