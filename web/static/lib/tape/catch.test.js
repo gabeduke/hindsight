@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
+import { catchState, catchSub, catchMini, oldCatchKey, CATCH_BARS } from './catch.js';
 
 // CATCH was greyed with nothing to say why: it lights after one whole pass of
 // the loop (about 10 s at 96 BPM and 4 bars), and "the last 4 bars" is not on
@@ -151,4 +151,33 @@ test('on the phone’s mini bar the key’s second line is short enough to leave
   assert.equal(catchMini('last pass → 1, 2, 3, 4, 5'), '→ 1–5');
   assert.equal(catchMini('last pass → 1, 2, 4, 5, 6'), '→ 5 trk');
   assert.equal(catchMini('last pass → 1, 2, 3'), '→ 1, 2, 3', 'nine already: said in full');
+});
+
+// With both preview flags off the old Tape page's Catch key is main's: a
+// `disabled` button whose second line reads "last pass → track N", with no
+// reason in its label. (The pressable key that says why it waits is the
+// rooms' and Play mode's: page.js, NEW_CATCH.)
+test('the old Catch key is disabled until a pass has gone round, and says "last pass → track N"', () => {
+  const k = (l, over = {}) => oldCatchKey({ live: l, recTrack: 2, ...over });
+  assert.equal(k(null).disabled, true);
+  assert.equal(k(live({ aligned: 'none', cycles: [1] })).disabled, true);
+  assert.equal(k(live()).disabled, true, 'lined up, but no pass yet');
+  assert.equal(k(live({ cycles: [1] })).disabled, false);
+  assert.equal(k(live(), { phoneOut: true }).disabled, false);
+  assert.equal(k(live()).sub, 'last pass → track 2');
+  assert.equal(k(live()).label, 'Catch the last pass onto track 2');
+  assert.equal(k(live(), { recTrack: 0 }).sub, 'arm a track');
+  assert.equal(k(live(), { recTrack: 0 }).label, 'Catch: arm a track first');
+  assert.equal(k(live(), { phoneOut: true }).sub, 'jam room only');
+});
+
+// page.js reads both flags once and gives the pressable key to them alone.
+test('page.js gives the pressable Catch key to the preview flags only', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('./page.js', import.meta.url), 'utf8');
+  assert.match(src, /const NEW_CATCH = ROOMS \|\| playOn\(\);/);
+  const on = src.indexOf('if (NEW_CATCH) {');
+  const off = src.indexOf('oldCatchKey({', on);
+  const newKey = src.indexOf('cb.disabled = false;', on);
+  assert.ok(on > 0 && newKey > on && off > newKey, 'the pressable key is inside the flag, the old key after it');
 });

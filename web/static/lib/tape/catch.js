@@ -102,3 +102,19 @@ export function catchMini(sub) {
     .replace('arm a track', 'arm track')
     .replace('jam room only', 'jam room');
 }
+
+/**
+ * oldCatchKey is the Catch key as the pages were before the rooms and Play
+ * mode (and still are with both flags off): `disabled` until the Pi has a
+ * line-up and a whole pass of the loop, "last pass → track N" under it, and
+ * a label that doesn't say why it waits. Kept apart so a test can hold it to
+ * what it always was.
+ */
+export function oldCatchKey({ live, phoneOut = false, recTrack = 0 }) {
+  const canCatch = !!live && live.aligned !== 'none';
+  return {
+    disabled: !phoneOut && (!canCatch || !(live.cycles || []).length),
+    sub: phoneOut ? 'jam room only' : recTrack ? `last pass → track ${recTrack}` : 'arm a track',
+    label: phoneOut ? 'Catch: needs the jam room' : recTrack ? `Catch the last pass onto track ${recTrack}` : 'Catch: arm a track first',
+  };
+}
