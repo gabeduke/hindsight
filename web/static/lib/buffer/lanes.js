@@ -150,7 +150,7 @@ export class Lift {
     this.at = landing({ row, rowIndex: i, x, rect, view, tape, snap, frames: board.frames });
     const boxes = boxesFor(this.doc, { track: this.at.track, count, at: this.at.at, frames: board.frames, view });
     // Over a clip the drop lays the buffer on it: the ghost says so before it happens.
-    const lands = { first: this.at.track, count, at: this.at.at, frames: board.frames };
+    const lands = { first: this.at.track, count, at: this.at.at, frames: board.frames, board };
     this.overlay.ghosts(boxes, `Lands · ${landsWords(tape.grid, lands, tape)}`, overwritten(tape, lands).clips > 0);
   }
 

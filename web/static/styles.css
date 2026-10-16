@@ -2836,6 +2836,7 @@ body.tape-page:has(#out-strip:not([hidden])) { --np-h: 160px; }
 .np .np-catch { height: 52px; min-height: 52px; min-width: 112px; flex-direction: column; gap: 1px; padding: 0 18px; }
 .np-catch-word { font-size: 15.5px; font-weight: 700; }
 .np-catch-sub { font: 500 10.5px var(--mono); opacity: .88; }
+.np-catch-mini { display: none; } /* the phone's mini bar shows it (below) */
 .np .np-scrub { flex: 1; min-width: 0; height: 40px; border-radius: 8px; }
 .np .np-scrub:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* A take: its lamp pauses (❚❚); its own keys are In, Out and ⚑; it plays
@@ -3501,6 +3502,11 @@ a.crate-chip { text-decoration: none; }
   body:not(.player-open) .np-own { flex: none; margin-left: 0; }
   body:not(.player-open) .np .np-catch { min-width: 92px; height: 50px; min-height: 50px; padding: 0 12px; }
   body:not(.player-open) .np .np-catch-sub { display: none; }
+  /* The Studio's Catch has a short second line of its own down here
+     (.np-catch-mini, added by the page with the rooms on): "→ 2" and
+     "after 1 pass" say what it catches and why it waits, which a bare
+     "Catch" can't, and leave the transport window its bar number. */
+  body:not(.player-open) .np .np-catch .np-catch-mini { display: block; font: 500 9px/1.1 var(--mono); opacity: .88; white-space: nowrap; }
   /* The window is the player's handle. */
   body:not(.player-open) .np-expand {
     display: block; position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; padding: 0;
@@ -4624,7 +4630,8 @@ body.buffer-fold .tape-sections-row { display: none; }
   .room-shelf { gap: 6px; }
   .room-shelf-foot { order: 0; margin: 0; align-items: center; }
   .room-filtered { margin: 0 16px 0 0; }
-  .room-row { border-bottom: 0; box-shadow: none; padding: 6px 16px 4px 0; gap: 8px; scroll-snap-type: x proximity; min-height: 0; }
+  /* Room for a selected spine's ring, halo and tick (top -6px, +2px halo) to be whole. */
+  .room-row { border-bottom: 0; box-shadow: none; padding: 10px 16px 6px 4px; gap: 8px; scroll-snap-type: x proximity; scroll-padding-left: 4px; min-height: 0; }
   .room-row > li { scroll-snap-align: start; }
   .room-empty { margin: 0 16px 0 0; }
   .room-cassette {

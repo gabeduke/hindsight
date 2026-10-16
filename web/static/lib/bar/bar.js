@@ -222,9 +222,12 @@ export function pageBar({ tapes, onToast, find = null }) {
   let tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
   let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
+  // How many times the person has used the bar's own keys, strip or ⏏: the Listening
+  // Room's late arrivals (lib/room/tap.js) load nothing if it has changed.
+  let touches = 0;
   const bar = new NowPlaying({
     onEject: () => backToTape({ byHand: true }),
-    onTouch: () => handoff.touch(),
+    onTouch: () => { touches++; handoff.touch(); },
     // ✎: the take and the frame now, kept for the next page, and the take opens.
     onNote: () => noteHere({ frameNow, stash: stashFrame, go: (u) => { location.href = u; } }),
   });
@@ -318,6 +321,10 @@ export function pageBar({ tapes, onToast, find = null }) {
     /** stashFrame keeps a frame -- frameNow's, else the take's now -- for the next page (carry.takeStashedFrame reads it there), and answers it. */
     stashFrame,
     get takeName() { return take ? take.name : null; },
+    /** touches: how many times the bar's keys, strip or ⏏ have been used on this page. */
+    get touches() { return touches; },
+    /** playing: whatever the bar holds -- the take, or the tape -- is playing now. */
+    playing: () => !!(take ? take.src.playing() : tape && tape.ready && tape.playing()),
     /** takeTime: where the take in the bar is, in seconds; null with none. */
     get takeTime() { return playheadOf(take); },
     /** ejected: ⏏ put the tape back; automatic picks leave it there. */

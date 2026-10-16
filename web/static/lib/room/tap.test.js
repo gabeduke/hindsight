@@ -49,8 +49,13 @@ function stage({ encoding = [], noPlayer = [], readyAfter = {}, slow = false, re
       if (readyAfter[n] && looks[n] >= readyAfter[n]) t.has_preview = true;
     }
   };
+  // The bar: its take, whether anything in it is playing (the take, or the tape), and how
+  // many times the person has used it (pageBar's `touches`).
   const np = {
     takeName: null,
+    touches: 0,
+    playingNow: false,
+    playing() { return this.playingNow; },
     loadTake(t, p) { this.takeName = t.name; log.push(`bar ${t.name}`); this.player = p; },
   };
   const toasts = [];
@@ -60,12 +65,16 @@ function stage({ encoding = [], noPlayer = [], readyAfter = {}, slow = false, re
   const timers = [];
   const later = (fn, ms) => { timers.push({ fn, ms }); };
   const tick = async () => { const t = timers.shift(); if (t) await t.fn(); return !!t; };
+  // A toast that can be put away, as lib/toast.js's is.
+  const shown = [];
+  const toast = (m, k, o) => { const t = { m, k, o, live: true, dismiss() { this.live = false; } }; toasts.push([m, k, o]); shown.push(t); return t; };
   const tap = createTap({
-    takes, bar: () => np, toast: (m, k, o) => toasts.push([m, k, o]), pick: (n) => picks.push(n), go: (u) => went.push(u), later,
+    takes, bar: () => np, toast, pick: (n) => picks.push(n), go: (u) => went.push(u), later,
     onPlay: (n, o) => { log.push(`fly ${n} ${o.placed ? 'placed' : 'resumed'}`); if (flyThrows) throw new Error('no flight'); },
     onStop: (n) => log.push(`stop ${n}`),
   });
-  return { takes, np, tap, log, toasts, picks, players, went, timers, tick, slowDone };
+  const live = () => shown.filter((t) => t.live).map((t) => t.m);
+  return { takes, np, tap, log, toasts, picks, players, went, timers, tick, slowDone, shown, live };
 }
 
 test('a tap puts the take in the bar and plays it', async () => {
@@ -135,14 +144,103 @@ test('a take still encoding is looked for again, and once it is ready it is in t
   assert.equal(s.toasts.at(-1)[0], 'Ready — tap to play');
 });
 
-test('a take that never finishes is looked for ten times, then left (its toast still has Open)', async () => {
+test('a take that never finishes is looked for ten times, then said so once, with Open', async () => {
   const s = stage({ encoding: ['a'] });
   await s.tap.tap('jam_a.wav');
   let looks = 0;
   while (looks < 50 && await s.tick()) looks++;
   assert.equal(looks, 10);
   assert.equal(s.np.takeName, null);
-  assert.equal(s.toasts.length, 1, 'no second toast');
+  assert.deepEqual(s.live(), ['Still no preview — open it to see why'], 'the old toast is replaced by the last word');
+  assert.equal(s.shown.at(-1).o.action.label, 'Open');
+  s.shown.at(-1).o.action.run();
+  assert.deepEqual(s.went, ['/wave.html?file=jam_a.wav']);
+});
+
+// What the retry may do when the take turns up is what the person has not undone: it
+// is F4's lesson (never override what they did). Nothing is loaded, and so nothing
+// is paused or replaced, if anything is playing, if the bar's take is no longer
+// what it was when the retry began, or if the person has used the bar since.
+async function arrives(setup) {
+  const s = stage({ encoding: ['a'], readyAfter: { a: 2 } });
+  await s.tap.tap('jam_a.wav');
+  await s.tick();
+  setup(s);
+  await s.tick();
+  return s;
+}
+const notLoaded = (s, why) => {
+  assert.equal(s.np.takeName, s.np.takeName === 'jam_a.wav' ? null : s.np.takeName, why);
+  assert.ok(!s.log.includes('bar jam_a.wav'), why);
+  assert.equal(s.live().at(-1), 'a is ready — tap it', why);
+};
+
+test('late arrival while something is playing (a take, or the tape) loads nothing and just says so', async () => {
+  const s = await arrives((st) => { st.np.playingNow = true; });
+  notLoaded(s, 'something is playing');
+  assert.ok(!s.log.some((l) => /^(play|pause) /.test(l)));
+});
+
+test('late arrival after the bar moved to another take loads nothing: the bar’s take is what the person has now', async () => {
+  const s = await arrives((st) => { st.np.takeName = 'jam_b.wav'; });
+  assert.equal(s.np.takeName, 'jam_b.wav');
+  assert.ok(!s.log.includes('bar jam_a.wav'));
+  assert.equal(s.live().at(-1), 'a is ready — tap it');
+});
+
+test('late arrival after the person used the bar (its keys, its strip, ⏏) loads nothing', async () => {
+  const s = await arrives((st) => { st.np.touches++; });
+  notLoaded(s, 'the bar was used');
+});
+
+test('late arrival after the person tapped another take loads nothing, even one that did not change the bar', async () => {
+  const s = await arrives(() => {});
+  assert.equal(s.np.takeName, 'jam_a.wav', 'control: with nothing done it does load');
+  const t = stage({ encoding: ['a'], readyAfter: { a: 2 } });
+  await t.tap.tap('jam_a.wav');
+  await t.tick();
+  await t.tap.tap('jam_c.wav'); // plays: the bar now holds c, and plays it
+  t.np.playingNow = true;
+  await t.tick();
+  assert.equal(t.np.takeName, 'jam_c.wav');
+  assert.ok(!t.log.includes('bar jam_a.wav'));
+});
+
+test('late arrival after the person tapped another take that cannot play either loads nothing: the last tap is the choice', async () => {
+  const s = stage({ encoding: ['a', 'b'], readyAfter: { a: 1 } });
+  await s.tap.tap('jam_a.wav');
+  await s.tap.tap('jam_b.wav'); // the bar, its keys and what plays are untouched
+  await s.tick();
+  assert.equal(s.np.takeName, null);
+  assert.ok(!s.log.includes('bar jam_a.wav'));
+  assert.ok(s.live().includes('a is ready — tap it'));
+});
+
+test('a retry that began with a paused take in the bar still loads: nothing has changed', async () => {
+  const s = stage({ encoding: ['a'], readyAfter: { a: 2 } });
+  s.np.takeName = 'jam_b.wav'; // paused in the bar all along
+  await s.tap.tap('jam_a.wav');
+  await s.tick();
+  await s.tick();
+  assert.equal(s.np.takeName, 'jam_a.wav');
+});
+
+// --- one toast per take, never a pile ---------------------------------------------------
+
+test('tapping a take that cannot play again puts the old toast away rather than stacking', async () => {
+  const s = stage({ encoding: ['a'] });
+  await s.tap.tap('jam_a.wav');
+  await s.tap.tap('jam_a.wav');
+  assert.deepEqual(s.live(), ['Still encoding — a moment']);
+  assert.equal(s.shown.length, 2);
+});
+
+test('Ready replaces Still encoding, and does not sit beside it', async () => {
+  const s = stage({ encoding: ['a'], readyAfter: { a: 1 } });
+  await s.tap.tap('jam_a.wav');
+  assert.deepEqual(s.live(), ['Still encoding — a moment']);
+  await s.tick();
+  assert.deepEqual(s.live(), ['Ready — tap to play']);
 });
 
 test('tapping it again while it is looked for does not start a second look; tapping another take drops the first', async () => {

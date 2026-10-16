@@ -60,13 +60,12 @@ async function context(size, scheme, rooms = true) {
   p.on('pageerror', (e) => check('no page error', false, e.message));
   return { ctx, p };
 }
-// A take off the Room's shelf: the card, PUT IT ON (it plays).
+// A take off the Room's shelf: a tap on its spine plays it in the bar (F5a: there is
+// no sheet and no PUT IT ON any more).
 async function putOn(p, base, nth = 0) {
   await p.goto(`${base}/takes.html`);
   await p.waitForTimeout(2500);
   await p.locator('.room-cassette').nth(nth).click();
-  await p.waitForTimeout(500);
-  await p.getByRole('button', { name: 'PUT IT ON' }).first().click();
   await p.waitForTimeout(2000);
 }
 
@@ -117,13 +116,14 @@ for (const { tag, size, scheme } of SIZES) {
     check(`${tag}: back in the Room the take is there, further on (${t0} -> ${secs(b.time)})`, !b.hidden && /\d{4}/.test(b.marquee) && secs(b.time) > t0, JSON.stringify(b));
     await ctx.close();
 
-    // 3. Room -> Open in the Studio (TO THE STUDIO on the tape's card) -> Room: not resurrected.
+    // 3. Room -> Open in the Studio (the dock's Open, with the tape back in the bar by ⏏: tapes are
+    //    not on the Room's shelf any more) -> Room: not resurrected.
     if (run('open')) {
       const c = await context(size, scheme);
       await putOn(c.p, TAPE);
-      await c.p.locator('.room-reel').first().click();
+      await c.p.evaluate(() => document.getElementById('np-eject').click());
       await c.p.waitForTimeout(500);
-      await c.p.getByRole('button', { name: 'TO THE STUDIO' }).click();
+      await c.p.evaluate(() => document.querySelector('.room-sit').click());
       await c.p.waitForTimeout(3000);
       check(`${tag}: Open in the Studio reached tape.html`, /tape\.html/.test(c.p.url()), c.p.url());
       await tab(c.p, 'Listening Room');

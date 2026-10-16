@@ -7,6 +7,7 @@
 // stand in it). The take list, its players and the bar are handed in.
 
 import { report } from '../objects/motion.js';
+import { spineTitle } from '../shelf.js';
 
 /**
  * createTap answers {tap, warm}.
@@ -23,8 +24,14 @@ import { report } from '../objects/motion.js';
  * A take that can't play yet (no preview: still encoding, or no waveform to
  * play from) says so with **Open** on the toast -- its page needs no preview, so
  * the take is never a dead end -- and is looked for again every 1.5 s, ten
- * times. When it turns up it is put in the bar *paused*, ▶ ready: a retry is
- * not inside the finger's tap, and a phone won't start sound from it.
+ * times. When it turns up it is put in the bar *paused*, ▶ ready, only if the
+ * person has done nothing meanwhile: a retry is not inside the finger's tap (a
+ * phone won't start sound from it), and it must never override what they did
+ * (F4's rule). So nothing is loaded -- and nothing is paused or replaced -- if
+ * anything is playing, if the bar's take is no longer the one it held when the
+ * look began, if the bar has been used since (its keys, strip or ⏏), or if
+ * another take was tapped; the toast then just says the take is ready. One toast
+ * per take at a time: a new one puts the old away.
  */
 export const RETRY_MS = 1500;
 // A hook the page gave (the flight) is not the tap's to fail on: it is heard, and the tap goes on.
@@ -33,29 +40,42 @@ export const RETRIES = 10;
 export const openHref = (name) => `/wave.html?file=${encodeURIComponent(name)}`;
 
 export function createTap({ takes, bar, toast, pick, go = (u) => { location.href = u; }, later = setTimeout, onPlay, onStop }) {
-  let last = null; // the take tapped last: a late arrival must not displace a newer choice
+  let last = null; // the take tapped last
   const looking = new Set();
+  const shown = new Map(); // name -> its toast
+  const say = (name, msg, kind, opts) => {
+    shown.get(name)?.dismiss?.();
+    shown.set(name, toast?.(msg, kind, opts));
+  };
+  const open = (name) => ({ action: { label: 'Open', run: () => go(openHref(name)) } });
   const cannot = (name) => {
-    toast?.('Still encoding — a moment', 'warn', { action: { label: 'Open', run: () => go(openHref(name)) } });
+    say(name, 'Still encoding — a moment', 'warn', open(name));
     look(name);
   };
-  // look asks again until the take can play, then loads it paused.
+  // What the bar was when the look began, to tell whether the person has done anything since.
+  const stateOf = () => { const np = bar(); return { take: np?.takeName ?? null, touches: np?.touches ?? 0 }; };
+  // look asks again until the take can play, then loads it paused -- or says it is ready.
   function look(name) {
     if (looking.has(name)) return;
     looking.add(name);
+    const began = stateOf();
     let n = 0;
+    const arrive = (t, p) => {
+      const np = bar();
+      const now = stateOf();
+      const untouched = last === name && now.take === began.take && now.touches === began.touches && !np?.playing?.();
+      if (np && untouched) { np.loadTake(t, p); say(name, 'Ready — tap to play', 'ok'); }
+      else say(name, `${spineTitle(t)} is ready — tap it`, 'ok');
+    };
     const step = async () => {
       n++;
       try { await takes.refresh?.(); } catch { /* the page's own poll will bring it */ }
       const t = takes.all.find((x) => x.name === name);
       const p = t && t.has_preview ? await takes.player(name).catch(() => null) : null;
-      if (p && last === name) {
-        looking.delete(name);
-        const np = bar();
-        if (np) { np.loadTake(t, p); toast?.('Ready — tap to play', 'ok'); }
-        return;
-      }
-      if (!t || n >= RETRIES || last !== name) { looking.delete(name); return; }
+      if (p) { looking.delete(name); arrive(t, p); return; }
+      if (!t) { looking.delete(name); return; }
+      if (n >= RETRIES) { looking.delete(name); say(name, 'Still no preview — open it to see why', 'warn', open(name)); return; }
+      if (last !== name) { looking.delete(name); return; } // the person moved on
       later(step, RETRY_MS);
     };
     later(step, RETRY_MS);
@@ -109,9 +129,11 @@ export function createTap({ takes, bar, toast, pick, go = (u) => { location.href
  * wireSelect's too.
  */
 export function wireRack(container, { takes, tap }) {
-  // A row's own controls keep their press; so does its waveform, which is the
-  // scrub surface, not a play target. (A spine's wave lets the press through to
-  // the row, so the place the click landed says whether it was on the wave.)
+  // A row's own controls keep their press; so does its waveform, which is not a
+  // play target. (On a spine the wave has pointer-events: none, so a click over it
+  // arrives as the row's own, and the place it landed says whether it was on the
+  // wave. That stretch -- about 7% of a phone's row -- does nothing, and nothing
+  // there seeks either; a waveform that scrubs is Open's.)
   const OWN = 'button, a, input, .take-flag, .take-flag-edit, .wave';
   const onWave = (row, e) => {
     const w = row.querySelector('.wave');

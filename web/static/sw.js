@@ -124,6 +124,7 @@ const SHELL = [
   '/lib/rig/desk.js',
   '/lib/rig/cables.js',
   '/lib/rig/arm.js',
+  '/lib/rig/armpress.js',
   '/lib/rig/warn.js',
   '/lib/rig/chip.js',
   '/lib/rig/page.js',

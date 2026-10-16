@@ -57,17 +57,22 @@ for (const [what, ink, ground] of PAIRS) {
 }
 
 // What marks a selected spine is not text, so WCAG's 3:1 for a component's
-// edge (1.4.11) against what it touches. The accent ring sits on the paper's
-// edge (inside the case), and the accent alone reaches the wall at only 2.95:1,
-// so a cream halo (the paper's own colour) stands outside it, and the tick
-// disc wears the same one: the ring against its paper, the halo against the
-// wall or the shelf behind, the disc's accent against the halo.
+// edge (1.4.11) against what it touches. A spine is a paper case on the wide
+// shelf and a dark case (--cas-hi to --cas-mid) on a phone; the accent ring
+// sits on the case's edge and reaches the wall at only 2.95:1 and the phone's
+// dark case at 2.15:1 / 3.20:1. So the ring is reinforcement, and the edge a
+// person sees is the cream halo (the paper's own colour) stood outside it, and
+// on the tick disc: it is asserted against everything it touches -- the wall,
+// the shelf, and the case on either layout -- and the ring against the paper
+// it sits on where the case is paper.
 const EDGES = [
   ['the selected ring on the paper, light end', '--accent', '--paper-hi'],
   ['the selected ring on the paper, dark end', '--accent', '--paper-lo'],
   ['the ring’s halo on the wall', '--paper-hi', '--room-wall'],
   ['the ring’s halo on the wall, where it is darkest', '--paper-hi', '--room-wall-hi'],
   ['the ring’s halo inside the shelves', '--paper-hi', '--room-walnut-deep'],
+  ['the ring’s halo on a phone’s case, light end', '--paper-hi', '--cas-hi'],
+  ['the ring’s halo on a phone’s case, dark end', '--paper-hi', '--cas-mid'],
   ['the tick disc on its halo', '--accent', '--paper-hi'],
 ];
 
