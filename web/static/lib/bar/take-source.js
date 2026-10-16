@@ -116,6 +116,7 @@ export function takeSource(t, player, { onGone } = {}) {
       ctx.fillRect(px - 1, 0, 2, H);
     },
     on(fn) { listeners.add(fn); },
-    destroy() { ac.abort(); listeners.clear(); cache = null; audio.loop = false; },
+    // A source the bar lets go must not keep sounding what the bar no longer shows.
+    destroy() { ac.abort(); listeners.clear(); cache = null; audio.loop = false; if (!audio.paused) audio.pause(); },
   };
 }

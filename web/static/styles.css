@@ -4624,7 +4624,8 @@ body.buffer-fold .tape-sections-row { display: none; }
   .room-shelf { gap: 6px; }
   .room-shelf-foot { order: 0; margin: 0; align-items: center; }
   .room-filtered { margin: 0 16px 0 0; }
-  .room-row { border-bottom: 0; box-shadow: none; padding: 6px 16px 4px 0; gap: 8px; scroll-snap-type: x proximity; min-height: 0; }
+  /* Room for a selected spine's ring, halo and tick (top -6px, +2px halo) to be whole. */
+  .room-row { border-bottom: 0; box-shadow: none; padding: 10px 16px 6px 4px; gap: 8px; scroll-snap-type: x proximity; scroll-padding-left: 4px; min-height: 0; }
   .room-row > li { scroll-snap-align: start; }
   .room-empty { margin: 0 16px 0 0; }
   .room-cassette {
