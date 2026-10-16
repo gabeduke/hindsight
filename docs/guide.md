@@ -19,7 +19,7 @@ feature is done when its checks pass.
   describes both:
   - Text with no mark is the app with the rooms **off**, in its old words.
   - A passage that opens *With the two rooms on* is the rooms. Sections
-    4.1, 8.12 and 8.14 are the rooms' from their first line.
+    4.1, 8.12, 8.14 and 8.15 are the rooms' from their first line.
   - [Section 8.14](#814-words-in-the-two-rooms) lists every word that changed.
 
 ## 1. The idea in one minute
