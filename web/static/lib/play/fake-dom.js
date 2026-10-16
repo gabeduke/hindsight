@@ -132,31 +132,31 @@ export class FakeEl {
   [Symbol.for('nodejs.util.inspect.custom')]() { return `<${this.tagName.toLowerCase()}${this.id ? `#${this.id}` : ''}${this.className ? `.${String(this.className).split(/\s+/).join('.')}` : ''}>`; }
 
   descendants() { return this.nodes.flatMap((c) => (c.nodeType === 1 ? [c, ...c.descendants()] : [])); }
+  // "a b" is b somewhere inside a (no child combinator, which the strip does not use).
+  _hit(e, tokens) {
+    if (!matches(e, tokens[tokens.length - 1])) return false;
+    let up = e.parent;
+    for (let i = tokens.length - 2; i >= 0; i--) {
+      while (up && !(up.nodeType === 1 && matches(up, tokens[i]))) up = up.parent;
+      if (!up) return false;
+      up = up.parent;
+    }
+    return true;
+  }
   querySelectorAll(sel) {
     const parts = sel.split(',').map((s) => s.trim());
-    // "a b" is b somewhere inside a (no child combinator, which the strip does not use).
-    const hit = (e, tokens) => {
-      if (!matches(e, tokens[tokens.length - 1])) return false;
-      let up = e.parent;
-      for (let i = tokens.length - 2; i >= 0; i--) {
-        while (up && !(up.nodeType === 1 && matches(up, tokens[i]))) up = up.parent;
-        if (!up) return false;
-        up = up.parent;
-      }
-      return true;
-    };
-    return this.descendants().filter((e) => parts.some((p) => hit(e, p.split(/\s+/))));
+    return this.descendants().filter((e) => parts.some((p) => this._hit(e, p.split(/\s+/))));
   }
   querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }
   closest(sel) {
-    // "a, b" is either, as in a page.
+    // "a, b" is either, as in a page; "a b" is a b inside an a.
     const parts = sel.split(',').map((p) => p.trim());
-    for (let e = this; e; e = e.parent) if (e.nodeType === 1 && parts.some((p) => matches(e, p))) return e;
+    for (let e = this; e; e = e.parent) if (e.nodeType === 1 && parts.some((p) => this._hit(e, p.split(/\s+/)))) return e;
     return null;
   }
   contains(n) { for (let e = n; e; e = e.parent) if (e === this) return true; return false; }
   getBoundingClientRect() { return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }; }
-  focus() {}
+  focus() { this.ownerDocument.activeElement = this; }
   blur() {}
   /** cloneNode copies the tree, not its listeners. */
   cloneNode(deep = false) {

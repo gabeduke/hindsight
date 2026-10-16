@@ -9,7 +9,7 @@ import { fakeDoc, FakeEl } from '../play/fake-dom.js';
 import { createTap, wireRack, askedTake } from './tap.js';
 
 // A take list with players that remember what was done to them.
-function stage({ encoding = [], noPlayer = [] } = {}) {
+function stage({ encoding = [], noPlayer = [], readyAfter = {} } = {}) {
   const log = [];
   const all = ['a', 'b', 'c'].map((n) => ({ name: `jam_${n}.wav`, label: n, has_preview: !encoding.includes(n) }));
   const players = new Map();
@@ -29,14 +29,29 @@ function stage({ encoding = [], noPlayer = [] } = {}) {
     enterSelect(name) { this.selecting = true; this.selected = new Set(name ? [name] : []); log.push(`select ${name}`); },
     toggleSelected(name) { if (this.selected.has(name)) this.selected.delete(name); else this.selected.add(name); log.push(`toggle ${name}`); },
   };
+  // The Pi finishing a preview: take `n` has one after that many looks at the list.
+  const looks = {};
+  takes.refresh = async () => {
+    log.push('refresh');
+    for (const t of all) {
+      const n = t.name.slice(4, -4);
+      looks[n] = (looks[n] || 0) + 1;
+      if (readyAfter[n] && looks[n] >= readyAfter[n]) t.has_preview = true;
+    }
+  };
   const np = {
     takeName: null,
     loadTake(t, p) { this.takeName = t.name; log.push(`bar ${t.name}`); this.player = p; },
   };
   const toasts = [];
   const picks = [];
-  const tap = createTap({ takes, bar: () => np, toast: (m, k) => toasts.push([m, k]), pick: (n) => picks.push(n) });
-  return { takes, np, tap, log, toasts, picks, players };
+  const went = [];
+  // A clock turned by hand: a retry is waiting on it.
+  const timers = [];
+  const later = (fn, ms) => { timers.push({ fn, ms }); };
+  const tick = async () => { const t = timers.shift(); if (t) await t.fn(); return !!t; };
+  const tap = createTap({ takes, bar: () => np, toast: (m, k, o) => toasts.push([m, k, o]), pick: (n) => picks.push(n), go: (u) => went.push(u), later });
+  return { takes, np, tap, log, toasts, picks, players, went, timers, tick };
 }
 
 test('a tap puts the take in the bar and plays it', async () => {
@@ -70,6 +85,61 @@ test('a take still encoding says so and plays nothing', async () => {
   assert.equal(s.np.takeName, null);
   assert.deepEqual(s.toasts.map((t) => t[0]), ['Still encoding — a moment']);
   assert.ok(!s.log.some((l) => l.startsWith('play')));
+});
+
+test('a take that cannot play can still be opened: the toast has Open, and Open goes to its page', async () => {
+  const s = stage({ encoding: ['a'] });
+  await s.tap.tap('jam_a.wav');
+  const [msg, kind, opts] = s.toasts[0];
+  assert.equal(msg, 'Still encoding — a moment');
+  assert.equal(kind, 'warn');
+  assert.equal(opts.action.label, 'Open');
+  opts.action.run();
+  assert.deepEqual(s.went, ['/wave.html?file=jam_a.wav']);
+  // And a take whose player is not ready (no peaks yet) is the same.
+  const n = stage({ noPlayer: ['jam_c.wav'] });
+  await n.tap.tap('jam_c.wav');
+  assert.equal(n.toasts[0][2].action.label, 'Open');
+  n.toasts[0][2].action.run();
+  assert.deepEqual(n.went, ['/wave.html?file=jam_c.wav']);
+});
+
+test('a take still encoding is looked for again, and once it is ready it is in the bar, paused, ▶ ready: never played behind the person’s back', async () => {
+  const s = stage({ encoding: ['a'], readyAfter: { a: 2 } });
+  await s.tap.tap('jam_a.wav');
+  assert.equal(s.timers.length, 1, 'a retry is waiting');
+  assert.equal(s.timers[0].ms, 1500);
+  assert.equal(s.np.takeName, null);
+  await s.tick(); // first look: still no preview
+  assert.equal(s.np.takeName, null);
+  assert.equal(s.timers.length, 1);
+  await s.tick(); // second look: ready
+  assert.equal(s.np.takeName, 'jam_a.wav', 'loaded in the bar');
+  assert.equal(s.players.get('jam_a.wav').audio.paused, true, 'paused');
+  assert.ok(!s.log.some((l) => l.startsWith('play ')), 'nothing played: the retry is not inside the tap');
+  assert.equal(s.timers.length, 0, 'and it stops looking');
+  assert.equal(s.toasts.at(-1)[0], 'Ready — tap to play');
+});
+
+test('a take that never finishes is looked for ten times, then left (its toast still has Open)', async () => {
+  const s = stage({ encoding: ['a'] });
+  await s.tap.tap('jam_a.wav');
+  let looks = 0;
+  while (looks < 50 && await s.tick()) looks++;
+  assert.equal(looks, 10);
+  assert.equal(s.np.takeName, null);
+  assert.equal(s.toasts.length, 1, 'no second toast');
+});
+
+test('tapping it again while it is looked for does not start a second look; tapping another take drops the first', async () => {
+  const s = stage({ encoding: ['a', 'b'], readyAfter: { a: 1, b: 1 } });
+  await s.tap.tap('jam_a.wav');
+  await s.tap.tap('jam_a.wav');
+  assert.equal(s.timers.length, 1);
+  await s.tap.tap('jam_b.wav');
+  for (let i = 0; i < 50 && await s.tick(); i++);
+  assert.equal(s.np.takeName, 'jam_b.wav', 'the take tapped last is the one that is loaded');
+  assert.ok(!s.log.includes('bar jam_a.wav'));
 });
 
 test('a take whose player is not ready says so, and the bar is left as it was', async () => {
@@ -129,10 +199,35 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 test('a click on a row’s body plays it in the bar, and nothing opens', async () => {
   const s = stage();
   const { rows } = rack(s);
-  fire(rows.get('jam_b.wav').wave, 'click', { detail: 1 });
+  fire(rows.get('jam_b.wav').row, 'click', { detail: 1, clientX: 10, clientY: 10 });
   await settle();
   assert.equal(s.np.takeName, 'jam_b.wav');
   assert.ok(s.log.includes('play jam_b.wav'));
+});
+
+// The waveform of a row is the scrub surface, not a play target (the spec says a
+// tap on a take plays; a row's wave is where a finger goes to move the playhead).
+// On a spine the wave has pointer-events: none, so the click's target is the row
+// and the place the click landed is what says it was on the waveform.
+test('a click on a row’s waveform neither plays nor pauses it', async () => {
+  const s = stage();
+  const { rows } = rack(s);
+  const r = rows.get('jam_b.wav');
+  r.wave.getBoundingClientRect = () => ({ left: 100, right: 250, top: 5, bottom: 31, width: 150, height: 26 });
+  // The click lands on the wave itself (a row that is not a spine) ...
+  fire(r.wave, 'click', { detail: 1, clientX: 180, clientY: 18 });
+  fire(r.wave, 'click', { detail: 1, clientX: 20, clientY: 18 }); // a click that is the wave's, wherever it says it landed
+  // ... or on the row, over the place the wave is (a spine's wave lets the press through).
+  fire(r.row, 'click', { detail: 1, clientX: 180, clientY: 18 });
+  fire(r.row, 'click', { detail: 1, shiftKey: true, clientX: 120, clientY: 18 });
+  await settle();
+  assert.equal(s.np.takeName, null);
+  assert.equal(s.takes.selecting, false);
+  assert.ok(!s.log.some((l) => /^(play|pause|player)/.test(l)));
+  // Beside the wave, the row plays.
+  fire(r.row, 'click', { detail: 1, clientX: 20, clientY: 18 });
+  await settle();
+  assert.equal(s.np.takeName, 'jam_b.wav');
 });
 
 test('a click on one of a row’s own controls keeps its press', async () => {
@@ -146,7 +241,7 @@ test('a click on one of a row’s own controls keeps its press', async () => {
 test('with a selection on, a click on a row is left to select mode: nothing plays', async () => {
   const s = stage();
   const { rows } = rack(s, { selecting: true });
-  fire(rows.get('jam_b.wav').wave, 'click', { detail: 1 });
+  fire(rows.get('jam_b.wav').row, 'click', { detail: 1, clientX: 10, clientY: 10 });
   await settle();
   assert.equal(s.np.takeName, null);
 });
@@ -154,7 +249,7 @@ test('with a selection on, a click on a row is left to select mode: nothing play
 test('⇧-click on a row starts a selection with it', async () => {
   const s = stage();
   const { rows } = rack(s);
-  fire(rows.get('jam_c.wav').wave, 'click', { detail: 1, shiftKey: true });
+  fire(rows.get('jam_c.wav').row, 'click', { detail: 1, shiftKey: true, clientX: 10, clientY: 10 });
   await settle();
   assert.ok(s.takes.selecting);
   assert.deepEqual([...s.takes.selected], ['jam_c.wav']);

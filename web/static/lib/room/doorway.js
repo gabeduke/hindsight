@@ -323,7 +323,7 @@ export function mount(h) {
       el('span', 'room-book-latest', { text: d && d.kind === 'tape' ? `${(d.tape.name || 'the tape')}` : latest ? `${fmtAt(latest.frame, bt.sample_rate || 48000)} · ${latest.label}` : bt ? 'no notes yet' : 'nothing in the bar' }),
       el('span', 'room-book-n', { 'aria-hidden': 'true', text: String(notes) }));
     bookPlace.setAttribute('aria-label', d
-      ? `Sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${d.kind === 'take' ? spineTitle(d.take) : d.tape.name}. Open it`
+      ? `Open the sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${d.kind === 'take' ? spineTitle(d.take) : d.tape.name}`
       : 'Sketchbook: nothing in the bar to write about yet');
     renderDock(d, w);
   }

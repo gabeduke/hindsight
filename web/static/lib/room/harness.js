@@ -91,7 +91,9 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
   const touch = (el, type, extra = {}) => el.dispatchEvent({ type, target: el, button: 0, pointerType: 'touch', clientX: 5, clientY: 5, preventDefault() {}, ...extra });
   const settle = () => new Promise((r) => setImmediate(r));
   const tick = () => { for (const i of w.intervals) i.fn(); };
-  return { w, doc, np, h, list, log, toasts, sheet, q, spine, touch, settle, tick, players, mounted: true };
+  // The page's list changed (a poll that brought something, a tag renamed): what shelf-page tells the room.
+  const changed = () => { for (const f of hooks.change) f(); };
+  return { w, doc, np, h, list, log, toasts, sheet, q, spine, touch, settle, tick, changed, players, mounted: true };
 }
 // The dialogs the room made (the page's own #confirm is the trash's).
 export const roomDialogs = (r) => r.doc.querySelectorAll('dialog').filter((d) => d.id !== 'confirm').map((d) => d.className);

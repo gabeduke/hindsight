@@ -1842,8 +1842,9 @@ can work on it.
 - On a take, **GRAB** is the same key: the selection, or the last N bars
   before the playhead (at the take's tempo; twice N seconds without one),
   with N starting at the loop's length. It stands where the take page's
-  *Send to → Tape* and *Clipboard* were, and *TO THE STUDIO* in the
-  Listening Room. *Send to → Crate*, *Split here* and the ◫ chip are not
+  *Send to → Tape* and *Clipboard* were; in the Listening Room it is on
+  **Open**, a take's page, since a tap plays and the shelf has no sheet.
+  *Send to → Crate*, *Split here* and the ◫ chip are not
   offered (§8.11).
 - The buffer opens, and the lanes fold to strips to make room (**Unfold**
   gives them their height back). Pick the inputs it holds -- two make two

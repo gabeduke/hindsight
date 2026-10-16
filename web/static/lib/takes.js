@@ -126,7 +126,13 @@ export class TakesList {
       this.bar.querySelector('#sel-star').addEventListener('click', () => this.bulkStar());
       this.bar.querySelector('#sel-delete').addEventListener('click', () => this.bulkDelete());
       this.bar.querySelector('#sel-export').addEventListener('click', () => this.bulkExport());
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.selecting) this.exitSelect(); });
+      // In the Listening Room a dialog that is open (Tag, or the tag manager under it)
+      // owns Escape: it closes and the selection stays.
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' || !this.selecting) return;
+        if (this.touchHold && document.querySelector('dialog[open]')) return;
+        this.exitSelect();
+      });
     }
 
     /** @type {Map<string, object>} name -> row state */

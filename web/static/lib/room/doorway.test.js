@@ -98,6 +98,62 @@ test('⇧-click starts a selection (a mouse’s way in); a mouse’s press never
   assert.deepEqual([...r.list.selected], ['jam_a.wav']);
 });
 
+test('⇧-click during a selection picks the take in or out, as a tap does: it does not start a new selection', async () => {
+  const r = await room();
+  r.list.enterSelect('jam_a.wav');
+  click(r.spine('jam_b.wav'), { shiftKey: true });
+  assert.deepEqual([...r.list.selected].sort(), ['jam_a.wav', 'jam_b.wav']);
+  click(r.spine('jam_a.wav'), { shiftKey: true });
+  assert.deepEqual([...r.list.selected], ['jam_b.wav']);
+});
+
+test('a finger that is cancelled or leaves the spine before the hold is up selects nothing', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  for (const ev of ['pointercancel', 'pointerleave']) {
+    const r = await room();
+    const b = r.spine('jam_a.wav');
+    r.touch(b, 'pointerdown');
+    t.mock.timers.tick(300);
+    r.touch(b, ev);
+    t.mock.timers.tick(1000);
+    assert.equal(r.list.selecting, false, `${ev} ends the hold`);
+  }
+});
+
+// What the page tells the room when its list changes (a poll that brought a take, a
+// rename, a tag): the shelves are drawn again, but never for a poll that changed
+// nothing -- a rebuild under a finger loses the lift that must not play.
+test('a change in the list draws the shelf again', async () => {
+  const r = await room();
+  assert.equal(r.spine('jam_d.wav'), null);
+  r.list.all = [...r.list.all, take('d')];
+  r.changed();
+  assert.ok(r.spine('jam_d.wav'), 'the new take stands on the shelf');
+  r.list.all = r.list.all.filter((x) => x.name !== 'jam_a.wav');
+  r.changed();
+  assert.equal(r.spine('jam_a.wav'), null, 'and a take that has gone is off it');
+});
+
+test('a poll that changed nothing leaves the very spines that are there', async () => {
+  const r = await room();
+  const before = r.spine('jam_b.wav');
+  r.changed();
+  r.changed();
+  assert.ok(r.spine('jam_b.wav') === before, 'the same button, not a rebuilt one');
+  r.list.all = r.list.all.map((x) => (x.name === 'jam_b.wav' ? { ...x, label: 'renamed' } : x));
+  r.changed();
+  assert.ok(r.spine('jam_b.wav') !== before, 'a change does rebuild it');
+});
+
+test('a rebuild gives the focus back to the spine that had it', async () => {
+  const r = await room();
+  r.spine('jam_c.wav').focus();
+  assert.ok(r.doc.activeElement === r.spine('jam_c.wav'));
+  r.list.all = r.list.all.map((x) => (x.name === 'jam_b.wav' ? { ...x, label: 'renamed' } : x));
+  r.changed();
+  assert.ok(r.doc.activeElement === r.spine('jam_c.wav'), 'a keyboard user is not dropped on the page');
+});
+
 test('a selection made elsewhere (the List, Select) shows on the spines, and Done clears them', async () => {
   const r = await room();
   r.list.enterSelect('jam_b.wav');
@@ -233,6 +289,16 @@ test('the dock’s link says Open, and follows the bar: the take’s page, or th
   assert.equal(e.q('.room-sit').hidden, true, 'nothing in the bar: nothing to open');
 });
 
+test('the sketchbook strip says Open in its name, as the deck and the dock do, and keeps its visible word in it', async () => {
+  const r = await room({ barTake: 'jam_a.wav' });
+  const b = r.q('.room-book-place');
+  assert.match(b.getAttribute('aria-label'), /^Open the sketchbook: 0 notes on a/);
+  assert.match(b.textContent, /Sketchbook/);
+  assert.match(b.getAttribute('aria-label').toLowerCase(), /sketchbook/, 'the visible word is in the accessible name');
+  const e = await room();
+  assert.doesNotMatch(e.q('.room-book-place').getAttribute('aria-label'), /^Open/, 'nothing in the bar: nothing to open');
+});
+
 test('the sketchbook’s route for a tape is the Studio too, not the chair’s tape page', async () => {
   const t = await room({ tapes: TAPES });
   click(t.q('.room-book-place'));
@@ -251,8 +317,7 @@ test('the List’s rows play on a tap too: a row of the rack is wired as a spine
   wave.className = 'wave';
   row.append(wave);
   rack.append(row);
-  wave.dispatchEvent({ type: 'click', target: wave, detail: 1 });
-  rack.dispatchEvent({ type: 'click', target: wave, detail: 1 });
+  rack.dispatchEvent({ type: 'click', target: row, detail: 1, clientX: 10, clientY: 10 });
   await r.settle();
   assert.deepEqual(r.np.loads, ['jam_c.wav']);
   assert.ok(r.log.includes('pick jam_c.wav'), 'and picked, so Play all goes on from it');

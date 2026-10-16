@@ -163,3 +163,27 @@ test('a spine’s folded takes are rows of the list, shown and selectable, with 
   off.l.reshape();
   assert.deepEqual([...off.l.selected], [], 'as before: a folded take is not selected');
 });
+
+test('Escape closes a dialog and leaves the selection on; with none open it ends the selection (the rooms)', () => {
+  const { l } = list({ touchHold: true });
+  l.enterSelect('jam_a.wav');
+  const dlg = doc.createElement('dialog');
+  dlg.setAttribute('open', '');
+  doc.body.append(dlg); // the Tag dialog, or the tag manager from Edit tags
+  doc.dispatchEvent({ type: 'keydown', key: 'Escape' });
+  assert.equal(l.selecting, true, 'the dialog owns this Escape');
+  dlg.remove();
+  doc.dispatchEvent({ type: 'keydown', key: 'Escape' });
+  assert.equal(l.selecting, false);
+});
+
+test('flag off, Escape ends the selection as it always did, a dialog or not', () => {
+  const { l } = list();
+  l.enterSelect('jam_a.wav');
+  const dlg = doc.createElement('dialog');
+  dlg.setAttribute('open', '');
+  doc.body.append(dlg);
+  doc.dispatchEvent({ type: 'keydown', key: 'Escape' });
+  assert.equal(l.selecting, false);
+  dlg.remove();
+});

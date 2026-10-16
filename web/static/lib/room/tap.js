@@ -8,13 +8,50 @@
 
 /**
  * createTap answers {tap, warm}.
- *   takes  the page's TakesList: `all`, `player(name)`
+ *   takes  the page's TakesList: `all`, `player(name)`, `refresh()`
  *   bar    () -> the page's bar (pageBar's answer), or null before it is up
- *   toast  (message, kind)
+ *   toast  (message, kind, {action: {label, run}})
  *   pick   (name) -> the page's own pick, so Play all goes on from here
+ *   go     (url) -> leave for that page (Open); later: setTimeout, for the retry
+ *
+ * A take that can't play yet (no preview: still encoding, or no waveform to
+ * play from) says so with **Open** on the toast -- its page needs no preview, so
+ * the take is never a dead end -- and is looked for again every 1.5 s, ten
+ * times. When it turns up it is put in the bar *paused*, ▶ ready: a retry is
+ * not inside the finger's tap, and a phone won't start sound from it.
  */
-export function createTap({ takes, bar, toast, pick }) {
-  const encoding = () => toast?.('Still encoding — a moment', 'warn');
+export const RETRY_MS = 1500;
+export const RETRIES = 10;
+export const openHref = (name) => `/wave.html?file=${encodeURIComponent(name)}`;
+
+export function createTap({ takes, bar, toast, pick, go = (u) => { location.href = u; }, later = setTimeout }) {
+  let last = null; // the take tapped last: a late arrival must not displace a newer choice
+  const looking = new Set();
+  const cannot = (name) => {
+    toast?.('Still encoding — a moment', 'warn', { action: { label: 'Open', run: () => go(openHref(name)) } });
+    look(name);
+  };
+  // look asks again until the take can play, then loads it paused.
+  function look(name) {
+    if (looking.has(name)) return;
+    looking.add(name);
+    let n = 0;
+    const step = async () => {
+      n++;
+      try { await takes.refresh?.(); } catch { /* the page's own poll will bring it */ }
+      const t = takes.all.find((x) => x.name === name);
+      const p = t && t.has_preview ? await takes.player(name).catch(() => null) : null;
+      if (p && last === name) {
+        looking.delete(name);
+        const np = bar();
+        if (np) { np.loadTake(t, p); toast?.('Ready — tap to play', 'ok'); }
+        return;
+      }
+      if (!t || n >= RETRIES || last !== name) { looking.delete(name); return; }
+      later(step, RETRY_MS);
+    };
+    later(step, RETRY_MS);
+  }
   return {
     /**
      * tap puts take `name` in the bar and plays it; the same take again
@@ -26,9 +63,10 @@ export function createTap({ takes, bar, toast, pick }) {
       if (!t) return 'missing';
       const np = bar();
       if (!np) return 'no bar';
-      if (!t.has_preview) { encoding(); return 'encoding'; }
+      last = name;
+      if (!t.has_preview) { cannot(name); return 'encoding'; }
       const p = await takes.player(name);
-      if (!p) { encoding(); return 'encoding'; }
+      if (!p) { cannot(name); return 'encoding'; }
       pick?.(name);
       // The same take with the same player is left in the bar as it is.
       np.loadTake(t, p);
@@ -57,7 +95,15 @@ export function createTap({ takes, bar, toast, pick }) {
  * wireSelect's too.
  */
 export function wireRack(container, { takes, tap }) {
-  const OWN = 'button, a, input, .take-flag, .take-flag-edit';
+  // A row's own controls keep their press; so does its waveform, which is the
+  // scrub surface, not a play target. (A spine's wave lets the press through to
+  // the row, so the place the click landed says whether it was on the wave.)
+  const OWN = 'button, a, input, .take-flag, .take-flag-edit, .wave';
+  const onWave = (row, e) => {
+    const w = row.querySelector('.wave');
+    const r = w && w.getBoundingClientRect();
+    return !!r && r.width > 0 && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  };
   const rowOf = (e) => e.target.closest('.take');
   container.addEventListener('pointerdown', (e) => {
     const row = rowOf(e);
@@ -66,7 +112,7 @@ export function wireRack(container, { takes, tap }) {
   container.addEventListener('click', (e) => {
     if (takes.selecting) return;
     const row = rowOf(e);
-    if (!row || e.target.closest(OWN)) return;
+    if (!row || e.target.closest(OWN) || onWave(row, e)) return;
     if (e.shiftKey) { takes.enterSelect(row.dataset.name); return; }
     tap.tap(row.dataset.name);
   });
