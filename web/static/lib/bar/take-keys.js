@@ -24,9 +24,27 @@ export function clock(frames, sampleRate) {
  * paint(src), which says what they and ⟲ show for the bar's source (null for
  * none). `onNote` is what ✎ does; the page gives it.
  */
-export function takeKeys({ doc, root, onNote }) {
+export function takeKeys({ doc, root, onNote, onSelectSource }) {
   const own = doc.getElementById('np-eject')?.parentElement;
   const loop = doc.getElementById('np-loop');
+  const sw = doc.createElement('div');
+  sw.className = 'seg np-source-switch';
+  sw.setAttribute('role', 'group');
+  sw.setAttribute('aria-label', 'Audio source');
+  const srcBtns = [
+    ['feed', 'Feed'],
+    ['tape', 'Tape'],
+    ['take', 'Shelf'],
+  ].map(([kind, label]) => {
+    const b = doc.createElement('button');
+    b.setAttribute('type', 'button');
+    b.dataset.source = kind;
+    b.setAttribute('aria-pressed', 'false');
+    b.textContent = label;
+    b.addEventListener('click', () => onSelectSource?.(kind));
+    sw.append(b);
+    return b;
+  });
   const name = doc.createElement('a');
   name.id = 'np-name';
   name.className = 'np-name';
@@ -40,11 +58,15 @@ export function takeKeys({ doc, root, onNote }) {
   note.textContent = '✎';
   note.hidden = true;
   note.addEventListener('click', () => onNote?.());
+  own?.before(sw);
   own?.append(name, note);
   return {
     paint(src) {
-      const take = !!src && src.kind === 'take';
+      const kind = src ? src.kind : null;
+      const take = kind === 'take';
       root.classList.toggle('np-take', take);
+      root.classList.toggle('np-feed', kind === 'feed');
+      for (const b of srcBtns) setAttr(b, 'aria-pressed', String(b.dataset.source === kind));
       name.hidden = !take;
       note.hidden = !take;
       if (take) {

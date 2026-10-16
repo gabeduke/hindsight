@@ -137,8 +137,8 @@ export class Ticker {
    * it recovers and breaks anew.
    */
   constructor({ raf, cancel, now, reduced, onError = report } = {}) {
-    this.raf = raf || ((fn) => requestAnimationFrame(fn));
-    this.cancel = cancel || ((h) => cancelAnimationFrame(h));
+    this.raf = raf || ((fn) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(fn) : 0));
+    this.cancel = cancel || ((h) => (typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame(h) : undefined));
     this.now = now || (() => performance.now());
     this.reduced = reduced !== undefined
       ? reduced

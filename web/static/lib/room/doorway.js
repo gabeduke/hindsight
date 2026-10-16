@@ -31,14 +31,24 @@ import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
 import { openTagManager } from '../tags-dialog.js';
 import { deckOf, deckWords, readBar, fmtLen } from './deck.js';
-import { spineTitle, familyCounts, familySticker } from '../shelf.js';
+import { spineTitle, familyCounts, familySticker, flagChips } from '../shelf.js';
+import { flagRequest } from '../flags.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
+import { ReelWindow } from '../objects/reel-window.js';
 import { RoomRenderer, roomScene } from './stage.js';
 import { shelfTop, shelfBottom } from './art/shelf.js';
 
-const TAPES_EVERY_MS = 15000;
-const DECK_EVERY_MS = 500;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgReel() {
+  const s = typeof document.createElementNS === 'function'
+    ? document.createElementNS(SVG_NS, 'svg')
+    : document.createElement('svg');
+  s.setAttribute('class', 'np-reel room-deck-svg-reel');
+  s.setAttribute('viewBox', '0 0 160 160');
+  s.setAttribute('aria-hidden', 'true');
+  return s;
+}
 
 /** el builds an element: a class, attributes (text sets its words), children. */
 function el(tag, cls, attrs = {}, ...kids) {
@@ -188,16 +198,20 @@ export function mount(h) {
   // The deck: a picture of the bar -- what it holds, how far it has got. It
   // has no keys of its own (the bar is the only transport); pressing it is Open.
   const deckLcd = el('span', 'room-deck-lcd', { 'aria-hidden': 'true' });
+  const deckReelL = svgReel();
+  const deckReelR = svgReel();
+  const deckLevels = el('span', 'room-deck-levels', { 'aria-hidden': 'true' });
   // Its face: two reels and the tape between them over the heads, then a
   // panel of meters, the counter and the keys -- hardware, all of it a picture.
   const deckArt = el('span', 'room-deck-art', { 'aria-hidden': 'true' },
-    el('span', 'room-deck-reel'), el('span', 'room-deck-reel'),
+    deckReelL, deckReelR, deckLevels,
     deckTape(), el('span', 'room-deck-head'),
     el('span', 'room-deck-panel', {},
       el('span', 'room-deck-vu'), el('span', 'room-deck-vu'),
       el('span', 'room-deck-buttons', {}, el('i'), el('i'), el('i'), el('i'), el('i')),
       el('span', 'room-deck-knob')),
     deckLcd);
+  const deckReels = new ReelWindow({ left: deckReelL, right: deckReelR, levels: deckLevels });
   const deckPlace = el('button', 'room-place room-deck-place', { type: 'button', 'data-tip': 'room-deck' });
   const deckMeta = el('span', 'room-deck-meta');
   const deckBar = el('span', 'room-deck-progress', { 'aria-hidden': 'true' }, el('span', 'room-deck-progress-fill'));
@@ -275,14 +289,6 @@ export function mount(h) {
     tapeList = list;
     renderPlaces();
   });
-  async function refreshTapes() {
-    try {
-      const res = await fetch('/api/tapes', { cache: 'no-store' });
-      tapeList = res.ok ? await res.json() : null;
-    } catch { /* the next look asks again */ }
-    renderPlaces();
-  }
-  setInterval(() => { if (!document.hidden && tapeList) refreshTapes(); }, TAPES_EVERY_MS);
 
   // What's in the bar: a take, or the tape (lib/room/deck.js).
   const inBar = () => deckOf({ takeName: h.np?.takeName ?? null, takes: h.takes.all, tapes: tapeList });
@@ -352,7 +358,7 @@ export function mount(h) {
     b.addEventListener('click', () => openMonth(m));
     return el('li', '', {}, b);
   }
-  const barNow = () => readBar(document);
+  const barNow = () => (h.np?.snapshot ? h.np.snapshot() : readBar(document));
   function render() {
     const now = Date.now();
     const s = roomShelves(h.takes.all, h.opts(), now);
@@ -386,11 +392,6 @@ export function mount(h) {
     if (month) syncMonth();
   }
 
-  // The deck and the dock follow the bar, which has no events of its own: a
-  // look twice a second, drawing only what changed. The take in the bar, and
-  // whether it plays, are also what the spines say: they are repainted in
-  // place, never rebuilt (a rebuild under a finger that has just held would
-  // lose the lift that must not play).
   let placesSig = '';
   let spinesSig = '';
   function renderPlaces() {
@@ -399,8 +400,13 @@ export function mount(h) {
     const w = deckWords(d, bar);
     const spines = JSON.stringify([h.np?.takeName ?? null, bar.playing]);
     if (spines !== spinesSig) { spinesSig = spines; syncSpines(); }
-    room.style.setProperty('--room-played', bar.frac.toFixed(4));
+    const frac = Number(bar.frac) || 0;
+    room.style.setProperty('--room-played', frac.toFixed(4));
     deckLcd.textContent = w.lcd;
+    const sr = (d && d.kind === 'take' && d.take.sample_rate) || bar.sampleRate || 48000;
+    const len = bar.length || Math.max(1, Math.round(((d && d.kind === 'take' && d.take.duration_seconds) || 10) * sr));
+    const heard = bar.frame != null ? bar.frame : Math.round(frac * len);
+    deckReels.poll({ heard, playing: !!(bar.playing && d), length: len, sampleRate: sr });
     const sig = JSON.stringify([w.place, w.meta, w.label, w.href, bar.playing, !!d]);
     if (sig === placesSig) return;
     placesSig = sig;
@@ -422,7 +428,7 @@ export function mount(h) {
       : 'Sketchbook: nothing in the bar to write about yet');
     renderDock(d, w);
   }
-  setInterval(() => { if (!document.hidden) renderPlaces(); }, DECK_EVERY_MS);
+  h.np?.onChange?.(renderPlaces);
 
   // The dock is the bar: Open in it for the tape (a take's name, in the bar,
   // is its way in: lib/bar/take-keys.js), and grease marks at In and Out.
@@ -452,6 +458,106 @@ export function mount(h) {
     }
   }
 
+  function openSketchbook(takeName, stashed = null) {
+    const t0 = h.takes.all.find((x) => x.name === takeName);
+    if (!t0) return;
+    let dlg = $('room-sketchbook');
+    if (!dlg) {
+      dlg = el('dialog', 'sheet room-book-sheet', { id: 'room-sketchbook', 'aria-labelledby': 'room-book-title' },
+        el('div', 'sheet-inner room-book-inner', {},
+          el('div', 'room-book-head', {},
+            el('h3', '', { id: 'room-book-title', text: 'Sketchbook' }),
+            el('a', 'icon-btn room-book-wave', { id: 'room-book-wave', text: 'Open waveform ›' }),
+            el('button', 'icon-btn room-book-close', { id: 'room-book-close', type: 'button', text: 'Done' })),
+          el('form', 'room-book-form', { id: 'room-book-form' },
+            el('label', 'room-book-at', { id: 'room-book-at', for: 'room-book-input' }),
+            el('div', 'room-book-row', {},
+              el('input', '', { id: 'room-book-input', type: 'text', maxlength: '120', placeholder: 'Write a note at this moment…', autocomplete: 'off' }),
+              el('button', 'icon-btn primary', { type: 'submit', text: 'Add note' }))),
+          el('div', 'room-book-list', { id: 'room-book-list', role: 'list' })));
+      body.append(dlg);
+      $('room-book-close').addEventListener('click', () => dlg.close?.());
+      dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close?.(); });
+    }
+    const curTake = () => h.takes.all.find((x) => x.name === takeName) || t0;
+    const sr = () => curTake().sample_rate || 48000;
+    const frameAt = () => {
+      if (stashed && stashed.take === takeName && typeof stashed.frame === 'number') return stashed.frame;
+      const now = h.np?.frameNow?.();
+      if (now && now.take === takeName) return now.frame;
+      return 0;
+    };
+    let targetFrame = frameAt();
+    const renderBook = () => {
+      const t = curTake();
+      const title = spineTitle(t);
+      $('room-book-title').textContent = `Sketchbook · ${title}`;
+      $('room-book-wave').setAttribute('href', `/wave.html?file=${encodeURIComponent(t.name)}`);
+      $('room-book-at').textContent = `Note at ${fmtAt(targetFrame, sr())}`;
+      const list = $('room-book-list');
+      const chips = flagChips(t);
+      if (!chips.length) {
+        list.replaceChildren(el('p', 'muted room-book-empty', { text: 'No notes on this take yet. Add one above while it plays.' }));
+        return;
+      }
+      list.replaceChildren(...chips.map((f) => {
+        const jump = el('button', 'chip room-book-jump mono', { type: 'button', 'aria-label': `Seek to ${f.at}`, text: `✎ ${f.at}` });
+        jump.addEventListener('click', async () => {
+          const p = await h.takes.player(t.name);
+          if (p?.audio) p.audio.currentTime = f.frame / sr();
+        });
+        const input = el('input', 'room-book-edit', { type: 'text', maxlength: '120', placeholder: 'Note…' });
+        input.value = f.label || '';
+        input.addEventListener('change', async () => {
+          const label = input.value.trim();
+          if (label === (f.label || '')) return;
+          try {
+            await flagRequest(t.name, 'edit', { id: f.id, label });
+            h.takes.etag = null;
+            await h.takes.refresh();
+            renderPlaces();
+            renderBook();
+          } catch (e) { toast?.(`Could not save note: ${e.message}`, 'bad'); }
+        });
+        const rm = el('button', 'icon-btn danger room-book-rm', { type: 'button', 'aria-label': `Remove note at ${f.at}`, text: '×' });
+        rm.addEventListener('click', async () => {
+          try {
+            await flagRequest(t.name, 'remove', { id: f.id });
+            h.takes.etag = null;
+            await h.takes.refresh();
+            renderPlaces();
+            renderBook();
+          } catch (e) { toast?.(`Could not remove note: ${e.message}`, 'bad'); }
+        });
+        return el('div', 'room-book-item', { role: 'listitem' }, jump, input, rm);
+      }));
+    };
+    const form = $('room-book-form');
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const input = $('room-book-input');
+      const label = input.value.trim();
+      const frame = targetFrame;
+      try {
+        await flagRequest(takeName, 'add', { frame, label });
+        input.value = '';
+        h.takes.etag = null;
+        await h.takes.refresh();
+        targetFrame = frameAt();
+        renderPlaces();
+        renderBook();
+      } catch (err) {
+        toast?.(`Could not add note: ${err.message}`, 'bad');
+      }
+    };
+    renderBook();
+    if (!dlg.open) {
+      if (typeof dlg.showModal === 'function') dlg.showModal();
+      else dlg.setAttribute('open', '');
+    }
+    $('room-book-input')?.focus();
+  }
+
   // --- the places ------------------------------------------------------------------
   // Open: the take in the bar, on its page; the tape in the Studio. With
   // nothing in the bar there is nothing to open, and the shelf is pointed at.
@@ -460,12 +566,14 @@ export function mount(h) {
     const d = inBar();
     if (!d) { focusShelf('.room-shelf-takes'); return; }
     const w = deckWords(d, barNow());
-    if (w.forTape) openTheTape(); else location.href = w.href;
+    if (w.forTape) openTheTape();
+    else if (h.openSketchbook && d.kind === 'take') h.openSketchbook(d.take.name);
+    else location.href = w.href;
   }
   deckPlace.addEventListener('click', openBar);
   bookPlace.addEventListener('click', openBar);
 
-  h.onChange(() => render());
+  h.onChange(() => { render(); renderPlaces(); });
   h.onSelected(() => { tagging.sync(); syncSpines(); });
   tagStore.subscribe(() => render());
 
@@ -510,5 +618,5 @@ export function mount(h) {
 
   render();
   renderPlaces();
-  return { render };
+  return { render, renderPlaces, openSketchbook };
 }

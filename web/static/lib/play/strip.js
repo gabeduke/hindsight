@@ -135,7 +135,7 @@ export function startStrip({
 
   const root = doc.createElement('section');
   root.id = 'play-strip';
-  np.before(root);
+  np.prepend(root);
   const ui = mountStrip(root, surface, {
     has, doc,
     onCommand: command,

@@ -346,27 +346,22 @@ test('the takes search is a field, not a window', () => {
   assert.match(block(at), /background:\s*var\(--field\)/);
 });
 
-test('nothing hides the about line, which carries the only way into Settings', () => {
-  // The Settings button lives in `.about` at the Studio's foot, and nowhere
-  // else in the app: on Capture, and with the two rooms on (lib/rooms) at the
-  // foot of the tape page, which is the Studio while the tape is on
-  // (pages.test.js keeps it there). A layout rule that hides that line leaves
-  // the window shape it matches with no route to the per-device switches or
-  // the guide -- which is exactly what happened to a laptop browser that was
-  // not full height, and was noticed only because someone went looking for
-  // Settings and could not find it.
+test('nothing hides the about line (or header Settings in rooms mode), which carries the only way into Settings', () => {
+  // With the rooms flag off, the Settings button lives in `.about` at Capture's
+  // foot; with the two rooms on (`:root[data-rooms]`), Settings lives in the
+  // top-right header utility cluster (`.appbar-settings-btn`) on every page.
   const offenders = [];
-  for (const m of css.matchAll(/([^{}]*\.about[^{}]*)\{([^}]*)\}/g)) {
+  for (const m of css.matchAll(/([^{}]*(?:\.about|\.appbar-settings-btn)[^{}]*)\{([^}]*)\}/g)) {
     const selector = m[1].trim();
     const body = m[2];
     if (!/display\s*:\s*none/.test(body)) continue;
-    // `[hidden]` is the element asking to be hidden, which is not a layout
-    // deciding for it.
-    if (selector.includes('[hidden]')) continue;
+    // `[hidden]` is the element asking to be hidden; `:root[data-rooms] .about`
+    // hides the legacy footer only when `.appbar-settings-btn` is in the header.
+    if (selector.includes('[hidden]') || selector === ':root[data-rooms] .about') continue;
     offenders.push(`${selector} { ${body.trim()} }`);
   }
   assert.deepEqual(offenders, [],
-    "these hide the Studio's about line, and with it the only entry to Settings");
+    'these hide the entry to Settings');
 });
 
 test('the Studio’s rules reach only the Studio', () => {

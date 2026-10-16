@@ -603,7 +603,13 @@ renderControls();
 showNextToast();
 initHelp({ page: 'takes' });
 const navTapes = initNav();
-np = pageBar({ tapes: navTapes, onToast: toast, find: takesFinder(takes) });
+let roomInst = null;
+np = pageBar({
+  tapes: navTapes,
+  onToast: toast,
+  find: takesFinder(takes),
+  onNote: roomMode ? (f) => roomInst?.openSketchbook?.(f.take, f) : null,
+});
 poll(true);
 pollStatus();
 setInterval(() => poll(), 5000);
@@ -616,6 +622,7 @@ setInterval(pollStatus, 15000);
 startRoom('doorway', {
   takes, toast, tapes: navTapes,
   get np() { return np; },
+  openSketchbook: (name, f) => roomInst?.openSketchbook?.(name, f),
   opts: () => ({ ...view, tags: tagStore.list, tag: shownTag() }),
   // A tap on a take picks it, so Play all goes on from here.
   pick: (name) => pick(name, true),
@@ -637,4 +644,4 @@ startRoom('doorway', {
   onChange: (fn) => roomHooks.change.add(fn),
   onSelected: (fn) => roomHooks.selected.add(fn),
   poll: () => poll(true),
-})?.catch((e) => console.error('The Listening Room could not start:', e));
+})?.then((inst) => { roomInst = inst; }).catch((e) => console.error('The Listening Room could not start:', e));

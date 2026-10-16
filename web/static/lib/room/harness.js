@@ -105,14 +105,14 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
     playAll: { running: () => false, from: () => { sheet.opened++; }, stop: () => {} },
   };
   const { mount } = await import('./doorway.js');
-  await mount(h);
+  const mounted = await mount(h);
   await Promise.resolve(tapes);
   await new Promise((r) => setImmediate(r));
   const q = (sel) => doc.querySelector(sel);
   const spine = (name) => doc.querySelector(`[data-key="take:${name}"]`);
   const touch = (el, type, extra = {}) => el.dispatchEvent({ type, target: el, button: 0, pointerType: 'touch', clientX: 5, clientY: 5, preventDefault() {}, ...extra });
   const settle = () => new Promise((r) => setImmediate(r));
-  const tick = () => { for (const i of w.intervals) i.fn(); };
+  const tick = () => { mounted?.renderPlaces?.(); for (const i of w.intervals) i.fn(); };
   // The page's list changed (a poll that brought something, a tag renamed): what shelf-page tells the room.
   const changed = () => { for (const f of hooks.change) f(); };
   const ghosts = () => doc.body.querySelectorAll('.room-carry');

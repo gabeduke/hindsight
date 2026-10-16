@@ -12,6 +12,7 @@ import { ReelWindow } from '../objects/reel-window.js';
 import { Loop } from '../objects/motion.js';
 import { tapeSource } from './tape-source.js';
 import { takeSource, playheadOf } from './take-source.js';
+import { feedSource } from './feed-source.js';
 import { takeKeys, noteHere } from './take-keys.js';
 import { initPlayer } from './player.js';
 import { pageCarry, isStudio } from './carry.js';
@@ -25,10 +26,11 @@ import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } fr
 const $ = (id) => document.getElementById(id);
 
 export class NowPlaying {
-  constructor({ onEject, onTouch, onNote } = {}) {
+  constructor({ onEject, onTouch, onNote, onSelectSource } = {}) {
     this.root = $('np');
     this.src = null;
     this.marqueeKey = null;
+    this.listeners = new Set();
     // Drawn every frame while the source plays, on the shared ticker; off it
     // the moment it stops.
     this.loop = new Loop(() => {
@@ -43,7 +45,7 @@ export class NowPlaying {
     initPlayer();
     // With the rooms on, a take in the bar shows its name (which opens it) and
     // ✎, and ⟲ is Repeat (take-keys.js). Off, the bar has none of it.
-    this.keys = roomsOn() ? takeKeys({ doc: document, root: this.root, onNote }) : null;
+    this.keys = roomsOn() ? takeKeys({ doc: document, root: this.root, onNote, onSelectSource }) : null;
 
     $('np-play').addEventListener('click', () => {
       const s = this.src;
@@ -200,6 +202,32 @@ export class NowPlaying {
     setAttr(this.scrub, 'aria-valuenow', String(Math.round(p)));
     setAttr(this.scrub, 'aria-valuetext', `${lcd.unit === 'BAR' ? `bar ${lcd.big}, ` : ''}${secs(p / s.sampleRate)}`);
     this.reels.poll({ heard: s.pos(), playing, length: s.length, sampleRate: s.sampleRate });
+    for (const fn of this.listeners) fn(this.snapshot());
+  }
+
+  onChange(fn) {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  snapshot() {
+    const s = this.src;
+    if (!s) return { kind: null, title: '', playing: false, pos: '', frame: 0, frac: 0, length: 1, sampleRate: 48000, lcd: null };
+    const lcd = s.lcd();
+    const frame = s.pos();
+    const length = Math.max(1, s.length || 1);
+    const frac = Math.max(0, Math.min(1, frame / length));
+    return {
+      kind: s.kind,
+      title: s.title || '',
+      playing: !!s.playing(),
+      pos: lcd?.big || '',
+      frame,
+      frac,
+      length,
+      sampleRate: s.sampleRate || 48000,
+      lcd,
+    };
   }
 }
 
@@ -210,17 +238,17 @@ const hooked = new WeakSet();
 /**
  * pageBar is the bar as Takes and Capture use it: the tape, when the Pi has
  * one loaded (`tapes` is initNav's answer); a take, when the page hands it
- * one (loadTake); and ⏏ back to the tape. `ready` settles once the tape's
- * first state is in -- or there is no tape -- so a page can ask whether the
- * tape was already playing when it opened.
+ * one (loadTake); the live studio feed (feedSource); and ⏏ back to the tape.
+ * `ready` settles once the tape's first state is in -- or there is no tape --
+ * so a page can ask whether the tape was already playing when it opened.
  *
  * With the rooms on, the bar also carries its take across pages
  * (lib/bar/carry.js, handoff.js): the record the last page left is read here,
  * before anything draws, and the take -- `find(name)` is takesFinder's --
  * is put back where it was when the page's list has it. Off, none of it runs.
  */
-export function pageBar({ tapes, onToast, find = null }) {
-  let tape = null, take = null; // take: { name, audio, src }
+export function pageBar({ tapes, onToast, find = null, onNote = null }) {
+  let feed = null, tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
   let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
   // How many times the person has used the bar's own keys, strip or ⏏: the Listening
@@ -229,10 +257,18 @@ export function pageBar({ tapes, onToast, find = null }) {
   const bar = new NowPlaying({
     onEject: () => backToTape({ byHand: true }),
     onTouch: () => { touches++; handoff.touch(); },
-    // ✎: the take and the frame now, kept for the next page, and the take opens.
-    onNote: () => noteHere({ frameNow, stash: stashFrame, go: (u) => { location.href = u; } }),
+    // ✎: open inline sketchbook if provided by the room, else stash frame and navigate.
+    onNote: () => {
+      if (typeof onNote === 'function') {
+        const f = frameNow();
+        if (f) onNote(f);
+        return;
+      }
+      noteHere({ frameNow, stash: stashFrame, go: (u) => { location.href = u; } });
+    },
+    onSelectSource: (kind) => setSource(kind, { byHand: true }),
   });
-  const eject = () => { $('np-eject').hidden = !(tape && take); };
+  const eject = () => { $('np-eject').hidden = !(tape && (take || (bar.src && bar.src.kind === 'feed'))); };
   const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing(), loop: take.src.loop, length: take.src.length } : null);
   const carry = pageCarry();
   const frameNow = () => carry.frameNow(heldState);
@@ -246,7 +282,7 @@ export function pageBar({ tapes, onToast, find = null }) {
     studio: () => roomsOn() && isStudio(location.pathname),
     takeInBar: () => !!take,
     loadTake: ({ t, player }) => { loadTake(t, player); return take.src; },
-    showTape: () => { if (!take && tape) bar.load(tape); eject(); },
+    showTape: () => { if (!take && (!bar.src || bar.src.kind !== 'feed') && tape) bar.load(tape); eject(); },
     state: heldState,
     win: window, doc: document,
   });
@@ -254,7 +290,7 @@ export function pageBar({ tapes, onToast, find = null }) {
     if (!list || !list.loaded) return;
     tape = tapeSource(list.loaded, { onError: (m) => onToast?.(`The tape: ${m}`, 'bad'), stream: () => stream });
     stream = tapeStream(tape, onToast);
-    if (take) stream.setQuiet(true); // picked before the tape's state was in
+    if (take || (bar.src && bar.src.kind === 'feed')) stream.setQuiet(true);
     else if (!handoff.holding()) bar.load(tape);
     eject();
     // The header's output button: where the tape plays, chosen from here as
@@ -279,6 +315,7 @@ export function pageBar({ tapes, onToast, find = null }) {
   });
   function backToTape({ byHand = false } = {}) {
     if (byHand) { ejected = true; handoff.touch(); } // the tape put back by hand is a decision
+    if (feed && feed.playing()) feed.pause();
     if (take) {
       const old = take;
       take = null;
@@ -287,8 +324,40 @@ export function pageBar({ tapes, onToast, find = null }) {
       bar.load(tape);
       old.src.destroy();
       stream?.setQuiet(false);
+    } else if (tape) {
+      bar.load(tape);
+      stream?.setQuiet(false);
+    } else {
+      bar.load(null);
     }
     eject();
+  }
+  function setSource(kind, { byHand = false } = {}) {
+    if (byHand) { touches++; handoff.touch(); }
+    if (kind === 'feed') {
+      if (take && take.src.playing()) take.src.pause();
+      if (stream?.active && stream.mode === 'phone') tape?.pause();
+      stream?.setQuiet(true);
+      feed ??= feedSource();
+      bar.load(feed);
+      if (!feed.playing()) feed.play();
+      bar.kick();
+      eject();
+      return;
+    }
+    if (kind === 'tape') {
+      backToTape({ byHand });
+      return;
+    }
+    if (kind === 'take') {
+      if (feed && feed.playing()) feed.pause();
+      if (take) {
+        bar.load(take.src);
+        eject();
+      } else if (location.pathname !== '/takes.html') {
+        location.href = '/takes.html';
+      }
+    }
   }
   // A take played here while the tape plays on this phone: stop the tape,
   // or the phone plays both (as the tape page does). Only in This phone
@@ -300,7 +369,11 @@ export function pageBar({ tapes, onToast, find = null }) {
    */
   function loadTake(t, player) {
     ejected = false;
-    if (take && take.name === t.name && take.audio === player.audio) return;
+    if (feed && feed.playing()) feed.pause();
+    if (take && take.name === t.name && take.audio === player.audio) {
+      if (bar.src !== take.src) bar.load(take.src);
+      return;
+    }
     const old = take;
     const src = takeSource(t, player, { onGone: () => { if (take && take.src === src) backToTape(); } });
     const audio = player.audio;
@@ -322,10 +395,11 @@ export function pageBar({ tapes, onToast, find = null }) {
     /** stashFrame keeps a frame -- frameNow's, else the take's now -- for the next page (carry.takeStashedFrame reads it there), and answers it. */
     stashFrame,
     get takeName() { return take ? take.name : null; },
+    get sourceKind() { return bar.src ? bar.src.kind : null; },
     /** touches: how many times the bar's keys, strip or ⏏ have been used on this page. */
     get touches() { return touches; },
-    /** playing: whatever the bar holds -- the take, or the tape -- is playing now. */
-    playing: () => !!(take ? take.src.playing() : tape && tape.ready && tape.playing()),
+    /** playing: whatever the bar holds -- the take, the feed, or the tape -- is playing now. */
+    playing: () => !!(bar.src ? bar.src.playing() : (take ? take.src.playing() : tape && tape.ready && tape.playing())),
     /** takeTime: where the take in the bar is, in seconds; null with none. */
     get takeTime() { return playheadOf(take); },
     /** ejected: ⏏ put the tape back; automatic picks leave it there. */
@@ -335,6 +409,9 @@ export function pageBar({ tapes, onToast, find = null }) {
     tapePlaying: () => !!(tape && tape.ready && tape.playing()),
     loadTake,
     backToTape,
+    setSource,
+    onChange: (fn) => bar.onChange(fn),
+    snapshot: () => bar.snapshot(),
   };
 }
 
