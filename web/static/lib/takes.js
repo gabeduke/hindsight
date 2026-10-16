@@ -16,7 +16,7 @@ import { timedFetch } from '/lib/link.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeFor, STRIPES } from '/lib/objects/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
-import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
+import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy, SELECT_HOLD_MS } from '/lib/shelf.js';
 
 /** setStripe puts one printed stripe on a spine, in place of the one it wore. */
 function setStripe(el, n) {
@@ -25,7 +25,7 @@ function setStripe(el, n) {
 }
 
 // How long a press on a row is held to start selecting several takes.
-export const SELECT_HOLD_MS = 500;
+export { SELECT_HOLD_MS };
 
 const fmtTime = (s) => {
   if (!isFinite(s) || s <= 0) return '0:00';
@@ -52,14 +52,28 @@ export class TakesList {
    * through what is shown, each spine's folded takes after it, or with
    * stepOrder 'all' through every take.
    *
+   * onSelected() runs whenever the selection changes; touchHold makes a hold
+   * select with a finger or a pen only (a mouse selects with ⇧-click and the
+   * Select key); showFolded draws a spine's folded takes as rows under it
+   * instead of hiding them (the Listening Room's List). All three are the
+   * rooms': the defaults are the list as it was.
+   *
    * spines draws each take as a cassette spine: on the takes page (the
    * rack) for picking, its controls on the picked take's cassette; with
    * spineAction 'play' (the main page's shelf), a press plays or pauses it.
    */
-  constructor(container, emptyEl, { onToast, onListChange, onSelectChange, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded }) {
+  constructor(container, emptyEl, { onToast, onListChange, onSelectChange, onSelected, touchHold = false, showFolded = false, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded }) {
     // A take starting, and playing to its end: the page's now-playing bar hears of both.
+    // Settles with the first list the Pi answers (bar/handoff.js waits for it).
+    this.loaded = new Promise((resolve) => { this.markLoaded = resolve; });
     this.onPlay = onPlay;
     this.onSelectChange = onSelectChange; // select mode began or ended
+    // The Listening Room (lib/room): the selection changed in any way, so its
+    // spines can follow it; a hold selects with a finger or a pen only, not a
+    // mouse; and a spine's folded takes are rows of the list, shown.
+    this.onSelected = onSelected;
+    this.touchHold = touchHold;
+    this.showFolded = showFolded;
     this.onEnded = onEnded;
     this.spines = spines;
     this.spineAction = spineAction;
@@ -112,7 +126,13 @@ export class TakesList {
       this.bar.querySelector('#sel-star').addEventListener('click', () => this.bulkStar());
       this.bar.querySelector('#sel-delete').addEventListener('click', () => this.bulkDelete());
       this.bar.querySelector('#sel-export').addEventListener('click', () => this.bulkExport());
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.selecting) this.exitSelect(); });
+      // In the Listening Room a dialog that is open (Tag, or the tag manager under it)
+      // owns Escape: it closes and the selection stays.
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' || !this.selecting) return;
+        if (this.touchHold && document.querySelector('dialog[open]')) return;
+        this.exitSelect();
+      });
     }
 
     /** @type {Map<string, object>} name -> row state */
@@ -182,7 +202,7 @@ export class TakesList {
     if (this.etag) headers['If-None-Match'] = this.etag;
 
     const res = await timedFetch('/api/jams', { headers, cache: 'no-store' });
-    if (res.status === 304) return;
+    if (res.status === 304) { this.markLoaded(); return; }
     if (!res.ok) throw new Error(`takes: HTTP ${res.status}`);
 
     this.etag = res.headers.get('ETag');
@@ -190,6 +210,7 @@ export class TakesList {
     this.all = Array.isArray(takes) ? takes : [];
     this.reshape();
     this.onListChange?.();
+    this.markLoaded();
   }
 
   /** reshape re-renders the last list through shape, without a fetch. */
@@ -254,12 +275,15 @@ export class TakesList {
           seen.add(m.name);
           order.push(m.name);
           const mr = rowFor(m);
-          mr.el.hidden = true;
+          mr.el.hidden = !this.showFolded;
           mr.el.classList.add('folded');
           // Off the shelf, as a take leaving it was: not selected, not playing
-          // with no control in sight.
-          this.selected.delete(m.name);
-          if (this.playing === m.name) mr.ws?.pause();
+          // with no control in sight. (Shown, it is a line of the list like
+          // any other, and stays as it is.)
+          if (!this.showFolded) {
+            this.selected.delete(m.name);
+            if (this.playing === m.name) mr.ws?.pause();
+          }
           this.updateRow(mr, m, { ...NO_FAMILY, freed: freedBy(m.name, members) });
           place(mr.el, mr.editing || mr.editingBpm);
         }
@@ -927,6 +951,8 @@ export class TakesList {
     const cancel = () => { clearTimeout(hold); hold = 0; at = null; };
     el.addEventListener('pointerdown', (e) => {
       if (this.selecting || e.button > 0) return;
+      // A mouse never holds in the Listening Room: ⇧-click and Select are its way in.
+      if (this.touchHold && e.pointerType === 'mouse') return;
       // Controls keep their own press; the waveform and the row's body don't.
       if (e.target.closest('button, a, input, .take-flag, .take-flag-edit')) return;
       at = { x: e.clientX, y: e.clientY };
@@ -1002,6 +1028,7 @@ export class TakesList {
         r.el.setAttribute('aria-selected', this.selecting ? String(on) : 'false');
       }
     }
+    this.onSelected?.();
     if (!this.bar) return;
     this.bar.hidden = !this.selecting;
     const n = this.selected.size;
@@ -1029,6 +1056,28 @@ export class TakesList {
     this.etag = null;
     try { await this.refresh(); } catch { /* next poll */ }
     if (failed) this.onToast?.(`Could not star ${failed} of them`, 'bad');
+    this.renderSelect();
+  }
+
+  /**
+   * bulkTag gives every selected take the tag `tagId` ('' takes it off): one
+   * PATCH each, then one fresh list. A take that can't be written is counted,
+   * the rest still are. The selection stays, so ★ or Export can follow.
+   */
+  async bulkTag(tagId) {
+    const names = [...this.selected];
+    if (!names.length) return;
+    let failed = 0;
+    for (const name of names) {
+      const res = await fetch(`/api/take?file=${encodeURIComponent(name)}`, {
+        method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ tag: tagId }),
+      }).catch(() => ({ ok: false }));
+      if (!res.ok) failed++;
+    }
+    this.etag = null;
+    try { await this.refresh(); } catch { /* next poll */ }
+    if (failed) this.onToast?.(`Could not tag ${failed} of them`, 'bad');
     this.renderSelect();
   }
 

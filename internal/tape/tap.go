@@ -3,6 +3,7 @@ package tape
 import (
 	"fmt"
 	"math"
+	"slices"
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
@@ -27,11 +28,10 @@ const (
 )
 
 type pendingTap struct {
-	tape   string
-	ring   int64 // the ring frame being converted when it arrived
-	track  int
-	source string
-	at     time.Time
+	tape  string
+	ring  int64 // the ring frame being converted when it arrived
+	pairs []Pair
+	at    time.Time
 }
 
 // TapResult is what a tap did: the first waits for the second, which makes
@@ -41,6 +41,9 @@ type TapResult struct {
 	Clip  *Clip   `json:"clip,omitempty"`
 	BPM   float64 `json:"bpm,omitempty"`
 	Bars  int     `json:"bars,omitempty"`
+	// Tracks are the tracks the loop went onto, in order; Clip is the
+	// first's.
+	Tracks []int `json:"tracks,omitempty"`
 }
 
 func (e *Engine) tapPending() bool {
@@ -61,6 +64,13 @@ func (e *Engine) CancelTap() {
 
 // Tap takes a free-loop tap that arrived at monotonic time ns.
 func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, error) {
+	return e.TapPairs(id, []Pair{{Track: track, Source: source}}, ns)
+}
+
+// TapPairs is a free-loop tap for every armed track: the second makes the
+// same loop on each, from its own input, as one undo. The taps are snapped
+// to the attacks in the first pair's input -- the lowest armed track's.
+func (e *Engine) TapPairs(id string, pairs []Pair, ns int64) (TapResult, error) {
 	if err := e.jamOnly(); err != nil {
 		return TapResult{}, err
 	}
@@ -74,13 +84,11 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 	if t.Grid != nil || !t.Empty() {
 		return TapResult{}, fmt.Errorf("%w: this tape has its tempo; catch bars or a pass instead", ErrBadParameter)
 	}
-	if _, err := t.Track(track); err != nil {
+	tracks, err := e.resolve(t, pairs)
+	if err != nil {
 		return TapResult{}, err
 	}
-	src, ok := e.source(source)
-	if !ok {
-		return TapResult{}, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
-	}
+	src := tracks[0].src
 	cb, ok := e.capture.(bridged)
 	if !ok {
 		return TapResult{}, ErrNoCapture
@@ -92,14 +100,14 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 	ring := int64(math.Round(f))
 
 	sr := int64(e.store.SampleRate())
-	this := &pendingTap{tape: id, ring: ring, track: track, source: source, at: time.Now()}
+	this := &pendingTap{tape: id, ring: ring, pairs: slices.Clone(pairs), at: time.Now()}
 	e.recMu.Lock()
 	if e.LoadedID() != id { // a load raced this tap
 		e.recMu.Unlock()
 		return TapResult{}, ErrWrongTape
 	}
 	first := e.tap
-	if first != nil && (time.Since(first.at) > tapExpiry || first.source != source || first.track != track || first.tape != id) {
+	if first != nil && (time.Since(first.at) > tapExpiry || !slices.Equal(first.pairs, pairs) || first.tape != id) {
 		first = nil
 	}
 	// A second tap too soon after the first is a fresh first tap.
@@ -156,24 +164,22 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 			return TapResult{}, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
 		}
 	}
-	rel, path, err := e.store.NewPoolFile("loop", time.Now())
-	if err != nil {
-		return TapResult{}, err
-	}
 	lo, hi := ringHandles(r, sr, start-over, end+over, e.handle(sr)-over)
-	peak, err := audio.WriteSpanMeasured(r, uint64(lo), uint64(hi), src.Pair[:], path, int(sr), start-over-lo, end+over-lo)
-	if err != nil {
-		return TapResult{}, err
-	}
-	clean := true
-	for _, b := range src.Leaks {
-		for _, tr := range t.Tracks {
-			if tr.Bus == b && len(tr.Clips) > 0 && !tr.Mute {
-				clean = false
-			}
+	clips := map[string]Clip{} // by input: two tracks on one tap share its file
+	for _, p := range tracks {
+		if _, ok := clips[p.src.Name]; ok {
+			continue
 		}
+		rel, path, err := e.store.NewPoolFile("loop", time.Now())
+		if err != nil {
+			return TapResult{}, err
+		}
+		peak, err := audio.WriteSpanMeasured(r, uint64(lo), uint64(hi), p.src.Pair[:], path, int(sr), start-over-lo, end+over-lo)
+		if err != nil {
+			return TapResult{}, err
+		}
+		clips[p.src.Name] = Clip{File: rel, Src: start - lo, Frames: frames, Source: p.src.Name, Clean: cleanOf(t, p.src), PeakDB: peakDB(peak)}
 	}
-	clip := Clip{File: rel, Src: start - lo, Frames: frames, Source: src.Name, Clean: clean, PeakDB: peakDB(peak)}
 	var placed Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
 		if s.Grid != nil || !tp.Empty() {
@@ -182,12 +188,23 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 		tp.Click = false
 		s.Grid = &g
 		s.Loop = Loop{In: 0, Out: frames, On: true}
-		var err error
-		placed, err = s.Place(track, clip, true)
-		return err
+		for i, p := range tracks {
+			c, err := s.Place(p.track, clips[p.src.Name], true)
+			if err != nil {
+				return err
+			}
+			if i == 0 {
+				placed = c
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return TapResult{}, err
+	}
+	var on []int
+	for _, p := range tracks {
+		on = append(on, p.track)
 	}
 	// In phase: the loop came round at ring frame end, which the output
 	// played at end - Δ; it has been going round since.
@@ -198,7 +215,7 @@ func (e *Engine) Tap(id string, track int, source string, ns int64) (TapResult, 
 		e.Do(Action{Kind: "locate", Pos: 0})
 		e.Do(Action{Kind: "play"})
 	}
-	return TapResult{Stage: "loop", Clip: &placed, BPM: math.Round(g.BPM(int(sr))*10) / 10, Bars: bars}, nil
+	return TapResult{Stage: "loop", Clip: &placed, BPM: math.Round(g.BPM(int(sr))*10) / 10, Bars: bars, Tracks: on}, nil
 }
 
 // LastTapeBPM is the tempo of the newest other tape that has one.

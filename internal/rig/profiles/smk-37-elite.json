@@ -1,0 +1,104 @@
+{
+  "id": "smk-37-elite",
+  "name": "M-VAVE SMK-37 Elite",
+  "short": "SMK-37",
+  "maker": "M-VAVE",
+  "match": {"midi": "SMK-37"},
+  "placeholder": true,
+  "note": "Almost nothing about the Elite is documented by M-VAVE. Only what a keyboard of this kind sends is drawn; its ports are not read off the unit. The MIDI name to match is a guess.",
+  "source": "https://www.m-vave.com/product.html?id=smk-37-elite",
+  "ports": [
+    {"id": "midi-out", "label": "MIDI OUT", "kind": "midi", "dir": "out", "about": "USB MIDI from the keyboard: keys, and whatever its wheels, pads and controls send."}
+  ],
+  "hardware": {
+    "extending": "M-VAVE's own pages give no specs or images for the Elite, so most facts come from reviews of the sibling SMK-37 Pro and are marked unconfirmed. Fill this in from the real unit: confirm the MIDI port name (match.midi), then which controls send which notes and CCs. Parked: a keybed is deliberately not a requirement of Hindsight yet. Everything under \"hardware\" is ignored by the Go loader: it is notes for people, and for a later registry (docs/superpowers/specs/2026-10-15-device-profiles-design.md). To fill this profile from a real unit, follow 'Capturing an unknown device' in docs/hardware/README.md, then flip statuses from 'unconfirmed' or 'to-capture' to 'owner'.",
+    "kinds": [
+      "midi-controller",
+      "keyboard",
+      "synth"
+    ],
+    "usb": [
+      {
+        "vid": null,
+        "pid": null,
+        "status": "to-capture"
+      }
+    ],
+    "names": [
+      "SMK-37",
+      "M-VAVE",
+      "MVAVE"
+    ],
+    "connection": {
+      "to_pi": "planned",
+      "note": "Parked. The plan is to plug it into the Pi and send its keys to the trick queue, after the touch interface and PC keyboard input are improved. No hardware requirement is put on Hindsight yet."
+    },
+    "audio": {
+      "status": "unconfirmed",
+      "engine": "Built-in FM sound engine (same lineage as the FM-1, a DX7-style engine). Whether the unit has its own audio output is not documented in what was found.",
+      "$comment": "It is a standalone instrument, not only a controller."
+    },
+    "midi": {
+      "status": "unconfirmed",
+      "usb": "A USB MIDI controller per reviews of the Pro. Some FM engine parameters are reportedly adjustable over USB.",
+      "din_or_trs": "Not mentioned in what was found."
+    },
+    "storage": {
+      "status": "unconfirmed",
+      "present": null
+    },
+    "controls": {
+      "status": "unconfirmed",
+      "elite_listing": "37-key MIDI keyboard with a built-in FM sound engine, 16 RGB pads, and full production controls (M-VAVE's one-line listing).",
+      "pro_review_only": "For the Pro, reviews report 37 velocity-sensitive keys, pitch and mod wheels, 16 RGB pads with aftertouch, 4 faders (expandable to 8), eight encoders and a 1.54 inch display. The Elite may differ.",
+      "$comment": "Do not draw a labelled control diagram from the Pro's list. Take it from the Elite itself."
+    },
+    "quirks": [],
+    "unknowns": [
+      {
+        "question": "Vendor and product ids",
+        "how": "lsusb before and after plugging it in"
+      },
+      {
+        "question": "Does it enumerate as USB MIDI on the Pi with no driver?",
+        "how": "amidi -l ; aconnect -l"
+      },
+      {
+        "question": "Which controls send MIDI, and on which channels and CCs (keys, wheels, pads, faders, encoders)?",
+        "how": "aseqdump -p <port> while moving each control; record the result as a 'map' object under midi"
+      },
+      {
+        "question": "Does it have an audio output, and does it make sound when powered over USB from the Pi?",
+        "how": "Inspect the rear panel; plug it into the Pi only, and play"
+      },
+      {
+        "question": "Does it send MIDI clock, or follow it?",
+        "how": "aseqdump with the keyboard's sequencer or arpeggiator running"
+      }
+    ],
+    "hindsight": {
+      "behavior": "inform-only",
+      "role": "Keybed and FM instrument. Candidate play surface for the trick queue once Hindsight takes hardware input.",
+      "notes": [
+        "It could also send MIDI out to the Bento."
+      ]
+    },
+    "images": [
+      "smk-37-elite-own-photo"
+    ],
+    "refs": {
+      "mvave-listing": {
+        "title": "SMK-37 Elite listing (M-VAVE)",
+        "url": "https://www.m-vave.com/product.html?id=smk-37-elite"
+      },
+      "synthtopia-pro": {
+        "title": "SMK-37 Pro news item (Synthtopia), for the sibling model",
+        "url": "https://www.synthtopia.com/?p=149193"
+      },
+      "heise-pro": {
+        "title": "SMK-37 Pro test (heise), for the sibling model",
+        "url": "https://heise.de/-10503740"
+      }
+    }
+  }
+}

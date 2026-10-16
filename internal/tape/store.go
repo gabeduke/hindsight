@@ -190,6 +190,11 @@ func (s *Store) Load(id string) (*Tape, error) {
 	if err := json.Unmarshal(b, &t); err != nil {
 		return nil, fmt.Errorf("tape %s: %w", id, err)
 	}
+	// rec_tracks, or what rec_track said before there could be several. A
+	// slice decoded from [] is empty but not nil, and from null or no key is
+	// nil: that is the difference normalizeArm is told, with no second decode
+	// of the whole file to learn it.
+	hadTracks := t.RecTracks != nil
 	if t.Version > Version {
 		return nil, fmt.Errorf("tape %s was written by a newer version", id)
 	}
@@ -205,6 +210,7 @@ func (s *Store) Load(id string) (*Tape, error) {
 			t.Tracks[i].Clips = []Clip{}
 		}
 	}
+	t.normalizeArm(hadTracks)
 	return &t, nil
 }
 
@@ -375,7 +381,7 @@ func (s *Store) Clone(id, name string, now time.Time) (*Tape, error) {
 	}
 	t.State = src.State.clone()
 	t.Click = src.Click
-	t.RecTrack, t.Inputs = src.RecTrack, slices.Clone(src.Inputs)
+	t.RecTrack, t.RecTracks, t.Inputs = src.RecTrack, slices.Clone(src.RecTracks), slices.Clone(src.Inputs)
 	if err := s.Save(t); err != nil {
 		return nil, err
 	}
@@ -414,6 +420,18 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 	// copy, so every copy is kept until it's cleared.
 	c, cerr := s.LoadClipboard()
 	c.files(used)
+	// And the buffer last tossed, which a toss's Undo brings back.
+	if tc, err := s.loadTossed(); err == nil {
+		tc.files(used)
+	}
+	// And the one grab a grab replaced, which GRAB's Undo brings back. One
+	// that can't be read might hold any grab: every grab's audio is kept.
+	// Only while it can still be undone: the buffer that replaced it is still
+	// the clipboard and unused. A slot nothing can undo roots nothing.
+	rep, rerr := s.loadReplaced()
+	if rep.live(c) {
+		rep.Board.files(used)
+	}
 	// So is the crate, its deleted clips too until they're let go of. One
 	// that can't be read might keep anything: nothing is cleaned up.
 	k, err := s.LoadCrate()
@@ -450,7 +468,7 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 		if e.IsDir() || !strings.HasSuffix(name, ".wav") || used["audio/"+name] {
 			continue
 		}
-		if cerr != nil && strings.HasPrefix(name, "copy_") {
+		if (cerr != nil || rerr != nil) && (strings.HasPrefix(name, "copy_") || strings.HasPrefix(name, "grab_")) {
 			continue
 		}
 		p := filepath.Join(s.dir, "audio", name)

@@ -3,14 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The two rooms (lib/rooms/flag.js, this device only): with them on,
+     lib/nav.js rewrites the header's three tabs as two, and until it has
+     the switch stays out of sight (styles.css, Rooms P1), so the old tabs
+     never paint. With the flag off this does nothing. -->
+<script id="rooms-early">try { if (localStorage.getItem('hindsight.rooms') === '1') document.documentElement.dataset.rooms = ''; } catch (e) { /* no storage: no rooms */ }</script>
 <title>Hindsight — tape</title>
 <meta name="theme-color" content="#e4e3dd" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#141516" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
 <link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/icons/icon-small.svg?v=2" type="image/svg+xml">
-<link rel="icon" href="/icons/favicon-32.png?v=2" sizes="32x32">
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2">
+<link rel="icon" href="/icons/icon-small.svg?v=3" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png?v=3" sizes="32x32">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <!-- Cross-fade between pages (styles.css, "motion between pages"). Inline,
@@ -24,7 +29,7 @@
 <!-- The tape: four tracks of clips played back through the Sidekick, caught
      from the ring after the fact (lib/tape/page.js, internal/tape). -->
 <header class="appbar tape-top">
-  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=2" alt=""><b>Hindsight</b></a>
+  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=3" alt=""><b>Hindsight</b></a>
   <!-- The switch between the three pages; on a phone, tabs along the
        bottom (lib/nav.js keeps it true). -->
   <nav class="appnav" aria-label="Pages">
@@ -88,7 +93,7 @@
       <p><b>This tape is empty.</b> Its first loop sets the tempo.</p>
       <p>Play until a part sounds right, then tap where it starts and again where it comes round:</p>
       <button id="tap" class="icon-btn primary tape-tap" type="button" data-tip="tape-tap">Tap where the loop starts</button>
-      <p>Or open a take, select the part, and choose <b>Send to → Tape</b>. Or start from a tempo:</p>
+      <p id="tape-empty-from">Or open a take, select the part, and choose <b>Send to → Tape</b>. Or start from a tempo:</p>
       <div class="tape-tempo-row">
         <label>BPM <input id="new-bpm" type="number" min="20" max="400" step="0.01" value="90" inputmode="decimal" data-tip="tape-bpm"></label>
         <label>Bars <input id="new-bars" type="number" min="1" max="64" value="4" inputmode="numeric" data-tip="tape-bpm"></label>
@@ -480,12 +485,211 @@
   </form>
 </dialog>
 
-<!-- Play mode (lib/play). Empty and hidden until the per-device
-     hindsight.play flag is on; mount.js builds nothing while it is off. -->
-<div id="play-mode" hidden></div>
+<!-- The two rooms (lib/rooms): with the per-device hindsight.rooms flag on,
+     this page is the Studio, and lib/rooms/studio.js puts these in it --
+     the feed above the lanes, the about line at its foot, and their sheets.
+     A template is inert: with the flag off none of it is ever in the page.
+     They are Capture's own parts (index.html), so their ids are Capture's:
+     the modules that drive them (ribbon.js, settings.js, update.js) find
+     them by those. -->
+<template id="studio-feed-tpl">
+  <!-- A .panel, as Capture's are, for its surface and its heading. -->
+  <section class="panel studio-feed" aria-label="The feed">
+    <div class="studio-feed-head">
+      <h2 class="studio-feed-title">Feed</h2>
+      <!-- Capture's readouts in a line: the ring's trouble when there is
+           some, disk free, dropped buffers, and the MIDI clock's tempo. -->
+      <p class="studio-stats mono">
+        <span class="studio-health" id="studio-health" hidden></span>
+        <span class="studio-stat" title="Disk free"><span id="stat-disk">–</span> free</span>
+        <span class="studio-stat" title="Dropped buffers"><span id="stat-xruns">0</span> dropped</span>
+        <span class="studio-stat" title="Tempo from the MIDI clock">♩ <span id="stat-tempo">–</span></span>
+      </p>
+      <!-- Records from this phone's mic, or an input plugged into it, as on
+           Capture (lib/phone/). Capture's class, for Capture's key. -->
+      <button class="phone-btn" id="phone-btn" type="button" data-tip="phone">&#9679; Phone</button>
+    </div>
+    <div class="studio-keys">
+      <!-- #dur-seg as on Capture: its lit LED is Capture's rule. -->
+      <div class="seg" id="dur-seg" role="group" aria-label="Keep length" data-tip="capture"></div>
+      <!-- Capture's Flag now, and its class. -->
+      <button class="mark-btn" id="mark-btn" type="button" data-tip="flag-now">Flag now</button>
+      <button class="icon-btn studio-keep" id="studio-keep" type="button" data-tip="capture"><span class="studio-keep-line"><span class="studio-keep-word" id="studio-keep-word">Keep</span><span class="studio-keep-len" id="studio-keep-len"></span></span><span class="studio-keep-sub" id="studio-keep-sub"></span></button>
+    </div>
+    <div class="viz-wrap" id="viz-wrap" data-tip="ribbon"></div>
+    <!-- VU needles; on a phone, the bars instead. -->
+    <div class="vu-row" id="vu"></div>
+    <div class="meters" id="meters"></div>
+    <!-- A span held and dragged on the ribbon, and what to do with it. -->
+    <div class="rb-sel" id="rb-sel" hidden>
+      <span class="rb-sel-text"></span>
+      <button class="icon-btn rb-sel-clear" type="button" aria-label="Clear the selection" data-tip="ribbon-clear">×</button>
+      <!-- GRAB (the buffer puts it in, before this) and KEEP: one selection,
+           two verbs. KEEP says its length; Copy and Keep as clip are not
+           offered here (docs/superpowers/specs/2026-10-15-flow-design.md). -->
+      <button class="icon-btn primary rb-sel-save" type="button" data-tip="selection-keep">Keep</button>
+    </div>
+  </section>
+</template>
+<template id="studio-foot-tpl">
+  <!-- Capture's input diagnostic, under the lanes with the about line. -->
+  <details class="chan studio-chan" id="chan-diag">
+    <summary>Input channels</summary>
+    <div class="grid" id="chan-grid"></div>
+    <p class="hint">
+      Saving channels <b id="chan-saving">–</b> from <b id="chan-device">–</b>.
+      Change with <code>SAVE_CHANNELS</code>.
+    </p>
+    <p class="hint">
+      MIDI devices: <b id="midi-devices">none</b>.
+      Filter with <code>MIDI_DEVICES</code> / <code>MIDI_IGNORE</code>.
+    </p>
+  </details>
+  <p class="about">Hindsight <span id="version" class="mono">–</span> · <button id="releases-btn" class="releases-btn" type="button" data-tip="releases" hidden>Releases</button><span class="releases-sep" aria-hidden="true"> · </span><button id="settings-btn" class="releases-btn" type="button" data-tip="settings">Settings</button> · <a href="/guide.html" data-tip="guide">the guide</a><button id="update-btn" class="update-btn" type="button" data-tip="update" hidden></button></p>
+</template>
+<template id="studio-sheets-tpl">
+  <dialog class="sheet" id="rb-flag-sheet">
+    <div class="sheet-inner">
+      <h3 class="rb-flag-title">Flag</h3>
+      <div class="sheet-actions rb-flag-actions">
+        <button class="icon-btn primary rb-flag-save" type="button" data-tip="flag-save-from">Save from here to now</button>
+        <button class="icon-btn danger rb-flag-delete" type="button" data-tip="flag-remove">Delete flag</button>
+        <button class="icon-btn rb-flag-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog class="sheet" id="phone-sheet" aria-labelledby="phone-title">
+    <div class="sheet-inner phone-inner">
+      <h3 id="phone-title">Record from this phone</h3>
+      <p class="phone-insecure" id="phone-insecure" hidden></p>
+      <div id="phone-controls">
+        <label class="phone-field">Input
+          <select id="phone-input"></select>
+        </label>
+        <div class="phone-meter" aria-hidden="true">
+          <div class="phone-lane"><div class="phone-bar" id="phone-bar-l"></div></div>
+          <div class="phone-lane"><div class="phone-bar" id="phone-bar-r"></div></div>
+        </div>
+        <div class="phone-status">
+          <span class="phone-time" id="phone-time">0:00</span>
+          <span class="phone-state" id="phone-state"></span>
+        </div>
+        <p class="phone-note" id="phone-note"></p>
+      </div>
+      <div class="sheet-actions">
+        <button class="icon-btn" id="phone-close" type="button">Close</button>
+        <button class="icon-btn phone-rec" id="phone-rec" type="button">Record</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog class="sheet" id="update-sheet" aria-labelledby="update-title">
+    <div class="sheet-inner update-inner">
+      <h3 id="update-title" class="update-title">Releases</h3>
+      <div class="release-list" role="radiogroup" aria-labelledby="update-title"></div>
+      <div class="release-changes" aria-live="polite"></div>
+      <p class="update-text" hidden>Hindsight restarts to install it, so the ring starts empty: what it's holding now is gone. Keep anything you want from it first.</p>
+      <p class="update-progress" role="status" hidden></p>
+      <div class="sheet-actions">
+        <button class="icon-btn update-cancel" type="button">Cancel</button>
+        <button class="icon-btn primary update-go" type="button" hidden>Update</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog class="sheet" id="settings-sheet" aria-labelledby="settings-title">
+    <div class="sheet-inner settings-inner">
+      <h3 id="settings-title">Settings</h3>
+      <p class="settings-error" role="alert" hidden></p>
+      <div class="settings-body"></div>
+      <div class="settings-restart" hidden>
+        <p>Saved. Hindsight restarts to use it, so the ring starts empty: keep anything you want from it first.</p>
+        <button class="icon-btn primary settings-restart-go" type="button">Restart</button>
+      </div>
+      <p class="settings-progress" role="status" hidden></p>
+      <div class="sheet-actions">
+        <button class="icon-btn settings-close" type="button">Close</button>
+        <button class="icon-btn primary settings-save" type="button" disabled>Save</button>
+      </div>
+    </div>
+  </dialog>
+</template>
+
+<!-- The Studio's buffer (lib/buffer): with the two rooms on, the clipboard
+     made visible -- GRAB on the feed, and the buffer between the feed and
+     the lanes (a sheet over them on a phone), to trim what was grabbed and
+     drop it on a lane, keep it as a take, or toss it. Templates, like the
+     Studio's own: with the flag off none of it is ever in the page. -->
+<template id="buffer-grab-tpl">
+  <div class="buffer-grab" role="group" aria-label="Grab">
+    <span class="buffer-grab-last" aria-hidden="true">Last</span>
+    <div class="seg buffer-bars" role="group" aria-label="How much to grab" data-tip="grab-bars">
+      <button type="button" data-n="1">1</button>
+      <button type="button" data-n="2">2</button>
+      <button type="button" data-n="4">4</button>
+      <button type="button" data-n="8">8</button>
+    </div>
+    <span class="buffer-grab-unit" aria-hidden="true">bars</span>
+    <button class="icon-btn buffer-grab-key" type="button" aria-keyshortcuts="G" data-tip="grab"><span class="buffer-grab-word">Grab</span><span class="buffer-grab-n" aria-hidden="true"></span><kbd class="buffer-kbd" aria-hidden="true">G</kbd></button>
+    <button class="icon-btn buffer-reopen" type="button" hidden data-tip="buffer-open">Buffer<span aria-hidden="true"> ▴</span></button>
+  </div>
+</template>
+<template id="buffer-sel-tpl">
+  <button class="icon-btn buffer-grab-sel" type="button" data-tip="grab-span">GRAB</button>
+</template>
+<template id="buffer-panel-tpl">
+  <section class="panel buffer-panel" id="buffer" aria-label="The buffer" data-height="half" hidden>
+    <span class="buffer-notch" aria-hidden="true"></span>
+    <button class="buffer-sheet-grip" type="button" aria-label="Pull it up or down; hold it and drag onto a lane to drop it there" data-tip="buffer-grip"></button>
+    <div class="buffer-head">
+      <h2 class="buffer-title">Buffer</h2>
+      <span class="buffer-meta" id="buffer-meta"></span>
+      <div class="buffer-sources" id="buffer-sources" role="group" aria-label="Sources in the buffer" data-tip="buffer-sources"></div>
+      <span class="buffer-note" id="buffer-note" role="status"></span>
+      <span class="buffer-spacer" aria-hidden="true"></span>
+      <button class="icon-btn buffer-audition" id="buffer-audition" type="button" aria-pressed="false" data-tip="buffer-audition"><span class="buffer-led" aria-hidden="true"></span>Audition</button>
+      <button class="icon-btn buffer-snap" id="buffer-snap" type="button" data-tip="tape-snap"><span aria-hidden="true">⌗ </span><span id="buffer-snap-name">Bar</span></button>
+      <button class="icon-btn buffer-unfold" id="buffer-unfold" type="button" aria-pressed="false" data-tip="buffer-unfold">Unfold<span aria-hidden="true"> ▾</span></button>
+      <button class="icon-btn buffer-close" id="buffer-close" type="button" aria-label="Close the buffer; Buffer ▴ opens it again" data-tip="buffer-close">✕</button>
+    </div>
+    <div class="buffer-body">
+      <button class="buffer-grip" id="buffer-grip" type="button" aria-label="Drag the buffer onto a lane" data-tip="buffer-drag"><span class="buffer-grip-dots" aria-hidden="true"></span><span class="buffer-grip-word">Drag to a lane</span></button>
+      <div class="buffer-window" id="buffer-window" data-tip="buffer-window">
+        <canvas class="buffer-canvas" id="buffer-canvas" role="img" aria-label="The buffer’s audio, with IN and OUT"></canvas>
+      </div>
+      <div class="buffer-acts">
+        <button class="icon-btn buffer-drop" id="buffer-drop" type="button" aria-keyshortcuts="Enter" data-tip="buffer-drop"><span class="buffer-drop-word" id="buffer-drop-word">Drop</span><span class="buffer-drop-sub" id="buffer-drop-sub"></span></button>
+        <div class="buffer-acts-row">
+          <button class="icon-btn buffer-keep" id="buffer-keep" type="button" aria-keyshortcuts="K" data-tip="buffer-keep"><span id="buffer-keep-word">Keep</span><span class="buffer-keep-len" id="buffer-keep-len"></span><kbd class="buffer-kbd" aria-hidden="true">K</kbd></button>
+          <button class="icon-btn buffer-toss" id="buffer-toss" type="button" aria-keyshortcuts="Backspace" data-tip="buffer-toss">Toss<kbd class="buffer-kbd" aria-hidden="true">⌫</kbd></button>
+        </div>
+      </div>
+    </div>
+    <div class="buffer-foot">
+      <span class="buffer-edge" role="group" aria-label="IN">
+        <span class="buffer-edge-name" aria-hidden="true">In</span>
+        <button class="icon-btn buffer-step" id="buffer-in-back" type="button" aria-label="IN back a step" aria-keyshortcuts="[" data-tip="buffer-edges">◂</button>
+        <button class="icon-btn buffer-step" id="buffer-in-on" type="button" aria-label="IN on a step" aria-keyshortcuts="]" data-tip="buffer-edges">▸</button>
+        <kbd class="buffer-kbd" aria-hidden="true">[ ]</kbd>
+      </span>
+      <span class="buffer-edge" role="group" aria-label="OUT">
+        <span class="buffer-edge-name" aria-hidden="true">Out</span>
+        <button class="icon-btn buffer-step" id="buffer-out-back" type="button" aria-label="OUT back a step" aria-keyshortcuts="Shift+[" data-tip="buffer-edges">◂</button>
+        <button class="icon-btn buffer-step" id="buffer-out-on" type="button" aria-label="OUT on a step" aria-keyshortcuts="Shift+]" data-tip="buffer-edges">▸</button>
+        <kbd class="buffer-kbd" aria-hidden="true">⇧[ ]</kbd>
+      </span>
+      <label class="buffer-gain" data-tip="buffer-gain">Gain <input id="buffer-gain" type="range" min="-30" max="12" step="0.5" aria-label="The buffer’s level"><span class="buffer-gain-val" id="buffer-gain-val">+0.0 dB</span></label>
+      <button class="icon-btn buffer-shape" id="buffer-normalize" type="button" data-tip="buffer-normalize">Normalize</button>
+      <button class="icon-btn buffer-shape" id="buffer-reverse" type="button" aria-pressed="false" data-tip="buffer-reverse">Reverse</button>
+      <button class="icon-btn buffer-shape" id="buffer-fades" type="button" data-tip="buffer-fades">Fades · <span id="buffer-fades-shape">equal power</span></button>
+      <span class="buffer-hint">Grab copied it, with room either side to widen it, so nothing overwrites it while you trim.</span>
+    </div>
+  </section>
+</template>
 
 <div id="toasts" aria-live="polite"></div>
 <script type="module" src="/lib/tape/page.js"></script>
+<!-- Play mode (lib/play): with the per-device hindsight.play flag on, the
+     instrument strip, built into #np-dock above the bar; with it off, nothing. -->
 <script type="module" src="/lib/play/mount.js"></script>
+<script type="module" src="/lib/rooms/mount.js"></script>
 </body>
 </html>

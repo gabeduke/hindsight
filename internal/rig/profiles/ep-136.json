@@ -1,0 +1,29 @@
+{
+  "id": "ep-136",
+  "name": "EP-136 K.O. Sidekick",
+  "short": "Sidekick",
+  "maker": "teenage engineering",
+  "match": { "usb": "2367:9420", "midi": "EP-136" },
+  "rate": 48000,
+  "format": "S32_LE",
+  "source": "docs/sidekick-routing.md, measured on the Pi 2026-10-03",
+  "ports": [
+    { "id": "in1", "label": "IN 1", "kind": "audio", "dir": "in", "about": "Input jack 1, mixer channel 1's strip." },
+    { "id": "in2", "label": "IN 2", "kind": "audio", "dir": "in", "about": "Input jack 2, mixer channel 2's strip." },
+    { "id": "aux", "label": "AUX", "kind": "audio", "dir": "in", "about": "The aux input. It joins MAIN at unity, past every fader." },
+    { "id": "main", "label": "MAIN", "kind": "audio", "dir": "out", "about": "The main out: the mix." },
+    { "id": "midi-in", "label": "MIDI IN", "kind": "midi", "dir": "in", "about": "MIDI into the Sidekick, over its USB." },
+    { "id": "midi-out", "label": "MIDI OUT", "kind": "midi", "dir": "out", "about": "MIDI from the Sidekick, over its USB: its clock, and its knobs and FX pad as automation." },
+    { "id": "usb", "label": "USB-C", "kind": "usb", "dir": "both", "in": 8, "out": 4, "about": "USB audio: 8 channels in (four stereo taps), 4 out (two stereo returns), 48 kHz, 32-bit only." }
+  ],
+  "taps": [
+    { "id": "main", "usb": [1, 2], "from": "mix", "hears": ["A", "B"], "about": "The main mix, after the faders: CH1 and CH2 as their faders set them, plus AUX at unity. It hears both of the tape's buses." },
+    { "id": "ch1", "usb": [3, 4], "from": "in1", "hears": ["A"], "pre": true, "about": "Input jack 1's strip, taken before its fader. It hears whatever the tape plays on bus A." },
+    { "id": "ch2", "usb": [5, 6], "from": "in2", "hears": ["B"], "pre": true, "about": "Input jack 2's strip, taken before its fader. It hears whatever the tape plays on bus B." },
+    { "id": "aux", "usb": [7, 8], "from": "aux", "about": "The aux input: digital zero until a source plays. The tape never reaches it." }
+  ],
+  "returns": [
+    { "bus": "A", "usb": [1, 2], "into": "in1", "about": "USB playback 1/2 returns into channel 1's strip, before the CH1 tap." },
+    { "bus": "B", "usb": [3, 4], "into": "in2", "about": "USB playback 3/4 returns into channel 2's strip, before the CH2 tap." }
+  ]
+}

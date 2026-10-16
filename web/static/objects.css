@@ -121,3 +121,137 @@
   --pad-lit:        #e0662a;
   --pad-lit-ink:    #1c2430;
 }
+
+/* ---------- Rooms P5: the Listening Room (lib/room/) ----------
+   What the room is made of (docs/superpowers/specs/2026-10-15-listening-
+   room-design.md, "Look and materials"): the wall at dusk and the lamp's
+   glow, walnut, the floorboards and the rug, the armchair's corduroy,
+   cardboard, masking tape and paper, the brass plates, and the deck's
+   silver. A room is a place, not chrome: the same in both schemes, as the
+   pad controller is. Its words are cream on the dark wall and dark ink on
+   paper, each on its own plate or card; every pair here passes 4.5:1. */
+:root {
+  /* The wall at dusk, and the lamp. */
+  --room-wall-hi:    #211a15;
+  --room-wall:       #2d231b;
+  --room-wall-lo:    #2a2018;
+  --room-glow:       rgba(255,196,120,.34);
+  --room-glow-far:   rgba(255,196,120,.12);
+  --room-hearth:     rgba(255,170,90,.12);
+  --room-shade-hi:   #f6e8c2;
+  --room-shade-lo:   #dcc38c;
+  --room-shade-glow: rgba(255,210,140,.8);
+  --room-pole:       #1b1410;
+  /* Words on the wall, and the plates they sit on. */
+  --room-ink:        #f3e7d3;
+  --room-ink-dim:    #d2c3ae;
+  --room-tag:        #1a140f;
+  --room-tag-edge:   rgba(255,220,180,.28);
+  --room-plate-hi:   #e2c27a;
+  --room-plate-lo:   #b48f45;
+  --room-plate-ink:  #2a1d08;
+  /* Walnut: the shelves and the console. */
+  --room-walnut-hi:  #6b4a30;
+  --room-walnut:     #563823;
+  --room-walnut-lo:  #3d2716;
+  --room-walnut-deep: #22160e;
+  --room-walnut-back: #2a1b12;
+  /* The floor, the rug, the armchair, the curtain. */
+  --room-board:      #2f1f13;
+  --room-board-line: #34231a;
+  --room-skirting:   #1c130c;
+  --room-rug:        #8e4a2b;
+  --room-rug-band:   #6e3420;
+  --room-rug-mid:    #7d3c24;
+  --room-rug-edge:   #5e2c1a;
+  --room-cord-hi:    #a07a2a;
+  --room-cord-lo:    #8e6b22;
+  --room-curtain-hi: #74352a;
+  --room-curtain:    #6b2f22;
+  --room-curtain-lo: #5a271c;
+  /* The window: the city at night. */
+  --room-sky-hi:     #0f1622;
+  --room-sky-lo:     #1b2534;
+  --room-city:       #0b1017;
+  --room-city-warm:  #ffcf7a;
+  --room-city-cool:  #9ec3e6;
+  /* Reel boxes, month boxes, masking tape and the paper of labels. */
+  --room-box-1:      #b08a5a;
+  --room-box-2:      #e7dfca;
+  --room-box-3:      #2e4a6a;
+  --room-box-4:      #7a3b22;
+  --room-mask:       #ece0bb;
+  --room-card:       #f3ead2;
+  --room-cardboard-hi: #b38a55;
+  --room-cardboard-lo: #9a7444;
+  --room-cardboard-hole: #5e4426;
+  /* The deck, close up: silver, black keys with cream legends, the lamp
+     that says it plays, and NOTE HERE in grease-pencil yellow. */
+  --room-silver-hi:  #dfe2e6;
+  --room-silver:     #b4b8be;
+  --room-silver-lo:  #a2a6ac;
+  --room-key-hi:     #3a3b3f;
+  --room-key-lo:     #232427;
+  --room-key-edge:   #08090a;
+  --room-key-ink:    #ecebe6;
+  --room-led:        #7dbb3c;
+  --room-note-lo:    #d9a114;
+  --room-note-edge:  #7a5c00;
+  /* The sketchbook: ruled paper, ink, the spine and its rings. */
+  --room-paper:      #f6eedb;
+  --room-paper-rule: #d9cdb0;
+  --room-paper-ink:  #1c2430;
+  --room-paper-dim:  #5a5547;
+  --room-paper-spine: #cfc3a5;
+  --room-ring:       #5a5b60;
+  --room-glass:      rgba(255,255,255,.18);
+  --room-whisky:     rgba(214,140,40,.85);
+}
+
+/* ---- Rooms P6: the rig's materials (lib/rig/, rig.html) ---- */
+/* The rig is a desk with the gear on it, the same in either room light: a
+   dark felt mat, the Sidekick's grey plastic, the kit's black box, jacks,
+   and cables whose kinds differ in width and dash as well as colour
+   (lib/rig/kinds.js). */
+:root {
+  --desk-felt:      #232b31;
+  --desk-felt-lo:   #161b1f;
+  --desk-edge:      rgba(255,255,255,.06);
+  --desk-ink:       #ecebe6;
+  --desk-ink-dim:   #b2b1aa;
+  --gear-grey-hi:   #cfd2d6;
+  --gear-grey-lo:   #a9adb3;
+  --gear-grey-foot: #6a6e74;
+  --gear-grey-ink:  #1b1d1f;
+  --gear-black-hi:  #34353a;
+  --gear-black-lo:  #222327;
+  --gear-black-foot:#0b0c0d;
+  --jack-hole:      #0b0c0d;
+  --jack-ring:      #868a90;
+  --jack-ring-hot:  #ffb547;
+  --cable-usb:      #8b8f95;
+  --cable-patch:    #2fb3a7;
+  --cable-return:   #c792ea;
+  --cable-midi:     #d9a114;
+  --cable-keep:     #d7d6cf;
+  --cable-net:      #5b9be0;
+  --cable-jack:     #9a998f;
+  --cable-pending:  #ff9f1c;
+  --cable-plug:     #1b1c1e;
+  --rig-lamp-off:   #3a3b3f;
+  --rig-lamp-rec:   #e8423d;
+  --rig-amber:      #ffb547;
+}
+
+/* ---------- Rooms P4: punch-in FX and tape mods (lib/play/fx.js, mods.js) ---------- */
+:root {
+  /* The pad controller's FX: a teal rim and meter, as on the K.O.'s punch-in
+     row, and the knobs' black wells, grey caps and amber pointers. A chosen
+     formula is a paper label under marker. */
+  --pad-fx:         #2fb3a7;
+  --pad-fx-rim:     rgba(47,179,167,.45);
+  --knob-well:      #141516;
+  --knob-hi:        #4a4b50;
+  --knob-pointer:   #ffb547;
+  --formula-paper:  #e6d8b0;
+}

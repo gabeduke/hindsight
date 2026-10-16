@@ -1,0 +1,118 @@
+{
+  "id": "bento",
+  "name": "1010music Bento",
+  "short": "Bento",
+  "maker": "1010music",
+  "match": { "midi": "Bento" },
+  "placeholder": true,
+  "note": "Audio ports from its manual: until it's read, the rig draws only its MIDI and guesses no port.",
+  "ports": [
+    { "id": "midi-in", "label": "MIDI IN", "kind": "midi", "dir": "in", "about": "MIDI into the Bento: clock, Start and Stop when the tape leads." },
+    { "id": "midi-out", "label": "MIDI OUT", "kind": "midi", "dir": "out", "about": "MIDI from the Bento: its notes, and its clock when it sets the tempo." }
+  ],
+  "hardware": {
+    "extending": "Not on the Pi's USB today: it feeds the Sidekick, and a KeyStep 37 is plugged into the Bento's USB host port. Its ports above are still the placeholder's MIDI pair; the audio and USB ports wait on its manual (firmware v1.2). If it is ever plugged into the Pi, capture its ids from the device port, and settle how the tape's clock should reach it. Everything under \"hardware\" is ignored by the Go loader: it is notes for people, and for a later registry (docs/superpowers/specs/2026-10-15-device-profiles-design.md). To fill this profile from a real unit, follow 'Capturing an unknown device' in docs/hardware/README.md, then flip statuses from 'unconfirmed' or 'to-capture' to 'owner'.",
+    "kinds": [
+      "groovebox",
+      "sampler",
+      "synth",
+      "audio-interface"
+    ],
+    "usb": [
+      {
+        "vid": null,
+        "pid": null,
+        "mode": "device port",
+        "status": "to-capture"
+      }
+    ],
+    "names": [
+      "bento",
+      "1010music"
+    ],
+    "connection": {
+      "to_pi": "via-mixer",
+      "note": "Audio goes into the Sidekick (jack 2 on the current patch). No USB link to the Pi as of Oct 2026. It has no speaker, which makes casual jamming awkward."
+    },
+    "audio": {
+      "status": "sourced",
+      "inputs": "three stereo",
+      "outputs": "three stereo, plus one stereo headphone",
+      "converters": "24-bit ADC/DAC",
+      "usb_audio": "supported on its USB ports",
+      "recording": "WAV to microSD, up to 4 hours; long WAVs stream from the card"
+    },
+    "midi": {
+      "status": "sourced",
+      "usb": "host and device ports both carry MIDI",
+      "trs": "two inputs and two outputs, Type A and Type B, with a Type B TRS to 5-pin DIN adapter in the box",
+      "current_use": {
+        "status": "owner",
+        "note": "A KeyStep 37 is connected to its USB host port over USB MIDI."
+      }
+    },
+    "storage": {
+      "status": "sourced",
+      "card": "microSD, included; projects, samples and recordings live on it"
+    },
+    "controls": {
+      "status": "to-capture",
+      "$comment": "Not read from the manual here. Before drawing a labelled diagram, take the control layout from the user manual (firmware v1.2, Oct 2025)."
+    },
+    "quirks": [
+      {
+        "text": "Two USB-C ports: one host, one device, both supporting audio and MIDI.",
+        "status": "sourced"
+      },
+      {
+        "text": "Needs a 30 W USB supply providing at least 2000 mA at 5 V; the supply is not included.",
+        "status": "sourced"
+      },
+      {
+        "text": "The product page gives two different counts for the factory content on the card (about 160 patches and 200 WAV files; 155 patches and over 5000 sample files).",
+        "status": "sourced"
+      }
+    ],
+    "unknowns": [
+      {
+        "question": "Vendor and product ids on the device port",
+        "how": "If connected to the Pi: lsusb before and after plugging in"
+      },
+      {
+        "question": "How should the tape's MIDI clock reach it, given it is not on the Pi's USB?",
+        "how": "Decide between USB device port to the Pi and a TRS MIDI out from the Pi; test the one chosen with the tape's clock running"
+      },
+      {
+        "question": "Does it respond to program change to pick patterns?",
+        "how": "Check the v1.2 manual's MIDI section, then send a program change and watch"
+      }
+    ],
+    "hindsight": {
+      "behavior": "inform-only",
+      "role": "Groovebox and arranging surface for melodic and multitrack parts. Notes are made on it; Hindsight catches the audio.",
+      "notes": [
+        "The tape is meant to lead the clock and the Bento to follow."
+      ]
+    },
+    "images": [
+      "bento-main",
+      "bento-01",
+      "bento-02",
+      "bento-03",
+      "bento-04",
+      "bento-05",
+      "bento-06a",
+      "bento-07b"
+    ],
+    "refs": {
+      "1010-product": {
+        "title": "bento product page (1010music)",
+        "url": "https://1010music.com/product/bento"
+      },
+      "1010-manual": {
+        "title": "Bento user manual, firmware v1.2 (1010music)",
+        "url": "https://1010music.com/wp-content/uploads/2025/10/bento-v1.2-User-Manual-2025-10-14.pdf"
+      }
+    }
+  }
+}

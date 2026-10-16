@@ -1542,6 +1542,97 @@ func TestPatchTakeCapsLaneKindsAtSixtyFour(t *testing.T) {
 	}
 }
 
+// The Listening Room's records: a mark on a take, set and cleared by PATCH.
+func TestPatchTakeMarksAndUnmarksARecord(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeTake(t, dir, "a.wav")
+	before := time.Now().UTC().Add(-time.Second)
+
+	w := patch(t, r, "a.wav", `{"record":{"cover":3}}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	m := audio.ReadMeta(filepath.Join(dir, "a.wav"))
+	if m.Record == nil {
+		t.Fatal("no record on the sidecar")
+	}
+	if m.Record.Side != "A" || m.Record.Cover != 3 {
+		t.Errorf("record = %+v, want side A, cover 3", *m.Record)
+	}
+	if m.Record.Cut.Before(before) || m.Record.Cut.After(time.Now().Add(time.Second)) {
+		t.Errorf("cut = %v, want about now", m.Record.Cut)
+	}
+	var body struct {
+		Record *audio.Record `json:"record"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || body.Record == nil || body.Record.Cover != 3 {
+		t.Errorf("response record = %+v (%v)", body.Record, err)
+	}
+
+	// The list carries it, so the shelf can find its records.
+	var list []audio.Take
+	if err := json.Unmarshal(do(t, r, http.MethodGet, "/api/jams").Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Record == nil || list[0].Record.Cover != 3 {
+		t.Errorf("listed record = %+v", list)
+	}
+
+	// Another edit leaves it alone.
+	patch(t, r, "a.wav", `{"label":"tuesday","starred":true}`)
+	if m := audio.ReadMeta(filepath.Join(dir, "a.wav")); m.Record == nil || m.Record.Cover != 3 {
+		t.Errorf("a label patch changed the record: %+v", m.Record)
+	}
+
+	// A given cut time and side B are kept.
+	w = patch(t, r, "a.wav", `{"record":{"cut":"2026-09-22T20:15:00Z","side":"B","cover":0}}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	m = audio.ReadMeta(filepath.Join(dir, "a.wav"))
+	if m.Record == nil || m.Record.Side != "B" || m.Record.Cover != 0 || !m.Record.Cut.Equal(time.Date(2026, 9, 22, 20, 15, 0, 0, time.UTC)) {
+		t.Errorf("record = %+v", m.Record)
+	}
+
+	// Null takes the mark off, and the response says so.
+	w = patch(t, r, "a.wav", `{"record":null}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	if m := audio.ReadMeta(filepath.Join(dir, "a.wav")); m.Record != nil {
+		t.Errorf("null did not clear the record: %+v", m.Record)
+	}
+	if !strings.Contains(w.Body.String(), `"record":null`) {
+		t.Errorf("response should say the record is gone: %s", w.Body)
+	}
+}
+
+func TestPatchTakeRefusesABadRecord(t *testing.T) {
+	r, dir := newTestAPI(t)
+	writeTake(t, dir, "a.wav")
+	for _, body := range []string{
+		`{"record":{"side":"C"}}`,
+		`{"record":{"cover":9}}`,
+		`{"record":{"cover":-1}}`,
+		`{"record":5}`,
+		`{"record":{"cut":"yesterday"}}`,
+		`{"record":{"cut":"0001-01-01T00:00:00Z"}}`,
+	} {
+		w := patch(t, r, "a.wav", body)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("%s: status %d, want 400", body, w.Code)
+		}
+	}
+	if m := audio.ReadMeta(filepath.Join(dir, "a.wav")); m.Record != nil {
+		t.Errorf("a refused patch wrote a record: %+v", m.Record)
+	}
+	// Nor does a refused record let the rest of the patch through.
+	patch(t, r, "a.wav", `{"label":"kept?","record":{"side":"Z"}}`)
+	if m := audio.ReadMeta(filepath.Join(dir, "a.wav")); m.Label != "" {
+		t.Errorf("label = %q, want the whole patch refused", m.Label)
+	}
+}
+
 func TestTheGuideIsServed(t *testing.T) {
 	r, _ := newTestAPI(t)
 	w := do(t, r, http.MethodGet, "/guide.md")

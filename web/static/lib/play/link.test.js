@@ -80,8 +80,8 @@ test('a refused press is said, and the Pi going quiet is said', () => {
   const notes = [];
   const timers = [];
   connect(surface(), { WebSocketImpl: FakeWS, url: 'x', onNote: (n) => notes.push(n), setTimer: (f) => timers.push(f) });
-  made[0].hear({ t: 'refused', pad: 'stop', why: 'a mixdown is playing' });
-  assert.equal(notes.at(-1), 'stop: a mixdown is playing');
+  made[0].hear({ t: 'refused', pad: 'stop', why: 'the tape is busy' });
+  assert.equal(notes.at(-1), 'STOP: the tape is busy');
   made[0].drop();
   assert.match(notes.at(-1), /silent/);
   // It tries again, and a hello clears the note.
@@ -108,4 +108,112 @@ test('closing lets go of everything on the Pi and stops listening', () => {
 test('the socket is on the page\'s own host, secure when the page is', () => {
   assert.equal(playURL({ protocol: 'http:', host: 'pi.local:5000' }), 'ws://pi.local:5000/api/tapes/play');
   assert.equal(playURL({ protocol: 'https:', host: 'dukemon.example' }), 'wss://dukemon.example/api/tapes/play');
+});
+
+test('another hand’s pad lights here too: an at for a pad this page isn’t holding', () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface();
+  const remote = [];
+  let held = null;
+  connect(s, { WebSocketImpl: FakeWS, url: 'x', now: () => 1000, onRemote: (pad, on, at) => remote.push([pad, on, at]), onHeld: (h) => { held = h; } });
+  // The SMK-37 in the Pi, or a phone: held there as this page arrives, then
+  // a pad sounding and stopping.
+  made[0].hear({ t: 'hello', pads: [], lead_ms: 200, held: ['track2'] });
+  assert.deepEqual(held, ['track2']);
+  made[0].hear({ t: 'at', pad: 'break', on: true, in_ms: 180 });
+  made[0].hear({ t: 'at', pad: 'break', on: false, in_ms: 40 });
+  assert.deepEqual(remote, [['break', true, 1180], ['break', false, 1040]]);
+  // This page's own press is confirmed on its surface instead.
+  s.press('stop', 1000);
+  made[0].hear({ t: 'at', pad: 'stop', on: true, in_ms: 100 });
+  assert.equal(remote.length, 2);
+});
+
+test('MIDI LEARN on the Pi: learn goes out, learned or refused comes back', async () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface();
+  const link = connect(s, { WebSocketImpl: FakeWS, url: 'x' });
+  const got = link.learn('stop', 'SMK-37');
+  assert.deepEqual(made[0].sent.at(-1), { t: 'learn', action: 'stop', port: 'SMK-37' });
+  made[0].hear({ t: 'learned', action: 'stop', port: 'SMK-37', midi: { note: 72 } });
+  assert.deepEqual((await got).midi, { note: 72 });
+
+  const late = link.learn('break');
+  made[0].hear({ t: 'refused', learn: 'break', why: 'no controller moved in 10 s' });
+  await assert.rejects(late, /10 s/);
+  // A refused learn is not a refused press: no note to the player.
+  let noted = '';
+  connect(s, { WebSocketImpl: FakeWS, url: 'x', onNote: (t) => { noted = t; } });
+  made[1].hear({ t: 'refused', learn: 'break', why: 'x' });
+  assert.equal(noted, '');
+});
+
+test('a punch-in FX is pressed with its amount: a velocity, or where it was left', () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface({ division: 'off' });
+  connect(s, { WebSocketImpl: FakeWS, url: 'x', amountOf: (pad) => (pad === 'echo' ? 0.3 : undefined) });
+  s.press('filter', 0, 0.7); // a key on a controller, struck at 0.7
+  s.press('echo', 0);        // a computer key: no velocity
+  s.press('stop', 0);        // a trick has no amount
+  assert.deepEqual(made[0].sent, [
+    { t: 'press', pad: 'filter', q: 'now', v: 0.7 },
+    { t: 'press', pad: 'echo', q: 'now', v: 0.3 },
+    { t: 'press', pad: 'stop', q: 'now' },
+  ]);
+});
+
+test('an amount moving is drawn, and lights nothing', () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface();
+  const amounts = [];
+  const remote = [];
+  connect(s, { WebSocketImpl: FakeWS, url: 'x', now: () => 0, onAmount: (p, v) => amounts.push([p, v]), onRemote: (p, on) => remote.push([p, on]) });
+  made[0].hear({ t: 'at', pad: 'filter', v: 0.4, move: true, in_ms: 100 });
+  made[0].hear({ t: 'at', pad: 'mod.wow', v: 0.2, move: true });
+  assert.deepEqual(remote, [], 'a move is not a press');
+  made[0].hear({ t: 'at', pad: 'echo', on: true, v: 0.9, in_ms: 100 });
+  assert.deepEqual(amounts, [['filter', 0.4], ['mod.wow', 0.2], ['echo', 0.9]]);
+  assert.deepEqual(remote, [['echo', true]]);
+});
+
+test('sets, and the bend and the mods’ own press and release', () => {
+  const { FakeWS, made } = fakeSockets();
+  const link = connect(surface(), { WebSocketImpl: FakeWS, url: 'x' });
+  link.press('bend', 0.4);
+  link.set('bend', -0.2);
+  link.release('bend');
+  link.set('mod.drive', 0.6);
+  link.release('mod.drive');
+  assert.deepEqual(made[0].sent, [
+    { t: 'press', pad: 'bend', q: 'now', v: 0.4 },
+    { t: 'set', pad: 'bend', v: -0.2 },
+    { t: 'release', pad: 'bend' },
+    { t: 'set', pad: 'mod.drive', v: 0.6 },
+    { t: 'release', pad: 'mod.drive' },
+  ]);
+});
+
+test('a pad refused in a mixdown says why, plainly', () => {
+  const { FakeWS, made } = fakeSockets();
+  const notes = [];
+  connect(surface(), { WebSocketImpl: FakeWS, url: 'x', onNote: (t) => notes.push(t) });
+  made[0].hear({ t: 'refused', pad: 'filter', why: 'a mixdown is playing; wait for it, or press ■ to cancel it' });
+  assert.match(notes.at(-1), /^FILTER waits: a mixdown is playing.*never the FX/);
+  made[0].hear({ t: 'refused', pad: 'stop', why: 'no such pad' });
+  assert.equal(notes.at(-1), 'STOP: no such pad');
+});
+
+test('a pad another hand let go is cleared even while this page holds it, and hello says exactly what’s held', () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface();
+  const remote = [];
+  const helloes = [];
+  connect(s, { WebSocketImpl: FakeWS, url: 'x', now: () => 0, onRemote: (pad, on) => remote.push([pad, on]), onHeld: (h) => helloes.push(h) });
+  made[0].hear({ t: 'at', pad: 'reverse', on: true, in_ms: 0 });   // the controller
+  s.press('reverse', 0);                                              // and this page
+  made[0].hear({ t: 'at', pad: 'reverse', on: false, in_ms: 0 });  // the last of them lets go
+  assert.deepEqual(remote, [['reverse', true], ['reverse', false]]);
+  made[0].hear({ t: 'hello', pads: [], lead_ms: 0, held: [] });     // a reconnect: nothing held
+  made[0].hear({ t: 'hello', pads: [], lead_ms: 0 });
+  assert.deepEqual(helloes, [[], []]);
 });

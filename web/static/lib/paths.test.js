@@ -31,8 +31,10 @@ test('every relative and absolute module import resolves', () => {
   let checked = 0;
   for (const p of files) {
     const src = readFileSync(p, 'utf8');
-    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]/g)) {
-      const spec = m[1];
+    // Static imports, and import('…') -- the Studio's module is loaded that
+    // way, only with its flag on, so a static scan would never see it.
+    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const spec = m[1] ?? m[2];
       let target;
       if (spec.startsWith('/')) target = join(ROOT, spec.slice(1));
       else if (spec.startsWith('.')) target = normalize(join(dirname(p), spec));
@@ -79,6 +81,29 @@ test('every file the service worker precaches exists', () => {
   assert.deepEqual(missing, []);
 });
 
+test('the service worker precaches each file once', () => {
+  // Cache.addAll rejects a list that names the same request twice, and that
+  // costs the whole offline shell. Two branches that each add the same
+  // module to SHELL merge into exactly that, without a conflict.
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+  const paths = [.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(paths.filter((p, i) => paths.indexOf(p) !== i), []);
+});
+
+test('every font a stylesheet loads is in the shell', () => {
+  // A font left out of SHELL is a page that draws in the system face
+  // offline: the sketchbook's Caveat, say, which nothing else would miss.
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+  const block = /SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1];
+  const fonts = new Set();
+  for (const css of ['styles.css', 'objects.css']) {
+    for (const m of readFileSync(join(ROOT, css), 'utf8').matchAll(/url\(['"]?(\/fonts\/[^'")]+)['"]?\)/g)) fonts.add(m[1]);
+  }
+  assert.ok(fonts.has('/fonts/caveat-500.woff2'), 'the sketchbook’s hand is loaded');
+  const missing = [...fonts].filter((f) => !block.includes(`'${f}'`));
+  assert.deepEqual(missing, []);
+});
+
 test('CI runs the tests in every directory that has any', () => {
   // The globs in ci.yml name each directory one by one, so a new directory
   // under lib/ is invisible to CI until it is added -- a whole suite can sit
@@ -97,4 +122,42 @@ test('CI runs the tests in every directory that has any', () => {
   const missing = [...dirs].filter((d) => !globs.includes(`web/static/${d}/*.test.js`));
   assert.deepEqual(missing.sort(), [],
     'these directories have tests that CI never runs; add them to the node --test globs in ci.yml');
+});
+
+test('every module a cached page imports is cached with it', () => {
+  // The offline shell is only whole if everything its pages import is in
+  // SHELL: a module left out loads from the cache's page and then fails to
+  // fetch offline, which is a blank page on a phone with no signal. A new
+  // directory of modules under lib/ (lib/scene) is the easy way to miss one.
+  // The walk follows import() too: the Studio can be the installed app's
+  // first page (lib/rooms), and mount.js loads studio.js that way, only with
+  // its flag on. lib/settings.js was missed once.
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+  const shell = new Set([.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^'?]+)(?:\?[^']*)?'/g)].map((m) => m[1]));
+  const seen = new Set();
+  const missing = [];
+  const visit = (file, from) => {
+    const rel = '/' + relative(ROOT, file).split(sep).join('/');
+    if (seen.has(rel)) return;
+    seen.add(rel);
+    if (!shell.has(rel)) missing.push(`${rel} (imported by ${from})`);
+    const src = readFileSync(file, 'utf8');
+    for (const m of src.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const spec = m[1] ?? m[2];
+      if (spec.startsWith('/')) visit(join(ROOT, spec.slice(1)), rel);
+      else if (spec.startsWith('.')) visit(normalize(join(dirname(file), spec)), rel);
+    }
+  };
+  for (const page of [...shell].filter((p) => p.endsWith('.html'))) {
+    const html = readFileSync(join(ROOT, page.slice(1)), 'utf8');
+    for (const m of html.matchAll(/<script[^>]+src=["'](\/[^"']+\.js)["']/g)) visit(join(ROOT, m[1].slice(1)), page);
+    for (const m of html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)) {
+      for (const i of m[1].matchAll(/(?:from|import)\s+['"](\/[^'"]+)['"]|import\(\s*['"](\/[^'"]+)['"]\s*\)/g)) {
+        visit(join(ROOT, (i[1] ?? i[2]).slice(1)), page);
+      }
+    }
+  }
+  assert.ok(seen.size > 60, `only ${seen.size} modules reached; the walk is probably wrong`);
+  assert.ok(seen.has('/lib/rooms/studio.js'), "the walk should reach the Studio through mount.js's import()");
+  assert.deepEqual(missing, []);
 });

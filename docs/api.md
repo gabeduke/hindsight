@@ -1,6 +1,6 @@
 # HTTP API
 
-Fifty-three routes (one, `/api/trigger`, in two forms), twenty-six of them the tape's and its clipboard's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+Fifty-five routes (one, `/api/trigger`, in two forms), twenty-six of them the tape's and its clipboard's, two the rig's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -41,14 +41,17 @@ internet.
 | `GET /api/midi?file=` | The take's `.mid` decoded to notes in frames, one track per device and channel, for the lanes |
 | `GET /guide.md` | The user guide, compiled into the binary, for `/guide.html` to render |
 | `GET /api/bundle?file=&from=&to=` | A zip of the region: WAV with the cut's fades, the MIDI re-based to it, and its manifest |
+| `GET /api/rig` | The rig: the devices, the kit's patch bay and the cables, each a setting, built fresh from the settings, the tape and what's plugged in |
+| `PUT /api/rig/labels` | Name what's plugged into a jack (`rig.json`); a label routes nothing |
 | `GET /api/tapes` | The tapes, newest change first, and which is loaded |
 | `POST /api/tapes` | A new, empty tape |
 | `GET /api/tapes/state?id=` | One tape, with the transport and catch state when it's the loaded one |
-| `PATCH /api/tapes?id=` | Name, tempo, bars, loop, a track's mix, a clip's level or nudge, or remove a clip |
+| `PATCH /api/tapes?id=` | Name, tempo, bars, loop, a track's mix, a clip's level or nudge, remove a clip, or the tape's mods |
 | `DELETE /api/tapes?id=` | Delete a tape that isn't loaded, and free the audio only it used |
 | `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
 | `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
 | `GET /api/tapes/play` | WebSocket: Play mode's pads, pressed and let go, quantised on the Pi |
+| `GET /api/tapes/controls`, `PUT /api/tapes/controls` | The controllers in the Pi (`TAPE_CONTROLLER`) and what their notes play |
 | `POST /api/tapes/catch?id=` | Put the last pass, or the last N bars, from an input onto a track |
 | `POST /api/tapes/record?id=` | Arm a track (stopped) or punch in at the next bar (playing) |
 | `DELETE /api/tapes/record?id=` | End the punch and keep what it covered (`?cancel=1`: keep nothing); disarm |
@@ -120,7 +123,8 @@ The poll everything else hangs off. The UI reads it every two seconds.
     "last_heartbeat": "2026-10-09T21:14:03Z",
     "error": "",
     "cert_not_after": "2027-01-07T20:10:44Z"
-  }
+  },
+  "updates": true
 }
 ```
 
@@ -160,7 +164,10 @@ The poll everything else hangs off. The UI reads it every two seconds.
 The Update button. Present only where `deploy/hindsight-update` is installed
 beside the binary — `install.sh` and `deploy.sh` both put it there — and a
 `404` everywhere else (the demo, a Mac), which is how the page knows to hide
-the button.
+the button. `GET /api/status` says which: `updates` is `true` where it is
+there. A page reads it first, so it doesn't ask — and so doesn't log a failed
+request in red on every load — where there is no updater; a Pi from before
+the field is asked as it always was.
 
 `GET` says what's running, the newest release, and how the last update went:
 
@@ -283,6 +290,74 @@ Restarts Hindsight to apply the settings: `202`, then the server shuts down as
 on `SIGTERM` and the process execs itself (same PID, so systemd sees one
 service). The ring starts empty. `409` while a take is saving, a phone is
 recording, or the tape is recording or playing, as for `POST /api/update`.
+
+## `GET /api/rig`
+
+The rig (`docs/superpowers/specs/2026-10-15-rig-design.md`): the kit drawn as
+devices and the cables between them, where every cable is a setting. Nothing
+about it is stored: each read builds it from `/api/settings`' values, the
+loaded tape and what's plugged in, so the picture can't disagree with the Pi.
+
+```json
+{ "found": "Sidekick on USB · Bento on MIDI",
+  "devices": [ { "id": "ep-136", "role": "interface", "name": "EP-136 K.O. Sidekick", "short": "Sidekick",
+                 "profile": "ep-136", "usb": "2367:9420", "in": 8, "out": 4,
+                 "sockets": [ { "id": "ep-136.in1", "label": "IN 1", "kind": "audio", "dir": "in", "tap": "ch1", "name": "guitar" } ] } ],
+  "kit": { "id": "kit", "sockets": [ { "id": "kit.tap.ch1", "label": "CH1", "kind": "tap", "pair": [3, 4], "hears": ["A"], "peak_db": -32 },
+                                     { "id": "kit.track.2", "kind": "track", "track": 2, "armed": true, "bus": "A", "clips": 0, "warn": true } ] },
+  "cables": [ { "id": "input:2", "from": "kit.tap.ch1", "to": "kit.track.2", "kind": "patch", "writes": "tape input" },
+              { "id": "clock-out:bento", "from": "kit.clock-out", "to": "bento.midi-in", "kind": "clock",
+                "writes": "TAPE_CLOCK, TAPE_CLOCK_OUT", "restart": true, "pending": "plug" } ],
+  "warnings": [ { "id": "tape-in-tap:ch1", "tap": "ch1", "armed": [2], "tracks": [1, 4], "buses": ["A"],
+                  "text": "Tracks 1 and 4 play on bus A, which CH1 hears. …",
+                  "fix": { "label": "Move tracks 1, 4 to bus B", "buses": [ { "n": 1, "bus": "B" }, { "n": 4, "bus": "B" } ] } } ],
+  "keep": { "tap": "main", "pair": [1, 2], "all": false, "choices": ["main", "ch1", "ch2", "aux", "all"] },
+  "restart_needed": true, "labels": { "ep-136.in1": "guitar" },
+  "settings": [ { "key": "TAPE_CLOCK", "value": "lead", "running": "free", "pending": true } ],
+  "tape": { "id": "…", "rec_tracks": [2, 3], "output": "jam" } }
+```
+
+- **Devices are profiles.** An audio interface is matched by its USB id,
+  read from ALSA's `usbid` for the capture's card; a MIDI port by name, with
+  the substring rule `MIDI_DEVICES` uses. Profiles are embedded JSON
+  (`internal/rig/profiles/`): the Sidekick's taps and returns are measured
+  (`docs/sidekick-routing.md`); the Bento's is a placeholder that names only
+  its MIDI. An unknown interface gets a generic profile from its channels,
+  its taps *USB 1/2, 3/4…* hearing nothing, and `offer` suggests them as
+  `TAPE_SOURCES`. The demo says its interface is the Sidekick: it's routed as
+  one.
+- **The kit's taps are `TAPE_SOURCES`**, as the tape catches from them now.
+- **Each cable is written through the route that owns it:** a tap into a
+  track is `PATCH /api/tapes` `{input}` -- its input only; arming is the
+  track's lamp, `{rec_tracks}`, a write of its own; a track onto a bus,
+  `{track: {n, bus}}`; OUT to a phone, `PUT /api/tapes/output`; the clock
+  out (`TAPE_CLOCK`, `TAPE_CLOCK_OUT`), the clock in (`MIDI_CLOCK_DEVICE`),
+  a device recorded or ignored (`MIDI_IGNORE`), a controller
+  (`TAPE_CONTROLLER`, when this build has it) and what a KEEP writes
+  (`SAVE_CHANNELS`, `SAVE_ALL_CHANNELS`), `PUT /api/settings`.
+- **`pending`:** a cable that takes effect on restart is drawn from the saved
+  value; `plug` when it's saved and not running, `unplug` when it's running
+  and no longer saved. Hindsight never restarts on its own.
+- **Warnings are worked out:** a tap that hears a bus, patched to an armed
+  track, while an unmuted track with clips plays on that bus. `fix` moves
+  those tracks to a bus no armed track's tap hears, when there is one, as one
+  undoable `PATCH /api/tapes` `{buses}`.
+- **`jack` cables** are labels from `rig.json`, `waiting` until their tap has
+  signal (the kit's tap on the jack's channels, whatever `TAPE_SOURCES` calls
+  it). They route nothing.
+- **`?source=`** is what a track with no input of its own records from on
+  the asking device (the tape page's last choice). Without it, such an armed
+  track could be hearing anything, so no fix is offered.
+- **`tape.recording`** is the tracks ● Rec is armed on or punching in: what's
+  armed, and their inputs, wait until it ends.
+
+## `PUT /api/rig/labels`
+
+`{"ep-136.in1": "guitar", "ep-136.aux": ""}`: name what's plugged into a
+socket, by its id; `""` or `null` takes a label off. Labels are one line of
+at most 40 characters, kept in `rig.json` beside `settings.json`. They show on
+the rig, on the tap, and as the source's `label` in `GET /api/tapes/state`.
+Answers `{"labels": {…}}`, all of them; `400` for an id that isn't a socket's.
 
 ## `GET /api/live`
 
@@ -532,6 +607,9 @@ dropped. The save writes them and nothing changes them; they aren't flags, so
 the flags endpoints neither list nor edit them, and they don't count against
 the 512. A cut keeps the ones inside it. Absent when there were none.
 
+`record` is present only on a take marked as a record in the Listening Room
+(`PATCH /api/take`, below): `{"cut": "<RFC 3339>", "side": "A", "cover": 3}`.
+
 `origin` is `"phone"` on a phone recording and `"tape"` on a tape mixdown, and
 absent on a take saved from the ring. A mixdown also has `tape_id`, the id of
 the tape it was mixed from, so the shelf can fold one tape's mixdowns together;
@@ -600,12 +678,13 @@ curl -X PATCH 'http://127.0.0.1:5000/api/take?file=jam_2026-09-09_145852.wav' \
 | `flags` | `[{id?, frame, label}]` or `null` | A full replacement of the take's flags. An `id` that isn't one the server could have made is dropped, and the flag gets a legacy one. Capped at 512; `frame` must be `>= 0` and less than the take's frame count; `null` clears. `label` is sanitized like the take label (control characters stripped, trimmed, 120 runes). Kept for scripts: the UI uses the per-flag endpoints below, because a full replacement from a page that has been open a while silently undoes a flag another device added |
 | `downbeat_frame` | integer or `null` | Where bar 1 falls, for the waveform page's grid. `>= 0` and less than the take's frame count; `null` clears |
 | `lane_kinds` | `{"<track name>": "drums"\|"notes"}` or `null` | A full replacement of the take's per-lane overrides for `GET /api/midi`'s drum guess. At most 64 entries; keys sanitized like labels; `null` clears |
+| `record` | `{cut?, side?, cover?}` or `null` | Marks the take as a record. The rooms no longer send it (there is no Records shelf; a take that carries it is an ordinary take) and the API still accepts it. `side` is `"A"` (the default) or `"B"`; `cover` is the sleeve's colour, a stripe slot `1`–`8` as a tag's `color` is, or `0` (the default) for a plain sleeve; `cut` is an RFC 3339 time, and the Pi's clock when absent. `null` takes the mark off. Not undoable |
 
 The response is the merged result, with the take's `undo` state; `undo.op`
 is the id of the change this request recorded, for a toast's *Undo*:
 
 ```json
-{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {},
+{ "label": "warm-up", "starred": true, "trim": null, "bpm": 128, "flags": [], "downbeat_frame": null, "lane_kinds": {}, "record": null,
   "undo": { "count": 2, "next": "tempo", "op": "r1f0c9a3e" } }
 ```
 
@@ -1095,17 +1174,35 @@ All of it is one change: if any field is refused, none is made.
 |---|---|
 | `name` | Rename (not undoable) |
 | `click` | The metronome on bus A while playing, on or off (not undoable). A new tape has it on; the first catch or drop turns it off |
-| `rec_track` | The record track, 1 to the tape's tracks: where the tape page's Catch, ● Rec, a free loop's tap and an overdub go, on every device; `-1` disarms, leaving none (not undoable; 400 for a track there isn't). The state's `tape.rec_track`: absent until one is chosen (track 1), `-1` with none armed |
+| `rec_tracks` | The armed tracks (multi-arm): every one a catch, ● Rec, a punch or a free loop's tap records onto, each from its own input; `[]` is none (not undoable; 400 for a track there isn't). The state's `tape.rec_tracks` |
+| `rec_track` | Arms just that one track, as it always did; `-1` disarms, leaving none (not undoable; 400 for a track there isn't). While ● Rec is armed or a punch runs, a change to what's armed, or to the input of a track it records, is `409`. The state's `tape.rec_track` is the first armed track, or `-1` with none. A `tape.json` with only `rec_track` loads armed on that track (none: track 1) |
+| `buses: [{n, bus}, …]` | Several tracks onto bus `A` or `B` at once, as one undo step: the rig's fix for a tap that hears the tape |
 | `input: {n, source}`, `inputs: [{n, source}, …]` | Track `n`'s input, or several tracks' at once (all or none), each a source of `TAPE_SOURCES`, or `""` for none of its own (not undoable; 400 for another). The state's `tape.inputs`, by track from 1; `""` for a track with none |
 | `tempo: {bpm, bars}` | Set the tempo of an empty tape: 20–400 BPM, 1–64 bars. Refused once the tape has audio |
 | `bars` | Relabel the loop's bar count (1–64) without changing its length |
 | `loop: {in?, out?, on?}` | The loop, in tape frames |
 | `track: {n, name?, bus?, gain_db?, pan?, mute?, solo?}` | A track's mix: bus `A` or `B`, gain −60..12 dB, pan −1..1 |
 | `clip: {id, gain_db?, nudge_ms?, fade_in?, fade_out?, fade_in_shape?, fade_out_shape?, remove?, tile?}` | A clip's level (−60..12 dB), its nudge (±500 ms), its fades in frames (0 for none, or 3 ms to its length) and their curves (`""` equal power, `"linear"`, `"s"`, `"exp"`; 400 for another), take it off, or `tile`: copies end to end to the loop's end wherever its layer is free (400 if there's no room) |
+| `style: {formula?, wow?, flutter?, drive?, age?}` | The tape's mods, each 0 to 1 (400 outside). A `formula` (`clean`, `chrome`, `ferric`, `worn`) sets all four first; an amount moved off its formula's makes it `custom`. The state's `tape.style`, absent on a tape that never had one (clean) |
 
 Each PATCH is one undo step. Changes to the same track's level or pan, or the
-same clip's level or nudge, within 2 s of each other are one step, so a
-dragged slider undoes in one go.
+same clip's level or nudge, or the same tape mod, within 2 s of each other are
+one step, so a dragged slider undoes in one go. A page dragging a mod
+previews it over the play socket (`set`, below) and sends one PATCH when the
+finger lifts.
+
+The mods are heard on the tape's own sound, and printed in a mixdown: WOW
+(a 0.8 Hz wobble of the read head, ±0.5 % in pitch at full) and FLUTTER (about
+8 Hz, ±0.1 %, wandering), DRIVE (soft saturation, `tanh`, made up so a tape at
+−18 dBFS RMS comes out as loud as it went in) and AGE (the top end falling
+from 20 kHz to about 4 kHz).
+
+DRIVE changes a tape's level by how loud the tape is. At full drive, quieter
+than the reference is lifted up to 4 dB, and **a loud loop comes out
+noticeably quieter: about 10 dB down at −6 dBFS RMS** (2 dB down at WORN's
+0.4). That is saturation squeezing it; whether it's right is for the ear on
+the rig, and the reference level can move.
+At 0 each is the tape untouched, sample for sample.
 
 ### `DELETE /api/tapes?id=`, `POST /api/tapes/load?id=`, `POST /api/tapes/clone?id=`
 
@@ -1133,12 +1230,40 @@ a release the moment it's let go. The Pi quantises both on its render head, so
 a phone's Wi-Fi delay lands on the grid rather than late.
 
 Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
-`chop`, `half`, `double`. Quanta: `16th`, `8th`, `beat`, `bar`, or `now`/`off`.
+`chop`, `half`, `double`, and the punch-in FX `roll`, `filter`, `echo`,
+`crush` and `bend`. Quanta: `16th`, `8th`, `beat`, `bar`, or `now`/`off`.
 
 | Direction | Message |
 |---|---|
-| page → Pi | `{"t":"press","pad":"stop","q":"16th"}` · `{"t":"release","pad":"stop"}` · `{"t":"release_all"}` |
-| Pi → page | `{"t":"hello","pads":[…],"lead_ms":212}` · `{"t":"lead","ms":212}` · `{"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}` · `{"t":"refused","pad":"stop","why":"…"}` |
+| page → Pi | `{"t":"press","pad":"stop","q":"16th"}` · `{"t":"press","pad":"filter","q":"16th","v":0.8}` · `{"t":"set","pad":"filter","v":0.4}` · `{"t":"release","pad":"stop"}` · `{"t":"release_all"}` |
+| Pi → page | `{"t":"hello","pads":[…],"mods":[…],"lead_ms":212}` · `{"t":"lead","ms":212}` · `{"t":"at","pad":"stop","on":true,"in_ms":187,"pos":…}` · `{"t":"at","pad":"filter","v":0.4,"move":true,"in_ms":…,"pos":…}` · `{"t":"refused","pad":"stop","why":"…"}` |
+
+- **Amounts.** A punch-in FX's press carries `v`, 0 to 1 (a velocity; 0.5
+  without one), and a `set` moves it while held (aftertouch, the mod wheel),
+  from the next block rendered, unquantised and smoothed over about 10 ms.
+  What the amount does:
+
+  | Pad | Sound | `v` is |
+  |---|---|---|
+  | `roll` | Beat repeat: the slice from the grid line it lands on, again and again | The slice: under .25 a quarter note, under .5 an eighth, under .75 a sixteenth, otherwise a thirty-second. A `set` changes it from the next repeat |
+  | `filter` | Resonant low-pass; let go, it sweeps back open over a sixteenth | The cutoff, 20 kHz down to 200 Hz |
+  | `echo` | A throw at 3/16 of a bar, 0.55 feedback; what plays while held is sent, and it rings out to −60 dB when let go | The send |
+  | `crush` | Fewer bits and a lower rate | 12 bits down to 4, and the rate to an eighth |
+  | `bend` | Varispeed, ±8 % at full; let go, it rejoins the tape through a 5 ms crossfade | −1 to 1. It lands at once, whatever `q` says |
+
+- **Mods.** `set` with `mod.wow`, `mod.flutter`, `mod.drive` or `mod.age` (as
+  `hello`'s `mods` lists them) previews a tape mod: heard at once, saved
+  nowhere. Commit it with `PATCH /api/tapes {style}`; a `release` of the mod,
+  `release_all`, or the connection going puts the tape's own value back, and
+  a change of the tape's own value ends the preview. The Pi keeps one preview
+  a mod, belonging to whoever set it last (a page, or the Pi's controller): a
+  page lets go only of a preview still its own.
+- **`at` with `move`** is an amount that moved, from any hand, no more than 30
+  times a second a pad. It has no `on`: light a pad only from an `at` without
+  `move`. A press's and release's `at` carries its `v` too. The Pi keeps the
+  moves apart from the presses and releases, so a knob turning never pushes
+  one of those out before a page has seen it, and sends the two in the order
+  they were heard.
 
 - **`lead_ms`** is how long a press takes to be heard at best: the blocks
   rendered ahead plus the device's latency. It is null with no output.
@@ -1149,16 +1274,89 @@ Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
 - **Shared pads.** A pad sounds while any connection holds it.
 - **Disconnects.** A connection that goes lets go of what it held. The Pi
   pings every second and takes a player that hasn't answered in 3 s as gone.
-- **Refused presses.** A press is refused while a mixdown plays.
+- **Refused presses.** A press is refused while a mixdown plays, the FX as
+  the tricks are; a mixdown prints the tape's mods, never the FX. A `set` of a
+  pad with no amount is refused.
 
 None of this is the tape's state: nothing is undone, saved or sent to other
 pages, except `live.tricks` in `GET /api/tapes/state`, which lists what's held
 now.
 
+Every page hears every pad: an `at` goes to each connection, whoever pressed,
+so a pad played on a phone, a laptop or the controller in the Pi lights on
+every screen. `hello` also lists the pads held as the page arrives (`held`).
+
+**MIDI LEARN** for a controller in the Pi (`/api/tapes/controls`) travels on
+the same socket:
+
+| Direction | Message |
+|---|---|
+| page → Pi | `{"t":"learn","action":"stop","port":"SMK-37"}` (`port` `""`: any controller) · `{"t":"learn_cancel"}` |
+| Pi → page | `{"t":"learned","action":"stop","port":"SMK-37","midi":{"note":72,"ch":10}}` · `{"t":"refused","learn":"stop","why":"no controller moved in 10 s"}` |
+
+The next note-on or CC from that controller, and from nothing else, is bound
+to the action, written to `controls.json`, and not played. One learn waits at
+a time; a second replaces the first, which is refused.
+
+### `GET /api/tapes/controls`, `PUT /api/tapes/controls`
+
+The controllers plugged into the Pi that play the tape (`TAPE_CONTROLLER`,
+`docs/configuration.md`), and their bindings: `TAPE_DIR/controls.json`, keyed
+by the controller's name, shared by everyone, like the Pi's settings. The
+actions and their default MIDI are `web/static/lib/play/controls.js`'s, and
+the Pi's copy is held to it by a test.
+
+```json
+{
+  "quantum": "16th",
+  "catch": "layer",
+  "setting": ["SMK"],
+  "controllers": [
+    {"name": "SMK-37", "connected": true, "profile": "SMK-37", "learned": false,
+     "bindings": {"track1": [{"note": 36, "ch": 10}], "latch": [{"cc": 64}], "…": []}}
+  ],
+  "defaults": {"track1": [{"note": 36}], "…": []}
+}
+```
+
+- **A binding** is one of `note`, `cc`, `bend`, `program` or `rt`
+  (`start`/`stop`); `ch` (1–16) narrows it to a channel; `as: "amount"`
+  marks a CC that moves an amount (P4's FX and mods) instead of pressing.
+- **Defaults.** A known controller starts on its profile (the SMK-37: the
+  defaults on channel 10, where drum pads send); anything else starts at
+  note 36 counting up, any channel: track keys 36–39, tricks 40–45, FX
+  46–49, CATCH GRAB DROP KEEP 50–53, CC1 FILTER's amount, CC 21–24 the mods,
+  CC64 the latch, pitch bend the bend, Start/Stop the transport, CC123 lets go
+  of everything.
+- **What a controller does.** A held pad is pressed and let go as a page's
+  is, quantised to `quantum`: the controller is one more holder,
+  `midi:<name>`, and its holds are let go when it's unplugged. A sustain
+  pedal latches what's let go until it lifts. The verbs run on the Pi, GRAB
+  and DROP one after the other, CATCH, KEEP and the transport without waiting
+  for a GRAB's bar: CATCH the last pass onto the armed track, GRAB the last 4
+  bars into the clipboard (8 s with no tempo; pages open the buffer on their
+  next poll), DROP the clipboard on the armed track at the next free span,
+  KEEP the last 30 s as a take. Amounts and mods do nothing until P4.
+
+`catch` is how a controller's CATCH lands on audio already there, `layer`
+(the default) or `replace`: the page's Layer / Replace switch is each
+device's, so the Pi keeps its own. Like the page's Catch, it's refused while
+the tape plays on a phone, and without an armed track.
+
+`PUT` takes `{"quantum": "…", "catch": "layer" | "replace", "controllers": {"name": {action: [binding]} | null}}`:
+the named controllers' maps are replaced (`null` puts one back to its
+profile), the others kept, and it answers as `GET` does. An unknown action, a
+note past 127 or a binding of two kinds is `400`.
+
 ### `POST /api/tapes/catch?id=`
 
-`{"track": 2, "source": "aux", "pass": 1}` catches a whole pass of the loop:
-1 is the last complete one. `{"out": F}` instead names a pass by the output
+`{"track": 2, "source": "aux", "pass": 1}` catches a whole pass of the loop. With
+`"pairs": [{"track": 2, "source": "ch1"}, {"track": 3, "source": "ch2"}]`
+instead of `track` and `source`, it catches onto every pair at once: each
+track from its own input, over the one span, as one undo (two tracks may
+share an input; a track named twice is `400`). The answer has `clip`, the
+first, and `clips` and `tracks`, everything it put down.
+In either form, `pass` 1 is the last complete one. `{"out": F}` instead names a pass by the output
 frame it began at (a `cycles` entry's `out`), so a tap catches the pass that
 was on screen even if another has finished since. `{"track": 2, "source": "aux", "bars": 4}` catches
 the last 4 bars up to the last bar line the ring has heard. `replace: true`
@@ -1174,7 +1372,7 @@ waits up to two seconds for the newest audio to reach the ring. Answers
 
 ### `POST /api/tapes/record?id=`, `DELETE /api/tapes/record?id=`
 
-`POST {"track": 2, "source": "aux", "replace": false}` arms the track while the tape is stopped
+`POST {"track": 2, "source": "aux", "replace": false}`, or `{"pairs": [{track, source}, …], "replace": false}` for every armed track, arms while the tape is stopped
 (`{"record": {"state": "armed", …}}`), or punches in while it plays
 (`"state": "on"`). Nothing is recorded specially -- the ring always is; a
 punch notes the output frame it was asked at, less a quarter second (`from`),
@@ -1185,7 +1383,8 @@ With a track armed, the next `play` counts in a bar of click and plays from
 the playhead's bar, and the punch starts there.
 
 `DELETE` ends it and keeps what it covered, answering
-`{"kept": {"clip": …, "frames": F, "track": 2}}`: with the loop on, the last
+`{"kept": {"clip": …, "frames": F, "track": 2, "tracks": [2, 3], "clips": […]}}`
+-- with pairs, every track over the one span, as one undo: with the loop on, the last
 full pass inside it; otherwise, or with no full pass, the bars from the first
 bar line it played to the last complete one before the tape stopped, moved,
 or the punch ended. What wrapped round the loop is placed in pieces where it
@@ -1198,7 +1397,7 @@ nothing is recording.
 
 ### `POST /api/tapes/tap?id=`, `DELETE /api/tapes/tap?id=`
 
-`POST {"track": 1, "source": "aux"}` on an empty tape with no tempo. The tap
+`POST {"track": 1, "source": "aux"}`, or `{"pairs": […]}`, on an empty tape with no tempo; with pairs, the loop goes onto every track, each from its own input, snapped to the attacks in the first pair's. The tap
 is timed when it arrives and turned into a ring frame by the capture's clock.
 The first answers `{"stage": "first"}`; it's forgotten after two minutes, or
 if the next names another track or source. The second snaps both to the
@@ -1337,6 +1536,12 @@ name as its label, the tape's id as its `tape_id`, the tape's tempo as its
 BPM, and as `downbeat_frame` the first bar line in it (0 when the span starts
 on one, as a loop does).
 
+`"record": {side?, cover?, cut?}` in the body (the Listening Room's *Cut a
+record*, read as `PATCH /api/take`'s `record` is) saves the take marked as
+that record, so the mark doesn't depend on the page that asked staying open;
+a bad record is a 400 before anything plays. A mixdown that fails saves no
+take, and so marks nothing.
+
 It answers at once with `{"mixdown": {"id", "tape", "state": "playing",
 "from", "to", "tail"}}` (tape frames, and the tail in frames). The tape's
 state then carries the same object as `live.mixdown`, its `state` moving to
@@ -1414,12 +1619,84 @@ restart; 404 when the tape is off.
   that has left the ring moves to the oldest audio, a second in, and the
   answer has `"clamped": true`; 409 if the span has left it altogether or
   isn't in it yet.
+- **The Studio's buffer** (GRAB, step P2): `POST {"bars": 4, "sources":
+  ["ch1", "ch2"]}` copies the last 4 bars the tape played, where the ring
+  heard them, as Catch finds them (Δ and `TAPE_LATENCY_MS` included);
+  `{"seconds": 8, "sources": […]}` the last 8 seconds (for a tape with no
+  tempo yet, which refuses `bars` with 400); `{"ring_from": F, "ring_to": T,
+  "sources": […]}` a span of the ring. Each source is a clipboard track over
+  the same span, in `TAPE_SOURCES`' order. The handles are a bar at the tape's
+  tempo or `TAPE_HANDLE_S`, whichever is longer, at most 10 s; the one after
+  the last bars is still being played, so the answer waits for it (about a
+  bar). When the tape didn't play the bars (stopped, moved, on a phone, not
+  lined up) it takes that many bars of wall-clock time to now, and says
+  `"wall": true` with `"why"`. Where the ring starts is read once the
+  waiting is done: a start that has left it moves to its oldest audio, a
+  second in (before the ring has filled, to its first frame), and the
+  answer has `"clamped": true`; 409 if none of the span is left. The
+  clipboard gains `grab`: `{sources, bars?, seconds?, wall?, why?, clamped?,
+  ring_from, frames, before, after, in, out, bar_frames?, downbeat?, tape?,
+  reversed?, used?, ring, stale?}` -- frames from the grab's start, the
+  window `[in, out)` inside the handles `before` and `after`; `ring` names
+  the ring it came from, and `stale` says Hindsight has restarted since, so
+  `ring_from` names other audio now. `{"again": true, "sources": […]}`
+  copies the buffer's own span again from other sources, keeping its
+  window; 409 for a stale one.
+- `POST {"take": "jam_….wav", "from": F, "to": T, "grab": true}` makes a
+  take's span the buffer (the Listening Room's *to the studio*): handles
+  from the take's own audio, a bar at its tempo or `TAPE_HANDLE_S`,
+  whichever is longer, at most 10 s, as far as the take goes. Its `grab`
+  has `take` and `take_from` instead of a ring; its one source is the
+  take's name, which `again` can't change (400), and it's never stale.
+  Without `grab`, a take's span is copied as it always was. A grab, or any copy, that replaces a
+  grab never dropped or kept puts that one in the crate first, a kept clip
+  per track, and answers them as `"crated"`.
+- **GRAB's Undo** (the flow spec's F3): a grab, a copy or cut, or a toss's
+  restore that replaces a buffer never dropped, inserted, kept or tossed -- a
+  grab, or a copy or cut -- also answers it as `"replaced"` (a clipboard, with
+  `"replaced_seconds"`; for `POST /api/tapes/edit` it is `edit.replaced`), and
+  the Pi holds exactly one such buffer, in
+  `TAPE_DIR/clipboard-replaced.json`: the next replacement overwrites it, so
+  it never grows. A clean-up keeps its audio only while it can be undone, that
+  is while the buffer that replaced it is still the clipboard and unused: a
+  clear, a toss, a drop, an insert or a keep lets it go (and a write that fails
+  after the slot's leaves the slot as it was). `POST /api/tapes/edit` takes
+  `{"no_crate": true}` on `copy` and `lift`, and `POST /api/clipboard/restore`
+  takes `?crate=0`, as a grab takes `crate: false`: nothing goes to the crate. `{"…", "crate": false}`
+  on a grab (`bars`, `seconds`, `ring_from`, `again`, or a take's `grab`)
+  keeps the replaced buffer there *only*, and puts nothing in the crate;
+  left out, the crate is as above, the slot written as well.
+  `POST /api/clipboard/restore?replaced=1[&by=<created>]` puts it back on
+  the clipboard (answering it) and empties the slot; `by` is the `created` of
+  the grab being undone, and a different one gets 409 (*That grab was already
+  replaced*), as does a buffer that was tossed, cleared or replaced since, a
+  slot that is empty, or a buffer that has been dropped, inserted or kept
+  since (*Already dropped or kept — undo the drop instead*): the words are the
+  error, ready to show. `replaced` with anything but `1` is 400, never the
+  toss's restore.
 - Both answer the new clipboard; 400 for a copy longer than a track; 507 for
   low disk.
+- `PATCH` changes the buffer (a grab only; 400 for a copy, 409 when it's
+  empty), outside undo: `{"in": I, "out": O}` moves its window, kept inside
+  its handles less the crossfades' overhang; `{"gain_db"}`, `{"fade_in",
+  "fade_out", "fade_in_shape", "fade_out_shape"}`, `{"normalize": true}` (the
+  tracks' sum to −1.5 dBFS at its loudest, one gain for all, at most +24 dB)
+  and `{"reverse": true}`
+  apply to every track. It answers the clipboard.
+- `POST /api/clipboard/keep` is KEEP AS TAKE: the clipboard as a take, its
+  tracks summed to stereo with their levels and fades, from its own audio;
+  a sum that would go over full scale is brought down as a whole, never
+  clipped (the buffer's audition too).
+  Its label names its sources (*Buffer · ch1 + ch2*), its `origin` is
+  `buffer`, and a grab's tempo and downbeat are the tape's. It answers
+  `{"name", "label", "seconds"}`; the buffer is then marked used.
 - `GET /api/clipboard/audio` is its first minute, every track summed, as a
   16-bit stereo WAV, with `Range` and `HEAD`. 404 when it's empty.
 - `DELETE` empties it. Its audio stays until a clean-up finds nothing using
-  it; the clean-up keeps whatever the clipboard holds. A `clipboard.json`
+  it; the clean-up keeps whatever the clipboard holds. `DELETE ?toss=1` (the
+  buffer's TOSS) keeps what it held aside, a root for the clean-up until the
+  next toss, and `POST /api/clipboard/restore` brings it back (409 when
+  nothing was tossed). A `clipboard.json`
   that can't be read is reported by `GET` as `error`, and kept from the
   clean-up (every copy is) until `DELETE` clears it.
 
@@ -1442,8 +1719,9 @@ a pool file, as a tape clip is:
     ring, clamped as the clipboard's is.
   - `{"tape": id, "clip": id}` keeps a clip of the loaded tape, by reference:
     nothing is copied.
-  - `{"clipboard": true}` keeps the clipboard, by reference, when it holds one
-    clip (400 otherwise).
+  - `{"clipboard": true}` keeps the clipboard, by reference, a clip per
+    track when each holds one clip its whole length (400 otherwise); `clips`
+    lists them all.
 
   404 for no such take; 400 for a span not in it; 507 for low disk.
 - `PATCH ?id=` takes `{"name": "…"}` (1–120 characters) or

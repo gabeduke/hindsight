@@ -32,10 +32,10 @@ import (
 //	DELETE /api/tapes?id=              delete one (not the loaded one), and free its audio
 //	POST   /api/tapes/load?id=         make it the loaded tape
 //	POST   /api/tapes/transport?id=    {action: play|stop|locate, quantum, pos}
-//	POST   /api/tapes/catch?id=        {track, source, pass | out | bars, replace}
-//	POST   /api/tapes/record?id=       {track, source}: arm, or punch in
+//	POST   /api/tapes/catch?id=        {track, source | pairs, pass | out | bars, replace}
+//	POST   /api/tapes/record?id=       {track, source | pairs}: arm, or punch in
 //	DELETE /api/tapes/record?id=       end the punch and keep it (?cancel=1: don't)
-//	POST   /api/tapes/tap?id=          {track, source}: a free-loop tap
+//	POST   /api/tapes/tap?id=          {track, source | pairs}: a free-loop tap
 //	DELETE /api/tapes/tap?id=          forget a first tap
 //	POST   /api/tapes/drop?id=         {crate, track}: a kept clip, as the clipboard drops;
 //	                                   {take, from, to, track, bars}: a take's span onto the tape;
@@ -64,6 +64,9 @@ func (a *API) tapeOff(w http.ResponseWriter) bool {
 	return false
 }
 
+// ReasonRecording is the "reason" of a 409 that waits for ● Rec to finish.
+const ReasonRecording = "recording"
+
 // tapeErr maps an engine error to a status.
 func tapeErr(w http.ResponseWriter, err error) {
 	switch {
@@ -71,6 +74,12 @@ func tapeErr(w http.ResponseWriter, err error) {
 		writeErr(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, audio.ErrRangeGone):
 		writeErr(w, http.StatusConflict, tape.ErrGone.Error())
+	case tape.IsWaitingForRecording(err):
+		// An EDIT refused until the recording ends. A page tells it from the
+		// other 409s by the reason, not by matching prose: it says "Waiting
+		// for rec to finish" for it. A mixdown or a second record, which
+		// share the sentinel, fall through to the plain 409 below.
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error(), "reason": ReasonRecording})
 	case errors.Is(err, audio.ErrLowDisk):
 		writeErr(w, http.StatusInsufficientStorage, err.Error())
 	case errors.Is(err, tape.ErrNoTape), errors.Is(err, tape.ErrWrongTape), errors.Is(err, tape.ErrNotYet),
@@ -159,6 +168,7 @@ func (a *API) handleTapeState(w http.ResponseWriter, r *http.Request) {
 // tape, and the page polls the state several times a second.
 func (a *API) writeTapeStateWith(w http.ResponseWriter, id string, edit *tape.EditResult, suggest bool) {
 	resp := tapeStateResponse{Sources: a.tape.Sources(), Edit: edit}
+	a.labelSources(resp.Sources)
 	if id != "" && id == a.tape.LoadedID() {
 		resp.Tape = a.tape.Loaded()
 		resp.Loaded = true
@@ -209,6 +219,14 @@ func (a *API) suggestBPM(id string) float64 {
 	return 90
 }
 
+// recording is the tape's punch or armed ● Rec, if any.
+func (a *API) recording() *tape.Recording {
+	if a.recordingHook != nil {
+		return a.recordingHook()
+	}
+	return a.tape.Recording()
+}
+
 // trackIn is a track's input, as PATCH /api/tapes sets it.
 type trackIn struct {
 	N      int    `json:"n"`
@@ -224,13 +242,22 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		Name  *string `json:"name"`
 		Click *bool   `json:"click"`
 		// RecTrack arms a track, the one catches and punches go onto, or
-		// with tape.NoRecTrack none. Input sets a track's input ("" for none
-		// of its own), and Inputs several at once. Neither is a step of undo.
-		RecTrack *int      `json:"rec_track"`
-		Input    *trackIn  `json:"input"`
-		Inputs   []trackIn `json:"inputs"`
-		Bars     *int      `json:"bars"`
-		Tempo    *struct {
+		// with tape.NoRecTrack none: just that one, as it always did.
+		// RecTracks arms exactly these (multi-arm; [] is none). Input sets a
+		// track's input ("" for none of its own), and Inputs several at
+		// once. None of these is a step of undo.
+		RecTrack  *int      `json:"rec_track"`
+		RecTracks *[]int    `json:"rec_tracks"`
+		Input     *trackIn  `json:"input"`
+		Inputs    []trackIn `json:"inputs"`
+		Bars      *int      `json:"bars"`
+		// Buses moves several tracks' buses at once, as one undo: the rig's
+		// fix for a tap that hears the tape.
+		Buses []struct {
+			N   int    `json:"n"`
+			Bus string `json:"bus"`
+		} `json:"buses"`
+		Tempo *struct {
 			BPM  float64 `json:"bpm"`
 			Bars int     `json:"bars"`
 		} `json:"tempo"`
@@ -262,6 +289,11 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			FadeInShape  *string `json:"fade_in_shape"`
 			FadeOutShape *string `json:"fade_out_shape"`
 		} `json:"clip"`
+		// Style is the tape's mods: a formula and any of wow, flutter,
+		// drive and age, 0 to 1. One PATCH is one step of undo; a page sends
+		// it when the finger lifts, having previewed the drag over the play
+		// socket.
+		Style *tape.StyleChange `json:"style"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
@@ -281,10 +313,12 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		kind = "clip-gain:" + b.Clip.ID
 	case b.Clip != nil && b.Clip.NudgeMS != nil && !b.Clip.Remove:
 		kind = "clip-nudge:" + b.Clip.ID
-	case b.Loop != nil && b.Track == nil && b.Clip == nil && b.Tempo == nil && b.Bars == nil:
+	case b.Loop != nil && b.Track == nil && b.Clip == nil && b.Tempo == nil && b.Bars == nil && b.Style == nil:
 		// A loop moved and moved again (a range drawn, then its edges
 		// dragged) is one step.
 		kind = "loop"
+	case b.Style != nil && b.Loop == nil && b.Track == nil && b.Clip == nil && b.Tempo == nil && b.Bars == nil:
+		kind = b.Style.Kind()
 	}
 	// The inputs there are, read before the tape is locked to change it.
 	var inputs []tape.SourceState
@@ -295,7 +329,10 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 	if len(set) > 0 {
 		inputs = a.tape.Sources()
 	}
+	// A punch, or ● Rec armed: what's armed and its inputs wait for it.
+	rec := a.recording()
 	meta := func(t *tape.Tape) error {
+		before := t.Armed()
 		if b.Name != nil {
 			if n := sanitizeLabel(*b.Name); n != "" {
 				t.Name = n
@@ -308,7 +345,21 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			if *b.RecTrack != tape.NoRecTrack && (*b.RecTrack < 1 || *b.RecTrack > len(t.Tracks)) {
 				return tape.ErrNoSuchTrack
 			}
-			t.RecTrack = *b.RecTrack
+			t.SetRecTrack(*b.RecTrack)
+		}
+		if b.RecTracks != nil {
+			if err := t.SetArmed(*b.RecTracks); err != nil {
+				return err
+			}
+		}
+		if rec != nil && rec.Tape == t.ID {
+			ins := map[int]string{}
+			for _, in := range set {
+				ins[in.N] = in.Source
+			}
+			if err := rec.Allows(before, t.Armed(), ins); err != nil {
+				return err
+			}
 		}
 		for _, in := range set {
 			known := in.Source == "" // none of its own: the device's last choice
@@ -324,7 +375,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	}
-	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil
+	undoable := b.Tempo != nil || b.Bars != nil || b.Loop != nil || b.Track != nil || b.Clip != nil || len(b.Buses) > 0 || b.Style != nil
 	if undoable {
 		sr := a.tape.Store().SampleRate()
 		err := a.tape.Edit(id, kind, func(t *tape.Tape, s *tape.State) error {
@@ -393,6 +444,17 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 					t.Solo = *tr.Solo
 				}
 			}
+			for _, m := range b.Buses {
+				if m.N < 1 || m.N > len(s.Tracks) {
+					return tape.ErrNoSuchTrack
+				}
+				s.Tracks[m.N-1].Bus = strings.ToUpper(m.Bus) // validated with the state
+			}
+			if b.Style != nil {
+				if err := b.Style.ApplyTo(s); err != nil {
+					return err
+				}
+			}
 			if c := b.Clip; c != nil {
 				if err := patchFades(s, c.ID, c.FadeIn, c.FadeOut, c.FadeInShape, c.FadeOutShape, t.SampleRate); err != nil {
 					return err
@@ -405,7 +467,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			tapeErr(w, err)
 			return
 		}
-	} else if b.Name != nil || b.Click != nil || b.RecTrack != nil || len(set) > 0 {
+	} else if b.Name != nil || b.Click != nil || b.RecTrack != nil || b.RecTracks != nil || len(set) > 0 {
 		err := a.tape.SetMeta(id, meta)
 		if err != nil {
 			tapeErr(w, err)
@@ -604,11 +666,17 @@ func (a *API) handleTapeRecord(w http.ResponseWriter, r *http.Request) {
 		Track   int    `json:"track"`
 		Source  string `json:"source"`
 		Replace bool   `json:"replace"`
+		// Pairs are every armed track and its input (multi-arm); without
+		// them, the one track and source.
+		Pairs []tape.Pair `json:"pairs"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
-	rec, err := a.tape.Record(r.URL.Query().Get("id"), b.Track, b.Source, b.Replace)
+	if len(b.Pairs) == 0 {
+		b.Pairs = []tape.Pair{{Track: b.Track, Source: b.Source}}
+	}
+	rec, err := a.tape.RecordPairs(r.URL.Query().Get("id"), b.Pairs, b.Replace)
 	if err != nil {
 		tapeErr(w, err)
 		return
@@ -638,13 +706,17 @@ func (a *API) handleTapeTap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var b struct {
-		Track  int    `json:"track"`
-		Source string `json:"source"`
+		Track  int         `json:"track"`
+		Source string      `json:"source"`
+		Pairs  []tape.Pair `json:"pairs"` // every armed track and its input
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
-	res, err := a.tape.Tap(r.URL.Query().Get("id"), b.Track, b.Source, at)
+	if len(b.Pairs) == 0 {
+		b.Pairs = []tape.Pair{{Track: b.Track, Source: b.Source}}
+	}
+	res, err := a.tape.TapPairs(r.URL.Query().Get("id"), b.Pairs, at)
 	if err != nil {
 		tapeErr(w, err)
 		return
@@ -668,12 +740,14 @@ func (a *API) handleTapeCatch(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	clip, err := a.tape.Catch(r.URL.Query().Get("id"), req)
+	res, err := a.tape.CatchPairs(r.URL.Query().Get("id"), req)
 	if err != nil {
 		tapeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"clip": clip})
+	// clip is the first, as before; clips and tracks are everything a
+	// catch onto several armed tracks did.
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
@@ -883,11 +957,22 @@ func (a *API) handleTapeMixdown(w http.ResponseWriter, r *http.Request) {
 	}
 	var b struct {
 		All bool `json:"all"` // the whole tape, not the loop
+		// The Listening Room's Cut a record: the take is saved marked as
+		// this record ({side, cover}, as PATCH /api/take takes it).
+		Record json.RawMessage `json:"record"`
 	}
 	if r.ContentLength != 0 && !decodeBody(w, r, &b) {
 		return
 	}
-	m, err := a.tape.StartMixdown(r.URL.Query().Get("id"), b.All)
+	var rec *audio.Record
+	if b.Record != nil {
+		var err error
+		if rec, err = parseRecord(b.Record, time.Now()); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	m, err := a.tape.StartMixdownAs(r.URL.Query().Get("id"), b.All, rec)
 	if err != nil {
 		tapeErr(w, err)
 		return
@@ -1072,8 +1157,21 @@ func (a *API) takePair(channels int) []int {
 
 //	GET    /api/clipboard        what's on it
 //	GET    /api/clipboard/audio  its tracks summed, as a WAV, to audition
-//	POST   /api/clipboard        copy {take, from, to} or {ring_from, ring_to, source}
-//	DELETE /api/clipboard        clear it
+//	POST   /api/clipboard        copy {take, from, to} or {ring_from, ring_to, source};
+//	                             {take, from, to, grab: true}: a take's span as the buffer;
+//	                             or the Studio's GRAB: {bars | seconds | ring_from, ring_to,
+//	                             sources: [...]}, or {again, sources} (internal/tape grab.go)
+//	PATCH  /api/clipboard        the buffer: {in, out} its window; {gain_db}, {fade_in,
+//	                             fade_out, fade_in_shape, fade_out_shape}, {normalize}, {reverse}
+//	POST   /api/clipboard/keep   KEEP AS TAKE: the clipboard as a take, its tracks summed
+//	DELETE /api/clipboard        clear it (?toss=1: keep it aside for /restore, a toss's Undo)
+//	POST   /api/clipboard/restore  bring the last tossed one back
+//	                             ?replaced=1[&by=<created>]: GRAB's Undo instead -- the buffer the
+//	                             last grab replaced (the Pi keeps one), if that grab is still the buffer
+//
+// A grab ({bars | seconds | ring_from…} or {take, from, to, grab: true}) that replaces a
+// buffer nobody dropped or kept answers it as `replaced` (and `replaced_seconds`), and with
+// `crate: false` puts it nowhere else; without, it goes to the crate as well.
 
 func (a *API) handleClipboard(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
@@ -1103,14 +1201,60 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 		RingFrom *int64 `json:"ring_from"`
 		RingTo   *int64 `json:"ring_to"`
 		Source   string `json:"source"`
+		// The Studio's GRAB (the buffer): the last bars, the last seconds,
+		// or the span, from several sources; again re-copies the buffer's
+		// own span from other sources.
+		Bars    int      `json:"bars"`
+		Seconds float64  `json:"seconds"`
+		Sources []string `json:"sources"`
+		Again   bool     `json:"again"`
+		// Grab with a take's span: the Listening Room's "to the studio",
+		// the span as the Studio's buffer. Without it, a take is copied as
+		// it always was.
+		Grab bool `json:"grab"`
+		// Crate: false (the rooms send it) holds the unused buffer a grab
+		// replaces as the one replaced grab and does not put it in the
+		// crate, which they no longer show. Left out, the crate is as it was.
+		Crate *bool `json:"crate"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
+	opts := tape.GrabOpts{NoCrate: b.Crate != nil && !*b.Crate}
 	var c *tape.Clipboard
 	var err error
 	clamped := false
+	if b.Take == "" && (b.Bars > 0 || b.Seconds > 0 || b.Again || b.Sources != nil) {
+		g, err := a.tape.Grab(tape.GrabRequest{Bars: b.Bars, Seconds: b.Seconds, RingFrom: b.RingFrom, RingTo: b.RingTo, Sources: b.Sources, Again: b.Again, NoCrate: opts.NoCrate})
+		if err != nil {
+			tapeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, a.grabAnswer(g, map[string]any{
+			"clamped": g.Board.Grab.Clamped, "wall": g.Board.Grab.Wall, "why": g.Board.Grab.Why,
+		}))
+		return
+	}
 	switch {
+	case b.Take != "" && b.Grab:
+		name, nerr := a.safeTakeName(b.Take)
+		if nerr != nil {
+			writeErr(w, http.StatusBadRequest, nerr.Error())
+			return
+		}
+		path := filepath.Join(a.cfg.OutputDir, name)
+		info, serr := audio.ReadWAVInfo(path)
+		if serr != nil {
+			writeErr(w, http.StatusNotFound, "no such take")
+			return
+		}
+		g, err := a.tape.GrabTakeOpt(path, name, takeTitle(name, path), b.From, b.To, a.takePair(info.Channels), opts)
+		if err != nil {
+			tapeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, a.grabAnswer(g, map[string]any{"clamped": false, "wall": false, "why": ""}))
+		return
 	case b.Take != "":
 		name, nerr := a.safeTakeName(b.Take)
 		if nerr != nil {
@@ -1141,15 +1285,143 @@ func (a *API) handleClipboardCopy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate()), "clamped": clamped})
 }
 
+// grabAnswer is a grab's answer: the buffer, its length, what went in the
+// crate, and -- only when the grab replaced a buffer nobody dropped or kept --
+// that buffer as `replaced`, for GRAB's Undo. extra adds the grab's notes.
+func (a *API) grabAnswer(g tape.Grabbed, extra map[string]any) map[string]any {
+	sr := float64(a.tape.Store().SampleRate())
+	out := map[string]any{"clipboard": g.Board, "seconds": float64(g.Board.Frames) / sr, "crated": g.Crated}
+	for k, v := range extra {
+		out[k] = v
+	}
+	if g.Replaced != nil {
+		out["replaced"] = g.Replaced
+		out["replaced_seconds"] = float64(g.Replaced.Frames) / sr
+	}
+	return out
+}
+
 func (a *API) handleClipboardClear(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
 	}
-	if err := a.tape.ClearClipboard(); err != nil {
+	clear := a.tape.ClearClipboard
+	if r.URL.Query().Get("toss") == "1" {
+		clear = a.tape.TossClipboard // the buffer's TOSS, which Undo brings back
+	}
+	if err := clear(); err != nil {
 		tapeErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"clipboard": nil})
+}
+
+// handleClipboardRestore is a toss's Undo: the buffer last tossed, back on
+// the clipboard.
+func (a *API) handleClipboardRestore(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	// ?replaced=1[&by=<created of the grab>] is GRAB's Undo instead: the buffer
+	// the last grab replaced, back on the clipboard. Strict: `replaced` with
+	// anything but 1 is refused, never read as the toss's restore.
+	q := r.URL.Query()
+	if _, has := q["replaced"]; has {
+		if q.Get("replaced") != "1" {
+			writeErr(w, http.StatusBadRequest, "replaced is 1: GRAB's Undo")
+			return
+		}
+		var by time.Time
+		if s := q.Get("by"); s != "" {
+			var perr error
+			if by, perr = time.Parse(time.RFC3339Nano, s); perr != nil {
+				writeErr(w, http.StatusBadRequest, "by is the time the grab was made, as the clipboard says it")
+				return
+			}
+		}
+		c, err := a.tape.RestoreReplaced(by)
+		if err != nil {
+			tapeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())})
+		return
+	}
+	// ?crate=0 (the rooms): what the restored buffer replaces, if nobody used
+	// it, is held for Undo and not put in the crate, as with a grab.
+	c, kept, replaced, err := a.tape.RestoreClipboardOpt(tape.GrabOpts{NoCrate: q.Get("crate") == "0"})
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	sr := float64(a.tape.Store().SampleRate())
+	out := map[string]any{"clipboard": c, "seconds": float64(c.Frames) / sr, "crated": kept}
+	if replaced != nil {
+		out["replaced"] = replaced
+		out["replaced_seconds"] = float64(replaced.Frames) / sr
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// handleClipboardPatch changes the Studio's buffer: its window ({in, out},
+// frames from the grab's start, kept inside its handles), and its lanes'
+// level, fades, Normalize and Reverse. Outside undo, as the buffer is.
+func (a *API) handleClipboardPatch(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		In  *int64 `json:"in"`
+		Out *int64 `json:"out"`
+		tape.BoardShape
+	}
+	if !decodeBody(w, r, &b) {
+		return
+	}
+	if (b.In == nil) != (b.Out == nil) {
+		writeErr(w, http.StatusBadRequest, "a window is both its in and its out")
+		return
+	}
+	if b.In == nil && b.BoardShape.Empty() {
+		writeErr(w, http.StatusBadRequest, "change the buffer's {in, out}, gain_db, fades, normalize or reverse")
+		return
+	}
+	var c *tape.Clipboard
+	var err error
+	if b.In != nil {
+		c, err = a.tape.TrimClipboard(*b.In, *b.Out)
+	}
+	if err == nil && !b.BoardShape.Empty() {
+		c, err = a.tape.ShapeClipboard(b.BoardShape)
+	}
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())})
+}
+
+// handleClipboardKeep is the buffer's KEEP AS TAKE: the clipboard saved as a
+// take on the shelf, from its own audio, its tracks summed to stereo. A take
+// like a cut: its preview made after, and MAX_SAVES applied, never to it.
+func (a *API) handleClipboardKeep(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	if free := audio.EnsureFree(a.cfg.OutputDir, a.cfg.MinFreeGB); free < a.cfg.MinFreeGB {
+		writeErr(w, http.StatusInsufficientStorage, fmt.Sprintf("low disk: %.2f GB free, need %.2f GB", free, a.cfg.MinFreeGB))
+		return
+	}
+	k, err := a.tape.KeepClipboardTake(a.cfg.OutputDir, time.Now())
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, k.Name), 2) })
+	if a.saver != nil {
+		a.background(func() { a.saver.Prune(k.Name) })
+	}
+	writeJSON(w, http.StatusOK, k)
 }
 
 // handleClipboardAudio serves the clipboard's first minute, its tracks

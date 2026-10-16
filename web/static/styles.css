@@ -10,6 +10,10 @@
 @font-face { font-family: 'IBM Plex Mono'; src: url('/fonts/ibm-plex-mono-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: 'IBM Plex Mono'; src: url('/fonts/ibm-plex-mono-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Permanent Marker'; src: url('/fonts/permanent-marker-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+/* The sketchbook's hand (the Listening Room's chair): latin 500 and 700 from
+   @fontsource/caveat 5.2.8 on the npm registry. Licence: fonts/OFL-caveat.txt. */
+@font-face { font-family: 'Caveat'; src: url('/fonts/caveat-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Caveat'; src: url('/fonts/caveat-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
 
 :root {
   /* Reel-to-reel: brushed aluminium by day. The dark block below is the same
@@ -1059,6 +1063,19 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .update-btn[hidden], .releases-btn[hidden] { display: none; }
 .releases-sep { display: none; }
 .about.can-update .releases-sep { display: inline; }
+/* Settings is the only way into Settings anywhere in the app, so it is a
+   button, not a link's weight in the line: a pill with a 40px target, a size
+   up from the line's 12px. The negative margin gives back the height it takes
+   so the foot does not grow. (Releases and Update keep the link look above.) */
+.about #settings-btn {
+  font-size: 14px; font-weight: 600; line-height: 1.2; text-decoration: none;
+  min-height: 40px; padding: 0 18px; margin: -12px 4px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-hi); color: var(--ink);
+  display: inline-flex; align-items: center; vertical-align: middle;
+}
+@media (hover: hover) { .about #settings-btn:hover { border-color: var(--ink-faint); } }
+.about #settings-btn:active { transform: translateY(1px); }
 .update-btn:focus-visible, .releases-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 
 /* The releases sheet: the list to pick from, then what the pick changes. */
@@ -1134,8 +1151,6 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .set-field input[type="text"] { font-family: var(--mono); }
 /* A switch for this device only (lib/device-prefs.js): it saves as it is
    clicked, so it has no Save and no restart. */
-.set-check { display: flex; align-items: center; gap: 10px; padding-bottom: 4px; cursor: pointer; }
-.set-check input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); flex: none; }
 /* No .set-note rule here: the sheet already styles its notes, and a bare one
    would have reached the Pi's settings too and widened them. */
 .set-field select:focus-visible, .set-field input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
@@ -1205,6 +1220,8 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 /* A toast with an action: "Flag deleted · Undo". */
 .toast:has(.toast-action) { display: flex; align-items: center; gap: 12px; padding-right: 6px; }
 .toast-text { flex: 1; min-width: 0; }
+/* A toast's second line (opts.detail): under the message, smaller. */
+.toast-detail { display: block; margin-top: 2px; font-size: .88em; opacity: .8; }
 .toast-action {
   flex: none; min-height: 36px; padding: 0 12px; border-radius: 8px;
   background: none; border: 1px solid var(--key-edge); color: var(--link);
@@ -1432,6 +1449,10 @@ dialog.sheet::backdrop { background: var(--scrim); }
 }
 .menu > .danger { color: var(--danger); }
 .menu > button:disabled { opacity: .4; cursor: default; }
+/* Last bounce (rooms on), when there is none: it says why on its face, a
+   phone having no tooltip, so it is dimmed less than a dead key. */
+#tape-last-bounce:disabled { opacity: .65; }
+#tape-last-bounce .bounce-note { font-size: .85em; color: var(--ink-dim); }
 
 /* align-items is spelled out because the takes page's two-column rule at
    >=860px sets `main { display: grid; align-items: start }` unscoped. */
@@ -1506,6 +1527,7 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .send-menu { left: 8px; right: auto; min-width: 260px; max-width: min(360px, calc(100vw - 32px)); }
 .send-menu > button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .send-menu > button b { font-weight: 600; }
+.send-menu > button[hidden] { display: none; } /* Open makes Tape and Clipboard over as GRAB */
 .menu-sub { font-size: 12.5px; line-height: 1.35; color: var(--ink-dim); white-space: normal; }
 /* Save as take's name, in the verbs' place: the field takes the width. */
 .tb-row.save-name { display: flex; align-items: center; gap: 8px; }
@@ -1909,6 +1931,8 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 #tape-body[hidden] { display: none; }
 .tape-empty { background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius); padding: 12px 14px; color: var(--ink-dim); font-size: 14px; }
 .tape-empty p { margin: 0 0 8px; }
+/* The empty tape's hint has a link to the Listening Room only with the rooms on (lib/rooms/nocrate.js). */
+#tape-empty-from a { color: var(--link); }
 .tape-tempo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .tape-tempo-row input { width: 5.5em; min-height: 36px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font: 14px var(--mono); }
 .tape-overview { width: 100%; height: 40px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
@@ -2825,6 +2849,7 @@ body.tape-page:has(#out-strip:not([hidden])) { --np-h: 160px; }
 .np .np-catch { height: 52px; min-height: 52px; min-width: 112px; flex-direction: column; gap: 1px; padding: 0 18px; }
 .np-catch-word { font-size: 15.5px; font-weight: 700; }
 .np-catch-sub { font: 500 10.5px var(--mono); opacity: .88; }
+.np-catch-mini { display: none; } /* the phone's mini bar shows it (below) */
 .np .np-scrub { flex: 1; min-width: 0; height: 40px; border-radius: 8px; }
 .np .np-scrub:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* A take: its lamp pauses (❚❚); its own keys are In, Out and ⚑; it plays
@@ -3490,6 +3515,11 @@ a.crate-chip { text-decoration: none; }
   body:not(.player-open) .np-own { flex: none; margin-left: 0; }
   body:not(.player-open) .np .np-catch { min-width: 92px; height: 50px; min-height: 50px; padding: 0 12px; }
   body:not(.player-open) .np .np-catch-sub { display: none; }
+  /* The Studio's Catch has a short second line of its own down here
+     (.np-catch-mini, added by the page with the rooms on): "→ 2" and
+     "after 1 pass" say what it catches and why it waits, which a bare
+     "Catch" can't, and leave the transport window its bar number. */
+  body:not(.player-open) .np .np-catch .np-catch-mini { display: block; font: 500 9px/1.1 var(--mono); opacity: .88; white-space: nowrap; }
   /* The window is the player's handle. */
   body:not(.player-open) .np-expand {
     display: block; position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; padding: 0;
@@ -3633,29 +3663,19 @@ a.crate-chip { text-decoration: none; }
 @keyframes insp-in-up { from { transform: translateY(40%); opacity: .4; } }
 
 /* ---------- Play mode (lib/play) ---------- */
-/* A surface rather than a page: one screen, momentary controls, and the only
-   non-musical gesture on it is the one that leaves. Behind the per-device
-   hindsight.play flag, so a kit that has not asked for it never draws any of
-   this.
+/* The pads, shared by every place Play mode draws them: since the rooms'
+   P3 that is the instrument strip, a drawer above the bar (its layout is
+   the "Rooms P3" block at the end). Behind the per-device hindsight.play
+   flag, so a kit that has not asked for it never draws any of this.
 
    Every selector here hangs off a `play-` class (styles.test.js checks):
    a bare `.play` is the Takes page's Play buttons, and an overlay rule on it
    once filled a phone's screen with one of them.
 
-   The surface is an object, so it is drawn in its own materials (the --pad-
-   tokens in objects.css) and looks the same in both schemes. It used the
-   page's panels once, and in the light scheme its legends were ivory on pale
-   grey. styles.test.js keeps it off the scheme's tokens. */
-.play-mode {
-  position: fixed; inset: 0; z-index: 60;
-  display: flex; flex-direction: column; gap: 10px;
-  padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
-  background: var(--pad-chassis); color: var(--pad-legend);
-  color-scheme: dark;
-}
-body.play-open { overflow: hidden; }
-
-.play-top { display: flex; align-items: center; gap: 12px; flex: none; }
+   The pads are an object, so they are drawn in their own materials (the
+   --pad- tokens in objects.css) and look the same in both schemes. They
+   used the page's panels once, and in the light scheme their legends were
+   ivory on pale grey. styles.test.js keeps them off the scheme's tokens. */
 .play-quant { display: flex; align-items: center; gap: 8px; }
 .play-quant-label { font: 700 11px var(--label-font); letter-spacing: 2px; color: var(--pad-legend-dim); }
 /* Quantise: its own small switch, not the app's .seg, which is drawn in the
@@ -3665,7 +3685,7 @@ body.play-open { overflow: hidden; }
   border: 1px solid var(--pad-rule); border-radius: 10px;
 }
 .play-seg button {
-  min-height: 36px; min-width: 40px; padding: 0 10px;
+  min-height: 30px; min-width: 36px; padding: 0 8px;
   border: 0; border-radius: 7px;
   background: transparent; color: var(--pad-legend-dim);
   font: 600 13px var(--label-font);
@@ -3675,19 +3695,9 @@ body.play-open { overflow: hidden; }
   margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 600 12px var(--label-font); letter-spacing: 1px; color: var(--pad-legend-dim);
 }
-.play-exit {
-  margin-left: auto; min-height: 44px; padding: 0 18px;
-  border: 1px solid var(--pad-edge); border-radius: 10px;
-  background: var(--pad-face); color: var(--pad-legend);
-  font: 700 13px var(--label-font); letter-spacing: 2px; text-transform: uppercase;
-}
-.play-seg button:focus-visible, .play-exit:focus-visible, .play-pad:focus-visible {
+.play-seg button:focus-visible, .play-pad:focus-visible {
   outline: 2px solid var(--pad-lit); outline-offset: 2px;
 }
-
-.play-stage { flex: 1; display: flex; gap: 10px; min-height: 0; }
-.play-tracks { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; min-height: 0; }
-.play-tricks { flex: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
 
 /* A pad. Big enough to hit with a thumb while looking at an instrument
    instead of at the screen. */
@@ -3700,6 +3710,7 @@ body.play-open { overflow: hidden; }
   font: 700 13px var(--label-font); letter-spacing: 2px;
   touch-action: none;            /* a held pad must not scroll the surface */
   user-select: none; -webkit-user-select: none;
+  cursor: pointer;
 }
 .play-face { pointer-events: none; }
 .play-key {
@@ -3730,32 +3741,1592 @@ body.play-open { overflow: hidden; }
   .play-pad { transition: background 70ms linear, opacity 70ms linear; }
 }
 
-/* The ring: the loop, and where the playhead is in it. A readout you can
-   follow from across the room with your hands on an instrument. */
-.play-ring { flex: none; width: clamp(96px, 26vw, 150px); display: flex; align-items: center; }
-.play-ring svg { width: 100%; height: auto; }
-.play-ring-track { fill: none; stroke: var(--pad-edge); stroke-width: 6; }
-.play-ring-sweep { fill: none; stroke: var(--pad-lit); stroke-width: 6; stroke-linecap: round; }
-.play-ring-ticks line { stroke: var(--pad-legend-dim); stroke-width: 1.5; }
-.play-ring-bar { fill: var(--pad-legend); font: 700 26px var(--label-font); }
+/* ---------- Rooms P1: the Studio's feed and foot (lib/rooms/studio.js) ---------- */
+/* With the two rooms on (lib/rooms/flag.js, one device), the tape page is
+   the Studio: Capture's feed above the lanes, and under them Capture's input
+   diagnostic and the about line -- the only way into Settings. tape.html
+   keeps them in templates, so with the flag off none of this markup exists;
+   and every rule here hangs off a studio- class, the about line in the tape
+   page's body (only the Studio puts one there), or :root[data-rooms], which
+   only the flag's early script sets (styles.test.js). */
+.studio-feed {
+  flex: none;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "head head" "ribbon vu" "keys keys" "sel sel";
+  align-items: center; gap: 8px 14px;
+  padding: 10px 14px;
+}
+/* A wide screen has the room for the keys beside the heading. */
+@media (min-width: 1100px) {
+  .studio-feed { grid-template-areas: "head keys" "ribbon vu" "sel sel"; }
+}
+.studio-feed-head { grid-area: head; display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* The heading keeps its word; its rule takes what room is left. */
+.studio-feed-head > .studio-feed-title { margin: 0; flex: 1 0 auto; }
+/* Capture's readouts, in a line: its trouble, then disk, drops and tempo. */
+.studio-stats {
+  margin: 0; flex: 0 1 auto; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 12px; color: var(--ink-dim);
+}
+.studio-stat + .studio-stat::before, .studio-health:not([hidden]) + .studio-stat::before { content: '· '; }
+.studio-stats .warn, .studio-health.wait { color: var(--warn-ink); }
+.studio-stats .bad, .studio-health.bad { color: var(--danger-ink); }
+.studio-health { font-weight: 600; }
+.studio-health[hidden] { display: none; }
+.studio-feed-head > .phone-btn { margin-left: 0; }
+.studio-feed > .viz-wrap { grid-area: ribbon; height: 112px; }
+.studio-feed > .vu-row { grid-area: vu; margin: 0; gap: 8px; }
+.studio-feed > .vu-row .vu { flex: none; width: 128px; }
+.studio-feed > .vu-row .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
+.studio-feed > .meters { grid-area: meters; margin: 0; }
+.studio-feed > .rb-sel { grid-area: sel; margin: 0; }
+.studio-keys { grid-area: keys; display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.studio-keys > .seg { flex: 0 1 auto; min-width: 0; }
+.studio-keys > .seg button { padding: 0 10px; }
+.studio-keys > .mark-btn { flex: none; }
+/* Keep goes to the end of the row, under the ribbon's "now". */
+.studio-keys > .studio-keep { margin-left: auto; }
 
-/* On a phone in portrait the four tracks are still four columns, but the ring
-   moves under them so the pads keep their height. */
-@media (max-width: 560px) and (orientation: portrait) {
-  .play-stage { flex-direction: column; }
-  .play-ring { width: 100%; justify-content: center; }
-  .play-ring svg { width: clamp(90px, 30vw, 130px); }
+/* KEEP: the dashcam's save, a paper key -- the cassette's label -- so it
+   doesn't compete with Catch's orange on the deck below. Paper is a material
+   (objects.css), the same in both schemes. */
+.icon-btn.studio-keep {
+  flex: none; min-height: 44px; padding: 4px 16px;
+  flex-direction: column; gap: 0; line-height: 1.15;
+  background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
+  color: var(--paper-ink); border-color: var(--paper-rule);
+}
+.icon-btn.studio-keep:active { background: linear-gradient(180deg, var(--paper-lo), var(--paper-hi)); }
+.icon-btn.studio-keep.saved { box-shadow: 0 0 0 4px color-mix(in srgb, var(--paper-hi) 35%, transparent), 0 0 24px var(--accent-glow); }
+.studio-keep-word { font: 700 16px var(--label-font); letter-spacing: .16em; text-transform: uppercase; }
+.studio-keep-line { display: inline-flex; align-items: baseline; justify-content: center; gap: .4em; white-space: nowrap; }
+/* What KEEP keeps, beside its word: "2m" after KEEP, in the case it is written. */
+.studio-keep-len { font: 700 16px var(--label-font); letter-spacing: .04em; text-transform: none; }
+.studio-keep-len:empty { display: none; }
+.studio-keep-sub { font: 500 11.5px var(--font); color: var(--paper-dim); }
+.studio-keep-sub[hidden] { display: none; }
+
+/* With the rooms on, every page's switch waits -- out of sight, but in its
+   place -- for lib/nav.js to rewrite it as two tabs (.appnav-rooms), so the
+   three old tabs never paint. :root[data-rooms] is set by the early script
+   in each page's head, only with the flag on. If the script never comes,
+   the switch shows anyway after two seconds: the old names beat no way
+   between the pages at all. */
+:root[data-rooms] .appnav:not(.appnav-rooms) { visibility: hidden; animation: rooms-appnav-late 0s linear 2s forwards; }
+@keyframes rooms-appnav-late { to { visibility: visible; } }
+
+/* The Studio's foot, between main and the dock: Capture's input diagnostic,
+   then the about line. */
+body.tape-page > .studio-chan { flex: none; margin: 0; padding: 4px 16px 0; }
+body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
+body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
+
+/* A phone: the ribbon the full width, the meters as two bars (needles cost
+   the lanes their height), and the keys under them, where the thumb is.
+   Keep is its word alone -- the lengths beside it, and the ribbon, say how
+   much -- and Flag now its pennant, as on Capture's bench. */
+@media (max-width: 699.98px) {
+  .studio-feed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "ribbon" "meters" "keys" "sel";
+    gap: 8px; padding: 10px 12px;
+  }
+  .studio-feed > .viz-wrap { height: 92px; }
+  .studio-feed > .vu-row { display: none; }
+  .studio-feed > .meters { display: flex; gap: 4px; }
+  .studio-keys > .seg { flex: 1 1 0; }
+  .studio-keys > .seg button { padding: 0 4px; }
+  .studio-keys > .mark-btn { font-size: 0; min-width: 44px; padding: 0 12px; }
+  .studio-keys > .mark-btn::before { font-size: 16px; }
+  .icon-btn.studio-keep { min-width: 96px; margin-left: 0; }
+  .studio-keep-sub { display: none; }
+  /* The selection bar's four keys don't fit beside its readout: the
+     readout takes a line of its own, and the keys wrap under it. */
+  .studio-feed > .rb-sel { flex-wrap: wrap; row-gap: 6px; }
+  .studio-feed > .rb-sel .rb-sel-text { flex: 1 1 100%; }
+  .studio-feed > .rb-sel .icon-btn { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
+  body.tape-page > .studio-chan { padding: 4px 12px 0; }
+}
+/* A phone held sideways: the lanes have 390 px, so the feed gives back what
+   it can -- a short ribbon with the bars under it and the keys beside them. */
+@media (orientation: landscape) and (max-height: 440px) {
+  .studio-feed {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "head head" "ribbon keys" "meters keys" "sel sel";
+    gap: 6px 10px; padding: 8px 10px;
+  }
+  .studio-feed > .viz-wrap { height: 64px; }
+  .studio-feed > .vu-row { display: none; }
+  .studio-feed > .meters { display: flex; gap: 4px; }
+  .studio-keys { flex-direction: column; align-self: stretch; }
+  .studio-keys > .seg button { min-height: 34px; }
+  .studio-keys > .studio-keep { margin-left: 0; }
 }
 
-/* Play mode's own way in, made by lib/play/mount.js. It exists only when the
-   flag is on, which is why it is not in tape.html. */
-.play-enter {
-  position: fixed; z-index: 55;
-  right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
-  min-height: 44px; padding: 0 18px;
-  border: 1px solid var(--accent-edge); border-radius: 22px;
-  background: var(--panel); color: var(--ink);
-  font: 700 13px var(--label-font); letter-spacing: 2px; text-transform: uppercase;
-  box-shadow: 0 2px 10px var(--shadow);
+/* ---------- Rooms P2: the buffer (lib/buffer) ---------- */
+/* With the two rooms on, the Studio's buffer: GRAB in the feed's keys, the
+   buffer between the feed and the lanes -- a raised bench on a laptop, a
+   sheet over the folded lanes on a phone -- and its marks over the lanes
+   while it's dragged onto one. tape.html keeps its markup in templates, so
+   with the flag off none of it exists; and every rule here hangs off a
+   buffer- class only the buffer puts in the page (styles.test.js). Folding
+   the lanes is a class on the body that changes heights, nothing else
+   (lib/buffer/fold.test.js). */
+
+/* GRAB, before KEEP: LAST 1 2 4 8 BARS · GRAB. */
+.buffer-grab { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.buffer-grab-last, .buffer-grab-unit { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.buffer-grab-unit[hidden] { display: none; }
+.buffer-grab > .seg.buffer-bars { flex: 0 1 auto; }
+.buffer-grab > .seg.buffer-bars button { padding: 0 9px; min-width: 32px; }
+.icon-btn.buffer-grab-key {
+  min-height: 44px; padding: 4px 14px; gap: 8px;
+  font: 700 15px var(--label-font); letter-spacing: .14em; text-transform: uppercase;
+  box-shadow: inset 0 1px 0 var(--hl), 0 0 0 2px var(--accent), 0 2px 4px -2px var(--sh);
 }
-body.play-open .play-enter { display: none; }
+.icon-btn.buffer-reopen { min-height: 44px; font: 700 13px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+.icon-btn.buffer-reopen[hidden] { display: none; }
+.buffer-kbd { font: 500 10.5px var(--mono); opacity: .65; margin-left: 4px; letter-spacing: 0; }
+.buffer-grab-n { display: none; }
+.icon-btn.buffer-grab-sel { font-weight: 700; }
+
+/* The buffer's span on the feed's ribbon. */
+.buffer-mark {
+  position: absolute; top: 0; bottom: var(--rb-ruler, 22px); z-index: 4; pointer-events: none;
+  border: 2px solid var(--stripe-1); border-radius: 4px; box-sizing: border-box;
+  background: rgba(255, 248, 232, .10); box-shadow: 0 0 14px rgba(255, 226, 170, .35);
+}
+.buffer-mark[hidden] { display: none; }
+.buffer-mark-label {
+  position: absolute; top: 3px; left: 3px; max-width: calc(100% - 6px); overflow: hidden;
+  padding: 1px 5px; border-radius: 3px; background: var(--stripe-1); color: var(--stripe-1-ink);
+  font: 700 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+}
+
+/* The bench: between the feed and the lanes, raised, its notch at its span. */
+.buffer-panel {
+  flex: none; position: relative; margin: 12px 0 10px; padding: 10px 14px 10px;
+  display: grid; gap: 8px;
+  box-shadow: inset 0 1px 0 var(--hl), 0 10px 22px -10px var(--sh-strong), 0 2px 0 var(--edge);
+}
+.buffer-panel[hidden] { display: none; }
+.buffer-notch {
+  position: absolute; top: -9px; width: 16px; height: 16px; transform: translateX(-50%) rotate(45deg);
+  background: var(--panel-hi); border-left: 1px solid var(--edge); border-top: 1px solid var(--edge);
+}
+.buffer-notch[hidden] { display: none; }
+.buffer-sheet-grip { display: none; }
+.buffer-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
+.buffer-panel .buffer-title { margin: 0; font: 700 15px var(--label-font); letter-spacing: .2em; text-transform: uppercase; color: var(--ink); }
+.buffer-panel .buffer-title::after { content: none; }
+.buffer-meta { font: 500 12px var(--mono); color: var(--ink-dim); white-space: nowrap; }
+.buffer-meta-short { display: none; }
+.buffer-sources { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip.buffer-source { min-height: 30px; padding: 0 10px; font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+.chip.buffer-source[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 1px 0 var(--hl), 0 0 0 1px var(--accent); color: var(--ink); }
+.buffer-source-led { width: 7px; height: 7px; border-radius: 50%; background: var(--led-off); }
+.chip.buffer-source.signal .buffer-source-led { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
+.buffer-note { font: 500 12px var(--font); color: var(--warn-ink); }
+.buffer-note[hidden] { display: none; }
+.buffer-spacer { flex: 1 1 0; }
+.icon-btn.buffer-audition, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .icon-btn.buffer-close { min-height: 34px; padding: 0 11px; font: 700 12px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+.icon-btn.buffer-snap { font-family: var(--mono); letter-spacing: 0; text-transform: none; }
+.buffer-led { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); }
+.icon-btn.buffer-audition[aria-pressed="true"] .buffer-led { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
+.icon-btn.buffer-unfold[aria-pressed="true"] { border-color: var(--ink-dim); }
+
+.buffer-body { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(220px, 260px); gap: 10px; align-items: stretch; min-width: 0; }
+.buffer-grip {
+  appearance: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 8px 0; border: 1px dashed var(--rule); border-radius: 8px; background: transparent; color: var(--ink-dim);
+  cursor: grab; touch-action: none;
+}
+.buffer-grip:active { cursor: grabbing; }
+.buffer-grip-dots { width: 12px; height: 22px; background: radial-gradient(circle, currentColor 1.6px, transparent 1.9px) 0 0 / 6px 8px; }
+.buffer-grip-word { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 11px var(--label-font); letter-spacing: .16em; text-transform: uppercase; }
+.buffer-window { position: relative; height: 112px; min-width: 0; border-radius: 6px; overflow: hidden; background: var(--oxide-edge); box-shadow: inset 0 2px 0 rgba(0, 0, 0, .35); }
+.buffer-canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+.buffer-canvas.buffer-at-mark, body.buffer-holding .buffer-canvas { cursor: ew-resize; }
+.buffer-acts { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; min-width: 0; }
+.icon-btn.buffer-drop {
+  flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; padding: 10px 16px; min-height: 64px;
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo)); color: var(--on-accent); border-color: var(--accent-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
+  text-align: left;
+}
+.buffer-drop-word { font: 700 20px var(--label-font); letter-spacing: .12em; text-transform: uppercase; line-height: 1.05; }
+.buffer-drop-sub { font: 500 11.5px var(--mono); opacity: .9; }
+.icon-btn.buffer-drop:disabled { background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink-dim); border-color: var(--edge); box-shadow: none; opacity: 1; }
+.buffer-acts-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 8px; }
+.buffer-acts-row > .icon-btn { min-height: 44px; font: 700 13.5px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+.icon-btn.buffer-keep {
+  background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
+  color: var(--paper-ink); border-color: var(--paper-rule);
+}
+/* KEEP names what it keeps: "KEEP 4 BARS" (bars in capitals, seconds as 3.6s). */
+.buffer-keep-len { letter-spacing: .06em; text-transform: none; } /* the key's own gap sets it off KEEP */
+.buffer-keep-len:empty { display: none; }
+.buffer-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.buffer-edge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 10px; background: var(--track); }
+.buffer-edge-name { font: 700 11.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); margin-right: 2px; }
+.icon-btn.buffer-step { min-width: 36px; min-height: 32px; padding: 0 8px; }
+.buffer-gain { display: inline-flex; align-items: center; gap: 6px; font: 700 11.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.buffer-gain input { width: 110px; }
+.buffer-gain-val { font: 500 12px var(--mono); color: var(--ink); letter-spacing: 0; text-transform: none; min-width: 5.5em; }
+.icon-btn.buffer-shape { min-height: 32px; padding: 0 10px; font-size: 12.5px; }
+.icon-btn.buffer-shape[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); }
+.buffer-hint { margin-left: auto; font-size: 12px; color: var(--ink-faint); text-align: right; max-width: 34em; }
+
+/* The lanes fold to strips while the buffer is open: heights only, so a
+   lane's x -- its playhead and its clips -- never moves. The one under a
+   drag opens out, the rest staying strips, so the lane under the finger
+   doesn't run away from it. */
+body.buffer-fold .tape-lanes { gap: 3px; }
+@media (min-width: 700px) {
+  body.buffer-fold .tape-track { flex-grow: 0; flex-shrink: 0; flex-basis: 22px; min-height: 0; overflow: hidden; }
+  body.buffer-fold .tape-track.buffer-target { flex-basis: 56px; }
+  body.buffer-fold .tt-head { overflow: hidden; align-content: start; }
+}
+
+/* Dragging it onto a lane: the chip under the finger, the ghosts where it
+   lands, and the glow once it has. A layer of its own over the page. */
+.buffer-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
+.buffer-ghost, .buffer-glow { position: absolute; box-sizing: border-box; border-radius: 4px; }
+.buffer-ghost { border: 2px dashed var(--stripe-1); background: rgba(224, 102, 42, .16); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.buffer-ghost > span { font: 700 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stripe-1); white-space: nowrap; text-shadow: 0 1px 0 rgba(0, 0, 0, .5); }
+.buffer-glow { box-shadow: 0 0 0 2px rgba(127, 230, 220, .95), 0 0 18px 4px rgba(127, 230, 220, .7); background: rgba(127, 230, 220, .18); animation: buffer-glow 1.4s ease-out forwards; }
+@keyframes buffer-glow { from { opacity: 1; } to { opacity: 0; } }
+.buffer-chip {
+  position: absolute; transform: translate(-24px, -130%) rotate(-3deg); padding: 6px 10px; max-width: 70vw;
+  border: 2px solid var(--stripe-1); border-radius: 6px; background: linear-gradient(180deg, var(--oxide), var(--oxide-lo));
+  color: var(--trace); font: 700 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; overflow: hidden;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, .55);
+}
+body.buffer-lifting, body.buffer-lifting * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+/* Nobody trims mid-drag: on a laptop the bench's foot gives the lanes its
+   room while the buffer is carried to one. */
+@media (min-width: 700px) and (min-height: 441px) {
+  body.buffer-lifting .buffer-foot { display: none; }
+}
+
+/* While it's open the feed gives the lanes room: a shorter ribbon, and no
+   sections row (they're the tape's, and come back when it closes). */
+body.buffer-open .studio-feed > .viz-wrap { height: 76px; }
+body.buffer-fold .tape-sections-row { display: none; }
+
+/* A phone: the buffer is a sheet over the folded lanes, at the inspector's
+   heights -- peek, half, full -- with the mini player tucked under it. The
+   feed is shorter still while it's open, GRAB and KEEP on one row, so the
+   strips show above it. */
+@media (orientation: landscape) and (max-height: 440px), (max-width: 699.98px) {
+  .buffer-panel {
+    position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); z-index: 20; margin: 0;
+    display: flex; flex-flow: row wrap; align-content: flex-start; gap: 10px 8px; height: 45svh; box-sizing: border-box;
+    padding: 0 12px 14px; overflow-y: auto; overscroll-behavior: contain;
+    border-radius: 18px 18px 0 0; border-bottom: 0;
+    box-shadow: 0 -10px 24px -14px var(--sh-strong); transition: height .18s ease;
+  }
+  .buffer-panel[data-height="peek"] { height: 96px; }
+  .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - 8px); }
+  .buffer-notch, .buffer-grip, .buffer-hint, .buffer-panel .buffer-kbd, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .buffer-meta-full { display: none; }
+  .buffer-meta-short { display: inline; }
+  .buffer-panel .buffer-title { letter-spacing: .14em; }
+  .icon-btn.buffer-audition, .icon-btn.buffer-close { min-height: 38px; }
+  .buffer-sheet-grip {
+    display: block; position: sticky; top: 0; z-index: 1; flex: 0 0 calc(100% + 24px); height: 26px; margin: 0 -12px -6px;
+    padding: 0; border: 0; background: linear-gradient(180deg, var(--panel-hi), var(--panel-hi) 70%, transparent);
+    cursor: grab; touch-action: none;
+  }
+  .buffer-sheet-grip::before { content: ''; display: block; width: 44px; height: 5px; margin: 6px auto 0; border-radius: 3px; background: var(--rule); }
+  .buffer-head { order: 1; flex: 1 0 100%; }
+  .buffer-sources { order: 2; flex: 1 0 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .chip.buffer-source { justify-content: center; min-height: 38px; border-radius: 10px; }
+  .buffer-body, .buffer-foot { display: contents; }
+  .buffer-window { order: 2; flex: 1 0 100%; height: 120px; }
+  .buffer-edge { order: 3; flex: 1 1 40%; justify-content: space-between; }
+  .buffer-acts { order: 4; flex: 1 0 100%; display: flex; flex-direction: column; }
+  .buffer-gain { order: 5; flex: 1 0 100%; }
+  .buffer-gain input { flex: 1 1 auto; width: auto; }
+  .icon-btn.buffer-shape { order: 6; flex: 1 1 auto; min-height: 38px; white-space: nowrap; }
+  .icon-btn.buffer-drop { align-items: center; text-align: center; min-height: 64px; }
+  body.tape-page.buffer-open { padding-bottom: calc(var(--dock-b, 0px) + 45svh); }
+  body.buffer-open .studio-feed > .viz-wrap { height: 60px; }
+  body.buffer-open .studio-feed > .meters { display: none; }
+  body.tape-page.buffer-open:has(.np) #toasts { bottom: calc(var(--dock-b, 0px) + 45svh + 12px); }
+  .studio-keys:has(> .buffer-grab) { flex-wrap: wrap; }
+  .buffer-grab { flex: 1 0 100%; }
+  .buffer-grab-last { display: none; }
+  .buffer-grab > .seg.buffer-bars { flex: 1 1 auto; }
+  .icon-btn.buffer-grab-key { flex: none; min-width: 104px; }
+  .icon-btn.buffer-reopen { flex: none; padding: 0 10px; font-size: 12px; }
+  /* GRAB and KEEP side by side while it's open: the picker and the
+     lengths wait in the closed feed. */
+  body.buffer-open .buffer-grab { flex: 1 1 auto; }
+  body.buffer-open .buffer-grab > .seg.buffer-bars, body.buffer-open .buffer-grab-unit, body.buffer-open .studio-keys > .seg { display: none; }
+  body.buffer-open .icon-btn.buffer-grab-key { flex: 1 1 auto; }
+  body.buffer-open .buffer-grab-n { display: inline; }
+}
+@media (max-width: 699.98px) {
+  body.buffer-fold .tape-track { height: 13px; overflow: hidden; }
+  body.buffer-fold .tt-lane { min-height: 0; height: 12px; }
+  body.buffer-fold .tape-track.buffer-target { height: 76px; }
+  body.buffer-fold .tape-track.buffer-target .tt-lane { height: 74px; }
+  body.buffer-fold .tape-lanes { gap: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .buffer-glow { animation: none; opacity: 0; transition: opacity 1.2s; }
+  .buffer-panel { transition: none; }
+}
+
+/* ---------- Rooms P3: the instrument strip (lib/play) ---------- */
+/* Play mode as one more drawer above the bar (lib/play/screen.js): folded,
+   one live row of small pads; unfolded, the reel as the loop's ring, the
+   track keys, the tricks and the rest of the bus. Behind hindsight.play,
+   built by lib/play/mount.js, so a kit without it has none of this markup.
+   Every selector hangs off a `play-` class, and the strip is the pad
+   controller's materials (objects.css), dark in either scheme, as an
+   instrument on a stand is (lib/play/styles.test.js). */
+.play-strip {
+  flex: none; margin: 0 12px;
+  border: 1px solid var(--pad-edge); border-bottom: 0; border-radius: 12px 12px 0 0;
+  background: var(--pad-chassis); color: var(--pad-legend);
+  color-scheme: dark;
+}
+.play-row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; min-width: 0; }
+.play-fold, .play-keys, .play-learn, .play-verb {
+  appearance: none; flex: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px;
+  border: 1px solid var(--pad-edge); border-radius: 9px;
+  background: var(--pad-face); color: var(--pad-legend);
+  font: 700 12.5px var(--label-font); letter-spacing: .16em; text-transform: uppercase;
+  cursor: pointer;
+}
+.play-fold[aria-expanded="true"] { background: var(--pad-face-armed); }
+.play-chev { color: var(--pad-legend-dim); font-size: 11px; letter-spacing: 0; }
+.play-keys { padding: 0 10px; color: var(--pad-legend-dim); }
+.play-keys[aria-pressed="true"] { color: var(--pad-legend); border-color: var(--pad-lit); }
+/* A lamp: the KEYS rule, a controller connected, a pad sounding. */
+.play-lamp {
+  flex: none; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--pad-rule); box-shadow: inset 0 1px 1px rgba(0,0,0,.45);
+}
+.play-keys[aria-pressed="true"] .play-lamp, .play-lamp.play-lit { background: var(--pad-lit); box-shadow: 0 0 8px var(--pad-lit); }
+.play-fold:focus-visible, .play-keys:focus-visible, .play-learn:focus-visible, .play-verb:focus-visible,
+.play-from-opt:focus-visible, .play-toggle-opt:focus-visible { outline: 2px solid var(--pad-lit); outline-offset: 2px; }
+
+/* Folded: the track keys and the tricks, small, still live. */
+.play-mini { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.play-pad.play-small {
+  flex: none; flex-direction: row; gap: 6px;
+  min-height: 36px; height: 36px; min-width: 42px; padding: 0 9px;
+  border-radius: 8px; font-size: 11.5px; letter-spacing: 1px;
+}
+.play-track.play-small { font-size: 15px; }
+.play-strip > .play-row > .play-note { flex: 0 1 auto; }
+.play-head { display: none; }
+.play-strip[data-fold="open"] .play-mini { display: none; }
+.play-strip[data-fold="open"] .play-head { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+.play-from {
+  display: inline-flex; align-items: center; gap: 2px; padding: 3px; min-width: 0; flex-wrap: wrap;
+  border: 1px solid var(--pad-rule); border-radius: 10px;
+}
+.play-from-label { padding: 0 8px; font: 700 10.5px var(--label-font); letter-spacing: .18em; text-transform: uppercase; color: var(--pad-legend-dim); }
+.play-from-opt {
+  appearance: none; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 30px; padding: 0 10px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--pad-legend-dim);
+  font: 500 12.5px var(--font); cursor: pointer; white-space: nowrap;
+}
+.play-from-opt[aria-pressed="true"] { background: var(--pad-face-armed); color: var(--pad-legend); }
+.play-lead { font: 500 12px var(--mono); color: var(--pad-legend-dim); white-space: nowrap; }
+.play-learn { margin-left: auto; }
+.play-learn[aria-pressed="true"] { background: var(--pad-lit); border-color: var(--pad-lit); color: var(--pad-lit-ink); }
+.play-learn:disabled { opacity: .45; cursor: default; }
+
+/* Unfolded. */
+.play-panel { padding: 0 12px 10px; }
+.play-panel[hidden] { display: none; }
+.play-lines { display: flex; align-items: baseline; gap: 16px; margin: 0 0 8px; min-width: 0; }
+.play-lines:not(:has(> :not([hidden]))) { display: none; }
+.play-from-line { margin: 0; flex: 0 1 auto; min-width: 0; font-size: 12px; color: var(--pad-legend-dim); }
+.play-from-line[hidden] { display: none; }
+.play-lines > .play-note { flex: 1 1 0; color: var(--pad-legend); text-align: right; }
+.play-body {
+  display: grid; align-items: stretch; gap: 16px;
+  grid-template-columns: auto minmax(200px, 1.1fr) minmax(260px, 1fr);
+}
+.play-tracks-group, .play-side { display: flex; flex-direction: column; min-width: 0; }
+.play-tracks-group > .play-tracks { flex: 1 1 auto; }
+.play-body > .play-slot:not([hidden]) { display: block; } /* P4's FX and mods, when they land */
+.play-reel { width: clamp(132px, 11vw, 168px); align-self: center; }
+.play-reel svg { display: block; width: 100%; height: auto; }
+.play-ring-track { fill: none; stroke: var(--pad-face); stroke-width: 14; }
+.play-ring-ticks line { stroke: var(--pad-legend-dim); stroke-width: 2.5; }
+.play-ring-sweep { fill: none; stroke: var(--pad-lit); stroke-width: 7; stroke-linecap: round; }
+.play-ring-head { fill: var(--pad-lit); }
+.play-reel-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 2; }
+.play-reel-pack { fill: var(--pack); stroke: var(--pack-edge); stroke-width: 1.5; }
+.play-reel-spoke { stroke: var(--reel-metal); stroke-width: 9; stroke-linecap: round; }
+.play-reel-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 2; }
+.play-reel-lcd { fill: var(--lcd-ink); font: 600 27px var(--mono); }
+.play-reel-unit { fill: var(--lcd-ink); opacity: .75; font: 700 9px var(--label-font); letter-spacing: .14em; }
+.play-group-title { margin: 0 0 8px; font: 700 11px var(--label-font); letter-spacing: .2em; text-transform: uppercase; color: var(--pad-legend-dim); }
+.play-tracks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.play-tracks .play-track { min-height: 88px; font-size: 24px; }
+.play-tricks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.play-tricks .play-trick { min-height: 48px; }
+.play-bus {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 8px;
+}
+.play-bus .play-verb { height: 32px; padding: 0 9px; }
+.play-bus-title { font: 700 10.5px var(--label-font); letter-spacing: .2em; text-transform: uppercase; color: var(--pad-legend-dim); margin-right: 4px; }
+.play-verb .play-key { margin-left: 2px; }
+.play-verb .play-face-words { text-transform: none; letter-spacing: .06em; } /* KEEP 30s: the length as it is written */
+.play-bus-hint { margin-left: auto; font: 500 11px var(--mono); color: var(--pad-legend-dim); white-space: nowrap; }
+/* Lit by another hand: bright only, with a ring to say it isn't this one's. */
+.play-pad.play-far { box-shadow: inset 0 0 0 2px var(--pad-lit-ink); }
+/* MIDI LEARN: the legends are the bindings, and the pad waiting blinks. */
+.play-learning .play-pad, .play-learning .play-verb { border-style: dashed; }
+.play-pad.play-pick, .play-verb.play-pick { border: 2px solid var(--pad-lit); }
+@media (prefers-reduced-motion: no-preference) {
+  .play-pad.play-pick, .play-verb.play-pick { animation: play-blink .7s steps(2, jump-none) infinite; }
+}
+@keyframes play-blink { 50% { background: var(--pad-face-armed); border-color: transparent; } }
+
+/* Narrower than a laptop: the reel over the pads. */
+/* While it's unfolded the page gives it room, so the lanes it plays stay in
+   sight: a shorter ribbon, no meters beside it, no sections row (they're
+   for arranging, and come back when it folds). */
+@media (min-width: 700px) and (min-height: 441px) {
+  body.play-unfolded .studio-feed > .viz-wrap { height: 56px; }
+  body.play-unfolded .studio-feed > .vu-row { display: none; }
+  body.play-unfolded .tape-sections-row { display: none; }
+}
+
+/* Narrower than a laptop (the bench tablet), or a laptop's own height: the
+   reel beside the pads, the six tricks in one row, and no titles, so the
+   lanes keep some height. */
+@media (max-width: 1099.98px) and (min-width: 700px), (min-width: 700px) and (min-height: 441px) and (max-height: 1000px) {
+  .play-body { grid-template-columns: auto 1fr; gap: 6px 14px; }
+  .play-side { grid-column: 2; }
+  .play-reel { grid-row: span 2; width: 112px; }
+  .play-group-title { display: none; }
+  .play-panel { padding-bottom: 6px; }
+  .play-tracks .play-track { min-height: 44px; font-size: 20px; }
+  .play-tricks { grid-template-columns: repeat(6, 1fr); }
+  .play-tricks .play-trick { min-height: 38px; padding: 2px; gap: 2px; }
+  .play-row { min-height: 42px; padding: 4px 10px; }
+  .play-fold, .play-keys, .play-learn { height: 32px; }
+  /* The where-from line goes to the segment's tip; the notes stay. */
+  .play-from-line { display: none; }
+  .play-lines { justify-content: flex-end; }
+  .play-lines:not(:has(> .play-note:not([hidden]))) { display: none; }
+  /* The feed folds to its keys: GRAB and KEEP stay, the ribbon comes back
+     with the strip folded. */
+  body.play-unfolded .studio-feed > .viz-wrap { display: none; }
+  /* Its grid would keep the ribbon's empty row, and a row's gap with it. */
+  body.play-unfolded .studio-feed { display: flex; flex-wrap: wrap; row-gap: 8px; }
+  body.play-unfolded .studio-feed > .studio-feed-head { flex: 1 1 320px; }
+  body.play-unfolded .studio-feed > .studio-keys { flex: 0 1 auto; }
+}
+/* A laptop has the width for the bus beside the tricks. */
+@media (min-width: 1100px) and (min-height: 441px) and (max-height: 1000px) {
+  .play-side { flex-direction: row; align-items: stretch; gap: 14px; }
+  .play-side > .play-tricks-group { flex: 1 1 auto; min-width: 0; }
+  .play-side > .play-bus { flex: none; margin-top: 0; flex-wrap: nowrap; }
+  .play-bus .play-bus-title, .play-bus .play-bus-hint { display: none; }
+}
+
+/* The phone's EDIT | PLAY lives in the mini player, and only there. */
+.play-toggle { display: none; }
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  body.tape-page:not(.player-open):has(.play-toggle) { --np-h: 108px; }
+  body.tape-page:not(.player-open):has(.play-toggle):has(#out-strip:not([hidden])) { --np-h: 148px; }
+  body:not(.player-open) .np:has(> .play-toggle) { flex-wrap: wrap; align-content: center; row-gap: 6px; }
+  body:not(.player-open) .np > .play-toggle {
+    order: -2; flex: 1 1 100%;
+    display: flex; gap: 3px; padding: 3px; border-radius: 10px;
+    background: var(--pad-chassis); border: 1px solid var(--pad-edge);
+  }
+  .play-toggle-opt {
+    appearance: none; flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 32px; border: 0; border-radius: 7px; background: transparent; color: var(--pad-legend-dim);
+    font: 700 13px var(--label-font); letter-spacing: .2em; text-transform: uppercase; cursor: pointer;
+  }
+  .play-toggle-opt[aria-pressed="true"] { background: var(--pad-face-armed); color: var(--pad-legend); }
+  /* PLAY: the strip is the bottom panel, over the lanes, above the bar. */
+  .play-strip { margin: 0; border: 0; border-radius: 0; }
+  .play-strip[data-fold="folded"] { display: none; }
+  body:not(.player-open) .play-strip[data-fold="open"] {
+    position: fixed; left: 0; right: 0; z-index: 17;
+    bottom: calc(var(--dock-b, 0px) + var(--np-h));
+    max-height: calc(100svh - var(--dock-b, 0px) - var(--np-h) - 96px); overflow-y: auto; overscroll-behavior: contain;
+    border-top: 1px solid var(--pad-edge); box-shadow: 0 -12px 24px -14px rgba(0,0,0,.7);
+  }
+  body.player-open .play-strip { display: none; }
+  .play-fold, .play-keys, .play-mini { display: none; }
+  .play-row { padding: 8px 12px 6px; min-height: 0; }
+  .play-strip[data-fold="open"] .play-head { gap: 8px; }
+  .play-learn { margin-left: 0; height: 32px; }
+  .play-from { flex: 1 1 100%; }
+  .play-body { grid-template-columns: auto 1fr; gap: 10px; }
+  .play-reel { width: 116px; }
+  .play-tracks-group { grid-column: 2; }
+  .play-side { grid-column: 1 / -1; }
+  .play-tracks .play-track { min-height: 96px; }
+  .play-tricks .play-trick { min-height: 54px; }
+  .play-bus-hint { margin-left: 0; }
+}
+
+/* The strip and the Studio's buffer take turns (lib/play/strip.js, `turns`):
+   a laptop's height holds one of them in full, and a phone's screen holds
+   one over the mini player. Unfolding the strip folds the buffer to its
+   peek -- one line on a laptop, the sheet's peek detent on a phone -- and
+   bringing the buffer forward folds the strip, so each is always whole when
+   it's the one in use. The peek is derived from two classes the pages
+   already carry (play-unfolded, buffer-open), so there's nothing for the
+   two to disagree about. */
+
+/* A phone. P2's sheet is fixed at the dock and tucks the mini player under
+   it; with Play mode on, the mini player carries EDIT | PLAY, so the sheet
+   stands on the player instead. Its half detent keeps P2's height, so DROP
+   is still in it; the full detent gives up the player's height, so it still
+   stops under the top bar. The room the page leaves above the sheet, and
+   the toasts, follow it up. */
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  body:not(.player-open):has(.play-toggle) .buffer-panel { bottom: calc(var(--dock-b, 0px) + var(--np-h)); }
+  body:not(.player-open):has(.play-toggle) .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - var(--np-h) - 8px); }
+  body.tape-page.buffer-open:not(.player-open):has(.play-toggle) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h) + 45svh); }
+  body.tape-page.buffer-open:not(.player-open):has(.play-toggle) #toasts { bottom: calc(var(--dock-b, 0px) + var(--np-h) + 45svh + 12px); }
+  /* PLAY drops the sheet to its peek and the strip stands above it. EDIT
+     touches nothing, so the sheet comes back at the height it was left. */
+  body.play-unfolded:not(.player-open):has(.play-toggle) .buffer-panel[data-height] { height: 96px; }
+  body.buffer-open:not(.player-open) .play-strip[data-fold="open"] {
+    bottom: calc(var(--dock-b, 0px) + var(--np-h) + 96px);
+    max-height: calc(100svh - var(--dock-b, 0px) - var(--np-h) - 96px - 96px);
+  }
+}
+
+/* A laptop or a tablet: the buffer under an unfolded strip is one line --
+   its title, its length, AUDITION and ✕ -- and a tap on it (strip.js) folds
+   the strip and opens the bench. The lanes get their height back: it is
+   only a line, so they needn't make room for it. */
+@media (min-width: 700px) and (min-height: 441px) {
+  body.play-unfolded.buffer-open .buffer-panel { margin: 6px 0; padding: 6px 12px; gap: 0; cursor: pointer; }
+  body.play-unfolded.buffer-open .buffer-body,
+  body.play-unfolded.buffer-open .buffer-foot,
+  body.play-unfolded.buffer-open .buffer-notch,
+  body.play-unfolded.buffer-open .buffer-sources,
+  body.play-unfolded.buffer-open .buffer-snap,
+  body.play-unfolded.buffer-open .buffer-unfold { display: none; }
+  body.play-unfolded.buffer-open .buffer-spacer { display: flex; justify-content: flex-end; }
+  body.play-unfolded.buffer-open .buffer-spacer::after {
+    content: 'Open ▴'; font: 700 11.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; opacity: .6;
+  }
+  body.play-unfolded.buffer-fold .tape-lanes { gap: 8px; }
+  body.play-unfolded.buffer-fold .tape-track { flex: 1 1 0; min-height: auto; overflow: visible; }
+  body.play-unfolded.buffer-fold .tt-head { overflow: visible; align-content: center; }
+}
+/* With the buffer the one open, a laptop's height has room for the lanes
+   only if the feed folds to its keys, as it does under the unfolded strip.
+   The notch pointed at the ribbon, which is gone. */
+@media (min-width: 700px) and (min-height: 441px) and (max-height: 1000px) {
+  body:has(.play-strip).buffer-open .studio-feed > .viz-wrap,
+  body:has(.play-strip).buffer-open .studio-feed > .vu-row { display: none; }
+  body:has(.play-strip).buffer-open .buffer-notch { display: none; }
+  body:has(.play-strip).buffer-open .studio-feed { display: flex; flex-wrap: wrap; row-gap: 8px; }
+  body:has(.play-strip).buffer-open .studio-feed > .studio-feed-head { flex: 1 1 320px; }
+  body:has(.play-strip).buffer-open .studio-feed > .studio-keys { flex: 0 1 auto; }
+  /* And the bench itself is a little closer: DROP, KEEP and TOSS keep their
+     size to the thumb, and a second lane shows under it. */
+  body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-panel { margin: 8px 0 6px; padding: 8px 14px; gap: 6px; }
+  body:has(.play-strip):not(.play-unfolded).buffer-open .icon-btn.buffer-drop { min-height: 48px; padding: 6px 16px; }
+  body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-acts-row > .icon-btn { min-height: 36px; }
+  body:has(.play-strip):not(.play-unfolded).buffer-open .buffer-window { height: 92px; }
+}
+
+/* ---------- Rooms P5: the Listening Room (lib/room/) ----------
+   The doorway (takes.html as the room, body.room-on) and Open
+   (wave.html with the rooms on), behind the rooms flag. Every rule here is
+   scoped to those body classes or to a room- class only the
+   room's modules make, so with the flag off none of it matches anything. The
+   room's colours are materials (objects.css, --room-*), the same in both
+   schemes; the header, the tabs, the sheets and Open follow the scheme. */
+
+/* --- the doorway: the room over the rack --- */
+.room-on main.shelf-main { display: block; max-width: none; padding: 0; }
+.room-on:not(.room-rack) :is(#takes, #takes-empty) { display: none; }
+.room-on:not(.room-search) .shelf-tools { display: none; }
+.room-on.room-search .shelf-tools { padding: 12px 16px; }
+.room-on:not(.room-rack) #shelf-sort { display: none; }
+.room-on:not(.room-rack) :is(#play-all, #select-btn) { display: none; }
+.room-on .shelf-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.room-on .room-search-btn[aria-expanded="true"] { color: var(--ink); background: var(--key-down); }
+.room-on #np-open, .room-on .detail-play { display: none; }
+.room-on.room-rack .room { display: none; }
+.room-rack-head { display: none; }
+.room-on.room-rack .room-rack-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px 4px; }
+.room-on.room-rack .room-rack-title { margin: 0; font: 700 18px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); }
+.room-on.room-rack #takes { padding: 0 16px; }
+/* A spine's folded takes (its cuts, its tape's earlier bounces) are lines of the
+   List, set in under it: the rooms show them (TakesList showFolded). */
+.room-on .take.spine.folded { margin-left: 22px; opacity: .92; }
+/* The select bar with Tag on it (lib/room/tagpick.js): one more key on a phone, so the
+   keys sit closer and the count ("2 selected") keeps its room. */
+@media (max-width: 520px) {
+  .room-on .select-bar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .room-on .select-bar .icon-btn { padding-left: 10px; padding-right: 10px; }
+}
+/* On the smallest phones five keys leave the count no room at all (it measured
+   0 px at 320): the count takes a line of its own over the keys. */
+@media (max-width: 380px) {
+  .room-on .select-bar { flex-wrap: wrap; row-gap: 4px; }
+  .room-on .select-bar #select-count { order: -1; flex: 1 0 100%; }
+  .room-on .select-bar .icon-btn { flex: 1 1 auto; padding-left: 6px; padding-right: 6px; }
+  .room-on .select-bar #sel-star { min-width: 0; }
+  body.room-on.selecting { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+}
+.room-on #trash, .room-on .about { margin-left: 16px; margin-right: 16px; }
+
+.room {
+  position: relative; isolation: isolate; overflow: hidden; box-sizing: border-box;
+  color: var(--room-ink); font-family: var(--font);
+  background:
+    radial-gradient(circle at 18% 30%, var(--room-glow), var(--room-glow-far) 22%, transparent 46%),
+    radial-gradient(ellipse at 44% 70%, var(--room-hearth), transparent 34%),
+    linear-gradient(var(--room-wall-hi), var(--room-wall) 70%, var(--room-wall-lo));
+}
+.room button { font-family: inherit; }
+.room :focus-visible { outline: 2px solid var(--room-plate-hi); outline-offset: 2px; }
+
+/* A place's words: cream on its own dark plate, never on the drawing. */
+.room-place {
+  appearance: none; display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+  min-height: 32px; padding: 0 12px; border-radius: 16px; cursor: pointer;
+  background: var(--room-tag); color: var(--room-ink); border: 1px solid var(--room-tag-edge);
+  font: 600 12.5px var(--font); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 6px 14px rgba(0,0,0,.35);
+}
+.room-led { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--room-walnut-hi); }
+.room-deck.playing .room-led { background: var(--room-led); box-shadow: 0 0 6px var(--room-led); }
+
+/* The shelves: a walnut unit, four shelves, a brass plate under each. */
+.room-shelves {
+  position: relative; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;
+  border: 12px solid var(--room-walnut-lo); border-top-width: 14px;
+  background: linear-gradient(90deg, var(--room-walnut-deep), var(--room-walnut-back) 30%, var(--room-walnut-deep));
+  box-shadow: 0 14px 30px rgba(0,0,0,.5);
+}
+.room-shelf { display: flex; flex-direction: column; min-width: 0; }
+.room-shelf[hidden] { display: none; }
+.room-row {
+  order: 1; list-style: none; margin: 0; padding: 12px 10px 0; min-height: 56px;
+  display: flex; align-items: flex-end; gap: 3px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+  border-bottom: 12px solid var(--room-walnut);
+  box-shadow: 0 6px 6px -4px rgba(0,0,0,.5);
+}
+.room-row > li { flex: none; display: flex; align-items: flex-end; }
+.room-shelf-foot { order: 2; display: flex; align-items: flex-start; gap: 8px; margin: -6px 0 6px 12px; }
+.room-list-btn {
+  appearance: none; min-height: 24px; padding: 0 9px; border-radius: 12px; cursor: pointer;
+  background: var(--room-tag); color: var(--room-ink); border: 1px solid var(--room-tag-edge); font: 600 11.5px var(--font);
+}
+.room-list-btn[hidden] { display: none; }
+.room-filtered {
+  margin: 8px 10px 4px; padding: 6px 10px; border-radius: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  background: var(--room-card); color: var(--room-paper-ink); font-size: 13px; line-height: 1.35;
+}
+.room-filtered[hidden] { display: none; }
+.room-filtered-clear {
+  appearance: none; min-height: 28px; padding: 0 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--room-paper-ink); background: transparent; color: var(--room-paper-ink); font: 600 12.5px var(--font);
+}
+.room-plate {
+  align-self: flex-start; margin: 0; padding: 2px 10px;
+  border-radius: 2px; background: linear-gradient(var(--room-plate-hi), var(--room-plate-lo));
+  color: var(--room-plate-ink); font: 700 12px/16px var(--label-font); letter-spacing: .16em;
+  box-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.room-empty {
+  order: 1; margin: 8px 12px 0; color: var(--room-ink-dim); font-size: 12.5px; line-height: 1.4;
+}
+.room-empty[hidden] { display: none; }
+
+/* Takes: cassette spines, a stripe at the top, the name in marker. */
+.room-cassette {
+  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
+  width: 30px; height: 112px; color: var(--paper-ink);
+  background: linear-gradient(90deg, var(--paper-lo), var(--paper-hi) 50%, var(--paper-lo));
+  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 2px 3px rgba(0,0,0,.35);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.room-cassette-stripe { position: absolute; left: 0; right: 0; top: 8px; height: 14px; background: var(--stripe); }
+.room-cassette-name {
+  position: absolute; left: 0; right: 0; top: 26px; bottom: 6px; overflow: hidden;
+  display: flex; align-items: center; justify-content: flex-start;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  font: 400 11.5px/1 'Permanent Marker', var(--font); white-space: nowrap; text-overflow: ellipsis;
+}
+.room-cassette-when, .room-fam { display: none; }
+.room-cassette.starred::after { content: '★' / ''; position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; font-size: 11px; color: var(--room-note-lo); text-shadow: 0 0 1px var(--paper-ink); }
+.room-new {
+  position: absolute; left: -5px; top: -9px; z-index: 1; width: 25px; height: 25px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; transform: rotate(-12deg);
+  background: var(--grease-mark); color: var(--paper-ink); font: 400 8.5px 'Permanent Marker', var(--font);
+  box-shadow: 0 2px 4px rgba(0,0,0,.4);
+}
+/* In the bar: a pale ring, and still a spine you tap to play or pause. Playing: the
+   ring is the lamp's green and breathes. Selected (a hold, ⇧-click, or Select): it
+   is ringed in the accent and wears a tick. */
+.room-cassette.on-deck {
+  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px rgba(243,231,211,.55), 0 2px 3px rgba(0,0,0,.35);
+}
+.room-cassette.on-deck[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px var(--room-led), 0 2px 3px rgba(0,0,0,.35);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .room-cassette.on-deck[aria-pressed="true"] { animation: room-playing 1.4s ease-in-out infinite; }
+}
+@keyframes room-playing { 50% { box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px transparent, 0 2px 3px rgba(0,0,0,.35); } }
+/* The ring is the accent on the paper's edge; a cream halo outside it carries it off the
+   wall, which the accent alone (2.95:1) does not (lib/room/contrast.test.js). */
+.room-cassette.selected { outline: 3px solid var(--accent); outline-offset: -3px; box-shadow: 0 0 0 2px var(--paper-hi); z-index: 2; }
+.room-cassette.selected::before {
+  content: '✓'; position: absolute; left: 2px; top: -6px; z-index: 3; width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); font: 700 12px var(--font);
+  box-shadow: 0 0 0 2px var(--paper-hi);
+}
+/* A hold on a phone is not the browser's menu or a text selection. */
+.room-cassette { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+@media (hover: hover) { .room-cassette:not(.selected):hover, .room-box:hover { transform: translateY(-3px); } }
+
+/* The archive: card boxes, a month on each. */
+.room-box {
+  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
+  width: 132px; height: 88px; color: var(--marker);
+  background: linear-gradient(var(--room-cardboard-hi), var(--room-cardboard-lo));
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.12), inset 0 -4px 0 rgba(0,0,0,.18), 0 2px 4px rgba(0,0,0,.4);
+  transition: transform 180ms ease;
+}
+.room-box-label {
+  position: absolute; left: 16px; right: 16px; top: 22px; padding: 6px 0; text-align: center;
+  background: var(--room-card); font: 400 15px/1.1 'Permanent Marker', var(--font); white-space: nowrap;
+}
+.room-box-hole { position: absolute; left: 50%; bottom: 14px; width: 26px; height: 8px; margin-left: -13px; border-radius: 4px; background: var(--room-cardboard-hole); }
+
+/* The hi-fi. The deck: silver, two reels, the LCD, its keys. */
+.room-deck-art {
+  position: relative; display: block; align-self: stretch; aspect-ratio: 206 / 196; border-radius: 6px;
+  background: linear-gradient(var(--room-silver-hi), var(--room-silver-lo));
+  box-shadow: 0 8px 14px rgba(0,0,0,.45), inset 0 1px 0 #fff;
+}
+.room-deck-reel {
+  position: absolute; top: 6%; width: 41%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, var(--reel-hub) 0 11%, var(--reel-hub-edge) 11% 13%, var(--tape-pack) 13% 36%, var(--tape-sheen) 36% 37%, var(--reel-metal) 37% 48%, var(--reel-edge) 48% 50%, transparent 50%);
+}
+.room-deck-reel:first-child { left: 5%; }
+.room-deck-reel:nth-child(2) { right: 5%; }
+@media (prefers-reduced-motion: no-preference) {
+  .room-deck.playing .room-deck-reel { animation: room-spin 2.4s linear infinite; }
+}
+@keyframes room-spin { to { transform: rotate(360deg); } }
+.room-deck-lcd {
+  position: absolute; left: 22%; right: 22%; top: 55%; height: 16%; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: var(--lcd); color: var(--lcd-ink); font: 600 13px var(--mono); box-shadow: inset 0 0 0 3px #1d1e21;
+}
+.room-deck-meta, .room-deck-progress { display: none; }
+
+/* The sketchbook, on the side table. */
+.room-book-place .room-book-latest { display: none; }
+.room-book-n {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; border-radius: 10px;
+  background: var(--grease-mark); color: var(--paper-ink); font: 700 12px var(--label-font);
+}
+
+/* The dock: the bar, in the room's materials, with Open, in one row -- where
+   the room is drawn. Narrower, it's the page's own bar (the phone's mini
+   player), on the shelves and in a month's box alike: the deck is only a
+   picture of it, and a phone has no room to draw one. */
+@media (min-width: 1000px) {
+  .room-on .np {
+    flex-direction: row; align-items: center; gap: 10px; padding: 8px 12px;
+    margin: 0 16px 12px; border-radius: 14px; color: var(--room-ink);
+    background: var(--room-tag); border: 1px solid var(--room-tag-edge);
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .room-on .np #np-play { border-radius: 50%; background: var(--room-ink); color: var(--room-plate-ink); border-color: var(--room-ink); }
+  .room-on .np .np-here { color: var(--room-ink-dim); }
+  .room-on .np .np-row { display: contents; }
+  .room-on .np .np-scrub { order: 5; flex: 1 1 0; min-width: 120px; height: 44px; }
+  .room-on .np .np-here { order: 6; }
+  .room-on .np .np-own { order: 7; margin-left: 0; }
+  .room-on .np .np-mini { display: none; }
+  body.room-on { --np-h: 72px; }
+}
+.room-sit {
+  height: 52px; min-height: 52px; padding: 0 16px; text-decoration: none; white-space: nowrap;
+  background: var(--room-ink); color: var(--room-plate-ink); border-color: var(--room-ink);
+  font: 700 15px var(--label-font); letter-spacing: .14em;
+}
+.room-sit[hidden] { display: none; }
+.room-grease { position: absolute; pointer-events: none; }
+.room-grease[hidden] { display: none; }
+.room-grease i { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1px; background: var(--grease-mark); border-radius: 1px; }
+.room-grease-in { left: calc(var(--in, 0) * 100%); }
+.room-grease-out { left: calc(var(--out, 1) * 100%); }
+
+/* The room drawn, wide enough for the scene. (Reduced data takes it back
+   to rows, below: a browser that doesn't know the query draws it.) */
+@media (min-width: 1000px) {
+  .room {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(440px, 40%); grid-template-areas: "stage shelves";
+    gap: 24px; padding: 20px 24px 28px; min-height: max(620px, calc(100svh - var(--topbar-h) - var(--np-h) - 24px));
+  }
+  .room-shelves { grid-area: shelves; align-self: start; }
+  .room-stage { grid-area: stage; position: relative; min-height: 560px; }
+  .room-scene { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+  .room-scene > span { position: absolute; display: block; }
+  .room-curtain { left: 3%; top: 4%; width: 4.5%; height: 52%; background: repeating-linear-gradient(90deg, var(--room-curtain) 0 7px, var(--room-curtain-lo) 7px 12px, var(--room-curtain-hi) 12px 18px); box-shadow: 4px 0 10px rgba(0,0,0,.35); }
+  .room-window {
+    left: 6.5%; top: 7%; width: 15%; height: 36%; box-sizing: border-box; overflow: hidden;
+    border: 10px solid var(--room-walnut-lo); background: linear-gradient(var(--room-sky-hi), var(--room-sky-lo));
+  }
+  .room-window::before, .room-window::after { content: ''; position: absolute; background: var(--room-walnut-lo); }
+  .room-window::before { left: 50%; top: 0; bottom: 0; width: 8px; margin-left: -4px; }
+  .room-window::after { left: 0; right: 0; top: 46%; height: 7px; }
+  .room-city {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 64%;
+    background:
+      radial-gradient(circle, var(--room-city-warm) 0 1.5px, transparent 2px) 3px 6px / 17px 15px,
+      radial-gradient(circle, var(--room-city-cool) 0 1.5px, transparent 2px) 11px 2px / 29px 23px,
+      linear-gradient(90deg, var(--room-city) 0 22%, transparent 22% 25%, var(--room-city) 25% 47%, transparent 47% 50%, var(--room-city) 50% 78%, transparent 78% 81%, var(--room-city) 81%);
+    -webkit-mask: linear-gradient(90deg, #000 0 22%, transparent 22% 25%, #000 25% 47%, transparent 47% 50%, #000 50% 78%, transparent 78% 81%, #000 81%);
+    clip-path: polygon(0 30%, 22% 30%, 22% 0, 47% 0, 47% 40%, 78% 40%, 78% 12%, 100% 12%, 100% 100%, 0 100%);
+  }
+  .room-lamp { left: 24%; top: 20%; width: 7%; height: 60%; }
+  .room-lamp-shade { position: absolute; left: 0; right: 0; top: 0; height: 12%; clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); background: linear-gradient(var(--room-shade-hi), var(--room-shade-lo)); box-shadow: 0 0 40px var(--room-shade-glow); }
+  .room-lamp-pole { position: absolute; left: 50%; top: 12%; bottom: 0; width: 4px; margin-left: -2px; background: var(--room-pole); }
+  .room-floor { left: -30px; right: -40%; top: 78%; bottom: -30px; background: repeating-linear-gradient(0deg, var(--room-board) 0 22px, var(--room-board-line) 22px 23px); border-top: 10px solid var(--room-skirting); }
+  .room-rug { left: 14%; top: 84%; width: 90%; height: 30%; border-radius: 50%; background: radial-gradient(ellipse, var(--room-rug) 0 38%, var(--room-rug-band) 39% 46%, var(--room-rug-mid) 47% 60%, var(--room-rug-edge) 61%); }
+  .room-armchair { left: 2%; top: 64%; width: 26%; height: 44%; border-radius: 80px 80px 18px 18px; background: repeating-linear-gradient(90deg, var(--room-cord-hi) 0 7px, var(--room-cord-lo) 7px 9px); box-shadow: inset 10px 18px 30px rgba(255,214,150,.22), inset -14px 0 24px rgba(0,0,0,.25), 0 -4px 20px rgba(0,0,0,.3); }
+  .room-armchair-arm, .room-armchair-back { position: absolute; width: 26%; height: 70%; bottom: -10%; border-radius: 30px 30px 0 0; background: repeating-linear-gradient(90deg, var(--room-cord-lo) 0 6px, var(--room-cord-hi) 6px 8px); }
+  .room-armchair-arm { left: -14%; } .room-armchair-back { right: -16%; box-shadow: inset -8px 0 18px rgba(0,0,0,.3); }
+  .room-speaker { left: 30%; top: 50%; width: 7%; height: 28%; border-radius: 4px; background: radial-gradient(circle at 50% 22%, #2a2a2a 0 8%, #151515 9% 22%, #3a3a3a 23% 25%, transparent 26%), radial-gradient(circle at 50% 58%, #2a2a2a 0 10%, #151515 11% 30%, #3a3a3a 31% 34%, transparent 35%), linear-gradient(90deg, var(--room-walnut-lo), var(--room-walnut) 40%, var(--room-walnut-lo)); box-shadow: 0 4px 10px rgba(0,0,0,.4); }
+  .room-console { left: 38%; top: 66%; width: 58%; height: 13%; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--room-walnut-lo) 0 9px, var(--room-walnut) 9px 13px), linear-gradient(var(--room-walnut), var(--room-walnut-lo)); box-shadow: 0 10px 18px rgba(0,0,0,.45), inset 0 6px 0 var(--room-walnut-hi); }
+  .room-sidetable { left: 40%; top: 88%; width: 15%; height: 3.4%; border-radius: 50%; background: linear-gradient(var(--room-walnut), var(--room-walnut-lo)); box-shadow: 0 4px 8px rgba(0,0,0,.5); }
+  .room-glass { position: absolute; left: 12%; bottom: 60%; width: 22%; height: 260%; border-radius: 3px 3px 5px 5px; background: linear-gradient(transparent 50%, var(--room-whisky) 50%), linear-gradient(var(--room-glass), rgba(255,255,255,.06)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+  .room-pencil { position: absolute; right: 8%; bottom: 70%; width: 50%; height: 100%; border-radius: 2px; background: var(--room-paper); transform: rotate(-7deg); box-shadow: 0 2px 3px rgba(0,0,0,.4), inset 0 3px 0 #2a2420; }
+  /* The places stand where the drawing puts them. */
+  .room-deck { position: absolute; left: 44%; bottom: 34%; width: min(24%, 220px); display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .room-deck-place { order: -1; }
+  .room-book { position: absolute; left: 44%; top: 80%; }
+}
+
+/* No room to draw it, or reduced data: the shelves as rows; the deck is not
+   drawn (the bar, the page's mini player, is what plays). */
+@media (max-width: 999.98px), (prefers-reduced-data: reduce) {
+  .room { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 16px; }
+  .room-scene { display: none; }
+  .room-stage { display: contents; }
+  .room-deck, .room-book { position: static; width: auto; }
+  .room-deck { display: none; }
+  .room-book { order: -1; }
+  .room-book { margin-right: 16px; }
+  .room-shelves { border: 0; background: none; box-shadow: none; gap: 14px; }
+  .room-shelf { gap: 6px; }
+  .room-shelf-foot { order: 0; margin: 0; align-items: center; }
+  .room-filtered { margin: 0 16px 0 0; }
+  /* Room for a selected spine's ring, halo and tick (top -6px, +2px halo) to be whole. */
+  .room-row { border-bottom: 0; box-shadow: none; padding: 10px 16px 6px 4px; gap: 8px; scroll-snap-type: x proximity; scroll-padding-left: 4px; min-height: 0; }
+  .room-row > li { scroll-snap-align: start; }
+  .room-empty { margin: 0 16px 0 0; }
+  .room-cassette {
+    width: 112px; height: 70px; border-radius: 5px; color: var(--paper-ink);
+    background: linear-gradient(var(--cas-hi), var(--cas-mid)); box-shadow: 0 4px 8px rgba(0,0,0,.45);
+  }
+  .room-cassette-stripe { left: 6px; right: 6px; top: 5px; height: 5px; border-radius: 2px 2px 0 0; }
+  .room-cassette-name {
+    left: 6px; right: 6px; top: 10px; bottom: auto; height: 30px; padding: 0 6px; border-radius: 0 0 2px 2px;
+    writing-mode: horizontal-tb; transform: none; display: block; line-height: 30px; text-align: left;
+    background: var(--paper-hi); font-size: 12px;
+  }
+  .room-cassette-when { display: block; position: absolute; left: 8px; right: 8px; bottom: 8px; color: var(--room-ink-dim); font: 500 10px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+  .room-cassette.starred::after { left: auto; right: 6px; bottom: 6px; width: auto; }
+  .room-new { left: auto; right: -6px; top: -8px; }
+  .room-box { width: 124px; height: 64px; }
+  .room-box-label { top: 50%; transform: translateY(-50%); left: 12px; right: 12px; padding: 3px 0; font-size: 13px; }
+  .room-box-hole { display: none; }
+  /* The sketchbook strip. */
+  .room-book-place {
+    width: 100%; min-height: 52px; border-radius: 8px; padding: 0 12px; gap: 10px; box-shadow: none; border: 0;
+    background: repeating-linear-gradient(var(--room-paper) 0 17px, var(--room-paper-rule) 17px 18px), var(--room-paper);
+    color: var(--room-paper-ink);
+  }
+  .room-book-word { font: 700 22px 'Caveat', var(--font); }
+  .room-book-place .room-book-latest { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 18px 'Caveat', var(--font); color: var(--room-paper-dim); }
+}
+
+/* --- Open: a take's page with the rooms on (lib/room/open.js) ---
+   Every rule hangs off a room-open- class (only open.js makes them) or the
+   body.room-open-on that open.js sets, so with the flag off none of it
+   matches. It follows the scheme: it is the take page, with the rooms'
+   words laid over it. */
+.room-open { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 12px; }
+.room-open-h { margin: 0; font: 600 12px var(--label-font, var(--font)); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.room-open-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.room-open-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.room-open-note-row { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.room-open-n { flex: none; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--flag); color: #1c2430; font: 700 12px var(--font); }
+.room-open-at { flex: none; min-width: 38px; font: 500 13px var(--mono); color: var(--ink-dim); }
+.room-open-words { flex: 1 1 0; min-width: 0; height: 40px; padding: 0 8px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); font: 500 15px var(--font); }
+.room-open-words::placeholder { color: var(--ink-faint); }
+.room-open-words:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.room-open-note-row .icon-btn { flex: none; min-width: 44px; min-height: 44px; padding: 0 8px; }
+.room-open-note-row .room-open-grab-note { font-size: 12px; }
+.room-open-none { margin: 0; color: var(--ink-dim); font-size: 14px; }
+.room-open-none[hidden] { display: none; }
+.room-open-family { display: flex; flex-direction: column; gap: 10px; }
+.room-open-family:empty { display: none; }
+.room-open-fam { display: flex; flex-direction: column; gap: 4px; }
+.room-open-fam-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.room-open-fam-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 0 4px; color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+.room-open-fam-line:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+@media (hover: hover) { .room-open-fam-line:hover { background: var(--panel-2); } }
+.room-open-fam-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-open-tag { min-height: 32px; padding: 0 10px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+.room-open-tag.on { border: 0; background: var(--stripe); color: var(--stripe-ink); }
+.room-open-note { color: var(--flag); font-size: 18px; }
+.room-open-note-btn { min-height: 40px; color: var(--ink); }
+dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
+@media (min-width: 860px) {
+  .room-open-note-row .room-open-words { font-size: 14px; }
+}
+
+/* ---------- Rooms P6: the rig (rig.html, lib/rig/) ---------- */
+/* The kit drawn as gear on a desk, with the cables that are its settings.
+   Every rule here hangs off a rig- class (or the Studio's .tt-warn, the
+   rig's warning on a track's header), and the markup they style exists
+   only with the two rooms on: rig.html shows nothing else with them off,
+   the chip is put in the header by lib/nav.js only then, and .tt-warn only
+   by the tape page only then. The desk is a material, the same in both
+   schemes (objects.css); the inspector and the bars around it follow the
+   scheme. */
+.rig-page .rig-title { margin: 0; font: 700 18px var(--label-font); letter-spacing: .14em; text-transform: uppercase; }
+.rig-page .rig-found { min-width: 0; color: var(--ink-dim); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rig-main { max-width: none; padding: 12px 16px 24px; }
+.rig-off { max-width: 560px; margin: 32px auto; color: var(--ink-dim); }
+.rig-restart {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; padding: 10px 14px;
+  border: 1px solid var(--warn); border-radius: 10px; background: color-mix(in srgb, var(--warn) 14%, var(--bg));
+  color: var(--ink); font-size: 14px;
+}
+.rig-restart[hidden] { display: none; }
+.rig-restart-text { flex: 1 1 280px; }
+.rig-room { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.rig-room[hidden] { display: none; }
+@media (min-width: 1000px) {
+  .rig-room { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "desk insp" "legend insp"; align-items: start; }
+  .rig-desk { grid-area: desk; }
+  .rig-insp { grid-area: insp; position: sticky; top: calc(var(--topbar-h, 107px) + 12px); max-height: calc(100svh - var(--topbar-h, 107px) - 36px); overflow-y: auto; }
+  .rig-legend { grid-area: legend; }
+}
+
+/* The desk. Cables run in an SVG over the gear and take no input; a tap on
+   a cable's run finds it by the ropes' hit() (Rooms R4). */
+.rig-desk {
+  position: relative; display: flex; flex-direction: column; gap: 22px; min-width: 0;
+  padding: 18px 16px 28px; border-radius: 14px; color: var(--desk-ink);
+  background: radial-gradient(ellipse at 45% 35%, var(--desk-felt), var(--desk-felt-lo) 75%);
+  box-shadow: inset 0 0 0 1px var(--desk-edge), inset 0 0 70px rgba(0,0,0,.45);
+}
+.rig-wires { position: absolute; left: 0; top: 0; z-index: 4; overflow: visible; pointer-events: none; }
+.rig-devices, .rig-bay { position: relative; z-index: 1; }
+.rig-wire { fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+.rig-wire.faded { opacity: .45; }
+.rig-wire.sel { filter: drop-shadow(0 0 4px var(--rig-amber)); }
+.rig-wire.pending { animation: rig-march 1.2s linear infinite; }
+.rig-wire-drawing { stroke: var(--cable-patch); stroke-dasharray: 2 6; opacity: .9; }
+@keyframes rig-march { to { stroke-dashoffset: -24; } }
+@media (prefers-reduced-motion: reduce) { .rig-wire.pending { animation: none; } }
+.rig-plug { fill: var(--cable-plug); stroke: var(--desk-ink-dim); stroke-width: 2; }
+.rig-plug.pending { fill: var(--desk-felt-lo); stroke: var(--cable-pending); stroke-width: 2.5; }
+.rig-wire-core { filter: none; }
+
+/* The gear. */
+.rig-devices { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px; }
+.rig-dev {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%;
+  padding: 12px 14px 10px; border-radius: 12px;
+  background: linear-gradient(var(--gear-black-hi), var(--gear-black-lo));
+  box-shadow: 0 6px 0 var(--gear-black-foot), 0 14px 24px rgba(0,0,0,.5);
+}
+.rig-dev.rig-dev-interface { background: linear-gradient(var(--gear-grey-hi), var(--gear-grey-lo)); box-shadow: 0 8px 0 var(--gear-grey-foot), 0 16px 28px rgba(0,0,0,.55); color: var(--gear-grey-ink); }
+.rig-dev-head, .rig-bay-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.rig-dev-name { font: 700 15px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+.rig-dev-sub { font: 500 11px var(--mono); opacity: .8; }
+.rig-dev-note { margin: 0; max-width: 300px; font-size: 12px; line-height: 1.35; opacity: .85; }
+.rig-jacks, .rig-row-socks { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 6px; }
+.rig-col { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+/* A label: masking tape, written on in marker -- a name, never a route. */
+.rig-tag {
+  max-width: 96px; padding: 2px 7px; transform: rotate(-3deg); border-radius: 2px;
+  background: var(--paper-hi); color: var(--marker); font: 400 12px 'Permanent Marker', var(--font);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+.rig-tag[hidden] { display: none; }
+
+/* A socket: a button with a jack in it. touch-action none, so a finger can
+   draw a cable out of it. */
+.rig-sock {
+  position: relative; display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; align-items: center; justify-items: start; column-gap: 7px;
+  min-width: 52px; min-height: 48px; padding: 6px 8px 6px 6px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: 700 10.5px var(--label-font); letter-spacing: .1em; text-transform: uppercase;
+  cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.rig-sock:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* The name beside the hole, never under it: cables leave a socket up or
+   down, and would cross a name below. */
+.rig-hole { grid-row: 1 / span 2; width: 20px; height: 20px; border-radius: 50%; background: var(--jack-hole); box-shadow: 0 0 0 3px var(--jack-ring), inset 0 2px 3px rgba(0,0,0,.8); }
+.rig-sock[data-kind="usb"] .rig-hole { width: 26px; height: 14px; border-radius: 3px; }
+.rig-sock[data-kind="midi"] .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring), inset 0 0 0 5px var(--gear-black-hi); }
+.rig-sock[data-kind="tap"] .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring), 0 0 0 5px var(--desk-felt-lo); }
+.rig-sock.signal[data-kind="tap"] .rig-hole { box-shadow: 0 0 0 3px var(--cable-patch), 0 0 8px var(--cable-patch); }
+.rig-sock.sel .rig-hole { box-shadow: 0 0 0 3px var(--jack-ring-hot), 0 0 12px var(--jack-ring-hot); }
+.rig-sock.target .rig-hole { box-shadow: 0 0 0 3px var(--cable-patch), 0 0 0 7px color-mix(in srgb, var(--cable-patch) 35%, transparent); }
+.rig-sock.drop .rig-hole { transform: scale(1.25); }
+.rig-sock.pending .rig-hole { outline: 2px dashed var(--cable-pending); outline-offset: 5px; }
+.rig-sock-label { line-height: 1; white-space: nowrap; align-self: end; }
+.rig-sock:not(:has(.rig-sock-name:not(:empty))) .rig-sock-label { grid-row: 1 / span 2; align-self: center; }
+.rig-sock-name { grid-column: 2; max-width: 72px; font: 400 10px var(--font); letter-spacing: 0; text-transform: none; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: start; }
+.rig-sock-name:empty { display: none; }
+/* A track's lamp: its own button, which arms it. */
+.rig-row-tracks .rig-col { position: relative; }
+.rig-arm-lamp {
+  position: absolute; top: -6px; right: -10px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%;
+  background: radial-gradient(circle, var(--rig-lamp-off) 0 5px, transparent 6px); cursor: pointer;
+}
+.rig-arm-lamp[aria-pressed="true"] { background: radial-gradient(circle, var(--rig-lamp-rec) 0 5px, color-mix(in srgb, var(--rig-lamp-rec) 35%, transparent) 6px, transparent 11px); }
+.rig-arm-lamp[aria-disabled="true"] { cursor: not-allowed; }
+.rig-arm-lamp:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.rig-warn-dot { display: none; position: absolute; top: 2px; left: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--rig-amber); box-shadow: 0 0 8px var(--rig-amber); }
+.rig-sock.warn .rig-warn-dot { display: block; }
+.rig-desk.picking .rig-sock:not(.target):not(.sel) { opacity: .55; }
+.rig-desk.dragging { cursor: grabbing; }
+
+/* The kit's patch bay. */
+.rig-bay {
+  display: flex; flex-direction: column; gap: 22px; padding: 14px 16px 16px; border-radius: 12px;
+  background: linear-gradient(var(--gear-black-hi), var(--gear-black-lo));
+  box-shadow: 0 8px 0 var(--gear-black-foot), 0 16px 26px rgba(0,0,0,.55);
+}
+.rig-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 8px 14px; }
+.rig-row-socks { gap: 8px 22px; }
+.rig-row-title { font: 700 10.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--desk-ink-dim); }
+.rig-row-tracks .rig-sock { min-width: 64px; }
+
+/* The inspector: beside the desk; on a phone, a sheet over its foot when a
+   socket or a cable is chosen. */
+.rig-insp {
+  min-width: 0; padding: 16px; border-radius: 12px; border: 1px solid var(--line);
+  background: linear-gradient(var(--card-hi), var(--card-lo)); color: var(--ink);
+}
+.rig-kicker, .rig-k { margin: 12px 0 4px; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-kicker { margin-top: 0; }
+.rig-insp-title { margin: 0 0 6px; font: 700 22px var(--label-font); letter-spacing: .04em; }
+.rig-insp-about, .rig-note { margin: 4px 0 8px; font-size: 13.5px; line-height: 1.45; color: var(--ink-dim); }
+.rig-insp .icon-btn { min-height: 40px; }
+.rig-insp-close { float: right; margin: -6px -4px 4px 8px; }
+.rig-level { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 8px 0; font: 500 12px var(--mono); color: var(--ink-dim); }
+.rig-level-bar { position: relative; height: 8px; border-radius: 4px; background: var(--well); overflow: hidden; }
+.rig-level-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--go), var(--warn)); }
+.rig-patched-list, .rig-targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rig-patched { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 10px; border-radius: 8px; background: var(--panel); }
+.rig-patched.pending { outline: 2px dashed var(--warn); outline-offset: -2px; }
+.rig-patched-what { flex: 1 1 auto; font-weight: 600; }
+.rig-patched-note { flex: 1 1 100%; order: 3; font-size: 12.5px; color: var(--ink-dim); }
+.rig-kind { flex: none; width: 22px; height: 0; border-top: 4px solid var(--cable-patch); }
+.rig-kind-usb { border-top: 7px solid var(--cable-usb); }
+.rig-kind-return { border-top: 5px dotted var(--cable-return); }
+.rig-kind-clock { border-top: 3px dashed var(--cable-midi); }
+.rig-kind-midi { border-top: 3px dotted var(--cable-midi); }
+.rig-kind-keep { border-top: 2px dashed var(--ink-dim); }
+.rig-kind-network { border-top: 2px dotted var(--cable-net); }
+.rig-kind-jack { border-top: 4px dashed var(--cable-jack); }
+.rig-target-btn {
+  width: 100%; min-height: 40px; padding: 0 12px; text-align: left; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 14px var(--font);
+}
+.rig-target-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) { .rig-target-btn:hover { border-color: var(--rule); } }
+.rig-arm.on { border-color: var(--rec); color: var(--danger-ink); }
+.rig-warn { margin: 12px 0; padding: 12px; border-radius: 10px; border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 14%, var(--card-hi)); }
+.rig-warn-title { margin: 0 0 4px; font: 700 14px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--warn-ink); }
+.rig-warn-text { margin: 0 0 10px; font-size: 13.5px; line-height: 1.45; }
+.rig-fix { background: var(--warn); color: var(--on-flag); border-color: var(--warn); font-weight: 700; }
+.rig-offer { margin: 12px 0; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
+.rig-offer-text { margin: 0 0 8px; font-size: 13.5px; }
+.rig-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.rig-seg button {
+  min-height: 40px; min-width: 52px; padding: 0 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 700 13px var(--label-font); letter-spacing: .1em;
+}
+.rig-seg button.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.rig-seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rig-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rig-label > .rig-k { flex: 1 1 100%; }
+.rig-label-input { flex: 1 1 160px; min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: 15px var(--font); }
+.rig-label-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.rig-label > .rig-note { flex: 1 1 100%; }
+.rig-settings { margin-top: 14px; }
+.rig-settings > summary { cursor: pointer; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-settings > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rig-settings-list { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 8px 0 0; font: 12px var(--mono); }
+.rig-settings-list dt { color: var(--ink-dim); }
+.rig-settings-list dd { margin: 0; overflow-wrap: anywhere; }
+.rig-settings-list dd.pending { color: var(--warn-ink); }
+
+/* The legend: width and dash say the kind, not colour alone. */
+.rig-legend { padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+.rig-legend-title { margin: 0 0 8px; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.rig-legend-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; font-size: 13px; }
+.rig-legend-item { display: flex; align-items: center; gap: 10px; }
+.rig-legend-item .rig-swatch { flex: none; display: block; border-radius: 4px; background: var(--desk-felt-lo); }
+
+@media (max-width: 999.98px) {
+  .rig-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  /* A phone: chosen, the inspector is a sheet over the desk's foot, above
+     the tabs; nothing chosen, it sits under the desk. */
+  .rig-insp.open {
+    position: fixed; left: 0; right: 0; bottom: calc(61px + env(safe-area-inset-bottom)); z-index: 25;
+    max-height: 52svh; overflow-y: auto; border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px var(--sh-strong);
+  }
+  body.rig-page:has(.rig-insp.open) { padding-bottom: calc(61px + 52svh); }
+  .rig-desk { padding: 14px 10px 22px; }
+  .rig-devices { gap: 14px; }
+  .rig-dev { flex: 1 1 100%; }
+}
+@media (min-width: 700px) and (max-width: 999.98px) {
+  .rig-insp.open { bottom: 0; }
+  body.rig-page:has(.rig-insp.open) { padding-bottom: 52svh; }
+}
+
+/* The device chip, in both rooms' headers: the way to the rig. */
+.rig-chip {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--ink); text-decoration: none; font: 600 13px var(--font); white-space: nowrap;
+}
+.rig-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) { .rig-chip:hover { border-color: var(--rule); } }
+.rig-chip-sub { color: var(--ink-dim); font-weight: 500; }
+.rig-chip-sub:empty { display: none; }
+.rig-chip-lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); }
+.rig-chip[data-state="ok"] .rig-chip-lamp { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
+.rig-chip[data-state="warn"] .rig-chip-lamp { background: var(--warn); box-shadow: 0 0 6px var(--warn-glow); }
+@media (max-width: 699.98px) {
+  .rig-chip { padding: 0 9px; }
+  .rig-chip-sub, .rig-chip-ico { display: none; }
+}
+
+/* The rig's warning on a Studio track header: an amber dot by ●, on an
+   armed track whose input hears the tape (lib/rig/warn.js). */
+/* A badge on the head's corner, out of the flow, so the keys wrap as they
+   always did. */
+.tt-head:has(> .tt-warn) { position: relative; }
+.tt-head .tt-warn { position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--warn-glow); }
+.tt-head .tt-warn[hidden] { display: none; }
+/* ---------- Rooms P4: punch-in FX and tape mods (lib/play/fx.js, mods.js) ---------- */
+/* The FX and the mods in the places P3 left for them (screen.js, slot()).
+   Behind hindsight.play like the strip, and drawn in the pad controller's
+   materials (objects.css), the same in either scheme. Every rule hangs off a
+   play- class (lib/play/styles.test.js). A laptop or wider: one row, the FX
+   and the mods after the tricks, so the strip is no taller. Narrower, the
+   tape mods are the panel's second page, behind a pager: the FX stay on
+   the first, beside the tricks on a tablet and under them on a phone. */
+@media (min-width: 1100px) {
+  .play-body:has(> .play-slot-fx:not([hidden])) {
+    grid-template-columns: auto minmax(150px, 1fr) minmax(200px, 1.05fr) minmax(190px, .95fr) minmax(210px, 1fr);
+  }
+}
+.play-fx { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.play-fx .play-fx-pad {
+  min-height: 58px; padding: 8px 10px 13px; gap: 2px;
+  box-shadow: inset 0 0 0 1px var(--pad-fx-rim);
+}
+.play-fx-amt { font: 500 11px var(--mono); letter-spacing: 0; color: var(--pad-legend-dim); }
+.play-pad.on .play-fx-amt { color: inherit; }
+.play-meter {
+  position: absolute; left: 10px; right: 10px; bottom: 6px; height: 3px;
+  border-radius: 2px; background: var(--pad-rule); overflow: hidden;
+}
+.play-meter > i { display: block; height: 100%; width: 50%; background: var(--pad-fx); }
+.play-pad.on .play-meter > i { background: var(--pad-lit-ink); }
+.play-fx-group.play-fx-waiting .play-fx-pad { opacity: .45; }
+.play-fx-note { margin: 8px 0 0; font-size: 12px; line-height: 1.35; color: var(--pad-legend); }
+.play-fx-note[hidden] { display: none; }
+
+/* The bend: dragged, springing back to the centre. */
+.play-bend {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px;
+  height: 34px; padding: 0 10px;
+  border: 1px solid var(--pad-edge); border-radius: 9px; background: var(--pad-face);
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: ew-resize;
+}
+.play-bend-name { font: 700 11.5px var(--label-font); letter-spacing: .16em; text-transform: uppercase; color: var(--pad-legend); }
+.play-bend-track { position: relative; flex: 1 1 auto; height: 6px; border-radius: 3px; background: var(--pad-rule); }
+.play-bend-track > b { position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--pad-legend-dim); }
+.play-bend-track > i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; border-radius: 3px; background: var(--pad-fx); }
+.play-bend-val { min-width: 4.4em; text-align: right; font: 500 11px var(--mono); color: var(--pad-legend-dim); }
+.play-bend.on { border-color: var(--pad-lit); }
+.play-bend.on .play-bend-track > i { background: var(--pad-lit); }
+
+/* The tape mods: the formula, and four knobs. */
+.play-formulas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.play-formula {
+  appearance: none; height: 30px; min-width: 0; padding: 0 2px;
+  border: 1px solid var(--pad-edge); border-radius: 6px; background: var(--pad-face); color: var(--pad-legend);
+  font: 700 11.5px var(--label-font); letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+}
+.play-formula[aria-checked="true"] { background: var(--formula-paper); color: var(--marker); border-color: transparent; }
+.play-formula:focus-visible { outline: 2px solid var(--pad-lit); outline-offset: 2px; }
+.play-custom { grid-column: 1 / -1; font: 700 10.5px var(--label-font); letter-spacing: .18em; text-transform: uppercase; color: var(--pad-fx); }
+.play-custom[hidden] { display: none; }
+.play-knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.play-knob {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 7px 2px 6px; border-radius: 8px; background: var(--knob-well);
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: ns-resize;
+}
+.play-knob:focus-visible { outline: 2px solid var(--pad-lit); outline-offset: 2px; }
+.play-knob-cap {
+  position: relative; width: 42px; height: 42px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, var(--knob-hi), var(--pad-face) 70%);
+  box-shadow: 0 2px 0 var(--pad-chassis), inset 0 0 0 1px var(--pad-edge);
+}
+.play-knob-ptr {
+  position: absolute; left: 20px; top: 4px; width: 2px; height: 13px; border-radius: 1px;
+  background: var(--knob-pointer); transform-origin: 1px 17px;
+}
+.play-knob-name { margin-top: 2px; font: 700 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--pad-legend); }
+.play-knob-val, .play-knob-cc { font: 500 10.5px var(--mono); color: var(--pad-legend-dim); }
+.play-mods-note { margin: 6px 0 0; font-size: 11.5px; line-height: 1.35; color: var(--pad-legend-dim); }
+
+/* The pager is the phone's alone. */
+.play-pager { display: none; }
+
+/* A laptop short of the widest: the formulas two by two. */
+@media (max-width: 1299.98px) and (min-width: 1100px) {
+  .play-formulas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* A laptop's own height (P3's compact strip, above): the FX and the mods
+   go up beside the tracks, and the tricks and the bus keep their one row
+   under all three, so the strip is barely taller than without them and the
+   lanes stay in sight. No titles, no CC legends, no note: the knobs' tips
+   say which CC turns them. */
+@media (min-width: 1100px) and (min-height: 441px) and (max-height: 1000px) {
+  .play-body:has(> .play-slot-fx:not([hidden])) {
+    grid-template-columns: 112px minmax(0, 1fr) minmax(300px, 350px) minmax(280px, 320px);
+  }
+  .play-body:has(> .play-slot-fx:not([hidden])) > .play-side { grid-column: 2 / -1; grid-row: 2; }
+  .play-body > .play-slot-fx:not([hidden]) { grid-column: 3; grid-row: 1; }
+  .play-body > .play-slot-mods:not([hidden]) { grid-column: 4; grid-row: 1; }
+  .play-fx { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .play-fx .play-fx-pad {
+    flex-flow: row wrap; align-content: center; gap: 1px 5px;
+    min-height: 46px; padding: 4px 3px 9px; border-radius: 10px;
+    font-size: 11.5px; letter-spacing: .1em;
+  }
+  .play-fx .play-fx-pad > .play-face { flex-basis: 100%; text-align: center; }
+  .play-fx-amt { font-size: 10px; }
+  .play-meter { left: 8px; right: 8px; bottom: 4px; }
+  .play-bend { height: 24px; margin-top: 6px; border-radius: 7px; }
+  .play-formulas { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .play-formula { height: 24px; font-size: 10.5px; letter-spacing: .04em; }
+  .play-knobs { gap: 4px; margin-top: 6px; }
+  .play-knob { padding: 4px 2px 3px; gap: 0; }
+  .play-knob-cap { width: 32px; height: 32px; }
+  .play-knob-ptr { left: 15px; top: 3px; height: 10px; transform-origin: 1px 13px; }
+  .play-knob-name { font-size: 10px; letter-spacing: .1em; }
+  .play-knob-cc, .play-mods-note { display: none; }
+}
+/* Narrower than a laptop: the tape mods are the second page. */
+@media (max-width: 1099.98px), (orientation: landscape) and (max-height: 440px) {
+  .play-strip[data-page="mods"] .play-body > :not(.play-slot-mods) { display: none; }
+  .play-strip:not([data-page="mods"]) .play-body > .play-slot-mods { display: none; }
+  .play-body > .play-slot-mods:not([hidden]) { grid-column: 1 / -1; }
+  .play-mods-group { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 8px 14px; align-items: center; }
+  .play-mods-group > .play-group-title, .play-mods-group > .play-mods-note { grid-column: 1 / -1; }
+  .play-mods-group .play-knobs { margin-top: 0; }
+  .play-formulas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .play-strip[data-fold="open"] .play-pager {
+    appearance: none; display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; height: 36px; margin-top: 6px; border: 0; background: transparent;
+    font: 500 11.5px var(--font); color: var(--pad-legend-dim); cursor: pointer;
+  }
+  .play-pager-dots { display: inline-flex; gap: 6px; align-items: center; }
+  .play-pager-dots > i { width: 6px; height: 6px; border-radius: 3px; background: var(--pad-rule); }
+  .play-strip:not([data-page="mods"]) .play-pager-dots > i:first-child,
+  .play-strip[data-page="mods"] .play-pager-dots > i:last-child { width: 16px; background: var(--pad-legend); }
+}
+/* The bench tablet: the four FX in a row, and the bend, beside the tricks. */
+@media (max-width: 1099.98px) and (min-width: 700px) {
+  .play-body > .play-slot-fx:not([hidden]) { grid-column: 2; }
+  .play-fx-group { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 8px 12px; align-items: center; }
+  .play-fx-group > .play-fx-note { grid-column: 1 / -1; }
+  .play-fx { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .play-fx .play-fx-pad { min-height: 44px; }
+  .play-fx-group .play-bend { margin-top: 0; }
+}
+/* A phone: the FX in a row under the tricks, and room for a thumb. The
+   strip's own pads give up a little height so the FX fit above the fold,
+   and the keys' hint goes: a phone has no ⇧ or Esc. */
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  .play-body > .play-slot-fx:not([hidden]) { grid-column: 1 / -1; }
+  .play-strip:has(.play-slot-fx:not([hidden])) .play-tracks .play-track { min-height: 78px; }
+  .play-strip:has(.play-slot-fx:not([hidden])) .play-tricks .play-trick { min-height: 46px; }
+  .play-strip:has(.play-slot-fx:not([hidden])) .play-bus-hint { display: none; }
+  .play-strip[data-fold="open"] .play-pager { height: 30px; margin-top: 2px; }
+  .play-fx { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .play-fx .play-fx-pad { min-height: 52px; padding: 6px 4px 12px; align-items: center; }
+  .play-mods-group { grid-template-columns: minmax(0, 1fr); }
+  .play-knob-cap { width: 48px; height: 48px; }
+  .play-knob-ptr { left: 23px; top: 5px; height: 15px; transform-origin: 1px 19px; }
+  .play-formula { height: 40px; }
+}
+
+/* ---------- Rooms R4: the rig's cables as ropes (lib/scene/cable.js, lib/rig/ropes.js) ---------- */
+/* The ropes are drawn into P6's .rig-wires, which takes no input: the
+   sockets under them stay the controls. Every rule hangs off a rig- class,
+   and the markup exists only on rig.html with the two rooms on. */
+.rig-rope { pointer-events: none; }
+/* A pointer over a rope's run, away from any control: a click shows it. */
+.rig-desk.rig-over-rope { cursor: pointer; }
+/* A plug in the hand, out of any socket. */
+.rig-plug.loose { stroke: var(--jack-ring-hot); stroke-width: 2.5; }
+
+/* The names the ropes cross. The ropes run over the jacks, so a plug is
+   seen going in; a socket's label and name, a row's title and a device's
+   name are lifted above them, each with a halo of the plate it is printed
+   on, so a rope reads as running behind a name rather than striking
+   through it. Colour, width and dash still say what a cable is. P6 held the
+   gear at z-index 1, as a layer under the ropes' 4: it isn't one any more,
+   or the names could not reach above them. */
+.rig-devices, .rig-bay { z-index: auto; }
+.rig-dev, .rig-bay { --rig-plate: color-mix(in srgb, var(--gear-black-hi) 50%, var(--gear-black-lo)); }
+.rig-dev.rig-dev-interface { --rig-plate: color-mix(in srgb, var(--gear-grey-hi) 50%, var(--gear-grey-lo)); }
+.rig-sock-label, .rig-sock-name, .rig-row-title, .rig-dev-name, .rig-dev-sub, .rig-dev-note, .rig-tag { position: relative; z-index: 5; }
+.rig-sock-label, .rig-sock-name, .rig-row-title, .rig-dev-name, .rig-dev-sub, .rig-dev-note {
+  text-shadow: 0 0 2px var(--rig-plate), 0 0 3px var(--rig-plate), 0 0 5px var(--rig-plate), 0 0 5px var(--rig-plate);
+}
+/* While a socket is chosen or a plug is in the hand, the sockets it can't go
+   into are dimmed. P6 dimmed the whole button, which makes it a layer of its
+   own under the ropes, names and all; dim its jack and names instead. */
+.rig-desk.picking .rig-sock:not(.target):not(.sel) { opacity: 1; }
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-hole,
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-sock-label,
+.rig-desk.picking .rig-sock:not(.target):not(.sel) .rig-sock-name { opacity: .55; }
+
+/* ---------- Rooms fixes: the walkthrough's bugs (docs/superpowers/2026-10-15-walkthrough.md) ---------- */
+
+/* Settings, Preview features (lib/settings.js featuresGroup): the device's
+   switches, an open section at the top of the sheet. Every rule is scoped to
+   .settings-inner and to the section's own classes. */
+.sheet-inner.settings-inner h4.set-section { margin: 14px 0 4px; font: 700 11px var(--label-font, var(--font)); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); }
+.sheet-inner.settings-inner p.set-intro { margin: 0 0 10px; font-size: 12.5px; line-height: 1.4; color: var(--ink-dim); }
+.sheet-inner.settings-inner p.set-restart-note { padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel-hi); border-radius: 0 6px 6px 0; color: var(--ink); }
+.set-features { margin: 0 0 6px; padding: 4px 12px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-hi); }
+.set-features h4.set-section { margin-top: 10px; }
+.set-pref { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; }
+.set-pref + .set-pref { border-top: 1px solid var(--line); }
+.set-pref-text { flex: 1 1 auto; min-width: 0; }
+.sheet-inner.settings-inner .set-pref-text p.set-note { margin: 2px 0 0; color: var(--ink-dim); }
+.sheet-inner.settings-inner p.set-pref-status { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.sheet-inner.settings-inner p.set-pref-status[hidden] { display: none; }
+.set-switch {
+  flex: none; display: inline-flex; align-items: center; justify-content: space-between; gap: 6px;
+  min-width: 76px; min-height: 44px; padding: 0 8px 0 12px; box-sizing: border-box; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 22px; background: var(--panel); color: var(--ink-dim);
+  font: 700 12px var(--label-font, var(--font)); letter-spacing: .08em; text-transform: uppercase;
+}
+.set-switch-knob { width: 22px; height: 22px; border-radius: 50%; background: var(--ink-faint); order: -1; flex: none; }
+.set-switch[aria-checked="true"] { background: var(--accent); border-color: transparent; color: var(--on-accent); justify-content: space-between; }
+.set-switch[aria-checked="true"] .set-switch-knob { order: 1; background: var(--on-accent); }
+.set-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* One Reload for the section: this page's alone, set apart from the Pi's Restart at the sheet's foot. */
+.set-reload-bar { margin-top: 8px; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: var(--panel); }
+.set-reload-bar[hidden] { display: none; }
+.sheet-inner.settings-inner p.set-reload-text { margin: 0 0 8px; font-size: 13px; line-height: 1.4; color: var(--ink); }
+.set-reload-bar .set-reload { width: 100%; min-height: var(--tap); }
+
+/* Catch (lib/tape/catch.js, page.js): pressable while it waits for a pass, and
+   dimmed -- a key that is up -- so a tap can say why; and, with the rooms on,
+   its ▾ and the menu of what to catch. */
+.np .np-own #catch-pass.waits:not(.jam-only) {
+  background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink-dim);
+  border-color: var(--line); text-shadow: none; opacity: .7;
+  box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
+}
+/* The key is as wide as its second line, and a waiting Catch says "loop is
+   off" or "press ▶" where it used to say "last pass → track 1": 112 px for
+   158, which moved the Crate button and everything to its right 46 px. It
+   keeps the width it had, so the bar stays where it was and does not jump as
+   Catch goes from waiting to ready. Only the wide bar: the phone's mini
+   player hides the second line and sets its own widths. */
+@media (min-width: 700px) and (min-height: 441px), (min-width: 700px) and (orientation: portrait) {
+  .np .np-own #catch-pass.waits:not(.jam-only) { min-width: 158px; }
+}
+body .np .np-catch:has(> .np-catch-more) { position: relative; padding-right: 34px; }
+.np-catch-more {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent); font-size: 14px; line-height: 1;
+}
+.catch-menu { position: fixed; z-index: 60; min-width: 230px; max-width: calc(100vw - 16px); }
+.catch-menu-head { padding: 6px 12px 8px; }
+.catch-menu > button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.catch-menu > button .menu-sub { white-space: normal; }
+.catch-menu > button[aria-disabled="true"] { opacity: .6; cursor: default; }
+
+/* A toast that must not stand between a person and their next tap: the one a
+   ● gives for arming a track as well has the next ● under it on a phone. Its
+   words let taps through; its action still takes them. */
+.toast.toast-passive { pointer-events: none; }
+.toast.toast-passive .toast-action { pointer-events: auto; }
+
+/* Dragging the buffer over a clip: the ghost is hatched in the warning colour, so
+   that it reads as laying over what is there even where the chip hides its words. */
+.buffer-ghost.buffer-ghost-replace {
+  border-color: var(--warn);
+  background: repeating-linear-gradient(135deg, rgba(255, 181, 71, .26) 0 6px, rgba(255, 181, 71, .08) 6px 12px);
+}
+.buffer-ghost.buffer-ghost-replace > span { color: var(--warn); }
+
+/* Folded lanes (the buffer open): a head is one row -- its name on the tape and
+   ● -- clipped to its strip, not four 92 px heads cut through on a 15 px
+   pitch. The row under a drag (.buffer-target) opens to its whole head, and the
+   unfolded instrument keeps the lanes as P3 laid them. On a phone the strip
+   is tall enough to press the ● on. */
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head {
+  flex-wrap: nowrap; overflow: hidden; align-items: stretch; gap: 4px; padding: 1px 4px;
+}
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head > :not(.tt-name):not(.tt-arm):not(.tt-warn) { display: none; }
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .tt-name { flex: 1 1 auto; min-height: 0; padding: 0 8px; font-size: 12px; line-height: 1; transform: none; }
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .tt-arm { flex: none; min-height: 0; min-width: 30px; padding: 0; }
+body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .tt-arm-dot { width: 8px; height: 8px; }
+@media (max-width: 699.98px) {
+  body.buffer-fold .tape-track:not(.buffer-target) { height: 22px; }
+  body.buffer-fold .tape-track:not(.buffer-target) .tt-lane { height: 20px; }
+}
+
+/* ---------- Rooms F5b: the bar with a take in it (lib/bar/take-keys.js) ----------
+   With the rooms on, a take in the bar shows its name (a link to the take's
+   page) and ✎, and the phone's mini player holds the strip. The elements are
+   made by that script, and `.np-take` is a class only it puts on the bar, so
+   with the rooms off none of this matches anything. */
+.np .np-own .np-name {
+  display: inline-flex; align-items: center; flex: 0 1 auto; min-width: 0; max-width: 22ch; height: 52px; padding: 0 10px;
+  border-radius: 7px; color: inherit; text-decoration: none; font: 700 15px var(--label-font);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.np .np-own .np-name[hidden], .np .np-own .np-note[hidden] { display: none; }
+@media (hover: hover) { .np .np-own .np-name:hover { text-decoration: underline; } }
+.np .np-own .np-name::after { content: '›'; margin-left: 6px; opacity: .6; }
+.np .np-own .np-name:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.np .np-own .np-note { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; font-size: 20px; }
+/* The name is the way into the take: the bar's own "Open the take ›" is the same route twice. */
+.np.np-take #np-open { display: none; }
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  /* The mini player for a take: ▶, the name and ✎ in a row, the strip under
+     them. There is no player to open for a take, so no window or ▾ either. */
+  body:has(.np.np-take:not([hidden])) { --np-h: 114px; }
+  body:not(.player-open) .np.np-take { flex-wrap: wrap; align-content: center; row-gap: 6px; }
+  body:not(.player-open) .np.np-take .np-window { display: none; }
+  body:not(.player-open) .np.np-take .np-keys { order: 1; }
+  body:not(.player-open) .np.np-take .np-own { order: 2; flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 4px; }
+  /* ⏏ (the tape back, when both are in the bar) has no player to hide in either. */
+  body:not(.player-open) .np.np-take .np-own > :is(.np-name, .np-note, .np-eject:not([hidden])) { display: inline-flex !important; }
+  body:not(.player-open) .np.np-take .np-own > .np-name { flex: 1 1 0; max-width: none; }
+  body:not(.player-open) .np.np-take .np-own > :is(.np-note, .np-eject) { flex: none; width: 48px; min-width: 48px; height: 50px; min-height: 50px; }
+  /* Repeat has no key here, so while it is on (carried from another page) its
+     key shows, lit, to turn it off. */
+  body:not(.player-open) .np.np-take .np-keys > #np-loop[aria-pressed="true"] { display: inline-flex !important; }
+  body:not(.player-open) .np.np-take #np-scrub { display: block !important; order: 3; flex: 1 1 100%; min-width: 0; height: 44px; }
+}
+@media (orientation: landscape) and (max-height: 440px) {
+  /* On its side there is only room for one row: the strip beside the name. */
+  body:has(.np.np-take:not([hidden])) { --np-h: 64px; }
+  body:not(.player-open) .np.np-take { flex-wrap: nowrap; }
+  body:not(.player-open) .np.np-take .np-own { flex: 0 1 38%; }
+  body:not(.player-open) .np.np-take #np-scrub { flex: 1 1 0; height: 50px; }
+}
+
+/* ---------- Rooms F5b: a cassette flies from its shelf to the deck (lib/room/fly.js, ghost.js; lib/scene/flight.js) ----------
+   A tap puts a take on the deck and plays it at once; its cassette flies there
+   alongside the sound. The motion is the scene's: the flight model is stepped on
+   the shared ticker and the ghost writes transforms; these rules give the parts
+   their shapes and animate nothing but the deck's one settle. Every selector is
+   under a room- class, so with the rooms off none of it matches anything. */
+
+/* The motion tokens: the same in both schemes (no dark value) and no material
+   (not objects.css). lib/scene/choreo.js uses the same numbers, and
+   choreo.test.js keeps the two in step. */
+:root {
+  --t-touch: 120ms;
+  --t-move: 200ms;
+  --t-flight: 420ms;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --ease-flight: cubic-bezier(.3,0,.2,1);
+  --ease-seat: cubic-bezier(.34,1.56,.64,1);
+}
+
+/* The ghost of the take in the air: fixed over the page, taking no input. Its
+   two planes -- the spine as the shelf drew it, the cassette's face -- are
+   centred on its origin; the drawer moves the ghost and turns the planes. */
+.room-carry {
+  position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 30; pointer-events: none;
+  perspective: 700px; will-change: transform;
+}
+.room-carry[hidden] { display: none; }
+.room-carry-plane { position: absolute; left: 0; top: 0; display: block; backface-visibility: hidden; will-change: transform, opacity; }
+.room-carry-plane > .room-cassette { position: absolute; inset: 0; width: auto; height: auto; margin: 0; transform: none; animation: none; transition: none; }
+.room-carry-shade {
+  position: absolute; inset: 0; border-radius: 6px; opacity: 0;
+  background: rgba(0,0,0,.42); box-shadow: 0 0 14px 5px rgba(0,0,0,.42); will-change: transform, opacity;
+}
+.room-carry-face > .room-carry-shade-take { inset: auto; left: 50%; top: 4%; height: 92%; aspect-ratio: 1.59; translate: -50% 0; }
+
+/* The cassette's face: its label in its tag's stripe, its name in marker, its hubs. */
+.room-face { position: absolute; display: block; }
+.room-face-cassette {
+  left: 50%; top: 4%; height: 92%; aspect-ratio: 1.59; translate: -50% 0; box-sizing: border-box; container-type: size;
+  border-radius: 7% / 11%; background: linear-gradient(var(--cas-hi), var(--cas-mid));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 0 rgba(0,0,0,.4), 0 2px 5px rgba(0,0,0,.45);
+}
+.room-face-label { position: absolute; left: 6%; right: 6%; top: 8%; height: 52%; overflow: hidden; border-radius: 3px; background: var(--paper-hi); }
+.room-face-band { position: absolute; left: 0; right: 0; top: 0; height: 24%; background: var(--stripe); }
+.room-face-name {
+  position: absolute; left: 6%; right: 6%; top: 30%; bottom: 4%; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--marker);
+  font: 400 clamp(7px, 13cqh, 18px)/1 'Permanent Marker', var(--font);
+}
+.room-face-window { position: absolute; left: 20%; right: 20%; top: 64%; height: 26%; border-radius: 999px; background: var(--cas-slot); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.room-face-hub {
+  position: absolute; top: 50%; height: 84%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  background: radial-gradient(circle, var(--cas-slot) 0 30%, transparent 31%), radial-gradient(circle, var(--reel-metal) 0 60%, transparent 61%);
+}
+.room-face-hub:nth-of-type(1) { left: 22%; }
+.room-face-hub:nth-of-type(2) { left: 78%; }
+
+/* It lands, and what it lands in settles once: the deck's art where the room is
+   drawn, the bar where it is not (a phone has no deck). */
+.room-deck.room-seat .room-deck-art { animation: room-seat var(--t-move) var(--ease-seat); }
+.np.room-seat { animation: room-seat-bar var(--t-move) ease-out; }
+@keyframes room-seat { 40% { transform: scale(1.035); } }
+@keyframes room-seat-bar { 40% { outline: 2px solid var(--accent); outline-offset: -2px; } }
+@media (prefers-reduced-motion: reduce) {
+  .room-deck.room-seat .room-deck-art, .np.room-seat { animation: none; }
+}

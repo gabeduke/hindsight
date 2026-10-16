@@ -21,12 +21,20 @@
 // selection is kept in absolute frames, so it slides left as time passes,
 // like the audio it names. Tapping a flag opens its sheet: Save from here to
 // now, or delete it.
+//
+// The tape itself is a scene object (lib/scene): each poll and each touch
+// sets the ribbon's state, the ribbon model (lib/scene/ribbon.js) works out
+// what is lit and where recording starts, and the drawer here paints it.
 
-import { fmtDur } from '/lib/meter.js';
-import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from '/lib/objects/ribbonmath.js';
-import { isSilent } from '/lib/tape/levels.js';
-import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from '/lib/objects/ribbon-draw.js';
-import { token } from '/lib/theme.js';
+import { fmtDur } from '../meter.js';
+import { say } from '../rooms/words.js';
+import { Scene } from '../scene/scene.js';
+import { SceneObject } from '../scene/object.js';
+import { DomRenderer } from '../scene/dom.js';
+import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from './ribbonmath.js';
+import { isSilent } from '../tape/levels.js';
+import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from './ribbon-draw.js';
+import { token } from '../theme.js';
 
 const HOLD_MS = 350;
 const MOVE_PX = 8;
@@ -57,12 +65,16 @@ export class Ribbon {
    * @param {HTMLElement} wrap the existing .viz-wrap
    * @param {{onToast?: (msg: string, kind?: string) => void}} [opts]
    */
-  constructor(wrap, { onToast, onSaved, onSavedToast, selBar, flagSheet } = {}) {
+  constructor(wrap, { onToast, onSaved, onSavedToast, onKept, selBar, flagSheet, keepWords } = {}) {
     this.wrap = wrap;
     this.onToast = onToast;
     this.onSaved = onSaved;
+    this.onKept = onKept; // (answer): Keep as clip put a span in the crate
     this.onSavedToast = onSavedToast; // (msg, name): a save's toast, with its Undo
     this.selBar = selBar || null;
+    // (seconds) => the selection's KEEP key, naming what it keeps (the
+    // Studio's: "Keep 41s"). Capture leaves it out and keeps "Save as take".
+    this.keepWords = keepWords || null;
     this.flagSheet = flagSheet || null;
     this.sel = null;   // {from, to}: absolute ring frames; to null means "now"
     this.press = null; // the pointer gesture in progress
@@ -83,7 +95,15 @@ export class Ribbon {
     wrap.insertBefore(this.canvas, wrap.firstChild);
     this.ctx = this.canvas.getContext('2d');
     this.levels = new Float32Array(0);
-    this.ro = new ResizeObserver(() => this.paint());
+    this.scene = new Scene();
+    this.tape = this.scene.add(new SceneObject('ribbon', 'ribbon'));
+    this.renderer = new DomRenderer();
+    this.renderer.mount(wrap, this.scene);
+    this.renderer.part('ribbon', { el: wrap, twin: () => wrap, draw: (view, state) => this.paint(view, state) });
+    this.scene.start();
+    // Drawn inside the observer, not on the next frame: the frame that shows
+    // the new size (a phone turned on its side) has the tape at that size.
+    this.ro = new ResizeObserver(() => this.renderer.drawNow('ribbon'));
     this.ro.observe(wrap);
 
     this.markLayer = add(wrap, 'div', 'rb-layer');
@@ -217,6 +237,8 @@ export class Ribbon {
       if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
       const note = b.clamped ? ' (its start had already left the buffer)' : '';
       this.onToast?.(`Kept it in the crate${note}: drop it from there on the tape`, 'ok');
+      // A page with the crate on it (the Studio) shows it there at once.
+      this.onKept?.(b);
     } catch (e) {
       this.onToast?.(`Could not keep it: ${e.message}`, 'bad');
     }
@@ -289,7 +311,12 @@ export class Ribbon {
       ? 'This span has left the buffer'
       : `${fmtAge(len)} · ${when}${gone ? ' · starts before the oldest audio' : ''}`;
     bar.classList.toggle('gone', gone);
-    bar.querySelector('.rb-sel-save').disabled = allGone;
+    const save = bar.querySelector('.rb-sel-save');
+    save.disabled = allGone;
+    if (this.keepWords && !allGone) {
+      const words = this.keepWords(len);
+      if (save.textContent !== words) save.textContent = words;
+    }
     for (const cls of ['.rb-sel-copy', '.rb-sel-keep']) {
       const b = bar.querySelector(cls);
       if (b) b.disabled = allGone;
@@ -319,7 +346,7 @@ export class Ribbon {
     const sh = this.flagSheet;
     if (!sh || typeof sh.showModal !== 'function') { this.removeFlag(f.frame); return; }
     this.sheetFlag = f;
-    sh.querySelector('.rb-flag-title').textContent = `Flag, ${fmtAge(f.age_seconds)} ago`;
+    sh.querySelector('.rb-flag-title').textContent = say(`Flag, ${fmtAge(f.age_seconds)} ago`);
     sh.showModal();
   }
 
@@ -352,6 +379,8 @@ export class Ribbon {
   destroy() {
     this.stop();
     this.ro.disconnect();
+    this.scene.stop();
+    this.renderer.destroy();
     document.removeEventListener('visibilitychange', this._onVis);
   }
 
@@ -394,12 +423,12 @@ export class Ribbon {
       const res = await fetch(`/api/flag?frame=${frame}`, { method: 'DELETE' });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        this.onToast?.(body.error || 'could not remove flag', 'bad');
+        this.onToast?.(body.error || say('could not remove flag'), 'bad');
         return;
       }
       this.poll(); // redraw the ribbon without waiting for the next tick
     } catch {
-      this.onToast?.('could not remove flag', 'bad');
+      this.onToast?.(say('could not remove flag'), 'bad');
     }
   }
 
@@ -465,7 +494,7 @@ export class Ribbon {
     for (const f of d.flags || []) {
       const flag = add(this.flagLayer, 'div', 'rb-flag');
       flag.style.left = `${leftPct(f.age_seconds).toFixed(2)}%`;
-      flag.title = `flag at ${fmtDur(f.age_seconds)} ago — tap for its options`;
+      flag.title = say(`flag at ${fmtDur(f.age_seconds)} ago — tap for its options`);
       flag.addEventListener('click', (e) => {
         e.stopPropagation();
         this.openFlag(f);
@@ -491,15 +520,26 @@ export class Ribbon {
     }
     this.bandLayer.hidden = !!this.sel;
     this.renderBar(ax);
-    this.paint();
+    this.sync();
   }
 
-  // paint draws the tape: the whole ring, with the chosen length -- or a span
-  // held on the ribbon -- lit.
-  paint() {
+  // sync hands the tape its state: the ring's axis from the last poll, the
+  // span held on it or the chosen length, and the envelope to draw.
+  sync() {
     const d = this.data;
+    if (!d) return;
+    this.tape.set({
+      ring: d.ring_seconds, edge: d.edge_seconds, buffered: d.buffered_seconds,
+      total: d.total_frames, sr: d.sample_rate,
+      sel: this.sel, selected: this.selected, levels: this.levels,
+    });
+  }
+
+  // paint is the tape's drawer: the whole ring, with the chosen length -- or
+  // a span held on the ribbon -- lit, as the model worked out, at this size.
+  paint(view, state) {
     const r = this.canvas.getBoundingClientRect();
-    if (!d || r.width <= 0 || r.height <= 0) return;
+    if (!view || r.width <= 0 || r.height <= 0) return;
     const dpr = window.devicePixelRatio || 1;
     const W = r.width, H = r.height;
     if (this.canvas.width !== Math.round(W * dpr) || this.canvas.height !== Math.round(H * dpr)) {
@@ -509,19 +549,9 @@ export class Ribbon {
     const ctx = this.ctx;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    const T = d.ring_seconds, A = d.edge_seconds;
-    const px = (age) => (axisPct(age, A, T) / 100) * W;
-    let lit = null;
-    const ax = this.axis();
-    if (this.sel && ax) {
-      const fromAge = Math.min(ageOf(this.sel.from, ax.total, ax.sr), d.buffered_seconds);
-      const toAge = this.sel.to == null ? 0 : Math.min(ageOf(this.sel.to, ax.total, ax.sr), d.buffered_seconds);
-      lit = [px(fromAge), this.sel.to == null ? W : px(toAge)];
-    } else if (this.selected != null) {
-      lit = [px(this.selected === 0 ? T : this.selected), W];
-    }
+    const lit = view.lit && [view.lit[0] * W, view.lit[1] * W];
     this.colors ||= ribbonColors((name, fb) => token(name, fb, this.wrap));
-    drawRibbon(ctx, { W, H, levels: this.levels, lit, recordedFrom: px(d.buffered_seconds), colors: this.colors });
+    drawRibbon(ctx, { W, H, levels: state.levels, lit, recordedFrom: view.recordedFrom * W, colors: this.colors });
   }
 
   readoutText(d, span) {

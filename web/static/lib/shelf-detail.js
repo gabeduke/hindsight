@@ -362,7 +362,11 @@ export class TakeDetail {
     edit.type = 'button';
     edit.className = 'chip tag-edit-btn';
     edit.textContent = tagStore.list.length ? 'Edit tags' : '+ New tag';
-    edit.addEventListener('click', () => openTagManager({ onToast: this.onToast }));
+    // A tag made here is put on this take: it is what "+ New tag" was for.
+    edit.addEventListener('click', () => openTagManager({
+      onToast: this.onToast,
+      onCreated: (g) => this.takes.patchTake(t.name, { tag: g.id }).catch((e) => this.onToast?.(`Could not tag: ${e.message}`, 'bad')),
+    }));
     box.replaceChildren(...chips, edit);
   }
 

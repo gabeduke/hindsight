@@ -16,9 +16,12 @@
 // One drawing, three cuts:
 //   icon.svg        rounded square, transparent corners: the source of the
 //                   manifest's PNG icons (192, 512)
-//   icon-full.svg   full bleed, the cassette shrunk into the maskable safe
-//                   zone (a circle 80% of the side), for "maskable" and the
-//                   apple-touch icon, which the OS rounds itself
+//   icon-full.svg   full bleed, the cassette shrunk to 76%: the apple-touch
+//                   icon, which iOS rounds itself
+//   icon-maskable.svg  full bleed, the whole cassette (its screws and foot
+//                   too) inside the maskable safe zone, a circle 80% of the
+//                   side: Android crops to a circle, and the corner screws
+//                   and the foot are the parts a 76% cut loses
 //   icon-small.svg  fewer, heavier parts for 32 px and under, where screws,
 //                   teeth and the waveform turn to mud
 
@@ -165,5 +168,8 @@ const inset = (art, s) => {
 mkdirSync(OUT, { recursive: true });
 writeFileSync(join(OUT, 'icon.svg'), svg(`${shell}${cassette()}`, 96));
 writeFileSync(join(OUT, 'icon-full.svg'), svg(inset(cassette(), 0.76)));
+// The farthest part of the art from its centre is a corner screw, 313 px out;
+// the safe zone's radius is 205 px, so the art scales to 0.65 or less.
+writeFileSync(join(OUT, 'icon-maskable.svg'), svg(inset(cassette(), 0.65)));
 writeFileSync(join(OUT, 'icon-small.svg'), svg(`${shell}${cassette({ small: true })}`, 88));
-console.log('wrote icon.svg, icon-full.svg, icon-small.svg');
+console.log('wrote icon.svg, icon-full.svg, icon-maskable.svg, icon-small.svg');

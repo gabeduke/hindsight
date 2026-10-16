@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // objects.css holds the materials. The rule that makes it safe is that every
@@ -66,7 +66,10 @@ test('objects.css carries the materials it claims to', () => {
   const tokens = new Set(declarations(objects).map(([t]) => t));
   for (const t of ['--reel-metal', '--oxide', '--trace', '--paper-hi', '--stripe-1',
     '--cas-mid', '--hub', '--pack', '--vu-face', '--vu-needle', '--tape-pack', '--pad-face', '--pad-lit',
-    '--lcd-ink', '--grease-mark', '--marker']) {
+    '--lcd-ink', '--grease-mark', '--marker',
+    // The Listening Room's (Rooms P5): a room is a place, not chrome.
+    '--room-wall', '--room-ink', '--room-plate-hi', '--room-walnut', '--room-paper', '--room-paper-ink',
+    '--room-cardboard-hi', '--room-silver', '--room-key-ink']) {
     assert.ok(tokens.has(t), `${t} should be in objects.css`);
   }
 });
@@ -75,7 +78,14 @@ test('every page that loads styles.css loads objects.css first', () => {
   // objects.css carries tokens styles.css uses. A page that takes one and not
   // the other renders with missing colours -- and only on that page, which is
   // exactly the kind of bug that reaches a Pi.
-  for (const page of ['index.html', 'takes.html', 'tape.html', 'wave.html', 'guide.html', 'objects.html']) {
+  // Every page there is, not a list: the rooms grow these pages, and a page
+  // added later is the one a list would miss. The six known ones must be
+  // among them, so a wrong directory can't pass by finding none.
+  const pages = readdirSync(fileURLToPath(new URL('../../', import.meta.url))).filter((f) => f.endsWith('.html'));
+  for (const page of ['index.html', 'takes.html', 'tape.html', 'wave.html', 'guide.html', 'objects.html', 'rig.html']) {
+    assert.ok(pages.includes(page), `${page} should be one of the pages`);
+  }
+  for (const page of pages) {
     const html = read(page);
     const o = html.indexOf('/objects.css');
     const s = html.indexOf('/styles.css"');

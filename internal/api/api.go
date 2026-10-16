@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -72,6 +73,13 @@ type API struct {
 	// playFake stands in for the engine there in tests.
 	playHolds playHolds
 	playFake  tricks
+	// controls is the control bus on the Pi: controllers' bindings, what
+	// they hold, and MIDI LEARN (controls.go); controllers lists them.
+	controls    controlBus
+	controllers DeviceLister
+	// playConns names Play mode's connections, as the owners of the tape
+	// mods they preview.
+	playConns atomic.Uint64
 
 	// hub reports the secure address (internal/hub); nil when the hub is off.
 	hub HubStatus
@@ -88,6 +96,11 @@ type API struct {
 
 	// tagsMu serialises writes to tags.json (see tags.go).
 	tagsMu sync.Mutex
+
+	// rig is the rig's (rig.go): its hooks and rig.json's labels.
+	rig rigState
+	// recordingHook stands in for the tape's recording in tests.
+	recordingHook func() *tape.Recording
 
 	// bg counts work a request leaves running -- a preview encode, a prune --
 	// so a test can wait for it before its takes folder goes.
@@ -148,6 +161,8 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/settings", a.handleSettingsGet).Methods(http.MethodGet)
 	r.HandleFunc("/api/settings", a.handleSettingsPut).Methods(http.MethodPut)
 	r.HandleFunc("/api/restart", a.handleRestart).Methods(http.MethodPost)
+	r.HandleFunc("/api/rig", a.handleRig).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/rig/labels", a.handleRigLabels).Methods(http.MethodPut)
 	r.HandleFunc("/api/jams", a.handleJams).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/trigger", a.handleTrigger).Methods(http.MethodPost)
 	r.HandleFunc("/api/delete", a.handleDelete).Methods(http.MethodDelete)
@@ -198,6 +213,8 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/listen", a.handleTapeListen).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/stream", a.handleTapeStream).Methods(http.MethodGet)
 	r.HandleFunc("/api/tapes/play", a.handleTapePlay).Methods(http.MethodGet)
+	r.HandleFunc("/api/tapes/controls", a.handleControlsGet).Methods(http.MethodGet, http.MethodHead)
+	r.HandleFunc("/api/tapes/controls", a.handleControlsPut).Methods(http.MethodPut)
 	r.HandleFunc("/api/tapes/output", a.handleTapeOutput).Methods(http.MethodPut)
 	r.HandleFunc("/api/tapes/undo", a.handleTapeUndo(false)).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/redo", a.handleTapeUndo(true)).Methods(http.MethodPost)
@@ -209,6 +226,9 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/clipboard/audio", a.handleClipboardAudio).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/clipboard", a.handleClipboardCopy).Methods(http.MethodPost)
 	r.HandleFunc("/api/clipboard", a.handleClipboardClear).Methods(http.MethodDelete)
+	r.HandleFunc("/api/clipboard", a.handleClipboardPatch).Methods(http.MethodPatch)
+	r.HandleFunc("/api/clipboard/keep", a.handleClipboardKeep).Methods(http.MethodPost)
+	r.HandleFunc("/api/clipboard/restore", a.handleClipboardRestore).Methods(http.MethodPost)
 	r.HandleFunc("/api/crate", a.handleCrate).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/crate", a.handleCrateKeep).Methods(http.MethodPost)
 	r.HandleFunc("/api/crate", a.handleCratePatch).Methods(http.MethodPatch)
@@ -256,6 +276,11 @@ type statusResponse struct {
 	// Hub is the secure address and how the hub is doing; null when the hub
 	// is off (no HUB_URL/HUB_TOKEN).
 	Hub *hub.Status `json:"hub"`
+	// Updates says GET /api/update will answer: the updater is installed.
+	// Without it that route is a 404, which a page logs, red, on every load;
+	// so a page reads this first and asks only where there is something to
+	// ask.
+	Updates bool `json:"updates"`
 }
 
 // HubStatus is the hub client, as the status and settings answers see it.
@@ -307,6 +332,7 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		MIDIBPM:         midiBPM,
 		MIDIDevices:     a.midiDevices(),
 		Hub:             a.hubStatus(),
+		Updates:         a.updater != nil,
 	})
 }
 
@@ -1123,6 +1149,7 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Flags     json.RawMessage `json:"flags"`
 		Downbeat  json.RawMessage `json:"downbeat_frame"`
 		LaneKinds json.RawMessage `json:"lane_kinds"`
+		Record    json.RawMessage `json:"record"`
 	}
 	if err := dec.Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -1304,6 +1331,17 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// RawMessage like lane_kinds: absent, null and an object are three
+	// states. Null takes the record's mark off; an object replaces it.
+	if body.Record != nil {
+		rec, err := parseRecord(body.Record, time.Now())
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		m.Record = rec
+	}
+
 	if err := audio.WriteMeta(wav, m); err != nil {
 		writeMetaErr(w, name, err)
 		return
@@ -1339,9 +1377,45 @@ func (a *API) handleTakePatch(w http.ResponseWriter, r *http.Request) {
 		Flags     []audio.Flag      `json:"flags"`
 		Downbeat  *int64            `json:"downbeat_frame"`
 		LaneKinds map[string]string `json:"lane_kinds"`
+		Record    *audio.Record     `json:"record"`
 		CueError  string            `json:"cue_error,omitempty"`
 		Undo      audio.UndoInfo    `json:"undo"`
-	}{Label: m.Label, Starred: m.Starred, Tag: m.Tag, Trim: m.Trim, BPM: m.BPM, TempoFrom: m.TempoFrom, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, CueError: cueErr, Undo: undo})
+	}{Label: m.Label, Starred: m.Starred, Tag: m.Tag, Trim: m.Trim, BPM: m.BPM, TempoFrom: m.TempoFrom, Flags: audio.EnsureFlagIDs(m.Flags), Downbeat: m.DownbeatFrame, LaneKinds: m.LaneKinds, Record: m.Record, CueError: cueErr, Undo: undo})
+}
+
+// parseRecord reads a PATCH's record: null clears it, an object sets it.
+// The side is A unless it says B, the cover a stripe slot (0 for a plain
+// sleeve), and the cut time now unless it gives one -- the room sends none,
+// so the Pi's clock dates every record the same way.
+func parseRecord(raw json.RawMessage, now time.Time) (*audio.Record, error) {
+	if string(raw) == "null" {
+		return nil, nil
+	}
+	var in struct {
+		Cut   *time.Time `json:"cut"`
+		Side  string     `json:"side"`
+		Cover int        `json:"cover"`
+	}
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return nil, errors.New("record must be {cut, side, cover} or null")
+	}
+	rec := &audio.Record{Side: in.Side, Cover: in.Cover, Cut: now.UTC().Truncate(time.Second)}
+	if in.Cut != nil {
+		if in.Cut.IsZero() {
+			return nil, errors.New("record cut must be a time")
+		}
+		rec.Cut = in.Cut.UTC()
+	}
+	if rec.Side == "" {
+		rec.Side = audio.RecordSideA
+	}
+	if rec.Side != audio.RecordSideA && rec.Side != audio.RecordSideB {
+		return nil, errors.New(`record side must be "A" or "B"`)
+	}
+	if rec.Cover < 0 || rec.Cover > audio.MaxRecordCover {
+		return nil, fmt.Errorf("record cover must be 0 to %d", audio.MaxRecordCover)
+	}
+	return rec, nil
 }
 
 // sanitizeLabel prepares a user-supplied label for storage. It strips control

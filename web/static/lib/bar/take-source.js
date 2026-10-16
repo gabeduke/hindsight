@@ -14,6 +14,22 @@ import { barBeat } from '../wave/geometry.js';
 const stamp = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 
 /**
+ * playheadOf is where the take held by the bar is, in seconds -- its list
+ * row's audio element -- or null with no take in the bar. The Listening
+ * Room's GRAB reads it to grab the bars before it.
+ */
+export const playheadOf = (take) => (take && take.audio && Number.isFinite(take.audio.currentTime) ? take.audio.currentTime : null);
+
+/** takeHref is a take's own page: where its name in the bar opens, and where ✎ goes. */
+export const takeHref = (name) => `/wave.html?file=${encodeURIComponent(name)}`;
+
+/** takeLength is a take's length in frames, as the bar counts it. */
+export function takeLength(t, peaks) {
+  const sr = t.sample_rate || 48000;
+  return Math.max(1, Math.round((peaks.duration || t.duration_seconds || 0) * sr));
+}
+
+/**
  * takeSource is the bar's source for take `t`, played by `player` ({audio,
  * peaks, toggle}). onGone hears when its row lets the audio go (the take
  * deleted, or off the shelf): the bar mustn't keep a player that's empty.
@@ -21,7 +37,7 @@ const stamp = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 export function takeSource(t, player, { onGone } = {}) {
   const sr = t.sample_rate || 48000;
   const { audio, peaks } = player;
-  const length = Math.max(1, Math.round((peaks.duration || t.duration_seconds || 0) * sr));
+  const length = takeLength(t, peaks);
   const gain = takeGain(peaks);
   const region = t.trim ? { start: t.trim.start_frame, end: t.trim.end_frame } : null;
   const grid = { bpm: t.bpm || null, sampleRate: sr, downbeat: t.downbeat_frame || 0 };
@@ -45,7 +61,7 @@ export function takeSource(t, player, { onGone } = {}) {
     name: t.name,
     audio,
     title,
-    href: `/wave.html?file=${encodeURIComponent(t.name)}`,
+    href: takeHref(t.name),
     sampleRate: sr,
     length,
     pos,
@@ -103,6 +119,7 @@ export function takeSource(t, player, { onGone } = {}) {
       ctx.fillRect(px - 1, 0, 2, H);
     },
     on(fn) { listeners.add(fn); },
-    destroy() { ac.abort(); listeners.clear(); cache = null; audio.loop = false; },
+    // A source the bar lets go must not keep sounding what the bar no longer shows.
+    destroy() { ac.abort(); listeners.clear(); cache = null; audio.loop = false; if (!audio.paused) audio.pause(); },
   };
 }

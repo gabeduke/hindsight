@@ -3,6 +3,7 @@ package tape
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // Recording: arm and punch, as on the OP-1 -- except that nothing is
@@ -18,7 +19,9 @@ import (
 //     or if no pass was full, the bars from its first bar line to the last
 //     complete one.
 
-// Recording is a punch in progress, or an armed track waiting for ▶.
+// Recording is a punch in progress, or armed tracks waiting for ▶. Track
+// and Source are its first pair, as an older page reads them; Pairs are all
+// of them (multi-arm).
 type Recording struct {
 	Tape   string `json:"tape"`
 	Track  int    `json:"track"`
@@ -29,15 +32,57 @@ type Recording struct {
 	// From is the output frame it was asked for at, less a quarter second
 	// for the tap and Wi-Fi: the punch starts at the first bar line the
 	// tape plays from there.
-	From uint64 `json:"from"`
+	From  uint64 `json:"from"`
+	Pairs []Pair `json:"pairs"`
 }
 
 // Kept is what ending a punch kept: its first clip (the part played first,
-// if it was split where the loop wrapped) and how many frames in all.
+// if it was split where the loop wrapped), how many frames in all, and its
+// first track; with several armed, every track and every clip.
 type Kept struct {
-	Clip   Clip  `json:"clip"`
-	Frames int64 `json:"frames"`
-	Track  int   `json:"track"`
+	Clip   Clip   `json:"clip"`
+	Frames int64  `json:"frames"`
+	Track  int    `json:"track"`
+	Tracks []int  `json:"tracks"`
+	Clips  []Clip `json:"clips"`
+}
+
+// editWaits marks an ErrRecording that is a refused EDIT of the tape (what's
+// armed, a track's input, the output mode): one that waits until the
+// recording ends. The same sentinel also answers a mixdown and a second
+// record, which are not edits; only this wrapper makes the API say so.
+type editWaits struct{ err error }
+
+func (e editWaits) Error() string { return e.err.Error() }
+func (e editWaits) Unwrap() error { return e.err }
+
+// WaitsForRecording marks err as an edit refused until the recording ends.
+func WaitsForRecording(err error) error { return editWaits{err} }
+
+// IsWaitingForRecording says whether err is an edit that waits for a recording.
+func IsWaitingForRecording(err error) bool {
+	var w editWaits
+	return errors.As(err, &w)
+}
+
+// Allows says whether, while this recording is armed or running, what's
+// armed can go from before to after, and these inputs can be set (by track):
+// no. A punch keeps the tracks and the inputs it began with, as the tape
+// page has always refused them for itself; held here, so the rig and every
+// other page are refused too. A nil recording allows anything.
+func (r *Recording) Allows(before, after []int, inputs map[int]string) error {
+	if r == nil {
+		return nil
+	}
+	if !slices.Equal(before, after) {
+		return WaitsForRecording(fmt.Errorf("%w: what's armed waits until it ends", ErrRecording))
+	}
+	for _, p := range r.Pairs {
+		if src, ok := inputs[p.Track]; ok && src != p.Source {
+			return WaitsForRecording(fmt.Errorf("%w: track %d records %s until it ends", ErrRecording, p.Track, p.Source))
+		}
+	}
+	return nil
 }
 
 // recLate is how long after a bar line a Rec still means that bar.
@@ -53,6 +98,13 @@ var (
 
 // Record arms a track, or punches in if the tape is playing.
 func (e *Engine) Record(id string, track int, source string, replace bool) (Recording, error) {
+	return e.RecordPairs(id, []Pair{{Track: track, Source: source}}, replace)
+}
+
+// RecordPairs arms every pair's track, or punches them all in if the tape is
+// playing: one punch, which keeps each track from its own input over the
+// same span, as one undo.
+func (e *Engine) RecordPairs(id string, pairs []Pair, replace bool) (Recording, error) {
 	if err := e.jamOnly(); err != nil {
 		return Recording{}, err
 	}
@@ -69,11 +121,8 @@ func (e *Engine) Record(id string, track int, source string, replace bool) (Reco
 	if t.Grid == nil {
 		return Recording{}, fmt.Errorf("%w: a punch needs bars; set a tempo or make the first loop", ErrNoGrid)
 	}
-	if _, err := t.Track(track); err != nil {
+	if _, err := e.resolve(t, pairs); err != nil {
 		return Recording{}, err
-	}
-	if _, ok := e.source(source); !ok {
-		return Recording{}, fmt.Errorf("%w: no source %q", ErrBadParameter, source)
 	}
 	e.recMu.Lock()
 	defer e.recMu.Unlock()
@@ -91,7 +140,7 @@ func (e *Engine) Record(id string, track int, source string, replace bool) (Reco
 	if e.rec != nil {
 		return *e.rec, ErrRecording
 	}
-	r := Recording{Tape: id, Track: track, Source: source, Replace: replace, State: "armed"}
+	r := Recording{Tape: id, Track: pairs[0].Track, Source: pairs[0].Source, Replace: replace, State: "armed", Pairs: slices.Clone(pairs)}
 	if st := e.tr.Status(); st.Playing || st.CountIn > 0 {
 		r.State, r.From = "on", e.lateFrom()
 	}
@@ -117,6 +166,7 @@ func (e *Engine) Recording() *Recording {
 		return nil
 	}
 	r := *e.rec
+	r.Pairs = slices.Clone(r.Pairs)
 	return &r
 }
 
@@ -170,9 +220,9 @@ func (e *Engine) endRecordingAt(id string, cancel bool, end uint64) (*Kept, erro
 	if t == nil || t.ID != id || r.Tape != id {
 		return nil, ErrWrongTape
 	}
-	src, ok := e.source(r.Source)
-	if !ok {
-		return nil, fmt.Errorf("%w: no source %q", ErrBadParameter, r.Source)
+	pairs, err := e.resolve(t, r.Pairs)
+	if err != nil {
+		return nil, err
 	}
 	ps, err := e.recordedSpan(t, r.From, end)
 	if errors.Is(err, errNothingYet) {
@@ -185,8 +235,9 @@ func (e *Engine) endRecordingAt(id string, cancel bool, end uint64) (*Kept, erro
 	for _, p := range ps {
 		frames += p.Len
 	}
-	// One file, placed piece by piece where each was played.
-	placed, err := e.catchSpan(t, src, ps[0].Out, frames, ps[0].Pos, func(s *State, c Clip) ([]Clip, error) {
+	// One file per input, placed on each track piece by piece where each was
+	// played.
+	placed, err := e.catchSpan(t, pairs, ps[0].Out, frames, ps[0].Pos, func(s *State, track int, c Clip) ([]Clip, error) {
 		var parts []Clip
 		var off int64
 		for _, p := range ps {
@@ -196,12 +247,13 @@ func (e *Engine) endRecordingAt(id string, cancel bool, end uint64) (*Kept, erro
 			off += p.Len
 			parts = append(parts, part)
 		}
-		return s.PlaceTogether(r.Track, parts, r.Replace)
+		return s.PlaceTogether(track, parts, r.Replace)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &Kept{Clip: placed[0], Frames: frames, Track: r.Track}, nil
+	res := caught(pairs, placed)
+	return &Kept{Clip: res.Clip, Frames: frames, Track: r.Track, Tracks: res.Tracks, Clips: res.Clips}, nil
 }
 
 // recordedSpan is what a punch from output frame from to end covered, as

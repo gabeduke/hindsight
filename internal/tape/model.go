@@ -286,6 +286,9 @@ type State struct {
 	Tracks []Track `json:"tracks"`
 	// Sections name spans of the tape for arranging (sections.go), in order.
 	Sections []Section `json:"sections,omitempty"`
+	// Style is the tape's mods (mods.go): wow, flutter, drive and age. Nil
+	// is clean.
+	Style *Style `json:"style,omitempty"`
 }
 
 // clone is a deep copy, for undo.
@@ -294,6 +297,10 @@ func (s State) clone() State {
 	if s.Grid != nil {
 		g := *s.Grid
 		out.Grid = &g
+	}
+	if s.Style != nil {
+		st := *s.Style
+		out.Style = &st
 	}
 	for i, t := range s.Tracks {
 		t.Clips = append(make([]Clip, 0, len(t.Clips)), t.Clips...) // never nil: [] in JSON
@@ -311,14 +318,20 @@ type Tape struct {
 	Length     int64     `json:"length"` // frames a track can hold
 	Created    time.Time `json:"created"`
 	Click      bool      `json:"click,omitempty"`
-	// RecTrack is the record track: where a catch, a punch, a free loop's tap
-	// and an overdub go, chosen on any device (0 is track 1; NoRecTrack is
-	// none, its ● pressed again). Inputs are the tracks' inputs, the sources
-	// they record from (Inputs[0] is track 1's); "" records from whichever
-	// was chosen last. Neither is a step of undo: they're where you are, not
-	// what's on the tape.
-	RecTrack int      `json:"rec_track,omitempty"`
-	Inputs   []string `json:"inputs,omitempty"`
+	// RecTracks are the armed tracks, in order: where a catch, a punch, a
+	// free loop's tap and an overdub go, chosen on any device, each
+	// recording from its own input (multi-arm, the rig spec). Empty is none.
+	// RecTrack is the first of them, or NoRecTrack: what rec_track meant
+	// before there could be several, kept in step (SetArmed) so older pages
+	// read and write it as they always did. A tape.json with rec_track and
+	// no rec_tracks is armed on that one track; with neither, on track 1.
+	// Inputs are the tracks' inputs, the sources they record from
+	// (Inputs[0] is track 1's); "" records from whichever was chosen last.
+	// None of these is a step of undo: they're where you are, not what's on
+	// the tape.
+	RecTrack  int      `json:"rec_track,omitempty"`
+	RecTracks []int    `json:"rec_tracks"`
+	Inputs    []string `json:"inputs,omitempty"`
 	State
 	History []State `json:"history,omitempty"` // earlier versions, oldest first
 	Future  []State `json:"future,omitempty"`  // undone versions, for redo
@@ -330,12 +343,72 @@ type Tape struct {
 // NoRecTrack is a tape's RecTrack with no track armed.
 const NoRecTrack = -1
 
+// Armed is a copy of the armed tracks, in order.
+func (t *Tape) Armed() []int { return slices.Clone(t.RecTracks) }
+
+// SetArmed arms exactly the tracks ns (from 1), in order and once each;
+// none disarms every track. A track the tape doesn't have is refused, and
+// nothing changes.
+func (t *Tape) SetArmed(ns []int) error {
+	for _, n := range ns {
+		if n < 1 || n > len(t.Tracks) {
+			return ErrNoSuchTrack
+		}
+	}
+	t.setArmed(ns)
+	return nil
+}
+
+// setArmed is SetArmed without the check: tracks it doesn't have are left
+// out.
+func (t *Tape) setArmed(ns []int) {
+	out := []int{}
+	for _, n := range ns {
+		if n >= 1 && n <= len(t.Tracks) && !slices.Contains(out, n) {
+			out = append(out, n)
+		}
+	}
+	slices.Sort(out)
+	t.RecTracks = out
+	t.RecTrack = NoRecTrack
+	if len(out) > 0 {
+		t.RecTrack = out[0]
+	}
+}
+
+// SetRecTrack is what rec_track always did: arm just track n, or with
+// NoRecTrack none.
+func (t *Tape) SetRecTrack(n int) {
+	if n == NoRecTrack {
+		t.setArmed(nil)
+		return
+	}
+	t.setArmed([]int{n})
+}
+
+// normalizeArm reads a tape.json's arming, whichever version wrote it:
+// rec_tracks if it's there; else rec_track, the one armed track before
+// there could be several (absent was track 1, NoRecTrack none).
+func (t *Tape) normalizeArm(hadTracks bool) {
+	switch {
+	case hadTracks:
+		t.setArmed(t.RecTracks)
+	case t.RecTrack == NoRecTrack:
+		t.setArmed(nil)
+	case t.RecTrack == 0:
+		t.setArmed([]int{1})
+	default:
+		t.setArmed([]int{t.RecTrack})
+	}
+}
+
 // NewTape makes an empty tape of n tracks, every one on bus A at -6 dB.
 func NewTape(id, name string, sampleRate int, length int64, tracks int, now time.Time) *Tape {
 	t := &Tape{Version: Version, ID: id, Name: name, SampleRate: sampleRate, Length: length, Created: now, Click: true}
 	for i := 1; i <= tracks; i++ {
 		t.Tracks = append(t.Tracks, Track{N: i, Bus: BusA, GainDB: DefaultTrackGainDB, Clips: []Clip{}})
 	}
+	t.setArmed([]int{1}) // track 1, as a new tape always was
 	return t
 }
 
@@ -434,6 +507,7 @@ func (t *Tape) Change(kind string, now time.Time, fn func(s *State) error) error
 func (t *Tape) draft() *Tape {
 	c := *t
 	c.Inputs = slices.Clone(t.Inputs)
+	c.RecTracks = slices.Clone(t.RecTracks)
 	c.History = slices.Clone(t.History)
 	c.Future = slices.Clone(t.Future)
 	return &c
@@ -486,6 +560,11 @@ func (s *State) validate(length int64) error {
 	}
 	if err := s.validSections(length); err != nil {
 		return err
+	}
+	if s.Style != nil {
+		if err := s.Style.validate(); err != nil {
+			return err
+		}
 	}
 	for i := range s.Tracks {
 		tr := &s.Tracks[i]

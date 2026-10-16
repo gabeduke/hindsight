@@ -37,6 +37,12 @@ func (f *fakeSaver) SaveRange(from, to uint64, _ ...audio.SaveOption) (audio.Sav
 // (bus A), a saver, and a short tail.
 func mixdownEngine(t *testing.T) (*Engine, *loopSink, *Tape, *fakeSaver, string) {
 	t.Helper()
+	return mixdownEngineOf(t, func(int) float64 { return 0.25 })
+}
+
+// mixdownEngineOf is mixdownEngine with the loop reading val.
+func mixdownEngineOf(t *testing.T, val func(int) float64) (*Engine, *loopSink, *Tape, *fakeSaver, string) {
+	t.Helper()
 	s := newTestStore(t)
 	sink := &loopSink{ring: audio.NewRing(48000*30, 8)}
 	saver := &fakeSaver{ring: sink.ring}
@@ -51,7 +57,7 @@ func mixdownEngine(t *testing.T) (*Engine, *loopSink, *Tape, *fakeSaver, string)
 	}
 	testEngine = e
 	t.Cleanup(func() { e.Stop(); testEngine = nil })
-	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
+	take := takeWAV(t, 200000, val)
 	if _, err := e.CopyTake(take, "jam_take.wav", 0, 96000, []int{0, 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -134,9 +140,36 @@ func TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail(t *testing.T) {
 	if meta.TapeID != tp.ID {
 		t.Errorf("tape_id = %q, want %q", meta.TapeID, tp.ID)
 	}
+	// Not a record: nothing asked it to be one.
+	if meta.Record != nil {
+		t.Errorf("record = %+v, want none", meta.Record)
+	}
 	// The tape stands back at In after it.
 	if st := e.tr.Status(); st.Playing || st.Pos != 0 {
 		t.Fatalf("after the mixdown: %+v", st)
+	}
+}
+
+// Cut a record: the engine marks the take it saves, so the mark is there
+// whether or not the page that asked is still open.
+func TestAMixdownCutAsARecordIsSavedMarked(t *testing.T) {
+	e, sink, tp, _, dir := mixdownEngine(t)
+	e.Start()
+	sink.play(t, 4096)
+	cut := time.Date(2026, 10, 15, 21, 4, 0, 0, time.UTC)
+	if _, err := e.StartMixdownAs(tp.ID, true, &audio.Record{Cut: cut, Side: audio.RecordSideA, Cover: 3}); err != nil {
+		t.Fatal(err)
+	}
+	got := waitMixdown(t, e, sink)
+	if got.State != "done" {
+		t.Fatalf("mixdown = %+v", got)
+	}
+	meta := audio.ReadMeta(filepath.Join(dir, got.Take))
+	if meta.Record == nil || meta.Record.Side != "A" || meta.Record.Cover != 3 || !meta.Record.Cut.Equal(cut) {
+		t.Fatalf("record = %+v", meta.Record)
+	}
+	if meta.Origin != audio.OriginTape || meta.TapeID != tp.ID {
+		t.Errorf("still a mixdown of its tape: %+v", meta)
 	}
 }
 

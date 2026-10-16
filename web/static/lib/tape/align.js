@@ -9,6 +9,7 @@ import { snapFrame, nudgeFrames } from './geometry.js';
 import { viewAbout, fmtSample, beatOffset, fmtOffset } from '../wave/boundary.js';
 import { MIN_FPP } from '../edit/gestures.js';
 import { findAttack } from '../wave/onset.js';
+import { say } from '../rooms/words.js';
 
 /** soundingAt is the tape frame a clip's first frame is heard at: its at plus its nudge. */
 export function soundingAt(clip, sampleRate) {
@@ -118,7 +119,7 @@ export function clipNumber(track, clip) {
  * With no hit found, the point is the clip's start, and says so (start).
  */
 export function alignReadout({ track, n, point, sampleRate, grid, ref, start = false }) {
-  const parts = [`Clip ${track}.${n} ${start ? 'start ' : ''}${fmtSample(point, sampleRate)}`];
+  const parts = [say(`Clip ${track}.${n} ${start ? 'start ' : ''}${fmtSample(point, sampleRate)}`)];
   const off = fmtOffset(beatOffset(point, beatGrid(grid, sampleRate)));
   if (off) parts.push(off);
   if (ref) {

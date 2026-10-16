@@ -30,6 +30,7 @@ import { drawTrace } from './tape-strip.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
+import { say, named } from '../rooms/words.js';
 import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toast.js';
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
@@ -41,7 +42,14 @@ import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
+import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
+import { start as startRoom, roomOn } from '../room/mount.js';
+import { trimTakePage } from '../rooms/nocrate.js';
+
+// With the rooms on the crate is off the screen (F3): no Send to → Crate, no
+// Split here, no ◫ chip. The Pi keeps the crate; the page only stops offering it.
+if (roomOn()) trimTakePage(document);
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -113,7 +121,18 @@ function writePref(key, value) {
 async function main() {
   // The page's link to the Pi; the real one is made once the page is up.
   let link = { ok() {}, fail() {} };
-  if (!file) return fail('No take given.');
+  // What Open hears of each redraw (lib/room/open.js).
+  const openHooks = new Set();
+  if (!file) {
+    // With the rooms on a tape opens in the Studio, where tapes live
+    // (?tape=ID). The Studio shows the tape it has
+    // loaded, and offers the rest from its own list.
+    if (new URLSearchParams(location.search).get('tape') && roomOn()) {
+      location.replace('/tape.html');
+      return;
+    }
+    return fail('No take given.');
+  }
   // A reload while the notes pane was open leaves a stale {notes:1} entry
   // that would otherwise pop straight into the (unbuilt) pane on Back.
   if (history.state && history.state.notes) history.replaceState(null, '');
@@ -199,12 +218,13 @@ async function main() {
   function redraw() {
     setText($('flags-count'), String(state.flags.length));
     const nd = state.dropouts.length;
-    setAttr($('flags-list'), 'aria-label', `${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}${nd ? ` and ${nd} dropout${nd === 1 ? '' : 's'}` : ''}: show the list`);
+    setAttr($('flags-list'), 'aria-label', say(`${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}`) + `${nd ? ` and ${nd} dropout${nd === 1 ? '' : 's'}` : ''}: show the list`);
     view.draw();
     if (overview) overview.draw();
     if (lanes) lanes.draw();
     if (notes && !notes.running && notesVisible()) notes.draw();
     drawStrip();
+    for (const f of openHooks) f();
   }
   // Canvases don't restyle themselves when the device turns dark or light.
   // The overview caches its waveform, so that cache goes too.
@@ -676,7 +696,7 @@ async function main() {
     state.selectedFlag = null;
     sheet.hidden = true;
     flagOp('remove', { id: f.id }, (b) => {
-      if (b.undo?.op) toast(f.label ? `Flag "${f.label}" deleted` : 'Flag deleted', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
+      if (b.undo?.op) toast(f.label ? `Flag "${named(f.label)}" deleted` : 'Flag deleted', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
     });
     redraw();
   });
@@ -1382,7 +1402,7 @@ async function main() {
     pendingTrim = null;
     clearTimeout(regionTimer);
     clock.pause();
-    const msg = `Deleted ${take.label || stampOf(file)}`;
+    const msg = `Deleted ${named(take.label || stampOf(file))}`;
     // On through the list's own order only: a take it doesn't have (a cut
     // opened from its toast, say) goes back to the list, as before.
     const order = await orderReady;
@@ -1417,7 +1437,7 @@ async function main() {
   };
   fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
     if (r.ok) {
-      for (const id of ['send-btn', 'split-here']) $(id).hidden = false;
+      for (const id of ['send-btn', 'split-here']) { if ($(id)) $(id).hidden = false; }
       renderSendHint();
       renderCrateChip();
     }
@@ -1426,6 +1446,7 @@ async function main() {
   // them on the tape page's crate.
   const crateHref = `/tape.html?crate=${encodeURIComponent(file)}`;
   async function renderCrateChip() {
+    if (!$('crate-chip')) return; // the rooms have no crate to point at
     try {
       const n = (await tapeAPI(`/api/crate?take=${encodeURIComponent(file)}`)).clips.length;
       $('crate-chip').hidden = !n;
@@ -1436,7 +1457,7 @@ async function main() {
   }
   // Split here: two clips on the crate, the take before the playhead and
   // from it on. The take isn't changed: its audio never is.
-  $('split-here').addEventListener('click', async () => {
+  $('split-here')?.addEventListener('click', async () => {
     const btn = $('split-here');
     if (btn.disabled) return;
     const at = Math.round(state.cursor); // where it splits, whatever plays on
@@ -1449,7 +1470,7 @@ async function main() {
         body: JSON.stringify({ take: file, at }),
       });
       const [a, z] = b.clips;
-      toast(`Split at ${fmtClock(at, sr)} into two clips on the crate: “${a.name}” and “${z.name}”`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
+      toast(`Split at ${fmtClock(at, sr)} into two clips on the crate: “${named(a.name)}” and “${named(z.name)}”`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
       renderCrateChip();
     } catch (e) {
       toast(`Could not split it: ${e.message}`, 'bad');
@@ -1460,7 +1481,7 @@ async function main() {
   });
   // Keep as clip: the selection (or the whole take) onto the crate, its audio
   // copied into the tape's pool; the takes list doesn't change.
-  $('keep-clip').addEventListener('click', async () => {
+  $('keep-clip')?.addEventListener('click', async () => {
     const from = state.region ? state.region.start : 0;
     const to = state.region ? state.region.end : total;
     try {
@@ -1468,7 +1489,7 @@ async function main() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ take: file, from, to }),
       });
-      toast(`Kept “${b.clip.name}” in the crate, ${fmtClock(to - from, sr)}`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
+      toast(`Kept “${named(b.clip.name)}” in the crate, ${fmtClock(to - from, sr)}`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
       renderCrateChip();
     } catch (e) {
       toast(`Could not keep it: ${e.message}`, 'bad');
@@ -1493,7 +1514,7 @@ async function main() {
   $('copy-take').addEventListener('click', async () => {
     try {
       const n = await copyTake();
-      toast(`Copied ${fmtClock(n, sr)}: Paste it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+      toast(`Copied ${fmtClock(n, sr)}: Paste it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => openTheTape() } });
     } catch (e) {
       toast(`Could not copy: ${e.message}`, 'bad');
     }
@@ -1517,7 +1538,7 @@ async function main() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       const { msg, kind } = sentMessage(res, fmtClock(state.region ? to - from : total, sr));
-      toast(msg, kind, { ms: kind === 'warn' ? 10000 : undefined, action: { label: 'Open the tape', run: () => { location.href = '/tape.html'; } } });
+      toast(msg, kind, { ms: kind === 'warn' ? 10000 : undefined, action: { label: 'Open the tape', run: () => openTheTape() } });
     } catch (e) {
       toast(`Could not send to tape: ${e.message}`, 'bad', 8000);
     }
@@ -1924,6 +1945,65 @@ async function main() {
   // Back in view, back online, or back from a sleep that stopped the clock:
   // the take as the Pi has it now, with a "Reconnecting…" note until it answers.
   link = watchLink(() => refetchTake(), { retryMs: 3000 });
+
+  // With the rooms on, this page is Open (lib/room/open.js): it opens where
+  // the bar was (carry.arrival), and ✎ on the bar arrives with a note started
+  // at the frame that was heard. The room lays its words over the page and
+  // works the take through this handle. With the rooms off, start() reads
+  // the flag and stops.
+  const arrival = roomOn() ? pageCarry().arrival(file, total) : null;
+  if (arrival && (arrival.frame > 0 || arrival.play)) {
+    // The browser may refuse a sound nobody tapped for on this page (Safari
+    // on an iPhone always does): then the take waits at the frame the bar
+    // left it, paused, with ▶ one tap away, and no toast for it.
+    startOpen(arrival, {
+      seek: (f) => { seekTo(f); view.follow(Math.max(0, Math.min(total - 1, f))); },
+      pos: () => state.cursor,
+      play: () => togglePlay(),
+    });
+  }
+  startRoom('open', {
+    file, take, sampleRate: sr, total, peaks: filePeaks, toast,
+    arrivalNote: arrival ? arrival.note : null,
+    state: () => state,
+    playing: () => clock.playing,
+    togglePlay,
+    seek: (frame) => { seekTo(frame); if (!state.edit) view.follow(Math.max(0, Math.min(total - 1, frame))); },
+    // A note is a flag with words. NOTE HERE puts one where the playhead
+    // is -- or answers the one already there.
+    addNote(frame) {
+      const at = Math.max(0, Math.min(total - 1, Math.round(frame)));
+      if (!state.flags.some((f) => f.frame === at)) addFlagAt(at);
+      return state.flags.find((f) => f.frame === at)?.id || null;
+    },
+    editNote(id, label) {
+      const f = state.flags.find((x) => x.id === id);
+      if (!f || f.label === label) return;
+      f.label = label;
+      flagOp('edit', { id, label });
+      redraw();
+    },
+    removeNote(id) {
+      const f = state.flags.find((x) => x.id === id);
+      if (!f) return;
+      state.flags = state.flags.filter((x) => x !== f);
+      if (state.selectedFlag === f) { state.selectedFlag = null; sheet.hidden = true; }
+      flagOp('remove', { id }, (b) => {
+        if (b.undo?.op) toast(f.label ? `Note "${named(f.label)}" taken out` : 'Note taken out', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
+      });
+      redraw();
+    },
+    patch: (body) => patch(body),
+    onRedraw: (fn) => openHooks.add(fn),
+  })?.catch((e) => console.error('Open could not start:', e));
+  // Leaving, the take and where the playhead is go to the next page's bar
+  // (lib/bar/carry.js), so Room -> Open -> back carries what was done here.
+  // Opened and left alone (not played, the playhead where it began), the page
+  // is transparent: the bar's take, as the Room left it, stands.
+  // Repeat on the bar isn't this page's (its Loop is a selection's): the
+  // Room's flag for this take, as it left it, goes back with it.
+  const carry = pageCarry();
+  carry.wire(window, document, takePageState({ file, sr, from: state.cursor, loop: carry.loopOf(file), now: () => ({ frame: state.cursor, playing: clock.playing }) }));
   window.addEventListener('pagehide', () => {
     clearTimeout(loopTimer);
     bar.commit();

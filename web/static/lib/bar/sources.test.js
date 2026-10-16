@@ -3,7 +3,7 @@
 // fetch and a clock the tests move.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { takeSource } from './take-source.js';
+import { takeSource, playheadOf } from './take-source.js';
 import { tapeSource } from './tape-source.js';
 
 const SR = 48000;
@@ -15,6 +15,7 @@ class FakeAudio {
     opts?.signal?.addEventListener('abort', () => { this.l[ev] = this.l[ev].filter((f) => f !== fn); });
   }
   emit(ev) { for (const f of this.l[ev] || []) f(); }
+  pause() { this.paused = true; this.emit('pause'); }
 }
 
 function aTake(trim = null) {
@@ -49,6 +50,23 @@ test('a take: Loop without a selection is the audio\'s own, so it can\'t end', (
   s.setLoop(true);
   s.destroy();
   assert.equal(audio.loop, false, 'let go, the row\'s audio plays once again');
+});
+
+// The bar swaps a take for another (or the tape back in) and lets the old source
+// go; nothing may be left sounding that the bar no longer shows (F5a review).
+test('a take: a source let go never keeps sounding', () => {
+  const { audio, player, t } = aTake();
+  const s = takeSource(t, player);
+  s.play();
+  assert.equal(audio.paused, false);
+  s.destroy();
+  assert.equal(audio.paused, true, 'its audio was paused with it');
+  // One that was not playing is left as it was (no pause event for nothing).
+  const quiet = aTake();
+  let paused = 0;
+  quiet.audio.pause = () => { paused++; };
+  takeSource(quiet.t, quiet.player).destroy();
+  assert.equal(paused, 0);
 });
 
 test('a take: its row letting the audio go tells the bar, until the source is let go', () => {
@@ -177,4 +195,15 @@ test('the tape on this phone: held back, the LCD asks for ▶, and ▶ wakes it 
   player.state = 'playing';
   player.waitingTap = false;
   assert.equal(s.lcd().note, '');
+});
+
+test('the bar’s take says where it is, in seconds; with no take in the bar, null', () => {
+  const { audio, player, t } = aTake();
+  const held = { name: t.name, audio, src: takeSource(t, player) };
+  assert.equal(playheadOf(held), 0, 'a take held at its start');
+  audio.currentTime = 7.25;
+  assert.equal(playheadOf(held), 7.25, 'it follows the audio the spine and the bar share');
+  assert.equal(playheadOf(null), null, 'nothing in the bar');
+  audio.currentTime = NaN;
+  assert.equal(playheadOf(held), null, 'an audio element with no time yet');
 });

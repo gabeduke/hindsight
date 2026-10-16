@@ -12,20 +12,33 @@
 // is adding a line.
 
 import { on as playOn, setOn as playSetOn } from './play/flag.js';
+import { on as roomsOn, setOn as roomsSetOn } from './rooms/flag.js';
 
 /**
- * Each toggle: a stable id, what the sheet calls it, a line saying what it
+ * Each toggle: a stable id, `feature` when it is a preview (it is drawn up
+ * front in the sheet's own Preview features section; one without it goes in
+ * a small This device group below), what the sheet calls it, a line saying what it
  * does, whether a reload is needed for it to take effect, and the pair of
  * functions that read and write it.
  */
 export const DEVICE_PREFS = [
   {
     id: 'play',
+    feature: true,
     label: 'Play mode',
-    note: 'A performance surface for the tape: momentary pads, quantised to the grid. Preview — the pads do not make sound yet.',
+    note: 'The instrument strip above the tape’s bar: held pads, the reel as the loop’s ring, and a MIDI controller to play them.',
     reload: true, // lib/play/mount.js reads the flag once, when the page loads
     get: playOn,
     set: playSetOn,
+  },
+  {
+    id: 'rooms',
+    feature: true,
+    label: 'Two rooms',
+    note: 'A Studio and a Listening Room in place of Capture, Takes and Tape. The Studio is the tape with the feed and Keep above it, and Settings at its foot.',
+    reload: true, // lib/nav.js and lib/rooms/studio.js read the flag once, when the page loads
+    get: roomsOn,
+    set: roomsSetOn,
   },
 ];
 
@@ -47,7 +60,8 @@ export function write(id, value, prefs = DEVICE_PREFS) {
   const p = prefs.find((x) => x.id === id);
   if (!p) return { ok: false, reload: false };
   try {
-    p.set(value);
+    // A setter that answers false could not keep it (a flag's does); one that answers nothing is taken at its word.
+    if (p.set(value) === false) return { ok: false, reload: false };
     return { ok: true, reload: !!p.reload };
   } catch {
     return { ok: false, reload: false };

@@ -8,9 +8,11 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.HINDSIGHT_URL ?? 'http://127.0.0.1:5000';
 const failures = [];
+let passes = 0;
 const check = (name, ok, detail = '') => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ` -- ${detail}` : ''}`);
-  if (!ok) failures.push(name);
+  if (ok) passes++;
+  else failures.push(name);
 };
 const browser = await chromium.launch();
 const getJSON = async (path) => (await fetch(`${BASE}${path}`)).json();
@@ -148,7 +150,15 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   const armed = await meta();
   check('the record track: track 3’s ● makes it the record track, on the Pi', armed.rec === 3, JSON.stringify(armed));
   check('the record track: its ● is lit, and only its', (await lit()) === 'false,false,true,false');
-  check('the record track: Catch names it', (await p.textContent('#catch-pass .np-catch-sub')).includes('track 3'));
+  // A Catch that is waiting says what it waits for ("press ▶"), not where it
+  // will land, so the track is named once it is ready: play until a pass has
+  // gone round (about 10 s at 96 BPM, 4 bars), then stop if it was stopped.
+  const wasPlaying = await p.evaluate(() => document.getElementById('play').classList.contains('playing'));
+  if (!wasPlaying) await p.click('#play');
+  const ready = await p.waitForFunction(() => !document.getElementById('catch-pass').classList.contains('waits'), null, { timeout: 40000 }).then(() => true, () => false);
+  const catchSub = await p.textContent('#catch-pass .np-catch-sub');
+  if (!wasPlaying) await p.click('#play');
+  check('the record track: Catch names it, once a pass has gone round', ready && catchSub.includes('track 3'), `ready=${ready} "${catchSub}"`);
   // A tap on another lane selects that track here, for the edits; the record
   // track, everyone's, stays.
   const lane1 = await p.evaluate(() => { const b = document.querySelectorAll('.tt-lane')[0].getBoundingClientRect(); return { x: b.right - 6, y: b.top + b.height / 2 }; });
@@ -327,9 +337,12 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
   const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await p.goto(`${BASE}/tape.html`);
   await p.waitForTimeout(1500);
+  // A Catch that is waiting for a pass is a dimmed key on purpose (so a tap
+  // can say why); the orange is the ready key, so look at it as one.
   const bg = await p.evaluate(() => {
     const b = document.getElementById('catch-pass');
     b.disabled = false;
+    b.classList.remove('waits');
     return getComputedStyle(b).backgroundImage;
   });
   check('Catch is orange', /linear-gradient/.test(bg) && /\b(20[0-9]|19[0-9]|21[0-9]), (7[0-9]|8[0-9]|6[0-9]), (2[0-9]|3[0-9]|1[0-9])\b/.test(bg), bg.slice(0, 80));
@@ -902,8 +915,9 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
 }
 
 await browser.close();
+console.log(`\n${passes} passed, ${failures.length} failed`);
 if (failures.length) {
-  console.log(`\n${failures.length} failed`);
+  for (const f of failures) console.log(`  FAIL ${f}`);
   process.exit(1);
 }
-console.log('\nall passed');
+console.log('all passed');

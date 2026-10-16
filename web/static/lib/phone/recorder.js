@@ -129,6 +129,8 @@ export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' 
 
   function updateButton() {
     button.classList.toggle('recording', mode === 'recording' || mode === 'saving');
+    // lib/settings.js reads this before a reload: a reload would end the recording.
+    document.documentElement.dataset.phoneBusy = mode === 'recording' || mode === 'saving' ? '1' : '0';
     if (mode === 'recording') button.textContent = `● REC ${fmtClock(recordedFrames / (ctx?.sampleRate || 48000))}`;
     else if (mode === 'saving') button.textContent = 'Saving…';
     else button.innerHTML = buttonLabel;

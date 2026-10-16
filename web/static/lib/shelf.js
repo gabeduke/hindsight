@@ -6,6 +6,9 @@
 // the main page); the shelf groups by day instead, so a starred take sits
 // on the day it was played and the Starred filter is how to see them alone.
 
+/** SELECT_HOLD_MS is how long a press on a take is held to start selecting several (lib/takes.js, lib/room/press.js). */
+export const SELECT_HOLD_MS = 500;
+
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
@@ -239,6 +242,16 @@ function shelveGroups(shown, opts, now) {
   }
   if (undated.length) groups.push({ label: 'EARLIER', takes: undated });
   return groups;
+}
+
+/**
+ * stopsOnPick says whether picking take `name` stops the one that's playing.
+ * On the rack it does: the playing take's controls leave with its pane. In
+ * the Listening Room it doesn't: the take on the deck plays on while you
+ * browse the shelves.
+ */
+export function stopsOnPick({ room = false, picked = null, name = null, playing = null } = {}) {
+  return !room && name !== picked && !!playing && playing !== name;
 }
 
 /** latest is the newest take by when it was made, or null for none. */

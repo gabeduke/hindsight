@@ -7,12 +7,32 @@
 // data-tip values that show this tip. Rows for the tape page are here too,
 // ahead of it, so the guide's table and this file stay one list.
 
+import { on as roomsOn } from '../rooms/flag.js';
+import { tipForRooms } from '../rooms/words.js';
+
 export const TIPS = [
   // Every page's header
   { control: 'Hindsight', ids: ['home'], tip: 'Back to Capture, from anywhere' },
   { control: 'Capture (tab)', ids: ['nav-capture'], tip: 'The ribbon, the meters and Capture. The lamp is the ring: green while it records' },
   { control: 'Takes (tab)', ids: ['nav-takes'], tip: 'Every take, to search, filter, sort and open' },
   { control: 'Tape (tab)', ids: ['nav-tape'], tip: 'The tape: layer loops caught from what you just played' },
+  { control: 'Studio (tab)', ids: ['nav-studio'], tip: "The two rooms' preview: the feed, Keep and the tape on one page. The lamp is the ring: green while it records" },
+  { control: 'Listening Room (tab)', ids: ['nav-room'], tip: "The two rooms' preview: every take, to search, filter, sort and open" },
+  { control: 'Rig (chip)', ids: ['rig-chip'], tip: "The rig: your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from" },
+  // The Listening Room (lib/room/), with the two rooms on
+  { control: 'Search the shelves', ids: ['room-search'], tip: "The rack's filter, over the shelves: names, tags and stars" },
+  { control: 'The deck (place)', ids: ['room-deck'], tip: "A picture of the bar: what's in it and how far it has got. Press it to open it: a take on its page, the tape in the Studio" },
+  { control: 'Sketchbook (place)', ids: ['room-book'], tip: "The notes on what's in the bar. Press it to open it and write" },
+  { control: 'Open (the room’s bar)', ids: ['room-sit'], tip: "Opens the tape in the bar, in the Studio. A take opens by its name in the bar" },
+  { control: '✎ Note', ids: ['room-open-note'], tip: 'A note at the playhead, with the cursor in its words' },
+  { control: 'GRAB (a take)', ids: ['room-open-grab'], tip: "Into the Studio's buffer, and the Studio opens: the take's selection, else the last bars before the playhead (as many as the tape's loop is long)" },
+  { control: 'GRAB (a note)', ids: ['room-open-grab-note'], tip: "This note, to the next note or eight bars, into the Studio's buffer" },
+  { control: 'Tag (a take)', ids: ['room-open-tag'], tip: "The take's one tag" },
+  { control: 'Made from', ids: ['room-open-made'], tip: 'The take this one was cut from: a tap opens it' },
+  { control: 'From this take', ids: ['room-open-from'], tip: 'What was cut from this take: a tap opens one' },
+  { control: 'Earlier bounces', ids: ['room-open-earlier'], tip: "Earlier bounces of this take's tape: a tap opens one" },
+  { control: '☰ List (a shelf)', ids: ['room-list'], tip: 'The shelf as a list, as the rack shows it: Select and Play all are there' },
+  { control: 'Show everything', ids: ['room-filter-clear'], tip: "Turns off the filter that's narrowing the shelves" },
   // The main page
   { control: 'Capture', ids: ['capture'], tip: 'Save the last 30 s, 2 m, 7 m or all of what you just played as a take' },
   { control: 'Flag now', ids: ['flag-now'], tip: 'Mark this moment. Any take that includes it gets a flag here' },
@@ -23,7 +43,7 @@ export const TIPS = [
   { control: 'Delete flag (ribbon)', ids: ['flag-remove'], tip: 'Remove this flag. Takes saved later won\'t carry it' },
   { control: 'Phone', ids: ['phone'], tip: "Record from this phone's mic or a plugged-in input, straight into Hindsight" },
   { control: 'Update to …', ids: ['update'], tip: 'A newer release is out: see what it brings in and install it on the Pi' },
-  { control: 'Settings', ids: ['settings'], tip: 'The interface, the buffer, MIDI and the tape. Changes apply when Hindsight restarts, which empties the ring' },
+  { control: 'Settings', ids: ['settings'], tip: 'Preview features for this device, then the Pi’s interface, buffer, MIDI and tape. The Pi’s changes apply when Hindsight restarts, which empties the ring' },
   { control: 'Releases', ids: ['releases'], tip: 'Every release you can install, newer or older, and what moving to one changes. Hindsight restarts, so the ring starts empty' },
   // The takes page
   { control: 'All takes', ids: ['all-takes'], tip: 'Every take, on a page of its own, to search, filter and sort' },
@@ -39,8 +59,9 @@ export const TIPS = [
   { control: '‹ (folded take)', ids: ['detail-up'], tip: "Back to the take this one is folded into on the shelf" },
   { control: 'Open', ids: ['open'], tip: 'Open the take to select, loop, save or share part of it' },
   { control: '▶ Play all', ids: ['play-all'], tip: 'Play the takes shown, one after another, each from its In to its Out. Again to stop' },
-  { control: 'Select', ids: ['select'], tip: 'Pick several takes to star, export or delete together. Holding a take does the same' },
+  { control: 'Select', ids: ['select'], tip: 'Pick several takes to star, export or delete together, or to tag them with the two rooms on. Holding a take does the same: in the Listening Room a finger or a pen holds, and a mouse uses ⇧-click', off: 'Pick several takes to star, export or delete together. Holding a take does the same' },
   { control: '★ Star (selecting)', ids: ['bulk-star'], tip: 'Star the picked takes, or unstar them if they all are' },
+  { control: 'Tag (selecting)', ids: ['bulk-tag'], tip: 'Give the picked takes a tag, or take it off again: the tag they all wear is lit. The Listening Room only' },
   { control: 'Export', ids: ['bulk-export'], tip: 'One zip of the picked takes: each WAV, its name and flags, and its MIDI' },
   { control: 'Delete (selecting)', ids: ['bulk-delete'], tip: 'Move the picked takes to the trash' },
   { control: 'Done', ids: ['select-done'], tip: 'Stop selecting' },
@@ -68,11 +89,14 @@ export const TIPS = [
   { control: 'Waveform', ids: ['waveform'], tip: 'Drag to move along, pinch to zoom. Hold, then drag, to select. Tap to move the playhead; tap twice to flag' },
   { control: '▶', ids: ['play'], tip: 'Play from the playhead' },
   { control: 'To In (take)', ids: ['take-to-start'], tip: 'Back to In; with nothing selected, to the start of the take' },
-  { control: '⟲ Loop (bar)', ids: ['np-loop'], tip: 'Loop what’s in the bar: the tape’s loop, or a take’s selection (the whole take without one)' },
+  { control: '⟲ Loop (bar)', ids: ['np-loop'], tip: 'Loop what’s in the bar: the tape’s loop, or a take’s selection (the whole take without one). With the two rooms on a take’s is called Repeat', off: 'Loop what’s in the bar: the tape’s loop, or a take’s selection (the whole take without one)' },
   { control: '⏏ (bar)', ids: ['np-eject'], tip: 'Stop the take in the bar and put the tape back in it' },
   { control: 'Open › (bar)', ids: ['np-open'], tip: 'Open what’s in the bar on its own page: the tape, or the take' },
-  { control: 'The bar’s strip', ids: ['np-scrub'], tip: 'The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays' },
-  { control: 'The mini player (phone)', ids: ['np-expand'], tip: 'On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away' },
+  { control: 'The bar’s strip', ids: ['np-scrub'], tip: 'The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays. With the two rooms on, a phone’s mini player holds it for a take', off: 'The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays' },
+  { control: 'The take’s name (bar)', ids: ['np-name'], tip: 'Opens the take in the bar on its own page. The two rooms only' },
+  { control: '✎ (bar)', ids: ['np-note'], tip: 'Opens the take’s page and keeps the spot you are hearing, for a note. The two rooms only' },
+  { control: '⟲ Repeat (bar)', ids: ['np-repeat'], tip: 'Repeat the take in the bar: its selection, or the whole take without one. The two rooms only' },
+  { control: 'The mini player (phone)', ids: ['np-expand'], tip: 'On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away. With the two rooms on a take has none: its strip, name and ✎ are in the mini player', off: 'On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away' },
   { control: '⟲ Loop', ids: ['loop'], tip: 'Repeat the selection instead of playing straight through' },
   { control: 'In', ids: ['in'], tip: 'Start the selection at the playhead' },
   { control: 'Out', ids: ['out'], tip: 'End the selection at the playhead' },
@@ -110,6 +134,7 @@ export const TIPS = [
   { control: 'Send to', ids: ['send-to'], tip: 'Send the selection, or the whole take without one, to the tape, the clipboard or the crate' },
   { control: 'Send to → Tape', ids: ['send-to-tape'], tip: 'Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape\'s first loop. The line under it says which' },
   { control: 'Send to → Clipboard', ids: ['send-clipboard'], tip: 'Put the take, or the selection, on the clipboard, to Drop or Insert on a tape' },
+  { control: 'Send to → Grab', ids: ['send-grab'], tip: "With the two rooms on, Tape and Clipboard are Grab: the selection, else the last bars before the playhead, into the Studio's buffer, and the Studio opens" },
   { control: 'Send to → Crate', ids: ['keep-clip'], tip: 'Keep the selection, or the whole take, as a clip on the crate: its own copy, so the takes list doesn\'t grow' },
   { control: '◫ (take)', ids: ['crate-chip'], tip: 'How many clips you\'ve kept from this take: tap to see them on the tape page\'s crate' },
   { control: 'Split here', ids: ['split-here'], tip: 'Keep the take as two clips on the crate, before the playhead and after it. The take isn\'t changed' },
@@ -131,7 +156,7 @@ export const TIPS = [
   { control: 'Duplicate section', ids: ['section-dup'], tip: 'Play this section twice in a row: a copy right after it, and the rest moves later' },
   { control: 'A lane', ids: ['tape-lane'], tip: 'Tap a clip to select it: the action bar acts on it, and a double-click opens the inspector beside the lanes. Drag its edges to trim it, the squares on its top edge to fade it in or out, or its ⟳ corner (bottom right) to repeat it. Shift, ⌘ or Ctrl with a click, or Select more, selects several. Hold a clip, then drag, to slide it along its track or onto another. Hold an empty part, then drag across bars and lanes: a range, for the action bar\'s Cut, Copy, Paste, Insert and Delete time; the loop follows it unless it\'s locked. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records' },
   { control: 'A track header', ids: ['track'], tip: 'Its number and name: tap to select it (and make it the record track, if one is armed), again for its inspector. Keys 1–4, or ↑ ↓, arm it' },
-  { control: '● (track)', ids: ['track-arm'], tip: 'Arm it, making it the record track: Catch, ● Rec, a free loop\'s tap and Overdub on this device go onto it, on every device. Lit red on the one that is; tap it again to disarm' },
+  { control: '● (track)', ids: ['track-arm'], tip: 'Arm it, making it the record track: Catch, ● Rec, a free loop\'s tap and Overdub on this device go onto it, on every device. Lit red on the one that is. Tap it to arm just this track (with the two rooms off, a tap on the lit one disarms it). With the two rooms on, a tap only moves the arm here, and holding it with a finger, or Shift-click, arms it as well, or takes it off', off: 'Arm it, making it the record track: Catch, ● Rec, a free loop\'s tap and Overdub on this device go onto it, on every device. Lit red on the one that is; tap it again to disarm' },
   { control: 'Arm it', ids: ['track-arm-it'], tip: 'In the inspector of a track, while none is armed: arm this one, making it the record track' },
   { control: 'Input (track)', ids: ['track-input'], tip: 'What this track records from, lit green while there\'s signal on it. Tap to choose another from a menu, with each one\'s meter: it doesn\'t arm the track' },
   { control: 'M, S', ids: ['track-mute', 'track-solo'], tip: 'Mute this track, or solo it: only soloed tracks play' },
@@ -164,7 +189,7 @@ export const TIPS = [
   { control: 'Keep as clip (ribbon)', ids: ['ribbon-keep'], tip: 'Keep the span you selected as a clip on the crate, not as a take' },
   { control: '● Rec (tape)', ids: ['tape-rec'], tip: 'Records the record track (its ● lit) from its input, named here. Stopped: it\'s ready (● Ready), then ▶ counts in a bar. Playing: records from the next bar, marked on its lane. Tap again to keep it. Key: R' },
   { control: 'RECORDING', ids: ['rec-sign'], tip: 'Shows only while a punch is recording onto the tape' },
-  { control: '♩ Click', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty. Key: K' },
+  { control: '♩ Click', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty. Key: K, or M with the two rooms on', off: 'A click on every beat, on bus A. On by itself only while the tape is empty. Key: K' },
   { control: 'Tap (empty tape)', ids: ['tape-tap'], tip: 'Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it' },
   { control: 'Tempo (tape)', ids: ['tape-tempo'], tip: 'Call the loop more bars or fewer: the same length, so nothing is stretched' },
   { control: '⟲ Loop (tape)', ids: ['tape-loop'], tip: 'Loop the bracket, or play on to the end of what’s recorded. Key: L' },
@@ -207,7 +232,7 @@ export const TIPS = [
   { control: 'Hit → Grid', ids: ['ce-grid'], tip: 'Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off' },
   { control: 'Track picker', ids: ['ce-ref'], tip: 'Choose the track to line this clip up against' },
   { control: 'Hit → Track', ids: ['ce-track'], tip: 'Move the clip so its hit lands on the nearest hit of the chosen track' },
-  { control: 'Catch', ids: ['catch'], tip: 'Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. The last 1, 2 or 4 bars are in the track\'s inspector' },
+  { control: 'Catch', ids: ['catch'], tip: 'Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. It lights after one whole pass of the loop: until then a press says why. The last 1, 2 or 4 bars are in the track\'s inspector and, with the two rooms on, under its ▾. With the two rooms on, C', off: 'Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. The last 1, 2 or 4 bars are in the track\'s inspector' },
   { control: 'Passes', ids: ['passes'], tip: 'Every time round the loop, kept. Tap one to put it on the record track' },
   { control: 'Paste', ids: ['drop'], tip: 'Put the clipboard at the playhead on the selected track, over what\'s there: it replaces it, and the tape\'s length doesn\'t change. Paste again to lay another copy after it. Key: ⌘V or Ctrl-V' },
   { control: 'Insert', ids: ['insert'], tip: 'Put the clipboard at the playhead and push everything after it later: every track, and the sections, move on by its length' },
@@ -217,6 +242,8 @@ export const TIPS = [
   { control: 'Ask before Insert and Delete time', ids: ['ask-first'], tip: 'Under ⋯, on a touch screen: the first tap on Insert or Delete time shows what it will do, and the second does it. Turn it off to do it on the first' },
   { control: 'Clone', ids: ['clone'], tip: 'Copy this whole tape. Costs no disk space' },
   { control: 'Mix down', ids: ['mixdown'], tip: 'Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included' },
+  { control: 'Bounce', ids: ['bounce'], tip: 'Play the loop, or the whole tape, once and keep what came out of the mixer as a take: FX and live playing included. Its toast has ▶ to hear it and Open for its page' },
+  { control: 'Last bounce', ids: ['last-bounce'], tip: "The newest take bounced from this tape: ▶ to hear it, Open for its page. For when the bounce's toast has gone" },
   { control: 'Export stems', ids: ['export-stems'], tip: 'Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW' },
   { control: 'Bus A / B', ids: ['bus'], tip: 'Which Sidekick channel this track plays through, for its EQ and FX' },
   { control: 'Source chip', ids: ['source-chip'], tip: 'The input of the track the inspector shows (the record track\'s, while one is armed): what ● Rec and a catch take from it. Choosing one changes only that track. Its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too' },
@@ -232,6 +259,55 @@ export const TIPS = [
   { control: 'Output', ids: ['tape-out'], tip: 'Where the tape plays: the jam room (a speaker), this phone (headphones), or both. It\'s in the header of Tape, Takes and Capture. Switching keeps it rolling from the same spot' },
   { control: 'Jam room / This phone / Both', ids: ['out-choice'], tip: 'The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both' },
   { control: 'Play in the jam room', ids: ['out-jam'], tip: 'Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back' },
+  // The Studio's buffer (lib/buffer), with the two rooms on
+  { control: 'Grab', ids: ['grab'], tip: 'Copy the last bars of the feed (with no tempo yet, the last seconds) into the buffer, from its sources, to trim and drop. G' },
+  { control: 'Last 1 2 4 8 (grab)', ids: ['grab-bars'], tip: "How many bars Grab takes. It starts at the tape's loop length, so a grab fits the loop it is for; with no tempo, twice as many seconds" },
+  { control: 'Grab (ribbon)', ids: ['grab-span'], tip: 'Put exactly the span you selected on the ribbon into the buffer' },
+  { control: 'KEEP (ribbon)', ids: ['selection-keep'], tip: 'Keep exactly the span you selected on the ribbon as a take; the key says how long it is' },
+  { control: 'Buffer ▴', ids: ['buffer-open'], tip: 'Open the buffer again: what you grabbed last waits there' },
+  { control: 'Buffer grip', ids: ['buffer-grip'], tip: 'Pull the buffer up or down. Hold it, then drag onto a lane, to drop it there' },
+  { control: 'Sources (buffer)', ids: ['buffer-sources'], tip: 'Which inputs the buffer holds, a lane each, all over the same span; they drop on neighbouring tracks' },
+  { control: 'Audition', ids: ['buffer-audition'], tip: 'Loop the buffer on this device, never through the Pi, so the jam goes on' },
+  { control: 'Unfold', ids: ['buffer-unfold'], tip: 'Give the lanes their height back, and leave the buffer open' },
+  { control: '✕ (buffer)', ids: ['buffer-close'], tip: 'Close the buffer. What you grabbed stays in it, for Buffer ▴ or another drop' },
+  { control: 'Drag to a lane', ids: ['buffer-drag'], tip: 'Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid' },
+  { control: 'The buffer\'s window', ids: ['buffer-window'], tip: 'What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades' },
+  { control: 'Drop on track', ids: ['buffer-drop'], tip: 'Lay the buffer on the armed track (with several armed, the first) at the next bar line inside the loop, over what is there: the key says where, and "replaces" when it will. Never refused for room. One undo. Stopped, ↵ again lands in the same place and replaces its own copy; playing, the next bar line has moved on. ↵' },
+  { control: 'KEEP (buffer)', ids: ['buffer-keep'], tip: "Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo; the key says how long it is. K" },
+  { control: 'Toss', ids: ['buffer-toss'], tip: 'Throw the buffer away; Undo brings it back. ⌫' },
+  { control: 'In ◂ ▸ / Out ◂ ▸', ids: ['buffer-edges'], tip: 'Move IN or OUT a step of the snap (⌗): [ and ] for IN, ⇧[ and ⇧] for OUT' },
+  { control: 'Gain (buffer)', ids: ['buffer-gain'], tip: 'The buffer\'s level, on every lane' },
+  { control: 'Normalize (buffer)', ids: ['buffer-normalize'], tip: 'Bring the loudest lane\'s loudest moment to just under full scale, the lanes kept in balance' },
+  { control: 'Reverse (buffer)', ids: ['buffer-reverse'], tip: 'Play the buffer backwards, or forwards again' },
+  { control: 'Fades (buffer)', ids: ['buffer-fades'], tip: 'The fades\' curve: equal power, linear, S-curve or exponential. Drag the corners for their length' },
+  // The instrument strip (lib/play), with Play mode on
+  { control: 'Instrument ▴', ids: ['play-fold'], tip: 'Play mode as a drawer. Folded: the track keys and the tricks as small pads, still live. Unfolded: the reel and every pad, and the computer\'s keys play it' },
+  { control: 'Keys (instrument)', ids: ['play-keys'], tip: 'Lit while the computer\'s keys play the instrument: R is STOP then, not ● Rec, and 1 drops track 1 out. A tap on the lanes, or on this, gives them back to editing' },
+  { control: 'A pad', ids: ['play-pad'], tip: 'Hold it: dim when touched, bright when it\'s heard, on the next grid line. Let go and it stops, in time. Bright with a ring: another hand is playing it' },
+  { control: 'Playing from', ids: ['play-from'], tip: 'Touch, the keys and every controller play at once; this picks which legends the pads show, and the controller MIDI learn binds' },
+  { control: '⌗ (instrument)', ids: ['play-quant'], tip: 'Where this device\'s presses land: at once, or the next 16th, 8th, beat or bar' },
+  { control: 'Lead', ids: ['play-lead'], tip: 'How long a press takes to be heard from the Pi: play that far ahead of the beat' },
+  { control: 'MIDI learn', ids: ['play-learn'], tip: 'Every pad shows its key on the controller (– for none). Tap a pad, then play a key or turn a knob on the controller. Esc cancels' },
+  { control: 'Catch, Grab, Drop, Keep (instrument)', ids: ['play-verb'], tip: 'The Studio\'s verbs from the instrument: the last pass onto the armed track, the last bars into the buffer, the buffer onto the armed track, and the feed (or the open buffer) as a take. C, G, ↵, K' },
+  { control: 'Edit / Play (phone)', ids: ['play-toggle'], tip: 'On a phone: Play makes the bottom panel the instrument; Edit gives the drawers back. Play\'s lamp lights while a pad sounds' },
+  // The rig (rig.html), with the two rooms on
+  { control: 'Studio (rig)', ids: ['rig-back'], tip: 'Back to the Studio' },
+  { control: 'Socket', ids: ['rig-socket'], tip: 'Drag from it to another socket to plug a cable in, or choose it and then where it goes. A pull on a plug unplugs it. Choose it to see what it carries' },
+  { control: 'Plug it into', ids: ['rig-target'], tip: 'Plug a cable from the chosen socket into this one: it writes the setting the cable is' },
+  { control: 'Unplug (rig)', ids: ['rig-unplug'], tip: "Take this cable out. A cable that's a setting applied on restart stays on, dashed, until Hindsight restarts" },
+  { control: 'Arm it (rig)', ids: ['rig-arm'], tip: 'Arm or disarm this track. Every armed track records at once, each from its own input, as one undo' },
+  { control: 'Move tracks to bus', ids: ['rig-fix'], tip: "Move the tracks playing into this tap to the bus it doesn't hear, as one undoable edit, so a recording from it is clean" },
+  { control: 'Use these taps', ids: ['rig-offer'], tip: "Make the inputs a catch can take from this interface's own taps (TAPE_SOURCES). Applies when Hindsight restarts" },
+  { control: 'What a KEEP writes', ids: ['rig-keep'], tip: 'One tap, or every input, written to each take. Applies when Hindsight restarts' },
+  { control: 'Where the tape plays (rig)', ids: ['rig-out'], tip: 'The room, a phone, or both: the same as the Output button' },
+  { control: 'Label it', ids: ['rig-label'], tip: "Name what's plugged into this jack: it shows on the tap and the track's input. A label routes nothing" },
+  { control: 'Restart (rig)', ids: ['rig-restart'], tip: 'Restart Hindsight so the dashed amber cables take effect. The ring starts empty, so capture anything you want to keep first' },
+  { control: 'Done (rig)', ids: ['rig-done'], tip: 'Close the inspector and let go of the chosen socket' },
+  { control: 'Punch-in FX', ids: ['play-fx'], tip: 'ROLL, FILTER, ECHO, CRUSH: hold, like a trick. Slide your finger up or down on one to move its amount, which every screen shows; a controller\'s velocity, mod wheel and aftertouch move it too. T Y U I' },
+  { control: 'Bend', ids: ['play-bend'], tip: 'Drag left or right to nudge the tape\'s speed, up to 8 % either way; let go and it springs back to the tape. A controller\'s pitch wheel does the same' },
+  { control: 'Formula (tape mods)', ids: ['play-formula'], tip: 'A starting point for the tape\'s sound: each sets WOW, FLUTTER, DRIVE and AGE. Saved with the tape, and ↶ undoes it. Program change 0–3 on a controller' },
+  { control: 'A tape mod\'s knob', ids: ['play-knob'], tip: 'Drag up or down, or use the arrow keys: heard as it moves, saved with the tape when you let go, one step of undo. CC 21–24 on a controller' },
+  { control: 'Tape mods (phone)', ids: ['play-pager'], tip: 'On a phone the tape mods are the instrument\'s second page: swipe across the panel, or tap here' },
 ];
 
 const byId = new Map();
@@ -239,7 +315,15 @@ for (const t of TIPS) for (const id of t.ids) byId.set(id, t);
 
 /** tipFor is the tip for a data-tip id, or '' when there is none. */
 export function tipFor(id) {
-  return byId.get(id)?.tip || '';
+  const row = byId.get(id);
+  // `off` is a row's text as it was before the two rooms: a tip that now
+  // speaks of them says it only with them on. With them off a tip is exactly
+  // what the page has always shown (the guide's table has the `tip`s).
+  if (row && row.off !== undefined && !roomsOn()) return row.off;
+  const tip = row?.tip || '';
+  // With the two rooms on, the tip says the rooms' words (rooms/words.js);
+  // with them off it is the row above, as it always was.
+  return tip && roomsOn() ? tipForRooms(id, tip) : tip;
 }
 
 /** controlFor is how the guide names the control with this id. */

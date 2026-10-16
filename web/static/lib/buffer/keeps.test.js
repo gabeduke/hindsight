@@ -1,0 +1,130 @@
+// web/static/lib/buffer/keeps.test.js
+// The buffer's KEEP names what it keeps, and tells the instrument's pad
+// (F1 of the flow spec). The real buffer, built from tape.html's own
+// templates on a stand-in document, with a Pi that answers from a table.
+import { test, mock } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+import { mountBuffer } from './buffer.js';
+import { fakeDoc, parseHTML } from '../play/fake-dom.js';
+
+const tapeHtml = readFileSync(new URL('../../tape.html', import.meta.url), 'utf8');
+const template = (id) => new RegExp(`<template id="${id}">[\\s\\S]*?</template>`).exec(tapeHtml)[0];
+
+const BAR = 96000; // 120 BPM at 48 kHz
+const board = (bars, created = 'c1') => ({
+  clipboard: {
+    created, frames: bars * BAR,
+    tracks: [[{ file: 'p.wav', gain_db: 0, fade_in: 0, fade_out: 0 }]],
+    grab: { in: 0, out: bars * BAR, frames: bars * BAR, before: 0, after: 0, bars, bar_frames: BAR, sources: ['main'], used: false },
+  },
+});
+
+const flush = async () => { for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
+
+async function withBuffer(first, fn) {
+  const saved = { fetch: globalThis.fetch, localStorage: globalThis.localStorage };
+  let answer = first;
+  globalThis.fetch = async (url) => ({ ok: true, status: 200, json: async () => answer(url) });
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  mock.timers.enable({ apis: ['setInterval'] });
+  try {
+    const doc = fakeDoc();
+    doc.body.append(...parseHTML(doc, ['buffer-grab-tpl', 'buffer-panel-tpl', 'buffer-sel-tpl'].map(template).join('')).children);
+    const feed = doc.createElement('section');
+    const keysRow = doc.createElement('div');
+    const sel = doc.createElement('div'); sel.id = 'rb-sel';
+    const save = doc.createElement('button'); save.className = 'rb-sel-save';
+    sel.append(save);
+    const viz = doc.createElement('div'); viz.id = 'viz-wrap';
+    doc.body.append(feed, keysRow, sel, viz);
+    const heard = [];
+    doc.addEventListener('hindsight:keeps', (e) => heard.push(e.detail));
+    const b = mountBuffer(doc, { feed, keysRow, ribbon: null, toast: () => {} });
+    assert.ok(b, 'the buffer was built');
+    // The tape page's poll: a 4-track tape at 120 BPM, nothing on it, its
+    // loop `loopBars` long (bracket on) -- or the whole 8 bars with none.
+    const tapeState = (loopBars = null) => doc.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
+      tape: {
+        id: 't', sample_rate: 48000, length: 8 * BAR, grid: { frames: 8 * BAR, bars: 8 },
+        loop: loopBars ? { in: 0, out: loopBars * BAR, on: true } : { in: 0, out: 8 * BAR, on: false },
+        tracks: [1, 2, 3, 4].map(() => ({ clips: [] })),
+      },
+      rec_track: 1, rec_tracks: [1], rec_input: 'main', sources: [{ name: 'main' }], snap: 'bar', pos: 0, view: {},
+    } }));
+    tapeState();
+    await fn({ doc, heard, tapeState, set: (a) => { answer = a; }, poll: async () => { mock.timers.tick(2000); await flush(); } });
+  } finally {
+    mock.timers.reset();
+    Object.assign(globalThis, saved);
+    if (saved.localStorage === undefined) delete globalThis.localStorage;
+  }
+}
+
+test('the buffer’s KEEP says its length, and tells the pad while it is open', async () => {
+  await withBuffer(() => board(4), async ({ doc, heard }) => {
+    await flush();
+    assert.equal(doc.getElementById('buffer-keep-len').textContent, '4 BARS');
+    assert.match(doc.getElementById('buffer-keep').getAttribute('aria-label'), /^KEEP 4 BARS/);
+    assert.deepEqual(heard.at(-1), { buffer: '4 BARS' }, 'the pad is told what K keeps');
+  });
+});
+
+test('with no buffer, KEEP names nothing and the pad is told so', async () => {
+  await withBuffer(() => ({ clipboard: null }), async ({ doc, heard }) => {
+    await flush();
+    assert.equal(doc.getElementById('buffer-keep-len').textContent, '');
+    assert.ok(heard.every((d) => d.buffer === ''), 'never a length');
+  });
+});
+
+test('each poll says it again, for a pad that mounted after the buffer did', async () => {
+  await withBuffer(() => board(4), async ({ heard, poll }) => {
+    await flush();
+    const before = heard.length;
+    await poll();
+    assert.ok(heard.length > before, 'the poll announced again with nothing changed');
+    assert.deepEqual(heard.at(-1), { buffer: '4 BARS' });
+  });
+});
+
+test('a new buffer changes the words, and shutting it lets go of the length', async () => {
+  await withBuffer(() => board(4), async ({ doc, heard, set, poll }) => {
+    await flush();
+    set(() => board(2, 'c2'));
+    await poll();
+    assert.equal(doc.getElementById('buffer-keep-len').textContent, '2 BARS');
+    assert.deepEqual(heard.at(-1), { buffer: '2 BARS' });
+    set(() => ({ clipboard: null }));
+    await poll();
+    assert.deepEqual(heard.at(-1), { buffer: '' });
+  });
+});
+
+const picked = (doc) => doc.querySelectorAll('.buffer-bars button').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent);
+
+test('GRAB’s picker starts at the tape’s loop in bars, and follows the loop', async () => {
+  await withBuffer(() => ({ clipboard: null }), async ({ doc, tapeState }) => {
+    assert.deepEqual(picked(doc), ['8'], 'no bracket: the tape’s first loop, 8 bars');
+    tapeState(2);
+    assert.deepEqual(picked(doc), ['2'], 'a 2-bar loop: GRAB starts at 2');
+    tapeState(3);
+    assert.deepEqual(picked(doc), ['2'], 'a 3-bar loop: the largest that fits inside it');
+    tapeState(4);
+    assert.deepEqual(picked(doc), ['4']);
+  });
+});
+
+test('a pick made by hand stays until the loop changes', async () => {
+  await withBuffer(() => ({ clipboard: null }), async ({ doc, tapeState }) => {
+    tapeState(2);
+    doc.querySelector('.buffer-bars button[data-n="8"]').dispatchEvent(new CustomEvent('click'));
+    assert.deepEqual(picked(doc), ['8'], 'picked by hand');
+    tapeState(2);
+    tapeState(2);
+    assert.deepEqual(picked(doc), ['8'], 'the poll of an unchanged loop leaves it');
+    tapeState(4);
+    assert.deepEqual(picked(doc), ['4'], 'the loop changed: back to following it');
+  });
+});

@@ -303,28 +303,34 @@ func (e *Engine) KeepTapeClip(id, clipID string) (CrateClip, error) {
 	return e.addToCrate(k)
 }
 
-// KeepClipboard keeps what's on the clipboard, by reference. A kept clip is
-// one window onto one file, so the clipboard must hold one clip.
+// KeepClipboard keeps what's on the clipboard, by reference: one kept clip
+// per track, so each track must hold one clip its whole length -- a copy of
+// a span, or the Studio's buffer, one clip per source. It answers the first;
+// KeepClipboardLanes answers them all.
 func (e *Engine) KeepClipboard() (CrateClip, error) {
-	b, err := e.Clipboard()
+	ks, err := e.KeepClipboardLanes()
 	if err != nil {
 		return CrateClip{}, err
 	}
+	return ks[0], nil
+}
+
+// KeepClipboardLanes is KeepClipboard, answering every kept clip, the first
+// track's first.
+func (e *Engine) KeepClipboardLanes() ([]CrateClip, error) {
+	b, err := e.Clipboard()
+	if err != nil {
+		return nil, err
+	}
 	if b.Empty() {
-		return CrateClip{}, ErrEmptyClipboard
+		return nil, ErrEmptyClipboard
 	}
-	var one []Clip
-	for _, tr := range b.Tracks {
-		one = append(one, tr...)
+	ks, err := e.keepBoard(b)
+	if err != nil {
+		return nil, err
 	}
-	if len(one) != 1 || one[0].At != 0 || one[0].Frames != b.Frames {
-		return CrateClip{}, fmt.Errorf("%w: the clipboard holds %d clips; keep them one at a time, from the tape", ErrBadParameter, len(one))
-	}
-	c := one[0]
-	k := CrateClip{File: c.File, Src: c.Src, Frames: c.Frames, Reversed: c.Reversed, BPM: b.BPM,
-		Name:   fmt.Sprintf("%s · %s", b.From, clock(c.Frames, e.store.SampleRate())),
-		Source: CrateSource{Kind: "clipboard", What: b.From}}
-	return e.addToCrate(k)
+	e.markUsed(b)
+	return ks, nil
 }
 
 // RenameCrateClip names a kept clip.

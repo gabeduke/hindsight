@@ -347,12 +347,14 @@ test('the takes search is a field, not a window', () => {
 });
 
 test('nothing hides the about line, which carries the only way into Settings', () => {
-  // The Settings button lives in `.about` on the Capture page, and nowhere
-  // else in the app. A layout rule that hides that line leaves the window
-  // shape it matches with no route to the per-device switches or the guide --
-  // which is exactly what happened to a laptop browser that was not full
-  // height, and was noticed only because someone went looking for Settings
-  // and could not find it.
+  // The Settings button lives in `.about` at the Studio's foot, and nowhere
+  // else in the app: on Capture, and with the two rooms on (lib/rooms) at the
+  // foot of the tape page, which is the Studio while the tape is on
+  // (pages.test.js keeps it there). A layout rule that hides that line leaves
+  // the window shape it matches with no route to the per-device switches or
+  // the guide -- which is exactly what happened to a laptop browser that was
+  // not full height, and was noticed only because someone went looking for
+  // Settings and could not find it.
   const offenders = [];
   for (const m of css.matchAll(/([^{}]*\.about[^{}]*)\{([^}]*)\}/g)) {
     const selector = m[1].trim();
@@ -364,7 +366,126 @@ test('nothing hides the about line, which carries the only way into Settings', (
     offenders.push(`${selector} { ${body.trim()} }`);
   }
   assert.deepEqual(offenders, [],
-    'these hide the about line, and with it the only entry to Settings');
+    "these hide the Studio's about line, and with it the only entry to Settings");
+});
+
+test('the Studio’s rules reach only the Studio', () => {
+  // The two rooms are behind a per-device flag, but styles.css is on every
+  // page of every kit. So the Rooms P1 block may only style what the Studio's
+  // templates in tape.html put in the page: a studio- class, the about line
+  // in the tape page's body, which only the Studio puts there, or anything
+  // under :root[data-rooms], which only the flag's early script sets.
+  const start = css.indexOf('/* ---------- Rooms P1:');
+  assert.ok(start >= 0, 'the Rooms P1 block');
+  // To the next section's header, however many dashes it has.
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const loose = [];
+  for (const m of body.matchAll(/([^{}]+)\{/g)) {
+    for (const sel of m[1].split(',').map((x) => x.trim())) {
+      if (!sel || sel.startsWith('@') || /^(from|to|\d+%)$/.test(sel)) continue; // a keyframe's steps
+      if (/\.studio-[a-z0-9-]+/.test(sel) || /^body\.tape-page > \.about\b/.test(sel) || /^:root\[data-rooms\] /.test(sel)) continue;
+      loose.push(sel);
+    }
+  }
+  assert.deepEqual(loose, [], 'these Studio selectors could match something that is not the Studio');
+
+  // And no page wears a studio- class outside those templates, nor any
+  // script but the Studio's.
+  const root = new URL('../', import.meta.url);
+  const files = readdirSync(root, { recursive: true }).filter((f) =>
+    (f.endsWith('.html') || f.endsWith('.js')) && !f.endsWith('.test.js') && !f.includes('lib/rooms/'));
+  const borrowed = [];
+  for (const f of files) {
+    const text = readFileSync(new URL(f, root), 'utf8')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<template id="studio-[a-z-]+">[\s\S]*?<\/template>/g, '')
+      .replace(/\sid="[^"]*"/g, '');
+    for (const m of text.matchAll(/(?:^|[^\w-])(studio-[a-z0-9-]+)/g)) borrowed.push(`${f}: ${m[1]}`);
+  }
+  assert.deepEqual(borrowed, [], 'these files use a class the Studio styles');
+});
+
+test('the Listening Room’s rules reach only the room', () => {
+  // The room is behind the rooms flag; its CSS is on every page of every
+  // kit. So the Rooms P5 block may only style what the room's modules make
+  // (a room-, chair- or book- class, or .room and .chair themselves) or the
+  // pages the room has marked (body.room-on, body.chair-on).
+  const start = css.indexOf('/* ---------- Rooms P5:');
+  assert.ok(start >= 0, 'the Rooms P5 block');
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    // A keyframes' steps are not selectors.
+    .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+  // Commas inside :is() and :not() don't separate selectors.
+  const split = (list) => {
+    const out = [];
+    let depth = 0, from = 0;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] === '(') depth++;
+      else if (list[i] === ')') depth--;
+      else if (list[i] === ',' && depth === 0) { out.push(list.slice(from, i)); from = i + 1; }
+    }
+    return [...out, list.slice(from)].map((x) => x.trim());
+  };
+  const loose = [];
+  for (const m of body.matchAll(/([^{}]+)\{/g)) {
+    if (m[1].trim().startsWith('@')) continue; // a media query, not a selector
+    for (const sel of split(m[1])) {
+      if (!sel) continue;
+      if (/\.(?:room|chair|book)(?:-[a-z0-9-]+)?(?![\w-])/.test(sel)) continue;
+      loose.push(sel);
+    }
+  }
+  assert.deepEqual(loose, [], 'these room selectors could match something that is not the room');
+
+  // And nothing outside the room's modules wears one of its classes.
+  const root = new URL('../', import.meta.url);
+  const files = readdirSync(root, { recursive: true }).filter((f) =>
+    (f.endsWith('.html') || f.endsWith('.js')) && !f.endsWith('.test.js') && !f.includes('lib/room/') && !f.endsWith('help/tips.js'));
+  const borrowed = [];
+  for (const f of files) {
+    const text = readFileSync(new URL(f, root), 'utf8').replace(/<!--[\s\S]*?-->/g, '').replace(/\/\/.*$/gm, '');
+    for (const m of text.matchAll(/(?:^|[^\w-])((?:room|chair|book)-[a-z0-9-]+)/g)) borrowed.push(`${f}: ${m[1]}`);
+  }
+  assert.deepEqual(borrowed, [], 'these files use a class the room styles');
+});
+
+test('the room never hides the bar, on any shelf or in a month’s box', () => {
+  // The bar is the only transport (docs/superpowers/specs/2026-10-15-flow-
+  // design.md): the phone's deck card used to be the player, and the room hid
+  // the bar behind it. The card is gone, so a rule that hides the bar leaves
+  // nothing to pause with. (The chair's deck is its bar and is not the doorway.)
+  const start = css.indexOf('/* ---------- Rooms P5:');
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const hiding = [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter(([, sel, decl]) => /\.room-on/.test(sel) && /(^|[\s>])\.np(?![\w-])/.test(sel) && /display:\s*none/.test(decl) && !/\.np \./.test(sel))
+    .map(([, sel]) => sel.trim());
+  assert.deepEqual(hiding, []);
+});
+
+test('a phone’s shelf row leaves room for a selected spine’s ring, halo and tick to be whole', () => {
+  // The row scrolls (overflow clips both ways), the ring's halo is 2px and the tick sits 6px
+  // above the spine: it needs 8px above and 2px beside, and a snap must not eat the side.
+  const start = css.indexOf('/* ---------- Rooms P5:');
+  const body = css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+  const phone = body.slice(body.indexOf('@media (max-width: 999.98px), (prefers-reduced-data: reduce)'));
+  const m = /\.room-row\s*\{[^}]*padding:\s*(\d+)px\s+\d+px\s+\d+px\s+(\d+)px[^}]*\}/.exec(phone);
+  assert.ok(m, 'the phone’s .room-row has a four-value padding');
+  assert.ok(Number(m[1]) >= 8, `${m[1]}px above the spines is too little for the tick`);
+  assert.ok(Number(m[2]) >= 2, `${m[2]}px beside the first spine is too little for the halo`);
+  assert.match(m[0], /scroll-padding-left:\s*[2-9]px/, 'a snap to the first spine keeps that room');
+});
+
+test('the room draws no deck on a phone, and the deck has no keys', () => {
+  const start = css.indexOf('/* ---------- Rooms P5:');
+  const next = css.slice(start + 1).search(/\/\* -{4,} /);
+  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const phone = body.slice(body.indexOf('@media (max-width: 999.98px), (prefers-reduced-data: reduce)'));
+  assert.match(phone, /\.room-deck\s*\{\s*display:\s*none/, 'the deck card is gone on a phone');
+  assert.doesNotMatch(body, /room-deck-keys|room-deck-play|room-deck-sit|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/, 'no rule for what is gone');
 });
 
 test('Play mode’s rules reach only Play mode', () => {
@@ -397,9 +518,12 @@ test('Play mode’s rules reach only Play mode', () => {
     (f.endsWith('.html') || f.endsWith('.js')) && !f.endsWith('.test.js') && !f.includes('lib/play/'));
   const borrowed = [];
   for (const f of files) {
-    // An id is not a class: tape.html's empty `#play-mode` is the overlay's
-    // own mount point.
-    const text = readFileSync(new URL(f, root), 'utf8').replace(/\sid="[^"]*"/g, '');
+    // An id is not a class, nor is a tip's name (data-tip, and the tips'
+    // names in lib/help/tips.js).
+    const text = readFileSync(new URL(f, root), 'utf8')
+      .replace(/\sid="[^"]*"/g, '')
+      .replace(/\sdata-tip="[^"]*"/g, '')
+      .replace(/ids: \[[^\]]*\]/g, '');
     for (const c of mine) {
       if (new RegExp(`(^|[^\\w-])${c}(?![\\w-])`).test(text)) borrowed.push(`${f}: ${c}`);
     }
@@ -426,4 +550,92 @@ test('Play mode is drawn in its own materials, the same in both schemes', () => 
     }
   }
   assert.deepEqual(offenders, [], 'these follow the scheme; use a --pad- material from objects.css');
+});
+
+test('on a phone the Studio’s selection bar wraps instead of running off the screen', () => {
+  // Its readout and four keys are wider than a 390 px phone inside the
+  // feed's padding: unwrapped, Save as take ended past the screen's edge,
+  // the page scrolled sideways, and the readout shrank to nothing.
+  const start = css.indexOf('/* ---------- Rooms P1:');
+  const at = css.indexOf('@media (max-width: 699.98px)', start);
+  assert.ok(start >= 0 && at > start, 'the Studio has a phone block');
+  const phone = block(at);
+  assert.match(phone, /\.studio-feed > \.rb-sel\s*\{[^}]*flex-wrap:\s*wrap/);
+  assert.match(phone, /\.studio-feed > \.rb-sel \.rb-sel-text\s*\{[^}]*flex:\s*1 1 100%/);
+});
+
+// A block that is never closed swallows what follows it: a merge once lost
+// the `}` ending P3's last @media rule, and the Listening Room, the rig, the
+// FX and the mods -- everything after it -- were then inside a 700 px query:
+// a phone got none of it, and no test failed, because every test reads the
+// text. And in objects.css a lost `}` left P4's tokens in a :root inside
+// P6's, which matches nothing, so the selected tape formula was dark ink on
+// the dark strip (1.2 : 1). Both are checked by shape: nothing that starts
+// at the margin may open while another block is open, and the file ends shut.
+function blanked(text) {
+  const keep = (m) => m.replace(/[^\n]/g, ' ');
+  return text.replace(/\/\*[\s\S]*?\*\//g, keep).replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, keep);
+}
+/** misnested is every rule that opens at the margin while a block is open, and the depth the file ends at. */
+function misnested(text) {
+  let depth = 0;
+  const at = [];
+  blanked(text).split('\n').forEach((line, i) => {
+    if (depth > 0 && /^[^\s}]/.test(line) && /\{\s*$/.test(line)) at.push(`line ${i + 1} (inside ${depth} open): ${line.trim().slice(0, 60)}`);
+    for (const c of line) { if (c === '{') depth++; else if (c === '}') depth--; }
+  });
+  return { at, end: depth };
+}
+
+test('the checker finds a block a merge left open', () => {
+  assert.equal(misnested('a { x: 1; }\n@media (min-width: 1px) {\n  b { y: 2; }\n\n:root {\n  --z: 1;\n}\n').at.length, 1);
+  assert.deepEqual(misnested('a { x: 1; }\n@media (min-width: 1px) {\n  b { y: 2; }\n}\n:root {\n  --z: 1;\n}\n'), { at: [], end: 0 });
+});
+
+for (const [name, text] of [['styles.css', css], ['objects.css', materials]]) {
+  test(`${name} closes every block it opens`, () => {
+    const { at, end } = misnested(text);
+    assert.deepEqual(at, [], 'these rules are inside a block that was never closed');
+    assert.equal(end, 0, 'the file ends inside a block');
+  });
+}
+
+// The tape formulas (lib/play/mods.js): four labels, one of them selected.
+// WCAG's 4.5 : 1 for text, from the tokens the rules name.
+test('every tape formula label reads, selected or not', () => {
+  const all = tokens(materials);
+  const rule = (sel) => {
+    const m = new RegExp(`${sel.replace(/[.[\]="]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(css);
+    assert.ok(m, `the ${sel} rule`);
+    return m[1];
+  };
+  const token = (decl, prop) => {
+    const m = new RegExp(`(?:^|[;\\s])${prop}:\\s*var\\((--[a-z0-9-]+)\\)`).exec(decl);
+    assert.ok(m, `${prop} names a token`);
+    assert.ok(all[m[1]], `${m[1]} is defined in objects.css`);
+    return all[m[1]];
+  };
+  const plain = rule('.play-formula');
+  const chosen = rule('.play-formula[aria-checked="true"]');
+  assert.ok(contrast(token(plain, 'color'), token(plain, 'background')) >= 4.5, 'an unselected formula');
+  assert.ok(contrast(token(chosen, 'color'), token(chosen, 'background')) >= 4.5, 'the selected formula');
+});
+
+// Settings is the only way into Settings anywhere in the app (the about line
+// on Capture, and the Studio's foot), so it is drawn as a button with a real
+// target, not as the line's 12px link: at least 40px tall, a size up from the
+// line, and its own rule so Releases and Update keep the link look.
+test('the Settings button is a button-sized target, not a link in the line', () => {
+  const m = /\.about #settings-btn\s*\{([^}]*)\}/.exec(css);
+  assert.ok(m, 'a rule for .about #settings-btn');
+  const body = m[1];
+  const px = (prop) => {
+    const d = new RegExp(`(?:^|[;\\s])${prop}:\\s*(\\d+)px`).exec(body);
+    assert.ok(d, `${prop} in px`);
+    return +d[1];
+  };
+  assert.ok(px('min-height') >= 40, 'at least 40px tall');
+  assert.ok(px('font-size') >= 14, 'a size up from the 12px line');
+  assert.match(body, /border:\s*1px solid var\(--line\)/, 'it has an edge, so it reads as a button');
+  assert.match(body, /text-decoration:\s*none/, 'and is not underlined like a link');
 });

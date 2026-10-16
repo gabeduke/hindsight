@@ -68,6 +68,11 @@ type Config struct {
 	// TapeClockOut names the devices that follow the tape's clock:
 	// "bento, mpc:-3", each with an optional nudge in milliseconds.
 	TapeClockOut string
+	// TapeController names the MIDI controllers that play the tape
+	// (docs/superpowers/specs/2026-10-15-instrument-strip-design.md):
+	// substrings matched as MIDI_DEVICES is. They are opened even with
+	// MIDI_CAPTURE off, and their notes go to Play mode's bus on the Pi.
+	TapeController []string
 	// OutputLatencyMS is asked of PortAudio for the tape's output, generous
 	// for the same busy-poll reason as the input's.
 	OutputLatencyMS int
@@ -139,6 +144,7 @@ func LoadFrom(get func(string) string) (*Config, error) {
 		TapeHandleS:      envFloat(get, "TAPE_HANDLE_S", 2),
 		TapeClock:        strings.ToLower(strings.TrimSpace(env(get, "TAPE_CLOCK", "free"))),
 		TapeClockOut:     env(get, "TAPE_CLOCK_OUT", ""),
+		TapeController:   splitList(env(get, "TAPE_CONTROLLER", "")),
 		OutputLatencyMS:  envInt(get, "OUTPUT_LATENCY_MS", 100),
 		TapeLatencyMS:    envFloat(get, "TAPE_LATENCY_MS", 0),
 		TapeDemoAlign:    envBool(get, "TAPE_DEMO_ALIGN", false),

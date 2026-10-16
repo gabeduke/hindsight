@@ -8,6 +8,7 @@
 import { rememberListener } from './listener.js';
 // The pictures themselves -- a speaker, headphones, both -- are objects.
 import { outIcon } from '../objects/icons.js';
+import { say } from '../rooms/words.js';
 
 export const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 
@@ -37,7 +38,7 @@ const SHEET = `
     <h3 id="out-title">Output</h3>
     <p class="sheet-hint">Where <span id="out-tape-name">this tape</span> plays. Switching keeps the tape rolling from the same spot.</p>
     <div class="out-choices" role="group" aria-label="Output">
-      <button type="button" class="icon-btn out-choice" data-mode="jam" aria-pressed="true" data-tip="out-choice"><b>Jam room</b><span>Through the Sidekick downstairs. Rec, Catch and mixdown work.</span><span class="out-led"></span></button>
+      <button type="button" class="icon-btn out-choice" data-mode="jam" aria-pressed="true" data-tip="out-choice"><b>Jam room</b><span>${say('Through the Sidekick downstairs. Rec, Catch and mixdown work.')}</span><span class="out-led"></span></button>
       <button type="button" class="icon-btn out-choice" data-mode="phone" aria-pressed="false" data-tip="out-choice"><b>This phone</b><span>A backing track here, about 0.8 s behind. The jam room stays silent.</span><span class="out-led"></span></button>
       <button type="button" class="icon-btn out-choice" data-mode="both" aria-pressed="false" data-tip="out-choice"><b>Both</b><span>The jam room plays and records as usual; this phone hears it 0.8 s late.</span><span class="out-led"></span></button>
     </div>

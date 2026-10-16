@@ -2,38 +2,29 @@
 // VU meters for the main page: a needle per saved channel, on the scale an
 // analog VU meter draws -- −20 to +3 VU, 0 VU two thirds of the way over.
 //
-// The needle is driven by motion.js's `ballistic`, the real VU movement --
-// 300 ms to 99 % of a step with about 1 % of overshoot -- rather than by a CSS
-// transition, which arrives and stops dead.
+// The needle is a scene object (lib/scene): the page sets its level, the vu
+// model (lib/scene/vu.js) swings it with motion.js's `ballistic`, the real VU
+// movement -- 300 ms to 99 % of a step with about 1 % of overshoot -- rather
+// than a CSS transition, which arrives and stops dead. This file is the
+// drawing: the face, and a drawer that puts the needle where the model says.
 //
 // The needle shows the level the meters already get (RMS, in dBFS) with
 // 0 VU at REF_DBFS, the usual line-up for digital audio. The dBFS number
 // stays under each meter, so nothing the bars told you is lost; the PEAK
 // lamp lights for a clip or a peak within 1 dB of full scale.
 
-import { ballistic, settled, ticker } from './motion.js';
+import { ticker } from './motion.js';
+import { Scene } from '../scene/scene.js';
+import { SceneObject } from '../scene/object.js';
+import { DomRenderer } from '../scene/dom.js';
+import { vuAngle, VU_SWING, REF_DBFS } from '../scene/vu.js';
 
-/** The needle's swing either side of upright, in degrees. */
-export const VU_SWING = 48;
-const REF_DBFS = -18;
-const TOP_VU = 3;
+// The needle's law lives with its model; the face and the bench read it here.
+export { vuAngle, VU_SWING };
 
 // Geometry of the face, in its viewBox (160 x 96): the pivot sits below the
 // face, as on the real thing.
 const CX = 80, CY = 112, R = 80;
-
-/**
- * vuAngle is the needle's angle for a level in dBFS, 0 VU at ref. The VU
- * law is linear in voltage, so the low end crowds to the left. Anything off
- * the scale, or not a number, pins to its end stop.
- */
-export function vuAngle(dbfs, ref = REF_DBFS) {
-  if (!Number.isFinite(dbfs)) return -VU_SWING;
-  const v = Math.pow(10, (dbfs - ref) / 20);
-  const lo = Math.pow(10, -20 / 20), hi = Math.pow(10, TOP_VU / 20);
-  const f = (v - lo) / (hi - lo);
-  return Math.max(-VU_SWING, Math.min(VU_SWING, -VU_SWING + 2 * VU_SWING * f));
-}
 
 const pt = (deg, r) => {
   const t = (deg * Math.PI) / 180;
@@ -68,109 +59,110 @@ const el = (tag, attrs) => {
 };
 
 /**
- * VUMeters draws one meter per label into container and moves them. ref is
- * the level that reads 0 VU: the main page feeds RMS and keeps the usual
- * −18 dBFS; a feed of peaks wants a higher one, or it reads hot.
+ * vuFace builds one meter in `container` -- the face, the needle, the peak
+ * lamp and the readout under it -- and returns its drawer for the DOM
+ * renderer: the needle from the model's view, the readout and the lamp from
+ * the state. It writes only what changed, so a resting meter costs nothing.
+ */
+export function vuFace(container, label) {
+  const scale = vuScale();
+  const box = document.createElement('div');
+  box.className = 'vu';
+  const svg = el('svg', { class: 'vu-face', viewBox: '0 0 160 96', 'aria-hidden': 'true' });
+  svg.append(
+    el('path', { class: 'vu-ink', d: scale.arc }),
+    el('path', { class: 'vu-red vu-red-arc', d: scale.redArc }),
+    el('path', { class: 'vu-ink', d: scale.ticks }),
+    el('path', { class: 'vu-red', d: scale.redTicks }),
+  );
+  for (const l of scale.labels) {
+    const t = el('text', { x: l.x, y: l.y, class: l.red ? 'vu-num red' : 'vu-num' });
+    t.textContent = l.t;
+    svg.append(t);
+  }
+  const word = el('text', { x: 80, y: 74, class: 'vu-word' });
+  word.textContent = 'VU';
+  const needle = el('g', { class: 'vu-needle' });
+  needle.append(el('line', { x1: CX, y1: CY, x2: CX, y2: CY - R - 6 }));
+  svg.append(word, needle, el('rect', { class: 'vu-base', x: 0, y: 86, width: 160, height: 10 }));
+
+  const peak = document.createElement('span');
+  peak.className = 'vu-peak';
+  peak.textContent = 'peak';
+  const foot = document.createElement('div');
+  foot.className = 'vu-foot';
+  const name = document.createElement('b');
+  name.textContent = label;
+  const val = document.createElement('span');
+  val.className = 'vu-val';
+  val.textContent = '−∞';
+  foot.append(name, val);
+  box.append(svg, peak, foot);
+  container.appendChild(box);
+  needle.style.transform = `rotate(${-VU_SWING}deg)`;
+
+  let angle = -VU_SWING;
+  return {
+    el: box,
+    draw(view, state) {
+      if (view && view.angle !== angle) {
+        angle = view.angle;
+        needle.style.transform = `rotate(${angle.toFixed(2)}deg)`;
+      }
+      const db = state.level;
+      const text = !Number.isFinite(db) || db <= -60 ? '−∞' : db.toFixed(1);
+      if (val.textContent !== text) val.textContent = text;
+      peak.classList.toggle('on', !!state.peak);
+    },
+  };
+}
+
+/**
+ * VUMeters is the main page's row of meters: one vu scene object per label,
+ * drawn by vuFace, on its own scene. ref is the level that reads 0 VU: the
+ * main page feeds RMS and keeps the usual −18 dBFS; a feed of peaks wants a
+ * higher one, or it reads hot.
  */
 export class VUMeters {
   /**
-   * ticker: the shared clock the needles are stepped by. The bench passes its
-   * own so it can run them slowly; pages take the default.
+   * ticker: the clock the needles are stepped by. Pages take the shared one;
+   * a test or the bench can pass its own.
    */
   constructor(container, { labels, ref = REF_DBFS, ticker: clock = ticker }) {
     this.ref = ref;
-    this.clock = clock;
-    // Where each needle is, and how fast. A needle carries its momentum
-    // through a change of level, which is what a moving coil does and why it
-    // reads as a needle rather than as a bar that happens to rotate.
-    this.swing = labels.map(() => ({ angle: -VU_SWING, velocity: 0, target: -VU_SWING }));
-    const scale = vuScale();
+    this.scene = new Scene({ ticker: clock });
+    this.renderer = new DomRenderer();
+    this.renderer.mount(container, this.scene);
     this.peakUntil = labels.map(() => 0);
-    this.meters = labels.map((label) => {
-      const box = document.createElement('div');
-      box.className = 'vu';
-      const svg = el('svg', { class: 'vu-face', viewBox: '0 0 160 96', 'aria-hidden': 'true' });
-      svg.append(
-        el('path', { class: 'vu-ink', d: scale.arc }),
-        el('path', { class: 'vu-red vu-red-arc', d: scale.redArc }),
-        el('path', { class: 'vu-ink', d: scale.ticks }),
-        el('path', { class: 'vu-red', d: scale.redTicks }),
-      );
-      for (const l of scale.labels) {
-        const t = el('text', { x: l.x, y: l.y, class: l.red ? 'vu-num red' : 'vu-num' });
-        t.textContent = l.t;
-        svg.append(t);
-      }
-      const word = el('text', { x: 80, y: 74, class: 'vu-word' });
-      word.textContent = 'VU';
-      const needle = el('g', { class: 'vu-needle' });
-      needle.append(el('line', { x1: CX, y1: CY, x2: CX, y2: CY - R - 6 }));
-      svg.append(word, needle, el('rect', { class: 'vu-base', x: 0, y: 86, width: 160, height: 10 }));
-
-      const peak = document.createElement('span');
-      peak.className = 'vu-peak';
-      peak.textContent = 'peak';
-      const foot = document.createElement('div');
-      foot.className = 'vu-foot';
-      const name = document.createElement('b');
-      name.textContent = label;
-      const val = document.createElement('span');
-      val.className = 'vu-val';
-      val.textContent = '−∞';
-      foot.append(name, val);
-      box.append(svg, peak, foot);
-      container.appendChild(box);
-      needle.style.transform = `rotate(${-VU_SWING}deg)`;
-      return { box, needle, peak, val };
+    this.needles = labels.map((label, i) => {
+      const obj = this.scene.add(new SceneObject(`vu:${i}`, 'vu', { ref }));
+      this.renderer.part(obj.id, vuFace(container, label));
+      return obj;
     });
-
-    // One step for all of this page's needles, on the shared ticker. It asks
-    // for frames only while something is still moving, so a silent room costs
-    // nothing.
-    //
-    // Keep the remover: the main page builds a new set of meters whenever the
-    // saved channels change, and without this the old set would stay on the
-    // ticker forever, stepping needles in detached DOM. On a page that is
-    // meant to be left running in a jam space, that accumulates.
-    this.remove = this.clock.add((dt) => this.step(dt));
+    // The scene asks the shared ticker for frames only while a needle is
+    // still moving, so a silent room costs nothing.
+    this.scene.start();
   }
 
-  /** destroy takes these needles off the ticker. Call it before replacing them. */
+  /**
+   * destroy takes these needles off the ticker. Call it before replacing
+   * them: the main page builds a new set of meters whenever the saved
+   * channels change, and without this the old set would stay on the ticker,
+   * stepping needles in detached DOM -- on a page meant to be left running
+   * in a jam space, that accumulates.
+   */
   destroy() {
-    this.remove?.();
-    this.remove = null;
+    this.scene.stop();
+    this.renderer.destroy();
   }
 
-  /** step advances every needle by `dt` ms; it says whether any still moves. */
-  step(dt) {
-    let moving = false;
-    this.swing.forEach((s, i) => {
-      if (settled(s.angle, s.velocity, s.target)) {
-        // Park it exactly on target rather than a thousandth away, so the
-        // transform stops changing and the browser stops repainting.
-        s.angle = s.target;
-        s.velocity = 0;
-        return;
-      }
-      ({ value: s.angle, velocity: s.velocity } = ballistic(s.angle, s.velocity, s.target, dt));
-      this.meters[i].needle.style.transform = `rotate(${s.angle.toFixed(2)}deg)`;
-      moving = true;
-    });
-    return moving;
-  }
-
-  /** update moves each needle to rms (dBFS); peak and clip light the lamp. */
+  /** update sets each needle's level to rms (dBFS); peak and clip light the lamp. */
   update(rms, peak, clip) {
     const now = performance.now();
-    this.meters.forEach((m, i) => {
-      const db = rms?.[i];
-      this.swing[i].target = vuAngle(db, this.ref);
-      m.val.textContent = !Number.isFinite(db) || db <= -60 ? '−∞' : db.toFixed(1);
+    this.needles.forEach((obj, i) => {
       // Held a moment, so a single loud hit is still seen.
       if (clip?.[i] || (peak?.[i] ?? -Infinity) >= -1) this.peakUntil[i] = now + 700;
-      m.peak.classList.toggle('on', now < this.peakUntil[i]);
+      obj.set({ level: rms?.[i], peak: now < this.peakUntil[i] });
     });
-    // The ticker parks when every needle has arrived; a new level wakes it.
-    this.clock.start();
   }
 }

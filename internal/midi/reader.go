@@ -48,6 +48,11 @@ type portReader struct {
 	// isClock marks the one reader whose pulses feed the tempo path. Set
 	// before run starts and never changed, so no lock guards it.
 	isClock bool
+	// control marks a controller (TAPE_CONTROLLER), and onGone is called
+	// when a controller that was open goes: its held pads are let go. Both
+	// set before run starts.
+	control bool
+	onGone  func()
 
 	// opened is called on the reader's goroutine once the node is open, and
 	// hands back the device id. Ids are allocated here rather than at
@@ -98,6 +103,9 @@ func (r *portReader) run() {
 	r.readLoop(f)
 	r.connected.Store(false)
 	r.close()
+	if r.onGone != nil {
+		r.onGone()
+	}
 	// A node that closes within a second of opening, having delivered
 	// nothing, is not a device that was unplugged: it is one that cannot be
 	// read at all -- an output-only substream, a node another process holds

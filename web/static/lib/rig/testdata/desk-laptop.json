@@ -1,0 +1,474 @@
+{
+ "size": {
+  "w": 1032,
+  "h": 360
+ },
+ "obstacles": [
+  {
+   "type": "hole",
+   "owner": "ep-136.in1",
+   "x": 36,
+   "y": 70,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "ep-136.in1",
+   "x": 63,
+   "y": 74.8,
+   "w": 17.1,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "ep-136.in2",
+   "x": 100.1,
+   "y": 70,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "ep-136.in2",
+   "x": 127.1,
+   "y": 74.8,
+   "w": 18.7,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "ep-136.aux",
+   "x": 165.8,
+   "y": 70,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "ep-136.aux",
+   "x": 192.8,
+   "y": 74.8,
+   "w": 18.2,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "ep-136.main",
+   "x": 231.1,
+   "y": 70,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "ep-136.main",
+   "x": 258.1,
+   "y": 74.8,
+   "w": 22.8,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "ep-136.midi-in",
+   "x": 300.9,
+   "y": 70,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "ep-136.midi-in",
+   "x": 327.9,
+   "y": 74.8,
+   "w": 32.9,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "ep-136.midi-out",
+   "x": 380.8,
+   "y": 70,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "ep-136.midi-out",
+   "x": 407.8,
+   "y": 74.8,
+   "w": 41,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "ep-136.usb",
+   "x": 468.8,
+   "y": 73,
+   "w": 26,
+   "h": 14
+  },
+  {
+   "type": "text",
+   "owner": "ep-136.usb",
+   "x": 501.8,
+   "y": 74.8,
+   "w": 28.2,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "midi-demo-sequencer.midi-in",
+   "x": 590,
+   "y": 78,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "midi-demo-sequencer.midi-in",
+   "x": 617,
+   "y": 82.8,
+   "w": 32.9,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "midi-demo-sequencer.midi-out",
+   "x": 669.8,
+   "y": 78,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "midi-demo-sequencer.midi-out",
+   "x": 696.8,
+   "y": 82.8,
+   "w": 41,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.usb",
+   "x": 202,
+   "y": 215,
+   "w": 26,
+   "h": 14
+  },
+  {
+   "type": "text",
+   "owner": "kit.usb",
+   "x": 235,
+   "y": 216.8,
+   "w": 17.8,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.tap.main",
+   "x": 288.8,
+   "y": 212,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.tap.main",
+   "x": 315.8,
+   "y": 216.8,
+   "w": 22.8,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.tap.ch1",
+   "x": 374.6,
+   "y": 212,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.tap.ch1",
+   "x": 401.6,
+   "y": 216.8,
+   "w": 16,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.tap.ch2",
+   "x": 453.6,
+   "y": 212,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.tap.ch2",
+   "x": 480.6,
+   "y": 216.8,
+   "w": 17.7,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.tap.aux",
+   "x": 534.3,
+   "y": 212,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.tap.aux",
+   "x": 561.3,
+   "y": 216.8,
+   "w": 18.2,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.keep",
+   "x": 202,
+   "y": 282,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.keep",
+   "x": 229,
+   "y": 286.8,
+   "w": 23.4,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.clock-out",
+   "x": 288.4,
+   "y": 282,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.clock-out",
+   "x": 315.4,
+   "y": 286.8,
+   "w": 50.8,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.clock-in",
+   "x": 402.2,
+   "y": 282,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.clock-in",
+   "x": 429.2,
+   "y": 286.8,
+   "w": 42.6,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.midi",
+   "x": 507.8,
+   "y": 282,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.midi",
+   "x": 534.8,
+   "y": 286.8,
+   "w": 32.9,
+   "h": 10.5
+  },
+  {
+   "type": "hole",
+   "owner": "kit.controls",
+   "x": 603.7,
+   "y": 282,
+   "w": 20,
+   "h": 20
+  },
+  {
+   "type": "text",
+   "owner": "kit.controls",
+   "x": 630.7,
+   "y": 286.8,
+   "w": 47.6,
+   "h": 10.5
+  },
+  {
+   "type": "text",
+   "owner": "",
+   "x": 30,
+   "y": 30,
+   "w": 148,
+   "h": 18
+  },
+  {
+   "type": "text",
+   "owner": "",
+   "x": 188,
+   "y": 34,
+   "w": 118.8,
+   "h": 14
+  },
+  {
+   "type": "text",
+   "owner": "",
+   "x": 584,
+   "y": 30,
+   "w": 119.3,
+   "h": 18
+  },
+  {
+   "type": "text",
+   "owner": "",
+   "x": 713.2,
+   "y": 34,
+   "w": 112.2,
+   "h": 14
+  },
+  {
+   "type": "text",
+   "owner": "",
+   "x": 32,
+   "y": 158,
+   "w": 101.1,
+   "h": 18
+  },
+  {
+   "type": "text",
+   "owner": "",
+   "x": 143.1,
+   "y": 162,
+   "w": 19.8,
+   "h": 14
+  },
+  {
+   "type": "text",
+   "owner": "",
+   "x": 32,
+   "y": 209,
+   "w": 150,
+   "h": 26
+  },
+  {
+   "type": "text",
+   "owner": "",
+   "x": 32,
+   "y": 285.5,
+   "w": 150,
+   "h": 13
+  }
+ ],
+ "holes": {
+  "ep-136.in1": {
+   "x": 46,
+   "y": 80
+  },
+  "ep-136.in2": {
+   "x": 110.1,
+   "y": 80
+  },
+  "ep-136.aux": {
+   "x": 175.8,
+   "y": 80
+  },
+  "ep-136.main": {
+   "x": 241.1,
+   "y": 80
+  },
+  "ep-136.midi-in": {
+   "x": 310.9,
+   "y": 80
+  },
+  "ep-136.midi-out": {
+   "x": 390.8,
+   "y": 80
+  },
+  "ep-136.usb": {
+   "x": 481.8,
+   "y": 80
+  },
+  "midi-demo-sequencer.midi-in": {
+   "x": 600,
+   "y": 88
+  },
+  "midi-demo-sequencer.midi-out": {
+   "x": 679.8,
+   "y": 88
+  },
+  "kit.usb": {
+   "x": 215,
+   "y": 222
+  },
+  "kit.tap.main": {
+   "x": 298.8,
+   "y": 222
+  },
+  "kit.tap.ch1": {
+   "x": 384.6,
+   "y": 222
+  },
+  "kit.tap.ch2": {
+   "x": 463.6,
+   "y": 222
+  },
+  "kit.tap.aux": {
+   "x": 544.3,
+   "y": 222
+  },
+  "kit.keep": {
+   "x": 212,
+   "y": 292
+  },
+  "kit.clock-out": {
+   "x": 298.4,
+   "y": 292
+  },
+  "kit.clock-in": {
+   "x": 412.2,
+   "y": 292
+  },
+  "kit.midi": {
+   "x": 517.8,
+   "y": 292
+  },
+  "kit.controls": {
+   "x": 613.7,
+   "y": 292
+  }
+ },
+ "cables": [
+  {
+   "id": "usb:ep-136",
+   "from": "ep-136.usb",
+   "to": "kit.usb",
+   "kind": "usb"
+  },
+  {
+   "id": "midi:midi-demo-sequencer",
+   "from": "midi-demo-sequencer.midi-out",
+   "to": "kit.midi",
+   "kind": "midi"
+  },
+  {
+   "id": "keep:main",
+   "from": "kit.tap.main",
+   "to": "kit.keep",
+   "kind": "keep"
+  }
+ ]
+}

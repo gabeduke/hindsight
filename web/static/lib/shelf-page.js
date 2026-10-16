@@ -6,17 +6,32 @@ import { TakesList } from '/lib/takes.js';
 import { TrashList } from '/lib/trash.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { initHelp } from '/lib/help/help.js';
-import { shelve, sheetState, tagCounts, fold, familyOf, matches } from '/lib/shelf.js';
+import { shelve, sheetState, tagCounts, fold, familyOf, matches, stopsOnPick } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 import { initNav } from '/lib/nav.js';
+import { named } from '/lib/rooms/words.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
-import { pageBar } from '/lib/bar/bar.js';
+import { pageBar, takesFinder } from '/lib/bar/bar.js';
 import { watchLink, timedFetch } from '/lib/link.js';
 import { spanOf, firstOf, nextOf, doneAt } from '/lib/playall.js';
 import { holdScreen } from '/lib/wakelock.js';
+import { Loop } from '/lib/objects/motion.js';
+import { start as startRoom, roomOn } from '/lib/room/mount.js';
 
 const $ = (id) => document.getElementById(id);
+
+// With the two rooms on, this page is the Listening Room seen from the
+// doorway (lib/room/doorway.js): the rack is still here, under the room,
+// doing what it does, and the room asks it through the handle at the foot.
+// A tap on a take there plays it in the bar and a hold selects it; the sheet
+// below is the takes page's with the rooms off, and never opens with them on.
+const roomMode = roomOn();
+// What the room hears of: the list, and the selection. Empty with the room off.
+const roomHooks = { change: new Set(), selected: new Set() };
+const roomChanged = () => { for (const f of roomHooks.change) f(); };
+// The room's month box, opened to the rack: only that month's families.
+let roomFilter = null;
 
 // What the shelf shows, remembered per device. Never the search: a search
 // left in from last week would hide takes without saying why.
@@ -74,7 +89,15 @@ const takes = new TakesList($('takes'), $('takes-empty'), {
   // Select mode, however it starts (Select, a hold) or ends (Done, Escape):
   // Play all stops, and its key is off while it lasts.
   onSelectChange: () => { stopPlayAll({ pause: true }); renderPlayAll(); },
-  shape: (all) => {
+  // The Listening Room's: its spines follow the selection; a hold selects with
+  // a finger or a pen, not a mouse; a family's takes are rows of the List.
+  onSelected: () => { for (const f of roomHooks.selected) f(); },
+  touchHold: roomMode,
+  showFolded: roomMode,
+  shape: (every) => {
+    // The take on the deck stays in a month's box while the box is open: its
+    // row is its player, and a row the rack drops stops playing.
+    const all = roomFilter ? every.filter((t) => roomFilter(t) || (np && t.name === np.takeName)) : every;
     const opts = { ...view, tags: tagStore.list, tag: shownTag() };
     // The same fold the shelf is drawn from, for the pane's families.
     fam = fold(all.filter((t) => matches(t, opts)));
@@ -129,7 +152,7 @@ function renderTagFilters() {
 }
 // After the list's own subscription has reshaped the shelf: a tag deleted, or
 // the tags loading under a saved tag filter, can fold the picked take.
-tagStore.subscribe(() => { renderTagFilters(); syncPick(); });
+tagStore.subscribe(() => { renderTagFilters(); syncPick(); roomChanged(); });
 
 function renderControls() {
   for (const b of $('shelf-filters').querySelectorAll('button')) {
@@ -152,7 +175,12 @@ function reshape() {
 
 // Every take is a spine, for picking; the picked take is a cassette, with the
 // controls. Wide enough, the cassette sits beside the rack.
-const wide = matchMedia('(min-width: 1100px)');
+const wideMQ = matchMedia('(min-width: 1100px)');
+// In the Listening Room a spine always opens its sheet, at any width: the
+// room stands where the pane would.
+const wide = roomMode
+  ? { get matches() { return false; }, addEventListener: (type, fn) => wideMQ.addEventListener(type, fn) }
+  : wideMQ;
 const detail = new TakeDetail($('take-detail'), {
   takes, onToast: toast, onBack: () => closeSheet(), onPick: (name) => pick(name, true), isShown: (name) => present(name),
 });
@@ -170,11 +198,15 @@ let sheet = { open: null };
 // A reload, or a return the browser didn't keep in memory, brings the
 // sheet's entry back with the sheet closed: drop the entry, and reopen the
 // sheet once its take is listed (syncPick).
+// With the rooms on there is no sheet to bring back.
 let reopen = history.state?.cassette || null;
 if (reopen) history.replaceState(null, '');
+if (roomMode) reopen = null;
 // /takes.html?take=NAME (the Capture page's "Name it", or a held spine on
-// its shelf) picks that take, and opens its sheet on a phone.
-const asked = new URLSearchParams(location.search).get('take');
+// its shelf) picks that take, and opens its sheet on a phone. With the rooms
+// on it is the room's to send to Open (lib/room/tap.js askedTake), so the
+// address is left as it came.
+const asked = roomMode ? null : new URLSearchParams(location.search).get('take');
 if (asked) { reopen = asked; history.replaceState(null, '', location.pathname); }
 const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about'), $('np')].filter(Boolean);
 
@@ -193,6 +225,7 @@ function setSheet(on, from) {
     // Back to the spine it came from, or the first one if that take has gone.
     (takes.rows.get(from)?.el || $('takes').querySelector('.take.spine'))?.focus();
   }
+  roomChanged();
 }
 
 function openSheet(name) {
@@ -236,20 +269,26 @@ function showDetail(name) {
 
 // The crate's clips, counted by the take they were kept from, for the pane's
 // ◫ line; with the tape off there's no crate, and none is shown.
-fetch('/api/crate', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((b) => {
-  if (!b) return;
-  const counts = new Map();
-  for (const k of b.clips || []) if (k.source && k.source.take) counts.set(k.source.take, (counts.get(k.source.take) || 0) + 1);
-  detail.setCrate(counts);
-  if (picked && (wide.matches || sheet.open)) showDetail(picked);
-}).catch(() => {});
+// With the rooms on the crate is off the screen (F3), so nothing is counted
+// and the line stays hidden.
+if (!roomOn()) {
+  fetch('/api/crate', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((b) => {
+    if (!b) return;
+    const counts = new Map();
+    for (const k of b.clips || []) if (k.source && k.source.take) counts.set(k.source.take, (counts.get(k.source.take) || 0) + 1);
+    detail.setCrate(counts);
+    if (picked && (wide.matches || sheet.open)) showDetail(picked);
+  }).catch(() => {});
+}
 
 // pick shows take `name` in the pane, and puts it in the now-playing bar.
 // hand: picked by a press, not the first take a wide screen shows by itself.
 function pick(name, hand = false) {
   // A take left playing would lose its Pause with its controls in the pane:
   // picking another stops it.
-  if (name !== picked && takes.playing && takes.playing !== name) takes.stopOthers(name);
+  // In the Listening Room it doesn't: browsing the shelves never stops
+  // what's on the deck.
+  if (stopsOnPick({ room: roomMode, picked, name, playing: takes.playing })) takes.stopOthers(name);
   picked = name;
   pickedSpine = spineOf(name);
   for (const [n, row] of takes.rows) {
@@ -266,7 +305,8 @@ function pick(name, hand = false) {
 // plays, it keeps the tape until a take is picked by hand.
 let np = null;
 async function offerBar(name, hand) {
-  if (!np || !name) return;
+  // The room puts a take on the deck itself, with PUT IT ON.
+  if (!np || !name || roomMode) return;
   // The tape -- playing as the page opened, or put back with ⏏ -- stays
   // until a take is picked by hand.
   const keepTape = () => !hand && (np.ejected || (np.tapePlaying() && !np.takeName));
@@ -291,19 +331,21 @@ async function offerBar(name, hand) {
 // precision while the page is in view. The screen is held on meanwhile, as
 // the take page holds it while a take plays.
 let playAll = null; // { name, audio, span, prev, raf, moving, off, lock }
+const playNames = () => shownNames();
 
 function renderPlayAll() {
   const b = $('play-all');
   b.textContent = playAll ? '■ Stop' : '▶ Play all';
   b.disabled = !playAll && (takes.selecting || !shownNames().length);
   for (const [n, row] of takes.rows) row.el.classList.toggle('play-all', !!playAll && n === playAll.name);
+  roomChanged();
 }
 
 function stopPlayAll({ pause = false } = {}) {
   const r = playAll;
   if (!r) return;
   playAll = null;
-  cancelAnimationFrame(r.raf);
+  r.watch?.stop();
   r.off?.abort();
   r.lock?.release();
   if (pause && r.audio && !r.audio.paused) r.audio.pause();
@@ -315,9 +357,9 @@ function stopPlayAll({ pause = false } = {}) {
 function moveOn(r) {
   r.moving = true;
   r.off?.abort();
-  cancelAnimationFrame(r.raf);
+  r.watch?.stop();
   if (r.audio && !r.audio.paused) r.audio.pause();
-  const next = nextOf(shownNames(), r.name);
+  const next = nextOf(playNames(), r.name);
   if (next) playAllFrom(next); else stopPlayAll();
 }
 
@@ -332,7 +374,7 @@ async function playAllFrom(name) {
     if (picked !== was.picked || np.takeName !== was.bar || np.ejected !== was.ejected) return stopPlayAll();
     // Still encoding, or gone: on to the next.
     if (!p) {
-      const next = nextOf(shownNames(), name);
+      const next = nextOf(playNames(), name);
       return next ? playAllFrom(next) : stopPlayAll();
     }
     r.name = name;
@@ -357,7 +399,7 @@ async function playAllFrom(name) {
         toast('This browser wants a tap to play each take: ▶ Play all goes on from here', 'warn');
         return;
       }
-      toast(`Skipped ${t.label || name}: it wouldn't play`, 'warn');
+      toast(`Skipped ${named(t.label || name)}: it wouldn't play`, 'warn');
       moveOn(r);
       return;
     }
@@ -379,11 +421,11 @@ async function playAllFrom(name) {
     for (const ev of ['timeupdate', 'pause', 'ended', 'error']) a.addEventListener(ev, check, sig);
     // A seek is a jump, not playing across Out: count from where it lands.
     a.addEventListener('seeked', () => { r.prev = a.currentTime; }, sig);
-    const tick = () => {
-      check();
-      if (playAll === r && !r.moving) r.raf = requestAnimationFrame(tick);
-    };
-    r.raf = requestAnimationFrame(tick);
+    // And every frame, on the shared ticker: timeupdate comes a few times a
+    // second, which is late for an Out.
+    r.watch?.stop();
+    r.watch = new Loop(() => { check(); return playAll === r && !r.moving; });
+    r.watch.start();
   } catch (e) {
     // Nothing may leave Play all on, holding the polls off, with nothing playing.
     if (playAll === r) {
@@ -395,7 +437,7 @@ async function playAllFrom(name) {
 
 $('play-all').addEventListener('click', () => {
   if (playAll) { stopPlayAll({ pause: true }); return; }
-  const first = firstOf(shownNames(), pickedSpine);
+  const first = firstOf(playNames(), pickedSpine);
   if (!first) return;
   playAll = { name: first, moving: true, lock: holdScreen() };
   renderPlayAll();
@@ -446,14 +488,14 @@ function syncPick() {
 // A row's body picks it; its own controls keep their press, and a press on
 // its waveform both seeks and picks.
 $('takes').addEventListener('click', (e) => {
-  if (takes.selecting) return;
+  if (roomMode || takes.selecting) return; // the room's rows play (lib/room/tap.js)
   const row = e.target.closest('.take');
   if (!row || e.target.closest('button, a, input, .take-flag, .take-flag-edit')) return;
   pick(row.dataset.name, true);
   if (!wide.matches) openSheet(row.dataset.name);
 });
 $('takes').addEventListener('keydown', (e) => {
-  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (roomMode || (e.key !== 'Enter' && e.key !== ' ')) return;
   const row = e.target.closest('.take');
   if (!row || e.target !== row) return; // a row's own controls keep their keys
   e.preventDefault();
@@ -560,8 +602,39 @@ const link = watchLink(() => { poll(); pollStatus(); });
 renderControls();
 showNextToast();
 initHelp({ page: 'takes' });
-np = pageBar({ tapes: initNav(), onToast: toast });
+const navTapes = initNav();
+np = pageBar({ tapes: navTapes, onToast: toast, find: takesFinder(takes) });
 poll(true);
 pollStatus();
 setInterval(() => poll(), 5000);
 setInterval(pollStatus, 15000);
+
+// --- the Listening Room ----------------------------------------------------
+// With the rooms flag on, the room mounts over the rack and works it through
+// this handle (lib/room/doorway.js). With it off, start() reads the flag and
+// stops: nothing below is touched.
+startRoom('doorway', {
+  takes, toast, tapes: navTapes,
+  get np() { return np; },
+  opts: () => ({ ...view, tags: tagStore.list, tag: shownTag() }),
+  // A tap on a take picks it, so Play all goes on from here.
+  pick: (name) => pick(name, true),
+  // The List's rows and its select bar: the room wires a tap to the rows and
+  // gives the bar its Tag key.
+  rack: $('takes'),
+  selectBar: $('select-bar'),
+  setFilter: (fn) => { roomFilter = fn; reshape(); },
+  // The rack's filter, all of it off: the room shows when one is on.
+  clearFilter: () => {
+    view.query = '';
+    $('shelf-q').value = '';
+    for (const k of ['starred', 'midi', 'phone', 'tape']) view[k] = false;
+    view.tag = '';
+    saveView();
+    renderControls();
+    reshape();
+  },
+  onChange: (fn) => roomHooks.change.add(fn),
+  onSelected: (fn) => roomHooks.selected.add(fn),
+  poll: () => poll(true),
+})?.catch((e) => console.error('The Listening Room could not start:', e));

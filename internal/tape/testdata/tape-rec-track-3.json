@@ -1,0 +1,66 @@
+{
+ "version": 1,
+ "id": "2026-10-15_written-before-multi-arm",
+ "name": "written before multi-arm",
+ "sample_rate": 48000,
+ "length": 2880000,
+ "created": "2026-10-15T03:00:00Z",
+ "click": true,
+ "rec_track": 3,
+ "inputs": [
+  "",
+  "ch1",
+  "ch2"
+ ],
+ "grid": {
+  "frames": 384000,
+  "bars": 4
+ },
+ "loop": {
+  "in": 0,
+  "out": 384000,
+  "on": true
+ },
+ "tracks": [
+  {
+   "n": 1,
+   "bus": "A",
+   "gain_db": -6,
+   "pan": 0,
+   "clips": [
+    {
+     "id": "c0000001",
+     "file": "audio/catch_x.wav",
+     "src": 0,
+     "frames": 96000,
+     "at": 0,
+     "layer": 0,
+     "gain_db": 0,
+     "source": "aux",
+     "clean": true
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "bus": "A",
+   "gain_db": -6,
+   "pan": 0,
+   "clips": []
+  },
+  {
+   "n": 3,
+   "bus": "A",
+   "gain_db": -6,
+   "pan": 0,
+   "clips": []
+  },
+  {
+   "n": 4,
+   "bus": "A",
+   "gain_db": -6,
+   "pan": 0,
+   "clips": []
+  }
+ ]
+}
