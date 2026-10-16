@@ -56,7 +56,10 @@ export function mount(h) {
   const spanOpts = () => ({ sampleRate: sr, bpm: h.state().grid.bpm, total: h.total });
 
   // --- the page: the notes, and what was made from the take --------------------
-  const head = el('div', 'room-open-head', {}, el('h2', 'room-open-h', { text: 'Notes' }));
+  // ✎ Note, here as well as in the bar: on a phone the bar's own keys are
+  // folded away until the player is opened, and this is where the notes are.
+  const noteHead = el('button', 'icon-btn room-open-note-btn', { type: 'button', 'data-tip': 'room-open-note' }, '✎ Note');
+  const head = el('div', 'room-open-head', {}, el('h2', 'room-open-h', { text: 'Notes' }), noteHead);
   const list = el('ol', 'room-open-notes', { 'aria-label': 'Notes' });
   const none = el('p', 'room-open-none', { text: 'No notes yet. ✎ Note puts one at the playhead.' });
   const family = el('div', 'room-open-family');
@@ -69,7 +72,7 @@ export function mount(h) {
   const flagNow = $('flag-now');
   const noteKey = el('button', 'icon-btn tb-flag room-open-note', { id: 'room-open-note', type: 'button', 'aria-label': 'Note at the playhead', 'data-tip': 'room-open-note' }, '✎');
   if (flagNow) { flagNow.hidden = true; flagNow.before(noteKey); }
-  noteKey.addEventListener('click', () => writeAt(h.state().cursor));
+  for (const k of [noteKey, noteHead]) k.addEventListener('click', () => writeAt(h.state().cursor));
 
   // --- the notes: number, time, words, ▶, GRAB, ✕ -----------------------------
   let notesSig = '';

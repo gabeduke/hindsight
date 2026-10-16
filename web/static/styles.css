@@ -4687,6 +4687,7 @@ body.buffer-fold .tape-sections-row { display: none; }
 .room-open-tag { min-height: 32px; padding: 0 10px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
 .room-open-tag.on { border: 0; background: var(--stripe); color: var(--stripe-ink); }
 .room-open-note { color: var(--flag); font-size: 18px; }
+.room-open-note-btn { min-height: 40px; color: var(--ink); }
 dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
 @media (min-width: 860px) {
   .room-open-note-row .room-open-words { font-size: 14px; }

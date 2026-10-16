@@ -57,10 +57,17 @@ test('✎ Note makes a note at the playhead and puts the cursor in its words', a
   const p = await open();
   p.$('room-open-note').dispatchEvent({ type: 'click' });
   assert.deepEqual(p.calls.filter((c) => c.startsWith('add')), [`add ${7 * SR}`]);
+
   const rows = p.all('.room-open-note-row');
   assert.equal(rows.length, 1);
   assert.equal(rows[0].querySelector('.room-open-at').textContent, '0:07');
   assert.equal(p.doc.activeElement, rows[0].querySelector('.room-open-words'), 'its words are ready for typing');
+});
+
+test('the Notes heading has a ✎ Note too, since a phone’s bar folds its own keys away', async () => {
+  const p = await open();
+  p.all('.room-open-note-btn')[0].dispatchEvent({ type: 'click' });
+  assert.deepEqual(p.calls.filter((c) => c.startsWith('add')), [`add ${7 * SR}`]);
 });
 
 test('✎ on the bar arrives with a note already started at the frame that was heard', async () => {
