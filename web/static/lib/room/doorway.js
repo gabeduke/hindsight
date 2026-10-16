@@ -329,7 +329,8 @@ export function mount(h) {
   }
   setInterval(() => { if (!document.hidden) renderPlaces(); }, DECK_EVERY_MS);
 
-  // The dock is the bar: Open in it, and grease marks at In and Out.
+  // The dock is the bar: Open in it for the tape (a take's name, in the bar,
+  // is its way in: lib/bar/take-keys.js), and grease marks at In and Out.
   const sit = el('a', 'icon-btn room-sit', { href: '/wave.html', 'data-tip': 'room-sit' }, 'Open');
   $('np-open')?.after(sit);
   // A tape opens in the Studio, and says it goes for the tape (F4).
@@ -338,7 +339,7 @@ export function mount(h) {
   const grease = el('span', 'room-grease', { 'aria-hidden': 'true' }, el('i', 'room-grease-in'), el('i', 'room-grease-out'));
   $('np-scrub')?.after(grease);
   function renderDock(d, w) {
-    sit.hidden = !d;
+    sit.hidden = !d || d.kind === 'take';
     if (d) sit.setAttribute('href', w.href);
     sitForTape = !!d && w.forTape;
     const t = d && d.kind === 'take' ? d.take : null;

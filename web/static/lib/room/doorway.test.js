@@ -270,17 +270,17 @@ test('tapping an empty deck goes nowhere: it points at the shelf', async () => {
   assert.deepEqual(r.w.navigated, []);
 });
 
-test('the dock’s link says Open, and follows the bar: the take’s page, or the Studio for a tape', async () => {
+test('the dock’s Open is for the tape, to the Studio: a take in the bar opens by its name, so the dock stands down', async () => {
   const r = await room({ barTake: 'jam_a.wav' });
   const dock = r.q('.room-sit');
-  assert.equal(dock.textContent, 'Open');
-  assert.equal(dock.hidden, false);
-  assert.equal(dock.getAttribute('href'), '/wave.html?file=jam_a.wav');
+  assert.equal(dock.hidden, true, 'the bar’s own name is the way into a take: one route, not two');
   r.np.takeName = 'jam_c.wav';
   r.tick();
-  assert.equal(dock.getAttribute('href'), '/wave.html?file=jam_c.wav');
+  assert.equal(dock.hidden, true);
 
   const t = await room({ tapes: TAPES });
+  assert.equal(t.q('.room-sit').textContent, 'Open');
+  assert.equal(t.q('.room-sit').hidden, false);
   assert.equal(t.q('.room-sit').getAttribute('href'), '/tape.html');
   click(t.q('.room-sit'));
   assert.equal(JSON.parse(t.w.session.getItem('hindsight.bar.carry')).for, 'tape');

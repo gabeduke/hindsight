@@ -20,6 +20,9 @@ const stamp = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
  */
 export const playheadOf = (take) => (take && take.audio && Number.isFinite(take.audio.currentTime) ? take.audio.currentTime : null);
 
+/** takeHref is a take's own page: where its name in the bar opens, and where ✎ goes. */
+export const takeHref = (name) => `/wave.html?file=${encodeURIComponent(name)}`;
+
 /** takeLength is a take's length in frames, as the bar counts it. */
 export function takeLength(t, peaks) {
   const sr = t.sample_rate || 48000;
@@ -58,7 +61,7 @@ export function takeSource(t, player, { onGone } = {}) {
     name: t.name,
     audio,
     title,
-    href: `/wave.html?file=${encodeURIComponent(t.name)}`,
+    href: takeHref(t.name),
     sampleRate: sr,
     length,
     pos,

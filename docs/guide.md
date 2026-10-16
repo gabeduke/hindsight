@@ -216,6 +216,20 @@ Every take, from **All takes** on the main page.
     far it has got. It has no keys of its own. Pressing it, or **Open** in the
     bar, opens the take; for the tape in the bar it opens the Studio. On a
     phone there is no deck: the bar, along the foot, is what plays.
+  - **The bar, with a take in it,** shows **▶**, the take as a strip (tap it
+    to jump there, drag it to scrub), the take's **name**, and **✎**. Tap
+    the name to open the take on its page. **✎** opens it too, keeping the
+    spot you were hearing so a note can start there (the take's page does not
+    write the note yet). **⟲** is **Repeat** for a take: its selection, or
+    the whole take without one; for the tape in the bar it stays **Loop**. On
+    a phone the mini player holds the strip, the name and **✎**, and there is
+    no player to pull up for a take: **|◂**, **↺ 5 s** and Repeat are on a
+    wider screen's bar, and on **Open**.
+  - **A tap plays at once,** and the sound never waits for the picture: a
+    cassette lifts off its shelf and flies to the deck (on a phone, to the
+    bar) while the take is already playing. Tap another take mid-flight and
+    the new one flies instead; with *reduce motion* on, nothing flies and the
+    deck just changes.
   - **A spine's folded takes** (its cuts, a tape's earlier bounces) are
     lines under it in the **List**, each played by a tap.
   - **Tapes are not on the shelf.** They live in the Studio: its title menu
@@ -262,6 +276,12 @@ Every take, from **All takes** on the main page.
   nothing opens; tap it again → it pauses.
 - [demo] Still with them on, tap another spine → the bar holds that take,
   and the deck says *In the bar: …*.
+- [demo] With a take playing, the bar shows its strip, its name and **✎**,
+  and **⟲** says **Repeat**. Tap the strip half way → it jumps there; drag it
+  → it scrubs. Tap the name → the take opens on its page, still playing.
+  Go back, pause at 1:00 and press **✎** → the take opens at 1:00.
+- [demo] On a phone with the rooms on, play a take → the mini player shows
+  ▶, the name, **✎** and the strip, and there is no window to pull up.
 - [demo] Hold a spine on a phone → it is ticked and the select bar rises;
   tap another → both are ticked and neither plays. **Tag** → *Ideas* →
   both spines wear its color. **Done** → the ticks go.
@@ -2045,7 +2065,7 @@ has no tip.
 | Search the shelves | The rack's filter, over the shelves: names, tags and stars |
 | The deck (place) | A picture of the bar: what's in it and how far it has got. Press it to open it: a take on its page, the tape in the Studio |
 | Sketchbook (place) | The notes on what's in the bar. Press it to open it and write |
-| Open (the room’s bar) | Opens what's in the bar: a take on its page, the tape in the Studio |
+| Open (the room’s bar) | Opens the tape in the bar, in the Studio. A take opens by its name in the bar |
 | PUT IT ON | Plays it: a take here, on this device; a tape on the Pi, loaded first |
 | GRAB (a take) | Into the Studio's buffer, and the Studio opens: a take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
 | Stand up | Out of the chair, back to the shelves |
@@ -2110,11 +2130,14 @@ has no tip.
 | Waveform | Drag to move along, pinch to zoom. Hold, then drag, to select. Tap to move the playhead; tap twice to flag |
 | ▶ | Play from the playhead |
 | To In (take) | Back to In; with nothing selected, to the start of the take |
-| ⟲ Loop (bar) | Loop what’s in the bar: the tape’s loop, or a take’s selection (the whole take without one) |
+| ⟲ Loop (bar) | Loop what’s in the bar: the tape’s loop, or a take’s selection (the whole take without one). With the two rooms on a take’s is called Repeat |
 | ⏏ (bar) | Stop the take in the bar and put the tape back in it |
 | Open › (bar) | Open what’s in the bar on its own page: the tape, or the take |
-| The bar’s strip | The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays |
-| The mini player (phone) | On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away |
+| The bar’s strip | The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays. With the two rooms on, a phone’s mini player holds it for a take |
+| The take’s name (bar) | Opens the take in the bar on its own page. The two rooms only |
+| ✎ (bar) | Opens the take where you are hearing it, with that spot kept for a note. The two rooms only |
+| ⟲ Repeat (bar) | Repeat the take in the bar: its selection, or the whole take without one. The two rooms only |
+| The mini player (phone) | On a phone: the player, pulled up over the page — the whole bar, and on the tape its drawers. Down, Back or Esc puts it away. With the two rooms on a take has none: its strip, name and ✎ are in the mini player |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |

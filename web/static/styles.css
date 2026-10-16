@@ -5315,3 +5315,42 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
   body.buffer-fold .tape-track:not(.buffer-target) { height: 22px; }
   body.buffer-fold .tape-track:not(.buffer-target) .tt-lane { height: 20px; }
 }
+
+/* ---------- Rooms F5b: the bar with a take in it (lib/bar/take-keys.js) ----------
+   With the rooms on, a take in the bar shows its name (a link to the take's
+   page) and ✎, and the phone's mini player holds the strip. The elements are
+   made by that script, and `.np-take` is a class only it puts on the bar, so
+   with the rooms off none of this matches anything. */
+.np .np-own .np-name {
+  display: inline-flex; align-items: center; flex: 0 1 auto; min-width: 0; max-width: 22ch; height: 52px; padding: 0 10px;
+  border-radius: 7px; color: inherit; text-decoration: none; font: 700 15px var(--label-font);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.np .np-own .np-name[hidden], .np .np-own .np-note[hidden] { display: none; }
+@media (hover: hover) { .np .np-own .np-name:hover { text-decoration: underline; } }
+.np .np-own .np-name::after { content: '›'; margin-left: 6px; opacity: .6; }
+.np .np-own .np-name:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.np .np-own .np-note { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; font-size: 20px; }
+/* The name is the way into the take: the bar's own "Open the take ›" is the same route twice. */
+.np.np-take #np-open { display: none; }
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  /* The mini player for a take: ▶, the name and ✎ in a row, the strip under
+     them. There is no player to open for a take, so no window or ▾ either. */
+  body:has(.np.np-take:not([hidden])) { --np-h: 106px; }
+  body:not(.player-open) .np.np-take { flex-wrap: wrap; align-content: center; row-gap: 6px; }
+  body:not(.player-open) .np.np-take .np-window { display: none; }
+  body:not(.player-open) .np.np-take .np-keys { order: 1; }
+  body:not(.player-open) .np.np-take .np-own { order: 2; flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 4px; }
+  /* ⏏ (the tape back, when both are in the bar) has no player to hide in either. */
+  body:not(.player-open) .np.np-take .np-own > :is(.np-name, .np-note, .np-eject:not([hidden])) { display: inline-flex !important; }
+  body:not(.player-open) .np.np-take .np-own > .np-name { flex: 1 1 0; max-width: none; }
+  body:not(.player-open) .np.np-take .np-own > :is(.np-note, .np-eject) { flex: none; width: 48px; min-width: 48px; height: 50px; min-height: 50px; }
+  body:not(.player-open) .np.np-take #np-scrub { display: block !important; order: 3; flex: 1 1 100%; min-width: 0; height: 36px; }
+}
+@media (orientation: landscape) and (max-height: 440px) {
+  /* On its side there is only room for one row: the strip beside the name. */
+  body:has(.np.np-take:not([hidden])) { --np-h: 64px; }
+  body:not(.player-open) .np.np-take { flex-wrap: nowrap; }
+  body:not(.player-open) .np.np-take .np-own { flex: 0 1 38%; }
+  body:not(.player-open) .np.np-take #np-scrub { flex: 1 1 0; height: 50px; }
+}
