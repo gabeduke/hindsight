@@ -1,4 +1,4 @@
-// web/static/lib/shell/sheets.test.js
+// web/static/lib/rooms/sheets.test.js
 // The Capture view recorded from a phone through #phone-sheet, which shell.html
 // only carries inside studio-sheets-tpl: with no Studio mounted first, the
 // sheet was not in the document and initPhone threw on its null Close button.
@@ -44,7 +44,7 @@ test('a page without the template says so and adds nothing', () => {
 test('Capture puts the sheets in the document before it starts the phone', async () => {
   const { readFileSync } = await import('node:fs');
   const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
-  const ensure = app.indexOf("ensureSheets(document, 'studio-sheets-tpl')");
+  const ensure = app.indexOf("ensureStudioSheets(document)");
   const phone = app.indexOf('initPhone({');
   assert.ok(ensure > 0 && ensure < phone, 'app.js must call ensureSheets before initPhone');
 });

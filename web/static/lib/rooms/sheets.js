@@ -1,4 +1,4 @@
-// web/static/lib/shell/sheets.js
+// web/static/lib/rooms/sheets.js
 // Sheets that live in a <template> of shell.html are not in the document until
 // a view puts them there, and getElementById cannot see inside a template.
 
@@ -16,3 +16,6 @@ export function ensureSheets(doc, templateId) {
   }
   return true;
 }
+
+/** ensureStudioSheets: the phone sheet and the rest of the Studio's, for a view that is not the Studio (Capture). */
+export const ensureStudioSheets = (doc) => ensureSheets(doc, 'studio-sheets-tpl');

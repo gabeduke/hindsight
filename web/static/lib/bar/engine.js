@@ -313,6 +313,9 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     setFind: api.setFind,
     setOnNote: api.setOnNote,
     setGo: (fn) => { go = fn; },
+    // A tape made after the engine was (the first one a Pi gets, from the
+    // Studio): the engine holds it from here on.
+    setTapes: (list) => { if (list && list.loaded) mountTape(list.loaded); },
     get tape() { return tape; },
     get stream() { return stream; },
     get feed() { return feed; },

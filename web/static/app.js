@@ -8,7 +8,7 @@ import { Ribbon } from '/lib/objects/ribbon.js';
 import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';
 import { initPhone } from '/lib/phone/recorder.js';
-import { ensureSheets } from '/lib/shell/sheets.js';
+import { ensureStudioSheets } from '/lib/rooms/sheets.js';
 import { initHelp } from '/lib/help/help.js';
 import { toast as defaultToast, takeNextToast } from '/lib/toast.js';
 import { say, named } from '/lib/rooms/words.js';
@@ -389,7 +389,7 @@ export function mountCapture(ctx = null) {
   }
 
   // In the shell the phone's sheet is in the Studio's template, not the page.
-  ensureSheets(document, 'studio-sheets-tpl');
+  ensureStudioSheets(document);
   initPhone({
     button: el.phoneBtn,
     sheet: $('phone-sheet'),

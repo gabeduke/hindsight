@@ -46,6 +46,17 @@ test('with no tape on the Pi the engine holds nothing, and the bar waits hidden'
   assert.equal($('np').hidden, true);
 });
 
+test('a tape made after the engine was (a Pi'+"'"+'s first) is mounted by setTapes, so the Studio has a tape to drive', async () => {
+  const { engine } = await open({ tape: false });
+  assert.equal(engine.tape, null);
+  engine.setTapes({ loaded: 't1' });
+  assert.equal(engine.tape.kind, 'tape');
+  assert.equal(typeof engine.tape.delegate, 'function');
+  const held = engine.tape;
+  engine.setTapes({ loaded: 't1' });
+  assert.equal(engine.tape, held, 'asking again keeps the tape it has');
+});
+
 test('with a tape on the Pi the bar holds it, and the engine has the tape and its player on this device', async () => {
   const { engine, bar, $, frames } = await open();
   assert.equal(engine.tape.kind, 'tape');
