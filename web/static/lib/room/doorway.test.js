@@ -264,6 +264,17 @@ test('tapping the deck is Open: a take opens its page; a tape opens in the Studi
   assert.equal(rec.for, 'tape', 'so the bar’s take does not go along (F4)');
 });
 
+test('tapping the deck opens the take page directly even when openSketchbook is provided, while the sketchbook prop opens notes', async () => {
+  const books = [];
+  const a = await room({ barTake: 'jam_a.wav', openSketchbook: (name) => books.push(name) });
+  click(a.q('.room-deck-place'));
+  assert.deepEqual(a.w.navigated, ['/wave.html?file=jam_a.wav'], 'deck click navigates directly to the waveform editor');
+  assert.deepEqual(books, [], 'deck click does not open the sketchbook');
+
+  click(a.q('.room-book-place'));
+  assert.deepEqual(books, ['jam_a.wav'], 'sketchbook prop click opens notes');
+});
+
 test('tapping an empty deck goes nowhere: it points at the shelf', async () => {
   const r = await room();
   click(r.q('.room-deck-place'));

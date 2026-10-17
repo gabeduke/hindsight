@@ -48,7 +48,7 @@ export function world(search = '') {
 }
 
 /** A page with the Listening Room mounted on it. */
-export async function room({ takes = [take('a'), take('b'), take('c')], tapes = null, barTake = null, selecting = false, search = '' } = {}) {
+export async function room({ takes = [take('a'), take('b'), take('c')], tapes = null, barTake = null, selecting = false, search = '', openSketchbook = null } = {}) {
   const w = world(search);
   const doc = fakeDoc();
   globalThis.document = doc;
@@ -94,6 +94,7 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
   const h = {
     takes: list, toast: (m) => toasts.push(m), tapes: Promise.resolve(tapes), ticker, flightTimers,
     get np() { return np; },
+    openSketchbook,
     opts: () => ({}),
     // The page's rack and its select bar, which the room wires.
     rack: doc.getElementById('takes'), selectBar: doc.getElementById('select-bar'),
