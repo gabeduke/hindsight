@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.1 — 2026-10-17
+
+- Spec the shell, the cue lane and the output switch (c162da8)
+- Sketchbook stays in the Listening Room when the bar holds the tape (c938946)
+
+
 ## v2026.10.16.7 — 2026-10-16
 
 - Line the Studio's feed ribbon up with the tape lanes under it (37cb212)
