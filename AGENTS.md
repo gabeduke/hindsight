@@ -194,6 +194,14 @@ not come back:
   solely by a class added after an async `import()` or network `fetch()`.
   The two rooms are the only layout: there is no `:root[data-rooms]` gate,
   and the test fails if one comes back.
+- **Shell views & router (unified player & pushState navigation):**
+  Views under `lib/shell/views/` (Studio, Listening Room, Capture) mount inside
+  the single shell document (`shell.html`). Views never construct their own
+  Audio for the bar (the engine owns it), never assign `location` directly to a
+  room path (navigation goes through router / `ctx.go`), share one ID
+  namespace across all rooms and templates, and route all DOM listeners, polls,
+  and ticker steps through `ctx.on`, `ctx.every`, and `ctx.loop` so inactive
+  views stay completely quiet.
 
 ## Getting code onto a Pi
 
