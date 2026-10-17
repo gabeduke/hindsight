@@ -180,6 +180,7 @@ const SHELL = [
   '/lib/bar/handoff.js',
   '/lib/bar/player.js',
   '/lib/shell/view.js',
+  '/lib/shell/router.js',
   '/lib/scene/object.js',
   '/lib/scene/scene.js',
   '/lib/scene/renderer.js',
