@@ -153,7 +153,9 @@ track on the Pi, and the full-screen sheet above. The node tests passed
 throughout. They test logic; none of them can see a page.
 
 `docs/development.md` has the demo command. `scripts/smoke-*.mjs` are the
-Playwright checks that already exist.
+Playwright checks that already exist; `scripts/smoke-shell.mjs` validates the
+single shell document, gapless room switching and continuous audio playback
+across user journeys.
 
 ## Where things live in the UI
 
