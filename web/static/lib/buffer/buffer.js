@@ -33,7 +33,7 @@ import { restoreTake } from '../trash.js';
 import { takeBack } from '../rooms/keep.js';
 import { takeTitle } from '../rooms/takename.js';
 import { named } from '../rooms/words.js';
-import { followLoop, readPick, writePick } from '../rooms/grab.js';
+import { followLoop, readPick, writePick, readSource, writeSource } from '../rooms/grab.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
 import { replacedWords, replacedLine, recall, raiseUndo, undoWords } from './replaced.js';
 
@@ -103,6 +103,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     fadesShape: $('buffer-fades-shape'),
     picks: grabRow.querySelector('.buffer-bars'),
     unit: grabRow.querySelector('.buffer-grab-unit'),
+    feedSources: grabRow.querySelector('.buffer-feed-sources'),
     grab: grabRow.querySelector('.buffer-grab-key'),
     grabWord: grabRow.querySelector('.buffer-grab-word'),
     grabN: grabRow.querySelector('.buffer-grab-n'),
@@ -135,6 +136,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     loopBars: null,   // the loop N last followed
     keeps: '',        // what K keeps from here, as the instrument's pad last heard it
     chosen: null,     // the sources picked by hand; null follows the armed track's input
+    chosenSource: readSource(storage) || null, // feed source picked by hand
     grabbing: false,
     local: null,      // the window or the fades while a mark is held: {in, out, fadeIn, fadeOut}
     lastDrop: null,   // {tape, clip, created, seen}: undo puts it back in hand
@@ -225,8 +227,22 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   function sources() {
     const d = st.detail;
     const names = d && d.sources && d.sources.length ? d.sources.map((s) => s.name) : SOURCES;
+    const pref = st.chosenSource && names.includes(st.chosenSource) ? st.chosenSource : null;
     const armed = d && d.rec_input && names.includes(d.rec_input) ? d.rec_input : names.includes('main') ? 'main' : names[0];
-    return (st.chosen || [armed]).filter((n) => names.includes(n));
+    const def = pref || armed;
+    return (st.chosen || [def]).filter((n) => names.includes(n));
+  }
+
+  function pickFeedSource(name) {
+    st.chosenSource = name;
+    writeSource(name, storage);
+    st.chosen = [name];
+    const g = grabOf();
+    if (g && !g.take && !g.stale) {
+      send(() => api.grab({ again: true, sources: [name], crate: false }))
+        .catch((e) => toast(`Could not take ${named(name)}: ${e.message}`, 'bad'));
+    }
+    render();
   }
 
   async function grab(req, what) {
@@ -281,6 +297,10 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const next = now.includes(name) ? now.filter((n) => n !== name) : [...now, name];
     if (!next.length) return; // a buffer has a lane at least
     st.chosen = next;
+    if (next.length === 1) {
+      st.chosenSource = next[0];
+      writeSource(next[0], storage);
+    }
     if (!g) { render(); return; }
     send(() => api.grab({ again: true, sources: next, crate: false }))
       .catch((e) => toast(`Could not take ${named(name)}: ${e.message}`, 'bad'));
@@ -561,7 +581,32 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     }
     el.unit.textContent = k.unit;
     el.unit.hidden = !k.unit;
-    el.reopen.hidden = open || !g;
+    if (el.feedSources) {
+      const tapeSources = d?.sources?.length ? d.sources : SOURCES.map((name) => ({ name }));
+      const activeSrcs = sources();
+      if (el.feedSources.childElementCount !== tapeSources.length ||
+          [...el.feedSources.children].some((c, i) => c.dataset.source !== tapeSources[i].name)) {
+        el.feedSources.replaceChildren(...tapeSources.map((s) => {
+          const btn = doc.createElement('button');
+          btn.type = 'button';
+          btn.dataset.source = s.name;
+          btn.textContent = s.name;
+          btn.addEventListener('click', () => pickFeedSource(s.name));
+          return btn;
+        }));
+      }
+      tapeSources.forEach((s, i) => {
+        const btn = el.feedSources.children[i];
+        btn.setAttribute('aria-pressed', String(activeSrcs.includes(s.name)));
+        btn.disabled = st.grabbing;
+      });
+    }
+    el.reopen.hidden = !g;
+    el.reopen.innerHTML = open ? 'Buffer<span aria-hidden="true"> ▾</span>' : 'Buffer<span aria-hidden="true"> ▴</span>';
+    el.reopen.setAttribute('aria-expanded', String(open));
+    el.reopen.setAttribute('aria-pressed', String(open));
+    el.reopen.setAttribute('aria-label', open ? 'Close the buffer' : 'Open the buffer');
+    el.reopen.classList.toggle('on', open);
     if (el.grabSel) el.grabSel.disabled = st.grabbing;
     // KEEP names what it keeps: the window, in bars when there is a tempo.
     // K keeps it while the buffer is open, so the instrument's pad says so.
@@ -808,7 +853,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   }
   el.grab.addEventListener('click', grabBars);
   el.grabSel?.addEventListener('click', grabSpan);
-  el.reopen.addEventListener('click', () => { st.open = true; st.dropped = ''; render(); forward(); });
+  el.reopen.addEventListener('click', () => { if (st.open) return close(); st.open = true; st.dropped = ''; render(); forward(); });
   for (const btn of el.picks.children) {
     btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); writePick(st.n); render(); });
   }

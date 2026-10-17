@@ -19,6 +19,18 @@ export function writePick(n, storage = globalThis.localStorage) {
   try { storage.setItem(PICK_KEY, String(n)); } catch { /* this session only */ }
 }
 
+const SOURCE_KEY = 'buffer.source';
+
+/** readSource is the feed source saved on this device (main / ch1 / ch2 / aux), or null. */
+export function readSource(storage = globalThis.localStorage) {
+  try { return storage.getItem(SOURCE_KEY) || null; } catch { return null; }
+}
+
+/** writeSource saves a feed source picked by hand. */
+export function writeSource(src, storage = globalThis.localStorage) {
+  try { storage.setItem(SOURCE_KEY, String(src)); } catch { /* this session only */ }
+}
+
 /**
  * loopBars is the tape's loop in bars, from the tape as the Pi answers it
  * ({grid: {frames, bars}, loop: {in, out, on}}): the bracket's length when

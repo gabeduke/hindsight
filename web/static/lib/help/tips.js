@@ -231,9 +231,10 @@ export const TIPS = [
   // The Studio's buffer (lib/buffer)
   { control: 'Grab', ids: ['grab'], tip: 'Copy the last bars of the feed (with no tempo yet, the last seconds) into the buffer, from its sources, to trim and drop. G' },
   { control: 'Last 1 2 4 8 (grab)', ids: ['grab-bars'], tip: "How many bars Grab takes. It starts at the tape's loop length, so a grab fits the loop it is for; with no tempo, twice as many seconds" },
+  { control: 'Feed source', ids: ['buffer-feed-sources'], tip: 'Which input channel Grab captures into the buffer' },
   { control: 'Grab (ribbon)', ids: ['grab-span'], tip: 'Put exactly the span you selected on the ribbon into the buffer' },
   { control: 'KEEP (ribbon)', ids: ['selection-keep'], tip: 'Keep exactly the span you selected on the ribbon as a take; the key says how long it is' },
-  { control: 'Buffer ▴', ids: ['buffer-open'], tip: 'Open the buffer again: what you grabbed last waits there' },
+  { control: 'Buffer ▴ / ▾', ids: ['buffer-open'], tip: 'Open or close the buffer: what you grabbed last waits there' },
   { control: 'Buffer grip', ids: ['buffer-grip'], tip: 'Pull the buffer up or down. Hold it, then drag onto a lane, to drop it there' },
   { control: 'Sources (buffer)', ids: ['buffer-sources'], tip: 'Which inputs the buffer holds, a lane each, all over the same span; they drop on neighbouring tracks' },
   { control: 'Audition', ids: ['buffer-audition'], tip: 'Loop the buffer on this device, never through the Pi, so the jam goes on' },

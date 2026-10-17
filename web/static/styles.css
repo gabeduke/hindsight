@@ -4140,6 +4140,8 @@ body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
 .buffer-grab-unit[hidden] { display: none; }
 .buffer-grab > .seg.buffer-bars { flex: 0 1 auto; }
 .buffer-grab > .seg.buffer-bars button { padding: 0 9px; min-width: 32px; }
+.buffer-grab > .seg.buffer-feed-sources { flex: 0 1 auto; }
+.buffer-grab > .seg.buffer-feed-sources button { padding: 0 8px; font: 600 11.5px var(--mono); text-transform: uppercase; }
 .icon-btn.buffer-grab-key {
   min-height: 44px; padding: 4px 14px; gap: 8px;
   font: 700 15px var(--label-font); letter-spacing: .14em; text-transform: uppercase;
@@ -4323,7 +4325,7 @@ body.buffer-fold .tape-sections-row { display: none; }
   /* GRAB and KEEP side by side while it's open: the picker and the
      lengths wait in the closed feed. */
   body.buffer-open .buffer-grab { flex: 1 1 auto; }
-  body.buffer-open .buffer-grab > .seg.buffer-bars, body.buffer-open .buffer-grab-unit, body.buffer-open .studio-keys > .seg { display: none; }
+  body.buffer-open .buffer-grab > .seg.buffer-bars, body.buffer-open .buffer-grab > .seg.buffer-feed-sources, body.buffer-open .buffer-grab-unit, body.buffer-open .studio-keys > .seg { display: none; }
   body.buffer-open .icon-btn.buffer-grab-key { flex: 1 1 auto; }
   body.buffer-open .buffer-grab-n { display: inline; }
 }

@@ -2300,9 +2300,10 @@ has no tip.
 | Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |
 | Grab | Copy the last bars of the feed (with no tempo yet, the last seconds) into the buffer, from its sources, to trim and drop. G |
 | Last 1 2 4 8 (grab) | How many bars Grab takes. It starts at the tape's loop length, so a grab fits the loop it is for; with no tempo, twice as many seconds |
+| Feed source | Which input channel Grab captures into the buffer |
 | Grab (ribbon) | Put exactly the span you selected on the ribbon into the buffer |
 | KEEP (ribbon) | Keep exactly the span you selected on the ribbon as a take; the key says how long it is |
-| Buffer ▴ | Open the buffer again: what you grabbed last waits there |
+| Buffer ▴ / ▾ | Open or close the buffer: what you grabbed last waits there |
 | Buffer grip | Pull the buffer up or down. Hold it, then drag onto a lane, to drop it there |
 | Sources (buffer) | Which inputs the buffer holds, a lane each, all over the same span; they drop on neighbouring tracks |
 | Audition | Loop the buffer on this device, never through the Pi, so the jam goes on |
