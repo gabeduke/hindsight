@@ -12,6 +12,7 @@ import { createView } from '/lib/shell/view.js';
 import { createRouter } from '/lib/shell/router.js';
 import { roomView } from '/lib/shell/views/room.js';
 import { studioView } from '/lib/shell/views/studio.js';
+import { captureView } from '/lib/shell/views/capture.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -51,6 +52,14 @@ if (roomRoot) {
   views.push(createView(roomView, {
     root: roomRoot,
     template: $('view-room-tpl'),
+    slots,
+    shared,
+  }));
+}
+const captureRoot = $('view-capture');
+if (captureRoot) {
+  views.push(createView(captureView, {
+    root: captureRoot,
     slots,
     shared,
   }));

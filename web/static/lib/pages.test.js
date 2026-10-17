@@ -60,7 +60,10 @@ const ELSEWHERE = {
 test('everything on Capture has a way in from the Studio', () => {
   const idsFrom = (html) => new Set([...html.replace(/<!--[\s\S]*?-->/g, '')
     .matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-  const shell = readFileSync(new URL('shell.html', dir), 'utf8').replace(/<main id="view-room"[\s\S]*?<\/main>/, '');
+  const shell = readFileSync(new URL('shell.html', dir), 'utf8')
+    .replace(/<main id="view-room"[\s\S]*?<\/main>/, '')
+    .replace(/<main id="view-capture"[\s\S]*?<\/main>/, '')
+    .replace(/<div id="header-capture"[\s\S]*?<\/div>\s*<\/div>/, '');
   const studio = idsFrom(shell);
   const stranded = [...idsFrom(readFileSync(new URL('index.html', dir), 'utf8'))].filter((id) => !studio.has(id) && !(id in ELSEWHERE));
   assert.deepEqual(stranded, [], "Capture's, and nowhere in the Studio: bring them in, or say where they went");

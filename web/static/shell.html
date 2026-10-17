@@ -36,6 +36,15 @@
   <!-- Where the tape plays (lib/tape/out-switch.js): a speaker, headphones or
        both, and the place's name on a wide screen. Hidden until the Pi says. -->
   <button id="out-btn" class="out-btn tape-out" type="button" aria-haspopup="dialog" aria-label="Output" data-tip="tape-out" hidden><span class="out-ico-slot" aria-hidden="true"></span><span class="tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+  <div id="header-capture" class="appbar-page" hidden>
+    <div class="health">
+      <span class="awake" id="awake" hidden
+            title="Screen kept awake while charging"
+            aria-label="Screen kept awake while charging" role="img">&#9788;</span>
+      <span class="dot" id="health-dot"></span>
+      <span id="health-text">connecting</span>
+    </div>
+  </div>
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   <div id="header-studio" class="appbar-page tape-top" hidden>
     <!-- Two pills, each a menu: the tape's name switches tapes; its tempo
@@ -124,6 +133,75 @@
     </div>
     <div id="lanes" class="tape-lanes"></div>
 
+  </div>
+<!-- Capture: the Studio when the tape is off (lib/shell/views/capture.js). -->
+<main id="view-capture" class="main-page view" data-view="capture" hidden>
+  <div class="viz-wrap" id="capture-viz-wrap" data-tip="ribbon"></div>
+  <div class="rb-sel" id="capture-rb-sel" hidden>
+    <span class="rb-sel-text"></span>
+    <button class="icon-btn rb-sel-clear" type="button" aria-label="Clear the selection" data-tip="ribbon-clear">×</button>
+    <button class="icon-btn primary rb-sel-save" type="button" data-tip="ribbon-save">Save as take</button>
+  </div>
+
+  <div class="col col-monitor">
+    <section class="panel">
+      <div class="vu-row" id="capture-vu"></div>
+      <div class="meters" id="capture-meters"></div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="k">buffered</div>
+          <div class="v" id="stat-buffered">–</div>
+        </div>
+        <div class="stat">
+          <div class="k">disk free</div>
+          <div class="v" id="capture-stat-disk">–</div>
+        </div>
+        <div class="stat">
+          <div class="k">dropped</div>
+          <div class="v" id="capture-stat-xruns">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">tempo</div>
+          <div class="v" id="capture-stat-tempo">–</div>
+        </div>
+      </div>
+
+      <details class="chan" id="capture-chan-diag">
+        <summary>Input channels</summary>
+        <div class="grid" id="capture-chan-grid"></div>
+        <p class="hint">
+          Saving channels <b id="capture-chan-saving">–</b> from <b id="capture-chan-device">–</b>.
+          Change with <code>SAVE_CHANNELS</code>.
+        </p>
+        <p class="hint">
+          MIDI devices: <b id="capture-midi-devices">none</b>.
+          Filter with <code>MIDI_DEVICES</code> / <code>MIDI_IGNORE</code>.
+        </p>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h2>Capture</h2>
+      <div class="capture-row">
+        <div class="seg" id="capture-dur-seg" role="group" aria-label="Capture length" data-tip="capture"></div>
+        <button class="mark-btn" id="capture-mark-btn" type="button" data-tip="flag-now">Flag now</button>
+      </div>
+      <button class="capture-btn" id="capture-btn" data-tip="capture"><span class="cap-word" id="cap-word">Capture</span><span class="cap-sub" id="cap-sub"></span></button>
+      <div class="last-row">
+        <p class="last">last saved <span id="last-saved">none</span></p>
+        <button class="phone-btn" id="capture-phone-btn" type="button" data-tip="phone">&#9679; Phone</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="col col-library">
+    <section class="panel shelf-panel">
+      <h2>On the shelf</h2>
+      <div class="takes" id="capture-takes"></div>
+      <p class="empty" id="capture-takes-empty">No takes yet — hit Capture.</p>
+      <a class="icon-btn all-takes" id="all-takes" href="/takes.html" data-tip="all-takes"><span>All takes <span class="all-count" id="all-count"></span></span><span aria-hidden="true">›</span></a>
+    </section>
   </div>
 </main>
 
