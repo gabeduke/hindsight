@@ -12,7 +12,7 @@ import { openTagManager } from '/lib/tags-dialog.js';
 import { initNav } from '/lib/nav.js';
 import { named } from '/lib/rooms/words.js';
 import { TakeDetail } from '/lib/shelf-detail.js';
-import { pageBar, takesFinder } from '/lib/bar/bar.js';
+import { pageBar, takesFinder } from '/lib/bar/engine.js';
 import { watchLink, timedFetch } from '/lib/link.js';
 import { spanOf, firstOf, nextOf, doneAt } from '/lib/playall.js';
 import { holdScreen } from '/lib/wakelock.js';

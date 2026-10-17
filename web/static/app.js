@@ -14,7 +14,7 @@ import { say, named } from '/lib/rooms/words.js';
 import { takeTitle } from '/lib/rooms/takename.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
-import { pageBar, takesFinder } from '/lib/bar/bar.js';
+import { pageBar, takesFinder } from '/lib/bar/engine.js';
 
 const $ = (id) => document.getElementById(id);
 

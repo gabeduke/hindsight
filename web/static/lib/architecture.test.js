@@ -69,10 +69,11 @@ test('Guardrail 5: Unified Media Player provides FeedSource and 3-way source sel
     fs.existsSync(feedSourcePath),
     'lib/bar/feed-source.js must exist for the live studio feed source',
   );
-  const barJs = read('lib/bar/bar.js');
+  // The bar draws it (bar.js, take-keys.js); its engine switches (engine.js).
+  const barJs = read('lib/bar/bar.js') + read('lib/bar/engine.js');
   assert.ok(
     barJs.includes('np-source-switch') || barJs.includes('setSource'),
-    'lib/bar/bar.js must expose the 3-way source switcher (feed, tape, take)',
+    'lib/bar/bar.js and engine.js must expose the 3-way source switcher (feed, tape, take)',
   );
 });
 
