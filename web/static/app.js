@@ -8,6 +8,7 @@ import { Ribbon } from '/lib/objects/ribbon.js';
 import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';
 import { initPhone } from '/lib/phone/recorder.js';
+import { ensureSheets } from '/lib/shell/sheets.js';
 import { initHelp } from '/lib/help/help.js';
 import { toast as defaultToast, takeNextToast } from '/lib/toast.js';
 import { say, named } from '/lib/rooms/words.js';
@@ -387,6 +388,8 @@ export function mountCapture(ctx = null) {
     np = pageBar({ tapes: initNav(), onToast: toast, find: takesFinder(takes) });
   }
 
+  // In the shell the phone's sheet is in the Studio's template, not the page.
+  ensureSheets(document, 'studio-sheets-tpl');
   initPhone({
     button: el.phoneBtn,
     sheet: $('phone-sheet'),
@@ -474,8 +477,8 @@ export function mountCapture(ctx = null) {
   pollStatus().then(() => pollTakes(true));
 
   if (ctx?.every) {
-    ctx.every(2000, pollStatus);
-    ctx.every(5000, () => pollTakes());
+    ctx.every(pollStatus, 2000);
+    ctx.every(() => pollTakes(), 5000);
   } else {
     setInterval(pollStatus, 2000);
     setInterval(() => pollTakes(), 5000);
