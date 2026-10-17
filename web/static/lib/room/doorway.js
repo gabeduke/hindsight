@@ -623,7 +623,10 @@ export function mount(h) {
     if (!d) { focusShelf('.room-shelf-takes'); return; }
     const w = deckWords(d, barNow());
     if (w.forTape) openTheTape({ go: h.go });
-    else if (h.openSketchbook && d.kind === 'take') h.openSketchbook(d.take.name);
+    else if (d.kind === 'take') {
+      const href = `/wave.html?file=${encodeURIComponent(d.take.name)}`;
+      if (h.go) h.go(href); else location.href = href;
+    }
     else if (h.go) h.go(w.href);
     else location.href = w.href;
   }
@@ -633,7 +636,10 @@ export function mount(h) {
   // at the shelf, as the deck does when it is empty.
   bookPlace.addEventListener('click', () => {
     const d = inBar();
-    if (d && d.kind === 'take') openBar();
+    if (d && d.kind === 'take') {
+      if (h.openSketchbook) h.openSketchbook(d.take.name);
+      else openBar();
+    }
     else focusShelf('.room-shelf-takes');
   });
 

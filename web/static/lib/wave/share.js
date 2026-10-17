@@ -7,11 +7,7 @@ function tenths(frame, sr) {
   return `${m}:${s}`;
 }
 
-/** gainText is a Level gain as the page says it: "+6.2 dB", "−1.0 dB", "0 dB". */
-export function gainText(db) {
-  if (!db) return '0 dB';
-  return `${db > 0 ? '+' : '−'}${Math.abs(db).toFixed(1)} dB`;
-}
+export { gainText } from '../edit/curves.js';
 
 export function fmtRegionText(region, sampleRate) {
   if (!region) return 'whole take';
