@@ -279,11 +279,34 @@ type Track struct {
 	Clips  []Clip  `json:"clips"`
 }
 
+// CueLane holds clips staged on the cue lane above tracks 1-4.
+type CueLane struct {
+	Solo   bool      `json:"solo,omitempty"`
+	GainDB float64   `json:"gain_db,omitempty"`
+	Clips  []CueClip `json:"clips"`
+}
+
+// CueClip is one clip staged on the cue lane.
+type CueClip struct {
+	ID      string  `json:"id"`
+	File    string  `json:"file"`
+	Name    string  `json:"name,omitempty"`
+	Src     int64   `json:"src"`
+	Frames  int64   `json:"frames"`
+	Loop    bool    `json:"loop"`
+	GainDB  float64 `json:"gain_db,omitempty"`
+	Source  string  `json:"source,omitempty"`
+	FadeIn  int64   `json:"fade_in,omitempty"`
+	FadeOut int64   `json:"fade_out,omitempty"`
+}
+
 // State is the undoable part of a tape.
 type State struct {
 	Grid   *Grid   `json:"grid"`
 	Loop   Loop    `json:"loop"`
 	Tracks []Track `json:"tracks"`
+	// Cue is the cue lane holding clips staged before being committed to tape tracks.
+	Cue *CueLane `json:"cue,omitempty"`
 	// Sections name spans of the tape for arranging (sections.go), in order.
 	Sections []Section `json:"sections,omitempty"`
 	// Style is the tape's mods (mods.go): wow, flutter, drive and age. Nil
@@ -301,6 +324,11 @@ func (s State) clone() State {
 	if s.Style != nil {
 		st := *s.Style
 		out.Style = &st
+	}
+	if s.Cue != nil {
+		c := *s.Cue
+		c.Clips = append(make([]CueClip, 0, len(s.Cue.Clips)), s.Cue.Clips...)
+		out.Cue = &c
 	}
 	for i, t := range s.Tracks {
 		t.Clips = append(make([]Clip, 0, len(t.Clips)), t.Clips...) // never nil: [] in JSON
@@ -518,6 +546,13 @@ func (s State) files(into map[string]bool) {
 	for _, tr := range s.Tracks {
 		for _, c := range tr.Clips {
 			c.poolFiles(into)
+		}
+	}
+	if s.Cue != nil {
+		for _, c := range s.Cue.Clips {
+			if c.File != "" {
+				into[c.File] = true
+			}
 		}
 	}
 }

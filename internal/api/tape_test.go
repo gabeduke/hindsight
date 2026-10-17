@@ -1047,3 +1047,79 @@ func TestATapesModsSaveWithItAndUndo(t *testing.T) {
 		t.Fatalf("after undo: %+v", s.Tape.Style)
 	}
 }
+
+func TestTapeCueAPI(t *testing.T) {
+	r, _ := newTapeAPI(t)
+	id := makeLoadedTape(t, r)
+
+	type cueState struct {
+		Tape struct {
+			Cue    *tape.CueLane `json:"cue"`
+			Tracks []struct {
+				Clips []struct {
+					ID     string `json:"id"`
+					File   string `json:"file"`
+					Src    int64  `json:"src"`
+					Frames int64  `json:"frames"`
+					At     int64  `json:"at"`
+				} `json:"clips"`
+			} `json:"tracks"`
+		} `json:"tape"`
+		Undo int `json:"undo"`
+	}
+	readState := func() cueState {
+		t.Helper()
+		w := send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")
+		want(t, w, http.StatusOK, "state")
+		var s cueState
+		if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+
+	// 1. Add cue clip
+	clipJSON := `{"op":"cue-add","cue_clip":{"id":"cue1","file":"audio/cue1.wav","name":"Drum loop","frames":48000}}`
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, clipJSON), http.StatusOK, "cue-add")
+
+	s := readState()
+	if s.Tape.Cue == nil || len(s.Tape.Cue.Clips) != 1 || s.Tape.Cue.Clips[0].ID != "cue1" {
+		t.Fatalf("after cue-add: %+v", s.Tape.Cue)
+	}
+
+	// 2. Solo the cue lane
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"cue-solo","solo":true}`), http.StatusOK, "cue-solo")
+	s = readState()
+	if !s.Tape.Cue.Solo {
+		t.Fatalf("after cue-solo: solo = false")
+	}
+
+	// 3. Promote cue clip to Track 2 at frame 24000
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"cue-to-track","clip":"cue1","track":2,"at":24000}`), http.StatusOK, "cue-to-track")
+	s = readState()
+	if len(s.Tape.Tracks[1].Clips) != 1 {
+		t.Fatalf("track 2 clips: %d, want 1", len(s.Tape.Tracks[1].Clips))
+	}
+	trClip := s.Tape.Tracks[1].Clips[0]
+	if trClip.At != 24000 || trClip.Frames != 48000 || trClip.File != "audio/cue1.wav" {
+		t.Fatalf("track 2 clip mismatch: %+v", trClip)
+	}
+	// Cue clip remains on CueLane
+	if len(s.Tape.Cue.Clips) != 1 {
+		t.Fatalf("cue clips after to-track: %d, want 1", len(s.Tape.Cue.Clips))
+	}
+
+	// 4. Remove cue clip
+	want(t, send(t, r, http.MethodPost, "/api/tapes/edit?id="+id, `{"op":"cue-remove","clip":"cue1"}`), http.StatusOK, "cue-remove")
+	s = readState()
+	if len(s.Tape.Cue.Clips) != 0 {
+		t.Fatalf("cue clips after remove: %d, want 0", len(s.Tape.Cue.Clips))
+	}
+
+	// 5. Undo restores cue clip
+	want(t, send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, ""), http.StatusOK, "undo remove")
+	s = readState()
+	if len(s.Tape.Cue.Clips) != 1 || s.Tape.Cue.Clips[0].ID != "cue1" {
+		t.Fatalf("cue clips after undo: %+v", s.Tape.Cue)
+	}
+}

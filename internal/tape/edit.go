@@ -55,6 +55,9 @@ type EditRequest struct {
 	// replaces is held as the one replaced grab (replaced.go) and not put in
 	// the crate. Not `crate`, which an insert already uses.
 	NoCrate bool `json:"no_crate"`
+	// Cue fields:
+	CueClip *CueClip `json:"cue_clip,omitempty"`
+	Solo    *bool    `json:"solo,omitempty"`
 }
 
 // Span is a stretch of the tape, From up to To, in frames.
@@ -108,6 +111,7 @@ type EditResult struct {
 	At      int64      `json:"at"`                // insert, delete time, duplicate section: where (0 is a place)
 	// Replaced is the unused buffer a lift or copy replaced, held for Undo.
 	Replaced *Clipboard `json:"replaced,omitempty"`
+	CueClip  *CueClip   `json:"cue_clip,omitempty"`
 }
 
 // EditOp carries out an edit on the loaded tape.
@@ -197,6 +201,56 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 			return err
 		})
 		return EditResult{Op: "multiply", Clips: n, Frames: frames}, err
+	case "cue-add":
+		if req.CueClip == nil {
+			return EditResult{}, fmt.Errorf("%w: cue-add needs cue_clip", ErrBadParameter)
+		}
+		var added CueClip
+		err := e.Edit(id, "cue:add", func(_ *Tape, s *State) error {
+			var err error
+			added, err = s.cueAdd(*req.CueClip)
+			return err
+		})
+		return EditResult{Op: "cue-add", Clips: 1, CueClip: &added}, err
+	case "cue-remove":
+		if req.Clip == "" {
+			return EditResult{}, fmt.Errorf("%w: cue-remove needs clip", ErrBadParameter)
+		}
+		err := e.Edit(id, "cue:remove", func(_ *Tape, s *State) error {
+			return s.cueRemove(req.Clip)
+		})
+		return EditResult{Op: "cue-remove", Clips: 1}, err
+	case "cue-set":
+		if req.CueClip == nil || req.CueClip.ID == "" {
+			return EditResult{}, fmt.Errorf("%w: cue-set needs cue_clip with id", ErrBadParameter)
+		}
+		var updated CueClip
+		err := e.Edit(id, "cue:set", func(_ *Tape, s *State) error {
+			var err error
+			updated, err = s.cueSet(*req.CueClip)
+			return err
+		})
+		return EditResult{Op: "cue-set", Clips: 1, CueClip: &updated}, err
+	case "cue-solo":
+		if req.Solo == nil {
+			return EditResult{}, fmt.Errorf("%w: cue-solo needs solo", ErrBadParameter)
+		}
+		err := e.Edit(id, "cue:solo", func(_ *Tape, s *State) error {
+			s.cueSetSolo(*req.Solo)
+			return nil
+		})
+		return EditResult{Op: "cue-solo"}, err
+	case "cue-to-track":
+		if req.Clip == "" || req.Track <= 0 || req.At == nil {
+			return EditResult{}, fmt.Errorf("%w: cue-to-track needs clip, track and at", ErrBadParameter)
+		}
+		var placed Clip
+		err := e.Edit(id, "cue:to-track", func(_ *Tape, s *State) error {
+			var err error
+			placed, err = s.cueToTrack(req.Clip, req.Track, *req.At)
+			return err
+		})
+		return EditResult{Op: "cue-to-track", Clips: 1, Clip: &placed, At: *req.At}, err
 	}
 	return EditResult{}, fmt.Errorf("%w: no edit %q", ErrBadParameter, req.Op)
 }
