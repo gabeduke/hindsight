@@ -156,11 +156,12 @@ Playwright checks that already exist.
 
 ## Where things live in the UI
 
-- **Settings location depends on the Rooms flag:** With `hindsight.rooms` off,
-  Settings is at the foot of Capture (`index.html`) and Tape (`tape.html`) in
-  `.about`: "Hindsight v… · Settings · the guide". With `hindsight.rooms` on,
-  Settings, Releases/Version, and Guide live in the top-right `.appbar-end`
-  utility cluster on every page.
+- **Settings, Releases and the guide** live in the top-right `.appbar-end`
+  cluster on every page (`lib/nav.js`, `mountHeaderTools`). On a phone the
+  header has room for Settings alone, so the Settings sheet's first line
+  (`lib/settings.js`, `aboutLine`) carries the version, Releases and the
+  guide: it is a phone's only way to them, and `styles.test.js` keeps it
+  from being hidden. There is no `.about` line any more.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.
@@ -187,10 +188,11 @@ not come back:
   playhead, reel, ruler cursor, overview cursor, and time counter steps on
   `lib/objects/motion.js`'s shared `ticker` (`Loop`) and parks (`return false`)
   when paused.
-- **Frame-zero flag gating (`:root[data-rooms]`):** Legacy containers replaced
-  by a Rooms view are hidden in `styles.css` under `:root[data-rooms]` (set in
-  `<head>` before first paint), never solely by a class added after an async
-  `import()` or network `fetch()`.
+- **Frame-zero hiding:** What a room view replaces is hidden by `styles.css`
+  from the first paint (e.g. `body:not(.room-rack) :is(#takes, …)`), never
+  solely by a class added after an async `import()` or network `fetch()`.
+  The two rooms are the only layout: there is no `:root[data-rooms]` gate,
+  and the test fails if one comes back.
 
 ## Getting code onto a Pi
 

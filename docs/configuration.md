@@ -7,8 +7,8 @@ means a missing file is not an error, because every value has a default.
 
 `deploy/hindsight.env.example` is the annotated copy the installer writes.
 
-**Most of these can also be changed in the app**, from *Settings* at the foot
-of Capture ([guide §3.3](guide.md#33-settings)). The app writes them to
+**Most of these can also be changed in the app**, from *Settings* in the
+header ([guide §3.3](guide.md#33-settings)). The app writes them to
 `~/hindsight/settings.json` (`SETTINGS_FILE` moves it), which wins over the env
 file; the env file stays the default for anything not changed in the app.
 Changes apply on restart, which the sheet offers. What the app can change is

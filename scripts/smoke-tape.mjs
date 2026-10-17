@@ -204,10 +204,8 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   await p.context().close();
 }
 
-// The crate's drawer: from 700 px the lanes take the full width with it
-// closed; it opens above the bar and pushes the lanes up without hiding the
-// bar, its key says so, and Escape closes it. On the bench every lane keeps
-// 48 px with it open.
+// From 700 px the lanes take the full width, and on the bench they keep
+// their height.
 for (const [w, h] of [[1024, 768], [1024, 600], [768, 1024], [1470, 900]]) {
   const p = await (await browser.newContext({ viewport: { width: w, height: h } })).newPage();
   await p.goto(`${BASE}/tape.html`);
@@ -215,31 +213,12 @@ for (const [w, h] of [[1024, 768], [1024, 600], [768, 1024], [1470, 900]]) {
   const measure = () => p.evaluate(() => {
     const lanes = [...document.querySelectorAll('.tt-lane')].map((c) => c.getBoundingClientRect());
     const np = document.getElementById('np').getBoundingClientRect();
-    const open = [...document.querySelectorAll('.np-drawer.open')].map((d) => d.getBoundingClientRect());
-    return { h: lanes.map((r) => Math.round(r.height)), right: Math.round(Math.max(...lanes.map((r) => r.right))),
-      npTop: Math.round(np.top), npBottom: Math.round(np.bottom), drawer: open.map((r) => [Math.round(r.top), Math.round(r.bottom)]) };
+    return { h: lanes.map((r) => Math.round(r.height)), right: Math.round(Math.max(...lanes.map((r) => r.right))), npBottom: Math.round(np.bottom) };
   });
-  const closed = await measure();
-  check(`${w}x${h}: with the drawers closed the lanes take the width`, closed.right >= w - 40, `right ${closed.right}`);
-  if (w === 1024 && h === 768) check('1024x768: four lanes of 100 px or more', closed.h.every((x) => x >= 100), JSON.stringify(closed.h));
-  await p.click('#np-drawer-crate');
-  await p.waitForTimeout(400);
-  const open = await measure();
-  const exp = await p.getAttribute('#np-drawer-crate', 'aria-expanded');
-  check(`${w}x${h}: Crate opens its drawer above the bar`, open.drawer.length === 1 && open.drawer[0][1] <= open.npTop + 1 && exp === 'true', JSON.stringify(open.drawer));
-  check(`${w}x${h}: the bar stays on screen`, open.npBottom <= h + 1, `bar bottom ${open.npBottom}`);
-  const room = await p.evaluate(() => ({
-    keys: ['drop', 'insert', 'clip-clear'].map((id) => Math.round(document.getElementById(id).getBoundingClientRect().width)),
-    toasts: parseFloat(getComputedStyle(document.getElementById('toasts')).bottom),
-    dock: document.getElementById('np-dock').getBoundingClientRect().height,
-  }));
-  check(`${w}x${h}: the clipboard's keys keep their words`, room.keys.every((x) => x >= 40), JSON.stringify(room.keys));
-  check(`${w}x${h}: toasts rise over the open drawer`, room.toasts >= room.dock, `toasts ${room.toasts}, dock ${Math.round(room.dock)}`);
-  // Shorter, unless they were already as short as their heads.
-  check(`${w}x${h}: the lanes are pushed up, 48 px or more`, open.h.every((x) => x >= 48) && (open.h[0] < closed.h[0] || closed.h[0] <= 72), `${JSON.stringify(closed.h)} → ${JSON.stringify(open.h)}`);
-  await p.keyboard.press('Escape');
-  await p.waitForTimeout(300);
-  check(`${w}x${h}: Escape closes it`, (await p.getAttribute('#np-drawer-crate', 'aria-expanded')) === 'false');
+  const m = await measure();
+  check(`${w}x${h}: the lanes take the width`, m.right >= w - 40, `right ${m.right}`);
+  if (w === 1024 && h === 768) check('1024x768: four lanes of 100 px or more', m.h.every((x) => x >= 100), JSON.stringify(m.h));
+  check(`${w}x${h}: the bar stays on screen`, m.npBottom <= h + 1, `bar bottom ${m.npBottom}`);
   await p.context().close();
 }
 

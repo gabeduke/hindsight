@@ -53,9 +53,8 @@ async function ensureTakes(base, n) {
     await sleep(tries === 0 ? 100 : 20000);
   }
 }
-async function context(size, scheme, rooms = true) {
+async function context(size, scheme) {
   const ctx = await browser.newContext({ viewport: size, colorScheme: scheme, hasTouch: size.width < 700 });
-  await ctx.addInitScript((r) => { try { if (r) localStorage.setItem('hindsight.rooms', '1'); } catch {} }, rooms);
   const p = await ctx.newPage();
   p.on('pageerror', (e) => check('no page error', false, e.message));
   return { ctx, p };
@@ -224,21 +223,6 @@ for (const { tag, size, scheme } of SIZES) {
     await p.evaluate(() => document.getElementById('np-play').click()); // stop the tape again
     await ctx.close();
   }
-}
-
-// 7. Rooms off: nothing written, nothing read.
-if (run('off')) {
-  console.log('\n== rooms off');
-  const { ctx, p } = await context(SIZES[0].size, 'light', false);
-  await p.goto(`${TAPE}/takes.html`);
-  await p.waitForTimeout(2500);
-  await p.locator('.take').first().click();
-  await p.evaluate(() => document.getElementById('np-play').click());
-  await p.waitForTimeout(1200);
-  await p.evaluate(() => { window.dispatchEvent(new Event('pagehide')); });
-  await p.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
-  check('rooms off: nothing in sessionStorage after pagehide / hidden', await p.evaluate(() => Object.keys(sessionStorage).filter((k) => k.startsWith('hindsight.bar')).length) === 0);
-  await ctx.close();
 }
 
 await browser.close();

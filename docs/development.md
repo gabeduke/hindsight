@@ -247,47 +247,35 @@ four tracks, plain and under each trick.
 ## The two rooms
 
 `web/static/lib/rooms/` is the Studio and the Listening Room
-(`docs/superpowers/specs/2026-10-15-rooms-design.md`), behind a per-device
-flag like Play mode's:
+(`docs/superpowers/specs/2026-10-15-rooms-design.md`). They are the only
+layout: the per-device `hindsight.rooms` flag that once switched them on is
+gone, and a value left in a browser's storage is ignored.
 
-```js
-localStorage.setItem('hindsight.rooms', '1')   // on, this device only
-localStorage.removeItem('hindsight.rooms')     // off
-```
-
-or *Settings › Preview features › Two rooms*. It is read once, when a page loads.
-
-With it on, the three tabs are two: **Studio**, the tape page while the tape
-is on and Capture while it's off, and **Listening Room**, the takes and a
-take's page (`lib/nav.js`, `navTabs` and `studioRedirect`). Two inline
-scripts in the pages' heads run before anything draws:
+The header has two tabs: **Studio**, the tape page while the tape is on and
+`/` while it's off, and **Listening Room**, the takes and a take's page
+(`lib/nav.js`, `navTabs` and `studioRedirect`). Every page ships them in its
+markup. One inline script runs before anything draws:
 
 - `studio-redirect`, in `index.html`: `/` goes to the tape page, on the
   `hindsight.tapeOn` the nav cached last time (only a 2xx or a 404 from
   `/api/tapes` is cached).
-- `rooms-early`, on every page with the switch: it marks the document, and
-  `styles.css` keeps the switch out of sight until `nav.js` has rewritten it,
-  so the three old tabs never paint (and shows it anyway after two seconds).
 
-With the tape on, `/` is the Studio, so Capture can't be reached: everything
-Capture has is in the Studio, or `pages.test.js` names where it went. The
-tape page as the Studio gains Capture's feed above the lanes — the ribbon,
-the L/R meters, KEEP (`POST /api/trigger`), Flag now, Phone and Capture's
+With the tape on, `/` is the Studio, so `index.html` can't be reached:
+everything it has is in the Studio, or `pages.test.js` names where it went.
+The tape page as the Studio gains `index.html`'s feed above the lanes — the
+ribbon, the L/R meters, KEEP (`POST /api/trigger`), Flag now, Phone and the
 readouts — and under them the input diagnostic. Settings, Releases/Version,
 and Guide sit in the top-right `.appbar-end` utility cluster on every page
-(`lib/nav.js`, `mountHeaderTools`), while `.about` is hidden at frame 0 under
-`:root[data-rooms]`. Their markup is `<template>`s in `tape.html`, so with the
-flag off none of it is in the page; `lib/rooms/mount.js` is the only thing the
-page loads, and it fetches `studio.js` only with the flag on.
+(`lib/nav.js`, `mountHeaderTools`), and the Settings sheet's first line has
+them too, for a phone. The feed's markup is `<template>`s in `tape.html`;
+`lib/rooms/mount.js` is what the page loads, and it fetches `studio.js`.
 
 The Studio and the tape page import nothing of each other's. They speak in
-events, as Play mode does: `hindsight:crate-changed` asks the page to read
-the crate again after the ribbon's Keep as clip, and `hindsight:tape-changed`
-asks the page to reload its tape state (and unfold the lanes if folded via
-`#tracks-fold-btn`).
+events, as Play mode does: `hindsight:clipboard` tells the page the buffer
+changed, and `hindsight:tape-changed` asks it to reload its tape state (and
+unfold the lanes if folded via `#tracks-fold-btn`).
 
-- `flag.js` — the flag. The other rooms steps import it; keep its API.
-- `mount.js` — the tape page's entry: the flag, then `studio.js`.
+- `mount.js` — the tape page's entry: it loads `studio.js`.
 - `studio.js` — mounts the templates, drives them with Capture's modules, and
   wires the unified Media Player (`#np`) 3-way source switcher (`Feed` ·
   `Tape` · `Shelf`) plus seamless continuation of a carried Shelf take.
@@ -297,8 +285,8 @@ asks the page to reload its tape state (and unfold the lanes if folded via
 
 `web/static/lib/buffer/` is the Studio's buffer
 (`docs/superpowers/specs/2026-10-15-studio-buffer-design.md`): the clipboard,
-made visible. `studio.js` mounts it, so it exists only with the flag on; its
-markup is `tape.html`'s `buffer-` templates. On the Pi it is the clipboard
+made visible. `studio.js` mounts it; its markup is `tape.html`'s `buffer-`
+templates. On the Pi it is the clipboard
 with a `grab` on it (`internal/tape/grab.go`): GRAB copies a span of the
 ring there at once, by Catch's own arithmetic for the last N bars, with
 handles of a bar either side; the window is trimmed in place; a grab never
@@ -307,8 +295,7 @@ dropped or kept goes to the crate before anything replaces it.
 It speaks to the tape page in events too: it reads `hindsight:tape-state`
 (which carries the tape, the armed track and its input, the sources, the
 snap and the lanes' view), and sends `hindsight:tape-changed` after a drop,
-`hindsight:clipboard` after any change to the clipboard, and
-`hindsight:crate-changed` when an unused buffer went to the crate. It draws
+and `hindsight:clipboard` after any change to the clipboard. It draws
 over the lanes only in a layer of its own (`lanes.js`); folding them is a
 class on the body (`fold.js`), which changes heights and nothing else.
 
@@ -324,9 +311,8 @@ class on the body (`fold.js`), which changes heights and nothing else.
 (`docs/superpowers/specs/2026-10-15-listening-room-design.md`,
 `docs/superpowers/specs/2026-10-15-flow-design.md`, and
 `docs/superpowers/specs/2026-10-16-rooms-architecture-and-flow-design.md`),
-on the same flag as the two rooms. With it on, the takes page is the room seen
-from the doorway (`doorway.js`) and a take's page is Open (`open.js`). With it
-off, neither page loads anything of it: `mount.js` reads the flag and stops.
+The takes page is the room seen from the doorway (`doorway.js`) and a take's
+page is Open (`open.js`); `mount.js` loads each when its page starts it.
 
 The room doesn't copy the pages it stands in. `shelf-page.js` and
 `wave/page.js` each hand `start()` a handle on what they already run — the
@@ -365,8 +351,7 @@ a month's box in the archive.
 
 `rig.html` and `web/static/lib/rig/` are the rig
 (`docs/superpowers/specs/2026-10-15-rig-design.md`), reached from the device
-chip in both rooms' headers with the two rooms on. With them off there's no
-chip, and the page only says where the switch is.
+chip in both rooms' headers.
 
 - **The server owns the picture.** `GET /api/rig` (`internal/rig`,
   `internal/api/rig.go`) builds it from the settings, the tape and what's
@@ -416,8 +401,8 @@ chip, and the page only says where the switch is.
   the demo desk as the browser laid it out (`lib/rig/testdata/desk-*.json`,
   measured at 1440 and 390 px).
 - **Multi-arm** (`arm.js`): the tape keeps `rec_tracks`, and every recording
-  sends `pairs`. With the rooms on, ● on a track's header toggles it; the keys
-  still arm one. `warn.js` is the amber dot on a header whose input hears the
+  sends `pairs`. A tap on ● on a track's header arms just it and a hold arms
+  it as well (or takes it off); the keys arm one. `warn.js` is the amber dot on a header whose input hears the
   tape.
 
 Run the demo with `SETTINGS_FILE` set when you try the rig: its restart

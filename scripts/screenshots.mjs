@@ -39,11 +39,13 @@ const res = await warm.request.post(`${BASE}/api/trigger?seconds=30`);
 if (!res.ok()) throw new Error(`capture failed: ${res.status()}`);
 
 // Peaks land synchronously with the save; the mp3 preview is rendered by a
-// background ffmpeg process afterwards, and the waveform only mounts once
-// both sidecars exist (has_peaks && has_preview in takes.js). Poll the row
-// itself rather than guessing a fixed delay.
-await warm.waitForSelector('#takes .take .wave:not(.pending)', { timeout: 20_000 });
-await warm.waitForTimeout(1000); // let the waveform canvas finish painting
+// background ffmpeg process afterwards. Wait for both sidecars rather than
+// guessing a fixed delay.
+for (let i = 0; i < 40; i++) {
+  const jams = await (await warm.request.get(`${BASE}/api/jams`)).json();
+  if (jams.some((t) => t.has_peaks && t.has_preview)) break;
+  await warm.waitForTimeout(500);
+}
 await warm.close();
 
 for (const vp of VIEWPORTS) {
@@ -52,7 +54,7 @@ for (const vp of VIEWPORTS) {
     deviceScaleFactor: 2,
   });
   await page.goto(BASE);
-  await page.waitForSelector('#takes .take .wave:not(.pending)', { timeout: 15_000 });
+  await page.waitForSelector('#viz-wrap canvas', { timeout: 15_000 });
   await page.waitForTimeout(2500); // let the meters settle mid-swing
   await page.screenshot({ path: `docs/images/${vp.name}.png` });
   console.log(`docs/images/${vp.name}.png`);

@@ -1229,7 +1229,7 @@ function renderClipBar() {
     ? `Track ${one.track} · ${(one.frames / state.tape.sample_rate).toFixed(1)} s${one.source ? ` · ${one.source}` : ''}`
     : clipsText(n));
   for (const b of bar.querySelectorAll('.multi-keys button')) b.disabled = false;
-  for (const id of ['multi-split', 'multi-keep', 'multi-more']) if (!one && $(id)) $(id).disabled = true;
+  for (const id of ['multi-split', 'multi-more']) if (!one && $(id)) $(id).disabled = true;
   if (one) {
     // Lit while the playhead is inside it, where it's heard (splitAt).
     const live = state.live;
