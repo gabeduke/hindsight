@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.2 — 2026-10-17
+
+- The guide and the tips describe the two rooms as the only layout (2b63437)
+- The app's stylesheet drops the rules for the old layout's parts (809da5f)
+- Releases and the guide are in the Settings sheet on a phone, and the crate's last controls are gone (058e13a)
+- Every page ships the Studio and Listening Room tabs, so the header never shows the old three (0358cca)
+- The two-room layout is now on for every phone and browser (a2a5059)
+- Plan the legacy UI's retirement, the shell, the cue lane and the output switch (67eec6d)
+
+
 ## v2026.10.17.1 — 2026-10-17
 
 - Spec the shell, the cue lane and the output switch (c162da8)
