@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.5 — 2026-10-17
+
+- Update SW fallback, cache bump v136, and shell guardrail docs (Steps 9-10) (84c655b)
+- Route in-app room moves through router and ctx.go (Step 8) (f165318)
+- Capture as a shell view and / serves the shell (949e1b4)
+- Unify Listening Room and Studio in a single shell document (Phase 1 steps 1-6b) (93f5c86)
+
+
 ## v2026.10.17.4 — 2026-10-17
 
 - Fix the Update button failing on a Pi with HTTPS through the hub (89f922f)
