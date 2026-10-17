@@ -5,6 +5,24 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.3 — 2026-10-17
+
+- Bump the shell cache for the router's groundwork (a9f82b0)
+- Groundwork: a room's polls and animations wait until it is fully open (nothing changes yet) (0f9c6af)
+- Groundwork for moving between rooms without reloading: the switch itself (nothing changes yet) (0361095)
+- Groundwork for moving between rooms without reloading: tell which room a link goes to (nothing changes yet) (c8e539c)
+- Groundwork for keeping a room open while you are in the other one (nothing changes yet) (71f29f2)
+- Groundwork for keeping a take playing between rooms; nothing changes on screen yet (c54f2b3)
+- The player's audio engine is its own module; nothing changes on screen (34f83e6)
+- Hand off: next, user flows as the shared validation (7d2d6db)
+- Hand off the shell build (e7c07b8)
+- Measure what the shell's bar, sampler and back-forward cache will do (e1ba9d9)
+- Fold the spikes' findings into the shell plan (5a66bfc)
+- Audit what each room does to the page that a shell must contain (a3a0313)
+- Note that the live feed needs a real stream before the output switch can play it (f0988d4)
+- Plan the shell and the one player (c01d13d)
+
+
 ## v2026.10.17.2 — 2026-10-17
 
 - The guide and the tips describe the two rooms as the only layout (2b63437)
