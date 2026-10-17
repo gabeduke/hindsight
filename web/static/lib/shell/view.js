@@ -41,8 +41,10 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *
  * mount(ctx) runs ONCE, on the first visit. The view's root is already shown
  * when it runs, so the view can measure itself, and every listener, poll and
- * loop it starts through ctx is live at once. It resolves to a handle, each
- * part of which is optional:
+ * loop it starts through ctx is live at once. The switch waits for it (inside
+ * a view transition, where the browser holds the old frame on screen), so it
+ * must not wait on the network: start the fetches and let them land. It
+ * resolves to a handle, each part of which is optional:
  *
  *   show({ url, from, first })
  *       Every visit, the first one included (right after mount). Redraw, and
