@@ -185,7 +185,8 @@ export function feedSource({
       ctx.fillStyle = col('--go', '#2ea043');
       ctx.fillRect(px - 1, 0, 2, H);
     },
-    on(fn) { listeners.add(fn); },
+    /** on hears every change to what the bar shows of the feed, and answers its off. */
+    on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     destroy() {
       stopPolling();
       active = false;

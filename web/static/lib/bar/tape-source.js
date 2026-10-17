@@ -174,7 +174,8 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
       if (!t) { ctx.clearRect(0, 0, W, H); return; }
       paintTapeOverview(ctx, W, H, t, live ? pos() : null, { col });
     },
-    on(fn) { listeners.add(fn); },
+    /** on hears every change to what the bar shows of the tape, and answers its off. */
+    on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     /** changed: something the LCD shows changed (the stream's state). */
     changed: fire,
     destroy() {

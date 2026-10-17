@@ -94,3 +94,69 @@ test('the feed is made the first time it is chosen, and keeps its place over a t
   assert.equal($('position').textContent, '-0:20');
   bar.setSource('tape');
 });
+
+// A room in the shell listens to the engine's sources while it is shown, and
+// has to stop when it is done with them (the shell plan, §1: "What gets in
+// the way").
+test('a source subscription can be removed', async () => {
+  const { engine, bar } = await open();
+  const heard = { tape: 0, take: 0, feed: 0, kept: 0 };
+  const tape = engine.tape;
+  tape.on(() => heard.kept++); // someone else's, which stays
+  const offTape = tape.on(() => heard.tape++);
+  assert.equal(typeof offTape, 'function', 'the tape’s on() answers an off');
+  tape.changed();
+  assert.deepEqual([heard.tape, heard.kept], [1, 1]);
+  offTape();
+  tape.changed();
+  assert.deepEqual([heard.tape, heard.kept], [1, 2], 'let go, it hears no more; the others still do');
+
+  const take = aTake();
+  bar.loadTake(take.t, take.player);
+  const offTake = engine.np.src.on(() => heard.take++);
+  assert.equal(typeof offTake, 'function', 'a take’s on() answers an off');
+  take.audio.emit('seeked');
+  assert.equal(heard.take, 1);
+  offTake();
+  take.audio.emit('seeked');
+  assert.equal(heard.take, 1);
+
+  bar.setSource('feed');
+  const offFeed = engine.feed.on(() => heard.feed++);
+  assert.equal(typeof offFeed, 'function', 'the feed’s on() answers an off');
+  engine.feed.seek(0);
+  assert.equal(heard.feed, 1);
+  offFeed();
+  engine.feed.seek(0);
+  assert.equal(heard.feed, 1);
+  bar.setSource('tape');
+});
+
+// The shell's CSS and its smoke check key on what the bar holds (the shell
+// plan's amendments; spikes D and E).
+test('#np[data-source] says what the bar holds, and keeps in step with it', async () => {
+  const { bar, $, click } = await open();
+  const np = $('np');
+  assert.equal(np.dataset.source, 'tape');
+  const take = aTake();
+  bar.loadTake(take.t, take.player);
+  assert.equal(np.dataset.source, 'take');
+  click(np.querySelector('button[data-source="feed"]')); // the bar's own Feed key
+  assert.equal(np.dataset.source, 'feed');
+  bar.setSource('take');
+  assert.equal(np.dataset.source, 'take', 'the take, still in the bar');
+  click($('np-eject'));
+  assert.equal(np.dataset.source, 'tape');
+});
+
+test('#np[data-source] goes when the bar empties', async () => {
+  const { bar, $ } = await open({ tape: false });
+  const np = $('np');
+  assert.equal(np.getAttribute('data-source'), null, 'nothing in the bar yet');
+  const take = aTake();
+  bar.loadTake(take.t, take.player);
+  assert.equal(np.dataset.source, 'take');
+  bar.backToTape(); // with no tape there is nothing to go back to
+  assert.equal(np.hidden, true);
+  assert.equal(np.getAttribute('data-source'), null);
+});

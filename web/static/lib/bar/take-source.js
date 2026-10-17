@@ -118,7 +118,8 @@ export function takeSource(t, player, { onGone } = {}) {
       ctx.fillStyle = col('--accent', '#cb4b16');
       ctx.fillRect(px - 1, 0, 2, H);
     },
-    on(fn) { listeners.add(fn); },
+    /** on hears every change to what the bar shows of the take, and answers its off. */
+    on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     // A source the bar lets go must not keep sounding what the bar no longer shows.
     destroy() { ac.abort(); listeners.clear(); cache = null; audio.loop = false; if (!audio.paused) audio.pause(); },
   };

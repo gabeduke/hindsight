@@ -117,6 +117,9 @@ export class NowPlaying {
     this.src = src;
     this.marqueeKey = null;
     this.root.hidden = !src;
+    // What it holds -- feed, tape or take -- for the CSS and the checks that look.
+    if (src) this.root.setAttribute('data-source', src.kind);
+    else this.root.removeAttribute('data-source');
     if (!src) { this.keys?.paint(null); return; }
     if (src.kind === 'tape') src.setActive?.(true);
     // Once per source: the tape comes back into the bar again and again.
