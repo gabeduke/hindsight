@@ -26,7 +26,3 @@ export function start({ flagOn = on, load = () => import('./strip.js'), ...opts 
   return load().then((mod) => mod.startStrip(opts));
 }
 
-// On the tape page, on load. Everything above stays importable and testable.
-if (typeof document !== 'undefined' && document.body?.classList.contains('tape-page')) {
-  start()?.catch((e) => console.error('Play mode could not start:', e));
-}

@@ -57,7 +57,7 @@ function fakeDoc({ dialogs = [] } = {}) {
   };
 }
 // A stand-in element: `closest` answers for the selectors it's inside, as
-// the page's own element would (▶ is #play, which no exemption names).
+// the page's own element would (▶ is #np-play, which no exemption names).
 const el = (tag, { type = '', inside = '', id = '' } = {}) => {
   const self = {
     tagName: tag.toUpperCase(), type, id, isContentEditable: false,
@@ -65,7 +65,7 @@ const el = (tag, { type = '', inside = '', id = '' } = {}) => {
       const parts = sel.split(', ');
       if (inside && parts.includes(inside)) return self;
       if (parts.includes(tag)) return self;
-      if (tag === 'button' && !id && parts.includes('button:not(#play)')) return self;
+      if (tag === 'button' && !id && parts.includes('button:not(#np-play)')) return self;
       return null;
     },
   };
@@ -91,8 +91,8 @@ test('never while typing in a field, or under a sheet', () => {
   assert.equal(blocked({ code: 'Enter', target: el('a', { inside: 'a[href]' }) }, doc), true);
   assert.equal(blocked({ code: 'Enter', target: el('button', { inside: '.buffer-panel' }) }, doc), true);
   assert.equal(blocked({ code: 'Enter', target: el('button', { inside: '[role="menuitem"]' }) }, doc), true);
-  assert.equal(blocked({ code: 'Enter', target: el('button', { inside: 'button:not(#play)' }) }, doc), true, 'the toast’s Undo, Loop');
-  assert.equal(blocked({ code: 'Enter', target: el('button', { id: 'play' }) }, doc), false, '▶');
+  assert.equal(blocked({ code: 'Enter', target: el('button', { inside: 'button:not(#np-play)' }) }, doc), true, 'the toast’s Undo, Loop');
+  assert.equal(blocked({ code: 'Enter', target: el('button', { id: 'np-play' }) }, doc), false, '▶');
   assert.equal(blocked({ code: 'Enter', target: el('body') }, doc), false);
 });
 

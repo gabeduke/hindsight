@@ -189,3 +189,14 @@ test('close() stops everything', () => {
   r.clock.advance(60000);
   assert.equal(r.sockets.length, 1);
 });
+
+test('pagehide closes the socket for bfcache and pageshow reopens it', () => {
+  const r = rig();
+  r.sockets[0].open();
+  r.sockets[0].frame();
+  r.emit('win:pagehide');
+  assert.ok(r.sockets[0].closed, 'closed on pagehide so bfcache can store the page');
+  r.emit('win:pageshow');
+  assert.equal(r.sockets.length, 2, 'reopened on pageshow');
+});
+

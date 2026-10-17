@@ -20,7 +20,7 @@ const page = (file) => {
   doc.body.append(...parseHTML(doc, readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8')).children);
   return doc;
 };
-const tapesPage = page('takes.html');
+const tapesPage = page('shell.html');
 const takePage = page('wave.html');
 
 // The sheet itself, as the takes page builds it, with a take that has a family,

@@ -93,6 +93,7 @@ const takes = new TakesList(el.takes, el.takesEmpty, {
     if (p) np.loadTake(t, p);
   },
   onEnded: (name) => { if (np && np.takeName === name && !np.looping) np.backToTape(); },
+  audioFor: (t) => (np ? np.audioFor(t) : null),
 });
 for (const m of [shelfWide, shelfBench]) m.addEventListener('change', () => takes.reshape());
 

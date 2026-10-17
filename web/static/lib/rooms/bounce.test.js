@@ -14,7 +14,7 @@ import { bounceMenu, lastBounce, lastBounceKeeper, bounceToast, lastBounceToast,
 import { roomShelves } from '../room/shelves.js';
 import { MODELS } from '../scene/models.js';
 
-const tapeHtml = readFileSync(new URL('../../tape.html', import.meta.url), 'utf8');
+const tapeHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
 
 // The tape page's ⋯ menu, as served: the real markup, in a stand-in document.
 function menu() {

@@ -70,7 +70,7 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
     const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight; };
     const tabs = document.querySelector('.appnav')?.getBoundingClientRect();
     const c = document.querySelector('#catch-pass').getBoundingClientRect();
-    return { window: on('#np-expand'), play: on('#play'), loop: on('#loop'), rec: on('#rec'), catch: on('#catch-pass'),
+    return { window: on('#np-expand'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
       open: document.body.classList.contains('player-open'),
       aboveTabs: !tabs || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1 };
   });
@@ -99,18 +99,18 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
     const st = await (await fetch('/api/tapes/state?id=' + (await (await fetch('/api/tapes')).json()).loaded)).json();
     return { name: st.tape.name, grid: !!st.tape.grid, loopOn: st.tape.loop.on && st.tape.loop.out > st.tape.loop.in,
       pack: !!document.querySelector('#np-reel-l .np-pack'), marquee: document.getElementById('np-marquee').textContent,
-      playing: document.getElementById('play').classList.contains('playing') };
+      playing: document.getElementById('np-play').classList.contains('playing') };
   });
   check('the bar: the reels are drawn', before.pack);
   check('the bar: its line names the tape', before.marquee.startsWith(before.name.toUpperCase()), before.marquee);
-  if (!before.playing) await p.click('#play');
+  if (!before.playing) await p.click('#np-play');
   const a = await p.textContent('#position');
   await p.waitForTimeout(1500);
   const b = await p.textContent('#position');
   const t = await p.textContent('#np-time');
   check('the bar: the counter moves while the tape plays', a !== b || t !== '', `${a} → ${b} (${t})`);
   if (before.grid && before.loopOn) {
-    await p.click('#to-start');
+    await p.click('#np-start');
     await p.waitForTimeout(600);
     const pos = await p.evaluate(async () => {
       const st = await (await fetch('/api/tapes/state?id=' + (await (await fetch('/api/tapes')).json()).loaded)).json();
@@ -118,7 +118,7 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
     });
     check('the bar: |◂ goes back to the loop’s start', pos.heard >= pos.in && pos.heard < pos.in + pos.bar, JSON.stringify(pos));
   }
-  if (!before.playing) await p.click('#play');
+  if (!before.playing) await p.click('#np-play');
   await p.context().close();
 }
 
@@ -153,11 +153,11 @@ for (const [w, h] of [[390, 844], [844, 390]]) {
   // A Catch that is waiting says what it waits for ("press ▶"), not where it
   // will land, so the track is named once it is ready: play until a pass has
   // gone round (about 10 s at 96 BPM, 4 bars), then stop if it was stopped.
-  const wasPlaying = await p.evaluate(() => document.getElementById('play').classList.contains('playing'));
-  if (!wasPlaying) await p.click('#play');
+  const wasPlaying = await p.evaluate(() => document.getElementById('np-play').classList.contains('playing'));
+  if (!wasPlaying) await p.click('#np-play');
   const ready = await p.waitForFunction(() => !document.getElementById('catch-pass').classList.contains('waits'), null, { timeout: 40000 }).then(() => true, () => false);
   const catchSub = await p.textContent('#catch-pass .np-catch-sub');
-  if (!wasPlaying) await p.click('#play');
+  if (!wasPlaying) await p.click('#np-play');
   check('the record track: Catch names it, once a pass has gone round', ready && catchSub.includes('track 3'), `ready=${ready} "${catchSub}"`);
   // A tap on another lane selects that track here, for the edits; the record
   // track, everyone's, stays.
@@ -873,7 +873,7 @@ for (const [w, h] of [[390, 844], [667, 375]]) {
     await p.click('.out-choice[data-mode="phone"]');
     await p.waitForTimeout(1500);
     await p.click('#out-close');
-    if (!(await live()).playing) await p.click('#play');
+    if (!(await live()).playing) await p.click('#np-play');
     await p.waitForTimeout(1000);
     await p.goto(`${BASE}/takes.html`);
     await p.waitForTimeout(2000);

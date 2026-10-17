@@ -47,7 +47,7 @@ const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], d
 // the focus to. Chrome focuses a button that's clicked: arm a track with its
 // ●, press ↵ for DROP, and the ↵ went to the ●, which disarmed it. ▶ never
 // keeps it: ↵ there would stop the tape mid-jam.
-const BUTTON = 'button:not(#play)';
+const BUTTON = 'button:not(#np-play)';
 
 /**
  * blocked says the page isn't the buffer's to answer: a key typed into a
@@ -83,13 +83,14 @@ export function blocked(e, doc, byKeyboard = () => true) {
  * It also notes how the focus moves -- by a press, or by a key -- so that a
  * button clicked a moment ago doesn't keep ↵ from DROP (blocked).
  */
-export function bindBufferKeys(doc, { state, run }) {
+export function bindBufferKeys(doc, { state, run, active = () => true }) {
   const root = doc.documentElement;
   let byKey = false;            // the last input was a key, not a press
   const keyed = new WeakSet();  // what the keyboard brought the focus to
-  const press = () => { byKey = false; };
-  const focus = (e) => { if (e.target && typeof e.target === 'object') { if (byKey) keyed.add(e.target); else keyed.delete(e.target); } };
+  const press = () => { if (active()) byKey = false; };
+  const focus = (e) => { if (active() && e.target && typeof e.target === 'object') { if (byKey) keyed.add(e.target); else keyed.delete(e.target); } };
   const down = (e) => {
+    if (!active()) return;
     if (e.code !== 'Enter' && e.code !== 'NumpadEnter') byKey = true;
     if (blocked(e, doc, (el) => keyed.has(el))) return;
     const a = keyAction(e, state());

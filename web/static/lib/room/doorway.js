@@ -429,17 +429,19 @@ export function mount(h) {
         : 'Sketchbook: nothing in the bar to write about yet');
     renderDock(d, w);
   }
-  h.np?.onChange?.(renderPlaces);
+  const offBar = h.np?.onChange?.(renderPlaces);
 
   // The dock is the bar: Open in it for the tape (a take's name, in the bar,
   // is its way in: lib/bar/take-keys.js), and grease marks at In and Out.
   const sit = el('a', 'icon-btn room-sit', { href: '/wave.html', 'data-tip': 'room-sit' }, 'Open');
-  $('np-open')?.after(sit);
+  if (h.barSlot) h.barSlot.add(sit, { after: $('np-open') });
+  else $('np-open')?.after(sit);
   // A tape opens in the Studio, and says it goes for the tape (F4).
   let sitForTape = false;
   sit.addEventListener('click', () => { if (sitForTape) forTheTape(); });
   const grease = el('span', 'room-grease', { 'aria-hidden': 'true' }, el('i', 'room-grease-in'), el('i', 'room-grease-out'));
-  $('np-scrub')?.after(grease);
+  if (h.barSlot) h.barSlot.add(grease, { after: $('np-scrub') });
+  else $('np-scrub')?.after(grease);
   function renderDock(d, w) {
     sit.hidden = !d || d.kind === 'take';
     if (d) sit.setAttribute('href', w.href);
@@ -679,5 +681,17 @@ export function mount(h) {
 
   render();
   renderPlaces();
-  return { render, renderPlaces, openSketchbook };
+  return {
+    render,
+    renderPlaces,
+    openSketchbook,
+    hide() {
+      flights.cancel();
+      $('room-sketchbook')?.close?.();
+    },
+    destroy() {
+      offBar?.();
+      flights.cancel();
+    },
+  };
 }

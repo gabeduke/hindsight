@@ -128,6 +128,7 @@ export function startStrip({
   let chosen = read(FROM_KEY, ''); // picked by hand on this device, or '' to follow what's there
   let from = chosen || 'keys';
   let learning = false;
+  let shown = true;
   let verbing = false;  // a verb the strip itself is playing: the strip moved, not the buffer
   const sounding = [];  // pads sounding, in the order they fired: the reel follows the newest trick
   const far = new FarPads(); // another hand's pads (far.js)
@@ -240,13 +241,14 @@ export function startStrip({
 
   const unbindKeys = bindKeyboard(surface, {
     onCommand: command,
-    owns: () => keysOwner({ open, given }),
+    owns: () => shown && keysOwner({ open, given }),
     has,
     onLetGo: () => wire?.letGo(),
   });
 
   // --- the reel and the pads, on the shared ticker -----------------------------
   const step = (dt) => {
+    if (!shown) return false;
     const t = now();
     surface.tick(t);
     for (const c of far.tick(t)) farChanged(c.pad, c.on);
@@ -261,7 +263,7 @@ export function startStrip({
     return wantsFrames({ open, playing: !!tape?.playing, moving, pending: far.pending.length > 0, held: surface.pads.size > 0 });
   };
   const unstep = ticker.add(step);
-  function wake() { ticker.start(); }
+  function wake() { if (shown) ticker.start(); }
   surface.on('arm', wake);
   surface.on('let', wake);
 
@@ -274,19 +276,19 @@ export function startStrip({
     toggle.set(open);
     // The page gives the instrument room while it's unfolded (styles.css,
     // "Rooms P3"): a shorter feed, no sections row.
-    doc.body.classList.toggle('play-unfolded', open);
-    if (open) fetchControls();
+    doc.body.classList.toggle('play-unfolded', shown && open);
+    if (open && shown) fetchControls();
     else if (learning) setLearning(false);
     paintKeys();
     wake();
   }
   function paintKeys() {
-    ui.setKeys(keysOwner({ open, given }), open ? '' : 'Unfold the instrument to play it with the keys');
+    ui.setKeys(shown && keysOwner({ open, given }), open ? '' : 'Unfold the instrument to play it with the keys');
   }
   // A tap on the page -- the lanes, the ruler, the feed -- gives the keys
   // back to editing; a tap on the strip takes them again.
   const onDown = (e) => {
-    if (!open) return;
+    if (!shown || !open) return;
     if (root.contains(e.target)) { if (given) { given = false; paintKeys(); } return; }
     if (np.contains(e.target)) return; // the bar's own keys: ▶ doesn't change whose keys they are
     if (e.target.closest?.('main, .tape-main') && !given) { given = true; paintKeys(); }
@@ -310,7 +312,7 @@ export function startStrip({
   // the panel; a tap on it means the same here, so it's claimed before it can
   // flip the sheet's detent.
   const onPeekTap = (e) => {
-    if (!open || !bufferOpen() || doc.body.classList.contains('player-open')) return; // the full player has the sheet whole
+    if (!shown || !open || !bufferOpen() || doc.body.classList.contains('player-open')) return; // the full player has the sheet whole
     const t = e.target, panel = doc.getElementById('buffer');
     if (!t?.closest || !panel?.contains(t)) return;
     const control = t.closest('button, input, label, select, a');
@@ -323,6 +325,7 @@ export function startStrip({
 
   // --- commands ---------------------------------------------------------------
   function command(name, detail = {}) {
+    if (!shown) return;
     if (name === 'panic') {
       if (learning) { setLearning(false); return; }
       surface.releaseAll(now());
@@ -412,7 +415,7 @@ export function startStrip({
     }
   }
   if (read(WEBMIDI_KEY) === '1') plugHere(false);
-  const poll = setInterval(() => { if (open && !doc.hidden) fetchControls(); }, 5000);
+  const poll = setInterval(() => { if (shown && open && !doc.hidden) fetchControls(); }, 5000);
 
   // --- MIDI LEARN ------------------------------------------------------------
   function setLearning(onNow) {
@@ -437,7 +440,7 @@ export function startStrip({
   }
   // Esc cancels learn wherever the keys are.
   const onEsc = (e) => {
-    if (learning && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setLearning(false); }
+    if (shown && learning && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setLearning(false); }
   };
   doc.addEventListener('keydown', onEsc, true);
 
@@ -484,7 +487,7 @@ export function startStrip({
     ui.setVerbWords('keep', keptByK(keeps));
   };
   doc.addEventListener('hindsight:keeps', onKeeps);
-  const onLead = () => ui.setLead(surface.lead);
+  const onLead = () => { if (shown) ui.setLead(surface.lead); };
   const leadTimer = setInterval(onLead, 1000);
 
   phone.addEventListener?.('change', () => paintKeys());
@@ -498,7 +501,34 @@ export function startStrip({
     open: () => setOpen(true),
     close: () => setOpen(false),
     get isOpen() { return open; },
-    get ownsKeys() { return keysOwner({ open, given }); },
+    get ownsKeys() { return shown && keysOwner({ open, given }); },
+    hide() {
+      if (!shown) return;
+      shown = false;
+      if (learning) setLearning(false);
+      surface.releaseAll(now());
+      wire.letGo();
+      link.pause?.();
+      midiIn?.close();
+      midiIn = null;
+      webPorts = [];
+      root.hidden = true;
+      if (toggle.el) toggle.el.hidden = true;
+      doc.body.classList.remove('play-unfolded');
+      paintKeys();
+    },
+    show() {
+      if (shown) return;
+      shown = true;
+      root.hidden = false;
+      if (toggle.el) toggle.el.hidden = false;
+      doc.body.classList.toggle('play-unfolded', open);
+      link.resume?.();
+      if (read(WEBMIDI_KEY) === '1') plugHere(false);
+      if (open) fetchControls();
+      paintKeys();
+      wake();
+    },
     destroy() {
       setOpen(false);
       surface.releaseAll(now());

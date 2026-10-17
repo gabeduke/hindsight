@@ -74,7 +74,7 @@ const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], d
 export function keepsEnter(t, keyed = () => true) {
   if (!t || typeof t.closest !== 'function') return false;
   if (t.closest(OWN_ENTER)) return true;
-  const b = t.closest('button:not(#play)');
+  const b = t.closest('button:not(#np-play)');
   return !!b && keyed(b);
 }
 

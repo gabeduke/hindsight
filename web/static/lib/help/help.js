@@ -142,5 +142,6 @@ export function initHelp({ page, doc = document } = {}) {
     host?.prepend(card);
   }
 
-  return { isOn: () => on, setOn };
+  return { isOn: () => on, setOn, setPage: (p) => { page = p; } };
 }
+

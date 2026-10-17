@@ -64,11 +64,11 @@ export function resumeAt(rec, now, length) {
 }
 
 /**
- * mayCarry says whether a take may go in this page's bar. The Studio's bar
- * is the tape's: with a tape loaded there, a take does not displace it.
+ * mayCarry says whether a take may go in this page's bar. Both rooms share
+ * NowPlaying, so a take carries into the Studio too.
  */
-export function mayCarry({ studio, tapeLoaded }) {
-  return !(studio && tapeLoaded);
+export function mayCarry() {
+  return true;
 }
 
 /** isStudio: the pages that are the Studio (`/` is, with the tape off). */

@@ -62,11 +62,12 @@ export class TakesList {
    * rack) for picking, its controls on the picked take's cassette; with
    * spineAction 'play' (the main page's shelf), a press plays or pauses it.
    */
-  constructor(container, emptyEl, { onToast, onListChange, onSelectChange, onSelected, touchHold = false, showFolded = false, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded }) {
+  constructor(container, emptyEl, { onToast, onListChange, onSelectChange, onSelected, touchHold = false, showFolded = false, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded, audioFor = null }) {
     // A take starting, and playing to its end: the page's now-playing bar hears of both.
     // Settles with the first list the Pi answers (bar/handoff.js waits for it).
     this.loaded = new Promise((resolve) => { this.markLoaded = resolve; });
     this.onPlay = onPlay;
+    this.audioFor = audioFor;
     this.onSelectChange = onSelectChange; // select mode began or ended
     // The Listening Room (lib/room): the selection changed in any way, so its
     // spines can follow it; a hold selects with a finger or a pen only, not a
@@ -790,10 +791,15 @@ export class TakesList {
     }
 
     // preload="none" keeps a phone from pulling the mp3 until you press play;
-    // the waveform is drawn from the precomputed peaks alone.
-    const audio = new Audio();
-    audio.preload = 'none';
-    audio.src = `/api/download?file=${encodeURIComponent(t.preview_name)}`;
+    // the waveform is drawn from the precomputed peaks alone. When the engine
+    // already holds the take's audio, reuse that element so a rebuilt row and
+    // two shelves never make two elements for one take.
+    const audio = this.audioFor ? this.audioFor(t) : (() => {
+      const a = new Audio();
+      a.preload = 'none';
+      a.src = `/api/download?file=${encodeURIComponent(t.preview_name)}`;
+      return a;
+    })();
 
     row.waveEl.classList.remove('pending');
     row.waveEl.textContent = '';
@@ -855,6 +861,15 @@ export class TakesList {
   }
 
   async togglePlay(row) {
+    if (!this.rows.has(row.name) && row.audio) {
+      try {
+        if (!row.audio.paused && !row.audio.ended) row.audio.pause();
+        else await row.audio.play();
+      } catch (e) {
+        this.onToast?.(`Playback blocked: ${e.message}`, 'bad');
+      }
+      return;
+    }
     if (!row.ws) {
       await this.mountWave(row);
       if (!row.ws) return;

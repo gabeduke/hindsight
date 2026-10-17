@@ -201,8 +201,16 @@ export class RowWave {
 
   destroy() {
     this.detach();
+    if (ownsAudio(this.audio)) return;
     this.audio.pause();
     this.audio.removeAttribute('src');
     this.audio.load(); // let go of the stream, not just the attribute
   }
 }
+
+// The engine adopts the audio of the take in the bar: a shelf row destroyed
+// while its take plays in the bar leaves its audio alone.
+const adopted = new WeakSet();
+export function adoptAudio(audio) { if (audio) adopted.add(audio); return audio; }
+export function releaseAudio(audio) { if (audio) adopted.delete(audio); }
+export function ownsAudio(audio) { return !!(audio && adopted.has(audio)); }

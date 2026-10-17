@@ -21,14 +21,15 @@ test('a page the room doesn’t know is refused, not ignored', async () => {
 // carries none of it -- the room builds its markup when it mounts.
 test('the takes and take pages reach the room only through start()', () => {
   const shelf = read('../shelf-page.js');
+  const room = read('../shell/views/room.js');
   const wave = read('../wave/page.js');
-  for (const [name, src] of [['shelf-page.js', shelf], ['wave/page.js', wave]]) {
+  for (const [name, src] of [['shelf-page.js', shelf], ['shell/views/room.js', room], ['wave/page.js', wave]]) {
     assert.ok(!/import\(['"][^'"]*room\//.test(src), `${name} imports a room module by itself`);
     assert.ok(!/from ['"][^'"]*room\/(?!mount\.js)/.test(src), `${name} imports a room module other than mount.js`);
   }
-  assert.match(shelf, /startRoom\('doorway'/);
+  assert.match(room, /startRoom\('doorway'/);
   assert.match(wave, /startRoom\('open'/);
-  for (const page of ['../../takes.html', '../../wave.html']) {
+  for (const page of ['../../shell.html', '../../wave.html']) {
     const html = read(page).replace(/<!--[\s\S]*?-->/g, '');
     assert.ok(!/class="[^"]*\b(room|chair|book)-/.test(html), `${page} carries room markup`);
     assert.ok(!html.includes('/lib/room/'), `${page} loads a room module itself`);

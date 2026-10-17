@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML, FakeEl } from '../play/fake-dom.js';
 import { ticker } from '../objects/motion.js';
 
-const takesHtml = readFileSync(new URL('../../takes.html', import.meta.url), 'utf8');
+const takesHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
 const SR = 48000;
 
 // A canvas that draws nothing: the strip is painted, and the test is not looking.
@@ -16,7 +16,14 @@ const nop = new Proxy(function nop() {}, { get: (_t, k) => (k === Symbol.toPrimi
 FakeEl.prototype.getContext = function getContext() { return nop; };
 
 class FakeAudio {
-  constructor() { this.currentTime = 0; this.paused = true; this.ended = false; this.loop = false; this.l = {}; }
+  constructor() { this.currentTime = 0; this.paused = true; this.ended = false; this.loop = false; this.preload = ''; this._src = ''; this.l = {}; }
+  get src() { return this._src; }
+  set src(v) { this._src = String(v || ''); }
+  getAttribute(k) { return k === 'src' ? (this._src || null) : null; }
+  removeAttribute(k) { if (k === 'src') this._src = ''; }
+  load() { if (!this._src) this.emit('emptied'); }
+  async play() { this.paused = false; this.emit('play'); }
+  pause() { if (!this.paused) { this.paused = true; this.emit('pause'); } }
   addEventListener(ev, fn, opts) {
     (this.l[ev] ??= []).push(fn);
     opts?.signal?.addEventListener('abort', () => { this.l[ev] = this.l[ev].filter((f) => f !== fn); });
@@ -54,7 +61,8 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   w.session = store(session);
   w.local = store();
   const loc = { pathname: '/takes.html', search: '', get href() { return this._h || ''; }, set href(v) { w.onNavigate?.(v); w.navigated.push(v); this._h = v; } };
-  Object.assign(globalThis, {
+    Object.assign(globalThis, {
+    Audio: FakeAudio,
     document: doc,
     location: loc,
     sessionStorage: w.session,

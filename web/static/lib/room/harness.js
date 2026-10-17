@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { Ticker } from '../objects/motion.js';
 
-const takesHtml = readFileSync(new URL('../../takes.html', import.meta.url), 'utf8');
+const takesHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
 
 export const NOW = Date.now();
 export const iso = (msAgo) => new Date(NOW - msAgo).toISOString();
@@ -52,7 +52,10 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
   const w = world(search);
   const doc = fakeDoc();
   globalThis.document = doc;
-  doc.body.append(...parseHTML(doc, takesHtml).children);
+  const roomOnly = takesHtml
+    .replace(/<main id="view-studio"[\s\S]*?<\/main>/, '')
+    .replace(/<template\b[\s\S]*?<\/template>/g, '');
+  doc.body.append(...parseHTML(doc, roomOnly).children);
   // The bar the page has: pageBar's face, and its answer.
   const np = { takeName: barTake, loads: [] };
   np.loadTake = (t, p) => { np.takeName = t.name; np.loads.push(t.name); np.player = p; };
@@ -118,8 +121,8 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
   const ghosts = () => doc.body.querySelectorAll('.room-carry');
   return { w, doc, np, h, list, log, toasts, sheet, q, spine, touch, settle, tick, changed, players, mounted: true, clock, run, ghosts };
 }
-// The dialogs the room made (the page's own #confirm is the trash's).
-export const roomDialogs = (r) => r.doc.querySelectorAll('dialog').filter((d) => d.id !== 'confirm').map((d) => d.className);
+const SHELL_DIALOGS = new Set(['confirm', 'jam-only', 'away-sheet', 'clip-sheet', 'track-sheet', 'section-sheet', 'rename-sheet']);
+export const roomDialogs = (r) => r.doc.querySelectorAll('dialog').filter((d) => !SHELL_DIALOGS.has(d.id)).map((d) => d.className);
 export const click = (el, extra = {}) => el.dispatchEvent({ type: 'click', target: el, detail: 1, preventDefault() {}, ...extra });
 
 export const TAPES = { loaded: 't1', tapes: [{ id: 't1', name: 'Tuesday groove', seconds: 12, clips: 3 }, { id: 't2', name: 'Sunday loop', seconds: 30 }] };

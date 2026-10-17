@@ -51,7 +51,7 @@ const pageStorage = () => { try { return globalThis.sessionStorage || null; } ca
  * Studio hands it its feed and the feed's row of keys. It returns null
  * without them.
  */
-export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon = null, toast = defaultToast, storage = pageStorage() } = {}) {
+export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon = null, toast = defaultToast, storage = pageStorage(), ctx = null } = {}) {
   const tpl = (id) => doc.getElementById(id)?.content;
   if (!keysRow || !feed || !tpl('buffer-panel-tpl') || !tpl('buffer-grab-tpl')) return null;
   keysRow.prepend(tpl('buffer-grab-tpl').cloneNode(true));
@@ -167,11 +167,12 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const prev = st.board;
     const first = !st.seen;
     st.board = b && b.tracks && b.tracks.length ? b : null;
+    const isNew = !prev || (st.board && prev.created !== st.board.created);
     const g = grabOf();
     if (!g) {
       st.open = false;
       st.dropped = '';
-    } else if (mine || !prev || prev.created !== st.board.created) {
+    } else if (mine || isNew) {
       st.open = mine || !g.used;
       st.dropped = '';
     }
@@ -181,7 +182,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     render();
     // A take's GRAB opened this page on the buffer it made: what it replaced
     // is said here, once, as a feed's GRAB says it on the spot.
-    if (first && st.board) {
+    if ((first || isNew) && st.board) {
       const line = recall(storage, st.board.created);
       if (line) raiseUndo(toast, line, 'ok', () => undoReplaced(st.board.created));
     }
@@ -537,8 +538,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   function render() {
     const b = st.board, g = grabOf(), d = st.detail;
     const open = st.open && (!!g || st.grabbing);
-    setOpen(body, open);
-    setFold(body, open && !st.unfolded);
+    const active = !ctx || ctx.active();
+    setOpen(body, active && open);
+    setFold(body, active && open && !st.unfolded);
     el.panel.hidden = !open;
     // GRAB on the feed: its words follow the tempo, and the picker its N.
     const hasGrid = !!d?.tape?.grid;
@@ -837,13 +839,17 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   wireCanvas();
   wireGrip();
   wireSheet();
-  doc.addEventListener('keydown', (e) => { if (e.key === 'Escape' && lift) { e.preventDefault(); e.stopPropagation(); lift.end(false); } }, true);
+  const onDoc = (type, fn, opts) => (ctx ? ctx.on(doc, type, fn, opts) : doc.addEventListener(type, fn, opts));
+  const every = (fn, ms) => (ctx ? ctx.every(fn, ms) : setInterval(fn, ms));
+
+  onDoc('keydown', (e) => { if (e.key === 'Escape' && lift) { e.preventDefault(); e.stopPropagation(); lift.end(false); } }, true);
   // ↵ drops it again only straight after a drop: any other key, or a press
   // anywhere, lets that go (state.js, HELD_MS, lets it go after a moment too).
-  doc.addEventListener('keydown', (e) => { if (e.code !== 'Enter' && e.code !== 'NumpadEnter') st.dropped = ''; }, true);
-  doc.addEventListener('pointerdown', () => { st.dropped = ''; }, true);
+  onDoc('keydown', (e) => { if (e.code !== 'Enter' && e.code !== 'NumpadEnter') st.dropped = ''; }, true);
+  onDoc('pointerdown', () => { st.dropped = ''; }, true);
 
   bindBufferKeys(doc, {
+    active: () => !ctx || ctx.active(),
     state: () => keyState(st, performance.now(), !!doc.querySelector('#multi-bar:not([hidden])')),
     run: (a) => {
       switch (a) {
@@ -864,7 +870,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   // keys while it has the keyboard, and a controller plugged into this
   // computer. GRAB and DROP are the buffer's; KEEP is too while it's open
   // (claimed with preventDefault, so the Studio doesn't also keep the feed).
-  doc.addEventListener('hindsight:verb', (e) => {
+  onDoc('hindsight:verb', (e) => {
     switch (e.detail?.verb) {
       case 'grab': grabBars(); e.preventDefault(); break;
       case 'drop': if (grabOf()) { drop(); e.preventDefault(); } break;
@@ -875,7 +881,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
 
   // The tape, as the page polls it. A drop undone -- by the toast, or by
   // ⌘Z on the page -- puts the buffer back in hand.
-  doc.addEventListener('hindsight:tape-state', (e) => {
+  onDoc('hindsight:tape-state', (e) => {
     st.detail = e.detail || null;
     // GRAB starts at the loop's length, and follows it.
     Object.assign(st, followLoop(st, st.detail?.tape));
@@ -888,10 +894,23 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     render();
   });
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => draw()).observe(el.win);
-  setInterval(() => { if (!doc.hidden) fetchBoard(); }, POLL_MS);
-  setInterval(() => { if (st.open && !doc.hidden) placeMark(); }, 1000);
-  doc.addEventListener('visibilitychange', () => { if (!doc.hidden) fetchBoard(); else audition.stop(); });
+  every(() => { if (!doc.hidden) fetchBoard(); }, POLL_MS);
+  every(() => { if (st.open && !doc.hidden) placeMark(); }, 1000);
+  onDoc('visibilitychange', () => { if (!doc.hidden) fetchBoard(); else audition.stop(); });
   fetchBoard();
   render();
-  return { state: st, render };
+  return {
+    state: st,
+    render,
+    hide() {
+      audition.stop();
+      lift?.end(false);
+      setOpen(body, false);
+      setFold(body, false);
+    },
+    show() {
+      fetchBoard();
+      render();
+    },
+  };
 }

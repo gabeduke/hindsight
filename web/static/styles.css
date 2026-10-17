@@ -2518,7 +2518,7 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
   align-items: center; column-gap: 12px;
   padding: env(safe-area-inset-top) 16px 0;
 }
-body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
+body:has(.appbar-page:not([hidden])) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
 .appbar > .brand { grid-area: brand; height: 54px; color: var(--ink); text-decoration: none; }
 .appbar > .health { grid-area: status; }
 .appbar > #help { grid-area: help; min-width: 44px; min-height: 44px; padding: 0; }
@@ -2552,6 +2552,11 @@ body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
   margin: 0 -16px; padding: 0 16px;
   border-top: 1px solid var(--line);
 }
+.appbar-page[hidden],
+body > main.view[hidden][data-view],
+body:not(.tape-page) #out-banner,
+body:not(.tape-page) #chan-diag,
+body:not(.shelf-page) #select-bar { display: none; }
 .appbar-spacer { flex: 1; }
 .step-group { display: inline-flex; gap: 4px; }
 .appbar .back {
@@ -2573,15 +2578,15 @@ body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
    the page row share one row (the brand goes; Capture's tab is home). The
    main page, with no page row, keeps its one row as it is. */
 @media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) {
-  .appbar:has(.appbar-page) {
+  .appbar:has(.appbar-page:not([hidden])) {
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas: "nav page help";
   }
-  .appbar:has(.appbar-page) > .brand { display: none; }
-  .appbar:has(.appbar-page) .appbar-page { margin: 0; padding: 0 0 0 12px; border-top: 0; min-height: 54px; }
-  .appbar:has(.appbar-page) .appnav { grid-area: nav; position: static; transform: none; justify-self: start; }
-  .appbar:has(.appbar-page) .appnav a { padding: 0 12px; }
-  body:has(.appbar-page) { --topbar-h: calc(55px + env(safe-area-inset-top)); }
+  .appbar:has(.appbar-page:not([hidden])) > .brand { display: none; }
+  .appbar:has(.appbar-page:not([hidden])) .appbar-page { margin: 0; padding: 0 0 0 12px; border-top: 0; min-height: 54px; }
+  .appbar:has(.appbar-page:not([hidden])) .appnav { grid-area: nav; position: static; transform: none; justify-self: start; }
+  .appbar:has(.appbar-page:not([hidden])) .appnav a { padding: 0 12px; }
+  body:has(.appbar-page:not([hidden])) { --topbar-h: calc(55px + env(safe-area-inset-top)); }
 }
 
 @media (max-width: 699.98px) {
@@ -2597,7 +2602,7 @@ body:has(.appbar-page) { --topbar-h: calc(107px + env(safe-area-inset-top)); }
   .main-page .appbar { grid-template-areas: "brand status help"; }
   .main-page .appbar > .brand { display: flex; }
   .appbar-page { margin: 0; padding: 0; border-top: 0; min-height: 56px; flex-wrap: wrap; row-gap: 0; }
-  body:has(.appbar-page), :root { --topbar-h: calc(57px + env(safe-area-inset-top)); }
+  body:has(.appbar-page:not([hidden])), :root { --topbar-h: calc(57px + env(safe-area-inset-top)); }
 
   /* The switch: tabs along the bottom, in reach of a thumb. */
   .appnav {
@@ -3146,30 +3151,30 @@ body.notes-open .np { display: none; }
 :is(body.main-page, body.shelf-page) > main { flex: 1 0 auto; width: 100%; box-sizing: border-box; }
 /* From 700 px, toasts and tips rise over it; a phone's are with its player. */
 @media (min-width: 700px) and (min-height: 441px) {
-  :is(body.main-page, body.shelf-page):not(.selecting):has(> .np:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--np-h) + 12px + env(safe-area-inset-bottom)); }
+  :is(body.main-page, body.shelf-page):not(.selecting):has(.np:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--np-h) + 12px + env(safe-area-inset-bottom)); }
 }
 /* A short screen -- the bench at 1024x600: one row, as on a phone on its
    side (the small LCD, the keys, the strip, the page's own keys), so
    Capture keeps its keys in view. */
 @media (min-width: 700px) and (max-height: 640px) and (min-height: 441px) {
   :is(body.main-page, body.shelf-page) { --np-h: 66px; }
-  :is(body.main-page, body.shelf-page) > .np { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-  :is(body.main-page, body.shelf-page) > .np .np-row { display: contents; }
-  :is(body.main-page, body.shelf-page) > .np .np-window { display: none; }
-  :is(body.main-page, body.shelf-page) > .np .np-mini {
+  :is(body.main-page, body.shelf-page) .np { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  :is(body.main-page, body.shelf-page) .np .np-row { display: contents; }
+  :is(body.main-page, body.shelf-page) .np .np-window { display: none; }
+  :is(body.main-page, body.shelf-page) .np .np-mini {
     display: inline-flex; align-items: center; order: 1; height: 48px; padding: 0 10px; border-radius: 7px;
     background: var(--lcd); color: var(--lcd-ink); box-shadow: inset 0 2px 5px var(--lcd-edge), 0 1px 0 var(--hl);
     text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent); font: 600 15px var(--mono); white-space: nowrap;
   }
-  :is(body.main-page, body.shelf-page) > .np .np-keys { order: 2; }
-  :is(body.main-page, body.shelf-page) > .np .np-keys .icon-btn { height: 48px; min-height: 48px; }
-  :is(body.main-page, body.shelf-page) > .np .np-scrub { order: 3; flex: 1 1 0; min-width: 80px; height: 48px; }
-  :is(body.main-page, body.shelf-page) > .np .np-own { order: 4; }
-  :is(body.main-page, body.shelf-page) > .np .np-own :is(.np-open, .np-eject) { height: 48px; min-height: 48px; }
-  :is(body.main-page, body.shelf-page) > .np .np-out { display: none; }
+  :is(body.main-page, body.shelf-page) .np .np-keys { order: 2; }
+  :is(body.main-page, body.shelf-page) .np .np-keys .icon-btn { height: 48px; min-height: 48px; }
+  :is(body.main-page, body.shelf-page) .np .np-scrub { order: 3; flex: 1 1 0; min-width: 80px; height: 48px; }
+  :is(body.main-page, body.shelf-page) .np .np-own { order: 4; }
+  :is(body.main-page, body.shelf-page) .np .np-own :is(.np-open, .np-eject) { height: 48px; min-height: 48px; }
+  :is(body.main-page, body.shelf-page) .np .np-out { display: none; }
 }
 /* Select mode's actions take the foot of the takes page. */
-body.selecting > .np { display: none; }
+body.selecting .np { display: none; }
 /* The strip is a well, like the tape page's overview; a take paints its
    tape over it. */
 #np-scrub { display: block; background: var(--well); outline: 1px solid var(--well-line); outline-offset: -1px; cursor: pointer; }
@@ -3177,8 +3182,8 @@ body.selecting > .np { display: none; }
 .np .np-own .np-eject { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; font-size: 20px; }
 @media (min-width: 1100px) {
   /* The picked take's Play is the bar's now; its pane stops above the bar. */
-  body.shelf-page:has(> .np:not([hidden])) .detail-play { display: none; }
-  body.shelf-page:has(> .np:not([hidden])) .take-detail:not([hidden]) { max-height: calc(100svh - var(--topbar-h) - 32px - var(--np-h)); }
+  body.shelf-page:has(.np:not([hidden])) .detail-play { display: none; }
+  body.shelf-page:has(.np:not([hidden])) .take-detail:not([hidden]) { max-height: calc(100svh - var(--topbar-h) - 32px - var(--np-h)); }
 }
 /* The take page is a column at least the window's height, so the bar sits
    at its foot even when the take is short; main still shrinks where the
@@ -3190,7 +3195,16 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
    so only the phone's open player, which covers the header, shows it. On
    Takes and Capture the bar says where a take plays (bar.js hides it for
    the tape). */
-.tape-page .np .np-out, .np .np-out.np-out-tape { display: none; }
+/* The Studio's own bar controls (● Rec, ♩ Click, Catch, #tape-overview and
+   its #tape-out button) show only in the Studio while the bar holds the tape;
+   conversely, in the Studio with the tape in the bar, #tape-overview is the
+   scrubber and J is the ↺ 5 s key, so #np-scrub, #np-back5 and #np-open step
+   aside. */
+body:not(.tape-page) .np .np-studio,
+.np:is(.np-take, .np-feed, [data-source="take"], [data-source="feed"]) .np-studio { display: none !important; }
+body.tape-page .np:not(.np-take):not(.np-feed):not([data-source="take"]):not([data-source="feed"]) :is(#np-scrub, #np-back5),
+body.tape-page .np #np-open { display: none; }
+.tape-page .np .out-anchor.np-out, .tape-page .np:not(.np-take):not(.np-feed) .np-out.np-here, .np .np-out.np-out-tape { display: none; }
 .np-mini { display: none; }
 @media (max-width: 899.98px) { .np-levels { display: none; } }
 @media (prefers-reduced-motion: reduce) {
@@ -3226,7 +3240,7 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
   .rec-short { display: inline; }
   /* No room to hold its place on a phone. */
   .rec-sign:not(.on) { display: none; }
-  .tape-top .appbar-page { gap: 6px; }
+  :is(.tape-top .appbar-page, .appbar-page.tape-top) { gap: 6px; }
   .rec-sign { padding: 3px 7px; letter-spacing: .12em; }
 }
 
@@ -3246,14 +3260,14 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
    row (the page switch at its left, as on a phone on its side), and the
    heads are tighter, so the four lanes keep their height over a drawer. */
 @media (min-width: 1000px) and (max-height: 640px) {
-  .tape-page .appbar:has(.appbar-page) {
+  .tape-page .appbar:has(.appbar-page:not([hidden])) {
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas: "nav page help";
   }
-  .tape-page .appbar:has(.appbar-page) > .brand { display: none; }
-  .tape-page .appbar:has(.appbar-page) .appbar-page { margin: 0; padding: 0 0 0 12px; border-top: 0; min-height: 54px; }
-  .tape-page .appbar:has(.appbar-page) .appnav { grid-area: nav; position: static; transform: none; justify-self: start; }
-  .tape-page .appbar:has(.appbar-page) .appnav a { padding: 0 12px; }
+  .tape-page .appbar:has(.appbar-page:not([hidden])) > .brand { display: none; }
+  .tape-page .appbar:has(.appbar-page:not([hidden])) .appbar-page { margin: 0; padding: 0 0 0 12px; border-top: 0; min-height: 54px; }
+  .tape-page .appbar:has(.appbar-page:not([hidden])) .appnav { grid-area: nav; position: static; transform: none; justify-self: start; }
+  .tape-page .appbar:has(.appbar-page:not([hidden])) .appnav a { padding: 0 12px; }
   body.tape-page { --topbar-h: calc(55px + env(safe-area-inset-top)); }
   /* The head's two rows (the name's strip; the keys and level) fit in 64. */
   .tt-head { gap: 3px; padding: 3px 4px; }
@@ -3341,7 +3355,7 @@ dialog.inspector:focus-visible { outline: none; }
   grid-template-areas: "brand nav status out help" "page page page page page";
 }
 @media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) {
-  .appbar:has(.appbar-page):has(> .out-btn:not([hidden])) {
+  .appbar:has(.appbar-page:not([hidden])):has(> .out-btn:not([hidden])) {
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     grid-template-areas: "nav page out help";
   }
@@ -3355,7 +3369,7 @@ dialog.inspector:focus-visible { outline: none; }
   .appbar > .out-btn { align-self: start; margin-top: 6px; }
 }
 @media (min-width: 1000px) and (max-height: 640px) {
-  .tape-page .appbar:has(.appbar-page):has(> .out-btn:not([hidden])) {
+  .tape-page .appbar:has(.appbar-page:not([hidden])):has(> .out-btn:not([hidden])) {
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     grid-template-areas: "nav page out help";
   }
@@ -3666,7 +3680,7 @@ input, select, textarea { color-scheme: inherit; }
    something is selected, dock above the bar like a window and, the page
    being a column the height of the window from 700 px, push the lanes up
    rather than covering one. */
-.np-dock { flex: none; position: relative; z-index: 18; display: flex; flex-direction: column; }
+.np-dock { flex: none; position: sticky; bottom: 0; z-index: 18; display: flex; flex-direction: column; }
 .np-dock[hidden] { display: none; }
 .np-dock > .clip-editor:not([hidden]), .np-dock > .multi-bar:not([hidden]) {
   display: block; margin: 0 12px; border: 1px solid var(--edge-strong); border-bottom: 0; border-radius: 12px 12px 0 0;
@@ -3772,7 +3786,7 @@ input, select, textarea { color-scheme: inherit; }
   body.player-open .np-mini { display: none; }
   body.player-open .np .np-scrub { flex: 1 1 100%; height: 52px; }
   body.player-open .np-out { display: inline-flex; }
-  body.tape-page.player-open .np .np-out, body.player-open .np .np-out.np-out-tape { display: inline-flex; }
+  body.tape-page.player-open .np:not(.np-take):not(.np-feed) .out-anchor.np-out, body:not(.tape-page).player-open .np .np-out.np-out-tape { display: inline-flex; }
   /* ▾ puts it away: at the top of the sheet. */
   body.player-open .np-expand {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -3789,7 +3803,8 @@ input, select, textarea { color-scheme: inherit; }
   body.tape-page > main.tape-main { flex: 1 0 auto; overflow: visible; padding-bottom: 12px; }
   .tape-track { flex: none; }
   .tt-lane { position: static; min-height: 64px; height: auto; }
-  .np-dock { padding: 0 12px 12px; }
+  body.tape-page .np-dock { padding: 0 12px 12px; }
+  body.tape-page .np-dock:not(:has(> :not([hidden]))) { padding: 0; }
   .np-dock > .clip-editor:not([hidden]), .np-dock > .multi-bar:not([hidden]) { display: block; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
   .np-dock > .multi-bar:not([hidden]) { display: flex; flex-wrap: wrap; padding: 0 0 8px; }
   .np-dock > .clip-editor:not([hidden]) { display: grid; padding: 0 0 8px; }
@@ -4840,7 +4855,7 @@ body:not(.room-rack) .shelf-title,
     height: max(540px, calc(100svh - var(--room-top, 107px)));
     background: var(--room-plaster-lo);
   }
-  body.room-on:has(> .np:not([hidden])) .room { height: max(540px, calc(100svh - var(--room-top, 107px) - var(--np-h) - env(safe-area-inset-bottom))); }
+  body.room-on:has(.np:not([hidden])) .room { height: max(540px, calc(100svh - var(--room-top, 107px) - var(--np-h) - env(safe-area-inset-bottom))); }
   .room-frame {
     position: absolute; left: 50%; top: 50%; translate: -50% -50%;
     width: min(100cqw, 160cqh); aspect-ratio: 1.6;

@@ -160,3 +160,157 @@ test('#np[data-source] goes when the bar empties', async () => {
   assert.equal(np.hidden, true);
   assert.equal(np.getAttribute('data-source'), null);
 });
+
+// Step 2: the engine owns the take in the bar's audio, so a shelf row destroyed
+// while its take plays in the bar leaves it playing, and a rebuilt row reuses
+// the same element; loadTakeByName loads a take without a TakesList.
+test('a shelf row destroyed while its take is in the bar leaves it playing, and a rebuilt row shares the same audio', async () => {
+  const { RowWave } = await import('../wave/rowwave.js');
+  const { engine, bar, doc, click, $ } = await open();
+  assert.ok(engine.audio, 'the engine exposes its audio ownership API');
+  const take = aTake('jam_x.wav');
+  // Ask the engine for the take's audio as a shelf row does.
+  const audio = engine.audio.audioFor(take.t);
+  assert.equal(engine.audio.owns(audio), false, 'not adopted until it is in the bar');
+  const box1 = doc.createElement('div');
+  const ws1 = new RowWave({ container: box1, peaks: take.player.peaks, duration: 120, audio, look: 'spine' });
+  const player1 = { audio, peaks: take.player.peaks, toggle: () => ws1.playPause() };
+  bar.loadTake(take.t, player1);
+  assert.equal(engine.audio.owns(audio), true, 'adopted while in the bar');
+  await ws1.playPause();
+  assert.equal(audio.paused, false);
+  assert.equal(bar.playing(), true);
+
+  // Filter the take off the shelf: its row is destroyed.
+  ws1.destroy();
+  assert.equal(audio.paused, false, 'the take keeps playing in the bar');
+  assert.equal(bar.sourceKind, 'take');
+  assert.equal(bar.takeName, 'jam_x.wav');
+  assert.equal(bar.playing(), true);
+
+  // Even after the row is gone, the bar's ▶/❚❚ still pauses and plays it.
+  click($('np-play'));
+  assert.equal(audio.paused, true);
+  click($('np-play'));
+  assert.equal(audio.paused, false);
+
+  // A second shelf (or the row rebuilt) asks audioFor and gets the same element.
+  assert.equal(engine.audio.audioFor(take.t), audio);
+
+  // Once the bar lets the take go (⏏), a row destroying it does empty it.
+  bar.backToTape();
+  assert.equal(engine.audio.owns(audio), false, 'released when the bar leaves the take');
+  const box2 = doc.createElement('div');
+  const ws2 = new RowWave({ container: box2, peaks: take.player.peaks, duration: 120, audio, look: 'spine' });
+  ws2.destroy();
+  assert.equal(audio.getAttribute('src'), null);
+});
+
+test('loadTakeByName loads and plays a take from the Pi without a TakesList', async () => {
+  const jams = [
+    { name: 'jam_solo.wav', label: 'Solo', preview_name: 'jam_solo.mp3', has_preview: true, has_peaks: true, sample_rate: SR, duration_seconds: 30, bpm: 120, trim: null },
+  ];
+  const peaks = { buckets: 4, channels: 2, duration: 30, data: [new Float32Array(8), new Float32Array(8)] };
+  page = await barPage({
+    engine: true,
+    tapes: { loaded: 't1' },
+    answer: (url) => {
+      if (url === '/api/jams') return jams;
+      if (url === '/api/peaks?file=jam_solo.wav') return peaks;
+      return pi(url);
+    },
+  });
+  page.frames();
+  const { engine, bar, $, click } = page;
+  assert.equal(typeof bar.loadTakeByName, 'function');
+  const src = await bar.loadTakeByName('jam_solo.wav');
+  assert.ok(src, 'the take is loaded into the bar');
+  assert.equal(bar.sourceKind, 'take');
+  assert.equal(bar.takeName, 'jam_solo.wav');
+  assert.equal($('np').dataset.source, 'take');
+  assert.equal(engine.audio.owns(src.audio), true);
+  click($('np-play'));
+  assert.equal(bar.playing(), true);
+  click($('np-play'));
+  assert.equal(bar.playing(), false);
+  assert.equal(await bar.loadTakeByName('jam_missing.wav'), null);
+});
+
+// Step 5a: the Studio feeds engine.tape with ingest/setLevels and delegates
+// ▶/■, Loop and |◂ through its own transport() so stopping while recording
+// toasts the kept take.
+test('■ in the Studio while recording goes through the delegated transport() and toasts the kept take', async () => {
+  const { engine, $, click, frames, w } = await open();
+  const tape = engine.tape;
+  assert.equal(typeof tape.ingest, 'function', 'tape.ingest exists');
+  assert.equal(typeof tape.delegate, 'function', 'tape.delegate exists');
+  assert.equal(typeof tape.setLevels, 'function', 'tape.setLevels exists');
+
+  const calls = [];
+  tape.delegate({
+    play: () => calls.push(['play']),
+    stop: () => {
+      calls.push(['stop']);
+      w.toasts.push('Kept 4 bars from aux on track 1');
+    },
+    locate: (pos) => calls.push(['locate', pos]),
+    setLoop: (on) => calls.push(['loop', on]),
+  });
+  tape.setLevels(['#e05a47', '#d89b2b'], () => [-12, -18]);
+
+  // The Studio's 200 ms poll feeds the tape state while recording bar 2.
+  const recTape = { ...TAPE, loop: { in: BAR, out: 5 * BAR, on: true } };
+  tape.ingest({
+    tape: recTape,
+    live: {
+      playing: true,
+      heard: BAR,
+      count_in: 0,
+      output: 'demo',
+      output_mode: 'jam',
+      record: { tape: 't1', track: 1, state: 'on', from: BAR, source: 'aux' },
+    },
+  });
+  frames();
+  assert.equal($('np-play').textContent, '■');
+  assert.equal($('np-status').getAttribute('data-state'), 'rec');
+  assert.equal($('position').textContent, '2.1');
+  assert.equal($('np-levels').children.length, 2, 'per-track reel level bars are drawn');
+
+  // Pressing ■ in the Studio calls the delegate's stop(), which toasts the kept take.
+  click($('np-play'));
+  assert.deepEqual(calls, [['stop']]);
+  assert.ok(w.toasts.includes('Kept 4 bars from aux on track 1'));
+
+  // |◂ and Loop also go through the delegate.
+  click($('np-start'));
+  click($('np-loop'));
+  assert.deepEqual(calls, [['stop'], ['locate', BAR], ['loop', false]]);
+});
+
+// Step 5b: the engine owns the one StreamPlayer; output-ui.js renders over
+// engine.output instead of constructing a second StreamPlayer of its own.
+test('the engine and the output UI make one StreamPlayer', async () => {
+  const { engine, doc, w } = await open();
+  for (const id of ['out-strip', 'out-strip-led', 'out-strip-text', 'out-strip-right', 'out-strip-resume', 'out-jam', 'out-banner', 'out-banner-what', 'out-banner-delay']) {
+    if (!doc.getElementById(id)) {
+      const el = doc.createElement('div');
+      el.id = id;
+      doc.body.appendChild(el);
+    }
+  }
+  const pagehideBefore = (w.windowListeners.pagehide || []).length;
+  const { initOutput } = await import('../tape/output-ui.js');
+  const out = initOutput({
+    engine,
+    toast: (m) => w.toasts.push(m),
+    poll: () => {},
+    transport: () => {},
+    getTape: () => TAPE,
+  });
+  assert.equal((w.windowListeners.pagehide || []).length, pagehideBefore, 'initOutput does not construct a second StreamPlayer');
+  assert.equal(out.player, engine.stream, 'output-ui shares engine.stream');
+  assert.equal(engine.output.player, engine.stream, 'engine.output exposes the same StreamPlayer');
+});
+
+

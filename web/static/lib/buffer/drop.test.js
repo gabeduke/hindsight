@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { mountBuffer } from './buffer.js';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 
-const tapeHtml = readFileSync(new URL('../../tape.html', import.meta.url), 'utf8');
+const tapeHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
 const template = (id) => new RegExp(`<template id="${id}">[\\s\\S]*?</template>`).exec(tapeHtml)[0];
 
 const BAR = 96000; // 120 BPM at 48 kHz

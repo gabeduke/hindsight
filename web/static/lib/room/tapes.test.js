@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 
-const html = readFileSync(new URL('../../tape.html', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
 
 test('the Studio has its tape menu: the title, and the list of every tape', () => {
   const doc = fakeDoc();

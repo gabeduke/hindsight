@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 const strip = (html) => html.replace(/<!--[\s\S]*?-->/g, '');
-const tape = strip(read('../../tape.html'));
+const tape = strip(read('../../shell.html'));
 const capture = strip(read('../../index.html'));
 const selBar = (html) => /<div class="rb-sel" id="rb-sel"[\s\S]*?<\/div>/.exec(html)[0];
 

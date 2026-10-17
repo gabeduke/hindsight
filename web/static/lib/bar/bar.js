@@ -62,7 +62,7 @@ export class NowPlaying {
       if ((e.key !== 'j' && e.key !== 'J') || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target;
       if (t && (t.isContentEditable || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type !== 'range'))) return;
-      if (document.querySelector('dialog[open]')) return;
+      if ([...document.querySelectorAll('dialog[open]')].some((d) => !d.classList.contains('inspector'))) return;
       if (this.root.hidden || !this.src) return;
       back5();
     });
@@ -167,6 +167,7 @@ export class NowPlaying {
     this.keys?.paint(s);
     setAttr($('np-loop'), 'aria-pressed', String(!!s.loop));
     $('np-loop').disabled = !s.canLoop();
+    $('np-start').disabled = s.canStart ? !s.canStart() : false;
     setAttr($('np-start'), 'aria-label', s.startLabel());
     // What's in the bar opens on its own page; ⏏ is for a take while there's a tape.
     const open = $('np-open');
@@ -194,6 +195,8 @@ export class NowPlaying {
     setAttr(this.scrub, 'aria-valuemax', String(Math.round(s.length)));
     setAttr(this.scrub, 'aria-valuenow', String(Math.round(p)));
     setAttr(this.scrub, 'aria-valuetext', `${lcd.unit === 'BAR' ? `bar ${lcd.big}, ` : ''}${secs(p / s.sampleRate)}`);
+    if (s.levels) this.reels.setLevels(s.levels.colors, s.levels.at);
+    else this.reels.setLevels([], () => []);
     this.reels.poll({ heard: s.pos(), playing, length: s.length, sampleRate: s.sampleRate });
     for (const fn of this.listeners) fn(this.snapshot());
   }
