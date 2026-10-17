@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.4 — 2026-10-17
+
+- Fix the Update button failing on a Pi with HTTPS through the hub (89f922f)
+- The tape is always on: TAPE=true is no longer needed (7684a18)
+- Hand off: steps 1 and 3 of the shell are merged (b0e1de5)
+
+
 ## v2026.10.17.3 — 2026-10-17
 
 - Bump the shell cache for the router's groundwork (a9f82b0)
