@@ -148,4 +148,25 @@ while read -r src; do
 done < <(awk '/name: Assemble the archive/ { on = 1 } on && /^ *cp / { for (i = 2; i < NF; i++) if ($i !~ /^-/) print $i } on && /^ *tar / { exit }' "$WF")
 check "everything the archive packs releases" "" "${missing# }"
 
+# install.sh runs under pipefail, and its port_held() ends in a grep -v that
+# exits 1 when it is handed nothing (no listeners) or only Caddy: that used to
+# kill the whole install on a Pi whose ports 80 and 443 are free or Caddy's.
+# `ss` is stubbed; sudo just runs its arguments.
+INSTALL="$HERE/../deploy/install.sh"
+ph="$(awk '/port_held\(\) \{/ { on = 1 } on { print } on && /^ *\}$/ { exit }' "$INSTALL")"
+stub="$(mktemp -d)"
+printf '#!/bin/sh\nshift\nexec "$@"\n' > "$stub/sudo"
+chmod +x "$stub/sudo"
+port_held_under_pipefail() { # ss output on stdin
+  cat > "$stub/ss.out"
+  printf '#!/bin/sh\ncat %s\n' "$stub/ss.out" > "$stub/ss"
+  chmod +x "$stub/ss"
+  ( set -euo pipefail; PATH="$stub:$PATH"; eval "$ph"; port_held 80; echo survived ) 2>&1 | tail -1
+}
+check "port_held survives a free port under pipefail" \
+  "survived" "$(printf '' | port_held_under_pipefail)"
+check "port_held survives a port only Caddy holds" \
+  "survived" "$(printf 'LISTEN 0 4096 *:80 *:* users:(("caddy",pid=1,fd=7))\n' | port_held_under_pipefail)"
+rm -rf "$stub"
+
 exit "$fail"

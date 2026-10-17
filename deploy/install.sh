@@ -180,8 +180,10 @@ if [ "$HTTPS" = 1 ]; then
       caddyfile="$(mktemp)"
       cp "$SRC/deploy/Caddyfile" "$caddyfile"
       port_held() { # port -> what else listens there ("" if nothing, or only Caddy)
-        sudo ss -ltnpH "( sport = :$1 )" 2>/dev/null \
-          | grep -v '"caddy"' | sed -n 's/.*users:(("\([^"]*\)".*/\1/p' | sort -u | tr '\n' ' '
+        # grep -v exits 1 when nothing is left (a free port, or only Caddy), and
+        # under pipefail that would end the whole install.
+        { sudo ss -ltnpH "( sport = :$1 )" 2>/dev/null \
+          | grep -v '"caddy"' | sed -n 's/.*users:(("\([^"]*\)".*/\1/p' | sort -u | tr '\n' ' '; } || true
       }
       held80="$(port_held 80)"
       held443="$(port_held 443)"
