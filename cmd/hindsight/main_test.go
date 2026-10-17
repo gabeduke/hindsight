@@ -161,7 +161,7 @@ func TestShellPathsServeTheShell(t *testing.T) {
 	}
 	cfg := &config.Config{OutputDir: t.TempDir()}
 	r := newRouter(api.New(cfg, nil, nil, nil, nil), dir)
-	for _, path := range []string{"/tape.html", "/takes.html", "/shell.html"} {
+	for _, path := range []string{"/", "/index.html", "/tape.html", "/takes.html", "/shell.html"} {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 		if w.Code != http.StatusOK {

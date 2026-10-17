@@ -1,0 +1,34 @@
+// web/static/lib/shell/views/capture.js
+// Capture as a shell view (docs/superpowers/plans/2026-10-17-phase1-shell.md,
+// step 7): mounts Capture (web/static/app.js) inside the shell, driving its
+// polls, live meters, and global listeners through ctx so they go quiet while
+// another room is shown.
+
+import { mountCapture } from '../../../app.js';
+
+export const captureView = {
+  id: 'capture',
+  title: 'Hindsight',
+  name: 'Studio',
+  bodyClass: 'main-page',
+  help: 'main',
+  mount(ctx) {
+    const headerEl = document.getElementById('header-capture');
+    if (headerEl) {
+      headerEl.hidden = false;
+      ctx.headerSlot.add(headerEl);
+    }
+    const capture = mountCapture(ctx);
+    return {
+      show({ first }) {
+        if (!first) capture?.show?.();
+      },
+      hide() {
+        capture?.hide?.();
+      },
+      destroy() {
+        capture?.destroy?.();
+      },
+    };
+  },
+};
