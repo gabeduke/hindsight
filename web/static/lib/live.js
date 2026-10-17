@@ -117,6 +117,18 @@ export function connectLive({ onFrame, onOpen, onClose }, env = {}) {
     if (now() - heardAt > STALE_MS) replace();
   }, WATCH_MS);
 
+  const win = env.win ?? globalThis.window ?? globalThis;
+  // Close on pagehide so an open /api/live socket does not block the
+  // back-forward cache; onResume('pageshow') opens a fresh one if restored.
+  const onHide = () => {
+    if (closed) return;
+    if (timer) { unwait(timer); timer = null; }
+    const old = ws;
+    ws = null;
+    drop(old);
+  };
+  win.addEventListener?.('pagehide', onHide);
+
   const stopResume = onResume(() => {
     if (closed) return;
     // heardAt is also when the socket was made: one just made is let be.
@@ -127,6 +139,7 @@ export function connectLive({ onFrame, onOpen, onClose }, env = {}) {
   return {
     close() {
       closed = true;
+      win.removeEventListener?.('pagehide', onHide);
       stopResume();
       stopEvery(watch);
       if (timer) unwait(timer);

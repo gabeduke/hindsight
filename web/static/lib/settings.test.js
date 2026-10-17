@@ -331,7 +331,7 @@ test('the saved body is every field that changed, and nothing else', () => {
 test('the Settings sheet carries Releases and the guide, under its title, on every page', () => {
   const sheets = [
     ['index.html', (html) => html],
-    ['tape.html', (html) => /<template id="studio-sheets-tpl">([\s\S]*?)<\/template>/.exec(html)[1]],
+    ['shell.html', (html) => /<template id="studio-sheets-tpl">([\s\S]*?)<\/template>/.exec(html)[1]],
   ];
   for (const [page, part] of sheets) {
     const doc = fakeDoc();

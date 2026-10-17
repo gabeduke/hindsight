@@ -19,6 +19,7 @@ import { named } from '../rooms/words.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
 import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
+import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -47,9 +48,11 @@ export function pageBar(opts) {
  * #np; and `tape`, `stream` and `feed`, the sources it has made so far (null
  * until then).
  */
-export function createEngine({ tapes, onToast, find = null, onNote = null }) {
+export function createEngine({ tapes, onToast, find: initFind = null, onNote: initOnNote = null }) {
+  let find = initFind, onNote = initOnNote;
   let feed = null, tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
+  let setMode = null;
   let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
   // How many times the person has used the bar's own keys, strip or ⏏: the Listening
   // Room's late arrivals (lib/room/tap.js) load nothing if it has changed.
@@ -85,8 +88,16 @@ export function createEngine({ tapes, onToast, find = null, onNote = null }) {
   // The take the last page left (carry.js, handoff.js): read now, before the
   // bar draws anything; put in the bar once the page's list has it, however
   // late; the tape waits in the wings for a few seconds of that.
+  let findWait = null;
+  const findReady = new Promise((r) => { findWait = r; });
+  if (find) findWait();
   const handoff = createHandoff({
-    carry, find, tapes: listP,
+    carry,
+    find: async (name) => {
+      if (!find) await Promise.race([findReady, new Promise((r) => setTimeout(r, 50))]);
+      return find ? find(name) : findTakeByName(name);
+    },
+    tapes: listP,
     studio: () => isStudio(location.pathname),
     takeInBar: () => !!take,
     loadTake: ({ t, player }) => { loadTake(t, player); return take.src; },
@@ -94,24 +105,26 @@ export function createEngine({ tapes, onToast, find = null, onNote = null }) {
     state: heldState,
     win: window, doc: document,
   });
-  const ready = Promise.resolve(tapes).then((list) => {
-    if (!list || !list.loaded) return;
-    tape = tapeSource(list.loaded, { onError: (m) => onToast?.(`The tape: ${m}`, 'bad'), stream: () => stream });
+  function mountTape(loadedId) {
+    if (tape || !loadedId) return;
+    tape = tapeSource(loadedId, { onError: (m) => onToast?.(`The tape: ${m}`, 'bad'), stream: () => stream });
     stream = tapeStream(tape, onToast);
     if (take || (bar.src && bar.src.kind === 'feed')) stream.setQuiet(true);
     else if (!handoff.holding()) bar.load(tape);
     eject();
-    // The header's output button: where the tape plays, chosen from here as
-    // on the tape page. Choosing to hear it here puts the tape back in the
-    // bar, as ⏏ does: it stays there until a take is picked by hand. The
-    // sheet asks the Pi as it opens, so it's never a few seconds behind.
+    setMode = (mode) => {
+      if (mode !== 'jam') backToTape({ byHand: true });
+      return switchOutput(mode, { player: stream, poll: () => tape.refresh(), toast: (m, k) => onToast?.(m, k) });
+    };
+    // The header's output button (and the phone player's OUT pill): where the
+    // tape plays, chosen from any room. Choosing to hear it here puts the tape
+    // back in the bar, as ⏏ does: it stays there until a take is picked by
+    // hand. The sheet asks the Pi as it opens, so it's never a few seconds
+    // behind.
     wireOutput({
       name: () => tape.title,
       onOpen: () => tape.refresh(),
-      choose: (mode) => {
-        if (mode !== 'jam') backToTape({ byHand: true });
-        return switchOutput(mode, { player: stream, poll: tape.refresh, toast: (m, k) => onToast?.(m, k) });
-      },
+      choose: setMode,
     });
     const paintOut = () => {
       const mode = tape.mode();
@@ -119,6 +132,12 @@ export function createEngine({ tapes, onToast, find = null, onNote = null }) {
       paintOutSheet(mode || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
     };
     tape.on(paintOut);
+  }
+  if (tapes && typeof tapes.then !== 'function' && tapes.loaded) mountTape(tapes.loaded);
+  const ready = Promise.resolve(tapes).then((list) => {
+    if (!list || !list.loaded) return;
+    mountTape(list.loaded);
+    if (tape.ready) return;
     return new Promise((done) => { tape.on(done); setTimeout(done, 1500); });
   });
   function backToTape({ byHand = false } = {}) {
@@ -127,6 +146,7 @@ export function createEngine({ tapes, onToast, find = null, onNote = null }) {
     if (take) {
       const old = take;
       take = null;
+      releaseAudio(old.audio);
       old.src.pause();
       old.off();
       bar.load(tape);
@@ -171,6 +191,16 @@ export function createEngine({ tapes, onToast, find = null, onNote = null }) {
   // or the phone plays both (as the tape page does). Only in This phone
   // mode: in Both the jam room is the clock and may be recording.
   const takePlays = () => { if (stream?.active && stream.mode === 'phone') tape.pause(); };
+  function makeTakeAudio(t) {
+    const a = new Audio();
+    a.preload = 'none';
+    a.src = `/api/download?file=${encodeURIComponent(t.preview_name || t.name)}`;
+    return a;
+  }
+  function audioFor(t) {
+    if (take && take.name === t.name && take.audio) return take.audio;
+    return makeTakeAudio(t);
+  }
   /**
    * loadTake puts take `t` in the bar, played by its list row's `player`.
    * The same take with a new player (its row rebuilt) replaces the old one.
@@ -184,17 +214,62 @@ export function createEngine({ tapes, onToast, find = null, onNote = null }) {
     }
     const old = take;
     const src = takeSource(t, player, { onGone: () => { if (take && take.src === src) backToTape(); } });
-    const audio = player.audio;
+    const audio = adoptAudio(player.audio);
     audio.addEventListener('play', takePlays);
     take = { name: t.name, audio, src, off: () => audio.removeEventListener('play', takePlays) };
     bar.load(take.src);
+    if (old && old.audio !== audio) releaseAudio(old.audio);
     old?.off();
-    old?.src.destroy();
+    if (old && old.audio !== audio) old.src.destroy();
     // The lock screen and a headset are the take's while it's in the bar.
     stream?.setQuiet(true);
     if (!audio.paused) takePlays();
     eject();
   }
+  /**
+   * findTakeByName resolves take `name` from /api/jams and /api/peaks with the
+   * engine's own Audio, for a room or a reload where no TakesList holds it.
+   */
+  async function findTakeByName(name) {
+    if (!name) return null;
+    try {
+      const [jamsRes, peaksRes] = await Promise.all([
+        fetch('/api/jams', { cache: 'no-store' }),
+        fetch(`/api/peaks?file=${encodeURIComponent(name)}`),
+      ]);
+      if (!jamsRes.ok) return null;
+      const jams = await jamsRes.json();
+      const t = Array.isArray(jams) ? jams.find((x) => x.name === name) : null;
+      if (!t) return 'missing';
+      if (!t.has_preview || !peaksRes.ok) return null;
+      const peaks = await peaksRes.json();
+      if (!peaks?.data?.length) return null;
+      const audio = audioFor(t);
+      const toggle = async () => {
+        if (!audio.paused && !audio.ended) { audio.pause(); return; }
+        await audio.play();
+      };
+      return { t, player: { audio, peaks, toggle } };
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * loadTakeByName loads take `name` from /api/jams and /api/peaks with the
+   * engine's own Audio, for a room or a reload where no TakesList holds it.
+   */
+  async function loadTakeByName(name) {
+    const found = await findTakeByName(name);
+    if (!found || found === 'missing') return null;
+    loadTake(found.t, found.player);
+    return take ? take.src : null;
+  }
+  const audioApi = {
+    adopt: adoptAudio,
+    owns: ownsAudio,
+    release: releaseAudio,
+    audioFor,
+  };
   handoff.start();
   const api = {
     ready,
@@ -216,14 +291,26 @@ export function createEngine({ tapes, onToast, find = null, onNote = null }) {
     get looping() { return !!(take && take.src.loop); },
     tapePlaying: () => !!(tape && tape.ready && tape.playing()),
     loadTake,
+    loadTakeByName,
+    audioFor,
+    setFind: (fn) => { find = fn; if (fn) findWait?.(); },
+    setOnNote: (fn) => { onNote = fn; },
     backToTape,
     setSource,
     onChange: (fn) => bar.onChange(fn),
     snapshot: () => bar.snapshot(),
   };
+  const outputApi = {
+    get player() { return stream; },
+    setMode: (mode) => setMode?.(mode),
+  };
   return {
     bar: api,
+    audio: audioApi,
+    output: outputApi,
     np: bar,
+    setFind: api.setFind,
+    setOnNote: api.setOnNote,
     get tape() { return tape; },
     get stream() { return stream; },
     get feed() { return feed; },
@@ -231,10 +318,10 @@ export function createEngine({ tapes, onToast, find = null, onNote = null }) {
 }
 
 /**
- * tapeStream is the tape's stream player on Takes and Capture: started by
- * joining again, or by the header's output button, and heard once ▶ is
- * tapped if the browser held its sound back. As on the tape page, a loss
- * that stopped the tape (6 s) plays on when the stream is back soon.
+ * tapeStream is the tape's stream player on this device: started by joining
+ * again, or by the header's output button, and heard once ▶ is tapped if the
+ * browser held its sound back. A loss that stopped the tape (6 s) plays on
+ * when the stream is back soon.
  */
 function tapeStream(tape, onToast) {
   let wasPlaying = false;
@@ -245,6 +332,7 @@ function tapeStream(tape, onToast) {
     },
     onTransport: (kind) => (kind === 'play' ? tape.play() : tape.pause()),
     onReconnect: ({ lostMs, playing }) => { if (wasPlaying && !playing && lostMs < 30000) tape.play(); },
+    getLoop: () => tape.loopSpec?.(),
     getTitle: () => tape.title,
   });
   tape.on(() => { if (player.state === 'playing') wasPlaying = tape.playing(); });

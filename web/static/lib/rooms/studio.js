@@ -30,8 +30,6 @@ import { named } from './words.js';
 import { mountBuffer } from '../buffer/buffer.js';
 import { bindStudioKeys } from './keys.js';
 import { keepLabel, keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
-import { pageCarry, resumeAt } from '../bar/carry.js';
-import { feedSource } from '../bar/feed-source.js';
 
 const STATUS_MS = 2000;
 
@@ -40,7 +38,7 @@ const STATUS_MS = 2000;
  * diagnostic under main and their sheets in the body, then drives them. It
  * returns null if the page lacks the templates (it isn't the tape page).
  */
-export function mountStudio(doc = document) {
+export function mountStudio(doc = document, { ctx = null } = {}) {
   const main = doc.querySelector('main.tape-main');
   const tpl = (id) => doc.getElementById(id)?.content;
   const feed = tpl('studio-feed-tpl'), foot = tpl('studio-foot-tpl'), sheets = tpl('studio-sheets-tpl');
@@ -51,7 +49,9 @@ export function mountStudio(doc = document) {
   // end. Between main and the dock it's always in view there; on a phone it
   // ends the page.
   main.after(foot.cloneNode(true));
-  doc.body.append(sheets.cloneNode(true));
+  for (const node of [...sheets.cloneNode(true).children]) {
+    if (!node.id || !doc.getElementById(node.id)) doc.body.append(node);
+  }
 
   const $ = (id) => doc.getElementById(id);
   const el = {
@@ -87,7 +87,7 @@ export function mountStudio(doc = document) {
   // Room's shelf, or Undo, which puts it in Recently deleted with a Restore.
   const keptToast = (msg, name, title) => toast(msg, 'ok', {
     actions: [
-      { label: 'Name it', run: () => location.assign(`/takes.html?take=${encodeURIComponent(name)}`) },
+      { label: 'Name it', run: () => { const url = `/takes.html?take=${encodeURIComponent(name)}`; if (ctx?.go) ctx.go(url); else location.assign(url); } },
       { label: 'Undo', run: () => undoKeep(name, title) },
     ],
   });
@@ -270,16 +270,26 @@ export function mountStudio(doc = document) {
   }
   el.keep.addEventListener('click', keep);
 
-  connectLive({
-    onFrame: (f) => {
-      if (!status) return;
-      const { rms, peak, clip } = frameLevels(f, status.save_channels.map((c) => c - 1));
-      bars?.update(rms, peak, clip);
-      vu?.update(rms, peak, clip);
-      const last = f.bins?.[f.bins.length - 1];
-      if (chans && last?.rms) chans.update(last.rms, f.peak, f.clip);
-    },
-  });
+  let live = null;
+  const openLive = () => {
+    if (live) return;
+    live = connectLive({
+      onFrame: (f) => {
+        if (!status) return;
+        const { rms, peak, clip } = frameLevels(f, status.save_channels.map((c) => c - 1));
+        bars?.update(rms, peak, clip);
+        vu?.update(rms, peak, clip);
+        const last = f.bins?.[f.bins.length - 1];
+        if (chans && last?.rms) chans.update(last.rms, f.peak, f.clip);
+      },
+    });
+  };
+  const closeLive = () => { live?.close(); live = null; };
+  openLive();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', closeLive);
+    window.addEventListener('pageshow', () => { if (!ctx || ctx.active()) openLive(); });
+  }
 
   // Recording from this phone, as on Capture: its take lands on the
   // Listening Room's shelf.
@@ -291,10 +301,18 @@ export function mountStudio(doc = document) {
     secureURL: () => (status?.hub?.cert_not_after && status.hub.url) || '',
   });
 
+  const onDoc = (type, fn, opts) => (ctx ? ctx.on(doc, type, fn, opts) : doc.addEventListener(type, fn, opts));
+  const every = (fn, ms) => (ctx ? ctx.every(fn, ms) : setInterval(fn, ms));
+
   paintKeep();
   pollStatus();
-  setInterval(() => { if (!doc.hidden) pollStatus(); }, STATUS_MS);
-  onResume(() => pollStatus());
+  every(() => { if (!doc.hidden) pollStatus(); }, STATUS_MS);
+  if (ctx) {
+    // onResume registers global listeners; only poll when the Studio is active.
+    onResume(() => { if (ctx.active()) pollStatus(); });
+  } else {
+    onResume(() => pollStatus());
+  }
 
   initSettings();
   initUpdate();
@@ -310,14 +328,14 @@ export function mountStudio(doc = document) {
   // The buffer (lib/buffer, step P2): GRAB beside KEEP, and what it grabs
   // between the feed and the lanes.
   const buffer = mountBuffer(doc, {
-    feed: main.querySelector('.studio-feed'), head: main.querySelector('.studio-feed-head'), keysRow: main.querySelector('.studio-keys'), ribbon, toast,
+    feed: main.querySelector('.studio-feed'), head: main.querySelector('.studio-feed-head'), keysRow: main.querySelector('.studio-keys'), ribbon, toast, ctx,
   });
 
   // The Studio's verbs, after the buffer's (which claims KEEP while it's
   // open): CATCH presses the bar's Catch, KEEP keeps the feed. They come as
   // `hindsight:verb` from the instrument strip (lib/play), and from the
   // keys below.
-  doc.addEventListener('hindsight:verb', (e) => {
+  onDoc('hindsight:verb', (e) => {
     if (e.defaultPrevented) return;
     const v = e.detail?.verb;
     if (v === 'catch') {
@@ -327,95 +345,27 @@ export function mountStudio(doc = document) {
       keep();
     }
   });
-  bindStudioKeys(doc);
+  bindStudioKeys(doc, { active: () => !ctx || ctx.active() });
   // The keys' new names, where a screen reader reads them.
   $('click')?.setAttribute('aria-keyshortcuts', 'M');
   $('catch-pass')?.setAttribute('aria-keyshortcuts', 'C');
 
-  // Unified Media Player source switcher (Feed · Tape · Shelf) and seamless
-  // continuation of a playing Shelf take when entering the Studio.
-  const npEl = $('np');
-  const npOwn = npEl?.querySelector('.np-own');
-  if (npEl && npOwn && !npEl.querySelector('.np-source-switch')) {
-    const carry = pageCarry();
-    const carried = carry.peek();
-    const feedSrc = feedSource();
-    let shelfAudio = null;
-    let activeKind = 'tape';
-    const sw = doc.createElement('div');
-    sw.className = 'seg np-source-switch';
-    sw.setAttribute('role', 'group');
-    sw.setAttribute('aria-label', 'Audio source');
-    const btns = [
-      ['feed', 'Feed'],
-      ['tape', 'Tape'],
-      ['take', 'Shelf'],
-    ].map(([kind, label]) => {
-      const b = doc.createElement('button');
-      b.setAttribute('type', 'button');
-      b.dataset.source = kind;
-      b.textContent = label;
-      sw.append(b);
-      return b;
-    });
-    const syncSourceUI = () => {
-      for (const b of btns) b.setAttribute('aria-pressed', String(b.dataset.source === activeKind));
-      npEl.classList.toggle('np-feed', activeKind === 'feed');
-      npEl.classList.toggle('np-take', activeKind === 'take');
-    };
-    if (carried && carried.take && carried.playing && typeof Audio === 'function') {
-      try {
-        shelfAudio = new Audio(`/api/preview?file=${encodeURIComponent(carried.take)}`);
-        shelfAudio.loop = !!carried.loop;
-        const at = resumeAt(carried, Date.now(), Infinity);
-        const sr = carried.sr || 48000;
-        shelfAudio.currentTime = (at ? at.playFrame : carried.frame) / sr;
-        activeKind = 'take';
-        shelfAudio.play().catch(() => {});
-        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-          window.addEventListener('pagehide', () => {
-            if (shelfAudio && activeKind === 'take') {
-              carry.leave({
-                take: carried.take,
-                frame: Math.round((shelfAudio.currentTime || 0) * sr),
-                sr,
-                playing: !shelfAudio.paused && !shelfAudio.ended,
-                loop: shelfAudio.loop,
-              });
-            }
-          });
-        }
-      } catch { /* audio unavailable in test environment */ }
-    }
-    for (const b of btns) {
-      b.addEventListener('click', () => {
-        const kind = b.dataset.source;
-        if (kind === 'feed') {
-          if (shelfAudio && !shelfAudio.paused) shelfAudio.pause();
-          activeKind = 'feed';
-          feedSrc.toggle();
-          syncSourceUI();
-        } else if (kind === 'tape') {
-          feedSrc.release();
-          if (shelfAudio && !shelfAudio.paused) shelfAudio.pause();
-          carry.drop();
-          activeKind = 'tape';
-          syncSourceUI();
-        } else if (kind === 'take') {
-          feedSrc.release();
-          if (shelfAudio) {
-            activeKind = 'take';
-            shelfAudio.play().catch(() => {});
-            syncSourceUI();
-          } else if (typeof location !== 'undefined' && typeof location.assign === 'function') {
-            location.assign('/takes.html');
-          }
-        }
-      });
-    }
-    syncSourceUI();
-    npOwn.before(sw);
-  }
-
-  return { ribbon, buffer };
+  const chanDiag = $('chan-diag');
+  return {
+    ribbon,
+    buffer,
+    hide() {
+      closeLive();
+      ribbon.pause();
+      buffer?.hide?.();
+      if (chanDiag) chanDiag.hidden = true;
+    },
+    show() {
+      if (chanDiag) chanDiag.hidden = false;
+      openLive();
+      ribbon.resume();
+      buffer?.show?.();
+      pollStatus();
+    },
+  };
 }

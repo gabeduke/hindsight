@@ -149,3 +149,29 @@ func TestMainRouterHasNoTLSRoute(t *testing.T) {
 		}
 	}
 }
+
+// Both rooms (/tape.html and /takes.html) are views inside one shell document
+// (shell.html), so a direct load or reload of either room serves shell.html
+// with Cache-Control: no-cache.
+func TestShellPathsServeTheShell(t *testing.T) {
+	dir := t.TempDir()
+	const shell = "<!DOCTYPE html><!-- hindsight-shell -->"
+	if err := os.WriteFile(filepath.Join(dir, "shell.html"), []byte(shell), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{OutputDir: t.TempDir()}
+	r := newRouter(api.New(cfg, nil, nil, nil, nil), dir)
+	for _, path := range []string{"/tape.html", "/takes.html", "/shell.html"} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+		if w.Code != http.StatusOK {
+			t.Errorf("GET %s: status = %d, want 200", path, w.Code)
+		}
+		if got := w.Body.String(); got != shell {
+			t.Errorf("GET %s: body = %q, want %q", path, got, shell)
+		}
+		if cc := w.Header().Get("Cache-Control"); cc != "no-cache" {
+			t.Errorf("GET %s: Cache-Control = %q, want no-cache", path, cc)
+		}
+	}
+}

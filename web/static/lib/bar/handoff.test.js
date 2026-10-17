@@ -196,13 +196,11 @@ test('a list that never comes (the fetch failed): the record stays for the next 
   assert.equal(JSON.parse(p.storage.getItem(CARRY_KEY)).take, 'jam_a.wav');
 });
 
-test('the Studio with a tape loaded keeps its tape: no take is loaded, and the record is left alone', async () => {
+test('a take record is applied in the Studio with a tape loaded', async () => {
   const p = aPage({ studio: true, tapes: Promise.resolve({ loaded: 't1' }) });
-  assert.equal(await p.h.start(), 'studio');
-  assert.deepEqual(p.page.loads, []);
-  assert.equal(p.page.shown, 1);
-  p.win.fire('pagehide');
-  assert.equal(JSON.parse(p.storage.getItem(CARRY_KEY)).take, 'jam_a.wav');
+  assert.equal(await p.h.start(), 'playing');
+  assert.deepEqual(p.page.loads, ['jam_a.wav']);
+  assert.equal(p.storage.getItem(CARRY_KEY), null);
 });
 
 test('Capture as the Studio with no tape loaded does take the take', async () => {
@@ -232,6 +230,23 @@ test('a page whose bar holds no take and had no record deletes nothing it did no
   p.win.fire('pagehide');
   assert.equal(p.storage.getItem(CARRY_KEY), null);
 });
+
+test('a page restored from the back-forward cache applies a carry record instead of dropping it', async () => {
+  const p = aPage();
+  await p.h.start();
+  p.win.fire('pagehide');
+  // Chrome pauses media in bfcache; meanwhile the take page played on to 42 s.
+  p.entry.audio.paused = true;
+  p.clock.t += 2_000;
+  p.carry.leave(left({ frame: 42 * SR, playing: true }));
+  p.clock.t += 1_000;
+  p.win.fire('pageshow', { persisted: true });
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  assert.equal(p.entry.audio.paused, false, 'resumed on bfcache restore');
+  assert.equal(p.entry.audio.currentTime, 43, '42 s + 1 s');
+  assert.equal(p.storage.getItem(CARRY_KEY), null, 'record consumed');
+});
+
 
 // --- takesFinder ----------------------------------------------------------------------
 

@@ -84,6 +84,7 @@ export function connect(surface, {
 } = {}) {
   let ws = null;
   let closed = false;
+  let paused = false;
   let retry = null;
   let learning = null; // {action, resolve, reject}: one MIDI LEARN at a time
 
@@ -138,7 +139,7 @@ export function connect(surface, {
   }
 
   function open() {
-    if (closed || !WebSocketImpl) return;
+    if (closed || paused || !WebSocketImpl) return;
     ws = new WebSocketImpl(url);
     ws.onopen = () => onOpen();
     ws.onmessage = (e) => {
@@ -146,7 +147,7 @@ export function connect(surface, {
     };
     ws.onclose = () => {
       if (learning) { learning.reject(new Error('the Pi went out of reach')); learning = null; }
-      if (closed) return;
+      if (closed || paused) return;
       // Out of reach: the pads still light, and say they aren't sounding.
       // Anything held is let go on the Pi by its own timeout.
       onNote('Not connected to the tape — the pads are silent');
@@ -180,6 +181,20 @@ export function connect(surface, {
       learning.reject(new Error('cancelled'));
       learning = null;
       send({ t: 'learn_cancel' });
+    },
+    pause() {
+      if (paused || closed) return;
+      paused = true;
+      clearTimer(retry);
+      send({ t: 'release_all' });
+      const cur = ws;
+      ws = null;
+      try { cur?.close(); } catch { /* already gone */ }
+    },
+    resume() {
+      if (!paused || closed) return;
+      paused = false;
+      open();
     },
     close() {
       closed = true;

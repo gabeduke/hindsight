@@ -442,8 +442,8 @@ test('the Studio\'s tape page lets any record go: its bar is the tape\'s', () =>
   assert.equal(carry.read(), null);
 });
 
-test('a take does not displace the tape on the Studio: only with no tape loaded', () => {
-  assert.equal(mayCarry({ studio: true, tapeLoaded: true }), false);
+test('a take carries into the Studio even with a tape loaded', () => {
+  assert.equal(mayCarry({ studio: true, tapeLoaded: true }), true);
   assert.equal(mayCarry({ studio: true, tapeLoaded: false }), true);
   assert.equal(mayCarry({ studio: false, tapeLoaded: true }), true, 'the Listening Room');
 });

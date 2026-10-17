@@ -282,6 +282,11 @@ func main() {
 func newRouter(a *api.API, static string) *mux.Router {
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
+	shell := noCacheShell(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(static, "shell.html"))
+	}))
+	r.Handle("/tape.html", shell)
+	r.Handle("/takes.html", shell)
 	r.PathPrefix("/").Handler(noCacheShell(http.FileServer(http.Dir(static))))
 	return r
 }

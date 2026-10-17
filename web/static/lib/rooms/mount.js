@@ -10,11 +10,7 @@
  * start mounts the Studio. `load` fetches the Studio's module; tests pass
  * their own.
  */
-export function start({ load = () => import('./studio.js'), doc = globalThis.document } = {}) {
-  return load().then((m) => m.mountStudio(doc));
+export function start({ load = () => import('./studio.js'), doc = globalThis.document, ...opts } = {}) {
+  return load().then((m) => m.mountStudio(doc, opts));
 }
 
-// On the tape page, on load. Everything above stays importable and testable.
-if (typeof document !== 'undefined' && document.body?.classList.contains('tape-page')) {
-  start().catch((e) => console.error('The Studio could not start:', e));
-}

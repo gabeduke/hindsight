@@ -83,10 +83,10 @@ test('Guardrail 6: Instrument strip mounts inside #np Media Player and Studio sw
     stripJs.includes('np.prepend(') || stripJs.includes('np.insertBefore('),
     'lib/play/strip.js must mount #play-strip inside #np as part of the Media Player object',
   );
-  const tapeHtml = read('tape.html');
+  const tapeHtml = read('shell.html');
   assert.ok(
     tapeHtml.includes('id="tracks-fold-btn"'),
-    'tape.html must include #tracks-fold-btn to collapse/expand Studio tape swimlanes',
+    'shell.html must include #tracks-fold-btn to collapse/expand Studio tape swimlanes',
   );
 });
 
@@ -172,4 +172,30 @@ test('Guardrail 10: Studio swimlane collapse state persists in sessionStorage an
     'tape/page.js must unfold lanes when hindsight:tape-changed fires',
   );
 });
+
+test('Step 5a: only lib/bar writes the LCD ids (#position, #np-time, #np-unit, #np-status, #np-marquee, #np-mini) in the rooms', () => {
+  const lcdIds = ['position', 'np-time', 'np-unit', 'np-status', 'np-marquee', 'np-mini'];
+  const writeRe = new RegExp(`\\$\\(['"](${lcdIds.join('|')})['"]\\)`);
+  const roomFiles = [
+    'app.js',
+    'lib/shelf-page.js',
+    'lib/tape/page.js',
+    'lib/shell/views/room.js',
+  ];
+  for (const rel of roomFiles) {
+    const src = read(rel);
+    assert.doesNotMatch(
+      src,
+      writeRe,
+      `${rel} must not write LCD ids directly; NowPlaying (lib/bar/bar.js) owns the LCD`,
+    );
+  }
+});
+
+test('Step 5c: rooms/studio.js does not construct its own Audio or shadow .np-source-switch', () => {
+  const src = read('lib/rooms/studio.js');
+  assert.equal(/\bnew\s+Audio\s*\(/.test(src), false, 'rooms/studio.js must not construct new Audio(); engine.js owns the bar’s audio');
+  assert.equal(/np-source-switch/.test(src), false, 'rooms/studio.js must not build a shadow .np-source-switch; takeKeys in bar.js owns it');
+});
+
 

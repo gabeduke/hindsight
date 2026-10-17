@@ -1,56 +1,26 @@
-// Where the tape plays, on the tape page: the output button and the Output
-// sheet (out-switch.js, shared with Takes and Capture), the status strip
-// across the top of the bar, and the banner other devices show while a phone has it.
-import { StreamPlayer } from './stream-player.js';
-import { rejoin } from './listener.js';
+// Where the tape plays, in the Studio: the status strip across the top of the
+// bar and the banner other devices show while a phone has it, rendered over
+// the engine's one StreamPlayer (engine.output).
 import { barBeat } from './geometry.js';
-import { named } from '../rooms/words.js';
-import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from './out-switch.js';
+import { paintOutButtons, paintOutSheet, outDelay } from './out-switch.js';
 
-const REPLAY_MS = 30000; // play on after a loss shorter than this
 const $ = (id) => document.getElementById(id);
 
-export function initOutput({ toast, poll, transport, getTape, getGhost = () => null }) {
+export function initOutput({ engine, getTape, getGhost = () => null }) {
   let live = null;
-  let wasPlaying = false; // the tape was playing here when the stream was last fine
-  const player = new StreamPlayer({
-    onState: (s) => {
-      if (s === 'moved') toast(`${named((getTape() && getTape().name) || 'The tape')} moved to another device`, 'warn');
-      render(live);
-    },
-    onTransport: (kind) => transport(kind),
-    // The Pi stopped the tape when the stream dropped (6 s): play on from
-    // there, but only after a short blip, and only if the tape (as the first
-    // packet back stamps it) is still stopped. A late return mustn't start
-    // whatever the room is doing now.
-    onReconnect: ({ lostMs, playing }) => { if (wasPlaying && !playing && lostMs < REPLAY_MS) transport('play'); },
-    getLoop: () => { const t = getTape(); return t && t.loop; },
-    getTitle: () => (getTape() && getTape().name) || 'Tape',
-  });
-  // A suspended context needs a tap to run again: the strip's, or ▶. That ▶
-  // plays the tape if it's stopped, and never stops it (page.js shows ▶ for
-  // it, and its own handler is held back while the tape plays).
-  $('out-strip-resume').addEventListener('click', () => player.resume());
-  $('play').addEventListener('click', (e) => {
-    if (player.state !== 'locked') return;
-    player.resume();
-    if (live && (live.playing || live.count_in > 0)) e.stopImmediatePropagation();
-  }, true);
-
-  const setMode = (mode) => switchOutput(mode, { player, poll, toast });
-  // Two output buttons, one control: the header's, and the OUT pill in the
-  // phone's open player.
-  wireOutput({ choose: setMode, name: () => getTape() && getTape().name });
-  $('out-jam').addEventListener('click', () => setMode('jam'));
+  const player = engine.stream;
+  // A suspended context needs a tap to run again: the strip's, or ▶
+  // (tapeSource.press() in NowPlaying).
+  $('out-strip-resume')?.addEventListener('click', () => player?.resume());
+  $('out-jam')?.addEventListener('click', () => engine.output.setMode('jam'));
 
   const ghostNow = () => { const g = getGhost(); return g && performance.now() < g.until && getTape() && getTape().grid ? g : null; };
 
   function render(l) {
     live = l;
-    if (player.state === 'playing') wasPlaying = !!(l && l.playing);
     const mode = (l && l.output_mode) || 'jam';
     const st = (l && l.stream) || {};
-    const here = player.active;
+    const here = !!(player && player.active);
     const delay = outDelay(here ? player.delayMs() : st.delay_ms);
     paintOutButtons(l && l.output_mode);
     paintOutSheet(mode, delay);
@@ -78,8 +48,7 @@ export function initOutput({ toast, poll, transport, getTape, getGhost = () => n
     }
   }
 
-  // This device was listening on the page before: join again.
-  rejoin(player);
+  engine.tape?.on(() => render(live));
 
-  return { render, player, streamingHere: () => player.active && !!live && live.output_mode !== 'jam' };
+  return { render, player, streamingHere: () => !!(player && player.active && live && live.output_mode !== 'jam') };
 }

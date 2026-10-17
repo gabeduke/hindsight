@@ -38,6 +38,20 @@ export function createHandoff({ carry, find, tapes, studio, takeInBar, loadTake,
   const release = () => { if (!holding) return; holding = false; showTape(); };
   if (rec) later(release, HOLD_MS);
 
+  // When the page is restored from the back-forward cache, apply any carry
+  // record left by the page we came back from (or our own pagehide) before
+  // carry.wire's pageshow listener drops it.
+  win?.addEventListener?.('pageshow', (e) => {
+    if (!e || !e.persisted) return;
+    const next = carry.read();
+    if (!next || !find) return;
+    carry.arrive(next, {
+      find,
+      stillWanted: () => true,
+      load: (entry) => loadTake(entry),
+    }).catch(() => {});
+  });
+
   // What this page writes when it is left: its take; or, with no take in the
   // bar and a record this page has not dealt with, nothing -- the record
   // stands for the next page.

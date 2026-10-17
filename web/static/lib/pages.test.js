@@ -56,20 +56,24 @@ const ELSEWHERE = {
   'takes-empty': 'the Listening Room (takes.html)',
   'all-takes': 'the Listening Room tab',
   'all-count': 'the Listening Room (takes.html)',
-  'np-start': "the tape page's own deck (#to-start)",
-  'np-back5': "the tape page's J key; a take's ↺ 5 s is the Listening Room's bar",
-  'np-play': "the tape page's own deck (#play)",
-  'np-loop': "the tape page's own deck (#loop)",
-  'np-eject': "the Listening Room's bar, which holds a take pressed on a spine",
-  'np-open': 'the Studio is the tape',
-  'np-scrub': "the tape page's own deck (#tape-overview)",
-  'np-out': "the tape page's own deck (#tape-out)",
 };
 test('everything on Capture has a way in from the Studio', () => {
-  const ids = (page) => new Set([...readFileSync(new URL(page, dir), 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+  const idsFrom = (html) => new Set([...html.replace(/<!--[\s\S]*?-->/g, '')
     .matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-  const studio = ids('tape.html');
-  const stranded = [...ids('index.html')].filter((id) => !studio.has(id) && !(id in ELSEWHERE));
+  const shell = readFileSync(new URL('shell.html', dir), 'utf8').replace(/<main id="view-room"[\s\S]*?<\/main>/, '');
+  const studio = idsFrom(shell);
+  const stranded = [...idsFrom(readFileSync(new URL('index.html', dir), 'utf8'))].filter((id) => !studio.has(id) && !(id in ELSEWHERE));
   assert.deepEqual(stranded, [], "Capture's, and nowhere in the Studio: bring them in, or say where they went");
   for (const id of Object.keys(ELSEWHERE)) assert.ok(!studio.has(id), `#${id} is in the Studio now: take it off the list`);
 });
+
+// The shell puts #np inside #np-dock in every room (Phase 1, step 4), so both
+// rooms share one bar at .np-dock > .np and the dock sticks at the foot.
+test('the Listening Room’s bar sits in .np-dock > .np, as the Studio’s does', () => {
+  const shell = readFileSync(new URL('shell.html', dir), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  assert.match(shell, /<div id="np-dock" class="np-dock">[\s\S]*?<section id="np" class="np"/, 'shell.html wraps #np in #np-dock');
+  const css = readFileSync(new URL('styles.css', dir), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(css, /\.np-dock\s*\{[^}]*position:\s*sticky;\s*bottom:\s*0/, '.np-dock is sticky at bottom: 0');
+  assert.doesNotMatch(css, /(?:main-page|shelf-page|room-on|selecting)[^,{]*>\s*\.np\b/, 'no room selector assumes body > .np');
+});
+

@@ -56,6 +56,7 @@ export function takeSource(t, player, { onGone } = {}) {
     audio.currentTime = Math.max(0, Math.min(length - 1, frame)) / sr;
     fire();
   };
+  const toggle = () => (typeof player.toggle === 'function' ? player.toggle() : (audio.paused ? audio.play() : audio.pause()));
   return {
     kind: 'take',
     name: t.name,
@@ -67,8 +68,8 @@ export function takeSource(t, player, { onGone } = {}) {
     pos,
     playing,
     canPlay: () => true,
-    play: () => { if (audio.paused) player.toggle(); },
-    pause: () => { if (!audio.paused) player.toggle(); },
+    play: () => { if (audio.paused) toggle(); },
+    pause: () => { if (!audio.paused) toggle(); },
     seek,
     // |◂: back to In, or to the start.
     start: () => (region ? region.start : 0),

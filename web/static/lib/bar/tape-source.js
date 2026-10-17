@@ -26,6 +26,7 @@ const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
   let id = loadedId;
   let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true, holdUntil = 0, ticks = 0;
+  let del = null, levels = null;
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
 
@@ -33,9 +34,9 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     const g = ++gen;
     try {
       const res = await fetch(`/api/tapes/state?id=${encodeURIComponent(id)}`, { cache: 'no-store' });
-      if (!res.ok || g !== gen) return;
+      if (!res.ok || g !== gen || del) return;
       const s = await res.json();
-      if (g !== gen) return;
+      if (g !== gen || del) return;
       t = s.tape;
       // Another device loaded another tape: follow it.
       if (!s.loaded) { follow(); return; }
@@ -52,13 +53,13 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
   }
   const tick = () => {
     if (stopped) return;
-    // While it's in the bar and the page is in view; out of the bar, now
-    // and then, for where it plays.
+    // While it's in the bar and the page is in view (unless the Studio's own
+    // 200 ms poll is feeding it); out of the bar, now and then, for where it plays.
     ticks++;
-    if (!document.hidden && (active || ticks % AWAY_EVERY === 0)) poll();
+    if (!document.hidden && !del && (active || ticks % AWAY_EVERY === 0)) poll();
     timer = setTimeout(tick, POLL_MS);
   };
-  const onVisible = () => { if (active && !document.hidden) poll(); };
+  const onVisible = () => { if (active && !del && !document.hidden) poll(); };
   document.addEventListener('visibilitychange', onVisible);
   tick();
 
@@ -74,7 +75,7 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     } catch (e) {
       onError?.(e.message);
     }
-    setTimeout(poll, 150);
+    if (!del) setTimeout(poll, 150);
   }
 
   const sr = () => (t ? t.sample_rate : 48000);
@@ -87,21 +88,26 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     const md = mixdown();
     return fresh() && (!!(live && (live.playing || counting())) || !!(md && (md.state === 'playing' || md.state === 'tail')));
   };
-  // Where the tape is now: the last poll's, run on at its rate while it
-  // plays -- round the loop at its Out, as the tape does.
+  // On this phone: its sound held back until a tap, or on its way.
+  const here = () => { const p = stream(); return p && p.active ? p : null; };
+  // Where the tape is now: when streaming here, what this device hears; else
+  // the last poll's, run on at its rate while it plays -- round the loop at
+  // its Out, as the tape does.
   const pos = () => {
     if (!live || !t) return 0;
+    if (live.output_mode !== 'jam') {
+      const h = here()?.heard?.();
+      if (h) return h.pos;
+    }
     let p = live.heard;
     if (live.playing && !counting() && fresh()) {
       p += Math.min(AHEAD_S, (performance.now() - at) / 1000) * sr();
       const { in: a, out: b, on } = t.loop;
-      if (on && b > a && live.heard < b && p >= b) p = a + (p - b);
+      if (on && b > a && live.heard < b && p >= b) p = a + ((p - a) % (b - a));
     }
     return Math.min(p, t.length);
   };
   const loopable = () => !!(t && t.loop.out > t.loop.in);
-  // On this phone: its sound held back until a tap, or on its way.
-  const here = () => { const p = stream(); return p && p.active ? p : null; };
   const waiting = () => here()?.state === 'locked';
   const streamNote = () => {
     const p = here();
@@ -124,6 +130,7 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     playing,
     // ▶ needs a device to play out of; the Pi refuses it otherwise.
     canPlay: () => !!(live && live.output),
+    canStart: () => !!live,
     waiting,
     // ▶ while the sound waits for a tap: the tap wakes it, and starts the
     // tape if it's stopped -- it never stops what it's waking.
@@ -133,11 +140,15 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
       if (!playing()) this.play();
       return true;
     },
-    play: () => send('/api/tapes/transport', 'POST', { action: 'play' }),
-    pause: () => send('/api/tapes/transport', 'POST', { action: 'stop' }),
+    play: () => (del?.play ? del.play() : send('/api/tapes/transport', 'POST', { action: 'play' })),
+    pause: () => (del?.stop ? del.stop() : send('/api/tapes/transport', 'POST', { action: 'stop' })),
     seek(frame) {
       if (!t) return;
       const p = Math.max(0, Math.min(t.length, Math.round(frame)));
+      if (del?.locate) {
+        if (live) { live = { ...live, heard: p }; at = performance.now(); fire(); }
+        return del.locate(p);
+      }
       // Shown at once and held a moment; a poll already on its way with
       // the old place is dropped.
       gen++;
@@ -150,18 +161,34 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     startLabel: () => (t && t.loop.on && loopable() ? 'Back to the loop’s start' : 'Back to the top of the tape'),
     step: () => (t && t.grid ? t.grid.frames / t.grid.bars : sr()),
     get loop() { return !!(t && t.loop.on); },
+    loopSpec: () => (t ? t.loop : null),
     canLoop: loopable,
-    setLoop(on) { send('/api/tapes', 'PATCH', { loop: { on } }); },
+    setLoop(on) {
+      if (del?.setLoop) return del.setLoop(on);
+      send('/api/tapes', 'PATCH', { loop: { on } });
+    },
     tick() {},
     // The bar holding a take instead: no polling until it's back.
-    setActive(on) { active = on; if (on) poll(); },
+    setActive(on) { active = on; if (on && !del) poll(); },
     lcd: () => {
       const c = t ? tapeCounter(t, live ? { ...live, heard: pos() } : null, mixdown()) : { big: '', small: '', note: '', status: 'stop', unit: '' };
       const n = streamNote();
       return n ? { ...c, note: n } : c;
     },
     marquee: () => (t ? tapeMarquee(t, live) : 'THE TAPE'),
-    levels: null,
+    get levels() { return levels; },
+    setLevels(colors, atFn) {
+      levels = colors && atFn ? { colors, at: atFn } : null;
+    },
+    ingest({ tape: nextTape, live: nextLive } = {}) {
+      if (nextTape) { t = nextTape; id = nextTape.id || id; }
+      if (nextLive !== undefined) { live = nextLive; at = performance.now(); }
+      fire();
+    },
+    delegate(d = null) {
+      del = d;
+      if (d) gen++;
+    },
     out: () => OUT_NAMES[(live && live.output_mode) || 'jam'],
     // Where it plays, for the header's output button: null before the Pi
     // says, or from one that doesn't.
@@ -169,7 +196,7 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     // How late a phone hears it, as the Pi measured it.
     streamDelayMs: () => (live && live.stream && live.stream.delay_ms) || 0,
     /** refresh asks the Pi now, after a change made elsewhere. */
-    refresh: () => poll(),
+    refresh: () => (del?.poll ? del.poll() : poll()),
     paint(ctx, W, H, col) {
       if (!t) { ctx.clearRect(0, 0, W, H); return; }
       paintTapeOverview(ctx, W, H, t, live ? pos() : null, { col });

@@ -35,10 +35,8 @@ import { SECTION_NAMES, SECTION_COLORS, colorOf, sectionHit, newName, isLooped, 
 import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNumber } from './timeedit.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { ReelWindow } from '../objects/reel-window.js';
 import { Loop } from '../objects/motion.js';
-import { tapeCounter, tapeMarquee } from '../objects/lcd.js';
-import { initPlayer } from '../bar/player.js';
+import { createEngine } from '../bar/engine.js';
 import { initNav } from '../nav.js';
 import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
@@ -58,10 +56,6 @@ import { say, named } from '../rooms/words.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
-// The Studio's bar is the tape's and never takes a take: this page neither
-// reads the hand-off nor writes it, so the Listening Room, back, finds its
-// take (lib/bar/carry.js).
-studioVisit(pageCarry());
 
 const state = {
   id: '',           // the tape shown (the loaded one)
@@ -159,10 +153,21 @@ const q = () => `id=${encodeURIComponent(state.id)}`;
 // --- loading ------------------------------------------------------------------
 
 let awayTrack = null; // the record track while Overdub on this device is open
+let viewCtx = null;
+const viewActive = () => !viewCtx || viewCtx.active();
 
-async function boot() {
-  initHelp({ page: 'tape', toast });
-  initNav();
+export function mountTapePage(ctx = null) {
+  viewCtx = ctx;
+  // The Studio's bar is the tape's and never takes a take: this page neither
+  // reads the hand-off nor writes it, so the Listening Room, back, finds its
+  // take (lib/bar/carry.js).
+  studioVisit(pageCarry());
+  initBouncing();
+  initEditorBar();
+  if (!ctx) {
+    initHelp({ page: 'tape', toast });
+    initNav();
+  }
   initAway({
     button: $('away'),
     sheet: $('away-sheet'),
@@ -189,34 +194,84 @@ async function boot() {
       if (output && output.streamingHere() && state.live && state.live.output_mode === 'phone') transport('stop');
     },
   });
-  output = initOutput({ toast, poll, transport, getTape: () => state.tape, getGhost: () => ghost });
-  let list;
-  try {
-    list = await api('/api/tapes');
-  } catch (e) {
-    if (e.status === 404) { $('tape-off').hidden = false; return; }
-    toast(`Could not reach the tape: ${e.message}`, 'bad');
-    return;
-  }
-  $('tape-body').hidden = false;
-  $('np-dock').hidden = false;
-  initPlayer();
-  if (!list.loaded) {
-    // No tape yet: make the first one.
-    const t = list.tapes[0] || await api('/api/tapes', { method: 'POST', body: { name: '' } });
-    await api(`/api/tapes/load?id=${encodeURIComponent(t.id)}`, { method: 'POST' });
-    state.id = t.id;
-  } else {
-    state.id = list.loaded;
-  }
-  wire();
-  await poll();
-  fetchClipboard();
-  // Back from a sleep (or the network back): the tape as the Pi has it now,
-  // at once, not at the next tick -- and a "Reconnecting…" note till it answers.
-  link = watchLink(() => { poll(true); fetchClipboard(); });
-  setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
-  setInterval(() => { if (!document.hidden) fetchClipboard(); }, 2000);
+  const ready = (async () => {
+    let list;
+    try {
+      list = await api('/api/tapes');
+    } catch (e) {
+      if (e.status === 404) { $('tape-off').hidden = false; return; }
+      toast(`Could not reach the tape: ${e.message}`, 'bad');
+      return;
+    }
+    $('tape-body').hidden = false;
+    $('np-dock').hidden = false;
+    if (!list.loaded) {
+      // No tape yet: make the first one.
+      const t = list.tapes[0] || await api('/api/tapes', { method: 'POST', body: { name: '' } });
+      await api(`/api/tapes/load?id=${encodeURIComponent(t.id)}`, { method: 'POST' });
+      state.id = t.id;
+    } else {
+      state.id = list.loaded;
+    }
+    if (ctx && ctx.engine) {
+      engine = ctx.engine;
+      engine.setTapes?.({ loaded: state.id });
+    } else {
+      engine = createEngine({ tapes: { loaded: state.id }, onToast: toast });
+    }
+    engine.tape.delegate({
+      play: () => transport('play'),
+      stop: () => transport('stop'),
+      locate: (pos) => transport('locate', { pos }),
+      setLoop: (on) => patch({ loop: { on } }),
+      poll: () => poll(),
+    });
+    output = initOutput({ engine, getTape: () => state.tape, getGhost: () => ghost });
+    wire();
+    await poll();
+    fetchClipboard();
+    // Back from a sleep (or the network back): the tape as the Pi has it now,
+    // at once, not at the next tick -- and a "Reconnecting…" note till it answers.
+    if (ctx) {
+      link = ctx.link || link;
+      ctx.on(window, 'online', () => { poll(true); fetchClipboard(); });
+      ctx.on(window, 'pageshow', (e) => { if (e.persisted) { poll(true); fetchClipboard(); } });
+      ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { poll(true); fetchClipboard(); } });
+      ctx.every(() => { if (!document.hidden) poll(); }, POLL_MS);
+      ctx.every(() => { if (!document.hidden) fetchClipboard(); }, 2000);
+    } else {
+      link = watchLink(() => { poll(true); fetchClipboard(); });
+      setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+      setInterval(() => { if (!document.hidden) fetchClipboard(); }, 2000);
+    }
+  })();
+  return {
+    ready,
+    show() {
+      studioVisit(pageCarry());
+      if (state.id) {
+        poll(true);
+        fetchClipboard();
+      }
+      if (state.tape) {
+        render();
+        feedReels();
+        if (state.live && state.live.playing && !(state.live.count_in > 0)) playheadLoop.start();
+      }
+    },
+    hide() {
+      if (bar) bar.commit();
+      closeSheets();
+      renderAlign();
+      letGo();
+      letGoRange();
+      if ($('jam-only')?.open) $('jam-only').close();
+      if ($('away-sheet')?.open) $('away-sheet').close();
+      if (state.preview) showPreview(null);
+      downs.clear();
+      state.pinch = false;
+    },
+  };
 }
 
 // gen counts this page's changes, bumped as each is sent and again as its
@@ -365,7 +420,7 @@ function apply(s) {
   tracePunch();
   render();
   feedReels();
-  if (state.live && state.live.playing && !(state.live.count_in > 0)) playheadLoop.start();
+  if (viewActive() && state.live && state.live.playing && !(state.live.count_in > 0)) playheadLoop.start();
 }
 
 // heardNow interpolates the tape playhead at 60fps between 200ms network polls
@@ -391,14 +446,8 @@ function heardNow(now = performance.now()) {
 
 const playheadLoop = new Loop((_dt, now) => {
   const t = state.tape, live = state.live;
-  if (!t || !live || !live.playing || live.count_in > 0 || document.hidden) return false;
+  if (!viewActive() || !t || !live || !live.playing || live.count_in > 0 || document.hidden) return false;
   const h = heardNow(now);
-  const md = live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
-  const lcd = tapeCounter(t, { ...live, heard: h }, md);
-  setText($('position'), lcd.big);
-  setText($('np-mini'), lcd.big);
-  setText($('np-time'), lcd.small);
-  setText($('np-unit'), lcd.unit);
   followPlayhead(h);
   drawLanes(h);
   drawOverview(h);
@@ -406,10 +455,10 @@ const playheadLoop = new Loop((_dt, now) => {
   return true;
 });
 
-// feedReels hands the bar's reel window what this poll said: where the tape
+// feedReels hands the bar's tape source what this poll said: where the tape
 // is, whether it plays, and how to read each track's level at a frame for
 // the LCD's level bars.
-let reels = null;
+let engine = null;
 let output = null;
 let ghost = null; // a locate seen but not yet heard, { pos, until }
 const pending = new Pending();
@@ -438,21 +487,15 @@ function jamOnly() {
 }
 function feedReels() {
   const t = state.tape, live = state.live;
-  if (!t) return;
-  reels ??= new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
+  if (!t || !engine?.tape) return;
   const tracks = heardTracks();
   const anySolo = tracks.some((tr) => tr.solo);
   const peaksOf = (f) => peaks.get(f);
   const css = getComputedStyle(document.body);
   const col = (n, d) => css.getPropertyValue(n).trim() || d;
-  reels.setLevels(tracks.map((tr) => trackColor(tr.n, col)),
+  engine.tape.setLevels(tracks.map((tr) => trackColor(tr.n, col)),
     (frame) => tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)));
-  reels.poll({
-    heard: live ? heardNow() : 0,
-    playing: !!(live && live.playing && !(live.count_in > 0)),
-    length: t.length,
-    sampleRate: t.sample_rate,
-  });
+  engine.tape.ingest({ tape: t, live });
 }
 
 // laneView is the span of tape the lanes and the ruler show: where a pinch,
@@ -525,7 +568,8 @@ function render() {
   renderClipBar();
   $('tape-name-text').textContent = t.name;
   $('tape-name').title = `${t.name}: switch tape`;
-  document.title = `${t.name} — tape — Hindsight`;
+  if (viewCtx) viewCtx.setTitle(`${t.name} — tape — Hindsight`);
+  else if (viewActive()) document.title = `${t.name} — tape — Hindsight`;
   // The tempo, and the loop in bars (the grid's own until the ruler moves
   // it).
   let sub = 'no tempo yet', short = '–', full = 'No tempo yet';
@@ -563,36 +607,12 @@ function render() {
 
   const md = live && live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
   const mixing = !!(md && (md.state === 'playing' || md.state === 'tail'));
-  // Through a mixdown's tail too: ■ there cancels it.
-  const playing = !!(live && (live.playing || live.count_in > 0)) || mixing;
-  // On this phone with its sound held back for a tap: ▶ is that tap
-  // (output-ui.js), and never stops the tape.
-  const waiting = !!(output && output.player.state === 'locked');
-  const shown = playing && !waiting;
-  $('play').textContent = shown ? '■' : '▶';
-  $('play').setAttribute('aria-label', waiting ? 'Play here' : shown ? 'Stop' : 'Play');
-  $('play').classList.toggle('playing', shown);
-  $('play').disabled = (!live || !live.output) && !waiting;
-  $('loop').setAttribute('aria-pressed', String(!!t.loop.on));
-  $('loop').disabled = !(t.loop.out > t.loop.in);
   const counting = !!(live && live.count_in > 0);
-  // The bar's LCD: the position (or what's happening instead), the time, the
-  // lamp, and the line that names what's loaded.
-  const lcd = tapeCounter(t, live, md);
-  setText($('position'), lcd.big);
-  setText($('np-mini'), lcd.big);
-  setText($('np-time'), lcd.small);
-  setText($('np-unit'), lcd.unit);
-  setIf($('np-status'), 'data-state', lcd.status);
-  // A message's details hold still where the marquee scrolls.
-  setText($('np-marquee'), lcd.note || tapeMarquee(t, live));
-  $('np-marquee').parentElement.classList.toggle('still', !!lcd.note);
+  engine?.tape?.ingest({ tape: t, live });
   const ov = $('tape-overview');
   setIf(ov, 'aria-valuemax', String(t.length));
   setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
   setIf(ov, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
-  $('to-start').disabled = !live;
-  setIf($('to-start'), 'aria-label', t.loop.on && t.loop.out > t.loop.in ? 'Back to the loop’s start' : 'Back to the top of the tape');
   // Rec: armed (waiting for ▶), counting in, or recording.
   const rec = live && live.record;
   const rb = $('rec');
@@ -685,6 +705,7 @@ function renderMode() {
 // a fetch already in flight with the old one is dropped.
 let cbGen = 0;
 async function fetchClipboard() {
+  if (!state.id) return;
   const g = cbGen;
   let c = null, err = '';
   try {
@@ -750,15 +771,17 @@ function renderClock(c, t) {
 // BOUNCE (lib/rooms/bounce.js): the two Mix down items are Bounce the loop /
 // Bounce the whole tape -- the same buttons, the same request -- the toast
 // has ▶ and Open, and Last bounce raises it again.
-const bouncing = (() => {
+let bouncing = null;
+function initBouncing() {
+  if (bouncing) return;
   const menu = bounceMenu(document);
-  if (!menu) return null;
+  if (!menu) return;
   // Last bounce is the loaded tape's: the keeper drops another tape's the
   // moment the tape differs, and asks the Pi as the menu opens (a bounce may
   // have been made from another device).
   const tapeNow = () => (state.tape ? { id: state.id, name: state.tape.name } : null);
-  return { menu, player: takePlayer({ toast }), keeper: lastBounceKeeper({ menu, tapeNow }) };
-})();
+  bouncing = { menu, player: takePlayer({ toast }), keeper: lastBounceKeeper({ menu, tapeNow }) };
+}
 
 // mixdown plays the loop (or, with all, the whole tape) once and saves what
 // the mixer put out as a take; live.mixdown follows it.
@@ -1096,6 +1119,7 @@ function wireTimeEdits() {
   // The lanes are drawn again at once, so the press that let it go hits the
   // clips as they are, not as the preview drew them.
   document.addEventListener('pointerdown', (e) => {
+    if (!viewActive()) return;
     if (state.preview && state.preview.armed && !e.target.closest?.('.confirming')) {
       showPreview(null);
       drawLanes();
@@ -1319,7 +1343,7 @@ function rangeTab(H) {
 }
 // The pointers down on the page: a range is one finger's.
 const downs = new Set();
-for (const ev of ['pointerdown']) window.addEventListener(ev, (e) => downs.add(e.pointerId), true);
+for (const ev of ['pointerdown']) window.addEventListener(ev, (e) => { if (viewActive()) downs.add(e.pointerId); }, true);
 for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, (e) => downs.delete(e.pointerId), true);
 
 // barsOfClips makes the bars the selected clips cover, on their tracks, the
@@ -1734,8 +1758,8 @@ function wireLane(lane) {
   cv.addEventListener('touchmove', (e) => { if (gest.held || gripHeld() || (rd && rd.held)) e.preventDefault(); }, { passive: false });
   // On the window, so a press let go off the lane (a mouse dragged out of it
   // before the hold) ends there too, and its hold doesn't start a slide.
-  window.addEventListener('pointerup', (e) => { rangeUp(e, true); end(gest.up(pt(e))); });
-  window.addEventListener('pointercancel', (e) => { rangeUp(e, false); end(gest.cancel(pt(e))); });
+  window.addEventListener('pointerup', (e) => { if (!viewActive()) return; rangeUp(e, true); end(gest.up(pt(e))); }, lanesAbort ? { signal: lanesAbort.signal } : undefined);
+  window.addEventListener('pointercancel', (e) => { if (!viewActive()) return; rangeUp(e, false); end(gest.cancel(pt(e))); }, lanesAbort ? { signal: lanesAbort.signal } : undefined);
   cv.addEventListener('lostpointercapture', (e) => { rangeUp(e, true); end(gest.lost(pt(e))); });
 }
 
@@ -1930,7 +1954,7 @@ function closeAlign() {
   renderAlign();
   drawLanes();
   // The editor's keys are gone; keyboard focus goes back to the transport.
-  if (inside) $('play').focus({ preventScroll: true });
+  if (inside) $('np-play')?.focus({ preventScroll: true });
 }
 
 function renderAlign() {
@@ -2067,32 +2091,36 @@ async function alignPlay() {
 }
 
 // The editor bar, one for the page: its listeners live as long as it does.
-const bar = new EditorBar({
-  els: { zoom: $('ce-zoom'), pos: $('ce-pos'), back: $('ce-back'), fwd: $('ce-fwd'), step: $('ce-step') },
-  host: {
-    active: () => !!state.align,
-    frame: alignPoint,
-    land: (f) => {
-      const h = alignHome();
-      return alignLand(h.clip, state.align.at, state.align.hitOff, f, state.tape.length, state.tape.sample_rate).point;
+let bar = null;
+function initEditorBar() {
+  if (bar) return;
+  bar = new EditorBar({
+    els: { zoom: $('ce-zoom'), pos: $('ce-pos'), back: $('ce-back'), fwd: $('ce-fwd'), step: $('ce-step') },
+    host: {
+      active: () => viewActive() && !!state.align,
+      frame: alignPoint,
+      land: (f) => {
+        const h = alignHome();
+        return alignLand(h.clip, state.align.at, state.align.hitOff, f, state.tape.length, state.tape.sample_rate).point;
+      },
+      place: (f, save) => {
+        const h = alignHome();
+        const a = state.align;
+        a.at = alignLand(h.clip, a.at, a.hitOff, f, state.tape.length, state.tape.sample_rate).at;
+        // Against the last slide sent while any are on their way, so a move
+        // back to the stored at is still sent.
+        if (save && a.at !== (a.saving ? a.sent : h.clip.at)) saveAlign(h.clip.id, a.at);
+        alignFollow();
+      },
+      fpp: alignFpp,
+      width: () => laneWidth(),
+      follow: alignFollow,
+      get sampleRate() { return state.tape ? state.tape.sample_rate : 48000; },
+      render: () => { renderAlign(); redrawView(); },
+      readout: renderAlign,
     },
-    place: (f, save) => {
-      const h = alignHome();
-      const a = state.align;
-      a.at = alignLand(h.clip, a.at, a.hitOff, f, state.tape.length, state.tape.sample_rate).at;
-      // Against the last slide sent while any are on their way, so a move
-      // back to the stored at is still sent.
-      if (save && a.at !== (a.saving ? a.sent : h.clip.at)) saveAlign(h.clip.id, a.at);
-      alignFollow();
-    },
-    fpp: alignFpp,
-    width: () => laneWidth(),
-    follow: alignFollow,
-    get sampleRate() { return state.tape ? state.tape.sample_rate : 48000; },
-    render: () => { renderAlign(); redrawView(); },
-    readout: renderAlign,
-  },
-});
+  });
+}
 
 // --- the ruler -----------------------------------------------------------------
 
@@ -2441,7 +2469,7 @@ function redrawView() {
 }
 
 // Canvases don't restyle themselves when the device turns dark or light.
-onSchemeChange(redrawView);
+onSchemeChange(() => { if (viewActive() && state.tape) redrawView(); });
 
 function renderFit() { $('view-fit').hidden = !state.zoom; }
 
@@ -2480,7 +2508,7 @@ function wireOverview() {
     if (e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
-      if (!e.repeat) $('play').click();
+      if (!e.repeat) $('np-play').click();
       return;
     }
     if (state.align || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
@@ -2748,11 +2776,14 @@ function renderPasses() {
 
 // One row per track: a header and a lane.
 const lanes = [];
+let lanesAbort = null;
 function buildLanes() {
   const box = $('lanes');
   const t = state.tape;
   if (lanes.length !== t.tracks.length) {
     if (inputMenu) closeMenus(); // its chip is going
+    lanesAbort?.abort();
+    lanesAbort = new AbortController();
     box.replaceChildren();
     lanes.length = 0;
     for (const tr of t.tracks) {
@@ -3972,7 +4003,7 @@ function wireInspector() {
     addEventListener('pointerup', let_);
     addEventListener('pointercancel', let_);
   }
-  document.addEventListener('pointerdown', (e) => { if (!e.target.closest?.('dialog.inspector')) pressedOutside = performance.now(); }, true);
+  document.addEventListener('pointerdown', (e) => { if (viewActive() && !e.target.closest?.('dialog.inspector')) pressedOutside = performance.now(); }, true);
   for (const id of INSPECTORS) {
     const sh = $(id);
     sh.addEventListener('focusout', (e) => {
@@ -4329,24 +4360,18 @@ function wire() {
   $('jam-only-close').addEventListener('click', () => $('jam-only').close());
   $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('out-btn').click(); });
   $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('out-btn').click(); });
-  $('play').addEventListener('click', () => transport($('play').classList.contains('playing') ? 'stop' : 'play'));
   // Play mode's Space (lib/play): exactly ▶, disabled when ▶ is.
-  document.addEventListener('hindsight:play-transport', () => $('play').click());
+  document.addEventListener('hindsight:play-transport', () => { if (viewActive()) $('np-play').click(); });
   // The Studio's buffer (lib/buffer) changed the clipboard: the range's Paste
   // and Insert follow it now, not at the next fetch. And it dropped onto the
   // tape: show that now too.
   document.addEventListener('hindsight:clipboard', () => fetchClipboard());
-  document.addEventListener('hindsight:tape-changed', () => poll(true));
+  document.addEventListener('hindsight:tape-changed', () => { if (viewActive()) poll(true); });
   // Toasts and tips rise over the dock: its height, the action bar included.
   new ResizeObserver(() => {
+    if (!viewActive()) return;
     document.body.style.setProperty('--dock-h', `${Math.round($('np-dock').getBoundingClientRect().height)}px`);
   }).observe($('np-dock'));
-  // |◂: to the loop's start while looping, else to the top of the tape.
-  $('to-start').addEventListener('click', () => {
-    const t = state.tape;
-    if (!t) return;
-    transport('locate', { pos: t.loop.on && t.loop.out > t.loop.in ? t.loop.in : 0 });
-  });
   $('rec').addEventListener('click', rec);
   $('click').addEventListener('click', () => patch({ click: !state.tape.click }));
   $('tap').addEventListener('click', tap);
@@ -4394,7 +4419,6 @@ function wire() {
   wireRuler();
   wireSections();
   wireOverview();
-  $('loop').addEventListener('click', () => patch({ loop: { on: !state.tape.loop.on } }));
   $('tape-undo').addEventListener('click', () => undoRedo(false));
   $('tape-redo').addEventListener('click', () => undoRedo(true));
   $('catch-pass').addEventListener('click', onCatchKey);
@@ -4412,11 +4436,12 @@ function wire() {
   $('tape-name').addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
   $('tape-more').addEventListener('click', (e) => { e.stopPropagation(); openActions(); });
   document.addEventListener('click', (e) => {
+    if (!viewActive()) return;
     if (!MENUS.some(([m]) => $(m).contains(e.target)) && !$('input-menu').contains(e.target)) closeMenus();
   });
   // The input menu sits by its chip: when the page moves under it, it goes.
-  window.addEventListener('scroll', (e) => { if (inputMenu && !$('input-menu').contains(e.target)) closeInputMenu(); }, { capture: true, passive: true });
-  window.addEventListener('resize', closeInputMenu);
+  window.addEventListener('scroll', (e) => { if (viewActive() && inputMenu && !$('input-menu').contains(e.target)) closeInputMenu(); }, { capture: true, passive: true });
+  window.addEventListener('resize', () => { if (viewActive()) closeInputMenu(); });
   // ↑ ↓ Home End move along its items; Tab leaves it, closed, from its chip.
   $('input-menu').addEventListener('keydown', (e) => {
     if (e.key === 'Tab') { closeInputMenu(); return; }
@@ -4428,6 +4453,7 @@ function wire() {
     items[k].focus();
   });
   document.addEventListener('keydown', (e) => {
+    if (!viewActive()) return;
     // Escape closes an open menu and nothing else.
     const menuWasOpen = e.key === 'Escape' && menusOpen();
     if (e.key === 'Escape') closeMenus();
@@ -4527,7 +4553,7 @@ function wire() {
         return;
       }
     }
-    if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('play').click(); }
+    if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex], input:not([type=range])')) { e.preventDefault(); $('np-play').click(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
     // which track catches go onto. Not under a dialog or a menu, and not on
     // a held key's repeats, which would toggle Rec or the loop over and over.
@@ -4543,11 +4569,8 @@ function wire() {
     };
     switch (e.code) {
       case 'KeyR': press('rec'); break;
-      case 'KeyL': press('loop'); break;
+      case 'KeyL': press('np-loop'); break;
       case CLICK_KEY: press('click'); break;
-      // Back five seconds, as ↺ 5 s does on a take.
-      // From what this device hears: on a phone playing here, behind the Pi.
-      case 'KeyJ': if (!e.repeat) transport('locate', { pos: Math.max(0, (state.live ? state.live.heard : 0) - 5 * state.tape.sample_rate) }); break;
       // S splits the one selected clip, as the action bar's Split does; with
       // none, the selected track at the playhead.
       case 'KeyS':
@@ -4702,7 +4725,7 @@ function wire() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') bar.commit(); });
   window.addEventListener('pagehide', () => bar.commit());
   // The lanes and the bar's scrubber change width apart: each redraws all three.
-  const ro = new ResizeObserver(() => { drawLanes(); drawOverview(); drawRuler(); drawSections(); });
+  const ro = new ResizeObserver(() => { if (!viewActive() || !state.tape) return; drawLanes(); drawOverview(); drawRuler(); drawSections(); });
   ro.observe($('lanes'));
   ro.observe($('tape-overview'));
   ro.observe($('tape-sections'));
@@ -4720,7 +4743,7 @@ function wire() {
         if (folded) sessionStorage.setItem(FOLD_KEY, '1');
         else sessionStorage.removeItem(FOLD_KEY);
       } catch { /* private mode */ }
-      if (!folded) { drawLanes(); drawOverview(); drawRuler(); drawSections(); }
+      if (!folded && viewActive() && state.tape) { drawLanes(); drawOverview(); drawRuler(); drawSections(); }
     };
     try {
       if (sessionStorage.getItem(FOLD_KEY) === '1') applyTracksFold(true);
@@ -4730,9 +4753,7 @@ function wire() {
     });
     // Auto-unfold when a buffer DROP or edit modifies the tape so the landed part is visible.
     document.addEventListener('hindsight:tape-changed', () => {
-      if (document.body.classList.contains('tracks-fold')) applyTracksFold(false);
+      if (viewActive() && document.body.classList.contains('tracks-fold')) applyTracksFold(false);
     });
   }
 }
-
-boot();

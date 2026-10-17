@@ -81,6 +81,7 @@ export class Ribbon {
     this.data = null;
     this.dataSpans = null; // the spans this.data was actually fetched with
     this.timer = null;
+    this.paused = false;
     this._seq = 0; // monotonic guard against out-of-order poll responses
 
     wrap.textContent = '';
@@ -118,7 +119,7 @@ export class Ribbon {
     this.readout = add(wrap, 'p', 'rb-readout');
     this.readout.textContent = 'connecting';
 
-    this._onVis = () => (document.hidden ? this.stop() : this.start());
+    this._onVis = () => (document.hidden || this.paused ? this.stop() : this.start());
     document.addEventListener('visibilitychange', this._onVis);
     if (!document.hidden) this.start();
 
@@ -308,7 +309,7 @@ export class Ribbon {
   }
 
   start() {
-    if (this.timer) return;
+    if (this.timer || this.paused) return;
     this.timer = setInterval(() => this.poll(), POLL_MS);
     this.poll();
   }
@@ -316,6 +317,16 @@ export class Ribbon {
   stop() {
     clearInterval(this.timer);
     this.timer = null;
+  }
+
+  pause() {
+    this.paused = true;
+    this.stop();
+  }
+
+  resume() {
+    this.paused = false;
+    if (!document.hidden) this.start();
   }
 
   destroy() {
@@ -327,6 +338,7 @@ export class Ribbon {
   }
 
   async poll() {
+    if (this.paused) return;
     const spans = this.spans.slice(); // the spans this request actually asks for
     const w = Math.round(this.wrap.clientWidth) || 340;
     const n = Math.min(MAX_BUCKETS, Math.max(60, w));

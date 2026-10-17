@@ -15,7 +15,7 @@ test('the Studio is loaded and mounted on the page', async () => {
 // The page itself: the feed and its foot are templates that studio.js
 // clones, so the tape page as served has none of Capture's parts outside
 // them.
-const tape = readFileSync(new URL('../../tape.html', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+const tape = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
 const live = tape.replace(/<template\b[\s\S]*?<\/template>/g, '');
 const templates = [...tape.matchAll(/<template id="([^"]+)">([\s\S]*?)<\/template>/g)].map((m) => [m[1], m[2]]);
 const inTemplate = (id) => templates.find(([t]) => t === id)?.[1] || '';
@@ -38,8 +38,11 @@ test("the Studio's templates carry the feed, KEEP, the input diagnostic and its 
 });
 
 test('the tape page loads the Studio through mount.js', () => {
-  assert.ok(live.includes('<script type="module" src="/lib/rooms/mount.js"></script>'));
+  const studioViewSrc = readFileSync(new URL('../shell/views/studio.js', import.meta.url), 'utf8');
+  assert.ok(live.includes('<script type="module" src="/lib/shell/boot.js"></script>'));
+  assert.match(studioViewSrc, /from '\.\.\/\.\.\/rooms\/mount\.js'/);
   assert.ok(!live.includes('/lib/rooms/studio.js'), 'studio.js is loaded by mount.js, never by the page');
+  assert.ok(!studioViewSrc.includes('rooms/studio.js'), 'studio.js is loaded by mount.js, never by the view');
 });
 
 // The Studio and the tape page share a page but import nothing of each

@@ -271,7 +271,7 @@ test('↵ is DROP, but a button Tab brought the focus to keeps it; a clicked one
   bindKeyboard(s, { target: t, win: null, now: () => 0, onCommand: (c) => cmds.push(c), has: () => true });
   const button = (id = '') => {
     const b = { tagName: 'BUTTON', id };
-    b.closest = (sel) => (sel === 'button:not(#play)' && id !== 'play' ? b : null);
+    b.closest = (sel) => (sel === 'button:not(#np-play)' && id !== 'np-play' ? b : null);
     return b;
   };
   const loop = button();
@@ -287,7 +287,7 @@ test('↵ is DROP, but a button Tab brought the focus to keeps it; a clicked one
   t.send('keydown', { code: 'Enter', target: rec });
   assert.deepEqual(cmds, ['drop']);
   // ▶, however it was focused, never keeps it.
-  const play = button('play');
+  const play = button('np-play');
   t.send('keydown', { code: 'Tab', target: { tagName: 'BODY', closest: () => null } });
   t.send('focusin', { target: play });
   t.send('keydown', { code: 'Enter', target: play });

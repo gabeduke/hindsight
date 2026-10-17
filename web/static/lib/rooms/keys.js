@@ -14,9 +14,10 @@ import { STUDIO_KEYS } from '../play/controls.js';
  * the buffer's (whose K, while it's open, is KEEP AS TAKE: it prevents the
  * default, and this leaves it), and ahead of the tape page's own.
  */
-export function bindStudioKeys(doc) {
+export function bindStudioKeys(doc, { active = () => true } = {}) {
   const own = new Map(STUDIO_KEYS.filter((k) => k.action !== 'click').map((k) => [k.code, k.action]));
   const down = (e) => {
+    if (!active()) return;
     const verb = own.get(e.code);
     if (!verb || e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     if (blocked(e, doc)) return;
