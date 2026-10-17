@@ -401,3 +401,36 @@ Each has a recommendation and the alternative.
 - Which kits run with `TAPE=true` (the brother's, the brother-in-law's). This sets how urgent step 7 is.
 - How Play mode's strip (`lib/play`, behind its own flag) behaves when the Studio hides while it is open. It owns the keyboard while open (`docs/development.md`, "Play mode"). The audit in Spike B covers it. It was not run here.
 - Whether a navigation accepts the SW's redirected `/index.html` fallback offline today.
+
+## Amendments from the spikes (2026-10-17)
+
+From [spike B](2026-10-17-phase1-spike-b-audit.md) and
+[spikes D, E, F](2026-10-17-phase1-spikes-d-e-f.md). These override the steps
+above where they differ.
+
+- **Step 1:** the engine sets `#np[data-source]` from the start, so tests and
+  CSS can key on it.
+- **Step 4 (the bar in the dock):** make `.np-dock` sticky, rewrite the 19
+  `body > .np` selectors, add no wrapper elements (`#np-dock-view` and
+  `.np-studio` both break existing selectors), and add an "is the bar on
+  screen" check at 1400x900 and 1024x768.
+- **Section 5 (acceptance):** the scrubber is rounded to 0.1 s, so "monotonic,
+  no stall" per 50 ms step fails as written. Assert drift against wall time
+  instead (`performance.now`), read through CDP with `userGesture:false`
+  (`page.evaluate` counts as a tap and unlocks autoplay). Use
+  `page.reload()`/`page.goto()` for the refused-autoplay checks; Chromium
+  carries activation across same-origin navigations. The sampler is in the
+  spike doc.
+- **Steps 6a/6b:** `connectLive` closes on `pagehide` and reopens on
+  `pageshow` (its open socket blocks the back-forward cache for the Studio).
+  Decide what a restored shell does with the carry: apply it, not drop it.
+  Add a bfcache smoke flow.
+- **Order constraint (spike B):** unify the player and the two stream players
+  (step 5b) before mounting both rooms (6a); hidden views must stop their polls,
+  key handlers, MIDI and 60 fps loops first.
+- **Decisions (the user's, 2026-10-17, defaults until told otherwise):** the
+  wake lock is held while the tape plays or a recording runs, in either room;
+  leaving the Studio during a recording shows a REC chip with a Stop in the
+  header, never a refusal.
+- **Existing bug to fix on the way:** `rooms/studio.js:368` asks for
+  `/api/preview`, which 404s, so a take carried into the Studio is silent today.
