@@ -41,3 +41,6 @@ design/buffer-ribbon.html
 
 # SDD controller workspace — ledger, briefs, review packages
 /.superpowers/
+
+# Enclosure exports: rebuilt by `make` in kit/enclosure, printed from the local copy
+/kit/enclosure/out/

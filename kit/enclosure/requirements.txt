@@ -1,0 +1,5 @@
+# Python 3.12 (OCP, build123d's OpenCascade binding, has no 3.14 wheels yet)
+build123d==0.13.0
+pyvista==0.49.0
+trimesh==5.1.1
+scipy==1.18.1
