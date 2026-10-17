@@ -275,12 +275,8 @@ export function startStrip({
     // The page gives the instrument room while it's unfolded (styles.css,
     // "Rooms P3"): a shorter feed, no sections row.
     doc.body.classList.toggle('play-unfolded', open);
-    if (open) {
-      // One drawer at a time: the crate folds away for the instrument.
-      const crateKey = doc.getElementById('np-drawer-crate');
-      if (crateKey?.getAttribute('aria-expanded') === 'true') crateKey.click();
-      fetchControls();
-    } else if (learning) setLearning(false);
+    if (open) fetchControls();
+    else if (learning) setLearning(false);
     paintKeys();
     wake();
   }
@@ -296,11 +292,6 @@ export function startStrip({
     if (e.target.closest?.('main, .tape-main') && !given) { given = true; paintKeys(); }
   };
   doc.addEventListener('pointerdown', onDown, true);
-  // The crate opening folds the instrument: one drawer at a time.
-  const crate = doc.getElementById('drawer-crate');
-  const crateWatch = crate && typeof MutationObserver === 'function'
-    ? new MutationObserver(() => { if (open && crate.classList.contains('open')) setOpen(false); }) : null;
-  crateWatch?.observe(crate, { attributes: true, attributeFilter: ['class'] });
 
   // --- the strip and the buffer take turns ----------------------------------------
   // The buffer asks for the floor when it's brought forward (a GRAB from the
@@ -520,7 +511,6 @@ export function startStrip({
       midiIn?.close();
       clearInterval(poll);
       clearInterval(leadTimer);
-      crateWatch?.disconnect();
       doc.removeEventListener('pointerdown', onDown, true);
       doc.removeEventListener('hindsight:bench-forward', onForward);
       doc.removeEventListener('click', onPeekTap, true);

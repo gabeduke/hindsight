@@ -626,23 +626,17 @@ test('every tape formula label reads, selected or not', () => {
   assert.ok(contrast(token(chosen, 'color'), token(chosen, 'background')) >= 4.5, 'the selected formula');
 });
 
-// Settings is the only way into Settings anywhere in the app (the about line
-// on Capture, and the Studio's foot), so it is drawn as a button with a real
-// target, not as the line's 12px link: at least 40px tall, a size up from the
-// line, and its own rule so Releases and Update keep the link look.
-test('the Settings button is a button-sized target, not a link in the line', () => {
-  const m = /\.about #settings-btn\s*\{([^}]*)\}/.exec(css);
-  assert.ok(m, 'a rule for .about #settings-btn');
+// Settings is the only way into Settings anywhere in the app (the header's,
+// on every page), so it is drawn as a button with a real target, an edge and
+// no underline, never as a link's weight in a line.
+test('the header’s Settings is a button-sized target', () => {
+  const m = /\.appbar \.appbar-end > \.appbar-btn\s*\{([^}]*)\}/.exec(css);
+  assert.ok(m, 'a rule for the header’s buttons');
   const body = m[1];
-  const px = (prop) => {
-    const d = new RegExp(`(?:^|[;\\s])${prop}:\\s*(\\d+)px`).exec(body);
-    assert.ok(d, `${prop} in px`);
-    return +d[1];
-  };
-  assert.ok(px('min-height') >= 40, 'at least 40px tall');
-  assert.ok(px('font-size') >= 14, 'a size up from the 12px line');
-  assert.match(body, /border:\s*1px solid var\(--line\)/, 'it has an edge, so it reads as a button');
-  assert.match(body, /text-decoration:\s*none/, 'and is not underlined like a link');
+  const d = /(?:^|[;\s])min-height:\s*(\d+)px/.exec(body);
+  assert.ok(d && +d[1] >= 36, 'at least 36px tall');
+  assert.match(body, /text-decoration:\s*none/, 'not underlined like a link');
+  assert.match(readFileSync(new URL('./nav.js', import.meta.url), 'utf8'), /set\.className = 'icon-btn appbar-btn appbar-settings-btn'/, 'an icon-btn, so it has the keys’ edge');
 });
 
 // A phone showed "Fri, Oct 16, 11:2…": the date sat on the tag's line and
@@ -676,11 +670,15 @@ test('the guide can be narrower than its widest table', () => {
   assert.match(phone, /\.guide-page \.guide tr[^{]*\{[^}]*display:\s*block/);
 });
 
-// On a touch screen the foot's Releases and Update are a finger tall without
-// the line growing (they measured 29px), by a hit area past their words.
-test('Releases and Update reach a finger on a touch screen', () => {
-  const coarse = [...bare.matchAll(/@media \(pointer: coarse\)/g)].map((m) => block(m.index, bare)).join('\n');
-  for (const id of ['releases-btn', 'update-btn']) {
-    assert.match(coarse, new RegExp(`\\.about #${id}::after[^{]*\\{[^}]*inset:`), id);
+// On a phone the Settings sheet's Releases and the guide are the only way to
+// either (the header hides its own there), so each is a finger tall without
+// the line growing: padding past their words, given back by a margin.
+test('the Settings sheet’s Releases and guide reach a finger', () => {
+  for (const cls of ['settings-releases', 'settings-guide']) {
+    const m = new RegExp(`\\.settings-about \\.${cls}\\s*\\{([^}]*)\\}`).exec(css);
+    assert.ok(m, cls);
+    const pad = /padding:\s*(\d+)px/.exec(m[1]);
+    assert.ok(pad && +pad[1] >= 10, `${cls}: 10px of padding above and below its words`);
+    assert.match(m[1], /margin:\s*-(\d+)px/, `${cls}: given back, so the line does not grow`);
   }
 });
