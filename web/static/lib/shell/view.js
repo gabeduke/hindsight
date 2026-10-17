@@ -101,15 +101,16 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *                each time the view is shown -- the first show, right after
  *                mount, included, so a view does not call it itself first --
  *                and once when the document becomes visible again while the
- *                view is shown. An error or a rejected promise from fn is
- *                reported, not thrown.
+ *                view is shown. One registered during mount or show does
+ *                not tick before that first run. An error or a rejected
+ *                promise from fn is reported, not thrown.
  *   loop(fn) -> { start(), stop(), running }
  *                A Loop (objects/motion.js) on the shared ticker. start()
  *                steps fn(dt, now) every frame until it returns false, as a
  *                Loop does. While the view is hidden the loop is parked; one
  *                that was running when the view was hidden, or was started
- *                while hidden, starts again when the view is shown. One that
- *                parked itself (returned false) stays parked.
+ *                while hidden or during mount, starts when the view is up.
+ *                One that parked itself (returned false) stays parked.
  *   signal       an AbortSignal, aborted by destroy() and by a mount that
  *                throws: for fetches, and for listeners on the view's own
  *                elements
@@ -285,7 +286,9 @@ export function createView(def, {
     if (typeof fn !== 'function') throw new TypeError('every needs a function');
     const p = { fn, ms: Math.max(0, Number(ms) || 0), id: null };
     polls.add(p);
-    if (shown) arm(p);
+    // Not while mount or show is still under way: the poll's first run is
+    // right after them, and no tick comes before it.
+    if (state === 'shown') arm(p);
     return () => { disarm(p); polls.delete(p); };
   }
 
@@ -300,8 +303,9 @@ export function createView(def, {
     }, clock);
     loops.add(entry);
     return {
-      // A destroyed or failed view is never shown again, so its loops never start.
-      start() { entry.wanted = true; if (shown) entry.loop.start(); },
+      // Started during mount or show, it runs once they are done. A destroyed
+      // or failed view is never shown again, so its loops never start.
+      start() { entry.wanted = true; if (state === 'shown') entry.loop.start(); },
       stop() { entry.wanted = false; entry.loop.stop(); },
       get running() { return entry.loop.running; },
     };

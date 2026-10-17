@@ -295,6 +295,29 @@ test('a loop that parked itself stays parked on show; one started while hidden w
   assert.equal(b.running, false, 'stopped by the view: stays stopped');
 });
 
+test('a poll and a loop started during a mount that waits do not run until the view is up', async () => {
+  let release;
+  const later = new Promise((r) => { release = r; });
+  let polls = 0;
+  let steps = 0;
+  const t = withCtx(async (ctx) => {
+    ctx.every(() => { polls++; }, 1000);
+    ctx.loop(() => { steps++; }).start();
+    await later; // the rest of the room is still being built
+  });
+  const up = t.v.show();
+  await tick();
+  t.timers.advance(3000);
+  t.clock.frame();
+  assert.equal(polls, 0, 'no poll into a half-built room');
+  assert.equal(steps, 0);
+  release();
+  await up;
+  assert.equal(polls, 1, 'its first run is right after mount and show');
+  t.clock.frame();
+  assert.equal(steps, 1);
+});
+
 test('ctx.active is true only while the view is shown and the document is visible', async () => {
   const t = withCtx();
   await t.v.show();
