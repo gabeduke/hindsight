@@ -421,11 +421,12 @@ export function mount(h) {
     const latest = bt ? [...(bt.flags || [])].filter((f) => f.label).sort((a, b) => b.frame - a.frame)[0] : null;
     bookPlace.replaceChildren(
       el('span', 'room-book-word', { text: 'Sketchbook' }),
-      el('span', 'room-book-latest', { text: d && d.kind === 'tape' ? `${(d.tape.name || 'the tape')}` : latest ? `${fmtAt(latest.frame, bt.sample_rate || 48000)} · ${latest.label}` : bt ? 'no notes yet' : 'nothing in the bar' }),
+      el('span', 'room-book-latest', { text: d && d.kind === 'tape' ? 'notes are for takes' : latest ? `${fmtAt(latest.frame, bt.sample_rate || 48000)} · ${latest.label}` : bt ? 'no notes yet' : 'nothing in the bar' }),
       el('span', 'room-book-n', { 'aria-hidden': 'true', text: String(notes) }));
-    bookPlace.setAttribute('aria-label', d
-      ? `Open the sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${d.kind === 'take' ? spineTitle(d.take) : d.tape.name}`
-      : 'Sketchbook: nothing in the bar to write about yet');
+    bookPlace.setAttribute('aria-label', d && d.kind === 'take'
+      ? `Open the sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${spineTitle(d.take)}`
+      : d ? 'Sketchbook: notes are for takes; pick a take from the shelf'
+        : 'Sketchbook: nothing in the bar to write about yet');
     renderDock(d, w);
   }
   h.np?.onChange?.(renderPlaces);
@@ -624,7 +625,14 @@ export function mount(h) {
     else location.href = w.href;
   }
   deckPlace.addEventListener('click', openBar);
-  bookPlace.addEventListener('click', openBar);
+  // The sketchbook is the notes on a take. With the tape (or nothing) in the
+  // bar there is nothing to write on, so it never leaves the room: it points
+  // at the shelf, as the deck does when it is empty.
+  bookPlace.addEventListener('click', () => {
+    const d = inBar();
+    if (d && d.kind === 'take') openBar();
+    else focusShelf('.room-shelf-takes');
+  });
 
   h.onChange(() => { render(); renderPlaces(); });
   h.onSelected(() => { tagging.sync(); syncSpines(); });

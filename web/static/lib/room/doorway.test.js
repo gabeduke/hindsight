@@ -299,10 +299,11 @@ test('the sketchbook strip says Open in its name, as the deck and the dock do, a
   assert.doesNotMatch(e.q('.room-book-place').getAttribute('aria-label'), /^Open/, 'nothing in the bar: nothing to open');
 });
 
-test('the sketchbook’s route for a tape is the Studio too, not the chair’s tape page', async () => {
+test('the sketchbook never takes you to the Studio: with the tape in the bar it stays in the room', async () => {
   const t = await room({ tapes: TAPES });
   click(t.q('.room-book-place'));
-  assert.deepEqual(t.w.navigated, ['/tape.html']);
+  assert.deepEqual(t.w.navigated, [], 'no navigation');
+  assert.doesNotMatch(t.q('.room-book-place').getAttribute('aria-label'), /^Open/);
 });
 
 // --- the List's rows and the select bar ----------------------------------------------
