@@ -189,11 +189,9 @@ func main() {
 		// draws it from the Sidekick's profile, by the Sidekick's USB id.
 		srvAPI.SetRigUSB(func(string) string { return "2367:9420" })
 	}
-	if cfg.Tape {
-		if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
-			srvAPI.SetTape(eng)
-			stops = append(stops, eng.Stop)
-		}
+	if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
+		srvAPI.SetTape(eng)
+		stops = append(stops, eng.Stop)
 	}
 	// Only now does the API hear the controllers: their messages arrive on
 	// the MIDI readers' goroutines and read the tape engine SetTape just

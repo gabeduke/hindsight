@@ -58,7 +58,7 @@ func (a *API) SetTape(e *tape.Engine) { a.tape = e }
 
 func (a *API) tapeOff(w http.ResponseWriter) bool {
 	if a.tape == nil {
-		writeErr(w, http.StatusNotFound, "the tape is off (set TAPE=true)")
+		writeErr(w, http.StatusNotFound, "the tape is off (its store would not open; see the log)")
 		return true
 	}
 	return false

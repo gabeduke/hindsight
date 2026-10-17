@@ -1080,7 +1080,7 @@ or a bad one; 404 naming the first take that isn't there.
 
 ## The tape: `/api/tapes…`
 
-Every tape route answers 404 when the tape is off (`TAPE` unset). One tape is
+Every tape route answers 404 when the tape is off (its store would not open). One tape is
 *loaded*: the one the transport plays and catches go onto. Routes name their
 tape with `?id=`. Every change except delete and clone is made to the loaded
 tape only, and any other id is refused with 409, so a page that's out of date

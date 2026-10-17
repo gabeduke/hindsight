@@ -135,7 +135,6 @@ func LoadFrom(get func(string) string) (*Config, error) {
 		MIDIRingEvents:   envInt(get, "MIDI_RING_EVENTS", 1_000_000),
 		MIDILatencyMS:    envFloat(get, "MIDI_LATENCY_MS", 0),
 		MIDISnapBars:     envBool(get, "MIDI_SNAP_BARS", true),
-		Tape:             envBool(get, "TAPE", false),
 		TapeDir:          env(get, "TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
 		TapeTracks:       envInt(get, "TAPE_TRACKS", 4),
 		TapeLengthS:      envInt(get, "TAPE_LENGTH_S", 1200),

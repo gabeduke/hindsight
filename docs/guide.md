@@ -866,7 +866,7 @@ Step 6 comes in parts:
 Step 7 comes in two: **7a** is editing (lift, copy, split, join, slide,
 multiply and merge drop), and **7b** is mixdown and export.
 
-Turn the tape on with `TAPE=true` ([configuration](configuration.md#the-tape)).
+The tape is always on ([configuration](configuration.md#the-tape)).
 Every page's header then has a **Tape** tab beside Capture and Takes.
 
 ### 8.1 Plug in

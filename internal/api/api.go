@@ -67,7 +67,7 @@ type API struct {
 	// zero means defaultPhoneGrace. Tests shorten it.
 	phoneGrace time.Duration
 
-	// tape is the tape engine, or nil with TAPE off.
+	// tape is the tape engine, or nil if its store would not open.
 	tape *tape.Engine
 	// playHolds counts who holds each of Play mode's pads (play.go), and
 	// playFake stands in for the engine there in tests.

@@ -4,10 +4,10 @@
 //
 //   npm install --no-save playwright@1.49.0 && npx playwright install chromium
 //
-//   # one demo with a tape (TAPE=true), one without (the Studio is Capture there);
+//   # one demo with a tape, one without (a TAPE_DIR that can't open, so the Studio is Capture there);
 //   # always give them their own TAPE_DIR / OUTPUT_DIR / SETTINGS_FILE:
-//   RING_SECONDS=120 OUTPUT_DIR=… TAPE_DIR=… SETTINGS_FILE=… PORT=15733 TAPE=true go run ./cmd/hindsight --demo
-//   RING_SECONDS=120 OUTPUT_DIR=… SETTINGS_FILE=… PORT=15734 go run ./cmd/hindsight --demo
+//   RING_SECONDS=120 OUTPUT_DIR=… TAPE_DIR=… SETTINGS_FILE=… PORT=15733 go run ./cmd/hindsight --demo
+//   RING_SECONDS=120 OUTPUT_DIR=… TAPE_DIR=/dev/null/none SETTINGS_FILE=… PORT=15734 go run ./cmd/hindsight --demo
 //   HINDSIGHT_URL=http://127.0.0.1:15733 HINDSIGHT_URL_NOTAPE=http://127.0.0.1:15734 \
 //     node scripts/smoke-carry.mjs [refuse] [shots=<dir>]
 //

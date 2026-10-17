@@ -278,14 +278,13 @@ with it as the clock device that is the normal case.
 
 ## The tape
 
-The tape ([guide §8](guide.md#8-tape)) is off unless `TAPE=true`. When it's
-on, the main page shows a **Tape** chip. A tape store that won't open is
-logged and the tape left off, and an output that won't open leaves the tape
-running without one; neither can stop the dashcam recording.
+The tape ([guide §8](guide.md#8-tape)) is always on, and the main page shows a **Tape** chip. A tape store that
+won't open is logged and the tape left off, and an output that won't open
+leaves the tape running without one; neither can stop the dashcam recording.
+(`TAPE=true` was once needed; it is ignored now.)
 
 | Variable | Default | What it does |
 |---|---|---|
-| `TAPE` | `false` | Turn the tape on |
 | `TAPE_DIR` | `~/hindsight/tapes` | Where tapes and their audio live. Put it on the same disk as `OUTPUT_DIR`; `MIN_FREE_GB` guards it as it guards takes |
 | `TAPE_TRACKS` | `4` | Tracks a new tape has (1–16) |
 | `TAPE_LENGTH_S` | `1200` | How long a track can be, in seconds: 20 minutes. A limit, not a reservation: nothing is allocated for it. A tape made under a shorter setting takes the new length when it's loaded. See below for what long clips cost in RAM |

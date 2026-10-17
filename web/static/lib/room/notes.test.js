@@ -84,7 +84,7 @@ test('a take’s GRAB over a buffer nobody used leaves the Studio a line to say,
 });
 
 test('a refused copy says why, and goes nowhere', async () => {
-  const fetchImpl = async () => ({ ok: false, status: 404, json: async () => ({ error: 'the tape is off (set TAPE=true)' }) });
+  const fetchImpl = async () => ({ ok: false, status: 404, json: async () => ({ error: 'the tape is off (its store would not open; see the log)' }) });
   await assert.rejects(sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl }), /the tape is off/);
 });
 

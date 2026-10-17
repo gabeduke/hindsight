@@ -77,8 +77,6 @@ var Settings = []Setting{
 	{Key: "TAPE_CONTROLLER", Group: "MIDI", Label: "Plays the tape", Kind: "text", Default: "",
 		Help: "Comma-separated names of controllers whose keys play Play mode's pads and verbs, from the Pi"},
 
-	{Key: "TAPE", Group: "Tape", Label: "Tape", Kind: "bool", Default: "false",
-		Help: "The four-track tape, played out through the interface"},
 	{Key: "TAPE_TRACKS", Group: "Tape", Label: "Tracks", Kind: "int", Min: 1, Max: 16, Default: "4",
 		Help: "Tracks a new tape has"},
 	{Key: "TAPE_LENGTH_S", Group: "Tape", Label: "Track length", Kind: "int", Min: 10, Max: 7200, Unit: "s", Default: "1200",

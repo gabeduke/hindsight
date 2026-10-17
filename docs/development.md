@@ -53,7 +53,7 @@ key "on the controller" is bytes written into the FIFO:
 ```bash
 mkdir -p /tmp/hs/snd && mkfifo /tmp/hs/snd/midiC3D0
 printf ' 3 [SMK37          ]: USB-Audio - SMK-37\n                      M-VAVE SMK-37\n' > /tmp/hs/cards
-TAPE=true TAPE_CONTROLLER=smk HINDSIGHT_DEMO_CARDS=/tmp/hs/cards HINDSIGHT_DEMO_SND_DIR=/tmp/hs/snd \
+TAPE_CONTROLLER=smk HINDSIGHT_DEMO_CARDS=/tmp/hs/cards HINDSIGHT_DEMO_SND_DIR=/tmp/hs/snd \
   RING_SECONDS=120 PORT=5173 CGO_ENABLED=0 go run ./cmd/hindsight --demo &
 exec 3>/tmp/hs/snd/midiC3D0        # the controller plugged in
 printf '\x99\x28\x64' >&3          # a pad on channel 10, E2: BREAK held
@@ -342,7 +342,7 @@ in the rooms sends it. The room's colours are materials, in
 Caveat, from `@fontsource/caveat` 5.2.8 on the npm registry (latin 500 and
 700), in `fonts/` with its licence.
 
-To try it with something on every shelf, run the demo with `TAPE=true`,
+To try it with something on every shelf, run the demo,
 KEEP a few takes, bounce a short tape from the Studio's ⋯ for a take on a
 tape's spine, and give a take an older `created` in its `.meta.json` to fill
 a month's box in the archive.

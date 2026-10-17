@@ -425,7 +425,7 @@ without starting ffmpeg if its client goes away first.
 
 ## The tape
 
-`internal/tape`, behind `TAPE=true`. The design is
+`internal/tape`. The design is
 [the tape spec](superpowers/specs/2026-10-03-tape-design.md); this is how
 steps 6a (the engine) and 6b (playing it through the Sidekick) are built.
 
