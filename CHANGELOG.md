@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.11 — 2026-10-17
+
+- Enable direct waveform editor navigation from the deck and unify edit curves (#148) (c85cc8a)
+
+
 ## v2026.10.17.10 — 2026-10-17
 
 - Align Studio feed ribbon and VU meters with tape swimlanes (#147) (aeb4b5d)
