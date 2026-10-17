@@ -4107,8 +4107,8 @@ input, select, textarea { color-scheme: inherit; }
 @media (min-width: 1400px) { .studio-feed { --lane-head: 200px; } }
 @media (min-width: 700px) {
   .studio-feed {
-    grid-template-columns: var(--lane-head) minmax(0, 1fr) auto;
-    grid-template-areas: "head head head" "vu ribbon ribbon" "keys keys keys" "sel sel sel";
+    grid-template-columns: var(--lane-head) 1fr;
+    grid-template-areas: "head head" "vu ribbon" "keys keys" "sel sel";
     column-gap: 6px; padding-inline: 0;
   }
   .studio-feed > .studio-feed-head, .studio-feed > .studio-keys, .studio-feed > .rb-sel { margin-inline: 14px; }
@@ -4116,8 +4116,9 @@ input, select, textarea { color-scheme: inherit; }
   .studio-feed > .vu-row .vu { flex: 1 1 0; width: auto; }
 }
 @media (min-width: 1100px) {
-  .studio-feed { grid-template-areas: "head head keys" "vu ribbon ribbon" "sel sel sel"; }
+  .studio-feed { grid-template-areas: "head keys" "vu ribbon" "sel sel"; }
   .studio-feed > .studio-feed-head { margin-right: 0; }
+  .studio-feed > .studio-keys { margin-left: 0; justify-content: flex-end; }
 }
 .studio-keys > .seg { flex: 0 1 auto; min-width: 0; }
 .studio-keys > .seg button { padding: 0 10px; }
