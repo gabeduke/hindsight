@@ -335,7 +335,11 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 		log.Printf("[!] tape off: %v", err)
 		return nil
 	}
-	sources, err := tape.ParseSources(cfg.TapeSources, cfg.Channels)
+	spec := cfg.TapeSources
+	if spec == tape.DefaultSourcesSpec {
+		spec = tape.FitSources(spec, cfg.Channels) // nobody chose: use what this interface has
+	}
+	sources, err := tape.ParseSources(spec, cfg.Channels)
 	if err != nil {
 		log.Printf("[!] tape off: %v", err)
 		return nil

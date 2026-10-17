@@ -42,3 +42,26 @@ func ParseSources(s string, channels int) ([]Source, error) {
 	}
 	return out, nil
 }
+
+// DefaultSourcesSpec is TAPE_SOURCES until someone sets it: the Sidekick's four
+// pairs. An interface with fewer channels keeps the pairs that fit (FitSources).
+const DefaultSourcesSpec = "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"
+
+// FitSources drops the sources of s that name a channel beyond the
+// interface's, so the default works on a two-channel Scarlett as it does on
+// the Sidekick. A source that is malformed is kept, for ParseSources to name.
+func FitSources(s string, channels int) string {
+	var keep []string
+	for _, f := range strings.Fields(s) {
+		_, rest, _ := strings.Cut(f, "=")
+		pair, _, _ := strings.Cut(rest, ":")
+		l, r, _ := strings.Cut(pair, ",")
+		a, errA := strconv.Atoi(strings.TrimSpace(l))
+		b, errB := strconv.Atoi(strings.TrimSpace(r))
+		if errA == nil && errB == nil && (a > channels || b > channels) {
+			continue
+		}
+		keep = append(keep, f)
+	}
+	return strings.Join(keep, " ")
+}
