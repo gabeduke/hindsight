@@ -386,7 +386,7 @@ test('every script under web/static parses as the kind it is loaded as (a redecl
 
 test('every inline <script> in a page parses as its type says', async () => {
   const blocks = pages().flatMap((p) => inlineScripts(readFileSync(p, 'utf8')).map((b) => ({ ...b, page: relative(root, p) })));
-  assert.ok(blocks.length > 5 && blocks.some((b) => b.kind === 'module') && blocks.some((b) => b.kind === 'classic'), `found ${blocks.length} inline scripts`);
+  assert.ok(blocks.length >= 3 && blocks.some((b) => b.kind === 'module') && blocks.some((b) => b.kind === 'classic'), `found ${blocks.length} inline scripts`);
   const errors = (await inPool(blocks, 8, async (b) => {
     const e = await syntaxError(b.source, b.kind);
     return e ? `${b.page}:${b.line}${b.id ? ` #${b.id}` : ''} (${b.kind}): ${e}` : '';

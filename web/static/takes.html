@@ -3,10 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- The two rooms are the only layout: lib/nav.js rewrites the header's
-     three tabs as two, and until it has the switch stays out of sight
-     (styles.css, Rooms P1), so the old tabs never paint. -->
-<script id="rooms-early">document.documentElement.dataset.rooms = '';</script>
 <title>Takes — Hindsight</title>
 <meta name="theme-color" content="#e4e3dd" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#141516" media="(prefers-color-scheme: dark)">
@@ -29,12 +25,11 @@
      page keeps only the latest; this is where the rest live. -->
 <header class="appbar">
   <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=3" alt=""><b>Hindsight</b></a>
-  <!-- The switch between the three pages; on a phone, tabs along the
+  <!-- The switch between the two rooms; on a phone, tabs along the
        bottom (lib/nav.js keeps it true). -->
   <nav class="appnav" aria-label="Pages">
-    <a href="/" data-tab="capture" data-tip="nav-capture"><span class="appnav-lamp" aria-hidden="true"></span>Capture</a>
-    <a href="/takes.html" data-tab="takes" data-tip="nav-takes" aria-current="page"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
-    <a href="/tape.html" data-tab="tape" data-tip="nav-tape"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
+    <a href="/" data-tab="studio" data-tip="nav-studio"><span class="appnav-lamp" aria-hidden="true"></span>Studio</a>
+    <a href="/takes.html" data-tab="room" data-tip="nav-room" aria-current="page"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Listening Room</a>
   </nav>
   <!-- Where the tape plays (lib/tape/out-switch.js): a speaker, headphones or
        both, and the place's name on a wide screen. Hidden until the Pi says. -->

@@ -4,8 +4,7 @@
 // calls it makes, and stand-ins for fetch, storage and location.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initNav, roomTabs, tapeAnswer } from './nav.js';
-import { tipFor } from './help/tips.js';
+import { initNav, tapeAnswer } from './nav.js';
 
 const kebab = (k) => k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 class Text {
@@ -50,9 +49,8 @@ class El {
 // The tape page's switch, as tape.html ships it.
 function page() {
   const nav = new El('nav', { class: 'appnav' }, [
-    new El('a', { href: '/', 'data-tab': 'capture', 'data-tip': 'nav-capture' }, [new El('span', { class: 'appnav-lamp' }), 'Capture']),
-    new El('a', { href: '/takes.html', 'data-tab': 'takes', 'data-tip': 'nav-takes' }, [new El('svg', { class: 'appnav-ico' }), 'Takes']),
-    new El('a', { href: '/tape.html', 'data-tab': 'tape', 'data-tip': 'nav-tape', 'aria-current': 'page' }, [new El('svg', { class: 'appnav-ico' }), 'Tape']),
+    new El('a', { href: '/tape.html', 'data-tab': 'studio', 'data-tip': 'nav-studio', 'aria-current': 'page' }, [new El('span', { class: 'appnav-lamp' }), 'Studio']),
+    new El('a', { href: '/takes.html', 'data-tab': 'room', 'data-tip': 'nav-room' }, [new El('svg', { class: 'appnav-ico' }), 'Listening Room']),
   ]);
   const body = new El('body', {}, [new El('header', {}, [nav])]);
   return { nav, doc: { hidden: false, querySelector: (s) => body.querySelector(s) } };
@@ -65,14 +63,13 @@ function storage(init = {}) {
 
 // The Pi: /api/tapes answers `tapes` (a status, or 'down' for no answer);
 // /api/status says the ring is recording.
-function env({ path = '/tape.html', tapes = 200, cache = {}, rooms = false } = {}) {
+function env({ path = '/tape.html', tapes = 200, cache = {} } = {}) {
   const went = [];
   return {
     went,
     localStorage: storage(cache),
     location: { pathname: path, replace: (u) => went.push(u) },
     setInterval: () => 0,
-    rooms,
     fetch: async (url) => {
       if (url === '/api/tapes') {
         if (tapes === 'down') throw new TypeError('Failed to fetch');
@@ -101,24 +98,24 @@ test('a 2xx: the tape is on, and kept so', async () => {
   assert.deepEqual(await initNav(doc, e), { loaded: 't1', tapes: [] });
   await settle();
   assert.equal(e.localStorage.getItem('hindsight.tapeOn'), 'true');
-  assert.deepEqual(shown(nav), ['capture /', 'takes /takes.html', 'tape* /tape.html']);
+  assert.deepEqual(shown(nav), ['studio* /tape.html', 'room /takes.html']);
   assert.deepEqual(e.went, []);
 });
 
-test('a 404: the tape is off, kept so, and its tab goes', async () => {
+test('a 404: the tape is off, kept so, and the Studio is `/`', async () => {
   const { nav, doc } = page();
   const e = env({ path: '/takes.html', tapes: 404, cache: { 'hindsight.tapeOn': 'true' } });
   assert.equal(await initNav(doc, e), null);
   await settle();
   assert.equal(e.localStorage.getItem('hindsight.tapeOn'), 'false');
-  assert.deepEqual(shown(nav), ['capture /', 'takes* /takes.html']);
+  assert.deepEqual(shown(nav), ['studio /', 'room* /takes.html']);
 });
 
 test('a 500, or no answer at all, changes nothing that was known', async () => {
   for (const tapes of [500, 503, 'down']) {
     for (const cached of ['true', 'false', null]) {
       const { nav, doc } = page();
-      const e = env({ path: '/tape.html', tapes, cache: cached === null ? {} : { 'hindsight.tapeOn': cached }, rooms: true });
+      const e = env({ path: '/tape.html', tapes, cache: cached === null ? {} : { 'hindsight.tapeOn': cached } });
       await initNav(doc, e); await settle();
       assert.equal(e.localStorage.getItem('hindsight.tapeOn'), cached, `${tapes} with ${cached} cached`);
       assert.deepEqual(e.went, [], `${tapes} moves no page`);
@@ -128,45 +125,23 @@ test('a 500, or no answer at all, changes nothing that was known', async () => {
   }
 });
 
-test('with the rooms on, a clear answer puts a stale page right', async () => {
+test('a clear answer puts a stale page right', async () => {
   let { doc } = page();
-  let e = env({ path: '/tape.html', tapes: 404, rooms: true, cache: { 'hindsight.tapeOn': 'true' } });
+  let e = env({ path: '/tape.html', tapes: 404, cache: { 'hindsight.tapeOn': 'true' } });
   await initNav(doc, e); await settle();
   assert.deepEqual(e.went, ['/']);
   ({ doc } = page());
-  e = env({ path: '/', tapes: 200, rooms: true, cache: { 'hindsight.tapeOn': 'false' } });
+  e = env({ path: '/', tapes: 200, cache: { 'hindsight.tapeOn': 'false' } });
   await initNav(doc, e); await settle();
   assert.deepEqual(e.went, ['/tape.html']);
 });
 
-test('with the rooms off, the switch is the three tabs it always was', async () => {
-  const { nav, doc } = page();
-  await initNav(doc, env({ rooms: false })); await settle();
-  assert.deepEqual(nav.querySelectorAll('a[data-tab]').map((a) => a.textContent), ['Capture', 'Takes', 'Tape']);
-  assert.equal(nav.classList.contains('appnav-rooms'), false);
-  assert.equal(nav.querySelector('a[data-tab="capture"]').title, '', 'nothing retitled');
-});
-
-test('roomTabs: Capture becomes the Studio with its lamp, Takes the Listening Room, and Tape goes', () => {
-  const { nav } = page();
-  roomTabs(nav);
-  const tabs = nav.querySelectorAll('a[data-tab]');
-  assert.deepEqual(tabs.map((a) => [a.dataset.tab, a.textContent, a.dataset.tip]),
-    [['studio', 'Studio', 'nav-studio'], ['room', 'Listening Room', 'nav-room']]);
-  assert.ok(tabs[0].querySelector('.appnav-lamp'), 'the Studio keeps the ring’s lamp');
-  assert.ok(tabs[1].querySelector('.appnav-ico'), 'the Listening Room keeps its icon');
-  assert.equal(tabs[0].title, tipFor('nav-studio'));
-  assert.equal(tabs[1].title, tipFor('nav-room'));
-  assert.equal(nav.querySelector('a[data-tab="tape"]'), null);
-  assert.ok(nav.classList.contains('appnav-rooms'), 'marked, so the page shows it');
-});
-
-test('with the rooms on, initNav draws the two tabs and the Studio follows the tape', async () => {
+test('initNav draws the two tabs and the Studio follows the tape', async () => {
   let { nav, doc } = page();
-  await initNav(doc, env({ path: '/tape.html', tapes: 200, rooms: true })); await settle();
+  await initNav(doc, env({ path: '/tape.html', tapes: 200 })); await settle();
   assert.deepEqual(shown(nav), ['studio* /tape.html', 'room /takes.html']);
   assert.equal(nav.querySelector('.appnav-lamp').closest('a').getAttribute('aria-label'), 'Studio, recording');
   ({ nav, doc } = page());
-  await initNav(doc, env({ path: '/wave.html', tapes: 404, rooms: true })); await settle();
+  await initNav(doc, env({ path: '/wave.html', tapes: 404 })); await settle();
   assert.deepEqual(shown(nav), ['studio /', 'room* /takes.html']);
 });

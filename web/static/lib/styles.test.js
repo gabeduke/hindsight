@@ -346,18 +346,16 @@ test('the takes search is a field, not a window', () => {
   assert.match(block(at), /background:\s*var\(--field\)/);
 });
 
-test('nothing hides the about line (or header Settings in rooms mode), which carries the only way into Settings', () => {
-  // With the rooms flag off, the Settings button lives in `.about` at Capture's
-  // foot; with the two rooms on (`:root[data-rooms]`), Settings lives in the
-  // top-right header utility cluster (`.appbar-settings-btn`) on every page.
+test('nothing hides header Settings, which is the only way into Settings', () => {
+  // Settings lives in the top-right header utility cluster
+  // (`.appbar-settings-btn`, lib/nav.js) on every page.
   const offenders = [];
-  for (const m of css.matchAll(/([^{}]*(?:\.about|\.appbar-settings-btn)[^{}]*)\{([^}]*)\}/g)) {
+  for (const m of css.matchAll(/([^{}]*\.appbar-settings-btn[^{}]*)\{([^}]*)\}/g)) {
     const selector = m[1].trim();
     const body = m[2];
     if (!/display\s*:\s*none/.test(body)) continue;
-    // `[hidden]` is the element asking to be hidden; `:root[data-rooms] .about`
-    // hides the legacy footer only when `.appbar-settings-btn` is in the header.
-    if (selector.includes('[hidden]') || selector === ':root[data-rooms] .about') continue;
+    // `[hidden]` is the element asking to be hidden.
+    if (selector.includes('[hidden]')) continue;
     offenders.push(`${selector} { ${body.trim()} }`);
   }
   assert.deepEqual(offenders, [],
@@ -365,11 +363,9 @@ test('nothing hides the about line (or header Settings in rooms mode), which car
 });
 
 test('the Studio’s rules reach only the Studio', () => {
-  // The two rooms are behind a per-device flag, but styles.css is on every
-  // page of every kit. So the Rooms P1 block may only style what the Studio's
-  // templates in tape.html put in the page: a studio- class, the about line
-  // in the tape page's body, which only the Studio puts there, or anything
-  // under :root[data-rooms], which only the flag's early script sets.
+  // styles.css is on every page. So the Rooms P1 block may only style what
+  // the Studio's templates in tape.html put in the page (a studio- class) or
+  // the tape page itself (body.tape-page), which is the Studio.
   const start = css.indexOf('/* ---------- Rooms P1:');
   assert.ok(start >= 0, 'the Rooms P1 block');
   // To the next section's header, however many dashes it has.
@@ -379,7 +375,7 @@ test('the Studio’s rules reach only the Studio', () => {
   for (const m of body.matchAll(/([^{}]+)\{/g)) {
     for (const sel of m[1].split(',').map((x) => x.trim())) {
       if (!sel || sel.startsWith('@') || /^(from|to|\d+%)$/.test(sel)) continue; // a keyframe's steps
-      if (/\.studio-[a-z0-9-]+/.test(sel) || /^body\.tape-page > \.about\b/.test(sel) || /^:root\[data-rooms\] /.test(sel)) continue;
+      if (/\.studio-[a-z0-9-]+/.test(sel) || /^body\.tape-page\b/.test(sel)) continue;
       loose.push(sel);
     }
   }
@@ -402,10 +398,10 @@ test('the Studio’s rules reach only the Studio', () => {
 });
 
 test('the Listening Room’s rules reach only the room', () => {
-  // The room is behind the rooms flag; its CSS is on every page of every
-  // kit. So the Rooms P5 block may only style what the room's modules make
-  // (a room-, chair- or book- class, or .room and .chair themselves) or the
-  // pages the room has marked (body.room-on, body.chair-on).
+  // Its CSS is on every page. So the Rooms P5 block may only style what the
+  // room's modules make (a room-, chair- or book- class, or .room and .chair
+  // themselves) or the pages the room has marked (body.room-on,
+  // body.chair-on).
   const start = css.indexOf('/* ---------- Rooms P5:');
   assert.ok(start >= 0, 'the Rooms P5 block');
   const next = css.slice(start + 1).search(/\/\* -{4,} /);

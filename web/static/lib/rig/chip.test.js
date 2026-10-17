@@ -24,8 +24,8 @@ test('the chip is in both rooms and nowhere else', () => {
   assert.equal(mountChip(untouchable, { pathname: '/rig.html', fetchFn: () => { throw new Error('fetched'); } }), null);
 });
 
-test('nav.js loads the chip only with the rooms on', () => {
+test('nav.js loads the chip on demand, never statically', () => {
   const nav = readFileSync(new URL('../nav.js', import.meta.url), 'utf8');
   assert.ok(!/^import .*rig\//m.test(nav), 'nav.js must not import the rig statically');
-  assert.match(nav, /if \(rooms\) \{[\s\S]*?import\('\.\/rig\/chip\.js'\)[\s\S]*?\n {2}\}/, 'the chip is imported inside the rooms branch');
+  assert.match(nav, /import\('\.\/rig\/chip\.js'\)/, 'the chip is imported when the nav starts');
 });

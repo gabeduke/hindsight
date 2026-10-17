@@ -137,6 +137,9 @@ test('no retired word in a rooms page’s markup, as the rooms’ pass leaves it
 test('guide.html draws docs/guide.md, which is read below instead of renamed', () => {
   assert.match(read('guide.html'), /fetch\('\/guide\.md'\)/);
   assert.match(read('guide.html'), /nav\.js/, 'its header is said, because nav.js loads the words layer');
+  // Statically: a words layer that loaded later, after the guide was drawn,
+  // would rename the guide's text as well.
+  assert.match(read('lib/nav.js'), /^import '\.\/rooms\/words\.js';$/m, 'nav.js loads the words layer as it loads');
 });
 
 // ---- 2. tips --------------------------------------------------------------

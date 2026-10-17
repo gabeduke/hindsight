@@ -1,48 +1,44 @@
 // web/static/lib/nav.js
-// The switch in every page's header: Capture, Takes, Tape. Each page ships
-// the three tabs in its HTML, so they paint before any script runs; this
-// keeps them true -- the current one marked, Tape gone when the Pi runs
-// without a tape, and Capture's lamp showing whether the ring is recording.
-//
-// With the two rooms on (lib/rooms/flag.js, this device only) the three
-// become two: STUDIO, which is the tape page with the tape on and Capture
-// with it off, and LISTENING ROOM, which is the takes and a take's page.
-// Both rooms' headers then carry the device chip, the way to the rig.
+// The switch in every page's header: the two rooms. STUDIO is the tape page
+// with the tape on and `/` with it off; LISTENING ROOM is the takes and a
+// take's page. Each page ships the two tabs in its HTML, so they paint
+// before any script runs; this keeps them true -- the current one marked,
+// the Studio's href following the tape, and its lamp showing whether the
+// feed is recording -- and gives every header its tools (Releases, Guide,
+// Settings) and the device chip, the way to the rig.
 
-import { on as roomsOn } from './rooms/flag.js';
-import { tipFor } from './help/tips.js';
+// The rooms' words (lib/rooms/words.js) say the page's own markup once, as
+// that module loads: before any page code has put text into the page. Every
+// page loads this, so every page is said; a later import would rename what
+// a page had filled in by then (the guide, a take's name).
+import './rooms/words.js';
 
 const TABS = [
-  { id: 'capture', href: '/', label: 'Capture', paths: ['/', '/index.html'] },
-  { id: 'takes', href: '/takes.html', label: 'Takes', paths: ['/takes.html', '/wave.html'] },
-  { id: 'tape', href: '/tape.html', label: 'Tape', paths: ['/tape.html'] },
-  // The two rooms. The Studio's href is the tape page's while the tape is on.
-  { id: 'studio', href: '/', tapeHref: '/tape.html', label: 'Studio', paths: ['/', '/index.html', '/tape.html'], rooms: true },
-  { id: 'room', href: '/takes.html', label: 'Listening Room', paths: ['/takes.html', '/wave.html'], rooms: true },
+  // The Studio's href is the tape page's while the tape is on.
+  { id: 'studio', href: '/', tapeHref: '/tape.html', label: 'Studio', paths: ['/', '/index.html', '/tape.html'] },
+  { id: 'room', href: '/takes.html', label: 'Listening Room', paths: ['/takes.html', '/wave.html'] },
 ];
 
 /**
  * navTabs is the switch for a page at pathname: each tab's id, href and
- * label, and whether it's the page's own. A take belongs to the takes; the
- * guide belongs to none. With the tape off there is no Tape tab. With the
- * rooms on there are two tabs instead of three.
+ * label, and whether it's the page's own. A take is in the Listening Room;
+ * the guide and the rig belong to neither.
  */
-export function navTabs(pathname, tapeOn, rooms = false) {
-  return TABS.filter((t) => !!t.rooms === !!rooms && (tapeOn || t.id !== 'tape'))
-    .map(({ id, href, tapeHref, label, paths }) => ({
-      id, href: (tapeOn && tapeHref) || href, label, current: paths.includes(pathname),
-    }));
+export function navTabs(pathname, tapeOn) {
+  return TABS.map(({ id, href, tapeHref, label, paths }) => ({
+    id, href: (tapeOn && tapeHref) || href, label, current: paths.includes(pathname),
+  }));
 }
 
 /**
  * studioRedirect says where a page should go instead, once the Pi has said
- * whether the tape is on (true, false, or null for no answer): with the
- * rooms on, the Studio is the tape page while the tape is on and Capture
- * while it's off. index.html does the first half before it draws, from the
- * answer cached last time; this catches a cache that was out of date.
+ * whether the tape is on (true, false, or null for no answer): the Studio
+ * is the tape page while the tape is on and `/` while it's off. index.html
+ * does the first half before it draws, from the answer cached last time;
+ * this catches a cache that was out of date.
  */
-export function studioRedirect(pathname, tapeOn, rooms) {
-  if (!rooms || tapeOn == null) return null;
+export function studioRedirect(pathname, tapeOn) {
+  if (tapeOn == null) return null;
   if (tapeOn && (pathname === '/' || pathname === '/index.html')) return '/tape.html';
   if (!tapeOn && pathname === '/tape.html') return '/';
   return null;
@@ -60,41 +56,9 @@ export function tapeAnswer(res) {
 }
 
 /**
- * roomTabs rewrites the page's three tabs as the two rooms: Capture's becomes
- * the Studio's and keeps its lamp (the Studio holds the feed), Takes' becomes
- * the Listening Room's and keeps its icon, and Tape's goes. The nav is then
- * marked: until it is, a page with the rooms on keeps it out of sight (the
- * early script in each page's head, and styles.css), so the three old tabs
- * never show.
- */
-export function roomTabs(nav) {
-  const relabel = (a, id, label) => {
-    // Its text, not its lamp or icon.
-    for (const n of [...a.childNodes]) if (n.nodeType === 3) n.remove();
-    a.append(label);
-    a.dataset.tab = id;
-  };
-  const studio = nav.querySelector('a[data-tab="capture"]');
-  if (studio) {
-    relabel(studio, 'studio', 'Studio');
-    studio.dataset.tip = 'nav-studio';
-    // lib/help may have titled it as Capture's tab already.
-    studio.title = tipFor('nav-studio');
-  }
-  const room = nav.querySelector('a[data-tab="takes"]');
-  if (room) {
-    relabel(room, 'room', 'Listening Room');
-    room.dataset.tip = 'nav-room';
-    room.title = tipFor('nav-room');
-  }
-  nav.querySelector('a[data-tab="tape"]')?.remove();
-  nav.classList.add('appnav-rooms');
-}
-
-/**
  * mountHeaderTools places the top-right utility cluster (.appbar-end) with
- * Releases/Version, Guide, and Settings in the header on every page when the
- * two rooms are on, and wires Settings and Releases sheets across pages.
+ * Releases/Version, Guide, and Settings in the header on every page, and
+ * wires Settings and Releases sheets across pages.
  */
 export function mountHeaderTools(doc = document) {
   if (!doc || typeof doc.createElement !== 'function') return null;
@@ -148,16 +112,11 @@ export function initNav(doc = document, env = {}) {
   const every = env.setInterval ?? globalThis.setInterval;
   const nav = doc.querySelector('.appnav');
   if (!nav) return Promise.resolve(null);
-  const rooms = env.rooms ?? roomsOn();
-  if (rooms) {
-    roomTabs(nav);
-    mountHeaderTools(doc);
-    // The device chip, the way to the rig (lib/rig/chip.js): only with the
-    // rooms on, so with them off it isn't even fetched.
-    import('./rig/chip.js').then((m) => m.mountChip(doc, { pathname: loc.pathname, fetchFn: get })).catch(() => {});
-  }
+  mountHeaderTools(doc);
+  // The device chip, the way to the rig (lib/rig/chip.js).
+  import('./rig/chip.js').then((m) => m.mountChip(doc, { pathname: loc.pathname, fetchFn: get })).catch(() => {});
   const apply = (tapeOn) => {
-    const tabs = navTabs(loc.pathname, tapeOn, rooms);
+    const tabs = navTabs(loc.pathname, tapeOn);
     for (const a of nav.querySelectorAll('a[data-tab]')) {
       const t = tabs.find((x) => x.id === a.dataset.tab);
       a.hidden = !t;
@@ -179,13 +138,13 @@ export function initNav(doc = document, env = {}) {
     if (on !== null) {
       apply(on);
       try { store().setItem('hindsight.tapeOn', String(on)); } catch { /* fine */ }
-      const to = studioRedirect(loc.pathname, on, rooms);
+      const to = studioRedirect(loc.pathname, on);
       if (to) loc.replace(to);
     }
     return r.ok ? r.json() : null;
   }).catch(() => null);
 
-  // Capture's lamp: the ring is recording, waiting for the interface, or not.
+  // The Studio's lamp: the feed is recording, waiting for the interface, or not.
   const lamp = nav.querySelector('.appnav-lamp');
   if (!lamp) return tapes;
   const poll = async () => {
@@ -197,7 +156,7 @@ export function initNav(doc = document, env = {}) {
     }
     // The lamp is colour; the tab says it in words too.
     const words = { ok: 'recording', wait: 'waiting for the interface', bad: 'not recording' }[lamp.dataset.state];
-    lamp.closest('a')?.setAttribute('aria-label', `${rooms ? 'Studio' : 'Capture'}, ${words}`);
+    lamp.closest('a')?.setAttribute('aria-label', `Studio, ${words}`);
   };
   poll();
   every(() => { if (!doc.hidden) poll(); }, 10000);

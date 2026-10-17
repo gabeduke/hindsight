@@ -7,10 +7,6 @@
      app's start -- goes there before anything draws, on the answer
      lib/nav.js cached last time. With the tape off, `/` is the Studio. -->
 <script id="studio-redirect">try { if (localStorage.getItem('hindsight.tapeOn') === 'true') location.replace('/tape.html'); } catch (e) { /* no storage: stay */ }</script>
-<!-- The two rooms are the only layout: lib/nav.js rewrites the header's
-     three tabs as two, and until it has the switch stays out of sight
-     (styles.css, Rooms P1), so the old tabs never paint. -->
-<script id="rooms-early">document.documentElement.dataset.rooms = '';</script>
 <title>Hindsight</title>
 <meta name="description" content="Always-listening audio buffer. Grab the last 30 seconds of the jam.">
 
@@ -42,12 +38,11 @@
 
 <header class="appbar">
   <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=3" alt=""><b>Hindsight</b></a>
-  <!-- The switch between the three pages; on a phone, tabs along the
+  <!-- The switch between the two rooms; on a phone, tabs along the
        bottom (lib/nav.js keeps it true). -->
   <nav class="appnav" aria-label="Pages">
-    <a href="/" data-tab="capture" data-tip="nav-capture" aria-current="page"><span class="appnav-lamp" aria-hidden="true"></span>Capture</a>
-    <a href="/takes.html" data-tab="takes" data-tip="nav-takes"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Takes</a>
-    <a href="/tape.html" data-tab="tape" data-tip="nav-tape"><svg class="appnav-ico" width="24" height="18" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg>Tape</a>
+    <a href="/" data-tab="studio" data-tip="nav-studio" aria-current="page"><span class="appnav-lamp" aria-hidden="true"></span>Studio</a>
+    <a href="/takes.html" data-tab="room" data-tip="nav-room"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Listening Room</a>
   </nav>
   <div class="health">
     <!-- Shown only while a screen wake lock is actually held. Icon-only on

@@ -47,18 +47,20 @@ test('Guardrail 3: tape/page.js interpolates playhead at 60fps on the shared tic
   );
 });
 
-test('Guardrail 4: styles.css gates legacy containers under :root[data-rooms] at frame 0 to prevent FOUC', () => {
+test('Guardrail 4: styles.css hides what a room replaces from frame 0, not after an async class', () => {
   const css = read('styles.css');
-  assert.match(
-    css,
-    /:root\[data-rooms\][^{]*#takes/,
-    'styles.css must hide #takes under :root[data-rooms] before JS finishes loading',
+  // The doorway's rack is out of sight before lib/room/mount.js has put
+  // .room-on on the body: a rule that needs no class a module adds.
+  const rules = [...css.matchAll(/([^{}]*#takes\b[^{}]*)\{([^}]*)\}/g)]
+    .filter((m) => /display\s*:\s*none/.test(m[2]))
+    .flatMap((m) => m[1].split(/,(?![^(]*\))/).map((x) => x.trim()));
+  assert.ok(
+    rules.some((sel) => /^body:not\(\.room-rack\) /.test(sel) && !sel.includes('.room-on')),
+    'styles.css must hide #takes on the doorway before JS finishes loading',
   );
-  assert.match(
-    css,
-    /:root\[data-rooms\][^{]*\.about/,
-    'styles.css must hide legacy .about footer under :root[data-rooms]',
-  );
+  // The two rooms are the only layout: nothing sets :root[data-rooms] any
+  // more, so a rule gated on it would never match.
+  assert.doesNotMatch(css, /data-rooms/, 'styles.css must not gate a rule on the retired :root[data-rooms]');
 });
 
 test('Guardrail 5: Unified Media Player provides FeedSource and 3-way source selector (Feed · Tape · Shelf)', () => {
@@ -87,13 +89,13 @@ test('Guardrail 6: Instrument strip mounts inside #np Media Player and Studio sw
   );
 });
 
-test('Guardrail 7: Top-right .appbar-end houses Settings, Releases, and Guide across pages when rooms is on', () => {
+test('Guardrail 7: Top-right .appbar-end houses Settings, Releases, and Guide across pages', () => {
   const navJs = read('lib/nav.js');
   assert.ok(
     navJs.includes('appbar-settings-btn') &&
       navJs.includes('appbar-releases-btn') &&
       navJs.includes('appbar-guide-link'),
-    'lib/nav.js must mount Settings, Releases, and Guide controls in .appbar-end when roomsOn() is true',
+    'lib/nav.js must mount Settings, Releases, and Guide controls in .appbar-end',
   );
 });
 

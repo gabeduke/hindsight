@@ -1044,6 +1044,9 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
 
 .about { text-align: center; font-size: 12px; color: var(--ink-faint); margin: 4px 0 0; }
+/* The about line is retired: Releases, the guide and Settings are in every
+   header (lib/nav.js). Its markup leaves with the old layout's. */
+.about { display: none; }
 .about a { color: var(--ink-dim); }
 /* "Releases" and "Update to v…" (lib/update.js): a link's weight in the
    line. Update is orange, the one action it is, on a line of its own: it
@@ -4063,14 +4066,34 @@ a.crate-chip { text-decoration: none; }
   .play-pad { transition: background 70ms linear, opacity 70ms linear; }
 }
 
+/* ---------- The header's tools (lib/nav.js mountHeaderTools) ---------- */
+/* Releases (with the version), Guide and Settings, top right on every page,
+   and the now-playing bar's source switch. The selectors are as specific as
+   they need to be to beat `.appbar .icon-btn` and `.seg`, which these are
+   too. */
+.appbar > .appbar-end {
+  grid-area: status; display: inline-flex; align-items: center; gap: 6px; justify-self: end;
+}
+.appbar .appbar-end > .appbar-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 36px; min-width: 0; padding: 0 10px; border-radius: 8px;
+  font: 600 12.5px var(--font); color: var(--ink); text-decoration: none; white-space: nowrap;
+}
+.appbar .appbar-end > .appbar-releases-btn { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+.appbar .appbar-end > .appbar-releases-btn.has-update { border-color: var(--go); color: var(--ink); }
+.np .seg.np-source-switch { flex: none; height: 36px; align-self: center; }
+.np .seg.np-source-switch button { min-height: 30px; padding: 0 10px; font-size: 12px; }
+@media (max-width: 699.98px) {
+  .appbar .appbar-end > :is(.appbar-releases-btn, .appbar-guide-link) { display: none; }
+  .appbar .appbar-end > .appbar-btn { padding: 0 8px; font-size: 12px; }
+}
+
 /* ---------- Rooms P1: the Studio's feed and foot (lib/rooms/studio.js) ---------- */
-/* With the two rooms on (lib/rooms/flag.js, one device), the tape page is
-   the Studio: Capture's feed above the lanes, and under them Capture's input
-   diagnostic and the about line -- the only way into Settings. tape.html
-   keeps them in templates, so with the flag off none of this markup exists;
-   and every rule here hangs off a studio- class, the about line in the tape
-   page's body (only the Studio puts one there), or :root[data-rooms], which
-   only the flag's early script sets (styles.test.js). */
+/* With the tape on, the tape page is the Studio: Capture's feed above the
+   lanes, and under them Capture's input diagnostic. tape.html keeps them in
+   templates that studio.js clones; every rule here hangs off a studio-
+   class or the tape page's body (styles.test.js), so it reaches nothing
+   else. */
 .studio-feed {
   flex: none;
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
@@ -4149,32 +4172,15 @@ a.crate-chip { text-decoration: none; }
 .studio-keep-sub { font: 500 11.5px var(--font); color: var(--paper-dim); }
 .studio-keep-sub[hidden] { display: none; }
 
-/* With the rooms on, every page's switch waits -- out of sight, but in its
-   place -- for lib/nav.js to rewrite it as two tabs (.appnav-rooms), so the
-   three old tabs never paint. :root[data-rooms] is set by the early script
-   in each page's head, only with the flag on. If the script never comes,
-   the switch shows anyway after two seconds: the old names beat no way
-   between the pages at all. */
-:root[data-rooms] .appnav:not(.appnav-rooms) { visibility: hidden; animation: rooms-appnav-late 0s linear 2s forwards; }
+/* Until studio.js has put the feed above the lanes, the tape page stays out
+   of sight -- in its place, so nothing jumps -- and if it never comes, the
+   page shows anyway after a moment. */
 @keyframes rooms-appnav-late { to { visibility: visible; } }
-:root[data-rooms] .about { display: none; }
-:root[data-rooms] body.tape-page:not(:has(.studio-feed)) main.tape-main { visibility: hidden; animation: rooms-appnav-late 0s linear 0.6s forwards; }
-:root[data-rooms] .appbar > .appbar-end {
-  grid-area: status; display: inline-flex; align-items: center; gap: 6px; justify-self: end;
-}
-:root[data-rooms] .appbar-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-  min-height: 36px; min-width: 0; padding: 0 10px; border-radius: 8px;
-  font: 600 12.5px var(--font); color: var(--ink); text-decoration: none; white-space: nowrap;
-}
-:root[data-rooms] .appbar-releases-btn { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
-:root[data-rooms] .appbar-releases-btn.has-update { border-color: var(--go); color: var(--ink); }
-:root[data-rooms] .np-source-switch { flex: none; height: 36px; align-self: center; }
-:root[data-rooms] .np-source-switch button { min-height: 30px; padding: 0 10px; font-size: 12px; }
+body.tape-page:not(:has(.studio-feed)) main.tape-main { visibility: hidden; animation: rooms-appnav-late 0s linear 0.6s forwards; }
 
 /* The Studio's foot, between main and the dock: Capture's input diagnostic,
    then the about line. */
-:root[data-rooms] body.tracks-fold #lanes { display: none; }
+body.tape-page.tracks-fold #lanes { display: none; }
 body.tape-page > .studio-chan { flex: none; margin: 0; padding: 4px 16px 0; }
 body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
 body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
@@ -4184,9 +4190,6 @@ body.tape-page > .about { flex: none; margin: 0; padding: 4px 12px 6px; }
    Keep is its word alone -- the lengths beside it, and the ribbon, say how
    much -- and Flag now its pennant, as on Capture's bench. */
 @media (max-width: 699.98px) {
-  :root[data-rooms] .appbar-releases-btn,
-  :root[data-rooms] .appbar-guide-link { display: none; }
-  :root[data-rooms] .appbar-btn { padding: 0 8px; font-size: 12px; }
   .studio-feed {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "head" "ribbon" "meters" "keys" "sel";
@@ -4717,18 +4720,18 @@ body.buffer-fold .tape-sections-row { display: none; }
    schemes; the header, the tabs, the sheets and Open follow the scheme. */
 
 /* --- the doorway: the room over the rack --- */
-:root[data-rooms] body:not(.room-rack) main.shelf-main,
+body:not(.room-rack) main.shelf-main,
 .room-on main.shelf-main { display: block; max-width: none; padding: 0; }
-:root[data-rooms] body:not(.room-rack) :is(#takes, #takes-empty),
+body:not(.room-rack) :is(#takes, #takes-empty),
 .room-on:not(.room-rack) :is(#takes, #takes-empty) { display: none; }
-:root[data-rooms] body:not(.room-search) .shelf-tools,
+body:not(.room-search) .shelf-tools,
 .room-on:not(.room-search) .shelf-tools { display: none; }
 .room-on.room-search .shelf-tools { padding: 12px 16px; }
-:root[data-rooms] body:not(.room-rack) #shelf-sort,
+body:not(.room-rack) #shelf-sort,
 .room-on:not(.room-rack) #shelf-sort { display: none; }
-:root[data-rooms] body:not(.room-rack) :is(#play-all, #select-btn),
+body:not(.room-rack) :is(#play-all, #select-btn),
 .room-on:not(.room-rack) :is(#play-all, #select-btn) { display: none; }
-:root[data-rooms] body:not(.room-rack) .shelf-title,
+body:not(.room-rack) .shelf-title,
 .room-on .shelf-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .room-on .room-search-btn[aria-expanded="true"] { color: var(--ink); background: var(--key-down); }
 .room-on #np-open, .room-on .detail-play { display: none; }
