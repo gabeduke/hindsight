@@ -2164,6 +2164,7 @@ has no tip.
 | ✎ (bar) | Opens the take’s page and keeps the spot you are hearing, for a note |
 | ⟲ Repeat (bar) | Repeat the take in the bar: its selection, or the whole take without one |
 | The mini player (phone) | On a phone: the player, pulled up over the page — the whole bar. Down, Back or Esc puts it away. A take has none: its strip, name and ✎ are in the mini player |
+| ▾ / ▴ (bar) | Collapse the transport into a compact bar, or expand it to its two rows. Gives the tape lanes room |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |

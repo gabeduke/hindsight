@@ -77,4 +77,54 @@ export function initPlayer() {
   phone.addEventListener('change', () => { if (!phone.matches) close(); });
   // The bar emptied (a take ended with no tape to go back to): so is the player.
   new MutationObserver(() => { if (np.hidden) close(); }).observe(np, { attributes: true, attributeFilter: ['hidden'] });
+
+  initTransportFold(document);
+}
+
+export const NP_FOLD_KEY = 'hindsight.npFold';
+
+/**
+ * initTransportFold wires the desktop media player collapse toggle (#np-fold-btn).
+ * Toggling it collapses the full 2-row transport bar into a slim compact bar,
+ * freeing vertical height for the tape lanes.
+ */
+export function initTransportFold(doc = document, storage = null) {
+  const store = storage ?? (typeof sessionStorage !== 'undefined' ? sessionStorage : null);
+  const btn = doc.getElementById('np-fold-btn');
+  if (!btn) return null;
+  const glyph = btn.querySelector('.np-fold-glyph') || btn;
+
+  const applyFold = (folded) => {
+    doc.body.classList.toggle('np-fold', folded);
+    btn.setAttribute('aria-expanded', String(!folded));
+    btn.setAttribute('aria-label', folded ? 'Expand transport' : 'Collapse transport');
+    if (glyph.classList?.contains('np-fold-glyph')) {
+      glyph.textContent = folded ? '▴' : '▾';
+    } else {
+      btn.textContent = folded ? '▴' : '▾';
+    }
+    try {
+      if (store) {
+        if (folded) store.setItem(NP_FOLD_KEY, '1');
+        else store.removeItem(NP_FOLD_KEY);
+      }
+    } catch { /* private mode */ }
+    doc.dispatchEvent(new CustomEvent('hindsight:np-fold', { detail: { folded } }));
+  };
+
+  try {
+    if (store?.getItem(NP_FOLD_KEY) === '1') applyFold(true);
+  } catch { /* fine */ }
+
+  const onClick = () => {
+    applyFold(!doc.body.classList.contains('np-fold'));
+  };
+  btn.addEventListener('click', onClick);
+
+  return {
+    apply: applyFold,
+    destroy() {
+      btn.removeEventListener('click', onClick);
+    },
+  };
 }
