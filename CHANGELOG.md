@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.10 — 2026-10-17
+
+- Align Studio feed ribbon and VU meters with tape swimlanes (#147) (aeb4b5d)
+- Spec user flows framework and add shell browser smoke test (#146) (bba5d50)
+
+
 ## v2026.10.17.9 — 2026-10-17
 
 - Defend shell view contracts and ensure shared dialogs are stamped at boot (#145) (2edbdfe)
