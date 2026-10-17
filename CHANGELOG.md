@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.9 — 2026-10-17
+
+- Defend shell view contracts and ensure shared dialogs are stamped at boot (#145) (2edbdfe)
+- Fix the Listening Room never showing: the Studio's view was left open around it (#144) (a049c0c)
+
+
 ## v2026.10.17.8 — 2026-10-17
 
 - Make media player transport collapsible to give tape lanes room (#143) (bf385fa)
