@@ -21,7 +21,8 @@ import { pageBar, takesFinder } from '/lib/bar/engine.js';
 const nameOf = (name, seconds) => takeTitle(name, seconds);
 
 export function mountCapture(ctx = null) {
-  const $ = (id) => document.getElementById(id);
+  const root = ctx?.root;
+  const $ = (id) => root?.querySelector?.(`#${id}`) || document.getElementById(id);
 
   const el = {
     awake: $('awake'),

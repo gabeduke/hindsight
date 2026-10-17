@@ -256,6 +256,15 @@ export function createView(def, {
   const onVisibility = () => { if (active()) for (const p of [...polls]) run(p); };
 
   function on(target, type, fn, opts) {
+    if (!target || typeof target.addEventListener !== 'function') {
+      throw new TypeError(`ctx.on target must be an EventTarget with addEventListener, got ${target}`);
+    }
+    if (typeof type !== 'string' || !type) {
+      throw new TypeError(`ctx.on type must be a non-empty string, got ${type}`);
+    }
+    if (typeof fn !== 'function') {
+      throw new TypeError(`ctx.on listener must be a function, got ${typeof fn}`);
+    }
     const capture = typeof opts === 'boolean' ? opts : !!opts?.capture;
     const once = !!(opts && typeof opts === 'object' && opts.once);
     const signal = opts && typeof opts === 'object' ? opts.signal : undefined;
@@ -283,8 +292,14 @@ export function createView(def, {
   }
 
   function every(fn, ms) {
-    if (typeof fn !== 'function') throw new TypeError('every needs a function');
-    const p = { fn, ms: Math.max(0, Number(ms) || 0), id: null };
+    if (typeof fn !== 'function') {
+      throw new TypeError(`ctx.every expects (fn: Function, ms: Number), got fn of type ${typeof fn}`);
+    }
+    const num = Number(ms);
+    if (!Number.isFinite(num) || num <= 0) {
+      throw new TypeError(`ctx.every expects positive number of milliseconds, got ${ms}`);
+    }
+    const p = { fn, ms: num, id: null };
     polls.add(p);
     // Not while mount or show is still under way: the poll's first run is
     // right after them, and no tick comes before it.
@@ -293,6 +308,9 @@ export function createView(def, {
   }
 
   function loop(fn) {
+    if (typeof fn !== 'function') {
+      throw new TypeError(`ctx.loop expects (fn: Function), got ${typeof fn}`);
+    }
     const entry = { wanted: false, loop: null };
     // A step that parks itself, or throws, is no longer wanted: show() does
     // not wake it.

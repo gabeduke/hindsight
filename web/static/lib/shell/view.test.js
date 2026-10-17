@@ -498,3 +498,29 @@ test('classesOf reads a view’s bodyClass as a string, a spaced string or an ar
   assert.deepEqual(classesOf({ bodyClass: ['shelf-page', 'room-on'] }), ['shelf-page', 'room-on']);
   assert.deepEqual(classesOf({}), []);
 });
+
+test('ctx contracts: on, every, and loop validate their arguments defensively', async () => {
+  let innerCtx;
+  const t = withCtx((ctx) => { innerCtx = ctx; });
+  await t.v.show();
+
+  // ctx.on requires EventTarget, non-empty string event type, and function listener
+  assert.throws(() => innerCtx.on(null, 'click', () => {}), /EventTarget/);
+  assert.throws(() => innerCtx.on({}, 'click', () => {}), /EventTarget/);
+  assert.throws(() => innerCtx.on(new Target(), '', () => {}), /non-empty string/);
+  assert.throws(() => innerCtx.on(new Target(), null, () => {}), /non-empty string/);
+  assert.throws(() => innerCtx.on(new Target(), 'click', null), /listener must be a function/);
+
+  // ctx.every requires function first and positive milliseconds second
+  assert.throws(() => innerCtx.every(2000, () => {}), /expects \(fn: Function, ms: Number\)/);
+  assert.throws(() => innerCtx.every(null, 1000), /expects \(fn: Function, ms: Number\)/);
+  assert.throws(() => innerCtx.every(() => {}, 0), /positive number of milliseconds/);
+  assert.throws(() => innerCtx.every(() => {}, -500), /positive number of milliseconds/);
+  assert.throws(() => innerCtx.every(() => {}, NaN), /positive number of milliseconds/);
+  assert.throws(() => innerCtx.every(() => {}, 'not-a-number'), /positive number of milliseconds/);
+
+  // ctx.loop requires function step
+  assert.throws(() => innerCtx.loop(null), /expects \(fn: Function\)/);
+  assert.throws(() => innerCtx.loop(123), /expects \(fn: Function\)/);
+});
+

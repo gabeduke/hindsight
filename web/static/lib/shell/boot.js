@@ -13,8 +13,12 @@ import { createRouter } from '/lib/shell/router.js';
 import { roomView } from '/lib/shell/views/room.js';
 import { studioView } from '/lib/shell/views/studio.js';
 import { captureView } from '/lib/shell/views/capture.js';
+import { ensureStudioSheets } from '/lib/rooms/sheets.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Ensure global sheets (phone, settings, update) are stamped into the document at boot
+ensureStudioSheets(document);
 
 const help = initHelp({ page: 'takes' });
 const tapes = initNav();
