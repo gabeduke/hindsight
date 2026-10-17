@@ -684,15 +684,23 @@ func TestANoteOffLetsGoOfWhatItsNoteOnPressed(t *testing.T) {
 func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
 	srv, eng, _ := newStreamServer(t)
 	res, err := http.Post(srv.URL+"/api/tapes", "application/json", strings.NewReader(`{"name":"c"}`))
-	if err != nil || res.StatusCode != http.StatusOK {
-		t.Fatalf("new tape: %v %v", err, res.StatusCode)
+	if err != nil {
+		t.Fatalf("new tape err: %v", err)
+	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("new tape status: %v", res.StatusCode)
 	}
 	var made struct{ ID string }
 	json.NewDecoder(res.Body).Decode(&made)
 	res.Body.Close()
-	if res, err := http.Post(srv.URL+"/api/tapes/load?id="+made.ID, "application/json", nil); err != nil || res.StatusCode != http.StatusOK {
-		t.Fatalf("load: %v", err)
+	res, err = http.Post(srv.URL+"/api/tapes/load?id="+made.ID, "application/json", nil)
+	if err != nil {
+		t.Fatalf("load err: %v", err)
 	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("load status: %v", res.StatusCode)
+	}
+	res.Body.Close()
 	a := New(&config.Config{OutputDir: t.TempDir(), TapeDir: t.TempDir(), SampleRate: 48000, SaveChannels: []int{0, 1}}, nil, nil, nil, nil)
 	a.SetTape(eng)
 	tp := eng.Loaded()
