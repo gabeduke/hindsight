@@ -198,7 +198,7 @@ test('a pad refused in a mixdown says why, plainly', () => {
   const notes = [];
   connect(surface(), { WebSocketImpl: FakeWS, url: 'x', onNote: (t) => notes.push(t) });
   made[0].hear({ t: 'refused', pad: 'filter', why: 'a mixdown is playing; wait for it, or press ■ to cancel it' });
-  assert.match(notes.at(-1), /^FILTER waits: a mixdown is playing.*never the FX/);
+  assert.match(notes.at(-1), /^FILTER waits: a bounce is playing.*never the FX/);
   made[0].hear({ t: 'refused', pad: 'stop', why: 'no such pad' });
   assert.equal(notes.at(-1), 'STOP: no such pad');
 });

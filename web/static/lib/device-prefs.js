@@ -12,7 +12,6 @@
 // is adding a line.
 
 import { on as playOn, setOn as playSetOn } from './play/flag.js';
-import { on as roomsOn, setOn as roomsSetOn } from './rooms/flag.js';
 
 /**
  * Each toggle: a stable id, `feature` when it is a preview (it is drawn up
@@ -30,15 +29,6 @@ export const DEVICE_PREFS = [
     reload: true, // lib/play/mount.js reads the flag once, when the page loads
     get: playOn,
     set: playSetOn,
-  },
-  {
-    id: 'rooms',
-    feature: true,
-    label: 'Two rooms',
-    note: 'A Studio and a Listening Room in place of Capture, Takes and Tape. The Studio is the tape with the feed and Keep above it, and Settings at its foot.',
-    reload: true, // lib/nav.js and lib/rooms/studio.js read the flag once, when the page loads
-    get: roomsOn,
-    set: roomsSetOn,
   },
 ];
 

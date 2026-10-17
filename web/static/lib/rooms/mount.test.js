@@ -26,26 +26,6 @@ test('with the flag on the Studio is loaded and mounted on the page', async () =
   assert.equal(got, doc);
 });
 
-// The default reader is the real flag: the tests above pass their own.
-test('by default it asks the flag in this device’s storage', async () => {
-  const had = Object.prototype.hasOwnProperty.call(globalThis, 'localStorage');
-  const prev = globalThis.localStorage;
-  const m = new Map();
-  globalThis.localStorage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
-  try {
-    let loaded = 0;
-    const load = async () => { loaded++; return { mountStudio: () => 'mounted' }; };
-    assert.equal(start({ load, doc: untouchable() }), null, 'no flag: off');
-    m.set('hindsight.rooms', '1');
-    assert.equal(await start({ load, doc: {} }), 'mounted');
-    assert.equal(loaded, 1);
-    m.set('hindsight.rooms', 'true');
-    assert.equal(start({ load, doc: untouchable() }), null, 'only the exact value counts');
-  } finally {
-    if (had) globalThis.localStorage = prev; else delete globalThis.localStorage;
-  }
-});
-
 // The page itself: the feed and its foot are templates, so the tape page as
 // served -- the flag off -- has none of Capture's parts in it.
 const tape = readFileSync(new URL('../../tape.html', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/g, '');

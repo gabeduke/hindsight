@@ -40,11 +40,11 @@ test('a count-in takes over the position, as #position read', () => {
 test('a mixdown takes over the position, its details the second line, in the words #position had', () => {
   const md = { tape: 't1', state: 'playing', from: 0, to: 8 * BAR };
   const c = tapeCounter(tape(), live({ playing: true, heard: 2 * BAR }), md);
-  assert.deepEqual([c.big, c.small, c.note], ['mixing down', '', '0:05.0 of 0:20.0 · ■ cancels']);
+  assert.deepEqual([c.big, c.small, c.note], ['bouncing', '', '0:05.0 of 0:20.0 · ■ cancels']);
   const tail = tapeCounter(tape(), live(), { ...md, state: 'tail' });
-  assert.deepEqual([tail.big, tail.note], ['mixing down', 'letting it ring out · ■ cancels']);
+  assert.deepEqual([tail.big, tail.note], ['bouncing', 'letting it ring out · ■ cancels']);
   const saving = tapeCounter(tape(), live(), { ...md, state: 'saving' });
-  assert.deepEqual([saving.big, saving.note], ['saving', 'the mixdown as a take…']);
+  assert.deepEqual([saving.big, saving.note], ['saving', 'the bounce as a take…']);
   // Otherwise there is no note, and the second line is the marquee.
   assert.equal(tapeCounter(tape(), live(), null).note, '');
 });

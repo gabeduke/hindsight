@@ -92,15 +92,15 @@ test('a clip is numbered by where it starts on its track', () => {
 test('the readout: the point, its beat, and the reference track\'s hit', () => {
   const grid = { frames: 480000, bars: 4 }; // 30000 a beat
   assert.equal(alignReadout({ track: 2, n: 1, point: 30120, sampleRate: sr, grid, ref: null }),
-    'Clip 2.1 0:00.627 +24 · +2.5 ms from 1.2');
-  assert.equal(alignReadout({ track: 2, n: 1, point: 30000, sampleRate: sr, grid: null, ref: null }), 'Clip 2.1 0:00.625 +0');
+    'Part 2.1 0:00.627 +24 · +2.5 ms from 1.2');
+  assert.equal(alignReadout({ track: 2, n: 1, point: 30000, sampleRate: sr, grid: null, ref: null }), 'Part 2.1 0:00.625 +0');
   assert.equal(alignReadout({ track: 2, n: 3, point: 30000, sampleRate: sr, grid, ref: { track: 1, hit: 30000 } }),
-    'Clip 2.3 0:00.625 +0 · on 1.2 · 0.0 ms from track 1');
+    'Part 2.3 0:00.625 +0 · on 1.2 · 0.0 ms from track 1');
   assert.equal(alignReadout({ track: 2, n: 1, point: 30000, sampleRate: sr, grid: null, ref: { track: 4, hit: 30062 } }),
-    'Clip 2.1 0:00.625 +0 · −1.3 ms from track 4');
+    'Part 2.1 0:00.625 +0 · −1.3 ms from track 4');
   // No hit found: the point is the clip's start.
   assert.equal(alignReadout({ track: 2, n: 1, point: 30000, sampleRate: sr, grid, ref: null, start: true }),
-    'Clip 2.1 start 0:00.625 +0 · on 1.2');
+    'Part 2.1 start 0:00.625 +0 · on 1.2');
 });
 
 test('padStart mirrors the overhang back and forth in front of a file\'s start', () => {

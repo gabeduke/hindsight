@@ -39,18 +39,15 @@ const store = (init = {}) => {
   return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), map: m };
 };
 
-/**
- * barPage builds the world and NowPlaying in it. `rooms` is the per-device
- * flag.
- */
-export async function barPage({ rooms = true, session = {} } = {}) {
+/** barPage builds the world and NowPlaying in it. */
+export async function barPage({ session = {} } = {}) {
   // The pages share one ticker: a page the last test left must not run in this one.
   ticker.stop();
   ticker.steps.clear();
   const w = { navigated: [], windowListeners: {}, raf: [], toasts: [] };
   const doc = fakeDoc();
   w.session = store(session);
-  w.local = store(rooms ? { 'hindsight.rooms': '1' } : {});
+  w.local = store();
   const loc = { pathname: '/takes.html', search: '', get href() { return this._h || ''; }, set href(v) { w.onNavigate?.(v); w.navigated.push(v); this._h = v; } };
   Object.assign(globalThis, {
     document: doc,

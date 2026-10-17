@@ -216,7 +216,7 @@ test('while a mixdown plays the FX wait, and say so', () => {
   const group = s.slots.fx.querySelector('.play-fx-group');
   s.wire.setMixdown('playing');
   assert.equal(group.classList.contains('play-fx-waiting'), true);
-  assert.match(s.slots.fx.querySelector('.play-fx-note').textContent, /mixdown/);
+  assert.match(s.slots.fx.querySelector('.play-fx-note').textContent, /bounce/);
   s.wire.setMixdown('');
   assert.equal(group.classList.contains('play-fx-waiting'), false);
 });

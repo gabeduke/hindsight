@@ -62,11 +62,8 @@ test('Play mode is in the list, and reading it needs no localStorage', () => {
   assert.equal(play.get(), false, 'no storage in node: off, not a throw');
 });
 
-test('the two rooms are in the list, and reading them needs no localStorage', () => {
-  const rooms = DEVICE_PREFS.find((p) => p.id === 'rooms');
-  assert.ok(rooms, 'the two rooms should be switchable from Settings');
-  assert.ok(rooms.reload, 'the flag is read once at page load, so say so');
-  assert.equal(rooms.get(), false, 'no storage in node: off, not a throw');
+test('the two rooms are not a switch any more: they are the only layout', () => {
+  assert.equal(DEVICE_PREFS.find((p) => p.id === 'rooms'), undefined);
 });
 
 test('every shipped toggle is a preview, drawn in the open Preview features section', () => {
@@ -79,7 +76,7 @@ test('a flag whose storage refuses reports failure, so the sheet does not claim 
   const deaf = { getItem: () => null, setItem() {}, removeItem() {} }; // takes the write, keeps nothing
   const throws = { getItem: () => { throw new Error('denied'); }, setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
   try {
-    for (const mod of ['./play/flag.js', './rooms/flag.js']) {
+    for (const mod of ['./play/flag.js']) {
       const { setOn, on } = await import(mod);
       for (const store of [deaf, throws]) {
         globalThis.localStorage = store;

@@ -2,9 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
-import { ROOMS_FLAG } from './flag.js';
-
-// With the rooms on, the three old tabs must never paint. lib/nav.js
+// The rooms are the only layout, and the three old tabs must never paint. lib/nav.js
 // rewrites them only once the page's modules have loaded, so each page with
 // the switch carries a classic inline script in its head that marks the
 // document first, and styles.css keeps a marked document's switch out of
@@ -40,15 +38,13 @@ test('every page with the switch marks itself before it can paint', () => {
     scripts.add(m[1]);
   }
   assert.equal(scripts.size, 1, 'every page runs the same script');
-  assert.ok([...scripts][0].includes(`'${ROOMS_FLAG}'`), 'it reads the flag lib/rooms/flag.js writes');
 });
 
-test('the early script marks the document only with the flag on', () => {
+test('the early script marks every document, whatever this device stored', () => {
   const code = early(read('takes.html'))[1];
-  assert.deepEqual(run(code, { [ROOMS_FLAG]: '1' }), { rooms: '' });
-  assert.deepEqual(run(code, {}), {});
-  assert.deepEqual(run(code, { [ROOMS_FLAG]: '0' }), {});
-  assert.deepEqual(run(code, {}, { throwing: true }), {}, 'no storage: no rooms, and no throw');
+  assert.deepEqual(run(code, {}), { rooms: '' });
+  assert.deepEqual(run(code, { 'hindsight.rooms': '0' }), { rooms: '' });
+  assert.deepEqual(run(code, {}, { throwing: true }), { rooms: '' }, 'no storage: still the rooms, and no throw');
 });
 
 test('a marked switch is out of sight until nav.js has rewritten it, and never for good', () => {

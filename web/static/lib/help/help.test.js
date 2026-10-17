@@ -168,25 +168,3 @@ test('the whole guide renders, and its section links resolve', () => {
   assert.deepEqual(broken, []);
   for (const want of ['4-the-take-page', '3-the-main-page', '9-tips-in-the-app']) assert.ok(ids.has(want), want);
 });
-
-// With the two rooms off, a tip is the text the page has always shown: no
-// word of the Listening Room, the Studio or "the two rooms" in it. The
-// guide's table keeps the full text (above); a row's `off` is the old one.
-test('with the rooms off a tip is its old text, and says nothing of the rooms', () => {
-  const store = {};
-  globalThis.localStorage = { getItem: (k) => store[k] ?? null };
-  const sayRooms = /two rooms|Listening Room|Studio/;
-  const offs = TIPS.filter((t) => t.off !== undefined);
-  assert.ok(offs.length >= 7);
-  for (const t of offs) {
-    for (const id of t.ids) {
-      assert.equal(tipFor(id), t.off, id);
-      assert.doesNotMatch(tipFor(id), sayRooms, id);
-    }
-  }
-  assert.equal(tipFor('select'), 'Pick several takes to star, export or delete together. Holding a take does the same');
-  assert.ok(tipFor('np-expand').endsWith('Down, Back or Esc puts it away'));
-  store['hindsight.rooms'] = '1';
-  for (const t of offs) assert.notEqual(tipFor(t.ids[0]), t.off, t.ids[0]);
-  delete globalThis.localStorage;
-});
