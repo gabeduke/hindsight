@@ -18,7 +18,8 @@ const $ = (id) => document.getElementById(id);
 
 const help = initHelp({ page: 'takes' });
 const tapes = initNav();
-const engine = createEngine({ tapes, onToast: toast });
+let router = null;
+const engine = createEngine({ tapes, onToast: toast, go: (url, opts) => router?.go(url, opts) });
 const link = watchLink(() => {});
 
 const tapeOn = () => {
@@ -65,7 +66,7 @@ if (captureRoot) {
   }));
 }
 
-const router = createRouter({
+router = createRouter({
   views,
   tapeOn,
   chrome: {

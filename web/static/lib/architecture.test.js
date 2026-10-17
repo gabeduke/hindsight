@@ -198,4 +198,23 @@ test('Step 5c: rooms/studio.js does not construct its own Audio or shadow .np-so
   assert.equal(/np-source-switch/.test(src), false, 'rooms/studio.js must not build a shadow .np-source-switch; takeKeys in bar.js owns it');
 });
 
+test('Step 8: room views and bar engine do not hardcode location assignments to room paths', () => {
+  const roomRe = /(?:location\.href\s*=|location\.(?:assign|replace)\()\s*['"`](?:\/|\/index\.html|\/tape\.html|\/takes\.html)['"`]/;
+  const files = [
+    'lib/bar/engine.js',
+    'lib/shell/views/room.js',
+    'lib/shell/views/studio.js',
+    'lib/shell/views/capture.js',
+  ];
+  for (const rel of files) {
+    const src = read(rel);
+    assert.doesNotMatch(
+      src,
+      roomRe,
+      `${rel} must not assign location to a room path directly; navigation must go through router/ctx.go`,
+    );
+  }
+});
+
+
 

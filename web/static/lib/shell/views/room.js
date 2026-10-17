@@ -494,6 +494,7 @@ export const roomView = {
       takes, toast, tapes: ctx.tapes,
       get np() { return np; },
       barSlot: ctx.barSlot,
+      go: (u) => ctx.go(u),
       openSketchbook: (name, f) => roomInst?.openSketchbook?.(name, f),
       opts: () => ({ ...view, tags: tagStore.list, tag: shownTag() }),
       pick: (name) => pick(name),

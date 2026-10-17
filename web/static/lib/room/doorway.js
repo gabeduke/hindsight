@@ -622,8 +622,9 @@ export function mount(h) {
     const d = inBar();
     if (!d) { focusShelf('.room-shelf-takes'); return; }
     const w = deckWords(d, barNow());
-    if (w.forTape) openTheTape();
+    if (w.forTape) openTheTape({ go: h.go });
     else if (h.openSketchbook && d.kind === 'take') h.openSketchbook(d.take.name);
+    else if (h.go) h.go(w.href);
     else location.href = w.href;
   }
   deckPlace.addEventListener('click', openBar);
