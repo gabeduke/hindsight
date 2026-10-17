@@ -91,6 +91,7 @@ export const TIPS = [
   { control: '✎ (bar)', ids: ['np-note'], tip: 'Opens the take’s page and keeps the spot you are hearing, for a note' },
   { control: '⟲ Repeat (bar)', ids: ['np-repeat'], tip: 'Repeat the take in the bar: its selection, or the whole take without one' },
   { control: 'The mini player (phone)', ids: ['np-expand'], tip: 'On a phone: the player, pulled up over the page — the whole bar. Down, Back or Esc puts it away. A take has none: its strip, name and ✎ are in the mini player' },
+  { control: '▾ / ▴ (bar)', ids: ['np-fold'], tip: 'Collapse the transport into a compact bar, or expand it to its two rows. Gives the tape lanes room' },
   { control: '⟲ Loop', ids: ['loop'], tip: 'Repeat the selection instead of playing straight through' },
   { control: 'In', ids: ['in'], tip: 'Start the selection at the playhead' },
   { control: 'Out', ids: ['out'], tip: 'End the selection at the playhead' },

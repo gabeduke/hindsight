@@ -3206,6 +3206,79 @@ body.tape-page .np:not(.np-take):not(.np-feed):not([data-source="take"]):not([da
 body.tape-page .np #np-open { display: none; }
 .tape-page .np .out-anchor.np-out, .tape-page .np:not(.np-take):not(.np-feed) .np-out.np-here, .np .np-out.np-out-tape { display: none; }
 .np-mini { display: none; }
+
+/* Media player transport collapse: #np-fold-btn collapses the full 2-row
+   transport bar into a slim compact bar (~46px) so the tape lanes have room. */
+.np-fold-btn { display: none; }
+@media (min-width: 700px) {
+  .np-fold-btn {
+    flex: none;
+    width: 38px; min-width: 38px;
+    height: 52px; min-height: 52px;
+    padding: 0;
+    font-size: 15px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+  }
+  body.np-fold { --np-h: 46px; }
+  body.np-fold:has(#out-strip:not([hidden])) { --np-h: 78px; }
+  body.np-fold .np {
+    padding-block: 4px;
+    gap: 0;
+  }
+  body.np-fold .np-row-1 {
+    height: 38px;
+  }
+  body.np-fold .np-row-2 {
+    display: none !important;
+  }
+  body.np-fold .np-window {
+    height: 38px;
+    padding: 0 4px;
+  }
+  body.np-fold .np-reel {
+    width: 28px;
+    height: 28px;
+  }
+  body.np-fold .np-window::after {
+    display: none;
+  }
+  body.np-fold .np-lcd-top {
+    height: 18px;
+  }
+  body.np-fold .np-pos {
+    font-size: 15px;
+  }
+  body.np-fold .np .np-keys .icon-btn {
+    height: 38px;
+    min-height: 38px;
+    min-width: 42px;
+    padding: 0 8px;
+    flex-direction: row;
+  }
+  body.np-fold .np .np-keys .tb-rec {
+    min-width: 52px;
+  }
+  body.np-fold .np .np-catch {
+    height: 38px;
+    min-height: 38px;
+    min-width: 72px;
+    padding: 0 10px;
+    flex-direction: row;
+  }
+  body.np-fold .np-catch-sub {
+    display: none;
+  }
+  body.np-fold .np-own .np-open,
+  body.np-fold .np-own .np-eject,
+  body.np-fold .np-fold-btn {
+    height: 38px;
+    min-height: 38px;
+  }
+}
+
 @media (max-width: 899.98px) { .np-levels { display: none; } }
 @media (prefers-reduced-motion: reduce) {
   .np-marquee { text-overflow: ellipsis; }

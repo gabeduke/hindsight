@@ -4756,4 +4756,16 @@ function wire() {
       if (viewActive() && document.body.classList.contains('tracks-fold')) applyTracksFold(false);
     });
   }
+  const onNpFold = () => {
+    if (viewActive() && state.tape && !document.body.classList.contains('tracks-fold')) {
+      requestAnimationFrame(() => {
+        drawLanes();
+        drawOverview();
+        drawRuler();
+        drawSections();
+      });
+    }
+  };
+  if (ctx?.on) ctx.on(document, 'hindsight:np-fold', onNpFold);
+  else document.addEventListener('hindsight:np-fold', onNpFold);
 }
