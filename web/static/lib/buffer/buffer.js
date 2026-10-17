@@ -391,7 +391,11 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
       .then((k) => {
         toast(`Kept “${named(k.label)}” as a take: it’s on the Listening Room’s shelf`, 'ok', {
           actions: [
-            { label: 'Name it', run: () => location.assign(`/takes.html?take=${encodeURIComponent(k.name)}`) },
+            { label: 'Name it', run: () => {
+              const url = `/takes.html?take=${encodeURIComponent(k.name)}`;
+              if (ctx?.go) ctx.go(url);
+              else location.assign(url);
+            } },
             { label: 'Undo', run: () => untake(k.name, k.label) },
           ],
         });

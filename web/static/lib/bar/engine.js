@@ -48,8 +48,8 @@ export function pageBar(opts) {
  * #np; and `tape`, `stream` and `feed`, the sources it has made so far (null
  * until then).
  */
-export function createEngine({ tapes, onToast, find: initFind = null, onNote: initOnNote = null }) {
-  let find = initFind, onNote = initOnNote;
+export function createEngine({ tapes, onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
+  let find = initFind, onNote = initOnNote, go = initGo;
   let feed = null, tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
   let setMode = null;
@@ -57,6 +57,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
   // How many times the person has used the bar's own keys, strip or ⏏: the Listening
   // Room's late arrivals (lib/room/tap.js) load nothing if it has changed.
   let touches = 0;
+  const navigate = (u) => { if (go) go(u); else location.href = u; };
   const bar = new NowPlaying({
     onEject: () => backToTape({ byHand: true }),
     onTouch: () => { touches++; handoff.touch(); },
@@ -67,13 +68,13 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
         if (f) onNote(f);
         return;
       }
-      noteHere({ frameNow, stash: stashFrame, go: (u) => { location.href = u; } });
+      noteHere({ frameNow, stash: stashFrame, go: navigate });
     },
     onSelectSource: (kind) => setSource(kind, { byHand: true }),
     onGrabFeed: async () => {
       if (!feed) return;
       try {
-        location.href = await feed.grabToStudio();
+        navigate(await feed.grabToStudio());
       } catch (e) {
         onToast?.(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad');
       }
@@ -183,7 +184,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
         bar.load(take.src);
         eject();
       } else if (location.pathname !== '/takes.html') {
-        location.href = '/takes.html';
+        navigate('/takes.html');
       }
     }
   }
@@ -311,6 +312,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     np: bar,
     setFind: api.setFind,
     setOnNote: api.setOnNote,
+    setGo: (fn) => { go = fn; },
     get tape() { return tape; },
     get stream() { return stream; },
     get feed() { return feed; },
