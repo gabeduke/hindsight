@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.6 — 2026-10-17
+
+- Fix the Studio failing on the first tape a Pi ever gets (0363b2b)
+- Fix the tape staying off on a two-channel interface (14059f2)
+- Fix Studio opening blank on a Pi without a tape (d75686c)
+
+
 ## v2026.10.17.5 — 2026-10-17
 
 - Update SW fallback, cache bump v136, and shell guardrail docs (Steps 9-10) (84c655b)
