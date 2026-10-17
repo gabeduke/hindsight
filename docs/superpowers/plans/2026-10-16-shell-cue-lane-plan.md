@@ -87,8 +87,13 @@ the Go toolchain (this one has it).
   lane alone. Replaces the Feed / Tape / Shelf switch's roles as in the spec.
 - The Pi never monitors, so this changes what the browser plays and nothing on
   the Pi.
+- **The live feed makes no sound in the browser today** (found in the Phase 1
+  plan): `feedSource.play()` only polls status and the envelope
+  (`lib/bar/feed-source.js`). Phase 3 therefore needs a real live stream of the
+  ring from the Pi (a streaming endpoint, latency budget, and the browser's
+  side), not only a switch. Spec it before building.
 
-**Size:** small once Phase 1 and 2 exist. **Model/effort:** Opus, medium.
+**Size:** the switch is small; the live stream is not. **Model/effort:** Opus, high for the stream (Go + audio), medium for the switch.
 
 ## Phase 4 · Notes as a bookmark drawer; the Sketchbook object leaves
 
