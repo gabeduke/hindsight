@@ -5,7 +5,6 @@
 // markup and the wiring, read from the source -- the pure parts are in
 // keeplabel.test.js and grab.test.js; the pad's and the buffer's behaviour is
 // run, on a stand-in document, in play/keeps.test.js and buffer/keeps.test.js.
-// The rooms off (Capture) are unchanged.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -31,10 +30,10 @@ test('GRAB goes into the selection bar by the KEEP key, not by Copy’s place', 
   assert.match(buffer, /\.rb-sel-save'\)\?\.before\(/, 'GRAB sits before KEEP');
 });
 
-test('Capture, with the rooms off, keeps its words and its buttons', () => {
+test('`/` with the tape off offers Save as take on a selection, and nothing for the crate or the clipboard', () => {
   const bar = selBar(capture);
-  assert.match(bar, /rb-sel-copy[^>]*>Copy</);
-  assert.match(bar, /rb-sel-keep[^>]*>Keep as clip</);
+  assert.doesNotMatch(bar, /rb-sel-copy|>Copy</, 'Copy filled the clipboard for a tape there is none of');
+  assert.doesNotMatch(bar, /rb-sel-keep|Keep as clip/, 'the crate is not offered on a selection');
   assert.match(bar, /rb-sel-save[^>]*>Save as take</);
   assert.match(capture, /id="cap-word"/);
 });

@@ -244,16 +244,6 @@ function shelveGroups(shown, opts, now) {
   return groups;
 }
 
-/**
- * stopsOnPick says whether picking take `name` stops the one that's playing.
- * On the rack it does: the playing take's controls leave with its pane. In
- * the Listening Room it doesn't: the take on the deck plays on while you
- * browse the shelves.
- */
-export function stopsOnPick({ room = false, picked = null, name = null, playing = null } = {}) {
-  return !room && name !== picked && !!playing && playing !== name;
-}
-
 /** latest is the newest take by when it was made, or null for none. */
 /** newest is the `n` newest takes, newest first; a take with no date goes last. */
 export function newest(takes, n) {

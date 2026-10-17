@@ -21,8 +21,9 @@
 // under the same fingers on any keyboard. `Shift+` in front means with ⇧.
 //
 // `needs: 'rooms'` is an action that belongs to the two rooms (their verbs
-// and the click's new key): without hindsight.rooms on this device it has
-// no key and no pad, so a kit with only Play mode on keeps today's keys.
+// and the click's new key). The rooms are the only layout, so the strip
+// always has them (strip.js); `has` still answers for each need, so a table
+// can be read without them (the tests do).
 // `soon` is an action whose sound or data isn't built yet (the crate's
 // pads): listed so the table is whole and the keys are taken, but nothing
 // plays it until it lands.

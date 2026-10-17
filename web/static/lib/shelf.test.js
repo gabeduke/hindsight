@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText, stopsOnPick } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -388,12 +388,4 @@ test('a take that lost audio says how many times', () => {
   assert.equal(dropoutsText({ dropouts: [] }), '');
   assert.equal(dropoutsText({ dropouts: [480] }), '⚠\u00a01 dropout');
   assert.equal(dropoutsText({ dropouts: [480, 96000] }), '⚠\u00a02 dropouts');
-});
-
-test('picking a take stops the one playing on the rack, but not in the Listening Room', () => {
-  assert.equal(stopsOnPick({ picked: 'a', name: 'b', playing: 'a' }), true);
-  assert.equal(stopsOnPick({ room: true, picked: 'a', name: 'b', playing: 'a' }), false, 'browsing the shelves never stops the deck');
-  assert.equal(stopsOnPick({ picked: 'a', name: 'b', playing: 'b' }), false);
-  assert.equal(stopsOnPick({ picked: 'a', name: 'a', playing: 'c' }), false);
-  assert.equal(stopsOnPick({ picked: 'a', name: 'b', playing: null }), false);
 });

@@ -1,12 +1,11 @@
 // web/static/lib/bar/take-keys.js
-// What the bar adds with the rooms on (docs/superpowers/specs/2026-10-15-
-// flow-design.md, "A tap plays"; docs/superpowers/plans/2026-10-15-f5b.md):
-// with a take in it, the take's name, which opens it, and ✎, which takes the
-// frame being heard and opens the take; and ⟲ called Repeat, since the tape's
-// loop is another thing. They are made here, in script, so a page with the
-// rooms off has none of the markup; every rule that styles them hangs on the
-// `np-take` class this adds to the bar, which only a take in the bar under the
-// rooms ever wears.
+// What the bar adds (docs/superpowers/specs/2026-10-15-flow-design.md, "A tap
+// plays"; docs/superpowers/plans/2026-10-15-f5b.md): with a take in it, the
+// take's name, which opens it, and ✎, which takes the frame being heard and
+// opens the take; and ⟲ called Repeat, since the tape's loop is another
+// thing. They are made here, in script; every rule that styles them hangs on
+// the `np-take` class this adds to the bar, which only a take in the bar
+// ever wears.
 
 import { takeHref } from './take-source.js';
 

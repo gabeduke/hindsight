@@ -398,11 +398,10 @@ test('the finger going down on a row warms its player', () => {
 
 // --- "Name it" -------------------------------------------------------------------------
 
-test('with the rooms on, ?take=NAME is Open (where a take is named); off, it is the sheet’s', () => {
-  assert.equal(askedTake({ rooms: true, search: '?take=jam_a.wav' }), '/wave.html?file=jam_a.wav');
-  assert.equal(askedTake({ rooms: true, search: '?take=a%20b%26c.wav' }), '/wave.html?file=a%20b%26c.wav');
-  assert.equal(askedTake({ rooms: true, search: '' }), null);
-  assert.equal(askedTake({ rooms: false, search: '?take=jam_a.wav' }), null);
+test('?take=NAME is Open, where a take is named', () => {
+  assert.equal(askedTake({ search: '?take=jam_a.wav' }), '/wave.html?file=jam_a.wav');
+  assert.equal(askedTake({ search: '?take=a%20b%26c.wav' }), '/wave.html?file=a%20b%26c.wav');
+  assert.equal(askedTake({ search: '' }), null);
 });
 
 // --- the flight: after the sound, never before it, never waited for -------------------------

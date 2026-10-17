@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { catchState, catchSub, catchMini, oldCatchKey, CATCH_BARS } from './catch.js';
+import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 
 // CATCH was greyed with nothing to say why: it lights after one whole pass of
 // the loop (about 10 s at 96 BPM and 4 bars), and "the last 4 bars" is not on
@@ -21,7 +21,7 @@ test('playing, no pass yet: it says it waits for one, and how long', () => {
   assert.equal(s.ready, false);
   assert.match(s.why, /whole pass/);
   assert.match(s.why, /about 10 s/);
-  assert.equal(s.short, 'waits for a pass', 'the key’s second line');
+  assert.equal(s.short, 'after one pass', 'the key’s second line');
   assert.equal(s.bars, true, 'the last bars do not wait for a pass');
 });
 
@@ -91,43 +91,37 @@ test('the bars on offer are the track sheet’s: 1, 2 and 4', () => {
   assert.deepEqual(CATCH_BARS, [1, 2, 4]);
 });
 
-// F7 (flow spec): CATCH says what it catches, and why it waits. In the Studio
-// the key reads "last pass → 2" and, while it waits for a pass, "after one
-// pass"; the old pages keep "waits for a pass".
-test('with the rooms on a Catch that waits for a pass says "after one pass"', () => {
-  const s = catchState({ live: live(), tape: tape(), rooms: true });
+// F7 (flow spec): CATCH says what it catches, and why it waits. The key
+// reads "last pass → 2" and, while it waits for a pass, "after one pass".
+test('a Catch that waits for a pass says "after one pass"', () => {
+  const s = catchState({ live: live(), tape: tape() });
   assert.equal(s.ready, false);
   assert.equal(s.short, 'after one pass');
   assert.match(s.why, /whole pass/, 'the reason in full is still there');
-  assert.equal(catchState({ live: live(), tape: tape() }).short, 'waits for a pass', 'the rooms off: as before');
 });
 
-test('with the rooms on the other reasons keep their words', () => {
+test('the other reasons keep their words', () => {
   const t = tape();
-  assert.equal(catchState({ live: live({ playing: false }), tape: t, rooms: true }).short, 'press ▶');
-  assert.equal(catchState({ live: live({ aligned: 'none', playing: true }), tape: t, rooms: true }).short, 'lining up');
-  assert.equal(catchState({ live: live(), tape: tape({ loop: { on: false, in: 0, out: 480000 } }), rooms: true }).short, 'loop is off');
-  assert.equal(catchState({ live: live(), tape: t, rooms: true, armed: false }).short, 'arm a track');
+  assert.equal(catchState({ live: live({ playing: false }), tape: t }).short, 'press ▶');
+  assert.equal(catchState({ live: live({ aligned: 'none', playing: true }), tape: t }).short, 'lining up');
+  assert.equal(catchState({ live: live(), tape: tape({ loop: { on: false, in: 0, out: 480000 } }) }).short, 'loop is off');
+  assert.equal(catchState({ live: live(), tape: t, armed: false }).short, 'arm a track');
 });
 
 test('the key’s second line says what it catches: the last pass, onto which tracks', () => {
-  const ready = catchState({ live: live({ cycles: [{ out: 1, in: 0, len: 480000 }] }), tape: tape(), rooms: true });
-  assert.equal(catchSub(ready, { armed: [2], rooms: true }), 'last pass → 2');
-  assert.equal(catchSub(ready, { armed: [2, 3], rooms: true }), 'last pass → 2, 3');
-  assert.equal(catchSub(ready, { armed: [], rooms: true }), 'arm a track');
-  // The old pages keep their words.
-  assert.equal(catchSub(ready, { armed: [2], rooms: false }), 'last pass → track 2');
-  assert.equal(catchSub(ready, { armed: [2, 3], rooms: false }), 'last pass → 2, 3');
-  assert.equal(catchSub(ready, { armed: [], rooms: false }), 'arm a track');
+  const ready = catchState({ live: live({ cycles: [{ out: 1, in: 0, len: 480000 }] }), tape: tape() });
+  assert.equal(catchSub(ready, { armed: [2] }), 'last pass → 2');
+  assert.equal(catchSub(ready, { armed: [2, 3] }), 'last pass → 2, 3');
+  assert.equal(catchSub(ready, { armed: [] }), 'arm a track');
 });
 
 test('waiting, it says why in the same place; on a phone playing late, that it needs the jam room', () => {
-  const waits = catchState({ live: live(), tape: tape(), rooms: true });
-  assert.equal(catchSub(waits, { armed: [2], rooms: true }), 'after one pass');
-  const stopped = catchState({ live: live({ playing: false }), tape: tape(), rooms: true, armed: false });
-  assert.equal(catchSub(stopped, { armed: [], rooms: true }), 'arm a track');
-  const late = catchState({ live: live({ aligned: 'none' }), tape: tape(), phoneOut: true, rooms: true });
-  assert.equal(catchSub(late, { armed: [2], phoneOut: true, rooms: true }), 'jam room only');
+  const waits = catchState({ live: live(), tape: tape() });
+  assert.equal(catchSub(waits, { armed: [2] }), 'after one pass');
+  const stopped = catchState({ live: live({ playing: false }), tape: tape(), armed: false });
+  assert.equal(catchSub(stopped, { armed: [] }), 'arm a track');
+  const late = catchState({ live: live({ aligned: 'none' }), tape: tape(), phoneOut: true });
+  assert.equal(catchSub(late, { armed: [2], phoneOut: true }), 'jam room only');
 });
 
 test('on the phone’s mini bar the key’s second line is short enough to leave the transport its bar number', () => {
@@ -142,7 +136,7 @@ test('on the phone’s mini bar the key’s second line is short enough to leave
   const words = ['after one pass', 'press ▶', 'loop is off', 'lining up', 'arm a track', 'jam room only', 'waiting'];
   for (let mask = 1; mask < 64; mask++) {
     const ns = [1, 2, 3, 4, 5, 6].filter((n) => mask & (1 << (n - 1)));
-    words.push(catchSub({ ready: true }, { armed: ns, rooms: true }));
+    words.push(catchSub({ ready: true }, { armed: ns }));
   }
   for (const s of words) assert.ok(catchMini(s).length <= 9, `${s} -> ${catchMini(s)}`);
   // A run of tracks is a range; anything else that is long says how many.
@@ -151,33 +145,4 @@ test('on the phone’s mini bar the key’s second line is short enough to leave
   assert.equal(catchMini('last pass → 1, 2, 3, 4, 5'), '→ 1–5');
   assert.equal(catchMini('last pass → 1, 2, 4, 5, 6'), '→ 5 trk');
   assert.equal(catchMini('last pass → 1, 2, 3'), '→ 1, 2, 3', 'nine already: said in full');
-});
-
-// With both preview flags off the old Tape page's Catch key is main's: a
-// `disabled` button whose second line reads "last pass → track N", with no
-// reason in its label. (The pressable key that says why it waits is the
-// rooms' and Play mode's: page.js, NEW_CATCH.)
-test('the old Catch key is disabled until a pass has gone round, and says "last pass → track N"', () => {
-  const k = (l, over = {}) => oldCatchKey({ live: l, recTrack: 2, ...over });
-  assert.equal(k(null).disabled, true);
-  assert.equal(k(live({ aligned: 'none', cycles: [1] })).disabled, true);
-  assert.equal(k(live()).disabled, true, 'lined up, but no pass yet');
-  assert.equal(k(live({ cycles: [1] })).disabled, false);
-  assert.equal(k(live(), { phoneOut: true }).disabled, false);
-  assert.equal(k(live()).sub, 'last pass → track 2');
-  assert.equal(k(live()).label, 'Catch the last pass onto track 2');
-  assert.equal(k(live(), { recTrack: 0 }).sub, 'arm a track');
-  assert.equal(k(live(), { recTrack: 0 }).label, 'Catch: arm a track first');
-  assert.equal(k(live(), { phoneOut: true }).sub, 'jam room only');
-});
-
-// page.js reads both flags once and gives the pressable key to them alone.
-test('page.js gives the pressable Catch key to the preview flags only', async () => {
-  const { readFileSync } = await import('node:fs');
-  const src = readFileSync(new URL('./page.js', import.meta.url), 'utf8');
-  assert.match(src, /const NEW_CATCH = ROOMS \|\| playOn\(\);/);
-  const on = src.indexOf('if (NEW_CATCH) {');
-  const off = src.indexOf('oldCatchKey({', on);
-  const newKey = src.indexOf('cb.disabled = false;', on);
-  assert.ok(on > 0 && newKey > on && off > newKey, 'the pressable key is inside the flag, the old key after it');
 });

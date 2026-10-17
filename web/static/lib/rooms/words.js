@@ -1,14 +1,13 @@
 // web/static/lib/rooms/words.js
 // The rooms' words (docs/superpowers/specs/2026-10-15-flow-design.md, "Every
-// word on screen today"). The pages the rooms share with Capture, Takes and
-// Tape carry the old words in their markup and in the strings they build; with
-// the flag off that is exactly what is shown. With it on, say() gives the
-// rooms' word for each: flag -> note, clip -> part, ring -> feed, clipboard ->
-// buffer, mix down -> bounce, Punch-in FX -> FX.
+// word on screen today"). The pages still carry the old words in their
+// markup and in the strings they build; say() gives the rooms' word for
+// each: flag -> note, clip -> part, ring -> feed, clipboard -> buffer, mix
+// down -> bounce, Punch-in FX -> FX.
 //
-// The choice is made here, at runtime, from the flag, so a shared string is
-// never edited and the rooms off answer with the very same text. Two places
-// call it for everything a page says:
+// The renaming is done here, at runtime, so a string is renamed in one
+// place rather than edited everywhere. Two places call it for everything a
+// page says:
 //   - tipFor (lib/help/tips.js) for every tip and title;
 //   - applyWords, once, for a page's own markup (nav.js, so every page);
 // and the modules that build text -- a toast, an aria-label, a sheet -- wrap it
@@ -17,8 +16,6 @@
 // What a person typed is theirs: a take's, tape's or tag's name is never run
 // through here. A toast puts a name in curly quotes (“…”) and say() leaves
 // whatever is inside them alone.
-
-import { on } from './flag.js';
 
 const keepCase = (word, to) => (word[0] !== word[0].toLowerCase() ? to[0].toUpperCase() + to.slice(1) : to);
 
@@ -60,8 +57,7 @@ const RULES = [
 // What a person typed is theirs. A name that goes into a message is wrapped by
 // named() in two private-use characters, which nobody can type into a name
 // (named() strips them from the name too); rename() leaves what is between
-// them as it was, and the sinks (toast, say) take the markers off again, with
-// the rooms off as well, so the text is the same either way.
+// them as it was, and the sinks (toast, say) take the markers off again.
 const OPEN = '\uE000';
 const CLOSE = '\uE001';
 const MARKED = new RegExp(`(${OPEN}[^${CLOSE}]*${CLOSE})`);
@@ -107,14 +103,14 @@ export function renameToast(msg, kind = 'ok') {
   return kind === 'bad' ? unmark(msg) : rename(msg);
 }
 
-/** sayToast is renameToast with the rooms on; with them off the message is the same, the markers off. */
+/** sayToast is renameToast: a toast in the rooms' words, the markers off. */
 export function sayToast(msg, kind) {
-  return on() ? renameToast(msg, kind) : unmark(msg);
+  return renameToast(msg, kind);
 }
 
-/** say is rename with the rooms on; with them off the text is the same, the markers off. */
+/** say is rename: text in the rooms' words, the markers off. */
 export function say(text) {
-  return on() ? rename(text) : unmark(text);
+  return rename(text);
 }
 
 // Tips whose control is the same but whose words are better said than renamed.
@@ -128,7 +124,7 @@ export function tipForRooms(id, tip) {
 
 /** settingsGroup is a Settings group's heading: the Pi calls the feed's group Buffer, and the Studio's buffer is another thing. */
 export function settingsGroup(name) {
-  return on() && name === 'Buffer' ? 'Feed' : name;
+  return name === 'Buffer' ? 'Feed' : name;
 }
 
 const ATTRS = ['aria-label', 'title', 'placeholder', 'alt', 'data-label'];
@@ -139,7 +135,7 @@ const ATTRS = ['aria-label', 'title', 'placeholder', 'alt', 'data-label'];
  * page's modules fill it with what a person typed.
  */
 export function applyWords(doc = globalThis.document) {
-  if (!doc || typeof doc.createTreeWalker !== 'function' || !on()) return;
+  if (!doc || typeof doc.createTreeWalker !== 'function') return;
   const roots = [doc.body || doc];
   for (const t of doc.querySelectorAll('template')) roots.push(t.content);
   for (const root of roots) {

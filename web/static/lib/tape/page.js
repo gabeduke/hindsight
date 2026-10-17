@@ -43,10 +43,7 @@ import { initNav } from '../nav.js';
 import { timedFetch, watchLink } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
-import { on as roomsOn } from '../rooms/flag.js';
-import { on as playOn } from '../play/flag.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
-import { trimTapePage } from '../rooms/nocrate.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
 import { readResponse, failToast, editTape } from './refusal.js';
@@ -55,29 +52,16 @@ import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick
 import { armPress } from '../rig/armpress.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
-import { catchState, catchSub, catchMini, oldCatchKey, CATCH_BARS } from './catch.js';
+import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
-// The two rooms (lib/rooms/flag.js): with them on, ● adds a track to what's
-// armed or takes it off (multi-arm, the rig spec), and a header that would
-// record the tape shows the rig's amber dot. Read once, at load.
-const ROOMS = roomsOn();
-// The Catch key that stays pressable and says why it waits (lib/tape/catch.js)
-// is a preview feature: with both preview flags off the old page keeps its
-// disabled key and its "last pass → track N" line, exactly as main has it.
-const NEW_CATCH = ROOMS || playOn();
 // The Studio's bar is the tape's and never takes a take: this page neither
 // reads the hand-off nor writes it, so the Listening Room, back, finds its
 // take (lib/bar/carry.js).
-if (ROOMS) studioVisit(pageCarry());
-// And the crate is off the screen (F3): its drawer, the clipboard line, the
-// sheet of a kept clip, the bar's Crate key and a part's Keep. The buffer
-// (lib/buffer) is the only view of what GRAB, Cut and Copy hold; the Pi keeps
-// the crate. Taken out before anything below looks for them.
-if (ROOMS) trimTapePage(document);
+studioVisit(pageCarry());
 
 const state = {
   id: '',           // the tape shown (the loaded one)
@@ -114,9 +98,6 @@ const state = {
   noClickUntil: 0,  // a lane's click before this ends a pan, not a tap
   pinch: false,     // two fingers are on the lanes or the ruler
   rec: null,        // a punch being recorded: {key, track, start, trace, wrapped}
-  // The bar's open drawer: 'crate' (the clipboard and the kept clips), or ''.
-  // The Studio has none, whatever this device last left open.
-  drawer: ROOMS ? '' : readPref('tape.drawer', '') === 'crate' ? 'crate' : '', // the Edit drawer went in step 5
 };
 const peaks = new Map(); // pool file -> PeakData, or a pending promise
 // A pool file's gain for its bars (lib/wave/draw.js takeGain): one per file,
@@ -542,7 +523,6 @@ function render() {
   const live = state.live;
   const sr = t.sample_rate;
   renderClipBar();
-  renderCrateDrops();
   $('tape-name-text').textContent = t.name;
   $('tape-name').title = `${t.name}: switch tape`;
   document.title = `${t.name} — tape — Hindsight`;
@@ -644,35 +624,26 @@ function render() {
   for (const b of $('catch-bars').querySelectorAll('button')) b.disabled = !canCatch || !t.grid;
   rb.setAttribute('aria-disabled', String(phoneOut));
   rb.classList.toggle('dim', phoneOut);
-  if (NEW_CATCH) {
+  {
     // Catch waits for a whole pass of the loop, and says so: it stays pressable
     // (never `disabled`, which a phone's tap passes over) and a press says why;
     // its tip does too (lib/tape/catch.js).
-    const cs = state.catchSays = catchState({ live, tape: t, phoneOut, armed: !!state.recTrack, rooms: ROOMS });
+    const cs = state.catchSays = catchState({ live, tape: t, phoneOut, armed: !!state.recTrack });
     const cb = $('catch-pass');
     cb.disabled = false;
     cb.setAttribute('aria-disabled', String(!cs.ready));
     cb.classList.toggle('waits', !cs.ready);
     cb.classList.toggle('jam-only', phoneOut);
     setIf(cb, 'title', cs.ready ? tipFor('catch') : cs.why);
-    const catchWords = catchSub(cs, { armed: state.recTracks, phoneOut, rooms: ROOMS });
+    const catchWords = catchSub(cs, { armed: state.recTracks, phoneOut });
     setText(cb.querySelector('.np-catch-sub'), catchWords);
     // The Studio's key has a shorter second line for the phone's mini bar,
     // where the full one is hidden (styles.css, .np-catch-mini).
     const mini = cb.querySelector('.np-catch-mini');
     if (mini) setText(mini, catchMini(catchWords));
     setIf(cb, 'aria-label', phoneOut ? 'Catch: needs the jam room' : !cs.ready ? `Catch: ${cs.why}` : state.recTrack ? `Catch the last pass onto ${onWords(state.recTracks)}` : 'Catch: arm a track first');
-  } else {
-    // The old key, as main has it: greyed (`disabled`) until a pass has gone round.
-    const cb = $('catch-pass');
-    const k = oldCatchKey({ live, phoneOut, recTrack: state.recTrack });
-    cb.disabled = k.disabled;
-    cb.classList.toggle('jam-only', phoneOut);
-    setText(cb.querySelector('.np-catch-sub'), k.sub);
-    setIf(cb, 'aria-label', k.label);
   }
   renderMode();
-  renderDrawers();
   renderClipboard();
   renderRulerKeys();
   renderAlign();
@@ -704,26 +675,6 @@ function renderTrackRec() {
   for (const [row, h] of Object.entries(hide)) document.querySelector(`#track-rec .tb-row.${row}`).hidden = h;
 }
 
-// renderDrawers opens the bar's one open drawer and lights its key. From
-// 700 px a drawer docks above the bar and pushes the lanes up; on a phone
-// both are rows in the page (styles.css, "the dock").
-function renderDrawers() {
-  if (ROOMS) return; // no drawer in the Studio
-  for (const [key, id] of [['crate', 'drawer-crate']]) {
-    const open = state.drawer === key && !state.align;
-    $(id).classList.toggle('open', open);
-    setIf($(`np-${id}`), 'aria-expanded', String(open));
-    $(`np-${id}`).disabled = !!state.align; // the editor has the place
-  }
-}
-
-function setDrawer(key) {
-  state.drawer = key;
-  writePref('tape.drawer', key);
-  renderDrawers();
-  if (key === 'crate') fetchCrate();
-}
-
 function renderMode() {
   for (const b of $('catch-mode').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
 }
@@ -747,47 +698,10 @@ async function fetchClipboard() {
   renderClipboard();
 }
 
+// renderClipboard follows what Cut and Copy hold: the range's Paste and
+// Insert use it (the buffer, lib/buffer, shows what GRAB holds).
 function renderClipboard() {
-  const c = state.clipboard;
-  const t = state.tape;
-  // The Studio has no clipboard line: what Cut and Copy hold is used from the
-  // range's Paste and Insert, and the buffer shows what GRAB holds.
-  if (ROOMS) { if (state.range) renderClipBar(); return; }
-  const chip = $('clip-play');
-  if (state.clipboardError) {
-    chip.textContent = 'can’t be read: × clears it';
-  } else if (!c || !t) {
-    chip.textContent = 'empty';
-  } else {
-    const secs = (c.frames / t.sample_rate).toFixed(1);
-    const n = c.tracks.length;
-    chip.textContent = `${$('clip-audio').paused ? '▶' : '■'} ${secs} s${n > 1 ? ` · ${n} tracks` : ''} · ${c.from}`;
-  }
-  chip.disabled = !c;
-  chip.classList.toggle('playing', !$('clip-audio').paused);
-  // A several-track clipboard lands from the selected track down; Merge
-  // puts it on the one.
-  const fits = !!(c && t && state.track + c.tracks.length - 1 <= t.tracks.length);
-  $('drop').disabled = !fits;
-  // Insert pushes what's on the tape along: there must be something, or a
-  // tempo, for it to be pushed by.
-  $('insert').disabled = !fits || !t || (!t.grid && !t.tracks.some((x) => x.clips.length));
-  $('drop').title = c && t && !fits ? `${c.tracks.length} tracks don't fit from track ${state.track}: Merge puts them on it` : '';
-  if (state.range) renderClipBar(); // its Paste and Insert
-  $('merge').hidden = !(c && c.tracks.length > 1);
-  $('merge').disabled = !t;
-  $('clip-clear').disabled = !c && !state.clipboardError;
-  // One clip on it can be kept on the crate, by reference.
-  const one = c ? c.tracks.flat() : [];
-  $('clip-keep-board').hidden = !(one.length === 1 && one[0].at === 0 && one[0].frames === c.frames);
-}
-
-function auditionClipboard() {
-  const a = $('clip-audio');
-  if (!a.paused) { a.pause(); renderClipboard(); return; }
-  a.src = `/api/clipboard/audio?t=${encodeURIComponent(state.clipboard ? state.clipboard.created : '')}`;
-  a.play().catch((e) => toast(`Could not play the clipboard: ${e.message}`, 'bad'));
-  renderClipboard();
+  if (state.range) renderClipBar();
 }
 
 // drop pastes the clipboard: at the playhead on the selected track, or with
@@ -833,12 +747,11 @@ function renderClock(c, t) {
 
 // --- mixdown and export ------------------------------------------------------
 
-// BOUNCE (lib/rooms/bounce.js): with the rooms on, the two Mix down items are
-// Bounce the loop / Bounce the whole tape -- the same buttons, the same
-// request -- the toast has ▶ and Open, and Last bounce raises it again. Off,
-// `bouncing` is null and everything below says what it always did.
+// BOUNCE (lib/rooms/bounce.js): the two Mix down items are Bounce the loop /
+// Bounce the whole tape -- the same buttons, the same request -- the toast
+// has ▶ and Open, and Last bounce raises it again.
 const bouncing = (() => {
-  const menu = bounceMenu(document, { rooms: ROOMS });
+  const menu = bounceMenu(document);
   if (!menu) return null;
   // Last bounce is the loaded tape's: the keeper drops another tape's the
   // moment the tape differs, and asks the Pi as the menu opens (a bounce may
@@ -856,12 +769,12 @@ async function mixdown(all) {
     const md = b.mixdown;
     state.mixKey = `${md.id}:${md.state}`;
     const span = fmtSecs(md.to - md.from, state.tape.sample_rate);
-    toast(bouncing ? bounceStartWords(span) : `Mixing down ${span}: the tape plays it once, then it’s saved as a take`, 'ok', {
+    toast(bounceStartWords(span), 'ok', {
       ms: 6000, action: { label: 'Cancel', run: () => transport('stop') },
     });
     poll();
   } catch (e) {
-    toast(`Could not ${bouncing ? 'bounce' : 'mix down'}: ${e.message}`, 'bad');
+    toast(`Could not bounce: ${e.message}`, 'bad');
   }
 }
 
@@ -874,16 +787,10 @@ function noteMixdown(md) {
   state.mixKey = key;
   if (!md || md.tape !== state.id) return;
   if (md.state === 'done') {
-    if (bouncing) {
-      bouncing.keeper.set({ name: md.take, label: state.tape.name }, state.id);
-      bounceToast({ toast, name: md.take, message: 'Bounced as a take', player: bouncing.player });
-    } else {
-      toast('Mixed down as a take', 'ok', {
-        ms: 10000, action: { label: 'Open it', run: () => { location.href = `/wave.html?file=${encodeURIComponent(md.take)}`; } },
-      });
-    }
+    bouncing?.keeper.set({ name: md.take, label: state.tape.name }, state.id);
+    bounceToast({ toast, name: md.take, message: 'Bounced as a take', player: bouncing?.player });
   } else if (md.state === 'failed') {
-    toast(`The ${bouncing ? 'bounce' : 'mixdown'} didn’t save: ${md.error}`, 'bad');
+    toast(`The bounce didn’t save: ${md.error}`, 'bad');
   }
 }
 
@@ -987,10 +894,10 @@ const OP_WORDS = {
 // edit did -- or null, having said why not.
 async function edit(op, extra = {}, { keepalive = false } = {}) {
   try {
-    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, ...editBody(op, { track: state.track, ...extra }, ROOMS) }, keepalive }));
+    const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, ...editBody(op, { track: state.track, ...extra }) }, keepalive }));
     const e = (s && s.edit) || {};
     if (e.clipboard) { cbGen++; state.clipboard = e.clipboard; state.clipboardError = ''; renderClipboard(); }
-    if (ROOMS && e.replaced) offerUndo(e);
+    if (e.replaced) offerUndo(e);
     return e;
   } catch (err) {
     toast(`Could not ${OP_WORDS[op] || op}: ${err.message}`, 'bad');
@@ -1059,238 +966,6 @@ function markTarget(sl) {
   if (sl && sl.group && sl.dtrack) for (const g of sl.group) to.add(g.track + sl.dtrack);
   else if (sl && !sl.group && sl.to !== sl.n) to.add(sl.to);
   for (const l of lanes) l.row.classList.toggle('drop-target', to.has(l.n));
-}
-
-// --- the crate ------------------------------------------------------------------
-// The clips kept from takes, the ribbon and the tape (internal/tape/crate.go):
-// a drawer of rows, newest first, to play here, drop at the playhead, or open
-// for rename, share, the take it came from and delete. tape.html?crate=<take>
-// opens it on the clips kept from that take. See
-// docs/superpowers/specs/2026-10-07-crate-design.md.
-
-const crate = {
-  clips: [], sr: 48000, gen: 0, q: '',
-  take: new URLSearchParams(location.search).get('crate') || '',
-  open: null, // the clip whose sheet is open
-};
-
-async function fetchCrate() {
-  const g = ++crate.gen;
-  const qs = new URLSearchParams();
-  if (crate.q) qs.set('q', crate.q);
-  if (crate.take) qs.set('take', crate.take);
-  try {
-    const b = await api(`/api/crate?${qs}`, { timeout: POLL_TIMEOUT_MS });
-    if (g !== crate.gen) return;
-    crate.clips = b.clips || [];
-    crate.sr = b.sample_rate || crate.sr;
-    renderCrate();
-  } catch (e) {
-    toast(`Could not read the crate: ${e.message}`, 'bad');
-  }
-}
-
-// crateMeta reads a kept clip's length (and bars, with a tempo) and where
-// it came from.
-function crateMeta(k) {
-  const s = k.frames / crate.sr;
-  const len = s >= 60 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : `${s.toFixed(1)} s`;
-  const bars = k.bpm > 0 ? Math.round(((s * k.bpm) / 240) * 10) / 10 : 0;
-  return [len, bars ? `${bars} bar${bars === 1 ? '' : 's'}` : '', k.source && k.source.what].filter(Boolean).join(' · ');
-}
-
-const CRATE_EMPTY = ROOMS ? '' : $('crate-empty').innerHTML; // what it says with nothing kept
-
-// renderCrate rebuilds the rows, where they were scrolled to and the focus
-// kept: after a fetch, not for a play or a stop (markPlaying).
-function renderCrate() {
-  const list = $('crate-list');
-  const scroll = list.scrollTop;
-  const focused = document.activeElement && list.contains(document.activeElement)
-    ? [document.activeElement.closest('.crate-row')?.dataset.id, document.activeElement.className] : null;
-  list.replaceChildren();
-  $('crate-from').hidden = !crate.take;
-  if (crate.take) $('crate-from').textContent = `from ${crate.take.replace(/\.wav$/, '')} ×`;
-  $('crate-empty').hidden = crate.clips.length > 0;
-  if (crate.q || crate.take) $('crate-empty').textContent = 'No kept clip matches.';
-  else $('crate-empty').innerHTML = CRATE_EMPTY;
-  for (const k of crate.clips) {
-    const li = document.createElement('li');
-    li.className = 'crate-row';
-    li.dataset.id = k.id;
-    li.innerHTML = `
-      <button class="crate-play" type="button" data-tip="crate-play">
-        <canvas class="crate-wave" aria-hidden="true"></canvas>
-        <span class="crate-text"><span class="crate-name"></span><span class="crate-meta mono"></span></span>
-      </button>
-      <button class="icon-btn crate-drop" type="button" data-tip="crate-drop">Paste</button>
-      <button class="icon-btn crate-insert" type="button" data-tip="crate-insert">Insert</button>
-      <button class="icon-btn crate-more" type="button" aria-label="More for this clip" data-tip="crate-more">⋯</button>`;
-    li.querySelector('.crate-name').textContent = k.name;
-    li.querySelector('.crate-meta').textContent = crateMeta(k);
-    li.querySelector('.crate-play').addEventListener('click', () => auditionCrate(k));
-    li.querySelector('.crate-drop').addEventListener('click', () => dropCrate(k));
-    const ins = li.querySelector('.crate-insert');
-    ins.addEventListener('click', (e) => { if (!confirmFirst(e, ins, 'insert', k)) insertHere(k); });
-    wirePreview(ins, 'insert', () => k);
-    li.querySelector('.crate-drop').disabled = !state.tape;
-    li.querySelector('.crate-more').addEventListener('click', () => openCrateClip(k));
-    list.appendChild(li);
-  }
-  // The waves once every row is in, so measuring one lays the list out once.
-  for (const li of list.children) drawCrateWave(li.querySelector('.crate-wave'), crate.clips.find((k) => k.id === li.dataset.id));
-  list.scrollTop = scroll;
-  if (focused) list.querySelector(`.crate-row[data-id="${CSS.escape(focused[0] || '')}"] .${focused[1].split(' ').pop()}`)?.focus({ preventScroll: true });
-  markPlaying();
-  renderCrateDrops();
-}
-
-// markPlaying marks the row playing ■, the others ▶, in place.
-function markPlaying() {
-  const a = $('crate-audio');
-  const playing = a.dataset.id && !a.paused ? a.dataset.id : '';
-  for (const li of $('crate-list').children) {
-    li.querySelector('.crate-play').setAttribute('aria-pressed', String(li.dataset.id === playing));
-    li.classList.toggle('playing', li.dataset.id === playing);
-  }
-}
-
-// The rows' Paste keys need a tape to paste on.
-function renderCrateDrops() {
-  const t = state.tape;
-  for (const b of document.querySelectorAll('#crate-list .crate-drop')) b.disabled = !t;
-  // As #insert: an empty tape with no tempo has nothing to push along.
-  const pushes = !!t && (!!t.grid || t.tracks.some((x) => x.clips.length));
-  for (const b of document.querySelectorAll('#crate-list .crate-insert')) b.disabled = !pushes;
-}
-
-// drawCrateWave draws a kept clip's bars, small, from its file's peaks.
-async function drawCrateWave(cv, k) {
-  let pd = peaks.get(k.file);
-  if (pd === undefined) {
-    pd = fetch(`/api/tapes/peaks?file=${encodeURIComponent(k.file)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    peaks.set(k.file, pd);
-  }
-  if (pd instanceof Promise) { pd = await pd; peaks.set(k.file, pd); }
-  if (!pd || !cv.isConnected) return;
-  const r = cv.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  cv.width = Math.round(r.width * dpr);
-  cv.height = Math.round(r.height * dpr);
-  const ctx = cv.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const color = getComputedStyle(cv).color;
-  drawBars(ctx, blockLevels(pd, k, r.width), { x0: 2, pitch: 4, cy: r.height / 2, half: Math.max(1, r.height / 2 - 2), gain: gainOf(k.file, pd), width: 2, color });
-}
-
-function auditionCrate(k) {
-  const a = $('crate-audio');
-  if (a.dataset.id === k.id && !a.paused) { a.pause(); return; }
-  a.dataset.id = k.id;
-  a.src = `/api/crate/audio?id=${encodeURIComponent(k.id)}`;
-  // Another row tapped before this one starts aborts it: not an error.
-  a.play().catch((e) => { if (e.name !== 'AbortError') toast(`Could not play it: ${e.message}`, 'bad'); });
-  markPlaying();
-}
-
-async function dropCrate(k) {
-  try {
-    const d = await change(() => api(`/api/tapes/drop?${q()}`, { method: 'POST', body: { crate: k.id, track: state.track } }));
-    caughtToast(`Pasted “${named(k.name)}” on track ${state.track}`, d.clip, { action: undoAction });
-    poll();
-  } catch (e) {
-    toast(`Could not paste it: ${e.message}`, 'bad');
-  }
-}
-
-// keep puts a clip on the crate: a tape clip, or the clipboard, by reference.
-async function keep(body) {
-  try {
-    const b = await api('/api/crate', { method: 'POST', body });
-    toast(`Kept “${named(b.clip.name)}” in the crate`, 'ok', { action: { label: 'Open', run: () => setDrawer('crate') } });
-    fetchCrate(); // on a phone the crate is always on the page
-  } catch (e) {
-    toast(`Could not keep it: ${e.message}`, 'bad');
-  }
-}
-
-function openCrateClip(k) {
-  crate.open = k;
-  $('crate-title').textContent = k.name;
-  $('crate-what').textContent = crateMeta(k);
-  $('crate-name').value = k.name;
-  const take = k.source && k.source.kind === 'take' ? k.source.take : '';
-  $('crate-take').hidden = !take;
-  if (take) $('crate-take').href = `wave.html?file=${encodeURIComponent(take)}`;
-  $('crate-sheet').showModal();
-}
-
-function wireCrate() {
-  let t = 0;
-  $('crate-q').addEventListener('input', () => {
-    clearTimeout(t);
-    t = setTimeout(() => { crate.q = $('crate-q').value.trim(); fetchCrate(); }, 200);
-  });
-  $('crate-from').addEventListener('click', () => {
-    crate.take = '';
-    const u = new URL(location.href);
-    u.searchParams.delete('crate');
-    history.replaceState(history.state, '', u);
-    fetchCrate();
-  });
-  for (const ev of ['play', 'playing', 'ended', 'pause']) $('crate-audio').addEventListener(ev, markPlaying);
-  // Enter both submits the form and changes the field: one rename.
-  let renaming = false;
-  const rename = async () => {
-    const k = crate.open;
-    const name = $('crate-name').value.trim();
-    if (!k || !name || name === k.name || renaming) return;
-    renaming = true;
-    try {
-      const b = await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'PATCH', body: { name } });
-      if (crate.open && crate.open.id === b.clip.id) crate.open = b.clip;
-      $('crate-title').textContent = b.clip.name;
-      fetchCrate();
-    } catch (e) {
-      toast(`Could not rename it: ${e.message}`, 'bad');
-    } finally {
-      renaming = false;
-    }
-  };
-  $('crate-rename').addEventListener('submit', (e) => { e.preventDefault(); rename(); });
-  $('crate-name').addEventListener('change', rename);
-  $('crate-share').addEventListener('click', async () => {
-    const k = crate.open;
-    if (!k) return;
-    try {
-      const res = await fetch(`/api/crate/audio?id=${encodeURIComponent(k.id)}&download=1`);
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
-      const name = `${k.name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'clip'}.wav`;
-      await shareOrDownload(await res.blob(), name, name, 'audio/wav');
-    } catch (e) { toast(`Could not share it: ${e.message}`, 'bad'); }
-  });
-  $('crate-delete').addEventListener('click', async () => {
-    const k = crate.open;
-    $('crate-sheet').close();
-    if (!k) return;
-    try {
-      await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'DELETE' });
-      fetchCrate();
-      toast(`Deleted “${named(k.name)}”: it can come back for a week`, 'ok', {
-        action: { label: 'Undo', run: async () => {
-          try { await api(`/api/crate?id=${encodeURIComponent(k.id)}`, { method: 'PATCH', body: { restore: true } }); } catch (e) { toast(`Could not bring it back: ${e.message}`, 'bad'); }
-          fetchCrate();
-        } },
-      });
-    } catch (e) { toast(`Could not delete it: ${e.message}`, 'bad'); }
-  });
-  $('crate-done').addEventListener('click', () => $('crate-sheet').close());
-  $('crate-sheet').addEventListener('close', () => { crate.open = null; });
-  // Opened on a take's clips (from its page, or the takes list): open, but
-  // not remembered as the drawer to open next time. On a phone every drawer
-  // is on the page, so the crate is always read.
-  if (crate.take) { state.drawer = 'crate'; renderDrawers(); }
-  fetchCrate();
 }
 
 // --- Paste, Insert, Delete time: what each does, shown first ---------------------
@@ -1411,11 +1086,6 @@ async function deleteTime() {
 }
 
 function wireTimeEdits() {
-  if (!ROOMS) { // the clipboard line's own Paste and Insert
-    wirePreview($('drop'), 'drop');
-    wirePreview($('insert'), 'insert');
-    $('insert').addEventListener('click', (e) => { if (!confirmFirst(e, $('insert'), 'insert')) insertHere(); });
-  }
   // The action bar's, on the range.
   wirePreview($('range-paste'), 'drop', () => null, true);
   wirePreview($('range-insert'), 'insert', () => null, true);
@@ -2268,8 +1938,7 @@ function renderAlign() {
   const el = $('clip-editor');
   el.hidden = !a;
   el.parentElement.classList.toggle('editing', !!a);
-  renderDrawers(); // the drawers wait under the editor, their keys unlit
-  renderClipBar(); // and the action bar goes: the editor has the clip
+  renderClipBar(); // the action bar goes: the editor has the clip
   if (!a) return;
   const t = state.tape;
   const sr = t.sample_rate;
@@ -3129,12 +2798,10 @@ function buildLanes() {
         if (state.recTracks.length === 1) armTrack(n);
         else render();
       });
-      // ● arms it, or disarms it if it's armed; its input opens a menu of
-      // the inputs, to choose what it records from.
-      // With the two rooms on, a tap moves the arm to this track, as 1–4,
-      // ↑ and ↓ do, and a hold (or ⇧-click) arms it as well, or takes it
-      // off (rig/armpress.js).
-      if (ROOMS) {
+      // ● moves the arm to this track, as 1–4, ↑ and ↓ do, and a hold (or
+      // ⇧-click) arms it as well, or takes it off (rig/armpress.js); its
+      // input opens a menu of the inputs, to choose what it records from.
+      {
         const press = armPress({
           onTap: () => { armTrack(n); },
           onAdd: () => {
@@ -3157,27 +2824,13 @@ function buildLanes() {
         a.addEventListener('contextmenu', (e) => e.preventDefault()); // a long press on a phone is a hold, not a menu
         a.style.webkitTouchCallout = 'none';
         a.style.userSelect = 'none';
-      } else {
-        lane.arm.addEventListener('click', () => {
-          // What the click does is what its label says (armClick): one track,
-          // as ever -- or, on a lit ● another device armed beside others, just
-          // this one off.
-          const { next } = armClick(state.recTracks, n, false);
-          if (!next.length) disarm();
-          else if (next.length === 1 && next[0] === n) armTrack(n);
-          else toggleArm(n);
-        });
       }
-      // The rig's warning: an armed track whose input hears the tape. Only
-      // with the rooms on: with them off there's no markup for it at all.
-      let warn = null;
-      if (ROOMS) {
-        warn = document.createElement('span');
-        warn.className = 'tt-warn';
-        warn.setAttribute('role', 'img');
-        warn.hidden = true;
-        lane.arm.before(warn);
-      }
+      // The rig's warning: an armed track whose input hears the tape.
+      const warn = document.createElement('span');
+      warn.className = 'tt-warn';
+      warn.setAttribute('role', 'img');
+      warn.hidden = true;
+      lane.arm.before(warn);
       lane.input.addEventListener('click', (e) => {
         e.stopPropagation(); // the page's click closes menus
         openInputMenu(n, lane.input, e.detail === 0);
@@ -3251,7 +2904,7 @@ function recPair(r, n) {
   return r.track === n ? { track: r.track, source: r.source } : null;
 }
 
-// toggleArm adds track n to what's armed, or takes it off (the rooms' ●).
+// toggleArm adds track n to what's armed, or takes it off (a held ●).
 // Not while a punch is armed or recording: it keeps its tracks.
 function toggleArm(n) {
   const r = state.live && state.live.record;
@@ -3410,13 +3063,13 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
     // while there's signal on it.
     const armed = state.recTracks.includes(lane.n);
     setIf(lane.arm, 'aria-pressed', String(armed));
-    const armSays = armClick(state.recTracks, tr.n, ROOMS).label;
+    const armSays = armClick(state.recTracks, tr.n).label;
     setIf(lane.arm, 'aria-label', armSays);
-    if (ROOMS) setIf(lane.arm, 'title', armSays); // what a pointer is shown, as what a screen reader is told
+    setIf(lane.arm, 'title', armSays); // what a pointer is shown, as what a screen reader is told
     const inName = litInput(tr.n);
     const src = state.sources.find((x) => x.name === inName);
-    // With the rooms on, what's drawn into its jack on the rig: "guitar".
-    const named = ROOMS && src && src.label ? src.label : '';
+    // What's drawn into its jack on the rig: "guitar".
+    const named = src && src.label ? src.label : '';
     setText(lane.input.querySelector('.tt-in-v'), named || inName || '–');
     lane.input.classList.toggle('signal', !!src && typeof src.peak_db === 'number' && src.peak_db > -50);
     setIf(lane.input, 'aria-label', `Track ${tr.n} records from ${inName || 'nothing yet'}${named ? ` (${named})` : ''}: choose its input`);
@@ -4063,11 +3716,11 @@ function laneTap(lane, e) {
 }
 
 // The Catch key. Waiting for a pass it says why instead of doing nothing --
-// with the last 4 bars on offer when those don't wait -- and with the rooms
-// on its ▾ opens the menu of what to catch (mountCatchMenu).
+// with the last 4 bars on offer when those don't wait -- and its ▾ opens the
+// menu of what to catch (mountCatchMenu).
 function onCatchKey(e) {
   const cs = state.catchSays;
-  if (ROOMS && e.target.closest && e.target.closest('.np-catch-more')) {
+  if (e.target.closest && e.target.closest('.np-catch-more')) {
     e.stopPropagation(); // the page's click closes menus
     if ($('catch-menu').hidden) { renderCatchMenu(); showMenu('catch-menu'); } else closeMenus();
     return;
@@ -4082,7 +3735,7 @@ function onCatchKey(e) {
   doCatch({ pass: 1 });
 }
 
-// mountCatchMenu gives Catch a ▾ and the menu it opens, with the rooms on:
+// mountCatchMenu gives Catch a ▾ and the menu it opens:
 // the last pass, or the last 1, 2 or 4 bars -- a track's sheet had them, and
 // nothing on the Studio said so. A part of the key, not a button of its own,
 // so it keeps the dock's three layouts; ↑ on the key opens it from a keyboard.
@@ -4092,7 +3745,7 @@ function mountCatchMenu() {
   more.className = 'np-catch-more';
   more.setAttribute('aria-hidden', 'true');
   more.textContent = '▾';
-  // Markup for the rooms only: the second line the phone's mini bar shows.
+  // The second line the phone's mini bar shows.
   const mini = document.createElement('span');
   mini.className = 'np-catch-mini';
   mini.setAttribute('aria-hidden', 'true');
@@ -4174,11 +3827,10 @@ async function doCatch(what) {
   const body = recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace', ...what });
   try {
     const b = await change(() => api(`/api/tapes/catch?${q()}`, { method: 'POST', body }));
-    const s = (b.clip.frames / state.tape.sample_rate).toFixed(1);
     // CATCH says what it did: "last 4 bars → 2, 3".
     const tracks = b.tracks || [body.track];
     const dirty = (b.clips || [b.clip]).some((c) => !c.clean);
-    const said = tracks.length > 1 || ROOMS ? `Caught ${catchSays(what, tracks)}` : `Caught ${s} s from ${b.clip.source} onto track ${body.track}`;
+    const said = `Caught ${catchSays(what, tracks)}`;
     caughtToast(`${said}${dirty ? ' — the tape was in that source too' : ''}`, b.clip, {
       action: { label: 'Undo', run: () => undoRedo(false) },
     });
@@ -4228,9 +3880,9 @@ function closeSheets() {
 // page, its grip pulling it up or down (styles.css, "the inspector").
 const INSPECTORS = ['clip-sheet', 'track-sheet', 'section-sheet'];
 const INSPECTOR_PASSES = new Set(['KeyR', 'KeyL', 'KeyK', 'KeyM', 'KeyJ', 'Digit1', 'Digit2', 'Digit3', 'Digit4']);
-// clickKey is the click's key: K, or with the two rooms on M, because K is
-// KEEP there (lib/play/controls.js; lib/rooms/studio.js binds K and C).
-const CLICK_KEY = roomsOn() ? 'KeyM' : 'KeyK';
+// clickKey is the click's key: M, because K is KEEP (lib/play/controls.js;
+// lib/rooms/studio.js binds K and C).
+const CLICK_KEY = 'KeyM';
 const inspecting = () => INSPECTORS.find((id) => $(id).open) || null;
 // A dialog in the way of the page's keys: any open one but the inspector.
 const modalOpen = () => [...document.querySelectorAll('dialog[open]')].some((d) => !d.classList.contains('inspector'));
@@ -4685,28 +4337,7 @@ function wire() {
   // tape: show that now too.
   document.addEventListener('hindsight:clipboard', () => fetchClipboard());
   document.addEventListener('hindsight:tape-changed', () => poll(true));
-  if (!ROOMS) {
-    // The bar's Crate key opens its drawer, or closes it; its ✕ closes it.
-    $('np-drawer-crate').addEventListener('click', () => setDrawer(state.drawer === 'crate' ? '' : 'crate'));
-    for (const b of document.querySelectorAll('.np-drawer-close')) {
-      b.addEventListener('click', () => { const key = b.dataset.drawer; setDrawer(''); $(`np-drawer-${key}`).focus(); });
-    }
-    // From 1200 px the Crate key sits beside Catch; narrower (the 1024 px
-    // bench too), the top row has no room for it, and it sits under it, after
-    // the overview. Moved, not reordered in CSS, so the tab order stays the
-    // order on screen.
-    const wide = matchMedia('(min-width: 1200px)');
-    const placeKeys = () => {
-      const keys = [$('np-drawer-crate')];
-      const had = keys.find((k) => k === document.activeElement);
-      if (wide.matches) $('catch-pass').before(...keys);
-      else document.querySelector('.np-out').before(...keys);
-      if (had) had.focus({ preventScroll: true }); // a move would drop it
-    };
-    wide.addEventListener('change', placeKeys);
-    placeKeys();
-  }
-  // Toasts and tips rise over the dock: its height, a drawer included.
+  // Toasts and tips rise over the dock: its height, the action bar included.
   new ResizeObserver(() => {
     document.body.style.setProperty('--dock-h', `${Math.round($('np-dock').getBoundingClientRect().height)}px`);
   }).observe($('np-dock'));
@@ -4722,14 +4353,6 @@ function wire() {
   $('tape-sub').addEventListener('click', (e) => { e.stopPropagation(); openTempo(); });
   for (const b of $('catch-mode').querySelectorAll('button')) {
     b.addEventListener('click', () => { state.mode = b.dataset.mode; writePref('tape.mode', state.mode); renderMode(); });
-  }
-  if (!ROOMS) { // the clipboard line
-    $('clip-play').addEventListener('click', auditionClipboard);
-    $('clip-audio').addEventListener('ended', renderClipboard);
-    $('clip-audio').addEventListener('pause', renderClipboard);
-    $('clip-audio').addEventListener('error', () => { $('clip-audio').pause(); renderClipboard(); });
-    $('drop').addEventListener('click', () => drop(false));
-    $('merge').addEventListener('click', () => drop(true));
   }
   // Beside the ruler: the snap, and the loop's lock.
   $('snap-btn').addEventListener('click', nextSnap);
@@ -4750,11 +4373,6 @@ function wire() {
     const c = state.clip;
     $('clip-sheet').close();
     if (c && await edit('join', { clip: c.id })) toast('Joined', 'ok', { action: undoAction });
-  });
-  $('clip-clear')?.addEventListener('click', async () => {
-    try { await api('/api/clipboard', { method: 'DELETE' }); } catch (e) { toast(e.message, 'bad'); }
-    $('clip-audio').pause();
-    fetchClipboard();
   });
   $('clip-tile').addEventListener('click', () => {
     const c = state.clip;
@@ -4780,7 +4398,7 @@ function wire() {
   $('tape-undo').addEventListener('click', () => undoRedo(false));
   $('tape-redo').addEventListener('click', () => undoRedo(true));
   $('catch-pass').addEventListener('click', onCatchKey);
-  if (ROOMS) mountCatchMenu();
+  mountCatchMenu();
   // Pointing at Catch outlines, on the record track's lane, the pass it takes.
   const hoverCatch = (on) => { if (state.catchHover !== on) { state.catchHover = on; drawLanes(); } };
   $('catch-pass').addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hoverCatch(true); });
@@ -4873,21 +4491,12 @@ function wire() {
       showPreview(null);
       return;
     }
-    // Escape closes the inspector, before the drawer and the selection.
+    // Escape closes the inspector, before the selection.
     if (e.key === 'Escape' && !menuWasOpen && inspecting()) {
       e.preventDefault();
       const inside = !!document.activeElement?.closest?.('dialog.inspector');
       closeInspector();
       if (inside) document.activeElement?.blur();
-      return;
-    }
-    // Escape closes an open drawer, once nothing nearer was open.
-    if (e.key === 'Escape' && !menuWasOpen && state.drawer) {
-      e.preventDefault();
-      const key = state.drawer;
-      const inside = $(`drawer-${key}`).contains(document.activeElement);
-      setDrawer('');
-      if (inside) $(`np-drawer-${key}`).focus(); // not lost to the page
       return;
     }
     // Escape lets go of the selected clips, or the range.
@@ -5017,13 +4626,6 @@ function wire() {
     if (c) patch({ clip: { id: c.id, remove: true } }).then((ok) => ok && toast('Clip removed', 'ok', { action: { label: 'Undo', run: () => undoRedo(false) } }));
   });
   $('clip-done').addEventListener('click', () => $('clip-sheet').close());
-  $('clip-keep')?.addEventListener('click', () => {
-    const c = state.clip;
-    $('clip-sheet').close();
-    if (c) keep({ tape: state.id, clip: c.id });
-  });
-  $('clip-keep-board')?.addEventListener('click', () => keep({ clipboard: true }));
-  if (!ROOMS) wireCrate();
   wireTimeEdits();
   // The action bar, on clips.
   $('multi-split').addEventListener('click', () => {
@@ -5038,7 +4640,6 @@ function wire() {
   $('multi-copy').addEventListener('click', () => copyClips(keyed()));
   $('multi-dup').addEventListener('click', () => duplicateClips(keyed()));
   $('multi-reverse').addEventListener('click', () => reverseClips(keyed()));
-  $('multi-keep')?.addEventListener('click', () => { if (state.picked) keep({ tape: state.id, clip: state.picked }); });
   $('multi-more').addEventListener('click', () => { const c = picks()[0]; if (c) openClip(c, { focus: true }); });
   $('multi-add').addEventListener('click', () => {
     state.adding = !state.adding;

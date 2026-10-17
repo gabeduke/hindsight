@@ -11,13 +11,10 @@ import { initPhone } from '/lib/phone/recorder.js';
 import { initHelp } from '/lib/help/help.js';
 import { toast, takeNextToast } from '/lib/toast.js';
 import { say, named } from '/lib/rooms/words.js';
-import { on as roomsOn } from '/lib/rooms/flag.js';
 import { takeTitle } from '/lib/rooms/takename.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
 import { initNav } from '/lib/nav.js';
 import { pageBar, takesFinder } from '/lib/bar/bar.js';
-import { initUpdate } from '/lib/update.js';
-import { initSettings } from '/lib/settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -107,10 +104,6 @@ function showNextToast() {
   toast(next.msg, next.kind || 'ok', opts);
 }
 showNextToast();
-// The tape's link, when the Pi runs one.
-fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
-  ribbon?.offerCopy(r.ok); // with the tape on, a span can be copied for it
-}).catch(() => {});
 // Back from the take page can restore this page from the browser's cache,
 // scripts and all, without loading it: catch up then.
 window.addEventListener('pageshow', (e) => {
@@ -200,7 +193,6 @@ function applyStatus(s) {
   const held = heldError(captureErr, r.health.error, Date.now());
   captureErr = held.state;
   if (held.show) toast(held.show, 'bad', 8000);
-  if (s.version) $('version').textContent = s.version;
 
   el.vizWrap.classList.toggle('stale', !healthy);
 
@@ -285,8 +277,8 @@ async function pollTakes(force = false) {
 // Every save says so, with Name it and Undo: a capture you didn't mean goes
 // straight to the trash (Recently deleted, under the takes list), and the
 // toast that says so has Restore.
-// With the rooms on a take is named as its spine names it, not by its file.
-const nameOf = (name, seconds) => (roomsOn() ? takeTitle(name, seconds) : name);
+// A take is named as its spine names it, not by its file.
+const nameOf = (name, seconds) => takeTitle(name, seconds);
 
 function savedToast(msg, name) {
   toast(msg, 'ok', {
@@ -353,8 +345,8 @@ async function capture() {
 el.captureBtn.addEventListener('click', capture);
 
 initHelp({ page: 'main' });
-initUpdate();
-initSettings();
+// Releases and Settings are the header's (lib/nav.js mountHeaderTools wires
+// them).
 np = pageBar({ tapes: initNav(), onToast: toast, find: takesFinder(takes) });
 
 initPhone({

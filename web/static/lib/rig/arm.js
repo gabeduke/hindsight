@@ -4,10 +4,9 @@
 // input over one span, as one undo. The Pi keeps rec_tracks; rec_track,
 // the first of them, is still there for pages from before.
 //
-// With the two rooms on, a tap on a track's ● arms just that track, as 1–4,
-// ↑ and ↓ do, and a hold (or ⇧-click) arms it as well -- or takes it off
-// (rig/armpress.js). With them off, ● arms just the one and a lit one comes
-// off, as it always did. Pure: no page, no Pi.
+// A tap on a track's ● arms just that track, as 1–4, ↑ and ↓ do, and a hold
+// (or ⇧-click) arms it as well -- or takes it off (rig/armpress.js). Pure: no
+// page, no Pi.
 
 /** armedOf reads a tape's armed tracks: rec_tracks, or rec_track from a Pi before them. */
 export function armedOf(t) {
@@ -67,7 +66,7 @@ export function catchSays(what, tracks) {
 }
 
 /**
- * tapArm is what a tap on track n's ● arms with the rooms on: just n, as
+ * tapArm is what a tap on track n's ● arms: just n, as
  * 1–4 do. A tap moves the arm; it does not take it off, so a tap on the only
  * armed track leaves it armed (a hold is the way to none).
  */
@@ -81,30 +80,22 @@ export function holdArm(armed, n) {
 }
 
 /**
- * armClick is what ● on track n does, and what its label says it does. With
- * the rooms on a tap arms just n and a hold arms it as well (or takes it off),
- * and the label names both and what Catch and Rec then use -- they record
- * onto every armed track -- so what it says and what it makes are the same
- * set. `next` is the tap's.
+ * armClick is what ● on track n does, and what its label says it does: a tap
+ * arms just n and a hold arms it as well (or takes it off), and the label
+ * names both and what Catch and Rec then use -- they record onto every armed
+ * track -- so what it says and what it makes are the same set. `next` is the
+ * tap's.
  */
-export function armClick(armed, n, rooms) {
+export function armClick(armed, n) {
   const on = armed.includes(n);
-  if (rooms) {
-    const next = tapArm(armed, n);
-    if (on && armed.length === 1) return { next, label: `Track ${n} is armed. Hold (Shift-click, Shift+Enter) to take it off, leaving none armed` };
-    if (on) {
-      const rest = armed.filter((x) => x !== n);
-      return { next, label: `Track ${n} is armed: tap to arm only ${onWords(next)}, hold (Shift-click, Shift+Enter) to take it off (leaving ${onWords(rest)})` };
-    }
-    if (!armed.length) return { next, label: `Arm track ${n}: Catch and Rec then use ${onWords(next)}` };
-    return { next, label: `Arm only track ${n}: Catch and Rec then use ${onWords(next)}. Hold (Shift-click, Shift+Enter) to arm it as well (${onWords(holdArm(armed, n))})` };
+  const next = tapArm(armed, n);
+  if (on && armed.length === 1) return { next, label: `Track ${n} is armed. Hold (Shift-click, Shift+Enter) to take it off, leaving none armed` };
+  if (on) {
+    const rest = armed.filter((x) => x !== n);
+    return { next, label: `Track ${n} is armed: tap to arm only ${onWords(next)}, hold (Shift-click, Shift+Enter) to take it off (leaving ${onWords(rest)})` };
   }
-  // The rooms off: ● arms just the one, as it always did -- but a lit one,
-  // which another device may have armed beside others, comes off on its own,
-  // so it never says "disarm" and arms instead.
-  if (!on) return { next: [n], label: `Record onto track ${n}` };
-  if (armed.length === 1) return { next: [], label: `Track ${n} is the record track: disarm it` };
-  return { next: armed.filter((x) => x !== n), label: `Track ${n} is armed: disarm it` };
+  if (!armed.length) return { next, label: `Arm track ${n}: Catch and Rec then use ${onWords(next)}` };
+  return { next, label: `Arm only track ${n}: Catch and Rec then use ${onWords(next)}. Hold (Shift-click, Shift+Enter) to arm it as well (${onWords(holdArm(armed, n))})` };
 }
 
 /**

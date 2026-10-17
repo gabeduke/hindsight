@@ -98,7 +98,7 @@ test('Send to is gone, GRAB having taken Tape and Clipboard; KEEP says what it k
   const p = await open({ region: { start: 0, end: 120 * SR } });
   assert.equal(p.$('send-btn').style.display, 'none');
   assert.equal(p.$('send-menu').style.display, 'none');
-  assert.equal(p.$('send-menu').children.length, 3, 'the menu is not given a GRAB of its own');
+  assert.equal(p.$('send-menu').children.length, 2, 'the menu is not given a GRAB of its own');
   assert.equal(p.$('save-take').textContent, 'KEEP 2m');
   assert.match(p.all('.room-open-grab')[0].textContent, /^GRAB/);
 });
@@ -163,9 +163,9 @@ test('Open draws a Made from heading for a cut', async () => {
 test('the take page reaches Open only through start(), consumes the bar’s arrival, and sends ?tape= to the Studio', () => {
   const page = read('../wave/page.js');
   assert.match(page, /startRoom\('open', \{[^}]*arrivalNote:/s);
-  assert.match(page, /roomOn\(\) \? pageCarry\(\)\.arrival\(file, total\) : null/, 'only with the rooms on');
+  assert.match(page, /const arrival = pageCarry\(\)\.arrival\(file, total\);/, 'the bar’s arrival is read once');
   assert.match(page, /startOpen\(arrival, \{[\s\S]*?pos: \(\) => state\.cursor/, 'a refused sound leaves the take at the frame the bar left (behaviour: carry.test.js)');
-  assert.match(page, /get\('tape'\) && roomOn\(\)\) \{\s*location\.replace\('\/tape\.html'\)/, '?tape= goes to the Studio, with the rooms on');
+  assert.match(page, /get\('tape'\)\) \{\s*location\.replace\('\/tape\.html'\)/, '?tape= goes to the Studio');
   assert.doesNotMatch(page, /chair/i, 'the chair is gone');
 });
 

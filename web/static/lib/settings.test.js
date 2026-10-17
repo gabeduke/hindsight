@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE, visibleSettings, changes } from './settings.js';
+import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE, changes, aboutLine } from './settings.js';
+import { fakeDoc, parseHTML } from './play/fake-dom.js';
 
 const url = 'https://mike.hindsight.leetserve.com';
 
@@ -310,36 +311,58 @@ test('the bar is un-hidden before its words are set, so a screen reader announce
   assert.deepEqual(order.slice(0, 2), ['hidden=false', 'text']);
 });
 
-// "Plays the tape" is the strip's controller: a setting of the rooms' kits only.
+// Every row of the registry is drawn, "Plays the tape" (the strip's
+// controller) included, and the saved body is what changed.
 const REG = [
   { key: 'MIDI_IGNORE', group: 'MIDI', value: '' },
   { key: 'TAPE_CONTROLLER', group: 'MIDI', value: 'SMK' },
   { key: 'TAPE', group: 'Tape', value: 'true' },
 ];
 
-// The row is for a kit with a preview switched on: the rooms or Play mode (the
-// strip points people to it). A switch flipped in the sheet shows it after the
-// Reload the sheet already asks for.
-const keys = (flags) => visibleSettings(REG, flags).map((s) => s.key);
-
-test('with neither the rooms nor Play mode on the sheet leaves out Plays the tape, and nothing else', () => {
-  assert.deepEqual(keys({ rooms: false, play: false }), ['MIDI_IGNORE', 'TAPE']);
-});
-
-test('Play mode alone shows it', () => {
-  assert.deepEqual(keys({ rooms: false, play: true }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
-});
-
-test('the rooms alone show it', () => {
-  assert.deepEqual(keys({ rooms: true, play: false }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
-});
-
-test('both on shows it', () => {
-  assert.deepEqual(keys({ rooms: true, play: true }), ['MIDI_IGNORE', 'TAPE_CONTROLLER', 'TAPE']);
-});
-
-test('a row that is not drawn is not in the saved body, and the others are as ever', () => {
-  const shown = visibleSettings(REG, { rooms: false, play: false });
+test('the saved body is every field that changed, and nothing else', () => {
   assert.deepEqual(changes(REG, { MIDI_IGNORE: 'x', TAPE: 'false' }), { MIDI_IGNORE: 'x', TAPE: 'false' });
-  assert.deepEqual(changes(shown, { MIDI_IGNORE: 'x', TAPE: 'false' }), { MIDI_IGNORE: 'x', TAPE: 'false' });
+  assert.deepEqual(changes(REG, { MIDI_IGNORE: '', TAPE_CONTROLLER: ' SMK ' }), {});
+});
+
+// On a phone the header has room for Settings alone (styles.css hides its
+// Releases and Guide there), so the Settings sheet carries them: the about
+// line under its title. Every page's sheet: index.html's markup, the
+// Studio's template, and the one settings.js makes elsewhere.
+test('the Settings sheet carries Releases and the guide, under its title, on every page', () => {
+  const sheets = [
+    ['index.html', (html) => html],
+    ['tape.html', (html) => /<template id="studio-sheets-tpl">([\s\S]*?)<\/template>/.exec(html)[1]],
+  ];
+  for (const [page, part] of sheets) {
+    const doc = fakeDoc();
+    doc.body.append(...parseHTML(doc, part(readFileSync(new URL(`../${page}`, import.meta.url), 'utf8'))).children);
+    const sheet = doc.getElementById('settings-sheet');
+    assert.ok(sheet, `${page} has a Settings sheet`);
+    const line = aboutLine(sheet, doc);
+    const inner = sheet.querySelector('.settings-inner');
+    assert.equal(inner.children[0].tagName, 'H3', `${page}: the sheet opens with its title`);
+    assert.equal(inner.children[1], line, `${page}: the line is straight under the title`);
+    assert.equal(line.querySelector('.settings-guide').getAttribute('href'), '/guide.html');
+    assert.equal(line.querySelector('.settings-releases').tagName, 'BUTTON');
+    assert.equal(aboutLine(sheet, doc), line, 'once, however often it is asked');
+    assert.equal(sheet.querySelectorAll('.settings-about').length, 1);
+  }
+  const made = readFileSync(new URL('./settings.js', import.meta.url), 'utf8');
+  assert.match(made, /const about = aboutLine\(sheet\);/, 'initSettings puts the line in whichever sheet it wires');
+});
+
+test('Releases in the Settings sheet closes it and asks for the Releases sheet', () => {
+  const doc = fakeDoc();
+  doc.body.append(...parseHTML(doc, '<dialog id="settings-sheet"><div class="sheet-inner settings-inner"><h3>Settings</h3><div class="settings-body"></div></div></dialog>').children);
+  const sheet = doc.getElementById('settings-sheet');
+  let closed = 0;
+  sheet.close = () => { closed++; };
+  const asked = [];
+  doc.addEventListener('hindsight:releases', (e) => asked.push(e.type));
+  aboutLine(sheet, doc).querySelector('.settings-releases').dispatchEvent({ type: 'click' });
+  assert.equal(closed, 1);
+  assert.deepEqual(asked, ['hindsight:releases']);
+  const update = readFileSync(new URL('./update.js', import.meta.url), 'utf8');
+  assert.match(update, /export const RELEASES_EVENT = 'hindsight:releases';/);
+  assert.equal((update.match(/document\.addEventListener\(RELEASES_EVENT, /g) || []).length, 2, 'update.js opens its sheet on it, with an updater and without');
 });

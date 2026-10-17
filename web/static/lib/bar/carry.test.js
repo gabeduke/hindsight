@@ -45,7 +45,7 @@ function aSource({ name = 'jam_a.wav', seconds = 600, refuse = null } = {}) {
 function aCarry(over = {}) {
   const storage = over.storage || new Store();
   const clock = { t: T0 };
-  const carry = createCarry({ storage, now: () => clock.t, enabled: () => over.enabled ?? true });
+  const carry = createCarry({ storage, now: () => clock.t });
   return { carry, storage, clock };
 }
 
@@ -500,14 +500,10 @@ test('a page restored from the back-forward cache lets its record go', () => {
   assert.equal(storage.getItem(CARRY_KEY), null);
 });
 
-// --- the flag --------------------------------------------------------------------
+// --- no storage --------------------------------------------------------------------
 
-test('rooms off: nothing written, nothing read, no listener', () => {
-  const storage = new Store();
-  storage.setItem(CARRY_KEY, JSON.stringify({ v: 1, take: 'jam_a.wav', frame: 1, sr: SR, playing: true, at: T0 }));
-  storage.setItem(FRAME_KEY, JSON.stringify({ v: 1, take: 'jam_a.wav', frame: 1, sr: SR, at: T0 }));
-  storage.reads = 0; storage.writes = 0;
-  const { carry } = aCarry({ storage, enabled: false });
+test('no storage (blocked): nothing carried, no listener', () => {
+  const carry = createCarry({ storage: null, now: () => T0 });
   const win = aWindow();
   carry.wire(win.target, win.doc, () => left());
   win.target.fire('pagehide');
@@ -520,8 +516,7 @@ test('rooms off: nothing written, nothing read, no listener', () => {
   assert.equal(carry.read(), null);
   assert.equal(carry.takeStashedFrame('jam_a.wav'), null);
   assert.equal(win.target.count() + win.doc.count(), 0, 'nothing listens');
-  assert.equal(storage.reads, 0, 'nothing read');
-  assert.equal(storage.writes, 0, 'nothing written');
+  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, left: 0, play: false, note: null }, 'Open starts nowhere');
 });
 
 // --- the browser refuses ----------------------------------------------------------
@@ -678,13 +673,6 @@ test('a take that played to its end while away opens at the top: the record is j
   carry.leave(left({ frame: 598 * SR, playing: true }));
   clock.t += 10_000;
   assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, left: 0, play: false, note: null });
-});
-
-test('with the rooms off Open reads nothing and starts nowhere', () => {
-  const store = new Store();
-  const carry = createCarry({ storage: store, now: () => T0, enabled: () => false });
-  assert.deepEqual(carry.arrival('jam_a.wav', LEN), { frame: 0, left: 0, play: false, note: null });
-  assert.equal(store.reads, 0);
 });
 
 test('a refused sound leaves Open waiting at the frame the bar left, not the advanced one', async () => {

@@ -17,7 +17,6 @@ import { takeKeys, noteHere } from './take-keys.js';
 import { initPlayer } from './player.js';
 import { pageCarry, isStudio } from './carry.js';
 import { createHandoff, takesFinder } from './handoff.js';
-import { on as roomsOn } from '../rooms/flag.js';
 import { named } from '../rooms/words.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
@@ -43,9 +42,9 @@ export class NowPlaying {
     this.reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
     this.scrub = $('np-scrub');
     initPlayer();
-    // With the rooms on, a take in the bar shows its name (which opens it) and
-    // ✎, and ⟲ is Repeat (take-keys.js). Off, the bar has none of it.
-    this.keys = roomsOn() ? takeKeys({ doc: document, root: this.root, onNote, onSelectSource, onGrabFeed }) : null;
+    // A take in the bar shows its name (which opens it) and ✎, and ⟲ is
+    // Repeat (take-keys.js).
+    this.keys = takeKeys({ doc: document, root: this.root, onNote, onSelectSource, onGrabFeed });
 
     $('np-play').addEventListener('click', () => {
       const s = this.src;
@@ -287,7 +286,7 @@ export function pageBar({ tapes, onToast, find = null, onNote = null }) {
   // late; the tape waits in the wings for a few seconds of that.
   const handoff = createHandoff({
     carry, find, tapes: listP,
-    studio: () => roomsOn() && isStudio(location.pathname),
+    studio: () => isStudio(location.pathname),
     takeInBar: () => !!take,
     loadTake: ({ t, player }) => { loadTake(t, player); return take.src; },
     showTape: () => { if (!take && (!bar.src || bar.src.kind !== 'feed') && tape) bar.load(tape); eject(); },

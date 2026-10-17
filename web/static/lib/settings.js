@@ -1,6 +1,7 @@
 // web/static/lib/settings.js
-// Settings, from the foot of Capture: "Hindsight v… · Releases · Settings ·
-// the guide" (docs/superpowers/specs/2026-10-09-settings-design.md).
+// Settings, from the header's Settings button on every page (lib/nav.js;
+// docs/superpowers/specs/2026-10-09-settings-design.md). The sheet carries
+// the about line under its title: "Hindsight v… · Releases · the guide".
 //
 // GET /api/settings is the registry: every setting with its value, the value
 // running now, and where it comes from (the app, the env file, the default).
@@ -12,8 +13,6 @@
 
 import { DEVICE_PREFS, read as readDevicePrefs, write as writeDevicePref } from './device-prefs.js';
 import { say, settingsGroup } from './rooms/words.js';
-import { on as roomsOn } from './rooms/flag.js';
-import { on as playOn } from './play/flag.js';
 
 const POLL_MS = 1000;
 const GIVE_UP_MS = 90 * 1000;
@@ -66,15 +65,6 @@ export function ringNote(seconds, rate, channels, memory) {
 export function inputLabel(inp) {
   const name = inp.name.replace(/:.*$/, '').trim() || inp.name;
   return `${name} · ${inp.channels} in`;
-}
-
-// Settings for a preview: the sheet draws them only with the rooms or Play
-// mode on, and leaves the Pi's value and default alone.
-const PREVIEW_ONLY = new Set(['TAPE_CONTROLLER']);
-
-/** visibleSettings is the registry as this device's sheet draws it: with neither {rooms} nor {play} on, no preview-only row (and so no label, help or empty group for it). */
-export function visibleSettings(settings, { rooms = false, play = false } = {}) {
-  return rooms || play ? settings : settings.filter((s) => !PREVIEW_ONLY.has(s.key));
 }
 
 /** changes is {key: value} for every field whose value differs from the saved one. */
@@ -296,6 +286,48 @@ export async function restartHindsight({ before, load, accepted = () => {}, fetc
 }
 
 const wiredSettings = new WeakSet();
+const openers = new WeakMap(); // a wired sheet -> its open()
+
+/** RELEASES_EVENT asks lib/update.js for its Releases sheet; this module imports nothing of it. */
+const RELEASES_EVENT = 'hindsight:releases';
+
+/**
+ * aboutLine puts the about line in the Settings sheet, under its title:
+ * "Hindsight v… · Releases · the guide". The header has Releases and the
+ * guide too, but a phone's header has room for Settings alone (styles.css,
+ * the header's tools), so on a phone this line is the only way to them --
+ * never hide it. Releases closes this sheet and asks for that one. Answers
+ * the line; its `.settings-version` is filled once /api/status answers.
+ */
+export function aboutLine(sheet, doc = document) {
+  const inner = sheet.querySelector('.settings-inner') || sheet;
+  const had = inner.querySelector('.settings-about');
+  if (had) return had;
+  const p = doc.createElement('p');
+  p.className = 'settings-about';
+  const version = doc.createElement('span');
+  version.className = 'mono settings-version';
+  version.textContent = '–';
+  const releases = doc.createElement('button');
+  releases.type = 'button';
+  releases.className = 'settings-releases';
+  releases.dataset.tip = 'releases';
+  releases.textContent = 'Releases';
+  releases.addEventListener('click', () => {
+    sheet.close?.();
+    doc.dispatchEvent(new CustomEvent(RELEASES_EVENT));
+  });
+  const guide = doc.createElement('a');
+  guide.className = 'settings-guide';
+  guide.setAttribute('href', '/guide.html');
+  guide.dataset.tip = 'guide';
+  guide.textContent = 'the guide';
+  p.append('Hindsight ', version, ' · ', releases, ' · ', guide);
+  const title = inner.querySelector('h3');
+  if (title) title.after(p);
+  else inner.prepend(p);
+  return p;
+}
 
 function ensureSettingsSheet(doc = document) {
   let sheet = doc.getElementById('settings-sheet');
@@ -323,18 +355,19 @@ function ensureSettingsSheet(doc = document) {
 }
 
 export function initSettings() {
-  const btn = document.getElementById('settings-btn');
   const appbarBtn = document.getElementById('appbar-settings-btn');
-  const sheet = document.getElementById('settings-sheet') || (roomsOn() ? ensureSettingsSheet(document) : null);
-  if ((!btn && !appbarBtn) || !sheet) return;
+  const sheet = document.getElementById('settings-sheet') || ensureSettingsSheet(document);
+  if (!appbarBtn || !sheet) return;
   if (wiredSettings.has(sheet)) {
-    if (appbarBtn && !wiredSettings.has(appbarBtn)) {
+    // A header button made after the sheet was wired opens the same sheet.
+    if (!wiredSettings.has(appbarBtn)) {
       wiredSettings.add(appbarBtn);
-      appbarBtn.addEventListener('click', () => (btn ? btn.click() : sheet.showModal()));
+      appbarBtn.addEventListener('click', () => openers.get(sheet)?.());
     }
     return;
   }
   wiredSettings.add(sheet);
+  const about = aboutLine(sheet);
   const $ = (sel) => sheet.querySelector(sel);
   const body = $('.settings-body');
   const errEl = $('.settings-error');
@@ -485,7 +518,7 @@ export function initSettings() {
     body.append(featuresGroup());
     body.append(el('h4', 'set-section', 'On the Pi'), el('p', 'set-intro set-restart-note', RESTART_NOTE));
     const groups = [];
-    for (const s of visibleSettings(data.settings, { rooms: roomsOn(), play: playOn() })) {
+    for (const s of data.settings) {
       let g = groups.find((x) => x.name === s.group);
       if (!g) groups.push((g = { name: s.group, items: [] }));
       g.items.push(s);
@@ -537,8 +570,18 @@ export function initSettings() {
     return true;
   }
 
+  // The about line's version, asked as the sheet opens.
+  async function fillVersion() {
+    try {
+      const r = await fetch('/api/status', { cache: 'no-store' });
+      const s = r.ok ? await r.json() : null;
+      if (s?.version) about.querySelector('.settings-version').textContent = s.version;
+    } catch { /* the line keeps its dash */ }
+  }
+
   async function open() {
     if (!sheet.open) sheet.showModal();
+    fillVersion();
     if (restarting) return;
     edits = {};
     progress.hidden = true;
@@ -552,8 +595,9 @@ export function initSettings() {
     draw();
   }
 
-  if (btn) btn.addEventListener('click', open);
-  if (appbarBtn) { wiredSettings.add(appbarBtn); appbarBtn.addEventListener('click', open); }
+  openers.set(sheet, open);
+  wiredSettings.add(appbarBtn);
+  appbarBtn.addEventListener('click', open);
   close.addEventListener('click', () => sheet.close());
   save.addEventListener('click', () => put(changes(data.settings, edits)));
 

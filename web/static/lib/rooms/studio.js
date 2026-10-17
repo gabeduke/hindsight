@@ -2,13 +2,13 @@
 // The Studio's own parts on the tape page (docs/superpowers/specs/2026-10-15-rooms-design.md,
 // step 1): the feed above the lanes -- the ring as the ribbon, the L/R
 // meters, KEEP, Flag now, Phone and Capture's readouts -- and under the
-// lanes the input diagnostic and the about line, with Settings.
+// lanes the input diagnostic.
 //
 // They are Capture's parts, moved, so that nothing Capture has is out of
-// reach while the rooms send `/` to the Studio: the markup is tape.html's
+// reach while `/` sends the tape on to the Studio: the markup is tape.html's
 // templates, and the modules that draw them are Capture's own (the ribbon,
 // the meters, the live socket, the phone recorder, Settings, Releases). Only
-// mount.js loads this, and only with the flag on.
+// mount.js loads this.
 //
 // The tape page knows nothing about it, and it nothing about the tape page:
 // it adds itself around the lanes and asks the Pi for what Capture asks.
@@ -36,8 +36,8 @@ import { feedSource } from '../bar/feed-source.js';
 const STATUS_MS = 2000;
 
 /**
- * mountStudio puts the feed at the top of the tape page's main, the about
- * line under main and their sheets in the body, then drives them. It
+ * mountStudio puts the feed at the top of the tape page's main, the input
+ * diagnostic under main and their sheets in the body, then drives them. It
  * returns null if the page lacks the templates (it isn't the tape page).
  */
 export function mountStudio(doc = document) {
@@ -63,7 +63,6 @@ export function mountStudio(doc = document) {
     viz: $('viz-wrap'),
     vu: $('vu'),
     meters: $('meters'),
-    version: $('version'),
     health: $('studio-health'),
     disk: $('stat-disk'),
     xruns: $('stat-xruns'),
@@ -206,7 +205,6 @@ export function mountStudio(doc = document) {
       buildTiers(s.ring_seconds);
       buildMeters(s);
     }
-    if (s.version) el.version.textContent = s.version;
     el.viz.classList.toggle('stale', !s.capture_healthy);
     paintReadouts(s);
     // Not `healthy`: an interface can be off with a full buffer still in

@@ -6,12 +6,11 @@
 // before it draws and picks up at the same spot, plus the time away if it
 // was playing.
 //
-// Everything here is behind the rooms flag: with it off nothing is read or
-// written and no listener is added. The pure parts -- the record, its
-// validation and expiry, the frame maths -- have no DOM; the page's events,
-// the storage and the clock are handed in, so tests stand in for all three.
+// With no storage (blocked) nothing is read or written and no listener is
+// added. The pure parts -- the record, its validation and expiry, the frame
+// maths -- have no DOM; the page's events, the storage and the clock are
+// handed in, so tests stand in for all three.
 
-import { on as roomsOn } from '../rooms/flag.js';
 import { takeLength } from './take-source.js';
 
 export const CARRY_KEY = 'hindsight.bar.carry';
@@ -72,14 +71,14 @@ export function mayCarry({ studio, tapeLoaded }) {
   return !(studio && tapeLoaded);
 }
 
-/** isStudio: the pages that are the Studio with the rooms on (Capture is, with the tape off). */
+/** isStudio: the pages that are the Studio (`/` is, with the tape off). */
 export const isStudio = (pathname) => pathname === '/' || pathname === '/index.html' || pathname === '/tape.html';
 
-export function createCarry({ storage, now = Date.now, enabled = () => true } = {}) {
+export function createCarry({ storage, now = Date.now } = {}) {
   const get = (k) => { try { return storage.getItem(k); } catch { return null; } };
   const set = (k, v) => { try { storage.setItem(k, JSON.stringify(v)); } catch { /* this tab only: nothing to carry */ } };
   const del = (k) => { try { storage.removeItem(k); } catch { /* as above */ } };
-  const ok = () => !!storage && enabled();
+  const ok = () => !!storage;
 
   const self = {
     /**
@@ -311,11 +310,11 @@ export async function startOpen(arrival, { seek, pos, play }) {
 /** forTheTape: this page is going to the Studio for the tape -- a GRAB, Open in the Studio -- so no take goes along. */
 export const forTheTape = () => pageCarry().forTheTape();
 
-/** pageCarry is the hand-off for this page: this tab's sessionStorage, the rooms flag. */
+/** pageCarry is the hand-off for this page: this tab's sessionStorage. */
 export function pageCarry() {
   let storage = null;
   try { storage = globalThis.sessionStorage; } catch { /* blocked: nothing carries */ }
-  return createCarry({ storage, enabled: roomsOn });
+  return createCarry({ storage });
 }
 
 /**

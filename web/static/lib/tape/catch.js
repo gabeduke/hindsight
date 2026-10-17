@@ -22,11 +22,10 @@ const loopSeconds = (tape) => {
  * `armed`: some track is armed. Catch lands on it, so with none the key's
  * second line says "arm a track", as it did before it said why it waited:
  * a person who disarmed everything is told that, not only to press ▶.
- * `rooms`: the Studio's words -- "after one pass" for a Catch that waits for
- * one (the flow spec's *CATCH · after one pass*); the old pages say "waits
- * for a pass".
+ * A Catch that waits for a pass says "after one pass" (the flow spec's
+ * *CATCH · after one pass*).
  */
-export function catchState({ live, tape, phoneOut = false, armed = true, rooms = false }) {
+export function catchState({ live, tape, phoneOut = false, armed = true }) {
   if (phoneOut) return { ready: true, why: '', short: '', bars: false, barsWhy: 'Catch needs the jam room' };
   if (!live) {
     return { ready: false, why: 'The Pi has not answered yet.', short: 'waiting', bars: false, barsWhy: 'The Pi has not answered yet.' };
@@ -53,7 +52,7 @@ export function catchState({ live, tape, phoneOut = false, armed = true, rooms =
     short = 'press ▶';
     why = `Press ▶: Catch takes the last whole pass of the loop${length}.`;
   } else {
-    short = rooms ? 'after one pass' : 'waits for a pass';
+    short = 'after one pass';
     why = `Catch takes the last whole pass of the loop, so it waits for one to finish${length}.`;
   }
   if (!armed) {
@@ -66,15 +65,13 @@ export function catchState({ live, tape, phoneOut = false, armed = true, rooms =
 /**
  * catchSub is the key's second line: what it catches and where it goes
  * ("last pass → 2", "→ 2, 3" for several armed), or why it waits, or that
- * no track is armed. `armed` are the armed tracks. The old pages say
- * "last pass → track 2" for one; the Studio just "→ 2".
+ * no track is armed. `armed` are the armed tracks.
  */
-export function catchSub(cs, { armed = [], phoneOut = false, rooms = false } = {}) {
+export function catchSub(cs, { armed = [], phoneOut = false } = {}) {
   if (phoneOut) return 'jam room only';
   if (!cs.ready) return cs.short;
   if (!armed.length) return 'arm a track';
-  const where = armed.length > 1 || rooms ? armed.join(', ') : `track ${armed[0]}`;
-  return `last pass → ${where}`;
+  return `last pass → ${armed.join(', ')}`;
 }
 
 /**
@@ -101,20 +98,4 @@ export function catchMini(sub) {
     .replace('loop is off', 'loop off')
     .replace('arm a track', 'arm track')
     .replace('jam room only', 'jam room');
-}
-
-/**
- * oldCatchKey is the Catch key as the pages were before the rooms and Play
- * mode (and still are with both flags off): `disabled` until the Pi has a
- * line-up and a whole pass of the loop, "last pass → track N" under it, and
- * a label that doesn't say why it waits. Kept apart so a test can hold it to
- * what it always was.
- */
-export function oldCatchKey({ live, phoneOut = false, recTrack = 0 }) {
-  const canCatch = !!live && live.aligned !== 'none';
-  return {
-    disabled: !phoneOut && (!canCatch || !(live.cycles || []).length),
-    sub: phoneOut ? 'jam room only' : recTrack ? `last pass → track ${recTrack}` : 'arm a track',
-    label: phoneOut ? 'Catch: needs the jam room' : recTrack ? `Catch the last pass onto track ${recTrack}` : 'Catch: arm a track first',
-  };
 }

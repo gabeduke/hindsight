@@ -1,9 +1,9 @@
 // web/static/lib/room/routes.test.js
-// The spine's sheet goes with the rooms on (docs/superpowers/specs/2026-10-15-
-// flow-design.md, "What happens to today's surfaces"), and nothing may be left
-// that is only reachable through it. This lists every control the sheet has --
-// read from a real TakeDetail, which is still the takes page's sheet with the
-// rooms off -- and says where each lives now. A control added to the sheet
+// The spine's sheet goes (docs/superpowers/specs/2026-10-15-flow-design.md,
+// "What happens to today's surfaces"), and nothing may be left that is only
+// reachable through it. This lists every control the sheet has -- read from a
+// real TakeDetail, which the takes page still builds -- and says where each
+// lives now. A control added to the sheet
 // without a line here fails: say where it goes. Each line's `check` is run
 // against the real thing it names, not against a description of it.
 import { test } from 'node:test';
@@ -37,7 +37,6 @@ async function sheetControls() {
   const cut = take('cut', { source: { name: 'jam_a.wav', start_frame: 0, end_frame: 50 } });
   const mix = take('mix', { origin: 'tape', tape_id: 't1' });
   const detail = new TakeDetail(root, { takes: { all: [t, src, cut, mix], player: async () => null }, onToast: () => {}, onBack: () => {}, onPick: () => {}, isShown: () => false });
-  detail.setCrate(new Map([[t.name, 2]]));
   await detail.show(t, { spine: t, cuts: [cut], mixes: [mix] });
   const classes = new Set();
   for (const b of root.querySelectorAll('button, a')) {
@@ -86,7 +85,6 @@ const ROUTES = {
   'detail-up': { where: 'the List: a spine’s folded takes are rows under it', check: () => foldedRowsShow() },
   'detail-member': { where: 'the List: a spine’s cuts and earlier bounces are rows, each plays on a tap', check: () => foldedRowsShow() },
   'detail-source': { where: 'the List: the take a cut was made from is a row', check: () => foldedRowsShow() },
-  'detail-crate': { where: 'nowhere: the crate is not on the screen with the rooms on (F3)', gone: true },
 };
 
 // The select bar with the room's Tag key on it.

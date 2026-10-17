@@ -44,12 +44,7 @@ import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
 import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
-import { start as startRoom, roomOn } from '../room/mount.js';
-import { trimTakePage } from '../rooms/nocrate.js';
-
-// With the rooms on the crate is off the screen (F3): no Send to → Crate, no
-// Split here, no ◫ chip. The Pi keeps the crate; the page only stops offering it.
-if (roomOn()) trimTakePage(document);
+import { start as startRoom } from '../room/mount.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -124,10 +119,9 @@ async function main() {
   // What Open hears of each redraw (lib/room/open.js).
   const openHooks = new Set();
   if (!file) {
-    // With the rooms on a tape opens in the Studio, where tapes live
-    // (?tape=ID). The Studio shows the tape it has
-    // loaded, and offers the rest from its own list.
-    if (new URLSearchParams(location.search).get('tape') && roomOn()) {
+    // A tape opens in the Studio, where tapes live (?tape=ID). The Studio
+    // shows the tape it has loaded, and offers the rest from its own list.
+    if (new URLSearchParams(location.search).get('tape')) {
       location.replace('/tape.html');
       return;
     }
@@ -1437,64 +1431,10 @@ async function main() {
   };
   fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
     if (r.ok) {
-      for (const id of ['send-btn', 'split-here']) { if ($(id)) $(id).hidden = false; }
+      if ($('send-btn')) $('send-btn').hidden = false;
       renderSendHint();
-      renderCrateChip();
     }
   }).catch(() => {});
-  // The crate chip: how many clips have been kept from this take, a link to
-  // them on the tape page's crate.
-  const crateHref = `/tape.html?crate=${encodeURIComponent(file)}`;
-  async function renderCrateChip() {
-    if (!$('crate-chip')) return; // the rooms have no crate to point at
-    try {
-      const n = (await tapeAPI(`/api/crate?take=${encodeURIComponent(file)}`)).clips.length;
-      $('crate-chip').hidden = !n;
-      $('crate-chip').textContent = `◫ ${n}`;
-      $('crate-chip').href = crateHref;
-      $('crate-chip').setAttribute('aria-label', `${n} clip${n === 1 ? '' : 's'} kept from this take`);
-    } catch { /* the chip stays as it was */ }
-  }
-  // Split here: two clips on the crate, the take before the playhead and
-  // from it on. The take isn't changed: its audio never is.
-  $('split-here')?.addEventListener('click', async () => {
-    const btn = $('split-here');
-    if (btn.disabled) return;
-    const at = Math.round(state.cursor); // where it splits, whatever plays on
-    // A long take takes a while to copy: one split at a time.
-    btn.disabled = true;
-    btn.textContent = 'Splitting…';
-    try {
-      const b = await tapeAPI('/api/crate/split', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ take: file, at }),
-      });
-      const [a, z] = b.clips;
-      toast(`Split at ${fmtClock(at, sr)} into two clips on the crate: “${named(a.name)}” and “${named(z.name)}”`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
-      renderCrateChip();
-    } catch (e) {
-      toast(`Could not split it: ${e.message}`, 'bad');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Split here';
-    }
-  });
-  // Keep as clip: the selection (or the whole take) onto the crate, its audio
-  // copied into the tape's pool; the takes list doesn't change.
-  $('keep-clip')?.addEventListener('click', async () => {
-    const from = state.region ? state.region.start : 0;
-    const to = state.region ? state.region.end : total;
-    try {
-      const b = await tapeAPI('/api/crate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ take: file, from, to }),
-      });
-      toast(`Kept “${named(b.clip.name)}” in the crate, ${fmtClock(to - from, sr)}`, 'ok', { action: { label: 'Open the crate', run: () => { location.href = crateHref; } } });
-      renderCrateChip();
-    } catch (e) {
-      toast(`Could not keep it: ${e.message}`, 'bad');
-    }
-  });
   // What Send to → Tape will do, under its name in the menu.
   function renderSendHint() {
     if ($('send-btn').hidden) return;
@@ -1946,12 +1886,11 @@ async function main() {
   // the take as the Pi has it now, with a "Reconnecting…" note until it answers.
   link = watchLink(() => refetchTake(), { retryMs: 3000 });
 
-  // With the rooms on, this page is Open (lib/room/open.js): it opens where
-  // the bar was (carry.arrival), and ✎ on the bar arrives with a note started
-  // at the frame that was heard. The room lays its words over the page and
-  // works the take through this handle. With the rooms off, start() reads
-  // the flag and stops.
-  const arrival = roomOn() ? pageCarry().arrival(file, total) : null;
+  // This page is Open (lib/room/open.js): it opens where the bar was
+  // (carry.arrival), and ✎ on the bar arrives with a note started at the
+  // frame that was heard. The room lays its words over the page and works
+  // the take through this handle.
+  const arrival = pageCarry().arrival(file, total);
   if (arrival && (arrival.frame > 0 || arrival.play)) {
     // The browser may refuse a sound nobody tapped for on this page (Safari
     // on an iPhone always does): then the take waits at the frame the bar

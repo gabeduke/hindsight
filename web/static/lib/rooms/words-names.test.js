@@ -1,7 +1,7 @@
 // What a person typed is theirs, and the words layer must not touch it: a name
 // goes into a message through named(), whose markers (private-use characters
-// nobody can type) say "leave this". The sinks take them off again, rooms on
-// or off. words.js's own table is read by words.test.js.
+// nobody can type) say "leave this". The sinks take them off again.
+// words.js's own table is read by words.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -26,10 +26,10 @@ test('a colon inside a name does not end what is ours to reword', () => {
   assert.equal(renameToast(`Could not take ${named('a: b')} from the flag: the clip is gone`, 'bad'), 'Could not take a: b from the note: the clip is gone');
 });
 
-test('say() and the toast sink take the markers off with the rooms off, so the text is the same either way', () => {
+test('say() and the toast sink take the markers off, leaving the name as it was typed', () => {
   for (const n of NAMES) {
     const t = typedOf(n);
-    assert.equal(say(`Deleted ${named(n)}`), `Deleted ${t}`, 'node has no flag: rooms off');
+    assert.equal(say(`Deleted ${named(n)}`), `Deleted ${t}`);
     assert.equal(sayToast(`Deleted ${named(n)}`, 'ok'), `Deleted ${t}`);
   }
   assert.equal(unmark(named('x')), 'x');

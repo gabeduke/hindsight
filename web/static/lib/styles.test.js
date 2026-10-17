@@ -362,6 +362,20 @@ test('nothing hides header Settings, which is the only way into Settings', () =>
     'these hide the entry to Settings');
 });
 
+test('nothing hides the Settings sheet’s Releases and guide, a phone’s only way to them', () => {
+  // A phone's header has room for Settings alone: its Releases and Guide are
+  // hidden under 700 px (the header's tools). The about line in the Settings
+  // sheet (lib/settings.js aboutLine) is then the only route to either.
+  const offenders = [];
+  for (const m of css.matchAll(/([^{}]*\.settings-(?:about|releases|guide)\b[^{}]*)\{([^}]*)\}/g)) {
+    if (/display\s*:\s*none|visibility\s*:\s*hidden/.test(m[2])) offenders.push(`${m[1].trim()} { ${m[2].trim()} }`);
+  }
+  assert.deepEqual(offenders, [], 'these hide the only way to Releases or the guide on a phone');
+  // And the header's are the ones a phone hides: if that ever changes, this
+  // line can be looked at again, not silently left as a second copy.
+  assert.match(css, /@media \(max-width: 699\.98px\) \{\s*\.appbar \.appbar-end > :is\(\.appbar-releases-btn, \.appbar-guide-link\) \{ display: none; \}/);
+});
+
 test('the Studio’s rules reach only the Studio', () => {
   // styles.css is on every page. So the Rooms P1 block may only style what
   // the Studio's templates in tape.html put in the page (a studio- class) or

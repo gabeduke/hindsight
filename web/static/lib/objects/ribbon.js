@@ -32,7 +32,6 @@ import { Scene } from '../scene/scene.js';
 import { SceneObject } from '../scene/object.js';
 import { DomRenderer } from '../scene/dom.js';
 import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from './ribbonmath.js';
-import { isSilent } from '../tape/levels.js';
 import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from './ribbon-draw.js';
 import { token } from '../theme.js';
 
@@ -65,11 +64,10 @@ export class Ribbon {
    * @param {HTMLElement} wrap the existing .viz-wrap
    * @param {{onToast?: (msg: string, kind?: string) => void}} [opts]
    */
-  constructor(wrap, { onToast, onSaved, onSavedToast, onKept, selBar, flagSheet, keepWords } = {}) {
+  constructor(wrap, { onToast, onSaved, onSavedToast, selBar, flagSheet, keepWords } = {}) {
     this.wrap = wrap;
     this.onToast = onToast;
     this.onSaved = onSaved;
-    this.onKept = onKept; // (answer): Keep as clip put a span in the crate
     this.onSavedToast = onSavedToast; // (msg, name): a save's toast, with its Undo
     this.selBar = selBar || null;
     // (seconds) => the selection's KEEP key, naming what it keeps (the
@@ -211,58 +209,6 @@ export class Ribbon {
     if (!bar) return;
     bar.querySelector('.rb-sel-clear').addEventListener('click', () => this.setSel(null));
     bar.querySelector('.rb-sel-save').addEventListener('click', () => this.saveSel());
-    bar.querySelector('.rb-sel-copy')?.addEventListener('click', () => this.copySel());
-    bar.querySelector('.rb-sel-keep')?.addEventListener('click', () => this.keepSel());
-  }
-
-  // offerCopy shows Copy and Keep as clip on the selection bar: the tape is
-  // on, so there's somewhere to drop it, and a crate to keep it in.
-  offerCopy(on) {
-    for (const cls of ['.rb-sel-copy', '.rb-sel-keep']) {
-      const b = this.selBar?.querySelector(cls);
-      if (b) b.hidden = !on;
-    }
-  }
-
-  // keepSel keeps the span on the crate, its audio copied into the tape's
-  // pool: no take is made.
-  async keepSel() {
-    const sel = this.sel;
-    if (!sel) return;
-    const body = { ring_from: sel.from }; // MAIN, what the ribbon draws
-    if (sel.to != null) body.ring_to = sel.to;
-    try {
-      const res = await fetch('/api/crate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const b = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
-      const note = b.clamped ? ' (its start had already left the buffer)' : '';
-      this.onToast?.(`Kept it in the crate${note}: drop it from there on the tape`, 'ok');
-      // A page with the crate on it (the Studio) shows it there at once.
-      this.onKept?.(b);
-    } catch (e) {
-      this.onToast?.(`Could not keep it: ${e.message}`, 'bad');
-    }
-  }
-
-  async copySel() {
-    const sel = this.sel;
-    if (!sel) return;
-    const body = { ring_from: sel.from }; // MAIN, what the ribbon draws
-    if (sel.to != null) body.ring_to = sel.to;
-    try {
-      const res = await fetch('/api/clipboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const b = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
-      const note = b.clamped ? ' (its start had already left the buffer)' : '';
-      const clip = b.clipboard && b.clipboard.tracks && b.clipboard.tracks[0] && b.clipboard.tracks[0][0];
-      if (clip && isSilent(clip.peak_db)) {
-        this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}, but it’s silent: nothing was coming in then`, 'warn');
-      } else {
-        this.onToast?.(`Copied ${fmtAge(b.seconds)}${note}: Paste it on a tape`, 'ok');
-      }
-    } catch (e) {
-      this.onToast?.(`Could not copy: ${e.message}`, 'bad');
-    }
   }
 
   async saveSpan(from, to) {
@@ -316,10 +262,6 @@ export class Ribbon {
     if (this.keepWords && !allGone) {
       const words = this.keepWords(len);
       if (save.textContent !== words) save.textContent = words;
-    }
-    for (const cls of ['.rb-sel-copy', '.rb-sel-keep']) {
-      const b = bar.querySelector(cls);
-      if (b) b.disabled = allGone;
     }
   }
 

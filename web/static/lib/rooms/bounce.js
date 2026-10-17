@@ -6,8 +6,6 @@
 // tape's family already holds: origin "tape" and the tape's id. Nothing is
 // attached here; this module only says which take that is (Last bounce),
 // words the menu and the toasts, and plays a take on this device for ▶.
-//
-// With the rooms off the tape page keeps Mix down; bounceMenu does nothing.
 
 import { spineTitle } from '../shelf.js';
 import { named } from './words.js';
@@ -25,10 +23,9 @@ const NONE_SHORT = 'none yet';
  * bounceMenu puts BOUNCE in the tape page's ⋯ menu: the two Mix down items
  * are renamed (they stay the same buttons, so they send the same requests)
  * and Last bounce follows them. Answers {last, take, setLast(take)}, or null
- * with the rooms off, when the menu is left as it is.
+ * on a page without the menu.
  */
-export function bounceMenu(doc, { rooms }) {
-  if (!rooms) return null;
+export function bounceMenu(doc) {
   const loop = doc.getElementById('tape-mixdown');
   const whole = doc.getElementById('tape-mixdown-all');
   if (!loop || !whole) return null;

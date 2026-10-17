@@ -42,5 +42,5 @@ test('the toasts of KEEP and of taking it back name the take, not its file, and 
   }
   assert.match(read('../buffer/buffer.js'), /untake\(k\.name, k\.label\)/, 'Took back carries the label');
   assert.match(read('./studio.js'), /takeTitle\(body\.name, body\.seconds, body\.label\)/, 'Kept carries the label');
-  assert.match(read('../../app.js'), /roomsOn\(\) \? takeTitle/, 'Capture names a take so only with the rooms on');
+  assert.match(read('../../app.js'), /const nameOf = \(name, seconds\) => takeTitle\(name, seconds\);/, 'Capture names a take as its spine does');
 });

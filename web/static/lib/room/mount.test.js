@@ -5,29 +5,20 @@ import { start } from './mount.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
-test('with the flag off the room loads nothing and touches nothing', () => {
-  let loaded = 0;
-  const handle = new Proxy({}, { get: () => assert.fail('the handle was read with the flag off') });
-  assert.equal(start('doorway', handle, { flagOn: () => false, load: () => { loaded++; return Promise.resolve({ mount() {} }); } }), null);
-  assert.equal(start('chair', handle, { flagOn: () => false, load: () => { loaded++; return Promise.resolve({ mount() {} }); } }), null);
-  assert.equal(loaded, 0);
-});
-
-test('with the flag on it loads the page’s room and mounts it with the page’s handle', async () => {
+test('it loads the page’s room and mounts it with the page’s handle', async () => {
   const handle = { page: 'takes' };
   let got = null;
-  const r = await start('doorway', handle, { flagOn: () => true, load: async () => ({ mount: (h) => { got = h; return 'mounted'; } }) });
+  const r = await start('doorway', handle, { load: async () => ({ mount: (h) => { got = h; return 'mounted'; } }) });
   assert.equal(r, 'mounted');
   assert.equal(got, handle);
 });
 
 test('a page the room doesn’t know is refused, not ignored', async () => {
-  await assert.rejects(start('kitchen', {}, { flagOn: () => true }), /no room for kitchen/);
+  await assert.rejects(start('kitchen', {}), /no room for kitchen/);
 });
 
-// The pages only reach the room through start(), so the flag decides; and
-// their own markup carries none of it -- the room builds its markup when it
-// mounts. The flag off is the page as it was.
+// The pages only reach the room through start(); and their own markup
+// carries none of it -- the room builds its markup when it mounts.
 test('the takes and take pages reach the room only through start()', () => {
   const shelf = read('../shelf-page.js');
   const wave = read('../wave/page.js');

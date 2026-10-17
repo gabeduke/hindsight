@@ -1,5 +1,5 @@
 // web/static/lib/rig/armpress.js
-// What a press on a track's ● is, with the rooms on (docs/superpowers/specs/
+// What a press on a track's ● is (docs/superpowers/specs/
 // 2026-10-15-flow-design.md, "● arms one; holding ● adds one"): a tap arms
 // just that track, and a hold -- or a ⇧-click, or ⇧-Enter, on a laptop -- arms
 // it as well. A small machine with the clock handed in, so it is tested

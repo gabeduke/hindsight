@@ -39,13 +39,12 @@ export function replacedLine(board, seconds) {
 }
 
 /**
- * editBody is a tape edit's body as the page sends it. With the rooms on, a
- * Cut or Copy (lift, copy) says `no_crate`: the buffer it replaces, if nobody
- * used it, is held for Undo and not put in the crate the rooms no longer show.
- * Off, it is what it always was.
+ * editBody is a tape edit's body as the page sends it. A Cut or Copy (lift,
+ * copy) says `no_crate`: the buffer it replaces, if nobody used it, is held
+ * for Undo and not put in the crate, which nothing shows.
  */
-export function editBody(op, extra, rooms) {
-  return rooms && (op === 'lift' || op === 'copy') ? { ...extra, no_crate: true } : { ...extra };
+export function editBody(op, extra) {
+  return op === 'lift' || op === 'copy' ? { ...extra, no_crate: true } : { ...extra };
 }
 
 let current = null;

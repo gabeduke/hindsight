@@ -1,12 +1,12 @@
 // web/static/lib/room/open.js
-// Open: a take's page with the rooms on (docs/superpowers/specs/2026-10-15-
+// Open: a take's page (docs/superpowers/specs/2026-10-15-
 // flow-design.md, "Open: one page to dig in"). It is the take page as it
 // stands -- the waveform, the selection, the tempo, the MIDI -- with the
 // rooms' words laid over it: ✎ Note, GRAB beside KEEP, the take's notes one
 // line each, its tag, and what was made from it (From this take) or came
 // before it (Earlier bounces). The page (lib/wave/page.js) hands this module
 // a handle on its take, its flags and its clock; nothing the page does is
-// copied, and with the rooms off this is not even fetched.
+// copied.
 //
 // Every class made here is room-open-*, which only this module makes, so the
 // stylesheet's rules for it reach nothing else (AGENTS.md: scope a new rule
@@ -205,7 +205,7 @@ export function mount(h) {
   loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); renderGrab(); });
 
   // Send to ▾ goes: its Tape and Clipboard were GRAB, which has its own key
-  // beside KEEP, and its Crate is gone with the crate (lib/rooms/nocrate.js).
+  // beside KEEP, and its Crate went with the crate.
   // wave/page.js shows the button once the Pi says it has a tape, so it is
   // taken out of sight for good rather than hidden.
   const sendBtn = $('send-btn');

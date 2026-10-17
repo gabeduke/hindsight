@@ -83,12 +83,10 @@ test('only the newest Undo is on screen: raising one dismisses the one before', 
   assert.doesNotThrow(() => raiseUndo(() => undefined, 'again', 'ok', () => {}));
 });
 
-test('the rooms’ Cut and Copy ask the Pi to leave the crate alone, and only they do', () => {
-  assert.deepEqual(editBody('copy', { clips: ['a'] }, true), { clips: ['a'], no_crate: true });
-  assert.deepEqual(editBody('lift', {}, true), { no_crate: true });
-  assert.deepEqual(editBody('split', {}, true), {}, 'an edit that fills no clipboard is as it was');
-  assert.deepEqual(editBody('copy', { clips: ['a'] }, false), { clips: ['a'] }, 'the rooms off send what they always sent');
-  assert.deepEqual(editBody('lift', {}, false), {});
+test('Cut and Copy ask the Pi to leave the crate alone, and only they do', () => {
+  assert.deepEqual(editBody('copy', { clips: ['a'] }), { clips: ['a'], no_crate: true });
+  assert.deepEqual(editBody('lift', {}), { no_crate: true });
+  assert.deepEqual(editBody('split', {}), {}, 'an edit that fills no clipboard is as it was');
 });
 
 test('an Undo refused says the Pi’s words, not a prefix of ours', () => {

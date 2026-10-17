@@ -166,14 +166,12 @@ export function wireRack(container, { takes, tap }) {
 }
 
 /**
- * askedTake is where `?take=NAME` goes with the rooms on. The Capture page's
- * and the Studio's *Name it*, and a held Capture spine, send the person to
- * /takes.html?take=NAME to name a take, and the sheet it used to open is
- * gone: a take is named on Open, its page. Null when there is nothing to go
- * to (no such parameter, or the rooms are off and the sheet still is).
+ * askedTake is where `?take=NAME` goes. The Studio's *Name it*, and a held
+ * spine, send the person to /takes.html?take=NAME to name a take, and the
+ * sheet it used to open is gone: a take is named on Open, its page. Null
+ * when there is nothing to go to (no such parameter).
  */
-export function askedTake({ rooms, search }) {
-  if (!rooms) return null;
+export function askedTake({ search }) {
   const name = new URLSearchParams(search).get('take');
   return name ? `/wave.html?file=${encodeURIComponent(name)}` : null;
 }

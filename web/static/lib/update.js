@@ -1,6 +1,9 @@
 // web/static/lib/update.js
-// Updating from the foot of Capture: "Hindsight v… · Releases · the guide",
-// and "● Update to v…" under it when there's a newer release.
+// Updating, from the header's Releases button (lib/nav.js), which shows the
+// running version and "Update to v…" when there's a newer release; and from
+// the Settings sheet's about line (lib/settings.js), which asks for this
+// sheet with the `hindsight:releases` event -- a phone's header has no room
+// for Releases.
 //
 // GET /api/update says whether a newer release is out (and is a 404 where
 // updates aren't set up, so none of this shows). It's asked when the page
@@ -173,23 +176,23 @@ function ensureUpdateSheet(doc = document) {
   return sheet;
 }
 
+/** RELEASES_EVENT is what the Settings sheet's Releases sends to open this sheet. */
+export const RELEASES_EVENT = 'hindsight:releases';
+
 /**
- * initUpdate wires the footer and the sheet on the Capture page, and the
- * top-right Releases button in the header when rooms are on.
+ * initUpdate wires the header's Releases button and the sheet it opens, and
+ * opens the same sheet on RELEASES_EVENT.
  */
 export async function initUpdate() {
-  const about = document.querySelector('.about');
-  const btn = document.getElementById('update-btn');
-  const relBtn = document.getElementById('releases-btn');
   const appbarBtn = document.getElementById ? document.getElementById('appbar-releases-btn') : null;
   const sheet = document.getElementById('update-sheet') || (appbarBtn ? ensureUpdateSheet(document) : null);
-  if (!sheet || ((!about || !btn || !relBtn) && !appbarBtn)) return;
+  if (!sheet || !appbarBtn) return;
   if (wiredUpdates.has(sheet)) return;
   wiredUpdates.add(sheet);
 
   const st = await getJSON('/api/status');
   if (!askAboutUpdates(st)) {
-    if (appbarBtn && typeof sheet.querySelector === 'function') {
+    if (typeof sheet.querySelector === 'function') {
       if (st?.version) appbarBtn.textContent = st.version;
       const title = sheet.querySelector('.update-title');
       const listEl = sheet.querySelector('.release-list');
@@ -199,7 +202,7 @@ export async function initUpdate() {
       const go = sheet.querySelector('.update-go');
       const cancel = sheet.querySelector('.update-cancel');
       cancel?.addEventListener('click', () => sheet.close());
-      appbarBtn.addEventListener('click', () => {
+      const showRunning = () => {
         if (!sheet.open) sheet.showModal();
         if (title) title.textContent = 'Releases';
         if (listEl) {
@@ -211,7 +214,9 @@ export async function initUpdate() {
         if (text) text.hidden = true;
         if (progress) progress.hidden = true;
         if (cancel) cancel.textContent = 'Close';
-      });
+      };
+      appbarBtn.addEventListener('click', showRunning);
+      document.addEventListener(RELEASES_EVENT, showRunning);
     }
     return;
   }
@@ -229,16 +234,14 @@ export async function initUpdate() {
   let info = { running: st?.version || '', latest: '', available: false };
   let following = false;
 
-  if (st?.version && appbarBtn) appbarBtn.textContent = st.version;
+  if (st?.version) appbarBtn.textContent = st.version;
   cancel.addEventListener('click', () => sheet.close());
-  if (appbarBtn) {
-    appbarBtn.addEventListener('click', () => open(info.available && info.latest ? info.latest : info.running));
-  }
+  const openPick = () => open(info.available && info.latest ? info.latest : info.running);
+  appbarBtn.addEventListener('click', openPick);
+  document.addEventListener(RELEASES_EVENT, openPick);
   const fetched = await getJSON('/api/update');
   if (!fetched) return; // 404: an older Pi with no updater, or the Pi isn't answering
   info = fetched;
-  if (relBtn) relBtn.hidden = false;
-  if (about) about.classList.add('can-update');
 
   // A rolled-back or failed update from another device, or from before a
   // reload, is said once.
@@ -254,15 +257,8 @@ export async function initUpdate() {
 
   const showButton = () => {
     const label = buttonLabel(info);
-    if (btn) {
-      btn.textContent = label;
-      btn.hidden = !label;
-    }
-    if (about) about.classList.toggle('has-update', !!label);
-    if (appbarBtn) {
-      appbarBtn.textContent = label || info.running || 'Releases';
-      appbarBtn.classList.toggle('has-update', !!label);
-    }
+    appbarBtn.textContent = label || info.running || 'Releases';
+    appbarBtn.classList.toggle('has-update', !!label);
   };
   showButton();
 
@@ -390,9 +386,6 @@ export async function initUpdate() {
     const first = releases.find((r) => r.tag === preferred) || releases.find((r) => cmpVersion(r.tag, info.running) === 0) || releases[0];
     if (first) choose(first.tag);
   }
-
-  if (btn) btn.addEventListener('click', () => open(info.latest));
-  if (relBtn) relBtn.addEventListener('click', () => open(info.running));
 
   go.addEventListener('click', async () => {
     go.disabled = true;

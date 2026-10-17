@@ -26,7 +26,6 @@ import { bindKeyboard } from './keymap.js';
 import { mountStrip, mountToggle } from './screen.js';
 import { ticker } from '../objects/motion.js';
 import { on } from './flag.js';
-import { on as roomsOn } from '../rooms/flag.js';
 import { gridFrom, ringAt, beatAt } from './clock.js';
 import { connect } from './link.js';
 import { modeOf } from './reel.js';
@@ -107,12 +106,13 @@ export function startStrip({
   doc = globalThis.document,
   dock = doc?.getElementById('np-dock'),
   np = doc?.getElementById('np'),
-  rooms = roomsOn,
   fetchImpl = (...a) => globalThis.fetch(...a),
   nav = globalThis.navigator,
 } = {}) {
   if (!on() || !dock || !np) return null;
-  const has = (need) => need === 'rooms' && !!rooms();
+  // `needs: 'rooms'` (controls.js): the two rooms' verbs and keys, which every
+  // page has now.
+  const has = (need) => need === 'rooms';
   const now = () => performance.now();
 
   const surface = new Surface({ bpm: 120, originMs: 0, division: '16th' });

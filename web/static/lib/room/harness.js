@@ -23,7 +23,7 @@ export function world(search = '') {
     const m = new Map(Object.entries(init));
     return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), map: m };
   };
-  const w = { intervals: [], navigated: [], search, session: store(), local: store({ 'hindsight.rooms': '1' }) };
+  const w = { intervals: [], navigated: [], search, session: store(), local: store() };
   globalThis.CSS = { escape: (s) => String(s) };
   globalThis.setInterval = (fn, ms) => { w.intervals.push({ fn, ms }); return w.intervals.length; };
   globalThis.sessionStorage = w.session;

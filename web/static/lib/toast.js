@@ -7,8 +7,8 @@
 // The message is set as text, never markup: names come from the Pi and from
 // whoever named a take.
 
-// With the two rooms on a toast says the rooms' words (rooms/words.js); “quoted”
-// names are left as they were typed.
+// A toast says the rooms' words (rooms/words.js); “quoted” names are left as
+// they were typed.
 import { say, sayToast } from './rooms/words.js';
 
 const host = () => document.getElementById('toasts');

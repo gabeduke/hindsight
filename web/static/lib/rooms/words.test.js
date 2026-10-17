@@ -18,7 +18,6 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 import { rename as say, renameToast, tipForRooms } from './words.js';
 import { TIPS } from '../help/tips.js';
-import { CRATE_PARTS, TAKE_PARTS } from './nocrate.js';
 
 // The spec's list, and the renames that go with it (clip -> part, ring -> feed,
 // Buffer length -> Feed length, Keep free -> Leave free, Punch-in FX -> FX,
@@ -39,7 +38,7 @@ const walk = (d) => readdirSync(new URL(d, root), { withFileTypes: true }).flatM
 
 // ---- allow-list -----------------------------------------------------------
 // [file, text the line holds, why]. Matched on the literal (or markup text).
-const NO_CRATE = 'its control is taken out with the rooms on (nocrate.js, Open), so this is never shown';
+const NO_CRATE = 'its control went with the crate, so this is never shown; the row leaves tips.js with the guide’s';
 const ALLOW = [
   // -- markup
   ['wave.html', 'Send to', 'Send to ▾ is taken out of sight by room/open.js: GRAB is its Tape and its Clipboard'],
@@ -50,21 +49,9 @@ const ALLOW = [
   ['lib/room/open.js', 'tb-flag', 'a CSS class'],
   ['lib/room/tap.js', '.take-flag', 'a CSS selector'],
   ['lib/wave/page.js', 'detail-flag flags-item', 'CSS classes'],
-  ['lib/tape/page.js', '.crate-row', 'a CSS selector'],
-  ['lib/tape/page.js', '#crate-list', 'a CSS selector'],
   ['lib/flags.js', 'unknown flag op', 'a programmer error, never shown'],
   ['lib/device-prefs.js', 'the loop’s ring', 'a ring that is drawn (the reel’s), not the feed'],
   ['lib/objects/lcd.js', 'ring out', 'letting a tail ring out: the word’s other sense'],
-  // -- strings: the crate, which the rooms take off the screen
-  ['lib/tape/page.js', 'Could not read the crate', NO_CRATE],
-  ['lib/tape/page.js', 'No kept clip matches', NO_CRATE],
-  ['lib/tape/page.js', 'More for this clip', NO_CRATE],
-  ['lib/tape/page.js', 'in the crate', NO_CRATE],
-  ['lib/objects/ribbon.js', 'in the crate', NO_CRATE],
-  ['lib/wave/page.js', 'kept from this take', NO_CRATE],
-  ['lib/wave/page.js', 'on the crate', NO_CRATE],
-  ['lib/wave/page.js', 'Open the crate', NO_CRATE],
-  ['lib/wave/page.js', 'in the crate', NO_CRATE],
   ['lib/wave/page.js', 'Could not send to tape', 'its Send to ▾ → Tape is taken out of sight by Open'],
   ['lib/wave/send.js', 'one clip, no loop', 'the hint under Send to ▾, which Open takes out of sight'],
 ];
@@ -115,8 +102,8 @@ export function markupText(html, skipIds = new Set()) {
   return out;
 }
 
-// What the rooms take out of a page whole (nocrate.js), so it is never read.
-const REMOVED = new Set([...CRATE_PARTS, ...TAKE_PARTS]);
+// Nothing is taken out of a page whole any more: every page is read as served.
+const REMOVED = new Set();
 const PAGES = ['tape.html', 'takes.html', 'wave.html', 'rig.html', 'index.html', 'guide.html'];
 
 test('no retired word in a rooms page’s markup, as the rooms’ pass leaves it', () => {
@@ -282,7 +269,7 @@ test('no retired word in a string a rooms page’s modules build, or it is said 
 // The crate's tips are allowed because their controls are not on a rooms page.
 // Say so from the markup: none of them is on a rooms page outside what the
 // rooms take out whole; the few that are there are hidden by code that is read.
-test('a tip allowed as “removed with the rooms” belongs to a control the rooms really remove', () => {
+test('a tip allowed as gone with the crate belongs to a control that really went', () => {
   const onPage = new Set();
   for (const page of ['tape.html', 'takes.html', 'wave.html', 'rig.html']) {
     for (const [, id, kind] of markupText(read(page).replace(/<head>[\s\S]*?<\/head>/, ''), REMOVED)) if (kind === 'tip') onPage.add(id);
@@ -297,10 +284,9 @@ test('a tip allowed as “removed with the rooms” belongs to a control the roo
     found.push(id);
   }
   assert.deepEqual(found, [], 'on a rooms page and nothing in the rooms hides it');
-  // the ones with no markup of their own: where they are made
-  assert.match(read('lib/shelf-detail.js'), /data-tip="detail-crate"/, 'detail-crate is the old Takes sheet’s');
-  assert.match(read('index.html'), /rb-sel-keep" type="button" hidden data-tip="ribbon-keep"/, 'ribbon-keep is hidden unless the tape is on, and the rooms redirect then');
-  assert.doesNotMatch(read('tape.html'), /data-tip="ribbon-keep"/, 'the Studio’s selection has no Keep as clip');
+  // and the controls the crate took with it are in no page and no module
+  assert.doesNotMatch(read('lib/shelf-detail.js'), /data-tip="detail-crate"/, 'the take sheet’s ◫ line went with the crate');
+  for (const page of ['index.html', 'tape.html']) assert.doesNotMatch(read(page), /data-tip="ribbon-keep"/, `${page}: no Keep as clip on a selection`);
 });
 
 test('every allow-list entry still matches something', () => {

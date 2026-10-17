@@ -17,7 +17,6 @@
 // the rope, and the renderer (ropes.js) only draws it. A plug in the hand
 // snaps into a socket and comes out with a pull (lib/scene/plug.js).
 
-import { on as roomsOn } from '../rooms/flag.js';
 import { initNav } from '../nav.js';
 import { toast } from '../toast.js';
 import { refusal, failToast, WAITING, WAITING_DETAIL } from '../tape/refusal.js';
@@ -946,22 +945,15 @@ function drawLegend() {
 // --- start ------------------------------------------------------------------------
 
 /**
- * start draws the rig, with the two rooms on. With them off it says where
- * the switch is and stops: nothing is asked of the Pi, nothing listened for.
- * Everything is passed in, so a test can hold it to that.
+ * start draws the rig. Everything is passed in, so a test can stand in for
+ * the page.
  */
-export function start({ flagOn = roomsOn, doc = document, nav = initNav, help = initHelp, win = globalThis } = {}) {
+export function start({ doc = document, nav = initNav, help = initHelp, win = globalThis } = {}) {
   nav();
   help({ page: 'rig' });
   let tapeOn = null;
   try { tapeOn = win.localStorage.getItem('hindsight.tapeOn'); } catch { /* fine */ }
   doc.getElementById('rig-back').href = tapeOn === 'false' ? '/' : '/tape.html';
-  if (!flagOn()) {
-    doc.getElementById('rig-off').hidden = false;
-    const back = doc.getElementById('rig-back').querySelector?.('.back-text');
-    if (back) back.textContent = 'Back'; // there's no Studio with the rooms off
-    return false;
-  }
   doc.getElementById('rig-room').hidden = false;
   drawLegend();
   doc.getElementById('rig-restart-go').addEventListener('click', doRestart);

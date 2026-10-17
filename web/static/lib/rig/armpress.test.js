@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { armPress } from './armpress.js';
 import { HOLD_MS } from '../tape/clipgestures.js';
 
-// ● on a track's header, with the rooms on (F7): a tap arms just this track,
+// ● on a track's header (F7): a tap arms just this track,
 // a hold or ⇧-click arms it as well. The press is a small machine so it is
 // tested with a clock in the test's hand, not a finger.
 function rig() {

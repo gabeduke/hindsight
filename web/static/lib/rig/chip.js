@@ -4,8 +4,8 @@
 // the way to the rig. The rig isn't a tab: it's visited when something
 // changes, not while playing.
 //
-// lib/nav.js loads this only with the two rooms on, so with them off there
-// is no chip, no request and nothing to listen for.
+// lib/nav.js loads this on every page; off the rooms' pages (chipOn) it
+// draws nothing, asks nothing and listens for nothing.
 
 /**
  * chipModel is what the chip says, from the rig's graph: the interface's

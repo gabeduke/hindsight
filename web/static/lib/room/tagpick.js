@@ -3,8 +3,8 @@
 // design.md, "A tap plays": holding a spine or a row selects, as the list's
 // Select does -- ★, Delete, Export, and now Tag). It gives every selected
 // take one tag, or takes the tag off: the same chips the sheet had under a
-// take's name, for several takes at once. The room makes the key in script, so
-// the takes page with the rooms off has no such markup.
+// take's name, for several takes at once. The room makes the key in script:
+// the takes page has no such markup.
 
 /**
  * tagKey puts a Tag key on the select bar (before Export) and answers

@@ -23,28 +23,22 @@ test('no page uses an id twice', () => {
   }
 });
 
-// Settings has one way in: the about line, at the Studio's foot. With the
-// two rooms off that is Capture's (index.html); with them on, the Studio is
-// the tape page while the tape is on, and its about line is in tape.html's
-// foot template, mounted only then. Nowhere else may carry one -- and every
-// copy must be in an about line, which styles.test.js keeps from being hidden.
-test('Settings is reached from the Studio’s foot and nowhere else', () => {
-  const carriers = [];
+// Settings has one way in, on every page: the header's (lib/nav.js
+// mountHeaderTools), which styles.test.js keeps from being hidden. The about
+// line that used to carry it at a page's foot is gone, and no page carries a
+// second Settings of its own.
+test('Settings is the header’s on every page, and no page has the old about line', () => {
   for (const page of pages) {
     const html = readFileSync(new URL(page, dir), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
-    if (!html.includes('id="settings-btn"')) continue;
-    carriers.push(page);
-    const about = /<p class="about">[\s\S]*?<\/p>/.exec(html);
-    assert.ok(about && about[0].includes('id="settings-btn"'), `${page}: Settings is outside the about line`);
+    assert.ok(!html.includes('id="settings-btn"'), `${page} carries a Settings of its own`);
+    assert.ok(!/class="about"/.test(html), `${page} still has the about line`);
   }
-  assert.deepEqual(carriers.sort(), ['index.html', 'tape.html']);
-  const tape = readFileSync(new URL('tape.html', dir), 'utf8');
-  const foot = /<template id="studio-foot-tpl">([\s\S]*?)<\/template>/.exec(tape);
-  assert.ok(foot && foot[1].includes('id="settings-btn"'), "the tape page's Settings is the Studio's, in its foot template");
+  const nav = readFileSync(new URL('lib/nav.js', dir), 'utf8');
+  assert.match(nav, /set\.id = 'appbar-settings-btn'/, 'the header makes Settings on every page');
 });
 
-// With the rooms and the tape on, `/` goes to the Studio, so Capture can't
-// be reached at all: whatever Capture had must be in the Studio (the tape
+// With the tape on, `/` goes to the Studio, so Capture can't be reached at
+// all: whatever Capture had must be in the Studio (the tape
 // page, its own markup or the Studio's templates), or somewhere else named
 // here. A control left behind with no way in is the AGENTS.md rule broken
 // -- the Phone key and Flag now were, once.
@@ -71,7 +65,7 @@ const ELSEWHERE = {
   'np-scrub': "the tape page's own deck (#tape-overview)",
   'np-out': "the tape page's own deck (#tape-out)",
 };
-test('with the rooms on, everything on Capture has a way in from the Studio', () => {
+test('everything on Capture has a way in from the Studio', () => {
   const ids = (page) => new Set([...readFileSync(new URL(page, dir), 'utf8').replace(/<!--[\s\S]*?-->/g, '')
     .matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
   const studio = ids('tape.html');

@@ -40,7 +40,7 @@ function page() {
 }
 
 const down = async () => ({ ok: false, status: 404, json: async () => ({}) });
-const start = (doc) => { const st = startStrip({ doc, rooms: () => true, fetchImpl: down, nav: {} }); if (st) made.push(st); return st; };
+const start = (doc) => { const st = startStrip({ doc, fetchImpl: down, nav: {} }); if (st) made.push(st); return st; };
 const keepPad = (doc) => doc.querySelector('.play-verb[data-pad="keep"]');
 const face = (doc) => keepPad(doc).querySelector('.play-face').textContent;
 const say = (doc, detail) => doc.dispatchEvent(new CustomEvent('hindsight:keeps', { detail }));
@@ -103,17 +103,6 @@ test('after teardown the strip no longer listens', async () => {
     say(doc, { feed: '30s' });
     strip.destroy();
     assert.equal(doc.listenerCount('hindsight:keeps'), 0, 'its listener went with it');
-  });
-});
-
-test('without the rooms there is no KEEP pad, and the event changes nothing', async () => {
-  await withPlayOn(async () => {
-    const doc = page();
-    const strip = startStrip({ doc, rooms: () => false, fetchImpl: down, nav: {} });
-    made.push(strip);
-    assert.equal(keepPad(doc), null);
-    assert.doesNotThrow(() => say(doc, { feed: '30s' }));
-    strip.destroy();
   });
 });
 

@@ -132,7 +132,7 @@ function crossFade(update) {
 export function mount(h) {
   // A toast's *Name it* (or a held Capture spine) sends the person here to name
   // a take, and the sheet it opened is gone: a take is named on Open.
-  const named = askedTake({ rooms: true, search: location.search });
+  const named = askedTake({ search: location.search });
   if (named) { location.replace(named); return { render() {} }; }
   forgetNote(); // a take's GRAB left a note for the Studio: this page is not it
   const $ = (id) => document.getElementById(id);

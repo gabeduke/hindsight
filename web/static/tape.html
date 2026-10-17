@@ -87,7 +87,7 @@
       <p><b>This tape is empty.</b> Its first loop sets the tempo.</p>
       <p>Play until a part sounds right, then tap where it starts and again where it comes round:</p>
       <button id="tap" class="icon-btn primary tape-tap" type="button" data-tip="tape-tap">Tap where the loop starts</button>
-      <p id="tape-empty-from">Or open a take, select the part, and choose <b>Send to → Tape</b>. Or start from a tempo:</p>
+      <p id="tape-empty-from">Or <a href="/takes.html">GRAB a bit of a take</a>: open one, select the part and press GRAB. Or start from a tempo:</p>
       <div class="tape-tempo-row">
         <label>BPM <input id="new-bpm" type="number" min="20" max="400" step="0.01" value="90" inputmode="decimal" data-tip="tape-bpm"></label>
         <label>Bars <input id="new-bars" type="number" min="1" max="64" value="4" inputmode="numeric" data-tip="tape-bpm"></label>
@@ -120,47 +120,12 @@
      page.js (openInputMenu) with the inputs and their meters. -->
 <div id="input-menu" class="menu input-menu" role="menu" aria-label="Input" hidden></div>
 
-<!-- The dock at the foot of the page: the crate's drawer (the clipboard
-     and the kept clips, opened from the bar's Crate key), the clip editor
-     while a clip is aligned, the action bar while something is selected,
-     then the now-playing bar. From 700 px the drawer opens above the bar and
-     pushes the lanes up; on a phone it's rows in the page and the bar is
-     docked above the tabs. -->
+<!-- The dock at the foot of the page: the clip editor while a clip is
+     aligned, the action bar while something is selected, then the
+     now-playing bar. On a phone the bar is docked above the tabs. -->
 <div id="np-dock" class="np-dock" hidden>
-  <!-- The crate (lib/tape/page.js, "the crate"): the clipboard first, then
-       the clips kept from takes, the ribbon and the tape, newest first, to
-       play and paste. -->
-  <section id="drawer-crate" class="np-drawer" aria-label="The crate">
-    <div class="np-drawer-strip">
-      <span class="np-grip" aria-hidden="true"></span>
-      <h2 class="np-drawer-title">Crate</h2>
-      <span class="np-grip np-grip-fill" aria-hidden="true"></span>
-      <button class="np-drawer-close" type="button" data-drawer="crate" aria-label="Close the crate">✕</button>
-    </div>
-    <div class="np-drawer-body crate-body">
-      <!-- The clipboard, the crate's first slot: what Cut or Copy put there
-           last, to play, paste at the playhead, insert, merge or keep. -->
-      <div class="tb-row clipboard crate-board" role="group" aria-label="The clipboard">
-        <span class="tb-label">Clipboard</span>
-        <button id="clip-play" class="chip clip-chip" type="button" disabled data-tip="clipboard">empty</button>
-        <button id="drop" class="icon-btn" type="button" disabled aria-keyshortcuts="Meta+V Control+V" data-tip="drop"><span aria-hidden="true">⤓ </span>Paste</button>
-        <button id="insert" class="icon-btn key-two" type="button" disabled data-tip="insert"><span class="key-word"><span aria-hidden="true">⇥ </span>Insert</span><span class="key-scope">all tracks</span></button>
-        <button id="merge" class="icon-btn" type="button" hidden data-tip="merge-drop">Merge</button>
-        <button id="clip-keep-board" class="icon-btn" type="button" hidden data-tip="clipboard-keep">Keep</button>
-        <button id="clip-clear" class="icon-btn" type="button" disabled aria-label="Clear the clipboard" data-tip="clipboard-clear">×</button>
-        <audio id="clip-audio" preload="none"></audio>
-      </div>
-      <div class="tb-row crate-find">
-        <label class="shelf-search crate-search"><input id="crate-q" type="search" placeholder="Find a clip" aria-label="Find a kept clip by name" autocomplete="off" data-tip="crate-search"></label>
-        <button id="crate-from" class="chip" type="button" hidden data-tip="crate-from"></button>
-      </div>
-      <ul id="crate-list" class="crate-list" aria-label="Kept clips"></ul>
-      <p id="crate-empty" class="muted crate-empty" hidden>Nothing kept yet. <b>Send to → Crate</b> on a take, <b>Keep as clip</b> on the ribbon, or <b>Keep</b> in a clip's sheet or by the clipboard, puts it here.</p>
-      <audio id="crate-audio" preload="none"></audio>
-    </div>
-  </section>
   <!-- The clip editor (lib/tape/page.js, "the clip editor"): while a clip
-       is being aligned it takes the drawers' place above the bar. The take
+       is being aligned it sits above the bar. The take
        page's editor bar, moving the whole clip by its first hit. -->
   <div id="clip-editor" class="boundary-editor clip-editor" hidden>
     <div class="be-head">
@@ -197,7 +162,6 @@
       <button id="multi-split" class="icon-btn" type="button" aria-keyshortcuts="S" data-tip="multi-split">Split</button>
       <button id="multi-dup" class="icon-btn" type="button" aria-keyshortcuts="Meta+D Control+D" data-tip="multi-dup">Duplicate</button>
       <button id="multi-reverse" class="icon-btn" type="button" data-tip="multi-reverse">Reverse</button>
-      <button id="multi-keep" class="icon-btn" type="button" data-tip="multi-keep">Keep</button>
       <button id="multi-move" class="icon-btn" type="button" data-tip="multi-move">Move here</button>
       <button id="multi-more" class="icon-btn" type="button" aria-keyshortcuts="Enter" data-tip="multi-more">Details…</button>
       <button id="multi-add" class="icon-btn" type="button" aria-pressed="false" data-tip="multi-add">Select more</button>
@@ -250,7 +214,6 @@
         <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
       </div>
       <div class="np-own">
-        <button id="np-drawer-crate" class="icon-btn np-drawer-key" type="button" aria-expanded="false" aria-controls="drawer-crate" data-tip="drawer-crate">Crate<span class="np-chev" aria-hidden="true">▴</span></button>
         <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
       </div>
     </div>
@@ -351,7 +314,6 @@
     <div class="sheet-actions">
       <button id="clip-reverse" class="icon-btn" type="button" data-tip="clip-reverse">Reverse</button>
       <button id="clip-share" class="icon-btn" type="button" data-tip="clip-share">Share as WAV</button>
-      <button id="clip-keep" class="icon-btn" type="button" data-tip="clip-keep">Keep</button>
     </div>
     <div class="sheet-actions">
       <button id="clip-trim-in" class="icon-btn" type="button" data-tip="clip-trim">Start here</button>
@@ -364,25 +326,6 @@
     <div class="sheet-actions">
       <button id="clip-remove" class="icon-btn danger" type="button" data-tip="clip-remove">Remove</button>
       <button id="clip-done" class="icon-btn" type="button">Done</button>
-    </div>
-  </div>
-</dialog>
-
-<!-- A kept clip's sheet (the crate's ⋯). -->
-<dialog class="sheet" id="crate-sheet">
-  <div class="sheet-inner">
-    <h3 id="crate-title">Kept clip</h3>
-    <p id="crate-what" class="muted"></p>
-    <form id="crate-rename" class="clip-field">
-      <label>Name <input id="crate-name" type="text" maxlength="120" autocomplete="off" data-tip="crate-rename"></label>
-    </form>
-    <div class="sheet-actions">
-      <button id="crate-share" class="icon-btn" type="button" data-tip="crate-share">Share as WAV</button>
-      <a id="crate-take" class="icon-btn" href="wave.html" data-tip="crate-take">Open its take</a>
-    </div>
-    <div class="sheet-actions">
-      <button id="crate-delete" class="icon-btn danger" type="button" data-tip="crate-delete">Delete</button>
-      <button id="crate-done" class="icon-btn" type="button">Done</button>
     </div>
   </div>
 </dialog>
@@ -480,13 +423,11 @@
   </form>
 </dialog>
 
-<!-- The two rooms (lib/rooms): with the per-device hindsight.rooms flag on,
-     this page is the Studio, and lib/rooms/studio.js puts these in it --
-     the feed above the lanes, the about line at its foot, and their sheets.
-     A template is inert: with the flag off none of it is ever in the page.
-     They are Capture's own parts (index.html), so their ids are Capture's:
-     the modules that drive them (ribbon.js, settings.js, update.js) find
-     them by those. -->
+<!-- This page is the Studio: lib/rooms/studio.js puts these in it -- the
+     feed above the lanes, the input diagnostic at its foot, and their
+     sheets. They are Capture's own parts (index.html), so their ids are
+     Capture's: the modules that drive them (ribbon.js, settings.js,
+     update.js) find them by those. -->
 <template id="studio-feed-tpl">
   <!-- A .panel, as Capture's are, for its surface and its heading. -->
   <section class="panel studio-feed" aria-label="The feed">
@@ -527,7 +468,7 @@
   </section>
 </template>
 <template id="studio-foot-tpl">
-  <!-- Capture's input diagnostic, under the lanes with the about line. -->
+  <!-- Capture's input diagnostic, under the lanes. -->
   <details class="chan studio-chan" id="chan-diag">
     <summary>Input channels</summary>
     <div class="grid" id="chan-grid"></div>
@@ -540,7 +481,6 @@
       Filter with <code>MIDI_DEVICES</code> / <code>MIDI_IGNORE</code>.
     </p>
   </details>
-  <p class="about">Hindsight <span id="version" class="mono">–</span> · <button id="releases-btn" class="releases-btn" type="button" data-tip="releases" hidden>Releases</button><span class="releases-sep" aria-hidden="true"> · </span><button id="settings-btn" class="releases-btn" type="button" data-tip="settings">Settings</button> · <a href="/guide.html" data-tip="guide">the guide</a><button id="update-btn" class="update-btn" type="button" data-tip="update" hidden></button></p>
 </template>
 <template id="studio-sheets-tpl">
   <dialog class="sheet" id="rb-flag-sheet">
@@ -608,11 +548,10 @@
   </dialog>
 </template>
 
-<!-- The Studio's buffer (lib/buffer): with the two rooms on, the clipboard
-     made visible -- GRAB on the feed, and the buffer between the feed and
-     the lanes (a sheet over them on a phone), to trim what was grabbed and
-     drop it on a lane, keep it as a take, or toss it. Templates, like the
-     Studio's own: with the flag off none of it is ever in the page. -->
+<!-- The Studio's buffer (lib/buffer): the clipboard made visible -- GRAB on
+     the feed, and the buffer between the feed and the lanes (a sheet over
+     them on a phone), to trim what was grabbed and drop it on a lane, keep
+     it as a take, or toss it. Templates, like the Studio's own. -->
 <template id="buffer-grab-tpl">
   <div class="buffer-grab" role="group" aria-label="Grab">
     <span class="buffer-grab-last" aria-hidden="true">Last</span>

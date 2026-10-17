@@ -3,7 +3,7 @@
 // BOUNCE is the Studio's ⋯ menu's one verb for a tape into a take, in place of
 // Mix down ×2 and Cut a record. Its toast has ▶ and Open, the menu keeps Last
 // bounce, and a take that was once marked as a record is an ordinary take.
-// The rooms off keep the old words. The menu is the tape page's own markup,
+// The menu is the tape page's own markup,
 // built on a stand-in document; the player runs on a stand-in <audio>.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,9 +26,9 @@ function menu() {
 }
 const words = (actions) => actions.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"]').map((b) => b.textContent.trim());
 
-test('with the rooms on, the ⋯ menu offers Bounce the loop and Bounce the whole tape, and neither Mix down nor Cut a record', () => {
+test('the ⋯ menu offers Bounce the loop and Bounce the whole tape, and neither Mix down nor Cut a record', () => {
   const { doc, actions } = menu();
-  bounceMenu(doc, { rooms: true });
+  bounceMenu(doc);
   const w = words(actions);
   assert.ok(w.includes('Bounce the loop'), w.join(' | '));
   assert.ok(w.includes('Bounce the whole tape'), w.join(' | '));
@@ -39,7 +39,7 @@ test('with the rooms on, the ⋯ menu offers Bounce the loop and Bounce the whol
 test('the bounce items are the mixdown items: the same buttons, so the same requests', () => {
   const { doc, actions } = menu();
   const loop = actions.querySelector('#tape-mixdown'), whole = actions.querySelector('#tape-mixdown-all');
-  bounceMenu(doc, { rooms: true });
+  bounceMenu(doc);
   assert.equal(actions.querySelector('#tape-mixdown'), loop);
   assert.equal(actions.querySelector('#tape-mixdown-all'), whole);
   assert.equal(loop.textContent, BOUNCE_WORDS.loop);
@@ -50,7 +50,7 @@ test('the bounce items are the mixdown items: the same buttons, so the same requ
 
 test('Last bounce sits by the bounces, a line of its own, disabled until there is one', () => {
   const { doc, actions } = menu();
-  bounceMenu(doc, { rooms: true });
+  bounceMenu(doc);
   const items = actions.children;
   const at = (id) => items.indexOf(actions.querySelector(id));
   assert.equal(at('#tape-last-bounce'), at('#tape-mixdown-all') + 1);
@@ -60,27 +60,16 @@ test('Last bounce sits by the bounces, a line of its own, disabled until there i
   assert.equal(last.disabled, true, 'none yet');
 });
 
-test('with the rooms off the menu is untouched: Mix down, and no Last bounce', () => {
-  const { doc, actions } = menu();
-  const before = words(actions);
-  const r = bounceMenu(doc, { rooms: false });
-  assert.equal(r, null);
-  assert.deepEqual(words(actions), before);
-  assert.ok(before.includes('Mix down the loop') && before.includes('Mix down the whole tape'));
-  assert.equal(actions.querySelector('#tape-last-bounce'), null);
-  assert.equal(actions.querySelector('#tape-mixdown').getAttribute('data-tip'), 'mixdown');
-});
-
 test('asking twice does not add a second Last bounce', () => {
   const { doc, actions } = menu();
-  bounceMenu(doc, { rooms: true });
-  bounceMenu(doc, { rooms: true });
+  bounceMenu(doc);
+  bounceMenu(doc);
   assert.equal(actions.querySelectorAll('#tape-last-bounce').length, 1);
 });
 
 test('bounceMenu answers a setter for Last bounce: enabled with a take, disabled without', () => {
   const { doc, actions } = menu();
-  const m = bounceMenu(doc, { rooms: true });
+  const m = bounceMenu(doc);
   const last = actions.querySelector('#tape-last-bounce');
   m.setLast({ name: 'jam_20261015-130100.wav', label: 'Second take loop' });
   assert.equal(last.disabled, false);
@@ -425,7 +414,7 @@ test('a Pi that does not answer leaves Last bounce as it was for this tape', asy
 
 test('a disabled Last bounce says why on its face, not only in a tooltip', () => {
   const { doc, actions } = menu();
-  const m = bounceMenu(doc, { rooms: true });
+  const m = bounceMenu(doc);
   const last = actions.querySelector('#tape-last-bounce');
   const note = last.querySelector('.bounce-note');
   assert.ok(note, 'a visible second line');
@@ -485,11 +474,11 @@ test('no rooms page offers Cut a record, the Records shelf or the turntable', ()
   assert.doesNotMatch(css, /room-sleeve|room-turntable|room-tt-|room-cutting|chair-cutting|\.chair-cut\b|room-next/, 'no rule for what is gone');
 });
 
-test('the tape page sends BOUNCE as the request Mix down always sent, and only the rooms change its words', () => {
+test('the tape page sends BOUNCE as the request Mix down always sent', () => {
   const page = lib('../tape/page.js');
   assert.match(page, /api\(`\/api\/tapes\/mixdown\?\$\{q\(\)\}`, \{ method: 'POST', body: \{ all \} \}\)/, 'the same request, no new route');
-  assert.match(page, /bounceMenu\(document, \{ rooms: ROOMS \}\)/, 'the menu is rewritten only with the rooms on');
-  assert.match(page, /Mixing down \$\{span\}/, 'and Mix down keeps its words with them off');
+  assert.match(page, /bounceMenu\(document\)/, 'the menu is rewritten as BOUNCE');
+  assert.doesNotMatch(page, /Mixing down|Mixed down as a take/, 'and Mix down’s words are gone');
   assert.match(page, /bounceToast\(\{ toast, name: md\.take/, 'the done toast is the bounce toast, with ▶ and Open');
   assert.match(page, /lastBounceToast/);
   assert.match(page, /lastBounceKeeper\(\{ menu, tapeNow/, 'Last bounce follows the loaded tape');
