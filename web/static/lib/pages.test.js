@@ -80,3 +80,18 @@ test('the Listening Room’s bar sits in .np-dock > .np, as the Studio’s does'
   assert.doesNotMatch(css, /(?:main-page|shelf-page|room-on|selecting)[^,{]*>\s*\.np\b/, 'no room selector assumes body > .np');
 });
 
+
+// The rooms are siblings. Capture was once added inside the Studio's <main>,
+// which had no </main>: the Listening Room became a child of the hidden
+// Studio and never showed on a Pi, while every test passed.
+test('shell.html: each room view is a top-level <main>, not inside another', () => {
+  const html = readFileSync(new URL('shell.html', dir), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const opens = [...html.matchAll(/<main\b|<\/main>/g)].map((m) => m[0]);
+  let depth = 0;
+  for (const t of opens) {
+    depth += t === '</main>' ? -1 : 1;
+    assert.ok(depth >= 0 && depth <= 1, 'a <main> opened inside another, or closed twice');
+  }
+  assert.equal(depth, 0, 'a <main> is never closed');
+  assert.equal(opens.length / 2, 3, 'studio, capture and room: one <main> each');
+});
