@@ -179,6 +179,7 @@ const SHELL = [
   '/lib/bar/carry.js',
   '/lib/bar/handoff.js',
   '/lib/bar/player.js',
+  '/lib/shell/view.js',
   '/lib/scene/object.js',
   '/lib/scene/scene.js',
   '/lib/scene/renderer.js',
