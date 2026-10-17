@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.17.8 — 2026-10-17
+
+- Make media player transport collapsible to give tape lanes room (#143) (bf385fa)
+
+
 ## v2026.10.17.7 — 2026-10-17
 
 - Feed source selector and persistent Buffer ▴ / ▾ toggle (49e70aa)
