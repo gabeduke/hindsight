@@ -37,39 +37,6 @@ test('Settings is the header’s on every page, and no page has the old about li
   assert.match(nav, /set\.id = 'appbar-settings-btn'/, 'the header makes Settings on every page');
 });
 
-// With the tape on, `/` goes to the Studio, so Capture can't be reached at
-// all: whatever Capture had must be in the Studio (the tape
-// page, its own markup or the Studio's templates), or somewhere else named
-// here. A control left behind with no way in is the AGENTS.md rule broken
-// -- the Phone key and Flag now were, once.
-const ELSEWHERE = {
-  'studio-redirect': "index.html's own: the redirect itself",
-  awake: 'the Studio holds the wake lock without the header icon',
-  'health-dot': "the Studio tab's lamp, and #studio-health in the feed",
-  'health-text': '#studio-health in the feed, with the full text in its title and a toast',
-  'stat-buffered': "the ribbon's readout says how much is buffered",
-  'capture-btn': 'KEEP, #studio-keep',
-  'cap-word': 'KEEP, #studio-keep-word',
-  'cap-sub': 'KEEP, #studio-keep-sub',
-  'last-saved': "KEEP's toast names the take; it's on the Listening Room's shelf",
-  takes: 'the Listening Room (takes.html)',
-  'takes-empty': 'the Listening Room (takes.html)',
-  'all-takes': 'the Listening Room tab',
-  'all-count': 'the Listening Room (takes.html)',
-};
-test('everything on Capture has a way in from the Studio', () => {
-  const idsFrom = (html) => new Set([...html.replace(/<!--[\s\S]*?-->/g, '')
-    .matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-  const shell = readFileSync(new URL('shell.html', dir), 'utf8')
-    .replace(/<main id="view-room"[\s\S]*?<\/main>/, '')
-    .replace(/<main id="view-capture"[\s\S]*?<\/main>/, '')
-    .replace(/<div id="header-capture"[\s\S]*?<\/div>\s*<\/div>/, '');
-  const studio = idsFrom(shell);
-  const stranded = [...idsFrom(readFileSync(new URL('index.html', dir), 'utf8'))].filter((id) => !studio.has(id) && !(id in ELSEWHERE));
-  assert.deepEqual(stranded, [], "Capture's, and nowhere in the Studio: bring them in, or say where they went");
-  for (const id of Object.keys(ELSEWHERE)) assert.ok(!studio.has(id), `#${id} is in the Studio now: take it off the list`);
-});
-
 // The shell puts #np inside #np-dock in every room (Phase 1, step 4), so both
 // rooms share one bar at .np-dock > .np and the dock sticks at the foot.
 test('the Listening Room’s bar sits in .np-dock > .np, as the Studio’s does', () => {

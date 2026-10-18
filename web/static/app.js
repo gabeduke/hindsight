@@ -1,7 +1,7 @@
 // Hindsight — app entry / Capture view.
 
 import { connectLive } from '/lib/live.js';
-import { watchLink, timedFetch } from '/lib/link.js';
+import { timedFetch } from '/lib/link.js';
 import { Meters, fmtDur, tierPhrase, captureTiers, frameLevels, readouts, heldError } from '/lib/meter.js';
 import { VUMeters } from '/lib/objects/vu.js';
 import { Ribbon } from '/lib/objects/ribbon.js';
@@ -9,53 +9,51 @@ import { TakesList } from '/lib/takes.js';
 import { initWakeLock } from '/lib/wakelock.js';
 import { initPhone } from '/lib/phone/recorder.js';
 import { ensureStudioSheets } from '/lib/rooms/sheets.js';
-import { initHelp } from '/lib/help/help.js';
 import { toast as defaultToast, takeNextToast } from '/lib/toast.js';
 import { say, named } from '/lib/rooms/words.js';
 import { takeTitle } from '/lib/rooms/takename.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
-import { initNav } from '/lib/nav.js';
-import { pageBar, takesFinder } from '/lib/bar/engine.js';
 
 // A take is named as its spine names it, not by its file.
 const nameOf = (name, seconds) => takeTitle(name, seconds);
 
-export function mountCapture(ctx = null) {
-  const root = ctx?.root;
+// Capture is a shell view (lib/shell/views/capture.js): ctx is always given.
+export function mountCapture(ctx) {
+  const root = ctx.root;
   const $ = (id) => root?.querySelector?.(`#${id}`) || document.getElementById(id);
 
   const el = {
     awake: $('awake'),
     healthDot: $('health-dot'),
     healthText: $('health-text'),
-    vizWrap: $('capture-viz-wrap') || $('viz-wrap'),
-    meters: $('capture-meters') || $('meters'),
-    vu: $('capture-vu') || $('vu'),
-    chanDiag: $('capture-chan-diag') || $('chan-diag'),
-    chanGrid: $('capture-chan-grid') || $('chan-grid'),
-    chanSaving: $('capture-chan-saving') || $('chan-saving'),
-    chanDevice: $('capture-chan-device') || $('chan-device'),
+    vizWrap: $('capture-viz-wrap'),
+    meters: $('capture-meters'),
+    vu: $('capture-vu'),
+    chanDiag: $('capture-chan-diag'),
+    chanGrid: $('capture-chan-grid'),
+    chanSaving: $('capture-chan-saving'),
+    chanDevice: $('capture-chan-device'),
     statBuffered: $('stat-buffered'),
-    statDisk: $('capture-stat-disk') || $('stat-disk'),
-    statXruns: $('capture-stat-xruns') || $('stat-xruns'),
-    statTempo: $('capture-stat-tempo') || $('stat-tempo'),
-    midiDevices: $('capture-midi-devices') || $('midi-devices'),
-    durSeg: $('capture-dur-seg') || $('dur-seg'),
-    markBtn: $('capture-mark-btn') || $('mark-btn'),
+    statDisk: $('capture-stat-disk'),
+    statXruns: $('capture-stat-xruns'),
+    statTempo: $('capture-stat-tempo'),
+    midiDevices: $('capture-midi-devices'),
+    durSeg: $('capture-dur-seg'),
+    markBtn: $('capture-mark-btn'),
     captureBtn: $('capture-btn'),
     capWord: $('cap-word'),
     capSub: $('cap-sub'),
     lastSaved: $('last-saved'),
-    phoneBtn: $('capture-phone-btn') || $('phone-btn'),
-    takes: $('capture-takes') || $('takes'),
-    takesEmpty: $('capture-takes-empty') || $('takes-empty'),
+    phoneBtn: $('capture-phone-btn'),
+    takes: $('capture-takes'),
+    takesEmpty: $('capture-takes-empty'),
     allTakes: $('all-takes'),
     allCount: $('all-count'),
     toasts: $('toasts'),
-    rbSel: $('capture-rb-sel') || $('rb-sel'),
+    rbSel: $('capture-rb-sel'),
   };
 
-  const toast = ctx?.toast || defaultToast;
+  const toast = ctx.toast || defaultToast;
 
   // ---------------------------------------------------------------- state
 
@@ -79,12 +77,9 @@ export function mountCapture(ctx = null) {
   const shelfCount = () => (shelfWide.matches ? 6 : shelfBench.matches ? 4 : 3);
 
   // The now-playing bar: the tape, or a spine pressed (lib/bar/bar.js).
-  let np = ctx?.engine?.bar || null;
+  const np = ctx.engine?.bar || null;
 
-  const navigateTo = (url) => {
-    if (ctx?.go) ctx.go(url);
-    else location.assign(url);
-  };
+  const navigateTo = (url) => ctx.go(url);
 
   const takes = new TakesList(el.takes, el.takesEmpty, {
     onToast: toast,
@@ -111,12 +106,8 @@ export function mountCapture(ctx = null) {
     audioFor: (t) => (np ? np.audioFor(t) : null),
   });
 
-  if (ctx?.on) {
-    ctx.on(shelfWide, 'change', () => takes.reshape());
-    ctx.on(shelfBench, 'change', () => takes.reshape());
-  } else {
-    for (const m of [shelfWide, shelfBench]) m.addEventListener('change', () => takes.reshape());
-  }
+  ctx.on(shelfWide, 'change', () => takes.reshape());
+  ctx.on(shelfBench, 'change', () => takes.reshape());
 
   // A take deleted from its own page comes back here with its Undo.
   function showNextToast() {
@@ -133,11 +124,7 @@ export function mountCapture(ctx = null) {
     pollTakes(true);
   };
 
-  if (ctx?.on) {
-    ctx.on(window, 'pageshow', handlePageShow);
-  } else {
-    window.addEventListener('pageshow', handlePageShow);
-  }
+  ctx.on(window, 'pageshow', handlePageShow);
 
   // ---------------------------------------------------------------- status
 
@@ -295,11 +282,7 @@ export function mountCapture(ctx = null) {
   const handlePageHide = () => {
     try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch { /* fine */ }
   };
-  if (ctx?.on) {
-    ctx.on(window, 'pagehide', handlePageHide);
-  } else {
-    window.addEventListener('pagehide', handlePageHide);
-  }
+  ctx.on(window, 'pagehide', handlePageHide);
 
   async function pollTakes(force = false) {
     // Never disturb the list while something is playing — this is what used to
@@ -384,11 +367,6 @@ export function mountCapture(ctx = null) {
 
   el.captureBtn?.addEventListener('click', capture);
 
-  if (!ctx) {
-    initHelp({ page: 'main' });
-    np = pageBar({ tapes: initNav(), onToast: toast, find: takesFinder(takes) });
-  }
-
   // In the shell the phone's sheet is in the Studio's template, not the page.
   ensureStudioSheets(document);
   initPhone({
@@ -444,10 +422,9 @@ export function mountCapture(ctx = null) {
   // The Pi, heard or not: the live meters and the status poll both report here.
   // Back from sleep (or a dropped network) the page asks again at once; the
   // meters' socket replaces itself (lib/live.js).
-  const link = ctx?.shared?.link || watchLink(() => {
-    pollStatus();
-    pollTakes();
-  });
+  const link = ctx.link;
+  ctx.on(window, 'online', () => { pollStatus(); pollTakes(); });
+  ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { pollStatus(); pollTakes(); } });
 
   let liveHandle = null;
   function startLive() {
@@ -477,26 +454,17 @@ export function mountCapture(ctx = null) {
 
   pollStatus().then(() => pollTakes(true));
 
-  if (ctx?.every) {
-    ctx.every(pollStatus, 2000);
-    ctx.every(() => pollTakes(), 5000);
-  } else {
-    setInterval(pollStatus, 2000);
-    setInterval(() => pollTakes(), 5000);
-  }
+  ctx.every(pollStatus, 2000);
+  ctx.every(() => pollTakes(), 5000);
 
   // Keep the screen awake while docked on a charger. Charging-only, so a phone
-  // on battery is untouched. Like the service worker below, this needs a secure
-  // context, so it engages on the tailnet HTTPS name and not over plain HTTP.
+  // on battery is untouched. It needs a secure context, so it engages on the
+  // tailnet HTTPS name and not over plain HTTP.
   initWakeLock({
     onChange: (held) => {
       if (el.awake) el.awake.hidden = !held;
     },
   });
-
-  if (!ctx && 'serviceWorker' in navigator && window.isSecureContext) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  }
 
   return {
     show({ first } = {}) {
@@ -514,8 +482,4 @@ export function mountCapture(ctx = null) {
       ribbon?.destroy?.();
     },
   };
-}
-
-if (typeof document !== 'undefined' && !document.getElementById('view-capture') && document.getElementById('capture-btn')) {
-  mountCapture();
 }

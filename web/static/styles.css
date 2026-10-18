@@ -256,20 +256,6 @@ body {
 
 /* ---------- top bar ---------- */
 
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
-}
-
 .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .brand img { width: 24px; height: 24px; border-radius: 6px; flex: none; }
 .brand b {
@@ -783,8 +769,6 @@ main {
    text selection or the phone's callout instead. */
 .take { position: relative; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .take input { -webkit-user-select: text; user-select: text; }
-.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.panel-head h2 { margin: 0; }
 .take-check { display: none; }
 body.selecting .take { cursor: pointer; }
 body.selecting .take-check {
@@ -1424,7 +1408,6 @@ dialog.sheet::backdrop { background: var(--scrim); }
 }
 
 /* ---------- the take page ---------- */
-.wave-page .topbar { display: flex; align-items: center; gap: 6px; position: sticky; }
 .wave-page .back { font-size: 28px; line-height: 1; padding: 0 6px 0 4px; color: var(--ink); text-decoration: none; }
 /* The header carries what a list row carries -- name, star, tempo -- so a
    take never has to go back to the list to be renamed or given a BPM. */
@@ -1491,7 +1474,7 @@ dialog.sheet::backdrop { background: var(--scrim); }
 }
 .menu > .danger { color: var(--danger); }
 .menu > button:disabled { opacity: .4; cursor: default; }
-/* Last bounce (rooms on), when there is none: it says why on its face, a
+/* Last bounce, when there is none: it says why on its face, a
    phone having no tooltip, so it is dimmed less than a dead key. */
 #tape-last-bounce:disabled { opacity: .65; }
 #tape-last-bounce .bounce-note { font-size: .85em; color: var(--ink-dim); }
@@ -1576,7 +1559,6 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .save-name input { flex: 1 1 auto; min-width: 0; min-height: 42px; box-sizing: border-box; padding: 0 12px; font: inherit; }
 .save-name .icon-btn { flex: none; min-height: 42px; }
 .tb-row.footer { flex-wrap: wrap; justify-content: space-between; }
-.tb-row.footer .readout { color: var(--ink-dim); font-size: 13px; }
 .speed-seg { margin-left: auto; }
 .speed-seg button { min-height: 32px; min-width: 40px; }
 .speed-seg button:disabled { opacity: .35; cursor: default; }
@@ -1682,7 +1664,6 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
    none of it reaches the app's own pages. The cover is a cassette's paper
    label, each numbered part a panel like the app's own with its number in
    the counter's amber window, and each part's checks a card of their own. */
-.guide-page .topbar { display: flex; align-items: center; gap: 8px; }
 .guide-page .back { font-size: 28px; line-height: 1; padding: 0 8px; color: var(--ink); text-decoration: none; }
 .guide-page { --toc-h: 49px; }
 .guide-page main.guide-main {
@@ -2069,8 +2050,6 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 }
 
 /* ---------- the tape page ---------- */
-.tape-page .topbar { display: flex; align-items: center; gap: 6px; position: sticky; }
-.tape-page .back { font-size: 28px; line-height: 1; padding: 0 6px 0 4px; color: var(--ink); text-decoration: none; }
 .tape-title { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; }
 .tape-title > .menu-anchor { min-width: 0; }
 .tape-title > .menu-anchor:first-child { flex: 0 1 auto; }
@@ -2793,8 +2772,6 @@ body:not(.shelf-page) #select-bar { display: none; }
 /* ---------- the takes page ---------- */
 /* One column, a phone's measure, until there is room for the detail pane
    beside it (below). */
-.shelf-page .topbar { display: flex; align-items: center; gap: 8px; justify-content: flex-start; }
-.shelf-page .back { font-size: 28px; line-height: 1; padding: 0 6px 0 4px; color: var(--ink); text-decoration: none; }
 .shelf-title {
   flex: 1; margin: 0; display: flex; align-items: center; gap: 10px;
   font-family: var(--label-font); font-weight: 700; font-size: 20px;
@@ -3621,7 +3598,6 @@ dialog.inspector:focus-visible { outline: none; }
 }
 .panel h2 { font-size: 15px; display: flex; align-items: center; gap: 10px; }
 .panel h2::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
-.panel-head h2 { flex: 1; }
 .stat .k { font-size: 12px; letter-spacing: .14em; }
 .chan summary { font-size: 13px; }
 
@@ -3629,14 +3605,6 @@ dialog.inspector:focus-visible { outline: none; }
    on cream, so warn has an ink of its own. */
 .stat { background: none; padding: 0; }
 .stat .v { font-family: var(--mono); font-weight: 600; font-size: 17px; }
-
-/* A running counter: amber digits in a dark window, in both schemes. Earlier
-   rules colour these dim, so they are named here at the same weight. */
-.readout, .tb-row.footer .readout {
-  background: var(--lcd); color: var(--lcd-ink);
-  border-radius: 3px; box-shadow: inset 0 2px 0 var(--lcd-edge);
-  font-family: var(--mono); font-weight: 600; padding: 3px 8px;
-}
 
 /* Wells: where audio is drawn, recessed into the faceplate. */
 .overview-canvas, .wave-canvas, .tape-overview, .tt-lane, .lane, .tape-ruler {
@@ -3964,7 +3932,7 @@ input, select, textarea { color-scheme: inherit; }
   body:not(.player-open) .np .np-catch { min-width: 92px; height: 50px; min-height: 50px; padding: 0 12px; }
   body:not(.player-open) .np .np-catch-sub { display: none; }
   /* The Studio's Catch has a short second line of its own down here
-     (.np-catch-mini, added by the page with the rooms on): "→ 2" and
+     (.np-catch-mini, added by the page): "→ 2" and
      "after 1 pass" say what it catches and why it waits, which a bare
      "Catch" can't, and leave the transport window its bar number. */
   body:not(.player-open) .np .np-catch .np-catch-mini { display: block; font: 500 9px/1.1 var(--mono); opacity: .88; white-space: nowrap; }
@@ -4344,12 +4312,11 @@ body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
 }
 
 /* ---------- Rooms P2: the buffer (lib/buffer) ---------- */
-/* With the two rooms on, the Studio's buffer: GRAB in the feed's keys, the
-   buffer between the feed and the lanes -- a raised bench on a laptop, a
-   sheet over the folded lanes on a phone -- and its marks over the lanes
-   while it's dragged onto one. tape.html keeps its markup in templates, so
-   with the flag off none of it exists; and every rule here hangs off a
-   buffer- class only the buffer puts in the page (styles.test.js). Folding
+/* The Studio's buffer: GRAB in the feed's keys, the buffer between the feed
+   and the lanes -- a raised bench on a laptop, a sheet over the folded lanes
+   on a phone -- and its marks over the lanes while it's dragged onto one.
+   Every rule here hangs off a buffer- class only the buffer puts in the page
+   (styles.test.js). Folding
    the lanes is a class on the body that changes heights, nothing else
    (lib/buffer/fold.test.js). */
 
@@ -4830,10 +4797,9 @@ body.buffer-fold .tape-sections-row { display: none; }
 }
 
 /* ---------- Rooms P5: the Listening Room (lib/room/) ----------
-   The doorway (takes.html as the room, body.room-on) and Open
-   (wave.html with the rooms on), behind the rooms flag. Every rule here is
-   scoped to those body classes or to a room- class only the
-   room's modules make, so with the flag off none of it matches anything. The
+   The doorway (the Listening Room, body.room-on) and Open (wave.html).
+   Every rule here is scoped to those body classes or to a room- class only
+   the room's modules make. The
    room's colours are materials (objects.css, --room-*), the same in both
    schemes; the header, the tabs, the sheets and Open follow the scheme. */
 
@@ -5314,10 +5280,9 @@ body:not(.room-rack) .shelf-title,
   .room-book-place .room-book-latest { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 18px 'Caveat', var(--font); color: var(--room-paper-dim); }
 }
 
-/* --- Open: a take's page with the rooms on (lib/room/open.js) ---
+/* --- Open: a take's page (lib/room/open.js) ---
    Every rule hangs off a room-open- class (only open.js makes them) or the
-   body.room-open-on that open.js sets, so with the flag off none of it
-   matches. It follows the scheme: it is the take page, with the rooms'
+   body.room-open-on that open.js sets. It follows the scheme: it is the take page, with the rooms'
    words laid over it. */
 .room-open { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 12px; }
 .room-open-h { margin: 0; font: 600 12px var(--label-font, var(--font)); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
@@ -5367,10 +5332,8 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
 /* ---------- Rooms P6: the rig (rig.html, lib/rig/) ---------- */
 /* The kit drawn as gear on a desk, with the cables that are its settings.
    Every rule here hangs off a rig- class (or the Studio's .tt-warn, the
-   rig's warning on a track's header), and the markup they style exists
-   only with the two rooms on: rig.html shows nothing else with them off,
-   the chip is put in the header by lib/nav.js only then, and .tt-warn only
-   by the tape page only then. The desk is a material, the same in both
+   rig's warning on a track's header): rig.html's markup, the chip
+   lib/nav.js puts in the header, and .tt-warn from the tape page. The desk is a material, the same in both
    schemes (objects.css); the inspector and the bars around it follow the
    scheme. */
 .rig-page .rig-title { margin: 0; font: 700 18px var(--label-font); letter-spacing: .14em; text-transform: uppercase; }
@@ -5758,7 +5721,7 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
 /* ---------- Rooms R4: the rig's cables as ropes (lib/scene/cable.js, lib/rig/ropes.js) ---------- */
 /* The ropes are drawn into P6's .rig-wires, which takes no input: the
    sockets under them stay the controls. Every rule hangs off a rig- class,
-   and the markup exists only on rig.html with the two rooms on. */
+   and the markup exists only on rig.html. */
 .rig-rope { pointer-events: none; }
 /* A pointer over a rope's run, away from any control: a click shows it. */
 .rig-desk.rig-over-rope { cursor: pointer; }
@@ -5820,8 +5783,7 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
 .set-reload-bar .set-reload { width: 100%; min-height: var(--tap); }
 
 /* Catch (lib/tape/catch.js, page.js): pressable while it waits for a pass, and
-   dimmed -- a key that is up -- so a tap can say why; and, with the rooms on,
-   its ▾ and the menu of what to catch. */
+   dimmed -- a key that is up -- so a tap can say why; and its ▾ and the menu of what to catch. */
 .np .np-own #catch-pass.waits:not(.jam-only) {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink-dim);
   border-color: var(--line); text-shadow: none; opacity: .7;
@@ -5880,10 +5842,9 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
 }
 
 /* ---------- Rooms F5b: the bar with a take in it (lib/bar/take-keys.js) ----------
-   With the rooms on, a take in the bar shows its name (a link to the take's
-   page) and ✎, and the phone's mini player holds the strip. The elements are
-   made by that script, and `.np-take` is a class only it puts on the bar, so
-   with the rooms off none of this matches anything. */
+   A take in the bar shows its name (a link to the take's page) and ✎, and
+   the phone's mini player holds the strip. The elements are made by that
+   script, and `.np-take` is a class only it puts on the bar. */
 .np .np-own .np-name {
   display: inline-flex; align-items: center; flex: 0 1 auto; min-width: 0; max-width: 22ch; height: 52px; padding: 0 10px;
   border-radius: 7px; color: inherit; text-decoration: none; font: 700 15px var(--label-font);

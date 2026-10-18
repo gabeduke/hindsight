@@ -1,11 +1,11 @@
 // Offline shell for the Hindsight UI.
 //
-// Only ever registered in a secure context (see app.js). Caching is a
+// Only ever registered in a secure context (see lib/rooms/studio.js). Caching is a
 // convenience for the app shell — the recordings and the live stream come from
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v146';
+const CACHE = 'hindsight-shell-v147';
 const SHELL = [
   '/',
   '/index.html',
@@ -33,7 +33,6 @@ const SHELL = [
   '/lib/shelf.js',
   '/lib/tags.js',
   '/lib/tags-dialog.js',
-  '/lib/shelf-page.js',
   '/lib/shelf-detail.js',
   '/lib/objects/cassette.js',
   '/lib/objects/cassette-geom.js',

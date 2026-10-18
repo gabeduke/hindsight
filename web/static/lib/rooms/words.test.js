@@ -101,7 +101,7 @@ export function markupText(html, skipIds = new Set()) {
 
 // Nothing is taken out of a page whole any more: every page is read as served.
 const REMOVED = new Set();
-const PAGES = ['shell.html', 'wave.html', 'rig.html', 'index.html', 'guide.html'];
+const PAGES = ['shell.html', 'wave.html', 'rig.html', 'guide.html'];
 
 test('no retired word in a rooms page’s markup, as the rooms’ pass leaves it', () => {
   const bad = [];
@@ -176,7 +176,6 @@ const NOT_ROOMS_PAGES = new Map([
   ['lib/takes.js', 'the Takes page with the rooms off; with them on the Listening Room mounts over it and it never opens'],
   ['lib/shelf.js', 'the same: the Takes page’s shelf'],
   ['lib/shelf-detail.js', 'the same: the Takes page’s sheet, which the rooms replace with Open'],
-  ['lib/shelf-page.js', 'the same: the Takes page'],
   ['lib/shell/views/room.js', 'the same: the Takes page’s rack view, which the Listening Room mounts over'],
   ['lib/objects/bench.js', 'objects.html, the material bench: a developer page, not a room'],
   ['lib/help/tips.js', 'read whole by the tips test above'],
@@ -284,7 +283,7 @@ test('a tip allowed as gone with the crate belongs to a control that really went
   assert.deepEqual(found, [], 'on a rooms page and nothing in the rooms hides it');
   // and the controls the crate took with it are in no page and no module
   assert.doesNotMatch(read('lib/shelf-detail.js'), /data-tip="detail-crate"/, 'the take sheet’s ◫ line went with the crate');
-  for (const page of ['index.html', 'shell.html']) assert.doesNotMatch(read(page), /data-tip="ribbon-keep"/, `${page}: no Keep as clip on a selection`);
+  assert.doesNotMatch(read('shell.html'), /data-tip="ribbon-keep"/, 'no Keep as clip on a selection');
 });
 
 test('every allow-list entry still matches something', () => {

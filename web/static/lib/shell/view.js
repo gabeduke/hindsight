@@ -7,7 +7,7 @@
 // in the bar plays on.
 //
 // A view is mounted once, on its first visit, and from then on it is only
-// shown and hidden. page.js, shelf-page.js and app.js are module singletons;
+// shown and hidden. page.js and app.js are module singletons;
 // making them start twice is a rewrite with a silent failure (a listener
 // added twice makes Space press ▶ twice: play and stop in one tap). A hidden
 // view keeps its DOM, so coming back is instant, and it costs nothing: no

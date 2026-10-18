@@ -52,11 +52,10 @@ if (studioRoot) {
     shared,
   }));
 }
-const roomRoot = $('view-room') || document.querySelector('main.shelf-main');
+const roomRoot = $('view-room');
 if (roomRoot) {
   views.push(createView(roomView, {
     root: roomRoot,
-    template: $('view-room-tpl'),
     slots,
     shared,
   }));

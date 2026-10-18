@@ -12,8 +12,8 @@ import { readFileSync } from 'node:fs';
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 const strip = (html) => html.replace(/<!--[\s\S]*?-->/g, '');
 const tape = strip(read('../../shell.html'));
-const capture = strip(read('../../index.html'));
-const selBar = (html) => /<div class="rb-sel" id="rb-sel"[\s\S]*?<\/div>/.exec(html)[0];
+const capture = /<main id="view-capture"[\s\S]*?<\/main>/.exec(tape)[0];
+const selBar = (html, id = 'rb-sel') => new RegExp(`<div class="rb-sel" id="${id}"[\\s\\S]*?<\\/div>`).exec(html)[0];
 
 test('the Studio’s selection offers KEEP, and GRAB beside it: no Copy, no Keep as clip, no Save as take', () => {
   const bar = selBar(tape);
@@ -31,7 +31,7 @@ test('GRAB goes into the selection bar by the KEEP key, not by Copy’s place', 
 });
 
 test('`/` with the tape off offers Save as take on a selection, and nothing for the crate or the clipboard', () => {
-  const bar = selBar(capture);
+  const bar = selBar(capture, 'capture-rb-sel');
   assert.doesNotMatch(bar, /rb-sel-copy|>Copy</, 'Copy filled the clipboard for a tape there is none of');
   assert.doesNotMatch(bar, /rb-sel-keep|Keep as clip/, 'the crate is not offered on a selection');
   assert.match(bar, /rb-sel-save[^>]*>Save as take</);

@@ -5,7 +5,6 @@
 
 import { toast } from '../toast.js';
 import { canShareFiles, shareOrDownload } from '../wave/share.js';
-import { initHelp } from '../help/help.js';
 import { drawBars, takeGain, levelsOfColumns, laneChannels } from '../wave/draw.js';
 import { drawTrace, traceLines } from '../wave/tape-strip.js';
 import { TileCache } from '../wave/tiles.js';
@@ -36,9 +35,7 @@ import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNum
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { Loop } from '../objects/motion.js';
-import { createEngine } from '../bar/engine.js';
-import { initNav } from '../nav.js';
-import { timedFetch, watchLink } from '../link.js';
+import { timedFetch } from '../link.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
@@ -166,7 +163,9 @@ let viewCtx = null;
 let cueLane = null;
 const viewActive = () => !viewCtx || viewCtx.active();
 
-export function mountTapePage(ctx = null) {
+// The Studio's shell view (lib/shell/views/studio.js) is the only caller:
+// ctx is always given.
+export function mountTapePage(ctx) {
   viewCtx = ctx;
   // The Studio's bar is the tape's and never takes a take: this page neither
   // reads the hand-off nor writes it, so the Listening Room, back, finds its
@@ -183,10 +182,6 @@ export function mountTapePage(ctx = null) {
     onToast: toast,
     signal: ctx?.signal,
   });
-  if (!ctx) {
-    initHelp({ page: 'tape', toast });
-    initNav();
-  }
   initAway({
     button: $('away'),
     sheet: $('away-sheet'),
@@ -232,12 +227,8 @@ export function mountTapePage(ctx = null) {
     } else {
       state.id = list.loaded;
     }
-    if (ctx && ctx.engine) {
-      engine = ctx.engine;
-      engine.setTapes?.({ loaded: state.id });
-    } else {
-      engine = createEngine({ tapes: { loaded: state.id }, onToast: toast });
-    }
+    engine = ctx.engine;
+    engine.setTapes?.({ loaded: state.id });
     engine.tape.delegate({
       play: () => transport('play'),
       stop: () => transport('stop'),
@@ -251,18 +242,12 @@ export function mountTapePage(ctx = null) {
     fetchClipboard();
     // Back from a sleep (or the network back): the tape as the Pi has it now,
     // at once, not at the next tick -- and a "Reconnecting…" note till it answers.
-    if (ctx) {
-      link = ctx.link || link;
-      ctx.on(window, 'online', () => { poll(true); fetchClipboard(); });
-      ctx.on(window, 'pageshow', (e) => { if (e.persisted) { poll(true); fetchClipboard(); } });
-      ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { poll(true); fetchClipboard(); } });
-      ctx.every(() => { if (!document.hidden) poll(); }, POLL_MS);
-      ctx.every(() => { if (!document.hidden) fetchClipboard(); }, 2000);
-    } else {
-      link = watchLink(() => { poll(true); fetchClipboard(); });
-      setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
-      setInterval(() => { if (!document.hidden) fetchClipboard(); }, 2000);
-    }
+    link = ctx.link || link;
+    ctx.on(window, 'online', () => { poll(true); fetchClipboard(); });
+    ctx.on(window, 'pageshow', (e) => { if (e.persisted) { poll(true); fetchClipboard(); } });
+    ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { poll(true); fetchClipboard(); } });
+    ctx.every(() => { if (!document.hidden) poll(); }, POLL_MS);
+    ctx.every(() => { if (!document.hidden) fetchClipboard(); }, 2000);
   })();
   return {
     ready,
@@ -4792,6 +4777,5 @@ function wire() {
       });
     }
   };
-  if (viewCtx?.on) viewCtx.on(document, 'hindsight:np-fold', onNpFold);
-  else document.addEventListener('hindsight:np-fold', onNpFold);
+  viewCtx.on(document, 'hindsight:np-fold', onNpFold);
 }

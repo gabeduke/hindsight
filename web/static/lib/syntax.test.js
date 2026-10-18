@@ -323,7 +323,7 @@ export function badImports(files, base = root) {
  *     a classic worker script (importScripts would work in it, import would not).
  */
 const LOADED = {
-  'sw.js': { kind: 'classic', how: "navigator.serviceWorker.register('/sw.js') in app.js and lib/rooms/studio.js, with no options" },
+  'sw.js': { kind: 'classic', how: "navigator.serviceWorker.register('/sw.js') in lib/rooms/studio.js, with no options" },
   'lib/phone/worklet.js': { kind: 'module', how: "audioWorklet.addModule('/lib/phone/worklet.js') in lib/phone/recorder.js and lib/tape/away-sheet.js; addModule evaluates a module" },
   'lib/tape/stream-worklet.js': { kind: 'module', how: "audioWorklet.addModule('/lib/tape/stream-worklet.js') in lib/tape/stream-player.js; addModule evaluates a module" },
 };
@@ -386,7 +386,8 @@ test('every script under web/static parses as the kind it is loaded as (a redecl
 
 test('every inline <script> in a page parses as its type says', async () => {
   const blocks = pages().flatMap((p) => inlineScripts(readFileSync(p, 'utf8')).map((b) => ({ ...b, page: relative(root, p) })));
-  assert.ok(blocks.length >= 3 && blocks.some((b) => b.kind === 'module') && blocks.some((b) => b.kind === 'classic'), `found ${blocks.length} inline scripts`);
+  // guide.html's and objects.html's modules; index.html's classic redirect went with it.
+  assert.ok(blocks.length >= 2 && blocks.some((b) => b.kind === 'module'), `found ${blocks.length} inline scripts`);
   const errors = (await inPool(blocks, 8, async (b) => {
     const e = await syntaxError(b.source, b.kind);
     return e ? `${b.page}:${b.line}${b.id ? ` #${b.id}` : ''} (${b.kind}): ${e}` : '';

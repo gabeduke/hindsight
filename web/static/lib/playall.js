@@ -3,7 +3,7 @@
 // docs/superpowers/specs/2026-10-07-play-all-design.md): the takes shown, in
 // the list's order, one after another through the bar, each from its
 // selection's In to its Out, or the whole take without one. Pure: what to
-// play and what comes next; lib/shelf-page.js plays it.
+// play and what comes next; lib/shell/views/room.js plays it.
 
 /** spanOf is the part of take t that Play all plays, in seconds. */
 export function spanOf(t) {

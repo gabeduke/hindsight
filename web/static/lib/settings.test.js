@@ -326,11 +326,10 @@ test('the saved body is every field that changed, and nothing else', () => {
 
 // On a phone the header has room for Settings alone (styles.css hides its
 // Releases and Guide there), so the Settings sheet carries them: the about
-// line under its title. Every page's sheet: index.html's markup, the
-// Studio's template, and the one settings.js makes elsewhere.
+// line under its title. Every page's sheet: the Studio's template, and the
+// one settings.js makes elsewhere.
 test('the Settings sheet carries Releases and the guide, under its title, on every page', () => {
   const sheets = [
-    ['index.html', (html) => html],
     ['shell.html', (html) => /<template id="studio-sheets-tpl">([\s\S]*?)<\/template>/.exec(html)[1]],
   ];
   for (const [page, part] of sheets) {

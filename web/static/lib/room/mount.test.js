@@ -20,10 +20,9 @@ test('a page the room doesn’t know is refused, not ignored', async () => {
 // The pages only reach the room through start(); and their own markup
 // carries none of it -- the room builds its markup when it mounts.
 test('the takes and take pages reach the room only through start()', () => {
-  const shelf = read('../shelf-page.js');
   const room = read('../shell/views/room.js');
   const wave = read('../wave/page.js');
-  for (const [name, src] of [['shelf-page.js', shelf], ['shell/views/room.js', room], ['wave/page.js', wave]]) {
+  for (const [name, src] of [['shell/views/room.js', room], ['wave/page.js', wave]]) {
     assert.ok(!/import\(['"][^'"]*room\//.test(src), `${name} imports a room module by itself`);
     assert.ok(!/from ['"][^'"]*room\/(?!mount\.js)/.test(src), `${name} imports a room module other than mount.js`);
   }

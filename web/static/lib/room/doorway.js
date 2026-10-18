@@ -5,7 +5,7 @@
 //
 // The rack is still on the page, under the room, doing what it did: the list,
 // its filter, Select, Play all, the trash and the now-playing bar. This module
-// draws the room over it and works it through the handle shelf-page.js gives
+// draws the room over it and works it through the handle shell/views/room.js gives
 // (lib/room/mount.js), so nothing the rack does is lost and nothing is done
 // twice.
 //
