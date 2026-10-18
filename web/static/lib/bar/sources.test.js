@@ -207,3 +207,24 @@ test('the bar’s take says where it is, in seconds; with no take in the bar, nu
   audio.currentTime = NaN;
   assert.equal(playheadOf(held), null, 'an audio element with no time yet');
 });
+
+test('a take with a selection plays it: Play starts at In, and reaching Out stops it', () => {
+  const { audio, player, t } = aTake({ start_frame: 1 * SR, end_frame: 2 * SR });
+  const s = takeSource(t, player);
+  s.play();
+  assert.equal(audio.currentTime, 1, 'from the start, Play begins at In');
+  assert.equal(audio.paused, false);
+  audio.currentTime = 2;
+  s.tick();
+  assert.equal(audio.paused, true, 'Out stops it');
+  assert.equal(audio.currentTime, 1, 'and rests at In, ready to play again');
+});
+
+test('a take without a selection plays on past where a selection would end', () => {
+  const { audio, player, t } = aTake();
+  const s = takeSource(t, player);
+  s.play();
+  audio.currentTime = 9;
+  s.tick();
+  assert.equal(audio.paused, false);
+});

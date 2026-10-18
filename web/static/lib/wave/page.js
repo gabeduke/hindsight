@@ -10,6 +10,7 @@ import { TileCache } from './tiles.js';
 import { WaveView } from './view.js';
 import { Overview } from './overview.js';
 import { Clock } from './clock.js';
+import { PlayWindow } from './playwindow.js';
 import { Lanes } from './lanes.js';
 import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload, gainText } from './share.js';
@@ -181,7 +182,7 @@ async function main() {
     dropouts: take.dropouts || [], // where the capture lost audio: set at save, never edited
     grid: { bpm: take.bpm || null, sampleRate: sr, downbeat: take.downbeat_frame || 0 },
     snap: initialSnap(readPref('wave.snap', null), !!take.bpm),
-    cursor: 0,
+    cursor: PlayWindow.of(take).opening, // a take opens at In, ready to play its selection
     selectedFlag: null,
     loop: false, // off on every open (editing model, decision 1)
     // The boundary being edited, if any: { edge: 'start' | 'end' | 'downbeat',
@@ -243,6 +244,7 @@ async function main() {
   const clock = new Clock({
     previewUrl,
     sampleRate: sr, file,
+    playWindow: () => new PlayWindow(state.region),
     onTick: (frame) => {
       state.cursor = frame;
       // Keep the playhead in view while it plays, unless a finger is busy.

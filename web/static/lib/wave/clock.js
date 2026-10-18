@@ -9,6 +9,7 @@
 //              and what plays is exactly what a cut will be.
 
 import { Loop } from '../objects/motion.js';
+import { PlayWindow } from './playwindow.js';
 
 export const SLICE_CAP_SECONDS = 60;
 
@@ -32,7 +33,10 @@ export function smoothTime(s, reported, nowMs, rate) {
 }
 
 export class Clock {
-  constructor({ previewUrl, sampleRate, file, onTick, onError, onEnded }) {
+  // `playWindow` answers the PlayWindow in force (the selection, or the whole
+  // take), asked afresh each time because the selection is edited under us.
+  constructor({ previewUrl, sampleRate, file, onTick, onError, onEnded, playWindow = () => new PlayWindow(null) }) {
+    this.playWindow = playWindow;
     this.sr = sampleRate;
     this.file = file;
     this.onTick = onTick;
@@ -57,6 +61,13 @@ export class Clock {
       if (this.engine === 'preview' && this.loop) {
         const p = this.position();
         if (p >= this.loop.end || p < this.loop.start) this.audio.currentTime = this.loop.start / this.sr;
+      }
+      // Not looping, the selection is the take: playing stops at Out.
+      if (this.engine === 'preview' && !this.loop && this.playWindow().finished(this.position())) {
+        this.pause();
+        this.onTick?.(this.position());
+        this.onEnded?.();
+        return false;
       }
       this.onTick?.(this.position());
       return true;
@@ -102,6 +113,8 @@ export class Clock {
 
   async play() {
     if (this.playing) return;
+    // From outside the selection, Play begins at In (a slice is always inside).
+    if (this.engine === 'preview' && !this.playWindow().contains(this.position())) this.seek(this.playWindow().entry(this.position()));
     if (this.gainDb && !this.out) this.route(); // Level on: this tap routes it
     if (this.engine === 'slice' && this.slice) {
       this.ensureCtx();

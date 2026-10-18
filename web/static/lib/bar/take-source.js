@@ -10,6 +10,7 @@ import { peakDbAt } from '../objects/reel-window.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
 import { drawTrace, paintOxide, oxideColors } from '../wave/tape-strip.js';
 import { barBeat } from '../wave/geometry.js';
+import { PlayWindow } from '../wave/playwindow.js';
 
 const stamp = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 
@@ -39,7 +40,8 @@ export function takeSource(t, player, { onGone } = {}) {
   const { audio, peaks } = player;
   const length = takeLength(t, peaks);
   const gain = takeGain(peaks);
-  const region = t.trim ? { start: t.trim.start_frame, end: t.trim.end_frame } : null;
+  const playWindow = PlayWindow.of(t);
+  const region = playWindow.region;
   const grid = { bpm: t.bpm || null, sampleRate: sr, downbeat: t.downbeat_frame || 0 };
   const title = t.label || stamp(t.name);
   const listeners = new Set();
@@ -68,7 +70,13 @@ export function takeSource(t, player, { onGone } = {}) {
     pos,
     playing,
     canPlay: () => true,
-    play: () => { if (audio.paused) toggle(); },
+    // Play begins at In when the playhead is outside the selection (a fresh
+    // take, or one that ran to Out).
+    play: () => {
+      if (!audio.paused) return;
+      if (!playWindow.contains(pos())) seek(playWindow.entry(pos()));
+      toggle();
+    },
     pause: () => { if (!audio.paused) toggle(); },
     seek,
     // |◂: back to In, or to the start.
@@ -80,9 +88,14 @@ export function takeSource(t, player, { onGone } = {}) {
     // Without a selection the audio loops itself, so a missed frame or a
     // hidden page can't let it end; a selection is looped by tick().
     setLoop(on) { loop = on; audio.loop = on && !region; fire(); },
-    // Each frame while playing: Loop takes the playhead back to In at Out.
+    // Each frame while playing: at Out, Loop takes the playhead back to In
+    // and otherwise the selection has played, so it stops there.
     tick() {
-      if (!loop || !playing()) return;
+      if (!playing()) return;
+      if (!loop) {
+        if (playWindow.finished(pos())) { this.pause(); seek(region.start); }
+        return;
+      }
       const a = region ? region.start : 0, b = region ? region.end : length;
       if (pos() >= b - Math.round(sr / 50)) seek(a);
     },
