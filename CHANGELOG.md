@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.18.2 — 2026-10-18
+
+- A take with an In and Out plays that selection by default: it opens at In, Play starts at In and stops at Out (f34611c)
+
+
 ## v2026.10.18.1 — 2026-10-18
 
 - Stage clips on the Studio cue lane and drag them onto tape tracks (640c670)
