@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `master`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.18.1 — 2026-10-18
+
+- Stage clips on the Studio cue lane and drag them onto tape tracks (640c670)
+
+
 ## v2026.10.17.11 — 2026-10-17
 
 - Enable direct waveform editor navigation from the deck and unify edit curves (#148) (c85cc8a)
