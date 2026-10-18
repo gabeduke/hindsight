@@ -1,6 +1,6 @@
 // web/static/lib/bar/carry.js
 // The bar's hand-off between pages (docs/superpowers/plans/2026-10-15-f4.md;
-// docs/superpowers/specs/2026-10-15-flow-design.md, "It keeps playing as you
+// docs/architecture.md, Vocabulary, "It keeps playing as you
 // move around"). Leaving a page, the bar writes down its take, the frame and
 // whether it was playing in sessionStorage; the next page's bar reads that
 // before it draws and picks up at the same spot, plus the time away if it

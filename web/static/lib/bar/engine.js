@@ -6,7 +6,7 @@
 // button, and the take carried across pages (carry.js, handoff.js). Made once
 // per document: today by Takes and Capture through pageBar, later by the
 // shell, which hands it to every room
-// (docs/superpowers/plans/2026-10-17-phase1-shell.md §2.4).
+// (docs/architecture.md, The shell).
 
 import { NowPlaying } from './bar.js';
 import { tapeSource } from './tape-source.js';

@@ -1,5 +1,5 @@
 // web/static/lib/rooms/grab.test.js
-// GRAB, from a take and from the feed (docs/superpowers/specs/2026-10-15-flow-design.md,
+// GRAB, from a take and from the feed (docs/architecture.md, Vocabulary,
 // decision 12): a take's GRAB is the feed's GRAB, with N starting at the
 // loop's length.
 import { test } from 'node:test';

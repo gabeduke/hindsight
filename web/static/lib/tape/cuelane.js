@@ -1,5 +1,5 @@
 // web/static/lib/tape/cuelane.js
-// The Cue Lane (docs/superpowers/specs/2026-10-17-cue-lane-design.md):
+// The Cue Lane (docs/plan/shell-roadmap.md):
 // Staging swimlane above track 1 in the Studio. Clips placed here can be
 // auditioned/soloed, loop-toggled, and dragged down onto tracks 1-4.
 

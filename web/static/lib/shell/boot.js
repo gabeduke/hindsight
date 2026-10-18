@@ -1,5 +1,5 @@
 // web/static/lib/shell/boot.js
-// The shell's boot (docs/superpowers/plans/2026-10-17-phase1-shell.md, step 4):
+// The shell's boot (docs/architecture.md, The shell, step 4):
 // creates the audio engine, the header's nav and help, the link monitor, and
 // mounts the shell's views through createView and createRouter.
 

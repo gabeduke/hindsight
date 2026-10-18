@@ -1,5 +1,5 @@
 // web/static/lib/rooms/bounce.test.js
-// F2 of the flow spec (docs/superpowers/specs/2026-10-15-flow-design.md):
+// F2 of the flow spec (docs/architecture.md, Vocabulary):
 // BOUNCE is the Studio's ⋯ menu's one verb for a tape into a take, in place of
 // Mix down ×2 and Cut a record. Its toast has ▶ and Open, the menu keeps Last
 // bounce, and a take that was once marked as a record is an ordinary take.
@@ -455,7 +455,7 @@ test('the scene contract has no record kind, and the room has no record module',
   assert.equal('record' in MODELS, false);
   assert.deepEqual(Object.keys(MODELS).sort(), ['cable', 'cassette', 'prop', 'reels', 'ribbon', 'vu']);
   assert.throws(() => readFileSync(new URL('../room/record.js', import.meta.url)), /ENOENT/);
-  const contract = readFileSync(new URL('../../../../docs/superpowers/specs/2026-10-15-scene-contract-design.md', import.meta.url), 'utf8');
+  const contract = readFileSync(new URL('../../../../docs/architecture.md', import.meta.url), 'utf8');
   assert.doesNotMatch(contract, /^\| `record` \|/m, 'the contract’s table of kinds');
   assert.doesNotMatch(readFileSync(new URL('../scene/models.js', import.meta.url), 'utf8'), /still to come \([^)]*record/);
 });

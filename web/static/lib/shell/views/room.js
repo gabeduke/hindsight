@@ -1,5 +1,5 @@
 // web/static/lib/shell/views/room.js
-// The Listening Room as a shell view (docs/superpowers/plans/2026-10-17-phase1-shell.md,
+// The Listening Room as a shell view (docs/architecture.md, The shell,
 // step 4): the takes shelf and the rack under it, mounted once by the shell
 // and driven through ctx so its polls, frame loops and global listeners go
 // quiet while another room is shown.

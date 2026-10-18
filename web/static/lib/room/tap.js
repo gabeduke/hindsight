@@ -1,5 +1,5 @@
 // web/static/lib/room/tap.js
-// A tap plays (docs/superpowers/specs/2026-10-15-flow-design.md, "One way to
+// A tap plays (docs/architecture.md, Vocabulary, "One way to
 // listen"): tapping a take anywhere in the Listening Room plays it in the
 // bar, where you are, and tapping it again pauses it. Nothing opens. This is
 // the one function every surface calls -- a spine on the shelf, a row of the

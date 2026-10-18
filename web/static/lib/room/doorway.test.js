@@ -2,7 +2,7 @@
 // The Listening Room's doorway (lib/room/doorway.js), the real module mounted
 // on takes.html's real markup, built on a stand-in document: a tap plays, a
 // hold selects, the sheet is gone, tapes are not on the shelves, and the deck
-// is a picture of the bar (docs/superpowers/specs/2026-10-15-flow-design.md,
+// is a picture of the bar (docs/architecture.md, Vocabulary,
 // F5a). The take list, its players, the bar and the Pi are stand-ins; the
 // clock is the test's.
 import { test } from 'node:test';

@@ -1,5 +1,5 @@
 // web/static/lib/rooms/keeplabel.js
-// KEEP says what it keeps (docs/superpowers/specs/2026-10-15-flow-design.md,
+// KEEP says what it keeps (docs/architecture.md, Vocabulary,
 // "The Studio: one selection, two verbs"): KEEP 2m on the feed's key, KEEP 4
 // BARS on the buffer's, KEEP 30s on the instrument's pad, and the length of
 // a span held on the ribbon. Pure: the words, and nothing that draws them.

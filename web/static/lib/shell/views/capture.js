@@ -1,5 +1,5 @@
 // web/static/lib/shell/views/capture.js
-// Capture as a shell view (docs/superpowers/plans/2026-10-17-phase1-shell.md,
+// Capture as a shell view (docs/architecture.md, The shell,
 // step 7): mounts Capture (web/static/app.js) inside the shell, driving its
 // polls, live meters, and global listeners through ctx so they go quiet while
 // another room is shown.

@@ -170,6 +170,13 @@ unit tests and a Studio that threw on every load; the flows caught it.
   yet is a `todo` flow: it reports, it doesn't fail the run.
 - Look at the screenshot a failing flow saves.
 
+## Older design notes
+
+Code comments that cite `docs/superpowers/…` point at the dated specs and
+plans deleted on 2026-10-18; what still holds is in `docs/architecture.md`.
+When you need the history behind one, read it from git:
+`git show 62b3c1c^:docs/superpowers/specs/<file>`.
+
 ## Where things live in the UI
 
 - **Settings, Releases and the guide** live in the top-right `.appbar-end`

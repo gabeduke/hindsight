@@ -1,5 +1,5 @@
 // web/static/lib/bar/take-keys.js
-// What the bar adds (docs/superpowers/specs/2026-10-15-flow-design.md, "A tap
+// What the bar adds (docs/architecture.md, Vocabulary, "A tap
 // plays"; docs/superpowers/plans/2026-10-15-f5b.md): with a take in it, the
 // take's name, which opens it, and ✎, which takes the frame being heard and
 // opens the take; and ⟲ called Repeat, since the tape's loop is another

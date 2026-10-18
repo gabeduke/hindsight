@@ -1,5 +1,5 @@
 // web/static/lib/rooms/two-verbs.test.js
-// F1 of the flow spec (docs/superpowers/specs/2026-10-15-flow-design.md): a
+// F1 of the flow spec (docs/architecture.md, Vocabulary): a
 // selection of the feed offers GRAB and KEEP and nothing else; every KEEP
 // names what it keeps; a take's TO THE STUDIO and Send to become GRAB. The
 // markup and the wiring, read from the source -- the pure parts are in

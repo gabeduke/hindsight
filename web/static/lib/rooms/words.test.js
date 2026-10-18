@@ -1,5 +1,5 @@
 // web/static/lib/rooms/words.test.js
-// F8 of the flow spec (docs/superpowers/specs/2026-10-15-flow-design.md, "Every
+// F8 of the flow spec (docs/architecture.md, Vocabulary, "Every
 // word on screen today"): with the rooms on, no retired word on a rooms page --
 // in its markup, its tips, or the strings its modules build.
 //
