@@ -10,7 +10,8 @@ export default {
 
     await t.step('open the Studio', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#studio-keep').waitFor({ state: 'visible' });
-    t.expect('KEEP names its length', /\d/.test(await page.locator('#studio-keep').innerText()),
+    // The length comes with the first status poll, a moment after the key shows.
+    t.expect('KEEP names its length', await t.poll(() => /\d/.test(document.getElementById('studio-keep')?.textContent ?? '')),
       await page.locator('#studio-keep').innerText());
 
     await t.step('tap KEEP', () => page.locator('#studio-keep').click());
