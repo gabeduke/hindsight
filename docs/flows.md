@@ -50,6 +50,8 @@ core. `rig`: needs the hardware; checked by hand, not here.
 
 ### Not written yet (add a flow before or with the change that touches them)
 
+More to convert: the `[demo]` lines in `docs/guide.md`'s **Checks** blocks (the `[rig]` ones stay manual).
+
 | Id | Story | Status |
 |---|---|---|
 | J1.2 | flag a moment now; the flag rides into the next take | core |
