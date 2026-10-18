@@ -5,8 +5,10 @@
 #   make deploy-dry      what a deploy would send and delete; sends nothing
 #   make deploy          sync, build on the Pi, restart (clears the ring)
 #   make deploy-static   web/static only: no rebuild, no restart, ring kept
+#
+#   make flows           the user flows (docs/flows.md) against a demo of their own
 
-.PHONY: deploy deploy-dry deploy-static pi-status
+.PHONY: deploy deploy-dry deploy-static pi-status flows
 
 deploy:
 	./deploy.sh
@@ -19,3 +21,6 @@ deploy-static:
 
 pi-status:
 	./deploy.sh --status
+
+flows:
+	node scripts/flows.mjs

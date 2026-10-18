@@ -12,7 +12,8 @@ so it isn't here either: read the newest `docs/superpowers/*-handoff.md`, then
 
 ## The checks to run
 
-No package.json, no bundler, no dependencies. Node's own test runner:
+No package.json, no bundler, no dependencies. Node's own test runner (Node 22,
+as CI: 20 has no glob support in `--test` and no global `navigator`):
 
 ```sh
 node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' \
@@ -152,10 +153,23 @@ at all (its overlay shared the ▶ key's id), that its keys moved the record
 track on the Pi, and the full-screen sheet above. The node tests passed
 throughout. They test logic; none of them can see a page.
 
-`docs/development.md` has the demo command. `scripts/smoke-*.mjs` are the
-Playwright checks that already exist; `scripts/smoke-shell.mjs` validates the
-single shell document, gapless room switching and continuous audio playback
-across user journeys.
+## The user flows are the goal
+
+**Before reporting any change to what the app does, run
+`node scripts/flows.mjs` and put its table in your report.** `docs/flows.md`
+is how Gabe uses the app, as stories, each with a Playwright flow that
+drives the demo like a user (real taps and holds on a tablet profile and a
+desktop one) and fails on any page error. The shell merged with 1,790 green
+unit tests and a Studio that threw on every load; the flows caught it.
+
+- A core flow that fails is a regression, yours or already on main: say
+  which. Don't edit a flow's expectations to make it pass unless the story
+  changed, and then change the story in `docs/flows.md` too.
+- A change to a journey adds or extends its flow. A story that isn't built
+  yet is a `todo` flow: it reports, it doesn't fail the run.
+- Look at the screenshot a failing flow saves.
+
+`scripts/smoke-shell.mjs` is the older shell check; the flows supersede it.
 
 ## Where things live in the UI
 
