@@ -53,6 +53,7 @@ import { menuShift } from './menu-fit.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
+import { mountCueLane } from './cuelane.js';
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 200;
@@ -154,6 +155,7 @@ const q = () => `id=${encodeURIComponent(state.id)}`;
 
 let awayTrack = null; // the record track while Overdub on this device is open
 let viewCtx = null;
+let cueLane = null;
 const viewActive = () => !viewCtx || viewCtx.active();
 
 export function mountTapePage(ctx = null) {
@@ -164,6 +166,15 @@ export function mountTapePage(ctx = null) {
   studioVisit(pageCarry());
   initBouncing();
   initEditorBar();
+  cueLane?.destroy();
+  cueLane = mountCueLane({
+    container: $('cue-row'),
+    getTape: () => state.tape,
+    getLaneView: () => laneView(),
+    onEdit: (op, extra) => edit(op, extra),
+    onToast: toast,
+    signal: ctx?.signal,
+  });
   if (!ctx) {
     initHelp({ page: 'tape', toast });
     initNav();
@@ -270,6 +281,10 @@ export function mountTapePage(ctx = null) {
       if (state.preview) showPreview(null);
       downs.clear();
       state.pinch = false;
+    },
+    destroy() {
+      cueLane?.destroy();
+      cueLane = null;
     },
   };
 }
@@ -566,6 +581,7 @@ function render() {
   const live = state.live;
   const sr = t.sample_rate;
   renderClipBar();
+  cueLane?.update(t ? t.cue : null);
   $('tape-name-text').textContent = t.name;
   $('tape-name').title = `${t.name}: switch tape`;
   if (viewCtx) viewCtx.setTitle(`${t.name} — tape — Hindsight`);
@@ -911,6 +927,8 @@ const OP_WORDS = {
   multiply: 'double the loop', 'section-add': 'make the section', 'section-set': 'change the section',
   'section-remove': 'remove the section', 'delete-time': 'delete the time', 'duplicate-section': 'duplicate the section',
   move: 'move them', duplicate: 'copy them after themselves',
+  'cue-add': 'add to the cue lane', 'cue-remove': 'remove from the cue lane', 'cue-set': 'update the cue part',
+  'cue-solo': 'solo the cue lane', 'cue-to-track': 'move to the tape track',
 };
 
 // edit sends one edit, shows the tape it answers with, and answers what the

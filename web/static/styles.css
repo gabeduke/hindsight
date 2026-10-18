@@ -2221,7 +2221,152 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .tape-tempo-row input { width: 5.5em; min-height: 36px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font: 14px var(--mono); }
 .tape-overview { width: 100%; height: 40px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .tape-lanes { display: flex; flex-direction: column; gap: 6px; }
-.tape-track { display: grid; grid-template-columns: 112px 1fr; gap: 6px; align-items: stretch; }
+.tape-track, .cue-row { display: grid; grid-template-columns: 112px 1fr; gap: 6px; align-items: stretch; }
+
+/* The Cue lane sits above track 1 for staging and auditioning clips */
+.cue-row { margin-bottom: 2px; }
+.cue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.cue-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cue-tag {
+  font: 700 11px var(--mono);
+  letter-spacing: .08em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.cue-count {
+  font: 600 10px var(--mono);
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  padding: 1px 5px;
+  border-radius: 10px;
+}
+.cue-solo {
+  min-height: 26px;
+  min-width: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font: 700 11px var(--label-font);
+  letter-spacing: .04em;
+}
+.cue-solo[aria-pressed="true"] {
+  color: var(--solo-ink);
+  background: linear-gradient(180deg, var(--solo-hi), var(--solo-lo));
+  border-color: var(--solo-lo);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--solo-lo) 40%, transparent);
+}
+.cue-lane {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--well);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  min-height: 38px;
+}
+.cue-empty {
+  font: 12px var(--font);
+  color: var(--ink-faint);
+  user-select: none;
+}
+.cue-chip-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cue-clip-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: grab;
+  user-select: none;
+  white-space: nowrap;
+  touch-action: none;
+}
+.cue-clip-chip:active {
+  cursor: grabbing;
+}
+.cue-clip-chip.dragging {
+  opacity: 0.35;
+}
+.cue-clip-grip {
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: -1px;
+}
+.cue-clip-name {
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cue-clip-len {
+  font: 11px var(--mono);
+  color: var(--ink-dim);
+}
+.cue-clip-loop {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--ink-dim);
+}
+.cue-clip-loop[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.cue-clip-remove {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+@media (hover: hover) {
+  .cue-clip-remove:hover {
+    color: var(--warn);
+  }
+}
+.cue-drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 1000;
+  background: var(--panel-2);
+  border: 2px solid var(--accent);
+  color: var(--ink);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font: 600 12px var(--font);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
 /* The record track, edged red (red is recording); the selected track, the
    one the edits act on, edged faintly when it's another. */
 .tape-track.rec .tt-head { border-color: var(--rec); box-shadow: 0 0 0 1px var(--rec), 0 0 14px color-mix(in srgb, var(--rec) 35%, transparent); }
@@ -2362,7 +2507,7 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 @media (max-width: 480px) {
   /* Narrow: the chips shrink so number, bus, M and S share a row, and the
      level slider stays under them. */
-  .tape-track { grid-template-columns: 112px 1fr; }
+  .tape-track, .cue-row { grid-template-columns: 112px 1fr; }
   .tt-head { gap: 3px; padding: 3px; }
   .tt-head .chip { padding: 0 6px; }
   .tt-name { padding: 0 2px; }
@@ -2371,7 +2516,7 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
    phone and a tablet the head is wide enough for both on one row. */
 .tt-name { min-width: 1.1em; }
 @media (min-width: 481px) {
-  .tape-track, .tape-ruler-row { grid-template-columns: 136px 1fr; }
+  .tape-track, .tape-ruler-row, .cue-row { grid-template-columns: 136px 1fr; }
 }
 
 /* The tape page's header is taller than the takes page's (a two-line
@@ -2400,11 +2545,11 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
      up past the height they were last drawn at. */
   .tape-track { flex: 1 1 0; position: relative; }
   .tt-lane { position: absolute; grid-column: 2; grid-row: 1; inset: 0; width: 100%; height: 100%; min-height: 0; }
-  .tape-track, .tape-ruler-row { grid-template-columns: 160px 1fr; }
+  .tape-track, .tape-ruler-row, .cue-row { grid-template-columns: 160px 1fr; }
   .tt-head { align-content: center; }
 }
 @media (min-width: 1400px) {
-  .tape-track, .tape-ruler-row { grid-template-columns: 200px 1fr; }
+  .tape-track, .tape-ruler-row, .cue-row { grid-template-columns: 200px 1fr; }
 }
 /* The click, on: the accent ♩ on the accent background vanished. */
 .tape-page .tb-row.transport .tb-click[aria-pressed="true"] { background: var(--panel-2); }
