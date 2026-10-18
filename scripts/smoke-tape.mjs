@@ -1,5 +1,8 @@
+// PARTLY STALE: against the shell, 12 checks fail and it crashes near line 365
+// (pre-shell layout assertions). Port its editing gestures to scripts/flows.
+//
 // Smoke-test the tape page in a real browser, against a running demo
-// instance (set up as for scripts/smoke-takes.mjs):
+// instance (`go run ./cmd/hindsight --demo`, see docs/development.md):
 //
 //   HINDSIGHT_URL=http://127.0.0.1:15391 node scripts/smoke-tape.mjs
 //

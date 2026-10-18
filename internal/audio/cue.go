@@ -135,19 +135,6 @@ func parseLabelChunk(buf []byte, labels map[uint32]string) {
 	}
 }
 
-func parseCueChunk(buf []byte) ([]uint64, error) {
-	recs, err := parseCueRecords(buf)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]uint64, 0, len(recs))
-	for _, r := range recs {
-		out = append(out, uint64(r.offset))
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return out, nil
-}
-
 func parseCueRecords(buf []byte) ([]cueRecord, error) {
 	if len(buf) < 4 {
 		return nil, errors.New("malformed cue chunk")

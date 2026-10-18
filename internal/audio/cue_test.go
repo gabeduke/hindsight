@@ -230,10 +230,10 @@ func TestReadCuesRejectsANonWAV(t *testing.T) {
 }
 
 // --- Regression coverage added after review: unbounded allocation from
-// file-controlled fields (parseCueChunk's record count, and ReadCues'
+// file-controlled fields (parseCueRecords' record count, and ReadCues'
 // chunk-size-driven read), and an untested write order for WriteCues. ---
 
-// A corrupted record count must not drive parseCueChunk's allocation: on
+// A corrupted record count must not drive parseCueRecords' allocation: on
 // real disk corruption the count field can be any 32-bit value, and sizing a
 // slice's capacity directly off it would ask for up to ~32GB before the
 // per-record bounds check inside the loop ever runs -- a daemon-killing

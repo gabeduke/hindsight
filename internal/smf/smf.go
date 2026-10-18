@@ -161,12 +161,6 @@ func (f *File) Encode() []byte {
 	return out.Bytes()
 }
 
-// Write encodes the file to w.
-func Write(w io.Writer, f *File) error {
-	_, err := w.Write(f.Encode())
-	return err
-}
-
 func encodeTrack(t *Track) []byte {
 	evs := make([]Event, len(t.Events))
 	copy(evs, t.Events)

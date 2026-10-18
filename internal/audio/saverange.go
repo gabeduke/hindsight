@@ -307,20 +307,14 @@ func (ww *wavWriter) close() (*PeakData, *pyramidAcc, error) {
 	return ww.pk.finish(ww.sampleRate, ww.frames), ww.pyr, nil
 }
 
-// WriteSpan writes the absolute ring frames [from, to) of the channels in
-// pick to path as a 32-bit WAV, chunk by chunk (Ring.Range), with its
-// whole-file peaks beside it as .peaks.json. It is the tape's one write path:
-// a catch is a span of the ring. It answers the largest absolute sample
-// written, as a fraction of full scale, so a caller can say when what it
-// caught is silent. On failure the file is removed.
-func WriteSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int) (float64, error) {
-	peaks, _, err := writeSpan(r, from, to, pick, path, sampleRate, 0, int64(to-from))
-	return peaks.Peak(), err
-}
-
-// WriteSpanMeasured is WriteSpan answering the peak of only frames
-// [peakFrom, peakTo) of what it writes, counted from the span's start: a
-// tape clip's own audio, without the handles kept either side of it.
+// WriteSpanMeasured writes the absolute ring frames [from, to) of the
+// channels in pick to path as a 32-bit WAV, chunk by chunk (Ring.Range), with
+// its whole-file peaks beside it as .peaks.json. It is the tape's one write
+// path: a catch is a span of the ring. It answers the largest absolute sample
+// in frames [peakFrom, peakTo) of what it writes, counted from the span's
+// start, as a fraction of full scale -- a tape clip's own audio, without the
+// handles kept either side of it -- so a caller can say when what it caught
+// is silent. On failure the file is removed.
 func WriteSpanMeasured(r *Ring, from, to uint64, pick []int, path string, sampleRate int, peakFrom, peakTo int64) (float64, error) {
 	_, peak, err := writeSpan(r, from, to, pick, path, sampleRate, peakFrom, peakTo)
 	return peak, err
@@ -349,9 +343,9 @@ func writeSpan(r *Ring, from, to uint64, pick []int, path string, sampleRate int
 }
 
 // CopyWAVSpan writes frames [from, to) of a 32-bit WAV's channels in pick to
-// path, as WriteSpan does from the ring: how a take's selection goes onto a
+// path, as WriteSpanMeasured does from the ring: how a take's selection goes onto a
 // tape. A pick past the file's channels repeats its last one (a mono take
-// becomes both sides). It answers the peak it wrote, as WriteSpan does.
+// becomes both sides). It answers the peak it wrote.
 func CopyWAVSpan(src string, from, to int64, pick []int, path string) (float64, error) {
 	peaks, _, err := copyWAVSpan(src, from, to, pick, path, 0, to-from)
 	return peaks.Peak(), err

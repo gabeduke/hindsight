@@ -23,7 +23,8 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # audio/capture.go is cgo against PortAudio, so the headers are needed
+      # internal/audio/source_portaudio.go and sink_portaudio.go are cgo
+      # against PortAudio, so the headers are needed
       # to compile the tests -- not to run them. No audio hardware is touched.
       - name: Install build dependencies
         run: |
