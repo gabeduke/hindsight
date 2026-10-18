@@ -51,3 +51,29 @@ test('a loop too long to slice still plays at 1×, and practice speed comes back
     globalThis.Audio = saved;
   }
 });
+
+test('with a selection, Play begins at In and the clock stops at Out', async () => {
+  const saved = globalThis.Audio;
+  class FakeAudio {
+    constructor() { this.currentTime = 0; this.playbackRate = 1; this.defaultPlaybackRate = 1; }
+    addEventListener() {}
+    play() { return Promise.resolve(); }
+    pause() {}
+  }
+  globalThis.Audio = FakeAudio;
+  try {
+    const { Clock } = await import('./clock.js');
+    const { PlayWindow } = await import('./playwindow.js');
+    let ended = 0;
+    const c = new Clock({ previewUrl: '', sampleRate: 1000, file: 'x.wav', onEnded: () => ended++, playWindow: () => new PlayWindow({ start: 2000, end: 4000 }) });
+    await c.play();
+    assert.equal(c.audio.currentTime, 2, 'from 0, Play begins at In');
+    c.pause();
+    c.audio.currentTime = 3;
+    await c.play();
+    assert.equal(c.audio.currentTime, 3, 'inside the selection it plays from where it is');
+    c.pause();
+  } finally {
+    globalThis.Audio = saved;
+  }
+});
