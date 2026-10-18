@@ -6,9 +6,10 @@ If a rule below sounds arbitrary, the reason it exists is in the sentence
 after it.
 
 This file is the rules. How to run things — the demo, deploying, screenshots,
-the probes — is in `docs/development.md`. What state things are in goes stale,
-so it isn't here either: read the newest `docs/superpowers/*-handoff.md`, then
-`git log`.
+the probes — is in `docs/development.md`; how the pieces fit, and the words
+the UI uses, in `docs/architecture.md`. What state things are in goes stale,
+so it isn't here either: read `docs/plan/STATE.md`, then `git log`. Don't read
+`CHANGELOG.md`: it is generated, and `git log` has the same lines.
 
 ## The checks to run
 
@@ -169,8 +170,6 @@ unit tests and a Studio that threw on every load; the flows caught it.
   yet is a `todo` flow: it reports, it doesn't fail the run.
 - Look at the screenshot a failing flow saves.
 
-`scripts/smoke-shell.mjs` is the older shell check; the flows supersede it.
-
 ## Where things live in the UI
 
 - **Settings, Releases and the guide** live in the top-right `.appbar-end`
@@ -256,7 +255,9 @@ for exactly this reason.
 
 ## Specs before code
 
-`docs/superpowers/specs/` holds a dated design note per change, and
-`docs/superpowers/plans/` the build order. Write the spec, agree the
-decisions, then build. Specs merge without cutting a release (above), so
-they are cheap to land.
+A non-trivial change starts as a short spec in `docs/plan/`: the decisions,
+agreed with Gabe, then the build order. Build it. When it lands, fold
+anything lasting into `docs/architecture.md` (or `docs/flows.md`, for a
+journey), update `docs/plan/STATE.md`, and delete the spec: git history
+keeps it, and a pile of landed specs is what agents then read as current.
+Specs merge without cutting a release (above), so they are cheap to land.

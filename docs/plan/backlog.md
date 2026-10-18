@@ -1,0 +1,72 @@
+# Backlog
+
+Wanted, not built. One line each, with where the design was (in git history
+under `docs/superpowers/` unless it says otherwise). Promote an item to a
+short spec in this folder when it is next.
+
+## The rooms and the bar
+
+- **Cue lane: add and launch.** Throw a take from the shelf, a GRAB from the
+  buffer, or a part from a track onto the lane; the buffer's drop targets gain
+  the cue lane. Launch on the next bar, loop until tapped, Shift starts at
+  once; the Cue (solo) button; summed with the tape on one clock. Flow C1.
+  (`shell-roadmap.md`)
+- **Output switch: Live feed / Playback,** with a real live stream of the
+  ring. Today's Feed source plays no audio. (`shell-roadmap.md` §3)
+- **Bookmark drawer replaces the Sketchbook.** (`shell-roadmap.md`, Notes)
+- **Tracks collapse to one strip while the cue lane is open.**
+- **U1: the take page gets the tape's edit controls** (fade in/out curves,
+  gain, normalize, reverse); #148 shared only the curve math and the
+  navigation.
+- **Progressive disclosure:** move secondary controls into drawers, sheets
+  and menus (Gabe, 2026-10-17). Only the collapsible bar is done.
+- **The Rig as a shell view** (leaving for it stops the tape on this device).
+- **Open (`wave.html`) as a Listening Room sub-view** (large: its own clock).
+- Exported **songs** as a finished object, separate from takes (Later).
+- Notes on tapes; several tags per take.
+
+## Sound
+
+- An **immediate stop**: re-render the blocks not yet delivered, cutting about
+  100 ms from the lead (the tape design's "immediate" stop).
+- **Mix memos.**
+- More filters and FX (the Sidekick has several of the same tricks).
+- MIDI controller keys into the trick queue on the Pi.
+- Crate pads on keys 5–0 (parked).
+
+## Rendering (the scene contract, `docs/architecture.md`)
+
+- **R3** the room in 2.5D: layered planes, at most 12 px pointer parallax;
+  the doorway-to-chair move as a cross-document View Transition.
+- **R5** device models: `.glb`, Y up, metres, under 300 KB, every port an
+  empty node `port:<id>`, no makers' logos.
+- **R6** the rig in 3D: vendored three.js, lazy, behind a flag, import map.
+- A Zoom R20 theme for the tape (an unbuilt brief, deleted 2026-10-18).
+
+## Kits and the hub
+
+- **Device-profile sharing between kits** via the hub (`docs/hardware/README.md`).
+- **Auto-install trigger** for releases ("the hub does it" was the pick).
+- Remote per-kit feature switches: its own spec, same hub token.
+
+## Cleanup decisions
+
+- **The crate's HTTP API** (`/api/crate*`, `internal/api/crate.go`) has no UI
+  client since the crate left the screen. `internal/tape/crate.go` is still
+  used by edits. Remove the routes, or keep them for a future UI?
+- **Stale remote branches.** Merged or landed, safe to delete:
+  `daw/a4-select-clips`, `daw/a5-fades`, `midi-capture`, `rooms/icon-safe-zone`,
+  `rooms/settings-button`, `rooms/walkthrough`, `tape-design`, `tape-engine`,
+  `phone-recording`, `ribbon`, `solid-ground`, `take-page`, `undo-trash`,
+  `tape-levels`, `tape-wide`, `tape-away`, `rooms/p5-scene`, `rooms/p4-fx`.
+  Needs a decision: `rooms/r2-shelf-to-deck` (R2, the cassette flies to the
+  deck; ~8k lines, never landed), `claude/hindsight-enclosure-build-9f51ed`
+  (kit enclosure CAD; PR #47), `rooms-screenshots` (an orphan of PNGs).
+- The release tarball ships the `*.test.js` files (~1.5 MB).
+
+## Reuse in the flows
+
+- **The continuity sampler** (`continuity-sampler.md`): reads the bar, the
+  take's clock and the stream through CDP without a user gesture, and judges
+  a room switch, Back/Forward or reload for gaps. Fold it into
+  `scripts/flows/` for a stricter J2.2 and a back-forward-cache flow.

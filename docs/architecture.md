@@ -5,22 +5,37 @@ and serves a small vanilla-JS UI. No database, no message broker, no build
 step for the frontend.
 
 ```
-cmd/hindsight        wiring and flags
-internal/config      environment → Config
-internal/audio       device, ring, levels, envelope, saving  (cgo, PortAudio)
-internal/midi        rawmidi watcher, parser, event ring, clock, tempo map, SMF export
-internal/smf         Standard MIDI File writer and reader
-internal/bundle      writes a take's .mid and manifest from audio's window and midi's events
-internal/mono        the one monotonic clock audio and MIDI both stamp with
-internal/tape        the tape: model and undo, store and pool, renderer, transport, player, catching
-internal/api         HTTP and WebSocket handlers
-web/static           the UI, served from disk per request
-web/static/lib/wave  the take page: view, geometry, draw, tiles, clock, lanes, page
-web/static/lib/edit  the gestures every editing surface shares
-web/static/lib/help  tips, help mode, and the guide renderer
-web/static/lib/phone the phone recorder
-web/static/lib/tape  the tape page
-docs/embed.go        the guide, compiled into the binary
+cmd/hindsight          wiring and flags
+cmd/hindsight-hub      the hub: certificates and heartbeats for every kit (docs/hub.md)
+internal/config        environment → Config
+internal/audio         device, ring, levels, envelope, saving  (cgo, PortAudio)
+internal/midi          rawmidi watcher, parser, event ring, clock, tempo map, SMF export
+internal/smf           Standard MIDI File writer and reader
+internal/bundle        writes a take's .mid and manifest from audio's window and midi's events
+internal/mono          the one monotonic clock audio and MIDI both stamp with
+internal/tempo         the tempo a take was played at, measured from its audio
+internal/tape          the tape: model and undo, store and pool, renderer, transport, player, catching, cue lane
+internal/rig           the kit drawn as hardware: device profiles, sockets, cables
+internal/hub           the Pi's side of the hub
+internal/hubserver     the hub itself
+internal/api           HTTP and WebSocket handlers
+web/static             the UI, served from disk per request
+web/static/shell.html  the one document: the Studio, the Listening Room and Capture
+web/static/lib/shell   the router, the view contract and the three views
+web/static/lib/bar     the bar (#np) and the engine that owns its audio
+web/static/lib/tape    the Studio's tape: lanes, parts, ranges, the cue lane
+web/static/lib/rooms   the Studio around the tape: feed, KEEP, bounce, words
+web/static/lib/buffer  the buffer: GRAB, trim, DROP
+web/static/lib/room    the Listening Room: the shelf, the deck, the Sketchbook
+web/static/lib/play    the instrument strip (Play mode)
+web/static/lib/rig     the rig page
+web/static/lib/objects the physical things: reels, cassettes, VU meters, the shared ticker
+web/static/lib/scene   the scene contract the renderers follow
+web/static/lib/wave    the take page (wave.html): view, geometry, draw, tiles, clock, lanes
+web/static/lib/edit    the gestures and curves every editing surface shares
+web/static/lib/help    tips, help mode, and the guide renderer
+web/static/lib/phone   the phone recorder
+docs/embed.go          the guide, compiled into the binary
 ```
 
 ## Data flow
@@ -154,8 +169,7 @@ Two things happen with MIDI. Each take is stamped with the tempo measured
 over its own window, as before; and everything every connected instrument
 sent during the window is written beside the take as a Standard MIDI File,
 placed on the take's timeline to within a couple of milliseconds, with a
-tempo map so the notes sit on the DAW's grid. The design is in
-`docs/superpowers/specs/2026-09-15-midi-capture-design.md`.
+tempo map so the notes sit on the DAW's grid.
 
 ### Every port, no cgo
 
@@ -425,9 +439,7 @@ without starting ffmpeg if its client goes away first.
 
 ## The tape
 
-`internal/tape`. The design is
-[the tape spec](superpowers/specs/2026-10-03-tape-design.md); this is how
-steps 6a (the engine) and 6b (playing it through the Sidekick) are built.
+`internal/tape`: the engine, and playing it through the Sidekick.
 
 ```
 API ─edit─▶ Tape (model, undo) ─save─▶ tapes/<id>/tape.json
@@ -692,6 +704,132 @@ handling.
 The takes list is polled every five seconds and guarded by the `/api/jams`
 ETag, so an unchanged list does not re-render and interrupt a playing preview.
 
+### The shell
+
+One document, `web/static/shell.html`, is served at `/`, `/index.html`,
+`/tape.html` and `/takes.html` (`cmd/hindsight/main.go`; `main_test.go`
+checks it). It holds the header, `<main id="views">` with one
+`<section class="view">` per view, `#np-dock` (the dock slot, then the one
+`#np`), `#toasts`, the shared sheets (Settings, Releases, output, phone) and
+one script, `lib/shell/boot.js`. `wave.html` (Open), `rig.html` and
+`guide.html` are separate pages; leaving for one unloads the shell, and the
+carry (`lib/bar/carry.js`, `handoff.js`) resumes a take on the way back.
+
+**Views** (`lib/shell/views/`: `studio.js`, `room.js`, `capture.js`; Capture
+is what `/` shows when the tape is off) export
+`{ id, title, bodyClass, help, mount }`. `mount(ctx)` runs **once**, on the
+first visit, and answers `{ show({first}), hide(), destroy() }`. A view stays
+mounted after that and is hidden, never rebuilt: the tape page is a module
+singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
+(`lib/shell/view.js`) carries:
+
+- `engine`, `go(url)`, `tapes`, `toast`, `link`: shared. A view never creates
+  the bar's audio and never assigns `location` to a room path.
+- `on(target, type, fn)`, `every(fn, ms)`, `loop(fn)`: a listener, interval or
+  ticker step that does nothing while the view is hidden. Every global
+  listener, poll and frame loop goes through these, so a hidden view costs no
+  CPU and no network.
+- `active()`: shown and the document visible.
+- `headerSlot`, `dockSlot`, `barSlot`: **Slots**. What a view adds to the
+  header, the dock or the bar is in the page only while it is shown: `hide()`
+  takes the nodes **out of the document** and `show()` puts them back. So
+  `getElementById` on a docked node (`#multi-bar`, `#clip-editor`) answers
+  null while the Studio is hidden; code that can run then (a timer) must hold
+  the node, not look it up.
+
+All views share one id namespace, since hidden ones stay in the DOM
+(`pages.test.js` checks the union). The CSS is global and keyed on the body
+class the router sets (`tape-page`, `shelf-page`, `main-page`).
+
+**The router** (`lib/shell/router.js`) routes a same-origin click on a link
+whose path is a view, unless a modifier, `target` or `download` says
+otherwise; `go()` pushes `{shell, view, scroll}`; a switch hides the old view,
+swaps body classes and slots, sets the title, `aria-current` and the help
+page, and shows the new one, inside a View Transition when there is one.
+`popstate` switches only when the path names another view, so Back still
+closes the player first. Each view keeps its own scroll. If `mount` or `show`
+throws, the router falls back to a full navigation.
+
+**The engine** (`lib/bar/engine.js`), made once by the shell:
+
+| Part | What it is |
+|---|---|
+| `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf), `backToTape`, `setSource`, `playing()`, `snapshot()`, `onChange` |
+| `engine.audio` | `adopt`, `owns`, `release`, `audioFor`: the take in the bar belongs to the engine, so a shelf row torn down never stops it, and two shelves never hold two elements for one take. Engine media is never in a view's subtree (a removed media element pauses) |
+| `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport), `setLevels` |
+| `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
+| `engine.feed` | The feed source |
+| `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`) and `[data-playing]` |
+
+**Audio rules the design relies on.** Pushing history or hiding DOM never
+touches media or an AudioContext. Autoplay gates are per document with sticky
+activation, so after the first tap a later `play()` needs no new gesture. The
+AudioContext is made once, on a tap, with `audioSession.type = 'playback'`,
+and resumes on `visibilitychange`. Media Session has one owner, the engine.
+`connectLive` closes its socket on `pagehide` and reopens on `pageshow`, since
+an open socket keeps the shell out of the back-forward cache, and a restored
+shell applies a carry record rather than dropping it.
+
+The checks that a journey through all this still works are the user flows
+(`docs/flows.md`).
+
+### Vocabulary
+
+Gabe, 2026-10-15: *"we have takes, clips, tapes, and records which is
+confusing … we should just be able to listen to a file and if need then we
+can dive in to make notes."* So: **two nouns, takes and tapes.** A take is
+anything you kept; a tape is what you build on. Everything else on screen is
+a place (the Studio, the Listening Room, the Rig), a part of a screen (the
+feed, the buffer, the tracks, the bar, the instrument), or something inside a
+take or a tape (a note, a tag, a star; a part, a section, the loop).
+
+| Verb | Does | From |
+|---|---|---|
+| **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), the buffer, a take's selection |
+| **BOUNCE** | makes a take from a tape, by playing it through the mixer | the Studio's ⋯ |
+| **GRAB** | fills the buffer | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
+| **DROP** | empties the buffer onto a track | the buffer, ↵, a range's bar |
+| **CATCH** | puts the last pass on the armed track | the Studio |
+| **Cut · Copy** | a range of the tape into the buffer | a range's bar |
+| **● Rec** | records onto the armed track | the Studio |
+
+Every key names its object: *KEEP 2m*, *GRAB 4 BARS*, *Drop on track 2 ·
+bars 1–4*, *CATCH LAST PASS*. Words that mean these things are retired:
+audio on a track is a **part** (not a clip); the clipboard is the
+**buffer**; the ring is the **feed** (*Feed length* in Settings); a flag is a
+**note**; a bounced *record* is just a take; Capture, Save as take and Cut
+are **KEEP**; Copy from the feed is **GRAB**; Paste is **DROP**; Mix down and
+Cut a record are **BOUNCE**; the bar's ⟲ is **Repeat**; the crate is not on
+screen. `lib/rooms/words.test.js` enforces the retired list.
+
+A tap on a take plays it in the bar, wherever you are; holding selects; the
+bar is the only transport; **Open** (`wave.html`) is the one page to dig in.
+
+### The scene contract
+
+`lib/scene/` (the object library is `lib/objects/`). Three parts, three
+owners: **the page writes state** (plain data, targets: *loaded take 41*,
+*cable from ch1 to track 2*; objects never fetch); **the model steps** each
+object on the shared ticker (`lib/objects/motion.js`) and derives its view;
+**a renderer draws views** and never writes state or computes motion
+(`SceneObject`, `Scene`, and the duck-typed renderer documented in
+`lib/scene/renderer.js`: `mount`, `frame`, `hit`, `twin`, `destroy`). Rules
+every renderer keeps:
+
+1. Motion comes from the models, so flat and 3D move identically and tests
+   drive them with a fake `dt`.
+2. Every interactive object has a DOM twin, a real `<button>` over it, for
+   focus, keys and screen readers; WebGL draws over accessible markup, never
+   replaces it.
+3. Drop frames, never input: picks go through `hit()` and the twins.
+4. Reduced motion is the ticker's job (`dt = Infinity` settles everything);
+   a renderer never checks the media query.
+5. Park when still: a settled model returns `false`.
+6. Big assets (models, textures, three.js) stay out of the service worker's
+   `SHELL`, in a versioned `hindsight-assets` cache.
+7. No bundler, no CDN: three.js, when the Rig needs it, is one pinned ES
+   module under `web/static/vendor/three/`, lazy, behind a flag.
+
 ### Waking up
 
 A tablet that sleeps freezes its page, and a request or socket that was in
@@ -700,8 +838,8 @@ therefore gives its reads a deadline and checks its link on waking
 (`lib/link.js`, node-tested):
 
 - **Reads time out.** `timedFetch` aborts a request that isn't answered
-  (8 s; the tape page's poll, which runs five times a second, gives up after
-  4 s). The tape page's poll used to run only when the last one had finished,
+  (8 s; the Studio's tape poll, which runs five times a second, gives up after
+  4 s). The Studio's poll used to run only when the last one had finished,
   so one lost poll stopped them all, and the page showed the tape as it was
   when the tablet went to sleep. Now `lib/tape/poll-gate.js` lets a poll
   forced on waking go ahead of one that may be lost, and drops the lost
@@ -715,9 +853,9 @@ therefore gives its reads a deadline and checks its link on waking
 - **Waking is an event.** `onResume` fires when the page is visible again,
   shown again (`pageshow`, bfcache or not), online again, or when a one-second
   tick arrives more than 3.5 s late (the clock jumped; timers were frozen,
-  whatever events fired). The page then refetches at once: the tape page its
-  tape state and clipboard, the main page its status, takes and meters, the
-  takes page its list, the take page the take (merged as after any return to
+  whatever events fired). The page then refetches at once: the Studio its
+  tape state and clipboard, Capture its status, takes and meters, the
+  Listening Room its list, the take page the take (merged as after any return to
   the page, so an edit still being saved, or a selection not yet saved, is
   kept).
 - **The note.** A source that fails (`link.fail('tape')`) and doesn't recover
@@ -730,12 +868,12 @@ an HTTPS name and stay quiet otherwise.
 
 ### The take page
 
-The take page is the one place a take is edited, and it is laid out as the
-tape page will be (the editing-model spec, step 3): a header, the overview, an
-editing canvas in three zones, a toolbar, and the MIDI lanes.
+The take page (`wave.html`, *Open*) is the one place a take is edited: a
+header, the overview, an editing canvas in three zones, a toolbar, and the
+MIDI lanes.
 
 `web/static/lib/wave/` holds the page; `lib/edit/` and `lib/help/` hold what
-the tape page will share. The pure parts of each are node-tested.
+it shares with the Studio. The pure parts of each are node-tested.
 
 | Module | What it does |
 |---|---|
@@ -756,7 +894,7 @@ the tape page will share. The pure parts of each are node-tested.
 | `help/markdown` | Renders the guide for `/guide.html`, from `/guide.md`, which the binary serves compiled in (`docs/embed.go`) |
 | `link`, `live`, `tape/poll-gate` | Reads that time out, the wake-up refetch, the *Reconnecting…* note, and the live meters' socket that replaces itself (see *Waking up*) |
 | `toast` | Both pages' toasts, with an optional action ("Flag deleted · Undo"), and one carried to the next page |
-| `takes`, `trash` (main page) | The list, with select mode for several takes at once; *Recently deleted* |
+| `takes`, `trash` | The Listening Room's list, with select mode for several takes at once; *Recently deleted* |
 
 A few rules hold the page together:
 

@@ -139,9 +139,10 @@ touching `view.js`, `overview.js`, `share.js`, `rising.js` or `page.js`, check b
 - **Speed chip** — ½× slows the audio and the rise together with the pitch
   kept; a region loop ignores it and plays at 1×
 
-The rest of the UI is checked by hand and, when something needs it, by a
-throwaway Playwright script in a scratch directory. Those are not committed;
-there is no runner to add one to.
+The rest of the UI is checked by the user flows: `node scripts/flows.mjs`
+(`make flows`) drives Gabe's journeys in Playwright against a demo it boots
+itself, on a tablet and a desktop profile. The stories, how to run them and
+how to write a new one are in [flows.md](flows.md).
 
 ## Deploying to a Pi
 
@@ -214,7 +215,7 @@ is the same dark instrument in both schemes; `styles.test.js` keeps its rules
 off the scheme's tokens and its classes off everything else.
 
 **The pads are audible.** The sound is in `internal/tape/trick.go`
-(`docs/superpowers/specs/2026-10-14-play-mode-sound-design.md`).
+(the play-mode sound design is in git history).
 
 **How a trick works.** A trick is a **read head** that leaves the transport
 while a pad is held. The transport keeps counting underneath, so on release
@@ -246,36 +247,24 @@ four tracks, plain and under each trick.
 
 ## The two rooms
 
-`web/static/lib/rooms/` is the Studio and the Listening Room
-(`docs/superpowers/specs/2026-10-15-rooms-design.md`). They are the only
-layout: the per-device `hindsight.rooms` flag that once switched them on is
-gone, and a value left in a browser's storage is ignored.
+The Studio and the Listening Room are views in one document, `shell.html`
+(how the shell, the router, the view contract and the engine work is in
+[architecture.md](architecture.md), *The shell*). They are the only layout.
+`/`, `/tape.html` and `/takes.html` all serve the shell; `/` shows the Studio
+when the tape is on (always, now) and Capture otherwise. The header's two
+tabs are links the router takes (`lib/nav.js`, `navTabs`). Settings,
+Releases/Version and Guide sit in the top-right `.appbar-end` cluster on every
+page (`mountHeaderTools`), and the Settings sheet's first line has them too,
+for a phone.
 
-The header has two tabs: **Studio**, the tape page while the tape is on and
-`/` while it's off, and **Listening Room**, the takes and a take's page
-(`lib/nav.js`, `navTabs` and `studioRedirect`). Every page ships them in its
-markup. One inline script runs before anything draws:
+`lib/shell/views/studio.js` mounts the tape page (`lib/tape/page.js`,
+`mountTapePage(ctx)`), the feed, KEEP and the buffer (`lib/rooms/mount.js`),
+and Play mode, all gated on its `ctx`. The feed and the buffer still speak to
+the tape page in events, as Play mode does: `hindsight:clipboard` tells the
+page the buffer changed, and `hindsight:tape-changed` asks it to reload its
+tape state (and unfold the lanes if folded via `#tracks-fold-btn`).
 
-- `studio-redirect`, in `index.html`: `/` goes to the tape page, on the
-  `hindsight.tapeOn` the nav cached last time (only a 2xx or a 404 from
-  `/api/tapes` is cached).
-
-With the tape on, `/` is the Studio, so `index.html` can't be reached:
-everything it has is in the Studio, or `pages.test.js` names where it went.
-The tape page as the Studio gains `index.html`'s feed above the lanes — the
-ribbon, the L/R meters, KEEP (`POST /api/trigger`), Flag now, Phone and the
-readouts — and under them the input diagnostic. Settings, Releases/Version,
-and Guide sit in the top-right `.appbar-end` utility cluster on every page
-(`lib/nav.js`, `mountHeaderTools`), and the Settings sheet's first line has
-them too, for a phone. The feed's markup is `<template>`s in `tape.html`;
-`lib/rooms/mount.js` is what the page loads, and it fetches `studio.js`.
-
-The Studio and the tape page import nothing of each other's. They speak in
-events, as Play mode does: `hindsight:clipboard` tells the page the buffer
-changed, and `hindsight:tape-changed` asks it to reload its tape state (and
-unfold the lanes if folded via `#tracks-fold-btn`).
-
-- `mount.js` — the tape page's entry: it loads `studio.js`.
+- `mount.js` — the Studio view's entry for the feed: it loads `studio.js`.
 - `studio.js` — mounts the templates, drives them with Capture's modules, and
   wires the unified Media Player (`#np`) 3-way source switcher (`Feed` ·
   `Tape` · `Shelf`) plus seamless continuation of a carried Shelf take.
@@ -283,9 +272,8 @@ unfold the lanes if folded via `#tracks-fold-btn`).
 
 ### The buffer
 
-`web/static/lib/buffer/` is the Studio's buffer
-(`docs/superpowers/specs/2026-10-15-studio-buffer-design.md`): the clipboard,
-made visible. `studio.js` mounts it; its markup is `tape.html`'s `buffer-`
+`web/static/lib/buffer/` is the Studio's buffer: the clipboard, made
+visible. `studio.js` mounts it; its markup is `shell.html`'s `buffer-`
 templates. On the Pi it is the clipboard
 with a `grab` on it (`internal/tape/grab.go`): GRAB copies a span of the
 ring there at once, by Catch's own arithmetic for the last N bars, with
@@ -307,15 +295,13 @@ class on the body (`fold.js`), which changes heights and nothing else.
 
 ## The Listening Room
 
-`web/static/lib/room/` is the Listening Room
-(`docs/superpowers/specs/2026-10-15-listening-room-design.md`,
-`docs/superpowers/specs/2026-10-15-flow-design.md`, and
-`docs/superpowers/specs/2026-10-16-rooms-architecture-and-flow-design.md`),
-The takes page is the room seen from the doorway (`doorway.js`) and a take's
-page is Open (`open.js`); `mount.js` loads each when its page starts it.
+`web/static/lib/room/` is the Listening Room (its words: *Vocabulary* in
+[architecture.md](architecture.md)). The shelf is the room seen from the
+doorway (`doorway.js`), mounted by `lib/shell/views/room.js`, and a take's
+page is Open (`open.js`, on `wave.html`).
 
-The room doesn't copy the pages it stands in. `shelf-page.js` and
-`wave/page.js` each hand `start()` a handle on what they already run — the
+The room doesn't copy what it stands in. The room view and `wave/page.js`
+each hand `start()` a handle on what they already run — the
 rack's list, its selection and Play all, and the bar; a take, its flags and its
 clock — and the room draws itself around them:
 
@@ -329,11 +315,10 @@ clock — and the room draws itself around them:
   `✎ Note`, `GRAB` beside `KEEP`, the take's notes one line each with `▶` and
   `GRAB`, its tag beside its star, and its family lines (`Made from`, `From
   this take`, `Earlier bounces`).
-- `shelves.js`, `notes.js`, `swap.js` — what's on which shelf, a note's span
-  for the Studio's buffer, and asking before taking the Studio's tape. Pure
-  or fetch-injected, and tested without a browser.
+- `shelves.js`, `notes.js` — what's on which shelf, and a note's span for the
+  Studio's buffer. Pure or fetch-injected, and tested without a browser.
 
-There are no records any more (F2 of the flow spec): a bounce is a take from
+There are no records any more: a bounce is a take from
 a tape, on that tape's spine, and `Meta.Record` (`audio.Record`) on a take
 that has it is ignored, not migrated. The Pi still accepts the field; nothing
 in the rooms sends it. The room's colours are materials, in
@@ -349,8 +334,7 @@ a month's box in the archive.
 
 ## The rig
 
-`rig.html` and `web/static/lib/rig/` are the rig
-(`docs/superpowers/specs/2026-10-15-rig-design.md`), reached from the device
+`rig.html` and `web/static/lib/rig/` are the rig, reached from the device
 chip in both rooms' headers.
 
 - **The server owns the picture.** `GET /api/rig` (`internal/rig`,
@@ -367,8 +351,7 @@ chip in both rooms' headers.
 - `desk.js` is what's drawn, from the graph alone; `cables.js` where a cable
   runs; `kinds.js` how each kind is drawn, by width and dash as well as
   colour.
-- **The cables are ropes** (R4,
-  `docs/superpowers/specs/2026-10-15-r4-cables-design.md`). Each is a
+- **The cables are ropes** (R4). Each is a
   `cable` object in a scene on the shared ticker: `page.js` measures the
   sockets' holes and sets each rope's ends, `lib/scene/cable.js` hangs and
   swings it, and `ropes.js` (an SVG renderer) only draws it, in
@@ -464,8 +447,8 @@ into the right shape.
 
 `web/static/lib/scene/` is the shape every drawn thing has, so a new way of
 drawing one (a 3D deck, cables as ropes) can be built without learning the
-app. Three parts, three owners
-([the scene contract](superpowers/specs/2026-10-15-scene-contract-design.md)):
+app. Three parts, three owners (the rules are *The scene contract* in
+[architecture.md](architecture.md)):
 
 - **State** is plain data the page writes, with `obj.set(patch)` on a
   `SceneObject` (`object.js`): a level, a poll of the tape, how far a take

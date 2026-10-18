@@ -1,6 +1,6 @@
 # HTTP API
 
-Fifty-five routes (one, `/api/trigger`, in two forms), twenty-six of them the tape's and its clipboard's, two the rig's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+The routes are registered in `internal/api/api.go` (`SetupRoutes`); that file is the authority, and this one explains them. Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -240,8 +240,7 @@ only a later release is `available`.
 
 ## `GET /api/settings`, `PUT /api/settings`
 
-The settings sheet's (`web/static/lib/settings.js`; spec
-`docs/superpowers/specs/2026-10-09-settings-design.md`). The app's values live
+The settings sheet's (`web/static/lib/settings.js`). The app's values live
 in `settings.json` (`SETTINGS_FILE`, default `~/hindsight/settings.json`) and
 win over the environment, which wins over the defaults.
 
@@ -293,7 +292,7 @@ recording, or the tape is recording or playing, as for `POST /api/update`.
 
 ## `GET /api/rig`
 
-The rig (`docs/superpowers/specs/2026-10-15-rig-design.md`): the kit drawn as
+The rig: the kit drawn as
 devices and the cables between them, where every cable is a setting. Nothing
 about it is stored: each read builds it from `/api/settings`' values, the
 loaded tape and what's plugged in, so the picture can't disagree with the Pi.

@@ -75,8 +75,8 @@ are the ones on the page, with the crop suffix left off.
 | `r20-touchscreen` | Touchscreen close-up | `touchscreen_inset_3.jpg` |
 | `r20-tour-diagram` | Numbered diagram of inputs, controls and ports | `Tour_v1_ZEqLKxf.png` |
 
-`r20-touchscreen` and `r20-top` are the two the
-[theme brief](zoom-r20-theme-brief.md) needs first. Zoom's site also blocks
+`r20-touchscreen` and `r20-top` are the two an R20 theme for the tape would
+need first (`docs/plan/backlog.md`). Zoom's site also blocks
 direct PDF downloads from some networks; the HTML manual is the reliable copy.
 
 ## 1010music Bento

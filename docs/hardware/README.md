@@ -2,9 +2,8 @@
 
 What Hindsight knows about each piece of gear in and around the rig, and what
 it doesn't yet. The profiles themselves are
-`internal/rig/profiles/*.json`: the rig page draws a device from one (see
-[the rig spec](../superpowers/specs/2026-10-15-rig-design.md)). This folder is
-the notes beside them.
+`internal/rig/profiles/*.json`: the rig page draws a device from one. This
+folder is the notes beside them.
 
 | Profile | Device | On the Pi? | Matched by | Missing before it can be matched |
 |---|---|---|---|---|
@@ -87,6 +86,28 @@ release like any code change. A change to this folder alone does not.
 
 ## Later: sharing profiles
 
-Nothing here talks to a server. The design note for sharing profiles between
-kits, and for reporting a device the registry hasn't seen, is
-[the device-profiles spec](../superpowers/specs/2026-10-15-device-profiles-design.md).
+Not built; this is what the files are shaped for. Nothing here talks to a
+server yet.
+
+- **Lookup, in order:** the release's own profiles (embedded, so a kit works
+  offline); then a newer copy from the hub, data only, never code; then the
+  generic profile the rig makes from channel counts. The release is the floor
+  and a registry only ever adds.
+- **Where:** two more routes on the hub (`cmd/hindsight-hub`), which already
+  knows every kit by its token: `GET` a profile by `vid:pid` or MIDI name, and
+  `POST` a report of a device nobody has described. No hub configured, no
+  traffic, nothing lost.
+- **A report** holds only what the capture list above produces: `vid:pid`,
+  the descriptor summary, the ALSA card name, channels and rates, MIDI port
+  names, the Hindsight version. **Never** a serial number, an address, a
+  hostname or a tailnet name. Off unless the owner turns it on, and the
+  settings sheet says what is sent.
+- **A report is a lead, not a profile.** A draft made from it is
+  `unconfirmed` throughout, and **a person reviews it** before the hub serves
+  it: a wrong pad map would mislead every kit that pulls it.
+- **The Go side:** a loader for a second directory of profiles beside the
+  embedded set, where the same `id` with a higher `rev` wins (`check` already
+  refuses a profile that doesn't hang together); a `rev` and an optional
+  signature; fetch on the heartbeat, with the last good copy on disk.
+- Remote per-kit feature switches are a different payload with a different
+  risk, so they would be their own spec.
