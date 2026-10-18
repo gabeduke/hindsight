@@ -55,7 +55,15 @@ import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
 
-const $ = (id) => document.getElementById(id);
+// A hidden Studio's dock nodes (#multi-bar, #clip-editor) are out of the
+// page (lib/shell/view.js, Slot), but a timer set while it was shown can
+// still reach for them: answer with the node last seen rather than null.
+const seen = new Map();
+const $ = (id) => {
+  const el = document.getElementById(id);
+  if (el) seen.set(id, el);
+  return el ?? seen.get(id) ?? null;
+};
 const POLL_MS = 200;
 
 const state = {
@@ -4784,6 +4792,6 @@ function wire() {
       });
     }
   };
-  if (ctx?.on) ctx.on(document, 'hindsight:np-fold', onNpFold);
+  if (viewCtx?.on) viewCtx.on(document, 'hindsight:np-fold', onNpFold);
   else document.addEventListener('hindsight:np-fold', onNpFold);
 }

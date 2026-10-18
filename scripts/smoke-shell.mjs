@@ -61,7 +61,7 @@ for (const { tag, size, hasTouch } of PROFILES) {
   const pageErrors = [];
   p.on('pageerror', (e) => {
     pageErrors.push(e.message);
-    check(`${tag}: pageerror: ${e.message}`, false);
+    check(`${tag}: pageerror: ${e.message}`, false, (e.stack || '').split('\n')[1]?.trim());
   });
 
   // Flow 1: Boot at /tape.html -> Studio view mounts
@@ -163,7 +163,7 @@ for (const { tag, size, hasTouch } of PROFILES) {
     const btn = document.getElementById('np-fold-btn');
     if (!btn) return false;
     btn.click();
-    return document.body.classList.contains('np-folded');
+    return document.body.classList.contains('np-fold');
   });
   check(`${tag}: Transport fold toggle collapses player dock`, foldToggle);
 
