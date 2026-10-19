@@ -79,10 +79,9 @@ export default {
       await page.locator('#multi-count').innerText().catch(() => ''));
     t.expect('a tap moves nothing on the Pi', (await clip()).at === c0.at);
 
-    // BUG (found 2026-10-19, not fixed here): a tap in the Studio focuses
-    // its view root (lib/shell/view.js gives it tabindex="-1"), and
-    // page.js's selection keys skip any target inside [tabindex], so Enter
-    // and ← → do nothing. These two checks assert what the story wants.
+    // A tap in the Studio focuses its view root (lib/shell/view.js gives it
+    // tabindex="-1"); page.js's selection keys once skipped every target
+    // inside a [tabindex], so Enter and ← → did nothing (fixed 2026-10-19).
     const keysAt = await where();
     await t.step('press Enter', () => page.keyboard.press('Enter'));
     t.expect('Enter opens its sheet', await t.poll(() => !!document.getElementById('clip-sheet')?.open, null, 2000), keysAt);

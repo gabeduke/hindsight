@@ -41,5 +41,13 @@ export default {
     await t.step('tap ▶ to stop', () => t.tap(page.locator('#np-play')));
     const stopped = await api.until(async () => !(await live()).live.playing, 'the tape to stop', 5000).catch(() => false);
     t.expect('the Pi stops', stopped);
+
+    // Space plays and stops from the page. After a tap the focus is on the
+    // view's root, which the key once took for a focused control.
+    await page.locator('#view-studio').focus();
+    await t.step('press Space', () => page.keyboard.press(' '));
+    t.expect('Space plays the tape', await api.until(async () => (await live()).live.playing, 'the tape to play', 5000).catch(() => false));
+    await t.step('press Space again', () => page.keyboard.press(' '));
+    t.expect('Space stops it', await api.until(async () => !(await live()).live.playing, 'the tape to stop', 5000).catch(() => false));
   },
 };
