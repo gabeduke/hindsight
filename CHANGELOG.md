@@ -5,6 +5,20 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.19.1 — 2026-10-19
+
+- The guide is for people using Hindsight: its QA checklists move to docs/checks.md (4480703)
+- Remove the crate's HTTP API, which nothing on screen calls (9b70260)
+- The guide describes the Studio and the Listening Room as they are now (4383c21)
+- Point code comments at architecture.md where the spec they cited was folded in (1a199d7)
+- flows: J1.1 waits for KEEP's length instead of reading it as the key appears (c55b4da)
+- Capture's reconnect no longer leaks a listener per visit; drop the unserved index.html and pre-shell fallbacks (aef9e6a)
+- Cut docs/superpowers to a state file, a backlog and the roadmap; fold the lasting design into architecture.md (62b3c1c)
+- Remove Go with no callers, the smoke scripts the flows replace, and the old design canvas (057ea84)
+- Add the user flows: Gabe's stories as Playwright journeys every change is checked against (45f62b5)
+- The Studio loads without a script error, and leaving it mid-selection no longer throws (6fea9ae)
+
+
 ## v2026.10.18.2 — 2026-10-18
 
 - A take with an In and Out plays that selection by default: it opens at In, Play starts at In and stops at Out (f34611c)
