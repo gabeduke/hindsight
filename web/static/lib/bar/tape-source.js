@@ -26,6 +26,9 @@ const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
   let id = loadedId;
   let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true, holdUntil = 0, ticks = 0;
+  let want = null; // a press not yet in a poll: {playing, until}
+  // A poll that came after the press and agrees with it ends the hold.
+  const agreed = () => { if (want && !!(live && live.playing) === want.playing) want = null; };
   let del = null, levels = null;
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
@@ -41,7 +44,7 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
       // Another device loaded another tape: follow it.
       if (!s.loaded) { follow(); return; }
       // Just located: keep showing where it was asked until the Pi has it.
-      if (performance.now() >= holdUntil) { live = s.live; at = performance.now(); }
+      if (performance.now() >= holdUntil) { live = s.live; at = performance.now(); agreed(); }
       fire();
     } catch { /* the next tick asks again */ }
   }
@@ -85,6 +88,11 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
   // Playing, as the tape page reads it: through a count-in, and through a
   // mixdown and its tail (■ cancels it). Not on a poll gone quiet.
   const playing = () => {
+    // A ▶ or ■ just pressed is what's playing until the Pi says so, or for
+    // HOLD_MS: a second press before the next poll toggles from it, not
+    // from the poll before the first.
+    if (want && performance.now() < want.until) return want.playing;
+    want = null;
     const md = mixdown();
     return fresh() && (!!(live && (live.playing || counting())) || !!(md && (md.state === 'playing' || md.state === 'tail')));
   };
@@ -140,8 +148,16 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
       if (!playing()) this.play();
       return true;
     },
-    play: () => (del?.play ? del.play() : send('/api/tapes/transport', 'POST', { action: 'play' })),
-    pause: () => (del?.stop ? del.stop() : send('/api/tapes/transport', 'POST', { action: 'stop' })),
+    play: () => {
+      want = { playing: true, until: performance.now() + HOLD_MS };
+      fire();
+      return del?.play ? del.play() : send('/api/tapes/transport', 'POST', { action: 'play' });
+    },
+    pause: () => {
+      want = { playing: false, until: performance.now() + HOLD_MS };
+      fire();
+      return del?.stop ? del.stop() : send('/api/tapes/transport', 'POST', { action: 'stop' });
+    },
     seek(frame) {
       if (!t) return;
       const p = Math.max(0, Math.min(t.length, Math.round(frame)));
@@ -182,7 +198,7 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     },
     ingest({ tape: nextTape, live: nextLive } = {}) {
       if (nextTape) { t = nextTape; id = nextTape.id || id; }
-      if (nextLive !== undefined) { live = nextLive; at = performance.now(); }
+      if (nextLive !== undefined) { live = nextLive; at = performance.now(); agreed(); }
       fire();
     },
     delegate(d = null) {

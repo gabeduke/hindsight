@@ -228,3 +228,26 @@ test('a take without a selection plays on past where a selection would end', () 
   s.tick();
   assert.equal(audio.paused, false);
 });
+
+test('the tape: ▶ then ■ before a poll says so stops it, and the Pi has the last word', async () => {
+  const sent = [];
+  let live = { playing: false, heard: 0, count_in: 0, output: 'demo' };
+  stubs(() => ({ tape: tapeJSON(), loaded: true, live }));
+  const s = stopper = tapeSource('t1');
+  await settle();
+  s.delegate({ play: () => sent.push('play'), stop: () => sent.push('stop') });
+  // The bar's ▶ toggles from playing(): two presses inside one poll.
+  const press = () => { if (s.playing()) s.pause(); else s.play(); };
+  press();
+  assert.equal(s.playing(), true, 'playing as soon as ▶ is pressed');
+  press();
+  assert.deepEqual(sent, ['play', 'stop'], 'the second press stops it, not a second play');
+  assert.equal(s.playing(), false);
+  // A poll that says it plays (the stop not yet carried out) is held off a moment...
+  s.ingest({ live: { ...live, playing: true } });
+  assert.equal(s.playing(), false, 'the press holds');
+  // ...but not for ever: the Pi has the last word.
+  now += 1100;
+  s.ingest({ live: { ...live, playing: true } });
+  assert.equal(s.playing(), true);
+});
