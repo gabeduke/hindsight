@@ -1,20 +1,14 @@
 # The Hindsight guide
 
 How Hindsight works, in plain words, for someone who has never touched an
-OP-1. It is also the acceptance test: every section ends with **checks**. A
-feature is done when its checks pass.
+OP-1.
 
-**How to read the checks.**
+**How to read it.**
 
-- Each starts with the action to take, then what you should see.
-- **[demo]** checks pass with `go run ./cmd/hindsight --demo` and no hardware.
-- **[rig]** checks need the Pi, the Sidekick and instruments.
-- **When:** every section says when its features arrive:
-  - *Today* means it's on `main` now.
-  - *Step N* is the roadmap step in the
-    [editing model](superpowers/specs/2026-10-03-editing-model-design.md#roadmap).
-  - *With Play mode on* means it's there only when that preview is switched
-    on for this device (Settings › Preview features).
+- **When:** a section opens by saying whether its features are there:
+  - *Today* means they're in every release now.
+  - *With Play mode on* means they're there only when that preview is
+    switched on for this device (Settings › Preview features).
 - **Two rooms.** Hindsight is a **Studio**, where you keep, grab and build on
   the tape, and a **Listening Room**, where every take is, a tap plays it and
   **Open** is its page. The screens say their words: feed, part, note,
@@ -53,105 +47,61 @@ just move references around.
 
 | Word | Means |
 |---|---|
-| **Ring** | The last 15 minutes of every input, held in memory. The buffer ribbon at the top of the main page draws it |
-| **Take** | A saved recording, from *Capture*, *Save as take*, a phone recording or a mixdown |
-| **Flag** | A marked moment in a take or the ring, with an optional label |
-| **Selection** | A span between **In** and **Out**. On a take it's what you save or share; on a tape it's what you edit |
-| **Loop** | A toggle. On: playback repeats the selection. Off: playback runs straight through |
-| **Tape** | Four tracks, 20 minutes each by default, holding clips |
+| **Feed** | The last 15 minutes of every input, held in memory and always recording. The ribbon at the top of the Studio draws it. Older parts of this guide call it the *ring* |
+| **Take** | A saved recording: a KEEP, a phone recording, a bounce, or a selection of another take |
+| **Note** | A marked moment in a take or the feed, with an optional label (older parts of this guide: *flag*) |
+| **Selection** | A span between **In** and **Out**. On a take it's what you keep or share; on a tape it's what you edit |
+| **Repeat, Loop** | The bar's ⟲. On: playback repeats the selection (the tape's loop bracket). Off: playback runs straight through |
+| **Tape** | Four tracks, 20 minutes each by default, holding parts. Tapes live in the Studio |
 | **Track** | One of the tape's four lanes |
-| **Clip** | A piece of audio sitting on a track |
-| **Catch** | Put a span of the ring onto a track, after you've played it |
+| **Part** | A piece of audio sitting on a track (older parts of this guide: *clip*) |
+| **Catch** | Put a span of the feed onto a track, after you've played it |
 | **Pass** | One time round the loop. Every pass you play is kept, and you choose which to catch |
 | **Layer** | A second catch on top of a track's existing audio, summed with it |
 | **Range** | Bars across one or more tracks, drawn on the lanes: what Cut, Copy, Paste, Insert and Delete time act on |
-| **Clipboard** | Holds what you last *copied* or *cut*, until you *paste* it. On the screen it is the **buffer** (§8.12) |
-| **Cut** | Take a range out of the tape into the clipboard, leaving silence (the OP-1's *lift*) |
-| **Paste** | Put the clipboard on a range's start, or at the playhead (the OP-1's *drop*). At the playhead, it jumps to the end of what you pasted |
+| **Buffer** | The one slot that GRAB, and a range's Cut and Copy, fill, and DROP empties (§8.12). Older parts of this guide call it the *clipboard* |
+| **Cut** | Take a range out of the tape into the buffer, leaving silence (the OP-1's *lift*) |
+| **Paste, DROP** | Put the buffer on a range's start or at the playhead (the OP-1's *drop*); DROP puts it on the armed track at the next bar line |
 | **Bus A, bus B** | The tape's two outputs into the Sidekick: bus A into channel 1, bus B into channel 2. Each has the Sidekick's EQ, FX and fader |
-| **Mixdown** | Play the tape once and save what came out of the mixer as a take |
+| **BOUNCE** | Play the tape once and keep what came out of the mixer as a take (older parts of this guide: *mixdown*) |
 | **Lead, follow** | Whether the tape sets the tempo for the Bento (lead) or follows it (follow) |
 
-On the screen most of these words are the rooms' now:
-[§8.14](#814-words-in-the-two-rooms) is the table for them.
+Every word the two rooms use, and what each was called before, is in
+[§8.14](#814-words-in-the-two-rooms).
 
 ## 3. The main page
 
-*Today.* With the tape off, `/` is the **Studio**, and this is it. With the
-tape on, the Studio is the tape page (§8.2), with this page's feed and its
-keys above the lanes (KEEP is Capture there), and `/` goes there.
+*Today.* `/` is the **Studio**: the tape (§8.2) with the **feed** above its
+lanes. The header's other room is the **Listening Room** (§3.1), where the
+takes are. The feed, top to bottom:
 
-**What's on it, top to bottom:**
-
-- **The buffer ribbon.** The last 15 minutes on tape, passing the red record
-  head at *REC*, with the recent end stretched so you can see it. The length
-  Capture would catch is lit orange; the pills along the top mark each
-  length, and the strip underneath says how long ago.
-- **The meters,** backlit VU needles for the channels being saved, with the
-  level in dBFS under each, and the buffer, disk, dropped and tempo
-  readouts in amber. On a phone held sideways the needles fold to two bars.
-- **Capture.** Choose 30 s, 2 m, 7 m or Full -- the key says how much it
-  will catch -- and tap *Capture* to save that much of the past as a take.
-  It glows a moment when it has, and its toast has **Name it** and
+- **The readouts:** disk free, dropped buffers, and the MIDI clock's tempo,
+  with **● Phone** beside them to record from this phone (§7).
+- **The keys.** Choose a length -- 30s, 2m, 7m or Full, as many as the
+  memory holds -- and tap **KEEP** to save that much of the past as a take:
+  the key says how much it will keep. Its toast has **Name it** and
   **Undo**: Undo takes the save straight back to the trash (§5), and the
-  toast that says so has **Restore**. A span saved from the ribbon (§6)
-  says so with an Undo too.
-- **Flag now.** It marks this moment in the ring;
-  the flag rides along into any take that includes it.
-- **On the shelf.** The newest takes as cassettes, a new one sliding in with
-  a *NEW* sticker. Tap one to hear it, tap again to stop. **All takes** goes
-  to the takes page (§3.1), where the rest live and where a take is renamed,
-  starred and opened.
-- **The bar,** along the foot of the page on a tablet or a computer, is the
-  same now-playing bar as on the tape page (§8.2), holding the tape: its
-  reels and amber window, **|◂ ↺ 5 s ▶ ⟲**, and the whole tape as a strip to tap
-  or drag. **Open (the tape) ›** goes to it. A cassette tapped on the shelf
-  plays in the bar instead; when it ends, or with **⏏**, the bar has the tape
-  again. Without the tape it shows only while a take plays. On a phone it's
-  the mini player above the tabs: tap its window for the whole bar (§8.2).
-
-**Checks — today:**
-
-- [demo] Tap *Capture* with 30 s chosen → a cassette slides onto the shelf
-  with *NEW* within a few seconds, about 30 s long, and plays when tapped.
-- [demo] Capture, then tap the toast's *Undo* → the take leaves the shelf,
-  and shows under the takes page's *Recently deleted*. Capture again and tap
-  *Undo*, then *Restore* → it's back, starred.
-- [demo] Tap *Flag now*, wait, then capture → the take has a flag at that
-  moment.
-- [demo] Star an older take → it is pruned last, and the takes page's
-  *Starred* filter shows it.
-
-**Checks — step 1** (data safety; looks the same):
-
-- [demo] Add or edit a flag on an old take, then reload → the take is still
-  where it was in the list, not at the top.
-- [demo] Open the same take on two devices and add a different flag on each →
-  after a reload, both flags are there.
-- [demo] Set `MAX_SAVES=3`, edit a flag on the oldest take, then capture
-  twice → the oldest take is pruned all the same. It goes to the trash once
-  step 4 lands.
-- [demo] Capture while watching the list → a take never appears half-written:
-  no missing duration, no broken waveform.
-- [demo] With the main page open on two devices for a minute → the Pi's CPU
-  stays low. An unchanged list costs a directory listing, not a scan (watch
-  `top`, or the request timings in the browser's network tab).
-
-**Checks — step 3:**
-
-- [demo] A take with a selection shows it in the list as a bracket on its
-  waveform, and its length as "0:30 of 0:59".
-- [demo] The list and the take page draw the same take at the same height.
-- [rig] Switch the interface off → the dot turns amber and says *waiting for
-  the interface*, with no error toast. Switch it on → it records again.
-- [demo] The header's **Releases** shows the running version, and **Guide**
-  opens this guide. On a phone the header has room for Settings alone: the
-  version, Releases and the guide are at the top of the Settings sheet.
+  toast that says so has **Restore**. **Note** marks this moment; the note
+  rides along into any take that includes it.
+- **The feed ribbon.** The last 15 minutes, passing the red record head at
+  *REC*, with the recent end stretched so you can see it. The length KEEP
+  would save is lit orange, and the strip underneath says how long ago.
+  Hold and drag across it to keep or grab just that stretch (§6).
+- **The meters,** backlit VU needles for the channels being saved, with the
+  level in dBFS under each. On a phone held sideways the needles fold to
+  two bars.
+- **GRAB** lifts the last 1, 2, 4 or 8 bars into the Studio's buffer, to drop
+  on a track (§8.12).
+- **The bar,** along the foot of the page, is the one now-playing bar in
+  both rooms: its reels and amber window, **|◂ ↺ 5 s ▶ ⟲**, and what it
+  holds as a strip to tap or drag. **Feed · Tape · Shelf** says what that
+  is. A take tapped in the Listening Room plays in it and keeps playing
+  when you change rooms. On a phone it's the mini player above the tabs:
+  tap its window for the whole bar (§8.2).
 
 ### 3.1 The takes page
 
-*Today.* Every take, in the **Listening Room** (its tab, or **All takes** on
-the main page). The room shows them on shelves; **Search** opens the tools
+*Today.* Every take, in the **Listening Room** (its tab in the header). The room shows them on shelves; **Search** opens the tools
 over them, and a shelf's **☰ List** (or a month's) shows its takes as a rack,
 with **Select** and **▶ Play all**.
 
@@ -175,8 +125,10 @@ with **Select** and **▶ Play all**.
     what plays.
   - **The bar, with a take in it,** shows **▶**, the take as a strip (tap it
     to jump there, drag it to scrub), the take's **name**, and **✎**. Tap
-    the name to open the take on its page. **✎** opens it too, at the spot
-    you were hearing, with a note already started there (§4.1). **⟲** is **Repeat** for a take: its selection, or
+    the name to open the take on its page. **✎** opens the take's
+    **Sketchbook** right here, at the spot you were hearing, and the take
+    plays on: write a note, *Add note*. Star, tag and name it there too;
+    **Open waveform ›** goes to its page (§4.1). **⟲** is **Repeat** for a take: its selection, or
     the whole take without one; for the tape in the bar it stays **Loop**. On
     a phone the mini player holds the strip, the name and **✎**, and there is
     no player to pull up for a take: **|◂**, **↺ 5 s** and Repeat are on a
@@ -232,40 +184,6 @@ with **Select** and **▶ Play all**.
   the takes in the order this page shows them, a spine's folded takes right
   after it, and its ‹ comes back here.
 
-**Checks — today:**
-
-- [demo] Capture from the main page, then open the Listening Room → the take
-  is first on the *Takes* shelf.
-- [demo] Search, then turn on *Starred* with nothing starred → "No takes
-  match", not "No takes yet".
-- [demo] Record from a phone, then turn on *Phone* → only that take shows.
-- [demo] Open a take from a filtered list and press ▸ → the next take is the
-  next one the list showed.
-- [demo] Delete the only take a filter shows, on its page → back here, with
-  an Undo.
-- [demo] Choose **By tag** → one group per tag, in the order of the tag list.
-- [demo] Open the page on a second device → the same tags, and the same
-  colors on the same takes.
-- [demo] Delete a tag that has takes → they show as untagged, nothing else
-  changes, and a filter that was on that tag turns itself off.
-- [demo] Tap a spine → it plays in the bar and nothing opens; tap it again →
-  it pauses.
-- [demo] Tap another spine → the bar holds that take, and the deck says *In
-  the bar: …*.
-- [demo] With a take playing, the bar shows its strip, its name and **✎**,
-  and **⟲** says **Repeat**. Tap the strip half way → it jumps there; drag it
-  → it scrubs. Tap the name → the take opens on its page.
-  Go back, pause part way and press **✎** → the take opens where you were,
-  with a note started at that spot and the cursor in its words.
-- [demo] On a phone, play a take → the mini player shows ▶, the name, **✎**
-  and the strip, and there is no window to pull up.
-- [demo] On a take's page, **Edit tags** → add "Ideas" with a color, Save.
-  Back here, hold a spine on a phone → it is ticked and the select bar rises;
-  tap another → both are ticked and neither plays. **Tag** → *Ideas* → both
-  spines wear its color. **Done** → the ticks go.
-- [demo] Open **☰ List** → a tape that has been bounced twice is one row
-  with *MIX ×2* and its earlier bounce under it; tap that line → it plays.
-
 ### 3.2 Updating Hindsight
 
 Every change merged on GitHub becomes a release, and **Releases**, top right
@@ -304,21 +222,6 @@ sheet.
 The button only appears where the updater is installed: `install.sh` and
 `deploy.sh` both install it. The Pi needs to reach GitHub; without it, the
 sheet says so.
-
-**Checks — updating:**
-
-- [rig] With a newer release out, the header's Releases says *Update to v…*.
-  Press it →
-  the sheet lists what it brings in; install → downloading, installing,
-  *Restarting…*, and the page comes back on the new version.
-- [rig] Releases → pick the one before → *This takes out* lists the newer
-  release's notes, and **Go back to v…** installs it.
-- [rig] Start a phone recording, then install → *Not now: a phone is
-  recording*, and nothing installs.
-- [rig] `make deploy` → the header's Releases shows the release it's built on
-  plus its commits, not `dev`.
-- [demo] On a phone, open Settings → its first line reads *Hindsight dev ·
-  Releases · the guide*; Releases closes it and opens the Releases sheet.
 
 ### 3.3 Settings
 
@@ -362,19 +265,9 @@ Settings live on the Pi in `~/hindsight/settings.json`, which wins over
 `hindsight.env`. If that file is ever unusable, Hindsight starts without it
 and the sheet says why.
 
-**Checks — settings:**
-
-- [demo] Settings → Mix → Mono → Save → Restart → the page comes back, and
-  Settings shows Mix *set here*, with no restart owed.
-- [demo] Reset Mix → *default*; Restart.
-- [demo] Channels 2, Inputs in TAKES 3,4 → Save is refused, naming
-  SAVE_CHANNELS.
-- [rig] Scarlett Solo on Automatic → *Recording from Scarlett Solo 4th Gen,
-  2 channels*; Mono, restart, sing and play → the take is centred.
-
 ## 4. The take page
 
-*Step 3.* Open any take from the list. The first time you do, three hints
+*Today.* Open any take from the list. The first time you do, three hints
 point at the gestures that matter; **Got it** puts them away for good.
 This page is **Open**, with a few things added and a few taken away: §4.1
 says which.
@@ -399,7 +292,7 @@ says which.
   BPM, bar **1** is the downbeat; drag it to line the grid up.
 - **The take, on tape:** its sound as a glowing trace on brown oxide (a
   stereo take left above right; anything else as one lane), lit where it has
-  played, on the same scale as its cassette on the takes page. It's the
+  played, on the same scale as its cassette in the Listening Room. It's the
   sound's envelope: at the closest zoom it doesn't show each wave crossing.
 - **The grips,** under the waveform at the selection's ends, with the move
   handle between them.
@@ -407,7 +300,7 @@ says which.
   nudges, its length and *Clear*; with a BPM, the *Downbeat* row (below); then *Save as take* · *GRAB* (when
   the Pi runs the tape) · *Share* · *More*; then ◂⚑ ⚑▸, **⚑ N** (the
   flags as a list), *Snap* and *Practice speed*.
-- **The bar,** along the foot of the page, as on the tape page: the take's
+- **The bar,** along the foot of the page, as in the Studio: the take's
   reels either side of an amber window, which says where it is (bar.beat
   with a BPM, with the time beside it; otherwise the time, and the take's
   length) with ▶ or ❚❚ and a level bar for each side; then **|◂** (back to
@@ -486,8 +379,8 @@ and the editor bar takes the place of the toolbar.
 
 - **▶** plays from the playhead.
 - **↺ 5 s**, or **J**, goes back five seconds, playing or not: to hear a
-  bit again without finding it. The bar on Capture and Takes has it too,
-  and J on the tape page goes back five seconds of tape.
+  bit again without finding it. The bar in both rooms has it too,
+  and J in the Studio goes back five seconds of tape.
 - **⟲ Loop** makes ▶ repeat the selection instead. It's off each time you
   open a take.
 - **Practice speed** (½× 1× 2×) slows or speeds the take without changing its
@@ -513,7 +406,7 @@ and the editor bar takes the place of the toolbar.
   back, its first going on, its start without any), so they walk every flag
   of a run of takes. The take opens stopped; ▶ plays on.
 - **⚑ N**, beside them, says how many flags the take has and opens them as
-  a list, in time order, with their names and times, as the takes page's
+  a list, in time order, with their names and times, as the Listening Room's
   pane shows them. Tap one to play from it.
 - **⚠ Dropouts.** Where the capture lost audio while the take was recorded
   (the interface overran because the Pi fell behind, the ring's writer
@@ -522,7 +415,7 @@ and the editor bar takes the place of the toolbar.
   be moved, named or deleted, and they don't count against the 512 a take
   can carry. ⚑ N's list has them, in time, and a tap plays from a second
   before one, to hear what was lost. A cut of the take keeps the ones
-  inside it. On the takes page the cassette wears a *⚠ 2 dropouts*
+  inside it. In the Listening Room the cassette wears a *⚠ 2 dropouts*
   sticker, and the pane's line says so too.
 
 **Doing things with the selection:**
@@ -530,7 +423,7 @@ and the editor bar takes the place of the toolbar.
 - **Save as take** makes a new take of just the selection. It asks for a
   name first, offering the one it would get anyway ("Tuesday jam ·
   0:42–1:10") already selected, so typing replaces it; Enter or **Save**
-  saves it, Escape or **Cancel** doesn't. On the takes page it folds in
+  saves it, Escape or **Cancel** doesn't. In the Listening Room it folds in
   with this take (§3.1).
 - **Share** sends it from your phone as an MP3 (the whole take, with no
   selection), levelled when **Level** is on.
@@ -538,97 +431,7 @@ and the editor bar takes the place of the toolbar.
   drop on a track (§4.1, §8.12).
 - **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
   delete.
-- **Undo** in the header steps back through anything you changed (step 4).
-
-**Checks — step 1:**
-
-- [demo] Open a take → the page asks the Pi for that one take
-  (`GET /api/take?file=`), not the whole list.
-- [demo] Open a 15-minute take, zoom out fully, then zoom in two steps → each
-  zoom draws in well under a second, and the Pi doesn't read the whole file
-  from disk.
-- [demo] Save a selection of a take whose MIDI lanes you've switched to drums,
-  and whose downbeat you've moved → the new take keeps both. Its name reads
-  "*source name* · 0:42–1:10", not "… cut cut".
-- [demo] With `SAVE_ALL_CHANNELS=true` and `SAVE_CHANNELS=3,4`, loop a
-  selection, then share it → the loop and the MP3 are the same pair.
-- [demo] Start two shares at once → the second waits for the first, and
-  both finish.
-
-**Checks — step 3:**
-
-- [demo] Make a selection that fills the screen, then drag with one finger →
-  the view pans and the selection stays where it was.
-- [demo] Put a flag inside the selection, then tap its pin → the flag opens.
-  Drag the pin → the flag moves.
-- [demo] Set a selection with Loop off and press ▶ before In → playback runs
-  through the selection and on. Turn Loop on → it repeats In to Out.
-- [demo] Tap **In**, move the playhead, tap **Out** → you get the same
-  selection as by holding and dragging.
-- [demo] Select part of a take and turn on **Level** → it says *Level +N dB*,
-  and ▶ plays it louder; **Share** (or Download) → its key says the gain, the
-  MP3 peaks at about −1.5 dBFS, and the toast says *Levelled +N dB*. Move or
-  clear the selection, or ↶ it → the number follows. Turn Level off → as
-  recorded.
-- [demo] Drop two flags and name one, then tap **⚑ 2** → both, in time
-  order, with the name and the times; tap the second → the sheet closes
-  and the take plays from it.
-- [demo] Play a take for ten seconds and press **J** (or **↺ 5 s**) → it
-  goes back five seconds and plays on. On the takes page's bar, the same.
-- [demo] With the demo running, `kill -USR1 <its pid>` (the demo reports an
-  overflow, as an interface does), wait a few seconds and capture 30 s → the
-  take says *⚠ 1 dropout*, with a ⚠ in the ruler where the signal was
-  sent; on the takes page its cassette wears the sticker. Cut a part with
-  the ⚠ in it → the cut has it too; cut a part without → it doesn't.
-- [rig] While the Pi records, `kill -STOP $(pgrep -x hindsight); sleep 1;
-  kill -CONT $(pgrep -x hindsight)` (it runs as your user, so no `sudo`),
-  then capture → *⚠ 1 dropout* where it stopped: the interface overran while
-  the Pi wasn't reading it. Stopped for more than 2 s, the capture restarts
-  the stream, and that's a dropout too.
-- [demo] On a take with a BPM, choose *Snap: beat* and drag a grip → it jumps
-  beat by beat. A nudge moves one beat; with Snap off, a nudge moves 10 ms.
-- [demo] On a take with a BPM, tap **Set to playhead** in the *Downbeat* row
-  → the downbeat and the grid jump to the playhead. **◂ ▸** nudge it; ↶ undoes the
-  run in one step.
-- [demo] Set the BPM from the take page's header → the ruler shows bars
-  immediately, without going back to the list.
-- [demo] Go back to the list → it's scrolled where you left it.
-- [demo] Tap **?**, then tap any button → a tip explains it, and the button
-  doesn't act. Tap **?** again to leave help mode.
-- [demo] On a computer, hover any button → its tip shows.
-- [demo] Open a take for the first time on a device → three hints; *Got it*
-  → they don't come back.
-- [demo] Tap a lane's name → a menu to collapse it, show it as drums or
-  notes, or hide it.
-- [demo] ◂ ▸ in the header → the previous or next take in the list's order.
-  Then **‹** → the list, scrolled where you left it.
-- [demo] Open a take with a BPM and drag the yellow "1" at the very start →
-  the downbeat moves (the playhead, also at the start, stays put).
-- [demo] Press ▶, then press and release the playhead's handle without
-  moving → the take keeps playing.
-- [demo] *Snap: beat*, play, and tap **In** then **Out** → both land on
-  beats.
-- [demo] In help mode, press Space → nothing plays; Escape leaves help mode.
-- [demo] On a phone → the take's name gets its own row under the header
-  buttons; in the list a long name keeps its row and the tempo and length
-  move under it.
-
-**Checks — the boundary editor:**
-
-- [demo] Tap In's time → the view centres on In and the editor bar shows. Zoom
-  out with ZOOM, POSITION the line near a kick, zoom in, then **Attack** → In
-  sits on the kick's start, and the readout says *on* a beat, such as *on 2.1*
-  (the demo is on its grid). **Zero** → In moves by under 5 ms. **Done** → the
-  toolbar returns.
-- [demo] With an 8-bar selection, **Seam** → the end and start meet at the
-  centre and the loop is on. Tap the Out half and step it → only Out moves.
-- [demo] At 390 × 844, nothing in the editor bar is cut off, and the waveform
-  keeps at least half the screen.
-- [demo] Turn POSITION in one drag, then **↶** → the point is back where it
-  started, in one step.
-- [rig] On a stylophone take with a part played over it, set a loop's In on
-  the first beat's hit and its Out on the last bar line, check the seam, send
-  it to tape → no stutter.
+- **Undo** in the header steps back through anything you changed (§5).
 
 ### 4.1 Open
 
@@ -672,27 +475,9 @@ selection, **IN** and **OUT**), not the Listening Room's. What is different:
 - **A tape does not open here.** A link to a tape's page goes to the Studio,
   where tapes live.
 
-**Checks — Open:**
-
-- [demo] In the Listening Room tap a take, then its name in the bar → Open
-  starts near where it was, and it is still playing.
-- [demo] With a take playing press **✎** in the bar → Open has a new note at
-  that spot with the cursor in its words; type *hook*, Enter → the line reads
-  *hook*, and after a reload it still does.
-- [demo] Press **GRAB** → the Studio opens with the buffer holding the span
-  the key named.
-- [demo] Press a note's **GRAB** → the Studio opens with that stretch of the
-  take in the buffer. With no note after it the buffer is eight bars, or 16
-  seconds.
-- [demo] Press **+ tag**, choose a tag → its name sits beside ★; open it and
-  press the lit tag → the key reads *+ tag* again.
-- [demo] Bounce a tape twice, then Open the newer take → *Earlier bounces*
-  lists the other; tap it → that take opens.
-- [demo] Open `/wave.html?tape=…` → the Studio.
-
 ## 5. Undo and the trash
 
-*Step 4.*
+*Today.*
 
 **Undo.** Every change you make to a take is remembered, the last 50 of them:
 its flags (added, moved, renamed, deleted), the selection, the name, the
@@ -727,35 +512,9 @@ so it never stops a capture.
 one zip of their WAVs with their names, flags and MIDI, and **Delete** moves
 them to the trash, with Undo. **Done** or Escape stops selecting.
 
-**Checks — step 4:**
-
-- [demo] Delete a flag → the toast offers Undo; tap it → the flag is back.
-- [demo] Change a take's name, then its BPM, then tap ↶ twice → both are
-  back as they were. ↶'s tip says "Undo the tempo change" before the first
-  tap.
-- [demo] Clear the selection → the toast offers Undo; tap it → the selection
-  is back.
-- [demo] Open a take from the list and tap 🗑 → the next take in the list
-  opens, saying "Deleted … · Undo"; ◂ goes to the one before the deleted
-  take, not to it. Tap Undo → the deleted take is open again, starred, with
-  its flags, and ◂ ▸ step through the list as before.
-- [demo] Tap 🗑 on the last take in the list → the one before it opens. On
-  the only take left → you're back at the list with "Deleted … · Undo".
-- [demo] Delete a take from the list → it shows under *Recently deleted*.
-  Restore it → it's back, starred.
-- [demo] Fill the disk to just above `MIN_FREE_GB` with the trash full, then
-  capture → the capture succeeds and the oldest trash goes.
-- [demo] Select three takes and export → one zip with their WAVs, sidecars and
-  MIDI.
-- [demo] Select two takes and Delete → both go; the toast's Undo brings both
-  back.
-- [demo] Rename a take on one device, rename it again on another, then tap
-  ↶ on the first → "Not undone: the name has changed since", and the other
-  device's name stays.
-
 ## 6. The ribbon
 
-*Step 5.*
+*Today.*
 
 **Hold, then drag, across the ribbon** to select any stretch of the last 15
 minutes, not just the last N, then tap **Save as take** in the bar that
@@ -778,35 +537,18 @@ it to keep it.
 **Tap a flag on the ribbon** for its sheet: **Save from here to now** makes
 a take that starts at the flag; **Delete flag** removes it.
 
-**Copy** *(step 6d, with the tape on)* puts the selected span of MAIN on the
+**Copy** puts the selected span of MAIN on the
 clipboard, to drop onto a tape.
-
-**Checks — step 5:**
-
-- [demo] Wait ten minutes, then select a span about eight minutes back on the
-  ribbon and save → the take holds roughly that span, not the last N minutes,
-  and sits in the list by when it was played.
-- [demo] Hold on the ribbon without dragging → the bar reads "… ago to now".
-- [demo] A quick tap, or a vertical swipe over the ribbon → nothing selected;
-  the page scrolls.
-- [demo] Tap a flag on the ribbon → its sheet opens. *Save from here to now*
-  makes a take starting at the flag, carrying the flag at its first moment.
-- [demo] Select a span near the old end and wait until its start passes the
-  oldest audio → the bar turns amber and says so; saving still works, from
-  the oldest audio.
-- [demo] With the tape on, select a span and tap **Copy** → *Copied …: Paste
-  it on a tape*; the tape page's clipboard shows it. *(Step 6d.)*
 
 ## 7. Recording from your phone
 
-*Step 2.* Full design:
-[phone recording](superpowers/specs/2026-10-03-phone-recording-design.md).
+*Today.*
 
 **Recording:**
 
 1. Open Hindsight on its HTTPS address — the `tailscale serve` one. The mic
    only works over HTTPS; on the plain address, *Phone* tells you so.
-2. Tap **Phone**, in the row under Capture.
+2. Tap **● Phone**, at the top of the Studio's feed.
 3. Choose the mic, or an input plugged into the phone (the Orchid through a
    USB-C adapter, say). The meter moves before you record, so you can check
    the level first. A cable beats the mic for anything you mean to keep.
@@ -835,39 +577,12 @@ into a second partial take.
 **Limits.** Recording stops by itself at three hours, or if the Pi's free
 space falls under `MIN_FREE_GB`; what was recorded is kept.
 
-**Checks — step 2:**
-
-- [rig] Record 20 seconds on the phone → a take labelled *Phone* appears
-  after Stop and plays back cleanly.
-- [rig] Turn Wi-Fi off for five seconds mid-recording, then on → the take is
-  complete, with no gap.
-- [rig] Open the plain `http://` address → the Phone button explains that it
-  needs the HTTPS address.
-- [demo] Watch the list while recording → nothing appears until Stop.
-- [demo] Record from a desktop browser at `http://localhost:5000` (a secure
-  page) → the take is 48 kHz stereo, labelled *Phone*, with a waveform.
-- [rig] Record, then close the tab without Stop → about ten minutes later a
-  take labelled *Phone (partial)* appears.
-
 ## 8. Tape
 
-*Steps 6–9.* Full design: [tape](superpowers/specs/2026-10-03-tape-design.md).
-Step 6 comes in parts:
-
-- **6a** is the tape itself: tapes, tracks, clips, the mix, the transport,
-  catching passes and bars, sending a take to tape, and undo. It plays in the
-  demo.
-- **6b** plays the tape through the Sidekick on the Pi, and lines its
-  playback up with the recording by listening to itself.
-- **6c** adds punch-in, arming, the count-in and click, and free loops.
-- **6d** adds the clipboard (*Copy* on takes and the ribbon), *replace*,
-  pan, tiling, and selecting bars on a ruler.
-
-Step 7 comes in two: **7a** is editing (lift, copy, split, join, slide,
-multiply and merge drop), and **7b** is mixdown and export.
-
-The tape is always on ([configuration](configuration.md#the-tape)).
-Every page's header then has a **Tape** tab beside Capture and Takes.
+*Today.* The tape is always on ([configuration](configuration.md#the-tape)),
+and it lives in the **Studio**, the first of the header's two rooms. It plays
+in the demo; on the Pi it plays through the Sidekick, lined up with the
+recording by listening to itself.
 
 ### 8.1 Plug in
 
@@ -879,11 +594,11 @@ Every page's header then has a **Tape** tab beside Capture and Takes.
 
 The Bento's USB goes to the Pi's hub too, for MIDI only.
 
-*Step 6b.* The tape plays out of the Sidekick's USB playback: bus A on 1/2
+The tape plays out of the Sidekick's USB playback: bus A on 1/2
 into channel 1, bus B on 3/4 into channel 2. If the Sidekick isn't there,
 ▶ reads *no output* until it is.
 
-### 8.2 The tape page
+### 8.2 The tape in the Studio
 
 From the top:
 
@@ -897,8 +612,7 @@ From the top:
 - **The output button,** beside **?** in the header's top row, chooses where
   the tape plays (8.10). Its picture says where it is now: a speaker for the
   jam room, headphones for a phone, both for both. From 1000 px it says the
-  place too: *Jam room*, *Phone* or *Both*. It's in the same place on Takes
-  and Capture.
+  place too: *Jam room*, *Phone* or *Both*. It's in the same place in both rooms.
 - **The dot** says how well the tape's playback and the recording are lined
   up:
   - **Green:** to the sample. On the Pi, Hindsight listens for the tape in
@@ -1022,7 +736,7 @@ From the top:
   play here*) sits on top. The output button is in the top bar.
 - **Tap the mini player's window** to pull up **the player** over the page:
   the whole bar, large (**|◂ ▶ ⟲ Loop ● Rec**, the click, **Catch** and the
-  overview). **Down**, Back or **Esc** puts it away. The main page has the
+  overview). **Down**, Back or **Esc** puts it away. The Studio's feed has the
   same mini player and player; a take in the bar has no player to pull up:
   see *The bar, with a take in it* (§3.1).
 - **On a phone,** with the player down, the action bar floats above the
@@ -1051,7 +765,7 @@ From the top:
 - **After a sleep.** Lock a tablet and wake it, and the page asks the Pi
   again at once: no refresh. If the Pi doesn't answer, a small
   **Reconnecting…** note shows at the top (not for a blink) and goes when it
-  does. The Studio, the main page, the Listening Room and Open all do this.
+  does. Both rooms and Open do this.
 
 ### 8.3 Your first loop
 
@@ -1086,35 +800,9 @@ is newer.
 
 The tempo is fixed once the tape has audio, because nothing is ever stretched.
 
-**Checks — steps 6a and 6c:**
-
-- [demo] On a take's page select 2 seconds and press **GRAB** → the Studio
-  opens with them in the buffer. Arm track 1 and press **DROP ON TRACK 1** →
-  track 1 holds them, and the toast says *Dropped on track 1* with **Undo**.
-- [demo] Make a new tape, set 90 BPM and 4 bars → it reads *90.0 BPM · 4
-  bars*, and the lanes show four empty bars. Press ▶ → a click on every
-  beat, higher on the bar. After the first catch, the click goes off and the
-  tempo can't be changed.
-- [demo] Make a new tape, give track 1 the input *aux*, tap on a kick, then tap about 2.5 s
-  later on another → a 2.50 s loop, *1 bar at 96 BPM*, playing on track 1.
-- [demo] Tap the tempo pill, choose 2 bars → it reads *192 BPM ·
-  2 bars*; the loop sounds the same.
-- [demo] On a phone, the name and tempo stack as one bordered capsule with a
-  ▾ on each half, and the header stays one row tall with undo, redo and ⋯
-  beside it. At 600 px or wider they are two separate pills. A tape with no
-  tempo yet shows its tempo pill dimmed, with no ▾.
-- [rig] Play a phrase on the Orchid into aux, tap on its first note, and on
-  the same note when it comes round → the loop plays out of channel 1 in
-  time with you, and the tempo reads sensibly.
-- [rig] Drop a grab on a track and press ▶ → the loop plays out of channel
-  1, and within a few seconds the dot turns green.
-- [rig] Turn the Sidekick off and on again while the tape plays → ▶ reads
-  *no output*, then the tape plays again; the dot is amber until it locks
-  again.
-
 ### 8.4 Building it up
 
-*Step 6a.*
+*Today.*
 
 **Catching.** While the loop plays, everything you play is in the ring
 anyway. Choose a source and select a track, then:
@@ -1201,71 +889,9 @@ shows it between the feed and the tracks (§8.12).
   to end, wherever its layer is free -- one bar through four.
 - **Tap a track's number again** for its inspector: its name, level and pan.
 
-**Checks — steps 6a and 6c:**
-
-- [demo] Send 2 s to an empty tape and press ▶. Tap track 2's **●**, then
-  its input and choose *aux*; wait four passes, then tap **−3** under
-  Passes → a 2.0 s clip lands on track 2 at bar 1, and the toast says
-  *Caught 2.0 s from aux onto track 2*.
-- [demo] Give track 3 the input *ch2*, tap its **●**, and point at Catch →
-  Catch says *last pass → track 3*, and track 3's lane outlines the loop;
-  catch → it's from ch2. On a second device the same tape shows track 3's
-  ● lit.
-- [demo] Catch from *ch1* → the toast warns that the tape was in that source
-  too.
-- [demo] With the tape playing, the meters on *main* and *ch1* move and
-  *ch2*'s stays empty (bus B is silent). Choose *ch2* and tap **1 bar** → the
-  toast is amber: *it's silent: nothing came in*. ● Rec has *ch2* under it.
-- [rig] Play the Bento into jack 2: the *ch2* meter moves, and *aux*'s stays
-  empty until the instrument on aux plays.
-- [demo] On a 4-bar loop, play for a pass, then tap **1 bar** → a one-bar
-  clip lands on the bar that just finished.
-- [demo] Tap a clip, then **Remove** in the action bar (or Delete), then
-  **Undo** in the toast → the clip is back. ↶ and ↷ step through the same history.
-- [demo] Open the tape page on two devices and mute a track on one → the
-  other shows it within a second.
-- [demo] Under ⋯ choose **Rename this tape…**, type a new name and tap Save →
-  the title and the tape list show it, and a second device shows it within a
-  second. An empty name can't be saved, and ↶ doesn't undo a rename.
-- [demo] Clone a tape and open the clone, delete the original, then play the
-  clone → it plays fully.
-- [demo] Restart Hindsight → the tape that was loaded is loaded again, with
-  its undo.
-- [demo] With a 1-bar loop playing, tap track 2's ●, tap ● Rec, wait three passes,
-  tap ● → *Kept 1 bar from aux on track 2*: the last full pass.
-- [demo] Stop. Tap track 3's ●, then ● Rec (*● Ready 3*, with *aux* under it), press ▶ → the position
-  reads *count-in 1 of 4…4 of 4* over a bar of click, then the tape plays;
-  after two passes press ■ → *Kept 1 bar*: the last full pass, on track 3.
-- [demo] Tap ● Rec, press ▶, and press ■ during the count-in → nothing is kept,
-  and nothing complains.
-- [rig] Arm track 3 with the guitar in aux, tap ● Rec, press ▶, play over the count-in
-  and two passes, press ■ → the guitar is on track 3, in time.
-- [demo] On a take's page select about 2 seconds and press **GRAB**; then, on
-  an empty tape with the tape stopped, press **⌘V** three times → the first is
-  the loop, and the next two lie end to end after it. Undo takes them back
-  one at a time.
-- [demo] Choose **Replace**, catch a pass onto a track that has audio →
-  the old audio under it is gone, not layered.
-- [demo] Hold on the ruler, drag across two bars → the action bar says
-  *All tracks · bars 1–2*, and the tape loops those. Lock the padlock and
-  drag across bar 4 → the range moves, the loop stays.
-- [demo] Tap a 1-bar clip at the start of a 4-bar loop, *Repeat to the
-  loop's end* → three copies after it, four clips in all.
-- [demo] Tap the selected track's number, set its pan to the left → it sits
-  left.
-- [rig] Turn channel 1's FX knob → the tape's sound changes, and the live
-  instrument on aux doesn't.
-- [rig] Play the Orchid into aux over the loop for two passes, catch −1
-  onto track 2, and play → the part plays back in time with the loop, to
-  the sample.
-- [demo] Start the demo with `TAPE_DEMO_ALIGN=true`, send drums to tape and
-  play → the dot goes from amber to green within about five seconds.
-- [rig] Play a loop that's only a sustained pad → the dot stays amber; it
-  never guesses at a lock it can't be sure of.
-
 ### 8.5 Editing like an OP-1
 
-*Step 7a, and step 5 of the interaction model.* What you edit is drawn on
+*Today.* What you edit is drawn on
 the lanes: clips you've selected, or a **range** -- bars across one or more
 tracks. **Hold an empty part of a lane, then drag** across bars and lanes;
 **hold on the ruler and drag** for every track; **tap a section** for its
@@ -1402,126 +1028,6 @@ click.
 **Clone** in the tape browser makes a safety copy of a whole tape before you
 try something. It costs no disk space.
 
-**Checks — step 7a:**
-
-- [demo] Hold on the ruler and drag across 4 bars, **Cut**, tap bar 1 on the
-  ruler, then press **⌘V** three times → twelve bars of the same four, with
-  no clicks where the copies meet.
-- [demo] Hold an empty part of track 4 and drag up across track 3 and two
-  bars → the range is shaded on both lanes, and the action bar says *Tracks
-  3–4 · bars …*; the loop moved to it. Drag its right edge's tab a bar in →
-  one bar; **Copy**, Esc, draw a range on track 1 and **Paste** → the pair
-  of tracks again, from track 1.
-- [demo] Tap a clip that fills its lane, **Bars** → a range over its bars;
-  drag the left tab two bars in, **Cut** → the clip's end is gone, its start
-  stays.
-- [demo] Put the playhead inside a clip, **Split**, hold the second half and
-  slide it a bar later, then ↶ twice → the clip is whole again.
-- [demo] Tap a clip → it's selected, with its grips, and the action bar names
-  it; nothing pops up. Double-click it (or press Enter) → its sheet opens.
-  Drag quickly across a clip → the lanes pan and the clip stays where it
-  was.
-- [demo] Select a clip and press → → it moves a bar later (with **⌗** on
-  Bar); ↶ → back. Press **S** with the playhead inside it → it splits.
-  ⌘A → every clip is selected; Escape → none.
-- [demo] Hold a clip until a dashed outline shows where it would land, drag
-  it a bar later and let go → it's a bar later; ↶ → it's back. Hold one and
-  let go without moving → nothing moves.
-- [demo] Paste 4 bars from the middle of a take, tap the clip, close its
-  sheet → a grip shows inside each edge. Drag the right grip a bar left →
-  the clip ends a bar sooner, and the toast says where; ↶ → it's back.
-- [demo] With **⌗** on *Beat*, drag the left grip two beats
-  left → the audio from before it shows faintly as you drag, and the clip
-  starts two beats sooner, what it already played still where it was.
-- [demo] Drag a grip far out → it stops 2 s past where the clip began or
-  ended, and the grip turns amber.
-- [demo] Split a clip, then drag the first half's right grip into the
-  second → it stops where the second starts.
-- [demo] Hold a clip on track 1 and drag it down onto track 2 → track 2's
-  lane is outlined; let go → the clip is on track 2 at the bar it was dragged
-  to, and track 2 is selected; ↶ → it's back on track 1.
-- [demo] Slide a clip sideways with your finger wandering a little up or
-  down → it stays on its track.
-- [demo] Mute track 3 and slide a clip onto it → it lands there, silent.
-- [demo] Pick a 1-bar clip and drag its ⟳ corner three bars right → three
-  ghost copies and ×4; let go → four bars of it end to end, with no clicks
-  where they meet; ↶ once → just the one.
-- [demo] Drag the ⟳ corner right, then all the way back, and let go →
-  nothing changes.
-- [demo] Pick a clip and drag the square at its top right corner about a
-  beat to the left → a shaded fade out follows, saying how long it is; let
-  go → the toast says *Fade out:* and that length, and it fades as it plays.
-  Drag it on to a bar line → it sticks there: *Fade out: 1 bar*. In its inspector
-  choose *Exponential* → the curve drops early and tails off, and so does
-  the sound. Drag the square back to the corner → no fade.
-- [demo] Pick a clip that fills the view, drag its ⟳ corner to the lane's
-  right end and hold it there → the view scrolls on and the copies and ×N
-  keep coming; let go → that many, end to end.
-- [demo] Repeat a clip that sits a layer above another (a catch over a
-  loop) → its copies are on its layer, with no dips where they meet.
-- [demo] Repeat a clip, then change one copy's level → the others keep
-  theirs.
-- [demo] Double-click a clip, **Fade in → 1 beat** → its first beat is shaded under
-  a curve, and it swells in from silence; **off** → back to a hard start.
-- [demo] Fade a clip out over a bar, then **Split** it in the middle → only
-  the second half fades; ↶ → one clip, fading over its last bar again.
-- [demo] Fade a clip in, then **Reverse** it → it fades out instead.
-- [demo] On a tape with no tempo, the beat and bar fades are greyed out.
-- [demo] Tap a clip, then Shift-click a clip on another track (on a phone,
-  **Select more**, then tap it) → the action bar says *2 clips*. Hold one and drag both a bar later and a track down →
-  they move together; ↶ → both back.
-- [demo] Drag a picked pair up past track 1 → they stop with the higher one
-  on track 1.
-- [demo] With two picked, **Copy**, then select track 3 and **Paste** → the
-  pair again from track 3, as far apart as they were.
-- [demo] On a computer, click a clip, Shift-click another, **⌘D** → a copy
-  of both right after them; **Delete** → the two picked are gone; ↶ → back.
-- [demo] Put the playhead in a clip and press **S** → it's split there.
-- [demo] Hold on the sections strip and drag across bars 1–4 → a section,
-  *Intro*, over them, and its sheet; call it **Verse**.
-- [demo] Tap the Verse → bars 1–4 on every track are the range, and the
-  loop; **Copy**, draw a range at bar 9, **Paste** → the verse again at bar 9.
-- [demo] Tap the Verse again → its sheet; make it red → the strip shows it
-  red. Drag its right edge a bar to the right → it's bars 1–5; ↶ → back to
-  1–4.
-- [demo] At 84 BPM (a bar isn't a whole number of frames), make a section
-  and drag both its edges → no error; it stays on the bar lines.
-- [demo] Tab to the sections strip, **→** to a section, **Enter** → its bars
-  are selected; **Enter** again → its sheet.
-- [demo] Drag a section's edge into the next → it stops where the next
-  begins.
-- [demo] Export stems → the `.mid` has a marker named for each section.
-- [demo] Copy 4 bars, put the playhead at bar 5 and point at **⇥ Insert** →
-  the lanes show everything from bar 5 on moved 4 bars later, the gap shaded
-  with the clipboard dashed in it, and the ruler says *+4 bars*. Click →
-  that's what happens, on every track; ↶ → as it was.
-- [demo] Hold the ruler across bars 9–12 and point at **⇤ Delete time** → bars 9–12 shaded
-  and what followed drawn moved up, *−4 bars*. Click → *Deleted bars 9–12*;
-  the sections after it moved up too.
-- [demo] Point at **⤓ Paste** → an outline where it will land; nothing else
-  moves.
-- [demo] On a phone, tap **Insert** → the preview and *Tap again*; tap
-  elsewhere → nothing happens. Tap Insert twice → it's done. Turn **Ask
-  before Insert and Delete time** off → one tap does it.
-- [demo] Make a section *Chorus* over bars 5–8, open its inspector, **Duplicate
-  section** → bars 9–12 are the chorus again, named *Chorus*, and what was
-  at bar 9 is at bar 13.
-- [demo] With a clip across bar 5, **Insert** at bar 5 → it's split there,
-  its second half moved on with everything else; no click at the split.
-- [demo] Zoom out until a clip is narrow → no grips; its inspector's **Start
-  here** and **End here** trim it to the playhead.
-- [demo] Split a clip, tap either half, **Join the split** → one clip.
-- [demo] Hold the ruler across a 2-bar loop, **×2** → a 4-bar loop whose
-  second half is a copy of the first.
-- [demo] Tap a clip, **Reverse** in the action bar → its waveform turns round
-  and it plays backwards; ↶ turns it back.
-- [demo] Double-click a clip, **Share as WAV** → the share sheet (or a download)
-  offers *<tape> track 1.wav*.
-- [demo] Clone a tape, delete the original, then play the clone → it plays
-  fully; no audio was lost.
-- [demo] Copy a selection on a take page, then Paste it on a tape → it's
-  there.
-
 **Lining clips up exactly:**
 
 Sliding gets a clip near. To put it right to the sample, zoom the tape in
@@ -1565,27 +1071,9 @@ Hit → Track change the place, and leave the nudge as it was. A move that
 would go past the start or end of the tape stops there. If that stops
 Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
 
-**Checks — lining clips up:**
-
-- [demo] Zoom the tape's lanes right in → every lane draws single samples,
-  not blocks.
-- [demo] Catch a pass onto track 2, tap the clip, **Align** → the view
-  centres on its first hit. **Hit → Grid** → the readout says *on* a beat.
-- [demo] Nudge a clip 7 ms late, **Align**, pick track 1, **Hit → Track** →
-  the readout says *0.0 ms from track 1*. **↶** once → the clip is
-  back where it was.
-- [demo] At sample zoom, with an overdub rushed 3 ms against a loop clip
-  on track 1 that starts on its kick: **Align**, pick track 1,
-  **Hit → Track** → the readout says *0.0 ms from track 1*.
-- [demo] Turn POSITION in one drag, then **↶** → the clip is back, in one
-  step.
-- [demo] On the take page, the editor bar behaves as before.
-- [rig] Overdub a part on the phone over a loop, then Align it to the loop's
-  track by ear and by **Hit → Track** → no flam.
-
 ### 8.6 Mixdown and export
 
-*Step 7b.* Both are under the tape's ⋯.
+*Today.* Both are under the tape's ⋯.
 
 - **Bounce the loop** plays the loop's bars once, or **Bounce the whole
   tape** plays from bar 1 to the end of the last clip. Then the tape stops,
@@ -1621,26 +1109,9 @@ Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
   - a `.mid` with the tempo, 4/4, the loop's In and Out, and each section
     (by its name, where it starts) as markers.
 
-**Checks — step 7b:**
-
-- [demo] ⋯ · **Bounce the loop** on a 1-bar tape → the readout counts
-  *bouncing … of …*. A few seconds later the toast reads *Bounced as a take*
-  with **▶** and **Open**; ▶ plays it, and **Open** shows a take of that bar
-  plus 2 seconds, labelled with the tape's name, at its tempo. Open the menu
-  again → **Last bounce** shows the same toast.
-- [demo] Start a bounce and press ■ → *The bounce didn't save*, and no take
-  appears.
-- [demo] Bounce the same tape three times → the Listening Room shows one
-  spine for it, wearing **MIX ×3**, and its List row has the two earlier
-  bounces under it.
-- [rig] Bounce with an FX on channel 1 → the take has the FX.
-- [demo] Export stems → a zip with a WAV for each track with audio, all the
-  same length, plus a `.mid` at the tape's tempo. In a DAW they line up at
-  bar 1.
-
 ### 8.7 The Bento follows the tape
 
-*Step 8a: the tape leads.* Plug the Bento's USB into the Pi's hub, set
+*Today: the tape leads.* Plug the Bento's USB into the Pi's hub, set
 `TAPE_CLOCK=lead`, and name the Bento in `TAPE_CLOCK_OUT`
 ([configuration](configuration.md#the-tapes-clock)). The tape then sends it
 MIDI clock at the tape's tempo, so its sequences line up with the tape:
@@ -1669,18 +1140,6 @@ that says what tempo it hears.
 
 **Follow mode,** where the tape follows the Bento's clock by changing its
 speed, comes later.
-
-**Checks — step 8:**
-
-- [demo] Start the demo with `TAPE_CLOCK=lead`, set a tape to 96 BPM and
-  press ▶ → under the transport, *clock → Demo follower ● · hears 96 BPM*.
-  Press ■ → the ● goes.
-- [rig] Press ▶ on the tape → the Bento starts in time; ■ stops it.
-- [rig] Loop four bars for two minutes → the Bento stays in time with the
-  tape, and lands on bar 1 each time the loop comes round.
-- [rig] Locate to bar 3 and press ▶ → the Bento starts at bar 3.
-- [rig] In follow mode, start the Bento → the tape plays in time with it for
-  five minutes without drifting. *(Later.)*
 
 ### 8.8 Overdubbing away from the rig
 
@@ -1717,20 +1176,9 @@ more). A part that still lands early or late can be nudged in its clip's inspect
 Headphones matter: over a speaker the mic records the tape too. Recording
 needs the HTTPS address, as the Phone button does; listening works anywhere.
 
-**Checks — overdubbing:**
-
-- [demo] With a 1-bar loop, tap track 2's ● and open **🎧 Overdub on this
-  device** → it says it plays *the loop (1 bar)*, onto track 2. **● Record**
-  for five seconds, then **■ Stop and keep** → *Kept 1 bar from this device on
-  track 2*, at bar 1, labelled *phone*.
-- [demo] Choose **The whole tape** → it says *the whole tape, once*.
-- [phone] Calibrate with the phone's speaker → a round trip somewhere around
-  50–150 ms. Then overdub with wired headphones, clapping on the beat → the
-  claps land on the beat (within a few milliseconds; nudge if not).
-
 ### 8.9 Tricks and tape speed
 
-*Step 9.* Hold a trick pad and it acts until you let go, starting on the next
+*Today.* Hold a trick pad and it acts until you let go, starting on the next
 16th note:
 
 - **Break** winds the tape down to a stop. When you let go, it comes back in
@@ -1742,13 +1190,6 @@ needs the HTTPS address, as the Phone button does; listening works anywhere.
 
 **Tape speed** slows or speeds the whole tape, pitch and all, like a real tape
 machine.
-
-**Checks — step 9:**
-
-- [demo] Hold Break for a bar → the tape winds down; on release, it resumes
-  where it would have been.
-- [demo] Set tape speed to 50% → the tape plays an octave lower and at half
-  tempo.
 
 ### 8.10 Taking the tape upstairs
 
@@ -1766,8 +1207,8 @@ in This phone mode its Listen and Record stop the tape here, so you don't
 hear it twice (in Both they leave the jam room playing).
 When you're back downstairs, tap **Play in the jam room** on the laptop or the
 bench, or choose **Jam room** under the output button: the tape plays on from
-the same spot. The button is on Takes and Capture too, so you can move the
-tape without opening it.
+the same spot. The button is in the Listening Room too, so you can move the
+tape without opening the Studio.
 
 **Both** plays the jam room as usual and sends the phone a copy, for when
 someone is listening elsewhere while you record.
@@ -1778,14 +1219,13 @@ still stopped. If the tape has gone back to the jam room meanwhile, the phone
 lets it go. If the sound stops when the screen locks, tap **Tap to play here**
 on the strip across the top of the bar.
 
-**Moving between pages** keeps the tape on the phone. Tape, Takes and
-Capture each join the stream again as they open, and the tape plays on in
+**Moving between pages** keeps the tape on the phone. Both rooms and the take page join the stream again as they open, and the tape plays on in
 the meantime. Most phones hold the sound back until you tap, so the bar
-says *tap ▶ to play here* (on the tape page, the strip says *Still on this
+says *tap ▶ to play here* (in the Studio, the strip says *Still on this
 phone*): tap **▶** or **Tap to play here** and it's heard again. That tap
 never stops the tape. A take's page doesn't play the tape: opening a take
 stops it after 6 s, where it was, and coming back finds it there. Playing a
-take in the bar in the Listening Room or on the main page stops it too, in This phone mode, so
+take in the bar in the Listening Room stops it too, in This phone mode, so
 the phone never plays both.
 
 ### 8.11 The crate
@@ -1860,7 +1300,7 @@ instrument strip take turns: see §8.13.
 ### 8.13 The instrument strip (a preview)
 
 *With Play mode on (Settings › Preview features › Play mode).* Play mode is a
-drawer above the bar on the tape page, not a screen over it.
+drawer above the bar in the Studio, not a screen over it.
 
 - **Folded,** it's one row: **INSTRUMENT ▴**, the **KEYS** lamp, and the
   track keys and tricks as small pads. They still play, and whatever plays
@@ -1972,22 +1412,6 @@ one a little (up to 4 dB at full drive) and squeezes a loud one: at full
 drive, a loop at −6 dBFS RMS comes out about 10 dB quieter. That's
 saturation; turn it down if it's too much. The formulas are a first guess.
 
-**Checks — the strip:**
-
-- [demo] Hold W with the strip unfolded → REV lights dim, then bright, and the
-  reel turns backwards; let go → it turns forwards again.
-- [demo] Hold a pad on one browser → the same pad lights on another.
-- [demo] Tap the lanes → the KEYS lamp goes out, and 2 arms track 2.
-- [rig] Plug the SMK-37 into the Pi, set *Plays the tape*, restart; hit a pad
-  → it lights on the laptop and the phone, and the tape does what it says.
-- [demo] Hold Y and slide a finger up FILTER → the top end closes, the meter
-  climbs on every screen; let go → it sweeps open over a sixteenth.
-- [demo] Hold U through a bar and let go → the echo rings on, then dies.
-- [demo] Drag DRIVE up and let go → ↶ undoes it in one step.
-- [rig] With the SMK-37: strike a pad softly and hard (FILTER), sweep the mod
-  wheel, push the pitch wheel, turn CC 21–24, send program change 2 → each
-  does what it says, and the strip shows it.
-
 ### 8.14 Words in the two rooms
 
 Two things to make, a **take** and a **tape**, and one way to listen: a tap
@@ -1997,7 +1421,7 @@ rooms, which is how parts of this guide still name it.
 
 | Word | Means | It was called |
 |---|---|---|
-| **Studio** | The tape page with the feed above the lanes: where you KEEP, GRAB and build. With the tape off, the main page | Capture, and Tape |
+| **Studio** | The tape with the feed above the lanes: where you KEEP, GRAB and build. `/` opens it | Capture, the main page, the tape page |
 | **Listening Room** | Every take, on shelves: a tap plays one, holding selects | Takes |
 | **Rig** | Your devices and the cables between them, from the chip in the header | unchanged |
 | **Feed** | Everything coming in, always recording; the last 15 minutes are kept in memory. The Studio draws it at the top, and Settings sets its length | the ring, the ribbon, Buffer length |
@@ -2021,20 +1445,10 @@ Two rules that go with them. **KEEP always makes a take;** it never puts
 anything on a tape. **GRAB always fills the buffer,** and a GRAB over a buffer
 nobody dropped or kept says so, with **Undo**.
 
-**Checks — the words:**
-
-- [demo] On any device, however it was set before → the tabs are **Studio**
-  and **Listening Room**, and the Studio's feed has **KEEP**, **GRAB** and
-  **Note**. Settings has no *Two rooms* switch.
-- [demo] Open Settings in the Studio → the group is **Feed**, its field
-  **Feed length**.
-- [demo] ⋯ on the tape → **Bounce the loop**, **Bounce the whole tape**, **Last
-  bounce**.
-
 ### 8.15 Walkthroughs
 
 Six jobs, as buttons. Each step is a thing you press
-or see, and each is checked (the [demo] ones) against the demo.
+or see.
 
 1. **Keep it, find it again.** In the Studio press **KEEP** (its key says how
    much: *KEEP 30s*). The toast says *Kept 06:59:53 · 0:30* and where it is,
@@ -2046,8 +1460,8 @@ or see, and each is checked (the [demo] ones) against the demo.
    track's **●**. Then press **DROP ON TRACK N**. The toast says *Dropped on track N* with
    **Undo**.
 3. **Listen back, jot a note.** In the Listening Room tap a take → it plays in
-   the bar. At the spot you like press **✎** in the bar → the take opens there,
-   playing on, with a note started and the cursor in its words. Type, Enter.
+   the bar. At the spot you like press **✎** in the bar → the Sketchbook
+   opens over the room at that moment, playing on. Type, *Add note*.
 4. **Reuse a bit.** Tap a take in the Listening Room → it plays. Let it play
    past the bit you want, then tap its **name** in the bar → Open. Press **GRAB
    4 BARS** → the Studio opens with up to four bars in the buffer (fewer if
@@ -2063,12 +1477,9 @@ or see, and each is checked (the [demo] ones) against the demo.
    yet the sheet offers **+ New tag**, and **Close**). **Delete** → the
    toast says *Deleted 2 takes* with **Undo**. **Done** puts the bar away.
 
-**Checks — the walkthroughs:** each of the six runs from its first step to its
-last in the demo, in the buttons named above, on a phone and on a laptop.
-
 ## 9. Tips in the app
 
-*Step 3 for takes, step 6 for tapes.*
+*Today.*
 
 **How you get help:**
 
@@ -2077,7 +1488,7 @@ last in the demo, in the buttons named above, on a phone and on a laptop.
   anything to read its tip instead of using it. The mini player's window
   is the one exception: it shows its tip and still pulls the player up, so
   its keys can be read too; **Down** brings **?** back.
-- **The first time you open** the take page or the tape page, three short
+- **The first time you open** the take page or the Studio, three short
   hints point at the gestures that matter most. They're remembered per
   device.
 - **Each page's ? sheet** links to its section of this guide, which the app
@@ -2106,7 +1517,7 @@ has no tip.
 | Earlier bounces | Earlier bounces of this take's tape: a tap opens one |
 | ☰ List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
 | Show everything | Turns off the filter that's narrowing the shelves |
-| Capture | Save the last 30 s, 2 m, 7 m or all of what you just played as a take |
+| KEEP | Keep the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
 | Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |
 | Save as take (ribbon) | Save exactly the span you selected on the ribbon as a take |
@@ -2161,7 +1572,7 @@ has no tip.
 | Open › (bar) | Open what’s in the bar on its own page: the tape, or the take |
 | The bar’s strip | The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays. On a phone, the mini player holds it for a take |
 | The take’s name (bar) | Opens the take in the bar on its own page |
-| ✎ (bar) | Opens the take’s page and keeps the spot you are hearing, for a note |
+| ✎ (bar) | A note at the spot you are hearing: the Listening Room’s Sketchbook opens, and the take keeps playing |
 | ⟲ Repeat (bar) | Repeat the take in the bar: its selection, or the whole take without one |
 | The mini player (phone) | On a phone: the player, pulled up over the page — the whole bar. Down, Back or Esc puts it away. A take has none: its strip, name and ✎ are in the mini player |
 | ▾ / ▴ (bar) | Collapse the transport into a compact bar, or expand it to its two rows. Gives the tape lanes room |
@@ -2192,7 +1603,7 @@ has no tip.
 | Practice speed | Slow down or speed up without changing pitch |
 | Level | Normalize: play and share the selection with its loudest moment just under full scale |
 | Save as take | Make a new take of just the selection |
-| Name (Save as take) | Name the new take, then Save. On the takes page it folds in with this take. Cancel saves nothing |
+| Name (Save as take) | Name the new take, then Save. On the Listening Room’s shelf it folds in with this take. Cancel saves nothing |
 | Share | Send the selection from your phone as an MP3 |
 | More | The DAW bundle, the WAV and MIDI downloads, Split here, and delete |
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |

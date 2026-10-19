@@ -178,7 +178,6 @@ test('Step 5a: only lib/bar writes the LCD ids (#position, #np-time, #np-unit, #
   const writeRe = new RegExp(`\\$\\(['"](${lcdIds.join('|')})['"]\\)`);
   const roomFiles = [
     'app.js',
-    'lib/shelf-page.js',
     'lib/tape/page.js',
     'lib/shell/views/room.js',
   ];

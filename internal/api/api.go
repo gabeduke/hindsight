@@ -229,12 +229,6 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/clipboard", a.handleClipboardPatch).Methods(http.MethodPatch)
 	r.HandleFunc("/api/clipboard/keep", a.handleClipboardKeep).Methods(http.MethodPost)
 	r.HandleFunc("/api/clipboard/restore", a.handleClipboardRestore).Methods(http.MethodPost)
-	r.HandleFunc("/api/crate", a.handleCrate).Methods(http.MethodGet, http.MethodHead)
-	r.HandleFunc("/api/crate", a.handleCrateKeep).Methods(http.MethodPost)
-	r.HandleFunc("/api/crate", a.handleCratePatch).Methods(http.MethodPatch)
-	r.HandleFunc("/api/crate", a.handleCrateDelete).Methods(http.MethodDelete)
-	r.HandleFunc("/api/crate/audio", a.handleCrateAudio).Methods(http.MethodGet, http.MethodHead)
-	r.HandleFunc("/api/crate/split", a.handleCrateSplit).Methods(http.MethodPost)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

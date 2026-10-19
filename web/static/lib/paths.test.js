@@ -14,6 +14,9 @@ import { join, normalize, dirname, relative, sep } from 'node:path';
 // move makes easy, and the object library moved nine files.
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url)); // web/static
+// '/index.html' in sw.js SHELL is a URL, not a file: the server answers it
+// with shell.html (cmd/hindsight/main.go), as it does '/'.
+const fileOf = (url) => (url === '/index.html' ? 'shell.html' : url.slice(1));
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -77,7 +80,7 @@ test('every file the service worker precaches exists', () => {
   assert.ok(paths.length > 50, `only ${paths.length} shell entries; the match is probably wrong`);
   const missing = paths
     .filter((p) => /\.(js|css|html|woff2|png|svg)$/.test(p))
-    .filter((p) => { try { statSync(join(ROOT, p.slice(1))); return false; } catch { return true; } });
+    .filter((p) => { try { statSync(join(ROOT, fileOf(p))); return false; } catch { return true; } });
   assert.deepEqual(missing, []);
 });
 
@@ -149,7 +152,7 @@ test('every module a cached page imports is cached with it', () => {
     }
   };
   for (const page of [...shell].filter((p) => p.endsWith('.html'))) {
-    const html = readFileSync(join(ROOT, page.slice(1)), 'utf8');
+    const html = readFileSync(join(ROOT, fileOf(page)), 'utf8');
     for (const m of html.matchAll(/<script[^>]+src=["'](\/[^"']+\.js)["']/g)) visit(join(ROOT, m[1].slice(1)), page);
     for (const m of html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)) {
       for (const i of m[1].matchAll(/(?:from|import)\s+['"](\/[^'"]+)['"]|import\(\s*['"](\/[^'"]+)['"]\s*\)/g)) {

@@ -37,8 +37,7 @@ import (
 //	DELETE /api/tapes/record?id=       end the punch and keep it (?cancel=1: don't)
 //	POST   /api/tapes/tap?id=          {track, source | pairs}: a free-loop tap
 //	DELETE /api/tapes/tap?id=          forget a first tap
-//	POST   /api/tapes/drop?id=         {crate, track}: a kept clip, as the clipboard drops;
-//	                                   {take, from, to, track, bars}: a take's span onto the tape;
+//	POST   /api/tapes/drop?id=         {take, from, to, track, bars}: a take's span onto the tape;
 //	                                   {..., at, loop, replace, source}: at that tape frame;
 //	                                   {track, merge}: the clipboard, at the playhead
 //	POST   /api/tapes/send?id=         {take, from?, to?, track}: a take onto the tape by its tempo and downbeat
@@ -770,23 +769,12 @@ func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 		// be the tape's.
 		Loop   *struct{ In, Out int64 } `json:"loop"`
 		Source string                   `json:"source"`
-		// Crate drops a kept clip from the crate, as the clipboard drops.
-		Crate string `json:"crate"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
 	if b.Track == 0 {
 		b.Track = 1
-	}
-	if b.Crate != "" {
-		d, err := a.tape.DropCrate(r.URL.Query().Get("id"), b.Crate, b.Track)
-		if err != nil {
-			tapeErr(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, d)
-		return
 	}
 	if b.Take == "" {
 		// The clipboard, at the playhead, or at At (Paste on a range).

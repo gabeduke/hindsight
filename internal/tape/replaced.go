@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// The one replaced grab (docs/superpowers/specs/2026-10-15-flow-design.md,
+// The one replaced grab (docs/architecture.md, Vocabulary,
 // decision 9). With the crate off the rooms' screens, GRAB's safety net is an
 // Undo: a grab that replaces a buffer nobody dropped or kept holds that
 // buffer aside, a single slot, and Undo puts it back. A second replacement

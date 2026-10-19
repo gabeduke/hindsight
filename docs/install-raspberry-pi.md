@@ -1,14 +1,9 @@
 # Installing on a Raspberry Pi
 
-> **Status.** `install.sh` is written and its guard clauses are rehearsed, but
-> it has not yet been run end to end on a real Pi. The apt install, the unit
-> install, lingering and the `audio-dashcam` migration are all unproven. Read
-> what each step does before running it, and expect to fix something.
->
-> The release workflow is in the same position: it only runs on a merge to
-> `main`, so the first merge is also its first run. Until one has completed
-> there is nothing behind the download URLs below — build from source in the
-> meantime, per [development.md](development.md).
+> **Status.** Releases are cut on every merge of shipping code to `main`, and
+> kits update from them with the Update button (or `POST /api/update`). A
+> fresh install with `install.sh` is the least-exercised path: read what each
+> step does before running it.
 
 ## Prerequisites
 
@@ -282,11 +277,10 @@ tablet lit while the app is visible.
 ## HTTPS with a hub
 
 A Pi on someone else's network can get a real HTTPS address, like
-`https://mike.hindsight.leetserve.com`, that resolves to its LAN address and
+`https://<name>.hindsight.leetserve.com`, that resolves to its LAN address and
 has a public certificate: the phone's mic, the installable app and the wake
 lock all work, with nothing to install on the phone. The hub on the homelab
-keeps the DNS record and the certificate
-(`docs/superpowers/specs/2026-10-09-hub-certificates-design.md`); the audio
+keeps the DNS record and the certificate ([hub.md](hub.md)); the audio
 never leaves the house.
 
 1. On the homelab side, enrol the Pi under a short name:
@@ -324,7 +318,7 @@ there, saying what it did:
 `http://<pi-host>.local:5000` keeps working either way.
 
 **If the secure address doesn't load,** Settings says so next to it:
-*https://… doesn't answer on 192.168.1.79:443*. Hindsight tries its own
+*https://… doesn't answer on <pi-lan-address>:443*. Hindsight tries its own
 address after each heartbeat, as a phone would. Usually Caddy was never set
 up (the `HUB_` lines were added without re-running the installer) or
 something else holds 443 on the LAN address.

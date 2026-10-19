@@ -22,9 +22,7 @@ lets the cluster do the rest:
   `letsencrypt-aws-prod` (DNS-01 through Route 53), into the Secret
   `<name>-tls`, which the Pi then fetches.
 
-So there are no AWS credentials on the hub, and none on any Pi. The design,
-and why, is in
-[the spec](superpowers/specs/2026-10-09-hub-certificates-design.md).
+So there are no AWS credentials on the hub, and none on any Pi.
 
 ## Enrolling a device
 

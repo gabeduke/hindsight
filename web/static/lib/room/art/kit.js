@@ -12,16 +12,12 @@
 // where ctx is {view, P, defs, lights, light(normal, point), room}. P projects a
 // room point to the picture. Nothing here touches the DOM.
 
-import { project } from '../space.js';
-
 /** f rounds a number for the SVG: a tenth of a centimetre is plenty. */
 export const f = (n) => Math.round(n * 10) / 10;
 /** v is a token as an SVG paint, for a style attribute. */
 export const v = (t) => `var(${t})`;
 /** d is a closed path through picture points. */
 export const d = (pts) => `M${pts.map((p) => `${f(p.x)},${f(p.y)}`).join('L')}Z`;
-/** open is the same path, not closed. */
-export const open = (pts) => `M${pts.map((p) => `${f(p.x)},${f(p.y)}`).join('L')}`;
 /** fill is a style attribute painting a token, at an opacity. */
 export const fill = (token, op = 1) => `style="fill:${token.startsWith('--') ? v(token) : token}${op < 1 ? `;fill-opacity:${f3(op)}` : ''}"`;
 const f3 = (n) => Math.round(Math.max(0, Math.min(1, n)) * 1000) / 1000;
@@ -55,9 +51,6 @@ export class Defs {
   toString() { return this.items.join(''); }
 }
 
-/** paint is a fill attribute for a gradient url or a token. */
-export const paint = (p, opacity = 1) => (p.startsWith('url(') ? `fill="${p}"${opacity < 1 ? ` fill-opacity="${f3(opacity)}"` : ''}` : fill(p, opacity));
-
 /**
  * The textures, once per drawing, as filters any piece can wear:
  * - room-grain: a fine noise multiplied in (fabric, plaster, leather);
@@ -83,9 +76,6 @@ export function textures(prefix) {
     + `<feComposite in="s" in2="SourceAlpha" operator="in"/></filter>`;
 }
 
-/** P is a view's projection, as a function of x, y, z. */
-export const projector = (view) => (x, y, z) => project({ x, y, z }, view);
-
 /** ellipse on the floor (or any level y): a projected circle as a polygon. */
 export function ring(P, cx, y, cz, r, n = 48, rz = r) {
   const out = [];
@@ -100,21 +90,4 @@ export function ring(P, cx, y, cz, r, n = 48, rz = r) {
 export function rng(seed) {
   let s = seed >>> 0 || 1;
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-}
-
-/**
- * shadeOverlays lays the room's light over a face that has already been
- * painted: a warm wash for the lamp and a cool one for the window, as bright
- * as the face is lit (ctx.light), and a dark one for what neither reaches.
- * `shape` is the face's path; normal is which way it faces, in room axes;
- * point a point on it.
- */
-export function shadeOverlays(ctx, shape, normal, point, { dark = 0.55, warm = 0.38, cool = 0.22 } = {}) {
-  const l = ctx.light(normal, point);
-  const k = l.key * warm, c = l.fill * cool, sh = Math.max(0, 1 - l.key * 1.25 - l.fill * 0.6 - 0.15) * dark;
-  let s = '';
-  if (k > 0.01) s += `<path d="${shape}" ${fill('--room-key-light', k)}/>`;
-  if (c > 0.01) s += `<path d="${shape}" ${fill('--room-fill-light', c)}/>`;
-  if (sh > 0.01) s += `<path d="${shape}" ${fill('--room-shadow', sh)}/>`;
-  return s;
 }

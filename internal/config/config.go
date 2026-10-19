@@ -49,9 +49,7 @@ type Config struct {
 	MIDILatencyMS  float64 // added to every MIDI timestamp before alignment
 	MIDISnapBars   bool    // start a take on the last downbeat before the window
 
-	// Tape (docs/superpowers/specs/2026-10-03-tape-design.md). Off by
-	// default, so a rig that only wants the dashcam never opens playback.
-	Tape        bool
+	// The tape (docs/architecture.md). Always on.
 	TapeDir     string
 	TapeTracks  int
 	TapeLengthS int    // a track's length: 20 minutes by default

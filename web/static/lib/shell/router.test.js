@@ -323,7 +323,7 @@ test('Back onto an entry of the same room is its owner’s: the player and the c
   assert.equal(s.router.shown(), 'studio');
   assert.equal(s.log.length, seen, 'nothing hidden or shown: the player closes itself');
   await s.router.go('/takes.html');
-  // The cassette sheet (shelf-page.js) pushes {cassette} alone, without the shell's state.
+  // The cassette sheet pushes {cassette} alone, without the shell's state.
   s.history.pushState({ cassette: 'jam_a.wav' }, '');
   seen = s.log.length;
   s.history.back();

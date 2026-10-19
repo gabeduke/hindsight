@@ -278,7 +278,7 @@ with it as the clock device that is the normal case.
 
 ## The tape
 
-The tape ([guide §8](guide.md#8-tape)) is always on, and the main page shows a **Tape** chip. A tape store that
+The tape ([guide §8](guide.md#8-tape)) is always on: the Studio is its home. A tape store that
 won't open is logged and the tape left off, and an output that won't open
 leaves the tape running without one; neither can stop the dashcam recording.
 (`TAPE=true` was once needed; it is ignored now.)

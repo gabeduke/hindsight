@@ -1,5 +1,5 @@
 // web/static/lib/shell/router.js
-// The shell's router (docs/superpowers/plans/2026-10-17-phase1-shell.md
+// The shell's router (docs/architecture.md, The shell
 // §2.6): which room a URL is, which clicks on links it takes over, and how
 // a move between rooms happens without loading the page -- so the take, the
 // tape on this device and the feed in the bar never stop or restart.

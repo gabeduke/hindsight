@@ -49,8 +49,14 @@ func newBufferAPI(t *testing.T) (*mux.Router, string) {
 	t.Cleanup(a.WaitBackground)
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
+	bufferEngines[r] = eng
+	t.Cleanup(func() { delete(bufferEngines, r) })
 	return r, dir
 }
+
+// bufferEngines is each newBufferAPI router's tape engine, for reading what
+// the HTTP API no longer shows (the crate).
+var bufferEngines = map[*mux.Router]*tape.Engine{}
 
 type boardBody struct {
 	Clipboard *struct {
@@ -159,30 +165,12 @@ func TestTheBufferOverTheAPI(t *testing.T) {
 	}
 	// That one wasn't used: Copy on the tape page puts it in the crate.
 	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"ring_from":240000,"ring_to":288000,"source":"main"}`), http.StatusOK, "copy")
-	var crate struct {
-		Clips []struct {
-			Name string `json:"name"`
-		} `json:"clips"`
-	}
-	json.Unmarshal(send(t, r, http.MethodGet, "/api/crate", "").Body.Bytes(), &crate)
-	if len(crate.Clips) != 1 || crate.Clips[0].Name != "The feed (ch2) · 0:01" {
-		t.Fatalf("the crate = %+v", crate.Clips)
+	clips, err := bufferEngines[r].CrateList("", "")
+	if err != nil || len(clips) != 1 || clips[0].Name != "The feed (ch2) · 0:01" {
+		t.Fatalf("the crate = %+v (%v)", clips, err)
 	}
 	// A copy is not a grab: no window to trim.
 	want(t, send(t, r, http.MethodPatch, "/api/clipboard", `{"in":0,"out":100}`), http.StatusBadRequest, "trim a copy")
-
-	// Several lanes kept on the crate, a clip each.
-	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"seconds":2,"sources":["ch1","ch2"]}`), http.StatusOK, "grab seconds")
-	w = send(t, r, http.MethodPost, "/api/crate", `{"clipboard":true}`)
-	want(t, w, http.StatusOK, "keep the lanes")
-	var kept struct {
-		Clip  json.RawMessage   `json:"clip"`
-		Clips []json.RawMessage `json:"clips"`
-	}
-	json.Unmarshal(w.Body.Bytes(), &kept)
-	if len(kept.Clips) != 2 || len(kept.Clip) == 0 {
-		t.Fatalf("kept = %s", w.Body.String())
-	}
 
 	// Refusals: a source there isn't, nothing named, too many seconds.
 	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"bars":2,"sources":["ch9"]}`), http.StatusBadRequest, "no such source")

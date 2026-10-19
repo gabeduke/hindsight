@@ -1,5 +1,5 @@
 // web/static/lib/rooms/bounce.js
-// BOUNCE (docs/superpowers/specs/2026-10-15-flow-design.md, the verbs table
+// BOUNCE (docs/architecture.md, Vocabulary, the verbs table
 // and "The Studio: one selection, two verbs"): the Studio's ⋯ makes a take
 // from the tape by playing it once through the mixer. It is the request Mix
 // down always sent (POST /api/tapes/mixdown), and the take it saves is what a

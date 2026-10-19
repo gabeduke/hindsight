@@ -1,5 +1,5 @@
 // web/static/lib/buffer/replaced.js
-// GRAB's Undo (docs/superpowers/specs/2026-10-15-flow-design.md, decision 9).
+// GRAB's Undo (docs/architecture.md, Vocabulary, decision 9).
 // The crate is off the rooms' screens, so the safety net for a GRAB -- or a
 // range's Cut or Copy, or an Undo of a toss -- that lands on a buffer nobody
 // dropped or kept is a line that says so, with an Undo, and the Pi's one

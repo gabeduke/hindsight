@@ -6,13 +6,15 @@ If a rule below sounds arbitrary, the reason it exists is in the sentence
 after it.
 
 This file is the rules. How to run things — the demo, deploying, screenshots,
-the probes — is in `docs/development.md`. What state things are in goes stale,
-so it isn't here either: read the newest `docs/superpowers/*-handoff.md`, then
-`git log`.
+the probes — is in `docs/development.md`; how the pieces fit, and the words
+the UI uses, in `docs/architecture.md`. What state things are in goes stale,
+so it isn't here either: read `docs/plan/STATE.md`, then `git log`. Don't read
+`CHANGELOG.md`: it is generated, and `git log` has the same lines.
 
 ## The checks to run
 
-No package.json, no bundler, no dependencies. Node's own test runner:
+No package.json, no bundler, no dependencies. Node's own test runner (Node 22,
+as CI: 20 has no glob support in `--test` and no global `navigator`):
 
 ```sh
 node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' \
@@ -152,10 +154,28 @@ at all (its overlay shared the ▶ key's id), that its keys moved the record
 track on the Pi, and the full-screen sheet above. The node tests passed
 throughout. They test logic; none of them can see a page.
 
-`docs/development.md` has the demo command. `scripts/smoke-*.mjs` are the
-Playwright checks that already exist; `scripts/smoke-shell.mjs` validates the
-single shell document, gapless room switching and continuous audio playback
-across user journeys.
+## The user flows are the goal
+
+**Before reporting any change to what the app does, run
+`node scripts/flows.mjs` and put its table in your report.** `docs/flows.md`
+is how Gabe uses the app, as stories, each with a Playwright flow that
+drives the demo like a user (real taps and holds on a tablet profile and a
+desktop one) and fails on any page error. The shell merged with 1,790 green
+unit tests and a Studio that threw on every load; the flows caught it.
+
+- A core flow that fails is a regression, yours or already on main: say
+  which. Don't edit a flow's expectations to make it pass unless the story
+  changed, and then change the story in `docs/flows.md` too.
+- A change to a journey adds or extends its flow. A story that isn't built
+  yet is a `todo` flow: it reports, it doesn't fail the run.
+- Look at the screenshot a failing flow saves.
+
+## Older design notes
+
+Code comments that cite `docs/superpowers/…` point at the dated specs and
+plans deleted on 2026-10-18; what still holds is in `docs/architecture.md`.
+When you need the history behind one, read it from git:
+`git show 62b3c1c^:docs/superpowers/specs/<file>`.
 
 ## Where things live in the UI
 
@@ -242,7 +262,9 @@ for exactly this reason.
 
 ## Specs before code
 
-`docs/superpowers/specs/` holds a dated design note per change, and
-`docs/superpowers/plans/` the build order. Write the spec, agree the
-decisions, then build. Specs merge without cutting a release (above), so
-they are cheap to land.
+A non-trivial change starts as a short spec in `docs/plan/`: the decisions,
+agreed with Gabe, then the build order. Build it. When it lands, fold
+anything lasting into `docs/architecture.md` (or `docs/flows.md`, for a
+journey), update `docs/plan/STATE.md`, and delete the spec: git history
+keeps it, and a pile of landed specs is what agents then read as current.
+Specs merge without cutting a release (above), so they are cheap to land.

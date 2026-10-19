@@ -1,6 +1,6 @@
 # HTTP API
 
-Fifty-five routes (one, `/api/trigger`, in two forms), twenty-six of them the tape's and its clipboard's, two the rig's, registered in `internal/api/api.go` (`SetupRoutes`). Everything
+The routes are registered in `internal/api/api.go` (`SetupRoutes`); that file is the authority, and this one explains them. Everything
 else the server answers is the static UI under `web/static`.
 
 There is **no authentication and no rate limiting**. `DELETE /api/delete`
@@ -73,12 +73,6 @@ internet.
 | `GET /api/clipboard/audio` | The clipboard, its tracks summed, as a WAV to audition |
 | `POST /api/clipboard` | Copy a take's span or a span of the ring onto it |
 | `DELETE /api/clipboard` | Empty it |
-| `GET /api/crate` | The clips kept on the crate, newest first |
-| `POST /api/crate` | Keep a take's span, a span of the ring, a tape clip, or the clipboard |
-| `PATCH /api/crate?id=` | Rename a kept clip, or bring a deleted one back |
-| `DELETE /api/crate?id=` | Delete a kept clip, for a week |
-| `GET /api/crate/audio?id=` | A kept clip as a 16-bit WAV |
-| `POST /api/crate/split` | A take's Split here: two kept clips, either side of a frame |
 
 `GET` routes also accept `HEAD`, except `/api/live` and `/api/phone`, which
 are WebSocket upgrades, and `/api/render`, `/api/bundle` and `/api/export`,
@@ -240,8 +234,7 @@ only a later release is `available`.
 
 ## `GET /api/settings`, `PUT /api/settings`
 
-The settings sheet's (`web/static/lib/settings.js`; spec
-`docs/superpowers/specs/2026-10-09-settings-design.md`). The app's values live
+The settings sheet's (`web/static/lib/settings.js`). The app's values live
 in `settings.json` (`SETTINGS_FILE`, default `~/hindsight/settings.json`) and
 win over the environment, which wins over the defaults.
 
@@ -293,7 +286,7 @@ recording, or the tape is recording or playing, as for `POST /api/update`.
 
 ## `GET /api/rig`
 
-The rig (`docs/superpowers/specs/2026-10-15-rig-design.md`): the kit drawn as
+The rig: the kit drawn as
 devices and the cables between them, where every cable is a setting. Nothing
 about it is stored: each read builds it from `/api/settings`' values, the
 loaded tape and what's plugged in, so the picture can't disagree with the Pi.
@@ -1700,48 +1693,14 @@ restart; 404 when the tape is off.
   that can't be read is reported by `GET` as `error`, and kept from the
   clean-up (every copy is) until `DELETE` clears it.
 
-### The crate: `/api/crate`
+### The crate
 
-The clips you keep, between a take and a tape (step B1), in
-`TAPE_DIR/crate.json`; 404 when the tape is off. A kept clip is a window onto
-a pool file, as a tape clip is:
-`{"id", "name", "file", "src", "frames", "reversed"?, "bpm"?, "source": {"kind": "take" | "ring" | "tape" | "clipboard", "take"?, "from"?, "to"?, "tape"?, "what"}, "created", "deleted"?}`.
-`source.what` says where it came from in words (*Tuesday jam, 0:42–1:10*).
-
-- `GET` answers `{"clips": […], "sample_rate": 48000}`, newest first, without
-  deleted ones. `?q=` keeps those whose name has it in it, any case;
-  `?take=jam_….wav` those kept from that take.
-- `POST` keeps one, and answers `{"clip": …, "clamped": false}`:
-  - `{"take": "jam_….wav", "from": F, "to": T}` copies the take's span into
-    the pool, as the clipboard's copy does, with handles. It's named for the
-    take (its label, or when it was made) and where the span starts.
-  - `{"ring_from": F, "ring_to": T, "source": "main"}` does the same from the
-    ring, clamped as the clipboard's is.
-  - `{"tape": id, "clip": id}` keeps a clip of the loaded tape, by reference:
-    nothing is copied.
-  - `{"clipboard": true}` keeps the clipboard, by reference, a clip per
-    track when each holds one clip its whole length (400 otherwise); `clips`
-    lists them all.
-
-  404 for no such take; 400 for a span not in it; 507 for low disk.
-- `PATCH ?id=` takes `{"name": "…"}` (1–120 characters) or
-  `{"restore": true}`, and answers `{"clip": …}`.
-- `DELETE ?id=` marks it deleted: gone from the list, back with `restore` for
-  7 days, after which the list lets go of it and a clean-up frees its audio.
-- `GET /api/crate/audio?id=` is the clip as a 16-bit stereo WAV
-  (`?download=1`: as an attachment), with `HEAD`.
-- `POST /api/tapes/drop?id=` with `{"crate": id, "track": 1}` drops it as the
-  clipboard drops: at the playhead, replacing what's under it, one undo.
-- `POST /api/crate/split` with `{"take": "jam_….wav", "at": F}` is a take's
-  *Split here*: two kept clips, the take's frames before `at` and from `at`
-  to its end, named *take · A* and *take · B*, and answers
-  `{"clips": [a, b]}`. The take isn't changed. 400 unless each half is at
-  least 10 ms, or for a take at another sample rate; 404 for no such take;
-  507 when copying the take would leave less than `MIN_FREE_GB`.
-
-404 for a kept clip that isn't there. The crate is a root for the clean-up,
-its deleted clips too until they're let go of; a `crate.json` that can't be
-read stops the clean-up altogether.
+Off screen and off the API since 2026-10-18: a grab or copy that replaces a
+buffer nobody used still keeps it in `TAPE_DIR/crate.json` (unless it sends
+`crate: false` / `no_crate` / `?crate=0`, as the rooms do), and `insert`
+still takes a kept clip's `crate` id, but nothing lists, plays or drops kept
+clips any more. The crate stays a root for the clean-up; a `crate.json` that
+can't be read stops the clean-up altogether.
 
 ### `POST /api/tapes/undo?id=`, `POST /api/tapes/redo?id=`
 

@@ -1,6 +1,6 @@
 // web/static/lib/room/select.test.js
 // Holding a take selects, as the list's Select does -- ★, Delete, Export, and
-// now Tag (docs/superpowers/specs/2026-10-15-flow-design.md, "A tap plays").
+// now Tag (docs/architecture.md, Vocabulary, "A tap plays").
 // The real lib/takes.js, loaded through abs-hook.js, on a stand-in document,
 // observer, clock and Pi (fetch). Flag off is the list as it was: the same
 // hold for any pointer, folded takes hidden.

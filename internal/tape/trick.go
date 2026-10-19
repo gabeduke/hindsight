@@ -95,9 +95,6 @@ func amountPad(i int) bool { return i >= iRoll && i <= iBend }
 // fxPad says whether pad i is one of the FX on the output (fx.go).
 func fxPad(i int) bool { return i == iFilter || i == iEcho || i == iCrush }
 
-// headPad says whether pad i moves the head: the tricks, and ROLL.
-func headPad(i int) bool { return i >= trackPads && i <= iRoll }
-
 // clampAmount keeps an amount in its range: -1 to 1 for the bend, 0 to 1
 // for the rest.
 func clampAmount(i int, v float64) float64 {

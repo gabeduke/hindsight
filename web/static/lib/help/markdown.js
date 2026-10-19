@@ -2,11 +2,9 @@
 // A small Markdown renderer for the guide page: headings (with ids for
 // links), paragraphs, nested lists, tables, fenced code, quotes, rules, and
 // inline code, bold, italics and links. Enough for docs/guide.md, with no
-// build step and no dependency. It knows three of the guide's own shapes too:
-// a "**Checks — …**" line and the list under it are one block, a check's
-// [demo], [rig] or [phone] is a tag, and the italic words that open a
-// section (*Today.*, *Step 4.*, *With the two rooms on …*) say when or where
-// its features are. Only the markup changes; the words are the guide's.
+// build step and no dependency. It knows one of the guide's own shapes too:
+// the italic words that open a section (*Today.*, *Step 4.*, *With the two
+// rooms on …*) say when or where its features are. Only the markup changes; the words are the guide's.
 // Everything is escaped before any markup is added, so the guide can't
 // inject HTML even by accident.
 
@@ -134,14 +132,7 @@ export function renderMarkdown(src) {
           break;
         }
       }
-      const list = renderList(items, 0, items.length);
-      // "**Checks — …**" and the list under it are one block: the section's
-      // acceptance test, drawn apart from the prose around it.
-      if (out.length && out[out.length - 1].startsWith('<p class="checks-head">')) {
-        out.push(`<div class="checks">${out.pop()}${list}</div>`);
-      } else {
-        out.push(list);
-      }
+      out.push(renderList(items, 0, items.length));
       continue;
     }
     // Paragraph: until a blank line or the start of another block. Its first
@@ -153,9 +144,7 @@ export function renderMarkdown(src) {
     }
     const text = para.join(' ');
     const prev = out.length ? out[out.length - 1] : '';
-    if (/^\*\*Checks\b/.test(text)) {
-      out.push(`<p class="checks-head">${inline(text)}</p>`);
-    } else if (/^<h[1-6] /.test(prev) && WHEN.test(text)) {
+    if (/^<h[1-6] /.test(prev) && WHEN.test(text)) {
       out.push(`<p>${when(inline(text))}</p>`);
     } else {
       out.push(`<p>${inline(text)}</p>`);
@@ -177,16 +166,6 @@ function when(html) {
   });
 }
 
-// A check names where it runs first: "[demo] Tap Capture → …", or in bold
-// where the guide explains them, "**[demo]** checks pass with …".
-const CHECK = /^(?:\*\*)?\[(demo|rig|phone)\](?:\*\*)?\s+(.*)$/;
-
-function item(text) {
-  const m = CHECK.exec(text);
-  if (!m) return `<li>${inline(text)}`;
-  return `<li class="check"><span class="check-tag ${m[1]}">${m[1]}</span> ${inline(m[2])}`;
-}
-
 function renderList(items, from, to) {
   const base = items[from].indent;
   const tag = items[from].ordered ? 'ol' : 'ul';
@@ -196,7 +175,7 @@ function renderList(items, from, to) {
     const it = items[k];
     let end = k + 1;
     while (end < to && items[end].indent > base) end++;
-    html += item(it.text);
+    html += `<li>${inline(it.text)}`;
     if (end > k + 1) html += renderList(items, k + 1, end);
     html += '</li>';
     k = end;

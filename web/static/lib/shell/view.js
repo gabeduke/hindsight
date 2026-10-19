@@ -1,5 +1,5 @@
 // web/static/lib/shell/view.js
-// The view contract (docs/superpowers/plans/2026-10-17-phase1-shell.md §2.3):
+// The view contract (docs/architecture.md, The shell):
 // what a room is to the shell, and what the shell hands it. The shell is one
 // document that owns the header, the bar and the audio engine. The Studio,
 // the Listening Room and Capture are views inside it, switched by the router
@@ -7,7 +7,7 @@
 // in the bar plays on.
 //
 // A view is mounted once, on its first visit, and from then on it is only
-// shown and hidden. page.js, shelf-page.js and app.js are module singletons;
+// shown and hidden. page.js and app.js are module singletons;
 // making them start twice is a rewrite with a silent failure (a listener
 // added twice makes Space press ▶ twice: play and stop in one tap). A hidden
 // view keeps its DOM, so coming back is instant, and it costs nothing: no
@@ -15,7 +15,7 @@
 // window or document level goes through ctx.on, ctx.every and ctx.loop,
 // which do nothing while it is hidden and pick up again when it is shown, so
 // "hidden" is kept in one place and not remembered at sixty call sites
-// (docs/superpowers/plans/2026-10-17-phase1-spike-b-audit.md has the list).
+// (docs/architecture.md, The shell has the list).
 //
 // Pure: the document, the timers and the ticker are handed in, so the tests
 // stand in for all three (view.test.js). Nothing here is wired into a page

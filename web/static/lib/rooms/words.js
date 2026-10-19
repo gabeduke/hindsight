@@ -1,5 +1,5 @@
 // web/static/lib/rooms/words.js
-// The rooms' words (docs/superpowers/specs/2026-10-15-flow-design.md, "Every
+// The rooms' words (docs/architecture.md, Vocabulary, "Every
 // word on screen today"). The pages still carry the old words in their
 // markup and in the strings they build; say() gives the rooms' word for
 // each: flag -> note, clip -> part, ring -> feed, clipboard -> buffer, mix

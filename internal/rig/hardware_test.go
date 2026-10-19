@@ -9,7 +9,7 @@ import (
 )
 
 // The "hardware" block of a profile is notes for people, and for a later
-// registry (docs/superpowers/specs/2026-10-15-device-profiles-design.md). The
+// registry (docs/hardware/README.md). The
 // loader ignores it, so nothing else would notice it rotting. These checks
 // hold it to the few rules that keep it honest.
 
