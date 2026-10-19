@@ -100,6 +100,9 @@ export default {
   file order. `t.api.keep(n)` waits until the take is playable (a tap on a
   take still encoding does nothing); `t.api.tape(name)` loads a fresh tape
   and empties the buffer.
+- `FLOWS_CPU=4 node scripts/flows.mjs` runs the pages four times slower,
+  as a CI runner can: a flow that passes only on a fast machine is racing
+  the app (and the app may be racing a person on an old tablet).
 - Any page error or `console.error` fails the flow. A failure saves a
   screenshot (its path is in the report): look at it.
 - A new story goes in the table above first, with Gabe's words if he gave

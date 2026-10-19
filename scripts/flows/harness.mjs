@@ -150,6 +150,10 @@ export async function runFlow(browser, flow, profileName, { base, api, shots }) 
   const profile = PROFILES[profileName];
   const context = await browser.newContext({ ...profile, serviceWorkers: 'block' });
   const page = await context.newPage();
+  // FLOWS_CPU=4 runs the page four times slower, as a CI runner can: a
+  // flow that only passes on a fast machine is racing the app.
+  const cpu = Number(process.env.FLOWS_CPU);
+  if (cpu > 1) await (await context.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: cpu });
   const checks = [];
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message} ${(e.stack || '').split('\n')[1]?.trim() ?? ''}`));
