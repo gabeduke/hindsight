@@ -28,8 +28,9 @@ __pycache__/
 # Local deploy target (host/user) — never committed
 deploy.local.env
 
-# Session working notes — local only (carries home network details)
-STATE.md
+# Session working notes at the root — local only (carries home network
+# details). docs/plan/STATE.md is the tracked handoff.
+/STATE.md
 
 # Harness-managed worktrees
 .claude/worktrees/
