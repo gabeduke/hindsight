@@ -114,19 +114,20 @@ export async function writeStoryboard(dir, results, { review: withReview = false
   const layout = count('fail'), warns = count('warn'), knownN = count('known');
 
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Flow Storyboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <style>
-:root{--bg:#f6f4ef;--card:#fff;--ink:#1d1c1a;--mute:#6b675f;--line:#e2ded5;--ok:#1f7a4d;--bad:#b3261e;--warn:#9a6700;--accent:#3a5bc7}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#151412;--card:#1f1e1b;--ink:#ece9e2;--mute:#a19c92;--line:#34312c;--ok:#5fc48f;--bad:#f2867e;--warn:#e0b44d;--accent:#8ea6ff}}
-:root[data-theme="dark"]{--bg:#151412;--card:#1f1e1b;--ink:#ece9e2;--mute:#a19c92;--line:#34312c;--ok:#5fc48f;--bad:#f2867e;--warn:#e0b44d;--accent:#8ea6ff}
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1d1c1a;--mute:#6b675f;--line:#e2ded5;--ok:#1f7a4d;--bad:#b3261e;--warn:#9a6700;--accent:#3a5bc7;--badge-ink:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#151412;--card:#1f1e1b;--ink:#ece9e2;--mute:#a19c92;--line:#34312c;--ok:#5fc48f;--bad:#f2867e;--warn:#e0b44d;--accent:#8ea6ff;--badge-ink:#151412;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#151412;--card:#1f1e1b;--ink:#ece9e2;--mute:#a19c92;--line:#34312c;--ok:#5fc48f;--bad:#f2867e;--warn:#e0b44d;--accent:#8ea6ff;--badge-ink:#151412;color-scheme:dark}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:1100px;margin:0 auto;padding:24px 16px 64px}h1{font-size:26px;margin:0 0 4px}.sub{color:var(--mute);margin:0 0 20px}
+main{max-width:1100px;margin:0 auto;padding-block:24px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}h1{font-size:26px;margin:0 0 4px;text-wrap:balance}.kw,.prof,.sub{font-variant-numeric:tabular-nums}.sub{color:var(--mute);margin:0 0 20px}
 nav.toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 24px}nav.toc a{font-size:13px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink);text-decoration:none;background:var(--card)}
 nav.toc a.fail{border-color:var(--bad);color:var(--bad)}nav.toc a.todo{color:var(--mute)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:0 0 20px}
 .card header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}.card h3{margin:0;font-size:18px;flex:1;min-width:200px}.prof{color:var(--mute);font-size:13px}
-.badge{font-size:12px;font-weight:600;text-transform:uppercase;padding:2px 8px;border-radius:6px;color:#fff;background:var(--ok)}.badge.fail{background:var(--bad)}.badge.todo{background:var(--mute)}
+.badge{font-size:12px;font-weight:600;text-transform:uppercase;padding:2px 8px;border-radius:6px;color:var(--badge-ink);background:var(--ok)}.badge.fail{background:var(--bad)}.badge.todo{background:var(--mute)}
 .story{color:var(--mute);font-style:italic;margin:6px 0 12px}
 .steps{list-style:none;margin:0;padding:0}.line{padding:4px 0 4px 26px;position:relative}.line .mark{position:absolute;left:4px;font-weight:700;color:var(--ok)}.line.bad .mark{color:var(--bad)}
 .kw{font-weight:700;display:inline-block;min-width:46px}.line.given .kw{color:var(--mute)}.line.when .kw{color:var(--accent)}.line.then .kw{color:var(--ok)}.line.bad .what{color:var(--bad)}
