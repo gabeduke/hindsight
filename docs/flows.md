@@ -109,7 +109,9 @@ checks came in, shown as "known". Fixing one and running
 A run of some flows or one profile leaves the shelf and tapes in a
 different state, so it can meet a finding the whole run doesn't (a shelf of
 three takes spaces its buttons differently): if it's real, add it to the
-baseline by hand. A meant overlap goes in `layout-allow.mjs`, with why. Neither file is for
+baseline by hand. So can CI, whose fonts differ from a laptop's (a
+different button is the one pushed off the side): CI's run is the one the
+baseline has to pass. A meant overlap goes in `layout-allow.mjs`, with why. Neither file is for
 quieting a finding nobody looked at.
 
 **The storyboard** (`--storyboard=dir`) writes `dir/index.html`:

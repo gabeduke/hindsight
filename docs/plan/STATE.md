@@ -42,7 +42,8 @@ is `<pi-host>`.
 - **Layout, found by the flows' layout checks** (the baseline,
   `scripts/flows/layout-known.json`; each fix shrinks it, see
   `docs/flows.md`, *What a run says*):
-  - Tablet: the bar's fold button runs 8 px off the right side.
+  - Tablet: the bar runs off the right side: its fold button by 8 px
+    here, its ✎ Note in CI's fonts.
   - Tablet: with a track's inspector open, the capture row squashes and
     the KEEP/length chips sit over GRAB.
   - Tablet: the Listening Room's sketchbook place starts off the left side.
