@@ -91,3 +91,48 @@ jobs:
           # flips true as soon as demoSource.Open returns, well inside the poll
           # above, so this is what actually asserts the demo path works.
           grep -q '"capture_healthy":true' /tmp/status.json
+
+  # The user flows (docs/flows.md): Gabe's stories, driven in a real browser
+  # against the demo on a tablet and a desktop profile. The unit tests stayed
+  # green through a Studio that threw on every load; this is what notices.
+  # A todo flow (a story not built yet) reports and never fails the job.
+  flows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # ffmpeg writes a take's preview; a take without one can't be played.
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+
+      # Pinned to the version docs/flows.md installs.
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.49.0
+          npx playwright install --with-deps chromium
+
+      - name: User flows
+        run: |
+          CGO_ENABLED=0 go build -o /tmp/hindsight ./cmd/hindsight
+          HINDSIGHT_BIN=/tmp/hindsight node scripts/flows.mjs --shots=flow-shots --json=flows.json
+
+      # The table is in the log; the screenshots of what failed are here.
+      - name: Keep the failures' screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flow-failures
+          path: |
+            flow-shots/
+            flows.json
+          if-no-files-found: ignore

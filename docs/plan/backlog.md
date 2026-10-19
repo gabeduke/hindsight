@@ -57,12 +57,9 @@ short spec in this folder when it is next.
   `RestoreCrateClip`, `CrateList`, `DropCrate`, `CrateWAV`) now have no
   production caller (tests only), and the store is write-only from the UI's
   side. Decide whether to retire `internal/tape/crate.go` with them.
-- **Stale remote branches.** Merged or landed, safe to delete:
-  `daw/a4-select-clips`, `daw/a5-fades`, `midi-capture`, `rooms/icon-safe-zone`,
-  `rooms/settings-button`, `rooms/walkthrough`, `tape-design`, `tape-engine`,
-  `phone-recording`, `ribbon`, `solid-ground`, `take-page`, `undo-trash`,
-  `tape-levels`, `tape-wide`, `tape-away`, `rooms/p5-scene`, `rooms/p4-fx`.
-  Needs a decision: `rooms/r2-shelf-to-deck` (R2, the cassette flies to the
+- **Remote branches awaiting a decision** (the merged ones were deleted
+  2026-10-18):
+  `rooms/r2-shelf-to-deck` (R2, the cassette flies to the
   deck; ~8k lines, never landed), `claude/hindsight-enclosure-build-9f51ed`
   (kit enclosure CAD; PR #47), `rooms-screenshots` (an orphan of PNGs).
 - The release tarball ships the `*.test.js` files (~1.5 MB).
