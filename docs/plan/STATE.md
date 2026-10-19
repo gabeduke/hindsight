@@ -100,6 +100,12 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
   pads on `/api/tapes/play`, and read the level every 50 ms: BREAK reads 0,
   STOP falls to 0 over a beat.
 - Node 22 for the JS tests (as CI).
+- **A flow flake not yet explained:** once in six CI runs (2026-10-19),
+  J1.9 on the tablet tapped ↶ right after dragging a section's edge and the
+  Pi kept the new edge, with nothing to redo: as if the tap never landed. It
+  hasn't happened locally, even at `FLOWS_CPU=6`. If it comes back, look at
+  `scripts/flows/j1.9-song-layout.flow.mjs` and the section strip's
+  pointer handlers in `lib/tape/page.js` before calling it the flow's fault.
 
 ## Design canvases (claude.ai artifacts, private to Gabe)
 
