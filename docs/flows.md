@@ -50,7 +50,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 
 ### Not written yet (add a flow before or with the change that touches them)
 
-More to convert: the `[demo]` lines in `docs/guide.md`'s **Checks** blocks (the `[rig]` ones stay manual).
+More to convert: the `[demo]` lines in `docs/checks.md` (the `[rig]` ones stay manual).
 
 | Id | Story | Status |
 |---|---|---|

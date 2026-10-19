@@ -1662,8 +1662,8 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 /* guide.html alone: docs/guide.md rendered by lib/help/markdown.js and cut
    into parts by lib/help/guide-page.js. Every rule starts at .guide-page, so
    none of it reaches the app's own pages. The cover is a cassette's paper
-   label, each numbered part a panel like the app's own with its number in
-   the counter's amber window, and each part's checks a card of their own. */
+   label, and each numbered part a panel like the app's own with its number
+   in the counter's amber window. */
 .guide-page .back { font-size: 28px; line-height: 1; padding: 0 8px; color: var(--ink); text-decoration: none; }
 .guide-page { --toc-h: 49px; }
 .guide-page main.guide-main {
@@ -1760,36 +1760,6 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .guide-page .guide .when.preview { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .guide-page .guide .when.preview::before { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
 
-/* Where a check runs: on the demo, on the rig, or on a phone. Inks from the
-   cassette stripes, so they read the same in both schemes. */
-.guide-page .guide .check-tag {
-  display: inline-block; box-sizing: border-box; min-width: 50px; margin-right: 4px; padding: 0 6px;
-  border-radius: 4px; text-align: center; vertical-align: 1px;
-  font: 700 11.5px/19px var(--label-font); letter-spacing: .12em; text-transform: uppercase;
-  background: var(--stripe-2); color: var(--stripe-2-ink);
-}
-.guide-page .guide .check-tag.rig { background: var(--stripe-1); color: var(--stripe-1-ink); }
-.guide-page .guide .check-tag.phone { background: var(--stripe-4); color: var(--stripe-4-ink); }
-
-/* A part's checks: a label card with an accent stripe, one ruled line a
-   check, its tag hanging in the margin so the actions line up. A "Checks"
-   line with no list under it is the same card, on its own. */
-.guide-page .guide .checks, .guide-page .guide .part > p.checks-head {
-  margin: 20px 0 14px; padding: 13px 16px 4px; border-radius: 8px;
-  background: linear-gradient(var(--accent), var(--accent)) top / 100% 3px no-repeat, var(--label);
-  box-shadow: inset 0 0 0 1px var(--line), 0 8px 18px -14px var(--sh-strong);
-}
-.guide-page .guide .part > p.checks-head { padding-bottom: 12px; font-size: 15px; }
-.guide-page .guide .checks .checks-head { margin: 0 0 4px; font-size: 14px; color: var(--ink-dim); }
-.guide-page .guide .checks-head strong {
-  font: 700 14px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink);
-}
-.guide-page .guide .checks > ul { list-style: none; margin: 0; padding: 0; }
-.guide-page .guide .checks > ul > li { margin: 0; padding: 10px 0; border-top: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent); font-size: 15px; line-height: 1.55; }
-.guide-page .guide .checks > ul > li:first-child { border-top: 0; }
-.guide-page .guide .checks > ul > li.check { position: relative; padding-left: 62px; }
-.guide-page .guide .checks > ul > li.check > .check-tag { position: absolute; left: 0; top: 13px; }
-
 /* Tables: a card with a ruled body where there's room, scrolling inside
    itself if it must; on a phone each row stacks into a card of its own. */
 .guide-page .guide .table-wrap {
@@ -1828,12 +1798,6 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .guide-page .guide .cover { padding: 24px 16px 4px; }
   .guide-page .guide .cover h1 { font-size: 30px; }
   .guide-page .guide h2 { font-size: 24px; }
-  .guide-page .guide .checks, .guide-page .guide .part > p.checks-head { margin-left: -6px; margin-right: -6px; padding-left: 12px; padding-right: 12px; }
-}
-/* Under about 480 px the hanging tags would leave too narrow a column. */
-@media (max-width: 479.98px) {
-  .guide-page .guide .checks > ul > li.check { padding-left: 0; }
-  .guide-page .guide .checks > ul > li.check > .check-tag { position: static; }
 }
 
 /* The contents: a bar under the header that opens over the text. */
