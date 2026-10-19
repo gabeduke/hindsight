@@ -243,6 +243,7 @@ export const TIPS = [
   { control: '✕ (buffer)', ids: ['buffer-close'], tip: 'Close the buffer. What you grabbed stays in it, for Buffer ▴ or another drop' },
   { control: 'Drag to a lane', ids: ['buffer-drag'], tip: 'Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid' },
   { control: 'The buffer\'s window', ids: ['buffer-window'], tip: 'What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades' },
+  { control: 'Cue', ids: ['buffer-cue'], tip: 'Put the buffer on the cue lane above the tracks, as one looping part. Tap it there to launch it on the next bar line (⇧ starts it at once) and again to stop it; drag it onto a track to put it on tape. One undo.' },
   { control: 'Drop on track', ids: ['buffer-drop'], tip: 'Lay the buffer on the armed track (with several armed, the first) at the next bar line inside the loop, over what is there: the key says where, and "replaces" when it will. Never refused for room. One undo. Stopped, ↵ again lands in the same place and replaces its own copy; playing, the next bar line has moved on. ↵' },
   { control: 'KEEP (buffer)', ids: ['buffer-keep'], tip: "Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo; the key says how long it is. K" },
   { control: 'Toss', ids: ['buffer-toss'], tip: 'Throw the buffer away; Undo brings it back. ⌫' },

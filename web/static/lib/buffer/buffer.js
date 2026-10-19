@@ -93,6 +93,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     dropWord: $('buffer-drop-word'),
     dropSub: $('buffer-drop-sub'),
     keep: $('buffer-keep'),
+    cue: $('buffer-cue'),
     keepLen: $('buffer-keep-len'),
     toss: $('buffer-toss'),
     gain: $('buffer-gain'),
@@ -403,6 +404,25 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     render();
   }
 
+  // --- CUE ------------------------------------------------------------------------
+
+  // The buffer onto the Studio's cue lane, as one looping clip: a tap there
+  // launches it on the next bar line (shell-roadmap.md). One undo.
+  function cueIt() {
+    const d = st.detail;
+    if (!st.board || !d || !d.tape || st.grabbing) return;
+    const tapeId = d.tape.id;
+    send(() => api.cue(tapeId))
+      .then(() => {
+        doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'));
+        toast('On the cue lane: tap it to launch it on the next bar', 'ok', {
+          action: { label: 'Undo', run: () => api.undo(tapeId).then(() => doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'))).catch((e) => toast(`Could not undo: ${e.message}`, 'bad')) },
+        });
+        fetchBoard(); // it's used now
+      })
+      .catch((e) => toast(`Could not cue it: ${e.message}`, 'bad'));
+  }
+
   // --- KEEP and TOSS ----------------------------------------------------------------
 
   function keepTake() {
@@ -659,6 +679,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     el.keepLen.textContent = keepLen;
     el.keep.setAttribute('aria-label', keepLabel(keepLen));
     el.toss.disabled = !g || st.grabbing;
+    if (el.cue) el.cue.disabled = !g || st.grabbing || !(d && d.tape);
     for (const id of ['in-back', 'in-on', 'out-back', 'out-on']) $(`buffer-${id}`).disabled = !g || st.grabbing;
     const c = g ? firstClip() : {};
     if (!el.gain.dataset.held) el.gain.value = String(c.gain_db || 0);
@@ -862,6 +883,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   el.snap.addEventListener('click', () => $('snap-btn')?.click()); // the ruler's own snap
   el.drop.addEventListener('click', drop);
   el.keep.addEventListener('click', keepTake);
+  el.cue?.addEventListener('click', cueIt);
   el.toss.addEventListener('click', toss);
   $('buffer-in-back').addEventListener('click', () => moveEdge('in', -1));
   $('buffer-in-on').addEventListener('click', () => moveEdge('in', 1));

@@ -48,6 +48,8 @@ type Action struct {
 	// A trick pad pressed or let go (trick.go). Queued here so it lands on
 	// its frame as a quantised ▶ does; the transport itself ignores it.
 	trick *trickMsg
+	// A cue clip launched or stopped (cuelive.go), queued the same way.
+	cue *cueCmd
 }
 
 // onceRun is how a "once" went, for the mixdown watching it.

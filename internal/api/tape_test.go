@@ -1038,3 +1038,37 @@ func TestTapeCueAPI(t *testing.T) {
 		t.Fatalf("cue clips after undo: %+v", s.Tape.Cue)
 	}
 }
+
+func TestTapeCueAddFromATakeAndLaunch(t *testing.T) {
+	r, dir := newTapeAPI(t)
+	id := makeLoadedTape(t, r)
+	if _, err := audio.WriteWAV(filepath.Join(dir, "jam_cue.wav"), make([]int32, 2*96000), 2, []int{0, 1}, 48000); err != nil {
+		t.Fatal(err)
+	}
+
+	// The buffer is empty: nothing to cue.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/add?id="+id, ""), http.StatusConflict, "cue an empty buffer")
+
+	w := send(t, r, http.MethodPost, "/api/tapes/cue/add?id="+id, `{"take":"jam_cue.wav","from":0,"to":48000}`)
+	want(t, w, http.StatusOK, "cue a take")
+	var s struct {
+		Tape struct {
+			Cue *tape.CueLane `json:"cue"`
+		} `json:"tape"`
+		Edit struct {
+			CueClip *tape.CueClip `json:"cue_clip"`
+		} `json:"edit"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil {
+		t.Fatal(err)
+	}
+	c := s.Edit.CueClip
+	if c == nil || c.Frames != 48000 || !c.Loop || s.Tape.Cue == nil || len(s.Tape.Cue.Clips) != 1 {
+		t.Fatalf("after cue/add: edit %+v, lane %+v", c, s.Tape.Cue)
+	}
+
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue?id="+id, `{"clip":"`+c.ID+`"}`), http.StatusOK, "launch")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue?id="+id, `{"clip":"nope"}`), http.StatusBadRequest, "launch a clip not on the lane")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue?id="+id, `{"clip":"`+c.ID+`","op":"juggle"}`), http.StatusBadRequest, "an op that isn't one")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue?id=other", `{"clip":"`+c.ID+`"}`), http.StatusConflict, "launch on a tape not loaded")
+}

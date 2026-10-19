@@ -129,6 +129,7 @@ type Engine struct {
 	moveLog  trickLog      // amounts moving, apart from the presses and releases
 	owners   previewOwners // who previews each tape mod
 	heldPads atomic.Uint32 // perf's held pads, a bit each, for Live
+	cue      cuePlayer     // the cue lane's clips playing (cuelive.go)
 
 	// player
 	blocks    chan *block
@@ -474,6 +475,8 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				if e.perf.apply(*a.trick, out, tr.pos, tr.playing && tr.onceEnd == 0, m) {
 					e.logTrick(a.trick.pad, a.trick.press, out, tr.pos)
 				}
+			} else if a.cue != nil {
+				e.cueApply(*a.cue, out)
 			} else {
 				tr.apply(a, out, m, length)
 				switch a.Kind {
@@ -481,6 +484,12 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 					// The tape stopped or jumped under a held trick: the head
 					// picks up again from wherever it next plays.
 					e.perf.lose()
+				}
+				switch a.Kind {
+				case "stop", "once":
+					// One transport: Stop stops the cue lane too, and a
+					// mixdown's pass plays the tape alone.
+					e.cueStopAll(out)
 				}
 			}
 			tr.pend = tr.pend[1:]
@@ -502,6 +511,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				e.perf.post(d, out, int(span), m, false) // an echo ringing on
 				m.renderCountIn(d, tr.countLen-tr.countIn, int(span))
 			}
+			e.renderCue(d0(dst, off), out, int(span), m)
 			tr.countIn -= span
 			if tr.countIn == 0 {
 				at := out + uint64(span)
@@ -568,7 +578,9 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			e.perf.step(int(span), out, dst != nil, true, m)
 			if dst != nil {
 				d := dst[off*OutChannels:]
-				if e.perf.active(out, m) {
+				if m.cueSolo {
+					// Cue: the cue lane alone, the tape running silent under it.
+				} else if e.perf.active(out, m) {
 					// Play mode: the head, tracks dropped out, or the tape's
 					// wow and flutter.
 					e.perf.render(d, m, out, int(span), tr.pos, tr.sinceWrap(out, m.loop))
@@ -580,6 +592,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				// stutter, and stays dry.
 				m.renderClick(d, tr.pos, int(span))
 			}
+			e.renderCue(d0(dst, off), out, int(span), m)
 			tr.pos += span
 			if looping && tr.pos == m.loop.Out {
 				at := out + uint64(span)
@@ -601,14 +614,25 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 			if dst != nil {
 				e.perf.post(dst[off*OutChannels:], out, int(span), m, false)
 			}
+			// A clip launched with the tape standing plays on its own.
+			e.renderCue(d0(dst, off), out, int(span), m)
 		}
 		out += uint64(span)
 		off += int(span)
 		n -= int(span)
 	}
+	e.publishCue()
 	tr.mu.Lock()
 	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out, Pending: len(tr.pend), CountIn: tr.countIn}
 	tr.mu.Unlock()
+}
+
+// d0 is dst from frame off on, or nil when advance only counts.
+func d0(dst []float32, off int) []float32 {
+	if dst == nil {
+		return nil
+	}
+	return dst[off*OutChannels:]
 }
 
 // drain takes what's been asked of the transport, with the render head at
@@ -621,15 +645,18 @@ func (e *Engine) drain(out uint64, m *Mix) {
 			if a.Kind == "reset" {
 				tr.reset(out)
 				e.resetTricks() // the reset took the queued tricks with it
+				e.cueStopAll(out)
 				close(a.done)
 				continue
 			}
+			e.cueQueued(a)
 			tr.queue(pending{at: tr.target(a, out, m, m.grid), action: a})
 			continue
 		default:
 		}
 		break
 	}
+	e.publishCue()
 	e.drainTricks(out, m)
 }
 
@@ -646,7 +673,7 @@ func (e *Engine) idle(out uint64) {
 				tr.reset(out)
 				e.resetTricks()
 				close(a.done)
-			case "play", "once": // nothing plays it
+			case "play", "once", "cue": // nothing plays it
 			default:
 				tr.apply(a, out, m, m.length)
 			}
@@ -946,12 +973,14 @@ type Live struct {
 	OutputMode string        `json:"output_mode,omitempty"` // jam, phone or both
 	Stream     *StreamStatus `json:"stream,omitempty"`      // the stream to a phone
 	Tricks     []string      `json:"tricks,omitempty"`      // Play mode's pads held now
+	Cue        *CueLive      `json:"cue,omitempty"`         // the cue lane's clips playing or waiting
 }
 
 func (e *Engine) Live() Live {
 	l := Live{Status: e.tr.Status(), Delivered: e.delivered.Load(), Late: e.late.Load(), Output: e.sinkName,
 		Failed: e.pool.Failed(), Problem: e.panicked.Load().(string)}
 	l.Tricks = e.HeldPads()
+	l.Cue = e.CueLive()
 	if n, ok := e.sink.(interface{ Name() string }); ok && e.sink != nil {
 		l.Output = n.Name() // "" while the device is away
 	}

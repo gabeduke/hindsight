@@ -6,11 +6,11 @@ short spec in this folder when it is next.
 
 ## The rooms and the bar
 
-- **Cue lane: add and launch.** Throw a take from the shelf, a GRAB from the
-  buffer, or a part from a track onto the lane; the buffer's drop targets gain
-  the cue lane. Launch on the next bar, loop until tapped, Shift starts at
-  once; the Cue (solo) button; summed with the tape on one clock. Flow C1.
-  (`shell-roadmap.md`)
+- **Cue lane: the shelf and the tracks as sources.** Throw a take from the
+  shelf (`POST /api/tapes/cue/add` with `take` does the Pi's half) or lift a
+  part from a track onto the lane. (`shell-roadmap.md`)
+- **The flows' gestures in the harness.** J1.3 and J1.11 each carry a
+  hold-then-drag helper; one `t.holdDrag` beside `t.hold` would do.
 - **Output switch: Live feed / Playback,** with a real live stream of the
   ring. Today's Feed source plays no audio. (`shell-roadmap.md` §3)
 - **Bookmark drawer replaces the Sketchbook.** (`shell-roadmap.md`, Notes)
