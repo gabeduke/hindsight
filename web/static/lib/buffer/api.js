@@ -56,6 +56,9 @@ export const restoreReplaced = (by, o) =>
 /** drop lays the clipboard on the tape: {track, at}, one undo. */
 export const drop = (tapeId, track, at, o) => call(`/api/tapes/drop?id=${encodeURIComponent(tapeId)}`, { ...o, method: 'POST', body: { track, at } });
 
+/** cue puts the buffer on the cue lane, looping: the tape's state, edit.cue_clip the clip. */
+export const cue = (tapeId, o) => call(`/api/tapes/cue/add?id=${encodeURIComponent(tapeId)}`, { ...o, method: 'POST' });
+
 /** undo steps the tape back one: a drop's Undo. */
 export const undo = (tapeId, o) => call(`/api/tapes/undo?id=${encodeURIComponent(tapeId)}`, { ...o, method: 'POST' });
 

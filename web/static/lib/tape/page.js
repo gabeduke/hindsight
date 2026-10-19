@@ -179,6 +179,7 @@ export function mountTapePage(ctx) {
     getTape: () => state.tape,
     getLaneView: () => laneView(),
     onEdit: (op, extra) => edit(op, extra),
+    onLaunch: (clip, { now }) => launchCue(clip, now),
     onToast: toast,
     signal: ctx?.signal,
   });
@@ -574,7 +575,7 @@ function render() {
   const live = state.live;
   const sr = t.sample_rate;
   renderClipBar();
-  cueLane?.update(t ? t.cue : null);
+  cueLane?.update(t ? t.cue : null, live?.cue || null);
   $('tape-name-text').textContent = t.name;
   $('tape-name').title = `${t.name}: switch tape`;
   if (viewCtx) viewCtx.setTitle(`${t.name} — tape — Hindsight`);
@@ -926,6 +927,19 @@ const OP_WORDS = {
 
 // edit sends one edit, shows the tape it answers with, and answers what the
 // edit did -- or null, having said why not.
+// A tap on a cue clip: it starts on the next bar line, or stops on it if
+// it's playing; ⇧ does it at once. The lane shows it waiting, then playing,
+// from the live state the next poll brings.
+async function launchCue(clip, now) {
+  try {
+    const r = await api(`/api/tapes/cue?${q()}`, { method: 'POST', body: { clip: clip.id, op: 'toggle', now } });
+    if (state.live && r && r.cue) state.live.cue = r.cue;
+    poll();
+  } catch (err) {
+    toast(`Could not launch ${named(clip.name || clip.id)}: ${err.message}`, 'bad');
+  }
+}
+
 async function edit(op, extra = {}, { keepalive = false } = {}) {
   try {
     const s = await change(() => api(`/api/tapes/edit?${q()}`, { method: 'POST', body: { op, ...editBody(op, { track: state.track, ...extra }) }, keepalive }));

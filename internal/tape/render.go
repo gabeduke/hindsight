@@ -177,6 +177,10 @@ type Mix struct {
 	sr       float64
 	// style is the tape's mods, by mod index (mods.go).
 	style [numMods]float64
+	// cue is the cue lane's clips by id, and cueSolo its Cue button: the
+	// tracks drop out of the output while it's on (cuelive.go).
+	cue     map[string]*mixCue
+	cueSolo bool
 }
 
 // rate is the mix's sample rate; 48 kHz for the empty mix nothing is loaded
@@ -230,6 +234,13 @@ func NewMix(s State, pool *Pool, sampleRate int) *Mix {
 	}
 	if s.Style != nil {
 		m.style = s.Style.amounts()
+	}
+	if s.Cue != nil {
+		m.cueSolo = s.Cue.Solo
+		m.cue = map[string]*mixCue{}
+		for _, c := range s.Cue.Clips {
+			m.cue[c.ID] = newMixCue(c, s.Cue.GainDB, pool)
+		}
 	}
 	solo := false
 	for _, t := range s.Tracks {

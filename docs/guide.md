@@ -1278,6 +1278,16 @@ range's Cut and Copy, fill and DROP empties, out where you can work on it.
   fit the tape*; only one longer than the tape is refused.
 - **KEEP** (**K**) saves it on the Listening Room's shelf, at the
   tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
+- **CUE** puts it on the **cue lane**, the strip above track 1, as one
+  looping part (one undo). **Tap a part there to launch it on the next bar
+  line**; it loops, played with the tape, until you tap it again, which
+  stops it on the next bar line. **⇧-tap** does either at once. While it
+  waits for its bar line the part blinks; while it plays it's lit. With the
+  tape stopped a launch starts at once, and **Stop** stops the lane with the
+  tape. **Solo** leaves the cue lane alone in the output, **⟲** loops a
+  part or plays it once, and **dragging a part onto a track** copies it
+  onto the tape there. The lane is saved with the tape, so another device
+  sees it; what's playing on it never goes into a bounce.
 - **A grab can be undone.** GRAB over a buffer you never dropped, kept or
   tossed -- a grab, or a range's Cut or Copy -- says so — *Replaced the buffer’s 4 BARS from the feed, never
   dropped or kept* — with **Undo**, which puts the old buffer back (and
@@ -1723,6 +1733,7 @@ has no tip.
 | ✕ (buffer) | Close the buffer. What you grabbed stays in it, for Buffer ▴ or another drop |
 | Drag to a lane | Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
 | The buffer's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
+| Cue | Put the buffer on the cue lane above the tracks, as one looping part. Tap it there to launch it on the next bar line (⇧ starts it at once) and again to stop it; drag it onto a track to put it on tape. One undo. |
 | Drop on track | Lay the buffer on the armed track (with several armed, the first) at the next bar line inside the loop, over what is there: the key says where, and "replaces" when it will. Never refused for room. One undo. Stopped, ↵ again lands in the same place and replaces its own copy; playing, the next bar line has moved on. ↵ |
 | KEEP (buffer) | Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo; the key says how long it is. K |
 | Toss | Throw the buffer away; Undo brings it back. ⌫ |

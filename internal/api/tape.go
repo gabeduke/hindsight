@@ -749,6 +749,79 @@ func (a *API) handleTapeCatch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
+// handleTapeCue launches or stops a cue clip, on the next bar line or, with
+// now, at once (cuelive.go): {"clip", "op": launch|stop|toggle, "now"}.
+// It answers what the cue lane is playing once the render head has it.
+func (a *API) handleTapeCue(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		Clip string `json:"clip"`
+		Op   string `json:"op"`
+		Now  bool   `json:"now"`
+	}
+	if !decodeBody(w, r, &b) {
+		return
+	}
+	if b.Op == "" {
+		b.Op = "toggle"
+	}
+	if err := a.tape.CueLaunch(r.URL.Query().Get("id"), b.Clip, b.Op, b.Now); err != nil {
+		tapeErr(w, err)
+		return
+	}
+	live := a.tape.CueLive()
+	if live == nil {
+		live = &tape.CueLive{Playing: []string{}, Queued: []string{}, Starts: map[string]int64{}}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"cue": live})
+}
+
+// handleTapeCueAdd puts a clip on the cue lane: the buffer, with an empty
+// body, or a span of a take, {"take", "from", "to"}. It answers the tape's
+// state, with the new clip as edit.cue_clip.
+func (a *API) handleTapeCueAdd(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		Take string `json:"take"`
+		From int64  `json:"from"`
+		To   int64  `json:"to"`
+	}
+	if r.ContentLength != 0 && !decodeBody(w, r, &b) {
+		return
+	}
+	id := r.URL.Query().Get("id")
+	var added tape.CueClip
+	var err error
+	if b.Take == "" {
+		added, err = a.tape.CueFromClipboard(id)
+	} else {
+		name, nerr := a.safeTakeName(b.Take)
+		if nerr != nil {
+			writeErr(w, http.StatusBadRequest, nerr.Error())
+			return
+		}
+		path := filepath.Join(a.cfg.OutputDir, name)
+		info, serr := audio.ReadWAVInfo(path)
+		if serr != nil {
+			writeErr(w, http.StatusNotFound, "no such take")
+			return
+		}
+		if b.To <= b.From {
+			b.From, b.To = 0, info.Frames()
+		}
+		added, err = a.tape.CueFromTake(id, path, takeTitle(name, path), b.From, b.To, a.takePair(info.Channels))
+	}
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	a.writeTapeStateWith(w, id, &tape.EditResult{Op: "cue-add", Clips: 1, CueClip: &added}, false)
+}
+
 func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
