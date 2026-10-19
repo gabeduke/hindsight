@@ -7,11 +7,11 @@ export default {
   title: 'GRAB the last bars, DROP them on a track',
   async run(t) {
     const { page, api } = t;
-    await api.tape('Grab and drop');
-    await api.ringHas(15);
+    await t.given('a fresh tape', () => api.tape('Grab and drop'));
+    await t.given('15s of the jam in the feed', () => api.ringHas(15));
     const before = parts(await api.tapeState());
 
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     const grab = page.locator('.buffer-grab-key').first();
     await grab.waitFor({ state: 'visible' });
     await t.step('tap GRAB', () => t.tap(grab));

@@ -118,21 +118,26 @@ jobs:
       # Pinned to the version docs/flows.md installs.
       - name: Install Playwright
         run: |
-          npm install --no-save playwright@1.49.0
+          npm install --no-save playwright@1.49.0 axe-core@4.11.4
           npx playwright install --with-deps chromium
 
+      # Each scenario prints as Given/When/Then; the layout checks run on
+      # every screen. No LLM: the review is its own opt-in workflow
+      # (ux-review.yml).
       - name: User flows
         run: |
           CGO_ENABLED=0 go build -o /tmp/hindsight ./cmd/hindsight
-          HINDSIGHT_BIN=/tmp/hindsight node scripts/flows.mjs --shots=flow-shots --json=flows.json
+          HINDSIGHT_BIN=/tmp/hindsight node scripts/flows.mjs --shots=flow-shots --json=flows.json --storyboard=storyboard
 
-      # The table is in the log; the screenshots of what failed are here.
-      - name: Keep the failures' screenshots
-        if: failure()
+      # The storyboard (storyboard/index.html: every screen, pass or fail),
+      # and the failures' screenshots.
+      - name: Keep the storyboard
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: flow-failures
+          name: flow-storyboard
           path: |
+            storyboard/
             flow-shots/
             flows.json
           if-no-files-found: ignore

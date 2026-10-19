@@ -18,7 +18,7 @@ export default {
   title: 'Tap plays; playback carries across rooms',
   async run(t) {
     const { page, api } = t;
-    await api.keep(20);
+    await t.given('a take on the shelf', () => api.keep(20));
 
     await t.step('open the Listening Room', () => page.goto(`${t.base}/takes.html`));
     await page.evaluate(() => { window.__flowMarker = true; }); // gone if the page reloads

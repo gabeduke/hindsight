@@ -6,8 +6,8 @@ export default {
   profiles: ['tablet', 'desktop'], // the fold key is hidden under 700px
   async run(t) {
     const { page, api } = t;
-    await api.tape('Fold');
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('a fresh tape', () => api.tape('Fold'));
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-fold-btn').waitFor({ state: 'visible' });
 
     await t.step('fold the bar', () => t.tap(page.locator('#np-fold-btn')));

@@ -1,0 +1,19 @@
+[
+ "desktop|target-size|.cue-clip-loop|",
+ "desktop|target-size|.cue-clip-remove|",
+ "phone|covered|button#np-play.icon-btn.tb-play|circle.np-hub",
+ "phone|offscreen|button#snap-btn.chip.ruler-chip|",
+ "phone|target-size|button[data-source=\"aux\"]|",
+ "phone|target-size|button[data-source=\"ch1\"]|",
+ "phone|target-size|button[data-source=\"ch2\"]|",
+ "phone|target-size|button[data-source=\"main\"]|",
+ "tablet|covered|button.icon-btn.buffer-grab-key|button",
+ "tablet|offscreen|button#np-fold-btn.icon-btn.np-fold-btn|",
+ "tablet|offscreen|button.room-place.room-book-place|",
+ "tablet|target-size|.cue-clip-loop|",
+ "tablet|target-size|.cue-clip-remove|",
+ "tablet|target-size|button[data-source=\"aux\"]|",
+ "tablet|target-size|button[data-source=\"ch1\"]|",
+ "tablet|target-size|button[data-source=\"ch2\"]|",
+ "tablet|target-size|button[data-source=\"main\"]|"
+]

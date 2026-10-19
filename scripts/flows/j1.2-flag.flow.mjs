@@ -5,10 +5,10 @@ export default {
   title: 'Flag now; the flag rides into the next take',
   async run(t) {
     const { page, api } = t;
-    await api.ringHas(10);
+    await t.given('10s of the jam in the feed', () => api.ringHas(10));
     const before = new Set((await api.takes()).map((x) => x.name));
 
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     const mark = page.locator('#mark-btn');
     await mark.waitFor({ state: 'visible' });
     await t.poll(() => !document.getElementById('mark-btn')?.disabled);

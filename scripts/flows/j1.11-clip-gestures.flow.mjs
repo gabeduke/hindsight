@@ -16,20 +16,20 @@ export default {
 
     // A 4-bar tape at 96 BPM with the first 4 bars of a take on track 1 at
     // the loop's start.
-    const tape = await api.tape('Clip gestures');
-    const take = await api.keep(20); // a kept take is trimmed to its bars: 12 s keeps under 4
+    const tape = await t.given('a fresh tape', () => api.tape('Clip gestures'));
+    const take = await t.given('a take on the shelf', () => api.keep(20)); // a kept take is trimmed to its bars: 12 s keeps under 4
     const st = await api.tapeState();
     const bar = st.grid.frames / st.grid.bars;
     const loop = st.loop;
-    const dropped = await api.post(`/api/tapes/drop?id=${encodeURIComponent(tape.id)}`,
-      { take: take.name, from: 0, to: Math.round(4 * bar), track: 1, at: loop.in });
+    const dropped = await t.given('the take\'s first 4 bars on track 1', () => api.post(`/api/tapes/drop?id=${encodeURIComponent(tape.id)}`,
+      { take: take.name, from: 0, to: Math.round(4 * bar), track: 1, at: loop.in }));
     t.expect('the tape has a part on track 1', dropped?.clip, dropped);
     if (!dropped?.clip) return;
     const id = dropped.clip.id ?? dropped.clip;
     const clip = async () => (await api.tapeState()).tracks.flatMap((tr, i) => tr.clips.map((c) => ({ ...c, track: i + 1 }))).find((c) => c.id === id);
     const c0 = await clip();
 
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     await page.locator('.tt-lane').first().waitFor({ state: 'visible' });
     await t.wait(800); // the lanes draw after the first state poll
 

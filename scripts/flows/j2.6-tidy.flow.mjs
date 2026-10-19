@@ -5,10 +5,10 @@ export default {
   title: 'Select, delete and undo on the shelf',
   async run(t) {
     const { page, api } = t;
-    await api.keep(5);
-    const take = await api.keep(5);
+    await t.given('a take on the shelf', () => api.keep(5));
+    const take = await t.given('another take on the shelf', () => api.keep(5));
     const count = (await api.takes()).length;
-    await page.goto(`${t.base}/takes.html`);
+    await t.given('the Listening Room is open', () => page.goto(`${t.base}/takes.html`));
     await page.locator('#view-room .room-cassette').first().waitFor();
 
     // Hold a spine to start selecting (⇧-click with a mouse); the held take

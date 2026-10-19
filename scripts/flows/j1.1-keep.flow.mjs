@@ -5,7 +5,7 @@ export default {
   title: 'Keep the last N from the Studio',
   async run(t) {
     const { page, api } = t;
-    await api.ringHas(8);
+    await t.given('8s of the jam in the feed', () => api.ringHas(8));
     const before = (await api.takes()).length;
 
     await t.step('open the Studio', () => page.goto(`${t.base}/tape.html`));

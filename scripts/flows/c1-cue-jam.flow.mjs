@@ -5,11 +5,11 @@ export default {
   title: 'Throw a grab to the cue lane and launch it',
   async run(t) {
     const { page, api } = t;
-    const { id } = await api.tape('Jam on the cue lane');
+    const { id } = await t.given('a fresh tape', () => api.tape('Jam on the cue lane'));
     const q = `id=${encodeURIComponent(id)}`;
     const live = async () => (await api.get(`/api/tapes/state?${q}`)).live ?? {};
-    await api.ringHas(15);
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('15s of the jam in the feed', () => api.ringHas(15));
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
 
     const grab = page.locator('.buffer-grab-key').first();
     await grab.waitFor({ state: 'visible' });
@@ -43,13 +43,13 @@ export default {
     await t.step('tap it again', () => t.tap(chip.locator('.cue-clip-name')));
     const stopped = await api.until(async () => !((await live()).cue?.playing ?? []).includes(lane.id), 'the clip to stop', 10_000).catch(() => false);
     t.expect('it stops on the next bar', stopped);
-    await api.post(`/api/tapes/transport?${q}`, { action: 'stop' });
+    await t.step('stop the tape', () => api.post(`/api/tapes/transport?${q}`, { action: 'stop' }));
 
     // Drag it down onto track 2: a copy on the tape, the lane keeps its clip.
     // The buffer is put away first (on a laptop's height it folds the
     // lanes), and the lane and track 2 are brought into sight.
     if (await page.locator('#buffer-close').isVisible()) {
-      await t.tap(page.locator('#buffer-close'));
+      await t.step('put the buffer away', () => t.tap(page.locator('#buffer-close')));
       await t.poll(() => document.getElementById('buffer')?.hidden, null, 3000);
     }
     await page.locator('#lanes > .tape-track').nth(1).scrollIntoViewIfNeeded();

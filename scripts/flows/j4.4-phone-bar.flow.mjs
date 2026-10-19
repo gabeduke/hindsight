@@ -23,15 +23,15 @@ export default {
   async run(t) {
     const { page, api } = t;
     // A 4-bar tape with the first 4 bars of a take on track 1.
-    const tape = await api.tape('Phone');
-    const take = await api.keep(20); // a kept take can come out a little short
+    const tape = await t.given('a fresh tape', () => api.tape('Phone'));
+    const take = await t.given('a take on the shelf', () => api.keep(20)); // a kept take can come out a little short
     const st = await api.tapeState();
     const bar = st.grid.frames / st.grid.bars;
     const q = `id=${encodeURIComponent(tape.id)}`;
     const to = Math.min(Math.round(4 * bar), Math.floor(take.duration_seconds * take.sample_rate));
-    await api.post(`/api/tapes/drop?${q}`, { take: take.name, from: 0, to, track: 1, at: st.loop.in });
+    await t.given('the take\'s first 4 bars on track 1', () => api.post(`/api/tapes/drop?${q}`, { take: take.name, from: 0, to, track: 1, at: st.loop.in }));
 
-    await api.post(`/api/tapes/edit?${q}`, { op: 'copy', track: 1 });
+    await t.given('the part copied', () => api.post(`/api/tapes/edit?${q}`, { op: 'copy', track: 1 }));
 
     await t.step('open the Studio', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-expand').waitFor({ state: 'visible' });

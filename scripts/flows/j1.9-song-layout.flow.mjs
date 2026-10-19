@@ -34,13 +34,13 @@ export default {
   async run(t) {
     const { page, api } = t;
     // A 4-bar tape at 96 BPM with a take's first 4 bars on track 1.
-    const tape = await api.tape('Song');
-    const take = await api.keep(20);
+    const tape = await t.given('a fresh tape', () => api.tape('Song'));
+    const take = await t.given('a take on the shelf', () => api.keep(20));
     const st0 = await api.tapeState();
     const bar = st0.grid.frames / st0.grid.bars;
     const q = `id=${encodeURIComponent(tape.id)}`;
     const to4 = Math.min(Math.round(4 * bar), Math.floor(take.duration_seconds * take.sample_rate));
-    await api.post(`/api/tapes/drop?${q}`, { take: take.name, from: 0, to: to4, track: 1, at: 0 });
+    await t.given('the take\'s first 4 bars on track 1', () => api.post(`/api/tapes/drop?${q}`, { take: take.name, from: 0, to: to4, track: 1, at: 0 }));
     const sections = async () => (await api.tapeState()).sections ?? [];
     const near = (a, b) => Math.abs(a - b) <= 1;
     const undo = () => t.tap(page.locator('#tape-undo'));

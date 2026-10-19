@@ -7,10 +7,10 @@ export default {
   title: 'The bar plays the tape and rewinds it',
   async run(t) {
     const { page, api } = t;
-    const tape = await api.tape('Transport');
+    const tape = await t.given('a fresh tape', () => api.tape('Transport'));
     const live = async () => (await api.get(`/api/tapes/state?id=${encodeURIComponent(tape.id)}`));
 
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-play').waitFor({ state: 'visible' });
     t.expect('the reels are drawn', await t.poll(() => !!document.querySelector('#np-reel-l .np-pack')));
     const marquee = () => document.getElementById('np-marquee')?.textContent ?? '';

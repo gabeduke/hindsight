@@ -12,6 +12,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { checkLayout, findingKey } from './layout.mjs';
 
 // Android tablet (tap + stylus) is the main device; the laptop is second.
 export const PROFILES = {
@@ -144,9 +145,19 @@ export function apiFor(base) {
 }
 
 // runFlow runs one flow on one profile and answers its result. `t`, the
-// flow's handle, is: page, api, base, profile, step(name, fn) for a named
-// stage, expect(name, ok, detail), and wait(ms).
-export async function runFlow(browser, flow, profileName, { base, api, shots }) {
+// flow's handle, is: page, api, base, profile, given(name, fn) for setup,
+// step(name, fn) for what the person does, expect(name, ok, detail) for
+// what should follow, and wait(ms). They read as Given/When/Then in the
+// report (log), in the order they ran.
+//
+// Each screen the flow leaves (before every When, and at the end) gets the
+// layout checks (layout.mjs); a "fail" among them fails the flow. With
+// storyboard, a directory, each of those screens is also saved there as a
+// picture, for scripts/flows/storyboard.mjs.
+//
+// known is the baseline (layout-known.json): findings already there when
+// the checks came in. They show as "known" and don't fail; a new one does.
+export async function runFlow(browser, flow, profileName, { base, api, shots, storyboard = null, known = new Set() }) {
   const profile = PROFILES[profileName];
   const context = await browser.newContext({ ...profile, serviceWorkers: 'block' });
   const page = await context.newPage();
@@ -163,15 +174,62 @@ export async function runFlow(browser, flow, profileName, { base, api, shots }) 
     if (/Failed to load resource/.test(text) && flow.allowHttpErrors) return;
     errors.push(`console.error: ${text.slice(0, 300)}`);
   });
+  // Which elements a person's input reached, by id, for the coverage map:
+  // the page reports its own pointer and key events, however they came.
+  const touched = new Set();
+  await page.exposeBinding('__flowTouched', (_, id) => { touched.add(id); });
+  await context.addInitScript(() => {
+    for (const type of ['pointerdown', 'keydown', 'input', 'change']) {
+      addEventListener(type, (e) => {
+        for (let el = e.target; el && el.nodeType === 1; el = el.parentElement) {
+          if (el.id) window.__flowTouched?.(el.id);
+        }
+      }, true);
+    }
+  });
   let stage = 'start';
+  const log = [];
+  let frame = 0;
+  const seenLayout = new Set();
+  // screen checks the screen the last line left and pins what it found
+  // (and its picture) to that line.
+  const screen = async () => {
+    const at = log.at(-1);
+    if (!at || at.layout || page.isClosed() || page.url() === 'about:blank') return;
+    // A finding already reported on an earlier screen is marked again, so
+    // the report says each one once, where it first showed.
+    at.layout = (await checkLayout(page, { touch: profile.hasTouch })).map((f) => {
+      const k = findingKey(f);
+      if (f.severity === 'fail' && known.has(`${profileName}|${k}`)) f = { ...f, severity: 'known' };
+      if (seenLayout.has(k)) return { ...f, again: true };
+      seenLayout.add(k);
+      return f;
+    });
+    if (storyboard) {
+      const file = `${flow.id}-${profileName}-${String(++frame).padStart(2, '0')}.jpg`;
+      await page.screenshot({ path: join(storyboard, file), type: 'jpeg', quality: 60 }).then(() => { at.shot = file; }, () => {});
+    }
+  };
   const t = {
     page, api, base, profile: profileName,
     wait: (ms) => page.waitForTimeout(ms),
     expect(name, ok, detail = '') {
-      checks.push({ name, ok: !!ok, detail: ok ? '' : (typeof detail === 'string' ? detail : JSON.stringify(detail)) });
+      const c = { name, ok: !!ok, detail: ok ? '' : (typeof detail === 'string' ? detail : JSON.stringify(detail)) };
+      checks.push(c);
+      log.push({ kind: 'then', ...c });
       return !!ok;
     },
-    async step(name, fn) { stage = name; return fn(); },
+    async given(name, fn) {
+      stage = name;
+      log.push({ kind: 'given', name, ok: true });
+      return fn();
+    },
+    async step(name, fn) {
+      await screen();
+      stage = name;
+      log.push({ kind: 'when', name, ok: true });
+      return fn();
+    },
     // hold is the select gesture: a finger held on the target on a touch
     // profile (real touch events, so pointerType is "touch"), ⇧-click with a
     // mouse, which is what the app takes there (a mouse never holds).
@@ -204,9 +262,13 @@ export async function runFlow(browser, flow, profileName, { base, api, shots }) 
     await flow.run(t);
   } catch (e) {
     thrown = `threw at "${stage}": ${e.message.split('\n')[0]}`;
+    const at = log.findLast((l) => l.name === stage);
+    if (at) Object.assign(at, { ok: false, detail: e.message.split('\n')[0] });
   }
+  await screen().catch(() => {});
   const failed = checks.filter((c) => !c.ok);
-  const ok = !thrown && failed.length === 0 && errors.length === 0;
+  const layout = log.flatMap((l) => (l.layout ?? []).filter((f) => f.severity === 'fail'));
+  const ok = !thrown && failed.length === 0 && errors.length === 0 && layout.length === 0;
   let shot = '';
   if (!ok && shots) {
     shot = join(shots, `${flow.id}-${profileName}.png`);
@@ -215,8 +277,26 @@ export async function runFlow(browser, flow, profileName, { base, api, shots }) 
   await context.close();
   return {
     flow: flow.id, title: flow.title, status: flow.status ?? 'core', profile: profileName,
-    ok, ms: Date.now() - started, checks, thrown, errors, shot,
+    ok, ms: Date.now() - started, checks, thrown, errors, shot, log, touched: [...touched].sort(),
   };
+}
+
+// scenario is one run in Gherkin form: Given/When/Then, a repeat as And,
+// each line marked, a layout fail under the line whose screen it was on.
+export function scenario(r) {
+  const word = { given: 'Given', when: 'When', then: 'Then' };
+  const out = [`Scenario: ${r.flow} ${r.title} [${r.profile}]`];
+  let last = '';
+  for (const l of r.log ?? []) {
+    const mark = l.ok ? (l.kind === 'then' ? '✓' : ' ') : '✗';
+    out.push(`  ${mark} ${(l.kind === last ? 'And' : word[l.kind]).padStart(5)} ${l.name}${l.ok ? '' : `  -- ${l.detail}`}`);
+    last = l.kind;
+    for (const f of (l.layout ?? []).filter((x) => x.severity === 'fail' && !x.again)) {
+      out.push(`  ✗       layout ${f.rule}: ${f.el} ${f.msg}`);
+    }
+  }
+  for (const e of r.errors ?? []) out.push(`  ✗ ${e}`);
+  return out.join('\n');
 }
 
 export function report(results) {
@@ -235,6 +315,9 @@ export function report(results) {
     if (r.thrown) detail.push(`  ${r.thrown}`);
     for (const c of r.checks.filter((c) => !c.ok)) detail.push(`  FAIL ${c.name}${c.detail ? ` -- ${c.detail}` : ''}`);
     for (const e of r.errors) detail.push(`  ${e}`);
+    for (const l of r.log ?? []) {
+      for (const f of (l.layout ?? []).filter((x) => x.severity === 'fail' && !x.again)) detail.push(`  LAYOUT ${f.rule} at "${l.name}": ${f.el} ${f.msg}`);
+    }
     if (r.shot) detail.push(`  screenshot: ${r.shot}`);
   }
   const core = results.filter((r) => r.status !== 'todo');

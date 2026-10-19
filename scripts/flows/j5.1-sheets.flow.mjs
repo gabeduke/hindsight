@@ -8,7 +8,7 @@ export default {
   async run(t) {
     const { page } = t;
     for (const room of ['tape.html', 'takes.html']) {
-      await page.goto(`${t.base}/${room}`);
+      await t.given(`${room} is open`, () => page.goto(`${t.base}/${room}`));
       await t.step(`Settings in ${room}`, () => page.locator('#appbar-settings-btn').click());
       t.expect(`Settings opens in ${room}`, await t.poll(() => document.getElementById('settings-sheet')?.open));
       await page.keyboard.press('Escape');
