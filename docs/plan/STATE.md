@@ -48,8 +48,9 @@ is `<pi-host>`.
   - Tablet: the Listening Room's sketchbook place starts off the left side.
   - Phone: the mini player's reel hub sits over Play, and the ruler's
     Bar/Snap chip is cut off on the left.
-  - The cue clip's × (12×14 px) and loop toggle (22 px), and the input
-    menu's source chips (18 px wide), are under 24 px.
+  - The cue clip's × (12×14 px) and loop toggle (22 px), the input menu's
+    source chips (18 px wide) and the shelf's list button (20 px tall) are
+    under 24 px.
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.

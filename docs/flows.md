@@ -106,7 +106,10 @@ A layout fail fails the flow, except one in the baseline
 (`scripts/flows/layout-known.json`): the findings that were there when the
 checks came in, shown as "known". Fixing one and running
 `node scripts/flows.mjs --update-layout-known` (the whole run) takes it out.
-A meant overlap goes in `layout-allow.mjs`, with why. Neither file is for
+A run of some flows or one profile leaves the shelf and tapes in a
+different state, so it can meet a finding the whole run doesn't (a shelf of
+three takes spaces its buttons differently): if it's real, add it to the
+baseline by hand. A meant overlap goes in `layout-allow.mjs`, with why. Neither file is for
 quieting a finding nobody looked at.
 
 **The storyboard** (`--storyboard=dir`) writes `dir/index.html`:
