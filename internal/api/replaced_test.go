@@ -41,12 +41,11 @@ func replacedOf(t *testing.T, body []byte) replacedBody {
 
 func crateCount(t *testing.T, r *mux.Router) int {
 	t.Helper()
-	var c struct {
-		Clips []json.RawMessage `json:"clips"`
+	clips, err := bufferEngines[r].CrateList("", "")
+	if err != nil {
+		t.Fatal(err)
 	}
-	w := send(t, r, http.MethodGet, "/api/crate", "")
-	json.Unmarshal(w.Body.Bytes(), &c)
-	return len(c.Clips)
+	return len(clips)
 }
 
 func TestGrabsUndoOverTheClipboardRoutes(t *testing.T) {

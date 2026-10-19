@@ -51,9 +51,12 @@ short spec in this folder when it is next.
 
 ## Cleanup decisions
 
-- **The crate's HTTP API** (`/api/crate*`, `internal/api/crate.go`) has no UI
-  client since the crate left the screen. `internal/tape/crate.go` is still
-  used by edits. Remove the routes, or keep them for a future UI?
+- **The crate's HTTP API**: removed 2026-10-18 (Gabe). Follow-up: the
+  engine's crate methods (`KeepTake`, `SplitTake`, `KeepRing`,
+  `KeepTapeClip`, `KeepClipboard`, `RenameCrateClip`, `DeleteCrateClip`,
+  `RestoreCrateClip`, `CrateList`, `DropCrate`, `CrateWAV`) now have no
+  production caller (tests only), and the store is write-only from the UI's
+  side. Decide whether to retire `internal/tape/crate.go` with them.
 - **Stale remote branches.** Merged or landed, safe to delete:
   `daw/a4-select-clips`, `daw/a5-fades`, `midi-capture`, `rooms/icon-safe-zone`,
   `rooms/settings-button`, `rooms/walkthrough`, `tape-design`, `tape-engine`,
