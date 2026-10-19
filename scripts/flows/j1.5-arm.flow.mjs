@@ -51,6 +51,12 @@ export default {
     const names = sources.map((s) => s.name).filter(Boolean);
     t.expect('the Pi offers inputs', names.length > 0, sources);
     if (!names.length) return;
+    // On a laptop's height track 4 is under the bar: scroll to it first, as
+    // a person would, and let the scroll land. The menu closes when the page
+    // scrolls under it, and a scroll the tap itself made can land after the
+    // menu opened.
+    await page.locator('.tt-in').nth(3).scrollIntoViewIfNeeded();
+    await t.wait(300);
     await t.step('tap track 4’s input', () => t.tap(page.locator('.tt-in').nth(3)));
     t.expect('the input menu opens for track 4, not the inspector', await t.poll(() => !document.getElementById('input-menu')?.hidden
       && !document.getElementById('track-sheet')?.open
