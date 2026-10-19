@@ -186,6 +186,18 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
     activeDrag = null;
   }
 
+  // The chips are built when the lane's parts change, not on every poll:
+  // a press or a drag keeps the element it went down on. What plays only
+  // lights them (mark).
+  let built = null;
+  function mark(chip, clip, playing, queued) {
+    const on = playing.has(clip.id);
+    chip.classList.toggle('playing', on);
+    chip.classList.toggle('queued', queued.has(clip.id));
+    chip.setAttribute('aria-pressed', String(on));
+    chip.setAttribute('aria-label', `${clip.name || clip.file}: ${on ? 'playing; tap to stop it on the next bar' : 'tap to launch it on the next bar'}`);
+  }
+
   // live is the Pi's live.cue: {playing: [ids], queued: [ids]}, or null.
   function update(cue = { solo: false, clips: [] }, live = null) {
     currentCue = cue || { solo: false, clips: [] };
@@ -195,6 +207,16 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
 
     soloBtn.setAttribute('aria-pressed', String(!!currentCue.solo));
     countEl.textContent = String(clips.length);
+
+    const key = JSON.stringify([clips, getTape?.()?.sample_rate]);
+    if (key === built) {
+      for (const clip of clips) {
+        const chip = listEl.querySelector(`.cue-clip-chip[data-id="${CSS.escape(clip.id)}"]`);
+        if (chip) mark(chip, clip, playing, queued);
+      }
+      return;
+    }
+    built = key;
 
     if (clips.length === 0) {
       emptyEl.hidden = false;
@@ -211,11 +233,8 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
       const chip = document.createElement('div');
       chip.className = 'cue-clip-chip';
       chip.dataset.id = clip.id;
-      chip.classList.toggle('playing', playing.has(clip.id));
-      chip.classList.toggle('queued', queued.has(clip.id));
       chip.setAttribute('role', 'button');
-      chip.setAttribute('aria-pressed', String(playing.has(clip.id)));
-      chip.setAttribute('aria-label', `${clip.name || clip.file}: ${playing.has(clip.id) ? 'playing; tap to stop it on the next bar' : 'tap to launch it on the next bar'}`);
+      mark(chip, clip, playing, queued);
 
       chip.innerHTML = `
         <span class="cue-clip-grip" aria-hidden="true">⋮⋮</span>
@@ -245,6 +264,7 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
   }
 
   function destroy() {
+    built = null;
     endPress();
     cleanupDrag();
     container.innerHTML = '';
