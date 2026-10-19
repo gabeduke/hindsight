@@ -5,6 +5,25 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.19.3 — 2026-10-19
+
+- STATE: note the J1.9 flake CI showed once (cacd15d)
+- flows: FLOWS_CPU slows the pages down, to find the races a CI runner finds (b44f18b)
+- A tap or drag on a cue part isn't lost to the lane redrawing itself under it (5563322)
+- flows: C1 puts the buffer away before dragging to track 2; J1.9 lets the section sheet open before it names (6205a07)
+- flows: J1.5 scrolls to track 4 before it taps its input, as a laptop's height needs (fbd696d)
+- flows: each runs on its own profiles by default, so the phone's J4.4 runs too; smoke-tape is retired (6f74295)
+- A quick second press of ▶ (or Space) stops the tape instead of asking it to play again (6aa54e2)
+- flows: lay out a song, switch the bar's source, and the Studio's bar on a phone (5035ee4)
+- Track docs/plan/STATE.md: the ignore rule for the root's local notes caught it too (3b59409)
+- flows: C1, the cue-lane jam, is core: GRAB, Cue, launch on the bar, stop, drag to a track (c520875)
+- docs: the cue lane plays; the flows table gains eight stories; STATE drops fixed bugs (d89838e)
+- Enter, the arrow keys and Space work in the Studio again after a tap (ecb90d1)
+- flows: arming, a part's gestures and the bar's transport, ported from smoke-tape (30ef413)
+- Tap a part on the cue lane to launch it on the next bar; the buffer's Cue puts a GRAB there (af88f96)
+- flows: Flag now, a span of the feed, Catch, and GRAB from a take's page (1f6971b)
+
+
 ## v2026.10.19.2 — 2026-10-19
 
 - Backlog: the merged remote branches are gone; three still need a decision (c7c09f8)
