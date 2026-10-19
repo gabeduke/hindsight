@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.19.2 — 2026-10-19
+
+- Backlog: the merged remote branches are gone; three still need a decision (c7c09f8)
+- CI runs the user flows, so a merge that breaks one of Gabe's journeys can't release (bd0663e)
+- GRAB can be pressed on a laptop-width Studio again (1545e03)
+
+
 ## v2026.10.19.1 — 2026-10-19
 
 - The guide is for people using Hindsight: its QA checklists move to docs/checks.md (4480703)
