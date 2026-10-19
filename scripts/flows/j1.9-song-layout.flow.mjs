@@ -68,6 +68,7 @@ export default {
     let secs = await api.until(async () => { const s = await sections(); return s.length ? s : null; }, 'a section', 4000).catch(() => []);
     t.expect('a section, on the bar lines of bars 1–2', secs.length === 1 && secs[0].at === 0 && near(secs[0].end, 2 * bar), secs);
     t.expect('its sheet opens', await t.poll(() => document.getElementById('section-sheet')?.open));
+    await t.wait(400); // a sheet just opened lets its first moment's taps go by
     await t.step('call it Verse', () => t.tap(page.locator('#section-names button', { hasText: 'Verse' })));
     secs = await api.until(async () => { const s = await sections(); return s[0]?.name === 'Verse' ? s : null; }, 'the name', 4000).catch(() => sections());
     t.expect('it is named Verse', secs[0]?.name === 'Verse', secs);

@@ -46,6 +46,15 @@ export default {
     await api.post(`/api/tapes/transport?${q}`, { action: 'stop' });
 
     // Drag it down onto track 2: a copy on the tape, the lane keeps its clip.
+    // The buffer is put away first (on a laptop's height it folds the
+    // lanes), and the lane and track 2 are brought into sight.
+    if (await page.locator('#buffer-close').isVisible()) {
+      await t.tap(page.locator('#buffer-close'));
+      await t.poll(() => document.getElementById('buffer')?.hidden, null, 3000);
+    }
+    await page.locator('#lanes > .tape-track').nth(1).scrollIntoViewIfNeeded();
+    await chip.scrollIntoViewIfNeeded();
+    await t.wait(300);
     const from = await chip.locator('.cue-clip-name').boundingBox();
     const to = await page.locator('#lanes > .tape-track').nth(1).locator('.tt-lane').boundingBox();
     t.expect('track 2 is on screen', !!(from && to));
