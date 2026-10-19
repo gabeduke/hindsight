@@ -5,9 +5,9 @@ one still works. This is the shared goal every change is validated against:
 a change that passes its unit tests and breaks a flow is not done.
 
 ```sh
-node scripts/flows.mjs              # all flows, tablet + desktop, own demo
+node scripts/flows.mjs              # all flows on their profiles, own demo
 node scripts/flows.mjs J2 J1.6      # by id prefix
-node scripts/flows.mjs --profile=phone
+node scripts/flows.mjs --profile=phone   # only the phone runs
 ```
 
 Setup once: `npm install --no-save playwright@1.49.0 && npx playwright install chromium`.
@@ -43,15 +43,18 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J1.4 | set BPM/bars, play, and CATCH the last pass onto the armed track | `j1.4-catch` | core |
 | J1.5 | ● arms one track; holding ● adds another (or takes it off); Catch names the armed tracks; a track's input chip or inspector picks what it records from | `j1.5-arm` | core |
 | J1.6 | GRAB the last bars into the buffer and DROP them on the armed track | `j1.6-grab-drop` | core |
+| J1.9 | lay out a song: hold and drag a section on the strip, name it, resize it, tap it to loop it, Duplicate, Remove; hold the ruler for a range, Copy, Delete time; ↶/↷ throughout | `j1.9-song-layout` | core |
 | J1.10 | fold the bar and the lanes away for room, and have them stay folded | `j1.10-fold` | core |
 | J1.11 | tap a part to select it; Enter or a double tap opens its sheet, → nudges it a bar, a swipe pans, hold-and-drag slides it, ↶ undoes | `j1.11-clip-gestures` | core |
 | J1.12 | play the tape from the bar (or Space): reels, the tape's name, a moving counter, and \|◂ back to the loop's start | `j1.12-bar-transport` | core |
 | J2.2 | tap a take to play it, and keep it playing as I move between rooms | `j2.2-persist` | core |
+| J2.3 | switch the bar between Feed (GRAB from the feed into the buffer), Tape and Shelf (with no take, it goes to the Listening Room) | `j2.3-bar-sources` | core |
 | J2.4 | jot a note on what's playing without it stopping or leaving the room | `j2.4-note` | core |
 | J2.5 | open a take from the bar and star it | `j2.5-open` | core |
 | J2.6 | hold a spine to select, delete, and get it back with Undo | `j2.6-tidy` | core |
 | J3.1 | GRAB 4 bars from an old take's page into the Studio, and DROP them | `j3.1-take-grab` | core |
 | J3.2 | bounce the tape to a take on the shelf | `j3.2-bounce` | core |
+| J4.4 | on a phone, the bar is a mini player above the tabs; a tap pulls the player up, Back puts it away; a tapped clip's bar floats above the player; Insert asks before it moves the tape | `j4.4-phone-bar` | core (phone) |
 | J5.1 | open Settings and Releases from either room | `j5.1-sheets` | core |
 | C1 | **the jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
 
@@ -62,8 +65,6 @@ More to convert: the `[demo]` lines in `docs/checks.md` (the `[rig]` ones stay m
 | Id | Story | Status |
 |---|---|---|
 | J1.8 | hold the instrument's pads (BREAK, REV, FX…) without touching undo | core (Play mode on) |
-| J1.9 | lay out a song: ranges, sections, part gestures, undo/redo | core |
-| J2.3 | switch the bar between Feed, Tape and Shelf | core |
 | J2.7 | find last month's take: search, filters, archive | core |
 | J2.8 | play all, stopped by picking one by hand | core |
 | J4.1 | record from the phone (HTTPS); the take appears after Stop | core |
@@ -81,7 +82,7 @@ One file per story in `scripts/flows/<id>-<slug>.flow.mjs`:
 ```js
 export default {
   id: 'J2.4', title: 'Jot a note while a take plays',
-  // status: 'todo', profiles: ['tablet'], allowHttpErrors: true
+  // status: 'todo', profiles: ['phone'] (default tablet + desktop), allowHttpErrors: true
   async run(t) {
     const take = await t.api.keep(20);                // seed through the API
     await t.page.goto(`${t.base}/takes.html`);

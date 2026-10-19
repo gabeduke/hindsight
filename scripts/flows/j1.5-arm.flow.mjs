@@ -1,7 +1,7 @@
 // J1.5 Multi-arm by cables: a tap on ● arms that track alone, a hold adds
 // it (or takes it off), Catch names where it lands, and a track's input chip
 // or its inspector picks what it records from. docs/flows.md#j15
-// Ported from scripts/smoke-tape.mjs ("Recording on the track"). The flow
+// Ported from the retired scripts/smoke-tape.mjs ("Recording on the track"). The flow
 // makes its own tape, so the arms and inputs it changes are that tape's.
 
 // The Pi's armed tracks: rec_tracks, or the one rec_track an older tape has.

@@ -1,7 +1,7 @@
 // J1.12 The bar runs the tape: its reels are drawn, its line names the tape,
 // its counter moves while the tape plays, and |◂ goes back to the loop's
 // start. docs/flows.md#j112
-// Ported from scripts/smoke-tape.mjs ("The bar runs").
+// Ported from the retired scripts/smoke-tape.mjs ("The bar runs").
 export default {
   id: 'J1.12',
   title: 'The bar plays the tape and rewinds it',

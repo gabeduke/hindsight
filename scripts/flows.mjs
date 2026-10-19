@@ -1,9 +1,9 @@
 // Runs the user flows (docs/flows.md) in a real browser against the demo.
 //
 //   npm install --no-save playwright@1.49.0 && npx playwright install chromium
-//   node scripts/flows.mjs                     # every flow, tablet + desktop
+//   node scripts/flows.mjs                     # every flow on its profiles (tablet + desktop unless it says)
 //   node scripts/flows.mjs J2.2 J1.1           # just these
-//   node scripts/flows.mjs --profile=phone     # another device (tablet,desktop,phone)
+//   node scripts/flows.mjs --profile=phone     # only that device's runs (tablet,desktop,phone)
 //   node scripts/flows.mjs --json=out.json     # results for a machine to read
 //
 // With no HINDSIGHT_URL it boots its own demo (`go run ./cmd/hindsight
@@ -23,7 +23,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const opt = (k) => args.find((a) => a.startsWith(`--${k}=`))?.split('=')[1];
 const wanted = args.filter((a) => !a.startsWith('--'));
-const profiles = (opt('profile') ?? 'tablet,desktop').split(',');
+const picked = opt('profile')?.split(',');
 const shots = opt('shots') ?? join(tmpdir(), 'hindsight-flows-shots');
 mkdirSync(shots, { recursive: true });
 
@@ -50,8 +50,10 @@ const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gestur
 const results = [];
 try {
   for (const flow of flows) {
-    // A flow may name the profiles it makes sense on (a phone-only sheet).
-    for (const p of profiles.filter((q) => !flow.profiles || flow.profiles.includes(q))) {
+    // A flow may name the profiles it makes sense on (a phone-only sheet):
+    // those by default, else the tablet and the desktop. --profile narrows.
+    const own = flow.profiles ?? ['tablet', 'desktop'];
+    for (const p of picked ? own.filter((q) => picked.includes(q)) : own) {
       const r = await runFlow(browser, flow, p, { base, api, shots });
       console.log(`${r.ok ? 'pass' : r.status === 'todo' ? 'todo' : 'FAIL'} ${flow.id} [${p}] ${flow.title}`);
       results.push(r);

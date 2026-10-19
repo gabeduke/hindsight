@@ -3,7 +3,7 @@
 // its sheet, → moves it a bar and Escape lets go; a quick drag pans the
 // lanes and leaves it be, and a hold then a drag slides it a bar, which ↶
 // takes back. docs/flows.md#j111
-// Ported from scripts/smoke-tape.mjs ("A clip's gestures").
+// Ported from the retired scripts/smoke-tape.mjs ("A clip's gestures").
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
