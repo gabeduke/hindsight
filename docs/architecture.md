@@ -684,6 +684,17 @@ or loses messages, so the scheduler tells the followers where the tape is.
 On shutdown the engine waits for the scheduler, whose Stop goes out at once,
 ahead of anything queued.
 
+The **cue lane** stages clips beside the tape: they're in the tape's state
+(`State.Cue`, so undoable and seen by every device), each a pool file of its
+own (a GRAB's lanes summed, or a copied span of a take). Launching one is a
+performance, like Play mode's pads, so it stays out of the state and out of
+undo (`cuelive.go`): a launch or stop rides the transport's action queue
+with quantum `bar` (`now` for Shift), and the render goroutine keeps the
+voices, rendering each from the output frame it started at, looped, into bus
+A after the tape, the click and the FX. A voice stops with a 3 ms fade; the
+transport's Stop and a mixdown's pass stop them all, and the lane's Solo
+leaves the tracks out of the output. What plays is `live.cue`.
+
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what
 you tap; the Pi holds all the state, so several devices stay in step.

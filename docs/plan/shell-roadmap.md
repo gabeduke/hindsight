@@ -29,9 +29,10 @@ both pages."*
 1. ~~The Sketchbook stays in the room.~~ Done.
 2. ~~The shell and the one player.~~ Done (Phase 1, 2026-10-17/18).
 3. **The cue lane.** ~~The lane, its store, solo, loop, remove, drag to a
-   track~~ done (640c670). **Still to do:** adding clips (from the buffer's
-   drop targets, the shelf, a track), launch on the next bar, the Cue solo in
-   the output. Flow C1.
+   track~~ done (640c670). ~~Adding from the buffer, launch on the next bar,
+   the Cue solo in the output~~ done (2026-10-19, flow C1). **Still to do:**
+   adding from the shelf (the API takes a take's span already) and lifting a
+   part from a track.
 4. **The output switch.** The bar's Feed / Tape / Shelf switch becomes
    **Live feed** (a real stream of the ring) or **Playback** (the tape's
    tracks plus the cue lane, summed; with Cue on, the cue lane alone). A

@@ -38,15 +38,22 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | Id | Story — as Gabe I want to… | Flow | Status |
 |---|---|---|---|
 | J1.1 | keep the last 30s/2m of the jam from the Studio, so the thing I already played is saved | `j1.1-keep` | core |
+| J1.2 | flag a moment now; the flag rides into the next take | `j1.2-flag` | core |
+| J1.3 | select a span of the feed ribbon, then KEEP or GRAB just that | `j1.3-span` | core |
+| J1.4 | set BPM/bars, play, and CATCH the last pass onto the armed track | `j1.4-catch` | core |
+| J1.5 | ● arms one track; holding ● adds another (or takes it off); Catch names the armed tracks; a track's input chip or inspector picks what it records from | `j1.5-arm` | core |
 | J1.6 | GRAB the last bars into the buffer and DROP them on the armed track | `j1.6-grab-drop` | core |
 | J1.10 | fold the bar and the lanes away for room, and have them stay folded | `j1.10-fold` | core |
+| J1.11 | tap a part to select it; Enter or a double tap opens its sheet, → nudges it a bar, a swipe pans, hold-and-drag slides it, ↶ undoes | `j1.11-clip-gestures` | core |
+| J1.12 | play the tape from the bar (or Space): reels, the tape's name, a moving counter, and \|◂ back to the loop's start | `j1.12-bar-transport` | core |
 | J2.2 | tap a take to play it, and keep it playing as I move between rooms | `j2.2-persist` | core |
 | J2.4 | jot a note on what's playing without it stopping or leaving the room | `j2.4-note` | core |
 | J2.5 | open a take from the bar and star it | `j2.5-open` | core |
 | J2.6 | hold a spine to select, delete, and get it back with Undo | `j2.6-tidy` | core |
+| J3.1 | GRAB 4 bars from an old take's page into the Studio, and DROP them | `j3.1-take-grab` | core |
 | J3.2 | bounce the tape to a take on the shelf | `j3.2-bounce` | core |
 | J5.1 | open Settings and Releases from either room | `j5.1-sheets` | core |
-| C1 | **the jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | todo |
+| C1 | **the jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
 
 ### Not written yet (add a flow before or with the change that touches them)
 
@@ -54,16 +61,11 @@ More to convert: the `[demo]` lines in `docs/checks.md` (the `[rig]` ones stay m
 
 | Id | Story | Status |
 |---|---|---|
-| J1.2 | flag a moment now; the flag rides into the next take | core |
-| J1.3 | select a span of the feed ribbon, then KEEP or GRAB just that | core |
-| J1.4 | set BPM/bars, play, and CATCH the last pass onto the armed track | core |
-| J1.5 | ● arms one track; holding adds another | core |
 | J1.8 | hold the instrument's pads (BREAK, REV, FX…) without touching undo | core (Play mode on) |
 | J1.9 | lay out a song: ranges, sections, part gestures, undo/redo | core |
 | J2.3 | switch the bar between Feed, Tape and Shelf | core |
 | J2.7 | find last month's take: search, filters, archive | core |
 | J2.8 | play all, stopped by picking one by hand | core |
-| J3.1 | GRAB 4 bars from an old take's page into the Studio, and DROP them | core |
 | J4.1 | record from the phone (HTTPS); the take appears after Stop | core |
 | J4.3 | send the tape to the phone upstairs (output Jam room / Phone / Both) | core |
 | J5.4 | wire an input to a track on the Rig, and see Catch name the tracks | core |
