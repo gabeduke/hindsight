@@ -42,7 +42,9 @@ func TestSaveRangeSavesASpanThatEndedInThePast(t *testing.T) {
 	cap.Flags().Mark(48000 * 2) // inside the span
 	cap.Flags().Mark(48000 * 5) // after it
 
+	before := time.Now()
 	got, err := s.SaveRange(48000*1, 48000*3)
+	after := time.Now()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,12 +66,17 @@ func TestSaveRangeSavesASpanThatEndedInThePast(t *testing.T) {
 	if len(m.Flags) != 1 || m.Flags[0].Frame != 48000 {
 		t.Fatalf("flags = %+v, want the one inside, at 1 s into the take", m.Flags)
 	}
-	// Dated by when its last frame was played: 3 s of the 6 recorded ago.
+	// Dated by when its last frame was played: 3 s of the 6 recorded before
+	// the save looked. Bracketed by the save itself, not measured from the
+	// end of the test, which a slow runner made 3.56 s (CI, 2026-10-22).
 	if m.Created == nil {
 		t.Fatal("no created time")
 	}
-	if ago := time.Since(*m.Created).Seconds(); math.Abs(ago-3) > 0.5 {
-		t.Fatalf("created %.2f s ago, want about 3", ago)
+	const slack = 50 * time.Millisecond
+	earliest, latest := before.Add(-3*time.Second-slack), after.Add(-3*time.Second+slack)
+	if c := *m.Created; c.Before(earliest) || c.After(latest) {
+		t.Fatalf("created %s, want 3 s before the save: between %s and %s",
+			c.Format(time.StampMilli), earliest.Format(time.StampMilli), latest.Format(time.StampMilli))
 	}
 	if !exists(peaksPath(wav)) || !exists(pyramidPath(wav)) {
 		t.Error("the peaks and pyramid should be written as for any save")
