@@ -1,6 +1,6 @@
 # State of Hindsight
 
-**As of 2026-10-19.** This is the one handoff: what is built, what Gabe has
+**As of 2026-10-22.** This is the one handoff: what is built, what Gabe has
 decided, what is open. Keep it current and short; when a section goes stale,
 fix it or delete it. What happened before is in `git log`, and the deleted
 specs and handoffs are in history under `docs/superpowers/`.
@@ -85,7 +85,11 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 - **Releases:** Gabe doesn't pull releases by hand; an agent installs them
   with `POST /api/update` (see AGENTS.md). An auto-install trigger is open.
 - **Settings, Releases and the guide** live in the header's `.appbar-end` on
-  every page (this reversed "one route, the about line").
+  every page (this reversed "one route, the about line"). **Changing:** on
+  2026-10-22 Gabe agreed one menu for the app's tools, with the Studio on
+  one tablet screen: the feed as a strip, the track heads on touch as name,
+  ● and input, and the buffer merged into the cue lane. See
+  `the-studio-on-one-screen.md`.
 
 ## Open, needs Gabe at the rig
 
@@ -130,9 +134,11 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
 ## Next
 
-1. The cue lane's other sources: a take from the shelf, a part lifted from a
-   track. Then the rest of `shell-roadmap.md` (the output switch, the
-   bookmark drawer).
+1. `the-studio-on-one-screen.md`, in its build order: the header's menu, the
+   feed strip, the track heads on touch, a layout budget, the buffer into the
+   cue lane (with the lane's other sources: a take from the shelf, a part
+   lifted from a track), then Open's pass. Then the rest of
+   `shell-roadmap.md` (the output switch, the bookmark drawer).
 2. Write the missing flows in `docs/flows.md` as each journey is touched.
 3. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
