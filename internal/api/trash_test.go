@@ -8,12 +8,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/gabeduke/hindsight/internal/audio"
+	"github.com/gabeduke/hindsight/internal/config"
+	"github.com/gorilla/mux"
 )
 
 type undoAnswer struct {
@@ -255,5 +258,30 @@ func TestDeleteRefusesANameStillInTheTrash(t *testing.T) {
 	writeTake(t, dir, "jam_x.wav") // put there by hand
 	if w := do(t, r, http.MethodDelete, "/api/delete?file=jam_x.wav"); w.Code != http.StatusConflict {
 		t.Fatalf("delete = %d, want 409", w.Code)
+	}
+}
+
+// A restore's preview encode and tempo measurement run in the API's
+// background, which WaitBackground waits for. They ran in bare goroutines,
+// so a test's TempDir could be removed while ffmpeg was still writing into it:
+// TestDeleteGoesToTheTrashAndComesBack failed now and then in CI.
+func TestARestoresEncodeIsTheAPIsBackgroundWork(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("no ffmpeg")
+	}
+	dir := t.TempDir()
+	a := New(&config.Config{OutputDir: dir, SaveChannels: []int{0, 1}}, nil, nil, nil, nil)
+	r := mux.NewRouter()
+	a.SetupRoutes(r)
+	writeRealTake(t, dir, "jam_r.wav", 48000)
+	if w := do(t, r, http.MethodDelete, "/api/delete?file=jam_r.wav"); w.Code != http.StatusOK {
+		t.Fatalf("delete = %d", w.Code)
+	}
+	if w := postJSON(t, r, "/api/trash/restore?file=jam_r.wav", ""); w.Code != http.StatusOK {
+		t.Fatalf("restore = %d", w.Code)
+	}
+	a.WaitBackground()
+	if _, err := os.Stat(filepath.Join(dir, "jam_r_preview.mp3")); err != nil {
+		t.Fatalf("WaitBackground returned before the restore's preview was written: %v", err)
 	}
 }

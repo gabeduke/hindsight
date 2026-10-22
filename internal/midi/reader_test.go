@@ -532,3 +532,58 @@ func TestWatcherClockDeviceMatchesTheCardEntry(t *testing.T) {
 	defer wr.Close()
 	waitFor(t, "the clock device by its long name", w.Connected)
 }
+
+// A reader's id was written on its own goroutine after the watcher handed it
+// out, outside the watcher's lock, while Devices read it under that lock:
+// the race detector failed TestWatcherOnlyOnePortIsTheClock now and then in
+// CI (2026-10-16). The id is set under the lock now. The window was the few
+// instructions between the lock's release and the store, so this opens
+// ports many times over while Devices is read in a loop.
+func TestDevicesReadsAReadersIdUnderTheLockItWasSetUnder(t *testing.T) {
+	for round := 0; round < 100; round++ {
+		cards, snd, ep := fifoFixture(t)
+		fifos := []string{ep}
+		for _, n := range []string{"midiC2D1", "midiC2D2", "midiC2D3"} {
+			fifos = append(fifos, mkfifo(t, snd, n))
+		}
+		w := newTestWatcher(cards, snd, NewClock(10000), NewEventRing(100))
+		w.Start()
+		stop := make(chan struct{})
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					for _, d := range w.Devices() {
+						_ = d.ID
+					}
+				}
+			}
+		}()
+		var writers []*os.File
+		for _, f := range fifos {
+			writers = append(writers, openWriter(t, f))
+		}
+		waitFor(t, "four ports, each with its id", func() bool {
+			ds := w.Devices()
+			if len(ds) != 4 {
+				return false
+			}
+			for _, d := range ds {
+				if d.ID == 0 {
+					return false
+				}
+			}
+			return true
+		})
+		close(stop)
+		<-done
+		for _, wr := range writers {
+			wr.Close()
+		}
+		w.Stop()
+	}
+}
