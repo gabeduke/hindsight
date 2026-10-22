@@ -2111,7 +2111,11 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
 /* Beside the ruler: the snap (tap for the next), the loop's lock and Fit,
    small keys sharing the track heads' width. */
-.ruler-keys { gap: 4px; flex-wrap: nowrap; min-width: 0; }
+.ruler-keys { gap: 4px; flex-wrap: wrap; row-gap: 4px; min-width: 0; }
+/* Where the four outgrow the heads' column (a phone, or Fit beside them),
+   they wrap onto a second line rather than run off the screen's side;
+   the ruler sits at the foot of the taller row. */
+.tape-ruler-row > .tape-ruler { align-self: end; }
 .ruler-chip { min-height: 26px; padding: 0 8px; gap: 4px; font: 600 11px var(--font); }
 .snap-btn .snap-ico { color: var(--ink-faint); font-size: 12px; }
 .loop-lock { color: var(--ink-faint); padding: 0 7px; }
