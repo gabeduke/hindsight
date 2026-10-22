@@ -4,8 +4,8 @@
 // take's page. Each page ships the two tabs in its HTML, so they paint
 // before any script runs; this keeps them true -- the current one marked,
 // the Studio's href following the tape, and its lamp showing whether the
-// feed is recording -- and gives every header its tools (Releases, Guide,
-// Settings) and the device chip, the way to the rig.
+// feed is recording -- and gives every header its one menu: Settings, the
+// rig, help mode, the guide and Releases.
 
 // The rooms' words (lib/rooms/words.js) say the page's own markup once, as
 // that module loads: before any page code has put text into the page. Every
@@ -56,47 +56,113 @@ export function tapeAnswer(res) {
 }
 
 /**
- * mountHeaderTools places the top-right utility cluster (.appbar-end) with
- * Releases/Version, Guide, and Settings in the header on every page, and
- * wires Settings and Releases sheets across pages.
+ * mountHeaderTools puts the header's tools at its top right on every page:
+ * the output button and the ring's health where the page has them, then one
+ * menu (docs/plan/the-studio-on-one-screen.md) holding Settings, the rig,
+ * help mode, the guide and Releases. settings.js, update.js, help.js and
+ * rig/chip.js find their items by the ids and classes they had in the header.
+ * The page's ? (#help) moves into the menu as its Help mode item; a page
+ * without one has none. The menu's button carries a dot when a release is
+ * waiting or the rig needs a look, and lights while help mode is on
+ * (styles.css), so nothing behind it goes unseen.
  */
 export function mountHeaderTools(doc = document) {
   if (!doc || typeof doc.createElement !== 'function') return null;
   const bar = doc.querySelector('.appbar');
   if (!bar || doc.querySelector('.appbar-end')) return null;
-  const end = doc.createElement('div');
-  end.className = 'appbar-end';
-  for (const existing of [bar.querySelector(':scope > #out-btn'), bar.querySelector(':scope > .health')].filter(Boolean)) {
+  const make = (tag, cls, attrs = {}, text = '') => {
+    const el = doc.createElement(tag);
+    el.className = cls;
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    if (text) el.textContent = text;
+    return el;
+  };
+  const end = make('div', 'appbar-end');
+  for (const existing of [...bar.children].filter((c) => c.id === 'out-btn' || c.classList?.contains('health'))) {
     end.append(existing);
   }
-  const rel = doc.createElement('button');
-  rel.type = 'button';
-  rel.id = 'appbar-releases-btn';
-  rel.className = 'icon-btn appbar-btn appbar-releases-btn';
-  rel.dataset.tip = 'releases';
-  rel.textContent = 'Releases';
 
-  const guide = doc.createElement('a');
-  guide.href = '/guide.html';
-  guide.className = 'icon-btn appbar-btn appbar-guide-link';
-  guide.dataset.tip = 'guide';
-  guide.textContent = 'Guide';
+  const anchor = make('span', 'menu-anchor app-menu-anchor');
+  const btn = make('button', 'icon-btn app-menu-btn', {
+    id: 'app-menu-btn', type: 'button', 'aria-label': 'Menu', 'aria-haspopup': 'menu',
+    'aria-expanded': 'false', 'aria-controls': 'app-menu', 'data-tip': 'app-menu',
+    // Help mode shows its tip and still opens it: Help mode's own way out is inside.
+    'data-tip-pass': '',
+  });
+  btn.innerHTML = '<svg width="20" height="16" viewBox="0 0 20 16" aria-hidden="true"><path d="M2 2h16M2 8h16M2 14h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  const menu = make('div', 'menu app-menu', { id: 'app-menu', role: 'menu', 'aria-label': 'Menu' });
+  menu.hidden = true;
 
-  const set = doc.createElement('button');
-  set.type = 'button';
-  set.id = 'appbar-settings-btn';
-  set.className = 'icon-btn appbar-btn appbar-settings-btn';
-  set.dataset.tip = 'settings';
-  set.textContent = 'Settings';
-
-  end.append(rel, guide, set);
+  const set = make('button', 'app-menu-item appbar-settings-btn', { id: 'appbar-settings-btn', type: 'button', role: 'menuitem', 'data-tip': 'settings' });
+  set.append(make('span', 'app-menu-word', {}, 'Settings'));
+  // Filled, and shown, by rig/chip.js on the pages that have the rig.
+  const rig = make('a', 'app-menu-item app-menu-rig', { href: '/rig.html', role: 'menuitem', 'data-tip': 'rig-chip' });
+  rig.append(make('span', 'app-menu-word', {}, 'The rig'), make('span', 'app-menu-sub rig-chip-sub'), make('span', 'rig-chip-lamp', { 'aria-hidden': 'true' }));
+  rig.hidden = true;
+  const items = [set, rig];
   const help = bar.querySelector('#help');
-  if (help && help.parentElement === bar && typeof help.before === 'function') help.before(end);
-  else bar.append(end);
+  if (help) {
+    help.className = 'app-menu-item app-menu-help';
+    help.setAttribute('role', 'menuitemcheckbox');
+    help.setAttribute('aria-checked', help.getAttribute('aria-pressed') === 'true' ? 'true' : 'false');
+    help.removeAttribute('aria-pressed');
+    help.removeAttribute('aria-label');
+    help.textContent = '';
+    help.append(make('span', 'menu-check', { 'aria-hidden': 'true' }, '✓'), make('span', 'app-menu-word', {}, 'Help mode'),
+      make('span', 'app-menu-sub', {}, 'tap a control to read what it does'));
+    items.push(help);
+  }
+  const guide = make('a', 'app-menu-item appbar-guide-link', { href: '/guide.html', role: 'menuitem', 'data-tip': 'guide' });
+  guide.append(make('span', 'app-menu-word', {}, 'The guide'));
+  // update.js puts the version, or the release waiting, in its second line.
+  const rel = make('button', 'app-menu-item appbar-releases-btn', { id: 'appbar-releases-btn', type: 'button', role: 'menuitem', 'data-tip': 'releases' });
+  rel.append(make('span', 'app-menu-word', {}, 'Releases'), make('span', 'app-menu-sub releases-version'));
+  items.push(guide, rel);
+  menu.append(...items);
+  anchor.append(btn, menu);
+  end.append(anchor);
+  bar.append(end);
+  wireAppMenu(btn, menu, doc);
 
   import('./settings.js').then((m) => m.initSettings()).catch(() => {});
   import('./update.js').then((m) => m.initUpdate()).catch(() => {});
   return end;
+}
+
+/**
+ * wireAppMenu opens the header's menu from its button and shuts it on a
+ * second press, a pick, Escape, or a press anywhere else -- the page's other
+ * menus stop their buttons' clicks, so it listens for the press, first, on
+ * the window. ↑ ↓ move along its items. Answers {setOpen, isOpen}.
+ */
+export function wireAppMenu(btn, menu, doc = document) {
+  const win = doc.defaultView || doc;
+  const items = () => [...menu.children].filter((c) => !c.hidden);
+  const setOpen = (open) => {
+    menu.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+  };
+  btn.addEventListener('click', () => setOpen(menu.hidden));
+  // Capture: a pick shuts the menu before the item's own handler, which may
+  // stop the click (help mode's does).
+  menu.addEventListener('click', (e) => {
+    if ([...menu.children].some((c) => c.contains(e.target))) setOpen(false);
+  }, true);
+  win.addEventListener('pointerdown', (e) => {
+    if (!menu.hidden && !btn.contains(e.target) && !menu.contains(e.target)) setOpen(false);
+  }, true);
+  doc.addEventListener('keydown', (e) => {
+    if (menu.hidden) return;
+    if (e.key === 'Escape') { setOpen(false); btn.focus?.(); return; }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const list = items();
+    if (!list.length) return;
+    const i = list.indexOf(doc.activeElement);
+    const next = e.key === 'ArrowDown' ? (i + 1) % list.length : (i <= 0 ? list.length - 1 : i - 1);
+    list[next].focus?.();
+    e.preventDefault?.();
+  });
+  return { setOpen, isOpen: () => !menu.hidden };
 }
 
 /**
@@ -113,7 +179,7 @@ export function initNav(doc = document, env = {}) {
   const nav = doc.querySelector('.appnav');
   if (!nav) return Promise.resolve(null);
   mountHeaderTools(doc);
-  // The device chip, the way to the rig (lib/rig/chip.js).
+  // The rig, in the menu: its interface and lamp (lib/rig/chip.js).
   import('./rig/chip.js').then((m) => m.mountChip(doc, { pathname: loc.pathname, fetchFn: get })).catch(() => {});
   const apply = (tapeOn) => {
     const tabs = navTabs(loc.pathname, tapeOn);

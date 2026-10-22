@@ -186,14 +186,14 @@ with **Select** and **▶ Play all**.
 
 ### 3.2 Updating Hindsight
 
-Every change merged on GitHub becomes a release, and **Releases**, top right
-on every page, is where you move between them: it shows the version running,
-*v2026.10.09.4*. When there's a newer release than the Pi is running, it says
-so instead: **Update to v2026.10.09.5**. The page asks when it loads, every
-hour while it stays open, and when you come back to it. On a phone the header
-has room for Settings alone: the Settings sheet opens with *Hindsight
-v2026.10.09.4 · Releases · the guide*, and its **Releases** opens the same
-sheet.
+Every change merged on GitHub becomes a release, and **Releases**, in the
+menu (**☰**, top right on every page), is where you move between them: the
+line under it shows the version running, *v2026.10.09.4*. When there's a
+newer release than the Pi is running, it says so instead, **Update to
+v2026.10.09.5**, and **☰** carries a green dot. The page asks when it loads,
+every hour while it stays open, and when you come back to it. The Settings
+sheet opens with *Hindsight v2026.10.09.4 · Releases · the guide · the rig*
+too, and its **Releases** opens the same sheet.
 
 - **Releases** lists every release the button can install, newest first,
   marked *running* and *latest*. Pick one and the sheet says what moving to it
@@ -225,9 +225,9 @@ sheet says so.
 
 ### 3.3 Settings
 
-**Settings**, top right on every page, changes how Hindsight records without
-touching the Pi's files. It opens on the version with Releases and the guide
-(§3.2), then what's recording now (*Recording from Scarlett Solo 4th Gen, 2
+**Settings**, first in the menu (**☰**, top right on every page), changes how
+Hindsight records without touching the Pi's files. It opens on the version
+with Releases, the guide and the rig (§3.2), then what's recording now (*Recording from Scarlett Solo 4th Gen, 2
 channels*), then two parts.
 
 - **Preview features** come first, always open: **Play mode**, a switch that
@@ -278,7 +278,7 @@ says which.
   its length ("0:30 of 0:59" when part of it is selected) and, for a take
   saved from another, "from *that take*", which opens it. **◂ ▸** step to the
   previous and next take in the list; **↶** undoes your last change (§5);
-  **?** is help mode; **⋯** resets the downbeat or opens this guide. On a
+  **⋯** resets the downbeat; help mode and this guide are in the menu (**☰**). On a
   phone with MIDI, **♪** opens the notes, and the name has a row of its own
   under the buttons.
 - **The tempo** is measured from the audio after every capture, ribbon save
@@ -608,8 +608,8 @@ From the top:
   the bars. On a phone they stack as one capsule, the tempo reading "84 · 4"
   (BPM · bars); the full words are in its label for a screen reader, and show on hover on a computer.
 - **⋯** holds what you do with this tape: clone it, mix it down, export its
-  stems, delete a tape, or open this guide.
-- **The output button,** beside **?** in the header's top row, chooses where
+  stems or delete a tape. This guide is in the menu (**☰**).
+- **The output button,** beside the menu (**☰**) at the header's right, chooses where
   the tape plays (8.10). Its picture says where it is now: a speaker for the
   jam room, headphones for a phone, both for both. From 1000 px it says the
   place too: *Jam room*, *Phone* or *Both*. It's in the same place in both rooms.
@@ -1433,7 +1433,7 @@ rooms, which is how parts of this guide still name it.
 |---|---|---|
 | **Studio** | The tape with the feed above the lanes: where you KEEP, GRAB and build. `/` opens it | Capture, the main page, the tape page |
 | **Listening Room** | Every take, on shelves: a tap plays one, holding selects | Takes |
-| **Rig** | Your devices and the cables between them, from the chip in the header | unchanged |
+| **Rig** | Your devices and the cables between them, from the menu (☰) in the header | unchanged |
 | **Feed** | Everything coming in, always recording; the last 15 minutes are kept in memory. The Studio draws it at the top, and Settings sets its length | the ring, the ribbon, Buffer length |
 | **Take** | Anything you kept: a KEEP, a bounce, a phone recording or a selection of another take | jam |
 | **KEEP** | Makes a take, and nothing else. Its key says how much: *KEEP 30s*, *KEEP 4 BARS* | Capture, Save as take, cutting a take |
@@ -1494,15 +1494,17 @@ or see.
 **How you get help:**
 
 - **On a computer,** every button has a tooltip.
-- **On a phone,** tap **?** in the header to enter help mode, then tap
-  anything to read its tip instead of using it. The mini player's window
-  is the one exception: it shows its tip and still pulls the player up, so
-  its keys can be read too; **Down** brings **?** back.
+- **Anywhere,** open the menu (**☰**) and pick **Help mode**, then tap
+  anything to read its tip instead of using it. Every tip has **Done**,
+  which leaves help mode (so do Escape and **Help mode** again), and **☰**
+  is lit while it's on. **☰** and the phone's mini player window are the
+  exceptions: each shows its tip and still works, so the menu and the
+  player's keys can be read too.
 - **The first time you open** the take page or the Studio, three short
   hints point at the gestures that matter most. They're remembered per
   device.
-- **Each page's ? sheet** links to its section of this guide, which the app
-  serves at `/guide.html`.
+- **The menu's guide** opens this guide at the section for the page you're
+  on, and every tip links there too. The app serves it at `/guide.html`.
 
 **One source of truth.** The tip text lives in `web/static/lib/help/tips.js`
 and in the table below, and a test fails if the two disagree, or if a control
@@ -1513,7 +1515,8 @@ has no tip.
 | Hindsight | Back to the Studio, from anywhere |
 | Studio (tab) | The feed, Keep and the tape on one page. The lamp is the feed: green while it records |
 | Listening Room (tab) | Every take, to search, filter, sort and open |
-| Rig (chip) | The rig: your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
+| ☰ (header) | The menu: Settings, the rig, help mode, the guide and Releases. A dot on it means a release is waiting, or the rig needs a look |
+| The rig (menu) | Your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
 | Search the shelves | The rack's filter, over the shelves: names, tags and stars |
 | The deck (place) | A picture of the bar: what's in it and how far it has got. Press it to open it: a take on its page, the tape in the Studio |
 | Sketchbook (place) | The notes on what's in the bar. Press it to open it and write |
@@ -1569,8 +1572,8 @@ has no tip.
 | 🗑 | Delete this take in one tap, and go on to the next. The toast has Undo |
 | from … | This take was saved from another one. Tap to open that one |
 | ↶ | Undo your last change to this take: a flag, the selection, the name, tempo, downbeat or lanes |
-| ? | Help mode: tap anything to read what it does, instead of doing it |
-| ⋯ | Reset the downbeat, or open this guide |
+| Help mode (menu) | Tap anything to read what it does, instead of doing it. Done, on the tip, leaves it |
+| ⋯ | Reset the downbeat |
 | Reset the downbeat | Put the downbeat back at the start of the take |
 | The guide | How Hindsight works, in plain words |
 | Overview | The whole take, in the bar. Tap to move the playhead there; drag the window to move along it; double-tap to see it all. With it focused, ← → move a second |

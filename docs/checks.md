@@ -46,9 +46,10 @@ they no longer ship in the binary.
 - [demo] The list and the take page draw the same take at the same height.
 - [rig] Switch the interface off → the dot turns amber and says *waiting for
   the interface*, with no error toast. Switch it on → it records again.
-- [demo] The header's **Releases** shows the running version, and **Guide**
-  opens this guide. On a phone the header has room for Settings alone: the
-  version, Releases and the guide are at the top of the Settings sheet.
+- [demo] The header's menu (**☰**) holds Settings, the rig, Help mode, the
+  guide and Releases, whose line shows the running version; a release
+  waiting puts a green dot on **☰**. The Settings sheet's first line has the
+  version, Releases, the guide and the rig too.
 
 ## 3.1 The takes page
 

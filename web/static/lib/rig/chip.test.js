@@ -30,19 +30,31 @@ test('nav.js loads the chip on demand, never statically', () => {
   assert.match(nav, /import\('\.\/rig\/chip\.js'\)/, 'the chip is imported when the nav starts');
 });
 
-// The shell has a header row per room (Capture's, the Studio's, the
-// Listening Room's) and shows one at a time: a chip in only one of them
-// left the rig with no way in from the other rooms.
-test('in the shell, every room\'s header row has the chip', async () => {
+// The rig is in the header's menu (lib/nav.js mountHeaderTools): the
+// rooms' pages show it, filled from /api/rig, and its lamp is the chip's.
+// It once sat in Capture's header row, which the shell hides in both rooms,
+// and neither room had a way to the rig.
+test('in the shell, the header’s menu has the rig, with its interface and lamp', async () => {
   const { fakeDoc, parseHTML } = await import('../play/fake-dom.js');
+  const { mountHeaderTools } = await import('../nav.js');
   const shell = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
   const doc = fakeDoc();
   doc.body.append(...parseHTML(doc, /<header class="appbar">[\s\S]*?<\/header>/.exec(shell)[0]).nodes);
-  mountChip(doc, { pathname: '/tape.html', fetchFn: () => Promise.resolve({ ok: false }) });
-  for (const id of ['header-capture', 'header-studio', 'header-room']) {
-    assert.equal(doc.getElementById(id).querySelectorAll('.rig-chip').length, 1, id);
-  }
-  // A second call (the nav starts once per document) adds none.
-  mountChip(doc, { pathname: '/tape.html', fetchFn: () => Promise.resolve({ ok: false }) });
-  assert.equal(doc.querySelectorAll('.rig-chip').length, 3);
+  mountHeaderTools(doc);
+  const item = mountChip(doc, { pathname: '/tape.html', fetchFn: () => Promise.resolve({ ok: true, json: () => g }) });
+  assert.ok(item && doc.getElementById('app-menu').contains(item), 'the rig is an item of the menu');
+  assert.equal(item.hidden, false);
+  assert.equal(item.getAttribute('href'), '/rig.html');
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(item.querySelector('.rig-chip-sub').textContent, 'Sidekick · 8 in · 4 out');
+  assert.equal(item.dataset.state, 'warn', 'its lamp, which puts a dot on the menu’s button');
+  assert.equal(doc.querySelectorAll('.rig-chip').length, 0, 'no chip left in a header row');
+  // A second call (the nav starts once per document) changes nothing.
+  assert.equal(mountChip(doc, { pathname: '/tape.html', fetchFn: () => { throw new Error('fetched twice'); } }), null);
+  // Off the rooms' pages the item stays hidden.
+  const rig = fakeDoc();
+  rig.body.append(...parseHTML(rig, /<header class="appbar">[\s\S]*?<\/header>/.exec(shell)[0]).nodes);
+  mountHeaderTools(rig);
+  assert.equal(mountChip(rig, { pathname: '/rig.html', fetchFn: () => { throw new Error('fetched'); } }), null);
+  assert.equal(rig.querySelector('.app-menu-rig').hidden, true);
 });

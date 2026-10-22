@@ -179,12 +179,13 @@ When you need the history behind one, read it from git:
 
 ## Where things live in the UI
 
-- **Settings, Releases and the guide** live in the top-right `.appbar-end`
-  cluster on every page (`lib/nav.js`, `mountHeaderTools`). On a phone the
-  header has room for Settings alone, so the Settings sheet's first line
-  (`lib/settings.js`, `aboutLine`) carries the version, Releases and the
-  guide: it is a phone's only way to them, and `styles.test.js` keeps it
-  from being hidden. There is no `.about` line any more.
+- **Settings, the rig, help mode, the guide and Releases** are the header's
+  one menu (☰, `lib/nav.js` `mountHeaderTools`), top right on every page
+  beside the output button (Gabe, 2026-10-22). A new app-wide tool goes in
+  the menu, never beside ☰. ☰ is the only way to most of them, so
+  `styles.test.js` fails if a rule hides it or one of its items. The
+  Settings sheet's first line (`lib/settings.js`, `aboutLine`) carries the
+  version, Releases, the guide and the rig as well.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.

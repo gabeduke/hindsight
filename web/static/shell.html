@@ -45,6 +45,8 @@
       <span id="health-text">connecting</span>
     </div>
   </div>
+  <!-- Help mode: lib/nav.js moves it into the header's menu as the page
+       starts (lib/help/help.js has it by its id). -->
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   <div id="header-studio" class="appbar-page tape-top" hidden>
     <!-- Two pills, each a menu: the tape's name switches tapes; its tempo
@@ -77,7 +79,6 @@
         <button id="ask-first" type="button" role="menuitemcheckbox" aria-checked="true" data-tip="ask-first"><span class="menu-check" aria-hidden="true">✓</span>Ask before Insert and Delete time</button>
         <a id="tape-export" href="#" role="menuitem" data-tip="export-stems">Export stems</a>
         <button id="tape-delete" class="danger" type="button" role="menuitem" data-tip="tape-delete">Delete a tape…</button>
-        <a href="/guide.html#8-tape" role="menuitem" data-tip="guide">The guide</a>
       </div>
     </span>
   </div>

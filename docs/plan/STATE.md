@@ -47,8 +47,6 @@ is `<pi-host>`.
   - Tablet: the Listening Room's sketchbook place starts off the left side.
   - The cue clip's × (12×14 px) and loop toggle (22 px) and the shelf's
     list button (20 px tall) are under 24 px.
-  - Phone: in the Listening Room's header, *Search the shelves* runs under
-    the output button (no flow visits that screen, so no check sees it).
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.
@@ -84,12 +82,13 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
   the tape about 6 s later.
 - **Releases:** Gabe doesn't pull releases by hand; an agent installs them
   with `POST /api/update` (see AGENTS.md). An auto-install trigger is open.
-- **Settings, Releases and the guide** live in the header's `.appbar-end` on
-  every page (this reversed "one route, the about line"). **Changing:** on
-  2026-10-22 Gabe agreed one menu for the app's tools, with the Studio on
-  one tablet screen: the feed as a strip, the track heads on touch as name,
-  ● and input, and the buffer merged into the cue lane. See
-  `the-studio-on-one-screen.md`.
+- **The header's one menu** (☰, top right on every page) holds Settings, the
+  rig, help mode, the guide and Releases (2026-10-22). That reversed the
+  `.appbar-end` cluster, which had reversed "one route, the about line"; the
+  Settings sheet keeps its line too. On a tablet the rooms' header is one
+  row. It is step 1 of `the-studio-on-one-screen.md`, whose other picks are
+  the feed as a strip, the track heads on touch as name, ● and input, and
+  the buffer merged into the cue lane.
 
 ## Open, needs Gabe at the rig
 
@@ -134,8 +133,8 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
 ## Next
 
-1. `the-studio-on-one-screen.md`, in its build order: the header's menu, the
-   feed strip, the track heads on touch, a layout budget, the buffer into the
+1. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~
+   (done), the feed strip, the track heads on touch, a layout budget, the buffer into the
    cue lane (with the lane's other sources: a take from the shelf, a part
    lifted from a track), then Open's pass. Then the rest of
    `shell-roadmap.md` (the output switch, the bookmark drawer).

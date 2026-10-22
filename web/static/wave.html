@@ -31,6 +31,8 @@
     <a href="/" data-tab="studio" data-tip="nav-studio"><span class="appnav-lamp" aria-hidden="true"></span>Studio</a>
     <a href="/takes.html" data-tab="room" data-tip="nav-room" aria-current="page"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Listening Room</a>
   </nav>
+  <!-- Help mode: lib/nav.js moves it into the header's menu as the page
+       starts (lib/help/help.js has it by its id). -->
   <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
   <div class="appbar-page">
     <a class="back" href="/takes.html" aria-label="Back to takes" data-tip="back"><span aria-hidden="true">‹</span><span class="back-text">Takes</span></a>
@@ -63,7 +65,6 @@
       <button id="menu-btn" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More options" data-tip="menu">⋯</button>
       <div id="take-menu" class="menu" role="menu" hidden>
         <button id="downbeat-reset" type="button" role="menuitem" data-tip="downbeat-reset">Reset the downbeat</button>
-        <a href="/guide.html#4-the-take-page" role="menuitem" data-tip="guide">The guide</a>
       </div>
     </span>
   </div>

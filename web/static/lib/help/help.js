@@ -2,9 +2,10 @@
 // The app explains itself (editing model, "Help, tooltips and the guide"):
 //
 //   - on a computer, every control with a data-tip gets its tip as a title;
-//   - on a phone, the ? button turns on help mode: tapping a control shows
-//     its tip instead of using it, until ? is tapped again (a control with
-//     data-tip-pass shows its tip and is used too);
+//   - Help mode, in the header's menu (#help, lib/nav.js), turns on help
+//     mode: tapping a control shows its tip instead of using it, until the
+//     tip's Done, Escape or Help mode again (a control with data-tip-pass,
+//     the menu's own button among them, shows its tip and is used too);
 //   - the first time a page is opened on a device, a card with three hints
 //     points at what matters most, and is dismissed for good.
 //
@@ -65,6 +66,16 @@ export function initHelp({ page, doc = document } = {}) {
       a.textContent = 'More in the guide';
       pop.appendChild(a);
     }
+    // The way out, on every tip while help mode is on: the menu that turned
+    // it on is shut by then, and a phone has no Escape.
+    if (on) {
+      const done = doc.createElement('button');
+      done.type = 'button';
+      done.className = 'icon-btn tip-pop-done';
+      done.textContent = 'Done';
+      done.addEventListener('click', () => setOn(false));
+      pop.appendChild(done);
+    }
     pop.hidden = false;
   }
 
@@ -73,11 +84,18 @@ export function initHelp({ page, doc = document } = {}) {
   function setOn(v) {
     on = v;
     doc.body.classList.toggle('help-mode', on);
-    btn?.setAttribute('aria-pressed', String(on));
-    if (on) show('Help mode', 'Tap anything to read what it does. Tap ? again to leave.', GUIDE[page]);
+    // A menu's item is checked; a button of its own is pressed.
+    btn?.setAttribute(btn.getAttribute('role') === 'menuitemcheckbox' ? 'aria-checked' : 'aria-pressed', String(on));
+    if (on) show('Help mode', 'Tap anything to read what it does. Done, or Escape, leaves it.', GUIDE[page]);
     else pop.hidden = true;
   }
   btn?.addEventListener('click', (e) => { e.stopPropagation(); setOn(!on); });
+  // The header menu's guide opens at the page you're on, as each page's ⋯
+  // once did (help mode, above, explains it instead).
+  doc.addEventListener('click', (e) => {
+    const a = e.target?.closest?.('.appbar-guide-link');
+    if (a && GUIDE[page]) a.setAttribute('href', GUIDE[page]);
+  }, true);
 
   // In help mode, a tap on a control shows its tip and does nothing else.
   // Caught on the way down, before the control's own handlers or a

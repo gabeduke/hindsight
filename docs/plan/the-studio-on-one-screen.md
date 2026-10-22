@@ -55,9 +55,11 @@ Each step is its own PR, with its flows updated in `docs/flows.md` and
 `scripts/flows/`, looked at in a browser at phone, tablet and desktop size
 in both schemes, and with the layout baseline shrinking, never growing.
 
-1. **The header's menu.** Updates J5.1. It also fixes the phone's
-   Listening Room header, where *Search the shelves* runs under the output
-   button. Static.
+1. ~~**The header's menu.**~~ Done. J5.1 drives it on the tablet, a
+   computer and a phone. On the way: the output button's rules had looked
+   for it in the bar since it moved into the tools (a phone showed *Jam
+   room* in full, every page a square box), and the guide's links in each
+   page's ⋯ became the menu's guide, which opens at the page's section.
 2. **The feed strip.** Updates J1.1, J1.2, J1.3, J1.6 and C1. Static.
 3. **The track heads and the ruler on touch.** Updates J1.5, J1.9 and J1.11.
    Static.
