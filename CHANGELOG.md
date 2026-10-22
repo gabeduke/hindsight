@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.22.2 — 2026-10-22
+
+- CI runs once per push to a pull request, and gives up on a stuck run after an hour (4844134)
+- One menu, top right on every page, for Settings, the rig, help mode, the guide and Releases (d00abae)
+- The output button is round again, and only its icon under 1000 px (8fac57e)
+- Plan the Studio on one screen: one menu for the app's tools, the feed as a strip, the buffer into the cue lane (e43c6ad)
+
+
 ## v2026.10.22.1 — 2026-10-22
 
 - The feed's input picker keeps its names, and GRAB its word (d718753)
