@@ -56,7 +56,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J3.1 | GRAB 4 bars from an old take's page into the Studio, and DROP them | `j3.1-take-grab` | core |
 | J3.2 | bounce the tape to a take on the shelf | `j3.2-bounce` | core |
 | J4.4 | on a phone, the bar is a mini player above the tabs; a tap pulls the player up, Back puts it away; a tapped clip's bar floats above the player; Insert asks before it moves the tape | `j4.4-phone-bar` | core (phone) |
-| J5.1 | open Settings and Releases from either room | `j5.1-sheets` | core |
+| J5.1 | open Settings, Releases, help mode, the guide and the rig from the one menu (☰) in either room, on a tablet, a computer or a phone | `j5.1-sheets` | core |
 | C1 | **jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
 
 ### Not written yet (add a flow before or with the change that touches them)

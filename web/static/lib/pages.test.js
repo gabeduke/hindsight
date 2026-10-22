@@ -23,7 +23,7 @@ test('no page uses an id twice', () => {
   }
 });
 
-// Settings has one way in, on every page: the header's (lib/nav.js
+// Settings has one way in, on every page: the header's menu (lib/nav.js
 // mountHeaderTools), which styles.test.js keeps from being hidden. The about
 // line that used to carry it at a page's foot is gone, and no page carries a
 // second Settings of its own.
@@ -34,7 +34,7 @@ test('Settings is the header’s on every page, and no page has the old about li
     assert.ok(!/class="about"/.test(html), `${page} still has the about line`);
   }
   const nav = readFileSync(new URL('lib/nav.js', dir), 'utf8');
-  assert.match(nav, /set\.id = 'appbar-settings-btn'/, 'the header makes Settings on every page');
+  assert.match(nav, /id: 'appbar-settings-btn'/, 'the header’s menu makes Settings on every page');
 });
 
 // The shell puts #np inside #np-dock in every room (Phase 1, step 4), so both

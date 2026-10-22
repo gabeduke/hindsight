@@ -187,13 +187,16 @@ export async function initUpdate() {
   const appbarBtn = document.getElementById ? document.getElementById('appbar-releases-btn') : null;
   const sheet = document.getElementById('update-sheet') || (appbarBtn ? ensureUpdateSheet(document) : null);
   if (!sheet || !appbarBtn) return;
+  // In the header's menu the key reads "Releases" over the version, or over
+  // the release waiting: its second line is what changes.
+  const label = appbarBtn.querySelector?.('.releases-version') || appbarBtn;
   if (wiredUpdates.has(sheet)) return;
   wiredUpdates.add(sheet);
 
   const st = await getJSON('/api/status');
   if (!askAboutUpdates(st)) {
     if (typeof sheet.querySelector === 'function') {
-      if (st?.version) appbarBtn.textContent = st.version;
+      if (st?.version) label.textContent = st.version;
       const title = sheet.querySelector('.update-title');
       const listEl = sheet.querySelector('.release-list');
       const changesEl = sheet.querySelector('.release-changes');
@@ -234,7 +237,7 @@ export async function initUpdate() {
   let info = { running: st?.version || '', latest: '', available: false };
   let following = false;
 
-  if (st?.version) appbarBtn.textContent = st.version;
+  if (st?.version) label.textContent = st.version;
   cancel.addEventListener('click', () => sheet.close());
   const openPick = () => open(info.available && info.latest ? info.latest : info.running);
   appbarBtn.addEventListener('click', openPick);
@@ -256,9 +259,9 @@ export async function initUpdate() {
   }
 
   const showButton = () => {
-    const label = buttonLabel(info);
-    appbarBtn.textContent = label || info.running || 'Releases';
-    appbarBtn.classList.toggle('has-update', !!label);
+    const words = buttonLabel(info);
+    label.textContent = words || info.running || (label === appbarBtn ? 'Releases' : '');
+    appbarBtn.classList.toggle('has-update', !!words);
   };
   showButton();
 

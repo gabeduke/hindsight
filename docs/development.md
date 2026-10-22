@@ -252,10 +252,10 @@ The Studio and the Listening Room are views in one document, `shell.html`
 [architecture.md](architecture.md), *The shell*). They are the only layout.
 `/`, `/tape.html` and `/takes.html` all serve the shell; `/` shows the Studio
 when the tape is on (always, now) and Capture otherwise. The header's two
-tabs are links the router takes (`lib/nav.js`, `navTabs`). Settings,
-Releases/Version and Guide sit in the top-right `.appbar-end` cluster on every
-page (`mountHeaderTools`), and the Settings sheet's first line has them too,
-for a phone.
+tabs are links the router takes (`lib/nav.js`, `navTabs`). Settings, the rig,
+help mode, the guide and Releases are the header's one menu (☰,
+`mountHeaderTools`), top right on every page, and the Settings sheet's first
+line has the version, Releases, the guide and the rig too.
 
 `lib/shell/views/studio.js` mounts the tape page (`lib/tape/page.js`,
 `mountTapePage(ctx)`), the feed, KEEP and the buffer (`lib/rooms/mount.js`),

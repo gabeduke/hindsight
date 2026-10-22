@@ -90,13 +90,11 @@ test('Guardrail 6: Instrument strip mounts inside #np Media Player and Studio sw
   );
 });
 
-test('Guardrail 7: Top-right .appbar-end houses Settings, Releases, and Guide across pages', () => {
+test('Guardrail 7: the header’s one menu, top right, houses Settings, the rig, help, the guide and Releases', () => {
   const navJs = read('lib/nav.js');
   assert.ok(
-    navJs.includes('appbar-settings-btn') &&
-      navJs.includes('appbar-releases-btn') &&
-      navJs.includes('appbar-guide-link'),
-    'lib/nav.js must mount Settings, Releases, and Guide controls in .appbar-end',
+    ['app-menu', 'appbar-settings-btn', 'app-menu-rig', 'app-menu-help', 'appbar-guide-link', 'appbar-releases-btn'].every((k) => navJs.includes(k)),
+    'lib/nav.js must mount the menu and its items in .appbar-end',
   );
 });
 

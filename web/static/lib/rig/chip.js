@@ -1,8 +1,10 @@
 // web/static/lib/rig/chip.js
-// The device chip in both rooms' headers (docs/superpowers/specs/2026-10-15-rig-design.md):
-// the interface plugged in -- "Sidekick · 8 in · 4 out" -- with a lamp, and
-// the way to the rig. The rig isn't a tab: it's visited when something
-// changes, not while playing.
+// The rig in the header's menu (lib/nav.js mountHeaderTools,
+// docs/plan/the-studio-on-one-screen.md): the interface plugged in --
+// "Sidekick · 8 in · 4 out" -- with a lamp, and the way to the rig. The rig
+// isn't a tab: it's visited when something changes, not while playing. An
+// amber lamp puts a dot on the menu's button (styles.css), so it is seen
+// with the menu shut.
 //
 // lib/nav.js loads this on every page; off the rooms' pages (chipOn) it
 // draws nothing, asks nothing and listens for nothing.
@@ -31,51 +33,23 @@ export function chipOn(pathname) {
 }
 
 /**
- * mountChip puts the chip in the page's header, and fills it from
- * /api/rig. It answers the chips, one per header row, or null on a page
- * without one.
+ * mountChip shows the menu's rig item and fills it from /api/rig. It
+ * answers the item, or null on a page without one.
  */
 export function mountChip(doc = document, { pathname = location.pathname, fetchFn = fetch } = {}) {
   if (!chipOn(pathname)) return null;
-  // In the page's own row, where the page's actions are, on the right; on
-  // Capture, which has no such row, beside the ring's health. The shell has
-  // a row per room and shows one at a time, so each row gets its own chip.
-  const rows = doc.querySelectorAll('.appbar .appbar-page');
-  const health = doc.querySelector('.appbar > .health');
-  if ((!rows.length && !health) || doc.querySelector('.rig-chip')) return null;
-  const chip = () => {
-    const a = doc.createElement('a');
-    a.className = 'rig-chip';
-    a.href = '/rig.html';
-    a.dataset.tip = 'rig-chip';
-    a.dataset.state = 'none';
-    a.setAttribute('aria-label', 'The rig');
-    a.innerHTML = '<svg class="rig-chip-ico" width="22" height="14" viewBox="0 0 26 16" aria-hidden="true"><rect x="1" y="2" width="24" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="8" r="2" fill="currentColor"/><circle cx="13" cy="8" r="2" fill="currentColor"/><rect x="17" y="6" width="5" height="4" rx="1" fill="currentColor"/></svg><span class="rig-chip-name">Rig</span><span class="rig-chip-sub"></span><span class="rig-chip-lamp" aria-hidden="true"></span>';
-    return a;
-  };
-  const chips = [];
-  for (const row of rows) {
-    const a = chip();
-    const spacer = row.querySelector('.appbar-spacer');
-    if (spacer) spacer.after(a);
-    else row.append(a);
-    chips.push(a);
-  }
-  if (!rows.length) {
-    chips.push(chip());
-    health.prepend(chips[0]);
-  }
+  const a = doc.querySelector('.app-menu-rig');
+  if (!a || !a.hidden) return null;
+  a.hidden = false;
+  a.dataset.state = 'none';
   fetchFn('/api/rig', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .then((g) => {
       const m = chipModel(g);
-      for (const a of chips) {
-        a.querySelector('.rig-chip-name').textContent = m.name;
-        a.querySelector('.rig-chip-sub').textContent = m.sub ? `· ${m.sub}` : '';
-        a.dataset.state = m.state;
-        a.setAttribute('aria-label', m.label);
-      }
+      a.querySelector('.rig-chip-sub').textContent = m.sub ? `${m.name} · ${m.sub}` : m.name;
+      a.dataset.state = m.state;
+      a.setAttribute('aria-label', m.label);
     })
     .catch(() => {});
-  return chips;
+  return a;
 }

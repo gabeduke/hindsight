@@ -346,34 +346,35 @@ test('the takes search is a field, not a window', () => {
   assert.match(block(at), /background:\s*var\(--field\)/);
 });
 
-test('nothing hides header Settings, which is the only way into Settings', () => {
-  // Settings lives in the top-right header utility cluster
-  // (`.appbar-settings-btn`, lib/nav.js) on every page.
+test('nothing hides the header’s menu or its Settings, the only way into Settings', () => {
+  // Settings is the first item of the header's one menu (☰,
+  // `.app-menu-btn`, lib/nav.js) on every page. A rule offends when what it
+  // hides is one of these itself: not something inside, nor a ::pseudo.
   const offenders = [];
-  for (const m of css.matchAll(/([^{}]*\.appbar-settings-btn[^{}]*)\{([^}]*)\}/g)) {
-    const selector = m[1].trim();
-    const body = m[2];
-    if (!/display\s*:\s*none/.test(body)) continue;
-    // `[hidden]` is the element asking to be hidden.
-    if (selector.includes('[hidden]')) continue;
-    offenders.push(`${selector} { ${body.trim()} }`);
+  for (const m of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    if (!/display\s*:\s*none/.test(m[2])) continue;
+    for (const sel of m[1].replace(/\/\*[\s\S]*?\*\//g, '').split(',')) {
+      const last = sel.trim().split(/\s*[\s>+~]\s*/).pop();
+      // `[hidden]` is the element asking to be hidden.
+      if (last.includes('[hidden]') || last.includes('::')) continue;
+      if (/\.(?:appbar-settings-btn|app-menu-btn|app-menu-anchor|appbar-end)\b/.test(last)) offenders.push(`${sel.trim()} { ${m[2].trim()} }`);
+    }
   }
   assert.deepEqual(offenders, [],
     'these hide the entry to Settings');
 });
 
-test('nothing hides the Settings sheet’s Releases and guide, a phone’s only way to them', () => {
-  // A phone's header has room for Settings alone: its Releases and Guide are
-  // hidden under 700 px (the header's tools). The about line in the Settings
-  // sheet (lib/settings.js aboutLine) is then the only route to either.
+test('nothing hides the menu’s Releases, guide or rig, nor the Settings sheet’s line', () => {
+  // The header's menu carries Releases, the guide and the rig at every size;
+  // the Settings sheet's first line (lib/settings.js aboutLine) carries them
+  // too. No rule may hide either way to them: a phone hid the header's
+  // Releases and Guide once, and the line was then the only way.
   const offenders = [];
-  for (const m of css.matchAll(/([^{}]*\.settings-(?:about|releases|guide|rig)\b[^{}]*)\{([^}]*)\}/g)) {
+  for (const m of css.matchAll(/([^{}]*\.(?:settings-(?:about|releases|guide|rig)|appbar-releases-btn|appbar-guide-link|app-menu-rig)\b[^{}]*)\{([^}]*)\}/g)) {
+    if (m[1].includes('[hidden]')) continue; // the element asking to be hidden (the rig, off its pages)
     if (/display\s*:\s*none|visibility\s*:\s*hidden/.test(m[2])) offenders.push(`${m[1].trim()} { ${m[2].trim()} }`);
   }
-  assert.deepEqual(offenders, [], 'these hide the only way to Releases or the guide on a phone');
-  // And the header's are the ones a phone hides: if that ever changes, this
-  // line can be looked at again, not silently left as a second copy.
-  assert.match(css, /@media \(max-width: 699\.98px\) \{\s*\.appbar \.appbar-end > :is\(\.appbar-releases-btn, \.appbar-guide-link\) \{ display: none; \}/);
+  assert.deepEqual(offenders, [], 'these hide a way to Releases, the guide or the rig');
 });
 
 test('the Studio’s rules reach only the Studio', () => {
@@ -626,17 +627,30 @@ test('every tape formula label reads, selected or not', () => {
   assert.ok(contrast(token(chosen, 'color'), token(chosen, 'background')) >= 4.5, 'the selected formula');
 });
 
-// Settings is the only way into Settings anywhere in the app (the header's,
-// on every page), so it is drawn as a button with a real target, an edge and
-// no underline, never as a link's weight in a line.
-test('the header’s Settings is a button-sized target', () => {
-  const m = /\.appbar \.appbar-end > \.appbar-btn\s*\{([^}]*)\}/.exec(css);
-  assert.ok(m, 'a rule for the header’s buttons');
-  const body = m[1];
-  const d = /(?:^|[;\s])min-height:\s*(\d+)px/.exec(body);
-  assert.ok(d && +d[1] >= 36, 'at least 36px tall');
-  assert.match(body, /text-decoration:\s*none/, 'not underlined like a link');
-  assert.match(readFileSync(new URL('./nav.js', import.meta.url), 'utf8'), /set\.className = 'icon-btn appbar-btn appbar-settings-btn'/, 'an icon-btn, so it has the keys’ edge');
+// The header's menu is the only way into Settings, Releases, the guide,
+// help mode and (on a phone) the rig, so ☰ is a finger's size, a key with
+// the keys' edge, and its items are a finger tall.
+test('the header’s menu and its items are finger-sized targets', () => {
+  const m = /\.appbar \.app-menu-btn\s*\{([^}]*)\}/.exec(css);
+  assert.ok(m, 'a rule for ☰');
+  for (const k of ['min-width', 'min-height']) {
+    const d = new RegExp(`(?:^|[;\\s])${k}:\\s*(\\d+)px`).exec(m[1]);
+    assert.ok(d && +d[1] >= 44, `☰: ${k} at least 44px`);
+  }
+  const item = /\.menu\.app-menu > \.app-menu-item\s*\{([^}]*)\}/.exec(css);
+  assert.ok(item, 'a rule for its items');
+  const h = /min-height:\s*(\d+)px/.exec(item[1]);
+  assert.ok(h && +h[1] >= 44, 'each item at least 44px tall');
+  assert.match(readFileSync(new URL('./nav.js', import.meta.url), 'utf8'), /make\('button', 'icon-btn app-menu-btn'/, 'an icon-btn, so it has the keys’ edge');
+});
+
+// The output button moved from the bar into the tools (.appbar-end), and
+// its rules, written for `.appbar > .out-btn`, matched nothing from then on:
+// a phone showed "Jam room" in full, and every page a square box.
+test('the output button’s rules follow it into the tools', () => {
+  assert.doesNotMatch(css, /\.appbar\s*>\s*\.out-btn/, 'no rule looks for it in the bar itself');
+  assert.match(css, /\.appbar-end > \.out-btn :is\(\.tape-out-text, \.pill-chev\) \{ display: none; \}/, 'under 1000 px it is the icon alone');
+  assert.match(css, /\.appbar-end > \.out-btn\[hidden\] \{ display: none; \}/, 'hidden until the Pi says where the tape plays');
 });
 
 // A phone showed "Fri, Oct 16, 11:2…": the date sat on the tag's line and
