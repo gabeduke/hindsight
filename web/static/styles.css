@@ -4196,7 +4196,9 @@ input, select, textarea { color-scheme: inherit; }
 .studio-feed > .vu-row .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
 .studio-feed > .meters { grid-area: meters; margin: 0; }
 .studio-feed > .rb-sel { grid-area: sel; margin: 0; }
-.studio-keys { grid-area: keys; display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.studio-keys { grid-area: keys; display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; min-width: 0; }
+/* (It wraps where it must -- a tablet with a track's inspector beside the
+   lanes -- rather than squeeze its keys over one another.) */
 /* From 700 px the feed lines up with the lanes under it: the meters sit over
    the lanes' heads (same widths as .tape-track's first column) and the
    ribbon runs over the lanes themselves, so its left and right edges are
@@ -4310,7 +4312,7 @@ body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
 .buffer-grab-unit[hidden] { display: none; }
 .buffer-grab > .seg.buffer-bars { flex: 0 1 auto; }
 .buffer-grab > .seg.buffer-bars button { padding: 0 9px; min-width: 32px; }
-.buffer-grab > .seg.buffer-feed-sources { flex: 0 1 auto; }
+.buffer-grab > .seg.buffer-feed-sources { flex: none; }
 .buffer-grab > .seg.buffer-feed-sources button { padding: 0 8px; font: 600 11.5px var(--mono); text-transform: uppercase; }
 .icon-btn.buffer-grab-key {
   min-height: 44px; padding: 4px 14px; gap: 8px;
@@ -4318,6 +4320,14 @@ body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
   box-shadow: inset 0 1px 0 var(--hl), 0 0 0 2px var(--accent), 0 2px 4px -2px var(--sh);
 }
 .icon-btn.buffer-reopen { min-height: 44px; font: 700 13px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+/* GRAB is the row's verb: it never gives way to the pickers beside it. On a
+   tablet the row has no room for the pickers' LAST and BARS too (the input
+   picker came down to a letter a key, then GRAB to "GRABBI…"), so the
+   words go; GRAB's own label says it takes the last bars. */
+.buffer-grab > .icon-btn.buffer-grab-key { flex: none; }
+@media (min-width: 700px) and (max-width: 1279.98px) {
+  .buffer-grab-last, .buffer-grab > .buffer-grab-unit { display: none; }
+}
 .icon-btn.buffer-reopen[hidden] { display: none; }
 .buffer-kbd { font: 500 10.5px var(--mono); opacity: .65; margin-left: 4px; letter-spacing: 0; }
 .buffer-grab-n { display: none; }
@@ -4492,6 +4502,11 @@ body.buffer-fold .tape-sections-row { display: none; }
   .buffer-grab > .seg.buffer-bars { flex: 1 1 auto; }
   .icon-btn.buffer-grab-key { flex: none; min-width: 104px; }
   .icon-btn.buffer-reopen { flex: none; padding: 0 10px; font-size: 12px; }
+  /* The input picker can't share the line with the bars and GRAB (its
+     four keys came down to 18 px and a letter each): it takes the next. */
+  .buffer-grab { flex-wrap: wrap; row-gap: 6px; }
+  .buffer-grab > .seg.buffer-feed-sources { order: 1; flex: 1 1 100%; }
+  .buffer-grab > .seg.buffer-feed-sources button { flex: 1 1 0; }
   /* GRAB and KEEP side by side while it's open: the picker and the
      lengths wait in the closed feed. */
   body.buffer-open .buffer-grab { flex: 1 1 auto; }

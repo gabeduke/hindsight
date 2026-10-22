@@ -53,6 +53,17 @@ export default {
     // A tap on the clip: the clip bar comes up after half a second (a second
     // tap could still make it a double), then the lane scrolls clear of it.
     const lane = page.locator('.tt-lane').first();
+    // The feed comes first on a phone, so the lanes start low: scroll the
+    // first up clear of the player, as a thumb would, before tapping it.
+    await t.step('scroll to the lanes', async () => {
+      for (let i = 0; i < 12; i++) {
+        const clear = await page.evaluate(() => document.querySelector('.tt-lane').getBoundingClientRect().bottom
+          < document.getElementById('np').getBoundingClientRect().top - 8);
+        if (clear) break;
+        await page.mouse.wheel(0, 120);
+        await t.wait(150);
+      }
+    });
     const r = await lane.boundingBox();
     await t.step('tap the clip', () => page.touchscreen.tap(r.x + r.width * 0.3, r.y + r.height / 2));
     const shown = await t.poll(() => document.getElementById('multi-bar')?.hidden === false, null, 4000);
