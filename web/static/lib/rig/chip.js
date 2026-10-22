@@ -32,38 +32,50 @@ export function chipOn(pathname) {
 
 /**
  * mountChip puts the chip in the page's header, and fills it from
- * /api/rig. It answers the chip, or null on a page without one.
+ * /api/rig. It answers the chips, one per header row, or null on a page
+ * without one.
  */
 export function mountChip(doc = document, { pathname = location.pathname, fetchFn = fetch } = {}) {
   if (!chipOn(pathname)) return null;
   // In the page's own row, where the page's actions are, on the right; on
-  // Capture, which has no such row, beside the ring's health.
-  const row = doc.querySelector('.appbar .appbar-page');
+  // Capture, which has no such row, beside the ring's health. The shell has
+  // a row per room and shows one at a time, so each row gets its own chip.
+  const rows = doc.querySelectorAll('.appbar .appbar-page');
   const health = doc.querySelector('.appbar > .health');
-  if ((!row && !health) || doc.querySelector('.rig-chip')) return null;
-  const a = doc.createElement('a');
-  a.className = 'rig-chip';
-  a.href = '/rig.html';
-  a.dataset.tip = 'rig-chip';
-  a.dataset.state = 'none';
-  a.setAttribute('aria-label', 'The rig');
-  a.innerHTML = '<svg class="rig-chip-ico" width="22" height="14" viewBox="0 0 26 16" aria-hidden="true"><rect x="1" y="2" width="24" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="8" r="2" fill="currentColor"/><circle cx="13" cy="8" r="2" fill="currentColor"/><rect x="17" y="6" width="5" height="4" rx="1" fill="currentColor"/></svg><span class="rig-chip-name">Rig</span><span class="rig-chip-sub"></span><span class="rig-chip-lamp" aria-hidden="true"></span>';
-  if (row) {
+  if ((!rows.length && !health) || doc.querySelector('.rig-chip')) return null;
+  const chip = () => {
+    const a = doc.createElement('a');
+    a.className = 'rig-chip';
+    a.href = '/rig.html';
+    a.dataset.tip = 'rig-chip';
+    a.dataset.state = 'none';
+    a.setAttribute('aria-label', 'The rig');
+    a.innerHTML = '<svg class="rig-chip-ico" width="22" height="14" viewBox="0 0 26 16" aria-hidden="true"><rect x="1" y="2" width="24" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="8" r="2" fill="currentColor"/><circle cx="13" cy="8" r="2" fill="currentColor"/><rect x="17" y="6" width="5" height="4" rx="1" fill="currentColor"/></svg><span class="rig-chip-name">Rig</span><span class="rig-chip-sub"></span><span class="rig-chip-lamp" aria-hidden="true"></span>';
+    return a;
+  };
+  const chips = [];
+  for (const row of rows) {
+    const a = chip();
     const spacer = row.querySelector('.appbar-spacer');
     if (spacer) spacer.after(a);
     else row.append(a);
-  } else {
-    health.prepend(a);
+    chips.push(a);
+  }
+  if (!rows.length) {
+    chips.push(chip());
+    health.prepend(chips[0]);
   }
   fetchFn('/api/rig', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .then((g) => {
       const m = chipModel(g);
-      a.querySelector('.rig-chip-name').textContent = m.name;
-      a.querySelector('.rig-chip-sub').textContent = m.sub ? `· ${m.sub}` : '';
-      a.dataset.state = m.state;
-      a.setAttribute('aria-label', m.label);
+      for (const a of chips) {
+        a.querySelector('.rig-chip-name').textContent = m.name;
+        a.querySelector('.rig-chip-sub').textContent = m.sub ? `· ${m.sub}` : '';
+        a.dataset.state = m.state;
+        a.setAttribute('aria-label', m.label);
+      }
     })
     .catch(() => {});
-  return a;
+  return chips;
 }

@@ -293,10 +293,10 @@ const RELEASES_EVENT = 'hindsight:releases';
 
 /**
  * aboutLine puts the about line in the Settings sheet, under its title:
- * "Hindsight v… · Releases · the guide". The header has Releases and the
- * guide too, but a phone's header has room for Settings alone (styles.css,
- * the header's tools), so on a phone this line is the only way to them --
- * never hide it. Releases closes this sheet and asks for that one. Answers
+ * "Hindsight v… · Releases · the guide · the rig". The header has Releases,
+ * the guide and the rig's chip too, but a phone's header has room for
+ * Settings alone (styles.css, the header's tools), so on a phone this line
+ * is the only way to them -- never hide it. Releases closes this sheet and asks for that one. Answers
  * the line; its `.settings-version` is filled once /api/status answers.
  */
 export function aboutLine(sheet, doc = document) {
@@ -322,7 +322,12 @@ export function aboutLine(sheet, doc = document) {
   guide.setAttribute('href', '/guide.html');
   guide.dataset.tip = 'guide';
   guide.textContent = 'the guide';
-  p.append('Hindsight ', version, ' · ', releases, ' · ', guide);
+  const rig = doc.createElement('a');
+  rig.className = 'settings-rig';
+  rig.setAttribute('href', '/rig.html');
+  rig.dataset.tip = 'rig-chip';
+  rig.textContent = 'the rig';
+  p.append('Hindsight ', version, ' · ', releases, ' · ', guide, ' · ', rig);
   const title = inner.querySelector('h3');
   if (title) title.after(p);
   else inner.prepend(p);

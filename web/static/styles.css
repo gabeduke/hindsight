@@ -1154,6 +1154,7 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
   text-decoration: underline; text-underline-offset: 2px;
 }
 .settings-about .settings-guide { display: inline-block; padding: 10px 2px; margin: -10px 0; color: var(--ink); }
+.settings-about .settings-rig { display: inline-block; padding: 10px 2px; margin: -10px 0; color: var(--ink); }
 .settings-about .settings-releases:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .set-hub a { color: var(--ink); text-underline-offset: 2px; }
 .set-hub-error { color: var(--danger-ink); }
@@ -4152,6 +4153,9 @@ input, select, textarea { color-scheme: inherit; }
 @media (max-width: 699.98px) {
   .appbar .appbar-end > :is(.appbar-releases-btn, .appbar-guide-link) { display: none; }
   .appbar .appbar-end > .appbar-btn { padding: 0 8px; font-size: 12px; }
+  /* So is the rooms' rig chip, which took the Studio's header to a fourth
+     row; the Settings sheet's about line has the rig. */
+  .appbar :is(#header-studio, #header-room) > .rig-chip { display: none; }
 }
 
 /* ---------- Rooms P1: the Studio's feed and foot (lib/rooms/studio.js) ---------- */
