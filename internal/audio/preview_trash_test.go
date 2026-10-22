@@ -64,7 +64,7 @@ func TestARestoreEncodesAPreviewTheTrashCutShort(t *testing.T) {
 	if exists(previewPath(wav)) {
 		t.Fatal("a preview appeared before the restore asked for one")
 	}
-	AfterRestore(cfg, wav)
+	AfterRestore(cfg, wav, nil)
 	for i := 0; i < 100 && !exists(previewPath(wav)); i++ {
 		time.Sleep(50 * time.Millisecond)
 	}

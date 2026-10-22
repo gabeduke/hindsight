@@ -667,17 +667,22 @@ var encoding sync.Map
 // running and the trash cut short: a delete straight after a save (Capture's
 // Undo) can beat the preview encode and the tempo measurement to the take.
 // In the background it encodes a preview that's missing (unless one is on
-// its way) and measures a tempo that's only the clock's, or none.
-func AfterRestore(cfg *config.Config, wavPath string) {
+// its way) and measures a tempo that's only the clock's, or none. `run`
+// starts each, so the caller can wait for them (the API's background); nil
+// is a bare goroutine.
+func AfterRestore(cfg *config.Config, wavPath string, run func(func())) {
+	if run == nil {
+		run = func(f func()) { go f() }
+	}
 	if !exists(previewPath(wavPath)) {
 		if _, busy := encoding.Load(filepath.Clean(wavPath)); !busy {
 			if info, err := ReadWAVInfo(wavPath); err == nil {
-				go MakePreview(cfg, wavPath, info.Channels)
+				run(func() { MakePreview(cfg, wavPath, info.Channels) })
 			}
 		}
 	}
 	if m := ReadMeta(wavPath); m.TempoFrom != TempoFromAudio && m.TempoFrom != TempoFromYou {
-		go measureTempo(wavPath)
+		run(func() { measureTempo(wavPath) })
 	}
 }
 

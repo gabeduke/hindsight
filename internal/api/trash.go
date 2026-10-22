@@ -60,8 +60,9 @@ func (a *API) handleTrashRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A take trashed straight after its save (Capture's Undo) may have
-	// missed its preview or its tempo: they're made now.
-	audio.AfterRestore(a.cfg, filepath.Join(a.cfg.OutputDir, name))
+	// missed its preview or its tempo: they're made now, as the API's
+	// background work, which WaitBackground waits for.
+	audio.AfterRestore(a.cfg, filepath.Join(a.cfg.OutputDir, name), a.background)
 	t, err := audio.ReadTake(a.cfg.OutputDir, name)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "restored, but could not be read")
