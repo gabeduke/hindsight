@@ -5,6 +5,18 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.22.1 — 2026-10-22
+
+- The feed's input picker keeps its names, and GRAB its word (d718753)
+- The ruler's keys wrap instead of running off a phone's screen (ccfc2dd)
+- On a phone the Studio's mini player keeps ▶ clear and its counter readable (e46da65)
+- The Rig is reachable from both rooms again, and from Settings on a phone (d3855ee)
+- The bar's Note key, off the tablet's side in CI's fonts, joins the layout baseline (756db80)
+- The shelf's list button joins the layout baseline (36f3b4b)
+- The storyboard page follows the viewer's theme and the phone's safe areas (3a3cc1c)
+- Flows read as Given/When/Then, check every screen's layout, and draw a storyboard (dae894c)
+
+
 ## v2026.10.19.3 — 2026-10-19
 
 - STATE: note the J1.9 flake CI showed once (cacd15d)
