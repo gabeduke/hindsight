@@ -19,7 +19,8 @@ short spec in this folder when it is next.
   gain, normalize, reverse); #148 shared only the curve math and the
   navigation.
 - **Progressive disclosure:** move secondary controls into drawers, sheets
-  and menus (Gabe, 2026-10-17). Only the collapsible bar is done.
+  and menus (Gabe, 2026-10-17). Agreed and ordered on 2026-10-22 in
+  `the-studio-on-one-screen.md`.
 - **The Rig as a shell view** (leaving for it stops the tape on this device).
 - **Open (`wave.html`) as a Listening Room sub-view** (large: its own clock).
 - Exported **songs** as a finished object, separate from takes (Later).
