@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.22.3 — 2026-10-22
+
+- The MIDI watcher sets a device's id under its lock, ending a data race as a device connects (308238e)
+- A take restored from the trash encodes its preview as the API's background work (5bf6fa8)
+- A ring save's date is checked against the save itself, not the end of its test (6789e9b)
+
+
 ## v2026.10.22.2 — 2026-10-22
 
 - CI runs once per push to a pull request, and gives up on a stuck run after an hour (4844134)
