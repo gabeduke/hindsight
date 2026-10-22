@@ -8,9 +8,10 @@ a change that passes its unit tests and breaks a flow is not done.
 node scripts/flows.mjs              # all flows on their profiles, own demo
 node scripts/flows.mjs J2 J1.6      # by id prefix
 node scripts/flows.mjs --profile=phone   # only the phone runs
+node scripts/flows.mjs --profile=tablet --storyboard=/tmp/sb   # and a page of every screen
 ```
 
-Setup once: `npm install --no-save playwright@1.49.0 && npx playwright install chromium`.
+Setup once: `npm install --no-save playwright@1.49.0 axe-core@4.11.4 && npx playwright install chromium`.
 It needs Go (it runs `go run ./cmd/hindsight --demo` on a free port, data in
 a temp dir) and Node 22. A run prints a table; paste it into your report.
 
@@ -56,7 +57,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J3.2 | bounce the tape to a take on the shelf | `j3.2-bounce` | core |
 | J4.4 | on a phone, the bar is a mini player above the tabs; a tap pulls the player up, Back puts it away; a tapped clip's bar floats above the player; Insert asks before it moves the tape | `j4.4-phone-bar` | core (phone) |
 | J5.1 | open Settings and Releases from either room | `j5.1-sheets` | core |
-| C1 | **the jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
+| C1 | **jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
 
 ### Not written yet (add a flow before or with the change that touches them)
 
@@ -75,6 +76,64 @@ More to convert: the `[demo]` lines in `docs/checks.md` (the `[rig]` ones stay m
 | U3 | a bookmark drawer replaces the Sketchbook | todo |
 | R1 | MIDI first run, hub enrolment, install and update on a Pi | rig |
 
+## What a run says
+
+Each run prints as a scenario, Given (setup) / When (what Gabe does) /
+Then (what should follow), every line marked:
+
+```
+Scenario: C1 Throw a grab to the cue lane and launch it [tablet]
+      Given a fresh tape
+        And 15s of the jam in the feed
+       When tap GRAB
+  ✓    Then the buffer opens with the grab
+  ✗    Then it started on a bar line  -- started at 1203, bar 96000
+```
+
+**Layout checks** run on every screen a flow leaves (before each When, and
+at the end), with no LLM (`scripts/flows/layout.mjs`):
+
+- **covered:** a control whose middle is under something else, so a tap
+  lands there instead. A sheet or menu open over the page, and content
+  scrolled under the pinned bar, don't count.
+- **offscreen:** a control cut off by the side of the screen.
+- **target-size:** axe-core's WCAG 2.2 rule, under 24 px with too little
+  room around it.
+- **Warnings only:** a label cut off; a control under 44 px on a touch
+  profile; a toast over a control.
+
+A layout fail fails the flow, except one in the baseline
+(`scripts/flows/layout-known.json`): the findings that were there when the
+checks came in, shown as "known". Fixing one and running
+`node scripts/flows.mjs --update-layout-known` (the whole run) takes it out.
+A run of some flows or one profile leaves the shelf and tapes in a
+different state, so it can meet a finding the whole run doesn't (a shelf of
+three takes spaces its buttons differently): if it's real, add it to the
+baseline by hand. So can CI, whose fonts differ from a laptop's (a
+different button is the one pushed off the side): CI's run is the one the
+baseline has to pass. A meant overlap goes in `layout-allow.mjs`, with why. Neither file is for
+quieting a finding nobody looked at.
+
+**The storyboard** (`--storyboard=dir`) writes `dir/index.html`:
+- a card per run: the story, each step with a picture of the screen it
+  left, and its findings;
+- the **coverage map**: controls with an id that no flow's input reached,
+  by panel or sheet, and the stories with no flow.
+
+CI keeps it as the `flow-storyboard` artifact on every run.
+
+**Claude's review** (`--review`, with `--storyboard`) is opt-in. It reads
+each card (story, steps, screens, and the layout findings as facts) and
+writes notes on whether the flow makes sense to a person, on the storyboard.
+- **It never passes or fails anything.**
+- **Cost:** a review is cached (`.cache/flows-review`) by the flow's
+  source, the UI's files, the steps and the findings, so a card is paid for
+  again only when one of those changed. The run prints what it spent.
+- **Setup:** it needs `ANTHROPIC_API_KEY`; `FLOWS_REVIEW_MODEL` picks the
+  model.
+- **In CI:** `ux-review.yml` runs it on the tablet profile for a PR labelled
+  `ux-review`, by hand, or nightly.
+
 ## Writing a flow
 
 One file per story in `scripts/flows/<id>-<slug>.flow.mjs`:
@@ -84,10 +143,10 @@ export default {
   id: 'J2.4', title: 'Jot a note while a take plays',
   // status: 'todo', profiles: ['phone'] (default tablet + desktop), allowHttpErrors: true
   async run(t) {
-    const take = await t.api.keep(20);                // seed through the API
-    await t.page.goto(`${t.base}/takes.html`);
-    await t.step('tap ✎', () => t.tap(t.page.locator('#np-note')));
-    t.expect('the take is still playing', await t.poll(() => /* in page */ true));
+    const take = await t.given('a take on the shelf', () => t.api.keep(20)); // seed through the API
+    await t.given('the Listening Room is open', () => t.page.goto(`${t.base}/takes.html`));
+    await t.step('tap ✎', () => t.tap(t.page.locator('#np-note')));      // When
+    t.expect('the take is still playing', await t.poll(() => /* in page */ true)); // Then
   },
 };
 ```
@@ -96,6 +155,9 @@ export default {
   `t.hold` (a real touch hold on tablet, ⇧-click on desktop) and real clicks,
   never `el.click()` inside the page. Outcomes are checked against the API
   (`t.api.takes()`, `t.api.tapeState()`) as well as the screen.
+- **Say it as Gabe would.** `t.given` for setup, `t.step` for each thing
+  he does, `t.expect` for what he'd see. The names are the report and the
+  storyboard's captions, so write them as sentences, not code.
 - **Seed what you need; assume nothing.** Flows share one demo per run, in
   file order. `t.api.keep(n)` waits until the take is playable (a tap on a
   take still encoding does nothing); `t.api.tape(name)` loads a fresh tape

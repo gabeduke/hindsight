@@ -39,11 +39,11 @@ export default {
   title: 'Select a span of the feed; KEEP or GRAB just that',
   async run(t) {
     const { page, api } = t;
-    await api.tape('Span');
-    await api.ringHas(25);
+    await t.given('a fresh tape', () => api.tape('Span'));
+    await t.given('25s of the jam in the feed', () => api.ringHas(25));
     const before = new Set((await api.takes()).map((x) => x.name));
 
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     const ribbon = page.locator('#viz-wrap');
     await ribbon.waitFor({ state: 'visible' });
     await t.poll(() => document.querySelector('#viz-wrap .rb-tick'), null, 8000); // drawn: it can name frames

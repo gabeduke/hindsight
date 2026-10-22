@@ -13,12 +13,12 @@ export default {
   title: '● arms one track; a hold adds another',
   async run(t) {
     const { page, api } = t;
-    const tape = await api.tape('Arm');
+    const tape = await t.given('a fresh tape', () => api.tape('Arm'));
     const full = async () => api.get(`/api/tapes/state?id=${encodeURIComponent(tape.id)}`);
     const lit = () => page.evaluate(() => [...document.querySelectorAll('.tt-arm')].map((b) => b.getAttribute('aria-pressed') === 'true'));
     const arm = (i) => page.locator('.tt-arm').nth(i);
 
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     await arm(3).waitFor({ state: 'visible' });
 
     await t.step('tap track 3’s ●', () => t.tap(arm(2)));

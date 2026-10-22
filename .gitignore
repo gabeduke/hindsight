@@ -37,3 +37,6 @@ deploy.local.env
 
 # SDD controller workspace — ledger, briefs, review packages
 /.superpowers/
+
+# The flows review cache (scripts/flows/review.mjs)
+/.cache/

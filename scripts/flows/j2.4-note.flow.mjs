@@ -5,9 +5,9 @@ export default {
   title: 'Jot a note while a take plays',
   async run(t) {
     const { page, api } = t;
-    await api.keep(20);
-    await page.goto(`${t.base}/takes.html`);
-    await t.tap(page.locator('#view-room .room-cassette').first());
+    await t.given('a take on the shelf', () => api.keep(20));
+    await t.given('the Listening Room is open', () => page.goto(`${t.base}/takes.html`));
+    await t.given('the take is playing', () => t.tap(page.locator('#view-room .room-cassette').first()));
     await t.poll(() => document.getElementById('np-play')?.textContent.trim() === '❚❚');
     const url = page.url();
 

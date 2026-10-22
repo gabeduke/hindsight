@@ -39,7 +39,21 @@ is `<pi-host>`.
 
 ## Known bugs
 
-None open. (A take tapped while its preview encodes isn't one:
+- **Layout, found by the flows' layout checks** (the baseline,
+  `scripts/flows/layout-known.json`; each fix shrinks it, see
+  `docs/flows.md`, *What a run says*):
+  - Tablet: the bar runs off the right side: its fold button by 8 px
+    here, its ✎ Note in CI's fonts.
+  - Tablet: with a track's inspector open, the capture row squashes and
+    the KEEP/length chips sit over GRAB.
+  - Tablet: the Listening Room's sketchbook place starts off the left side.
+  - Phone: the mini player's reel hub sits over Play, and the ruler's
+    Bar/Snap chip is cut off on the left.
+  - The cue clip's × (12×14 px) and loop toggle (22 px), the input menu's
+    source chips (18 px wide) and the shelf's list button (20 px tall) are
+    under 24 px.
+
+(A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.
 A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
@@ -106,6 +120,10 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
   hasn't happened locally, even at `FLOWS_CPU=6`. If it comes back, look at
   `scripts/flows/j1.9-song-layout.flow.mjs` and the section strip's
   pointer handlers in `lib/tape/page.js` before calling it the flow's fault.
+- Once at `FLOWS_CPU=4` (2026-10-19), J1.3's second hold-drag on the
+  feed ribbon didn't open the selection (six reruns passed).
+- The layout checks settle each screen and look twice, which makes a whole
+  run about 9 minutes locally.
 
 ## Design canvases (claude.ai artifacts, private to Gabe)
 
@@ -119,3 +137,6 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
    track. Then the rest of `shell-roadmap.md` (the output switch, the
    bookmark drawer).
 2. Write the missing flows in `docs/flows.md` as each journey is touched.
+3. Fix the layout findings above, and look through the storyboard
+   (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
+   no check can see. The coverage map lists the controls no flow touches.

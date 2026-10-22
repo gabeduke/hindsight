@@ -17,9 +17,9 @@ export default {
   title: 'Switch the bar between Feed, Tape and Shelf',
   async run(t) {
     const { page, api } = t;
-    const tape = await api.tape('Sources');
-    await api.keep(10);
-    await api.ringHas(12);
+    const tape = await t.given('a fresh tape', () => api.tape('Sources'));
+    await t.given('a take on the shelf', () => api.keep(10));
+    await t.given('12s of the jam in the feed', () => api.ringHas(12));
     const key = (kind) => page.locator(`#np .np-source-switch button[data-source="${kind}"]`);
     const now = () => page.evaluate(bar);
 

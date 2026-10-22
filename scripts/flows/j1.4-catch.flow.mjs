@@ -10,12 +10,14 @@ export default {
   async run(t) {
     const { page, api } = t;
     // An empty tape, with no tempo: the Studio asks for one.
-    const tape = await api.post('/api/tapes', { name: 'Catch' });
-    await api.post(`/api/tapes/load?id=${encodeURIComponent(tape.id)}`);
-    await api.del('/api/clipboard').catch(() => {});
-    await api.ringHas(10);
+    await t.given('a fresh tape with no tempo', async () => {
+      const tape = await api.post('/api/tapes', { name: 'Catch' });
+      await api.post(`/api/tapes/load?id=${encodeURIComponent(tape.id)}`);
+      await api.del('/api/clipboard').catch(() => {});
+    });
+    await t.given('10s of the jam in the feed', () => api.ringHas(10));
 
-    await page.goto(`${t.base}/tape.html`);
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#tape-empty').waitFor({ state: 'visible' });
     await t.step('set the BPM and bars', async () => {
       await page.locator('#new-bpm').fill(String(BPM));

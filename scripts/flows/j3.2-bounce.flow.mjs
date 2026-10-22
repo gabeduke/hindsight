@@ -4,14 +4,16 @@ export default {
   title: 'Bounce the tape to a take',
   async run(t) {
     const { page, api } = t;
-    await api.tape('Bounce');
-    await api.ringHas(15);
+    await t.given('a fresh tape', () => api.tape('Bounce'));
+    await t.given('15s of the jam in the feed', () => api.ringHas(15));
     // Something on the tape to bounce: a grab dropped on track 1.
-    await page.goto(`${t.base}/tape.html`);
-    await t.tap(page.locator('.buffer-grab-key').first());
-    await t.poll(() => !document.getElementById('buffer')?.hidden, null, 8000);
-    await t.tap(page.locator('#buffer-drop'));
-    await page.locator('#toasts .toast').filter({ hasText: /Dropped/ }).first().waitFor({ timeout: 8000 });
+    await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
+    await t.given('a grab dropped on track 1', async () => {
+      await t.tap(page.locator('.buffer-grab-key').first());
+      await t.poll(() => !document.getElementById('buffer')?.hidden, null, 8000);
+      await t.tap(page.locator('#buffer-drop'));
+      await page.locator('#toasts .toast').filter({ hasText: /Dropped/ }).first().waitFor({ timeout: 8000 });
+    });
     const before = (await api.takes()).length;
 
     await t.step('open the tape menu', () => t.tap(page.locator('#tape-more')));

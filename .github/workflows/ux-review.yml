@@ -1,0 +1,63 @@
+name: UX review
+
+# Claude's review of the user flows' storyboard (scripts/flows/review.mjs):
+# notes on whether each flow makes sense to a person, never a pass or fail.
+# It costs tokens, so it runs only when asked: a PR labelled ux-review, by
+# hand, or nightly. Reviews are cached by what they were sent, so a card
+# that didn't change isn't paid for twice. Needs the ANTHROPIC_API_KEY
+# secret.
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ux-review')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.49.0 axe-core@4.11.4
+          npx playwright install --with-deps chromium
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/flows-review
+          key: flows-review-${{ github.run_id }}
+          restore-keys: flows-review-
+
+      # The tablet is the main device; its storyboard is what's reviewed.
+      # A failing flow doesn't stop the review: the CI workflow gates.
+      - name: Flows, storyboard and review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          CGO_ENABLED=0 go build -o /tmp/hindsight ./cmd/hindsight
+          HINDSIGHT_BIN=/tmp/hindsight node scripts/flows.mjs --profile=tablet --storyboard=storyboard --review || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ux-review
+          path: storyboard/

@@ -8,11 +8,11 @@ export default {
   title: 'GRAB 4 bars from a take’s page, DROP them in the Studio',
   async run(t) {
     const { page, api } = t;
-    await api.tape('Take grab'); // a 4-bar loop: the take's GRAB starts at 4 bars
-    const take = await api.keep(20);
+    await t.given('a fresh 4-bar tape', () => api.tape('Take grab')); // the take's GRAB starts at the loop's 4 bars
+    const take = await t.given('a take on the shelf', () => api.keep(20));
     const before = parts(await api.tapeState());
 
-    await page.goto(`${t.base}/wave.html?file=${encodeURIComponent(take.name)}`);
+    await t.given('the take\'s page is open', () => page.goto(`${t.base}/wave.html?file=${encodeURIComponent(take.name)}`));
     const grab = page.locator('.room-open-grab');
     await grab.waitFor({ state: 'visible' });
     const words = await t.poll(() => /4 bars/i.test(document.querySelector('.room-open-grab')?.textContent ?? '') && document.querySelector('.room-open-grab').textContent);
