@@ -3901,7 +3901,7 @@ input, select, textarea { color-scheme: inherit; }
   body.tape-page:not(.player-open):has(#out-strip:not([hidden])) { --np-h: 104px; }
   body:not(.player-open) .np:has(> .out-strip:not([hidden])) { flex-wrap: wrap; align-content: center; row-gap: 6px; }
   body:not(.player-open) .np > .out-strip { order: -1; flex: 1 1 100%; }
-  body:not(.player-open) .np-row > :not(.np-window):not(.np-keys):not(.np-own):not(.np-source-switch),
+  body:not(.player-open) .np-row > :not(.np-window):not(.np-keys):not(.np-own),
   body:not(.player-open) .np-keys > :not(.tb-play),
   body:not(.player-open) .np-own > :not(.np-catch) { display: none !important; }
   body:not(.player-open) .np-window { flex: 1 1 0; width: auto; min-width: 0; height: 50px; }
@@ -5847,7 +5847,10 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
   body:not(.player-open) .np.np-take, body:not(.player-open) .np.np-feed { flex-wrap: wrap; align-content: center; row-gap: 6px; }
   body:not(.player-open) .np.np-take .np-window { display: none; }
   body:not(.player-open) .np.np-take .np-keys { order: 1; }
-  body:not(.player-open) .np .np-row > .np-source-switch { display: inline-flex !important; order: 2; }
+  /* The source switch rides in the take's and the feed's mini player, which
+     have no player to open; the tape's keeps it in the player, so its
+     window, ▶ and Catch have the row (a reel sat over ▶ beside it). */
+  body:not(.player-open) .np:is(.np-take, .np-feed) .np-row > .np-source-switch { display: inline-flex !important; order: 2; }
   body:not(.player-open) .np.np-take .np-own { order: 2; flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 4px; }
   /* ⏏ (the tape back, when both are in the bar) has no player to hide in either. */
   body:not(.player-open) .np.np-take .np-own > :is(.np-name, .np-note, .np-eject:not([hidden])) { display: inline-flex !important; }
