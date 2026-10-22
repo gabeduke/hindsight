@@ -106,9 +106,17 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
   `gh api -X PATCH repos/gabeduke/hindsight/pulls/<n> -F body=@file`.
 - A demo without `TAPE_DIR` and `SETTINGS_FILE` writes `~/hindsight`. The
   flows runner sets both to a temp dir.
-- Flaky Go tests: `TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail` fails
-  about one run in twelve; `TestDeleteGoesToTheTrashAndComesBack`'s TempDir
-  cleanup races a preview writer.
+- Flaky Go tests: fixed on 2026-10-22, from every red `test` job in the
+  last 100 CI runs. `TestSaveRangeSavesASpanThatEndedInThePast` (four of
+  them) measured from the end of the test instead of the save;
+  `TestDeleteGoesToTheTrashAndComesBack` lost a race to a restore's preview
+  encode, which ran outside the API's `WaitBackground`; and the MIDI
+  watcher had a real data race on a reader's id, which `-race` caught in
+  `TestWatcherOnlyOnePortIsTheClock`. Not seen since 15 October, and not
+  touched: `TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail` (once said to
+  fail one run in twelve) and the MIDI clock's tempo tests (4–5 October).
+  If one comes back, the job's annotation names it; read its log before
+  calling it a flake.
 - The end-to-end sound check without ears: output `both`
   (`PUT /api/tapes/output`), record `/api/tapes/stream` while a script holds
   pads on `/api/tapes/play`, and read the level every 50 ms: BREAK reads 0,

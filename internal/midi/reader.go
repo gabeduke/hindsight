@@ -42,7 +42,7 @@ const defaultDrainWindow = 150 * time.Millisecond
 // path from here into the capture thread.
 type portReader struct {
 	port  Port
-	id    uint16 // assigned by opened once the node is actually open
+	id    uint16 // set by opened, under the watcher's lock, once the node is open
 	drain time.Duration
 
 	// isClock marks the one reader whose pulses feed the tempo path. Set
@@ -55,9 +55,11 @@ type portReader struct {
 	onGone  func()
 
 	// opened is called on the reader's goroutine once the node is open, and
-	// hands back the device id. Ids are allocated here rather than at
-	// scan time so a node that cannot be opened never burns one.
-	opened func() uint16
+	// sets id under the watcher's lock, which Devices reads it under: stored
+	// here after the lock was let go, it raced Devices. Ids are allocated
+	// here rather than at scan time so a node that cannot be opened never
+	// burns one.
+	opened func()
 
 	// onEvent receives complete messages; onRealtime receives clock and
 	// transport bytes with the read's timestamp. Both are called on the
@@ -95,7 +97,7 @@ func (r *portReader) run() {
 	r.mu.Unlock()
 
 	if r.opened != nil {
-		r.id = r.opened()
+		r.opened()
 	}
 	r.connected.Store(true)
 	log.Printf("[*] midi: reading %q from %s", r.port.Name, r.port.Node)

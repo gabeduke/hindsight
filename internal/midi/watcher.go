@@ -410,14 +410,14 @@ func (w *Watcher) open(p Port) {
 			log.Printf("[*] midi: %q on %s also matches MIDI_CLOCK_DEVICE %q; the clock stays with the first", p.Name, p.Node, w.policy.ClockDevice)
 		}
 	}
-	r.opened = func() uint16 {
+	r.opened = func() {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 		w.nextID++
 		if r.isClock {
 			w.clockID = w.nextID
 		}
-		return w.nextID
+		r.id = w.nextID
 	}
 	// Stored for takes, played on the tape, or both. A controller that
 	// MIDI_IGNORE keeps out of takes still plays.
