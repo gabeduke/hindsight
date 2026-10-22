@@ -63,6 +63,8 @@ jobs:
   release:
     needs: test
     runs-on: ubuntu-24.04-arm
+    # Under a minute usually; a stuck runner fails here, not at six hours.
+    timeout-minutes: 30
     # Raspberry Pi OS Bookworm ships glibc 2.36; Ubuntu 24.04 links 2.39. A
     # binary built on the bare runner will not start on the Pi, so build
     # against the target distribution instead.
@@ -220,6 +222,7 @@ jobs:
   hub-image:
     needs: release
     runs-on: ubuntu-24.04-arm # native arm64: no QEMU
+    timeout-minutes: 30
     permissions:
       contents: write
       packages: write
