@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.22.4 — 2026-10-22
+
+- The Studio's feed is a strip, and the tape gets its height back: how much GRAB and KEEP take is on their ▾ (f81ce73)
+- The Listening Room's List button is a finger's size (56b66b1)
+
+
 ## v2026.10.22.3 — 2026-10-22
 
 - The MIDI watcher sets a device's id under its lock, ending a data race as a device connects (308238e)
