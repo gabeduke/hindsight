@@ -60,7 +60,12 @@ in both schemes, and with the layout baseline shrinking, never growing.
    for it in the bar since it moved into the tools (a phone showed *Jam
    room* in full, every page a square box), and the guide's links in each
    page's ⋯ became the menu's guide, which opens at the page's section.
-2. **The feed strip.** Updates J1.1, J1.2, J1.3, J1.6 and C1. Static.
+2. ~~**The feed strip.**~~ Done. J1.1 and J1.6 choose a length on the ▾.
+   Two calls made while building it: the readouts and *Input channels* went
+   into a sheet behind the lamp, with a link to the Rig, not onto the Rig's
+   page (leaving for it stops the tape on this device about 6 s later); and
+   ● Phone shows on the strip only while it records, since ⋯ is its way in
+   and a recording must stay in sight.
 3. **The track heads and the ruler on touch.** Updates J1.5, J1.9 and J1.11.
    Static.
 4. **A budget in the layout checks** (`scripts/flows/layout.mjs`): on the

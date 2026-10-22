@@ -30,11 +30,14 @@ test('outside its templates the tape page has no feed, and nowhere an about line
 
 test("the Studio's templates carry the feed, KEEP, the input diagnostic and its sheets", () => {
   const feed = inTemplate('studio-feed-tpl');
-  for (const id of ['viz-wrap', 'rb-sel', 'vu', 'meters', 'dur-seg', 'studio-keep']) assert.ok(feed.includes(`id="${id}"`), `the feed lacks #${id}`);
-  const foot = inTemplate('studio-foot-tpl');
-  for (const id of ['chan-diag', 'chan-grid', 'chan-saving', 'chan-device', 'midi-devices']) assert.ok(foot.includes(`id="${id}"`), `the foot lacks #${id}`);
+  for (const id of ['viz-wrap', 'rb-sel', 'vu', 'meters', 'dur-seg', 'studio-keep', 'studio-keep-more', 'studio-keep-pop', 'studio-lamp']) assert.ok(feed.includes(`id="${id}"`), `the feed lacks #${id}`);
+  // The input diagnostic and the readouts are behind the feed's lamp, in its
+  // sheet (docs/plan/the-studio-on-one-screen.md): no foot under the lanes.
+  assert.ok(!tape.includes('studio-foot-tpl'), 'the foot is gone');
   const sheets = inTemplate('studio-sheets-tpl');
-  for (const id of ['rb-flag-sheet', 'settings-sheet', 'update-sheet']) assert.ok(sheets.includes(`id="${id}"`), `the sheets lack #${id}`);
+  for (const id of ['rb-flag-sheet', 'settings-sheet', 'update-sheet', 'feed-sheet', 'chan-diag', 'chan-grid', 'chan-saving', 'chan-device', 'midi-devices', 'stat-disk', 'stat-xruns', 'stat-tempo', 'studio-health']) {
+    assert.ok(sheets.includes(`id="${id}"`), `the sheets lack #${id}`);
+  }
 });
 
 test('the tape page loads the Studio through mount.js', () => {

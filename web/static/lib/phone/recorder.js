@@ -399,4 +399,7 @@ export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' 
     ui.barR.style.width = '0%';
     updateButton();
   }
+
+  // The Studio's ⋯ opens it too, where the strip has no room for the key.
+  return { open };
 }

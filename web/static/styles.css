@@ -4196,62 +4196,99 @@ body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent
    templates that studio.js clones; every rule here hangs off a studio-
    class or the tape page's body (styles.test.js), so it reaches nothing
    else. */
+/* The feed is a strip (docs/plan/the-studio-on-one-screen.md): the lamp
+   and the meters, the ribbon, and the keys -- GRAB, KEEP, Flag -- in one
+   row on a tablet and wider, so the tape under it has the room. A phone: the
+   lamp and bars, the ribbon, the keys, a row each. How much GRAB and KEEP
+   take is in a panel on their ▾. */
 .studio-feed {
   flex: none;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "head head" "ribbon vu" "keys keys" "sel sel";
-  align-items: center; gap: 8px 14px;
-  padding: 10px 14px;
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "head" "ribbon" "keys" "sel";
+  align-items: center; gap: 8px;
+  padding: 10px 12px;
 }
 .studio-feed-head { grid-area: head; display: flex; align-items: center; gap: 10px; min-width: 0; }
-/* The heading keeps its word; its rule takes what room is left. */
-.studio-feed-head > .studio-feed-title { margin: 0; flex: 1 0 auto; }
-/* Capture's readouts, in a line: its trouble, then disk, drops and tempo. */
-.studio-stats {
-  margin: 0; flex: 0 1 auto; min-width: 0;
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-  font-size: 12px; color: var(--ink-dim);
-}
-.studio-stat + .studio-stat::before, .studio-health:not([hidden]) + .studio-stat::before { content: '· '; }
-.studio-stats .warn, .studio-health.wait { color: var(--warn-ink); }
-.studio-stats .bad, .studio-health.bad { color: var(--danger-ink); }
-.studio-health { font-weight: 600; }
-.studio-health[hidden] { display: none; }
-.studio-feed-head > .phone-btn { margin-left: 0; }
-.studio-feed > .viz-wrap { grid-area: ribbon; height: 112px; }
-.studio-feed > .vu-row { grid-area: vu; margin: 0; gap: 8px; }
-.studio-feed > .vu-row .vu { flex: none; width: 128px; }
-.studio-feed > .vu-row .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
-.studio-feed > .meters { grid-area: meters; margin: 0; }
+.studio-feed > .viz-wrap { grid-area: ribbon; height: 64px; }
+.studio-feed-head > .vu-row { display: none; margin: 0; }
+.studio-feed-head > .vu-row .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
+.studio-feed-head > .meters { flex: 1 1 auto; display: flex; gap: 4px; margin: 0; min-width: 0; }
 .studio-feed > .rb-sel { grid-area: sel; margin: 0; }
 .studio-keys { grid-area: keys; display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; min-width: 0; }
 /* (It wraps where it must -- a tablet with a track's inspector beside the
    lanes -- rather than squeeze its keys over one another.) */
+.studio-keys > .mark-btn { flex: none; }
+
+/* The lamp, the feed's name on it: green while the feed records, amber or
+   red when a readout wants a look. It opens the feed's sheet. */
+.studio-lamp {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  min-height: 32px; padding: 0 10px 0 8px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer;
+}
+.studio-lamp .studio-feed-title { margin: 0; font: 600 12px var(--label-font); letter-spacing: .16em; text-transform: uppercase; }
+.studio-lamp-led { width: 9px; height: 9px; border-radius: 50%; background: var(--led-off); flex: none; }
+.studio-lamp[data-state="ok"] .studio-lamp-led { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
+.studio-lamp[data-state="warn"] .studio-lamp-led { background: var(--warn); box-shadow: 0 0 6px var(--warn-glow); }
+.studio-lamp[data-state="bad"] .studio-lamp-led { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+.studio-lamp[data-state="warn"], .studio-lamp[data-state="bad"] { border-color: currentColor; }
+.studio-lamp:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) { .studio-lamp:hover { border-color: var(--rule); } }
+
+/* ● Phone shows while it records (it says ● REC and the time, and opens
+   the sheet again); ⋯'s Record from this phone is its way in. */
+.studio-keys > .phone-btn:not(.recording) { display: none; }
+
+/* GRAB and KEEP: a key and its ▾, as one key with a seam. */
+.studio-feed .key-split { display: inline-flex; align-items: stretch; flex: none; }
+.studio-feed .key-split > .icon-btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.studio-feed .key-split > .icon-btn.key-more {
+  min-width: 40px; padding: 0; margin-left: -1px;
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+  font-size: 13px; color: var(--ink-dim);
+}
+.studio-feed .key-split > .icon-btn.key-more[aria-expanded="true"] { background: var(--panel-2); color: var(--ink); }
+/* The panel under the pair: fixed, so the feed never clips it; placed by
+   lib/rooms/keymenu.js. */
+.studio-feed .key-pop {
+  position: fixed; z-index: 45; display: flex; flex-direction: column; gap: 6px;
+  min-width: 220px; max-width: calc(100vw - 16px); padding: 10px 12px 12px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 30px var(--shadow);
+}
+.studio-feed .key-pop[hidden] { display: none; }
+.studio-feed .key-pop-label { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.studio-feed .key-pop-row { display: flex; align-items: center; gap: 8px; }
+.studio-feed .key-pop .seg button { min-height: 44px; min-width: 44px; padding: 0 12px; }
+
 /* From 700 px the feed lines up with the lanes under it: the meters sit over
    the lanes' heads (same widths as .tape-track's first column) and the
-   ribbon runs over the lanes themselves, so its left and right edges are
-   theirs. The panel's side padding moves onto the head, keys and meters. */
+   ribbon runs over the lanes themselves, so its left edge is theirs. The
+   keys under the ribbon, until a row has room for them beside it. */
 .studio-feed { --lane-head: 160px; }
 @media (min-width: 1400px) { .studio-feed { --lane-head: 200px; } }
 @media (min-width: 700px) {
   .studio-feed {
-    grid-template-columns: var(--lane-head) 1fr;
-    grid-template-areas: "head head" "vu ribbon" "keys keys" "sel sel";
-    column-gap: 6px; padding-inline: 0;
+    grid-template-columns: var(--lane-head) minmax(0, 1fr);
+    grid-template-areas: "head ribbon" "keys keys" "sel sel";
+    column-gap: 6px; padding: 8px 14px 8px 0;
   }
-  .studio-feed > .studio-feed-head, .studio-feed > .studio-keys, .studio-feed > .rb-sel { margin-inline: 14px; }
-  .studio-feed > .vu-row { padding-left: 14px; gap: 6px; align-self: stretch; align-items: center; }
-  .studio-feed > .vu-row .vu { flex: 1 1 0; width: auto; }
+  .studio-feed > .viz-wrap { height: 86px; }
+  .studio-feed-head { flex-direction: column; align-items: stretch; gap: 4px; padding-left: 14px; align-self: stretch; justify-content: center; }
+  .studio-feed-head > .studio-lamp { align-self: flex-start; }
+  .studio-feed-head > .vu-row { display: flex; gap: 6px; }
+  .studio-feed-head > .vu-row .vu { flex: 1 1 0; width: auto; }
+  .studio-feed-head > .meters { display: none; }
+  .studio-feed > .studio-keys { justify-content: flex-end; }
+  .studio-feed > .rb-sel { margin-left: 14px; }
 }
-/* The keys stay on their own row at every width. Beside the heading they
-   shared the lane-head column grid above (the ribbon lines up with the
-   lanes), so from 1100 px they were squeezed into what the heading left and
-   GRAB went to nothing (user flows J1.6 and J3.2 on the desktop profile). */
-.studio-keys > .seg { flex: 0 1 auto; min-width: 0; }
-.studio-keys > .seg button { padding: 0 10px; }
-.studio-keys > .mark-btn { flex: none; }
-/* Keep goes to the end of the row, under the ribbon's "now". */
-.studio-keys > .studio-keep { margin-left: auto; }
+@media (min-width: 900px) {
+  .studio-feed {
+    grid-template-columns: var(--lane-head) minmax(0, 1fr) auto;
+    grid-template-areas: "head ribbon keys" "sel sel sel";
+  }
+  .studio-feed > .studio-keys { flex-wrap: nowrap; align-self: center; }
+}
 
 /* KEEP: the dashcam's save, a paper key -- the cassette's label -- so it
    doesn't compete with Catch's orange on the deck below. Paper is a material
@@ -4263,6 +4300,11 @@ body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent
   color: var(--paper-ink); border-color: var(--paper-rule);
 }
 .icon-btn.studio-keep:active { background: linear-gradient(180deg, var(--paper-lo), var(--paper-hi)); }
+/* Its ▾ is the same paper. */
+.studio-keep-split > .icon-btn.key-more {
+  background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
+  color: var(--paper-dim); border-color: var(--paper-rule);
+}
 .icon-btn.studio-keep.saved { box-shadow: 0 0 0 4px color-mix(in srgb, var(--paper-hi) 35%, transparent), 0 0 24px var(--accent-glow); }
 .studio-keep-word { font: 700 16px var(--label-font); letter-spacing: .16em; text-transform: uppercase; }
 .studio-keep-line { display: inline-flex; align-items: baseline; justify-content: center; gap: .4em; white-space: nowrap; }
@@ -4278,51 +4320,51 @@ body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent
 @keyframes rooms-appnav-late { to { visibility: visible; } }
 body.tape-page:not(:has(.studio-feed)) main.tape-main { visibility: hidden; animation: rooms-appnav-late 0s linear 0.6s forwards; }
 
-/* The Studio's foot, between main and the dock: Capture's input diagnostic. */
 body.tape-page.tracks-fold #lanes { display: none; }
-body.tape-page > .studio-chan { flex: none; margin: 0; padding: 4px 16px 0; }
-body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
 
-/* A phone: the ribbon the full width, the meters as two bars (needles cost
-   the lanes their height), and the keys under them, where the thumb is.
-   Keep is its word alone -- the lengths beside it, and the ribbon, say how
-   much -- and Flag now its pennant, as on Capture's bench. */
+/* The feed's sheet, from its lamp: what the ring says when something is
+   wrong, the readouts, the input channels, and the way to the rig. */
+.studio-feed-sheet .studio-health { margin: 0 0 10px; font-weight: 600; }
+.studio-feed-sheet .studio-health.wait { color: var(--warn-ink); }
+.studio-feed-sheet .studio-health.bad { color: var(--danger-ink); }
+.studio-feed-sheet .studio-health[hidden] { display: none; }
+.studio-feed-sheet .studio-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 0 0 12px; }
+.studio-feed-sheet .studio-stat { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.studio-feed-sheet .studio-stat dt { font: 600 11px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); }
+.studio-feed-sheet .studio-stat dd { margin: 2px 0 0; font: 600 16px var(--mono); }
+.studio-feed-sheet .studio-stat dd.warn { color: var(--warn-ink); }
+.studio-feed-sheet .studio-stat dd.bad { color: var(--danger-ink); }
+.studio-feed-sheet .studio-chan { margin: 0 0 8px; }
+/* The sheet sets its words in the readouts' type; the hints are prose. */
+.studio-feed-sheet .studio-chan .hint { font-family: var(--font); font-size: 12.5px; word-break: normal; overflow-wrap: break-word; }
+
+/* A phone: the lamp and the bars, the ribbon the full width, and the keys
+   under them, where the thumb is: GRAB and KEEP share the row, Flag now is
+   its pennant, as on Capture's bench. */
 @media (max-width: 699.98px) {
-  .studio-feed {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "head" "ribbon" "meters" "keys" "sel";
-    gap: 8px; padding: 10px 12px;
-  }
-  .studio-feed > .viz-wrap { height: 92px; }
-  .studio-feed > .vu-row { display: none; }
-  .studio-feed > .meters { display: flex; gap: 4px; }
-  .studio-keys > .seg { flex: 1 1 0; }
-  .studio-keys > .seg button { padding: 0 4px; }
+  .studio-keys > .key-split { flex: 1 1 0; min-width: 0; }
+  .studio-keys > .key-split > .icon-btn:first-child { flex: 1 1 auto; min-width: 0; }
   .studio-keys > .mark-btn { font-size: 0; min-width: 44px; padding: 0 12px; }
   .studio-keys > .mark-btn::before { font-size: 16px; }
-  .icon-btn.studio-keep { min-width: 96px; margin-left: 0; }
   .studio-keep-sub { display: none; }
   /* The selection bar's four keys don't fit beside its readout: the
      readout takes a line of its own, and the keys wrap under it. */
   .studio-feed > .rb-sel { flex-wrap: wrap; row-gap: 6px; }
   .studio-feed > .rb-sel .rb-sel-text { flex: 1 1 100%; }
   .studio-feed > .rb-sel .icon-btn { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
-  body.tape-page > .studio-chan { padding: 4px 12px 0; }
 }
-/* A phone held sideways: the lanes have 390 px, so the feed gives back what
-   it can -- a short ribbon with the bars under it and the keys beside them. */
+/* A phone held sideways: the lanes have 390 px, so the feed is one short
+   row -- the lamp, the ribbon, the keys. */
 @media (orientation: landscape) and (max-height: 440px) {
   .studio-feed {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "head head" "ribbon keys" "meters keys" "sel sel";
-    gap: 6px 10px; padding: 8px 10px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "head ribbon keys" "sel sel sel";
+    gap: 6px 10px; padding: 6px 10px;
   }
-  .studio-feed > .viz-wrap { height: 64px; }
-  .studio-feed > .vu-row { display: none; }
-  .studio-feed > .meters { display: flex; gap: 4px; }
-  .studio-keys { flex-direction: column; align-self: stretch; }
-  .studio-keys > .seg button { min-height: 34px; }
-  .studio-keys > .studio-keep { margin-left: 0; }
+  .studio-feed > .viz-wrap { height: 52px; }
+  .studio-feed-head > .vu-row, .studio-feed-head > .meters { display: none; }
+  .studio-keys { flex-wrap: nowrap; }
+  .studio-keys > .key-split { flex: none; }
 }
 
 /* ---------- Rooms P2: the buffer (lib/buffer) ---------- */
@@ -4334,31 +4376,26 @@ body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
    the lanes is a class on the body that changes heights, nothing else
    (lib/buffer/fold.test.js). */
 
-/* GRAB, before KEEP: LAST 1 2 4 8 BARS · GRAB. */
-.buffer-grab { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.buffer-grab-last, .buffer-grab-unit { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+/* GRAB, first of the feed's keys: GRAB 4 BARS over the input it takes
+   from, and its ▾, whose panel holds the bars and the inputs. */
+.buffer-grab { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.buffer-grab-unit { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
 .buffer-grab-unit[hidden] { display: none; }
-.buffer-grab > .seg.buffer-bars { flex: 0 1 auto; }
-.buffer-grab > .seg.buffer-bars button { padding: 0 9px; min-width: 32px; }
-.buffer-grab > .seg.buffer-feed-sources { flex: none; }
-.buffer-grab > .seg.buffer-feed-sources button { padding: 0 8px; font: 600 11.5px var(--mono); text-transform: uppercase; }
+.buffer-grab-pop .seg.buffer-feed-sources { flex-wrap: wrap; }
+.buffer-grab-pop .seg.buffer-feed-sources button { font: 600 11.5px var(--mono); text-transform: uppercase; }
+.buffer-grab-pop .seg.buffer-feed-sources button[data-source=""] { font-family: var(--font); text-transform: none; }
 .icon-btn.buffer-grab-key {
-  min-height: 44px; padding: 4px 14px; gap: 8px;
+  flex: none; min-height: 44px; padding: 4px 14px;
+  flex-direction: column; gap: 0; line-height: 1.15;
   font: 700 15px var(--label-font); letter-spacing: .14em; text-transform: uppercase;
   box-shadow: inset 0 1px 0 var(--hl), 0 0 0 2px var(--accent), 0 2px 4px -2px var(--sh);
 }
+.buffer-grab-line { display: inline-flex; align-items: baseline; gap: .35em; white-space: nowrap; }
+.buffer-grab-from { font: 500 11.5px var(--font); letter-spacing: 0; text-transform: none; color: var(--ink-dim); white-space: nowrap; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
+.buffer-grab-from:empty { display: none; }
 .icon-btn.buffer-reopen { min-height: 44px; font: 700 13px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
-/* GRAB is the row's verb: it never gives way to the pickers beside it. On a
-   tablet the row has no room for the pickers' LAST and BARS too (the input
-   picker came down to a letter a key, then GRAB to "GRABBI…"), so the
-   words go; GRAB's own label says it takes the last bars. */
-.buffer-grab > .icon-btn.buffer-grab-key { flex: none; }
-@media (min-width: 700px) and (max-width: 1279.98px) {
-  .buffer-grab-last, .buffer-grab > .buffer-grab-unit { display: none; }
-}
 .icon-btn.buffer-reopen[hidden] { display: none; }
 .buffer-kbd { font: 500 10.5px var(--mono); opacity: .65; margin-left: 4px; letter-spacing: 0; }
-.buffer-grab-n { display: none; }
 .icon-btn.buffer-grab-sel { font-weight: 700; }
 
 /* The buffer's span on the feed's ribbon. */
@@ -4522,25 +4559,19 @@ body.buffer-fold .tape-sections-row { display: none; }
   .icon-btn.buffer-drop { align-items: center; text-align: center; min-height: 64px; }
   body.tape-page.buffer-open { padding-bottom: calc(var(--dock-b, 0px) + 45svh); }
   body.buffer-open .studio-feed > .viz-wrap { height: 60px; }
-  body.buffer-open .studio-feed > .meters { display: none; }
+  body.buffer-open .studio-feed-head > .meters { display: none; }
   body.tape-page.buffer-open:has(.np) #toasts { bottom: calc(var(--dock-b, 0px) + 45svh + 12px); }
-  .studio-keys:has(> .buffer-grab) { flex-wrap: wrap; }
-  .buffer-grab { flex: 1 0 100%; }
-  .buffer-grab-last { display: none; }
-  .buffer-grab > .seg.buffer-bars { flex: 1 1 auto; }
-  .icon-btn.buffer-grab-key { flex: none; min-width: 104px; }
+  /* GRAB and KEEP share the keys' row, half each. A phone has no G to
+     press, and the word less tracking. */
+  .buffer-grab { flex: 1 1 0; min-width: 0; }
+  .buffer-grab > .key-split { flex: 1 1 auto; min-width: 0; }
+  .buffer-grab > .key-split > .icon-btn.buffer-grab-key { flex: 1 1 auto; min-width: 0; padding: 4px 8px; overflow: hidden; letter-spacing: .06em; font-size: 14px; }
+  .buffer-grab-key .buffer-kbd { display: none; }
+  .buffer-grab-from { max-width: 100%; }
   .icon-btn.buffer-reopen { flex: none; padding: 0 10px; font-size: 12px; }
-  /* The input picker can't share the line with the bars and GRAB (its
-     four keys came down to 18 px and a letter each): it takes the next. */
-  .buffer-grab { flex-wrap: wrap; row-gap: 6px; }
-  .buffer-grab > .seg.buffer-feed-sources { order: 1; flex: 1 1 100%; }
-  .buffer-grab > .seg.buffer-feed-sources button { flex: 1 1 0; }
-  /* GRAB and KEEP side by side while it's open: the picker and the
-     lengths wait in the closed feed. */
-  body.buffer-open .buffer-grab { flex: 1 1 auto; }
-  body.buffer-open .buffer-grab > .seg.buffer-bars, body.buffer-open .buffer-grab > .seg.buffer-feed-sources, body.buffer-open .buffer-grab-unit, body.buffer-open .studio-keys > .seg { display: none; }
-  body.buffer-open .icon-btn.buffer-grab-key { flex: 1 1 auto; }
-  body.buffer-open .buffer-grab-n { display: inline; }
+  /* With a grab in the buffer its Buffer key joins GRAB, and the two take
+     the row: KEEP and Flag go to the next (GRAB came down to a sliver). */
+  .studio-keys:has(.buffer-reopen:not([hidden])) > .buffer-grab { flex: 1 1 100%; }
 }
 @media (max-width: 699.98px) {
   body.buffer-fold .tape-track { height: 13px; overflow: hidden; }
@@ -4677,7 +4708,7 @@ body.buffer-fold .tape-sections-row { display: none; }
    for arranging, and come back when it folds). */
 @media (min-width: 700px) and (min-height: 441px) {
   body.play-unfolded .studio-feed > .viz-wrap { height: 56px; }
-  body.play-unfolded .studio-feed > .vu-row { display: none; }
+  body.play-unfolded .studio-feed-head > .vu-row { display: none; }
   body.play-unfolded .tape-sections-row { display: none; }
 }
 
@@ -4810,7 +4841,7 @@ body.buffer-fold .tape-sections-row { display: none; }
    The notch pointed at the ribbon, which is gone. */
 @media (min-width: 700px) and (min-height: 441px) and (max-height: 1000px) {
   body:has(.play-strip).buffer-open .studio-feed > .viz-wrap,
-  body:has(.play-strip).buffer-open .studio-feed > .vu-row { display: none; }
+  body:has(.play-strip).buffer-open .studio-feed-head > .vu-row { display: none; }
   body:has(.play-strip).buffer-open .buffer-notch { display: none; }
   body:has(.play-strip).buffer-open .studio-feed { display: flex; flex-wrap: wrap; row-gap: 8px; }
   body:has(.play-strip).buffer-open .studio-feed > .studio-feed-head { flex: 1 1 320px; }
@@ -5128,7 +5159,8 @@ body:not(.room-rack) .shelf-title,
   .room-row::-webkit-scrollbar { display: none; }
   .room-shelf-foot { position: relative; z-index: 2; margin: calc(var(--room-u) * -4) 0 0 calc(var(--room-u) * 3); height: calc(var(--room-u) * 4); align-items: center; }
   .room-shelf-foot .room-plate { align-self: center; padding: 0 7px; font-size: 10px; line-height: 13px; border-radius: 1px; box-shadow: 0 1px 1px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.35); }
-  .room-list-btn { min-height: 20px; padding: 0 8px; font-size: 11px; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  /* 24 px, the least a target may be (it was 20, under the flows' check). */
+  .room-list-btn { min-height: 24px; padding: 0 8px; font-size: 11px; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
   .room-filtered { position: relative; z-index: 1; margin: 6px 8px; }
   /* An empty shelf: a card propped in the cubby that says why. */
   .room-empty {
