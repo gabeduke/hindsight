@@ -1,12 +1,22 @@
 name: CI
 
 on:
+  # A pull request, on each push to it. A push to its branch used to start
+  # a second, identical run: 33 of 72 runs in the week to 2026-10-22 were
+  # repeats of another.
   pull_request:
-  push:
-    # main is covered by release.yml, which calls this workflow. Without
-    # this, every merge would run the suite twice.
-    branches-ignore: [main]
+  # main is covered by release.yml, which calls this workflow.
   workflow_call:
+  # Any other branch, by hand.
+  workflow_dispatch:
+
+# A new push to a pull request cancels the run still going for it: only the
+# newest commit's result is read. A run for main (release.yml calls this) or
+# by hand has a group of its own, so it is never cancelled, and never shares
+# release.yml's group, which would deadlock.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: true
 
 # Called from release.yml, this job would otherwise inherit that workflow's
 # contents: write just to run tests.
@@ -16,6 +26,11 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # About 5 minutes (median and p90, October 2026), but on 2026-10-22 the
+    # runners' apt mirrors took 18 to 36 minutes to install ffmpeg for over
+    # two hours, and a run took 41. An hour lets a day like that finish
+    # green; a stuck runner still fails here, not at GitHub's six hours.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -98,6 +113,8 @@ jobs:
   # A todo flow (a story not built yet) reports and never fails the job.
   flows:
     runs-on: ubuntu-latest
+    # About 9 minutes, 10 at p90; 47 on the slow-mirror day above.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 

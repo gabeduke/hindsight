@@ -132,7 +132,7 @@ writes notes on whether the flow makes sense to a person, on the storyboard.
 - **Setup:** it needs `ANTHROPIC_API_KEY`; `FLOWS_REVIEW_MODEL` picks the
   model.
 - **In CI:** `ux-review.yml` runs it on the tablet profile for a PR labelled
-  `ux-review`, by hand, or nightly.
+  `ux-review`, or by hand (Actions → UX review → Run workflow).
 
 ## Writing a flow
 
