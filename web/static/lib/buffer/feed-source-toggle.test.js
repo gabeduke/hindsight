@@ -129,3 +129,35 @@ test('Feed source selector allows choosing ch2 before grab', async () => {
     assert.deepEqual(lastGrab.body.sources, ['ch2'], 'grab payload used selected source ch2');
   });
 });
+
+// GRAB takes from the armed track's input until one is picked on its ▾, and
+// the panel's Armed track goes back to following it
+// (docs/plan/the-studio-on-one-screen.md). The key says which it is.
+test('GRAB follows the armed track’s input until one is picked, and Armed track goes back', async () => {
+  await withBufferTest({}, async ({ doc, log, testStorage, flush }) => {
+    const btn = (src) => doc.querySelectorAll('.buffer-feed-sources button').find((b) => b.dataset.source === src);
+    const from = () => doc.querySelector('.buffer-grab-from').textContent;
+    const grabbed = async () => {
+      doc.querySelector('.buffer-grab-key').dispatchEvent(new CustomEvent('click'));
+      await flush();
+      return log.filter((r) => r.url.startsWith('/api/clipboard') && r.method === 'POST').at(-1)?.body.sources;
+    };
+    assert.ok(doc.querySelector('.buffer-grab-pop').contains(btn('')), 'the inputs are in the ▾’s panel, Armed track first');
+    assert.equal(btn('').getAttribute('aria-pressed'), 'true');
+    assert.equal(from(), 'from main · armed', 'the armed track (rec_input main) is what it takes');
+
+    btn('ch2').dispatchEvent(new CustomEvent('click'));
+    await flush();
+    assert.equal(btn('').getAttribute('aria-pressed'), 'false');
+    assert.equal(btn('ch2').getAttribute('aria-pressed'), 'true');
+    assert.equal(from(), 'from ch2');
+    assert.deepEqual(await grabbed(), ['ch2']);
+
+    btn('').dispatchEvent(new CustomEvent('click'));
+    await flush();
+    assert.equal(btn('').getAttribute('aria-pressed'), 'true');
+    assert.equal(testStorage.getItem('buffer.source'), '', 'nothing picked: it follows again, after a reload too');
+    assert.equal(from(), 'from main · armed');
+    assert.deepEqual(await grabbed(), ['main']);
+  });
+});

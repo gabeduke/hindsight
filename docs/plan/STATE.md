@@ -47,6 +47,9 @@ is `<pi-host>`.
   - Tablet: the Listening Room's sketchbook place starts off the left side.
   - The cue clip's × (12×14 px) and loop toggle (22 px) and the shelf's
     list button (20 px tall) are under 24 px.
+  - About 800 px wide (a Pixel Tablet held upright), the bar runs off the
+    right side: Catch is cut, and the page scrolls sideways. No flow runs
+    at that width.
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.
@@ -133,8 +136,8 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
 ## Next
 
-1. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~
-   (done), the feed strip, the track heads on touch, a layout budget, the buffer into the
+1. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~,
+   ~~the feed strip~~ (done), the track heads on touch, a layout budget, the buffer into the
    cue lane (with the lane's other sources: a take from the shelf, a part
    lifted from a track), then Open's pass. Then the rest of
    `shell-roadmap.md` (the output switch, the bookmark drawer).

@@ -116,6 +116,20 @@ export function frameLevels(f, channels) {
 }
 
 /**
+ * lampState is the Studio's feed lamp's colour from the readouts (readouts,
+ * below): red for the ring's trouble or a readout gone bad, amber while
+ * it waits or a readout warns, green while it records, and dark before the
+ * Pi has answered.
+ */
+export function lampState(r) {
+  if (!r) return 'none';
+  const levels = [r.disk?.level, r.xruns?.level, r.tempo?.level];
+  if (r.health?.state === 'bad' || levels.includes('bad')) return 'bad';
+  if (r.health?.state === 'wait' || levels.includes('warn')) return 'warn';
+  return 'ok';
+}
+
+/**
  * readouts is Capture's monitor in words, from /api/status: the ring's
  * health, disk free, dropped buffers, the MIDI clock's tempo and the MIDI
  * devices open. Each reading has a level -- '', 'warn' or 'bad' -- for its

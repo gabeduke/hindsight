@@ -4621,6 +4621,9 @@ function wire() {
   $('tape-new').addEventListener('click', () => { closeMenus(); newTape(); });
   $('tape-mixdown').addEventListener('click', () => { closeMenus(); mixdown(false); });
   $('tape-mixdown-all').addEventListener('click', () => { closeMenus(); mixdown(true); });
+  // The feed's ● Phone, which the strip shows on a phone alone: the Studio
+  // (lib/rooms/studio.js) opens its sheet.
+  $('tape-phone')?.addEventListener('click', () => { closeMenus(); document.dispatchEvent(new CustomEvent('hindsight:phone')); });
   bouncing?.menu.last.addEventListener('click', () => {
     closeMenus();
     lastBounceToast({ toast, take: bouncing.keeper.take(), player: bouncing.player });

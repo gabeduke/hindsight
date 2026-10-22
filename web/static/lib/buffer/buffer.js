@@ -34,6 +34,7 @@ import { takeBack } from '../rooms/keep.js';
 import { takeTitle } from '../rooms/takename.js';
 import { named } from '../rooms/words.js';
 import { followLoop, readPick, writePick, readSource, writeSource } from '../rooms/grab.js';
+import { keyMenu } from '../rooms/keymenu.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
 import { replacedWords, replacedLine, recall, raiseUndo, undoWords } from './replaced.js';
 
@@ -51,7 +52,7 @@ const pageStorage = () => { try { return globalThis.sessionStorage || null; } ca
  * Studio hands it its feed and the feed's row of keys. It returns null
  * without them.
  */
-export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon = null, toast = defaultToast, storage = pageStorage(), ctx = null } = {}) {
+export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toast = defaultToast, storage = pageStorage(), ctx = null } = {}) {
   const tpl = (id) => doc.getElementById(id)?.content;
   if (!keysRow || !feed || !tpl('buffer-panel-tpl') || !tpl('buffer-grab-tpl')) return null;
   keysRow.prepend(tpl('buffer-grab-tpl').cloneNode(true));
@@ -61,17 +62,10 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
 
   const $ = (id) => doc.getElementById(id);
   const body = doc.body;
+  // GRAB leads the feed's keys, at every width (the feed is a strip,
+  // docs/plan/the-studio-on-one-screen.md); how much it takes, and from
+  // which input, is on its ▾.
   const grabRow = keysRow.querySelector('.buffer-grab');
-  // From 1100 px the feed's keys sit beside its heading, over the meters:
-  // GRAB goes at the heading's end instead, so the ribbon keeps its width;
-  // narrower, the keys have a row of their own, and GRAB leads it. Moved,
-  // not reordered in CSS, so the tab order is the order on screen.
-  if (head && typeof matchMedia === 'function') {
-    const wide = matchMedia('(min-width: 1100px)');
-    const place = () => (wide.matches ? head.append(grabRow) : keysRow.prepend(grabRow));
-    wide.addEventListener('change', place);
-    place();
-  }
   const el = {
     panel: $('buffer'),
     notch: $('buffer').querySelector('.buffer-notch'),
@@ -108,6 +102,9 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     grab: grabRow.querySelector('.buffer-grab-key'),
     grabWord: grabRow.querySelector('.buffer-grab-word'),
     grabN: grabRow.querySelector('.buffer-grab-n'),
+    grabFrom: grabRow.querySelector('.buffer-grab-from'),
+    grabMore: grabRow.querySelector('.buffer-grab-more'),
+    grabPop: grabRow.querySelector('.buffer-grab-pop'),
     reopen: grabRow.querySelector('.buffer-reopen'),
     grabSel: doc.querySelector('.buffer-grab-sel'),
   };
@@ -234,14 +231,18 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     return (st.chosen || [def]).filter((n) => names.includes(n));
   }
 
+  // pickFeedSource picks the input GRAB takes from, by hand; '' goes back
+  // to following the armed track's.
   function pickFeedSource(name) {
-    st.chosenSource = name;
-    writeSource(name, storage);
-    st.chosen = [name];
+    st.chosenSource = name || null;
+    writeSource(name || '', storage);
+    st.chosen = null;
+    const next = sources();
+    st.chosen = next;
     const g = grabOf();
     if (g && !g.take && !g.stale) {
-      send(() => api.grab({ again: true, sources: [name], crate: false }))
-        .catch((e) => toast(`Could not take ${named(name)}: ${e.message}`, 'bad'));
+      send(() => api.grab({ again: true, sources: next, crate: false }))
+        .catch((e) => toast(`Could not take ${named(next.join(' + '))}: ${e.message}`, 'bad'));
     }
     render();
   }
@@ -590,8 +591,10 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     const hasGrid = !!d?.tape?.grid;
     const k = grabKey(st.n, hasGrid);
     el.grabWord.textContent = st.grabbing ? 'Grabbing…' : k.word;
-    // Where the picker is out of sight (a phone, the buffer open), the key says how much.
+    // The key says how much, and from which input: its ▾ is where they change.
     el.grabN.textContent = st.grabbing || !hasGrid ? '' : ` ${st.n} bar${st.n === 1 ? '' : 's'}`;
+    const following = !st.chosenSource;
+    if (el.grabFrom) el.grabFrom.textContent = st.grabbing ? '' : `from ${sources().join(' + ')}${following ? ' · armed' : ''}`;
     el.grab.setAttribute('aria-label', st.grabbing ? 'Grabbing' : k.label);
     el.grab.disabled = st.grabbing;
     for (const btn of el.picks.children) {
@@ -602,7 +605,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     el.unit.textContent = k.unit;
     el.unit.hidden = !k.unit;
     if (el.feedSources) {
-      const tapeSources = d?.sources?.length ? d.sources : SOURCES.map((name) => ({ name }));
+      // The armed track's input first, then each input by name.
+      const tapeSources = [{ name: '', label: 'Armed track' }, ...(d?.sources?.length ? d.sources : SOURCES.map((name) => ({ name })))];
       const activeSrcs = sources();
       if (el.feedSources.childElementCount !== tapeSources.length ||
           [...el.feedSources.children].some((c, i) => c.dataset.source !== tapeSources[i].name)) {
@@ -610,14 +614,14 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
           const btn = doc.createElement('button');
           btn.type = 'button';
           btn.dataset.source = s.name;
-          btn.textContent = s.name;
+          btn.textContent = s.label || s.name;
           btn.addEventListener('click', () => pickFeedSource(s.name));
           return btn;
         }));
       }
       tapeSources.forEach((s, i) => {
         const btn = el.feedSources.children[i];
-        btn.setAttribute('aria-pressed', String(activeSrcs.includes(s.name)));
+        btn.setAttribute('aria-pressed', String(s.name ? !following && activeSrcs.includes(s.name) : following));
         btn.disabled = st.grabbing;
       });
     }
@@ -873,6 +877,8 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
     root.addEventListener('mousedown', (e) => { if (e.target.closest('button') && !e.target.closest('.buffer-sheet-grip')) e.preventDefault(); });
   }
   el.grab.addEventListener('click', grabBars);
+  // GRAB's ▾: how much, and from which input, in a panel under it.
+  if (el.grabMore && el.grabPop) keyMenu(el.grabMore, el.grabPop, { anchor: el.grabMore.parentElement, doc });
   el.grabSel?.addEventListener('click', grabSpan);
   el.reopen.addEventListener('click', () => { if (st.open) return close(); st.open = true; st.dropped = ''; render(); forward(); });
   for (const btn of el.picks.children) {

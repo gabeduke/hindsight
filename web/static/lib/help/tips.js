@@ -32,6 +32,9 @@ export const TIPS = [
   { control: 'Show everything', ids: ['room-filter-clear'], tip: "Turns off the filter that's narrowing the shelves" },
   // The main page
   { control: 'KEEP', ids: ['capture'], tip: 'Keep the last 30 s, 2 m, 7 m or all of what you just played as a take' },
+  { control: '▾ (KEEP)', ids: ['keep-more'], tip: "How much KEEP keeps: the last 30 s, 2 m, 7 m or all of the feed. KEEP keeps that from then on" },
+  { control: '▾ (GRAB)', ids: ['grab-more'], tip: "How much GRAB takes, the last 1, 2, 4 or 8 bars, and from which input: the armed track's, unless you pick one" },
+  { control: 'Feed (lamp)', ids: ['feed-lamp'], tip: "The feed's lamp: green while it records, amber or red when something wants a look. It opens the feed's readouts, its input channels and the way to the rig" },
   { control: 'Flag now', ids: ['flag-now'], tip: 'Mark this moment. Any take that includes it gets a flag here' },
   { control: 'Ribbon', ids: ['ribbon'], tip: 'The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options' },
   { control: 'Save as take (ribbon)', ids: ['ribbon-save'], tip: 'Save exactly the span you selected on the ribbon as a take' },

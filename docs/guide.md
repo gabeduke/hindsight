@@ -73,25 +73,33 @@ Every word the two rooms use, and what each was called before, is in
 
 *Today.* `/` is the **Studio**: the tape (§8.2) with the **feed** above its
 lanes. The header's other room is the **Listening Room** (§3.1), where the
-takes are. The feed, top to bottom:
+takes are. The feed is one strip, so the tape keeps the screen: on a tablet
+it's one row, on a phone three.
 
-- **The readouts:** disk free, dropped buffers, and the MIDI clock's tempo,
-  with **● Phone** beside them to record from this phone (§7).
-- **The keys.** Choose a length -- 30s, 2m, 7m or Full, as many as the
-  memory holds -- and tap **KEEP** to save that much of the past as a take:
-  the key says how much it will keep. Its toast has **Name it** and
-  **Undo**: Undo takes the save straight back to the trash (§5), and the
-  toast that says so has **Restore**. **Note** marks this moment; the note
-  rides along into any take that includes it.
+- **The lamp,** *FEED*, is green while the feed records, amber or red when
+  something wants a look. Tap it for the feed's sheet: what's wrong, if
+  anything; disk free, dropped buffers and the MIDI clock's tempo; the
+  **Input channels**, each with its meter; and **The rig ›**.
+- **The meters,** backlit VU needles for the channels being saved, under
+  the lamp, with the level in dBFS under each. On a phone, two bars beside
+  the lamp.
 - **The feed ribbon.** The last 15 minutes, passing the red record head at
   *REC*, with the recent end stretched so you can see it. The length KEEP
   would save is lit orange, and the strip underneath says how long ago.
   Hold and drag across it to keep or grab just that stretch (§6).
-- **The meters,** backlit VU needles for the channels being saved, with the
-  level in dBFS under each. On a phone held sideways the needles fold to
-  two bars.
-- **GRAB** lifts the last 1, 2, 4 or 8 bars into the Studio's buffer, to drop
-  on a track (§8.12).
+- **GRAB** lifts the last bars into the Studio's buffer, to drop on a track
+  (§8.12). The key says how many, and from which input: *GRAB 4 BARS, from
+  aux · armed*. Its **▾** picks 1, 2, 4 or 8 bars, and the input -- the armed
+  track's, unless you pick one.
+- **KEEP** saves the past as a take, and says how much: *KEEP 30s*. Its
+  **▾** picks 30s, 2m, 7m or all of it, as many as the memory holds, and a
+  tap keeps that from then on, after a reload too. Its toast has **Name it**
+  and **Undo**: Undo takes the save straight back to the trash (§5), and the
+  toast that says so has **Restore**.
+- **Note** marks this moment; the note rides along into any take that
+  includes it.
+- **Recording from this phone** (§7) is under **⋯**. While it records, the
+  feed shows **● REC** and the time, to open it again.
 - **The bar,** along the foot of the page, is the one now-playing bar in
   both rooms: its reels and amber window, **|◂ ↺ 5 s ▶ ⟲**, and what it
   holds as a strip to tap or drag. **Feed · Tape · Shelf** says what that
@@ -548,7 +556,7 @@ clipboard, to drop onto a tape.
 
 1. Open Hindsight on its HTTPS address — the `tailscale serve` one. The mic
    only works over HTTPS; on the plain address, *Phone* tells you so.
-2. Tap **● Phone**, at the top of the Studio's feed.
+2. In the Studio, tap **⋯**, then **Record from this phone…**.
 3. Choose the mic, or an input plugged into the phone (the Orchid through a
    USB-C adapter, say). The meter moves before you record, so you can check
    the level first. A cable beats the mic for anything you mean to keep.
@@ -1246,7 +1254,9 @@ range's Cut and Copy, fill and DROP empties, out where you can work on it.
   a bar either side, so the feed can't overwrite it while you work. The
   picker starts at the tape's loop in bars (a 3-bar loop starts it at 2, a
   16-bar one at 8), so a grab fits the loop it's for; pick another and it
-  stays until the loop changes.
+  stays until the loop changes. The number of bars and the input are on
+  GRAB's **▾**: the input follows the armed track's until you pick one, and
+  its **Armed track** goes back to following it.
 - A selection on the feed has two verbs: **GRAB** (into the buffer) and
   **KEEP** (a take, on the shelf). Every KEEP says what it keeps: *KEEP 2m*
   on the feed's key, *KEEP 41s* on a selection, *KEEP 4 BARS* on the
@@ -1464,8 +1474,8 @@ or see.
    much: *KEEP 30s*). The toast says *Kept 06:59:53 · 0:30* and where it is,
    with **Name it** and **Undo**. Open the **Listening Room** → the new take is
    first on the *Takes* shelf. Tap it → it plays in the bar.
-2. **Lift a moment.** In the Studio press **GRAB** on the feed (the key beside
-   the lengths: *GRAB 8 s*, or *GRAB 4 BARS* once the tape has a tempo). The
+2. **Lift a moment.** In the Studio press **GRAB** on the feed (the key says
+   how much: *GRAB 8 s*, or *GRAB 4 BARS* once the tape has a tempo). The
    buffer opens, with **IN** and **OUT** to trim. If no track is armed, tap a
    track's **●**. Then press **DROP ON TRACK N**. The toast says *Dropped on track N* with
    **Undo**.
@@ -1531,6 +1541,9 @@ has no tip.
 | ☰ List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
 | Show everything | Turns off the filter that's narrowing the shelves |
 | KEEP | Keep the last 30 s, 2 m, 7 m or all of what you just played as a take |
+| ▾ (KEEP) | How much KEEP keeps: the last 30 s, 2 m, 7 m or all of the feed. KEEP keeps that from then on |
+| ▾ (GRAB) | How much GRAB takes, the last 1, 2, 4 or 8 bars, and from which input: the armed track's, unless you pick one |
+| Feed (lamp) | The feed's lamp: green while it records, amber or red when something wants a look. It opens the feed's readouts, its input channels and the way to the rig |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
 | Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |
 | Save as take (ribbon) | Save exactly the span you selected on the ribbon as a take |

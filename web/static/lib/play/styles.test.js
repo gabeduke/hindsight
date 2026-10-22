@@ -175,8 +175,9 @@ test('a laptop: the unfolded strip folds the buffer to one line, and the buffer 
   }
   // With the buffer the one open, a laptop's height gives the lanes room
   // by folding the feed to its keys, as the unfolded strip does.
-  for (const part of ['.viz-wrap', '.vu-row']) {
-    const r = find(rules, LAPTOP_MEDIA, `body:has(.play-strip).buffer-open .studio-feed > ${part}`);
+  // (The meters are the strip's head's, docs/plan/the-studio-on-one-screen.md.)
+  for (const part of ['.studio-feed > .viz-wrap', '.studio-feed-head > .vu-row']) {
+    const r = find(rules, LAPTOP_MEDIA, `body:has(.play-strip).buffer-open ${part}`);
     assert.equal(r?.decls.display, 'none', `${part} folds away while the buffer is open and Play mode is on`);
   }
 });

@@ -83,8 +83,9 @@ function geometry({ touch }) {
     const hit = document.elementFromPoint(x, y);
     if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) {
       const label = hit.closest('label');
-      // Meant to cover: a sheet or a menu that's open over the page.
-      const layer = hit.closest('dialog[open], [role=menu], .menu, :popover-open');
+      // Meant to cover: a sheet, a menu or a panel that's open over the page
+      // (a key's ▾ opens a role=dialog panel, lib/rooms/keymenu.js).
+      const layer = hit.closest('dialog[open], [role=menu], .menu, :popover-open, [role=dialog]:not([hidden])');
       // Scrolled under the pinned chrome (the bar, the app bar): the page
       // scrolls it back out, so long as the page can scroll.
       const pin = pinned(hit);
@@ -115,10 +116,19 @@ async function sample(page, touch) {
   const axeFound = await page.evaluate(async (src) => {
     if (!window.axe) (0, eval)(src);
     const r = await window.axe.run(document, { runOnly: { type: 'rule', values: ['target-size'] }, resultTypes: ['violations'] });
+    // A control partly under an open sheet, menu or panel is meant to be,
+    // as the covered check above has it: the ⋯ menu over the feed's keys.
+    const layers = [...document.querySelectorAll('dialog[open], [role=menu]:not([hidden]), .menu:not([hidden]), [role=dialog]:not([hidden])')]
+      .map((l) => l.getBoundingClientRect()).filter((b) => b.width && b.height);
+    const underLayer = (sel) => {
+      const el = document.querySelector(sel);
+      const b = el?.getBoundingClientRect();
+      return !!b && layers.some((l) => b.left < l.right && b.right > l.left && b.top < l.bottom && b.bottom > l.top);
+    };
     return r.violations.flatMap((v) => v.nodes.map((n) => ({
       rule: 'target-size', severity: 'fail', el: n.target.join(' '),
       msg: (n.any[0]?.message || n.failureSummary || v.help).replace(/\s+/g, ' ').slice(0, 160),
-    })));
+    })).filter((f) => !(/obscured/.test(f.msg) && underLayer(f.el))));
   }, axe()).catch((e) => [{ rule: 'axe', severity: 'warn', el: '', msg: `axe didn't run: ${e.message.split('\n')[0]}` }]);
   return [...found, ...axeFound];
 }

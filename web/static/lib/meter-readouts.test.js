@@ -57,3 +57,15 @@ test('a capture error is toasted once, after it has stood a while', () => {
   h = heldError(h.state, 'boom', 9e9 + CAPTURE_ERR_HOLD_MS);
   assert.equal(h.show, 'boom', 'a repeat after a recovery toasts again');
 });
+
+// The Studio's feed lamp (docs/plan/the-studio-on-one-screen.md): its
+// readouts moved behind it, so it is what says something is wrong.
+test('the feed lamp is green while it records, amber or red when a readout says so', async () => {
+  const { lampState } = await import('./meter.js');
+  assert.equal(lampState(null), 'none', 'dark before the Pi has answered');
+  assert.equal(lampState(readouts(base)), 'ok');
+  assert.equal(lampState(readouts({ ...base, capture_healthy: false, capture_waiting: true })), 'warn', 'waiting for the interface');
+  assert.equal(lampState(readouts({ ...base, capture_healthy: false, last_error: 'device lost' })), 'bad');
+  assert.equal(lampState(readouts({ ...base, disk_free_gb: 1 })), readouts({ ...base, disk_free_gb: 1 }).disk.level === 'bad' ? 'bad' : 'warn', 'low disk lights it');
+  assert.notEqual(lampState(readouts({ ...base, xruns: 40 })), 'ok', 'dropped buffers light it');
+});

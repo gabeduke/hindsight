@@ -76,6 +76,8 @@
         <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
         <button id="tape-mixdown" type="button" role="menuitem" data-tip="mixdown">Mix down the loop</button>
         <button id="tape-mixdown-all" type="button" role="menuitem" data-tip="mixdown">Mix down the whole tape</button>
+        <!-- The feed's ● Phone, which the strip shows on a phone alone. -->
+        <button id="tape-phone" type="button" role="menuitem" data-tip="phone">Record from this phone…</button>
         <button id="ask-first" type="button" role="menuitemcheckbox" aria-checked="true" data-tip="ask-first"><span class="menu-check" aria-hidden="true">✓</span>Ask before Insert and Delete time</button>
         <a id="tape-export" href="#" role="menuitem" data-tip="export-stems">Export stems</a>
         <button id="tape-delete" class="danger" type="button" role="menuitem" data-tip="tape-delete">Delete a tape…</button>
@@ -592,33 +594,40 @@
      Capture's: the modules that drive them (ribbon.js, settings.js,
      update.js) find them by those. -->
 <template id="studio-feed-tpl">
-  <!-- A .panel, as Capture's are, for its surface and its heading. -->
+  <!-- A .panel, as Capture's are, for its surface. A strip
+       (docs/plan/the-studio-on-one-screen.md): the lamp and the meters, the
+       ribbon, then GRAB (the buffer puts it first), KEEP and Flag. How much
+       GRAB and KEEP take is on their ▾ (lib/rooms/keymenu.js). -->
   <section class="panel studio-feed" aria-label="The feed">
     <div class="studio-feed-head">
-      <h2 class="studio-feed-title">Feed</h2>
-      <!-- Capture's readouts in a line: the ring's trouble when there is
-           some, disk free, dropped buffers, and the MIDI clock's tempo. -->
-      <p class="studio-stats mono">
-        <span class="studio-health" id="studio-health" hidden></span>
-        <span class="studio-stat" title="Disk free"><span id="stat-disk">–</span> free</span>
-        <span class="studio-stat" title="Dropped buffers"><span id="stat-xruns">0</span> dropped</span>
-        <span class="studio-stat" title="Tempo from the MIDI clock">♩ <span id="stat-tempo">–</span></span>
-      </p>
-      <!-- Records from this phone's mic, or an input plugged into it, as on
-           Capture (lib/phone/). Capture's class, for Capture's key. -->
-      <button class="phone-btn" id="phone-btn" type="button" data-tip="phone">&#9679; Phone</button>
-    </div>
-    <div class="studio-keys">
-      <!-- #dur-seg as on Capture: its lit LED is Capture's rule. -->
-      <div class="seg" id="dur-seg" role="group" aria-label="Keep length" data-tip="capture"></div>
-      <!-- Capture's Flag now, and its class. -->
-      <button class="mark-btn" id="mark-btn" type="button" data-tip="flag-now">Flag now</button>
-      <button class="icon-btn studio-keep" id="studio-keep" type="button" data-tip="capture"><span class="studio-keep-line"><span class="studio-keep-word" id="studio-keep-word">Keep</span><span class="studio-keep-len" id="studio-keep-len"></span></span><span class="studio-keep-sub" id="studio-keep-sub"></span></button>
+      <!-- The feed's lamp: green while it records, amber or red when
+           something wants a look. It opens the feed's sheet: Capture's
+           readouts and the input channels, which were a line here and a
+           disclosure under the lanes. -->
+      <button class="studio-lamp" id="studio-lamp" type="button" aria-haspopup="dialog" aria-controls="feed-sheet" data-tip="feed-lamp" data-state="none"><span class="studio-lamp-led" aria-hidden="true"></span><span class="studio-feed-title">Feed</span></button>
+      <!-- VU needles; on a phone, the bars instead. -->
+      <div class="vu-row" id="vu"></div>
+      <div class="meters" id="meters"></div>
     </div>
     <div class="viz-wrap" id="viz-wrap" data-tip="ribbon"></div>
-    <!-- VU needles; on a phone, the bars instead. -->
-    <div class="vu-row" id="vu"></div>
-    <div class="meters" id="meters"></div>
+    <div class="studio-keys">
+      <span class="key-split studio-keep-split">
+        <button class="icon-btn studio-keep" id="studio-keep" type="button" data-tip="capture"><span class="studio-keep-line"><span class="studio-keep-word" id="studio-keep-word">Keep</span><span class="studio-keep-len" id="studio-keep-len"></span></span><span class="studio-keep-sub" id="studio-keep-sub"></span></button>
+        <button class="icon-btn key-more" id="studio-keep-more" type="button" aria-label="How much KEEP keeps" data-tip="keep-more">▾</button>
+      </span>
+      <!-- Capture's Flag now, and its class. -->
+      <button class="mark-btn" id="mark-btn" type="button" data-tip="flag-now">Flag now</button>
+      <!-- Records from this phone's mic, or an input plugged into it, as on
+           Capture (lib/phone/). Shown on a phone, and anywhere while it
+           records (it says ● REC and the time); elsewhere ⋯ has it. -->
+      <button class="phone-btn" id="phone-btn" type="button" data-tip="phone">&#9679; Phone</button>
+    </div>
+    <!-- KEEP's panel: how much it keeps. #dur-seg as on Capture: its lit
+         LED is Capture's rule. -->
+    <div class="key-pop studio-keep-pop" id="studio-keep-pop" role="dialog" aria-label="How much KEEP keeps" hidden>
+      <span class="key-pop-label">Keep the last</span>
+      <div class="seg" id="dur-seg" role="group" aria-label="Keep length" data-tip="capture"></div>
+    </div>
     <!-- A span held and dragged on the ribbon, and what to do with it. -->
     <div class="rb-sel" id="rb-sel" hidden>
       <span class="rb-sel-text"></span>
@@ -630,22 +639,37 @@
     </div>
   </section>
 </template>
-<template id="studio-foot-tpl">
-  <!-- Capture's input diagnostic, under the lanes. -->
-  <details class="chan studio-chan" id="chan-diag">
-    <summary>Input channels</summary>
-    <div class="grid" id="chan-grid"></div>
-    <p class="hint">
-      Saving channels <b id="chan-saving">–</b> from <b id="chan-device">–</b>.
-      Change with <code>SAVE_CHANNELS</code>.
-    </p>
-    <p class="hint">
-      MIDI devices: <b id="midi-devices">none</b>.
-      Filter with <code>MIDI_DEVICES</code> / <code>MIDI_IGNORE</code>.
-    </p>
-  </details>
-</template>
 <template id="studio-sheets-tpl">
+  <!-- The feed's sheet, from its lamp (lib/rooms/studio.js): what the ring
+       says when something is wrong, Capture's readouts, the input
+       channels, and the way to the rig. -->
+  <dialog class="sheet studio-feed-sheet" id="feed-sheet" aria-labelledby="feed-sheet-title">
+    <div class="sheet-inner">
+      <h3 id="feed-sheet-title">The feed</h3>
+      <p class="studio-health" id="studio-health" hidden></p>
+      <dl class="studio-stats">
+        <div class="studio-stat"><dt>Free disk</dt><dd id="stat-disk">–</dd></div>
+        <div class="studio-stat"><dt>Dropped buffers</dt><dd id="stat-xruns">0</dd></div>
+        <div class="studio-stat"><dt>Tempo, from the MIDI clock</dt><dd id="stat-tempo">–</dd></div>
+      </dl>
+      <details class="chan studio-chan" id="chan-diag" open>
+        <summary>Input channels</summary>
+        <div class="grid" id="chan-grid"></div>
+        <p class="hint">
+          Saving channels <b id="chan-saving">–</b> from <b id="chan-device">–</b>.
+          Change with <code>SAVE_CHANNELS</code>.
+        </p>
+        <p class="hint">
+          MIDI devices: <b id="midi-devices">none</b>.
+          Filter with <code>MIDI_DEVICES</code> / <code>MIDI_IGNORE</code>.
+        </p>
+      </details>
+      <div class="sheet-actions">
+        <a class="icon-btn studio-feed-rig" href="/rig.html" data-tip="rig-chip">The rig ›</a>
+        <button class="icon-btn" id="feed-sheet-close" type="button">Close</button>
+      </div>
+    </div>
+  </dialog>
   <dialog class="sheet" id="rb-flag-sheet">
     <div class="sheet-inner">
       <h3 class="rb-flag-title">Flag</h3>
@@ -717,17 +741,27 @@
      it as a take, or toss it. Templates, like the Studio's own. -->
 <template id="buffer-grab-tpl">
   <div class="buffer-grab" role="group" aria-label="Grab">
-    <span class="buffer-grab-last" aria-hidden="true">Last</span>
-    <div class="seg buffer-bars" role="group" aria-label="How much to grab" data-tip="grab-bars">
-      <button type="button" data-n="1">1</button>
-      <button type="button" data-n="2">2</button>
-      <button type="button" data-n="4">4</button>
-      <button type="button" data-n="8">8</button>
-    </div>
-    <span class="buffer-grab-unit" aria-hidden="true">bars</span>
-    <div class="seg buffer-feed-sources" role="group" aria-label="Feed source" data-tip="buffer-feed-sources"></div>
-    <button class="icon-btn buffer-grab-key" type="button" aria-keyshortcuts="G" data-tip="grab"><span class="buffer-grab-word">Grab</span><span class="buffer-grab-n" aria-hidden="true"></span><kbd class="buffer-kbd" aria-hidden="true">G</kbd></button>
+    <span class="key-split buffer-grab-split">
+      <button class="icon-btn buffer-grab-key" type="button" aria-keyshortcuts="G" data-tip="grab"><span class="buffer-grab-line"><span class="buffer-grab-word">Grab</span><span class="buffer-grab-n" aria-hidden="true"></span><kbd class="buffer-kbd" aria-hidden="true">G</kbd></span><span class="buffer-grab-from" aria-hidden="true"></span></button>
+      <button class="icon-btn key-more buffer-grab-more" type="button" aria-label="How much GRAB takes, and from which input" data-tip="grab-more">▾</button>
+    </span>
     <button class="icon-btn buffer-reopen" type="button" hidden data-tip="buffer-open">Buffer<span aria-hidden="true"> ▴</span></button>
+    <!-- GRAB's panel: the last 1, 2, 4 or 8 bars, and from which input --
+         the armed track's unless one is picked here. -->
+    <div class="key-pop buffer-grab-pop" role="dialog" aria-label="What GRAB takes" hidden>
+      <span class="key-pop-label">The last</span>
+      <div class="key-pop-row">
+        <div class="seg buffer-bars" role="group" aria-label="How much to grab" data-tip="grab-bars">
+          <button type="button" data-n="1">1</button>
+          <button type="button" data-n="2">2</button>
+          <button type="button" data-n="4">4</button>
+          <button type="button" data-n="8">8</button>
+        </div>
+        <span class="buffer-grab-unit" aria-hidden="true">bars</span>
+      </div>
+      <span class="key-pop-label">From</span>
+      <div class="seg buffer-feed-sources" role="group" aria-label="Feed source" data-tip="buffer-feed-sources"></div>
+    </div>
   </div>
 </template>
 <template id="buffer-sel-tpl">
