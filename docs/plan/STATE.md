@@ -44,14 +44,11 @@ is `<pi-host>`.
   `docs/flows.md`, *What a run says*):
   - Tablet: the bar runs off the right side: its fold button by 8 px
     here, its ✎ Note in CI's fonts.
-  - Tablet: with a track's inspector open, the capture row squashes and
-    the KEEP/length chips sit over GRAB.
   - Tablet: the Listening Room's sketchbook place starts off the left side.
-  - Phone: the mini player's reel hub sits over Play, and the ruler's
-    Bar/Snap chip is cut off on the left.
-  - The cue clip's × (12×14 px) and loop toggle (22 px), the input menu's
-    source chips (18 px wide) and the shelf's list button (20 px tall) are
-    under 24 px.
+  - The cue clip's × (12×14 px) and loop toggle (22 px) and the shelf's
+    list button (20 px tall) are under 24 px.
+  - Phone: in the Listening Room's header, *Search the shelves* runs under
+    the output button (no flow visits that screen, so no check sees it).
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.

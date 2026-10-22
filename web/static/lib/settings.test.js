@@ -343,6 +343,9 @@ test('the Settings sheet carries Releases and the guide, under its title, on eve
     assert.equal(inner.children[1], line, `${page}: the line is straight under the title`);
     assert.equal(line.querySelector('.settings-guide').getAttribute('href'), '/guide.html');
     assert.equal(line.querySelector('.settings-releases').tagName, 'BUTTON');
+    // A phone's rooms have no room for the rig's chip in their header (the
+    // header's tools): the line is its way to the rig too.
+    assert.equal(line.querySelector('.settings-rig').getAttribute('href'), '/rig.html');
     assert.equal(aboutLine(sheet, doc), line, 'once, however often it is asked');
     assert.equal(sheet.querySelectorAll('.settings-about').length, 1);
   }

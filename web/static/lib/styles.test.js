@@ -367,7 +367,7 @@ test('nothing hides the Settings sheet’s Releases and guide, a phone’s only 
   // hidden under 700 px (the header's tools). The about line in the Settings
   // sheet (lib/settings.js aboutLine) is then the only route to either.
   const offenders = [];
-  for (const m of css.matchAll(/([^{}]*\.settings-(?:about|releases|guide)\b[^{}]*)\{([^}]*)\}/g)) {
+  for (const m of css.matchAll(/([^{}]*\.settings-(?:about|releases|guide|rig)\b[^{}]*)\{([^}]*)\}/g)) {
     if (/display\s*:\s*none|visibility\s*:\s*hidden/.test(m[2])) offenders.push(`${m[1].trim()} { ${m[2].trim()} }`);
   }
   assert.deepEqual(offenders, [], 'these hide the only way to Releases or the guide on a phone');
@@ -674,7 +674,7 @@ test('the guide can be narrower than its widest table', () => {
 // either (the header hides its own there), so each is a finger tall without
 // the line growing: padding past their words, given back by a margin.
 test('the Settings sheet’s Releases and guide reach a finger', () => {
-  for (const cls of ['settings-releases', 'settings-guide']) {
+  for (const cls of ['settings-releases', 'settings-guide', 'settings-rig']) {
     const m = new RegExp(`\\.settings-about \\.${cls}\\s*\\{([^}]*)\\}`).exec(css);
     assert.ok(m, cls);
     const pad = /padding:\s*(\d+)px/.exec(m[1]);
