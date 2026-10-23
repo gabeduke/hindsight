@@ -162,6 +162,7 @@ export const TIPS = [
   { control: 'Fit', ids: ['view-fit'], tip: 'Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along' },
   { control: 'Snap', ids: ['tape-snap'], tip: 'What a drag snaps to: a slid clip, a trim, a fade, or a range drawn on the lanes. A bar, a beat, an eighth, or nothing: tap for the next' },
   { control: 'Lock (ruler)', ids: ['loop-lock'], tip: 'Lock the loop where it is: a range you draw leaves it alone, so you can edit elsewhere while it plays on. Unlocked, the loop follows the range' },
+  { control: '⌗ (the ruler, on a phone)', ids: ['ruler-more'], tip: 'On a phone, the ruler’s keys in one: what a drag snaps to, the loop’s lock, Fit and folding the tracks. It says the snap, and shows the lock while it’s on' },
   { control: 'Layer / Replace', ids: ['catch-mode'], tip: 'Onto audio already there: layer on top of it, or replace it' },
   { control: 'Repeat to the loop’s end', ids: ['clip-tile'], tip: 'Copies of this clip end to end, to the end of the loop: one bar through four' },
   { control: 'Track name', ids: ['track-name'], tip: 'What’s on this track, for you: chords, bass…' },

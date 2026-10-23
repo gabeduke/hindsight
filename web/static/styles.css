@@ -2124,8 +2124,28 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .loop-lock[aria-pressed="true"] .lock-shackle { transform: none; }
 /* With Fit there too, the three share the track heads' width: the snap
    keeps its word and loses its icon, and the keys their slack. */
-.ruler-keys:has(.view-fit:not([hidden])) .snap-ico { display: none; }
-.ruler-keys:has(.view-fit:not([hidden])) .ruler-chip { padding: 0 6px; }
+.ruler-keys:has(.view-fit:not([hidden])) .snap-btn .snap-ico { display: none; }
+.ruler-keys:has(.view-fit:not([hidden])) > .ruler-chip { padding: 0 6px; }
+/* The phone's one key for them all (below): ⌗, the snap, and the lock
+   while it's on; its menu has the snap as a row, then the lock, Fit and
+   the fold. Hidden wherever the keys fit beside the ruler. */
+.ruler-keys > .ruler-more-anchor { display: none; }
+.ruler-more .ruler-more-lock { display: none; color: var(--warn); }
+.ruler-more.locked { border-color: var(--warn); }
+.ruler-more.locked .ruler-more-lock { display: inline; }
+.ruler-more .pill-chev { font-size: 9px; opacity: .7; }
+.ruler-menu { min-width: 248px; }
+.ruler-menu-snap { display: flex; align-items: center; gap: 8px; padding: 4px 4px 8px 12px; }
+.ruler-menu-label { font: 14px var(--font); color: var(--ink); white-space: nowrap; }
+.ruler-menu-snap > .ruler-snap-seg { flex: 1 1 auto; }
+.ruler-snap-seg button[aria-checked="true"] { background: var(--key-down); color: var(--ink); }
+.ruler-snap-seg button:disabled { opacity: .4; cursor: default; }
+@media (max-width: 699.98px) {
+  /* The four need about 160 px, and the heads' column here is 112 or 136:
+     they'd wrap, and the ruler's row grow to two lines. */
+  .ruler-keys > .ruler-chip { display: none; }
+  .ruler-keys > .ruler-more-anchor { display: inline-flex; }
+}
 /* Insert and Delete time say they act on every track: a second line under
    the word. */
 .icon-btn.key-two { flex-direction: column; justify-content: center; gap: 0; line-height: 1.1; }

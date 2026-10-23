@@ -19,7 +19,7 @@ import {
 } from './align.js';
 import { roundRectPath } from '../objects/cassette-geom.js';
 import {
-  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, bpm as bpmOf, barBeat, fmtSecs,
+  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, barEvery, barPx, bpm as bpmOf, barBeat, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
   trimBounds, trimTo, trimmed, repeatRoom, repeatCount, groupMove, fadeOptions, fadeOption, clipFades, keyStep, FADE_SHAPES, fadeCurve, fadeTo,
 } from './geometry.js';
@@ -945,12 +945,24 @@ function renderRulerKeys() {
   setIf($('snap-btn'), 'aria-label', !t.grid ? 'Snap: off, with no tempo' : said ? `Snap to ${said}: tap for the next` : 'Snap off: tap for bars');
   setIf($('loop-lock'), 'aria-pressed', String(state.loopLock));
   setIf($('loop-lock'), 'aria-label', state.loopLock ? 'The loop is locked: a range leaves it where it is' : 'Lock the loop where it is');
+  // The phone's one key, and its menu.
+  setText($('ruler-more-snap'), s.label);
+  $('ruler-more').classList.toggle('locked', state.loopLock);
+  setIf($('ruler-more'), 'aria-label', `The ruler: snap ${t.grid ? s.label : 'off'}${state.loopLock ? ', the loop locked' : ''}`);
+  for (const b of $('ruler-menu').querySelectorAll('[data-snap]')) {
+    setIf(b, 'aria-checked', String(b.dataset.snap === s.id));
+    b.disabled = !t.grid;
+  }
+  setIf($('rm-lock'), 'aria-checked', String(state.loopLock));
 }
 
 // nextSnap steps the snap on: bar, beat, eighth, off, and round again.
 function nextSnap() {
   const ids = SNAPS.map((s) => s.id);
-  state.snap = ids[(ids.indexOf(state.snap) + 1) % ids.length];
+  setSnap(ids[(ids.indexOf(state.snap) + 1) % ids.length]);
+}
+function setSnap(id) {
+  state.snap = id;
   writePref('tape.snap', state.snap);
   renderRulerKeys();
 }
@@ -2232,12 +2244,18 @@ function drawRuler(heardFrame = state.live ? heardNow() : null) {
   }
   ctx.font = `10px ${token('--mono', 'ui-monospace, monospace')}`;
   ctx.textBaseline = 'middle';
-  for (const b of barLines(t.grid, view)) {
+  // Zoomed out, a line every 2, 4, 8 … bars, and a number only where the
+  // widest one in view has room before the next; none cut by the edge.
+  const px = barPx(t.grid, view, W);
+  const widest = t.grid ? String(Math.ceil(view.to / (t.grid.frames / t.grid.bars)) + 1) : '';
+  const every = barEvery(px, 4), numbered = barEvery(px, ctx.measureText(widest).width + 16);
+  for (const b of barLines(t.grid, view, every)) {
     const x = Math.round(xOf(b.frame, view, W));
     ctx.fillStyle = withAlpha(ink, 0.35);
     ctx.fillRect(x, H * 0.45, 1, H * 0.55);
     ctx.fillStyle = ink;
-    if (x + 3 < W - 8) ctx.fillText(String(b.n), x + 3, H * 0.3);
+    const n = String(b.n);
+    if ((b.n - 1) % numbered === 0 && x + 3 + ctx.measureText(n).width <= W) ctx.fillText(n, x + 3, H * 0.3);
   }
   if (state.live && heardFrame != null) {
     const x = xOf(heardFrame, view, W);
@@ -2543,7 +2561,7 @@ function redrawView() {
 // Canvases don't restyle themselves when the device turns dark or light.
 onSchemeChange(() => { if (viewActive() && state.tape) redrawView(); });
 
-function renderFit() { $('view-fit').hidden = !state.zoom; }
+function renderFit() { $('view-fit').hidden = !state.zoom; $('rm-fit').hidden = !state.zoom; }
 
 // The closest the view goes: the take page's 8 px to the sample.
 const laneWidth = () => (lanes[0] ? lanes[0].canvas.getBoundingClientRect().width : 0) || 0;
@@ -3213,8 +3231,8 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
       ctx.fillStyle = withAlpha(col('--warn', '#b58900'), t.loop.on ? 0.07 : 0.03);
       ctx.fillRect(lx0, 0, Math.max(0, lx1 - lx0), H);
     }
-    // Bar lines.
-    for (const b of barLines(t.grid, view)) {
+    // Bar lines, thinned as the ruler's are when zoomed out.
+    for (const b of barLines(t.grid, view, barEvery(barPx(t.grid, view, W), 4))) {
       const x = Math.round(xOf(b.frame, view, W));
       ctx.fillStyle = col('--well-rule', 'rgba(242,230,200,.14)');
       ctx.fillRect(x, 0, 1, H);
@@ -4252,8 +4270,9 @@ async function loadTape(id) {
 }
 
 // The header's three menus: the title's (the tapes), the tempo's, and ⋯
-// (this tape's actions). One open at a time; each says so to assistive tech.
-const MENUS = [['tape-menu', 'tape-name'], ['tempo-menu', 'tape-sub'], ['tape-actions', 'tape-more']];
+// (this tape's actions); and on a phone the ruler's. One open at a time;
+// each says so to assistive tech.
+const MENUS = [['tape-menu', 'tape-name'], ['tempo-menu', 'tape-sub'], ['tape-actions', 'tape-more'], ['ruler-menu', 'ruler-more']];
 function closeMenus() {
   for (const [m, b] of MENUS) { $(m).hidden = true; $(b).setAttribute('aria-expanded', 'false'); }
   closeInputMenu();
@@ -4457,6 +4476,17 @@ function wire() {
   // Beside the ruler: the snap, and the loop's lock.
   $('snap-btn').addEventListener('click', nextSnap);
   $('loop-lock').addEventListener('click', toggleLoopLock);
+  // The phone's one key beside the ruler: the same snap, lock, Fit and fold.
+  $('ruler-more').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!$('ruler-menu').hidden) { closeMenus(); return; }
+    renderRulerKeys();
+    showMenu('ruler-menu');
+  });
+  for (const b of $('ruler-menu').querySelectorAll('[data-snap]')) {
+    b.addEventListener('click', () => { closeMenus(); setSnap(b.dataset.snap); });
+  }
+  $('rm-lock').addEventListener('click', () => { closeMenus(); toggleLoopLock(); });
   $('clip-reverse').addEventListener('click', async () => {
     const c = state.clip;
     $('clip-sheet').close();
@@ -4811,7 +4841,9 @@ function wire() {
   ro.observe($('tape-sections'));
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
-  $('view-fit').addEventListener('click', () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); });
+  const fitView = () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); };
+  $('view-fit').addEventListener('click', fitView);
+  $('rm-fit').addEventListener('click', () => { closeMenus(); fitView(); });
   const foldBtn = $('tracks-fold-btn');
   if (foldBtn) {
     const FOLD_KEY = 'hindsight.tracksFold';
@@ -4819,6 +4851,7 @@ function wire() {
       document.body.classList.toggle('tracks-fold', folded);
       foldBtn.setAttribute('aria-expanded', String(!folded));
       foldBtn.textContent = folded ? 'Tracks ▸' : 'Tracks ▾';
+      $('rm-tracks-words').textContent = folded ? 'Show the tracks' : 'Fold the tracks';
       try {
         if (folded) sessionStorage.setItem(FOLD_KEY, '1');
         else sessionStorage.removeItem(FOLD_KEY);
@@ -4829,6 +4862,10 @@ function wire() {
       if (sessionStorage.getItem(FOLD_KEY) === '1') applyTracksFold(true);
     } catch { /* fine */ }
     foldBtn.addEventListener('click', () => {
+      applyTracksFold(!document.body.classList.contains('tracks-fold'));
+    });
+    $('rm-tracks').addEventListener('click', () => {
+      closeMenus();
       applyTracksFold(!document.body.classList.contains('tracks-fold'));
     });
     // Auto-unfold when a buffer DROP or edit modifies the tape so the landed part is visible.

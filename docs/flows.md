@@ -56,7 +56,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J3.1 | GRAB 4 bars from an old take's page into the Studio, and DROP them | `j3.1-take-grab` | core |
 | J3.2 | bounce the tape to a take on the shelf | `j3.2-bounce` | core |
 | J3.3 | on a phone, with the tape playing on it (as with the interface off), share the mix to send my brother: ⋯ → Share the mix, then the toast's Share hands the share sheet an MP3 named after the tape and the day; Bounce, which needs the jam room, offers it too | `j3.3-share-mix` | core (phone) |
-| J4.4 | on a phone, the bar is a mini player above the tabs, with \|◀ beside ▶ ("I looked for \|◀ and didn't find it"), back to the loop's start or the take's; a tap pulls the player up, Back puts it away; a tapped clip's bar floats above the player; Insert asks before it moves the tape | `j4.4-phone-bar` | core (phone) |
+| J4.4 | on a phone, the bar is a mini player above the tabs, with \|◀ beside ▶ ("I looked for \|◀ and didn't find it"), back to the loop's start or the take's; a tap pulls the player up, Back puts it away; a tapped clip's bar floats above the player; Insert asks before it moves the tape; the ruler's keys are one key, ⌗, whose menu sets the snap ("smooshed into the phone UI") | `j4.4-phone-bar` | core (phone) |
 | J5.1 | open Settings, Releases, help mode, the guide and the rig from the one menu (☰) in either room, on a tablet, a computer or a phone | `j5.1-sheets` | core |
 | C1 | **jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
 

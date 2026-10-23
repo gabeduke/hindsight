@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove, fadeOptions, fadeOption, clipFades, keyStep } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, barEvery, barPx, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove, fadeOptions, fadeOption, clipFades, keyStep } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -25,6 +25,26 @@ test('bar lines land where the Pi puts them, for tempos that are not whole frame
   assert.equal(barBeat(0, grid), '1.1');
   assert.equal(barBeat(137143 + 34286, grid), '2.2');
   assert.deepEqual(barLines(null, { from: 0, to: 10 }), []);
+});
+
+// Gabe, 2026-10-23: zoomed out, the ruler "still tries to display every
+// number", and they ran together.
+test('zoomed out, the ruler numbers every 2nd, 4th or 8th bar from bar 1, never closer than a number is wide', () => {
+  const grid = { frames: 64 * 120000, bars: 64 }; // 64 bars of 2.5 s
+  const view = { from: 0, to: grid.frames };
+  const W = 248; // a phone's ruler
+  const px = barPx(grid, view, W);
+  assert.ok(Math.abs(px - 3.875) < 1e-9);
+  const lines = barLines(grid, view, barEvery(px, 22)); // "65" and a gap
+  assert.deepEqual(lines.map((l) => l.n), [1, 9, 17, 25, 33, 41, 49, 57, 65]);
+  for (let i = 1; i < lines.length; i++) {
+    assert.ok(xOf(lines[i].frame, view, W) - xOf(lines[i - 1].frame, view, W) >= 22);
+  }
+  // Zoomed in, every bar; a view that starts mid-way starts on the stride.
+  assert.equal(barEvery(40, 22), 1);
+  assert.deepEqual(barLines(grid, { from: 6 * 120000, to: 20 * 120000 }, 4).map((l) => l.n), [9, 13, 17, 21]);
+  assert.equal(barEvery(0, 22), 1);
+  assert.equal(barPx(null, view, W), 0);
 });
 
 test('a clip draws the part of its file it plays', () => {
