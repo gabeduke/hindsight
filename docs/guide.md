@@ -1103,11 +1103,25 @@ Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
   - It needs the tape playing through the Sidekick and lined up (the dot
     amber or green). It also has to fit in the recording buffer:
     `RING_SECONDS` less the tail and five seconds.
-  - To share a song, bounce it and share the take.
+  - To share a song with the Sidekick in it, bounce it and share the take.
+    To send the tape as it is from anywhere, even with the interface off,
+    use **Share the mix**.
   - The toast that says it is done has **▶**, which plays the new take on
     this device, and **Open**, its page. **Last bounce**, under the two,
     brings that toast back for this tape's newest bounce once it has gone. A
     bounce is a take on its tape's spine in the Listening Room.
+- **Share the mix** sends the whole tape as an MP3, from the start to the
+  end of the last part:
+  - The Pi renders it in a few seconds, with every track at its level and
+    pan, mutes and solos as they are, and buses A and B summed. A toast
+    says it's rendering, then **Share** opens the phone's share sheet
+    (Messages, WhatsApp, mail). It's named after the tape and the day. On a
+    computer, or where the sheet can't take a file, it's **Download**.
+  - It's dry: no Sidekick EQ or FX, and nothing played live. For those,
+    bounce it.
+  - It works with the tape playing on a phone and with the interface off.
+    It doesn't stop the tape, isn't in undo, and puts nothing on the shelf.
+    With the tape on a phone, Bounce offers it.
 - **Export stems** downloads a zip:
   - a 32-bit float WAV for each track with audio, each from bar 1 to the end of
     the last clip on any track. They're all the same length, so they line
@@ -1721,6 +1735,7 @@ has no tip.
 | Mix down | Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included |
 | Bounce | Play the loop, or the whole tape, once and keep what came out of the mixer as a take: FX and live playing included. Its toast has ▶ to hear it and Open for its page |
 | Last bounce | The newest take bounced from this tape: ▶ to hear it, Open for its page. For when the bounce's toast has gone |
+| Share the mix | Send the whole tape as an MP3: the Pi renders every track at its level and pan, then Share opens the phone’s share sheet. It works with the interface off, and goes nowhere on the shelf. It’s dry: no Sidekick EQ or FX, nothing played live (that’s Bounce) |
 | Export stems | Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
 | Source chip | The input of the track the inspector shows (the record track's, while one is armed): what ● Rec and a catch take from it. Choosing one changes only that track. Its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too |

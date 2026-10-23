@@ -798,6 +798,7 @@ take or a tape (a note, a tag, a star; a part, a section, the loop).
 |---|---|---|
 | **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), the buffer, a take's selection |
 | **BOUNCE** | makes a take from a tape, by playing it through the mixer | the Studio's ⋯ |
+| **Share the mix** | sends a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3` | the Studio's ⋯; Bounce's refusal |
 | **GRAB** | fills the buffer | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
 | **DROP** | empties the buffer onto a track | the buffer, ↵, a range's bar |
 | **CATCH** | puts the last pass on the armed track | the Studio |

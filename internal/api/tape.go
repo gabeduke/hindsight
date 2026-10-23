@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +46,7 @@ import (
 //	POST   /api/tapes/edit?id=         {op: lift|copy|split|join|slide|multiply|reverse|trim|repeat|move|remove|duplicate|section-add|section-set|section-remove, track, all, clip, clips, pos, at, edge, to, count, dt, dtrack, section, name, color, end}
 //	GET    /api/tapes/clip?id=&clip=   one clip as a 16-bit WAV, to share
 //	GET    /api/tapes/listen?id=       the loop as a 16-bit WAV, to overdub on a phone
+//	                                  (all=1: the whole tape; format=mp3: as an MP3, Share the mix)
 //	POST   /api/tapes/mixdown?id=      {all}: play In to Out (all: the whole tape) once, save it as a take
 //	GET    /api/tapes/export?id=       the loaded tape as stems and a tempo map, in a zip
 //	POST   /api/tapes/undo?id=         and /redo
@@ -962,6 +965,7 @@ func (a *API) handleTapeSend(w http.ResponseWriter, r *http.Request) {
 // handleTapeListen serves the loaded tape's mix -- the loop, or the whole
 // tape with all=1 -- as a WAV a phone plays while recording over it.
 // click=1 adds the click. The headers say where it sits on the tape.
+// format=mp3 is Share the mix: the same mix as an MP3 to send.
 func (a *API) handleTapeListen(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
@@ -970,6 +974,10 @@ func (a *API) handleTapeListen(w http.ResponseWriter, r *http.Request) {
 	l, err := a.tape.Listen(q.Get("id"), q.Get("all") == "1", q.Get("click") == "1")
 	if err != nil {
 		tapeErr(w, err)
+		return
+	}
+	if q.Get("format") == "mp3" {
+		a.writeListenMP3(w, r, l)
 		return
 	}
 	h := w.Header()
@@ -984,6 +992,43 @@ func (a *API) handleTapeListen(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := l.WriteTo(&stallWriter{w: w, rc: http.NewResponseController(w)}); err != nil {
 		log.Printf("[!] tape listen: %v", err)
+	}
+}
+
+// writeListenMP3 is Share the mix: the mix encoded as an MP3, named after
+// the tape and the day ("For my brother 2026-10-23.mp3"), for a phone's
+// share sheet. Nothing is saved and the tape doesn't play, so it needs
+// neither the jam room nor the interface. It waits its turn with the takes'
+// shares: one ffmpeg at a time.
+func (a *API) writeListenMP3(w http.ResponseWriter, r *http.Request, l *tape.Listen) {
+	base := l.Name + " " + time.Now().Format("2006-01-02")
+	h := w.Header()
+	h.Set("Content-Type", "audio/mpeg")
+	h.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`,
+		audio.RenderFilename(asciiOnly(base), 0, 0, l.SampleRate, true),
+		url.PathEscape(audio.RenderFilename(base, 0, 0, l.SampleRate, true))))
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Tape-Frames", fmt.Sprint(l.Frames))
+	if r.Method == http.MethodHead {
+		return
+	}
+	release, ok := a.acquireRender(r.Context())
+	if !ok {
+		return // the client went away while waiting its turn
+	}
+	defer release()
+	cw := &countingWriter{w: &stallWriter{w: w, rc: http.NewResponseController(w)}}
+	err := audio.EncodeMP3(r.Context(), cw, func(in io.Writer) error {
+		_, err := l.WriteTo(in)
+		return err
+	})
+	if err != nil {
+		log.Printf("[!] share the mix: %v", err)
+		if cw.n == 0 {
+			// As a take's share: nothing went out, so the error can.
+			h.Del("Content-Disposition")
+			writeErr(w, http.StatusInternalServerError, "the mix didn't render")
+		}
 	}
 }
 
