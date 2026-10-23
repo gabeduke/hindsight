@@ -1,14 +1,20 @@
 // J4.4 The Studio on a phone: the bar is a mini player above the tabs (its
-// window, ▶ and Catch); a tap on the window pulls the player up with the
-// transport, Rec and Catch; Back puts it away. A tapped clip's bar floats
-// just above the player, and Insert asks before it moves the tape.
-// docs/flows.md#j44
+// window, |◀, ▶ and Catch); |◀ goes back to the loop's start; a tap on the
+// window pulls the player up with the transport, Rec and Catch; Back puts
+// it away. A tapped clip's bar floats just above the player, and Insert asks
+// before it moves the tape. In the Listening Room a take's mini player has
+// |◀ beside ▶ as well. docs/flows.md#j44
 const look = () => {
-  const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight; };
+  const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth; };
   const tabs = document.querySelector('.appnav')?.getBoundingClientRect();
   const c = document.getElementById('catch-pass')?.getBoundingClientRect();
+  // |◀ beside ▶: on its row, just to its left, and a thumb wide.
+  const s = document.getElementById('np-start')?.getBoundingClientRect();
+  const p = document.getElementById('np-play')?.getBoundingClientRect();
+  const beside = !!s && !!p && s.width >= 44 && s.height >= 44 && Math.abs(s.top - p.top) <= 4 && s.right <= p.left && p.left - s.right <= 12;
   return {
-    window: on('#np-expand'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
+    window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
+    name: on('#np-name'), note: on('#np-note'), beside,
     open: document.body.classList.contains('player-open'),
     aboveTabs: !tabs || !c || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1,
     path: location.pathname,
@@ -37,8 +43,22 @@ export default {
     await page.locator('#np-expand').waitFor({ state: 'visible' });
     await t.wait(800);
     const mini = await page.evaluate(look);
-    t.expect('the mini player shows its window, ▶ and Catch, not the transport', mini.window && mini.play && mini.catch && !mini.loop, mini);
+    t.expect('the mini player shows its window, |◀, ▶ and Catch, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && !mini.loop, mini);
+    t.expect('|◀ sits beside ▶, a thumb wide', mini.beside, mini);
     t.expect('the mini player sits above the tabs', mini.aboveTabs, mini);
+
+    // |◀ from the mini player: play into the second bar, then back.
+    const live = async () => (await api.get(`/api/tapes/state?${q}`)).live;
+    await t.step('tap ▶', () => t.tap(page.locator('#np-play')));
+    await api.until(async () => (await live())?.heard >= st.loop.in + bar, 'the tape into its second bar', 10_000).catch(() => {});
+    await t.step('tap |◀', () => t.tap(page.locator('#np-start')));
+    const rewound = await api.until(async () => {
+      const h = (await live())?.heard;
+      return h >= st.loop.in && h < st.loop.in + bar ? { h } : null;
+    }, 'the tape back at the loop’s start', 3000).catch(() => false);
+    t.expect('|◀ goes back to the loop’s start, on the Pi', rewound !== false, { heard: (await live())?.heard, in: st.loop.in, bar });
+    await t.step('tap ▶ to stop', () => t.tap(page.locator('#np-play')));
+    await api.until(async () => !(await live())?.playing, 'the tape to stop', 5000).catch(() => {});
 
     await t.step('tap the window', () => t.tap(page.locator('#np-expand')));
     const opened = await t.poll(() => document.body.classList.contains('player-open'));
@@ -110,5 +130,24 @@ export default {
     await t.step('↶', () => t.tap(page.locator('#tape-undo')));
     const undone = await api.until(async () => clipCount(await api.tapeState()) === n0, 'the undo', 5000).catch(() => false);
     t.expect('↶ takes the insert back', undone);
+
+    // A take in the bar has a mini player of its own: no window, the strip
+    // under its keys, and |◀ beside ▶ here too.
+    await t.step('go to the Listening Room', () => t.tap(page.locator('.appnav a[data-tab="room"]')));
+    const cassette = page.locator('#view-room .room-cassette').first();
+    await cassette.waitFor({ state: 'visible' });
+    await t.step('tap a take', () => t.tap(cassette));
+    const heard = await t.poll(() => document.getElementById('np-play')?.textContent.trim() === '❚❚');
+    const room = await page.evaluate(look);
+    t.expect('the take plays in the mini player', heard, room);
+    t.expect('|◀ sits beside ▶, a thumb wide', room.start && room.beside, room);
+    t.expect('its name and ✎ are on the screen too', room.name && room.note, room);
+    await t.wait(1500);
+    const at = () => Number(document.getElementById('np-scrub')?.getAttribute('aria-valuenow') ?? NaN);
+    const before = await page.evaluate(at);
+    await t.step('tap |◀', () => t.tap(page.locator('#np-start')));
+    const restarted = await t.poll((sr) => Number(document.getElementById('np-scrub')?.getAttribute('aria-valuenow')) < sr, take.sample_rate);
+    t.expect('|◀ takes the take back to its start', restarted && before >= take.sample_rate, { before, after: await page.evaluate(at), rate: take.sample_rate });
+    await t.step('tap ❚❚', () => t.tap(page.locator('#np-play')));
   },
 };
