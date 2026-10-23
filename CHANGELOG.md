@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.23.3 — 2026-10-23
+
+- Tidy the Studio's ruler: one ⌗ key on a phone, and bar numbers that thin out when zoomed out (ab12bb5)
+
+
 ## v2026.10.23.2 — 2026-10-23
 
 - Share the mix: send the whole tape from a phone as an MP3, even with the interface off (5505e67)
