@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.23.2 — 2026-10-23
+
+- Share the mix: send the whole tape from a phone as an MP3, even with the interface off (5505e67)
+- Plan sharing the mix from a phone: an MP3 of the tape rendered on the Pi, with the interface off, and |◀ in the mini player (af40299)
+- Plan listening back: Open › on the bar, a double tap on a take, one notes drawer for the Sketchbook, Open on one screen (f5d47a7)
+
+
 ## v2026.10.23.1 — 2026-10-23
 
 - Put |◀ beside ▶ in the phone's mini player, in the Studio and the Listening Room (4f74cd4)
