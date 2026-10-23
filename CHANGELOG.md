@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.23.1 — 2026-10-23
+
+- Put |◀ beside ▶ in the phone's mini player, in the Studio and the Listening Room (4f74cd4)
+
+
 ## v2026.10.22.4 — 2026-10-22
 
 - The Studio's feed is a strip, and the tape gets its height back: how much GRAB and KEEP take is on their ▾ (f81ce73)
