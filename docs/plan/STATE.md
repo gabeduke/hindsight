@@ -1,6 +1,6 @@
 # State of Hindsight
 
-**As of 2026-10-22.** This is the one handoff: what is built, what Gabe has
+**As of 2026-10-23.** This is the one handoff: what is built, what Gabe has
 decided, what is open. Keep it current and short; when a section goes stale,
 fix it or delete it. What happened before is in `git log`, and the deleted
 specs and handoffs are in history under `docs/superpowers/`.
@@ -17,11 +17,14 @@ is `<pi-host>`.
   `guide.html` are still separate pages. See `docs/architecture.md`, *The UI*.
 - **One bar.** `lib/bar/engine.js` owns the bar's audio, the tape source, the
   stream player and the output; `#np` is the same object in every view, and a
-  take keeps playing across a room switch.
+  take keeps playing across a room switch. On a phone it is a mini player
+  with |◀ and ▶ (and Catch in the Studio).
 - **The Studio:** feed ribbon aligned with the lanes, KEEP, GRAB → buffer →
   DROP, CATCH, multi-arm, sections, ranges, parts, fades, BOUNCE, the
   instrument strip (Play mode, per-device switch, off by default), punch-in
   FX, the collapsible bar and lanes (`body.np-fold`, `body.tracks-fold`).
+  **Share the mix** (⋯) sends the whole tape as an MP3 rendered on the Pi
+  (`listen?all=1&format=mp3`), dry, with the interface off or on.
 - **The cue lane.** The lane (`#cue-row`, `lib/tape/cuelane.js`) and its
   store in the tape's state (`State.Cue`), with solo, loop, remove and
   drag-to-track. The buffer's **Cue** puts a GRAB on it
@@ -146,19 +149,15 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
 ## Next
 
-1. `share-the-mix.md` (agreed 2026-10-23, from Gabe on his phone): |◀ in
-   the phone's mini player, then Share the mix, an MP3 of the tape rendered
-   on the Pi for the share sheet, with the interface off or on. Small, and
-   he wants to send a tape now.
-2. `listening-back.md` (agreed 2026-10-23, from Gabe trying the Listening
+1. `listening-back.md` (agreed 2026-10-23, from Gabe trying the Listening
    Room on the rig): Open › on the bar and a double tap on a spine, one
    notes drawer in place of the Sketchbook, then Open on one screen.
-3. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~,
+2. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~,
    ~~the feed strip~~ (done), the track heads on touch, a layout budget, the buffer into the
    cue lane (with the lane's other sources: a take from the shelf, a part
    lifted from a track). Open's pass moved into `listening-back.md`. Then
    the rest of `shell-roadmap.md` (the output switch).
-4. Write the missing flows in `docs/flows.md` as each journey is touched.
-5. Fix the layout findings above, and look through the storyboard
+3. Write the missing flows in `docs/flows.md` as each journey is touched.
+4. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
    no check can see. The coverage map lists the controls no flow touches.

@@ -76,6 +76,9 @@
         <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
         <button id="tape-mixdown" type="button" role="menuitem" data-tip="mixdown">Mix down the loop</button>
         <button id="tape-mixdown-all" type="button" role="menuitem" data-tip="mixdown">Mix down the whole tape</button>
+        <!-- The whole tape as an MP3 for the share sheet, rendered on the Pi:
+             no jam room, no interface (lib/tape/page.js, shareMix). -->
+        <button id="tape-share-mix" type="button" role="menuitem" data-tip="share-mix">Share the mix</button>
         <!-- The feed's ● Phone, which the strip shows on a phone alone. -->
         <button id="tape-phone" type="button" role="menuitem" data-tip="phone">Record from this phone…</button>
         <button id="ask-first" type="button" role="menuitemcheckbox" aria-checked="true" data-tip="ask-first"><span class="menu-check" aria-hidden="true">✓</span>Ask before Insert and Delete time</button>
@@ -395,9 +398,12 @@
 <dialog class="sheet" id="jam-only" aria-labelledby="jam-only-title">
   <div class="sheet-inner out-inner">
     <h3 id="jam-only-title">Rec and Catch need the jam room</h3>
-    <p>This phone hears the tape about <span id="jam-only-delay">0.8 s</span> late, so anything played along up here would land off the beat. To try an idea here, use <b>Overdub on this device</b>.</p>
+    <p id="jam-only-why">This phone hears the tape about <span id="jam-only-delay">0.8 s</span> late, so anything played along up here would land off the beat. To try an idea here, use <b>Overdub on this device</b>.</p>
+    <!-- Bounce's own words (jamOnly('bounce')). -->
+    <p id="jam-only-bounce" hidden>Bounce plays the tape through the Sidekick and records it back: it needs the jam room. To send the tape as it is, without the Sidekick, use <b>Share the mix</b>.</p>
     <div class="sheet-actions">
       <button class="icon-btn" id="jam-only-close" type="button">Not now</button>
+      <button class="icon-btn" id="jam-only-share" type="button" data-tip="share-mix" hidden>Share the mix</button>
       <button class="icon-btn primary" id="jam-only-switch" type="button" data-tip="out-jam">Switch to the jam room</button>
     </div>
   </div>

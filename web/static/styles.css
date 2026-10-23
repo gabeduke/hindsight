@@ -4008,6 +4008,11 @@ input, select, textarea { color-scheme: inherit; }
 #catch-pass.jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
 .jam-only-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; color: var(--ink-dim); }
 .jam-only-note a { color: var(--accent); }
+/* Bounce's refusal has three ways on: on a narrow phone they stack, the
+   jam room first, rather than wrapping each label onto three lines. */
+@media (max-width: 479.98px) {
+  #jam-only .sheet-actions:has(#jam-only-share:not([hidden])) { flex-direction: column-reverse; }
+}
 
 /* ---------- motion between pages, and sheets settling in ----------
    Capture, Takes and Tape are separate pages, so a tab used to be a hard cut:

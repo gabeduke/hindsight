@@ -4,7 +4,7 @@
 // state a few times a second and sends what you tap.
 
 import { toast } from '../toast.js';
-import { canShareFiles, shareOrDownload } from '../wave/share.js';
+import { canShareFiles, shareOrDownload, looksLikeMP3 } from '../wave/share.js';
 import { drawBars, takeGain, levelsOfColumns, laneChannels } from '../wave/draw.js';
 import { drawTrace, traceLines } from '../wave/tape-strip.js';
 import { TileCache } from '../wave/tiles.js';
@@ -487,9 +487,15 @@ function heardTracks() {
 }
 
 // jamOnly explains, and refuses, what needs the jam room while the tape
-// plays on a phone.
-function jamOnly() {
+// plays on a phone: Rec and Catch, or with what 'bounce', Bounce, which
+// offers Share the mix instead.
+function jamOnly(what = 'rec') {
   if (!state.live || state.live.output_mode !== 'phone') return false;
+  const bounce = what === 'bounce';
+  $('jam-only-title').textContent = bounce ? 'Bounce needs the jam room' : 'Rec and Catch need the jam room';
+  $('jam-only-why').hidden = bounce;
+  $('jam-only-bounce').hidden = !bounce;
+  $('jam-only-share').hidden = !bounce;
   $('jam-only-delay').textContent = `${(((output && output.player.delayMs()) || 800) / 1000).toFixed(1)} s`;
   $('jam-only').showModal();
   return true;
@@ -796,7 +802,7 @@ function initBouncing() {
 // mixdown plays the loop (or, with all, the whole tape) once and saves what
 // the mixer put out as a take; live.mixdown follows it.
 async function mixdown(all) {
-  if (jamOnly()) return;
+  if (jamOnly('bounce')) return;
   try {
     const b = await change(() => api(`/api/tapes/mixdown?${q()}`, { method: 'POST', body: { all } }));
     const md = b.mixdown;
@@ -807,7 +813,9 @@ async function mixdown(all) {
     });
     poll();
   } catch (e) {
-    toast(`Could not bounce: ${e.message}`, 'bad');
+    // With the interface off, the mix can still be sent.
+    const off = /output isn.t open/.test(e.message);
+    toast(`Could not bounce: ${e.message}`, 'bad', off ? { action: { label: 'Share the mix', run: shareMix } } : {});
   }
 }
 
@@ -850,6 +858,48 @@ async function exportStems(e) {
   a.remove();
 }
 
+// filenameOf is the name a response's Content-Disposition gives its file.
+function filenameOf(res, fallback) {
+  const cd = res.headers.get('Content-Disposition') || '';
+  const m = /filename\*=utf-8''([^;]+)/i.exec(cd) || /filename="([^"]+)"/.exec(cd);
+  try { if (m) return decodeURIComponent(m[1]); } catch { /* keep the plain one */ }
+  return fallback;
+}
+
+// shareMix is Share the mix: the Pi renders the whole tape as an MP3 (the
+// mix as Overdub on this device hears it: levels, pans, mutes and solos, no
+// Sidekick), and the toast's Share hands it to the share sheet. A phone opens
+// the sheet only straight from a tap, and the render takes seconds, so that
+// is a second tap. Where there's no sheet, it downloads. Nothing goes on the
+// shelf and the tape doesn't stop.
+let sharingMix = false;
+async function shareMix() {
+  if (sharingMix || !state.tape) return;
+  sharingMix = true;
+  const wait = toast('Rendering the mix…', 'ok', { ms: 120000 });
+  try {
+    const res = await fetch(`/api/tapes/listen?${q()}&all=1&format=mp3`, { cache: 'no-store' });
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.error || `HTTP ${res.status}`);
+    }
+    const name = filenameOf(res, 'mix.mp3');
+    const blob = await res.blob();
+    // A render that failed halfway is still a 200: look at what came.
+    if (!looksLikeMP3(new Uint8Array(await blob.slice(0, 4096).arrayBuffer()))) throw new Error('the render stopped short');
+    wait.dismiss();
+    toast(`The mix is ready: ${named(name)}`, 'ok', {
+      ms: 60000,
+      action: { label: canShareFiles() ? 'Share' : 'Download', run: () => shareOrDownload(blob, name, name.replace(/\.mp3$/, '')) },
+    });
+  } catch (e) {
+    wait.dismiss();
+    toast(`Could not share the mix: ${e.message}`, 'bad');
+  } finally {
+    sharingMix = false;
+  }
+}
+
 // shareClip offers a clip to the share sheet as a WAV -- a short one; a long
 // one downloads, without holding it all in the phone's memory. A sheet that
 // won't open (too long after the tap, say) downloads too.
@@ -878,10 +928,7 @@ async function shareClip(c) {
     toast(`Could not share it: ${b.error || `HTTP ${res.status}`}`, 'bad');
     return;
   }
-  const cd = res.headers.get('Content-Disposition') || '';
-  const m = /filename\*=utf-8''([^;]+)/i.exec(cd) || /filename="([^"]+)"/.exec(cd);
-  let name = 'clip.wav';
-  try { if (m) name = decodeURIComponent(m[1]); } catch { /* keep the plain one */ }
+  const name = filenameOf(res, 'clip.wav');
   await shareOrDownload(await res.blob(), name, name, 'audio/wav');
 }
 
@@ -4348,6 +4395,8 @@ function openActions() {
   const playable = !!(t0 && live && live.output && t0.tracks.some((tr) => tr.clips.length));
   $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
   $('tape-mixdown-all').disabled = !playable;
+  // The mix needs parts, not the output: it plays nowhere.
+  $('tape-share-mix').disabled = !(t0 && t0.tracks.some((tr) => tr.clips.length));
   if (bouncing) { bouncing.keeper.changed(state.id); bouncing.keeper.refresh(); }
   showMenu('tape-actions');
 }
@@ -4384,6 +4433,7 @@ async function openMenu() {
 function wire() {
   $('jam-only-close').addEventListener('click', () => $('jam-only').close());
   $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('out-btn').click(); });
+  $('jam-only-share').addEventListener('click', () => { $('jam-only').close(); shareMix(); });
   $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('out-btn').click(); });
   // Play mode's Space (lib/play): exactly ▶, disabled when ▶ is.
   document.addEventListener('hindsight:play-transport', () => { if (viewActive()) $('np-play').click(); });
@@ -4621,6 +4671,7 @@ function wire() {
   $('tape-new').addEventListener('click', () => { closeMenus(); newTape(); });
   $('tape-mixdown').addEventListener('click', () => { closeMenus(); mixdown(false); });
   $('tape-mixdown-all').addEventListener('click', () => { closeMenus(); mixdown(true); });
+  $('tape-share-mix').addEventListener('click', () => { closeMenus(); shareMix(); });
   // The feed's ● Phone, which the strip shows on a phone alone: the Studio
   // (lib/rooms/studio.js) opens its sheet.
   $('tape-phone')?.addEventListener('click', () => { closeMenus(); document.dispatchEvent(new CustomEvent('hindsight:phone')); });

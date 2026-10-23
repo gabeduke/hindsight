@@ -218,6 +218,7 @@ export const TIPS = [
   { control: 'Mix down', ids: ['mixdown'], tip: 'Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included' },
   { control: 'Bounce', ids: ['bounce'], tip: 'Play the loop, or the whole tape, once and keep what came out of the mixer as a take: FX and live playing included. Its toast has ▶ to hear it and Open for its page' },
   { control: 'Last bounce', ids: ['last-bounce'], tip: "The newest take bounced from this tape: ▶ to hear it, Open for its page. For when the bounce's toast has gone" },
+  { control: 'Share the mix', ids: ['share-mix'], tip: 'Send the whole tape as an MP3: the Pi renders every track at its level and pan, then Share opens the phone’s share sheet. It works with the interface off, and goes nowhere on the shelf. It’s dry: no Sidekick EQ or FX, nothing played live (that’s Bounce)' },
   { control: 'Export stems', ids: ['export-stems'], tip: 'Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW' },
   { control: 'Bus A / B', ids: ['bus'], tip: 'Which Sidekick channel this track plays through, for its EQ and FX' },
   { control: 'Source chip', ids: ['source-chip'], tip: 'The input of the track the inspector shows (the record track\'s, while one is armed): what ● Rec and a catch take from it. Choosing one changes only that track. Its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too' },

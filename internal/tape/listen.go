@@ -11,7 +11,8 @@ import (
 // Listening away from the rig. The page asks for the loop -- or the whole
 // tape -- as one stereo file, plays it on the phone, records over it with
 // the phone recorder, and then places what it kept (PlaceTake). The jam
-// room stays quiet: the tape on the Pi doesn't play.
+// room stays quiet: the tape on the Pi doesn't play. Share the mix is the
+// whole tape the same way, encoded as an MP3 (the API's format=mp3).
 //
 // The mix is the tape as it sounds: every track at its level and pan,
 // mutes and solos as they are, bus A and bus B summed, through the renderer
@@ -24,7 +25,8 @@ const listenMaxFrames = 10 * 60 * 48000
 
 // Listen is a mix ready to write.
 type Listen struct {
-	From       int64 // the tape frame it starts at
+	Name       string // the tape's
+	From       int64  // the tape frame it starts at
 	Frames     int64
 	Loop       bool // it's the loop: play it round
 	SampleRate int
@@ -46,7 +48,7 @@ func (e *Engine) Listen(id string, all, click bool) (*Listen, error) {
 		return nil, ErrWrongTape
 	}
 	sr := e.store.SampleRate()
-	l := &Listen{SampleRate: sr}
+	l := &Listen{Name: t.Name, SampleRate: sr}
 	st := t.State
 	if lp := t.Loop; !all && lp.On && lp.Out > lp.In {
 		l.From, l.Frames, l.Loop = lp.In, lp.Out-lp.In, true

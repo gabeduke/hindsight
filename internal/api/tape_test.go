@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -653,6 +654,43 @@ func TestTheLoopToListenToAndAPhonePartPlacedBack(t *testing.T) {
 	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":0,"to":96001,"track":2,"at":0,"loop":{"in":0,"out":96000}}`), http.StatusBadRequest, "longer than the loop")
 	// Played over a loop that isn't the tape's any more.
 	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":0,"to":1000,"track":2,"at":0,"loop":{"in":0,"out":48000}}`), http.StatusConflict, "the loop moved")
+}
+
+// Share the mix: the whole tape as an MP3 named after it and the day, with
+// no output and no recorder, which a bounce would need.
+func TestTheMixIsSharedAsAnMP3(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("no ffmpeg")
+	}
+	r, dir := newTapeAPI(t)
+	writeRealTake(t, dir, "jam_2026-10-04_12-00-00.wav", 192000)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodGet, "/api/tapes/listen?id="+id+"&all=1&format=mp3", ""), http.StatusBadRequest, "share an empty tape")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_12-00-00.wav","from":0,"to":96000,"track":1,"bars":1}`), http.StatusOK, "a part")
+	// This engine has no output: Bounce is refused, and the mix isn't.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/mixdown?id="+id, `{"all":true}`), http.StatusConflict, "bounce")
+
+	w := send(t, r, http.MethodHead, "/api/tapes/listen?id="+id+"&all=1&format=mp3", "")
+	want(t, w, http.StatusOK, "ask for the mix")
+	if w.Body.Len() != 0 {
+		t.Fatalf("HEAD rendered %d bytes", w.Body.Len())
+	}
+	w = send(t, r, http.MethodGet, "/api/tapes/listen?id="+id+"&all=1&format=mp3", "")
+	want(t, w, http.StatusOK, "share the mix")
+	h := w.Header()
+	day := time.Now().Format("2006-01-02")
+	if h.Get("Content-Type") != "audio/mpeg" || !strings.Contains(h.Get("Content-Disposition"), `filename="Song one `+day+`.mp3"`) {
+		t.Fatalf("the mix's headers: %v", h)
+	}
+	b := w.Body.Bytes()
+	mp3 := len(b) > 1024 && (string(b[:3]) == "ID3" || (b[0] == 0xff && b[1]&0xe0 == 0xe0))
+	if !mp3 {
+		t.Fatalf("the mix isn't an MP3: %d bytes, starting % x", len(b), b[:min(len(b), 8)])
+	}
+	// Two seconds at 128 kbps is about 32 kB; a WAV of them would be 384 kB.
+	if len(b) > 64<<10 {
+		t.Fatalf("the mix is %d bytes: not encoded", len(b))
+	}
 }
 
 func TestAnEmptyTapeSuggestsTheTempoYouWerePlaying(t *testing.T) {

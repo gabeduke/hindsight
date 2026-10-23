@@ -129,3 +129,39 @@ func RenderMP3(ctx context.Context, w io.Writer, saveChannels []int, wavPath str
 	}
 	return nil
 }
+
+// EncodeArgs is ffmpeg's argument list (without the program name) for a WAV
+// on stdin, encoded as a share's MP3 on stdout. It is for audio rendered in
+// Go, which has no file for RenderArgs to trim: the tape's mix.
+func EncodeArgs() []string {
+	return []string{
+		"-hide_banner", "-loglevel", "error", "-f", "wav", "-i", "-",
+		"-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3", "-",
+	}
+}
+
+// EncodeMP3 streams the WAV that wav writes through ffmpeg, and the MP3 it
+// makes to w, at a take's share bitrate. As with RenderMP3 nothing touches
+// disk, and ffmpeg is killed when ctx ends.
+func EncodeMP3(ctx context.Context, w io.Writer, wav func(io.Writer) error) error {
+	args := append([]string{"-n", "10", "ffmpeg"}, EncodeArgs()...)
+	cmd := exec.CommandContext(ctx, "nice", args...)
+	cmd.Stdout = w
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	in, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("ffmpeg: %w", err)
+	}
+	// ffmpeg reads the WAV as it is written. If it dies first, the write
+	// fails on the closed pipe, and Wait says why.
+	werr := wav(in)
+	in.Close()
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("ffmpeg: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return werr
+}
