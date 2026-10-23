@@ -68,12 +68,13 @@ More to convert: the `[demo]` lines in `docs/checks.md` (the `[rig]` ones stay m
 | J1.8 | hold the instrument's pads (BREAK, REV, FX…) without touching undo | core (Play mode on) |
 | J2.7 | find last month's take: search, filters, archive | core |
 | J2.8 | play all, stopped by picking one by hand | core |
+| J2.9 | write notes on a take as it plays: ✎, words, its pin on the waveform, a tap on its time goes there, ✕, and Undo brings it back (`listening-back.md`) | todo |
 | J4.1 | record from the phone (HTTPS); the take appears after Stop | core |
 | J4.3 | send the tape to the phone upstairs (output Jam room / Phone / Both) | core |
 | J5.4 | wire an input to a track on the Rig, and see Catch name the tracks | core |
 | U1 | the take page has the tape's edit controls (fades, gain, normalize, reverse) | todo |
 | U2 | Live feed / Playback output switch with a real live stream | todo |
-| U3 | a bookmark drawer replaces the Sketchbook | todo |
+| U3 | the notes drawer replaces the Sketchbook, the same in both rooms and on Open (`listening-back.md`) | todo |
 | R1 | MIDI first run, hub enrolment, install and update on a Pi | rig |
 
 ## What a run says

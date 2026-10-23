@@ -42,7 +42,8 @@ both pages."*
    (`lib/room/space.js`, `art/corner.js`, the `--room-book-*` tokens). It is
    the notes dialog ✎ already opens (`openSketchbook`, `lib/room/doorway.js`),
    moved to a drawer and made the only way in; the same drawer works on a
-   cue clip in the Studio.
+   cue clip in the Studio. Pulled forward as the notes drawer in
+   `listening-back.md` (2026-10-23).
 6. **The tracks collapse to one strip while the cue lane is open,** and the
    reverse, as the buffer folds the lanes (`body.buffer-fold`).
 

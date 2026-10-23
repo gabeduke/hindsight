@@ -75,11 +75,8 @@ in both schemes, and with the layout baseline shrinking, never growing.
    keeps its lanes and handles, GRAB to the lane, and dropping or keeping a
    cue clip), then the drawer, then the buffer panel goes. Updates C1, J1.3,
    J1.6 and J3.1. Go, so it releases.
-6. **Open's pass.** GRAB becomes the primary key and Download moves into
-   More; *Three things worth knowing* moves into help mode; the downbeat
-   row, the note jumps, the snap, the speed and the level go into one
-   *Fine tune* drawer; the phone's header gets one row. Updates J2.5 and
-   J3.1.
+6. **Open's pass.** Moved into `listening-back.md` (2026-10-23), with the
+   way into a take and the notes drawer.
 
 Then the roadmap's next steps (`shell-roadmap.md`): the output switch, then
 the bookmark drawer.
