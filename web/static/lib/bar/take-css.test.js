@@ -1,6 +1,6 @@
-// The stylesheet's half of a take in the bar (take-keys.js, F5b), checked from
-// the CSS text: nothing in node lays a page out, so these pin the rules the
-// phone's mini player for a take rests on.
+// The stylesheet's half of the phone's mini player and of a take in the bar
+// (take-keys.js, F5b), checked from the CSS text: nothing in node lays a page
+// out, so these pin the rules the mini player rests on.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -28,9 +28,13 @@ test('a take in the bar hides Open ›: its name is the way in', () => {
   assert.ok(hasRule(css, '.np.np-take #np-open', 'display: none'));
 });
 
-test('the phone’s mini player for a take shows its name, ✎ and ⏏, over the rule that hides a bar’s extras', () => {
+test('the phone’s mini player shows |◀ beside ▶, over the rule that hides the rest of the transport', () => {
+  assert.match(css, /body:not\(\.player-open\) \.np-keys > :not\(\.tb-play\):not\(\.np-start\),/);
+});
+
+test('the phone’s mini player for a take shows its name and ✎, over the rule that hides a bar’s extras, and not ⏏: the switch’s Tape is the same key', () => {
   const p = phoneBlock();
-  assert.match(p, /\.np\.np-take \.np-own > :is\(\.np-name, \.np-note, \.np-eject:not\(\[hidden\]\)\) \{ display: inline-flex !important; \}/);
+  assert.match(p, /\.np\.np-take \.np-own > :is\(\.np-name, \.np-note\) \{ display: inline-flex !important; \}/);
 });
 
 test('the phone’s mini player for a take has no window and no ▾: there is no player to pull up', () => {

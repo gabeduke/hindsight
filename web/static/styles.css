@@ -3861,7 +3861,7 @@ input, select, textarea { color-scheme: inherit; }
 /* ---------- the phone's player ---------- */
 /* On a phone -- upright, or on its side and short -- the bar is a mini
    player above the tabs: its reel window (a tap on it pulls the player up),
-   ▶, and on the tape the orange Catch, so a catch never waits for a scroll;
+   |◀ and ▶, and on the tape the orange Catch, so a catch never waits for a scroll;
    a hairline along its top is how far along it is. The player is the whole
    bar, large, over the page, and on the tape page its drawers under it
    (lib/bar/player.js); ▾, Back or Escape puts it away. While it's down, the
@@ -3892,7 +3892,7 @@ input, select, textarea { color-scheme: inherit; }
   body:not(.player-open) .np:has(> .out-strip:not([hidden])) { flex-wrap: wrap; align-content: center; row-gap: 6px; }
   body:not(.player-open) .np > .out-strip { order: -1; flex: 1 1 100%; }
   body:not(.player-open) .np-row > :not(.np-window):not(.np-keys):not(.np-own),
-  body:not(.player-open) .np-keys > :not(.tb-play),
+  body:not(.player-open) .np-keys > :not(.tb-play):not(.np-start),
   body:not(.player-open) .np-own > :not(.np-catch) { display: none !important; }
   body:not(.player-open) .np-window { flex: 1 1 0; width: auto; min-width: 0; height: 50px; }
   body:not(.player-open) .np-reel { width: 34px; height: 34px; }
@@ -3900,6 +3900,8 @@ input, select, textarea { color-scheme: inherit; }
   body:not(.player-open) .np-levels { display: none; }
   body:not(.player-open) .np-keys { flex: none; }
   body:not(.player-open) .np .np-keys .tb-play { width: 54px; min-width: 54px; height: 50px; min-height: 50px; }
+  /* |◀ beside it, a thumb's width: back to the loop's start, or the take's. */
+  body:not(.player-open) .np .np-keys .np-start { width: 46px; min-width: 46px; height: 50px; min-height: 50px; }
   body:not(.player-open) .np-own { flex: none; margin-left: 0; }
   body:not(.player-open) .np .np-catch { min-width: 92px; height: 50px; min-height: 50px; padding: 0 12px; }
   body:not(.player-open) .np .np-catch-sub { display: none; }
@@ -3995,6 +3997,8 @@ input, select, textarea { color-scheme: inherit; }
 }
 @media (max-width: 399.98px) {
   body:not(.player-open) .np .np-catch { min-width: 80px; padding: 0 8px; }
+  /* A take's row, |◀ ▶, the switch, its name and ✎, fits 360 wide. */
+  body:not(.player-open) .np .seg.np-source-switch button { padding: 0 7px; }
 }
 
 /* Playing on this phone: heard late, so what is asked shows at once and is marked until heard. */
@@ -5907,7 +5911,7 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
 .np.np-take #np-open { display: none; }
 .np.np-feed #np-open { display: none; }
 @media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
-  /* The mini player for a take: ▶, the name and ✎ in a row, the strip under
+  /* The mini player for a take: |◀, ▶, the name and ✎ in a row, the strip under
      them. There is no player to open for a take, so no window or ▾ either. */
   body:has(.np.np-take:not([hidden])), body:has(.np.np-feed:not([hidden])) { --np-h: 114px; }
   body:not(.player-open) .np.np-take, body:not(.player-open) .np.np-feed { flex-wrap: wrap; align-content: center; row-gap: 6px; }
@@ -5918,10 +5922,11 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
      window, ▶ and Catch have the row (a reel sat over ▶ beside it). */
   body:not(.player-open) .np:is(.np-take, .np-feed) .np-row > .np-source-switch { display: inline-flex !important; order: 2; }
   body:not(.player-open) .np.np-take .np-own { order: 2; flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 4px; }
-  /* ⏏ (the tape back, when both are in the bar) has no player to hide in either. */
-  body:not(.player-open) .np.np-take .np-own > :is(.np-name, .np-note, .np-eject:not([hidden])) { display: inline-flex !important; }
+  /* ⏏ stays hidden: the switch's Tape beside it puts the tape back the same
+     way, and the row needs its width for |◀. */
+  body:not(.player-open) .np.np-take .np-own > :is(.np-name, .np-note) { display: inline-flex !important; }
   body:not(.player-open) .np.np-take .np-own > .np-name { flex: 1 1 0; max-width: none; }
-  body:not(.player-open) .np.np-take .np-own > :is(.np-note, .np-eject) { flex: none; width: 48px; min-width: 48px; height: 50px; min-height: 50px; }
+  body:not(.player-open) .np.np-take .np-own > .np-note { flex: none; width: 48px; min-width: 48px; height: 50px; min-height: 50px; }
   /* Repeat has no key here, so while it is on (carried from another page) its
      key shows, lit, to turn it off. */
   body:not(.player-open) .np.np-take .np-keys > #np-loop[aria-pressed="true"] { display: inline-flex !important; }
