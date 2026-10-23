@@ -146,15 +146,19 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
 ## Next
 
-1. `listening-back.md` (agreed 2026-10-23, from Gabe trying the Listening
+1. `share-the-mix.md` (agreed 2026-10-23, from Gabe on his phone): |◀ in
+   the phone's mini player, then Share the mix, an MP3 of the tape rendered
+   on the Pi for the share sheet, with the interface off or on. Small, and
+   he wants to send a tape now.
+2. `listening-back.md` (agreed 2026-10-23, from Gabe trying the Listening
    Room on the rig): Open › on the bar and a double tap on a spine, one
    notes drawer in place of the Sketchbook, then Open on one screen.
-2. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~,
+3. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~,
    ~~the feed strip~~ (done), the track heads on touch, a layout budget, the buffer into the
    cue lane (with the lane's other sources: a take from the shelf, a part
    lifted from a track). Open's pass moved into `listening-back.md`. Then
    the rest of `shell-roadmap.md` (the output switch).
-2. Write the missing flows in `docs/flows.md` as each journey is touched.
-3. Fix the layout findings above, and look through the storyboard
+4. Write the missing flows in `docs/flows.md` as each journey is touched.
+5. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
    no check can see. The coverage map lists the controls no flow touches.
