@@ -134,6 +134,25 @@
         <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path class="lock-shackle" d="M3.2 6V4.2a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
         <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
         <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes">Tracks ▾</button>
+        <!-- On a phone the keys above outgrow the heads' column: one key,
+             saying the snap (and the lock, when it's on), holds them all. -->
+        <span class="menu-anchor ruler-more-anchor">
+          <button id="ruler-more" class="chip ruler-chip ruler-more" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="ruler-more"><span class="snap-ico" aria-hidden="true">⌗</span><span id="ruler-more-snap">Bar</span><svg class="ruler-more-lock" width="10" height="12" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path d="M3.2 6V4.2a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="pill-chev" aria-hidden="true">▾</span></button>
+          <div id="ruler-menu" class="menu from-left ruler-menu" role="menu" aria-label="The ruler" hidden>
+            <div class="ruler-menu-snap" role="group" aria-label="Snap to">
+              <span class="ruler-menu-label" aria-hidden="true">⌗ Snap</span>
+              <span class="seg ruler-snap-seg">
+                <button type="button" role="menuitemradio" aria-checked="true" data-snap="bar" data-tip="tape-snap">Bar</button>
+                <button type="button" role="menuitemradio" aria-checked="false" data-snap="beat" data-tip="tape-snap">Beat</button>
+                <button type="button" role="menuitemradio" aria-checked="false" data-snap="8th" data-tip="tape-snap">⅛</button>
+                <button type="button" role="menuitemradio" aria-checked="false" data-snap="off" data-tip="tape-snap">Off</button>
+              </span>
+            </div>
+            <button id="rm-lock" type="button" role="menuitemcheckbox" aria-checked="false" data-tip="loop-lock"><span class="menu-check" aria-hidden="true">✓</span>Lock the loop</button>
+            <button id="rm-fit" type="button" role="menuitem" data-tip="view-fit" hidden><span class="menu-check" aria-hidden="true"></span>Fit: back to the loop</button>
+            <button id="rm-tracks" type="button" role="menuitem"><span class="menu-check" aria-hidden="true"></span><span id="rm-tracks-words">Fold the tracks</span></button>
+          </div>
+        </span>
       </span>
       <canvas id="tape-ruler" class="tape-ruler" aria-label="Bars: tap to move the playhead, hold and drag to select those bars on every track" data-tip="tape-ruler"></canvas>
     </div>

@@ -93,18 +93,38 @@ export function frameAt(x, view, width) {
   return Math.round(view.from + (x / width) * (view.to - view.from));
 }
 
-/** barLines lists the bar lines inside a view: [{frame, n}] with n from 1. */
-export function barLines(grid, view) {
+/**
+ * barLines lists the bar lines inside a view: [{frame, n}] with n from 1;
+ * with every, only every that many, from bar 1 (barEvery).
+ */
+export function barLines(grid, view, every = 1) {
   if (!grid || !(grid.frames > 0) || !(grid.bars > 0)) return [];
   const bar = grid.frames / grid.bars;
   const out = [];
-  for (let n = Math.ceil(view.from / bar - 1e-9); ; n++) {
+  for (let n = Math.ceil(view.from / bar / every - 1e-9) * every; ; n += every) {
     const frame = Math.round(n * bar) || 0; // never -0
     if (frame > view.to) break;
     out.push({ frame, n: n + 1 });
     if (out.length > 512) break;
   }
   return out;
+}
+
+/** barPx is how wide a bar is, in pixels, on a strip W wide showing view. */
+export function barPx(grid, view, W) {
+  if (!grid || !(grid.frames > 0) || !(grid.bars > 0) || !(view.to > view.from)) return 0;
+  return ((grid.frames / grid.bars) * W) / (view.to - view.from);
+}
+
+/**
+ * barEvery is how many bars apart lines can go and stay minPx apart, when a
+ * bar is px wide: 1, 2, 4, 8 … so zoomed out they still fall on bars 1, 5,
+ * 9, where a phrase starts, and a ruler's numbers never run together.
+ */
+export function barEvery(px, minPx) {
+  let n = 1;
+  while (px > 0 && n * px < minPx && n < 65536) n *= 2;
+  return n;
 }
 
 /** bpm is the tempo a grid implies. */

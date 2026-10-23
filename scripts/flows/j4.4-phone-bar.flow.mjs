@@ -2,8 +2,9 @@
 // window, |◀, ▶ and Catch); |◀ goes back to the loop's start; a tap on the
 // window pulls the player up with the transport, Rec and Catch; Back puts
 // it away. A tapped clip's bar floats just above the player, and Insert asks
-// before it moves the tape. In the Listening Room a take's mini player has
-// |◀ beside ▶ as well. docs/flows.md#j44
+// before it moves the tape. The ruler's keys are one key, ⌗. In the
+// Listening Room a take's mini player has |◀ beside ▶ as well.
+// docs/flows.md#j44
 const look = () => {
   const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth; };
   const tabs = document.querySelector('.appnav')?.getBoundingClientRect();
@@ -130,6 +131,19 @@ export default {
     await t.step('↶', () => t.tap(page.locator('#tape-undo')));
     const undone = await api.until(async () => clipCount(await api.tapeState()) === n0, 'the undo', 5000).catch(() => false);
     t.expect('↶ takes the insert back', undone);
+
+    // The ruler's keys are one key on a phone, so its row stays one line.
+    const rk = await page.evaluate(() => ({
+      row: Math.round(document.getElementById('tape-ruler').parentElement.getBoundingClientRect().height),
+      key: !!document.getElementById('ruler-more')?.offsetParent,
+      chips: !!document.getElementById('snap-btn')?.offsetParent,
+    }));
+    t.expect('the ruler’s keys are one key, ⌗, and its row one line', rk.key && !rk.chips && rk.row <= 30, rk);
+    await page.locator('#ruler-more').scrollIntoViewIfNeeded();
+    await t.step('tap ⌗ beside the ruler', () => t.tap(page.locator('#ruler-more')));
+    await t.step('tap Beat', () => t.tap(page.locator('#ruler-menu [data-snap="beat"]')));
+    const snapped = await page.locator('#ruler-more-snap').innerText();
+    t.expect('the key says a drag snaps to beats now', snapped === 'Beat' && await page.locator('#ruler-menu').isHidden(), snapped);
 
     // A take in the bar has a mini player of its own: no window, the strip
     // under its keys, and |◀ beside ▶ here too.

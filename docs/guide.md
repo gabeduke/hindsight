@@ -1680,6 +1680,7 @@ has no tip.
 | Fit | Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along |
 | Snap | What a drag snaps to: a slid clip, a trim, a fade, or a range drawn on the lanes. A bar, a beat, an eighth, or nothing: tap for the next |
 | Lock (ruler) | Lock the loop where it is: a range you draw leaves it alone, so you can edit elsewhere while it plays on. Unlocked, the loop follows the range |
+| ⌗ (the ruler, on a phone) | On a phone, the ruler’s keys in one: what a drag snaps to, the loop’s lock, Fit and folding the tracks. It says the snap, and shows the lock while it’s on |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
 | Repeat to the loop’s end | Copies of this clip end to end, to the end of the loop: one bar through four |
 | Track name | What’s on this track, for you: chords, bass… |
