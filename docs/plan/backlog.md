@@ -13,7 +13,6 @@ short spec in this folder when it is next.
   hold-then-drag helper; one `t.holdDrag` beside `t.hold` would do.
 - **Output switch: Live feed / Playback,** with a real live stream of the
   ring. Today's Feed source plays no audio. (`shell-roadmap.md` §3)
-- **Bookmark drawer replaces the Sketchbook.** (`shell-roadmap.md`, Notes)
 - **Tracks collapse to one strip while the cue lane is open.**
 - **U1: the take page gets the tape's edit controls** (fade in/out curves,
   gain, normalize, reverse); #148 shared only the curve math and the

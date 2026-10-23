@@ -43,7 +43,9 @@ is `<pi-host>`.
   `scripts/flows/layout-known.json`; each fix shrinks it, see
   `docs/flows.md`, *What a run says*):
   - Tablet: the bar runs off the right side: its fold button by 8 px
-    here, its ✎ Note in CI's fonts.
+    here, its ✎ Note in CI's fonts. With a take in the bar it is worse:
+    the take's name and ✎ are past the edge at 1024, and ✎ is cut at
+    1280 (`listening-back.md`, step 1).
   - Tablet: the Listening Room's sketchbook place starts off the left side.
   - The cue clip's × (12×14 px) and loop toggle (22 px) and the shelf's
     list button (20 px tall) are under 24 px.
@@ -144,12 +146,19 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
 ## Next
 
-1. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~,
+1. `share-the-mix.md` (agreed 2026-10-23, from Gabe on his phone): |◀ in
+   the phone's mini player, then Share the mix, an MP3 of the tape rendered
+   on the Pi for the share sheet, with the interface off or on. Small, and
+   he wants to send a tape now.
+2. `listening-back.md` (agreed 2026-10-23, from Gabe trying the Listening
+   Room on the rig): Open › on the bar and a double tap on a spine, one
+   notes drawer in place of the Sketchbook, then Open on one screen.
+3. `the-studio-on-one-screen.md`, in its build order: ~~the header's menu~~,
    ~~the feed strip~~ (done), the track heads on touch, a layout budget, the buffer into the
    cue lane (with the lane's other sources: a take from the shelf, a part
-   lifted from a track), then Open's pass. Then the rest of
-   `shell-roadmap.md` (the output switch, the bookmark drawer).
-2. Write the missing flows in `docs/flows.md` as each journey is touched.
-3. Fix the layout findings above, and look through the storyboard
+   lifted from a track). Open's pass moved into `listening-back.md`. Then
+   the rest of `shell-roadmap.md` (the output switch).
+4. Write the missing flows in `docs/flows.md` as each journey is touched.
+5. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
    no check can see. The coverage map lists the controls no flow touches.
