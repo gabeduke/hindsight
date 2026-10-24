@@ -33,6 +33,7 @@ web/static/lib/objects the physical things: reels, cassettes, VU meters, the sha
 web/static/lib/scene   the scene contract the renderers follow
 web/static/lib/wave    the take page (wave.html): view, geometry, draw, tiles, clock, lanes
 web/static/lib/edit    the gestures and curves every editing surface shares
+web/static/lib/ui      one press: the gestures' times (GESTURE), and a key's tap, double tap and hold
 web/static/lib/help    tips, help mode, and the guide renderer
 web/static/lib/phone   the phone recorder
 docs/embed.go          the guide, compiled into the binary

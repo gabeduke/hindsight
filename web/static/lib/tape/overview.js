@@ -4,11 +4,12 @@
 // back to the loop. These are the sums; page.js wires the pointer.
 import { nearestBar, xOf } from './geometry.js';
 import { withAlpha } from '../theme.js';
+import { GESTURE } from '../ui/press.js';
 
 export const OVERVIEW_MIN_WINDOW_PX = 24;
 const GRAB_SLOP = 8;    // px either side of the window that still grab it
-const DOUBLE_MS = 300;
-const DOUBLE_PX = 24;
+const DOUBLE_MS = GESTURE.DOUBLE_MS;
+const DOUBLE_PX = GESTURE.DOUBLE_WIDE_PX;
 
 /** overviewWindow is where a view sits across a strip `width` px wide. */
 export function overviewWindow(view, length, width) {

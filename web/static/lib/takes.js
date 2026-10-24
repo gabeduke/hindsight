@@ -16,7 +16,8 @@ import { timedFetch } from '/lib/link.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeFor, STRIPES } from '/lib/objects/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
-import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy, SELECT_HOLD_MS } from '/lib/shelf.js';
+import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
+import { GESTURE } from '/lib/ui/press.js';
 
 /** setStripe puts one printed stripe on a spine, in place of the one it wore. */
 function setStripe(el, n) {
@@ -25,7 +26,7 @@ function setStripe(el, n) {
 }
 
 // How long a press on a row is held to start selecting several takes.
-export { SELECT_HOLD_MS };
+const SELECT_HOLD_MS = GESTURE.HOLD.select;
 
 const fmtTime = (s) => {
   if (!isFinite(s) || s <= 0) return '0:00';
@@ -96,7 +97,7 @@ export class TakesList {
         held = false;
         hold = setTimeout(() => { held = true; onSpineHold(row.dataset.name); }, SELECT_HOLD_MS);
       });
-      container.addEventListener('pointermove', (e) => { if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > 8) clearTimeout(hold); });
+      container.addEventListener('pointermove', (e) => { if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > GESTURE.SLOP_PX) clearTimeout(hold); });
       for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) container.addEventListener(ev, () => { clearTimeout(hold); at = null; });
       container.addEventListener('contextmenu', (e) => { if (e.target.closest('.take.spine') && onSpineHold) e.preventDefault(); });
       container.addEventListener('click', (e) => { if (held) { held = false; return; } act(e.target.closest('.take.spine')); });
@@ -976,13 +977,13 @@ export class TakesList {
         // The release that ends this hold must not also toggle, or seek;
         // wherever it lands, stop waiting for its click soon after.
         this.swallowClick = true;
-        document.addEventListener('pointerup', () => setTimeout(() => { this.swallowClick = false; }, 400), { once: true, capture: true });
+        document.addEventListener('pointerup', () => setTimeout(() => { this.swallowClick = false; }, GESTURE.LIFT_GRACE_MS), { once: true, capture: true });
         try { navigator.vibrate?.(10); } catch { /* not everywhere */ }
         this.enterSelect(row.name);
       }, SELECT_HOLD_MS);
     });
     el.addEventListener('pointermove', (e) => {
-      if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > 8) cancel();
+      if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > GESTURE.SLOP_PX) cancel();
     });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(ev, cancel);
     // In select mode a tap anywhere on a row picks it; nothing inside the row

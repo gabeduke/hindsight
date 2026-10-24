@@ -12,11 +12,13 @@
 // Like the other adapters it knows nothing of the DOM or the socket: `send`
 // is handed in, and so are the clock and the timers, for the tests.
 
+import { GESTURE } from '../ui/press.js';
+
 /** EVERY_MS is the least time between two sends of one amount: 30 a second. */
 export const EVERY_MS = 1000 / 30;
 
 /** HOLD_MS is how long this hand's own move outranks what the Pi says. */
-export const HOLD_MS = 400;
+export const HOLD_MS = GESTURE.OUTRANK_MS;
 
 /**
  * DEFAULTS are where an amount starts before anything moved it: the middle

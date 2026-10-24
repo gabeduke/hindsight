@@ -6,10 +6,11 @@
 import { levelsFor, takeGain } from './draw.js';
 import { drawTrace, paintOxide, oxideColors } from './tape-strip.js';
 import { withAlpha } from '../theme.js';
+import { GESTURE } from '../ui/press.js';
 
 export const OVERVIEW_MIN_WINDOW_PX = 24;
-const TAP_MOVE = 6;
-const TAP_MS = 300;
+const TAP_MOVE = GESTURE.SLOP_FINE_PX;
+const TAP_MS = GESTURE.TAP_MS;
 
 export function windowRect(view, totalFrames, stripWidth) {
   const span = view.width * view.fpp;
@@ -170,7 +171,7 @@ export class Overview {
     const isTap = !g.moved && performance.now() - g.t0 < TAP_MS;
     if (!isTap) return;
     const now = performance.now();
-    if (now - this.lastTap < TAP_MS) { this.lastTap = 0; this.emit('fitAll', {}); return; }
+    if (now - this.lastTap < GESTURE.DOUBLE_MS) { this.lastTap = 0; this.emit('fitAll', {}); return; }
     this.lastTap = now;
     this.emit('seek', { frame: stripXToFrame(p.x, this.total, this.cssW) });
   }

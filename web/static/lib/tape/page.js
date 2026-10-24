@@ -46,7 +46,7 @@ import { restoreReplaced } from '../buffer/api.js';
 import { readResponse, failToast, editTape } from './refusal.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
-import { armPress } from '../rig/armpress.js';
+import { bindPress, ARM_PRESS, GESTURE } from '../ui/press.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
@@ -2358,14 +2358,14 @@ function wireRuler() {
       state.sel = barSpan(state.tape.grid, down.f, down.f);
       if (navigator.vibrate) navigator.vibrate(10);
       drawRuler();
-    }, 300);
+    }, HOLD_MS);
   });
   cv.addEventListener('pointermove', (e) => {
     if (!down) return;
     if (down.held) {
       state.sel = barSpan(state.tape.grid, down.f, frameOf(e));
       drawRuler();
-    } else if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) {
+    } else if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > SLOP_PX) {
       down.moved = true; // a swipe, not a tap or a hold
     }
   });
@@ -2475,12 +2475,12 @@ function wireSections() {
         sec.drag = { kind: 'make', ...(makeSpan(down.f, down.f, state.tape.grid) || { from: down.f, to: down.f }) };
         if (navigator.vibrate) navigator.vibrate(10);
         drawSections();
-      }, 300);
+      }, HOLD_MS);
     }
   });
   cv.addEventListener('pointermove', (e) => {
     if (!down || e.pointerId !== down.id) return;
-    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) down.moved = true;
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > SLOP_PX) down.moved = true;
     const d = sec.drag;
     if (!d) { if (down.moved) clearTimeout(down.timer); return; }
     const f = frameOf(e);
@@ -2696,7 +2696,7 @@ function wireOverview() {
   cv.addEventListener('pointermove', (e) => {
     if (!down || e.pointerId !== down.id || !state.tape) return;
     const { x, w } = at(e);
-    if (!down.moved && Math.abs(x - down.x0) < 6) return;
+    if (!down.moved && Math.abs(x - down.x0) < GESTURE.SLOP_FINE_PX) return;
     down.moved = true;
     setView(dragTo(x, down.grab, laneView(), state.tape.length, w));
   });
@@ -3000,12 +3000,14 @@ function buildLanes() {
         else render();
       });
       // ● moves the arm to this track, as 1–4, ↑ and ↓ do, and a hold (or
-      // ⇧-click) arms it as well, or takes it off (rig/armpress.js); its
+      // ⇧-click) arms it as well, or takes it off (lib/ui/press.js); its
       // input opens a menu of the inputs, to choose what it records from.
       {
-        const press = armPress({
+        const a = lane.arm;
+        bindPress(a, {
+          ...ARM_PRESS, // no slop, and a long press on a phone is a hold, not a menu
           onTap: () => { armTrack(n); },
-          onAdd: () => {
+          onHold: () => {
             const before = state.recTracks;
             const next = holdArm(before, n);
             if (!next.length) { disarm(); return; }
@@ -3016,13 +3018,6 @@ function buildLanes() {
             }
           },
         });
-        const a = lane.arm;
-        a.addEventListener('pointerdown', press.down);
-        a.addEventListener('pointerup', press.up);
-        a.addEventListener('pointercancel', press.cancel);
-        a.addEventListener('pointerleave', press.cancel);
-        a.addEventListener('click', press.click);
-        a.addEventListener('contextmenu', (e) => e.preventDefault()); // a long press on a phone is a hold, not a menu
         a.style.webkitTouchCallout = 'none';
         a.style.userSelect = 'none';
       }

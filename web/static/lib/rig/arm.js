@@ -5,8 +5,8 @@
 // the first of them, is still there for pages from before.
 //
 // A tap on a track's ● arms just that track, as 1–4, ↑ and ↓ do, and a hold
-// (or ⇧-click) arms it as well -- or takes it off (rig/armpress.js). Pure: no
-// page, no Pi.
+// (or ⇧-click) arms it as well -- or takes it off (lib/ui/press.js is the
+// press). Pure: no page, no Pi.
 
 /** armedOf reads a tape's armed tracks: rec_tracks, or rec_track from a Pi before them. */
 export function armedOf(t) {

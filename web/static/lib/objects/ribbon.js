@@ -34,9 +34,10 @@ import { DomRenderer } from '../scene/dom.js';
 import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from './ribbonmath.js';
 import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from './ribbon-draw.js';
 import { token } from '../theme.js';
+import { GESTURE } from '../ui/press.js';
 
-const HOLD_MS = 350;
-const MOVE_PX = 8;
+const HOLD_MS = GESTURE.HOLD.ribbon;
+const MOVE_PX = GESTURE.SLOP_PX;
 // The last ten seconds share the ribbon's last pixel or two: a finger
 // stopping this close to the right edge means "now".
 const NOW_ZONE_PX = 16;

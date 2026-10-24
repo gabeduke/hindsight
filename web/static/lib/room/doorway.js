@@ -9,10 +9,10 @@
 // (lib/room/mount.js), so nothing the rack does is lost and nothing is done
 // twice.
 //
-// A tap on a spine plays it in the bar and a hold selects it (lib/room/
-// press.js, tap.js): there is no sheet. The deck is a picture of the bar
-// (lib/room/deck.js), and tapes are not on the shelves: they live in the
-// Studio.
+// A tap on a spine plays it in the bar and a hold selects it
+// (lib/ui/press.js, lib/room/tap.js): there is no sheet. The deck is a
+// picture of the bar (lib/room/deck.js), and tapes are not on the shelves:
+// they live in the Studio.
 //
 // What it draws, in reading order, as a screen reader meets it: the shelves
 // (this month's takes, the archive by month), each a list of buttons; then the
@@ -25,7 +25,7 @@
 import { roomShelves, inMonth, monthName, monthKey, at, filterWords } from './shelves.js';
 import { forgetNote, fmtAt } from './notes.js';
 import { openTheTape, forTheTape } from '../bar/carry.js';
-import { pressMachine } from './press.js';
+import { bindPress, SPINE_PRESS } from '../ui/press.js';
 import { createTap, wireRack, askedTake } from './tap.js';
 import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
@@ -294,26 +294,22 @@ export function mount(h) {
   const inBar = () => deckOf({ takeName: h.np?.takeName ?? null, takes: h.takes.all, tapes: tapeList });
 
   // --- the shelves ---------------------------------------------------------------
-  // One press machine per spine: a tap plays (or, with a selection on, picks
-  // the take in or out); a hold, or ⇧-click, selects.
+  // One press per spine (lib/ui/press.js): a tap plays (or, with a selection
+  // on, picks the take in or out); a hold, or ⇧-click, selects. A long press
+  // on a phone is the browser's menu too: not on a spine.
   function wireSpine(b, name) {
     const takes = h.takes;
-    const press = pressMachine({
+    bindPress(b, {
+      ...SPINE_PRESS,
       onTap: () => (takes.selecting ? takes.toggleSelected(name) : tap.tap(name)),
-      onSelect: () => {
+      onHold: () => {
         try { navigator.vibrate?.(10); } catch { /* not everywhere */ }
         if (takes.selecting) takes.toggleSelected(name); else takes.enterSelect(name);
       },
       selecting: () => takes.selecting,
+      // The player is fetched as the finger goes down, so the play is inside the tap.
+      onDown: () => { if (!takes.selecting) tap.warm(name); },
     });
-    // The player is fetched as the finger goes down, so the play is inside the tap.
-    b.addEventListener('pointerdown', (e) => { if (!takes.selecting) tap.warm(name); press.down(e); });
-    b.addEventListener('pointermove', press.move);
-    b.addEventListener('pointerup', press.up);
-    for (const ev of ['pointercancel', 'pointerleave']) b.addEventListener(ev, press.cancel);
-    b.addEventListener('click', press.click);
-    // A long press on a phone is the browser's menu too: not on a spine.
-    b.addEventListener('contextmenu', (e) => { if (press.active()) e.preventDefault(); });
   }
   // What each spine on the shelf stands for, for painting it (the bar's take
   // and the selection change without the shelf being drawn again).

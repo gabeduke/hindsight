@@ -6,9 +6,6 @@
 // the main page); the shelf groups by day instead, so a starred take sits
 // on the day it was played and the Starred filter is how to see them alone.
 
-/** SELECT_HOLD_MS is how long a press on a take is held to start selecting several (lib/takes.js, lib/room/press.js). */
-export const SELECT_HOLD_MS = 500;
-
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 

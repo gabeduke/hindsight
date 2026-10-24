@@ -25,6 +25,7 @@ import {
 import { NearAudio } from './near.js';
 import { findAttack, findZero } from './onset.js';
 import { MIN_FPP } from '../edit/gestures.js';
+import { GESTURE } from '../ui/press.js';
 import { EditorBar } from '../edit/editor-bar.js';
 import { levelsFor, takeGain } from './draw.js';
 import { drawTrace } from './tape-strip.js';
@@ -900,7 +901,7 @@ async function main() {
     b.addEventListener('click', () => { if (repeated) { repeated = false; return; } step(); });
     b.addEventListener('pointerdown', () => {
       repeated = false;
-      hold = setTimeout(() => { repeated = true; rep = setInterval(step, 120); }, 500);
+      hold = setTimeout(() => { repeated = true; rep = setInterval(step, GESTURE.REPEAT_MS); }, GESTURE.HOLD.repeat);
     });
     for (const evName of ['pointerup', 'pointercancel', 'pointerleave']) {
       b.addEventListener(evName, () => {
@@ -937,7 +938,7 @@ async function main() {
     b.addEventListener('click', () => { if (repeated) { repeated = false; return; } step(); });
     b.addEventListener('pointerdown', () => {
       repeated = false;
-      hold = setTimeout(() => { repeated = true; rep = setInterval(step, 120); }, 500);
+      hold = setTimeout(() => { repeated = true; rep = setInterval(step, GESTURE.REPEAT_MS); }, GESTURE.HOLD.repeat);
     });
     for (const evName of ['pointerup', 'pointercancel', 'pointerleave']) {
       b.addEventListener(evName, () => {

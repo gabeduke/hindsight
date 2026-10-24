@@ -169,3 +169,8 @@ under way.
 4. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
    no check can see. The coverage map lists the controls no flow touches.
+5. Fold the presses that are still their own into `lib/ui/press.js` as each
+   is touched (most hold, then drag, which `pressMachine` doesn't do yet):
+   the Takes list's two holds, the tape's part, range, ruler and section
+   holds, the ribbon, the buffer grip, `lib/edit/gestures.js`, both
+   overviews' double taps, Open's nudge keys.
