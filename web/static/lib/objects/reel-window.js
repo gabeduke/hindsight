@@ -16,6 +16,7 @@ import { DomRenderer } from '../scene/dom.js';
 const NS = 'http://www.w3.org/2000/svg';
 const C = 80, FLANGE = 74;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const setAttrIf = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
 const circ = (cx, cy, r) => `M${cx - r} ${cy} a${r} ${r} 0 1 0 ${2 * r} 0 a${r} ${r} 0 1 0 ${-2 * r} 0 Z `;
 
 /** levelFrac is how full a level bar is for dBFS: empty at −40, full 3 dB over ref. */
@@ -66,6 +67,29 @@ function reel(svg) {
 }
 
 /**
+ * The mini player's hairline of how far along the bar is (styles.css,
+ * `.np::before`, as wide as --np-progress) is drawn only on a screen this
+ * small. Anywhere else nothing reads --np-progress, and setting it each
+ * frame restyled the whole bar, being inherited and set on #np: 13-17 ms a
+ * frame on a throttled tablet while the tape played. So it's written only
+ * where it's drawn, and at once when the screen becomes one where it is.
+ * reel-window.test.js holds this to the stylesheet's query.
+ */
+export const HAIRLINE_MEDIA = '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)';
+
+/**
+ * progressWriter answers write(fraction) for the bar `np`: --np-progress
+ * set while `mq` (HAIRLINE_MEDIA) matches, and the last one set when it
+ * comes to. Without matchMedia, always.
+ */
+export function progressWriter(np, mq = typeof matchMedia === 'function' ? matchMedia(HAIRLINE_MEDIA) : null) {
+  let last = null;
+  const put = () => { if (np && last !== null) np.style.setProperty('--np-progress', last); };
+  mq?.addEventListener?.('change', () => { if (mq.matches) put(); });
+  return (v) => { last = String(v); if (!mq || mq.matches) put(); };
+}
+
+/**
  * reelsDrawer draws a reels object into the two reel SVGs and the level bars
  * between them: the packs, each reel's turn, the bar's hairline of how far
  * along it is, and -- while it plays -- each track's level at the playhead.
@@ -74,6 +98,7 @@ export function reelsDrawer({ left, right, levels }) {
   const L = reel(left), R = reel(right);
   // The bar, for the mini player's hairline of how far along it is.
   const np = typeof left.closest === 'function' ? left.closest('.np') : null;
+  const progress = np ? progressWriter(np) : null;
   let bars = [];
   let levelsAt = () => [];
   return {
@@ -91,11 +116,14 @@ export function reelsDrawer({ left, right, levels }) {
     },
     draw(m, state) {
       if (!m) return; // no poll yet: the reels stay as drawn
-      L.pack.setAttribute('r', m.left.toFixed(1));
-      R.pack.setAttribute('r', m.right.toFixed(1));
+      // The packs only when they change, a tenth of a pixel in a while:
+      // setting an SVG attribute, to what it was or not, is a style
+      // recalculation and a layout of its picture, and this is every frame.
+      setAttrIf(L.pack, 'r', m.left.toFixed(1));
+      setAttrIf(R.pack, 'r', m.right.toFixed(1));
       L.turn.style.transform = `rotate(${m.angleL.toFixed(1)}deg)`;
       R.turn.style.transform = `rotate(${m.angleR.toFixed(1)}deg)`;
-      if (np && state.length > 0) np.style.setProperty('--np-progress', String(clamp(m.pos / state.length, 0, 1)));
+      if (progress && state.length > 0) progress(clamp(m.pos / state.length, 0, 1));
       const lv = m.moving === 'play' ? levelsAt(m.pos) : [];
       bars.forEach((b, i) => { b.style.transform = `scaleY(${Math.max(0.08, levelFrac(lv[i])).toFixed(3)})`; });
     },

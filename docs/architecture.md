@@ -842,6 +842,42 @@ every renderer keeps:
 7. No bundler, no CDN: three.js, when the Rig needs it, is one pinned ES
    module under `web/static/vendor/three/`, lazy, behind a flag.
 
+### A frame's budget
+
+The device this has to be smooth on is a mid-range Android tablet, and its
+main thread also feeds a phone's stream. Measured at a 4x CPU throttle,
+the Studio fell to 6-18 fps while the tape played, because each frame
+redrew every lane and wrote each lane's head before measuring its canvas.
+What a frame may do, in the Studio and anything else on the ticker:
+
+- **Put back, don't paint.** The lanes are painted only when what they show
+  changes (`laneKey`), or the view moves; while the tape plays each is
+  painted twice, as layers, as if none of it had played and as if all of it
+  had, its parts lit (`lib/tape/playhead.js` `compositeLane`). A frame cuts
+  the two at the playhead and draws the playhead over them; the ruler and
+  the overview put back a base the same way. And it puts back only the
+  columns the playhead moved over since the last frame (`headBand`), a few
+  device pixels, not the canvas: everything else on it is already right.
+  A page turn repaints, once.
+- **Never measure or read style.** Canvas sizes come from a
+  `ResizeObserver`; colours from `tokenCache` (`lib/theme.js`), forgotten
+  when the scheme flips. A measure after a DOM write is a forced layout.
+- **Write the page only when it changes**, and text that changes often in
+  place (`lib/text.js` `setText`): a text node put in or taken out makes
+  Chromium check every `:has()` rule above it, and `styles.css`'s
+  `body:has(…)` rules make that a style recalculation of most of the page,
+  for each digit of a counter. Text written in place is spared that only
+  while no `:has()` tests `:empty`: one that does, anywhere, has Chromium
+  look again at every `:has()` above any text that changes, so none may
+  (`lib/text.test.js`). Likewise an inherited custom property set on
+  a container restyles all of it: the bar's `--np-progress` is written only
+  where the phone's mini player draws it. And an SVG attribute set to the
+  value it has is still a restyle and a layout of its picture: the reels'
+  packs are set only when they change.
+
+`lib/tape/playhead.test.js` walks what the playhead's step calls and fails on
+a measure, a style read, a write to the page or a lane painted.
+
 ### Waking up
 
 A tablet that sleeps freezes its page, and a request or socket that was in

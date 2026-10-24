@@ -76,9 +76,11 @@ export function takeKeys({ doc, root, onNote, onSelectSource, onGrabFeed }) {
       root.classList.toggle('np-take', take);
       root.classList.toggle('np-feed', feed);
       for (const b of srcBtns) setAttr(b, 'aria-pressed', String(b.dataset.source === kind));
-      name.hidden = !take;
-      note.hidden = !take;
-      grabFeed.hidden = !feed;
+      // Only when it changes: paint runs every frame something plays, and
+      // writing `hidden` is an attribute change even when it's the same.
+      if (name.hidden !== !take) name.hidden = !take;
+      if (note.hidden !== !take) note.hidden = !take;
+      if (grabFeed.hidden !== !feed) grabFeed.hidden = !feed;
       if (take) {
         setText(name, src.title);
         setAttr(name, 'href', src.href);

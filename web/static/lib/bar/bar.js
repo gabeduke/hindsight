@@ -10,6 +10,8 @@
 
 import { ReelWindow } from '../objects/reel-window.js';
 import { Loop } from '../objects/motion.js';
+import { tokenCache, onSchemeChange } from '../theme.js';
+import { setText } from '../text.js';
 import { takeKeys } from './take-keys.js';
 import { initPlayer } from './player.js';
 
@@ -32,6 +34,12 @@ export class NowPlaying {
     });
     this.reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
     this.scrub = $('np-scrub');
+    // The strip's size and colours, kept rather than read in render: render
+    // runs every frame while something plays, after the LCD's text is
+    // written, and a measure or a style read then is a forced layout a frame.
+    this.scrubSize = null;
+    this.colors = tokenCache(() => this.scrub);
+    onSchemeChange(() => { this.colors.clear(); this.kick(); });
     initPlayer();
     // A take in the bar shows its name (which opens it) and ✎, and ⟲ is
     // Repeat (take-keys.js).
@@ -106,7 +114,11 @@ export class NowPlaying {
       s.seek(s.pos() + (e.key === 'ArrowRight' ? s.step() : -s.step()));
       this.kick();
     });
-    new ResizeObserver(() => this.render()).observe(sc);
+    new ResizeObserver(([e]) => {
+      const b = e.borderBoxSize && e.borderBoxSize[0];
+      this.scrubSize = b ? { width: b.inlineSize, height: b.blockSize } : { width: e.contentRect.width, height: e.contentRect.height };
+      this.render();
+    }).observe(sc);
     document.addEventListener('visibilitychange', () => this.kick());
   }
 
@@ -116,6 +128,7 @@ export class NowPlaying {
     if (this.src && this.src.kind === 'tape') this.src.setActive?.(false);
     this.src = src;
     this.marqueeKey = null;
+    this.colors.clear();
     this.root.hidden = !src;
     // What it holds -- feed, tape or take -- for the CSS and the checks that look.
     if (src) this.root.setAttribute('data-source', src.kind);
@@ -178,7 +191,8 @@ export class NowPlaying {
     // here, and the bar says so.
     $('np-out').parentElement.classList.toggle('np-out-tape', s.kind === 'tape');
     // The strip, and what a screen reader hears of it.
-    const r = this.scrub.getBoundingClientRect();
+    // Measured once, before its observer has said (a bar just made).
+    const r = this.scrubSize ||= (({ width, height }) => ({ width, height }))(this.scrub.getBoundingClientRect());
     const dpr = window.devicePixelRatio || 1;
     if (r.width > 0) {
       if (this.scrub.width !== Math.round(r.width * dpr) || this.scrub.height !== Math.round(r.height * dpr)) {
@@ -187,8 +201,7 @@ export class NowPlaying {
       }
       const ctx = this.scrub.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const css = getComputedStyle(this.scrub);
-      s.paint(ctx, r.width, r.height, (n, d) => css.getPropertyValue(n).trim() || d, dpr);
+      s.paint(ctx, r.width, r.height, (n, d) => this.colors.get(n, d), dpr);
     }
     const tenth = s.sampleRate / 10;
     const p = Math.round(s.pos() / tenth) * tenth;
@@ -229,7 +242,6 @@ export class NowPlaying {
 
 const hooked = new WeakSet();
 
-function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
 function setAttr(el, k, v) { if (el.getAttribute(k) !== v) el.setAttribute(k, v); }
 function secs(s) {
   const m = Math.floor(s / 60);

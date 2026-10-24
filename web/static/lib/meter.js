@@ -5,6 +5,8 @@
 // while the page was open, and a dashcam is something you open after the
 // moment.
 
+import { setText } from './text.js';
+
 const FLOOR_DB = -60;
 
 function dbToFrac(db) {
@@ -60,7 +62,7 @@ export class Meters {
       const pk = peak?.[i] ?? FLOOR_DB;
       r.fill.style.width = (dbToFrac(db) * 100).toFixed(1) + '%';
       r.peak.style.left = (dbToFrac(pk) * 100).toFixed(1) + '%';
-      r.val.textContent = db <= FLOOR_DB ? '−∞' : db.toFixed(1);
+      setText(r.val, db <= FLOOR_DB ? '−∞' : db.toFixed(1));
       r.row.classList.toggle('clip', !!clip?.[i]);
     });
   }

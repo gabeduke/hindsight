@@ -138,3 +138,32 @@ test('everything the bar adds has a tip, and says its tip by the same name', asy
     assert.ok(tipFor(tip), `${tip} has a tip`);
   }
 });
+
+test('a frame of the bar playing measures nothing and reads no style: the strip is drawn at the size and in the colours it kept', async () => {
+  // Every frame something plays, the bar writes its counter and then draws
+  // its strip; a measure or a style read after that write is a forced
+  // layout, a frame. The strip's size comes from its ResizeObserver, its
+  // colours from a cache cleared when the scheme flips (lib/bar/bar.js).
+  const p = await withTake();
+  await p.player.toggle();
+  p.frames(3);
+  const scrub = p.$('np-scrub');
+  let measured = 0, styled = 0;
+  const gbcr = scrub.getBoundingClientRect;
+  scrub.getBoundingClientRect = () => { measured++; return gbcr(); };
+  const gcs = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = (...a) => { styled++; return gcs(...a); };
+  try {
+    const shown = [];
+    for (let s = 1; s <= 5; s++) {
+      p.audio.currentTime = s * 7;
+      p.frames(1);
+      shown.push(p.$('position').textContent);
+    }
+    assert.equal(new Set(shown).size, 5, `the bar drew each frame: ${shown}`);
+    assert.equal(measured, 0, 'no measure in a frame');
+    assert.equal(styled, 0, 'no style read in a frame');
+  } finally {
+    globalThis.getComputedStyle = gcs;
+  }
+});

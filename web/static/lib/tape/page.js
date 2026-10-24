@@ -32,10 +32,12 @@ import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, gripBands, SLOP_PX, EDGE
 import { rangeOf, tracksOf, covers, isLoop, rangeText, pasteFits, resize } from './range.js';
 import { SECTION_NAMES, SECTION_COLORS, colorOf, sectionHit, newName, isLooped, barsText as sectionBars, makeSpan, edgeTo } from './sections.js';
 import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNumber } from './timeedit.js';
-import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, trackColor } from './overview.js';
-import { token, withAlpha, onSchemeChange } from '../theme.js';
+import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, paintOverviewHead, trackColor } from './overview.js';
+import { withAlpha, onSchemeChange, tokenCache } from '../theme.js';
 import { Loop } from '../objects/motion.js';
+import { heardAt, layer, blit, bandFor, still, paintMarks, paintHead, paintLaneGhost, paintRulerGhost, compositeLane } from './playhead.js';
 import { timedFetch } from '../link.js';
+import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
@@ -259,6 +261,7 @@ export function mountTapePage(ctx) {
         fetchClipboard();
       }
       if (state.tape) {
+        themeChanged(); // what it was painted in may have changed while it was away
         render();
         feedReels();
         if (state.live && state.live.playing && !(state.live.count_in > 0)) playheadLoop.start();
@@ -433,36 +436,38 @@ function apply(s) {
 }
 
 // heardNow interpolates the tape playhead at 60fps between 200ms network polls
-// on the shared ticker, wrapping round the active loop just as the engine does.
+// on the shared ticker, wrapping round the active loop just as the engine does
+// (lib/tape/playhead.js heardAt); on this phone, what its speaker plays.
 function heardNow(now = performance.now()) {
-  const t = state.tape, live = state.live;
-  if (!live) return 0;
-  if (output && output.streamingHere()) {
+  if (state.live && output && output.streamingHere()) {
     const h = output.player.heard();
     if (h) return h.pos;
   }
-  let p = live.heard || 0;
-  if (live.playing && !(live.count_in > 0) && t && state.liveAt > 0) {
-    const dt = Math.max(0, Math.min(0.5, (now - state.liveAt) / 1000));
-    p += dt * (t.sample_rate || 48000);
-    const lp = t.loop;
-    if (lp && lp.on && lp.out > lp.in && live.heard < lp.out && p >= lp.out) {
-      p = lp.in + ((p - lp.in) % (lp.out - lp.in));
-    }
-  }
-  return t ? Math.min(Math.round(p), t.length) : Math.round(p);
+  return heardAt(state.tape, state.live, state.liveAt, now);
 }
 
-const playheadLoop = new Loop((_dt, now) => {
+// playheadFrame is the playhead's step on the shared ticker while the tape
+// plays, every frame: where it is now, the view paged after it if it has run
+// out of it, and the lanes, the ruler and the overview put back from what
+// was painted with the playhead over them (compositeLanes, compositeRuler,
+// compositeOverview). Nothing is drawn afresh in a frame, and nothing is
+// measured: a page turn repaints, once (repaintView). lib/tape/playhead.test.js
+// holds it to that.
+function playheadFrame(now) {
   const t = state.tape, live = state.live;
   if (!viewActive() || !t || !live || !live.playing || live.count_in > 0 || document.hidden) return false;
   const h = heardNow(now);
   followPlayhead(h);
-  drawLanes(h);
-  drawOverview(h);
-  drawRuler(h);
+  const view = laneView();
+  if (!lanesFresh(view)) repaintView(h);
+  syncTimedRows(now);
+  if (ghost && performance.now() >= ghost.until) ghost = null;
+  compositeLanes(h, view);
+  compositeRuler(h);
+  compositeOverview(h);
   return true;
-});
+}
+const playheadLoop = new Loop((_dt, now) => playheadFrame(now));
 
 // feedReels hands the bar's tape source what this poll said: where the tape
 // is, whether it plays, and how to read each track's level at a frame for
@@ -506,8 +511,6 @@ function feedReels() {
   const tracks = heardTracks();
   const anySolo = tracks.some((tr) => tr.solo);
   const peaksOf = (f) => peaks.get(f);
-  const css = getComputedStyle(document.body);
-  const col = (n, d) => css.getPropertyValue(n).trim() || d;
   engine.tape.setLevels(tracks.map((tr) => trackColor(tr.n, col)),
     (frame) => tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)));
   engine.tape.ingest({ tape: t, live });
@@ -575,6 +578,52 @@ function loadPeaks() {
 }
 
 // --- rendering ------------------------------------------------------------------
+
+// The colours the canvases draw in, read once each (lib/theme.js tokenCache):
+// the lanes and the overview read them off the body, the ruler and the
+// sections off the root, as they always have. themeGen counts the times
+// they, or the fonts, changed: a picture painted before is stale.
+const bodyTok = tokenCache(() => document.body);
+const rootTok = tokenCache();
+const col = (n, d) => bodyTok.get(n, d);
+const token = (n, d) => rootTok.get(n, d);
+let themeGen = 0;
+function themeChanged() { bodyTok.clear(); rootTok.clear(); themeGen++; }
+
+// The canvases' sizes (CSS pixels), kept from a ResizeObserver rather than
+// measured each time one is drawn: a measure after a DOM write is a forced
+// layout, and the lanes, the ruler and the overview were measured every
+// frame. A change of size redraws them all, as the lanes and the bar's
+// scrubber change width apart.
+const sizes = new WeakMap();
+let sizeRO = null;
+function watchSize(el) {
+  if (!el) return;
+  sizeRO ||= new ResizeObserver((entries) => {
+    let moved = false;
+    for (const e of entries) {
+      const b = e.borderBoxSize && e.borderBoxSize[0];
+      const w = b ? b.inlineSize : e.contentRect.width, h = b ? b.blockSize : e.contentRect.height;
+      const was = sizes.get(e.target);
+      if (!was || was.w !== w || was.h !== h) { sizes.set(e.target, { w, h }); moved = true; }
+    }
+    if (!moved || !viewActive() || !state.tape) return;
+    drawLanes(); drawOverview(); drawRuler(); drawSections();
+  });
+  sizeRO.observe(el);
+}
+function unwatchSize(el) { sizeRO?.unobserve(el); sizes.delete(el); }
+// sizeOf is a canvas's size: the observer's, or measured once before it has
+// said (a canvas just made).
+function sizeOf(el) {
+  let s = sizes.get(el);
+  if (!s) {
+    const r = el.getBoundingClientRect();
+    s = { w: r.width, h: r.height };
+    sizes.set(el, s);
+  }
+  return s;
+}
 
 function render() {
   const t = state.tape;
@@ -683,7 +732,7 @@ function render() {
   renderClipboard();
   renderRulerKeys();
   renderAlign();
-  drawLanes();
+  refreshLanes();
   drawOverview();
   drawRuler();
   drawSections();
@@ -2208,17 +2257,24 @@ function initEditorBar() {
 
 // --- the ruler -----------------------------------------------------------------
 
+// The ruler is painted, but for the playhead and a locate's marker, into
+// `base`; drawing it puts that back and draws those over it, and so does
+// each frame while the tape plays (compositeRuler), without painting it.
+// `gen` counts the times `base` was painted; `shown` is what the canvas
+// has on it -- which `base`, the playhead and the marker where -- so a
+// frame puts back only the columns the playhead moved over (headBand).
+const ruler = { cv: null, base: null, view: null, W: 0, H: 0, dpr: 1, gen: 0, shown: null };
 function drawRuler(heardFrame = state.live ? heardNow() : null) {
   const t = state.tape;
   if (!t) return;
   const cv = $('tape-ruler');
-  const r = cv.getBoundingClientRect();
+  const { w: W, h: H } = sizeOf(cv);
   const dpr = window.devicePixelRatio || 1;
-  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) {
-    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   }
-  const W = r.width, H = r.height;
-  const ctx = cv.getContext('2d');
+  const base = layer(ruler.base, cv.width, cv.height);
+  const ctx = base.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   const view = laneView();
@@ -2257,18 +2313,30 @@ function drawRuler(heardFrame = state.live ? heardNow() : null) {
     const n = String(b.n);
     if ((b.n - 1) % numbered === 0 && x + 3 + ctx.measureText(n).width <= W) ctx.fillText(n, x + 3, H * 0.3);
   }
-  if (state.live && heardFrame != null) {
-    const x = xOf(heardFrame, view, W);
-    if (x >= 0 && x <= W) { ctx.fillStyle = token('--accent', '#b84a1b'); ctx.fillRect(Math.round(x), 0, 2, H); }
-  }
-  // A locate seen but not yet heard: a hollow marker where the sound will be.
-  if (ghost) {
-    const x = xOf(ghost.pos, view, W);
-    if (x >= 0 && x <= W) {
-      ctx.strokeStyle = token('--accent', '#b84a1b'); ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(x - 5, 1); ctx.lineTo(x + 5, 1); ctx.lineTo(x, 9); ctx.closePath(); ctx.stroke();
-    }
-  }
+  Object.assign(ruler, { cv, base, view: { from: view.from, to: view.to }, W, H, dpr, gen: ruler.gen + 1 });
+  compositeRuler(heardFrame);
+}
+
+// compositeRuler puts the ruler back and draws the playhead over it, then a
+// locate seen but not yet heard: a hollow marker where the sound will be.
+function compositeRuler(heardFrame) {
+  const { cv, base, view, W, H, dpr, gen } = ruler;
+  if (!base) return;
+  // The playhead as the ruler draws it: none off its ends (paintHead).
+  const hx = state.live && heardFrame != null ? xOf(heardFrame, view, W) : null;
+  const x = hx != null && hx >= 0 && hx <= W ? hx : null;
+  const gx = ghost ? xOf(ghost.pos, view, W) : null;
+  const now = { pic: gen, x, gx };
+  const band = bandFor(ruler.shown, now, dpr, cv.width, false);
+  ruler.shown = now;
+  if (still(band)) return;
+  const ctx = cv.getContext('2d');
+  blit(ctx, base, band);
+  const accent = token('--accent', '#b84a1b');
+  paintMarks(ctx, band, dpr, (c) => {
+    if (x != null) paintHead(c, x, W, H, accent);
+    if (gx != null) paintRulerGhost(c, gx, W, accent);
+  });
 }
 
 // Tap the ruler: the playhead to the nearest bar line. Hold, then drag:
@@ -2335,12 +2403,11 @@ function drawSections() {
   const t = state.tape;
   if (!t) return;
   const cv = $('tape-sections');
-  const r = cv.getBoundingClientRect();
+  const { w: W, h: H } = sizeOf(cv);
   const dpr = window.devicePixelRatio || 1;
-  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) {
-    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   }
-  const W = r.width, H = r.height;
   const ctx = cv.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
@@ -2558,8 +2625,11 @@ function redrawView() {
   viewRaf = requestAnimationFrame(() => { viewRaf = 0; drawLanes(); drawRuler(); drawSections(); drawOverview(); renderFit(); });
 }
 
-// Canvases don't restyle themselves when the device turns dark or light.
-onSchemeChange(() => { if (viewActive() && state.tape) redrawView(); });
+// Canvases don't restyle themselves when the device turns dark or light, nor
+// when a web font they write in arrives: forget the colours, and every
+// picture painted with them, and draw again.
+onSchemeChange(() => { themeChanged(); if (viewActive() && state.tape) redrawView(); });
+document.fonts?.addEventListener?.('loadingdone', () => { themeChanged(); if (viewActive() && state.tape) redrawView(); });
 
 function renderFit() { $('view-fit').hidden = !state.zoom; $('rm-fit').hidden = !state.zoom; }
 
@@ -2824,10 +2894,6 @@ function pickInput(n, name) {
   setInput(n, name);
 }
 
-function setText(el, v) {
-  if (el.textContent !== v) el.textContent = v;
-}
-
 function setIf(el, attr, v) {
   if (el.getAttribute(attr) !== v) el.setAttribute(attr, v);
 }
@@ -2839,10 +2905,17 @@ function caughtToast(msg, clip, opts) {
   toast(note ? `${msg} — ${note}` : msg, note ? 'warn' : 'ok', note ? { ...opts, ms: 12000 } : opts);
 }
 
+// passesShown is what the list holds: it's built again only when that
+// changes, not at every poll -- a child put in or taken out restyles most of
+// the page (lib/text.js says why).
+let passesShown = '';
 function renderPasses() {
   const cycles = (state.live && state.live.cycles) || [];
   const recent = cycles.slice(-6);
   const box = $('passes');
+  const shown = JSON.stringify([recent.map((c) => c.out), onWords(state.recTracks)]);
+  if (shown === passesShown && box.firstChild) return;
+  passesShown = shown;
   box.replaceChildren(...recent.map((c, i) => {
     const k = recent.length - i; // 1 is the last one
     const b = document.createElement('button');
@@ -2874,6 +2947,7 @@ function buildLanes() {
     if (inputMenu) closeMenus(); // its chip is going
     lanesAbort?.abort();
     lanesAbort = new AbortController();
+    for (const l of lanes) unwatchSize(l.canvas);
     box.replaceChildren();
     lanes.length = 0;
     for (const tr of t.tracks) {
@@ -2901,13 +2975,19 @@ function buildLanes() {
         name: row.querySelector('.tt-name'),
         arm: row.querySelector('.tt-arm'),
         input: row.querySelector('.tt-in'),
+        inputText: row.querySelector('.tt-in-v'),
         mute: row.querySelector('.tt-mute'),
         solo: row.querySelector('.tt-solo'),
         pend: row.querySelector('.tt-pend'),
         gain: row.querySelector('.tt-gain'),
         canvas: row.querySelector('.tt-lane'),
         warn: null,
+        drawn: null,         // what the canvas holds, painted straight (lanesDraw)
+        layers: null,        // its layers while the tape plays: {key, unlit, lit, W, H, dpr}
+        shown: null,         // what compositeLaneAt last put back: {pic, x, gx} (bandFor)
+        pendingShown: false, // its head shows a mute or solo not heard yet
       };
+      watchSize(lane.canvas);
       // Tap a track's name to select it, and make it the record track if one
       // is armed; tap it again for its inspector. From the keyboard (a click
       // with no detail) the inspector takes the keys.
@@ -3162,14 +3242,14 @@ function drawRange(ctx, r, view, W, H, c, drawing) {
   }
 }
 
-function drawLanes(heardFrame = state.live ? heardNow() : null) {
-  const t = shownTape();
-  if (!t) return;
-  const view = laneView();
-  const css = getComputedStyle(document.body);
-  const col = (n, d) => css.getPropertyValue(n).trim() || d;
+// syncLaneRows puts the tracks' state on their heads: selected, armed, its
+// input and its lamp, mute and solo, dimmed until a change is heard, its
+// level. Each is written only when it changes: a write before a canvas is
+// measured, or a style read, is a forced layout, and this ran every frame.
+function syncLaneRows(t) {
   const heardTr = heardTracks();
   const heardSolo = heardTr.some((x) => x.solo);
+  const now = performance.now();
   for (const lane of lanes) {
     const tr = t.tracks[lane.n - 1];
     if (!tr) continue;
@@ -3177,9 +3257,9 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
     lane.row.classList.toggle('rec', state.recTracks.includes(lane.n));
     // The number is in its ring; the masking tape carries the name, blank until
     // there is one, as a strip waiting to be written on.
-    lane.name.textContent = tr.name || '';
-    lane.name.setAttribute('aria-label', `Track ${tr.n}${tr.name ? `, ${tr.name}` : ''}`);
-    lane.name.title = tr.name ? `${tr.n} ${tr.name}` : `Track ${tr.n}`;
+    setText(lane.name, tr.name || '');
+    setIf(lane.name, 'aria-label', `Track ${tr.n}${tr.name ? `, ${tr.name}` : ''}`);
+    setIf(lane.name, 'title', tr.name ? `${tr.n} ${tr.name}` : `Track ${tr.n}`);
     // ● lit on the record track; the input it records from, with a lamp
     // while there's signal on it.
     const armed = state.recTracks.includes(lane.n);
@@ -3191,232 +3271,360 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
     const src = state.sources.find((x) => x.name === inName);
     // What's drawn into its jack on the rig: "guitar".
     const named = src && src.label ? src.label : '';
-    setText(lane.input.querySelector('.tt-in-v'), named || inName || '–');
+    setText(lane.inputText, named || inName || '–');
     lane.input.classList.toggle('signal', !!src && typeof src.peak_db === 'number' && src.peak_db > -50);
     setIf(lane.input, 'aria-label', `Track ${tr.n} records from ${inName || 'nothing yet'}${named ? ` (${named})` : ''}: choose its input`);
     if (lane.warn) {
       const why = recordsTape(tr.n, state.recTracks, state.sources, inputOf);
-      lane.warn.hidden = !why;
+      if (lane.warn.hidden !== !why) lane.warn.hidden = !why;
       if (why && lane.warn.title !== why) {
         lane.warn.title = why;
         lane.warn.setAttribute('aria-label', why);
       }
     }
-    lane.mute.setAttribute('aria-pressed', String(!!tr.mute));
-    lane.solo.setAttribute('aria-pressed', String(!!tr.solo));
+    setIf(lane.mute, 'aria-pressed', String(!!tr.mute));
+    setIf(lane.solo, 'aria-pressed', String(!!tr.solo));
     // The keys show the ask; the lane dims with the sound, until it is heard.
     const ht = heardTr.find((x) => x.n === tr.n);
-    const isPending = pending.pending(tr.n, performance.now());
+    const isPending = pending.pending(tr.n, now);
+    lane.pendingShown = isPending;
     lane.row.classList.toggle('unheard', !!ht && (ht.mute || (heardSolo && !ht.solo)));
     lane.row.classList.toggle('pending', isPending);
-    lane.pend.hidden = !isPending;
-    if (isPending) lane.pend.textContent = `in ${(output.player.delayMs() / 1000).toFixed(1)} s`;
-    if (!lane.gain.dataset.busy) lane.gain.value = String(tr.gain_db);
-    lane.gain.title = `${tr.gain_db} dB`;
+    if (lane.pend.hidden !== !isPending) lane.pend.hidden = !isPending;
+    if (isPending) setText(lane.pend, `in ${(output.player.delayMs() / 1000).toFixed(1)} s`);
+    const gain = String(tr.gain_db);
+    if (!lane.gain.dataset.busy && lane.gain.value !== gain) lane.gain.value = gain;
+    setIf(lane.gain, 'title', `${tr.gain_db} dB`);
+  }
+}
 
+// syncTimedRows, each frame the tape plays: a mute or solo pressed on this
+// phone dims its lane when it's heard, which is time passing and not a poll.
+// The heads are written again only when one of those has come due.
+function syncTimedRows(now) {
+  for (const lane of lanes) {
+    if (lane.pendingShown && !pending.pending(lane.n, now)) { syncLaneRows(shownTape()); return; }
+  }
+}
+
+// drawLanes draws the lanes now: their heads, and their canvases from the
+// tape as it is (or as a previewed edit would leave it). Stopped, each is
+// painted straight onto its canvas, the playhead with it. While the tape
+// plays, each is painted twice instead, as layers (lib/tape/playhead.js
+// compositeLane): as if none of it had played, and as if all of it had, its
+// parts' bars lit; each frame then cuts the two at the playhead and draws
+// the playhead over them, and the lanes themselves are painted again only
+// when what they show changes. refreshLanes is the poll's: a lane whose
+// picture would come out the same (laneKey) is left as it is.
+function drawLanes(heardFrame = state.live ? heardNow() : null) { lanesDraw(heardFrame, false); }
+function refreshLanes() { lanesDraw(state.live ? heardNow() : null, true); }
+
+// lanesView is the view the lanes' layers were painted for (null: they
+// aren't): a frame whose view is another repaints first (playheadFrame).
+let lanesView = null;
+function lanesDraw(heardFrame, lazy) {
+  const t = shownTape();
+  if (!t) return;
+  syncLaneRows(t);
+  const view = laneView();
+  const layered = playheadLoop.running && !!state.live && state.live.playing;
+  const dpr = window.devicePixelRatio || 1;
+  const accent = col('--accent', '#b84a1b');
+  for (const lane of lanes) {
+    const tr = t.tracks[lane.n - 1];
+    if (!tr) continue;
     const cv = lane.canvas;
-    const r = cv.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) {
-      cv.width = Math.round(r.width * dpr);
-      cv.height = Math.round(r.height * dpr);
+    const { w: W, h: H } = sizeOf(cv);
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+      cv.width = Math.round(W * dpr);
+      cv.height = Math.round(H * dpr);
+      lane.drawn = null;
     }
-    const W = r.width, H = r.height;
-    const ctx = cv.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    // The loop, a faint amber band across every lane.
-    if (t.loop && t.loop.out > t.loop.in) {
-      const lx0 = xOf(t.loop.in, view, W), lx1 = xOf(t.loop.out, view, W);
-      ctx.fillStyle = withAlpha(col('--warn', '#d99a0a'), t.loop.on ? 0.07 : 0.03);
-      ctx.fillRect(lx0, 0, Math.max(0, lx1 - lx0), H);
+    const key = laneKey(lane, t, tr, view, W, H, dpr);
+    if (!layered) {
+      const heard = state.live && heardFrame != null ? xOf(heardFrame, view, W) : null;
+      const gx = ghost && performance.now() < ghost.until ? xOf(ghost.pos, view, W) : null;
+      const drawn = `${key}|${heard}|${gx}`;
+      if (lazy && lane.drawn === drawn) continue;
+      const ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      paintLane(ctx, lane, t, tr, view, W, H, dpr, heard);
+      // The playhead: what the device is playing now; then a locate not
+      // yet heard, a dashed line where the sound will be.
+      if (heard != null) paintHead(ctx, heard, W, H, accent);
+      if (gx != null) paintLaneGhost(ctx, gx, W, H, accent);
+      lane.drawn = drawn;
+      lane.layers = null;
+      continue;
     }
-    // Bar lines, thinned as the ruler's are when zoomed out.
-    for (const b of barLines(t.grid, view, barEvery(barPx(t.grid, view, W), 4))) {
-      const x = Math.round(xOf(b.frame, view, W));
-      ctx.fillStyle = col('--well-rule', 'rgba(242,230,200,.14)');
-      ctx.fillRect(x, 0, 1, H);
+    if (!lazy || !lane.layers || lane.layers.key !== key) {
+      const unlit = layer(lane.layers && lane.layers.unlit, cv.width, cv.height);
+      const lit = layer(lane.layers && lane.layers.lit, cv.width, cv.height);
+      for (const [c, heard] of [[unlit, null], [lit, Infinity]]) {
+        const ctx = c.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, W, H);
+        paintLane(ctx, lane, t, tr, view, W, H, dpr, heard);
+      }
+      lane.layers = { key, unlit, lit, W, H, dpr };
     }
-    // Clips, base layer first: each a rounded block in the track's colour
-    // with rounded bars inside (lib/tape/blocks.js), lit where it has played,
-    // and a label when it's wide enough. A layer over another is fainter.
-    const tc = trackColor(lane.n, col);
-    const ink = col('--well-ink', '#f2e6c8');
-    const mono = col('--mono', 'ui-monospace, monospace');
-    const heard = state.live && heardFrame != null ? xOf(heardFrame, view, W) : null;
-    lane.hits = [];
-    const labels = [];
-    const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
-    const al = state.align;
-    for (const stored of sorted) {
-      // The clip being aligned is drawn where the editor has it, which runs
-      // ahead of the stored one through a gesture.
-      const aligning = !!al && stored.id === al.clipId;
-      // A clip being trimmed is drawn with its edge where the grip has it.
-      const tm = state.trim && state.trim.clip.id === stored.id ? state.trim : null;
-      const c = aligning ? { ...stored, at: al.at } : tm ? trimmed(stored, tm.edge, tm.at) : stored;
-      const nudge = nudgeFrames(c, t.sample_rate);
-      const x0 = xOf(c.at + nudge, view, W), x1 = xOf(c.at + nudge + c.frames, view, W);
-      if (x1 < 0 || x0 > W) continue;
-      const top = 2 + Math.min(c.layer, 3) * 3, h = H - 4 - Math.min(c.layer, 3) * 3;
-      const bw = Math.max(1, x1 - x0);
-      const radius = Math.min(6, bw / 2, h / 2);
-      const block = () => { ctx.beginPath(); roundRectPath(ctx, x0 + 0.75, top + 0.75, Math.max(0.5, bw - 1.5), h - 1.5, radius); };
-      if (tm) drawTrimReach(ctx, stored, tm, view, W, top, h, tc, x0, x1);
-      if (stored.ghost) { drawGhost(ctx, x0, bw, top, h, tc); continue; } // an Insert's clipboard, previewed
-      // One being slid stays where it is, faint, until it lands.
-      const sliding = state.slide && (state.slide.clip.id === c.id || (state.slide.group && state.slide.group.some((g) => g.id === c.id)));
-      ctx.globalAlpha = sliding ? 0.35 : 1;
-      block();
-      ctx.fillStyle = withAlpha(tc, c.layer ? 0.1 : 0.16);
-      ctx.fill();
-      const pd = peaks.get(c.file);
-      const ready = pd && !(pd instanceof Promise);
-      if (ready && bw > 8 && needsDetail(c, pd, view, W)) {
-        // Deep in: the stretch of the file on screen as a trace, from range
-        // peaks (the coarser level shows while a tile loads), one lane a channel.
-        const xa = Math.max(0, x0), xb = Math.min(W, x1);
-        const fv = fileView(c, view, W, t.sample_rate);
-        const { cols, channels } = tilesOf(c.file, pd).columns({ start: fv.start + xa * fv.fpp, fpp: fv.fpp, width: xb - xa }, dpr);
-        const laneCh = laneChannels(channels);
-        const laneH = h / laneCh.length;
-        const gain = gainOf(c.file, pd);
-        ctx.save();
+    lane.drawn = null;
+    compositeLaneAt(lane, heardFrame, view);
+  }
+  lanesView = layered ? { from: view.from, to: view.to } : null;
+}
+
+// compositeLanes puts every lane back for a frame, from its layers.
+function compositeLanes(heardFrame, view) {
+  for (const lane of lanes) compositeLaneAt(lane, heardFrame, view);
+}
+
+// compositeLaneAt puts one lane back: all of it after its layers were
+// painted, else the columns the playhead moved over since the last frame
+// (lane.shown: the layers, the playhead and a locate's line it last put
+// back; bandFor).
+function compositeLaneAt(lane, heardFrame, view) {
+  const ly = lane.layers;
+  if (!ly) return;
+  const x = state.live && heardFrame != null ? xOf(heardFrame, view, ly.W) : null;
+  const gx = ghost && performance.now() < ghost.until ? xOf(ghost.pos, view, ly.W) : null;
+  const now = { pic: ly, x, gx };
+  const band = bandFor(lane.shown, now, ly.dpr, lane.canvas.width);
+  lane.shown = now;
+  if (still(band)) return;
+  compositeLane(lane.canvas.getContext('2d'), ly, x, { W: ly.W, H: ly.H, dpr: ly.dpr, accent: col('--accent', '#b84a1b'), ghostX: gx, band });
+}
+
+// lanesFresh says what was painted for the lanes, the ruler and the
+// overview is for this view: else a frame repaints them first.
+function lanesFresh(view) {
+  const same = (v) => !!v && v.from === view.from && v.to === view.to;
+  return same(lanesView) && same(ruler.view) && same(overview.view);
+}
+
+// repaintView repaints all the view moves, at once: the playhead has paged
+// it (followPlayhead), or the tape has just started and nothing is in
+// layers yet. Once, not a frame.
+function repaintView(h) {
+  drawLanes(h);
+  drawRuler(h);
+  drawSections();
+  drawOverview(h);
+}
+
+// laneKey is everything a lane's picture is drawn from but the playhead and
+// a locate's dashed line: two lanes with the same key are the same picture.
+// Gestures redraw at once (drawLanes); this is what lets the poll's redraw
+// and the frames leave a lane be.
+function laneKey(lane, t, tr, view, W, H, dpr) {
+  const pv = state.preview, rd = state.rangeDrag;
+  return JSON.stringify([
+    W, H, dpr, themeGen, view.from, view.to,
+    tr, t.loop, t.grid, t.sample_rate,
+    state.align, state.trim, state.slide, state.fade, state.repeat,
+    state.clip && state.clip.id, state.picked, state.multi && [...state.multi],
+    pv && [pv.kind, pv.from, pv.to, pv.track, pv.tracks],
+    rd ? rd.r : state.range, !!rd,
+    recMarks(lane.n),
+  ]);
+}
+
+// recMarks is what a lane's record marks are drawn from (drawPunch,
+// drawLanding): the punch going onto it, or where one would land.
+function recMarks(n) {
+  const t = state.tape, live = state.live;
+  if (!t || !live) return null;
+  const rec = state.rec;
+  if (rec && (rec.tracks || [rec.track]).includes(n)) {
+    return ['punch', rec, live.heardEngine ?? live.heard, live.record, t.loop.on && live.record ? fullPasses(live.cycles, live.record.from) : 0];
+  }
+  if (!state.recTracks.includes(n)) return null;
+  if (state.catchHover && t.loop.on && t.loop.out > t.loop.in && (live.cycles || []).length) return ['pass', inputOf(n)];
+  if (live.playing && t.grid && !live.record) return ['next', landingAt(t, live)];
+  return null;
+}
+
+// paintLane paints one lane's canvas, but for the playhead: the loop, the
+// bar lines, the parts, and what's being done to them. `heard` is the
+// playhead's x: a part's bars are lit left of it (null: none are; Infinity:
+// all are, for the lit layer).
+function paintLane(ctx, lane, t, tr, view, W, H, dpr, heard) {
+  ctx.lineWidth = 1;
+  // The loop, a faint amber band across every lane.
+  if (t.loop && t.loop.out > t.loop.in) {
+    const lx0 = xOf(t.loop.in, view, W), lx1 = xOf(t.loop.out, view, W);
+    ctx.fillStyle = withAlpha(col('--warn', '#d99a0a'), t.loop.on ? 0.07 : 0.03);
+    ctx.fillRect(lx0, 0, Math.max(0, lx1 - lx0), H);
+  }
+  // Bar lines, thinned as the ruler's are when zoomed out.
+  for (const b of barLines(t.grid, view, barEvery(barPx(t.grid, view, W), 4))) {
+    const x = Math.round(xOf(b.frame, view, W));
+    ctx.fillStyle = col('--well-rule', 'rgba(242,230,200,.14)');
+    ctx.fillRect(x, 0, 1, H);
+  }
+  // Clips, base layer first: each a rounded block in the track's colour
+  // with rounded bars inside (lib/tape/blocks.js), lit where it has played,
+  // and a label when it's wide enough. A layer over another is fainter.
+  const tc = trackColor(lane.n, col);
+  const ink = col('--well-ink', '#f2e6c8');
+  const mono = col('--mono', 'ui-monospace, monospace');
+  lane.hits = [];
+  const labels = [];
+  const sorted = [...tr.clips].sort((a, b) => a.layer - b.layer);
+  const al = state.align;
+  for (const stored of sorted) {
+    // The clip being aligned is drawn where the editor has it, which runs
+    // ahead of the stored one through a gesture.
+    const aligning = !!al && stored.id === al.clipId;
+    // A clip being trimmed is drawn with its edge where the grip has it.
+    const tm = state.trim && state.trim.clip.id === stored.id ? state.trim : null;
+    const c = aligning ? { ...stored, at: al.at } : tm ? trimmed(stored, tm.edge, tm.at) : stored;
+    const nudge = nudgeFrames(c, t.sample_rate);
+    const x0 = xOf(c.at + nudge, view, W), x1 = xOf(c.at + nudge + c.frames, view, W);
+    if (x1 < 0 || x0 > W) continue;
+    const top = 2 + Math.min(c.layer, 3) * 3, h = H - 4 - Math.min(c.layer, 3) * 3;
+    const bw = Math.max(1, x1 - x0);
+    const radius = Math.min(6, bw / 2, h / 2);
+    const block = () => { ctx.beginPath(); roundRectPath(ctx, x0 + 0.75, top + 0.75, Math.max(0.5, bw - 1.5), h - 1.5, radius); };
+    if (tm) drawTrimReach(ctx, stored, tm, view, W, top, h, tc, x0, x1);
+    if (stored.ghost) { drawGhost(ctx, x0, bw, top, h, tc); continue; } // an Insert's clipboard, previewed
+    // One being slid stays where it is, faint, until it lands.
+    const sliding = state.slide && (state.slide.clip.id === c.id || (state.slide.group && state.slide.group.some((g) => g.id === c.id)));
+    ctx.globalAlpha = sliding ? 0.35 : 1;
+    block();
+    ctx.fillStyle = withAlpha(tc, c.layer ? 0.1 : 0.16);
+    ctx.fill();
+    const pd = peaks.get(c.file);
+    const ready = pd && !(pd instanceof Promise);
+    if (ready && bw > 8 && needsDetail(c, pd, view, W)) {
+      // Deep in: the stretch of the file on screen as a trace, from range
+      // peaks (the coarser level shows while a tile loads), one lane a channel.
+      const xa = Math.max(0, x0), xb = Math.min(W, x1);
+      const fv = fileView(c, view, W, t.sample_rate);
+      const { cols, channels } = tilesOf(c.file, pd).columns({ start: fv.start + xa * fv.fpp, fpp: fv.fpp, width: xb - xa }, dpr);
+      const laneCh = laneChannels(channels);
+      const laneH = h / laneCh.length;
+      const gain = gainOf(c.file, pd);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(xa, top, xb - xa, h);
+      ctx.clip();
+      const lit = heard != null && heard > xa;
+      const drawn = laneCh.map((ch, i) => {
+        const lv = levelsOfColumns(cols, channels, ch);
+        const opts = { cy: top + laneH * (i + 0.5), half: Math.max(1, laneH / 2 - 4), gain, x0: xa };
+        const lines = traceLines(lv, lv, opts);
+        drawTrace(ctx, null, null, { ...opts, lines, line: withAlpha(tc, c.layer ? 0.4 : 0.55) });
+        return { opts, lines };
+      });
+      if (lit) {
         ctx.beginPath();
-        ctx.rect(xa, top, xb - xa, h);
+        ctx.rect(xa, top, Math.min(heard, xb) - xa, h);
         ctx.clip();
-        const lit = heard != null && heard > xa;
-        const drawn = laneCh.map((ch, i) => {
-          const lv = levelsOfColumns(cols, channels, ch);
-          const opts = { cy: top + laneH * (i + 0.5), half: Math.max(1, laneH / 2 - 4), gain, x0: xa };
-          const lines = traceLines(lv, lv, opts);
-          drawTrace(ctx, null, null, { ...opts, lines, line: withAlpha(tc, c.layer ? 0.4 : 0.55) });
-          return { opts, lines };
-        });
-        if (lit) {
-          ctx.beginPath();
-          ctx.rect(xa, top, Math.min(heard, xb) - xa, h);
-          ctx.clip();
-          for (const { opts, lines } of drawn) {
-            drawTrace(ctx, null, null, { ...opts, lines, line: tc, fillAlpha: 0.14, width: 1.3, glow: [{ color: withAlpha(tc, 0.7), blur: 4 }] });
-          }
+        for (const { opts, lines } of drawn) {
+          drawTrace(ctx, null, null, { ...opts, lines, line: tc, fillAlpha: 0.14, width: 1.3, glow: [{ color: withAlpha(tc, 0.7), blur: 4 }] });
         }
-        ctx.restore();
-      } else if (ready && bw > 8) {
-        const lv = blockLevels(pd, c, bw);
-        const bars = { x0: x0 + 4, pitch: 4, cy: top + h / 2 + 3, half: Math.max(1, h / 2 - 12), gain: gainOf(c.file, pd), width: 2.2 };
-        ctx.save();
+      }
+      ctx.restore();
+    } else if (ready && bw > 8) {
+      const lv = blockLevels(pd, c, bw);
+      const bars = { x0: x0 + 4, pitch: 4, cy: top + h / 2 + 3, half: Math.max(1, h / 2 - 12), gain: gainOf(c.file, pd), width: 2.2 };
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x0, top, bw, h);
+      ctx.clip();
+      drawBars(ctx, lv, { ...bars, color: withAlpha(tc, c.layer ? 0.4 : 0.55) });
+      if (heard != null && heard > x0) {
         ctx.beginPath();
-        ctx.rect(x0, top, bw, h);
+        ctx.rect(x0, top, Math.min(heard, x1) - x0, h);
         ctx.clip();
-        drawBars(ctx, lv, { ...bars, color: withAlpha(tc, c.layer ? 0.4 : 0.55) });
-        if (heard != null && heard > x0) {
-          ctx.beginPath();
-          ctx.rect(x0, top, Math.min(heard, x1) - x0, h);
-          ctx.clip();
-          ctx.shadowColor = withAlpha(tc, 0.7);
-          ctx.shadowBlur = 4 * dpr;
-          drawBars(ctx, lv, { ...bars, color: tc });
-        }
-        ctx.restore();
+        ctx.shadowColor = withAlpha(tc, 0.7);
+        ctx.shadowBlur = 4 * dpr;
+        drawBars(ctx, lv, { ...bars, color: tc });
       }
-      // A fade being dragged is drawn where its handle has it.
-      const fd = state.fade && state.fade.clip.id === stored.id ? state.fade : null;
-      const fc = fd ? { ...c, [fd.key]: fd.len, [fd.otherKey]: fd.other } : c;
-      drawFades(ctx, fc, view, W, x0, x1, top, h, ink, withAlpha(col('--well', '#161718'), 0.6));
-      const fades = clipFades(fc);
-      const fi = (fades.fadeIn / (view.to - view.from)) * W, fo = (fades.fadeOut / (view.to - view.from)) * W;
-      if (labelFits(bw)) {
-        const label = clipLabel(stored, tr);
-        ctx.save();
-        ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
-        const lw = label ? Math.min(bw - 12, ctx.measureText(label).width) : 0;
-        if (label && placeLabel(labels, { x: x0 + 6, y: top + 4, w: lw, h: 11 })) {
-          ctx.textBaseline = 'top';
-          ctx.shadowColor = 'rgba(0,0,0,.9)';
-          ctx.shadowBlur = 3 * dpr;
-          ctx.fillStyle = withAlpha(ink, 0.85);
-          ctx.fillText(label, x0 + 6, top + 4, bw - 12);
-        }
-        ctx.restore();
-      }
-      const picked = (state.clip && state.clip.id === c.id) || aligning || state.picked === c.id || (state.multi && state.multi.has(c.id));
-      ctx.lineWidth = picked ? 2 : 1.5;
-      ctx.strokeStyle = picked ? ink : tc;
-      block();
-      ctx.stroke();
-      ctx.lineWidth = 1;
-      ctx.globalAlpha = 1;
-      if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#d99a0a'), tm, mono, { fi, fo, fd });
-      lane.hits.push({ x0, x1, top, h, clip: stored, fi, fo });
-      // The hit the editor follows: a line across the lane.
-      if (aligning) {
-        const x = Math.round(xOf(soundingAt(c, t.sample_rate) + al.hitOff, view, W));
-        if (x >= 0 && x <= W) { ctx.fillStyle = ink; ctx.fillRect(x, 0, 1, H); }
-      }
+      ctx.restore();
     }
-    // A ⟳ corner being dragged: its copies, over everything else on the lane.
-    const rp = state.repeat;
-    const rclip = rp && rp.n === lane.n ? tr.clips.find((x) => x.id === rp.clip.id) : null;
-    if (rclip) {
-      const k = Math.min(rclip.layer, 3) * 3;
-      drawRepeats(ctx, rclip, rp, view, W, 2 + k, H - 4 - k, tc, ink, mono);
-    }
-    if (state.preview) drawPreview(ctx, state.preview, lane.n, view, W, H, col);
-    // The range, on the lanes it covers: the one being drawn, or the one made.
-    const rg = state.rangeDrag ? state.rangeDrag.r : state.range;
-    if (covers(rg, lane.n)) drawRange(ctx, rg, view, W, H, col('--sel', '#4ebeb4'), !!state.rangeDrag);
-    // The hit Hit → Track lined it up against, dashed, where its clip is now.
-    const rh = al && al.refHit;
-    const rc = rh && rh.track === lane.n && al.ref === lane.n ? tr.clips.find((x) => x.id === rh.clipId) : null;
-    if (rc) {
-      const x = Math.round(xOf(toTape(rc, rh.k, t.sample_rate), view, W)) + 0.5;
-      if (x >= 0 && x <= W) {
-        ctx.strokeStyle = ink;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-        ctx.setLineDash([]);
+    // A fade being dragged is drawn where its handle has it.
+    const fd = state.fade && state.fade.clip.id === stored.id ? state.fade : null;
+    const fc = fd ? { ...c, [fd.key]: fd.len, [fd.otherKey]: fd.other } : c;
+    drawFades(ctx, fc, view, W, x0, x1, top, h, ink, withAlpha(col('--well', '#161718'), 0.6));
+    const fades = clipFades(fc);
+    const fi = (fades.fadeIn / (view.to - view.from)) * W, fo = (fades.fadeOut / (view.to - view.from)) * W;
+    if (labelFits(bw)) {
+      const label = clipLabel(stored, tr);
+      ctx.save();
+      ctx.font = `10px ${col('--mono', 'ui-monospace, monospace')}`;
+      const lw = label ? Math.min(bw - 12, ctx.measureText(label).width) : 0;
+      if (label && placeLabel(labels, { x: x0 + 6, y: top + 4, w: lw, h: 11 })) {
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0,0,0,.9)';
+        ctx.shadowBlur = 3 * dpr;
+        ctx.fillStyle = withAlpha(ink, 0.85);
+        ctx.fillText(label, x0 + 6, top + 4, bw - 12);
       }
+      ctx.restore();
     }
-    if (state.rec && (state.rec.tracks || [state.rec.track]).includes(lane.n)) drawPunch(ctx, view, W, H, col);
-    else if (state.recTracks.includes(lane.n)) drawLanding(ctx, view, W, H, col, lane.n);
-    // A clip being slid: where it would land, on the lane it's over; or each
-    // of a group, on the lane it goes to.
-    const sl = state.slide;
-    const landing = !sl ? [] : sl.group
-      ? sl.group.filter((g) => g.track + sl.dtrack === lane.n).map((g) => ({ clip: g, at: g.at + sl.dt }))
-      : sl.to === lane.n ? [{ clip: sl.clip, at: sl.at }] : [];
-    for (const { clip: lc, at: lat } of landing) {
-      const from = lat + nudgeFrames(lc, t.sample_rate); // where it'll sound, as the clip itself is drawn
-      const x0 = xOf(from, view, W), x1 = xOf(from + lc.frames, view, W);
-      const warn = col('--warn', '#d99a0a');
-      ctx.fillStyle = withAlpha(warn, 0.22);
-      ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
-      ctx.strokeStyle = warn;
-      ctx.setLineDash([4, 3]);
-      ctx.strokeRect(x0 + 0.5, 1.5, Math.max(1, x1 - x0) - 1, H - 3);
+    const picked = (state.clip && state.clip.id === c.id) || aligning || state.picked === c.id || (state.multi && state.multi.has(c.id));
+    ctx.lineWidth = picked ? 2 : 1.5;
+    ctx.strokeStyle = picked ? ink : tc;
+    block();
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 1;
+    if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#d99a0a'), tm, mono, { fi, fo, fd });
+    lane.hits.push({ x0, x1, top, h, clip: stored, fi, fo });
+    // The hit the editor follows: a line across the lane.
+    if (aligning) {
+      const x = Math.round(xOf(soundingAt(c, t.sample_rate) + al.hitOff, view, W));
+      if (x >= 0 && x <= W) { ctx.fillStyle = ink; ctx.fillRect(x, 0, 1, H); }
+    }
+  }
+  // A ⟳ corner being dragged: its copies, over everything else on the lane.
+  const rp = state.repeat;
+  const rclip = rp && rp.n === lane.n ? tr.clips.find((x) => x.id === rp.clip.id) : null;
+  if (rclip) {
+    const k = Math.min(rclip.layer, 3) * 3;
+    drawRepeats(ctx, rclip, rp, view, W, 2 + k, H - 4 - k, tc, ink, mono);
+  }
+  if (state.preview) drawPreview(ctx, state.preview, lane.n, view, W, H, col);
+  // The range, on the lanes it covers: the one being drawn, or the one made.
+  const rg = state.rangeDrag ? state.rangeDrag.r : state.range;
+  if (covers(rg, lane.n)) drawRange(ctx, rg, view, W, H, col('--sel', '#4ebeb4'), !!state.rangeDrag);
+  // The hit Hit → Track lined it up against, dashed, where its clip is now.
+  const rh = al && al.refHit;
+  const rc = rh && rh.track === lane.n && al.ref === lane.n ? tr.clips.find((x) => x.id === rh.clipId) : null;
+  if (rc) {
+    const x = Math.round(xOf(toTape(rc, rh.k, t.sample_rate), view, W)) + 0.5;
+    if (x >= 0 && x <= W) {
+      ctx.strokeStyle = ink;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = warn;
-      ctx.font = `11px ${col('--mono', 'ui-monospace, monospace')}`;
-      ctx.textBaseline = 'top';
-      ctx.fillText(t.grid ? barBeat(lat, t.grid) : fmtSecs(lat, t.sample_rate), Math.max(2, x0 + 4), 4);
     }
-    // The playhead: what the device is playing now.
-    if (state.live && heard != null) {
-      if (heard >= 0 && heard <= W) {
-        ctx.fillStyle = col('--accent', '#b84a1b');
-        ctx.fillRect(Math.round(heard), 0, 2, H);
-      }
-    }
-    // A locate not yet heard: a dashed line where the sound will be.
-    if (ghost && performance.now() < ghost.until) {
-      const gx = xOf(ghost.pos, view, W);
-      if (gx >= 0 && gx <= W) {
-        ctx.strokeStyle = col('--accent', '#b84a1b'); ctx.lineWidth = 1.6; ctx.setLineDash([4, 4]);
-        ctx.beginPath(); ctx.moveTo(Math.round(gx) + 0.5, 0); ctx.lineTo(Math.round(gx) + 0.5, H); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
+  }
+  if (state.rec && (state.rec.tracks || [state.rec.track]).includes(lane.n)) drawPunch(ctx, view, W, H, col);
+  else if (state.recTracks.includes(lane.n)) drawLanding(ctx, view, W, H, col, lane.n);
+  // A clip being slid: where it would land, on the lane it's over; or each
+  // of a group, on the lane it goes to.
+  const sl = state.slide;
+  const landing = !sl ? [] : sl.group
+    ? sl.group.filter((g) => g.track + sl.dtrack === lane.n).map((g) => ({ clip: g, at: g.at + sl.dt }))
+    : sl.to === lane.n ? [{ clip: sl.clip, at: sl.at }] : [];
+  for (const { clip: lc, at: lat } of landing) {
+    const from = lat + nudgeFrames(lc, t.sample_rate); // where it'll sound, as the clip itself is drawn
+    const x0 = xOf(from, view, W), x1 = xOf(from + lc.frames, view, W);
+    const warn = col('--warn', '#d99a0a');
+    ctx.fillStyle = withAlpha(warn, 0.22);
+    ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
+    ctx.strokeStyle = warn;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(x0 + 0.5, 1.5, Math.max(1, x1 - x0) - 1, H - 3);
+    ctx.setLineDash([]);
+    ctx.fillStyle = warn;
+    ctx.font = `11px ${col('--mono', 'ui-monospace, monospace')}`;
+    ctx.textBaseline = 'top';
+    ctx.fillText(t.grid ? barBeat(lat, t.grid) : fmtSecs(lat, t.sample_rate), Math.max(2, x0 + 4), 4);
   }
 }
 
@@ -3634,12 +3842,7 @@ function drawLanding(ctx, view, W, H, col, n = state.recTrack) {
     ctx.strokeRect(x0 + 0.75, 1, Math.max(1, x1 - x0) - 1.5, H - 2);
     ctx.fillText(`the last pass, from ${inputOf(n)}`, Math.max(2, x0 + 6), H - 16);
   } else if (live.playing && t.grid && !live.record) {
-    const bar = t.grid.frames / t.grid.bars;
-    const heard = live.heardEngine ?? live.heard;
-    const passed = Math.floor(heard / bar) * bar;
-    let next = heard - passed < 0.25 * t.sample_rate ? passed : passed + bar;
-    if (t.loop.on && t.loop.out > t.loop.in && heard < t.loop.out && next >= t.loop.out) next = t.loop.in;
-    const x = Math.round(xOf(next, view, W)) + 0.5;
+    const x = Math.round(xOf(landingAt(t, live), view, W)) + 0.5;
     if (x > 0 && x < W) {
       ctx.globalAlpha = 0.7;
       ctx.beginPath();
@@ -3648,6 +3851,18 @@ function drawLanding(ctx, view, W, H, col, n = state.recTrack) {
     }
   }
   ctx.restore();
+}
+
+// landingAt is the bar line where ● would start a punch, playing: the next,
+// or the one just passed under a quarter second ago; the loop's In after its
+// last bar.
+function landingAt(t, live) {
+  const bar = t.grid.frames / t.grid.bars;
+  const heard = live.heardEngine ?? live.heard;
+  const passed = Math.floor(heard / bar) * bar;
+  let next = heard - passed < 0.25 * t.sample_rate ? passed : passed + bar;
+  if (t.loop.on && t.loop.out > t.loop.in && heard < t.loop.out && next >= t.loop.out) next = t.loop.in;
+  return next;
 }
 
 // drawPunch draws a punch recording onto its lane: the span this pass has
@@ -3695,21 +3910,41 @@ function drawPunch(ctx, view, W, H, col) {
   ctx.restore();
 }
 
+// The overview, like the ruler: painted but for the playhead into `base`,
+// which each frame puts back with the playhead over it (compositeOverview),
+// where it moved.
+const overview = { cv: null, base: null, view: null, W: 0, H: 0, dpr: 1, gen: 0, shown: null };
 function drawOverview(heardFrame = state.live ? heardNow() : null) {
   const t = state.tape;
   if (!t) return;
   const cv = $('tape-overview');
-  const r = cv.getBoundingClientRect();
+  const { w: W, h: H } = sizeOf(cv);
   const dpr = window.devicePixelRatio || 1;
-  if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
-  const ctx = cv.getContext('2d');
+  if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const base = layer(overview.base, cv.width, cv.height);
+  const ctx = base.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const css = getComputedStyle(document.body);
-  const col = (n, d) => css.getPropertyValue(n).trim() || d;
   // The window: what the lanes show. Dashed until a pinch, a pan or a drag
   // here has moved it off the loop.
-  paintTapeOverview(ctx, r.width, r.height, t, state.live ? heardFrame : null,
-    { col, win: overviewWindow(laneView(), t.length, r.width), dashed: !state.zoom });
+  const view = laneView();
+  paintTapeOverview(ctx, W, H, t, null, { col, win: overviewWindow(view, t.length, W), dashed: !state.zoom });
+  Object.assign(overview, { cv, base, view: { from: view.from, to: view.to }, W, H, dpr, gen: overview.gen + 1 });
+  compositeOverview(heardFrame);
+}
+
+function compositeOverview(heardFrame) {
+  const { cv, base, W, H, dpr, gen } = overview;
+  const t = state.tape;
+  if (!base || !t) return;
+  const heard = state.live && heardFrame != null ? heardFrame : null;
+  const x = heard == null ? null : xOf(heard, { from: 0, to: t.length }, W);
+  const now = { pic: gen, x, gx: null };
+  const band = bandFor(overview.shown, now, dpr, cv.width, false);
+  overview.shown = now;
+  if (still(band)) return; // most frames: the whole tape is the overview's width
+  const ctx = cv.getContext('2d');
+  blit(ctx, base, band);
+  paintMarks(ctx, band, dpr, (c) => { if (heard != null) paintOverviewHead(c, W, H, t, heard, col); });
 }
 
 // --- actions --------------------------------------------------------------------
@@ -4834,11 +5069,9 @@ function wire() {
   // visibilitychange when the app is switched or the screen locks.
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') bar.commit(); });
   window.addEventListener('pagehide', () => bar.commit());
-  // The lanes and the bar's scrubber change width apart: each redraws all three.
-  const ro = new ResizeObserver(() => { if (!viewActive() || !state.tape) return; drawLanes(); drawOverview(); drawRuler(); drawSections(); });
-  ro.observe($('lanes'));
-  ro.observe($('tape-overview'));
-  ro.observe($('tape-sections'));
+  // The lanes and the bar's scrubber change width apart: each redraws all
+  // of them (watchSize). The lanes' canvases are watched as they're made.
+  for (const id of ['tape-ruler', 'tape-overview', 'tape-sections']) watchSize($(id));
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
   const fitView = () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); };

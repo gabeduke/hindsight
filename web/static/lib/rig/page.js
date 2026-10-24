@@ -231,6 +231,8 @@ function socketCol(s) {
   hole.setAttribute('aria-hidden', 'true');
   b.append(hole, el('span', 'rig-sock-label', s.label));
   if (s.kind === 'tap' || s.kind === 'track') b.append(el('span', 'rig-sock-name', s.name || ''));
+  // Named: its label moves up to make room (styles.css, .rig-sock.named).
+  b.classList.toggle('named', !!((s.kind === 'tap' || s.kind === 'track') && s.name));
   const warn = el('span', 'rig-warn-dot');
   warn.setAttribute('aria-hidden', 'true');
   b.append(warn);
@@ -283,6 +285,7 @@ function updateSockets(d) {
     b.setAttribute('aria-pressed', String(state.pick.sel === s.id));
     const name = b.querySelector('.rig-sock-name');
     if (name && name.textContent !== (s.name || '')) name.textContent = s.name || '';
+    b.classList.toggle('named', !!(name && s.name));
     const lamp = b.parentElement.querySelector('.rig-arm-lamp');
     if (lamp) {
       lamp.setAttribute('aria-pressed', String(!!s.armed));
