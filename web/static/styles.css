@@ -1003,6 +1003,11 @@ body.selecting #toasts { bottom: calc(84px + env(safe-area-inset-bottom)); }
    otherwise. A tap on it is a tap on its key, so help mode and a key's own
    handlers see the key. */
 svg.i { flex: none; display: inline-block; vertical-align: middle; stroke-width: 1.75; pointer-events: none; }
+/* Under 16 px the kit's 1.75 is under a pixel of line, fainter than the
+   words beside it: the kit draws those at 2.25 to 2.75 (a ▾'s rule, below,
+   goes on to 2.75). Every size a page or a script writes under 16 is here
+   (icons.test.js). */
+.i[width="10"], .i[width="12"], .i[width="14"] { stroke-width: 2.25; }
 
 .empty {
   text-align: center; color: var(--ink-faint);

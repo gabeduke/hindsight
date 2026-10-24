@@ -78,6 +78,25 @@ test('each icon is line art on the 24 grid, in the ink of its key, its stroke’
   assert.match(r.body, /stroke-width:\s*1\.75/);
 });
 
+// The kit's 1.75 is under a pixel of line at 12 px: the ruler's ⌗ beside
+// its bold word read as a faint grey hash. Under 16 px the kit draws 2.25 to
+// 2.75, so every size under 16 that a page or a script writes is drawn so.
+test('an icon drawn under 16 px is drawn heavier, as the kit draws it', () => {
+  const heavier = rules(fileCss('styles.css'))
+    .filter((r) => !r.media && r.sel.every((x) => /^\.i\[width="\d+"\]$/.test(x)));
+  assert.equal(heavier.length, 1, 'one rule draws the small sizes heavier');
+  const w = Number(/stroke-width:\s*([\d.]+)/.exec(heavier[0].body)?.[1]);
+  assert.ok(w >= 2.25 && w <= 2.75, `the kit's 2.25 to 2.75, not ${w}`);
+  const sizes = new Set(heavier[0].sel.map((x) => Number(/\d+/.exec(x)[0])));
+  const small = new Map();
+  for (const { p, src } of files) {
+    for (const m of src.matchAll(/<svg class="i[ "][^>]*?\bwidth="(\d+)"/g)) if (+m[1] < 16) small.set(+m[1], p);
+    for (const m of src.matchAll(/\bicon\([^)]*?\bsize:\s*(\d+)/g)) if (+m[1] < 16) small.set(+m[1], p);
+  }
+  assert.ok(small.size, 'the scan found no small icon: it is wrong, not the pages');
+  assert.deepEqual([...small].filter(([n]) => !sizes.has(n)).map(([n, p]) => `${n} px (${p})`), []);
+});
+
 test('every icon a page or a script names is in the sprite and in ICONS', () => {
   const used = new Map();
   const add = (name, where) => used.set(name, [...(used.get(name) || []), where]);
