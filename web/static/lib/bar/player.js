@@ -5,11 +5,16 @@
 // window pulls the player up over the page -- the whole bar, large, and on
 // the tape its drawers -- and ▾, Back or Escape puts it away (styles.css,
 // "the phone's player"). One button does both: #np-expand, in the window.
+// The player up is a layer on the page's stack of open things
+// (lib/ui/layers.js), the shell's: Back and Escape close what was opened
+// over it first, then it, and a switch of rooms leaves it up.
+
+import { layersOf } from '../ui/layers.js';
 
 const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)';
 
 /** initPlayer wires the page's #np-expand, if it has one. */
-export function initPlayer() {
+export function initPlayer({ layers = layersOf(document) } = {}) {
   const btn = document.getElementById('np-expand');
   if (!btn) return;
   const np = btn.closest('.np');
@@ -17,14 +22,8 @@ export function initPlayer() {
   const sheet = np.closest('.np-dock') || np;
   const phone = matchMedia(PHONE);
   const isOpen = () => document.body.classList.contains('player-open');
-  let pushed = false;
+  let layer = null;
   let stilled = [];
-
-  // A reload keeps the history entry the player was open on: not open now.
-  if (history.state?.player) {
-    const { player, ...rest } = history.state;
-    history.replaceState(Object.keys(rest).length ? rest : null, '');
-  }
 
   // What the player covers can't be reached by Tab while it's up. Toasts,
   // tips and sheets stay live; what something else made inert is left be.
@@ -47,32 +46,24 @@ export function initPlayer() {
   function open() {
     if (isOpen() || !phone.matches || np.hidden) return;
     set(true);
-    // Back puts it away, as it does the takes page's cassette.
-    history.pushState({ ...(history.state || {}), player: 1 }, '');
-    pushed = true;
+    // On the stack, made in the tap that pulled it up: Back and Escape put
+    // it away, after a sheet or a menu opened over it.
+    layer = layers.open({
+      el: sheet, kind: 'player', modal: true, owner: btn,
+      onClose: () => {
+        layer = null;
+        set(false);
+        if (!np.hidden) btn.focus({ preventScroll: true });
+      },
+    });
     btn.focus({ preventScroll: true });
   }
-  function close(fromHistory = false) {
-    if (!isOpen()) return;
-    set(false);
-    if (pushed && !fromHistory) history.back();
-    pushed = false;
-    if (!np.hidden) btn.focus({ preventScroll: true });
+  function close() {
+    if (layer?.open) layer.close();
+    else if (isOpen()) set(false);
   }
 
   btn.addEventListener('click', () => (isOpen() ? close() : open()));
-  // Any move in the history while it's up leaves the player's entry.
-  addEventListener('popstate', () => close(true));
-  // Escape puts the player away first, before a drawer or anything under it.
-  addEventListener('keydown', (e) => {
-    // A sheet open takes Escape first; the tape's inspector, hidden under the
-    // player, doesn't.
-    const sheet = [...document.querySelectorAll('dialog[open]')].some((d) => !d.classList.contains('inspector'));
-    if (e.key !== 'Escape' || !isOpen() || sheet) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    close();
-  }, true);
   // Wider than a phone, there's no player: the bar is the bar.
   phone.addEventListener('change', () => { if (!phone.matches) close(); });
   // The bar emptied (a take ended with no tape to go back to): so is the player.

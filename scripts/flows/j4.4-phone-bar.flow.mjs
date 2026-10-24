@@ -1,9 +1,16 @@
 // J4.4 The Studio on a phone: the bar is a mini player above the tabs (its
 // window, |◀, ▶ and Catch); |◀ goes back to the loop's start; a tap on the
 // window pulls the player up with the transport, Rec and Catch; Back puts
-// it away. A tapped clip's bar floats just above the player, and Insert asks
-// before it moves the tape. The ruler's keys are one key, ⌗. In the
-// Listening Room a take's mini player has |◀ beside ▶ as well.
+// it away and stays in the Studio. A tapped clip's bar floats just above the
+// player, and Insert asks before it moves the tape. The ruler's keys are one
+// key, ⌗. In the Listening Room a take's mini player has |◀ beside ▶ as
+// well.
+//
+// Back reaches the player as the stack's close request (lib/ui/layers.js).
+// In Chromium that is Android's Back or Escape -- page.goBack() is the
+// browser's own Back button, a move in the history, which leaves the page a
+// flow opened. Without CloseWatcher (Safari) the stack keeps a history
+// entry, and Back is page.goBack(): the end of the flow checks that too.
 // docs/flows.md#j44
 const look = () => {
   const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth; };
@@ -66,10 +73,29 @@ export default {
     const big = await page.evaluate(look);
     t.expect('the player comes up with ▶, Loop, Rec and Catch on screen', opened && big.play && big.loop && big.rec && big.catch, big);
 
-    await t.step('Back', () => page.goBack());
+    await t.step('Back (a close request: Escape, in Chromium)', () => page.keyboard.press('Escape'));
     const shut = await t.poll(() => !document.body.classList.contains('player-open'));
     const back = await page.evaluate(look);
     t.expect('Back puts the player away, on the same page', shut && back.window && back.path === '/tape.html', back);
+
+    // The same in a browser without CloseWatcher (Safari): the player up
+    // holds one history entry, so the browser's Back puts it away, and the
+    // Studio stays. A second tab of this phone, with CloseWatcher taken out.
+    const safari = await page.context().newPage();
+    const errs = [];
+    safari.on('pageerror', (e) => errs.push(e.message));
+    await safari.addInitScript(() => { delete window.CloseWatcher; });
+    const until = (fn) => safari.waitForFunction(fn, null, { timeout: 5000 }).then(() => true, () => false);
+    await t.step('open the Studio in a browser without CloseWatcher', () => safari.goto(`${t.base}/tape.html`));
+    await safari.locator('#np-expand').waitFor({ state: 'visible' });
+    await safari.waitForTimeout(800);
+    await t.step('tap the window there', () => safari.locator('#np-expand').tap());
+    const upThere = await until(() => document.body.classList.contains('player-open') && typeof window.CloseWatcher === 'undefined');
+    await t.step('Back (the browser’s)', () => safari.goBack());
+    const awayThere = await until(() => !document.body.classList.contains('player-open') && location.pathname === '/tape.html');
+    t.expect('there, Back puts the player away too, in the Studio', upThere && awayThere && !errs.length,
+      { upThere, awayThere, errs, at: await safari.evaluate(look).catch((e) => e.message) });
+    await safari.close();
 
     // A tap on the clip: the clip bar comes up after half a second (a second
     // tap could still make it a double), then the lane scrolls clear of it.

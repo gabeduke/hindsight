@@ -154,9 +154,9 @@ export function viewTransition(doc, win) {
  *     pushes {shell: 1, view, scroll} at the room's address, and switches.
  *     A URL that is not a room this shell holds is location.assign'd.
  *   - popstate switches only when the entry's address names a different
- *     room. An entry of the same room -- the player's {player: 1}, the
- *     cassette sheet's {cassette} -- is its owner's, so Back closes the
- *     player or the sheet first.
+ *     room. An entry of the same room -- the stack's own, where there is no
+ *     CloseWatcher (lib/ui/layers.js) -- is its owner's, so Back closes the
+ *     player, a sheet or a menu first.
  *   - A switch first asks chrome.beforeSwitch to close what is open over
  *     the room (the menus): on a tap, before the new entry is pushed, so
  *     the stack's own history entry is gone first; on Back or Forward, as
