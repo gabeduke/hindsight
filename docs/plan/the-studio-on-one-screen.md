@@ -1,5 +1,10 @@
 # The Studio on one screen
 
+> Its open steps (3, 4 and 5) are now steps 8 and 11 of
+> `the-studio-space.md`, which changes two decisions here: ⋯ goes (its
+> items join the tape's name menu and the ⌗ View menu), and ● on a phone
+> records from the phone.
+
 Agreed with Gabe on 2026-10-22, from a usability review of every screen
 against the flows. He asked for *"moving unnecessary buttons into drawers or
 menus and focusing on the handful of main user flows."*

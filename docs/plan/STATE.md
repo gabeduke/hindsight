@@ -149,6 +149,14 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
 ## Next
 
+`the-studio-space.md` (agreed 2026-10-24) is the build order now: it takes
+in the open steps of the two specs below, in one sequence of checkpoints,
+and changes four of their decisions (⋯ goes into the tape's name; the
+output, tempo and source move onto the bar's display; the Listening Room
+becomes a shelf wall with the drawn room as the way in; ● on a phone
+records from the phone). Its step 1 (foundations, nothing visible) is
+under way.
+
 1. `listening-back.md` (agreed 2026-10-23, from Gabe trying the Listening
    Room on the rig): Open › on the bar and a double tap on a spine, one
    notes drawer in place of the Sketchbook, then Open on one screen.
