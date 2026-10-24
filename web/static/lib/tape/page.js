@@ -4141,7 +4141,8 @@ function onCatchKey() {
 // mountCatchMenu gives Catch's ▾ the menu it opens: the last pass, or the
 // last 1, 2 or 4 bars -- a track's sheet had them, and nothing on the Studio
 // said so. Catch and its ▾ are a split key (lib/ui/menu.js), as GRAB's and
-// KEEP's: the menu opens over the pair, its right edge on the pair's, and
+// KEEP's: the menu opens over the pair in the bar (under it in the phone's
+// pulled-up player, where there's room), its right edge on the pair's, and
 // Catch, a pick, a press elsewhere, Escape or Back shuts it.
 let catchMenu = null;
 function mountCatchMenu() {
@@ -4152,7 +4153,7 @@ function mountCatchMenu() {
   mini.setAttribute('aria-hidden', 'true');
   key.querySelector('.np-catch-sub')?.after(mini);
   catchMenu = splitKey(key, $('catch-more'), $('catch-menu'), {
-    layers: stack || undefined, doc: document, role: 'menu', side: 'above', render: renderCatchMenu,
+    layers: stack || undefined, doc: document, role: 'menu', render: renderCatchMenu,
   });
 }
 

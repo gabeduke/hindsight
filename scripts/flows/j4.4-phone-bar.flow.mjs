@@ -1,8 +1,9 @@
 // J4.4 The Studio on a phone: the bar is a mini player above the tabs (its
 // window, with the bar number, |◀, ▶, and Catch with its ▾ beside it); |◀
 // goes back to the loop's start; a tap on the
-// window pulls the player up with the transport, Rec and Catch; Back puts
-// it away and stays in the Studio. A tapped clip's bar floats just above the
+// window pulls the player up with the transport, Rec and Catch, whose ▾
+// opens under the pair there; Back closes that menu, then puts the player
+// away and stays in the Studio. A tapped clip's bar floats just above the
 // player, and Insert asks before it moves the tape. The ruler's keys are one
 // key, ⌗. In the Listening Room a take's mini player has |◀ beside ▶ as
 // well.
@@ -39,7 +40,7 @@ export default {
   id: 'J4.4',
   title: 'The Studio’s bar on a phone',
   profiles: ['phone'],
-  checksMenus: ['#ruler-menu'], // the layout checks see ⌗'s menu open
+  checksMenus: ['#ruler-menu', '#catch-menu'], // the layout checks see them open
   async run(t) {
     const { page, api } = t;
     // A 4-bar tape with the first 4 bars of a take on track 1.
@@ -79,6 +80,22 @@ export default {
     const opened = await t.poll(() => document.body.classList.contains('player-open'));
     const big = await page.evaluate(look);
     t.expect('the player comes up with ▶, Loop, Rec and Catch on screen', opened && big.play && big.loop && big.rec && big.catch, big);
+
+    // Catch's ▾ in the player: its menu opens under the pair, where the
+    // player has room, and Back closes it before it puts the player away.
+    await t.step('tap Catch’s ▾ in the player', () => t.tap(page.locator('#catch-more')));
+    const under = await t.poll(() => {
+      const m = document.getElementById('catch-menu');
+      if (!m || m.hidden) return null;
+      const more = document.getElementById('catch-more').getBoundingClientRect();
+      const r = m.getBoundingClientRect();
+      // Under the ▾, and across it (as wide as the screen lets it be here).
+      return { under: r.top >= more.bottom && r.top - more.bottom <= 12 && r.left <= more.left && r.right >= more.right - 1, on: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };
+    });
+    t.expect('its menu opens under the pair, on the screen', under?.under && under.on, under);
+    await t.step('Back, with the menu over the player', () => page.keyboard.press('Escape'));
+    t.expect('Back closes the menu and leaves the player up', await t.poll(() => document.getElementById('catch-menu').hidden
+      && document.body.classList.contains('player-open')));
 
     await t.step('Back (a close request: Escape, in Chromium)', () => page.keyboard.press('Escape'));
     const shut = await t.poll(() => !document.body.classList.contains('player-open'));
