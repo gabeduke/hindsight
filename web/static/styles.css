@@ -3378,7 +3378,9 @@ body.np-fold .np-fold-glyph .i { transform: rotate(180deg); }
     padding: 0 8px;
     flex-direction: row;
   }
-  body.np-fold .np .np-keys .tb-rec {
+  /* ● and ↺ 5 s, in its place with a take or the feed, keep the width
+     their words gave them: the drawn ↺ alone would leave it at 42. */
+  body.np-fold .np .np-keys :is(.tb-rec, .np-back5) {
     min-width: 52px;
   }
   /* Folded, ▶'s LED sits beside it: a small key's 16 px icon, and the
