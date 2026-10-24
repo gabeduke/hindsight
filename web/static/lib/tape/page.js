@@ -3454,7 +3454,7 @@ function paintLane(ctx, lane, t, tr, view, W, H, dpr, heard) {
   // The loop, a faint amber band across every lane.
   if (t.loop && t.loop.out > t.loop.in) {
     const lx0 = xOf(t.loop.in, view, W), lx1 = xOf(t.loop.out, view, W);
-    ctx.fillStyle = withAlpha(col('--warn', '#b58900'), t.loop.on ? 0.07 : 0.03);
+    ctx.fillStyle = withAlpha(col('--warn', '#d99a0a'), t.loop.on ? 0.07 : 0.03);
     ctx.fillRect(lx0, 0, Math.max(0, lx1 - lx0), H);
   }
   // Bar lines, thinned as the ruler's are when zoomed out.
@@ -3548,7 +3548,7 @@ function paintLane(ctx, lane, t, tr, view, W, H, dpr, heard) {
     // A fade being dragged is drawn where its handle has it.
     const fd = state.fade && state.fade.clip.id === stored.id ? state.fade : null;
     const fc = fd ? { ...c, [fd.key]: fd.len, [fd.otherKey]: fd.other } : c;
-    drawFades(ctx, fc, view, W, x0, x1, top, h, ink, withAlpha(col('--well', '#000'), 0.6));
+    drawFades(ctx, fc, view, W, x0, x1, top, h, ink, withAlpha(col('--well', '#161718'), 0.6));
     const fades = clipFades(fc);
     const fi = (fades.fadeIn / (view.to - view.from)) * W, fo = (fades.fadeOut / (view.to - view.from)) * W;
     if (labelFits(bw)) {
@@ -3572,7 +3572,7 @@ function paintLane(ctx, lane, t, tr, view, W, H, dpr, heard) {
     ctx.stroke();
     ctx.lineWidth = 1;
     ctx.globalAlpha = 1;
-    if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#b58900'), tm, mono, { fi, fo, fd });
+    if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#d99a0a'), tm, mono, { fi, fo, fd });
     lane.hits.push({ x0, x1, top, h, clip: stored, fi, fo });
     // The hit the editor follows: a line across the lane.
     if (aligning) {
@@ -3614,7 +3614,7 @@ function paintLane(ctx, lane, t, tr, view, W, H, dpr, heard) {
   for (const { clip: lc, at: lat } of landing) {
     const from = lat + nudgeFrames(lc, t.sample_rate); // where it'll sound, as the clip itself is drawn
     const x0 = xOf(from, view, W), x1 = xOf(from + lc.frames, view, W);
-    const warn = col('--warn', '#b58900');
+    const warn = col('--warn', '#d99a0a');
     ctx.fillStyle = withAlpha(warn, 0.22);
     ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
     ctx.strokeStyle = warn;
