@@ -300,3 +300,42 @@ test('Guardrail 11: no hold or double-tap time is a literal outside lib/ui/press
   const gone = [...allowed].filter(([k, n]) => (found.get(k) || 0) < n).map(([k, n]) => `${k} (×${n}, found ${found.get(k) || 0})`);
   assert.deepEqual(gone, [], 'these are on NOT_GESTURES but no longer in the code: lower or remove them');
 });
+
+// ---- one way to close things: the stack in lib/ui/layers.js ---------------------
+// Three schemes for Back once grew (the phone's player, the cassette sheet,
+// Open's notes pane), each with its own history entry, and Escape ladders
+// that had to know about each other's menus. Back and Escape now close the
+// top of one stack (docs/plan/the-studio-space.md, "One way to close
+// things"). The ratchet: only the router and the stack write history
+// entries; what still keeps its own is listed, with why, and comes off the
+// list when it moves onto the stack.
+const OWN_HISTORY = [
+  // [file, how many pushState calls, why it is still its own]
+  ['lib/shell/router.js', 1, 'a room’s entry'],
+  ['lib/ui/layers.js', 1, 'the stack’s one entry, where there is no CloseWatcher'],
+  ['lib/wave/page.js', 1, 'Open’s notes pane on a phone, until it is the notes drawer (listening-back.md, step 2)'],
+];
+
+test('Guardrail 12: only the router and the stack (lib/ui/layers.js) push history entries', () => {
+  const found = new Map();
+  for (const [f, raw] of gestureLiterals()) {
+    if (f.endsWith('bar-harness.js') || f.endsWith('fake-dom.js')) continue; // stand-ins for tests
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    const n = (src.match(/\.pushState\(/g) || []).length;
+    if (n) found.set(f, n);
+  }
+  const allowed = new Map(OWN_HISTORY.map(([f, n]) => [f, n]));
+  const extra = [...found].filter(([f, n]) => n > (allowed.get(f) || 0)).map(([f, n]) => `${f} (×${n})`);
+  assert.deepEqual(extra, [], 'a history entry of its own: open the thing on the page’s stack (lib/ui/layers.js) instead, and Back closes it');
+  const gone = [...allowed].filter(([f, n]) => (found.get(f) || 0) < n).map(([f, n]) => `${f} (×${n}, found ${found.get(f) || 0})`);
+  assert.deepEqual(gone, [], 'these are on OWN_HISTORY but no longer push: take them off');
+});
+
+test('Guardrail 12: the Studio’s Escape is the stack’s; its page keeps it only for a preview', () => {
+  const src = read('lib/tape/page.js');
+  const escapes = src.match(/key === 'Escape'/g) || [];
+  assert.equal(escapes.length, 1, 'lib/tape/page.js handles Escape itself only for a previewed Insert, Delete time or Paste');
+  assert.match(src, /e\.key === 'Escape' && state\.preview && underSelection\(\)\) \{\s*e\.preventDefault\(\);/,
+    'and it claims the press (preventDefault), so the stack leaves it be');
+  assert.doesNotMatch(src, /menuWasOpen/, 'no ladder that has to know whether a menu was open');
+});

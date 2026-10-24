@@ -274,6 +274,15 @@ not come back:
   `bindPress`, not another copy. Most of the older holds are still their own
   machines, with only their numbers in `GESTURE`; `docs/plan/STATE.md` lists
   them.
+- **One way to close things:** a menu, popover, sheet, drawer or selection
+  opens on the page's stack (`lib/ui/layers.js`; `ctx.layers` in a view),
+  with an `onClose` that puts it away, and closes with `layer.close()`.
+  Back and Escape then close it in turn, a press outside closes a menu, and
+  a switch of rooms closes the menus. Never a history entry or an Escape
+  ladder of its own: with both a CloseWatcher and an entry, Back takes two
+  presses. A handler that keeps Escape for itself (a field's own, a drag let
+  go) calls `preventDefault()`. The test fails on a `pushState` outside the
+  router and the stack, and lists the one still its own.
 
 ## Getting code onto a Pi
 
