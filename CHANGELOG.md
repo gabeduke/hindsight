@@ -5,6 +5,20 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.24.1 — 2026-10-24
+
+- AGENTS.md: change the CSS rule that wins, not one a later rule overrides (47112dc)
+- The CSS snapshot holds the ribbon's live readout still, so two runs of an unchanged page always match (6980480)
+- styles.css drops 134 more declarations the deck's restyle always overrode, and the check reads each selector of a list on its own (cd33f01)
+- The stylesheet tests read each sheet once, so they stay as quick as before (f3f6183)
+- A budget test holds what makes the CSS expensive to change, and lets it only go down (1f88391)
+- The buffer's playhead is the green of its AUDITION lamp, and every colour a canvas reads is a token the stylesheets define (8812a86)
+- styles.css drops 47 declarations a later rule always overrode, and a test keeps new ones out (ecd10f1)
+- A snapshot of every element's computed style proves a CSS tidy-up changed nothing (5e7ba18)
+- The stylesheet tests share one CSS reader, lib/stylesheets.js, with tests of its own (b2bf82b)
+- Plan the studio space: one frame on every page, a bar whose keys stay put, the Listening Room as a shelf wall, and rooms you move between (1c2a2c6)
+
+
 ## v2026.10.23.3 — 2026-10-23
 
 - Tidy the Studio's ruler: one ⌗ key on a phone, and bar numbers that thin out when zoomed out (ab12bb5)
