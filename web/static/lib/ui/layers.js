@@ -42,8 +42,9 @@ const UNWIND_WAIT_MS = 500;
 
 /**
  * historyStep is what the fallback's one history entry does next: a pure
- * reducer (the Listening Room's cassette sheet had one, sheetState; this is
- * it for any number of layers). State:
+ * reducer (the Listening Room's cassette sheet had one for itself,
+ * sheetState, gone with the sheet; this is it for any number of layers).
+ * State:
  *
  *   held       how many open layers the entry is for
  *   on         the entry is the one the history is on now

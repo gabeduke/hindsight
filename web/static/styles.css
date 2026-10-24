@@ -2960,40 +2960,9 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
   .take.spine .wave { width: 52px; height: 22px; }
 }
 
-/* On a phone (narrower than rack-and-pane), the picked take's cassette is a
-   sheet over the page, with a "‹ Takes" key; lib/shelf-page.js opens it. */
+/* The take's pane carries a "‹ Takes" key for the phone's cassette sheet,
+   which went with the spine's sheet (F5a): it stays hidden. */
 .sheet-back { display: none; }
-@media (max-width: 1099.98px) {
-  body.cassette-open { overflow: hidden; }
-  body.cassette-open .appnav { display: none; }
-  body.cassette-open .take-detail:not([hidden]) {
-    display: flex; flex-direction: column; gap: 14px;
-    position: fixed; inset: 0; z-index: 60; overflow-y: auto; overscroll-behavior: contain;
-    padding: calc(10px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
-    background: var(--bg); border: 0; border-radius: 0; box-shadow: none;
-  }
-  body.cassette-open .sheet-back { display: inline-flex; align-self: flex-start; min-height: 40px; }
-}
-@media (max-width: 1099.98px) and (prefers-reduced-motion: no-preference) {
-  body.cassette-open .take-detail:not([hidden]) { animation: rise .24s ease; }
-}
-/* A phone held sideways: the cassette on the left, the keys beside it, so
-   Play is on the screen without a scroll. */
-@media (max-width: 1099.98px) and (orientation: landscape) and (max-height: 500px) {
-  body.cassette-open .take-detail:not([hidden]) {
-    display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    grid-auto-rows: min-content; align-content: start; column-gap: 16px; row-gap: 10px;
-  }
-  body.cassette-open .take-detail > .sheet-back { grid-column: 1; grid-row: 1; justify-self: start; }
-  body.cassette-open .take-detail > .detail-up { grid-column: 1; grid-row: 1; justify-self: end; max-width: 60%; }
-  body.cassette-open .take-detail > .detail-head { grid-column: 2; grid-row: 1; }
-  body.cassette-open .take-detail > .detail-cassette { grid-column: 1; grid-row: 2 / span 3; }
-  body.cassette-open .take-detail > .detail-actions,
-  body.cassette-open .take-detail > .detail-more,
-  body.cassette-open .take-detail > .detail-flags,
-  body.cassette-open .take-detail > .detail-from,
-  body.cassette-open .take-detail > .detail-family { grid-column: 2; }
-}
 
 /* The takes page on a wide screen: the list beside the picked take. */
 .take-detail { display: none; }

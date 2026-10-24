@@ -301,24 +301,6 @@ export function parseBpm(raw) {
 }
 
 /**
- * sheetState is what the phone's cassette sheet does next: which take is
- * open, and what to do to history. Opening pushes one entry (another take
- * replaces it), so the device's Back closes the sheet; its own key goes back,
- * and the popstate that follows finds it closed already.
- */
-export function sheetState(prev, ev) {
-  switch (ev.type) {
-    case 'open': return { open: ev.name, history: prev.open ? 'replace' : 'push' };
-    case 'close': return { open: null, history: prev.open ? 'back' : null };
-    // Back lands on an entry without a cassette; Forward on one with.
-    case 'popstate': return { open: ev.state?.cassette ?? null, history: null };
-    // Wide enough for the pane: the sheet goes, and its entry with it.
-    case 'widen': return { open: null, history: prev.open ? 'back' : null };
-    default: return { open: prev.open, history: null };
-  }
-}
-
-/**
  * spineTitle is what a spine prints: the take's name, or -- for one never
  * named -- the time it was caught, which is what tells today's takes apart
  * (the rack already groups them by day). The full name stays in its label.

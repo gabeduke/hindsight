@@ -7,7 +7,7 @@
 import { TakesList } from '/lib/takes.js';
 import { TrashList } from '/lib/trash.js';
 import { toast as defaultToast, takeNextToast } from '/lib/toast.js';
-import { shelve, sheetState, tagCounts, fold, familyOf, matches } from '/lib/shelf.js';
+import { shelve, tagCounts, fold, familyOf, matches } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 import { named } from '/lib/rooms/words.js';
@@ -187,66 +187,13 @@ export const roomView = {
 
     const wideMQ = matchMedia('(min-width: 1100px)');
     const wide = { get matches() { return false; }, addEventListener: (type, fn) => wideMQ.addEventListener(type, fn) };
+    // Its phone sheet (the cassette over the page, with ‹ Takes and a history
+    // entry of its own) went with the spine's sheet in F5a: nothing opens it.
     const detail = new TakeDetail($('take-detail'), {
-      takes, onToast: toast, onBack: () => closeSheet(), onPick: (name) => pick(name), isShown: (name) => present(name),
+      takes, onToast: toast, onPick: (name) => pick(name), isShown: (name) => present(name),
     });
     let picked = null;
     let pickedSpine = null;
-
-    // --- the cassette sheet, on a phone ------------------------------------------
-
-    let sheet = { open: null };
-    const stateRest = () => {
-      const s = history.state && typeof history.state === 'object' ? { ...history.state } : {};
-      delete s.cassette;
-      return s;
-    };
-    if (history.state?.cassette) history.replaceState(stateRest(), '');
-    const behind = () => [document.querySelector('.appbar'), document.querySelector('.shelf-tools'), $('takes'), $('takes-empty'), $('trash'), document.querySelector('.about'), $('np')].filter(Boolean);
-
-    function setSheet(on, from) {
-      document.body.classList.toggle('cassette-open', on);
-      const pane = $('take-detail');
-      if (on) { pane.setAttribute('role', 'dialog'); pane.setAttribute('aria-modal', 'true'); }
-      else { pane.removeAttribute('role'); pane.removeAttribute('aria-modal'); }
-      for (const el of behind()) el.inert = on;
-      if (on) {
-        showDetail(picked === sheet.open || spineOf(picked) === sheet.open ? picked : sheet.open);
-        $('take-detail').scrollTop = 0;
-        detail.el('.sheet-back').focus();
-      } else {
-        if (!wide.matches) detail.show(null);
-        (takes.rows.get(from)?.el || $('takes').querySelector('.take.spine'))?.focus();
-      }
-      roomChanged();
-    }
-
-    function openSheet(name) {
-      sheet = sheetState(sheet, { type: 'open', name });
-      if (sheet.history === 'push') history.pushState({ ...stateRest(), cassette: name }, '');
-      else if (sheet.history === 'replace') history.replaceState({ ...stateRest(), cassette: name }, '');
-      setSheet(true);
-    }
-
-    function closeSheet() {
-      const was = sheet.open;
-      sheet = sheetState(sheet, { type: 'close' });
-      if (sheet.history === 'back') history.back();
-      if (was) setSheet(false, was);
-    }
-
-    ctx.on(window, 'popstate', (e) => {
-      const was = sheet.open;
-      sheet = sheetState(sheet, { type: 'popstate', state: e.state });
-      if (sheet.open) {
-        if (wide.matches || !takes.rows.has(sheet.open)) { history.replaceState(stateRest(), ''); sheet = { open: null }; return; }
-        pick(sheet.open);
-        setSheet(true);
-      } else if (was) {
-        setSheet(false, was);
-      }
-    });
-    ctx.on(window, 'keydown', (e) => { if (e.key === 'Escape' && sheet.open && !e.target.closest?.('input')) closeSheet(); });
 
     const shownNames = () => [...$('takes').querySelectorAll('.take:not(.folded)')].map((e) => e.dataset.name);
     const spineOf = (name) => (name && fam.under.get(name)) || name;
@@ -266,7 +213,7 @@ export const roomView = {
         row.el.setAttribute('aria-current', on ? 'true' : 'false');
         row.ws?.setPicked?.(on);
       }
-      showDetail(wide.matches || sheet.open ? picked : null);
+      showDetail(wide.matches ? picked : null);
     }
 
     // --- Play all ------------------------------------------------------------------
@@ -375,25 +322,8 @@ export const roomView = {
     const kept = () => (present(picked) ? picked : present(pickedSpine) ? pickedSpine : null);
 
     function syncPick() {
-      const shown = shownNames();
-      if (!wide.matches) {
-        if (sheet.open && !present(sheet.open)) {
-          const still = kept();
-          if (still) {
-            sheet = { open: spineOf(still), history: null };
-            history.replaceState({ ...stateRest(), cassette: sheet.open }, '');
-          } else closeSheet();
-        }
-        pick(kept());
-        return;
-      }
-      if (sheet.open) {
-        const was = sheet.open;
-        sheet = sheetState(sheet, { type: 'widen' });
-        if (sheet.history === 'back') history.back();
-        setSheet(false, was);
-      }
-      pick(kept() || shown[0] || null);
+      if (!wide.matches) { pick(kept()); return; }
+      pick(kept() || shownNames()[0] || null);
     }
 
     wide.addEventListener('change', syncPick);
@@ -525,7 +455,6 @@ export const roomView = {
       },
       hide() {
         if (takes.selecting) takes.exitSelect();
-        if (sheet.open) closeSheet();
         roomInst?.hide?.();
       },
       destroy() {
