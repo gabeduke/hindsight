@@ -24,8 +24,9 @@
 //     what a take caught of it varies);
 //   - text: every run of digits reads 0 (clocks, counters, durations, dates,
 //     the meters' dB, the ring's "3S AGO"), and Capture's "last saved" (a
-//     file name) a fixed one, so a second's difference doesn't change a
-//     box's width;
+//     file name) and the ribbon's readout (its words hang on how much the
+//     ring holds at that moment: "last 30s", or "— only 12s buffered")
+//     fixed ones, so a second's difference doesn't change a box's width;
 //   - live inline styles: every number in a `style` attribute reads 0 (the
 //     reels' turn, the needles, the playheads, the meters' fill, a canvas's
 //     size), as the ticker and the polls write them at every frame;
@@ -91,6 +92,9 @@ function read() {
   for (const el of document.querySelectorAll('#toasts > *')) el.remove();
   // Capture's "last saved" is the newest take's file name, which is the time.
   for (const el of document.querySelectorAll('#last-saved')) el.textContent = 'jam.wav';
+  // The ribbon's readout says whether the ring holds the span yet, which
+  // depends on when the page was read.
+  for (const el of document.querySelectorAll('.rb-readout')) el.textContent = 'last 0s';
   // The rig's ropes hang where their physics settled, a little differently
   // each time.
   for (const el of document.querySelectorAll('.rig-wires path')) el.setAttribute('d', 'M 0 0');
