@@ -22,27 +22,39 @@ const STATIC = new URL('../', import.meta.url); // web/static/
  * well, so a brace, a semicolon or a comma found in `shape` is CSS's own.
  */
 function scan(css) {
-  let plain = '', shape = '';
+  // A test calls block() on one stylesheet dozens of times: each answer is
+  // kept, so the sheet is scanned once rather than once a call.
+  const kept = SCANNED.get(css);
+  if (kept) return kept;
+  let plain = '', shape = '', from = 0;
   const blank = (s) => s.replace(/[^\n]/g, ' ');
-  for (let i = 0; i < css.length;) {
-    if (css.startsWith('/*', i)) {
+  // The text between one comment or string and the next is copied whole.
+  const next = /\/\*|["']/g;
+  for (let m; (m = next.exec(css));) {
+    const i = m.index;
+    plain += css.slice(from, i);
+    shape += css.slice(from, i);
+    if (m[0] === '/*') {
       const end = comment(css, i);
       plain += blank(css.slice(i, end));
       shape += blank(css.slice(i, end));
-      i = end;
-    } else if (css[i] === '"' || css[i] === "'") {
+      from = end;
+    } else {
       const { end, closed } = string(css, i);
       plain += css.slice(i, end);
       shape += css[i] + blank(css.slice(i + 1, closed ? end - 1 : end)) + (closed ? css[i] : '');
-      i = end;
-    } else {
-      plain += css[i];
-      shape += css[i];
-      i++;
+      from = end;
     }
+    next.lastIndex = from;
   }
-  return { plain, shape };
+  plain += css.slice(from);
+  shape += css.slice(from);
+  const out = { plain, shape };
+  if (SCANNED.size >= 16) SCANNED.delete(SCANNED.keys().next().value);
+  SCANNED.set(css, out);
+  return out;
 }
+const SCANNED = new Map();
 /** comment is where the comment opening at `i` ends (past its close, or the text's end). */
 function comment(css, i) {
   const end = css.indexOf('*/', i + 2);
