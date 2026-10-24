@@ -30,6 +30,18 @@ export const GESTURE = Object.freeze({
   OUTRANK_MS: 400, // a hand's own move of a knob outranks the Pi's echo of it this long (lib/play/amounts.js)
 });
 
+// The keys bound with bindPress, by their options: their callers spread
+// these, and press.test.js runs every case with them, so a key's feel lives
+// in one place and no test keeps its own copy.
+/** SPINE_PRESS is a take's spine on the Listening Room's shelf (lib/room/doorway.js). */
+export const SPINE_PRESS = Object.freeze({ hold: GESTURE.HOLD.select, slop: GESTURE.SLOP_PX });
+/**
+ * ARM_PRESS is a track's ● in the Studio (lib/tape/page.js). It never had a
+ * slop: a finger that wanders on the key still holds; a scroll cancels it.
+ * A long press on a phone is its hold, never the browser's menu.
+ */
+export const ARM_PRESS = Object.freeze({ hold: GESTURE.HOLD.tape, slop: Infinity, menu: false });
+
 /**
  * pressMachine is a key that taps, double taps and holds. It answers {down,
  * move, up, cancel, click, active}: the element's pointerdown, pointermove,

@@ -46,7 +46,7 @@ import { restoreReplaced } from '../buffer/api.js';
 import { readResponse, failToast, editTape } from './refusal.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
-import { bindPress, GESTURE } from '../ui/press.js';
+import { bindPress, ARM_PRESS, GESTURE } from '../ui/press.js';
 import { recordsTape } from '../rig/warn.js';
 import { menuShift } from './menu-fit.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
@@ -3005,6 +3005,7 @@ function buildLanes() {
       {
         const a = lane.arm;
         bindPress(a, {
+          ...ARM_PRESS, // no slop, and a long press on a phone is a hold, not a menu
           onTap: () => { armTrack(n); },
           onHold: () => {
             const before = state.recTracks;
@@ -3016,9 +3017,6 @@ function buildLanes() {
               if (note) toast(note.text, 'ok', { ms: 6000 }).classList.add('toast-passive');
             }
           },
-          hold: GESTURE.HOLD.tape,
-          slop: Infinity, // the ● never had one: a finger that wanders on the key still holds
-          menu: false, // a long press on a phone is a hold, not a menu
         });
         a.style.webkitTouchCallout = 'none';
         a.style.userSelect = 'none';

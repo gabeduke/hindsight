@@ -25,7 +25,7 @@
 import { roomShelves, inMonth, monthName, monthKey, at, filterWords } from './shelves.js';
 import { forgetNote, fmtAt } from './notes.js';
 import { openTheTape, forTheTape } from '../bar/carry.js';
-import { bindPress, GESTURE } from '../ui/press.js';
+import { bindPress, SPINE_PRESS } from '../ui/press.js';
 import { createTap, wireRack, askedTake } from './tap.js';
 import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
@@ -300,12 +300,12 @@ export function mount(h) {
   function wireSpine(b, name) {
     const takes = h.takes;
     bindPress(b, {
+      ...SPINE_PRESS,
       onTap: () => (takes.selecting ? takes.toggleSelected(name) : tap.tap(name)),
       onHold: () => {
         try { navigator.vibrate?.(10); } catch { /* not everywhere */ }
         if (takes.selecting) takes.toggleSelected(name); else takes.enterSelect(name);
       },
-      hold: GESTURE.HOLD.select,
       selecting: () => takes.selecting,
       // The player is fetched as the finger goes down, so the play is inside the tap.
       onDown: () => { if (!takes.selecting) tap.warm(name); },

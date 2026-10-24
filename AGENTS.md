@@ -246,11 +246,13 @@ not come back:
   and ticker steps through `ctx.on`, `ctx.every`, and `ctx.loop` so inactive
   views stay completely quiet.
 - **One press:** the app's hold, tap and double-tap times, and their slops,
-  are named once, in `GESTURE` (`lib/ui/press.js`), and a key that taps,
-  double taps or holds is its `pressMachine` / `bindPress`, not another copy:
-  eleven holds with four thresholds had grown before it. The test fails on a
-  hold or double-tap time written out anywhere else, and lists the numbers
-  that only look like one.
+  are named once, in `GESTURE` (`lib/ui/press.js`): eleven holds with four
+  thresholds had grown before it. The test fails on a hold or double-tap time
+  written out anywhere else, and lists the numbers that only look like one.
+  A *new* key that taps, double taps or holds is a `pressMachine` /
+  `bindPress`, not another copy. Most of the older holds are still their own
+  machines, with only their numbers in `GESTURE`; `docs/plan/STATE.md` lists
+  them.
 
 ## Getting code onto a Pi
 
