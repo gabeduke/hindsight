@@ -1,6 +1,7 @@
 // J1.11 Edit a part with a finger (lib/tape/clipgestures.js): a tap selects
 // it (the clip bar names it, nothing pops up), Enter or a double tap opens
-// its sheet, → moves it a bar and Escape lets go; a quick drag pans the
+// its sheet, Escape closes the sheet and keeps it selected, → moves it a
+// bar and a second Escape lets go, all in the Studio; a quick drag pans the
 // lanes and leaves it be, and a hold then a drag slides it a bar, which ↶
 // takes back. docs/flows.md#j111
 // Ported from the retired scripts/smoke-tape.mjs ("A clip's gestures").
@@ -85,10 +86,14 @@ export default {
     const keysAt = await where();
     await t.step('press Enter', () => page.keyboard.press('Enter'));
     t.expect('Enter opens its sheet', await t.poll(() => !!document.getElementById('clip-sheet')?.open, null, 2000), keysAt);
-    if (await sheetOpen()) {
-      await page.keyboard.press('Escape');
-      await t.wait(300);
-    }
+    // Escape (the tablet's Back, in Chromium) closes the top of what is
+    // open: the sheet, not the selection under it, and never the room.
+    const kept = () => page.evaluate(() => ({ path: location.pathname, sheet: !!document.getElementById('clip-sheet')?.open, selected: document.getElementById('multi-bar')?.hidden === false }));
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    await t.poll(() => !document.getElementById('clip-sheet')?.open, null, 2000);
+    const shut = await kept();
+    t.expect('Escape closes the sheet, the part stays selected, and the Studio stays', !shut.sheet && shut.selected && shut.path === '/tape.html', shut);
+    await t.wait(300);
     await t.step('press →', () => page.keyboard.press('ArrowRight'));
     const moved = await api.until(async () => Math.abs((await clip()).at - (c0.at + bar)) <= 1, 'the part a bar later', 3000).catch(() => false);
     t.expect('→ moves it a bar, on the Pi', moved, { at: `${c0.at} → ${(await clip()).at}`, ...(await where()) });
@@ -104,9 +109,15 @@ export default {
     await t.step(touch ? 'double-tap the part' : 'double-click the part', () => doubleTap(s.x, s.y));
     t.expect(`a ${touch ? 'double tap' : 'double-click'} opens its sheet`, await t.poll(() => !!document.getElementById('clip-sheet')?.open, null, 2000));
     t.expect('and moves nothing on the Pi', (await clip()).at === c0.at);
-    await page.keyboard.press('Escape');
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    await t.poll(() => !document.getElementById('clip-sheet')?.open, null, 2000);
+    const first = await kept();
+    t.expect('the first Escape closes its sheet and keeps the part selected', !first.sheet && first.selected && first.path === '/tape.html', first);
     await t.wait(300);
-    await page.keyboard.press('Escape');
+    await t.step('press Escape again', () => page.keyboard.press('Escape'));
+    await t.poll(() => document.getElementById('multi-bar')?.hidden !== false, null, 2000);
+    const second = await kept();
+    t.expect('the second lets go of it, still in the Studio', !second.selected && second.path === '/tape.html', second);
     await t.wait(300);
 
     s = await spot();

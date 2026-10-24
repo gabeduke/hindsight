@@ -54,6 +54,7 @@ import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
+import { layersOf } from '../ui/layers.js';
 
 // A hidden Studio's dock nodes (#multi-bar, #clip-editor) are out of the
 // page (lib/shell/view.js, Slot), but a timer set while it was shown can
@@ -165,11 +166,16 @@ let awayTrack = null; // the record track while Overdub on this device is open
 let viewCtx = null;
 let cueLane = null;
 const viewActive = () => !viewCtx || viewCtx.active();
+// The shell's stack of open things, this view's scope of it (ctx.layers,
+// lib/ui/layers.js): the menus, the inspector, the clip editor and the
+// selection are layers on it, so Back and Escape close the newest first.
+let stack = null;
 
 // The Studio's shell view (lib/shell/views/studio.js) is the only caller:
 // ctx is always given.
 export function mountTapePage(ctx) {
   viewCtx = ctx;
+  stack = ctx?.layers || layersOf(document);
   // The Studio's bar is the tape's and never takes a take: this page neither
   // reads the hand-off nor writes it, so the Listening Room, back, finds its
   // take (lib/bar/carry.js).
@@ -1273,6 +1279,84 @@ function renderAskFirst() {
   $('ask-first').setAttribute('aria-checked', String(askFirst()));
 }
 
+// --- what is open, on the stack ---------------------------------------------
+// Each of these opens its layer as it shows and closes it as it goes, by
+// whatever closes it: Back and Escape (the stack), a key, a tap, a poll. A
+// layer's onClose is what Back and Escape do; the code that closes one
+// itself drops the layer first, so it is not closed twice.
+let menuLayer = null; // the open menu's: one at a time
+let inspLayer = null; // the inspector's: a clip's, a track's or a section's
+let alignLayer = null; // the clip editor's
+let selLayer = null; // the selected clips', or the range's
+
+// selectionOnStack: what is selected, clips or a range, is a layer: Back or
+// Escape lets go of it (after a sheet or a menu over it), as Done does.
+function selectionOnStack(on) {
+  if (on && !selLayer?.open) {
+    selLayer = stack?.open({ el: $('multi-bar'), kind: 'selection', onClose: () => { selLayer = null; letGo(); letGoRange(); } }) || null;
+  } else if (!on && selLayer?.open) {
+    const l = selLayer;
+    selLayer = null;
+    l.close();
+  }
+}
+
+// underSelection: nothing is open over the selection (a preview's Escape).
+function underSelection() {
+  const top = stack?.top();
+  return !top || top.kind === 'selection';
+}
+
+// alignOnStack: the clip editor is a drawer over the bar: Back or Escape
+// closes it, its move saved.
+function alignOnStack(on) {
+  if (on && !alignLayer?.open) {
+    alignLayer = stack?.open({ el: $('clip-editor'), kind: 'drawer', onClose: () => { alignLayer = null; closeAlign(); } }) || null;
+  } else if (!on && alignLayer?.open) {
+    const l = alignLayer;
+    alignLayer = null;
+    l.close();
+  }
+}
+
+// inspectorOnStack: the inspector shown is a sheet. Back or Escape closes
+// it; with the keys in it (a name being typed), they go back to the page
+// first, so the name is kept (its change) and → moves the clip again.
+function inspectorOnStack(sh) {
+  if (inspLayer?.open && inspLayer.el === sh) return;
+  inspectorOffStack();
+  inspLayer = stack?.open({
+    el: sh, kind: 'sheet',
+    onClose: () => {
+      if (inspLayer?.el === sh) inspLayer = null;
+      if (sh.contains(document.activeElement)) document.activeElement.blur();
+      if (sh.open) sh.close();
+    },
+  }) || null;
+}
+function inspectorOffStack(sh = null) {
+  if (!inspLayer?.open || (sh && inspLayer.el !== sh)) return;
+  const l = inspLayer;
+  inspLayer = null;
+  l.close();
+}
+
+// menuOnStack: the menu shown (the header's, the ruler's, Catch's or a
+// track's input menu) is a layer, its button its owner: a press elsewhere,
+// Back or Escape closes it, and Escape gives its button the focus.
+function menuOnStack(el, owner) {
+  if (menuLayer?.open && menuLayer.el === el) return;
+  menuOffStack();
+  const l = stack?.open({ el, kind: 'menu', owner, onClose: () => { if (menuLayer === l) { menuLayer = null; closeMenus(); } } }) || null;
+  menuLayer = l;
+}
+function menuOffStack(el = null) {
+  if (!menuLayer?.open || (el && menuLayer.el !== el)) return;
+  const l = menuLayer;
+  menuLayer = null;
+  l.close();
+}
+
 // --- selecting clips ------------------------------------------------------------
 // As in a DAW (docs/superpowers/specs/2026-10-07-click-to-select-design.md):
 // a click selects a clip, and the action bar (#multi-bar) over the transport
@@ -1373,6 +1457,7 @@ function renderClipBar() {
   const n = ps.length;
   if (!n) state.adding = false;
   const r = !n && state.tape ? state.range : null;
+  selectionOnStack(n > 0 || !!r);
   const bar = $('multi-bar');
   const was = !bar.hidden;
   bar.hidden = (!n && !r) || !!state.align || (!was && performance.now() < barWaitUntil);
@@ -2093,6 +2178,7 @@ function closeAlign() {
 
 function renderAlign() {
   const a = state.align;
+  alignOnStack(!!a);
   const el = $('clip-editor');
   el.hidden = !a;
   el.parentElement.classList.toggle('editing', !!a);
@@ -4256,6 +4342,7 @@ function showInspector(id, { focus = false } = {}) {
     sh.dataset.height = 'half';
     sh.show();
   }
+  inspectorOnStack(sh);
   // The first field or key that's shown: a hidden one wouldn't take it.
   if (focus) [...sh.querySelectorAll('input, button:not(:disabled):not(.insp-grip)')].find((el) => el.getClientRects().length)?.focus({ preventScroll: true });
   else if (sh.contains(document.activeElement) && !sh.contains(was)) {
@@ -4263,7 +4350,6 @@ function showInspector(id, { focus = false } = {}) {
     else document.activeElement.blur();
   }
 }
-function closeInspector() { const id = inspecting(); if (id) $(id).close(); }
 
 // followSelection keeps an open clip inspector on the one selected clip:
 // another clip selected, it shows that one; several, or none, it closes.
@@ -4333,7 +4419,12 @@ function wireInspector() {
         if (sh.open && (document.activeElement === document.body || !document.activeElement)) sh.focus({ preventScroll: true });
       });
     });
-    sh.addEventListener('close', () => { if (!$('multi-bar').hidden) barShownAt = performance.now(); });
+    sh.addEventListener('close', () => {
+      if (!$('multi-bar').hidden) barShownAt = performance.now();
+      // Closed by its Done, a key in it, or the selection going: off the
+      // stack too (unless it has been shown again since).
+      if (!sh.open) inspectorOffStack(sh);
+    });
     const grip = sh.querySelector('.insp-grip');
     let drag = null, dragged = false;
     grip.addEventListener('pointerdown', (e) => {
@@ -4505,6 +4596,7 @@ async function loadTape(id) {
 // each says so to assistive tech.
 const MENUS = [['tape-menu', 'tape-name'], ['tempo-menu', 'tape-sub'], ['tape-actions', 'tape-more'], ['ruler-menu', 'ruler-more']];
 function closeMenus() {
+  menuOffStack();
   for (const [m, b] of MENUS) { $(m).hidden = true; $(b).setAttribute('aria-expanded', 'false'); }
   closeInputMenu();
 }
@@ -4514,6 +4606,7 @@ function showMenu(id) {
     $(m).hidden = m !== id;
     $(b).setAttribute('aria-expanded', String(m === id));
   }
+  menuOnStack($(id), $(MENUS.find(([m]) => m === id)[1]));
   // Placed by CSS from its button, which on a phone is at the screen's left
   // edge: moved back in if it runs off (menu-fit.js).
   const menu = $(id);
@@ -4542,6 +4635,7 @@ function openInputMenu(n, chip, byKey) {
   delete menu.dataset.names; // built afresh for this track
   renderInputMenu();
   menu.hidden = false;
+  menuOnStack(menu, chip);
   placeInputMenu();
   if (byKey) focusInputItem();
 }
@@ -4555,6 +4649,7 @@ function focusInputItem() {
 function closeInputMenu() {
   if (!inputMenu) return;
   const menu = $('input-menu');
+  menuOffStack(menu);
   const { chip } = inputMenu;
   inputMenu = null;
   chip.setAttribute('aria-expanded', 'false');
@@ -4790,9 +4885,9 @@ function wire() {
   });
   document.addEventListener('keydown', (e) => {
     if (!viewActive()) return;
-    // Escape closes an open menu and nothing else.
-    const menuWasOpen = e.key === 'Escape' && menusOpen();
-    if (e.key === 'Escape') closeMenus();
+    // Escape is the stack's (lib/ui/layers.js), not this ladder's: the menu,
+    // then the inspector, the clip editor and the selection, newest first,
+    // and a sheet's own before any of them. Only a preview (below) keeps it.
     // Typing is typing; a level slider with focus still lets the keys work.
     const typing = e.target && (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable
       || (e.target.tagName === 'INPUT' && e.target.type !== 'range'));
@@ -4817,57 +4912,28 @@ function wire() {
       if (e.code === 'KeyD' && ids.length) { e.preventDefault(); duplicateClips(ids); return; }
       if (e.code === 'KeyA' && state.tape) { e.preventDefault(); selectAll(); return; }
     }
-    // Escape in the inspector's name field: the name is kept, and it closes.
-    if (e.key === 'Escape' && typing && !modalOpen() && e.target.closest?.('dialog.inspector')) {
-      e.target.blur();
-      closeInspector();
-      return;
-    }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (modalOpen()) return; // a sheet's keys are its own
-    // So are the inspector's, but for Escape, which closes it, and the
-    // transport's and the tracks' (R, L, K, J, 1–4): a level slider there
-    // takes the arrows, and Backspace mustn't remove its clip.
-    if (e.target.closest?.('dialog.inspector') && e.key !== 'Escape' && !INSPECTOR_PASSES.has(e.code)) return;
-    // With the keys in the inspector, Escape is its, before the clip editor's.
-    if (e.key === 'Escape' && !menuWasOpen && inspecting() && e.target.closest?.('dialog.inspector')) {
-      e.preventDefault();
-      closeInspector();
-      document.activeElement?.blur();
-      return;
-    }
+    // So are the inspector's, but for the transport's and the tracks' (R,
+    // L, K, J, 1–4): a level slider there takes the arrows, and Backspace
+    // mustn't remove its clip.
+    if (e.target.closest?.('dialog.inspector') && !INSPECTOR_PASSES.has(e.code)) return;
     // While a clip is being aligned the arrows step it, Shift by ten (not on
-    // a level slider or in a menu, whose arrows are their own), and Escape
-    // closes the editor.
+    // a level slider or in a menu, whose arrows are their own).
     if (state.align) {
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.tagName !== 'INPUT' && !menusOpen()) {
         e.preventDefault();
         bar.step(e.key === 'ArrowLeft' ? -1 : 1, e.shiftKey ? 10 : 1, !e.repeat);
         return;
       }
-      if (e.key === 'Escape' && !menuWasOpen) { e.preventDefault(); closeAlign(); return; }
     }
-    // Escape lets a previewed Insert, Delete time or Paste go, first.
-    if (e.key === 'Escape' && !menuWasOpen && state.preview) {
+    // Escape lets a previewed Insert, Delete time or Paste go before the
+    // selection it shows on, and after anything open over it. A preview is
+    // not a layer (pointing at a key shows one), so it keeps the key here,
+    // and preventDefault leaves the stack this press.
+    if (e.key === 'Escape' && state.preview && underSelection()) {
       e.preventDefault();
       showPreview(null);
-      return;
-    }
-    // Escape closes the inspector, before the selection.
-    if (e.key === 'Escape' && !menuWasOpen && inspecting()) {
-      e.preventDefault();
-      const inside = !!document.activeElement?.closest?.('dialog.inspector');
-      closeInspector();
-      if (inside) document.activeElement?.blur();
-      return;
-    }
-    // Escape lets go of the selected clips, or the range.
-    if (e.key === 'Escape' && !menuWasOpen && keyed().length) {
-      letGo();
-      return;
-    }
-    if (e.key === 'Escape' && !menuWasOpen && state.range) {
-      letGoRange();
       return;
     }
     // On the selection, from the page (not a focused key or field): Enter
