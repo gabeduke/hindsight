@@ -19,6 +19,7 @@ import { tagStore } from '../tags.js';
 import { openTagManager } from '../tags-dialog.js';
 import { fold, familyOf, spineTitle } from '../shelf.js';
 import { takeHref } from '../bar/take-source.js';
+import { icon } from '../ui/icons.js';
 
 function el(tag, cls, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -80,7 +81,8 @@ export function mount(h) {
 
   // --- ✎ Note: in the bar's own keys, where the flag was ---------------------
   const flagNow = $('flag-now');
-  const noteKey = el('button', 'icon-btn tb-flag room-open-note', { id: 'room-open-note', type: 'button', 'aria-label': 'Note at the playhead', 'data-tip': 'room-open-note' }, '✎');
+  const noteKey = el('button', 'icon-btn tb-flag room-open-note', { id: 'room-open-note', type: 'button', 'aria-label': 'Note at the playhead', 'data-tip': 'room-open-note' });
+  noteKey.innerHTML = icon('note');
   if (flagNow) { flagNow.hidden = true; flagNow.before(noteKey); }
   for (const k of [noteKey, noteHead]) k.addEventListener('click', () => writeAt(h.state().cursor));
 

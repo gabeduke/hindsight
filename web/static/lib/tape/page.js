@@ -4,6 +4,7 @@
 // state a few times a second and sends what you tap.
 
 import { toast } from '../toast.js';
+import { icon } from '../ui/icons.js';
 import { canShareFiles, shareOrDownload, looksLikeMP3 } from '../wave/share.js';
 import { drawBars, takeGain, levelsOfColumns, laneChannels } from '../wave/draw.js';
 import { drawTrace, traceLines } from '../wave/tape-strip.js';
@@ -4095,7 +4096,7 @@ function mountCatchMenu() {
   const more = document.createElement('span');
   more.className = 'np-catch-more';
   more.setAttribute('aria-hidden', 'true');
-  more.textContent = '▾';
+  more.innerHTML = icon('down', { size: 14 });
   // The second line the phone's mini bar shows.
   const mini = document.createElement('span');
   mini.className = 'np-catch-mini';

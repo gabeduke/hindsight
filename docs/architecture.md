@@ -771,7 +771,7 @@ throws, the router falls back to a full navigation.
 | `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport), `setLevels` |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
-| `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`) and `[data-playing]` |
+| `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class |
 
 **Audio rules the design relies on.** Pushing history or hiding DOM never
 touches media or an AudioContext. Autoplay gates are per document with sticky

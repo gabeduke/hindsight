@@ -13,6 +13,7 @@ import { Loop } from '../objects/motion.js';
 import { tokenCache, onSchemeChange } from '../theme.js';
 import { setText } from '../text.js';
 import { takeKeys } from './take-keys.js';
+import { setIcon } from '../ui/icons.js';
 import { initPlayer } from './player.js';
 
 const $ = (id) => document.getElementById(id);
@@ -170,10 +171,11 @@ export class NowPlaying {
       setText($('np-marquee'), note || s.marquee());
       $('np-marquee').parentElement.classList.toggle('still', !!note);
     }
-    // ▶ and its pause: ■ for the tape, as on its page; ❚❚ for a take.
+    // ▶ and its pause: ■ for the tape, as on its page; ❚❚ for a take. The
+    // key's .playing says it to the stylesheet and the checks, whatever it draws.
     const play = $('np-play');
     const shown = playing && !waiting;
-    setText(play, shown ? (s.kind === 'tape' ? '■' : '❚❚') : '▶');
+    setIcon(play, shown ? (s.kind === 'tape' ? 'stop' : 'pause') : 'play');
     setAttr(play, 'aria-label', waiting ? 'Play here' : shown ? (s.kind === 'tape' ? 'Stop' : 'Pause') : 'Play');
     play.classList.toggle('playing', shown);
     play.disabled = !playing && !waiting && !s.canPlay();

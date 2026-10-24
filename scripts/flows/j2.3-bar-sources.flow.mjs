@@ -7,7 +7,7 @@ const bar = () => {
     marquee: document.getElementById('np-marquee')?.textContent.trim() ?? '',
     name: document.getElementById('np-name')?.hidden === false ? document.getElementById('np-name').textContent.trim() : '',
     grab: document.getElementById('np-feed-grab')?.hidden === false,
-    play: document.getElementById('np-play')?.textContent.trim(),
+    playing: !!document.getElementById('np-play')?.classList.contains('playing'),
     path: location.pathname,
   };
 };
@@ -49,7 +49,7 @@ export default {
     const cassette = page.locator('#view-room .room-cassette').first();
     await cassette.waitFor({ state: 'visible' });
     await t.step('tap a take', () => t.tap(cassette));
-    const onTake = await t.poll(() => document.getElementById('np-play')?.textContent.trim() === '❚❚'
+    const onTake = await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing')
       && document.querySelector('#np .np-source-switch button[data-source="take"]')?.getAttribute('aria-pressed') === 'true');
     b = await now();
     t.expect('Shelf: the take plays and the switch says Shelf', onTake, b);

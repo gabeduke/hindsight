@@ -26,6 +26,7 @@ import { NearAudio } from './near.js';
 import { findAttack, findZero } from './onset.js';
 import { MIN_FPP } from '../edit/gestures.js';
 import { GESTURE } from '../ui/press.js';
+import { setIcon } from '../ui/icons.js';
 import { EditorBar } from '../edit/editor-bar.js';
 import { levelsFor, takeGain } from './draw.js';
 import { drawTrace } from './tape-strip.js';
@@ -722,7 +723,7 @@ async function main() {
   }
   function syncTransport() {
     const playing = clock.playing;
-    $('play').textContent = playing ? '❚❚' : '▶';
+    setIcon($('play'), playing ? 'pause' : 'play');
     $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
     $('play').classList.toggle('playing', playing);
     // The editor's own ▶ is a pause too, beside the point being edited.

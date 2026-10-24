@@ -92,17 +92,12 @@ export function initTransportFold(doc = document, storage = null) {
   const store = storage ?? (typeof sessionStorage !== 'undefined' ? sessionStorage : null);
   const btn = doc.getElementById('np-fold-btn');
   if (!btn) return null;
-  const glyph = btn.querySelector('.np-fold-glyph') || btn;
 
   const applyFold = (folded) => {
     doc.body.classList.toggle('np-fold', folded);
     btn.setAttribute('aria-expanded', String(!folded));
     btn.setAttribute('aria-label', folded ? 'Expand transport' : 'Collapse transport');
-    if (glyph.classList?.contains('np-fold-glyph')) {
-      glyph.textContent = folded ? '▴' : '▾';
-    } else {
-      btn.textContent = folded ? '▴' : '▾';
-    }
+    // Its ▾ turns over into ▴ by the body's np-fold (styles.css).
     try {
       if (store) {
         if (folded) store.setItem(NP_FOLD_KEY, '1');

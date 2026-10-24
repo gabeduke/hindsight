@@ -8,6 +8,7 @@
 // ever wears.
 
 import { takeHref } from './take-source.js';
+import { icon } from '../ui/icons.js';
 
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
@@ -54,7 +55,7 @@ export function takeKeys({ doc, root, onNote, onSelectSource, onGrabFeed }) {
   note.className = 'icon-btn np-note';
   note.setAttribute('type', 'button');
   note.setAttribute('data-tip', 'np-note');
-  note.textContent = '✎';
+  note.innerHTML = icon('note');
   note.hidden = true;
   note.addEventListener('click', () => onNote?.());
   const grabFeed = doc.createElement('button');
@@ -87,9 +88,10 @@ export function takeKeys({ doc, root, onNote, onSelectSource, onGrabFeed }) {
         setAttr(name, 'aria-label', `Open ${src.title}`);
         setAttr(note, 'aria-label', `Note at ${clock(src.pos(), src.sampleRate)}`);
       }
-      // ⟲ is the tape's loop for the tape, and for a take it is Repeat.
+      // ⟲ is the tape's loop for the tape, and for a take it is Repeat:
+      // the word changes, the icon beside it stays.
       if (loop) {
-        setText(loop, take ? '⟲ Repeat' : '⟲ Loop');
+        setText(loop.querySelector('.loop-word') || loop, take ? 'Repeat' : 'Loop');
         const tip = take ? 'np-repeat' : 'np-loop';
         if (loop.dataset.tip !== tip) loop.dataset.tip = tip;
       }

@@ -1481,9 +1481,13 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .toolbar { display: flex; flex-direction: column; gap: 8px; }
 .tb-row { display: flex; align-items: center; gap: 6px; position: relative; }
 .tb-row.transport .icon-btn { flex: 1 1 0; min-width: 0; padding: 0 4px; white-space: nowrap; }
-.tb-row.transport .tb-play { flex: 1.3 1 0; font-size: 16px; }
+.tb-row.transport .tb-play { flex: 1.3 1 0; }
 .tb-row.transport .tb-play.playing { color: var(--go); }
 .tb-row.transport .tb-loop { flex: 1.6 1 0; }
+/* ⟲ and its word, Loop or Repeat, on one line under the key's LED: the
+   drawn ⟲ takes the room the glyph and its space took, so the key keeps
+   its width. */
+.tb-loop .loop-face { display: inline-flex; align-items: center; gap: 1px; }
 .tb-row.transport .tb-flag { color: var(--flag); }
 .tb-row.transport .tb-point.pending { border-color: var(--accent); color: var(--accent); }
 .tb-row.selection {
@@ -2002,8 +2006,11 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center;
   background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink-dim);
 }
-/* A pill's ▾ is drawn small, so heavier (the kit's 2.75 under 16 px). */
-.pill-chev .i { stroke-width: 2.75; }
+/* A ▾ is drawn small, so heavier: the kit's 2.75 at 12 px, 2.25 at 14 to 16. */
+.pill-chev .i, .np-expand-chev .i { stroke-width: 2.75; }
+/* Down's ▾ starts where the glyph did: its box's blank side comes off. */
+.np-expand-chev .i { margin-left: -3px; }
+.np-catch-more .i, .np-fold-glyph .i { stroke-width: 2.25; }
 .tape-pill[aria-expanded="true"] { background: var(--panel-2); border-color: var(--focus); }
 .tape-pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .tape-sub { font-size: 13px; }
@@ -3284,7 +3291,7 @@ body.selecting .np { display: none; }
    tape over it. */
 #np-scrub { display: block; background: var(--well); outline: 1px solid var(--well-line); outline-offset: -1px; cursor: pointer; }
 .np .np-own .np-open { height: 52px; min-height: 52px; display: inline-flex; align-items: center; padding: 0 16px; text-decoration: none; white-space: nowrap; }
-.np .np-own .np-eject { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; font-size: 20px; }
+.np .np-own .np-eject { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; }
 @media (min-width: 1100px) {
   /* The picked take's Play is the bar's now; its pane stops above the bar. */
   body.shelf-page:has(.np:not([hidden])) .detail-play { display: none; }
@@ -3315,13 +3322,14 @@ body.tape-page .np #np-open { display: none; }
 /* Media player transport collapse: #np-fold-btn collapses the full 2-row
    transport bar into a slim compact bar (~46px) so the tape lanes have room. */
 .np-fold-btn { display: none; }
+/* Folded, its ▾ turns over: ▴ unfolds it. */
+body.np-fold .np-fold-glyph .i { transform: rotate(180deg); }
 @media (min-width: 700px) {
   .np-fold-btn {
     flex: none;
     width: 38px; min-width: 38px;
     height: 52px; min-height: 52px;
     padding: 0;
-    font-size: 15px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3366,6 +3374,10 @@ body.tape-page .np #np-open { display: none; }
   body.np-fold .np .np-keys .tb-rec {
     min-width: 52px;
   }
+  /* Folded, ▶'s LED sits beside it: a small key's 16 px icon, and the
+     icon's own blank sides for padding, keep the key 42 px wide. */
+  body.np-fold .np .np-keys .tb-play { padding: 0 5px; }
+  body.np-fold .np .np-keys .tb-play .i { width: 16px; height: 16px; }
   body.np-fold .np .np-catch {
     height: 38px;
     min-height: 38px;
@@ -3985,7 +3997,7 @@ input, select, textarea { color-scheme: inherit; }
   body.tape-page.player-open .np:not(.np-take):not(.np-feed) .out-anchor.np-out, body:not(.tape-page).player-open .np .np-out.np-out-tape { display: inline-flex; }
   /* ▾ puts it away: at the top of the sheet. */
   body.player-open .np-expand {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
     position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); z-index: 51;
     min-width: 72px; height: 44px; padding: 0 14px; border-radius: 11px; border: 1px solid var(--edge);
     background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink); font: 600 14px var(--font); cursor: pointer;
@@ -5412,7 +5424,7 @@ body:not(.room-rack) .shelf-title,
 .room-open-fam-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-open-tag { min-height: 32px; padding: 0 10px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
 .room-open-tag.on { border: 0; background: var(--stripe); color: var(--stripe-ink); }
-.room-open-note { color: var(--flag); font-size: 18px; }
+.room-open-note { color: var(--flag); }
 .room-open-note-btn { min-height: 40px; color: var(--ink); }
 dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
 .room-book-sheet .room-book-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -5897,7 +5909,7 @@ body .np .np-catch:has(> .np-catch-more) { position: relative; padding-right: 34
 .np-catch-more {
   position: absolute; top: 0; right: 0; bottom: 0; width: 28px;
   display: flex; align-items: center; justify-content: center;
-  border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent); font-size: 14px; line-height: 1;
+  border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent);
 }
 .catch-menu { position: fixed; z-index: 60; min-width: 230px; max-width: calc(100vw - 16px); }
 .catch-menu-head { padding: 6px 12px 8px; }
@@ -5949,7 +5961,7 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
 @media (hover: hover) { .np .np-own .np-name:hover { text-decoration: underline; } }
 .np .np-own .np-name::after { content: '›'; margin-left: 6px; opacity: .6; }
 .np .np-own .np-name:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.np .np-own .np-note { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; font-size: 20px; }
+.np .np-own .np-note { width: 52px; min-width: 52px; height: 52px; min-height: 52px; padding: 0; }
 .np .np-source-switch .np-feed-grab { font: 700 11px var(--mono); letter-spacing: .04em; color: var(--accent); }
 .np .np-source-switch .np-feed-grab[hidden] { display: none; }
 /* The name is the way into the take: the bar's own "Open the take ›" is the same route twice. */

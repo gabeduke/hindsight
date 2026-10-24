@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { barPage, aTake } from './bar-harness.js';
 import { FRAME_KEY, pageCarry } from './carry.js';
 import { tipFor } from '../help/tips.js';
+import { iconOf } from '../ui/icons.js';
 
 const SR = 48000;
 
@@ -121,9 +122,28 @@ test('the strip: a tap moves the playhead there, a drag scrubs it and lets go wh
   assert.ok(p.audio.currentTime > 119.9, 'let go at the end');
 });
 
+test('▶ draws ❚❚ while a take plays, and the key says it is playing whatever it draws', async () => {
+  const p = await withTake();
+  const play = p.$('np-play');
+  assert.equal(iconOf(play), 'play');
+  assert.equal(play.classList.contains('playing'), false);
+  assert.equal(play.textContent, '', 'drawn, not a glyph in some fallback font');
+  p.click(play);
+  await new Promise((r) => setTimeout(r, 0));
+  p.frames();
+  assert.equal(iconOf(play), 'pause');
+  assert.equal(play.getAttribute('aria-label'), 'Pause');
+  assert.ok(play.classList.contains('playing'), 'the state the flows and the stylesheet read');
+  p.click(play);
+  await new Promise((r) => setTimeout(r, 0));
+  p.frames();
+  assert.equal(iconOf(play), 'play');
+  assert.equal(play.classList.contains('playing'), false);
+});
+
 test('⟲ is Repeat for a take', async () => {
   const on = await withTake();
-  assert.equal(on.$('np-loop').textContent, '⟲ Repeat');
+  assert.equal(on.$('np-loop').textContent, 'Repeat');
   assert.equal(on.$('np-loop').dataset.tip, 'np-repeat');
   on.click(on.$('np-loop'));
   on.frames();
