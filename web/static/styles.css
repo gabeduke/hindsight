@@ -1414,7 +1414,6 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .take-top .step-btn { min-width: 30px; padding: 0 4px; font-size: 15px; }
 .take-top .help-btn, .take-top .menu-btn, .take-top .undo-btn, .take-top .trash-btn { min-width: 34px; padding: 0 6px; }
 @media (hover: hover) { .take-top .trash-btn:hover:not(:disabled) { color: var(--danger); } }
-.take-top .undo-btn { font-size: 18px; }
 .take-top .undo-btn:disabled { opacity: .35; }
 .narrow-only { display: none; }
 @media (max-width: 440px) {
@@ -2001,8 +2000,10 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-pill .pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tape-pill .pill-chev {
   flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center;
-  background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink-dim); font-size: 12px; line-height: 1;
+  background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink-dim);
 }
+/* A pill's ▾ is drawn small, so heavier (the kit's 2.75 under 16 px). */
+.pill-chev .i { stroke-width: 2.75; }
 .tape-pill[aria-expanded="true"] { background: var(--panel-2); border-color: var(--focus); }
 .tape-pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .tape-sub { font-size: 13px; }
@@ -2031,7 +2032,8 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tape-title > .menu-anchor:first-child .tape-pill { border-radius: 13px 13px 0 0; }
   .tape-title > .menu-anchor:last-child .tape-pill { border-radius: 0 0 13px 13px; border-top: 1px solid var(--line); font-size: 12px; justify-content: flex-start; }
   .tape-pill .pill-text { flex: 1 1 auto; text-align: left; }
-  .tape-pill .pill-chev { width: 18px; height: 18px; font-size: 11px; margin-left: auto; }
+  .tape-pill .pill-chev { width: 18px; height: 18px; margin-left: auto; }
+  .tape-pill .pill-chev .i { width: 11px; height: 11px; }
   .tape-pill .pill-ico { width: 18px; justify-content: center; }
   .tape-title-name .pill-ico { display: none; }
   .tape-pill[aria-expanded="true"] { border-color: var(--line); background: var(--panel-2); }
@@ -2141,7 +2143,6 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-tap { width: 100%; min-height: 56px; font-size: 16px; margin: 4px 0 10px; }
 .tape-tap.second { animation: breathe 1.2s ease-in-out infinite; }
 .tape-top .icon-btn { min-height: 36px; min-width: 34px; padding: 0 6px; flex: none; }
-.tape-top .undo-btn { font-size: 18px; }
 .tape-top .undo-btn:disabled { opacity: .35; }
 .dot.lock { flex: none; }
 .tape-main { max-width: 900px; margin: 0 auto; padding: 10px 12px 40px; display: flex; flex-direction: column; gap: 10px; }
@@ -3524,9 +3525,11 @@ dialog.inspector:focus-visible { outline: none; }
 @media (hover: hover) { .appbar-end > .out-btn:hover { border-color: var(--rule); } }
 .appbar-end > .out-btn .out-ico-slot { display: inline-flex; }
 .appbar-end > .out-btn :is(.tape-out-text, .pill-chev) { display: none; }
-.appbar-end > .out-btn .pill-chev { color: var(--ink-dim); font-size: 11px; }
+/* The drawn ▾ is 6 px of line in a 12 px box: the box's blank sides come
+   off its gap and the key's padding, so the key is as wide as it was. */
+.appbar-end > .out-btn .pill-chev { color: var(--ink-dim); margin-left: -3px; }
 @media (min-width: 1000px) {
-  .appbar-end > .out-btn { padding: 0 14px 0 12px; }
+  .appbar-end > .out-btn { padding: 0 11px 0 12px; }
   .appbar-end > .out-btn :is(.tape-out-text, .pill-chev) { display: inline; }
 }
 @media (min-width: 1000px) and (max-height: 640px) {
@@ -4228,7 +4231,7 @@ body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent
     grid-template-areas: "brand nav page tools";
   }
   :is(.tape-page, .shelf-page) .appbar:has(.appbar-page:not([hidden])) > .brand { display: flex; }
-  .tape-page .appbar-end > .out-btn { padding: 0 14px 0 12px; }
+  .tape-page .appbar-end > .out-btn { padding: 0 11px 0 12px; }
   .tape-page .appbar-end > .out-btn :is(.tape-out-text, .pill-chev) { display: inline; }
 }
 

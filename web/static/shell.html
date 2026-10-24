@@ -35,7 +35,7 @@
   </nav>
   <!-- Where the tape plays (lib/tape/out-switch.js): a speaker, headphones or
        both, and the place's name on a wide screen. Hidden until the Pi says. -->
-  <button id="out-btn" class="out-btn tape-out" type="button" aria-haspopup="dialog" aria-label="Output" data-tip="tape-out" hidden><span class="out-ico-slot" aria-hidden="true"></span><span class="tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+  <button id="out-btn" class="out-btn tape-out" type="button" aria-haspopup="dialog" aria-label="Output" data-tip="tape-out" hidden><span class="out-ico-slot" aria-hidden="true"><svg class="i i-speaker out-ico" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#speaker"/></svg></span><span class="tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg#down"/></svg></span></button>
   <div id="header-capture" class="appbar-page" hidden>
     <div class="health">
       <span class="awake" id="awake" hidden
@@ -53,24 +53,24 @@
          sets the loop's bars. Each opens under itself. -->
     <div class="tape-title">
       <span class="menu-anchor">
-        <button id="tape-name" class="tape-pill tape-title-name" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu"><svg class="pill-ico" width="22" height="16" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg><span id="tape-name-text" class="pill-text">…</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+        <button id="tape-name" class="tape-pill tape-title-name" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu"><svg class="i i-tape pill-ico" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#tape"/></svg><span id="tape-name-text" class="pill-text">…</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg#down"/></svg></span></button>
         <div id="tape-menu" class="menu from-left" role="menu" hidden>
           <div id="tape-list" class="tape-list"></div>
           <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
         </div>
       </span>
       <span class="menu-anchor">
-        <button id="tape-sub" class="tape-pill tape-sub mono" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-tempo"><span class="pill-ico" aria-hidden="true">♩</span><span id="tape-sub-long" class="pill-text sub-long"></span><span id="tape-sub-short" class="pill-text sub-short" aria-hidden="true"></span><span class="pill-chev" aria-hidden="true">▾</span></button>
+        <button id="tape-sub" class="tape-pill tape-sub mono" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-tempo"><span class="pill-ico" aria-hidden="true">♩</span><span id="tape-sub-long" class="pill-text sub-long"></span><span id="tape-sub-short" class="pill-text sub-short" aria-hidden="true"></span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg#down"/></svg></span></button>
         <div id="tempo-menu" class="menu from-left" role="menu" hidden></div>
       </span>
     </div>
     <span class="appbar-spacer"></span>
     <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
     <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
-    <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo">↶</button>
-    <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo">↷</button>
+    <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo"><svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#undo"/></svg></button>
+    <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo"><svg class="i i-redo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#redo"/></svg></button>
     <span class="menu-anchor">
-      <button id="tape-more" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More for this tape" data-tip="tape-more">⋯</button>
+      <button id="tape-more" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More for this tape" data-tip="tape-more"><svg class="i i-more" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#more"/></svg></button>
       <div id="tape-actions" class="menu" role="menu" hidden>
         <button id="tape-rename" type="button" role="menuitem" data-tip="tape-rename">Rename this tape…</button>
         <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
@@ -386,7 +386,7 @@
       <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub"></canvas>
       <span class="np-out np-here"><span class="pill-out" aria-hidden="true">OUT</span><span id="np-out">Jam room</span></span>
       <span class="menu-anchor out-anchor np-out np-studio">
-        <button id="tape-out" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+        <button id="tape-out" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg#down"/></svg></span></button>
       </span>
     </div>
   </section>

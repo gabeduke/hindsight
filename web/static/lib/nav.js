@@ -12,6 +12,7 @@
 // page loads this, so every page is said; a later import would rename what
 // a page had filled in by then (the guide, a take's name).
 import './rooms/words.js';
+import { icon } from './ui/icons.js';
 
 const TABS = [
   // The Studio's href is the tape page's while the tape is on.
@@ -89,7 +90,7 @@ export function mountHeaderTools(doc = document) {
     // Help mode shows its tip and still opens it: Help mode's own way out is inside.
     'data-tip-pass': '',
   });
-  btn.innerHTML = '<svg width="20" height="16" viewBox="0 0 20 16" aria-hidden="true"><path d="M2 2h16M2 8h16M2 14h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  btn.innerHTML = icon('menu', { size: 22 });
   const menu = make('div', 'menu app-menu', { id: 'app-menu', role: 'menu', 'aria-label': 'Menu' });
   menu.hidden = true;
 
