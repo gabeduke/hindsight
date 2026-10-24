@@ -1,5 +1,10 @@
 # Listening back
 
+> Its steps are now steps 4, 9 and 10 of `the-studio-space.md`, which
+> changes one thing here: the Listening Room becomes a shelf wall, with
+> the drawn room as the way in and ambient light, so the deck as the
+> room's centrepiece goes.
+
 Agreed with Gabe on 2026-10-23, after he tried the Listening Room on the
 rig: getting from a take into its page was awkward, the page's keys were
 awkward once there, and writing notes meant choosing between several
