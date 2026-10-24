@@ -129,7 +129,7 @@ export function takeSource(t, player, { onGone } = {}) {
         ctx.fillRect(x0, 0, Math.max(1, x1 - x0), H);
       }
       const px = Math.round((pos() / length) * W);
-      ctx.fillStyle = col('--accent', '#cb4b16');
+      ctx.fillStyle = col('--accent', '#b84a1b');
       ctx.fillRect(px - 1, 0, 2, H);
     },
     /** on hears every change to what the bar shows of the take, and answers its off. */

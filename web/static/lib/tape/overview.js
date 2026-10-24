@@ -71,7 +71,7 @@ export function paintTapeOverview(ctx, W, H, t, heard, { col, win = null, dashed
   });
   if (t.loop.out > t.loop.in) {
     const x0 = xOf(t.loop.in, all, W), x1 = xOf(t.loop.out, all, W);
-    ctx.strokeStyle = withAlpha(col('--warn', '#b58900'), t.loop.on ? 1 : 0.4);
+    ctx.strokeStyle = withAlpha(col('--warn', '#d99a0a'), t.loop.on ? 1 : 0.4);
     ctx.strokeRect(x0 + 0.5, 0.5, Math.max(2, x1 - x0) - 1, H - 1);
   }
   if (win) {
@@ -84,7 +84,7 @@ export function paintTapeOverview(ctx, W, H, t, heard, { col, win = null, dashed
     ctx.setLineDash([]);
   }
   if (heard != null) {
-    ctx.fillStyle = col('--accent', '#cb4b16');
+    ctx.fillStyle = col('--accent', '#b84a1b');
     ctx.fillRect(Math.round(xOf(heard, all, W)), 0, 2, H);
   }
 }

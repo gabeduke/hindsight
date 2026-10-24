@@ -3,21 +3,16 @@
 // out, so these pin the rules the mini player rests on.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { block, fileCss } from '../stylesheets.js';
 
-const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
+const css = fileCss('styles.css');
 const PHONE = '@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {';
 
 // The phone block that holds the take's mini player, brace-matched.
 function phoneBlock() {
   const at = css.indexOf(PHONE, css.indexOf('.np.np-take #np-open'));
   assert.ok(at > 0, 'the phone block for a take follows its wide-screen rules');
-  let depth = 0;
-  for (let i = css.indexOf('{', at); i < css.length; i++) {
-    if (css[i] === '{') depth++;
-    else if (css[i] === '}' && --depth === 0) return css.slice(at, i);
-  }
-  throw new Error('unbalanced');
+  return block(css, at);
 }
 const hasRule = (text, selector, decl) => {
   const re = new RegExp(`${selector.replace(/[.[\]()*+?^$|\\#"=:>]/g, '\\$&')}\\s*\\{[^}]*${decl.replace(/[.()]/g, '\\$&')}`);

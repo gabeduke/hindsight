@@ -139,6 +139,26 @@ and caught by hand.
   of every kit, so a flagged feature's rules ship to everyone the day it
   merges. The `.play` sheet above reached every kit with Play mode switched
   off.
+- **A test reads the stylesheets through `web/static/lib/stylesheets.js`**
+  (`cssOf`, `fileCss`, `rules`, `block`, `section`, `tokens`), never with a
+  brace matcher of its own: eighteen files once had eight copies of one, and
+  a copy that slips passes a test that should fail. It is node-only, so it
+  stays out of `sw.js`'s `SHELL`.
+- **Change the rule that wins, not one a later rule overrides.** The deck's
+  restyle set the keys and the fields again, in grouped lists, three
+  thousand lines below their first rules, and 181 first values stood there
+  reading like the answer while changing nothing. `lib/css-cascade.test.js`
+  fails on a declaration that a later rule, with the same selector in the
+  same `@media`, always overrides: delete it, or merge the two.
+- **A canvas reads its colours by token, and its fallback is the light
+  value.** `lib/css-tokens.test.js` fails on a token no stylesheet defines
+  (the buffer's playhead drew in an undefined `--ok`'s fallback from the
+  day it shipped) and on a fallback that has drifted from the palette.
+- **The stylesheets' costs only go down.** `lib/css-budget.test.js` counts
+  hex and rgba literals outside the token blocks, z-index numbers,
+  `!important`, `@media` conditions, written-in durations and font-weights
+  with no face. Reuse a token, a condition or a z-index rather than add
+  one; when a count drops, the test prints the number to lower it to.
 - **Never hide the only route to something.** The about line on Capture was
   `display: none` in one window shape; it carries the only Settings button
   anywhere in the app, so that shape had no way in at all. `styles.test.js`

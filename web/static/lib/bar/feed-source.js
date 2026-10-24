@@ -5,6 +5,7 @@
 // buffer from the scrubbed position.
 
 import { paintOxide, oxideColors, drawTrace, traceLines } from '../wave/tape-strip.js';
+import { withAlpha } from '../theme.js';
 import { replacedLine, remember } from '../buffer/replaced.js';
 import { forTheTape } from './carry.js';
 
@@ -168,7 +169,7 @@ export function feedSource({
         : `STUDIO FEED · ${healthy ? 'LIVE RING' : 'WAITING'}`;
     },
     levels: {
-      colors: ['var(--go, #2ea043)', 'var(--go, #2ea043)'],
+      colors: ['var(--go, #6faa32)', 'var(--go, #6faa32)'],
       at: () => (active && healthy ? [peakDb, peakDb] : [-60, -60]),
     },
     out: () => 'Studio feed',
@@ -177,12 +178,15 @@ export function feedSource({
       paintOxide(ctx, W, H, oxideColors(col));
       if (bins.length > 1) {
         const lines = traceLines(bins, W, H, 1);
-        drawTrace(ctx, lines, { stroke: col('--trace', '#e8dcc4'), fill: col('--trace-fill', 'rgba(232,220,196,0.18)') }, dpr);
+        // The trace, and under it the trace at .18. (These are not
+        // traceLines' and drawTrace's arguments, so the strip shows the
+        // oxide and the marker only: the trace has never drawn here.)
+        drawTrace(ctx, lines, { stroke: col('--trace', '#f6e7c4'), fill: withAlpha(col('--trace', '#f6e7c4'), 0.18) }, dpr);
       }
       const len = lengthFrames();
       const frac = len > 0 ? Math.max(0, Math.min(1, pos() / len)) : 1;
       const px = Math.max(2, Math.min(W - 2, Math.round(frac * (W - 4)) + 2));
-      ctx.fillStyle = col('--go', '#2ea043');
+      ctx.fillStyle = col('--go', '#6faa32');
       ctx.fillRect(px - 1, 0, 2, H);
     },
     /** on hears every change to what the bar shows of the feed, and answers its off. */

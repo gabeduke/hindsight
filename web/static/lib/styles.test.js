@@ -5,35 +5,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { block, cssOf, fileCss, rules, section, splitList, stripComments, tokens } from './stylesheets.js';
 
-const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+const css = fileCss('styles.css');
 // The materials -- tape, cassettes, reels, the VU faces -- live next door in
 // objects.css. Same :root, no dark block of its own, because every token in
 // it is the same in both schemes. These checks run over the two files
 // together, because that is what a page loads.
-const materials = readFileSync(new URL('../objects.css', import.meta.url), 'utf8');
+const materials = fileCss('objects.css');
 
-// The body of the first block opening at `start` (brace-matched).
-function block(start, text = css) {
-  const open = text.indexOf('{', start);
-  let depth = 0;
-  for (let i = open; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    else if (text[i] === '}' && --depth === 0) return text.slice(open + 1, i);
-  }
-  throw new Error('unbalanced');
-}
-function tokens(body) {
-  const out = {};
-  for (const m of body.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) out[m[1]] = m[2].trim();
-  return out;
-}
-const light = {
-  ...tokens(block(materials.indexOf(':root'), materials)),
-  ...tokens(block(css.indexOf(':root'))),
-};
+const light = tokens(cssOf(), { scheme: 'light' });
+const dark = tokens(cssOf(), { scheme: 'dark' });
 const darkAt = css.indexOf('@media (prefers-color-scheme: dark)');
-const dark = { ...light, ...tokens(block(darkAt)) };
 
 function rgb(hex) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
@@ -79,7 +62,7 @@ for (const [scheme, t] of [['light', light], ['dark', dark]]) {
 }
 
 test('hover lives only inside @media (hover: hover)', () => {
-  const hoverBlocks = [...css.matchAll(/@media \(hover: hover\)/g)].map((m) => block(m.index));
+  const hoverBlocks = [...css.matchAll(/@media \(hover: hover\)/g)].map((m) => block(css, m.index));
   let outside = css;
   for (const b of hoverBlocks) outside = outside.replace(b, '');
   const stray = outside.split('\n').filter((l) => /:hover/.test(l) && !/^\s*(\/\*|\*)/.test(l));
@@ -112,7 +95,7 @@ for (const [scheme, t] of [['light', light], ['dark', dark]]) {
     for (const sel of WELL_TEXT) {
       const at = css.search(new RegExp('^' + sel.replace(/\./g, '\\.') + '\\s*\\{', 'm'));
       assert.ok(at >= 0, `no rule for ${sel}`);
-      const color = /(?:^|[;{\s])color:\s*([^;]+);/.exec(block(at));
+      const color = /(?:^|[;{\s])color:\s*([^;]+);/.exec(block(css, at));
       assert.ok(color, `${sel} sets no colour, so it inherits a page ink`);
       const c = contrast(resolve(color[1], t), t['--well']);
       assert.ok(c >= 4.5, `${scheme} ${sel} on --well is ${c.toFixed(2)}:1`);
@@ -130,9 +113,8 @@ function specificity(sel) {
 }
 const outranks = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 // Every rule as { sel: [parts], body }, top level or inside @media.
-const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
-const RULES = [...bare.matchAll(/([^{}@;]+)\{([^{}]*)\}/g)]
-  .map((m) => ({ sel: m[1].split(',').map((x) => x.trim()).filter(Boolean), body: m[2] }));
+const bare = stripComments(css);
+const RULES = rules(css);
 
 test('a latched transport key sits as low as the raised key rule it overrides', () => {
   const raised = specificity('.tb-row.transport .icon-btn');
@@ -143,7 +125,7 @@ test('a latched transport key sits as low as the raised key rule it overrides', 
 });
 
 test('hovering a key never hides its state', () => {
-  const hoverBlocks = [...css.matchAll(/@media \(hover: hover\)[^{]*/g)].map((m) => block(m.index)).join('\n');
+  const hoverBlocks = [...css.matchAll(/@media \(hover: hover\)[^{]*/g)].map((m) => block(css, m.index)).join('\n');
   const lifts = [...hoverBlocks.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
     .filter((m) => /border-color|box-shadow|transform/.test(m[2]))
     .flatMap((m) => m[1].split(',').map((x) => x.trim()));
@@ -222,7 +204,7 @@ test('print on the ribbon reads on the oxide and on its ruler', () => {
     assert.ok(c >= 4.5, `--oxide-label on ${bg} is ${c.toFixed(2)}:1`);
   }
   const at = css.search(/^\.rb-readout\s*\{/m);
-  assert.match(block(at), /color:\s*var\(--oxide-label\)/);
+  assert.match(block(css, at), /color:\s*var\(--oxide-label\)/);
 });
 
 // The monitor: VU meters backlit amber, stats in amber LCD windows -- both
@@ -253,7 +235,7 @@ test('stats read as amber LCD readouts', () => {
 test("a short landscape screen hides the Capture key's second line", () => {
   const at = css.indexOf('@media (orientation: landscape) and (max-height: 560px)');
   assert.ok(at > 0);
-  assert.match(block(at), /\.cap-sub\s*\{[^}]*display:\s*none/);
+  assert.match(block(css, at), /\.cap-sub\s*\{[^}]*display:\s*none/);
 });
 
 // A readout that warns must look different from one that doesn't: its own
@@ -276,7 +258,7 @@ test('a warning readout has its own window, and reads in it', () => {
 test('REC and the readout sit on plates, and the readout takes no taps', () => {
   for (const sel of ['.rb-now-label', '.rb-readout']) {
     const at = css.search(new RegExp('^' + sel.replace(/\./g, '\\.') + '\\s*\\{', 'm'));
-    const b = block(at);
+    const b = block(css, at);
     assert.match(b, /background:\s*var\(--oxide-ruler\)/, `${sel} has a plate`);
     const fg = /(?:^|[;{\s])color:\s*([^;]+);/.exec(b)[1];
     for (const [scheme, t] of [['light', light], ['dark', dark]]) {
@@ -284,7 +266,7 @@ test('REC and the readout sit on plates, and the readout takes no taps', () => {
       assert.ok(c >= 4.5, `${scheme} ${sel} is ${c.toFixed(2)}:1 on its plate`);
     }
   }
-  assert.match(block(css.search(/^\.rb-readout\s*\{/m)), /pointer-events:\s*none/);
+  assert.match(block(css, css.search(/^\.rb-readout\s*\{/m)), /pointer-events:\s*none/);
 });
 
 test("the VU scale's red numerals read on the backlit face", () => {
@@ -296,7 +278,7 @@ test("the VU scale's red numerals read on the backlit face", () => {
 // A token defined twice in one block silently takes the later value: the
 // tape machine's --hub once overwrote the cassette's.
 test('no token is defined twice in a scheme', () => {
-  for (const [name, body] of [[':root', block(css.indexOf(':root'))], ['dark', block(darkAt)]]) {
+  for (const [name, body] of [[':root', block(css, ':root')], ['dark', block(css, darkAt)]]) {
     const seen = new Set();
     for (const m of body.matchAll(/(--[a-z0-9-]+)\s*:/g)) {
       assert.ok(!seen.has(m[1]), `${name} defines ${m[1]} twice`);
@@ -330,34 +312,37 @@ test('the tape deck tokens exist, and the bar\'s LCD reads', () => {
 test('a phone docks the now-playing bar', () => {
   const at = css.indexOf('@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px)');
   assert.ok(at > 0, 'a media block for both phone shapes');
-  assert.match(block(at), /\.np\s*\{[^}]*position:\s*fixed/);
+  assert.match(block(css, at), /\.np\s*\{[^}]*position:\s*fixed/);
 });
 
 test('inputs sit on the field, not the well', () => {
   const at = css.indexOf('.take-name-input, .take-bpm-input, .take-title-input');
   assert.ok(at > 0);
-  assert.match(block(at), /background:\s*var\(--field\)/);
+  assert.match(block(css, at), /background:\s*var\(--field\)/);
 });
 
 // The takes search is a box with a bare input inside: the box is the field.
 test('the takes search is a field, not a window', () => {
   const at = css.search(/^\.shelf-search\s*\{/m);
   assert.ok(at >= 0);
-  assert.match(block(at), /background:\s*var\(--field\)/);
+  assert.match(block(css, at), /background:\s*var\(--field\)/);
 });
 
 test('nothing hides the header’s menu or its Settings, the only way into Settings', () => {
   // Settings is the first item of the header's one menu (☰,
   // `.app-menu-btn`, lib/nav.js) on every page. A rule offends when what it
   // hides is one of these itself: not something inside, nor a ::pseudo.
+  // Every rule, the first inside an @media too: a text match from the
+  // margin once read `@media (…) { .x .app-menu-btn { display: none` as
+  // one rule whose selector was the @media, and passed it.
   const offenders = [];
-  for (const m of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
-    if (!/display\s*:\s*none/.test(m[2])) continue;
-    for (const sel of m[1].replace(/\/\*[\s\S]*?\*\//g, '').split(',')) {
-      const last = sel.trim().split(/\s*[\s>+~]\s*/).pop();
+  for (const r of RULES) {
+    if (!/display\s*:\s*none/.test(r.body)) continue;
+    for (const sel of r.sel) {
+      const last = sel.split(/\s*[\s>+~]\s*/).pop();
       // `[hidden]` is the element asking to be hidden.
       if (last.includes('[hidden]') || last.includes('::')) continue;
-      if (/\.(?:appbar-settings-btn|app-menu-btn|app-menu-anchor|appbar-end)\b/.test(last)) offenders.push(`${sel.trim()} { ${m[2].trim()} }`);
+      if (/\.(?:appbar-settings-btn|app-menu-btn|app-menu-anchor|appbar-end)\b/.test(last)) offenders.push(`${sel} { ${r.body.trim()} }`);
     }
   }
   assert.deepEqual(offenders, [],
@@ -381,11 +366,8 @@ test('the Studio’s rules reach only the Studio', () => {
   // styles.css is on every page. So the Rooms P1 block may only style what
   // the Studio's templates in tape.html put in the page (a studio- class) or
   // the tape page itself (body.tape-page), which is the Studio.
-  const start = css.indexOf('/* ---------- Rooms P1:');
-  assert.ok(start >= 0, 'the Rooms P1 block');
   // To the next section's header, however many dashes it has.
-  const next = css.slice(start + 1).search(/\/\* -{4,} /);
-  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const body = section(css, '/* ---------- Rooms P1:');
   const loose = [];
   for (const m of body.matchAll(/([^{}]+)\{/g)) {
     for (const sel of m[1].split(',').map((x) => x.trim())) {
@@ -417,24 +399,11 @@ test('the Listening Room’s rules reach only the room', () => {
   // room's modules make (a room-, chair- or book- class, or .room and .chair
   // themselves) or the pages the room has marked (body.room-on,
   // body.chair-on).
-  const start = css.indexOf('/* ---------- Rooms P5:');
-  assert.ok(start >= 0, 'the Rooms P5 block');
-  const next = css.slice(start + 1).search(/\/\* -{4,} /);
-  const body = css.slice(start, next < 0 ? undefined : start + 1 + next)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
+  const body = section(css, '/* ---------- Rooms P5:')
     // A keyframes' steps are not selectors.
     .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
   // Commas inside :is() and :not() don't separate selectors.
-  const split = (list) => {
-    const out = [];
-    let depth = 0, from = 0;
-    for (let i = 0; i < list.length; i++) {
-      if (list[i] === '(') depth++;
-      else if (list[i] === ')') depth--;
-      else if (list[i] === ',' && depth === 0) { out.push(list.slice(from, i)); from = i + 1; }
-    }
-    return [...out, list.slice(from)].map((x) => x.trim());
-  };
+  const split = splitList;
   const loose = [];
   for (const m of body.matchAll(/([^{}]+)\{/g)) {
     if (m[1].trim().startsWith('@')) continue; // a media query, not a selector
@@ -463,9 +432,7 @@ test('the room never hides the bar, on any shelf or in a month’s box', () => {
   // design.md): the phone's deck card used to be the player, and the room hid
   // the bar behind it. The card is gone, so a rule that hides the bar leaves
   // nothing to pause with. (The chair's deck is its bar and is not the doorway.)
-  const start = css.indexOf('/* ---------- Rooms P5:');
-  const next = css.slice(start + 1).search(/\/\* -{4,} /);
-  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const body = section(css, '/* ---------- Rooms P5:');
   const hiding = [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
     .filter(([, sel, decl]) => /\.room-on/.test(sel) && /(^|[\s>])\.np(?![\w-])/.test(sel) && /display:\s*none/.test(decl) && !/\.np \./.test(sel))
     .map(([, sel]) => sel.trim());
@@ -475,8 +442,7 @@ test('the room never hides the bar, on any shelf or in a month’s box', () => {
 test('a phone’s shelf row leaves room for a selected spine’s ring, halo and tick to be whole', () => {
   // The row scrolls (overflow clips both ways), the ring's halo is 2px and the tick sits 6px
   // above the spine: it needs 8px above and 2px beside, and a snap must not eat the side.
-  const start = css.indexOf('/* ---------- Rooms P5:');
-  const body = css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+  const body = stripComments(css.slice(css.indexOf('/* ---------- Rooms P5:')));
   const phone = body.slice(body.indexOf('@media (max-width: 699.98px), (prefers-reduced-data: reduce)'));
   const m = /\.room-row\s*\{[^}]*padding:\s*(\d+)px\s+\d+px\s+\d+px\s+(\d+)px[^}]*\}/.exec(phone);
   assert.ok(m, 'the phone’s .room-row has a four-value padding');
@@ -486,9 +452,7 @@ test('a phone’s shelf row leaves room for a selected spine’s ring, halo and 
 });
 
 test('the room draws no deck on a phone, and the deck has no keys', () => {
-  const start = css.indexOf('/* ---------- Rooms P5:');
-  const next = css.slice(start + 1).search(/\/\* -{4,} /);
-  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const body = section(css, '/* ---------- Rooms P5:');
   const phone = body.slice(body.indexOf('@media (max-width: 699.98px), (prefers-reduced-data: reduce)'));
   assert.match(phone, /\.room-deck\s*\{\s*display:\s*none/, 'the deck card is gone on a phone');
   assert.doesNotMatch(body, /room-deck-keys|room-deck-play|room-deck-sit|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/, 'no rule for what is gone');
@@ -500,10 +464,7 @@ test('Play mode’s rules reach only Play mode', () => {
   // the class the Takes page already gave its Play buttons -- so on a phone,
   // opening a take turned that button into a blank sheet over the whole
   // screen, with Play mode switched off.
-  const start = css.indexOf('/* ---------- Play mode (lib/play) ---------- */');
-  assert.ok(start >= 0, 'the Play mode block');
-  const end = css.indexOf('/* ----------', start + 1);
-  const body = css.slice(start, end < 0 ? undefined : end).replace(/\/\*[\s\S]*?\*\//g, '');
+  const body = section(css, '/* ---------- Play mode (lib/play) ---------- */');
 
   // Every selector hangs off one of Play mode's own `play-` classes.
   const loose = [];
@@ -543,10 +504,8 @@ test('Play mode is drawn in its own materials, the same in both schemes', () => 
   // anyone had was at night. Inside the overlay, nothing may use a token the
   // dark scheme redefines. Its way in, .play-enter, sits on the page, so it
   // dresses like the page.
-  const start = css.indexOf('/* ---------- Play mode (lib/play) ---------- */');
-  const end = css.indexOf('/* ----------', start + 1);
-  const body = css.slice(start, end < 0 ? undefined : end).replace(/\/\*[\s\S]*?\*\//g, '');
-  const scheme = new Set(Object.keys(tokens(block(darkAt))));
+  const body = section(css, '/* ---------- Play mode (lib/play) ---------- */');
+  const scheme = new Set(Object.keys(tokens(css, { scheme: 'dark', only: true })));
   const offenders = [];
   for (const m of body.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const sel = m[1].trim();
@@ -565,7 +524,7 @@ test('on a phone the Studio’s selection bar wraps instead of running off the s
   const start = css.indexOf('/* ---------- Rooms P1:');
   const at = css.indexOf('@media (max-width: 699.98px)', start);
   assert.ok(start >= 0 && at > start, 'the Studio has a phone block');
-  const phone = block(at);
+  const phone = block(css, at);
   assert.match(phone, /\.studio-feed > \.rb-sel\s*\{[^}]*flex-wrap:\s*wrap/);
   assert.match(phone, /\.studio-feed > \.rb-sel \.rb-sel-text\s*\{[^}]*flex:\s*1 1 100%/);
 });
@@ -679,7 +638,7 @@ test('the releases sheet and the guide keep their rules to themselves', () => {
 test('the guide can be narrower than its widest table', () => {
   assert.ok(RULES.some((r) => r.sel.includes('.guide-page .guide') && /min-width:\s*0/.test(r.body)));
   // ...and a phone stacks a table's rows rather than scrolling them.
-  const phone = [...bare.matchAll(/@media \(max-width: 599\.98px\)/g)].map((m) => block(m.index, bare)).find((b) => b.includes('.guide-page'));
+  const phone = [...bare.matchAll(/@media \(max-width: 599\.98px\)/g)].map((m) => block(bare, m.index)).find((b) => b.includes('.guide-page'));
   assert.ok(phone, 'a phone block for the guide');
   assert.match(phone, /\.guide-page \.guide tr[^{]*\{[^}]*display:\s*block/);
 });

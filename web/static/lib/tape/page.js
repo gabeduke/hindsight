@@ -2223,14 +2223,14 @@ function drawRuler(heardFrame = state.live ? heardNow() : null) {
   ctx.clearRect(0, 0, W, H);
   const view = laneView();
   if (ghost && performance.now() >= ghost.until) ghost = null;
-  const ink = token('--well-ink', '#f2e6c8'), warn = token('--warn', '#b58900');
+  const ink = token('--well-ink', '#f2e6c8'), warn = token('--warn', '#d99a0a');
   const span = (from, to, fill) => {
     const x0 = Math.max(0, xOf(from, view, W)), x1 = Math.min(W, xOf(to, view, W));
     if (x1 > x0) { ctx.fillStyle = fill; ctx.fillRect(x0, 0, x1 - x0, H); }
   };
   if (t.loop.out > t.loop.in) span(t.loop.in, t.loop.out, withAlpha(warn, t.loop.on ? 0.22 : 0.08));
-  if (state.sel) span(state.sel.from, state.sel.to, withAlpha(token('--sel', '#268bd2'), 0.35));
-  else if (state.range && !isLoop(state.range, t.loop)) span(state.range.from, state.range.to, withAlpha(token('--sel', '#268bd2'), 0.3));
+  if (state.sel) span(state.sel.from, state.sel.to, withAlpha(token('--sel', '#4ebeb4'), 0.35));
+  else if (state.range && !isLoop(state.range, t.loop)) span(state.range.from, state.range.to, withAlpha(token('--sel', '#4ebeb4'), 0.3));
   // A previewed edit's length on the ruler: +4 bars, −4 bars.
   const pv = state.preview;
   if (pv) {
@@ -2259,13 +2259,13 @@ function drawRuler(heardFrame = state.live ? heardNow() : null) {
   }
   if (state.live && heardFrame != null) {
     const x = xOf(heardFrame, view, W);
-    if (x >= 0 && x <= W) { ctx.fillStyle = token('--accent', '#cb4b16'); ctx.fillRect(Math.round(x), 0, 2, H); }
+    if (x >= 0 && x <= W) { ctx.fillStyle = token('--accent', '#b84a1b'); ctx.fillRect(Math.round(x), 0, 2, H); }
   }
   // A locate seen but not yet heard: a hollow marker where the sound will be.
   if (ghost) {
     const x = xOf(ghost.pos, view, W);
     if (x >= 0 && x <= W) {
-      ctx.strokeStyle = token('--accent', '#cb4b16'); ctx.lineWidth = 1.6;
+      ctx.strokeStyle = token('--accent', '#b84a1b'); ctx.lineWidth = 1.6;
       ctx.beginPath(); ctx.moveTo(x - 5, 1); ctx.lineTo(x + 5, 1); ctx.lineTo(x, 9); ctx.closePath(); ctx.stroke();
     }
   }
@@ -2375,7 +2375,7 @@ function drawSections() {
   }
   if (d && d.kind === 'make') {
     const x0 = xOf(d.from, view, W), x1 = xOf(d.to, view, W);
-    const warn = token('--warn', '#b58900');
+    const warn = token('--warn', '#d99a0a');
     ctx.fillStyle = withAlpha(warn, 0.25);
     ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
     ctx.setLineDash([4, 3]); ctx.strokeStyle = warn;
@@ -3228,7 +3228,7 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
     // The loop, a faint amber band across every lane.
     if (t.loop && t.loop.out > t.loop.in) {
       const lx0 = xOf(t.loop.in, view, W), lx1 = xOf(t.loop.out, view, W);
-      ctx.fillStyle = withAlpha(col('--warn', '#b58900'), t.loop.on ? 0.07 : 0.03);
+      ctx.fillStyle = withAlpha(col('--warn', '#d99a0a'), t.loop.on ? 0.07 : 0.03);
       ctx.fillRect(lx0, 0, Math.max(0, lx1 - lx0), H);
     }
     // Bar lines, thinned as the ruler's are when zoomed out.
@@ -3323,7 +3323,7 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
       // A fade being dragged is drawn where its handle has it.
       const fd = state.fade && state.fade.clip.id === stored.id ? state.fade : null;
       const fc = fd ? { ...c, [fd.key]: fd.len, [fd.otherKey]: fd.other } : c;
-      drawFades(ctx, fc, view, W, x0, x1, top, h, ink, withAlpha(col('--well', '#000'), 0.6));
+      drawFades(ctx, fc, view, W, x0, x1, top, h, ink, withAlpha(col('--well', '#161718'), 0.6));
       const fades = clipFades(fc);
       const fi = (fades.fadeIn / (view.to - view.from)) * W, fo = (fades.fadeOut / (view.to - view.from)) * W;
       if (labelFits(bw)) {
@@ -3347,7 +3347,7 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
       ctx.stroke();
       ctx.lineWidth = 1;
       ctx.globalAlpha = 1;
-      if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#b58900'), tm, mono, { fi, fo, fd });
+      if (bw >= MIN_GRIPS_PX && gripsOf(stored).length) drawGrips(ctx, x0, x1, top, h, ink, col('--warn', '#d99a0a'), tm, mono, { fi, fo, fd });
       lane.hits.push({ x0, x1, top, h, clip: stored, fi, fo });
       // The hit the editor follows: a line across the lane.
       if (aligning) {
@@ -3389,7 +3389,7 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
     for (const { clip: lc, at: lat } of landing) {
       const from = lat + nudgeFrames(lc, t.sample_rate); // where it'll sound, as the clip itself is drawn
       const x0 = xOf(from, view, W), x1 = xOf(from + lc.frames, view, W);
-      const warn = col('--warn', '#b58900');
+      const warn = col('--warn', '#d99a0a');
       ctx.fillStyle = withAlpha(warn, 0.22);
       ctx.fillRect(x0, 1, Math.max(1, x1 - x0), H - 2);
       ctx.strokeStyle = warn;
@@ -3404,7 +3404,7 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
     // The playhead: what the device is playing now.
     if (state.live && heard != null) {
       if (heard >= 0 && heard <= W) {
-        ctx.fillStyle = col('--accent', '#cb4b16');
+        ctx.fillStyle = col('--accent', '#b84a1b');
         ctx.fillRect(Math.round(heard), 0, 2, H);
       }
     }
@@ -3412,7 +3412,7 @@ function drawLanes(heardFrame = state.live ? heardNow() : null) {
     if (ghost && performance.now() < ghost.until) {
       const gx = xOf(ghost.pos, view, W);
       if (gx >= 0 && gx <= W) {
-        ctx.strokeStyle = col('--accent', '#cb4b16'); ctx.lineWidth = 1.6; ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = col('--accent', '#b84a1b'); ctx.lineWidth = 1.6; ctx.setLineDash([4, 4]);
         ctx.beginPath(); ctx.moveTo(Math.round(gx) + 0.5, 0); ctx.lineTo(Math.round(gx) + 0.5, H); ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -3447,7 +3447,7 @@ function drawPreview(ctx, pv, n, view, W, H, col) {
     ctx.fillRect(Math.round(x0) - 1, 0, 2, H);
     return;
   }
-  const c = col('--warn', '#b58900');
+  const c = col('--warn', '#d99a0a');
   if (pv.kind === 'insert') {
     ctx.fillStyle = withAlpha(c, 0.1);
     ctx.fillRect(x0, 0, Math.max(1, x1 - x0), H);

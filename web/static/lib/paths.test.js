@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, normalize, dirname, relative, sep } from 'node:path';
+import { fileCss, linksOf } from './stylesheets.js';
 
 // Every module path in the app, resolved against the disk.
 //
@@ -98,9 +99,13 @@ test('every font a stylesheet loads is in the shell', () => {
   // offline: the sketchbook's Caveat, say, which nothing else would miss.
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
   const block = /SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1];
+  // Every stylesheet any page links: styles.css and objects.css, and any
+  // other a page takes.
+  const sheets = new Set(files.filter((f) => f.endsWith('.html')).flatMap((p) => linksOf(relative(ROOT, p))));
+  assert.ok(sheets.has('/styles.css') && sheets.has('/objects.css'), `the pages link ${[...sheets]}`);
   const fonts = new Set();
-  for (const css of ['styles.css', 'objects.css']) {
-    for (const m of readFileSync(join(ROOT, css), 'utf8').matchAll(/url\(['"]?(\/fonts\/[^'")]+)['"]?\)/g)) fonts.add(m[1]);
+  for (const css of sheets) {
+    for (const m of fileCss(css).matchAll(/url\(['"]?(\/fonts\/[^'")]+)['"]?\)/g)) fonts.add(m[1]);
   }
   assert.ok(fonts.has('/fonts/caveat-500.woff2'), 'the sketchbook’s hand is loaded');
   const missing = [...fonts].filter((f) => !block.includes(`'${f}'`));

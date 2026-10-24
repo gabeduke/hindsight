@@ -500,7 +500,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     trace: token('--trace', '#f6e7c4'), grease: token('--grease-mark', '#f0c419'),
     label: token('--oxide-label', '#cdb894'), tick: token('--oxide-tick', 'rgba(255,236,210,.35)'),
     ruler: token('--oxide-ruler', '#1d1209'), shade: 'rgba(0,0,0,.55)', fade: token('--trace-hot', '#fff8e8'),
-    play: token('--ok', '#2fb37a'), mono: token('--mono', 'monospace'), font: token('--font', 'sans-serif'),
+    // The audition's playhead, green as its key's lamp (and the feed's, in the bar).
+    play: token('--go', '#6faa32'), mono: token('--mono', 'monospace'), font: token('--font', 'sans-serif'),
   });
 
   function draw() {

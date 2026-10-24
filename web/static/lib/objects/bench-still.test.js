@@ -1,13 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { fontUrls, inlineUrls, tokenNames, pinned, stillName, svgOf } from './bench-still.js';
-
-const read = (p) => readFileSync(fileURLToPath(new URL(`../../${p}`, import.meta.url)), 'utf8');
+import { cssOf, fileCss } from '../stylesheets.js';
 
 test('every font the stylesheets load is found, once', () => {
-  const urls = fontUrls(read('styles.css'));
+  const urls = fontUrls(fileCss('styles.css'));
   assert.ok(urls.length >= 7, `only ${urls.length} fonts found`);
   assert.ok(urls.every((u) => u.startsWith('/fonts/') && u.endsWith('.woff2')));
   assert.equal(new Set(urls).size, urls.length);
@@ -24,7 +21,8 @@ test('a font is swapped for its data, and one that would not load is left alone'
 });
 
 test('the tokens pinned on a still are every one the two stylesheets declare', () => {
-  const names = tokenNames(read('objects.css') + read('styles.css'));
+  // The bench's page links objects.css, then styles.css.
+  const names = tokenNames(cssOf('objects.html'));
   for (const t of ['--bg', '--ink', '--panel', '--oxide', '--lcd', '--lcd-ink', '--grease-mark', '--marker', '--flag']) {
     assert.ok(names.includes(t), `${t} should be pinned`);
   }

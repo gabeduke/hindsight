@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fileCss } from './stylesheets.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STATIC = path.resolve(HERE, '..');
@@ -28,7 +29,7 @@ test('Guardrail 1: doorway.js uses ReelWindow and controller subscriptions, not 
 });
 
 test('Guardrail 2: styles.css has no custom @keyframes room-spin animation outside lib/objects/', () => {
-  const css = read('styles.css');
+  const css = fileCss('styles.css');
   assert.ok(
     !css.includes('@keyframes room-spin'),
     'Reel rotation must come from ReelMotion on the shared 60fps ticker, not @keyframes room-spin',
@@ -48,7 +49,7 @@ test('Guardrail 3: tape/page.js interpolates playhead at 60fps on the shared tic
 });
 
 test('Guardrail 4: styles.css hides what a room replaces from frame 0, not after an async class', () => {
-  const css = read('styles.css');
+  const css = fileCss('styles.css');
   // The doorway's rack is out of sight before lib/room/mount.js has put
   // .room-on on the body: a rule that needs no class a module adds.
   const rules = [...css.matchAll(/([^{}]*#takes\b[^{}]*)\{([^}]*)\}/g)]

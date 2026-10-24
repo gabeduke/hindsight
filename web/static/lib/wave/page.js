@@ -1768,7 +1768,7 @@ async function main() {
     stripCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     stripCtx.clearRect(0, 0, W, H);
     const played = (state.cursor / total) * W;
-    const waveOn = token('--wave', '#268bd2'), waveOff = token('--wave-dim', '#a3b0ae');
+    const waveOn = token('--wave', '#4ebeb4'), waveOff = token('--wave-dim', '#2f5f5b');
     // The take's trace, on its own scale (as its view above), lit where played.
     const opts = { cy: H / 2, half: H / 2 - 2, gain: stripGain ??= takeGain(filePeaks), fillAlpha: 0.3 };
     drawTrace(stripCtx, stripCols, stripCols, { ...opts, fillAlpha: 0.45, line: waveOff });

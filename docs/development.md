@@ -144,6 +144,27 @@ The rest of the UI is checked by the user flows: `node scripts/flows.mjs`
 itself, on a tablet and a desktop profile. The stories, how to run them and
 how to write a new one are in [flows.md](flows.md).
 
+### A CSS change that should change nothing
+
+Tidying the stylesheets — a dead rule out, two rules merged, a literal
+made a token — is meant to leave every screen as it was, and
+`scripts/css-snapshot.mjs` proves it: the computed style of every element
+(and its `::before` and `::after`) on the Studio, its ☰ and ⋯ menus, the
+phone's player pulled up, the Listening Room and its ☰, a take's page,
+Capture and the rig, at the three flow profiles, in both schemes.
+
+```bash
+node scripts/css-snapshot.mjs --out=/tmp/before.json      # before the change
+node scripts/css-snapshot.mjs --diff=/tmp/before.json     # after: element, property, before → after
+```
+
+It boots and seeds a demo of its own as the flows do (`HINDSIGHT_BIN` and
+`STATIC_DIR` work the same), takes a few minutes, and exits 1 on any
+difference. Two runs on one tree diff empty: what moves on its own (clocks,
+meters, reels, the takes' file names) is masked the same way each time, as
+its header says. Canvas drawing is not a computed style, so a change to a
+colour a canvas reads still needs a look.
+
 ## Deploying to a Pi
 
 `deploy.sh` rsyncs the tree, builds on the Pi (PortAudio is cgo, so it is built

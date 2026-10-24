@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { block, fileCss } from '../stylesheets.js';
 import {
   FRAMES, HOLD, SEAT_AT, SEATED, EJECT_MS, BACK_RATE, LIFT_PX, PULL_SCALE, TILT_DEG, SEAT_FROM,
   T_TOUCH, T_MOVE, T_FLIGHT, EASES, bezier, easeSeat, frameAt, phaseAt,
@@ -139,8 +139,8 @@ test('SEAT settles it into the window, and after it the face is exactly the wind
 // The motion tokens live in styles.css (Rooms R2): not materials, so not in
 // objects.css, and the same in both schemes, so not in the dark block. The
 // timeline above uses the same numbers, and this keeps the two in step.
-const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
-const objects = readFileSync(new URL('../../objects.css', import.meta.url), 'utf8');
+const css = fileCss('styles.css');
+const objects = fileCss('objects.css');
 const TOKENS = ['--t-touch', '--t-move', '--t-flight', '--ease-out', '--ease-flight', '--ease-seat'];
 const value = (name) => {
   const m = css.match(new RegExp(`${name}\\s*:\\s*([^;]+);`));
@@ -165,12 +165,6 @@ test('the motion tokens follow no scheme and are no material', () => {
     assert.equal([...css.matchAll(new RegExp(`${t}\\s*:`, 'g'))].length, 1, `${t} is declared once in styles.css`);
     assert.ok(!objects.includes(`${t}:`), `${t} is not a material`);
   }
-  const dark = css.indexOf('@media (prefers-color-scheme: dark)');
-  let depth = 0, end = dark;
-  for (let i = dark; i < css.length; i++) {
-    if (css[i] === '{') depth++;
-    else if (css[i] === '}' && --depth === 0) { end = i; break; }
-  }
-  const body = css.slice(dark, end);
+  const body = block(css, '@media (prefers-color-scheme: dark)');
   for (const t of TOKENS) assert.ok(!body.includes(`${t}:`), `${t} has no dark value`);
 });

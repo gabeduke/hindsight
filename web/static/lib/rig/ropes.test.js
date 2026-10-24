@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { fileCss } from '../stylesheets.js';
 import { Ticker } from '../objects/motion.js';
 import { Scene } from '../scene/scene.js';
 import { SceneObject } from '../scene/object.js';
@@ -142,7 +143,7 @@ test('nothing it draws takes input: the sockets underneath are the controls', ()
 });
 
 test('the layer the ropes are drawn in takes no pointer events, so the sockets under it get every touch', () => {
-  const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
+  const css = fileCss('styles.css');
   const rules = [...css.matchAll(/(^|\n)\s*([^{}]*\.rig-(?:wires|rope)\b[^{}]*)\{([^}]*)\}/g)];
   const wires = rules.filter((m) => /^\s*\.rig-wires\s*$/.test(m[2]));
   assert.ok(wires.length, 'a .rig-wires rule');

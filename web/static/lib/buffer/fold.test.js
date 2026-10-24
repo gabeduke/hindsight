@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { fileCss, section } from '../stylesheets.js';
 import { setFold, setOpen, setTarget, FOLD, OPEN, TARGET } from './fold.js';
 
 // A body that is only its class list: anything else touched -- a lane, its
@@ -45,11 +45,7 @@ test('the folded lanes’ rules change heights and nothing else', () => {
   // head and its canvas only get shorter. A width, a grid column or a
   // position there would move the lane's x axis under the playhead and its
   // clips: a reflow, not a fold.
-  const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
-  const start = css.indexOf('/* ---------- Rooms P2:');
-  assert.ok(start >= 0, 'the Rooms P2 block');
-  const next = css.slice(start + 1).search(/\/\* -{4,} /);
-  const body = css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
+  const body = section(fileCss('styles.css'), '/* ---------- Rooms P2:');
   const HEIGHTS = new Set(['height', 'min-height', 'max-height', 'flex', 'flex-grow', 'flex-shrink', 'flex-basis',
     'overflow', 'overflow-y', 'transition', 'align-content', 'align-self', 'gap', 'row-gap', 'padding-block', 'opacity']);
   const offenders = [];
