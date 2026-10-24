@@ -3,11 +3,16 @@
      platform drew in a fallback font of its own (lib/ui/icons.js). Line art
      on a 24 grid in the ink of the key it sits on (currentColor), round caps
      and joins; the stroke's width is styles.css's (svg.i, 1.75), so a small
-     chevron can be drawn heavier. A page uses one by its id:
-       <svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#undo"/></svg>
-     and a script by icon('undo'). Every id here is in ICONS, and every id a
-     page or a script asks for is here (lib/ui/icons.test.js). The paths are
-     the proposed kit's (docs/plan/the-studio-space.md, Under the hood). -->
+     icon can be drawn heavier. A page uses one by its id, at the sprite's
+     address, which carries a hash of this file (SPRITE in icons.js):
+       <svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=…#undo"/></svg>
+     and a script by icon('undo'). Change anything in this file and its
+     address changes with it, or a browser that drew this copy goes on
+     drawing it; icons.test.js names the new address. Every id here is in
+     ICONS, and every id a page or a script asks for is here.
+     The paths are copied from §3 of the kit drawn for the studio-space spec
+     (the kit itself is not in this repo): its 26 icons as it drew them, and
+     more, stop, phones, lock-body and lock-shackle drawn here in its style. -->
 
 <!-- The transport -->
 <symbol id="play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>

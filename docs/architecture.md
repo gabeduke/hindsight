@@ -829,7 +829,7 @@ font of its own, so a key fitted on a laptop ran off a tablet in CI's fonts.
 
 - **In the markup, so it is there at the first paint**: `<svg class="i
   i-undo" width="22" height="22" aria-hidden="true"><use
-  href="/icons/ui.svg#undo"/></svg>`. A script writes the same with
+  href="/icons/ui.svg?v=…#undo"/></svg>`. A script writes the same with
   `icon(name)`, and changes what a key shows with `setIcon(key, name)`, which
   writes only when it changes (`lib/ui/icons.js`). The key says what it
   does (`aria-label`, its words); the icon is hidden from a screen reader,
@@ -841,13 +841,21 @@ font of its own, so a key fitted on a laptop ran off a tablet in CI's fonts.
 - **A key keeps the width its glyph gave it**: an icon's box is wider than
   its line, and where a ▾ or ⌗ follows a word its blank sides come off the
   key's gap or padding (the rules say so where they do it).
+- **The sprite's address moves with it**: `SPRITE` (`lib/ui/icons.js`) is
+  `/icons/ui.svg?v=` and the first 8 hex of the file's sha-256, and the
+  pages, `sw.js`'s `SHELL` and every script ask for exactly that. A browser
+  keeps the SVG a `<use>` names by its URL — across a reload, which is what
+  the Update button does, and in its HTTP cache when the app is opened again
+  — so a sprite changed at the same address goes on drawing the old copy,
+  and a symbol new to it as a blank key. Bumping `CACHE` does not reach it.
+  Change the sprite and `icons.test.js` names the new address.
 - The loop's lock is two symbols, its body and its shackle, so the page can
   slide the shackle open.
 - `lib/ui/icons.test.js` fails on a name a page or a script uses that the
   sprite hasn't got, on a symbol that isn't in `ICONS`, on markup that
   doesn't name the icon it shows, on the sprite missing from `sw.js`'s
-  `SHELL`, and on a key of the header, the bar or the ruler that goes back
-  to a glyph. The objects bench (`objects.html`) shows every icon.
+  `SHELL`, on an address that isn't the sprite's hash, and on a key of the
+  header, the bar or the ruler that goes back to a glyph. The objects bench (`objects.html`) shows every icon.
 
 ### The scene contract
 

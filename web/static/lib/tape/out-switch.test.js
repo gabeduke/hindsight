@@ -4,6 +4,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { outName, outDelay, paintOutButtons, switchOutput } from './out-switch.js';
+import { outIcon } from '../ui/icons.js';
 
 let store, puts;
 beforeEach(() => {
@@ -65,7 +66,7 @@ test('the buttons show the place, and hide while the Pi has not said', () => {
     assert.equal(b.hidden, false);
     assert.equal(b.text.textContent, 'Phone');
     assert.equal(b.attrs['aria-label'], 'Output: Phone');
-    assert.match(b.slot.innerHTML, /ui\.svg#phones/);
+    assert.equal(b.slot.innerHTML, outIcon('phone'), 'headphones, from the sprite');
   }
   paintOutButtons(null, doc);
   assert.ok(bs.every((b) => b.hidden));

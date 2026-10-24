@@ -5,11 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { takeKeys, clock, noteHere } from './take-keys.js';
-import { iconOf } from '../ui/icons.js';
+import { icon, iconOf } from '../ui/icons.js';
 
 function bar() {
   const doc = fakeDoc();
-  doc.body.append(...parseHTML(doc, '<section id="np" class="np"><div class="np-own"><button id="np-eject"></button><a id="np-open"></a></div><button id="np-loop" data-tip="np-loop"><span class="loop-face"><svg class="i i-repeat" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg#repeat"/></svg><span class="loop-word">Loop</span></span></button></section>').children);
+  doc.body.append(...parseHTML(doc, `<section id="np" class="np"><div class="np-own"><button id="np-eject"></button><a id="np-open"></a></div><button id="np-loop" data-tip="np-loop"><span class="loop-face">${icon('repeat', { size: 14 })}<span class="loop-word">Loop</span></span></button></section>`).children);
   const root = doc.getElementById('np');
   const notes = [];
   const keys = takeKeys({ doc, root, onNote: () => notes.push('✎') });

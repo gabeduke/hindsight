@@ -218,8 +218,12 @@ When you need the history behind one, read it from git:
   markup, never a unicode glyph: each platform drew those in a fallback font
   of its own, and the bar's ✎ ran off a tablet in CI's fonts. A new one is a
   `<symbol>` in the sprite and a name in `ICONS`; `icons.test.js` fails on a
-  name the sprite hasn't got. A test or a flow reads a key's state (`.playing`,
-  `aria-pressed`), never its picture.
+  name the sprite hasn't got. **Any change to the sprite moves its address**
+  (`SPRITE`'s `?v=`, a hash of the file), in `icons.js`, `sw.js`'s `SHELL`
+  and every `<use>`: a browser keeps the SVG a `<use>` names by its URL, even
+  across a reload, so a symbol new to the old address draws a blank key.
+  `icons.test.js` fails and names the new address. A test or a flow reads a
+  key's state (`.playing`, `aria-pressed`), never its picture.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.

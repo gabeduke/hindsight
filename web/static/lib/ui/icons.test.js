@@ -1,11 +1,13 @@
 // The icon sprite (icons/ui.svg) and lib/ui/icons.js: every icon a page or a
 // script asks for is drawn, every drawn one is named in ICONS, the markup a
-// page writes is what icon() would, and the sprite is cached for offline.
-// A name the sprite hasn't got draws nothing at all, with no error anywhere:
+// page writes is what icon() would, the sprite's address moves when it
+// does, and it is cached for offline. A name the sprite hasn't got, or an
+// old sprite a browser kept, draws nothing at all, with no error anywhere:
 // these are the only place it is caught.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
@@ -14,6 +16,7 @@ import { ICONS, SPRITE, icon, setIcon, iconOf, outIcon, OUT_MODES } from './icon
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url)); // web/static
 const sprite = readFileSync(join(ROOT, 'icons', 'ui.svg'), 'utf8');
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 const symbols = [...sprite.matchAll(/<symbol\b([^>]*)>([\s\S]*?)<\/symbol>/g)]
   .map(([, attrs, inner]) => ({ id: /\bid="([^"]+)"/.exec(attrs)?.[1], attrs, inner }));
 
@@ -79,7 +82,7 @@ test('every icon a page or a script names is in the sprite and in ICONS', () => 
   const used = new Map();
   const add = (name, where) => used.set(name, [...(used.get(name) || []), where]);
   for (const { p, src } of files) {
-    for (const m of src.matchAll(/ui\.svg#([\w-]+)/g)) add(m[1], p);
+    for (const m of src.matchAll(/ui\.svg(?:\?v=\w*)?#([\w-]+)/g)) add(m[1], p);
     // icon('x'), setIcon(key, 'x'), and each name a ternary picks between.
     for (const m of src.matchAll(/\b(icon|setIcon)\(([^;\n]*)/g)) {
       const name = m[1] === 'setIcon' ? arg(m[2], 1) : arg(m[2], 0);
@@ -100,7 +103,7 @@ test('a page’s icon is written as icon() writes it: the class names the icon i
       const [tag, cls, rest] = m;
       // Its own first <use>, before the </svg> that closes it.
       const inner = src.slice(m.index, src.indexOf('</svg>', m.index));
-      const use = inner.match(/<use href="\/icons\/ui\.svg#([\w-]+)"/);
+      const use = inner.match(new RegExp(`<use href="${esc(SPRITE)}#([\\w-]+)"`));
       assert.ok(use, `${p}: ${tag} draws no icon`);
       assert.ok(cls.split(' ').includes(`i-${use[1]}`), `${p}: ${tag} shows ${use[1]}`);
       assert.match(rest, /aria-hidden="true"/, `${p}: ${tag}: the key says what it does`);
@@ -140,12 +143,34 @@ test('the sprite and its module are in the offline shell', () => {
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
   const shell = [.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
   assert.ok(shell.includes(SPRITE), `${SPRITE} is not in sw.js SHELL: offline, every key would be blank`);
+  assert.deepEqual(shell.filter((u) => u.startsWith('/icons/ui.svg') && u !== SPRITE), [], 'an old address of the sprite in SHELL');
   assert.ok(shell.includes('/lib/ui/icons.js'));
+});
+
+// A browser keeps the SVG a <use> names by its URL, across a reload and in
+// its HTTP cache: a sprite changed at the same address goes on drawing the
+// old copy, and a symbol new to it as a blank key. So the address carries
+// the file's hash, and every page and script asks for that address.
+test('the sprite’s address moves when the sprite does, and every page asks for that address', () => {
+  const hash = createHash('sha256').update(sprite.replace(/\r\n/g, '\n')).digest('hex').slice(0, 8);
+  const want = `/icons/ui.svg?v=${hash}`;
+  assert.equal(SPRITE, want,
+    `icons/ui.svg changed: a browser that drew ${SPRITE} would keep drawing it. Move the address to ${want} in`
+    + ` lib/ui/icons.js (SPRITE), sw.js's SHELL and every <use> in the pages:\n`
+    + `  sed -i 's#${SPRITE}#${want}#g' web/static/lib/ui/icons.js web/static/sw.js web/static/*.html`);
+  const stale = [];
+  for (const { p, src } of files) {
+    // An address a <use> draws from: the sprite's, then #name.
+    for (const m of src.matchAll(/\/icons\/ui\.svg(\?v=\w*)?#/g)) {
+      if (m[0] !== `${SPRITE}#`) stale.push(`${p}: ${m[0]}`);
+    }
+  }
+  assert.deepEqual(stale, [], `every icon is drawn from ${SPRITE}`);
 });
 
 test('icon() is an <svg> of the one sprite, sized, hidden from a screen reader unless it is labelled', () => {
   assert.equal(icon('undo', { size: 22 }),
-    '<svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#undo"/></svg>');
+    `<svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="${SPRITE}#undo"/></svg>`);
   assert.match(icon('play'), /width="20" height="20"/);
   assert.match(icon('down', { cls: 'pill-chev-ico' }), /class="i i-down pill-chev-ico"/);
   const said = icon('star', { label: 'Starred "best"' });
@@ -179,7 +204,7 @@ test('setIcon swaps the picture a key shows, and writes only when it changes', (
 test('where the tape plays: a speaker, headphones, or both, each its own picture in the key’s ink', () => {
   assert.equal(iconOf(parseHTML(fakeDoc(), outIcon('jam'))), 'speaker');
   assert.equal(iconOf(parseHTML(fakeDoc(), outIcon('phone'))), 'phones');
-  assert.match(outIcon('both'), /#speaker"[^>]*\/><use href="\/icons\/ui\.svg#phones" x="18"/);
+  assert.match(outIcon('both'), new RegExp(`#speaker"[^>]*/><use href="${esc(SPRITE)}#phones" x="18"`));
   assert.match(outIcon('both'), /width="38"/);
   assert.equal(outIcon('anything'), outIcon('jam'));
   const pictures = OUT_MODES.map(outIcon);

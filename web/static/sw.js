@@ -217,7 +217,7 @@ const SHELL = [
   '/fonts/caveat-500.woff2',
   '/fonts/caveat-700.woff2',
   '/manifest.json',
-  '/icons/ui.svg',
+  '/icons/ui.svg?v=5157df85',
   '/icons/icon-192.png?v=3',
   '/icons/icon-small.svg?v=3',
   '/icons/favicon-32.png?v=3',

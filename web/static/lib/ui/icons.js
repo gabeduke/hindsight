@@ -6,7 +6,7 @@
 // currentColor, so each takes the ink of the key it sits on.
 //
 // A page puts an icon in its markup, so it is there at the first paint:
-//   <svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#undo"/></svg>
+//   <svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=…#undo"/></svg>
 // and a script asks icon('undo') for the same string, or setIcon(key,
 // 'pause') to change the one a key shows. Every name a page or a script uses
 // is in the sprite and in ICONS, or icons.test.js fails.
@@ -15,8 +15,17 @@
 // icons/icon*.svg and the PNGs made from them, because the manifest and the
 // browser tab ask for files: scripts/icons/icon.mjs draws those.
 
-/** SPRITE is the one file every icon is drawn from (sw.js has it in SHELL). */
-export const SPRITE = '/icons/ui.svg';
+/**
+ * SPRITE is the one file every icon is drawn from, at an address that moves
+ * whenever the file does: its ?v= is the first 8 hex of the sprite's
+ * sha-256. A browser keeps the SVG a <use> names by its URL -- across a
+ * reload, and from its HTTP cache when the app is opened again -- so a
+ * sprite changed at the same address draws the old copy on, and a symbol
+ * new to it as a blank key. icons.test.js works the hash out and fails,
+ * naming the new address, until it is here, in sw.js's SHELL and in every
+ * <use> the pages write.
+ */
+export const SPRITE = '/icons/ui.svg?v=5157df85';
 
 /** ICONS is every icon in the sprite, by its id. */
 export const ICONS = Object.freeze([
