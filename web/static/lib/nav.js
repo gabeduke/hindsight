@@ -13,6 +13,7 @@
 // a page had filled in by then (the guide, a take's name).
 import './rooms/words.js';
 import { icon } from './ui/icons.js';
+import { layersOf } from './ui/layers.js';
 
 const TABS = [
   // The Studio's href is the tape page's while the tape is on.
@@ -65,9 +66,10 @@ export function tapeAnswer(res) {
  * The page's ? (#help) moves into the menu as its Help mode item; a page
  * without one has none. The menu's button carries a dot when a release is
  * waiting or the rig needs a look, and lights while help mode is on
- * (styles.css), so nothing behind it goes unseen.
+ * (styles.css), so nothing behind it goes unseen. The menu opens on the
+ * page's stack of open things (`layers`, lib/ui/layers.js).
  */
-export function mountHeaderTools(doc = document) {
+export function mountHeaderTools(doc = document, { layers } = {}) {
   if (!doc || typeof doc.createElement !== 'function') return null;
   const bar = doc.querySelector('.appbar');
   if (!bar || doc.querySelector('.appbar-end')) return null;
@@ -123,7 +125,7 @@ export function mountHeaderTools(doc = document) {
   anchor.append(btn, menu);
   end.append(anchor);
   bar.append(end);
-  wireAppMenu(btn, menu, doc);
+  wireAppMenu(btn, menu, doc, { layers });
 
   import('./settings.js').then((m) => m.initSettings()).catch(() => {});
   import('./update.js').then((m) => m.initUpdate()).catch(() => {});
@@ -132,29 +134,41 @@ export function mountHeaderTools(doc = document) {
 
 /**
  * wireAppMenu opens the header's menu from its button and shuts it on a
- * second press, a pick, Escape, or a press anywhere else -- the page's other
- * menus stop their buttons' clicks, so it listens for the press, first, on
- * the window. ↑ ↓ move along its items. Answers {setOpen, isOpen}.
+ * second press, a pick, or anything that closes the top of the page's stack
+ * of open things (`layers`, lib/ui/layers.js): Escape, Back, a press
+ * anywhere else (heard first, on the window: the page's other menus stop
+ * their buttons' clicks), and a switch of rooms. ↑ ↓ move along its items.
+ * Answers {setOpen, isOpen}.
  */
-export function wireAppMenu(btn, menu, doc = document) {
-  const win = doc.defaultView || doc;
+export function wireAppMenu(btn, menu, doc = document, { layers = layersOf(doc) } = {}) {
   const items = () => [...menu.children].filter((c) => !c.hidden);
-  const setOpen = (open) => {
+  let layer = null;
+  const show = (open) => {
     menu.hidden = !open;
     btn.setAttribute('aria-expanded', String(open));
   };
+  // Open's own menus hide every .menu as one opens (lib/wave/page.js), so
+  // what is shown is read from the menu, not only from its layer.
+  const setOpen = (open) => {
+    if (open) {
+      show(true);
+      if (!layer?.open) layer = layers.open({ el: menu, kind: 'menu', owner: btn, onClose: () => { layer = null; show(false); } });
+    } else if (layer?.open) {
+      layer.close();
+    } else {
+      show(false);
+    }
+  };
   btn.addEventListener('click', () => setOpen(menu.hidden));
   // Capture: a pick shuts the menu before the item's own handler, which may
-  // stop the click (help mode's does).
+  // stop the click (help mode's does). A link leaves the history to the
+  // page it loads.
   menu.addEventListener('click', (e) => {
-    if ([...menu.children].some((c) => c.contains(e.target))) setOpen(false);
-  }, true);
-  win.addEventListener('pointerdown', (e) => {
-    if (!menu.hidden && !btn.contains(e.target) && !menu.contains(e.target)) setOpen(false);
+    const item = [...menu.children].find((c) => c.contains(e.target));
+    if (item && layer?.open) layer.close(item.closest?.('a[href]') ? 'navigate' : 'pick');
   }, true);
   doc.addEventListener('keydown', (e) => {
     if (menu.hidden) return;
-    if (e.key === 'Escape') { setOpen(false); btn.focus?.(); return; }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     const list = items();
     if (!list.length) return;
@@ -170,16 +184,18 @@ export function wireAppMenu(btn, menu, doc = document) {
  * initNav brings the page's switch in line with navTabs and lights the lamp.
  * It answers with the Pi's tapes ({loaded, tapes}), or null with the tape
  * off, so a page's now-playing bar can find the loaded tape without asking
- * again. `env` stands in for the browser's globals in tests.
+ * again. `env` stands in for the browser's globals in tests, and carries
+ * the page's stack of open things (`layers`) for the menu.
  */
 export function initNav(doc = document, env = {}) {
+  const { layers } = env;
   const loc = env.location ?? globalThis.location;
   const get = env.fetch ?? ((...a) => globalThis.fetch(...a));
   const store = () => env.localStorage ?? globalThis.localStorage;
   const every = env.setInterval ?? globalThis.setInterval;
   const nav = doc.querySelector('.appnav');
   if (!nav) return Promise.resolve(null);
-  mountHeaderTools(doc);
+  mountHeaderTools(doc, { layers });
   // The rig, in the menu: its interface and lamp (lib/rig/chip.js).
   import('./rig/chip.js').then((m) => m.mountChip(doc, { pathname: loc.pathname, fetchFn: get })).catch(() => {});
   const apply = (tapeOn) => {
