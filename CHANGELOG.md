@@ -5,6 +5,18 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.24.2 — 2026-10-24
+
+- A spine's and the ● key's press are set once, where their tests read them; nothing feels different (c304a16)
+- Holds and double taps share one press and one table of times; nothing feels different (a10810b)
+- The Studio's lanes fall back to the palette's own colours, as every other canvas now does (72fb8da)
+- The bar's counter no longer restyles most of the page as it ticks: the rig's one :has() that tested :empty is a class now (bd0fd6c)
+- The Studio's playhead redraws only the sliver it moved over each frame, and the bar's reels stop re-setting what hasn't changed (46054ae)
+- On a tablet the bar no longer restyles itself every frame: the mini player's progress line is set only on a phone, where it's drawn (25de2f8)
+- The Studio stays smooth while the tape plays: its lanes, ruler and overview are painted once and the playhead drawn over them, not redrawn every frame (92cf3b7)
+- Meters and the bar's counter write their numbers in place, so a reading no longer restyles most of the page (8fe096c)
+
+
 ## v2026.10.24.1 — 2026-10-24
 
 - AGENTS.md: change the CSS rule that wins, not one a later rule overrides (47112dc)
