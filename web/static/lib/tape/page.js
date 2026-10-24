@@ -4615,7 +4615,10 @@ function showMenu(id) {
   const dx = menuShift(menu.getBoundingClientRect(), document.documentElement.clientWidth);
   if (dx) menu.style.translate = `${dx}px 0`;
 }
-const menusOpen = () => MENUS.some(([m]) => !$(m).hidden) || !!inputMenu;
+// So is a menu on the stack (☰, KEEP ▾, GRAB ▾: lib/ui/menu.js), or the
+// phone's player over the page: the arrows are theirs, not the record
+// track's.
+const menusOpen = () => MENUS.some(([m]) => !$(m).hidden) || !!inputMenu || !!stack?.ownsKeys(null);
 
 // --- a track's input menu ------------------------------------------------------
 // A track's input chip opens a menu of the inputs, each with its meter, to

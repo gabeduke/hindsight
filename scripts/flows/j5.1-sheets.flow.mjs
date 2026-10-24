@@ -4,7 +4,8 @@
 // elsewhere shuts it and leaves you in the room. Switching rooms shuts it
 // too (it once stayed open over the room Back went to). It opens under ☰,
 // on the screen (lib/ui/menu.js places it), and from a keyboard ↓ on ☰
-// opens it on its first item and Tab shuts it. docs/flows.md#j51
+// opens it on its first item, ↓ moves along it (and arms no other track in
+// the Studio), and Tab shuts it. docs/flows.md#j51
 export default {
   id: 'J5.1',
   title: 'Settings, Releases, help, the guide and the rig from the menu in both rooms',
@@ -50,6 +51,14 @@ export default {
       });
       t.expect('the menu opens with the keyboard on Settings', await menuOpen()
         && await t.poll(() => document.activeElement?.id === 'appbar-settings-btn'));
+      // In the Studio ↓ and ↑ also pick the record track: not while a menu
+      // has the keyboard (they once did both).
+      const armed = async () => (room === 'tape.html' ? JSON.stringify((await t.api.tapeState())?.rec_tracks ?? null) : '');
+      const armedBefore = await armed();
+      await t.step('press ↓ again', () => page.keyboard.press('ArrowDown'));
+      t.expect('the keyboard moves on to the rig', await t.poll(() => document.activeElement?.classList.contains('app-menu-rig')));
+      await page.waitForTimeout(600); // an arm would be on its way to the Pi by now
+      t.expect('the record track stays as it was', await armed() === armedBefore, { before: armedBefore, after: await armed() });
       await t.step('press Tab', () => page.keyboard.press('Tab'));
       t.expect('Tab shuts it', await menuShut());
 
