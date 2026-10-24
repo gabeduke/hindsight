@@ -25,8 +25,8 @@ const BUDGET = {
   zIndex: 22,
   important: 11,
   media: 58,
-  durations: 67,
-  weights: 5,
+  durations: 64,
+  weights: 3,
 };
 
 /** count is each of BUDGET's numbers for the CSS `css`. */
