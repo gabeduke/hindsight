@@ -149,7 +149,6 @@ const SHELL = [
   '/lib/rig/gesture.js',
   '/lib/tape/page.js',
   '/lib/tape/poll-gate.js',
-  '/lib/tape/menu-fit.js',
   '/lib/tape/catch.js',
   '/lib/tape/geometry.js',
   '/lib/tape/levels.js',

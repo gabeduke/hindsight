@@ -4,7 +4,6 @@
 // state a few times a second and sends what you tap.
 
 import { toast } from '../toast.js';
-import { icon } from '../ui/icons.js';
 import { canShareFiles, shareOrDownload, looksLikeMP3 } from '../wave/share.js';
 import { drawBars, takeGain, levelsOfColumns, laneChannels } from '../wave/draw.js';
 import { drawTrace, traceLines } from '../wave/tape-strip.js';
@@ -49,13 +48,12 @@ import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer,
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
 import { bindPress, ARM_PRESS, GESTURE } from '../ui/press.js';
 import { recordsTape } from '../rig/warn.js';
-import { menuShift } from './menu-fit.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
 import { layersOf } from '../ui/layers.js';
-import { menu, barTop } from '../ui/menu.js';
+import { menu, splitKey, menuItem, barTop } from '../ui/menu.js';
 
 // A hidden Studio's dock nodes (#multi-bar, #clip-editor) are out of the
 // page (lib/shell/view.js, Slot), but a timer set while it was shown can
@@ -727,6 +725,9 @@ function render() {
     cb.setAttribute('aria-disabled', String(!cs.ready));
     cb.classList.toggle('waits', !cs.ready);
     cb.classList.toggle('jam-only', phoneOut);
+    // Its ▾ is the other half of the key: lit, waiting or plain with it.
+    $('catch-more').classList.toggle('waits', !cs.ready);
+    $('catch-more').classList.toggle('jam-only', phoneOut);
     setIf(cb, 'title', cs.ready ? tipFor('catch') : cs.why);
     const catchWords = catchSub(cs, { armed: state.recTracks, phoneOut });
     setText(cb.querySelector('.np-catch-sub'), catchWords);
@@ -4150,15 +4151,10 @@ function laneTap(lane, e) {
 }
 
 // The Catch key. Waiting for a pass it says why instead of doing nothing --
-// with the last 4 bars on offer when those don't wait -- and its ▾ opens the
-// menu of what to catch (mountCatchMenu).
-function onCatchKey(e) {
+// with the last 4 bars on offer when those don't wait. Its ▾, a key of its
+// own, opens the menu of what to catch (mountCatchMenu).
+function onCatchKey() {
   const cs = state.catchSays;
-  if (e.target.closest && e.target.closest('.np-catch-more')) {
-    e.stopPropagation(); // the page's click closes menus
-    if ($('catch-menu').hidden) { renderCatchMenu(); showMenu('catch-menu'); } else closeMenus();
-    return;
-  }
   if (cs && !cs.ready) {
     toast(cs.why, 'warn', {
       ms: 7000,
@@ -4169,84 +4165,36 @@ function onCatchKey(e) {
   doCatch({ pass: 1 });
 }
 
-// mountCatchMenu gives Catch a ▾ and the menu it opens:
-// the last pass, or the last 1, 2 or 4 bars -- a track's sheet had them, and
-// nothing on the Studio said so. A part of the key, not a button of its own,
-// so it keeps the dock's three layouts; ↑ on the key opens it from a keyboard.
+// mountCatchMenu gives Catch's ▾ the menu it opens: the last pass, or the
+// last 1, 2 or 4 bars -- a track's sheet had them, and nothing on the Studio
+// said so. Catch and its ▾ are a split key (lib/ui/menu.js), as GRAB's and
+// KEEP's: the menu opens over the pair, its right edge on the pair's, and
+// Catch, a pick, a press elsewhere, Escape or Back shuts it.
+let catchMenu = null;
 function mountCatchMenu() {
   const key = $('catch-pass');
-  const more = document.createElement('span');
-  more.className = 'np-catch-more';
-  more.setAttribute('aria-hidden', 'true');
-  more.innerHTML = icon('down', { size: 14 });
   // The second line the phone's mini bar shows.
   const mini = document.createElement('span');
   mini.className = 'np-catch-mini';
   mini.setAttribute('aria-hidden', 'true');
   key.querySelector('.np-catch-sub')?.after(mini);
-  key.append(more);
-  key.setAttribute('aria-haspopup', 'menu');
-  key.setAttribute('aria-expanded', 'false');
-  const menu = document.createElement('div');
-  menu.id = 'catch-menu';
-  menu.className = 'menu catch-menu';
-  menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-label', 'What to catch');
-  menu.hidden = true;
-  document.body.append(menu);
-  MENUS.push(['catch-menu', 'catch-pass']);
-  key.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    e.stopPropagation();
-    renderCatchMenu();
-    showMenu('catch-menu');
-    menu.querySelector('button')?.focus();
+  catchMenu = splitKey(key, $('catch-more'), $('catch-menu'), {
+    layers: stack || undefined, doc: document, role: 'menu', side: 'above', render: renderCatchMenu,
   });
-  menu.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') { closeMenus(); return; }
-    const items = [...menu.querySelectorAll('button')];
-    const i = items.indexOf(document.activeElement);
-    const k = { ArrowDown: (i + 1) % items.length, ArrowUp: i <= 0 ? items.length - 1 : i - 1, Home: 0, End: items.length - 1 }[e.key];
-    if (k === undefined || !items.length) return;
-    e.preventDefault();
-    items[k].focus();
-  });
-}
-
-// placeCatchMenu opens the menu over its key, at the screen's edge: the dock
-// is at the foot of the page, so it goes up.
-function placeCatchMenu(menu) {
-  const r = $('catch-pass').getBoundingClientRect();
-  Object.assign(menu.style, { left: 'auto', top: 'auto', right: `${Math.max(8, window.innerWidth - r.right)}px`, bottom: `${Math.max(8, window.innerHeight - r.top + 6)}px` });
 }
 
 // renderCatchMenu lists what Catch can take now: each item says what it is
-// and, when it can't go, why -- a tap on one that can't says it again.
-function renderCatchMenu() {
+// and, when it can't go, why -- a tap on one that can't says it again, and
+// leaves the menu open.
+function renderCatchMenu(menu) {
   const cs = state.catchSays || catchState({ live: state.live, tape: state.tape });
-  const menu = $('catch-menu');
   const head = document.createElement('div');
   head.className = 'menu-sub catch-menu-head';
   head.textContent = state.recTrack ? `Catch onto ${onWords(state.recTracks)}` : 'Catch: no track is armed';
   const item = (word, ok, why, run) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.setAttribute('role', 'menuitem');
-    b.setAttribute('aria-disabled', String(!ok));
-    const w = document.createElement('span');
-    w.className = 'cm-word';
-    w.textContent = word;
-    b.append(w);
-    if (!ok && why) {
-      const sub = document.createElement('span');
-      sub.className = 'menu-sub';
-      sub.textContent = why;
-      b.append(sub);
-    }
+    const b = menuItem(document, { word, sub: !ok && why ? why : undefined, attrs: { 'aria-disabled': String(!ok) } });
     b.addEventListener('click', () => {
       if (!ok) { toast(why, 'warn', 6000); return; }
-      closeMenus();
       run();
     });
     return b;
@@ -4601,33 +4549,18 @@ function mountMenus() {
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
 }
 
-// Catch's menu, still its own: one open at a time; it says so to assistive
-// tech.
-const MENUS = [];
+// closeMenus closes the Studio's menus: those above, Catch's, and a track's
+// input menu, still its own.
 function closeMenus() {
   for (const m of Object.values(menus)) m.close();
+  catchMenu?.close();
   menuOffStack();
-  for (const [m, b] of MENUS) { $(m).hidden = true; $(b).setAttribute('aria-expanded', 'false'); }
   closeInputMenu();
 }
-function showMenu(id) {
-  closeInputMenu();
-  for (const [m, b] of MENUS) {
-    $(m).hidden = m !== id;
-    $(b).setAttribute('aria-expanded', String(m === id));
-  }
-  menuOnStack($(id), $(MENUS.find(([m]) => m === id)[1]));
-  // Placed over its key, moved back in if it runs off (menu-fit.js).
-  const menu = $(id);
-  if (id === 'catch-menu') placeCatchMenu(menu);
-  menu.style.translate = '';
-  const dx = menuShift(menu.getBoundingClientRect(), document.documentElement.clientWidth);
-  if (dx) menu.style.translate = `${dx}px 0`;
-}
-// So is a menu on the stack (☰, KEEP ▾, GRAB ▾: lib/ui/menu.js), or the
-// phone's player over the page: the arrows are theirs, not the record
-// track's.
-const menusOpen = () => MENUS.some(([m]) => !$(m).hidden) || !!inputMenu || !!stack?.ownsKeys(null);
+// While a menu is open (the Studio's, ☰, KEEP ▾ or GRAB ▾: on the stack),
+// or the phone's player is over the page, the arrows are theirs, not the
+// record track's.
+const menusOpen = () => !!inputMenu || !!stack?.ownsKeys(null);
 
 // --- a track's input menu ------------------------------------------------------
 // A track's input chip opens a menu of the inputs, each with its meter, to

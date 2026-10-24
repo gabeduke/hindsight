@@ -3219,7 +3219,19 @@ body.tape-page:has(#out-strip:not([hidden])) { --np-h: 160px; }
 .np .np-keys .tb-rec { min-width: 64px; }
 .np .np-keys .tb-click { font-size: 18px; }
 .np-own { margin-left: auto; display: flex; gap: 10px; align-items: center; flex: none; }
-.np .np-catch { height: 52px; min-height: 52px; min-width: 112px; flex-direction: column; gap: 1px; padding: 0 18px; }
+/* Catch and its ▾ (lib/ui/menu.js splitKey): two keys with a seam, as
+   GRAB's and KEEP's, so a tap meant for one is never the other; the ▾ as
+   tall as Catch and a finger wide. The pair is as wide as Catch was with
+   its ▾ inside it (at least 112 px, and 3 px more for a long second line):
+   Catch keeps a slim margin round that line, so the bar, already full on
+   a tablet, doesn't grow. */
+.np-own > .np-catch-split { display: inline-flex; align-items: stretch; flex: none; }
+.np .np-catch-split > .np-catch { flex: 1 1 auto; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.np .np-catch-split > .np-catch-more {
+  flex: none; width: 44px; min-width: 44px; min-height: 0; padding: 0; margin-left: -1px;
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+.np .np-catch { height: 52px; min-height: 52px; min-width: 69px; flex-direction: column; gap: 1px; padding: 0 6px; }
 .np-catch-word { font-size: 15.5px; font-weight: 700; }
 .np-catch-sub { font: 500 10.5px var(--mono); opacity: .88; }
 .np-catch-mini { display: none; } /* the phone's mini bar shows it (below) */
@@ -3424,7 +3436,7 @@ body.np-fold .np-fold-glyph .i { transform: rotate(180deg); }
 /* ---------- Catch ---------- */
 /* Catch is the page's one main action: the orange key in the bar, lit from
    above -- unless the tape is on a phone, when it says it needs the jam room. */
-.np #catch-pass:not(:disabled):not(.jam-only) {
+.np :is(#catch-pass, #catch-more):not(:disabled):not(.jam-only) {
   background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo)); color: var(--on-accent);
   border-color: var(--accent-edge); text-shadow: 0 1px 0 rgba(0,0,0,.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
@@ -3924,17 +3936,22 @@ input, select, textarea { color-scheme: inherit; }
   body:not(.player-open) .np > .out-strip { order: -1; flex: 1 1 100%; }
   body:not(.player-open) .np-row > :not(.np-window):not(.np-keys):not(.np-own),
   body:not(.player-open) .np-keys > :not(.tb-play):not(.np-start),
-  body:not(.player-open) .np-own > :not(.np-catch) { display: none !important; }
+  body:not(.player-open) .np-own > :not(.np-catch-split) { display: none !important; }
   body:not(.player-open) .np-window { flex: 1 1 0; width: auto; min-width: 0; height: 50px; }
   body:not(.player-open) .np-reel { width: 34px; height: 34px; }
   body:not(.player-open) .np-window::after { left: 20px; right: 20px; }
   body:not(.player-open) .np-levels { display: none; }
+  /* Catch's ▾ is a key of its own beside it: the Studio's LCD gives back
+     the room it took, so it keeps the bar number. */
+  body.tape-page:not(.player-open) .np-window { gap: 4px; }
+  body.tape-page:not(.player-open) .np-lcd { padding: 2px 6px; }
+  body.tape-page:not(.player-open) .np-lcd-top { gap: 4px; }
   body:not(.player-open) .np-keys { flex: none; }
   body:not(.player-open) .np .np-keys .tb-play { width: 54px; min-width: 54px; height: 50px; min-height: 50px; }
   /* |◀ beside it, a thumb's width: back to the loop's start, or the take's. */
   body:not(.player-open) .np .np-keys .np-start { width: 46px; min-width: 46px; height: 50px; min-height: 50px; }
   body:not(.player-open) .np-own { flex: none; margin-left: 0; }
-  body:not(.player-open) .np .np-catch { min-width: 92px; height: 50px; min-height: 50px; padding: 0 12px; }
+  body:not(.player-open) .np .np-catch { min-width: 64px; height: 50px; min-height: 50px; padding: 0 10px; }
   body:not(.player-open) .np .np-catch-sub { display: none; }
   /* The Studio's Catch has a short second line of its own down here
      (.np-catch-mini, added by the page): "→ 2" and
@@ -3972,7 +3989,8 @@ input, select, textarea { color-scheme: inherit; }
   body.player-open .np .np-keys .icon-btn { flex: 1 1 0; width: auto; min-width: 0; height: 56px; min-height: 56px; }
   body.player-open .np-own { width: 100%; margin: 0; gap: 8px; flex-wrap: wrap; }
   body.player-open .np-own > * { flex: 1 1 0; }
-  body.player-open .np .np-catch { flex-basis: 100%; height: 56px; min-height: 56px; }
+  body.player-open .np .np-catch-split { flex-basis: 100%; }
+  body.player-open .np .np-catch { height: 56px; min-height: 56px; }
   body.player-open .np-row-2 { gap: 10px; }
   body.player-open .np-mini { display: none; }
   body.player-open .np .np-scrub { flex: 1 1 100%; height: 52px; }
@@ -4027,7 +4045,7 @@ input, select, textarea { color-scheme: inherit; }
   body.player-open .np-levels { display: none; }
 }
 @media (max-width: 399.98px) {
-  body:not(.player-open) .np .np-catch { min-width: 80px; padding: 0 8px; }
+  body:not(.player-open) .np .np-catch { min-width: 52px; padding: 0 5px; }
   /* A take's row, |◀ ▶, the switch, its name and ✎, fits 360 wide. */
   body:not(.player-open) .np .seg.np-source-switch button { padding: 0 7px; }
 }
@@ -4036,7 +4054,7 @@ input, select, textarea { color-scheme: inherit; }
 .tape-track.unheard .tt-lane { opacity: .35; }
 .tt-pend { flex: none; font: 10px var(--mono, ui-monospace, monospace); color: var(--ink-dim); white-space: nowrap; }
 .dim { opacity: .5; }
-#catch-pass.jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
+:is(#catch-pass, #catch-more).jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
 .jam-only-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; color: var(--ink-dim); }
 .jam-only-note a { color: var(--accent); }
 /* Bounce's refusal has three ways on: on a narrow phone they stack, the
@@ -5917,8 +5935,9 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
 .set-reload-bar .set-reload { width: 100%; min-height: var(--tap); }
 
 /* Catch (lib/tape/catch.js, page.js): pressable while it waits for a pass, and
-   dimmed -- a key that is up -- so a tap can say why; and its ▾ and the menu of what to catch. */
-.np .np-own #catch-pass.waits:not(.jam-only) {
+   dimmed -- a key that is up -- so a tap can say why, its ▾ with it; and the
+   menu of what to catch. */
+.np .np-own :is(#catch-pass, #catch-more).waits:not(.jam-only) {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink-dim);
   border-color: var(--line); text-shadow: none; opacity: .7;
   box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
@@ -5927,22 +5946,17 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
    off" or "press ▶" where it used to say "last pass → track 1": 112 px for
    158, which moved the Crate button and everything to its right 46 px. It
    keeps the width it had, so the bar stays where it was and does not jump as
-   Catch goes from waiting to ready. Only the wide bar: the phone's mini
-   player hides the second line and sets its own widths. */
+   Catch goes from waiting to ready: with its ▾, the pair is 158. Only the
+   wide bar: the phone's mini player hides the second line and sets its own
+   widths. */
 @media (min-width: 700px) and (min-height: 441px), (min-width: 700px) and (orientation: portrait) {
-  .np .np-own #catch-pass.waits:not(.jam-only) { min-width: 158px; }
+  .np .np-own #catch-pass.waits:not(.jam-only) { min-width: 115px; }
 }
-body .np .np-catch:has(> .np-catch-more) { position: relative; padding-right: 34px; }
-.np-catch-more {
-  position: absolute; top: 0; right: 0; bottom: 0; width: 28px;
-  display: flex; align-items: center; justify-content: center;
-  border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-}
-.catch-menu { position: fixed; z-index: 60; min-width: 230px; max-width: calc(100vw - 16px); }
+/* Its rows are menu.js's (menuItem): why one can't go yet wraps under it. */
+.catch-menu { z-index: 60; min-width: 230px; max-width: calc(100vw - 16px); }
 .catch-menu-head { padding: 6px 12px 8px; }
-.catch-menu > button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.catch-menu > button .menu-sub { white-space: normal; }
-.catch-menu > button[aria-disabled="true"] { opacity: .6; cursor: default; }
+.catch-menu > .menu-item > .menu-sub { white-space: normal; }
+.catch-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
 
 /* A toast that must not stand between a person and their next tap: the one a
    ● gives for arming a track as well has the next ● under it on a phone. Its

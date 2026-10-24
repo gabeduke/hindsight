@@ -64,6 +64,32 @@ export default {
     t.expect('track 2 holds one pass', clips.length === 1 && Math.abs(len - pass) < 0.1,
       `track 2: ${clips.length} clip(s), ${len.toFixed(2)} s; a pass is ${pass} s`);
 
+    // Catch's ▾ is a key of its own beside it, as GRAB's and KEEP's are (it
+    // was a corner of the Catch key, 10 px from the bar's fold): it opens
+    // what to catch over the pair, and a pick catches.
+    await t.step('tap Catch’s ▾', () => t.tap(page.locator('#catch-more')));
+    const cm = await t.poll(() => {
+      const m = document.getElementById('catch-menu');
+      if (!m || m.hidden) return null;
+      const key = document.getElementById('catch-pass').getBoundingClientRect();
+      const more = document.getElementById('catch-more').getBoundingClientRect();
+      const r = m.getBoundingClientRect();
+      return {
+        apart: more.left >= key.right - 1 && more.width >= 44 && Math.abs(more.height - key.height) <= 1,
+        over: Math.abs(r.right - more.right) <= 1 && r.bottom <= key.top && key.top - r.bottom <= 12,
+        rows: [...m.querySelectorAll('.menu-word')].map((w) => w.textContent),
+      };
+    });
+    t.expect('Catch’s ▾ is a key of its own beside Catch, a finger wide and as tall', cm?.apart, cm);
+    t.expect('its menu opens over the pair: the last pass, the last 1, 2 or 4 bars', cm?.over
+      && JSON.stringify(cm.rows) === JSON.stringify(['The last pass', 'The last 1 bar', 'The last 2 bars', 'The last 4 bars']), cm);
+    await t.step('tap The last 1 bar', () => t.tap(page.locator('#catch-menu .menu-item', { hasText: 'The last 1 bar' })));
+    const bar1 = page.locator('#toasts .toast').filter({ hasText: /Caught last 1 bar/ }).first();
+    t.expect('a "Caught last 1 bar → 2" toast', await bar1.waitFor({ timeout: 10_000 }).then(() => true, () => false));
+    t.expect('and the menu shuts', await page.locator('#catch-menu').waitFor({ state: 'hidden', timeout: 2000 }).then(() => true, () => false));
+    const more = await api.until(async () => (await api.tapeState()).tracks[1].clips.length > 1, 'the bar on track 2', 8000).catch(() => false);
+    t.expect('track 2 holds the bar as well', more);
+
     await t.step('press ▶ again to stop', () => t.tap(page.locator('#np-play')));
   },
 };

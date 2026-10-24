@@ -1,5 +1,6 @@
 // J4.4 The Studio on a phone: the bar is a mini player above the tabs (its
-// window, |◀, ▶ and Catch); |◀ goes back to the loop's start; a tap on the
+// window, with the bar number, |◀, ▶, and Catch with its ▾ beside it); |◀
+// goes back to the loop's start; a tap on the
 // window pulls the player up with the transport, Rec and Catch; Back puts
 // it away and stays in the Studio. A tapped clip's bar floats just above the
 // player, and Insert asks before it moves the tape. The ruler's keys are one
@@ -20,8 +21,12 @@ const look = () => {
   const s = document.getElementById('np-start')?.getBoundingClientRect();
   const p = document.getElementById('np-play')?.getBoundingClientRect();
   const beside = !!s && !!p && s.width >= 44 && s.height >= 44 && Math.abs(s.top - p.top) <= 4 && s.right <= p.left && p.left - s.right <= 12;
+  // The window keeps the bar number in its LCD (it once lost it to a wider
+  // Catch beside it).
+  const pos = document.getElementById('position')?.getBoundingClientRect();
   return {
     window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
+    more: on('#catch-more'), bar: !!pos && pos.width >= 10,
     name: on('#np-name'), note: on('#np-note'), beside,
     open: document.body.classList.contains('player-open'),
     aboveTabs: !tabs || !c || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1,
@@ -51,7 +56,8 @@ export default {
     await page.locator('#np-expand').waitFor({ state: 'visible' });
     await t.wait(800);
     const mini = await page.evaluate(look);
-    t.expect('the mini player shows its window, |◀, ▶ and Catch, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && !mini.loop, mini);
+    t.expect('the mini player shows its window, |◀, ▶ and Catch with its ▾, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && mini.more && !mini.loop, mini);
+    t.expect('the window still shows the bar number', mini.bar, mini);
     t.expect('|◀ sits beside ▶, a thumb wide', mini.beside, mini);
     t.expect('the mini player sits above the tabs', mini.aboveTabs, mini);
 

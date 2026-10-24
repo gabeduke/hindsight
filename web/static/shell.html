@@ -277,6 +277,9 @@
 <!-- A track's input menu: its input chip opens it beside itself, filled by
      page.js (openInputMenu) with the inputs and their meters. -->
 <div id="input-menu" class="menu input-menu" role="menu" aria-label="Input" hidden></div>
+<!-- Catch's: what to catch, the last pass or the last bars, over its ▾
+     (page.js, renderCatchMenu). -->
+<div id="catch-menu" class="menu catch-menu" role="menu" aria-label="What to catch" hidden></div>
 
 <!-- The dock at the foot of the page: the clip editor while a clip is
      aligned, the action bar while something is selected, then the
@@ -374,7 +377,13 @@
         <button id="click" class="icon-btn tb-click np-studio" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
       </div>
       <div class="np-own">
-        <button id="catch-pass" class="icon-btn primary np-catch np-studio" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
+        <!-- Catch, and its ▾ of what to catch (lib/ui/menu.js splitKey): two
+             keys with a seam, as GRAB's and KEEP's, so a tap meant for one
+             is never the other. -->
+        <span class="key-split np-catch-split np-studio">
+          <button id="catch-pass" class="icon-btn primary np-catch np-studio" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
+          <button id="catch-more" class="icon-btn key-more np-catch-more" type="button" aria-label="What to catch" data-tip="catch-more"><svg class="i i-down" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
+        </span>
         <button id="np-eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" hidden><svg class="i i-eject" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#eject"/></svg></button>
         <a id="np-open" class="icon-btn np-open" href="/tape.html" data-tip="np-open">Open the tape ›</a>
         <button id="np-fold-btn" class="icon-btn np-fold-btn" type="button" aria-expanded="true" aria-controls="np" aria-label="Collapse transport" data-tip="np-fold"><span class="np-fold-glyph" aria-hidden="true"><svg class="i i-down" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>

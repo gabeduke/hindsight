@@ -349,7 +349,7 @@ test('Guardrail 12: the Studio’s Escape is the stack’s; its page keeps it on
 // on its own is listed, with why, and comes off the list when it moves.
 const OWN_MENUS = [
   // [file, how many aria-haspopup, why it is still its own]
-  ['lib/tape/page.js', 2, 'the Studio’s Catch ▾ and a track’s input chip, still its own menus (the-studio-space.md, step 2)'],
+  ['lib/tape/page.js', 1, 'a track’s input chip, still its own menu (the-studio-space.md, step 2)'],
   ['lib/wave/lanes.js', 1, 'Open’s lane menus, until Open’s pass (step 10)'],
   ['lib/wave/page.js', 1, 'Open’s menus shut one another by it, until Open’s pass'],
   ['lib/room/open.js', 1, 'the tag key opens a sheet, not a menu'],

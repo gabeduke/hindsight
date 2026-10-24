@@ -730,8 +730,8 @@ From the top:
   Pointing at it outlines, on that track's lane, the pass it would take. It
   catches after one whole pass of the loop; until then its second line says
   why (*after one pass*), and pressing it says why in full (and offers the
-  last 4 bars, which don't wait). The **▾** on its right edge opens the same
-  choice: the last pass, or the last 1, 2 or 4 bars. The key says what it
+  last 4 bars, which don't wait). The **▾** beside it, a key of its own,
+  opens the same choice: the last pass, or the last 1, 2 or 4 bars. The key says what it
   catches (*last pass → 2*, or *→ 2, 3* with two armed). The phone's mini player says it
   shorter (*→ 2*, *→ 1–4* with all four armed, *in 1 pass*, *arm track*). While the tape plays, a small
   red ▾ on the record track's lane marks the next bar line: where ● Rec
@@ -1729,6 +1729,7 @@ has no tip.
 | Track picker | Choose the track to line this clip up against |
 | Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
 | Catch | Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. It lights after one whole pass of the loop: until then a press says why. The last 1, 2 or 4 bars are in the track's inspector and under its ▾. Key: C |
+| ▾ (Catch) | What Catch takes: the last pass, or the last 1, 2 or 4 bars, onto the armed tracks. One that can't go yet says why |
 | Passes | Every time round the loop, kept. Tap one to put it on the record track |
 | Join | Join this clip and the half that was split from it back into one |
 | ×2 | Double the loop, copying what's in it over what follows. On the action bar while the range is the loop |

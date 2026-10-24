@@ -289,7 +289,7 @@ not come back:
   rows are `menuItem`s. Six menus once had five ways to be placed, two to
   be dismissed, and rows of 40 px beside rows of 48. The test fails on an
   `aria-haspopup` a script sets up outside `menu.js`, and lists the ones
-  still their own. The Studio's Catch and input menus and Open's are still
+  still their own. A track's input menu in the Studio and Open's are still
   their own, each to move as it is touched.
 
 ## Getting code onto a Pi
