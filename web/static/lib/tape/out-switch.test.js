@@ -36,7 +36,7 @@ function fakePlayer({ startFails = false, log = [] } = {}) {
   };
 }
 
-// Each place's picture is tested with the pictures, in lib/objects/icons.test.js.
+// Each place's picture is tested with the icons, in lib/ui/icons.test.js.
 
 test('names and delays read as the sheet says them', () => {
   assert.equal(outName('jam'), 'Jam room');
@@ -65,7 +65,7 @@ test('the buttons show the place, and hide while the Pi has not said', () => {
     assert.equal(b.hidden, false);
     assert.equal(b.text.textContent, 'Phone');
     assert.equal(b.attrs['aria-label'], 'Output: Phone');
-    assert.match(b.slot.innerHTML, /a8 8/);
+    assert.match(b.slot.innerHTML, /ui\.svg#phones/);
   }
   paintOutButtons(null, doc);
   assert.ok(bs.every((b) => b.hidden));

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+<!-- The app's icons: one drawn set, in place of the unicode glyphs each
+     platform drew in a fallback font of its own (lib/ui/icons.js). Line art
+     on a 24 grid in the ink of the key it sits on (currentColor), round caps
+     and joins; the stroke's width is styles.css's (svg.i, 1.75), so a small
+     chevron can be drawn heavier. A page uses one by its id:
+       <svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg#undo"/></svg>
+     and a script by icon('undo'). Every id here is in ICONS, and every id a
+     page or a script asks for is here (lib/ui/icons.test.js). The paths are
+     the proposed kit's (docs/plan/the-studio-space.md, Under the hood). -->
+
+<!-- The transport -->
+<symbol id="play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+<symbol id="pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="5.5" width="3.5" height="13" rx="1" fill="currentColor"/><rect x="14" y="5.5" width="3.5" height="13" rx="1" fill="currentColor"/></symbol>
+<symbol id="stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="1" fill="currentColor"/></symbol>
+<symbol id="rec" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6.5" fill="currentColor" stroke="none"/></symbol>
+<symbol id="prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5.5v13" stroke-width="2.25"/><path d="M18.5 5.5v13L9 12z" fill="currentColor"/></symbol>
+<symbol id="back5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.34-5.66L4 8.5"/><path d="M4 4v4.5h4.5"/><path d="M14.1 9h-3.3l-.4 2.9a2.4 2.4 0 1 1-.2 3.4" stroke-width="1.5"/></symbol>
+<symbol id="repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5 20 7l-3.5 3.5"/><path d="M4 11.5V10a3 3 0 0 1 3-3h13"/><path d="M7.5 20.5 4 17l3.5-3.5"/><path d="M20 12.5V14a3 3 0 0 1-3 3H4"/></symbol>
+<symbol id="metro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 3.5h4.8l4.1 17H5.5z"/><path d="M7.4 15.5h9.2"/><path d="M12 15.5 16.9 6"/><circle cx="15.4" cy="8.9" r="1.3" fill="currentColor"/></symbol>
+<symbol id="eject" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5 19 13H5z" fill="currentColor"/><path d="M5 18h14" stroke-width="2.5"/></symbol>
+<symbol id="catch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7.5a4 4 0 1 0-4 4V17"/><path d="m9.5 14.5 2.5 2.5 2.5-2.5"/><path d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"/></symbol>
+<symbol id="note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.8 5.2 18.8 9.2 8.5 19.5H4.5v-4z"/><path d="m12.5 7.5 4 4"/></symbol>
+
+<!-- The header -->
+<symbol id="undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+<symbol id="redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+<symbol id="more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.75" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.75" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.75" fill="currentColor" stroke="none"/></symbol>
+<symbol id="menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></symbol>
+<symbol id="tape" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="11.5" r="4.5"/><circle cx="18" cy="11.5" r="4.5"/><path d="M6 16h12"/></symbol>
+<symbol id="studio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v16M12 4v16M18 4v16"/><rect x="3.75" y="12.5" width="4.5" height="3.5" rx="1" fill="currentColor"/><rect x="9.75" y="6.5" width="4.5" height="3.5" rx="1" fill="currentColor"/><rect x="15.75" y="10" width="4.5" height="3.5" rx="1" fill="currentColor"/></symbol>
+<symbol id="shelf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20.5h18"/><rect x="4.5" y="6.5" width="3" height="14" rx=".7"/><rect x="8.75" y="4.5" width="3" height="16" rx=".7"/><rect x="13" y="8.5" width="3" height="12" rx=".7"/><rect x="17.25" y="5.5" width="3" height="15" rx=".7"/></symbol>
+<symbol id="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></symbol>
+
+<!-- Where the tape plays: the jam room's speaker, a phone's headphones -->
+<symbol id="speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5h3L11 5.5v13l-4.5-4h-3z"/><path d="M14.5 9a4 4 0 0 1 0 6"/><path d="M17 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+<symbol id="phones" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-3.5a8 8 0 0 1 16 0V16"/><rect x="3" y="14" width="4.5" height="7" rx="1.5" fill="currentColor"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.5" fill="currentColor"/></symbol>
+
+<!-- The ruler: ⌗ (the snap, and the View menu to come), and the loop's
+     lock, in two parts so a page can lift the shackle (styles.css). -->
+<symbol id="view" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v16M15 4v16M4 9h16M4 15h16"/></symbol>
+<symbol id="lock-body" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9.5" rx="2" fill="currentColor"/></symbol>
+<symbol id="lock-shackle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8.25 11V8a3.75 3.75 0 0 1 7.5 0v3" stroke-width="2.25"/></symbol>
+
+<!-- Ways in and out -->
+<symbol id="down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9.5 6 6 6-6"/></symbol>
+<symbol id="right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></symbol>
+<symbol id="left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6-6 6 6 6"/></symbol>
+<symbol id="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5"/></symbol>
+<symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+
+<!-- The library -->
+<symbol id="star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3.8 2.55 5.17 5.7.83-4.13 4.02.98 5.68L12 16.82l-5.1 2.68.98-5.68L3.75 9.8l5.7-.83z"/></symbol>
+<symbol id="list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.75" cy="6.5" r="1.25" fill="currentColor" stroke="none"/><circle cx="4.75" cy="12" r="1.25" fill="currentColor" stroke="none"/><circle cx="4.75" cy="17.5" r="1.25" fill="currentColor" stroke="none"/></symbol>
+</svg>

@@ -6,8 +6,8 @@
 // and banner (output-ui.js); Takes and Capture use this as it is (bar.js).
 
 import { rememberListener } from './listener.js';
-// The pictures themselves -- a speaker, headphones, both -- are objects.
-import { outIcon } from '../objects/icons.js';
+// The pictures themselves -- a speaker, headphones, both -- are icons.
+import { outIcon } from '../ui/icons.js';
 import { say } from '../rooms/words.js';
 
 export const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };

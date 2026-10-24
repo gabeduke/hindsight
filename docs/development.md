@@ -419,8 +419,10 @@ module each, with their tests beside them: the VU meters (`vu.js`), the reels
 and the reel window (`reels.js`, `reel-window.js`), the cassette
 (`cassette.js`, `cassette-geom.js`), the ribbon (`ribbon.js` and its draw and
 maths), the LCD's words (`lcd.js`), grease pencil (`grease.js`), a flag's
-pennant (`pennant.js`) and the output icons (`icons.js`). A page keeps its
-layout and behaviour and asks the module for the object.
+pennant (`pennant.js`). A page keeps its layout and behaviour and asks the
+module for the object. The icons are not objects but chrome: one drawn set,
+`web/static/icons/ui.svg`, used through `lib/ui/icons.js` (the output
+button's speaker and headphones among them).
 
 Two things are objects without a module. The masking tape that track names
 and a take's flags are written on is all CSS (`.tt-head .tt-name` and

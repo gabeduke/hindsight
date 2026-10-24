@@ -30,7 +30,7 @@ import { DomRenderer } from '../scene/dom.js';
 import { tapeCounter, tapeMarquee, takeCounter, takeMarquee } from './lcd.js';
 import { drawGrease } from './grease.js';
 import { drawPennant, drawPennantName } from './pennant.js';
-import { outIcon, OUT_MODES } from './icons.js';
+import { outIcon, OUT_MODES, icon, ICONS } from '../ui/icons.js';
 import { still, download } from './bench-still.js';
 import { paintOxide, oxideColors } from '../wave/tape-strip.js';
 import { PIN_H, RULER_H } from '../wave/view.js';
@@ -673,14 +673,20 @@ function buildPennants(root) {
 
 
 /**
- * Icons: the pictures drawn from code -- where the tape plays -- in the ink
- * of a key, and the app's own icon, from its files, at the sizes it is
- * asked for: the top bar's 24 px, and the home screen's.
+ * Icons: the app's one drawn set (lib/ui/icons.js, icons/ui.svg) in the ink
+ * of a key, where the tape plays as the output button shows it, and the
+ * app's own icon, from its files, at the sizes it is asked for: the top
+ * bar's 24 px, and the home screen's.
  */
 function buildIcons(root) {
   const grid = section(root, 'Icons',
-    'Where the tape plays, as the output button shows it: a speaker, headphones, both. Then the app\'s icon, a take as the shelf draws one, at the size of the top bar and of a home screen.');
+    'Every icon in the sprite, by its name, at a bar key\'s 20 px. Where the tape plays, as the output button shows it: a speaker, headphones, both. Then the app\'s icon, a take as the shelf draws one, at the size of the top bar and of a home screen.');
 
+  for (const name of ICONS) {
+    const box = el('span', 'bench-ico');
+    box.innerHTML = icon(name);
+    cell(grid, name).append(box);
+  }
   const names = { jam: 'Jam room: a speaker', phone: 'Phone: headphones', both: 'Both' };
   for (const mode of OUT_MODES) {
     const box = el('span', 'bench-ico');
