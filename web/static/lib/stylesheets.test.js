@@ -91,6 +91,8 @@ test('rules: every style rule with the at-rules it sits in, and its line', () =>
     [['.s::before'], '', [], 14],
   ], 'a keyframe’s steps and @font-face are not style rules');
   assert.ok(rs.every((r) => r.file === 'x.css'));
+  const steps = rules(SHEET, { keyframes: true }).filter((r) => r.at.at(-1) === '@keyframes k');
+  assert.deepEqual(steps.map((r) => [r.sel, r.body.trim()]), [[['from'], 'opacity: 0'], [['to'], 'opacity: 1']], 'and a keyframe’s steps, when asked');
   assert.equal(rs[1].body, ' color: red; background: url("x;{y}") ', 'a brace in a string is the string’s');
   assert.equal(rs[5].body, " content: '}' ");
   assert.deepEqual(decls(rs[3].body), [{ prop: 'color', value: 'green', important: true }]);

@@ -152,9 +152,10 @@ export function decls(body) {
  * '@supports …'); media the conditions of the @media among them, joined by
  * ' / ' when one sits in another ('' for none); line the line its selector
  * starts on, in `css`; file whatever the caller passed. A keyframe's steps
- * and @font-face are not style rules, and are left out.
+ * and @font-face are not style rules, and are left out -- the steps come
+ * too with `keyframes` (their at-rules end in the @keyframes).
  */
-export function rules(css, { file } = {}) {
+export function rules(css, { file, keyframes = false } = {}) {
   const { plain, shape } = scan(css);
   const out = [];
   const stack = [];
@@ -174,7 +175,7 @@ export function rules(css, { file } = {}) {
       from = i + 1;
     } else if (c === '}') {
       const top = stack.pop();
-      if (top && !top.head.startsWith('@') && !stack.some((s) => /^@(-[a-z]+-)?keyframes\b/i.test(s.head))) {
+      if (top && !top.head.startsWith('@') && (keyframes || !stack.some((s) => /^@(-[a-z]+-)?keyframes\b/i.test(s.head)))) {
         const at = stack.filter((s) => s.head.startsWith('@')).map((s) => s.head);
         const media = at.filter((a) => /^@media\b/i.test(a)).map((a) => a.replace(/^@media\s*/i, '')).join(' / ');
         out.push({ sel: splitList(top.head), body: plain.slice(top.open + 1, i), media, at, line: top.line, file });

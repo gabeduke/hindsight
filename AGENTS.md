@@ -144,6 +144,15 @@ and caught by hand.
   brace matcher of its own: eighteen files once had eight copies of one, and
   a copy that slips passes a test that should fail. It is node-only, so it
   stays out of `sw.js`'s `SHELL`.
+- **A canvas reads its colours by token, and its fallback is the light
+  value.** `lib/css-tokens.test.js` fails on a token no stylesheet defines
+  (the buffer's playhead drew in an undefined `--ok`'s fallback from the
+  day it shipped) and on a fallback that has drifted from the palette.
+- **The stylesheets' costs only go down.** `lib/css-budget.test.js` counts
+  hex and rgba literals outside the token blocks, z-index numbers,
+  `!important`, `@media` conditions, written-in durations and font-weights
+  with no face. Reuse a token, a condition or a z-index rather than add
+  one; when a count drops, the test prints the number to lower it to.
 - **Never hide the only route to something.** The about line on Capture was
   `display: none` in one window shape; it carries the only Settings button
   anywhere in the app, so that shape had no way in at all. `styles.test.js`
