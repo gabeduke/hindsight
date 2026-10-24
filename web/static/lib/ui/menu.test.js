@@ -187,6 +187,18 @@ test('menu: a pick says how it closed: a link leaves the history to the page it 
   assert.deepEqual(why, ['pick', 'navigate']);
 });
 
+// The Studio's Export stems is a link to "#" that downloads by a link of its
+// own: the page stays, so its history entry (Safari's) must go with the menu.
+test('menu: a link to "#" loads no page, so it is a pick', () => {
+  const p = aPage('<button id="b">⋯</button><div id="m" hidden><a id="x" href="#">Export stems</a></div>');
+  const why = [];
+  const layers = { open: (spec) => p.layers.open({ ...spec, onClose: (r) => { why.push(r); spec.onClose(r); } }) };
+  const m = menu(p.$('b'), p.$('m'), { layers, win: p.win });
+  m.open();
+  p.$('m').dispatchEvent({ type: 'click', target: p.$('x') });
+  assert.deepEqual(why, ['pick']);
+});
+
 test('menu: an item that can’t go stays, and says why itself', () => {
   const p = aPage('<button id="b">▾</button><div id="m" hidden><button id="no" aria-disabled="true">No</button></div>');
   const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win });

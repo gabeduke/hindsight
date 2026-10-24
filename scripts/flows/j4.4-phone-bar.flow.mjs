@@ -169,7 +169,9 @@ export default {
     await t.step('tap ⌗ beside the ruler', () => t.tap(page.locator('#ruler-more')));
     await t.step('tap Beat', () => t.tap(page.locator('#ruler-menu [data-snap="beat"]')));
     const snapped = await page.locator('#ruler-more-snap').innerText();
-    t.expect('the key says a drag snaps to beats now', snapped === 'Beat' && await page.locator('#ruler-menu').isHidden(), snapped);
+    // The pick shuts the menu, which fades out (lib/ui/menu.js) and is then gone.
+    const menuShut = await page.locator('#ruler-menu').waitFor({ state: 'hidden', timeout: 2000 }).then(() => true, () => false);
+    t.expect('the key says a drag snaps to beats now, and its menu has shut', snapped === 'Beat' && menuShut, { snapped, menuShut });
 
     // A take in the bar has a mini player of its own: no window, the strip
     // under its keys, and |◀ beside ▶ here too.

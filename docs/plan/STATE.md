@@ -160,8 +160,8 @@ records from the phone). Its step 1 (foundations, nothing visible) is
 under way, and step 2 has begun: `lib/ui/layers.js`, the one stack of open
 things, with ☰, the Studio's menus, inspector, clip editor and selection,
 and the phone's player on it; and `lib/ui/menu.js`, the one menu, with ☰,
-KEEP ▾ and GRAB ▾ on it (the Studio's header, ruler, Catch and input
-menus are next). Still on their own path, each to move as it
+KEEP ▾, GRAB ▾ and the Studio's header and ruler menus on it (Catch's and
+the input chip's are next). Still on their own path, each to move as it
 is touched: Open's notes pane (its own history entry, until it is the notes
 drawer), Open's ⋯ and lane menus (into `menu.js`), the Listening Room's
 select mode (`takes.js`), the buffer's

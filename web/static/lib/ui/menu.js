@@ -261,13 +261,16 @@ export function menu(button, panel, {
   });
   // A pick closes a menu, before the item's own handler (which may stop the
   // click: help mode's does). A link leaves the history to the page it
-  // loads. An item that can't go (aria-disabled) says why, and stays.
+  // loads; one to "#" loads nothing (the Studio's Export stems, which
+  // downloads by a link of its own), and is a pick. An item that can't go
+  // (aria-disabled) says why, and stays.
   if (role === 'menu') {
     panel.addEventListener('click', (e) => {
       if (!layer?.open) return;
       const item = items().find((c) => c.contains(e.target));
       if (!item || item.getAttribute('aria-disabled') === 'true') return;
-      layer.close(item.tagName === 'A' && item.hasAttribute('href') ? 'navigate' : 'pick');
+      const leaves = item.tagName === 'A' && item.hasAttribute('href') && !item.getAttribute('href').startsWith('#');
+      layer.close(leaves ? 'navigate' : 'pick');
     }, true);
   }
 

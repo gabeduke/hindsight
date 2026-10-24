@@ -30,6 +30,19 @@ export default {
     t.expect('the tape has that tempo', grid?.bars === BARS && Math.round(bpm) === BPM, JSON.stringify(grid));
     const pill = await t.poll((bpm) => document.getElementById('tape-sub')?.textContent.includes(bpm) && document.getElementById('tape-sub').textContent, String(BPM));
     t.expect('the tempo pill reads it', pill, await page.locator('#tape-sub').innerText());
+    // The pill is the tempo's menu (lib/ui/menu.js): the bar counts the loop
+    // could be, under it; Escape shuts it and stays in the Studio.
+    await t.step('tap the tempo', () => t.tap(page.locator('#tape-sub')));
+    const tempo = await t.poll(() => {
+      const m = document.getElementById('tempo-menu');
+      if (!m || m.hidden) return null;
+      const b = document.getElementById('tape-sub').getBoundingClientRect();
+      const r = m.getBoundingClientRect();
+      return { under: Math.round(r.left) === Math.round(b.left) && r.top >= b.bottom && r.top - b.bottom <= 12, rows: [...m.querySelectorAll('[role=menuitem]')].map((i) => i.textContent) };
+    });
+    t.expect('its menu opens under it with the bar counts, this one among them', !!tempo?.under && tempo.rows.includes(`${BARS} bars at ${BPM.toFixed(1)} BPM`), tempo);
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('Escape shuts it, in the Studio', await t.poll(() => document.getElementById('tempo-menu')?.hidden && location.pathname === '/tape.html'));
 
     // ● on track 2 arms it alone.
     const arm = page.locator('#lanes .tt-arm').nth(1);
