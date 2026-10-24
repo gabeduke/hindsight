@@ -36,6 +36,7 @@ import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview
 import { token, withAlpha, onSchemeChange } from '../theme.js';
 import { Loop } from '../objects/motion.js';
 import { timedFetch } from '../link.js';
+import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
@@ -2824,10 +2825,6 @@ function pickInput(n, name) {
   setInput(n, name);
 }
 
-function setText(el, v) {
-  if (el.textContent !== v) el.textContent = v;
-}
-
 function setIf(el, attr, v) {
   if (el.getAttribute(attr) !== v) el.setAttribute(attr, v);
 }
@@ -2839,10 +2836,17 @@ function caughtToast(msg, clip, opts) {
   toast(note ? `${msg} — ${note}` : msg, note ? 'warn' : 'ok', note ? { ...opts, ms: 12000 } : opts);
 }
 
+// passesShown is what the list holds: it's built again only when that
+// changes, not at every poll -- a child put in or taken out restyles most of
+// the page (lib/text.js says why).
+let passesShown = '';
 function renderPasses() {
   const cycles = (state.live && state.live.cycles) || [];
   const recent = cycles.slice(-6);
   const box = $('passes');
+  const shown = JSON.stringify([recent.map((c) => c.out), onWords(state.recTracks)]);
+  if (shown === passesShown && box.firstChild) return;
+  passesShown = shown;
   box.replaceChildren(...recent.map((c, i) => {
     const k = recent.length - i; // 1 is the last one
     const b = document.createElement('button');

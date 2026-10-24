@@ -19,6 +19,7 @@ const SHELL = [
   '/lib/live.js',
   '/lib/link.js',
   '/lib/meter.js',
+  '/lib/text.js',
   '/lib/objects/ribbon.js',
   '/lib/objects/ribbonmath.js',
   '/lib/objects/ribbon-draw.js',

@@ -18,6 +18,7 @@ import { Scene } from '../scene/scene.js';
 import { SceneObject } from '../scene/object.js';
 import { DomRenderer } from '../scene/dom.js';
 import { vuAngle, VU_SWING, REF_DBFS } from '../scene/vu.js';
+import { setText } from '../text.js';
 
 // The needle's law lives with its model; the face and the bench read it here.
 export { vuAngle, VU_SWING };
@@ -111,7 +112,7 @@ export function vuFace(container, label) {
       }
       const db = state.level;
       const text = !Number.isFinite(db) || db <= -60 ? '−∞' : db.toFixed(1);
-      if (val.textContent !== text) val.textContent = text;
+      setText(val, text); // in place: a meter reads ~30 times a second (lib/text.js)
       peak.classList.toggle('on', !!state.peak);
     },
   };

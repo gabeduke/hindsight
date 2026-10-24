@@ -10,6 +10,7 @@
 
 import { ReelWindow } from '../objects/reel-window.js';
 import { Loop } from '../objects/motion.js';
+import { setText } from '../text.js';
 import { takeKeys } from './take-keys.js';
 import { initPlayer } from './player.js';
 
@@ -229,7 +230,6 @@ export class NowPlaying {
 
 const hooked = new WeakSet();
 
-function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
 function setAttr(el, k, v) { if (el.getAttribute(k) !== v) el.setAttribute(k, v); }
 function secs(s) {
   const m = Math.floor(s / 60);
