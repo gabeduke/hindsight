@@ -16,11 +16,13 @@
 // and the surface emits to its page.
 
 import { xToFrame, clampRegion, edgeScrollStep } from '../wave/geometry.js';
+import { GESTURE } from '../ui/press.js';
 
-export const HOLD_MS = 350; // exported so the tests can tick exactly this far
-export const TAP_MS = 300;
-export const TAP_MOVE = 8;
-export const DOUBLE_TAP_MOVE = 20;
+// The times and distances are the app's (lib/ui/press.js).
+export const HOLD_MS = GESTURE.HOLD.wave; // exported so the tests can tick exactly this far
+export const TAP_MS = GESTURE.TAP_MS;
+export const TAP_MOVE = GESTURE.SLOP_PX;
+export const DOUBLE_TAP_MOVE = GESTURE.DOUBLE_PX;
 export const MIN_FPP = 1 / 8; // 8 px per frame: far enough
 const MIN_PINCH = 8;          // below this the ratio of finger distances goes wild
 // A held select only survives release if it spans this many pixels: a hold
@@ -254,7 +256,7 @@ export class GestureSurface {
   // A tap, or the second of two taps close together in time and place.
   tap(p, h) {
     const now = performance.now();
-    const double = !!(this.lastTap && now - this.lastTap.t < TAP_MS && Math.hypot(p.x - this.lastTap.x, p.y - this.lastTap.y) < DOUBLE_TAP_MOVE);
+    const double = !!(this.lastTap && now - this.lastTap.t < GESTURE.DOUBLE_MS && Math.hypot(p.x - this.lastTap.x, p.y - this.lastTap.y) < DOUBLE_TAP_MOVE);
     this.lastTap = double ? null : { t: now, x: p.x, y: p.y };
     this.tapAt(p, h, double);
   }

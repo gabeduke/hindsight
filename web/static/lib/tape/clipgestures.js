@@ -18,14 +18,17 @@
 //   hold, then drag  a still press of HOLD_MS on the body, then a drag: slide
 //   drag a grip      a press on a grip that moves SLOP_PX: the grip follows
 // A press on the body that moves SLOP_PX before the hold is a swipe: the
-// lanes pan it, and the clip lets go.
+// lanes pan it, and the clip lets go. The times and distances are the app's
+// (lib/ui/press.js).
 
-export const HOLD_MS = 300;        // the tape's hold (the take page's is 350)
-export const SLOP_PX = 8;          // a finger this still is a press, not a drag
+import { GESTURE } from '../ui/press.js';
+
+export const HOLD_MS = GESTURE.HOLD.tape; // the tape's hold (Open's is GESTURE.HOLD.wave)
+export const SLOP_PX = GESTURE.SLOP_PX;   // a finger this still is a press, not a drag
 export const HANDLE_PX = 24;       // a grip's width (and the corner's height)
 export const FADE_PX = 24;         // the fade handles' strip along the top edge (a finger's)
 export const MIN_GRIPS_PX = 3 * HANDLE_PX; // two grips and a body between
-export const CLICK_GRACE_MS = 600; // a click this soon after a drag ends it, not a tap
+export const CLICK_GRACE_MS = GESTURE.GRACE_MS; // a click this soon after a drag ends it, not a tap
 export const EDGE_PX = 32;         // a grip held this near a lane's end scrolls the view
 
 /**

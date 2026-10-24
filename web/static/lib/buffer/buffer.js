@@ -37,10 +37,11 @@ import { followLoop, readPick, writePick, readSource, writeSource } from '../roo
 import { keyMenu } from '../rooms/keymenu.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
 import { replacedWords, replacedLine, recall, raiseUndo, undoWords } from './replaced.js';
+import { GESTURE } from '../ui/press.js';
 
 const POLL_MS = 2000;
-const HOLD_MS = 350;   // a held sheet grip lifts the buffer onto a lane
-const MOVE_PX = 6;
+const HOLD_MS = GESTURE.HOLD.lift; // a held sheet grip lifts the buffer onto a lane
+const MOVE_PX = GESTURE.SLOP_FINE_PX;
 const EDGE_PX = 12;    // how near IN or OUT a press takes the mark
 const SOURCES = ['main', 'ch1', 'ch2', 'aux'];
 // A take's GRAB leaves its Undo's words here for the page it opens (replaced.js).

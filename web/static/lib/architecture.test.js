@@ -216,3 +216,87 @@ test('Step 8: room views and bar engine do not hardcode location assignments to 
 
 
 
+// ---- one press: the gestures' times live in lib/ui/press.js -----------------
+// A components audit found eleven holds with four thresholds, three slops and
+// three double-tap rules, each a copy with its own number. GESTURE is now the
+// one table of them, and this is the ratchet that keeps it so. Outside
+// lib/ui/press.js (and tests), with comments stripped, it fails on:
+//   A. a name for a hold, a double, a tap, a slop or a grace -- a word of
+//      HOLD_MS, holdMs, DOUBLE_PX, TAP_MOVE, CLICK_GRACE_MS, SLOP_PX, or
+//      MOVE_PX -- given a bare number (`HOLD_MS = 350`, `hold: 500`);
+//   B. a setTimeout or setTimer whose delay is a bare number equal to one of
+//      GESTURE's thresholds (`setTimeout(fn, 300)`: an inline hold);
+//   C. a difference compared with a bare number equal to one of them
+//      (`now - lastTap < 300`: an inline double tap).
+// What it finds that is no gesture is listed below, with why. Name a new
+// gesture's time in GESTURE and import it; a number that only looks like one
+// goes on the list, with its reason.
+const NOT_GESTURES = [
+  // [where: what, how many, why it is no gesture]
+  ['lib/meter.js: CAPTURE_ERR_HOLD_MS = 3500', 1, 'how long a capture error stays on screen'],
+  ['lib/bar/handoff.js: HOLD_MS = 4000', 1, 'how long the bar stays blank for a carried take'],
+  ['lib/bar/tape-source.js: HOLD_MS = 1000', 1, 'how long a locate is shown over polls already on their way'],
+  ['lib/tape/overview.js: GRAB_SLOP = 8', 1, 'a hit margin either side of the window, not a finger’s travel'],
+  ['lib/wave/page.js: setTimeout(…, 300)', 4, 'saves and fetches after a pause (debounces)'],
+  ['lib/settings.js: setTimeout(…, 600)', 1, 'a reload once a restart is under way'],
+  ['lib/rig/page.js: setTimeout(…, 600)', 1, 'a reload once a restart is under way'],
+  ['lib/tape/page.js: barShownAt < 300', 1, 'the action bar’s click shield, timed with waitForBar to the browser’s own double-click'],
+  ['lib/tape/page.js: pressedOutside < 400', 1, 'a focusout this soon after a press outside an inspector is the press’s, not a refill’s'],
+];
+
+function gestureLiterals() {
+  const files = [];
+  const walk = (dir) => {
+    for (const d of fs.readdirSync(path.join(STATIC, dir), { withFileTypes: true })) {
+      const rel = dir ? `${dir}/${d.name}` : d.name;
+      if (d.isDirectory()) { if (rel !== 'fonts') walk(rel); } else if (d.name.endsWith('.js') && !d.name.endsWith('.test.js')) files.push(rel);
+    }
+  };
+  walk('');
+  return files.filter((f) => f !== 'lib/ui/press.js').map((f) => [f, read(f)]);
+}
+
+test('Guardrail 11: no hold or double-tap time is a literal outside lib/ui/press.js', async () => {
+  const { GESTURE } = await import('./ui/press.js');
+  // GESTURE's thresholds: the holds, and every *_MS but the repeat's step.
+  const times = new Set([...Object.values(GESTURE.HOLD),
+    ...Object.entries(GESTURE).filter(([k, v]) => k.endsWith('_MS') && k !== 'REPEAT_MS' && typeof v === 'number').map(([, v]) => v)]);
+  const GESTURE_WORDS = new Set(['hold', 'double', 'tap', 'slop', 'grace']);
+  const words = (name) => name.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase().split(/_+/);
+  const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+  const found = new Map();
+  const add = (k) => found.set(k, (found.get(k) || 0) + 1);
+  for (const [f, raw] of gestureLiterals()) {
+    const src = strip(raw);
+    // A. A gesture's name, given a bare number.
+    for (const m of src.matchAll(/\b([A-Za-z_$][\w$]*)\s*(?:=(?!=)|:)\s*([1-9][\d_]*(?:\.\d+)?)\b/g)) {
+      if (words(m[1]).some((w) => GESTURE_WORDS.has(w)) || /move_?px/i.test(m[1])) add(`${f}: ${m[1]} = ${m[2]}`);
+    }
+    // B. A timer whose delay is a bare number, one of GESTURE's: the delay is
+    // the call's last argument, found by matching its brackets.
+    for (const m of src.matchAll(/\b(setTimeout|setTimer)\(/g)) {
+      let i = m.index + m[0].length, depth = 1, quote = null, lastComma = -1;
+      for (; i < src.length && depth; i++) {
+        const c = src[i];
+        if (quote) { if (c === '\\') i++; else if (c === quote) quote = null; continue; }
+        if (c === '"' || c === "'" || c === '`') quote = c;
+        else if ('([{'.includes(c)) depth++;
+        else if (')]}'.includes(c)) depth--;
+        else if (c === ',' && depth === 1) lastComma = i;
+      }
+      const delay = lastComma < 0 ? '' : src.slice(lastComma + 1, i - 1).trim();
+      if (/^\d+$/.test(delay) && times.has(Number(delay))) add(`${f}: ${m[1]}(…, ${delay})`);
+    }
+    // C. A time difference held against a bare number, one of GESTURE's.
+    for (const m of src.matchAll(/-\s*([\w$.]+(?:\(\))?)\s*(<=?)\s*(\d+)\b/g)) {
+      if (times.has(Number(m[3]))) add(`${f}: ${m[1]} ${m[2]} ${m[3]}`);
+    }
+  }
+  const allowed = new Map(NOT_GESTURES.map(([k, n]) => [k, n]));
+  const extra = [...found].filter(([k, n]) => n > (allowed.get(k) || 0)).map(([k, n]) => `${k} (×${n})`);
+  assert.deepEqual(extra, [],
+    'a gesture time written out where GESTURE (lib/ui/press.js) should be imported; if it is no gesture, add it to NOT_GESTURES with why');
+  // The ratchet only turns one way: one that has gone comes off the list.
+  const gone = [...allowed].filter(([k, n]) => (found.get(k) || 0) < n).map(([k, n]) => `${k} (×${n}, found ${found.get(k) || 0})`);
+  assert.deepEqual(gone, [], 'these are on NOT_GESTURES but no longer in the code: lower or remove them');
+});

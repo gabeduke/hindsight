@@ -31,6 +31,7 @@ import { Scene } from '../scene/scene.js';
 import { SceneObject } from '../scene/object.js';
 import { snap, pull, lean, PULL_PX } from '../scene/plug.js';
 import { deskClick, release, dropSeed, remade } from './gesture.js';
+import { GESTURE } from '../ui/press.js';
 import { choose, letGo } from './picker.js';
 import * as G from './graph.js';
 import {
@@ -882,7 +883,7 @@ function endDrag(e, cancelled) {
   if (!d.moved) { state.drag = null; return; }
   // The click that follows a drag isn't a choice.
   state.drag = { suppress: true };
-  setTimeout(() => { if (state.drag && state.drag.suppress) state.drag = null; }, 400);
+  setTimeout(() => { if (state.drag && state.drag.suppress) state.drag = null; }, GESTURE.LIFT_GRACE_MS);
   const g = state.g;
   if (cancelled) { render(); return; }
   // What letting go does: gesture.js decides. Over any socket's button the

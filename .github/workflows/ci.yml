@@ -82,7 +82,7 @@ jobs:
       - name: JS unit tests
         # Each directory is named, so a new one under lib/ is invisible here
         # until it is added. lib/objects/ is the object library.
-        run: node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' 'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' 'web/static/lib/tape/*.test.js' 'web/static/lib/edit/*.test.js' 'web/static/lib/bar/*.test.js' 'web/static/lib/objects/*.test.js' 'web/static/lib/play/*.test.js' 'web/static/lib/scene/*.test.js' 'web/static/lib/rooms/*.test.js' 'web/static/lib/buffer/*.test.js' 'web/static/lib/room/*.test.js' 'web/static/lib/rig/*.test.js' 'web/static/lib/shell/*.test.js'
+        run: node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' 'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' 'web/static/lib/tape/*.test.js' 'web/static/lib/edit/*.test.js' 'web/static/lib/bar/*.test.js' 'web/static/lib/objects/*.test.js' 'web/static/lib/play/*.test.js' 'web/static/lib/scene/*.test.js' 'web/static/lib/rooms/*.test.js' 'web/static/lib/buffer/*.test.js' 'web/static/lib/room/*.test.js' 'web/static/lib/rig/*.test.js' 'web/static/lib/shell/*.test.js' 'web/static/lib/ui/*.test.js'
 
       - name: Release script tests
         run: ./scripts/test-release-scripts.sh

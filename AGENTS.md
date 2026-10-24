@@ -24,7 +24,7 @@ node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' \
   'web/static/lib/play/*.test.js' 'web/static/lib/scene/*.test.js' \
   'web/static/lib/rooms/*.test.js' 'web/static/lib/buffer/*.test.js' \
   'web/static/lib/room/*.test.js' 'web/static/lib/rig/*.test.js' \
-  'web/static/lib/shell/*.test.js'
+  'web/static/lib/shell/*.test.js' 'web/static/lib/ui/*.test.js'
 ./scripts/test-release-scripts.sh
 gofmt -l . && go vet ./... && go test -race ./...
 ```
@@ -215,7 +215,7 @@ When you need the history behind one, read it from git:
 
 ## UI architecture guardrails
 
-`web/static/lib/architecture.test.js` enforces four rules so POC shortcuts do
+`web/static/lib/architecture.test.js` enforces these rules so POC shortcuts do
 not come back:
 
 - **Controller → Model → Renderer (no DOM scraping or synthetic clicks):**
@@ -245,6 +245,12 @@ not come back:
   namespace across all rooms and templates, and route all DOM listeners, polls,
   and ticker steps through `ctx.on`, `ctx.every`, and `ctx.loop` so inactive
   views stay completely quiet.
+- **One press:** the app's hold, tap and double-tap times, and their slops,
+  are named once, in `GESTURE` (`lib/ui/press.js`), and a key that taps,
+  double taps or holds is its `pressMachine` / `bindPress`, not another copy:
+  eleven holds with four thresholds had grown before it. The test fails on a
+  hold or double-tap time written out anywhere else, and lists the numbers
+  that only look like one.
 
 ## Getting code onto a Pi
 
