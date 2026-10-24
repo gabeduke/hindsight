@@ -259,7 +259,6 @@ body {
 .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .brand img { width: 24px; height: 24px; border-radius: 6px; flex: none; }
 .brand b {
-  font-size: 15px; font-weight: 650; letter-spacing: -0.01em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -311,7 +310,6 @@ main {
 
 .panel h2 {
   margin: 0 0 12px;
-  font-size: 13px;
   font-weight: 650;
   letter-spacing: .07em;
   text-transform: uppercase;
@@ -455,7 +453,7 @@ main {
 
 /* meters */
 
-.meters { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.meters { margin-top: 12px; flex-direction: column; gap: 6px; }
 
 .meter { display: grid; grid-template-columns: 18px 1fr 62px; align-items: center; gap: 9px; }
 .meter .lbl { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
@@ -489,7 +487,7 @@ main {
 .chan { margin-top: 12px; }
 .chan summary {
   cursor: pointer; list-style: none;
-  font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+  font-family: var(--mono); letter-spacing: .06em;
   text-transform: uppercase; color: var(--ink-faint);
   padding: 6px 0;
 }
@@ -516,16 +514,16 @@ main {
 .stat {
   display: flex; flex-direction: column; gap: 4px;
   border-radius: 9px;
-  /* 8px, not 10px. At four tiles on a 390px phone the content box is 62px and
-     "DISK FREE" needs 61.4px -- at 10px padding it was 1.8px short, wrapped to
-     two lines, and added 14px to every tile in the row. That pushed Capture
-     from 385px to 399px in a 390px-tall landscape viewport: below the fold,
-     which is the one invariant this layout exists to protect. */
-  padding: 0;
+  /* No padding of its own (the readouts' .stat, below, says 0): the window,
+     .stat .v, carries it. At four tiles on a 390px phone the content box is
+     62px and "DISK FREE" needs 61.4px -- a tile padded 10px was 1.8px short,
+     wrapped to two lines, and added 14px to every tile in the row. That
+     pushed Capture from 385px to 399px in a 390px-tall landscape viewport:
+     below the fold, which is the one invariant this layout exists to protect. */
   min-width: 0;
 }
 .stat .k {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  font-family: var(--mono);
   text-transform: uppercase; color: var(--ink-faint);
   /* Structural, not cosmetic: a key that wraps doubles its tile's height and
      takes the whole stats row with it. A slightly clipped label is a far
@@ -536,7 +534,7 @@ main {
 /* An amber LCD window, right-aligned like a counter. Its padding replaces the
    tile's, so a tile is no taller than it was (see .stat). */
 .stat .v {
-  font-family: var(--mono); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums;
   padding: 3px 8px; border-radius: 7px; text-align: right;
   background: var(--lcd); color: var(--lcd-ink);
   box-shadow: inset 0 2px 5px var(--lcd-edge), inset 0 0 0 1px var(--lcd-edge), 0 1px 0 var(--hl);
@@ -575,21 +573,14 @@ main {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  gap: 4px;
-  background: var(--panel-2);
-  border-radius: 11px;
-  padding: 4px;
 }
 .seg button {
   appearance: none;
   border: 0;
-  background: transparent;
-  color: var(--ink-dim);
   font-family: var(--mono);
   font-size: 13px;
   font-weight: 600;
   min-height: 40px;
-  border-radius: 8px;
   cursor: pointer;
   transition: background 140ms, color 140ms;
   /* Mark now shares this row and narrows .seg's share of it. A clipped
@@ -601,7 +592,6 @@ main {
   text-overflow: ellipsis;
   padding: 0 2px;
 }
-.seg button[aria-pressed="true"] { background: var(--key-down); color: var(--ink); }
 
 .mark-btn {
   flex: none;
@@ -620,7 +610,6 @@ main {
 .mark-btn:active { background: color-mix(in srgb, var(--flag) 16%, transparent); }
 .mark-btn[disabled] {
   border-color: var(--line);
-  color: var(--ink-faint);
   cursor: default;
 }
 
@@ -629,18 +618,12 @@ main {
   width: 100%;
   min-height: 58px;
   border: 0;
-  border-radius: 12px;
   background: var(--accent);
   color: var(--on-accent);
-  font-family: var(--font);
-  font-size: 17px;
-  font-weight: 750;
-  letter-spacing: .04em;
   cursor: pointer;
-  transition: transform 90ms ease, background 140ms, opacity 140ms;
 }
 .capture-btn:active { transform: scale(.985); }
-.capture-btn[disabled] { background: var(--panel-2); color: var(--ink-faint); cursor: default; }
+.capture-btn[disabled] { cursor: default; }
 
 .last {
   margin: 10px 0 0;
@@ -759,7 +742,6 @@ main {
 .take {
   background: var(--panel-2);
   border: 1px solid var(--line);
-  border-radius: 11px;
   padding: 11px 12px;
 }
 .take.fresh { animation: land 1.1s ease; }
@@ -1274,7 +1256,7 @@ dialog.sheet::backdrop { background: var(--scrim); }
   border-radius: var(--radius);
   padding: 18px;
 }
-.sheet-inner h3 { margin: 0 0 8px; font-size: 16px; }
+.sheet-inner h3 { margin: 0 0 8px; }
 .sheet-inner p {
   margin: 0 0 16px; color: var(--ink-dim); font-size: 13.5px;
   font-family: var(--mono); word-break: break-all;
@@ -1432,7 +1414,7 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .take-sub-len { color: var(--ink-faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .take-sub-src { color: var(--link); text-decoration: none; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .take-top .icon-btn { min-height: 36px; padding: 0 8px; flex: none; }
-.take-top .step-btn { min-width: 30px; padding: 0 4px; border-color: transparent; background: none; font-size: 15px; }
+.take-top .step-btn { min-width: 30px; padding: 0 4px; font-size: 15px; }
 .take-top .help-btn, .take-top .menu-btn, .take-top .undo-btn, .take-top .trash-btn { min-width: 34px; padding: 0 6px; }
 @media (hover: hover) { .take-top .trash-btn:hover:not(:disabled) { color: var(--danger); } }
 .take-top .undo-btn { font-size: 18px; }
@@ -1465,7 +1447,6 @@ dialog.sheet::backdrop { background: var(--scrim); }
   position: absolute; right: 8px; top: 100%; z-index: 40; min-width: 200px;
   display: flex; flex-direction: column; padding: 6px;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 12px 30px var(--shadow);
 }
 .menu-up { top: auto; bottom: calc(100% + 6px); }
 .menu > button, .menu > a {
@@ -1519,7 +1500,6 @@ dialog.sheet::backdrop { background: var(--scrim); }
 }
 .sel-edge { display: inline-flex; align-items: center; gap: 4px; }
 .sel-edge .nudge { min-width: 36px; min-height: 36px; font-size: 14px; }
-.sel-label { font-size: 11px; color: var(--ink-faint); min-width: 2.2em; }
 .sel-time { font-size: 13px; color: var(--ink); min-width: 4.6em; text-align: center; }
 .sel-len { font-size: 12px; color: var(--ink-dim); }
 /* Bar 1: the same keys as In and Out's row, a full tap high. */
@@ -1540,7 +1520,7 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .sel-clear { color: var(--ink-dim); font-size: 13px; padding: 8px 4px; }
 /* display: block, so the label truncates with an ellipsis rather than
    spilling: a centred flex label never truncates. */
-.tb-row.verbs .icon-btn { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; display: block; line-height: 42px; text-align: center; }
+.tb-row.verbs .icon-btn { flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; display: block; line-height: 42px; text-align: center; }
 /* With Send to showing there are four verbs, and at phone width they
    can't share one line without clipping. Each keeps at least its own text,
    and the row wraps rather than shrinking it; with three they still split
@@ -2102,7 +2082,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .tape-page .tb-row.transport .tb-rec .rec-what { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .tape-page .tb-row.transport .tb-rec .rec-src { font: 600 11px var(--mono); opacity: .8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .tape-page .tb-row.transport .tb-rec[aria-pressed="true"] { color: var(--on-danger); background: var(--rec); border-color: var(--rec); }
-.tape-page .tb-row.transport .tb-rec.armed { color: var(--danger); border-color: var(--danger); animation: breathe 1.2s ease-in-out infinite; }
+.tape-page .tb-row.transport .tb-rec.armed { animation: breathe 1.2s ease-in-out infinite; }
 .tape-page .tb-row.transport .tb-rec.counting { animation: breathe .5s ease-in-out infinite; }
 .tape-page .tb-row.transport .tb-click { flex: 0 0 48px; font-size: 18px; }
 .tape-page .tb-row.transport .tb-click[aria-pressed="true"] { color: var(--ink); }
@@ -2358,9 +2338,9 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .tape-track.selected:not(.rec) .tt-head { border-color: var(--ink-dim); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink-dim) 55%, transparent); }
 .tt-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
-  padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 4px; border: 1px solid var(--line);
 }
-.tt-name { appearance: none; background: none; border: 0; color: var(--ink); font: 600 13px var(--font); min-height: 28px; padding: 0 4px; cursor: pointer; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tt-name { appearance: none; background: none; border: 0; color: var(--ink); font: 600 13px var(--font); min-height: 28px; padding: 0 4px; cursor: pointer; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Square keys, lit when pressed: mute yellow, solo blue. */
 .tt-head .chip { min-height: 30px; min-width: 26px; padding: 0 4px; border-radius: 8px; font: 700 14px var(--label-font); letter-spacing: .04em; }
 .tt-head .tt-mute[aria-pressed="true"] { color: var(--mute-ink); background: linear-gradient(180deg, var(--mute-hi), var(--mute-lo)); border-color: var(--mute-lo); }
@@ -2843,7 +2823,6 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .tag-error { color: var(--danger-ink, var(--danger)); margin: 0 0 8px; font-size: 13px; }
 .tag-sheet .sheet-actions .confirm { background: var(--accent); color: var(--on-accent); }
 .shelf-store { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
-.shelf-page .takes { gap: 10px; }
 .shelf-day {
   display: flex; align-items: center; gap: 10px; margin: 8px 0 0;
   font-family: var(--label-font); font-weight: 600; font-size: 14px;
@@ -5452,7 +5431,7 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
   box-shadow: inset 0 0 0 1px var(--desk-edge), inset 0 0 70px rgba(0,0,0,.45);
 }
 .rig-wires { position: absolute; left: 0; top: 0; z-index: 4; overflow: visible; pointer-events: none; }
-.rig-devices, .rig-bay { position: relative; z-index: 1; }
+.rig-devices, .rig-bay { position: relative; }
 .rig-wire { fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
 .rig-wire.faded { opacity: .45; }
 .rig-wire.sel { filter: drop-shadow(0 0 4px var(--rig-amber)); }
@@ -5522,7 +5501,6 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
 .rig-arm-lamp:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
 .rig-warn-dot { display: none; position: absolute; top: 2px; left: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--rig-amber); box-shadow: 0 0 8px var(--rig-amber); }
 .rig-sock.warn .rig-warn-dot { display: block; }
-.rig-desk.picking .rig-sock:not(.target):not(.sel) { opacity: .55; }
 .rig-desk.dragging { cursor: grabbing; }
 
 /* The kit's patch bay. */
