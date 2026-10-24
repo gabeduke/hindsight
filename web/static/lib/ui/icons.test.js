@@ -161,6 +161,48 @@ test('the header’s, the bar’s and the ruler’s keys are drawn from the spri
   }
 });
 
+// A script that types a glyph into a key draws over its icon: ▶ going back
+// to '❚❚' text, or Tracks to 'Tracks ▸', left every other test green. These
+// are the writes of a glyph into an element's text still in the regions not
+// drawn yet, by file. A count may only go down, and when a region is drawn
+// its number here goes down with it.
+const TYPED = {
+  'lib/buffer/buffer.js': 2, // Buffer ▾/▴, the unfold key's ▾/▴
+  'lib/play/screen.js': 1, // Play mode's ▾/▴
+  'lib/shell/views/room.js': 1, // ▶ Play all / ■ Stop
+  'lib/tape/away-sheet.js': 2, // ▶ Listen / ■ Stop, ■ Stop and keep
+  'lib/tape/cuelane.js': 1, // a cue part's ⟲
+  'lib/tape/page.js': 1, // the clip editor's ▶/❚❚
+  'lib/wave/lanes.js': 1, // a lane's ▾/▸
+  'lib/wave/page.js': 1, // the editor bar's ▶/❚❚
+};
+
+test('no script types a glyph into a key beyond the regions still to be drawn', () => {
+  const typed = {};
+  for (const { p, src } of files.filter((f) => f.p.endsWith('.js'))) {
+    // el.textContent = …, .innerText, .innerHTML, and setText(el, …): up to the statement's end.
+    for (const m of src.matchAll(/(?:\.(?:textContent|innerText|innerHTML)\s*=(?!=)|\bsetText\()([^;]*)/g)) {
+      if (/(['"`])[^'"`]*?[↶↷⋯☰▾▴▸▶❚■⟲↺⏏✎⌗]/.test(m[1])) typed[p] = (typed[p] || 0) + 1;
+    }
+  }
+  assert.ok(typed['lib/wave/lanes.js'], 'the scan found no glyph where one is still typed: it is wrong, not the scripts');
+  const over = Object.entries(typed).filter(([p, n]) => n > (TYPED[p] || 0))
+    .map(([p, n]) => `${p}: ${n} glyph${n > 1 ? 's' : ''} typed into a key, where ${TYPED[p] || 0} ${TYPED[p] === 1 ? 'was' : 'were'} left`);
+  assert.deepEqual(over, [], 'a key draws its icon: setIcon(key, name), or icon(name) in its markup');
+  const under = Object.entries(TYPED).filter(([p, n]) => (typed[p] || 0) < n)
+    .map(([p, n]) => `${p}: ${typed[p] || 0}, from ${n}`);
+  assert.deepEqual(under, [], 'drawn now: lower its number in TYPED (or take its line out at 0), so it stays down');
+});
+
+// Folded, a fold's ▾ turns over in CSS, by the key's own state; nothing
+// types a ▸ (the bar's own is in bar/fold.test.js).
+test('folded, Tracks’ ▾ turns to ▸ by the stylesheet, wherever the key shows', () => {
+  const turned = rules(fileCss('styles.css')).filter((r) => /transform:\s*rotate\(-90deg\)/.test(r.body)
+    && r.sel.some((x) => /^\.tracks-fold-btn\[aria-expanded="false"\] \.i$/.test(x)));
+  assert.equal(turned.length, 1, 'one rule turns Tracks’ icon');
+  assert.equal(turned[0].media, '');
+});
+
 test('the sprite and its module are in the offline shell', () => {
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
   const shell = [.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);

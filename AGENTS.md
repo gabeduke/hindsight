@@ -222,8 +222,11 @@ When you need the history behind one, read it from git:
   (`SPRITE`'s `?v=`, a hash of the file), in `icons.js`, `sw.js`'s `SHELL`
   and every `<use>`: a browser keeps the SVG a `<use>` names by its URL, even
   across a reload, so a symbol new to the old address draws a blank key.
-  `icons.test.js` fails and names the new address. A test or a flow reads a
-  key's state (`.playing`, `aria-pressed`), never its picture.
+  `icons.test.js` fails and names the new address. A script changes a key's
+  icon with `setIcon`, never by typing a glyph into it; the glyphs scripts
+  still type, in the regions not drawn yet, are counted (`TYPED`) and only
+  go down. A test or a flow reads a key's state (`.playing`,
+  `aria-pressed`), never its picture.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.

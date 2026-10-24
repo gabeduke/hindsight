@@ -144,6 +144,7 @@ test('▶ draws ❚❚ while a take plays, and the key says it is playing whatev
 test('⟲ is Repeat for a take', async () => {
   const on = await withTake();
   assert.equal(on.$('np-loop').textContent, 'Repeat');
+  assert.equal(iconOf(on.$('np-loop')), 'repeat', 'the word changes; ⟲ beside it stays');
   assert.equal(on.$('np-loop').dataset.tip, 'np-repeat');
   on.click(on.$('np-loop'));
   on.frames();

@@ -823,7 +823,8 @@ bar is the only transport; **Open** (`wave.html`) is the one page to dig in.
 
 A key's picture is a symbol in one sprite, `web/static/icons/ui.svg`: line
 art on a 24 grid, in the key's own ink (`currentColor`), its stroke's width
-`styles.css`'s (`svg.i`, 1.75; a small ▾ is drawn heavier). The unicode
+`styles.css`'s (`svg.i`, 1.75; under 16 px 2.25, and a small ▾ 2.75, as the
+kit draws them). The unicode
 glyphs the keys had (↶ ⋯ ▾ ✎ ⏏ ⌗ …) were drawn by each platform in a fallback
 font of its own, so a key fitted on a laptop ran off a tablet in CI's fonts.
 
@@ -854,8 +855,11 @@ font of its own, so a key fitted on a laptop ran off a tablet in CI's fonts.
 - `lib/ui/icons.test.js` fails on a name a page or a script uses that the
   sprite hasn't got, on a symbol that isn't in `ICONS`, on markup that
   doesn't name the icon it shows, on the sprite missing from `sw.js`'s
-  `SHELL`, on an address that isn't the sprite's hash, and on a key of the
-  header, the bar or the ruler that goes back to a glyph. The objects bench (`objects.html`) shows every icon.
+  `SHELL`, on an address that isn't the sprite's hash, on an icon written
+  under 16 px that isn't drawn heavier, on a key of the header, the bar or
+  the ruler that goes back to a glyph or has no tip, and on a script that
+  types a glyph into a key: `TYPED` counts, by file, the writes still left
+  in the regions not drawn yet, and a count only goes down. The objects bench (`objects.html`) shows every icon.
 
 ### The scene contract
 
