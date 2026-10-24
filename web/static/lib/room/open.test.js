@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
+import { fileCss } from '../stylesheets.js';
 
 const SR = 48000;
 const waveHtml = readFileSync(new URL('../../wave.html', import.meta.url), 'utf8');
@@ -173,7 +174,7 @@ test('the chair, TOOLS and the swap question are gone from the app', () => {
   const sw = read('../../sw.js');
   assert.doesNotMatch(sw, /room\/chair\.js|room\/swap\.js/);
   assert.match(sw, /'\/lib\/room\/open\.js'/);
-  const css = read('../../styles.css');
+  const css = fileCss('styles.css');
   assert.doesNotMatch(css, /\.chair\b|chair-on|chair-tools|chair-of-tape|\.book-(page|left|right|notes|rings|title)|room-ask-text/, 'no rule for what is gone');
   const tips = read('../help/tips.js');
   assert.doesNotMatch(tips, /room-tools|room-stand|room-put|room-note-here|room-sticker/);

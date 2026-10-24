@@ -139,6 +139,11 @@ and caught by hand.
   of every kit, so a flagged feature's rules ship to everyone the day it
   merges. The `.play` sheet above reached every kit with Play mode switched
   off.
+- **A test reads the stylesheets through `web/static/lib/stylesheets.js`**
+  (`cssOf`, `fileCss`, `rules`, `block`, `section`, `tokens`), never with a
+  brace matcher of its own: eighteen files once had eight copies of one, and
+  a copy that slips passes a test that should fail. It is node-only, so it
+  stays out of `sw.js`'s `SHELL`.
 - **Never hide the only route to something.** The about line on Capture was
   `display: none` in one window shape; it carries the only Settings button
   anywhere in the app, so that shape had no way in at all. `styles.test.js`

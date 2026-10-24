@@ -1,21 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { fileCss, rules as cssRules } from '../stylesheets.js';
 
 // The ropes run over the jacks, so a plug is seen; the names beside the
 // jacks sit above them, so a rope reads as running behind a name instead of
 // striking through it. That's a matter of stacking, which the node tests
 // can't see: so this reads the stylesheet, as styles.test.js does.
-const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const all = cssRules(fileCss('styles.css'));
 
 /** rules is every `selectors { body }` in the stylesheet, flattened (media queries included). */
-function rules() {
-  const out = [];
-  const re = /([^{}]+)\{([^{}]*)\}/g;
-  let m;
-  while ((m = re.exec(css))) out.push({ sel: m[1].split(',').map((s) => s.trim()), body: m[2] });
-  return out;
-}
+const rules = () => all;
 
 const decl = (body, prop) => {
   const m = body.match(new RegExp(`(?:^|[;\\s])${prop}\\s*:\\s*([^;]+)`));

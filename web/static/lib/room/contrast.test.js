@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { cssOf, fileCss, tokens } from '../stylesheets.js';
 
 // Text on the room passes contrast in its own right (the spec's "Look and
 // materials"): cream on the dark wall, dark ink on paper, every label on its
@@ -9,12 +9,12 @@ import { readFileSync } from 'node:fs';
 // WCAG's 4.5:1 for text. The page's accent (styles.css, the same in both
 // schemes) is read from there, for the selection's tick and ring.
 
-const objects = readFileSync(new URL('../../objects.css', import.meta.url), 'utf8');
-const styles = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
+const styles = fileCss('styles.css');
+const light = tokens(cssOf(), { scheme: 'light' });
 const token = (name) => {
-  const m = new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})\\b`).exec(objects) || new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})\\b`).exec(styles);
+  const m = /^#[0-9a-fA-F]{6}$/.exec(light[name] ?? '');
   assert.ok(m, `${name} is a solid colour in objects.css or styles.css`);
-  return m[1];
+  return m[0];
 };
 const lum = (hex) => {
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)

@@ -9,10 +9,10 @@ import { ART } from './art/index.js';
 import { drawRoom, roomScene, RoomRenderer } from './stage.js';
 import { shelfTop, shelfBottom } from './art/shelf.js';
 import { Ticker } from '../objects/motion.js';
+import { cssOf, fileCss } from '../stylesheets.js';
 
-const objects = readFileSync(new URL('../../objects.css', import.meta.url), 'utf8');
-const styles = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
-const declared = new Set([...`${objects}\n${styles}`.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+const objects = fileCss('objects.css');
+const declared = new Set([...cssOf().matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
 const byId = (id) => ROOM.objects.find((o) => o.id === id);
 
 test('a point on the wall is drawn where it is; a nearer one spreads from the eye', () => {

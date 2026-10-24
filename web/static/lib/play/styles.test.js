@@ -6,16 +6,11 @@
 // a token that follows the scheme would turn the instrument pale at noon.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { block as braces, decls, fileCss, rules, section, tokens } from '../stylesheets.js';
 
-const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
+const css = fileCss('styles.css');
 
-function block(name) {
-  const start = css.indexOf(`/* ---------- Rooms ${name}:`);
-  assert.ok(start >= 0, `the Rooms ${name} block`);
-  const next = css.slice(start + 1).search(/\/\* -{4,} /);
-  return css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
-}
+const block = (name) => section(css, `/* ---------- Rooms ${name}:`);
 // P3's strip, and P4's FX and mods drawn into it.
 const blocks = () => block('P3') + block('P4');
 const p3Block = blocks;
@@ -33,14 +28,7 @@ test('every rule in the strip’s blocks (P3, P4) hangs off a play- class', () =
 });
 
 test('the strip is drawn in its own materials, the same in both schemes', () => {
-  const darkAt = css.indexOf('@media (prefers-color-scheme: dark)');
-  const open = css.indexOf('{', darkAt);
-  let depth = 0, end = open;
-  for (; end < css.length; end++) {
-    if (css[end] === '{') depth++;
-    else if (css[end] === '}' && --depth === 0) break;
-  }
-  const scheme = new Set([...css.slice(open, end).matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+  const scheme = new Set(Object.keys(tokens(css, { scheme: 'dark', only: true })));
   const offenders = [];
   for (const m of p3Block().matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     for (const v of m[2].matchAll(/var\((--[a-z0-9-]+)/g)) {
@@ -65,12 +53,7 @@ test('a laptop’s height keeps two lanes in sight while the strip is unfolded',
   const block = p3Block();
   const at = block.search(/@media[^{]*\(max-height: 1000px\)/);
   assert.ok(at >= 0, 'a block for a laptop’s height');
-  let depth = 0, end = block.indexOf('{', at);
-  for (; end < block.length; end++) {
-    if (block[end] === '{') depth++;
-    else if (block[end] === '}' && --depth === 0) break;
-  }
-  const rules = block.slice(at, end);
+  const rules = braces(block, at);
   assert.match(rules, /body\.play-unfolded \.studio-feed > \.viz-wrap \{ display: none; \}/);
   assert.match(rules, /\.play-tracks \.play-track \{ min-height: (\d+)px/);
   assert.ok(Number(/\.play-tracks \.play-track \{ min-height: (\d+)px/.exec(rules)[1]) <= 48, 'short track keys');
@@ -86,12 +69,7 @@ test('at a laptop’s height the FX and the mods go up beside the tracks, not be
   const p4 = block('P4');
   const at = p4.search(/@media \(min-width: 1100px\) and \(min-height: 441px\) and \(max-height: 1000px\)/);
   assert.ok(at >= 0, 'P4 has a block for a laptop’s height');
-  let depth = 0, end = p4.indexOf('{', at);
-  for (; end < p4.length; end++) {
-    if (p4[end] === '{') depth++;
-    else if (p4[end] === '}' && --depth === 0) break;
-  }
-  const rules = p4.slice(at, end);
+  const rules = braces(p4, at);
   assert.match(rules, /\.play-body:has\(> \.play-slot-fx:not\(\[hidden\]\)\) > \.play-side \{ grid-column: 2 \/ -1; grid-row: 2; \}/);
   assert.match(rules, /\.play-slot-fx:not\(\[hidden\]\) \{ grid-column: 3; grid-row: 1; \}/);
   assert.match(rules, /\.play-slot-mods:not\(\[hidden\]\) \{ grid-column: 4; grid-row: 1; \}/);
@@ -99,32 +77,13 @@ test('at a laptop’s height the FX and the mods go up beside the tracks, not be
   assert.ok(at > p4.search(/@media \(min-width: 1100px\) \{/), 'after the one-row grid');
 });
 
-// The rules of the P3 block, each with the @media it sits in (one level of
-// nesting is all the block uses): [{ media, sel, decls }].
+// The rules of the P3 block, one per selector, each with the @media it sits
+// in: [{ media, sel, decls }].
 function rulesOf(block) {
-  const out = [];
-  const walk = (text, media) => {
-    let i = 0;
-    while (i < text.length) {
-      const open = text.indexOf('{', i);
-      if (open < 0) break;
-      const head = text.slice(i, open).trim();
-      let depth = 1, j = open + 1;
-      for (; j < text.length && depth; j++) { if (text[j] === '{') depth++; else if (text[j] === '}') depth--; }
-      const inner = text.slice(open + 1, j - 1);
-      if (head.startsWith('@media')) walk(inner, head.replace(/^@media\s*/, ''));
-      else if (!head.startsWith('@')) {
-        const decls = Object.fromEntries(inner.split(';').map((d) => d.trim()).filter(Boolean).map((d) => {
-          const k = d.indexOf(':');
-          return [d.slice(0, k).trim(), d.slice(k + 1).trim()];
-        }));
-        for (const sel of head.split(',').map((s) => s.trim())) out.push({ media, sel, decls });
-      }
-      i = j;
-    }
-  };
-  walk(block, '');
-  return out;
+  return rules(block).flatMap((r) => {
+    const d = Object.fromEntries(decls(r.body).map((x) => [x.prop, x.important ? `${x.value} !important` : x.value]));
+    return r.sel.map((sel) => ({ media: r.media, sel, decls: d }));
+  });
 }
 const PHONE_MEDIA = '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)';
 const LAPTOP_MEDIA = '(min-width: 700px) and (min-height: 441px) and (max-height: 1000px)';

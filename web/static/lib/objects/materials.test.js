@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { fileCss, linksOf, tokens } from '../stylesheets.js';
 
 // objects.css holds the materials. The rule that makes it safe is that every
 // token in it is the same in both schemes -- which is why it has no dark
@@ -14,8 +15,8 @@ import { fileURLToPath } from 'node:url';
 // at night.
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../../${p}`, import.meta.url)), 'utf8');
-const styles = read('styles.css');
-const objects = read('objects.css');
+const styles = fileCss('styles.css');
+const objects = fileCss('objects.css');
 
 /** declarations returns every `--token: value` inside the given text. */
 function declarations(text) {
@@ -25,16 +26,9 @@ function declarations(text) {
 
 /** darkTokens is every token the dark scheme redefines in styles.css. */
 function darkTokens() {
-  const at = styles.indexOf('@media (prefers-color-scheme: dark)');
-  assert.ok(at > 0, 'styles.css should still have a dark scheme block');
-  // Walk braces from the @media to its close, so this keeps working if the
-  // block moves or grows.
-  let depth = 0, end = at;
-  for (let i = at; i < styles.length; i++) {
-    if (styles[i] === '{') depth++;
-    else if (styles[i] === '}' && --depth === 0) { end = i; break; }
-  }
-  return new Set(declarations(styles.slice(at, end)).map(([t]) => t));
+  const dark = Object.keys(tokens(styles, { scheme: 'dark', only: true }));
+  assert.ok(dark.length > 0, 'styles.css should still have a dark scheme block');
+  return new Set(dark);
 }
 
 test('objects.css declares no token that the dark scheme redefines', () => {
@@ -86,11 +80,11 @@ test('every page that loads styles.css loads objects.css first', () => {
     assert.ok(pages.includes(page), `${page} should be one of the pages`);
   }
   for (const page of pages) {
-    const html = read(page);
-    const o = html.indexOf('/objects.css');
-    const s = html.indexOf('/styles.css"');
-    assert.ok(o > 0, `${page} should load objects.css`);
-    assert.ok(s > 0 && o < s, `${page} should load objects.css before styles.css`);
+    const links = linksOf(page);
+    const o = links.indexOf('/objects.css');
+    const s = links.indexOf('/styles.css');
+    assert.ok(o >= 0, `${page} should load objects.css`);
+    assert.ok(s >= 0 && o < s, `${page} should load objects.css before styles.css`);
   }
 });
 

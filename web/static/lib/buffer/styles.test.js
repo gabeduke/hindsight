@@ -5,15 +5,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { fileCss, section, stripComments } from '../stylesheets.js';
 
-const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
+const css = fileCss('styles.css');
 
-function p2Block() {
-  const start = css.indexOf('/* ---------- Rooms P2:');
-  assert.ok(start >= 0, 'the Rooms P2 block');
-  const next = css.slice(start + 1).search(/\/\* -{4,} /);
-  return css.slice(start, next < 0 ? undefined : start + 1 + next).replace(/\/\*[\s\S]*?\*\//g, '');
-}
+const p2Block = () => section(css, '/* ---------- Rooms P2:');
 
 test('every rule in the buffer’s block hangs off a buffer- class', () => {
   const loose = [];
@@ -63,7 +59,7 @@ test('nothing hides the buffer’s close key', () => {
 function fixesBlock() {
   const start = css.indexOf('/* ---------- Rooms fixes:');
   assert.ok(start >= 0, 'the Rooms fixes block');
-  return css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+  return stripComments(css.slice(start));
 }
 
 test('a folded lane’s head is one row, clipped, with only its name and ●', () => {

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
+import { fileCss } from '../stylesheets.js';
 import { bounceMenu, lastBounce, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords, BOUNCE_WORDS } from './bounce.js';
 import { roomShelves } from '../room/shelves.js';
 import { MODELS } from '../scene/models.js';
@@ -470,7 +471,7 @@ test('no rooms page offers Cut a record, the Records shelf or the turntable', ()
     const src = strip(lib(f));
     assert.doesNotMatch(src, /Cut a record|CUT A RECORD|Records shelf|RECORDS|turntable|Turntable|sleeve|room-cut|chair-cut|\bisRecord\b|record\.js|cutTakeRecord|cutTapeRecord|readyToCut/, f);
   }
-  const css = lib('../../styles.css');
+  const css = fileCss('styles.css');
   assert.doesNotMatch(css, /room-sleeve|room-turntable|room-tt-|room-cutting|chair-cutting|\.chair-cut\b|room-next/, 'no rule for what is gone');
 });
 
