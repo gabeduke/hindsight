@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDoc } from '../play/fake-dom.js';
 import { createView, classesOf } from './view.js';
+import { createLayers } from '../ui/layers.js';
 
 // A window or a document as addEventListener sees it: a listener is one
 // (type, fn, capture), removal needs the same capture, and `once` is the
@@ -490,6 +491,35 @@ test('ctx carries what the shell shares, frozen, and the shell’s own names win
   assert.equal(typeof ctx.on, 'function');
   assert.equal(ctx.id, 'room');
   assert.ok(Object.isFrozen(ctx));
+});
+
+test('ctx.layers is the view’s scope of the shell’s stack: what it opened is closed when it is hidden, the rest stays', async () => {
+  const t = withCtx();
+  const doc = t.doc;
+  const stack = createLayers({ doc, win: new Target(), history: null });
+  const log = [];
+  const v = createView({ id: 'studio', mount: (ctx) => { t.box.mine = ctx; return {}; } }, {
+    root: t.el('section'), doc, timers: t.timers, clock: t.clock, shared: { layers: stack },
+  });
+  await v.show();
+  const ctx = t.box.mine;
+  assert.notEqual(ctx.layers, stack, 'a scope, not the whole stack');
+  const player = stack.open({ el: t.el('div'), kind: 'player', onClose: (r) => log.push(`player ${r}`) });
+  ctx.layers.open({ el: t.el('div'), kind: 'selection', onClose: (r) => log.push(`selection ${r}`) });
+  ctx.layers.open({ el: t.el('div'), kind: 'sheet', onClose: (r) => log.push(`sheet ${r}`) });
+  assert.equal(ctx.layers.top().kind, 'sheet');
+  await v.hide();
+  assert.deepEqual(log, ['sheet navigate', 'selection navigate']);
+  assert.equal(player.open, true, 'the shell’s own (the phone’s player) stays up through a switch');
+  assert.equal(stack.size, 1);
+  await v.show();
+  assert.equal(ctx.layers.size, 0);
+});
+
+test('without a stack in what the shell shares, ctx has no layers', async () => {
+  const t = withCtx();
+  await t.v.show();
+  assert.equal(t.box.ctx.layers, undefined);
 });
 
 test('classesOf reads a view’s bodyClass as a string, a spaced string or an array', () => {

@@ -131,10 +131,16 @@ export function viewTransition(doc, win) {
  *   tapeOn     () -> the cached answer to "is the tape on" (nav.js keeps
  *              it as hindsight.tapeOn): true, false or null
  *   transition (update) -> promise, how a switch is drawn (viewTransition)
- *   chrome     { setPath(path), setHelp(page), say(text) }, all optional:
- *              the tabs' aria-current and lamp (nav), the help page
- *              (help), the polite live region. One that throws is reported
- *              and costs nothing else.
+ *   chrome     { setPath(path), setHelp(page), say(text), beforeSwitch() },
+ *              all optional: the tabs' aria-current and lamp (nav), the help
+ *              page (help), the polite live region, and what is closed
+ *              before a room is left (the stack, lib/ui/layers.js leave()).
+ *              beforeSwitch may answer a promise -- the stack's own Back
+ *              still on its way -- which a go() waits for before it writes
+ *              the history, or 'replace': the entry the history is on is
+ *              the stack's, and nothing holds it now, so the room's entry
+ *              is written over it. One that throws is reported and costs
+ *              nothing else.
  *   keep       the body classes that are the shell's (KEEP_CLASSES)
  *   onError    where a failure is reported
  *
@@ -151,6 +157,10 @@ export function viewTransition(doc, win) {
  *     room. An entry of the same room -- the player's {player: 1}, the
  *     cassette sheet's {cassette} -- is its owner's, so Back closes the
  *     player or the sheet first.
+ *   - A switch first asks chrome.beforeSwitch to close what is open over
+ *     the room (the menus): on a tap, before the new entry is pushed, so
+ *     the stack's own history entry is gone first; on Back or Forward, as
+ *     the switch starts.
  *   - A switch: the room left is hidden (view.js), its body classes are
  *     saved and taken off (all but `keep`), the room arrived in gets back
  *     the classes it left with plus its bodyClass, and is shown. Its title
@@ -189,12 +199,13 @@ export function createRouter({
   let shown = null;
   let started = false;
   let chain = Promise.resolve();
+  let waiting = Promise.resolve(); // a go() waiting on beforeSwitch
 
   const route = (url) => routeFor(url, { base: loc.href, tapeOn: tapeOn() });
   const here = () => loc.pathname + loc.search + loc.hash;
   const entry = () => { const s = hist.state; return s && typeof s === 'object' ? s : {}; };
   const finite = (v) => typeof v === 'number' && Number.isFinite(v);
-  const tell = (name, ...a) => { try { chrome[name]?.(...a); } catch (e) { onError(e); } };
+  const tell = (name, ...a) => { try { return chrome[name]?.(...a); } catch (e) { onError(e); return undefined; } };
 
   // className, not the classList's iterator: what a room left is read once.
   function takeClasses(id) {
@@ -208,6 +219,11 @@ export function createRouter({
   }
 
   async function swap(r) {
+    // Back or Forward to another room: what is open over this one closes
+    // as it goes (a tap closed it in go(), before its entry). The history
+    // has moved already, so nothing here waits on it.
+    const closing = tell('beforeSwitch');
+    if (closing && typeof closing.then === 'function') closing.then(null, () => {});
     const from = shown ? hosts.get(shown) : null;
     const to = hosts.get(r.view);
     // The room's own scroll while the shell lives; the entry's after a reload.
@@ -277,6 +293,22 @@ export function createRouter({
     }
     const cur = route(loc.href);
     if (cur && cur.view === r.view) return Promise.resolve('same');
+    // What is open over the room closes first; the stack may still be
+    // taking its own history entry back, and the new one waits for that.
+    const wait = tell('beforeSwitch');
+    if (wait === 'replace') return enter(r, true);
+    if (wait && typeof wait.then === 'function') {
+      const run = Promise.resolve(wait).catch(onError).then(() => enter(r, replace));
+      waiting = run;
+      return run;
+    }
+    return enter(r, replace);
+  }
+
+  // enter writes the room's entry and switches to it.
+  function enter(r, replace) {
+    const cur = route(loc.href);
+    if (cur && cur.view === r.view) return Promise.resolve('same');
     // Back to this entry after a reload finds the room where it was left.
     if (!replace && cur && cur.view === shown) hist.replaceState({ ...entry(), scroll: win.scrollY }, '');
     const next = { shell: 1, view: r.view, scroll: scrolls.get(r.view) ?? 0 };
@@ -342,5 +374,5 @@ export function createRouter({
     started = false;
   }
 
-  return { start, go, stop, shown: () => shown, idle: () => chain };
+  return { start, go, stop, shown: () => shown, idle: () => waiting.then(() => chain) };
 }

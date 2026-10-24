@@ -117,6 +117,12 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *   setTitle(text)
  *                the view's document.title: written now if it is shown, and
  *                each time it is shown again
+ *   layers       the view's scope of the shell's one stack of open things
+ *                (lib/ui/layers.js, when the shell shares `layers`): its
+ *                menus, sheets and selection open on it, so Back and Escape
+ *                close them in turn, and what is still open when the view
+ *                is hidden is closed then (reason 'navigate'), as its slots
+ *                are taken out
  */
 
 /**
@@ -237,6 +243,8 @@ export function createView(def, {
     dock: makeSlot(slots.dock, isShown, 'dockSlot'),
     bar: makeSlot(slots.bar, isShown, 'barSlot'),
   };
+  // What this view opens on the shell's stack, closed when it is hidden.
+  const layers = typeof shared.layers?.scope === 'function' ? shared.layers.scope() : null;
   const visible = () => (doc?.visibilityState ?? 'visible') === 'visible';
   const active = () => shown && visible();
 
@@ -337,6 +345,7 @@ export function createView(def, {
   // Everything that went through ctx goes quiet: the view is out of sight.
   function quiet() {
     shown = false;
+    try { layers?.closeAll({ reason: 'navigate' }); } catch (e) { onError(e); }
     for (const p of polls) disarm(p);
     for (const l of loops) l.loop.stop();
     slot.header.take(); slot.dock.take(); slot.bar.take();
@@ -373,6 +382,7 @@ export function createView(def, {
       loop,
       signal: controller.signal,
       setTitle,
+      ...(layers ? { layers } : {}),
     });
     doc?.addEventListener?.('visibilitychange', onVisibility);
     handle = (await def.mount(ctx)) || {};

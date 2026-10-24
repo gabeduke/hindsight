@@ -15,17 +15,22 @@ import { roomView } from '/lib/shell/views/room.js';
 import { studioView } from '/lib/shell/views/studio.js';
 import { captureView } from '/lib/shell/views/capture.js';
 import { ensureStudioSheets } from '/lib/rooms/sheets.js';
+import { layersOf } from '/lib/ui/layers.js';
 
 const $ = (id) => document.getElementById(id);
 
 // Ensure global sheets (phone, settings, update) are stamped into the document at boot
 ensureStudioSheets(document);
 
+// The one stack of open things (lib/ui/layers.js): ☰, the phone's player
+// and each room's menus, sheets and selection, so Back and Escape close the
+// top one before they leave a room.
+const layers = layersOf(document);
 const help = initHelp({ page: 'takes' });
 // Every key goes down the moment it is touched (after help, which has the
 // first say over a tap in help mode).
 showPresses(document);
-const tapes = initNav();
+const tapes = initNav(document, { layers });
 let router = null;
 const engine = createEngine({ tapes, onToast: toast, go: (url, opts) => router?.go(url, opts) });
 const link = watchLink(() => {});
@@ -45,7 +50,7 @@ const slots = {
   bar: { parent: () => $('np') },
 };
 
-const shared = { engine, tapes, toast, link, go: (url, opts) => router.go(url, opts) };
+const shared = { engine, tapes, toast, link, layers, go: (url, opts) => router.go(url, opts) };
 
 const views = [];
 const studioRoot = $('view-studio');
@@ -90,6 +95,10 @@ router = createRouter({
     setHelp(page) {
       help.setPage?.(page);
     },
+    // Switching rooms closes the menus (☰ belongs to no room), and the
+    // room's own sheets and selection, which its hide would close anyway,
+    // before the history is written; the phone's player stays up.
+    beforeSwitch: () => layers.leave({ keep: ['player'] }),
   },
 });
 
