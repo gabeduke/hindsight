@@ -111,6 +111,31 @@ test('a page’s icon is written as icon() writes it: the class names the icon i
   assert.equal(n, uses, 'an icon in a page has no i-NAME class');
 });
 
+// The keys of the header, the bar and the ruler, on every page that has
+// them: each draws its icon, and none is a glyph a fallback font would draw.
+const DRAWN = {
+  'shell.html': ['tape-undo', 'tape-redo', 'tape-more', 'out-btn', 'tape-name', 'tape-sub', 'tape-out',
+    'np-expand', 'np-start', 'np-back5', 'np-play', 'np-loop', 'np-eject', 'np-fold-btn',
+    'snap-btn', 'loop-lock', 'tracks-fold-btn', 'ruler-more', 'buffer-snap'],
+  'wave.html': ['take-undo', 'menu-btn', 'np-expand', 'to-start', 'back5', 'play', 'loop'],
+};
+const GLYPHS = /[↶↷⋯☰▾▴▸▶❚■⟲↺⏏✎⌗]/;
+
+test('the header’s, the bar’s and the ruler’s keys are drawn from the sprite, not typed in a glyph', () => {
+  for (const [page, ids] of Object.entries(DRAWN)) {
+    const doc = fakeDoc();
+    doc.body.append(...parseHTML(doc, readFileSync(join(ROOT, page), 'utf8')).nodes);
+    // The buffer's keys are a template's: they count too.
+    const all = [...doc.body.descendants(), ...doc.body.descendants().filter((e) => e.content).flatMap((t) => t.content.descendants())];
+    for (const id of ids) {
+      const key = all.find((e) => e.id === id);
+      assert.ok(key, `${page}: #${id}`);
+      assert.ok(iconOf(key), `${page}: #${id} draws no icon`);
+      assert.doesNotMatch(key.textContent, GLYPHS, `${page}: #${id} has a glyph in it`);
+    }
+  }
+});
+
 test('the sprite and its module are in the offline shell', () => {
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
   const shell = [.../SHELL\s*=\s*\[([\s\S]*?)\]/.exec(sw)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);

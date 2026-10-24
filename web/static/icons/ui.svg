@@ -37,10 +37,11 @@
 <symbol id="phones" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-3.5a8 8 0 0 1 16 0V16"/><rect x="3" y="14" width="4.5" height="7" rx="1.5" fill="currentColor"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.5" fill="currentColor"/></symbol>
 
 <!-- The ruler: ⌗ (the snap, and the View menu to come), and the loop's
-     lock, in two parts so a page can lift the shackle (styles.css). -->
+     lock, in two parts so a page can slide the shackle open (styles.css):
+       <svg class="i i-lock-body" …><use href="…#lock-body"/><use class="lock-shackle" href="…#lock-shackle"/></svg> -->
 <symbol id="view" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v16M15 4v16M4 9h16M4 15h16"/></symbol>
-<symbol id="lock-body" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9.5" rx="2" fill="currentColor"/></symbol>
-<symbol id="lock-shackle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8.25 11V8a3.75 3.75 0 0 1 7.5 0v3" stroke-width="2.25"/></symbol>
+<symbol id="lock-body" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="10.5" width="17" height="11.5" rx="2.5" fill="currentColor" stroke="none"/></symbol>
+<symbol id="lock-shackle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7.75 10.5v-3a4.25 4.25 0 0 1 8.5 0v3" stroke-width="2.5"/></symbol>
 
 <!-- Ways in and out -->
 <symbol id="down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9.5 6 6 6-6"/></symbol>

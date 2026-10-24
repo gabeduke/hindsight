@@ -5078,8 +5078,8 @@ function wire() {
     const FOLD_KEY = 'hindsight.tracksFold';
     const applyTracksFold = (folded) => {
       document.body.classList.toggle('tracks-fold', folded);
+      // Its ▾ turns to ▸ by aria-expanded (styles.css).
       foldBtn.setAttribute('aria-expanded', String(!folded));
-      foldBtn.textContent = folded ? 'Tracks ▸' : 'Tracks ▾';
       $('rm-tracks-words').textContent = folded ? 'Show the tracks' : 'Fold the tracks';
       try {
         if (folded) sessionStorage.setItem(FOLD_KEY, '1');

@@ -130,17 +130,17 @@
       <!-- What a drag snaps to, and the loop's lock: drawn ranges move the
            loop to their bars unless it's locked. -->
       <span class="tape-ruler-gap ruler-keys">
-        <button id="snap-btn" class="chip ruler-chip snap-btn" type="button" data-tip="tape-snap"><span class="snap-ico" aria-hidden="true">⌗</span><span id="snap-name">Bar</span></button>
-        <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path class="lock-shackle" d="M3.2 6V4.2a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+        <button id="snap-btn" class="chip ruler-chip snap-btn" type="button" data-tip="tape-snap"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg#view"/></svg><span id="snap-name">Bar</span></button>
+        <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg class="i i-lock-body" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg#lock-body"/><use class="lock-shackle" href="/icons/ui.svg#lock-shackle"/></svg></button>
         <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
-        <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes">Tracks ▾</button>
+        <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes">Tracks<svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg#down"/></svg></button>
         <!-- On a phone the keys above outgrow the heads' column: one key,
              saying the snap (and the lock, when it's on), holds them all. -->
         <span class="menu-anchor ruler-more-anchor">
-          <button id="ruler-more" class="chip ruler-chip ruler-more" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="ruler-more"><span class="snap-ico" aria-hidden="true">⌗</span><span id="ruler-more-snap">Bar</span><svg class="ruler-more-lock" width="10" height="12" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path d="M3.2 6V4.2a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="pill-chev" aria-hidden="true">▾</span></button>
+          <button id="ruler-more" class="chip ruler-chip ruler-more" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="ruler-more"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg#view"/></svg><span id="ruler-more-snap">Bar</span><svg class="i i-lock-body ruler-more-lock" width="10" height="10" aria-hidden="true"><use href="/icons/ui.svg#lock-body"/><use class="lock-shackle" href="/icons/ui.svg#lock-shackle"/></svg><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="10" height="10" aria-hidden="true"><use href="/icons/ui.svg#down"/></svg></span></button>
           <div id="ruler-menu" class="menu from-left ruler-menu" role="menu" aria-label="The ruler" hidden>
             <div class="ruler-menu-snap" role="group" aria-label="Snap to">
-              <span class="ruler-menu-label" aria-hidden="true">⌗ Snap</span>
+              <span class="ruler-menu-label" aria-hidden="true"><svg class="i i-view" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg#view"/></svg> Snap</span>
               <span class="seg ruler-snap-seg">
                 <button type="button" role="menuitemradio" aria-checked="true" data-snap="bar" data-tip="tape-snap">Bar</button>
                 <button type="button" role="menuitemradio" aria-checked="false" data-snap="beat" data-tip="tape-snap">Beat</button>
@@ -803,7 +803,7 @@
       <span class="buffer-note" id="buffer-note" role="status"></span>
       <span class="buffer-spacer" aria-hidden="true"></span>
       <button class="icon-btn buffer-audition" id="buffer-audition" type="button" aria-pressed="false" data-tip="buffer-audition"><span class="buffer-led" aria-hidden="true"></span>Audition</button>
-      <button class="icon-btn buffer-snap" id="buffer-snap" type="button" data-tip="tape-snap"><span aria-hidden="true">⌗ </span><span id="buffer-snap-name">Bar</span></button>
+      <button class="icon-btn buffer-snap" id="buffer-snap" type="button" data-tip="tape-snap"><svg class="i i-view" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg#view"/></svg><span id="buffer-snap-name">Bar</span></button>
       <button class="icon-btn buffer-unfold" id="buffer-unfold" type="button" aria-pressed="false" data-tip="buffer-unfold">Unfold<span aria-hidden="true"> ▾</span></button>
       <button class="icon-btn buffer-close" id="buffer-close" type="button" aria-label="Close the buffer; Buffer ▴ opens it again" data-tip="buffer-close">✕</button>
     </div>

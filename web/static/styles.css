@@ -2007,7 +2007,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink-dim);
 }
 /* A ▾ is drawn small, so heavier: the kit's 2.75 at 12 px, 2.25 at 14 to 16. */
-.pill-chev .i, .np-expand-chev .i { stroke-width: 2.75; }
+.pill-chev .i, .np-expand-chev .i, .tracks-fold-btn .i { stroke-width: 2.75; }
 /* Down's ▾ starts where the glyph did: its box's blank side comes off. */
 .np-expand-chev .i { margin-left: -3px; }
 .np-catch-more .i, .np-fold-glyph .i { stroke-width: 2.25; }
@@ -2096,11 +2096,17 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
    the ruler sits at the foot of the taller row. */
 .tape-ruler-row > .tape-ruler { align-self: end; }
 .ruler-chip { min-height: 26px; padding: 0 8px; gap: 4px; font: 600 11px var(--font); }
-.snap-btn .snap-ico { color: var(--ink-faint); font-size: 12px; }
-.loop-lock { color: var(--ink-faint); padding: 0 7px; }
+/* The ruler's keys keep the widths their glyphs gave them: a drawn icon's
+   box is wider than its line, and its blank sides come off its key. */
+.snap-btn .snap-ico { color: var(--ink-faint); }
+.ruler-chip .snap-ico { margin: 0 -1px; }
+.loop-lock { color: var(--ink-faint); padding: 0 6px; }
 .loop-lock .lock-shackle { transform: translate(2.2px, 0); transition: transform var(--t-touch); }
 .loop-lock[aria-pressed="true"] { color: var(--warn); border-color: var(--warn); }
 .loop-lock[aria-pressed="true"] .lock-shackle { transform: none; }
+/* Folded, the lanes' ▾ turns to ▸. */
+.tracks-fold-btn .i { margin: 0 -3px; }
+.tracks-fold-btn[aria-expanded="false"] .i { transform: rotate(-90deg); }
 /* With Fit there too, the three share the track heads' width: the snap
    keeps its word and loses its icon, and the keys their slack. */
 .ruler-keys:has(.view-fit:not([hidden])) .snap-btn .snap-ico { display: none; }
@@ -2112,7 +2118,8 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
 .ruler-more .ruler-more-lock { display: none; color: var(--warn); }
 .ruler-more.locked { border-color: var(--warn); }
 .ruler-more.locked .ruler-more-lock { display: inline; }
-.ruler-more .pill-chev { font-size: 9px; opacity: .7; }
+.ruler-more .pill-chev { opacity: .7; }
+.ruler-more .pill-chev .i { margin: 0 -1px 0 -2px; }
 .ruler-menu { min-width: 248px; }
 .ruler-menu-snap { display: flex; align-items: center; gap: 8px; padding: 4px 4px 8px 12px; }
 .ruler-menu-label { font: 14px var(--font); color: var(--ink); white-space: nowrap; }
@@ -4496,6 +4503,8 @@ body.tape-page.tracks-fold #lanes { display: none; }
 .buffer-spacer { flex: 1 1 0; }
 .icon-btn.buffer-audition, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .icon-btn.buffer-close { min-height: 34px; padding: 0 11px; font: 700 12px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
 .icon-btn.buffer-snap { font-family: var(--mono); letter-spacing: 0; text-transform: none; }
+/* Its ⌗ takes the room the glyph took: the drawn one's blank sides come off. */
+.icon-btn.buffer-snap .i { margin: 0 -1px; }
 .buffer-led { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); }
 .icon-btn.buffer-audition[aria-pressed="true"] .buffer-led { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
 .icon-btn.buffer-unfold[aria-pressed="true"] { border-color: var(--ink-dim); }
