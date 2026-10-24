@@ -339,3 +339,33 @@ test('Guardrail 12: the Studio’s Escape is the stack’s; its page keeps it on
     'and it claims the press (preventDefault), so the stack leaves it be');
   assert.doesNotMatch(src, /menuWasOpen/, 'no ladder that has to know whether a menu was open');
 });
+
+// ---- one menu: lib/ui/menu.js ----------------------------------------------------
+// Six menus had grown five ways of being placed, two of being dismissed,
+// arrow keys in some, and rows of 40 px beside rows of 48. A menu, or a
+// key's ▾ panel, is now menu() or splitKey() (lib/ui/menu.js), which says
+// so to assistive tech itself. The ratchet: a button that says it opens
+// something (aria-haspopup) is set up in menu.js, and what still does it
+// on its own is listed, with why, and comes off the list when it moves.
+const OWN_MENUS = [
+  // [file, how many aria-haspopup, why it is still its own]
+  ['lib/tape/page.js', 2, 'the Studio’s Catch ▾ and a track’s input chip, still its own menus (the-studio-space.md, step 2)'],
+  ['lib/wave/lanes.js', 1, 'Open’s lane menus, until Open’s pass (step 10)'],
+  ['lib/wave/page.js', 1, 'Open’s menus shut one another by it, until Open’s pass'],
+  ['lib/room/open.js', 1, 'the tag key opens a sheet, not a menu'],
+];
+
+test('Guardrail 13: a menu or a ▾ panel is lib/ui/menu.js’s', () => {
+  const found = new Map();
+  for (const [f, raw] of gestureLiterals()) {
+    if (f === 'lib/ui/menu.js' || f.endsWith('bar-harness.js') || f.endsWith('fake-dom.js')) continue;
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    const n = (src.match(/aria-haspopup/g) || []).length;
+    if (n) found.set(f, n);
+  }
+  const allowed = new Map(OWN_MENUS.map(([f, n]) => [f, n]));
+  const extra = [...found].filter(([f, n]) => n > (allowed.get(f) || 0)).map(([f, n]) => `${f} (×${n})`);
+  assert.deepEqual(extra, [], 'a menu of its own: make it with menu() or splitKey() (lib/ui/menu.js) instead');
+  const gone = [...allowed].filter(([f, n]) => (found.get(f) || 0) < n).map(([f, n]) => `${f} (×${n}, found ${found.get(f) || 0})`);
+  assert.deepEqual(gone, [], 'these are on OWN_MENUS but no longer set up a menu of their own: take them off');
+});

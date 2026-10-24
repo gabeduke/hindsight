@@ -283,6 +283,14 @@ not come back:
   presses. A handler that keeps Escape for itself (a field's own, a drag let
   go) calls `preventDefault()`. The test fails on a `pushState` outside the
   router and the stack, and lists the one still its own.
+- **One menu:** a menu, or a key's ▾ panel, is `menu()` or `splitKey()`
+  (`lib/ui/menu.js`): it opens on the stack, is placed beside its key by
+  `place()`, moves the keyboard along it, grows in and fades out, and its
+  rows are `menuItem`s. Six menus once had five ways to be placed, two to
+  be dismissed, and rows of 40 px beside rows of 48. The test fails on an
+  `aria-haspopup` a script sets up outside `menu.js`, and lists the ones
+  still their own. The Studio's header, ruler, Catch and input menus and
+  Open's are still their own, each to move as it is touched.
 
 ## Getting code onto a Pi
 
