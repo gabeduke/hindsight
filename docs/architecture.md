@@ -855,7 +855,10 @@ What a frame may do, in the Studio and anything else on the ticker:
   painted twice, as layers, as if none of it had played and as if all of it
   had, its parts lit (`lib/tape/playhead.js` `compositeLane`). A frame cuts
   the two at the playhead and draws the playhead over them; the ruler and
-  the overview put back a base the same way. A page turn repaints, once.
+  the overview put back a base the same way. And it puts back only the
+  columns the playhead moved over since the last frame (`headBand`), a few
+  device pixels, not the canvas: everything else on it is already right.
+  A page turn repaints, once.
 - **Never measure or read style.** Canvas sizes come from a
   `ResizeObserver`; colours from `tokenCache` (`lib/theme.js`), forgotten
   when the scheme flips. A measure after a DOM write is a forced layout.
@@ -865,7 +868,9 @@ What a frame may do, in the Studio and anything else on the ticker:
   `body:has(…)` rules make that a style recalculation of most of the page,
   for each digit of a counter. Likewise an inherited custom property set on
   a container restyles all of it: the bar's `--np-progress` is written only
-  where the phone's mini player draws it.
+  where the phone's mini player draws it. And an SVG attribute set to the
+  value it has is still a restyle and a layout of its picture: the reels'
+  packs are set only when they change.
 
 `lib/tape/playhead.test.js` walks what the playhead's step calls and fails on
 a measure, a style read, a write to the page or a lane painted.

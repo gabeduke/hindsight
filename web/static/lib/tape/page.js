@@ -35,7 +35,7 @@ import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNum
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, paintOverviewHead, trackColor } from './overview.js';
 import { withAlpha, onSchemeChange, tokenCache } from '../theme.js';
 import { Loop } from '../objects/motion.js';
-import { heardAt, layer, blit, paintHead, paintLaneGhost, paintRulerGhost, compositeLane } from './playhead.js';
+import { heardAt, layer, blit, bandFor, still, paintMarks, paintHead, paintLaneGhost, paintRulerGhost, compositeLane } from './playhead.js';
 import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
@@ -2260,7 +2260,10 @@ function initEditorBar() {
 // The ruler is painted, but for the playhead and a locate's marker, into
 // `base`; drawing it puts that back and draws those over it, and so does
 // each frame while the tape plays (compositeRuler), without painting it.
-const ruler = { cv: null, base: null, view: null, W: 0, H: 0, dpr: 1 };
+// `gen` counts the times `base` was painted; `shown` is what the canvas
+// has on it -- which `base`, the playhead and the marker where -- so a
+// frame puts back only the columns the playhead moved over (headBand).
+const ruler = { cv: null, base: null, view: null, W: 0, H: 0, dpr: 1, gen: 0, shown: null };
 function drawRuler(heardFrame = state.live ? heardNow() : null) {
   const t = state.tape;
   if (!t) return;
@@ -2310,21 +2313,30 @@ function drawRuler(heardFrame = state.live ? heardNow() : null) {
     const n = String(b.n);
     if ((b.n - 1) % numbered === 0 && x + 3 + ctx.measureText(n).width <= W) ctx.fillText(n, x + 3, H * 0.3);
   }
-  Object.assign(ruler, { cv, base, view: { from: view.from, to: view.to }, W, H, dpr });
+  Object.assign(ruler, { cv, base, view: { from: view.from, to: view.to }, W, H, dpr, gen: ruler.gen + 1 });
   compositeRuler(heardFrame);
 }
 
 // compositeRuler puts the ruler back and draws the playhead over it, then a
 // locate seen but not yet heard: a hollow marker where the sound will be.
 function compositeRuler(heardFrame) {
-  const { cv, base, view, W, H, dpr } = ruler;
+  const { cv, base, view, W, H, dpr, gen } = ruler;
   if (!base) return;
+  // The playhead as the ruler draws it: none off its ends (paintHead).
+  const hx = state.live && heardFrame != null ? xOf(heardFrame, view, W) : null;
+  const x = hx != null && hx >= 0 && hx <= W ? hx : null;
+  const gx = ghost ? xOf(ghost.pos, view, W) : null;
+  const now = { pic: gen, x, gx };
+  const band = bandFor(ruler.shown, now, dpr, cv.width, false);
+  ruler.shown = now;
+  if (still(band)) return;
   const ctx = cv.getContext('2d');
-  blit(ctx, base);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  blit(ctx, base, band);
   const accent = token('--accent', '#b84a1b');
-  if (state.live && heardFrame != null) paintHead(ctx, xOf(heardFrame, view, W), W, H, accent);
-  if (ghost) paintRulerGhost(ctx, xOf(ghost.pos, view, W), W, accent);
+  paintMarks(ctx, band, dpr, (c) => {
+    if (x != null) paintHead(c, x, W, H, accent);
+    if (gx != null) paintRulerGhost(c, gx, W, accent);
+  });
 }
 
 // Tap the ruler: the playhead to the nearest bar line. Hold, then drag:
@@ -2972,6 +2984,7 @@ function buildLanes() {
         warn: null,
         drawn: null,         // what the canvas holds, painted straight (lanesDraw)
         layers: null,        // its layers while the tape plays: {key, unlit, lit, W, H, dpr}
+        shown: null,         // what compositeLaneAt last put back: {pic, x, gx} (bandFor)
         pendingShown: false, // its head shows a mute or solo not heard yet
       };
       watchSize(lane.canvas);
@@ -3367,12 +3380,20 @@ function compositeLanes(heardFrame, view) {
   for (const lane of lanes) compositeLaneAt(lane, heardFrame, view);
 }
 
+// compositeLaneAt puts one lane back: all of it after its layers were
+// painted, else the columns the playhead moved over since the last frame
+// (lane.shown: the layers, the playhead and a locate's line it last put
+// back; bandFor).
 function compositeLaneAt(lane, heardFrame, view) {
   const ly = lane.layers;
   if (!ly) return;
   const x = state.live && heardFrame != null ? xOf(heardFrame, view, ly.W) : null;
   const gx = ghost && performance.now() < ghost.until ? xOf(ghost.pos, view, ly.W) : null;
-  compositeLane(lane.canvas.getContext('2d'), ly, x, { W: ly.W, H: ly.H, dpr: ly.dpr, accent: col('--accent', '#b84a1b'), ghostX: gx });
+  const now = { pic: ly, x, gx };
+  const band = bandFor(lane.shown, now, ly.dpr, lane.canvas.width);
+  lane.shown = now;
+  if (still(band)) return;
+  compositeLane(lane.canvas.getContext('2d'), ly, x, { W: ly.W, H: ly.H, dpr: ly.dpr, accent: col('--accent', '#b84a1b'), ghostX: gx, band });
 }
 
 // lanesFresh says what was painted for the lanes, the ruler and the
@@ -3890,8 +3911,9 @@ function drawPunch(ctx, view, W, H, col) {
 }
 
 // The overview, like the ruler: painted but for the playhead into `base`,
-// which each frame puts back with the playhead over it (compositeOverview).
-const overview = { cv: null, base: null, view: null, W: 0, H: 0, dpr: 1 };
+// which each frame puts back with the playhead over it (compositeOverview),
+// where it moved.
+const overview = { cv: null, base: null, view: null, W: 0, H: 0, dpr: 1, gen: 0, shown: null };
 function drawOverview(heardFrame = state.live ? heardNow() : null) {
   const t = state.tape;
   if (!t) return;
@@ -3906,17 +3928,23 @@ function drawOverview(heardFrame = state.live ? heardNow() : null) {
   // here has moved it off the loop.
   const view = laneView();
   paintTapeOverview(ctx, W, H, t, null, { col, win: overviewWindow(view, t.length, W), dashed: !state.zoom });
-  Object.assign(overview, { cv, base, view: { from: view.from, to: view.to }, W, H, dpr });
+  Object.assign(overview, { cv, base, view: { from: view.from, to: view.to }, W, H, dpr, gen: overview.gen + 1 });
   compositeOverview(heardFrame);
 }
 
 function compositeOverview(heardFrame) {
-  const { cv, base, W, H, dpr } = overview;
-  if (!base || !state.tape) return;
+  const { cv, base, W, H, dpr, gen } = overview;
+  const t = state.tape;
+  if (!base || !t) return;
+  const heard = state.live && heardFrame != null ? heardFrame : null;
+  const x = heard == null ? null : xOf(heard, { from: 0, to: t.length }, W);
+  const now = { pic: gen, x, gx: null };
+  const band = bandFor(overview.shown, now, dpr, cv.width, false);
+  overview.shown = now;
+  if (still(band)) return; // most frames: the whole tape is the overview's width
   const ctx = cv.getContext('2d');
-  blit(ctx, base);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (state.live && heardFrame != null) paintOverviewHead(ctx, W, H, state.tape, heardFrame, col);
+  blit(ctx, base, band);
+  paintMarks(ctx, band, dpr, (c) => { if (heard != null) paintOverviewHead(c, W, H, t, heard, col); });
 }
 
 // --- actions --------------------------------------------------------------------

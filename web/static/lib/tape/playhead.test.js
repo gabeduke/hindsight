@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { heardAt, layer, blit, paintHead, compositeLane } from './playhead.js';
+import { heardAt, layer, blit, paintHead, compositeLane, headBand, bandFor, still } from './playhead.js';
 import { paintTapeOverview, paintOverviewHead } from './overview.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -103,6 +103,88 @@ test('a canvas with no size, folded away or hidden on this screen, is put back a
   blit(ctx, empty);
   compositeLane(ctx, { lit: empty, unlit: empty }, 10, { W: 0, H: 0, dpr: 1, accent: '#c00' });
   assert.equal(ctx.ops.filter((o) => o[0] === 'drawImage').length, 0);
+});
+
+// What one device pixel column of a lane shows with the playhead at `x`
+// (CSS pixels, at `dpr`): how much of it is the lit layer (the cut at x*dpr)
+// and how much of it the playhead's 2 px line covers. Two columns that say
+// the same are the same pixels (compositeLane).
+function column(c, x, dpr, cw, layered = true) {
+  if (x == null) return '0|0';
+  const cut = Math.max(0, Math.min(cw, x * dpr));
+  const lit = layered ? Math.max(0, Math.min(1, cut - c)) : 0;
+  const h0 = Math.round(x) * dpr, h1 = (Math.round(x) + 2) * dpr;
+  const head = Math.max(0, Math.min(c + 1, h1) - Math.max(c, h0));
+  return `${lit.toFixed(6)}|${head.toFixed(6)}`;
+}
+
+test('a frame puts back only the columns the playhead moved over, and the canvas comes out as if all of it were', () => {
+  // The playhead's moves, frame by frame: on at a crawl and at a run, round
+  // the loop, off either end and back, at the densities tablets have.
+  // A lane is two layers cut at the playhead; the ruler and the overview
+  // one picture with the line over it.
+  for (const layered of [true, false]) {
+    for (const dpr of [1, 1.5, 2, 2.625]) {
+      const W = 400, cw = Math.round(W * dpr);
+      const xs = [10, 10.4, 10.4, 10.45, 11.9, 12, 13.5, 40, 41.2, 399.3, 401, 405, 2.2, -3, -1, 0.4, 250.75, 251.1, 120, 119.5, 300];
+      const shown = Array.from({ length: cw }, (_, c) => column(c, xs[0], dpr, cw, layered));
+      let was = xs[0];
+      for (const x of xs.slice(1)) {
+        const band = headBand(was, x, dpr, cw, layered);
+        const where = `${layered ? 'a lane' : 'the ruler'} at ${dpr}x, ${was} -> ${x}`;
+        assert.ok(band && Number.isInteger(band.from) && Number.isInteger(band.to) && band.from >= 0 && band.to <= cw && band.from <= band.to, `whole columns on the canvas (${where})`);
+        for (let c = band.from; c < band.to; c++) shown[c] = column(c, x, dpr, cw, layered);
+        for (let c = 0; c < cw; c++) assert.equal(shown[c], column(c, x, dpr, cw, layered), `column ${c}, ${where}`);
+        was = x;
+      }
+    }
+  }
+});
+
+test('a band is a few columns at play speed, and none when the playhead hasn’t moved', () => {
+  assert.deepEqual(headBand(100.2, 101.7, 1, 800), { from: 99, to: 105 });
+  assert.deepEqual(headBand(100.2, 101.7, 2, 1600), { from: 199, to: 209 });
+  assert.ok(still(headBand(100.2, 100.2, 1, 800)), 'not moved: nothing to put back');
+  assert.ok(!still(headBand(100.2, 100.3, 2, 1600)), 'a lane\u2019s cut moved a fifth of a device pixel: put back');
+  assert.ok(still(headBand(100.2, 100.4, 2, 1600, false)), 'the ruler\u2019s line hasn\u2019t moved a pixel: nothing');
+  assert.ok(still(headBand(900, 950, 1, 800)), 'off the end both times: nothing changes');
+  assert.ok(!still(null), 'all of it is not nothing');
+  assert.equal(headBand(null, 10, 1, 800), null, 'the playhead come: all of it');
+  assert.equal(headBand(10, null, 1, 800), null, 'and gone');
+  assert.ok(still(headBand(null, null, 1, 800)), 'none, and still none: nothing');
+});
+
+test('a band is put back only over the picture the canvas already shows', () => {
+  const ly = {}, other = {};
+  const was = { pic: ly, x: 100.2, gx: null };
+  assert.deepEqual(bandFor(was, { pic: ly, x: 101.7, gx: null }, 1, 800), headBand(100.2, 101.7, 1, 800));
+  assert.equal(bandFor(null, { pic: ly, x: 101.7, gx: null }, 1, 800), null, 'nothing put back yet');
+  assert.equal(bandFor(was, { pic: other, x: 101.7, gx: null }, 1, 800), null, 'the layers painted again: a part moved, the view paged');
+  assert.equal(bandFor(was, { pic: ly, x: 101.7, gx: 300 }, 1, 800), null, 'a locate came');
+  assert.equal(bandFor({ ...was, gx: 300 }, { pic: ly, x: 101.7, gx: null }, 1, 800), null, 'and went');
+  assert.equal(bandFor({ pic: 3, x: 5, gx: null }, { pic: 4, x: 5, gx: null }, 1, 800), null, 'the ruler painted again');
+});
+
+test('a band frame draws in its columns only', () => {
+  const L = (w, h) => ({ width: w, height: h });
+  const ctx = recorder(800, 70);
+  const band = headBand(300.1, 301.6, 1, 800);
+  compositeLane(ctx, { lit: L(800, 70), unlit: L(800, 70) }, 301.6, { W: 800, H: 70, dpr: 1, accent: '#c00', ghostX: 500.2, band });
+  assert.deepEqual(ctx.ops.find((o) => o[0] === 'clearRect'), ['clearRect', band.from, 0, band.to - band.from, 70]);
+  const rects = ctx.ops.filter((o) => o[0] === 'rect');
+  assert.equal(rects.length, 3, 'the lit part, the unlit part, and the marks');
+  for (const [, x, , w] of rects) assert.ok(x >= band.from && x + w <= band.to + 1e-9, `a clip inside the band (${x}+${w})`);
+  // The playhead and the locate's line are drawn under the band's clip: the
+  // line, where it's outside the band, is already there, and drawn twice an
+  // antialiased line darkens.
+  const clipAt = ctx.ops.findLastIndex((o) => o[0] === 'clip');
+  assert.ok(ctx.ops.findIndex((o) => o[0] === 'fillRect') > clipAt && ctx.ops.findIndex((o) => o[0] === 'stroke') > clipAt);
+  const none = recorder(800, 70);
+  compositeLane(none, { lit: L(800, 70), unlit: L(800, 70) }, 950, { W: 800, H: 70, dpr: 1, accent: '#c00', band: headBand(900, 950, 1, 800) });
+  assert.equal(none.ops.filter((o) => o[0] === 'drawImage').length, 0, 'off the end and still: nothing put back');
+  const b = recorder(400, 26);
+  blit(b, { width: 400, height: 26 }, { from: 40, to: 47 });
+  assert.deepEqual(b.ops.filter((o) => o[0] === 'drawImage').map((o) => o.slice(2)), [[40, 0, 7, 26, 40, 0, 7, 26]], 'the ruler and the overview: the band, copied');
 });
 
 test('a layer is reused at its size, and resized when the canvas is', () => {

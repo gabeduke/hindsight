@@ -16,6 +16,7 @@ import { DomRenderer } from '../scene/dom.js';
 const NS = 'http://www.w3.org/2000/svg';
 const C = 80, FLANGE = 74;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const setAttrIf = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
 const circ = (cx, cy, r) => `M${cx - r} ${cy} a${r} ${r} 0 1 0 ${2 * r} 0 a${r} ${r} 0 1 0 ${-2 * r} 0 Z `;
 
 /** levelFrac is how full a level bar is for dBFS: empty at −40, full 3 dB over ref. */
@@ -115,8 +116,11 @@ export function reelsDrawer({ left, right, levels }) {
     },
     draw(m, state) {
       if (!m) return; // no poll yet: the reels stay as drawn
-      L.pack.setAttribute('r', m.left.toFixed(1));
-      R.pack.setAttribute('r', m.right.toFixed(1));
+      // The packs only when they change, a tenth of a pixel in a while:
+      // setting an SVG attribute, to what it was or not, is a style
+      // recalculation and a layout of its picture, and this is every frame.
+      setAttrIf(L.pack, 'r', m.left.toFixed(1));
+      setAttrIf(R.pack, 'r', m.right.toFixed(1));
       L.turn.style.transform = `rotate(${m.angleL.toFixed(1)}deg)`;
       R.turn.style.transform = `rotate(${m.angleR.toFixed(1)}deg)`;
       if (progress && state.length > 0) progress(clamp(m.pos / state.length, 0, 1));
