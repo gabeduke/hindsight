@@ -33,7 +33,8 @@ web/static/lib/objects the physical things: reels, cassettes, VU meters, the sha
 web/static/lib/scene   the scene contract the renderers follow
 web/static/lib/wave    the take page (wave.html): view, geometry, draw, tiles, clock, lanes
 web/static/lib/edit    the gestures and curves every editing surface shares
-web/static/lib/ui      one press: the gestures' times (GESTURE), a key's tap, double tap and hold, and its down pose
+web/static/lib/ui      one press: the gestures' times (GESTURE), a key's tap, double tap and hold, and its down pose;
+                       one icon set: icons.js, drawing from web/static/icons/ui.svg
 web/static/lib/help    tips, help mode, and the guide renderer
 web/static/lib/phone   the phone recorder
 docs/embed.go          the guide, compiled into the binary
@@ -817,6 +818,36 @@ screen. `lib/rooms/words.test.js` enforces the retired list.
 
 A tap on a take plays it in the bar, wherever you are; holding selects; the
 bar is the only transport; **Open** (`wave.html`) is the one page to dig in.
+
+### Icons
+
+A key's picture is a symbol in one sprite, `web/static/icons/ui.svg`: line
+art on a 24 grid, in the key's own ink (`currentColor`), its stroke's width
+`styles.css`'s (`svg.i`, 1.75; a small ▾ is drawn heavier). The unicode
+glyphs the keys had (↶ ⋯ ▾ ✎ ⏏ ⌗ …) were drawn by each platform in a fallback
+font of its own, so a key fitted on a laptop ran off a tablet in CI's fonts.
+
+- **In the markup, so it is there at the first paint**: `<svg class="i
+  i-undo" width="22" height="22" aria-hidden="true"><use
+  href="/icons/ui.svg#undo"/></svg>`. A script writes the same with
+  `icon(name)`, and changes what a key shows with `setIcon(key, name)`, which
+  writes only when it changes (`lib/ui/icons.js`). The key says what it
+  does (`aria-label`, its words); the icon is hidden from a screen reader,
+  and a tap on it is a tap on the key (`pointer-events: none`), so help
+  mode's tips and the keys' own handlers see the key.
+- **State is the key's, not its picture's**: ▶ is `.playing` while it is
+  heard playing, whatever it draws (▶, ❚❚ for a take, ■ for the tape); a
+  fold's ▾ turns over by `body.np-fold` or `aria-expanded`, in CSS.
+- **A key keeps the width its glyph gave it**: an icon's box is wider than
+  its line, and where a ▾ or ⌗ follows a word its blank sides come off the
+  key's gap or padding (the rules say so where they do it).
+- The loop's lock is two symbols, its body and its shackle, so the page can
+  slide the shackle open.
+- `lib/ui/icons.test.js` fails on a name a page or a script uses that the
+  sprite hasn't got, on a symbol that isn't in `ICONS`, on markup that
+  doesn't name the icon it shows, on the sprite missing from `sw.js`'s
+  `SHELL`, and on a key of the header, the bar or the ruler that goes back
+  to a glyph. The objects bench (`objects.html`) shows every icon.
 
 ### The scene contract
 
