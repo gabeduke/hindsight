@@ -803,10 +803,12 @@ as it fades in over `--t-touch`, and fade it out over `--t-exit` (eased
 in, as anything leaving is), taking no press while it goes. `splitKey(verb, more, panel)` is a key with a ▾ of
 its own (KEEP ▾, GRAB ▾). Its rows are `menuItem`s, the one style (☰'s, 48
 px, a line under the word), with `menuRows` putting a divider between
-groups and anything that destroys last. ☰, KEEP ▾, GRAB ▾, Catch ▾ and
-the Studio's header menus (the tape's name, the tempo, ⋯) and ruler menu
-(⌗) are on it; a track's input menu (placed by `page.js`) and Open's are
-still their own, each to move as it is touched.
+groups and anything that destroys last. Several buttons may share one
+panel (the Studio's four input chips, one input menu): it shows for one at
+a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
+(a key of its own beside Catch), the header's (the tape's name, the tempo,
+⋯), the ruler's ⌗ and a track's input chip. Open's are still their own, to
+move in Open's pass.
 
 **The engine** (`lib/bar/engine.js`), made once by the shell:
 

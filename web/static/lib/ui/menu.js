@@ -77,6 +77,9 @@ export function place(anchor, size, view, { side = 'auto', align = 'end', gap = 
 // What the arrow keys move along: a menu's items, or a panel's buttons.
 const ITEM = 'button, a, [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]';
 let made = 0;
+// A panel that several buttons open (the Studio's input menu, one for its
+// four chips) is shown for one of them at a time: the menu showing it.
+const showing = new WeakMap();
 
 /**
  * menu wires `button` to open `panel` (hidden until then) on the page's
@@ -99,7 +102,12 @@ let made = 0;
  * do. While it is open, ↑ ↓ Home End move along it (← → too, in a panel),
  * Tab closes it and moves on from the button, and it follows its anchor
  * when the page scrolls or the window changes size. Answers { open, close,
- * toggle, refresh, isOpen }.
+ * toggle, refresh, isOpen }: refresh() fills it again and places it;
+ * refresh({ render: false }) places it again, after its owner changed what
+ * it holds.
+ *
+ * Several buttons may share one panel, each with a menu() of it: opening it
+ * from one closes it from another, and only the one showing it shuts it.
  */
 export function menu(button, panel, {
   layers,
@@ -123,6 +131,7 @@ export function menu(button, panel, {
   button.setAttribute('aria-controls', panel.id);
   if (!panel.getAttribute('role')) panel.setAttribute('role', role);
   let layer = null;
+  let self = null;
 
   // Shown or not. While it closes it takes no press and no focus (inert),
   // and styles.css fades it out by data-state.
@@ -132,7 +141,9 @@ export function menu(button, panel, {
     panel.inert = !on;
     button.setAttribute('aria-expanded', String(on));
   };
-  show(false);
+  // Another button's menu of the same panel may be showing it.
+  const other = () => { const m = showing.get(panel); return m && m !== self && m.isOpen() ? m : null; };
+  if (!other()) show(false);
 
   const shown = (el) => {
     for (let e = el; e && e !== panel; e = e.parentElement) if (e.hidden) return false;
@@ -220,6 +231,7 @@ export function menu(button, panel, {
   function putAway(reason) {
     layer = null;
     listen(false);
+    if (showing.get(panel) === self) showing.delete(panel);
     const had = !!doc.activeElement && panel.contains(doc.activeElement);
     show(false);
     if (had && reason !== 'outside' && reason !== 'navigate') button.focus?.({ preventScroll: true });
@@ -227,6 +239,8 @@ export function menu(button, panel, {
 
   function open({ byKey = false, last = false } = {}) {
     if (isOpen()) { if (byKey) focusIn(last); return; }
+    other()?.close('program');
+    showing.set(panel, self);
     render?.(panel);
     show(true);
     placeNow();
@@ -241,14 +255,14 @@ export function menu(button, panel, {
 
   function close(reason = 'program') {
     if (layer?.open) layer.close(reason);
-    else if (!panel.hidden) show(false);
+    else if (!panel.hidden && !other()) show(false);
   }
 
   const toggle = (opts) => (isOpen() ? close() : open(opts));
 
-  function refresh() {
+  function refresh({ render: fill = true } = {}) {
     if (!isOpen()) return;
-    render?.(panel);
+    if (fill) render?.(panel);
     placeNow();
   }
 
@@ -274,7 +288,8 @@ export function menu(button, panel, {
     }, true);
   }
 
-  return { open, close, toggle, refresh, isOpen };
+  self = { open, close, toggle, refresh, isOpen };
+  return self;
 }
 
 /**

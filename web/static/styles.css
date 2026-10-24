@@ -2451,10 +2451,10 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .unarmed-note[hidden] { display: none; }
 .unarmed-note .chip { margin-left: 4px; vertical-align: middle; }
 .passes-row { display: flex; gap: 6px; flex-wrap: wrap; }
-/* A track's input menu, by its chip (page.js placeInputMenu): each input
+/* A track's input menu, by its chip (lib/ui/menu.js places it): each input
    with a tick on the one chosen, a note when the tape is in it, and its
    meter. */
-.menu.input-menu { position: fixed; right: auto; z-index: 60; min-width: 220px; max-width: calc(100vw - 16px); overflow-y: auto; }
+.menu.input-menu { z-index: 60; min-width: 220px; max-width: calc(100vw - 16px); }
 .input-menu .menu-head { margin: 4px 12px 6px; font: 700 11px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
 .input-menu > button { display: grid; grid-template-columns: 16px auto 1fr 64px; align-items: center; gap: 8px; }
 .input-menu .im-tick { visibility: hidden; color: var(--go); font-weight: 700; }

@@ -159,9 +159,9 @@ becomes a shelf wall with the drawn room as the way in; ● on a phone
 records from the phone). Its step 1 (foundations, nothing visible) is
 under way, and step 2 has begun: `lib/ui/layers.js`, the one stack of open
 things, with ☰, the Studio's menus, inspector, clip editor and selection,
-and the phone's player on it; and `lib/ui/menu.js`, the one menu, with ☰,
-KEEP ▾, GRAB ▾, Catch ▾ and the Studio's header and ruler menus on it (the
-input chip's is next). Still on their own path, each to move as it
+and the phone's player on it; and `lib/ui/menu.js`, the one menu, with ☰
+and every menu in the Studio on it (KEEP ▾, GRAB ▾, Catch ▾ as a key of its
+own, the header's, the ruler's ⌗ and the input chips'). Still on their own path, each to move as it
 is touched: Open's notes pane (its own history entry, until it is the notes
 drawer), Open's ⋯ and lane menus (into `menu.js`), the Listening Room's
 select mode (`takes.js`), the buffer's

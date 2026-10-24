@@ -346,6 +346,43 @@ test('menu: shown again after a page hid it under its open layer', () => {
   assert.equal(p.layers.size, 1, 'on the one layer it had');
 });
 
+// The Studio's four input chips share one menu, each filling it for its track.
+test('menu: buttons that share a panel show it for one at a time', () => {
+  const p = aPage(`<button id="c1">aux</button><button id="c2">aux</button>
+    <div id="im" hidden><button id="x">main</button></div><button id="elsewhere">x</button>`);
+  const filled = [];
+  const one = menu(p.$('c1'), p.$('im'), { layers: p.layers, win: p.win, render: () => filled.push(1) });
+  const two = menu(p.$('c2'), p.$('im'), { layers: p.layers, win: p.win, render: () => filled.push(2) });
+  one.open();
+  assert.equal(p.$('c1').getAttribute('aria-expanded'), 'true');
+  // From the keyboard on the other chip (a pointer's press would be outside
+  // the first, which shuts it first).
+  two.open({ byKey: true });
+  assert.ok(two.isOpen() && !one.isOpen(), 'the second has it, and the first let go');
+  assert.equal(p.$('c1').getAttribute('aria-expanded'), 'false');
+  assert.equal(p.$('c2').getAttribute('aria-expanded'), 'true');
+  assert.equal(p.layers.size, 1, 'one layer, the second’s');
+  assert.deepEqual(filled, [1, 2], 'each fills it for its own');
+  one.close();
+  assert.ok(two.isOpen() && !p.$('im').hidden, 'the one not showing it can’t shut it');
+  p.request();
+  assert.ok(!two.isOpen() && p.$('im').hidden, 'Escape or Back shuts it');
+  // A third made while it is open (the chips built again) leaves it open.
+  two.open();
+  menu(p.$('elsewhere'), p.$('im'), { layers: p.layers, win: p.win });
+  assert.ok(two.isOpen() && !p.$('im').hidden);
+});
+
+test('menu: refresh fills it again and places it; refresh({ render: false }) only places it', () => {
+  const p = aPage();
+  let fills = 0;
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win, render: () => { fills++; } });
+  m.open();
+  m.refresh();
+  m.refresh({ render: false });
+  assert.equal(fills, 2);
+});
+
 // --- splitKey: a key and its ▾ (was lib/rooms/keymenu.test.js) ----------------------
 
 function aPair() {

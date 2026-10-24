@@ -42,7 +42,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J1.2 | flag a moment now; the flag rides into the next take | `j1.2-flag` | core |
 | J1.3 | select a span of the feed ribbon, then KEEP or GRAB just that | `j1.3-span` | core |
 | J1.4 | set BPM/bars, play, and CATCH the last pass onto the armed track; the tempo pill is the menu of the bar counts the loop could be, under it, and Escape shuts it in the Studio; Catch's ▾ is a key of its own beside Catch (a finger wide, as GRAB's and KEEP's), whose menu over it catches the last 1, 2 or 4 bars | `j1.4-catch` | core |
-| J1.5 | ● arms one track; holding ● adds another (or takes it off); Catch names the armed tracks; a track's input chip or inspector picks what it records from | `j1.5-arm` | core |
+| J1.5 | ● arms one track; holding ● adds another (or takes it off); Catch names the armed tracks; a track's input chip or inspector picks what it records from; the chip's menu opens by it, clear of the bar, and from a keyboard ↓ on the chip opens it on the input chosen (arming nothing) and Escape shuts it | `j1.5-arm` | core |
 | J1.6 | GRAB the last bars into the buffer (how many on GRAB's ▾, whose bars open under it, by my finger, with the inputs after them; from the armed track's input) and DROP them on the armed track | `j1.6-grab-drop` | core |
 | J1.9 | lay out a song: hold and drag a section on the strip, name it, resize it, tap it to loop it, Duplicate, Remove; hold the ruler for a range, Copy, Delete time; ↶/↷ throughout | `j1.9-song-layout` | core |
 | J1.10 | fold the bar and the lanes away for room, and have them stay folded | `j1.10-fold` | core |

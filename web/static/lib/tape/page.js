@@ -1283,8 +1283,8 @@ function renderAskFirst() {
 // Each of these opens its layer as it shows and closes it as it goes, by
 // whatever closes it: Back and Escape (the stack), a key, a tap, a poll. A
 // layer's onClose is what Back and Escape do; the code that closes one
-// itself drops the layer first, so it is not closed twice.
-let menuLayer = null; // the open menu's: one at a time
+// itself drops the layer first, so it is not closed twice. (The menus are
+// lib/ui/menu.js's, which opens and closes their layers itself.)
 let inspLayer = null; // the inspector's: a clip's, a track's or a section's
 let alignLayer = null; // the clip editor's
 let selLayer = null; // the selected clips', or the range's
@@ -1338,22 +1338,6 @@ function inspectorOffStack(sh = null) {
   if (!inspLayer?.open || (sh && inspLayer.el !== sh)) return;
   const l = inspLayer;
   inspLayer = null;
-  l.close();
-}
-
-// menuOnStack: the menu shown (the header's, the ruler's, Catch's or a
-// track's input menu) is a layer, its button its owner: a press elsewhere,
-// Back or Escape closes it, and Escape gives its button the focus.
-function menuOnStack(el, owner) {
-  if (menuLayer?.open && menuLayer.el === el) return;
-  menuOffStack();
-  const l = stack?.open({ el, kind: 'menu', owner, onClose: () => { if (menuLayer === l) { menuLayer = null; closeMenus(); } } }) || null;
-  menuLayer = l;
-}
-function menuOffStack(el = null) {
-  if (!menuLayer?.open || (el && menuLayer.el !== el)) return;
-  const l = menuLayer;
-  menuLayer = null;
   l.close();
 }
 
@@ -3031,7 +3015,7 @@ function buildLanes() {
   const box = $('lanes');
   const t = state.tape;
   if (lanes.length !== t.tracks.length) {
-    if (inputMenu) closeMenus(); // its chip is going
+    inputOpen()?.menu.close(); // its chip is going
     lanesAbort?.abort();
     lanesAbort = new AbortController();
     for (const l of lanes) unwatchSize(l.canvas);
@@ -3045,7 +3029,7 @@ function buildLanes() {
           <span class="tt-num" aria-hidden="true"></span>
           <button class="tt-name" type="button"></button>
           <button class="chip tt-arm" type="button" aria-pressed="false" data-tip="track-arm"><span class="tt-arm-dot" aria-hidden="true"></span></button>
-          <button class="chip tt-in" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="input-menu" data-tip="track-input"><span class="tt-in-led" aria-hidden="true"></span><span class="tt-in-v"></span></button>
+          <button class="chip tt-in" type="button" data-tip="track-input"><span class="tt-in-led" aria-hidden="true"></span><span class="tt-in-v"></span></button>
           <button class="chip tt-mute" type="button" aria-pressed="false" data-tip="track-mute">M</button>
           <button class="chip tt-solo" type="button" aria-pressed="false" data-tip="track-solo">S</button>
           <span class="tt-pend" hidden></span>
@@ -3114,18 +3098,7 @@ function buildLanes() {
       warn.setAttribute('role', 'img');
       warn.hidden = true;
       lane.arm.before(warn);
-      lane.input.addEventListener('click', (e) => {
-        e.stopPropagation(); // the page's click closes menus
-        openInputMenu(n, lane.input, e.detail === 0);
-      });
-      // ↓ on the chip goes into its menu, opening it if it's shut.
-      lane.input.addEventListener('keydown', (e) => {
-        if (e.key !== 'ArrowDown') return;
-        e.preventDefault();
-        e.stopPropagation(); // not the page's ↓, which arms the next track
-        if (!(inputMenu && inputMenu.n === n)) openInputMenu(n, lane.input, true);
-        else focusInputItem();
-      });
+      mountInputMenu(n, lane.input);
       lane.mute.addEventListener('click', () => { askHeard(n); patch({ track: { n, mute: !track(n).mute } }); });
       lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
       lane.gain.addEventListener('input', () => { lane.gain.dataset.busy = '1'; });
@@ -4550,85 +4523,49 @@ function mountMenus() {
 }
 
 // closeMenus closes the Studio's menus: those above, Catch's, and a track's
-// input menu, still its own.
+// input menu.
 function closeMenus() {
   for (const m of Object.values(menus)) m.close();
   catchMenu?.close();
-  menuOffStack();
-  closeInputMenu();
+  inputOpen()?.menu.close();
 }
 // While a menu is open (the Studio's, ☰, KEEP ▾ or GRAB ▾: on the stack),
 // or the phone's player is over the page, the arrows are theirs, not the
 // record track's.
-const menusOpen = () => !!inputMenu || !!stack?.ownsKeys(null);
+const menusOpen = () => !!stack?.ownsKeys(null);
 
 // --- a track's input menu ------------------------------------------------------
 // A track's input chip opens a menu of the inputs, each with its meter, to
 // choose what the track records from: it doesn't arm the track or open its
-// inspector (whose Input row does the same). One menu, under the chip it's
-// for, or over it near the bottom of the window.
-let inputMenu = null; // {n, chip} while it's open
+// inspector (whose Input row does the same). One menu (#input-menu) for the
+// four chips, each a menu() of it (lib/ui/menu.js) on the Studio's stack:
+// under the chip it's for, or over it where the bar at the foot of the page
+// leaves no room, following it as the page scrolls. From a keyboard, ↓ on
+// a chip opens it on the input chosen.
+let inputMenu = null; // {n, menu}: the chip's that last opened it
 
-function openInputMenu(n, chip, byKey) {
-  const again = inputMenu && inputMenu.n === n;
-  closeMenus();
-  if (again || !state.tape) return;
-  inputMenu = { n, chip };
-  chip.setAttribute('aria-expanded', 'true');
-  const menu = $('input-menu');
-  menu.setAttribute('aria-label', `Track ${n}'s input`);
-  delete menu.dataset.names; // built afresh for this track
-  renderInputMenu();
-  menu.hidden = false;
-  menuOnStack(menu, chip);
-  placeInputMenu();
-  if (byKey) focusInputItem();
+function mountInputMenu(n, chip) {
+  const m = menu(chip, $('input-menu'), {
+    layers: stack || undefined, doc: document, align: 'start', floor: barTop(document), focus: 'checked',
+    render: (panel) => {
+      inputMenu = { n, menu: m };
+      panel.setAttribute('aria-label', `Track ${n}'s input`);
+      delete panel.dataset.names; // built afresh for this track
+      renderInputMenu(inputMenu);
+    },
+  });
+  return m;
 }
 
-// focusInputItem moves into the open menu: to the chosen input, or the first.
-function focusInputItem() {
-  const menu = $('input-menu');
-  (menu.querySelector('[aria-checked="true"]') || menu.querySelector('button'))?.focus();
-}
+// inputOpen is the input menu's owner while it's open, or null.
+const inputOpen = () => (inputMenu?.menu.isOpen() ? inputMenu : null);
 
-function closeInputMenu() {
-  if (!inputMenu) return;
+// renderInputMenu builds the open menu's items once, as it opens (`open`, its
+// owner), then on every poll moves their meters and the tick.
+function renderInputMenu(open = inputOpen()) {
+  if (!open || !state.tape) return;
   const menu = $('input-menu');
-  menuOffStack(menu);
-  const { chip } = inputMenu;
-  inputMenu = null;
-  chip.setAttribute('aria-expanded', 'false');
-  // Focus in the menu goes back to its chip, not to the page.
-  const had = menu.contains(document.activeElement);
-  menu.hidden = true;
-  if (had) chip.focus();
-}
-
-// placeInputMenu puts the menu under its chip, or over it where there isn't
-// room above the bar at the foot of the page, which it mustn't cover.
-function placeInputMenu() {
-  const menu = $('input-menu');
-  const r = inputMenu.chip.getBoundingClientRect();
-  const np = $('np').getBoundingClientRect();
-  const floor = (np.height ? Math.min(np.top, window.innerHeight) : window.innerHeight) - 8;
-  menu.style.maxHeight = '';
-  const m = menu.getBoundingClientRect();
-  const vw = document.documentElement.clientWidth;
-  const left = Math.max(8, Math.min(r.left, vw - m.width - 8));
-  const below = r.bottom + 6 + m.height <= floor;
-  const top = below ? r.bottom + 6 : Math.max(8, r.top - 6 - m.height);
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-  // Too tall either way: it scrolls.
-  if (!below && r.top - 6 - m.height < 8) menu.style.maxHeight = `${Math.max(120, r.top - 14)}px`;
-}
-
-// renderInputMenu builds the open menu's items once, then on every poll
-// moves their meters and the tick.
-function renderInputMenu() {
-  if (!inputMenu || !state.tape) return;
-  const menu = $('input-menu');
-  const { n } = inputMenu;
+  const { n } = open;
   const names = state.sources.map((s) => s.name).join(' ');
   if (menu.dataset.names !== names) {
     const built = menu.dataset.names !== undefined;
@@ -4648,11 +4585,7 @@ function renderInputMenu() {
       b.dataset.tip = 'track-input';
       b.innerHTML = '<span class="im-tick" aria-hidden="true">✓</span><span class="im-name"></span><span class="im-note"></span><span class="meter" aria-hidden="true"><i></i></span>';
       b.querySelector('.im-name').textContent = s.name;
-      b.addEventListener('click', () => {
-        const k = inputMenu ? inputMenu.n : n;
-        closeMenus();
-        pickInput(k, s.name);
-      });
+      b.addEventListener('click', () => pickInput(n, s.name));
       return b;
     });
     menu.replaceChildren(head, ...items);
@@ -4665,7 +4598,7 @@ function renderInputMenu() {
     }
     // Rebuilt while open: where it is, and focus where it was.
     if (built) {
-      placeInputMenu();
+      open.menu.refresh({ render: false });
       if (had) (items.find((b) => b.dataset.name === had) || items[0])?.focus();
     }
   }
@@ -4720,18 +4653,17 @@ function renderTapeList() {
     return b;
   }));
 }
-let tapesAsked = false; // a refresh with the Pi's answer, which asks no more
 function openTapeList() {
   renderTapeList();
-  if (!tapesAsked) askTapes();
+  askTapes();
 }
 async function askTapes() {
   try { tapesHeard = (await api('/api/tapes')).tapes || []; } catch { return; /* show what we had */ }
   if (tapesSig() === tapesSaid || !menus.tape?.isOpen()) return;
   // The keyboard stays on the tape it was on.
   const had = $('tape-menu').contains(document.activeElement) ? document.activeElement.textContent : null;
-  tapesAsked = true;
-  try { menus.tape.refresh(); } finally { tapesAsked = false; }
+  renderTapeList();
+  menus.tape.refresh({ render: false });
   if (had) [...$('tape-list').querySelectorAll('button')].find((b) => b.textContent === had)?.focus();
 }
 
@@ -4820,19 +4752,6 @@ function wire() {
   for (const b of $('catch-bars').querySelectorAll('button')) b.addEventListener('click', () => doCatch({ bars: Number(b.dataset.bars) }));
   mountMenus();
   askTapes(); // so the title's menu has the tapes as it first opens
-  // The input menu sits by its chip: when the page moves under it, it goes.
-  window.addEventListener('scroll', (e) => { if (viewActive() && inputMenu && !$('input-menu').contains(e.target)) closeInputMenu(); }, { capture: true, passive: true });
-  window.addEventListener('resize', () => { if (viewActive()) closeInputMenu(); });
-  // ↑ ↓ Home End move along its items; Tab leaves it, closed, from its chip.
-  $('input-menu').addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') { closeInputMenu(); return; }
-    const items = [...$('input-menu').querySelectorAll('button')];
-    const i = items.indexOf(document.activeElement);
-    const k = { ArrowDown: (i + 1) % items.length, ArrowUp: i <= 0 ? items.length - 1 : i - 1, Home: 0, End: items.length - 1 }[e.key];
-    if (k === undefined || !items.length) return;
-    e.preventDefault();
-    items[k].focus();
-  });
   document.addEventListener('keydown', (e) => {
     if (!viewActive()) return;
     // Escape is the stack's (lib/ui/layers.js), not this ladder's: the menu,
