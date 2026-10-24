@@ -5416,7 +5416,12 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
 .rig-sock.drop .rig-hole { transform: scale(1.25); }
 .rig-sock.pending .rig-hole { outline: 2px dashed var(--cable-pending); outline-offset: 5px; }
 .rig-sock-label { line-height: 1; white-space: nowrap; align-self: end; }
-.rig-sock:not(:has(.rig-sock-name:not(:empty))) .rig-sock-label { grid-row: 1 / span 2; align-self: center; }
+/* A socket with no name: its label takes both rows. Said with a class the
+   rig keeps (lib/rig/page.js), not :has(.rig-sock-name:not(:empty)): a :has()
+   that tests :empty makes Chromium look again at every :has() above any text
+   that changes, anywhere -- styles.css's body:has() rules made the bar's
+   counter restyle most of the page ten times a second (lib/text.js). */
+.rig-sock:not(.named) .rig-sock-label { grid-row: 1 / span 2; align-self: center; }
 .rig-sock-name { grid-column: 2; max-width: 72px; font: 400 10px var(--font); letter-spacing: 0; text-transform: none; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: start; }
 .rig-sock-name:empty { display: none; }
 /* A track's lamp: its own button, which arms it. */

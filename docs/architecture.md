@@ -866,7 +866,10 @@ What a frame may do, in the Studio and anything else on the ticker:
   place (`lib/text.js` `setText`): a text node put in or taken out makes
   Chromium check every `:has()` rule above it, and `styles.css`'s
   `body:has(…)` rules make that a style recalculation of most of the page,
-  for each digit of a counter. Likewise an inherited custom property set on
+  for each digit of a counter. Text written in place is spared that only
+  while no `:has()` tests `:empty`: one that does, anywhere, has Chromium
+  look again at every `:has()` above any text that changes, so none may
+  (`lib/text.test.js`). Likewise an inherited custom property set on
   a container restyles all of it: the bar's `--np-progress` is written only
   where the phone's mini player draws it. And an SVG attribute set to the
   value it has is still a restyle and a layout of its picture: the reels'

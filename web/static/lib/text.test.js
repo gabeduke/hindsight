@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { setText } from './text.js';
 
 // An element with what setText touches: its children, and textContent,
@@ -46,4 +47,20 @@ test('an element holding more than one node is written whole, as before', () => 
   setText(e, 'c');
   assert.equal(e.textContent, 'c');
   assert.equal(e.replaced, 1);
+});
+
+test('no :has() tests :empty, or every text that changes restyles the page', () => {
+  // Writing into the node (setText) spares the :has() rules above it only
+  // while none of them looks at :empty: one that does, anywhere, makes
+  // Chromium look again at every :has() above any text that changes --
+  // styles.css's body:has() rules -- and the bar's counter, ten times a
+  // second, restyled most of the page.
+  for (const f of ['../styles.css', '../objects.css']) {
+    const css = fs.readFileSync(new URL(f, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (let i = css.indexOf(':has('); i >= 0; i = css.indexOf(':has(', i + 1)) {
+      let depth = 0, j = i + 4;
+      for (; j < css.length; j++) { if (css[j] === '(') depth++; else if (css[j] === ')' && --depth === 0) break; }
+      assert.doesNotMatch(css.slice(i, j + 1), /:empty/, `${f}: ${css.slice(i, j + 1)}`);
+    }
+  }
 });

@@ -11,7 +11,9 @@
  * rules, so that was a style recalculation of most of the page for each
  * digit of the bar's counter, each frame the tape played (1.6 ms a write on
  * a desktop, ~150 times what writing the node costs). Becoming empty, or
- * not, still goes through textContent, so :empty sees it as it did.
+ * not, still goes through textContent, so :empty sees it as it did. Text
+ * written in place is spared only while no :has() in the stylesheets tests
+ * :empty; text.test.js holds them to that.
  */
 export function setText(el, v) {
   const s = String(v);
