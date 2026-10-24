@@ -47,7 +47,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J1.9 | lay out a song: hold and drag a section on the strip, name it, resize it, tap it to loop it, Duplicate, Remove; hold the ruler for a range, Copy, Delete time; ↶/↷ throughout | `j1.9-song-layout` | core |
 | J1.10 | fold the bar and the lanes away for room, and have them stay folded | `j1.10-fold` | core |
 | J1.11 | tap a part to select it; Enter or a double tap opens its sheet, → nudges it a bar, a swipe pans, hold-and-drag slides it, ↶ undoes | `j1.11-clip-gestures` | core |
-| J1.12 | play the tape from the bar (or Space): reels, the tape's name, a moving counter, and \|◂ back to the loop's start | `j1.12-bar-transport` | core |
+| J1.12 | play the tape from the bar (or Space): reels, the tape's name, a moving counter, and \|◂ back to the loop's start; ▶ goes down the moment my finger is on it, and a quick tap still shows it down | `j1.12-bar-transport` | core |
 | J2.2 | tap a take to play it, and keep it playing as I move between rooms | `j2.2-persist` | core |
 | J2.3 | switch the bar between Feed (GRAB from the feed into the buffer), Tape and Shelf (with no take, it goes to the Listening Room) | `j2.3-bar-sources` | core |
 | J2.4 | jot a note on what's playing without it stopping or leaving the room | `j2.4-note` | core |

@@ -374,7 +374,7 @@ export class TakesList {
 
     if (this.spines) {
       // The spine is the control: its parts are print on the J-card.
-      el.classList.add('spine');
+      el.classList.add('spine', 'sinks'); // and it sinks under a finger (lib/ui/keys.js)
       setStripe(el, stripeFor(t, tagStore.list));
       el.tabIndex = 0;
       el.setAttribute('role', 'button');

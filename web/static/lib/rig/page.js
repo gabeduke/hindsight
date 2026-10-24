@@ -21,6 +21,7 @@ import { initNav } from '../nav.js';
 import { toast } from '../toast.js';
 import { refusal, failToast, WAITING, WAITING_DETAIL } from '../tape/refusal.js';
 import { initHelp } from '../help/help.js';
+import { showPresses } from '../ui/keys.js';
 import { restartHindsight, RESTART_WARNING } from '../settings.js';
 import { desk as deskOf, allSockets } from './desk.js';
 import { centreIn } from './cables.js';
@@ -955,6 +956,7 @@ function drawLegend() {
 export function start({ doc = document, nav = initNav, help = initHelp, win = globalThis } = {}) {
   nav();
   help({ page: 'rig' });
+  showPresses(doc); // every key goes down the moment it is touched
   let tapeOn = null;
   try { tapeOn = win.localStorage.getItem('hindsight.tapeOn'); } catch { /* fine */ }
   doc.getElementById('rig-back').href = tapeOn === 'false' ? '/' : '/tape.html';

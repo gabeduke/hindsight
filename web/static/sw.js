@@ -30,6 +30,7 @@ const SHELL = [
   '/lib/playall.js',
   '/lib/wakelock.js',
   '/lib/ui/press.js',
+  '/lib/ui/keys.js',
   '/lib/theme.js',
   '/lib/nav.js',
   '/lib/shelf.js',

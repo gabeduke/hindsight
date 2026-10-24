@@ -4,6 +4,7 @@
 // mounts the shell's views through createView and createRouter.
 
 import { initHelp } from '/lib/help/help.js';
+import { showPresses } from '/lib/ui/keys.js';
 import { initNav, navTabs } from '/lib/nav.js';
 import { toast } from '/lib/toast.js';
 import { watchLink } from '/lib/link.js';
@@ -21,6 +22,9 @@ const $ = (id) => document.getElementById(id);
 ensureStudioSheets(document);
 
 const help = initHelp({ page: 'takes' });
+// Every key goes down the moment it is touched (after help, which has the
+// first say over a tap in help mode).
+showPresses(document);
 const tapes = initNav();
 let router = null;
 const engine = createEngine({ tapes, onToast: toast, go: (url, opts) => router?.go(url, opts) });

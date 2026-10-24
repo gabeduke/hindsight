@@ -159,6 +159,13 @@ and caught by hand.
   `!important`, `@media` conditions, written-in durations and font-weights
   with no face. Reuse a token, a condition or a z-index rather than add
   one; when a count drops, the test prints the number to lower it to.
+- **Times are tokens.** A new transition or animation takes its time and
+  its ease from the motion tokens (`--t-*`, `--ease-*`, `--spring-*`; the
+  times still written out are the budget's `durations`), which are
+  `lib/objects/motion.js`'s, written by `scripts/motion-tokens.mjs`: change
+  them there, never in `styles.css`. A key's `:active` rule draws `.down`
+  as well (`lib/ui/keys.js` adds it under a finger, where Chrome holds
+  `:active` back); `lib/ui/keys.test.js` fails on one that doesn't.
 - **Never hide the only route to something.** The about line on Capture was
   `display: none` in one window shape; it carries the only Settings button
   anywhere in the app, so that shape had no way in at all. `styles.test.js`

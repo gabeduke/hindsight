@@ -336,7 +336,7 @@ export function mount(h) {
     const name = spineTitle(t);
     const fam = familySticker(familyCounts(members));
     spineData.set(t.name, { t, isNew, members });
-    const b = el('button', `room-cassette stripe-${stripeFor(t, tagStore.list)} room-tone-${toneOf(t.name)}${isNew ? ' is-new' : ''}${t.starred ? ' starred' : ''}`, {
+    const b = el('button', `room-cassette sinks stripe-${stripeFor(t, tagStore.list)} room-tone-${toneOf(t.name)}${isNew ? ' is-new' : ''}${t.starred ? ' starred' : ''}`, {
       type: 'button', 'data-key': `take:${t.name}`,
     },
     el('span', 'room-cassette-stripe', { 'aria-hidden': 'true' }),

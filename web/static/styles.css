@@ -622,7 +622,7 @@ main {
   appearance: none;
   min-height: 40px;
   cursor: pointer;
-  transition: background 140ms, color 140ms;
+  transition: transform var(--t-spring-snap) var(--spring-snap), background 140ms, color 140ms;
   /* Mark now shares this row and narrows .seg's share of it. A clipped
      "Full 15m" is a far better failure than a wrapped one, which would grow
      the row and could push Capture toward the fold -- the same defensive
@@ -638,7 +638,7 @@ main {
   padding: 0 10px;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 140ms, opacity 140ms;
+  transition: transform var(--t-spring-snap) var(--spring-snap), background 140ms, opacity 140ms;
 }
 .mark-btn[disabled] {
   border-color: var(--line);
@@ -1988,7 +1988,10 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   appearance: none; display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0;
   min-height: 44px; padding: 0 8px 0 10px; border: 1px solid var(--line); border-radius: 999px;
   background: var(--panel); color: var(--ink); font: 600 15px var(--font); cursor: pointer;
+  transition: transform var(--t-spring-snap) var(--spring-snap), background-color var(--t-release) var(--ease-out), box-shadow var(--t-release) var(--ease-out);
 }
+/* Pressed, it goes in a pixel, as the keys do (lib/ui/keys.js). */
+.tape-pill:active, .tape-pill.down { transform: translateY(1px); background-color: var(--panel-2); box-shadow: inset 0 1px 3px var(--sh); }
 .tape-pill .pill-ico { flex: none; color: var(--ink-dim); display: inline-flex; font-size: 16px; line-height: 1; }
 .tape-pill .pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tape-pill .pill-chev {
@@ -2005,7 +2008,7 @@ body.help-mode .help-btn { background: var(--accent); color: var(--on-accent); b
   .tape-sub .sub-long { display: none; }
   .tape-sub .sub-short { display: inline; }
 }
-@media (hover: hover) { .tape-pill:not(:disabled):hover { background: var(--panel-2); } }
+@media (hover: hover) { .tape-pill:not(:disabled):not(:active):not(.down):hover { background: var(--panel-2); } }
 /* A phone has no room for two pills side by side beside undo, redo and ⋯:
    they stack as one capsule, two segments with a line between, as tall as
    the header already is. */
@@ -2232,6 +2235,7 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
   user-select: none;
   white-space: nowrap;
   touch-action: none;
+  transition: translate var(--t-spring-snap) var(--spring-snap);
 }
 .cue-clip-chip:active {
   cursor: grabbing;
@@ -2833,7 +2837,7 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
   background: linear-gradient(180deg, var(--case-hi), var(--case-lo));
   border: 1px solid var(--case-edge);
   box-shadow: 0 2px 3px -1px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.3);
-  transition: transform .22s cubic-bezier(.3,.7,.3,1), box-shadow .22s ease;
+  transition: transform .22s cubic-bezier(.3,.7,.3,1), box-shadow .22s ease, translate var(--t-spring-snap) var(--spring-snap);
 }
 .spine-card {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding-right: 10px;
@@ -3603,11 +3607,15 @@ dialog.inspector:focus-visible { outline: none; }
   box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge), 0 2px 4px -2px var(--sh);
   font: 600 14px var(--font);
   letter-spacing: 0; text-transform: none;
-  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+  /* Back up on the snap spring, its shadow and edge with it (the down pose,
+     below, is taken at once: lib/ui/keys.js). */
+  transition: transform var(--t-spring-snap) var(--spring-snap), box-shadow var(--t-release) var(--ease-out),
+    border-color var(--t-release) var(--ease-out), background var(--t-release) var(--ease-out), filter var(--t-release) var(--ease-out);
 }
 .chip, .phone-btn { border-radius: 999px; }
 a.chip, a.icon-btn { text-decoration: none; }
 .icon-btn:active, .chip:active, .nudge:active, .phone-btn:active, .passes-row .pass:active,
+.icon-btn.down, .chip.down, .nudge.down, .phone-btn.down, .passes-row .pass.down,
 .icon-btn[aria-pressed="true"], .chip[aria-pressed="true"] {
   background: linear-gradient(180deg, var(--key-down), var(--key-lo));
   border-color: var(--edge-strong);
@@ -3641,6 +3649,8 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 .seg button:active, .mark-btn:active, .icon-btn.play:active,
 .tb-row.transport .icon-btn:active, .np-own .icon-btn:active,
+.seg button.down, .mark-btn.down, .icon-btn.play.down,
+.tb-row.transport .icon-btn.down, .np-own .icon-btn.down,
 .tb-row.transport .icon-btn[aria-pressed="true"], .tb-row.transport .tb-play.playing {
   background: linear-gradient(180deg, var(--key-down), var(--key-lo));
   border-color: var(--edge-strong);
@@ -3678,16 +3688,18 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 
 /* LEDs: a latched key says so with a light as well as by sitting low. */
+/* A lamp is a bulb: it lights at once and fades as it goes out. */
 .tb-play::before, #dur-seg button::before, .tb-loop::before, .tb-click::before, .wave-page #snap::before, #be-seam::before {
   content: ''; display: inline-block; flex: none;
   width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
   background: var(--led-off); vertical-align: middle;
   box-shadow: inset 0 1px 1px rgba(0,0,0,.35);
+  transition: background var(--t-move) var(--ease-out), box-shadow var(--t-move) var(--ease-out);
 }
-.tb-play.playing::before { background: var(--go); box-shadow: 0 0 0 2px color-mix(in srgb, var(--go) 22%, transparent), 0 0 9px var(--go-glow); }
-#dur-seg button[aria-pressed="true"]::before { background: var(--accent); box-shadow: 0 0 9px var(--accent-glow); }
+.tb-play.playing::before { background: var(--go); box-shadow: 0 0 0 2px color-mix(in srgb, var(--go) 22%, transparent), 0 0 9px var(--go-glow); transition-duration: var(--t-press); }
+#dur-seg button[aria-pressed="true"]::before { background: var(--accent); box-shadow: 0 0 9px var(--accent-glow); transition-duration: var(--t-press); }
 .tb-loop[aria-pressed="true"]::before, .tb-click[aria-pressed="true"]::before,
-.wave-page #snap[aria-pressed="true"]::before, #be-seam[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); }
+.wave-page #snap[aria-pressed="true"]::before, #be-seam[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); transition-duration: var(--t-press); }
 
 /* The one main action: orange, lit from above. */
 .capture-btn, .icon-btn.primary {
@@ -3701,9 +3713,10 @@ a.chip, a.icon-btn { text-decoration: none; }
   border-radius: 16px;
   font-family: var(--label-font); font-weight: 700; font-size: 26px;
   letter-spacing: .14em; text-transform: uppercase;
-  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+  transition: transform var(--t-spring-snap) var(--spring-snap), box-shadow var(--t-release) var(--ease-out), filter var(--t-release) var(--ease-out);
 }
-.capture-btn:active, .icon-btn.primary:active { filter: brightness(.94); box-shadow: inset 0 2px 5px rgba(0,0,0,.28); transform: translateY(1px); }
+.capture-btn:active, .icon-btn.primary:active,
+.capture-btn.down, .icon-btn.primary.down { filter: brightness(.94); box-shadow: inset 0 2px 5px rgba(0,0,0,.28); transform: translateY(1px); }
 /* Two lines: the word, and what it will catch. */
 .capture-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
 .cap-sub { font: 500 13px var(--font); letter-spacing: 0; text-transform: none; opacity: .92; }
@@ -3725,6 +3738,37 @@ a.chip, a.icon-btn { text-decoration: none; }
 }
 .tape-page .tb-row.transport .tb-rec[aria-pressed="true"] { transform: translateY(3px); box-shadow: 0 0 0 var(--rec-edge); }
 .tape-page .tb-row.transport .tb-rec.armed { color: var(--danger-ink); border-color: var(--rec); }
+
+/* The transport's big keys, ▶ ● Catch GRAB KEEP, travel 2 px, as a plastic
+   transport key does: the face goes darker and the shadow under it is gone.
+   (● recording sits lower still, above; Catch keeps the orange key's own
+   pressed shadow, and GRAB its ring.) */
+.tb-row.transport .tb-play:active, .tb-row.transport .tb-play.down,
+.tb-row.transport .tb-rec:active, .tb-row.transport .tb-rec.down,
+.icon-btn.np-catch:active, .icon-btn.np-catch.down,
+.icon-btn.buffer-grab-key:active, .icon-btn.buffer-grab-key.down,
+.icon-btn.studio-keep:active, .icon-btn.studio-keep.down,
+.icon-btn.buffer-keep:active, .icon-btn.buffer-keep.down { transform: translateY(2px); filter: brightness(.92); }
+.tb-row.transport .tb-play:active, .tb-row.transport .tb-play.down,
+.tb-row.transport .tb-rec:active, .tb-row.transport .tb-rec.down,
+.icon-btn.studio-keep:active, .icon-btn.studio-keep.down,
+.icon-btn.buffer-keep:active, .icon-btn.buffer-keep.down { box-shadow: inset 0 2px 5px var(--sh), inset 0 0 0 1px var(--edge-soft); }
+.icon-btn.buffer-grab-key:active, .icon-btn.buffer-grab-key.down { box-shadow: inset 0 2px 5px var(--sh), 0 0 0 2px var(--accent); }
+
+/* A key goes down at once (motion.js T.press: nothing eases it in), and
+   comes back up by its own rule's transition, on the snap spring. .down is
+   lib/ui/keys.js's: the pose a touch or a quick tap would otherwise not
+   show. */
+.icon-btn:active, .icon-btn.down, .chip:active, .chip.down, .nudge:active, .nudge.down,
+.phone-btn:active, .phone-btn.down, .passes-row .pass:active, .passes-row .pass.down,
+.seg button:active, .seg button.down, .mark-btn:active, .mark-btn.down,
+.capture-btn:active, .capture-btn.down, .tape-pill:active, .tape-pill.down,
+.sinks:active, .sinks.down { transition-duration: var(--t-press); }
+/* A spine or a cue clip (.sinks, from its module) sinks 2 px under a finger,
+   and springs back. By its translate, so one that leans, stands proud or is
+   on the deck sinks from where it is; each lists translate in its own
+   transition (the spines' and .cue-clip-chip's rules). */
+.sinks:active, .sinks.down { translate: 0 2px; }
 
 /* A take in the list is a cassette label: one stripe across the top. */
 .take {
@@ -3758,21 +3802,22 @@ input, select, textarea { color-scheme: inherit; }
 }
 
 /* ---------- hover: only where there is a pointer to hover with ---------- */
+/* A key held down is down, not hovered: none of these wins over its press. */
 @media (hover: hover) {
-  .icon-btn:not(.primary):not(.phone-rec):not(.playing):not(.pending):not(.armed):not(.recording):not([aria-pressed="true"]):not(:disabled):hover, .chip:not([aria-pressed="true"]):not(:disabled):hover,
-  .nudge:not(:disabled):hover, .phone-btn:not(.recording):hover, .mark-btn:not([disabled]):hover {
+  .icon-btn:not(.primary):not(.phone-rec):not(.playing):not(.pending):not(.armed):not(.recording):not([aria-pressed="true"]):not(:disabled):not(:active):not(.down):hover, .chip:not([aria-pressed="true"]):not(:disabled):not(:active):not(.down):hover,
+  .nudge:not(:disabled):not(:active):not(.down):hover, .phone-btn:not(.recording):not(:active):not(.down):hover, .mark-btn:not([disabled]):not(:active):not(.down):hover {
     border-color: var(--edge-strong);
     box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge), 0 8px 16px -8px var(--sh-strong);
   }
-  .seg button:not([aria-pressed="true"]):not(:disabled):hover, .appnav a:not([aria-current="page"]):hover { background: var(--seg-hover); color: var(--ink); }
-  .capture-btn:not([disabled]):hover, .icon-btn.primary:not(:disabled):hover { filter: brightness(1.07); }
+  .seg button:not([aria-pressed="true"]):not(:disabled):not(:active):not(.down):hover, .appnav a:not([aria-current="page"]):hover { background: var(--seg-hover); color: var(--ink); }
+  .capture-btn:not([disabled]):not(:active):not(.down):hover, .icon-btn.primary:not(:disabled):not(:active):not(.down):hover { filter: brightness(1.07); }
   .menu > button:not(:disabled):hover, .menu > a:hover { background: var(--seg-hover); }
 }
 /* The lift on hover is motion, so it waits for permission. */
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .icon-btn:not(.primary):not(.phone-rec):not(.playing):not(.pending):not(.armed):not(.recording):not([aria-pressed="true"]):not(:disabled):hover, .chip:not([aria-pressed="true"]):not(:disabled):hover,
-  .nudge:not(:disabled):hover, .phone-btn:not(.recording):hover, .mark-btn:not([disabled]):hover,
-  .capture-btn:not([disabled]):hover, .icon-btn.primary:not(:disabled):hover { transform: translateY(-1px); }
+  .icon-btn:not(.primary):not(.phone-rec):not(.playing):not(.pending):not(.armed):not(.recording):not([aria-pressed="true"]):not(:disabled):not(:active):not(.down):hover, .chip:not([aria-pressed="true"]):not(:disabled):not(:active):not(.down):hover,
+  .nudge:not(:disabled):not(:active):not(.down):hover, .phone-btn:not(.recording):not(:active):not(.down):hover, .mark-btn:not([disabled]):not(:active):not(.down):hover,
+  .capture-btn:not([disabled]):not(:active):not(.down):hover, .icon-btn.primary:not(:disabled):not(:active):not(.down):hover { transform: translateY(-1px); }
 }
 
 /* ---------- focus: always visible from the keyboard ---------- */
@@ -3785,8 +3830,10 @@ input, select, textarea { color-scheme: inherit; }
   outline-offset: 2px;
 }
 
+/* Less motion: the keys' own times are tokens, zeroed at the top of this
+   file; these two still fade their colour over a time of their own. */
 @media (prefers-reduced-motion: reduce) {
-  .icon-btn, .chip, .nudge, .phone-btn, .passes-row .pass, .seg button, .capture-btn, .mark-btn, .appnav a { transition: none; }
+  .seg button, .mark-btn { transition: none; }
 }
 
 /* A phone held sideways: the deck above sits after the landscape tiers, so it
@@ -4289,7 +4336,7 @@ body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent
   background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
   color: var(--paper-ink); border-color: var(--paper-rule);
 }
-.icon-btn.studio-keep:active { background: linear-gradient(180deg, var(--paper-lo), var(--paper-hi)); }
+.icon-btn.studio-keep:active, .icon-btn.studio-keep.down { background: linear-gradient(180deg, var(--paper-lo), var(--paper-hi)); }
 /* Its ▾ is the same paper. */
 .studio-keep-split > .icon-btn.key-more {
   background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
@@ -4962,7 +5009,7 @@ body:not(.room-rack) .shelf-title,
   width: 30px; height: 112px; color: var(--paper-ink);
   background: linear-gradient(90deg, var(--paper-lo), var(--paper-hi) 50%, var(--paper-lo));
   box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 2px 3px rgba(0,0,0,.35);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, translate var(--t-spring-snap) var(--spring-snap);
 }
 .room-cassette-stripe { position: absolute; left: 0; right: 0; top: 8px; height: 14px; background: var(--stripe); }
 .room-cassette-name {

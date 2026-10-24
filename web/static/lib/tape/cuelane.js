@@ -232,6 +232,7 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
     for (const clip of clips) {
       const chip = document.createElement('div');
       chip.className = 'cue-clip-chip';
+      chip.classList.add('sinks'); // it sinks under a finger (lib/ui/keys.js)
       chip.dataset.id = clip.id;
       chip.setAttribute('role', 'button');
       mark(chip, clip, playing, queued);
