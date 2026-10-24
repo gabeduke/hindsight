@@ -9,6 +9,7 @@ export default {
   id: 'J3.3',
   title: 'Share the mix from a phone',
   profiles: ['phone'],
+  checksMenus: ['#tape-actions'], // the layout checks see ⋯ open, on a phone
   async run(t) {
     const { page, api } = t;
     const tape = await t.given('a fresh tape', () => api.tape('For my brother'));

@@ -39,6 +39,7 @@ export default {
   id: 'J4.4',
   title: 'The Studio’s bar on a phone',
   profiles: ['phone'],
+  checksMenus: ['#ruler-menu'], // the layout checks see ⌗'s menu open
   async run(t) {
     const { page, api } = t;
     // A 4-bar tape with the first 4 bars of a take on track 1.

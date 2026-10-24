@@ -5,6 +5,9 @@
 //              there lands on something else (the buffer over track 2)
 //   offscreen  a control cut off by the viewport's side: a phone that has
 //              to scroll sideways to reach it
+//   menu-offscreen  an open menu (or a key's ▾ panel) whose box the screen
+//              cuts, at a side, the top or the foot: its words cut off, or
+//              rows out of reach (Open's ⋯ once opened at x -144 on a phone)
 //   clipped    a control whose label overflows its box, cut off
 //   target-size  axe-core's WCAG 2.2 rule: a control under 24 px with less
 //              than 24 px around it, measured on the part not covered
@@ -22,9 +25,14 @@ const require = createRequire(import.meta.url);
 let axeSource = null;
 const axe = () => (axeSource ??= readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'));
 
+// What counts as an open menu: a menu, or a key's ▾ panel (lib/ui/menu.js,
+// and the pages' own), but not a sheet.
+const MENU = '.menu, [role=menu], .key-pop, [role=listbox]';
+
 // geometry runs in the page: the covered, offscreen, clipped and
-// small-touch checks over every visible control.
-function geometry({ touch }) {
+// small-touch checks over every visible control, and menu-offscreen over
+// every open menu.
+function geometry({ touch, MENU }) {
   const CONTROL = 'button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=tab], [role=slider], [tabindex]:not([tabindex="-1"])';
   const W = innerWidth, H = innerHeight;
   const name = (el) => {
@@ -103,15 +111,38 @@ function geometry({ touch }) {
       out.push({ rule: 'small-touch', severity: 'warn', el: name(el), msg: `${Math.round(r.width)}×${Math.round(r.height)} px, under 44 for a finger` });
     }
   }
+  // An open menu stays on the screen, all of it: unlike a control above,
+  // one wholly off it counts (its rows are what a person came for).
+  for (const m of document.querySelectorAll(MENU)) {
+    if (m.closest('dialog') || !shown(m)) continue;
+    const r = m.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    const off = [r.left < -1 && 'left side', r.right > W + 1 && 'right side', r.top < -1 && 'top', r.bottom > H + 1 && 'foot'].filter(Boolean);
+    if (off.length) {
+      out.push({ rule: 'menu-offscreen', severity: 'fail', el: name(m), msg: `an open menu runs off the ${off.join(' and the ')} of the screen (x ${Math.round(r.left)}–${Math.round(r.right)}, y ${Math.round(r.top)}–${Math.round(r.bottom)} of ${W}×${H})` });
+    }
+  }
   return out;
 }
+
+// openMenus names the menus open on the screen, as the checks saw them: a
+// screen's line in the report keeps them (`menus`), so a run shows which
+// screens had a menu open when they were checked.
+function openMenus({ MENU }) {
+  const shown = (el) => !el.closest('[inert], [hidden], [aria-hidden="true"], dialog') && getComputedStyle(el).display !== 'none'
+    && getComputedStyle(el).visibility !== 'hidden' && Number(getComputedStyle(el).opacity) > 0.05;
+  return [...document.querySelectorAll(MENU)].filter((m) => shown(m) && m.getBoundingClientRect().width > 0)
+    .map((m) => (m.id ? `#${m.id}` : `${m.tagName.toLowerCase()}.${[...m.classList].join('.')}`));
+}
+
+export const seenMenus = (page) => page.evaluate(openMenus, { MENU }).catch(() => []);
 
 const allowance = (f) => ALLOW.find((a) => a.rule === f.rule &&
   (!a.el || a.el.test(f.el)) && (!a.by || (f.by && a.by.test(f.by))));
 
 // sample is one look at the page: the geometry checks and axe's.
 async function sample(page, touch) {
-  const found = await page.evaluate(geometry, { touch }).catch(() => []);
+  const found = await page.evaluate(geometry, { touch, MENU }).catch(() => []);
   // axe in the page by evaluate, not a script tag, so no CSP stops it.
   const axeFound = await page.evaluate(async (src) => {
     if (!window.axe) (0, eval)(src);

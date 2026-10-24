@@ -57,6 +57,10 @@ is `<pi-host>`.
   - About 800 px wide (a Pixel Tablet held upright), the bar runs off the
     right side: Catch is cut, and the page scrolls sideways. No flow runs
     at that width.
+  - Phone: Open's ⋯ (the take's menu) opens at x −144, all but 56 px of it
+    off the left side. The menu-offscreen check finds it, but no flow
+    opens it on a phone, so it is not in the baseline; it goes when Open's
+    menus move onto `lib/ui/menu.js` (Open's pass).
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.

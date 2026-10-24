@@ -13,6 +13,7 @@ const same = (a, b) => [...a].sort().join() === [...b].sort().join();
 export default {
   id: 'J1.5',
   title: '● arms one track; a hold adds another',
+  checksMenus: ['#input-menu'], // the layout checks see it open
   async run(t) {
     const { page, api } = t;
     const tape = await t.given('a fresh tape', () => api.tape('Arm'));

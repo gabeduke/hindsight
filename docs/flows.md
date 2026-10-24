@@ -99,6 +99,14 @@ at the end), with no LLM (`scripts/flows/layout.mjs`):
   lands there instead. A sheet or menu open over the page, and content
   scrolled under the pinned bar, don't count.
 - **offscreen:** a control cut off by the side of the screen.
+- **menu-offscreen:** an open menu, or a key's ▾ panel, whose box the
+  screen cuts at a side, the top or the foot (Open's ⋯ opens at x −144 on
+  a phone: no flow opens it there yet, see `docs/plan/STATE.md`). Each
+  screen's line keeps the menus open as it was checked (`menus` in
+  `--json`), and a flow's `checksMenus` (ids) fails it unless the checks
+  saw each one open: J5.1 has ☰, J3.3 ⋯, J4.4 ⌗'s menu, J1.4 the tempo's
+  and Catch's, J1.5 the input chip's. A step that opens a menu, then a
+  step that uses it, is what puts an open menu in front of the checks.
 - **target-size:** axe-core's WCAG 2.2 rule, under 24 px with too little
   room around it.
 - **Warnings only:** a label cut off; a control under 44 px on a touch
@@ -143,7 +151,8 @@ One file per story in `scripts/flows/<id>-<slug>.flow.mjs`:
 ```js
 export default {
   id: 'J2.4', title: 'Jot a note while a take plays',
-  // status: 'todo', profiles: ['phone'] (default tablet + desktop), allowHttpErrors: true
+  // status: 'todo', profiles: ['phone'] (default tablet + desktop), allowHttpErrors: true,
+  // checksMenus: ['#tape-actions'] (the layout checks must see it open)
   async run(t) {
     const take = await t.given('a take on the shelf', () => t.api.keep(20)); // seed through the API
     await t.given('the Listening Room is open', () => t.page.goto(`${t.base}/takes.html`));

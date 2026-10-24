@@ -10,6 +10,7 @@ export default {
   id: 'J5.1',
   title: 'Settings, Releases, help, the guide and the rig from the menu in both rooms',
   profiles: ['tablet', 'desktop', 'phone'],
+  checksMenus: ['#app-menu'], // the layout checks see ☰ open
   allowHttpErrors: true, // the demo has no route to GitHub's releases
   async run(t) {
     const { page } = t;

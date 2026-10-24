@@ -7,6 +7,7 @@ const BARS = 2; // a 4 s pass, so the flow waits two of them, not twenty
 export default {
   id: 'J1.4',
   title: 'Set a tempo, play, CATCH the last pass onto the armed track',
+  checksMenus: ['#tempo-menu', '#catch-menu'], // the layout checks see them open
   async run(t) {
     const { page, api } = t;
     // An empty tape, with no tempo: the Studio asks for one.
