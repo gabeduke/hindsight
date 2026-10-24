@@ -4325,14 +4325,13 @@ body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent
 }
 .studio-feed .key-split > .icon-btn.key-more[aria-expanded="true"] { background: var(--panel-2); color: var(--ink); }
 /* The panel under the pair: fixed, so the feed never clips it; placed by
-   lib/rooms/keymenu.js. */
+   lib/ui/menu.js (splitKey), its right edge on the pair's. */
 .studio-feed .key-pop {
   position: fixed; z-index: 45; display: flex; flex-direction: column; gap: 6px;
   min-width: 220px; max-width: calc(100vw - 16px); padding: 10px 12px 12px;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 12px 30px var(--shadow);
 }
-.studio-feed .key-pop[hidden] { display: none; }
 .studio-feed .key-pop-label { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
 .studio-feed .key-pop-row { display: flex; align-items: center; gap: 8px; }
 .studio-feed .key-pop .seg button { min-height: 44px; min-width: 44px; padding: 0 12px; }
@@ -4457,6 +4456,13 @@ body.tape-page.tracks-fold #lanes { display: none; }
 .buffer-grab { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
 .buffer-grab-unit { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
 .buffer-grab-unit[hidden] { display: none; }
+/* Its bars sit at its right, under the ▾ that opened it, with their label
+   beside them, and the inputs after them, as wide as the panel: their row
+   is what makes it wide, and the bars once opened 370 px left of the
+   finger. */
+.studio-feed .key-pop.buffer-grab-pop { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center; }
+.buffer-grab-pop > .key-pop-label:first-child { justify-self: end; }
+.buffer-grab-pop > .key-pop-label:not(:first-child), .buffer-grab-pop > .buffer-feed-sources { grid-column: 1 / -1; }
 .buffer-grab-pop .seg.buffer-feed-sources { flex-wrap: wrap; }
 .buffer-grab-pop .seg.buffer-feed-sources button { font: 600 11.5px var(--mono); text-transform: uppercase; }
 .buffer-grab-pop .seg.buffer-feed-sources button[data-source=""] { font-family: var(--font); text-transform: none; }

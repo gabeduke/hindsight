@@ -102,7 +102,6 @@ const SHELL = [
   '/lib/rooms/keys.js',
   '/lib/rooms/keeplabel.js',
   '/lib/rooms/grab.js',
-  '/lib/rooms/keymenu.js',
   '/lib/rooms/bounce.js',
   '/lib/buffer/buffer.js',
   '/lib/buffer/replaced.js',

@@ -295,6 +295,23 @@ test('menu: placed beside its anchor as it opens, and again as the page scrolls 
   assert.equal(p.win.count('scroll') + p.win.count('resize'), 0, 'it stops following once shut');
 });
 
+// GRAB's panel opened 65 px right of its ▾: measured where it stood (its
+// width squeezed by the screen's edge), it was placed for a narrower panel.
+test('menu: measured at the screen’s corner, so where it stood before can’t squeeze it', () => {
+  const p = aPage();
+  const b = p.$('b'), panel = p.$('m');
+  b.getBoundingClientRect = () => rect(700, 100, 40, 44);
+  // As a fixed box shrinks to fit: no wider than the room right of its left.
+  panel.getBoundingClientRect = () => {
+    const left = parseFloat(panel.style.left) || 0;
+    return rect(left, 0, Math.min(520, 1024 - left), 160);
+  };
+  panel.style.left = '900px';
+  const m = menu(b, panel, { layers: p.layers, win: p.win });
+  m.open();
+  assert.equal(panel.style.left, `${740 - 520}px`, 'its right edge on the button’s');
+});
+
 test('menu: the floor keeps it off the bar at the foot of the page', () => {
   const p = aPage();
   const b = p.$('b'), panel = p.$('m');

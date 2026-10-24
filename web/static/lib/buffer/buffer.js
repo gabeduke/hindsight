@@ -34,7 +34,8 @@ import { takeBack } from '../rooms/keep.js';
 import { takeTitle } from '../rooms/takename.js';
 import { named } from '../rooms/words.js';
 import { followLoop, readPick, writePick, readSource, writeSource } from '../rooms/grab.js';
-import { keyMenu } from '../rooms/keymenu.js';
+import { splitKey, barTop } from '../ui/menu.js';
+import { layersOf } from '../ui/layers.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
 import { replacedWords, replacedLine, recall, raiseUndo, undoWords } from './replaced.js';
 import { GESTURE } from '../ui/press.js';
@@ -879,8 +880,11 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     root.addEventListener('mousedown', (e) => { if (e.target.closest('button') && !e.target.closest('.buffer-sheet-grip')) e.preventDefault(); });
   }
   el.grab.addEventListener('click', grabBars);
-  // GRAB's ▾: how much, and from which input, in a panel under it.
-  if (el.grabMore && el.grabPop) keyMenu(el.grabMore, el.grabPop, { anchor: el.grabMore.parentElement, doc });
+  // GRAB's ▾: how much, and from which input, in a panel under the pair
+  // (lib/ui/menu.js), on the Studio's stack of open things. A pick leaves it
+  // open for the next; GRAB, a press elsewhere, Escape or Back closes it.
+  // From a keyboard it opens on the bars chosen.
+  if (el.grabMore && el.grabPop) splitKey(el.grab, el.grabMore, el.grabPop, { layers: ctx?.layers || layersOf(doc), doc, focus: 'checked', floor: barTop(doc) });
   el.grabSel?.addEventListener('click', grabSpan);
   el.reopen.addEventListener('click', () => { if (st.open) return close(); st.open = true; st.dropped = ''; render(); forward(); });
   for (const btn of el.picks.children) {

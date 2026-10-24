@@ -84,7 +84,7 @@ function geometry({ touch }) {
     if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) {
       const label = hit.closest('label');
       // Meant to cover: a sheet, a menu or a panel that's open over the page
-      // (a key's ▾ opens a role=dialog panel, lib/rooms/keymenu.js).
+      // (a key’s ▾ opens a role=dialog panel, lib/ui/menu.js splitKey).
       const layer = hit.closest('dialog[open], [role=menu], .menu, :popover-open, [role=dialog]:not([hidden])');
       // Scrolled under the pinned chrome (the bar, the app bar): the page
       // scrolls it back out, so long as the page can scroll.

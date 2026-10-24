@@ -1,5 +1,6 @@
 // J1.6 Lift a moment: GRAB the last bars of the jam into the buffer, then
-// DROP them on the armed track. How many bars is on GRAB's ▾.
+// DROP them on the armed track. How many bars is on GRAB's ▾, whose bars
+// open under it (lib/ui/menu.js splitKey).
 // docs/flows.md#j16
 const parts = (s) => (s.tracks ?? []).reduce((n, tr) => n + (tr.clips?.length ?? 0), 0);
 
@@ -15,10 +16,17 @@ export default {
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     const grab = page.locator('.buffer-grab-key').first();
     await grab.waitFor({ state: 'visible' });
-    await t.step('GRAB’s ▾, then 2 bars', async () => {
-      await t.tap(page.locator('.buffer-grab-more'));
-      await t.tap(page.locator('.buffer-grab-pop .buffer-bars button[data-n="2"]'));
+    await t.step('GRAB’s ▾', () => t.tap(page.locator('.buffer-grab-more')));
+    // The bars once opened about 370 px left of the finger: the inputs' row
+    // makes the panel wide, and the bars sat at its far end.
+    const where = await page.evaluate(() => {
+      const r = (sel) => document.querySelector(sel).getBoundingClientRect();
+      const more = r('.buffer-grab-more'), pop = r('.buffer-grab-pop'), bars = r('.buffer-grab-pop .buffer-bars');
+      return { pop: Math.round(pop.right - more.right), bars: Math.round(more.right - bars.right), under: Math.round(pop.top - more.bottom) };
     });
+    t.expect('its bars open under the ▾, by the finger, the panel’s right edge on the ▾’s',
+      Math.abs(where.pop) <= 2 && where.bars >= 0 && where.bars <= 60 && where.under >= 0 && where.under <= 12, where);
+    await t.step('tap 2 bars', () => t.tap(page.locator('.buffer-grab-pop .buffer-bars button[data-n="2"]')));
     t.expect('GRAB says it takes 2 bars, from the armed track’s input', await t.poll(() => {
       const k = document.querySelector('.buffer-grab-key')?.textContent ?? '';
       return /2 bars/i.test(k) && /armed/.test(k);

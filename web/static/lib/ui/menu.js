@@ -289,6 +289,17 @@ export function splitKey(verb, more, panel, opts = {}) {
 }
 
 /**
+ * barTop is a floor for a menu that must not reach under the bar docked at
+ * the foot of the page (#np): its top, while it shows.
+ */
+export function barTop(doc = globalThis.document) {
+  return () => {
+    const r = doc?.getElementById?.('np')?.getBoundingClientRect?.();
+    return r && r.height ? r.top : undefined;
+  };
+}
+
+/**
  * menuItem is a menu's row, in the one style (styles.css, "Menus"): a
  * check's column, the word, a line under it (what it does, or why it
  * can't), and something at its end (a lamp). 48 px tall.

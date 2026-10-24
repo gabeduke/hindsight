@@ -38,12 +38,12 @@ core. `rig`: needs the hardware; checked by hand, not here.
 
 | Id | Story — as Gabe I want to… | Flow | Status |
 |---|---|---|---|
-| J1.1 | keep the last 30s/2m of the jam from the Studio, so the thing I already played is saved; how much is on KEEP's ▾, and stays chosen | `j1.1-keep` | core |
+| J1.1 | keep the last 30s/2m of the jam from the Studio, so the thing I already played is saved; how much is on KEEP's ▾, whose lengths open under it (Escape or the tablet's Back shuts them, in the Studio), and stays chosen | `j1.1-keep` | core |
 | J1.2 | flag a moment now; the flag rides into the next take | `j1.2-flag` | core |
 | J1.3 | select a span of the feed ribbon, then KEEP or GRAB just that | `j1.3-span` | core |
 | J1.4 | set BPM/bars, play, and CATCH the last pass onto the armed track | `j1.4-catch` | core |
 | J1.5 | ● arms one track; holding ● adds another (or takes it off); Catch names the armed tracks; a track's input chip or inspector picks what it records from | `j1.5-arm` | core |
-| J1.6 | GRAB the last bars into the buffer (how many on GRAB's ▾, from the armed track's input) and DROP them on the armed track | `j1.6-grab-drop` | core |
+| J1.6 | GRAB the last bars into the buffer (how many on GRAB's ▾, whose bars open under it, by my finger, with the inputs after them; from the armed track's input) and DROP them on the armed track | `j1.6-grab-drop` | core |
 | J1.9 | lay out a song: hold and drag a section on the strip, name it, resize it, tap it to loop it, Duplicate, Remove; hold the ruler for a range, Copy, Delete time; ↶/↷ throughout | `j1.9-song-layout` | core |
 | J1.10 | fold the bar and the lanes away for room, and have them stay folded | `j1.10-fold` | core |
 | J1.11 | tap a part to select it; Enter or a double tap opens its sheet, → nudges it a bar, a swipe pans, hold-and-drag slides it, ↶ undoes; Escape (the tablet's Back) closes the sheet first and then lets go of the part, and never leaves the Studio | `j1.11-clip-gestures` | core |
