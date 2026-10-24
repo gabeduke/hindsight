@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { block, fileCss } from '../stylesheets.js';
+import { fileCss, tokens } from '../stylesheets.js';
 import {
   FRAMES, HOLD, SEAT_AT, SEATED, EJECT_MS, BACK_RATE, LIFT_PX, PULL_SCALE, TILT_DEG, SEAT_FROM,
   T_TOUCH, T_MOVE, T_FLIGHT, EASES, bezier, easeSeat, frameAt, phaseAt,
@@ -136,35 +136,20 @@ test('SEAT settles it into the window, and after it the face is exactly the wind
   assert.equal(seated.phase, 'seated');
 });
 
-// The motion tokens live in styles.css (Rooms R2): not materials, so not in
-// objects.css, and the same in both schemes, so not in the dark block. The
-// timeline above uses the same numbers, and this keeps the two in step.
-const css = fileCss('styles.css');
-const objects = fileCss('objects.css');
-const TOKENS = ['--t-touch', '--t-move', '--t-flight', '--ease-out', '--ease-flight', '--ease-seat'];
-const value = (name) => {
-  const m = css.match(new RegExp(`${name}\\s*:\\s*([^;]+);`));
-  return m && m[1].trim();
-};
-
-test('the motion tokens in styles.css are the timeline’s', () => {
-  assert.equal(value('--t-touch'), `${T_TOUCH}ms`);
-  assert.equal(value('--t-move'), `${T_MOVE}ms`);
-  assert.equal(value('--t-flight'), `${T_FLIGHT}ms`);
+// The board is timed by the app's motion tokens (lib/objects/motion.js),
+// which styles.css carries as --t-* and --ease-* (motion-tokens.test.js
+// keeps the stylesheet and the module in step, and keeps the tokens out of
+// the dark block and objects.css). This keeps the board on them.
+test('the timeline is timed by the motion tokens, as styles.css has them', () => {
+  const light = tokens(fileCss('styles.css'));
+  assert.equal(light['--t-touch'], `${T_TOUCH}ms`);
+  assert.equal(light['--t-move'], `${T_MOVE}ms`);
+  assert.equal(light['--t-flight'], `${T_FLIGHT}ms`);
   const pts = (v) => v.match(/cubic-bezier\(([^)]+)\)/)[1].split(',').map(Number);
-  assert.deepEqual(pts(value('--ease-out')), [...EASES.out]);
-  assert.deepEqual(pts(value('--ease-flight')), [...EASES.flight]);
-  assert.deepEqual(pts(value('--ease-seat')), [...EASES.seat]);
+  assert.deepEqual(pts(light['--ease-out']), [...EASES.out]);
+  assert.deepEqual(pts(light['--ease-flight']), [...EASES.flight]);
+  assert.deepEqual(pts(light['--ease-seat']), [...EASES.seat]);
   assert.equal(FRAMES[0].for, T_TOUCH);
   assert.equal(FRAMES[2].for, T_MOVE);
   assert.equal(FRAMES[3].for, T_FLIGHT);
-});
-
-test('the motion tokens follow no scheme and are no material', () => {
-  for (const t of TOKENS) {
-    assert.equal([...css.matchAll(new RegExp(`${t}\\s*:`, 'g'))].length, 1, `${t} is declared once in styles.css`);
-    assert.ok(!objects.includes(`${t}:`), `${t} is not a material`);
-  }
-  const body = block(css, '@media (prefers-color-scheme: dark)');
-  for (const t of TOKENS) assert.ok(!body.includes(`${t}:`), `${t} has no dark value`);
 });
