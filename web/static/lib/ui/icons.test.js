@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { fileCss, rules } from '../stylesheets.js';
 import { ICONS, SPRITE, icon, setIcon, iconOf, outIcon, OUT_MODES } from './icons.js';
+import { tipFor } from '../help/tips.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url)); // web/static
 const sprite = readFileSync(join(ROOT, 'icons', 'ui.svg'), 'utf8');
@@ -143,7 +144,7 @@ const DRAWN = {
 };
 const GLYPHS = /[↶↷⋯☰▾▴▸▶❚■⟲↺⏏✎⌗]/;
 
-test('the header’s, the bar’s and the ruler’s keys are drawn from the sprite, not typed in a glyph', () => {
+test('the header’s, the bar’s and the ruler’s keys are drawn from the sprite, not typed in a glyph, and each has a tip', () => {
   for (const [page, ids] of Object.entries(DRAWN)) {
     const doc = fakeDoc();
     doc.body.append(...parseHTML(doc, readFileSync(join(ROOT, page), 'utf8')).nodes);
@@ -154,6 +155,8 @@ test('the header’s, the bar’s and the ruler’s keys are drawn from the spri
       assert.ok(key, `${page}: #${id}`);
       assert.ok(iconOf(key), `${page}: #${id} draws no icon`);
       assert.doesNotMatch(key.textContent, GLYPHS, `${page}: #${id} has a glyph in it`);
+      // In help mode a tap on a key with no tip does what the key does.
+      assert.ok(tipFor(key.getAttribute('data-tip') || ''), `${page}: #${id} has no tip for help mode`);
     }
   }
 });

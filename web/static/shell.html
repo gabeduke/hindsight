@@ -133,7 +133,7 @@
         <button id="snap-btn" class="chip ruler-chip snap-btn" type="button" data-tip="tape-snap"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg><span id="snap-name">Bar</span></button>
         <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg class="i i-lock-body" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#lock-body"/><use class="lock-shackle" href="/icons/ui.svg?v=5157df85#lock-shackle"/></svg></button>
         <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
-        <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes">Tracks<svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
+        <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes" data-tip="tracks-fold">Tracks<svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
         <!-- On a phone the keys above outgrow the heads' column: one key,
              saying the snap (and the lock, when it's on), holds them all. -->
         <span class="menu-anchor ruler-more-anchor">
@@ -150,7 +150,7 @@
             </div>
             <button id="rm-lock" type="button" role="menuitemcheckbox" aria-checked="false" data-tip="loop-lock"><span class="menu-check" aria-hidden="true">✓</span>Lock the loop</button>
             <button id="rm-fit" type="button" role="menuitem" data-tip="view-fit" hidden><span class="menu-check" aria-hidden="true"></span>Fit: back to the loop</button>
-            <button id="rm-tracks" type="button" role="menuitem"><span class="menu-check" aria-hidden="true"></span><span id="rm-tracks-words">Fold the tracks</span></button>
+            <button id="rm-tracks" type="button" role="menuitem" data-tip="tracks-fold"><span class="menu-check" aria-hidden="true"></span><span id="rm-tracks-words">Fold the tracks</span></button>
           </div>
         </span>
       </span>
