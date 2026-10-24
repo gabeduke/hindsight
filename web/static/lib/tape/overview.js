@@ -83,8 +83,15 @@ export function paintTapeOverview(ctx, W, H, t, heard, { col, win = null, dashed
     ctx.strokeRect(win.x + 0.5, 0.5, Math.max(2, win.w) - 1, H - 1);
     ctx.setLineDash([]);
   }
-  if (heard != null) {
-    ctx.fillStyle = col('--accent', '#b84a1b');
-    ctx.fillRect(Math.round(xOf(heard, all, W)), 0, 2, H);
-  }
+  if (heard != null) paintOverviewHead(ctx, W, H, t, heard, col);
+}
+
+/**
+ * paintOverviewHead draws the overview's playhead at tape frame `heard`, on
+ * its own: the Studio puts the rest back from a picture each frame while the
+ * tape plays (lib/tape/playhead.js) and draws only this.
+ */
+export function paintOverviewHead(ctx, W, H, t, heard, col) {
+  ctx.fillStyle = col('--accent', '#b84a1b');
+  ctx.fillRect(Math.round(xOf(heard, { from: 0, to: t.length }, W)), 0, 2, H);
 }

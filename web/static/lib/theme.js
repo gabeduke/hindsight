@@ -31,6 +31,30 @@ export function token(name, fallback, el = document.documentElement) {
   return getComputedStyle(el).getPropertyValue(name).trim() || fallback;
 }
 
+/**
+ * tokenCache reads custom properties off `el()` once each and keeps them,
+ * for code that draws often: reading one is a style read, which after a
+ * DOM write is a forced style recalculation. `get(name, fallback)` is
+ * token's; `clear()` forgets them, for when the scheme flips (onSchemeChange)
+ * or the page is shown again.
+ */
+export function tokenCache(el = () => document.documentElement) {
+  const kept = new Map();
+  let css = null;
+  return {
+    get(name, fallback) {
+      let v = kept.get(name);
+      if (v === undefined) {
+        css ||= getComputedStyle(el());
+        v = css.getPropertyValue(name).trim();
+        kept.set(name, v);
+      }
+      return v || fallback;
+    },
+    clear() { kept.clear(); css = null; },
+  };
+}
+
 /** onSchemeChange calls `cb` whenever the device flips light <-> dark. */
 export function onSchemeChange(cb) {
   if (typeof matchMedia !== 'function') return;

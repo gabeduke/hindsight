@@ -172,6 +172,7 @@ const SHELL = [
   '/lib/tape/out-switch.js',
   '/lib/tape/pending.js',
   '/lib/tape/overview.js',
+  '/lib/tape/playhead.js',
   '/lib/tape/cuelane.js',
   '/lib/objects/lcd.js',
   '/lib/objects/reel-window.js',
