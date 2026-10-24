@@ -49,14 +49,15 @@ export function rulerTicks(T, at, opts = 6) {
   return out;
 }
 
-/** ribbonColors reads the ribbon's colours through `token(name, fallback)`. */
+/** ribbonColors reads the ribbon's colours through `token(name, fallback)`; one it can't read paints nothing, as oxideColors's. */
 export function ribbonColors(token) {
-  const glow = token('--trace-glow', 'transparent');
+  const t = (name) => token(name, 'transparent');
+  const glow = t('--trace-glow');
   return {
     oxide: oxideColors(token),
-    centre: token('--oxide-edge', 'transparent'),
-    trace: token('--trace', 'transparent'),
-    hot: token('--trace-hot', 'transparent'),
+    centre: t('--oxide-edge'),
+    trace: t('--trace'),
+    hot: t('--trace-hot'),
     glow, haze: withAlpha(glow, 0.25), halo: withAlpha(glow, 0.35),
   };
 }

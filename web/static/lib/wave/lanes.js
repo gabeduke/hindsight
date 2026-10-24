@@ -260,7 +260,7 @@ export class Lanes {
       }
       const ctx = c.ctx;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = col('--well', '#e9e2cd');
+      ctx.fillStyle = col('--well', '#161718');
       ctx.fillRect(0, 0, W, H);
       const layout = laneLayout(c.track, !!this.collapsed[c.track.name]);
       // Rows
@@ -284,14 +284,14 @@ export class Lanes {
       // Region: the wave's exact shade and edges.
       if (st.region) {
         const x0 = frameToX(st.region.start, view), x1 = frameToX(st.region.end, view);
-        ctx.fillStyle = withAlpha(col('--sel', '#268bd2'), 0.14);
+        ctx.fillStyle = withAlpha(col('--sel', '#4ebeb4'), 0.14);
         ctx.fillRect(x0, 0, x1 - x0, H);
-        ctx.fillStyle = col('--sel', '#268bd2');
+        ctx.fillStyle = col('--sel', '#4ebeb4');
         for (const x of [x0, x1]) ctx.fillRect(Math.round(x) - 1, 0, 2, H);
       }
       // Cursor
       if (st.cursor != null) {
-        ctx.fillStyle = col('--accent', '#cb4b16');
+        ctx.fillStyle = col('--accent', '#b84a1b');
         ctx.fillRect(Math.round(frameToX(st.cursor, view)), 0, 1, H);
       }
     }

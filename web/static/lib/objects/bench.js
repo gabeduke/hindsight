@@ -608,7 +608,7 @@ function buildGrease(root) {
       drawGrease(ctx, {
         sx0, sx1, start: Math.round(sx0 * 4800), end: Math.round(sx1 * 4800), W,
         markTop: PIN_H + 2, markBottom: bottom - 2, labelTop: RULER_H + 6,
-        ink: token('--grease-mark', '#f0c419'), halo: token('--well', '#0a0a0b'), font: token('--font', 'system-ui'),
+        ink: token('--grease-mark', '#f0c419'), halo: token('--well', '#161718'), font: token('--font', 'system-ui'),
       });
     });
   }
@@ -648,7 +648,7 @@ function buildPennants(root) {
       let lastRight = -Infinity;
       for (const f of flags) {
         const x = f.at * W;
-        drawPennant(ctx, x, { pinH: PIN_H, bottom: H, selected: !!f.selected, ink: token('--flag', '#b58900') });
+        drawPennant(ctx, x, { pinH: PIN_H, bottom: H, selected: !!f.selected, ink: token('--flag', '#d99a0a') });
         if (f.label && x + 12 > lastRight) lastRight = drawPennantName(ctx, x, f.label, { pinH: PIN_H, ink: token('--well-ink', '#f2e6c8') });
       }
     });

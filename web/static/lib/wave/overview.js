@@ -115,11 +115,11 @@ export class Overview {
 
     // Selection band and flags
     if (st.region) {
-      ctx.fillStyle = withAlpha(col('--sel', '#268bd2'), 0.25);
+      ctx.fillStyle = withAlpha(col('--sel', '#4ebeb4'), 0.25);
       const x0 = (st.region.start / this.total) * W, x1 = (st.region.end / this.total) * W;
       ctx.fillRect(x0, 0, Math.max(1, x1 - x0), H);
     }
-    ctx.fillStyle = col('--flag', '#b58900');
+    ctx.fillStyle = col('--flag', '#d99a0a');
     for (const f of st.flags || []) ctx.fillRect(Math.round((f.frame / this.total) * W), 0, 1, H);
 
     // Playhead: light, with a dark edge, to read on the tape.

@@ -25,7 +25,7 @@ export function spineBarCount(w, pitch = 4) {
 
 // The played part in the waveform colour, the rest the same colour, fainter;
 // read from the stylesheet at paint time so they follow light and dark.
-const playedColor = (el) => token('--wave', '#268bd2', el);
+const playedColor = (el) => token('--wave', '#4ebeb4', el);
 const unplayed = (el) => withAlpha(playedColor(el), 0.5);
 
 export class RowWave {
@@ -154,7 +154,7 @@ export class RowWave {
     const ctx = this.ctx;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    const ink = token(this.picked ? '--paper-bars-on' : '--paper-bars', 'transparent', this.canvas);
+    const ink = this.picked ? token('--paper-bars-on', '#1f6f68', this.canvas) : token('--paper-bars', 'rgba(40,52,60,.62)', this.canvas);
     drawBars(ctx, this.levels, { x0: 2, pitch: 4, cy: H / 2, half: H / 2 - 2, gain: this.gain, width: 2, color: ink });
   }
 
@@ -184,7 +184,7 @@ export class RowWave {
     }
     drawColumns(ctx, this.cols, 1, { top: 2, height: H - 4, color: (x) => (x < played ? PLAYED : UNPLAYED) });
     if (played > 0) {
-      ctx.fillStyle = token('--accent', '#cb4b16', this.canvas);
+      ctx.fillStyle = token('--accent', '#b84a1b', this.canvas);
       ctx.fillRect(Math.round(played), 0, 1, H);
     }
   }
