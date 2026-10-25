@@ -152,7 +152,7 @@ const ROOMS = {
 // A shell on a stand-in document: the header's two tabs, a <section> for
 // each room it holds (with a button in it, to hold focus), real views on
 // them, and the router over the stand-in browser.
-function aShell({ path = '/takes.html', tapeOn = null, hold = ['studio', 'room', 'capture'], rooms = {}, browser = aBrowser(path), transition = (update) => update(), chrome } = {}) {
+function aShell({ path = '/takes.html', tapeOn = null, hold = ['studio', 'room', 'capture'], rooms = {}, browser = aBrowser(path), transition = (update) => update(), chrome, idle = (fn) => fn() } = {}) {
   const doc = fakeDoc();
   doc.title = '';
   const log = [];
@@ -196,6 +196,7 @@ function aShell({ path = '/takes.html', tapeOn = null, hold = ['studio', 'room',
     tapeOn: () => s.tapeOn,
     transition,
     chrome: chrome ?? { setPath: (p) => told.push(['path', p]), setHelp: (h) => told.push(['help', h]), say: (t) => told.push(['say', t]) },
+    idle,
     onError: (e) => errors.push(e),
   });
   return s;
@@ -559,25 +560,129 @@ test('taps faster than a switch end in the room last tapped', async () => {
   assert.deepEqual(s.log.filter((l) => l.startsWith('mount')), ['mount room', 'mount studio']);
 });
 
+// A document with View Transitions: each transition it starts is kept, its
+// update run on the next turn of the loop (as the browser runs it after
+// the old frame is captured), its ready and finished settled by the test.
+function aVtDoc(doc = fakeDoc()) {
+  doc.started = [];
+  doc.startViewTransition = (update) => {
+    let ready, finish;
+    const t = {
+      update,
+      skipped: 0,
+      ready: new Promise((r) => { ready = r; }),
+      finished: new Promise((r) => { finish = r; }),
+      skipTransition() { this.skipped++; ready(); finish(); },
+      // What the html element said as the update ran.
+      during: null,
+    };
+    t.go = () => { ready(); };
+    t.end = () => { ready(); finish(); };
+    t.updateCallbackDone = Promise.resolve().then(() => {
+      t.during = { turn: doc.documentElement.getAttribute('data-turn'), arriving: doc.documentElement.getAttribute('data-arriving') };
+      return update();
+    });
+    doc.started.push(t);
+    return t;
+  };
+  return doc;
+}
+const calm = { matchMedia: () => ({ matches: false }) };
+const still = { matchMedia: (q) => ({ matches: q === '(prefers-reduced-motion: reduce)' }) };
+
 test('a switch is drawn as a view transition where there is one and motion is welcome', async () => {
-  const doc = { used: 0, startViewTransition(update) { this.used++; return { updateCallbackDone: Promise.resolve().then(update) }; } };
-  const calm = { matchMedia: () => ({ matches: false }) };
-  const still = { matchMedia: (q) => ({ matches: q === '(prefers-reduced-motion: reduce)' }) };
+  const doc = aVtDoc();
   let ran = 0;
-  await viewTransition(doc, calm)(async () => { ran++; });
-  assert.equal(doc.used, 1);
-  await viewTransition(doc, still)(async () => { ran++; });
-  assert.equal(doc.used, 1, 'less motion: no transition');
-  await viewTransition({}, calm)(async () => { ran++; });
+  await viewTransition(doc, calm)(async () => { ran++; }).updateCallbackDone;
+  assert.equal(doc.started.length, 1);
+  await viewTransition(doc, still)(async () => { ran++; }).updateCallbackDone;
+  assert.equal(doc.started.length, 1, 'less motion: no transition');
+  const bare = viewTransition(fakeDoc(), calm)(async () => { ran++; });
+  await bare.updateCallbackDone;
+  await bare.finished;
   assert.equal(ran, 3, 'the swap runs either way');
-  await assert.rejects(viewTransition(doc, calm)(async () => { throw new Error('mount'); }), /mount/, 'its error comes back, for the fallback');
+  await assert.rejects(viewTransition(aVtDoc(), calm)(async () => { throw new Error('mount'); }).updateCallbackDone, /mount/, 'its error comes back, for the fallback');
+});
+
+test('a switch only flips the rooms in its update; the room arrived in redraws once it is drawn', async () => {
+  const doc = aVtDoc();
+  const s = aShell({ transition: viewTransition(doc, calm) });
+  await s.router.start();
+  s.log.length = 0;
+  const going = s.router.go('/tape.html');
+  await tick();
+  const t = doc.started[0];
+  await t.updateCallbackDone;
+  await tick();
+  assert.deepEqual(s.log, ['hide room', 'mount studio'], 'in the update: the room left hidden, the Studio mounted (a first visit not prewarmed); its show waits');
+  assert.equal(s.views.studio.root.hidden, false, 'the Studio is in the page for the turn’s new picture');
+  assert.equal(s.router.shown(), 'studio');
+  t.go(); // the transition starts
+  await tick();
+  await tick();
+  assert.deepEqual(s.log, ['hide room', 'mount studio'], 'nothing on the page while it is drawn');
+  t.end(); // and is over
+  await going;
+  assert.deepEqual(s.log, ['hide room', 'mount studio', 'show studio from room'], 'then its own show, redraw and polls');
+  assert.equal(s.doc.title, 'Hindsight — tape');
 });
 
 test('the router draws a switch, and not the boot, with the transition it is given', async () => {
   const s = aShell({ transition: async (update) => { s.log.push('draw'); await update(); s.log.push('drawn'); } });
   await s.router.start();
   await s.router.go('/tape.html');
-  assert.deepEqual(s.log, ['mount room', 'show room from null', 'draw', 'hide room', 'mount studio', 'show studio from room', 'drawn']);
+  assert.deepEqual(s.log, ['mount room', 'show room from null', 'draw', 'hide room', 'mount studio', 'drawn', 'show studio from room']);
+});
+
+test('prewarm mounts the room a tab leads to out of sight, once the room shown is up, and its first visit is only a reveal', async () => {
+  let up;
+  const ready = new Promise((r) => { up = r; });
+  const s = aShell({
+    path: '/tape.html',
+    rooms: {
+      studio: { mount: () => { s.log.push('mount studio'); return { ready, show: () => s.log.push('show studio'), hide: () => s.log.push('hide studio') }; } },
+      room: { prewarm: true },
+    },
+  });
+  await s.router.start();
+  const warm = s.router.prewarm();
+  await tick();
+  assert.deepEqual(s.log, ['mount studio', 'show studio'], 'not before the Studio’s first poll');
+  up();
+  assert.deepEqual(await warm, ['room']);
+  assert.deepEqual(s.log, ['mount studio', 'show studio', 'mount room', 'hide room'], 'mounted, then put away as if it had been left');
+  assert.equal(s.views.room.root.hidden, true, 'out of sight throughout');
+  assert.equal(s.views.room.shown, false);
+  assert.equal(s.router.shown(), 'studio');
+  assert.deepEqual(s.classes(), ['tape-page'], 'the Studio’s classes, untouched');
+  s.log.length = 0;
+  await s.router.go('/takes.html');
+  assert.deepEqual(s.log, ['hide studio', 'show room from studio'], 'no second mount');
+  assert.deepEqual(await s.router.prewarm(), [], 'nothing left to warm: the Studio says nothing of prewarm');
+});
+
+test('prewarm leaves alone a room with no prewarm, the room shown, and one already up', async () => {
+  const s = aShell({ path: '/tape.html', tapeOn: true, rooms: { capture: { prewarm: true } } });
+  await s.router.start();
+  assert.deepEqual(await s.router.prewarm(), [], 'the room says nothing of it; Capture is no tab’s with the tape on');
+  assert.deepEqual(s.log.filter((l) => l.startsWith('mount')), ['mount studio']);
+  const off = aShell({ path: '/takes.html', tapeOn: false, rooms: { capture: { prewarm: true }, studio: { prewarm: true } } });
+  await off.router.start();
+  assert.deepEqual(await off.router.prewarm(), ['capture'], 'with the tape off the Studio’s tab is Capture');
+  assert.equal(off.views.studio.state, 'new');
+});
+
+test('a class a room’s mount puts on <body> out of sight comes off, is reported, and is the room’s on its first visit', async () => {
+  const s = aShell({
+    path: '/tape.html',
+    rooms: { room: { prewarm: true, mount: () => { s.doc.body.classList.add('room-on'); return {}; } } },
+  });
+  await s.router.start();
+  await s.router.prewarm();
+  assert.deepEqual(s.classes(), ['tape-page'], 'never on the Studio');
+  assert.match(String(s.errors[0]?.message), /room-on/);
+  await s.router.go('/takes.html');
+  assert.deepEqual(s.classes(), ['room-on', 'shelf-page']);
 });
 
 test('a tab bar that throws costs a report, not the switch', async () => {

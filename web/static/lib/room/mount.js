@@ -13,6 +13,14 @@ const LOADERS = {
 };
 
 /**
+ * BODY is the class each room has on <body> while it is shown. The page
+ * puts it on (the Listening Room's view, in its bodyClass), not the room's
+ * mount: a room may be mounted out of sight while another is shown
+ * (lib/shell/router.js prewarm), and its class would mark that one.
+ */
+export const BODY = Object.freeze({ doorway: 'room-on' });
+
+/**
  * start mounts the room on `page` ('doorway' or 'open') with the page's
  * handle. `load` fetches the room's module; tests pass their own.
  */

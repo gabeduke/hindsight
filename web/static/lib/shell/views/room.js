@@ -16,7 +16,7 @@ import { takesFinder } from '/lib/bar/engine.js';
 import { timedFetch } from '/lib/link.js';
 import { spanOf, firstOf, nextOf, doneAt } from '/lib/playall.js';
 import { holdScreen } from '/lib/wakelock.js';
-import { start as startRoom } from '/lib/room/mount.js';
+import { start as startRoom, BODY as ROOM_BODY } from '/lib/room/mount.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -24,8 +24,12 @@ export const roomView = {
   id: 'room',
   title: 'Takes — Hindsight',
   name: 'Listening Room',
-  bodyClass: 'shelf-page',
+  // With the doorway's own (lib/room/mount.js BODY): the room, not the rack.
+  bodyClass: ['shelf-page', ROOM_BODY.doorway],
   help: 'takes',
+  // Mounted out of sight once the first room is up (router.js prewarm), so
+  // the first turn to it is a reveal, not a mount and a module to load.
+  prewarm: true,
   mount(ctx) {
     const headerEl = document.getElementById('header-room');
     if (headerEl) {
@@ -420,7 +424,7 @@ export const roomView = {
     ctx.every(pollStatus, 15000);
 
     // --- the Listening Room ----------------------------------------------------
-    startRoom('doorway', {
+    const ready = startRoom('doorway', {
       takes, toast, tapes: ctx.tapes,
       get np() { return np; },
       barSlot: ctx.barSlot,
@@ -446,6 +450,7 @@ export const roomView = {
     })?.then((inst) => { roomInst = inst; }).catch((e) => console.error('The Listening Room could not start:', e));
 
     return {
+      ready,
       show({ first }) {
         if (!first) {
           showNextToast();

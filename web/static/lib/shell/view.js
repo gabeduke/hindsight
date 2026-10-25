@@ -32,6 +32,7 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *     name: 'Listening Room',      // what the live region says on arrival (default: title)
  *     bodyClass: 'shelf-page',     // its classes on <body>: a string (space-separated) or an array
  *     help: 'takes',               // the help page while it is shown (initHelp's `page`)
+ *     prewarm: true,               // it may be mounted out of sight before its first visit
  *     mount(ctx) -> handle, or a promise of one
  *   }
  *
@@ -43,14 +44,28 @@ import { Loop, ticker, report } from '../objects/motion.js';
  * when it runs, so the view can measure itself, and every listener, poll and
  * loop it starts through ctx is live at once. The switch waits for it (inside
  * a view transition, where the browser holds the old frame on screen), so it
- * must not wait on the network: start the fetches and let them land. It
- * resolves to a handle, each part of which is optional:
+ * must not wait on the network: start the fetches and let them land.
+ *
+ * A view with `prewarm: true` may be mounted before that, out of sight, once
+ * the first room is up (the router's prewarm): its root is hidden while it
+ * runs (it measures nothing until it is shown: a ResizeObserver hears the
+ * real size then), what it adds to a slot waits inside its root, its polls
+ * run once when it is done, and then its own hide() runs. So such a mount
+ * must touch nothing of the room that is shown: no class on <body> (they go
+ * in bodyClass), nothing in the header, the dock or the bar but through its
+ * slots. Its handle is the same, and may carry `ready`, a promise of the
+ * mount's own late parts (a module it imports and mounts): the prewarm is
+ * done when that is. It resolves to a handle, each part of which is
+ * optional:
  *
  *   show({ url, from, first })
- *       Every visit, the first one included (right after mount). Redraw, and
- *       put back what hide() put away. `url` is location.href, already the
- *       view's own; `from` is the id of the view that was left, or null at
- *       boot; `first` is true on the visit that mounted it. The view's polls
+ *       Every visit, the first one included (right after mount, or the first
+ *       visit after a prewarm). Redraw, and put back what hide() put away. In
+ *       a room switch it runs once the switch's turn is over, not in the
+ *       frames the switch draws: the room turns in as it was left (a canvas
+ *       keeps its picture while hidden), and redraws as it lands. `url` is
+ *       location.href, already the view's own; `from` is the id of the view
+ *       that was left, or null at boot; `first` is true on the first visit. The view's polls
  *       (ctx.every) run once after it, and its loops (ctx.loop) resume.
  *   hide()
  *       Every time the view is left, while it is still shown. Close its
@@ -153,9 +168,11 @@ const resolve = (v) => (typeof v === 'function' ? v() : v) || null;
  * makeSlot is one view's handle on one slot. `spec` is {parent, before}:
  * nodes or functions that answer them (a header tool made after the slots
  * were, say). `isShown` is the view's state; put() and take() are the
- * host's, for show and hide.
+ * host's, for show and hide. `parked` answers where a node added while the
+ * view warms up waits (its own hidden root), or null: in the document, so
+ * the mount finds it by its id, and out of sight.
  */
-function makeSlot(spec, isShown, name) {
+function makeSlot(spec, isShown, name, parked = () => null) {
   const placed = [];
   const place = ({ node, where }) => {
     const ref = where && typeof where === 'object' ? where.before || where.after : null;
@@ -178,6 +195,7 @@ function makeSlot(spec, isShown, name) {
       const entry = { node, where };
       placed.push(entry);
       if (isShown()) place(entry);
+      else parked()?.append(node);
       return () => {
         const i = placed.indexOf(entry);
         if (i >= 0) placed.splice(i, 1);
@@ -192,8 +210,10 @@ function makeSlot(spec, isShown, name) {
 
 /**
  * createView is the shell's side of one view: it mounts it on the first
- * show, builds its ctx, and keeps "hidden" true of everything that went
- * through ctx. The router (router.js) only calls show() and hide().
+ * show (or earlier, out of sight, with prewarm), builds its ctx, and keeps
+ * "hidden" true of everything that went through ctx. The router (router.js)
+ * calls show() and hide(), and in a switch reveal() and wake() -- show's two
+ * halves -- and prewarm().
  *
  *   def        the view (above)
  *   root       its <section> in the shell. Hidden here until it is shown.
@@ -209,8 +229,9 @@ function makeSlot(spec, isShown, name) {
  *   clock      the ticker the loops run on (the shared one)
  *   onError    where an error a view throws is reported
  *
- * Answers {id, def, root, ctx, state, shown, title, show, hide, destroy}.
- * state is 'new' | 'mounting' | 'shown' | 'hidden' | 'failed' | 'destroyed'.
+ * Answers {id, def, root, ctx, state, shown, title, show, reveal, wake,
+ * prewarm, settled, hide, destroy}. state is 'new' | 'warming' | 'mounting' |
+ * 'shown' | 'hidden' | 'failed' | 'destroyed'.
  */
 export function createView(def, {
   root,
@@ -229,7 +250,9 @@ export function createView(def, {
   let state = 'new';
   let shown = false;
   let handle = null;
-  let showing = null; // the visit under way
+  let mounting = null; // the one mount, under way or done
+  let showing = null; // the visit under way: its show, loops and polls
+  let warming = null; // the prewarm under way
   let first = true;
   let title = def.title ?? null;
   let ctx = null;
@@ -238,10 +261,14 @@ export function createView(def, {
   const polls = new Set(); // ctx.every's: {fn, ms, id}
   const loops = new Set(); // ctx.loop's: {loop, wanted}
   const isShown = () => shown;
+  // While it warms up, what it adds to the shell's slots waits in its own
+  // hidden root: in the document, so its mount finds a part by its id, and
+  // out of sight.
+  const parked = () => (state === 'warming' && !shown ? root : null);
   const slot = {
-    header: makeSlot(slots.header, isShown, 'headerSlot'),
-    dock: makeSlot(slots.dock, isShown, 'dockSlot'),
-    bar: makeSlot(slots.bar, isShown, 'barSlot'),
+    header: makeSlot(slots.header, isShown, 'headerSlot', parked),
+    dock: makeSlot(slots.dock, isShown, 'dockSlot', parked),
+    bar: makeSlot(slots.bar, isShown, 'barSlot', parked),
   };
   // What this view opens on the shell's stack, closed when it is hidden.
   const layers = typeof shared.layers?.scope === 'function' ? shared.layers.scope() : null;
@@ -250,11 +277,13 @@ export function createView(def, {
 
   root.hidden = true;
 
+  // A poll's run, answering when it is done (a rejection reported, not thrown).
   const run = (p) => {
     try {
       const r = p.fn();
-      if (r && typeof r.then === 'function') r.then(null, onError);
+      if (r && typeof r.then === 'function') return r.then(null, onError);
     } catch (e) { onError(e); }
+    return undefined;
   };
   const arm = (p) => {
     if (p.id != null) timers.clearInterval(p.id);
@@ -364,8 +393,8 @@ export function createView(def, {
     controller.abort();
   }
 
-  async function mount() {
-    state = 'mounting';
+  async function mount(as) {
+    state = as;
     if (template) root.appendChild(template.content.cloneNode(true));
     // The router moves focus here when it was in the room that was left.
     if (!root.hasAttribute('tabindex')) root.setAttribute('tabindex', '-1');
@@ -388,23 +417,55 @@ export function createView(def, {
     handle = (await def.mount(ctx)) || {};
   }
 
-  async function show({ url = null, from = null } = {}) {
+  // The one mount: a second caller waits on the first. One that throws
+  // leaves nothing behind -- whatever it started through ctx is undone --
+  // and it is not tried again (a second mount would add every listener the
+  // first one did a second time).
+  function mountOnce(as) {
+    if (!mounting) mounting = mount(as).catch((e) => { state = 'failed'; teardown(); throw e; });
+    return mounting;
+  }
+
+  function usable() {
     if (state === 'destroyed') throw new Error(`the ${def.id} view was destroyed`);
     if (state === 'failed') throw new Error(`the ${def.id} view failed to mount`);
+  }
+
+  /**
+   * reveal is the first half of a visit, the part a room switch draws: the
+   * view is in the page again -- its root shown, its slots' nodes back where
+   * they go -- mounted first if this is its first visit and it was not
+   * prewarmed. Nothing of its own show runs yet (its redraw, its polls, its
+   * loops): that is wake's.
+   */
+  async function reveal() {
+    usable();
     if (state === 'shown') return;
+    if (!shown) {
+      shown = true;
+      root.hidden = false;
+      slot.header.put(); slot.dock.put(); slot.bar.put();
+    }
+    if (!handle) await mountOnce('mounting');
+  }
+
+  /**
+   * wake is the second half of a visit: the view's own show({url, from,
+   * first}), then its title, its loops and its polls (each runs once, then
+   * on its interval). Revealed first if it is not yet. A switch wakes the
+   * room it arrives in once its turn is over, so none of this holds the
+   * turn up.
+   */
+  function wake({ url = null, from = null } = {}) {
+    usable();
+    if (state === 'shown') return Promise.resolve();
     if (showing) return showing;
-    shown = true;
-    root.hidden = false;
-    slot.header.put(); slot.dock.put(); slot.bar.put();
     showing = (async () => {
       try {
-        if (!handle) await mount();
+        await reveal();
         await handle.show?.({ url, from, first });
       } catch (e) {
-        // A mount that throws leaves nothing behind: whatever it started
-        // through ctx is undone, and it is not tried again (a second mount
-        // would add every listener the first one did a second time).
-        if (state === 'mounting') { state = 'failed'; teardown(); } else { state = 'hidden'; quiet(); }
+        if (state !== 'failed') { state = 'hidden'; quiet(); }
         throw e;
       } finally {
         showing = null;
@@ -418,11 +479,75 @@ export function createView(def, {
     return showing;
   }
 
+  /** show is a whole visit: reveal, then wake. */
+  async function show(opts = {}) {
+    usable();
+    return wake(opts);
+  }
+
+  const bodyClasses = () => String(doc?.body?.className || '').split(/\s+/).filter(Boolean);
+
+  /**
+   * prewarm mounts the view before its first visit, out of sight, so that
+   * visit is only a reveal. Its root stays hidden, what it adds to the
+   * slots waits inside it, and its listeners, polls and loops are as quiet
+   * as a hidden view's. Once the mount and its handle's `ready` (a promise,
+   * when the view has one) are done, its polls run once, so its data is in
+   * when it is first shown, and its own hide() runs, as if it had been
+   * shown and left (Capture's live socket closes). Its first show is still
+   * `first: true`. A view shown while it warms takes it from there.
+   *
+   * <body>'s classes are the room shown's. A class the mount puts on it is
+   * taken off again at once and reported, and prewarm answers the list, for
+   * the router to give the view with its own on its first visit: a view
+   * declares its classes in bodyClass.
+   */
+  function prewarm() {
+    usable();
+    if (warming) return warming;
+    if (state !== 'new') return Promise.resolve([]);
+    const before = new Set(bodyClasses());
+    const mounted = mountOnce('warming');
+    // The mount's synchronous part has run: what it put on <body> is the
+    // room's, not the one shown's.
+    const added = bodyClasses().filter((c) => !before.has(c));
+    if (added.length) {
+      doc.body.classList.remove(...added);
+      onError(new Error(`the ${def.id} view put ${added.join(' ')} on <body> as it mounted out of sight: give it in its bodyClass`));
+    }
+    const still = () => !shown && state === 'warming';
+    warming = (async () => {
+      try {
+        await mounted;
+        try { await handle.ready; } catch (e) { onError(e); }
+        if (!still()) return added;
+        await Promise.all([...polls].map(run));
+        if (!still()) return added;
+        let r;
+        try { r = handle.hide?.(); } catch (e) { onError(e); }
+        state = 'hidden';
+        quiet();
+        try { await r; } catch (e) { onError(e); }
+        return added;
+      } finally {
+        warming = null;
+      }
+    })();
+    return warming;
+  }
+
+  /** settled is a promise of the view mounted and its handle's `ready` done (never a rejection): now, for a view never mounted. */
+  function settled() {
+    return Promise.resolve(mounting).then(() => handle?.ready).then(() => {}, () => {});
+  }
+
   async function hide() {
-    if (state !== 'shown') return;
+    if (!shown) return;
     let r;
-    try { r = handle.hide?.(); } catch (e) { onError(e); }
-    state = 'hidden';
+    if (state === 'shown') {
+      try { r = handle.hide?.(); } catch (e) { onError(e); }
+    }
+    if (handle) state = 'hidden';
     quiet();
     try { await r; } catch (e) { onError(e); }
   }
@@ -447,6 +572,10 @@ export function createView(def, {
     get shown() { return shown; },
     get title() { return title; },
     show,
+    reveal,
+    wake,
+    prewarm,
+    settled,
     hide,
     destroy,
   };

@@ -136,12 +136,14 @@ export function mount(h) {
   const named = askedTake({ search: location.search });
   if (named) { location.replace(named); return { render() {} }; }
   forgetNote(); // a take's GRAB left a note for the Studio: this page is not it
+  // The room's class on <body> is mount.js's BODY, which the page puts on
+  // while the room is shown: the room may be mounted out of sight while the
+  // Studio is shown (lib/shell/router.js prewarm), and must not mark it.
   const $ = (id) => document.getElementById(id);
   const body = document.body;
   const main = document.querySelector('.shelf-main');
   const tools = document.querySelector('.shelf-tools');
   const toast = h.toast;
-  body.classList.add('room-on');
 
   // --- the header: the room's name, its search, and the rack's filters -------
   // The search's field is the header's, at its start (css/chrome.css); this

@@ -554,3 +554,131 @@ test('ctx contracts: on, every, and loop validate their arguments defensively', 
   assert.throws(() => innerCtx.loop(123), /expects \(fn: Function\)/);
 });
 
+
+// ---------- a visit in two halves, and a prewarm ----------
+
+test('reveal puts the view in the page (mounting it the first time) and runs nothing of its show; wake does', async () => {
+  let polls = 0;
+  let steps = 0;
+  const part = aView().el('div', 'room-header');
+  const t = withCtx((ctx) => {
+    ctx.headerSlot.add(part);
+    ctx.every(() => { polls++; }, 1000);
+    ctx.loop(() => { steps++; }).start();
+    return { show: (a) => t.calls.push(['show', a]) };
+  });
+  await t.v.reveal({ url: 'u', from: 'studio' });
+  assert.equal(t.root.hidden, false);
+  assert.equal(part.parentElement, t.header, 'its header part is in the header');
+  assert.deepEqual(t.calls, ['mount'], 'mounted, and its own show not yet run');
+  assert.equal(polls, 0);
+  t.clock.frame();
+  assert.equal(steps, 0, 'no loop until it is woken');
+  await t.v.wake({ url: 'u', from: 'studio' });
+  assert.deepEqual(t.calls, ['mount', ['show', { url: 'u', from: 'studio', first: true }]]);
+  assert.equal(polls, 1);
+  t.clock.frame();
+  assert.equal(steps, 1);
+  assert.equal(t.v.state, 'shown');
+});
+
+test('a prewarm mounts the view out of sight: its parts wait in its hidden root, then it is put away as if left', async () => {
+  const win = new Target();
+  let heard = 0;
+  let polls = 0;
+  let steps = 0;
+  let found = null;
+  const part = aView().el('div', 'room-header');
+  const t = withCtx((ctx) => {
+    ctx.headerSlot.add(part);
+    // As the room's mount does: a part of its header looked up by its id.
+    found = t.doc.getElementById('room-header');
+    ctx.on(win, 'keydown', () => { heard++; });
+    ctx.every(() => { polls++; }, 1000);
+    ctx.loop(() => { steps++; }).start();
+    return { show: (a) => t.calls.push(['show', a]), hide: () => t.calls.push('hide') };
+  });
+  const warm = t.v.prewarm();
+  assert.equal(t.root.hidden, true, 'never shown');
+  assert.equal(found, part, 'a part it adds is in the document while it mounts');
+  assert.equal(part.parentElement, t.root, 'in its own hidden root, not the header');
+  assert.equal(t.v.shown, false);
+  win.fire('keydown');
+  assert.equal(heard, 0, 'its listeners are as quiet as a hidden view’s');
+  assert.deepEqual(await warm, []);
+  assert.deepEqual(t.calls, ['mount', 'hide'], 'mounted, then its own hide: whatever it opened closes');
+  assert.equal(polls, 1, 'its polls ran once, so it has its data when it is first shown');
+  assert.equal(t.timers.armed, 0, 'and none is armed');
+  t.clock.frame();
+  assert.equal(steps, 0);
+  assert.equal(part.parentElement, null, 'its parts out of the document, as a hidden view’s are');
+  assert.equal(t.v.state, 'hidden');
+  await t.v.show({ url: 'u', from: 'studio' });
+  assert.deepEqual(t.calls, ['mount', 'hide', ['show', { url: 'u', from: 'studio', first: true }]], 'no second mount, and its first show says so');
+  assert.equal(part.parentElement, t.header);
+  t.clock.frame();
+  assert.equal(steps, 1);
+});
+
+test('a prewarm waits for the mount’s own ready; a view shown while it warms is not put away', async () => {
+  let release;
+  const late = new Promise((r) => { release = r; });
+  const t = aView({ mount: () => { t.calls.push('mount'); return { ready: late, show: (a) => t.calls.push(['show', a.first]), hide: () => t.calls.push('hide') }; } });
+  const warm = t.v.prewarm();
+  await tick();
+  assert.deepEqual(t.calls, ['mount']);
+  await t.v.show();
+  assert.deepEqual(t.calls, ['mount', ['show', true]], 'shown while it warmed: one mount, its first show');
+  release();
+  await warm;
+  assert.deepEqual(t.calls, ['mount', ['show', true]], 'and never hidden by the prewarm');
+  assert.equal(t.v.state, 'shown');
+  assert.equal(t.root.hidden, false);
+});
+
+test('a view shown while its prewarm is mounting waits on that one mount', async () => {
+  let release;
+  const later = new Promise((r) => { release = r; });
+  let mounts = 0;
+  const t = aView({ mount: async () => { mounts++; await later; return { show: () => t.calls.push('show') }; } });
+  const warm = t.v.prewarm();
+  const up = t.v.show();
+  release();
+  await up;
+  await warm;
+  assert.equal(mounts, 1);
+  assert.deepEqual(t.calls, ['show']);
+});
+
+test('a class a prewarmed mount puts on <body> is taken off at once, reported and answered', async () => {
+  const t = aView({ mount: () => { t.doc.body.classList.add('room-on'); return {}; } });
+  t.doc.body.classList.add('tape-page');
+  assert.deepEqual(await t.v.prewarm(), ['room-on']);
+  assert.equal(String(t.doc.body.className).trim(), 'tape-page');
+  assert.match(String(t.errors[0]?.message), /room-on.*bodyClass/);
+});
+
+test('a prewarm whose mount throws leaves nothing behind, and the view is failed', async () => {
+  const win = new Target();
+  const t = aView({ mount: (ctx) => { ctx.on(win, 'keydown', () => {}); throw new Error('no such element: #takes'); } });
+  await assert.rejects(t.v.prewarm(), /no such element/);
+  assert.equal(win.count('keydown'), 0);
+  assert.equal(t.v.state, 'failed');
+  await assert.rejects(t.v.show(), /failed to mount/);
+});
+
+test('settled is the view mounted and its ready done; prewarm of a view already up does nothing', async () => {
+  let release;
+  const late = new Promise((r) => { release = r; });
+  const t = aView({ mount: () => ({ ready: late }) });
+  let done = false;
+  await t.v.show();
+  t.v.settled().then(() => { done = true; });
+  await tick();
+  assert.equal(done, false);
+  release();
+  await tick();
+  await tick();
+  assert.equal(done, true);
+  assert.deepEqual(await t.v.prewarm(), []);
+});

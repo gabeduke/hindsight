@@ -12,6 +12,10 @@ export const captureView = {
   name: 'Studio',
   bodyClass: 'main-page',
   help: 'main',
+  // Mounted out of sight from the Listening Room with the tape off (router.js
+  // prewarm), so the first turn to it is a reveal: its live socket opens on
+  // its show, as it does on every visit.
+  prewarm: true,
   mount(ctx) {
     const headerEl = document.getElementById('header-capture');
     if (headerEl) {

@@ -104,7 +104,9 @@ router = createRouter({
   },
 });
 
-router.start();
+// Once the first room is up, the rooms its tabs lead to are mounted out of
+// sight in idle time, so the first turn to one is never a mount.
+router.start().then((r) => { if (r === 'shown') return router.prewarm(); return null; }).catch((e) => console.error(e));
 
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
