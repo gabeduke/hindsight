@@ -53,7 +53,7 @@ export class GhostDrawer {
       n.removeAttribute?.('id');
       n.removeAttribute?.('data-key');
     }
-    spineCopy.classList?.remove('on-deck', 'selected');
+    spineCopy.classList?.remove('on-deck', 'selected', 'down');
     spineCopy.setAttribute?.('tabindex', '-1');
     spineCopy.setAttribute?.('aria-hidden', 'true');
     this.spine = el(doc, 'span', 'room-carry-plane room-carry-spine', {}, el(doc, 'span', 'room-carry-shade'), spineCopy);

@@ -32,6 +32,7 @@ import { drawTrace } from './tape-strip.js';
 import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
+import { showPresses } from '../ui/keys.js';
 import { say, named } from '../rooms/words.js';
 import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toast.js';
 import { restoreTake, stepPast, putBack } from '../trash.js';
@@ -133,6 +134,7 @@ async function main() {
   // that would otherwise pop straight into the (unbuilt) pane on Back.
   if (history.state && history.state.notes) history.replaceState(null, '');
   initHelp({ page: 'take', toast });
+  showPresses(document); // every key goes down the moment it is touched
   initNav();
   // A take trashed on the page before this one: "Deleted … · Undo", and its
   // Undo opens it again, where it was in the list's order.

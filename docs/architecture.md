@@ -33,7 +33,7 @@ web/static/lib/objects the physical things: reels, cassettes, VU meters, the sha
 web/static/lib/scene   the scene contract the renderers follow
 web/static/lib/wave    the take page (wave.html): view, geometry, draw, tiles, clock, lanes
 web/static/lib/edit    the gestures and curves every editing surface shares
-web/static/lib/ui      one press: the gestures' times (GESTURE), and a key's tap, double tap and hold
+web/static/lib/ui      one press: the gestures' times (GESTURE), a key's tap, double tap and hold, and its down pose
 web/static/lib/help    tips, help mode, and the guide renderer
 web/static/lib/phone   the phone recorder
 docs/embed.go          the guide, compiled into the binary
@@ -878,6 +878,39 @@ What a frame may do, in the Studio and anything else on the ticker:
 
 `lib/tape/playhead.test.js` walks what the playhead's step calls and fails on
 a measure, a style read, a write to the page or a lane painted.
+
+### Motion
+
+One set of times, eases and springs for the whole app, in
+`lib/objects/motion.js`: `T` (press 0, release 120, touch 120, move 200,
+exit 120, sheet 280, room 300, flight 420 ms), `EASES`, and `SPRINGS` as a
+damping ratio and a natural frequency (snap, lid, carry, and the VU
+needle's). `spring()` is the exact step of any of them, critically damped
+and overdamped included, for anything a finger drives or that may turn
+round halfway; `springEasing()` is one as a CSS `linear()` and its own
+duration, for a move that runs to its end; `project()` is where a flick
+comes to rest.
+
+- **The CSS has them as tokens** (`--t-*`, `--ease-*`, `--spring-*` with
+  `--t-spring-*`, at the top of `styles.css`), written by
+  `node scripts/motion-tokens.mjs --write` from `lib/objects/motion-css.js`;
+  `lib/objects/motion-tokens.test.js` fails while the two disagree. A
+  spring's curve goes with its own time: over another, it is another
+  spring. A browser without `linear()` takes the nearest cubic-bézier.
+- **Less motion, in one place:** one `@media (prefers-reduced-motion)`
+  block zeroes every time a thing travels in (the fades stay), and the
+  ticker follows the setting as it changes.
+- **A key goes down at once** and comes back on the snap spring: its
+  `:active` rule draws `.down` too and zeroes the time into it
+  (`--t-press`), and `lib/ui/keys.js`, wired once at each page's boot after
+  help mode, adds `.down` on the pointer's first touch and keeps it 80 ms,
+  so a touch (whose `:active` Chrome holds back) and a quick tap both show
+  it. A key's hover rules step aside while it is down, so under a mouse it
+  goes down too. The big transport keys travel 2 px; spines and cue clips
+  (`.sinks`) sink 2 px by their `translate`. Lamps light at once and fade
+  over `--t-move`. `lib/ui/keys.test.js` fails on a key's `:active`
+  without its `.down`, and on a hover rule that would hold a pressed key
+  up.
 
 ### Waking up
 

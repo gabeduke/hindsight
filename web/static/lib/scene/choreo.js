@@ -17,15 +17,14 @@
 // motion tokens in styles.css carry the same numbers, and a test keeps the
 // two in step.
 
-/** The motion tokens (styles.css, Rooms R2): ms, and the eases' control points. */
-export const T_TOUCH = 120;  // --t-touch: the answer to a finger
-export const T_MOVE = 200;   // --t-move: slides and turns
-export const T_FLIGHT = 420; // --t-flight: between places
-export const EASES = Object.freeze({
-  out: Object.freeze([0.2, 0.8, 0.2, 1]),       // --ease-out
-  flight: Object.freeze([0.3, 0, 0.2, 1]),      // --ease-flight
-  seat: Object.freeze([0.34, 1.56, 0.64, 1]),   // --ease-seat: the overshoot
-});
+import { T, EASES } from '../objects/motion.js';
+
+/** The motion tokens the board's frames are timed by: lib/objects/motion.js's, as styles.css has them. */
+export const T_TOUCH = T.touch;   // --t-touch: the answer to a finger
+export const T_MOVE = T.move;     // --t-move: slides and turns
+export const T_FLIGHT = T.flight; // --t-flight: between places
+/** The eases' control points: --ease-out, --ease-flight, --ease-seat (the overshoot) among them. */
+export { EASES };
 
 /** The frames, in order: name, start and length in ms. */
 export const FRAMES = Object.freeze([

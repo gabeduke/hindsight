@@ -1,6 +1,7 @@
 // J1.12 The bar runs the tape: its reels are drawn, its line names the tape,
 // its counter moves while the tape plays, and |◂ goes back to the loop's
-// start. docs/flows.md#j112
+// start. ▶ goes down the moment it is touched, and a quick tap still shows
+// it down (lib/ui/keys.js). docs/flows.md#j112
 // Ported from the retired scripts/smoke-tape.mjs ("The bar runs").
 export default {
   id: 'J1.12',
@@ -17,7 +18,25 @@ export default {
     t.expect('its line names the tape', await t.poll((n) => (document.getElementById('np-marquee')?.textContent ?? '').startsWith(n), tape.name.toUpperCase()),
       await page.evaluate(marquee));
 
+    // Watch ▶ as it is tapped: the first frame after the finger lands, and
+    // how long its down pose lasts. A tap from the harness is as quick as a
+    // tap gets, so this is the case the down pose has to outlast.
+    await page.evaluate(() => {
+      const key = document.getElementById('np-play');
+      const seen = window.__press = { at: null, first: null, upAt: null };
+      addEventListener('pointerdown', (e) => {
+        if (seen.at !== null || !key.contains(e.target)) return;
+        seen.at = performance.now();
+        requestAnimationFrame(() => { seen.first = getComputedStyle(key).transform; });
+      }, { capture: true });
+      new MutationObserver(() => {
+        if (seen.at !== null && seen.upAt === null && !key.classList.contains('down')) seen.upAt = performance.now();
+      }).observe(key, { attributes: true, attributeFilter: ['class'] });
+    });
     await t.step('tap ▶', () => t.tap(page.locator('#np-play')));
+    const press = await t.poll(() => (window.__press?.upAt != null ? window.__press : null), null, 3000);
+    t.expect('▶ is down in the first frame after the touch, 2 px', /matrix\(1, 0, 0, 1, 0, 2\)/.test(press?.first ?? ''), press);
+    t.expect('a quick tap still shows ▶ down for 80 ms', press && press.upAt - press.at >= 79, press && Math.round(press.upAt - press.at));
     t.expect('▶ shows it playing', await t.poll(() => document.getElementById('np-play')?.classList.contains('playing')));
     const playing = await api.until(async () => (await live()).live?.playing, 'the Pi to play the tape', 8000).catch(() => false);
     t.expect('the Pi plays the tape', playing);

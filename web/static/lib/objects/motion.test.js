@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ballistic, lag, settled, spin, Loop, Ticker, VU_WN, VU_ZETA } from './motion.js';
+import {
+  ballistic, lag, settled, spin, spring, springEasing, project, Loop, Ticker, T, SPRINGS, EASING_EPS, VU_WN, VU_ZETA,
+} from './motion.js';
 
 // A fake clock, so motion is tested as maths rather than as a race with a
 // real requestAnimationFrame.
@@ -341,4 +343,181 @@ test('a Loop that throws is reported and taken off', () => {
   c.advance(16);
   assert.deepEqual(errors, ['paint broke']);
   assert.ok(!loop.running);
+});
+
+// ---------- spring(): every damping, against the equation itself ----------
+
+/**
+ * integrate runs x'' = -wn²(x - target) - 2ζwn·x' with RK4 at a fine,
+ * fixed step: slow and only approximate, but free of every closed form, so
+ * it is an honest referee for them.
+ */
+function integrate(x, v, target, ms, { zeta, wn }, h = 1e-5) {
+  const a = (x, v) => -wn * wn * (x - target) - 2 * zeta * wn * v;
+  for (let t = 0; t < ms / 1000 - h / 2; t += h) {
+    const k1x = v, k1v = a(x, v);
+    const k2x = v + (h / 2) * k1v, k2v = a(x + (h / 2) * k1x, v + (h / 2) * k1v);
+    const k3x = v + (h / 2) * k2v, k3v = a(x + (h / 2) * k2x, v + (h / 2) * k2v);
+    const k4x = v + h * k3v, k4v = a(x + h * k3x, v + h * k3v);
+    x += (h / 6) * (k1x + 2 * k2x + 2 * k3x + k4x);
+    v += (h / 6) * (k1v + 2 * k2v + 2 * k3v + k4v);
+  }
+  return { value: x, velocity: v };
+}
+
+const DAMPINGS = [
+  ['ringing (the needle)', SPRINGS.needle],
+  ['lid', SPRINGS.lid],
+  ['carry', SPRINGS.carry],
+  ['critical (snap)', SPRINGS.snap],
+  ['overdamped', { zeta: 1.6, wn: 30 }],
+];
+
+test('spring is the equation’s exact answer at every damping, from rest and from a flick', () => {
+  for (const [name, s] of DAMPINGS) {
+    for (const [x0, v0] of [[0, 0], [0, 40], [2, -25]]) {
+      for (const ms of [5, 40, 160]) {
+        const got = spring(x0, v0, 1, ms, s);
+        const want = integrate(x0, v0, 1, ms, s);
+        assert.ok(Math.abs(got.value - want.value) < 1e-6, `${name} from ${x0},${v0} after ${ms} ms: ${got.value} vs ${want.value}`);
+        assert.ok(Math.abs(got.velocity - want.velocity) < 1e-4, `${name}'s speed from ${x0},${v0} after ${ms} ms`);
+      }
+    }
+  }
+});
+
+test('critical damping is finite where the ringing form divides by nothing', () => {
+  for (const zeta of [1, 1 - 1e-9, 1 + 1e-9]) {
+    const r = spring(0, 0, 1, 16, { zeta, wn: 55 });
+    assert.ok(Number.isFinite(r.value) && Number.isFinite(r.velocity), `ζ ${zeta}`);
+  }
+  // The form ballistic() alone would take: 0/0.
+  const wd = 55 * Math.sqrt(1 - 1);
+  assert.equal(wd, 0);
+  // Either side of 1 agrees with 1 itself.
+  const at1 = spring(0, 0, 1, 30, { zeta: 1, wn: 55 }).value;
+  assert.ok(Math.abs(spring(0, 0, 1, 30, { zeta: 1 - 1e-4, wn: 55 }).value - at1) < 1e-4);
+  assert.ok(Math.abs(spring(0, 0, 1, 30, { zeta: 1 + 1e-4, wn: 55 }).value - at1) < 1e-4);
+});
+
+test('every spring settles on its target, at 30, 60 and 120 Hz alike', () => {
+  for (const [name, s] of DAMPINGS) {
+    const at = (hz) => {
+      let value = 0, velocity = 0;
+      for (let i = 0; i < hz * 2; i++) ({ value, velocity } = spring(value, velocity, 1, 1000 / hz, s));
+      return value;
+    };
+    assert.ok(Math.abs(at(60) - 1) < 1e-3, `${name} arrives`);
+    assert.ok(Math.abs(at(30) - at(120)) < 1e-9, `${name} is the same at any frame rate`);
+  }
+});
+
+test('a spring at ζ ≥ 1 never passes its target, and never turns back', () => {
+  for (const s of [SPRINGS.snap, { zeta: 1.6, wn: 30 }]) {
+    let value = 0, velocity = 0, last = 0;
+    for (let i = 0; i < 120; i++) {
+      ({ value, velocity } = spring(value, velocity, 1, 1000 / 60, s));
+      assert.ok(value >= last - 1e-12 && value <= 1 + 1e-12, `ζ ${s.zeta}: ${last} → ${value}`);
+      last = value;
+    }
+  }
+});
+
+test('spring lands at once on an infinite step, and stays put at dt 0', () => {
+  for (const [, s] of DAMPINGS) {
+    assert.deepEqual(spring(0, 3, 1, Infinity, s), { value: 1, velocity: 0 });
+    assert.deepEqual(spring(0.4, 3, 1, 0, s), { value: 0.4, velocity: 3 });
+  }
+});
+
+test('ballistic is spring with the needle’s numbers', () => {
+  for (const [x, v, ms] of [[0, 0, 16], [0.3, -2, 33], [1.2, 5, 7]]) {
+    assert.deepEqual(ballistic(x, v, 1, ms), spring(x, v, 1, ms, SPRINGS.needle));
+  }
+  assert.deepEqual(SPRINGS.needle, { zeta: VU_ZETA, wn: VU_WN });
+});
+
+test('a key is back up by T.release: the snap spring’s 99%', () => {
+  let value = 0, velocity = 0, t = 0;
+  while (value < 0.99) { ({ value, velocity } = spring(value, velocity, 1, 1, SPRINGS.snap)); t++; }
+  assert.ok(Math.abs(t - T.release) <= 1000 / 60, `99% at ${t} ms`);
+});
+
+// ---------- springEasing(): a spring as CSS plays it ----------
+
+test('springEasing is a linear() from 0 to 1, one point a 60 Hz frame, over the spring’s own time', () => {
+  for (const name of ['snap', 'lid', 'carry']) {
+    const s = SPRINGS[name];
+    const { duration, easing } = springEasing(s);
+    const points = /^linear\((.*)\)$/.exec(easing)[1].split(', ').map(Number);
+    assert.equal(points[0], 0);
+    assert.equal(points.at(-1), 1);
+    assert.equal(duration, Math.round(((points.length - 1) * 1000) / 60), name);
+    // Each point is where the spring is at that frame, to 0.1%.
+    let value = 0, velocity = 0;
+    for (let i = 1; i < points.length - 1; i++) {
+      ({ value, velocity } = spring(value, velocity, 1, 1000 / 60, s));
+      assert.ok(Math.abs(points[i] - value) <= 0.0005 + 1e-12, `${name} frame ${i}`);
+    }
+    // And the end is where it has settled: within 0.1%, and no further to go.
+    ({ value, velocity } = spring(value, velocity, 1, 1000 / 60, s));
+    assert.ok(Math.abs(1 - value) < EASING_EPS && Math.abs(velocity) / s.wn < EASING_EPS, `${name} ends settled`);
+  }
+});
+
+test('springEasing overshoots only where the spring does', () => {
+  const peak = (name) => Math.max(...springEasing(SPRINGS[name]).easing.slice(7, -1).split(', ').map(Number));
+  assert.equal(peak('snap'), 1, 'snap never passes its target');
+  assert.ok(peak('lid') > 1 && peak('lid') < 1.01, 'lid: a soft stop, ½% over');
+  assert.ok(peak('carry') > 1.02 && peak('carry') < 1.04, 'carry: 3% over as it seats');
+});
+
+test('springEasing is worked out once a spring', () => {
+  assert.equal(springEasing(SPRINGS.lid), springEasing({ zeta: 0.86, wn: 22 }));
+});
+
+// ---------- project(): where a flick comes to rest ----------
+
+test('project carries a flick as far as its speed takes it, and no flick nowhere', () => {
+  assert.equal(project(0), 0);
+  // 1000 px/s at UIScrollView's normal rate: 1 px a ms, keeping .998 of it each ms.
+  assert.ok(Math.abs(project(1000) - 499) < 1e-9);
+  assert.ok(Math.abs(project(-1000) + 499) < 1e-9, 'either way');
+  assert.ok(project(1000, 0.99) < project(1000), 'a faster stop carries less far');
+  assert.equal(project(1000, 1), 0, 'a rate that never stops is not a rate');
+  assert.equal(project(NaN), 0);
+});
+
+// ---------- the ticker hears less motion turned on ----------
+
+/** fakeMedia is a MediaQueryList whose answer the test changes. */
+function fakeMedia(matches) {
+  const heard = new Set();
+  return {
+    matches,
+    addEventListener: (type, fn) => { if (type === 'change') heard.add(fn); },
+    set(v) { this.matches = v; for (const fn of heard) fn({ matches: v }); },
+  };
+}
+
+test('less motion turned on with the app open lands the next frame', () => {
+  const c = fakeClock();
+  const media = fakeMedia(false);
+  const ticker = new Ticker({ ...c, media });
+  const dts = [];
+  ticker.add((dt) => { dts.push(dt); return true; });
+  c.advance(16);
+  media.set(true);
+  c.advance(16);
+  media.set(false);
+  c.advance(16);
+  assert.deepEqual(dts, [16, Infinity, 16]);
+});
+
+test('a ticker told its motion keeps it, whatever the device says later', () => {
+  const media = fakeMedia(true);
+  const ticker = new Ticker({ ...fakeClock(), reduced: false, media });
+  media.set(true);
+  assert.equal(ticker.reduced, false);
+  assert.equal(new Ticker({ ...fakeClock(), media: fakeMedia(true) }).reduced, true, 'and one not told starts where the device is');
 });
