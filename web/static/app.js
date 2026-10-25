@@ -466,15 +466,22 @@ export function mountCapture(ctx) {
     },
   });
 
+  // Every show, the first one included: a Capture mounted out of sight
+  // (lib/shell/router.js prewarm) has been hidden before its first visit.
+  // The ribbon polls on a timer of its own, not through ctx, so it is
+  // paused and resumed here, or it would ask for the ring once a second
+  // while another room is shown.
   return {
     show({ first } = {}) {
       startLive();
+      ribbon?.resume?.();
       if (!first) {
         pollStatus().then(() => pollTakes(true));
       }
     },
     hide() {
       stopLive();
+      ribbon?.pause?.();
     },
     destroy() {
       stopLive();

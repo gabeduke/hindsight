@@ -13,8 +13,9 @@ export const captureView = {
   bodyClass: 'main-page',
   help: 'main',
   // Mounted out of sight from the Listening Room with the tape off (router.js
-  // prewarm), so the first turn to it is a reveal: its live socket opens on
-  // its show, as it does on every visit.
+  // prewarm), so the first turn to it is a reveal. Its hide() has run by
+  // then, so every show, the first one included, opens its live socket and
+  // starts its ribbon again.
   prewarm: true,
   mount(ctx) {
     const headerEl = document.getElementById('header-capture');
@@ -25,7 +26,7 @@ export const captureView = {
     const capture = mountCapture(ctx);
     return {
       show({ first }) {
-        if (!first) capture?.show?.();
+        capture?.show?.({ first });
       },
       hide() {
         capture?.hide?.();

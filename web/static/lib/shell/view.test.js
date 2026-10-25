@@ -5,6 +5,7 @@
 // document, the window, the timers and the ticker.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { fakeDoc } from '../play/fake-dom.js';
 import { createView, classesOf } from './view.js';
 import { createLayers } from '../ui/layers.js';
@@ -681,4 +682,25 @@ test('settled is the view mounted and its ready done; prewarm of a view already 
   await tick();
   assert.equal(done, true);
   assert.deepEqual(await t.v.prewarm(), []);
+});
+
+// The shell's own prewarmed views read as source: app.js and the views
+// load the page's modules by absolute path, which Node does not resolve.
+const source = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+
+test('a prewarmed view’s first show puts back what its hide put away: Capture opens its socket and starts its ribbon on every show', () => {
+  // view.js runs a prewarmed view's hide() before its first show (the
+  // prewarm test above): a show that skips its first visit leaves Capture's
+  // live socket closed, and its meters dead, on the first switch to it.
+  const capture = source('./views/capture.js');
+  assert.match(capture, /prewarm:\s*true/);
+  const show = /show\(\{ first \}\) \{([\s\S]*?)\n      \},/.exec(capture)?.[1] ?? '';
+  assert.match(show, /capture\?\.show\?\.\(\{ first \}\)/, 'Capture’s show is handed every visit, the first one included');
+  assert.doesNotMatch(show, /if \(!first\)/, 'not only the later ones');
+  // Its ribbon polls on a timer of its own, not through ctx: paused when
+  // Capture is put away, and started again when it is shown.
+  const app = source('../../app.js');
+  const handle = app.slice(app.lastIndexOf('return {'));
+  assert.match(/show\(\{ first \} = \{\}\) \{([\s\S]*?)\n    \},/.exec(handle)?.[1] ?? '', /startLive\(\);[\s\S]*ribbon\?\.resume\?\.\(\)/);
+  assert.match(/hide\(\) \{([\s\S]*?)\n    \},/.exec(handle)?.[1] ?? '', /stopLive\(\);[\s\S]*ribbon\?\.pause\?\.\(\)/);
 });

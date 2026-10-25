@@ -822,8 +822,11 @@ the desk (the lit tab, a bar of another shape) changes in place.
   no class on `<body>` (a class it adds anyway comes off at once and is
   reported; the view's classes are its `bodyClass`, the doorway's
   `room-on` is `lib/room/mount.js`'s `BODY`), nothing in the header, the
-  dock or the bar but through its slots. Its first visit is a reveal, still
-  `first: true`.
+  dock or the bar but through its slots. Its first visit is a reveal,
+  still `first: true`, but its `hide()` has run before it: so its `show()`
+  puts back on every visit what `hide()` put away (Capture's live socket),
+  and what it runs outside `ctx` (Capture's ribbon, on its own timer)
+  stops in `hide()` and starts in `show()`.
 - **A press is never lost.** Chromium hit-tests the whole page to `<html>`
   while a View Transition runs, whatever `pointer-events` its overlay has
   (`::view-transition` has `none`, for the browsers that honour it). So a

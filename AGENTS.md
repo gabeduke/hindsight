@@ -275,7 +275,12 @@ When you need the history behind one, read it from git:
   turn, so nothing heavy goes in the switch. A view marked `prewarm` is
   mounted out of sight before its first visit: its mount puts no class on
   `<body>` (they are its `bodyClass`) and nothing in the header, the dock
-  or the bar but through its slots.
+  or the bar but through its slots. Its own `hide()` runs before its first
+  `show()`, so every show, the first one included, puts back what hide put
+  away; and what it runs outside `ctx` (Capture's ribbon, on a timer of its
+  own) stops in hide and starts in show. Capture once came up with dead
+  meters on its first visit, and asked for its ribbon once a second from
+  every other room.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.
