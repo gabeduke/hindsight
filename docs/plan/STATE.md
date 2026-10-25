@@ -56,7 +56,8 @@ is `<pi-host>`.
   the header and the bar held still, a crossfade with less motion; the
   Listening Room and Capture are mounted out of sight once the first room
   is up, so the first turn lands on a drawn room; a tap during a turn ends
-  it and lands. Rooms make their entrance on `html[data-arriving]`. See
+  it, and lands if it was on the header or the bar (on the room, it does
+  nothing else). Rooms make their entrance on `html[data-arriving]`. See
   `docs/architecture.md`, *Moving between rooms*.
 - **The Listening Room:** the shelf as a room, tap plays, hold selects, the
   Sketchbook (✎) inline, Open → the take page, which shares the edit curves

@@ -2,7 +2,9 @@
 // ways, without a page load. The switch turns the camera from one wall of
 // the room to the other (the Studio on the left), while the header holds
 // still and the bar stays on a layer of its own, never turned with the room;
-// a tap on ▶ while it turns lands. docs/flows.md#j22
+// a tap on ▶ while it turns lands, and a tap on the room while it turns does
+// nothing (the shelves under the turn are not where they show).
+// docs/flows.md#j22
 // ▶ says it plays by its .playing, whatever it draws (❚❚ for a take).
 import { watchDesk, desk, rects, same, during } from './desk.mjs';
 
@@ -95,5 +97,29 @@ export default {
     t.expect('the tap came while the camera was turning', taps.downs.some((d) => d.turn), taps.downs);
     t.expect('▶ took it: the take stopped, the tap was not lost', stopped, await page.evaluate(bar));
     t.expect('in the Studio, with no page load', await page.evaluate(() => location.pathname === '/tape.html' && window.__flowMarker === true));
+
+    // A tap on the room as the camera turns: the picture is the turn, and
+    // the shelves are laid out at rest under it, where they don't show yet.
+    // It ends the turn and does nothing else: no take under it plays.
+    const held = await page.evaluate(bar);
+    await t.step('go to the Listening Room, and tap a take on the shelf as the camera turns', async () => {
+      await page.locator('.appnav a[data-tab="room"]').click();
+      const at = await (await page.waitForFunction(() => {
+        if (!document.documentElement.getAttribute('data-turn') || document.getElementById('view-room')?.hidden) return null;
+        const c = [...document.querySelectorAll('#view-room .room-cassette')].find((e) => e.getBoundingClientRect().width > 0);
+        if (!c) return null;
+        const r = c.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      }, null, { polling: 'raf', timeout: 5000 })).jsonValue();
+      if (t.profile === 'desktop') await page.mouse.click(at.x, at.y);
+      else await page.touchscreen.tap(at.x, at.y);
+    });
+    await t.wait(1500);
+    const stray = await desk(page);
+    const now = await page.evaluate(bar);
+    t.expect('the tap came while the camera was turning', stray.downs.some((d) => d.turn), stray.downs);
+    t.expect('it did nothing: the bar holds what it held, still stopped', !now.playing && now.source === held.source, { held, now });
+    t.expect('in the Listening Room, with no sheet open and no page load',
+      now.path === '/takes.html' && now.marker && !(await page.locator('dialog[open]').count()), now);
   },
 };

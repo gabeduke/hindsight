@@ -17,10 +17,14 @@
 :root[data-turn] .appbar { view-transition-name: appbar; }
 :root[data-turn] #np { view-transition-name: np; }
 
-/* The transition's overlay never takes a tap. Under it the page is already
-   the room arrived in, laid out, so a tap lands where it looks, and a tab
-   tapped mid-turn turns back (router.js skips the turn under way). */
-::view-transition { pointer-events: none; }
+/* A switch's overlay takes no tap: a finger's click goes through it to
+   what is laid out under it, which, once the update has run, is the room
+   arrived in at rest, not the picture turning over it. Chromium still
+   gives the press itself to <html>. The router decides where a press
+   during a turn lands (lib/shell/router.js): it ends the turn, and its
+   click lands only on the desk that holds still -- the header and the
+   bar -- on the control it was pressed on; in the room, nowhere. */
+:root[data-turn]::view-transition { pointer-events: none; }
 
 /* The turn. The camera stands in the room and turns about a point in front
    of the screen (--pivot), so the room left swings away to one side,

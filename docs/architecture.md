@@ -829,12 +829,20 @@ the desk (the lit tab, a bar of another shape) changes in place.
   back on every visit what `hide()` put away (Capture's live socket), and
   what it runs outside `ctx` (Capture's ribbon, on its own timer) stops in
   `hide()` and starts in `show()`.
-- **A press is never lost.** Chromium hit-tests the whole page to `<html>`
-  while a View Transition runs, whatever `pointer-events` its overlay has
-  (`::view-transition` has `none`, for the browsers that honour it). So a
-  press that lands on `<html>` during a turn ends the turn there and then,
-  and its click is given to what is under the finger: a tap on ▶ or a tab
-  as the camera turns does what it says.
+- **A tap lands where it looks, or nowhere.** While a switch is drawn,
+  what is on the screen is the turn, and the page under it is the room
+  arrived in laid out at rest (before the update has run, still the room
+  left). Chromium hit-tests a press, and `elementFromPoint`, to `<html>`
+  while a View Transition runs; a mouse's click goes to `<html>` too, and a
+  finger's click goes through the overlay (`:root[data-turn]
+  ::view-transition` has `pointer-events: none`) to what is laid out under
+  it, not to the picture. So a press during a turn ends it at once
+  (`skipTransition`), and its click lands only on the desk that holds
+  still (`.appbar`, `#np`), on the control the press was on (hit-tested
+  once the turn is over), and only once the swap is done; a click on the
+  room, or on a key the swap took away, goes nowhere. A tap on ▶ or a tab
+  as the camera turns does what it says; a tap on the room only ends the
+  turn.
 - **The entrance contract.** While a turn into a room plays,
   `html[data-arriving]` names that room (`room`, `studio`, `capture`): set
   before the transition starts, so the room's own entrance (the shelves
@@ -847,8 +855,9 @@ the desk (the lit tab, a bar of another shape) changes in place.
 
 The flows check it: J2.2 that the camera turns both ways, the header's box
 is the same before, on every frame of the turn and after, the bar is never
-turned with the room, and a tap on ▶ mid-turn stops the take; J2.10 (todo
-until the bar has one shape) that the bar keeps its box too.
+turned with the room, a tap on ▶ mid-turn stops the take, and a tap on a
+take's spine mid-turn plays nothing; J2.10 (todo until the bar has one
+shape) that the bar keeps its box too.
 
 **One way to close things** (`lib/ui/layers.js`). Menus, popovers, sheets,
 drawers, a selection and the phone's player sit on one stack per document

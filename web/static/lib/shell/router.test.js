@@ -720,9 +720,28 @@ test('a tab tapped while a switch is drawn skips its turn, and the rooms end whe
   assert.equal(s.history.length, 3, 'each tap its entry: Back goes to the room, as the taps did');
 });
 
-test('a press the turn takes ends it at once, and its click goes to what is under the finger', async () => {
+// A shell whose switch is drawn as a View Transition held where the test
+// says: its update waits for swap(), as a browser's waits for the old
+// picture to be captured. The desk -- a header (.appbar) with the tabs, a
+// bar (#np) with ▶ and a key the swap takes away -- and the press and the
+// click a finger or a mouse makes, through the window's capture.
+async function aTurningShell() {
   const s = aShell({ path: '/tape.html' });
   aVtDoc(s.doc);
+  const start = s.doc.startViewTransition;
+  s.doc.startViewTransition = (update) => {
+    let swap;
+    const gate = new Promise((r) => { swap = r; });
+    const t = start(async () => { await gate; return update(); });
+    t.swap = swap;
+    // On the screen until it is skipped or over.
+    t.live = true;
+    const skip = t.skipTransition.bind(t);
+    const end = t.end;
+    t.skipTransition = () => { t.live = false; skip(); };
+    t.end = () => { t.live = false; end(); };
+    return t;
+  };
   s.router.stop();
   const r = createRouter({
     views: Object.values(s.views), location: s.location, history: s.history, doc: s.doc, win: s.win,
@@ -730,32 +749,210 @@ test('a press the turn takes ends it at once, and its click goes to what is unde
   });
   s.win.MouseEvent = class { constructor(type, init) { Object.assign(this, init); this.type = type; } };
   await r.start();
+  const header = s.tab.room.parentElement;
+  header.className = 'appbar';
+  const np = s.doc.createElement('div');
+  np.id = 'np';
+  const key = (id) => {
+    const b = s.doc.createElement('button');
+    b.id = id;
+    b.clicks = [];
+    b.addEventListener('click', (e) => b.clicks.push([e.clientX, e.clientY]));
+    np.append(b);
+    return b;
+  };
+  const play = key('np-play');
+  const dock = key('room-dock-key'); // a key of the bar the swap takes away
+  s.doc.body.append(np);
+  // What each room's button heard: a click handed on to the room is a bug.
+  for (const v of Object.values(s.views)) {
+    v.button.clicks = [];
+    v.button.addEventListener('click', (e) => v.button.clicks.push([e.clientX, e.clientY]));
+  }
+  // What is laid out under the point, as the page is now; while a
+  // transition is on the screen, Chromium answers <html> for every point.
+  s.under = null;
+  s.doc.elementFromPoint = () => (s.doc.started.some((t) => t.live) ? s.doc.documentElement : s.under);
   const html = s.doc.documentElement;
-  const play = s.doc.createElement('button');
-  let played = 0;
-  play.addEventListener('click', (e) => { played++; play.at = [e.clientX, e.clientY]; });
-  s.doc.elementFromPoint = () => play;
-  let stopped = 0;
-  const press = (type, target, over = {}) => s.win.fire(type, { target, clientX: 40, clientY: 700, stopImmediatePropagation() { stopped++; }, ...over });
+  // A press and its click, at (40, 700) unless said otherwise: each answers
+  // what the router did with it.
+  const fire = (type, target, over = {}) => {
+    const e = { target, clientX: 40, clientY: 700, detail: 1, stopped: false, defaultPrevented: false, ...over };
+    e.stopImmediatePropagation = () => { e.stopped = true; };
+    e.preventDefault = () => { e.defaultPrevented = true; };
+    s.win.fire(type, e);
+    return e;
+  };
+  const turn = async (to) => {
+    const going = r.go(to);
+    await tick();
+    return { t: s.doc.started.at(-1), going };
+  };
+  return { s, r, html, play, dock, fire, turn };
+}
 
-  r.go('/takes.html');
-  await tick();
-  const t = s.doc.started[0];
+test('a press while a switch is drawn ends the turn at once, and its click on <html> goes to the desk’s key under the finger', async () => {
+  const { s, r, html, play, fire, turn } = await aTurningShell();
+  const { t } = await turn('/takes.html');
+  t.swap();
   await t.updateCallbackDone;
-  press('pointerdown', play);
-  assert.equal(t.skipped, 0, 'a press that reached what it was on leaves the turn be');
-  press('pointerdown', html);
-  assert.equal(t.skipped, 1, 'one the turn took ends it');
-  press('click', html);
-  assert.equal(played, 1, 'and its click reaches ▶');
-  assert.deepEqual(play.at, [40, 700]);
-  assert.equal(stopped, 1, 'the click on <html> goes no further');
-  press('click', html);
-  assert.equal(played, 1, 'once');
+  s.under = play;
+  fire('pointerdown', html);
+  assert.equal(t.skipped, 1, 'the turn ends');
+  const click = fire('click', html);
+  assert.ok(click.stopped && click.defaultPrevented, 'the click on <html> goes no further');
+  await tick();
+  assert.deepEqual(play.clicks, [[40, 700]], 'and ▶ has it, where it was pressed');
+  fire('click', html);
+  await tick();
+  assert.equal(play.clicks.length, 1, 'once');
   await r.idle();
-  press('pointerdown', html);
-  press('click', html);
-  assert.equal(played, 1, 'with no switch drawn, a press on the page is the page’s');
+  fire('pointerdown', html);
+  const later = fire('click', html);
+  await tick();
+  assert.ok(!later.stopped && !later.defaultPrevented && play.clicks.length === 1, 'with no switch drawn, a press on the page is the page’s');
+  r.stop();
+});
+
+test('a finger’s click that the browser puts through the turn lands as it is on the desk, and goes nowhere in the room', async () => {
+  const { s, r, html, play, fire, turn } = await aTurningShell();
+  const { t } = await turn('/takes.html');
+  t.swap();
+  await t.updateCallbackDone;
+  // Through the overlay (pointer-events: none), on ▶ itself.
+  s.under = play;
+  fire('pointerdown', html);
+  const onPlay = fire('click', play);
+  assert.ok(!onPlay.stopped && !onPlay.defaultPrevented, 'a tap on ▶ is ▶’s, untouched');
+  // On the room arrived in, laid out at rest under a picture still turning.
+  const spine = s.views.room.button;
+  s.under = spine;
+  const before = s.doc.started.length;
+  await turn('/tape.html');
+  const t2 = s.doc.started.at(-1);
+  assert.equal(s.doc.started.length, before + 1);
+  t2.swap();
+  await t2.updateCallbackDone;
+  fire('pointerdown', html, { clientX: 780, clientY: 380 });
+  assert.equal(t2.skipped, 1, 'a press anywhere ends the turn');
+  const onRoom = fire('click', spine, { clientX: 780, clientY: 380 });
+  assert.ok(onRoom.stopped && onRoom.defaultPrevented, 'a tap on the room under the turn does nothing: nothing there was where it looked');
+  await r.idle();
+  // With a mouse, its click goes to <html>: it is not handed on to the room either.
+  const tm = (await turn('/takes.html')).t;
+  tm.swap();
+  await tm.updateCallbackDone;
+  fire('pointerdown', html, { clientX: 780, clientY: 380 });
+  const mouse = fire('click', html, { clientX: 780, clientY: 380 });
+  await tick();
+  assert.ok(mouse.stopped && spine.clicks.length === 0, 'a click on the room under the turn reaches nothing in it');
+  await r.idle();
+  // A browser that hit-tests the press itself (Safari): the same.
+  const n = s.doc.started.length;
+  const t3 = (await turn('/tape.html')).t;
+  assert.equal(s.doc.started.length, n + 1, 'a switch of its own');
+  t3.swap();
+  await t3.updateCallbackDone;
+  fire('pointerdown', spine, { clientX: 780, clientY: 380 });
+  assert.equal(t3.skipped, 1);
+  const safari = fire('click', spine, { clientX: 780, clientY: 380 });
+  assert.ok(safari.stopped && safari.defaultPrevented);
+  await r.idle();
+  r.stop();
+});
+
+test('a press before the swap is not handed on until the swap is done, and only to a key that was under it before and is after', async () => {
+  const { s, r, html, play, dock, fire, turn } = await aTurningShell();
+  // The room left is what is laid out until the update has run: a press on
+  // its picture (where the Studio's ▶ will be) is on the room, not the desk.
+  const { t } = await turn('/takes.html');
+  s.under = s.views.studio.button;
+  fire('pointerdown', html);
+  const off = fire('click', html);
+  assert.ok(off.stopped && off.defaultPrevented);
+  s.under = play;
+  t.swap();
+  await t.updateCallbackDone;
+  await tick();
+  assert.equal(play.clicks.length, 0, 'pressed on the room: nothing, though ▶ is there after the swap');
+  assert.equal(s.views.studio.button.clicks.length, 0, 'and nothing in the room left');
+  await r.idle();
+
+  // On ▶, which is on the desk before the swap and after it.
+  const u = (await turn('/tape.html')).t;
+  s.under = play;
+  fire('pointerdown', html);
+  fire('click', html);
+  await tick();
+  assert.equal(play.clicks.length, 0, 'not before the swap');
+  u.swap();
+  await u.updateCallbackDone;
+  await tick();
+  assert.equal(play.clicks.length, 1, 'then ▶ has it');
+  await r.idle();
+
+  // On a key of the bar the swap takes away (the room's dock at 1000 px):
+  // what is under the finger after it is another key.
+  const v = (await turn('/takes.html')).t;
+  s.under = dock;
+  fire('pointerdown', html);
+  fire('click', html);
+  s.under = play;
+  v.swap();
+  await v.updateCallbackDone;
+  await tick();
+  assert.deepEqual([dock.clicks.length, play.clicks.length], [0, 1], 'neither: the key pressed is gone, and ▶ was not pressed');
+  await r.idle();
+  r.stop();
+});
+
+test('a click far from its press, long after it, or from a keyboard is not the press’s', async () => {
+  const { s, r, html, play, fire, turn } = await aTurningShell();
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  try {
+    const { t } = await turn('/takes.html');
+    t.swap();
+    await t.updateCallbackDone;
+    s.under = play;
+    fire('pointerdown', html);
+    const dragged = fire('click', html, { clientX: 40 + 17 });
+    await tick();
+    assert.ok(dragged.stopped && play.clicks.length === 0, 'a drag, not a tap: nothing is handed on');
+    await r.idle();
+
+    const u = (await turn('/tape.html')).t;
+    u.swap();
+    await u.updateCallbackDone;
+    fire('pointerdown', html);
+    now += 1501;
+    const late = fire('click', html);
+    await tick();
+    assert.ok(!late.stopped && !late.defaultPrevented && play.clicks.length === 0, 'long after: the page’s, untouched');
+    await r.idle();
+
+    const v = (await turn('/takes.html')).t;
+    v.swap();
+    await v.updateCallbackDone;
+    fire('pointerdown', html);
+    const keyboard = fire('click', play, { detail: 0, clientX: 0, clientY: 0 });
+    assert.ok(!keyboard.stopped && !keyboard.defaultPrevented, 'Enter on a key is the key’s');
+    await r.idle();
+
+    // A press the turn took with no click after it (a hold), then a press
+    // and a click on the page with no switch drawn: the page's.
+    const w = (await turn('/tape.html')).t;
+    w.swap();
+    await w.updateCallbackDone;
+    fire('pointerdown', html);
+    await r.idle();
+    fire('pointerdown', s.views.studio.button, { clientX: 300, clientY: 300 });
+    const plain = fire('click', s.views.studio.button, { clientX: 300, clientY: 300 });
+    assert.ok(!plain.stopped && !plain.defaultPrevented, 'a new press forgets the one the turn took');
+  } finally {
+    Date.now = realNow;
+  }
   r.stop();
 });
 

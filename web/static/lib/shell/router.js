@@ -246,9 +246,11 @@ function drawn(t) {
  *     its polls, so no redraw, fetch or import holds up the turn.
  *   - A switch asked for while one is still drawn (a second tap on a tab,
  *     Back) skips the drawing one's turn (skipTransition) and goes on.
- *   - A press while a switch is drawn, which the browser gives to <html>
- *     (Chromium hit-tests nothing else under a View Transition), ends the
- *     turn at once, and its click goes to what is under the finger.
+ *   - A press while a switch is drawn ends the turn at once. Its click
+ *     lands only on the desk that holds still (the header and the bar), on
+ *     the control it was pressed on, once the swap is done; anywhere else
+ *     (the room, turning or frozen in the picture, and laid out otherwise
+ *     under it) it goes nowhere.
  *   - If showing the room throws (its mount, or its show), the router
  *     reports it and loads the address in full, with location.replace:
  *     the entry it pushed becomes the loaded page, so Back does not land on
@@ -431,39 +433,64 @@ export function createRouter({
     e.preventDefault();
     go(u.href);
   }
-  // A press while a switch is drawn. Chromium hit-tests the whole page to
-  // <html> while a View Transition runs, whatever pointer-events its overlay
-  // has, so a tap on ▶ or a tab as the camera turns would land nowhere. The
-  // press ends the turn there and then (the room is in place under it), and
-  // its click goes to what is under the finger now, as if the turn had
-  // never been: the press is never lost, and the switch never holds you up.
-  let swallowed = null; // {x, y, at, t}: the press the turn took
+  // A press while a switch is drawn. What is on the screen is the turn --
+  // the room left, frozen until the turn's first frame, then the two walls
+  // turning -- and the page under it is already the room arrived in, laid
+  // out at rest (or, before the update has run, still the room left).
+  // Chromium hit-tests the press to <html>; its click goes to <html> too
+  // with a mouse, and with a finger through the overlay
+  // (pointer-events: none) to whatever is laid out under it. So the press
+  // ends the turn there and then, and its click lands only where the
+  // picture and the page agree: on the desk that holds still (the header
+  // and the bar), on the very control it was pressed on, once the switch
+  // has done its swap. Anywhere else -- the room, or a key the swap took
+  // away (the bar's at 1000 px and wider, the header's room part) -- the
+  // click goes nowhere: a tap never does what you could not see.
+  const DESK = '.appbar, #np';
+  const CONTROL = 'a[href], button, input, select, textarea, label, [role="button"], [tabindex]';
+  const NEAR_PX = 16; // a click this near its press is the press's (a finger's click may land a little off it)
+  const SOON_MS = 1500; // ...and this soon after it
+  let pressed = null; // {x, y, at, t, on}: the press a turn took, and the desk's control it was on
   const html = () => doc.documentElement;
+  const under = (x, y) => { try { return doc.elementFromPoint?.(x, y) || null; } catch { return null; } };
+  // The desk's control at an element: the key, the tab, the field (or the
+  // element itself); null off the desk.
+  const control = (el) => {
+    if (!el || el === html() || !el.closest?.(DESK)) return null;
+    return el.closest(CONTROL) || el;
+  };
   function onPress(e) {
-    if (!drawing || e.target !== html()) return;
-    swallowed = { x: e.clientX, y: e.clientY, at: Date.now(), t: drawing };
-    try { drawing.skipTransition?.(); } catch (err) { onError(err); }
+    if (!drawing) { pressed = null; return; }
+    const t = drawing;
+    try { t.skipTransition?.(); } catch (err) { onError(err); }
+    // Hit-tested once the turn is over: while it is drawn, Chromium answers <html> for every point.
+    pressed = { x: e.clientX, y: e.clientY, at: Date.now(), t, on: control(under(e.clientX, e.clientY)) };
   }
-  function onSwallowedClick(e) {
-    const p = swallowed;
-    if (!p || e.target !== html()) return;
-    swallowed = null;
-    if (Date.now() - p.at > 1500 || Math.abs(e.clientX - p.x) > 16 || Math.abs(e.clientY - p.y) > 16) return;
+  function onPressedClick(e) {
+    const p = pressed;
+    if (!p) return;
+    pressed = null;
+    // A keyboard's click (no press at all), or one long after: not the press's.
+    if (e.detail === 0 || Date.now() - p.at > SOON_MS) return;
+    const near = Math.abs(e.clientX - p.x) <= NEAR_PX && Math.abs(e.clientY - p.y) <= NEAR_PX;
+    const on = e.target === html() ? null : e.target;
+    // The browser put it through the overlay, on the control it was pressed on: it lands as it is.
+    if (on && near && p.on && control(on) === p.on) return;
+    e.preventDefault();
     e.stopImmediatePropagation();
+    if (on || !near || !p.on) return;
+    // Given to <html>: once the swap is done, to the control pressed, if it is still under the finger.
     const give = () => {
-      const el = doc.elementFromPoint?.(p.x, p.y);
-      if (!el || el === html()) return false;
+      const el = under(p.x, p.y);
+      if (!el || control(el) !== p.on) return;
       const Click = win.MouseEvent || globalThis.MouseEvent;
       el.dispatchEvent(new Click('click', {
         bubbles: true, cancelable: true, composed: true, view: win, detail: 1,
         clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY,
         altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey, button: e.button,
       }));
-      return true;
     };
-    // Pressed before the room was in place (the turn's first frame not yet
-    // drawn): the click goes once the switch has done its swap.
-    if (!give()) Promise.resolve(p.t.updateCallbackDone).then(give, () => {}).catch(onError);
+    Promise.resolve(p.t.updateCallbackDone).then(give, () => {}).catch(onError);
   }
 
   const onPop = () => { sync(); };
@@ -505,7 +532,7 @@ export function createRouter({
     win.addEventListener('popstate', onPop);
     win.addEventListener('pagehide', onPageHide);
     win.addEventListener('pointerdown', onPress, true);
-    win.addEventListener('click', onSwallowedClick, true);
+    win.addEventListener('click', onPressedClick, true);
     started = true;
     return 'shown';
   }
@@ -554,7 +581,7 @@ export function createRouter({
     win.removeEventListener('popstate', onPop);
     win.removeEventListener('pagehide', onPageHide);
     win.removeEventListener('pointerdown', onPress, true);
-    win.removeEventListener('click', onSwallowedClick, true);
+    win.removeEventListener('click', onPressedClick, true);
     started = false;
   }
 
