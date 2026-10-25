@@ -1,0 +1,93 @@
+/* web/static/css/rooms-motion.css
+   Moving between rooms (docs/architecture.md, The UI, "Moving between
+   rooms"). The Studio's desk and the Listening Room's shelves are two walls
+   of one space, the Studio on the left, as the tabs are. A switch from one
+   to the other turns the camera, in a View Transition the router draws
+   (lib/shell/router.js): it sets html[data-turn] -- 'right' or 'left', the
+   way the camera turns, or 'fade' (one wall, or less motion) -- before the
+   transition starts, and takes it off when it has finished. Nothing here
+   applies without it, so a move to another page (Open, the rig, the guide)
+   crossfades as it did. Only transform and opacity animate, on the
+   transition's snapshots: the compositor's work, not the page's. */
+
+/* The desk in front of you holds still: in a switch, the header and the bar
+   are layers of their own, so only the room behind them moves, and what
+   changes on them (the header's left zone, the bar's keys) crossfades in
+   place. Names only: their layout is their own stylesheets'. */
+:root[data-turn] .appbar { view-transition-name: appbar; }
+:root[data-turn] #np { view-transition-name: np; }
+
+/* A switch's overlay takes no tap: a finger's click goes through it to
+   what is laid out under it, which, once the update has run, is the room
+   arrived in at rest, not the picture turning over it. Chromium still
+   gives the press itself to <html>. The router decides where a press
+   during a turn lands (lib/shell/router.js): it ends the turn, and its
+   click lands only on the desk that holds still -- the header and the
+   bar -- on the control it was pressed on; in the room, nowhere. */
+:root[data-turn]::view-transition { pointer-events: none; }
+
+/* The turn. The camera stands in the room and turns about a point in front
+   of the screen (--pivot), so the room left swings away to one side,
+   turning its far edge from you, as the room arrived in swings in from the
+   other; the two walls meet at the corner between them halfway through.
+   --wall is the angle between the walls, --dir which way the camera turns.
+   Behind them, the room's own dark, and the walls dim a little as they
+   turn: the lamp is on the shelves. */
+:root:is([data-turn="right"], [data-turn="left"])::view-transition {
+  --wall: 28deg;
+  --dir: 1;
+  /* Where the two walls' edges meet: half a screen out at half the angle. */
+  --pivot: calc(50vw / tan(var(--wall) / 2));
+  background: radial-gradient(ellipse 60% 70% at 50% 50%, var(--room-wall), var(--room-wall-hi));
+}
+:root[data-turn="left"]::view-transition { --dir: -1; }
+/* A phone's rooms are its bottom tabs: the same turn, through less of a
+   corner, on a screen a finger's width from wall to wall. */
+@media (max-width: 699.98px) {
+  :root:is([data-turn="right"], [data-turn="left"])::view-transition { --wall: 20deg; }
+}
+/* The eye is at the pivot: the camera turns where it stands, so the two
+   walls meet at their corner and never cross. */
+:root:is([data-turn="right"], [data-turn="left"])::view-transition-image-pair(root) { perspective: var(--pivot); }
+:root:is([data-turn="right"], [data-turn="left"])::view-transition-old(root) {
+  animation: room-turn-away var(--t-spring-lid) var(--spring-lid) both;
+  mix-blend-mode: normal;
+}
+:root:is([data-turn="right"], [data-turn="left"])::view-transition-new(root) {
+  animation: room-turn-in var(--t-spring-lid) var(--spring-lid) both;
+  mix-blend-mode: normal;
+}
+/* The header's and the bar's own change takes the turn's time. */
+:root:is([data-turn="right"], [data-turn="left"])::view-transition-group(appbar),
+:root:is([data-turn="right"], [data-turn="left"])::view-transition-group(np) { animation-duration: var(--t-room); }
+/* Both ends say the whole turn, the pivot included: from `none` the pivot
+   itself would grow with the angle, and the room would slide, not turn. */
+@keyframes room-turn-away {
+  from {
+    transform: translateZ(var(--pivot)) rotateY(0deg) translateZ(calc(var(--pivot) * -1));
+  }
+  to {
+    transform: translateZ(var(--pivot)) rotateY(calc(var(--wall) * var(--dir))) translateZ(calc(var(--pivot) * -1));
+    opacity: .6;
+  }
+}
+@keyframes room-turn-in {
+  from {
+    transform: translateZ(var(--pivot)) rotateY(calc(var(--wall) * var(--dir) * -1)) translateZ(calc(var(--pivot) * -1));
+    opacity: .6;
+  }
+  to {
+    transform: translateZ(var(--pivot)) rotateY(0deg) translateZ(calc(var(--pivot) * -1));
+  }
+}
+
+/* Along one wall (the Studio and Capture), and every switch with less
+   motion: a short crossfade (vt-out and vt-in are styles.css's, the
+   tabs'). What would move on the desk -- the lit tab sliding to its room, a
+   bar of another shape -- takes the travel time, which less motion makes
+   nothing: there it changes in place. */
+:root[data-turn="fade"]::view-transition-old(root) { animation: vt-out var(--t-touch) var(--ease-out) both; }
+:root[data-turn="fade"]::view-transition-new(root) { animation: vt-in var(--t-touch) var(--ease-out) both; }
+:root[data-turn="fade"]::view-transition-group(appbar),
+:root[data-turn="fade"]::view-transition-group(np),
+:root[data-turn="fade"]::view-transition-group(tab-lit) { animation-duration: var(--t-room); }

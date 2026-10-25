@@ -276,7 +276,9 @@ export function mountCapture(ctx) {
   let restoreScroll = null;
   try {
     const nav = performance.getEntriesByType('navigation')[0];
-    if (nav && nav.type === 'back_forward') restoreScroll = Number(sessionStorage.getItem(SCROLL_KEY)) || null;
+    // Only when it is the room shown as it mounts: one mounted out of sight
+    // (lib/shell/router.js prewarm) would scroll the room that is shown.
+    if (nav && nav.type === 'back_forward' && ctx.active()) restoreScroll = Number(sessionStorage.getItem(SCROLL_KEY)) || null;
   } catch { /* fine */ }
 
   const handlePageHide = () => {
@@ -466,15 +468,22 @@ export function mountCapture(ctx) {
     },
   });
 
+  // Every show, the first one included: a Capture mounted out of sight
+  // (lib/shell/router.js prewarm) has been hidden before its first visit.
+  // The ribbon polls on a timer of its own, not through ctx, so it is
+  // paused and resumed here, or it would ask for the ring once a second
+  // while another room is shown.
   return {
     show({ first } = {}) {
       startLive();
+      ribbon?.resume?.();
       if (!first) {
         pollStatus().then(() => pollTakes(true));
       }
     },
     hide() {
       stopLive();
+      ribbon?.pause?.();
     },
     destroy() {
       stopLive();

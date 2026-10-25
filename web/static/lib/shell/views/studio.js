@@ -55,6 +55,9 @@ export const studioView = {
     };
     syncPlay();
     return {
+      // The tape fetched, loaded and polled once: the shell waits for it
+      // before it mounts the other rooms out of sight (router.js prewarm).
+      ready: tape?.ready,
       show({ first }) {
         if (!first) {
           tape?.show?.();
