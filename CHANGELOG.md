@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.25.5 — 2026-10-25
+
+- The bar's stylesheet test expects the moves between rooms after it, as every page now loads them (8e23056)
+- A tap on the room while you switch rooms only ends the turn, instead of playing a take from a shelf you could not see yet; a tap on ▶ or a tab as the rooms turn still lands (c6db37e)
+- Back to the Studio from another page, the Studio no longer jumps to where the Listening Room's shelves were scrolled (a43da22)
+- With the tape off, Capture's meters move the first time you switch to it, and Capture stops asking the Pi for its ribbon while you are in another room (38df834)
+- Switching between the Studio and the Listening Room turns from one wall of the room to the other, the header and the bar holding still, and a tap on ▶ or a tab as it turns still lands (c1fd472)
+- The Listening Room is ready before you first switch to it, so the first switch lands on the drawn shelves, not an empty page they pop into (add77dc)
+
+
 ## v2026.10.25.4 — 2026-10-25
 
 - The studio space's step 3, the frame, is struck from its build order, with step 8's ⌗ View menu on every screen (e38bf8a)
