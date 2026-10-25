@@ -68,7 +68,24 @@ export default {
     // Catch's ▾ is a key of its own beside it, as GRAB's and KEEP's are (it
     // was a corner of the Catch key, 10 px from the bar's fold): it opens
     // what to catch over the pair, and a pick catches.
+    // It goes down under the finger as Catch does, in the first frame: a
+    // key's 1 px, and darker, since its orange (Catch's) hides a key's own
+    // down face.
+    await page.evaluate(() => {
+      const key = document.getElementById('catch-more');
+      const seen = window.__morePress = { first: null };
+      addEventListener('pointerdown', (e) => {
+        if (seen.first !== null || !key.contains(e.target)) return;
+        requestAnimationFrame(() => {
+          const cs = getComputedStyle(key);
+          seen.first = { transform: cs.transform, filter: cs.filter };
+        });
+      }, { capture: true });
+    });
     await t.step('tap Catch’s ▾', () => t.tap(page.locator('#catch-more')));
+    const pressed = await t.poll(() => window.__morePress?.first, null, 3000);
+    t.expect('Catch’s ▾ is down in the first frame after the touch, 1 px and darker',
+      /matrix\(1, 0, 0, 1, 0, 1\)/.test(pressed?.transform ?? '') && /brightness\(0\.9\d*\)/.test(pressed?.filter ?? ''), pressed);
     const cm = await t.poll(() => {
       const m = document.getElementById('catch-menu');
       if (!m || m.hidden) return null;
