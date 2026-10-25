@@ -123,6 +123,9 @@ with **Select** and **▶ Play all**.
     it again to pause it. Nothing opens, and there is no sheet: the take's
     other controls are in the bar, in a selection, or on **Open**, its page
     (its name, ★, tag, tempo, downloads, notes and GRAB).
+  - **A double tap on a spine opens the take** on its page, as **Open ›**
+    on the bar does: its first tap has already started it, so it plays on
+    into its page.
   - **Holding a take selects it,** as **Select** does: a finger or a pen for
     half a second, ⇧-click with a mouse, ⇧-Enter on the keyboard. A tap on
     another take then adds it to the selection or takes it out, and nothing

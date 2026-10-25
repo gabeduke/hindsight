@@ -36,11 +36,13 @@ export function deckOf({ takeName, takes, tapes }) {
  * ({playing, pos}): its place's plate, its aria label, a line of meta, the
  * LCD, and where a tap on it goes (null with nothing in the bar). A tape is
  * opened in the Studio, saying so first (`forTape`), so no take goes along.
+ * The plate says where a tap goes (listening-back.md, "The way in"): *▶ its
+ * name · Open ›*, where `opens` asks the page to draw the ▶ and the ›.
  */
 export function deckWords(d, { playing = false, pos = '' } = {}) {
   if (!d) {
     return {
-      place: 'The bar · empty', label: 'The bar is empty: tap a take on the shelves to play it',
+      place: 'The bar · empty', opens: false, label: 'The bar is empty: tap a take on the shelves to play it',
       meta: 'tap a take to play it', lcd: '--:--', href: null, forTape: false,
     };
   }
@@ -48,7 +50,7 @@ export function deckWords(d, { playing = false, pos = '' } = {}) {
   if (d.kind === 'take') {
     const name = spineTitle(d.take);
     return {
-      place: `In the bar: ${name}`,
+      place: `${name} · Open`, opens: true,
       label: `In the bar: ${name}, a take${playing ? ', playing' : ''}. Open it`,
       meta: `take · ${fmtLen(d.take.duration_seconds)}${playing ? ' · playing' : ''}`,
       lcd, href: `/wave.html?file=${encodeURIComponent(d.take.name)}`, forTape: false,
@@ -56,7 +58,7 @@ export function deckWords(d, { playing = false, pos = '' } = {}) {
   }
   const name = d.tape.name;
   return {
-    place: `In the bar: ${name}`,
+    place: `${name} · Open`, opens: true,
     label: `In the bar: ${name}, the Studio’s tape${playing ? ', playing' : ''}. Open it in the Studio`,
     meta: `tape · in the Studio${playing ? ' · playing' : ''}`,
     lcd, href: '/tape.html', forTape: true,

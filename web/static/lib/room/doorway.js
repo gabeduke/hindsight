@@ -26,6 +26,7 @@ import { roomShelves, inMonth, monthName, monthKey, at, filterWords } from './sh
 import { forgetNote, fmtAt } from './notes.js';
 import { openTheTape } from '../bar/carry.js';
 import { bindPress, SPINE_PRESS } from '../ui/press.js';
+import { icon } from '../ui/icons.js';
 import { createTap, wireRack, askedTake } from './tap.js';
 import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
@@ -297,11 +298,26 @@ export function mount(h) {
   // One press per spine (lib/ui/press.js): a tap plays (or, with a selection
   // on, picks the take in or out); a hold, or ⇧-click, selects. A long press
   // on a phone is the browser's menu too: not on a spine.
+  // A double tap opens the take (listening-back.md, "The way in"), as a
+  // double tap opens a part in the Studio. Its first tap has already
+  // started it, so it plays on into its page, which picks up where the bar
+  // is; a take its first tap paused is started again on the way.
+  let tapping = null; // the last tap's play, still on its way
+  async function openSpine(name) {
+    await tapping?.catch?.(() => {});
+    if (h.np?.takeName === name && !barNow().playing) await tap.tap(name);
+    const href = `/wave.html?file=${encodeURIComponent(name)}`;
+    if (h.go) h.go(href); else location.href = href;
+  }
   function wireSpine(b, name) {
     const takes = h.takes;
     bindPress(b, {
       ...SPINE_PRESS,
-      onTap: () => (takes.selecting ? takes.toggleSelected(name) : tap.tap(name)),
+      onTap: () => {
+        if (takes.selecting) takes.toggleSelected(name);
+        else tapping = Promise.resolve(tap.tap(name));
+      },
+      onDouble: () => { if (!takes.selecting) openSpine(name); },
       onHold: () => {
         try { navigator.vibrate?.(10); } catch { /* not everywhere */ }
         if (takes.selecting) takes.toggleSelected(name); else takes.enterSelect(name);
@@ -408,7 +424,9 @@ export function mount(h) {
     placesSig = sig;
     deck.classList.toggle('empty', !d);
     deck.classList.toggle('playing', bar.playing && !!d);
-    deckPlace.replaceChildren(el('span', 'room-led', { 'aria-hidden': 'true' }), w.place);
+    // ▶ its name · Open ›: where a tap on it goes, drawn, not typed.
+    const drawn = (name) => { const s = el('span', 'room-deck-ico', { 'aria-hidden': 'true' }); s.innerHTML = icon(name, { size: 12 }); return s; };
+    deckPlace.replaceChildren(el('span', 'room-led', { 'aria-hidden': 'true' }), ...(w.opens ? [drawn('play'), w.place, drawn('right')] : [w.place]));
     deckPlace.setAttribute('aria-label', w.label);
     deckMeta.textContent = w.meta;
     // The sketchbook: the notes of the take in the bar.

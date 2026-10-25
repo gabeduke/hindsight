@@ -53,7 +53,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J2.2 | tap a take to play it, and keep it playing as I move between rooms | `j2.2-persist` | core |
 | J2.3 | choose what the bar plays from its display: the source on the window (TAPE, FEED or the take's name) opens the tape, the live feed (whose GRAB sends it into the buffer), the last few takes and Go to the shelf (the Listening Room), with ▶ in one place for each; the Feed \| Tape \| Shelf switch on the bar is gone | `j2.3-bar-sources` | core |
 | J2.4 | jot a note on what's playing without it stopping or leaving the room: ✎ at the bar's right end, on the screen at 1024 and 1280 | `j2.4-note` | core (and 1280×800) |
-| J2.5 | open a take from the bar and star it: Open › at the bar's right end, on the screen with no sideways scroll, at 1024 and 1280 (*"getting from a take into its page was awkward"*) | `j2.5-open` | core (and 1280×800) |
+| J2.5 | open a take from the bar and star it: Open › at the bar's right end, on the screen with no sideways scroll, at 1024 and 1280 (*"getting from a take into its page was awkward"*); and a double tap on its spine opens it too, playing on into its page | `j2.5-open` | core (and 1280×800) |
 | J2.6 | hold a spine to select, delete, and get it back with Undo | `j2.6-tidy` | core |
 | J3.1 | GRAB 4 bars from an old take's page into the Studio, and DROP them | `j3.1-take-grab` | core |
 | J3.2 | bounce the tape to a take on the shelf | `j3.2-bounce` | core |

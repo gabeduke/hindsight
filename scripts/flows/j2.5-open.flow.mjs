@@ -1,6 +1,7 @@
 // J2.5 Open a take from the bar and star it: with a take in the bar, Open ›
 // is at the bar's right end, on the screen, a tap away -- no sideways
-// scroll to reach it. docs/flows.md#j25
+// scroll to reach it. And a double tap on its spine opens it too, playing
+// on into its page (its first tap started it). docs/flows.md#j25
 export default {
   id: 'J2.5',
   title: 'Open a take from the bar and star it',
@@ -28,5 +29,21 @@ export default {
     await t.step('star it', () => page.locator('#take-star').click());
     const starred = await api.until(async () => (await api.takes()).find((x) => x.name === name && x.starred), 'the star to reach the Pi', 5000).catch(() => null);
     t.expect('the Pi has the star', starred);
+
+    // The other way in: a double tap on the take's spine.
+    await t.step('go back to the Listening Room', () => page.goto(`${t.base}/takes.html`));
+    const spine = page.locator(`#view-room .room-cassette[data-key="take:${name}"]`);
+    await spine.waitFor({ state: 'visible' });
+    await t.wait(500);
+    await t.step('double tap its spine', async () => {
+      if (!t.profile || t.profile === 'desktop') return spine.dblclick();
+      const b = await spine.boundingBox();
+      const x = b.x + b.width / 2, y = b.y + b.height / 2;
+      await page.touchscreen.tap(x, y);
+      await page.touchscreen.tap(x, y);
+    });
+    const opened = await page.waitForURL(/wave\.html\?file=/, { timeout: 10_000 }).then(() => true, () => false);
+    t.expect('a double tap opens it on its page', opened && (page.url().includes(encodeURIComponent(name)) || page.url().includes(name)), page.url());
+    t.expect('playing on: its first tap started it', await t.poll(() => document.getElementById('play')?.classList.contains('playing'), null, 8000));
   },
 };

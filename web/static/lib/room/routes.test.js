@@ -60,11 +60,15 @@ const ROUTES = {
     },
   },
   'detail-open': {
-    where: 'the deck (a tap on it), the bar’s Open › (lib/bar/bar.js)',
+    where: 'the deck (a tap on it), the bar’s Open › (lib/bar/bar.js), a double tap on its spine',
     check: async () => {
       const r = await room({ barTake: 'jam_a.wav' });
       click(r.q('.room-deck-place'));
-      return r.w.navigated.at(-1) === '/wave.html?file=jam_a.wav' && r.doc.getElementById('np-open').getAttribute('data-for').includes('take');
+      const deck = r.w.navigated.at(-1) === '/wave.html?file=jam_a.wav';
+      const s = await room();
+      click(s.spine('jam_b.wav')); click(s.spine('jam_b.wav'));
+      await s.settle(); await s.settle();
+      return deck && r.doc.getElementById('np-open').getAttribute('data-for').includes('take') && s.w.navigated.at(-1) === '/wave.html?file=jam_b.wav';
     },
   },
   star: { where: 'Open’s ★, and a selection’s ★', check: () => idsOf(takePage, ['take-star']) && idsOf(tapesPage, ['sel-star']) },
