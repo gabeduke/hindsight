@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.25.1 — 2026-10-25
+
+- Keys go down the moment a finger touches them, even for a quick tap, and spring back up; ▶ ● Catch GRAB and KEEP travel further, spines and cue clips sink, and lamps fade as they go out (d0ab8c8)
+- Motion takes its times, eases and springs from one table, in the code and the stylesheet alike; nothing feels different, and less motion switched on with the app open now takes at once (60e90db)
+
+
 ## v2026.10.24.2 — 2026-10-24
 
 - A spine's and the ● key's press are set once, where their tests read them; nothing feels different (c304a16)
