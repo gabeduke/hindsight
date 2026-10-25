@@ -14,6 +14,7 @@
 import './rooms/words.js';
 import { icon } from './ui/icons.js';
 import { layersOf } from './ui/layers.js';
+import { menu, menuItem } from './ui/menu.js';
 
 const TABS = [
   // The Studio's href is the tape page's while the tape is on.
@@ -87,97 +88,50 @@ export function mountHeaderTools(doc = document, { layers } = {}) {
 
   const anchor = make('span', 'menu-anchor app-menu-anchor');
   const btn = make('button', 'icon-btn app-menu-btn', {
-    id: 'app-menu-btn', type: 'button', 'aria-label': 'Menu', 'aria-haspopup': 'menu',
-    'aria-expanded': 'false', 'aria-controls': 'app-menu', 'data-tip': 'app-menu',
+    id: 'app-menu-btn', type: 'button', 'aria-label': 'Menu', 'data-tip': 'app-menu',
     // Help mode shows its tip and still opens it: Help mode's own way out is inside.
     'data-tip-pass': '',
   });
   btn.innerHTML = icon('menu', { size: 22 });
-  const menu = make('div', 'menu app-menu', { id: 'app-menu', role: 'menu', 'aria-label': 'Menu' });
-  menu.hidden = true;
+  const panel = make('div', 'menu app-menu', { id: 'app-menu', 'aria-label': 'Menu' });
 
-  const set = make('button', 'app-menu-item appbar-settings-btn', { id: 'appbar-settings-btn', type: 'button', role: 'menuitem', 'data-tip': 'settings' });
-  set.append(make('span', 'app-menu-word', {}, 'Settings'));
+  // Its rows (lib/ui/menu.js menuItem): each module finds its own by the id
+  // or class it had in the header.
+  const set = menuItem(doc, { word: 'Settings', className: 'appbar-settings-btn', attrs: { id: 'appbar-settings-btn', 'data-tip': 'settings' } });
   // Filled, and shown, by rig/chip.js on the pages that have the rig.
-  const rig = make('a', 'app-menu-item app-menu-rig', { href: '/rig.html', role: 'menuitem', 'data-tip': 'rig-chip' });
-  rig.append(make('span', 'app-menu-word', {}, 'The rig'), make('span', 'app-menu-sub rig-chip-sub'), make('span', 'rig-chip-lamp', { 'aria-hidden': 'true' }));
+  const rig = menuItem(doc, {
+    word: 'The rig', href: '/rig.html', sub: '', subClass: 'rig-chip-sub', className: 'app-menu-rig',
+    end: make('span', 'rig-chip-lamp', { 'aria-hidden': 'true' }), attrs: { 'data-tip': 'rig-chip' },
+  });
   rig.hidden = true;
   const items = [set, rig];
   const help = bar.querySelector('#help');
   if (help) {
-    help.className = 'app-menu-item app-menu-help';
-    help.setAttribute('role', 'menuitemcheckbox');
-    help.setAttribute('aria-checked', help.getAttribute('aria-pressed') === 'true' ? 'true' : 'false');
+    const on = help.getAttribute('aria-pressed') === 'true';
     help.removeAttribute('aria-pressed');
     help.removeAttribute('aria-label');
-    help.textContent = '';
-    help.append(make('span', 'menu-check', { 'aria-hidden': 'true' }, '✓'), make('span', 'app-menu-word', {}, 'Help mode'),
-      make('span', 'app-menu-sub', {}, 'tap a control to read what it does'));
-    items.push(help);
+    items.push(menuItem(doc, {
+      el: help, word: 'Help mode', sub: 'tap a control to read what it does', role: 'menuitemcheckbox', checked: on, className: 'app-menu-help',
+    }));
   }
-  const guide = make('a', 'app-menu-item appbar-guide-link', { href: '/guide.html', role: 'menuitem', 'data-tip': 'guide' });
-  guide.append(make('span', 'app-menu-word', {}, 'The guide'));
+  const guide = menuItem(doc, { word: 'The guide', href: '/guide.html', className: 'appbar-guide-link', attrs: { 'data-tip': 'guide' } });
   // update.js puts the version, or the release waiting, in its second line.
-  const rel = make('button', 'app-menu-item appbar-releases-btn', { id: 'appbar-releases-btn', type: 'button', role: 'menuitem', 'data-tip': 'releases' });
-  rel.append(make('span', 'app-menu-word', {}, 'Releases'), make('span', 'app-menu-sub releases-version'));
+  const rel = menuItem(doc, {
+    word: 'Releases', sub: '', subClass: 'releases-version', className: 'appbar-releases-btn', attrs: { id: 'appbar-releases-btn', 'data-tip': 'releases' },
+  });
   items.push(guide, rel);
-  menu.append(...items);
-  anchor.append(btn, menu);
+  panel.append(...items);
+  anchor.append(btn, panel);
   end.append(anchor);
   bar.append(end);
-  wireAppMenu(btn, menu, doc, { layers });
+  // It opens on the page's stack (lib/ui/layers.js), under ☰, its right
+  // edge on ☰'s: Escape, Back, a press elsewhere, a pick and a switch of
+  // rooms close it.
+  menu(btn, panel, { layers: layers || layersOf(doc), doc, align: 'end', side: 'below' });
 
   import('./settings.js').then((m) => m.initSettings()).catch(() => {});
   import('./update.js').then((m) => m.initUpdate()).catch(() => {});
   return end;
-}
-
-/**
- * wireAppMenu opens the header's menu from its button and shuts it on a
- * second press, a pick, or anything that closes the top of the page's stack
- * of open things (`layers`, lib/ui/layers.js): Escape, Back, a press
- * anywhere else (heard first, on the window: the page's other menus stop
- * their buttons' clicks), and a switch of rooms. ↑ ↓ move along its items.
- * Answers {setOpen, isOpen}.
- */
-export function wireAppMenu(btn, menu, doc = document, { layers = layersOf(doc) } = {}) {
-  const items = () => [...menu.children].filter((c) => !c.hidden);
-  let layer = null;
-  const show = (open) => {
-    menu.hidden = !open;
-    btn.setAttribute('aria-expanded', String(open));
-  };
-  // Open's own menus hide every .menu as one opens (lib/wave/page.js), so
-  // what is shown is read from the menu, not only from its layer.
-  const setOpen = (open) => {
-    if (open) {
-      show(true);
-      if (!layer?.open) layer = layers.open({ el: menu, kind: 'menu', owner: btn, onClose: () => { layer = null; show(false); } });
-    } else if (layer?.open) {
-      layer.close();
-    } else {
-      show(false);
-    }
-  };
-  btn.addEventListener('click', () => setOpen(menu.hidden));
-  // Capture: a pick shuts the menu before the item's own handler, which may
-  // stop the click (help mode's does). A link leaves the history to the
-  // page it loads.
-  menu.addEventListener('click', (e) => {
-    const item = [...menu.children].find((c) => c.contains(e.target));
-    if (item && layer?.open) layer.close(item.closest?.('a[href]') ? 'navigate' : 'pick');
-  }, true);
-  doc.addEventListener('keydown', (e) => {
-    if (menu.hidden) return;
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-    const list = items();
-    if (!list.length) return;
-    const i = list.indexOf(doc.activeElement);
-    const next = e.key === 'ArrowDown' ? (i + 1) % list.length : (i <= 0 ? list.length - 1 : i - 1);
-    list[next].focus?.();
-    e.preventDefault?.();
-  });
-  return { setOpen, isOpen: () => !menu.hidden };
 }
 
 /**

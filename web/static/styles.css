@@ -4182,22 +4182,58 @@ input, select, textarea { color-scheme: inherit; }
 .app-menu-anchor:has(.app-menu-rig[data-state="warn"]:not([hidden])) .app-menu-btn::after { display: block; background: var(--warn); }
 body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent); border-color: var(--accent-edge); }
 .menu.app-menu { min-width: 250px; max-width: calc(100vw - 24px); }
-/* Each item: a check's column (Help mode's), the word, the line under it,
-   and the rig's lamp at the end. */
-.menu.app-menu > .app-menu-item {
+.appbar-releases-btn.has-update > .releases-version { color: var(--ink); font-weight: 600; }
+.appbar-releases-btn.has-update > .releases-version::before { content: '● '; color: var(--go); }
+
+/* ---------- Menus (lib/ui/menu.js) ----------
+   Every menu and ▾ panel menu.js opens. It places the panel beside its
+   key (fixed, so no panel's overflow clips it) and says, by data-state,
+   whether it is open: a panel that isn't menu.js's has no data-state, and
+   none of this reaches it. */
+.menu[data-state], .key-pop[data-state] {
+  position: fixed; right: auto; bottom: auto; overflow-y: auto;
+  /* It grows from its key's corner (menu.js sets the corner): scaled up
+     from .96 as it fades in, over a touch's time. */
+  transform-origin: 100% 0;
+  transition: opacity var(--t-touch) var(--ease-out), scale var(--t-touch) var(--ease-out);
+}
+@starting-style {
+  .menu[data-state="open"], .key-pop[data-state="open"] { opacity: 0; scale: .96; }
+}
+/* It goes by fading alone, eased in over --t-exit (anything leaving, in
+   lib/objects/motion.js), and takes no press while it does ([hidden]'s
+   display: none waits for the fade). A browser without @starting-style or
+   allow-discrete shows it and takes it away at once. */
+.menu[data-state="closed"], .key-pop[data-state="closed"] {
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--t-exit) var(--ease-in), display var(--t-exit);
+  transition-behavior: allow-discrete;
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .menu[data-state="open"], .key-pop[data-state="open"] { scale: none; }
+  }
+}
+
+/* A menu's row (menu.js menuItem), the same in every menu, ☰'s first: a
+   check's column, its word, a line under it (what it does, or why it
+   can't), and something at its end (the rig's lamp). A finger tall. One
+   that destroys something is red (.menu > .danger) and last. */
+.menu > .menu-item {
   display: grid; grid-template-columns: 1.3em minmax(0, 1fr) auto; column-gap: 4px; row-gap: 1px; align-items: center;
   min-height: 48px; padding: 8px 12px 8px 6px;
 }
-.menu.app-menu > .app-menu-item[hidden] { display: none; }
-.app-menu-item > .menu-check { grid-column: 1; grid-row: 1 / span 2; }
-.app-menu-item > .app-menu-word { grid-column: 2; grid-row: 1; font-weight: 600; }
-.app-menu-item > .app-menu-sub { grid-column: 2; grid-row: 2; font-size: 12.5px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.app-menu-item > .app-menu-sub:empty { display: none; }
-.app-menu-item > .rig-chip-lamp { grid-column: 3; grid-row: 1 / span 2; }
-.appbar-releases-btn.has-update > .releases-version { color: var(--ink); font-weight: 600; }
-.appbar-releases-btn.has-update > .releases-version::before { content: '● '; color: var(--go); }
-@media (hover: hover) { .menu.app-menu > .app-menu-item:hover { background: var(--panel); } }
-.menu.app-menu > .app-menu-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.menu-item > .menu-check { grid-column: 1; grid-row: 1 / span 2; }
+.menu-item > .menu-word { grid-column: 2; grid-row: 1; font-weight: 600; }
+.menu-item > .menu-sub { grid-column: 2; grid-row: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-item > .menu-sub:empty { display: none; }
+.menu-item > .menu-end { grid-column: 3; grid-row: 1 / span 2; }
+@media (hover: hover) { .menu > .menu-item:not(:disabled):hover { background: var(--panel); } }
+.menu > .menu-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+/* Its groups: a line between one and the next, and a group's name over
+   its rows. */
+.menu > .menu-divider { flex: none; height: 1px; margin: 6px 8px; background: var(--line); }
+.menu > .menu-group { margin: 8px 12px 4px; font: 600 11px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
 .np .seg.np-source-switch { flex: none; height: 36px; align-self: center; }
 .np .seg.np-source-switch button { min-height: 30px; padding: 0 10px; font-size: 12px; }
 

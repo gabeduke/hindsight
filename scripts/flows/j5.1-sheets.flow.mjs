@@ -2,7 +2,9 @@
 // Releases open and close, help mode explains a control instead of using
 // it until Done, the guide and the rig are its links, and Escape or a tap
 // elsewhere shuts it and leaves you in the room. Switching rooms shuts it
-// too (it once stayed open over the room Back went to). docs/flows.md#j51
+// too (it once stayed open over the room Back went to). It opens under ☰,
+// on the screen (lib/ui/menu.js places it), and from a keyboard ↓ on ☰
+// opens it on its first item and Tab shuts it. docs/flows.md#j51
 export default {
   id: 'J5.1',
   title: 'Settings, Releases, help, the guide and the rig from the menu in both rooms',
@@ -25,14 +27,31 @@ export default {
       await t.step('tap ☰', () => t.tap(page.locator('#app-menu-btn')));
       t.expect(`the menu opens in ${room}`, await menuOpen());
       const items = await page.evaluate(() => [...document.querySelectorAll('#app-menu > *')]
-        .filter((e) => !e.hidden).map((e) => e.querySelector('.app-menu-word')?.textContent));
+        .filter((e) => !e.hidden).map((e) => e.querySelector('.menu-word')?.textContent));
       t.expect('it holds Settings, the rig, help mode, the guide and Releases',
         JSON.stringify(items) === JSON.stringify(['Settings', 'The rig', 'Help mode', 'The guide', 'Releases']), items);
+      const where = await page.evaluate(() => {
+        const b = document.getElementById('app-menu-btn').getBoundingClientRect();
+        const m = document.getElementById('app-menu').getBoundingClientRect();
+        return { right: Math.round(b.right - m.right), gap: Math.round(m.top - b.bottom), inside: m.left >= 0 && m.right <= innerWidth && m.bottom <= innerHeight };
+      });
+      t.expect('it hangs under ☰, its right edge on ☰’s, all of it on the screen',
+        Math.abs(where.right) <= 1 && where.gap >= 0 && where.gap <= 12 && where.inside, where);
       t.expect('the rig is its link to the rig', await page.locator('.app-menu-rig').getAttribute('href') === '/rig.html');
       t.expect('the guide is its link to the guide', /^\/guide\.html/.test(await page.locator('#app-menu .appbar-guide-link').getAttribute('href')));
       await t.step('press Escape', () => page.keyboard.press('Escape'));
       t.expect('Escape shuts it', await menuShut());
       t.expect(`and leaves you in ${room}`, await page.evaluate(() => location.pathname) === `/${room}`);
+
+      // From a keyboard: ↓ on ☰ opens it on its first item; Tab leaves it shut.
+      await t.step('focus ☰ and press ↓', async () => {
+        await page.locator('#app-menu-btn').focus();
+        await page.keyboard.press('ArrowDown');
+      });
+      t.expect('the menu opens with the keyboard on Settings', await menuOpen()
+        && await t.poll(() => document.activeElement?.id === 'appbar-settings-btn'));
+      await t.step('press Tab', () => page.keyboard.press('Tab'));
+      t.expect('Tab shuts it', await menuShut());
 
       await t.step('tap ☰, then elsewhere', async () => {
         await t.tap(page.locator('#app-menu-btn'));

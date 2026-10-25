@@ -33,7 +33,8 @@ web/static/lib/objects the physical things: reels, cassettes, VU meters, the sha
 web/static/lib/scene   the scene contract the renderers follow
 web/static/lib/wave    the take page (wave.html): view, geometry, draw, tiles, clock, lanes
 web/static/lib/edit    the gestures and curves every editing surface shares
-web/static/lib/ui      one press: the gestures' times (GESTURE), a key's tap, double tap and hold, and its down pose;
+web/static/lib/ui      the shared parts: one press (GESTURE), a key's tap, double tap and hold, and its down pose;
+                       one stack of open things, one menu;
                        one icon set: icons.js, drawing from web/static/icons/ui.svg
 web/static/lib/help    tips, help mode, and the guide renderer
 web/static/lib/phone   the phone recorder
@@ -788,6 +789,23 @@ take two presses. A handler that keeps Escape for itself (a field's own, a
 drag let go) calls `preventDefault()`, and the stack leaves that press be.
 In Chromium the browser's own Back button is a move in the history, not a
 close request: it switches rooms, with the menus closed on the way.
+
+**Menus** (`lib/ui/menu.js`). A menu, or a ▾'s panel beside its key, is
+`menu(button, panel, {layers, role, side, align, floor, render, focus})`
+on that stack: the button says what it opens (`aria-haspopup`,
+`aria-expanded`, `aria-controls`), ↑ ↓ Home End move along it, Tab closes it
+and goes on from the button, and it closes only through its layer. `place`
+is where it goes (pure: below its key or above it, its right or left edge
+on the key's, moved in from the screen's sides and kept off the bar at the
+foot by `floor`), fixed, so no panel's overflow clips it. It grows from its
+key: `data-state` (`open`, `closed`) and `@starting-style` scale it from .96
+as it fades in over `--t-touch`, and fade it out over `--t-exit` (eased
+in, as anything leaving is), taking no press while it goes. `splitKey(verb, more, panel)` is a key with a ▾ of
+its own (KEEP ▾, GRAB ▾). Its rows are `menuItem`s, the one style (☰'s, 48
+px, a line under the word), with `menuRows` putting a divider between
+groups and anything that destroys last. ☰ is on it; the Studio's header,
+ruler, Catch and input menus and Open's are still their own, each to move
+as it is touched.
 
 **The engine** (`lib/bar/engine.js`), made once by the shell:
 

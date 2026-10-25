@@ -1,5 +1,5 @@
 // web/static/lib/nav-menu.test.js
-// The header's one menu (lib/nav.js mountHeaderTools, wireAppMenu;
+// The header's one menu (lib/nav.js mountHeaderTools, on lib/ui/menu.js;
 // docs/plan/the-studio-on-one-screen.md): what is in it, that nothing else
 // is left in the header, and how it opens and shuts -- against the shell's
 // and Open's own header markup.
@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from './play/fake-dom.js';
-import { mountHeaderTools, wireAppMenu } from './nav.js';
+import { mountHeaderTools } from './nav.js';
 import { iconOf } from './ui/icons.js';
 
 const header = (page) => {
@@ -16,7 +16,7 @@ const header = (page) => {
   doc.body.append(...parseHTML(doc, /<header class="appbar[^"]*">[\s\S]*?<\/header>/.exec(html)[0]).nodes);
   return doc;
 };
-const words = (el) => el.querySelector('.app-menu-word')?.textContent;
+const words = (el) => el.querySelector('.menu-word')?.textContent;
 
 for (const page of ['shell.html', 'wave.html']) {
   test(`${page}: one menu holds Settings, the rig, help mode, the guide and Releases`, () => {
@@ -97,20 +97,5 @@ test('the menu opens from its button and shuts on a second press, a pick, Escape
   assert.ok(!open(), 'Escape shuts it');
 });
 
-test('↑ ↓ move along the shown items', () => {
-  const doc = fakeDoc();
-  doc.body.append(...parseHTML(doc, '<button id="b"></button><div id="m" hidden><button id="i1"></button><a id="i2" hidden></a><button id="i3"></button></div>').nodes);
-  const btn = doc.getElementById('b');
-  const menu = doc.getElementById('m');
-  wireAppMenu(btn, menu, doc);
-  btn.dispatchEvent({ type: 'click' });
-  const key = (k) => doc.dispatchEvent({ type: 'keydown', key: k, preventDefault() {} });
-  key('ArrowDown');
-  assert.equal(doc.activeElement?.id, 'i1');
-  key('ArrowDown');
-  assert.equal(doc.activeElement?.id, 'i3', 'past the hidden one');
-  key('ArrowDown');
-  assert.equal(doc.activeElement?.id, 'i1', 'round again');
-  key('ArrowUp');
-  assert.equal(doc.activeElement?.id, 'i3');
-});
+// ↑ ↓ along its items, Tab, and where it opens: lib/ui/menu.test.js, as for
+// every menu.

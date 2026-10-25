@@ -596,7 +596,8 @@ test('the header’s menu and its items are finger-sized targets', () => {
     const d = new RegExp(`(?:^|[;\\s])${k}:\\s*(\\d+)px`).exec(m[1]);
     assert.ok(d && +d[1] >= 44, `☰: ${k} at least 44px`);
   }
-  const item = /\.menu\.app-menu > \.app-menu-item\s*\{([^}]*)\}/.exec(css);
+  // Its rows are every menu's (lib/ui/menu.js menuItem).
+  const item = /\.menu > \.menu-item\s*\{([^}]*)\}/.exec(css);
   assert.ok(item, 'a rule for its items');
   const h = /min-height:\s*(\d+)px/.exec(item[1]);
   assert.ok(h && +h[1] >= 44, 'each item at least 44px tall');
