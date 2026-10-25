@@ -3,8 +3,10 @@
 // its sheet, Escape closes the sheet and keeps it selected, → moves it a
 // bar and a second Escape lets go, all in the Studio; with a track's
 // inspector open as the part is tapped, Escape closes the inspector first,
-// then lets go of the part; a quick drag pans the lanes and leaves it be,
-// and a hold then a drag slides it a bar, which ↶ takes back.
+// then lets go of the part; without CloseWatcher (Safari), Escape and the
+// browser's Back close Rename opened over the selected part and keep the
+// part, and the next Back lets go of it; a quick drag pans the lanes and
+// leaves it be, and a hold then a drag slides it a bar, which ↶ takes back.
 // docs/flows.md#j111
 // Ported from the retired scripts/smoke-tape.mjs ("A clip's gestures").
 
@@ -151,6 +153,59 @@ export default {
     const letGo = await seen(page);
     t.expect('the second lets go of the part, still in the Studio', !letGo.selected && letGo.path === '/tape.html', letGo);
     await t.wait(300);
+
+    // The same in a browser without CloseWatcher (Safari, the iPad), where
+    // the stack's Escape and its history entry are its own: Rename, a modal
+    // sheet, opened over the selected part, closes on Escape or the
+    // browser's Back and leaves the part selected. A second tab of this
+    // device, with CloseWatcher taken out.
+    const safari = await page.context().newPage();
+    const errs = [];
+    safari.on('pageerror', (e) => errs.push(e.message));
+    await safari.addInitScript(() => { delete window.CloseWatcher; });
+    const until = (fn) => safari.waitForFunction(fn, null, { timeout: 5000 }).then(() => true, () => false);
+    const press = (l) => (touch ? l.tap() : l.click());
+    const there = () => safari.evaluate(() => ({
+      path: location.pathname,
+      rename: !!document.getElementById('rename-sheet')?.open,
+      selected: document.getElementById('multi-bar')?.hidden === false,
+      closeWatcher: typeof window.CloseWatcher,
+    }));
+    const rename = async () => {
+      await press(safari.locator('#tape-more'));
+      await safari.waitForTimeout(300);
+      await press(safari.locator('#tape-rename'));
+      return until(() => document.getElementById('rename-sheet')?.open && document.getElementById('multi-bar')?.hidden === false);
+    };
+    await t.step('open the Studio in a browser without CloseWatcher', () => safari.goto(`${t.base}/tape.html`));
+    await safari.locator('.tt-lane').first().waitFor({ state: 'visible' });
+    await safari.waitForTimeout(800);
+    const r1 = await safari.locator('.tt-lane').first().boundingBox();
+    const from = Math.max(0, loop.in - bar), to = loop.out + bar;
+    const px = r1.x + ((c0.at + bar / 2 - from) / (to - from)) * r1.width, py = r1.y + r1.height / 2;
+    await t.step('tap the part there', () => (touch ? safari.touchscreen.tap(px, py) : safari.mouse.click(px, py)));
+    await until(() => document.getElementById('multi-bar')?.hidden === false);
+    let renaming = false;
+    await t.step('⋯ → Rename', async () => { renaming = await rename(); });
+    t.expect('Rename opens over the selected part, there', renaming && (await there()).closeWatcher === 'undefined', await there());
+    await t.step('press Escape', () => safari.keyboard.press('Escape'));
+    await until(() => !document.getElementById('rename-sheet')?.open);
+    await safari.waitForTimeout(300);
+    const esc = await there();
+    t.expect('Escape closes Rename, and the part stays selected', !esc.rename && esc.selected && esc.path === '/tape.html', esc);
+    await t.step('⋯ → Rename again', async () => { renaming = await rename(); });
+    t.expect('Rename opens again', renaming, await there());
+    await t.step('Back (the browser’s)', () => safari.goBack());
+    await until(() => !document.getElementById('rename-sheet')?.open);
+    await safari.waitForTimeout(300);
+    const back = await there();
+    t.expect('Back closes Rename too, and the part stays selected, in the Studio', !back.rename && back.selected && back.path === '/tape.html', back);
+    await t.step('Back again', () => safari.goBack());
+    await until(() => document.getElementById('multi-bar')?.hidden !== false);
+    await safari.waitForTimeout(300);
+    const after = await there();
+    t.expect('the next Back lets go of the part, still in the Studio', !after.selected && after.path === '/tape.html' && !errs.length, { ...after, errs });
+    await safari.close();
 
     s = await spot();
     await t.step('swipe across the part', () => drag(s.x, s.y, s.perBar, 0, { steps: 4 }));

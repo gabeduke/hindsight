@@ -16,6 +16,10 @@
 //   - Elsewhere (Safari, so the iPad) an Escape keydown closes the top
 //     layer, and the stack holds ONE history entry while anything is open,
 //     so the edge swipe's Back closes the top layer too (historyStep).
+//     A modal sheet that is not on the stack (Rename, Settings, a confirm:
+//     a <dialog> shown with showModal) is over all of it: Escape is left to
+//     the browser, which closes it, and Back closes it as Escape would.
+//     (With CloseWatcher, the sheet's own watcher is the newest: the same.)
 //
 // Never both for one layer: with a watcher and an entry, one Back would
 // close the layer and the next would land on its leftover entry and do
@@ -234,6 +238,31 @@ export function createLayers({
     return best;
   }
 
+  // over is a modal sheet open that is not on the stack (nor holds a layer
+  // or sits in one): it is over every layer. Where :modal is not known, an
+  // open <dialog> is taken for one.
+  function over() {
+    let open = [];
+    try { open = [...(doc?.querySelectorAll?.('dialog[open]') || [])]; } catch (e) { onError(e); return null; }
+    for (const d of open) {
+      if (stack.some(({ spec: { el } }) => el && (el === d || el.contains?.(d) || d.contains?.(el)))) continue;
+      let modal = true;
+      try { if (typeof d.matches === 'function') modal = d.matches(':modal'); } catch { /* no :modal here */ }
+      if (modal) return d;
+    }
+    return null;
+  }
+
+  // dismiss closes a sheet as a close request does: its cancel first, which
+  // it may refuse.
+  function dismiss(d) {
+    try {
+      if (typeof d.requestClose === 'function') { d.requestClose(); return; }
+      const Ev = win?.Event || globalThis.Event;
+      if (d.dispatchEvent(new Ev('cancel', { cancelable: true }))) d.close?.();
+    } catch (e) { onError(e); }
+  }
+
   function arm(rec) {
     try {
       const w = new CloseWatcher();
@@ -357,9 +386,10 @@ export function createLayers({
     }, true);
   } else {
     // Escape closes the top layer, unless something under it took the key
-    // for itself (preventDefault: a field's own Escape, a drag let go).
+    // for itself (preventDefault: a field's own Escape, a drag let go), or a
+    // modal sheet is over the stack: the browser's Escape closes that.
     win?.addEventListener?.('keydown', (e) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || !stack.length) return;
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || !stack.length || over()) return;
       e.preventDefault?.();
       shut(first(), 'escape');
     });
@@ -372,7 +402,11 @@ export function createLayers({
       const next = historyStep(h, { type: 'popstate', ours, marked: landed != null });
       h = next;
       if (next.close === 'top' && stack.length) {
-        shut(first(), 'back');
+        // Back took the entry: a modal sheet over the stack closes, else
+        // the top layer. Those still open get an entry again.
+        const d = over();
+        if (d) dismiss(d);
+        else shut(first(), 'back');
         apply(historyStep(h, { type: 'settle' }));
       } else {
         apply(next);

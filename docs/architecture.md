@@ -787,7 +787,11 @@ one way out, whoever asked. Where the browser has `CloseWatcher` (Chromium:
 Escape, and Android's Back) each layer has one, made in the press that
 opened it; elsewhere (Safari) an Escape keydown closes the top layer, and the
 stack holds one history entry while anything is open (`historyStep`), so the
-iPad's edge swipe closes it too. Never both for one layer, or Back would
+iPad's edge swipe closes it too. A modal sheet that is not on the stack
+(Rename, Settings, a confirm: a `<dialog>` shown with `showModal`) is over
+all of it: with `CloseWatcher` its own is the newest, and in Safari the
+stack leaves Escape to the browser and closes the sheet on Back, so neither
+lets go of what is under it. Never both for one layer, or Back would
 take two presses. A handler that keeps Escape for itself (a field's own, a
 drag let go) calls `preventDefault()`, and the stack leaves that press be.
 In Chromium the browser's own Back button is a move in the history, not a

@@ -245,6 +245,68 @@ test('without CloseWatcher: Escape closes the top layer, unless something under 
   assert.deepEqual(log, ['menu escape', 'sheet escape']);
 });
 
+// A <dialog> shown: open, and modal or not (its :modal), as a page's.
+function aDialog(w, { modal = true, requestClose = true } = {}) {
+  const d = w.el('dialog');
+  d.setAttribute('open', '');
+  d.matches = (q) => q === ':modal' && modal;
+  d.close = () => d.removeAttribute('open');
+  if (requestClose) d.requestClose = () => { if (d.dispatchEvent(new Event('cancel', { cancelable: true }))) d.close(); };
+  return d;
+}
+
+test('without CloseWatcher: a modal sheet off the stack is over it: Escape is the browser’s, and Back closes the sheet', async () => {
+  const w = aWindow();
+  const log = [];
+  opened(w, 'selection', { log });
+  const rename = aDialog(w);
+  const ev = w.win.fire('keydown', { key: 'Escape' });
+  assert.equal(ev.defaultPrevented, false, 'left to the browser, whose Escape closes the sheet');
+  assert.deepEqual(log, [], 'and the selection under it stays');
+  w.history.back(); // the iPad's edge swipe, with the sheet up
+  await tick();
+  assert.equal(rename.hasAttribute('open'), false, 'Back closes the sheet');
+  assert.deepEqual(log, []);
+  assert.ok(w.history.state[KEY], 'the selection has its entry again');
+  w.win.fire('keydown', { key: 'Escape' });
+  assert.deepEqual(log, ['selection escape'], 'with the sheet gone, Escape is the stack’s again');
+});
+
+test('without CloseWatcher: Back to a sheet that refuses its cancel leaves it, and closes nothing under it', async () => {
+  const w = aWindow();
+  const log = [];
+  opened(w, 'selection', { log });
+  const ask = aDialog(w, { requestClose: false });
+  ask.addEventListener('cancel', (e) => e.preventDefault());
+  w.history.back();
+  await tick();
+  assert.equal(ask.hasAttribute('open'), true);
+  assert.deepEqual(log, []);
+  assert.ok(w.history.state[KEY]);
+});
+
+test('a dialog on the stack, holding a layer, or shown without showModal is not over the stack', () => {
+  const w = aWindow();
+  const log = [];
+  opened(w, 'selection', { log });
+  aDialog(w, { modal: false }); // shown, not modal: the page is still there
+  w.win.fire('keydown', { key: 'Escape' });
+  assert.deepEqual(log, ['selection escape']);
+  const sheet = aDialog(w);
+  opened(w, 'sheet', { log, el: sheet, name: 'its own sheet' });
+  w.win.fire('keydown', { key: 'Escape' });
+  assert.deepEqual(log, ['selection escape', 'its own sheet escape']);
+  sheet.close(); // as its owner's onClose would
+  const settings = aDialog(w);
+  const menuEl = w.doc.createElement('div');
+  settings.append(menuEl);
+  opened(w, 'menu', { log, el: menuEl, name: 'a menu in it' });
+  const ev = w.win.fire('keydown', { key: 'Escape' });
+  assert.deepEqual(log, ['selection escape', 'its own sheet escape', 'a menu in it escape'], 'the menu, opened in the sheet, is over it');
+  assert.equal(ev.defaultPrevented, true);
+  assert.equal(w.win.fire('keydown', { key: 'Escape' }).defaultPrevented, false, 'nothing of the stack’s open: the sheet’s own');
+});
+
 test('without CloseWatcher: the stack holds one history entry, and Back closes the top layer, then the next', async () => {
   const w = aWindow({ state: { shell: 1, view: 'studio' } });
   const log = [];
