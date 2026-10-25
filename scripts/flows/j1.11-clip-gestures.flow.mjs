@@ -172,7 +172,7 @@ export default {
       closeWatcher: typeof window.CloseWatcher,
     }));
     const rename = async () => {
-      await press(safari.locator('#tape-more'));
+      await press(safari.locator('#tape-name'));
       await safari.waitForTimeout(300);
       await press(safari.locator('#tape-rename'));
       return until(() => document.getElementById('rename-sheet')?.open && document.getElementById('multi-bar')?.hidden === false);
@@ -186,14 +186,14 @@ export default {
     await t.step('tap the part there', () => (touch ? safari.touchscreen.tap(px, py) : safari.mouse.click(px, py)));
     await until(() => document.getElementById('multi-bar')?.hidden === false);
     let renaming = false;
-    await t.step('⋯ → Rename', async () => { renaming = await rename(); });
+    await t.step('the tape’s name → Rename…', async () => { renaming = await rename(); });
     t.expect('Rename opens over the selected part, there', renaming && (await there()).closeWatcher === 'undefined', await there());
     await t.step('press Escape', () => safari.keyboard.press('Escape'));
     await until(() => !document.getElementById('rename-sheet')?.open);
     await safari.waitForTimeout(300);
     const esc = await there();
     t.expect('Escape closes Rename, and the part stays selected', !esc.rename && esc.selected && esc.path === '/tape.html', esc);
-    await t.step('⋯ → Rename again', async () => { renaming = await rename(); });
+    await t.step('the tape’s name → Rename… again', async () => { renaming = await rename(); });
     t.expect('Rename opens again', renaming, await there());
     await t.step('Back (the browser’s)', () => safari.goBack());
     await until(() => !document.getElementById('rename-sheet')?.open);

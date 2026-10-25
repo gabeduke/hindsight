@@ -8,6 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { room, take, iso, MIN, click, roomDialogs, TAPES } from './harness.js';
+import { GESTURE } from '../ui/press.js';
 
 // --- a tap plays -----------------------------------------------------------------
 
@@ -22,13 +23,47 @@ test('a tap on a spine plays the take through the bar, and no sheet opens', asyn
   assert.deepEqual(roomDialogs(r), [], 'no sheet, no card, no question to answer');
 });
 
+// A second tap later than a double tap's.
+const apart = () => new Promise((res) => setTimeout(res, GESTURE.DOUBLE_MS + 30));
+
 test('tapping it again pauses it', async () => {
   const r = await room();
   const b = r.spine('jam_a.wav');
   click(b); await r.settle();
+  await apart();
   click(b); await r.settle();
   assert.deepEqual(r.log.filter((l) => /^(play|pause)/.test(l)), ['play jam_a.wav', 'pause jam_a.wav']);
   assert.equal(r.sheet.opened, 0);
+  assert.deepEqual(r.w.navigated, [], 'two taps apart open nothing');
+});
+
+test('a double tap on a spine opens the take on its page, its first tap having started it', async () => {
+  const r = await room();
+  const b = r.spine('jam_b.wav');
+  click(b); click(b);
+  await r.settle(); await r.settle();
+  assert.deepEqual(r.log.filter((l) => /^(play|pause)/.test(l)), ['play jam_b.wav'], 'it plays on into its page: the second tap does not pause it');
+  assert.deepEqual(r.w.navigated, ['/wave.html?file=jam_b.wav']);
+});
+
+test('a double tap on the take already playing opens it playing, though its first tap paused it', async () => {
+  const r = await room();
+  const b = r.spine('jam_c.wav');
+  click(b); await r.settle();
+  await apart();
+  click(b); click(b);
+  await r.settle(); await r.settle();
+  assert.deepEqual(r.log.filter((l) => /^(play|pause)/.test(l)), ['play jam_c.wav', 'pause jam_c.wav', 'play jam_c.wav']);
+  assert.deepEqual(r.w.navigated, ['/wave.html?file=jam_c.wav']);
+});
+
+test('selecting, two quick taps are two picks, and open nothing', async () => {
+  const r = await room({ selecting: true });
+  const b = r.spine('jam_a.wav');
+  click(b); click(b);
+  await r.settle();
+  assert.equal(r.list.selected.has('jam_a.wav'), false, 'in, then out');
+  assert.deepEqual(r.w.navigated, []);
 });
 
 test('the finger going down warms the player, so the play is inside the tap', async () => {
@@ -225,7 +260,7 @@ test('the deck follows the bar: empty, then a take in it, playing, how far, then
   r.doc.getElementById('np-scrub').setAttribute('aria-valuemax', '120');
   r.doc.getElementById('np-scrub').setAttribute('aria-valuenow', '30');
   r.tick();
-  assert.equal(place(), 'In the bar: b');
+  assert.equal(place(), 'b · Open');
   assert.equal(r.q('.room-deck').classList.contains('empty'), false);
   assert.equal(r.q('.room-deck').classList.contains('playing'), false);
   assert.equal(r.q('.room-deck-lcd').textContent, '0:30');
@@ -239,7 +274,7 @@ test('the deck follows the bar: empty, then a take in it, playing, how far, then
 
   r.np.takeName = 'jam_c.wav'; // a tap on another take, or a take carried from another page
   r.tick();
-  assert.equal(place(), 'In the bar: c');
+  assert.equal(place(), 'c · Open');
   r.doc.getElementById('np-play').classList.remove('playing');
   r.tick();
   assert.equal(r.q('.room-deck').classList.contains('playing'), false);
@@ -247,7 +282,7 @@ test('the deck follows the bar: empty, then a take in it, playing, how far, then
 
 test('with a tape loaded and no take in the bar, the deck is the tape the bar holds', async () => {
   const r = await room({ tapes: TAPES });
-  assert.equal(r.q('.room-deck-place').textContent, 'In the bar: Tuesday groove');
+  assert.equal(r.q('.room-deck-place').textContent, 'Tuesday groove · Open');
   assert.equal(r.q('.room-deck-meta').textContent, 'tape · in the Studio');
 });
 
@@ -281,23 +316,12 @@ test('tapping an empty deck goes nowhere: it points at the shelf', async () => {
   assert.deepEqual(r.w.navigated, []);
 });
 
-test('the dock’s Open is for the tape, to the Studio: a take in the bar opens by its name, so the dock stands down', async () => {
-  const r = await room({ barTake: 'jam_a.wav' });
-  const dock = r.q('.room-sit');
-  assert.equal(dock.hidden, true, 'the bar’s own name is the way into a take: one route, not two');
-  r.np.takeName = 'jam_c.wav';
-  r.tick();
-  assert.equal(dock.hidden, true);
-
-  const t = await room({ tapes: TAPES });
-  assert.equal(t.q('.room-sit').textContent, 'Open');
-  assert.equal(t.q('.room-sit').hidden, false);
-  assert.equal(t.q('.room-sit').getAttribute('href'), '/tape.html');
-  click(t.q('.room-sit'));
-  assert.equal(JSON.parse(t.w.session.getItem('hindsight.bar.carry')).for, 'tape');
-
-  const e = await room();
-  assert.equal(e.q('.room-sit').hidden, true, 'nothing in the bar: nothing to open');
+test('the room adds no Open of its own to the bar: the bar’s Open › opens a take, or the tape in the Studio', async () => {
+  for (const r of [await room({ barTake: 'jam_a.wav' }), await room({ tapes: TAPES }), await room()]) {
+    assert.equal(r.q('.room-sit'), null, 'one route in, not two');
+    const open = r.doc.getElementById('np-open');
+    assert.deepEqual(open.getAttribute('data-for').split(' '), ['take', 'away'], 'the bar’s own, for a take and for the tape away from the Studio');
+  }
 });
 
 test('the sketchbook strip says Open in its name, as the deck and the dock do, and keeps its visible word in it', async () => {
@@ -400,7 +424,9 @@ test('a take already in the bar that plays again is not put on the deck again: n
   const b = r.spine('jam_b.wav');
   click(b); await r.settle(); // plays, flies
   r.run(1100);
+  await apart();
   click(b); await r.settle(); // pauses
+  await apart();
   click(b); await r.settle(); // resumes: it is on the deck already
   assert.ok(r.log.filter((l) => l === 'play jam_b.wav').length === 2, 'it played again');
   assert.equal(r.ghosts().length, 0, 'but nothing flew');
@@ -412,6 +438,7 @@ test('a tap that pauses takes the cassette out of the air', async () => {
   click(b); await r.settle();
   r.run(300);
   assert.equal(r.ghosts().length, 1);
+  await apart(); // a second tap, not half of a double (which would open the take)
   click(b); await r.settle();
   assert.equal(r.ghosts().length, 0);
   r.run(1100);
@@ -474,5 +501,5 @@ test('a tap while no deck and no bar is on the screen plays and flies nothing', 
 test('the deck is drawn from the bar at the tap, not at the next look', async () => {
   const r = laid(await room());
   click(r.spine('jam_b.wav')); await r.settle();
-  assert.equal(r.q('.room-deck-place').textContent, 'In the bar: b', 'before any interval has run');
+  assert.equal(r.q('.room-deck-place').textContent, 'b · Open', 'before any interval has run');
 });

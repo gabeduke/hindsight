@@ -1,9 +1,9 @@
 // web/static/lib/rooms/bounce.test.js
 // F2 of the flow spec (docs/architecture.md, Vocabulary):
-// BOUNCE is the Studio's ⋯ menu's one verb for a tape into a take, in place of
-// Mix down ×2 and Cut a record. Its toast has ▶ and Open, the menu keeps Last
-// bounce, and a take that was once marked as a record is an ordinary take.
-// The menu is the tape page's own markup,
+// BOUNCE is the tape's menu's one verb for a tape into a take, in place of
+// Mix down ×2 and Cut a record. Its toast has ▶ and Open, the menu keeps
+// the last bounce, and a take that was once marked as a record is an
+// ordinary take. The menu is the Studio's own markup (the tape's name's),
 // built on a stand-in document; the player runs on a stand-in <audio>.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,23 +17,24 @@ import { MODELS } from '../scene/models.js';
 
 const tapeHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
 
-// The tape page's ⋯ menu, as served: the real markup, in a stand-in document.
+// The tape's menu, as served: the real markup, in a stand-in document.
 function menu() {
   const doc = fakeDoc();
   const holder = parseHTML(doc, tapeHtml);
-  const actions = holder.querySelector('#tape-actions');
+  const actions = holder.querySelector('#tape-menu');
   doc.body.append(actions);
   return { doc, actions };
 }
-const words = (actions) => actions.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"]').map((b) => b.textContent.trim());
+const words = (actions) => actions.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"]')
+  .map((b) => (b.querySelector('.menu-word') || b).textContent.trim());
 
-test('the ⋯ menu offers Bounce the loop and Bounce the whole tape, and neither Mix down nor Cut a record', () => {
+test('the tape’s menu offers Bounce the loop and Bounce the whole tape, and neither Mix down nor Cut a record', () => {
   const { doc, actions } = menu();
   bounceMenu(doc);
   const w = words(actions);
   assert.ok(w.includes('Bounce the loop'), w.join(' | '));
   assert.ok(w.includes('Bounce the whole tape'), w.join(' | '));
-  assert.ok(w.some((x) => /^Last bounce/.test(x)), 'and the tape keeps Last bounce');
+  assert.ok(w.includes('Play the last bounce'), 'and the tape keeps its last bounce');
   assert.equal(w.filter((x) => /Mix down|Cut a record/i.test(x)).length, 0, w.join(' | '));
 });
 
@@ -43,29 +44,32 @@ test('the bounce items are the mixdown items: the same buttons, so the same requ
   bounceMenu(doc);
   assert.equal(actions.querySelector('#tape-mixdown'), loop);
   assert.equal(actions.querySelector('#tape-mixdown-all'), whole);
-  assert.equal(loop.textContent, BOUNCE_WORDS.loop);
-  assert.equal(whole.textContent, BOUNCE_WORDS.whole);
+  assert.equal(loop.querySelector('.menu-word').textContent, BOUNCE_WORDS.loop);
+  assert.equal(whole.querySelector('.menu-word').textContent, BOUNCE_WORDS.whole);
   assert.equal(loop.getAttribute('data-tip'), 'bounce');
   assert.equal(whole.getAttribute('data-tip'), 'bounce');
 });
 
-test('Last bounce sits by the bounces, a line of its own, disabled until there is one', () => {
+test('the last bounce is in the bounces’ group, after Export stems, a row of its own, disabled until there is one, and says so on its face', () => {
   const { doc, actions } = menu();
   bounceMenu(doc);
   const items = actions.children;
   const at = (id) => items.indexOf(actions.querySelector(id));
-  assert.equal(at('#tape-last-bounce'), at('#tape-mixdown-all') + 1);
+  assert.equal(at('#tape-last-bounce'), at('#tape-export') + 1);
+  for (let i = at('#tape-mixdown'); i < at('#tape-last-bounce'); i++) assert.ok(!items[i].classList.contains('menu-divider'), 'no line between them');
   const last = actions.querySelector('#tape-last-bounce');
   assert.equal(last.getAttribute('role'), 'menuitem');
   assert.equal(last.getAttribute('data-tip'), 'last-bounce');
   assert.equal(last.disabled, true, 'none yet');
+  assert.equal(last.querySelector('.menu-sub').textContent, 'none yet', 'a phone has no tooltip');
 });
 
-test('asking twice does not add a second Last bounce', () => {
+test('asking twice does not add a second last bounce', () => {
   const { doc, actions } = menu();
   bounceMenu(doc);
   bounceMenu(doc);
   assert.equal(actions.querySelectorAll('#tape-last-bounce').length, 1);
+  assert.equal(actions.querySelector('#tape-last-bounce').querySelectorAll('.menu-sub').length, 1);
 });
 
 test('bounceMenu answers a setter for Last bounce: enabled with a take, disabled without', () => {
@@ -75,9 +79,11 @@ test('bounceMenu answers a setter for Last bounce: enabled with a take, disabled
   m.setLast({ name: 'jam_20261015-130100.wav', label: 'Second take loop' });
   assert.equal(last.disabled, false);
   assert.equal(m.take.name, 'jam_20261015-130100.wav');
+  assert.equal(last.querySelector('.menu-sub').textContent, 'Second take loop', 'it says which take');
   m.setLast(null);
   assert.equal(last.disabled, true);
   assert.equal(m.take, null);
+  assert.equal(last.querySelector('.menu-sub').textContent, 'none yet');
 });
 
 // --- which take is a tape's last bounce ----------------------------------------------
@@ -336,7 +342,7 @@ test('Last bounce raises the same toast for the newest bounce, naming it; it kno
   const t = { ...take, origin: 'tape', tape_id: 't1', created: '2026-10-15T13:01:00Z' };
   const player = takePlayer({ toast, fetchImpl: async () => { throw new Error('no lookup needed'); }, Audio: FakeAudio, sleep: instant });
   lastBounceToast({ toast, take: t, player, go() {} });
-  assert.match(shown[0].msg, /Last bounce/);
+  assert.match(shown[0].msg, /^The last bounce/);
   assert.match(shown[0].msg, /Second take loop/);
   assert.deepEqual(shown[0].actions.map((a) => a.label), ['▶', 'Open']);
   assert.ok((shown[0].opts.ms || 0) >= 10000, 'long enough to reach for');
@@ -413,7 +419,7 @@ test('a Pi that does not answer leaves Last bounce as it was for this tape', asy
   assert.equal(keeper.take().name, 'jam_a.wav');
 });
 
-test('a disabled Last bounce says why on its face, not only in a tooltip', () => {
+test('a disabled last bounce says why on its face, not only in a tooltip, and an enabled one which take it plays', () => {
   const { doc, actions } = menu();
   const m = bounceMenu(doc);
   const last = actions.querySelector('#tape-last-bounce');
@@ -422,7 +428,7 @@ test('a disabled Last bounce says why on its face, not only in a tooltip', () =>
   assert.match(note.textContent, /none yet/);
   assert.equal(note.getAttribute('aria-hidden'), null, 'a screen reader hears it too');
   m.setLast({ name: 'jam_a.wav', label: 'A' });
-  assert.equal(last.querySelector('.bounce-note').textContent, '');
+  assert.equal(last.querySelector('.bounce-note').textContent, 'A');
   m.setLast(null);
   assert.match(last.querySelector('.bounce-note').textContent, /none yet/);
 });

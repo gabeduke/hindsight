@@ -19,23 +19,36 @@
 <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
 <link rel="stylesheet" href="/objects.css">
 <link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/css/chrome.css">
+<link rel="stylesheet" href="/css/bar.css">
 </head>
 <body>
 
 <!-- One shell document for the Studio (/tape.html) and the Listening Room
      (/takes.html): the header, the bar (#np in #np-dock), and the audio engine
      (lib/bar/engine.js) stay mounted across room switches (lib/shell/boot.js). -->
+<!-- The header: three zones, the same on every page (css/chrome.css) --
+     what you're working on, Studio | Listening Room in the middle, and the
+     tools. Each room puts its own part into a zone as it is shown: its
+     context at the start (the header slot, lib/shell/boot.js), its ↶ ↷ at
+     the end, before ☰ (lib/nav.js mountHeaderTools). -->
 <header class="appbar">
-  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=3" alt=""><b>Hindsight</b></a>
-  <!-- The switch between the two rooms; on a phone, tabs along the
-       bottom (lib/nav.js keeps it true). -->
+  <div class="appbar-start">
+    <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=3" alt=""><b>Hindsight</b></a>
+  </div>
+  <!-- The switch between the two rooms, each with its own picture: the
+       Studio's faders, with the feed's lamp on them, and the Listening
+       Room's spines. On a phone, tabs along the bottom (lib/nav.js keeps it
+       true). -->
   <nav class="appnav" aria-label="Pages">
-    <a href="/tape.html" data-tab="studio" data-tip="nav-studio"><span class="appnav-lamp" aria-hidden="true"></span>Studio</a>
-    <a href="/takes.html" data-tab="room" data-tip="nav-room"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Listening Room</a>
+    <a href="/tape.html" data-tab="studio" data-tip="nav-studio"><span class="appnav-ico" aria-hidden="true"><svg class="i i-studio" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#studio"/></svg><span class="appnav-lamp"></span></span>Studio</a>
+    <a href="/takes.html" data-tab="room" data-tip="nav-room"><span class="appnav-ico" aria-hidden="true"><svg class="i i-shelf" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#shelf"/></svg></span>Listening Room</a>
   </nav>
-  <!-- Where the tape plays (lib/tape/out-switch.js): a speaker, headphones or
-       both, and the place's name on a wide screen. Hidden until the Pi says. -->
-  <button id="out-btn" class="out-btn tape-out" type="button" aria-haspopup="dialog" aria-label="Output" data-tip="tape-out" hidden><span class="out-ico-slot" aria-hidden="true"><svg class="i i-speaker out-ico" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#speaker"/></svg></span><span class="tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
+  <div class="appbar-end"></div>
+  <!-- Help mode: lib/nav.js moves it into the header's menu as the page
+       starts (lib/help/help.js has it by its id). -->
+  <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
+  <!-- Capture's context: the feed, recording or not. -->
   <div id="header-capture" class="appbar-page" hidden>
     <div class="health">
       <span class="awake" id="awake" hidden
@@ -45,51 +58,57 @@
       <span id="health-text">connecting</span>
     </div>
   </div>
-  <!-- Help mode: lib/nav.js moves it into the header's menu as the page
-       starts (lib/help/help.js has it by its id). -->
-  <button id="help" class="icon-btn help-btn" type="button" aria-pressed="false" aria-label="Help" data-tip="help">?</button>
+  <!-- The Studio's context: the tape's name, which is the tape's menu, and
+       the sign that lights while a punch records. -->
   <div id="header-studio" class="appbar-page tape-top" hidden>
-    <!-- Two pills, each a menu: the tape's name switches tapes; its tempo
-         sets the loop's bars. Each opens under itself. -->
-    <div class="tape-title">
-      <span class="menu-anchor">
-        <button id="tape-name" class="tape-pill tape-title-name" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu"><svg class="i i-tape pill-ico" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#tape"/></svg><span id="tape-name-text" class="pill-text">…</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-        <div id="tape-menu" class="menu from-left" role="menu" hidden>
-          <div id="tape-list" class="tape-list"></div>
-          <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
-        </div>
-      </span>
-      <span class="menu-anchor">
-        <button id="tape-sub" class="tape-pill tape-sub mono" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-tempo"><span class="pill-ico" aria-hidden="true">♩</span><span id="tape-sub-long" class="pill-text sub-long"></span><span id="tape-sub-short" class="pill-text sub-short" aria-hidden="true"></span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-        <div id="tempo-menu" class="menu from-left" role="menu" hidden></div>
-      </span>
-    </div>
-    <span class="appbar-spacer"></span>
-    <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
-    <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
-    <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo"><svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#undo"/></svg></button>
-    <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo"><svg class="i i-redo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#redo"/></svg></button>
     <span class="menu-anchor">
-      <button id="tape-more" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More for this tape" data-tip="tape-more"><svg class="i i-more" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#more"/></svg></button>
-      <div id="tape-actions" class="menu" role="menu" hidden>
-        <button id="tape-rename" type="button" role="menuitem" data-tip="tape-rename">Rename this tape…</button>
-        <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
-        <button id="tape-mixdown" type="button" role="menuitem" data-tip="mixdown">Mix down the loop</button>
-        <button id="tape-mixdown-all" type="button" role="menuitem" data-tip="mixdown">Mix down the whole tape</button>
+      <button id="tape-name" class="tape-pill ctx-pill" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu"><svg class="i i-tape pill-ico" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#tape"/></svg><span id="tape-name-text" class="pill-text">…</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
+      <!-- The tape's menu (lib/tape/page.js, renderTapeMenu; its words,
+           lib/tape/tape-menu.js): the tapes, the loaded one ticked, and New
+           tape; Rename…, Duplicate; the mix, the bounces, the stems and the
+           last bounce; Record from this phone…; and Delete this tape…, last
+           and red, after a line of its own, asked first in #confirm. What
+           acts on the tape is here, never in a ⋯ beside it. -->
+      <div id="tape-menu" class="menu tape-menu" role="menu" aria-label="This tape" hidden>
+        <p class="menu-group" aria-hidden="true">The tapes</p>
+        <!-- The tapes, as the Pi lists them, go here (renderTapeList). -->
+        <button id="tape-new" class="menu-item" type="button" role="menuitem" data-tip="tape-new"><span class="menu-check menu-plus" aria-hidden="true">+</span><span class="menu-word">New tape</span></button>
+        <div class="menu-divider" role="separator"></div>
+        <button id="tape-rename" class="menu-item" type="button" role="menuitem" data-tip="tape-rename"><span class="menu-word">Rename…</span></button>
+        <button id="tape-clone" class="menu-item" type="button" role="menuitem" data-tip="clone"><span class="menu-word">Duplicate</span></button>
+        <div class="menu-divider" role="separator"></div>
         <!-- The whole tape as an MP3 for the share sheet, rendered on the Pi:
              no jam room, no interface (lib/tape/page.js, shareMix). -->
-        <button id="tape-share-mix" type="button" role="menuitem" data-tip="share-mix">Share the mix</button>
+        <button id="tape-share-mix" class="menu-item" type="button" role="menuitem" data-tip="share-mix"><span class="menu-word">Share the mix</span></button>
+        <!-- BOUNCE (lib/rooms/bounce.js): the tape through the mixer, once,
+             into a take. -->
+        <button id="tape-mixdown" class="menu-item" type="button" role="menuitem" data-tip="bounce"><span class="menu-word">Bounce the loop</span></button>
+        <button id="tape-mixdown-all" class="menu-item" type="button" role="menuitem" data-tip="bounce"><span class="menu-word">Bounce the whole tape</span></button>
+        <a id="tape-export" class="menu-item" href="#" role="menuitem" data-tip="export-stems"><span class="menu-word">Export stems</span></a>
+        <button id="tape-last-bounce" class="menu-item" type="button" role="menuitem" data-tip="last-bounce" disabled><span class="menu-word">Play the last bounce</span><span class="menu-sub bounce-note">none yet</span></button>
+        <div class="menu-divider" role="separator"></div>
         <!-- The feed's ● Phone, which the strip shows on a phone alone. -->
-        <button id="tape-phone" type="button" role="menuitem" data-tip="phone">Record from this phone…</button>
-        <button id="ask-first" type="button" role="menuitemcheckbox" aria-checked="true" data-tip="ask-first"><span class="menu-check" aria-hidden="true">✓</span>Ask before Insert and Delete time</button>
-        <a id="tape-export" href="#" role="menuitem" data-tip="export-stems">Export stems</a>
-        <button id="tape-delete" class="danger" type="button" role="menuitem" data-tip="tape-delete">Delete a tape…</button>
+        <button id="tape-phone" class="menu-item" type="button" role="menuitem" data-tip="phone"><span class="menu-word">Record from this phone…</span></button>
+        <div class="menu-divider" role="separator"></div>
+        <button id="tape-delete" class="menu-item danger" type="button" role="menuitem" data-tip="tape-delete"><span class="menu-word">Delete this tape…</span></button>
       </div>
     </span>
+    <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
   </div>
+  <!-- The Studio's tools, before ☰: ↶ ↷. -->
+  <div id="header-studio-end" class="appbar-acts" hidden>
+    <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo"><svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#undo"/></svg></button>
+    <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo"><svg class="i i-redo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#redo"/></svg></button>
+  </div>
+  <!-- The Listening Room's context: its search (the field the room's
+       filtering reads, lib/shell/views/room.js); in the rack, Play all and
+       Select. -->
   <div id="header-room" class="appbar-page" hidden>
     <h1 class="shelf-title">Takes <span class="shelf-count" id="shelf-count" aria-label="takes shown">–</span></h1>
-    <span class="appbar-spacer"></span>
+    <label class="shelf-search" data-tip="search">
+      <svg class="i i-search" width="18" height="18" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#search"/></svg>
+      <input id="shelf-q" type="search" placeholder="Search names, times, tempo" aria-label="Search takes" autocomplete="off" enterkeyhint="search">
+    </label>
     <!-- The takes shown, one after another, through the bar (lib/playall.js). -->
     <button class="chip" id="play-all" type="button" data-tip="play-all">▶ Play all</button>
     <button class="chip" id="select-btn" type="button" data-tip="select">Select</button>
@@ -127,18 +146,16 @@
       <canvas id="tape-sections" class="tape-sections" tabindex="0" role="group" aria-roledescription="sections" aria-label="Sections: hold and drag to make one, tap one to select its bars" data-tip="tape-sections"></canvas>
     </div>
     <div class="tape-ruler-row">
-      <!-- What a drag snaps to, and the loop's lock: drawn ranges move the
-           loop to their bars unless it's locked. -->
+      <!-- ⌗, the View menu, on every screen (lib/tape/page.js, mountMenus):
+           the key says what a drag snaps to, and shows the lock while the
+           loop is locked; its menu sets the snap, locks the loop (drawn
+           ranges move the loop to their bars unless it's locked), fits the
+           view, folds the tracks and says whether Insert and Delete time
+           ask first. Fit stands beside it too while the view is moved. -->
       <span class="tape-ruler-gap ruler-keys">
-        <button id="snap-btn" class="chip ruler-chip snap-btn" type="button" data-tip="tape-snap"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg><span id="snap-name">Bar</span></button>
-        <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg class="i i-lock-body" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#lock-body"/><use class="lock-shackle" href="/icons/ui.svg?v=5157df85#lock-shackle"/></svg></button>
-        <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
-        <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes" data-tip="tracks-fold">Tracks<svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
-        <!-- On a phone the keys above outgrow the heads' column: one key,
-             saying the snap (and the lock, when it's on), holds them all. -->
         <span class="menu-anchor ruler-more-anchor">
           <button id="ruler-more" class="chip ruler-chip ruler-more" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="ruler-more"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg><span id="ruler-more-snap">Bar</span><svg class="i i-lock-body ruler-more-lock" width="10" height="10" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#lock-body"/><use class="lock-shackle" href="/icons/ui.svg?v=5157df85#lock-shackle"/></svg><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="10" height="10" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-          <div id="ruler-menu" class="menu from-left ruler-menu" role="menu" aria-label="The ruler" hidden>
+          <div id="ruler-menu" class="menu ruler-menu" role="menu" aria-label="View" hidden>
             <div class="ruler-menu-snap" role="group" aria-label="Snap to">
               <span class="ruler-menu-label" aria-hidden="true"><svg class="i i-view" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg> Snap</span>
               <span class="seg ruler-snap-seg">
@@ -148,11 +165,16 @@
                 <button type="button" role="menuitemradio" aria-checked="false" data-snap="off" data-tip="tape-snap">Off</button>
               </span>
             </div>
-            <button id="rm-lock" type="button" role="menuitemcheckbox" aria-checked="false" data-tip="loop-lock"><span class="menu-check" aria-hidden="true">✓</span>Lock the loop</button>
-            <button id="rm-fit" type="button" role="menuitem" data-tip="view-fit" hidden><span class="menu-check" aria-hidden="true"></span>Fit: back to the loop</button>
-            <button id="rm-tracks" type="button" role="menuitem" data-tip="tracks-fold"><span class="menu-check" aria-hidden="true"></span><span id="rm-tracks-words">Fold the tracks</span></button>
+            <button id="rm-lock" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false" data-tip="loop-lock"><span class="menu-check" aria-hidden="true">✓</span><span class="menu-word">Lock the loop</span><span class="menu-sub">a range you draw leaves it where it is</span></button>
+            <button id="rm-fit" class="menu-item" type="button" role="menuitem" data-tip="view-fit" hidden><span class="menu-check" aria-hidden="true"></span><span class="menu-word">Fit</span><span class="menu-sub">back to the loop and a bar either side</span></button>
+            <!-- The one fold for the lanes (architecture.test.js, guardrail 6). -->
+            <button id="tracks-fold-btn" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false" aria-controls="lanes" data-tip="tracks-fold"><span class="menu-check" aria-hidden="true">✓</span><span class="menu-word">Fold the tracks</span><span class="menu-sub">the ruler and the bar keep their place</span></button>
+            <!-- A touch screen's: a mouse previews Insert and Delete time on
+                 hover instead (styles.css). -->
+            <button id="ask-first" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="true" data-tip="ask-first"><span class="menu-check" aria-hidden="true">✓</span><span class="menu-word">Ask before Insert and Delete time</span><span class="menu-sub">a first tap shows what it will do</span></button>
           </div>
         </span>
+        <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
       </span>
       <canvas id="tape-ruler" class="tape-ruler" aria-label="Bars: tap to move the playhead, hold and drag to select those bars on every track" data-tip="tape-ruler"></canvas>
     </div>
@@ -235,11 +257,8 @@
 
 <!-- Every take, to search, filter and sort (lib/shell/views/room.js). -->
 <main id="view-room" class="shelf-main view" data-view="room" hidden>
+  <!-- The rack's filters and sort, under the header's search. -->
   <div class="shelf-tools">
-    <label class="shelf-search" data-tip="search">
-      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M11.5 11.5 L16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
-      <input id="shelf-q" type="search" placeholder="Search names, times, tempo" aria-label="Search takes" autocomplete="off" enterkeyhint="search">
-    </label>
     <div class="shelf-toggles" id="shelf-filters" role="group" aria-label="Show only" data-tip="filter">
       <button class="icon-btn toggle" type="button" data-filter="starred" aria-pressed="false">★ Starred</button>
       <button class="icon-btn toggle" type="button" data-filter="midi" aria-pressed="false">MIDI</button>
@@ -278,9 +297,15 @@
      (lib/ui/menu.js), filled by page.js (renderInputMenu) with the inputs
      and their meters. -->
 <div id="input-menu" class="menu input-menu" role="menu" aria-label="Input" hidden></div>
+<!-- The tempo's: the bars the loop could be, from the bar's display
+     (page.js, renderTempo). -->
+<div id="tempo-menu" class="menu tempo-menu" role="menu" aria-label="The loop's length" hidden></div>
 <!-- Catch's: what to catch, the last pass or the last bars, over its ▾
      (page.js, renderCatchMenu). -->
 <div id="catch-menu" class="menu catch-menu" role="menu" aria-label="What to catch" hidden></div>
+<!-- The display's source: the tape, the live feed, the last few takes, the
+     shelf (lib/bar/source-menu.js). -->
+<div id="np-source-menu" class="menu np-source-menu" role="menu" aria-label="What plays" hidden></div>
 
 <!-- The dock at the foot of the page: the clip editor while a clip is
      aligned, the action bar while something is selected, then the
@@ -340,12 +365,19 @@
       <button id="range-done" class="icon-btn" type="button" aria-keyshortcuts="Escape" data-tip="range-done">Done</button>
     </span>
   </div>
-  <!-- The now-playing bar (docs/superpowers/specs/2026-10-05-transport-bar-design.md;
-       lib/bar/bar.js): the tape, or a take you play, or the feed, in the reel
-       window and its LCD; |◂ ▶ ⟲; the way to its own page (and ⏏ back to the
-       tape); the whole tape or take as a scrubber, and OUT. Hidden until there
-       is something to hold. -->
-  <section id="np" class="np" aria-label="Now playing" hidden>
+  <!-- The bar (css/bar.css; lib/bar/bar.js), the same object in every room:
+       five zones in a row -- the deck (the reels and the display), the
+       transport, the verb, the modes and the end -- and the strip under them
+       (docs/architecture.md, "The bar"). Each zone is a named slot; each key
+       says in data-for which sources (and data-mini which of the phone's mini
+       player) it shows for: tape, studio (the tape, in the Studio), away (the
+       tape, anywhere else), take, feed. Nothing is placed by the order a
+       script added it in. Hidden until there is something to hold. -->
+  <section id="np" class="np" aria-label="Now playing" data-size="full" hidden>
+    <!-- The grabber on its top edge (lib/bar/fold.js): a tap folds the bar
+         or unfolds it, a drag down folds it and a drag up unfolds it. On a
+         phone, with the player up, it puts the player away. -->
+    <button id="np-grabber" class="np-grabber" type="button" aria-expanded="true" aria-controls="np" aria-label="Fold the bar" data-tip="np-grabber"><span class="np-lip" aria-hidden="true"><span class="np-pill"></span></span></button>
     <div id="out-strip" class="out-strip" role="status" hidden>
       <span id="out-strip-led" class="out-led"></span>
       <span id="out-strip-text">Ready on this phone</span>
@@ -353,51 +385,71 @@
       <button id="out-strip-resume" class="chip" type="button" aria-label="Tap to play here on this phone" hidden>Tap to play here</button>
     </div>
     <div class="np-row np-row-1">
-      <div class="np-window">
-        <button id="np-expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass><span class="np-expand-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-        <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
-        <div class="np-lcd">
-          <div class="np-lcd-top">
-            <span id="np-status" class="np-status" data-state="stop" aria-hidden="true"></span>
-            <span id="np-unit" class="np-unit" aria-hidden="true">BAR</span>
-            <span id="position" class="np-pos"></span>
-            <span id="np-time" class="np-time"></span>
-            <span id="clock-out" class="np-clock" hidden data-tip="tape-clock"></span>
-            <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+      <div class="np-zones">
+        <div class="np-window" data-slot="deck">
+          <button id="np-expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass></button>
+          <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+          <!-- The display: where it is, then what plays -- its tempo, the
+               source, where it plays -- each a key that opens its menu. -->
+          <div class="np-lcd" role="group" aria-label="The display">
+            <div class="np-lcd-pos">
+              <div class="np-lcd-top">
+                <span id="np-status" class="np-status" data-state="stop" aria-hidden="true"></span>
+                <span id="np-unit" class="np-unit" aria-hidden="true">BAR</span>
+                <span id="position" class="np-pos"></span>
+                <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+              </div>
+              <div class="np-lcd-sub">
+                <span id="np-time" class="np-time"></span>
+                <!-- How the tape's playback and recording line up, while it
+                     plays in the jam room: SYNC, lit by how (page.js). -->
+                <span id="np-sync" class="np-sync" data-for="studio" data-state="off" data-tip="np-sync" hidden>SYNC</span>
+                <span id="clock-out" class="np-clock" hidden data-tip="tape-clock"></span>
+              </div>
+            </div>
+            <button id="np-tempo" class="np-lcd-key np-tempo" type="button" aria-label="Tempo" data-tip="np-tempo"><span class="np-lcd-val"><span id="np-tempo-short" class="np-short">–</span><span id="np-tempo-long" class="np-long">–</span></span><span class="np-lcd-leg"><span class="np-short">BPM</span><span class="np-long">TEMPO</span><svg class="i i-down np-lcd-chev" width="8" height="8" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
+            <button id="np-source" class="np-lcd-key np-source" type="button" aria-label="Source" data-tip="np-source"><span class="np-lcd-val"><span id="np-source-short" class="np-short">TAPE</span><span id="np-source-long" class="np-long">TAPE</span></span><span class="np-lcd-leg">SOURCE<svg class="i i-down np-lcd-chev" width="8" height="8" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
+            <button id="np-output" class="np-lcd-key np-output" type="button" aria-haspopup="dialog" aria-label="Where it plays" data-tip="np-output"><span class="np-lcd-val"><span id="np-output-val">JAM ROOM</span></span><span class="np-lcd-leg">OUT<svg class="i i-down np-lcd-chev" width="8" height="8" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
           </div>
-          <div class="np-marquee" aria-hidden="true"><span id="np-marquee"></span></div>
+          <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
         </div>
-        <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
-      </div>
-      <div class="np-keys tb-row transport" role="group" aria-label="Transport">
-        <button id="np-start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start"><svg class="i i-prev" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#prev"/></svg></button>
-        <button id="np-back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5"><svg class="i i-back5" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#back5"/></svg></button>
-        <button id="np-play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play"><svg class="i i-play" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#play"/></svg></button>
-        <button id="np-loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop"><span class="loop-face"><svg class="i i-repeat" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#repeat"/></svg><span class="loop-word">Loop</span></span></button>
-        <button id="rec" class="icon-btn tb-rec np-studio" type="button" aria-pressed="false" aria-keyshortcuts="R" data-tip="tape-rec">● Rec</button>
-        <button id="click" class="icon-btn tb-click np-studio" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
-      </div>
-      <div class="np-own">
-        <!-- Catch, and its ▾ of what to catch (lib/ui/menu.js splitKey): two
-             keys with a seam, as GRAB's and KEEP's, so a tap meant for one
-             is never the other. -->
-        <span class="key-split np-catch-split np-studio">
-          <button id="catch-pass" class="icon-btn primary np-catch np-studio" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
-          <button id="catch-more" class="icon-btn key-more np-catch-more" type="button" aria-label="What to catch" data-tip="catch-more"><svg class="i i-down" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
-        </span>
-        <button id="np-eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" hidden><svg class="i i-eject" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#eject"/></svg></button>
-        <a id="np-open" class="icon-btn np-open" href="/tape.html" data-tip="np-open">Open the tape ›</a>
-        <button id="np-fold-btn" class="icon-btn np-fold-btn" type="button" aria-expanded="true" aria-controls="np" aria-label="Collapse transport" data-tip="np-fold"><span class="np-fold-glyph" aria-hidden="true"><svg class="i i-down" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
+        <!-- |◀ ▶ and ●: Record beside Play, as in every DAW. With a take or
+             the feed, or the tape away from the Studio, ↺ 5 s is in ●'s place. -->
+        <div class="np-zone np-transport" data-slot="transport" role="group" aria-label="Transport">
+          <button id="np-start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start" data-for="tape take feed" data-mini="tape take feed"><svg class="i i-prev" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#prev"/></svg></button>
+          <button id="np-play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play" data-for="tape take feed" data-mini="tape take feed"><svg class="i i-play" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#play"/></svg></button>
+          <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" aria-label="Record" aria-keyshortcuts="R" data-tip="tape-rec" data-for="studio"><svg class="i i-rec" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#rec"/></svg></button>
+          <button id="np-back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5" data-for="take feed away"><svg class="i i-back5" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#back5"/></svg></button>
+        </div>
+        <!-- The verb: the tape's Catch, Record's after-the-fact twin, and its
+             ▾ of what to catch (lib/ui/menu.js splitKey); the feed's GRAB. -->
+        <div class="np-zone np-verb" data-slot="verb">
+          <span class="key-split np-catch-split" data-for="studio" data-mini="studio">
+            <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
+            <button id="catch-more" class="icon-btn key-more np-catch-more" type="button" aria-label="What to catch" data-tip="catch-more"><svg class="i i-down" width="18" height="18" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
+          </span>
+          <button id="np-feed-grab" class="icon-btn np-feed-grab" type="button" aria-label="GRAB from the live feed into the Studio’s buffer" data-tip="np-feed-grab" data-for="feed" data-mini="feed"><span class="np-grab-word">GRAB</span><span class="np-grab-sub">from the feed</span></button>
+        </div>
+        <!-- The modes: ⟲ (Loop for the tape, Repeat for a take) and the
+             metronome. -->
+        <div class="np-zone np-modes" data-slot="modes" role="group" aria-label="Modes">
+          <button id="np-loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop" data-for="tape take feed"><span class="loop-face"><svg class="i i-repeat" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#repeat"/></svg><span class="loop-word">Loop</span></span></button>
+          <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Metronome" aria-keyshortcuts="M" data-tip="tape-click" data-for="studio"><svg class="i i-metro" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#metro"/></svg></button>
+        </div>
+        <!-- The end, laid out first so nothing pushes it off: ⏏ back to the
+             tape, Open › (the take's page, or the tape's Studio), and ✎. -->
+        <div class="np-zone np-end" data-slot="end">
+          <button id="np-eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" data-for="take feed" hidden><svg class="i i-eject" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#eject"/></svg></button>
+          <a id="np-open" class="icon-btn np-open" href="/tape.html" data-tip="np-open" data-for="take away" data-mini="take"><span class="np-open-word">Open</span><svg class="i i-right" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#right"/></svg></a>
+          <button id="np-note" class="icon-btn np-note" type="button" aria-label="A note here" data-tip="np-note" data-for="take" data-mini="take"><svg class="i i-note" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#note"/></svg></button>
+        </div>
       </div>
     </div>
-    <div class="np-row np-row-2">
-      <span id="np-mini" class="np-mini" aria-hidden="true"></span>
-      <canvas id="tape-overview" class="tape-overview np-scrub np-studio" role="slider" tabindex="0" aria-label="The whole tape: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="tape-overview"></canvas>
-      <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub"></canvas>
-      <span class="np-out np-here"><span class="pill-out" aria-hidden="true">OUT</span><span id="np-out">Jam room</span></span>
-      <span class="menu-anchor out-anchor np-out np-studio">
-        <button id="tape-out" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-      </span>
+    <!-- The strip: the whole tape (in the Studio, the tape's overview), or
+         the take or the feed, to scrub. -->
+    <div class="np-row np-row-2" data-slot="strip">
+      <canvas id="tape-overview" class="tape-overview np-scrub" role="slider" tabindex="0" aria-label="The whole tape: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="tape-overview" data-for="studio"></canvas>
+      <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub" data-for="take feed away"></canvas>
     </div>
   </section>
 </div>

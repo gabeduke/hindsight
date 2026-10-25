@@ -129,12 +129,17 @@ what's next.
    `docs/architecture.md`, *Icons*; the rest of the glyphs go as their
    regions are rebuilt). The motion tokens and springs, and keys that
    press within a frame.
-3. **The frame.** The header's three zones on every page; the tape's name
-   as its menu; ⋯ goes; the tempo and the output into the bar's display.
-4. **The bar.** `bar.css`: the zones, the transport's order, ~~Catch's own
-   ▾~~ (landed with step 2's menus), the grabber, the source on the display, and the fit at 800, 1024
+3. ~~**The frame.** The header's three zones on every page; the tape's name
+   as its menu; ⋯ goes; the tempo and the output into the bar's display.~~
+   Landed: `docs/architecture.md`, *The frame*; J5.1 checks the switch
+   stands at one place on the Studio, the Listening Room, Capture and
+   Open, and J3.2 the tape's menu. Open's take name is its menu too, and
+   ⋯'s options are ⌗'s View menu on every screen (step 8's).
+4. ~~**The bar.** `bar.css`: the zones, the transport's order, Catch's own
+   ▾ (landed with step 2's menus), the grabber, the source on the display, and the fit at 800, 1024
    and 1280; then `listening-back.md` step 1 (Open › and ✎ in the end
-   zone, the double tap on a spine). A layout check that ▶ stays put.
+   zone, the double tap on a spine). A layout check that ▶ stays put.~~
+   Landed: `docs/architecture.md`, *The bar*; J1.13 is the check.
 5. **The studio as a place.** The room switch as a camera turn with the
    header and the bar held still; the rooms mounted before the first
    switch, so it never stalls.
@@ -143,7 +148,8 @@ what's next.
 7. **The phone.** `sheet.js`; the player as a sheet you drag; ● records
    from the phone.
 8. **The Studio's heads and ruler** (`the-studio-on-one-screen.md`, steps 3
-   and 4): the heads on touch, the ⌗ View menu everywhere, the budget.
+   and 4): the heads on touch, ~~the ⌗ View menu everywhere~~ (landed
+   with the frame), the budget.
 9. **The notes drawer** (`listening-back.md`, step 2), on `sheet.js`.
 10. **Open** (`listening-back.md`, step 3, with the decisions above), and
     the dolly into a take.

@@ -813,9 +813,10 @@ px, a line under the word), with `menuRows` putting a divider between
 groups and anything that destroys last. Several buttons may share one
 panel (the Studio's four input chips, one input menu): it shows for one at
 a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
-(a key of its own beside Catch), the header's (the tape's name, the tempo,
-⋯), the ruler's ⌗ and a track's input chip. Open's are still their own, to
-move in Open's pass.
+(a key of its own beside Catch), the tape's name, the tempo on the bar's
+display, the ruler's ⌗ (the View menu) and a track's input chip; on Open,
+the take's name. Open's More, Send to and lane menus are still their own,
+to move in Open's pass.
 
 **The engine** (`lib/bar/engine.js`), made once by the shell:
 
@@ -826,7 +827,7 @@ move in Open's pass.
 | `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport), `setLevels` |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
-| `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class |
+| `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class. `lib/bar/player.js` sets `#np[data-size]` (`mini`, `full`) |
 
 **Audio rules the design relies on.** Pushing history or hiding DOM never
 touches media or an AudioContext. Autoplay gates are per document with sticky
@@ -839,6 +840,121 @@ shell applies a carry record rather than dropping it.
 
 The checks that a journey through all this still works are the user flows
 (`docs/flows.md`).
+
+### The frame
+
+The header (`css/chrome.css`, the second per-place stylesheet) is one rule
+set for every page: the Studio, the Listening Room and Capture
+(`shell.html`), Open (`wave.html`), the rig and the guide. It was four
+blocks of per-page overrides once, which put Studio | Listening Room top
+left in the rooms and top centre on Open and Capture, so a tap where it
+usually was landed on the brand.
+
+- **Three zones**, a grid of `minmax(0, 1fr) auto minmax(0, 1fr)`:
+  `.appbar-start` (what you're working on: the tape's name in the Studio,
+  the search field `#shelf-q` in the Listening Room, ‹ Takes and the take's
+  name on Open, the feed's health on Capture), `.appnav` (the switch,
+  centred, so it stands at one place on every page of a width; J5.1 checks
+  it on the Studio, the Listening Room, Capture and Open) and `.appbar-end`
+  (the page's ↶ ↷, then ☰, last). The brand shows only from 1280 px, first
+  in the start zone.
+- **A room puts its part into a zone as it is shown**: its context through
+  the header slot (`lib/shell/boot.js`: the start zone), and the Studio's
+  ↶ ↷ (`#header-studio-end`) into the tools before ☰
+  (`ctx.headerSlot.add(el, { before: menu })`). Open, the rig and the
+  guide have theirs in their markup. `lib/nav.js` `mountHeaderTools` adds ☰
+  to the end of the tools zone the page has (and makes one only for a page
+  without).
+- **Each tab has its own picture**: the Studio's faders (`studio`) with the
+  feed's lamp on them, the Listening Room's spines (`shelf`). **☰ means the
+  header's menu and nothing else**: the shelf's List key has the `list`
+  icon.
+- **On a phone** (under 700 px) the header is the context (one pill a
+  finger tall), ↶ and ☰ (↷ only while there is something to redo), and the
+  switch is the tabs along the bottom, each its picture over its word.
+- **What the header no longer holds**: the tempo (the bar's display), where
+  the tape plays (the bar's display; `np-output` opens the output sheet,
+  as the jam-only sheet's Switch does), and the alignment dot (SYNC on the
+  bar's display, `lib/bar/display.js` `syncState`: green to the sample,
+  amber by the clocks, red not lined up yet, out while the tape is stopped
+  or plays on a phone).
+- **A name that is a menu, and no ⋯.** What acts on a thing is in its
+  name's menu, on `lib/ui/menu.js`, Delete last and red after a line of its
+  own; never in a ⋯ beside it, which once split the tape's actions from its
+  list of tapes, a third menu beside ☰.
+  - In the Studio the tape's name (`#tape-name`) opens the tape's menu
+    (`lib/tape/page.js` `renderTapeMenu`; its words, `lib/tape/tape-menu.js`):
+    *The tapes*, each with its tempo and parts and the loaded one ticked,
+    and New tape; Rename…, Duplicate; Share the mix, Bounce the loop,
+    Bounce the whole tape, Export stems and Play the last bounce
+    (`lib/rooms/bounce.js`); Record from this phone…; and Delete this
+    tape…. Delete asks in `#confirm` (never the browser's prompt) by the
+    tape's name and what is on it, then, the Pi keeping the tape it has
+    loaded, loads the most recently changed other tape (or a new empty one)
+    and deletes this one by its id. The menu reaches over the bar, as tall
+    as its rows: a tablet's height above the bar can't hold them.
+  - ⋯'s options went to ⌗ beside the ruler, the View menu on every screen:
+    the snap, Lock the loop, Fit, Fold the tracks (`#tracks-fold-btn`, the
+    one fold for the lanes) and, on a touch screen, Ask before Insert and
+    Delete time. The key says the snap and shows the lock; Fit stands
+    beside it too while the view is moved (in the menu alone on a phone).
+  - On Open the take's name (`#take-name`, a pill with ▾) opens the take's
+    menu: Rename… (the name becomes its field), Previous take and Next
+    take, each with the take it opens by its spine's name, the downloads,
+    Reset the downbeat, under 860 px its MIDI and under 1000 px its tag (no
+    room beside the star), and Delete this take last. Its tempo, length and
+    source are the line under the header (`.take-sub`), not in it.
+
+### The bar
+
+The bar (`#np`, `css/bar.css`, `lib/bar/`) is the one transport, the same
+object in both rooms and the same shape on Open (`wave.html`), so **▶ never
+moves**: not between rooms, nor between the tape, a take and the feed
+(J1.13 measures it at 800, 1024 and 1280 and fails past 2 px, or on a
+sideways scroll).
+
+- **Five zones in a row, and the strip under them**, each a named slot in
+  the markup (`data-slot`; `lib/bar/slots.js` `SLOTS`): the **deck** (the
+  reels and the display), the **transport** (|◀ ▶ ●, with ↺ 5 s in ●'s
+  place for a take, the feed, or the tape away from the Studio), the
+  **verb** (Catch and its ▾ for the tape in the Studio; GRAB for the feed),
+  the **modes** (⟲ Loop or Repeat, the metronome) and the **end** (⏏,
+  Open ›, ✎ for a take), laid out first so nothing pushes it off. Every key
+  is in the markup, in its slot; a script that adds to the bar puts it in
+  a slot by name (`putIn`), never after whatever was appended last.
+- **What shows is said positively.** Each key lists in `data-for` the
+  sources it is for (`tape`, `studio` = the tape in the Studio, `away` = the
+  tape anywhere else, `take`, `feed`) and in `data-mini` those it stays for
+  in the phone's mini player; one rule in `css/bar.css` shows each source's
+  keys, and a key's `display` is set nowhere else. No `:not()` lists and no
+  `!important` (`shape.test.js`). A key a script hides by `hidden` (⏏ with
+  no tape) stays hidden.
+- **Its widths are its own**: a container query on its first row
+  (`.np-row-1`, never `.np` or the dock, whose fixed descendants a container
+  would hold). The deck's width hangs on the row's width alone
+  (`--deck-w`, from `100cqi`), so ▶ stands at one x whatever the bar
+  holds: from 600 px the zones are one row (the reels go under 960), from
+  960 the deck is 352 at 1024 and grows to 768, and from 1180 the display
+  says everything in full. Under 600 (the phone's player pulled up) the
+  zones stack. The phone's mini player is `data-size="mini"`: its window,
+  |◀ ▶, and a tail one width for every source.
+- **Its height is measured** (`measureBar`: one `ResizeObserver` writing
+  `--np-h` on the root), never written into the CSS; every reader has its
+  `0px` fallback.
+- **The display says what plays** (`lib/bar/display.js`): where it is, then
+  three keys on the LCD, each a value over its legend: the tempo (in the
+  Studio, with the tape, the tempo menu; elsewhere a readout), the source
+  (TAPE, FEED or the take's name; `source-menu.js`: the tape, the live
+  feed, the last few takes, Go to the shelf) and where it plays (JAM ROOM,
+  PHONE, BOTH for the tape; THIS TABLET, THIS PHONE or THIS COMPUTER for a
+  take or the feed; the output sheet). Each value has a short form and a
+  long one, for the widest bar.
+- **It folds by its grabber** (`lib/bar/fold.js`), a pill on a lip above its
+  top edge: a tap toggles, a drag down folds, a drag up unfolds, and it
+  slides by a FLIP on the lid spring (a transform, never a height a frame).
+  Folded it is one row of 44 px keys, `body.np-fold`, kept for the visit. On
+  a phone the grabber is the player's, and puts it away. ▾ only ever opens
+  a menu.
 
 ### Vocabulary
 
@@ -853,13 +969,13 @@ take or a tape (a note, a tag, a star; a part, a section, the loop).
 | Verb | Does | From |
 |---|---|---|
 | **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), the buffer, a take's selection |
-| **BOUNCE** | makes a take from a tape, by playing it through the mixer | the Studio's ⋯ |
-| **Share the mix** | sends a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3` | the Studio's ⋯; Bounce's refusal |
+| **BOUNCE** | makes a take from a tape, by playing it through the mixer | the tape's name's menu |
+| **Share the mix** | sends a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3` | the tape's name's menu; Bounce's refusal |
 | **GRAB** | fills the buffer | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
 | **DROP** | empties the buffer onto a track | the buffer, ↵, a range's bar |
 | **CATCH** | puts the last pass on the armed track | the Studio |
 | **Cut · Copy** | a range of the tape into the buffer | a range's bar |
-| **● Rec** | records onto the armed track | the Studio |
+| **●** (Record) | records onto the armed track | the bar, in the Studio, beside ▶ |
 
 Every key names its object: *KEEP 2m*, *GRAB 4 BARS*, *Drop on track 2 ·
 bars 1–4*, *CATCH LAST PASS*. Words that mean these things are retired:
@@ -871,7 +987,9 @@ Cut a record are **BOUNCE**; the bar's ⟲ is **Repeat**; the crate is not on
 screen. `lib/rooms/words.test.js` enforces the retired list.
 
 A tap on a take plays it in the bar, wherever you are; holding selects; the
-bar is the only transport; **Open** (`wave.html`) is the one page to dig in.
+bar is the only transport; **Open** (`wave.html`) is the one page to dig in,
+and the bar's **Open ›** is its way in. The bar's display says what plays:
+its **source** (the tape, the live feed or a take), and where it plays.
 
 ### Icons
 

@@ -1,14 +1,15 @@
 // web/static/lib/bar/take-keys.js
-// What the bar adds (docs/architecture.md, Vocabulary, "A tap
-// plays"; docs/superpowers/plans/2026-10-15-f5b.md): with a take in it, the
-// take's name, which opens it, and ✎, which takes the frame being heard and
-// opens the take; and ⟲ called Repeat, since the tape's loop is another
-// thing. They are made here, in script; every rule that styles them hangs on
-// the `np-take` class this adds to the bar, which only a take in the bar
-// ever wears.
+// The keys the bar has for what it holds besides the transport
+// (docs/architecture.md, Vocabulary, "A tap plays"; listening-back.md, "The
+// way in"): with a take, ✎ at its end, which takes the frame being heard
+// for a note, beside Open › (bar.js gives it its page); with the feed, GRAB,
+// which sends the feed into the Studio's buffer; and ⟲ called Repeat for a
+// take, since the tape's loop is another thing. The keys are the page's
+// markup, each in its slot and saying which source it is for (css/bar.css,
+// slots.js); this wires them and says what each does now. It makes none:
+// a key a script appends lands wherever the last one did.
 
 import { takeHref } from './take-source.js';
-import { icon } from '../ui/icons.js';
 
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
@@ -20,77 +21,22 @@ export function clock(frames, sampleRate) {
 }
 
 /**
- * takeKeys makes the name and ✎ in the bar's own keys, after ⏏, and answers
- * paint(src), which says what they and ⟲ show for the bar's source (null for
- * none). `onNote` is what ✎ does; the page gives it.
+ * takeKeys wires the bar's ✎ (`onNote`, the page's) and the feed's GRAB
+ * (`onGrabFeed`), and answers paint(src), which says what ✎ and ⟲ say for
+ * the bar's source (null for none).
  */
-export function takeKeys({ doc, root, onNote, onSelectSource, onGrabFeed }) {
-  const own = doc.getElementById('np-eject')?.parentElement;
+export function takeKeys({ doc, onNote, onGrabFeed }) {
   const loop = doc.getElementById('np-loop');
   // ⟲'s word is a span of its own beside its icon: Repeat replaces Loop
   // there and leaves the icon, which writing the key's text would wipe.
   const loopWord = loop?.querySelector('.loop-word');
-  const sw = doc.createElement('div');
-  sw.className = 'seg np-source-switch';
-  sw.setAttribute('role', 'group');
-  sw.setAttribute('aria-label', 'Audio source');
-  const srcBtns = [
-    ['feed', 'Feed'],
-    ['tape', 'Tape'],
-    ['take', 'Shelf'],
-  ].map(([kind, label]) => {
-    const b = doc.createElement('button');
-    b.setAttribute('type', 'button');
-    b.dataset.source = kind;
-    b.setAttribute('aria-pressed', 'false');
-    b.textContent = label;
-    b.addEventListener('click', () => onSelectSource?.(kind));
-    sw.append(b);
-    return b;
-  });
-  const name = doc.createElement('a');
-  name.id = 'np-name';
-  name.className = 'np-name';
-  name.setAttribute('data-tip', 'np-name');
-  name.hidden = true;
-  const note = doc.createElement('button');
-  note.id = 'np-note';
-  note.className = 'icon-btn np-note';
-  note.setAttribute('type', 'button');
-  note.setAttribute('data-tip', 'np-note');
-  note.innerHTML = icon('note');
-  note.hidden = true;
-  note.addEventListener('click', () => onNote?.());
-  const grabFeed = doc.createElement('button');
-  grabFeed.id = 'np-feed-grab';
-  grabFeed.className = 'np-feed-grab';
-  grabFeed.setAttribute('type', 'button');
-  grabFeed.setAttribute('aria-label', 'GRAB from the live feed into the Studio’s buffer');
-  grabFeed.textContent = 'GRAB';
-  grabFeed.hidden = true;
-  grabFeed.addEventListener('click', () => onGrabFeed?.());
-  sw.append(grabFeed);
-  own?.before(sw);
-  own?.append(name, note);
+  const note = doc.getElementById('np-note');
+  note?.addEventListener('click', () => onNote?.());
+  doc.getElementById('np-feed-grab')?.addEventListener('click', () => onGrabFeed?.());
   return {
     paint(src) {
-      const kind = src ? src.kind : null;
-      const take = kind === 'take';
-      const feed = kind === 'feed';
-      root.classList.toggle('np-take', take);
-      root.classList.toggle('np-feed', feed);
-      for (const b of srcBtns) setAttr(b, 'aria-pressed', String(b.dataset.source === kind));
-      // Only when it changes: paint runs every frame something plays, and
-      // writing `hidden` is an attribute change even when it's the same.
-      if (name.hidden !== !take) name.hidden = !take;
-      if (note.hidden !== !take) note.hidden = !take;
-      if (grabFeed.hidden !== !feed) grabFeed.hidden = !feed;
-      if (take) {
-        setText(name, src.title);
-        setAttr(name, 'href', src.href);
-        setAttr(name, 'aria-label', `Open ${src.title}`);
-        setAttr(note, 'aria-label', `Note at ${clock(src.pos(), src.sampleRate)}`);
-      }
+      const take = src?.kind === 'take';
+      if (take && note) setAttr(note, 'aria-label', `A note at ${clock(src.pos(), src.sampleRate)}`);
       // ⟲ is the tape's loop for the tape, and for a take it is Repeat:
       // the word changes, the icon beside it stays.
       if (loop) {

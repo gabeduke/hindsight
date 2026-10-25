@@ -66,8 +66,9 @@ test('with a tape on the Pi the bar holds it, and the engine has the tape and it
   assert.equal(engine.stream.active, false, 'not listening here until asked');
   assert.equal($('np').hidden, false);
   frames();
-  assert.equal($('np-open').textContent, 'Open Tape 1 ›');
+  assert.equal($('np-open').getAttribute('aria-label'), 'Open Tape 1 in the Studio');
   assert.equal($('np-open').getAttribute('href'), '/tape.html');
+  assert.equal($('np-source-short').textContent, 'TAPE', 'the display says the tape plays');
 });
 
 test('a take in the bar quiets the tape’s player here, and ⏏ gives the tape back', async () => {
@@ -153,7 +154,11 @@ test('#np[data-source] says what the bar holds, and keeps in step with it', asyn
   const take = aTake();
   bar.loadTake(take.t, take.player);
   assert.equal(np.dataset.source, 'take');
-  click(np.querySelector('button[data-source="feed"]')); // the bar's own Feed key
+  // The display's source key, and its menu's live feed.
+  click($('np-source'));
+  const feed = $('np-source-menu').querySelector('[data-source="feed"]');
+  assert.ok(feed, 'the source menu offers the live feed');
+  click(feed);
   assert.equal(np.dataset.source, 'feed');
   bar.setSource('take');
   assert.equal(np.dataset.source, 'take', 'the take, still in the bar');

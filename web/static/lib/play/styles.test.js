@@ -98,13 +98,13 @@ test('on a phone the buffer’s sheet sits above the mini player, so EDIT | PLAY
   const lifted = 'body:not(.player-open):has(.play-toggle) .buffer-panel';
   const r = find(rules, PHONE_MEDIA, lifted);
   assert.ok(r, 'a rule that lifts the sheet when the toggle is there');
-  assert.equal(r.decls.bottom, 'calc(var(--dock-b, 0px) + var(--np-h))');
+  assert.equal(r.decls.bottom, 'calc(var(--dock-b, 0px) + var(--np-h, 0px))');
   assert.equal(r.decls.height, undefined, 'the half detent is still P2’s 45svh, which keeps DROP in view');
   const full = find(rules, PHONE_MEDIA, `${lifted}[data-height="full"]`);
   assert.ok(full, 'the full detent gives up the player’s height, so it stops under the top bar');
-  assert.match(full.decls.height, /var\(--np-h\)/);
+  assert.match(full.decls.height, /var\(--np-h, 0px\)/);
   assert.equal(find(rules, PHONE_MEDIA, `${lifted}[data-height="peek"]`), undefined, 'the peek detent is unchanged');
-  const lift = 'calc(var(--dock-b, 0px) + var(--np-h) + 45svh';
+  const lift = 'calc(var(--dock-b, 0px) + var(--np-h, 0px) + 45svh';
   const pad = find(rules, PHONE_MEDIA, 'body.tape-page.buffer-open:not(.player-open):has(.play-toggle)');
   assert.ok(pad?.decls['padding-bottom'].startsWith(lift), 'the page leaves room above the lifted sheet');
   const toasts = find(rules, PHONE_MEDIA, 'body.tape-page.buffer-open:not(.player-open):has(.play-toggle) #toasts');

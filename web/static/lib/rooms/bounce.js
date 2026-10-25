@@ -1,10 +1,10 @@
 // web/static/lib/rooms/bounce.js
 // BOUNCE (docs/architecture.md, Vocabulary, the verbs table
-// and "The Studio: one selection, two verbs"): the Studio's ⋯ makes a take
+// and "The Studio: one selection, two verbs"): the tape's menu makes a take
 // from the tape by playing it once through the mixer. It is the request Mix
 // down always sent (POST /api/tapes/mixdown), and the take it saves is what a
 // tape's family already holds: origin "tape" and the tape's id. Nothing is
-// attached here; this module only says which take that is (Last bounce),
+// attached here; this module only says which take that is (the last bounce),
 // words the menu and the toasts, and plays a take on this device for ▶.
 
 import { spineTitle } from '../shelf.js';
@@ -13,24 +13,36 @@ import { named } from './words.js';
 export const BOUNCE_WORDS = Object.freeze({
   loop: 'Bounce the loop',
   whole: 'Bounce the whole tape',
-  last: 'Last bounce',
+  last: 'Play the last bounce',
 });
 
 const NONE_YET = 'No bounce of this tape yet';
 const NONE_SHORT = 'none yet';
 
 /**
- * bounceMenu puts BOUNCE in the tape page's ⋯ menu: the two Mix down items
- * are renamed (they stay the same buttons, so they send the same requests)
- * and Last bounce follows them. Answers {last, take, setLast(take)}, or null
- * on a page without the menu.
+ * bounceMenu puts BOUNCE in the tape's menu (on its name): the two Mix down
+ * items say Bounce (they stay the same buttons, so they send the same
+ * requests) and Play the last bounce is a row of the same group, after
+ * Export stems where the page has it, else after the bounces. A row is a
+ * menuItem's (lib/ui/menu.js): its word, and the line under it saying
+ * which take the last bounce is, or "none yet". Answers {last, take,
+ * setLast(take)}, or null on a page without the menu.
  */
 export function bounceMenu(doc) {
   const loop = doc.getElementById('tape-mixdown');
   const whole = doc.getElementById('tape-mixdown-all');
   if (!loop || !whole) return null;
+  const part = (row, cls) => {
+    let e = row.querySelector(`.${cls}`);
+    if (!e) {
+      e = doc.createElement('span');
+      e.className = cls;
+      row.append(e);
+    }
+    return e;
+  };
   for (const [b, words] of [[loop, BOUNCE_WORDS.loop], [whole, BOUNCE_WORDS.whole]]) {
-    b.textContent = words;
+    part(b, 'menu-word').textContent = words;
     b.setAttribute('data-tip', 'bounce');
   }
   let last = doc.getElementById('tape-last-bounce');
@@ -38,31 +50,30 @@ export function bounceMenu(doc) {
     last = doc.createElement('button');
     last.id = 'tape-last-bounce';
     last.type = 'button';
+    last.className = 'menu-item';
     last.setAttribute('role', 'menuitem');
     last.setAttribute('data-tip', 'last-bounce');
-    last.textContent = BOUNCE_WORDS.last;
     last.disabled = true;
-    last.title = NONE_YET;
-    whole.after(last);
+    (doc.getElementById('tape-export') || whole).after(last);
   }
-  // A disabled item says why on its face: a phone has no tooltip.
-  let note = last.querySelector('.bounce-note');
-  if (!note) {
-    note = doc.createElement('span');
-    note.className = 'bounce-note';
-    last.append(note);
-  }
-  note.textContent = ` ${NONE_SHORT}`;
+  part(last, 'menu-word').textContent = BOUNCE_WORDS.last;
+  // A disabled row says why on its face: a phone has no tooltip.
+  const note = part(last, 'menu-sub');
+  note.classList.add('bounce-note');
   let current = null;
+  const show = (take) => {
+    last.disabled = !take;
+    note.textContent = take ? spineTitle(take) : NONE_SHORT;
+    last.title = take ? `${spineTitle(take)}: play it, or open it` : NONE_YET;
+  };
+  show(null);
   return {
     last,
     /** take is the newest bounce setLast was told of, or null. */
     get take() { return current; },
     setLast(take) {
       current = take || null;
-      last.disabled = !take;
-      note.textContent = take ? '' : ` ${NONE_SHORT}`;
-      last.title = take ? `${spineTitle(take)}: play it, or open it` : NONE_YET;
+      show(current);
     },
   };
 }
@@ -94,7 +105,7 @@ export function lastBounce(takes, tape) {
 }
 
 /**
- * lastBounceKeeper is which take the menu's Last bounce stands for, and the
+ * lastBounceKeeper is which take the menu's last bounce stands for, and the
  * tape it is the bounce of. A bounce of another tape is never offered for
  * this one: the line is off the moment the loaded tape differs, and an answer
  * from the Pi that returns after the tape changed is dropped.
@@ -109,7 +120,7 @@ export function lastBounceKeeper({ menu, tapeNow, fetchImpl = (...a) => globalTh
   return {
     /** set says the newest bounce of tape `id` (one just made, or an answer). */
     set,
-    /** take is Last bounce's take for the tape loaded now, or null. */
+    /** take is the last bounce's take for the tape loaded now, or null. */
     take() {
       const t = tapeNow();
       return t && forTape === t.id ? menu.take : null;
@@ -167,7 +178,7 @@ export function bounceToast({ toast, name, message, player, go = (u) => location
 /** lastBounceToast is the same toast for the tape's newest bounce, from the menu, when the first has gone. */
 export function lastBounceToast({ toast, take, player, go }) {
   if (!take) return toast(`${NONE_YET}. Bounce the loop or the whole tape from this menu.`, 'ok');
-  return bounceToast({ toast, name: take.name, message: `${BOUNCE_WORDS.last}: ${named(spineTitle(take))}`, player, go, take });
+  return bounceToast({ toast, name: take.name, message: `The last bounce: ${named(spineTitle(take))}`, player, go, take });
 }
 
 const sleepFor = (ms) => new Promise((r) => setTimeout(r, ms));

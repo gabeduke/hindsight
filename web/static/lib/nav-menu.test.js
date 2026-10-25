@@ -41,7 +41,10 @@ for (const page of ['shell.html', 'wave.html']) {
     // Releases, Guide or Settings beside the menu.
     const bar = doc.querySelector('.appbar');
     const end = doc.querySelector('.appbar-end');
-    assert.deepEqual(end.children.map((c) => c.id || c.className).filter((c) => c !== 'out-btn'), ['menu-anchor app-menu-anchor']);
+    // ☰ last in the tools zone, after the page's own ↶ (Open's is in its
+    // markup; the Studio's ↶ ↷ come with the room, lib/shell/views/studio.js).
+    assert.deepEqual(end.children.map((c) => c.id || c.className), page === 'wave.html' ? ['take-undo', 'menu-anchor app-menu-anchor'] : ['menu-anchor app-menu-anchor']);
+    assert.equal(bar.querySelectorAll('.appbar-end').length, 1, 'one tools zone');
     for (const el of bar.querySelectorAll('[data-tip]')) {
       if (['help', 'settings', 'releases', 'guide', 'rig-chip'].includes(el.dataset.tip)) {
         assert.ok(menu.contains(el), `${el.dataset.tip} is outside the menu`);
@@ -62,11 +65,26 @@ test('a page without help mode has no Help mode item', () => {
   assert.deepEqual(doc.getElementById('app-menu').children.map(words), ['Settings', 'The rig', 'The guide', 'Releases']);
 });
 
-test('the output button and the ring’s health go into the tools, before the menu', () => {
+test('a header without a tools zone gets one, at its end, and nothing else moves into it', () => {
   const doc = fakeDoc();
-  doc.body.append(...parseHTML(doc, '<header class="appbar"><nav class="appnav"></nav><button id="out-btn" class="out-btn" hidden></button><div class="health"></div></header>').nodes);
+  doc.body.append(...parseHTML(doc, '<header class="appbar"><nav class="appnav"></nav><div class="health"></div></header>').nodes);
   mountHeaderTools(doc);
-  assert.deepEqual(doc.querySelector('.appbar-end').children.map((c) => c.id || c.className), ['out-btn', 'health', 'menu-anchor app-menu-anchor']);
+  const bar = doc.querySelector('.appbar');
+  assert.deepEqual(bar.children.map((c) => c.className), ['appnav', 'health', 'appbar-end']);
+  assert.deepEqual(doc.querySelector('.appbar-end').children.map((c) => c.className), ['menu-anchor app-menu-anchor']);
+});
+
+test('every page’s header is three zones: the start (the brand, then the page’s context), the switch, the tools', () => {
+  for (const page of ['shell.html', 'wave.html', 'rig.html', 'guide.html']) {
+    const doc = header(page);
+    const zones = doc.querySelector('.appbar').children.map((c) => c.className.split(' ')[0]).filter((c) => /^(appbar-start|appnav|appbar-end)$/.test(c));
+    assert.deepEqual(zones, ['appbar-start', 'appnav', 'appbar-end'], page);
+    assert.equal(doc.querySelector('.appbar-start').children[0].className, 'brand', `${page}: the brand first, left of everything`);
+    // Each tab its own picture, and neither is ☰'s.
+    const icons = doc.querySelectorAll('.appnav a').map((a) => iconOf(a));
+    assert.deepEqual(icons, ['studio', 'shelf'], `${page}: the Studio's faders and the Listening Room's spines`);
+    assert.ok(doc.querySelector('.appnav a[data-tab="studio"] .appnav-lamp'), `${page}: the feed's lamp on the Studio's tab`);
+  }
 });
 
 test('the menu opens from its button and shuts on a second press, a pick, Escape or a press elsewhere', () => {

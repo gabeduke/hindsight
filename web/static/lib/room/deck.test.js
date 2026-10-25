@@ -27,9 +27,10 @@ test('a loaded tape the list does not name still stands on the deck, as "the tap
   assert.deepEqual(deckOf({ takeName: null, takes: [], tapes: { loaded: 'x', tapes: [] } }), { kind: 'tape', tape: { id: 'x', name: 'the tape' } });
 });
 
-test('the words: a take says its name, its length and whether it plays; Open is its take page', () => {
+test('the words: a take says its name, its length and whether it plays; Open is its take page, and the plate says so', () => {
   const w = deckWords(deckOf({ takeName: take.name, takes: [take], tapes: null }), { playing: true, pos: '0:42' });
-  assert.equal(w.place, 'In the bar: Funk');
+  assert.equal(w.place, 'Funk · Open', '▶ Funk · Open ›: the page draws the ▶ and the ›');
+  assert.equal(w.opens, true);
   assert.equal(w.meta, 'take · 1:59 · playing');
   assert.equal(w.lcd, '0:42');
   assert.equal(w.href, '/wave.html?file=jam_a.wav');
@@ -41,7 +42,8 @@ test('the words: a take says its name, its length and whether it plays; Open is 
 
 test('the words: a tape in the bar opens in the Studio, and says it is for the tape', () => {
   const w = deckWords({ kind: 'tape', tape }, { playing: false, pos: '1.1' });
-  assert.equal(w.place, 'In the bar: Tuesday groove');
+  assert.equal(w.place, 'Tuesday groove · Open');
+  assert.equal(w.opens, true);
   assert.equal(w.meta, 'tape · in the Studio');
   assert.equal(w.href, '/tape.html');
   assert.equal(w.forTape, true);
@@ -51,6 +53,7 @@ test('the words: a tape in the bar opens in the Studio, and says it is for the t
 test('the words: an empty bar, and no key anywhere in them', () => {
   const w = deckWords(null, { playing: false, pos: '' });
   assert.equal(w.place, 'The bar · empty');
+  assert.equal(w.opens, false, 'nothing to open: no ▶ and no ›');
   assert.equal(w.lcd, '--:--');
   assert.equal(w.href, null);
   assert.match(w.label, /tap a take on the shelves/i);

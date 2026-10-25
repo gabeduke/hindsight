@@ -45,7 +45,9 @@ const tapeOn = () => {
 };
 
 const slots = {
-  header: { parent: () => document.querySelector('.appbar'), before: () => document.querySelector('.appbar > .appbar-end') },
+  // A room's context goes at the start of the header (css/chrome.css), after
+  // the brand; a part of it for the tools zone says so where it adds it.
+  header: { parent: () => document.querySelector('.appbar-start') },
   dock: { parent: () => $('np-dock'), before: () => $('np') },
   bar: { parent: () => $('np') },
 };

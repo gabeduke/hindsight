@@ -1,8 +1,8 @@
 // web/static/lib/bar/reel-window.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { levelFrac, peakDbAt, progressWriter, HAIRLINE_MEDIA, reelsDrawer } from './reel-window.js';
+import { cssOf, rules } from '../stylesheets.js';
 
 test('a level bar is empty at −40 dBFS and full 3 dB over the reference', () => {
   assert.equal(levelFrac(-Infinity), 0);
@@ -48,17 +48,12 @@ test('the bar\'s progress is written only where the mini player draws it, and at
 });
 
 test('the query is the stylesheet\'s own: --np-progress is read only by the mini player\'s hairline, under it', () => {
-  const css = fs.readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
-  const at = css.indexOf(`@media ${HAIRLINE_MEDIA} {`);
-  assert.ok(at >= 0, `styles.css has @media ${HAIRLINE_MEDIA}`);
-  // The block: to the brace that closes it.
-  let depth = 0, end = css.indexOf('{', at);
-  for (; end < css.length; end++) { if (css[end] === '{') depth++; else if (css[end] === '}' && --depth === 0) break; }
-  const block = css.slice(at, end);
-  const uses = [...css.matchAll(/var\(--np-progress/g)].map((m) => m.index);
-  assert.ok(uses.length > 0);
-  for (const i of uses) assert.ok(i > at && i < end, 'every reader of --np-progress is inside that query');
-  assert.match(block, /\.np::before\s*\{[^}]*--np-progress/);
+  // The bar's rules are css/bar.css's; every reader of --np-progress is a
+  // rule under that query, and one is the mini player's hairline.
+  const readers = rules(cssOf()).filter((r) => /var\(--np-progress/.test(r.body));
+  assert.ok(readers.length > 0);
+  for (const r of readers) assert.equal(r.media, HAIRLINE_MEDIA, `${r.sel.join(', ')} reads it under another query`);
+  assert.ok(readers.some((r) => r.sel.some((s) => /\.np\b.*::before$/.test(s))), 'the mini player\'s hairline reads it');
 });
 
 test('a frame sets a reel\'s pack only when it has changed: an SVG attribute set again is a restyle and a layout', () => {

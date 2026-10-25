@@ -1,37 +1,16 @@
 // web/static/lib/tape/out-switch.js
-// Where the tape plays, from any page that can play it: the output button in
-// the header (a speaker for the jam room, headphones for a phone, both for
-// both, and the place's name beside it on a wide screen), the Output sheet's
-// three choices, and the switch a choice makes. The tape page adds its strip
-// and banner (output-ui.js); Takes and Capture use this as it is (bar.js).
+// Where the tape plays, from any page that can play it: the Output sheet's
+// three choices, opened from OUT on the bar's display (it was a button in
+// the header once), and the switch a choice makes. The tape page adds its
+// strip and banner (output-ui.js); the rooms use this as it is (engine.js).
 
 import { rememberListener } from './listener.js';
-// The pictures themselves -- a speaker, headphones, both -- are icons.
-import { outIcon } from '../ui/icons.js';
 import { say } from '../rooms/words.js';
 
 export const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 
-/** outName is what the button and the bar call `mode`. */
+/** outName is what the Output sheet calls `mode`. */
 export const outName = (mode) => OUT_NAMES[mode] || OUT_NAMES.jam;
-
-/**
- * paintOutButtons shows every output button on the page (.tape-out) for
- * `mode`, or hides them for none: no tape loaded, or a Pi that doesn't say.
- */
-export function paintOutButtons(mode, doc = document) {
-  for (const b of doc.querySelectorAll('.tape-out')) {
-    b.hidden = !mode;
-    if (!mode) continue;
-    const name = outName(mode);
-    const slot = b.querySelector('.out-ico-slot');
-    if (slot && b.dataset.mode !== mode) slot.innerHTML = outIcon(mode);
-    b.dataset.mode = mode;
-    const txt = b.querySelector('.tape-out-text');
-    if (txt && txt.textContent !== name) txt.textContent = name;
-    b.setAttribute('aria-label', `Output: ${name}`);
-  }
-}
 
 const SHEET = `
   <div class="sheet-inner out-inner">
@@ -61,18 +40,19 @@ export function outSheet(doc = document) {
 }
 
 /**
- * wireOutput hooks the page's output buttons to its Output sheet: a button
- * opens it, a choice calls choose(mode). name() is the loaded tape's name,
- * for the sheet's first line; onOpen() runs as it opens.
+ * wireOutput hooks the keys that say where the tape plays (`keys`: OUT on
+ * the bar's display) to the Output sheet: a key opens it, a choice calls
+ * choose(mode). name() is the loaded tape's name, for the sheet's first
+ * line; onOpen() runs as it opens. Answers the sheet.
  */
-export function wireOutput({ choose, name, onOpen = () => {} }) {
+export function wireOutput({ choose, name, onOpen = () => {}, keys = [] }) {
   const sheet = outSheet();
   const open = () => {
     document.getElementById('out-tape-name').textContent = name() || 'this tape';
     onOpen();
     sheet.showModal();
   };
-  for (const b of document.querySelectorAll('.tape-out')) b.addEventListener('click', open);
+  for (const b of keys.filter(Boolean)) b.addEventListener('click', open);
   document.getElementById('out-close').addEventListener('click', () => sheet.close());
   for (const b of sheet.querySelectorAll('.out-choice')) b.addEventListener('click', () => choose(b.dataset.mode));
   return sheet;

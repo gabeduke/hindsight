@@ -1,10 +1,9 @@
-// The output button and the switch it makes, shared by Tape, Takes and
-// Capture: its picture and name for each place, and a choice that starts the
-// sound inside the tap and never leaves the jam room silent.
+// The Output sheet's switch, shared by the rooms (OUT on the bar's display
+// opens it): each place's name, and a choice that starts the sound inside
+// the tap and never leaves the jam room silent.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { outName, outDelay, paintOutButtons, switchOutput } from './out-switch.js';
-import { outIcon } from '../ui/icons.js';
+import { outName, outDelay, switchOutput } from './out-switch.js';
 
 let store, puts;
 beforeEach(() => {
@@ -47,29 +46,6 @@ test('names and delays read as the sheet says them', () => {
   assert.equal(outDelay(1234), '1.2 s');
   assert.equal(outDelay(0), '0.8 s');
   assert.equal(outDelay(undefined), '0.8 s');
-});
-
-test('the buttons show the place, and hide while the Pi has not said', () => {
-  const button = () => {
-    const slot = { innerHTML: '' }, text = { textContent: 'Jam room' };
-    const attrs = {};
-    return {
-      hidden: true, dataset: {}, slot, text, attrs,
-      querySelector: (sel) => (sel === '.out-ico-slot' ? slot : text),
-      setAttribute: (k, v) => { attrs[k] = v; },
-    };
-  };
-  const bs = [button(), button()];
-  const doc = { querySelectorAll: () => bs };
-  paintOutButtons('phone', doc);
-  for (const b of bs) {
-    assert.equal(b.hidden, false);
-    assert.equal(b.text.textContent, 'Phone');
-    assert.equal(b.attrs['aria-label'], 'Output: Phone');
-    assert.equal(b.slot.innerHTML, outIcon('phone'), 'headphones, from the sprite');
-  }
-  paintOutButtons(null, doc);
-  assert.ok(bs.every((b) => b.hidden));
 });
 
 test('choosing a phone starts the sound before the Pi is asked, and remembers the listener', async () => {

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { fileCss } from './stylesheets.js';
+import { cssOf, fileCss } from './stylesheets.js';
 
 const dir = new URL('../', import.meta.url);
 const pages = readdirSync(dir).filter((f) => f.endsWith('.html'));
@@ -43,7 +43,7 @@ test('Settings is the header’s on every page, and no page has the old about li
 test('the Listening Room’s bar sits in .np-dock > .np, as the Studio’s does', () => {
   const shell = readFileSync(new URL('shell.html', dir), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
   assert.match(shell, /<div id="np-dock" class="np-dock">[\s\S]*?<section id="np" class="np"/, 'shell.html wraps #np in #np-dock');
-  const css = fileCss('styles.css', { comments: false });
+  const css = cssOf('shell.html', { comments: false });
   assert.match(css, /\.np-dock\s*\{[^}]*position:\s*sticky;\s*bottom:\s*0/, '.np-dock is sticky at bottom: 0');
   assert.doesNotMatch(css, /(?:main-page|shelf-page|room-on|selecting)[^,{]*>\s*\.np\b/, 'no room selector assumes body > .np');
 });

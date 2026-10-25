@@ -128,7 +128,10 @@ export function pressMachine({
       if (e.shiftKey && onHold) { last = null; onHold(); return; }
       // A keyboard's click, or a tap that picks, is never half of a double.
       if (!onDouble || e.detail === 0 || selecting()) { last = null; onTap(); return; }
-      const t = now();
+      // When the finger came down, by the event's own clock where it has one:
+      // a first tap that starts a take can hold the page up past the second's
+      // lift, and the gap between two taps is the hand's, not the page's.
+      const t = Number.isFinite(e.timeStamp) && e.timeStamp > 0 ? e.timeStamp : now();
       const p = Number.isFinite(e.clientX) ? { x: e.clientX, y: e.clientY } : at;
       const near = !last?.p || !p || Math.hypot(p.x - last.p.x, p.y - last.p.y) < GESTURE.DOUBLE_PX;
       if (last && t - last.t < GESTURE.DOUBLE_MS && near) {

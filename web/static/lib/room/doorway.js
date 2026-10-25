@@ -24,8 +24,9 @@
 
 import { roomShelves, inMonth, monthName, monthKey, at, filterWords } from './shelves.js';
 import { forgetNote, fmtAt } from './notes.js';
-import { openTheTape, forTheTape } from '../bar/carry.js';
+import { openTheTape } from '../bar/carry.js';
 import { bindPress, SPINE_PRESS } from '../ui/press.js';
+import { icon } from '../ui/icons.js';
 import { createTap, wireRack, askedTake } from './tap.js';
 import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
@@ -142,19 +143,20 @@ export function mount(h) {
   const toast = h.toast;
   body.classList.add('room-on');
 
-  // --- the header: the room's name, and Search the shelves ----------------
+  // --- the header: the room's name, its search, and the rack's filters -------
+  // The search's field is the header's, at its start (css/chrome.css); this
+  // key beside it shows the rack's filters and sort under the header.
   const title = document.querySelector('.shelf-title');
   if (title && title.firstChild && title.firstChild.nodeType === 3) title.firstChild.textContent = 'Listening Room · takes ';
   if (tools && !tools.id) tools.id = 'room-search-tools';
   const searchBtn = el('button', 'chip room-search-btn', {
     type: 'button', 'aria-expanded': 'false', 'aria-controls': tools?.id, 'data-tip': 'room-search',
-  }, el('span', '', { 'aria-hidden': 'true', text: '⌕ ' }), 'Search the shelves');
+  }, 'Filters');
   $('play-all')?.before(searchBtn);
   searchBtn.addEventListener('click', () => {
     const on = !body.classList.contains('room-search');
     body.classList.toggle('room-search', on);
     searchBtn.setAttribute('aria-expanded', String(on));
-    if (on) $('shelf-q')?.focus();
   });
 
 
@@ -170,7 +172,9 @@ export function mount(h) {
     const h3 = el('h3', 'room-plate', { id: `room-${key}-h` });
     // The section is named by its plate; the list in it needs no second name.
     const list = el('ul', 'room-row', { role: 'list' });
-    const listBtn = asList ? el('button', 'room-list-btn', { type: 'button', 'data-key': `list:${key}`, 'aria-label': asList, 'data-tip': 'room-list' }, '☰ List') : null;
+    // Its own picture, a list: ☰ is the header's menu, and only that.
+    const listBtn = asList ? el('button', 'room-list-btn', { type: 'button', 'data-key': `list:${key}`, 'aria-label': asList, 'data-tip': 'room-list' }) : null;
+    if (listBtn) listBtn.innerHTML = `${icon('list', { size: 14 })}List`;
     const foot = el('div', 'room-shelf-foot', {}, h3, listBtn);
     const sec = el('section', `room-shelf room-shelf-${key}`, { 'aria-labelledby': `room-${key}-h` }, foot, list);
     h3.textContent = label;
@@ -297,11 +301,26 @@ export function mount(h) {
   // One press per spine (lib/ui/press.js): a tap plays (or, with a selection
   // on, picks the take in or out); a hold, or ⇧-click, selects. A long press
   // on a phone is the browser's menu too: not on a spine.
+  // A double tap opens the take (listening-back.md, "The way in"), as a
+  // double tap opens a part in the Studio. Its first tap has already
+  // started it, so it plays on into its page, which picks up where the bar
+  // is; a take its first tap paused is started again on the way.
+  let tapping = null; // the last tap's play, still on its way
+  async function openSpine(name) {
+    await tapping?.catch?.(() => {});
+    if (h.np?.takeName === name && !barNow().playing) await tap.tap(name);
+    const href = `/wave.html?file=${encodeURIComponent(name)}`;
+    if (h.go) h.go(href); else location.href = href;
+  }
   function wireSpine(b, name) {
     const takes = h.takes;
     bindPress(b, {
       ...SPINE_PRESS,
-      onTap: () => (takes.selecting ? takes.toggleSelected(name) : tap.tap(name)),
+      onTap: () => {
+        if (takes.selecting) takes.toggleSelected(name);
+        else tapping = Promise.resolve(tap.tap(name));
+      },
+      onDouble: () => { if (!takes.selecting) openSpine(name); },
       onHold: () => {
         try { navigator.vibrate?.(10); } catch { /* not everywhere */ }
         if (takes.selecting) takes.toggleSelected(name); else takes.enterSelect(name);
@@ -408,7 +427,9 @@ export function mount(h) {
     placesSig = sig;
     deck.classList.toggle('empty', !d);
     deck.classList.toggle('playing', bar.playing && !!d);
-    deckPlace.replaceChildren(el('span', 'room-led', { 'aria-hidden': 'true' }), w.place);
+    // ▶ its name · Open ›: where a tap on it goes, drawn, not typed.
+    const drawn = (name) => { const s = el('span', 'room-deck-ico', { 'aria-hidden': 'true' }); s.innerHTML = icon(name, { size: 12 }); return s; };
+    deckPlace.replaceChildren(el('span', 'room-led', { 'aria-hidden': 'true' }), ...(w.opens ? [drawn('play'), w.place, drawn('right')] : [w.place]));
     deckPlace.setAttribute('aria-label', w.label);
     deckMeta.textContent = w.meta;
     // The sketchbook: the notes of the take in the bar.
@@ -423,25 +444,16 @@ export function mount(h) {
       ? `Open the sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${spineTitle(d.take)}`
       : d ? 'Sketchbook: notes are for takes; pick a take from the shelf'
         : 'Sketchbook: nothing in the bar to write about yet');
-    renderDock(d, w);
+    renderDock(d);
   }
   const offBar = h.np?.onChange?.(renderPlaces);
 
-  // The dock is the bar: Open in it for the tape (a take's name, in the bar,
-  // is its way in: lib/bar/take-keys.js), and grease marks at In and Out.
-  const sit = el('a', 'icon-btn room-sit', { href: '/wave.html', 'data-tip': 'room-sit' }, 'Open');
-  if (h.barSlot) h.barSlot.add(sit, { after: $('np-open') });
-  else $('np-open')?.after(sit);
-  // A tape opens in the Studio, and says it goes for the tape (F4).
-  let sitForTape = false;
-  sit.addEventListener('click', () => { if (sitForTape) forTheTape(); });
+  // The dock is the bar (its Open › opens a take, or the tape in the
+  // Studio: lib/bar/bar.js), with grease marks at a take's In and Out.
   const grease = el('span', 'room-grease', { 'aria-hidden': 'true' }, el('i', 'room-grease-in'), el('i', 'room-grease-out'));
   if (h.barSlot) h.barSlot.add(grease, { after: $('np-scrub') });
   else $('np-scrub')?.after(grease);
-  function renderDock(d, w) {
-    sit.hidden = !d || d.kind === 'take';
-    if (d) sit.setAttribute('href', w.href);
-    sitForTape = !!d && w.forTape;
+  function renderDock(d) {
     const t = d && d.kind === 'take' ? d.take : null;
     const tr = t && t.trim;
     const total = t ? (t.duration_seconds || 0) * (t.sample_rate || 48000) : 0;

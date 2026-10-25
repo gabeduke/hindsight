@@ -18,48 +18,45 @@ async function withTake(opts = {}, take = aTake('jam_2026-10-15_204500.wav', { s
   return { ...p, ...take };
 }
 
-test('a take in the bar shows its name, which opens it, and ✎', async () => {
+test('a take in the bar has Open ›, to its page, and ✎, at the bar’s end', async () => {
   const p = await withTake();
-  const name = p.$('np-name'), note = p.$('np-note');
-  assert.ok(name && note, 'the name and ✎ are in the bar');
-  assert.equal(name.hidden, false);
-  assert.equal(note.hidden, false);
-  assert.equal(name.tagName, 'A', 'the name is a link: a tap, a middle-click and the keyboard all open it');
-  assert.equal(name.getAttribute('href'), '/wave.html?file=jam_2026-10-15_204500.wav');
-  assert.equal(name.textContent, '2026-10-15_204500');
-  assert.match(name.getAttribute('aria-label'), /^Open 2026-10-15_204500\b/);
+  const open = p.$('np-open'), note = p.$('np-note');
+  assert.equal(p.$('np').dataset.source, 'take', 'the bar says it holds a take: the stylesheet shows Open › and ✎ by it');
+  assert.equal(open.tagName, 'A', 'Open › is a link: a tap, a middle-click and the keyboard all open it');
+  assert.equal(open.getAttribute('href'), '/wave.html?file=jam_2026-10-15_204500.wav');
+  assert.match(open.getAttribute('aria-label'), /^Open 2026-10-15_204500\b/);
   assert.equal(note.tagName, 'BUTTON');
   assert.equal(note.getAttribute('type'), 'button');
-  assert.ok(p.$('np').classList.contains('np-take'), 'the bar says it holds a take: every rule of the strip, name and ✎ hangs on it');
+  for (const k of [open, note]) assert.equal(k.parent.getAttribute('data-slot'), 'end');
+  assert.ok(open.getAttribute('data-for').split(' ').includes('take'));
+  assert.ok(note.getAttribute('data-for').split(' ').includes('take'));
 });
 
-test('a take with a label shows the label', async () => {
+test('the display names the take, by its label when it has one', async () => {
   const p = await withTake({}, aTake('jam_x.wav', { label: 'Blue bridge' }));
-  assert.equal(p.$('np-name').textContent, 'Blue bridge');
+  assert.equal(p.$('np-source-short').textContent, 'Blue bridge');
+  assert.equal(p.$('np-source-long').textContent, 'TAKE · Blue bridge');
+  assert.match(p.$('np-source').getAttribute('aria-label'), /Blue bridge/);
 });
 
 test('✎ names the frame it will take, as m:ss, and follows the playhead', async () => {
   const p = await withTake();
-  assert.equal(p.$('np-note').getAttribute('aria-label'), 'Note at 0:00');
+  assert.equal(p.$('np-note').getAttribute('aria-label'), 'A note at 0:00');
   p.audio.currentTime = 83.4;
   p.audio.emit('seeked');
   p.frames();
-  assert.equal(p.$('np-note').getAttribute('aria-label'), 'Note at 1:23');
+  assert.equal(p.$('np-note').getAttribute('aria-label'), 'A note at 1:23');
 });
 
-test('with nothing in the bar there is no name and no ✎, and ejecting the take takes them away', async () => {
+test('ejecting the take puts the bar back to the tape, where Open › and ✎ are not for it', async () => {
   const p = await barPage();
-  assert.equal(p.$('np-name').hidden, true);
-  assert.equal(p.$('np-note').hidden, true);
   const t = aTake();
   p.bar.loadTake(t.t, t.player);
   p.frames();
-  assert.equal(p.$('np-note').hidden, false);
+  assert.equal(p.$('np').dataset.source, 'take');
   p.bar.backToTape();
   p.frames();
-  assert.equal(p.$('np-name').hidden, true);
-  assert.equal(p.$('np-note').hidden, true);
-  assert.equal(p.$('np').classList.contains('np-take'), false);
+  assert.notEqual(p.$('np').dataset.source, 'take');
 });
 
 test('✎ takes the frame it is held at, keeps it for the next page, and opens the take', async () => {
@@ -152,9 +149,9 @@ test('⟲ is Repeat for a take', async () => {
   assert.equal(on.audio.loop, true);
 });
 
-test('everything the bar adds has a tip, and says its tip by the same name', async () => {
+test('everything the bar shows for a take has a tip, and says its tip by the same name', async () => {
   const p = await withTake();
-  for (const [id, tip] of [['np-name', 'np-name'], ['np-note', 'np-note'], ['np-loop', 'np-repeat']]) {
+  for (const [id, tip] of [['np-open', 'np-open'], ['np-note', 'np-note'], ['np-loop', 'np-repeat'], ['np-source', 'np-source'], ['np-output', 'np-output']]) {
     assert.equal(p.$(id).dataset.tip, tip);
     assert.ok(tipFor(tip), `${tip} has a tip`);
   }

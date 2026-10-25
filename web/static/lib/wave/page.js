@@ -39,14 +39,17 @@ import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toa
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { listFrom, fold, familyOf, flagChips, dropoutsText } from '../shelf.js';
+import { listFrom, fold, familyOf, flagChips, dropoutsText, spineTitle } from '../shelf.js';
 import { cutLabel } from './cut-label.js';
 import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
-import { takeCounter, takeMarquee } from '../objects/lcd.js';
+import { takeCounter } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
+import { measureBar, hereWord, deviceOf } from '../bar/slots.js';
+import { takeDisplay } from '../bar/display.js';
 import { layersOf } from '../ui/layers.js';
+import { menu, barTop } from '../ui/menu.js';
 import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom } from '../room/mount.js';
@@ -266,6 +269,7 @@ async function main() {
   // LCD's two level bars read the take's peaks under it (left and right).
   const reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
   initPlayer();
+  measureBar($('np'));
   const gain = takeGain(filePeaks);
   const lcdInk = 'var(--lcd-ink)';
   reels.setLevels(Array.from({ length: Math.min(2, filePeaks.channels) }, () => lcdInk),
@@ -1207,9 +1211,11 @@ async function main() {
     // A rename here or on another device: Save as take's offer follows it.
     followSaveName();
     renderDownbeat();
-    const name = take.label || stampOf(file);
-    $('take-name').textContent = name;
+    // Its name as its spine says it: its label, or the time it was cut.
+    const name = spineTitle({ ...take, name: take.name || file });
+    $('take-name-text').textContent = name;
     $('take-name').classList.toggle('unlabelled', !take.label);
+    $('take-name').setAttribute('aria-label', `${name}: this take’s menu`);
     document.title = `${name} — Hindsight`;
     $('take-star').setAttribute('aria-pressed', String(!!take.starred));
     $('take-star').classList.toggle('on', !!take.starred);
@@ -1233,14 +1239,18 @@ async function main() {
     renderEditor();
   }
 
-  function inlineEdit(button, input, { initial, commit }) {
-    button.addEventListener('click', () => {
+  // inlineEdit swaps `button` for `input` to edit a value in place; a tap
+  // on the button starts it, or `start()` (the answer) does, for a value
+  // whose button is a menu's (the take's name: Rename… in its menu).
+  function inlineEdit(button, input, { initial, commit, tap = true }) {
+    const start = () => {
       input.value = initial();
       button.hidden = true;
       input.hidden = false;
       input.focus();
       input.select();
-    });
+    };
+    if (tap) button.addEventListener('click', start);
     let cancelled = false;
     const done = async () => {
       if (input.hidden) return;
@@ -1252,10 +1262,12 @@ async function main() {
     input.addEventListener('blur', done);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      if (e.key === 'Escape') { cancelled = true; input.blur(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancelled = true; input.blur(); }
     });
+    return start;
   }
-  inlineEdit($('take-name'), $('take-name-input'), {
+  const rename = inlineEdit($('take-name'), $('take-name-input'), {
+    tap: false,
     initial: () => take.label || '',
     commit: async (v) => {
       if (v === (take.label || '')) return;
@@ -1296,27 +1308,34 @@ async function main() {
     try { await patch({ starred: take.starred }); } catch (e) { take.starred = !take.starred; renderHeader(); toast(`Could not star: ${e.message}`, 'bad'); }
   });
 
-  // Previous and next take, in the order the list last showed them. Answers
-  // that order (or null), which the trash key steps on through too.
+  // Previous and next take, in the order the list last showed them: rows
+  // of the take's menu, each saying which take it opens, by its spine's
+  // name. Answers that order (or null), which Delete steps on through too.
   async function neighbours() {
     let order = null;
+    let list = null;
     try { order = JSON.parse(sessionStorage.getItem('hindsight.order') || 'null'); } catch {}
     orderListed = Array.isArray(order) && order.includes(file);
-    if (!orderListed) {
-      try {
-        const res = await fetch('/api/jams');
-        if (res.ok) order = (await res.json()).map((t) => t.name);
-      } catch {}
-    }
+    try {
+      const res = await fetch('/api/jams');
+      if (res.ok) list = await res.json();
+    } catch {}
+    if (!orderListed && Array.isArray(list)) order = list.map((t) => t.name);
     if (!Array.isArray(order)) return null;
     const i = order.indexOf(file);
+    const titleOf = (name) => spineTitle((Array.isArray(list) && list.find((t) => t.name === name)) || { name });
     const go = (name) => () => {
       flushRegion();
       flushDownbeat();
       hopTo(name);
     };
-    if (i > 0) { $('take-prev').disabled = false; $('take-prev').onclick = go(order[i - 1]); }
-    if (i >= 0 && i < order.length - 1) { $('take-next').disabled = false; $('take-next').onclick = go(order[i + 1]); }
+    const offer = (key, words, name) => {
+      $(key).disabled = !name;
+      $(key).onclick = name ? go(name) : null;
+      setText($(words), name ? titleOf(name) : '');
+    };
+    offer('take-prev', 'take-prev-name', i > 0 ? order[i - 1] : null);
+    offer('take-next', 'take-next-name', i >= 0 && i < order.length - 1 ? order[i + 1] : null);
     return order;
   }
   let orderReady = Promise.resolve(null);
@@ -1364,7 +1383,13 @@ async function main() {
     document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== button) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   }
-  wireMenu($('menu-btn'), $('take-menu'));
+  // The take's menu, from its name (lib/ui/menu.js): under the name, on the
+  // page's stack, so Escape, Back or a press elsewhere closes it. Rename…
+  // swaps the name for its field; Tag… is the tag beside the star, where the
+  // header has no room for it (css/chrome.css).
+  menu($('take-name'), $('take-menu'), { layers: layersOf(document), side: 'below', align: 'start', floor: barTop(document) });
+  $('take-rename').addEventListener('click', () => rename());
+  $('take-tag-row').addEventListener('click', () => $('take-tag')?.click());
   wireMenu($('more-btn'), $('more-menu'));
   wireMenu($('send-btn'), $('send-menu'));
 
@@ -1376,12 +1401,15 @@ async function main() {
     follow(); renderEditor(); // bar 1 being edited has moved
     redraw();
   });
-  $('dl-wav').href = `/api/download?file=${encodeURIComponent(file)}&dl=1`;
+  // The downloads, in More and in the take's menu.
+  for (const id of ['dl-wav', 'take-dl-wav']) $(id).href = `/api/download?file=${encodeURIComponent(file)}&dl=1`;
   if (take.has_midi && take.midi_name) {
-    $('dl-midi').hidden = false;
-    $('dl-midi').href = `/api/download?file=${encodeURIComponent(take.midi_name)}&dl=1`;
+    for (const id of ['dl-midi', 'take-dl-midi']) {
+      $(id).hidden = false;
+      $(id).href = `/api/download?file=${encodeURIComponent(take.midi_name)}&dl=1`;
+    }
   }
-  // 🗑 in the header, and Delete take in More: to the trash in one tap, so it
+  // Delete this take, in the take's menu, and Delete take in More: to the trash in one tap, so it
   // doesn't ask, and on to the next take in the list's order (the one before,
   // from the last), which says "Deleted … · Undo". Undo brings it back,
   // starred as any restore is, and opens it again. With no take left to go
@@ -1751,7 +1779,13 @@ async function main() {
     document.body.classList.remove('notes-open');
     syncNotes();
   });
-  $('notes-open').addEventListener('click', openNotes);
+  // From the take's menu: once the stack has taken the menu's own history
+  // entry back (a browser without CloseWatcher), so the pane's entry is the
+  // one on top.
+  $('notes-open').addEventListener('click', () => {
+    const wait = layersOf(document).settled?.();
+    if (wait) wait.then(openNotes); else openNotes();
+  });
   const onBenchChange = () => { if (bench.matches) closeNotes(); syncNotes(); };
   bench.addEventListener('change', onBenchChange);
 
@@ -1847,15 +1881,20 @@ async function main() {
     const bar = barBeat(state.cursor, state.grid);
     const lcd = takeCounter({ pos: state.cursor, length: total, sampleRate: sr, bar, playing: clock.playing });
     setText($('position'), lcd.big);
-    setText($('np-mini'), lcd.big);
     setText($('np-time'), lcd.small);
     setText($('np-unit'), lcd.unit);
     setAttr($('np-status'), 'data-state', lcd.status);
-    // The marquee's words change with the name, tempo and selection only.
-    const mk = `${take.label}|${state.grid.bpm}|${state.region ? `${state.region.start}-${state.region.end}` : ''}`;
-    if (mk !== marqueeKey) {
-      marqueeKey = mk;
-      setText($('np-marquee'), takeMarquee({ name: take.label || stampOf(file), bpm: state.grid.bpm, region: state.region, sampleRate: sr }));
+    // The display's tempo, the take and where it plays (lib/bar/display.js),
+    // which change with the name and the tempo only.
+    const dk = `${take.label}|${state.grid.bpm}`;
+    if (dk !== displayKey) {
+      displayKey = dk;
+      const d = takeDisplay({ title: spineTitle({ ...take, name: take.name || file }), bpm: state.grid.bpm }, hereWord(deviceOf(window)));
+      setText($('np-tempo-short'), d.tempo.short);
+      setText($('np-tempo-long'), d.tempo.long);
+      setText($('np-source-short'), d.source.short);
+      setText($('np-source-long'), d.source.long);
+      setText($('np-output-val'), d.out);
     }
     // The slider, for a screen reader: to the tenth of a second, not every frame.
     const ov = $('overview-canvas');
@@ -1866,7 +1905,7 @@ async function main() {
     $('notes-bar').textContent = bar || fmtTime(state.cursor, sr);
     feedReels();
   }
-  let marqueeKey = null;
+  let displayKey = null;
   function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
   function setAttr(el, k, v) { if (el.getAttribute(k) !== v) el.setAttribute(k, v); }
 

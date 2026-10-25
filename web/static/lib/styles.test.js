@@ -61,16 +61,19 @@ for (const [scheme, t] of [['light', light], ['dark', dark]]) {
   });
 }
 
-test('hover lives only inside @media (hover: hover)', () => {
-  const hoverBlocks = [...css.matchAll(/@media \(hover: hover\)/g)].map((m) => block(css, m.index));
-  let outside = css;
-  for (const b of hoverBlocks) outside = outside.replace(b, '');
-  const stray = outside.split('\n').filter((l) => /:hover/.test(l) && !/^\s*(\/\*|\*)/.test(l));
-  assert.deepEqual(stray, []);
+test('hover lives only inside @media (hover: hover), in every stylesheet', () => {
+  for (const f of ['styles.css', 'css/chrome.css', 'css/bar.css']) {
+    const sheet = fileCss(f);
+    const hoverBlocks = [...sheet.matchAll(/@media \(hover: hover\)/g)].map((m) => block(sheet, m.index));
+    let outside = sheet;
+    for (const b of hoverBlocks) outside = outside.replace(b, '');
+    const stray = outside.split('\n').filter((l) => /:hover/.test(l) && !/^\s*(\/\*|\*)/.test(l));
+    assert.deepEqual(stray, [], f);
+  }
 });
 
 test('every control shows a focus ring', () => {
-  const rules = [...css.matchAll(/([^{}]*:focus-visible[^{}]*)\{/g)].map((m) => m[1]).join(',');
+  const rules = [...cssOf().matchAll(/([^{}]*:focus-visible[^{}]*)\{/g)].map((m) => m[1]).join(',');
   for (const sel of ['.icon-btn', '.chip', '.seg button', '.appnav a', '.capture-btn', '.nudge', '.phone-btn', '.mark-btn'])
     assert.ok(rules.includes(sel), `no :focus-visible rule for ${sel}`);
 });
@@ -117,11 +120,30 @@ const bare = stripComments(css);
 const RULES = rules(css);
 
 test('a latched transport key sits as low as the raised key rule it overrides', () => {
-  const raised = specificity('.tb-row.transport .icon-btn');
-  const pressed = RULES.find((r) => r.sel.includes('.tb-row.transport .icon-btn[aria-pressed="true"]'));
+  // The bar's keys (css/bar.css): raised by .np .icon-btn, latched and
+  // pressed by the rule after it.
+  const raised = specificity('.np .icon-btn');
+  const pressed = rules(cssOf()).find((r) => r.sel.includes('.np .icon-btn[aria-pressed="true"]'));
   assert.ok(pressed);
-  for (const part of pressed.sel.filter((x) => x.includes('.tb-')))
-    assert.ok(outranks(specificity(part), raised) >= 0, `${part} loses to .tb-row.transport .icon-btn`);
+  for (const part of pressed.sel)
+    assert.ok(outranks(specificity(part), raised) >= 0, `${part} loses to .np .icon-btn`);
+});
+
+// Open's take menu showed Tag… and MIDI at 1024 px, beside the tag key
+// and the notes pane they stand in for: the rules hiding them tied with,
+// or lost to, a menu row's own display (.menu > .menu-item, later).
+test('a take menu row hidden where its key is on the page outranks a menu row’s display', () => {
+  const all = rules(cssOf());
+  const row = all.findIndex((r) => r.sel.includes('.menu > .menu-item') && /display:\s*grid/.test(r.body) && !r.media);
+  assert.ok(row >= 0, 'the menu row rule');
+  const hides = all.map((r, i) => ({ r, i })).filter(({ r }) => /display:\s*none/.test(r.body) && r.sel.some((x) => /\.(?:notes-btn|take-tag-row)\b/.test(x)));
+  assert.ok(hides.length >= 2, 'the MIDI row’s and the Tag… row’s');
+  for (const { r, i } of hides) {
+    for (const part of r.sel) {
+      const by = outranks(specificity(part), specificity('.menu > .menu-item'));
+      assert.ok(by > 0 || (by === 0 && i > row), `${part} { display: none } loses to .menu > .menu-item`);
+    }
+  }
 });
 
 test('hovering a key never hides its state', () => {
@@ -297,8 +319,11 @@ test('the tape deck tokens exist, and the bar\'s LCD reads', () => {
     const c = contrast(light[fg], light[bg]);
     assert.ok(c >= 4.5, `${fg} on ${bg} is ${c.toFixed(2)}:1`);
   }
-  for (const sel of ['.np-pos', '.np-time']) {
-    const r = RULES.filter((x) => x.sel.includes(sel)).map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
+  // The bar's display is css/bar.css's: its position, its time, and the
+  // values and legends of its three keys.
+  const all = rules(cssOf());
+  for (const sel of ['.np-pos', '.np-time', '.np-lcd-val', '.np-lcd-key']) {
+    const r = all.filter((x) => x.sel.includes(sel)).map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
     assert.ok(r, `${sel} has a colour`);
     for (const [scheme, t] of [['light', light], ['dark', dark]]) {
       const c = contrast(resolve(r[1], t), t['--lcd']);
@@ -310,9 +335,11 @@ test('the tape deck tokens exist, and the bar\'s LCD reads', () => {
 // On a phone, upright or sideways, the now-playing bar is docked: Play, Loop,
 // Rec and Catch always on screen, whatever the page has scrolled to.
 test('a phone docks the now-playing bar', () => {
-  const at = css.indexOf('@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px)');
-  assert.ok(at > 0, 'a media block for both phone shapes');
-  assert.match(block(css, at), /\.np\s*\{[^}]*position:\s*fixed/);
+  // Its mini player (css/bar.css), on a phone of either shape.
+  const docked = rules(fileCss('css/bar.css')).find((r) => r.sel.includes('.np[data-size="mini"]')
+    && r.media === '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)');
+  assert.ok(docked, 'a rule for the mini player on both phone shapes');
+  assert.match(docked.body, /position:\s*fixed/);
 });
 
 test('inputs sit on the field, not the well', () => {
@@ -336,7 +363,7 @@ test('nothing hides the header’s menu or its Settings, the only way into Setti
   // margin once read `@media (…) { .x .app-menu-btn { display: none` as
   // one rule whose selector was the @media, and passed it.
   const offenders = [];
-  for (const r of RULES) {
+  for (const r of rules(cssOf())) {
     if (!/display\s*:\s*none/.test(r.body)) continue;
     for (const sel of r.sel) {
       const last = sel.split(/\s*[\s>+~]\s*/).pop();
@@ -355,7 +382,7 @@ test('nothing hides the menu’s Releases, guide or rig, nor the Settings sheet�
   // too. No rule may hide either way to them: a phone hid the header's
   // Releases and Guide once, and the line was then the only way.
   const offenders = [];
-  for (const m of css.matchAll(/([^{}]*\.(?:settings-(?:about|releases|guide|rig)|appbar-releases-btn|appbar-guide-link|app-menu-rig)\b[^{}]*)\{([^}]*)\}/g)) {
+  for (const m of cssOf().matchAll(/([^{}]*\.(?:settings-(?:about|releases|guide|rig)|appbar-releases-btn|appbar-guide-link|app-menu-rig)\b[^{}]*)\{([^}]*)\}/g)) {
     if (m[1].includes('[hidden]')) continue; // the element asking to be hidden (the rig, off its pages)
     if (/display\s*:\s*none|visibility\s*:\s*hidden/.test(m[2])) offenders.push(`${m[1].trim()} { ${m[2].trim()} }`);
   }
@@ -590,7 +617,7 @@ test('every tape formula label reads, selected or not', () => {
 // help mode and (on a phone) the rig, so ☰ is a finger's size, a key with
 // the keys' edge, and its items are a finger tall.
 test('the header’s menu and its items are finger-sized targets', () => {
-  const m = /\.appbar \.app-menu-btn\s*\{([^}]*)\}/.exec(css);
+  const m = /\.appbar \.app-menu-btn\s*\{([^}]*)\}/.exec(cssOf());
   assert.ok(m, 'a rule for ☰');
   for (const k of ['min-width', 'min-height']) {
     const d = new RegExp(`(?:^|[;\\s])${k}:\\s*(\\d+)px`).exec(m[1]);
@@ -604,13 +631,25 @@ test('the header’s menu and its items are finger-sized targets', () => {
   assert.match(readFileSync(new URL('./nav.js', import.meta.url), 'utf8'), /make\('button', 'icon-btn app-menu-btn'/, 'an icon-btn, so it has the keys’ edge');
 });
 
-// The output button moved from the bar into the tools (.appbar-end), and
-// its rules, written for `.appbar > .out-btn`, matched nothing from then on:
-// a phone showed "Jam room" in full, and every page a square box.
-test('the output button’s rules follow it into the tools', () => {
-  assert.doesNotMatch(css, /\.appbar\s*>\s*\.out-btn/, 'no rule looks for it in the bar itself');
-  assert.match(css, /\.appbar-end > \.out-btn :is\(\.tape-out-text, \.pill-chev\) \{ display: none; \}/, 'under 1000 px it is the icon alone');
-  assert.match(css, /\.appbar-end > \.out-btn\[hidden\] \{ display: none; \}/, 'hidden until the Pi says where the tape plays');
+// The room switch sat top left in the rooms and top centre on Open and
+// Capture, moved by four blocks of per-page overrides, so a tap where it
+// usually was landed on the brand. The header is placed once, by
+// css/chrome.css: no rule anywhere else lays it out, and none there by page.
+test('the header is laid out once, in css/chrome.css, the same on every page', () => {
+  const PLACING = /(?:^|;)\s*(?:grid-template-(?:areas|columns)|grid-area|justify-self|position|left|transform)\s*:/;
+  for (const f of ['styles.css', 'css/bar.css', 'objects.css']) {
+    // A rule on one of the zones themselves (its last compound), not a
+    // key inside one (the tabs give under a thumb, styles.css).
+    const zone = (x) => /^\.(?:appbar|appnav|appbar-start|appbar-end|brand)(?![\w-])/.test(x.split(/\s*[\s>+~]\s*/).pop());
+    const placed = rules(fileCss(f)).filter((r) => PLACING.test(r.body.replace(/\s+/g, ' ')) && r.sel.some(zone));
+    assert.deepEqual(placed.map((r) => r.sel.join(', ')), [], `${f} places the header`);
+  }
+  const chrome = rules(fileCss('css/chrome.css'));
+  const byPage = chrome.filter((r) => r.sel.some((x) => /^(?:body)?[.:](?:is\(|tape-page|shelf-page|main-page|wave-page|rig-page|guide-page)/.test(x) && /\.(?:appbar|appnav)/.test(x)));
+  assert.deepEqual(byPage.map((r) => r.sel.join(', ')), [], 'no page has a header of its own');
+  const grid = chrome.find((r) => r.sel.includes('.appbar') && !r.media);
+  assert.match(grid.body, /grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\)/, 'three zones, the switch centred between two equal sides');
+  assert.match(grid.body, /grid-template-areas:\s*"start nav end"/);
 });
 
 // A phone showed "Fri, Oct 16, 11:2…": the date sat on the tag's line and

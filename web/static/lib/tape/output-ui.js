@@ -2,7 +2,7 @@
 // bar and the banner other devices show while a phone has it, rendered over
 // the engine's one StreamPlayer (engine.output).
 import { barBeat } from './geometry.js';
-import { paintOutButtons, paintOutSheet, outDelay } from './out-switch.js';
+import { paintOutSheet, outDelay } from './out-switch.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -22,7 +22,6 @@ export function initOutput({ engine, getTape, getGhost = () => null }) {
     const st = (l && l.stream) || {};
     const here = !!(player && player.active);
     const delay = outDelay(here ? player.delayMs() : st.delay_ms);
-    paintOutButtons(l && l.output_mode);
     paintOutSheet(mode, delay);
     // Another device has the tape: say so, and offer it back.
     const elsewhere = mode === 'phone' && !here;

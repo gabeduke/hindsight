@@ -19,6 +19,10 @@ export const PROFILES = {
   tablet: { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: false },
   desktop: { viewport: { width: 1440, height: 900 }, hasTouch: false, isMobile: false },
   phone: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
+  // A Pixel Tablet, on its side (its own size) and held upright: where the
+  // bar ran off the edge, and no flow looked (docs/plan/listening-back.md).
+  pixel: { viewport: { width: 1280, height: 800 }, hasTouch: true, isMobile: false },
+  upright: { viewport: { width: 800, height: 1280 }, hasTouch: true, isMobile: false },
 };
 
 const freePort = () => new Promise((resolve, reject) => {

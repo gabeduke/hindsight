@@ -60,11 +60,15 @@ const ROUTES = {
     },
   },
   'detail-open': {
-    where: 'the deck (a tap on it), the dock’s Open',
+    where: 'the deck (a tap on it), the bar’s Open › (lib/bar/bar.js), a double tap on its spine',
     check: async () => {
       const r = await room({ barTake: 'jam_a.wav' });
       click(r.q('.room-deck-place'));
-      return r.w.navigated.at(-1) === '/wave.html?file=jam_a.wav' && r.q('.room-sit').getAttribute('href') === '/wave.html?file=jam_a.wav';
+      const deck = r.w.navigated.at(-1) === '/wave.html?file=jam_a.wav';
+      const s = await room();
+      click(s.spine('jam_b.wav')); click(s.spine('jam_b.wav'));
+      await s.settle(); await s.settle();
+      return deck && r.doc.getElementById('np-open').getAttribute('data-for').includes('take') && s.w.navigated.at(-1) === '/wave.html?file=jam_b.wav';
     },
   },
   star: { where: 'Open’s ★, and a selection’s ★', check: () => idsOf(takePage, ['take-star']) && idsOf(tapesPage, ['sel-star']) },
@@ -127,7 +131,8 @@ test('each control that moved is where it says it is', async () => {
 
 test('the shelf offers none of the sheet’s old keys (a take’s GRAB is Open’s, built by the chair: seen in the browser run)', async () => {
   const r = await room();
-  const words = [...r.doc.documentElement.descendants()].filter((e) => e.tagName === 'BUTTON' || e.tagName === 'A').map((e) => e.textContent);
+  // The shelf's: the bar's own keys (its GRAB is the live feed's) are the bar's.
+  const words = [...r.doc.documentElement.descendants()].filter((e) => (e.tagName === 'BUTTON' || e.tagName === 'A') && !e.closest('#np')).map((e) => e.textContent);
   for (const gone of [/PUT IT ON/, /TO THE STUDIO/, /Play all from here/, /GRAB/, /Cut a record/]) {
     assert.ok(!words.some((w) => gone.test(w)), `${gone} is on the shelf`);
   }

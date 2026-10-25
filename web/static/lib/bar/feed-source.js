@@ -8,6 +8,7 @@ import { paintOxide, oxideColors, drawTrace, traceLines } from '../wave/tape-str
 import { withAlpha } from '../theme.js';
 import { replacedLine, remember } from '../buffer/replaced.js';
 import { forTheTape } from './carry.js';
+import { feedDisplay } from './display.js';
 
 const SR = 48000;
 const DEFAULT_RING_SEC = 120;
@@ -162,17 +163,12 @@ export function feedSource({
         unit: 'IN',
       };
     },
-    marquee: () => {
-      const agoSec = Math.round(offsetFromHeadFrames / SR);
-      return agoSec > 0
-        ? `STUDIO FEED · ${agoSec}S AGO · GRAB TO BUFFER`
-        : `STUDIO FEED · ${healthy ? 'LIVE RING' : 'WAITING'}`;
-    },
+    // The display: the live feed, played here (display.js).
+    display: (here) => feedDisplay(here),
     levels: {
       colors: ['var(--go, #6faa32)', 'var(--go, #6faa32)'],
       at: () => (active && healthy ? [peakDb, peakDb] : [-60, -60]),
     },
-    out: () => 'Studio feed',
     paint(ctx, W, H, col, dpr = 1) {
       ctx.clearRect(0, 0, W, H);
       paintOxide(ctx, W, H, oxideColors(col));

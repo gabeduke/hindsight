@@ -74,7 +74,8 @@ const MIDI = {
 const SCREENS = [
   { id: 'studio', path: '/tape.html', ready: '.tt-lane' },
   { id: 'studio-menu', path: '/tape.html', ready: '.tt-lane', act: (p, tap) => tap(p.locator('#app-menu-btn')), done: '#app-menu:not([hidden])' },
-  { id: 'studio-more', path: '/tape.html', ready: '.tt-lane', act: (p, tap) => tap(p.locator('#tape-more')), done: '#tape-more[aria-expanded="true"]' },
+  { id: 'studio-tape', path: '/tape.html', ready: '.tt-lane', act: (p, tap) => tap(p.locator('#tape-name')), done: '#tape-name[aria-expanded="true"]' },
+  { id: 'studio-view', path: '/tape.html', ready: '.tt-lane', act: (p, tap) => tap(p.locator('#ruler-more')), done: '#ruler-more[aria-expanded="true"]' },
   { id: 'studio-player', path: '/tape.html', ready: '#np-expand', profiles: ['phone'], act: (p, tap) => tap(p.locator('#np-expand')), done: 'body.player-open' },
   { id: 'room', path: '/takes.html', ready: '#view-room .room-cassette' },
   { id: 'room-menu', path: '/takes.html', ready: '#view-room .room-cassette', act: (p, tap) => tap(p.locator('#app-menu-btn')), done: '#app-menu:not([hidden])' },

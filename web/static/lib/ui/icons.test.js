@@ -137,10 +137,11 @@ test('a page’s icon is written as icon() writes it: the class names the icon i
 // The keys of the header, the bar and the ruler, on every page that has
 // them: each draws its icon, and none is a glyph a fallback font would draw.
 const DRAWN = {
-  'shell.html': ['tape-undo', 'tape-redo', 'tape-more', 'out-btn', 'tape-name', 'tape-sub', 'tape-out',
-    'np-expand', 'np-start', 'np-back5', 'np-play', 'np-loop', 'catch-more', 'np-eject', 'np-fold-btn',
-    'snap-btn', 'loop-lock', 'tracks-fold-btn', 'ruler-more', 'buffer-snap'],
-  'wave.html': ['take-undo', 'menu-btn', 'np-expand', 'to-start', 'back5', 'play', 'loop'],
+  'shell.html': ['tape-undo', 'tape-redo', 'tape-name',
+    'np-start', 'np-play', 'rec', 'np-back5', 'catch-more', 'np-loop', 'click', 'np-eject', 'np-open', 'np-note',
+    'np-tempo', 'np-source', 'np-output',
+    'ruler-more', 'buffer-snap'],
+  'wave.html': ['take-undo', 'take-name', 'take-star', 'to-start', 'back5', 'play', 'loop'],
 };
 const GLYPHS = /[↶↷⋯☰▾▴▸▶❚■⟲↺⏏✎⌗]/;
 
@@ -192,15 +193,6 @@ test('no script types a glyph into a key beyond the regions still to be drawn', 
   const under = Object.entries(TYPED).filter(([p, n]) => (typed[p] || 0) < n)
     .map(([p, n]) => `${p}: ${typed[p] || 0}, from ${n}`);
   assert.deepEqual(under, [], 'drawn now: lower its number in TYPED (or take its line out at 0), so it stays down');
-});
-
-// Folded, a fold's ▾ turns over in CSS, by the key's own state; nothing
-// types a ▸ (the bar's own is in bar/fold.test.js).
-test('folded, Tracks’ ▾ turns to ▸ by the stylesheet, wherever the key shows', () => {
-  const turned = rules(fileCss('styles.css')).filter((r) => /transform:\s*rotate\(-90deg\)/.test(r.body)
-    && r.sel.some((x) => /^\.tracks-fold-btn\[aria-expanded="false"\] \.i$/.test(x)));
-  assert.equal(turned.length, 1, 'one rule turns Tracks’ icon');
-  assert.equal(turned[0].media, '');
 });
 
 test('the sprite and its module are in the offline shell', () => {

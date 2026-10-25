@@ -287,6 +287,23 @@ for (const k of KINDS) {
     assert.deepEqual(far.log, ['tap', 'tap']);
   });
 
+  // On a Pixel Tablet's size, a first tap on a spine started the take and
+  // held the page up: the second tap's click was handled 306 ms after the
+  // first's, though the finger lifted 23 ms after it, and the double tap
+  // that opens a take was read as two taps.
+  test(`${k.name}: two taps are timed by their events, not by when the page got round to them`, () => {
+    const { m, c, log } = rig(k, { double: true });
+    m.down(touch()); m.up(); m.click(click({ clientX: 10, clientY: 10, timeStamp: 1296 }));
+    c.advance(GESTURE.DOUBLE_MS + 6); // the page, busy with the first
+    m.down(touch()); m.up(); m.click(click({ clientX: 10, clientY: 10, timeStamp: 1319 }));
+    assert.deepEqual(log, ['tap', 'double']);
+    // And two taps the hand made far apart stay two, however soon they're handled.
+    const late = rig(k, { double: true });
+    late.m.down(touch()); late.m.up(); late.m.click(click({ clientX: 10, clientY: 10, timeStamp: 1000 }));
+    late.m.down(touch()); late.m.up(); late.m.click(click({ clientX: 10, clientY: 10, timeStamp: 1000 + GESTURE.DOUBLE_MS }));
+    assert.deepEqual(late.log, ['tap', 'tap']);
+  });
+
   test(`${k.name}: with no onDouble every tap is a tap, however quick`, () => {
     const { m, log } = rig(k);
     tapAt(m);

@@ -5,8 +5,10 @@
 // opens under the pair there; Back closes that menu, then puts the player
 // away and stays in the Studio. A tapped clip's bar floats just above the
 // player, and Insert asks before it moves the tape. The ruler's keys are one
-// key, ⌗. In the Listening Room a take's mini player has |◀ beside ▶ as
-// well.
+// key, ⌗. In the Listening Room a take's mini player keeps the window and
+// ▶ where the tape's are, |◀ beside it, and Open › and ✎ in Catch's place.
+// The header is one row: the tape's name, ↶ and ☰, and the rooms are tabs
+// along the bottom, each with its own picture.
 //
 // Back reaches the player as the stack's close request (lib/ui/layers.js).
 // In Chromium that is Android's Back or Escape -- page.goBack() is the
@@ -28,7 +30,8 @@ const look = () => {
   return {
     window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
     more: on('#catch-more'), bar: !!pos && pos.width >= 10,
-    name: on('#np-name'), note: on('#np-note'), beside,
+    openKey: on('#np-open'), note: on('#np-note'), beside,
+    playX: Math.round(p?.left ?? -1),
     open: document.body.classList.contains('player-open'),
     aboveTabs: !tabs || !c || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1,
     path: location.pathname,
@@ -57,6 +60,25 @@ export default {
     await t.step('open the Studio', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-expand').waitFor({ state: 'visible' });
     await t.wait(800);
+    // The header (css/chrome.css): one row, the tape's name a finger tall
+    // (and the tape's menu: no ⋯), then ↶ and ☰ -- ↷ only while there is
+    // something to redo -- and no
+    // tempo or output of its own; the rooms are the tabs along the
+    // bottom, the Listening Room's with its spines, not ☰'s three lines.
+    const head = await page.evaluate(() => {
+      const shown = (el) => !!el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== 'hidden';
+      const keys = [...document.querySelectorAll('.appbar button, .appbar a[href], .appbar input')].filter(shown).filter((e) => !e.closest('.appnav, .menu'));
+      const name = document.getElementById('tape-name').getBoundingClientRect();
+      return {
+        keys: keys.map((e) => e.id || e.className.split(' ')[0]),
+        name: Math.round(name.height),
+        header: Math.round(document.querySelector('.appbar').getBoundingClientRect().height),
+        room: document.querySelector('.appnav a[data-tab="room"] svg.i use')?.getAttribute('href')?.split('#')[1],
+      };
+    });
+    t.expect('the header is the tape’s name, a finger tall, ↶ and ☰, in one row', JSON.stringify(head.keys) === JSON.stringify(['tape-name', 'tape-undo', 'app-menu-btn'])
+      && head.name >= 44 && head.header <= 60, head);
+    t.expect('the Listening Room’s tab has its own picture, its spines', head.room === 'shelf', head);
     const mini = await page.evaluate(look);
     t.expect('the mini player shows its window, |◀, ▶ and Catch with its ▾, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && mini.more && !mini.loop, mini);
     t.expect('the window still shows the bar number', mini.bar, mini);
@@ -182,23 +204,40 @@ export default {
     const undone = await api.until(async () => clipCount(await api.tapeState()) === n0, 'the undo', 5000).catch(() => false);
     t.expect('↶ takes the insert back', undone);
 
-    // The ruler's keys are one key on a phone, so its row stays one line.
+    // The ruler's keys are one key, ⌗, the View menu, so its row stays one
+    // line; Ask before Insert and Delete time is in its menu, ticked.
     const rk = await page.evaluate(() => ({
       row: Math.round(document.getElementById('tape-ruler').parentElement.getBoundingClientRect().height),
-      key: !!document.getElementById('ruler-more')?.offsetParent,
-      chips: !!document.getElementById('snap-btn')?.offsetParent,
+      keys: [...document.querySelectorAll('.ruler-keys button')].filter((b) => b.offsetParent && !b.closest('.menu')).map((b) => b.id),
     }));
-    t.expect('the ruler’s keys are one key, ⌗, and its row one line', rk.key && !rk.chips && rk.row <= 30, rk);
+    t.expect('the ruler’s keys are one key, ⌗, and its row one line', JSON.stringify(rk.keys) === '["ruler-more"]' && rk.row <= 30, rk);
     await page.locator('#ruler-more').scrollIntoViewIfNeeded();
     await t.step('tap ⌗ beside the ruler', () => t.tap(page.locator('#ruler-more')));
+    const view = await t.poll(() => {
+      const m = document.getElementById('ruler-menu');
+      if (!m || m.dataset.state !== 'open') return null;
+      const ask = document.getElementById('ask-first');
+      return {
+        rows: [...m.querySelectorAll('.menu-item')].filter((b) => b.offsetParent).map((b) => `${b.querySelector('.menu-word').textContent}${b.getAttribute('aria-checked') === 'true' ? ' ✓' : ''}`),
+        snap: m.querySelectorAll('[data-snap]').length,
+        // Ask before shows on a touch screen (any-pointer: coarse), which a
+        // phone is; the emulation stops saying so after a hold sent over
+        // CDP (t.hold), so its row is read from the menu either way.
+        ask: m.contains(ask) && ask.getAttribute('aria-checked') === 'true' && (getComputedStyle(ask).display !== 'none') === matchMedia('(any-pointer: coarse)').matches,
+      };
+    });
+    // (Fit, between the lock and the fold, only while the view is moved.)
+    t.expect('its View menu: the snap, Lock the loop, Fold the tracks, and Ask before Insert and Delete time, ticked',
+      !!view && view.snap === 4 && view.ask
+      && JSON.stringify(view.rows.filter((w) => w !== 'Fit' && !w.startsWith('Ask before'))) === JSON.stringify(['Lock the loop', 'Fold the tracks']), view);
     await t.step('tap Beat', () => t.tap(page.locator('#ruler-menu [data-snap="beat"]')));
     const snapped = await page.locator('#ruler-more-snap').innerText();
     // The pick shuts the menu, which fades out (lib/ui/menu.js) and is then gone.
     const menuShut = await page.locator('#ruler-menu').waitFor({ state: 'hidden', timeout: 2000 }).then(() => true, () => false);
     t.expect('the key says a drag snaps to beats now, and its menu has shut', snapped === 'Beat' && menuShut, { snapped, menuShut });
 
-    // A take in the bar has a mini player of its own: no window, the strip
-    // under its keys, and |◀ beside ▶ here too.
+    // A take in the bar: the same mini player, its window and ▶ where the
+    // tape's were, and the take's own keys in Catch's place.
     await t.step('go to the Listening Room', () => t.tap(page.locator('.appnav a[data-tab="room"]')));
     const cassette = page.locator('#view-room .room-cassette').first();
     await cassette.waitFor({ state: 'visible' });
@@ -207,7 +246,8 @@ export default {
     const room = await page.evaluate(look);
     t.expect('the take plays in the mini player', heard, room);
     t.expect('|◀ sits beside ▶, a thumb wide', room.start && room.beside, room);
-    t.expect('its name and ✎ are on the screen too', room.name && room.note, room);
+    t.expect('▶ is where it was with the tape: the window keeps its width', room.window && Math.abs(room.playX - mini.playX) <= 2, { tape: mini.playX, take: room.playX });
+    t.expect('Open › and ✎ are on the screen too', room.openKey && room.note, room);
     await t.wait(1500);
     const at = () => Number(document.getElementById('np-scrub')?.getAttribute('aria-valuenow') ?? NaN);
     const before = await page.evaluate(at);

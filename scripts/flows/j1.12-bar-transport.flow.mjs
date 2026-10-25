@@ -1,7 +1,8 @@
-// J1.12 The bar runs the tape: its reels are drawn, its line names the tape,
-// its counter moves while the tape plays, and |◂ goes back to the loop's
-// start. ▶ goes down the moment it is touched, and a quick tap still shows
-// it down (lib/ui/keys.js). docs/flows.md#j112
+// J1.12 The bar runs the tape: its reels are drawn, its display says it plays
+// the tape (and, to a screen reader, its name), its counter moves while the
+// tape plays, and |◂ goes back to the loop's start. ▶ goes down the moment it
+// is touched, and a quick tap still shows it down (lib/ui/keys.js). ● sits
+// beside ▶, always red. docs/flows.md#j112
 // Ported from the retired scripts/smoke-tape.mjs ("The bar runs").
 export default {
   id: 'J1.12',
@@ -14,9 +15,15 @@ export default {
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-play').waitFor({ state: 'visible' });
     t.expect('the reels are drawn', await t.poll(() => !!document.querySelector('#np-reel-l .np-pack')));
-    const marquee = () => document.getElementById('np-marquee')?.textContent ?? '';
-    t.expect('its line names the tape', await t.poll((n) => (document.getElementById('np-marquee')?.textContent ?? '').startsWith(n), tape.name.toUpperCase()),
-      await page.evaluate(marquee));
+    const display = () => ({ source: document.getElementById('np-source-short')?.textContent, said: document.getElementById('np-source')?.getAttribute('aria-label') });
+    t.expect('its display says it plays the tape, and names it', await t.poll((n) => document.getElementById('np-source-short')?.textContent === 'TAPE'
+      && (document.getElementById('np-source')?.getAttribute('aria-label') ?? '').includes(n), tape.name), await page.evaluate(display));
+    // Record beside Play, as in every DAW, and red.
+    const rec = await page.evaluate(() => {
+      const p = document.getElementById('np-play').getBoundingClientRect(), r = document.getElementById('rec').getBoundingClientRect();
+      return { gap: Math.round(r.left - p.right), row: Math.abs(r.top - p.top) <= 2, color: getComputedStyle(document.getElementById('rec')).color };
+    });
+    t.expect('● sits beside ▶, red', rec.row && rec.gap >= 0 && rec.gap <= 12 && rec.color === 'rgb(220, 50, 47)', rec);
 
     // Watch ▶ as it is tapped: the first frame after the finger lands, and
     // how long its down pose lasts. A tap from the harness is as quick as a

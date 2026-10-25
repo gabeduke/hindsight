@@ -3,7 +3,7 @@
 //   npm install --no-save playwright@1.49.0 && npx playwright install chromium
 //   node scripts/flows.mjs                     # every flow on its profiles (tablet + desktop unless it says)
 //   node scripts/flows.mjs J2.2 J1.1           # just these
-//   node scripts/flows.mjs --profile=phone     # only that device's runs (tablet,desktop,phone)
+//   node scripts/flows.mjs --profile=phone     # only that device's runs (tablet,desktop,phone,pixel,upright)
 //   node scripts/flows.mjs --json=out.json     # results for a machine to read
 //   node scripts/flows.mjs --storyboard=dir    # a picture per screen, and dir/index.html
 //   node scripts/flows.mjs --storyboard=dir --review   # and Claude's notes on each (opt-in)

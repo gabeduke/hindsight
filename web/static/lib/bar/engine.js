@@ -13,12 +13,14 @@ import { tapeSource } from './tape-source.js';
 import { takeSource, playheadOf } from './take-source.js';
 import { feedSource } from './feed-source.js';
 import { noteHere } from './take-keys.js';
+import { sourceMenu } from './source-menu.js';
+import { layersOf } from '../ui/layers.js';
 import { pageCarry, isStudio } from './carry.js';
 import { createHandoff, takesFinder } from './handoff.js';
 import { named } from '../rooms/words.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
-import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
+import { wireOutput, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
 import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
 
 const $ = (id) => document.getElementById(id);
@@ -53,6 +55,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
   let feed = null, tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
   let setMode = null;
+  let openOutput = null; // the output sheet, once the tape is mounted
   let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
   // How many times the person has used the bar's own keys, strip or ⏏: the Listening
   // Room's late arrivals (lib/room/tap.js) load nothing if it has changed.
@@ -70,7 +73,6 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
       }
       noteHere({ frameNow, stash: stashFrame, go: navigate });
     },
-    onSelectSource: (kind) => setSource(kind, { byHand: true }),
     onGrabFeed: async () => {
       if (!feed) return;
       try {
@@ -79,6 +81,8 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
         onToast?.(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad');
       }
     },
+    // Where it plays opens the output sheet, once there's a tape to send.
+    canOutput: () => !!openOutput,
   });
   const eject = () => { $('np-eject').hidden = !(tape && (take || (bar.src && bar.src.kind === 'feed'))); };
   const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing(), loop: take.src.loop, length: take.src.length } : null);
@@ -122,15 +126,15 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     // back in the bar, as ⏏ does: it stays there until a take is picked by
     // hand. The sheet asks the Pi as it opens, so it's never a few seconds
     // behind.
-    wireOutput({
+    openOutput = wireOutput({
       name: () => tape.title,
       onOpen: () => tape.refresh(),
       choose: setMode,
+      keys: [$('np-output')],
     });
+    bar.kick();
     const paintOut = () => {
-      const mode = tape.mode();
-      paintOutButtons(mode);
-      paintOutSheet(mode || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
+      paintOutSheet(tape.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
     };
     tape.on(paintOut);
   }
@@ -271,6 +275,35 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     release: releaseAudio,
     audioFor,
   };
+  // The display's source: the tape, the live feed, the last few takes, the
+  // shelf (source-menu.js).
+  const sourceKey = $('np-source');
+  if (sourceKey && $('np-source-menu')) {
+    sourceMenu({
+      doc: document, button: sourceKey, panel: $('np-source-menu'), layers: layersOf(document),
+      now: () => ({ kind: bar.src ? bar.src.kind : null, takeName: take ? take.name : null, tape: tape && tape.ready ? tape.title : (tape ? 'the tape' : null) }),
+      list: async () => { const r = await fetch('/api/jams', { cache: 'no-store' }); return r.ok ? r.json() : []; },
+      pick: (id) => pickSource(id),
+    });
+  }
+  /** pickSource is a pick from the source menu: the tape, the feed, or a take, which plays. */
+  async function pickSource(id) {
+    touches++;
+    handoff.touch();
+    if (id === 'tape' || id === 'feed') { setSource(id, { byHand: true }); return; }
+    const name = id.startsWith('take:') ? id.slice(5) : null;
+    if (!name) return;
+    if (feed && feed.playing()) feed.pause();
+    if (take && take.name === name) {
+      bar.load(take.src);
+      eject();
+    } else if (!(await loadTakeByName(name))) {
+      onToast?.('That take can’t play yet: it is still being saved', 'warn');
+      return;
+    }
+    if (take && !take.src.playing()) take.src.play();
+    bar.kick();
+  }
   handoff.start();
   const api = {
     ready,
