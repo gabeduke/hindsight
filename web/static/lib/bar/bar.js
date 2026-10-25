@@ -1,12 +1,16 @@
 // web/static/lib/bar/bar.js
-// The now-playing bar on Takes and Capture (the tape page and the take page
-// drive their own): one source at a time -- the tape (tape-source.js), the
-// feed (feed-source.js) or a take (take-source.js) -- in the reel window and
-// its LCD, played from its keys, and scrubbed on its strip. A tap on the
-// strip moves the playhead there; a drag scrubs it; with the strip focused,
-// ← → step and Space plays. The engine (engine.js) decides what the bar
-// holds; ⏏ asks it for the tape back. A take in it also shows its name (a
-// link to its page) and ✎ (take-keys.js), and ⟲ is Repeat.
+// The bar, in every room (the take page drives its own): one source at a
+// time -- the tape (tape-source.js), the feed (feed-source.js) or a take
+// (take-source.js) -- in the reel window and its display, played from its
+// keys, and scrubbed on its strip. A tap on the strip moves the playhead
+// there; a drag scrubs it; with the strip focused, ← → step and Space plays.
+// The engine (engine.js) decides what the bar holds; ⏏ asks it for the tape
+// back. Its shape is css/bar.css's: #np says what it holds (data-source) and
+// the stylesheet shows each key for the sources it is for (slots.js). The
+// display says where it is, then the tempo, the source and where it plays
+// (display.js), each a key: the tempo's menu is the Studio's, the source's
+// is source-menu.js, where it plays is the output sheet. With a take, Open ›
+// and ✎ are at its end (take-keys.js), and ⟲ is Repeat.
 
 import { ReelWindow } from '../objects/reel-window.js';
 import { Loop } from '../objects/motion.js';
@@ -15,14 +19,16 @@ import { setText } from '../text.js';
 import { takeKeys } from './take-keys.js';
 import { setIcon } from '../ui/icons.js';
 import { initPlayer } from './player.js';
+import { initFold } from './fold.js';
+import { measureBar, hereWord, deviceOf } from './slots.js';
 
 const $ = (id) => document.getElementById(id);
 
 export class NowPlaying {
-  constructor({ onEject, onTouch, onNote, onSelectSource, onGrabFeed } = {}) {
+  constructor({ onEject, onTouch, onNote, onGrabFeed, canOutput = () => false } = {}) {
     this.root = $('np');
     this.src = null;
-    this.marqueeKey = null;
+    this.canOutput = canOutput;
     this.listeners = new Set();
     // Drawn every frame while the source plays, on the shared ticker; off it
     // the moment it stops.
@@ -42,9 +48,21 @@ export class NowPlaying {
     this.colors = tokenCache(() => this.scrub);
     onSchemeChange(() => { this.colors.clear(); this.kick(); });
     initPlayer();
-    // A take in the bar shows its name (which opens it) and ✎, and ⟲ is
-    // Repeat (take-keys.js).
-    this.keys = takeKeys({ doc: document, root: this.root, onNote, onSelectSource, onGrabFeed });
+    initFold();
+    // Its height, for the pages that keep clear of it.
+    measureBar(this.root);
+    // With a take, Open › and ✎; with the feed, GRAB; ⟲ is Repeat for a
+    // take (take-keys.js).
+    this.keys = takeKeys({ doc: document, root: this.root, onNote, onGrabFeed });
+    // The tempo's menu is the Studio's: a room switch changes whether the
+    // key opens it.
+    new MutationObserver(() => this.kick()).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    // Where a take or the feed plays: this device, by its kind, read once
+    // and again when the screen changes shape, not every frame.
+    const kind = () => { this.here = hereWord(deviceOf(window)); };
+    kind();
+    window.matchMedia?.('(pointer: coarse)')?.addEventListener?.('change', () => { kind(); this.kick(); });
+    window.matchMedia?.('(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)')?.addEventListener?.('change', () => { kind(); this.kick(); });
 
     $('np-play').addEventListener('click', () => {
       const s = this.src;
@@ -128,7 +146,6 @@ export class NowPlaying {
     if (src === this.src) return;
     if (this.src && this.src.kind === 'tape') this.src.setActive?.(false);
     this.src = src;
-    this.marqueeKey = null;
     this.colors.clear();
     this.root.hidden = !src;
     // What it holds -- feed, tape or take -- for the CSS and the checks that look.
@@ -160,17 +177,13 @@ export class NowPlaying {
     // Playing on the Pi, but not yet heard here: ▶ is the tap it waits for.
     const waiting = !!s.waiting?.();
     setText($('position'), lcd.big);
-    setText($('np-mini'), lcd.big);
-    setText($('np-time'), lcd.small);
+    // A note (tap ▶ to play here, a mixdown's progress) in the time's place.
+    const time = $('np-time');
+    setText(time, lcd.note || lcd.small);
+    time.classList.toggle('note', !!lcd.note);
     setText($('np-unit'), lcd.unit);
     setAttr($('np-status'), 'data-state', lcd.status);
-    const note = lcd.note || '';
-    const mk = `${s.kind}|${note}|${note ? '' : s.marquee()}`;
-    if (mk !== this.marqueeKey) {
-      this.marqueeKey = mk;
-      setText($('np-marquee'), note || s.marquee());
-      $('np-marquee').parentElement.classList.toggle('still', !!note);
-    }
+    this.paintDisplay(s);
     // ▶ and its pause: ■ for the tape, as on its page; ❚❚ for a take. The
     // key's .playing says it to the stylesheet and the checks, whatever it draws.
     const play = $('np-play');
@@ -184,14 +197,10 @@ export class NowPlaying {
     $('np-loop').disabled = !s.canLoop();
     $('np-start').disabled = s.canStart ? !s.canStart() : false;
     setAttr($('np-start'), 'aria-label', s.startLabel());
-    // What's in the bar opens on its own page; ⏏ is for a take while there's a tape.
+    // What's in the bar opens on its own page: a take's, or the tape's Studio.
     const open = $('np-open');
     setAttr(open, 'href', s.href);
-    setText(open, s.kind === 'tape' ? `Open ${s.title} ›` : 'Open the take ›');
-    setText($('np-out'), s.out());
-    // Where the tape plays is the header's output button; a take plays
-    // here, and the bar says so.
-    $('np-out').parentElement.classList.toggle('np-out-tape', s.kind === 'tape');
+    setAttr(open, 'aria-label', s.kind === 'tape' ? `Open ${s.title} in the Studio` : `Open ${s.title}`);
     // The strip, and what a screen reader hears of it.
     // Measured once, before its observer has said (a bar just made).
     const r = this.scrubSize ||= (({ width, height }) => ({ width, height }))(this.scrub.getBoundingClientRect());
@@ -214,6 +223,29 @@ export class NowPlaying {
     else this.reels.setLevels([], () => []);
     this.reels.poll({ heard: s.pos(), playing, length: s.length, sampleRate: s.sampleRate });
     for (const fn of this.listeners) fn(this.snapshot());
+  }
+
+  /**
+   * paintDisplay writes the display's three keys for source `s`: its tempo
+   * (a key in the Studio, with the tape, where the tempo's menu is), the
+   * source, and where it plays (a key once there is a tape to send).
+   */
+  paintDisplay(s) {
+    const d = s.display(this.here);
+    setText($('np-tempo-short'), d.tempo.short);
+    setText($('np-tempo-long'), d.tempo.long);
+    setText($('np-source-short'), d.source.short);
+    setText($('np-source-long'), d.source.long);
+    setText($('np-output-val'), d.out);
+    const tempo = $('np-tempo');
+    const tempoMenu = s.kind === 'tape' && document.body.classList.contains('tape-page');
+    if (tempo.disabled !== !tempoMenu) tempo.disabled = !tempoMenu;
+    setAttr(tempo, 'aria-label', tempoMenu ? `${d.said.tempo}: change the bars` : d.said.tempo);
+    setAttr($('np-source'), 'aria-label', d.said.source);
+    const out = $('np-output');
+    const sends = !!this.canOutput();
+    if (out.disabled !== !sends) out.disabled = !sends;
+    setAttr(out, 'aria-label', d.said.out);
   }
 
   onChange(fn) {

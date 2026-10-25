@@ -5,8 +5,8 @@
 // opens under the pair there; Back closes that menu, then puts the player
 // away and stays in the Studio. A tapped clip's bar floats just above the
 // player, and Insert asks before it moves the tape. The ruler's keys are one
-// key, ⌗. In the Listening Room a take's mini player has |◀ beside ▶ as
-// well.
+// key, ⌗. In the Listening Room a take's mini player keeps the window and
+// ▶ where the tape's are, |◀ beside it, and Open › and ✎ in Catch's place.
 //
 // Back reaches the player as the stack's close request (lib/ui/layers.js).
 // In Chromium that is Android's Back or Escape -- page.goBack() is the
@@ -28,7 +28,8 @@ const look = () => {
   return {
     window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
     more: on('#catch-more'), bar: !!pos && pos.width >= 10,
-    name: on('#np-name'), note: on('#np-note'), beside,
+    openKey: on('#np-open'), note: on('#np-note'), beside,
+    playX: Math.round(p?.left ?? -1),
     open: document.body.classList.contains('player-open'),
     aboveTabs: !tabs || !c || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1,
     path: location.pathname,
@@ -197,8 +198,8 @@ export default {
     const menuShut = await page.locator('#ruler-menu').waitFor({ state: 'hidden', timeout: 2000 }).then(() => true, () => false);
     t.expect('the key says a drag snaps to beats now, and its menu has shut', snapped === 'Beat' && menuShut, { snapped, menuShut });
 
-    // A take in the bar has a mini player of its own: no window, the strip
-    // under its keys, and |◀ beside ▶ here too.
+    // A take in the bar: the same mini player, its window and ▶ where the
+    // tape's were, and the take's own keys in Catch's place.
     await t.step('go to the Listening Room', () => t.tap(page.locator('.appnav a[data-tab="room"]')));
     const cassette = page.locator('#view-room .room-cassette').first();
     await cassette.waitFor({ state: 'visible' });
@@ -207,7 +208,8 @@ export default {
     const room = await page.evaluate(look);
     t.expect('the take plays in the mini player', heard, room);
     t.expect('|◀ sits beside ▶, a thumb wide', room.start && room.beside, room);
-    t.expect('its name and ✎ are on the screen too', room.name && room.note, room);
+    t.expect('▶ is where it was with the tape: the window keeps its width', room.window && Math.abs(room.playX - mini.playX) <= 2, { tape: mini.playX, take: room.playX });
+    t.expect('Open › and ✎ are on the screen too', room.openKey && room.note, room);
     await t.wait(1500);
     const at = () => Number(document.getElementById('np-scrub')?.getAttribute('aria-valuenow') ?? NaN);
     const before = await page.evaluate(at);

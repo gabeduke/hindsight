@@ -63,16 +63,18 @@ export function outSheet(doc = document) {
 /**
  * wireOutput hooks the page's output buttons to its Output sheet: a button
  * opens it, a choice calls choose(mode). name() is the loaded tape's name,
- * for the sheet's first line; onOpen() runs as it opens.
+ * for the sheet's first line; onOpen() runs as it opens. `keys` are more
+ * buttons that open it (the bar's display says where it plays, and is one),
+ * which paintOutButtons leaves alone. Answers the sheet.
  */
-export function wireOutput({ choose, name, onOpen = () => {} }) {
+export function wireOutput({ choose, name, onOpen = () => {}, keys = [] }) {
   const sheet = outSheet();
   const open = () => {
     document.getElementById('out-tape-name').textContent = name() || 'this tape';
     onOpen();
     sheet.showModal();
   };
-  for (const b of document.querySelectorAll('.tape-out')) b.addEventListener('click', open);
+  for (const b of [...document.querySelectorAll('.tape-out'), ...keys.filter(Boolean)]) b.addEventListener('click', open);
   document.getElementById('out-close').addEventListener('click', () => sheet.close());
   for (const b of sheet.querySelectorAll('.out-choice')) b.addEventListener('click', () => choose(b.dataset.mode));
   return sheet;

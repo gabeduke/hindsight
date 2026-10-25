@@ -7,7 +7,8 @@
 // bar joined again from the page before), the LCD says how that's going and
 // ▶ is the tap its sound waits for.
 
-import { tapeCounter, tapeMarquee } from '../objects/lcd.js';
+import { tapeCounter } from '../objects/lcd.js';
+import { tapeDisplay } from './display.js';
 import { paintTapeOverview } from '../tape/overview.js';
 import { refusal } from '../tape/refusal.js';
 
@@ -16,7 +17,6 @@ const AHEAD_S = 0.5; // the furthest the playhead is run on past a poll
 const STALE_MS = 2000; // no answer for this long: shown stopped, not run on forever
 const HOLD_MS = 1000; // a locate is shown where it was asked, over polls already on their way
 const AWAY_EVERY = 10; // out of the bar, every 10th tick (5 s): the header's output button stays true
-const OUT_NAMES = { jam: 'Jam room', phone: 'Phone', both: 'Both' };
 
 /**
  * tapeSource is the bar's source for the tape loaded on the Pi (`id`).
@@ -191,7 +191,8 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
       const n = streamNote();
       return n ? { ...c, note: n } : c;
     },
-    marquee: () => (t ? tapeMarquee(t, live) : 'THE TAPE'),
+    // The display's tempo, source and where it plays (display.js).
+    display: () => tapeDisplay(t, live && live.output_mode),
     get levels() { return levels; },
     setLevels(colors, atFn) {
       levels = colors && atFn ? { colors, at: atFn } : null;
@@ -205,7 +206,6 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
       del = d;
       if (d) gen++;
     },
-    out: () => OUT_NAMES[(live && live.output_mode) || 'jam'],
     // Where it plays, for the header's output button: null before the Pi
     // says, or from one that doesn't.
     mode: () => (live && live.output_mode) || null,

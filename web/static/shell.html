@@ -19,6 +19,7 @@
 <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
 <link rel="stylesheet" href="/objects.css">
 <link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/css/bar.css">
 </head>
 <body>
 
@@ -281,6 +282,9 @@
 <!-- Catch's: what to catch, the last pass or the last bars, over its ▾
      (page.js, renderCatchMenu). -->
 <div id="catch-menu" class="menu catch-menu" role="menu" aria-label="What to catch" hidden></div>
+<!-- The display's source: the tape, the live feed, the last few takes, the
+     shelf (lib/bar/source-menu.js). -->
+<div id="np-source-menu" class="menu np-source-menu" role="menu" aria-label="What plays" hidden></div>
 
 <!-- The dock at the foot of the page: the clip editor while a clip is
      aligned, the action bar while something is selected, then the
@@ -340,12 +344,19 @@
       <button id="range-done" class="icon-btn" type="button" aria-keyshortcuts="Escape" data-tip="range-done">Done</button>
     </span>
   </div>
-  <!-- The now-playing bar (docs/superpowers/specs/2026-10-05-transport-bar-design.md;
-       lib/bar/bar.js): the tape, or a take you play, or the feed, in the reel
-       window and its LCD; |◂ ▶ ⟲; the way to its own page (and ⏏ back to the
-       tape); the whole tape or take as a scrubber, and OUT. Hidden until there
-       is something to hold. -->
-  <section id="np" class="np" aria-label="Now playing" hidden>
+  <!-- The bar (css/bar.css; lib/bar/bar.js), the same object in every room:
+       five zones in a row -- the deck (the reels and the display), the
+       transport, the verb, the modes and the end -- and the strip under them
+       (docs/architecture.md, "The bar"). Each zone is a named slot; each key
+       says in data-for which sources (and data-mini which of the phone's mini
+       player) it shows for: tape, studio (the tape, in the Studio), away (the
+       tape, anywhere else), take, feed. Nothing is placed by the order a
+       script added it in. Hidden until there is something to hold. -->
+  <section id="np" class="np" aria-label="Now playing" data-size="full" hidden>
+    <!-- The grabber on its top edge (lib/bar/fold.js): a tap folds the bar
+         or unfolds it, a drag down folds it and a drag up unfolds it. On a
+         phone, with the player up, it puts the player away. -->
+    <button id="np-grabber" class="np-grabber" type="button" aria-expanded="true" aria-controls="np" aria-label="Fold the bar" data-tip="np-grabber"><span class="np-lip" aria-hidden="true"><span class="np-pill"></span></span></button>
     <div id="out-strip" class="out-strip" role="status" hidden>
       <span id="out-strip-led" class="out-led"></span>
       <span id="out-strip-text">Ready on this phone</span>
@@ -353,51 +364,68 @@
       <button id="out-strip-resume" class="chip" type="button" aria-label="Tap to play here on this phone" hidden>Tap to play here</button>
     </div>
     <div class="np-row np-row-1">
-      <div class="np-window">
-        <button id="np-expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass><span class="np-expand-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-        <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
-        <div class="np-lcd">
-          <div class="np-lcd-top">
-            <span id="np-status" class="np-status" data-state="stop" aria-hidden="true"></span>
-            <span id="np-unit" class="np-unit" aria-hidden="true">BAR</span>
-            <span id="position" class="np-pos"></span>
-            <span id="np-time" class="np-time"></span>
-            <span id="clock-out" class="np-clock" hidden data-tip="tape-clock"></span>
-            <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+      <div class="np-zones">
+        <div class="np-window" data-slot="deck">
+          <button id="np-expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass></button>
+          <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+          <!-- The display: where it is, then what plays -- its tempo, the
+               source, where it plays -- each a key that opens its menu. -->
+          <div class="np-lcd" role="group" aria-label="The display">
+            <div class="np-lcd-pos">
+              <div class="np-lcd-top">
+                <span id="np-status" class="np-status" data-state="stop" aria-hidden="true"></span>
+                <span id="np-unit" class="np-unit" aria-hidden="true">BAR</span>
+                <span id="position" class="np-pos"></span>
+                <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+              </div>
+              <div class="np-lcd-sub">
+                <span id="np-time" class="np-time"></span>
+                <span id="clock-out" class="np-clock" hidden data-tip="tape-clock"></span>
+              </div>
+            </div>
+            <button id="np-tempo" class="np-lcd-key np-tempo" type="button" aria-label="Tempo" data-tip="np-tempo"><span class="np-lcd-val"><span id="np-tempo-short" class="np-short">–</span><span id="np-tempo-long" class="np-long">–</span></span><span class="np-lcd-leg"><span class="np-short">BPM</span><span class="np-long">TEMPO</span><svg class="i i-down np-lcd-chev" width="8" height="8" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
+            <button id="np-source" class="np-lcd-key np-source" type="button" aria-label="Source" data-tip="np-source"><span class="np-lcd-val"><span id="np-source-short" class="np-short">TAPE</span><span id="np-source-long" class="np-long">TAPE</span></span><span class="np-lcd-leg">SOURCE<svg class="i i-down np-lcd-chev" width="8" height="8" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
+            <button id="np-output" class="np-lcd-key np-output" type="button" aria-haspopup="dialog" aria-label="Where it plays" data-tip="np-output"><span class="np-lcd-val"><span id="np-output-val">JAM ROOM</span></span><span class="np-lcd-leg">OUT<svg class="i i-down np-lcd-chev" width="8" height="8" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
           </div>
-          <div class="np-marquee" aria-hidden="true"><span id="np-marquee"></span></div>
+          <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
         </div>
-        <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
-      </div>
-      <div class="np-keys tb-row transport" role="group" aria-label="Transport">
-        <button id="np-start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start"><svg class="i i-prev" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#prev"/></svg></button>
-        <button id="np-back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5"><svg class="i i-back5" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#back5"/></svg></button>
-        <button id="np-play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play"><svg class="i i-play" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#play"/></svg></button>
-        <button id="np-loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop"><span class="loop-face"><svg class="i i-repeat" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#repeat"/></svg><span class="loop-word">Loop</span></span></button>
-        <button id="rec" class="icon-btn tb-rec np-studio" type="button" aria-pressed="false" aria-keyshortcuts="R" data-tip="tape-rec">● Rec</button>
-        <button id="click" class="icon-btn tb-click np-studio" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
-      </div>
-      <div class="np-own">
-        <!-- Catch, and its ▾ of what to catch (lib/ui/menu.js splitKey): two
-             keys with a seam, as GRAB's and KEEP's, so a tap meant for one
-             is never the other. -->
-        <span class="key-split np-catch-split np-studio">
-          <button id="catch-pass" class="icon-btn primary np-catch np-studio" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
-          <button id="catch-more" class="icon-btn key-more np-catch-more" type="button" aria-label="What to catch" data-tip="catch-more"><svg class="i i-down" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
-        </span>
-        <button id="np-eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" hidden><svg class="i i-eject" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#eject"/></svg></button>
-        <a id="np-open" class="icon-btn np-open" href="/tape.html" data-tip="np-open">Open the tape ›</a>
-        <button id="np-fold-btn" class="icon-btn np-fold-btn" type="button" aria-expanded="true" aria-controls="np" aria-label="Collapse transport" data-tip="np-fold"><span class="np-fold-glyph" aria-hidden="true"><svg class="i i-down" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
+        <!-- |◀ ▶ and ●: Record beside Play, as in every DAW. With a take or
+             the feed, or the tape away from the Studio, ↺ 5 s is in ●'s place. -->
+        <div class="np-zone np-transport" data-slot="transport" role="group" aria-label="Transport">
+          <button id="np-start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start" data-for="tape take feed" data-mini="tape take feed"><svg class="i i-prev" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#prev"/></svg></button>
+          <button id="np-play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play" data-for="tape take feed" data-mini="tape take feed"><svg class="i i-play" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#play"/></svg></button>
+          <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" aria-label="Record" aria-keyshortcuts="R" data-tip="tape-rec" data-for="studio"><svg class="i i-rec" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#rec"/></svg></button>
+          <button id="np-back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5" data-for="take feed away"><svg class="i i-back5" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#back5"/></svg></button>
+        </div>
+        <!-- The verb: the tape's Catch, Record's after-the-fact twin, and its
+             ▾ of what to catch (lib/ui/menu.js splitKey); the feed's GRAB. -->
+        <div class="np-zone np-verb" data-slot="verb">
+          <span class="key-split np-catch-split" data-for="studio" data-mini="studio">
+            <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
+            <button id="catch-more" class="icon-btn key-more np-catch-more" type="button" aria-label="What to catch" data-tip="catch-more"><svg class="i i-down" width="18" height="18" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
+          </span>
+          <button id="np-feed-grab" class="icon-btn np-feed-grab" type="button" aria-label="GRAB from the live feed into the Studio’s buffer" data-tip="np-feed-grab" data-for="feed" data-mini="feed"><span class="np-grab-word">GRAB</span><span class="np-grab-sub">from the feed</span></button>
+        </div>
+        <!-- The modes: ⟲ (Loop for the tape, Repeat for a take) and the
+             metronome. -->
+        <div class="np-zone np-modes" data-slot="modes" role="group" aria-label="Modes">
+          <button id="np-loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop" data-for="tape take feed"><span class="loop-face"><svg class="i i-repeat" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#repeat"/></svg><span class="loop-word">Loop</span></span></button>
+          <button id="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Metronome" aria-keyshortcuts="M" data-tip="tape-click" data-for="studio"><svg class="i i-metro" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#metro"/></svg></button>
+        </div>
+        <!-- The end, laid out first so nothing pushes it off: ⏏ back to the
+             tape, Open › (the take's page, or the tape's Studio), and ✎. -->
+        <div class="np-zone np-end" data-slot="end">
+          <button id="np-eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" data-for="take feed" hidden><svg class="i i-eject" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#eject"/></svg></button>
+          <a id="np-open" class="icon-btn np-open" href="/tape.html" data-tip="np-open" data-for="take away" data-mini="take"><span class="np-open-word">Open</span><svg class="i i-right" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#right"/></svg></a>
+          <button id="np-note" class="icon-btn np-note" type="button" aria-label="A note here" data-tip="np-note" data-for="take" data-mini="take"><svg class="i i-note" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#note"/></svg></button>
+        </div>
       </div>
     </div>
-    <div class="np-row np-row-2">
-      <span id="np-mini" class="np-mini" aria-hidden="true"></span>
-      <canvas id="tape-overview" class="tape-overview np-scrub np-studio" role="slider" tabindex="0" aria-label="The whole tape: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="tape-overview"></canvas>
-      <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub"></canvas>
-      <span class="np-out np-here"><span class="pill-out" aria-hidden="true">OUT</span><span id="np-out">Jam room</span></span>
-      <span class="menu-anchor out-anchor np-out np-studio">
-        <button id="tape-out" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-      </span>
+    <!-- The strip: the whole tape (in the Studio, the tape's overview), or
+         the take or the feed, to scrub. -->
+    <div class="np-row np-row-2" data-slot="strip">
+      <canvas id="tape-overview" class="tape-overview np-scrub" role="slider" tabindex="0" aria-label="The whole tape: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="tape-overview" data-for="studio"></canvas>
+      <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub" data-for="take feed away"></canvas>
     </div>
   </section>
 </div>

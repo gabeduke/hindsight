@@ -35,12 +35,16 @@ test('linksIn: a page’s stylesheets in link order, and nothing that is not one
   assert.deepEqual(linksIn(html), ['/a.css', '/b.css', '/c.css']);
 });
 
-// cssOf() reads shell.html's cascade; every other page has the same one, so
-// what the tests find there holds on every page.
-test('linksOf: every page takes the materials, then the chrome', () => {
+// cssOf() reads shell.html's cascade; every other page has the same one,
+// and a page with the bar the bar's stylesheet after it, so what the tests
+// find there holds on every page.
+test('linksOf: every page takes the materials, then the chrome, then its places', () => {
   const pages = readdirSync(new URL('../', import.meta.url)).filter((f) => f.endsWith('.html'));
   assert.ok(pages.length >= 5, `found only ${pages.length} pages`);
-  for (const page of pages) assert.deepEqual(linksOf(page), ['/objects.css', '/styles.css'], page);
+  const bar = new Set(['shell.html', 'wave.html']);
+  for (const page of pages) {
+    assert.deepEqual(linksOf(page), ['/objects.css', '/styles.css', ...(bar.has(page) ? ['/css/bar.css'] : [])], page);
+  }
 });
 
 test('it is the tests’ alone: no page imports it, so the shell does not cache it', () => {
@@ -50,12 +54,12 @@ test('it is the tests’ alone: no page imports it, so the shell does not cache 
 });
 
 test('cssOf is the page’s stylesheets end to end; fileCss is one, with or without its comments', () => {
-  assert.equal(cssOf(), `${fileCss('objects.css')}\n${fileCss('styles.css')}`);
+  assert.equal(cssOf(), `${fileCss('objects.css')}\n${fileCss('styles.css')}\n${fileCss('css/bar.css')}`);
   assert.equal(cssOf('shell.html'), cssOf());
   assert.equal(fileCss('/styles.css'), fileCss('styles.css'));
   const bare = fileCss('styles.css', { comments: false });
   assert.ok(!bare.includes('/*') && bare.length < fileCss('styles.css').length);
-  assert.equal(cssOf('shell.html', { comments: false }), `${fileCss('objects.css', { comments: false })}\n${bare}`);
+  assert.equal(cssOf('shell.html', { comments: false }), `${fileCss('objects.css', { comments: false })}\n${bare}\n${fileCss('css/bar.css', { comments: false })}`);
 });
 
 test('stripComments takes comments out and leaves a string that looks like one', () => {

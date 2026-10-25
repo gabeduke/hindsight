@@ -117,11 +117,13 @@ const bare = stripComments(css);
 const RULES = rules(css);
 
 test('a latched transport key sits as low as the raised key rule it overrides', () => {
-  const raised = specificity('.tb-row.transport .icon-btn');
-  const pressed = RULES.find((r) => r.sel.includes('.tb-row.transport .icon-btn[aria-pressed="true"]'));
+  // The bar's keys (css/bar.css): raised by .np .icon-btn, latched and
+  // pressed by the rule after it.
+  const raised = specificity('.np .icon-btn');
+  const pressed = rules(cssOf()).find((r) => r.sel.includes('.np .icon-btn[aria-pressed="true"]'));
   assert.ok(pressed);
-  for (const part of pressed.sel.filter((x) => x.includes('.tb-')))
-    assert.ok(outranks(specificity(part), raised) >= 0, `${part} loses to .tb-row.transport .icon-btn`);
+  for (const part of pressed.sel)
+    assert.ok(outranks(specificity(part), raised) >= 0, `${part} loses to .np .icon-btn`);
 });
 
 test('hovering a key never hides its state', () => {
@@ -297,8 +299,11 @@ test('the tape deck tokens exist, and the bar\'s LCD reads', () => {
     const c = contrast(light[fg], light[bg]);
     assert.ok(c >= 4.5, `${fg} on ${bg} is ${c.toFixed(2)}:1`);
   }
-  for (const sel of ['.np-pos', '.np-time']) {
-    const r = RULES.filter((x) => x.sel.includes(sel)).map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
+  // The bar's display is css/bar.css's: its position, its time, and the
+  // values and legends of its three keys.
+  const all = rules(cssOf());
+  for (const sel of ['.np-pos', '.np-time', '.np-lcd-val', '.np-lcd-key']) {
+    const r = all.filter((x) => x.sel.includes(sel)).map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
     assert.ok(r, `${sel} has a colour`);
     for (const [scheme, t] of [['light', light], ['dark', dark]]) {
       const c = contrast(resolve(r[1], t), t['--lcd']);
@@ -310,9 +315,11 @@ test('the tape deck tokens exist, and the bar\'s LCD reads', () => {
 // On a phone, upright or sideways, the now-playing bar is docked: Play, Loop,
 // Rec and Catch always on screen, whatever the page has scrolled to.
 test('a phone docks the now-playing bar', () => {
-  const at = css.indexOf('@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px)');
-  assert.ok(at > 0, 'a media block for both phone shapes');
-  assert.match(block(css, at), /\.np\s*\{[^}]*position:\s*fixed/);
+  // Its mini player (css/bar.css), on a phone of either shape.
+  const docked = rules(fileCss('css/bar.css')).find((r) => r.sel.includes('.np[data-size="mini"]')
+    && r.media === '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)');
+  assert.ok(docked, 'a rule for the mini player on both phone shapes');
+  assert.match(docked.body, /position:\s*fixed/);
 });
 
 test('inputs sit on the field, not the well', () => {

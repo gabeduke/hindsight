@@ -5,7 +5,9 @@
 // follows the audio element's events. Loop repeats the take's selection, or
 // the whole take without one.
 
-import { takeCounter, takeMarquee } from '../objects/lcd.js';
+import { takeCounter } from '../objects/lcd.js';
+import { takeDisplay } from './display.js';
+import { spineTitle } from '../shelf.js';
 import { peakDbAt } from '../objects/reel-window.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
 import { drawTrace, paintOxide, oxideColors } from '../wave/tape-strip.js';
@@ -100,12 +102,12 @@ export function takeSource(t, player, { onGone } = {}) {
       if (pos() >= b - Math.round(sr / 50)) seek(a);
     },
     lcd: () => takeCounter({ pos: pos(), length, sampleRate: sr, bar: barBeat(pos(), grid), playing: playing() }),
-    marquee: () => takeMarquee({ name: title, bpm: t.bpm, region, sampleRate: sr }),
+    // The display: its tempo, its name as its spine says it, and here (display.js).
+    display: (here) => takeDisplay({ title: spineTitle(t), bpm: t.bpm }, here),
     levels: {
       colors: Array.from({ length: Math.min(2, peaks.channels || 1) }, () => 'var(--lcd-ink)'),
       at: (frame) => peakDbAt(peaks, frame / length, gain),
     },
-    out: () => 'This device',
     // The whole take on tape, its selection lit, and the playhead.
     paint(ctx, W, H, col, dpr) {
       const key = `${W}x${H}@${dpr}`;

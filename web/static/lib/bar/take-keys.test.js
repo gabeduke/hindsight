@@ -1,6 +1,7 @@
-// The name, ✎ and Repeat the bar shows for a take with the rooms on
-// (take-keys.js), for each thing the bar can hold -- a take, the tape, nothing
-// -- on a stand-in document; bar-room.test.js runs them in the real bar.
+// What the bar's ✎, the feed's GRAB and ⟲ say and do for each thing the bar
+// can hold -- a take, the tape, the feed, nothing -- on a stand-in document
+// (take-keys.js); bar-room.test.js runs them in the real bar, and
+// shape.test.js reads which of them shows for which source.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
@@ -9,51 +10,49 @@ import { icon, iconOf } from '../ui/icons.js';
 
 function bar() {
   const doc = fakeDoc();
-  doc.body.append(...parseHTML(doc, `<section id="np" class="np"><div class="np-own"><button id="np-eject"></button><a id="np-open"></a></div><button id="np-loop" data-tip="np-loop"><span class="loop-face">${icon('repeat', { size: 14 })}<span class="loop-word">Loop</span></span></button></section>`).children);
+  doc.body.append(...parseHTML(doc, `<section id="np" class="np">
+    <div data-slot="verb"><button id="np-feed-grab" data-for="feed"></button></div>
+    <div data-slot="modes"><button id="np-loop" data-tip="np-loop"><span class="loop-face">${icon('repeat', { size: 14 })}<span class="loop-word">Loop</span></span></button></div>
+    <div data-slot="end"><button id="np-eject" data-for="take feed"></button><a id="np-open" data-for="take away"></a><button id="np-note" data-for="take">${icon('note')}</button></div>
+  </section>`).children);
   const root = doc.getElementById('np');
-  const notes = [];
-  const keys = takeKeys({ doc, root, onNote: () => notes.push('✎') });
+  const said = [];
+  const keys = takeKeys({ doc, onNote: () => said.push('✎'), onGrabFeed: () => said.push('GRAB') });
   const $ = (id) => doc.getElementById(id);
-  return { doc, root, keys, notes, $ };
+  return { doc, root, keys, said, $ };
 }
 const aTake = (pos = 0) => ({ kind: 'take', title: 'Blue bridge', href: '/wave.html?file=a.wav', pos: () => pos, sampleRate: 48000 });
 const aTape = { kind: 'tape', title: 'Tuesday groove', href: '/tape.html', pos: () => 0, sampleRate: 48000 };
 
-test('the name and ✎ stand after ⏏ in the bar’s own keys, hidden until a take is in the bar', () => {
+test('it makes no key: ✎ and GRAB are the page’s, each in its slot, where they were', () => {
   const b = bar();
-  const own = b.$('np-eject').parent;
-  assert.deepEqual(own.children.map((e) => e.id), ['np-eject', 'np-open', 'np-name', 'np-note']);
-  assert.equal(b.$('np-name').hidden, true);
-  assert.equal(b.$('np-note').hidden, true);
+  const end = b.doc.querySelector('[data-slot="end"]');
+  assert.deepEqual(end.children.map((e) => e.id), ['np-eject', 'np-open', 'np-note']);
+  assert.equal(b.$('np-feed-grab').parent.getAttribute('data-slot'), 'verb');
 });
 
-test('a take shows its name (the link) and ✎; the tape shows neither, and ⟲ is Loop again', () => {
+test('with a take, ✎ names the frame it will take and ⟲ is Repeat; with the tape, ⟲ is Loop again', () => {
   const b = bar();
   b.keys.paint(aTake(83 * 48000));
-  assert.equal(b.$('np-name').hidden, false);
-  assert.equal(b.$('np-name').getAttribute('href'), '/wave.html?file=a.wav');
-  assert.equal(b.$('np-note').getAttribute('aria-label'), 'Note at 1:23');
+  assert.equal(b.$('np-note').getAttribute('aria-label'), 'A note at 1:23');
   assert.equal(iconOf(b.$('np-note')), 'note', '✎ is drawn, not typed');
   assert.equal(b.$('np-loop').textContent, 'Repeat');
   assert.equal(iconOf(b.$('np-loop')), 'repeat', 'the word changes, ⟲ beside it stays');
   assert.equal(b.$('np-loop').dataset.tip, 'np-repeat');
-  assert.ok(b.root.classList.contains('np-take'));
   b.keys.paint(aTape);
-  assert.equal(b.$('np-name').hidden, true, 'the tape’s name is not a link to a take');
-  assert.equal(b.$('np-note').hidden, true, '✎ is for a take');
   assert.equal(b.$('np-loop').textContent, 'Loop', 'the tape’s loop is another thing');
   assert.equal(iconOf(b.$('np-loop')), 'repeat');
   assert.equal(b.$('np-loop').dataset.tip, 'np-loop');
-  assert.equal(b.root.classList.contains('np-take'), false);
   b.keys.paint(null);
-  assert.equal(b.$('np-note').hidden, true);
+  assert.equal(b.$('np-loop').textContent, 'Loop');
 });
 
-test('✎ asks the page for its note when pressed', () => {
+test('✎ asks the page for its note, and the feed’s GRAB for its grab, when pressed', () => {
   const b = bar();
   b.keys.paint(aTake());
   b.$('np-note').dispatchEvent({ type: 'click' });
-  assert.deepEqual(b.notes, ['✎']);
+  b.$('np-feed-grab').dispatchEvent({ type: 'click' });
+  assert.deepEqual(b.said, ['✎', 'GRAB']);
 });
 
 test('clock says minutes and whole seconds, never ahead of the playhead', () => {

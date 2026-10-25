@@ -23,9 +23,9 @@ const BUDGET = {
   hex: 6,
   rgba: 144,
   zIndex: 22,
-  important: 11,
-  media: 56,
-  durations: 49,
+  important: 3,
+  media: 52,
+  durations: 48,
   weights: 3,
 };
 

@@ -281,23 +281,12 @@ test('tapping an empty deck goes nowhere: it points at the shelf', async () => {
   assert.deepEqual(r.w.navigated, []);
 });
 
-test('the dock’s Open is for the tape, to the Studio: a take in the bar opens by its name, so the dock stands down', async () => {
-  const r = await room({ barTake: 'jam_a.wav' });
-  const dock = r.q('.room-sit');
-  assert.equal(dock.hidden, true, 'the bar’s own name is the way into a take: one route, not two');
-  r.np.takeName = 'jam_c.wav';
-  r.tick();
-  assert.equal(dock.hidden, true);
-
-  const t = await room({ tapes: TAPES });
-  assert.equal(t.q('.room-sit').textContent, 'Open');
-  assert.equal(t.q('.room-sit').hidden, false);
-  assert.equal(t.q('.room-sit').getAttribute('href'), '/tape.html');
-  click(t.q('.room-sit'));
-  assert.equal(JSON.parse(t.w.session.getItem('hindsight.bar.carry')).for, 'tape');
-
-  const e = await room();
-  assert.equal(e.q('.room-sit').hidden, true, 'nothing in the bar: nothing to open');
+test('the room adds no Open of its own to the bar: the bar’s Open › opens a take, or the tape in the Studio', async () => {
+  for (const r of [await room({ barTake: 'jam_a.wav' }), await room({ tapes: TAPES }), await room()]) {
+    assert.equal(r.q('.room-sit'), null, 'one route in, not two');
+    const open = r.doc.getElementById('np-open');
+    assert.deepEqual(open.getAttribute('data-for').split(' '), ['take', 'away'], 'the bar’s own, for a take and for the tape away from the Studio');
+  }
 });
 
 test('the sketchbook strip says Open in its name, as the deck and the dock do, and keeps its visible word in it', async () => {

@@ -24,7 +24,7 @@
 
 import { roomShelves, inMonth, monthName, monthKey, at, filterWords } from './shelves.js';
 import { forgetNote, fmtAt } from './notes.js';
-import { openTheTape, forTheTape } from '../bar/carry.js';
+import { openTheTape } from '../bar/carry.js';
 import { bindPress, SPINE_PRESS } from '../ui/press.js';
 import { createTap, wireRack, askedTake } from './tap.js';
 import { createFlights, rectOf } from './fly.js';
@@ -423,25 +423,16 @@ export function mount(h) {
       ? `Open the sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${spineTitle(d.take)}`
       : d ? 'Sketchbook: notes are for takes; pick a take from the shelf'
         : 'Sketchbook: nothing in the bar to write about yet');
-    renderDock(d, w);
+    renderDock(d);
   }
   const offBar = h.np?.onChange?.(renderPlaces);
 
-  // The dock is the bar: Open in it for the tape (a take's name, in the bar,
-  // is its way in: lib/bar/take-keys.js), and grease marks at In and Out.
-  const sit = el('a', 'icon-btn room-sit', { href: '/wave.html', 'data-tip': 'room-sit' }, 'Open');
-  if (h.barSlot) h.barSlot.add(sit, { after: $('np-open') });
-  else $('np-open')?.after(sit);
-  // A tape opens in the Studio, and says it goes for the tape (F4).
-  let sitForTape = false;
-  sit.addEventListener('click', () => { if (sitForTape) forTheTape(); });
+  // The dock is the bar (its Open › opens a take, or the tape in the
+  // Studio: lib/bar/bar.js), with grease marks at a take's In and Out.
   const grease = el('span', 'room-grease', { 'aria-hidden': 'true' }, el('i', 'room-grease-in'), el('i', 'room-grease-out'));
   if (h.barSlot) h.barSlot.add(grease, { after: $('np-scrub') });
   else $('np-scrub')?.after(grease);
-  function renderDock(d, w) {
-    sit.hidden = !d || d.kind === 'take';
-    if (d) sit.setAttribute('href', w.href);
-    sitForTape = !!d && w.forTape;
+  function renderDock(d) {
     const t = d && d.kind === 'take' ? d.take : null;
     const tr = t && t.trim;
     const total = t ? (t.duration_seconds || 0) * (t.sample_rate || 48000) : 0;

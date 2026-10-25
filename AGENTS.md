@@ -130,6 +130,12 @@ and caught by hand.
   `lib/objects/materials.test.js` fails if one lands in the wrong file,
   because that mistake is invisible until someone opens the app at night.
 - `styles.css` holds layout, type and chrome.
+- **`css/` holds a stylesheet per place**, the CSS plan's split
+  (`docs/plan/the-studio-space.md`, *Under the hood*): `css/bar.css` is the
+  bar, all of it, and the first. A page links the ones it shows, after
+  `styles.css`; each is in `sw.js`'s `SHELL`; a test reads them through
+  `cssOf(page)`, never `fileCss('styles.css')` alone, or it stops seeing a
+  rule the day the rule moves.
 - **Scope a new rule to the thing you are adding.** A bare `.set-note` rule
   added for one sheet reached every existing settings note. Then Play mode's
   overlay rule, a bare `.play`, reached the Takes page's Play buttons and
@@ -227,6 +233,15 @@ When you need the history behind one, read it from git:
   still type, in the regions not drawn yet, are counted (`TYPED`) and only
   go down. A test or a flow reads a key's state (`.playing`,
   `aria-pressed`), never its picture.
+- **The bar's keys live in its zones** (`css/bar.css`, `#np` in
+  `shell.html` and `wave.html`; `docs/architecture.md`, *The bar*): the
+  deck, the transport, the verb, the modes, the end, the strip. A new key
+  goes in the markup, in its slot, saying in `data-for` (and `data-mini`)
+  which sources it shows for; never appended by a script, never shown or
+  hidden by a `:not()` list. ▶ must not move: J1.13 fails if it does, or if
+  the bar runs off a tablet. What plays, its tempo and where it plays are
+  keys on the bar's display (the source's menu, the tempo's, the output
+  sheet); ▾ only opens a menu, and the bar folds by its grabber.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.

@@ -18,6 +18,7 @@
 <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
 <link rel="stylesheet" href="/objects.css">
 <link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/css/bar.css">
 </head>
 <body class="wave-page">
 
@@ -197,43 +198,50 @@
   </section>
 </main>
 
-<!-- The now-playing bar (docs/superpowers/specs/2026-10-05-transport-bar-design.md),
-     as on the tape page: the reel window and its LCD, ▶ and Loop, and this
-     page's own keys -- In, Out, ⚑; under them the whole take as a scrubber.
-     A take plays here, on this device. -->
-<section id="np" class="np" aria-label="Now playing">
+<!-- The bar (css/bar.css), in the shape it has in the rooms: the deck, the
+     transport, the modes and, at its end, this page's own keys -- In, Out,
+     ⚑; under them the whole take as a scrubber. A take plays here, on this
+     device, and the display says so (lib/wave/page.js). -->
+<section id="np" class="np" aria-label="Now playing" data-source="take" data-size="full">
   <div class="np-row np-row-1">
-    <div class="np-window">
-      <button id="np-expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass><span class="np-expand-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-      <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
-      <div class="np-lcd">
-        <div class="np-lcd-top">
-          <span id="np-status" class="np-status" data-state="pause" aria-hidden="true"></span>
-          <span id="np-unit" class="np-unit" aria-hidden="true"></span>
-          <span id="position" class="np-pos"></span>
-          <span id="np-time" class="np-time"></span>
-          <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+    <div class="np-zones">
+      <div class="np-window" data-slot="deck">
+        <button id="np-expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass></button>
+        <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
+        <div class="np-lcd" role="group" aria-label="The display">
+          <div class="np-lcd-pos">
+            <div class="np-lcd-top">
+              <span id="np-status" class="np-status" data-state="pause" aria-hidden="true"></span>
+              <span id="np-unit" class="np-unit" aria-hidden="true"></span>
+              <span id="position" class="np-pos"></span>
+              <span id="np-levels" class="np-levels" aria-hidden="true"></span>
+            </div>
+            <div class="np-lcd-sub"><span id="np-time" class="np-time"></span></div>
+          </div>
+          <span class="np-lcd-key np-tempo"><span class="np-lcd-val"><span id="np-tempo-short" class="np-short">–</span><span id="np-tempo-long" class="np-long">–</span></span><span class="np-lcd-leg"><span class="np-short">BPM</span><span class="np-long">TEMPO</span></span></span>
+          <span class="np-lcd-key np-source"><span class="np-lcd-val"><span id="np-source-short" class="np-short"></span><span id="np-source-long" class="np-long"></span></span><span class="np-lcd-leg">SOURCE</span></span>
+          <span class="np-lcd-key np-output"><span class="np-lcd-val"><span id="np-output-val"></span></span><span class="np-lcd-leg">OUT</span></span>
         </div>
-        <div class="np-marquee" aria-hidden="true"><span id="np-marquee"></span></div>
+        <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
       </div>
-      <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
-    </div>
-    <div class="np-keys tb-row transport" role="group" aria-label="Transport">
-      <button id="to-start" class="icon-btn np-start" type="button" aria-label="Back to In" data-tip="take-to-start"><svg class="i i-prev" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#prev"/></svg></button>
-      <button id="back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5"><svg class="i i-back5" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#back5"/></svg></button>
-      <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="play"><svg class="i i-play" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#play"/></svg></button>
-      <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="loop"><span class="loop-face"><svg class="i i-repeat" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#repeat"/></svg><span class="loop-word">Loop</span></span></button>
-    </div>
-    <div class="np-own">
-      <button id="set-in" class="icon-btn tb-point" type="button" data-tip="in">In</button>
-      <button id="set-out" class="icon-btn tb-point" type="button" data-tip="out">Out</button>
-      <button id="flag-now" class="icon-btn tb-flag" type="button" aria-label="Flag" data-tip="flag">⚑</button>
+      <div class="np-zone np-transport" data-slot="transport" role="group" aria-label="Transport">
+        <button id="to-start" class="icon-btn np-start" type="button" aria-label="Back to In" data-tip="take-to-start" data-for="take" data-mini="take"><svg class="i i-prev" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#prev"/></svg></button>
+        <button id="play" class="icon-btn tb-play" type="button" aria-label="Play" data-tip="play" data-for="take" data-mini="take"><svg class="i i-play" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#play"/></svg></button>
+        <button id="back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5" data-for="take"><svg class="i i-back5" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#back5"/></svg></button>
+      </div>
+      <div class="np-zone np-verb" data-slot="verb"></div>
+      <div class="np-zone np-modes" data-slot="modes" role="group" aria-label="Modes">
+        <button id="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" data-tip="loop" data-for="take"><span class="loop-face"><svg class="i i-repeat" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#repeat"/></svg><span class="loop-word">Repeat</span></span></button>
+      </div>
+      <div class="np-zone np-end" data-slot="end">
+        <button id="set-in" class="icon-btn tb-point" type="button" data-tip="in" data-for="take">In</button>
+        <button id="set-out" class="icon-btn tb-point" type="button" data-tip="out" data-for="take">Out</button>
+        <button id="flag-now" class="icon-btn tb-flag" type="button" aria-label="Flag" data-tip="flag" data-for="take">⚑</button>
+      </div>
     </div>
   </div>
-  <div class="np-row np-row-2">
-    <span id="np-mini" class="np-mini" aria-hidden="true"></span>
-    <canvas id="overview-canvas" class="overview-canvas np-scrub" role="slider" tabindex="0" aria-label="The whole take: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="overview"></canvas>
-    <span class="np-out np-here"><span class="pill-out" aria-hidden="true">OUT</span><span>This device</span></span>
+  <div class="np-row np-row-2" data-slot="strip">
+    <canvas id="overview-canvas" class="overview-canvas np-scrub" role="slider" tabindex="0" aria-label="The whole take: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="overview" data-for="take"></canvas>
   </div>
 </section>
 

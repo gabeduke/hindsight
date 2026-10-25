@@ -39,13 +39,15 @@ import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toa
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { listFrom, fold, familyOf, flagChips, dropoutsText } from '../shelf.js';
+import { listFrom, fold, familyOf, flagChips, dropoutsText, spineTitle } from '../shelf.js';
 import { cutLabel } from './cut-label.js';
 import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
-import { takeCounter, takeMarquee } from '../objects/lcd.js';
+import { takeCounter } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
+import { measureBar, hereWord, deviceOf } from '../bar/slots.js';
+import { takeDisplay } from '../bar/display.js';
 import { layersOf } from '../ui/layers.js';
 import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
@@ -266,6 +268,7 @@ async function main() {
   // LCD's two level bars read the take's peaks under it (left and right).
   const reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
   initPlayer();
+  measureBar($('np'));
   const gain = takeGain(filePeaks);
   const lcdInk = 'var(--lcd-ink)';
   reels.setLevels(Array.from({ length: Math.min(2, filePeaks.channels) }, () => lcdInk),
@@ -1847,15 +1850,20 @@ async function main() {
     const bar = barBeat(state.cursor, state.grid);
     const lcd = takeCounter({ pos: state.cursor, length: total, sampleRate: sr, bar, playing: clock.playing });
     setText($('position'), lcd.big);
-    setText($('np-mini'), lcd.big);
     setText($('np-time'), lcd.small);
     setText($('np-unit'), lcd.unit);
     setAttr($('np-status'), 'data-state', lcd.status);
-    // The marquee's words change with the name, tempo and selection only.
-    const mk = `${take.label}|${state.grid.bpm}|${state.region ? `${state.region.start}-${state.region.end}` : ''}`;
-    if (mk !== marqueeKey) {
-      marqueeKey = mk;
-      setText($('np-marquee'), takeMarquee({ name: take.label || stampOf(file), bpm: state.grid.bpm, region: state.region, sampleRate: sr }));
+    // The display's tempo, the take and where it plays (lib/bar/display.js),
+    // which change with the name and the tempo only.
+    const dk = `${take.label}|${state.grid.bpm}`;
+    if (dk !== displayKey) {
+      displayKey = dk;
+      const d = takeDisplay({ title: spineTitle({ ...take, name: take.name || file }), bpm: state.grid.bpm }, hereWord(deviceOf(window)));
+      setText($('np-tempo-short'), d.tempo.short);
+      setText($('np-tempo-long'), d.tempo.long);
+      setText($('np-source-short'), d.source.short);
+      setText($('np-source-long'), d.source.long);
+      setText($('np-output-val'), d.out);
     }
     // The slider, for a screen reader: to the tenth of a second, not every frame.
     const ov = $('overview-canvas');
@@ -1866,7 +1874,7 @@ async function main() {
     $('notes-bar').textContent = bar || fmtTime(state.cursor, sr);
     feedReels();
   }
-  let marqueeKey = null;
+  let displayKey = null;
   function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
   function setAttr(el, k, v) { if (el.getAttribute(k) !== v) el.setAttribute(k, v); }
 

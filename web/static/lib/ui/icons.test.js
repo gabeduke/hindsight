@@ -137,10 +137,11 @@ test('a page’s icon is written as icon() writes it: the class names the icon i
 // The keys of the header, the bar and the ruler, on every page that has
 // them: each draws its icon, and none is a glyph a fallback font would draw.
 const DRAWN = {
-  'shell.html': ['tape-undo', 'tape-redo', 'tape-more', 'out-btn', 'tape-name', 'tape-sub', 'tape-out',
-    'np-expand', 'np-start', 'np-back5', 'np-play', 'np-loop', 'catch-more', 'np-eject', 'np-fold-btn',
+  'shell.html': ['tape-undo', 'tape-redo', 'tape-more', 'out-btn', 'tape-name', 'tape-sub',
+    'np-start', 'np-play', 'rec', 'np-back5', 'catch-more', 'np-loop', 'click', 'np-eject', 'np-open', 'np-note',
+    'np-tempo', 'np-source', 'np-output',
     'snap-btn', 'loop-lock', 'tracks-fold-btn', 'ruler-more', 'buffer-snap'],
-  'wave.html': ['take-undo', 'menu-btn', 'np-expand', 'to-start', 'back5', 'play', 'loop'],
+  'wave.html': ['take-undo', 'menu-btn', 'to-start', 'back5', 'play', 'loop'],
 };
 const GLYPHS = /[↶↷⋯☰▾▴▸▶❚■⟲↺⏏✎⌗]/;
 

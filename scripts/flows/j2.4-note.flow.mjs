@@ -3,6 +3,8 @@
 export default {
   id: 'J2.4',
   title: 'Jot a note while a take plays',
+  // And on a Pixel Tablet's own 1280×800, where ✎ was cut at the edge.
+  profiles: ['tablet', 'desktop', 'pixel'],
   async run(t) {
     const { page, api } = t;
     await t.given('a take on the shelf', () => api.keep(20));
@@ -11,7 +13,7 @@ export default {
     await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
     const url = page.url();
 
-    await t.step('tap ✎', () => page.locator('#np-note').click());
+    await t.step('tap ✎', () => t.tap(page.locator('#np-note')));
     const open = await t.poll(() => !!document.querySelector('#room-sketchbook[open], #room-sketchbook:not([hidden])'));
     t.expect('the sketchbook opens in the room', open);
     t.expect('the URL did not change', page.url() === url, page.url());

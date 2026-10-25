@@ -690,17 +690,14 @@ function render() {
   rb.setAttribute('aria-pressed', String(!!(rec && rec.state === 'on' && !counting)));
   rb.classList.toggle('armed', !!(rec && rec.state === 'armed'));
   rb.classList.toggle('counting', counting);
-  // It names the source it records from, under its label: that's easy to
-  // lose sight of in the row below.
-  if (!rb.firstElementChild) {
-    rb.replaceChildren(Object.assign(document.createElement('span'), { className: 'rec-what' }),
-      Object.assign(document.createElement('span'), { className: 'rec-src' }));
-  }
-  const recWhat = !rec ? '● Rec' : rec.state === 'armed' ? `● Ready ${tracksWords(recTracksOf(rec))}` : `● Rec ${tracksWords(recTracksOf(rec))}`;
-  const recSrc = rec ? recSources(rec) : state.recTrack ? state.recTracks.map(inputOf).join(' + ') : 'arm a track';
-  rb.firstElementChild.textContent = recWhat;
-  rb.lastElementChild.textContent = recSrc;
-  setIf(rb, 'aria-label', rec || state.recTrack ? `${recWhat.slice(2)} from ${recSrc}` : 'Rec: arm a track first');
+  // ● is always red, and its key says, to a screen reader and a pointer,
+  // what it records and from where (the lamp on the display and the armed
+  // head say it to the eye).
+  const recWhat = !rec ? 'Record' : rec.state === 'armed' ? `Ready to record ${tracksWords(recTracksOf(rec))}` : `Recording ${tracksWords(recTracksOf(rec))}`;
+  const recSrc = rec ? recSources(rec) : state.recTrack ? state.recTracks.map(inputOf).join(' + ') : '';
+  const recSaid = rec || state.recTrack ? `${recWhat} from ${recSrc}` : 'Record: arm a track first';
+  setIf(rb, 'aria-label', recSaid);
+  setIf(rb, 'title', recSaid);
   // In phone mode it stays pressable whatever else is true, so the jam-room sheet can explain.
   rb.disabled = !rec && !phoneOut && (!live || live.aligned === 'none' || !t.grid || mixing);
   $('click').setAttribute('aria-pressed', String(!!t.click));
@@ -4520,6 +4517,9 @@ function mountMenus() {
   const opts = { layers: stack || undefined, doc: document, floor: barTop(document) };
   menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, side: 'below', align: 'start', render: openTapeList });
   menus.tempo = menu($('tape-sub'), $('tempo-menu'), { ...opts, side: 'below', align: 'start', render: renderTempo });
+  // The bar's display opens the same menu from its tempo (the bar's own
+  // keys say when it does: css/bar.css, lib/bar/bar.js).
+  if ($('np-tempo')) menus.tempoBar = menu($('np-tempo'), $('tempo-menu'), { ...opts, floor: undefined, align: 'start', render: renderTempo });
   menus.actions = menu($('tape-more'), $('tape-actions'), { ...opts, side: 'below', align: 'end', render: renderActions });
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
 }
