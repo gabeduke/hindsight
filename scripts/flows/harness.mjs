@@ -8,7 +8,7 @@
 // docs/flows.md. Run them with scripts/flows.mjs.
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,7 +79,9 @@ export async function bootDemo({ ringSeconds = 60, log = () => {} } = {}) {
 }
 
 // api is a thin JSON client for seeding and for checking what the Pi holds.
-export function apiFor(base) {
+// dir is the demo's own directory, when this run booted it: what only a
+// file can seed (a take from last month) is written there.
+export function apiFor(base, { dir = null } = {}) {
   const call = async (method, path, body) => {
     const r = await fetch(`${base}${path}`, {
       method,
@@ -121,6 +123,20 @@ export function apiFor(base) {
       await call('POST', `/api/trigger?seconds=${seconds}`);
       return api.until(async () => (await api.takes()).find((t) => !before.has(t.name) && t.has_preview && t.has_peaks),
         'the kept take to be playable');
+    },
+    // age dates a take `when` (a Date), as if it had been kept then: its
+    // sidecar (.meta.json) is written anew in the demo's takes directory,
+    // which the Pi reads again on its next list. Only on a demo this run
+    // booted: the Pi has no request that moves a take in time.
+    age: async (name, when) => {
+      if (!dir) throw new Error('dating a take writes the demo’s files: run the flow on its own demo, without HINDSIGHT_URL');
+      const file = join(dir, 'takes', name.replace(/\.[^.]+$/, '.meta.json'));
+      const meta = JSON.parse(readFileSync(file, 'utf8'));
+      meta.created = when.toISOString();
+      writeFileSync(`${file}.tmp`, JSON.stringify(meta));
+      renameSync(`${file}.tmp`, file); // a new file, as the Pi writes one: the list sees it changed
+      return api.until(async () => (await api.takes()).find((t) => t.name === name && new Date(t.created).getMonth() === when.getMonth()),
+        'the take to wear its new date');
     },
     // tape makes a fresh tape, loads it and empties the buffer, so a Studio
     // flow starts from a blank tape whatever ran before it.

@@ -24,6 +24,8 @@ export const KEYS = [
   '.icon-btn', '.chip', '.nudge', '.phone-btn', '.passes-row .pass',
   // A segmented switch's buttons, Flag, Capture, the tape's name and tempo
   '.seg button', '.mark-btn', '.capture-btn', '.tape-pill',
+  // The Listening Room's Sort ▾, its Shelf | List, and a row's › in the List
+  '.shelf-sort', '.shelf-view button', '.spine-open',
   // What sinks under a finger rather than going down like a key: a
   // cassette's spine, a cue clip (their modules give them .sinks)
   '.sinks',

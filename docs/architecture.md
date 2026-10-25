@@ -1087,6 +1087,45 @@ Never the file (`jam_….wav`) or its date stamp. Open's own page still
 titles a take by its date stamp (`lib/wave/page.js` `stampOf`), until
 Open's pass.
 
+### The library
+
+The Listening Room is a library (`lib/shell/views/room.js`, with the wall
+in `lib/room/doorway.js`):
+
+- **The shelf wall**, on a tablet and wider, fills the room from under the
+  header to the bar: a shelf per month, newest first, then ★, then a shelf
+  per tag (`lib/room/shelves.js` `wallShelves`); a take stands on each
+  shelf it belongs to. Short shelves share a row and a long one scrolls
+  sideways, cut on half a spine so it says it goes on. The case is one CSS
+  3D plane (the wall's `perspective`, the case's small `rotateX`), lit from
+  the upper left, and flat inside: in a `preserve-3d` context Chrome
+  hit-tests a shelf's scrolling row, not the spine in it, so a tap played
+  nothing (`styles.test.js`). A shelf's **All ›** opens the List to it
+  (`shelfNames`).
+- **The List** is `#takes` (`lib/takes.js`, the rack): by month and then by
+  day (`lib/shelf.js` `shelve`), each row a case with its **›** to Open,
+  NEW for a day, the playing row ringed; *Recently deleted (n) ›* is its
+  last row. A phone's library is the List.
+- **Shelf | List** is how this device sees the room, remembered in this
+  browser (`lib/room/library.js`, a line in `lib/device-prefs.js`); a
+  phone starts on the List, wider on the wall. **Sort ▾** (`menu.js`):
+  newest, oldest, longest, name, for both. The chips: ★, the tags, *This
+  week*, MIDI.
+- **The search** is `#shelf-q`, found by its id wherever the page puts it.
+  Used, it opens the List with the field pinned and the results right under
+  it; *Cancel*, or Back, empties it. It matches what a person sees
+  (`searchText`): the spine's title, the day in words, the tag, the tempo,
+  the notes' words, every word typed.
+- A shelf opened by All ›, and the search, are each on the page's stack
+  (`ctx.layers`, kind `drawer`), so Back and Escape put them away.
+- **The drawn room is the backdrop** (`lib/room/stage.js` `backdropRoom`:
+  the room without the bookcase and the deck, whose faces were page
+  markup): at `--room-ambient` behind the wall, in full only while
+  `html[data-arriving="room"]` is set — the router's, while a switch into
+  the room plays — then fading back over four of the room's moves. The deck
+  and the Sketchbook's place are gone from the room; ✎ on the bar opens the
+  Sketchbook's notes until the notes drawer replaces it.
+
 ### Icons
 
 A key's picture is a symbol in one sprite, `web/static/icons/ui.svg`: line

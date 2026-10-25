@@ -146,8 +146,9 @@ what's next.
    between rooms*, with the entrance contract (`html[data-arriving]`) for
    step 6. The bar holds its shape across the turn once step 4 gives it one
    (J2.10, todo till then).
-6. **The library.** The shelf wall, Sort, Shelf \| List, search into the
-   List; the phone's List; the room as entrance and ambient light.
+6. ~~**The library.** The shelf wall, Sort, Shelf \| List, search into the
+   List; the phone's List; the room as entrance and ambient light.~~
+   Landed: `docs/architecture.md`, *The library*; J2.7 is its flow.
 7. **The phone.** `sheet.js`; the player as a sheet you drag; ● records
    from the phone.
 8. **The Studio's heads and ruler** (`the-studio-on-one-screen.md`, steps 3

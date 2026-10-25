@@ -12,6 +12,7 @@
 // is adding a line.
 
 import { on as playOn, setOn as playSetOn } from './play/flag.js';
+import { listOn, setListOn } from './room/library.js';
 
 /**
  * Each toggle: a stable id, `feature` when it is a preview (it is drawn up
@@ -29,6 +30,15 @@ export const DEVICE_PREFS = [
     reload: true, // lib/play/mount.js reads the flag once, when the page loads
     get: playOn,
     set: playSetOn,
+  },
+  {
+    // The Listening Room's Shelf | List switches this too, and remembers it here.
+    id: 'library-list',
+    label: 'The Listening Room as a list',
+    note: 'The takes in a list, by month and day, instead of on the shelves. A phone starts with the list; Shelf | List in the room switches it too.',
+    reload: false,
+    get: listOn,
+    set: setListOn,
   },
 ];
 

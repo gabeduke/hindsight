@@ -66,9 +66,14 @@ test('the two rooms are not a switch any more: they are the only layout', () => 
   assert.equal(DEVICE_PREFS.find((p) => p.id === 'rooms'), undefined);
 });
 
-test('every shipped toggle is a preview, drawn in the open Preview features section', () => {
+test('a preview is drawn in the open Preview features section; a switch that is not one is in This device', () => {
   assert.ok(DEVICE_PREFS.length > 0);
-  for (const p of DEVICE_PREFS) assert.equal(p.feature, true, `${p.id} is drawn up front, not under a fold`);
+  assert.equal(DEVICE_PREFS.find((p) => p.id === 'play').feature, true, 'Play mode is drawn up front, not under a fold');
+  // The Listening Room's Shelf | List (lib/room/library.js) is how this device
+  // likes it, not a preview: it is in the room itself, and in This device.
+  const list = DEVICE_PREFS.find((p) => p.id === 'library-list');
+  assert.ok(list && !list.feature && list.reload === false, 'Shelf | List is remembered here, takes effect at once, and is no preview');
+  assert.equal(list.get(), false, 'no storage and no screen in node: the wall, not a throw');
 });
 
 test('a flag whose storage refuses reports failure, so the sheet does not claim it saved', async () => {

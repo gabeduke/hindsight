@@ -36,7 +36,8 @@ export function world(search = '') {
     removeEventListener: (t, f) => { w.winListeners[t]?.delete(f); },
   };
   w.reducedMotion = false;
-  globalThis.matchMedia = (q) => ({ matches: w.reducedMotion && /reduced-motion/.test(q), addEventListener() {} });
+  w.narrow = false; // a phone's width
+  globalThis.matchMedia = (q) => ({ matches: (w.reducedMotion && /reduced-motion/.test(q)) || (w.narrow && /max-width/.test(q)), addEventListener() {} });
   globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
   const loc = {
     _href: '', search: w.search || '',
@@ -48,8 +49,10 @@ export function world(search = '') {
 }
 
 /** A page with the Listening Room mounted on it. */
-export async function room({ takes = [take('a'), take('b'), take('c')], tapes = null, barTake = null, selecting = false, search = '', openSketchbook = null } = {}) {
+export async function room({ takes = [take('a'), take('b'), take('c')], tapes = null, barTake = null, selecting = false, search = '', openSketchbook = null, narrow = false, stored = null, opts = {}, tags = null } = {}) {
   const w = world(search);
+  w.narrow = narrow;
+  if (stored) w.local.setItem('hindsight.library', stored);
   const doc = fakeDoc();
   globalThis.document = doc;
   const roomOnly = takesHtml
@@ -91,15 +94,32 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
       for (const t of [...clock.timers].sort((a, b) => a.at - b.at)) if (t.at <= clock.now) { clock.timers = clock.timers.filter((x) => x !== t); t.fn(); }
     }
   };
+  // The page's stack of open things (lib/ui/layers.js), as the room uses it.
+  const layers = {
+    open: [],
+    top: () => layers.open.at(-1) || null,
+    stack: {
+      open(spec) {
+        const l = { spec, open: true, close(reason = 'program') { if (!l.open) return; l.open = false; layers.open.splice(layers.open.indexOf(l), 1); spec.onClose?.(reason); } };
+        layers.open.push(l);
+        return l;
+      },
+    },
+  };
+  const filters = [];
   const h = {
     takes: list, toast: (m) => toasts.push(m), tapes: Promise.resolve(tapes), ticker, flightTimers,
     get np() { return np; },
     openSketchbook,
-    opts: () => ({}),
+    opts: () => opts,
+    layers: layers.stack,
     // The page's rack and its select bar, which the room wires.
     rack: doc.getElementById('takes'), selectBar: doc.getElementById('select-bar'),
     pick: (n) => log.push(`pick ${n}`),
-    setFilter: () => {}, clearFilter: () => {},
+    // The List's own filter, which a shelf's All › sets: what it was set to, last first.
+    setFilter: (fn) => { filters.unshift(fn); log.push(fn ? 'filter' : 'no filter'); },
+    clearFilter: () => {},
+    clearQuery: () => log.push('clear query'),
     onChange: (f) => hooks.change.add(f),
     onSelected: (f) => hooks.selected.add(f),
     // What the page handed the room before the sheet went: they must never be used.
@@ -108,6 +128,7 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
     detail: { el: () => doc.createElement('div') },
     playAll: { running: () => false, from: () => { sheet.opened++; }, stop: () => {} },
   };
+  if (tags) (await import('../tags.js')).tagStore.set(tags);
   const { mount } = await import('./doorway.js');
   const mounted = await mount(h);
   await Promise.resolve(tapes);
@@ -120,7 +141,9 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
   // The page's list changed (a poll that brought something, a tag renamed): what shelf-page tells the room.
   const changed = () => { for (const f of hooks.change) f(); };
   const ghosts = () => doc.body.querySelectorAll('.room-carry');
-  return { w, doc, np, h, list, log, toasts, sheet, q, spine, touch, settle, tick, changed, players, mounted: true, clock, run, ghosts };
+  // What the List shows of the takes now, by the filter a shelf's All › set.
+  const listed = () => (filters[0] ? list.all.filter(filters[0]).map((t) => t.name) : list.all.map((t) => t.name));
+  return { w, doc, np, h, list, log, toasts, sheet, q, spine, touch, settle, tick, changed, players, mounted, clock, run, ghosts, layers, listed };
 }
 const SHELL_DIALOGS = new Set(['confirm', 'jam-only', 'away-sheet', 'clip-sheet', 'track-sheet', 'section-sheet', 'rename-sheet']);
 export const roomDialogs = (r) => r.doc.querySelectorAll('dialog').filter((d) => !SHELL_DIALOGS.has(d.id)).map((d) => d.className);

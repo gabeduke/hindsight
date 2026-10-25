@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, searchText, weekStart, shelve, latest, newest, listFrom, parseBpm, flagChips, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText } from './shelf.js';
+import { matches, searchText, weekStart, sorted, shelve, latest, newest, listFrom, parseBpm, flagChips, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -79,7 +79,7 @@ test('each filter that is on must hold', () => {
   assert.equal(matches(phone, { tape: true, starred: true }), false);
 });
 
-test('newest groups by day, newest first, whatever the list put first', () => {
+test('newest groups by month and then by day, newest first, whatever the list put first', () => {
   const takes = [
     take('starred-old', at(2026, 10, 1, 9), { starred: true }),
     take('today-early', at(2026, 10, 4, 9)),
@@ -88,10 +88,16 @@ test('newest groups by day, newest first, whatever the list put first', () => {
     take('last-year', at(2025, 3, 12, 18)),
   ];
   const groups = shelve(takes, {}, NOW);
-  assert.deepEqual(groups.map((g) => g.label), [
-    'TODAY · SUN 4 OCT', 'YESTERDAY · SAT 3 OCT', 'THU 1 OCT', '12 MAR 2025',
+  assert.deepEqual(groups.map((g) => [g.kind, g.label]), [
+    ['month', 'OCTOBER'], ['day', 'TODAY · SUN 4 OCT'], ['day', 'YESTERDAY · SAT 3 OCT'], ['day', 'THU 1 OCT'],
+    ['month', 'MARCH 2025'], ['day', '12 MAR 2025'],
   ]);
-  assert.deepEqual(groups[0].takes.map((t) => t.name), ['jam_today-late.wav', 'jam_today-early.wav']);
+  assert.deepEqual(groups[0].takes, [], 'a month is a header: its takes are under its days');
+  assert.deepEqual(groups[1].takes.map((t) => t.name), ['jam_today-late.wav', 'jam_today-early.wav']);
+  // Oldest: the same, the other way round.
+  assert.deepEqual(shelve(takes, { sort: 'oldest' }, NOW).map((g) => g.label), [
+    'MARCH 2025', '12 MAR 2025', 'OCTOBER', 'THU 1 OCT', 'YESTERDAY · SAT 3 OCT', 'TODAY · SUN 4 OCT',
+  ]);
 });
 
 test('longest is one group, longest first', () => {
@@ -108,8 +114,8 @@ test('longest is one group, longest first', () => {
 
 test('a take with no readable date goes last, under EARLIER, never Invalid Date', () => {
   const groups = shelve([take('x', 'nonsense'), take('y', undefined), take('z', at(2026, 10, 4))], {}, NOW);
-  assert.deepEqual(groups.map((g) => g.label), ['TODAY · SUN 4 OCT', 'EARLIER']);
-  assert.equal(groups[1].takes.length, 2);
+  assert.deepEqual(groups.map((g) => g.label), ['OCTOBER', 'TODAY · SUN 4 OCT', 'EARLIER']);
+  assert.equal(groups[2].takes.length, 2);
 });
 
 test('filters that match nothing leave no groups', () => {
@@ -166,6 +172,19 @@ test('newest is the n newest takes, newest first, undated ones last', () => {
   assert.deepEqual(newest([], 3), []);
 });
 
+test('the four sorts: newest and oldest made first (the undated last either way), longest, and by name', () => {
+  const t = [
+    take('a', at(2026, 10, 1), { duration_seconds: 9, label: 'riff 10' }),
+    take('b', at(2026, 10, 3), { duration_seconds: 99, label: 'Riff 9' }),
+    take('c', 'not a date', { duration_seconds: 50, label: 'bass' }),
+  ];
+  assert.deepEqual(sorted(t, 'newest').map((x) => x.name), ['jam_b.wav', 'jam_a.wav', 'jam_c.wav']);
+  assert.deepEqual(sorted(t, 'oldest').map((x) => x.name), ['jam_a.wav', 'jam_b.wav', 'jam_c.wav']);
+  assert.deepEqual(sorted(t, 'longest').map((x) => x.name), ['jam_b.wav', 'jam_c.wav', 'jam_a.wav']);
+  assert.deepEqual(sorted(t, 'name').map((x) => x.name), ['jam_c.wav', 'jam_b.wav', 'jam_a.wav'], 'bass, Riff 9, riff 10');
+  assert.deepEqual(sorted(t, 'tag').map((x) => x.name), sorted(t, 'newest').map((x) => x.name), 'a sort it no longer has is Newest');
+});
+
 // --- tags -----------------------------------------------------------------
 
 const TAGS = [
@@ -198,19 +217,9 @@ test('the tag filter shows one tag, or only the untagged, and the search finds a
   assert.equal(matches(idea, { tag: 't0000a1', starred: true, tags: TAGS }), false, 'filters combine');
 });
 
-test('sorting by tag makes a group per tag in list order, the untagged last', () => {
-  const takes = [
-    take('old-keep', at(2026, 10, 1), { tag: 't0000b2' }),
-    take('new-keep', at(2026, 10, 3), { tag: 't0000b2' }),
-    take('idea', at(2026, 10, 2), { tag: 't0000a1' }),
-    take('loose', at(2026, 10, 4)),
-  ];
-  const groups = shelve(takes, { sort: 'tag', tags: TAGS }, NOW);
-  assert.deepEqual(groups.map((g) => g.label), ['IDEAS', 'KEEPERS', 'UNTAGGED']);
-  assert.deepEqual(groups[1].takes.map((t) => t.name), ['jam_new-keep.wav', 'jam_old-keep.wav']);
-  // A tag nobody wears has no heading; with no tags at all there is one group.
-  assert.deepEqual(shelve([takes[3]], { sort: 'tag', tags: TAGS }, NOW).map((g) => g.label), ['UNTAGGED']);
-  assert.deepEqual(shelve(takes, { sort: 'tag', tags: [] }, NOW).map((g) => g.label), ['NO TAGS YET']);
+test('by name is one group, and so is longest: the month headers are for the dates', () => {
+  const takes = [take('a', at(2026, 10, 1), { label: 'zed' }), take('b', at(2026, 9, 3), { label: 'alpha' })];
+  assert.deepEqual(shelve(takes, { sort: 'name' }, NOW).map((g) => [g.label, g.kind, g.takes.map((t) => t.label)]), [['BY NAME', 'day', ['alpha', 'zed']]]);
 });
 
 // --- families: cuts and mixdowns fold into a spine ---------------------------
@@ -334,7 +343,7 @@ test('tapeName is the label most of a tape\'s mixdowns wear', () => {
 test('shelve: a cut folds into its original, on the original\'s day', () => {
   const jam = take('2026-10-03_210000', at(2026, 10, 3, 21), { label: 'Tuesday jam' });
   const riff = cutOf('2026-10-04_101500', at(2026, 10, 4, 10, 15), '2026-10-03_210000', { label: 'Tuesday jam · 0:42–1:10' });
-  const g = shelve([riff, jam], {}, NOW);
+  const g = shelve([riff, jam], {}, NOW).filter((x) => x.kind === 'day');
   assert.equal(g.length, 1);
   assert.match(g[0].label, /^YESTERDAY/);
   assert.deepEqual(g[0].takes.map((t) => t.name), [jam.name]);
@@ -346,19 +355,18 @@ test('shelve: a filter the original fails leaves the cut on its own, on its own 
   const riff = cutOf('2026-10-04_101500', at(2026, 10, 4, 10, 15), '2026-10-03_210000', { starred: true });
   const g = shelve([riff, jam], { starred: true }, NOW);
   assert.deepEqual(g.flatMap((x) => x.takes).map((t) => t.name), [riff.name]);
-  assert.match(g[0].label, /^TODAY/);
+  assert.match(g[1].label, /^TODAY/);
 });
 
-test('shelve: longest and tag sorts place a family by its spine', () => {
+test('shelve: longest and name sorts place a family by its spine', () => {
   const jam = take('jam', at(2026, 10, 4, 10), { duration_seconds: 900, tag: 'g1' });
   const riff = cutOf('riff', at(2026, 10, 4, 11), 'jam', { duration_seconds: 28, tag: 'g2' });
   const short = take('short', at(2026, 10, 4, 12), { duration_seconds: 60 });
   const long = shelve([riff, jam, short], { sort: 'longest' }, NOW);
   assert.deepEqual(names(long[0].takes), ['jam', 'short']);
-  const tags = [{ id: 'g1', name: 'Keep', color: 'red' }, { id: 'g2', name: 'Riffs', color: 'blue' }];
-  const byTag = shelve([riff, jam, short], { sort: 'tag', tags }, NOW);
-  assert.deepEqual(byTag.map((x) => x.label), ['KEEP', 'UNTAGGED']);
-  assert.deepEqual(names(byTag[0].members.get(jam.name)), ['riff']);
+  const byName = shelve([riff, jam, short], { sort: 'name' }, NOW);
+  assert.deepEqual(names(byName[0].takes), ['jam', 'short']);
+  assert.deepEqual(names(byName[0].members.get(jam.name)), ['riff']);
 });
 
 test('familyOf names a member\'s spine and lists a spine\'s family', () => {

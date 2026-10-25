@@ -61,7 +61,7 @@ if (!base) {
   demo = await bootDemo({ log: console.log });
   base = demo.base;
 }
-const api = apiFor(base);
+const api = apiFor(base, { dir: demo?.dir });
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
 const results = [];
 try {

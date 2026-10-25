@@ -1,9 +1,10 @@
 // web/static/lib/room/stage.js
 // The Listening Room drawn: a renderer on the scene contract (lib/scene/
 // renderer.js) that draws ROOM (lib/room/space.js) as one SVG picture, each
-// object by its own art function (lib/room/art/), and lays the page's own
-// markup -- the shelves, the deck and the sketchbook, which are the room's
-// controls -- over where those objects stand: their DOM twins.
+// object by its own art function (lib/room/art/), and can lay a page's own
+// markup -- an object's control -- over where that object stands: its DOM
+// twin. The room is the Listening Room's backdrop now (backdropRoom, below),
+// drawn with no twins: the shelves are a wall of their own in front of it.
 //
 // It draws once per view (the wide one, or the tall one for a portrait
 // frame) and then nothing: the room is still, its props never ask the ticker
@@ -19,6 +20,18 @@ import { SceneObject } from '../scene/object.js';
 import { ROOM, viewFor, project, face, inFrame, corners, lit, diffuse, drawOrder, keyLight, wallShadow } from './space.js';
 import { ART } from './art/index.js';
 import { Defs, textures } from './art/kit.js';
+
+/**
+ * backdropRoom is the room as the Listening Room's backdrop (docs/plan/
+ * the-studio-space.md, "The studio is a place"): the room without the
+ * furniture whose faces were the page's own markup -- the bookcase, whose
+ * shelves are the wall in front of it now, and the deck, which is the bar.
+ * Drawn alone, either would be its sides and its shadow, with nothing on
+ * them.
+ */
+export function backdropRoom(room = ROOM) {
+  return { ...room, objects: room.objects.filter((o) => o.id !== 'shelves' && o.id !== 'deck') };
+}
 
 /** roomScene is the room as a scene: one prop per object, its state the object. */
 export function roomScene(room = ROOM, opts = {}) {

@@ -239,9 +239,10 @@ export default {
     // A take in the bar: the same mini player, its window and ▶ where the
     // tape's were, and the take's own keys in Catch's place.
     await t.step('go to the Listening Room', () => t.tap(page.locator('.appnav a[data-tab="room"]')));
-    const cassette = page.locator('#view-room .room-cassette').first();
-    await cassette.waitFor({ state: 'visible' });
-    await t.step('tap a take', () => t.tap(cassette));
+    // A phone's library is the List (docs/plan/the-studio-space.md, "The library"): a take is a row of it.
+    const row = page.locator('#takes .take.spine:not(.folded)').first();
+    await row.waitFor({ state: 'visible' });
+    await t.step('tap a take', () => t.tap(row));
     const heard = await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
     const room = await page.evaluate(look);
     t.expect('the take plays in the mini player', heard, room);

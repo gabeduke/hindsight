@@ -1,6 +1,6 @@
 // web/static/lib/shelf.js
 // What the takes page shows: which takes match the search and the filters,
-// in what order, under which day. Pure, so it is tested without a
+// in what order, under which month and day. Pure, so it is tested without a
 // browser.
 //
 // The server lists starred takes first (lib/takes.js keeps that order for
@@ -13,6 +13,9 @@ const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+
+/** NEW_MS is how long a take wears the NEW sticker, on its spine and its row: a day. */
+export const NEW_MS = 24 * 3600 * 1000;
 
 /** when is a take's created time in ms, or NaN when it has none to read. */
 function when(t) {
@@ -244,47 +247,80 @@ function dayLabel(ms, now) {
   return short;
 }
 
+/** monthLabel names a month's header in the List: "OCTOBER", with the year when it isn't this one's. */
+export function monthLabel(ms, now = Date.now()) {
+  const d = new Date(ms);
+  const name = MONTH_NAMES[d.getMonth()].toUpperCase();
+  return d.getFullYear() === new Date(now).getFullYear() ? name : `${name} ${d.getFullYear()}`;
+}
+
+/** SORTS are the List's and the shelves' orders, as Sort ▾ names them. */
+export const SORTS = Object.freeze([
+  { id: 'newest', word: 'Newest' },
+  { id: 'oldest', word: 'Oldest' },
+  { id: 'longest', word: 'Longest' },
+  { id: 'name', word: 'Name' },
+]);
+
+/** sortKey is a sort that is one of SORTS, or newest. */
+export const sortKey = (s) => (SORTS.some((x) => x.id === s) ? s : 'newest');
+
+/**
+ * sorted is the takes in a sort's order: newest or oldest made first (a take
+ * with no date last either way), longest first, or by name (what is printed
+ * on the spine, the numbers in it read as numbers).
+ */
+export function sorted(takes, sort = 'newest') {
+  const at = (t) => { const w = when(t); return Number.isNaN(w) ? null : w; };
+  const byDate = (dir) => (a, b) => {
+    const x = at(a), y = at(b);
+    if (x === null || y === null) return (x === null) - (y === null);
+    return dir * (x - y) || (a.name < b.name ? -dir : a.name > b.name ? dir : 0);
+  };
+  const list = [...takes];
+  switch (sortKey(sort)) {
+    case 'oldest': return list.sort(byDate(1));
+    case 'longest': return list.sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0) || byDate(-1)(a, b));
+    case 'name': return list.sort((a, b) => takeTitle(a).localeCompare(takeTitle(b), undefined, { numeric: true, sensitivity: 'base' }) || byDate(-1)(a, b));
+    default: return list.sort(byDate(-1));
+  }
+}
+
 /**
  * shelve filters the takes, folds what's left (see fold), and puts the spines
- * in groups to show: by day, newest first; with sort 'longest' in one group,
- * longest first; with sort 'tag' one group per tag. A take with no readable
- * date goes in a last group, EARLIER. Each group's `members` holds, for each
- * of its spines with a family, the takes folded into it.
+ * in groups to show. By date (newest or oldest first): a month's header
+ * (kind 'month', no takes of its own), then its days, each a group of its
+ * takes; a take with no readable date goes in a last group, EARLIER. By
+ * length or by name: one group. Each group's `members` holds, for each of
+ * its spines with a family, the takes folded into it.
  */
 export function shelve(takes, opts = {}, now = Date.now()) {
-  const f = fold(takes.filter((t) => matches(t, opts)));
+  const f = fold(takes.filter((t) => matches(t, { now, ...opts })));
   if (!f.shelf.length) return [];
   return shelveGroups(f.shelf, opts, now).map((g) => ({ ...g, members: membersOf(f, g.takes) }));
 }
 
 function shelveGroups(shown, opts, now) {
-  if (opts.sort === 'longest') {
-    return [{ label: 'LONGEST FIRST', takes: [...shown].sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0)) }];
-  }
-  if (opts.sort === 'tag') {
-    // One group per tag, in the list's order, newest first inside; the
-    // untagged last. A tag nobody wears gets no heading.
-    const tags = opts.tags || [];
-    const newestFirst = (a, b) => (Number.isNaN(when(b)) ? -Infinity : when(b)) - (Number.isNaN(when(a)) ? -Infinity : when(a));
-    const groups = [];
-    for (const g of tags) {
-      const mine = shown.filter((t) => tagOf(t, tags)?.id === g.id).sort(newestFirst);
-      if (mine.length) groups.push({ label: g.name.toUpperCase(), tag: g.id, takes: mine });
-    }
-    const none = shown.filter((t) => !tagOf(t, tags)).sort(newestFirst);
-    if (none.length) groups.push({ label: tags.length ? 'UNTAGGED' : 'NO TAGS YET', tag: '', takes: none });
-    return groups;
-  }
-  const dated = shown.filter((t) => !Number.isNaN(when(t))).sort((a, b) => when(b) - when(a));
-  const undated = shown.filter((t) => Number.isNaN(when(t)));
+  const sort = sortKey(opts.sort);
+  if (sort === 'longest') return [{ label: 'LONGEST FIRST', kind: 'day', takes: sorted(shown, 'longest') }];
+  if (sort === 'name') return [{ label: 'BY NAME', kind: 'day', takes: sorted(shown, 'name') }];
   const groups = [];
-  for (const t of dated) {
-    const label = dayLabel(when(t), now);
+  let month = '';
+  const undated = [];
+  for (const t of sorted(shown, sort)) {
+    const ms = when(t);
+    if (Number.isNaN(ms)) { undated.push(t); continue; }
+    const m = monthLabel(ms, now);
+    if (m !== month) {
+      month = m;
+      groups.push({ label: m, kind: 'month', takes: [] });
+    }
+    const label = dayLabel(ms, now);
     const last = groups[groups.length - 1];
-    if (last && last.label === label) last.takes.push(t);
-    else groups.push({ label, takes: [t] });
+    if (last.kind === 'day' && last.label === label) last.takes.push(t);
+    else groups.push({ label, kind: 'day', takes: [t] });
   }
-  if (undated.length) groups.push({ label: 'EARLIER', takes: undated });
+  if (undated.length) groups.push({ label: 'EARLIER', kind: 'day', takes: undated });
   return groups;
 }
 

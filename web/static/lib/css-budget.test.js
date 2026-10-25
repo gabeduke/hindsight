@@ -20,12 +20,12 @@ import assert from 'node:assert/strict';
 import { cssOf, decls, rules, stripComments } from './stylesheets.js';
 
 const BUDGET = {
-  hex: 6,
-  rgba: 144,
+  hex: 2,
+  rgba: 98,
   zIndex: 22,
   important: 3,
   media: 51,
-  durations: 48,
+  durations: 46,
   weights: 3,
 };
 

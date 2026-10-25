@@ -269,6 +269,9 @@
   --room-tweed-lo:   #8f7444;
   --room-amp-grille: #4a2a20;
   --room-amp-jewel:  #ff4a2a;
+  /* The drawn room as the library's backdrop: how much of it shows behind
+     the shelves once you are in (all of it while you walk in). */
+  --room-ambient:    .35;
   /* A cassette's J-card, on four papers. */
   --room-jcard-0:    #f3ead2;
   --room-jcard-1:    #fbf8ef;

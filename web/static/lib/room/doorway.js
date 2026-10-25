@@ -1,28 +1,31 @@
 // web/static/lib/room/doorway.js
-// The Listening Room seen from the doorway: the takes page under the rooms
-// flag (docs/superpowers/specs/2026-10-15-listening-room-design.md, and the
-// flow spec, 2026-10-15-flow-design.md, "One way to listen").
+// The Listening Room is a library (docs/plan/the-studio-space.md, "The
+// library" and "The studio is a place"): on a tablet and wider, a wall of
+// shelves from under the header to the bar -- one shelf per month, newest
+// first, then ★ and a shelf per tag -- in light perspective, under the
+// lamp; on a phone, the List (shell/views/room.js's rack), with the wall one
+// tap away on Shelf | List. The drawn room is where you are, not what you
+// look at: it is the backdrop, in full only while you walk in
+// (html[data-arriving="room"], the router's, while the switch plays) and
+// at ambient light after.
 //
-// The rack is still on the page, under the room, doing what it did: the list,
-// its filter, Select, Play all, the trash and the now-playing bar. This module
-// draws the room over it and works it through the handle shell/views/room.js gives
-// (lib/room/mount.js), so nothing the rack does is lost and nothing is done
-// twice.
+// The List is still on the page, under the room, doing what it did: the
+// rows, the filter, Select, Play all, the trash and the bar. This module
+// draws the wall over it and works it through the handle shell/views/room.js
+// gives (lib/room/mount.js), so nothing the List does is done twice.
 //
-// A tap on a spine plays it in the bar and a hold selects it
-// (lib/ui/press.js, lib/room/tap.js): there is no sheet. The deck is a
-// picture of the bar (lib/room/deck.js), and tapes are not on the shelves:
-// they live in the Studio.
+// A tap on a spine plays it in the bar and a hold selects it (lib/ui/
+// press.js, lib/room/tap.js): there is no sheet. A shelf's All › opens the
+// List to that shelf; the search opens it with the field pinned. Tapes are
+// not on the shelves: they live in the Studio.
 //
-// What it draws, in reading order, as a screen reader meets it: the shelves
-// (this month's takes, the archive by month), each a list of buttons; then the
-// deck -- the bar, drawn -- and the sketchbook, each a button; then the dock,
-// which is the bar. The wall, the lamp, the window, the rug and the chair are
-// decoration, hidden from it. Without the room to draw them (a phone, or
-// reduced data asked for), the shelves are rows, and the page's own bar is the
-// only transport.
+// What it draws, in reading order, as a screen reader meets it: the
+// shelves, each a list of buttons with its plate and its All ›; then the
+// dock, which is the bar. The room behind them is decoration, hidden from
+// it. Without the room to draw it (a phone, or reduced data asked for) the
+// shelves stand on a plain wall.
 
-import { roomShelves, inMonth, monthName, monthKey, at, filterWords } from './shelves.js';
+import { wallShelves, shelfNames, at, filterWords } from './shelves.js';
 import { forgetNote, fmtAt } from './notes.js';
 import { openTheTape } from '../bar/carry.js';
 import { bindPress, SPINE_PRESS } from '../ui/press.js';
@@ -31,26 +34,14 @@ import { createTap, wireRack, askedTake } from './tap.js';
 import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
 import { openTagManager } from '../tags-dialog.js';
-import { deckOf, deckWords, readBar, fmtLen } from './deck.js';
+import { deckOf, readBar } from './deck.js';
 import { familyCounts, familySticker, flagChips } from '../shelf.js';
-import { takeTitle } from '../rooms/takename.js';
+import { takeTitle, fmtLen } from '../rooms/takename.js';
 import { flagRequest } from '../flags.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
-import { ReelWindow } from '../objects/reel-window.js';
-import { RoomRenderer, roomScene } from './stage.js';
-import { shelfTop, shelfBottom } from './art/shelf.js';
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
-function svgReel() {
-  const s = typeof document.createElementNS === 'function'
-    ? document.createElementNS(SVG_NS, 'svg')
-    : document.createElement('svg');
-  s.setAttribute('class', 'np-reel room-deck-svg-reel');
-  s.setAttribute('viewBox', '0 0 160 160');
-  s.setAttribute('aria-hidden', 'true');
-  return s;
-}
+import { RoomRenderer, roomScene, backdropRoom } from './stage.js';
+import { libraryView, setLibraryView, CHANGED } from './library.js';
 
 /** el builds an element: a class, attributes (text sets its words), children. */
 function el(tag, cls, attrs = {}, ...kids) {
@@ -64,10 +55,16 @@ function el(tag, cls, attrs = {}, ...kids) {
   e.append(...kids.filter((k) => k != null && k !== false));
   return e;
 }
+/** drawn is an element holding an icon (lib/ui/icons.js) and then its words. */
+function drawn(tag, cls, attrs, name, words, size = 16) {
+  const e = el(tag, cls, attrs);
+  e.innerHTML = `${icon(name, { size })}${words ? `<span>${words}</span>` : ''}`;
+  return e;
+}
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-/** whenOf is when a take was made, as the card says it: "today 21:04", "Tue 13 Oct". */
+/** whenOf is when a take was made, as a spine says it: "today 21:04", "Tue 13 Oct". */
 function whenOf(t, now = Date.now()) {
   const ms = at(t);
   if (!Number.isFinite(ms)) return '';
@@ -85,47 +82,31 @@ export function toneOf(name) {
 }
 
 /**
- * deckTape is the tape's run across the deck's face: off the left reel's
- * pack, down round a guide, straight across the heads, and up onto the
- * right reel -- straight lines, as tape under tension runs.
+ * drawBackdrop draws the room behind the shelves (lib/room/stage.js, the
+ * room without the furniture the wall now is), choosing the wide view or the
+ * tall one by the room's shape, and again when that changes. Where the room
+ * isn't drawn (a phone, reduced data) or a browser can't watch its size, it
+ * draws nothing: the shelves work without it.
  */
-function deckTape() {
-  const t = el('span', 'room-deck-tape', { 'aria-hidden': 'true' });
-  t.innerHTML = '<svg viewBox="0 0 100 40" preserveAspectRatio="none" focusable="false"><path d="M0,0 L5,36 L95,36 L100,0" fill="none" stroke="currentColor" stroke-width="2.2" vector-effect="non-scaling-stroke"/></svg>';
-  return t;
-}
-
-/**
- * drawTheRoom draws the room's picture and lays the shelves, the deck and
- * the sketchbook over it (lib/room/stage.js), choosing the wide view or the
- * tall one by the room's shape, and again when that changes. Where a
- * browser can't watch the room's size it draws nothing: the shelves and the
- * places are the page's markup, and work without the picture.
- */
-function drawTheRoom({ room, frame, scene, twins, deco }) {
+function drawBackdrop({ room, scene }) {
   if (typeof ResizeObserver !== 'function') return;
   try {
-    const renderer = new RoomRenderer({ twins, box: frame, onError: (e) => console.error(e) });
-    renderer.mount(scene, roomScene());
-    deco[0].innerHTML = shelfTop();
-    deco[1].innerHTML = shelfBottom();
-    // Only where the room is drawn: on a phone (or with reduced data) the
-    // frame is no box at all and the shelves are rows, placed by the page.
+    const space = backdropRoom();
+    const renderer = new RoomRenderer({ box: scene, room: space, onError: (e) => console.error(e) });
+    renderer.mount(scene, roomScene(space));
     const look = () => {
       const r = room.getBoundingClientRect();
-      if (!r.width) return;
-      if (getComputedStyle(frame).display === 'contents') { renderer.unplace(); return; }
-      room.style.setProperty('--room-top', `${Math.max(0, r.top + scrollY)}px`);
+      if (!r.width || !r.height || getComputedStyle(scene).display === 'none') return;
       renderer.setView(renderer.pick(r.width, r.height));
     };
     new ResizeObserver(look).observe(room);
     look();
   } catch (e) { console.error(e); }
 }
-// A View Transition cross-fade, where there is one and motion is welcome.
-// The shelf-to-deck flight is brief R2's; this is its stand-in. It answers
-// once the page has changed (the transition runs the update a frame later),
-// so focus can move to what's there now.
+// A View Transition cross-fade, where there is one and motion is welcome:
+// the wall to the List and back. It answers once the page has changed (the
+// transition runs the update a frame later), so focus can move to what's
+// there now.
 function crossFade(update) {
   if (!document.startViewTransition || reduced()) { update(); return Promise.resolve(); }
   return document.startViewTransition(update).updateCallbackDone.catch(() => {});
@@ -146,124 +127,48 @@ export function mount(h) {
   const tools = document.querySelector('.shelf-tools');
   const toast = h.toast;
 
-  // --- the header: the room's name, its search, and the rack's filters -------
-  // The search's field is the header's, at its start (css/chrome.css); this
-  // key beside it shows the rack's filters and sort under the header.
   const title = document.querySelector('.shelf-title');
   if (title && title.firstChild && title.firstChild.nodeType === 3) title.firstChild.textContent = 'Listening Room · takes ';
-  if (tools && !tools.id) tools.id = 'room-search-tools';
-  const searchBtn = el('button', 'chip room-search-btn', {
-    type: 'button', 'aria-expanded': 'false', 'aria-controls': tools?.id, 'data-tip': 'room-search',
-  }, 'Filters');
-  $('play-all')?.before(searchBtn);
-  searchBtn.addEventListener('click', () => {
-    const on = !body.classList.contains('room-search');
-    body.classList.toggle('room-search', on);
-    searchBtn.setAttribute('aria-expanded', String(on));
-  });
 
-
-  // --- the room ----------------------------------------------------------------
-  // The picture of the room, drawn by lib/room/stage.js from ROOM (lib/room/
-  // space.js) where there is room to draw it; decoration, hidden from a
-  // screen reader.
-  const scene = el('div', 'room-scene', { 'aria-hidden': 'true' });
-
-  // A shelf: its plate, the list on it, and -- for takes -- a key that opens
-  // it as today's rack, where Select and Play all are.
-  const shelf = (key, label, asList = null) => {
-    const h3 = el('h3', 'room-plate', { id: `room-${key}-h` });
-    // The section is named by its plate; the list in it needs no second name.
-    const list = el('ul', 'room-row', { role: 'list' });
-    // Its own picture, a list: ☰ is the header's menu, and only that.
-    const listBtn = asList ? el('button', 'room-list-btn', { type: 'button', 'data-key': `list:${key}`, 'aria-label': asList, 'data-tip': 'room-list' }) : null;
-    if (listBtn) listBtn.innerHTML = `${icon('list', { size: 14 })}List`;
-    const foot = el('div', 'room-shelf-foot', {}, h3, listBtn);
-    const sec = el('section', `room-shelf room-shelf-${key}`, { 'aria-labelledby': `room-${key}-h` }, foot, list);
-    h3.textContent = label;
-    return { sec, h3, list, listBtn };
-  };
-  // Tapes are not here: they live in the Studio only (the flow spec, answer 2).
-  // A tape's bounces are takes, and stand on the takes shelf.
-  const takesShelf = shelf('takes', 'TAKES', 'This month’s takes as a list, to select or play');
-  const takesEmpty = el('p', 'room-empty', { text: 'Nothing kept this month yet. KEEP in the Studio puts a take on this shelf.' });
-  takesShelf.sec.append(takesEmpty);
-  const archiveShelf = shelf('archive', 'ARCHIVE');
-  // A filter left on (the rack's, remembered on this device) says so here:
+  // --- the room: the drawn room behind, the wall of shelves in front ------
+  const scene = el('div', 'room-scene');
+  const backdrop = el('div', 'room-backdrop', { 'aria-hidden': 'true' }, el('div', 'room-frame', {}, scene));
+  // A filter left on (the List's, remembered on this device) says so here:
   // otherwise the shelves just look empty.
   const filterText = el('span', 'room-filtered-text');
   const filterClear = el('button', 'room-filtered-clear', { type: 'button', 'data-tip': 'room-filter-clear' }, 'Show everything');
   const filterBar = el('p', 'room-filtered', { hidden: true }, filterText, filterClear);
-  filterClear.addEventListener('click', () => { h.clearFilter(); takesShelf.list.querySelector('button')?.focus(); });
-  // The shelves' other cubbies -- books and a plant above, LPs below -- are
-  // pictures, filled in when the room is drawn.
-  const decoTop = el('div', 'room-shelf-deco room-shelf-deco-top', { 'aria-hidden': 'true' });
-  const decoFoot = el('div', 'room-shelf-deco room-shelf-deco-foot', { 'aria-hidden': 'true' });
-  const shelves = el('div', 'room-shelves', { role: 'group', 'aria-label': 'The shelves' },
-    decoTop, filterBar, takesShelf.sec, archiveShelf.sec, decoFoot);
-
-  // The deck: a picture of the bar -- what it holds, how far it has got. It
-  // has no keys of its own (the bar is the only transport); pressing it is Open.
-  const deckLcd = el('span', 'room-deck-lcd', { 'aria-hidden': 'true' });
-  const deckReelL = svgReel();
-  const deckReelR = svgReel();
-  const deckLevels = el('span', 'room-deck-levels', { 'aria-hidden': 'true' });
-  // Its face: two reels and the tape between them over the heads, then a
-  // panel of meters, the counter and the keys -- hardware, all of it a picture.
-  const deckArt = el('span', 'room-deck-art', { 'aria-hidden': 'true' },
-    deckReelL, deckReelR, deckLevels,
-    deckTape(), el('span', 'room-deck-head'),
-    el('span', 'room-deck-panel', {},
-      el('span', 'room-deck-vu'), el('span', 'room-deck-vu'),
-      el('span', 'room-deck-buttons', {}, el('i'), el('i'), el('i'), el('i'), el('i')),
-      el('span', 'room-deck-knob')),
-    deckLcd);
-  const deckReels = new ReelWindow({ left: deckReelL, right: deckReelR, levels: deckLevels });
-  const deckPlace = el('button', 'room-place room-deck-place', { type: 'button', 'data-tip': 'room-deck' });
-  const deckMeta = el('span', 'room-deck-meta');
-  const deckBar = el('span', 'room-deck-progress', { 'aria-hidden': 'true' }, el('span', 'room-deck-progress-fill'));
-  const deck = el('section', 'room-deck', { 'aria-label': 'The deck, a picture of the bar' }, deckArt, deckPlace, deckMeta, deckBar);
-
-  // The sketchbook, on the side table: the chair, for what's in the bar.
-  const bookPlace = el('button', 'room-place room-book-place', { type: 'button', 'data-tip': 'room-book' });
-  const book = el('section', 'room-book', { 'aria-label': 'The sketchbook' }, bookPlace);
-
-  const stage = el('div', 'room-stage', {}, deck, book);
-  // The frame: the picture and the places laid over it share its box, which
-  // is the view's crop of the room.
-  const frame = el('div', 'room-frame', {}, scene, shelves, stage);
-  const room = el('section', 'room', { 'aria-label': 'The Listening Room' }, frame);
+  filterClear.addEventListener('click', () => { h.clearFilter(); room.querySelector('.room-cassette')?.focus(); });
+  const emptyCard = el('p', 'room-empty', { hidden: true });
+  const caseEl = el('div', 'room-case', {}, filterBar, emptyCard);
+  const wall = el('div', 'room-wall', { role: 'group', 'aria-label': 'The shelves' }, caseEl);
+  const room = el('section', 'room', { 'aria-label': 'The Listening Room' }, backdrop, wall);
   (tools || main.firstChild)?.after(room);
-  drawTheRoom({ room, frame, scene, twins: { shelves, deck, book }, deco: [decoTop, decoFoot] });
+  drawBackdrop({ room, scene });
 
-  // The archive's month, opened to the rack.
-  const rackBack = el('button', 'icon-btn room-rack-back', { type: 'button' }, '‹ The room');
+  // The List's head, when it shows a shelf (All ›): the way back, and what
+  // it shows. The search's Cancel is beside its field, where the toolbar
+  // holds it; in the head, where the page has put the field elsewhere.
+  const rackBack = drawn('button', 'icon-btn room-rack-back', { type: 'button', 'data-tip': 'room-back' }, 'left', 'The room');
   const rackTitle = el('h2', 'room-rack-title');
-  const rackHead = el('div', 'room-rack-head', {}, rackBack, rackTitle);
+  const searchDone = el('button', 'icon-btn room-search-done', { type: 'button', 'data-tip': 'room-search-done' }, 'Cancel');
+  const fieldLabel = $('shelf-q')?.closest?.('label');
+  if (fieldLabel && tools?.contains?.(fieldLabel)) fieldLabel.after(searchDone);
+  const rackHead = el('div', 'room-rack-head', {}, rackBack, rackTitle, searchDone.parentElement ? null : searchDone);
   $('takes')?.before(rackHead);
 
   // --- a tap plays, a hold selects ----------------------------------------------
-  // One tap for every surface: a spine, and a row of the List (a month's box,
-  // a search, a family's takes). The List's rows are the rack's own, wired
-  // here; its select bar gets a Tag key.
-  // The flight: a tap that puts a take on the deck lets its cassette fly there
-  // from its spine while it plays (lib/room/fly.js). The sound is asked for
-  // first, inside the tap; the flight is only a picture of it. Where the deck
-  // is not drawn (a phone) it flies to the bar, the one transport there.
-  let flewTo = 'deck';
+  // One tap for every surface: a spine, and a row of the List. The List's
+  // rows are the rack's own, wired here; its select bar gets a Tag key.
+  // The flight: a tap that puts a take in the bar lets its cassette fly
+  // there from its spine while it plays (lib/room/fly.js). The sound is asked
+  // for first, inside the tap; the flight is only a picture of it.
   const flights = createFlights({
     doc: document, win: window, host: body, reduced, ticker: h.ticker, timers: h.flightTimers,
     spine: (name) => room.querySelector(`.room-cassette[data-key="take:${CSS.escape(name)}"]`),
     target: () => {
-      const art = deckArt.getBoundingClientRect();
-      if (art.width > 0 && art.height > 0) {
-        flewTo = 'deck';
-        const w = art.width * 0.86;
-        return { x: art.left + art.width * 0.07, y: art.top + art.height * 0.04, w, h: w / 1.59 };
-      }
       const np = $('np');
       if (!np || np.hidden) return null;
-      flewTo = 'bar';
       const r = rectOf(np);
       return { x: r.x + 10, y: r.y + 8, w: 72, h: 46 };
     },
@@ -273,14 +178,14 @@ export function mount(h) {
     },
     onLand: () => {
       renderPlaces();
-      // It lands in the deck, which settles once; on a phone, in the bar.
-      const seat = flewTo === 'deck' ? deck : $('np');
+      // It lands in the bar, which settles once.
+      const seat = $('np');
       seat?.classList.add('room-seat');
       (h.flightTimers || { set: (f, ms) => setTimeout(f, ms) }).set(() => seat?.classList.remove('room-seat'), 450);
     },
   });
   const tap = createTap({
-    takes: h.takes, bar: () => h.np, toast, pick: h.pick,
+    takes: h.takes, bar: () => h.np, toast, pick: h.pick, go: h.go,
     onPlay: (name, { placed, audio }) => { renderPlaces(); if (placed) flights.launch(name, { audio }); },
     onStop: () => flights.cancel(),
   });
@@ -288,9 +193,14 @@ export function mount(h) {
   const tagging = tagKey({ doc: document, bar: h.selectBar, takes: h.takes, tags: tagStore, manage: (o) => openTagManager({ onToast: toast, ...o }) });
 
   // --- state -------------------------------------------------------------------
-  let tapeList = null; // GET /api/tapes: {loaded, tapes}, or null with the tape off: the deck names the tape in the bar by it
-  let month = null; // the archive's month opened to the rack: {key, title}
+  let tapeList = null; // GET /api/tapes: {loaded, tapes}, or null with the tape off: the dock names the tape in the bar by it
   let lastSig = '';
+  // `home` is how this device shows the room (Shelf | List, lib/room/
+  // library.js); `shown` is a shelf opened to the List, or the search, over
+  // it (below); `mode` is what is on the screen.
+  let home = libraryView();
+  let mode = home;
+  let shown = null; // { kind: 'shelf' | 'search', layer, key?, close }
 
   Promise.resolve(h.tapes).then((list) => {
     tapeList = list;
@@ -333,8 +243,8 @@ export function mount(h) {
       onDown: () => { if (!takes.selecting) tap.warm(name); },
     });
   }
-  // What each spine on the shelf stands for, for painting it (the bar's take
-  // and the selection change without the shelf being drawn again).
+  // What each spine on the wall stands for, for painting it (the bar's take
+  // and the selection change without the wall being drawn again).
   const spineData = new Map();
   function paintSpine(b) {
     const name = (b.dataset.key || '').slice('take:'.length);
@@ -349,104 +259,107 @@ export function mount(h) {
     b.setAttribute('aria-label', [takeTitle(t), whenOf(t), fmtLen(t.duration_seconds), t.starred ? 'starred' : '', d.isNew ? 'new' : '',
       fam ? fam.replace('✂', 'cuts ').replace('MIX ×', 'mixes ') : '', inTheBar ? 'in the bar' : '', chosen ? 'selected' : ''].filter(Boolean).join(', '));
     b.classList.toggle('on-deck', inTheBar);
+    b.classList.toggle('playing', playing);
     b.classList.toggle('selected', chosen);
     // A spine is a toggle: picked while selecting, else playing.
     b.setAttribute('aria-pressed', String(h.takes.selecting ? chosen : playing));
   }
   const syncSpines = () => { for (const b of room.querySelectorAll('.room-cassette')) paintSpine(b); };
   function spineButton(t, { isNew = false, members = [] } = {}) {
-    const name = takeTitle(t);
     const fam = familySticker(familyCounts(members));
     spineData.set(t.name, { t, isNew, members });
     const b = el('button', `room-cassette sinks stripe-${stripeFor(t, tagStore.list)} room-tone-${toneOf(t.name)}${isNew ? ' is-new' : ''}${t.starred ? ' starred' : ''}`, {
       type: 'button', 'data-key': `take:${t.name}`,
     },
     el('span', 'room-cassette-stripe', { 'aria-hidden': 'true' }),
-    el('span', 'room-cassette-name', { 'aria-hidden': 'true', text: name }),
-    el('span', 'room-cassette-when', { 'aria-hidden': 'true', text: `${whenOf(t)} · ${fmtLen(t.duration_seconds)}` }),
+    el('span', 'room-cassette-name', { 'aria-hidden': 'true', text: takeTitle(t) }),
     isNew ? el('span', 'room-new', { 'aria-hidden': 'true', text: 'NEW' }) : null,
     fam ? el('span', 'room-fam', { 'aria-hidden': 'true', text: fam }) : null);
     wireSpine(b, t.name);
     paintSpine(b);
     return el('li', '', {}, b);
   }
-  function boxButton(m) {
-    const b = el('button', 'room-box', { type: 'button', 'data-key': `month:${m.key}`, 'aria-label': `${m.title}. Open the box` },
-      el('span', 'room-box-label', { 'aria-hidden': 'true', text: m.plate }), el('span', 'room-box-hole', { 'aria-hidden': 'true' }));
-    b.addEventListener('click', () => openMonth(m));
-    return el('li', '', {}, b);
+  // A shelf: its spines, standing on its board; on the board's edge its
+  // plate (a card in a brass holder, hand-lettered) and All ›, which opens
+  // the List to it.
+  function shelfOf(s) {
+    const id = `room-shelf-${s.key.replace(/[^a-z0-9]+/gi, '-')}-h`;
+    const plate = el('h3', 'room-plate', { id });
+    if (s.kind === 'starred') plate.append(el('span', 'room-star', { 'aria-hidden': 'true' }));
+    else if (s.kind === 'tag') plate.append(el('span', `room-plate-dot stripe-${s.tag.color}`, { 'aria-hidden': 'true' }));
+    plate.append(el('span', 'room-plate-word', { text: s.plate }), el('span', 'room-plate-n', { text: ` · ${s.count}` }));
+    const all = drawn('button', 'room-all sinks', { type: 'button', 'data-key': `all:${s.key}`, 'data-tip': 'room-all', 'aria-label': `All of ${s.title}` }, 'right', '', 14);
+    all.prepend(el('span', '', { text: 'All' }));
+    all.addEventListener('click', () => openShelf(s, all));
+    const row = el('ul', 'room-row', { role: 'list' }, ...s.spines.map((x) => spineButton(x.take, { isNew: x.isNew, members: x.members })));
+    const sec = el('section', `room-shelf room-shelf-${s.kind}`, { 'aria-labelledby': id, 'data-shelf': s.key },
+      row, el('div', 'room-shelf-foot', {}, plate, all));
+    sec.style.setProperty('--n', String(s.count));
+    return sec;
   }
   const barNow = () => (h.np?.snapshot ? h.np.snapshot() : readBar(document));
   function render() {
     const now = Date.now();
-    const s = roomShelves(h.takes.all, h.opts(), now);
+    const opts = h.opts();
+    const shelves = wallShelves(h.takes.all, { ...opts, tags: tagStore.list }, now);
+    const filtered = filterWords(opts, tagStore.list);
     // A poll that changes nothing must not rebuild what's under a finger.
     const sig = JSON.stringify([
-      s.month.spines.map((x) => [x.take.name, x.take.label, x.take.starred, x.take.tag, x.isNew, x.members.length, x.take.duration_seconds]),
-      s.archive.map((b) => b.plate),
-      tagStore.list.map((g) => `${g.id}:${g.color}`), monthName(now),
-      filterWords(h.opts(), tagStore.list),
+      shelves.map((s) => [s.key, s.plate, s.spines.map((x) => [x.take.name, x.take.label, x.take.starred, x.take.tag, x.isNew, x.members.length, x.take.duration_seconds])]),
+      tagStore.list.map((g) => `${g.id}:${g.color}:${g.name}`), filtered,
     ]);
+    if (shown?.kind === 'shelf') syncShelf();
     if (sig === lastSig) return;
     lastSig = sig;
-    const focused = document.activeElement?.closest?.('.room-shelves [data-key]')?.dataset.key;
+    const a = document.activeElement;
+    const focused = a?.closest?.('.room-wall [data-key]') ? { key: a.dataset.key, shelf: a.closest('.room-shelf')?.dataset.shelf } : null;
 
-    takesShelf.h3.textContent = `TAKES · ${monthName(now)} · ${s.month.spines.length}`;
     spineData.clear();
-    takesShelf.list.replaceChildren(...s.month.spines.map((x) => spineButton(x.take, { isNew: x.isNew, members: x.members })));
-    const filtered = filterWords(h.opts(), tagStore.list);
     filterBar.hidden = !filtered.length;
     filterText.textContent = `Showing only takes ${filtered.join(', ')}. `;
-    takesEmpty.hidden = s.month.spines.length > 0;
-    takesEmpty.textContent = filtered.length
-      ? 'No takes this month match. Show everything to see them all.'
-      : 'Nothing kept this month yet. KEEP in the Studio puts a take on this shelf.';
-    if (takesShelf.listBtn) takesShelf.listBtn.hidden = !s.month.spines.length;
-    const archived = s.archive.reduce((n, b) => n + b.count, 0);
-    archiveShelf.sec.hidden = !s.archive.length;
-    archiveShelf.h3.textContent = `ARCHIVE · ${archived}`;
-    archiveShelf.list.replaceChildren(...s.archive.map(boxButton));
-    if (focused) room.querySelector(`[data-key="${CSS.escape(focused)}"]`)?.focus();
-    if (month) syncMonth();
+    emptyCard.hidden = shelves.length > 0;
+    emptyCard.textContent = filtered.length
+      ? 'No takes match. Show everything to see them all.'
+      : 'Nothing on the shelves yet. KEEP in the Studio puts a take here.';
+    caseEl.replaceChildren(filterBar, emptyCard, ...shelves.map(shelfOf));
+    if (focused) {
+      const shelf = focused.shelf ? caseEl.querySelector(`[data-shelf="${CSS.escape(focused.shelf)}"]`) : null;
+      (shelf?.querySelector(`[data-key="${CSS.escape(focused.key)}"]`) || room.querySelector(`[data-key="${CSS.escape(focused.key)}"]`))?.focus();
+    }
+    fitSoon();
   }
 
-  let placesSig = '';
+  // A shelf that holds more than it shows ends on half a spine, so it says
+  // it goes on: the row is cut to a whole number of spines and a half.
+  // Measured when the wall changes size or is drawn again, never per frame.
+  function fitRows() {
+    if (typeof getComputedStyle !== 'function' || mode !== 'shelf') return;
+    for (const row of caseEl.querySelectorAll('.room-row')) {
+      row.style.removeProperty('max-width');
+      const first = row.querySelector('.room-cassette');
+      if (!first || row.scrollWidth <= row.clientWidth + 1) continue;
+      const cs = getComputedStyle(row);
+      const pitch = first.offsetWidth + (parseFloat(cs.columnGap) || 0);
+      const pad = parseFloat(cs.paddingLeft) || 0;
+      if (!pitch) continue;
+      const k = Math.max(1, Math.floor((row.clientWidth - pad - pitch / 2) / pitch));
+      row.style.maxWidth = `${Math.round(pad + k * pitch + pitch / 2)}px`;
+    }
+  }
+  let fitting = false;
+  function fitSoon() {
+    if (fitting || typeof requestAnimationFrame !== 'function') return;
+    fitting = true;
+    requestAnimationFrame(() => { fitting = false; fitRows(); });
+  }
+  if (typeof ResizeObserver === 'function') new ResizeObserver(fitSoon).observe(wall);
+
   let spinesSig = '';
   function renderPlaces() {
     const bar = barNow();
     const d = inBar();
-    const w = deckWords(d, bar);
     const spines = JSON.stringify([h.np?.takeName ?? null, bar.playing]);
     if (spines !== spinesSig) { spinesSig = spines; syncSpines(); }
-    const frac = Number(bar.frac) || 0;
-    room.style.setProperty('--room-played', frac.toFixed(4));
-    deckLcd.textContent = w.lcd;
-    const sr = (d && d.kind === 'take' && d.take.sample_rate) || bar.sampleRate || 48000;
-    const len = bar.length || Math.max(1, Math.round(((d && d.kind === 'take' && d.take.duration_seconds) || 10) * sr));
-    const heard = bar.frame != null ? bar.frame : Math.round(frac * len);
-    deckReels.poll({ heard, playing: !!(bar.playing && d), length: len, sampleRate: sr });
-    const sig = JSON.stringify([w.place, w.meta, w.label, w.href, bar.playing, !!d]);
-    if (sig === placesSig) return;
-    placesSig = sig;
-    deck.classList.toggle('empty', !d);
-    deck.classList.toggle('playing', bar.playing && !!d);
-    // ▶ its name · Open ›: where a tap on it goes, drawn, not typed.
-    const drawn = (name) => { const s = el('span', 'room-deck-ico', { 'aria-hidden': 'true' }); s.innerHTML = icon(name, { size: 12 }); return s; };
-    deckPlace.replaceChildren(el('span', 'room-led', { 'aria-hidden': 'true' }), ...(w.opens ? [drawn('play'), w.place, drawn('right')] : [w.place]));
-    deckPlace.setAttribute('aria-label', w.label);
-    deckMeta.textContent = w.meta;
-    // The sketchbook: the notes of the take in the bar.
-    const bt = d && d.kind === 'take' ? d.take : null;
-    const notes = bt ? (bt.flags || []).length : 0;
-    const latest = bt ? [...(bt.flags || [])].filter((f) => f.label).sort((a, b) => b.frame - a.frame)[0] : null;
-    bookPlace.replaceChildren(
-      el('span', 'room-book-word', { text: 'Sketchbook' }),
-      el('span', 'room-book-latest', { text: d && d.kind === 'tape' ? 'notes are for takes' : latest ? `${fmtAt(latest.frame, bt.sample_rate || 48000)} · ${latest.label}` : bt ? 'no notes yet' : 'nothing in the bar' }),
-      el('span', 'room-book-n', { 'aria-hidden': 'true', text: String(notes) }));
-    bookPlace.setAttribute('aria-label', d && d.kind === 'take'
-      ? `Open the sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${takeTitle(d.take)}`
-      : d ? 'Sketchbook: notes are for takes; pick a take from the shelf'
-        : 'Sketchbook: nothing in the bar to write about yet');
     renderDock(d);
   }
   const offBar = h.np?.onChange?.(renderPlaces);
@@ -472,6 +385,9 @@ export function mount(h) {
     }
   }
 
+  // The Sketchbook: the notes of the take in the bar, which ✎ on the bar
+  // opens (the engine's setOnNote). It left the room's floor with the deck;
+  // the notes drawer (listening-back.md, step 2) is to take its place.
   function openSketchbook(takeName, stashed = null) {
     const t0 = h.takes.all.find((x) => x.name === takeName);
     if (!t0) return;
@@ -499,7 +415,6 @@ export function mount(h) {
     }
     const curTake = () => h.takes.all.find((x) => x.name === takeName) || t0;
     const sr = () => curTake().sample_rate || 48000;
-    const totalFrames = () => Math.max(1, Math.round((curTake().duration_seconds || 10) * sr()));
     const frameAt = () => {
       if (stashed && stashed.take === takeName && typeof stashed.frame === 'number') return stashed.frame;
       const now = h.np?.frameNow?.();
@@ -548,8 +463,7 @@ export function mount(h) {
     };
     const renderBook = () => {
       const t = curTake();
-      const title = takeTitle(t);
-      $('room-book-title').textContent = `Sketchbook · ${title}`;
+      $('room-book-title').textContent = `Sketchbook · ${takeTitle(t)}`;
       $('room-book-wave').setAttribute('href', `/wave.html?file=${encodeURIComponent(t.name)}`);
       $('room-book-at').textContent = `Note at ${fmtAt(targetFrame, sr())}`;
       const starBtn = $('room-book-star');
@@ -625,84 +539,112 @@ export function mount(h) {
     $('room-book-input')?.focus();
   }
 
-  // --- the places ------------------------------------------------------------------
-  // Open: the take in the bar, on its page; the tape in the Studio. With
-  // nothing in the bar there is nothing to open, and the shelf is pointed at.
-  const focusShelf = (sel) => (room.querySelector(`${sel} .room-row button`) || room.querySelector(`${sel}`))?.focus();
-  function openBar() {
-    const d = inBar();
-    if (!d) { focusShelf('.room-shelf-takes'); return; }
-    const w = deckWords(d, barNow());
-    if (w.forTape) openTheTape({ go: h.go });
-    else if (d.kind === 'take') {
-      const href = `/wave.html?file=${encodeURIComponent(d.take.name)}`;
-      if (h.go) h.go(href); else location.href = href;
-    }
-    else if (h.go) h.go(w.href);
-    else location.href = w.href;
-  }
-  deckPlace.addEventListener('click', openBar);
-  // The sketchbook is the notes on a take. With the tape (or nothing) in the
-  // bar there is nothing to write on, so it never leaves the room: it points
-  // at the shelf, as the deck does when it is empty.
-  bookPlace.addEventListener('click', () => {
-    const d = inBar();
-    if (d && d.kind === 'take') {
-      if (h.openSketchbook) h.openSketchbook(d.take.name);
-      else openBar();
-    }
-    else focusShelf('.room-shelf-takes');
-  });
-
   h.onChange(() => { render(); renderPlaces(); });
   h.onSelected(() => { tagging.sync(); syncSpines(); });
   tagStore.subscribe(() => render());
 
-  // --- the archive: a month's box, opened to the rack ----------------------------------
-  // `month` is what's open: {title, names(), back} -- a month's box, or a
-  // shelf opened as a list.
-  let monthSig = '';
-  function syncMonth() {
-    const names = month.names();
+  // --- the library: the wall or the List, a shelf's All ›, the search -------------
+  // A shelf opened to the List and the search are each on the page's stack
+  // (lib/ui/layers.js), so Back and Escape put them away as they close a
+  // sheet, and a switch of rooms does.
+  const viewKeys = () => [...($('shelf-view')?.querySelectorAll('button[data-show]') || [])];
+  function show(next) {
+    mode = next;
+    body.classList.toggle('room-rack', next !== 'shelf');
+    body.classList.toggle('room-search', next === 'search');
+    body.classList.toggle('room-drill', next === 'opened' || (next === 'search' && rackHead.contains(searchDone)));
+    rackBack.hidden = next !== 'opened';
+    searchDone.hidden = next !== 'search';
+    for (const b of viewKeys()) b.setAttribute('aria-pressed', String(b.dataset.show === home));
+    if (next === 'shelf') fitSoon();
+  }
+  const putAway = () => (shown?.layer?.open ? shown.layer.close('program') : shown?.close('program'));
+
+  // Shelf | List: this device's way of seeing the room, remembered.
+  for (const b of viewKeys()) {
+    b.addEventListener('click', () => {
+      const v = b.dataset.show;
+      setLibraryView(v);
+      home = v;
+      if (shown) putAway();
+      else crossFade(() => show(home));
+    });
+  }
+  // The same switch, changed in Settings (lib/device-prefs.js): heard while
+  // the room shows, and looked at again whenever it is shown.
+  function followPref() {
+    home = libraryView();
+    if (!shown) show(home);
+    else for (const b of viewKeys()) b.setAttribute('aria-pressed', String(b.dataset.show === home));
+  }
+  h.on?.(window, CHANGED, followPref);
+
+  // A shelf's All ›: the List, showing that shelf alone; ‹ The room (or
+  // Back) goes back to the wall, to the All › it came from.
+  let shelfSig = '';
+  function syncShelf() {
+    const names = shelfNames(h.takes.all, shown.key, { ...h.opts(), tags: tagStore.list });
     const sig = [...names].sort().join('|');
-    if (sig === monthSig) return;
-    monthSig = sig;
+    if (sig === shelfSig) return;
+    shelfSig = sig;
     h.setFilter((t) => names.has(t.name));
   }
-  function openMonth(m) {
-    openList({ title: m.title, back: `month:${m.key}`, names: () => inMonth(h.takes.all, m.key, h.opts()) });
+  function openShelf(s, all) {
+    if (shown) putAway();
+    const close = (reason) => {
+      if (shown !== mine) return;
+      shown = null;
+      shelfSig = '';
+      crossFade(() => { h.setFilter(null); if (!shown) show(home); }).then(() => {
+        if (reason !== 'navigate') room.querySelector(`[data-key="${CSS.escape(`all:${s.key}`)}"]`)?.focus();
+      });
+    };
+    const mine = { kind: 'shelf', key: s.key, close };
+    mine.layer = h.layers?.open({ el: h.rack, kind: 'drawer', owner: all, returnFocus: null, onClose: close }) || null;
+    shown = mine;
+    shelfSig = '';
+    rackTitle.textContent = `${s.plate} · ${s.count}`;
+    crossFade(() => { syncShelf(); show('opened'); }).then(() => rackBack.focus());
   }
-  function openList(m) {
-    month = m;
-    monthSig = '';
-    crossFade(() => {
-      body.classList.add('room-rack');
-      rackTitle.textContent = m.title;
-      syncMonth();
-    }).then(() => rackBack.focus());
-  }
-  rackBack.addEventListener('click', () => {
-    const back = month?.back || '';
-    month = null;
-    monthSig = '';
-    crossFade(() => {
-      body.classList.remove('room-rack');
-      h.setFilter(null);
-    }).then(() => room.querySelector(`[data-key="${CSS.escape(back)}"]`)?.focus());
-  });
-  // This month's takes, as today's rack: Select and Play all are there.
-  takesShelf.listBtn.addEventListener('click', () => {
-    const key = monthKey(Date.now());
-    const n = roomShelves(h.takes.all, h.opts()).month.spines.length;
-    openList({ title: `${monthName()}: ${n} take${n === 1 ? '' : 's'}`, back: 'list:takes', names: () => inMonth(h.takes.all, key, h.opts()) });
-  });
+  rackBack.addEventListener('click', putAway);
 
+  // The search (its field is #shelf-q, wherever the page puts it): used, it
+  // opens the List with the field pinned and the results right under it,
+  // above where a keyboard comes up; Cancel (or Back) empties it and goes
+  // back to the wall or the List it came from. What it matches is
+  // lib/shelf.js searchText: what's printed on a spine, the day, the tag,
+  // the tempo, the notes.
+  const field = $('shelf-q');
+  function openSearch() {
+    if (shown?.kind === 'search') return;
+    if (shown) putAway();
+    const close = (reason) => {
+      if (shown !== mine) return;
+      shown = null;
+      h.clearQuery?.();
+      if (reason !== 'navigate') field?.blur?.();
+      show(home);
+    };
+    const mine = { kind: 'search', close };
+    mine.layer = h.layers?.open({ el: tools || field, kind: 'drawer', owner: field, outside: false, returnFocus: null, onClose: close }) || null;
+    shown = mine;
+    rackTitle.textContent = '';
+    show('search');
+    // The results start at the top, under the field.
+    try { window.scrollTo?.(0, 0); } catch { /* fine */ }
+  }
+  field?.addEventListener('focus', openSearch);
+  field?.addEventListener('input', openSearch);
+  searchDone.addEventListener('click', putAway);
+
+  show(home);
   render();
   renderPlaces();
   return {
     render,
     renderPlaces,
     openSketchbook,
+    shown: followPref,
     hide() {
       flights.cancel();
       $('room-sketchbook')?.close?.();

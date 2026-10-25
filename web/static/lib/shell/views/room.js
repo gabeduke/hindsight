@@ -1,13 +1,15 @@
 // web/static/lib/shell/views/room.js
 // The Listening Room as a shell view (docs/architecture.md, The shell,
-// step 4): the takes shelf and the rack under it, mounted once by the shell
-// and driven through ctx so its polls, frame loops and global listeners go
-// quiet while another room is shown.
+// step 4): the library -- the shelf wall (lib/room/doorway.js) and the List
+// under it, with the search, the filters and Sort ▾ over both -- mounted
+// once by the shell and driven through ctx so its polls, frame loops and
+// global listeners go quiet while another room is shown.
 
 import { TakesList } from '/lib/takes.js';
 import { TrashList } from '/lib/trash.js';
 import { toast as defaultToast, takeNextToast } from '/lib/toast.js';
-import { shelve, tagCounts, fold, familyOf, matches } from '/lib/shelf.js';
+import { shelve, tagCounts, fold, familyOf, matches, SORTS, sortKey, NEW_MS } from '/lib/shelf.js';
+import { menu, menuItem, barTop } from '/lib/ui/menu.js';
 import { tagStore } from '/lib/tags.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 import { named } from '/lib/rooms/words.js';
@@ -49,20 +51,23 @@ export const roomView = {
     // The room's month box, opened to the rack: only that month's families.
     let roomFilter = null;
 
-    // What the shelf shows, remembered per device. Never the search: a search
-    // left in from last week would hide takes without saying why.
+    // What the library shows, remembered per device: the chips (★, a tag,
+    // This week, MIDI) and Sort ▾. Never the search: a search left in from
+    // last week would hide takes without saying why. (Phone and Tape were
+    // chips once: a search for "phone" or "mixdown" finds them now.)
     const VIEW_KEY = 'hindsight.shelf';
-    const view = { query: '', starred: false, midi: false, phone: false, tape: false, sort: 'newest', tag: '' };
+    const FILTERS = ['starred', 'week', 'midi'];
+    const view = { query: '', starred: false, week: false, midi: false, phone: false, tape: false, sort: 'newest', tag: '' };
     try {
       const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || '{}');
-      for (const k of ['starred', 'midi', 'phone', 'tape']) view[k] = saved[k] === true;
-      if (saved.sort === 'longest' || saved.sort === 'tag') view.sort = saved.sort;
+      for (const k of FILTERS) view[k] = saved[k] === true;
+      view.sort = sortKey(saved.sort);
       if (typeof saved.tag === 'string') view.tag = saved.tag;
     } catch { /* fine */ }
     function saveView() {
       try {
-        const { starred, midi, phone, tape, sort, tag } = view;
-        localStorage.setItem(VIEW_KEY, JSON.stringify({ starred, midi, phone, tape, sort, tag }));
+        const { starred, week, midi, sort, tag } = view;
+        localStorage.setItem(VIEW_KEY, JSON.stringify({ starred, week, midi, sort, tag }));
       } catch { /* private mode */ }
     }
 
@@ -120,6 +125,9 @@ export const roomView = {
         return shelve(all, opts);
       },
       spines: true,
+      // Each row's › opens the take, and a take under a day old wears NEW.
+      openKey: true,
+      newFor: NEW_MS,
       audioFor: (t) => np.audioFor(t),
     });
     $('select-btn').addEventListener('click', () => (takes.selecting ? takes.exitSelect() : takes.enterSelect()));
@@ -158,7 +166,7 @@ export const roomView = {
         const count = document.createElement('span');
         count.className = 'tag-n';
         count.textContent = String(n[g.id]);
-        return chip(`icon-btn toggle tag-chip stripe-${g.color}`, [dot, g.name, ' ', count], on === g.id, () => pickTag(g.id));
+        return chip(`icon-btn toggle tag-chip stripe-${g.color}`, [dot, `#${g.name}`, ' ', count], on === g.id, () => pickTag(g.id));
       });
       if (list.length) els.push(chip('icon-btn toggle', `Untagged ${n['']}`, on === 'none', () => pickTag('none')));
       const edit = chip('chip tag-edit-btn', list.length ? 'Edit tags' : '+ Tags', false, () => openTagManager({ onToast: toast }));
@@ -171,14 +179,33 @@ export const roomView = {
     tagStore.subscribe(() => { renderTagFilters(); syncPick(); roomChanged(); });
 
     function renderControls() {
-      for (const b of $('shelf-filters').querySelectorAll('button')) {
-        b.setAttribute('aria-pressed', String(view[b.dataset.filter]));
+      for (const b of $('shelf-filters').querySelectorAll('button[data-filter]')) {
+        b.setAttribute('aria-pressed', String(!!view[b.dataset.filter]));
       }
-      for (const b of $('shelf-sort').querySelectorAll('button')) {
-        b.setAttribute('aria-pressed', String(b.dataset.sort === view.sort));
-      }
+      const sort = SORTS.find((s) => s.id === view.sort) || SORTS[0];
+      $('shelf-sort-word').textContent = sort.word;
+      $('shelf-sort').setAttribute('aria-label', `Sort: ${sort.word}`);
+      sortMenu.refresh();
       renderTagFilters();
     }
+
+    // Sort ▾: Newest, Oldest, Longest or Name, for the shelves and the List
+    // alike (lib/shelf.js sorted). A menu of its own (lib/ui/menu.js).
+    const sortMenu = menu($('shelf-sort'), $('shelf-sort-menu'), {
+      layers: ctx.layers, align: 'end', floor: barTop(document), focus: 'checked',
+      render: (panel) => panel.replaceChildren(...SORTS.map((s) => {
+        const row = menuItem(document, { word: s.word, role: 'menuitemradio', checked: s.id === view.sort, attrs: { 'data-sort': s.id } });
+        row.addEventListener('click', () => {
+          if (s.id === view.sort) return;
+          view.sort = s.id;
+          saveView();
+          renderControls();
+          reshape();
+          roomChanged();
+        });
+        return row;
+      })),
+    });
 
     function reshape() {
       takes.reshape();
@@ -339,19 +366,22 @@ export const roomView = {
       saveView();
       renderControls();
       reshape();
+      roomChanged();
     });
-    $('shelf-sort').addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-sort]');
-      if (!b || b.dataset.sort === view.sort) return;
-      view.sort = b.dataset.sort;
-      saveView();
-      renderControls();
-      reshape();
-    });
+    // The search: what it matches is lib/shelf.js searchText; the room
+    // (lib/room/doorway.js) opens the List with the field pinned as it is
+    // used. By its id, wherever the field is.
     let searchTimer = 0;
+    const setQuery = (q) => {
+      clearTimeout(searchTimer);
+      if (view.query === q) return;
+      view.query = q;
+      reshape();
+      roomChanged();
+    };
     $('shelf-q').addEventListener('input', (e) => {
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => { view.query = e.target.value; reshape(); }, 120);
+      searchTimer = setTimeout(() => setQuery(e.target.value), 120);
     });
 
     // --- counts and space ------------------------------------------------------
@@ -440,12 +470,19 @@ export const roomView = {
       clearFilter: () => {
         view.query = '';
         $('shelf-q').value = '';
-        for (const k of ['starred', 'midi', 'phone', 'tape']) view[k] = false;
+        for (const k of FILTERS) view[k] = false;
         view.tag = '';
         saveView();
         renderControls();
         reshape();
       },
+      // The search put away ('‹ The room', Cancel, Back): the field empties.
+      clearQuery: () => {
+        $('shelf-q').value = '';
+        setQuery('');
+      },
+      layers: ctx.layers,
+      on: (target, type, fn, opts) => ctx.on(target, type, fn, opts),
       onChange: (fn) => roomHooks.change.add(fn),
       onSelected: (fn) => roomHooks.selected.add(fn),
       poll: () => poll(true),
@@ -456,6 +493,7 @@ export const roomView = {
       show({ first }) {
         if (!first) {
           showNextToast();
+          roomInst?.shown?.();
           roomInst?.render?.();
           roomInst?.renderPlaces?.();
         }

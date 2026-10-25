@@ -7,7 +7,6 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { ROOM, project, face, inFrame, lit, diffuse, floorShadow, wallShadow, drawOrder, viewFor, keyLight } from './space.js';
 import { ART } from './art/index.js';
 import { drawRoom, roomScene, RoomRenderer } from './stage.js';
-import { shelfTop, shelfBottom } from './art/shelf.js';
 import { Ticker } from '../objects/motion.js';
 import { cssOf, fileCss } from '../stylesheets.js';
 
@@ -117,7 +116,6 @@ test('the picture draws every object, in either view, with nothing left unworked
     assert.doesNotMatch(svg, /NaN|undefined|Infinity/);
     assert.ok(svg.length < 600_000, `${name} is ${svg.length} bytes`);
   }
-  for (const s of [shelfTop(), shelfBottom()]) assert.doesNotMatch(s, /NaN|undefined/);
   assert.equal(viewFor(1.6), 'wide');
   assert.equal(viewFor(0.76), 'tall');
 });

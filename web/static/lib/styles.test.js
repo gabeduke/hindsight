@@ -470,19 +470,34 @@ test('a phone’s shelf row leaves room for a selected spine’s ring, halo and 
   // The row scrolls (overflow clips both ways), the ring's halo is 2px and the tick sits 6px
   // above the spine: it needs 8px above and 2px beside, and a snap must not eat the side.
   const body = stripComments(css.slice(css.indexOf('/* ---------- Rooms P5:')));
-  const phone = body.slice(body.indexOf('@media (max-width: 699.98px), (prefers-reduced-data: reduce)'));
-  const m = /\.room-row\s*\{[^}]*padding:\s*(\d+)px\s+\d+px\s+\d+px\s+(\d+)px[^}]*\}/.exec(phone);
+  const phone = body.slice(body.indexOf('@media (max-width: 699.98px) {'));
+  const m = /\.room-row\s*\{[^}]*padding:\s*(\d+)px\s+\d+(?:px)?\s+\d+(?:px)?\s+(\d+)px[^}]*\}/.exec(phone);
   assert.ok(m, 'the phone’s .room-row has a four-value padding');
   assert.ok(Number(m[1]) >= 8, `${m[1]}px above the spines is too little for the tick`);
   assert.ok(Number(m[2]) >= 2, `${m[2]}px beside the first spine is too little for the halo`);
   assert.match(m[0], /scroll-padding-left:\s*[2-9]px/, 'a snap to the first spine keeps that room');
 });
 
-test('the room draws no deck on a phone, and the deck has no keys', () => {
+test('the deck, the Sketchbook’s place, ☰ List and the month boxes have left the room: no rule for what is gone', () => {
+  // The library (docs/plan/the-studio-space.md): the bar is the deck, ✎ on it the notes, All › a shelf's List.
   const body = section(css, '/* ---------- Rooms P5:');
-  const phone = body.slice(body.indexOf('@media (max-width: 699.98px), (prefers-reduced-data: reduce)'));
-  assert.match(phone, /\.room-deck\s*\{\s*display:\s*none/, 'the deck card is gone on a phone');
-  assert.doesNotMatch(body, /room-deck-keys|room-deck-play|room-deck-sit|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/, 'no rule for what is gone');
+  assert.doesNotMatch(body, /\.room-deck|\.room-place\b|\.room-book-place|\.room-list-btn|\.room-box\b|\.room-stage\b|\.room-shelf-deco|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/);
+});
+
+test('the shelf wall keeps no 3D context round its spines', () => {
+  // With the case and its shelves in preserve-3d, Chrome hit-tested a
+  // shelf's scrolling row and not the spine in it: a tap played nothing
+  // (the flows found it). One tilted plane, flat inside.
+  const body = section(css, '/* ---------- Rooms P5:');
+  assert.doesNotMatch(body, /transform-style:\s*preserve-3d/);
+});
+
+test('the drawn room is the backdrop: in full while the room is walked into, at ambient light after', () => {
+  // The camera's contract (the router sets html[data-arriving="room"] while the switch into the room plays).
+  const body = section(css, '/* ---------- Rooms P5:');
+  assert.match(body, /\.room-backdrop\s*\{[^}]*opacity:\s*var\(--room-ambient\)/, 'ambient, by a token');
+  assert.match(body, /:root\[data-arriving="room"\] \.room-backdrop\s*\{[^}]*opacity:\s*1/, 'in full as you walk in');
+  assert.match(body, /\.room-backdrop\s*\{[^}]*transition:\s*opacity [^;]*var\(--t-room\)/, 'and back to ambient slowly, on the motion tokens');
 });
 
 test('Play mode’s rules reach only Play mode', () => {
