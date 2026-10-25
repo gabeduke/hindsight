@@ -3,12 +3,6 @@
 // trash, with Restore on each, Delete forever, and Empty. Deleted and pruned
 // takes wait here for a week, or until the disk runs low.
 
-const fmtLen = (s) => {
-  if (!isFinite(s) || s <= 0) return '0:00';
-  const m = Math.floor(s / 60);
-  return `${m}:${String(Math.round(s % 60) % 60).padStart(2, '0')}`;
-};
-
 /** ago says how long ago t was, coarsely: "just now", "5 min", "3 h", "2 days". */
 export function ago(t, now = Date.now()) {
   const s = Math.max(0, (now - new Date(t).getTime()) / 1000);
@@ -20,8 +14,9 @@ export function ago(t, now = Date.now()) {
 }
 
 import { named } from './rooms/words.js';
-/** stampOf is what an unnamed take is called: its timestamp. */
-const stampOf = (name) => name.replace(/^jam_|\.wav$/g, '');
+import { takeTitle, fmtLen } from './rooms/takename.js';
+// A take here is called as it is on its spine, with its day: nothing around it says when it was made.
+const titleOf = (t) => takeTitle(t, { day: true });
 
 export async function restoreTake(name) {
   const res = await fetch(`/api/trash/restore?file=${encodeURIComponent(name)}`, { method: 'POST' });
@@ -93,7 +88,7 @@ export class TrashList {
     li.className = 'trash-row';
     const name = document.createElement('span');
     name.className = `trash-name${t.label ? '' : ' unlabelled'}`;
-    name.textContent = t.label || stampOf(t.name);
+    name.textContent = titleOf(t);
     const meta = document.createElement('span');
     meta.className = 'trash-meta';
     meta.textContent = `${fmtLen(t.duration_seconds)} · ${t.reason === 'pruned' ? 'pruned' : 'deleted'} ${ago(t.deleted_at)}`;
@@ -121,7 +116,7 @@ export class TrashList {
     if (btn) btn.disabled = true;
     try {
       await restoreTake(t.name);
-      this.onToast?.(`Restored ${named(t.label || stampOf(t.name))}, starred`);
+      this.onToast?.(`Restored ${named(titleOf(t))}, starred`);
       await this.onRestored?.(t.name);
     } catch (e) {
       this.onToast?.(`Could not restore: ${e.message}`, 'bad');
@@ -130,7 +125,7 @@ export class TrashList {
   }
 
   async purge(t) {
-    const ok = await this.onConfirm?.('Delete this take for good?', t.label || stampOf(t.name));
+    const ok = await this.onConfirm?.('Delete this take for good?', titleOf(t));
     if (!ok) return;
     try {
       const res = await fetch(`/api/trash?file=${encodeURIComponent(t.name)}`, { method: 'DELETE' });

@@ -32,7 +32,8 @@ import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
 import { openTagManager } from '../tags-dialog.js';
 import { deckOf, deckWords, readBar, fmtLen } from './deck.js';
-import { spineTitle, familyCounts, familySticker, flagChips } from '../shelf.js';
+import { familyCounts, familySticker, flagChips } from '../shelf.js';
+import { takeTitle } from '../rooms/takename.js';
 import { flagRequest } from '../flags.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
@@ -268,7 +269,7 @@ export function mount(h) {
     },
     face: (name) => {
       const d = spineData.get(name);
-      return { name: d ? spineTitle(d.t) : name, stripe: d ? stripeFor(d.t, tagStore.list) : 1 };
+      return { name: d ? takeTitle(d.t) : name, stripe: d ? stripeFor(d.t, tagStore.list) : 1 };
     },
     onLand: () => {
       renderPlaces();
@@ -345,7 +346,7 @@ export function mount(h) {
     const chosen = h.takes.selected.has(name);
     const fam = familySticker(familyCounts(d.members));
     const t = d.t;
-    b.setAttribute('aria-label', [spineTitle(t), whenOf(t), fmtLen(t.duration_seconds), t.starred ? 'starred' : '', d.isNew ? 'new' : '',
+    b.setAttribute('aria-label', [takeTitle(t), whenOf(t), fmtLen(t.duration_seconds), t.starred ? 'starred' : '', d.isNew ? 'new' : '',
       fam ? fam.replace('✂', 'cuts ').replace('MIX ×', 'mixes ') : '', inTheBar ? 'in the bar' : '', chosen ? 'selected' : ''].filter(Boolean).join(', '));
     b.classList.toggle('on-deck', inTheBar);
     b.classList.toggle('selected', chosen);
@@ -354,7 +355,7 @@ export function mount(h) {
   }
   const syncSpines = () => { for (const b of room.querySelectorAll('.room-cassette')) paintSpine(b); };
   function spineButton(t, { isNew = false, members = [] } = {}) {
-    const name = spineTitle(t);
+    const name = takeTitle(t);
     const fam = familySticker(familyCounts(members));
     spineData.set(t.name, { t, isNew, members });
     const b = el('button', `room-cassette sinks stripe-${stripeFor(t, tagStore.list)} room-tone-${toneOf(t.name)}${isNew ? ' is-new' : ''}${t.starred ? ' starred' : ''}`, {
@@ -443,7 +444,7 @@ export function mount(h) {
       el('span', 'room-book-latest', { text: d && d.kind === 'tape' ? 'notes are for takes' : latest ? `${fmtAt(latest.frame, bt.sample_rate || 48000)} · ${latest.label}` : bt ? 'no notes yet' : 'nothing in the bar' }),
       el('span', 'room-book-n', { 'aria-hidden': 'true', text: String(notes) }));
     bookPlace.setAttribute('aria-label', d && d.kind === 'take'
-      ? `Open the sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${spineTitle(d.take)}`
+      ? `Open the sketchbook: ${notes} note${notes === 1 ? '' : 's'} on ${takeTitle(d.take)}`
       : d ? 'Sketchbook: notes are for takes; pick a take from the shelf'
         : 'Sketchbook: nothing in the bar to write about yet');
     renderDock(d);
@@ -547,7 +548,7 @@ export function mount(h) {
     };
     const renderBook = () => {
       const t = curTake();
-      const title = spineTitle(t);
+      const title = takeTitle(t);
       $('room-book-title').textContent = `Sketchbook · ${title}`;
       $('room-book-wave').setAttribute('href', `/wave.html?file=${encodeURIComponent(t.name)}`);
       $('room-book-at').textContent = `Note at ${fmtAt(targetFrame, sr())}`;

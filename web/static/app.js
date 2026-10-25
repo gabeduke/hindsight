@@ -15,7 +15,7 @@ import { takeTitle } from '/lib/rooms/takename.js';
 import { newest, fold, membersOf } from '/lib/shelf.js';
 
 // A take is named as its spine names it, not by its file.
-const nameOf = (name, seconds) => takeTitle(name, seconds);
+const nameOf = (name, seconds) => takeTitle(name, { seconds, day: true });
 
 // Capture is a shell view (lib/shell/views/capture.js): ctx is always given.
 export function mountCapture(ctx) {

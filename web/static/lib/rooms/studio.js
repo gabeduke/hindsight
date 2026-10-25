@@ -108,7 +108,7 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
       toast(`Could not undo it: ${e.message}`, 'bad');
       return;
     }
-    toast(`Took back ${named(title || takeTitle(name))}: it’s in Recently deleted`, 'ok', {
+    toast(`Took back ${named(title || takeTitle(name, { day: true }))}: it’s in Recently deleted`, 'ok', {
       action: {
         label: 'Restore',
         run: async () => {
@@ -278,8 +278,8 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     let kept = false;
     try {
       const body = await keepTake(seconds);
-      const title = takeTitle(body.name, undefined, body.label);
-      keptToast(`Kept ${named(takeTitle(body.name, body.seconds, body.label))}: it’s on the Listening Room’s shelf`, body.name, title);
+      const title = takeTitle(body, { day: true });
+      keptToast(`Kept ${named(takeTitle(body, { seconds: body.seconds, day: true }))}: it’s on the Listening Room’s shelf`, body.name, title);
       kept = true;
       try { navigator.vibrate?.([12, 70, 12]); } catch { /* no haptics here */ }
     } catch (e) {

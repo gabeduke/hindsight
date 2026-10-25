@@ -1078,6 +1078,15 @@ bar is the only transport; **Open** (`wave.html`) is the one page to dig in,
 and the bar's **Open ›** is its way in. The bar's display says what plays:
 its **source** (the tape, the live feed or a take), and where it plays.
 
+**A take is called one way** wherever a person reads it: its own name, or
+the time it was caught, which is what its spine prints (`takeTitle`,
+`lib/rooms/takename.js`). The bar, a search, Recently deleted, a toast and
+a screen reader all say that; where nothing around it says the day (a
+toast, Recently deleted) the day goes before the time (`{ day: true }`).
+Never the file (`jam_….wav`) or its date stamp. Open's own page still
+titles a take by its date stamp (`lib/wave/page.js` `stampOf`), until
+Open's pass.
+
 ### Icons
 
 A key's picture is a symbol in one sprite, `web/static/icons/ui.svg`: line

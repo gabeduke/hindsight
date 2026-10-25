@@ -16,7 +16,8 @@ import { timedFetch } from '/lib/link.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeFor, STRIPES } from '/lib/objects/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
-import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
+import { parseBpm, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
+import { takeTitle } from '/lib/rooms/takename.js';
 import { GESTURE } from '/lib/ui/press.js';
 
 /** setStripe puts one printed stripe on a spine, in place of the one it wore. */
@@ -445,7 +446,7 @@ export class TakesList {
     const beginEdit = () => {
       row.editing = true;
       row.nameInput.value = row.data.label || '';
-      row.nameInput.placeholder = row.data.name.replace(/^jam_|\.wav$/g, '');
+      row.nameInput.placeholder = takeTitle({ name: row.data.name });
       row.nameEl.hidden = true;
       row.nameInput.hidden = false;
       row.nameInput.focus();
@@ -565,14 +566,12 @@ export class TakesList {
     if (this.spines) setStripe(row.el, stripeFor(t, tagStore.list));
     row.starBtn.setAttribute('aria-pressed', t.starred ? 'true' : 'false');
     row.starBtn.classList.toggle('on', !!t.starred);
-    // A take with no label still needs something to show, and the timestamp is
-    // the only thing it has. Skip while the user is mid-edit so a poll cannot
-    // overwrite what they are typing.
+    // Skip while the user is mid-edit so a poll cannot overwrite what they
+    // are typing.
     if (!row.editing) {
-      const stamp = t.name.replace(/^jam_|\.wav$/g, '');
-      // A spine prints the time a never-named take was caught: the full
-      // stamp is in its label (below), and is the same for every take today.
-      row.nameEl.textContent = this.spines ? spineTitle(t) : t.label || stamp;
+      // What the take is called everywhere (lib/rooms/takename.js): its name,
+      // or the time a never-named take was caught.
+      row.nameEl.textContent = takeTitle(t);
       row.nameEl.classList.toggle('unlabelled', !t.label);
     }
     // Skip while the user is mid-edit so a poll cannot overwrite what they are
@@ -587,7 +586,7 @@ export class TakesList {
     const len = t.trim ? `${fmtTime((t.trim.end_frame - t.trim.start_frame) / sr)} of ${fmtTime(t.duration_seconds)}` : fmtTime(t.duration_seconds);
     row.metaEl.textContent = this.spines ? fmtTime(t.duration_seconds) : `${len} · ${fmtSize(t.size_mb)}`;
     if (this.spines) {
-      const name = t.label || t.name.replace(/^jam_|\.wav$/g, '');
+      const name = takeTitle(t);
       const encoding = !t.has_preview;
       row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null, tagOf(t, tagStore.list)?.name,
         fam.cuts ? plural(fam.cuts, 'cut') : null, fam.mixes ? plural(fam.mixes, 'mix', 'mixes') : null,
@@ -920,7 +919,7 @@ export class TakesList {
 
   async deleteTake(row) {
     const name = row.data.name;
-    const label = row.data.label || name.replace(/^jam_|\.wav$/g, '');
+    const label = takeTitle(row.data, { day: true });
     const cuts = row.family?.freed || 0;
     try {
       await this.trash([name]);

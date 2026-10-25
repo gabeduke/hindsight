@@ -39,7 +39,8 @@ import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toa
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { listFrom, fold, familyOf, flagChips, dropoutsText, spineTitle } from '../shelf.js';
+import { listFrom, fold, familyOf, flagChips, dropoutsText } from '../shelf.js';
+import { takeTitle } from '../rooms/takename.js';
 import { cutLabel } from './cut-label.js';
 import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
@@ -1212,7 +1213,7 @@ async function main() {
     followSaveName();
     renderDownbeat();
     // Its name as its spine says it: its label, or the time it was cut.
-    const name = spineTitle({ ...take, name: take.name || file });
+    const name = takeTitle({ ...take, name: take.name || file });
     $('take-name-text').textContent = name;
     $('take-name').classList.toggle('unlabelled', !take.label);
     $('take-name').setAttribute('aria-label', `${name}: this take’s menu`);
@@ -1323,7 +1324,7 @@ async function main() {
     if (!orderListed && Array.isArray(list)) order = list.map((t) => t.name);
     if (!Array.isArray(order)) return null;
     const i = order.indexOf(file);
-    const titleOf = (name) => spineTitle((Array.isArray(list) && list.find((t) => t.name === name)) || { name });
+    const titleOf = (name) => takeTitle((Array.isArray(list) && list.find((t) => t.name === name)) || { name });
     const go = (name) => () => {
       flushRegion();
       flushDownbeat();
@@ -1889,7 +1890,7 @@ async function main() {
     const dk = `${take.label}|${state.grid.bpm}`;
     if (dk !== displayKey) {
       displayKey = dk;
-      const d = takeDisplay({ title: spineTitle({ ...take, name: take.name || file }), bpm: state.grid.bpm }, hereWord(deviceOf(window)));
+      const d = takeDisplay({ title: takeTitle({ ...take, name: take.name || file }), bpm: state.grid.bpm }, hereWord(deviceOf(window)));
       setText($('np-tempo-short'), d.tempo.short);
       setText($('np-tempo-long'), d.tempo.long);
       setText($('np-source-short'), d.source.short);

@@ -5,14 +5,10 @@
 // Play from… -- because the bar is the only transport; a tap on it is Open.
 // Pure, but for readBar, which reads the bar's face off the page.
 
-import { spineTitle } from '../shelf.js';
+import { takeTitle, fmtLen } from '../rooms/takename.js';
 
-/** fmtLen is a length as the cards say it: "1:59". */
-export function fmtLen(s) {
-  if (!Number.isFinite(s) || s <= 0) return '0:00';
-  const m = Math.floor(s / 60), r = Math.round(s % 60);
-  return `${m}:${String(r === 60 ? 59 : r).padStart(2, '0')}`;
-}
+/** fmtLen is a length as the cards say it: "1:59" (lib/rooms/takename.js). */
+export { fmtLen };
 
 /**
  * deckOf is what the deck holds: the take in the bar (when the list still has
@@ -48,7 +44,7 @@ export function deckWords(d, { playing = false, pos = '' } = {}) {
   }
   const lcd = pos || '00:00';
   if (d.kind === 'take') {
-    const name = spineTitle(d.take);
+    const name = takeTitle(d.take);
     return {
       place: `${name} · Open`, opens: true,
       label: `In the bar: ${name}, a take${playing ? ', playing' : ''}. Open it`,
