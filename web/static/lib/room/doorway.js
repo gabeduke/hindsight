@@ -354,6 +354,17 @@ export function mount(h) {
   }
   if (typeof ResizeObserver === 'function') new ResizeObserver(fitSoon).observe(wall);
 
+  // On a tablet and wider the room is pinned to the window (styles.css),
+  // where the page's own box for it is: under the header (and a banner),
+  // over the bar. Measured when that box changes size, never per frame.
+  function pinRoom() {
+    const r = main?.getBoundingClientRect?.();
+    if (!r || !r.height) return; // another room is showing
+    main.style.setProperty('--room-top', `${Math.round(r.top)}px`);
+    main.style.setProperty('--room-h', `${Math.round(r.height)}px`);
+  }
+  if (typeof ResizeObserver === 'function' && main) new ResizeObserver(pinRoom).observe(main);
+
   let spinesSig = '';
   function renderPlaces() {
     const bar = barNow();

@@ -4554,11 +4554,16 @@ body:not(.room-rack) .shelf-title,
 @media (min-width: 700px) {
   body.room-on:not(.room-rack) { height: 100svh; }
   body.room-on:not(.room-rack) > main.shelf-main { position: relative; flex: 1 1 0; min-height: 0; }
-  /* Pinned under the header, over the room's top, where it stays even if
-     the page is pushed sideways (a bar too wide for the screen). */
-  .room-on:not(.room-rack) .shelf-tools { position: fixed; z-index: 3; left: 0; right: 0; top: var(--topbar-h); pointer-events: none; }
+  /* The room, and its toolbar over its top, are pinned to the window where
+     the page's own box for them is (--room-top, --room-h: main's, from
+     lib/room/doorway.js), so a page pushed sideways (a bar too wide for
+     the screen) moves the header and the bar, never the shelves. */
+  .room-on:not(.room-rack) .shelf-tools { position: fixed; z-index: 3; left: 0; right: 0; top: var(--room-top, var(--topbar-h)); pointer-events: none; }
   .room-on:not(.room-rack) .shelf-tools > * { pointer-events: auto; }
-  .room { height: 100%; min-height: 360px; overflow: hidden; }
+  .room {
+    position: fixed; left: 0; right: 0; top: var(--room-top, var(--topbar-h));
+    height: var(--room-h, calc(100svh - var(--topbar-h))); min-height: 360px; overflow: hidden;
+  }
   .room-wall {
     position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
     padding: 66px clamp(12px, 3vw, 36px) 24px;

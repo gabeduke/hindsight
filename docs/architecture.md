@@ -1116,6 +1116,11 @@ in `lib/room/doorway.js`):
   it; *Cancel*, or Back, empties it. It matches what a person sees
   (`searchText`): the spine's title, the day in words, the tag, the tempo,
   the notes' words, every word typed.
+- On a tablet and wider the room (and its toolbar) is pinned to the
+  window where the page's own box for it is (`--room-top`, `--room-h`,
+  measured from `main` by a ResizeObserver), so a page pushed sideways by a
+  bar too wide for the screen moves the header and the bar, never the
+  shelves.
 - A shelf opened by All ›, and the search, are each on the page's stack
   (`ctx.layers`, kind `drawer`), so Back and Escape put them away.
 - **The drawn room is the backdrop** (`lib/room/stage.js` `backdropRoom`:

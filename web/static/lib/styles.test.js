@@ -484,6 +484,16 @@ test('the deck, the Sketchbook’s place, ☰ List and the month boxes have left
   assert.doesNotMatch(body, /\.room-deck|\.room-place\b|\.room-book-place|\.room-list-btn|\.room-box\b|\.room-stage\b|\.room-shelf-deco|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/);
 });
 
+test('on a tablet the room is pinned to the window, so a page pushed sideways never drags the shelves with it', () => {
+  // ✎, past the edge of a 1024 screen while the bar is too wide (STATE.md),
+  // scrolls the page sideways to reach it; the wall went with it and its
+  // first spines hung off the left side (the flows found it, J2.4).
+  const body = stripComments(section(css, '/* ---------- Rooms P5:'));
+  const tablet = body.slice(body.indexOf('@media (min-width: 700px) {'));
+  assert.match(tablet, /\n\s*\.room \{[^}]*position:\s*fixed;[^}]*left:\s*0;[^}]*top:\s*var\(--room-top/);
+  assert.match(tablet, /\.shelf-tools \{[^}]*position:\s*fixed;[^}]*top:\s*var\(--room-top/);
+});
+
 test('the shelf wall keeps no 3D context round its spines', () => {
   // With the case and its shelves in preserve-3d, Chrome hit-tested a
   // shelf's scrolling row and not the spine in it: a tap played nothing
