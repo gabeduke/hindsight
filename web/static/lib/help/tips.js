@@ -212,6 +212,7 @@ export const TIPS = [
   { control: 'Track picker', ids: ['ce-ref'], tip: 'Choose the track to line this clip up against' },
   { control: 'Hit → Track', ids: ['ce-track'], tip: 'Move the clip so its hit lands on the nearest hit of the chosen track' },
   { control: 'Catch', ids: ['catch'], tip: "Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. It lights after one whole pass of the loop: until then a press says why. The last 1, 2 or 4 bars are in the track's inspector and under its ▾. Key: C" },
+  { control: '▾ (Catch)', ids: ['catch-more'], tip: 'What Catch takes: the last pass, or the last 1, 2 or 4 bars, onto the armed tracks. One that can\'t go yet says why' },
   { control: 'Passes', ids: ['passes'], tip: 'Every time round the loop, kept. Tap one to put it on the record track' },
   { control: 'Join', ids: ['join'], tip: 'Join this clip and the half that was split from it back into one' },
   { control: '×2', ids: ['multiply'], tip: 'Double the loop, copying what\'s in it over what follows. On the action bar while the range is the loop' },

@@ -46,6 +46,7 @@ import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter, takeMarquee } from '../objects/lcd.js';
 import { initPlayer } from '../bar/player.js';
+import { layersOf } from '../ui/layers.js';
 import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom } from '../room/mount.js';
@@ -136,7 +137,9 @@ async function main() {
   if (history.state && history.state.notes) history.replaceState(null, '');
   initHelp({ page: 'take', toast });
   showPresses(document); // every key goes down the moment it is touched
-  initNav();
+  // Open is outside the shell, so it has a stack of open things of its own
+  // (lib/ui/layers.js): ☰ and the phone's player close on it.
+  initNav(document, { layers: layersOf(document) });
   // A take trashed on the page before this one: "Deleted … · Undo", and its
   // Undo opens it again, where it was in the list's order.
   const queued = takeNextToast();

@@ -1,6 +1,8 @@
 // J1.5 Multi-arm by cables: a tap on ● arms that track alone, a hold adds
 // it (or takes it off), Catch names where it lands, and a track's input chip
-// or its inspector picks what it records from. docs/flows.md#j15
+// or its inspector picks what it records from. The chip's menu opens by it
+// (lib/ui/menu.js), and from a keyboard on the input chosen.
+// docs/flows.md#j15
 // Ported from the retired scripts/smoke-tape.mjs ("Recording on the track"). The flow
 // makes its own tape, so the arms and inputs it changes are that tape's.
 
@@ -11,6 +13,7 @@ const same = (a, b) => [...a].sort().join() === [...b].sort().join();
 export default {
   id: 'J1.5',
   title: '● arms one track; a hold adds another',
+  checksMenus: ['#input-menu'], // the layout checks see it open
   async run(t) {
     const { page, api } = t;
     const tape = await t.given('a fresh tape', () => api.tape('Arm'));
@@ -52,15 +55,21 @@ export default {
     t.expect('the Pi offers inputs', names.length > 0, sources);
     if (!names.length) return;
     // On a laptop's height track 4 is under the bar: scroll to it first, as
-    // a person would, and let the scroll land. The menu closes when the page
-    // scrolls under it, and a scroll the tap itself made can land after the
-    // menu opened.
+    // a person would, and let the scroll land (the menu follows its chip, but
+    // the tap should land where the chip is).
     await page.locator('.tt-in').nth(3).scrollIntoViewIfNeeded();
     await t.wait(300);
     await t.step('tap track 4’s input', () => t.tap(page.locator('.tt-in').nth(3)));
     t.expect('the input menu opens for track 4, not the inspector', await t.poll(() => !document.getElementById('input-menu')?.hidden
       && !document.getElementById('track-sheet')?.open
       && /Track 4/.test(document.querySelector('#input-menu .menu-head')?.textContent ?? '')));
+    const beside = await page.evaluate(() => {
+      const c = document.querySelectorAll('.tt-in')[3].getBoundingClientRect();
+      const m = document.getElementById('input-menu').getBoundingClientRect();
+      const np = document.getElementById('np').getBoundingClientRect();
+      return { left: Math.round(m.left - c.left), under: m.top >= c.bottom, over: m.bottom <= c.top, clear: !np.height || m.bottom <= np.top + 1, chip: document.querySelectorAll('.tt-in')[3].getAttribute('aria-expanded') };
+    });
+    t.expect('it opens by the chip, its left edge on the chip’s, clear of the bar', Math.abs(beside.left) <= 1 && (beside.under || beside.over) && beside.clear && beside.chip === 'true', beside);
     const was = (await api.tapeState()).inputs ?? [];
     const pick4 = names.find((n) => n !== (was[3] || '')) ?? names[0];
     await t.step(`choose ${pick4}`, () => t.tap(page.locator(`#input-menu button[data-name="${pick4}"]`)));
@@ -68,6 +77,22 @@ export default {
     t.expect('track 4 records from it, on the Pi', given, (await api.tapeState()).inputs);
     t.expect('track 4 stays unarmed and its chip names the input', same(armed(await api.tapeState()), [3])
       && await t.poll((n) => document.querySelectorAll('.tt-in-v')[3]?.textContent === n && document.getElementById('input-menu').hidden, pick4));
+
+    // From a keyboard: ↓ on the chip opens its menu on the input the track
+    // records from, without arming another track; Escape shuts it, back on
+    // the chip.
+    await t.step('focus track 4’s input and press ↓', async () => {
+      await page.locator('.tt-in').nth(3).focus();
+      await page.keyboard.press('ArrowDown');
+    });
+    t.expect('the menu opens with the keyboard on the input chosen', await t.poll((n) => !document.getElementById('input-menu').hidden
+      && document.activeElement?.dataset.name === n && document.activeElement.getAttribute('aria-checked') === 'true', pick4),
+    await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 120)));
+    await page.waitForTimeout(600); // an arm would be on its way to the Pi by now
+    t.expect('and the record track stays track 3', same(armed(await api.tapeState()), [3]), armed(await api.tapeState()));
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('Escape shuts it, back on the chip', await t.poll(() => document.getElementById('input-menu').hidden
+      && document.activeElement === document.querySelectorAll('.tt-in')[3]));
 
     // The record track's inspector: its name, tapped twice.
     await t.step('open track 3’s inspector', async () => {

@@ -1,5 +1,6 @@
 // J1.1 Keep the last N: the take I already played is saved, and I can take
-// it back. How much is on KEEP's ▾, and the next tap keeps that, after a
+// it back. How much is on KEEP's ▾, whose lengths open under it (Escape,
+// or the tablet's Back, shuts them), and the next tap keeps that, after a
 // reload too. docs/flows.md#j11
 export default {
   id: 'J1.1',
@@ -24,6 +25,16 @@ export default {
 
     // The longest length on KEEP's ▾ (the flows' feed holds a minute: 30s,
     // then all of it), and KEEP keeps that.
+    await t.step('KEEP’s ▾', () => t.tap(page.locator('#studio-keep-more')));
+    t.expect('its lengths open under the ▾', await t.poll(() => {
+      const more = document.getElementById('studio-keep-more').getBoundingClientRect();
+      const pop = document.getElementById('studio-keep-pop');
+      const r = pop.getBoundingClientRect();
+      return !pop.hidden && Math.abs(r.right - more.right) <= 2 && r.top >= more.bottom && r.top - more.bottom <= 12;
+    }));
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('Escape shuts them and leaves you in the Studio', await t.poll(() => document.getElementById('studio-keep-pop')?.hidden)
+      && await page.evaluate(() => location.pathname) === '/tape.html');
     await t.step('KEEP’s ▾, then the longest length', async () => {
       await t.tap(page.locator('#studio-keep-more'));
       await t.tap(page.locator('#dur-seg button').last());

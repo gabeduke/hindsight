@@ -38,15 +38,15 @@ core. `rig`: needs the hardware; checked by hand, not here.
 
 | Id | Story — as Gabe I want to… | Flow | Status |
 |---|---|---|---|
-| J1.1 | keep the last 30s/2m of the jam from the Studio, so the thing I already played is saved; how much is on KEEP's ▾, and stays chosen | `j1.1-keep` | core |
+| J1.1 | keep the last 30s/2m of the jam from the Studio, so the thing I already played is saved; how much is on KEEP's ▾, whose lengths open under it (Escape or the tablet's Back shuts them, in the Studio), and stays chosen | `j1.1-keep` | core |
 | J1.2 | flag a moment now; the flag rides into the next take | `j1.2-flag` | core |
 | J1.3 | select a span of the feed ribbon, then KEEP or GRAB just that | `j1.3-span` | core |
-| J1.4 | set BPM/bars, play, and CATCH the last pass onto the armed track | `j1.4-catch` | core |
-| J1.5 | ● arms one track; holding ● adds another (or takes it off); Catch names the armed tracks; a track's input chip or inspector picks what it records from | `j1.5-arm` | core |
-| J1.6 | GRAB the last bars into the buffer (how many on GRAB's ▾, from the armed track's input) and DROP them on the armed track | `j1.6-grab-drop` | core |
+| J1.4 | set BPM/bars, play, and CATCH the last pass onto the armed track; the tempo pill is the menu of the bar counts the loop could be, under it, and Escape shuts it in the Studio; Catch's ▾ is a key of its own beside Catch (a finger wide, as GRAB's and KEEP's), goes down under my finger as Catch does, and its menu over it catches the last 1, 2 or 4 bars | `j1.4-catch` | core |
+| J1.5 | ● arms one track; holding ● adds another (or takes it off); Catch names the armed tracks; a track's input chip or inspector picks what it records from; the chip's menu opens by it, clear of the bar, and from a keyboard ↓ on the chip opens it on the input chosen (arming nothing) and Escape shuts it | `j1.5-arm` | core |
+| J1.6 | GRAB the last bars into the buffer (how many on GRAB's ▾, whose bars open under it, by my finger, with the inputs after them; from the armed track's input) and DROP them on the armed track | `j1.6-grab-drop` | core |
 | J1.9 | lay out a song: hold and drag a section on the strip, name it, resize it, tap it to loop it, Duplicate, Remove; hold the ruler for a range, Copy, Delete time; ↶/↷ throughout | `j1.9-song-layout` | core |
 | J1.10 | fold the bar and the lanes away for room, and have them stay folded | `j1.10-fold` | core |
-| J1.11 | tap a part to select it; Enter or a double tap opens its sheet, → nudges it a bar, a swipe pans, hold-and-drag slides it, ↶ undoes | `j1.11-clip-gestures` | core |
+| J1.11 | tap a part to select it; Enter or a double tap opens its sheet, → nudges it a bar, a swipe pans, hold-and-drag slides it, ↶ undoes; Escape (the tablet's Back) closes the sheet first and then lets go of the part, and never leaves the Studio; with a track's inspector left open when I tap a part, Escape closes the inspector first, then lets go of the part; on an iPad (a browser without CloseWatcher), Rename opened over the selected part closes on Escape or Back and the part stays selected, and the next Back lets go of it | `j1.11-clip-gestures` | core |
 | J1.12 | play the tape from the bar (or Space): reels, the tape's name, a moving counter, and \|◂ back to the loop's start; ▶ goes down the moment my finger is on it, and a quick tap still shows it down | `j1.12-bar-transport` | core |
 | J2.2 | tap a take to play it, and keep it playing as I move between rooms | `j2.2-persist` | core |
 | J2.3 | switch the bar between Feed (GRAB from the feed into the buffer), Tape and Shelf (with no take, it goes to the Listening Room) | `j2.3-bar-sources` | core |
@@ -56,8 +56,8 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J3.1 | GRAB 4 bars from an old take's page into the Studio, and DROP them | `j3.1-take-grab` | core |
 | J3.2 | bounce the tape to a take on the shelf | `j3.2-bounce` | core |
 | J3.3 | on a phone, with the tape playing on it (as with the interface off), share the mix to send my brother: ⋯ → Share the mix, then the toast's Share hands the share sheet an MP3 named after the tape and the day; Bounce, which needs the jam room, offers it too | `j3.3-share-mix` | core (phone) |
-| J4.4 | on a phone, the bar is a mini player above the tabs, with \|◀ beside ▶ ("I looked for \|◀ and didn't find it"), back to the loop's start or the take's; a tap pulls the player up, Back puts it away; a tapped clip's bar floats above the player; Insert asks before it moves the tape; the ruler's keys are one key, ⌗, whose menu sets the snap ("smooshed into the phone UI") | `j4.4-phone-bar` | core (phone) |
-| J5.1 | open Settings, Releases, help mode, the guide and the rig from the one menu (☰) in either room, on a tablet, a computer or a phone | `j5.1-sheets` | core |
+| J4.4 | on a phone, the bar is a mini player above the tabs, with \|◀ beside ▶ ("I looked for \|◀ and didn't find it"), back to the loop's start or the take's, and Catch with its ▾ beside it, the window keeping its bar number; a tap pulls the player up, where Catch's ▾ opens its menu under the pair and Back closes that first, then Back puts the player away and stays in the Studio (Android's Back is a close request, which the flow sends as Escape; in a browser without CloseWatcher, the history's Back); a tapped clip's bar floats above the player; Insert asks before it moves the tape; the ruler's keys are one key, ⌗, whose menu sets the snap ("smooshed into the phone UI") | `j4.4-phone-bar` | core (phone) |
+| J5.1 | open Settings, Releases, help mode, the guide and the rig from the one menu (☰) in either room, on a tablet, a computer or a phone; it hangs under ☰, all of it on the screen; Escape (or the tablet's Back) shuts ☰ and leaves me in the room, and switching rooms shuts it too, never leaving it open over the other room; from a keyboard, ↓ on ☰ opens it on Settings, ↓ moves along it (in the Studio, without arming another track), and Tab shuts it | `j5.1-sheets` | core |
 | C1 | **jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
 
 ### Not written yet (add a flow before or with the change that touches them)
@@ -99,6 +99,14 @@ at the end), with no LLM (`scripts/flows/layout.mjs`):
   lands there instead. A sheet or menu open over the page, and content
   scrolled under the pinned bar, don't count.
 - **offscreen:** a control cut off by the side of the screen.
+- **menu-offscreen:** an open menu, or a key's ▾ panel, whose box the
+  screen cuts at a side, the top or the foot (Open's ⋯ opens at x −144 on
+  a phone: no flow opens it there yet, see `docs/plan/STATE.md`). Each
+  screen's line keeps the menus open as it was checked (`menus` in
+  `--json`), and a flow's `checksMenus` (ids) fails it unless the checks
+  saw each one open: J5.1 has ☰, J3.3 ⋯, J4.4 ⌗'s menu, J1.4 the tempo's
+  and Catch's, J1.5 the input chip's. A step that opens a menu, then a
+  step that uses it, is what puts an open menu in front of the checks.
 - **target-size:** axe-core's WCAG 2.2 rule, under 24 px with too little
   room around it.
 - **Warnings only:** a label cut off; a control under 44 px on a touch
@@ -143,7 +151,8 @@ One file per story in `scripts/flows/<id>-<slug>.flow.mjs`:
 ```js
 export default {
   id: 'J2.4', title: 'Jot a note while a take plays',
-  // status: 'todo', profiles: ['phone'] (default tablet + desktop), allowHttpErrors: true
+  // status: 'todo', profiles: ['phone'] (default tablet + desktop), allowHttpErrors: true,
+  // checksMenus: ['#tape-actions'] (the layout checks must see it open)
   async run(t) {
     const take = await t.given('a take on the shelf', () => t.api.keep(20)); // seed through the API
     await t.given('the Listening Room is open', () => t.page.goto(`${t.base}/takes.html`));

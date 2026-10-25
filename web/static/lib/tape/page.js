@@ -4,7 +4,6 @@
 // state a few times a second and sends what you tap.
 
 import { toast } from '../toast.js';
-import { icon } from '../ui/icons.js';
 import { canShareFiles, shareOrDownload, looksLikeMP3 } from '../wave/share.js';
 import { drawBars, takeGain, levelsOfColumns, laneChannels } from '../wave/draw.js';
 import { drawTrace, traceLines } from '../wave/tape-strip.js';
@@ -49,11 +48,12 @@ import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer,
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
 import { bindPress, ARM_PRESS, GESTURE } from '../ui/press.js';
 import { recordsTape } from '../rig/warn.js';
-import { menuShift } from './menu-fit.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
+import { layersOf } from '../ui/layers.js';
+import { menu, splitKey, menuItem, barTop } from '../ui/menu.js';
 
 // A hidden Studio's dock nodes (#multi-bar, #clip-editor) are out of the
 // page (lib/shell/view.js, Slot), but a timer set while it was shown can
@@ -165,11 +165,16 @@ let awayTrack = null; // the record track while Overdub on this device is open
 let viewCtx = null;
 let cueLane = null;
 const viewActive = () => !viewCtx || viewCtx.active();
+// The shell's stack of open things, this view's scope of it (ctx.layers,
+// lib/ui/layers.js): the menus, the inspector, the clip editor and the
+// selection are layers on it, so Back and Escape close the newest first.
+let stack = null;
 
 // The Studio's shell view (lib/shell/views/studio.js) is the only caller:
 // ctx is always given.
 export function mountTapePage(ctx) {
   viewCtx = ctx;
+  stack = ctx?.layers || layersOf(document);
   // The Studio's bar is the tape's and never takes a take: this page neither
   // reads the hand-off nor writes it, so the Listening Room, back, finds its
   // take (lib/bar/carry.js).
@@ -720,6 +725,9 @@ function render() {
     cb.setAttribute('aria-disabled', String(!cs.ready));
     cb.classList.toggle('waits', !cs.ready);
     cb.classList.toggle('jam-only', phoneOut);
+    // Its ▾ is the other half of the key: lit, waiting or plain with it.
+    $('catch-more').classList.toggle('waits', !cs.ready);
+    $('catch-more').classList.toggle('jam-only', phoneOut);
     setIf(cb, 'title', cs.ready ? tipFor('catch') : cs.why);
     const catchWords = catchSub(cs, { armed: state.recTracks, phoneOut });
     setText(cb.querySelector('.np-catch-sub'), catchWords);
@@ -889,7 +897,6 @@ function noteMixdown(md) {
 // JSON, then downloads the zip as it renders.
 async function exportStems(e) {
   e.preventDefault();
-  closeMenus();
   const url = `/api/tapes/export?${q()}`;
   const res = await fetch(url, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
   if (!res || !res.ok) {
@@ -1263,7 +1270,6 @@ function wireTimeEdits() {
   $('ask-first').addEventListener('click', () => {
     writePref('tape.ask', askFirst() ? 'off' : 'on');
     renderAskFirst();
-    closeMenus();
     toast(askFirst() ? 'Insert and Delete time ask first on a touch screen' : 'Insert and Delete time act on the first tap', 'ok');
   });
   renderAskFirst();
@@ -1271,6 +1277,69 @@ function wireTimeEdits() {
 
 function renderAskFirst() {
   $('ask-first').setAttribute('aria-checked', String(askFirst()));
+}
+
+// --- what is open, on the stack ---------------------------------------------
+// Each of these opens its layer as it shows and closes it as it goes, by
+// whatever closes it: Back and Escape (the stack), a key, a tap, a poll. A
+// layer's onClose is what Back and Escape do; the code that closes one
+// itself drops the layer first, so it is not closed twice. (The menus are
+// lib/ui/menu.js's, which opens and closes their layers itself.)
+let inspLayer = null; // the inspector's: a clip's, a track's or a section's
+let alignLayer = null; // the clip editor's
+let selLayer = null; // the selected clips', or the range's
+
+// selectionOnStack: what is selected, clips or a range, is a layer: Back or
+// Escape lets go of it (after any menu or sheet, open before it or after),
+// as Done does.
+function selectionOnStack(on) {
+  if (on && !selLayer?.open) {
+    selLayer = stack?.open({ el: $('multi-bar'), kind: 'selection', onClose: () => { selLayer = null; letGo(); letGoRange(); } }) || null;
+  } else if (!on && selLayer?.open) {
+    const l = selLayer;
+    selLayer = null;
+    l.close();
+  }
+}
+
+// underSelection: nothing closes before the selection (a preview's Escape).
+function underSelection() {
+  const top = stack?.top();
+  return !top || top.kind === 'selection';
+}
+
+// alignOnStack: the clip editor is a drawer over the bar: Back or Escape
+// closes it, its move saved.
+function alignOnStack(on) {
+  if (on && !alignLayer?.open) {
+    alignLayer = stack?.open({ el: $('clip-editor'), kind: 'drawer', onClose: () => { alignLayer = null; closeAlign(); } }) || null;
+  } else if (!on && alignLayer?.open) {
+    const l = alignLayer;
+    alignLayer = null;
+    l.close();
+  }
+}
+
+// inspectorOnStack: the inspector shown is a sheet. Back or Escape closes
+// it; with the keys in it (a name being typed), they go back to the page
+// first, so the name is kept (its change) and → moves the clip again.
+function inspectorOnStack(sh) {
+  if (inspLayer?.open && inspLayer.el === sh) return;
+  inspectorOffStack();
+  inspLayer = stack?.open({
+    el: sh, kind: 'sheet',
+    onClose: () => {
+      if (inspLayer?.el === sh) inspLayer = null;
+      if (sh.contains(document.activeElement)) document.activeElement.blur();
+      if (sh.open) sh.close();
+    },
+  }) || null;
+}
+function inspectorOffStack(sh = null) {
+  if (!inspLayer?.open || (sh && inspLayer.el !== sh)) return;
+  const l = inspLayer;
+  inspLayer = null;
+  l.close();
 }
 
 // --- selecting clips ------------------------------------------------------------
@@ -1373,6 +1442,7 @@ function renderClipBar() {
   const n = ps.length;
   if (!n) state.adding = false;
   const r = !n && state.tape ? state.range : null;
+  selectionOnStack(n > 0 || !!r);
   const bar = $('multi-bar');
   const was = !bar.hidden;
   bar.hidden = (!n && !r) || !!state.align || (!was && performance.now() < barWaitUntil);
@@ -2093,6 +2163,7 @@ function closeAlign() {
 
 function renderAlign() {
   const a = state.align;
+  alignOnStack(!!a);
   const el = $('clip-editor');
   el.hidden = !a;
   el.parentElement.classList.toggle('editing', !!a);
@@ -2945,7 +3016,7 @@ function buildLanes() {
   const box = $('lanes');
   const t = state.tape;
   if (lanes.length !== t.tracks.length) {
-    if (inputMenu) closeMenus(); // its chip is going
+    inputOpen()?.menu.close(); // its chip is going
     lanesAbort?.abort();
     lanesAbort = new AbortController();
     for (const l of lanes) unwatchSize(l.canvas);
@@ -2959,7 +3030,7 @@ function buildLanes() {
           <span class="tt-num" aria-hidden="true"></span>
           <button class="tt-name" type="button"></button>
           <button class="chip tt-arm" type="button" aria-pressed="false" data-tip="track-arm"><span class="tt-arm-dot" aria-hidden="true"></span></button>
-          <button class="chip tt-in" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="input-menu" data-tip="track-input"><span class="tt-in-led" aria-hidden="true"></span><span class="tt-in-v"></span></button>
+          <button class="chip tt-in" type="button" data-tip="track-input"><span class="tt-in-led" aria-hidden="true"></span><span class="tt-in-v"></span></button>
           <button class="chip tt-mute" type="button" aria-pressed="false" data-tip="track-mute">M</button>
           <button class="chip tt-solo" type="button" aria-pressed="false" data-tip="track-solo">S</button>
           <span class="tt-pend" hidden></span>
@@ -3028,18 +3099,7 @@ function buildLanes() {
       warn.setAttribute('role', 'img');
       warn.hidden = true;
       lane.arm.before(warn);
-      lane.input.addEventListener('click', (e) => {
-        e.stopPropagation(); // the page's click closes menus
-        openInputMenu(n, lane.input, e.detail === 0);
-      });
-      // ↓ on the chip goes into its menu, opening it if it's shut.
-      lane.input.addEventListener('keydown', (e) => {
-        if (e.key !== 'ArrowDown') return;
-        e.preventDefault();
-        e.stopPropagation(); // not the page's ↓, which arms the next track
-        if (!(inputMenu && inputMenu.n === n)) openInputMenu(n, lane.input, true);
-        else focusInputItem();
-      });
+      mountInputMenu(n, lane.input);
       lane.mute.addEventListener('click', () => { askHeard(n); patch({ track: { n, mute: !track(n).mute } }); });
       lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
       lane.gain.addEventListener('input', () => { lane.gain.dataset.busy = '1'; });
@@ -4019,20 +4079,18 @@ async function tap() {
   }
 }
 
-// openTempo offers the other bar counts the loop could be: the same frames,
-// relabelled, so nothing is stretched.
-function openTempo() {
+// renderTempo fills the tempo's menu with the other bar counts the loop
+// could be: the same frames, relabelled, so nothing is stretched.
+function renderTempo(menu) {
   const t = state.tape;
-  const menu = $('tempo-menu');
-  const wasOpen = !menu.hidden;
-  closeMenus();
-  if (!t || !t.grid || wasOpen) return;
   const opts = [];
-  for (const bars of [t.grid.bars / 4, t.grid.bars / 2, t.grid.bars, t.grid.bars * 2, t.grid.bars * 4]) {
-    if (!Number.isInteger(bars) || bars < 1 || bars > 64) continue;
-    const bpm = bpmOf({ frames: t.grid.frames, bars }, t.sample_rate);
-    if (bpm < 20 || bpm > 400) continue;
-    opts.push({ bars, bpm });
+  if (t && t.grid) {
+    for (const bars of [t.grid.bars / 4, t.grid.bars / 2, t.grid.bars, t.grid.bars * 2, t.grid.bars * 4]) {
+      if (!Number.isInteger(bars) || bars < 1 || bars > 64) continue;
+      const bpm = bpmOf({ frames: t.grid.frames, bars }, t.sample_rate);
+      if (bpm < 20 || bpm > 400) continue;
+      opts.push({ bars, bpm });
+    }
   }
   menu.replaceChildren(...opts.map((o) => {
     const b = document.createElement('button');
@@ -4040,10 +4098,9 @@ function openTempo() {
     b.setAttribute('role', 'menuitem');
     b.className = o.bars === t.grid.bars ? 'on' : '';
     b.textContent = `${o.bars} bar${o.bars === 1 ? '' : 's'} at ${o.bpm.toFixed(1)} BPM`;
-    b.addEventListener('click', () => { closeMenus(); if (o.bars !== t.grid.bars) patch({ bars: o.bars }); });
+    b.addEventListener('click', () => { if (o.bars !== t.grid.bars) patch({ bars: o.bars }); });
     return b;
   }));
-  showMenu('tempo-menu');
 }
 
 function laneTap(lane, e) {
@@ -4068,15 +4125,10 @@ function laneTap(lane, e) {
 }
 
 // The Catch key. Waiting for a pass it says why instead of doing nothing --
-// with the last 4 bars on offer when those don't wait -- and its ▾ opens the
-// menu of what to catch (mountCatchMenu).
-function onCatchKey(e) {
+// with the last 4 bars on offer when those don't wait. Its ▾, a key of its
+// own, opens the menu of what to catch (mountCatchMenu).
+function onCatchKey() {
   const cs = state.catchSays;
-  if (e.target.closest && e.target.closest('.np-catch-more')) {
-    e.stopPropagation(); // the page's click closes menus
-    if ($('catch-menu').hidden) { renderCatchMenu(); showMenu('catch-menu'); } else closeMenus();
-    return;
-  }
   if (cs && !cs.ready) {
     toast(cs.why, 'warn', {
       ms: 7000,
@@ -4087,84 +4139,37 @@ function onCatchKey(e) {
   doCatch({ pass: 1 });
 }
 
-// mountCatchMenu gives Catch a ▾ and the menu it opens:
-// the last pass, or the last 1, 2 or 4 bars -- a track's sheet had them, and
-// nothing on the Studio said so. A part of the key, not a button of its own,
-// so it keeps the dock's three layouts; ↑ on the key opens it from a keyboard.
+// mountCatchMenu gives Catch's ▾ the menu it opens: the last pass, or the
+// last 1, 2 or 4 bars -- a track's sheet had them, and nothing on the Studio
+// said so. Catch and its ▾ are a split key (lib/ui/menu.js), as GRAB's and
+// KEEP's: the menu opens over the pair in the bar (under it in the phone's
+// pulled-up player, where there's room), its right edge on the pair's, and
+// Catch, a pick, a press elsewhere, Escape or Back shuts it.
+let catchMenu = null;
 function mountCatchMenu() {
   const key = $('catch-pass');
-  const more = document.createElement('span');
-  more.className = 'np-catch-more';
-  more.setAttribute('aria-hidden', 'true');
-  more.innerHTML = icon('down', { size: 14 });
   // The second line the phone's mini bar shows.
   const mini = document.createElement('span');
   mini.className = 'np-catch-mini';
   mini.setAttribute('aria-hidden', 'true');
   key.querySelector('.np-catch-sub')?.after(mini);
-  key.append(more);
-  key.setAttribute('aria-haspopup', 'menu');
-  key.setAttribute('aria-expanded', 'false');
-  const menu = document.createElement('div');
-  menu.id = 'catch-menu';
-  menu.className = 'menu catch-menu';
-  menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-label', 'What to catch');
-  menu.hidden = true;
-  document.body.append(menu);
-  MENUS.push(['catch-menu', 'catch-pass']);
-  key.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    e.stopPropagation();
-    renderCatchMenu();
-    showMenu('catch-menu');
-    menu.querySelector('button')?.focus();
+  catchMenu = splitKey(key, $('catch-more'), $('catch-menu'), {
+    layers: stack || undefined, doc: document, role: 'menu', render: renderCatchMenu,
   });
-  menu.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') { closeMenus(); return; }
-    const items = [...menu.querySelectorAll('button')];
-    const i = items.indexOf(document.activeElement);
-    const k = { ArrowDown: (i + 1) % items.length, ArrowUp: i <= 0 ? items.length - 1 : i - 1, Home: 0, End: items.length - 1 }[e.key];
-    if (k === undefined || !items.length) return;
-    e.preventDefault();
-    items[k].focus();
-  });
-}
-
-// placeCatchMenu opens the menu over its key, at the screen's edge: the dock
-// is at the foot of the page, so it goes up.
-function placeCatchMenu(menu) {
-  const r = $('catch-pass').getBoundingClientRect();
-  Object.assign(menu.style, { left: 'auto', top: 'auto', right: `${Math.max(8, window.innerWidth - r.right)}px`, bottom: `${Math.max(8, window.innerHeight - r.top + 6)}px` });
 }
 
 // renderCatchMenu lists what Catch can take now: each item says what it is
-// and, when it can't go, why -- a tap on one that can't says it again.
-function renderCatchMenu() {
+// and, when it can't go, why -- a tap on one that can't says it again, and
+// leaves the menu open.
+function renderCatchMenu(menu) {
   const cs = state.catchSays || catchState({ live: state.live, tape: state.tape });
-  const menu = $('catch-menu');
   const head = document.createElement('div');
   head.className = 'menu-sub catch-menu-head';
   head.textContent = state.recTrack ? `Catch onto ${onWords(state.recTracks)}` : 'Catch: no track is armed';
   const item = (word, ok, why, run) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.setAttribute('role', 'menuitem');
-    b.setAttribute('aria-disabled', String(!ok));
-    const w = document.createElement('span');
-    w.className = 'cm-word';
-    w.textContent = word;
-    b.append(w);
-    if (!ok && why) {
-      const sub = document.createElement('span');
-      sub.className = 'menu-sub';
-      sub.textContent = why;
-      b.append(sub);
-    }
+    const b = menuItem(document, { word, sub: !ok && why ? why : undefined, attrs: { 'aria-disabled': String(!ok) } });
     b.addEventListener('click', () => {
       if (!ok) { toast(why, 'warn', 6000); return; }
-      closeMenus();
       run();
     });
     return b;
@@ -4256,6 +4261,7 @@ function showInspector(id, { focus = false } = {}) {
     sh.dataset.height = 'half';
     sh.show();
   }
+  inspectorOnStack(sh);
   // The first field or key that's shown: a hidden one wouldn't take it.
   if (focus) [...sh.querySelectorAll('input, button:not(:disabled):not(.insp-grip)')].find((el) => el.getClientRects().length)?.focus({ preventScroll: true });
   else if (sh.contains(document.activeElement) && !sh.contains(was)) {
@@ -4263,7 +4269,6 @@ function showInspector(id, { focus = false } = {}) {
     else document.activeElement.blur();
   }
 }
-function closeInspector() { const id = inspecting(); if (id) $(id).close(); }
 
 // followSelection keeps an open clip inspector on the one selected clip:
 // another clip selected, it shows that one; several, or none, it closes.
@@ -4333,7 +4338,12 @@ function wireInspector() {
         if (sh.open && (document.activeElement === document.body || !document.activeElement)) sh.focus({ preventScroll: true });
       });
     });
-    sh.addEventListener('close', () => { if (!$('multi-bar').hidden) barShownAt = performance.now(); });
+    sh.addEventListener('close', () => {
+      if (!$('multi-bar').hidden) barShownAt = performance.now();
+      // Closed by its Done, a key in it, or the selection going: off the
+      // stack too (unless it has been shown again since).
+      if (!sh.open) inspectorOffStack(sh);
+    });
     const grip = sh.querySelector('.insp-grip');
     let drag = null, dragged = false;
     grip.addEventListener('pointerdown', (e) => {
@@ -4500,95 +4510,64 @@ async function loadTape(id) {
   }
 }
 
-// The header's three menus: the title's (the tapes), the tempo's, and ⋯
-// (this tape's actions); and on a phone the ruler's. One open at a time;
-// each says so to assistive tech.
-const MENUS = [['tape-menu', 'tape-name'], ['tempo-menu', 'tape-sub'], ['tape-actions', 'tape-more'], ['ruler-menu', 'ruler-more']];
+// The Studio's menus on lib/ui/menu.js: the header's three -- the title's
+// (the tapes), the tempo's, and ⋯ (this tape's actions) -- and on a phone the
+// ruler's. Each opens on the Studio's stack under its button, kept off the
+// bar at the foot of the page; a press elsewhere, a pick, Escape or Back
+// closes it.
+const menus = {};
+function mountMenus() {
+  const opts = { layers: stack || undefined, doc: document, floor: barTop(document) };
+  menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, side: 'below', align: 'start', render: openTapeList });
+  menus.tempo = menu($('tape-sub'), $('tempo-menu'), { ...opts, side: 'below', align: 'start', render: renderTempo });
+  menus.actions = menu($('tape-more'), $('tape-actions'), { ...opts, side: 'below', align: 'end', render: renderActions });
+  menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
+}
+
+// closeMenus closes the Studio's menus: those above, Catch's, and a track's
+// input menu.
 function closeMenus() {
-  for (const [m, b] of MENUS) { $(m).hidden = true; $(b).setAttribute('aria-expanded', 'false'); }
-  closeInputMenu();
+  for (const m of Object.values(menus)) m.close();
+  catchMenu?.close();
+  inputOpen()?.menu.close();
 }
-function showMenu(id) {
-  closeInputMenu();
-  for (const [m, b] of MENUS) {
-    $(m).hidden = m !== id;
-    $(b).setAttribute('aria-expanded', String(m === id));
-  }
-  // Placed by CSS from its button, which on a phone is at the screen's left
-  // edge: moved back in if it runs off (menu-fit.js).
-  const menu = $(id);
-  if (id === 'catch-menu') placeCatchMenu(menu);
-  menu.style.translate = '';
-  const dx = menuShift(menu.getBoundingClientRect(), document.documentElement.clientWidth);
-  if (dx) menu.style.translate = `${dx}px 0`;
-}
-const menusOpen = () => MENUS.some(([m]) => !$(m).hidden) || !!inputMenu;
+// While a menu is open (the Studio's, ☰, KEEP ▾ or GRAB ▾: on the stack),
+// or the phone's player is over the page, the arrows are theirs, not the
+// record track's.
+const menusOpen = () => !!stack?.ownsKeys(null);
 
 // --- a track's input menu ------------------------------------------------------
 // A track's input chip opens a menu of the inputs, each with its meter, to
 // choose what the track records from: it doesn't arm the track or open its
-// inspector (whose Input row does the same). One menu, under the chip it's
-// for, or over it near the bottom of the window.
-let inputMenu = null; // {n, chip} while it's open
+// inspector (whose Input row does the same). One menu (#input-menu) for the
+// four chips, each a menu() of it (lib/ui/menu.js) on the Studio's stack:
+// under the chip it's for, or over it where the bar at the foot of the page
+// leaves no room, following it as the page scrolls. From a keyboard, ↓ on
+// a chip opens it on the input chosen.
+let inputMenu = null; // {n, menu}: the chip's that last opened it
 
-function openInputMenu(n, chip, byKey) {
-  const again = inputMenu && inputMenu.n === n;
-  closeMenus();
-  if (again || !state.tape) return;
-  inputMenu = { n, chip };
-  chip.setAttribute('aria-expanded', 'true');
-  const menu = $('input-menu');
-  menu.setAttribute('aria-label', `Track ${n}'s input`);
-  delete menu.dataset.names; // built afresh for this track
-  renderInputMenu();
-  menu.hidden = false;
-  placeInputMenu();
-  if (byKey) focusInputItem();
+function mountInputMenu(n, chip) {
+  const m = menu(chip, $('input-menu'), {
+    layers: stack || undefined, doc: document, align: 'start', floor: barTop(document), focus: 'checked',
+    render: (panel) => {
+      inputMenu = { n, menu: m };
+      panel.setAttribute('aria-label', `Track ${n}'s input`);
+      delete panel.dataset.names; // built afresh for this track
+      renderInputMenu(inputMenu);
+    },
+  });
+  return m;
 }
 
-// focusInputItem moves into the open menu: to the chosen input, or the first.
-function focusInputItem() {
-  const menu = $('input-menu');
-  (menu.querySelector('[aria-checked="true"]') || menu.querySelector('button'))?.focus();
-}
+// inputOpen is the input menu's owner while it's open, or null.
+const inputOpen = () => (inputMenu?.menu.isOpen() ? inputMenu : null);
 
-function closeInputMenu() {
-  if (!inputMenu) return;
+// renderInputMenu builds the open menu's items once, as it opens (`open`, its
+// owner), then on every poll moves their meters and the tick.
+function renderInputMenu(open = inputOpen()) {
+  if (!open || !state.tape) return;
   const menu = $('input-menu');
-  const { chip } = inputMenu;
-  inputMenu = null;
-  chip.setAttribute('aria-expanded', 'false');
-  // Focus in the menu goes back to its chip, not to the page.
-  const had = menu.contains(document.activeElement);
-  menu.hidden = true;
-  if (had) chip.focus();
-}
-
-// placeInputMenu puts the menu under its chip, or over it where there isn't
-// room above the bar at the foot of the page, which it mustn't cover.
-function placeInputMenu() {
-  const menu = $('input-menu');
-  const r = inputMenu.chip.getBoundingClientRect();
-  const np = $('np').getBoundingClientRect();
-  const floor = (np.height ? Math.min(np.top, window.innerHeight) : window.innerHeight) - 8;
-  menu.style.maxHeight = '';
-  const m = menu.getBoundingClientRect();
-  const vw = document.documentElement.clientWidth;
-  const left = Math.max(8, Math.min(r.left, vw - m.width - 8));
-  const below = r.bottom + 6 + m.height <= floor;
-  const top = below ? r.bottom + 6 : Math.max(8, r.top - 6 - m.height);
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-  // Too tall either way: it scrolls.
-  if (!below && r.top - 6 - m.height < 8) menu.style.maxHeight = `${Math.max(120, r.top - 14)}px`;
-}
-
-// renderInputMenu builds the open menu's items once, then on every poll
-// moves their meters and the tick.
-function renderInputMenu() {
-  if (!inputMenu || !state.tape) return;
-  const menu = $('input-menu');
-  const { n } = inputMenu;
+  const { n } = open;
   const names = state.sources.map((s) => s.name).join(' ');
   if (menu.dataset.names !== names) {
     const built = menu.dataset.names !== undefined;
@@ -4608,11 +4587,7 @@ function renderInputMenu() {
       b.dataset.tip = 'track-input';
       b.innerHTML = '<span class="im-tick" aria-hidden="true">✓</span><span class="im-name"></span><span class="im-note"></span><span class="meter" aria-hidden="true"><i></i></span>';
       b.querySelector('.im-name').textContent = s.name;
-      b.addEventListener('click', () => {
-        const k = inputMenu ? inputMenu.n : n;
-        closeMenus();
-        pickInput(k, s.name);
-      });
+      b.addEventListener('click', () => pickInput(n, s.name));
       return b;
     });
     menu.replaceChildren(head, ...items);
@@ -4625,7 +4600,7 @@ function renderInputMenu() {
     }
     // Rebuilt while open: where it is, and focus where it was.
     if (built) {
-      placeInputMenu();
+      open.menu.refresh({ render: false });
       if (had) (items.find((b) => b.dataset.name === had) || items[0])?.focus();
     }
   }
@@ -4639,8 +4614,8 @@ function renderInputMenu() {
   }
 }
 
-function openActions() {
-  if (!$('tape-actions').hidden) { closeMenus(); return; }
+// renderActions readies ⋯ as it opens: what can't go now is dimmed.
+function renderActions() {
   const t0 = state.tape, live = state.live;
   const playable = !!(t0 && live && live.output && t0.tracks.some((tr) => tr.clips.length));
   $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
@@ -4648,7 +4623,6 @@ function openActions() {
   // The mix needs parts, not the output: it plays nowhere.
   $('tape-share-mix').disabled = !(t0 && t0.tracks.some((tr) => tr.clips.length));
   if (bouncing) { bouncing.keeper.changed(state.id); bouncing.keeper.refresh(); }
-  showMenu('tape-actions');
 }
 
 // openRename asks for a new name for the loaded tape. An empty name is
@@ -4662,22 +4636,37 @@ function openRename() {
   input.select();
 }
 
-async function openMenu() {
-  const menu = $('tape-menu');
-  if (!menu.hidden) { closeMenus(); return; }
-  let list = { tapes: [] };
-  try { list = await api('/api/tapes'); } catch { /* show what we can */ }
-  $('tape-list').replaceChildren(...list.tapes.map((t) => {
+// renderTapeList fills the title's menu with the tapes, as last heard; it
+// asks the Pi again as it opens (openTapeList), and a tape made, cloned or
+// deleted elsewhere joins the list when the answer comes.
+let tapesHeard = []; // the last /api/tapes list
+let tapesSaid = '';  // what the menu shows of it
+const tapesSig = () => JSON.stringify([state.id, tapesHeard.map((t) => [t.id, t.name, t.bpm, t.clips])]);
+function renderTapeList() {
+  tapesSaid = tapesSig();
+  $('tape-list').replaceChildren(...tapesHeard.map((t) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.setAttribute('role', 'menuitem');
     b.dataset.tip = 'tape-load';
     b.className = t.id === state.id ? 'on' : '';
     b.textContent = `${t.name}${t.bpm ? ` · ${t.bpm} BPM` : ''} · ${say(`${t.clips} clip${t.clips === 1 ? '' : 's'}`)}`;
-    b.addEventListener('click', () => { closeMenus(); if (t.id !== state.id) loadTape(t.id); });
+    b.addEventListener('click', () => { if (t.id !== state.id) loadTape(t.id); });
     return b;
   }));
-  showMenu('tape-menu');
+}
+function openTapeList() {
+  renderTapeList();
+  askTapes();
+}
+async function askTapes() {
+  try { tapesHeard = (await api('/api/tapes')).tapes || []; } catch { return; /* show what we had */ }
+  if (tapesSig() === tapesSaid || !menus.tape?.isOpen()) return;
+  // The keyboard stays on the tape it was on.
+  const had = $('tape-menu').contains(document.activeElement) ? document.activeElement.textContent : null;
+  renderTapeList();
+  menus.tape.refresh({ render: false });
+  if (had) [...$('tape-list').querySelectorAll('button')].find((b) => b.textContent === had)?.focus();
 }
 
 function wire() {
@@ -4700,24 +4689,18 @@ function wire() {
   $('rec').addEventListener('click', rec);
   $('click').addEventListener('click', () => patch({ click: !state.tape.click }));
   $('tap').addEventListener('click', tap);
-  $('tape-sub').addEventListener('click', (e) => { e.stopPropagation(); openTempo(); });
   for (const b of $('catch-mode').querySelectorAll('button')) {
     b.addEventListener('click', () => { state.mode = b.dataset.mode; writePref('tape.mode', state.mode); renderMode(); });
   }
   // Beside the ruler: the snap, and the loop's lock.
   $('snap-btn').addEventListener('click', nextSnap);
   $('loop-lock').addEventListener('click', toggleLoopLock);
-  // The phone's one key beside the ruler: the same snap, lock, Fit and fold.
-  $('ruler-more').addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (!$('ruler-menu').hidden) { closeMenus(); return; }
-    renderRulerKeys();
-    showMenu('ruler-menu');
-  });
+  // The phone's one key beside the ruler: the same snap, lock, Fit and fold,
+  // in its menu (mountMenus).
   for (const b of $('ruler-menu').querySelectorAll('[data-snap]')) {
-    b.addEventListener('click', () => { closeMenus(); setSnap(b.dataset.snap); });
+    b.addEventListener('click', () => setSnap(b.dataset.snap));
   }
-  $('rm-lock').addEventListener('click', () => { closeMenus(); toggleLoopLock(); });
+  $('rm-lock').addEventListener('click', toggleLoopLock);
   $('clip-reverse').addEventListener('click', async () => {
     const c = state.clip;
     $('clip-sheet').close();
@@ -4769,30 +4752,13 @@ function wire() {
   $('away').addEventListener('click', () => { awayTrack = state.recTrack; }, true);
   $('away-sheet').addEventListener('close', () => { awayTrack = null; });
   for (const b of $('catch-bars').querySelectorAll('button')) b.addEventListener('click', () => doCatch({ bars: Number(b.dataset.bars) }));
-  $('tape-name').addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
-  $('tape-more').addEventListener('click', (e) => { e.stopPropagation(); openActions(); });
-  document.addEventListener('click', (e) => {
-    if (!viewActive()) return;
-    if (!MENUS.some(([m]) => $(m).contains(e.target)) && !$('input-menu').contains(e.target)) closeMenus();
-  });
-  // The input menu sits by its chip: when the page moves under it, it goes.
-  window.addEventListener('scroll', (e) => { if (viewActive() && inputMenu && !$('input-menu').contains(e.target)) closeInputMenu(); }, { capture: true, passive: true });
-  window.addEventListener('resize', () => { if (viewActive()) closeInputMenu(); });
-  // ↑ ↓ Home End move along its items; Tab leaves it, closed, from its chip.
-  $('input-menu').addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') { closeInputMenu(); return; }
-    const items = [...$('input-menu').querySelectorAll('button')];
-    const i = items.indexOf(document.activeElement);
-    const k = { ArrowDown: (i + 1) % items.length, ArrowUp: i <= 0 ? items.length - 1 : i - 1, Home: 0, End: items.length - 1 }[e.key];
-    if (k === undefined || !items.length) return;
-    e.preventDefault();
-    items[k].focus();
-  });
+  mountMenus();
+  askTapes(); // so the title's menu has the tapes as it first opens
   document.addEventListener('keydown', (e) => {
     if (!viewActive()) return;
-    // Escape closes an open menu and nothing else.
-    const menuWasOpen = e.key === 'Escape' && menusOpen();
-    if (e.key === 'Escape') closeMenus();
+    // Escape is the stack's (lib/ui/layers.js), not this ladder's: the menu,
+    // then the inspector or the clip editor, then the selection, and a
+    // sheet's own before any of them. Only a preview (below) keeps it.
     // Typing is typing; a level slider with focus still lets the keys work.
     const typing = e.target && (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable
       || (e.target.tagName === 'INPUT' && e.target.type !== 'range'));
@@ -4817,57 +4783,28 @@ function wire() {
       if (e.code === 'KeyD' && ids.length) { e.preventDefault(); duplicateClips(ids); return; }
       if (e.code === 'KeyA' && state.tape) { e.preventDefault(); selectAll(); return; }
     }
-    // Escape in the inspector's name field: the name is kept, and it closes.
-    if (e.key === 'Escape' && typing && !modalOpen() && e.target.closest?.('dialog.inspector')) {
-      e.target.blur();
-      closeInspector();
-      return;
-    }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (modalOpen()) return; // a sheet's keys are its own
-    // So are the inspector's, but for Escape, which closes it, and the
-    // transport's and the tracks' (R, L, K, J, 1–4): a level slider there
-    // takes the arrows, and Backspace mustn't remove its clip.
-    if (e.target.closest?.('dialog.inspector') && e.key !== 'Escape' && !INSPECTOR_PASSES.has(e.code)) return;
-    // With the keys in the inspector, Escape is its, before the clip editor's.
-    if (e.key === 'Escape' && !menuWasOpen && inspecting() && e.target.closest?.('dialog.inspector')) {
-      e.preventDefault();
-      closeInspector();
-      document.activeElement?.blur();
-      return;
-    }
+    // So are the inspector's, but for the transport's and the tracks' (R,
+    // L, K, J, 1–4): a level slider there takes the arrows, and Backspace
+    // mustn't remove its clip.
+    if (e.target.closest?.('dialog.inspector') && !INSPECTOR_PASSES.has(e.code)) return;
     // While a clip is being aligned the arrows step it, Shift by ten (not on
-    // a level slider or in a menu, whose arrows are their own), and Escape
-    // closes the editor.
+    // a level slider or in a menu, whose arrows are their own).
     if (state.align) {
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.tagName !== 'INPUT' && !menusOpen()) {
         e.preventDefault();
         bar.step(e.key === 'ArrowLeft' ? -1 : 1, e.shiftKey ? 10 : 1, !e.repeat);
         return;
       }
-      if (e.key === 'Escape' && !menuWasOpen) { e.preventDefault(); closeAlign(); return; }
     }
-    // Escape lets a previewed Insert, Delete time or Paste go, first.
-    if (e.key === 'Escape' && !menuWasOpen && state.preview) {
+    // Escape lets a previewed Insert, Delete time or Paste go before the
+    // selection it shows on, and after anything open over it. A preview is
+    // not a layer (pointing at a key shows one), so it keeps the key here,
+    // and preventDefault leaves the stack this press.
+    if (e.key === 'Escape' && state.preview && underSelection()) {
       e.preventDefault();
       showPreview(null);
-      return;
-    }
-    // Escape closes the inspector, before the selection.
-    if (e.key === 'Escape' && !menuWasOpen && inspecting()) {
-      e.preventDefault();
-      const inside = !!document.activeElement?.closest?.('dialog.inspector');
-      closeInspector();
-      if (inside) document.activeElement?.blur();
-      return;
-    }
-    // Escape lets go of the selected clips, or the range.
-    if (e.key === 'Escape' && !menuWasOpen && keyed().length) {
-      letGo();
-      return;
-    }
-    if (e.key === 'Escape' && !menuWasOpen && state.range) {
-      letGoRange();
       return;
     }
     // On the selection, from the page (not a focused key or field): Enter
@@ -4929,19 +4866,18 @@ function wire() {
       default:
     }
   });
-  $('tape-new').addEventListener('click', () => { closeMenus(); newTape(); });
-  $('tape-mixdown').addEventListener('click', () => { closeMenus(); mixdown(false); });
-  $('tape-mixdown-all').addEventListener('click', () => { closeMenus(); mixdown(true); });
-  $('tape-share-mix').addEventListener('click', () => { closeMenus(); shareMix(); });
+  $('tape-new').addEventListener('click', newTape);
+  $('tape-mixdown').addEventListener('click', () => mixdown(false));
+  $('tape-mixdown-all').addEventListener('click', () => mixdown(true));
+  $('tape-share-mix').addEventListener('click', shareMix);
   // The feed's ● Phone, which the strip shows on a phone alone: the Studio
   // (lib/rooms/studio.js) opens its sheet.
-  $('tape-phone')?.addEventListener('click', () => { closeMenus(); document.dispatchEvent(new CustomEvent('hindsight:phone')); });
+  $('tape-phone')?.addEventListener('click', () => document.dispatchEvent(new CustomEvent('hindsight:phone')));
   bouncing?.menu.last.addEventListener('click', () => {
-    closeMenus();
     lastBounceToast({ toast, take: bouncing.keeper.take(), player: bouncing.player });
   });
   $('tape-export').addEventListener('click', exportStems);
-  $('tape-rename').addEventListener('click', () => { closeMenus(); openRename(); });
+  $('tape-rename').addEventListener('click', openRename);
   $('rename-cancel').addEventListener('click', () => $('rename-sheet').close());
   $('rename-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -4951,14 +4887,12 @@ function wire() {
     if (name !== state.tape.name) await patch({ name });
   });
   $('tape-clone').addEventListener('click', async () => {
-    closeMenus();
     try {
       const t = await api(`/api/tapes/clone?${q()}`, { method: 'POST' });
       toast(`Cloned as “${named(t.name)}”`, 'ok', { action: { label: 'Open it', run: () => loadTape(t.id) } });
     } catch (e) { toast(e.message, 'bad'); }
   });
   $('tape-delete').addEventListener('click', async () => {
-    closeMenus();
     let list = { tapes: [] };
     try { list = await api('/api/tapes'); } catch { /* none */ }
     const others = list.tapes.filter((t) => t.id !== state.id);
@@ -5072,7 +5006,7 @@ function wire() {
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
   const fitView = () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); };
   $('view-fit').addEventListener('click', fitView);
-  $('rm-fit').addEventListener('click', () => { closeMenus(); fitView(); });
+  $('rm-fit').addEventListener('click', fitView);
   const foldBtn = $('tracks-fold-btn');
   if (foldBtn) {
     const FOLD_KEY = 'hindsight.tracksFold';
@@ -5094,7 +5028,6 @@ function wire() {
       applyTracksFold(!document.body.classList.contains('tracks-fold'));
     });
     $('rm-tracks').addEventListener('click', () => {
-      closeMenus();
       applyTracksFold(!document.body.classList.contains('tracks-fold'));
     });
     // Auto-unfold when a buffer DROP or edit modifies the tape so the landed part is visible.

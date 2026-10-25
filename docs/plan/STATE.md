@@ -57,6 +57,10 @@ is `<pi-host>`.
   - About 800 px wide (a Pixel Tablet held upright), the bar runs off the
     right side: Catch is cut, and the page scrolls sideways. No flow runs
     at that width.
+  - Phone: Open's ⋯ (the take's menu) opens at x −144, all but 56 px of it
+    off the left side. The menu-offscreen check finds it, but no flow
+    opens it on a phone, so it is not in the baseline; it goes when Open's
+    menus move onto `lib/ui/menu.js` (Open's pass).
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.
@@ -157,11 +161,22 @@ and changes four of their decisions (⋯ goes into the tape's name; the
 output, tempo and source move onto the bar's display; the Listening Room
 becomes a shelf wall with the drawn room as the way in; ● on a phone
 records from the phone). Its step 1 (foundations, nothing visible) is
-under way. Of its step 2, the icon sprite (`lib/ui/icons.js`,
-`icons/ui.svg`) has the header's, the bar's and the ruler's keys. The
-glyphs still typed (the feed strip's ▾s, the buffer's, the cue lane's and
-the editors' keys, Open's own, ● Rec and ♩ on the bar, the menus' ✓) go
-as their regions are rebuilt.
+under way, and step 2 has begun: `lib/ui/layers.js`, the one stack of open
+things, with ☰, the Studio's menus, inspector, clip editor and selection,
+and the phone's player on it; and `lib/ui/menu.js`, the one menu, with ☰
+and every menu in the Studio on it (KEEP ▾, GRAB ▾, Catch ▾ as a key of its
+own, the header's, the ruler's ⌗ and the input chips'). Still on their own
+path, each to move as it is touched: Open's notes pane (its own history
+entry, until it is the notes drawer), Open's ⋯ and lane menus (into
+`menu.js`), the Listening Room's select mode (`takes.js`), the buffer's
+lift and Play's learn mode (they claim their Escape with `preventDefault`),
+and a previewed Insert, Delete time or Paste in the Studio (no layer: a
+pointer over the key shows one). The icon sprite (`lib/ui/icons.js`,
+`icons/ui.svg`) has the header's, the bar's (Catch's ▾ among them) and the
+ruler's keys. The glyphs still typed (the feed strip's ▾s, KEEP's among
+them, the buffer's, GRAB's ▾ among them, the cue lane's and the editors'
+keys, Open's own, ● Rec and ♩ on the bar, the menus' ✓) go as their
+regions are rebuilt.
 
 1. `listening-back.md` (agreed 2026-10-23, from Gabe trying the Listening
    Room on the rig): Open › on the bar and a double tap on a spine, one

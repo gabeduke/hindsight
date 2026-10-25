@@ -31,7 +31,8 @@ import { named } from './words.js';
 import { mountBuffer } from '../buffer/buffer.js';
 import { bindStudioKeys } from './keys.js';
 import { keepLabel, keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
-import { keyMenu } from './keymenu.js';
+import { splitKey, barTop } from '../ui/menu.js';
+import { layersOf } from '../ui/layers.js';
 
 const STATUS_MS = 2000;
 
@@ -127,8 +128,12 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     keepWords: (seconds) => keepLabel(selectionKeepLength(seconds)),
   });
 
-  // KEEP's ▾: its lengths, in a panel under it.
-  const keepMenu = el.keepMore && el.keepPop ? keyMenu(el.keepMore, el.keepPop, { anchor: el.keepMore.parentElement, doc }) : null;
+  // KEEP's ▾: its lengths, in a panel under the pair (lib/ui/menu.js), on
+  // the Studio's stack of open things. From a keyboard it opens on the
+  // length chosen; a pick closes it.
+  const keepMenu = el.keep && el.keepMore && el.keepPop
+    ? splitKey(el.keep, el.keepMore, el.keepPop, { layers: ctx?.layers || layersOf(doc), doc, focus: 'checked', floor: barTop(doc) })
+    : null;
 
   // KEEP's lengths, as Capture's: 30 s, 2 m, 7 m that the ring holds, and all
   // of it. The ribbon shades the one chosen; a choice is the next tap's.
@@ -147,7 +152,7 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
         for (const other of el.seg.children) other.setAttribute('aria-pressed', String(Number(other.dataset.seconds) === seconds));
         ribbon.setSelected(seconds);
         paintKeep();
-        keepMenu?.close();
+        keepMenu?.close('pick');
       });
       return b;
     }));

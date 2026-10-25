@@ -138,7 +138,7 @@ test('a page’s icon is written as icon() writes it: the class names the icon i
 // them: each draws its icon, and none is a glyph a fallback font would draw.
 const DRAWN = {
   'shell.html': ['tape-undo', 'tape-redo', 'tape-more', 'out-btn', 'tape-name', 'tape-sub', 'tape-out',
-    'np-expand', 'np-start', 'np-back5', 'np-play', 'np-loop', 'np-eject', 'np-fold-btn',
+    'np-expand', 'np-start', 'np-back5', 'np-play', 'np-loop', 'catch-more', 'np-eject', 'np-fold-btn',
     'snap-btn', 'loop-lock', 'tracks-fold-btn', 'ruler-more', 'buffer-snap'],
   'wave.html': ['take-undo', 'menu-btn', 'np-expand', 'to-start', 'back5', 'play', 'loop'],
 };

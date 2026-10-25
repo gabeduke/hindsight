@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, sheetState, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText } from './shelf.js';
+import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, spineTitle, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -113,39 +113,6 @@ test('parseBpm reads a tempo, clears on empty, and refuses what no take can have
 test('flagChips carries each flag\'s frame, so a chip can seek to it', () => {
   const chips = flagChips({ sample_rate: 48000, flags: [{ frame: 96000, label: 'b' }, { frame: 48000, label: 'a' }] });
   assert.deepEqual(chips.map((c) => [c.label, c.at, c.frame]), [['a', '0:01', 48000], ['b', '0:02', 96000]]);
-});
-
-// The cassette sheet on a phone: one history entry per opening, so the
-// device's Back closes it and never leaves the page by surprise.
-test('opening the sheet pushes one history entry; opening another replaces it', () => {
-  let s = sheetState({ open: null }, { type: 'open', name: 'a' });
-  assert.deepEqual(s, { open: 'a', history: 'push' });
-  s = sheetState(s, { type: 'open', name: 'b' });
-  assert.deepEqual(s, { open: 'b', history: 'replace' });
-});
-
-test('closing by its own key goes back, and the popstate that follows does nothing more', () => {
-  let s = sheetState({ open: 'a' }, { type: 'close' });
-  assert.deepEqual(s, { open: null, history: 'back' });
-  s = sheetState(s, { type: 'popstate' });
-  assert.deepEqual(s, { open: null, history: null });
-});
-
-test("the device's Back closes an open sheet without going back again", () => {
-  assert.deepEqual(sheetState({ open: 'a' }, { type: 'popstate' }), { open: null, history: null });
-});
-
-test('closing a closed sheet does nothing', () => {
-  assert.deepEqual(sheetState({ open: null }, { type: 'close' }), { open: null, history: null });
-});
-
-test("the device's Forward reopens the sheet its entry names", () => {
-  assert.deepEqual(sheetState({ open: null }, { type: 'popstate', state: { cassette: 'a' } }), { open: 'a', history: null });
-});
-
-test('widening past the pane closes the sheet and takes its entry back', () => {
-  assert.deepEqual(sheetState({ open: 'a' }, { type: 'widen' }), { open: null, history: 'back' });
-  assert.deepEqual(sheetState({ open: null }, { type: 'widen' }), { open: null, history: null });
 });
 
 test('newest is the n newest takes, newest first, undated ones last', () => {

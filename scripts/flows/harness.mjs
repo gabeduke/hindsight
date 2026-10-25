@@ -12,7 +12,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkLayout, findingKey } from './layout.mjs';
+import { checkLayout, findingKey, seenMenus } from './layout.mjs';
 
 // Android tablet (tap + stylus) is the main device; the laptop is second.
 export const PROFILES = {
@@ -151,7 +151,9 @@ export function apiFor(base) {
 // report (log), in the order they ran.
 //
 // Each screen the flow leaves (before every When, and at the end) gets the
-// layout checks (layout.mjs); a "fail" among them fails the flow. With
+// layout checks (layout.mjs); a "fail" among them fails the flow. The
+// line it pins them to keeps the menus that were open (`menus`), and a
+// flow's checksMenus (ids) must each be among them on some screen. With
 // storyboard, a directory, each of those screens is also saved there as a
 // picture, for scripts/flows/storyboard.mjs.
 //
@@ -205,6 +207,9 @@ export async function runFlow(browser, flow, profileName, { base, api, shots, st
       seenLayout.add(k);
       return f;
     });
+    // The menus open as it was checked: proof a flow's checks saw a menu open.
+    const menus = await seenMenus(page);
+    if (menus.length) at.menus = menus;
     if (storyboard) {
       const file = `${flow.id}-${profileName}-${String(++frame).padStart(2, '0')}.jpg`;
       await page.screenshot({ path: join(storyboard, file), type: 'jpeg', quality: 60 }).then(() => { at.shot = file; }, () => {});
@@ -266,6 +271,15 @@ export async function runFlow(browser, flow, profileName, { base, api, shots, st
     if (at) Object.assign(at, { ok: false, detail: e.message.split('\n')[0] });
   }
   await screen().catch(() => {});
+  // A flow that names menus (checksMenus) has the layout checks see each of
+  // them open on some screen, so the menus it opens stay ones a run looks
+  // at, open (menu-offscreen and the rest).
+  for (const id of flow.checksMenus ?? []) {
+    const ok = log.some((l) => l.menus?.includes(id));
+    const c = { name: `the layout checks saw ${id} open`, ok, detail: ok ? '' : 'no screen had it open when it was checked' };
+    checks.push(c);
+    log.push({ kind: 'then', ...c });
+  }
   const failed = checks.filter((c) => !c.ok);
   const layout = log.flatMap((l) => (l.layout ?? []).filter((f) => f.severity === 'fail'));
   const ok = !thrown && failed.length === 0 && errors.length === 0 && layout.length === 0;

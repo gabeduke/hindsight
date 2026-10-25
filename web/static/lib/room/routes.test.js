@@ -36,11 +36,11 @@ async function sheetControls() {
   const src = take('src');
   const cut = take('cut', { source: { name: 'jam_a.wav', start_frame: 0, end_frame: 50 } });
   const mix = take('mix', { origin: 'tape', tape_id: 't1' });
-  const detail = new TakeDetail(root, { takes: { all: [t, src, cut, mix], player: async () => null }, onToast: () => {}, onBack: () => {}, onPick: () => {}, isShown: () => false });
+  const detail = new TakeDetail(root, { takes: { all: [t, src, cut, mix], player: async () => null }, onToast: () => {}, onPick: () => {}, isShown: () => false });
   await detail.show(t, { spine: t, cuts: [cut], mixes: [mix] });
   const classes = new Set();
   for (const b of root.querySelectorAll('button, a')) {
-    const c = String(b.className).split(/\s+/).find((x) => /^(sheet-back|detail-[a-z]+|star|tag-chip|tag-edit-btn)$/.test(x));
+    const c = String(b.className).split(/\s+/).find((x) => /^(detail-[a-z]+|star|tag-chip|tag-edit-btn)$/.test(x));
     classes.add(c || `?${b.tagName}.${b.className}`);
   }
   return [...classes].sort();
@@ -50,7 +50,6 @@ async function sheetControls() {
 
 const idsOf = (doc, ids) => ids.every((id) => !!doc.getElementById(id));
 const ROUTES = {
-  'sheet-back': { where: 'nowhere: there is no sheet to go back from', gone: true },
   'detail-play': {
     where: 'a tap on the spine or the List’s row, and the bar’s ▶',
     check: async () => {

@@ -311,19 +311,20 @@ test('Back and Forward move between rooms, each mounted once', async () => {
   assert.deepEqual(s.loads, []);
 });
 
-test('Back onto an entry of the same room is its owner’s: the player and the cassette sheet close first', async () => {
+test('Back onto an entry of the same room is its owner’s: what is open on the stack closes first', async () => {
   const s = aShell();
   await s.router.start();
   await s.router.go('/tape.html');
-  // The phone's player opens over the Studio (bar/player.js): its own entry.
-  s.history.pushState({ ...s.history.state, player: 1 }, '');
+  // The phone's player opens over the Studio: without CloseWatcher, the
+  // stack's entry (lib/ui/layers.js), the room's state and its own key.
+  s.history.pushState({ ...s.history.state, layer: 'p.1' }, '');
   let seen = s.log.length;
   s.history.back();
   assert.equal(await s.router.idle(), 'same');
   assert.equal(s.router.shown(), 'studio');
   assert.equal(s.log.length, seen, 'nothing hidden or shown: the player closes itself');
   await s.router.go('/takes.html');
-  // The cassette sheet pushes {cassette} alone, without the shell's state.
+  // One pushed alone, without the shell's state (an older version's).
   s.history.pushState({ cassette: 'jam_a.wav' }, '');
   seen = s.log.length;
   s.history.back();
@@ -332,6 +333,58 @@ test('Back onto an entry of the same room is its owner’s: the player and the c
   s.history.back();
   await s.router.idle();
   assert.equal(s.router.shown(), 'studio', 'the next Back is the router’s');
+});
+
+test('a switch closes what is open over the room first: on a tap before its entry is pushed, on Back as it starts', async () => {
+  const told = [];
+  let s = null;
+  s = aShell({ chrome: { beforeSwitch: () => { told.push(['before', s.history.length, s.router.shown()]); } } });
+  await s.router.start();
+  s.click(s.tab.studio);
+  await s.router.idle();
+  assert.deepEqual(told[0], ['before', 1, 'room'], 'the tap: before the new entry, in the room it leaves');
+  told.length = 0;
+  s.history.back();
+  await s.router.idle();
+  assert.equal(s.router.shown(), 'room');
+  assert.deepEqual(told, [['before', 2, 'studio']], 'Back: as the switch starts, before the room is left');
+  told.length = 0;
+  s.history.pushState({ ...s.history.state, layer: 'p.1' }, ''); // the stack's own entry
+  s.history.back();
+  await s.router.idle();
+  assert.deepEqual(told, [], 'not for the room that is shown: nothing is closed by a Back that stays');
+});
+
+test('a tap’s switch waits for the stack to take its own entry back before it pushes the room’s', async () => {
+  let release;
+  const s = aShell({ chrome: { beforeSwitch: () => new Promise((r) => { release = r; }) } });
+  await s.router.start();
+  s.click(s.tab.studio);
+  await tick();
+  assert.equal(s.history.length, 1, 'no entry yet');
+  assert.equal(s.router.shown(), 'room');
+  release();
+  assert.equal(await s.router.idle(), 'switched');
+  assert.equal(s.router.shown(), 'studio');
+  assert.equal(s.history.length, 2);
+  const t = aShell({ chrome: { beforeSwitch: () => Promise.reject(new Error('the menu would not close')) } });
+  await t.router.start();
+  t.click(t.tab.studio);
+  assert.equal(await t.router.idle(), 'switched', 'a hook that fails costs a report, not the switch');
+  assert.deepEqual(t.errors.map((e) => e.message), ['the menu would not close']);
+});
+
+test('a tap’s switch writes over the stack’s own entry when nothing holds it, so one Back is the room before', async () => {
+  const s = aShell({ chrome: { beforeSwitch: () => 'replace' } });
+  await s.router.start();
+  s.history.pushState({ ...s.history.state, layer: 'p.1' }, ''); // a selection's, in Safari
+  s.click(s.tab.studio);
+  assert.equal(await s.router.idle(), 'switched');
+  assert.equal(s.history.length, 2, 'over the stack’s entry, not on top of it');
+  assert.deepEqual(s.history.state, { shell: 1, view: 'studio', scroll: 0 });
+  s.history.back();
+  await s.router.idle();
+  assert.equal(s.router.shown(), 'room');
 });
 
 test('Back onto an entry the shell cannot show here loads it', async () => {

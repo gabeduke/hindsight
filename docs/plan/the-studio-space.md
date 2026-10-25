@@ -131,8 +131,8 @@ what's next.
    press within a frame.
 3. **The frame.** The header's three zones on every page; the tape's name
    as its menu; ⋯ goes; the tempo and the output into the bar's display.
-4. **The bar.** `bar.css`: the zones, the transport's order, Catch's own
-   ▾, the grabber, the source on the display, and the fit at 800, 1024
+4. **The bar.** `bar.css`: the zones, the transport's order, ~~Catch's own
+   ▾~~ (landed with step 2's menus), the grabber, the source on the display, and the fit at 800, 1024
    and 1280; then `listening-back.md` step 1 (Open › and ✎ in the end
    zone, the double tap on a spine). A layout check that ▶ stays put.
 5. **The studio as a place.** The room switch as a camera turn with the

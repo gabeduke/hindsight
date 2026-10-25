@@ -1,9 +1,18 @@
 // J4.4 The Studio on a phone: the bar is a mini player above the tabs (its
-// window, |◀, ▶ and Catch); |◀ goes back to the loop's start; a tap on the
-// window pulls the player up with the transport, Rec and Catch; Back puts
-// it away. A tapped clip's bar floats just above the player, and Insert asks
-// before it moves the tape. The ruler's keys are one key, ⌗. In the
-// Listening Room a take's mini player has |◀ beside ▶ as well.
+// window, with the bar number, |◀, ▶, and Catch with its ▾ beside it); |◀
+// goes back to the loop's start; a tap on the
+// window pulls the player up with the transport, Rec and Catch, whose ▾
+// opens under the pair there; Back closes that menu, then puts the player
+// away and stays in the Studio. A tapped clip's bar floats just above the
+// player, and Insert asks before it moves the tape. The ruler's keys are one
+// key, ⌗. In the Listening Room a take's mini player has |◀ beside ▶ as
+// well.
+//
+// Back reaches the player as the stack's close request (lib/ui/layers.js).
+// In Chromium that is Android's Back or Escape -- page.goBack() is the
+// browser's own Back button, a move in the history, which leaves the page a
+// flow opened. Without CloseWatcher (Safari) the stack keeps a history
+// entry, and Back is page.goBack(): the end of the flow checks that too.
 // docs/flows.md#j44
 const look = () => {
   const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth; };
@@ -13,8 +22,12 @@ const look = () => {
   const s = document.getElementById('np-start')?.getBoundingClientRect();
   const p = document.getElementById('np-play')?.getBoundingClientRect();
   const beside = !!s && !!p && s.width >= 44 && s.height >= 44 && Math.abs(s.top - p.top) <= 4 && s.right <= p.left && p.left - s.right <= 12;
+  // The window keeps the bar number in its LCD (it once lost it to a wider
+  // Catch beside it).
+  const pos = document.getElementById('position')?.getBoundingClientRect();
   return {
     window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
+    more: on('#catch-more'), bar: !!pos && pos.width >= 10,
     name: on('#np-name'), note: on('#np-note'), beside,
     open: document.body.classList.contains('player-open'),
     aboveTabs: !tabs || !c || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1,
@@ -27,6 +40,7 @@ export default {
   id: 'J4.4',
   title: 'The Studio’s bar on a phone',
   profiles: ['phone'],
+  checksMenus: ['#ruler-menu', '#catch-menu'], // the layout checks see them open
   async run(t) {
     const { page, api } = t;
     // A 4-bar tape with the first 4 bars of a take on track 1.
@@ -44,7 +58,8 @@ export default {
     await page.locator('#np-expand').waitFor({ state: 'visible' });
     await t.wait(800);
     const mini = await page.evaluate(look);
-    t.expect('the mini player shows its window, |◀, ▶ and Catch, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && !mini.loop, mini);
+    t.expect('the mini player shows its window, |◀, ▶ and Catch with its ▾, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && mini.more && !mini.loop, mini);
+    t.expect('the window still shows the bar number', mini.bar, mini);
     t.expect('|◀ sits beside ▶, a thumb wide', mini.beside, mini);
     t.expect('the mini player sits above the tabs', mini.aboveTabs, mini);
 
@@ -66,10 +81,45 @@ export default {
     const big = await page.evaluate(look);
     t.expect('the player comes up with ▶, Loop, Rec and Catch on screen', opened && big.play && big.loop && big.rec && big.catch, big);
 
-    await t.step('Back', () => page.goBack());
+    // Catch's ▾ in the player: its menu opens under the pair, where the
+    // player has room, and Back closes it before it puts the player away.
+    await t.step('tap Catch’s ▾ in the player', () => t.tap(page.locator('#catch-more')));
+    const under = await t.poll(() => {
+      const m = document.getElementById('catch-menu');
+      if (!m || m.hidden) return null;
+      const more = document.getElementById('catch-more').getBoundingClientRect();
+      const r = m.getBoundingClientRect();
+      // Under the ▾, and across it (as wide as the screen lets it be here).
+      return { under: r.top >= more.bottom && r.top - more.bottom <= 12 && r.left <= more.left && r.right >= more.right - 1, on: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };
+    });
+    t.expect('its menu opens under the pair, on the screen', under?.under && under.on, under);
+    await t.step('Back, with the menu over the player', () => page.keyboard.press('Escape'));
+    t.expect('Back closes the menu and leaves the player up', await t.poll(() => document.getElementById('catch-menu').hidden
+      && document.body.classList.contains('player-open')));
+
+    await t.step('Back (a close request: Escape, in Chromium)', () => page.keyboard.press('Escape'));
     const shut = await t.poll(() => !document.body.classList.contains('player-open'));
     const back = await page.evaluate(look);
     t.expect('Back puts the player away, on the same page', shut && back.window && back.path === '/tape.html', back);
+
+    // The same in a browser without CloseWatcher (Safari): the player up
+    // holds one history entry, so the browser's Back puts it away, and the
+    // Studio stays. A second tab of this phone, with CloseWatcher taken out.
+    const safari = await page.context().newPage();
+    const errs = [];
+    safari.on('pageerror', (e) => errs.push(e.message));
+    await safari.addInitScript(() => { delete window.CloseWatcher; });
+    const until = (fn) => safari.waitForFunction(fn, null, { timeout: 5000 }).then(() => true, () => false);
+    await t.step('open the Studio in a browser without CloseWatcher', () => safari.goto(`${t.base}/tape.html`));
+    await safari.locator('#np-expand').waitFor({ state: 'visible' });
+    await safari.waitForTimeout(800);
+    await t.step('tap the window there', () => safari.locator('#np-expand').tap());
+    const upThere = await until(() => document.body.classList.contains('player-open') && typeof window.CloseWatcher === 'undefined');
+    await t.step('Back (the browser’s)', () => safari.goBack());
+    const awayThere = await until(() => !document.body.classList.contains('player-open') && location.pathname === '/tape.html');
+    t.expect('there, Back puts the player away too, in the Studio', upThere && awayThere && !errs.length,
+      { upThere, awayThere, errs, at: await safari.evaluate(look).catch((e) => e.message) });
+    await safari.close();
 
     // A tap on the clip: the clip bar comes up after half a second (a second
     // tap could still make it a double), then the lane scrolls clear of it.
@@ -143,7 +193,9 @@ export default {
     await t.step('tap ⌗ beside the ruler', () => t.tap(page.locator('#ruler-more')));
     await t.step('tap Beat', () => t.tap(page.locator('#ruler-menu [data-snap="beat"]')));
     const snapped = await page.locator('#ruler-more-snap').innerText();
-    t.expect('the key says a drag snaps to beats now', snapped === 'Beat' && await page.locator('#ruler-menu').isHidden(), snapped);
+    // The pick shuts the menu, which fades out (lib/ui/menu.js) and is then gone.
+    const menuShut = await page.locator('#ruler-menu').waitFor({ state: 'hidden', timeout: 2000 }).then(() => true, () => false);
+    t.expect('the key says a drag snaps to beats now, and its menu has shut', snapped === 'Beat' && menuShut, { snapped, menuShut });
 
     // A take in the bar has a mini player of its own: no window, the strip
     // under its keys, and |◀ beside ▶ here too.

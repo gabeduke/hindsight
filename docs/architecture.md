@@ -33,7 +33,8 @@ web/static/lib/objects the physical things: reels, cassettes, VU meters, the sha
 web/static/lib/scene   the scene contract the renderers follow
 web/static/lib/wave    the take page (wave.html): view, geometry, draw, tiles, clock, lanes
 web/static/lib/edit    the gestures and curves every editing surface shares
-web/static/lib/ui      one press: the gestures' times (GESTURE), a key's tap, double tap and hold, and its down pose;
+web/static/lib/ui      the shared parts: one press (GESTURE), a key's tap, double tap and hold, and its down pose;
+                       one stack of open things, one menu;
                        one icon set: icons.js, drawing from web/static/icons/ui.svg
 web/static/lib/help    tips, help mode, and the guide renderer
 web/static/lib/phone   the phone recorder
@@ -743,6 +744,10 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   listener, poll and frame loop goes through these, so a hidden view costs no
   CPU and no network.
 - `active()`: shown and the document visible.
+- `layers`: the view's scope of the shell's one stack of open things
+  (below). A menu, sheet, drawer or selection the view opens goes on it with
+  its `onClose`, and whatever is still open when the view is hidden is
+  closed then, as its slots are taken out.
 - `headerSlot`, `dockSlot`, `barSlot`: **Slots**. What a view adds to the
   header, the dock or the bar is in the page only while it is shown: `hide()`
   takes the nodes **out of the document** and `show()` puts them back. So
@@ -759,9 +764,58 @@ whose path is a view, unless a modifier, `target` or `download` says
 otherwise; `go()` pushes `{shell, view, scroll}`; a switch hides the old view,
 swaps body classes and slots, sets the title, `aria-current` and the help
 page, and shows the new one, inside a View Transition when there is one.
-`popstate` switches only when the path names another view, so Back still
-closes the player first. Each view keeps its own scroll. If `mount` or `show`
+`popstate` switches only when the path names another view, so an entry of
+the same room (the stack's own, in Safari) is left to its owner. Before a
+switch the router calls `chrome.beforeSwitch` (the stack's `leave()`), which
+closes everything open but the phone's player; on a tap it then waits for
+the stack's own Back, or writes the room's entry over the stack's, so no
+dead entry is left for Back to land on. Each view keeps its own scroll. If `mount` or `show`
 throws, the router falls back to a full navigation.
+
+**One way to close things** (`lib/ui/layers.js`). Menus, popovers, sheets,
+drawers, a selection and the phone's player sit on one stack per document
+(`layersOf(document)`: the shell's, handed to each view as a scope; Open,
+the rig and the guide have their own). Back and Escape close the top one
+first: a menu, then a sheet or a drawer, then the selection, then the
+player (`RANK`), the newest first among the same, and nothing under a modal
+layer (the player pulled up) before it. Only once nothing is open does Back
+leave the room; a press
+outside closes a menu; a switch of rooms closes the menus and the room's
+own sheets and selection (the player stays up), as a view's hide would. An owner opens with `layers.open({el, kind,
+owner, onClose})` and closes with `layer.close()`, so its `onClose` is the
+one way out, whoever asked. Where the browser has `CloseWatcher` (Chromium:
+Escape, and Android's Back) each layer has one, made in the press that
+opened it; elsewhere (Safari) an Escape keydown closes the top layer, and the
+stack holds one history entry while anything is open (`historyStep`), so the
+iPad's edge swipe closes it too. A modal sheet that is not on the stack
+(Rename, Settings, a confirm: a `<dialog>` shown with `showModal`) is over
+all of it: with `CloseWatcher` its own is the newest, and in Safari the
+stack leaves Escape to the browser and closes the sheet on Back, so neither
+lets go of what is under it. Never both for one layer, or Back would
+take two presses. A handler that keeps Escape for itself (a field's own, a
+drag let go) calls `preventDefault()`, and the stack leaves that press be.
+In Chromium the browser's own Back button is a move in the history, not a
+close request: it switches rooms, with the menus closed on the way.
+
+**Menus** (`lib/ui/menu.js`). A menu, or a ▾'s panel beside its key, is
+`menu(button, panel, {layers, role, side, align, floor, render, focus})`
+on that stack: the button says what it opens (`aria-haspopup`,
+`aria-expanded`, `aria-controls`), ↑ ↓ Home End move along it, Tab closes it
+and goes on from the button, and it closes only through its layer. `place`
+is where it goes (pure: below its key or above it, its right or left edge
+on the key's, moved in from the screen's sides and kept off the bar at the
+foot by `floor`), fixed, so no panel's overflow clips it. It grows from its
+key: `data-state` (`open`, `closed`) and `@starting-style` scale it from .96
+as it fades in over `--t-touch`, and fade it out over `--t-exit` (eased
+in, as anything leaving is), taking no press while it goes. `splitKey(verb, more, panel)` is a key with a ▾ of
+its own (KEEP ▾, GRAB ▾). Its rows are `menuItem`s, the one style (☰'s, 48
+px, a line under the word), with `menuRows` putting a divider between
+groups and anything that destroys last. Several buttons may share one
+panel (the Studio's four input chips, one input menu): it shows for one at
+a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
+(a key of its own beside Catch), the header's (the tape's name, the tempo,
+⋯), the ruler's ⌗ and a track's input chip. Open's are still their own, to
+move in Open's pass.
 
 **The engine** (`lib/bar/engine.js`), made once by the shell:
 

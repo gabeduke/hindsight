@@ -300,3 +300,71 @@ test('Guardrail 11: no hold or double-tap time is a literal outside lib/ui/press
   const gone = [...allowed].filter(([k, n]) => (found.get(k) || 0) < n).map(([k, n]) => `${k} (×${n}, found ${found.get(k) || 0})`);
   assert.deepEqual(gone, [], 'these are on NOT_GESTURES but no longer in the code: lower or remove them');
 });
+
+// ---- one way to close things: the stack in lib/ui/layers.js ---------------------
+// Three schemes for Back once grew (the phone's player, the cassette sheet,
+// Open's notes pane), each with its own history entry, and Escape ladders
+// that had to know about each other's menus. Back and Escape now close the
+// top of one stack (docs/plan/the-studio-space.md, "One way to close
+// things"). The ratchet: only the router and the stack write history
+// entries; what still keeps its own is listed, with why, and comes off the
+// list when it moves onto the stack.
+const OWN_HISTORY = [
+  // [file, how many pushState calls, why it is still its own]
+  ['lib/shell/router.js', 1, 'a room’s entry'],
+  ['lib/ui/layers.js', 1, 'the stack’s one entry, where there is no CloseWatcher'],
+  ['lib/wave/page.js', 1, 'Open’s notes pane on a phone, until it is the notes drawer (listening-back.md, step 2)'],
+];
+
+test('Guardrail 12: only the router and the stack (lib/ui/layers.js) push history entries', () => {
+  const found = new Map();
+  for (const [f, raw] of gestureLiterals()) {
+    if (f.endsWith('bar-harness.js') || f.endsWith('fake-dom.js')) continue; // stand-ins for tests
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    const n = (src.match(/\.pushState\(/g) || []).length;
+    if (n) found.set(f, n);
+  }
+  const allowed = new Map(OWN_HISTORY.map(([f, n]) => [f, n]));
+  const extra = [...found].filter(([f, n]) => n > (allowed.get(f) || 0)).map(([f, n]) => `${f} (×${n})`);
+  assert.deepEqual(extra, [], 'a history entry of its own: open the thing on the page’s stack (lib/ui/layers.js) instead, and Back closes it');
+  const gone = [...allowed].filter(([f, n]) => (found.get(f) || 0) < n).map(([f, n]) => `${f} (×${n}, found ${found.get(f) || 0})`);
+  assert.deepEqual(gone, [], 'these are on OWN_HISTORY but no longer push: take them off');
+});
+
+test('Guardrail 12: the Studio’s Escape is the stack’s; its page keeps it only for a preview', () => {
+  const src = read('lib/tape/page.js');
+  const escapes = src.match(/key === 'Escape'/g) || [];
+  assert.equal(escapes.length, 1, 'lib/tape/page.js handles Escape itself only for a previewed Insert, Delete time or Paste');
+  assert.match(src, /e\.key === 'Escape' && state\.preview && underSelection\(\)\) \{\s*e\.preventDefault\(\);/,
+    'and it claims the press (preventDefault), so the stack leaves it be');
+  assert.doesNotMatch(src, /menuWasOpen/, 'no ladder that has to know whether a menu was open');
+});
+
+// ---- one menu: lib/ui/menu.js ----------------------------------------------------
+// Six menus had grown five ways of being placed, two of being dismissed,
+// arrow keys in some, and rows of 40 px beside rows of 48. A menu, or a
+// key's ▾ panel, is now menu() or splitKey() (lib/ui/menu.js), which says
+// so to assistive tech itself. The ratchet: a button that says it opens
+// something (aria-haspopup) is set up in menu.js, and what still does it
+// on its own is listed, with why, and comes off the list when it moves.
+const OWN_MENUS = [
+  // [file, how many aria-haspopup, why it is still its own]
+  ['lib/wave/lanes.js', 1, 'Open’s lane menus, until Open’s pass (step 10)'],
+  ['lib/wave/page.js', 1, 'Open’s menus shut one another by it, until Open’s pass'],
+  ['lib/room/open.js', 1, 'the tag key opens a sheet, not a menu'],
+];
+
+test('Guardrail 13: a menu or a ▾ panel is lib/ui/menu.js’s', () => {
+  const found = new Map();
+  for (const [f, raw] of gestureLiterals()) {
+    if (f === 'lib/ui/menu.js' || f.endsWith('bar-harness.js') || f.endsWith('fake-dom.js')) continue;
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    const n = (src.match(/aria-haspopup/g) || []).length;
+    if (n) found.set(f, n);
+  }
+  const allowed = new Map(OWN_MENUS.map(([f, n]) => [f, n]));
+  const extra = [...found].filter(([f, n]) => n > (allowed.get(f) || 0)).map(([f, n]) => `${f} (×${n})`);
+  assert.deepEqual(extra, [], 'a menu of its own: make it with menu() or splitKey() (lib/ui/menu.js) instead');
+  const gone = [...allowed].filter(([f, n]) => (found.get(f) || 0) < n).map(([f, n]) => `${f} (×${n}, found ${found.get(f) || 0})`);
+  assert.deepEqual(gone, [], 'these are on OWN_MENUS but no longer set up a menu of their own: take them off');
+});
