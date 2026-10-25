@@ -77,10 +77,11 @@ Each step is its own PR, with its flows updated in `docs/flows.md` and
 `scripts/flows/`, looked at in a browser at phone, tablet and desktop size in
 both schemes. All three are static, and each merge releases.
 
-1. **The way in.** Open › and ✎ in their place at the bar's right end, the
+1. ~~**The way in.** Open › and ✎ in their place at the bar's right end, the
    bar fitted at 1024 and 1280 (the bar overrun in `STATE.md`, *Known
    bugs*), the double tap on a spine, and the deck's caption. J2.5 opens by
-   Open › and by a double tap, and J2.4 and J2.5 also run at 1280×800.
+   Open › and by a double tap, and J2.4 and J2.5 also run at 1280×800.~~
+   Landed with `the-studio-space.md`'s step 4 (the bar).
 2. **The notes drawer.** The module, mounted by the shell and by Open; ✎
    opens it in either room; the Sketchbook goes (`lib/room/space.js`,
    `art/corner.js`, the `--room-book-*` tokens, `openSketchbook` in
