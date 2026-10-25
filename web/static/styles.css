@@ -4569,7 +4569,9 @@ body:not(.room-rack) .shelf-title,
   .room-on:not(.room-rack) .shelf-tools > * { pointer-events: auto; }
   .room {
     position: fixed; left: 0; right: 0; top: var(--room-top, var(--topbar-h));
-    height: var(--room-h, calc(100svh - var(--topbar-h))); min-height: 360px; overflow: hidden;
+    /* Down to the bar: its height is measured (--np-h, lib/bar/slots.js),
+       which a room mounted out of sight can't measure for itself. */
+    bottom: calc(var(--np-h, 0px) + var(--dock-b, 0px)); min-height: 360px; overflow: hidden;
   }
   .room-wall {
     position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
