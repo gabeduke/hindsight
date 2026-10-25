@@ -13,6 +13,7 @@ const SHELL = [
   '/shell.html',
   '/objects.css',
   '/styles.css',
+  '/css/chrome.css',
   '/css/bar.css',
   '/app.js',
   '/lib/flags.js',

@@ -29,19 +29,24 @@ export default {
     // The grid is the loop in frames and bars: 4 beats a bar.
     const bpm = grid ? (grid.bars * 4 * 60 * 48000) / grid.frames : 0;
     t.expect('the tape has that tempo', grid?.bars === BARS && Math.round(bpm) === BPM, JSON.stringify(grid));
-    const pill = await t.poll((bpm) => document.getElementById('tape-sub')?.textContent.includes(bpm) && document.getElementById('tape-sub').textContent, String(BPM));
-    t.expect('the tempo pill reads it', pill, await page.locator('#tape-sub').innerText());
-    // The pill is the tempo's menu (lib/ui/menu.js): the bar counts the loop
-    // could be, under it; Escape shuts it and stays in the Studio.
-    await t.step('tap the tempo', () => t.tap(page.locator('#tape-sub')));
+    // The tempo is on the bar's display, not in the header (whose tempo pill
+    // went: css/chrome.css), and it is the tempo's menu (lib/ui/menu.js): the
+    // bar counts the loop could be, beside it; Escape shuts it and stays in
+    // the Studio.
+    const shown = await t.poll((bpm) => document.getElementById('np-tempo')?.textContent.includes(bpm) && document.getElementById('np-tempo').textContent, String(BPM));
+    t.expect('the bar’s display reads the tempo', shown, await page.locator('#np-tempo').innerText());
+    t.expect('and the header has no tempo of its own', await page.evaluate(() => !document.querySelector('.appbar #tape-sub, .appbar .tape-sub')));
+    await t.step('tap the tempo on the bar’s display', () => t.tap(page.locator('#np-tempo')));
     const tempo = await t.poll(() => {
       const m = document.getElementById('tempo-menu');
       if (!m || m.hidden) return null;
-      const b = document.getElementById('tape-sub').getBoundingClientRect();
+      const b = document.getElementById('np-tempo').getBoundingClientRect();
       const r = m.getBoundingClientRect();
-      return { under: Math.round(r.left) === Math.round(b.left) && r.top >= b.bottom && r.top - b.bottom <= 12, rows: [...m.querySelectorAll('[role=menuitem]')].map((i) => i.textContent) };
+      // Beside its key: its left edge on the key's, over it or under it, on the screen.
+      const beside = Math.abs(r.left - b.left) <= 1 && (r.bottom <= b.top + 1 || r.top >= b.bottom - 1);
+      return { beside, on: r.top >= 0 && r.bottom <= innerHeight, rows: [...m.querySelectorAll('[role=menuitem]')].map((i) => i.textContent) };
     });
-    t.expect('its menu opens under it with the bar counts, this one among them', !!tempo?.under && tempo.rows.includes(`${BARS} bars at ${BPM.toFixed(1)} BPM`), tempo);
+    t.expect('its menu opens beside it with the bar counts, this one among them', !!tempo?.beside && tempo.on && tempo.rows.includes(`${BARS} bars at ${BPM.toFixed(1)} BPM`), tempo);
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('Escape shuts it, in the Studio', await t.poll(() => document.getElementById('tempo-menu')?.hidden && location.pathname === '/tape.html'));
 

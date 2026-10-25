@@ -12,12 +12,12 @@ import { tipForRooms } from '../rooms/words.js';
 export const TIPS = [
   // Every page's header
   { control: 'Hindsight', ids: ['home'], tip: 'Back to the Studio, from anywhere' },
-  { control: 'Studio (tab)', ids: ['nav-studio'], tip: 'The feed, Keep and the tape on one page. The lamp is the feed: green while it records' },
+  { control: 'Studio (tab)', ids: ['nav-studio'], tip: 'The feed, Keep and the tape on one page. The lamp on its faders is the feed: green while it records' },
   { control: 'Listening Room (tab)', ids: ['nav-room'], tip: 'Every take, to search, filter, sort and open' },
   { control: '☰ (header)', ids: ['app-menu'], tip: 'The menu: Settings, the rig, help mode, the guide and Releases. A dot on it means a release is waiting, or the rig needs a look' },
   { control: 'The rig (menu)', ids: ['rig-chip'], tip: "Your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from" },
   // The Listening Room (lib/room/)
-  { control: 'Search the shelves', ids: ['room-search'], tip: "The rack's filter, over the shelves: names, tags and stars" },
+  { control: 'Filters', ids: ['room-search'], tip: "The rack's filters and sort, under the header's search: the starred, MIDI, phone or tape takes alone, a tag, and the order" },
   { control: 'The deck (place)', ids: ['room-deck'], tip: "A picture of the bar: what's in it and how far it has got. Press it to open it: a take on its page, the tape in the Studio" },
   { control: 'Sketchbook (place)', ids: ['room-book'], tip: "The notes on what's in the bar. Press it to open it and write" },
   { control: '✎ Note', ids: ['room-open-note'], tip: 'A note at the playhead, with the cursor in its words' },
@@ -27,7 +27,7 @@ export const TIPS = [
   { control: 'Made from', ids: ['room-open-made'], tip: 'The take this one was cut from: a tap opens it' },
   { control: 'From this take', ids: ['room-open-from'], tip: 'What was cut from this take: a tap opens one' },
   { control: 'Earlier bounces', ids: ['room-open-earlier'], tip: "Earlier bounces of this take's tape: a tap opens one" },
-  { control: '☰ List (a shelf)', ids: ['room-list'], tip: 'The shelf as a list, as the rack shows it: Select and Play all are there' },
+  { control: 'List (a shelf)', ids: ['room-list'], tip: 'The shelf as a list, as the rack shows it: Select and Play all are there' },
   { control: 'Show everything', ids: ['room-filter-clear'], tip: "Turns off the filter that's narrowing the shelves" },
   // The main page
   { control: 'KEEP', ids: ['capture'], tip: 'Keep the last 30 s, 2 m, 7 m or all of what you just played as a take' },
@@ -74,12 +74,13 @@ export const TIPS = [
   { control: 'Delete take', ids: ['delete'], tip: 'Move this take to the trash. Recently deleted, under the list, keeps it a week' },
   // The take page
   { control: '‹', ids: ['back'], tip: 'Back to the list, where you left it' },
-  { control: '◂ ▸', ids: ['take-prev', 'take-next'], tip: 'The previous or next take in the list' },
-  { control: '🗑', ids: ['take-trash'], tip: 'Delete this take in one tap, and go on to the next. The toast has Undo' },
+  { control: 'Previous take, Next take', ids: ['take-prev', 'take-next'], tip: "In the take's menu, by name: the take before or after this one in the list" },
+  { control: 'Delete this take', ids: ['take-trash'], tip: "In the take's menu: to the trash in one tap, and on to the next take. The toast has Undo" },
   { control: 'from …', ids: ['source'], tip: 'This take was saved from another one. Tap to open that one' },
   { control: '↶', ids: ['undo'], tip: 'Undo your last change to this take: a flag, the selection, the name, tempo, downbeat or lanes' },
   { control: 'Help mode (menu)', ids: ['help'], tip: 'Tap anything to read what it does, instead of doing it. Done, on the tip, leaves it' },
-  { control: '⋯', ids: ['menu'], tip: 'Reset the downbeat' },
+  { control: "The take's name ▾", ids: ['take-menu'], tip: "This take's menu: rename it, the takes before and after it in the list, its downloads, the downbeat back to the start, and Delete. Under 1000 px its tag too, and on a phone its MIDI" },
+  { control: "Tag… (the take's menu)", ids: ['take-tag'], tip: "Under 1000 px, where the header has no room for it beside the star: the take's one tag" },
   { control: 'Reset the downbeat', ids: ['downbeat-reset'], tip: 'Put the downbeat back at the start of the take' },
   { control: 'The guide', ids: ['guide'], tip: 'How Hindsight works, in plain words' },
   { control: 'Overview', ids: ['overview'], tip: 'The whole take, in the bar. Tap to move the playhead there; drag the window to move along it; double-tap to see it all. With it focused, ← → move a second' },
@@ -129,7 +130,7 @@ export const TIPS = [
   { control: 'Share', ids: ['share'], tip: 'Send the selection from your phone as an MP3' },
   { control: 'More', ids: ['more'], tip: 'The DAW bundle, the WAV and MIDI downloads, Split here, and delete' },
   { control: 'DAW bundle', ids: ['bundle'], tip: "The selection's WAV and MIDI, lined up, in a zip for a DAW" },
-  { control: 'Notes', ids: ['notes-open'], tip: "Watch the take's MIDI rise out of a keyboard as it plays" },
+  { control: "MIDI (the take's menu)", ids: ['notes-open'], tip: "Under 860 px: watch the take's MIDI rise out of a keyboard as it plays. Wider, it is beside the waveform" },
   { control: 'Lane', ids: ['lane'], tip: "Tap for this lane's menu: collapse, show as drums or notes, or hide" },
   // Later steps
   { control: 'Send to', ids: ['send-to'], tip: 'Send the selection, or the whole take without one, to the tape or the clipboard' },
@@ -174,7 +175,6 @@ export const TIPS = [
   { control: 'RECORDING', ids: ['rec-sign'], tip: 'Shows only while a punch is recording onto the tape' },
   { control: 'The metronome', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty. Key: M' },
   { control: 'Tap (empty tape)', ids: ['tape-tap'], tip: 'Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it' },
-  { control: 'Tempo (tape)', ids: ['tape-tempo'], tip: 'Call the loop more bars or fewer: the same length, so nothing is stretched' },
   { control: '⟲ Loop (tape)', ids: ['tape-loop'], tip: 'Loop the bracket, or play on to the end of what’s recorded. Key: L' },
   { control: '1 bar, 2, 4', ids: ['catch-bars'], tip: 'Catch the last bars you played, ending on the last bar line, where they were played' },
   { control: 'Clip level', ids: ['clip-gain'], tip: 'This clip\'s level within its track' },
@@ -235,8 +235,7 @@ export const TIPS = [
   { control: '▶ Listen (overdub)', ids: ['away-play'], tip: 'Play it here, without recording' },
   { control: '● Record (overdub)', ids: ['away-rec'], tip: 'Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too' },
   { control: 'Clock → (tape)', ids: ['tape-clock'], tip: 'Who follows the tape\'s MIDI clock (TAPE_CLOCK=lead); ● while they\'re running' },
-  { control: 'Lock dot', ids: ['lock-dot'], tip: 'How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: playing but not lined up yet. Grey: stopped, or playing on a phone' },
-  { control: 'Output', ids: ['tape-out'], tip: "Where the tape plays: the jam room (a speaker), this phone (headphones), or both. It's in the header of the Studio and the Listening Room. Switching keeps it rolling from the same spot" },
+  { control: "SYNC (the bar's display)", ids: ['np-sync'], tip: "While the tape plays in the jam room, how playback and recording line up. Green: to the sample. Amber: by the clocks, nudge a catch if it's off. Red: not lined up yet. Out while it is stopped or plays on a phone" },
   { control: 'Jam room / This phone / Both', ids: ['out-choice'], tip: 'The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both' },
   { control: 'Play in the jam room', ids: ['out-jam'], tip: 'Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back' },
   // The Studio's buffer (lib/buffer)

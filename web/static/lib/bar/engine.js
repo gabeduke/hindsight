@@ -20,7 +20,7 @@ import { createHandoff, takesFinder } from './handoff.js';
 import { named } from '../rooms/words.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
-import { wireOutput, paintOutButtons, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
+import { wireOutput, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
 import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
 
 const $ = (id) => document.getElementById(id);
@@ -134,9 +134,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     });
     bar.kick();
     const paintOut = () => {
-      const mode = tape.mode();
-      paintOutButtons(mode);
-      paintOutSheet(mode || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
+      paintOutSheet(tape.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
     };
     tape.on(paintOut);
   }

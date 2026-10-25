@@ -5,7 +5,43 @@
 // too (it once stayed open over the room Back went to). It opens under ☰,
 // on the screen (lib/ui/menu.js places it), and from a keyboard ↓ on ☰
 // opens it on its first item, ↓ moves along it (and arms no other track in
-// the Studio), and Tab shuts it. docs/flows.md#j51
+// the Studio), and Tab shuts it. On a take's page ☰ is the same menu, in
+// the same corner.
+//
+// The frame (css/chrome.css): every page's header is three zones -- what
+// you're working on, Studio | Listening Room, the tools -- and on a tablet
+// or a computer the switch is at one place on the Studio, the Listening
+// Room, Capture and Open (it was top left in the rooms and top centre on
+// Open and Capture, so a tap where it usually was landed on the brand).
+// On a phone the header is the context, ↶ and ☰, and the rooms are tabs
+// along the bottom, each with its own picture: ☰ is only the menu.
+// docs/flows.md#j51
+
+// Where the header's zones are, on the page shown: the switch's box, ☰'s,
+// what the start zone holds, and the tabs' pictures.
+const frame = () => {
+  const box = (el) => { const r = el?.getBoundingClientRect(); return r && r.width ? [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] : null; };
+  const shown = (el) => !!el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== 'hidden';
+  const header = document.querySelector('.appbar');
+  const start = document.querySelector('.appbar-start');
+  return {
+    nav: box(document.querySelector('.appnav')),
+    menu: box(document.getElementById('app-menu-btn')),
+    header: box(header),
+    // ☰ the last key of the tools, at the header's right.
+    menuLast: [...document.querySelectorAll('.appbar-end button, .appbar-end a[href]')].filter(shown).at(-1)?.id === 'app-menu-btn',
+    start: [...(start?.querySelectorAll('button, a[href], input') ?? [])].filter(shown).map((e) => e.id || e.className.split(' ')[0]),
+    tabs: [...document.querySelectorAll('.appnav a')].map((a) => a.querySelector('svg.i use')?.getAttribute('href')?.split('#')[1] ?? null),
+    brand: shown(document.querySelector('.brand')),
+    W: innerWidth,
+  };
+};
+const PAGES = [
+  ['the Studio', '/tape.html', '#tape-name'],
+  ['the Listening Room', '/takes.html', '#shelf-q'],
+  ['Capture', '/', '#view-capture:not([hidden])'],
+];
+
 export default {
   id: 'J5.1',
   title: 'Settings, Releases, help, the guide and the rig from the menu in both rooms',
@@ -13,7 +49,7 @@ export default {
   checksMenus: ['#app-menu'], // the layout checks see ☰ open
   allowHttpErrors: true, // the demo has no route to GitHub's releases
   async run(t) {
-    const { page } = t;
+    const { page, api } = t;
     const menuOpen = () => t.poll(() => !document.getElementById('app-menu')?.hidden);
     const menuShut = () => t.poll(() => document.getElementById('app-menu')?.hidden);
     const pick = async (name, sel) => {
@@ -105,6 +141,52 @@ export default {
       await t.step('Forward, to the other room again', () => page.goForward());
       await t.poll((r) => location.pathname !== `/${r}`, room);
       t.expect('☰ is still shut there', await menuShut());
+    }
+
+    // On a take's page, ☰ is the same menu, in the same corner.
+    const take = await t.given('a take on the shelf', () => api.keep(5));
+    const open = `/wave.html?file=${encodeURIComponent(take.name)}`;
+    await t.given('the take’s page is open', () => page.goto(`${t.base}${open}`));
+    await page.locator('#app-menu-btn').waitFor({ state: 'visible' });
+    await t.step('tap ☰ on the take’s page', () => t.tap(page.locator('#app-menu-btn')));
+    t.expect('the menu opens there too, with the same items', await menuOpen() && JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('#app-menu > *')]
+      .filter((e) => !e.hidden).map((e) => e.querySelector('.menu-word')?.textContent))) === JSON.stringify(['Settings', 'The rig', 'Help mode', 'The guide', 'Releases']));
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('Escape shuts it, on the take’s page', await menuShut() && await page.evaluate(() => location.pathname) === '/wave.html');
+
+    // The frame: the same header on every page.
+    const seen = {};
+    for (const [name, path, ready] of [...PAGES, ['the take’s page', open, '#take-name']]) {
+      if (path === '/') {
+        // Capture is the Studio's tab with the tape off: the Pi says so with a 404.
+        await page.evaluate(() => { try { localStorage.setItem('hindsight.tapeOn', 'false'); } catch { /* fine */ } });
+        await page.route(/\/api\/tapes(\?.*)?$/, (r) => r.fulfill({ status: 404, body: 'no tape' }));
+      }
+      await t.given(`${name} is open`, () => page.goto(`${t.base}${path}`));
+      await page.locator(ready).first().waitFor({ state: 'attached', timeout: 15_000 });
+      await t.wait(600);
+      seen[name] = await page.evaluate(frame);
+      if (path === '/') {
+        await page.unroute(/\/api\/tapes(\?.*)?$/);
+        await page.evaluate(() => { try { localStorage.setItem('hindsight.tapeOn', 'true'); } catch { /* fine */ } });
+      }
+    }
+    const looks = Object.values(seen);
+    t.expect('every page’s tabs have their own pictures, the Studio’s faders and the Listening Room’s spines, never ☰’s',
+      looks.every((f) => JSON.stringify(f.tabs) === JSON.stringify(['studio', 'shelf'])), seen);
+    t.expect('☰ is the last of the tools, at the header’s right, on every page', looks.every((f) => f.menuLast && f.menu && f.menu[0] + f.menu[2] >= f.W - 20), seen);
+    t.expect('each page’s start holds what it is working on: the tape’s name, the search, the feed (Capture), ‹ and the take’s name',
+      seen['the Studio'].start.includes('tape-name') && seen['the Listening Room'].start.includes('shelf-q')
+      && seen.Capture.start.every((k) => k === 'brand') && seen['the take’s page'].start.includes('take-name'), seen);
+    if (t.profile === 'phone') {
+      t.expect('on a phone the header is one row, and the rooms are tabs along the bottom', looks.every((f) => f.header[3] <= 60 && f.nav[1] > f.header[3] * 4), seen);
+    } else {
+      // The switch, at one place on every page of this width: centred.
+      const at = JSON.stringify(seen['the Studio'].nav);
+      t.expect('the room switch sits at the same place on the Studio, the Listening Room, Capture and Open', looks.every((f) => JSON.stringify(f.nav) === at), seen);
+      const mid = seen['the Studio'].nav[0] + seen['the Studio'].nav[2] / 2;
+      t.expect('in the middle of the header', Math.abs(mid - seen['the Studio'].W / 2) <= 1, { mid, W: seen['the Studio'].W });
+      t.expect(seen['the Studio'].W >= 1280 ? 'the brand shows, from 1280 px' : 'the brand waits for a screen 1280 px wide', looks.every((f) => f.brand === (f.W >= 1280)), seen);
     }
   },
 };

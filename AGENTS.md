@@ -131,11 +131,12 @@ and caught by hand.
   because that mistake is invisible until someone opens the app at night.
 - `styles.css` holds layout, type and chrome.
 - **`css/` holds a stylesheet per place**, the CSS plan's split
-  (`docs/plan/the-studio-space.md`, *Under the hood*): `css/bar.css` is the
-  bar, all of it, and the first. A page links the ones it shows, after
-  `styles.css`; each is in `sw.js`'s `SHELL`; a test reads them through
-  `cssOf(page)`, never `fileCss('styles.css')` alone, or it stops seeing a
-  rule the day the rule moves.
+  (`docs/plan/the-studio-space.md`, *Under the hood*): `css/chrome.css` is
+  the header on every page (and a phone's tabs), `css/bar.css` the bar, all
+  of each. A page links the ones it shows, after `styles.css`; each is in
+  `sw.js`'s `SHELL`; a test reads them through `cssOf(page)`, never
+  `fileCss('styles.css')` alone, or it stops seeing a rule the day the rule
+  moves.
 - **Scope a new rule to the thing you are adding.** A bare `.set-note` rule
   added for one sheet reached every existing settings note. Then Play mode's
   overlay rule, a bare `.play`, reached the Takes page's Play buttons and
@@ -212,13 +213,28 @@ When you need the history behind one, read it from git:
 
 ## Where things live in the UI
 
+- **The header is one frame on every page** (`css/chrome.css`;
+  `docs/architecture.md`, *The frame*): three zones -- what you're working
+  on, Studio | Listening Room centred, the tools -- laid out by one rule set
+  and by no page of its own (`styles.test.js` fails on a rule elsewhere
+  that places it, or one there for a page). A room's context goes in the
+  start zone through the header slot; its ↶ ↷ before ☰ in the tools. J5.1
+  fails if the switch moves between the Studio, the Listening Room, Capture
+  and Open. The tempo, where it plays and the alignment are on the bar's
+  display, not in the header.
 - **Settings, the rig, help mode, the guide and Releases** are the header's
-  one menu (☰, `lib/nav.js` `mountHeaderTools`), top right on every page
-  beside the output button (Gabe, 2026-10-22). A new app-wide tool goes in
-  the menu, never beside ☰. ☰ is the only way to most of them, so
-  `styles.test.js` fails if a rule hides it or one of its items. The
-  Settings sheet's first line (`lib/settings.js`, `aboutLine`) carries the
-  version, Releases, the guide and the rig as well.
+  one menu (☰, `lib/nav.js` `mountHeaderTools`), last in the tools, top
+  right on every page (Gabe, 2026-10-22). A new app-wide tool goes in the
+  menu, never beside ☰. ☰ is the only way to most of them, so
+  `styles.test.js` fails if a rule hides it or one of its items. **☰ means
+  that menu and nothing else**: a tab or a key gets an icon of its own
+  (the Listening Room's spines, the shelf's List). The Settings sheet's
+  first line (`lib/settings.js`, `aboutLine`) carries the version,
+  Releases, the guide and the rig as well.
+- **A thing's name is its menu**: the take's on Open opens the take's menu
+  (Rename…, the takes either side, the downloads, Delete last). What acts
+  on a thing goes in its name's menu, on `lib/ui/menu.js`, never in a ⋯
+  beside it.
 - **A key's picture is an icon from `web/static/icons/ui.svg`**, through
   `lib/ui/icons.js` (`icon`, `setIcon`) or the same `<svg class="i …">`
   markup, never a unicode glyph: each platform drew those in a fallback font
@@ -304,8 +320,9 @@ not come back:
   rows are `menuItem`s. Six menus once had five ways to be placed, two to
   be dismissed, and rows of 40 px beside rows of 48. The test fails on an
   `aria-haspopup` a script sets up outside `menu.js`, and lists the ones
-  still their own. Every menu in the Studio is on it; Open's are still
-  their own, to move in Open's pass.
+  still their own. Every menu in the Studio is on it, and Open's take menu;
+  Open's More, Send to and lane menus are still their own, to move in
+  Open's pass.
 
 ## Getting code onto a Pi
 

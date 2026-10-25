@@ -1,0 +1,186 @@
+/* web/static/css/chrome.css
+   The frame: the header on every page -- the Studio, the Listening Room,
+   Capture, Open, the rig and the guide -- and, on a phone, the rooms' tabs
+   along the bottom (docs/architecture.md, "The frame"). Every rule that
+   places the header is here, once: four blocks of overrides once moved the
+   room switch per page, so it sat top left in the rooms, top centre on Open
+   and Capture, and a tap where it usually was landed on the brand.
+
+   Three zones (docs/plan/the-studio-space.md, "One frame on every page"):
+     .appbar-start  what you're working on: the tape's name (the Studio),
+                    the search (the Listening Room), ‹ Takes and the take's
+                    name (Open), the feed (Capture); the brand before it,
+                    from 1280 px
+     .appnav        Studio | Listening Room, centred: at one place on every
+                    page of a given width (J5.1 checks it)
+     .appbar-end    the page's ↶ ↷, then ☰ (lib/nav.js), the only ☰
+   A room puts its own part into its zone as it is shown (lib/shell/boot.js,
+   the header slot); a page's own markup does the same on Open, the rig and
+   the guide. On a phone the header is the context, ↶ and ☰, and the
+   switch is the tabs along the bottom. */
+
+/* ---------- the header ---------- */
+.appbar {
+  position: sticky; top: 0; z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "start nav end";
+  align-items: center; column-gap: 12px;
+  min-height: var(--topbar-h); padding: env(safe-area-inset-top) 16px 0;
+  background: linear-gradient(180deg, var(--face-hi), var(--face-lo));
+  border-bottom: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 var(--hl), 0 10px 20px -16px var(--sh-strong);
+}
+.appbar-start { grid-area: start; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.appbar-end { grid-area: end; justify-self: end; display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* A page's own part of a zone: its context, or its tools. */
+.appbar-page { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.appbar-acts { display: flex; align-items: center; gap: 6px; flex: none; }
+.appbar-spacer { flex: 1; }
+.appbar .icon-btn { min-width: 44px; min-height: 44px; }
+.appbar .undo-btn { padding: 0; }
+.appbar .undo-btn:disabled { opacity: .35; }
+/* The page's ? is the menu's Help mode once the tools are mounted, which is
+   as the page's script starts: until then it waits out of sight. */
+.appbar > #help { display: none; }
+
+/* The brand: home, left of everything, where there is room for it. */
+.brand { display: none; align-items: center; gap: 9px; flex: none; height: 44px; margin-right: 8px; color: var(--ink); text-decoration: none; }
+.brand img { width: 24px; height: 24px; border-radius: 6px; flex: none; }
+.brand b { font-family: var(--label-font); font-weight: 700; font-size: 19px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+@media (min-width: 1280px) { .brand { display: flex; } }
+
+/* ---------- the switch ---------- */
+/* Studio | Listening Room: a switch, the lit room a raised thumb in its
+   track; each tab its own picture (the Studio's faders with the feed's
+   lamp on them, the Listening Room's spines), never ☰'s. */
+.appnav {
+  grid-area: nav; display: flex; gap: 3px; padding: 3px;
+  border-radius: 12px; background: var(--track);
+  box-shadow: inset 0 1px 2px var(--sh), inset 0 0 0 1px var(--edge-soft);
+}
+.appnav a {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 40px; padding: 0 14px 0 11px; border-radius: 9px;
+  color: var(--ink-dim); text-decoration: none; font: 600 14px var(--font); white-space: nowrap;
+}
+.appnav a[aria-current="page"] {
+  background: linear-gradient(180deg, var(--thumb-hi), var(--thumb-lo)); color: var(--ink);
+  box-shadow: 0 1px 2px var(--sh-strong), 0 0 0 1px var(--edge), inset 0 1px 0 var(--hl);
+}
+.appnav a[hidden] { display: none; }
+.appnav-ico { position: relative; display: inline-flex; flex: none; }
+/* The feed's lamp, on the Studio's faders: green while it records
+   (lib/nav.js), amber waiting for the interface, red when it can't. */
+.appnav-lamp {
+  position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--led-off); box-shadow: 0 0 0 2px var(--track);
+}
+.appnav a[aria-current="page"] .appnav-lamp { box-shadow: 0 0 0 2px var(--thumb-hi); }
+.appnav-lamp[data-state="ok"] { background: var(--go); }
+.appnav-lamp[data-state="wait"] { background: var(--warn); }
+.appnav-lamp[data-state="bad"] { background: var(--danger); }
+
+/* ---------- the context ---------- */
+/* The way back (Open, the rig, the guide): its arrow, and where it goes
+   where there's room for the word. */
+.appbar .back {
+  display: inline-flex; align-items: center; gap: 2px; flex: none;
+  min-width: 44px; min-height: 44px; padding: 0 10px 0 2px; margin-left: -6px; border-radius: 8px; box-sizing: border-box;
+  color: var(--ink-dim); text-decoration: none; font: 600 14px var(--font);
+}
+@media (max-width: 999.98px) {
+  .appbar .back { justify-content: center; padding: 0; }
+  .appbar .back-text { display: none; }
+}
+/* A name that is its menu (the tape's, the take's): a pill a finger tall,
+   that gives way to an ellipsis before anything beside it does. */
+.appbar-page > .menu-anchor { min-width: 0; flex: 0 1 auto; }
+.ctx-pill { max-width: 100%; }
+.guide-title, .rig-title { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 16px var(--font); }
+/* The Listening Room's search, the field the room's filter reads. */
+.appbar .shelf-search { flex: 1 1 auto; min-width: 0; max-width: 340px; min-height: 44px; box-sizing: border-box; }
+.appbar .shelf-title { flex: none; }
+/* Open: the take's name, its star and its tag. The name as it was cut (its
+   time) is set in mono, as on its spine. */
+.take-title-name .pill-text { font-weight: 600; }
+.take-title-name.unlabelled .pill-text { font-family: var(--mono); font-size: 14px; }
+.take-title-input { min-width: 0; flex: 1 1 auto; height: 44px; box-sizing: border-box; padding: 0 12px; font: 600 15px var(--font); }
+.appbar .take-star { width: 44px; height: 44px; margin: 0; display: inline-grid; place-items: center; }
+.take-star.on .i { fill: currentColor; }
+/* The tag beside the star needs a wide screen; under 1000 px it is the
+   take menu's Tag… row instead (lib/wave/page.js), never gone. The row is
+   a menu row, whose display (.menu > .menu-item) this must outrank. */
+.menu > .take-tag-row { display: none; }
+@media (max-width: 999.98px) {
+  .appbar #take-tag { display: none; }
+  .menu > .take-tag-row { display: grid; }
+}
+
+/* ---------- the tools: ☰ (lib/nav.js mountHeaderTools) ---------- */
+/* ☰ is the one menu -- Settings, the rig, help mode, the guide and
+   Releases -- and the only thing ☰ ever means. */
+.appbar .app-menu-btn { position: relative; min-width: 44px; min-height: 44px; padding: 0; }
+/* A dot on ☰ when something behind it wants a look: a release waiting
+   (green), the rig's lamp amber. Lit while help mode is on, whose Done is
+   on every tip. */
+.app-menu-btn::after {
+  content: ''; position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--go); box-shadow: 0 0 0 2px var(--panel); display: none;
+}
+.app-menu-anchor:has(.appbar-releases-btn.has-update) .app-menu-btn::after { display: block; }
+.app-menu-anchor:has(.app-menu-rig[data-state="warn"]:not([hidden])) .app-menu-btn::after { display: block; background: var(--warn); }
+body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent); border-color: var(--accent-edge); }
+.menu.app-menu { min-width: 250px; max-width: calc(100vw - 24px); }
+.appbar-releases-btn.has-update > .releases-version { color: var(--ink); font-weight: 600; }
+.appbar-releases-btn.has-update > .releases-version::before { content: '● '; color: var(--go); }
+
+/* ---------- a phone ---------- */
+/* The header is the context (one pill, a finger tall), ↶ and ☰; the
+   rooms are tabs along the bottom, in reach of a thumb. No blur here: a
+   backdrop-filter makes the bar the containing block for anything fixed
+   inside it, and the tabs must fix to the screen. */
+@media (max-width: 699.98px) {
+  .appbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "start end";
+    column-gap: 6px; padding: env(safe-area-inset-top) 12px 0;
+  }
+  /* ↷ shows while there is something to redo: a phone's header has room
+     for ↶ and ☰ beside the name. */
+  .appbar .undo-btn[aria-label="Redo"]:disabled { display: none; }
+  .appbar-page { gap: 6px; }
+  .appbar .shelf-search { max-width: none; }
+
+  .appnav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    justify-content: stretch; gap: 0; padding: 0 0 env(safe-area-inset-bottom);
+    border-radius: 0; border-top: 1px solid var(--line); box-shadow: none;
+    background: var(--bg);
+  }
+  .appnav a {
+    position: relative; flex: 1; flex-direction: column; justify-content: center; gap: 4px;
+    height: 60px; padding: 0; border-radius: 0; font-size: 12px;
+  }
+  .appnav a[aria-current="page"] { background: transparent; box-shadow: none; font-weight: 700; }
+  .appnav a[aria-current="page"]::before {
+    content: ''; position: absolute; top: 0; left: 28%; right: 28%; height: 3px;
+    border-radius: 0 0 3px 3px; background: var(--ink);
+  }
+  .appnav-lamp, .appnav a[aria-current="page"] .appnav-lamp { box-shadow: 0 0 0 2px var(--bg); }
+
+  /* Room for the tabs under everything that sits at the bottom. */
+  body { padding-bottom: calc(61px + env(safe-area-inset-bottom)); }
+  #toasts { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .select-bar { bottom: calc(61px + env(safe-area-inset-bottom)); padding-bottom: 10px; }
+  body.selecting #toasts { bottom: calc(144px + env(safe-area-inset-bottom)); }
+  body.selecting { padding-bottom: calc(131px + env(safe-area-inset-bottom)); }
+  .tip-pop { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  /* The take page's notes, open, are the whole screen. */
+  body.notes-open .appnav { display: none; }
+  body.notes-open { padding-bottom: 0; }
+}
+
+@media (hover: hover) {
+  .appbar .back:hover { color: var(--ink); background: var(--seg-hover); }
+}

@@ -135,7 +135,8 @@ export function mount(h) {
   }
 
   // --- the tag: the take's one tag, beside its star ------------------------------
-  const tagKey = el('button', 'icon-btn room-open-tag', { type: 'button', 'aria-haspopup': 'dialog', 'data-tip': 'room-open-tag' });
+  // #take-tag: the page's header and its take menu's Tag… know it by its id.
+  const tagKey = el('button', 'icon-btn room-open-tag', { id: 'take-tag', type: 'button', 'aria-haspopup': 'dialog', 'data-tip': 'room-open-tag' });
   $('take-star')?.after(tagKey);
   function renderTag() {
     const g = tagStore.list.find((x) => x.id === take.tag);

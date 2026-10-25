@@ -23,7 +23,7 @@ const wave = page('wave.html');
 const FOR = new Set(['tape', 'studio', 'away', 'take', 'feed']);
 
 test('every page with the bar takes its stylesheet, after the chrome', () => {
-  for (const p of ['shell.html', 'wave.html']) assert.deepEqual(linksOf(p), ['/objects.css', '/styles.css', '/css/bar.css'], p);
+  for (const p of ['shell.html', 'wave.html']) assert.deepEqual(linksOf(p), ['/objects.css', '/styles.css', '/css/chrome.css', '/css/bar.css'], p);
   // And the pages without one don't.
   for (const p of ['rig.html', 'guide.html', 'objects.html']) assert.ok(!linksOf(p).includes('/css/bar.css'), p);
 });

@@ -7,6 +7,8 @@
 // player, and Insert asks before it moves the tape. The ruler's keys are one
 // key, ⌗. In the Listening Room a take's mini player keeps the window and
 // ▶ where the tape's are, |◀ beside it, and Open › and ✎ in Catch's place.
+// The header is one row: the tape's name, ↶ and ☰, and the rooms are tabs
+// along the bottom, each with its own picture.
 //
 // Back reaches the player as the stack's close request (lib/ui/layers.js).
 // In Chromium that is Android's Back or Escape -- page.goBack() is the
@@ -58,6 +60,24 @@ export default {
     await t.step('open the Studio', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-expand').waitFor({ state: 'visible' });
     await t.wait(800);
+    // The header (css/chrome.css): one row, the tape's name a finger tall,
+    // then ↶, ⋯ and ☰ -- ↷ only while there is something to redo -- and no
+    // tempo or output of its own; the rooms are the tabs along the
+    // bottom, the Listening Room's with its spines, not ☰'s three lines.
+    const head = await page.evaluate(() => {
+      const shown = (el) => !!el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== 'hidden';
+      const keys = [...document.querySelectorAll('.appbar button, .appbar a[href], .appbar input')].filter(shown).filter((e) => !e.closest('.appnav, .menu'));
+      const name = document.getElementById('tape-name').getBoundingClientRect();
+      return {
+        keys: keys.map((e) => e.id || e.className.split(' ')[0]),
+        name: Math.round(name.height),
+        header: Math.round(document.querySelector('.appbar').getBoundingClientRect().height),
+        room: document.querySelector('.appnav a[data-tab="room"] svg.i use')?.getAttribute('href')?.split('#')[1],
+      };
+    });
+    t.expect('the header is the tape’s name, a finger tall, ↶, ⋯ and ☰, in one row', JSON.stringify(head.keys) === JSON.stringify(['tape-name', 'tape-undo', 'tape-more', 'app-menu-btn'])
+      && head.name >= 44 && head.header <= 60, head);
+    t.expect('the Listening Room’s tab has its own picture, its spines', head.room === 'shelf', head);
     const mini = await page.evaluate(look);
     t.expect('the mini player shows its window, |◀, ▶ and Catch with its ▾, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && mini.more && !mini.loop, mini);
     t.expect('the window still shows the bar number', mini.bar, mini);

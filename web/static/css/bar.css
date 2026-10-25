@@ -135,6 +135,14 @@ body.tape-page .np[data-size="mini"][data-source="tape"] [data-mini~="studio"] {
 /* A note in the time's place (tap ▶ to play here, a mixdown's progress) is lit. */
 .np-time.note { color: var(--lcd-ink); }
 .np-clock.none { color: var(--warn); }
+/* SYNC: how the tape's playback and recording line up while it plays in
+   the jam room (lib/bar/display.js syncState), as a deck's annunciator:
+   green to the sample, amber by the clocks, red not lined up yet. Out while
+   the tape is stopped or plays on a phone. */
+.np-sync { flex: none; font: 700 9.5px var(--label-font); letter-spacing: .14em; color: var(--lcd-dim); }
+.np-sync[data-state="ok"] { color: var(--go); }
+.np-sync[data-state="wait"] { color: var(--lcd-ink); }
+.np-sync[data-state="bad"] { color: var(--rec); }
 /* The lamp: ▶ playing, ■ stopped, ❚❚ a take paused, ● red recording (blinking) or armed (steady). */
 .np-status { flex: none; width: 10px; height: 10px; background: var(--lcd-dim); clip-path: inset(12%); }
 .np-status[data-state="play"] { background: var(--lcd-ink); clip-path: polygon(8% 0, 100% 50%, 8% 100%); }

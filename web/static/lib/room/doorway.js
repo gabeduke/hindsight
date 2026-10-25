@@ -143,19 +143,20 @@ export function mount(h) {
   const toast = h.toast;
   body.classList.add('room-on');
 
-  // --- the header: the room's name, and Search the shelves ----------------
+  // --- the header: the room's name, its search, and the rack's filters -------
+  // The search's field is the header's, at its start (css/chrome.css); this
+  // key beside it shows the rack's filters and sort under the header.
   const title = document.querySelector('.shelf-title');
   if (title && title.firstChild && title.firstChild.nodeType === 3) title.firstChild.textContent = 'Listening Room · takes ';
   if (tools && !tools.id) tools.id = 'room-search-tools';
   const searchBtn = el('button', 'chip room-search-btn', {
     type: 'button', 'aria-expanded': 'false', 'aria-controls': tools?.id, 'data-tip': 'room-search',
-  }, el('span', '', { 'aria-hidden': 'true', text: '⌕ ' }), 'Search the shelves');
+  }, 'Filters');
   $('play-all')?.before(searchBtn);
   searchBtn.addEventListener('click', () => {
     const on = !body.classList.contains('room-search');
     body.classList.toggle('room-search', on);
     searchBtn.setAttribute('aria-expanded', String(on));
-    if (on) $('shelf-q')?.focus();
   });
 
 
@@ -171,7 +172,9 @@ export function mount(h) {
     const h3 = el('h3', 'room-plate', { id: `room-${key}-h` });
     // The section is named by its plate; the list in it needs no second name.
     const list = el('ul', 'room-row', { role: 'list' });
-    const listBtn = asList ? el('button', 'room-list-btn', { type: 'button', 'data-key': `list:${key}`, 'aria-label': asList, 'data-tip': 'room-list' }, '☰ List') : null;
+    // Its own picture, a list: ☰ is the header's menu, and only that.
+    const listBtn = asList ? el('button', 'room-list-btn', { type: 'button', 'data-key': `list:${key}`, 'aria-label': asList, 'data-tip': 'room-list' }) : null;
+    if (listBtn) listBtn.innerHTML = `${icon('list', { size: 14 })}List`;
     const foot = el('div', 'room-shelf-foot', {}, h3, listBtn);
     const sec = el('section', `room-shelf room-shelf-${key}`, { 'aria-labelledby': `room-${key}-h` }, foot, list);
     h3.textContent = label;

@@ -41,6 +41,7 @@ import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
 import * as sel from './selection.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
+import { syncState } from '../bar/display.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
 import { readResponse, failToast, editTape } from './refusal.js';
@@ -641,23 +642,6 @@ function render() {
   $('tape-name').title = `${t.name}: switch tape`;
   if (viewCtx) viewCtx.setTitle(`${t.name} — tape — Hindsight`);
   else if (viewActive()) document.title = `${t.name} — tape — Hindsight`;
-  // The tempo, and the loop in bars (the grid's own until the ruler moves
-  // it).
-  let sub = 'no tempo yet', short = '–', full = 'No tempo yet';
-  if (t.grid) {
-    const bars = t.loop.out > t.loop.in ? Math.round((t.loop.out - t.loop.in) / (t.grid.frames / t.grid.bars)) : t.grid.bars;
-    const bpm = bpmOf(t.grid, sr);
-    sub = `${bpm.toFixed(1)} BPM · ${bars} bar${bars === 1 ? '' : 's'}${t.loop.on ? '' : ', not looping'}`;
-    // A narrow phone has no room for the words: the note says tempo, the
-    // pair reads "84 · 4", and the words are in the label.
-    short = `${Math.round(bpm)} · ${bars}`;
-    full = `Tempo ${sub}: change the bars`;
-  }
-  $('tape-sub-long').textContent = sub;
-  $('tape-sub-short').textContent = short;
-  $('tape-sub').setAttribute('aria-label', full);
-  $('tape-sub').title = full;
-  $('tape-sub').disabled = !t.grid;
   const empty = t.tracks.every((tr) => tr.clips.length === 0);
   $('tape-empty').hidden = !(empty && !t.grid);
   $('tape-undo').disabled = !state.undo;
@@ -666,15 +650,20 @@ function render() {
   // The sign over the door: lit only while a punch is going onto tape.
   const onAir = !!(live && live.playing && live.record && live.record.state === 'on' && live.record.tape === t.id);
   $('rec-sign').classList.toggle('on', onAir);
-  // Playing on a phone, there is nothing to line up: grey, not red. Nor is
-  // there while the tape is stopped: red only when it plays and still isn't
-  // lined up, so a quiet room doesn't show an alarm beside the RECORDING sign.
+  // SYNC on the bar's display: how playback and recording line up, while
+  // the tape plays in the jam room. Playing on a phone there is nothing to
+  // line up, nor while the tape is stopped: it goes out, rather than show
+  // an alarm in a quiet room.
   const phoneOut = !!(live && live.output_mode === 'phone');
   const idle = lock === 'none' && !(live && (live.playing || live.count_in > 0));
-  $('lock-dot').className = `dot lock ${phoneOut || idle ? 'off' : lock === 'exact' || lock === 'locked' ? 'ok' : lock === 'estimated' ? 'wait' : 'bad'}`;
-  $('lock-dot').title = phoneOut ? 'no lock: the tape is playing on a phone' : idle ? 'stopped: nothing to line up yet'
-    : lock === 'none' ? 'not lined up yet: catches wait'
-    : lock === 'estimated' ? 'lined up by the clocks: nudge a catch if it’s off' : `lined up to the sample (${lock})`;
+  const sync = $('np-sync');
+  if (sync) {
+    const said = syncState(lock, { phoneOut, idle });
+    sync.hidden = said.state === 'off';
+    setIf(sync, 'data-state', said.state);
+    setIf(sync, 'title', said.words);
+    setIf(sync, 'aria-label', `Sync: ${said.words}`);
+  }
 
   const md = live && live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
   const mixing = !!(md && (md.state === 'playing' || md.state === 'tail'));
@@ -4507,18 +4496,17 @@ async function loadTape(id) {
   }
 }
 
-// The Studio's menus on lib/ui/menu.js: the header's three -- the title's
-// (the tapes), the tempo's, and ⋯ (this tape's actions) -- and on a phone the
-// ruler's. Each opens on the Studio's stack under its button, kept off the
-// bar at the foot of the page; a press elsewhere, a pick, Escape or Back
-// closes it.
+// The Studio's menus on lib/ui/menu.js: the header's two -- the title's
+// (the tapes) and ⋯ (this tape's actions) -- the tempo's, from the bar's
+// display, and on a phone the ruler's. Each opens on the Studio's stack
+// beside its key, kept off the bar at the foot of the page; a press
+// elsewhere, a pick, Escape or Back closes it.
 const menus = {};
 function mountMenus() {
   const opts = { layers: stack || undefined, doc: document, floor: barTop(document) };
   menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, side: 'below', align: 'start', render: openTapeList });
-  menus.tempo = menu($('tape-sub'), $('tempo-menu'), { ...opts, side: 'below', align: 'start', render: renderTempo });
-  // The bar's display opens the same menu from its tempo (the bar's own
-  // keys say when it does: css/bar.css, lib/bar/bar.js).
+  // The tempo's, from the bar's display (the bar's own keys say when it
+  // opens: css/bar.css, lib/bar/bar.js).
   if ($('np-tempo')) menus.tempoBar = menu($('np-tempo'), $('tempo-menu'), { ...opts, floor: undefined, align: 'start', render: renderTempo });
   menus.actions = menu($('tape-more'), $('tape-actions'), { ...opts, side: 'below', align: 'end', render: renderActions });
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
@@ -4671,9 +4659,10 @@ async function askTapes() {
 
 function wire() {
   $('jam-only-close').addEventListener('click', () => $('jam-only').close());
-  $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('out-btn').click(); });
+  // Where it plays is a key on the bar's display: it opens the output sheet.
+  $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('np-output').click(); });
   $('jam-only-share').addEventListener('click', () => { $('jam-only').close(); shareMix(); });
-  $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('out-btn').click(); });
+  $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('np-output').click(); });
   // Play mode's Space (lib/play): exactly ▶, disabled when ▶ is.
   document.addEventListener('hindsight:play-transport', () => { if (viewActive()) $('np-play').click(); });
   // The Studio's buffer (lib/buffer) changed the clipboard: the range's Paste

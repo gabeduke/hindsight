@@ -16,20 +16,26 @@
 <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
 <link rel="stylesheet" href="/objects.css">
 <link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/css/chrome.css">
 </head>
 <body class="guide-page">
 <header class="appbar">
-  <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=3" alt=""><b>Hindsight</b></a>
+  <!-- Three zones, as on every page (css/chrome.css): the way back and the
+       page's name; Studio | Listening Room; ☰ (lib/nav.js). -->
+  <div class="appbar-start">
+    <a class="brand" href="/" data-tip="home"><img src="/icons/icon-small.svg?v=3" alt=""><b>Hindsight</b></a>
+    <div class="appbar-page">
+      <a class="back" href="/" aria-label="Back to Hindsight"><svg class="i i-left" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#left"/></svg><span class="back-text">Back</span></a>
+      <h1 class="guide-title">The guide</h1>
+    </div>
+  </div>
   <!-- The switch between the two rooms; on a phone, tabs along the
        bottom (lib/nav.js keeps it true). -->
   <nav class="appnav" aria-label="Pages">
-    <a href="/" data-tab="studio" data-tip="nav-studio"><span class="appnav-lamp" aria-hidden="true"></span>Studio</a>
-    <a href="/takes.html" data-tab="room" data-tip="nav-room"><svg class="appnav-ico" width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M2 3h16M2 9h16M2 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Listening Room</a>
+    <a href="/" data-tab="studio" data-tip="nav-studio"><span class="appnav-ico" aria-hidden="true"><svg class="i i-studio" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#studio"/></svg><span class="appnav-lamp"></span></span>Studio</a>
+    <a href="/takes.html" data-tab="room" data-tip="nav-room"><span class="appnav-ico" aria-hidden="true"><svg class="i i-shelf" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#shelf"/></svg></span>Listening Room</a>
   </nav>
-  <div class="appbar-page">
-    <a class="back" href="/" aria-label="Back to Hindsight"><span aria-hidden="true">‹</span><span class="back-text">Back</span></a>
-    <h1 class="guide-title">The guide</h1>
-  </div>
+  <div class="appbar-end"></div>
 </header>
 <main class="guide-main">
   <!-- The contents (lib/help/guide-page.js): a bar to open on a phone or a

@@ -78,3 +78,21 @@ export function feedDisplay(here) {
     },
   };
 }
+
+/**
+ * syncState is SYNC on the display, the tape's annunciator in the Studio:
+ * how its playback and recording line up (the Pi's live.aligned, `lock`).
+ * { state, words }: 'ok' to the sample (exact or locked), 'wait' by the
+ * clocks (estimated: nudge a catch if it's off), 'bad' playing and not
+ * lined up yet, and 'off' -- not lit at all -- while the tape is stopped
+ * (`idle`) or plays on a phone (`phoneOut`), when there is nothing to line
+ * up. It was a dot beside ↶ in the header, which a touch screen couldn't
+ * read without help mode.
+ */
+export function syncState(lock, { phoneOut = false, idle = false } = {}) {
+  if (phoneOut) return { state: 'off', words: 'no lock: the tape is playing on a phone' };
+  if (idle) return { state: 'off', words: 'stopped: nothing to line up yet' };
+  if (lock === 'exact' || lock === 'locked') return { state: 'ok', words: `lined up to the sample (${lock})` };
+  if (lock === 'estimated') return { state: 'wait', words: 'lined up by the clocks: nudge a catch if it’s off' };
+  return { state: 'bad', words: 'not lined up yet: catches wait' };
+}

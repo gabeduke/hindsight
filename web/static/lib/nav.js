@@ -59,21 +59,23 @@ export function tapeAnswer(res) {
 }
 
 /**
- * mountHeaderTools puts the header's tools at its top right on every page:
- * the output button and the ring's health where the page has them, then one
- * menu (docs/plan/the-studio-on-one-screen.md) holding Settings, the rig,
- * help mode, the guide and Releases. settings.js, update.js, help.js and
- * rig/chip.js find their items by the ids and classes they had in the header.
- * The page's ? (#help) moves into the menu as its Help mode item; a page
- * without one has none. The menu's button carries a dot when a release is
- * waiting or the rig needs a look, and lights while help mode is on
- * (styles.css), so nothing behind it goes unseen. The menu opens on the
- * page's stack of open things (`layers`, lib/ui/layers.js).
+ * mountHeaderTools puts the header's one menu (☰) at the end of its tools
+ * zone, top right on every page (css/chrome.css): after the page's own ↶ ↷,
+ * where it has them. The menu holds Settings, the rig, help mode, the guide
+ * and Releases (docs/plan/the-studio-on-one-screen.md); settings.js,
+ * update.js, help.js and rig/chip.js find their items by the ids and classes
+ * they had in the header. The page's ? (#help) moves into the menu as its
+ * Help mode item; a page without one has none. The menu's button carries a
+ * dot when a release is waiting or the rig needs a look, and lights while
+ * help mode is on, so nothing behind it goes unseen. It is the header's only
+ * menu glyph: ☰ means this menu and nothing else. The menu opens on the
+ * page's stack of open things (`layers`, lib/ui/layers.js). A page whose
+ * markup has no tools zone (.appbar-end) gets one.
  */
 export function mountHeaderTools(doc = document, { layers } = {}) {
   if (!doc || typeof doc.createElement !== 'function') return null;
   const bar = doc.querySelector('.appbar');
-  if (!bar || doc.querySelector('.appbar-end')) return null;
+  if (!bar || doc.getElementById('app-menu-btn')) return null;
   const make = (tag, cls, attrs = {}, text = '') => {
     const el = doc.createElement(tag);
     el.className = cls;
@@ -81,9 +83,10 @@ export function mountHeaderTools(doc = document, { layers } = {}) {
     if (text) el.textContent = text;
     return el;
   };
-  const end = make('div', 'appbar-end');
-  for (const existing of [...bar.children].filter((c) => c.id === 'out-btn' || c.classList?.contains('health'))) {
-    end.append(existing);
+  let end = bar.querySelector('.appbar-end');
+  if (!end) {
+    end = make('div', 'appbar-end');
+    bar.append(end);
   }
 
   const anchor = make('span', 'menu-anchor app-menu-anchor');
@@ -123,7 +126,6 @@ export function mountHeaderTools(doc = document, { layers } = {}) {
   panel.append(...items);
   anchor.append(btn, panel);
   end.append(anchor);
-  bar.append(end);
   // It opens on the page's stack (lib/ui/layers.js), under ☰, its right
   // edge on ☰'s: Escape, Back, a press elsewhere, a pick and a switch of
   // rooms close it.

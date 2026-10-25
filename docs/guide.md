@@ -113,9 +113,12 @@ it's one row, on a phone three.
 
 ### 3.1 The takes page
 
-*Today.* Every take, in the **Listening Room** (its tab in the header). The room shows them on shelves; **Search** opens the tools
-over them, and a shelf's **☰ List** (or a month's) shows its takes as a rack,
-with **Select** and **▶ Play all**.
+*Today.* Every take, in the **Listening Room** (its tab in the header, with
+the spines on it). The room shows them on shelves. The search is the field
+at the header's left: what you type there narrows the shelves; **Filters**
+beside it opens the tools over them (stars, MIDI, a tag, the order). A
+shelf's **List** (or a month's) shows its takes as a rack, with **Select**
+and **▶ Play all**.
 
 - **A take is played, not picked:**
   - **A tap plays it** in the bar, where you are: a spine on the shelf, a row
@@ -196,9 +199,10 @@ with **Select** and **▶ Play all**.
   **■ Stop**, Pause, ⏏ or Loop (which stays on that take) stops it moving on.
   A filter or a search first makes it play just those: *Starred*, a tag, a
   day.
-- **Recently deleted** is under the shelves. The take page's ◂ ▸ step through
-  the takes in the order this page shows them, a spine's folded takes right
-  after it, and its ‹ comes back here.
+- **Recently deleted** is under the shelves. The take page's *Previous take*
+  and *Next take* (in its name's menu) step through the takes in the order
+  this page shows them, a spine's folded takes right after it, and its ‹
+  comes back here.
 
 ### 3.2 Updating Hindsight
 
@@ -290,13 +294,18 @@ says which.
 
 **The layout, top to bottom:**
 
-- **The header:** the take's name (tap to rename), ★, its tempo (tap to set),
-  its length ("0:30 of 0:59" when part of it is selected) and, for a take
-  saved from another, "from *that take*", which opens it. **◂ ▸** step to the
-  previous and next take in the list; **↶** undoes your last change (§5);
-  **⋯** resets the downbeat; help mode and this guide are in the menu (**☰**). On a
-  phone with MIDI, **♪** opens the notes, and the name has a row of its own
-  under the buttons.
+- **The header** is the one every page has: at its left **‹ Takes**, the
+  take's name and its ★ (and its tag, on a wide screen); **Studio |
+  Listening Room** in the middle, where it is in the rooms; at its right
+  **↶**, which undoes your last change (§5), and the menu (**☰**), with help
+  mode and this guide. **The take's name is its menu** (▾): *Rename…* (the
+  name becomes a field: type, then Enter), *Previous take* and *Next take*,
+  each saying which take it opens, the WAV and MIDI downloads, *Reset the
+  downbeat*, and *Delete this take* last. Under 1000 px its tag is in the
+  menu too (*Tag…*), and under 860 px, with MIDI, the notes (*MIDI*).
+- **Under the header,** its tempo (tap to set), its length ("0:30 of 0:59"
+  when part of it is selected) and, for a take saved from another, "from
+  *that take*", which opens it.
 - **The tempo** is measured from the audio after every capture, ribbon save
   and phone recording (a mixdown keeps the tape's tempo), with the MIDI clock
   as a hint: it reads *125.17 bpm · measured*. If the clock agrees to within
@@ -337,7 +346,8 @@ says which.
 - **Drag the playhead's handle** ▾ in the ruler to move it silently; the take
   carries on from where you let go. **Drag the downbeat** — the yellow "1"
   just right of its line — to say where bar 1 starts.
-- **Back** returns to the list where you left it, even after ◂ ▸.
+- **Back** returns to the list where you left it, even after *Previous
+  take* or *Next take*.
 
 **Selecting:**
 
@@ -452,8 +462,8 @@ and the editor bar takes the place of the toolbar.
 ### 4.1 Open
 
 A tap in the Listening Room plays a take; **Open** is where you dig into it. It is the
-take page above: the waveform, the selection, the tempo, the MIDI lanes, ◂ ▸,
-↶ and ⋯. Along the foot is the take's own bar (▶, ⟲ **Loop** for the
+take page above: the waveform, the selection, the tempo, the MIDI lanes, ↶
+and the take's menu on its name. Along the foot is the take's own bar (▶, ⟲ **Loop** for the
 selection, **IN** and **OUT**), not the Listening Room's. What is different:
 
 - **It opens where the bar was.** From **Open ›** on the bar (or the
@@ -510,8 +520,8 @@ thing in the meantime, Undo leaves their change alone and says so.
 
 **The trash.** Deleting a take doesn't ask any more: it moves the take, with
 everything saved beside it, to the trash, and the toast offers Undo. So does
-`MAX_SAVES` pruning. On the take page it's one tap: **🗑** in the header
-(or *Delete take* under **More**) deletes the take and opens the next one
+`MAX_SAVES` pruning. On the take page it's one tap: *Delete this take* in
+the take's menu, on its name (or *Delete take* under **More**), deletes the take and opens the next one
 in the list, the one before from the last, so a run of takes can be culled
 one after another, as on a recorder. The next take's toast says *Deleted …*,
 and its **Undo** brings the deleted one back and opens it again. With no
@@ -618,28 +628,18 @@ into channel 1, bus B on 3/4 into channel 2. If the Sidekick isn't there,
 
 From the top:
 
-- **The name and the tempo** are two menus, each drawn as a pill with a ▾.
-  The name (with the cassette) opens another tape or starts a new one. The
-  tempo (with the ♩) shows the BPM and how many bars the loop is, and sets
-  the bars. On a phone they stack as one capsule, the tempo reading "84 · 4"
-  (BPM · bars); the full words are in its label for a screen reader, and show on hover on a computer.
+- **The header** is the one every page has: the tape's name at its left,
+  **Studio | Listening Room** in the middle, **↶ ↷**, **⋯** and the menu
+  (**☰**, with this guide) at its right.
+- **The name** is a pill with a ▾ (and the cassette): it opens another tape
+  or starts a new one.
 - **⋯** holds what you do with this tape: clone it, mix it down, export its
-  stems or delete a tape. This guide is in the menu (**☰**).
-- **The output button,** beside the menu (**☰**) at the header's right, chooses where
-  the tape plays (8.10). Its picture says where it is now: a speaker for the
-  jam room, headphones for a phone, both for both. From 1000 px it says the
-  place too: *Jam room*, *Phone* or *Both*. It's in the same place in both rooms.
-- **The dot** says how well the tape's playback and the recording are lined
-  up:
-  - **Green:** to the sample. On the Pi, Hindsight listens for the tape in
-    channel 1's (or 2's) recording and locks on within a few seconds of it
-    playing something with a clear attack, like drums.
-  - **Amber:** estimated from the clocks, to a few milliseconds. Catches
-    work, and say so in their sheet; nudge one if it's early or late.
-  - **Red:** not at all yet. Catches are refused until it's amber.
+  stems or delete a tape.
 - **↶ ↷** undo and redo every change to the tape except its name. 100 steps
   are kept, with the tape, so they survive a restart and every device shares
-  them.
+  them. On a phone, ↷ shows once there is something to redo.
+- **The tempo and where the tape plays** are on the bar's window, below, not
+  in the header.
 - **The bar,** along the foot of the page, is the tape's player. From the
   left:
   - **The reels** either side of an amber window. They turn with the
@@ -649,10 +649,19 @@ From the top:
     while armed, blinking while recording. In the time's place, it says
     when it's mixing down or waiting for a tap to play here. Then three
     keys on the window: the **tempo** (tap it for the bars the loop could
-    be, as the header's tempo does), the **source** (*TAPE*: tap it for the
-    live feed, a take or the shelf) and where it plays, **OUT** (*JAM ROOM*,
-    *PHONE* or *BOTH*: tap it to choose, §8.10). On a wide screen they say
-    it in full: *96 BPM · 4 BARS*, *TAPE · Song sketch*.
+    be), the **source** (*TAPE*: tap it for the live feed, a take or the
+    shelf) and where it plays, **OUT** (*JAM ROOM*, *PHONE* or *BOTH*: tap
+    it to choose, §8.10). On a wide screen they say it in full: *96 BPM · 4
+    BARS*, *TAPE · Song sketch*.
+  - **SYNC,** under where the tape is while it plays in the jam room, says
+    how well its playback and the recording are lined up:
+    - **Green:** to the sample. On the Pi, Hindsight listens for the tape in
+      channel 1's (or 2's) recording and locks on within a few seconds of it
+      playing something with a clear attack, like drums.
+    - **Amber:** estimated from the clocks, to a few milliseconds. Catches
+      work, and say so in their sheet; nudge one if it's early or late.
+    - **Red:** not at all yet. Catches are refused until it's amber.
+    It goes out while the tape is stopped, or plays on a phone.
   - **The transport:** **|◂** goes back to the loop's start (or, with Loop
     off, to the top of the tape), **▶ / ■**, and **●**, Record, beside it as
     in any DAW: always red, and its key glows while it's ready or
@@ -757,7 +766,8 @@ From the top:
   above the tabs: the reel window with where the tape is, **|◂**, **▶** and
   **Catch** with its **▾**, and a line along its top as far as the tape has
   got. A catch never waits for a scroll. Playing on this phone, its strip
-  (and *Tap to play here*) sits on top. The output button is in the top bar.
+  (and *Tap to play here*) sits on top. Where it plays is on the player's
+  window: pull the player up.
 - **Tap the mini player's window** to pull up **the player** over the page:
   the whole bar, large (the window with its tempo, source and where it
   plays; **|◂ ▶ ●**, **Catch**, **⟲ Loop**, the metronome and the overview).
@@ -770,8 +780,8 @@ From the top:
 - **On a tablet or a computer** the tracks take the whole width and share
   the height of the window between the header and the bar; the action bar,
   the clip editor or the buffer opening makes them shorter, and they scroll
-  once they're as short as their heads. On the 1024 × 600 bench the header
-  is one row, the page switch at its left.
+  once they're as short as their heads. The header is one row on every
+  screen, the page switch in its middle.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
   ⟲ Loop, **M** the click, **J** goes back five seconds, **1–4** or **↑ ↓** choose the record track, **S**
   splits at the playhead, and **⌘Z / Ctrl-Z** undoes (with **⇧** to redo).
@@ -808,7 +818,7 @@ where it comes round.
    at once, in time with you, as if it had been playing all along.
 3. Its length sets the tempo: the number of bars that puts it nearest your
    last tape's tempo (or 90 BPM). If it guessed 168 and you meant 84, tap
-   the tempo pill and choose the other. Nothing is stretched,
+   the tempo on the bar's window and choose the other. Nothing is stretched,
    only relabelled.
 
 **From a take.** Open a take (§4.1), select the part and press **GRAB**: the
@@ -1233,7 +1243,7 @@ machine.
 ### 8.10 Taking the tape upstairs
 
 The tape can play on your phone as a backing track, anywhere in the house.
-Tap the **output button** in the header (a speaker while the tape is in the
+Tap **OUT** on the bar's window (it says *JAM ROOM* while the tape is in the
 jam room) and choose **This phone**: the jam room goes
 silent, and the tape plays here about 0.8 s behind. Everything on the tape
 works as usual — play, locate, the loop, mute, solo, levels — and the
@@ -1245,9 +1255,9 @@ would land off the beat. For an idea, use **Overdub on this device** (8.8);
 in This phone mode its Listen and Record stop the tape here, so you don't
 hear it twice (in Both they leave the jam room playing).
 When you're back downstairs, tap **Play in the jam room** on the laptop or the
-bench, or choose **Jam room** under the output button: the tape plays on from
-the same spot. The button is in the Listening Room too, so you can move the
-tape without opening the Studio.
+bench, or choose **Jam room** under **OUT**: the tape plays on from the same
+spot. The bar is in the Listening Room too, so you can move the tape without
+opening the Studio.
 
 **Both** plays the jam room as usual and sends the phone a copy, for when
 someone is listening elsewhere while you record.
@@ -1554,11 +1564,11 @@ has no tip.
 | Control | Tip |
 |---|---|
 | Hindsight | Back to the Studio, from anywhere |
-| Studio (tab) | The feed, Keep and the tape on one page. The lamp is the feed: green while it records |
+| Studio (tab) | The feed, Keep and the tape on one page. The lamp on its faders is the feed: green while it records |
 | Listening Room (tab) | Every take, to search, filter, sort and open |
 | ☰ (header) | The menu: Settings, the rig, help mode, the guide and Releases. A dot on it means a release is waiting, or the rig needs a look |
 | The rig (menu) | Your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
-| Search the shelves | The rack's filter, over the shelves: names, tags and stars |
+| Filters | The rack's filters and sort, under the header's search: the starred, MIDI, phone or tape takes alone, a tag, and the order |
 | The deck (place) | A picture of the bar: what's in it and how far it has got. Press it to open it: a take on its page, the tape in the Studio |
 | Sketchbook (place) | The notes on what's in the bar. Press it to open it and write |
 | ✎ Note | A note at the playhead, with the cursor in its words |
@@ -1568,7 +1578,7 @@ has no tip.
 | Made from | The take this one was cut from: a tap opens it |
 | From this take | What was cut from this take: a tap opens one |
 | Earlier bounces | Earlier bounces of this take's tape: a tap opens one |
-| ☰ List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
+| List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
 | Show everything | Turns off the filter that's narrowing the shelves |
 | KEEP | Keep the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | ▾ (KEEP) | How much KEEP keeps: the last 30 s, 2 m, 7 m or all of the feed. KEEP keeps that from then on |
@@ -1611,12 +1621,13 @@ has no tip.
 | Download MIDI | The take's MIDI file |
 | Delete take | Move this take to the trash. Recently deleted, under the list, keeps it a week |
 | ‹ | Back to the list, where you left it |
-| ◂ ▸ | The previous or next take in the list |
-| 🗑 | Delete this take in one tap, and go on to the next. The toast has Undo |
+| Previous take, Next take | In the take's menu, by name: the take before or after this one in the list |
+| Delete this take | In the take's menu: to the trash in one tap, and on to the next take. The toast has Undo |
 | from … | This take was saved from another one. Tap to open that one |
 | ↶ | Undo your last change to this take: a flag, the selection, the name, tempo, downbeat or lanes |
 | Help mode (menu) | Tap anything to read what it does, instead of doing it. Done, on the tip, leaves it |
-| ⋯ | Reset the downbeat |
+| The take's name ▾ | This take's menu: rename it, the takes before and after it in the list, its downloads, the downbeat back to the start, and Delete. Under 1000 px its tag too, and on a phone its MIDI |
+| Tag… (the take's menu) | Under 1000 px, where the header has no room for it beside the star: the take's one tag |
 | Reset the downbeat | Put the downbeat back at the start of the take |
 | The guide | How Hindsight works, in plain words |
 | Overview | The whole take, in the bar. Tap to move the playhead there; drag the window to move along it; double-tap to see it all. With it focused, ← → move a second |
@@ -1666,7 +1677,7 @@ has no tip.
 | Share | Send the selection from your phone as an MP3 |
 | More | The DAW bundle, the WAV and MIDI downloads, Split here, and delete |
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
-| Notes | Watch the take's MIDI rise out of a keyboard as it plays |
+| MIDI (the take's menu) | Under 860 px: watch the take's MIDI rise out of a keyboard as it plays. Wider, it is beside the waveform |
 | Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
 | Send to | Send the selection, or the whole take without one, to the tape or the clipboard |
 | Send to → Tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop. The line under it says which |
@@ -1709,7 +1720,6 @@ has no tip.
 | RECORDING | Shows only while a punch is recording onto the tape |
 | The metronome | A click on every beat, on bus A. On by itself only while the tape is empty. Key: M |
 | Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
-| Tempo (tape) | Call the loop more bars or fewer: the same length, so nothing is stretched |
 | ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded. Key: L |
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
 | Clip level | This clip's level within its track |
@@ -1769,8 +1779,7 @@ has no tip.
 | ▶ Listen (overdub) | Play it here, without recording |
 | ● Record (overdub) | Record over it; Stop keeps the last full pass, as a punch does, and puts it on the track. The recording is saved as a take too |
 | Clock → (tape) | Who follows the tape's MIDI clock (TAPE_CLOCK=lead); ● while they're running |
-| Lock dot | How playback and recording line up. Green: to the sample. Amber: by the clocks, nudge if off. Red: playing but not lined up yet. Grey: stopped, or playing on a phone |
-| Output | Where the tape plays: the jam room (a speaker), this phone (headphones), or both. It's in the header of the Studio and the Listening Room. Switching keeps it rolling from the same spot |
+| SYNC (the bar's display) | While the tape plays in the jam room, how playback and recording line up. Green: to the sample. Amber: by the clocks, nudge a catch if it's off. Red: not lined up yet. Out while it is stopped or plays on a phone |
 | Jam room / This phone / Both | The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both |
 | Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |
 | Grab | Copy the last bars of the feed (with no tempo yet, the last seconds) into the buffer, from its sources, to trim and drop. G |

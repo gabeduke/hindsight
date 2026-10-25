@@ -840,6 +840,51 @@ shell applies a carry record rather than dropping it.
 The checks that a journey through all this still works are the user flows
 (`docs/flows.md`).
 
+### The frame
+
+The header (`css/chrome.css`, the second per-place stylesheet) is one rule
+set for every page: the Studio, the Listening Room and Capture
+(`shell.html`), Open (`wave.html`), the rig and the guide. It was four
+blocks of per-page overrides once, which put Studio | Listening Room top
+left in the rooms and top centre on Open and Capture, so a tap where it
+usually was landed on the brand.
+
+- **Three zones**, a grid of `minmax(0, 1fr) auto minmax(0, 1fr)`:
+  `.appbar-start` (what you're working on: the tape's name in the Studio,
+  the search field `#shelf-q` in the Listening Room, ‹ Takes and the take's
+  name on Open, the feed's health on Capture), `.appnav` (the switch,
+  centred, so it stands at one place on every page of a width; J5.1 checks
+  it on the Studio, the Listening Room, Capture and Open) and `.appbar-end`
+  (the page's ↶ ↷, then ☰, last). The brand shows only from 1280 px, first
+  in the start zone.
+- **A room puts its part into a zone as it is shown**: its context through
+  the header slot (`lib/shell/boot.js`: the start zone), and the Studio's
+  ↶ ↷ (`#header-studio-end`) into the tools before ☰
+  (`ctx.headerSlot.add(el, { before: menu })`). Open, the rig and the
+  guide have theirs in their markup. `lib/nav.js` `mountHeaderTools` adds ☰
+  to the end of the tools zone the page has (and makes one only for a page
+  without).
+- **Each tab has its own picture**: the Studio's faders (`studio`) with the
+  feed's lamp on them, the Listening Room's spines (`shelf`). **☰ means the
+  header's menu and nothing else**: the shelf's List key has the `list`
+  icon.
+- **On a phone** (under 700 px) the header is the context (one pill a
+  finger tall), ↶ and ☰ (↷ only while there is something to redo), and the
+  switch is the tabs along the bottom, each its picture over its word.
+- **What the header no longer holds**: the tempo (the bar's display), where
+  the tape plays (the bar's display; `np-output` opens the output sheet,
+  as the jam-only sheet's Switch does), and the alignment dot (SYNC on the
+  bar's display, `lib/bar/display.js` `syncState`: green to the sample,
+  amber by the clocks, red not lined up yet, out while the tape is stopped
+  or plays on a phone).
+- **A name that is a menu.** On Open the take's name (`#take-name`, a pill
+  with ▾) opens the take's menu on `lib/ui/menu.js`: Rename… (the name
+  becomes its field), Previous take and Next take, each with the take it
+  opens by its spine's name, the downloads, Reset the downbeat, under 860
+  px its MIDI and under 1000 px its tag (no room beside the star), and
+  Delete this take last. Its tempo, length and source are the line under
+  the header (`.take-sub`), not in it.
+
 ### The bar
 
 The bar (`#np`, `css/bar.css`, `lib/bar/`) is the one transport, the same

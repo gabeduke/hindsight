@@ -3,7 +3,7 @@
 // it plays, for the tape, a take and the feed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tapeDisplay, takeDisplay, feedDisplay, tempoWords, OUT_WORDS } from './display.js';
+import { tapeDisplay, takeDisplay, feedDisplay, tempoWords, OUT_WORDS, syncState } from './display.js';
 import { recentTakes, sourceRows, RECENT } from './source-menu.js';
 
 const SR = 48000;
@@ -77,4 +77,14 @@ test('the source menu: the tape and the feed, the one playing checked, then the 
   assert.deepEqual(bare.rows.map((x) => [x.id, x.checked, x.disabled]), [['tape', false, true], ['feed', true, false]]);
   assert.equal(bare.rows[0].sub, 'no tape is loaded');
   assert.deepEqual(bare.takes, []);
+});
+
+test('SYNC, the tape’s annunciator: lit while the tape plays in the jam room, by how it lines up; out when there is nothing to line up', () => {
+  assert.equal(syncState('exact').state, 'ok');
+  assert.equal(syncState('locked').state, 'ok');
+  assert.equal(syncState('estimated').state, 'wait');
+  assert.equal(syncState('none').state, 'bad', 'playing, not lined up yet');
+  assert.equal(syncState('none', { idle: true }).state, 'off', 'stopped: no alarm in a quiet room');
+  assert.equal(syncState('exact', { phoneOut: true }).state, 'off', 'on a phone there is nothing to line up');
+  for (const l of ['exact', 'estimated', 'none']) assert.ok(syncState(l).words, 'it says it in words, for a screen reader and help mode');
 });

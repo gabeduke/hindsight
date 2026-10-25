@@ -16,10 +16,18 @@ export const studioView = {
   bodyClass: 'tape-page',
   help: 'tape',
   mount(ctx) {
+    // The header's zones (css/chrome.css): the tape's name at the start,
+    // ↶ ↷ in the tools, before ☰.
     const headerEl = document.getElementById('header-studio');
     if (headerEl) {
       headerEl.hidden = false;
       ctx.headerSlot.add(headerEl);
+    }
+    const toolsEl = document.getElementById('header-studio-end');
+    if (toolsEl) {
+      toolsEl.hidden = false;
+      const menu = document.querySelector('.appbar-end > .app-menu-anchor');
+      ctx.headerSlot.add(toolsEl, menu ? { before: menu } : undefined);
     }
     for (const id of ['clip-editor', 'multi-bar']) {
       const el = document.getElementById(id);
