@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matches, shelve, latest, newest, listFrom, parseBpm, flagChips, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText } from './shelf.js';
+import { matches, searchText, weekStart, shelve, latest, newest, listFrom, parseBpm, flagChips, tagOf, tagCounts, fold, familyOf, familyCounts, familySticker, cutsBack, freedBy, tapeName, dropoutsText } from './shelf.js';
 
 // Local times, as the shelf groups by the viewer's own day.
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
@@ -11,14 +11,58 @@ const take = (name, created, extra = {}) => ({
   has_midi: false, ...extra,
 });
 
-test('a search finds a take by its name, its timestamp or its tempo', () => {
+test('a search finds a take by its name, the time it was caught and its tempo', () => {
   const t = take('2026-10-04_201512', at(2026, 10, 4, 20, 15), { label: 'Bass idea', bpm: 96 });
-  assert.equal(matches(t, { query: 'bass' }), true);
-  assert.equal(matches(t, { query: '2015' }), true);
-  assert.equal(matches(t, { query: '96.0' }), true);
-  assert.equal(matches(t, { query: '  BASS  ' }), true);
-  assert.equal(matches(t, { query: 'drums' }), false);
-  assert.equal(matches(t, { query: '' }), true);
+  assert.equal(matches(t, { query: 'bass', now: NOW }), true);
+  assert.equal(matches(t, { query: '20:15', now: NOW }), true);
+  assert.equal(matches(t, { query: '96.0', now: NOW }), true);
+  assert.equal(matches(t, { query: '96 bpm', now: NOW }), true);
+  assert.equal(matches(t, { query: '  BASS  ', now: NOW }), true);
+  assert.equal(matches(t, { query: 'drums', now: NOW }), false);
+  assert.equal(matches(t, { query: '', now: NOW }), true);
+});
+
+// Gabe's room audit (2026-10-24): typing 08:35:25, the name printed on a
+// spine, found nothing, because the search read the file's date stamp.
+test('a search finds what is printed on the spine, not the file it is in', () => {
+  const t = take('2026-10-04_083525', at(2026, 10, 4, 8, 35));
+  assert.equal(matches(t, { query: '08:35:25', now: NOW }), true, 'the spine says 08:35:25');
+  assert.equal(matches(t, { query: '2026-10-04_083525', now: NOW }), false, 'nobody sees the stamp');
+  assert.equal(matches(t, { query: 'jam_', now: NOW }), false, 'or the file');
+});
+
+test('a search finds a take by its day, as a person says it: today, yesterday, a weekday, a month, a date', () => {
+  const today = take('2026-10-04_201512', at(2026, 10, 4, 20, 15));
+  const yesterday = take('2026-10-03_101500', at(2026, 10, 3, 10, 15));
+  const september = take('2026-09-12_101500', at(2026, 9, 12, 10, 15));
+  const find = (q) => [today, yesterday, september].filter((t) => matches(t, { query: q, now: NOW })).map((t) => t.name);
+  assert.deepEqual(find('today'), [today.name]);
+  assert.deepEqual(find('yesterday'), [yesterday.name]);
+  assert.deepEqual(find('saturday'), [yesterday.name, september.name], 'Sat 3 Oct and Sat 12 Sep');
+  assert.deepEqual(find('oct'), [today.name, yesterday.name]);
+  assert.deepEqual(find('september'), [september.name]);
+  assert.deepEqual(find('12 sep'), [september.name]);
+  assert.deepEqual(find('sep 12'), [september.name]);
+  assert.deepEqual(find('oct 3'), [yesterday.name], 'every word holds, in any order');
+});
+
+test('a search finds a take by its tag, its notes, and what the filters call it', () => {
+  const tags = [{ id: 'g1', name: 'riffs', color: 6 }];
+  const t = take('2026-10-04_201512', at(2026, 10, 4, 20, 15), {
+    tag: 'g1', flags: [{ frame: 1, label: 'Chorus starts' }], starred: true, has_midi: true, origin: 'phone',
+  });
+  for (const q of ['riffs', '#riffs', 'chorus', 'starred', 'midi', 'phone']) assert.equal(matches(t, { query: q, tags, now: NOW }), true, q);
+  assert.equal(matches(take('2026-10-04_201513', at(2026, 10, 4), { origin: 'tape' }), { query: 'mixdown', now: NOW }), true);
+  assert.match(searchText(t, { tags, now: NOW }), /^20:15:12\n/, 'what is printed on the spine first');
+});
+
+test('This week is from Monday, and holds every take made since', () => {
+  const sun = new Date(2026, 9, 4, 21, 0).getTime(); // NOW is a Sunday
+  assert.equal(new Date(weekStart(sun)).getDay(), 1);
+  assert.equal(new Date(weekStart(sun)).getDate(), 28, 'Monday 28 September');
+  assert.equal(matches(take('a', at(2026, 9, 28, 9)), { week: true, now: NOW }), true);
+  assert.equal(matches(take('b', at(2026, 9, 27, 23)), { week: true, now: NOW }), false);
+  assert.equal(matches(take('c', 'not a date'), { week: true, now: NOW }), false);
 });
 
 test('each filter that is on must hold', () => {

@@ -17,7 +17,7 @@ test('a take is its own name, or the time it was caught: what its spine prints',
 
 test('never the file or its date stamp, wherever it is named', () => {
   const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-  for (const f of ['../takes.js', '../trash.js', '../bar/take-source.js', '../shelf-detail.js', '../room/doorway.js', '../room/tap.js', '../room/deck.js', './bounce.js']) {
+  for (const f of ['../shelf.js', '../takes.js', '../trash.js', '../bar/take-source.js', '../shelf-detail.js', '../room/doorway.js', '../room/tap.js', '../room/deck.js', './bounce.js']) {
     const src = read(f);
     assert.doesNotMatch(src, /replace\(\/\^jam_\|\\\.wav\$\/g?, ''\)/, `${f} makes a take's name from its file`);
     assert.doesNotMatch(src, /\b(spineTitle|stampOf)\(/, `${f} names a take by a helper that is gone`);

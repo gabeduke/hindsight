@@ -1,15 +1,18 @@
 // web/static/lib/shelf.js
 // What the takes page shows: which takes match the search and the filters,
-// in what order, under which day. Pure, so it is tested without a browser.
+// in what order, under which day. Pure, so it is tested without a
+// browser.
 //
 // The server lists starred takes first (lib/takes.js keeps that order for
 // the main page); the shelf groups by day instead, so a starred take sits
 // on the day it was played and the Starred filter is how to see them alone.
 
+import { takeTitle } from './rooms/takename.js';
+
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-
-const stamp = (t) => t.name.replace(/^jam_|\.wav$/g, '');
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 
 /** when is a take's created time in ms, or NaN when it has none to read. */
 function when(t) {
@@ -30,11 +33,54 @@ export function tagCounts(takes, tags = []) {
 }
 
 /**
- * matches says whether a take passes the search and every filter that is
- * on. The search looks at the label, the timestamp in the name, the tempo and
- * the tag's name. `tag` is a tag's id, or 'none' for the untagged; '' is off.
+ * searchText is everything a search finds a take by, lowercased: what is
+ * printed on its spine (lib/rooms/takename.js) and its own name; the day it
+ * was made as a person says it (today, yesterday, saturday, october, 24 oct,
+ * oct 24, the year) and the time it was caught; its tempo (96, 96 bpm,
+ * 96.0); its tag, with and without its #; the words of its notes; and what
+ * the filters call it (starred, midi, phone, a mixdown). Never the file's
+ * name or its date stamp: nobody sees those.
  */
-export function matches(t, { query = '', starred = false, midi = false, phone = false, tape = false, tag = '', tags = [] } = {}) {
+export function searchText(t, { tags = [], now = Date.now() } = {}) {
+  const words = [takeTitle(t), t.label || ''];
+  const ms = when(t);
+  if (!Number.isNaN(ms)) {
+    const d = new Date(ms);
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (dayKey(d) === dayKey(new Date(now))) words.push('today');
+    if (dayKey(d) === dayKey(yesterday)) words.push('yesterday');
+    const mon = MONTH_NAMES[d.getMonth()], n = d.getDate();
+    words.push(DAY_NAMES[d.getDay()], mon, `${n} ${mon}`, `${mon} ${n}`, `${n} ${mon.slice(0, 3)}`, `${mon.slice(0, 3)} ${n}`, String(d.getFullYear()),
+      `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+  }
+  if (Number.isFinite(t.bpm)) words.push(`${Math.round(t.bpm)} bpm`, t.bpm.toFixed(1));
+  const tag = tagOf(t, tags);
+  if (tag) words.push(tag.name, `#${tag.name}`);
+  for (const f of t.flags || []) if (f.label) words.push(f.label);
+  if (t.starred) words.push('starred');
+  if (t.has_midi) words.push('midi');
+  if (t.origin === 'phone') words.push('phone');
+  if (t.origin === 'tape') words.push('mixdown bounce');
+  return words.join('\n').toLowerCase();
+}
+
+/** weekStart is the Monday that began the week `now` is in, at midnight. */
+export function weekStart(now = Date.now()) {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+/**
+ * matches says whether a take passes the search and every filter that is
+ * on. The search is words, each of which must be in what the take is found
+ * by (searchText), in any order: "oct riff" finds October's riffs. `tag` is
+ * a tag's id, or 'none' for the untagged; '' is off. `week` is this week's
+ * takes, from Monday.
+ */
+export function matches(t, { query = '', starred = false, midi = false, phone = false, tape = false, week = false, tag = '', tags = [], now = Date.now() } = {}) {
   if (starred && !t.starred) return false;
   if (tag) {
     const own = tagOf(t, tags);
@@ -43,10 +89,11 @@ export function matches(t, { query = '', starred = false, midi = false, phone = 
   if (midi && !t.has_midi) return false;
   if (phone && t.origin !== 'phone') return false;
   if (tape && t.origin !== 'tape') return false;
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const hay = [t.label || '', stamp(t), t.bpm == null ? '' : t.bpm.toFixed(1), tagOf(t, tags)?.name || ''].join(' ').toLowerCase();
-  return hay.includes(q);
+  if (week && !(when(t) >= weekStart(now))) return false;
+  const q = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!q.length) return true;
+  const hay = searchText(t, { tags, now });
+  return q.every((w) => hay.includes(w));
 }
 
 // --- families: cuts and mixdowns fold into a spine ---------------------------
