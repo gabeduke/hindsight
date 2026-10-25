@@ -15,6 +15,17 @@ is `<pi-host>`.
   are views inside it, switched by `lib/shell/router.js` (pushState). The
   legacy UI and the rooms flag are gone. `wave.html` (Open), `rig.html` and
   `guide.html` are still separate pages. See `docs/architecture.md`, *The UI*.
+- **One frame on every page.** `css/chrome.css` lays out the header on the
+  Studio, the Listening Room, Capture, Open, the rig and the guide: what
+  you're working on at the left (the tape's name, the search, the feed, ‹
+  and the take's name), Studio | Listening Room centred at one rect on
+  every page of a width (J5.1), ↶ ↷ and then ☰ at the right; the brand
+  from 1280 px; on a phone the context, ↶ and ☰, the rooms as tabs. Each
+  tab has its own picture; ☰ is only the app's menu. A thing's name is its
+  menu (the tape's, the take's): ⋯ is gone, its options in ⌗'s View menu
+  beside the ruler. The header's tempo pill, output button and alignment
+  dot went to the bar's display (SYNC). See `docs/architecture.md`, *The
+  frame*.
 - **One bar, one shape.** `lib/bar/engine.js` owns the bar's audio, the tape
   source, the stream player and the output; `#np` is the same object in every
   view, and a take keeps playing across a room switch. `css/bar.css` draws it
@@ -28,7 +39,8 @@ is `<pi-host>`.
   DROP, CATCH, multi-arm, sections, ranges, parts, fades, BOUNCE, the
   instrument strip (Play mode, per-device switch, off by default), punch-in
   FX, the collapsible bar and lanes (`body.np-fold`, `body.tracks-fold`).
-  **Share the mix** (⋯) sends the whole tape as an MP3 rendered on the Pi
+  **Share the mix** (in the tape's name's menu) sends the whole tape as an
+  MP3 rendered on the Pi
   (`listen?all=1&format=mp3`), dry, with the interface off or on.
 - **The cue lane.** The lane (`#cue-row`, `lib/tape/cuelane.js`) and its
   store in the tape's state (`State.Cue`), with solo, loop, remove and
@@ -52,10 +64,6 @@ is `<pi-host>`.
   `docs/flows.md`, *What a run says*):
   - The cue clip's × (12×14 px) and loop toggle (22 px) and the shelf's
     list button (20 px tall) are under 24 px.
-  - Phone: Open's ⋯ (the take's menu) opens at x −144, all but 56 px of it
-    off the left side. The menu-offscreen check finds it, but no flow
-    opens it on a phone, so it is not in the baseline; it goes when Open's
-    menus move onto `lib/ui/menu.js` (Open's pass).
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.
@@ -155,21 +163,23 @@ in the open steps of the two specs below, in one sequence of checkpoints,
 and changes four of their decisions (⋯ goes into the tape's name; the
 output, tempo and source move onto the bar's display; the Listening Room
 becomes a shelf wall with the drawn room as the way in; ● on a phone
-records from the phone). Its step 4, **the bar**, has landed with
+records from the phone). Its step 3, **the frame**, has landed (the
+header's three zones on every page, the tape's and the take's names as
+their menus, ⋯ gone into them and into ⌗'s View menu, the tempo, output
+and alignment out of the header). Its step 4, **the bar**, has landed with
 `listening-back.md`'s step 1 (the way in): `css/bar.css`, the first of the
 per-place stylesheets; the zones, ▶ at one x for every source in both
 rooms (J1.13), ● beside ▶, the display's tempo, source and output keys
 (the Feed | Tape | Shelf switch is gone), the grabber, Open › and ✎ at the
-bar's end, and a double tap on a spine. The header's tempo pill and output
-button are still there, for step 3 (the frame) to take away. Its step 1
+bar's end, and a double tap on a spine. Its step 1
 (foundations, nothing visible) is under way, and step 2 has begun: `lib/ui/layers.js`, the one stack of open
 things, with ☰, the Studio's menus, inspector, clip editor and selection,
 and the phone's player on it; and `lib/ui/menu.js`, the one menu, with ☰
 and every menu in the Studio on it (KEEP ▾, GRAB ▾, Catch ▾ as a key of its
-own, the header's, the ruler's ⌗ and the input chips'). Still on their own
-path, each to move as it is touched: Open's notes pane (its own history
-entry, until it is the notes drawer), Open's ⋯ and lane menus (into
-`menu.js`), the Listening Room's select mode (`takes.js`), the buffer's
+own, the tape's name, the tempo, ⌗ and the input chips'), and Open's take
+menu. Still on their own path, each to move as it is touched: Open's notes
+pane (its own history entry, until it is the notes drawer), Open's More,
+Send to and lane menus (into `menu.js`), the Listening Room's select mode (`takes.js`), the buffer's
 lift and Play's learn mode (they claim their Escape with `preventDefault`),
 and a previewed Insert, Delete time or Paste in the Studio (no layer: a
 pointer over the key shows one). The icon sprite (`lib/ui/icons.js`,
