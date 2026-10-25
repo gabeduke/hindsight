@@ -6,6 +6,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { barPage, aTake } from './bar-harness.js';
+import { iconOf } from '../ui/icons.js';
 
 const SR = 48000;
 const BAR = 2.5 * SR;
@@ -283,7 +284,8 @@ test('■ in the Studio while recording goes through the delegated transport() a
     },
   });
   frames();
-  assert.equal($('np-play').textContent, '■');
+  assert.equal(iconOf($('np-play')), 'stop', '▶ is ■ for the tape while it plays');
+  assert.ok($('np-play').classList.contains('playing'));
   assert.equal($('np-status').getAttribute('data-state'), 'rec');
   assert.equal($('position').textContent, '2.1');
   assert.equal($('np-levels').children.length, 2, 'per-track reel level bars are drawn');

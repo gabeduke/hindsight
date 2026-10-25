@@ -8,6 +8,7 @@
 // ever wears.
 
 import { takeHref } from './take-source.js';
+import { icon } from '../ui/icons.js';
 
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
@@ -26,6 +27,9 @@ export function clock(frames, sampleRate) {
 export function takeKeys({ doc, root, onNote, onSelectSource, onGrabFeed }) {
   const own = doc.getElementById('np-eject')?.parentElement;
   const loop = doc.getElementById('np-loop');
+  // ⟲'s word is a span of its own beside its icon: Repeat replaces Loop
+  // there and leaves the icon, which writing the key's text would wipe.
+  const loopWord = loop?.querySelector('.loop-word');
   const sw = doc.createElement('div');
   sw.className = 'seg np-source-switch';
   sw.setAttribute('role', 'group');
@@ -54,7 +58,7 @@ export function takeKeys({ doc, root, onNote, onSelectSource, onGrabFeed }) {
   note.className = 'icon-btn np-note';
   note.setAttribute('type', 'button');
   note.setAttribute('data-tip', 'np-note');
-  note.textContent = '✎';
+  note.innerHTML = icon('note');
   note.hidden = true;
   note.addEventListener('click', () => onNote?.());
   const grabFeed = doc.createElement('button');
@@ -87,9 +91,10 @@ export function takeKeys({ doc, root, onNote, onSelectSource, onGrabFeed }) {
         setAttr(name, 'aria-label', `Open ${src.title}`);
         setAttr(note, 'aria-label', `Note at ${clock(src.pos(), src.sampleRate)}`);
       }
-      // ⟲ is the tape's loop for the tape, and for a take it is Repeat.
+      // ⟲ is the tape's loop for the tape, and for a take it is Repeat:
+      // the word changes, the icon beside it stays.
       if (loop) {
-        setText(loop, take ? '⟲ Repeat' : '⟲ Loop');
+        setText(loopWord, take ? 'Repeat' : 'Loop');
         const tip = take ? 'np-repeat' : 'np-loop';
         if (loop.dataset.tip !== tip) loop.dataset.tip = tip;
       }

@@ -35,7 +35,7 @@
   </nav>
   <!-- Where the tape plays (lib/tape/out-switch.js): a speaker, headphones or
        both, and the place's name on a wide screen. Hidden until the Pi says. -->
-  <button id="out-btn" class="out-btn tape-out" type="button" aria-haspopup="dialog" aria-label="Output" data-tip="tape-out" hidden><span class="out-ico-slot" aria-hidden="true"></span><span class="tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+  <button id="out-btn" class="out-btn tape-out" type="button" aria-haspopup="dialog" aria-label="Output" data-tip="tape-out" hidden><span class="out-ico-slot" aria-hidden="true"><svg class="i i-speaker out-ico" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#speaker"/></svg></span><span class="tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
   <div id="header-capture" class="appbar-page" hidden>
     <div class="health">
       <span class="awake" id="awake" hidden
@@ -53,24 +53,24 @@
          sets the loop's bars. Each opens under itself. -->
     <div class="tape-title">
       <span class="menu-anchor">
-        <button id="tape-name" class="tape-pill tape-title-name" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu"><svg class="pill-ico" width="22" height="16" viewBox="0 0 24 18" aria-hidden="true"><circle cx="6" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 13.5h12" stroke="currentColor" stroke-width="2"/></svg><span id="tape-name-text" class="pill-text">…</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+        <button id="tape-name" class="tape-pill tape-title-name" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu"><svg class="i i-tape pill-ico" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#tape"/></svg><span id="tape-name-text" class="pill-text">…</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
         <div id="tape-menu" class="menu from-left" role="menu" hidden>
           <div id="tape-list" class="tape-list"></div>
           <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
         </div>
       </span>
       <span class="menu-anchor">
-        <button id="tape-sub" class="tape-pill tape-sub mono" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-tempo"><span class="pill-ico" aria-hidden="true">♩</span><span id="tape-sub-long" class="pill-text sub-long"></span><span id="tape-sub-short" class="pill-text sub-short" aria-hidden="true"></span><span class="pill-chev" aria-hidden="true">▾</span></button>
+        <button id="tape-sub" class="tape-pill tape-sub mono" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-tempo"><span class="pill-ico" aria-hidden="true">♩</span><span id="tape-sub-long" class="pill-text sub-long"></span><span id="tape-sub-short" class="pill-text sub-short" aria-hidden="true"></span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
         <div id="tempo-menu" class="menu from-left" role="menu" hidden></div>
       </span>
     </div>
     <span class="appbar-spacer"></span>
     <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
     <span id="lock-dot" class="dot lock" data-tip="lock-dot" title="alignment"></span>
-    <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo">↶</button>
-    <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo">↷</button>
+    <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo"><svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#undo"/></svg></button>
+    <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo"><svg class="i i-redo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#redo"/></svg></button>
     <span class="menu-anchor">
-      <button id="tape-more" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More for this tape" data-tip="tape-more">⋯</button>
+      <button id="tape-more" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More for this tape" data-tip="tape-more"><svg class="i i-more" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#more"/></svg></button>
       <div id="tape-actions" class="menu" role="menu" hidden>
         <button id="tape-rename" type="button" role="menuitem" data-tip="tape-rename">Rename this tape…</button>
         <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
@@ -130,17 +130,17 @@
       <!-- What a drag snaps to, and the loop's lock: drawn ranges move the
            loop to their bars unless it's locked. -->
       <span class="tape-ruler-gap ruler-keys">
-        <button id="snap-btn" class="chip ruler-chip snap-btn" type="button" data-tip="tape-snap"><span class="snap-ico" aria-hidden="true">⌗</span><span id="snap-name">Bar</span></button>
-        <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path class="lock-shackle" d="M3.2 6V4.2a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+        <button id="snap-btn" class="chip ruler-chip snap-btn" type="button" data-tip="tape-snap"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg><span id="snap-name">Bar</span></button>
+        <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg class="i i-lock-body" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#lock-body"/><use class="lock-shackle" href="/icons/ui.svg?v=5157df85#lock-shackle"/></svg></button>
         <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
-        <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes">Tracks ▾</button>
+        <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes" data-tip="tracks-fold">Tracks<svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
         <!-- On a phone the keys above outgrow the heads' column: one key,
              saying the snap (and the lock, when it's on), holds them all. -->
         <span class="menu-anchor ruler-more-anchor">
-          <button id="ruler-more" class="chip ruler-chip ruler-more" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="ruler-more"><span class="snap-ico" aria-hidden="true">⌗</span><span id="ruler-more-snap">Bar</span><svg class="ruler-more-lock" width="10" height="12" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path d="M3.2 6V4.2a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="pill-chev" aria-hidden="true">▾</span></button>
+          <button id="ruler-more" class="chip ruler-chip ruler-more" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="ruler-more"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg><span id="ruler-more-snap">Bar</span><svg class="i i-lock-body ruler-more-lock" width="10" height="10" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#lock-body"/><use class="lock-shackle" href="/icons/ui.svg?v=5157df85#lock-shackle"/></svg><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="10" height="10" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
           <div id="ruler-menu" class="menu from-left ruler-menu" role="menu" aria-label="The ruler" hidden>
             <div class="ruler-menu-snap" role="group" aria-label="Snap to">
-              <span class="ruler-menu-label" aria-hidden="true">⌗ Snap</span>
+              <span class="ruler-menu-label" aria-hidden="true"><svg class="i i-view" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg> Snap</span>
               <span class="seg ruler-snap-seg">
                 <button type="button" role="menuitemradio" aria-checked="true" data-snap="bar" data-tip="tape-snap">Bar</button>
                 <button type="button" role="menuitemradio" aria-checked="false" data-snap="beat" data-tip="tape-snap">Beat</button>
@@ -150,7 +150,7 @@
             </div>
             <button id="rm-lock" type="button" role="menuitemcheckbox" aria-checked="false" data-tip="loop-lock"><span class="menu-check" aria-hidden="true">✓</span>Lock the loop</button>
             <button id="rm-fit" type="button" role="menuitem" data-tip="view-fit" hidden><span class="menu-check" aria-hidden="true"></span>Fit: back to the loop</button>
-            <button id="rm-tracks" type="button" role="menuitem"><span class="menu-check" aria-hidden="true"></span><span id="rm-tracks-words">Fold the tracks</span></button>
+            <button id="rm-tracks" type="button" role="menuitem" data-tip="tracks-fold"><span class="menu-check" aria-hidden="true"></span><span id="rm-tracks-words">Fold the tracks</span></button>
           </div>
         </span>
       </span>
@@ -350,7 +350,7 @@
     </div>
     <div class="np-row np-row-1">
       <div class="np-window">
-        <button id="np-expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass><span class="np-expand-chev" aria-hidden="true">▾</span></button>
+        <button id="np-expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass><span class="np-expand-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
         <svg id="np-reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
         <div class="np-lcd">
           <div class="np-lcd-top">
@@ -366,18 +366,18 @@
         <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
       </div>
       <div class="np-keys tb-row transport" role="group" aria-label="Transport">
-        <button id="np-start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start"><svg width="18" height="16" viewBox="0 0 24 22" aria-hidden="true"><rect x="4" y="3" width="3" height="16" rx="1" fill="currentColor"/><path d="M20 4.2v13.6a1 1 0 0 1-1.55.84L9 12.84a1 1 0 0 1 0-1.68l9.45-6.8A1 1 0 0 1 20 4.2z" fill="currentColor"/></svg></button>
-        <button id="np-back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5"><span aria-hidden="true">↺</span> 5 s</button>
-        <button id="np-play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play">▶</button>
-        <button id="np-loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop">⟲ Loop</button>
+        <button id="np-start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start"><svg class="i i-prev" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#prev"/></svg></button>
+        <button id="np-back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5"><svg class="i i-back5" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#back5"/></svg></button>
+        <button id="np-play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play"><svg class="i i-play" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#play"/></svg></button>
+        <button id="np-loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop"><span class="loop-face"><svg class="i i-repeat" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#repeat"/></svg><span class="loop-word">Loop</span></span></button>
         <button id="rec" class="icon-btn tb-rec np-studio" type="button" aria-pressed="false" aria-keyshortcuts="R" data-tip="tape-rec">● Rec</button>
         <button id="click" class="icon-btn tb-click np-studio" type="button" aria-pressed="false" aria-label="Click" aria-keyshortcuts="K" data-tip="tape-click">♩</button>
       </div>
       <div class="np-own">
         <button id="catch-pass" class="icon-btn primary np-catch np-studio" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
-        <button id="np-eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" hidden>⏏</button>
+        <button id="np-eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" hidden><svg class="i i-eject" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#eject"/></svg></button>
         <a id="np-open" class="icon-btn np-open" href="/tape.html" data-tip="np-open">Open the tape ›</a>
-        <button id="np-fold-btn" class="icon-btn np-fold-btn" type="button" aria-expanded="true" aria-controls="np" aria-label="Collapse transport" data-tip="np-fold"><span class="np-fold-glyph" aria-hidden="true">▾</span></button>
+        <button id="np-fold-btn" class="icon-btn np-fold-btn" type="button" aria-expanded="true" aria-controls="np" aria-label="Collapse transport" data-tip="np-fold"><span class="np-fold-glyph" aria-hidden="true"><svg class="i i-down" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
       </div>
     </div>
     <div class="np-row np-row-2">
@@ -386,7 +386,7 @@
       <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub"></canvas>
       <span class="np-out np-here"><span class="pill-out" aria-hidden="true">OUT</span><span id="np-out">Jam room</span></span>
       <span class="menu-anchor out-anchor np-out np-studio">
-        <button id="tape-out" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true">▾</span></button>
+        <button id="tape-out" class="tape-pill tape-out" type="button" aria-label="Output" aria-haspopup="dialog" data-tip="tape-out"><span class="pill-ico pill-out" aria-hidden="true">OUT</span><span class="pill-text tape-out-text">Jam room</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
       </span>
     </div>
   </section>
@@ -803,7 +803,7 @@
       <span class="buffer-note" id="buffer-note" role="status"></span>
       <span class="buffer-spacer" aria-hidden="true"></span>
       <button class="icon-btn buffer-audition" id="buffer-audition" type="button" aria-pressed="false" data-tip="buffer-audition"><span class="buffer-led" aria-hidden="true"></span>Audition</button>
-      <button class="icon-btn buffer-snap" id="buffer-snap" type="button" data-tip="tape-snap"><span aria-hidden="true">⌗ </span><span id="buffer-snap-name">Bar</span></button>
+      <button class="icon-btn buffer-snap" id="buffer-snap" type="button" data-tip="tape-snap"><svg class="i i-view" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg><span id="buffer-snap-name">Bar</span></button>
       <button class="icon-btn buffer-unfold" id="buffer-unfold" type="button" aria-pressed="false" data-tip="buffer-unfold">Unfold<span aria-hidden="true"> ▾</span></button>
       <button class="icon-btn buffer-close" id="buffer-close" type="button" aria-label="Close the buffer; Buffer ▴ opens it again" data-tip="buffer-close">✕</button>
     </div>

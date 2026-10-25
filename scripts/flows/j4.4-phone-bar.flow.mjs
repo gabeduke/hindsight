@@ -151,7 +151,7 @@ export default {
     const cassette = page.locator('#view-room .room-cassette').first();
     await cassette.waitFor({ state: 'visible' });
     await t.step('tap a take', () => t.tap(cassette));
-    const heard = await t.poll(() => document.getElementById('np-play')?.textContent.trim() === '❚❚');
+    const heard = await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
     const room = await page.evaluate(look);
     t.expect('the take plays in the mini player', heard, room);
     t.expect('|◀ sits beside ▶, a thumb wide', room.start && room.beside, room);

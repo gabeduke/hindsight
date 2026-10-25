@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { initTransportFold, NP_FOLD_KEY } from './player.js';
+import { fileCss, rules } from '../stylesheets.js';
 
 class MockStorage {
   constructor() {
@@ -35,9 +36,10 @@ function makeDoc({ hasBtn = true, foldedInitial = false } = {}) {
     },
   };
 
+  // The key's drawn ▾: the stylesheet turns it over, so nothing writes to it.
   const glyph = {
     classList: { contains: (c) => c === 'np-fold-glyph' },
-    textContent: '▾',
+    textContent: '',
   };
 
   const btnAttrs = new Map();
@@ -98,7 +100,6 @@ test('initTransportFold: defaults to expanded, and clicking toggles body.np-fold
   assert.equal(classList.has('np-fold'), true);
   assert.equal(btn.getAttribute('aria-expanded'), 'false');
   assert.equal(btn.getAttribute('aria-label'), 'Expand transport');
-  assert.equal(glyph.textContent, '▴');
   assert.equal(store.getItem(NP_FOLD_KEY), '1');
   assert.equal(docEvents.length, 1);
   assert.equal(docEvents[0].detail.folded, true);
@@ -108,14 +109,14 @@ test('initTransportFold: defaults to expanded, and clicking toggles body.np-fold
   assert.equal(classList.has('np-fold'), false);
   assert.equal(btn.getAttribute('aria-expanded'), 'true');
   assert.equal(btn.getAttribute('aria-label'), 'Collapse transport');
-  assert.equal(glyph.textContent, '▾');
   assert.equal(store.getItem(NP_FOLD_KEY), null);
+  assert.equal(glyph.textContent, '', 'the drawn ▾ is left as it is: no glyph is typed over it');
   assert.equal(docEvents.length, 2);
   assert.equal(docEvents[1].detail.folded, false);
 });
 
 test('initTransportFold: restores folded state when persisted in storage', () => {
-  const { doc, btn, glyph, classList } = makeDoc();
+  const { doc, btn, classList } = makeDoc();
   const store = new MockStorage();
   store.setItem(NP_FOLD_KEY, '1');
 
@@ -123,7 +124,13 @@ test('initTransportFold: restores folded state when persisted in storage', () =>
   assert.equal(classList.has('np-fold'), true);
   assert.equal(btn.getAttribute('aria-expanded'), 'false');
   assert.equal(btn.getAttribute('aria-label'), 'Expand transport');
-  assert.equal(glyph.textContent, '▴');
+});
+
+test('folded, the key’s ▾ is turned over into ▴ by the body’s np-fold, and only then', () => {
+  const turned = rules(fileCss('styles.css')).filter((r) => /rotate\(180deg\)/.test(r.body)
+    && r.sel.some((x) => /^body\.np-fold\b/.test(x) && /\.np-fold-glyph\b/.test(x) && /\.i\b/.test(x)));
+  assert.equal(turned.length, 1, 'one rule turns the fold’s icon over');
+  assert.equal(turned[0].media, '', 'wherever the key shows');
 });
 
 test('initTransportFold: throwing storage (private mode) does not throw or break the toggle', () => {

@@ -33,7 +33,8 @@ web/static/lib/objects the physical things: reels, cassettes, VU meters, the sha
 web/static/lib/scene   the scene contract the renderers follow
 web/static/lib/wave    the take page (wave.html): view, geometry, draw, tiles, clock, lanes
 web/static/lib/edit    the gestures and curves every editing surface shares
-web/static/lib/ui      one press: the gestures' times (GESTURE), a key's tap, double tap and hold, and its down pose
+web/static/lib/ui      one press: the gestures' times (GESTURE), a key's tap, double tap and hold, and its down pose;
+                       one icon set: icons.js, drawing from web/static/icons/ui.svg
 web/static/lib/help    tips, help mode, and the guide renderer
 web/static/lib/phone   the phone recorder
 docs/embed.go          the guide, compiled into the binary
@@ -771,7 +772,7 @@ throws, the router falls back to a full navigation.
 | `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport), `setLevels` |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
-| `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`) and `[data-playing]` |
+| `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class |
 
 **Audio rules the design relies on.** Pushing history or hiding DOM never
 touches media or an AudioContext. Autoplay gates are per document with sticky
@@ -817,6 +818,48 @@ screen. `lib/rooms/words.test.js` enforces the retired list.
 
 A tap on a take plays it in the bar, wherever you are; holding selects; the
 bar is the only transport; **Open** (`wave.html`) is the one page to dig in.
+
+### Icons
+
+A key's picture is a symbol in one sprite, `web/static/icons/ui.svg`: line
+art on a 24 grid, in the key's own ink (`currentColor`), its stroke's width
+`styles.css`'s (`svg.i`, 1.75; under 16 px 2.25, and a small ▾ 2.75, as the
+kit draws them). The unicode
+glyphs the keys had (↶ ⋯ ▾ ✎ ⏏ ⌗ …) were drawn by each platform in a fallback
+font of its own, so a key fitted on a laptop ran off a tablet in CI's fonts.
+
+- **In the markup, so it is there at the first paint**: `<svg class="i
+  i-undo" width="22" height="22" aria-hidden="true"><use
+  href="/icons/ui.svg?v=…#undo"/></svg>`. A script writes the same with
+  `icon(name)`, and changes what a key shows with `setIcon(key, name)`, which
+  writes only when it changes (`lib/ui/icons.js`). The key says what it
+  does (`aria-label`, its words); the icon is hidden from a screen reader,
+  and a tap on it is a tap on the key (`pointer-events: none`), so help
+  mode's tips and the keys' own handlers see the key.
+- **State is the key's, not its picture's**: ▶ is `.playing` while it is
+  heard playing, whatever it draws (▶, ❚❚ for a take, ■ for the tape); a
+  fold's ▾ turns over by `body.np-fold` or `aria-expanded`, in CSS.
+- **A key keeps the width its glyph gave it**: an icon's box is wider than
+  its line, and where a ▾ or ⌗ follows a word its blank sides come off the
+  key's gap or padding (the rules say so where they do it).
+- **The sprite's address moves with it**: `SPRITE` (`lib/ui/icons.js`) is
+  `/icons/ui.svg?v=` and the first 8 hex of the file's sha-256, and the
+  pages, `sw.js`'s `SHELL` and every script ask for exactly that. A browser
+  keeps the SVG a `<use>` names by its URL — across a reload, which is what
+  the Update button does, and in its HTTP cache when the app is opened again
+  — so a sprite changed at the same address goes on drawing the old copy,
+  and a symbol new to it as a blank key. Bumping `CACHE` does not reach it.
+  Change the sprite and `icons.test.js` names the new address.
+- The loop's lock is two symbols, its body and its shackle, so the page can
+  slide the shackle open.
+- `lib/ui/icons.test.js` fails on a name a page or a script uses that the
+  sprite hasn't got, on a symbol that isn't in `ICONS`, on markup that
+  doesn't name the icon it shows, on the sprite missing from `sw.js`'s
+  `SHELL`, on an address that isn't the sprite's hash, on an icon written
+  under 16 px that isn't drawn heavier, on a key of the header, the bar or
+  the ruler that goes back to a glyph or has no tip, and on a script that
+  types a glyph into a key: `TYPED` counts, by file, the writes still left
+  in the regions not drawn yet, and a count only goes down. The objects bench (`objects.html`) shows every icon.
 
 ### The scene contract
 

@@ -213,6 +213,20 @@ When you need the history behind one, read it from git:
   `styles.test.js` fails if a rule hides it or one of its items. The
   Settings sheet's first line (`lib/settings.js`, `aboutLine`) carries the
   version, Releases, the guide and the rig as well.
+- **A key's picture is an icon from `web/static/icons/ui.svg`**, through
+  `lib/ui/icons.js` (`icon`, `setIcon`) or the same `<svg class="i …">`
+  markup, never a unicode glyph: each platform drew those in a fallback font
+  of its own, and the bar's ✎ ran off a tablet in CI's fonts. A new one is a
+  `<symbol>` in the sprite and a name in `ICONS`; `icons.test.js` fails on a
+  name the sprite hasn't got. **Any change to the sprite moves its address**
+  (`SPRITE`'s `?v=`, a hash of the file), in `icons.js`, `sw.js`'s `SHELL`
+  and every `<use>`: a browser keeps the SVG a `<use>` names by its URL, even
+  across a reload, so a symbol new to the old address draws a blank key.
+  `icons.test.js` fails and names the new address. A script changes a key's
+  icon with `setIcon`, never by typing a glyph into it; the glyphs scripts
+  still type, in the regions not drawn yet, are counted (`TYPED`) and only
+  go down. A test or a flow reads a key's state (`.playing`,
+  `aria-pressed`), never its picture.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.

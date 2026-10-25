@@ -8,7 +8,7 @@ export default {
     await t.given('a take on the shelf', () => api.keep(20));
     await t.given('the Listening Room is open', () => page.goto(`${t.base}/takes.html`));
     await t.given('the take is playing', () => t.tap(page.locator('#view-room .room-cassette').first()));
-    await t.poll(() => document.getElementById('np-play')?.textContent.trim() === '❚❚');
+    await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
     const url = page.url();
 
     await t.step('tap ✎', () => page.locator('#np-note').click());
@@ -16,6 +16,6 @@ export default {
     t.expect('the sketchbook opens in the room', open);
     t.expect('the URL did not change', page.url() === url, page.url());
     await t.wait(1000);
-    t.expect('the take is still playing', (await page.locator('#np-play').innerText()).trim() === '❚❚');
+    t.expect('the take is still playing', await page.evaluate(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing')));
   },
 };

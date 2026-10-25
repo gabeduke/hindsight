@@ -46,7 +46,9 @@ is `<pi-host>`.
   `scripts/flows/layout-known.json`; each fix shrinks it, see
   `docs/flows.md`, *What a run says*):
   - Tablet: the bar runs off the right side: its fold button by 8 px
-    here, its ✎ Note in CI's fonts. With a take in the bar it is worse:
+    here, its ✎ Note in CI's fonts (the keys are drawn icons now, so a
+    font no longer changes their widths: CI's run says whether ✎ still
+    runs off). With a take in the bar it is worse:
     the take's name and ✎ are past the edge at 1024, and ✎ is cut at
     1280 (`listening-back.md`, step 1).
   - Tablet: the Listening Room's sketchbook place starts off the left side.
@@ -155,7 +157,11 @@ and changes four of their decisions (⋯ goes into the tape's name; the
 output, tempo and source move onto the bar's display; the Listening Room
 becomes a shelf wall with the drawn room as the way in; ● on a phone
 records from the phone). Its step 1 (foundations, nothing visible) is
-under way.
+under way. Of its step 2, the icon sprite (`lib/ui/icons.js`,
+`icons/ui.svg`) has the header's, the bar's and the ruler's keys. The
+glyphs still typed (the feed strip's ▾s, the buffer's, the cue lane's and
+the editors' keys, Open's own, ● Rec and ♩ on the bar, the menus' ✓) go
+as their regions are rebuilt.
 
 1. `listening-back.md` (agreed 2026-10-23, from Gabe trying the Listening
    Room on the rig): Open › on the bar and a double tap on a spine, one

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from './play/fake-dom.js';
 import { mountHeaderTools, wireAppMenu } from './nav.js';
+import { iconOf } from './ui/icons.js';
 
 const header = (page) => {
   const html = readFileSync(new URL(`../${page}`, import.meta.url), 'utf8');
@@ -49,6 +50,8 @@ for (const page of ['shell.html', 'wave.html']) {
     const btn = doc.getElementById('app-menu-btn');
     assert.equal(btn.getAttribute('aria-haspopup'), 'menu');
     assert.ok(btn.hasAttribute('data-tip-pass'), 'help mode explains ☰ and still opens it: Help mode is inside');
+    assert.equal(iconOf(btn), 'menu', '☰ is the sprite’s, as every header key is');
+    assert.equal(btn.getAttribute('aria-label'), 'Menu');
     assert.equal(mountHeaderTools(doc), null, 'once');
   });
 }

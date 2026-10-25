@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { fileCss } from '../stylesheets.js';
+import { iconOf } from '../ui/icons.js';
 
 const SR = 48000;
 const waveHtml = readFileSync(new URL('../../wave.html', import.meta.url), 'utf8');
@@ -49,7 +50,7 @@ test('Open adds ✎ Note in place of the flag key, and the flag key is out of th
   assert.equal(p.$('flag-now').hidden, true);
   const note = p.$('room-open-note');
   assert.ok(note, 'the ✎ key is made');
-  assert.equal(note.textContent, '✎');
+  assert.equal(iconOf(note), 'note', '✎ is drawn, not typed');
   assert.equal(note.getAttribute('aria-label'), 'Note at the playhead');
   assert.ok(p.doc.body.classList.contains('room-open-on'));
 });

@@ -125,7 +125,9 @@ what's next.
 2. **The stack and the menus.** `layers.js` (Back and Escape close the top
    thing first; switching rooms closes menus), then `menu.js` for ☰, the
    name's menu and the ▾ keys, with menus growing from their key; the icon
-   sprite, header first. The motion tokens and springs, and keys that
+   sprite, header first (~~the header, the bar and the ruler~~: landed, in
+   `docs/architecture.md`, *Icons*; the rest of the glyphs go as their
+   regions are rebuilt). The motion tokens and springs, and keys that
    press within a frame.
 3. **The frame.** The header's three zones on every page; the tape's name
    as its menu; ⋯ goes; the tempo and the output into the bar's display.

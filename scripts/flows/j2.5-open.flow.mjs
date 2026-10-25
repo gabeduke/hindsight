@@ -8,7 +8,7 @@ export default {
     const { name } = take;
     await t.given('the Listening Room is open', () => page.goto(`${t.base}/takes.html`));
     await t.given('the take is playing', () => t.tap(page.locator('#view-room .room-cassette').first()));
-    await t.poll(() => document.getElementById('np-play')?.textContent.trim() === '❚❚');
+    await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
 
     await t.step('tap the take name on the bar', () => page.locator('#np-name').click());
     await page.waitForURL(/wave\.html\?file=/, { timeout: 10_000 });
