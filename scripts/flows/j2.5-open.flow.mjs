@@ -37,7 +37,8 @@ export default {
 
     // The other way in: a double tap on the take's spine.
     await t.step('go back to the Listening Room', () => page.goto(`${t.base}/takes.html`));
-    const spine = page.locator(`#view-room .room-cassette[data-key="take:${name}"]`);
+    // Starred, it stands on its month's shelf and on ★: the month's comes first.
+    const spine = page.locator(`#view-room .room-cassette[data-key="take:${name}"]`).first();
     await spine.waitFor({ state: 'visible' });
     await t.wait(500);
     await t.step('double tap its spine', async () => {

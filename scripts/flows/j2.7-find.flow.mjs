@@ -61,7 +61,7 @@ export default {
 
     await t.step('tap the take found', () => t.tap(row(old.name)));
     const plays = await t.poll((name) => document.getElementById('np')?.dataset.source === 'take'
-      && document.getElementById('np-play')?.classList.contains('playing') && document.getElementById('np-name')?.textContent.trim() === name, `${word} idea`);
+      && document.getElementById('np-play')?.classList.contains('playing') && document.getElementById('np-source-short')?.textContent.trim() === name, `${word} idea`);
     t.expect('it plays in the bar, under the name on its spine', plays);
 
     await t.step('Cancel', () => t.tap(page.locator('.room-search-done')));
@@ -132,7 +132,8 @@ export default {
       const shelf = page.locator(`.room-shelf[data-shelf="month:${two.getFullYear()}-${String(two.getMonth() + 1).padStart(2, '0')}"]`);
       const full = await shelf.locator('.room-row').evaluate((r) => r.scrollWidth > r.clientWidth);
       t.expect('that month’s shelf holds more than it shows: it scrolls sideways', full);
-      const spine = shelf.locator('.room-cassette').nth(2);
+      // A finger lands on a spine it can see: the top shelf's, under the toolbar.
+      const spine = page.locator('.room-wall .room-shelf').first().locator('.room-cassette').first();
       const key = await spine.getAttribute('data-key');
       const box = await spine.boundingBox();
       const cdp = await page.context().newCDPSession(page);
