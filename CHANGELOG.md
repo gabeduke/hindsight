@@ -5,6 +5,17 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.25.4 — 2026-10-25
+
+- The studio space's step 3, the frame, is struck from its build order, with step 8's ⌗ View menu on every screen (e38bf8a)
+- The tape's name is its menu and ⋯ goes: the tapes and New tape, Rename…, Duplicate, the mix and the bounces, Record from this phone…, and Delete this tape… last, which asks first and then opens the tape you changed last; the snap, the loop's lock, Fit, the fold and Ask before are ⌗'s View menu beside the ruler (e826ed4)
+- A double tap on a spine opens its take even when the first tap's start holds up a slower tablet (e2ad2fa)
+- Every page has one header: what you're working on at the left, Studio | Listening Room in the middle at the same place on every page, ↶ ↷ and ☰ at the right; and on a take's page its name is its menu (52ed57f)
+- The studio space's step 4, the bar, and listening-back's step 1, the way in, are struck from their build orders (7e14719)
+- A double tap on a spine opens the take on its page, playing on from its first tap, and the deck's plate says where a tap on it goes: ▶ the take · Open › (6a2ab5f)
+- The bar keeps one shape in both rooms: ▶ stays where it was for the tape, a take or the feed, ● sits beside it, its display says what plays and where, it folds by a grabber, and with a take Open › and ✎ are at its end, on the screen at 800, 1024 and 1280 (cead7f9)
+
+
 ## v2026.10.25.3 — 2026-10-25
 
 - Catch's ▾ darkens under a finger as Catch does, so a press on it shows while Catch is lit (92579ac)
