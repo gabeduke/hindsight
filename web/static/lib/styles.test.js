@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { block, cssOf, fileCss, rules, section, splitList, stripComments, tokens } from './stylesheets.js';
+import { block, cssOf, decls, fileCss, rules, section, splitList, stripComments, tokens } from './stylesheets.js';
 
 const css = fileCss('styles.css');
 // The materials -- tape, cassettes, reels, the VU faces -- live next door in
@@ -500,6 +500,33 @@ test('the shelf wall keeps no 3D context round its spines', () => {
   // (the flows found it). One tilted plane, flat inside.
   const body = section(css, '/* ---------- Rooms P5:');
   assert.doesNotMatch(body, /transform-style:\s*preserve-3d/);
+});
+
+test('the shelf wall is drawn flat: nothing that scrolls is turned in 3D, so a finger on a spine scrolls it', () => {
+  // The case tilted back (rotateX under the wall's perspective) was one big
+  // layer to scroll, and on a tablet a drag that started on a spine of a
+  // full shelf moved nothing -- spines are most of the wall (J2.7 drags it).
+  // The perspective is drawn: the boards' shadows, the cubbies' sides.
+  const body = section(css, '/* ---------- Rooms P5:');
+  const wall = rules(body).filter((r) => r.sel.some((s) => /\.room-(wall|case|shelf|row|cassette)\b/.test(s)));
+  assert.ok(wall.length > 10, 'the wall’s rules are found');
+  for (const r of wall) {
+    assert.doesNotMatch(r.body, /perspective\s*:|rotate[XY3]d?\(|translateZ\(|translate3d\(|transform-style/, `${r.sel.join(', ')} (line ${r.line})`);
+  }
+});
+
+test('a long wall stays smooth: no spine animates by its scroll, and the playing one breathes by its opacity alone', () => {
+  // A scroll-driven lean on each of 180 spines, and a breathing box-shadow
+  // painted again every frame, held a tablet at 20 fps (the review's 131-take
+  // library, 4x CPU). Only opacity and transform animate (the Motion
+  // decision, docs/plan/the-studio-space.md).
+  const body = section(css, '/* ---------- Rooms P5:');
+  assert.doesNotMatch(body, /animation-timeline/);
+  const steps = rules(body, { keyframes: true }).filter((r) => r.at.some((a) => /^@keyframes room-playing\b/.test(a)));
+  assert.ok(steps.length, '@keyframes room-playing is found');
+  for (const r of steps) for (const d of decls(r.body)) assert.equal(d.prop, 'opacity', `room-playing animates ${d.prop}`);
+  const on = rules(body).filter((r) => /animation:\s*room-playing\b/.test(r.body));
+  assert.ok(on.length && on.every((r) => r.sel.every((s) => /\.room-cassette-glow$/.test(s))), 'it breathes on the glow, a layer of its own');
 });
 
 test('the drawn room is the backdrop: in full while the room is walked into, at ambient light after', () => {

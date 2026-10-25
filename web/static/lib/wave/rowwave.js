@@ -60,9 +60,14 @@ export class RowWave {
       }, sig);
     }
     audio.addEventListener('seeked', () => this.draw(), sig);
+    // The observer says the canvas's size itself: a list's worth of rows
+    // each asking the page for it, between the writes, would lay the page
+    // out once a row whenever the list shows (lib/room/doorway.js's
+    // Shelf | List).
+    const sized = (entries) => this.resize(entries.at(-1)?.contentRect);
     if (look === 'spine') {
       this.gain = takeGain(peaks);
-      this.ro = new ResizeObserver(() => this.resize());
+      this.ro = new ResizeObserver(sized);
       this.ro.observe(this.canvas);
       this.resize();
       return;
@@ -92,7 +97,7 @@ export class RowWave {
       dragging = null;
     }, sig);
     this.canvas.addEventListener('pointercancel', () => { dragging = null; }, sig);
-    this.ro = new ResizeObserver(() => this.resize());
+    this.ro = new ResizeObserver(sized);
     this.ro.observe(this.canvas);
     this.resize();
   }
@@ -115,8 +120,8 @@ export class RowWave {
     this.draw();
   }
 
-  resize() {
-    const r = this.canvas.getBoundingClientRect();
+  /** resize fits the canvas to its box: `r` as its observer measured it, or as the page lays it out now. */
+  resize(r = this.canvas.getBoundingClientRect()) {
     if (r.width <= 0) return;
     const dpr = window.devicePixelRatio || 1;
     this.canvas.width = Math.round(r.width * dpr);

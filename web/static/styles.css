@@ -151,6 +151,9 @@
   /* The header: one 54px row and its 1px border, on every page
      (css/chrome.css). Sticky things park under it. */
   --topbar-h:  calc(55px + env(safe-area-inset-top));
+  /* The room between two spines on the Listening Room's wall (lib/room/
+     doorway.js reads it to space a long shelf's spines wider). */
+  --room-gap:  2px;
 
   --font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
           Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -4390,9 +4393,11 @@ body:not(.room-rack) .shelf-title,
 @keyframes room-lamp { to { opacity: .55; } }
 
 /* The wall: the shelves fill the room from under the header to the bar,
-   in light perspective -- the case a plane tilted a little back under the
-   wall's camera -- with the lamp's light from the upper left. It scrolls
-   up and down; each shelf scrolls sideways. */
+   in light perspective, with the lamp's light from the upper left. It
+   scrolls up and down; each shelf scrolls sideways. The perspective is
+   drawn (the shadow under each board, each cubby's sides), never a 3D
+   transform: a tilted case is one big layer to scroll, and a finger that
+   starts on a spine in one doesn't scroll the wall at all. */
 .room-wall { position: relative; z-index: 2; }
 .room-case {
   --room-pitch: 36px;
@@ -4414,22 +4419,29 @@ body:not(.room-rack) .shelf-title,
 }
 @media (pointer: coarse) { .room-case { --room-pitch: 46px; } }
 /* A shelf: as wide as its spines want, two short ones side by side, a long
-   one a row of its own that scrolls; a cubby, dark under the board above. */
+   one a row of its own that scrolls; a cubby, dark under the board above,
+   its left side in the upright's shadow and its right side catching the
+   lamp, as a box seen from a little to its left does. */
 .room-shelf {
   position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-width: min(100%, 250px); max-width: 100%;
   flex: 1 1 calc(var(--n, 1) * var(--room-pitch) + 48px);
   border-left: 10px solid var(--room-walnut);
   background:
     linear-gradient(color-mix(in srgb, var(--room-shadow) 62%, transparent), transparent 48px),
+    linear-gradient(90deg, color-mix(in srgb, var(--room-shadow) 45%, transparent), transparent 16px,
+      transparent calc(100% - 22px), color-mix(in srgb, var(--room-walnut-hi) 30%, transparent) calc(100% - 3px), var(--room-walnut-lo)),
     linear-gradient(var(--room-walnut-back), var(--room-walnut-deep));
 }
+/* --room-gap (:root) is the room between two spines; on a shelf that holds
+   more than it shows they are spaced a little wider (--room-spread, lib/
+   room/doorway.js fitRows), so the row ends on half a spine at the upright. */
 .room-row {
-  display: flex; align-items: flex-end; gap: 2px; margin: 0; list-style: none; box-sizing: border-box;
+  display: flex; align-items: flex-end; gap: var(--room-spread, var(--room-gap)); margin: 0; list-style: none; box-sizing: border-box;
   min-height: 126px; padding: 14px 8px 0 6px; overflow-x: auto; overflow-y: hidden;
   scrollbar-width: none; scroll-snap-type: x proximity; scroll-padding-left: 6px;
 }
 .room-row::-webkit-scrollbar { display: none; }
-.room-row > li { flex: none; display: flex; align-items: flex-end; scroll-snap-align: start; transform-origin: 50% 100%; }
+.room-row > li { flex: none; display: flex; align-items: flex-end; scroll-snap-align: start; }
 /* The board the spines stand on: its front edge, where the plate and All › are. */
 .room-shelf-foot {
   position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -4508,19 +4520,23 @@ body:not(.room-rack) .shelf-title,
 }
 /* In the bar: pulled out toward you, a little proud of the row, with a pale
    ring; playing, the ring is the lamp's green, breathing, and its light
-   falls on the board. Selected (a hold, ⇧-click, or Select): ringed in the
-   accent, with a tick. */
+   falls on the board. The green ring and its light are a layer of their
+   own (.room-cassette-glow, lib/room/doorway.js), and only its opacity
+   breathes: a box-shadow that changes is painted again every frame.
+   Selected (a hold, ⇧-click, or Select): ringed in the accent, with a tick. */
 .room-cassette.on-deck {
   transform: translateY(-5px);
   box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px rgba(243,231,211,.55), 0 2px 3px rgba(0,0,0,.35);
 }
-.room-cassette.on-deck[aria-pressed="true"] {
-  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px var(--room-led), 0 2px 3px rgba(0,0,0,.35), 0 10px 18px -2px color-mix(in srgb, var(--room-led) 45%, transparent);
+.room-cassette-glow { display: none; }
+.room-cassette.on-deck[aria-pressed="true"] > .room-cassette-glow {
+  display: block; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--room-led), 0 10px 18px -2px color-mix(in srgb, var(--room-led) 45%, transparent);
 }
 @media (prefers-reduced-motion: no-preference) {
-  .room-cassette.on-deck[aria-pressed="true"] { animation: room-playing 1.4s ease-in-out infinite; }
+  .room-cassette.on-deck[aria-pressed="true"] > .room-cassette-glow { animation: room-playing 1.4s ease-in-out infinite; }
 }
-@keyframes room-playing { 50% { box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px transparent, 0 2px 3px rgba(0,0,0,.35), 0 10px 18px -2px transparent; } }
+@keyframes room-playing { 50% { opacity: 0; } }
 /* The ring is the accent on the paper's edge; a cream halo outside it carries it off the
    wall, which the accent alone (2.95:1) does not (lib/room/contrast.test.js). */
 .room-cassette.selected { outline: 3px solid var(--accent); outline-offset: -3px; box-shadow: 0 0 0 2px var(--paper-hi); z-index: 2; }
@@ -4538,15 +4554,6 @@ body:not(.room-rack) .shelf-title,
 }
 /* The focused spine stands a little proud, ringed in brass. */
 .room-cassette:focus-visible { outline-width: 3px; transform: translateY(-4px); }
-/* Flicked through like records: a spine leans as it comes onto the shelf
-   and as it goes off it, upright in between -- by the shelf's own scroll,
-   on the compositor, where the browser can (animation-timeline). */
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .room-row > li { animation: room-lean linear both; animation-timeline: view(inline); }
-  }
-}
-@keyframes room-lean { 0% { rotate: 6deg; } 14%, 86% { rotate: 0deg; } 100% { rotate: -6deg; } }
 
 /* A tablet and wider: the room fills the page between the header and the
    bar, the toolbar over its top, and the wall scrolls inside it under a
@@ -4568,13 +4575,9 @@ body:not(.room-rack) .shelf-title,
     position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
     padding: 66px clamp(12px, 3vw, 36px) 24px;
     scrollbar-width: thin; scrollbar-color: var(--room-walnut) transparent;
-    perspective: 1400px; perspective-origin: 50% 0;
   }
   body.room-on.selecting .room-wall { padding-bottom: 96px; }
-  /* One plane, tilted back a little under the wall's camera. Flat inside:
-     a 3D context round the shelves' scrolling rows takes a finger's press
-     from the spines (Chrome hit-tests the row, not what is in it). */
-  .room-case { max-width: 1480px; min-height: calc(100% - 4px); margin: 0 auto; transform-origin: 50% 0; transform: rotateX(2deg); }
+  .room-case { max-width: 1480px; min-height: calc(100% - 4px); margin: 0 auto; }
 }
 /* No room to draw it (a phone), or reduced data: the shelves on a plain wall. */
 @media (max-width: 699.98px), (prefers-reduced-data: reduce) {

@@ -1096,12 +1096,16 @@ in `lib/room/doorway.js`):
   header to the bar: a shelf per month, newest first, then ★, then a shelf
   per tag (`lib/room/shelves.js` `wallShelves`); a take stands on each
   shelf it belongs to. Short shelves share a row and a long one scrolls
-  sideways, cut on half a spine so it says it goes on. The case is one CSS
-  3D plane (the wall's `perspective`, the case's small `rotateX`), lit from
-  the upper left, and flat inside: in a `preserve-3d` context Chrome
-  hit-tests a shelf's scrolling row, not the spine in it, so a tap played
-  nothing (`styles.test.js`). A shelf's **All ›** opens the List to it
-  (`shelfNames`).
+  sideways, its spines spaced so that it ends on half a spine at the case's
+  upright, which says it goes on (`fitRows`, measured all at once). The
+  perspective is drawn -- the shadow under each board, each cubby's sides,
+  the lamp's light from the upper left -- and nothing that scrolls is
+  turned in 3D: a tilted case (`rotateX` under the wall's `perspective`)
+  was one big layer to scroll, and on a tablet a drag that started on a
+  spine moved nothing (`styles.test.js`, J2.7). Nothing on it animates by
+  its scroll; the playing spine's green ring breathes by its opacity, on a
+  layer of its own (`.room-cassette-glow`). A shelf's **All ›** opens the
+  List to it (`shelfNames`).
 - **The List** is `#takes` (`lib/takes.js`, the rack): by month and then by
   day (`lib/shelf.js` `shelve`), each row a case with its **›** to Open,
   NEW for a day, the playing row ringed; *Recently deleted (n) ›* is its

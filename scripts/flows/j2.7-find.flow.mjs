@@ -113,5 +113,43 @@ export default {
     await t.step('tap ‹ The room', () => t.tap(page.locator('.room-rack-back')));
     const walls = await t.poll(() => !document.body.classList.contains('room-rack'));
     t.expect('back on the wall', walls, await now());
+
+    // A long library, on the tablet: the wall scrolls up and down under a
+    // finger that starts on a spine of a full shelf, as a page does --
+    // spines cover most of the wall -- and the spine it started on doesn't
+    // play. (A tilted case once took the drag for itself: the wall stood
+    // still, though a drag from a board moved it.)
+    if (t.profile !== 'tablet') return;
+    const before = [2, 3, 4, 5].flatMap((m) => Array.from({ length: 24 }, (_, i) => new Date(d.getFullYear(), d.getMonth() - m, 1 + i, 9 + (i % 9), i, m)));
+    const lib = await t.given('a long library: two dozen takes in each of the four months before last', () => api.copies(starred.name, before));
+    try {
+      const shelved = await t.poll((n) => document.querySelectorAll('.room-wall .room-cassette').length >= n, lib.names.length, 15000);
+      const wallNow = () => page.evaluate(() => { const w = document.querySelector('.room-wall'); return { top: w.scrollTop, room: w.scrollHeight - w.clientHeight }; });
+      await t.given('the wall at its top, with more of it below', () => page.evaluate(() => { document.querySelector('.room-wall').scrollTop = 0; }));
+      const w0 = await wallNow();
+      t.expect('the shelves are more than the wall shows', shelved && w0.room > 150, w0);
+      const two = new Date(d.getFullYear(), d.getMonth() - 2, 1);
+      const shelf = page.locator(`.room-shelf[data-shelf="month:${two.getFullYear()}-${String(two.getMonth() + 1).padStart(2, '0')}"]`);
+      const full = await shelf.locator('.room-row').evaluate((r) => r.scrollWidth > r.clientWidth);
+      t.expect('that month’s shelf holds more than it shows: it scrolls sideways', full);
+      const spine = shelf.locator('.room-cassette').nth(2);
+      const key = await spine.getAttribute('data-key');
+      const box = await spine.boundingBox();
+      const cdp = await page.context().newCDPSession(page);
+      const finger = (type, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: box.x + box.width / 2, y }] });
+      await t.step('drag the wall up from a spine', async () => {
+        const y = box.y + box.height / 2;
+        await finger('touchStart', y);
+        for (let i = 1; i <= 12; i++) { await finger('touchMove', y - 25 * i); await t.wait(16); }
+        await finger('touchEnd');
+      });
+      const scrolled = await t.poll((top) => document.querySelector('.room-wall').scrollTop > top + 60, w0.top);
+      t.expect('the wall scrolls under the finger', scrolled, await wallNow());
+      const played = await page.evaluate((k) => document.querySelector(`.room-cassette[data-key="${CSS.escape(k)}"]`)?.classList.contains('on-deck'), key);
+      t.expect('the spine it started on doesn’t play', !played, key);
+      await cdp.detach();
+    } finally {
+      await lib.clear();
+    }
   },
 };

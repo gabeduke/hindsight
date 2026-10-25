@@ -21,7 +21,7 @@ import { cssOf, decls, rules, stripComments } from './stylesheets.js';
 
 const BUDGET = {
   hex: 2,
-  rgba: 98,
+  rgba: 94,
   zIndex: 22,
   important: 3,
   media: 51,

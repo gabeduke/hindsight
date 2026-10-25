@@ -81,11 +81,17 @@ export function toneOf(name) {
   return h % 4;
 }
 
+/** BARE is where the room isn't drawn behind the shelves (styles.css): a phone, or reduced data asked for. */
+const BARE = '(max-width: 699.98px), (prefers-reduced-data: reduce)';
 /**
  * drawBackdrop draws the room behind the shelves (lib/room/stage.js, the
  * room without the furniture the wall now is), choosing the wide view or the
- * tall one by the room's shape, and again when that changes. Where the room
- * isn't drawn (a phone, reduced data) or a browser can't watch its size, it
+ * tall one by the room's shape, and again when that changes. It is drawn at
+ * once, by the window's shape while the room has none of its own (mounted
+ * out of sight, before the first switch to it), so the first switch only
+ * shows it. The room's size comes from its observer, never asked of the
+ * page: a question then would lay the page out again. Where the room isn't
+ * drawn (a phone, reduced data) or a browser can't watch its size, it
  * draws nothing: the shelves work without it.
  */
 function drawBackdrop({ room, scene }) {
@@ -94,13 +100,16 @@ function drawBackdrop({ room, scene }) {
     const space = backdropRoom();
     const renderer = new RoomRenderer({ box: scene, room: space, onError: (e) => console.error(e) });
     renderer.mount(scene, roomScene(space));
-    const look = () => {
-      const r = room.getBoundingClientRect();
-      if (!r.width || !r.height || getComputedStyle(scene).display === 'none') return;
-      renderer.setView(renderer.pick(r.width, r.height));
+    const look = (w, h) => {
+      if (matchMedia(BARE).matches) return;
+      if (!w || !h) { w = innerWidth; h = innerHeight; }
+      renderer.setView(renderer.pick(w, h));
     };
-    new ResizeObserver(look).observe(room);
-    look();
+    new ResizeObserver((entries) => {
+      const r = entries.at(-1)?.contentRect;
+      if (r?.width && r?.height) look(r.width, r.height);
+    }).observe(room);
+    look(0, 0);
   } catch (e) { console.error(e); }
 }
 // A View Transition cross-fade, where there is one and motion is welcome:
@@ -260,6 +269,9 @@ export function mount(h) {
       fam ? fam.replace('✂', 'cuts ').replace('MIX ×', 'mixes ') : '', inTheBar ? 'in the bar' : '', chosen ? 'selected' : ''].filter(Boolean).join(', '));
     b.classList.toggle('on-deck', inTheBar);
     b.classList.toggle('playing', playing);
+    // The green ring that breathes while it plays: a layer of its own, whose
+    // opacity alone changes (styles.css), made the first time it is needed.
+    if (playing && !b.querySelector('.room-cassette-glow')) b.append(el('span', 'room-cassette-glow', { 'aria-hidden': 'true' }));
     b.classList.toggle('selected', chosen);
     // A spine is a toggle: picked while selecting, else playing.
     b.setAttribute('aria-pressed', String(h.takes.selecting ? chosen : playing));
@@ -329,23 +341,36 @@ export function mount(h) {
     fitSoon();
   }
 
-  // A shelf that holds more than it shows ends on half a spine, so it says
-  // it goes on: the row is cut to a whole number of spines and a half.
-  // Measured when the wall changes size or is drawn again, never per frame.
+  // A shelf that holds more than it shows ends on half a spine, cut by the
+  // case's upright, so it says it goes on: the spines are spaced a little
+  // wider, so that a whole number of them and a half fill the row to its
+  // edge. Measured when the wall changes size or is drawn again, never per
+  // frame, and all at once: every row is read, then every row is written,
+  // so the wall is laid out once, not once a row.
   function fitRows() {
     if (typeof getComputedStyle !== 'function' || mode !== 'shelf') return;
-    for (const row of caseEl.querySelectorAll('.room-row')) {
-      row.style.removeProperty('max-width');
-      const first = row.querySelector('.room-cassette');
-      if (!first || row.scrollWidth <= row.clientWidth + 1) continue;
-      const cs = getComputedStyle(row);
-      const pitch = first.offsetWidth + (parseFloat(cs.columnGap) || 0);
-      const pad = parseFloat(cs.paddingLeft) || 0;
-      if (!pitch) continue;
-      const k = Math.max(1, Math.floor((row.clientWidth - pad - pitch / 2) / pitch));
-      row.style.maxWidth = `${Math.round(pad + k * pitch + pitch / 2)}px`;
-    }
+    const rows = [...caseEl.querySelectorAll('.room-row')];
+    const first = rows[0]?.querySelector('.room-cassette');
+    const w = first?.offsetWidth;
+    if (!w) return;
+    const cs = getComputedStyle(rows[0]);
+    const gap = parseFloat(cs.getPropertyValue('--room-gap')) || 0;
+    const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+    const spread = rows.map((row) => {
+      const n = row.children.length, room = row.clientWidth - padL;
+      const lean = n > 1 ? parseFloat(getComputedStyle(row.lastElementChild).marginLeft) || 0 : 0;
+      if (n * w + (n - 1) * gap + lean <= room - padR) return '';
+      const k = Math.max(1, Math.floor((room - w / 2) / (w + gap)));
+      return `${Math.max(gap, (room - w / 2 - k * w) / k).toFixed(2)}px`;
+    });
+    rows.forEach((row, i) => {
+      if ((spreadOf.get(row) || '') === spread[i]) return;
+      spreadOf.set(row, spread[i]);
+      if (spread[i]) row.style.setProperty('--room-spread', spread[i]);
+      else row.style.removeProperty('--room-spread');
+    });
   }
+  const spreadOf = new WeakMap(); // what fitRows last spaced each row at
   let fitting = false;
   function fitSoon() {
     if (fitting || typeof requestAnimationFrame !== 'function') return;
@@ -358,10 +383,15 @@ export function mount(h) {
   // where the page's own box for it is: under the header (and a banner),
   // over the bar. Measured when that box changes size, never per frame.
   function pinRoom() {
+    // Only while the wall shows: the List is the page's own to scroll, and
+    // its height would leave the room the List's size when the wall comes back.
+    if (mode !== 'shelf') return;
     const r = main?.getBoundingClientRect?.();
     if (!r || !r.height) return; // another room is showing
-    main.style.setProperty('--room-top', `${Math.round(r.top)}px`);
-    main.style.setProperty('--room-h', `${Math.round(r.height)}px`);
+    for (const [k, v] of [['--room-top', r.top], ['--room-h', r.height]]) {
+      const px = `${Math.round(v)}px`;
+      if (main.style.getPropertyValue(k) !== px) main.style.setProperty(k, px);
+    }
   }
   if (typeof ResizeObserver === 'function' && main) new ResizeObserver(pinRoom).observe(main);
 
