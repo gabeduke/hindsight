@@ -491,9 +491,12 @@ export const roomView = {
     return {
       ready,
       show({ first }) {
+        // Every show puts the wall or the List back on <body>, the first one
+        // too: mounted out of sight (prewarm), the room's body classes were
+        // taken off again, and a phone showed the wall under a lit List key.
+        roomInst?.shown?.();
         if (!first) {
           showNextToast();
-          roomInst?.shown?.();
           roomInst?.render?.();
           roomInst?.renderPlaces?.();
         }
