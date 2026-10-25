@@ -57,6 +57,15 @@ is `<pi-host>`.
   - About 800 px wide (a Pixel Tablet held upright), the bar runs off the
     right side: Catch is cut, and the page scrolls sideways. No flow runs
     at that width.
+- **A press waits while nothing plays the tape.** With the interface off,
+  only a listening phone pulls the tape along (`Output.paceStep`). Once the
+  last phone leaves, a stop or a locate, and the 6 s drop-pause's own stop
+  (`watchDrop`), is queued for an output frame that never comes
+  (`Engine.renderLoop` → `drain`), so it lands only when the next phone
+  joins. That phone first hears what was rendered ahead while it played.
+  Seen on the rig on 2026-10-23: a locate sent after the listener left
+  landed only when the next one joined, and that listener's first packets
+  were marked playing.
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.
@@ -148,6 +157,8 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 - Room, Studio & Rig: `Ls32s93iBGoT7jUcHQb54Y`
 - One player, two rooms (the shell): `9oJSxmvQhTnrBvVr2Uiz5o`
 - Interaction model: `KwreNYVjPb8Kt3RMgrAbPr`
+- Wireframes of every view (tablet, phone, desktop; 2026-10-23), measured
+  from the demo, for Gabe to annotate: `9VDEexPH2bUo1vVzxZBSQx`
 
 ## Next
 
