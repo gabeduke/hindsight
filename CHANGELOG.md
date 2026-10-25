@@ -5,6 +5,29 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.25.3 — 2026-10-25
+
+- Catch's ▾ darkens under a finger as Catch does, so a press on it shows while Catch is lit (92579ac)
+- The hidden "‹ Takes" key the gone cassette sheet left in the take's pane goes too; nothing changes on screen (b73d3b0)
+- Escape and Back close a sheet like Rename or Settings before anything under it, in Safari on an iPad, a Mac or a phone too (83545a5)
+- In the Studio, Escape and Back close a track's sheet before they let go of a part tapped while it was open (ca48e47)
+- In the phone's pulled-up player, Catch's ▾ opens its menu under the key, where there's room, instead of over the reels and the transport (8dabcb6)
+- The flows fail when an open menu runs off the screen, and say which menus their layout checks saw open (847e6de)
+- A track's input menu in the Studio grows from its chip and follows it as the page scrolls, instead of shutting (bc23d92)
+- Catch's ▾ is a key of its own beside Catch, a finger wide, so a tap on Catch always catches; its menu grows from the pair and Back or Escape closes it (5b1c525)
+- The Studio's tape, tempo, ⋯ and ⌗ menus grow from their button and keep clear of the bar; from a keyboard, ↓ opens one and moves along it (084b644)
+- In the Studio, ↓ and ↑ in an open ☰, KEEP ▾ or GRAB ▾ move along it, and no longer arm another track as well (0e54890)
+- A test keeps every new menu on lib/ui/menu.js, so a menu opens, closes and moves the keyboard the same way wherever it is (d946c9f)
+- GRAB's ▾ opens its bars right under your finger, not 370 px to the left; KEEP's and GRAB's ▾ grow from the key, and Back or Escape closes them before it leaves the Studio (782477a)
+- ☰ grows from its button as it opens and fades as it shuts; from a keyboard, ↓ opens it on Settings and Tab closes it (898c16e)
+- A test keeps history entries to the router and the stack, and the Studio's Escape to the stack, so Back keeps closing things in one order (bff2b72)
+- The Listening Room's old cassette sheet is gone for good: a Back onto one of its history entries no longer opens it over the shelf (72dae42)
+- On a phone, Back puts the pulled-up player away after whatever was opened over it, and the player no longer keeps a history entry of its own (0933de7)
+- In the Studio, Back closes the open menu, the part's sheet, the clip editor or the selection, newest first, before it leaves the room (0bdcd85)
+- ☰ closes on Back or Escape and leaves you in the room, and no longer stays open over the room you switch to (e45d0ee)
+- Menus, sheets, a selection and the phone's player get one stack to close on, so Back and Escape can close the top one before they leave a room; nothing uses it yet (8e5fe53)
+
+
 ## v2026.10.25.2 — 2026-10-25
 
 - Tests catch a script typing a glyph back into a drawn key, Tracks' ▾ no longer turning, and Repeat wiping ⟲; nothing on screen changes (c6535f2)
