@@ -18,4 +18,4 @@ labels:
 # release; the tag in git is what runs.
 images:
 - name: ghcr.io/gabeduke/hindsight-hub
-  newTag: v2026.10.24.2
+  newTag: v2026.10.25.1
