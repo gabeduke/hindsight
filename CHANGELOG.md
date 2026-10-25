@@ -5,6 +5,20 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.25.2 — 2026-10-25
+
+- Tests catch a script typing a glyph back into a drawn key, Tracks' ▾ no longer turning, and Repeat wiping ⟲; nothing on screen changes (c6535f2)
+- In help mode, Tracks ▾ and the phone's "Fold the tracks" explain themselves instead of folding the lanes (95bcbea)
+- The ruler's ⌗ and lock and the loop key's ⟲ are drawn heavier, as bold as the words beside them (13271d1)
+- Folded with a take or the feed in it, the bar's ↺ 5 s key is as wide as it was, so the keys to its right stay where they were (563a936)
+- After an update the keys draw the new icons, not the old sprite's: the sprite's address changes whenever the sprite does (3d2c8c4)
+- Docs: the icon set, how a key draws one, and what it still has to replace (178fb62)
+- The ruler's keys are drawn: ⌗, the loop's lock and Tracks' ▾ no longer depend on a font, and the phone's ⌗ key is no taller than the ruler (54cd9fb)
+- The bar's keys are drawn too: ▶ ❚❚ ■, |◀, ↺ 5 s, ⟲, ⏏, ✎ and their ▾s look the same on every device, each key in the box it had (6164432)
+- The header's keys are drawn, not typed: ↶ ↷ ⋯ ☰, the pills' ▾ and the output's speaker look the same on every phone, tablet and laptop (a5586d0)
+- The app's icons come from one drawn set, the same on every device: the output button's speaker and headphones are the first (7e615c8)
+
+
 ## v2026.10.25.1 — 2026-10-25
 
 - Keys go down the moment a finger touches them, even for a quick tap, and spring back up; ▶ ● Catch GRAB and KEEP travel further, spines and cue clips sink, and lamps fade as they go out (d0ab8c8)
