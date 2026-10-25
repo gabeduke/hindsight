@@ -263,6 +263,19 @@ When you need the history behind one, read it from git:
   the bar runs off a tablet. What plays, its tempo and where it plays are
   keys on the bar's display (the source's menu, the tempo's, the output
   sheet); ▾ only opens a menu, and the bar folds by its grabber.
+- **Moving between rooms** is the router's View Transition, drawn by
+  `web/static/css/rooms-motion.css` (on every page, after `styles.css`): a
+  camera turn between two walls, the header and the bar held still by
+  their view-transition names, which that file gives them only while a
+  switch is drawn (`html[data-turn]`) and never anything else: their layout
+  is their own stylesheets'. A room's entrance is CSS keyed on
+  `html[data-arriving="<room>"]`, set for the length of a turn into it
+  (`docs/architecture.md`, *Moving between rooms*). The update of a switch
+  only flips classes and what is shown; a view's `show()` runs after the
+  turn, so nothing heavy goes in the switch. A view marked `prewarm` is
+  mounted out of sight before its first visit: its mount puts no class on
+  `<body>` (they are its `bodyClass`) and nothing in the header, the dock
+  or the bar but through its slots.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.

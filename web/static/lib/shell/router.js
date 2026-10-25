@@ -99,20 +99,68 @@ export function linkTarget(e, here) {
 }
 
 /**
+ * WALLS is where each room is in the space, in the tabs' order: the Studio
+ * (or Capture, which the Studio's tab is while the tape is off) on the left
+ * wall, the Listening Room on the right. A switch from one wall to the other
+ * turns the camera that way; a switch along one wall is a crossfade.
+ */
+export const WALLS = Object.freeze({ studio: 0, capture: 0, room: 1 });
+
+/**
+ * turnOf is how a switch from the room `from` to the room `to` is drawn:
+ * 'right' or 'left' (the way the camera turns, to a room further along the
+ * walls or back), or 'fade' (the same wall, or a room with no wall).
+ */
+export function turnOf(from, to) {
+  const a = WALLS[from], b = WALLS[to];
+  if (a == null || b == null || a === b) return 'fade';
+  return b > a ? 'right' : 'left';
+}
+
+const LESS_MOTION = '(prefers-reduced-motion: reduce)';
+
+/**
  * viewTransition is how the router draws a switch by default: inside
- * document.startViewTransition where the browser has it and the person has
- * not asked for less motion (styles.css names the `tabs` and `tab-lit`
- * transitions), and straight away otherwise. `update` is the swap. It
- * answers the transition: {updateCallbackDone, ready, finished,
- * skipTransition()}, as the browser's ViewTransition is (one of its own,
- * already settled, when the swap runs at once); updateCallbackDone rejects
- * with the swap's error.
+ * document.startViewTransition where the browser has it, and straight away
+ * where it has not. It answers the transition: {updateCallbackDone, ready,
+ * finished, skipTransition()}, as the browser's ViewTransition is (one of
+ * its own, already settled, without the API).
+ *
+ * Before it starts, the html element says how to draw it, for
+ * css/rooms-motion.css: `data-turn` is 'right' or 'left' (the camera turns,
+ * turnOf) or 'fade' (a crossfade: along one wall, and every switch with
+ * less motion, which the person may turn on at any moment); and
+ * `data-arriving` is the room a turn arrives in ('room', 'studio',
+ * 'capture'), for that room's entrance. Both go when the transition has
+ * finished (or was skipped); with less motion or no View Transitions there
+ * is no `data-arriving` at all. A transition started after this one keeps
+ * its own.
  */
 export function viewTransition(doc, win) {
-  return (update) => {
-    const reduced = !!win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    if (reduced || typeof doc?.startViewTransition !== 'function') return settled(update());
-    return doc.startViewTransition(update);
+  let latest = 0;
+  return (update, { from = null, to = null } = {}) => {
+    if (typeof doc?.startViewTransition !== 'function') return settled(update());
+    const html = doc.documentElement;
+    const reduced = !!win?.matchMedia?.(LESS_MOTION)?.matches;
+    const turn = reduced ? 'fade' : turnOf(from, to);
+    const mine = ++latest;
+    html?.setAttribute('data-turn', turn);
+    if (turn !== 'fade' && to) html?.setAttribute('data-arriving', to);
+    else html?.removeAttribute('data-arriving');
+    const clear = () => {
+      if (mine !== latest) return;
+      html?.removeAttribute('data-turn');
+      html?.removeAttribute('data-arriving');
+    };
+    let vt;
+    try {
+      vt = doc.startViewTransition(update);
+    } catch (e) {
+      clear();
+      throw e;
+    }
+    Promise.resolve(vt.finished).then(clear, clear);
+    return vt;
   };
 }
 
@@ -142,15 +190,16 @@ function drawn(t) {
  *              tab to tape.html.
  *   location   href, origin, pathname, search, hash; assign, replace, reload
  *   history    state, pushState, replaceState, scrollRestoration
- *   doc        the document: body (its classes), activeElement, and the
- *              click listener (capture)
- *   win        the window: scrollY, scrollTo, popstate, pagehide
+ *   doc        the document: body (its classes), activeElement, the click
+ *              listener (capture), documentElement and elementFromPoint
+ *   win        the window: scrollY, scrollTo, popstate, pagehide, and a
+ *              press and its click (capture), with MouseEvent
  *   tapeOn     () -> the cached answer to "is the tape on" (nav.js keeps
  *              it as hindsight.tapeOn): true, false or null
- *   transition (update) -> the switch drawn, how a switch is drawn
- *              (viewTransition): a transition ({updateCallbackDone, ready,
- *              finished, skipTransition}), or a promise of `update` having
- *              run
+ *   transition (update, {from, to}) -> the switch drawn, how a switch is
+ *              drawn (viewTransition): a transition ({updateCallbackDone,
+ *              ready, finished, skipTransition}), or a promise of `update`
+ *              having run
  *   chrome     { setPath(path), setHelp(page), say(text), beforeSwitch() },
  *              all optional: the tabs' aria-current and lamp (nav), the help
  *              page (help), the polite live region, and what is closed
@@ -192,9 +241,14 @@ function drawn(t) {
  *     scrolls to where that room was left (the entry's own scroll after a
  *     reload), and focus that was in the room left, or nowhere, moves to the
  *     new room's root. Then the tabs, the help page and the live region are
- *     told. Only once the transition has finished is the room woken
- *     (view.js wake): its own show, its title, its loops and its polls, so
- *     no redraw, fetch or import holds up the switch's frames.
+ *     told. Only once the transition has finished -- the turn over -- is
+ *     the room woken (view.js wake): its own show, its title, its loops and
+ *     its polls, so no redraw, fetch or import holds up the turn.
+ *   - A switch asked for while one is still drawn (a second tap on a tab,
+ *     Back) skips the drawing one's turn (skipTransition) and goes on.
+ *   - A press while a switch is drawn, which the browser gives to <html>
+ *     (Chromium hit-tests nothing else under a View Transition), ends the
+ *     turn at once, and its click goes to what is under the finger.
  *   - If showing the room throws (its mount, or its show), the router
  *     reports it and loads the address in full, with location.replace:
  *     the entry it pushed becomes the loaded page, so Back does not land on
@@ -233,6 +287,7 @@ export function createRouter({
   let started = false;
   let chain = Promise.resolve();
   let waiting = Promise.resolve(); // a go() waiting on beforeSwitch
+  let drawing = null; // the switch's transition while it is drawn
 
   const route = (url) => routeFor(url, { base: loc.href, tapeOn: tapeOn() });
   const here = () => loc.pathname + loc.search + loc.hash;
@@ -266,7 +321,7 @@ export function createRouter({
     try {
       // Only flips: what is hidden, what is shown, the classes, the scroll
       // and the focus. The room's redraw, its fetches and its loops are
-      // wake's, below, once the transition is over.
+      // wake's, below, once the turn is over.
       t = drawn(draw(async () => {
         // Where focus is, read before hiding the room it is in blurs it.
         const a = doc.activeElement;
@@ -286,11 +341,15 @@ export function createRouter({
         tell('setHelp', to.def.help);
         tell('say', to.def.name ?? to.title ?? to.id);
       }, { from: came, to: to.id }));
+      drawing = t;
+      const done = () => { if (drawing === t) drawing = null; };
+      Promise.resolve(t.finished).then(done, done);
       await t.updateCallbackDone;
-      // The transition is over (or there is none): now the room arrived in
-      // redraws, polls and starts its loops. Not while it is drawn: on a
-      // tablet, work on the page then holds up its first frames, and the
-      // room comes in as it was left -- a canvas keeps its picture.
+      // The turn is over (or was skipped, or there is none): now the room
+      // arrived in redraws, polls and starts its loops. Not while it turns:
+      // on a tablet, work on the page then holds up the turn's first frames
+      // (measured: 100-170 ms more of the old room, frozen, at 4x CPU), and
+      // the room turns in as it was left -- a canvas keeps its picture.
       try { await t.finished; } catch { /* wake it all the same */ }
       await to.wake({ url: loc.href, from: came });
     } catch (e) {
@@ -318,6 +377,9 @@ export function createRouter({
     }
   }
   function sync() {
+    // A switch still drawn gives way: its turn ends where it is, and this
+    // one starts from the room it was going to.
+    drawing?.skipTransition?.();
     const run = chain.then(step);
     chain = run;
     return run;
@@ -369,6 +431,41 @@ export function createRouter({
     e.preventDefault();
     go(u.href);
   }
+  // A press while a switch is drawn. Chromium hit-tests the whole page to
+  // <html> while a View Transition runs, whatever pointer-events its overlay
+  // has, so a tap on ▶ or a tab as the camera turns would land nowhere. The
+  // press ends the turn there and then (the room is in place under it), and
+  // its click goes to what is under the finger now, as if the turn had
+  // never been: the press is never lost, and the switch never holds you up.
+  let swallowed = null; // {x, y, at, t}: the press the turn took
+  const html = () => doc.documentElement;
+  function onPress(e) {
+    if (!drawing || e.target !== html()) return;
+    swallowed = { x: e.clientX, y: e.clientY, at: Date.now(), t: drawing };
+    try { drawing.skipTransition?.(); } catch (err) { onError(err); }
+  }
+  function onSwallowedClick(e) {
+    const p = swallowed;
+    if (!p || e.target !== html()) return;
+    swallowed = null;
+    if (Date.now() - p.at > 1500 || Math.abs(e.clientX - p.x) > 16 || Math.abs(e.clientY - p.y) > 16) return;
+    e.stopImmediatePropagation();
+    const give = () => {
+      const el = doc.elementFromPoint?.(p.x, p.y);
+      if (!el || el === html()) return false;
+      const Click = win.MouseEvent || globalThis.MouseEvent;
+      el.dispatchEvent(new Click('click', {
+        bubbles: true, cancelable: true, composed: true, view: win, detail: 1,
+        clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY,
+        altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey, button: e.button,
+      }));
+      return true;
+    };
+    // Pressed before the room was in place (the turn's first frame not yet
+    // drawn): the click goes once the switch has done its swap.
+    if (!give()) Promise.resolve(p.t.updateCallbackDone).then(give, () => {}).catch(onError);
+  }
+
   const onPop = () => { sync(); };
   // A reload, or Back from a page that is not the shell, lands where the room was.
   const onPageHide = () => {
@@ -407,6 +504,8 @@ export function createRouter({
     doc.addEventListener('click', onClick, true);
     win.addEventListener('popstate', onPop);
     win.addEventListener('pagehide', onPageHide);
+    win.addEventListener('pointerdown', onPress, true);
+    win.addEventListener('click', onSwallowedClick, true);
     started = true;
     return 'shown';
   }
@@ -454,6 +553,8 @@ export function createRouter({
     doc.removeEventListener('click', onClick, true);
     win.removeEventListener('popstate', onPop);
     win.removeEventListener('pagehide', onPageHide);
+    win.removeEventListener('pointerdown', onPress, true);
+    win.removeEventListener('click', onSwallowedClick, true);
     started = false;
   }
 

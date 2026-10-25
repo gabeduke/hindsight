@@ -51,6 +51,13 @@ is `<pi-host>`.
   summed with the tape on bus A, so it reaches the phone's stream too.
   Launches are a performance, outside undo; `live.cue` says what plays.
   Still to do: adding from the shelf and from a track (`backlog.md`).
+- **Moving between rooms** (`the-studio-space.md` step 5): a switch turns a
+  camera from one wall of the room to the other (`css/rooms-motion.css`),
+  the header and the bar held still, a crossfade with less motion; the
+  Listening Room and Capture are mounted out of sight once the first room
+  is up, so the first turn lands on a drawn room; a tap during a turn ends
+  it and lands. Rooms make their entrance on `html[data-arriving]`. See
+  `docs/architecture.md`, *Moving between rooms*.
 - **The Listening Room:** the shelf as a room, tap plays, hold selects, the
   Sketchbook (✎) inline, Open → the take page, which shares the edit curves
   (`lib/edit/curves.js`) but not yet the tape's controls.
@@ -64,6 +71,18 @@ is `<pi-host>`.
   `docs/flows.md`, *What a run says*):
   - The cue clip's × (12×14 px) and loop toggle (22 px) and the shelf's
     list button (20 px tall) are under 24 px.
+- **The first turn to the Listening Room still freezes the Studio** for a
+  moment while the room is laid out and drawn for the first time (its
+  ResizeObserver draws the stage in that frame): about 0.6–0.9 s at 4× CPU
+  in headless Chromium, against 0.15 s before into an empty page the room
+  popped into later. Later turns freeze 0.25–0.5 s at 4×, as before: the
+  body classes' restyle and the transition's capture. Measured from a
+  trace's screenshots; re-measure on the tablet. The shelf wall (step 6)
+  replaces the stage.
+- On a phone, the Studio's track level sliders are 18 px tall (axe's
+  target-size). A run of only some flows meets them on the demo's own tape
+  (J5.1, J2.10 on a phone); the whole run, whose tapes are the flows'
+  own, doesn't.
 
 (A take tapped while its preview encodes isn't one:
 `lib/room/tap.js` says "Still encoding", retries, and loads it when ready.

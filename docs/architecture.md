@@ -731,8 +731,9 @@ carry (`lib/bar/carry.js`, `handoff.js`) resumes a take on the way back.
 
 **Views** (`lib/shell/views/`: `studio.js`, `room.js`, `capture.js`; Capture
 is what `/` shows when the tape is off) export
-`{ id, title, bodyClass, help, mount }`. `mount(ctx)` runs **once**, on the
-first visit, and answers `{ show({first}), hide(), destroy() }`. A view stays
+`{ id, title, bodyClass, help, prewarm, mount }`. `mount(ctx)` runs **once**,
+on the first visit (or before it, out of sight: *Moving between rooms*,
+below), and answers `{ ready, show({first}), hide(), destroy() }`. A view stays
 mounted after that and is hidden, never rebuilt: the tape page is a module
 singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 (`lib/shell/view.js`) carries:
@@ -763,7 +764,8 @@ class the router sets (`tape-page`, `shelf-page`, `main-page`).
 whose path is a view, unless a modifier, `target` or `download` says
 otherwise; `go()` pushes `{shell, view, scroll}`; a switch hides the old view,
 swaps body classes and slots, sets the title, `aria-current` and the help
-page, and shows the new one, inside a View Transition when there is one.
+page, and shows the new one, inside a View Transition when there is one
+(*Moving between rooms*, below).
 `popstate` switches only when the path names another view, so an entry of
 the same room (the stack's own, in Safari) is left to its owner. Before a
 switch the router calls `chrome.beforeSwitch` (the stack's `leave()`), which
@@ -771,6 +773,77 @@ closes everything open but the phone's player; on a tap it then waits for
 the stack's own Back, or writes the room's entry over the stack's, so no
 dead entry is left for Back to land on. Each view keeps its own scroll. If `mount` or `show`
 throws, the router falls back to a full navigation.
+
+**Moving between rooms** (`lib/shell/router.js`, `css/rooms-motion.css`).
+The Studio's desk and the Listening Room's shelves are two walls of one
+space, the Studio on the left, as the tabs are (`WALLS`; Capture is on the
+Studio's wall). A switch from one wall to the other **turns a camera**: in
+a View Transition the old room swings away to one side about a point in
+front of the screen, its far edge turning from you, as the new one swings
+in from the other, the two meeting at their corner halfway (28° between the
+walls, 20° on a phone, the eye at the pivot so they never cross), dimming a
+little over the room's own dark; on the lid spring
+(`--spring-lid`/`--t-spring-lid`), transform and opacity only, on the
+transition's snapshots. Along one wall (Studio and Capture), and every
+switch with less motion (read at each switch, so turning it on takes at
+once), it is a crossfade over `--t-touch` instead, and what would move on
+the desk (the lit tab, a bar of another shape) changes in place.
+
+- **The desk holds still.** While a switch is drawn, `.appbar` and `#np`
+  have view-transition names (`appbar`, `np`), so only the room behind them
+  turns; what changes on them (the header's left zone, the bar's keys)
+  crossfades in place. The names are the only thing this file gives them:
+  their layout is their own stylesheets'. (Until the bar has one shape, the
+  Listening Room at 1000 px and wider draws it as a dock of its own, so
+  there it morphs into the dock rather than holding still: J2.10, a todo
+  flow, says when it stops.)
+- **The router says how to draw it** before `startViewTransition`, on the
+  html element, so it works in Safari 18.0 (no transition `types`):
+  `data-turn` is `right` or `left` (the way the camera turns, `turnOf`) or
+  `fade`. It comes off when the transition has finished. A switch asked for
+  while one is drawn (a second tap on a tab, Back) skips that one's turn
+  (`skipTransition`).
+- **The update only flips.** Inside the transition's update the router
+  hides the room left, swaps the body classes and *reveals* the room
+  arrived in (`view.js` `reveal`: its root shown and its slots back, as it
+  was left; a canvas keeps its picture while hidden). Its own `show()`, its
+  title, its loops and its polls (`wake`) run only once the turn is over:
+  work on the page while it turns holds up the turn's first frames on a
+  tablet.
+- **Rooms are mounted before their first switch.** Once the first room is
+  up (its mount's `ready`: the Studio's first poll), the router mounts, in
+  idle time and out of sight, each room a tab leads to whose view says
+  `prewarm: true` (the Listening Room, Capture; not the Studio, whose mount
+  takes the bar's transport and output). A prewarmed mount runs with its
+  root hidden; what it adds to a slot waits inside that root (in the
+  document, so a lookup by id finds it); its listeners, polls and loops are
+  as quiet as a hidden view's; then its polls run once, so its data is in,
+  and its own `hide()` runs. So such a mount must not touch the room shown:
+  no class on `<body>` (a class it adds anyway comes off at once and is
+  reported; the view's classes are its `bodyClass`, the doorway's
+  `room-on` is `lib/room/mount.js`'s `BODY`), nothing in the header, the
+  dock or the bar but through its slots. Its first visit is a reveal, still
+  `first: true`.
+- **A press is never lost.** Chromium hit-tests the whole page to `<html>`
+  while a View Transition runs, whatever `pointer-events` its overlay has
+  (`::view-transition` has `none`, for the browsers that honour it). So a
+  press that lands on `<html>` during a turn ends the turn there and then,
+  and its click is given to what is under the finger: a tap on ▶ or a tab
+  as the camera turns does what it says.
+- **The entrance contract.** While a turn into a room plays,
+  `html[data-arriving]` names that room (`room`, `studio`, `capture`): set
+  before the transition starts, so the room's own entrance (the shelves
+  settling, the room showing in full and then falling back to ambient
+  light) plays inside the turn, and taken off when it has finished. With
+  less motion, along one wall, or without View Transitions it is never
+  set. A room's entrance is CSS keyed on it (`html[data-arriving="room"]
+  .shelf …`), transform and opacity only, done within `--t-room`.
+  `router.test.js` holds the contract.
+
+The flows check it: J2.2 that the camera turns both ways, the header's box
+is the same before, on every frame of the turn and after, the bar is never
+turned with the room, and a tap on ▶ mid-turn stops the take; J2.10 (todo
+until the bar has one shape) that the bar keeps its box too.
 
 **One way to close things** (`lib/ui/layers.js`). Menus, popovers, sheets,
 drawers, a selection and the phone's player sit on one stack per document
@@ -1114,7 +1187,11 @@ comes to rest.
   spring. A browser without `linear()` takes the nearest cubic-bézier.
 - **Less motion, in one place:** one `@media (prefers-reduced-motion)`
   block zeroes every time a thing travels in (the fades stay), and the
-  ticker follows the setting as it changes.
+  ticker follows the setting as it changes. The room switch reads it at
+  each switch and crossfades instead of turning (*Moving between rooms*).
+- **The room switch is a camera turn** between two walls of one space, the
+  header and the bar held still: `css/rooms-motion.css`, drawn by the
+  router (*Moving between rooms*, under *The shell*).
 - **A key goes down at once** and comes back on the snap spring: its
   `:active` rule draws `.down` too and zeroes the time into it
   (`--t-press`), and `lib/ui/keys.js`, wired once at each page's boot after

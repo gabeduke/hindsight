@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDoc } from '../play/fake-dom.js';
 import { askedTake } from '../room/tap.js';
-import { routeFor, linkTarget, createRouter, viewTransition, KEEP_CLASSES } from './router.js';
+import { routeFor, linkTarget, createRouter, viewTransition, turnOf, KEEP_CLASSES } from './router.js';
 import { createView } from './view.js';
 
 const ORIGIN = 'https://kit.example';
@@ -589,22 +589,87 @@ function aVtDoc(doc = fakeDoc()) {
 }
 const calm = { matchMedia: () => ({ matches: false }) };
 const still = { matchMedia: (q) => ({ matches: q === '(prefers-reduced-motion: reduce)' }) };
+const attrs = (doc) => ({ turn: doc.documentElement.getAttribute('data-turn'), arriving: doc.documentElement.getAttribute('data-arriving') });
 
-test('a switch is drawn as a view transition where there is one and motion is welcome', async () => {
+test('the rooms are two walls, the Studio’s on the left: a switch between them turns the camera, one along a wall fades', () => {
+  assert.equal(turnOf('studio', 'room'), 'right');
+  assert.equal(turnOf('capture', 'room'), 'right', 'Capture is the Studio’s tab with the tape off');
+  assert.equal(turnOf('room', 'studio'), 'left');
+  assert.equal(turnOf('room', 'capture'), 'left');
+  assert.equal(turnOf('studio', 'capture'), 'fade');
+  assert.equal(turnOf(null, 'room'), 'fade', 'no room before it: the boot');
+  assert.equal(turnOf('studio', 'rig'), 'fade');
+});
+
+test('a switch is a view transition where there is one: the camera turns, and with less motion it fades', async () => {
   const doc = aVtDoc();
   let ran = 0;
-  await viewTransition(doc, calm)(async () => { ran++; }).updateCallbackDone;
-  assert.equal(doc.started.length, 1);
-  await viewTransition(doc, still)(async () => { ran++; }).updateCallbackDone;
-  assert.equal(doc.started.length, 1, 'less motion: no transition');
-  const bare = viewTransition(fakeDoc(), calm)(async () => { ran++; });
-  await bare.updateCallbackDone;
-  await bare.finished;
-  assert.equal(ran, 3, 'the swap runs either way');
+  const t = viewTransition(doc, calm)(async () => { ran++; }, { from: 'studio', to: 'room' });
+  assert.deepEqual(attrs(doc), { turn: 'right', arriving: 'room' }, 'said before the transition starts, so its first frame is drawn so');
+  await t.updateCallbackDone;
+  assert.equal(ran, 1);
+  doc.started[0].end();
+  await t.finished;
+  await tick();
+  assert.deepEqual(attrs(doc), { turn: null, arriving: null }, 'and gone when it has finished');
+
+  const u = viewTransition(doc, still)(async () => { ran++; }, { from: 'room', to: 'studio' });
+  assert.equal(doc.started.length, 2, 'less motion is still a transition: a crossfade');
+  assert.deepEqual(attrs(doc), { turn: 'fade', arriving: null }, 'nothing travels, and no room makes an entrance');
+  await u.updateCallbackDone;
+  doc.started[1].end();
+  await tick();
+  assert.deepEqual(attrs(doc), { turn: null, arriving: null });
+
+  const bare = fakeDoc();
+  const v = viewTransition(bare, calm)(async () => { ran++; }, { from: 'studio', to: 'room' });
+  await v.updateCallbackDone;
+  await v.ready;
+  await v.finished;
+  assert.equal(ran, 3, 'without View Transitions the swap runs at once');
+  assert.deepEqual(attrs(bare), { turn: null, arriving: null }, 'and says nothing');
   await assert.rejects(viewTransition(aVtDoc(), calm)(async () => { throw new Error('mount'); }).updateCallbackDone, /mount/, 'its error comes back, for the fallback');
 });
 
-test('a switch only flips the rooms in its update; the room arrived in redraws once it is drawn', async () => {
+test('a turn started while another is drawn keeps its own attributes when the first one finishes', async () => {
+  const doc = aVtDoc();
+  const draw = viewTransition(doc, calm);
+  draw(async () => {}, { from: 'studio', to: 'room' });
+  draw(async () => {}, { from: 'room', to: 'studio' });
+  doc.started[0].end();
+  await tick();
+  assert.deepEqual(attrs(doc), { turn: 'left', arriving: 'studio' }, 'the second turn’s, still');
+  doc.started[1].end();
+  await tick();
+  assert.deepEqual(attrs(doc), { turn: null, arriving: null });
+});
+
+test('the entrance contract: data-arriving names the room a turn arrives in, from its start until it has finished', async () => {
+  const doc = aVtDoc();
+  const s = aShell({ path: '/tape.html', transition: viewTransition(doc, calm) });
+  // The shell's views live on another stand-in document; the html element
+  // that says the turn is this one's.
+  await s.router.start();
+  const going = s.router.go('/takes.html');
+  await tick();
+  const t = doc.started[0];
+  await t.updateCallbackDone;
+  assert.deepEqual(t.during, { turn: 'right', arriving: 'room' }, 'set before the update, so the room can make its entrance in the turn');
+  assert.deepEqual(attrs(doc), { turn: 'right', arriving: 'room' }, 'and kept while the turn plays');
+  t.end();
+  await going;
+  await tick();
+  assert.deepEqual(attrs(doc), { turn: null, arriving: null }, 'gone once it has finished');
+
+  const back = s.router.go('/tape.html');
+  await tick();
+  await doc.started[1].updateCallbackDone;
+  assert.deepEqual(doc.started[1].during, { turn: 'left', arriving: 'studio' }, 'the other way, the Studio');
+  doc.started[1].end();
+  await back;
+});
+
+test('a switch only flips the rooms in its update; the room arrived in redraws once the turn is over', async () => {
   const doc = aVtDoc();
   const s = aShell({ transition: viewTransition(doc, calm) });
   await s.router.start();
@@ -617,10 +682,10 @@ test('a switch only flips the rooms in its update; the room arrived in redraws o
   assert.deepEqual(s.log, ['hide room', 'mount studio'], 'in the update: the room left hidden, the Studio mounted (a first visit not prewarmed); its show waits');
   assert.equal(s.views.studio.root.hidden, false, 'the Studio is in the page for the turn’s new picture');
   assert.equal(s.router.shown(), 'studio');
-  t.go(); // the transition starts
+  t.go(); // the turn starts
   await tick();
   await tick();
-  assert.deepEqual(s.log, ['hide room', 'mount studio'], 'nothing on the page while it is drawn');
+  assert.deepEqual(s.log, ['hide room', 'mount studio'], 'nothing on the page while it turns');
   t.end(); // and is over
   await going;
   assert.deepEqual(s.log, ['hide room', 'mount studio', 'show studio from room'], 'then its own show, redraw and polls');
@@ -632,6 +697,66 @@ test('the router draws a switch, and not the boot, with the transition it is giv
   await s.router.start();
   await s.router.go('/tape.html');
   assert.deepEqual(s.log, ['mount room', 'show room from null', 'draw', 'hide room', 'mount studio', 'drawn', 'show studio from room']);
+});
+
+test('a tab tapped while a switch is drawn skips its turn, and the rooms end where the last tap asked', async () => {
+  const doc = aVtDoc();
+  const s = aShell({ path: '/tape.html', transition: viewTransition(doc, calm) });
+  await s.router.start();
+  s.click(s.tab.room);
+  await tick();
+  await doc.started[0].updateCallbackDone;
+  assert.equal(doc.started[0].skipped, 0);
+  s.click(s.tab.studio); // mid-turn
+  assert.equal(doc.started[0].skipped, 1, 'the turn under way gives way at once');
+  await tick();
+  await tick();
+  doc.started.at(-1).end();
+  await s.router.idle();
+  assert.equal(s.router.shown(), 'studio');
+  assert.equal(s.location.pathname, '/tape.html');
+  assert.equal(s.views.room.root.hidden, true);
+  assert.equal(s.views.studio.root.hidden, false);
+  assert.equal(s.history.length, 3, 'each tap its entry: Back goes to the room, as the taps did');
+});
+
+test('a press the turn takes ends it at once, and its click goes to what is under the finger', async () => {
+  const s = aShell({ path: '/tape.html' });
+  aVtDoc(s.doc);
+  s.router.stop();
+  const r = createRouter({
+    views: Object.values(s.views), location: s.location, history: s.history, doc: s.doc, win: s.win,
+    transition: viewTransition(s.doc, calm), idle: (fn) => fn(), onError: (e) => s.errors.push(e),
+  });
+  s.win.MouseEvent = class { constructor(type, init) { Object.assign(this, init); this.type = type; } };
+  await r.start();
+  const html = s.doc.documentElement;
+  const play = s.doc.createElement('button');
+  let played = 0;
+  play.addEventListener('click', (e) => { played++; play.at = [e.clientX, e.clientY]; });
+  s.doc.elementFromPoint = () => play;
+  let stopped = 0;
+  const press = (type, target, over = {}) => s.win.fire(type, { target, clientX: 40, clientY: 700, stopImmediatePropagation() { stopped++; }, ...over });
+
+  r.go('/takes.html');
+  await tick();
+  const t = s.doc.started[0];
+  await t.updateCallbackDone;
+  press('pointerdown', play);
+  assert.equal(t.skipped, 0, 'a press that reached what it was on leaves the turn be');
+  press('pointerdown', html);
+  assert.equal(t.skipped, 1, 'one the turn took ends it');
+  press('click', html);
+  assert.equal(played, 1, 'and its click reaches ▶');
+  assert.deepEqual(play.at, [40, 700]);
+  assert.equal(stopped, 1, 'the click on <html> goes no further');
+  press('click', html);
+  assert.equal(played, 1, 'once');
+  await r.idle();
+  press('pointerdown', html);
+  press('click', html);
+  assert.equal(played, 1, 'with no switch drawn, a press on the page is the page’s');
+  r.stop();
 });
 
 test('prewarm mounts the room a tab leads to out of sight, once the room shown is up, and its first visit is only a reveal', async () => {

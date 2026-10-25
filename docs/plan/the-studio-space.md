@@ -140,9 +140,12 @@ what's next.
    and 1280; then `listening-back.md` step 1 (Open › and ✎ in the end
    zone, the double tap on a spine). A layout check that ▶ stays put.~~
    Landed: `docs/architecture.md`, *The bar*; J1.13 is the check.
-5. **The studio as a place.** The room switch as a camera turn with the
+5. ~~**The studio as a place.** The room switch as a camera turn with the
    header and the bar held still; the rooms mounted before the first
-   switch, so it never stalls.
+   switch, so it never stalls.~~ Landed: `docs/architecture.md`, *Moving
+   between rooms*, with the entrance contract (`html[data-arriving]`) for
+   step 6. The bar holds its shape across the turn once step 4 gives it one
+   (J2.10, todo till then).
 6. **The library.** The shelf wall, Sort, Shelf \| List, search into the
    List; the phone's List; the room as entrance and ambient light.
 7. **The phone.** `sheet.js`; the player as a sheet you drag; ● records

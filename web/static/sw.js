@@ -15,6 +15,7 @@ const SHELL = [
   '/styles.css',
   '/css/chrome.css',
   '/css/bar.css',
+  '/css/rooms-motion.css',
   '/app.js',
   '/lib/flags.js',
   '/lib/update.js',
