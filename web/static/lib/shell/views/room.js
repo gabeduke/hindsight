@@ -386,7 +386,9 @@ export const roomView = {
     let restoreScroll = null;
     try {
       const nav = performance.getEntriesByType('navigation')[0];
-      if (nav && nav.type === 'back_forward') restoreScroll = Number(sessionStorage.getItem(SCROLL_KEY)) || null;
+      // Only when it is the room shown as it mounts: mounted out of sight
+      // (lib/shell/router.js prewarm), its first poll would scroll the Studio.
+      if (nav && nav.type === 'back_forward' && ctx.active()) restoreScroll = Number(sessionStorage.getItem(SCROLL_KEY)) || null;
     } catch { /* fine */ }
     ctx.on(window, 'pagehide', () => {
       try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch { /* fine */ }

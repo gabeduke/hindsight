@@ -704,3 +704,13 @@ test('a prewarmed view’s first show puts back what its hide put away: Capture 
   assert.match(/show\(\{ first \} = \{\}\) \{([\s\S]*?)\n    \},/.exec(handle)?.[1] ?? '', /startLive\(\);[\s\S]*ribbon\?\.resume\?\.\(\)/);
   assert.match(/hide\(\) \{([\s\S]*?)\n    \},/.exec(handle)?.[1] ?? '', /stopLive\(\);[\s\S]*ribbon\?\.pause\?\.\(\)/);
 });
+
+test('a room mounted out of sight leaves the room shown where it is: it restores its own scroll only when it mounts shown', () => {
+  // Back to the Studio, with the shelf's scroll saved: the room's first
+  // poll, run as it warms, scrolled the Studio to the shelf's place.
+  for (const p of ['./views/room.js', '../../app.js']) {
+    const src = source(p);
+    const line = src.split('\n').find((l) => l.includes("nav.type === 'back_forward'")) ?? '';
+    assert.match(line, /&& ctx\.active\(\)/, `${p}: only for the room shown as it mounts`);
+  }
+});

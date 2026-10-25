@@ -276,7 +276,9 @@ export function mountCapture(ctx) {
   let restoreScroll = null;
   try {
     const nav = performance.getEntriesByType('navigation')[0];
-    if (nav && nav.type === 'back_forward') restoreScroll = Number(sessionStorage.getItem(SCROLL_KEY)) || null;
+    // Only when it is the room shown as it mounts: one mounted out of sight
+    // (lib/shell/router.js prewarm) would scroll the room that is shown.
+    if (nav && nav.type === 'back_forward' && ctx.active()) restoreScroll = Number(sessionStorage.getItem(SCROLL_KEY)) || null;
   } catch { /* fine */ }
 
   const handlePageHide = () => {

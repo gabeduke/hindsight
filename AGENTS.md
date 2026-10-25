@@ -274,13 +274,14 @@ When you need the history behind one, read it from git:
   only flips classes and what is shown; a view's `show()` runs after the
   turn, so nothing heavy goes in the switch. A view marked `prewarm` is
   mounted out of sight before its first visit: its mount puts no class on
-  `<body>` (they are its `bodyClass`) and nothing in the header, the dock
-  or the bar but through its slots. Its own `hide()` runs before its first
-  `show()`, so every show, the first one included, puts back what hide put
-  away; and what it runs outside `ctx` (Capture's ribbon, on a timer of its
-  own) stops in hide and starts in show. Capture once came up with dead
-  meters on its first visit, and asked for its ribbon once a second from
-  every other room.
+  `<body>` (they are its `bodyClass`), nothing in the header, the dock or
+  the bar but through its slots, and nothing to the room shown (a saved
+  scroll is restored only by a room that mounts shown). Its own `hide()`
+  runs before its first `show()`, so every show, the first one included,
+  puts back what hide put away; and what it runs outside `ctx` (Capture's
+  ribbon, on a timer of its own) stops in hide and starts in show. Capture
+  once came up with dead meters on its first visit, and asked for its
+  ribbon once a second from every other room.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.
