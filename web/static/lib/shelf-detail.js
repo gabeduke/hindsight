@@ -32,11 +32,10 @@ function clockOf(iso) {
 }
 
 export class TakeDetail {
-  /** takes is the page's TakesList; onToast shows a toast; onBack closes the
-   *  pane when it's a phone's sheet (its "‹ Takes" key shows only then);
-   *  onPick(name) picks a take from the pane (a family's line, its ‹, or a
-   *  cut's original); isShown(name) says whether a take can be picked. */
-  constructor(root, { takes, onToast, onBack, onPick, isShown }) {
+  /** takes is the page's TakesList; onToast shows a toast; onPick(name)
+   *  picks a take from the pane (a family's line, its ‹, or a cut's
+   *  original); isShown(name) says whether a take can be picked. */
+  constructor(root, { takes, onToast, onPick, isShown }) {
     this.root = root;
     this.takes = takes;
     this.onToast = onToast;
@@ -47,7 +46,6 @@ export class TakeDetail {
     this.ac = null;
     this.gen = 0;
     root.innerHTML = `
-      <button class="icon-btn sheet-back" type="button" aria-label="Back to the takes">‹ Takes</button>
       <button class="icon-btn detail-up" type="button" data-tip="detail-up" hidden></button>
       <div class="detail-head">
         <button class="star" type="button" aria-pressed="false" aria-label="Star this take" data-tip="star">★</button>
@@ -78,7 +76,6 @@ export class TakeDetail {
         <h3 class="detail-family-h">Earlier mixes</h3><ol class="detail-family-list"></ol>
       </section>`;
     this.el = (sel) => root.querySelector(sel);
-    this.el('.sheet-back').addEventListener('click', () => onBack?.());
     // A family's line, a cut's original, or ‹ picks that take. The button
     // pressed is gone or hidden after, so focus goes to the new take's ‹ (or
     // its name), at the top of the pane.

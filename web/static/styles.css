@@ -2960,10 +2960,6 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
   .take.spine .wave { width: 52px; height: 22px; }
 }
 
-/* The take's pane carries a "‹ Takes" key for the phone's cassette sheet,
-   which went with the spine's sheet (F5a): it stays hidden. */
-.sheet-back { display: none; }
-
 /* The takes page on a wide screen: the list beside the picked take. */
 .take-detail { display: none; }
 @media (min-width: 1100px) {
